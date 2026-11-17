@@ -229,11 +229,12 @@ def Float.Model.remBits (a b: Nat): Nat :=
       (-1074)
       (Float.Model.signBit a)
 
---| The largest whole number at most `v / 2^1074`, for `v` the integer with
---| sign `negative` and size `m`: the whole part of a value in units.
-def Float.Model.floorUnits (negative: Bool) (m: Nat): Int :=
-  let q: Nat := Nat.divFuel m m (Float.Model.pow2 1074)
-  if negative ∧ ¬(Nat.equal (q * Float.Model.pow2 1074) m) then NegSucc q else Int.signed negative q
+--| The largest integer at most `v / p`, for `v` the integer with sign
+--| `negative` and size `m`, and `p` positive. With `p` 2^1074, the whole
+--| part of a value in units.
+def Float.Model.floorDiv (negative: Bool) (m p: Nat): Int :=
+  let q: Nat := Nat.divFuel m m p
+  if negative ∧ ¬(Nat.equal (q * p) m) then NegSucc q else Int.signed negative q
 
 --| Whether a pattern is the NaN's or an infinity's.
 def Float.Model.isSpecial (bits: Nat): Bool := Nat.leq 9218868437227405312 (Float.Model.magnitude bits)
@@ -244,7 +245,7 @@ def Float.Model.floorBits (a: Nat): Nat :=
   if Float.Model.isSpecial a then a
   else
     Float.Model.roundScaled
-      (Float.Model.floorUnits (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)))
+      (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))
       0
       (Float.Model.signBit a)
 
@@ -253,7 +254,7 @@ def Float.Model.ceilBits (a: Nat): Nat :=
   if Float.Model.isSpecial a then a
   else
     Float.Model.roundScaled
-      (Int.neg (Float.Model.floorUnits (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a))))
+      (Int.neg (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
       0
       (Float.Model.signBit a)
 
@@ -274,7 +275,7 @@ def Float.Model.roundBits (a: Nat): Nat :=
   if Float.Model.isSpecial a then a
   else
     let v: Int := Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073))
-    Float.Model.roundScaled (Float.Model.floorUnits (Int.isNeg v) (Int.natAbs v)) 0 (Float.Model.signBit a)
+    Float.Model.roundScaled (Float.Model.floorDiv (Int.isNeg v) (Int.natAbs v) (Float.Model.pow2 1074)) 0 (Float.Model.signBit a)
 
 test "Float.Model.pow2" :=
   Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616

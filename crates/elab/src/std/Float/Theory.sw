@@ -3462,3 +3462,631 @@ test "Float.divMonotone" :=
 --| `-1.0 / infinity`, which is `-0.0`.
 test "division by infinity is not monotone" :=
   -Float.infinity <= -1.0 ∧ ¬(-Float.infinity / Float.infinity <= -1.0 / Float.infinity)
+
+-- Rounding to whole numbers
+
+--| `floorDiv` of a whole multiple of `p`, plus less than `p`, positive part.
+theorem Float.Theory.floorDivPos ∀ (k h p: Nat) (hp: h < p): Float.Model.floorDiv False (k * p + h) p = OfNat k :=
+  Eq.cong OfNat (Nat.divUnique (k * p + h) p k h hp byComputing)
+
+theorem Float.Theory.succMul ∀ (k p: Nat): Succ k * p = p + k * p := byComputing
+
+--| `floorDiv` of `-m` where `m + h = (k + 1) × p` and `h < p`: `-(k + 1)`.
+theorem Float.Theory.floorDivNeg ∀ (k h p m: Nat)
+    (hp: h < p)
+    (e: m + h = Succ k * p):
+    Float.Model.floorDiv True m p = NegSucc k :=
+  match z: Nat.equal h 0 with
+    | True =>
+      let h0: h = 0 := Nat.equalSound h 0 z
+      let q: m / p = Succ k :=
+        Nat.divUnique m p (Succ k) 0 (arithmetic [hp, h0]) (arithmetic [e, h0, Float.Theory.succMul k p])
+      let ex: Nat.equal (Succ k * p) m = True :=
+        J
+          (y w => Nat.equal (Succ k * p) y = True)
+          (Nat.equalRefl (Succ k * p))
+          (arithmetic [e, h0, Float.Theory.succMul k p]: Succ k * p = m)
+      rewrite q, ex
+    | False =>
+      let hz: h ≠ 0 := Nat.equalFalse h 0 z
+      let q: m / p = k :=
+        Nat.divUnique m p k (p - h) (arithmetic [hp, hz]) (arithmetic [e, hp, Float.Theory.succMul k p])
+      rewrite q then
+        match c: Nat.equal (k * p) m with
+          | True => Void.impossible (arithmetic [e, hp, hz, Float.Theory.succMul k p, Nat.equalSound (k * p) m c])
+          | False => byComputing
+
+theorem Float.Theory.negSuccMul ∀ (k p: Nat): Int.mul (NegSucc k) (OfNat p) = Int.neg (OfNat (Succ k * p)) := algebra
+
+--| `floorDiv` finds `n` again in `n × p + h`, for `h < p`.
+theorem Float.Theory.floorDivWhole ∀ (n: Int) (h p: Nat)
+    (hp: h < p):
+    Float.Model.floorDiv
+      (Int.isNeg (Int.add (Int.mul n (OfNat p)) (OfNat h)))
+      (Int.natAbs (Int.add (Int.mul n (OfNat p)) (OfNat h)))
+      p
+      = n :=
+  match n with
+    | OfNat k => Float.Theory.floorDivPos k h p hp
+    | NegSucc k =>
+      match c: Int.add (Int.mul (NegSucc k) (OfNat p)) (OfNat h) with
+        | OfNat j => Void.impossible (arithmetic [c, hp, Float.Theory.negSuccMul k p, Float.Theory.succMul k p])
+        | NegSucc j =>
+          Float.Theory.floorDivNeg k h p
+            (Succ j)
+            hp
+            (arithmetic [c, hp, Float.Theory.negSuccMul k p, Float.Theory.succMul k p])
+
+theorem Float.Theory.negMul ∀ (q p: Nat): Int.mul (Int.neg (OfNat q)) (OfNat p) = Int.neg (OfNat (q * p)) := algebra
+
+--| `floorDiv` is at most the quotient: `floorDiv s m p × p ≤ ±m`.
+theorem Float.Theory.floorDivLe ∀ (s: Bool) (m p: Nat)
+    (pp: 0 < p):
+    Int.leq (Int.mul (Float.Model.floorDiv s m p) (OfNat p)) (Int.signed s m) = True :=
+  let q: Nat := Nat.divFuel m m p
+  let low: q * p ≤ m := Nat.divFuelLe m m p
+  let high: m < Succ q * p := Nat.divFuelBound m m p (arithmetic [pp]) (Nat.leRefl m)
+  match s with
+    | False => arithmetic [low]
+    | True =>
+      match e: Nat.equal (q * p) m with
+        | True => arithmetic [Nat.equalSound (q * p) m e, Float.Theory.negMul q p]
+        | False => arithmetic [high, (byComputing: Int.mul (NegSucc q) (OfNat p) = Int.neg (OfNat (Succ q * p)))]
+
+theorem Float.Theory.negIntMul ∀ (i: Int) (p: Nat): Int.mul (Int.neg i) (OfNat p) = Int.neg (Int.mul i (OfNat p)) :=
+  algebra
+
+--| `-floorDiv (¬s) m p`, the ceiling, is at least the quotient.
+theorem Float.Theory.ceilDivGe ∀ (s: Bool) (m p: Nat)
+    (pp: 0 < p):
+    Int.leq (Int.signed s m) (Int.mul (Int.neg (Float.Model.floorDiv (¬s) m p)) (OfNat p)) = True :=
+  let h: Int.leq (Int.mul (Float.Model.floorDiv (¬s) m p) (OfNat p)) (Int.signed (¬s) m) = True :=
+    Float.Theory.floorDivLe (¬s) m p pp
+  let n: Int.mul (Int.neg (Float.Model.floorDiv (¬s) m p)) (OfNat p)
+    = Int.neg (Int.mul (Float.Model.floorDiv (¬s) m p) (OfNat p)) :=
+    Float.Theory.negIntMul (Float.Model.floorDiv (¬s) m p) p
+  match s with
+    | True => arithmetic [h, n]
+    | False => arithmetic [h, n]
+
+--| A whole number of doubles' units: `n` at scale 1 is `n × 2^1074` units.
+theorem Float.Theory.roundWholeShift ∀ (s: Bool) (k: Nat) (z: Bool):
+    Float.Model.roundRatio (Int.signed s k) 1 (OfNat 0) z
+      = Float.Model.roundRatio (Int.signed s (k * Float.Model.pow2 1074)) 1 (-1074) z :=
+  Float.Theory.orCase
+    (Float.Theory.zeroOrPos k)
+    (k0 =>
+      rewrite k0 then
+        match s with
+          | False => byComputing
+          | True => byComputing)
+    (pk =>
+      Float.Theory.roundRatioCross s k
+        (k * Float.Model.pow2 1074)
+        (OfNat 0)
+        (-1074)
+        z
+        z
+        pk
+        (Float.Theory.mulPos k (Float.Model.pow2 1074) pk byComputing)
+        (Nat.mulOne (k * Float.Model.pow2 1074 * 1)).flipped)
+
+theorem Float.Theory.roundWhole ∀ (n: Int) (z: Bool):
+    Float.Model.roundRatio n 1 (OfNat 0) z
+      = Float.Model.roundRatio (Int.mul n (OfNat (Float.Model.pow2 1074))) 1 (-1074) z :=
+  match n with
+    | OfNat k => Float.Theory.roundWholeShift False k z
+    | NegSucc k => Float.Theory.roundWholeShift True (Succ k) z
+
+theorem Float.Theory.signedNatAbs ∀ (s: Bool) (k: Nat): Int.signed s (Int.natAbs (Int.signed s k)) = Int.signed s k :=
+  match s, k with
+    | False, k => byComputing
+    | True, Zero => byComputing
+    | True, Succ k => byComputing
+
+--| A finite pattern's units: its size, with its sign.
+theorem Float.Theory.unitsSigned ∀ (a: Nat):
+    Int.signed (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) = Float.Model.units a :=
+  rewrite Float.Theory.unitsMag a then
+    Float.Theory.signedNatAbs (Float.Model.signBit a) (Float.Theory.magUnits (Float.Model.magnitude a))
+
+--| A whole number at most a finite double's value rounds to a double no greater.
+theorem Float.Theory.wholeBelow ∀ (a: Nat)
+    (fin: Float.Theory.FiniteBits a) (n: Int)
+    (le: Int.leq (Int.mul n (OfNat (Float.Model.pow2 1074))) (Float.Model.units a) = True):
+    Int.leq (Float.Theory.key (Float.Model.roundScaled n 0 (Float.Model.signBit a))) (Float.Theory.key a) = True :=
+  Float.Theory.leqVia
+    (Float.Theory.key (Float.Model.roundScaled n 0 (Float.Model.signBit a)))
+    (Float.Theory.key a)
+    (Float.Theory.roundKey (Int.mul n (OfNat (Float.Model.pow2 1074))) 1 (-1074) (Float.Model.signBit a))
+    (Float.Theory.roundKey (Float.Model.units a) 1 (-1074) (Float.Model.signBit a))
+    (Eq.cong Float.Theory.key (Float.Theory.roundWhole n (Float.Model.signBit a)))
+    (Eq.cong Float.Theory.key (Float.Theory.roundRatioUnitsBits a fin).flipped)
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      (Float.Model.signBit a)
+      (Float.Model.signBit a)
+      byComputing
+      (Int.mul n (OfNat (Float.Model.pow2 1074)))
+      (Float.Model.units a)
+      le
+      (h => h))
+
+--| A whole number at least a finite double's value rounds to a double no smaller.
+theorem Float.Theory.wholeAbove ∀ (a: Nat)
+    (fin: Float.Theory.FiniteBits a) (n: Int)
+    (ge: Int.leq (Float.Model.units a) (Int.mul n (OfNat (Float.Model.pow2 1074))) = True):
+    Int.leq (Float.Theory.key a) (Float.Theory.key (Float.Model.roundScaled n 0 (Float.Model.signBit a))) = True :=
+  Float.Theory.leqVia
+    (Float.Theory.key a)
+    (Float.Theory.key (Float.Model.roundScaled n 0 (Float.Model.signBit a)))
+    (Float.Theory.roundKey (Float.Model.units a) 1 (-1074) (Float.Model.signBit a))
+    (Float.Theory.roundKey (Int.mul n (OfNat (Float.Model.pow2 1074))) 1 (-1074) (Float.Model.signBit a))
+    (Eq.cong Float.Theory.key (Float.Theory.roundRatioUnitsBits a fin).flipped)
+    (Eq.cong Float.Theory.key (Float.Theory.roundWhole n (Float.Model.signBit a)))
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      (Float.Model.signBit a)
+      (Float.Model.signBit a)
+      byComputing
+      (Float.Model.units a)
+      (Int.mul n (OfNat (Float.Model.pow2 1074)))
+      ge
+      (h => h))
+
+theorem Float.Theory.finiteOfSpecial ∀ (a: Nat) (sp: Float.Model.isSpecial a = False): Float.Theory.FiniteBits a :=
+  arithmetic [sp]
+
+--| What `floorBits` computes for a finite pattern.
+theorem Float.Theory.floorFinite ∀ (a: Nat)
+    (sp: Float.Model.isSpecial a = False):
+    Float.Model.floorBits a
+      = Float.Model.roundScaled
+        (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))
+        0
+        (Float.Model.signBit a) :=
+  Float.Theory.ifFalse
+    (Float.Model.isSpecial a)
+    a
+    (Float.Model.roundScaled
+      (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))
+      0
+      (Float.Model.signBit a))
+    sp
+
+--| What `ceilBits` computes for a finite pattern.
+theorem Float.Theory.ceilFinite ∀ (a: Nat)
+    (sp: Float.Model.isSpecial a = False):
+    Float.Model.ceilBits a
+      = Float.Model.roundScaled
+        (Int.neg
+          (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
+        0
+        (Float.Model.signBit a) :=
+  Float.Theory.ifFalse
+    (Float.Model.isSpecial a)
+    a
+    (Float.Model.roundScaled
+      (Int.neg
+        (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
+      0
+      (Float.Model.signBit a))
+    sp
+
+--| A NaN or infinite pattern is its own floor.
+theorem Float.Theory.floorSpecial ∀ (a: Nat) (sp: Float.Model.isSpecial a = True): Float.Model.floorBits a = a :=
+  Float.Theory.ifTrue
+    (Float.Model.isSpecial a)
+    a
+    (Float.Model.roundScaled
+      (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))
+      0
+      (Float.Model.signBit a))
+    sp
+
+--| A NaN or infinite pattern is its own ceiling.
+theorem Float.Theory.ceilSpecial ∀ (a: Nat) (sp: Float.Model.isSpecial a = True): Float.Model.ceilBits a = a :=
+  Float.Theory.ifTrue
+    (Float.Model.isSpecial a)
+    a
+    (Float.Model.roundScaled
+      (Int.neg
+        (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
+      0
+      (Float.Model.signBit a))
+    sp
+
+theorem Float.Theory.keyLeVia ∀ (r s a: Nat)
+    (e: s = r)
+    (h: Int.leq (Float.Theory.key r) (Float.Theory.key a) = True):
+    Int.leq (Float.Theory.key s) (Float.Theory.key a) = True :=
+  J (y w => Int.leq (Float.Theory.key y) (Float.Theory.key a) = True) h e.flipped
+
+theorem Float.Theory.keyGeVia ∀ (r s a: Nat)
+    (e: s = r)
+    (h: Int.leq (Float.Theory.key a) (Float.Theory.key r) = True):
+    Int.leq (Float.Theory.key a) (Float.Theory.key s) = True :=
+  J (y w => Int.leq (Float.Theory.key a) (Float.Theory.key y) = True) h e.flipped
+
+--| A pattern's floor is at most it in the total order.
+theorem Float.Theory.floorBitsLe ∀ (a: Nat):
+    Int.leq (Float.Theory.key (Float.Model.floorBits a)) (Float.Theory.key a) = True :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Float.Model.isSpecial a))
+    (sp =>
+      Float.Theory.keyLeVia a
+        (Float.Model.floorBits a)
+        a
+        (Float.Theory.floorSpecial a sp)
+        (Float.Theory.keyRefl (Float.Theory.key a)))
+    (sp =>
+      let s: Bool := Float.Model.signBit a
+      let m: Nat := Int.natAbs (Float.Model.units a)
+      let n: Int := Float.Model.floorDiv s m (Float.Model.pow2 1074)
+      let le: Int.leq (Int.mul n (OfNat (Float.Model.pow2 1074))) (Float.Model.units a) = True :=
+        J
+          (y w => Int.leq (Int.mul n (OfNat (Float.Model.pow2 1074))) y = True)
+          (Float.Theory.floorDivLe s m (Float.Model.pow2 1074) byComputing)
+          (Float.Theory.unitsSigned a)
+      Float.Theory.keyLeVia
+        (Float.Model.roundScaled n 0 s)
+        (Float.Model.floorBits a)
+        a
+        (Float.Theory.floorFinite a sp)
+        (Float.Theory.wholeBelow a (Float.Theory.finiteOfSpecial a sp) n le))
+
+--| A pattern's ceiling is at least it in the total order.
+theorem Float.Theory.ceilBitsGe ∀ (a: Nat):
+    Int.leq (Float.Theory.key a) (Float.Theory.key (Float.Model.ceilBits a)) = True :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Float.Model.isSpecial a))
+    (sp =>
+      Float.Theory.keyGeVia a
+        (Float.Model.ceilBits a)
+        a
+        (Float.Theory.ceilSpecial a sp)
+        (Float.Theory.keyRefl (Float.Theory.key a)))
+    (sp =>
+      let s: Bool := Float.Model.signBit a
+      let m: Nat := Int.natAbs (Float.Model.units a)
+      let n: Int := Int.neg (Float.Model.floorDiv (¬s) m (Float.Model.pow2 1074))
+      let ge: Int.leq (Float.Model.units a) (Int.mul n (OfNat (Float.Model.pow2 1074))) = True :=
+        J
+          (y w => Int.leq y (Int.mul n (OfNat (Float.Model.pow2 1074))) = True)
+          (Float.Theory.ceilDivGe s m (Float.Model.pow2 1074) byComputing)
+          (Float.Theory.unitsSigned a)
+      Float.Theory.keyGeVia
+        (Float.Model.roundScaled n 0 s)
+        (Float.Model.ceilBits a)
+        a
+        (Float.Theory.ceilFinite a sp)
+        (Float.Theory.wholeAbove a (Float.Theory.finiteOfSpecial a sp) n ge))
+
+theorem Float.Theory.floorBitsValid ∀ (a: Nat)
+    (v: Float.isValid a = True):
+    Float.isValid (Float.Model.floorBits a) = True :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Float.Model.isSpecial a))
+    (sp => Float.Theory.validTo (Float.Model.floorBits a) a (Float.Theory.floorSpecial a sp) v)
+    (sp =>
+      Float.Theory.validTo
+        (Float.Model.floorBits a)
+        (Float.Model.roundScaled
+          (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))
+          0
+          (Float.Model.signBit a))
+        (Float.Theory.floorFinite a sp)
+        (Float.Theory.roundRatioValid 1 0
+          (Float.Model.signBit a)
+          byComputing
+          (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))))
+
+theorem Float.Theory.ceilBitsValid ∀ (a: Nat)
+    (v: Float.isValid a = True):
+    Float.isValid (Float.Model.ceilBits a) = True :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Float.Model.isSpecial a))
+    (sp => Float.Theory.validTo (Float.Model.ceilBits a) a (Float.Theory.ceilSpecial a sp) v)
+    (sp =>
+      Float.Theory.validTo
+        (Float.Model.ceilBits a)
+        (Float.Model.roundScaled
+          (Int.neg
+            (Float.Model.floorDiv
+              (¬(Float.Model.signBit a))
+              (Int.natAbs (Float.Model.units a))
+              (Float.Model.pow2 1074)))
+          0
+          (Float.Model.signBit a))
+        (Float.Theory.ceilFinite a sp)
+        (Float.Theory.roundRatioValid 1 0
+          (Float.Model.signBit a)
+          byComputing
+          (Int.neg
+            (Float.Model.floorDiv
+              (¬(Float.Model.signBit a))
+              (Int.natAbs (Float.Model.units a))
+              (Float.Model.pow2 1074)))))
+
+theorem Float.Theory.floorOfBits ∀ (x: Float): (Float.floor x).bits = Float.Model.floorBits x.bits :=
+  let e: Float.floor x = Float.ofBits (Float.Model.floorBits x.bits) := match x with
+    | { bits = a, valid = p } => byComputing
+  Eq.trans
+    (Eq.cong (q => q.bits) e)
+    (Float.Theory.ofBitsBits (Float.Model.floorBits x.bits) (Float.Theory.floorBitsValid x.bits x.valid))
+
+theorem Float.Theory.ceilOfBits ∀ (x: Float): (Float.ceil x).bits = Float.Model.ceilBits x.bits :=
+  let e: Float.ceil x = Float.ofBits (Float.Model.ceilBits x.bits) := match x with
+    | { bits = a, valid = p } => byComputing
+  Eq.trans
+    (Eq.cong (q => q.bits) e)
+    (Float.Theory.ofBitsBits (Float.Model.ceilBits x.bits) (Float.Theory.ceilBitsValid x.bits x.valid))
+
+--| `floor x <= x` in the total order, for every double: the NaN and the
+--| infinities are their own floors.
+theorem Float.floorLe ∀ (x: Float): Float.floor x <= x :=
+  Float.Theory.keyLeVia
+    (Float.Model.floorBits x.bits)
+    (Float.floor x).bits
+    x.bits
+    (Float.Theory.floorOfBits x)
+    (Float.Theory.floorBitsLe x.bits)
+
+--| `x <= ceil x` in the total order, for every double.
+theorem Float.ceilGe ∀ (x: Float): x <= Float.ceil x :=
+  Float.Theory.keyGeVia
+    (Float.Model.ceilBits x.bits)
+    (Float.ceil x).bits
+    x.bits
+    (Float.Theory.ceilOfBits x)
+    (Float.Theory.ceilBitsGe x.bits)
+
+theorem Float.Theory.roundSpecial ∀ (a: Nat) (sp: Float.Model.isSpecial a = True): Float.Model.roundBits a = a :=
+  Float.Theory.ifTrue
+    (Float.Model.isSpecial a)
+    a
+    (Float.Model.roundScaled
+      (Float.Model.floorDiv
+        (Int.isNeg (Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073))))
+        (Int.natAbs (Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073))))
+        (Float.Model.pow2 1074))
+      0
+      (Float.Model.signBit a))
+    sp
+
+--| A finite pattern whose value is the whole number `n` is its own rounding.
+theorem Float.Theory.roundWholeBits ∀ (a: Nat) (n: Int)
+    (whole: Float.Model.units a = Int.mul n (OfNat (Float.Model.pow2 1074))):
+    Float.Model.roundBits a = a :=
+  Float.Theory.orCase (Float.Theory.boolCases (Float.Model.isSpecial a)) (sp => Float.Theory.roundSpecial a sp) (sp =>
+    let s: Bool := Float.Model.signBit a
+    let half: Nat := Float.Model.pow2 1073
+    let p: Nat := Float.Model.pow2 1074
+    let back: Float.Model.floorDiv
+      (Int.isNeg (Int.add (Int.mul n (OfNat p)) (OfNat half)))
+      (Int.natAbs (Int.add (Int.mul n (OfNat p)) (OfNat half)))
+      p
+      = n :=
+      Float.Theory.floorDivWhole n half p byComputing
+    let q: Float.Model.floorDiv
+      (Int.isNeg (Int.add (Float.Model.units a) (OfNat half)))
+      (Int.natAbs (Int.add (Float.Model.units a) (OfNat half)))
+      p
+      = n :=
+      J
+        (y w => Float.Model.floorDiv (Int.isNeg (Int.add y (OfNat half))) (Int.natAbs (Int.add y (OfNat half))) p = n)
+        back
+        whole.flipped
+    calc Float.Model.roundBits a
+      _ = Float.Model.roundScaled
+          (Float.Model.floorDiv
+            (Int.isNeg (Int.add (Float.Model.units a) (OfNat half)))
+            (Int.natAbs (Int.add (Float.Model.units a) (OfNat half)))
+            p)
+          0
+          s :=
+        Float.Theory.ifFalse
+          (Float.Model.isSpecial a)
+          a
+          (Float.Model.roundScaled
+            (Float.Model.floorDiv
+              (Int.isNeg (Int.add (Float.Model.units a) (OfNat half)))
+              (Int.natAbs (Int.add (Float.Model.units a) (OfNat half)))
+              p)
+            0
+            s)
+          sp
+      _ = Float.Model.roundScaled n 0 s := Eq.cong (k => Float.Model.roundScaled k 0 s) q
+      _ = Float.Model.roundRatio (Int.mul n (OfNat p)) 1 (-1074) s := Float.Theory.roundWhole n s
+      _ = Float.Model.roundRatio (Float.Model.units a) 1 (-1074) s :=
+        Eq.cong (u => Float.Model.roundRatio u 1 (-1074) s) whole.flipped
+      _ = a := Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteOfSpecial a sp))
+
+--| `round x = x` for a double whose value is a whole number `n`: its units
+--| (of 2^-1074) are `n × 2^1074`. The NaN and the infinities are their own
+--| roundings too, whatever `n`.
+theorem Float.roundOfWhole ∀ (x: Float) (n: Int)
+    (whole: Float.Theory.units x = Int.mul n (OfNat (Float.Model.pow2 1074))):
+    Float.round x = x :=
+  match x with
+    | { bits = a, valid = v } =>
+      Float.bitsExt
+        (Float.ofBits (Float.Model.roundBits a))
+        { bits = a, valid = v }
+        (Eq.trans
+          (Float.Theory.ofBitsBits
+            (Float.Model.roundBits a)
+            (Float.Theory.validTo (Float.Model.roundBits a) a (Float.Theory.roundWholeBits a n whole) v))
+          (Float.Theory.roundWholeBits a n whole))
+
+--| `round (ofNat n) = ofNat n` for `n ≤ 2^53`, where `ofNat` is exact.
+theorem Float.roundOfNat ∀ (n: Nat) (h: n ≤ 9007199254740992): Float.round (Float.ofNat n) = Float.ofNat n :=
+  Float.roundOfWhole
+    (Float.ofNat n)
+    (OfNat n)
+    (Eq.trans
+      (Float.ofNatExact n h)
+      (byComputing: OfNat (n * Nat.pow 2 1074) = Int.mul (OfNat n) (OfNat (Float.Model.pow2 1074))))
+
+test "Float.floorLe" :=
+  Float.floor 2.5 <= 2.5 ∧ Float.floor -2.5 <= -2.5 ∧ Float.floor -0.0 <= -0.0 ∧ Float.floor Float.nan <= Float.nan
+
+test "Float.ceilGe" :=
+  2.5 <= Float.ceil 2.5
+    ∧ -2.5 <= Float.ceil -2.5
+    ∧ -0.5 <= Float.ceil -0.5
+    ∧ -Float.infinity <= Float.ceil -Float.infinity
+
+test "Float.roundOfWhole" :=
+  Float.round 3.0 == 3.0 ∧ Float.round -4.0 == -4.0 ∧ Float.round 4503599627370497.0 == 4503599627370497.0
+
+test "Float.roundOfNat" :=
+  Float.round (Float.ofNat 3) == Float.ofNat 3 ∧ Float.round 2.5 == 3.0 ∧ Float.round -2.5 == -2.0
+
+-- Exact division of whole numbers
+
+theorem Float.Theory.ltLeTrans ∀ (a b c: Int) (x: Int.less a b = True) (y: Int.leq b c = True): Int.less a c = True :=
+  arithmetic [x, y]
+
+--| `ofNat d` is positive for `1 ≤ d`.
+theorem Float.ofNatPositive ∀ (d: Nat) (h: 1 ≤ d): 0.0 < Float.ofNat d :=
+  Float.Theory.ltLeTrans
+    (Float.orderKey 0.0)
+    (Float.orderKey (Float.ofNat 1))
+    (Float.orderKey (Float.ofNat d))
+    byComputing
+    (Float.ofNatMonotone 1 d h)
+
+--| The bits of `x / d` for finite `x` and positive finite `d`: the units' quotient, rounded.
+theorem Float.Theory.quotientBits ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True):
+    (x / d).bits
+      = Float.Model.roundRatio
+        (Float.Model.units x.bits)
+        (Int.natAbs (Float.Model.units d.bits))
+        (OfNat 0)
+        (Float.Model.signBit x.bits) :=
+  let a: Nat := x.bits
+  let b: Nat := d.bits
+  let den: Nat := Int.natAbs (Float.Model.units b)
+  let r: Nat := Float.Model.roundRatio (Float.Model.units a) den (OfNat 0) (Float.Model.signBit a)
+  let e: Float.Model.divBits a b = r :=
+    Float.Theory.divPosBits a b
+      (Float.Theory.finiteBits x fx)
+      (Float.Theory.finiteBits d fd)
+      (Float.Theory.positiveSignClear d pos)
+      (Float.Theory.positiveNotZero d pos)
+  let pd: 0 < den := Float.Theory.natAbsPos (Float.Model.units b) (Float.Theory.unitsPositive d pos)
+  calc (x / d).bits
+    _ = (Float.ofBits (Float.Model.divBits a b)).bits := Eq.cong (q => q.bits) (Float.Theory.divOfBits x d)
+    _ = Float.Model.divBits a b :=
+      Float.Theory.ofBitsBits
+        (Float.Model.divBits a b)
+        (Float.Theory.validTo
+          (Float.Model.divBits a b)
+          r
+          e
+          (Float.Theory.roundRatioValid den (OfNat 0) (Float.Model.signBit a) pd (Float.Model.units a)))
+    _ = r := e
+
+theorem Float.Theory.crossWhole ∀ (k d p q: Nat): k * d * p * q * 1 = k * q * (d * p) := algebra
+
+--| `k × d × 2^1074` units over `d × 2^1074` round as `k` units of 1 do.
+theorem Float.Theory.roundQuotientWhole ∀ (k d: Nat)
+    (pk: 0 < k)
+    (pd: 0 < d):
+    Float.Model.roundRatio (OfNat (k * d * Nat.pow 2 1074)) (d * Nat.pow 2 1074) (OfNat 0) False
+      = Float.Model.roundRatio (OfNat k) 1 (OfNat 0) False :=
+  let p: Nat := Nat.pow 2 1074
+  let pp: 0 < p := byComputing
+  let pkd: 0 < k * d * p := Float.Theory.mulPos (k * d) p (Float.Theory.mulPos k d pk pd) pp
+  calc Float.Model.roundRatio (OfNat (k * d * p)) (d * p) (OfNat 0) False
+    _ = Float.Model.roundMagnitude False (k * d * p) (d * p) (Int.add (OfNat 0) (OfNat 1074)) :=
+      Float.Theory.roundRatioOfPos (d * p) (OfNat 0) False (k * d * p) pkd
+    _ = Float.Model.roundMagnitude False k 1 (Int.add (OfNat 0) (OfNat 1074)) :=
+      Float.Theory.magnitudeCross
+        (k * d * p)
+        (d * p)
+        k
+        1
+        (Int.add (OfNat 0) (OfNat 1074))
+        (Int.add (OfNat 0) (OfNat 1074))
+        pkd
+        (Float.Theory.mulPos d p pd pp)
+        pk
+        byComputing
+        (Float.Theory.crossWhole k d p (Float.Model.pow2 1074))
+    _ = Float.Model.roundRatio (OfNat k) 1 (OfNat 0) False :=
+      (Float.Theory.roundRatioOfPos 1 (OfNat 0) False k pk).flipped
+
+theorem Float.Theory.posNonzero ∀ (n: Nat) (h: 0 < n): OfNat n ≠ OfNat 0 := match n with | Succ m => (e => cases)
+
+--| Whole numbers up to 2^53 divide exactly where the quotient is whole:
+--| `ofNat (k × d) / ofNat d = ofNat k` for `1 ≤ d ≤ 2^53` and `k × d ≤ 2^53`.
+--| With `Float.ofNatMul`, `ofNat k * 10.0` and `/ 10.0` are exact for
+--| `k × 10 ≤ 2^53`.
+-- Both operands are exact (`ofNatExact`), so the quotient is the units'
+-- ratio `k × d × 2^1074 / (d × 2^1074)`, which rounds as `k` does.
+theorem Float.ofNatDivExact ∀ (k d: Nat)
+    (pd: 1 ≤ d)
+    (hd: d ≤ 9007199254740992)
+    (hk: k * d ≤ 9007199254740992):
+    Float.ofNat (k * d) / Float.ofNat d = Float.ofNat k :=
+  let x: Float := Float.ofNat (k * d)
+  let y: Float := Float.ofNat d
+  let p: Nat := Nat.pow 2 1074
+  let ux: Float.Model.units x.bits = OfNat (k * d * p) := Float.ofNatExact (k * d) hk
+  let uy: Float.Model.units y.bits = OfNat (d * p) := Float.ofNatExact d hd
+  let q: (x / y).bits = Float.Model.roundRatio (OfNat (k * d * p)) (d * p) (OfNat 0) (Float.Model.signBit x.bits) :=
+    calc (x / y).bits
+      _ = Float.Model.roundRatio
+          (Float.Model.units x.bits)
+          (Int.natAbs (Float.Model.units y.bits))
+          (OfNat 0)
+          (Float.Model.signBit x.bits) :=
+        Float.Theory.quotientBits x y (Float.ofNatPositive d pd) (Float.ofNatFinite d hd) (Float.ofNatFinite (k * d) hk)
+      _ = Float.Model.roundRatio
+          (OfNat (k * d * p))
+          (Int.natAbs (OfNat (d * p)))
+          (OfNat 0)
+          (Float.Model.signBit x.bits) :=
+        Eq.cong2 (u w => Float.Model.roundRatio u (Int.natAbs w) (OfNat 0) (Float.Model.signBit x.bits)) ux uy
+  Float.Theory.orCase
+    [goal := x / y = Float.ofNat k]
+    (Float.Theory.zeroOrPos k)
+    (k0 =>
+      Float.bitsExt
+        (x / y)
+        (Float.ofNat k)
+        (Eq.trans q
+          (rewrite k0: Float.Model.roundRatio (OfNat (k * d * p)) (d * p) (OfNat 0) (Float.Model.signBit x.bits)
+            = (Float.ofNat k).bits)))
+    (pk =>
+      Float.bitsExt
+        (x / y)
+        (Float.ofNat k)
+        (calc (x / y).bits
+          _ = Float.Model.roundRatio (OfNat (k * d * p)) (d * p) (OfNat 0) (Float.Model.signBit x.bits) := q
+          _ = Float.Model.roundRatio (OfNat (k * d * p)) (d * p) (OfNat 0) False :=
+            Float.Theory.roundRatioSignIrrelevant
+              (d * p)
+              (OfNat 0)
+              (Float.Model.signBit x.bits)
+              False
+              (OfNat (k * d * p))
+              (Float.Theory.posNonzero
+                (k * d * p)
+                (Float.Theory.mulPos (k * d) p (Float.Theory.mulPos k d pk pd) byComputing))
+          _ = Float.Model.roundRatio (OfNat k) 1 (OfNat 0) False := Float.Theory.roundQuotientWhole k d pk pd
+          _ = (Float.ofNat k).bits :=
+            (Float.Theory.ofBitsBits
+              (Float.Model.ofIntBits (OfNat k))
+              (Float.Theory.roundRatioValid 1 (OfNat 0) False byComputing (OfNat k))).flipped))
+
+test "Float.ofNatDivExact" :=
+  Float.ofNat 1234 / 10.0 == 123.4
+    ∧ Float.ofNat 1230 / 10.0 == 123.0
+    ∧ Float.ofNat 123 * 10.0 == Float.ofNat 1230
+    ∧ Float.ofNat 90071992547409920 / 10.0 == Float.ofNat 9007199254740992
