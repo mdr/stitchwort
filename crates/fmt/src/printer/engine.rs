@@ -596,7 +596,11 @@ impl Printer {
                             .find(|option| {
                                 if let Doc::OneLineBelow(inner) = option {
                                     let below = Measure {
-                                        modes: &BTreeMap::new(),
+                                        // The option prints on a line of its
+                                        // own below, but an IfBroken in it
+                                        // must still see the groups already
+                                        // printed (SW-3913).
+                                        modes: &self.modes,
                                         width: self.width,
                                         suffix: false,
                                         line_indent: indent + 2,
@@ -885,7 +889,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                     // Only the first item is sure to be on this line; the
                     // separator after it may break.
                     let here = Measure {
-                        modes: &BTreeMap::new(),
+                        // The item may hold an IfBroken, which must see the
+                        // groups already printed (SW-3913).
+                        modes,
                         width,
                         suffix,
                         line_indent,
@@ -1247,5 +1253,26 @@ mod tests {
             t("}"),
         ]);
         assert_eq!(print(&choice(option), 5).text, "alt");
+    }
+
+    #[test]
+    fn an_if_broken_in_a_one_line_below_option_sees_an_earlier_groups_mode() {
+        // SW-3913: the id group breaks (22 columns at width 20), so the
+        // option below must take IfBroken's broken branch. That branch is
+        // 19 columns on the option's line at 2, more than the 18 there, so
+        // the option doesn't fit; its flat branch would have fit.
+        let wide = "w".repeat(20);
+        let group = Doc::IdGroup(
+            7,
+            Box::new(Doc::concat([t(&wide), Doc::Line, t("z")])),
+            false,
+        );
+        let below = Doc::OneLineBelow(Box::new(Doc::IfBroken {
+            id: 7,
+            broken: Box::new(t(&"b".repeat(19))),
+            flat: Box::new(t("short")),
+        }));
+        let doc = Doc::concat([group, Doc::HardLine, Doc::Choice(vec![below, t("alt")])]);
+        assert_eq!(print(&doc, 20).text, format!("{wide}\nz\nalt"));
     }
 }
