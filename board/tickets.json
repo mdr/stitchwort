@@ -21907,12 +21907,12 @@
     {
       "id": 3825,
       "title": "[Fable paper] Proof plan spike K1: can Settled be stated without layout? Re-lay stage 1's settled leaves two ways, lex and settle again, compare without columns (self-hosted-fmt-proof-plan.md; time box 45 min)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane notes (Fable, 17 Nov 2026, 25 min of 45):\n- Verdict (a): Settled is layout-free (`homed`, tools/fmt-sketch/src/Settled.sw); no tree flag. Rule N does depend on line breaks (which of two closers keeps a comment; Rust agrees on 1,599 re-laid texts), but both results are homed and the printer starts a line at the holder.\n- printedSettle in two halves: SettledProofs.settledAnyLayout and Proofs.printedKeeping; settledHomed for parseSettled. Search: 2.4 million cases, 1,942,953 plain, 0 failures.\n- One family left out, for a decision: a trailing comma that starts the closer's line (rule N not idempotent there; Rust's answer comes from P2 then rule N again). Options in the proof plan's section 10.\n- Commit 8789c0071 on lane/SW-3825.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
