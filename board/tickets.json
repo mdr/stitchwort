@@ -42534,12 +42534,12 @@
     {
       "id": 3774,
       "title": "[DeepSeek] fmt:twin: a batch mode on both sides instead of one process per file, for the full repo (3,000+ files) (SW-3772 follow-up)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~40 min (est. 40). Didn't commit; orchestrator committed. Brief's expected 62/124 was the text stage, not tokens (orchestrator's error); both modes agree. Full repo comparison run by the orchestrator after merge.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
