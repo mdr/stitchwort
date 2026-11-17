@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `value` could mean `Left.value` or `Right.value`
+   ╭─[ wildcard-ambiguous-many/src/use.sw:8:17 ]
+   │
+ 8 │ test "first" := value == 1
+   │                 ──┬──  
+   │                   ╰──── write `Left.value` or `Right.value` in full
+   │ 
+   │ Note 1: both come in through `(..)` imports; to choose one, import it by name, e.g. `import Left (value)`
+   │ 
+   │ Note 2: and 2 more uses in this file
+───╯
