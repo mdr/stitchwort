@@ -4189,7 +4189,6 @@ theorem Float.Theory.unitsOfMagnitude ∀ (m: Nat) (s: Bool)
       let mag: Float.Model.magnitude m = m := rewrite c
       Both (arithmetic [mag, fm]) (rewrite Float.Theory.unitsMag m, mag, c)
     | True =>
-      let c: Nat.leq 9223372036854775808 (m + 9223372036854775808) = True := arithmetic
       let mag: Float.Model.magnitude (m + 9223372036854775808) = m := arithmetic
       Both (arithmetic [mag, fm]) (rewrite Float.Theory.unitsMag (m + 9223372036854775808), mag)
 
@@ -6374,3 +6373,103 @@ theorem Float.Theory.roundsToRelError ∀ (t d r: Nat)
     (Nat.divModEq t d)
     (Nat.modLess t d (Float.Theory.posNonzeroNat d pd))
     (Float.Theory.roomFromSmall d t small)
+
+--| The magnitude of a rounding of a nonzero numerator is the rounded magnitude.
+theorem Float.Theory.ratioMagnitude ∀ (num: Int) (den: Nat) (scale: Int) (z: Bool)
+    (nz: 0 < Int.natAbs num)
+    (mb: Float.Model.roundMagnitude False (Int.natAbs num) den (Int.add scale (OfNat 1074)) ≤ 9218868437227405312):
+    Float.Model.magnitude (Float.Model.roundRatio num den scale z)
+      = Float.Model.roundMagnitude False (Int.natAbs num) den (Int.add scale (OfNat 1074)) :=
+  match num with
+    | OfNat Zero => Void.impossible (arithmetic [nz])
+    | OfNat (Succ k) =>
+      let m: Nat := Float.Model.roundMagnitude False (Succ k) den (Int.add scale (OfNat 1074))
+      let c: Nat.leq 9223372036854775808 m = False := arithmetic [mb]
+      rewrite Float.Theory.roundRatioPos k den scale z, c
+    | NegSucc k => rewrite Float.Theory.roundRatioNeg k den scale z
+
+theorem Float.Theory.ratioMagnitudeBound ∀ (num: Int) (den: Nat) (scale: Int) (z: Bool)
+    (nz: 0 < Int.natAbs num)
+    (pd: 0 < den):
+    Float.Model.roundMagnitude False (Int.natAbs num) den (Int.add scale (OfNat 1074)) ≤ 9218868437227405312 :=
+  (Float.Theory.roundMagnitudeSpec (Int.natAbs num) den (Int.add scale (OfNat 1074)) nz pd).bounded
+
+theorem Float.Theory.ratioZeroUnits ∀ (num: Int) (den: Nat) (z: Bool)
+    (n0: Int.natAbs num = 0):
+    Float.Theory.magUnits (Float.Model.magnitude (Float.Model.roundRatio num den (OfNat 0) z)) = 0 :=
+  let e: num = OfNat 0 := arithmetic [n0]
+  rewrite e then
+    match z with
+      | True => byComputing
+      | False => byComputing
+
+theorem Float.Theory.divRelErrorZero ∀ (a den n p: Nat)
+    (n0: n = 0)
+    (a0: a = 0):
+    Nat.absDiff (a * den) (n * p) * 9007199254740992 ≤ n * p + den * 4503599627370496 :=
+  rewrite n0, a0
+
+--| The standard error model for `/` by a positive finite double: for a
+--| finite quotient below 2^1023 in size, `|x / d|` misses `|x| / d` by at
+--| most 2^-53 of it, or half a unit (2^-1075) below the normal range. In
+--| units of 2^-1074: `2^53 |q·d − x·2^1074| ≤ x·2^1074 + d·2^52`, where
+--| `q`, `d` and `x` are the sizes of the quotient's, divisor's and dividend's units.
+theorem Float.divRelError ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True)
+    (fq: Float.isFinite (x / d) = True)
+    (small: Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074
+      < Int.natAbs (Float.Theory.units d) * Nat.pow 2 2097):
+    Nat.absDiff
+      (Int.natAbs (Float.Theory.units (x / d)) * Int.natAbs (Float.Theory.units d))
+      (Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074)
+      * 9007199254740992
+      ≤ Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074
+        + Int.natAbs (Float.Theory.units d) * 4503599627370496 :=
+  let ux: Int := Float.Theory.units x
+  let n: Nat := Int.natAbs ux
+  let den: Nat := Int.natAbs (Float.Theory.units d)
+  let pd: 0 < den := Float.Theory.natAbsPos (Float.Model.units d.bits) (Float.Theory.unitsPositive d pos)
+  let qb: (x / d).bits = Float.Model.roundRatio ux den (OfNat 0) (Float.Model.signBit x.bits) :=
+    Float.Theory.quotientBits x d pos fd fx
+  let fqb: Float.Theory.FiniteBits (x / d).bits := Float.Theory.finiteBits (x / d) fq
+  let qAbs: Int.natAbs (Float.Theory.units (x / d)) = Float.Theory.magUnits (Float.Model.magnitude (x / d).bits) :=
+    Float.Theory.natAbsUnits (x / d).bits
+  match zn: Float.Theory.zeroOrPos n with
+    | Inl n0 =>
+      Float.Theory.divRelErrorZero
+        (Int.natAbs (Float.Theory.units (x / d)))
+        den
+        n
+        (Float.Model.pow2 1074)
+        n0
+        (rewrite qAbs, qb then Float.Theory.ratioZeroUnits ux den (Float.Model.signBit x.bits) n0)
+    | Inr np =>
+      let m: Nat := Float.Model.roundMagnitude False n den (OfNat 1074)
+      let mm: Float.Model.magnitude (x / d).bits = m :=
+        J
+          (b w => Float.Model.magnitude b = m)
+          (Float.Theory.ratioMagnitude ux den
+            (OfNat 0)
+            (Float.Model.signBit x.bits)
+            np
+            (Float.Theory.ratioMagnitudeBound ux den (OfNat 0) (Float.Model.signBit x.bits) np pd))
+          qb.flipped
+      let spec: Float.Theory.RoundsTo (n * Float.Model.pow2 1074) den m :=
+        Float.Theory.roundMagnitudeSpec n den (OfNat 1074) np pd
+      let fm: m < 9218868437227405312 := J (y w => y < 9218868437227405312) fqb mm
+      rewrite qAbs, mm then Float.Theory.roundsToRelError (n * Float.Model.pow2 1074) den m spec fm pd small
+
+test "Float.divRelError" :=
+  let err := (x d: Float) =>
+    Nat.absDiff
+      (Int.natAbs (Float.Theory.units (x / d)) * Int.natAbs (Float.Theory.units d))
+      (Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074)
+      * 9007199254740992
+  let bound := (x d: Float) =>
+    Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074 + Int.natAbs (Float.Theory.units d) * 4503599627370496
+  err 1.0 3.0 ≤ bound 1.0 3.0
+    ∧ err (-359.9) 0.1 ≤ bound (-359.9) 0.1
+    ∧ err 5e-324 3.0 ≤ bound 5e-324 3.0
+    ∧ 0 < err 1.0 3.0
