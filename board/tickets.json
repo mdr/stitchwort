@@ -1,5 +1,5 @@
 {
-  "next": 3808,
+  "next": 3810,
   "tickets": [
     {
       "id": 47,
@@ -42107,7 +42107,7 @@
     {
       "id": 3742,
       "title": "[DeepSeek] One wrong proof in a proof-tuple let gives a W-MATCH-NOT-FOUND warning per let (10 from one error): report the root error only (Toy++ T5 friction, SW-3737)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42965,6 +42965,32 @@
       "where": "",
       "labels": [],
       "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3808,
+      "title": "[Opus] Self-hosted formatter stage 1 (docs/proposals/self-hosted-fmt.md §8): the project skeleton, the typed tree and its dump, the lexer, rule N on tokens; gate: fmt:twin STAGE=tokens identical on every file that lexes, same lexical refusals",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3809,
+      "title": "[Sonnet] Toy++ friction group 4: SW-3740 (.read destructures a whole && chain) and SW-3733 (a let after 'rewrite … then' at the same indent)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
