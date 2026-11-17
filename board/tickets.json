@@ -1,5 +1,5 @@
 {
-  "next": 3726,
+  "next": 3728,
   "tickets": [
     {
       "id": 47,
@@ -41805,7 +41805,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "SW-3725 (Fable): cost is cubic in fields per constructor, not ~50K per constructor; first fix the elaborator slow path (SW-3726), then reshape the generated proofs (nested pairs, Pair.decMk; prototype of == is 3-26x cheaper). Est. 2 Opus lanes, ~3.5 h.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41878,12 +41878,38 @@
     {
       "id": 3725,
       "title": "[Fable paper] Think through derived instances' cost (SW-3710): why generated ==/< law proofs are expensive, whether std's internal types need them at all, and the space of solutions (lazy, cheaper proofs, direct terms, shipped cache, others), with a recommendation (Matt, 17 Nov 2026)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Paper lane (Fable), 17 Nov 2026, about 15 min (est. 60). Note: docs/proposals/derived-instances-rethink.md.\n\nFindings (all measured with the release CLI at 0d09b858a, synthetic types):\n- The cost is cubic in fields per constructor, linear in constructors. One constructor: 4 fields 0.28M steps, 8 fields 2.0M, 16 fields 19.3M (1.6 s), 32 fields 233M (30 s). SW-3710's \"50K per constructor per proof\" is the two-field case.\n- Causes isolated: (a) reading field k's equation as And.left (And.right^k q) is cubic (1.15M steps at 16 fields; 75K with tails let-bound; the J chain itself 9K); (b) an elaborator slow path: a 32-term chain of (DecEq.decide a b).holds && ... is 1.54M steps where a == b && ... is 54K; (c) the decision and the congruence are stated two or three times.\n- A prototype of == through nested pairs (Pair.decMk + one Eq.cong) checks and is 3x cheaper at 4 fields, 13x at 16, 26x at 32.\n- Warm check cache: Nat importer 1.95 s cold, 0.34 s warm, 0.28 s with no import.\n- Field types matter little (derived field 1.4x, not 3x); instances in scope don't matter.\n\nRecommendation: C (fix the elaborator path, reshape proofs, step-budget test) and D (per-user std cache, reopening D281); neither A nor B. Two questions for Matt at the note's end.\n",
+      "body": "Paper lane (Fable), 17 Nov 2026, about 15 min (est. 60). Note: docs/proposals/derived-instances-rethink.md.\n\nFindings (all measured with the release CLI at 0d09b858a, synthetic types):\n- The cost is cubic in fields per constructor, linear in constructors. One constructor: 4 fields 0.28M steps, 8 fields 2.0M, 16 fields 19.3M (1.6 s), 32 fields 233M (30 s). SW-3710's \"50K per constructor per proof\" is the two-field case.\n- Causes isolated: (a) reading field k's equation as And.left (And.right^k q) is cubic (1.15M steps at 16 fields; 75K with tails let-bound; the J chain itself 9K); (b) an elaborator slow path: a 32-term chain of (DecEq.decide a b).holds && ... is 1.54M steps where a == b && ... is 54K; (c) the decision and the congruence are stated two or three times.\n- A prototype of == through nested pairs (Pair.decMk + one Eq.cong) checks and is 3x cheaper at 4 fields, 13x at 16, 26x at 32.\n- Warm check cache: Nat importer 1.95 s cold, 0.34 s warm, 0.28 s with no import.\n- Field types matter little (derived field 1.4x, not 3x); instances in scope don't matter.\n\nRecommendation: C (fix the elaborator path, reshape proofs, step-budget test) and D (per-user std cache, reopening D281); neither A nor B. Two questions for Matt at the note's end.\n\nModel result: fable, worked, 15 min (est. 60). Recommends C + D, not A/B. Filed SW-3726 SW-3727.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3726,
+      "title": "[Opus] Elaborator: a right-nested chain of (DecEq.decide a b).holds && … is cubic in its length (32 terms 1.54M steps vs 54K as a == b), and And.left (And.right^k q) chains likewise; Eq.trans of Eq.congs 16x the raw J chain. Profile and fix (SW-3725 note, reproducers gen2.py/gen4.py in its appendix). First lane of SW-3719",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3727,
+      "title": "[Sonnet] Step-budget test beside import_cost.rs: declaring a 16-field one-constructor record (19.3M steps today) and a many-constructor type, so derived-instance cost can't regress (SW-3725)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
