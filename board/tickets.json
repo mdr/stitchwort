@@ -1,5 +1,5 @@
 {
-  "next": 3892,
+  "next": 3894,
   "tickets": [
     {
       "id": 47,
@@ -22770,6 +22770,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3892,
+      "title": "[Opus] Regression from SW-3880 (D3679): examples/accept/as-written-unconfirmed.sw panics in the elaborator, matching.rs:2274 dependency_order 'index out of bounds: the len is 0 but the index is 3' (bind_generalised via unconfirmed_now, a generalised match in a theorem with ∀ (x k answer: Nat)); hash_stability::examples fails on main. Fix forward with a failing-first test",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3893,
+      "title": "[Sonnet] std_library::the_library_has_no_unreachable_arms fails on main: std/Parse/Reads.sw:1119 'this case can't happen' (SW-3867's readsLoopFrom Zero arm); remove or restructure the arm, keep the theorem (Overmind rolling check on 29b9fcbd4)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
