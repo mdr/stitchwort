@@ -7051,29 +7051,25 @@ theorem Float.Theory.magnitudeAntiDen ∀ (n d1 d2: Nat) (s: Int)
     (Float.Model.roundMagnitude False n d2 s)
     (Float.Model.roundMagnitude False n d1 s)
     pab
-    (Float.Theory.roundsToScale
-      u
+    (Float.Theory.roundsToScale u
       (Float.Model.scaleDown d2 s)
       (u * Float.Model.scaleDown d1 s)
       (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
       (Float.Model.roundMagnitude False n d2 s)
       pb
       pab
-      (algebra:
-        u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
-          = u * Float.Model.scaleDown d1 s * Float.Model.scaleDown d2 s)
+      (algebra: u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+        = u * Float.Model.scaleDown d1 s * Float.Model.scaleDown d2 s)
       (Float.Theory.roundMagnitudeSpec n d2 s pn p2))
-    (Float.Theory.roundsToScale
-      u
+    (Float.Theory.roundsToScale u
       (Float.Model.scaleDown d1 s)
       (u * Float.Model.scaleDown d2 s)
       (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
       (Float.Model.roundMagnitude False n d1 s)
       pa
       pab
-      (algebra:
-        u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
-          = u * Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (algebra: u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+        = u * Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
       (Float.Theory.roundMagnitudeSpec n d1 s pn p1))
     (Float.Theory.mulLeLeft (Float.Model.scaleDown d1 s) (Float.Model.scaleDown d2 s) u ab)
 
@@ -7097,9 +7093,7 @@ theorem Float.Theory.roundKeyAntiDen ∀ (num: Int) (d1 d2: Nat) (scale: Int) (z
         (OfNat (Float.Model.roundMagnitude False (Succ k) d1 (Int.add scale (OfNat 1074))))
         (Float.Theory.roundKeyPos k d2 scale z (arithmetic [p1, le]))
         (Float.Theory.roundKeyPos k d1 scale z p1)
-        (arithmetic [
-          Float.Theory.magnitudeAntiDen (Succ k) d1 d2 (Int.add scale (OfNat 1074)) byComputing p1 le
-        ])
+        (arithmetic [Float.Theory.magnitudeAntiDen (Succ k) d1 d2 (Int.add scale (OfNat 1074)) byComputing p1 le])
 
 --| Division is antitone in a positive divisor: for `0 < d <= e`, both
 --| finite, and a finite `x` with `0.0 <= x`, `x / e <= x / d`. The exact
@@ -7142,10 +7136,7 @@ theorem Float.divAntitone ∀ (x d e: Float)
       xnn)
 
 test "Float.divAntitone" :=
-  1.0 / 3.0 <= 1.0 / 2.0
-    ∧ 0.0 / 5.0 <= 0.0 / 5e-324
-    ∧ 1e300 / 1e-10 <= 1e300 / 1e-20
-    ∧ 5e-324 / 3.0 <= 5e-324 / 2.0
+  1.0 / 3.0 <= 1.0 / 2.0 ∧ 0.0 / 5.0 <= 0.0 / 5e-324 ∧ 1e300 / 1e-10 <= 1e300 / 1e-20 ∧ 5e-324 / 3.0 <= 5e-324 / 2.0
 
 --| A finite double over a positive finite one isn't the NaN: its key is
 --| at most +infinity's (`roundKeyLeInf`), below the NaN's. It can overflow
@@ -7174,14 +7165,15 @@ theorem Float.divNotNaN ∀ (x d: Float)
       let k: Float.orderKey (x / d) = OfNat 9221120237041090560 := rewrite b
       Void.impossible (arithmetic [low, k])
 
-test "Float.divNotNaN" :=
-  ¬Float.isNaN (1e300 / 1e-300) ∧ ¬Float.isNaN (0.0 / 5e-324) ∧ ¬Float.isNaN (-1.0 / 3.0)
+test "Float.divNotNaN" := ¬Float.isNaN (1e300 / 1e-300) ∧ ¬Float.isNaN (0.0 / 5e-324) ∧ ¬Float.isNaN (-1.0 / 3.0)
 
 -- Floor and ceiling within one
 
 --| The floor of a double below 2^53 in size is finite: a whole number of
 --| that size (`roundScaledWhole`).
-theorem Float.floorIsFinite ∀ (x: Float) (small: Float.abs x < 9007199254740992.0): Float.isFinite (Float.floor x) = True :=
+theorem Float.floorIsFinite ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Float.isFinite (Float.floor x) = True :=
   let a: Nat := x.bits
   let s: Bool := Float.Model.signBit a
   let p: Nat := Float.Model.pow2 1074
@@ -7198,7 +7190,9 @@ theorem Float.floorIsFinite ∀ (x: Float) (small: Float.abs x < 900719925474099
       fl.flipped)
 
 --| The ceiling of a double below 2^53 in size is finite, as `Float.floorIsFinite`.
-theorem Float.ceilIsFinite ∀ (x: Float) (small: Float.abs x < 9007199254740992.0): Float.isFinite (Float.ceil x) = True :=
+theorem Float.ceilIsFinite ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Float.isFinite (Float.ceil x) = True :=
   let a: Nat := x.bits
   let s: Bool := Float.Model.signBit a
   let p: Nat := Float.Model.pow2 1074
@@ -7218,7 +7212,9 @@ theorem Float.ceilIsFinite ∀ (x: Float) (small: Float.abs x < 9007199254740992
       cl.flipped)
 
 test "Float.floorIsFinite" :=
-  Float.isFinite (Float.floor -2.5) ∧ Float.isFinite (Float.ceil 9007199254740991.0) ∧ Float.isFinite (Float.floor 5e-324)
+  Float.isFinite (Float.floor -2.5)
+    ∧ Float.isFinite (Float.ceil 9007199254740991.0)
+    ∧ Float.isFinite (Float.floor 5e-324)
 
 theorem Float.Theory.belowNextWhole ∀ (u v f: Int) (p: Nat)
     (h: Int.less u (Int.mul (Int.add f (OfNat 1)) (OfNat p)) = True)
@@ -7241,7 +7237,8 @@ theorem Float.Theory.aboveNextWhole ∀ (u w v g: Int) (p: Nat)
 --| (`Float.ltFloorAddOne` says it of the double sum).
 theorem Float.Theory.floorUnitsAbove ∀ (x: Float)
     (small: Float.abs x < 9007199254740992.0):
-    Int.less (Float.Theory.units x) (Int.add (Float.Theory.units (Float.floor x)) (OfNat (Float.Model.pow2 1074))) = True :=
+    Int.less (Float.Theory.units x) (Int.add (Float.Theory.units (Float.floor x)) (OfNat (Float.Model.pow2 1074)))
+      = True :=
   let a: Nat := x.bits
   let s: Bool := Float.Model.signBit a
   let p: Nat := Float.Model.pow2 1074
@@ -7268,7 +7265,8 @@ theorem Float.Theory.floorUnitsAbove ∀ (x: Float)
 --| down to the ceiling; `Float.ceilSubOneLt`).
 theorem Float.Theory.ceilUnitsBelow ∀ (x: Float)
     (small: Float.abs x < 9007199254740992.0):
-    Int.less (Float.Theory.units (Float.ceil x)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1074))) = True :=
+    Int.less (Float.Theory.units (Float.ceil x)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1074)))
+      = True :=
   let a: Nat := x.bits
   let s: Bool := Float.Model.signBit a
   let p: Nat := Float.Model.pow2 1074

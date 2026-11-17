@@ -2406,7 +2406,8 @@ theorem remWholeStep ∀ (x: Float) (f: Int)
     (calc Float.Theory.units (x % 360.0)
       _ = Int.signed s (m - q * d) := Float.Theory.remUnitsExact x 360.0 fx byComputing byComputing
       _ = Int.signed s (r * Float.Model.pow2 1074) := Eq.cong (y => Int.signed s y) core.right.right
-      _ = Int.mul (Int.signed s r) (OfNat (Float.Model.pow2 1074)) := Float.Theory.signedScaled s r (Float.Model.pow2 1074))
+      _ = Int.mul (Int.signed s r) (OfNat (Float.Model.pow2 1074)) :=
+        Float.Theory.signedScaled s r (Float.Model.pow2 1074))
     sa.left
     sa.right.left
     sa.right.right
@@ -2694,10 +2695,19 @@ theorem ceilStepBound ∀ (x width: Float)
 -- Outward rounding moves an edge by at most a step
 
 --| `x / 0.1` for `|x| ≤ 360` is from -3600 to 3600.
-theorem quotientWithin3600 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): (-3600.0 <= x / 0.1) ∧ (x / 0.1 <= 3600.0) :=
+theorem quotientWithin3600 ∀ (x: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    (-3600.0 <= x / 0.1) ∧ (x / 0.1 <= 3600.0) :=
   Both
-    (J (z w => z <= x / 0.1) (Float.divMonotone (-360.0) x 0.1 byComputing byComputing lo) (byComputing: -360.0 / 0.1 = -3600.0))
-    (J (z w => x / 0.1 <= z) (Float.divMonotone x 360.0 0.1 byComputing byComputing hi) (byComputing: 360.0 / 0.1 = 3600.0))
+    (J
+      (z w => z <= x / 0.1)
+      (Float.divMonotone (-360.0) x 0.1 byComputing byComputing lo)
+      (byComputing: -360.0 / 0.1 = -3600.0))
+    (J
+      (z w => x / 0.1 <= z)
+      (Float.divMonotone x 360.0 0.1 byComputing byComputing hi)
+      (byComputing: 360.0 / 0.1 = 3600.0))
 
 theorem zeroOfNeither ∀ (u: Int) (a: Int.less (OfNat 0) u = False) (b: Int.less u (OfNat 0) = False): u = OfNat 0 :=
   arithmetic [a, b]
@@ -2755,8 +2765,7 @@ theorem quotientNear ∀ (c: Float)
   let uq: Int := Float.Theory.units (c / 0.1)
   let qc := quotientCoarse c lo hi fq
   let cb: Int.natAbs uc ≤ Float.Model.pow2 1019 * 13042424520864956416 :=
-    natAbsWithin
-      uc
+    natAbsWithin uc
       (Float.Theory.units (-362.0))
       (Float.Theory.units 362.0)
       (Float.Model.pow2 1019 * 13042424520864956416)
@@ -2877,8 +2886,7 @@ theorem ceilTenthCoarse ∀ (x: Float)
   let g: Float := tenthOf k
   let d: Float := -tenthsSlack
   let rest := Bool.andRight (ceilTenthsChecked x lo hi)
-  let lt: (g + d) / 0.1 < k :=
-    J (z w => z / 0.1 < k) (Bool.andLeft rest) (Float.subAddNeg g tenthsSlack)
+  let lt: (g + d) / 0.1 < k := J (z w => z / 0.1 < k) (Bool.andLeft rest) (Float.subAddNeg g tenthsSlack)
   let bounds := Bool.andRight (Bool.andRight rest)
   let ss := shiftSetup g d byComputing (Bool.andLeft bounds) (Bool.andRight bounds) byComputing byComputing
   let sum := slackSum g d byComputing byComputing (Bool.andLeft bounds) (Bool.andRight bounds) byComputing byComputing
@@ -2929,13 +2937,15 @@ theorem floorCoarse ∀ (width x: Float)
   match stepEither width with
     | Inl e =>
       J
-        (s z => Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x s)) (Float.Theory.units 2.0)) = True)
+        (s z =>
+          Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x s)) (Float.Theory.units 2.0)) = True)
         (floorTenthCoarse x lo hi)
         e.flipped
     | Inr e =>
       let small: Float.abs x < 9007199254740992.0 := absWithin360Below53 x lo hi
       J
-        (s z => Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x s)) (Float.Theory.units 2.0)) = True)
+        (s z =>
+          Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x s)) (Float.Theory.units 2.0)) = True)
         (J
           (y z => Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units y) (Float.Theory.units 2.0)) = True)
           (wholeStepArith
@@ -2958,13 +2968,15 @@ theorem ceilCoarse ∀ (width x: Float)
   match stepEither width with
     | Inl e =>
       J
-        (s z => Int.leq (Float.Theory.units (ceilTo x s)) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0)) = True)
+        (s z =>
+          Int.leq (Float.Theory.units (ceilTo x s)) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0)) = True)
         (ceilTenthCoarse x lo hi)
         e.flipped
     | Inr e =>
       let small: Float.abs x < 9007199254740992.0 := absWithin360Below53 x lo hi
       J
-        (s z => Int.leq (Float.Theory.units (ceilTo x s)) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0)) = True)
+        (s z =>
+          Int.leq (Float.Theory.units (ceilTo x s)) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0)) = True)
         (J
           (y z => Int.leq (Float.Theory.units y) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0)) = True)
           (wholeStepArith
@@ -3504,7 +3516,10 @@ theorem longitudeWidthRange ∀ (tolerance cosLatitude: Float)
     Float.divAntitone span cosLatitude 1.0 cpos fc byComputing cosHi sr.left
       (floatLeTrans 0.0 1e-11 span byComputing sr.right)
   let atLeast: 1e-11 <= span / cosLatitude :=
-    floatLeTrans 1e-11 span (span / cosLatitude) sr.right (J (y w => y <= span / cosLatitude) grow (Float.divOneRight span))
+    floatLeTrans 1e-11 span
+      (span / cosLatitude)
+      sr.right
+      (J (y w => y <= span / cosLatitude) grow (Float.divOneRight span))
   let nq: Float.isNaN (span / cosLatitude) = False := Float.divNotNaN span cosLatitude cpos fc sr.left
   Both
     (Float.leMin (span / cosLatitude) maxLongitudeSpan 1e-11 nq byComputing atLeast byComputing)
@@ -3554,7 +3569,11 @@ theorem within361OfUnits ∀ (x: Float)
     (hi: Int.less (Float.Theory.units x) (Float.Theory.units 361.0) = True):
     (-361.0 <= x) ∧ (x <= 361.0) :=
   Both
-    (Float.Theory.leOfUnitsNeg (-361.0) x byComputing (intLeOfLess (Float.Theory.units (-361.0)) (Float.Theory.units x) lo))
+    (Float.Theory.leOfUnitsNeg
+      (-361.0)
+      x
+      byComputing
+      (intLeOfLess (Float.Theory.units (-361.0)) (Float.Theory.units x) lo))
     (Float.Theory.leOfUnitsPos x 361.0 byComputing (intLeOfLess (Float.Theory.units x) (Float.Theory.units 361.0) hi))
 
 theorem remainderWithin ∀ (u lo hi a: Int) (d p: Nat)
@@ -3706,7 +3725,8 @@ theorem turnTimes ∀ (c: Int) (d: Nat)
         | Zero => Inr (Inl algebra)
         | Succ Zero => Inr (Inr algebra)
         | Succ (Succ n) =>
-          let e: Int.mul (OfNat (Succ (Succ n))) (OfNat d) = OfNat (Succ (Succ n) * d) := Float.Theory.intMulOfNat (Succ (Succ n)) d
+          let e: Int.mul (OfNat (Succ (Succ n))) (OfNat d) = OfNat (Succ (Succ n) * d) :=
+            Float.Theory.intMulOfNat (Succ (Succ n)) d
           let big: 2 * d ≤ Succ (Succ n) * d := Nat.leMulRight 2 (Succ (Succ n)) d (arithmetic)
           Void.impossible (arithmetic [hi, e, big])
     | NegSucc j =>
