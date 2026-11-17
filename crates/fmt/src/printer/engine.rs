@@ -371,7 +371,13 @@ impl Printer {
                     let column = if self.at_line_start {
                         indent.max(self.owed.unwrap_or(indent))
                     } else if !self.suffixes.is_empty() {
-                        self.continuation(indent)
+                        // A comment waiting on this line ends it here, at
+                        // the element's own line, before the docs inside
+                        // (a block's first statement, nested deeper) decide
+                        // where a comment break would put their first line.
+                        let column = self.continuation(indent);
+                        self.newline(column);
+                        column
                     } else {
                         indent
                     };
@@ -971,6 +977,20 @@ mod tests {
             Doc::concat([t("x"), Doc::LineSuffix("-- c".into()), t(" "), t("y")]),
         );
         assert_eq!(print(&doc, 120).text, "x -- c\n      y");
+    }
+
+    #[test]
+    fn a_comment_break_at_a_displaced_element_starts_its_own_line() {
+        // SW-3728: the element's first line keeps the element's indentation
+        // even when a part inside it (`f a`, a call's arguments at 4) would
+        // break deeper, so the element's next line isn't left of its first.
+        let first = Doc::nest(4, t("f a"));
+        let block = Doc::displaced(Doc::concat([first, Doc::HardLine, t("b")]));
+        let doc = Doc::nest(
+            2,
+            Doc::concat([t("=>"), Doc::LineSuffix("-- c".into()), t(" "), block]),
+        );
+        assert_eq!(print(&doc, 120).text, "=> -- c\n  f a\n  b");
     }
 
     #[test]

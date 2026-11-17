@@ -1200,3 +1200,14 @@ fn a_rule_list_that_breaks_drops_its_trailing_comma() {
         &format!("rules appends :=\n  [\n    {a},\n    {b}\n  ]\n"),
     );
 }
+
+#[test]
+fn a_comment_between_binder_names_keeps_a_commented_body_block_together() {
+    // SW-3728: the comment after `=>` moved the body's first line in by the
+    // call's own indent, while its next statement stayed at the block's, so
+    // the parser read that statement as a binder group after the first.
+    check(
+        "theorem t (x: Nat): ∀ (a-- c\n b: Bool) =>-- c\n f a\n b = f b a := same\n",
+        "theorem t ∀ (x: Nat):\n    ∀ (a -- c\n      b: Bool) => -- c\n        f a\n        b = f b a :=\n  same\n",
+    );
+}
