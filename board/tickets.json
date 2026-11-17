@@ -1,5 +1,5 @@
 {
-  "next": 3743,
+  "next": 3744,
   "tickets": [
     {
       "id": 47,
@@ -42104,6 +42104,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3743,
+      "title": "[Sonnet] Toy++ T6: P4 merges adjacent parameter groups of the same type (toy-plus-plus.md §3.2, §5 T6): through the shared traversal (generic traverseKeeps* with the identity step), its own facts on declarations, tidyMerged and 'P4 keeps P1-P3's work'; tidy restated for four passes",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
