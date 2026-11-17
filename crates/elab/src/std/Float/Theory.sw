@@ -4507,3 +4507,158 @@ test "Float.ceilSubOneLt" :=
     ∧ Float.ceil 0.0 - 1.0 < 0.0
     ∧ Float.ceil -9007199254740991.0 - 1.0 < -9007199254740991.0
     ∧ Float.ceil 8.673617379884035e-19 == 8.673617379884035e-19 + 1.0
+
+-- Exact differences on a common grid
+
+--| The exponent of a pattern's units: they are `2^expOf m × sigOf m`.
+def Float.Theory.expOf (m: Nat): Nat := Nat.divFuel m m 4503599627370496 - 1
+
+--| The significand of a pattern's units, below 2^53.
+def Float.Theory.sigOf (m: Nat): Nat :=
+  if Nat.equal (Nat.divFuel m m 4503599627370496) 0 then m
+  else m - Nat.divFuel m m 4503599627370496 * 4503599627370496 + 4503599627370496
+
+theorem Float.Theory.magUnitsShape ∀ (m: Nat):
+    (Float.Theory.magUnits m = Nat.pow 2 (Float.Theory.expOf m) * Float.Theory.sigOf m)
+      ∧ (Float.Theory.sigOf m < 9007199254740992) :=
+  let e: Nat := Nat.divFuel m m 4503599627370496
+  let low: e * 4503599627370496 ≤ m := Nat.divFuelLe m m 4503599627370496
+  let high: m < Succ e * 4503599627370496 :=
+    Nat.divFuelBound m m 4503599627370496 (Nat.nonzeroOfPos 4503599627370496 byComputing) (Nat.leRefl m)
+  let split: Float.Theory.magUnits m
+    = (if Nat.equal e 0 then m - e * 4503599627370496
+       else Nat.pow 2 (e - 1) * (m - e * 4503599627370496 + 4503599627370496)) :=
+    Float.Theory.magUnitsSplit m e low (arithmetic [high])
+  Float.Theory.orCase
+    [goal := (Float.Theory.magUnits m = Nat.pow 2 (Float.Theory.expOf m) * Float.Theory.sigOf m)
+      ∧ (Float.Theory.sigOf m < 9007199254740992)]
+    (Float.Theory.boolCases (Nat.equal e 0))
+    (z =>
+      let e0: e = 0 := Nat.equalSound e 0 z
+      let sig: Float.Theory.sigOf m = m := rewrite z
+      let ex: Float.Theory.expOf m = 0 := arithmetic [e0]
+      let mu: Float.Theory.magUnits m = m := rewrite split, z then arithmetic [e0]
+      Both
+        (calc Float.Theory.magUnits m
+          _ = m := mu
+          _ = Nat.pow 2 0 * m := algebra
+          _ = Nat.pow 2 (Float.Theory.expOf m) * Float.Theory.sigOf m :=
+            Eq.cong2 (a b => Nat.pow 2 a * b) ex.flipped sig.flipped)
+        (J (y w => y < 9007199254740992) (arithmetic [high, e0]: m < 9007199254740992) sig.flipped))
+    (z =>
+      let sig: Float.Theory.sigOf m = m - e * 4503599627370496 + 4503599627370496 := rewrite z
+      let mu: Float.Theory.magUnits m = Nat.pow 2 (e - 1) * (m - e * 4503599627370496 + 4503599627370496) :=
+        rewrite split, z
+      Both
+        (Eq.trans mu (Eq.cong (b => Nat.pow 2 (e - 1) * b) sig.flipped))
+        (J
+          (y w => y < 9007199254740992)
+          (arithmetic [low, high]: m - e * 4503599627370496 + 4503599627370496 < 9007199254740992)
+          sig.flipped))
+
+--| `r` on the grid of `P`: from `r + Y × P = X × P` and `r ≤ Q × P`,
+--| `r = (X - Y) × P` with `X - Y ≤ Q`.
+theorem Float.Theory.gridSplit ∀ (r p x y q: Nat)
+    (pp: 0 < p)
+    (e: r + y * p = x * p)
+    (b: r ≤ q * p):
+    (r = (x - y) * p) ∧ (x - y ≤ q) :=
+  let yx: y ≤ x := Float.Theory.cancelLe y x p pp (arithmetic [e])
+  let split: x * p = (x - y) * p + y * p :=
+    Eq.trans (Eq.cong (t => t * p) (arithmetic [yx]: x = (x - y) + y)) (algebra: ((x - y) + y) * p = (x - y) * p + y * p)
+  let re: r = (x - y) * p := arithmetic [e, split]
+  Both re (Float.Theory.cancelLe (x - y) q p pp (arithmetic [re, b]))
+
+theorem Float.Theory.powSplit ∀ (a b: Nat) (h: a ≤ b): Nat.pow 2 b = Nat.pow 2 (b - a) * Nat.pow 2 a :=
+  Eq.trans (Eq.cong (Nat.pow 2) (arithmetic [h]: b = (b - a) + a)) (Nat.powAdd 2 (b - a) a)
+
+theorem Float.Theory.gridExact ∀ (r d e: Nat) (s z: Bool)
+    (re: r = d * Nat.pow 2 e)
+    (hd: d ≤ 9007199254740992)
+    (small: r < Nat.pow 2 2098):
+    Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s r) 1 (-1074) z)
+      ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) z) = Int.signed s r) :=
+  J
+    (y w =>
+      Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s y) 1 (-1074) z)
+        ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s y) 1 (-1074) z) = Int.signed s y))
+    (Float.Theory.roundGrid s d e z hd (J (y w => y < Nat.pow 2 2098) small re))
+    re.flipped
+
+theorem Float.Theory.finiteUnitsBelow ∀ (m: Nat)
+    (fm: m < 9218868437227405312):
+    Float.Theory.magUnits m < Nat.pow 2 2098 :=
+  J
+    (y w => Float.Theory.magUnits m < y)
+    (Float.Theory.magUnitsLess m 9218868437227405312 fm)
+    (Eq.trans Float.Theory.unitsAtInfinity (Float.Theory.pow2Pow 2098))
+
+--| Exactness on a common grid: a whole number `r` of units with
+--| `r + k × B = j × A`, for the units `A` of a finite pattern and `B` of
+--| another, and `r` at most both, is a double. Both `A` and `B` are
+--| multiples of 2^E for the smaller of their exponents `E`, so `r` is too;
+--| and `r` is at most the significand, below 2^53, of the one with that
+--| exponent.
+theorem Float.Theory.combinationExact ∀ (ma mb r j k: Nat) (s z: Bool)
+    (fa: ma < 9218868437227405312)
+    (e: r + k * Float.Theory.magUnits mb = j * Float.Theory.magUnits ma)
+    (la: r ≤ Float.Theory.magUnits ma)
+    (lb: r ≤ Float.Theory.magUnits mb):
+    Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s r) 1 (-1074) z)
+      ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) z) = Int.signed s r) :=
+  let ea: Nat := Float.Theory.expOf ma
+  let eb: Nat := Float.Theory.expOf mb
+  let qa: Nat := Float.Theory.sigOf ma
+  let qb: Nat := Float.Theory.sigOf mb
+  let sa: (Float.Theory.magUnits ma = Nat.pow 2 ea * qa) ∧ (qa < 9007199254740992) := Float.Theory.magUnitsShape ma
+  let sb: (Float.Theory.magUnits mb = Nat.pow 2 eb * qb) ∧ (qb < 9007199254740992) := Float.Theory.magUnitsShape mb
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Nat.leq ea eb))
+    (c =>
+      let p: Nat := Nat.pow 2 ea
+      let bs: Float.Theory.magUnits mb = Nat.pow 2 (eb - ea) * qb * p :=
+        rewrite sb.left, Float.Theory.powSplit ea eb c then algebra
+      let as: Float.Theory.magUnits ma = qa * p := rewrite sa.left then algebra
+      let ek: k * Float.Theory.magUnits mb = k * (Nat.pow 2 (eb - ea) * qb) * p := rewrite bs then algebra
+      let ej: j * Float.Theory.magUnits ma = j * qa * p := rewrite as then algebra
+      let g: (r = (j * qa - k * (Nat.pow 2 (eb - ea) * qb)) * p) ∧ (j * qa - k * (Nat.pow 2 (eb - ea) * qb) ≤ qa) :=
+        Float.Theory.gridSplit r
+          p
+          (j * qa)
+          (k * (Nat.pow 2 (eb - ea) * qb))
+          qa
+          (Nat.powSuccPos 1 ea)
+          (arithmetic [e, ek, ej])
+          (arithmetic [la, as])
+      Float.Theory.gridExact r
+        (j * qa - k * (Nat.pow 2 (eb - ea) * qb))
+        ea
+        s
+        z
+        g.left
+        (arithmetic [g.right, sa.right])
+        (Float.Theory.leLessTrans r (Float.Theory.magUnits ma) (Nat.pow 2 2098) la (Float.Theory.finiteUnitsBelow ma fa)))
+    (c =>
+      let p: Nat := Nat.pow 2 eb
+      let as: Float.Theory.magUnits ma = Nat.pow 2 (ea - eb) * qa * p :=
+        rewrite sa.left, Float.Theory.powSplit eb ea (arithmetic [c]) then algebra
+      let bs: Float.Theory.magUnits mb = qb * p := rewrite sb.left then algebra
+      let ek: k * Float.Theory.magUnits mb = k * qb * p := rewrite bs then algebra
+      let ej: j * Float.Theory.magUnits ma = j * (Nat.pow 2 (ea - eb) * qa) * p := rewrite as then algebra
+      let g: (r = (j * (Nat.pow 2 (ea - eb) * qa) - k * qb) * p) ∧ (j * (Nat.pow 2 (ea - eb) * qa) - k * qb ≤ qb) :=
+        Float.Theory.gridSplit r
+          p
+          (j * (Nat.pow 2 (ea - eb) * qa))
+          (k * qb)
+          qb
+          (Nat.powSuccPos 1 eb)
+          (arithmetic [e, ek, ej])
+          (arithmetic [lb, bs])
+      Float.Theory.gridExact r
+        (j * (Nat.pow 2 (ea - eb) * qa) - k * qb)
+        eb
+        s
+        z
+        g.left
+        (arithmetic [g.right, sb.right])
+        (Float.Theory.leLessTrans r (Float.Theory.magUnits ma) (Nat.pow 2 2098) la (Float.Theory.finiteUnitsBelow ma fa)))
