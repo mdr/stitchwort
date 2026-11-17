@@ -1039,7 +1039,12 @@ fn generalised_now(
                      version can't generalise",
                 )
                 .with_label(b.span, "this one's type mentions")
-                .with_label(a.span, "this one"));
+                .with_label(a.span, "this one")
+                .with_note(
+                    "scrutinees that are variables are generalised together, so name both as \
+                     parameters of a helper, `def go (n: Nat) (t: Tagged n): … := match n, t \
+                     with …`, and call it with the two expressions (a local `def` does too)",
+                ));
             }
         }
     }

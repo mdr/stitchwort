@@ -19,5 +19,7 @@ expression: output
     │                                                             │    
     │                                                             ╰──── this one's type mentions
     │ 
-    │ Note: a top-level helper with a written signature can always do what this `match` would: define one and call it
+    │ Note 1: a top-level helper with a written signature can always do what this `match` would: define one and call it
+    │ 
+    │ Note 2: scrutinees that are variables are generalised together, so name both as parameters of a helper, `def go (n: Nat) (t: Tagged n): … := match n, t with …`, and call it with the two expressions (a local `def` does too)
 ────╯
