@@ -22453,12 +22453,12 @@
     {
       "id": 3867,
       "title": "[Sonnet] std Parse: a runFrom decomposition lemma for j (p()) when p fails (only runFromThenOk2 exists), to prove ReadsBeforeCalls for bodies that read through an arbitrary parser; and Gives/ReadsIn lemmas for Parse.loop (SW-3854 left)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nLane note (Sonnet, 17 Nov): done, in review. Added in Parse/Runs.sw: runFromThenErrBack2 (+Tree), runFromThenCongr and runFromThenCongr1 (+Tree) (the decomposition: a continuation pair that agree from every state p can stop in give the same result, Ok or Err), CallsAhead, readsBeforeCallsThen, movesOfReads, loopFromEnough, loopFuelMore. Parse/Reads.sw: Rounds, readsLoopFrom, readsLoop. Parse/Gives.sw: roundsAll, givesLoop. Checked with check --std, audit (10 theorems, 0 failed), hash_stability::prelude re-accepted (additions only), search:: 15 passed.\nModel result: Sonnet, worked, about 25 min (est. 35)\n",
+      "body": "\n\nLane note (Sonnet, 17 Nov): done, in review. Added in Parse/Runs.sw: runFromThenErrBack2 (+Tree), runFromThenCongr and runFromThenCongr1 (+Tree) (the decomposition: a continuation pair that agree from every state p can stop in give the same result, Ok or Err), CallsAhead, readsBeforeCallsThen, movesOfReads, loopFromEnough, loopFuelMore. Parse/Reads.sw: Rounds, readsLoopFrom, readsLoop. Parse/Gives.sw: roundsAll, givesLoop. Checked with check --std, audit (10 theorems, 0 failed), hash_stability::prelude re-accepted (additions only), search:: 15 passed.\nModel result: Sonnet, worked, about 25 min (est. 35)\n\nModel result: sonnet, worked, 11 min (est. 35). Left: CallsAhead/moves facts for fmt's real bodies; Eq.trans chains to calc.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
