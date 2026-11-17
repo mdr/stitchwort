@@ -40,8 +40,8 @@ theorem navigateFollows ∀ (ship: Ship) (instruction: Instruction):
       match action with
         | Move heading => rewrite alongUnit ship.location heading value
         | Turn side =>
-          rewrite headingTurned (clockwiseQuarters side value) ship.facing, <- turnedClockwise side value
-            (unit ship.facing)
+          rewrite headingTurned (clockwiseQuarters side value) ship.facing,
+              <- turnedClockwise side value (unit ship.facing)
         | Forward => rewrite alongUnit ship.location ship.facing value
 
 --| Part 2's ship as the spec sees it.

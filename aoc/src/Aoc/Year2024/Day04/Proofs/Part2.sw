@@ -52,10 +52,14 @@ theorem crossesSum ∀ (above middle below: List Char) (n: Nat)
         Bool.toNat
           (masLetters (above.get c) (middle.get (1 + c)) (below.get (2 + c))
             ∧ masLetters (above.get (2 + c)) (middle.get (1 + c)) (below.get c))) :=
-      rewrite List.getZipWith3 spellsMas above (middle.drop 1) (below.drop 2) _, List.getZipWith3 spellsMas
-        (above.drop 2)
-        (middle.drop 1)
-        below _, List.getDrop middle 1 _, List.getDrop below 2 _, List.getDrop above 2 _, bothOrNone _ _, masOrNone _ _ _, masOrNone _ _ _
+      rewrite List.getZipWith3 spellsMas above (middle.drop 1) (below.drop 2) _,
+          List.getZipWith3 spellsMas (above.drop 2) (middle.drop 1) below _,
+          List.getDrop middle 1 _,
+          List.getDrop below 2 _,
+          List.getDrop above 2 _,
+          bothOrNone _ _,
+          masOrNone _ _ _,
+          masOrNone _ _ _
 
 --| With an empty row among the three, there are no crosses in them.
 theorem crossesEmpty1 ∀ (middle below: List Char): countCrosses [] middle below = 0 := byComputing
@@ -88,15 +92,20 @@ theorem programCrosses ∀ (grid: Grid):
           0) := List.sumByZipWith3 (x => x) countCrosses rows (rows.drop 1) (rows.drop 2) tall arithmetic
     _ = List.sumBy (List.range 0 tall) (r => countCrosses (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r))) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
-        rewrite List.getDrop rows 1 _, List.getDrop rows 2 _, Option.getOrElseMap3
-          (x y z => countCrosses x y z)
-          []
-          []
-          []
-          0
-          crossesEmpty1
-          crossesEmpty2
-          crossesEmpty3 _ _ _, <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [])
+        rewrite List.getDrop rows 1 _,
+            List.getDrop rows 2 _,
+            Option.getOrElseMap3
+              (x y z => countCrosses x y z)
+              []
+              []
+              []
+              0
+              crossesEmpty1
+              crossesEmpty2
+              crossesEmpty3 _ _ _,
+            <- List.getOrGet rows _ [],
+            <- List.getOrGet rows _ [],
+            <- List.getOrGet rows _ [])
     _ = List.sumBy (List.range 0 tall) (r => List.sumBy (List.range 0 wide) (c => crossRead grid r c)) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
         crossesSum (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) wide (rowFits grid r))

@@ -51,13 +51,13 @@ theorem part1Correct ∀ (grid: Grid): solvePart1 grid = part1Spec grid :=
     _ = sum2 a - sum2 k := rewrite cellRound grid.rows _ _
     _ = sum2 (r c => a r c - k r c) :=
       rewrite List.sumBySub
-        (List.range 0 grid.height)
-        (r => List.sumBy (List.range 0 grid.width) (c => a r c))
-        (r => List.sumBy (List.range 0 grid.width) (c => k r c))
-        (r =>
-          List.sumByLe (List.range 0 grid.width) (c => a r c) (c => k r c) (c =>
-            keepLe (cells r c) (window cells r c))), List.sumBySub _ (c => a _ c) (c => k _ c) (c =>
-        keepLe (cells _ c) (window cells _ c))
+            (List.range 0 grid.height)
+            (r => List.sumBy (List.range 0 grid.width) (c => a r c))
+            (r => List.sumBy (List.range 0 grid.width) (c => k r c))
+            (r =>
+              List.sumByLe (List.range 0 grid.width) (c => a r c) (c => k r c) (c =>
+                keepLe (cells r c) (window cells r c))),
+          List.sumBySub _ (c => a _ c) (c => k _ c) (c => keepLe (cells _ c) (window cells _ c))
     _ = sum2 (r c => Bool.toNat (grid.accessible cells r c)) :=
       rewrite windowIsNeighbours grid cells below right _ _, taken _ _
     _ = part1Spec grid := Eq.flipped (countPositionsSum grid (r c => grid.accessible cells r c))

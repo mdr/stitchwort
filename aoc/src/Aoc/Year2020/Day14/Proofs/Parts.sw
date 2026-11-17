@@ -49,14 +49,18 @@ theorem foldAgrees ∀ (write: Computer → Nat → Nat → Computer) (specWrite
 
 theorem writeValueAgrees: WritesAgree Computer.writeValue Spec.writeMasked := computer machine address value agrees =>
   Both byComputing (other =>
-    rewrite Map.getOrInsert computer.memory address (computer.mask.applyTo value) other 0, applyToMasked computer.mask
-        value, And.left agrees, And.right agrees other)
+    rewrite Map.getOrInsert computer.memory address (computer.mask.applyTo value) other 0,
+        applyToMasked computer.mask value,
+        And.left agrees,
+        And.right agrees other)
 
 theorem writeDecodedAgrees: WritesAgree Computer.writeDecoded Spec.writeDecoded :=
   computer machine address value agrees =>
     Both byComputing (other =>
-      rewrite Map.getOrInsertAll value other 0 (computer.mask.decode address) computer.memory, decodeContains
-          computer.mask address other, And.left agrees, And.right agrees other)
+      rewrite Map.getOrInsertAll value other 0 (computer.mask.decode address) computer.memory,
+          decodeContains computer.mask address other,
+          And.left agrees,
+          And.right agrees other)
 
 --| Part 1's answer is the spec's sum of memory, for any program.
 theorem part1Rules ∀ (program: Program): Spec.Part1 program program.valueSum :=

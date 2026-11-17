@@ -49,8 +49,10 @@ theorem sumCounts ∀ (size: Group → Nat) (count: List (List Char) → Nat)
   match lineGroups, groups, impossible with
     | [], [], all => byComputing
     | [lines, ..lineGroups], [group, ..groups], Both written rest =>
-      rewrite List.sumByCons groups group size, List.sumByCons lineGroups lines (lines => count lines.toList), each
-          lines.toList group written, sumCounts size count each lineGroups groups rest
+      rewrite List.sumByCons groups group size,
+          List.sumByCons lineGroups lines (lines => count lines.toList),
+          each lines.toList group written,
+          sumCounts size count each lineGroups groups rest
     | [], [_, .._], impossible => impossible.impossible
     | [_, .._], [], impossible => impossible.impossible
 
@@ -110,9 +112,8 @@ theorem part1Correct ∀ (input: Text) (groups: List Group)
             (Both text
               (Both linesRead
                 (Both done
-                  (rewrite part1Lines lineGroups.toList groups related, List.sumByMap lineGroups.toList
-                    (Spec.count Spec.anyone)
-                    NonEmptyList.toList))))))
+                  (rewrite part1Lines lineGroups.toList groups related,
+                      List.sumByMap lineGroups.toList (Spec.count Spec.anyone) NonEmptyList.toList))))))
 
 theorem part2Correct ∀ (input: Text) (groups: List Group)
     (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
@@ -129,6 +130,5 @@ theorem part2Correct ∀ (input: Text) (groups: List Group)
             (Both text
               (Both linesRead
                 (Both done
-                  (rewrite part2Lines lineGroups.toList groups related, List.sumByMap lineGroups.toList
-                    (Spec.count Spec.everyone)
-                    NonEmptyList.toList))))))
+                  (rewrite part2Lines lineGroups.toList groups related,
+                      List.sumByMap lineGroups.toList (Spec.count Spec.everyone) NonEmptyList.toList))))))

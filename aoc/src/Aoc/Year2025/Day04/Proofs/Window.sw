@@ -100,8 +100,10 @@ theorem peelRowCells ∀ (cells: Cells) (r c: Nat) (a x b: Vec Cell w)
             (tri a x b c + tri a x b (Succ c) + tri a x b (Succ (Succ c))) :=
           rewrite colsAt a x b c, colsAt a x b (Succ c), colsAt a x b (Succ (Succ c))
         _ = keep (cells r c) (window cells r c) :=
-          rewrite triCol cells r a x b ha hx hb c, triCol cells r a x b ha hx hb (Succ c), triCol cells r a x b ha hx hb
-            (Succ (Succ c)), hx (Succ c)
+          rewrite triCol cells r a x b ha hx hb c,
+              triCol cells r a x b ha hx hb (Succ c),
+              triCol cells r a x b ha hx hb (Succ (Succ c)),
+              hx (Succ c)
     | False =>
       -- Past the last column both sides are floor.
       rewrite Vec.getOrPast (peelRow a x b) c Floor arithmetic, <- hx (Succ c), Vec.getOrPast x c Floor arithmetic
@@ -274,8 +276,9 @@ theorem rowSumBelow ∀ (grid: Grid) (cells: Cells)
     (below: ∀ (r c: Nat) => grid.height ≤ r → cells r c = Floor) (c x: Nat)
     (hx: grid.height ≤ x):
     rowSum cells (Succ x) c = 0 :=
-  rewrite bordBelow grid cells below x hx c, bordBelow grid cells below x hx (Succ c), bordBelow grid cells below x hx
-    (Succ (Succ c))
+  rewrite bordBelow grid cells below x hx c,
+      bordBelow grid cells below x hx (Succ c),
+      bordBelow grid cells below x hx (Succ (Succ c))
 
 --| The 3 by 3 block as a sum over all the grid's positions at most 1 away.
 theorem nineSum ∀ (grid: Grid) (cells: Cells)
@@ -292,14 +295,15 @@ theorem nineSum ∀ (grid: Grid) (cells: Cells)
           (List.sumBy (List.range 0 grid.width) (y => Nat.keepIf ((cells x y).count) (near c y)))
           (near r x)) := rewrite Bool.toNatAnd _, Bool.toNatAnd _, isRollCount _, <- Nat.keepIfSumBy _
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf (rowSum cells (Succ x) c) (near r x)) :=
-      rewrite nearSum (y => (cells _ y).count) grid.width (y h => Eq.cong Cell.count (right _ y h)) c, bordRowShift
-          cells _ c, bordRowShift cells _ (Succ c), bordRowShift cells _ (Succ (Succ c))
+      rewrite nearSum (y => (cells _ y).count) grid.width (y h => Eq.cong Cell.count (right _ y h)) c,
+          bordRowShift cells _ c,
+          bordRowShift cells _ (Succ c),
+          bordRowShift cells _ (Succ (Succ c))
     _ = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=
-      rewrite nearSum
-        (x => rowSum cells (Succ x) c)
-        grid.height
-        (x h => rowSumBelow grid cells below c x h)
-        r, rowSumShift cells c r, rowSumShift cells c (Succ r), rowSumShift cells c (Succ (Succ r))
+      rewrite nearSum (x => rowSum cells (Succ x) c) grid.height (x h => rowSumBelow grid cells below c x h) r,
+          rowSumShift cells c r,
+          rowSumShift cells c (Succ r),
+          rowSumShift cells c (Succ (Succ r))
 
 --| The window by rows instead of columns.
 theorem windowRows ∀ (cells: Cells) (r c: Nat):

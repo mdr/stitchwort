@@ -816,12 +816,12 @@ theorem Map.Tree.lookupOnto ∀ [auto ord: Ord k] (key: k) (lo hi: Option k) (t:
       rewrite Map.Tree.lookupOnto key lo (Some kk) l [(kk, vv), ..Map.Tree.toListOnto r acc] wl then
         match e: Ord.compare key kk with
           | Less =>
-            rewrite Map.Tree.lookupOnto key (Some kk) hi r acc wr, Map.Tree.getAbsentLow key kk hi r wr (x =>
-              Ordering.lessNotGreater (Eq.trans e.flipped x))
+            rewrite Map.Tree.lookupOnto key (Some kk) hi r acc wr,
+                Map.Tree.getAbsentLow key kk hi r wr (x => Ordering.lessNotGreater (Eq.trans e.flipped x))
           | Equal => rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.equalNotLess (Eq.trans e.flipped x))
           | Greater =>
-            rewrite Map.Tree.getAbsentHigh key lo kk l wl (x =>
-              Ordering.greaterNotLess (Eq.trans e.flipped x)), Map.Tree.lookupOnto key (Some kk) hi r acc wr
+            rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.greaterNotLess (Eq.trans e.flipped x)),
+                Map.Tree.lookupOnto key (Some kk) hi r acc wr
 
 theorem Map.Tree.getLookup ∀ [auto ord: Ord k] (key: k) (lo hi: Option k) (t: Map.Tree k v)
     (w: Map.Tree.Within ord lo hi t):

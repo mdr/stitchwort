@@ -206,17 +206,18 @@ theorem mergeAlbumsSelf ∀ (trip: Trip)
       mergeAlbumsIs trip trip trip.legs
     _ = (trip.albums.map (album => album.startAt (settle trip.legs (locate trip.legs album.start)))).map (album =>
         keepOwned (ownerIn trip trip) album) :=
-      rewrite albumEntriesSelf trip ids, List.mapMap trip.albums
-        (entry => entry.fst.startAt (settle trip.legs entry.snd))
-        (album => (album, locate trip.legs album.start))
+      rewrite albumEntriesSelf trip ids,
+          List.mapMap trip.albums (entry => entry.fst.startAt (settle trip.legs entry.snd)) (album =>
+            (album, locate trip.legs album.start))
     _ = trip.albums.map (album => keepOwned (ownerIn trip trip) album) :=
       rewrite List.mapCongMem trip.albums
-        (album => album.startAt (settle trip.legs (locate trip.legs album.start)))
-        (album => album)
-        (album m =>
-          rewrite settleSelf trip.legs lids album.start
-                (List.memOfAll (a => within trip.legs a.start = True) trip.albums w album m) then
-            albumStartAtSame album), List.mapId trip.albums
+            (album => album.startAt (settle trip.legs (locate trip.legs album.start)))
+            (album => album)
+            (album m =>
+              rewrite settleSelf trip.legs lids album.start
+                    (List.memOfAll (a => within trip.legs a.start = True) trip.albums w album m) then
+                albumStartAtSame album),
+          List.mapId trip.albums
     _ = trip.albums.map (album => album) :=
       List.mapCongMem trip.albums (album => keepOwned (ownerIn trip trip) album) (album => album) (album m =>
         keepOwnedSelf (ownerIn trip trip) album (photo p =>
@@ -246,7 +247,11 @@ theorem mergeSelf ∀ (trip: Trip) (wf: WellFormed trip): merge trip trip = trip
     summary = mergeSummary trip trip (mergeLegs trip.legs trip.legs)
   }
   _ = rebuildTrip trip :=
-    rewrite mergeLegsSelf trip.legs wf.legIds wf.contiguous, ifSame (isBlank trip.name) trip.name, mergeStopsSelf trip
-        wf.legIds wf.stopsWithin, mergePinsSelf trip wf.legIds wf.pinsFit wf.pinsSorted, mergeAlbumsSelf trip wf.legIds
-        wf.albumIds wf.photoIdsDistinct wf.albumsWithin, mergeItinerarySelf trip.itinerary, mergeSummarySelf trip
+    rewrite mergeLegsSelf trip.legs wf.legIds wf.contiguous,
+        ifSame (isBlank trip.name) trip.name,
+        mergeStopsSelf trip wf.legIds wf.stopsWithin,
+        mergePinsSelf trip wf.legIds wf.pinsFit wf.pinsSorted,
+        mergeAlbumsSelf trip wf.legIds wf.albumIds wf.photoIdsDistinct wf.albumsWithin,
+        mergeItinerarySelf trip.itinerary,
+        mergeSummarySelf trip
   _ = trip := tripEta trip

@@ -118,12 +118,14 @@ theorem bestLengthStep ∀ (k: Nat) (d: Battery) (rest: Bank)
       = Nat.min (Succ k) (Succ rest.length) :=
   match e: Nat.leq k rest.length with
     | True =>
-      rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)), (arithmetic [
-        pickLen k (rest.length - k) rest d rest arithmetic e
-      ]: Nat.min k (List.length (Pair.snd (Bank.best.pick (rest.length - k) rest d rest))) = k)
+      rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
+          (arithmetic [pickLen k (rest.length - k) rest d rest arithmetic e]: Nat.min k
+            (List.length (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)))
+            = k)
     | False =>
-      rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)), (arithmetic: rest.length - k
-        = 0), (arithmetic: Nat.min k rest.length = rest.length)
+      rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
+          (arithmetic: rest.length - k = 0),
+          (arithmetic: Nat.min k rest.length = rest.length)
 
 --| 2. `best k bank` has k digits, or all of them if there are fewer.
 theorem bestLength ∀ (k: Nat) (bank: Bank): List.length (bank.best k) = Nat.min k bank.length := match k, bank with

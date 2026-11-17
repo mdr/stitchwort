@@ -48,9 +48,10 @@ theorem inOrderCong ∀ (precedes1 precedes2: Nat → Nat → Bool)
     | [] => byComputing
     | [page, ..later] =>
       rewrite List.allCong later
-        (laterPage => !(precedes1 laterPage page))
-        (laterPage => !(precedes2 laterPage page))
-        (laterPage => rewrite same laterPage page), inOrderCong precedes1 precedes2 same later
+            (laterPage => !(precedes1 laterPage page))
+            (laterPage => !(precedes2 laterPage page))
+            (laterPage => rewrite same laterPage page),
+          inOrderCong precedes1 precedes2 same later
 
 --| No later page is the rule's first page while this one is its second: this
 --| page isn't the rule's second page, or the first page doesn't follow it.

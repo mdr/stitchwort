@@ -66,10 +66,12 @@ theorem Result.traverseLoopDone ∀ (f: a → Result b e) (xs: List a) (done: Li
     | [x, ..xs] =>
       match e: f x with
         | Ok y =>
-          rewrite Result.traverseLoopDone f xs [y, ..done], Result.traverseLoopDone f xs [y], Result.mapMap
-            (ys => List.reverseOnto [y] ys)
-            (ys => List.reverseOnto done ys)
-            (Result.traverseLoop f [] xs)
+          rewrite Result.traverseLoopDone f xs [y, ..done],
+              Result.traverseLoopDone f xs [y],
+              Result.mapMap
+                (ys => List.reverseOnto [y] ys)
+                (ys => List.reverseOnto done ys)
+                (Result.traverseLoop f [] xs)
         | Err m => byComputing
 
 --| The step of `Result.traverse`, which the loop form hides.

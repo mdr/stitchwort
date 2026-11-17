@@ -52,22 +52,24 @@ theorem layoutContiguous ∀ (start: Nat) (items: List Item) (k: Nat)
     (List.getOr (layout start items) (Succ k) blank).start
       = (List.getOr (layout start items) k blank).start + (List.getOr items k blank).size :=
   rewrite List.getOrZipWithScanLeft
-    (offset item => offset + item.size)
-    (item offset => moveTo offset item)
-    blank
-    blank
-    items
-    start
-    (Succ k)
-    h, List.getOrZipWithScanLeft
-    (offset item => offset + item.size)
-    (item offset => moveTo offset item)
-    blank
-    blank
-    items
-    start
-    k
-    arithmetic, List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k arithmetic
+        (offset item => offset + item.size)
+        (item offset => moveTo offset item)
+        blank
+        blank
+        items
+        start
+        (Succ k)
+        h,
+      List.getOrZipWithScanLeft
+        (offset item => offset + item.size)
+        (item offset => moveTo offset item)
+        blank
+        blank
+        items
+        start
+        k
+        arithmetic,
+      List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k arithmetic
 
 -- The same placement as `mapAccumLeft`, threading the offset.
 theorem layoutMapAccum ∀ (start: Nat) (items: List Item):

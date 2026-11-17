@@ -15,13 +15,10 @@ theorem halfAtMost ∀ (n: Nat): n / 2 ≤ n := arithmetic
 
 --| The middle of an area is in it.
 theorem middleInside ∀ (area: Area): area.contains area.middle = True :=
-  rewrite Nat.leAddRight area.corner.row (area.down / 2), Nat.leAddCong area.corner.row
-    (area.down / 2)
-    area.down
-    (halfAtMost area.down), Nat.leAddRight area.corner.column (area.across / 2), Nat.leAddCong area.corner.column
-    (area.across / 2)
-    area.across
-    (halfAtMost area.across)
+  rewrite Nat.leAddRight area.corner.row (area.down / 2),
+      Nat.leAddCong area.corner.row (area.down / 2) area.down (halfAtMost area.down),
+      Nat.leAddRight area.corner.column (area.across / 2),
+      Nat.leAddCong area.corner.column (area.across / 2) area.across (halfAtMost area.across)
 
 --| The start of every level is floor: it's the middle of the entrance.
 theorem startOnFloor ∀ (level: Level): isWall level level.start = False := rewrite middleInside level.entrance

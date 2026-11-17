@@ -22,8 +22,8 @@ theorem sumByPairs ∀ (cost: k → k → Nat) (from: k) (keys: List k):
   match keys with
     | [] => byComputing
     | [to, ..rest] =>
-      rewrite List.sumByCons [to, ..rest].zipWithNext (MkPair from to) (((before, after)) =>
-        cost before after), sumByPairs cost to rest
+      rewrite List.sumByCons [to, ..rest].zipWithNext (MkPair from to) (((before, after)) => cost before after),
+          sumByPairs cost to rest
 
 --| Pressing one list then another: the second starts from the first's last key.
 theorem costFromAppend ∀ (cost: k → k → Nat) (from: k) (first second: List k):

@@ -31,9 +31,8 @@ theorem keepFirstGet ∀ (key: Changes) (found: List (Changes, Nat)) (sales: Map
               | None => byComputing
               | Some old => byComputing
         | False =>
-          rewrite later, Map.getInsertWithOther sales entry.fst entry.snd key
-            (equal => same.read equal.flipped)
-            (new old => old)
+          rewrite later,
+              Map.getInsertWithOther sales entry.fst entry.snd key (equal => same.read equal.flipped) (new old => old)
 
 --| Looking for the first place the monkey sells is looking for the first
 --| sale with that sequence.

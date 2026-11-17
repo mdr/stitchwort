@@ -39,9 +39,9 @@ theorem addRepresents ∀ (sightlines: Sightlines) (has: Position → Bool)
       let before := represents row column
       Both
         (rewrite lineAfterAdd sightlines.byRow addedRow addedColumn row column, before.left)
-        (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row, And.right before, Bool.andComm
-          (column == addedColumn)
-          (row == addedRow))
+        (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row,
+            And.right before,
+            Bool.andComm (column == addedColumn) (row == addedRow))
 
 theorem orShift ∀ (a b c: Bool): ((a || b) || c) = (b || (if a then True else c)) := cases
 

@@ -90,8 +90,8 @@ theorem roundCount ∀ (grid: Grid) (s: Cells):
   calc grid.rollCount (grid.removeAccessible s) + accCount grid s
     _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => gone x y))
         + List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => acc x y)) :=
-      rewrite countPositionsSum grid (r c => grid.removeAccessible s r c == Roll), countPositionsSum grid (r c =>
-        grid.accessible s r c)
+      rewrite countPositionsSum grid (r c => grid.removeAccessible s r c == Roll),
+          countPositionsSum grid (r c => grid.accessible s r c)
     _ = List.sumBy (List.range 0 grid.height) (x =>
         List.sumBy (List.range 0 grid.width) (y => Bool.toNat (s x y == Roll))) :=
       rewrite <- List.sumByAdd [c := Nat] _ _ _, <- List.sumByAdd [c := Nat] _ _ _, term _ _

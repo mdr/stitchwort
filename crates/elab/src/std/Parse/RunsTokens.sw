@@ -204,9 +204,10 @@ theorem Parse.runsLocatedToEndFrom ∀ (lexeme: List Char → {Parse Char} a) (s
                   rewrite moved
                 let result: [newest, ..found].reverse ++ Parse.locatedSteps middle.at.offset later
                   = found.reverse ++ Parse.locatedSteps state.at.offset [([char, ..chars], value), ..later] :=
-                  rewrite List.reverseCons newest found, List.appendAssoc found.reverse
-                    [newest]
-                    (Parse.locatedSteps middle.at.offset later), sameLength, offsetSame
+                  rewrite List.reverseCons newest found,
+                      List.appendAssoc found.reverse [newest] (Parse.locatedSteps middle.at.offset later),
+                      sameLength,
+                      offsetSame
                 Parse.runsFromMark middle
                   (finish => Parse.locatedToEndRound more lexeme found state.at value finish)
                   (Parse.joinReads later)

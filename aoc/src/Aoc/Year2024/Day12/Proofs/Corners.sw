@@ -519,10 +519,8 @@ theorem columnCorners ∀ (inside: Nat → Nat → Bool) (last column: Nat)
     rewrite concaveNoVertical (inside 0 column) (leftOf inside 0 column) (above (leftOf inside) 0 column)
   let upLeftLast: concaveUpLeft inside size column = 0 := rewrite edge
   let downRightLast: concaveDownRight inside last column = 0 :=
-    rewrite edge, concaveNoVertical
-      (inside last column)
-      (rightOf inside last column)
-      (below (rightOf inside) last column)
+    rewrite edge,
+        concaveNoVertical (inside last column) (rightOf inside last column) (below (rightOf inside) last column)
   let upRightFirst: concaveUpRight inside 0 column = 0 :=
     rewrite concaveNoVertical (inside 0 column) (rightOf inside 0 column) (above (rightOf inside) 0 column)
   let upRightLast: concaveUpRight inside size column = 0 := rewrite edge

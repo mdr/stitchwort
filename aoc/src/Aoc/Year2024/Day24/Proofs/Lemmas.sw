@@ -36,10 +36,10 @@ theorem fromBitsLow ∀ (bit: Bool) (rest: List Bool): Nat.testBit ((Bits.fromLo
 theorem fromBitsHigh ∀ (bit: Bool) (rest: List Bool) (index: Nat):
     Nat.testBit ((Bits.fromLowFirst [bit, ..rest]).value) (Succ index)
       = Nat.testBit ((Bits.fromLowFirst rest).value) index :=
-  rewrite Bits.valueFromLowFirst bit rest, Nat.testBitSucc
-    (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2)
-    index, (arithmetic [Bool.toNatLeOne bit]: (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2) / 2
-    = (Bits.fromLowFirst rest).value)
+  rewrite Bits.valueFromLowFirst bit rest,
+      Nat.testBitSucc (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2) index,
+      (arithmetic [Bool.toNatLeOne bit]: (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2) / 2
+        = (Bits.fromLowFirst rest).value)
 
 --| The bits `allSome` gives for a range: below the range's length, bit `k`
 --| of the number is what `f` gives for the range's `k`th number.

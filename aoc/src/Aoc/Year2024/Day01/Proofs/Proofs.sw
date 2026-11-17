@@ -16,8 +16,8 @@ theorem part1Correct ∀ (lists: LocationLists) (leftInOrder rightInOrder: List 
     (leftLinedUp: LinedUp lists.left leftInOrder)
     (rightLinedUp: LinedUp lists.right rightInOrder):
     solvePart1 lists = totalDistance leftInOrder rightInOrder :=
-  rewrite List.sortOfSortedNat lists.left leftInOrder leftLinedUp.increasing leftLinedUp.sameIds, List.sortOfSortedNat
-      lists.right rightInOrder rightLinedUp.increasing rightLinedUp.sameIds
+  rewrite List.sortOfSortedNat lists.left leftInOrder leftLinedUp.increasing leftLinedUp.sameIds,
+      List.sortOfSortedNat lists.right rightInOrder rightLinedUp.increasing rightLinedUp.sameIds
 
 --| So the order the ids come in makes no difference to part 1.
 theorem part1AnyOrder ∀ (lists: LocationLists) (left right: List Nat)

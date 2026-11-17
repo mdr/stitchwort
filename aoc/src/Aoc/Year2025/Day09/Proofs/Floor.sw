@@ -46,11 +46,8 @@ theorem crossesTouches ∀ (tile: Point) (line: Line)
 
 theorem isRedOrGreenNear ∀ (tiles: List Point) (tile: Point):
     isRedOrGreen (List.filter (loopLines tiles) (touchesRow tile.y)) tile = redOrGreen tiles tile :=
-  rewrite List.anyFilter (loopLines tiles) tile.isOnLine (touchesRow tile.y) (onLineTouches tile), List.countFilter
-    (loopLines tiles)
-    (crossesRightOf tile)
-    (touchesRow tile.y)
-    (crossesTouches tile)
+  rewrite List.anyFilter (loopLines tiles) tile.isOnLine (touchesRow tile.y) (onLineTouches tile),
+      List.countFilter (loopLines tiles) (crossesRightOf tile) (touchesRow tile.y) (crossesTouches tile)
 
 -- 2. The cells -------------------------------------------------------------------
 
@@ -65,9 +62,10 @@ theorem cellAt ∀ (tiles: List Point) (r c: Nat)
   let lines := loopLines tiles
   let y := List.getOr floor.rows r 0
   rewrite List.getOrMapLt floor.rows r 0 [] hr (y =>
-    Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y), List.getOrMapLt floor.columns c 0 0 hc (x =>
-    if isRedOrGreen (List.filter lines (touchesRow y)) { x, y } then 0 else 1), isRedOrGreenNear tiles
-    (keyTile floor c r)
+        Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y),
+      List.getOrMapLt floor.columns c 0 0 hc (x =>
+        if isRedOrGreen (List.filter lines (touchesRow y)) { x, y } then 0 else 1),
+      isRedOrGreenNear tiles (keyTile floor c r)
 
 --| A cell is 0 exactly when its tile is red or green.
 theorem outsideFlagZero ∀ (b: Bool) (h: outsideFlag b = 0): b = True := match b with

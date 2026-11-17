@@ -430,8 +430,11 @@ theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate wareh
           rewrite <- atRobot.read then offsetStepOpposite position Right
         Void.impossible (Bool.trueNotFalse (Eq.trans (rewrite <- leftOfRobot at boxed).flipped robotNotRight))
       | False =>
-        (rewrite atRobot, offWalls position boxed right (Inr (Inl byComputing)), noneRight position
-            boxed, offsetStepOpposite position Right, boxed: wideTile warehouse right = BoxRight)
+        (rewrite atRobot,
+            offWalls position boxed right (Inr (Inl byComputing)),
+            noneRight position boxed,
+            offsetStepOpposite position Right,
+            boxed: wideTile warehouse right = BoxRight)
   {
     forward = isLeft =>
       match atRobot: position == warehouse.robot with

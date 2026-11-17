@@ -26,8 +26,9 @@ theorem parsedCell ∀ (lines: List Text)
             (Vec.get rows i)
             (Vec.traverseOptionGet (line => Vec.ofList width (parseLine line)) (Vec.fromList lines) rows ok i)
         _ = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
-          rewrite <- Vec.getToList (Vec.fromList lines) i "", Vec.toListFromList lines, Fin.toNatOfNatLt lines.length r
-              e
+          rewrite <- Vec.getToList (Vec.fromList lines) i "",
+              Vec.toListFromList lines,
+              Fin.toNatOfNatLt lines.length r e
     | False =>
       let past: lines.length ≤ r := arithmetic
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines r "" past

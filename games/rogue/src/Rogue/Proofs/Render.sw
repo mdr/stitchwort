@@ -50,8 +50,8 @@ theorem glyphAtMonster ∀ (state: State) (position: Position) (found: Monster)
     if item.position.row == position.row then Some (item.position.column, item.loot.glyph) else None)
   match sameRow: state.player.row == position.row with
     | True =>
-      rewrite columnDiffers state.player position notPlayer sameRow, lookupMonsterMark position found items
-          state.monsters located
+      rewrite columnDiffers state.player position notPlayer sameRow,
+          lookupMonsterMark position found items state.monsters located
     | False => rewrite lookupMonsterMark position found items state.monsters located
 
 --| The character `render` draws at a cell of the level is `glyphAt` of what

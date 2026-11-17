@@ -2028,25 +2028,29 @@ impl<'a> Rules<'a> {
         Doc::concat([Doc::nest(2, relation), space, assign_doc, proof])
     }
 
-    /// `rewrite rules then body` (S36): on one line if it fits; otherwise the
+    /// `rewrite rules then body` (S36, D3668): on one line if it fits; otherwise the
     /// body below at 2, and if the rules don't fit on the `rewrite` line,
     /// one rule a line at 4 with `then` at the end of the last.
     fn rewrite(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
-        let Some(then_at) = children
+        // Without `then`, the last rule is the proof, and the rules lay out
+        // as they do before a `then` (D3668): a list that doesn't fit goes
+        // one rule a line at 4. A single rule has nothing to break between.
+        let then_at = children
             .iter()
-            .rposition(|&el| self.is_tok(el, &Tok::KwThen))
-        else {
-            return self.join(&children);
-        };
-        if then_at < 2 {
+            .rposition(|&el| self.is_tok(el, &Tok::KwThen));
+        let rules_end = then_at.unwrap_or(children.len());
+        if rules_end < 2
+            || then_at.is_some_and(|at| at < 2)
+            || (then_at.is_none() && !children[1..].iter().any(|&el| self.is_tok(el, &Tok::Comma)))
+        {
             return self.join(&children);
         }
         let keyword = self.el(children[0]);
         let mut rules = Vec::new();
         let mut current: Vec<Element> = Vec::new();
         let mut items = Vec::new();
-        for &el in &children[1..then_at] {
+        for &el in &children[1..rules_end] {
             if self.is_tok(el, &Tok::Comma) {
                 items.push((std::mem::take(&mut current), Some(el)));
             } else {
@@ -2067,9 +2071,16 @@ impl<'a> Rules<'a> {
                 rules.push(self.el(*comma));
             }
         }
+        let first_space = self.space_el(children[0], children[1]);
+        let Some(then_at) = then_at else {
+            return Doc::group(Doc::concat([
+                keyword,
+                first_space,
+                Doc::nest(4, Doc::concat(rules)),
+            ]));
+        };
         let then_doc = self.el(children[then_at]);
         let body = self.join(&children[then_at + 1..]);
-        let first_space = self.space_el(children[0], children[1]);
         let rules = Doc::group(Doc::concat([
             keyword,
             first_space,

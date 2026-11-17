@@ -73,8 +73,9 @@ theorem cellsMapCells ∀ (rows: List (List a)) (f: Position → a → b):
     cells (mapCells rows f) = (cells rows).map (((at, x)) => (at, f at x)) :=
   let toCell := (arg: ((Nat, Nat), b)) => (({ row = arg.fst.fst, column = arg.fst.snd }: Position), arg.snd)
   let toCellBefore := (arg: ((Nat, Nat), a)) => (({ row = arg.fst.fst, column = arg.fst.snd }: Position), arg.snd)
-  rewrite gridCellsMapCells rows f, List.mapMap rows.gridCells toCell (((at, x)) =>
-    (at, f { row = at.fst, column = at.snd } x)), List.mapMap rows.gridCells (((at, x)) => (at, f at x)) toCellBefore
+  rewrite gridCellsMapCells rows f,
+      List.mapMap rows.gridCells toCell (((at, x)) => (at, f { row = at.fst, column = at.snd } x)),
+      List.mapMap rows.gridCells (((at, x)) => (at, f at x)) toCellBefore
 
 --| The grid cells after `mapCells`.
 theorem gridCellsMapCells ∀ (rows: List (List a)) (f: Position → a → b):
@@ -86,22 +87,22 @@ theorem gridCellsMapCells ∀ (rows: List (List a)) (f: Position → a → b):
         (List.map (List.withIndex rows) (p =>
           rowCells p.fst (List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)))) :=
       rewrite List.withIndexFromMap 0 rows (p =>
-        List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)), List.mapMap
-        (List.withIndex rows)
-        (q => rowCells q.fst q.snd)
-        (p => (p.fst, List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)))
+            List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)),
+          List.mapMap (List.withIndex rows) (q => rowCells q.fst q.snd) (p =>
+            (p.fst, List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)))
     _ = List.concat
         (List.map (List.withIndex rows) (p =>
           List.map (rowCells p.fst p.snd) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)))) :=
       Eq.cong List.concat (List.mapCong (List.withIndex rows) _ _ (p => rowCellsMapWithIndex p.fst p.snd f))
     _ = rows.gridCells.map (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) :=
       Eq.flipped
-        (rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows), List.mapConcat
-          (List.map (List.withIndex rows) (p => rowCells p.fst p.snd))
-          (((at, x)) => (at, f { row = at.fst, column = at.snd } x)), List.mapMap
-          (List.withIndex rows)
-          (xs => List.map xs (((at, x)) => (at, f { row = at.fst, column = at.snd } x)))
-          (p => rowCells p.fst p.snd))
+        (rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows),
+            List.mapConcat (List.map (List.withIndex rows) (p => rowCells p.fst p.snd)) (((at, x)) =>
+              (at, f { row = at.fst, column = at.snd } x)),
+            List.mapMap
+              (List.withIndex rows)
+              (xs => List.map xs (((at, x)) => (at, f { row = at.fst, column = at.snd } x)))
+              (p => rowCells p.fst p.snd))
 
 --| Row r's cells, as `gridCells` makes them.
 def rowCells (r: Nat) (row: List a): List ((Nat, Nat), a) := row.withIndex |> .map (((c, cell)) => ((r, c), cell))
@@ -110,13 +111,11 @@ def rowCells (r: Nat) (row: List a): List ((Nat, Nat), a) := row.withIndex |> .m
 theorem rowCellsMapWithIndex ∀ (r: Nat) (row: List a) (f: Position → a → b):
     rowCells r (row.mapWithIndex (c cell => f { row = r, column = c } cell))
       = List.map (rowCells r row) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) :=
-  rewrite List.withIndexFromMap 0 row (q => f { row = r, column = q.fst } q.snd), List.mapMap
-    (List.withIndex row)
-    (((c, cell)) => ((r, c), cell))
-    (q => (q.fst, f { row = r, column = q.fst } q.snd)), List.mapMap
-    (List.withIndex row)
-    (((at, x)) => (at, f { row = at.fst, column = at.snd } x))
-    (((c, cell)) => ((r, c), cell))
+  rewrite List.withIndexFromMap 0 row (q => f { row = r, column = q.fst } q.snd),
+      List.mapMap (List.withIndex row) (((c, cell)) => ((r, c), cell)) (q =>
+        (q.fst, f { row = r, column = q.fst } q.snd)),
+      List.mapMap (List.withIndex row) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) (((c, cell)) =>
+        ((r, c), cell))
 
 --| No position is a cell twice.
 theorem cellPositionsDistinct ∀ (rows: List (List a)): List.Distinct ((cells rows).map Pair.fst) :=

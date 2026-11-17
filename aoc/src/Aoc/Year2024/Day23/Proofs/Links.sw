@@ -205,8 +205,9 @@ theorem hasLinksIff ∀ (network: Network) (computer: Computer):
                 Void.impossible
                   (Option.noneNotSome set
                     (rewrite Map.getMap (Map.groupBy network.bothWays Connection.one) computer (pairs =>
-                      pairs.map Connection.other |> .toList |> Set.fromList), Map.getGroupBy Connection.one computer
-                        network.bothWays, starting at found))
+                          pairs.map Connection.other |> .toList |> Set.fromList),
+                        Map.getGroupBy Connection.one computer network.bothWays,
+                        starting at found))
               | [first, ..rest] => byComputing)
             (pair kept unused =>
               match pair with

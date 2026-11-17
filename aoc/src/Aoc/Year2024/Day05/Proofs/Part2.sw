@@ -198,19 +198,16 @@ theorem part2Correct ∀ (queue: PrintQueue)
   let precedes := mustPrecede (ruleSet queue.rules)
   let wrong := (queued: Update) => !(rightOrder queue.rules queued)
   rewrite List.filterCongMem queue.updates (queued => !(inOrder precedes queued.pages)) wrong (queued isIn =>
-    rewrite inOrderCorrect queue.rules queued), List.mapCongMem
-    (queue.updates.filter wrong)
-    (.reorder precedes)
-    ordering
-    (queued isIn =>
-      match List.memFilter queue.updates wrong isIn with
-        | Both inQueue isWrong =>
-          updateExt
-            (queued.reorder precedes)
-            (ordering queued)
-            (correctOrderingUnique queue.rules queued
-              (orders queued inQueue)
+        rewrite inOrderCorrect queue.rules queued),
+      List.mapCongMem (queue.updates.filter wrong) (.reorder precedes) ordering (queued isIn =>
+        match List.memFilter queue.updates wrong isIn with
+          | Both inQueue isWrong =>
+            updateExt
               (queued.reorder precedes)
               (ordering queued)
-              (reorderCorrect queue.rules queued (orders queued inQueue))
-              (correct queued inQueue (cases))))
+              (correctOrderingUnique queue.rules queued
+                (orders queued inQueue)
+                (queued.reorder precedes)
+                (ordering queued)
+                (reorderCorrect queue.rules queued (orders queued inQueue))
+                (correct queued inQueue (cases))))

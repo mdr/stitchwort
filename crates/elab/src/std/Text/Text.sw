@@ -190,12 +190,10 @@ theorem Text.linesFromAcc ∀ (chars line: List Char) (acc: List Text):
     | [char, ..chars], line =>
       match Char.isLineFeedCode (Char.toNat char) with
         | True =>
-          rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc], Text.linesFromAcc chars [] [
-            Text.endLine line
-          ], List.reverseOntoAppend acc [Text.endLine line], List.appendAssoc
-            (List.reverseOnto acc [])
-            [Text.endLine line]
-            (Text.linesFrom [] [] chars)
+          rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc],
+              Text.linesFromAcc chars [] [Text.endLine line],
+              List.reverseOntoAppend acc [Text.endLine line],
+              List.appendAssoc (List.reverseOnto acc []) [Text.endLine line] (Text.linesFrom [] [] chars)
         | False => Text.linesFromAcc chars [char, ..line] acc
 
 theorem Text.linesFromAppend ∀ (front line: List Char) (acc: List Text) (rest: List Char):
@@ -542,13 +540,16 @@ theorem Text.stripSuffixSome ∀ (text suffix rest: Text):
             (Text.append rest suffix)
             (Eq.trans
               (Eq.flipped (List.reverseReverse (Text.toList text)))
-              (rewrite Text.stripPrefixCharsForward _ _ found, Eq.flipped (Option.someInjective h), List.reverseAppend
-                (List.reverse (Text.toList suffix))
-                chars, List.reverseReverse (Text.toList suffix))),
+              (rewrite Text.stripPrefixCharsForward _ _ found,
+                  Eq.flipped (Option.someInjective h),
+                  List.reverseAppend (List.reverse (Text.toList suffix)) chars,
+                  List.reverseReverse (Text.toList suffix))),
     backward = e =>
-      rewrite e, List.reverseAppend (Text.toList rest) (Text.toList suffix), Text.stripPrefixCharsAppend
-        (List.reverse (Text.toList rest))
-        (List.reverse (Text.toList suffix)), List.reverseReverse (Text.toList rest), Text.fromToList rest
+      rewrite e,
+          List.reverseAppend (Text.toList rest) (Text.toList suffix),
+          Text.stripPrefixCharsAppend (List.reverse (Text.toList rest)) (List.reverse (Text.toList suffix)),
+          List.reverseReverse (Text.toList rest),
+          Text.fromToList rest
   }
 
 --| `stripPrefix` as a computation on the text: if the first `prefix.length`

@@ -41,11 +41,9 @@ theorem readsPass: Parse.Reads pass PassWritten :=
           (arithmetic)
           (Both
             (arithmetic)
-            (rewrite List.appendNil columnRead, Parse.eachChars (letter 'F' 'B') rowRead row rowEach, Parse.eachChars
-              (letter 'L' 'R')
-              columnRead
-              column
-              columnEach)))))
+            (rewrite List.appendNil columnRead,
+                Parse.eachChars (letter 'F' 'B') rowRead row rowEach,
+                Parse.eachChars (letter 'L' 'R') columnRead column columnEach)))))
 
 --| Every line of the input is its pass written out.
 theorem parseWritten ∀ (input: Text) (passes: List Pass)

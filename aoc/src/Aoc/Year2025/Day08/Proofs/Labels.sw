@@ -183,10 +183,10 @@ theorem labelledMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: N
           (relabel (c.labelOf f) (c.labelOf s) (c.labelOf a) = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b))
           (o => rewrite inv.agree a b o)
           (ab =>
-            rewrite And.left ab, And.right ab, relabelFrom (c.labelOf f) (c.labelOf s), relabelTo
-              (c.labelOf f)
-              (c.labelOf s)
-              differ),
+            rewrite And.left ab,
+                And.right ab,
+                relabelFrom (c.labelOf f) (c.labelOf s),
+                relabelTo (c.labelOf f) (c.labelOf s) differ),
     labelJoined = b h =>
       rewrite movedLabel c f s n inv.stored b h then
         match g: c.labelOf b == c.labelOf f with

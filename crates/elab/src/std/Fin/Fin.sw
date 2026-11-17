@@ -164,7 +164,8 @@ theorem Fin.anyRangeFrom ∀ (q: Nat → Bool) (n s: Nat):
     | Zero => byComputing
     | Succ n =>
       rewrite Fin.anyCong _ (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i =>
-        Eq.cong q (Eq.flipped (Nat.addSucc (Fin.toNat i) s))), Fin.anyRangeFrom q n (Succ s)
+            Eq.cong q (Eq.flipped (Nat.addSucc (Fin.toNat i) s))),
+          Fin.anyRangeFrom q n (Succ s)
 
 --| `Fin.any n` on the numbers of the positions is `List.any` along `List.range 0 n`.
 theorem Fin.anyRange ∀ (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range 0 n) q :=

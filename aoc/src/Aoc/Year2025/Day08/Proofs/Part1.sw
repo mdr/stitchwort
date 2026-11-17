@@ -27,8 +27,9 @@ theorem closestFirstIsOrder ∀ (points: List Point):
     closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
   calc closestFirst points
     _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
-      rewrite List.withIndexRange points Point.origin, List.pairsMap (List.range 0 points.length) (i =>
-        (i, List.getOr points i Point.origin)), List.mapMap (List.pairs (List.range 0 points.length)) _ _
+      rewrite List.withIndexRange points Point.origin,
+          List.pairsMap (List.range 0 points.length) (i => (i, List.getOr points i Point.origin)),
+          List.mapMap (List.pairs (List.range 0 points.length)) _ _
     _ = List.map (connectionOrder points) (connectionKey points) :=
       Eq.flipped (List.sortOnMap (allPairs points.length) (connectionKey points))
 
@@ -36,11 +37,13 @@ theorem closestFirstIsOrder ∀ (points: List Point):
 theorem joinedIsJoinAll ∀ (k: Nat) (points: List Point):
     List.foldLeft (List.take (closestFirst points) k) (Circuits.separate points.length) Circuits.connect
       = joinAll (Circuits.separate points.length) (firstConnections k points) :=
-  rewrite closestFirstIsOrder points, List.takeMap (connectionOrder points) k (connectionKey points), List.foldLeftMap
-    (List.take (connectionOrder points) k)
-    (Circuits.separate points.length)
-    Circuits.connect
-    (connectionKey points)
+  rewrite closestFirstIsOrder points,
+      List.takeMap (connectionOrder points) k (connectionKey points),
+      List.foldLeftMap
+        (List.take (connectionOrder points) k)
+        (Circuits.separate points.length)
+        Circuits.connect
+        (connectionKey points)
 
 -- Every connection is between two of the boxes ------------------------------
 

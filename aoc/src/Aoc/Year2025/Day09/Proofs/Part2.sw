@@ -47,10 +47,11 @@ theorem specAreas ∀ (tiles: List Point):
     ((tiles.pairs.map Rectangle.ofPair).filter (allRedOrGreen tiles)).map Rectangle.area
       = (tiles.pairs.filter (p => allRedOrGreen tiles (Rectangle.ofPair p))).map (p =>
         Rectangle.area (Rectangle.ofPair p)) :=
-  rewrite List.filterOfMap (List.pairs tiles) (allRedOrGreen tiles) Rectangle.ofPair, List.mapMap
-    (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p)))
-    Rectangle.area
-    Rectangle.ofPair
+  rewrite List.filterOfMap (List.pairs tiles) (allRedOrGreen tiles) Rectangle.ofPair,
+      List.mapMap
+        (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p)))
+        Rectangle.area
+        Rectangle.ofPair
 
 --| The areas the program compares are the spec's.
 theorem programAreas ∀ (tiles: List Point):

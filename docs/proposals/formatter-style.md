@@ -824,6 +824,9 @@ on the `rewrite` line, each rule gets its own line at 4, with `in` at the
 end of the last. Settled: `in` at the end is what 993 lines do against 70
 that start with it [measured]; rules at 4 keep them apart from the body at
 2 (the same idea as header lines). Sample: S28's last arm.
+A `rewrite` with no `then` (its last rule is the proof) takes the same
+layout: rules that don't fit within 120 go one a line at 4, the first on the
+`rewrite` line (D3668, Matt, 17 Nov 2026); a list that fits stays on one line.
 
 **S37. Induction** (`match induct (f x) with`) is a `match` (S20, D3553).
 `docs/guide/examples/proofs.sw:115` is unchanged: its first line is 114

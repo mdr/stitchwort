@@ -105,13 +105,11 @@ theorem drivingKeysType ∀ (fit: Fitted k) (costs: Costs) (from: k) (keys: List
     | [] => byComputing
     | [to, ..rest] =>
       let route := costs.cheapestRoute (fit.keypad.routes from to)
-      rewrite List.appendAssoc
-        (route.map Arrow)
-        [Activate]
-        (drivingKeys fit.keypad costs to rest), operateArrows fit.rows (fit.keypad.place from) route [
-        Activate,
-        ..drivingKeys fit.keypad costs to rest
-      ], fit.cheapestWalks costs from to, fit.onKey to, drivingKeysType fit costs to rest
+      rewrite List.appendAssoc (route.map Arrow) [Activate] (drivingKeys fit.keypad costs to rest),
+          operateArrows fit.rows (fit.keypad.place from) route [Activate, ..drivingKeys fit.keypad costs to rest],
+          fit.cheapestWalks costs from to,
+          fit.onKey to,
+          drivingKeysType fit costs to rest
 
 --| Your presses passed through `robots` robots on directional keypads.
 def throughRobots: (robots: Nat) → List DirectionKey → Option (List DirectionKey)

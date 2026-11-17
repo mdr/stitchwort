@@ -437,10 +437,11 @@ theorem chainOf ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: 
                   (steps ++ [rightStep])
                   (Both
                     (rewrite chainFoldSnoc start
-                      ([' ', Spec.symbol operator, ' '] ++ rightRead)
-                      (Operator.node operator)
-                      right
-                      steps, <- made)
+                          ([' ', Spec.symbol operator, ' '] ++ rightRead)
+                          (Operator.node operator)
+                          right
+                          steps,
+                        <- made)
                     (Both
                       (rewrite joinReadsSnoc
                             ([' ', Spec.symbol operator, ' '] ++ rightRead)
@@ -722,13 +723,15 @@ theorem parseComplete ∀ (input: Text) (precedence: Precedence) (strengthOf: Op
     (means: List.All2 (Spec.Means strengthOf) (input.lines.map Text.toList) expressions):
     Fail.toResult (() => parseHomework input precedence) = Ok ({ expressions }: Homework) :=
   rewrite Fail.toResultThen (() => Parse.eachLine input (() => precedence.expression)) (expressions =>
-    ({ expressions }: Homework)), Parse.runsEachLine input
-    (() => precedence.expression)
-    expressions
-    (List.all2Weaken
-      (read expression (Both written follows) =>
-        runsExpression precedence.levels strengthOf exact read [] expression written follows (stopNil strengthOf)) _ _
-      means)
+        ({ expressions }: Homework)),
+      Parse.runsEachLine input
+        (() => precedence.expression)
+        expressions
+        (List.all2Weaken
+          (read expression (Both written follows) =>
+            runsExpression precedence.levels strengthOf exact read [] expression written follows
+              (stopNil strengthOf)) _ _
+          means)
 
 --| Lines that each mean one expression mean one list of them.
 theorem linesUnique ∀ (all: List (List Operator)) (strengthOf: Operator → Nat)
@@ -740,8 +743,8 @@ theorem linesUnique ∀ (all: List (List Operator)) (strengthOf: Operator → Na
   match lines, ones, others, none, alsoNone with
     | [], [], [], none, alsoNone => byComputing
     | [line, ..lines], [one, ..ones], [other, ..others], Both means rest, Both alsoMeans alsoRest =>
-      rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll
-          lines ones others rest alsoRest
+      rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans,
+          linesUnique all strengthOf exactAll lines ones others rest alsoRest
     | [], [], [other, ..others], none, alsoNone => alsoNone.impossible
     | [], [one, ..ones], others, none, alsoNone => none.impossible
     | [line, ..lines], [], others, none, alsoNone => none.impossible

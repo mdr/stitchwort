@@ -16,8 +16,7 @@ theorem iterateWrap ∀ (size: Nat) (distance: Int) (step: Nat → Nat)
     | Succ times =>
       let ok: size ≠ 0 := arithmetic
       let stepInside: step x < size := rewrite wraps x inside then Int.modNatLt (x.toInt + distance) size [ok := ok]
-      rewrite iterateWrap size distance step wraps times (step x) stepInside, wraps x inside, Int.modNatModAdd
-        (x.toInt + distance)
-        (times.toInt * distance)
-        size
-        [ok := ok], (algebra: x.toInt + distance + times.toInt * distance = x.toInt + (Succ times).toInt * distance)
+      rewrite iterateWrap size distance step wraps times (step x) stepInside,
+          wraps x inside,
+          Int.modNatModAdd (x.toInt + distance) (times.toInt * distance) size [ok := ok],
+          (algebra: x.toInt + distance + times.toInt * distance = x.toInt + (Succ times).toInt * distance)

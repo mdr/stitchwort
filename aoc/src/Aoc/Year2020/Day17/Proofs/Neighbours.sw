@@ -40,11 +40,10 @@ theorem countWithin1 ∀ (xs ys: List Int): (within1 xs).count (== ys) = Bool.to
     | [], [] => byComputing
     | [], [y, ..ys] => byComputing
     | [x, ..xs], [] =>
-      rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== []) [
-        x - 1,
-        x,
-        x + 1
-      ], countPrefixedNil (x - 1) (within1 xs), countPrefixedNil x (within1 xs), countPrefixedNil (x + 1) (within1 xs)
+      rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== []) [x - 1, x, x + 1],
+          countPrefixedNil (x - 1) (within1 xs),
+          countPrefixedNil x (within1 xs),
+          countPrefixedNil (x + 1) (within1 xs)
     | [x, ..xs], [y, ..ys] =>
       rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== [y, ..ys]) [x - 1, x, x + 1],
           countPrefixed (x - 1) (within1 xs) y ys,

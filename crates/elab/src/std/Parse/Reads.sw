@@ -1041,10 +1041,9 @@ theorem Parse.readsManyFrom ∀ [inv: Parse.Invariant t] (p: () → {Parse t} a)
                             (Witness
                               [v, ..more2]
                               (Both
-                                (rewrite same, List.reverseCons v found, List.appendAssoc
-                                  (List.reverse found)
-                                  [v]
-                                  more2)
+                                (rewrite same,
+                                    List.reverseCons v found,
+                                    List.appendAssoc (List.reverse found) [v] more2)
                                 (Witness read1 (Witness read2 (Both byComputing (Both holds1 each2))))))))
                 | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
         | Inr (Witness middle (Both back rest)) =>

@@ -46,12 +46,12 @@ theorem seatIdSpec ∀ (pass: Pass)
     rewrite List.lengthMap pass.row (letter 'F' 'B') then rows
   let columnLetters: (pass.column.map (letter 'L' 'R')).length = 3 :=
     rewrite List.lengthMap pass.column (letter 'L' 'R') then columns
-  rewrite List.lengthAppend
-    (pass.row.map (letter 'F' 'B'))
-    (pass.column.map (letter 'L' 'R')), rowLetters, columnLetters, List.takeAppendLength _
-    (pass.column.map (letter 'L' 'R'))
-    7
-    rowLetters, List.dropAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters, narrowBits 'F' 'B' byComputing
-      pass.row 0 127
-      (rewrite rows), narrowBits 'L' 'R' byComputing pass.column 0 7 (rewrite columns), Nat.fromBitsAppend pass.row
-      pass.column, columns
+  rewrite List.lengthAppend (pass.row.map (letter 'F' 'B')) (pass.column.map (letter 'L' 'R')),
+      rowLetters,
+      columnLetters,
+      List.takeAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters,
+      List.dropAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters,
+      narrowBits 'F' 'B' byComputing pass.row 0 127 (rewrite rows),
+      narrowBits 'L' 'R' byComputing pass.column 0 7 (rewrite columns),
+      Nat.fromBitsAppend pass.row pass.column,
+      columns

@@ -45,10 +45,13 @@ theorem suitsRound ∀ (alignment: Alignment) (bus: Bus) (periods: Nat):
     = (alignment.time + periods % bus.id * alignment.period + bus.offset)
       + (periods / bus.id * alignment.period) * bus.id :=
     algebra [alignment.period * split]
-  rewrite suitsMod alignment bus periods, suitsMod alignment bus (periods % bus.id), moved, Nat.modAddMul
-    (alignment.time + periods % bus.id * alignment.period + bus.offset)
-    (periods / bus.id * alignment.period)
-    bus.id
+  rewrite suitsMod alignment bus periods,
+      suitsMod alignment bus (periods % bus.id),
+      moved,
+      Nat.modAddMul
+        (alignment.time + periods % bus.id * alignment.period + bus.offset)
+        (periods / bus.id * alignment.period)
+        bus.id
 
 theorem suitsTrue ∀ (alignment: Alignment) (bus: Bus) (periods: Nat)
     (h: suits alignment bus periods = True):
@@ -75,10 +78,10 @@ theorem suitsMultiple ∀ (alignment: Alignment) (bus: Bus) (p q d: Nat)
     suits alignment bus (p + q * d) = suits alignment bus p :=
   let x := alignment.time + p * alignment.period + bus.offset
   let moved: alignment.time + (p + q * d) * alignment.period + bus.offset = x + q * (d * alignment.period) := algebra
-  rewrite suitsMod alignment bus (p + q * d), suitsMod alignment bus p, moved, Nat.modAddOfModZero x
-    (q * (d * alignment.period))
-    bus.id
-    (Nat.modMulOfModZero q (d * alignment.period) bus.id h)
+  rewrite suitsMod alignment bus (p + q * d),
+      suitsMod alignment bus p,
+      moved,
+      Nat.modAddOfModZero x (q * (d * alignment.period)) bus.id (Nat.modMulOfModZero q (d * alignment.period) bus.id h)
 
 theorem stepDescribes ∀ [fits: Nat → Prop] [alignment: Alignment] (bus: Bus)
     (described: Describes fits alignment) (first: Nat)

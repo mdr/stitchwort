@@ -38,10 +38,10 @@ theorem drivingKeysCost ∀ (keypad: Keypad k) (costs: Costs) (from: k) (keys: L
     | [] => byComputing
     | [to, ..rest] =>
       let route := costs.cheapestRoute (keypad.routes from to)
-      rewrite costFromAppend costs Activate
-        (routeKeys route)
-        (drivingKeys keypad costs to rest), lastFromAppendOne Activate (route.map Arrow) Activate, drivingKeysCost
-          keypad costs to rest, <- sequenceCostFrom costs (routeKeys route)
+      rewrite costFromAppend costs Activate (routeKeys route) (drivingKeys keypad costs to rest),
+          lastFromAppendOne Activate (route.map Arrow) Activate,
+          drivingKeysCost keypad costs to rest,
+          <- sequenceCostFrom costs (routeKeys route)
 
 --| Tabulating changes no cost.
 theorem tabulateSame ∀ (costs: Costs) (from to: DirectionKey): costs.tabulate from to = costs from to := cases

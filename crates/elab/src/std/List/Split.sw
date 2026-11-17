@@ -203,8 +203,9 @@ theorem List.splitGroupsAppendSeparators ∀ (ys: List a) (p: a → Bool)
   match xs with
     | [] => List.splitGroupsSeparators ys p h
     | [x, ..xs] =>
-      rewrite List.splitGroupsCons (List.append xs ys) x p, List.splitGroupsCons xs x
-          p, List.splitGroupsAppendSeparators ys p h xs
+      rewrite List.splitGroupsCons (List.append xs ys) x p,
+          List.splitGroupsCons xs x p,
+          List.splitGroupsAppendSeparators ys p h xs
 
 --| Separators on the end change no group: `[1, 0, 0]` splits as `[1]` does.
 theorem List.splitByAppendSeparators ∀ (xs: List a) (p: a → Bool) (ys: List a)
@@ -249,13 +250,9 @@ theorem List.splitGroupsOpen ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bo
           | True =>
             rewrite List.splitStepSep (f s) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p), Nat.subSelf s
           | False =>
-            rewrite List.splitStepJoin
-              (f s)
-              (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p), Nat.subSuccRight s
-              (Nat.firstFrom sep (Succ m) (Succ s))
-              (Nat.firstFromAtLeast sep (Succ m) (Succ s)), List.splitGroupsOpen p f sep hsep m
-              (Succ s)
-              (rewrite <- Nat.addSucc s m then e)
+            rewrite List.splitStepJoin (f s) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p),
+                Nat.subSuccRight s (Nat.firstFrom sep (Succ m) (Succ s)) (Nat.firstFromAtLeast sep (Succ m) (Succ s)),
+                List.splitGroupsOpen p f sep hsep m (Succ s) (rewrite <- Nat.addSucc s m then e)
 
 --| The run of positions from `lo` up to the first separator, looking no
 --| further than `n`.
@@ -303,23 +300,21 @@ theorem List.splitGroupsDone ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bo
               Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
           match h: sep s with
             | True =>
-              rewrite List.splitStepSep
-                (f s)
-                (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p), List.splitGroupsOpen p f sep hsep m
-                (Succ s)
-                (rewrite <- Nat.addSucc s m then e), List.closeRunSum g
-                (Pair.snd (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))
-                m
-                (Succ s)
-                f
-                sep, List.splitGroupsDone p f sep hsep g m (Succ s) (rewrite <- Nat.addSucc s m then e), Bool.andTrue
-                (¬(sep (Succ s))), Nat.addSubLeft s m
+              rewrite List.splitStepSep (f s) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p),
+                  List.splitGroupsOpen p f sep hsep m (Succ s) (rewrite <- Nat.addSucc s m then e),
+                  List.closeRunSum g
+                    (Pair.snd (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))
+                    m
+                    (Succ s)
+                    f
+                    sep,
+                  List.splitGroupsDone p f sep hsep g m (Succ s) (rewrite <- Nat.addSucc s m then e),
+                  Bool.andTrue (¬(sep (Succ s))),
+                  Nat.addSubLeft s m
             | False =>
-              rewrite List.splitStepJoin
-                (f s)
-                (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p), List.splitGroupsDone p f sep hsep g m
-                (Succ s)
-                (rewrite <- Nat.addSucc s m then e), Bool.andFalse (¬(sep (Succ s)))
+              rewrite List.splitStepJoin (f s) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p),
+                  List.splitGroupsDone p f sep hsep g m (Succ s) (rewrite <- Nat.addSucc s m then e),
+                  Bool.andFalse (¬(sep (Succ s)))
         _ = List.sumBy (List.rangeFrom (Succ m) s) (c =>
             Nat.keepIf (g (List.runAt f sep (s + Succ m) (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
           Eq.flipped
@@ -335,13 +330,10 @@ theorem List.splitByStarts ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bool
     List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)
       = Nat.keepIf (g (List.runAt f sep n 0)) (¬(sep 0))
         + List.sumBy (List.range 0 n) (c => Nat.keepIf (g (List.runAt f sep n (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
-  rewrite List.finishGroupsClose (List.splitGroups (List.map (List.rangeFrom n 0) f) p), List.splitGroupsOpen p f sep
-      hsep n 0 end, List.closeRunSum g
-    (Pair.snd (List.splitGroups (List.map (List.rangeFrom n 0) f) p))
-    n
-    0
-    f
-    sep, List.splitGroupsDone p f sep hsep g n 0 end
+  rewrite List.finishGroupsClose (List.splitGroups (List.map (List.rangeFrom n 0) f) p),
+      List.splitGroupsOpen p f sep hsep n 0 end,
+      List.closeRunSum g (Pair.snd (List.splitGroups (List.map (List.rangeFrom n 0) f) p)) n 0 f sep,
+      List.splitGroupsDone p f sep hsep g n 0 end
 
 --| Whether the positions `lo` to `hi - 1` are a maximal run of positions that aren't separators.
 --| That is, the one before it is a separator (or lo is 0), it isn't empty,
@@ -506,10 +498,8 @@ theorem List.runStarts ∀ (sep: Nat → Bool) (r: Nat → Nat) (n: Nat)
           List.sumByCons (List.rangeFrom n 1) 0 (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
         _ = Nat.keepIf (r 0) (¬(sep 0))
             + List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) :=
-          rewrite Bool.andTrue (¬(sep 0)), List.sumByRangeShift
-            (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
-            n
-            0
+          rewrite Bool.andTrue (¬(sep 0)),
+              List.sumByRangeShift (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1)))) n 0
         _ = Nat.keepIf (r 0) (¬(sep 0))
             + (List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) + 0) :=
           rewrite Nat.addZero (List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)))

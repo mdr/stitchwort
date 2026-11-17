@@ -31,7 +31,7 @@ theorem part1Complete ∀ (bag: Bag) (answer: Nat) (spec: Part1 bag.adapters ans
   rewrite deviceOfHighest bag highest high then
     match f: (bag.chain (highest + 3)).fits with
       | True =>
-        rewrite counted, isSort, <- differencesCount
-          [0, ..bag.adapters.sort, highest + 3]
-          1
-          (arithmetic), <- differencesCount [0, ..bag.adapters.sort, highest + 3] 3 (arithmetic)
+        rewrite counted,
+            isSort,
+            <- differencesCount [0, ..bag.adapters.sort, highest + 3] 1 (arithmetic),
+            <- differencesCount [0, ..bag.adapters.sort, highest + 3] 3 (arithmetic)

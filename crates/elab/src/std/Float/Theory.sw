@@ -773,8 +773,10 @@ theorem Float.Theory.scaleLess ∀ (x t1 d1 t2 d2: Nat)
 theorem Float.Theory.distScale ∀ (u t1 d1 t2 d2: Nat)
     (e: t1 * d2 = t2 * d1):
     Nat.absDiff (u * d1) t1 * d2 = Nat.absDiff (u * d2) t2 * d1 :=
-  rewrite Float.Theory.absDiffMul (u * d1) t1 d2, Float.Theory.absDiffMul (u * d2) t2 d1, e, (algebra: u * d1 * d2
-    = u * d2 * d1)
+  rewrite Float.Theory.absDiffMul (u * d1) t1 d2,
+      Float.Theory.absDiffMul (u * d2) t2 d1,
+      e,
+      (algebra: u * d1 * d2 = u * d2 * d1)
 
 theorem Float.Theory.leAcross ∀ (a b c d k1 k2: Nat)
     (p1: 0 < k1)

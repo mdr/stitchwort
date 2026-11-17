@@ -22,8 +22,12 @@ theorem testBitZero ∀ (n: Nat): n.testBit 0 = (n % 2 == 1) := rewrite Nat.shif
 --| The lowest bit of a sum of two numbers and a carry.
 theorem lowSumBit ∀ (x y: Nat) (carry: Bool):
     Nat.testBit (x + y + carry.toNat) 0 = ((x.testBit 0).xor (y.testBit 0)).xor carry :=
-  rewrite testBitZero (x + y + carry.toNat), testBitZero x, testBitZero y, Nat.oddSum (x + y) carry.toNat, Nat.oddSum x
-      y, Bool.toNatOdd carry
+  rewrite testBitZero (x + y + carry.toNat),
+      testBitZero x,
+      testBitZero y,
+      Nat.oddSum (x + y) carry.toNat,
+      Nat.oddSum x y,
+      Bool.toNatOdd carry
 
 --| Half the sum of two bits and a carry is the carry out.
 theorem halfBits ∀ (a b: Nat) (carry: Bool)

@@ -40,16 +40,11 @@ theorem countWithout ∀ (p: Nat → Bool) (n v: Nat)
     (hv: p v = True)
     (vn: v < n):
     List.occurrences (List.range 0 n) p = List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == v)) + 1 :=
-  rewrite List.occurrencesSplit (List.range 0 n) v p, countOne
-    (b => p b ∧ (b == v))
-    n
-    v
-    (rewrite hv, DecEq.refl v)
-    vn
-    (b h =>
-      match e: b == v with
-        | True => e.read
-        | False => cases)
+  rewrite List.occurrencesSplit (List.range 0 n) v p,
+      countOne (b => p b ∧ (b == v)) n v (rewrite hv, DecEq.refl v) vn (b h =>
+        match e: b == v with
+          | True => e.read
+          | False => cases)
 
 --| Two numbers below n that pass p, when only one does, are the same.
 theorem onlyOne ∀ (p: Nat → Bool) (n: Nat)
@@ -263,13 +258,8 @@ theorem lastJoinFinds ∀ (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (d
               let notYet: ¬(OneCircuit n done) := one => before (rewrite List.appendNil done then one)
               let some: 0 < n := match n with
                 | Succ m => byComputing
-              rewrite countAboveOne n done c inv counted notYet, countOneOf n
-                (List.append done [(f, s)])
-                (c.join f s)
-                inv2
-                counted2
-                some
-                after
+              rewrite countAboveOne n done c inv counted notYet,
+                  countOneOf n (List.append done [(f, s)]) (c.join f s) inv2 counted2 some after
             | Succ k =>
               -- A later connection: after this one, not yet one circuit.
               let moreAfter: ∀ (e: (Nat, Nat)) => List.Mem e (List.append done [(f, s)])
@@ -307,16 +297,17 @@ theorem allOrderInRange ∀ (points: List Point): List.all (connectionOrder poin
 theorem part2Correct ∀ (points: List Point) (k: Nat)
     (last: LastNeeded points k):
     solvePart2 (Boxes.of points) = Some (xProduct points (connectionAt points k)) :=
-  rewrite closestFirstIsOrder points, lastJoinFinds points
-    (connectionOrder points)
-    k
-    []
-    (Circuits.separate points.length)
-    (labelledAtStart points.length)
-    (countedAtStart points.length)
-    (allOrderInRange points)
-    last.left
-    last.right
+  rewrite closestFirstIsOrder points,
+      lastJoinFinds points
+        (connectionOrder points)
+        k
+        []
+        (Circuits.separate points.length)
+        (labelledAtStart points.length)
+        (countedAtStart points.length)
+        (allOrderInRange points)
+        last.left
+        last.right
 
 --| With fewer than two boxes, they start in one circuit and there is no answer.
 theorem part2NoBoxesToJoin ∀ (points: List Point) (h: points.length ≤ 1): solvePart2 (Boxes.of points) = None :=

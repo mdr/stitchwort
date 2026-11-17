@@ -161,9 +161,13 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
                               (Both empty
                                 (Both zeroLeft
                                   (Both
-                                    (rewrite valueSame, List.reverseCons newest found, List.appendAssoc found.reverse
-                                      [newest]
-                                      (Parse.locatedSteps middle.at.offset steps), sameLength, offsetSame)
+                                    (rewrite valueSame,
+                                        List.reverseCons newest found,
+                                        List.appendAssoc found.reverse
+                                          [newest]
+                                          (Parse.locatedSteps middle.at.offset steps),
+                                        sameLength,
+                                        offsetSame)
                                     (Both nonEmpty (Both (rewrite <- joined, <- starts1 then holds1) lexemes))))))
 
 --| `locatedToEnd lexeme` succeeded, from an honest state where `inv` holds

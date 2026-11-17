@@ -32,8 +32,9 @@ theorem versionSumsTotal ∀ (packets: List Packet): versionSums packets = (pack
   match packets with
     | [] => byComputing
     | [packet, ..rest] =>
-      rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf, versionSumTotal
-          packet, versionSumsTotal rest
+      rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf,
+          versionSumTotal packet,
+          versionSumsTotal rest
 
 --| Part 1, for every packet.
 theorem part1Correct ∀ (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet

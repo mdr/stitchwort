@@ -15,8 +15,10 @@ theorem somePairInjective ∀ [x1: a] [y1: b] [x2: a] [y2: b] (h: Some (x1, y1) 
 theorem BitReader.readAppend ∀ (field rest: List Bool) (width: Nat)
     (length: field.length = width):
     BitReader.read { unread = field ++ rest } width = Some ({ bits = field }, { unread = rest }) :=
-  rewrite List.takeAppendLength field rest width length, List.dropAppendLength field rest width
-      length, length, DecEq.refl width
+  rewrite List.takeAppendLength field rest width length,
+      List.dropAppendLength field rest width length,
+      length,
+      DecEq.refl width
 
 --| What a read takes is the front of the unread bits, in the width asked.
 theorem BitReader.readSome ∀ (reader: BitReader) (width: Nat) (field: Bits) (rest: BitReader)
@@ -35,8 +37,8 @@ theorem BitReader.readSome ∀ (reader: BitReader) (width: Nat) (field: Bits) (r
 theorem BitReader.readNumberAppend ∀ (width n: Nat) (rest: List Bool)
     (small: n < Nat.pow 2 width):
     BitReader.readNumber { unread = Nat.toBits width n ++ rest } width = Some (n, { unread = rest }) :=
-  rewrite BitReader.readAppend (Nat.toBits width n) rest width (Nat.toBitsLength width n), Nat.fromBitsToBits width n
-      small
+  rewrite BitReader.readAppend (Nat.toBits width n) rest width (Nat.toBitsLength width n),
+      Nat.fromBitsToBits width n small
 
 --| What a read takes spells a number that fits the width: the unread bits
 --| start with the number in that many bits.
