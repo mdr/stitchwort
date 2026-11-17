@@ -462,9 +462,19 @@ impl Printer {
                             .iter()
                             .find(|option| {
                                 if let Doc::OneLineBelow(inner) = option {
+                                    let below = Measure {
+                                        modes: &BTreeMap::new(),
+                                        width: self.width,
+                                        suffix: false,
+                                        line_indent: indent + 2,
+                                        flat_break: false,
+                                        held: 0,
+                                    };
                                     return fits_flat(
                                         inner,
+                                        indent + 2,
                                         self.width as isize - indent as isize - 2,
+                                        &below,
                                     );
                                 }
                                 self.fits_here(
@@ -491,6 +501,8 @@ impl Printer {
             width: self.width,
             suffix: !self.suffixes.is_empty(),
             line_indent: self.line_indent,
+            flat_break: false,
+            held: self.held_spaces,
         };
         fits_in(next, rest, left, &at)
     }
@@ -600,21 +612,6 @@ impl Printer {
     }
 }
 
-/// Whether `next`, then the rest of the work list `rest` (from its top),
-/// fits in `left` columns up to the first line break the work would make.
-/// Groups are measured in the mode of what holds them unless they must
-/// break, as Prettier's `fits` does: a group that won't fit flat breaks at
-/// its first line, so measuring up to there is enough.
-fn fits(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, modes: &BTreeMap<u32, Mode>) -> bool {
-    let at = Measure {
-        modes,
-        width: usize::MAX / 2,
-        suffix: false,
-        line_indent: 0,
-    };
-    fits_in(next, rest, left, &at)
-}
-
 /// Where a measure starts.
 struct Measure<'m> {
     /// How each [`Doc::IdGroup`] printed.
@@ -626,9 +623,18 @@ struct Measure<'m> {
     suffix: bool,
     /// The indentation of the line being measured.
     line_indent: usize,
+    /// A flat line break after the waiting comment has been measured: code
+    /// that follows would start a line.
+    flat_break: bool,
+    /// Spaces already held back after it.
+    held: usize,
 }
 
-/// [`fits`], from `at`.
+/// Whether `next`, then the rest of the work list `rest` (from its top),
+/// fits in `left` columns up to the first line break the work would make.
+/// Groups are measured in the mode of what holds them unless they must
+/// break, as Prettier's `fits` does: a group that won't fit flat breaks at
+/// its first line, so measuring up to there is enough.
 fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) -> bool {
     let (modes, width) = (at.modes, at.width);
     let mut left = left as isize;
@@ -649,7 +655,13 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
     // the last item of a bracket fits as one after its closer does
     // (rule N, crate::tidy).
     let mut suffix = at.suffix;
-    let mut flat_break = false;
+    let mut flat_break = at.flat_break;
+    // The indentation of the line being measured: a comment break starts
+    // a new line, which the next comment break is deeper than.
+    let mut line_indent = at.line_indent;
+    // Spaces held after the waiting comment, which the printer writes if a
+    // closer follows and drops at a comment break.
+    let mut held = at.held;
     loop {
         let Some((indent, mode, doc)) = stack.pop() else {
             match rest.next() {
@@ -673,19 +685,23 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 }
             }
             Doc::Text(text, width) => {
-                if suffix
-                    && !text
-                        .chars()
-                        .all(|c| matches!(c, ')' | ']' | '}' | ',' | ' '))
-                {
-                    if flat_break {
-                        return false;
+                if suffix {
+                    if text.chars().all(|c| c == ' ') {
+                        // Held back: written only before a closer.
+                        held += *width;
+                        continue;
                     }
-                    suffix = false;
-                    left = at.width as isize - indent.max(at.line_indent + 2) as isize;
-                } else if suffix && text.chars().all(|c| c == ' ') {
-                    // Held back, and dropped at a comment break.
-                    continue;
+                    if text.chars().all(|c| matches!(c, ')' | ']' | '}' | ',')) {
+                        left -= std::mem::take(&mut held) as isize;
+                    } else {
+                        if flat_break {
+                            return false;
+                        }
+                        suffix = false;
+                        held = 0;
+                        line_indent = indent.max(line_indent + 2);
+                        left = at.width as isize - line_indent as isize;
+                    }
                 }
                 left -= *width as isize;
             }
@@ -735,7 +751,17 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 if mode == Mode::Break {
                     // Only the first item is sure to be on this line; the
                     // separator after it may break.
-                    return items.first().is_none_or(|first| fits_flat(first, left));
+                    let here = Measure {
+                        modes: &BTreeMap::new(),
+                        width,
+                        suffix,
+                        line_indent,
+                        flat_break,
+                        held,
+                    };
+                    return items
+                        .first()
+                        .is_none_or(|first| fits_flat(first, indent, left, &here));
                 } else {
                     for (k, item) in items.iter().enumerate().rev() {
                         stack.push((indent, mode, item));
@@ -761,7 +787,8 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 }
                 if suffix {
                     suffix = false;
-                    left = at.width as isize - indent.max(at.line_indent + 2) as isize;
+                    line_indent = indent.max(line_indent + 2);
+                    left = at.width as isize - line_indent as isize;
                 }
                 let (first, last) = match (text.split_once('\n'), text.rsplit_once('\n')) {
                     (Some((first, _)), Some((_, last))) => (first, last),
@@ -782,15 +809,10 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
     }
 }
 
-/// Whether `doc`, printed flat, fits in `left` columns.
-fn fits_flat(doc: &Doc, left: isize) -> bool {
-    left >= 0
-        && fits(
-            &[Cmd::Doc(0, Mode::Flat, doc)],
-            &[],
-            left as usize,
-            &BTreeMap::new(),
-        )
+/// Whether `doc`, printed flat at indentation `indent`, fits in `left`
+/// columns, measured from `at`.
+fn fits_flat(doc: &Doc, indent: usize, left: isize, at: &Measure<'_>) -> bool {
+    left >= 0 && fits_in(&[Cmd::Doc(indent, Mode::Flat, doc)], &[], left as usize, at)
 }
 
 /// `text` with every line after the first moved right by `shift` columns
@@ -1034,5 +1056,63 @@ mod tests {
         // At the start of a line, the line moves there.
         let doc = Doc::concat([t("[x"), Doc::HardLine, comments, Doc::HardLine, t("]")]);
         assert_eq!(print(&doc, 120).text, "[x\n  -- c\n]");
+    }
+
+    /// A choice between `option` and a short `alt`: the measure decides.
+    fn choice(option: Doc) -> Doc {
+        Doc::Choice(vec![option, t("alt")])
+    }
+
+    #[test]
+    fn a_second_comment_break_is_measured_from_the_line_the_first_made() {
+        // The first break puts `b` at 2, the second `c` at 4: 4 + 117 > 120.
+        let c = "c".repeat(117);
+        let option = Doc::concat([
+            t("a"),
+            Doc::LineSuffix("-- 1".into()),
+            t("b"),
+            Doc::LineSuffix("-- 2".into()),
+            t(&c),
+        ]);
+        assert_eq!(print(&choice(option), 120).text, "alt");
+    }
+
+    #[test]
+    fn a_fill_item_is_measured_with_the_real_width() {
+        // After the comment break `y` starts at 2: 2 + 119 > 120. (The
+        // break is inside the first item of a fill, measured on its own.)
+        let y = "y".repeat(119);
+        let option = Doc::Fill(vec![Doc::concat([
+            t("a"),
+            Doc::LineSuffix("-- c".into()),
+            t(&y),
+        ])]);
+        assert_eq!(print(&choice(option), 120).text, "alt");
+    }
+
+    #[test]
+    fn a_fill_item_is_measured_with_the_comment_that_waits() {
+        // The comment waits when the fill's first item is measured, so the
+        // item starts a line at 2: 2 + 119 > 120.
+        let y = "y".repeat(119);
+        let doc = Doc::concat([
+            t("x"),
+            Doc::LineSuffix("-- c".into()),
+            choice(Doc::Fill(vec![t(&y)])),
+        ]);
+        assert_eq!(print(&doc, 120).text, "x -- c\n  alt");
+    }
+
+    #[test]
+    fn spaces_held_before_a_closer_after_a_comment_count_in_the_measure() {
+        // The printer writes the two spaces before the `}`: 4 + 2 + 1 > 5.
+        let option = Doc::concat([
+            t("aaaa"),
+            Doc::LineSuffix("-- c".into()),
+            t(" "),
+            t(" "),
+            t("}"),
+        ]);
+        assert_eq!(print(&choice(option), 5).text, "alt");
     }
 }
