@@ -5215,4 +5215,4 @@ test "Float.sterbenz" :=
   Float.Theory.units (0.3 - 0.2) == Int.sub (Float.Theory.units 0.3) (Float.Theory.units 0.2)
     ∧ Float.Theory.units (359.9 - 180.0) == Int.sub (Float.Theory.units 359.9) (Float.Theory.units 180.0)
     ∧ Float.Theory.units (1e-310 - 6e-311) == Int.sub (Float.Theory.units 1e-310) (Float.Theory.units 6e-311)
-    ∧ ¬(Float.Theory.units (0.3 - 0.1) == Int.sub (Float.Theory.units 0.3) (Float.Theory.units 0.1))
+    ∧ ¬(Float.Theory.units (1.0 - 1e-17) == Int.sub (Float.Theory.units 1.0) (Float.Theory.units 1e-17))
