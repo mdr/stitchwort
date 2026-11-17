@@ -4071,8 +4071,9 @@ test "Float.ofNatDivExact" :=
 
 -- Whole numbers of units at any exponent are doubles
 
---| A pattern up to 2^53 is its own number of units: a subnormal, or a
---| normal pattern of exponent field 1 or 2's first, where a unit is 2^-1074.
+--| A pattern up to 2^53 is its own number of units: below 2^52 a
+--| subnormal, then exponent field 1, whose scale is 2^0, and at 2^53 the
+--| first pattern of field 2.
 theorem Float.Theory.magUnitsSmall ∀ (q: Nat) (h: q ≤ 9007199254740992): Float.Theory.magUnits q = q :=
   calc Float.Theory.magUnits q
     _ = Float.Theory.magUnits (0 * 4503599627370496 + q) :=
