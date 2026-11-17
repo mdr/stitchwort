@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-CASES-BUDGET] Error: `cases` took more than 20,000,000 evaluation steps without closing every case
+    ╭─[ reject/cases-step-budget.sw:26:102 ]
+    │
+ 26 │ theorem rowWidth ∀ (map: Map) (row: Nat) (small: row < 20): ((draw map).getOr row []).length = 66 := cases
+    │                                                                                                      ──┬──  
+    │                                                                                                        ╰──── this `cases`
+    │ 
+    │ Note 1: it split on 1: `(map.depth.decLessEq 2).holds`
+    │ 
+    │ Note 2: prove a fact that decides some of the cases at once and give it as `cases then t`, or split by hand with `match`
+────╯

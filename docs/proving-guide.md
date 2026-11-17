@@ -376,7 +376,7 @@ Import what you use: std's theorems live in namespaces that need an import
   f y`) is only kept as a fact, not rewritten with. An `Int` `==` that a test depends on (`if x + 1 == y then …`) is
   split as one `Bool`, true or false, and `arithmetic` reads it in each case;
   `cases` doesn't take the `Int` apart into `OfNat` and `NegSucc`. At most
-  **64 cases**, then `E-CASES-BUDGET`. It doesn't do
+  **64 cases** (or 20 million evaluation steps), then `E-CASES-BUDGET`. It doesn't do
   induction (`List`, `Nat`). Examples: `examples/accept/cases-*.sw`.
 - **`arithmetic`** proves `<=`, `<`, `=` on `Nat` and `Int` (and contradictions)
   from every arithmetic fact in scope: parameters, pattern variables, a
@@ -537,7 +537,10 @@ Each was run on the example named; the output is quoted, shortened.
   ```
   (`examples/reject/cases-open-case.sw`.) If it's true, give the case's
   proof with `cases then t`.
-- **`E-CASES-BUDGET`**: more than 64 cases. The note says what it split,
+- **`E-CASES-BUDGET`**: more than 64 cases, or more than 20 million
+  evaluation steps (a goal holding a large computation, such as a whole
+  drawn map; state the fact about one row or cell instead and prove that).
+  The note says what it split,
   and, when every variable is finite, points at `Finite.check`
   (`examples/reject/cases-budget.sw`). Otherwise prove a fact that decides
   several cases at once and pass it with `cases then t`, or `match` by hand.
