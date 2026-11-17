@@ -901,6 +901,31 @@ about 0 as a primitive. Not done, moved to stage 4 or a ticket of their own: the
 `toInt`/`ofInt` theorem (`float.md:1150-1156`), and `mul` monotone in each argument for
 non-negative operands (it needs the third operand finite: `infinity * 0.0` is the NaN).
 
+**As built (stage 4, SW-639).** `Float.div` is `Float.Model.divBits`: the NaN for a NaN operand,
+∞/∞ or 0/0; an infinity over a finite double, or a nonzero finite double over a zero, is an infinity
+with the xor of the signs; a finite double over an infinity is a zero with that sign; otherwise
+`roundRatio` of the dividend's units over the divisor's size, the sign moved onto the numerator,
+with the xor as the zero's sign. `rem` (`remBits`) is the NaN for a NaN operand, an infinite
+dividend or a zero divisor, the dividend for an infinite divisor, and otherwise `m - (m / d) × d`
+units with the dividend's sign (JS `%`, exact, so `roundScaled` only packs it). `floor`, `ceil`,
+`trunc` and `round` return the NaN and the infinities unchanged and otherwise `roundScaled` the
+whole part, computed by `floorDiv` on the units over 2^1074 (`ceil` as `-floor (-x)`, `round` as
+the floor of `x + ½`, so halves go towards +∞ like `Math.round`), with `x`'s sign for a zero.
+`FloatOp` keeps only `ToText`: no float operation has a reduction rule, and the six have natives
+that fire only while a program runs. Laws in `Float.Theory`: `Float.divMonotone` (`x <= y →
+x / d <= y / d` for a positive finite `d` and every `x`, `y`; it fails at `d = +∞`, which a test
+shows), `Float.ofNatMonotone`, `Float.ofNatFinite` (to 2^53), `Float.ofNatPositive`,
+`Float.floorLe` and `Float.ceilGe` (every `x`), `Float.roundOfWhole` and `Float.roundOfNat`, and
+`Float.ofNatDivExact` (`ofNat (k × d) / ofNat d = ofNat k` up to 2^53, so with `ofNatMul` `× 10.0`
+and `/ 10.0` of whole numbers are exact). Whereabouts' `seededUnitInUnit` is unconditional. Tests:
+the gate's six operations, and `float_paths`' quotients on and either side of a tie, 150 TestFloat
+`f64_div` cases, and 150 `f64_roundToInt` cases with edge cases for `rem` and the four roundings.
+A closed `div` costs about 24,000 kernel steps (0.4 ms), from about 860 as a primitive; a closed
+`floor` about 22,000 (0.35 ms). Not done: `x < floor x + 1` (it needs `floor x + 1` exact, which
+needs the representability of whole numbers below 2^53 at any exponent), `rem`'s strict range
+(`|x % y| < |y|`: the remainder is exact, but proving it is representable needs the same grid
+argument), and the negative whole numbers for exact `/ 10.0` (`ofInt`).
+
 Stages 3 and 4 have no program waiting for them; they can wait for one, but leaving a mix of
 "definition" and "primitive with rule" is a permanent two-mechanism cost, so doing them soon after
 is reasonable [inferred].

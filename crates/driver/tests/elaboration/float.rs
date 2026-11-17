@@ -19,14 +19,15 @@ fn the_float_natives_agree_with_their_definitions() {
         .map(|c| format!("[{}] {}: {}", c.mode.name(), c.name, c.detail))
         .collect();
     assert!(failed.is_empty(), "{}", failed.join("\n"));
-    // Per mode: the program, 13 natives, 13 pairs, 2 x 12 neutral witnesses
-    // for `neg` and `abs`, 3 x 12 for `isNaN`, `isFinite` and `toInt`,
-    // 2 x 12 x 12 for `ieeeLt` and `ieeeLe`, 3 x 12 x 12 for `add`, `sub`
-    // and `mul`, and 5 + 7 numbers for `ofNat` and `ofInt`; then 33 + 24 +
-    // 36 + 288 + 432 + 12 normal forms compared across the modes.
+    // Per mode: the program, 19 natives, 13 pairs, 6 x 12 neutral witnesses
+    // for `neg`, `abs`, `floor`, `ceil`, `trunc` and `round`, 3 x 12 for
+    // `isNaN`, `isFinite` and `toInt`, 2 x 12 x 12 for `ieeeLt` and
+    // `ieeeLe`, 5 x 12 x 12 for `add`, `sub`, `mul`, `div` and `rem`, and
+    // 5 + 7 numbers for `ofNat` and `ofInt`; then 33 + 72 + 36 + 288 + 720
+    // + 12 normal forms compared across the modes.
     assert_eq!(
         checks.len(),
-        2 * (1 + 13 + 13 + 24 + 36 + 288 + 432 + 12) + 33 + 24 + 36 + 288 + 432 + 12,
+        2 * (1 + 19 + 13 + 72 + 36 + 288 + 720 + 12) + 33 + 72 + 36 + 288 + 720 + 12,
         "{checks:#?}"
     );
     // The cross-mode comparisons ran.
@@ -96,24 +97,26 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     let session = loaded();
     let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
-    let rem = g
+    let to_text = g
         .env
         .registry()
-        .loaded_def(Builtin::FloatRem)
+        .loaded_def(Builtin::FloatToText)
         .expect("loaded");
+    let hash = |id| def_hash(g, id).unwrap().expect("final");
+    let now = float_primitive_hash(g, to_text, float::FLOAT_CONTRACT).unwrap();
+    let bumped = float_primitive_hash(g, to_text, float::FLOAT_CONTRACT + 1).unwrap();
+    assert_eq!(now, Some(hash(to_text)));
+    assert_ne!(now, bumped);
+    // The rounding operations are definitions, hashed by content.
     let div = g
         .env
         .registry()
         .loaded_def(Builtin::FloatDiv)
         .expect("loaded");
-    let hash = |id| def_hash(g, id).unwrap().expect("final");
-    assert_ne!(hash(rem), hash(div), "the same type, different operations");
-    for id in [rem, div] {
-        let now = float_primitive_hash(g, id, float::FLOAT_CONTRACT).unwrap();
-        let bumped = float_primitive_hash(g, id, float::FLOAT_CONTRACT + 1).unwrap();
-        assert_eq!(now, Some(hash(id)));
-        assert_ne!(now, bumped);
-    }
+    assert_eq!(
+        float_primitive_hash(g, div, float::FLOAT_CONTRACT).unwrap(),
+        None
+    );
 }
 
 /// The build fingerprint, which keys both caches, changes with the Rust

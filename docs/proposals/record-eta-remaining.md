@@ -53,7 +53,7 @@ D1981, D2509):
   kept by the check cache since SW-1768), propositions. A definition with a
   native implementation keeps its record patterns stuck on unknowns
   (`eta_held`, `core/src/value.rs:1958`; today only `Float.add`, pinned by
-  `only_float_add_is_held`). Field access `p.row` is still a call of the
+  `the_float_operations_on_records_are_held`). Field access `p.row` is still a call of the
   accessor, which rule 2 opens to `Proj(Position, 0, p)` (record-eta.md
   §6.4, D2566 open). A field of a glued call stays a call, `(f x).i`
   (stage 1b). **[checked]**
@@ -154,14 +154,14 @@ unifier are core language (Opus, D2506); the sweep is proof clean-up
   application types such as 2021 day 10's `FirstIllegal`. Not `And`,
   `Exists`, `Unit` (propositions) or `UnitType` (no fields). The lane's
   first step prints the kernel's own list: a test that names every std type
-  that newly has eta, as `only_float_add_is_held` names the held
+  that newly has eta, as `the_float_operations_on_records_are_held` names the held
   definitions, so each one is a decision, not a surprise.
 - **Code areas:** `core/src/check.rs` (`qualifies_for_eta` drops `&&
   data.record`); every elaborator place that treats `Pair` specially
   (`derive*.rs`, `dot.rs`, `check.rs`, `effects.rs`, `equations.rs`,
   `missing.rs`: grep `Pair`) and the generated accessors for non-record
   types (`shared.rs:accessors`); `eta_hold.rs` and
-  `only_float_add_is_held` (the held set grows if a `Text` or `Char`
+  `the_float_operations_on_records_are_held` (the held set grows if a `Text` or `Char`
   native matches its constructor); hash snapshots; the JS and runtime
   back ends are unchanged (rule 2 is off while running, and `Pair` keeps
   its tag).
@@ -425,7 +425,7 @@ review; SW-1644, D2499, D2632, D2633)
   a field that isn't a proof has eta (D2499). Pairs then behave like
   records: `p = (p.fst, p.snd) := rfl`, `swap (swap p) = p := rfl`.
 - *First:* a test that names every std type that newly has eta, and update
-  `only_float_add_is_held` deliberately if the held set grows (report the
+  `the_float_operations_on_records_are_held` deliberately if the held set grows (report the
   new members).
 - *Then:* fix what breaks in std, the examples and the roguelike, as stage 1
   did. Tests: §2 stage 3's must-accept and must-reject lists, each shown

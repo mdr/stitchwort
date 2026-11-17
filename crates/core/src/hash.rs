@@ -227,11 +227,11 @@ pub fn type_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
     Ok((!h.unfinished).then(|| h.finish()))
 }
 
-/// The hash of float primitive `id` (`Float.add`, …) under version
-/// `contract` of the float contract: `None` if `id` isn't one. A primitive
-/// has no body: it's its name, as the operation tag, the contract's version
-/// and its type (docs/proposals/float.md §3.3). So two primitives of the same
-/// type hash differently, and a change of meaning (a new `FLOAT_CONTRACT`)
+/// The hash of float primitive `id` (today only `Float.toText`) under
+/// version `contract` of the float contract: `None` if `id` isn't one. A
+/// primitive has no body: it's its name, as the operation tag, the
+/// contract's version and its type (docs/proposals/float.md §3.3). So two
+/// primitives of the same type would hash differently, and a change of meaning (a new `FLOAT_CONTRACT`)
 /// changes every hash that depends on one. [`def_hash`] uses the current
 /// contract; another is for the test that a bump changes the hashes.
 pub fn float_primitive_hash(g: &Ev, id: DefId, contract: u32) -> Result<Option<ContentHash>> {

@@ -77,7 +77,7 @@ fn a_held_definition_stays_stuck_in_both_evaluators() {
 /// The definitions whose case tree matches on a type with eta and that
 /// have a native: those [`stitchwort_core::value::eta_held`] holds.
 #[test]
-fn only_float_add_is_held() {
+fn the_float_operations_on_records_are_held() {
     let session = Session::eager();
     let g = &session.elab.ev();
     let held: Vec<String> = (0..g.env.defs().len())
@@ -91,5 +91,17 @@ fn only_float_add_is_held() {
         })
         .map(|id| g.def(id).name().to_string())
         .collect();
-    assert_eq!(held, ["Float.add"]);
+    assert_eq!(
+        held,
+        [
+            "Float.add",
+            "Float.mul",
+            "Float.div",
+            "Float.rem",
+            "Float.floor",
+            "Float.ceil",
+            "Float.trunc",
+            "Float.round"
+        ]
+    );
 }

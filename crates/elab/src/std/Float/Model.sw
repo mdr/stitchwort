@@ -191,6 +191,92 @@ def Float.Model.mulBits (a b: Nat): Nat :=
 --| The double nearest the integer `i`; `0.0` for 0.
 def Float.Model.ofIntBits (i: Int): Nat := Float.Model.roundScaled i 0 False
 
+--| `x / y`: the NaN if either is, for two infinities or two zeros; an
+--| infinity for an infinity over a finite double, or a nonzero finite one
+--| over a zero; a zero for a finite double over an infinity; otherwise the
+--| exact quotient, rounded. The sign is the operands' signs combined.
+-- The units' scales cancel, so the quotient of the units is the value;
+-- `y`'s sign moves to the numerator so that the denominator is positive.
+def Float.Model.divBits (a b: Nat): Nat :=
+  if Float.Model.isNaN a ∨ Float.Model.isNaN b then 9221120237041090560
+  else if Float.Model.isInfinite a then
+    (if Float.Model.isInfinite b then 9221120237041090560
+     else Float.Model.infinityBits (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)))
+  else if Float.Model.isInfinite b then Float.Model.zeroBits (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b))
+  else if Float.Model.isZero b then
+    (if Float.Model.isZero a then 9221120237041090560
+     else Float.Model.infinityBits (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)))
+  else
+    Float.Model.roundRatio
+      (if Float.Model.signBit b then Int.neg (Float.Model.units a) else Float.Model.units a)
+      (Int.natAbs (Float.Model.units b))
+      (OfNat 0)
+      (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b))
+
+--| `x % y`, JS's truncating remainder: the NaN if either is, for an
+--| infinite `x` or a zero `y`; `x` for a finite `x` over an infinity;
+--| otherwise `x - n × y` for the whole `n` of `x / y` truncated, which is
+--| exact, with `x`'s sign (a zero result too).
+def Float.Model.remBits (a b: Nat): Nat :=
+  if Float.Model.isNaN a ∨ Float.Model.isNaN b ∨ Float.Model.isInfinite a ∨ Float.Model.isZero b then
+    9221120237041090560
+  else if Float.Model.isInfinite b then a
+  else
+    let m: Nat := Int.natAbs (Float.Model.units a)
+    let d: Nat := Int.natAbs (Float.Model.units b)
+    Float.Model.roundScaled
+      (Int.signed (Float.Model.signBit a) (m - Nat.divFuel m m d * d))
+      (-1074)
+      (Float.Model.signBit a)
+
+--| The largest integer at most `v / p`, for `v` the integer with sign
+--| `negative` and size `m`, and `p` positive. With `p` 2^1074, the whole
+--| part of a value in units.
+def Float.Model.floorDiv (negative: Bool) (m p: Nat): Int :=
+  let q: Nat := Nat.divFuel m m p
+  if negative ∧ ¬(Nat.equal (q * p) m) then NegSucc q else Int.signed negative q
+
+--| Whether a pattern is the NaN's or an infinity's.
+def Float.Model.isSpecial (bits: Nat): Bool := Nat.leq 9218868437227405312 (Float.Model.magnitude bits)
+
+--| JS's `Math.floor`: the NaN, the infinities and the zeros as they are;
+--| otherwise the largest whole number at most `x`, `-0.0` only for `-0.0`.
+def Float.Model.floorBits (a: Nat): Nat :=
+  if Float.Model.isSpecial a then a
+  else
+    Float.Model.roundScaled
+      (Float.Model.floorDiv (Float.Model.signBit a) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074))
+      0
+      (Float.Model.signBit a)
+
+--| JS's `Math.ceil`: `-floor (-x)`, so a negative `x` above -1 gives `-0.0`.
+def Float.Model.ceilBits (a: Nat): Nat :=
+  if Float.Model.isSpecial a then a
+  else
+    Float.Model.roundScaled
+      (Int.neg (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
+      0
+      (Float.Model.signBit a)
+
+--| JS's `Math.trunc`: the whole part, with `x`'s sign.
+def Float.Model.truncBits (a: Nat): Nat :=
+  if Float.Model.isSpecial a then a
+  else
+    let m: Nat := Int.natAbs (Float.Model.units a)
+    Float.Model.roundScaled
+      (Int.signed (Float.Model.signBit a) (Nat.divFuel m m (Float.Model.pow2 1074)))
+      0
+      (Float.Model.signBit a)
+
+--| JS's `Math.round`: the largest whole number at most `x + 1/2`, computed
+--| exactly (2^1073 units is a half), so a tie goes up towards +infinity; a
+--| zero result keeps `x`'s sign (`round (-0.5)` is `-0.0`).
+def Float.Model.roundBits (a: Nat): Nat :=
+  if Float.Model.isSpecial a then a
+  else
+    let v: Int := Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073))
+    Float.Model.roundScaled (Float.Model.floorDiv (Int.isNeg v) (Int.natAbs v) (Float.Model.pow2 1074)) 0 (Float.Model.signBit a)
+
 test "Float.Model.pow2" :=
   Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616
 test "Float.Model.bitLength" :=
@@ -224,3 +310,30 @@ test "Float.Model.ofIntBits" :=
     ∧ Float.Model.ofIntBits (Int.neg (OfNat 9007199254740995)) == 14069245235905429506
     ∧ Float.Model.ofIntBits (OfNat (Nat.pow 2 1024)) == 9218868437227405312
     ∧ Float.Model.ofIntBits (OfNat 0) == 0
+--| 1 / 3 (inexact), 1 / 0 and -1 / 0, 0 / 0, 1 / -infinity (`-0.0`), and
+--| the smallest subnormal over 2 (a tie, to even: `+0.0`) and over the
+--| double nearest 2/3 (just over 1.5 units: up to 2).
+test "Float.Model.divBits" :=
+  Float.Model.divBits 4607182418800017408 4613937818241073152 == 4599676419421066581
+    ∧ Float.Model.divBits 4607182418800017408 0 == 9218868437227405312
+    ∧ Float.Model.divBits 13830554455654793216 0 == 18442240474082181120
+    ∧ Float.Model.divBits 0 0 == 9221120237041090560
+    ∧ Float.Model.divBits 4607182418800017408 18442240474082181120 == 9223372036854775808
+    ∧ Float.Model.divBits 1 4611686018427387904 == 0
+    ∧ Float.Model.divBits 1 4604180019048437077 == 2
+--| -5.5 % 2.0, 5.0 % -infinity, -0.0 % 1.0, 1.0 % 0.0.
+test "Float.Model.remBits" :=
+  Float.Model.remBits 13841250504769798144 4611686018427387904 == 13832806255468478464
+    ∧ Float.Model.remBits 4617315517961601024 18442240474082181120 == 4617315517961601024
+    ∧ Float.Model.remBits 9223372036854775808 4607182418800017408 == 9223372036854775808
+    ∧ Float.Model.remBits 4607182418800017408 0 == 9221120237041090560
+--| floor -1.5, ceil -0.5 (`-0.0`), trunc -1.5, round -2.5 and 2.5, round
+--| 0.49999999999999994 (`+0.0`), round -0.5 (`-0.0`).
+test "Float.Model.floorBits" :=
+  Float.Model.floorBits 13832806255468478464 == 13835058055282163712
+    ∧ Float.Model.ceilBits 13826050856027422720 == 9223372036854775808
+    ∧ Float.Model.truncBits 13832806255468478464 == 13830554455654793216
+    ∧ Float.Model.roundBits 13836183955189006336 == 13835058055282163712
+    ∧ Float.Model.roundBits 4612811918334230528 == 4613937818241073152
+    ∧ Float.Model.roundBits 4602678819172646911 == 0
+    ∧ Float.Model.roundBits 13826050856027422720 == 9223372036854775808

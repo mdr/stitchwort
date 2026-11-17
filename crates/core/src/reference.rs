@@ -31,8 +31,9 @@
 //!   constructor term ([`native::ctor`] is not used), a compact list's
 //!   character codes and the result of `+`'s rules R3 and R4 ([`nat`]).
 //! - The number natives are not run (`Nat.add` and the others compute by
-//!   their definitions). Float primitives have no definition to run, so
-//!   they still do.
+//!   their definitions), nor are the float natives, which only run
+//!   programs. `Float.toText`, the one float primitive, computes in neither
+//!   evaluator.
 //! - It never glues, as always, and a compact list is expanded on sight.
 //!
 //! What it still keeps is `+`'s rules R3 and R4 (they define what is equal,
@@ -159,7 +160,7 @@ fn folds_mul(g: &Ev, id: DefId, spine: &[Elim]) -> bool {
 /// A compact number or list, a glued call or a lazy field of a call
 /// anywhere in `value`: what plain mode must never produce. Looks through
 /// constructors, data types, equations and spines, not into closures, nor
-/// into a `Float`, whose bits the float primitives always make a number.
+/// into a `Float`.
 pub fn compact_or_lazy(g: &Ev, value: &Value) -> Option<&'static str> {
     let find = |xs: &[Value]| xs.iter().find_map(|v| compact_or_lazy(g, v));
     match value {

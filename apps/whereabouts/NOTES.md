@@ -69,9 +69,10 @@ Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 10 theorems, 0 failed,
 
 - `finalWordBelow`: mulberry32's last word is below 2^32. Unconditional.
 - `seededUnitInUnit` (via `wordUnitInUnit`): `0.0 <= seededUnit parts ∧
-  seededUnit parts < 1.0`, **given two laws as hypotheses**, so it is *not
-  proved* until stage 3 supplies them (see below). The rest is done: the
-  largest word divides to 0.99999999976716936 < 1, and 0 to 0.0.
+  seededUnit parts < 1.0`. Unconditional since float laws stage 4 (SW-639):
+  std's `Float.ofNatMonotone` and `Float.divMonotone` (division by a
+  positive finite double), and the largest word divides to
+  0.99999999976716936 < 1, and 0 to 0.0.
 - By computing: `narrowLatitudeBandMissesAnswer`,
   `narrowLongitudeBandMissesAnswer`, `wrapTenth`, `wrapWhole` (23 → 23,
   180 → -180, -180 → -180), and `tenthsKeepTheirLabel`: `describeHint`'s
@@ -88,9 +89,8 @@ finding 1.
 
 | Theorem | Laws it needs (stage 3 or 4) |
 |---|---|
-| `seededUnit` ∈ [0, 1) | `Float.ofNat` monotone (`m ≤ n → ofNat m <= ofNat n`); division by a positive double monotone in the numerator (`0 < d → x <= y → x / d <= y / d`). Both are now hypotheses of `seededUnitInUnit`. |
 | margin before rounding: the answer is at least 0.15 · width from each unrounded edge | `placeAt 0 = 0.15` and `placeAt 1 = 0.85` compute; it needs `*` monotone in each argument for non-negative finite operands, `+` monotone in its *left* argument for finite operands (std has only `addMonotoneRight`, `s <= s + d`), and an error bound on `lat - at * width` against the exact value (the standard model, `|fl(a ∘ b) − (a ∘ b)| ≤ 2^-53 · |a ∘ b|` for `∘` in `+ - * /` without overflow). The real-number statement is not quite the float one: with rounding the margin is 0.15 · width minus a few ulps. |
-| outward rounding contains the unrounded band, step 1 | `floor x <= x` and `x <= ceil x` (finite `x`); `x * 1.0 = x`; `ofInt k * 10.0` and `/ 10.0` exact for whole `|k| ≤ 400` (so `floorTo x 1.0 = floor x`); `round` of a whole double is itself. |
+| outward rounding contains the unrounded band, step 1 | In std since stage 4 (SW-639): `Float.floorLe` and `Float.ceilGe` (every `x`), `Float.mulOneRight`, `Float.roundOfWhole` (`round` of a whole double is itself), and `Float.ofNatDivExact` with `Float.ofNatMul` (`* 10.0` and `/ 10.0` exact for whole numbers up to 2^53). Still missing: the same for negative whole numbers (`ofInt`), which `floorTo` on a negative edge needs; then the theorem itself. |
 | outward rounding, step 0.1 | false as stated (finding 1). True form: `floorTo x 0.1 <= x + 2^-45` for `|x| ≤ 360` (and `ceilTo` symmetric), which needs the error bounds of `/` and `*`, `floor`'s spec, and `round` within ½ of its argument. |
 | the answer is in its band | the two rows above, plus `jsMin`/`jsMax` laws (provable today from the order), plus for longitude the `wrap` row below and the wrapped-interval reading of `inHintBand` (`from > to` means `[from, 180) ∪ [-180, to]`). |
 | `wrap` ∈ [-180, 180) for finite input | `rem`'s range: `y > 0` finite, `x` finite → `|x % y| < y`, sign of `x`, exact (`x − n·y` for the whole `n` of truncated division); `+ 360.0` of a value in (-360, 360) lands in [0, 720] (rounding may reach 720, which `% 360` maps to 0); Sterbenz for `z - 180.0` with `z` in [90, 360) (exact), and `z - 180.0 < 180.0` for `z < 360` below 90 by monotonicity. |
@@ -125,10 +125,11 @@ What was awkward to express:
   arguments.
 
 Missing laws: see the table. In short, stage 3 and 4's customer here wants,
-in order of how much they unlock: monotonicity of `*`, `/` and `ofNat`; `+`
+in order of how much they unlock: monotonicity of `*` (`/` and `ofNat` are
+done, SW-639); `+`
 monotone on the left for finite operands; the standard-model error bound;
-`floor`/`ceil`/`round` specs (`floor x <= x`, whole, within 1); `rem`'s
-range and exactness; Sterbenz.
+`floor`/`ceil`/`round` specs (`floor x <= x` and `x <= ceil x` are done;
+whole, within 1); `rem`'s range and exactness; Sterbenz.
 
 Other std gaps:
 

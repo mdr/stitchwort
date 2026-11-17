@@ -4,10 +4,13 @@
 //!
 //! A native computes what one particular declaration computes. If the
 //! library changes that declaration's body and the native stays bound, the
-//! native's answers and the declaration's own equations disagree. For the
-//! kernel's natives that is unsound: conversion computes `Nat.sub 3 1`
-//! natively to the old answer while a proof by induction over the new body
-//! proves the new one, and together they prove `False`. So a pinned
+//! native's answers and the declaration's own equations disagree. For a
+//! native that conversion uses (the `Nat` natives, `+`'s rules) that is
+//! unsound: conversion computes `Nat.sub 3 1` natively to the old answer
+//! while a proof by induction over the new body proves the new one, and
+//! together they prove `False`. The float natives fire only while a program
+//! runs, so a stale one would make a run disagree with what was checked,
+//! not prove `False`; they are pinned the same way. So a pinned
 //! declaration is bound only if its content hash is the one in [`PINS`]. A
 //! content hash covers the declaration's type, its body and everything they
 //! refer to, so a pin on `Nat.add` pins `Nat` as well.
@@ -40,7 +43,8 @@ use crate::term::{DataId, DefId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum User {
     /// The kernel's natives and reduction rules (`native.rs`, `float.rs`,
-    /// `nat_add.rs`): a stale one is unsound.
+    /// `nat_add.rs`): a stale one that conversion uses is unsound, and a
+    /// stale float native makes runs disagree with checking.
     Kernel,
 }
 
@@ -110,8 +114,8 @@ pub const PINS: &[Pin] = &[
         Builtin::EqNatSound,
         "3d0d96fda1ee07a0d13f9471deb5d5d99e2ddf62eaf2031ffca198a36663c4ac",
     ),
-    // `Float`, whose `isValid` the float primitives' results rely on, and
-    // the float natives (`float.rs`).
+    // `Float`, whose `isValid` the float natives' results rely on, and the
+    // float natives' definitions (`float.rs`).
     kernel(
         Builtin::Float,
         "e4ff60202ca96f2ac20c3db9d79474c8def3839c88836496a736df95675bceb7",
@@ -167,6 +171,30 @@ pub const PINS: &[Pin] = &[
     kernel(
         Builtin::FloatOfNat,
         "2f2cd691811be01cbce8bdfd8f1541f8255b3780876d30e6d32508040d8ad324",
+    ),
+    kernel(
+        Builtin::FloatDiv,
+        "73c6706145d33d45abdcb51bb55b124aef7e638865698d5b319d3d82e98395d9",
+    ),
+    kernel(
+        Builtin::FloatRem,
+        "04ee33bd88b5ecee10941d962c1373ec1266bea0e1bc13fb937d00c95ac4555f",
+    ),
+    kernel(
+        Builtin::FloatFloor,
+        "28f54ad30f8bf9dbc38310b0b40054e1e9b07606ddfaceec0b10baa77d1b3165",
+    ),
+    kernel(
+        Builtin::FloatCeil,
+        "a4e4b5add5074854c8c2161b4e79edf8bb02ac277eba8ec7212c554a5caa6d07",
+    ),
+    kernel(
+        Builtin::FloatTrunc,
+        "f146bedcbe390b1aec08ffb303f1a099c8abfec5e97031b2e4b3352971938afa",
+    ),
+    kernel(
+        Builtin::FloatRound,
+        "34c29653feaf1c6fcee6abeb6a11b8af0c60f0d02805e340e4b4ad338349d235",
     ),
 ];
 
