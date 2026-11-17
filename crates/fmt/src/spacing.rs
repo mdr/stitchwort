@@ -2,7 +2,7 @@
 //! D1037 and D1039 (docs/proposals/formatter.md §3, §8; still in force), copying the source
 //! wherever spacing can change meaning (§2.3).
 
-use stitchwort_syntax::{Tok, Token, argument_minus, closes_operand, record_braces};
+use stitchwort_syntax::{Tok, Token, argument_minus, closes_operand, opens_atom, record_braces};
 
 /// What a token is, where its spelling alone doesn't say. Worked out from
 /// the position in the program (see [`roles`]), the way the parser
@@ -16,6 +16,10 @@ pub(crate) enum Role {
     Row,
     /// A prefix `-`: `-x`.
     Unary,
+    /// A prefix `-` before a numeral that heads an application: `- 2 n`.
+    /// The gap after it is kept, since `-2 n` applies the negative numeral
+    /// instead (SW-3716).
+    UnaryAppliedNumeral,
     /// An infix `-`: `a - b`.
     Binary,
     /// An argument minus: `f -2`, a space before and none after it. The gap
@@ -85,6 +89,9 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
         return match pair.left_role {
             Role::Binary => Gap::Rule(true),
             Role::StatementMinus => Gap::Kept(spaced),
+            // `- 2 n` negates the application; `-2 n` applies the negative
+            // numeral instead, so keep the source's gap (SW-3716).
+            Role::UnaryAppliedNumeral => Gap::Kept(spaced),
             // `- 1.abs` is not `-1.abs` (a negative numeral, D1474).
             _ if matches!(right, Num(_) | Float(_)) && pair.after == Some(&Dot) => {
                 Gap::Kept(spaced)
@@ -233,7 +240,7 @@ pub(crate) fn roles(tokens: &[Token]) -> Vec<Role> {
             }
             Tok::Minus => {
                 let before = k.checked_sub(1).map(|j| &tokens[j]);
-                roles[k] = if before.is_some_and(|b| {
+                let role = if before.is_some_and(|b| {
                     b.tok == Tok::Lt && b.span.end == t.span.start && !t.line_start
                 }) {
                     Role::RewriteArrow
@@ -255,9 +262,25 @@ pub(crate) fn roles(tokens: &[Token]) -> Vec<Role> {
                         Role::Unary
                     }
                 };
+                roles[k] = if role == Role::Unary && numeral_application(tokens, k) {
+                    Role::UnaryAppliedNumeral
+                } else {
+                    role
+                };
             }
             _ => {}
         }
     }
     roles
+}
+
+/// Whether the numeral after the `-` at `k` is the head of an application:
+/// `- 2 n` is `Neg (App 2 n)`, where `-2 n` applies the negative numeral `-2`
+/// instead (SW-3716). The argument may sit on a later source line; the
+/// printer may still put it on the numeral's line.
+fn numeral_application(tokens: &[Token], k: usize) -> bool {
+    let (Some(numeral), Some(after)) = (tokens.get(k + 1), tokens.get(k + 2)) else {
+        return false;
+    };
+    matches!(numeral.tok, Tok::Num(_) | Tok::Float(_)) && opens_atom(&after.tok)
 }

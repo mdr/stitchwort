@@ -1078,6 +1078,28 @@ fn an_operator_after_a_match_block_stays_outside_its_arms() {
     }
 }
 
+/// A unary minus before a numeral that heads an application keeps its
+/// space: `- 2 n` is `Neg (App 2 n)`, where `-2 n` would apply the negative
+/// numeral (`App (Neg 2) n`) (SW-3716).
+#[test]
+fn a_minus_before_an_applied_numeral_keeps_its_space() {
+    // The fuzzer's minimal case must format at all, and be a fixed point.
+    let text = "def f: Ieft withEnt → Nat\n  | 0 => - 2 is alreas are left withE-NONEXHAUSTIVE\n";
+    let gate = gate(text).expect("it parses");
+    assert_eq!(gate.check, Ok(()), "{text}\n=> {}", gate.text);
+    assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
+    // The space is what keeps the `Neg` outside the application, and it
+    // survives an argument the source wrote on the next line.
+    check(
+        "def g (n: Nat): Int := - 2 n\n",
+        "def g (n: Nat): Int := - 2 n\n",
+    );
+    check(
+        "def h (n: Nat): Int :=\n  - 2\n    n\n",
+        "def h (n: Nat): Int := - 2 n\n",
+    );
+}
+
 #[test]
 fn a_calc_proof_never_wraps_a_hole_to_the_start_of_a_line() {
     // S35: a line starting with `_` would read as the next step. SW-3683.
