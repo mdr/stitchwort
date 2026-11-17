@@ -169,6 +169,8 @@ def Puts (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | LineStartHere => next (AtStart indent) trace
     | Nest more inner => Puts inner (indent + more) place trace next
     | Group inner _ => Puts inner indent place trace next
+    | IdGroup _ inner _ => Puts inner indent place trace next
+    | IfBroken _ broken flat => Puts broken indent place trace next ∧ Puts flat indent place trace next
     | Flatten inner => Puts inner indent place trace next
     | OneLineBelow inner => place.midLine = True ∧ Puts inner (indent + 2) (AtStart (indent + 2)) trace next
     | Concat docs => PutsAll docs indent place trace next
@@ -337,6 +339,11 @@ theorem putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | LineStartHere, lays => implies _ _ lays
     | Nest more inner, lays => putsWeaker inner (indent + more) place trace strong weak implies lays
     | Group inner hard, lays => putsWeaker inner indent place trace strong weak implies lays
+    | IdGroup id inner hard, lays => putsWeaker inner indent place trace strong weak implies lays
+    | IfBroken id broken flat, Both brokenPuts flatPuts => (
+      (putsWeaker broken indent place trace strong weak implies brokenPuts),
+      (putsWeaker flat indent place trace strong weak implies flatPuts)
+    )
     | Flatten inner, lays => putsWeaker inner indent place trace strong weak implies lays
     | OneLineBelow inner, Both mid lays =>
       (mid, (putsWeaker inner (indent + 2) (AtStart (indent + 2)) trace strong weak implies lays))
@@ -692,8 +699,8 @@ theorem putStart ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Lis
     (word: isLayout text = False):
     Agrees (printer.put text width) (Mid at) (trace ++ [{ word = text, start = Some at }]) :=
   match printer, agrees with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, (start, none,
-        blank, empty, owes, indent, same) =>
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, (start,
+        none, blank, empty, owes, indent, same) =>
       match owed, owes with
         | None, owes => (
           byComputing,
@@ -740,8 +747,8 @@ theorem putMid ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: List 
     (word: isLayout text = False):
     Agrees (printer.put text width) (Mid at) (trace ++ [{ word = text, start = None }]) :=
   match printer, agrees with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, (start, none,
-        blank, owes, indent, same, _) =>
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, (start,
+        none, blank, owes, indent, same, _) =>
       match owed, owes with
         | Some value, never => (someNotNone value never).impossible
         | None, _ => (
@@ -760,8 +767,8 @@ theorem putSpaces ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Li
     (gap: text.all (char => char == ' ') = True):
     Agrees (printer.put text width) (Mid at) trace :=
   match printer, agrees with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, (start, none,
-        blank, owes, indent, same, _) =>
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, (start,
+        none, blank, owes, indent, same, _) =>
       match owed, owes with
         | Some value, never => (someNotNone value never).impossible
         | None, _ => (
@@ -782,7 +789,7 @@ theorem newlineBroken ∀ (printer: Printer) (indent: Nat) (place: Place) (trace
     (mid: place.midLine = True):
     Agrees (printer.newline indent) (Broken indent) trace :=
   match printer, place, agrees, mid with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Mid
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, Mid
           at, Both start (Both none (Both blank (Both owes (Both same (Both events zero))))), _ =>
       match suffixes, none with
         | [first, ..more], never => (consNotNil first more never).impossible
@@ -799,7 +806,7 @@ theorem newlineBroken ∀ (printer: Printer) (indent: Nat) (place: Place) (trace
             byComputing,
             (Eq.cong ((count: Nat) => count + 1) zero)
           )
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Held
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, Held
           at, Both start (Both (Witness comment (Both one (Both word events))) (Both blank (Both owes same))), _ =>
       let written: eventsOf [comment, " ", ..trimSpaces out] = eventsOf out ++ [{ word = comment, start = None }] :=
         rewrite eventsWord comment [" ", ..trimSpaces out] word, trimBlank out, blank, trimEvents out
@@ -1032,7 +1039,7 @@ theorem putHeld ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: List
     (word: isLayout text = False):
     Agrees (printer.put text width) (Held at) (tucked { word = text, start = None } trace) :=
   match printer, agrees with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Both start
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, Both start
         (Both (Witness comment (Both one (Both isWord same))) (Both blank (Both owes indent))) =>
       match owed, owes with
         | Some value, never => (someNotNone value never).impossible
@@ -1438,6 +1445,10 @@ theorem stepPuts ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
             suffixStays (after later => StackPuts spec rest after later) printer comment place trace agrees word lays
         | Group inner hard, Inl (Both _ flat), lays => rewrite flat then (place, trace, agrees, lays)
         | Group inner hard, Inr (Both _ broken), lays => rewrite broken then (place, trace, agrees, lays)
+        | IdGroup id inner hard, Inl (Both _ flat), lays => rewrite flat then (place, trace, agrees, lays)
+        | IdGroup id inner hard, Inr (Both _ broken), lays => rewrite broken then (place, trace, agrees, lays)
+        | IfBroken id broken flat, steps, lays =>
+          rewrite steps then (place, trace, agrees, (pickPuts printer.modes id broken flat indent place trace _ lays))
         | Concat docs, steps, lays =>
           rewrite steps then (place, trace, agrees, (printsPut spec indent mode docs rest place trace lays))
         | Fill [], steps, lays => rewrite steps then (place, trace, agrees, lays)
@@ -1486,6 +1497,15 @@ theorem stepPuts ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                 lays)
             )
 
+--| The branch an `IfBroken` takes puts its words as both do.
+theorem pickPuts ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc) (indent: Nat) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop)
+    (puts: Puts (IfBroken id broken flat) indent place trace next):
+    Puts (pickBranch modes id broken flat) indent place trace next :=
+  match pickEither modes id broken flat, puts with
+    | Inl isBroken, Both brokenPuts _ => rewrite isBroken then brokenPuts
+    | Inr isFlat, Both _ flatPuts => rewrite isFlat then flatPuts
+
 --| A reading that has the steps to finish its work list ends where the
 --| work list's last document leaves it, at a place and trace `spec`
 --| holds of.
@@ -1514,13 +1534,13 @@ theorem flushAgrees ∀ (printer: Printer) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace):
     trace = eventsOf printer.flushSuffixes.out :=
   match printer, place, agrees with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, AtStart
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, AtStart
           at, Both _ (Both none (Both _ (Both _ (Both _ (Both _ events))))) => rewrite none then events
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Broken at, Both _
-        (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) => rewrite none then events
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Mid at, Both _
-        (Both none (Both _ (Both _ (Both _ (Both events _))))) => rewrite none then events
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Held
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, Broken
+          at, Both _ (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) => rewrite none then events
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, Mid
+          at, Both _ (Both none (Both _ (Both _ (Both _ (Both events _))))) => rewrite none then events
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes }, Held
           at, Both start (Both (Witness comment (Both one (Both word events))) (Both blank _)) =>
       let written: eventsOf [comment, " ", ..out] = eventsOf out ++ [{ word = comment, start = None }] :=
         rewrite eventsWord comment [" ", ..out] word, blank

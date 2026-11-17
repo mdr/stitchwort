@@ -1,8 +1,8 @@
 --| The layout engine's documents: what to print and where lines may break,
 --| after Wadler's "A prettier printer" and Prettier. A port of the core of
 --| the Rust formatter's engine (`crates/fmt/src/printer/engine.rs`): the
---| pieces Sprig's rules need, without `Align`, the id groups, `Verbatim`
---| and text blocks.
+--| pieces Sprig's rules need, without `Align`, `Verbatim` and text
+--| blocks.
 --|
 --| A `Group` prints on one line if all of it, plus whatever must follow it
 --| on that line, fits in the width; otherwise every break directly in it
@@ -32,6 +32,13 @@ type Doc =
   --| Printed flat if it fits, otherwise with every line in it broken.
   --| `hard` says it holds a hard break, so it never prints flat.
   | Group (inner: Doc) (hard: Bool)
+  --| A `Group` whose decision, flat or broken, the printer records under
+  --| `id` for the `IfBroken`s after it.
+  | IdGroup (id: Nat) (inner: Doc) (hard: Bool)
+  --| `broken` if the `IdGroup` with this id printed broken, otherwise
+  --| `flat` (also when no such group has printed yet): a body below a
+  --| header that broke.
+  | IfBroken (id: Nat) (broken: Doc) (flat: Doc)
   | Concat (docs: List Doc)
   --| Items separated by line breaks that break only where the next item
   --| doesn't fit on the line.
@@ -76,6 +83,9 @@ def Doc.text (text: Text): Doc := Chunk text text.length
 --| A group, which holds a hard break exactly when its contents do.
 def Doc.group (inner: Doc): Doc := Group inner inner.forcesBreak
 
+--| An id group, which holds a hard break exactly when its contents do.
+def Doc.idGroup (inner: Doc) (id: Nat): Doc := IdGroup id inner inner.forcesBreak
+
 --| The docs in order, leaving out the empty ones.
 def Doc.concat (docs: List Doc): Doc := match docs.filter (doc => not doc.isEmpty) with
   | [] => Empty
@@ -104,6 +114,8 @@ def Doc.forcesBreak: Doc → Bool
   | BreakParent => True
   | OneLineBelow _ => True
   | Group _ hard => hard
+  | IdGroup _ _ hard => hard
+  | IfBroken _ broken flat => broken.forcesBreak && flat.forcesBreak
   | Nest _ inner => inner.forcesBreak
   | Flatten inner => inner.forcesBreak
   | Concat docs => Doc.anyForcesBreak docs
@@ -126,6 +138,8 @@ def Doc.allForceBreak: List Doc → Bool
 def Doc.size: Doc → Nat
   | Nest _ inner => 1 + inner.size
   | Group inner _ => 1 + inner.size
+  | IdGroup _ inner _ => 1 + inner.size
+  | IfBroken _ broken flat => 1 + broken.size + flat.size
   | Flatten inner => 1 + inner.size
   | OneLineBelow inner => 2 + inner.size
   | Concat docs => 1 + Doc.sizes docs

@@ -759,6 +759,14 @@ No axioms (`stitchwort axioms Fmt.Proofs.firstThreeKeepMeaning`).
 
 Baseline (before E2): goldens, 644 declarations: 22 matched, 0 mismatched, 622 unsupported. Repo, 34,531: 4,303 matched, 0 mismatched, 29,838 unsupported, 390 oversized. `IdGroup`+`IfBroken` (every declaration body) is 25,442 of the unsupported alone.
 
+## Engine stage E2, part 1 (SW-3921): `IdGroup` and `IfBroken`
+
+`Doc` has `IdGroup id inner hard` (a group whose decision the printer records) and `IfBroken id broken flat` (the branch by the recorded decision; flat when the group hasn't printed). The printer keeps `modes: List (Nat, Mode)`, the latest first, as Rust's `BTreeMap` insert overwrites; `fitsFrom` takes `modes` too. As in Rust, a broken `Fill`'s first item and a `OneLineBelow` option are measured with no modes recorded, so an `IfBroken` there measures its flat branch even after its group broke: Rust's `fits_flat` passes an empty map. That is a measure that can disagree with the printer, of the D1–D4 kind; no harness declaration meets it.
+
+Proofs: every theorem keeps its statement, none restricted. Readings give `IdGroup` the `Group` step plus the record; `IfBroken` is the printer's own step. `Words`' `Uniform` asks both branches to have the same words; `Marked`, `Joins`, `Lays` and `Puts` ask it of both branches; 9 new lemmas (`pickEither` and one per layer). `audit Fmt.Doc`: 319 theorems, 0 failed, 3 warnings (the known 4 less `spacesAfterComment`, which the random search now meets).
+
+Harness [measured, Speedwell, load about 8]: goldens, 644 declarations: 548 matched, 10 mismatched, 86 unsupported (were 22, 0, 622). Repo, 34,753: 32,085 matched, 0 mismatched, 2,278 unsupported, 390 oversized (were 4,303, 0, 29,838 of 34,531). The 10 golden mismatches are toy-versus-Rust differences of the plan's §1.1, not this port: 4 are the flat `SoftLine`/`Line` while a comment waits (`g (a, b) -- c` and `{ x = 1, y = 2 } -- c` in `comment-on-the-last-item`, where the toy breaks), 6 the comment floor against `CommentEnd` (`comments-anywhere` declarations 7, 14, 17: the line after an own-line comment, Rust at the floor 2 or 4 deeper).
+
 ## A comment-free `meaning` (SW-3884)
 
 Opus, 17 November 2026.

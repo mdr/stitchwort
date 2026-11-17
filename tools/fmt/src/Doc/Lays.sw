@@ -118,6 +118,8 @@ def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | LineStartHere => next (AtStart indent) trace
     | Nest more inner => Lays inner (indent + more) place trace next
     | Group inner _ => Lays inner indent place trace next
+    | IdGroup _ inner _ => Lays inner indent place trace next
+    | IfBroken _ broken flat => Lays broken indent place trace next ∧ Lays flat indent place trace next
     | Flatten inner => Lays inner indent place trace next
     | OneLineBelow inner => place.midLine = True ∧ Lays inner (indent + 2) (AtStart (indent + 2)) trace next
     | Concat docs => LaysAll docs indent place trace next
@@ -276,6 +278,11 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | LineStartHere, lays => implies _ _ lays
     | Nest more inner, lays => laysWeaker inner (indent + more) place trace strong weak implies lays
     | Group inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
+    | IdGroup id inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
+    | IfBroken id broken flat, Both brokenLays flatLays => (
+      (laysWeaker broken indent place trace strong weak implies brokenLays),
+      (laysWeaker flat indent place trace strong weak implies flatLays)
+    )
     | Flatten inner, lays => laysWeaker inner indent place trace strong weak implies lays
     | OneLineBelow inner, Both mid lays =>
       (mid, (laysWeaker inner (indent + 2) (AtStart (indent + 2)) trace strong weak implies lays))
@@ -813,6 +820,11 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
     | LineStartHere, lays => onward _ _ _ (tracksTucks place laid printed tracks) lays
     | Nest more inner, lays => laysPuts inner (indent + more) place laid printed next put onward tracks lays
     | Group inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
+    | IdGroup id inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
+    | IfBroken id broken flat, Both brokenLays flatLays => (
+      (laysPuts broken indent place laid printed next put onward tracks brokenLays),
+      (laysPuts flat indent place laid printed next put onward tracks flatLays)
+    )
     | Flatten inner, lays => laysPuts inner indent place laid printed next put onward tracks lays
     | OneLineBelow inner, Both mid lays => (
       mid,

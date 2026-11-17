@@ -14,7 +14,8 @@ test "a closer text is a Closing: it stays before a waiting comment" :=
   answer (decl "1" "f x) -- c" "Concat 3\nText f x\nLineSuffix -- c\nText )\n") == Ok "decl 1 matched\n"
 
 test "a different text is a mismatch, with the first line that differs" :=
-  answer (decl "7" "a\\nb" "Concat 3\nText a\nHardLine\nText c\n") == Ok "decl 7 mismatched 2\n  expected: b\n  got: c\n"
+  answer (decl "7" "a\\nb" "Concat 3\nText a\nHardLine\nText c\n")
+    == Ok "decl 7 mismatched 2\n  expected: b\n  got: c\n"
 
 test "text is escaped in the dump: backslash and line break" :=
   unescape "a\\\\b\\nc" == "a\\b\nc" && escape "a\\b\nc" == "a\\\\b\\nc"
@@ -23,8 +24,12 @@ test "a breaking group prints broken in the width" :=
   answer (decl "1" "a\\nb" "Group\nConcat 3\nText a\nHardLine\nText b\n") == Ok "decl 1 matched\n"
 
 test "nodes Doc lacks are unsupported, by kind, and not compared" :=
-  answer (decl "2" "whatever" "Concat 2\nAlign\nIfBroken 3\nText x\nText y\nMark 4\n")
-    == Ok "decl 2 unsupported Align,IfBroken,Mark\n"
+  answer (decl "2" "whatever" "Concat 3\nAlign\nText x\nNarrowGroup 40\nText y\nMark 4\n")
+    == Ok "decl 2 unsupported Align,Mark,NarrowGroup\n"
+
+test "an IfBroken reads the mode its IdGroup printed in" :=
+  answer (decl "1" "(a, b) ok" "Concat 2\nIdGroup 7\nText (a, b)\nIfBroken 7\nText broke\nText  ok\n")
+    == Ok "decl 1 matched\n"
 
 test "two declarations answer a line each" :=
   answer (decl "1" "a" "Text a\n" ++ decl "2" "b" "Text b\n") == Ok "decl 1 matched\ndecl 2 matched\n"
