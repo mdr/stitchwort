@@ -1,5 +1,5 @@
 {
-  "next": 3839,
+  "next": 3843,
   "tickets": [
     {
       "id": 47,
@@ -21907,12 +21907,12 @@
     {
       "id": 3825,
       "title": "[Fable paper] Proof plan spike K1: can Settled be stated without layout? Re-lay stage 1's settled leaves two ways, lex and settle again, compare without columns (self-hosted-fmt-proof-plan.md; time box 45 min)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\n\nLane notes (Fable, 17 Nov 2026, 25 min of 45):\n- Verdict (a): Settled is layout-free (`homed`, tools/fmt-sketch/src/Settled.sw); no tree flag. Rule N does depend on line breaks (which of two closers keeps a comment; Rust agrees on 1,599 re-laid texts), but both results are homed and the printer starts a line at the holder.\n- printedSettle in two halves: SettledProofs.settledAnyLayout and Proofs.printedKeeping; settledHomed for parseSettled. Search: 2.4 million cases, 1,942,953 plain, 0 failures.\n- One family left out, for a decision: a trailing comma that starts the closer's line (rule N not idempotent there; Rust's answer comes from P2 then rule N again). Options in the proof plan's section 10.\n- Commit 8789c0071 on lane/SW-3825.\n",
+      "body": "\n\n\nLane notes (Fable, 17 Nov 2026, 25 min of 45):\n- Verdict (a): Settled is layout-free (`homed`, tools/fmt-sketch/src/Settled.sw); no tree flag. Rule N does depend on line breaks (which of two closers keeps a comment; Rust agrees on 1,599 re-laid texts), but both results are homed and the printer starts a line at the holder.\n- printedSettle in two halves: SettledProofs.settledAnyLayout and Proofs.printedKeeping; settledHomed for parseSettled. Search: 2.4 million cases, 1,942,953 plain, 0 failures.\n- One family left out, for a decision: a trailing comma that starts the closer's line (rule N not idempotent there; Rust's answer comes from P2 then rule N again). Options in the proof plan's section 10.\n- Commit 8789c0071 on lane/SW-3825.\n\nModel result: fable, worked, 25 min (est. 45). Verdict (a): Settled is layout-free, no tree flag. Parking-comma family: orchestrator's call, option 1 (take the last commas out before rule N, Lexed.settledBare): it matches Rust's output today and changes no output, so it is implementation; options 2 (change rule 1 in both formatters) would change output and would go to Matt. Findings SW-3839 SW-3840 SW-3841 SW-3842.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22081,6 +22081,58 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3839,
+      "title": "[Sonnet] Rust fmt refuses a valid file with 'formatter bug ... a Error node at line 2 isn't part of a file the parser accepts': def f: List Nat :=⏎  g ([⏎    1,⏎    ]⏎  ) (check parses it). Fix with a failing-first test; same bug in the self-hosted formatter if present (D3677) (SW-3825 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3840,
+      "title": "[Sonnet] Rule N not idempotent on a parking comma: g ([⏎1⏎-- above⏎, ] -- b⏎) -- c: applied twice, c moves to 1 past two comments. passes.rs P2's note is false there; tidy.rs's doc omits that rule 1 stops on a comma; add the case to tidy.rs's placed tests (SW-3825 findings 2, 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3841,
+      "title": "[Sonnet] check --counterexamples: reported none in 10,000 for a statement whose open-goal note printed a counterexample; counterexamples are cut with … even with --full-goals and check --index (SW-3825 findings 4, 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3842,
+      "title": "[DeepSeek] fmt-twin fuzz inputs have comment rate 0, so the tokens stage never compares rule 1's limits on fuzz input: add a comment-rich fuzz group (SW-3825's disturber is a model) (SW-3825 finding 7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
