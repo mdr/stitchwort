@@ -22427,7 +22427,7 @@
     {
       "id": 3865,
       "title": "[Sonnet] Self-hosted formatter tree stage: 5 of 1,936 repo files differ from Rust after stage 2c, first aoc/src/Aoc/Year2024/Day04/Tests/Examples.sw line 30 (Rust: FieldAccess; twin: a \"\"\" text, i.e. a method or field on a \"\"\" text literal); fix all five with tests. The 479 old-layout differences are files the current grammar refuses (refusal stage identical on all 1,696), out of scope (SW-3847 verifier)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
