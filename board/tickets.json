@@ -22531,7 +22531,7 @@
     {
       "id": 3873,
       "title": "[Sonnet] std Float candidates from Whereabouts: unitsNeg, sumNear (two-sided addRelError with signs handled), and the cancel-the-scale lemmas absDiffBelow, scaleLeft, scaleRight, shareErrorScaled: move to Float.Theory with docs (SW-3858 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22700,7 +22700,7 @@
     {
       "id": 3886,
       "title": "[Sonnet] std Float candidates from Whereabouts (SW-3872): remUnitsExact (exact value of x % y, which remExact proves but doesn't state), addWholeExact, relCancel, mulBetween; move to Float.Theory with docs (add to SW-3873's batch)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
