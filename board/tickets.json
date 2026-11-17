@@ -21972,12 +21972,12 @@
     {
       "id": 3830,
       "title": "[Opus] Whereabouts outward rounding for whole-degree steps: x / 1.0 = x, and * 10.0 and / 10.0 exact on negative whole numbers via roundWholeUnits; then the theorem (SW-3805 says 20-30 min plus the theorem)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "",
+      "body": "Progress (lane, Opus, 17 Nov 2026, 16:05-16:20):\n- Done on lane/SW-3830 (bc651db04). std: Float.divOneRight; Float.Theory.mulTenWhole, divTenWhole (exact * 10.0 and / 10.0 on whole numbers of either sign, via roundWholeUnits); Float.roundTenthsOfFloor/Ceil (round (floor x * 10.0) / 10.0 = floor x for |x| < 2^49, zero signs included); helpers roundRatioScale, roundRatioUnitDen, unitsInjective, mulNonzero, absBelowUnitsOf, floorDivBelow, tenfoldBelow(Neg), absBelowBits, divOneBits, roundTenthsWhole.\n- Whereabouts: floorToWhole, ceilToWhole, outwardRoundingWhole (floorTo from 1.0 <= from and to <= ceilTo to 1.0 for |edge| < 2^49). Audit 21 theorems, 0 failed. NOTES.md table updated with what \"answer in band\" still needs.\n- Tests: hash_stability::prelude (17 names added, re-accepted), fmt_repo:: pass; new std tests run through a scratch file, pass.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
