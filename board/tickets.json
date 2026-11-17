@@ -1,5 +1,5 @@
 {
-  "next": 3901,
+  "next": 3902,
   "tickets": [
     {
       "id": 47,
@@ -22754,12 +22754,12 @@
     {
       "id": 3890,
       "title": "[Opus] Lambda applied directly to arguments: ((a: Box) (b: Box) => a.length + b.length) [1] [True] fails with 'expected _ [1], but this has type Bool' (Box [t: Type]: Type := List t); looks like inference not working out each binder's implicit from its argument; reduce, failing-first example, fix (SW-3880 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 35 min (Opus). Started 20:15, done 20:40.\n\nCause: an unknown made while checking a lambda's parameter type (`Box`'s `t` in `(b: Box)`, or `_` in `List _`) is applied to the variables in scope, `a` included; once the lambda is applied, `?t [1] = Bool` isn't a pattern. Not head-position specific: a curried lambda and a let-bound one failed too. A named `def f (a: Box) (b: Box)` is E-UNSOLVED by design (headers are checked alone).\n\nFix (3e9d3ef1f): such unknowns get `Meta::ignorable` (SW-323's mechanism); the unifier, meeting two unknowns of which only one may ignore, solves the other, so the mark isn't lost to pruning. Example `lambda-applied-annotation-unknowns`, unit test `unify::tests::an_unknown_that_may_ignore_is_left_for_the_other`. No existing hash changed.\n",
+      "body": "Expected: 35 min (Opus). Started 20:15, done 20:40.\n\nCause: an unknown made while checking a lambda's parameter type (`Box`'s `t` in `(b: Box)`, or `_` in `List _`) is applied to the variables in scope, `a` included; once the lambda is applied, `?t [1] = Bool` isn't a pattern. Not head-position specific: a curried lambda and a let-bound one failed too. A named `def f (a: Box) (b: Box)` is E-UNSOLVED by design (headers are checked alone).\n\nFix (3e9d3ef1f): such unknowns get `Meta::ignorable` (SW-323's mechanism); the unifier, meeting two unknowns of which only one may ignore, solves the other, so the mark isn't lost to pruning. Example `lambda-applied-annotation-unknowns`, unit test `unify::tests::an_unknown_that_may_ignore_is_left_for_the_other`. No existing hash changed.\n\nModel result: opus, worked, 25 min (est. 35). Orchestrator's call: holes in a parameter's type may take a constant solution when their type doesn't need the earlier parameter (small, reversible inference choice, SW-323 precedent). Follow-up SW-3901.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22884,6 +22884,19 @@
     {
       "id": 3900,
       "title": "[Sonnet] Elaborator debugging: a flag that prints each declaration's elaborated term before the kernel check, and say in the error when a message comes from the kernel rather than the elaborator (SW-3887 friction: 10 min of eprintln rebuilds)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3901,
+      "title": "[Opus] An untyped lambda applied on the spot, ((a) (b) => a.length + b.length) [1] [True], fails with E-CANNOT-INFER on b.length: the body is checked before the arguments give the parameters' types (SW-3890 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
