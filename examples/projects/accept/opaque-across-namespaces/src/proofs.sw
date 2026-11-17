@@ -3,7 +3,7 @@ namespace Proofs
 import Levels (..)
 import Std (List, Nat)
 
-theorem depthOfTwo: depthOf 2 = 3 := rewrite depthOf.unfold then byComputing
+theorem depthOfTwo: depthOf 2 = 3 := rewrite depthOf.unfold
 
 theorem sizeTwo ∀ (x y: Nat): size [x, y] = 2 unfolding size := byComputing
 

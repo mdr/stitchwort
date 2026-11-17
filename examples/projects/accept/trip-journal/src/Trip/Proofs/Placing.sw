@@ -20,7 +20,7 @@ theorem firstCoveringMem ∀ (legs: List Leg) (t: Float) (leg: Leg)
 
 -- An item in a leg that didn't move gets back exactly its old time.
 theorem placeUnmoved ∀ (leg: Leg) (pos: Position) (same: leg.start = pos.legStart): placeIn leg pos = pos.time :=
-  rewrite same, DecEq.refl pos.legStart then byComputing
+  rewrite same, DecEq.refl pos.legStart
 
 -- Stops and albums
 
@@ -90,7 +90,7 @@ theorem placePinId ∀ (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin)
   match e: legOf legs pos with
     | Some leg =>
       match k: keepsIn legs leg.id (pin.startAt (placeIn leg pos)) with
-        | True => rewrite <- Option.someInjective h then byComputing
+        | True => rewrite <- Option.someInjective h
         | False => (Option.noneNotSome kept h).impossible
     | None => (Option.noneNotSome kept h).impossible
 
@@ -104,10 +104,11 @@ theorem placePinSelf ∀ (legs: List Leg)
     placePin legs pin (locate legs pin.start) = Some pin :=
   match e: firstCovering legs pin.start with
     | Some leg =>
-      rewrite List.findKeyDistinct (l => l.id) legs ids leg (And.right (firstCoveringMem legs pin.start leg e)),
-          DecEq.refl leg.start,
-          pinStartAtSame pin,
-          e,
-          DecEq.refl leg.id then
-        rewrite fits then byComputing
+      rewrite List.findKeyDistinct
+        (l => l.id)
+        legs
+        ids
+        leg
+        (And.right (firstCoveringMem legs pin.start leg e)), DecEq.refl leg.start, pinStartAtSame pin, e, DecEq.refl
+          leg.id, fits
     | None => cases

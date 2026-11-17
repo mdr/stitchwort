@@ -80,8 +80,8 @@ theorem layoutOk ∀ (s0: Float) (legs: List Leg) (h: List.All LegOk legs): List
 
 -- A leg laid where it already is stays as it is.
 theorem moveLegSame ∀ (leg: Leg): moveLeg leg.start leg = leg := match leg with
-  | { id, start, duration, points, notes = None } => rewrite DecEq.refl start then byComputing
-  | { id, start, duration, points, notes = Some notes } => rewrite DecEq.refl start then byComputing
+  | { id, start, duration, points, notes = None } => rewrite DecEq.refl start
+  | { id, start, duration, points, notes = Some notes } => rewrite DecEq.refl start
 
 theorem layoutSame ∀ (s0: Float) (legs: List Leg) (h: ContiguousFrom s0 legs): layout s0 legs = legs :=
   match legs, h with
@@ -89,8 +89,8 @@ theorem layoutSame ∀ (s0: Float) (legs: List Leg) (h: ContiguousFrom s0 legs):
     | [leg, ..rest], Both e c =>
       calc layout s0 [leg, ..rest]
         _ = [moveLeg s0 leg, ..layout (s0 + leg.duration) rest]
-        _ = [moveLeg leg.start leg, ..rest] := rewrite layoutSame (s0 + leg.duration) rest c, <- e then byComputing
-        _ = [leg, ..rest] := rewrite moveLegSame leg then byComputing
+        _ = [moveLeg leg.start leg, ..rest] := rewrite layoutSame (s0 + leg.duration) rest c, <- e
+        _ = [leg, ..rest] := rewrite moveLegSame leg
 
 -- Resolving a leg in both copies
 
@@ -161,14 +161,14 @@ theorem mergeLegsOk ∀ (local remote: List Leg)
 theorem remoteLegKept ∀ (local remote: List Leg) (leg: Leg)
     (m: leg ∈ remote):
     leg.id ∈ List.map (mergeLegs local remote) (l => l.id) :=
-  rewrite layoutIds 0.0 (List.appendNewBy (resolvedLegs local remote) local (l => l.id)) then
-    rewrite <- resolveAgainstId local leg then
-      List.memMap
-        (List.appendNewBy (resolvedLegs local remote) local (l => l.id))
+  rewrite layoutIds 0.0 (List.appendNewBy (resolvedLegs local remote) local (l => l.id)),
+      <- resolveAgainstId local leg then
+    List.memMap
+      (List.appendNewBy (resolvedLegs local remote) local (l => l.id))
+      (resolveAgainst local leg)
+      (List.memAppendLeft
         (resolveAgainst local leg)
-        (List.memAppendLeft
-          (resolveAgainst local leg)
-          (resolvedLegs local remote)
-          (List.differenceBy local (resolvedLegs local remote) (l => l.id))
-          (List.memMap remote leg m (l => resolveAgainst local l)))
-        (l => l.id)
+        (resolvedLegs local remote)
+        (List.differenceBy local (resolvedLegs local remote) (l => l.id))
+        (List.memMap remote leg m (l => resolveAgainst local l)))
+      (l => l.id)
