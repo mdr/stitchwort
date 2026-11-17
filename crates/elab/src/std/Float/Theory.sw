@@ -6580,3 +6580,88 @@ theorem Float.addRelError ∀ (x c: Float)
           (algebra: n * 1 = n)
       let fm: m < 9218868437227405312 := J (y w => y < 9218868437227405312) fsb mm
       rewrite sAbs, mm then Float.Theory.roundsToRelError n 1 m spec fm byComputing small
+
+-- `round`'s specification
+
+--| `floorDiv` finds `n` for any value in `[n·p, n·p + p)`.
+theorem Float.Theory.floorDivNear ∀ (v n: Int) (p: Nat)
+    (lo: Int.leq (Int.mul n (OfNat p)) v = True)
+    (hi: Int.less v (Int.add (Int.mul n (OfNat p)) (OfNat p)) = True):
+    Float.Model.floorDiv (Int.isNeg v) (Int.natAbs v) p = n :=
+  let h: Nat := Int.natAbs (Int.sub v (Int.mul n (OfNat p)))
+  let e: v = Int.add (Int.mul n (OfNat p)) (OfNat h) := arithmetic [lo]
+  rewrite e then Float.Theory.floorDivWhole n h p (arithmetic [hi, lo])
+
+--| `roundBits` of a finite pattern within half a unit below, or under half
+--| above, `n`: `n`, with the pattern's zero sign.
+theorem Float.Theory.roundBitsNear ∀ (a: Nat) (n: Int)
+    (sp: Float.Model.isSpecial a = False)
+    (lo: Int.leq
+      (Int.mul n (OfNat (Float.Model.pow2 1074)))
+      (Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073)))
+      = True)
+    (hi: Int.less
+      (Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073)))
+      (Int.add (Int.mul n (OfNat (Float.Model.pow2 1074))) (OfNat (Float.Model.pow2 1074)))
+      = True):
+    Float.Model.roundBits a = Float.Model.roundScaled n 0 (Float.Model.signBit a) :=
+  let v: Int := Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073))
+  let p: Nat := Float.Model.pow2 1074
+  let s: Bool := Float.Model.signBit a
+  Eq.trans
+    (Float.Theory.ifFalse
+      (Float.Model.isSpecial a)
+      a
+      (Float.Model.roundScaled (Float.Model.floorDiv (Int.isNeg v) (Int.natAbs v) p) 0 s)
+      sp)
+    (Eq.cong (k => Float.Model.roundScaled k 0 s) (Float.Theory.floorDivNear v n p lo hi))
+
+--| `round`'s specification: a finite `y` from half a unit below the whole
+--| double `k` (of value `n ≠ 0`) up to just under half a unit above it
+--| rounds to `k`. Units are 2^-1074, so half a unit is `2^1073` of them.
+theorem Float.roundNear ∀ (y k: Float) (n: Int)
+    (fy: Float.isFinite y = True)
+    (fk: Float.isFinite k = True)
+    (whole: Float.Theory.units k = Int.mul n (OfNat (Float.Model.pow2 1074)))
+    (nz: n ≠ OfNat 0)
+    (lo: Int.leq
+      (Int.mul n (OfNat (Float.Model.pow2 1074)))
+      (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1073)))
+      = True)
+    (hi: Int.less
+      (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1073)))
+      (Int.add (Int.mul n (OfNat (Float.Model.pow2 1074))) (OfNat (Float.Model.pow2 1074)))
+      = True):
+    Float.round y = k :=
+  let p: Nat := Float.Model.pow2 1074
+  let s: Bool := Float.Model.signBit y.bits
+  let near: Float.Model.roundBits y.bits = Float.Model.roundScaled n 0 s :=
+    Float.Theory.roundBitsNear y.bits n (Float.Theory.notSpecialOf y.bits (Float.Theory.finiteBits y fy)) lo hi
+  let valid: Float.isValid (Float.Model.roundBits y.bits) = True :=
+    J (r w => Float.isValid r = True) (Float.Theory.roundRatioValid 1 (OfNat 0) s byComputing n) near.flipped
+  let e: Float.round y = Float.ofBits (Float.Model.roundBits y.bits) := match y with
+    | { bits = a, valid = v } => byComputing
+  Float.bitsExt
+    (Float.round y)
+    k
+    (calc (Float.round y).bits
+      _ = (Float.ofBits (Float.Model.roundBits y.bits)).bits := Eq.cong (r => r.bits) e
+      _ = Float.Model.roundBits y.bits := Float.Theory.ofBitsBits (Float.Model.roundBits y.bits) valid
+      _ = Float.Model.roundScaled n 0 s := near
+      _ = Float.Model.roundRatio (Int.mul n (OfNat p)) 1 (-1074) s := Float.Theory.roundWhole n s
+      _ = Float.Model.roundRatio (Int.mul n (OfNat p)) 1 (-1074) (Float.Model.signBit k.bits) :=
+        Float.Theory.roundRatioSignIrrelevant 1
+          (-1074)
+          s
+          (Float.Model.signBit k.bits)
+          (Int.mul n (OfNat p))
+          (Float.Theory.mulNonzero n p byComputing nz)
+      _ = Float.Model.roundRatio (Float.Theory.units k) 1 (-1074) (Float.Model.signBit k.bits) :=
+        Eq.cong (u => Float.Model.roundRatio u 1 (-1074) (Float.Model.signBit k.bits)) whole.flipped
+      _ = k.bits := Float.Theory.roundRatioUnitsBits k.bits (Float.Theory.finiteBits k fk))
+
+test "Float.roundNear" :=
+  Float.round 2.4999999999999996 == 2.0
+    ∧ Float.round 1.5 == 2.0
+    ∧ Float.round (-2.5) == -2.0
+    ∧ Float.round (-2.5000000000000004) == -3.0
