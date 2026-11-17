@@ -12,6 +12,8 @@
 namespace Fmt.Doc
 import Std (List, Text)
 
+--| A document: what to print and where lines may break, for `print` to lay out
+--| in a given width.
 type Doc =
   | Empty
   --| Text without line breaks, and its width in characters.
@@ -68,8 +70,10 @@ type Doc =
   --| Forces every group around it to break.
   | BreakParent
 
+--| Text without line breaks, as a chunk as wide as it is long in characters.
 def Doc.text (text: Text): Doc := Chunk text text.length
 
+--| A group, which holds a hard break exactly when its contents do.
 def Doc.group (inner: Doc): Doc := Group inner inner.forcesBreak
 
 --| The docs in order, leaving out the empty ones.
@@ -81,11 +85,13 @@ def Doc.concat (docs: List Doc): Doc := match docs.filter (doc => not doc.isEmpt
 --| The docs with `separator` between each two.
 def joined (docs: List Doc) (separator: Doc): Doc := Doc.concat (Doc.joinedWith separator docs)
 
+--| The docs with `separator` between each two, as a list.
 def Doc.joinedWith (separator: Doc): (docs: List Doc) → List Doc
   | [] => []
   | [only] => [only]
   | [doc, ..docs] => [doc, separator, ..Doc.joinedWith separator docs]
 
+--| Whether the doc is `Empty`.
 def Doc.isEmpty: Doc → Bool := matches | Empty
 
 --| Whether printing this always breaks a line, so a group around it can't
@@ -105,10 +111,12 @@ def Doc.forcesBreak: Doc → Bool
   | Choice options => Doc.allForceBreak options
   | _ => False
 
+--| Whether any of the docs forces a break.
 def Doc.anyForcesBreak: List Doc → Bool
   | [] => False
   | [doc, ..docs] => doc.forcesBreak || Doc.anyForcesBreak docs
 
+--| Whether every one of the docs forces a break (true of none).
 def Doc.allForceBreak: List Doc → Bool
   | [] => True
   | [doc, ..docs] => doc.forcesBreak && Doc.allForceBreak docs
@@ -125,6 +133,7 @@ def Doc.size: Doc → Nat
   | Choice options => 1 + Doc.sizes options
   | _ => 1
 
+--| The sizes of the docs, added up.
 def Doc.sizes: List Doc → Nat
   | [] => 0
   | [doc, ..docs] => doc.size + Doc.sizes docs

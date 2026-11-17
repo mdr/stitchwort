@@ -36,20 +36,25 @@ def Printer.written (printer: Printer): List Text := wordsOf printer.out.reverse
 --| The words printed so far, the trailing comments still waiting last.
 def Printer.words (printer: Printer): List Text := printer.written ++ wordsOf printer.suffixes
 
+--| Empty text is layout.
 theorem emptyIsLayout ∀ (text: Text) (empty: text.isEmpty = True): isLayout text = True := match text, empty with
   | MkText [], _ => byComputing
 
+--| Spaces are layout.
 theorem spacesIsLayout ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): isLayout text = True :=
   rewrite repeatedly [spaces]
 
+--| Indentation is spaces.
 theorem indentSpaces ∀ (indent: Nat): (" ".repeat indent).all (char => char == ' ') = True := match indent with
   | Zero => byComputing
   | Succ less => indentSpaces less
 
+--| A piece written last adds its words at the end.
 theorem wordsSnoc ∀ (piece: Text) (out: List Text):
     wordsOf [piece, ..out].reverse = wordsOf out.reverse ++ wordsOf [piece] :=
   rewrite repeatedly [List.reverseCons, List.filterAppend]
 
+--| A layout piece holds no words.
 theorem layoutNoWord ∀ (piece: Text) (layout: isLayout piece = True): wordsOf [piece] = [] :=
   rewrite repeatedly [layout]
 
@@ -59,6 +64,7 @@ theorem layoutSnoc ∀ (piece: Text) (out: List Text)
     wordsOf [piece, ..out].reverse = wordsOf out.reverse :=
   rewrite repeatedly [wordsSnoc, layoutNoWord piece layout, List.appendNil]
 
+--| Dropping the spaces at the end of the output leaves its words.
 theorem trimWords ∀ (out: List Text): wordsOf (trimSpaces out).reverse = wordsOf out.reverse := match out with
   | [] => byComputing
   | [last, ..earlier] =>
@@ -66,6 +72,8 @@ theorem trimWords ∀ (out: List Text): wordsOf (trimSpaces out).reverse = words
       | True => rewrite layoutSnoc last earlier (spacesIsLayout last spaces) then trimWords earlier
       | False => byComputing
 
+--| Paying the indentation owed leaves the words written and the waiting
+--| comments as they were.
 theorem payIndentWritten ∀ (printer: Printer):
     printer.payIndent.written = printer.written ∧ printer.payIndent.suffixes = printer.suffixes :=
   match owed: printer.owed with
@@ -81,6 +89,7 @@ theorem putWritten ∀ (printer: Printer) (text: Text) (width: Nat):
   match payIndentWritten printer with
     | (written, suffixes) => ((rewrite <- written then wordsSnoc text printer.payIndent.out), suffixes)
 
+--| Writing a waiting comment adds its words to those written.
 theorem flushOneWritten ∀ (printer: Printer) (comment: Text):
     (printer.flushOne comment).written = printer.written ++ wordsOf [comment]
       ∧ (printer.flushOne comment).suffixes = printer.suffixes :=
@@ -122,10 +131,13 @@ theorem newlineWritten ∀ (printer: Printer) (indent: Nat):
       suffixes
     )
 
+--| A line break leaves the words the printer has, written and waiting, as they
+--| were.
 theorem newlineWords ∀ (printer: Printer) (indent: Nat): (printer.newline indent).words = printer.words :=
   match newlineWritten printer indent with
     | (written, suffixes) => rewrite repeatedly [written, suffixes, List.appendNil]
 
+--| A list that is empty is `[]`.
 theorem emptyNil ∀ (items: List a) (empty: items.isEmpty = True): items = [] := match items, empty with
   | [], _ => byComputing
 
@@ -154,11 +166,13 @@ theorem writeWords ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat
                 | (brokenWritten, brokenSuffixes) =>
                   rewrite repeatedly [<- brokenWritten, putClearWords _ text width brokenSuffixes]
 
+--| A line start leaves the printer's words as they were.
 theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart indent).words = printer.words :=
   match start: printer.atLineStart with
     | True => byComputing
     | False => newlineWords printer (printer.continuation indent)
 
+--| A blank line leaves the printer's words as they were.
 theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :=
   match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
     | True => rewrite repeatedly [layoutSnoc "\n" printer.out byComputing]
@@ -186,6 +200,7 @@ theorem closeClear ∀ (printer: Printer) (indent: Nat) (text: Text)
           match never with
             | ()
 
+--| A closer that isn't empty is written as text as wide as it is long.
 theorem closePut ∀ (printer: Printer) (text: Text)
     (filled: text.isEmpty = False):
     printer.close text = printer.put text text.length :=
@@ -200,6 +215,7 @@ theorem wordFilled ∀ (text: Text) (word: isLayout text = False): text.isEmpty 
   | False => byComputing
   | True => (Bool.falseNotTrue (Eq.trans word.flipped (emptyIsLayout text empty))).impossible
 
+--| A flag is true or false.
 theorem trueOrFalse ∀ (flag: Bool): flag = True ∨ flag = False := match flag with
   | True => Inl byComputing
   | False => Inr byComputing
@@ -222,10 +238,12 @@ def Doc.words: Doc → List Text
   | Choice options => wordsFirst options
   | _ => []
 
+--| The words of the docs, in order.
 def wordsAll: List Doc → List Text
   | [] => []
   | [doc, ..docs] => doc.words ++ wordsAll docs
 
+--| The words of the first doc, or none.
 def wordsFirst: List Doc → List Text
   | [] => []
   | [doc, .._] => doc.words
@@ -241,6 +259,7 @@ def Uniform: Doc → Prop
   | Choice options => AllUniform options ∧ SameWords (wordsFirst options) options
   | _ => True
 
+--| Every doc is `Uniform`.
 def AllUniform: List Doc → Prop
   | [] => True
   | [doc, ..docs] => Uniform doc ∧ AllUniform docs
@@ -250,6 +269,7 @@ def SameWords (words: List Text): List Doc → Prop
   | [] => True
   | [doc, ..docs] => doc.words = words ∧ SameWords words docs
 
+--| The words a command writes.
 def Cmd.words: Cmd → List Text
   | Print _ _ doc => doc.words
   | FillSep _ item => item.words
@@ -259,19 +279,23 @@ def stackWords: List Cmd → List Text
   | [] => []
   | [cmd, ..rest] => cmd.words ++ stackWords rest
 
+--| A command's doc is `Uniform`.
 def CmdUniform: Cmd → Prop
   | Print _ _ doc => Uniform doc
   | FillSep _ item => Uniform item
 
+--| Every command on the work list is `CmdUniform`.
 def StackUniform: List Cmd → Prop
   | [] => True
   | [cmd, ..rest] => CmdUniform cmd ∧ StackUniform rest
 
+--| The words of two work lists put together are those of each, in order.
 theorem stackWordsAppend ∀ (front back: List Cmd): stackWords (front ++ back) = stackWords front ++ stackWords back :=
   match front with
     | [] => byComputing
     | [cmd, ..rest] => rewrite repeatedly [stackWordsAppend rest back, List.appendAssoc]
 
+--| Two uniform work lists put together are uniform.
 theorem stackUniformAppend ∀ (front back: List Cmd)
     (frontUniform: StackUniform front)
     (backUniform: StackUniform back):
@@ -280,12 +304,14 @@ theorem stackUniformAppend ∀ (front back: List Cmd)
     | [], _ => backUniform
     | [cmd, ..rest], Both first others => (first, (stackUniformAppend rest back others backUniform))
 
+--| Printing each of the docs writes the docs' words.
 theorem printsWords ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
     stackWords (docs.map (Print indent mode)) = wordsAll docs :=
   match docs with
     | [] => byComputing
     | [doc, ..rest] => rewrite repeatedly [printsWords indent mode rest]
 
+--| Printing uniform docs is a uniform work list.
 theorem printsUniform ∀ (indent: Nat) (mode: Mode) (docs: List Doc)
     (uniform: AllUniform docs):
     StackUniform (docs.map (Print indent mode)) :=
@@ -293,11 +319,13 @@ theorem printsUniform ∀ (indent: Nat) (mode: Mode) (docs: List Doc)
     | [], _ => byComputing
     | [doc, ..rest], Both first others => (first, (printsUniform indent mode rest others))
 
+--| The separators before a fill's items write the items' words.
 theorem fillSepsWords ∀ (indent: Nat) (items: List Doc): stackWords (items.map (FillSep indent)) = wordsAll items :=
   match items with
     | [] => byComputing
     | [item, ..rest] => rewrite repeatedly [fillSepsWords indent rest]
 
+--| The separators before uniform items are a uniform work list.
 theorem fillSepsUniform ∀ (indent: Nat) (items: List Doc)
     (uniform: AllUniform items):
     StackUniform (items.map (FillSep indent)) :=
@@ -310,6 +338,7 @@ theorem joinLinesWords ∀ (items: List Doc): wordsAll (Doc.joinLines items) = w
   | [item, next, ..rest] => rewrite repeatedly [joinLinesWords [next, ..rest]]
   | _ => cases
 
+--| Putting a `Line` between uniform items leaves them uniform.
 theorem joinLinesUniform ∀ (items: List Doc) (uniform: AllUniform items): AllUniform (Doc.joinLines items) :=
   match items, uniform with
     | [], _ => byComputing
@@ -326,6 +355,7 @@ theorem optionWords ∀ (chosen: Doc) (words: List Text) (option: Doc) (others: 
     | [next, ..rest], Inl picked, (first, _) => rewrite picked then first
     | [next, ..rest], Inr later, (_, laterSame) => optionWords chosen words next rest later laterSame
 
+--| A doc that is one of the options of a uniform choice is uniform.
 theorem optionUniform ∀ (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options)
     (uniform: AllUniform options):
@@ -336,6 +366,7 @@ theorem optionUniform ∀ (chosen: Doc) (options: List Doc)
     | [option, next, ..rest], Inl picked, Both first _ => rewrite picked then first
     | [option, next, ..rest], Inr later, Both _ others => optionUniform chosen [next, ..rest] later others
 
+--| Writing layout leaves the printer's words as they were.
 theorem writeLayoutWords ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (layout: isLayout text = True):
     (printer.write indent text width).words = printer.words :=
@@ -346,6 +377,8 @@ theorem suffixWords ∀ (printer: Printer) (comment: Text):
     ({ printer | suffixes = printer.suffixes ++ [comment] }).words = printer.words ++ wordsOf [comment] :=
   rewrite repeatedly [List.filterAppend, List.appendAssoc]
 
+--| A step that goes one way or the other leaves the words to come as `target`
+--| if each way does.
 theorem eitherWords ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (target: List Text)
     (whenYes: yes.fst.words ++ stackWords yes.snd = target)
     (whenNo: no.fst.words ++ stackWords no.snd = target):
@@ -354,6 +387,8 @@ theorem eitherWords ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (target:
     | True => whenYes
     | False => whenNo
 
+--| A step that goes one way or the other leaves a uniform work list if each way
+--| does.
 theorem eitherUniform ∀ (condition: Bool) (yes no: (Printer, List Cmd))
     (whenYes: StackUniform yes.snd)
     (whenNo: StackUniform no.snd):
@@ -362,13 +397,17 @@ theorem eitherUniform ∀ (condition: Bool) (yes no: (Printer, List Cmd))
     | True => whenYes
     | False => whenNo
 
+--| The first option of a choice has the first option's words.
 theorem headOrWords ∀ (options: List Doc): (options.headOr Empty).words = wordsFirst options := cases
 
+--| The first option of uniform options is uniform.
 theorem headOrUniform ∀ (options: List Doc) (uniform: AllUniform options): Uniform (options.headOr Empty) :=
   match options, uniform with
     | [], _ => byComputing
     | [option, ..others], Both first _ => first
 
+--| An option a choice takes has the words of the first option, if all options
+--| have the same words.
 theorem chosenWords ∀ (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options)
     (same: SameWords (wordsFirst options) options):
@@ -401,6 +440,8 @@ def Cmd.wordsFrom (cmd: Cmd) (printer: Printer) (later: List Text): List Text :=
   | Print _ _ doc => doc.wordsFrom printer later
   | FillSep _ item => printer.words ++ (item.words ++ later)
 
+--| The printer's words, then the doc's, then `later`, as the step that prints
+--| the doc leaves them; a closer goes before the waiting comments.
 def Doc.wordsFrom (doc: Doc) (printer: Printer) (later: List Text): List Text := match doc with
   | Closing text => printer.written ++ (wordsOf [text] ++ (wordsOf printer.suffixes ++ later))
   | _ => printer.words ++ (doc.words ++ later)
@@ -514,6 +555,7 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), Both each _ =>
           rewrite broken then ((optionUniform chosen options isOption each), restUniform)
 
+--| An option a choice takes has at most the steps of all the options and one.
 theorem optionSteps ∀ (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options):
     chosen.steps ≤ stepsOf options + 1 :=
@@ -574,6 +616,7 @@ def Every (holds: Text → Prop): List Text → Prop
   | [] => True
   | [word, ..rest] => holds word ∧ Every holds rest
 
+--| Two lists of words that each satisfy a property do so together.
 theorem everyAppend ∀ (holds: Text → Prop) (front back: List Text)
     (first: Every holds front)
     (second: Every holds back):
@@ -582,6 +625,7 @@ theorem everyAppend ∀ (holds: Text → Prop) (front back: List Text)
     | [], _ => second
     | [word, ..rest], (head, others) => (head, (everyAppend holds rest back others second))
 
+--| Both halves of a list of words that satisfies a property satisfy it.
 theorem everySplit ∀ (holds: Text → Prop) (front back: List Text)
     (all: Every holds (front ++ back)):
     Every holds front ∧ Every holds back :=
@@ -653,18 +697,22 @@ def Marked (closer suffix: Text → Prop): Doc → Prop
   | Choice options => AllMarked closer suffix options
   | _ => True
 
+--| Every doc is `Marked` with the closer and suffix tests.
 def AllMarked (closer suffix: Text → Prop): List Doc → Prop
   | [] => True
   | [doc, ..docs] => Marked closer suffix doc ∧ AllMarked closer suffix docs
 
+--| A command's doc is `Marked` with the closer and suffix tests.
 def CmdMarked (closer suffix: Text → Prop): Cmd → Prop
   | Print _ _ doc => Marked closer suffix doc
   | FillSep _ item => Marked closer suffix item
 
+--| Every command on the work list is `CmdMarked`.
 def StackMarked (closer suffix: Text → Prop): List Cmd → Prop
   | [] => True
   | [cmd, ..rest] => CmdMarked closer suffix cmd ∧ StackMarked closer suffix rest
 
+--| Two marked work lists put together are marked.
 theorem stackMarkedAppend ∀ (closer suffix: Text → Prop) (front back: List Cmd)
     (frontUniform: StackMarked closer suffix front)
     (backUniform: StackMarked closer suffix back):
@@ -673,6 +721,7 @@ theorem stackMarkedAppend ∀ (closer suffix: Text → Prop) (front back: List C
     | [], _ => backUniform
     | [cmd, ..rest], Both first others => (first, (stackMarkedAppend closer suffix rest back others backUniform))
 
+--| Printing marked docs is a marked work list.
 theorem printsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc)
     (uniform: AllMarked closer suffix docs):
     StackMarked closer suffix (docs.map (Print indent mode)) :=
@@ -680,6 +729,7 @@ theorem printsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (mode: Mod
     | [], _ => byComputing
     | [doc, ..rest], Both first others => (first, (printsMarked closer suffix indent mode rest others))
 
+--| The separators before marked items are a marked work list.
 theorem fillSepsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (items: List Doc)
     (uniform: AllMarked closer suffix items):
     StackMarked closer suffix (items.map (FillSep indent)) :=
@@ -687,6 +737,7 @@ theorem fillSepsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (items: 
     | [], _ => byComputing
     | [item, ..rest], Both first others => (first, (fillSepsMarked closer suffix indent rest others))
 
+--| Putting a `Line` between marked items leaves them marked.
 theorem joinLinesMarked ∀ (closer suffix: Text → Prop) (items: List Doc)
     (uniform: AllMarked closer suffix items):
     AllMarked closer suffix (Doc.joinLines items) :=
@@ -696,6 +747,7 @@ theorem joinLinesMarked ∀ (closer suffix: Text → Prop) (items: List Doc)
     | [item, next, ..rest], Both first others =>
       (first, byComputing, (joinLinesMarked closer suffix [next, ..rest] others))
 
+--| A doc that is one of the options of marked options is marked.
 theorem optionMarked ∀ (closer suffix: Text → Prop) (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options)
     (uniform: AllMarked closer suffix options):
@@ -706,6 +758,8 @@ theorem optionMarked ∀ (closer suffix: Text → Prop) (chosen: Doc) (options: 
     | [option, next, ..rest], Inl picked, Both first _ => rewrite picked then first
     | [option, next, ..rest], Inr later, Both _ others => optionMarked closer suffix chosen [next, ..rest] later others
 
+--| A step that goes one way or the other leaves a marked work list if each way
+--| does.
 theorem eitherMarked ∀ (closer suffix: Text → Prop) (condition: Bool) (yes no: (Printer, List Cmd))
     (whenYes: StackMarked closer suffix yes.snd)
     (whenNo: StackMarked closer suffix no.snd):
@@ -714,6 +768,7 @@ theorem eitherMarked ∀ (closer suffix: Text → Prop) (condition: Bool) (yes n
     | True => whenYes
     | False => whenNo
 
+--| The first option of marked options is marked.
 theorem headOrMarked ∀ (closer suffix: Text → Prop) (options: List Doc)
     (uniform: AllMarked closer suffix options):
     Marked closer suffix (options.headOr Empty) :=
@@ -798,10 +853,13 @@ theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: C
 
 -- The comments that wait are trailing comments of the document.
 
+--| A line break leaves no comment waiting, so every waiting comment satisfies
+--| any test.
 theorem newlineQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat):
     Every suffix (printer.newline indent).suffixes :=
   rewrite (newlineWritten printer indent).right
 
+--| Writing leaves every waiting comment satisfying the test, if they did.
 theorem writeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (waits: Every suffix printer.suffixes):
     Every suffix (printer.write indent text width).suffixes :=
@@ -817,6 +875,8 @@ theorem writeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat) 
               rewrite (putWritten (printer.newline (printer.continuation indent)) text width).right,
                   (newlineWritten printer (printer.continuation indent)).right
 
+--| Writing a closer leaves every waiting comment satisfying the test, if they
+--| did.
 theorem closeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (text: Text)
     (waits: Every suffix printer.suffixes):
     Every suffix (printer.close text).suffixes :=
@@ -824,6 +884,7 @@ theorem closeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (text: Text)
     | True => waits
     | False => rewrite (putWritten printer text text.length).right then waits
 
+--| A line start leaves every waiting comment satisfying the test, if they did.
 theorem lineStartQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat)
     (waits: Every suffix printer.suffixes):
     Every suffix (printer.lineStart indent).suffixes :=
@@ -831,6 +892,7 @@ theorem lineStartQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: N
     | True => waits
     | False => newlineQuiet suffix printer (printer.continuation indent)
 
+--| A blank line leaves every waiting comment satisfying the test, if they did.
 theorem blankQuiet ∀ (suffix: Text → Prop) (printer: Printer)
     (waits: Every suffix printer.suffixes):
     Every suffix printer.blank.suffixes :=
@@ -838,6 +900,8 @@ theorem blankQuiet ∀ (suffix: Text → Prop) (printer: Printer)
     | True => waits
     | False => waits
 
+--| A step that goes one way or the other leaves every waiting comment
+--| satisfying the test if each way does.
 theorem eitherQuiet ∀ (suffix: Text → Prop) (condition: Bool) (yes no: (Printer, List Cmd))
     (whenYes: Every suffix yes.fst.suffixes)
     (whenNo: Every suffix no.fst.suffixes):
@@ -904,6 +968,7 @@ theorem stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cm
 
 -- The order of the words.
 
+--| Words that all satisfy a property all satisfy a weaker one.
 theorem everyWeaker ∀ (strong weak: Text → Prop) (words: List Text) (implies: ∀ (word: Text) => strong word → weak word)
     (all: Every strong words):
     Every weak words :=
@@ -917,6 +982,7 @@ theorem siftedWord ∀ (keep: Text → Bool) (text: Text) (dropped: keep text = 
     | True => byComputing
     | False => rewrite repeatedly [dropped]
 
+--| Filtering words that all fail a test leaves none.
 theorem siftedAll ∀ (keep: Text → Bool) (texts: List Text)
     (dropped: Every (text => keep text = False) texts):
     (wordsOf texts).filter keep = [] :=
