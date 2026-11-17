@@ -1,430 +1,462 @@
 # A Stitchwort formatter written in Stitchwort
 
-**Status:** second plan, 14 November 2026 (SW-3228), replacing the first
-(SW-3145, 13 November), which planned a port of the old token-and-line
-formatter. That formatter has since been deleted, so the first plan is kept
-only as history, in [Appendix B](#appendix-b-the-first-plan-superseded);
-[What changed](#what-changed-since-the-first-plan) says which of its parts
-still hold. Paper lane: nothing is built. The probes were throwaway `.sw`
-files run with the main checkout's release binary
-([Appendix A](#appendix-a-the-probes)). It stops for Matt's decisions
+**Status:** third plan, 17 November 2026 (SW-3417), refreshing the second
+(SW-3228, 14 November) with what the toy formatter has shown since. The
+second plan's design was a *twin*: a port of the Rust formatter that checks
+its own output at run time. Matt's decisions since (D3623, D3635, D3636)
+replace that with a formatter that is *proved*: tidy passes, then a printer
+that changes only white space, each proved, with no check when it runs.
+[What changed (17 Nov 2026)](#what-changed-17-nov-2026) lists every change;
+the second plan's text that no longer holds is gone from the body, and the
+first plan is kept as history in
+[Appendix B](#appendix-b-the-first-plan-superseded). Paper lane: nothing
+was built or run for this refresh. It stops for Matt's decisions
 ([§10](#10-questions-for-matt)).
 
-Claims are marked **[measured]** (run for this note on Speedwell, load 5–10,
-one run each, so rough), **[source]** (read in the code at `fb4841cf3`) or
-**[estimated]** (my reasoning, not tested).
+Claims are marked **[measured]** (run on Speedwell for this or an earlier
+note, or counted from `git log` and the board; each says where),
+**[source]** (read in the code at `82251a9b4`), **[estimated]** (my
+reasoning, not tested) or **[assumed]** (taken as true without checking,
+and said why). Times are **agent time** unless they say elapsed: the time
+lanes spend working, summed. Past estimates here ran about three times high
+(the median actual over 1,034 closed tasks was 0.33 of the estimate), and
+the estimates below are made from the toy's actuals, not from scratch.
+
+## What changed (17 Nov 2026)
+
+| Second plan (14 Nov) | Now | Why |
+|---|---|---|
+| A twin, mirroring `crates/fmt` module for module | **Replaced.** Tidy passes (tree to tree), then a printer that chooses only white space ([§2](#2-the-design)) | D3623 (Matt, 16 Nov 2026: direction C of [after-the-toy-proof.md](after-the-toy-proof.md) §4.3); the Rust formatter was reshaped the same way (D3624; SW-3495, SW-3496, SW-3610) |
+| A safety check at run time: parse the output, compare trees; theorems 1 and 2 hold "by validation" | **Replaced.** No check at run time, ever. The theorems are proved from the program's definitions ([§7](#7-proofs)) | Matt, 15 Nov 2026: "my ambition is that we don't need the runtime check because we have formally verified the behavior is correct"; D3620 ("no run-time check, ever"). The toy did it: SW-3418, merge `dcda74fb2` |
+| "Same program" is "the same lossless tree, after erasing layout" | **Replaced.** Same `meaning`: the tree with exactly the formatter's freedoms forgotten, a definition in Stitchwort, cross-checked against the compiler's hashes by the fuzzer ([§3.4](#34-what-the-same-program-means)) | D3635, D3643 |
+| §3.2: build the tree directly by hand (B); `Std.Parse` (C) ruled out because it reads only characters | **Reversed.** `Parse` now reads tokens, and the parser is written on it (C), so its proofs stand on std's parser-proof library ([§3.2](#32-the-options)) | `Parse` became generic over its input (the toy's parser runs on `Parse.Located Token`); SW-3414 still preferred hand-written for speed; D3636 (Matt, 16 Nov 2026: "let's plan to write it with standard parse") decided against it |
+| An untyped tree: `Node (kind) (children)` | **Changed:** a tree typed per construct, as the toy's, with a dump in `dev tree --print`'s format for the gate ([§2](#2-the-design)) | proofs go by cases on constructors (after-the-toy-proof.md §4.3, risk i) |
+| Declarations left as written when a check fails | **Gone.** There is no check to fail; every comment has a place | D3618, D3619; [§3.5](#35-refusals) |
+| SW-3149 (built executables don't start) blocks stage 0 | **Done** (SW-3149, `d3d200a2f`) | [§5](#5-speed) |
+| SW-3150 (no file access, no cheap text slices): use a batch stream on standard input | **Done** as `Files` (SW-3338) and constant-time `Text` slices (SW-3337); no batch stream | SW-3150 was superseded by SW-3234's design |
+| Theorems: two cheap ones "by validation"; a direct proof "months, not recommended" | **Measured on the toy:** the direct proof took about 10 hours elapsed for 1,262 theorems (SW-3418); Toy++ T1–T3 added 348 in about 4 agent-hours ([§8](#8-stages)) | `git log --grep`, the tickets' notes |
+| 42–59 lane hours to build; proofs "2–3 days, then open" | **Re-estimated** in agent time: about 15–25 hours to build, 40–70 to prove ([§8](#8-stages)) | the toy's actuals |
+| D3617: keep the check, skip the re-parse on unchanged files | **Moot for this formatter** (it has no check); an ordinary speed change for the Rust one ([§7.6](#76-d3617)) | |
+| D3576, D3577, D3578 | D3576 was replaced by D3579 (build the pieces, then a toy, then decide). D3577 and D3578 were never answered; D3577 comes back as Q3, D3578 stands as written ([§9](#9-towards-self-hosting-a-direction-not-a-plan)) | |
+
+Decisions this plan rests on, all Matt's: D3558 (the formatter chooses
+line breaks), D3618 and D3619 (every comment has a place; odd layouts for
+odd comments are fine), D3620 (no run-time check), D3623 (passes, then a
+white-space printer), D3624 (the Rust formatter takes the same shape),
+D3625 and D3626 (Toy++ first, in place), D3635 and D3643 (`meaning`, the
+same tree in plain form), D3636 (the parser on `Parse`), D3663 (the "must"
+set of properties, for Toy++).
 
 ## In plain words
 
-**The problem.** We want a demanding, real program written in Stitchwort, to
-find out where the language is slow or awkward, and a formatter is a good
-one. The first plan was written against a formatter that no longer exists.
-`stitchwort fmt` is now a lexer, a parser that builds a tree holding every
-token and comment (the lossless tree), and a printer that walks that tree and
-chooses every line break itself. A Stitchwort version has to match that one,
-byte for byte.
+**The problem.** We want a demanding real program written in Stitchwort,
+and a formatter is a good one. Matt's aim for it is more than a port: a
+formatter whose correctness is *proved*, so it never needs to re-read its
+own output to be safe. The toy formatter (Sprig, `tools/toyfmt`) showed
+that this can be done, and Toy++ is now showing it for a formatter that
+also changes tokens, as the real one does.
 
-**The change.** A new project, `tools/fmt/`, that is the same three parts in
-Stitchwort, built in seven stages, each compared with the Rust formatter by
-one command:
+**The change.** A new project, `tools/fmt/`, in four parts:
 
-1. *A lexer* that gives the same tokens and comments.
-2. *A parser* that gives the same lossless tree. It is hand-written, follows
-   the Rust parser function by function, and builds the tree directly; it
-   does not copy the Rust parser's "marks" technique, which exists for
-   reasons that don't apply in Stitchwort ([§3](#3-parsing)).
-3. *A printer*: the layout engine and the rule for each construct, ported
-   from `crates/fmt/src/printer/`.
-4. *The safety check*, which changes: the Rust formatter checks its output
-   by comparing compiler's trees, and a Stitchwort program can't call the
-   Rust code that builds those. It compares lossless trees instead, which is
-   at least as strict ([§3.4](#34-the-safety-check)).
+1. *A lexer*, giving the same tokens and comments as the Rust one.
+2. *A parser on std `Parse`*, giving a tree typed per construct; its dump
+   must match the Rust parser's tree node for node.
+3. *Tidy passes*, each a function from tree to tree: `∀` after a theorem's
+   name, the comma before a closer dropped, spare brackets dropped,
+   parameters of one type merged. Where a comment belongs is a reading
+   rule (rule N) applied as tokens are read.
+4. *A printer* that changes only white space: the layout engine and a rule
+   per construct.
 
-Every function is total: no `Partial`.
+Then proofs, in layers, that formatting keeps the program's meaning, keeps
+every comment, and changes nothing the second time, with no check when it
+runs.
 
 **What it should do.**
 
-- Format the 1,461 files `stitchwort fmt` formats in the repo (6.5 MB) to
-  the same bytes, and refuse the same broken files.
-- Take about 20 s for all of them in one process [estimated, range 12–30 s].
-  The Rust formatter takes 8.3 s [measured], of which about 1.1 s is real
-  work and the rest is one avoidable cost that is still there (SW-3147,
-  comparing trees by printing them as text). So about 2–3 times today's Rust
-  formatter and 10–25 times its real work, inside the Python-like target.
-- Cost about 40–60 lane hours [estimated], against the first plan's 26–39:
-  the printer is twice the code the old line formatter was, and the parser
-  now has to produce exactly the Rust parser's tree, not just agree on
-  whether a file parses.
-- Give two theorems cheaply that the first plan could not: every output it
-  returns parses back to the tree it was printed from, and formatting that
-  output again changes nothing. Both hold by construction, at about no cost
-  in run time ([§7](#7-proofs)).
+- Format the repo's files to the same bytes as `stitchwort fmt`, and
+  refuse the same broken files.
+- Take about 15–20 s for the 6.5 MB of the repo in one process
+  [estimated from the toy's 2.05–2.2 s per MB with no check, measured in
+  SW-3383 and SW-3414; Toy++ T7 measures the rate with passes]. The Rust
+  formatter takes 8.3 s, of which about 1.1 s is real work [measured
+  14 Nov, §5].
+- Cost about 15–25 agent hours to build and 40–70 to prove [estimated,
+  §8], in stages that each stand on their own.
 
-**Self-hosting.** The lexer, tree and parser are exactly what a Stitchwort
-parser for Stitchwort itself would start from, and the plan keeps that door
-open at no extra cost. I don't recommend planning beyond that yet
+**Self-hosting.** The lexer, typed tree and parser are what a Stitchwort
+parser for Stitchwort itself would start from, now with proofs; still a
+direction, not a plan
 ([§9](#9-towards-self-hosting-a-direction-not-a-plan)).
-
-## What changed since the first plan
-
-| First plan (13 Nov) | Now |
-|---|---|
-| The Rust formatter works on tokens and lines and keeps the author's line breaks; mirror that (its §1, §2, Q1) | **Replaced.** D3558: `fmt` chooses the line breaks. The line formatter (`layout.rs`, `doc.rs`) is deleted (SW-3194, stage 5 of the tree printer). The twin mirrors the tree printer: [§1](#1-what-is-being-matched), [§2](#2-the-design) |
-| The parser comes last, as a referee, and its tree has no need to match anything (its §2, stage 4, Q2) | **Replaced.** The parser comes second and must give the Rust parser's lossless tree node for node; there is no useful formatter without it. Q2 is no longer a question |
-| The corpus is already formatted, so the test needs disturbed input (its §4) | **Still true**, and easier: the printer ignores the author's line breaks, so any re-layout of a file is a test, and the whole repo as it was before the reformat is in git ([§6](#6-the-comparison-harness)) |
-| Widths are counted in bytes | **Replaced.** The engine counts characters: `∀` is one column [source: `engine.rs`, E5] |
-| The safety check is "same tokens, comments and tree", the tree being the Stitchwort parser's own | **Changed in kind:** [§3.4](#34-the-safety-check) |
-| Lexer design, arrays and index passes, fuel for the parser, the batch stream for files (its §2, Q3) | **Kept**, re-measured ([§5](#5-speed)) |
-| About 20 s for the tree; target under 30 s (its §3, Q5) | **Kept**, on new measurements |
-| Proofs: theorems about the checks; idempotence only by formatting twice (its §5) | **Better now:** [§7](#7-proofs) |
-| Stages 0–5, 26–39 lane hours (its §6) | **Replaced:** [§8](#8-stages), 40–60 |
-| Once identical, no merge gate (Q4) | **Asked again** as D3577 |
-
-Decisions since: D3558 (the formatter chooses line breaks), D3560 (no author
-hints; pipelines fit or break), D3562 (one lossless tree, the compiler's
-tree lowered from it), D3561 (this project waits for the Rust formatter to
-be rebuilt on the tree, then ports that design). The wait ended today: the
-tree printer is `stitchwort fmt` (SW-3194), and the parser builds only the
-lossless tree, with the compiler's tree lowered from it (SW-3207 to SW-3214).
 
 ## 1. What is being matched
 
 ### The Rust formatter today [source]
 
-For each file (`crates/fmt/src/printer/mod.rs`, `print_file` and
-`format_tree_in`):
+The Rust formatter was reshaped into the architecture this plan copies
+(D3624, [fmt-passes.md](fmt-passes.md)). For each file
+(`crates/fmt/src/printer/mod.rs`, `format_tree_in`):
 
-1. Lex with trivia. Each token has its own-line comments before it, the
-   blank lines before it, and a trailing comment.
-2. Parse and lower the whole file; refuse it on any error (D1021).
-3. Three rewrites, each made on the text and checked on its own: `∀` after
-   a theorem's name (D3472), redundant parentheses dropped (D2307,
-   `parens.rs`), neighbouring parameters of one type merged (D3565,
-   `merge.rs`).
-4. Parse the rewritten text to the lossless tree.
-5. Per declaration: the rule for each node gives a layout document
-   (`rules.rs`), the engine prints it in 120 columns (`engine.rs`), and the
-   result is checked against the declaration as written: the same tokens
-   (commas and parentheses aside), each comment on the same token, the same
-   compiler's tree. A declaration that fails is left as written and
-   counted. So is one with a comment no rule places.
-6. Check the whole output the same way.
+1. Lex with trivia, then apply rule N (`tidy.rs`): a trailing comment
+   written on a comma, a closing bracket or a record update's `|` moves to
+   the token before; a comma holds no comments; comments lose trailing
+   spaces; a comment after `->` moves before it. It is applied to every
+   token sequence the formatter reads, input and output alike.
+2. Parse to the lossless tree; refuse the file on any error (D1021).
+3. Four passes (`passes.rs`, `PASSES`): P1 `∀` after a theorem's name
+   (D3472), P2 the comma before a closer dropped (D1012), P3 redundant
+   round brackets dropped (D2307), P4 neighbouring parameters of one type
+   merged (D3565). Each returns edits to the text, which is parsed again,
+   so every intermediate is a real program.
+4. Print: per declaration, the rule for each node gives a layout document
+   (`rules.rs`), printed in 120 columns (`engine.rs`).
+5. Check (`check_file`): the same tokens as the tidied text, the same
+   comments, and the original's compiler tree up to the passes' changes
+   (`same_program.rs`, SW-3610). A file that fails is `Error::Internal`
+   and kept as it was.
 
-Over std, `aoc/src` and `games` (760 files, 15,829 declarations) no
-declaration is left as written and no construct lacks a rule [measured:
-`dev fmt-tree`].
+So the Stitchwort formatter matches a formatter of the same shape, which
+was the point of D3624: the passes, their order and rule N can be ported
+one for one, and what differs is only that the Stitchwort passes work on
+the tree, not the text, and that the check becomes proofs.
 
-### Its size [source, lines outside tests]
+### Its size [source, lines outside tests, at `82251a9b4`]
 
-| Part | Rust | Used by the twin |
+| Part | Rust | The Stitchwort formatter's counterpart |
 |---|---|---|
-| Lexer (`lexer.rs`) | 1,535 | all of it, less the long explanations of invisible characters |
-| Parser (`parser.rs`, `parser/`) | about 6,150, 234 functions | the grammar; not the wording of its errors |
-| Tree (`tree.rs`) | 866 | the node kinds (94) and a dump; the mark builder and the span check are not needed |
+| Lexer (`crates/syntax`, `lexer.rs`) | about 1,535 | all of it, less the long explanations of invisible characters |
+| Parser (`parser.rs`, `parser/`) | about 6,150, 234 functions | the grammar on `Parse`; not the wording of its errors, not recovery |
+| Tree (`tree.rs`) | 866, 94 node kinds | a typed tree; the dump |
 | Lowering (`lower.rs`, `lower/`) | about 4,000 | none, except its three errors ([§3.5](#35-refusals)) |
-| Layout engine (`engine.rs`) | 636 | all |
-| Rules (`rules.rs`) | 1,834 | all |
+| Rule N (`tidy.rs`) | about 185 | all |
+| Passes (`passes.rs`, `parens.rs`, `merge.rs`) | about 640 | all, as tree functions |
+| Engine (`engine.rs`) | about 825 | all (it was 636 on 14 Nov; since then S39's closers before a waiting comment and SW-3447's `fits` after one) |
+| Rules (`rules.rs`) | 2,096 | all |
 | Spacing (`spacing.rs`) | 263 | all |
-| Rewrites and checks (`merge.rs`, `parens.rs`, `mod.rs`, `check.rs`, `lib.rs`) | about 1,080 | all, the checks redesigned |
+| Checks (`check.rs`, `same_program.rs`, part of `printer/mod.rs`) | about 600 | none: replaced by proofs |
 
-About 12,400 lines of Rust to match, the lowering aside; I'd expect
-9,000–11,000 lines of Stitchwort [estimated].
+About 12,500 lines of Rust to match, the lowering and the checks aside;
+I'd expect 8,000–11,000 lines of Stitchwort program [estimated: the toy's
+program is 1,680 lines for a grammar about a fifth the size], and many
+times that in proof.
 
 ### In and out
 
-**In:** the same bytes as `stitchwort fmt` for every file it formats,
-including the declarations it leaves as written; the same refusals for
-lexical and syntax errors.
+**In:** the same bytes as `stitchwort fmt` for every file it formats; the
+same refusals for lexical and syntax errors and the lowering's three
+errors; the "must" properties of
+[formatter-properties.md](formatter-properties.md) §4, proved
+([§7](#7-proofs)).
 
 **Out:** diagnostics that match the Rust ones (only "refused or not" must
-agree); refusing a file for being nested too deeply (the Rust parser stops
-at about 18,000 nested brackets for its stack; the twin's limit is its
-fuel); the LSP and playground hooks; error recovery
-([§3.3](#33-error-recovery-s1-to-s5)); replacing `stitchwort fmt`.
+agree); error recovery ([§3.3](#33-error-recovery-s1-to-s5)); the LSP and
+playground hooks; replacing `stitchwort fmt` (Q3).
 
 ## 2. The design
 
-**Mirror the Rust formatter module for module.** Its output is one function
-of the tree, written as a rule per construct, so a port that keeps the same
-functions in the same order is the shortest route to the same bytes, and
-the easiest to keep in step when a rule changes.
+```
+lex → rule N (settle) → parse  →  P1 → P2 → P3 → P4  →  print
+       (reading rule)              (tree to tree)        (white space only)
+```
 
-| Module (namespace) | What | Mirrors |
+| Module (namespace) | What | Rust counterpart |
 |---|---|---|
-| `Syntax.Token`, `Syntax.Lexer` | token kinds; a state machine over `List Char` giving tokens with trivia, byte offsets and columns | `lexer.rs` |
-| `Syntax.Tree` | `Syntax = Leaf (index: Nat) \| Node (kind: NodeKind) (children: List Syntax)`, the tokens and their trivia in arrays beside it; a dump in `dev tree --print`'s format | `tree.rs` |
-| `Syntax.Parser` | recursive descent over the token array, one declaration at a time, building `Syntax` directly | `parser.rs`, `parser/` |
-| `Fmt.Doc`, `Fmt.Engine` | the layout document and its printer | `engine.rs` |
-| `Fmt.Spacing` | the space-or-not table for neighbouring tokens | `spacing.rs` |
-| `Fmt.Rules` | the rule for each node kind | `rules.rs` |
-| `Fmt.Rewrites` | `∀`, parentheses, merged parameters, as functions from tree to tree | `lib.rs`, `parens.rs`, `merge.rs` |
-| `Fmt.Check`, `Fmt.Format` | the safety check; the file driver; `main` | `mod.rs`, `check.rs` |
+| `Syntax.Token`, `Syntax.Lexer` | token kinds; the lexer with trivia, over `Text` slices | `lexer.rs` |
+| `Syntax.Settle` | rule N on the lexer's tokens | `tidy.rs` |
+| `Syntax.Tree` | the typed tree (a type per construct family: declarations, headers, expressions, patterns, types, blocks), each token's comments in its own slot; a dump in `dev tree --print`'s format | `tree.rs` |
+| `Syntax.Parser` | the grammar on `Parse` over located tokens, layout as a parameter, as the toy's | `parser.rs`, `parser/` |
+| `Fmt.Meaning` | `meaning`: the tree in plain form ([§3.4](#34-what-the-same-program-means)) | `same_program.rs`, in spirit |
+| `Fmt.Passes` | P1–P4, on one shared traversal | `passes.rs`, `parens.rs`, `merge.rs` |
+| `Std.Doc` (or `Fmt.Doc`) | the layout document and engine, with its theory | `engine.rs` |
+| `Fmt.Spacing`, `Fmt.Rules` | the space-or-not table; the rule per construct | `spacing.rs`, `rules.rs` |
+| `Fmt.Format`, `main` | the file driver over `Files` | `printer/mod.rs`, the CLI |
+| `*.Proofs` beside each | the layers of [§7](#7-proofs) | none |
 
-Choices that differ from the Rust code, and why:
+Choices, and why:
 
-- **The parser builds the tree directly** ([§3](#3-parsing)).
-- **The parser's modes are arguments.** The Rust parser keeps the block
-  column, `calc` depth and the like in mutable fields that it saves and
-  restores around a sub-parse. Passed as an argument, a mode is restored by
-  returning.
-- **The rewrites are tree to tree, not text to text.** The Rust code edits
-  the text and parses again to see what it did. With the tree in hand,
-  "drop this pair of brackets" is "replace this `Paren` node by its child",
-  and the check knows exactly which tree to expect
-  ([§3.4](#34-the-safety-check)).
-- **No sharing machinery.** The engine's `Doc::Shared(Rc<Doc>)` exists so
-  the options of a choice aren't built twice; Stitchwort values are shared
-  already.
-- **The rules' side tables** (`roles`, `keep_blank`, `hoisted`, the hug
-  maps keyed by token) become arrays computed before the walk, or `Map`s
-  carried through it in one state record.
+- **A typed tree, not `Node (kind) (children)`.** Every layer of the toy's
+  proof goes by cases on constructors, and the passes' side conditions
+  (what may stand where a bracket pair stood) are about specific
+  constructs. A generic node with 94 kinds would push every case into a
+  kind test and a list shape. The cost is that the tree dump is a
+  function written per type, not one generic walk.
+- **The parser on `Parse`** (D3636; [§3.2](#32-the-options)).
+- **Passes on the tree, on one traversal.** Toy++ T0 found that one
+  `Expr.walk` type-checks and carries all four passes (SW-3600,
+  `tools/toyfmt/plus/SKETCH-PLUS.md`); Toy++ T5 measures whether its
+  lemmas hold up. At 94 kinds this is the difference between a pass
+  costing a few dozen theorems and one costing an induction over every
+  construct.
+- **Rule N as a reading rule, not a pass.** Plain text can't hold its
+  result, so it must run every time tokens are read, as in Rust and in
+  Toy++ T3 (SW-3675, SW-3676).
+- **The engine knows closers.** A `Closing` leaf for `)`, `]` and `,`,
+  written before a waiting trailing comment and measured that way, so
+  `[a, b] -- c` prints when it fits (S39). Toy++ T3a added it with its
+  theory (SW-3675). See [§3.6](#36-what-toy-adds-that-the-real-formatter-needs).
+- **The parser's modes are arguments**, as the toy's layout parameter is.
+- **No `Partial`, no fuel the proofs can't see.** [§4](#4-totality-and-termination).
 
 **Where it lives and how it runs.** `tools/fmt/`, a project with its own
-`stitchwort.yaml`, the two namespaces above in one project so the parser
-can be lifted out later. Built with `stitchwort build --native tools/fmt`
-to one executable. `IO` still has no file access (SW-3150, unchanged
-[source]), so it is a filter: one file on standard input, or with `--batch`
-a stream of files, each after a header line with its path and length,
-answered the same way; a small driver feeds it the file list. The project's
-own files join the repo's formatted set, and the formatter formatting its
-own source is a named test.
+`stitchwort.yaml`, built with `stitchwort build --native tools/fmt` to one
+executable that reads and writes files through `Files`, as the toy's
+driver does (SW-3342). The project's own files join the repo's formatted
+set, and the formatter formatting its own source is a named test.
 
 ## 3. Parsing
 
-### 3.1 What the Rust parser does now, and why [source]
+### 3.1 What the Rust parser does [source]
 
-The parser cuts a file into declarations at column 0 and parses each on its
-own. Its parsing functions return nothing: when one finishes a construct it
-records a *mark* (a kind and the token range it covered), and a builder
-sorts the marks and nests them into the tree afterwards. Three things need
-care in that design: an operator finds its left operand from the last mark
-(`operand_start`), a construct whose kind is known late is relabelled
-(`retag_last`, `widen_section`), and a failed parse leaves marks to tidy.
-
-Marks were the right choice in Rust for three reasons: they were added
-beside an existing parser as a second output; they keep the recursive
-functions' stack frames small; and they let an operator wrap an operand it
-has already passed without carrying it. None applies in Stitchwort. There
-is no earlier parser. Frames are not the limit (native code allows 16
-million pending calls [source: the guide]). And a function that returns its
-operand as a value can wrap it in a node without any bookkeeping.
+The Rust parser cuts a file into declarations at column 0, parses each,
+and records *marks* that a builder nests into the lossless tree
+([parser-end-state.md](parser-end-state.md), strict marks since SW-3280).
+Marks fit Rust; none of their reasons apply here. The Stitchwort parser
+returns values.
 
 ### 3.2 The options
 
 | | How | For | Against |
 |---|---|---|---|
-| **A. Mirror the marks** | parsing functions thread a state with a list of marks; a builder sorts and nests them | line-for-line the same as the Rust code | reproduces machinery whose reasons are gone; a sort of half a million marks; the three hazards above; a state record through every function |
-| **B. Build the tree directly (recommended)** | each parsing function takes the modes, the token array and a position, and returns the node and the new position | the natural shape in a functional language; "relabel" and "wrap the operand" are ordinary expressions; the tree is a plain data type to pattern-match and prove things about | the port is function for function but not line for line: each mark call becomes a constructor at the place the value is known |
-| **C. Combinators over `Std.Parse`** | the grammar as combinator expressions | reads like a grammar; `Std.Parse` has proved lemmas | `Std.Parse` reads characters only (`Parse.run (input: List Char)` [source]), so it can't parse tokens without a redesign; it ran 3.7 times slower than a hand-written scanner [measured, first plan]; the grammar is layout-sensitive, with lookahead scans (is this a lambda, is this bracket a binder) that the Rust parser hand-codes, so the combinator version would be a different program accepting, we hope, the same language |
-| **D. A generated or table-driven parser** | a grammar file and a generator | none here | there is no grammar file to share; columns decide where blocks end |
+| A. Mirror the marks | thread a list of marks; nest them afterwards | line for line like the Rust code | machinery whose reasons are gone; nothing to prove things about until the end |
+| B. Hand-written, building the tree directly | each function takes modes, the token array and a position, returns the node and the new position | fastest: the probes lexed at 0.11 s/MB and parsed a small grammar at 0.06–0.13 s/MB more [measured, 14 Nov]; follows the Rust parser function for function | **no proof library**: every read-back and walk lemma would be built from nothing |
+| **C. `Std.Parse` over tokens (decided, D3636)** | combinators over `Parse.Located Token`, layout as a parameter, as the toy's parser | std's parser-proof library: `Reads`, `ReadsIn`, `Gives`, the declines toolkit (Parse proofs L1–L5, SW-3503 to SW-3507, all done); every one of the toy's parser theorems stands on it | 7–10 times slower than B's probes [measured on toy grammars, SW-3414 report §3]; not function for function with the Rust parser |
+| D. Generated, table-driven | a grammar file and a generator | none here | no grammar file; columns decide where blocks end |
 
-**B.** The Rust parser is the specification, one function per piece of
-grammar, and B keeps that correspondence while dropping the part of it that
-is about Rust. A handful of small local helpers ("items separated by commas
-until this closer") are fine; the point is not to adopt a combinator
-library as the structure.
+**What SW-3414 found, and why it was overruled.** The toy's final report
+(`docs/reviews/SW-3414-toy-formatter-report.md`, §3.2) recommended keeping
+B: the twin needed nothing `Parse` gives (it refused rather than reported,
+and had to follow the Rust parser to pass the tree-dump gate), and the
+safety check paid `Parse`'s cost twice. Both halves changed with the
+proof. Every one of the toy's parser theorems (336 on 16 Nov,
+after-the-toy-proof.md §4.6) rests on `Parse`'s
+library, which a hand-written parser would have to rebuild; and with no
+check there is no second parse, so the toy formats at 2.05–2.2 s per MB
+[measured, SW-3383 and SW-3414], inside the target at the real
+formatter's size [estimated, §5]. D3636 chose C, with a timing in Toy++
+T7 to confirm before stage 2.
 
-**The test that makes this safe:** `stitchwort dev tree --print` already
-prints a file's lossless tree as indented text, one line per node kind and
-token [measured]. The twin prints the same, and the gate is that the two
-dumps are identical for every file in the repo: 513,260 nodes in 27,583
-declarations [measured]. Whatever the internal design, the tree is the
-Rust parser's tree.
+**What C gives up.** Following the Rust parser function for function. The
+gate makes up for it: the tree dump must match the Rust parser's on every
+file, whatever the internal structure.
 
-**Tokens in an array, read by position.** The grammar looks ahead and
-behind by index (a bracket's partner, the token before this one). The same
-toy parser over an `Array` with a position was a little faster than over a
-`List` (1.0 s against 1.4 s on 5.3 MB [measured]). Termination by fuel, as
-the first plan said: a five-function mutually recursive parser with fuel
-checked first time [measured, probe 2].
+**The gate.** `stitchwort dev tree --print` prints a file's lossless tree
+as indented text [measured, 14 Nov]. The Stitchwort parser prints its
+typed tree in the same format, and the two dumps must be identical for
+every file in the repo (513,260 nodes in 27,583 declarations on 14 Nov
+[measured]).
+
+**Termination.** `Parse`'s recursive combinators carry their own fuel
+(`recursiveWith`), and the toy's read-back proofs work through it
+(`runsRecursiveWith`, `runsRecursiveWithFact` from L5).
 
 ### 3.3 Error recovery (S1 to S5)
 
-Recovery (SW-1983 is S1, running now) makes the Rust parser carry on after
-a syntax error and put `Error` and `Gap` nodes in the tree. For the twin:
+Unchanged from the second plan. The formatter refuses a file with any
+syntax error (D1021), so its parser is strict: it stops at the first
+error, and `Error` and `Gap` nodes never reach the passes or the printer.
+Recovery never makes a broken file acceptable, so the tree dump of
+correct files is unaffected. A parser for the compiler itself would need
+recovery; that is [§9](#9-towards-self-hosting-a-direction-not-a-plan)'s
+concern.
 
-- **It needs none of it.** The formatter still refuses a file with any
-  syntax error (D1021, restated in the recovery note). So the twin's parser
-  is strict: it stops at the first error and reports "refused". Recovery
-  never makes a broken file acceptable, so the set of accepted files and
-  their trees don't change.
-- **`Error` and `Gap` nodes never reach the printer** in a file that is
-  formatted, so the rules need no case for them.
-- **The cost is churn, not design.** S1 to S3 edit the same parsing
-  functions the twin ports. The tree dump for correct files is unaffected,
-  so the gate holds; a port started before S3 lands will be read against
-  code that then moves. Starting the parser stage after S3 avoids that
-  (sequencing, the orchestrator's call).
-- **If "format the good declarations, keep the broken one as written" is
-  wanted later** (the recovery note's §5 calls it a small change), the twin
-  gets it without recovery: it parses per declaration, so a declaration
-  that fails is one result to keep as written. The parser's result is
-  therefore a result per declaration from the start.
+### 3.4 What "the same program" means
 
-A parser for the compiler itself would need recovery mirrored. That is
-[§9](#9-towards-self-hosting-a-direction-not-a-plan)'s concern, not this
-project's.
+**The intended meaning** is the Rust formatter's: the output lowers to the
+same compiler's tree as the input (`same_program.rs`, up to one binder per
+name). A Stitchwort proof can't say that: the lowering is 4,000 lines of
+Rust.
 
-### 3.4 The safety check
+**Why not the lossless tree.** The formatter changes the lossless tree on
+purpose: brackets dropped, commas dropped, parameter groups merged, `∀`
+added, comments moved across closers. "The same lossless tree" is false
+of every file those touch.
 
-**What the Rust check does.** It lowers the input and the output to
-compiler's trees and compares them (as text, which is SW-3147's cost). The
-twin has no lowering.
+**What is proved instead (D3635, D3643).** `meaning`, a function in
+Stitchwort: the typed tree in *plain form*, each freedom set to one
+spelling, wrapped in a `Meaning` type so a plain tree can't be printed by
+mistake:
 
-**What the twin does: compare lossless trees.** Parse the output with the
-twin's parser, and compare with the tree that was printed, after erasing
-what the printer is allowed to change: where lines break, spaces, and the
-commas D1012 adds and drops. Both are plain values of one data type, so the
-comparison is derived equality (two parses of 1 MB and the comparison:
-0.4 s [measured]).
+| Freedom | In plain form |
+|---|---|
+| A redundant bracket pair (expression or type) | forgotten, if it holds no comment: the tree's shape already says how the expression groups |
+| Parameter grouping, `(a b: Nat)` against `(a: Nat) (b: Nat)` | split to one binder per name |
+| `∀` after a theorem's name | present, with no comments |
+| A comma before a closer | the flag set to absent |
+| Which side of a closer a comment was written | nothing to do: rule N already put it on its token |
+| Blank-line counts | present or absent, as the tree keeps them |
+| A text block's lines | by value |
 
-**Why this is at least as strict.** The lowering reads only node kinds and
-token texts, never layout [source: in `lower/`, the only use of a column is
-a file-level check that the first token is at column 0]. So two files with
-equal erased lossless trees lower to equal compiler's trees. The converse
-is false (`(x)` and `x` differ as lossless trees and not as compiler's
-trees), which is where the two checks part:
+Everything else is kept: names, literals, operators, order, every
+comment's text and its token. So the theorem chain is: the parser reads
+the source to a tree; each pass keeps `meaning`; the printer is exact
+(`parse (print t) = t` for a tidy tree). Between the tidied tree and the
+output, the lossless tree *is* the same; between the source and the
+output, `meaning` is.
 
-- **The rewrites.** Dropping brackets, merging parameters and adding `∀`
-  change the lossless tree on purpose. The Rust code checks each by
-  lowering before and after. The twin makes each as a function on the tree
-  and checks that the printed text parses back to the *rewritten* tree. So
-  it confirms that the text says what the rewrite intended (the brackets'
-  content still sits in the same place, nothing else regrouped). That the
-  rewritten tree means the same as the original (the lowering drops a
-  `Paren` there; a merged group is the same binders) is a fact about the
-  Rust lowering which the twin asserts and does not check.
-- **One comma the lowering does read.** A list of one bracketed range with
-  a trailing comma, `[(0 ..< n),]`, lowers differently without the comma
-  (`lower/exprs.rs`, `list`), so the Rust check fails and the declaration
-  is left as written [measured]. The twin's erasure must keep that one
-  comma to match. It is also a small bug: see Findings.
+**The gap, and what covers it.** `meaning` is a definition we trust, not a
+theorem: if it forgot something the compiler reads, every pass theorem
+would still go through. Two things cover that:
 
-**What catches the twin's own mistakes.** A check that uses the twin's
-parser on both sides can't see a mistake that parser makes consistently.
-Two things can: the tree-dump gate (the parser against the Rust parser, on
-every file), and the byte comparison of outputs (the whole formatter
-against the Rust one, whose check does lower).
+- the fuzzer's comparison of the compiler's hashes before and after
+  formatting (D3635's cross-check), kept for as long as the lowering is in
+  Rust; and
+- an Opus review of `meaning` case by case when it is written (D3643 for
+  Toy++; the same here).
 
-The other two checks carry over unchanged: the same tokens in the same
-order, and each comment attached to the same token (`comment_anchors`).
+One known case shows why the cross-check matters: the lowering once read
+the comma in `[(0 ..< n),]` (SW-3229, fixed 14 Nov in `lower/exprs.rs`).
+Had `meaning` been written then, it would have forgotten a comma the
+compiler saw.
+
+**What it costs** [estimated]:
+
+- `meaning` itself: about 60 lines for Sprig (toy-plus-plus.md §2); for
+  94 node kinds on the shared traversal, most kinds are the identity, and
+  I'd expect 200–400 lines, of which the trusted substance is the seven
+  rows above.
+- Per pass, three theorems (keeps `meaning`, idempotent, keeps what the
+  parser and the earlier passes guarantee), each an instance of the
+  traversal's lemmas if T5's experiment holds: 300–600 theorems for the
+  four passes at the real size. Without the shared traversal, nearer
+  passes × theorems × node kinds, which after-the-toy-proof.md §7 put at
+  several thousand.
+- A permanent dependency on the fuzzer's hash comparison, until the
+  lowering is itself in Stitchwort (D3635: revisited only if the compiler
+  moves).
 
 ### 3.5 Refusals
 
-The Rust formatter refuses on any error from the lexer, the parser, or the
-lowering. The lowering raises three of its own [source]: a parameter named
-twice in a header, an or-pattern that binds names, and a condition on an
-arm with `()` and no body. The twin ports those three as one small pass
-over the tree, so it refuses the same files. The gate is the 1,157 deliberately
-unformatted files under `examples` [measured], most of them in
-`examples/reject`: refused or not, file by file.
+The lowering raises three errors of its own [source, 14 Nov]: a parameter
+named twice in a header, an or-pattern that binds names, and a condition
+on an arm with `()` and no body. The formatter ports them as one small
+check on the tree, so it refuses the same files. The gate is the 1,157
+deliberately unformatted files under `examples` [measured, 14 Nov], file
+by file. "Left as written" is gone: with no check there is nothing to fall
+back from, and since D3618 every comment has a place.
+
+### 3.6 What Toy++ adds that the real formatter needs
+
+Toy++ ([toy-plus-plus.md](toy-plus-plus.md)) rehearses each kind of token
+change on Sprig. Its status, and what each part hands the real formatter:
+
+| Toy++ part | Status | For the real formatter |
+|---|---|---|
+| T1–T1c: `printParses` over predicates; `formatKeepsComments`, `formatSameTree`, refusals, `Degenerate.sw` | done (SW-3624, SW-3632, SW-3641) | the "must" set's statements (D3663); the comment-carry walk cost 1.7 lemmas and about 29 lines per parser function [measured, SW-3641] |
+| T2: typed parameter groups, `takes`, type brackets | done (SW-3666, SW-3667, merge `b00c0b7be`) | how a second bracket kind and grouped binders enter every layer |
+| T3: **rule N**: `settle` on tokens; the engine's `Closing` leaf and its theory; commas hold no comments; `Settled`; `settledViews` | done (SW-3675, SW-3676, merges `359d1f8fc`, `36277b392`); review SW-3677 running | the hardest part of the printer's proof. Two lessons: `printedTokens` lost its "pieces in order" clause (rule N makes it false; `printedEvents` keeps the exact order), and `Settled` is pairwise, since `Tidy` is false of settled tokens (SW-3675's note) |
+| T4: `meaning`, `tidy`, `format`; P1 (`takes`) and P2 (**trailing commas**: the parser accepts them, with a flag, and the pass drops them) | next | the pass frame and the first two passes |
+| T5: P3 (spare brackets, the precedence side condition) and the shared traversal | after T4 | whether passes are cheap at 94 kinds |
+| T6: P4 (merging) and the P3-before-P4 order | after T5 | the one real ordering dependency |
+| T7: the timing (D3636), the disturber's new changes, counts by layer, `toy-v2` | last | the bar before this plan's stage 2: at most 3.0 s/MB with passes and rule N, no check |
+
+**Two engine findings the real engine must take in**, both in the toy's
+backlog:
+
+- **SW-3452: `fits` measures from the new line after a trailing
+  comment.** The Rust engine does (SW-3447); the toy's doesn't, which
+  gives odd layouts (s05, s06, s08, s11, s17, s19 of the comment probes)
+  and a call whose `)` sits left of its argument. Since the output must
+  match Rust byte for byte, the Stitchwort engine needs it, and `fits`
+  then takes the indent and width, so the engine's budget proofs
+  (`printBudgetEnough`) change. Best done once, in the toy, before the
+  engine moves to `Std.Doc`.
+- **SW-3416: `Doc.group` recomputes `forcesBreak` over its whole inner
+  document**, which is quadratic in nesting. Harmless at the toy's sizes;
+  the real rules nest deeper, so the node should cache it. The cached
+  field becomes an invariant the engine's theory must carry ("the cache
+  equals the computation").
+
+**Rule N at the real size.** The Rust rule N has four clauses (`tidy.rs`)
+where Sprig's has two: it also moves a comment off a record update's `|`
+and from after `->` to before it. Each is a new case in `settle` and in
+`Settled`, not a new idea. The Rust rule N also had a bug Toy++ found:
+it dropped a comment when two landed on one token (SW-3606, fixed).
 
 ## 4. Totality and termination
 
 | Part | How it terminates |
 |---|---|
-| Lexer | structural on the character list [measured, both plans' probes] |
-| Declaration split, bracket partners, token roles | index passes, `decreasing tokens.size - k` |
-| Parser | fuel, started at a multiple of the token count; running out is "refused". It also stands in for the Rust parser's nesting limit |
-| Tree dump, erasure, tree comparison, the three lowering checks, the rewrites | structural on the tree (a function and its helper for the child list, defined together) [measured, probe 1] |
-| Rules | fuel at first, the node count. Structural recursion is the aim, but the rules reach children through accessors ("the child after `:=`"), which hides from the checker that the child is part of the node. Making them structural is part of the proof stage, if wanted |
-| Engine: the print loop and `fits` | fuel. The loop works through a list of pending documents and a `Concat` pushes its parts, so it is not structural; the honest measure is the total size of what is pending. Fuel first [measured, probe 1], the measure if proofs want it |
-| `main` | `{IO}` only |
+| Lexer | structural on the input, or a measure on the position in the `Text` |
+| Rule N | structural on the token list |
+| Parser | `Parse`'s own fuel (`recursiveWith`), which its proof library handles |
+| Tree dump, `meaning`, passes, the three lowering errors | structural on the tree, through the shared traversal |
+| Rules | structural; the toy's rules are, and the rules' proofs need it |
+| Engine | the toy's budget (`3*size+3` steps is enough, `printBudgetEnough`); SW-3452 changes its proof |
+| `main` | `{IO, Files}` only |
 
 No `Partial` anywhere is a gate of every stage.
 
 ## 5. Speed
 
-**The Rust side [measured].** `stitchwort fmt --check` over std, `aoc/src`,
-`games` and `examples` (1,461 files formatted, 6.5 MB, 142,000 lines; 1,157
-more skipped as deliberately unformatted): 8.3 s. A sample of that run has
-86% of its time in the file check's `equivalence::shape` (2,993 of 3,483
-samples in `check_file`), so SW-3147 (fmt's time is in comparing trees as
-text) is unchanged, and the real work is about 1.1 s. Parsing the same
-files to the lossless tree takes 0.15 s, and 0.22 s with the lowering.
+**The Rust side [measured, 14 Nov].** `stitchwort fmt --check` over std,
+`aoc/src`, `games` and `examples` (1,461 files, 6.5 MB): 8.3 s, of which
+86% was comparing compiler's trees as text (SW-3147, still in the
+backlog); the real work is about 1.1 s. Not re-measured since the passes
+landed: each pass now parses the file again when it has edits
+(`passes.rs`, `run`), which adds to the real work on files that change and
+nothing on files that don't [source].
 
-**Probes [measured]** (`run --native`, after subtracting 0.45–0.55 s of
-checking and compiling the probe; [Appendix A](#appendix-a-the-probes)):
+**The toy [measured].** With no check, the toy formats 933 KB in 1.91 s,
+2.05 s/MB, at load 3.5 (NOTES.md "Speed (SW-3383)"); 2.2 s/MB in SW-3414's
+report. With the old check it was 4.3 s/MB. Not re-measured since the
+direct proof (SW-3418 added helper calls to the lexer and parser) or rule
+N (`settle`): Toy++ T7 does that.
 
-| Probe | 1 MB of corpus | 5.3 MB as one input |
+**Estimate.** At the toy's rate, 6.5 MB is about 14 s. The real grammar
+has about four times the toy's parser functions, but the rate per byte
+depends on how many `Parse` operations each token costs, which is
+grammar depth, not grammar size. I'd plan on 2.5–3.5 s/MB, **15–23 s for
+the repo** [estimated]. The second plan's 1.8–3.9 s/MB assumed a
+hand-written parser and a check; this drops the check and pays for
+`Parse`.
+
+**Target (unchanged):** all of the repo in one process in under 30 s on
+Speedwell, aiming at 20 s; peak memory under 500 MB. Toy++ T7's bar
+(3.0 s/MB) is set from it. If the real parser misses, the work is `Parse`
+speed (operations in place, D3430, paused under D3465), which D3636 made
+formatter work too.
+
+### What in Stitchwort was missing, and is now
+
+| | 14 Nov | Now |
 |---|---|---|
-| 1a: scanner to tokens | 0.11 s | 0.66 s |
-| 1b: 1a, then a bracket tree, a layout document, a Wadler-style print in 120 columns, the text joined and written | 0.43 s, 640 MB peak | not valid (see Appendix A); 5 MB of repeated input: 4.2 s, 2.5 GB |
-| 1c: 1b, then lex and parse the output and compare the trees | 0.73 s | – |
-| 2: scanner, then a recursive-descent expression parser with fuel (atoms, application, three operator levels) over a `List` | 0.17 s | 1.37 s |
-| 3: probe 2 over an `Array` and a position | 0.18 s | 1.00 s |
-| 4: probe 1b on 200 KB, 1, 5 and 25 times in one process | 0.13 s a pass | peak memory 236, 243, 243 MB |
-
-What they say:
-
-- Lexing and parsing scale in a straight line to 5 MB: about 0.13 s/MB to
-  lex and 0.06–0.13 s/MB more for a toy parse. The Rust parser does the
-  real job at 0.02 s/MB, so the toy is already 10 times slower.
-- A whole toy pipeline is 0.4–0.65 s/MB.
-- **Memory is given back between files** (probe 4), so one process can
-  format the whole repo. Peak is set by the largest file: at about 500
-  bytes per input byte, 100 MB for the largest (189 KB).
-- Large single inputs still slow down more than in proportion when printing
-  (10 times the time for 5 times the input), which is SW-3148 (large heaps
-  slow in native code), milder than the first plan measured (23 times for
-  6.8). One file at a time avoids it.
-
-**Estimate.** The real lexer has more states than the toy, the real parser
-has 234 functions, the rules build several document nodes per token and
-the engine re-measures at choices. Per MB: lex 0.2–0.3 s, parse 0.3–0.8,
-rules and engine 0.6–1.5, the safety check (lex, parse, compare) 0.6–1.2,
-rewrites 0.1: **1.8–3.9 s per MB, so 12–25 s for the 6.5 MB; I'd plan on
-20 s** [estimated].
-
-**Proposed target (unchanged):** all 1,461 files in one process in under
-30 s on Speedwell, peak memory under 500 MB, no file more than 30 times its
-Rust time measured without SW-3147's cost.
-
-### What in Stitchwort is missing or slow
-
-Re-checked today; the first plan's tickets by number:
-
-| | State | Effect on the plan |
-|---|---|---|
-| SW-3149 (native executables fail to start from the main checkout) | **Still fails** [measured: "its tables can't be read: written by a different build of the runtime"; the runtime library is from 14:28, the CLI from 15:10] | Stage 0 needs `build --native` to work, or every harness run pays the check and compile. To fix first |
-| SW-3150 (IO has no file access; `Text` has no cheap slice, indexed read or builder) | **Unchanged** [source: `Text.get`, `take` and `drop` still go through `toList`] | The batch stream, and tokens built from character lists. Affordable: lexing is not where the time goes |
-| SW-3148 (large heaps slow in native code) | **Milder, still there** [measured above] | None while files are formatted one at a time |
-| SW-3147 (fmt's time is in comparing trees as text) | **Unchanged** [measured above] | It sets what "times the Rust formatter" means. Now that the lossless tree is the parser's output, the fix is to compare lossless trees, as the twin will |
-| `Std.Parse` reads characters only | [source] | Rules out option C |
-| No text patterns: `\| "def" => …` is a syntax error | [measured] | The lexer's keyword table is a `Map`, or a chain of `==` |
-| Unknown until stage 1 or 2 | – | Check time for a 10,000-line project with a 234-function mutually recursive group; the cost of a `Map` lookup per token; derived equality on a 94-constructor kind type |
+| SW-3149 (built executables don't start) | failed | **done** (`d3d200a2f`: the CLI builds its runtime library and checks its marker) |
+| SW-3150 (no file access; no cheap text slices) | unchanged | **done** by SW-3234's design: `Files` (SW-3338), constant-time `Text` slices (SW-3337). `Files.walk` is still to come (SW-3415, backlog); the toy has its own |
+| `Std.Parse` reads characters only | ruled out C | generic over its input; the toy's parser runs on tokens |
+| No text patterns | a `Map` or `==` chain for keywords | text patterns, stages 1 and 2 (SW-3284, SW-3288) |
+| SW-3148 (large heaps slow in native code) | milder, still there | unchanged (backlog); one file at a time avoids it |
+| SW-3147 (fmt compares trees as text) | 86% of fmt's time | unchanged (backlog, parked with speed work); only the Rust formatter pays it |
+| Check time for a large project with a 234-function parser | unknown | still unknown; the toy's check time at 1,491 theorems is not recorded as one figure (T7 records it) |
 
 ## 6. The comparison harness
 
-One command, `task fmt:twin`, with a stage argument. It builds the native
-executable, feeds it files in batch mode, and compares with what the Rust
+One command, `task fmt:twin`, with a stage argument: it builds the native
+executable, runs it over a list of files, and compares with what the Rust
 side gives, printing counts and the first difference. The Rust side's
-answers are written once to a cache folder outside the repo, keyed by the
-input's hash and the hash of `crates/syntax` and `crates/fmt`.
+answers are cached outside the repo, keyed by the input's hash and the
+hash of `crates/syntax` and `crates/fmt`.
 
 | Compared | Rust side | For |
 |---|---|---|
-| Tokens with trivia, one line a token | a new `dev` dump (the tree dump has no trivia) | stage 1 |
+| Tokens with trivia after rule N, one line a token | a new `dev` dump | stage 1 |
 | The lossless tree | `dev tree --print`, exists | stage 2 |
 | Refused or not | `fmt --check`'s exit and message | stages 2 and 5 |
-| The formatted text, and which declarations were left as written | `dev fmt-tree --print --verbose`, exists | stages 3 to 5 |
+| The tidied tree's dump, pass by pass | a `dev` dump after `passes::run` | stage 4 |
+| The formatted text | `dev fmt-tree --print`, exists | stages 5 and 6 |
 
-**Inputs.** The repo as it is only tests the fixed point (every file is
-already formatted), so:
-
-1. the 52 golden pairs (`crates/fmt/tests/it/golden`), which cover the
-   rewrites and the comment cases: the lane-sized test;
-2. the repo as it is (the fixed point, and all the trees);
-3. **the repo as it was before the reformat:** the parent of `39de3aa7d`
-   (SW-3194's reformat with the tree printer) has every file in the old,
-   author-chosen layout. That is 6 MB of real unformatted input for free;
-4. the formatter fuzzer's generated programs (`crates/fmt/tests/it/fuzz.rs`),
-   written out by a seed;
-5. a disturber, at run time from a seed: indentation scaled, spaces squeezed
-   and doubled, blank lines and trailing spaces added, lines joined and
-   split inside brackets, commas moved to line starts.
-
+**Inputs**, unchanged from the second plan: the golden pairs
+(`crates/fmt/tests/it/golden`); the repo as it is (the fixed point); the
+repo as it was before the reformat (the parent of `39de3aa7d`, 6 MB of
+author-laid-out input); the formatter fuzzer's programs, written out from
+a seed; and a disturber, at run time from a seed. Add the comment probes
+and the Toy++ fuzz inputs (`tools/toyfmt/plus/inputs/`), translated.
 Nothing new is committed beyond the harness.
+
+**This is a test, not a run-time check.** The harness compares the
+program with the Rust formatter while it is built; the formatter itself
+answers without reading its output back. Once the proofs are done, the
+harness still has one job the proofs can't do: show that the Stitchwort
+formatter's *style* is the Rust one's.
 
 **Lanes and the budget.** A lane runs the goldens and a handful of named
 files (seconds). The full run is a broader suite: the verifier runs it
@@ -433,235 +465,286 @@ and Overmind in its rolling check.
 
 ## 7. Proofs
 
-The new design makes two real theorems cheap, because the formatter returns
-its answer only after checking it and because the printer can be given a
-type that has no layout in it.
+### 7.1 What the toy proved, measured
 
-**1. Printing then parsing gives the tree back** (by validation):
+The toy's top theorems (`tools/toyfmt/src/Toy/Fmt/DirectProofs.sw`), with
+no open goals and no axioms, and the driver formatting with no re-parse
+(merge `dcda74fb2`; the checked `format` deleted in SW-3484):
+
+- `printParses`: a tree the parser produces prints, at every width, to
+  text that parses back to that tree (over predicates since T1: `Parsed
+  file`, not a source);
+- `formatRoundTrip`, `formatIdempotent`, `formatAnswers` (named
+  `formatDirect…` until SW-3484);
+- since Toy++ T1b and T1c: `formatKeepsComments`, `formatSameTree`,
+  `formatRefuses`, `formatRefusesOnly`, and `Degenerate.sw`'s three
+  refuted silly formatters (SW-3632, SW-3641).
+
+| | Theorems | Time | Source |
+|---|---|---|---|
+| SW-3418, the direct proof | 1,262 | 15 Nov 14:35 to 16 Nov 00:30, about 10 h elapsed, 148 commits, 18 parts | `git log --grep SW-3418` |
+| SW-3490, the tidy-up | 1,262 → 1,143 | | merge `989a8cef0` |
+| Toy++ T0 (sketch), Fable | 56 stated in a side project | 21 min (est. 75) | SW-3600 |
+| T1, Sonnet | restated | 4 min (est. 15) | SW-3624 |
+| T1b, Fable | about 38 (audited in its new namespaces) | 28 min (est. 45) | SW-3632 |
+| T1c, Fable | 129 | 35 min (est. 120) | SW-3641 |
+| T2a + T2b, Opus | about 55 (planned 100) | 25 + 21 min (est. 2 × 70) | SW-3666, SW-3667 |
+| T3a + T3b, Fable | 70 + 174 = 244 (planned 100) | 40 + 82 min (est. 2 × 90) | SW-3675, SW-3676 |
+| **Toy now** | **1,491** | | `grep -c '^theorem'` over `tools/toyfmt/src` [measured, `82251a9b4`] |
+
+What that says, for estimating [measured from the rows above]:
+
+- **Rate:** Toy++ T1–T3 added a net 348 theorems (1,143 to 1,491) in
+  about 235 lane minutes, about 90 an hour. Net: the parser-proof library
+  lanes (SW-3504, SW-3506) also removed toy theorems in that window, so
+  the gross rate was a little higher. SW-3418 ran at a similar pace (about 80 a lane, lanes
+  of 25–50 minutes, after-the-toy-proof.md §1).
+- **Time estimates ran high:** Toy++'s eight lanes took 256 minutes
+  against 575 estimated (0.45).
+- **Theorem counts were not:** T2 came in at half its count, T3 at 2.4
+  times. Rule N, the least certain stage, was the one that ran over.
+- **The sketch is what makes estimates hold.** SW-3418's "lemmas left"
+  stayed at "two to three lanes" for ten parts running until the rest was
+  stated top-down with open goals (D3620); after that, 200–250 estimated,
+  about 230 proved. Toy++ began with a sketch (T0) and has kept to its
+  stages.
+
+### 7.2 The theorems for the real formatter
+
+The toy's statements, at the real size (sketch: names not settled):
 
 ```stitchwort
--- Sketch: names not settled. `erase` drops what the printer may change.
-theorem formatRoundTrip ∀ (source output: Text) (h: format source = Ok output):
-    (parse output).map erase = (parse source).map (tree => erase (rewrite tree))
+theorem printParses ∀ (file: SourceFile) (width: Nat) (parsed: Parsed file) (tidy: Tidy file):
+    parse (file.print width) = Ok file
+
+theorem formatKeepsMeaning ∀ (source output: Text) (h: format source = Formatted output):
+    ∃ (before after: SourceFile) =>
+      parse source = Ok before ∧ parse output = Ok after ∧ after.meaning = before.meaning
+
+theorem formatIdempotent ∀ (source output: Text) (h: format source = Formatted output):
+    format output = Formatted output
+
+theorem formatKeepsComments ∀ (source output: Text) (h: format source = Formatted output):
+    (lex output).comments = (lex source).comments
 ```
 
-It unfolds the definition of `format` and never mentions a layout rule.
-About a day [estimated].
+plus the rest of D3663's must set (`formatSameTree`, the refusals,
+`Degenerate`), and per pass the three theorems of
+toy-plus-plus.md §3.2. "Every comment kept" is stated between the two
+texts through the lexer only, so it doesn't lean on `meaning`.
 
-**2. Idempotence, without formatting twice.** Give the rules the *erased*
-tree as their input type: kinds, token texts, comments, kept blank lines
-and the few kept spaces, and nothing else. Then "the output depends only on
-the erased tree" is true by typing. With theorem 1, and one more cheap
-check at run time (the rewrites find nothing left to do in the output's
-tree, which is already parsed), formatting the output again is printing the
-same erased tree:
+Not proved, and why:
 
-```stitchwort
-theorem formatIdempotent ∀ (source output: Text) (h: format source = Stable output):
-    format output = Stable output
-```
+- that the output is the Rust formatter's: that is the harness's job (a
+  style is a choice, not a property);
+- that `meaning` agrees with the compiler's tree: the fuzzer's hash
+  comparison ([§3.4](#34-what-the-same-program-means));
+- the "worth considering" properties of formatter-properties.md §4 (code
+  tokens kept between texts, blank lines at text level): decided after
+  Toy++ T6 (D3663).
 
-`Stable` is the answer when the extra check passed; the gate over the repo
-is that every file's answer is `Stable`. One to two days [estimated]. The
-first plan could offer this only by formatting everything twice.
+### 7.3 Size, by layer [estimated]
 
-**3. The tree is lossless:** the tokens of `parse source`, read left to
-right, are `lex source`. By validation it is a one-line check and a short
-proof. From the parser's definition it is the invariant "the node's tokens
-followed by what is left are what the function was given", for each of the
-234 functions: mechanical and long, a week or more [estimated]. Worth it
-only as a showcase.
+From the toy's layers after Toy++ T3, scaled by what each layer grows with.
+The toy figures are after the tidy-up and the parser-proof library (the
+three walks are one walk since L4, SW-3506), so the library's saving is
+already in them.
 
-**Not recommended:** proving `parse (print tree) = tree` from the rules,
-with no check at run time. It needs, for every construct, that its printed
-form reads back as that construct under a layout-sensitive grammar. Months,
-and every style change would break it [estimated].
+| Layer | Toy after T3, by layer [estimated: after-the-toy-proof.md §1's counts, less the tidy-up, plus Toy++'s additions; total measured] | Grows with | Real (94 kinds, 234 functions) |
+|---|---|---|---|
+| Engine, with `Closing`, SW-3452 and SW-3416 | about 300 | one engine, about 1.5× the code | 350–500, or about 100 new once it is `Std.Doc` |
+| Lexer and rule N's token theorems | about 250 | lexer size (text blocks, interpolation, 4 clauses of N) | 500–900 |
+| The parser keeps P (one joint walk) and carries comments | about 250 | parser functions × walk | 600–1,000 |
+| Read-back | about 150 | parser functions or node kinds | 500–750 |
+| Rules: words, joins, events, places, `Settled` | about 400 | rule functions (73 against 33; 7× the lines) | 900–2,000 |
+| Spelling | about 120 | node kinds | 500–650 |
+| `meaning` and passes | (T4–T6: about 150 estimated) | passes, with the shared traversal | 300–600 |
+| Glue and the must set | about 50 | constant | 60–100 |
+| **All** | **about 1,650 when Toy++ ends** | | **about 3,700–6,500, middle 5,000** |
 
-**Middle ground, each 2–5 days of Opus** [estimated]: the output is tidy
-(no line ends in a space, no two blank lines in a row, one final newline),
-which is a property of the engine's writer alone; a document printed flat
-has no line break; the lexer's round trip.
+Very low confidence at the top: the rules layer's spread is a factor of
+two, and the T3 lesson (rule N ran at 2.4 times its count) says the least
+certain layer runs over. A sketch stage (stage 3 below) replaces this
+table with counts of stated theorems before the proof lanes start.
+
+**Time.** At 80–110 theorems an agent hour, 3,700–6,500 theorems is
+**about 40–70 agent hours** of proof lanes [estimated]. The second plan's
+"not recommended: months" and SW-3418 part 1's "2–4 months for the real
+formatter" were both made before the toy's proof ran. Part 1 estimated
+2–4 weeks for the rest of the toy; it took about 9 hours elapsed.
+
+### 7.4 What makes it cheaper
+
+- **The shared traversal** (Toy++ T5): the largest single uncertainty in
+  the pass layer.
+- **`simp`** (simp-revisited.md): estimated at 22–29% of proof text on the
+  engine slice; the passes are its best case.
+- **`Std.Doc`**: the engine and its theory moved to std after Toy++
+  (after-the-toy-proof.md roadmap step 5), so the real engine is a
+  dependency, not a layer.
+- **Proving the rules last.** The rules change weekly (the printer had 18
+  commits in two days on 14 Nov). Their layer is the largest and the one
+  every style change touches, so it is proved after the style settles, on
+  the stage-6 program.
+
+### 7.5 What a style change costs once proved
+
+A change to a rule changes that rule's words, joins and events lemmas, and
+the spelling of its construct; it never touches the passes, `meaning`, the
+parser's walks or the engine. A new pass costs its three theorems and its
+"keeps the earlier passes" lemmas. This is the price of "no run-time
+check": every style change is also a proof change. It is why the rules
+layer goes last, and why Q3 asks how the two formatters stay in step.
+
+### 7.6 D3617
+
+D3617 asked: keep the formatter's run-time check always on, and skip the
+re-parse only when the output is the input's text
+(`docs/reviews/SW-3414-toy-formatter-report.md`). It has been on hold
+behind this plan. What the plan implies:
+
+- **For the Stitchwort formatter: drop it.** There is no run-time check
+  to skip. The toy already formats with none (SW-3418, SW-3484).
+- **For the Rust formatter, until it is replaced: keep it, as an ordinary
+  speed change.** The Rust formatter keeps its check (it has no proofs),
+  and on an already formatted file the check compares the file with
+  itself. Skipping it then changes no result, message or file on disk:
+  the output *is* the input, a program that was accepted as written. So
+  it falls under D3447 (optimisations that change no result are the
+  orchestrator's call), with a performance-log entry, and needs no
+  decision from Matt. It is most of `fmt --check`'s time on a formatted
+  repo (86% is the check, §5) [estimated: the check is skipped for every
+  file `--check` passes]. Speed work is paused (D3465), so it waits with
+  SW-3147 unless the orchestrator judges it worth doing now.
 
 ## 8. Stages
 
-Hours are lane hours [estimated]. Each stage ends with its harness count,
-its speed numbers (seconds per MB on a fixed 1 MB sample and the three
-largest files, peak memory) and friction notes in `tools/fmt/NOTES.md`.
+Times are agent time [estimated from the toy's actuals: the toy's build,
+stages A–D, took about 1.9 h against 15.5 h estimated (SW-3414 report),
+and Toy++ ran at 0.45 of its estimates]. Each stage ends with its harness
+count, its speed numbers, and friction notes in `tools/fmt/NOTES.md`.
 
-| Stage | What | Gate | Model | Hours |
+| Stage | What | Gate | Model | Time |
 |---|---|---|---|---|
-| 0 | SW-3149 fixed. The harness: batch driver, the token dump, cached Rust answers, the old-layout checkout, the fuzzer's programs written out, the disturber. Count, over all inputs, how often the Rust formatter leaves a declaration as written and how many bracket and merge candidates there are | a stub that copies its input scores 0 of N on unformatted input and N of N on the repo as it is | Sonnet | 3–4 |
-| 1 | Project skeleton, token type, lexer with trivia, batch `main` | token dump identical on every file that lexes; the same files refused for lexical errors | Opus (sets the project's shape; first friction notes) | 4–5 |
-| 2 | The tree type and its dump; the parser, in three lanes: expressions and patterns; declarations, headers and types; blocks, `match`, handlers and proofs. The three lowering errors | tree dump identical on every file that parses; refused or not identical on every file, `examples/reject` included | Opus for the first lane, Sonnet after | 14–20 |
-| 3 | The layout engine (with the Rust engine's unit tests ported), spacing, the file driver, comments, and the rules for declarations, headers, bodies and blocks | engine tests pass; every declaration that uses only those constructs identical, counted by the harness | Opus | 6–8 |
-| 4 | The remaining rules, in two lanes: calls, operators, pipelines, lambdas and brackets; `match`, handlers, proofs, types and data | identical on the repo as it is, with no rewrites and no check | Sonnet; one rule family is a fair DeepSeek trial (an exact oracle, a bounded task) | 8–12 |
-| 5 | The rewrites as tree functions, the safety check, left-as-written fallbacks, refusal | identical on everything: goldens, old layout, fuzzer, disturbed; the same declarations left as written; formats its own source | Sonnet, Opus for the check | 4–6 |
-| 6 | Speed pass from profiles; the friction report; a ticket for each gap | under 30 s for the repo | Sonnet, Opus for the report | 3–4 |
-| 7 | Proofs (optional): theorems 1 and 2, then the rest if wanted | `task audit:touched` clean | Sonnet, Opus for the parts | 2–3 days, then open |
+| 0 | The harness: the token dump on the Rust side, cached Rust answers, the old-layout checkout, the fuzzer's programs written out, the disturber. Toy++ T7's timing has passed (D3636) | a stub that copies its input scores 0 of N on unformatted input and N of N on the repo | Sonnet | 1–2 h |
+| 1 | The project skeleton; the typed tree and its dump; the lexer; rule N on tokens | token dump (after N) identical on every file that lexes; the same lexical refusals | Opus (sets the project's shape) | 2–3 h |
+| 2 | The parser on `Parse`, in three lanes: expressions and patterns; declarations, headers and types; blocks, `match`, handlers and proofs. The lowering's three errors. A timing | tree dump identical on every file that parses; refused or not identical on every file; the parse rate per MB recorded against §5 | Opus for the first lane, Sonnet after | 4–6 h |
+| 3 | **The sketch** (as SKETCH.md and Toy++ T0): `meaning` for 94 kinds; every top theorem and every layer's statements, in a side project with open goals, checked for fit; a count of stated theorems per layer | the side project checks with only open goals; §7.3 replaced by counts | Fable | 1–2 h |
+| 4 | `meaning` and the four passes, on the shared traversal | the tidied tree's dump identical to the Rust passes' on every file | Sonnet, Opus for `meaning` and its review | 2–3 h |
+| 5 | The engine (from the toy's, with SW-3452 and SW-3416, or `Std.Doc` if it exists), spacing, the file driver, the rules for declarations, headers, bodies and blocks | engine tests pass; every declaration using only those constructs identical | Opus | 2–4 h |
+| 6 | The remaining rules, two lanes | identical on everything: goldens, old layout, fuzzer, disturbed; formats its own source | Sonnet; one rule family a fair DeepSeek trial | 3–5 h |
+| 7 | Speed pass from profiles; the friction report | under 30 s for the repo | Sonnet, Opus for the report | 1–2 h |
+| 8 | **Proofs**, in the order engine, lexer and rule N, parser (walk, carry, read-back), passes, rules and spelling, glue. Lanes on different layers run side by side | each layer's statements from stage 3 proved; `task audit:touched` clean; the must set with no open goals | Fable for the hard inductions and rule N, Opus, Sonnet for the mechanical layers | 40–70 h |
 
-Stages 0–6: **42–59 lane hours**, about 17–22 of them Opus and the rest
-Sonnet. Stage 2's lanes can run side by side after the first; stage 3's
-engine can start beside stage 2; stage 4's two lanes run side by side.
-Stages 0–2 stand on their own: they give a Stitchwort parser of Stitchwort,
-tested node for node, and most of what there is to learn about the language
-from this project.
+**Stages 0–7: about 16–27 agent hours** to a formatter that matches the
+Rust one byte for byte and is fast enough, unproved. **Stage 8: about
+40–70.** Stages 1–2 and 5 can run side by side; stage 3 needs the tree
+from stage 1 and runs beside stage 2; stage 8's layers can start as soon
+as their program and their stage-3 statements exist (the engine and lexer
+early, the rules last). In elapsed time, with two or three lanes at once,
+I'd expect stages 0–7 in about two days and stage 8 in one to two weeks
+[estimated], usage allowing.
+
+**What stands on its own.** After stage 2: a Stitchwort parser of
+Stitchwort, on `Parse`, tested node for node. After stage 7: a second,
+fast-enough formatter, and most of what there is to learn about the
+language from writing it. After each layer of stage 8: that layer's
+guarantee.
 
 **Risks.**
 
-- *The parser is most of the work, and now it is first.* If it is slow or
-  painful there is no formatter to show for stages 0–2. But it is also the
-  part with the sharpest test.
-- *The target moves.* `crates/fmt/src/printer` had 18 commits in the last
-  two days and the parser 54 this month [measured]; recovery is editing the
-  parser now. Every change needs the twin caught up (D3577).
-- *Byte-identical is all or nothing on details:* which declarations are
-  left as written, the kept spaces, `\r`, the last-variable rule in headers
-  (SW-3193). The old-layout checkout is there to find these early.
-- *Check time on a 10,000-line project* could make the edit loop slow; a
-  finding, not a blocker.
+- *The rules layer.* Largest, least certain, and moving. Proving it last
+  limits churn; it may still be where the estimate is wrong.
+- *`Parse` speed.* If stage 2's rate misses §5, the fix is `Parse` work
+  that is paused (D3465). Toy++ T7 gives the first warning.
+- *The target moves.* Every change to the Rust formatter or parser needs
+  the Stitchwort one caught up, and after stage 8, its proofs too (Q3).
+- *Check time* for a project of 5,000 theorems is unmeasured; the toy's at
+  1,491 is to be recorded in T7.
+- *`meaning` is trusted* (§3.4); the fuzzer's hash comparison must stay.
 
 ## 9. Towards self-hosting: a direction, not a plan
 
-**What this project gives.** Stages 1 and 2 are a Stitchwort lexer and
-parser that produce the same lossless tree as the Rust ones, tested on
-every file. In a compiler that is the first box. The design today helps
-more than it did a week ago:
+The second plan's section stands, with three updates:
 
-- The tree is one small generic type (a kind and children), with a text
-  dump, so "the same tree" is a file comparison.
-- Since the lowering work, the Rust parser builds nothing but that tree.
-  There is no second output to match.
-- The lowering "reads, never parses" and is one function per node kind
-  [source: `lower.rs`]: a pure function from one data type to another,
-  about 4,000 lines, which is the kind of code Stitchwort is good at and
-  could be tested the same way (dump the compiler's tree from both).
-- Declarations parse independently, so a Stitchwort parser and the Rust one
-  can be compared, or mixed, one declaration at a time.
+- The parser is now on `Parse`, with proofs that it reads back what
+  spells a tree. That is exactly "proofs about the parser that we want",
+  which the second plan named as one of the two reasons a Stitchwort
+  parser might be worth having.
+- Speed is still the obstacle: every `check` parses all of std (69 ms in
+  Rust [measured, lowering note]), and a `Parse` parser at 10–20 times
+  that would add a second or more.
+- The compiler's parser needs the Rust parser's messages and recovery;
+  the formatter needs neither, so this project still doesn't show how
+  hard that is.
 
-**What the next steps would be.** (1) The lowering in Stitchwort, with a
-dump of the compiler's tree as its gate: perhaps 15–25 lane hours
-[estimated]. (2) A way for the Rust compiler to call natively compiled
-Stitchwort code and take a tree back, and a build that needs an earlier
-`stitchwort` to build the next one. (3) Then the elaborator, which is
-131,000 lines of Rust against the syntax crate's 23,000 [measured]: not a
-next step in any near sense.
-
-**Where the kernel boundary sits.** It doesn't move. The kernel
-(`crates/core`, 29,000 lines) is what proofs are trusted on, and it checks
-terms whoever made them, so a parser, lowering or elaborator in Stitchwort
-adds nothing to what must be trusted for a proof to be valid. What the
-parser and lowering are trusted for is that the theorem checked is the one
-written. A Stitchwort parser could carry proofs about exactly that
-([§7](#7-proofs)), which the Rust one can't. A kernel written in Stitchwort
-is a different question (what checks the checker), and not on this path.
-
-**What makes it hard.**
-
-- *Speed.* Every `check` parses and lowers all of std: 69 ms in Rust
-  [measured, lowering note]. At the 10–20 times these probes suggest, that
-  is about a second added to every check. Self-hosting the parser is only
-  sensible once native Stitchwort is within about 2–3 times of Rust on this
-  kind of code, which needs cheap text slices and work that is paused
-  (SW-3150, D3465).
-- *Errors.* The compiler's parser must give the Rust parser's messages
-  word for word and recover as S1 to S5 design. The formatter needs neither,
-  so this project doesn't show how hard that is.
-- *Two parsers until one is deleted.* The Rust one changes weekly.
-- *Bootstrapping.* Today the repo builds with cargo alone.
-
-**What would have to be true for it to be worth doing.** A reason the Rust
-parser can't serve: proofs about the parser that we want, or tools written
-in Stitchwort (sweeps, quick fixes) that want the tree as Stitchwort data.
-The second is the likelier first user, and it needs no bootstrapping. Plus
-the speed gap above, and evidence from this project that the twin stays in
-step cheaply.
-
-**So:** build the formatter's parser as its own namespace with its own
-gate, keep byte offsets on its tokens, return a result per declaration, and
-decide nothing further until stage 6's numbers are in.
+D3578's recommendation stands (keep the door open, plan nothing more).
 
 ## 10. Questions for Matt
 
-**D3576: build it, to this plan, starting with stages 0 to 2?**
-*The problem:* D3561 said the Stitchwort formatter waits for the Rust one
-to be rebuilt on the tree; that is done, and the first plan no longer fits.
-*The change:* a twin of the tree printer in `tools/fmt/`, 42–59 lane hours
-[estimated] in seven stages; first the harness, the lexer and the parser
-(21–29 hours), then a report with speed numbers before the printer starts.
-The target stays "the repo in under 30 s" (about 20 s estimated; Rust
-8.3 s measured).
-*What it should do:* the demanding real program the project was meant to
-be, with a parser tested node for node against the Rust one after the
-first three stages, whatever is decided after them. **[rec: yes, stages
-0–2, then report]**
+Three. The orchestrator numbers them.
 
-**D3577: once identical, must it stay identical?**
-*The problem:* the Rust formatter and parser change most days (18 printer
-commits in two days). A rule that every such change also updates the twin
-would slow that work.
-*The change:* no merge gate. The harness runs in the rolling check and
-reports drift; the twin is caught up in batches and may lag by a day or
-two. The alternative makes the twin part of every formatter or grammar
-lane.
-*What it should do:* the Rust formatter keeps its pace; the twin's drift
-count becomes the measure of what a second implementation costs, which is
-the number the self-hosting question needs. **[rec: no gate]**
+**Q1. Start building stages 0–2 (harness, typed tree, lexer, parser on
+`Parse`) once Toy++ T7's timing passes?** [rec: yes]
+*The problem:* the parser is the largest part of the program and gates
+everything after it; Toy++ can't tell us how the real grammar fares on
+`Parse`.
+*The change:* stages 0–2, about 7–11 agent hours [estimated], starting
+after T7 records the toy's rate with passes (D3636's condition). Stage 1
+can start beside Toy++ T4–T6, since the lexer doesn't depend on them.
+*What it should do:* a parser of Stitchwort in Stitchwort, tested node for
+node against the Rust one, and the first real measure of `Parse` at the
+real grammar's size, before any proof work is committed.
 
-**D3578: self-hosting the parser: keep the door open, plan nothing yet?**
-*The problem:* the twin's lexer and parser are the first step of a
-Stitchwort parser for Stitchwort itself, and it would be easy to drift
-into treating them as that.
-*The change:* nothing beyond three cheap habits in the twin's parser (its
-own namespace and gate, byte offsets kept, a result per declaration). No
-lowering in Stitchwort and no work on calling Stitchwort code from the
-compiler until stage 6 reports, and then only if native speed is within
-about 2–3 times of Rust on the parser or a Stitchwort-written tool wants
-the tree.
-*What it should do:* keeps the option at no cost, and spends nothing on a
-direction whose main obstacle (speed, with performance work paused) this
-project will measure. **[rec: yes, door open, no plan]**
+**Q2. Is D3663's "must" set the real formatter's proof surface too?**
+[rec: yes]
+*The problem:* D3663 set the must set for Toy++ only. The three original
+theorems admit a formatter that loses every comment or returns its input,
+and the real formatter has had both kinds of bug (SW-3606).
+*The change:* the real formatter proves the same set: round trip, same
+meaning, idempotence, every comment kept, same tree gives same output,
+refusals, and the degenerate examples.
+*What it should do:* about 100–200 theorems over the three alone
+[estimated from Toy++ T1b and T1c, 167 at the toy's size, much of it the
+carry walk]; every observed failure class covered by a theorem.
 
-**Decided here as implementation** (say if you disagree): the parser builds
-the tree directly, not through marks; no error recovery in the twin; the
-rewrites are tree functions; the safety check compares lossless trees; the
-batch stream for files; fuel for the parser, the rules and the engine; the
-parser stage starts after recovery's S3 if the orchestrator can arrange it.
+**Q3. Two formatters until one is retired: how do they stay in step?**
+(D3577, restated.) [rec: no merge gate; the Stitchwort formatter follows
+in batches; decide on replacing `stitchwort fmt` after stage 7]
+*The problem:* the Rust formatter changes most days, and once the
+Stitchwort one is proved, every style change is also a proof change
+(§7.5).
+*The change:* no gate on Rust formatter lanes. The harness runs in
+Overmind's rolling check and reports drift; the Stitchwort formatter is
+caught up, with its proofs, in batches. After stage 7's numbers, decide
+whether it replaces `stitchwort fmt`, which would end the double cost.
+*What it should do:* the Rust formatter keeps its pace; the drift count
+measures what a second implementation costs; replacing is decided on
+speed and drift, not now.
+
+**Decided here as implementation** (say if you disagree): a typed tree
+with a dump in the Rust format; passes on one shared traversal; rule N as
+a reading rule; no error recovery; rules proved last; the toy's engine
+fixes (SW-3452, SW-3416) before the engine is reused; D3617 dropped for
+this formatter and an optimisation (D3447) for the Rust one.
 
 ## Findings worth tickets
 
-- **SW-3149 (native executables fail to start from the main checkout)
-  still reproduces** today, and is this project's first prerequisite. It
-  deserves a higher place than backlog once D3576 is yes.
-- **SW-3147 (fmt's time is in comparing trees as text) is unchanged:** 86%
-  of an 8.3 s run. With the lowering done, the fix can be to compare
-  lossless trees, as §3.4 describes for the twin. The Rust formatter also
-  parses each file five or more times (the refusal, the bracket and merge
-  rewrites, the tree, the checks) where one tree would do.
-- **A list of one bracketed range with a trailing comma is never
-  formatted:** a declaration holding `[(0 ..< n),]` is left as written,
-  with no message and exit 0 [measured; `[(n),]` is formatted], because
-  the lowering reads that comma (`lower/exprs.rs`, `list`; it is how
-  `W-RANGE-IN-BRACKETS` is kept quiet). Either the lowering stops reading
-  the comma, or the formatter keeps it there.
-- **`stitchwort fmt` is silent about declarations it leaves as written:**
-  only `dev fmt-tree --verbose` says. A line on standard error would have
-  shown the case above.
-- **No text literals in patterns:** `| "def" => …` is `E-PARSE`, "expected
-  a pattern or `=`" [measured]. A lexer's keyword table, and any program
-  that reads commands, wants it. Worth a design ticket if there isn't one.
-- **`Std.Parse` is fixed to `List Char`,** so it can't parse a token
-  stream. Generalising its input is a design question for the library.
-- **SW-3148 (large heaps slow in native code), new numbers:** lexing and
-  parsing are linear to 5.3 MB; printing took 10 times as long on 5 times
-  the input; about 500 bytes of heap per input byte; memory is reclaimed
-  between passes. For the ticket.
-- **SW-3150 (no file access, no cheap text slices): unchanged.** Still the
-  reason for the batch stream.
-- **`Option.getOr` doesn't exist** though `List.getOr` and `Array.getOr`
-  do (`Option` has `getOrElse`) [measured]. A naming inconsistency.
-- **`dev tree --print` has no trivia.** A token dump with comments and
-  blank lines (stage 0 adds one) would also serve the Rust formatter's own
-  tests.
+- **D3617 for the Rust formatter** (§7.6): skip the check when the output
+  equals the input. An optimisation under D3447; parked with speed work
+  (D3465) unless the orchestrator wants it now. No ticket exists.
+- **The Rust passes parse again after each pass with edits**
+  (`passes.rs`, `run`). Nothing measured; it adds to the 1.1 s of real
+  work only on files that change. A tree-to-tree pass, as planned here,
+  would not. Worth a line in SW-3147 when speed work resumes.
+- **`fmt --check` has not been timed since the passes and the new check
+  (SW-3610) landed.** The 8.3 s figure is from 14 Nov. A verifier or
+  Overmind job could re-measure it in one run.
+- **SW-3452 and SW-3416 are in the backlog but are prerequisites** for
+  reusing the toy's engine here (§3.6); they should run before the engine
+  moves to `Std.Doc`.
+- Still open from the second plan: SW-3147 (comparing trees as text),
+  SW-3148 (large heaps), `Files.walk` (SW-3415).
 
 ## Appendix A: the probes
 
