@@ -16466,12 +16466,12 @@
     {
       "id": 3416,
       "title": "[Sonnet] Toy Doc.group recomputes forcesBreak over the whole inner document (quadratic in nesting); cache it in the node; matters for the real formatter's engine (SW-3414 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Already done: Group caches forcesBreak (Doc.group computes it from children's cached flags); construction measured linear, 2.25 s at 200 levels to 2.33 s at 6,400, nearly all project check time. No code change. Model result: sonnet, worked, 2 min (est. 30).",
       "created": "2026-11-15",
       "updated": "2026-11-17",
       "commits": []
