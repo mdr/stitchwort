@@ -1052,19 +1052,31 @@ fn generalised_now(
     // those whose types mention a copied one.
     let occurrences: Vec<Option<&Term>> = normals.iter().map(Option::as_ref).collect();
     let mut copied: Vec<usize> = Vec::new();
-    for (l, ty) in type_terms.iter().enumerate() {
-        if skip.is_some_and(|skip| skip(cx, l)) {
-            continue;
+    // Again until nothing is added: a type can mention a variable bound
+    // after it (a split's equation, `c = MkChar code valid`, is bound before
+    // the fields it names), which is copied only on a later pass.
+    loop {
+        let before = copied.len();
+        for (l, ty) in type_terms.iter().enumerate() {
+            if copied.contains(&l) || skip.is_some_and(|skip| skip(cx, l)) {
+                continue;
+            }
+            let free = free_levels(ty, base);
+            // A `let`-bound variable is copied too, as a plain hypothesis: in
+            // the alternatives its value is forgotten and only its (refined)
+            // type is known.
+            let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
+            if unrefined
+                && (any_occurs(&occurrences, ty) || free.iter().any(|f| copied.contains(f)))
+            {
+                copied.push(l);
+            }
         }
-        let free = free_levels(ty, base);
-        // A `let`-bound variable is copied too, as a plain hypothesis: in
-        // the alternatives its value is forgotten and only its (refined)
-        // type is known.
-        let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
-        if unrefined && (any_occurs(&occurrences, ty) || free.iter().any(|f| copied.contains(f))) {
-            copied.push(l);
+        if copied.len() == before {
+            break;
         }
     }
+    copied.sort_unstable();
     // A scrutinee's type can't mention a copied variable: its copy comes
     // after the scrutinee (§4.4's cycle).
     for s in &exprs {
@@ -1529,7 +1541,8 @@ fn bind_generalised(
         None => today.copied.to_vec(),
     };
     let mut copies = HashMap::default();
-    for (i, &l) in copied.iter().enumerate() {
+    for i in dependency_order(&copied, today.type_terms, base) {
+        let l = copied[i];
         let depth = cx.level();
         let ty = match written {
             Some(w) => as_written::moved(&g, &w.copied[i].1, base, e, depth, &copies)?,
@@ -2155,6 +2168,30 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
             _,
         ) => false,
     }
+}
+
+/// The positions of `copied` (levels, in increasing order) in an order where
+/// each comes after the others its type mentions: the order of the levels,
+/// but for a type that mentions a variable bound after it (a split's
+/// equation names the fields bound after it), which waits for that one's
+/// copy. Its copy would otherwise mention the variable itself, not its
+/// copy, and be ill-typed.
+fn dependency_order(copied: &[usize], type_terms: &[Term], base: usize) -> Vec<usize> {
+    let mut left: Vec<usize> = (0..copied.len()).collect();
+    let mut order = Vec::with_capacity(copied.len());
+    while !left.is_empty() {
+        let ready = left
+            .iter()
+            .position(|&i| {
+                free_levels(&type_terms[copied[i]], base)
+                    .iter()
+                    .all(|f| *f == copied[i] || left.iter().all(|&j| copied[j] != *f))
+            })
+            // A cycle can't be ordered: the levels' order, as before.
+            .unwrap_or(0);
+        order.push(left.remove(ready));
+    }
+    order
 }
 
 /// Replaces occurrences of the scrutinees by their variables and copied

@@ -1,22 +1,17 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 700
 expression: output
 ---
-[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
-   ╭─[ reject/cases-nothing.sw:6:57 ]
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits xs = [head✝, ..tail✝]
+   ╭─[ reject/cases-nothing.sw:6:86 ]
    │
- 6 │ theorem emptyList (xs: List Nat): List.length xs = 0 := cases
-   │                                                         ──┬──  
-   │                                                           ╰──── this `cases`
+ 6 │ theorem lengthAppendNil ∀ (xs: List Nat): List.length (xs ++ []) = List.length xs := cases
+   │                                                                                      ──┬──  
+   │                                                                                        ╰──── this `cases`
    │ 
-   │ Note 1: goal: xs.length = 0
+   │ Note 1: goal: Succ (List.length (tail✝ ++ [])) = Succ (List.length tail✝)
    │ 
-   │ Note 2: it stopped here because the goal is stuck on `xs`, a `List`, which `cases` doesn't take apart; give this case's proof as `cases then t`
+   │ Note 2: it stopped here because the goal is stuck on `tail✝`, a `List` that is part of one `cases` took apart already: taking it apart again would be induction, which is written as recursion (a `match` whose arm calls the theorem on `tail✝`)
    │ 
-   │ Note 3: this statement is false; a counterexample:
-   │           xs = [0]
-   │         `xs.length = 0` is false:
-   │           left:  1
-   │           right: 0
+   │ Note 3: 1 other case was closed (1 by computation)
 ───╯

@@ -113,6 +113,25 @@ theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi
 theorem someSame ∀ (f: Nat → Nat) (x y: Nat) (h: Some x = Some y): f x = f y := cases
 -- end cases-constructors
 
+-- begin cases-once
+def total: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] => x + total rest
+
+def dropLeadingZero: List Nat → List Nat
+  | [0, ..rest] => rest
+  | other => other
+
+theorem dropKeepsTotal ∀ (xs: List Nat): total (dropLeadingZero xs) = total xs := cases
+
+def isSpace: Char → Bool
+  | ' ' => True
+  | '\t' => True
+  | _ => False
+
+theorem spaceIsSmall ∀ (c: Char) (space: isSpace c = True): c.toNat ≤ 32 := cases
+-- end cases-once
+
 -- begin spec
 -- The specification: the plain recursive sum.
 def sumTo: Nat → Nat
@@ -166,6 +185,22 @@ theorem skipThreeKeeps ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThr
 
 theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 byComputing
 -- end guard-eqs
+
+-- begin cases-guards
+type TokenStart = | WordStart | DigitsStart | OtherStart
+
+def tokenStart: List Char → Option TokenStart
+  | [' ', .._] => None
+  | [c, .._] if c.isAsciiLetter => Some WordStart
+  | [c, .._] if c.isAsciiDigit => Some DigitsStart
+  | [_, .._] => Some OtherStart
+  | [] => None
+
+theorem wordStartLetter ∀ (c: Char) (rest: List Char)
+    (starts: tokenStart [c, ..rest] = Some WordStart):
+    c.isAsciiLetter = True :=
+  cases
+-- end cases-guards
 
 -- begin guard-induct
 def countBig: List Nat → Nat

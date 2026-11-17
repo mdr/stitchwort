@@ -419,7 +419,31 @@ theorem atMostTwo ∀ (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 :=
 1 error: in `atMostTwo`
 ```
 
-Here the case `a = True` with `n ≤ 2` false is a real counterexample, `n = 3`: the hypothesis should say `n ≤ 2`. `cases` doesn't take apart lists or numbers, which is induction (written as recursion, above), and stops at 64 cases.
+Here the case `a = True` with `n ≤ 2` false is a real counterexample, `n = 3`: the hypothesis should say `n ≤ 2`.
+
+When nothing else is left, `cases` takes apart a list (or another recursive type) that the goal waits for, once, and splits a number that a definition matches against numbers into those numbers and the rest. A character pattern is a number pattern on the character's code, so it is split the same way:
+
+<!-- snippet: proofs.sw#cases-once -->
+```stitchwort
+def total: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] => x + total rest
+
+def dropLeadingZero: List Nat → List Nat
+  | [0, ..rest] => rest
+  | other => other
+
+theorem dropKeepsTotal ∀ (xs: List Nat): total (dropLeadingZero xs) = total xs := cases
+
+def isSpace: Char → Bool
+  | ' ' => True
+  | '\t' => True
+  | _ => False
+
+theorem spaceIsSmall ∀ (c: Char) (space: isSpace c = True): c.toNat ≤ 32 := cases
+```
+
+It never takes apart a part of what it took apart (`rest` after `xs = [x, ..rest]`): that would be induction, written as recursion (above), and the error says so. It stops at 64 cases. A `cases` that fails tries once more, splitting the hypotheses before the goal and trying `arithmetic` before each split, with up to 256 cases: that is how it proves `isOperatorChar c = False` from `isWordStart c = True`, ten comparisons against a hypothesis of four, or inverts a hypothesis about a function with many arms. A proof the first try finds is kept as it was.
 
 ## Induction that follows a function
 
@@ -500,6 +524,25 @@ theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 byComputing
 ```
 
 `cap.eq1` has the hypothesis `n ≤ limit`, and `cap.eq2` has `(n <= limit) = False`. A condition on numbers or equality is stated as the proposition it decides, even when the program tests it as a `Bool`: `n != 3` gives `n ≠ 3`, and for the arm below it, `n = 3`. Another `Bool` is stated as `c = True`, and as `c = False` below. Equations are still numbered by arm, so a condition adds no name.
+
+`cases` splits at conditions too, so it can work backwards from a hypothesis about a function with guarded arms: every arm but one gives some other result, which contradicts the hypothesis, and in the one left the condition held:
+
+<!-- snippet: proofs.sw#cases-guards -->
+```stitchwort
+type TokenStart = | WordStart | DigitsStart | OtherStart
+
+def tokenStart: List Char → Option TokenStart
+  | [' ', .._] => None
+  | [c, .._] if c.isAsciiLetter => Some WordStart
+  | [c, .._] if c.isAsciiDigit => Some DigitsStart
+  | [_, .._] => Some OtherStart
+  | [] => None
+
+theorem wordStartLetter ∀ (c: Char) (rest: List Char)
+    (starts: tokenStart [c, ..rest] = Some WordStart):
+    c.isAsciiLetter = True :=
+  cases
+```
 
 `match induct` splits at each condition too: the case of a guarded arm knows the condition, and the case of the arms below it knows it failed. The cases are named by arm, `eq1`, `eq2`, `eq3`, and `eq2` and `eq3` each get the fact; leaving `eq2` as `?` shows it:
 

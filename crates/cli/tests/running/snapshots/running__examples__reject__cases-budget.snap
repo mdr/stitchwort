@@ -1,20 +1,21 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 700
 expression: output
 ---
 [E-CASES-BUDGET] Error: `cases` made more than 64 cases without closing them all
-   ╭─[ reject/cases-budget.sw:7:90 ]
+   ╭─[ reject/cases-budget.sw:9:3 ]
    │
- 7 │       = Bool.xor g (Bool.xor f (Bool.xor e (Bool.xor d (Bool.xor c (Bool.xor b a))))) := cases
-   │                                                                                          ──┬──  
-   │                                                                                            ╰──── this `cases`
+ 9 │   cases
+   │   ──┬──  
+   │     ╰──── this `cases`
    │ 
-   │ Note 1: it split on 7: `a`, `b`, `c`, `d`, `e`, `f`, `g`
+   │ Note 1: it split on 9: `a`, `b`, `c`, `d`, `e`, `f`, `g`, `h`, `i`
    │ 
-   │ Note 2: the first case still open: a = True, b = False, c = False, d = False, e = False
+   │ Note 2: the first case still open: a = False, b = False, c = True, d = False, e = False
    │ 
-   │ Note 3: every variable it split has a finite type (`a : Bool`, `b : Bool`, `c : Bool`, `d : Bool`, `e : Bool`, `f : Bool`, `g : Bool`): to check every value by computing instead, state it as a `Bool` function `p` of one record or pair holding them and prove `p v = True` by `Finite.check p byComputing v` (`import Std (Finite)`)
+   │ Note 3: every variable it split has a finite type (`a : Bool`, `b : Bool`, `c : Bool`, `d : Bool`, `e : Bool`, `f : Bool`, `g : Bool`, `h : Bool`, `i : Bool`): to check every value by computing instead, state it as a `Bool` function `p` of one record or pair holding them and prove `p v = True` by `Finite.check p byComputing v` (`import Std (Finite)`)
    │ 
    │ Note 4: prove a fact that decides some of the cases at once and give it as `cases then t`, or split by hand with `match`
+   │ 
+   │ Note 5: a second try, splitting the hypotheses before the goal and trying `arithmetic` before each split, didn't close them all either, in 256 cases
 ───╯

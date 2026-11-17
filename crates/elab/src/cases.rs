@@ -85,6 +85,16 @@
 //! This comes after the closers, so a `Π` goal they prove whole (a
 //! hypothesis of that type, `arithmetic` on `P → Void`, `t`) keeps that proof.
 //!
+//! A case still open then, not a `Π`, has the *last resort* split, if any
+//! ([`Finder::last_resort_atom`], SW-3752): on the first chain that has one,
+//! the goal's before the hypotheses', the innermost value that `cases`
+//! doesn't otherwise split: a number a `NumCase` compares with numbers,
+//! split into those numbers and the rest (where the number is apart from
+//! them, docs/core.md, so the `NumCase` takes its default); or a value of a
+//! recursive type other than `Nat`, split into its constructors, unless it
+//! is a field of an earlier split of its type. Or an atom split already
+//! that a later split exposed again, split once more.
+//!
 //! A case still open then, not a `Π`, is split anyway, as a *fallback*
 //! (§6.1.3): of the variables the goal mentions, as computed, that are
 //! splittable and not known in this case, the one with the fewest
@@ -92,11 +102,18 @@
 //! is what proves `key ∈ keys`, a disjunction of equations not stuck on
 //! `key`. Its splits are marked "(fallback)" in the diagnostics.
 //!
+//! A `cases` that fails tries once more ([`Run::thrifty`]): the
+//! hypotheses and their parts first (records and the last resort's splits
+//! too), then the last resort's splits of the goal, then its atoms; with
+//! `arithmetic` tried before every split, and [`THRIFTY_CASES`] cases. The
+//! first try's proofs are unchanged.
+//!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
 //! copy of each, as generalising copies them). More than [`CASES`] cases is
 //! `E-CASES-BUDGET`.
 
+use num_bigint::BigUint;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use stitchwort_core::Ev;
@@ -116,6 +133,12 @@ use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def};
 /// The most cases one `cases` makes (§5.8): the largest tree the motivating
 /// proofs need has 12.
 pub(crate) const CASES: usize = 64;
+
+/// The most cases the second try makes ([`Run::thrifty`]), which only a
+/// `cases` that ran out of [`CASES`] gets to: inverting a hypothesis about a
+/// function of nine guarded arms over character ranges (`lexemeStart … =
+/// Some WordLexeme`) takes about a hundred, every one of them needed.
+const THRIFTY_CASES: usize = 4 * CASES;
 
 /// The prefix of the names the split equations are bound to: not one a
 /// program can write.
@@ -164,6 +187,10 @@ pub(crate) struct Run {
     substituted: RefCell<Vec<(Name, String)>>,
     /// Whether each data type is splittable, and its constructor count.
     splittable: RefCell<HashMap<DataId, Option<usize>>>,
+    /// The second try, after the first ran out of cases ([`cases_goal`]):
+    /// the hypotheses are split before the goal, and every case tries
+    /// `arithmetic` before it is split.
+    thrifty: bool,
 }
 
 #[derive(Default)]
@@ -233,9 +260,66 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     {
         return node(cx, &run, expected);
     }
+    let out_of_cases = Cell::new(false);
+    let first = attempt(cx, body, *span, expected, false, &out_of_cases);
+    // A `cases` that failed tries once more, another way (SW-3752): the
+    // hypotheses, and the parts of them, are split before the goal, and
+    // every case tries `arithmetic` before it is split. Split goal first,
+    // ten comparisons of `c` in the goal each took the four comparisons of
+    // a hypothesis that `c` is a letter again (SW-3459); and a hypothesis
+    // that a call is a constructor is inverted where the goal's own splits
+    // left nothing to say (SW-3461). Only a `cases` that would fail gets
+    // here, so the proofs it gave before keep their terms; a failure
+    // reports the first try, which follows the goal as it is written.
+    let Err(e) = first else {
+        return first;
+    };
+    if crate::undo::fatal(&e) || e.code == "E-CASES-BUDGET" && !out_of_cases.get() {
+        return Err(e);
+    }
+    let ran_out = out_of_cases.get();
+    match attempt(cx, body, *span, expected, true, &out_of_cases) {
+        Ok(term) => Ok(term),
+        Err(second) if crate::undo::fatal(&second) => Err(second),
+        Err(_) if ran_out => Err(e.with_note(format!(
+            "a second try, splitting the hypotheses before the goal and trying `arithmetic` \
+             before each split, didn't close them all either, in {THRIFTY_CASES} cases"
+        ))),
+        Err(_) => Err(e),
+    }
+}
+
+/// One try of [`cases_goal`]'s `cases`; `thrifty` for the second
+/// ([`Run::thrifty`]). `out_of_cases` is set when it fails for making more
+/// than [`CASES`] cases.
+fn attempt(
+    cx: &mut Ctx,
+    body: &Option<Box<Expr>>,
+    span: Span,
+    expected: &Value,
+    thrifty: bool,
+    out_of_cases: &Cell<bool>,
+) -> Result<Term> {
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let result = attempt_once(cx, body, span, expected, thrifty, out_of_cases);
+    if result.is_err() {
+        snapshot.restore(cx);
+    }
+    result
+}
+
+fn attempt_once(
+    cx: &mut Ctx,
+    body: &Option<Box<Expr>>,
+    span: Span,
+    expected: &Value,
+    thrifty: bool,
+    out_of_cases: &Cell<bool>,
+) -> Result<Term> {
     let run = Rc::new(Run {
+        thrifty,
         body: body.clone(),
-        span: *span,
+        span,
         cases: Cell::new(1),
         atoms: RefCell::new(Vec::new()),
         split_int: Cell::new(false),
@@ -265,6 +349,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let others = cx.e.attempt.branch_errors.borrow().len() - errors;
     cx.e.attempt.branch_errors.borrow_mut().truncate(errors);
     if run.over.get() {
+        out_of_cases.set(!run.over_size.get());
         return Err(budget_error(&run));
     }
     let closed = run.closed.borrow();
@@ -396,20 +481,25 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     {
         return split_on(cx, run, atom, goal, false);
     }
-    let (atom, stuck, fallback) = {
+    let (atom, stuck, fallback, last_resort) = {
         let mut finder = Finder::new(cx, run);
         let atom = finder.find(goal)?;
         let fallback = match atom {
             None => finder.fallback()?,
             Some(_) => None,
         };
-        (atom, finder.stuck.take(), fallback)
+        (
+            atom,
+            finder.stuck.take(),
+            fallback,
+            finder.last_resort.take(),
+        )
     };
     if let Some(atom) = atom {
         // Splitting on the goal's own side (`Nat.leq a b = True` into
         // `True = True` and `False = True`) is the last resort: `arithmetic` may
         // prove it whole, which is one case instead of two.
-        if atom.side
+        if (atom.side || run.thrifty)
             && let Some(term) = crate::omega::prove_case(cx, goal, run.span)?
         {
             run.closed.borrow_mut().omega += 1;
@@ -434,6 +524,14 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     // that would otherwise be open goes on to have its binders introduced.
     if let Some(term) = introduce(cx, run, goal)? {
         return Ok(term);
+    }
+    // The last resort (SW-3752): what the goal, or a hypothesis, is stuck on
+    // that `cases` doesn't otherwise split: a number compared with numbers
+    // (a character pattern's code), or a value of a recursive type, once.
+    // Only a case that would otherwise be open or a fallback gets here, so
+    // a proof `cases` gave before keeps its term.
+    if let Some(atom) = last_resort {
+        return split_on(cx, run, atom, goal, false);
     }
     // The fallback (docs/proposals/decide.md §6.1.3): the goal isn't stuck
     // on anything splittable, so split a variable it mentions anyway, the
@@ -619,7 +717,7 @@ fn open_case(
     cx: &Ctx,
     run: &Run,
     goal: &Value,
-    stuck: Option<(String, String)>,
+    stuck: Option<Stuck>,
     failed_body: Option<Diagnostic>,
 ) -> Diagnostic {
     let path = path(cx);
@@ -687,15 +785,26 @@ fn open_case(
     );
     d = cx.with_unused_equation_notes(d, &searched);
     let d = match stuck {
-        Some((what, ty)) => d.with_note(format!(
-            "it stopped here because the goal is stuck on `{what}`, {} `{ty}`, which `cases` \
-             doesn't take apart; give this case's proof as `cases then t`",
-            if ty.starts_with(['A', 'E', 'I', 'O', 'U']) {
+        Some(Stuck { what, ty, again }) => {
+            let a = if ty.starts_with(['A', 'E', 'I', 'O', 'U']) {
                 "an"
             } else {
                 "a"
-            }
-        )),
+            };
+            d.with_note(if again {
+                format!(
+                    "it stopped here because the goal is stuck on `{what}`, {a} `{ty}` that is \
+                     part of one `cases` took apart already: taking it apart again would be \
+                     induction, which is written as recursion (a `match` whose arm calls the \
+                     theorem on `{what}`)"
+                )
+            } else {
+                format!(
+                    "it stopped here because the goal is stuck on `{what}`, {a} `{ty}`, which \
+                     `cases` doesn't take apart; give this case's proof as `cases then t`"
+                )
+            })
+        }
         None => d.with_generic_note(
             "the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a \
              contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves \
@@ -1618,6 +1727,10 @@ struct Atom {
     /// Whether it is a whole side of the goal's equation (`f x = True`), not
     /// something a definition tests.
     side: bool,
+    /// For a number a definition compares with numbers (a `NumCase`): those
+    /// numbers, split into one case each and one for the rest. `None`: split
+    /// into the constructors.
+    numbers: Option<Vec<BigUint>>,
 }
 
 struct Finder<'a, 'e> {
@@ -1625,9 +1738,13 @@ struct Finder<'a, 'e> {
     run: &'a Run,
     /// The first one-constructor atom met, split only if nothing else is.
     single: Option<Atom>,
-    /// The innermost value the goal is stuck on that isn't splittable, and
-    /// its type, as shown: why a case with nothing to split stopped.
-    stuck: Option<(String, String)>,
+    /// What the last resort splits, when nothing else is left
+    /// ([`Finder::last_resort_atom`]): the innermost such value on the first
+    /// chain that has one, the goal's before the hypotheses'.
+    last_resort: Option<Atom>,
+    /// The innermost value the goal is stuck on that isn't splittable:
+    /// why a case with nothing to split stopped.
+    stuck: Option<Stuck>,
     /// The split equations' left sides, as types hold them: values known
     /// in this case, never split again.
     known: Vec<Term>,
@@ -1645,6 +1762,10 @@ struct Finder<'a, 'e> {
     /// Set for the survey pass ([`Finder::shared`]): `chain` records each
     /// chain instead of choosing an atom.
     survey: Option<Survey>,
+    /// Set for the second try's look at the goal's structure
+    /// ([`Finder::find`]): `chain` records only the last resort's split,
+    /// whether or not an atom is outside it, and chooses no atom.
+    resort_only: bool,
 }
 
 /// What the survey pass found (SW-939): the chains of stuck calls whose
@@ -1684,6 +1805,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             cx,
             run,
             single: None,
+            last_resort: None,
             stuck: None,
             known,
             known_big,
@@ -1692,6 +1814,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             under_stuck: 0,
             mentioned: Vec::new(),
             survey: None,
+            resort_only: false,
         }
     }
 
@@ -1700,6 +1823,33 @@ impl<'a, 'e> Finder<'a, 'e> {
         let cx = self.cx;
         if let Some(atom) = self.shared(goal)? {
             return Ok(Some(atom));
+        }
+        // The second try splits the hypotheses first: most of their cases
+        // contradict them at once, and the goal's splits are then made only
+        // in the cases left, not again under each of their own. What a
+        // hypothesis waits for is split whatever it is, a record or what
+        // only the last resort splits otherwise: its cases are the ones
+        // that refute it. Then what the goal's structure waits for, before
+        // its tests: a `match group, rest` whose other arms compute once
+        // `rest` is taken apart needs none of the tests on `group`'s parts
+        // that both sides make alike.
+        if self.run.thrifty {
+            for (_, stuck_side) in stuck_sides(cx, self.run.thrifty)? {
+                let found = self.walk(&stuck_side)?;
+                if let Some(atom) = found.or_else(|| self.single.take()) {
+                    return Ok(Some(atom));
+                }
+                if let Some(atom) = self.last_resort.take() {
+                    return Ok(Some(atom));
+                }
+            }
+            let mut structure = Finder::new(cx, self.run);
+            structure.resort_only = true;
+            structure.in_goal = true;
+            structure.walk(goal)?;
+            if let Some(atom) = structure.last_resort.take() {
+                return Ok(Some(atom));
+            }
         }
         self.in_goal = true;
         // The goal's whole side (`Nat.leq n 2 = True` on `Nat.leq n 2`) waits
@@ -1711,7 +1861,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             None => {}
         }
         self.in_goal = false;
-        for (_, stuck_side) in stuck_sides(cx)? {
+        for (_, stuck_side) in stuck_sides(cx, self.run.thrifty)? {
             if let Some(atom) = self.walk(&stuck_side)? {
                 return Ok(Some(atom));
             }
@@ -1736,7 +1886,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         survey.in_goal = false;
         // The whole equation, so its stuck side counts as one that would be
         // split, as the goal's sides do.
-        for (equation, _) in stuck_sides(cx)? {
+        for (equation, _) in stuck_sides(cx, self.run.thrifty)? {
             survey.walk(&equation)?;
         }
         let Survey { ends, .. } = survey.survey.take().expect("set above");
@@ -1754,6 +1904,7 @@ impl<'a, 'e> Finder<'a, 'e> {
                     value: value.clone(),
                     d: *d,
                     side: false,
+                    numbers: None,
                 }));
             }
         }
@@ -1788,8 +1939,8 @@ impl<'a, 'e> Finder<'a, 'e> {
             }
             let (raw, d, is_first) = match first.take() {
                 Some((raw, d)) => (raw, d, true),
-                None => match blocker(cx, &current)? {
-                    Some((raw, d)) => (raw, d, false),
+                None => match blocker(cx, &current, self.run.thrifty)? {
+                    Some((raw, d, _)) => (raw, d, false),
                     None => break,
                 },
             };
@@ -1975,6 +2126,10 @@ impl<'a, 'e> Finder<'a, 'e> {
         }
         let g = self.cx.g();
         let mut best: Option<Atom> = None;
+        // The innermost value on this chain that only the last resort
+        // splits.
+        let mut resort: Option<Atom> = None;
+        let mut resplit: Option<Atom> = None;
         let mut current = stuck.clone();
         let mut last_unsplittable = None;
         let mut first = first;
@@ -1995,10 +2150,10 @@ impl<'a, 'e> Finder<'a, 'e> {
             }
             // `stuck` itself first, if it's a candidate; then what it waits
             // for, and so on inwards.
-            let (raw, d, is_first) = match first.take() {
-                Some((raw, d)) => (raw, d, true),
-                None => match blocker(self.cx, &current)? {
-                    Some((raw, d)) => (raw, d, false),
+            let (raw, d, numbers, is_first) = match first.take() {
+                Some((raw, d)) => (raw, d, None, true),
+                None => match blocker(self.cx, &current, self.run.thrifty)? {
+                    Some((raw, d, numbers)) => (raw, d, numbers, false),
                     None => break,
                 },
             };
@@ -2015,6 +2170,7 @@ impl<'a, 'e> Finder<'a, 'e> {
                         value: raw.clone(),
                         d,
                         side: is_first,
+                        numbers: None,
                     };
                     if n >= 2 {
                         best = Some(atom);
@@ -2043,8 +2199,34 @@ impl<'a, 'e> Finder<'a, 'e> {
                         self.single = Some(atom);
                     }
                 }
-                Some(_) => {}
-                None => last_unsplittable = Some((raw.clone(), d)),
+                Some(n) => {
+                    // Split already in this case, yet still stuck here: an
+                    // occurrence the split's generalisation couldn't see,
+                    // because it only appeared once a later split computed
+                    // (`if f x then …` out of a call stuck on a number).
+                    // Splitting it again puts the constructor there; the
+                    // other cases contradict the first split's equation.
+                    // Once: a value split twice is left, so a generalisation
+                    // that can't see it never loops.
+                    if n >= 2 && !is_first && resplit.is_none() && self.known_times(&raw)? == 1 {
+                        resplit = Some(Atom {
+                            value: raw.clone(),
+                            d,
+                            side: false,
+                            numbers: None,
+                        });
+                    }
+                }
+                None => {
+                    // The innermost candidate decides: one inside that
+                    // can't be split (a part of an earlier split) leaves
+                    // nothing, not the stuck call around it, whose split
+                    // would forget what it is (`tail ++ []`).
+                    if !is_first && (numbers.is_some() || recursive(self.cx, d)) {
+                        resort = self.last_resort_atom(&raw, d, numbers)?;
+                    }
+                    last_unsplittable = Some((raw.clone(), d));
+                }
             }
             if is_first {
                 continue;
@@ -2072,10 +2254,68 @@ impl<'a, 'e> Finder<'a, 'e> {
             && self.stuck.is_none()
             && let Some((raw, d)) = last_unsplittable
         {
-            let shown = self.cx.show(&raw);
-            self.stuck = Some((shown, g.data(d).name().to_string()));
+            self.stuck = Some(Stuck {
+                what: self.cx.show(&raw),
+                ty: g.data(d).name().to_string(),
+                again: recursive(self.cx, d),
+            });
+        }
+        if self.resort_only {
+            if self.last_resort.is_none() {
+                self.last_resort = resort;
+            }
+            return Ok(None);
+        }
+        if best.is_none() && self.last_resort.is_none() {
+            self.last_resort = resplit.or(resort);
         }
         Ok(best)
+    }
+
+    /// `raw`, of type `d`, as the last resort's split (SW-3752), if it is
+    /// one: a number that a definition compares with `numbers`, split into
+    /// each of them and the rest; or a value of a recursive type other than
+    /// `Nat`, split into its constructors, once (not a field of an earlier
+    /// split of its type, so never induction).
+    fn last_resort_atom(
+        &self,
+        raw: &Value,
+        d: DataId,
+        numbers: Option<Vec<BigUint>>,
+    ) -> Result<Option<Atom>> {
+        let cx = self.cx;
+        let g = cx.g();
+        if has_meta(cx, raw)? {
+            return Ok(None);
+        }
+        if let Some(numbers) = numbers {
+            // `k + x` isn't split: what it is apart from says nothing of
+            // `x` here.
+            if !matches!(force(&g, raw.clone())?, Value::Neutral(..)) {
+                return Ok(None);
+            }
+            return Ok(Some(Atom {
+                value: raw.clone(),
+                d,
+                side: false,
+                numbers: Some(numbers),
+            }));
+        }
+        if !recursive(cx, d) || self.is_known(raw)? {
+            return Ok(None);
+        }
+        let Some(term) = read_back(&g, cx.level(), raw)? else {
+            return Ok(None);
+        };
+        if self.split_field(&term, d)? {
+            return Ok(None);
+        }
+        Ok(Some(Atom {
+            value: raw.clone(),
+            d,
+            side: false,
+            numbers: None,
+        }))
     }
 
     /// The fallback's split, after [`Finder::find`] found nothing
@@ -2113,7 +2353,22 @@ impl<'a, 'e> Finder<'a, 'e> {
             value: Value::var(level),
             d,
             side: false,
+            numbers: None,
         }))
+    }
+
+    /// How many splits in this case split `value`, as far as can be read
+    /// back.
+    fn known_times(&self, value: &Value) -> Result<usize> {
+        let g = self.cx.g();
+        Ok(match read_back(&g, self.cx.level(), value)? {
+            Some(t) => self
+                .known
+                .iter()
+                .filter(|k| crate::matching::same(k, &t))
+                .count(),
+            None => 0,
+        })
     }
 
     fn is_known(&self, value: &Value) -> Result<bool> {
@@ -2213,15 +2468,27 @@ fn number_equality(g: &Ev, value: &Value) -> bool {
 }
 
 /// The hypotheses that `cases` follows (D1318), latest first: each equation
-/// between a constructor and a stuck term, with the stuck term.
-fn stuck_sides(cx: &Ctx) -> Result<Vec<(Value, Value)>> {
+/// between a constructor and a stuck term, with the stuck term. With
+/// `parts`, for the second try, those that are a part of a hypothesis too
+/// (a side of a conjunction, what a test fact reads as:
+/// `auto::hypothesis_parts`), after them.
+fn stuck_sides(cx: &Ctx, parts: bool) -> Result<Vec<(Value, Value)>> {
     let g = cx.g();
     let mut sides = Vec::new();
-    for level in visible(cx) {
-        if is_equation(cx, level) {
-            continue;
-        }
-        let equation = force(&g, cx.types[level].clone())?;
+    let levels: Vec<usize> = visible(cx)
+        .into_iter()
+        .filter(|&level| !is_equation(cx, level))
+        .collect();
+    let mut types: Vec<Value> = levels.iter().map(|&l| cx.types[l].clone()).collect();
+    if parts {
+        types.extend(
+            crate::auto::hypothesis_parts(cx, &levels)?
+                .into_iter()
+                .map(|(_, ty)| ty),
+        );
+    }
+    for ty in types {
+        let equation = force(&g, ty)?;
         let Value::Eq(_, l, r) = &equation else {
             continue;
         };
@@ -2258,6 +2525,19 @@ fn recursive(cx: &Ctx, d: DataId) -> bool {
         && is_recursive(data)
 }
 
+/// What a case with nothing to split was stuck on, as shown.
+struct Stuck {
+    what: String,
+    ty: String,
+    /// Its type is recursive, so it is a part of an earlier split of its
+    /// type: the last resort splits such a value only once.
+    again: bool,
+}
+
+/// What a stuck call waits for ([`blocker`]): the value, its type, and the
+/// numbers a `NumCase` compares it with.
+type Blocker = (Value, DataId, Option<Vec<BigUint>>);
+
 fn is_recursive(data: &stitchwort_core::globals::Data) -> bool {
     data.ctors().iter().any(|c| {
         c.fields.iter().any(|(_, ty)| {
@@ -2269,8 +2549,12 @@ fn is_recursive(data: &stitchwort_core::globals::Data) -> bool {
 
 /// What the stuck call `value` (forced) waits for: the value its case tree
 /// tests where it can't take a step, as the call's arguments hold it (a
-/// folded call is kept as the call, for display), with its type.
-fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
+/// folded call is kept as the call, for display), with its type, and for a
+/// number compared with numbers (a `NumCase`), those numbers. With
+/// `numbers_known`, for the second try, a `NumCase` on a known number goes
+/// on into its arm; the first try stops there, as it always has, so its
+/// proofs keep their terms.
+fn blocker(cx: &Ctx, value: &Value, numbers_known: bool) -> Result<Option<Blocker>> {
     let g = cx.g();
     let Value::Neutral(Head::Def(id), spine) = value else {
         return Ok(None);
@@ -2310,17 +2594,28 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
                         env.extend(fields.iter().cloned());
                         tree = next;
                     }
-                    Value::Neutral(..) => return Ok(Some((raw, *d))),
+                    Value::Neutral(..) => return Ok(Some((raw, *d, None))),
                     _ => return Ok(None),
                 }
             }
-            Term::NumCase(ix, ..) => {
+            Term::NumCase(ix, arms, default) => {
                 let raw = env[env.len() - 1 - ix].clone();
                 let nat = g.env.builtins().nat;
-                return Ok(match (force(&g, raw.clone())?, nat) {
-                    (Value::Neutral(..), Some(nat)) => Some((raw, nat)),
-                    _ => None,
-                });
+                match (force(&g, raw.clone())?, nat) {
+                    // A known number takes its arm, or the default, as
+                    // running would (`['-', ..tail]` goes on to `tail`).
+                    (Value::Nat(k), _) if numbers_known => {
+                        tree = match arms.iter().find(|arm| *arm.value == *k) {
+                            Some(arm) => arm.body.clone(),
+                            None => default.clone(),
+                        };
+                    }
+                    (Value::Neutral(..), Some(nat)) => {
+                        let numbers = arms.iter().map(|arm| (*arm.value).clone()).collect();
+                        return Ok(Some((raw, nat, Some(numbers))));
+                    }
+                    _ => return Ok(None),
+                }
             }
             _ => return Ok(None),
         }
@@ -2370,6 +2665,7 @@ fn visible_condition(cx: &Ctx, run: &Run, goal: &Value) -> Result<Option<Atom>> 
             value: condition,
             d: bool_data,
             side: false,
+            numbers: None,
         }));
     }
     Ok(None)
@@ -2396,8 +2692,12 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
             run.split_int.set(true);
         }
     }
-    run.cases.set(run.cases.get() + data.ctors().len() - 1);
-    let too_many = run.cases.get() > CASES;
+    let count = match &atom.numbers {
+        Some(numbers) => numbers.len() + 1,
+        None => data.ctors().len(),
+    };
+    run.cases.set(run.cases.get() + count - 1);
+    let too_many = run.cases.get() > if run.thrifty { THRIFTY_CASES } else { CASES };
     if too_many || too_large_to_split(cx, goal)? {
         run.over.set(true);
         run.over_size.set(!too_many);
@@ -2437,26 +2737,36 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         },
         span: run.span,
     };
-    let alts: Vec<Alt> = data
-        .ctors()
-        .iter()
-        .enumerate()
-        .map(|(c, ctor)| {
-            let explicit = (0..ctor.fields.len())
-                .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
-                .count();
-            let fields = (0..explicit).map(|_| Pattern::Wildcard(run.span)).collect();
-            Alt {
-                guard: None,
-                patterns: vec![crate::internal_ctor_pattern(atom.d, c, fields, run.span)],
-                body: Some(Expr::Cases {
-                    body: run.body.clone(),
-                    span: run.span,
-                }),
-                span: run.span,
-            }
-        })
-        .collect();
+    let alt = |pattern: Pattern| Alt {
+        guard: None,
+        patterns: vec![pattern],
+        body: Some(Expr::Cases {
+            body: run.body.clone(),
+            span: run.span,
+        }),
+        span: run.span,
+    };
+    let alts: Vec<Alt> = match &atom.numbers {
+        // Each number, and then the rest, which the `match` knows to be none
+        // of them, so the comparison takes its default there.
+        Some(numbers) => numbers
+            .iter()
+            .map(|k| alt(Pattern::Num(k.clone(), run.span)))
+            .chain([alt(Pattern::Wildcard(run.span))])
+            .collect(),
+        None => data
+            .ctors()
+            .iter()
+            .enumerate()
+            .map(|(c, ctor)| {
+                let explicit = (0..ctor.fields.len())
+                    .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                    .count();
+                let fields = (0..explicit).map(|_| Pattern::Wildcard(run.span)).collect();
+                alt(crate::internal_ctor_pattern(atom.d, c, fields, run.span))
+            })
+            .collect(),
+    };
     crate::matching::generalised_named(
         cx,
         term,
