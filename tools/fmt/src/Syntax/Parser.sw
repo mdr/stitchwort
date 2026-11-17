@@ -25,11 +25,13 @@ import Std (Bool, Empty, List, Nat, Option, Parse, Result, Text)
 --| (`glued`), and whether that token ends an operand (`afterOperand`), which
 --| together decide what a `-`, `!` or `.` is; and for layout, its index,
 --| how many brackets are open before it, and the column of its line's
---| first token.
+--| first token; and whether a `.` comes right before it (`(p).at` is a
+--| field, never a `rewrite`'s `at`).
 type Item = {
   leaf: Leaf,
   glued: Bool,
   afterOperand: Bool,
+  afterDot: Bool,
   index: Nat,
   depth: Nat,
   lineIndent: Nat
@@ -49,13 +51,14 @@ def itemsAfter (before: Option Token) (index depth lineIndent: Nat): List Leaf �
       | Some previous => !token.lineStart && previous.column + previous.text.utf8Length == token.column
       | None => False
     let afterOperand := before.map (previous => previous.kind.closesOperand) |> .getOrElse False
+    let afterDot := before.map (previous => previous.kind == Dot) |> .getOrElse False
     let indent := if token.lineStart then token.column else lineIndent
     let after :=
       if token.kind.isOpener then depth + 1
       else if token.kind.isCloser then depth - 1
       else depth
     [
-      { leaf, glued, afterOperand, index, depth, lineIndent = indent },
+      { leaf, glued, afterOperand, afterDot, index, depth, lineIndent = indent },
       ..itemsAfter (Some token) (index + 1) after indent rest
     ]
 
@@ -145,15 +148,37 @@ def Item.spelled (item: Item): Text := match item.kind with
 --| a top-level definition's body, where the Rust parser recovers from an
 --| error (`recover`), which changes one message: a missing expression where
 --| a line at the block's column starts.
+--|
+--| Stage 2c adds what ends a construct whatever its column: inside a
+--| `calc`, a line starting with `_` (`inCalc`); inside a `rewrite` rule or
+--| target, a `then`, an `in` or (in a rule) an `at` outside the brackets
+--| opened since the rule's first item (`rewriteRule`, that item's index
+--| and bracket depth, and `rewriteAt`); and inside a `let`'s value, the
+--| bracket depth of its `let` (`letValue`), so a `;` at that depth ends the
+--| value instead of starting a sequence.
 type Modes = {
   guard: Bool,
   sectionHead: Option Nat,
   limit: Option Nat,
   allow: Option Nat,
-  recover: Bool
+  recover: Bool,
+  inCalc: Bool,
+  rewriteRule: Option (Nat, Nat),
+  rewriteAt: Bool,
+  letValue: Option Nat
 }
 
-def Modes.start: Modes := { guard = False, sectionHead = None, limit = None, allow = None, recover = False }
+def Modes.start: Modes := {
+  guard = False,
+  sectionHead = None,
+  limit = None,
+  allow = None,
+  recover = False,
+  inCalc = False,
+  rewriteRule = None,
+  rewriteAt = False,
+  letValue = None
+}
 
 --| The modes inside a bracket: a `=>` there is no guard's.
 def Modes.inBrackets (modes: Modes): Modes := { modes | guard = False }
@@ -167,7 +192,26 @@ def Modes.endsGuard (modes: Modes) (item: Item): Bool := modes.guard && item.kin
 --| it closes or continues a bracket, starts with an operator that can only
 --| continue the line above, or is the statement's own first token
 --| (`allow`).
-def Modes.stops (modes: Modes) (item: Item): Bool := modes.endsGuard item || modes.stopsByLine item
+def Modes.stops (modes: Modes) (item: Item): Bool := modes.endsConstruct item || modes.stopsByLine item
+
+--| Whether `item` belongs to an enclosing construct, whatever its column
+--| (`ends_construct`): the next `calc` step, the end of a `rewrite` rule,
+--| the guard's `=>`.
+def Modes.endsConstruct (modes: Modes) (item: Item): Bool :=
+  modes.startsCalcStep item || modes.endsRule item || modes.endsGuard item
+
+def Modes.startsCalcStep (modes: Modes) (item: Item): Bool :=
+  modes.inCalc && item.kind == Underscore && item.leaf.token.lineStart
+
+def Modes.endsRule (modes: Modes) (item: Item): Bool := match modes.rewriteRule with
+  | Some (start, depth) =>
+    let word := match item.kind with
+      | KwThen => True
+      | KwIn => True
+      | Lower => item.text == "at" && modes.rewriteAt && item.index > start
+      | _ => False
+    word && !item.afterDot && item.depth <= depth
+  | None => False
 
 def Modes.stopsByLine (modes: Modes) (item: Item): Bool := match modes.limit with
   | Some limit =>
@@ -222,6 +266,8 @@ type Level =
   | LevelArgument
   --| `app`: a row's ability, a data type's index, a constructor's result.
   | LevelApp
+  --| `then_body`: after a `rewrite`'s or `cases`'s `then`.
+  | LevelThenBody
 
 type Goal = { modes: Modes, level: Level }
 
@@ -283,8 +329,9 @@ def Modes.unexpected (modes: Modes) (what: Text): {Parse Item} Text := match lef
   | [] => "expected ${what}, but reached the end of the declaration"
   | [item, .._] =>
     if item.kind == At && !modes.stops item then "attributes can't be written here"
+    else if modes.startsCalcStep item then "expected ${what}, but the next `calc` step starts here"
     else if modes.endsGuard item then "expected ${what}, but the guard's `=>` starts here"
-    else if modes.stopsByLine item then
+    else if modes.stopsByLine item && !modes.endsConstruct item then
       let limit := modes.limit.getOrElse 0
       "expected ${what}, but the line starting with ${item.spelled} (in column ${item.leaf.token.column + 1}) is at or left of the enclosing block's column (${limit + 1}), so it starts a new statement"
     else "expected ${what}, but found ${item.spelled}"
@@ -487,6 +534,7 @@ def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item}
     | LevelUnary => unary self modes
     | LevelArgument => atom self modes False
     | LevelApp => app self modes
+    | LevelThenBody => thenBody self modes
 
 def full (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := self { modes, level = LevelFull }
 
@@ -494,37 +542,76 @@ def full (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
 def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let later: Bool := offset() > 0
   match left() with
-    | [item, .._] if item.leaf.token.lineStart && later && modes.allow != Some item.index && !modes.endsGuard item =>
+    | [item, .._] if item.leaf.token.lineStart
+        && later
+        && modes.allow != Some item.index
+        && !modes.endsConstruct item =>
       let column := item.leaf.token.column
       match modes.limit with
         | None => block self modes column True
         | Some limit =>
           if column > limit then block self modes column True
+          else if column == limit
+            && modes.recover
+            && startsStatement item.kind
+            && !lineHasSemicolon limit True left() then
+            fatal "expected an expression, but the line ends here"
           else if column == limit then block self modes column False
           else exprInline self modes
     | _ => exprInline self modes
 
+--| A line at the block's column that starts with one of these after a
+--| line that ran out is the next statement (R1), not the rest of the line
+--| above.
+def startsStatement: Tok → Bool
+  | KwLet => True
+  | KwDef => True
+  | KwTheorem => True
+  | _ => False
+
+--| Whether the line `items` starts has a `;` before the next line at or
+--| left of `limit` (`line_has_semicolon`).
+def lineHasSemicolon (limit: Nat) (first: Bool): List Item → Bool
+  | [] => False
+  | [item, ..rest] =>
+    if !first && item.leaf.token.lineStart && item.leaf.token.column <= limit then False
+    else item.kind == Semi || lineHasSemicolon limit False rest
+
 --| Lines at `column`, each a statement, the last its value (`block`); with
---| `many` false, one line continuing the line above. Stage 2a reads a block
---| of one line that is an expression.
+--| `many` false, one line continuing the line above. A block of one line
+--| is that line's expression; of more, a `Block`.
 def block (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool): {Parse Item} Expr :=
-  let start := offset()
-  let inner := { modes | limit = Some column, allow = Some start }
-  match inner.peek with
-    | Some KwLet => notYet "a block's `let`"
-    | Some KwDef => notYet "a local definition"
-    | Some KwTheorem => notYet "a local definition"
-    | Some At => notYet "a local definition"
-    | Some KwExport => notYet "a local definition"
-    | Some KwOpaque => notYet "a local definition"
-    | _ =>
-      let value := exprInline self inner
-      match left() with
-        | [next, .._] if many
+  let inner := if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column }
+  match blockLines (Parse.mark().left + 1) self inner column many [] with
+    | [ExprStatement value] => value
+    | [ExprStatement value, last, ..earlier] =>
+      match [last, ..earlier].reverse with
+        | [first, ..rest] => Block first rest value
+        | [] => value
+    | [LetStatement _, .._] => fatal "a block must end with an expression, not `let`"
+    | [LocalDef _ _ _, .._] => fatal "a block must end with an expression, not a local `def` or `theorem`"
+    | [] => fatal "the parser read no line of a block"
+
+--| The lines of a block, newest first. Each reads at least one item, or
+--| the loop stops, so the fuel (the items left and one more) is enough.
+def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat)
+    (many: Bool) (found: List Statement):
+    {Parse Item} List Statement :=
+  match fuel with
+    | Zero => found
+    | Succ more =>
+      let before := offset()
+      let line := statement self { modes | allow = Some before }
+      let done := [line, ..found]
+      let again := match left() with
+        | [next, .._] =>
+          offset() != before
+            && many
             && next.leaf.token.lineStart
             && next.leaf.token.column == column
-            && !endsBlocks next.kind => notYet "a block of several lines"
-        | _ => value
+            && !endsBlocks next.kind
+        | [] => False
+      if again then blockLines more self modes column many done else done
 
 def endsBlocks: Tok → Bool
   | Pipe => True
@@ -538,11 +625,13 @@ def endsBlocks: Tok → Bool
 def headIndent(): {Parse Item} Nat := left().head.map (item => item.lineIndent) |> .getOrElse 0
 
 def exprInline (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match modes.peek with
-  | Some KwHandle => notYet "`handle`"
-  | Some KwLet => notYet "an expression `let`"
-  | Some KwCalc => notYet "`calc`"
-  | Some KwRewrite => notYet "`rewrite`"
-  | Some KwCases => notYet "`cases`"
+  | Some KwHandle => handleExpr self modes
+  | Some KwLet =>
+    let binding := letStatement self modes
+    letBody self modes binding
+  | Some KwCalc => calcExpr self modes
+  | Some KwRewrite => rewriteExpr self modes
+  | Some KwCases => casesExpr self modes
   | Some KwMatch =>
     let indent := headIndent()
     let keyword := bump()
@@ -576,11 +665,12 @@ def operatorExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item}
   let logic := if andOrAhead modes then logicChain self modes compared else compared
   let iffed := if modes.at IffArrow then iff self modes logic else logic
   let sectioned := if section then Section iffed else iffed
+  let sequence := sequenceAhead modes
   match modes.peek with
     | Some Arrow =>
       let arrow := bump()
       Infix InfixArrow sectioned arrow (resultType self modes)
-    | Some Semi =>
+    | Some Semi if sequence =>
       let semicolon := bump()
       match modes.peek with
         | None => fatal semicolonAtEnd
@@ -1276,10 +1366,10 @@ def matchesBarAhead (modes: Modes): {Parse Item} Bool :=
     && isSome Pipe (modes.peekAt 1)
     && !(isSome Lower (modes.peekAt 2) && isSome Equals (modes.peekAt 3))
 
---| `match induct` and `match reify` (stage 2c): the word, then not what
---| a scrutinee named `induct` would have after it.
-def specialMatchAhead (modes: Modes): {Parse Item} Bool :=
-  (wordAhead modes "induct" || wordAhead modes "reify")
+--| `match induct` and `match reify`: the word, then not what a scrutinee
+--| named `induct` would have after it.
+def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool :=
+  wordAhead modes word
     && (match modes.peekAt 1 with
       | Some KwWith => False
       | Some Comma => False
@@ -1288,7 +1378,12 @@ def specialMatchAhead (modes: Modes): {Parse Item} Bool :=
       | _ => True)
 
 def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word): {Parse Item} Expr :=
-  if specialMatchAhead modes then notYet "`match induct` and `match reify`"
+  if specialAhead modes "induct" then
+    let induct := fixedFrom()
+    inductExpr self modes keyword.comments induct
+  else if specialAhead modes "reify" then
+    let reify := fixedFrom()
+    reifyExpr self modes keyword.comments reify
   else if modes.at Pipe then clauseLambda self modes keyword None ClausePlain
   else if wordAhead modes "some" && isSome Pipe (modes.peekAt 1) then
     let some := bump()

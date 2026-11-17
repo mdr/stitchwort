@@ -83,6 +83,8 @@ type Decl =
       (body: DataBody)
   | Ability (keyword: Comments) (name: Word) (params: List Group) (whereKeyword: Comments) (operations: List Operation)
   | Test (keyword: Comments) (name: Word) (colonEq: Comments) (body: Expr)
+  --| `rules name := [r1, <- r2]`
+  | RuleSetDecl (keyword: Comments) (name: Word) (colonEq: Comments) (set: RuleSet)
 
 --| `(..)`, or the names imported.
 type Imported =
@@ -235,8 +237,7 @@ def Decl.lines (decl: Decl): List Text := match decl with
       | ImportAll _ => fixed 1 ".."
       | ImportItems items => importLines 1 items
     node 0 "Import" (fixed 1 "import" ++ path.line 1 ++ fixed 1 "(" ++ items ++ fixed 1 ")")
-  | Definition attributes header body =>
-    node 0 header.kind.name (attributesLines 1 attributes ++ header.lines 1 ++ body.lines 1)
+  | Definition attributes header body => definitionLines 0 attributes header body
   | Data attributes isInterface _ name params indices body =>
     let keyword := if isInterface then "interface" else "type"
     let kind := if isInterface then "Interface" else body.kind
@@ -254,6 +255,13 @@ def Decl.lines (decl: Decl): List Text := match decl with
     node 0 "Ability"
       (fixed 1 "ability" ++ name.line 1 ++ groupsLines 1 params ++ fixed 1 "where" ++ operationLines 1 operations)
   | Test _ name _ body => node 0 "Test" (fixed 1 "test" ++ name.line 1 ++ node 1 "Body" (fixed 2 ":=" ++ body.lines 2))
+  | RuleSetDecl _ name _ set =>
+    node 0 "Rules" (fixed 1 "rules" ++ name.line 1 ++ node 1 "Body" (fixed 2 ":=" ++ set.lines 2))
+
+--| A definition, at the top level or in a block.
+def definitionLines (depth: Nat) (attributes: List Attributes) (header: Header) (body: DefBody): List Text :=
+  let d := depth + 1
+  node depth header.kind.name (attributesLines d attributes ++ header.lines d ++ body.lines d)
 
 def importLines (depth: Nat): List ImportItem → List Text
   | [] => []
@@ -277,23 +285,36 @@ def DefKind.keyword: DefKind → Text
   | DefTheorem => "theorem"
   | DefInstance => "instance"
 
-def Header.lines (header: Header) (depth: Nat): List Text :=
-  let d := depth + 1
-  let decreasingLines := match header.decreasingClause with
-    | Some (_, measure) => node depth "Decreasing" (fixed d "decreasing" ++ measure.lines d)
-    | None => []
-  let unfoldingLines := match header.unfoldingClause with
-    | Some (_, names) => node depth "Unfolding" (fixed d "unfolding" ++ commaWords d names)
-    | None => []
-  fixedIf depth "export" header.exportKeyword
-    ++ fixedIf depth "opaque" header.opaqueKeyword
-    ++ fixed depth header.kind.keyword
-    ++ header.name.line depth
-    ++ wordLines depth header.forallKeyword
-    ++ groupsLines depth header.params
-    ++ node depth "ResultType" (fixed d ":" ++ header.result.lines d)
-    ++ decreasingLines
-    ++ unfoldingLines
+def Header.lines (header: Header) (depth: Nat): List Text := match header with
+  | {
+      exportKeyword,
+      opaqueKeyword,
+      kind,
+      keyword,
+      name,
+      forallKeyword,
+      params,
+      colon,
+      result,
+      decreasingClause,
+      unfoldingClause
+    } =>
+    let d := depth + 1
+    let decreasingLines := match decreasingClause with
+      | Some (_, measure) => node depth "Decreasing" (fixed d "decreasing" ++ measure.lines d)
+      | None => []
+    let unfoldingLines := match unfoldingClause with
+      | Some (_, names) => node depth "Unfolding" (fixed d "unfolding" ++ commaWords d names)
+      | None => []
+    fixedIf depth "export" exportKeyword
+      ++ fixedIf depth "opaque" opaqueKeyword
+      ++ fixed depth kind.keyword
+      ++ name.line depth
+      ++ wordLines depth forallKeyword
+      ++ groupsLines depth params
+      ++ node depth "ResultType" (fixed d ":" ++ result.lines d)
+      ++ decreasingLines
+      ++ unfoldingLines
 
 def commaWords (depth: Nat): List Word → List Text
   | [] => []

@@ -46,10 +46,26 @@ def checkPattern (pattern: Pattern): {Fail} Pattern := match pattern with
   | _ => pattern
 
 def checkExpr (expr: Expr): {Fail} Expr := match expr with
+  | Block first rest _ =>
+    match localDuplicate [first, ..rest] with
+      | Some message => Fail.fail message
+      | None => expr
   | Match _ _ _ arms => if anyGuardWithoutBody arms then Fail.fail guardWithoutBody else expr
   | ClauseLambda keyword _ arms =>
     if keyword.text != "matches" && anyGuardWithoutBody arms then Fail.fail guardWithoutBody else expr
   | _ => expr
+
+--| A local definition's parameter named twice. Checked once the block's
+--| lines are traversed, so an error inside a local definition's body comes
+--| first; the Rust lowering checks the header first (a file with both is
+--| rare).
+def localDuplicate: List Statement → Option Text
+  | [] => None
+  | [LocalDef _ header _, ..rest] =>
+    match duplicateParameter header with
+      | Some message => Some message
+      | None => localDuplicate rest
+  | [_, ..rest] => localDuplicate rest
 
 def anyGuardWithoutBody: List Arm → Bool
   | [] => False

@@ -122,6 +122,93 @@ type Expr =
   | FunctionType (binder: Group) (arrow: Word) (result: Expr)
   --| `{IO, State s} T`: a result type with abilities.
   | Effect (row: Row) (result: Expr)
+  --| A block of more than one line: its statements, then its value, each
+  --| on lines of its own at one column. The column isn't kept: the printer
+  --| puts every line at the block's indent, so a tree is a block exactly
+  --| when it has statements, and reading the printed text back sees each
+  --| statement start a line at that column (SKETCH.md, risk 3).
+  | Block (first: Statement) (rest: List Statement) (result: Expr)
+  --| `let x := e; body`
+  | LetIn (binding: Let) (semicolon: Comments) (body: Expr)
+  --| `handle e with | return x => … | op p, k => …`
+  | Handle (keyword: Comments) (computation: Expr) (withKeyword: Comments) (clauses: List HandlerClause)
+  --| `match reify t with | …`: `reify` is a keyword only here.
+  | Reify
+      (keyword: Comments)
+      (reify: Comments)
+      (computation: Expr)
+      (withKeyword: Comments)
+      (clauses: List HandlerClause)
+  --| `match induct (f args) with | eqK x ih => …`
+  | Induct (keyword: Comments) (induct: Comments) (call: Expr) (withKeyword: Comments) (arms: List InductArm)
+  --| `calc a`, then its steps, one a line.
+  | Calc (keyword: Comments) (first: Expr) (steps: List CalcStep)
+  --| `rewrite p, <- q at h then t`
+  | Rewrite (keyword: Comments) (rules: Rules) (target: Option (Comments, Expr)) (body: Option (Comments, Expr))
+  --| `cases then t` (`cases` alone is an `Atom`).
+  | Cases (keyword: Comments) (thenKeyword: Comments) (body: Expr)
+
+--| A line of a block before its value.
+type Statement =
+  | LetStatement (binding: Let)
+  | LocalDef (attributes: List Attributes) (header: Header) (body: DefBody)
+  | ExprStatement (value: Expr)
+
+--| `let p := e` or `let p: T := e`.
+type Let = {
+  keyword: Comments,
+  pattern: Pattern,
+  annotation: Option (Comments, Expr),
+  colonEq: Comments,
+  value: Expr
+}
+
+type HandlerClause =
+  --| `| return x => e`, the name possibly `_`.
+  | ReturnClause (bar: Comments) (keyword: Comments) (name: Word) (arrow: Comments) (body: Expr)
+  --| `| op p, k => e`
+  | OperationClause
+      (bar: Comments)
+      (operation: Word)
+      (argument: Pattern)
+      (comma: Comments)
+      (continuation: Word)
+      (arrow: Comments)
+      (body: Expr)
+
+--| `| eqK x _ => e`: the case's name, then names or `_`s.
+type InductArm = {
+  bar: Comments,
+  case: Word,
+  names: List Word,
+  arrow: Comments,
+  body: Expr
+}
+
+--| `_ = e := proof`, or `_ <= e` with no proof.
+type CalcStep = {
+  underscore: Comments,
+  relation: Word,
+  operand: Expr,
+  proof: Option (Comments, Expr)
+}
+
+--| A rule, `<-` and the two tokens it is written with when it is reversed.
+type RewriteRule = { reverse: Option (Comments, Comments), rule: Expr }
+
+--| A `rewrite`'s rules: a list with commas between, or `repeatedly`
+--| and a set in brackets.
+type Rules =
+  | RuleList (rules: List RewriteRule)
+  | Repeatedly (word: Comments) (set: RuleSet)
+
+--| `[r1, <- r2]`, as after `repeatedly` and in a `rules` declaration.
+type RuleSet = {
+  open: Comments,
+  rules: List RewriteRule,
+  trailingComma: Bool,
+  close: Comments
+}
 
 --| A piece of an interpolated text: a token of text, or `${e}`.
 type Piece =
@@ -263,6 +350,97 @@ def Expr.lines (expr: Expr) (depth: Nat): List Text :=
       node depth name (keyword.line d ++ facts.lines d)
     | FunctionType binder arrow result => node depth "FunctionType" (binder.lines d ++ arrow.line d ++ result.lines d)
     | Effect row result => node depth "Effect" (row.lines d ++ result.lines d)
+    | Block first rest result => node depth "Block" (statementLine d first ++ statementLines d rest ++ result.lines d)
+    | LetIn binding _ body => node depth "LetExpr" (binding.lines d ++ fixed d ";" ++ body.lines d)
+    | Handle _ computation _ clauses =>
+      node depth "Handle" (fixed d "handle" ++ computation.lines d ++ fixed d "with" ++ clauseLines d clauses)
+    | Reify _ _ computation _ clauses =>
+      node depth "Reify"
+        (fixed d "match" ++ fixed d "reify" ++ computation.lines d ++ fixed d "with" ++ clauseLines d clauses)
+    | Induct _ _ call _ arms =>
+      node depth "Induct"
+        (fixed d "match" ++ fixed d "induct" ++ call.lines d ++ fixed d "with" ++ inductArmLines d arms)
+    | Calc _ first steps => node depth "Calc" (fixed d "calc" ++ first.lines d ++ calcStepLines d steps)
+    | Rewrite _ rules target body =>
+      let ruled := match rules with
+        | RuleList list => ruleLines d list
+        | Repeatedly _ set => fixed d "repeatedly" ++ set.lines d
+      node depth "Rewrite" (fixed d "rewrite" ++ ruled ++ afterLines d "at" target ++ afterLines d "then" body)
+    | Cases _ _ body => node depth "Cases" (fixed d "cases" ++ fixed d "then" ++ body.lines d)
+
+--| A fixed token and the expression after it, if they are there.
+def afterLines (depth: Nat) (text: Text): Option (Comments, Expr) → List Text
+  | Some (_, value) => fixed depth text ++ value.lines depth
+  | None => []
+
+def statementLines (depth: Nat): List Statement → List Text
+  | [] => []
+  | [first, ..rest] => statementLine depth first ++ statementLines depth rest
+
+def statementLine (depth: Nat): Statement → List Text
+  | LetStatement binding => binding.lines depth
+  | LocalDef attributes header body => definitionLines depth attributes header body
+  | ExprStatement value => value.lines depth
+
+def Let.lines (binding: Let) (depth: Nat): List Text := match binding with
+  | { keyword, pattern, annotation, colonEq, value } =>
+    let d := depth + 1
+    let typed := match annotation with
+      | Some (_, written) => fixed d ":" ++ written.lines d
+      | None => []
+    node depth "Let" (fixed d "let" ++ pattern.lines d ++ typed ++ fixed d ":=" ++ value.lines d)
+
+def clauseLines (depth: Nat): List HandlerClause → List Text
+  | [] => []
+  | [ReturnClause _ _ name _ body, ..rest] =>
+    let d := depth + 1
+    node depth "HandlerClause" (fixed d "|" ++ fixed d "return" ++ name.line d ++ fixed d "=>" ++ body.lines d)
+      ++ clauseLines depth rest
+  | [OperationClause _ operation argument _ continuation _ body, ..rest] =>
+    let d := depth + 1
+    node depth "HandlerClause"
+      (fixed d "|"
+        ++ operation.line d
+        ++ argument.lines d
+        ++ commaLine d
+        ++ continuation.line d
+        ++ fixed d "=>"
+        ++ body.lines d)
+      ++ clauseLines depth rest
+
+def inductArmLines (depth: Nat): List InductArm → List Text
+  | [] => []
+  | [{ bar, case, names, arrow, body }, ..rest] =>
+    let d := depth + 1
+    node depth "InductArm" (fixed d "|" ++ case.line d ++ wordsLines d names ++ fixed d "=>" ++ body.lines d)
+      ++ inductArmLines depth rest
+
+def calcStepLines (depth: Nat): List CalcStep → List Text
+  | [] => []
+  | [{ underscore, relation, operand, proof }, ..rest] =>
+    let d := depth + 1
+    node depth "CalcStep" (fixed d "_" ++ relation.line d ++ operand.lines d ++ afterLines d ":=" proof)
+      ++ calcStepLines depth rest
+
+--| Rules with a `,` line between each two.
+def ruleLines (depth: Nat): List RewriteRule → List Text
+  | [] => []
+  | [last] => ruleLine depth last
+  | [first, ..rest] => ruleLine depth first ++ commaLine depth ++ ruleLines depth rest
+
+def ruleLine (depth: Nat): RewriteRule → List Text
+  | { reverse, rule } =>
+    let d := depth + 1
+    let reversed := match reverse with
+      | Some _ => fixed d "<" ++ fixed d "-"
+      | None => []
+    node depth "RewriteRule" (reversed ++ rule.lines d)
+
+def RuleSet.lines (set: RuleSet) (depth: Nat): List Text := match set with
+  | { open, rules, trailingComma, close } =>
+    let d := depth + 1
+    let comma := if trailingComma then commaLine d else []
+    node depth "RewriteRules" (fixed d "[" ++ ruleLines d rules ++ comma ++ fixed d "]")
 
 def wordLines (depth: Nat): Option Word → List Text
   | Some word => word.line depth
