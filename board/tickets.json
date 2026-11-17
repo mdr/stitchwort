@@ -1,5 +1,5 @@
 {
-  "next": 3708,
+  "next": 3709,
   "tickets": [
     {
       "id": 47,
@@ -41819,6 +41819,19 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3708,
+      "title": "[DeepSeek] E5 bug (SW-3551): the 'if this was meant as a lambda ... =>, not ->' note is added to every E-NOT-A-TYPE inside a binder, and once per enclosing binder: reject/not-a-type-not-equal-unicode (a ≠ in a statement) now gets it three times (Notes 2-4). Add it at most once, and only where the codomain is a value written after (x: A) ->, not a proposition/statement mistake; that example's snapshot must stay as it was",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
