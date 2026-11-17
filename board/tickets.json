@@ -1,5 +1,5 @@
 {
-  "next": 3763,
+  "next": 3764,
   "tickets": [
     {
       "id": 47,
@@ -42372,6 +42372,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3763,
+      "title": "[Opus paper] Review SW-3719 (derived ==/< proofs reshaped: %pack/%unpack built as kernel terms, %sameIff, Ordering.thenPairEqual, Ord.instanceFor) before merge (D2364: generates kernel terms): statements unchanged, maintainability of the derivers, the deeper proof nesting (Box 71 -> 855 frames), anything that could break on types the tests don't cover",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
