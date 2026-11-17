@@ -770,8 +770,9 @@ tasks:
     summary: |
       The comparison harness of the self-hosted formatter
       (docs/proposals/self-hosted-fmt.md section 6, tools/fmt/NOTES.md): builds
-      tools/fmt's executable natively (Fmt.Twin.main), runs it over the inputs,
-      and compares each answer with the Rust side's, printing counts and the
+      tools/fmt's executable natively (Fmt.Twin.main), runs it over the inputs
+      in batch mode (`-- --no-batch` for one process a file), and compares each
+      answer with the Rust side's, printing counts and the
       first difference. STAGE is tokens (1), tree (2), refusal, passes (4) or
       text (5, 6); INPUTS is a comma-separated list of goldens, goldens-before,
       goldens-after, repo, old (the repo before the reformat), fuzz,

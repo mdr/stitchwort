@@ -22,6 +22,20 @@ in the Rust side's form, which is the same lines as the dump above. Each
 Rust answer is cached, outside the repository, keyed by the input's hash and
 the hash of crates/syntax and crates/fmt.
 
+By default the harness calls it in batch mode, `EXE --stage NAME --batch LIST`,
+where LIST is a file of paths, one per line. A batch run writes one block per
+file, in order:
+
+    \\x1ePATH\\n
+    \\x1fSTATUS\\x1fLENGTH\\x1fMESSAGE\\n
+    the answer's standard output, exactly LENGTH characters long
+
+`\\x1e` is the ASCII record separator, `\\x1f` the unit separator, and PATH is
+the path as the executable shows it. STATUS and MESSAGE are what single-file
+mode would exit with and write as the first line of standard error: a refusal
+is one block among the others, not the end of the run. `--no-batch` uses one
+process per file, the old path.
+
 Nothing is written into the repository. Everything the harness generates
 (the old layout, the fuzzer's programs, the disturbed files, the answers) is
 under $FMT_TWIN_CACHE, default ~/.cache/stitchwort/fmt-twin.
@@ -36,11 +50,17 @@ import random
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = Path(os.environ.get("FMT_TWIN_CACHE") or Path.home() / ".cache/stitchwort/fmt-twin")
+
+# The batch protocol (see the docstring): a record separator starts a block,
+# a unit separator divides its metadata.
+RECORD = "\x1e"
+UNIT = "\x1f"
 
 STAGES = {
     "1": "tokens", "tokens": "tokens",
@@ -300,6 +320,128 @@ def twin_answer(exe: Path, stage: str, path: Path, timeout: float) -> dict:
             "err": first_line(done.stderr.decode(errors="replace"))}
 
 
+def parse_batch(output: str, paths: list) -> tuple:
+    """The answers by index, how many blocks were complete, and why it stopped.
+
+    A block is `RECORD PATH`, a newline, `UNIT STATUS UNIT LENGTH UNIT MESSAGE`,
+    a newline, then LENGTH characters of standard output. Parsing is positional:
+    `paths` is the list the batch was asked for, in order.
+    """
+    answers = {}
+    pos = 0
+    for index, path in enumerate(paths):
+        header = f"{RECORD}{path}\n"
+        if not output.startswith(header, pos):
+            return answers, index, f"expected the block for {path} at character {pos}"
+        pos += len(header)
+        end = output.find("\n", pos)
+        if end < 0:
+            return answers, index, f"the block for {path} has no metadata line"
+        fields = output[pos:end].split(UNIT)
+        if len(fields) != 4 or fields[0] != "":
+            return answers, index, f"the block for {path} has a malformed metadata line"
+        try:
+            status, length = int(fields[1]), int(fields[2])
+        except ValueError:
+            return answers, index, f"the block for {path} has a malformed metadata line"
+        pos = end + 1
+        body = output[pos:pos + length]
+        if len(body) != length:
+            return answers, index, f"the block for {path} is short: wanted {length} characters, got {len(body)}"
+        answers[index] = {"exit": status, "out": body, "err": fields[3]}
+        pos += length
+    if pos != len(output):
+        return answers, len(paths), f"{len(output) - pos} unexpected characters after the last block"
+    return answers, len(paths), None
+
+
+def self_test() -> int:
+    """Check the block parser on a crafted batch with a refusal in the middle."""
+    paths = ["/tmp/one.sw", "/tmp/refused.sw", "/tmp/three.sw"]
+    first, third = "alpha\nbeta\n", "omega"
+    refused = "/tmp/refused.sw: [E-PARSE] line 1, column 1: expected a declaration"
+    output = (
+        f"{RECORD}{paths[0]}\n{UNIT}0{UNIT}{len(first)}{UNIT}\n{first}"
+        f"{RECORD}{paths[1]}\n{UNIT}2{UNIT}0{UNIT}{refused}\n"
+        f"{RECORD}{paths[2]}\n{UNIT}0{UNIT}{len(third)}{UNIT}\n{third}"
+    )
+    answers, complete, why = parse_batch(output, paths)
+    cut = output.index(f"{RECORD}{paths[1]}\n") + len(f"{RECORD}{paths[1]}\n") + 5
+    _, done, problem = parse_batch(output[:cut], paths)
+    if (complete == len(paths) and why is None
+            and answers[0] == {"exit": 0, "out": first, "err": ""}
+            and answers[1] == {"exit": 2, "out": "", "err": refused}
+            and answers[2] == {"exit": 0, "out": third, "err": ""}
+            and done == 1 and problem is not None):
+        print(f"self-test: the block parser read {complete} blocks, kept the refusal in the middle, "
+              f"and stopped at block {done + 1} when the output was cut short")
+        return 0
+    print("self-test: FAILED", file=sys.stderr)
+    print(f"  complete={complete!r} why={why!r} answers={answers!r} cut=({done!r}, {problem!r})", file=sys.stderr)
+    return 1
+
+
+def batch_run(exe: Path, stage: str, paths: list, timeout: float) -> tuple:
+    """(stdout, exit status, stderr, seconds) for one batch run of `paths`."""
+    folder = CACHE / "lists"
+    folder.mkdir(parents=True, exist_ok=True)
+    handle, name = tempfile.mkstemp(prefix="batch-", suffix=".txt", dir=folder)
+    list_path = Path(name)
+    budget = timeout * max(1, len(paths))
+    try:
+        with os.fdopen(handle, "w") as file:
+            file.write("".join(f"{path}\n" for path in paths))
+        start = time.monotonic()
+        try:
+            done = subprocess.run(
+                ["nice", "-n", "15", str(exe), "--stage", stage, "--batch", str(list_path)],
+                capture_output=True, timeout=budget)
+        except subprocess.TimeoutExpired:
+            return "", None, f"timed out after {budget:.0f} s", time.monotonic() - start
+        return (done.stdout.decode(errors="replace"), done.returncode,
+                done.stderr.decode(errors="replace"), time.monotonic() - start)
+    finally:
+        list_path.unlink(missing_ok=True)
+
+
+def run_batch_chunk(sw, exe, stage, paths, key, timeout) -> tuple:
+    """One chunk's per-file results, the executable's seconds, and crash notes.
+
+    A batch that fails partway is parsed as far as it got; the file it was on
+    and the rest of the chunk are answered one process a file instead.
+    """
+    wants = [cached_rust_answer(sw, stage, path, key) for path in paths]
+    output, status, stderr, took = batch_run(exe, stage, paths, timeout)
+    parsed, complete, why = parse_batch(output, [str(path) for path in paths])
+    notes = []
+    if why is not None or status != 0:
+        if complete < len(paths):
+            notes.append(
+                f"the batch run stopped at {paths[complete]}"
+                + (f" (exit {status}: {first_line(stderr)})" if status else "")
+                + f": {why or 'no block'}; answered it and the rest of the chunk one process a file")
+        else:
+            notes.append(f"the batch run answered all {len(paths)} files but exited {status}: {first_line(stderr)}")
+    results = []
+    for index, path in enumerate(paths):
+        want, cached = wants[index]
+        if index < complete:
+            got = parsed[index]
+        else:
+            start = time.monotonic()
+            got = twin_answer(exe, stage, path, timeout)
+            took += time.monotonic() - start
+        results.append((path, want, got, cached, 0.0))
+    return results, took, notes
+
+
+def chunks(files: list, count: int) -> list:
+    """`files` split into at most `count` contiguous chunks."""
+    count = max(1, count)
+    size = max(1, (len(files) + count - 1) // count)
+    return [files[i:i + size] for i in range(0, len(files), size)]
+
+
 def difference(want: dict, got: dict) -> str:
     """Why the answers differ, or '' if they match: the first line that differs."""
     if want["exit"] != got["exit"]:
@@ -342,7 +484,7 @@ def build_exe(args, sw: Path) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
-    ap.add_argument("stage", help="tokens (1), tree (2), refusal, passes (4) or text (5, 6)")
+    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) or text (5, 6)")
     ap.add_argument("--inputs", default="", help="comma-separated input groups (see below)")
     ap.add_argument("--files", nargs="*", default=[], help="named files or folders")
     ap.add_argument("--exe", help="the executable to compare (default: build --project's --main natively)")
@@ -358,9 +500,15 @@ def main() -> int:
     ap.add_argument("--sample", type=int, default=0, help="a random N files of each group (with --sample-seed)")
     ap.add_argument("--sample-seed", default="1")
     ap.add_argument("--show", type=int, default=1, help="how many differences to print per group")
-    ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--jobs", type=int, default=2, help="chunks (batch mode) or processes (--no-batch) run in parallel")
     ap.add_argument("--timeout", type=float, default=30.0, help="seconds the executable may take on one file")
+    ap.add_argument("--no-batch", action="store_true", help="one process per file (the old path)")
+    ap.add_argument("--self-test", action="store_true", help="run the batch block parser's test and exit")
     args = ap.parse_args()
+    if args.self_test:
+        return self_test()
+    if args.stage is None:
+        ap.error("the following arguments are required: stage")
     try:
         stage = STAGES.get(args.stage)
         if stage is None:
@@ -379,10 +527,12 @@ def main() -> int:
         for name, files in groups:
             start = time.monotonic()
             identical, cached_hits, twin_time = 0, 0, 0.0
-            shown = []
-            with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
-                for path, want, got, cached, took in pool.map(
-                        lambda f: run_one(sw, exe, stage, f, key, args.timeout), files):
+            shown, notes = [], []
+            if args.no_batch:
+                with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+                    results = list(pool.map(
+                        lambda f: run_one(sw, exe, stage, f, key, args.timeout), files))
+                for path, want, got, cached, took in results:
                     cached_hits += cached
                     twin_time += took
                     why = difference(want, got)
@@ -390,8 +540,24 @@ def main() -> int:
                         identical += 1
                     elif len(shown) < args.show:
                         shown.append((path, why))
+            else:
+                parts = chunks(files, args.jobs)
+                with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+                    for results, took, chunk_notes in pool.map(
+                            lambda part: run_batch_chunk(sw, exe, stage, part, key, args.timeout), parts):
+                        twin_time += took
+                        notes += chunk_notes
+                        for path, want, got, cached, _ in results:
+                            cached_hits += cached
+                            why = difference(want, got)
+                            if not why:
+                                identical += 1
+                            elif len(shown) < args.show:
+                                shown.append((path, why))
             total_identical += identical
             total += len(files)
+            for note in notes:
+                print(f"fmt-twin: {note}", file=sys.stderr)
             print(f"{name}: {identical} of {len(files)} identical  "
                   f"(Rust answers cached {cached_hits}/{len(files)}; the executable took {twin_time:.1f} s; "
                   f"whole group {time.monotonic() - start:.1f} s)")
