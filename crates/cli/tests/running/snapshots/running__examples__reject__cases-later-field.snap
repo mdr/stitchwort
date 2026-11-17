@@ -1,9 +1,8 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 700
 expression: output
 ---
-[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits xs = []
    ╭─[ reject/cases-later-field.sw:9:3 ]
    │
  9 │   cases
@@ -14,11 +13,13 @@ expression: output
    │ 
    │ Note 2: `y` is replaced by `x`: an equation `cases` took apart says they are equal
    │ 
-   │ Note 3: goal: xs.length = 5
+   │ Note 3: goal: 0 = 5
    │ 
-   │ Note 4: it stopped here because the goal is stuck on `xs`, a `List`, which `cases` doesn't take apart; give this case's proof as `cases then t`
+   │ Note 4: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
    │ 
-   │ Note 5: this statement is false; a counterexample:
+   │ Note 5: 1 other case couldn't be closed either
+   │ 
+   │ Note 6: this statement is false; a counterexample:
    │           x = 0
    │           xs = []
    │           y = 0

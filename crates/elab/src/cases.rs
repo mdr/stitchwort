@@ -85,12 +85,28 @@
 //! This comes after the closers, so a `Π` goal they prove whole (a
 //! hypothesis of that type, `arithmetic` on `P → Void`, `t`) keeps that proof.
 //!
+//! A case still open then, not a `Π`, has the *last resort* split, if any
+//! ([`Finder::last_resort_atom`], SW-3752): on the first chain that has one,
+//! the goal's before the hypotheses', the innermost value that `cases`
+//! doesn't otherwise split: a number a `NumCase` compares with numbers,
+//! split into those numbers and the rest (where the number is apart from
+//! them, docs/core.md, so the `NumCase` takes its default); or a value of a
+//! recursive type other than `Nat`, split into its constructors, unless it
+//! is a field of an earlier split of its type. Or an atom split already
+//! that a later split exposed again, split once more.
+//!
 //! A case still open then, not a `Π`, is split anyway, as a *fallback*
 //! (§6.1.3): of the variables the goal mentions, as computed, that are
 //! splittable and not known in this case, the one with the fewest
 //! constructors (a record's 1, `Bool`'s 2), ties to the latest bound. That
 //! is what proves `key ∈ keys`, a disjunction of equations not stuck on
 //! `key`. Its splits are marked "(fallback)" in the diagnostics.
+//!
+//! A `cases` that fails tries once more ([`Run::thrifty`]): the
+//! hypotheses and their parts first (records and the last resort's splits
+//! too), then the last resort's splits of the goal, then its atoms; with
+//! `arithmetic` tried before every split, and [`THRIFTY_CASES`] cases. The
+//! first try's proofs are unchanged.
 //!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
@@ -1923,7 +1939,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             }
             let (raw, d, is_first) = match first.take() {
                 Some((raw, d)) => (raw, d, true),
-                None => match blocker(cx, &current)? {
+                None => match blocker(cx, &current, self.run.thrifty)? {
                     Some((raw, d, _)) => (raw, d, false),
                     None => break,
                 },
@@ -2136,7 +2152,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             // for, and so on inwards.
             let (raw, d, numbers, is_first) = match first.take() {
                 Some((raw, d)) => (raw, d, None, true),
-                None => match blocker(self.cx, &current)? {
+                None => match blocker(self.cx, &current, self.run.thrifty)? {
                     Some((raw, d, numbers)) => (raw, d, numbers, false),
                     None => break,
                 },
@@ -2534,8 +2550,11 @@ fn is_recursive(data: &stitchwort_core::globals::Data) -> bool {
 /// What the stuck call `value` (forced) waits for: the value its case tree
 /// tests where it can't take a step, as the call's arguments hold it (a
 /// folded call is kept as the call, for display), with its type, and for a
-/// number compared with numbers (a `NumCase`), those numbers.
-fn blocker(cx: &Ctx, value: &Value) -> Result<Option<Blocker>> {
+/// number compared with numbers (a `NumCase`), those numbers. With
+/// `numbers_known`, for the second try, a `NumCase` on a known number goes
+/// on into its arm; the first try stops there, as it always has, so its
+/// proofs keep their terms.
+fn blocker(cx: &Ctx, value: &Value, numbers_known: bool) -> Result<Option<Blocker>> {
     let g = cx.g();
     let Value::Neutral(Head::Def(id), spine) = value else {
         return Ok(None);
@@ -2585,7 +2604,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<Blocker>> {
                 match (force(&g, raw.clone())?, nat) {
                     // A known number takes its arm, or the default, as
                     // running would (`['-', ..tail]` goes on to `tail`).
-                    (Value::Nat(k), _) => {
+                    (Value::Nat(k), _) if numbers_known => {
                         tree = match arms.iter().find(|arm| *arm.value == *k) {
                             Some(arm) => arm.body.clone(),
                             None => default.clone(),

@@ -1,20 +1,21 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 700
 expression: output
 ---
 [E-CASES-BUDGET] Error: `cases` made more than 64 cases without closing them all
-   ╭─[ reject/cases-budget-int.sw:8:115 ]
-   │
- 8 │       = Int.natAbs g + Int.natAbs f + Int.natAbs e + Int.natAbs d + Int.natAbs c + Int.natAbs b + Int.natAbs a := cases
-   │                                                                                                                   ──┬──  
-   │                                                                                                                     ╰──── this `cases`
-   │ 
-   │ Note 1: it split on 7: `a`, `b`, `c`, `d`, `e`, `f`, `g`
-   │ 
-   │ Note 2: `cases` is taking an `Int` apart into `OfNat` and `NegSucc` (`Int.natAbs`, `max`, `Int.subNatNat` … test them); split on a comparison of the `Int`s instead, as `match a <= b with` or an `if` the goal depends on, and let `arithmetic` read each side
-   │ 
-   │ Note 3: the first case still open: a = n✝⁵.toInt, b = -(n✝⁴ + 1).toInt, c = -(n✝³ + 1).toInt, d = -(n✝² + 1).toInt, e = -(n✝¹ + 1).toInt, f = -(n✝ + 1).toInt
-   │ 
-   │ Note 4: prove a fact that decides some of the cases at once and give it as `cases then t`, or split by hand with `match`
-───╯
+    ╭─[ reject/cases-budget-int.sw:26:3 ]
+    │
+ 26 │   cases
+    │   ──┬──  
+    │     ╰──── this `cases`
+    │ 
+    │ Note 1: it split on 9: `a`, `b`, `c`, `d`, `e`, `f`, `g`, `h`, `i`
+    │ 
+    │ Note 2: `cases` is taking an `Int` apart into `OfNat` and `NegSucc` (`Int.natAbs`, `max`, `Int.subNatNat` … test them); split on a comparison of the `Int`s instead, as `match a <= b with` or an `if` the goal depends on, and let `arithmetic` read each side
+    │ 
+    │ Note 3: the first case still open: a = n✝⁶.toInt, b = n✝⁵.toInt, c = n✝⁴.toInt, d = -(n✝³ + 1).toInt, e = -(n✝² + 1).toInt, f = -(n✝¹ + 1).toInt, g = -(n✝ + 1).toInt
+    │ 
+    │ Note 4: prove a fact that decides some of the cases at once and give it as `cases then t`, or split by hand with `match`
+    │ 
+    │ Note 5: a second try, splitting the hypotheses before the goal and trying `arithmetic` before each split, didn't close them all either, in 256 cases
+────╯

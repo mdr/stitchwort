@@ -46,6 +46,19 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 17 Nov 2026
 
+### SW-3752: `cases` tries a failing proof a second way (accepted cost)
+
+Not an optimisation: a cost accepted with a feature. A `cases` that fails
+now runs a second try (hypotheses first, `arithmetic` before each split,
+up to 256 cases) before reporting, so a failing `cases` costs up to that
+much more; a proof the first try closes runs exactly as before, keeping
+its terms (`hash_stability::prelude` and the `cases` examples' hashes
+unchanged). Measured on the rejects: `cases-budget` (512 `Bool` cases)
+0.31 s before, 0.36 s with the second try; the second try's new accepts
+(`cases-hypotheses-first`, ten character comparisons against a
+hypothesis of four) take about 1.2 s. Not measured: instructions, or the
+whole of `aoc/` (left to the rolling check).
+
 ### SW-3719: derived `==` and `<` laws decide a constructor's fields as nested pairs, once; cubic in fields to about quadratic
 
 - **Status:** kept (Opus), the derivers (`derive.rs`, `derive_ord.rs`) and
