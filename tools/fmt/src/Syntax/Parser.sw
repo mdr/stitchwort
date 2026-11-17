@@ -165,8 +165,18 @@ type Modes = {
   inCalc: Bool,
   rewriteRule: Option (Nat, Nat),
   rewriteAt: Bool,
-  letValue: Option Nat
+  letValue: Option Nat,
+  lines: List BlockLine
 }
+
+--| A block being read, innermost first in `Modes.lines`: its column,
+--| whether it may have more lines, and what its current line is. When a
+--| recovering body runs out (R1), the Rust parser carries on, and a block
+--| that then ends on a `let` or a local definition reports that, at the
+--| line's first token, which is before the gap and so the first error.
+type BlockLine = { column: Nat, many: Bool, kind: LineKind }
+
+type LineKind = | ExprLine | LetLine | DefLine
 
 def Modes.start: Modes := {
   guard = False,
@@ -177,7 +187,8 @@ def Modes.start: Modes := {
   inCalc = False,
   rewriteRule = None,
   rewriteAt = False,
-  letValue = None
+  letValue = None,
+  lines = []
 }
 
 --| The modes inside a bracket: a `=>` there is no guard's.
@@ -352,23 +363,44 @@ def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := match left() w
 
 -- Looking ahead, as the Rust parser does by index.
 
---| The items after the bracket group `items` starts with, if it closes.
-def skipGroup (depth: Nat): List Item → Option (List Item)
+--| The items after the bracket group `items` starts with, if its opener
+--| has a partner. Brackets pair by kind, and a closer that doesn't match
+--| the innermost open bracket is passed over, as the Rust parser's
+--| `match_brackets` pairs them: `open` is the brackets open, innermost
+--| first.
+def skipGroup (open: List Tok): List Item → Option (List Item)
   | [] => None
   | [item, ..rest] =>
-    if item.kind.isOpener then skipGroup (depth + 1) rest
-    else if item.kind.isCloser then (if depth <= 1 then Some rest else skipGroup (depth - 1) rest)
-    else skipGroup depth rest
-
---| The items inside the bracket group `items` starts with (after its
---| opener), if it closes.
-def groupInside (depth: Nat) (found: List Item): List Item → Option (List Item)
-  | [] => None
-  | [item, ..rest] =>
-    if item.kind.isOpener then groupInside (depth + 1) [item, ..found] rest
+    if item.kind.isOpener then skipGroup [item.kind, ..open] rest
     else if item.kind.isCloser then
-      (if depth <= 1 then Some found.reverse else groupInside (depth - 1) [item, ..found] rest)
-    else groupInside depth [item, ..found] rest
+      match open with
+        | [innermost, ..outer] if pairs innermost item.kind =>
+          match outer with
+            | [] => Some rest
+            | _ => skipGroup outer rest
+        | _ => skipGroup open rest
+    else skipGroup open rest
+
+def pairs (opener closer: Tok): Bool := match opener, closer with
+  | LParen, RParen => True
+  | LBracket, RBracket => True
+  | LBrace, RBrace => True
+  | _, _ => False
+
+--| The items inside a bracket group, from after its opener, if it closes
+--| (paired as `skipGroup` pairs them).
+def groupInside (open: List Tok) (found: List Item): List Item → Option (List Item)
+  | [] => None
+  | [item, ..rest] =>
+    if item.kind.isOpener then groupInside [item.kind, ..open] [item, ..found] rest
+    else if item.kind.isCloser then
+      match open with
+        | [innermost, ..outer] if pairs innermost item.kind =>
+          match outer with
+            | [] => Some found.reverse
+            | _ => groupInside outer [item, ..found] rest
+        | _ => groupInside open [item, ..found] rest
+    else groupInside open [item, ..found] rest
 
 def isQualified (item: Item): Bool := item.text.contains "."
 
@@ -391,9 +423,49 @@ def lambdaAheadFrom (fuel: Nat) (modes: Modes) (count: Nat) (items: List Item): 
         | FatArrow => count > 0
         | _ => False
 
-def afterGroup (more: Nat) (modes: Modes) (count: Nat) (items: List Item): Bool := match skipGroup 0 items with
+def afterGroup (more: Nat) (modes: Modes) (count: Nat) (items: List Item): Bool := match skipGroup [] items with
   | Some after => lambdaAheadFrom more modes (count + 1) after
   | None => False
+
+--| A lambda written with a result type, `(x: A): B => body`
+--| (`lambda_result_type_ahead`): parameters ending in a bracketed one,
+--| then `:`, then a `=>` before the bracket around it closes.
+def lambdaResultType (modes: Modes) (fuel: Nat) (bracketedLast: Bool) (items: List Item): Bool := match fuel, items with
+  | Zero, _ => False
+  | _, [] => False
+  | Succ more, [item, ..rest] =>
+    let colon := bracketedLast && item.kind == Colon && resultArrowAhead modes more rest
+    if modes.stops item then colon
+    else
+      match item.kind with
+        | Lower => if isQualified item then colon else lambdaResultType modes more False rest
+        | Underscore => lambdaResultType modes more False rest
+        | LParen => afterBracket modes more items
+        | LBracket => afterBracket modes more items
+        | _ => colon
+
+def afterBracket (modes: Modes) (more: Nat) (items: List Item): Bool := match skipGroup [] items with
+  | Some after => lambdaResultType modes more True after
+  | None => False
+
+def resultArrowAhead (modes: Modes) (fuel: Nat) (items: List Item): Bool := match fuel, items with
+  | Zero, _ => False
+  | _, [] => False
+  | Succ more, [item, ..rest] =>
+    if modes.stops item then False
+    else
+      match item.kind with
+        | FatArrow => True
+        | ColonEq => False
+        | RParen => False
+        | RBracket => False
+        | RBrace => False
+        | kind =>
+          if kind.isOpener then
+            match skipGroup [] items with
+              | Some after => resultArrowAhead modes more after
+              | None => False
+          else resultArrowAhead modes more rest
 
 --| `[a b: …]` or `[a]`: names after the `[`, then `:` or `]`.
 def implicitGroupAt: List Item → Bool
@@ -432,7 +504,7 @@ def annotatedFrom (fuel: Nat) (first: Bool) (items: List Item): Bool := match fu
       | Comma => False
       | kind =>
         if kind.isOpener then
-          match skipGroup 0 [item, ..rest] with
+          match skipGroup [] [item, ..rest] with
             | Some after => annotatedFrom more False after
             | None => False
         else if kind.isCloser then False
@@ -446,7 +518,7 @@ def implicitBinderAhead (fuel: Nat) (items: List Item): Bool := match items with
 
 def pastAttributes (fuel: Nat) (items: List Item): List Item := match fuel, items with
   | Succ more, [at, ..rest] if at.kind == At =>
-    match skipGroup 0 rest with
+    match skipGroup [] rest with
       | Some after => pastAttributes more after
       | None => items
   | _, _ => items
@@ -454,7 +526,7 @@ def pastAttributes (fuel: Nat) (items: List Item): List Item := match fuel, item
 --| `(x: A) -> B`: names and `:` in brackets, an arrow after them.
 def piBinderAhead (items: List Item): Bool := match items with
   | [open, ..rest] if open.kind == LParen && namesThen rest 0 (kind => kind == Colon) =>
-    match skipGroup 0 items with
+    match skipGroup [] items with
       | Some [arrow, .._] => arrow.kind == Arrow
       | _ => False
   | _ => False
@@ -500,7 +572,7 @@ def unitCall: List Item → Bool
 --| a section's operator.
 def rightOperator (items: List Item): Option Nat := match items with
   | [_, ..rest] =>
-    match groupInside 1 [] rest with
+    match groupInside [LParen] [] rest with
       | Some inside =>
         match inside.reverse with
           | [last, .._] => if last.kind.isSectionOperator then Some inside.length else None
@@ -555,10 +627,35 @@ def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
             && modes.recover
             && startsStatement item.kind
             && !lineHasSemicolon limit True left() then
-            fatal "expected an expression, but the line ends here"
+            modes.gap ranOutLine
           else if column == limit then block self modes column False
           else exprInline self modes
     | _ => exprInline self modes
+
+def ranOutLine: Text := "expected an expression, but the line ends here"
+
+--| R1: what was wanted ran out where a line or the declaration ends. The
+--| Rust parser reports `message` there and reads on; the first error is
+--| still this one, unless the blocks around end on a `let` or a local
+--| definition (`blockEnd`).
+def Modes.gap (modes: Modes) (message: Text): {Parse Item} a := match blockEnd modes.lines left().head with
+  | Some ending => fatal ending
+  | None => fatal message
+
+--| The error of the innermost block that ends at `next` on a `let` or a
+--| local definition, once the blocks that end on an expression are left.
+def blockEnd (lines: List BlockLine) (next: Option Item): Option Text := match lines with
+  | [] => None
+  | [{ column, many, kind }, ..outer] =>
+    let continues := match next with
+      | Some item => item.leaf.token.lineStart && item.leaf.token.column == column && !endsBlocks item.kind
+      | None => False
+    if many && continues then None
+    else
+      match kind with
+        | LetLine => Some "a block must end with an expression, not `let`"
+        | DefLine => Some "a block must end with an expression, not a local `def` or `theorem`"
+        | ExprLine => blockEnd outer next
 
 --| A line at the block's column that starts with one of these after a
 --| line that ran out is the next statement (R1), not the rest of the line
@@ -601,7 +698,14 @@ def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (co
     | Zero => found
     | Succ more =>
       let before := offset()
-      let line := statement self { modes | allow = Some before }
+      let statementModes := { modes | allow = Some before }
+      let kind := match statementModes.peek with
+        | Some KwLet => LetLine
+        | Some KwDef => DefLine
+        | Some KwTheorem => DefLine
+        | Some At => DefLine
+        | _ => ExprLine
+      let line := statement self { statementModes | lines = [{ column, many, kind }, ..modes.lines] }
       let done := [line, ..found]
       let again := match left() with
         | [next, .._] =>
@@ -639,6 +743,7 @@ def exprInline (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
     if atPipe modes then pipeChain self modes indent matched else matched
   | _ =>
     if lambdaAhead modes (Parse.mark().left + 1) left() then lambda self modes None
+    else if lambdaResultType modes (Parse.mark().left + 1) False left() then fatal "a lambda doesn't take a result type"
     else
       match modes.peek with
         | Some KwExists => quantifier self modes
@@ -1104,7 +1209,8 @@ def atomBase (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Exp
   | Some Dot => sectionStart modes
   | Some kind if isWord kind => Atom kind bump()
   | _ =>
-    if modes.recover && ranOutAtLine modes then fatal "expected an expression, but the line ends here"
+    if modes.recover && modes.peek.isNone then
+      modes.gap (if ranOutAtLine modes then ranOutLine else modes.unexpected "an expression")
     else if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression"
     else modes.fail "an expression"
 

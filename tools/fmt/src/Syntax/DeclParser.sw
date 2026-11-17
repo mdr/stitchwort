@@ -293,7 +293,7 @@ def binderType (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
   let allowed := allowBrace modes
   match allowed.peek, left() with
     | Some LBrace, [open, ..rest] =>
-      match skipGroup 0 [open, ..rest] with
+      match skipGroup [] [open, ..rest] with
         | Some [next, .._] if typeStarts next.kind => fatal "an ability row can't be written in a parameter's type"
         | _ => full self allowed
     | _, _ => full self allowed
