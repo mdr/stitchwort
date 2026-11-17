@@ -325,6 +325,14 @@ stages 1 and 2, and the open-goal listing in `axioms`.
 
 ## 5. Style changes and the Rust formatter
 
+**Decided (D3677, Matt, 17 Nov 2026):** while the two formatters are built
+and proved, keep changes to the Rust formatter to a minimum, except for
+bugs. A bug the proofs uncover in the Stitchwort formatter is fixed there,
+and in the Rust formatter too when it has the same bug, so the two stay in
+step: "we should also correct the Rust formatter as well if it has the
+same bug ... we should minimize changes to the Rust formatter during this
+process unless we find bugs." Every such fix carries a test on both sides.
+
 **When the rules are proved.** Per slice, with everything else:
 self-hosted-fmt.md §7.4 put the rules layer last because the style moves;
 Matt's "cost of doing business" lifts that, and proving S1's eight rules
@@ -426,7 +434,8 @@ S1 calls for it (Opus, 90).
 Two. The orchestrator numbers them.
 
 **Q1. Build and prove in slices, so the rules for each slice are proved
-with it, not last?** [rec: yes]
+with it, not last?** [rec: yes] **Decided: yes (D3676, Matt, 17 Nov
+2026: "Yes, I think so. Agree with that.")**
 *The problem:* §8 proves the rules last because the style moves; that
 also leaves the least certain layer unmeasured until the end.
 *The change:* §1.3: each slice is built, sketched and proved end to end;
