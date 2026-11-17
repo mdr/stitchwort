@@ -357,3 +357,18 @@ theorem marginRow ∀ (lat width unit: Float)
       s15.left
       sAt.left
       (Float.mulMonotoneLeft 0.15 at width byComputing fat fw w0 r.left))
+
+-- Outward rounding to tenths
+
+--| `floorTo x 0.1` can be a whole ulp of `x` above `x`: from 256° on an ulp
+--| is 2^-44, so NOTES.md's earlier bound, `floorTo x 0.1 <= x + 2^-45` for
+--| `|x| ≤ 360`, is false. The double one ulp below -359.9 floors to -359.9,
+--| 2^-44 above it.
+theorem floorToTenthOneUlpAbove: floorTo (-359.90000000000003) 0.1 = -359.9
+      ∧ -359.9 - (-359.90000000000003) = 5.684341886080802e-14 :=
+  (byComputing, byComputing)
+
+--| The same for `ceilTo`, an ulp below the double one ulp above 256.4.
+theorem ceilToTenthOneUlpBelow: ceilTo 256.40000000000003 0.1 = 256.4
+      ∧ 256.40000000000003 - 256.4 = 5.684341886080802e-14 :=
+  (byComputing, byComputing)
