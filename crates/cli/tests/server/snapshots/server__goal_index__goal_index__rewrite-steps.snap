@@ -1,0 +1,50 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Nat"
+        },
+        {
+          "name": "same",
+          "type": "a = b"
+        }
+      ],
+      "lemma": "theorem rewriteStepsGoal1 (a: Nat) (b: Nat) (same: a = b): f (Succ b) = f (Succ b) := ?",
+      "target": "f (Succ b) = f (Succ b)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Nat\nb: Nat\nsame: a = b\n⊢ f (Succ b) = f (Succ b)",
+        "range": [
+          4,
+          92,
+          4,
+          93
+        ]
+      }
+    ],
+    "message": "in `rewriteSteps`",
+    "notes": [],
+    "range": [
+      4,
+      92,
+      4,
+      93
+    ],
+    "severity": "goal"
+  }
+]

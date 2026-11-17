@@ -163,8 +163,9 @@ in `rwCost`, rule 1 of 1 of `rewrite`
 ```
 
 Even the "before" isn't what was written: `cost Red a = cost Red b`. The rewrite itself is
-right; only the printing computes. (`(a + 1)` before and `Succ b` after is a separate small
-inconsistency of `Shown`.)
+right; only the printing computes. (`(a + 1)` before and `Succ b` after was a separate small
+inconsistency of `Shown`, fixed in SW-2924: the goal the step leaves is read back as it
+prints, so both sides show `+ 1`.)
 
 **A large definition next to a folded one.** `theorem totalCons (n: Nat) (ns: List Nat):
 total Red [n, ..ns] = cost Red n + total Red ns` prints
@@ -553,7 +554,8 @@ didn't open the playground; didn't check Isabelle's or Rocq's display in a runni
 2. `docs/syntax.md:1659` says goals are shown computed "as `rfl`'s messages are"; `rfl`'s
    messages show the side as written and a "computing gives" note. Fix with stage 2, or now
    if D-a is no.
-3. `Shown` prints the same sum as `(a + 1)` before a `rewrite` and `Succ b` after it
-   (`rwCost`, §1.2).
+3. ~~`Shown` prints the same sum as `(a + 1)` before a `rewrite` and `Succ b` after it
+   (`rwCost`, §1.2).~~ **Fixed (SW-2924):** the goal after a rule is also read back as it
+   prints, so `a + 1` before and `b + 1` after; a `Succ` written as one stays `Succ`.
 4. A `let`'s name is inlined into later hypotheses' types (`fact: n + n = n + n` for
    `twice = n + n`, §4 G).
