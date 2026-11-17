@@ -23027,12 +23027,12 @@
     {
       "id": 3911,
       "title": "[Fable paper] Review docs/proposals/glued-kept-types.md (SW-3888): evaluating a definition's kept type glued in push_def/retype_def; soundness, opacity, readers of Def::ty_value, messages, byComputing cost",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 30 min (Fable, paper). Started 21:15, done 21:25.\n\nReview: docs/reviews/SW-3911-glued-kept-types.md\n\nVerdict (Fable, lane/SW-3911): sound as proposed for what the kernel accepts; land with changes. Required: R1 record the kernel flag in value.rs Modes (else a kernel-made unfolding kept in a type reaches the elaborator, and goals differ between a checked and a cached body); R2 force in five readers that match the kept type's top without forcing (auto.rs result_head, dot.rs:2013 and :2042, interfaces.rs:1293, library.rs:964); R3 a step-budget kernel test; R4 comments, folded-calls.md, core.md; R5 measure by-computing closed statements and peak memory before landing. Recommended: R6 glue on before def_type in admit_group. Nothing was built or run (paper lane, no patched binary): claims about behaviour with the change are from reading.\n\nFindings: F1 determined.rs and erase.rs read ty_value where def_type is meant (exists today); F2 set_run_body checks with gluing off.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
