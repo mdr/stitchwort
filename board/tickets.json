@@ -1,5 +1,5 @@
 {
-  "next": 3895,
+  "next": 3897,
   "tickets": [
     {
       "id": 47,
@@ -22505,12 +22505,12 @@
     {
       "id": 3871,
       "title": "[Opus] Whereabouts answer in band, part 3: the wrapped-interval reading of inHintBand (bands crossing ±180), latitude's clamped edges into the unit bounds and then ieeeLe, the width's lower bound from the tolerance via kmToDegrees, longitude's narrow bands (wrap's error on tenths, finding 2) and the cosine bound; then the full theorem (SW-3858 report)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "Expected: 60 min (brief). Started 19:02, done about 19:40.\n\nProgress (lane, Opus):\n- Margins made strict and widened to 10 · 2^-44 (marginBelowExact, marginAboveExact; shareAbove 16 · 2^-44).\n- Latitude in full: answerInLatitudeBand (latitude in [-90, 90], tolerance 1.2e-10..20000 km, 0 ≤ unit ≤ 1), via latitudeBandContains, latitudeFromBelow, latitudeToAbove (clamped at 90° through nearNinety + ceilAtLeast), latitudeWidthRange.\n- Longitude: wrapNear (wrap x is x less whole turns to within 6 · 2^-44, any |x| ≤ 361), so finding 2 needs no hints.ts change. longitudeBandContains (lon in [-180, 180), width 1e-11..120°) with the wrapped reading (longitudeCases, inLongitudeOfCases).\n- answerInBand, both axes. Stated, not proved: lonWidth (needs std: division antitone in the divisor, finite/positive not NaN) and floorCoarse/ceilCoarse (rounding moves an edge ≤ 2°; step 0.1 needs signed quotientCoarse/tenthCoarse).\n- Check 16.7 s uncached (was ~11 s); audit 204 theorems, 0 failed, 24 vacuity warnings (arithmetic helpers).\n",
+      "body": "Expected: 60 min (brief). Started 19:02, done about 19:40.\n\nProgress (lane, Opus):\n- Margins made strict and widened to 10 · 2^-44 (marginBelowExact, marginAboveExact; shareAbove 16 · 2^-44).\n- Latitude in full: answerInLatitudeBand (latitude in [-90, 90], tolerance 1.2e-10..20000 km, 0 ≤ unit ≤ 1), via latitudeBandContains, latitudeFromBelow, latitudeToAbove (clamped at 90° through nearNinety + ceilAtLeast), latitudeWidthRange.\n- Longitude: wrapNear (wrap x is x less whole turns to within 6 · 2^-44, any |x| ≤ 361), so finding 2 needs no hints.ts change. longitudeBandContains (lon in [-180, 180), width 1e-11..120°) with the wrapped reading (longitudeCases, inLongitudeOfCases).\n- answerInBand, both axes. Stated, not proved: lonWidth (needs std: division antitone in the divisor, finite/positive not NaN) and floorCoarse/ceilCoarse (rounding moves an edge ≤ 2°; step 0.1 needs signed quotientCoarse/tenthCoarse).\n- Check 16.7 s uncached (was ~11 s); audit 204 theorems, 0 failed, 24 vacuity warnings (arithmetic helpers).\n\nModel result: opus, worked, 36 min (est. 60) plus a 1-min merge of main. answerInBand stated with lonWidth and floorCoarse/ceilCoarse as hypotheses (orchestrator checked: the only unproved parts; universally quantified Float facts, so must be discharged: SW-3895). Check 11.3 s; audit 188, 0 failed. Finding 2 needs no hints.ts change.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22806,6 +22806,32 @@
     {
       "id": 3894,
       "title": "[DeepSeek] Whereabouts: use std Float.Theory.leTrans, intLessZeroOfNotNonneg and intLeOfLess instead of the app's duplicates floatLeTrans, intNegOfNotNonneg, intLeOfLess; derive std signedNot from signedFlip (SW-3873 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3895,
+      "title": "[Opus] Whereabouts answerInBand: discharge its two remaining hypotheses. floorCoarse/ceilCoarse (rounding at a band's step moves an edge within 360° outwards by at most 2°: signed quotientCoarse/tenthCoarse at step 0.1, short at step 1) and lonWidth (from a cosLatitude in [1e-17, 1], needing std laws: division antitone in the divisor, finite / positive isn't NaN). Until then the theorem is conditional on them; believed true, but a false one would make it vacuous (SW-3871 left)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3896,
+      "title": "[Sonnet] std Float candidates from SW-3871: leOfUnitsPos/leOfUnitsNeg, ceilAtLeast, remStep, floorFinite360/ceilFinite360 (generalised bound), plus division antitone in the divisor and finite / positive not NaN; add to Float.Theory with docs; use from Whereabouts",
       "status": "backlog",
       "agent": "",
       "where": "",
