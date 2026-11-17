@@ -4947,6 +4947,16 @@ fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
         return load(session, path);
     };
     let namespace = line.path.text;
+    // The file's own `import`s, which `check` gives its namespace: an
+    // expression sees what the file sees, not only the namespace's own names
+    // (SW-3735).
+    let (module, _) =
+        stitchwort_syntax::parse_module_recovering(id, &text, session.elab.options.limits.stack);
+    let imports: String = (module.imports.iter())
+        .filter_map(|import| text.get(import.span.range()))
+        .map(str::trim)
+        .collect::<Vec<_>>()
+        .join("\n");
     let project = Project {
         name: project_name(&dir),
         files: DiskFiles { root: dir.clone() },
@@ -4981,6 +4991,15 @@ fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
     let diagnostics = session.add_imports("<input>", &format!("import {namespace} (..)"));
     if !diagnostics.is_empty() {
         report(&session.sources, &diagnostics);
+    }
+    // The file's imports, as `check` reads them: an expression may name what
+    // the file imports, which `import {namespace} (..)` alone doesn't bring.
+    if !imports.is_empty() {
+        let diagnostics = session.add_imports("<input>", &imports);
+        if !diagnostics.is_empty() {
+            report(&session.sources, &diagnostics);
+            return false;
+        }
     }
     true
 }
