@@ -1,5 +1,5 @@
 {
-  "next": 3814,
+  "next": 3818,
   "tickets": [
     {
       "id": 47,
@@ -42034,7 +42034,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Group 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.",
+      "body": "Group 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.\n\nSW-3808 hit the same gap: a failing test only says 'evaluated to False' for a == comparison too (it took four extra tests to find a reversed list); make sure both sides are shown for == in all positions.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -43038,6 +43038,58 @@
     {
       "id": 3813,
       "title": "[DeepSeek] The WebAssembly gate test passes silently when web/pkg is missing or stale; make the skip visible (print a line, or mark it skipped), and document STITCHWORT_REQUIRE_WASM=1 in docs/testing.md (SW-639, SW-3804)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3814,
+      "title": "[DeepSeek] crates/syntax: Tok::PipeGt's doc comment says 'x |> f a is f a x'; it is f x a (docs/syntax.md). Fix the comment (SW-3808 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3815,
+      "title": "[Sonnet] std: hex formatting for Nat (toHex, padded), so programs needn't write hexDigits with fuel (SW-3808 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3816,
+      "title": "[Opus] dev tokens / dev tree dumps escape text with Rust's {:?} (Unicode-table dependent), which a Stitchwort twin can only approximate; either give the dump a simple documented escaping rule, or add the Unicode tables to std (SW-3808 finding; design call)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3817,
+      "title": "[DeepSeek] fmt:twin in a worktree: deps:[build] builds the CLI there and --sw defaults to the worktree's missing binary; let SW= point at the main checkout's release binary and document it in docs/testing.md (SW-3808 friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
