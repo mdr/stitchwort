@@ -146,11 +146,13 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
             "import Std (List, Nat)\n\n\
              def replicate : Nat -> a -> List a\n  | Zero,   x => Nil\n  \
              | Succ n, x => Cons x (replicate n x)\n\n\
-             opaque def big (n: Nat): List Nat := replicate 500 n\n",
+             opaque def big (n: Nat): List Nat := replicate 5000 n\n",
         )
         .expect("checks");
+    // Above the largest of std's own declarations (`Omega.Fact` reads back about
+    // 3,300 nodes), which are checked lazily under this limit; below `big`'s 20,000.
     session.elab.options.limits = Limits {
-        size: 100,
+        size: 10_000,
         ..Limits::default()
     };
     let diagnostics = session

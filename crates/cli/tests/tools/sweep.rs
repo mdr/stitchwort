@@ -142,8 +142,9 @@ def limit: Nat := checked 100 (addZ 100)
 theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k => Nat.leAddRight k n
 ";
     const SINGLE_AFTER: &str = "theorem ident ∀ (n: Nat): n = n := byComputing";
-    // A header that already says `∀` keeps it as the statement's `∀` moves in.
-    const BOTH_AFTER: &str = "theorem both ∀ (a: Nat) (b: Nat): b = b := byComputing";
+    // A header that already says `∀` keeps it as the statement's `∀` moves in;
+    // the formatter merges the two binders of one type.
+    const BOTH_AFTER: &str = "theorem both ∀ (a b: Nat): b = b := byComputing";
     let dir = scratch("files");
     std::fs::write(dir.join("laws.sw"), SINGLE_BEFORE).unwrap();
 

@@ -146,7 +146,7 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
              | Succ n, x => Cons x (replicate n x)\n\n\
              opaque def big (n: Nat): List Nat := replicate {k} n\n\n\
              theorem t (n: Nat): big n = big n unfolding big := \
-             rewrite (byComputing: big n = big n) then byComputing\n"
+             rewrite (byComputing: big n = big n)\n"
         )
     };
     let theorem = |k: usize| {
@@ -181,7 +181,8 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
     let (rows, _) = declaration_rows(&path, "decls");
     let one = rows.iter().find(|r| r.name == "Main.one").expect("one");
     assert_eq!(one.readback, 0);
-    // The summary table names the largest.
+    // The summary table lists the declaration among the largest read-backs;
+    // std's own derived instances read back more, so it isn't the largest.
     let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .args(["check", "--no-cache"])
         .arg(source_file("readback_summary.sw", &source(50)))
@@ -189,5 +190,12 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
         .output()
         .expect("run stitchwort");
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("largest read-back 205 nodes"), "{stderr}");
+    let row = stderr
+        .lines()
+        .rfind(|l| l.trim_start().starts_with("Main.t "))
+        .unwrap_or_else(|| panic!("{stderr}"));
+    assert_eq!(
+        row.split_whitespace().collect::<Vec<_>>(),
+        ["Main.t", "205", "5"]
+    );
 }

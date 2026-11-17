@@ -245,7 +245,7 @@ fn diagnostics_are_in_the_index() {
     let json = index_json(&session, true, None, "", &errors);
     assert!(
         json.contains(
-            r#""diagnostics":[{"severity":"error","code":"E-TYPE-MISMATCH","message":"type mismatch","file":0,"range":[0,14,0,17],"labels":[{"file":0,"range":[0,14,0,17],"message":"expected `Nat`, but this has type `Text`"}],"notes":[]}]"#
+            r#""diagnostics":[{"severity":"error","code":"E-TYPE-MISMATCH","message":"type mismatch","file":0,"range":[0,14,0,17],"labels":[{"file":0,"range":[0,14,0,17],"message":"expected `Nat`, but this has type `Text`"}],"notes":[],"fixes":[]}]"#
         ),
         "{json}"
     );

@@ -1199,7 +1199,7 @@ fn a_body_that_does_not_parse_stands_in_for_its_statement() {
             );
             assert!(
                 stdout.contains(
-                    "✓ cites  ran  (assuming `doubleTwo`, which has an error (t.sw:2:40))"
+                    "✓ cites  ran  (assuming `doubleTwo`, which has an error (t.sw:2:48))"
                 ),
                 "{stdout}"
             );
