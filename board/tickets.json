@@ -42380,12 +42380,12 @@
     {
       "id": 3763,
       "title": "[Opus paper] Review SW-3719 (derived ==/< proofs reshaped: %pack/%unpack built as kernel terms, %sameIff, Ordering.thenPairEqual, Ord.instanceFor) before merge (D2364: generates kernel terms): statements unchanged, maintainability of the derivers, the deeper proof nesting (Box 71 -> 855 frames), anything that could break on types the tests don't cover",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Review written: docs/reviews/SW-3719-derived-proofs-review.md. Verdict: merge with follow-ups. Statements unchanged (code + snapshot names + %decide typing); %pack/%unpack go through kernel declare_def/define_def like the existing %tag/%view/%eta helpers; probes of 12 shapes agree with main. Still ~cubic above 32 fields (64: 9 s, 128: 99 s; main >60 s at 64); no stack overflow at 128 fields or 40 constructors. Four follow-ups listed in the review. 10:24-10:33.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
