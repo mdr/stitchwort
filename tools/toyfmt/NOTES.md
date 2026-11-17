@@ -2511,7 +2511,8 @@ there is dropped. Own-line comments inside an expression are
 `LineStart` (a break unless at a line start), the text, `CommentEnd` (a
 new line at the comment line's indent). A closer with comments above it
 uses `LineStartHere` so the comments sit one level in and the closer
-back at the bracket's line. `fits` is conservative: any chunk after a
+back at the bracket's line. `fits` is conservative (until SW-3452,
+below): any chunk after a
 waiting comment doesn't fit, so a group holding a trailing comment
 breaks. SW-3447's printer measures from the new line instead; that would
 need `fits` to know the indent and width, a change to the budget proofs.
@@ -2994,3 +2995,45 @@ helpers). The proposal's §4 estimated 280 to 450 new lemmas for Toy++ in all.
   comment's line.
 - **Not done (known)**: `settledIdempotent` (SW-3723), the `match` arms
   `cases` (SW-3748), experiment (b) and (c) of §3.4.
+
+## `fits` measures from the new line (SW-3452)
+
+`fitsFrom` now does what the printer does after a trailing comment, as
+SW-3447's Rust printer measures: code text after a waiting comment
+starts a new line at `max indent (lineIndent + 2)`, and the measure goes
+on from there with the page's width less that indentation; spaces there
+are dropped and take no room. So each piece of work it reads carries
+its construct's indentation (`List (Nat, Mode, Doc)`, `Nest` adds to
+it), and it takes the page's `width` and the line's `lineIndent`.
+Unchanged: a closer joins the comment's line and counts there, and a
+line break in a flat group after a comment doesn't fit (the printer
+would break it).
+
+Two places where the toy differs from `engine.rs` on purpose: the
+measure moves `lineIndent` to the new line's indentation at a comment
+break, as the printer does (Rust keeps the first line's, so a second
+comment break in one measure is placed from the wrong line); and every
+measure has the real width (Rust's `fits_flat` uses an unbounded one,
+so after a comment break inside a fill item or a one-line-below body it
+always fits). A broken fill's first item is measured with the comment
+that waits (Rust's `fits_flat` drops it).
+
+**Proofs.** Only the budget proofs changed, as part 2 of layer A
+expected: `fitsFromEnough` (now over the width, the line's indentation
+and the indented stack) and `pairStepsMap` (an indentation for the
+mapped items) restated; `chooseEnough`, `stepEnough` and
+`stepIsReading` re-proved with the same statements. `audit
+Toy.Doc.Proofs`: 302 theorems, 0 failed, the same 4 warnings. No top
+theorem changed.
+
+**Layouts.** Seven of the 22 probes (`Fmt/Tests/Probes.sw`) now keep
+the author's shape: after a call's `(`, an operator, a callee (the call
+whose `)` sat left of its argument), `.`, a unary `-`, `fn`, and an
+`if` before a `)` a field needs. The `Sprig++` header golden and
+`format drops spare brackets` keep `f(a, b: -- c` with the rest on the
+next line. Still odd, and not about `fits`: a comment after a header's
+`(` or `)` (a flat `SoftLine` after a waiting comment breaks its
+group), and an own-line comment before a call's `(` (`LineStart` and
+`CommentEnd` end the measure, as in Rust; the call breaks and its `)`
+is left of its argument).
+

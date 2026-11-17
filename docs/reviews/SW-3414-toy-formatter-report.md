@@ -158,7 +158,7 @@ one machine, medians of 3 except stage A]:
 | No clock | SW-3361 | open (paper) | stage 6's per-phase timings |
 | Name shared by a constructor and a field's type; no `List.intersperse`; tuple accumulator needs a type; fmt moves a record with text blocks below `:=` | SW-3360 | open | small |
 | `Int.ofNat` note misses `Nat.toInt` | SW-3346 | open | small |
-| `Doc.group` recomputes `forcesBreak` (quadratic in nesting) | none | open | yes for the twin's engine: real code nests deeper |
+| `Doc.group` recomputes `forcesBreak` (quadratic in nesting) | SW-3416 | not an issue: `Group` caches the flag, construction measured linear (200 to 6,400 levels) | no |
 | Text patterns lack "any one character" | SW-3385 | open | lexer only |
 
 ## 5. What it says

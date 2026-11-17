@@ -70,6 +70,30 @@ pub fn run(file: FileId, text: &str, passes: &[Pass]) -> Tidied {
     }
 }
 
+/// The tree after each of [`PASSES`], as `dev passes` prints it for the
+/// self-hosted formatter's comparison (`task fmt:twin STAGE=passes`): a line
+/// `== P1 ==`, then the tree's dump, for each pass in the order they run.
+pub fn dump_after_each(file: FileId, text: &str) -> String {
+    let mut text = text.to_string();
+    let mut tree = parse_tree(file, &text, DEFAULT_STACK);
+    let mut out = String::new();
+    for (number, pass) in PASSES.iter().enumerate() {
+        let edits = pass(&tree, &text);
+        if !edits.is_empty() {
+            text = apply(&text, edits);
+            tree = parse_tree(file, &text, DEFAULT_STACK);
+        }
+        out.push_str(&format!("== P{} ==\n", number + 1));
+        let dump = tree.dump(&text);
+        let dump = dump.trim_end_matches('\n');
+        if !dump.is_empty() {
+            out.push_str(dump);
+            out.push('\n');
+        }
+    }
+    out
+}
+
 /// `text` with the edits made. They must not overlap.
 fn apply(text: &str, mut edits: Vec<Edit>) -> String {
     edits.sort_by_key(|edit| std::cmp::Reverse(edit.range.start));
@@ -308,6 +332,20 @@ mod tests {
             tidied("def f: List Nat :=\n  g ([\n    1,\n    ]\n  )\n", &PASSES),
             "def f: List Nat :=\n  g ([\n    1\n      ]\n  )\n"
         );
+    }
+
+    #[test]
+    fn the_dump_after_each_pass_shows_the_tree_that_pass_left() {
+        let text = "theorem t (a: Nat): f [a,] := byComputing\n";
+        let file = SourceMap::new().add("t.sw", text);
+        let dump = dump_after_each(file, text);
+        let after: Vec<&str> = dump.split("== P").skip(1).collect();
+        assert_eq!(after.len(), 4);
+        let has = |pass: usize, token: &str| after[pass].lines().any(|l| l.trim() == token);
+        // P1 adds the `∀`; P2 takes the comma out; both stay in later trees.
+        assert!(has(0, "∀") && has(0, ","));
+        assert!(has(1, "∀") && !has(1, ","));
+        assert!(has(3, "∀") && !has(3, ","));
     }
 
     #[test]

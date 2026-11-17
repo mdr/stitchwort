@@ -101,3 +101,21 @@ def closedCall: Doc :=
 
 test "a choice puts a call's closer on its comment's line when the call fits" :=
   print closedCall 120 == "f(a, b) -- c" && print closedCall 6 == "f(\n  a,\n  b -- c\n)"
+
+--| `f -- c` then a call: its group is measured from the line the comment
+--| break starts, at 2 in, so it stays flat while `  (1)` fits there.
+def callAfterComment: Doc :=
+  let call := Doc.group (Doc.concat [t "(", Nest 2 (Doc.concat [SoftLine, t "1"]), SoftLine, Closing ")"])
+  Doc.concat [t "f", LineSuffix "-- c", Nest 2 call]
+
+test "a group after a waiting trailing comment is measured from the line its code starts" :=
+  print callAfterComment 120 == "f -- c\n  (1)"
+    && print callAfterComment 5 == "f -- c\n  (1)"
+    && print callAfterComment 4 == "f -- c\n  (\n    1\n  )"
+
+--| The new line is at least 2 deeper than the comment's, whatever the
+--| construct's indentation, and the spaces before the code are dropped.
+test "the measure after a comment break starts 2 in from the comment's line" :=
+  let group := Doc.group (Doc.concat [t "a", Line, t "b"])
+  let doc := Nest 4 (Doc.concat [HardLine, t "x", LineSuffix "-- c", t " ", group])
+  print doc 9 == "\n    x -- c\n      a b" && print doc 8 == "\n    x -- c\n      a\n    b"

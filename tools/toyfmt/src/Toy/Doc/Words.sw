@@ -152,7 +152,7 @@ theorem writeWords ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat
             | False =>
               match newlineWritten printer (printer.continuation indent) with
                 | (brokenWritten, brokenSuffixes) =>
-                  rewrite repeatedly [<- brokenWritten, putClearWords _ text width brokenSuffixes, spaces]
+                  rewrite repeatedly [<- brokenWritten, putClearWords _ text width brokenSuffixes]
 
 theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart indent).words = printer.words :=
   match start: printer.atLineStart with

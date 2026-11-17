@@ -557,6 +557,22 @@ impl<'a> Source<'a> {
                             }
                             found.push((at, name.text.clone()));
                         }
+                        // The lowering gives a group's later names a
+                        // binder each (D3679): take those into this group.
+                        let mut node_cod = cod;
+                        while let Expr::Pi {
+                            names, cod, span, ..
+                        } = &**node_cod
+                        {
+                            let ats: Vec<usize> =
+                                names.iter().map(|n| self.token_at(n.span.start)).collect();
+                            if span.start != forall_at || ats.iter().any(|&at| at < g || at > close)
+                            {
+                                break;
+                            }
+                            found.extend(ats.into_iter().zip(names.iter().map(|n| n.text.clone())));
+                            node_cod = cod;
+                        }
                         let line_start = toks[g].line_start || (g == k + 1 && toks[k].line_start);
                         groups.push(Group {
                             tokens: g..close + 1,
@@ -564,7 +580,7 @@ impl<'a> Source<'a> {
                             implicit: *implicit,
                             line_start,
                         });
-                        node = cod;
+                        node = node_cod;
                         g = close + 1;
                     }
                     _ => return Err(Reason::Shape),

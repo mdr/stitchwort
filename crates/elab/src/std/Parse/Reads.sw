@@ -1092,6 +1092,108 @@ theorem Parse.readsMany1 ∀ [inv: Parse.Invariant t] (p: () → {Parse t} a) (s
             (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
           rewrite same then Witness firstRead (Witness restRead (Both split (Both holds each))))
 
+--| What a `loop` read: one part per value, each read by a round that went
+--| on, which `spec` says is `Some` of its value and which read something;
+--| then the part the last round read before it stopped, which `spec` says
+--| gave `None`.
+def Parse.Rounds (spec: List t → Option a → Prop): (text: List t) → (values: List a) → Prop
+  | read, [] => spec read None
+  | read, [value, ..values] =>
+    ∃ (first: List t) => ∃ (rest: List t) => read = first ++ rest
+      ∧ first ≠ []
+      ∧ spec first (Some value)
+      ∧ Parse.Rounds spec rest values
+
+--| `loopFrom`, run from a state that is at its `before` mark: it read the
+--| rounds, one per value after the `found` ones, and the last round's stop.
+theorem Parse.readsLoopFrom ∀ [inv: Parse.Invariant t] (step: () → {Parse t} Option a) (spec: List t → Option a → Prop)
+    (reads: Parse.ReadsIn inv step spec)
+    (fuel: Nat) (found: List a) (total: Nat) (state: Parse.State t) (value: List a) (after: Parse.Mark t)
+    (fine: Parse.Fits t inv state.at.rest)
+    (honest: Parse.Honest total state.at)
+    (h: Parse.runFrom state (() => (Parse.loopFrom fuel step found state.at, Parse.mark())) = Ok (value, after)):
+    ∃ (read: List t) => state.at.rest = read ++ after.rest
+      ∧ Parse.Honest total after
+      ∧ ∃ (more: List a) => value = found.reverse ++ more ∧ Parse.Rounds spec read more :=
+  match fuel with
+    | Succ more =>
+      match Parse.runFromThenOk2 step state
+        (found2 => Parse.loopRound more step found state.at found2)
+        (x => (x, Parse.mark()))
+        (value, after)
+        h with
+        | Witness v (Witness middle (Both ran rest)) =>
+          match reads state.at fine total state v middle.at byComputing honest ran with
+            | Witness read1 (Both starts1 (Both honest1 holds1)) =>
+              match v, holds1, rest with
+                | None, holds1, rest =>
+                  match Parse.readsPure
+                    [inv := inv]
+                    (List.reverse found)
+                    middle.at
+                    (fine.after starts1)
+                    total
+                    middle
+                    value
+                    after
+                    byComputing
+                    honest1
+                    rest with
+                    | Witness read2 (Both starts2 (Both honestAfter (Both none same))) =>
+                      Witness read1
+                        (Both
+                          (rewrite starts1, starts2, none then byComputing)
+                          (Both honestAfter
+                            (Witness [] (Both (rewrite same, List.appendNil (List.reverse found)) holds1))))
+                | Some x, holds1, rest =>
+                  match Parse.runFromIfOk
+                    (middle.at.offset > state.at.offset)
+                    (() => Parse.loopFrom more step [x, ..found] middle.at)
+                    (() => Empty.absurd (Parse.fatal "`loop`: the step went on without reading anything"))
+                    middle
+                    value
+                    after
+                    rest with
+                    | Inl (Both isTrue yesRun) =>
+                      match Parse.readsLoopFrom step spec reads more
+                        [x, ..found]
+                        total
+                        middle
+                        value
+                        after
+                        (fine.after starts1)
+                        honest1
+                        yesRun with
+                        | Witness read2 (Both starts2 (Both honest2 (Witness more2 (Both same each2)))) =>
+                          let moved := Parse.honestMoved honest honest1 starts1
+                          let nonEmpty: read1 ≠ [] := match read1 with
+                            | [] => Void.impossible (arithmetic [isTrue, moved])
+                            | [char, ..others] => List.consNotNil char others
+                          Witness
+                            (read1 ++ read2)
+                            (Both
+                              (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest)
+                              (Both honest2
+                                (Witness
+                                  [x, ..more2]
+                                  (Both
+                                    (rewrite same,
+                                        List.reverseCons x found,
+                                        List.appendAssoc (List.reverse found) [x] more2)
+                                    (Witness read1
+                                      (Witness read2 (Both byComputing (Both nonEmpty (Both holds1 each2)))))))))
+                    | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
+
+--| `loop step` reads one part per value, each what `step` read when it went
+--| on, then what it read when it stopped.
+theorem Parse.readsLoop ∀ [inv: Parse.Invariant t] (step: () → {Parse t} Option a) (spec: List t → Option a → Prop)
+    (reads: Parse.ReadsIn inv step spec):
+    Parse.ReadsIn inv (() => Parse.loop step) (Parse.Rounds spec) :=
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match Parse.readsLoopFrom step spec reads (state.at.left + 1) [] total state value after fine honest h with
+      | Witness read (Both starts (Both honestAfter (Witness more (Both same each)))) =>
+        Witness read (Both starts (Both honestAfter (rewrite same then each))))
+
 --| What `sepBy1 p separator` reads: `p`'s part for the first value, then a
 --| separator's and `p`'s for each further value.
 def Parse.SepBy (spec: List t → a → Prop) (separator: List t → () → Prop) (read: List t) (values: NonEmptyList a):

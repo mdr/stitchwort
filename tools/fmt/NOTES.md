@@ -21,7 +21,7 @@ The executable's protocol: `EXE --stage NAME FILE` prints the stage's answer on 
 - `tree`: `dev tree --print`'s tree without its `PATH:` header and totals line. A declaration that doesn't parse is an `Error` node in the dump, status 0, so refusal isn't separate here.
 - `refusal`: status 0 and no output if `fmt -` formats the file; else its status (2) and the first line of its message (a `[E-PARSE]` line).
 - `text`: the formatted text of `fmt -`, or the refusal as above.
-- `passes`: not built yet.
+- `passes` (SW-3863): `dev passes`'s `== P1 ==`, the tree dump, … `== P4 ==`, the tree after each tidy pass; a file that `fmt -` refuses is answered as in `refusal`.
 
 ### The gate [measured, Speedwell, load about 5]
 
@@ -583,3 +583,144 @@ speed; SW-3837 has the profile.
   here; not seen in any input.
 - Stage 2a's expressions still hold every token as a `Word`; the new
   nodes hold fixed tokens as `Comments`.
+
+## Stage 4a (SW-3863): the four tidy passes
+
+Sonnet, 17 November 2026.
+
+### What is here
+
+| Piece | Where |
+|---|---|
+| The passes P1 to P4, each a `SourceFile → SourceFile` made of steps given to the traversal | `src/Fmt/Passes.sw` |
+| The traversal's steps as a record: `Steps` (`expr`, `pattern`, `header`, `decl`, `fields`, `attributes`, `ruleSet`), `Steps.keep` for the identity; the lowering's checks became `checkSteps` | `src/Syntax/Traverse.sw`, `Lowering.sw` |
+| `Group.bare`: no comment on a header group's tokens but above its opening bracket, set by the parser, which P4 reads so it needn't walk a type for comments | `Decl.sw`, `DeclParser.sw` |
+| The parked comma: `Lexed.settledBare` (the last commas out, then rule N) and `Lexed.tidied` | `Settle.sw`, `Passes.sw` |
+| `Fmt.Twin --stage passes` (and `tidied`, the last tree only, for timing) | `Fmt/Twin.sw` |
+| The Rust side: `stitchwort dev passes FILE` (`passes::dump_after_each`), and `dev/fmt-twin passes` | `crates/fmt/src/passes.rs`, `crates/cli`, `dev/fmt-twin` |
+| Tests | `src/Fmt/Tests/Passes.sw` (13), `the_dump_after_each_pass_shows_the_tree_that_pass_left` |
+
+### The passes' shape
+
+- **P1** is a `header` step (a theorem with an explicit `(` group and no `∀` gets one). It is also applied to local definitions, as `each_node` does.
+- **P2** is `expr`, `pattern`, `fields`, `attributes` and `ruleSet` steps that clear the trailing-comma flag. A one-item tuple can't exist (`(a,)` is a parse error), so no pass has to turn one into a bracketed item.
+- **P3** is an `expr` step on `Effect` (the brackets at the left end of a row's result) and a `decl` step on a top-level definition (the brackets around a binder's whole type, found down the spine of the header's type and not inside brackets). The Rust pass asks the parser whether a candidate still reads as the same declaration; here the answer is the grammar's ladder: `Expr.level` says how tightly an expression binds at its top and `leftNeeds` how tightly an operator needs its left side to bind, read off the Rust pass's answers (a matrix of 24 expressions against 16 operator positions) and `Syntax/Parser.sw`. Three cases are special in the Rust answers: a negative numeral (`{Fail} (-1)` stays), a `!` before `∈`, and a row that reads as a record (`rowReadsAsRecord`: `{e}`, `{e, f}`, `{}`, `{E.e}`: first ability lowercase-led) keeps the bracket of anything `startsApart` (a section, a prefix operator, `match`, `if`, `include`…; SW-3876).
+- **P4** is a `header` step (kinds `def` and `theorem` only; an `instance` isn't merged) and an `expr` step on `∀` and lambda (not `∃`).
+
+Each pass is `file.apply steps`: the declarations traversed one by one under `Fail.toResult`, since the traversal's steps have the ability `Fail` (a step can't have a row variable there, see stage 2b's friction) and a tidy step never fails. Nothing is `Partial`.
+
+### The parked comma
+
+Rule N parks a comma's comments on the next token; the Rust P2 then deletes the comma from the text and rule N runs again, which gives a different answer when the comma starts its line and has a comment above (proof plan §10, K1). `Lexed.settledBare` is the sketch's `withoutLastCommas` on the real leaves, and `Lexed.tidied` parses it for P2 on when `parksComment` finds a comma before a closer holding a comment as the lexer left it. The tree dump leaves comments out, so the harness can't see this family at all; `the parked comma` test compares `settledBare`'s token dump with rule N's on the text with the comma written as a space, for the K1 case. Where no comma parks a comment (nearly every file) P2 is the tree step on the one parse.
+
+### The gate [measured, Speedwell, load 5 to 9]
+
+| Input | Identical |
+|---|---|
+| `goldens` | 124 of 124 |
+| `repo`, `--sample 300` | 300 of 300 |
+| `repo`, `--sample 400 --sample-seed 9` | 399 of 400 (the one is a stage 2 difference: `"""…""".lines`, below) |
+| `fuzz`, `--fuzz-cases 300` | 253 of 253 |
+| `fuzz`, 300 cases, comment rate 0.2 (seed 7) and 0.3 (seed 11) | 228 of 228; 216 of 216 |
+| `disturbed` | 61 of 62 (the one is a stage 2 refusal message, below) |
+| 739 hand-written cases (scratch): the row table (34 expressions against 19 operator positions, alone and doubled in brackets), binder types, merges and what keeps them apart, every comma bracket, local definitions, comments in brackets | 739 of 739 |
+
+The first differences fixed on the way, all in P3's table: a negative numeral's brackets (`{Fail} (-1) → z` stays), a `!` before `∈`, and a constructor with fields (`C { x = 1 }`) which stands bare as a function head. Everything else agreed on the first run, which is the table's doing: it was read off a matrix of the Rust pass's answers before the code was written.
+
+Found in the stage 2 parser, not fixed here:
+
+- `"""…""".lines` (a multi-line text, then a method) reads as an application of the text to a section, not a field access: `aoc/src/Aoc/Year2024/Day06/Tests/Examples.sw`. A `--stage tree` difference.
+- `disturbed`'s `00057-sequence-semicolon-comment.after.sw`: Rust says "expected an expression, but the line ends here", the Twin "a block must end with an expression, not `let`" (a `--stage refusal` difference).
+
+### Speed [measured, Speedwell, load about 8]
+
+107 files of `aoc/src`, `std` and `tools`, 0.87 MB, one process, `--batch`: `--stage tree` 2.80 s user; `--stage tidied` (parse, the four passes and one dump) 3.03 s user. So **the four passes cost about 0.25 s/MB** (0.23 s for the 107 files), on top of 3.2 s/MB for lexing, parsing and a dump. Peak memory 78 MB (75 MB for `tree`). The harness's whole-run numbers on 300 sampled files (about 1.07 MB), jobs 1: `tree` 6.5 s, `passes` (four dumps) 8.6 s at load 9.
+
+### What 4b and 5 inherit
+
+- `Steps` and `SourceFile.apply`: `meaning` and the passes' proofs are statements about one traversal with these steps. The generic lemma is about `traverse`, the step facts are each step's shape (P1 a header step; P2 five steps that clear a flag; P3 `dropAfterRow` and `dropDeclBinders`; P4 `mergeHeader` and `mergeBinding`).
+- P3's side condition is a function, `dropLeft`, with `Expr.level` and `leftNeeds`; it is a statement to prove (a dropped bracket pair reads back as the same tree) against the parser, not a trial parse. The table is the thing to review.
+- `Group.bare` is parse-time information, and `Lexed.tidied` reads leaves before the parse: a proof that P4 leaves comments alone uses `bare`'s definition, not the tree.
+- A printer should expect no trailing comma, no theorem with explicit parameters lacking `∀`, no mergeable adjacent groups, and no spare bracket after a row or around a binder's whole type: the tree `Lexed.tidied` gives is tidy for all four.
+
+### Friction
+
+- **`task`/harness: every `dev/fmt-twin` run rebuilds the native executable** (1 min 50 s) unless `--exe` is given, so five gate runs cost ten minutes; the wrapper script of SW-3847 or `target/fmt-twin/fmt` with `--exe` avoids it.
+- **A row variable in a step's ability still doesn't check** (as in 2b), so every step is `{Fail}` and each declaration goes through `Fail.toResult` with a fallback that never runs.
+- **`stitchwort check` of the project takes 13 to 31 s** with every edit; the Traverse change (one parameter to a record) touched 40 functions and was one script, which is the cost of not having the row variable.
+- **Brackets in expressions are inconsistent in the dump**: `Paren` has its own node, `(a, b)` is `Tuple`, `(x: T)` is `Annotation`, and the Rust pass can't tell them apart by tokens (it asks the parser); the table in P3 had to say which node kinds hold a bracket pair.
+
+## Stage 4b (SW-3864): `meaning`
+
+Opus, 17 November 2026.
+
+### What is here
+
+| Piece | Where |
+|---|---|
+| `meaning`, the trusted definition of "the same program" (D3678's narrow form): the shared traversal with steps that forget what a pass changes, where it changes it; its doc gives the compiler's reading behind each thing it forgets | `src/Fmt/Meaning.sw` |
+| The passes' step facts against it, proved: P2's five steps, P1's header step, P3's row step (`dropLeftForgotten`, by induction along the left end) and P3's binder-type layers (`stripUnwrapped`, `groupStripUnwrapped`, `paramStripUnwrapped`), with `levelAtomic` and `negativeKept` tying P3's table to `meaning`'s two exceptions | `src/Fmt/MeaningProofs.sw` |
+| Tests: what it forgets, what it keeps (`(f) x` against `f x`, `{IO} (f a) b`, `{Fail} (a + b) * c`, a pair holding a comment, a dependent group, an `∃` group, `∀` on an implicit-only theorem), and `tidy` keeping it | `src/Fmt/Tests/Meaning.sw` (7) |
+| `Fmt.Twin --stage meaning`: `kept`, or where `tidy` or `Lexed.tidied` change the file's meaning as its dump shows it (no Rust side) | `src/Fmt/Twin.sw` |
+
+The steps P1, P2 and P3's row step became pure functions (`Expr → Expr`, `Header → Header`), which `Steps`' `{Fail}` fields accept, so that the facts are equations.
+
+### The node kinds
+
+All 98 of the Rust `NodeKind`s, as the real tree holds them:
+
+| Kinds | Count | In `meaning` |
+|---|---|---|
+| `Paren` | 1 | forgotten at a row's result's left end (through `Binary` and its kin's left operand, `Chain`'s first, `App`'s head, `FieldAccess`'s target) and as a binder's or annotation's whole type; at an application's head only around an atomic form; never around a negative numeral |
+| `Param`, `Binder`, `LambdaParam` | 3 | a header's (not an instance's), `∀`'s or lambda's group split one a name where P4 could have merged it; an `∃`'s and a function type's binder kept whole; the whole type unwrapped as above |
+| `Theorem` | 1 | `∀` absent (SW-3882; was: where P1 writes it) |
+| `Tuple`, `List`, `Record`, `PatternTuple`, `PatternList`, `PatternRecord`, `PatternCtorFields`, `Fields`, `Attributes`, `RewriteRules` | 10 | the comma flag `False` (`Import` has none in the tree: the parser keeps no flag for it) |
+| `Effect`, `Annotation`, `FunctionType`, `Forall`, `Exists`, `Lambda`, `PatternTyped` | 7 | where the rows above apply; otherwise kept |
+| every other kind but `Error` and `Expression` | 74 | kept: the traversal goes into its parts and the step is the identity |
+| `Error`, `Expression` | 2 | never in a file's tree (the parser is strict; a lone expression isn't a file) |
+
+### Checked [measured, Speedwell]
+
+- `tidy` and `Lexed.tidied` keep `meaning`'s dump on the 124 golden files and on 223 repo files (every fourth `.sw` under `crates/elab/src/std`, `aoc/src`, `tools` and `games`, 2.4 MB, 15.5 s, 168 MB peak).
+- `dev/fmt-twin passes --inputs goldens`: 124 of 124 identical.
+
+### What 5 inherits
+
+- **Comments are in `meaning`** (it keeps every `Word` with its comments). *Superseded by SW-3882, below.* The parked comma (K1) moves a comment when P2's comma goes, so `Lexed.tidied`'s tree can differ from the parse in where a comment sits, and the top theorem's `after.meaning = before.meaning` can't hold there as stated [inferred: the dump the checks compare leaves comments out, so they can't see it]. Either `meaning` leaves comments out and `tidyKeepsComments` carries them, or the top theorem is stated with K1's case apart.
+- **The generic lemma.** P1's and P2's steps change a flag or keyword at the node, so the plain lemma (a traversal whose step keeps the meaning step keeps `meaning`) finishes them. P3's steps rebuild descendants, so it needs the stronger form: `meaning`'s traversal commutes with `dropLeft` and `dropDeclBinders`. P4 needs `splitGroups (mergeGroups gs) = splitGroups gs` for plain groups, which rests on `Group.typeLines` telling types apart when they hold no comment.
+
+### After the review (SW-3878 → SW-3881, SW-3882)
+
+The review is `docs/reviews/SW-3878-meaning.md`. SW-3881 fixed M2 (a constructor update with a base is an application). SW-3882, Opus, 17 November 2026:
+
+- **Comments are left out** (the orchestrator's call under D3678; the review found nothing `check` or `run` reads but a `--|` doc's links). No step reads a comment: the `bare` conditions in `unwrapped`, `forgetLeft` and `Group.splits`, and `noComments` in `Group.pieces`, are gone, so `meaning` now forgets a pair or splits a group that holds a comment. Meanings are compared with every comment blanked. The value still holds each `Word`'s comments and `Group.bare` (the tree has no comment-free form, and blanking them is a map over about 90 token sites); the checks compare the dump, which prints neither. For stage 5's top theorem that means stating it on the dump or adding that map; until then "equal meanings" means "equal once comments are blanked", and a split group's pieces each keep its `open`.
+- **`∀` is absent on every header** (`plainForall` is gone): the parser allows it on theorems only and the lowering skips it.
+- **The doc's grounds** now say what is left out on purpose (positions, comments), cite the lowering's test on an application's head (its first token is `(` and it lowers to an application), and cite D3679 for the group split (SW-3880 makes the elaborator check a group's type once per name).
+- **`CommentsKept`** (in `Meaning.sw`, a `def` of the `Prop`; the theorem waits for the printer): between the source's leaves after `settledBare` (rule N with P2's commas out, so K1's moves are in it) and the output's after rule N, (1) `commentViews` equal: every comment's text, own-line or trailing, blank line above, in order, the file's end included; (2) `holders` equal: the comment-holding tokens in order with their text, count above, trailing or not, and (3) whether a blank line separates the comments above a token from it. (3) is stated for every token, more than docs need; narrow it to declaration and member first tokens if the printer can't keep it inside expressions.
+- Statements: none in `MeaningProofs.sw` changed, and every proof checks unchanged (P3's `drops` still carries `dropLeft`'s own `bare` test; `forgetLeft` no longer asks for it). Tests: "a pair holding a comment" and "`∀` on an implicit-only theorem" now have the same meaning; a new test leaves comments out of a row pair, a group and a binder type.
+- Checked: `dev/fmt-twin passes --inputs goldens` 128 of 128 identical; `Fmt.Twin --stage meaning` `kept` on all 128 golden files [run].
+
+### The oracle for `meaning` (SW-3883)
+
+`Fmt.Twin --stage meaning` only checks that `tidy` keeps `meaning`; it can't catch a `meaning` that equates two programs the compiler tells apart (review S4). `dev/fmt-meaning-oracle` asks the compiler:
+
+- **How**: for each pair of files, `Fmt.Twin --stage meaningdump` prints `meaning`'s dump (run from this worktree's sources with `stitchwort run Fmt.Twin.main`, so a change to `Meaning.sw` is tested without rebuilding the Twin; the first run in a fresh worktree checks the project, about 20 s). The pair is *agreed* when the two dumps are equal. Each side's files then go to the compiler as namespaces of one project, `stitchwort hash --json` (a declaration's hash, its type's hash, its kind), and the oracle compares the two sides: the same hashes, or, for a file that doesn't check, the same diagnostic codes. An agreed pair that differs is a finding, and the exit status is 1.
+- **Pairs** (118): the 64 golden before/after pairs; groups, `(x y: T)` against `(x: T) (y: T)` in a `∀`, `∃`, theorem header, def header and lambda, for `T` in `_`, `Box` (`def Box [t: Type]: Type := List t`), `Nat`, `List Nat`, `Bool`, with the review's probe bodies for `_` and `Box`; and 14 bracket cases at the head of an application, at the left end of a row's result (where P3 and `meaning` forget a pair) and outside one, round atoms, applications, a constructor update and a constructor with fields. A head case carries whether `meaning` should forget the bracket; a mismatch is a note.
+- **Expected differences**: a probe group in a `∀`, theorem or def header is expected to differ until SW-3880 (D3679). The binary it ran against already reads groups as sugar, so those six agree and are listed as "now agrees"; the expectation can go once SW-3880 is merged.
+- Run: `nice -n 19 dev/fmt-meaning-oracle [-v] [--keep DIR] [--cache-dir DIR]`, about 35 s cold (25 s of it the compiler reading the library once; `--cache-dir` keeps that between runs, then about 7 s). The compiler is `target/release/stitchwort` of the main checkout (`--stitchwort`, or `STITCHWORT_MAIN_CHECKOUT`).
+- **Checked**: it flags a regression. With `Meaning.sw`'s `CtorFields _ (Record _ (Some _) _ _ _) => False` line deleted (SW-3881 undone), `(Pick { r0 | x = 1 }) 2` and `Pick { r0 | x = 1 } 2` are agreed and the oracle reports E-DEFAULT-POSITIONAL on the second, exit 1.
+- **Today**: 101 pairs agreed, all 101 the same to the compiler (49 hash-identical, 52 failing alike: most goldens are formatter fragments that don't check), 17 told apart by `meaning` (the `∃` groups, which it deliberately keeps whole; the bracket cases that are kept; a golden with an `import`, which the Twin refuses; comments and text blocks), 0 findings.
+- Limits: the golden pairs mostly fail to check, so the compiler's answer there is its diagnostic codes only; the generated pairs are the ones that exercise hashes.
+
+### P3's table against the parser
+
+Read against `Syntax/Parser.sw`'s ladder (`operatorExpr` → `logicChain` → `cmpExpr` → `pipedRange` → `rangeExpr` → `appendExpr` → `addExpr` → `mulExpr` → `unary` → `app` → `atom`), `Expr.level` and `leftNeeds` agree rung for rung: each operator's left operand is parsed one rung up, or at its own rung where it nests to the left (`+`, `*`, `|>`), and `↔`'s 3 is the same as 4 since no level is 3. 30 probes after `{Fail}` (sections, `match`, `if`, `include`, a prefix before `*` and `∧`, constructors with fields under a field access, chains, ranges, pipes, `↔`) are identical to Rust.
+
+It is wrong after a row that is a lone row variable, `{e}`: there the bare form reads as a record, `{e}`, applied to what follows, so Rust keeps the pair and the Twin drops it. `{e} (.f)`, `{e} (match x with | _ => 1)`, `{e} (include "x") y`, `{e} (-x) * y`, `{e} (!x) ∧ y` and `{e} (if a then b else c)`: 0 of 6 identical [run]. `meaning` is unaffected (the trees differ only by the `Paren`); the Twin's P3 output there doesn't print back to its own tree.
+
+Provable as written? The table's facts, given `Parsed` stated by the same ladder, are an induction along the left end like `dropLeftForgotten`; but "a dropped pair reads back as the same tree" is not a fact about the table alone: it needs the row's form (`{e}` above) and the token rules for a `-` or `!` after `}` (`argument_prefix`), which the table models only as `keepsBrackets`. So not as written: with the row-variable case fixed it is provable as part of `printParses`, not on its own.
+
+### Friction
+
+- `cases` splits a record's every field as a fallback and runs out of its 64 cases on `Header` (11 fields) though the goal turns on three; splitting the record by hand, then `kind` and `forallKeyword`, then matching the `any` closed it by computing.
+- `cases then [lemma inner]` doesn't see `inner` refined by the cases it makes; a `let` of the lemma before `cases` does.

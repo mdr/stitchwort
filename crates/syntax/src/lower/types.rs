@@ -39,8 +39,10 @@ impl<'f> Lower<'f> {
         let (mut params, mut auto_params) = (Vec::new(), Vec::new());
         for binder in root.child_nodes().filter(|n| n.kind() == NodeKind::Binder) {
             let written = self.binder(binder)?;
-            params.push(written.binder);
-            auto_params.push(written.auto);
+            for binder in written.binder.split() {
+                params.push(binder);
+                auto_params.push(written.auto);
+            }
         }
         let (indices, sort) = match root.child(NodeKind::ResultType) {
             Some(result) => self.indices(result)?,
@@ -139,7 +141,7 @@ impl<'f> Lower<'f> {
         let mut ops = Vec::new();
         for node in root.child_nodes() {
             match node.kind() {
-                NodeKind::Binder => params.push(self.binder(node)?.binder),
+                NodeKind::Binder => params.extend(self.binder(node)?.binder.split()),
                 NodeKind::AbilityOp => {
                     let op = node.own_leaves().next().and_then(super::decls::name);
                     let op = required(op, NodeKind::AbilityOp, "its name")?;
@@ -198,9 +200,11 @@ impl<'f> Lower<'f> {
             match node.kind() {
                 NodeKind::Binder => {
                     let written = self.binder(node)?;
-                    fields.push(written.binder);
-                    implicit.push(written.implicit);
-                    defaults.push(written.default);
+                    for binder in written.binder.split() {
+                        fields.push(binder);
+                        implicit.push(written.implicit);
+                        defaults.push(written.default.clone());
+                    }
                 }
                 NodeKind::Fields => {
                     braced = true;
@@ -354,14 +358,22 @@ impl<'f> Lower<'f> {
         } = self.binder(binder)?;
         let cod = required(node.after(&Tok::Arrow), kind, "its result")?;
         let cod = self.expr(cod)?;
-        Ok(Expr::Pi {
-            span: start.to(cod.span()),
-            names: binder.names,
-            implicit,
-            auto,
-            dom: Box::new(binder.ty),
-            cod: Box::new(cod),
-        })
+        // A group is shorthand for a parameter per name (D3679), each
+        // checking its own copy of the type.
+        let span = start.to(cod.span());
+        let ty = binder.ty;
+        Ok(binder
+            .names
+            .into_iter()
+            .rev()
+            .fold(cod, |cod, name| Expr::Pi {
+                span,
+                names: vec![name],
+                implicit,
+                auto,
+                dom: Box::new(ty.clone()),
+                cod: Box::new(cod),
+            }))
     }
 
     /// `{IO, State s} T`: a type with abilities.

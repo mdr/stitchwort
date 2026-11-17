@@ -492,6 +492,34 @@ theorem c (p: Nat -> Prop) (h: ∀ n => p n): ∀ (m: Nat) => m > 0 → p m := m
     assert_eq!(own_lines(pi), own_lines(forall));
 }
 
+/// A group `(a b: T)` is shorthand for `(a: T) (b: T)` (D3679): wherever
+/// it's written, its declarations hash as the split form's, also when a `_`
+/// or an implicit argument in `T` comes out differently for each name.
+/// The split forms live here, not in `examples/`, since `stitchwort fmt`
+/// joins them into groups.
+#[test]
+fn a_group_hashes_as_its_split_form() {
+    let split = "def Box [t: Type]: Type := List t
+def p: Prop := ∀ (x: _) (y: _) => x + 1 = 2 ∧ y = True
+theorem t ∀ (x: _) (y: _) (hx: x = 1) (hy: y = True): x = 1 := hx
+def q: Prop := ∀ (a: Box) (b: Box) => a = [1] ∧ b = [True]
+def f (x: _) (y: _) (hx: x = 1) (hy: y = True): Nat := 0
+def g: (x: _) -> (y: _) -> x = 1 -> y = True -> Nat := x y hx hy => 0
+def h: Nat := ((a: Nat) (b: Nat) => a + b) 1 2
+type Two (a: Type) (b: Type) = | MkTwo (x: a) (y: a) [n: Nat] [m: Nat] (z: b)
+";
+    let grouped = "def Box [t: Type]: Type := List t
+def p: Prop := ∀ (x y: _) => x + 1 = 2 ∧ y = True
+theorem t ∀ (x y: _) (hx: x = 1) (hy: y = True): x = 1 := hx
+def q: Prop := ∀ (a b: Box) => a = [1] ∧ b = [True]
+def f (x y: _) (hx: x = 1) (hy: y = True): Nat := 0
+def g: (x y: _) -> x = 1 -> y = True -> Nat := x y hx hy => 0
+def h: Nat := ((a b: Nat) => a + b) 1 2
+type Two (a b: Type) = | MkTwo (x y: a) [n m: Nat] (z: b)
+";
+    assert_eq!(own_lines(split), own_lines(grouped));
+}
+
 /// A declaration with `match`es in its type and its body: its helpers are
 /// numbered in source order within the owner, the type's first and the
 /// body's after them, so no two share a key (docs/proposals/

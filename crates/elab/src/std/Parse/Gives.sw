@@ -125,6 +125,25 @@ theorem Parse.givesMany ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [ho
     Parse.Gives inv (() => Parse.many p) (List.All holds) :=
   Parse.readsWeaken (Parse.readsMany p _ gives) (read values each => Parse.eachAll each (taken value proved => proved))
 
+--| The rounds of a `loop` that each gave a value that `holds`, when every
+--| `Some` value `spec` allows does: all the values `holds`.
+theorem Parse.roundsAll ∀ [spec: List t → Option a → Prop] [holds: a → Prop] [read: List t] [values: List a]
+    (rounds: Parse.Rounds spec read values)
+    (implies: ∀ (taken: List t) (value: a) => spec taken (Some value) → holds value):
+    List.All holds values :=
+  match values, rounds with
+    | [], _ => ()
+    | [value, ..more], Witness first (Witness rest (Both split (Both nonEmpty (Both holds1 others)))) =>
+      Both (implies first value holds1) (Parse.roundsAll others implies)
+
+--| `loop step` gives values that all `holds`, when `step` gives `None` or
+--| a value that `holds`.
+theorem Parse.givesLoop ∀ [inv: Parse.Invariant t] [step: () → {Parse t} Option a] [holds: a → Prop]
+    (gives: Parse.Gives inv step (Parse.Perhaps holds)):
+    Parse.Gives inv (() => Parse.loop step) (List.All holds) :=
+  Parse.readsWeaken (Parse.readsLoop step _ gives) (read values rounds =>
+    Parse.roundsAll rounds (taken value proved => proved))
+
 --| `many1 p` gives values that all `holds`.
 theorem Parse.givesMany1 ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [holds: a → Prop]
     (gives: Parse.Gives inv p holds):

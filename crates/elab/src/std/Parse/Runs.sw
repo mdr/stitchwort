@@ -130,6 +130,240 @@ theorem Parse.runFromThenBack2 ∀ (p: () → {Parse t} a)
     | Parse.stop u, q => (Result.errNotOk ran).impossible
     | Parse.fatal message, q => (Result.errNotOk ran).impossible
 
+--| `p` failed from `s` (`runFrom s (p(), mark())` gave `Err e`): so does
+--| `k (j (p()))`, with the same failure, whatever `j` and `k` are. The
+--| failure direction of [`Parse.runFromThenBack2`]: nothing between `p` and
+--| the rest handles a failure, so the rest never runs.
+theorem Parse.runFromThenErrBack2Tree ∀ (p: () → {Parse t} a)
+    (tree: Effect.AlwaysTree (x => Unit) (p ()))
+    (s: Parse.State t) (j: a → {Parse t} c) (k: c → {Parse t} b) (e: Parse.Failure)
+    (ran: Parse.runFrom s (() => (p(), Parse.mark())) = Err e):
+    Parse.runFrom s (() => k (j (p()))) = Err e :=
+  match reify p with
+    | return x => (Result.errNotOk (Eq.flipped ran)).impossible
+    | Parse.span passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Parse.runFromThenErrBack2Tree
+            (() => q (s.span passes).fst)
+            (later (s.span passes).fst)
+            (s.span passes).snd
+            j
+            k
+            e
+            ran
+    | Parse.next passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans
+            (Parse.runFromNext s passes (y => k (j (q y))))
+            (Parse.runFromThenErrBack2Tree
+              (() => q (s.next passes).fst)
+              (later (s.next passes).fst)
+              (s.next passes).snd
+              j
+              k
+              e
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran))
+    | Parse.literal literal, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans
+            (Parse.runFromLiteral s literal (y => k (j (q y))))
+            (Parse.runFromThenErrBack2Tree
+              (() => q (s.literal literal).fst)
+              (later (s.literal literal).fst)
+              (s.literal literal).snd
+              j
+              k
+              e
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) ran))
+    | Parse.mark u, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenErrBack2Tree (() => q s.at) (later s.at) s j k e ran
+    | Parse.reset at, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenErrBack2Tree (() => q ()) (later ()) { s | at } j k e ran
+    | Parse.note problem, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenErrBack2Tree (() => q ()) (later ()) (s.note problem) j k e ran
+    | Parse.stop u, q =>
+      let same: s.failure = e :=
+        Eq.cong
+          (r => Result.errorOrElse r e)
+          (Eq.trans (Eq.flipped (Parse.runFromStop s (y => (q y, Parse.mark())))) ran)
+      Eq.trans (Parse.runFromStop s (y => k (j (q y)))) (Eq.cong (x => (Err x: Result b Parse.Failure)) same)
+    | Parse.fatal message, q =>
+      let same: { offset = s.at.offset, messages = [message], expected = [], width = 0 } = e :=
+        Eq.cong
+          (r => Result.errorOrElse r e)
+          (Eq.trans (Eq.flipped (Parse.runFromFatal s message (y => (q y, Parse.mark())))) ran)
+      Eq.trans (Parse.runFromFatal s message (y => k (j (q y)))) (Eq.cong (x => (Err x: Result b Parse.Failure)) same)
+
+--| `p` failed from `s` with `e`: so does `k (j (p()))`. Decomposing a run
+--| of `k (j (p()))` that failed is this, or [`Parse.runFromThenBack2`]'s
+--| success of `p` and a failure of the rest.
+theorem Parse.runFromThenErrBack2 ∀ (p: () → {Parse t} a) (s: Parse.State t) (j: a → {Parse t} c)
+    (k: c → {Parse t} b) (e: Parse.Failure)
+    (ran: Parse.runFrom s (() => (p(), Parse.mark())) = Err e):
+    Parse.runFrom s (() => k (j (p()))) = Err e :=
+  Parse.runFromThenErrBack2Tree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) s j k e ran
+
+--| Two continuations `k1` and `k2` that agree from every state `p` can stop
+--| in (every `after` with the mark `p` ends at) give `k1 (j (p()))` and
+--| `k2 (j (p()))` the same result from `s`, success or failure: if `p`
+--| stops the run the rest never runs, and otherwise it runs from there.
+theorem Parse.runFromThenCongrTree ∀ (p: () → {Parse t} a)
+    (tree: Effect.AlwaysTree (x => Unit) (p ()))
+    (s: Parse.State t) (j: a → {Parse t} c) (k1 k2: c → {Parse t} b)
+    (agree: ∀ (v: a) (after: Parse.State t) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at)
+      → Parse.runFrom after (() => k1 (j v)) = Parse.runFrom after (() => k2 (j v))):
+    Parse.runFrom s (() => k1 (j (p()))) = Parse.runFrom s (() => k2 (j (p()))) :=
+  match reify p with
+    | return x => agree x s byComputing
+    | Parse.span passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Parse.runFromThenCongrTree
+            (() => q (s.span passes).fst)
+            (later (s.span passes).fst)
+            (s.span passes).snd
+            j
+            k1
+            k2
+            agree
+    | Parse.next passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans
+            (Parse.runFromNext s passes (y => k1 (j (q y))))
+            (Eq.trans
+              (Parse.runFromThenCongrTree
+                (() => q (s.next passes).fst)
+                (later (s.next passes).fst)
+                (s.next passes).snd
+                j
+                k1
+                k2
+                (v after ran => agree v after (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran)))
+              (Eq.flipped (Parse.runFromNext s passes (y => k2 (j (q y))))))
+    | Parse.literal literal, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans
+            (Parse.runFromLiteral s literal (y => k1 (j (q y))))
+            (Eq.trans
+              (Parse.runFromThenCongrTree
+                (() => q (s.literal literal).fst)
+                (later (s.literal literal).fst)
+                (s.literal literal).snd
+                j
+                k1
+                k2
+                (v after ran =>
+                  agree v after (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran)))
+              (Eq.flipped (Parse.runFromLiteral s literal (y => k2 (j (q y))))))
+    | Parse.mark u, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenCongrTree (() => q s.at) (later s.at) s j k1 k2 agree
+    | Parse.reset at, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenCongrTree (() => q ()) (later ()) { s | at } j k1 k2 agree
+    | Parse.note problem, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenCongrTree (() => q ()) (later ()) (s.note problem) j k1 k2 agree
+    | Parse.stop u, q =>
+      Eq.trans (Parse.runFromStop s (y => k1 (j (q y)))) (Eq.flipped (Parse.runFromStop s (y => k2 (j (q y)))))
+    | Parse.fatal message, q =>
+      Eq.trans
+        (Parse.runFromFatal s message (y => k1 (j (q y))))
+        (Eq.flipped (Parse.runFromFatal s message (y => k2 (j (q y)))))
+
+--| `k1 (j (p()))` and `k2 (j (p()))` give the same result from `s` when `k1`
+--| and `k2` do from every state `p` can stop in: [`Parse.runFromThenCongrTree`]
+--| without the computation's induction.
+theorem Parse.runFromThenCongr ∀ (p: () → {Parse t} a) (s: Parse.State t) (j: a → {Parse t} c) (k1 k2: c → {Parse t} b)
+    (agree: ∀ (v: a) (after: Parse.State t) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at)
+      → Parse.runFrom after (() => k1 (j v)) = Parse.runFrom after (() => k2 (j v))):
+    Parse.runFrom s (() => k1 (j (p()))) = Parse.runFrom s (() => k2 (j (p()))) :=
+  Parse.runFromThenCongrTree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) s j k1 k2 agree
+
+--| Two continuations `k1` and `k2` that agree from every state `p` can stop
+--| in (every `after` with the mark `p` ends at) give `k1 (p())` and
+--| `k2 (p())` the same result from `s`, success or failure ([`Parse.runFromThenCongrTree`]
+--| with one continuation).
+theorem Parse.runFromThenCongr1Tree ∀ (p: () → {Parse t} a)
+    (tree: Effect.AlwaysTree (x => Unit) (p ()))
+    (s: Parse.State t) (k1 k2: a → {Parse t} b)
+    (agree: ∀ (v: a) (after: Parse.State t) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at)
+      → Parse.runFrom after (() => k1 v) = Parse.runFrom after (() => k2 v)):
+    Parse.runFrom s (() => k1 (p())) = Parse.runFrom s (() => k2 (p())) :=
+  match reify p with
+    | return x => agree x s byComputing
+    | Parse.span passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Parse.runFromThenCongr1Tree
+            (() => q (s.span passes).fst)
+            (later (s.span passes).fst)
+            (s.span passes).snd
+            k1
+            k2
+            agree
+    | Parse.next passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans
+            (Parse.runFromNext s passes (y => k1 (q y)))
+            (Eq.trans
+              (Parse.runFromThenCongr1Tree
+                (() => q (s.next passes).fst)
+                (later (s.next passes).fst)
+                (s.next passes).snd
+                k1
+                k2
+                (v after ran => agree v after (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran)))
+              (Eq.flipped (Parse.runFromNext s passes (y => k2 (q y)))))
+    | Parse.literal literal, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans
+            (Parse.runFromLiteral s literal (y => k1 (q y)))
+            (Eq.trans
+              (Parse.runFromThenCongr1Tree
+                (() => q (s.literal literal).fst)
+                (later (s.literal literal).fst)
+                (s.literal literal).snd
+                k1
+                k2
+                (v after ran =>
+                  agree v after (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran)))
+              (Eq.flipped (Parse.runFromLiteral s literal (y => k2 (q y)))))
+    | Parse.mark u, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenCongr1Tree (() => q s.at) (later s.at) s k1 k2 agree
+    | Parse.reset at, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenCongr1Tree (() => q ()) (later ()) { s | at } k1 k2 agree
+    | Parse.note problem, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromThenCongr1Tree (() => q ()) (later ()) (s.note problem) k1 k2 agree
+    | Parse.stop u, q =>
+      Eq.trans (Parse.runFromStop s (y => k1 (q y))) (Eq.flipped (Parse.runFromStop s (y => k2 (q y))))
+    | Parse.fatal message, q =>
+      Eq.trans
+        (Parse.runFromFatal s message (y => k1 (q y)))
+        (Eq.flipped (Parse.runFromFatal s message (y => k2 (q y))))
+
+--| [`Parse.runFromThenCongr`] with one continuation: `k1 (p())` and
+--| `k2 (p())` give the same result from `s` when `k1` and `k2` do from every
+--| state `p` can stop in.
+theorem Parse.runFromThenCongr1 ∀ (p: () → {Parse t} a) (s: Parse.State t) (k1 k2: a → {Parse t} b)
+    (agree: ∀ (v: a) (after: Parse.State t) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at)
+      → Parse.runFrom after (() => k1 v) = Parse.runFrom after (() => k2 v)):
+    Parse.runFrom s (() => k1 (p())) = Parse.runFrom s (() => k2 (p())) :=
+  Parse.runFromThenCongr1Tree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) s k1 k2 agree
+
 --| The same for `optionalFrom start q` where `q` succeeds: `k (j (Some v))`
 --| follows. The converse of [`Parse.runFromOptionalFromOk2`] for the `Some` case.
 theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse t} a)
@@ -1420,6 +1654,144 @@ theorem Parse.readsBeforeCallsNext ∀ (passes: t → Bool) (nested: t → b →
             let fewer: (state.advance after 1).at.left < state.at.left := arithmetic [honest]
             agree (nested item argument) (state.advance after 1) advancedHonest fewer
           | False => byComputing
+
+--| What a body's rest, `finish self argument value`, needs for
+--| [`Parse.ReadsBeforeCalls`]: it depends on `self` only at the honest states
+--| that have no more items left than the one it starts from, so two nested
+--| parsers that agree there give the same result. Any rest whose calls
+--| come after it reads, never before it has moved back, is such a rest.
+def Parse.CallsAhead (finish: (b → {Parse t} a) → b → c → {Parse t} a): Prop :=
+  ∀ (self1 self2: b → {Parse t} a) (argument: b) (value: c) (state: Parse.State t) => state.at.left
+    = state.at.rest.length
+    → (∀ (inner: b) (later: Parse.State t) => later.at.left = later.at.rest.length
+      → later.at.left ≤ state.at.left
+      → Parse.runFrom later (() => self1 inner) = Parse.runFrom later (() => self2 inner))
+    → Parse.runFrom state (() => finish self1 argument value) = Parse.runFrom state (() => finish self2 argument value)
+
+--| A body that reads through `reader` before the rest `finish` (which
+--| calls `self`, as [`Parse.CallsAhead`] says) reads [`Parse.ReadsBeforeCalls`],
+--| when every success of `reader` from an honest state ends at an honest
+--| state with fewer items left: each call of `self` is then at such a
+--| state. This is the general form of [`Parse.readsBeforeCallsNext`], for
+--| a reader that is any parser; [`Parse.movesOfReads`] gives the `moves` from
+--| what `reader` is known to read.
+theorem Parse.readsBeforeCallsThen ∀ (reader: b → {Parse t} c) (finish: (b → {Parse t} a) → b → c → {Parse t} a)
+    (moves: ∀ (argument: b) (state: Parse.State t) (value: c) (after: Parse.State t) => state.at.left
+      = state.at.rest.length
+      → Parse.runFrom state (() => (reader argument, Parse.mark())) = Ok (value, after.at)
+      → after.at.left = after.at.rest.length ∧ after.at.left < state.at.left)
+    (calls: Parse.CallsAhead finish):
+    Parse.ReadsBeforeCalls (self argument => finish self argument (reader argument)) :=
+  self1 self2 argument state honest agree =>
+    Parse.runFromThenCongr1
+      (() => reader argument)
+      state
+      (x => finish self1 argument x)
+      (x => finish self2 argument x)
+      (value after ran =>
+        match moves argument state value after honest ran with
+          | Both afterHonest fewer =>
+            calls self1 self2 argument value after afterHonest (inner later laterHonest atMost =>
+              agree inner later laterHonest (arithmetic [fewer, atMost])))
+
+--| A reader that [`Parse.Reads`] something non-empty on every success
+--| moves: from an honest state it ends at an honest state with fewer items
+--| left. The `moves` of [`Parse.readsBeforeCallsThen`].
+theorem Parse.movesOfReads ∀ (reader: b → {Parse t} c) (spec: b → List t → c → Prop)
+    (reads: ∀ (argument: b) => Parse.Reads (() => reader argument) (spec argument))
+    (nonEmpty: ∀ (argument: b) (read: List t) (value: c) => spec argument read value → read ≠ []):
+    ∀ (argument: b) (state: Parse.State t) (value: c) (after: Parse.State t) => state.at.left = state.at.rest.length
+      → Parse.runFrom state (() => (reader argument, Parse.mark())) = Ok (value, after.at)
+      → after.at.left = after.at.rest.length ∧ after.at.left < state.at.left :=
+  argument state value after honest ran =>
+    match reads argument state.at
+      { holds = Trivial }
+      (state.at.offset + state.at.left)
+      state
+      value
+      after.at
+      byComputing
+      (Parse.honestOf honest)
+      ran with
+      | Witness read (Both starts (Both afterHonest holds)) =>
+        let lengths: state.at.rest.length = read.length + after.at.rest.length :=
+          rewrite starts then List.lengthAppend read after.at.rest
+        match read with
+          | [] => (nonEmpty argument [] value holds byComputing).impossible
+          | [char, ..more] =>
+            Both afterHonest.left (arithmetic [lengths, honest, afterHonest.left, List.lengthAppend more after.at.rest])
+
+--| More fuel gives `loopFrom` the same result: for a `step` that
+--| [`Parse.Reads`] something (which keeps the marks honest, so that a round
+--| that goes on has fewer items left), from an honest state with fewer
+--| items left than `fuel1`, a larger `fuel2` runs to the same `Ok` or `Err`,
+--| whatever `found` is. `loop`'s fuel, the items left and one more, is such
+--| a fuel, so is any more.
+-- By induction on the fuel: a round of either run is `step` and then the
+-- same decision, to stop or to go on from a mark with fewer items left,
+-- where the fuel left is still more than that.
+theorem Parse.loopFromEnough ∀ [spec: List t → Option a → Prop] (step: () → {Parse t} Option a)
+    (reads: Parse.Reads step spec):
+    ∀ (fuel1 fuel2: Nat) (found: List a) (state: Parse.State t) => state.at.left = state.at.rest.length
+      → state.at.left < fuel1
+      → fuel1 ≤ fuel2
+      → Parse.runFrom state (() => Parse.loopFrom fuel2 step found state.at)
+        = Parse.runFrom state (() => Parse.loopFrom fuel1 step found state.at)
+  | Zero, fuel2, found, state, honest, enough, atLeast => Void.impossible (arithmetic [enough])
+  | Succ more1, Zero, found, state, honest, enough, atLeast => Void.impossible (arithmetic [atLeast])
+  | Succ more1, Succ more2, found, state, honest, enough, atLeast =>
+    Parse.runFromThenCongr1 step state
+      (result => Parse.loopRound more2 step found state.at result)
+      (result => Parse.loopRound more1 step found state.at result)
+      (v after ran =>
+        match reads state.at
+          { holds = Trivial }
+          (state.at.offset + state.at.left)
+          state
+          v
+          after.at
+          byComputing
+          (Parse.honestOf honest)
+          ran with
+          | Witness read (Both starts (Both afterHonest holds)) =>
+            match v with
+              | None => byComputing
+              | Some x =>
+                let moved := Parse.honestMoved (Parse.honestOf honest) afterHonest starts
+                let lengths: state.at.rest.length = read.length + after.at.rest.length :=
+                  rewrite starts then List.lengthAppend read after.at.rest
+                match isMore: after.at.offset > state.at.offset with
+                  | True =>
+                    let fewer: after.at.left < state.at.left := match read with
+                      | [] => Void.impossible (arithmetic [isMore, moved])
+                      | [char, ..others] =>
+                        arithmetic [lengths, honest, afterHonest.left, List.lengthAppend others after.at.rest]
+                    Parse.loopFromEnough step reads more1 more2
+                      [x, ..found]
+                      after
+                      afterHonest.left
+                      (arithmetic [enough, fewer])
+                      (arithmetic [atLeast])
+                  | False => byComputing)
+
+--| `loop` itself, whose fuel is the items left and one more, gives what any
+--| larger fuel gives, for a `step` that [`Parse.Reads`] something.
+theorem Parse.loopFuelMore ∀ [spec: List t → Option a → Prop] (step: () → {Parse t} Option a)
+    (reads: Parse.Reads step spec)
+    (more: Nat) (state: Parse.State t)
+    (honest: state.at.left = state.at.rest.length):
+    Parse.runFrom state (() => Parse.loopFrom (state.at.left + 1 + more) step [] state.at)
+      = Parse.runFrom state (() => Parse.loop step) :=
+  Eq.trans
+    (Parse.loopFromEnough step reads
+      (state.at.left + 1)
+      (state.at.left + 1 + more)
+      []
+      state
+      honest
+      (arithmetic [])
+      (arithmetic []))
+    (Eq.flipped (Parse.runFromMark state (at => Parse.loopFrom (at.left + 1) step [] at)))
 
 --| `Parse.runsRecursiveWithFuel`, where `step` also has a fact about the
 --| nested parser, one that holds of every level but the innermost (which is
