@@ -15,6 +15,7 @@ theorem lem ∀ (slot: Slot) (k: isNone slot.field = True): Holds slot.field k :
 
 theorem pfL ∀ (slot: Slot) (q: slot.field = None): isNone slot.field = True := rewrite q then byComputing
 
-theorem use ∀ (slot: Slot) (q: slot.size = 0): slot.field = None → Holds None byComputing := match field: slot.field with
-  | None => _ => lem slot (pfL slot _)
-  | Some n => h => (Option.noneNotSome n h.flipped).impossible
+theorem use ∀ (slot: Slot) (q: slot.size = 0): slot.field = None → Holds None byComputing :=
+  match field: slot.field with
+    | None => _ => lem slot (pfL slot _)
+    | Some n => h => (Option.noneNotSome n h.flipped).impossible

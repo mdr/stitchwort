@@ -101,7 +101,9 @@ theorem Prs.readsThen ∀ [p: () → {Prs} a] [j: a → {Prs} b] [first: List Ch
               | Witness nextRead (Both starts2 holds2) =>
                 Witness
                   (firstRead ++ nextRead)
-                  (Both (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest then byComputing) holds2)
+                  (Both
+                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest then byComputing)
+                    holds2)
 
 theorem Prs.readsDone ∀ (x: a) (spec: List Char → a → Prop) (holds: spec [] x): Prs.Reads (() => x) spec :=
   state value after h =>
