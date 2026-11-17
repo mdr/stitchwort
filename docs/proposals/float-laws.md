@@ -926,6 +926,21 @@ needs the representability of whole numbers below 2^53 at any exponent), `rem`'s
 (`|x % y| < |y|`: the remainder is exact, but proving it is representable needs the same grid
 argument), and the negative whole numbers for exact `/ 10.0` (`ofInt`).
 
+**Representability (SW-3805).** `Float.Theory.roundGrid`: `±q × 2^e` units, for `q ≤ 2^53` and below
+2^2098 units, round to a finite double with exactly those units, whatever the zero sign: the pattern is
+`q`'s own, doubled `e` times (`doubleBits`, one exponent up, or a subnormal's bits doubled).
+`roundWholeUnits` is its case `n × 2^1074` for a whole `|n| ≤ 2^53`, and `combinationExact` its use
+for differences: a whole number `r` of units with `r + k × B = j × A`, at most both `A` and `B` (two
+finite doubles' units), is a double, since both are multiples of 2^E for the smaller exponent `E`
+and `r` is at most that one's significand. Laws from it: `Float.ltFloorAddOne` (`x < floor x + 1.0`
+for `|x| < 2^53`), `Float.ceilSubOneLt` (`ceil x - 1.0 < x`; `ceil x < x + 1.0` is false, since
+`x + 1.0` rounds: at `x` = 2^-60 both are `1.0`), `Float.remAbsLt` (`|x % y| < |y|` for finite `x`
+and finite nonzero `y`), `Float.remNonneg` and `Float.remNonpos` (the remainder keeps `x`'s sign),
+and Sterbenz's lemma `Float.sterbenz` (positive finite `x`, `y` with `x <= y + y` and `y <= x + x`:
+`units (x - y) = units x - units y`). With `Float.Theory.addAtLeast` and `addAtMost` (a sum whose
+exact value lies between two finite doubles' lies between them in the total order) they prove
+Whereabouts' `wrap` ∈ [-180, 180) for every finite input.
+
 Stages 3 and 4 have no program waiting for them; they can wait for one, but leaving a mix of
 "definition" and "primitive with rule" is a permanent two-mechanism cost, so doing them soon after
 is reasonable [inferred].
