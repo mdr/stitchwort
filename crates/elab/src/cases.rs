@@ -110,8 +110,8 @@
 //!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
-//! copy of each, as generalising copies them). More than [`CASES`] cases is
-//! `E-CASES-BUDGET`.
+//! copy of each, as generalising copies them). More than [`CASES`] cases, or
+//! more than [`STEPS`] evaluation steps, is `E-CASES-BUDGET`.
 
 use num_bigint::BigUint;
 use std::cell::{Cell, RefCell};
@@ -140,6 +140,18 @@ pub(crate) const CASES: usize = 64;
 /// Some WordLexeme`) takes about a hundred, every one of them needed.
 const THRIFTY_CASES: usize = 4 * CASES;
 
+/// The most evaluation steps one try of a `cases` takes, its closers and
+/// splits together; past them there is no second try. A case whose goal
+/// holds a large computation stuck on a variable (a level's whole 20 by 66
+/// terrain, each cell waiting for the level) costs millions of steps to
+/// search and to split, so the [`CASES`]-case budget alone let a wrong
+/// proof run for over 15 minutes (SW-3846). The most any `cases` in the
+/// toy formatter's proofs, the roguelike's and the `cases` examples took
+/// was 5.6 million (17 Nov 2026). Most of a search's time isn't counted
+/// as steps (reading values back, comparing them), so these 20 million
+/// take a few seconds.
+const STEPS: u64 = 20_000_000;
+
 /// The prefix of the names the split equations are bound to: not one a
 /// program can write.
 const EQUATION: &str = "%case";
@@ -163,6 +175,9 @@ pub(crate) struct Run {
     /// Set when the budget ran out because a case was too large to split
     /// ([`SPLIT_READ_BACK_NODES`]), not because of the number of cases.
     over_size: Cell<bool>,
+    /// Set when the budget ran out because the cases took more than
+    /// [`STEPS`] evaluation steps between them.
+    over_steps: Cell<bool>,
     /// The split that exceeded the budget, `x : T`, when it was a fallback.
     over_fallback: RefCell<Option<String>>,
     /// Whether an `Int` was split into its constructors (`OfNat`, `NegSucc`).
@@ -326,6 +341,7 @@ fn attempt_once(
         closed: RefCell::new(Closed::default()),
         over: Cell::new(false),
         over_size: Cell::new(false),
+        over_steps: Cell::new(false),
         over_fallback: RefCell::new(None),
         atom_types: RefCell::new(Vec::new()),
         over_finite: RefCell::new(None),
@@ -337,7 +353,21 @@ fn attempt_once(
     });
     let saved = cx.cases.replace(run.clone());
     let errors = cx.e.attempt.branch_errors.borrow().len();
-    let result = node(cx, &run, expected);
+    let g = cx.g();
+    let mut steps = STEPS;
+    let result = match g
+        .machine
+        .budget
+        .limited(&mut steps, || node(cx, &run, expected))
+    {
+        Ok(Some(term)) => Ok(term),
+        Ok(None) => {
+            run.over.set(true);
+            run.over_steps.set(true);
+            Err(Diagnostic::error("E-CASES-BUDGET", "over budget"))
+        }
+        Err(e) => Err(e),
+    };
     cx.cases = saved;
     let error = match result {
         Ok(term) => return Ok(term),
@@ -349,7 +379,9 @@ fn attempt_once(
     let others = cx.e.attempt.branch_errors.borrow().len() - errors;
     cx.e.attempt.branch_errors.borrow_mut().truncate(errors);
     if run.over.get() {
-        out_of_cases.set(!run.over_size.get());
+        // A case too large to split, or cases too costly to search, would
+        // be as large and as costly on the second try.
+        out_of_cases.set(!run.over_size.get() && !run.over_steps.get());
         return Err(budget_error(&run));
     }
     let closed = run.closed.borrow();
@@ -374,7 +406,12 @@ fn attempt_once(
 
 fn budget_error(run: &Run) -> Diagnostic {
     let atoms = run.atoms.borrow();
-    let message = if run.over_size.get() {
+    let message = if run.over_steps.get() {
+        format!(
+            "`cases` took more than {} evaluation steps without closing every case",
+            stitchwort_core::budget::with_commas(STEPS)
+        )
+    } else if run.over_size.get() {
         "`cases` made a case too large to split: its goal and hypotheses, written out in \
          full, have more than a million parts"
             .to_string()
