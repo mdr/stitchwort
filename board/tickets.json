@@ -1,5 +1,5 @@
 {
-  "next": 3903,
+  "next": 3908,
   "tickets": [
     {
       "id": 47,
@@ -22681,7 +22681,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22910,12 +22910,77 @@
     {
       "id": 3902,
       "title": "[Opus paper] Self-hosted formatter F2/stage 5 plan: list what crates/fmt engine.rs does that the toy's Doc (tools/toyfmt/src/Toy/Doc) doesn't, and how the toy's 302 theorems carry over into Std.Doc; decide SW-3884 (comment-free meaning: dump vs blanking map) by proof cost; a staged plan with estimates from past actuals",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Estimate: 35 min (Opus paper). Started 20:49.\n\nDone (Opus, 17 Nov 2026, about 25 min): docs/proposals/self-hosted-fmt-engine-plan.md. 15 Rust engine features the toy lacks, 13 needed for byte identity (2 high proof cost: Mark/CloserLine, TextBlock). The toy's three deliberate differences and a fourth found here (held spaces uncounted in the measure) are all Rust measure-vs-printer bugs: fix in Rust (R0) under D3677 after counting changed outputs; Std.Doc follows Rust on the toy's four simplifications (flat Line after a comment, held spaces, comment floor vs CommentEnd, before_code at line start). Copy (not move) Toy.Doc, grow it in tools/fmt with open goals, into std when closed. SW-3884: (b), a blanking map applied before the steps; top theorem gets meaning by congruence. Stages R0, E0-E6 (about 5.5 agent hours, about 140-180 new theorems on top of 302), with an engine-only harness (Rust dev doc dump, Twin --stage engine) before any rule is ported.",
+      "body": "Estimate: 35 min (Opus paper). Started 20:49.\n\nDone (Opus, 17 Nov 2026, about 25 min): docs/proposals/self-hosted-fmt-engine-plan.md. 15 Rust engine features the toy lacks, 13 needed for byte identity (2 high proof cost: Mark/CloserLine, TextBlock). The toy's three deliberate differences and a fourth found here (held spaces uncounted in the measure) are all Rust measure-vs-printer bugs: fix in Rust (R0) under D3677 after counting changed outputs; Std.Doc follows Rust on the toy's four simplifications (flat Line after a comment, held spaces, comment floor vs CommentEnd, before_code at line start). Copy (not move) Toy.Doc, grow it in tools/fmt with open goals, into std when closed. SW-3884: (b), a blanking map applied before the steps; top theorem gets meaning by congruence. Stages R0, E0-E6 (about 5.5 agent hours, about 140-180 new theorems on top of 302), with an engine-only harness (Rust dev doc dump, Twin --stage engine) before any rule is ported.\n\nModel result: opus, worked, 8 min (est. 35). Orchestrator's calls taken as recommended: the toy's three measure differences are Rust bugs (fix both, D3677 allows bug fixes); keep Closing, drop Shared; copy-then-grow; SW-3884 = (b); engine-only harness first. Stages filed: SW-3903 SW-3904 SW-3905. Findings SW-3906 SW-3907.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3903,
+      "title": "[Sonnet] Engine R0: fix the four measure bugs in crates/fmt's engine (line indent at a second comment break, real width in fits_flat, the waiting comment in a broken fill's first item, spaces held before a closer), each with a golden; count changed outputs over goldens and the repo; if many change or any looks worse, stop for a D question (docs/proposals/self-hosted-fmt-engine-plan.md, SW-3902)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3904,
+      "title": "[Sonnet] Engine E0: copy Toy.Doc and its 302 theorems into tools/fmt/src/Doc as the start of Std.Doc (docs/proposals/self-hosted-fmt-engine-plan.md stage E0)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3905,
+      "title": "[Sonnet] Engine E1: stitchwort dev doc writes each declaration's layout document; Fmt.Twin --stage engine prints and compares it (docs/proposals/self-hosted-fmt-engine-plan.md stage E1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3906,
+      "title": "[DeepSeek] crates/fmt engine.rs: say in a comment that NarrowGroup's width limit is ignored inside a measure, if that's intended (check); check Text.length counts characters like Rust's chars().count() (SW-3902 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3907,
+      "title": "[DeepSeek] board results --epic E: list Model result lines (actual vs estimate) for an epic's closed tickets (SW-3902 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
