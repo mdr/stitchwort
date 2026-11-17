@@ -1,5 +1,5 @@
 {
-  "next": 3846,
+  "next": 3847,
   "tickets": [
     {
       "id": 47,
@@ -22172,6 +22172,19 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3846,
+      "title": "[Opus] A wrong proof can cost over 2e9 evaluation steps before failing: soundness-fuzz mutant 3100-2893-3 of Rogue terrainColumns (games/rogue Proofs/Bounds.sw) ran 15 min alone, still unfolding Nat.add (limit 1e10). Find why the elaborator evaluates so far on a wrong proof and fail early with the real error. Reproducer in Overmind's scratchpad chain/filler/sound6-0x3100-expensive/3100-2893-3-expensive.sw (copy it into the repo first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
