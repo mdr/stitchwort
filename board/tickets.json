@@ -22050,12 +22050,12 @@
     {
       "id": 3836,
       "title": "[Opus] Self-hosted formatter stage 2b: declarations, headers and types; --stage tree and refusal; the shared traversal (sketch item 6), one parameter-group constructor (8) if the dump allows, fuel (13); whole-file timing with a profile before any speed change (self-hosted-fmt.md §8, SW-3819 report)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 60 min (orchestrator's brief). Started 16:04.\n\nProgress (lane, 17 Nov):\n- 16:35 done, commit d6f1d2852 on lane/SW-3836: declarations, headers, types (FunctionType, Effect/Row), file loop, --stage tree and refusal; Group (one constructor, kind tag); traversal (Traverse.sw); the lowering's three checks as Decl -> Option Text (Lowering.sw); fuel note. Details in tools/fmt/NOTES.md, stage 2b.\n- Gate: every honest-subset file identical (tree: goldens 78/124, repo 125/300 sampled, fuzz 206/235; refusal same, plus 683/687 broken copies: 3 not parsed yet, 1 mismatched-bracket difference). Not parsed yet: a block's let 117, rewrite 61, cases 12, ...\n- Speed: 972 subset files (1.50 MB), tree stage 4.5 s = 3.0 s/MB, peak 48 MB, load ~5.\n- Tests: Syntax.Tests.Decls (13, new), Exprs (7), Tokens (9) pass.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
