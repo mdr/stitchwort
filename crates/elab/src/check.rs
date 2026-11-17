@@ -2833,7 +2833,9 @@ fn infer_typed_lambda(
     body: &Expr,
 ) -> Result<(Term, Value)> {
     let icit = mode_icit(mode);
+    let metas_from = cx.metas().metas.borrow().len();
     let (dom, _) = check_type(cx, ann)?;
+    annotation_metas_may_ignore(cx, metas_from);
     let dom = cx.eval(&dom)?;
     let (row, row_value) = inferred_row(cx)?;
     let mark = cx.mark();
@@ -5699,6 +5701,35 @@ pub(crate) fn implicit_arg_for_call(
             });
     }
     meta
+}
+
+/// The unknowns made while checking a lambda's parameter type (`Box`'s
+/// type argument in `(a: Box) (b: Box) => …`), from `metas_from` on: each
+/// may be solved ignoring a variable it's applied to that neither its type
+/// nor another variable's type mentions, where that argument isn't a
+/// variable (`Meta::ignorable`). The unknown in `b`'s type is applied to
+/// `a`; once the lambda is applied to `[1]` and `[True]`, `?t [1] = Bool`
+/// has no solution of the usual pattern form, but `_ => Bool` is one, and
+/// nothing written in `b`'s type asks for more (SW-3890). An unknown whose
+/// type isn't recorded, or that was made under binders of the annotation's
+/// own, is left alone.
+fn annotation_metas_may_ignore(cx: &Ctx, metas_from: usize) {
+    let made: Vec<(usize, Value, usize)> = cx.metas().metas.borrow()[metas_from..]
+        .iter()
+        .enumerate()
+        .filter(|(_, meta)| meta.solution.is_none() && meta.ignorable.is_none())
+        .filter_map(|(i, meta)| {
+            let (ty, arity) = meta.ty.clone()?;
+            Some((metas_from + i, ty, arity))
+        })
+        .collect();
+    for (m, ty, arity) in made {
+        if let Some(ignorable) = ignorable_arguments(cx, &ty)
+            && ignorable.len() == arity
+        {
+            cx.metas().set_meta_ignorable(m, ignorable);
+        }
+    }
 }
 
 /// For an `auto` argument's unknown proof of `goal`, made by
