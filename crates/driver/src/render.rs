@@ -81,6 +81,27 @@ fn highlight_rows(note: &str) -> String {
     )
 }
 
+/// `diagnostic` with each generic note ([`Diagnostic::with_generic_note`])
+/// that `seen` already holds replaced by a short pointer back to its first
+/// printing; the others are added to `seen`. For the command line's text
+/// output, once per run: the index and the editor keep every note.
+pub fn with_repeated_generic_notes_cut(
+    diagnostic: &Diagnostic,
+    seen: &mut stitchwort_core::collections::HashSet<String>,
+) -> Diagnostic {
+    let mut d = diagnostic.clone();
+    for note in &mut d.notes {
+        if !diagnostic.is_generic_note(note) || seen.insert(note.clone()) {
+            continue;
+        }
+        let words = note.split_whitespace().count();
+        let tag: Vec<&str> = note.split_whitespace().take(4).collect();
+        let more = if tag.len() < words { "…" } else { "" };
+        *note = format!("(see the note above: \"{}{more}\")", tag.join(" "));
+    }
+    d
+}
+
 /// Renders `diagnostic` as text. Pass `color: false` for snapshots and pipes.
 pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> String {
     let palette = palette::current();
@@ -440,6 +461,30 @@ fn shown_name(name: &str, text: &str) -> String {
 mod tests {
     use super::*;
     use stitchwort_syntax::Span;
+
+    #[test]
+    fn repeated_generic_notes_point_back_and_the_original_keeps_them() {
+        let explain = "a call is in tail position when its result is the function's result";
+        let make = || {
+            Diagnostic::error("E-TAIL", "not a tail call")
+                .with_generic_note(explain)
+                .with_note("`f` isn't in tail position")
+        };
+        let mut seen = stitchwort_core::collections::HashSet::default();
+        let first = with_repeated_generic_notes_cut(&make(), &mut seen);
+        assert_eq!(first.notes, make().notes);
+        let original = make();
+        let second = with_repeated_generic_notes_cut(&original, &mut seen);
+        assert_eq!(
+            second.notes,
+            [
+                "(see the note above: \"a call is in…\")".to_string(),
+                "`f` isn't in tail position".to_string()
+            ]
+        );
+        // What the index and the editor read is the diagnostic itself.
+        assert_eq!(original.notes[0], explain);
+    }
 
     #[test]
     fn renders_labels_and_notes() {

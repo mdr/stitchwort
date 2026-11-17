@@ -2625,12 +2625,12 @@ fn nothing_found(
         // terms, which have nothing to do with it.
         error.notes.insert(0, direction.to_string());
     } else {
-        error = error.with_note(
+        error = error.with_generic_note(
             "occurrences are looked for by their outer function and compared by computing; one \
              that uses a variable bound inside a function argument is rewritten through the \
              congruence lemma of the call the function is passed to",
         );
-        error = error.with_note(direction);
+        error = error.with_generic_note(direction);
         if found.bound > 0 {
             error = error.with_note(if open {
                 "some had the right outer function but use a variable bound inside the goal \

@@ -28,7 +28,7 @@ expression: output
     │ 
     │ Note 2: the goal already holds by computing, so `byComputing` proves it without a `rewrite`
     │ 
-    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ Note 3: (see the note above: "occurrences are looked for…")
     │ 
-    │ Note 4: to replace the right side by the left, write `rewrite <- …`
+    │ Note 4: (see the note above: "to replace the right…")
 ────╯

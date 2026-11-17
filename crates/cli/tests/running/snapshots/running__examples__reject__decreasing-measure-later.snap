@@ -18,5 +18,5 @@ expression: output
     │                                            ───┬──  
     │                                               ╰──── expected `Nat`, but this has type `Text`
     │ 
-    │ Note: the measure after `decreasing` is a `Nat` that gets smaller at every recursive call
+    │ Note: (see the note above: "the measure after `decreasing`…")
 ────╯

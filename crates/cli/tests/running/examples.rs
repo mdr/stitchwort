@@ -24,7 +24,7 @@ use crate::common;
 
 use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};
-use stitchwort_cli::render::render;
+use stitchwort_cli::render::{render, with_repeated_generic_notes_cut};
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 
 const KNOWN_GAP: &str = "-- known-gap";
@@ -181,10 +181,16 @@ fn check(example: &Example) -> (SourceMap, Result<(), Vec<Diagnostic>>) {
     (session.sources, result)
 }
 
+/// The command line's text output for one run: a generic note is printed in
+/// full the first time only.
 fn rendered(sources: &SourceMap, diagnostics: &[Diagnostic]) -> String {
+    let mut seen = stitchwort_core::collections::HashSet::default();
     diagnostics
         .iter()
-        .map(|diagnostic| render(sources, diagnostic, false))
+        .map(|diagnostic| {
+            let diagnostic = with_repeated_generic_notes_cut(diagnostic, &mut seen);
+            render(sources, &diagnostic, false)
+        })
         .collect()
 }
 

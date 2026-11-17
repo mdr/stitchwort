@@ -314,7 +314,7 @@ fn refutable(
     };
     Diagnostic::error("E-LET-REFUTABLE", message)
         .with_label(span, format!("doesn't match {what}"))
-        .with_note("use `match` to say what happens otherwise")
+        .with_generic_note("use `match` to say what happens otherwise")
 }
 
 /// A `match` that is the whole right-hand side of an equation, in its case
@@ -1835,7 +1835,7 @@ fn not_found(
                  `{goal_normal_shown}`, which doesn't contain it"
             ));
         }
-        warning = warning.with_note(
+        warning = warning.with_generic_note(
             "the search compares what terms compute to: write the expression as the goal \
              shows it (or `rewrite` the goal to the form you want, or bind it with a `let` \
              before the `match`)",

@@ -66,7 +66,7 @@ try: write ∀ instead of ->
     │ 
     │ Note 2: goal: n = 4
     │ 
-    │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
+    │ Note 3: (see the note above: "the goal isn't stuck…")
     │ 
     │ Note 4: this statement is false; a counterexample:
     │           n = 3

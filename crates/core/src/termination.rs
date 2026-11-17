@@ -1110,12 +1110,12 @@ fn no_descent(
         diagnostic = diagnostic.with_note(note);
     }
     diagnostic
-        .with_note(
+        .with_generic_note(
             "however the recursive calls are repeated, some argument must get smaller (a part of \
              a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its \
              own pattern, is no smaller",
         )
-        .with_note(
+        .with_generic_note(
             "non-terminating definitions are rejected unless they're partial: `{Partial}` in the \
              result type. A depth limit keeps it total and provable: an extra `fuel: Nat` \
              argument that decreases on each call, failing (or returning a default) when it runs \

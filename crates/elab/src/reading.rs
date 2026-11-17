@@ -1370,7 +1370,7 @@ pub(crate) fn no_reading(
                     cx.show(&found.prop)
                 ));
             }
-            d.with_note(
+            d.with_generic_note(
                 "a test fact can always be matched by a name, and `.read` gives the proposition",
             )
         }

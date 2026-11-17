@@ -319,7 +319,7 @@ fn check_literal_with(
     match classify(cx, expected)? {
         Class::Num(Kind::Nat) if negative => Err(negative_nat()
             .with_label(cx.span, "this is negative, but a `Nat` is expected here")
-            .with_note("use an `Int` for numbers that can be negative")),
+            .with_generic_note("use an `Int` for numbers that can be negative")),
         Class::Num(Kind::Nat) => Ok(Term::Nat(shared())),
         Class::Num(Kind::Int) => int_literal(cx, k, negative),
         Class::Num(Kind::Float) => float_term(cx, whole_bits(cx, k, negative)?, negative),
@@ -343,7 +343,7 @@ fn check_literal_with(
             let found = num_type(cx, if negative { Kind::Int } else { Kind::Nat })?;
             let e = cx
                 .mismatch(expected, &found)
-                .with_note("a numeral can only be the prelude's `Nat` or `Int`");
+                .with_generic_note("a numeral can only be the prelude's `Nat` or `Int`");
             // Where the type has `Add` (generic code, a user's `Point`), say
             // what to write instead (docs/proposals/interfaces.md §5.13).
             if let Some(add) = crate::interfaces::library_interface(cx.e, "Std.Add")
@@ -1091,7 +1091,7 @@ fn group_with(
                         span,
                         "this `-` needs an `Int`, but a `Nat` is expected here",
                     )
-                    .with_note("use an `Int` for numbers that can be negative"));
+                    .with_generic_note("use an `Int` for numbers that can be negative"));
             }
             Some(_) => {}
         }

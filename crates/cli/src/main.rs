@@ -5401,7 +5401,16 @@ fn relative_path(from: &Path, path: &Path) -> String {
 fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
     let color = color_on_stderr();
     let full_goals = FULL_GOALS.load(std::sync::atomic::Ordering::Relaxed);
+    static SEEN_NOTES: std::sync::Mutex<Option<stitchwort_core::collections::HashSet<String>>> =
+        std::sync::Mutex::new(None);
     for diagnostic in diagnostics {
+        let diagnostic = &stitchwort_cli::render::with_repeated_generic_notes_cut(
+            diagnostic,
+            SEEN_NOTES
+                .lock()
+                .unwrap()
+                .get_or_insert_with(Default::default),
+        );
         if diagnostic.code == "GOAL" && !full_goals {
             let cut = stitchwort_cli::render::with_long_goal_lines_cut(
                 diagnostic,

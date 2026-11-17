@@ -59,6 +59,9 @@ pub struct Detail {
     /// declaration is checked again with the fact built there
     /// (docs/proposals/bool-as-proposition-building.md §2.2).
     pub build: Option<BuildSite>,
+    /// The notes that explain a concept in the same words whatever the
+    /// error's specifics (see [`Diagnostic::with_generic_note`]), by text.
+    pub generic_notes: Vec<String>,
 }
 
 /// [`Detail::build`]: the term's span and the expected test fact, as
@@ -299,6 +302,24 @@ impl Diagnostic {
     pub fn with_note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
         self
+    }
+
+    /// Adds a note that explains a concept, the same text whatever this
+    /// error's specifics (no name or value of the user's in it). The command
+    /// line prints it in full once per run and later errors point back to it;
+    /// the index and the editor keep it in every diagnostic.
+    pub fn with_generic_note(mut self, note: impl Into<String>) -> Self {
+        let note = note.into();
+        self.detail_mut().generic_notes.push(note.clone());
+        self.notes.push(note);
+        self
+    }
+
+    /// Whether `note` was added with [`Diagnostic::with_generic_note`].
+    pub fn is_generic_note(&self, note: &str) -> bool {
+        self.detail
+            .as_ref()
+            .is_some_and(|d| d.generic_notes.iter().any(|n| n == note))
     }
 
     pub fn primary_span(&self) -> Option<Span> {
