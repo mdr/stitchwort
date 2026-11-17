@@ -22910,12 +22910,12 @@
     {
       "id": 3902,
       "title": "[Opus paper] Self-hosted formatter F2/stage 5 plan: list what crates/fmt engine.rs does that the toy's Doc (tools/toyfmt/src/Toy/Doc) doesn't, and how the toy's 302 theorems carry over into Std.Doc; decide SW-3884 (comment-free meaning: dump vs blanking map) by proof cost; a staged plan with estimates from past actuals",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Estimate: 35 min (Opus paper). Started 20:49.\n\nDone (Opus, 17 Nov 2026, about 25 min): docs/proposals/self-hosted-fmt-engine-plan.md. 15 Rust engine features the toy lacks, 13 needed for byte identity (2 high proof cost: Mark/CloserLine, TextBlock). The toy's three deliberate differences and a fourth found here (held spaces uncounted in the measure) are all Rust measure-vs-printer bugs: fix in Rust (R0) under D3677 after counting changed outputs; Std.Doc follows Rust on the toy's four simplifications (flat Line after a comment, held spaces, comment floor vs CommentEnd, before_code at line start). Copy (not move) Toy.Doc, grow it in tools/fmt with open goals, into std when closed. SW-3884: (b), a blanking map applied before the steps; top theorem gets meaning by congruence. Stages R0, E0-E6 (about 5.5 agent hours, about 140-180 new theorems on top of 302), with an engine-only harness (Rust dev doc dump, Twin --stage engine) before any rule is ported.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
