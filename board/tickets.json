@@ -1,5 +1,5 @@
 {
-  "next": 3706,
+  "next": 3707,
   "tickets": [
     {
       "id": 47,
@@ -41734,12 +41734,12 @@
     {
       "id": 3701,
       "title": "[Sonnet] Broad tier E: five LSP code-action tests fail (cli::server lsp.rs): a_document_edited_during_a_search_gets_no_stale_edit (2991) and a_newer_action_request_supersedes_and_a_cancelled_one_is_answered (3012) now get a code action where they expect none; a_code_action_at_a_goal_offers_what_closes_it (2643), ..._in_a_project_... (2709), proof_searches_are_bounded_by_the_pool (3047) fail their asserts. Likely one change to what a goal's code action offers; find it, decide which side is right",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\nNotes (Sonnet lane): not one cause. The three search-timing tests were written before D3519 (3a7450165, 11 Nov): the code action now answers at once with the Search for a proof command, so a null answer is gone; they now start the search by executeCommand. The two goal tests: m + n = n + m is closed by the ladder (SW-2966, 95f6af139) with omega, now arithmetic, so only that is offered; they fail the same way at d551aaa44^. Fixtures changed to (xs ++ ys).length = xs.length + ys.length. Commit a0e02cfa6.\n",
+      "body": "\n\nNotes (Sonnet lane): not one cause. The three search-timing tests were written before D3519 (3a7450165, 11 Nov): the code action now answers at once with the Search for a proof command, so a null answer is gone; they now start the search by executeCommand. The two goal tests: m + n = n + m is closed by the ladder (SW-2966, 95f6af139) with omega, now arithmetic, so only that is offered; they fail the same way at d551aaa44^. Fixtures changed to (xs ++ ys).length = xs.length + ys.length. Commit a0e02cfa6.\n\nModel result: sonnet, worked, 15 min (est. 40). All stale since D3519/SW-2966. Follow-up SW-3706. Open thought: offer the full search beside a ladder hit (design, not filed).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
@@ -41794,6 +41794,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Reproducer: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3705/hang.sw = examples/accept/parse-lex-then-parse.sw with 'sumIsTwentyFour ... = Ok 25 := byComputing' (a false statement by computing); hangs only with the cache (fuzz_elab oracle 4).",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3706,
+      "title": "[Sonnet] Proof search suggests Shop.Spec.totalAppend _ _ with _ where arguments are fixed by unification; name them (xs ys) as for library lemmas (SW-3701)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
