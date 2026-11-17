@@ -349,6 +349,12 @@ At 80–110 theorems an agent hour that is about 30–70 agent hours, against
    case depends on the source's line breaks alone, `printParses` is
    false of it and the tree needs one more flag. This is the layer that
    ran 2.4 times over in the toy.
+   **Spike K1 (SW-3825) answered this**: no flag. The reading above was
+   wrong in one place ("the code before it ends with a comment, looking
+   back past closers, commas and bars", not "the token before it");
+   `src/Settled.sw` has the predicate (`homed`), `src/SettledProofs.sw`
+   the two statements, and the proof plan's §10 the evidence and the one
+   family left out (a trailing comma that starts the closer's line).
 2. **`bracketsKeepParsed` and `Expr.standsAt`.** The Rust P3 decides by
    a trial parse of the declaration without the pair (`parens.rs`). The
    tree pass needs a function saying where a type stands unbracketed.
@@ -392,7 +398,10 @@ At 80–110 theorems an agent hour that is about 30–70 agent hours, against
    (`arrowsFrom` moves it only when a token follows). Restated for an
    `->` a token follows [searched: 8,501 cases]. No file that parses
    ends in `->`, so nothing depends on it; whether the Rust rule does
-   the same was not checked.
+   the same was not checked. `settledIdempotent` as first stated (of
+   every `Lexed`) is false too: SW-3825's search of 2.4 million short
+   token sequences found what the 4,812 cases missed, and it now asks
+   for `plain` leaves (`src/Settled.sw`).
 
 ## 8. D3617: what becomes droppable, and when
 

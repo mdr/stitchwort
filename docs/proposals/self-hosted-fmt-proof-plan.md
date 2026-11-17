@@ -476,6 +476,90 @@ and thin dispatchers; S3 before S4 and S5; the stop-rule thresholds.
   `Expr.induct` generates for 37 constructors; the operator list in S1's
   `Binary`. Each is in a ticket above.
 
+## 10. Spike K1's findings (SW-3825)
+
+Fable, 17 November 2026, 25 minutes of the 45.
+
+**Verdict: (a), layout-free, with one family left out that needs a
+decision.** The tree needs no flag. `Settled` is `homed`
+(`tools/fmt-sketch/src/Settled.sw`): a closer or a record update's `|`
+has a trailing comment only when it has own-line comments above it, or
+the code before it ends with a comment, looking back past closers,
+commas and bars. The sketch's reading ("the token before it has a
+trailing comment") was too narrow.
+
+Rule N's result does depend on the source's line breaks, in the Rust
+rule as in stage 1's: `g (h (x -- a⏎)⏎) -- b` leaves `b` on the second
+`)`, and with the two closers on one line on the first. That is not the
+blind-alley signal, because both results are `homed`, the tree says
+which closer holds the comment, and the printer starts a line there
+(Rust prints `(h (x) -- a⏎) -- b` for one and `(x -- a⏎)) -- b` for the
+other; each reads back as itself). So `printedSettle` has two halves,
+both stated in `tools/fmt-sketch/src`:
+
+- `SettledProofs.settledAnyLayout` (rule N's half): settled leaves,
+  written out in any layout that starts a line at each closer or bar
+  holding a comment, with each trailing comment after the closers and
+  commas that follow its token, settle to themselves.
+- `Proofs.printedKeeping` (the printer's half): the printed leaves are
+  such a layout of leaves that spell the tree.
+
+with `SettledProofs.settledHomed` for `parseSettled`. All three ask for
+`plain` leaves: four conditions on token kinds, three of them true of
+every file that parses [inferred from the grammar, not checked against
+the parser].
+
+**Evidence.**
+
+| What | Cases | Result |
+|---|---|---|
+| Real text, three layouts (a line a token; breaks only where comments force them; the printer's), stage 1's lexer and rule N (`Fmt.Sketch.Relay`): goldens, cached fuzzer cases, every eighth repo file | 836 files, 6,012 comments | all the same, but no comment kept on a closer or bar: these say nothing about the limits |
+| The same on those files with comments added and lines broken before closers and commas (a throwaway script) | 533 files, 23,503 comments, 854 kept on a closer or bar | printer's layout 533 same; a line a token 533 same; forced breaks only: 40 differ |
+| `stitchwort dev tokens` on each of those texts | 1,599 | Rust agrees with stage 1 on every one, so the 40 are real dependence on line breaks, not artefacts |
+| Random token sequences of 2 to 9 over 13 kinds, with comments and breaks (`Fmt.Sketch.Search`) | 2,400,000; 1,942,953 `plain`; 614,437 with a comment kept | `plain`: 0 not `homed`, 0 moved in a keeping layout, 0 not idempotent; 25,790 move when the holder need not start its line |
+| The same, not `plain` | 457,047 | 1,545 fail all three |
+| `check --counterexamples` on the four statements | 10,000 each | none found (weak: it also found none for statements the search above shows false) |
+
+[measured: Speedwell; the search natively at about 16,000 cases a second.]
+
+**The family left out: a trailing comma that starts the closer's
+line.** `g ([⏎1⏎-- above⏎, ] -- b⏎) -- c` parses. Rule 1 stops `b` on
+the comma (it starts its line and has a comment above), `c` stays on
+`)` because the line before now ends with a comment, and rule 2 then
+moves the comma's comments above `]`. The result is not `homed` and
+rule N is not idempotent on it: applied again, `c` moves to `1`, past
+the two comments above `]`. Rust's rule does the same (`dev tokens`).
+The Rust formatter still gives a stable answer, `-- above⏎] -- b⏎) --
+c`, because its P2 deletes the comma from the text and rule N runs
+again on what is left; `passes.rs`'s note that deleting the comma
+"leaves every comment on the token it belongs to" is not true here.
+The self-hosted order (rule N once, then P2 on the tree) would print
+something else, so the twin harness would differ from stage 4 on.
+
+What would change, one of:
+
+1. **Take the last commas out before rule N** (`Settled.withoutLastCommas`,
+   `Lexed.settledBare`), which is what Rust does in effect. Searched:
+   320,000 cases, 271,472 grammatical, 0 failures of the three
+   statements, and it gives Rust's answer on the case above. P2 then
+   needs to know a comma bracket from the leaves alone, or the parser
+   runs before rule N for this.
+2. **Change rule 1** so a comment never stops on a comma, in both
+   formatters. Matt's, since it moves comments. A first try (stop on
+   the leaf after the comma) failed the search: 897 of 276,347 not
+   idempotent.
+3. **Leave it out**: `parseSettled` takes a hypothesis and the
+   formatter refuses such a file, or the run-time check stays for it.
+
+S1 doesn't wait for this: its statements carry `plain` either way. The
+decision is needed before S1's `parseSettled` lane.
+
+**Kept:** `tools/fmt-sketch/src/Settled.sw` (the predicate, the layouts,
+the candidate), `SettledProofs.sw` (the statements), `SettledTests.sw`
+(four tests on real text), `Relay.sw` and `Search.sw` (the two
+programs: `stitchwort build --native Fmt.Sketch.Search.main -o search`,
+then `search --count 500000 --seed 1`, and `--candidate`).
+
 ## Sources
 
 `tools/fmt-sketch/SKETCH.md` and `src/`; self-hosted-fmt.md §3.4, §7,
