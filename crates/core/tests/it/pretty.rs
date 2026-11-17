@@ -33,6 +33,50 @@ fn prints_numbers_and_lists_as_literals() {
 }
 
 #[test]
+fn prints_a_middle_spread_as_written() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let append = define(
+        &mut p.g,
+        "List.append",
+        arrow(nat.clone(), arrow(nat.clone(), nat.clone())),
+        lam("x", lam("y", v(1))),
+    )
+    .expect("List.append");
+    assert_eq!(
+        registry::bind_def(&mut p.g, append),
+        Some(registry::Builtin::Append)
+    );
+    let list_of = |items: Vec<Term>| {
+        items
+            .into_iter()
+            .rev()
+            .fold(Term::Ctor(p.list, 0, vec![]), |tail, head| {
+                Term::ctor(p.list, 1, vec![head, tail])
+            })
+    };
+    let appended = |lhs: Term, rhs: Term| app(Term::Def(append), [lhs, rhs]);
+    let chain = v(1);
+    let y = v(0);
+    let cons = |head: Term, tail: Term| Term::ctor(p.list, 1, vec![head, tail]);
+    // The source `[0, ..chain, y]` is `Cons 0 (chain ++ [y])`.
+    let middle = cons(p.num(0), appended(chain.clone(), list_of(vec![y.clone()])));
+    assert_eq!(show(&p, &["chain", "y"], &middle), "[0, ..chain, y]");
+    // The same term without an item in front isn't in brackets: `++` stays.
+    let top = appended(chain.clone(), list_of(vec![y]));
+    assert_eq!(show(&p, &["chain", "y"], &top), "chain ++ [y]");
+    // `[0, ..chain, ..ys]`.
+    let spreads = cons(p.num(0), appended(v(1), v(0)));
+    assert_eq!(show(&p, &["chain", "ys"], &spreads), "[0, ..chain, ..ys]");
+    // A long literal's `append`ed chunks (SW-62) print as one literal again.
+    let chunked = cons(
+        p.num(0),
+        appended(list_of(vec![p.num(1), p.num(2)]), list_of(vec![p.num(3)])),
+    );
+    assert_eq!(show(&p, &[], &chunked), "[0, 1, 2, 3]");
+}
+
+#[test]
 fn prints_unapplied_constructors_as_their_names() {
     let p = Prelude::new();
     assert_eq!(show(&p, &[], &Term::Ctor(p.nat, 1, vec![])), "Succ");

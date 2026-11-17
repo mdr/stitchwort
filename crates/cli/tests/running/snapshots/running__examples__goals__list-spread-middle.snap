@@ -1,0 +1,38 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `middleSpread`
+   ╭─[ goals/list-spread-middle.sw:8:42 ]
+   │
+ 8 │     [0, ..chain, highest + 3] = chain := ?
+   │                                          ┬  
+   │                                          ╰── chain: List Nat
+   │                                              highest: Nat
+   │                                              ⊢ [0, ..chain, highest + 3] = chain
+   │ 
+   │ Note: this statement is false; a counterexample:
+   │         chain = []
+   │         highest = 0
+   │       `[0, ..chain, highest + 3] = chain` is false:
+   │         left:  [0, 3]
+   │         right: []
+   │         first difference at [0]: right ends, left has 0 (left has 2 elements, right has 0 elements)
+───╯
+[GOAL] Goal: in `appendAtTop`
+    ╭─[ goals/list-spread-middle.sw:11:39 ]
+    │
+ 11 │     chain ++ [highest + 3] = chain := ?
+    │                                       ┬  
+    │                                       ╰── chain: List Nat
+    │                                           highest: Nat
+    │                                           ⊢ chain ++ [highest + 3] = chain
+    │ 
+    │ Note: this statement is false; a counterexample:
+    │         chain = []
+    │         highest = 0
+    │       `chain ++ [highest + 3] = chain` is false:
+    │         left:  [3]
+    │         right: []
+    │         first difference at [0]: right ends, left has 3 (left has 1 element, right has 0 elements)
+────╯

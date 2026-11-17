@@ -857,6 +857,18 @@ impl<'g> Printer<'g> {
         }
     }
 
+    /// The text inside list brackets, from its pieces: `[a, b, ..xs, c]`.
+    fn bracket_items(&self, names: &mut Vec<Name>, pieces: &[ListPiece]) -> String {
+        let shown: Vec<String> = pieces
+            .iter()
+            .map(|piece| match piece {
+                ListPiece::Item(item) => self.print(names, item, Prec::Arrow),
+                ListPiece::Spread(list) => self.spread(names, list),
+            })
+            .collect();
+        format!("[{}]", shown.join(", "))
+    }
+
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         if matches!(term, Term::Loc(..) | Term::Ann(..)) {
             return self.go_node(names, term);
@@ -1065,25 +1077,12 @@ impl<'g> Printer<'g> {
             Term::Ctor(d, 0, args)
                 if is_loaded(self.g, Builtin::NonEmptyList, *d) && args.len() == 2 =>
             {
-                let mut items = vec![&*args[0]];
-                let tail = args[1].strip_loc();
-                let rest = if let Some(more) = list_literal(self.g, tail) {
-                    items.extend(more);
-                    None
-                } else if let Some((more, rest)) = open_list(self.g, tail) {
-                    items.extend(more);
-                    Some(rest)
-                } else {
-                    Some(tail)
-                };
-                let mut shown: Vec<String> = items
-                    .iter()
-                    .map(|t| self.print(names, t, Prec::Arrow))
-                    .collect();
-                if let Some(rest) = rest {
-                    shown.push(self.spread(names, rest));
-                }
-                (format!("[{}]", shown.join(", ")), Prec::Atom)
+                let mut pieces = vec![ListPiece::Item(&args[0])];
+                pieces.extend(
+                    list_pieces(self.g, args[1].strip_loc(), true)
+                        .expect("a `NonEmptyList`'s head starts the list"),
+                );
+                (self.bracket_items(names, &pieces), Prec::Atom)
             }
             // A `Map`, as the `Map.fromList` it was built with: its
             // representative is a raw search tree, and printing that out
@@ -1177,15 +1176,13 @@ impl<'g> Printer<'g> {
                 if let Some(chars) = char_list(self.g, term) {
                     return (show_chars(&chars), Prec::Atom);
                 }
-                // An open chain, `Cons a (Cons b xs)`, as `[a, b, ..xs]`
-                // (docs/proposals/list-spread.md).
-                if let Some((items, tail)) = open_list(self.g, term) {
-                    let mut shown: Vec<String> = items
-                        .iter()
-                        .map(|t| self.print(names, t, Prec::Arrow))
-                        .collect();
-                    shown.push(self.spread(names, tail));
-                    return (format!("[{}]", shown.join(", ")), Prec::Atom);
+                // An open chain, `Cons a (Cons b xs)`, as `[a, b, ..xs]`.
+                // An `append` after an item is the middle spread that
+                // built it: `Cons 0 (append xs (Cons y Nil))` is
+                // `[0, ..xs, y]` (docs/proposals/list-spread.md,
+                // docs/proposals/goal-printing-gaps.md §2.1).
+                if let Some(pieces) = list_pieces(self.g, term, false) {
+                    return (self.bracket_items(names, &pieces), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
                 let mut text = (self.scope)
@@ -3745,6 +3742,67 @@ fn open_list<'t>(g: &Ev, term: &'t Term) -> Option<(Vec<&'t Term>, &'t Term)> {
             Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => return None,
             _ => return Some((items, term)),
         }
+    }
+}
+
+/// One piece inside list brackets: an item, or the list a `..` spreads.
+enum ListPiece<'t> {
+    Item(&'t Term),
+    Spread(&'t Term),
+}
+
+/// `term` read as the inside of `[...]`: its items, and the lists its
+/// spreads add, in order. An `append` is the middle spread that built it,
+/// flattened across both of its sides: `Cons 0 (append xs (Cons y Nil))` is
+/// `0`, `..xs`, `y`, and `append [a] (append [b] [c])` (how a long literal
+/// is chunked, SW-62) is `a`, `b`, `c`. So `[0, ..xs, y]` prints as it was
+/// written (docs/proposals/goal-printing-gaps.md §2.1).
+///
+/// `started` says a piece is already shown, as a `NonEmptyList`'s head is.
+/// Without it, an `append` before any item isn't inside these brackets: a
+/// term at the top of a goal that is `xs ++ [y]` keeps its `++`, and `None`
+/// is returned.
+fn list_pieces<'t>(g: &Ev, term: &'t Term, started: bool) -> Option<Vec<ListPiece<'t>>> {
+    let mut pieces = Vec::new();
+    let mut term = term.strip_loc();
+    let mut seen = started;
+    loop {
+        match term {
+            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) && args.len() == 2 => {
+                pieces.push(ListPiece::Item(&args[0]));
+                seen = true;
+                term = args[1].strip_loc();
+            }
+            Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => {
+                return seen.then_some(pieces);
+            }
+            _ if let Some((lhs, rhs)) = list_append(g, term)
+                && seen =>
+            {
+                pieces.extend(list_pieces(g, lhs, true)?);
+                term = rhs.strip_loc();
+            }
+            _ if seen => {
+                pieces.push(ListPiece::Spread(term));
+                return Some(pieces);
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// `l` and `r` if `term` is the library's `List.append l r`.
+fn list_append<'t>(g: &Ev, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+    let (head, args) = explicit_spine(term);
+    let Term::Def(id) = head else {
+        return None;
+    };
+    if !g.env.registry().is_def(Builtin::Append, *id) {
+        return None;
+    }
+    match args[..] {
+        [lhs, rhs] => Some((lhs, rhs)),
+        _ => None,
     }
 }
 
