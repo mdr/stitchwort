@@ -38366,9 +38366,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nThe cases part is fixed in SW-3752 (82c053f4b): the second try puts hypotheses first, runs arithmetic before each split and has 256 cases (examples/accept/cases-hypotheses-first.sw). Still open: the `_` for a Doc argument under List.map.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -38392,9 +38392,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nThe cases part (split a hypothesis: invert lexemeStart … = Some WordLexeme) is fixed in SW-3752 (82c053f4b; examples/accept/cases-hypotheses-first.sw). Still open: pacedThen/readsThen inference, the one-line match swallowing arms, and the test:one scoping.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41995,12 +41995,12 @@
     {
       "id": 3734,
       "title": "[Sonnet] cases on an equality between values of a non-recursive type (isPostfix t = True after a pass) finds 'nothing to split on'; a ten-arm match was needed. Split by the type's constructors (Toy++ T4 friction, SW-3724)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Group 2a (Matt, 17 Nov 2026: 'sounds good'): done in SW-3752; toy proofs tidied after in SW-3753.",
+      "body": "Group 2a (Matt, 17 Nov 2026: 'sounds good'): done in SW-3752; toy proofs tidied after in SW-3753.\n\nFixed in SW-3752 (lane/SW-3752, 82c053f4b): a recursive value split once as a last resort. See examples/accept/cases-recursive-once.sw. Close with SW-3752's merge.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42065,7 +42065,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Group 3 (Matt, 17 Nov 2026: 'Okay, fine'): option C first: SW-3752's cases splits a stuck scrutinee and closes every arm by computing (insideFits becomes by cases slot). Kept open for option A (elaborator compares stuck matches arm by arm), decided later on a count of what C leaves. Not B (kernel).",
+      "body": "Group 3 (Matt, 17 Nov 2026: 'Okay, fine'): option C first: SW-3752's cases splits a stuck scrutinee and closes every arm by computing (insideFits becomes by cases slot). Kept open for option A (elaborator compares stuck matches arm by arm), decided later on a count of what C leaves. Not B (kernel).\n\nOption C (cases at the use site) works in SW-3752 (82c053f4b; examples/accept/cases-stuck-scrutinee.sw, commasFit); the toy's insideFits closes with an inline cases. Option A (conversion arm by arm) is still open.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42190,7 +42190,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nThe cases part is fixed in SW-3752 (82c053f4b): `| _, _ => cases` closes mergeOnto's computed arms (cases-recursive-once.sw; demo mergeOntoPlain went from six arms to one). Still open: the StepIsIdentity family.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42237,15 +42237,18 @@
     {
       "id": 3752,
       "title": "[Opus] cases: split an equality between constructor values (isPostfix t = True), split a hypothesis not only the goal, close arms that compute, and a budget that copes with ten character comparisons (Toy++ friction group 2a: SW-3734, SW-3461, SW-3459, SW-3748's cases part)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Also (group 3, SW-3739 option C): cases on a stuck scrutinee shared by both sides of an equation closes the arms that compute, e.g. T5's insideFits/dropCommaFits ((Bracketed o i' c).fits slot = (Bracketed o i c).fits slot) as by cases slot.",
+      "body": "Also (group 3, SW-3739 option C): cases on a stuck scrutinee shared by both sides of an equation closes the arms that compute, e.g. T5's insideFits/dropCommaFits ((Bracketed o i' c).fits slot = (Bracketed o i c).fits slot) as by cases slot.\n\nProgress (Opus lane, 17 Nov 2026, 10:47-12:03): done on lane/SW-3752, commits 82c053f4b and 048446b77.\n- SW-3734 (equality between constructor values) and SW-3748's `cases` part (computed arms of `group, rest`): a last-resort split of a recursive value, once (never a part of an earlier split, so no induction). `(dropComma expr).plain = expr.plain` is ten cases that compute; `| _, _ => cases` closes mergeOnto's other arms.\n- SW-3461 (split a hypothesis) and SW-3459 (ten character comparisons): a failing `cases` tries once more, with hypotheses and their parts first, `arithmetic` before each split, and a budget of 256 cases. The first try is unchanged, so its terms are too.\n- Number and character patterns: a NumCase scrutinee is split into its numbers and the rest.\n- SW-3739 option C: closes at the T5 use site with an inline `cases`.\n- Pre-existing bug fixed: in matching.rs, a generalised match now copies hypotheses in dependency order. Before, there was an E-MATCH-MOTIVE on a number match on a character's code.\n- Examples: accept/cases-recursive-once, cases-hypotheses-first, cases-number-patterns, cases-stuck-scrutinee, match-number-dependent-field. The reject budgets were raised past 256, and cases-nothing was reworded.\n- Tests: test:example NAME=cases,match-number-dependent-field; hash_stability::prelude (unchanged); hash_stability::examples for the cases examples (existing unchanged, new ones added); examples::soundness. All pass.\n- Toy demo (not committed): 3 spots, 20 lines down to 3.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "82c053f4b",
+        "048446b77"
+      ]
     },
     {
       "id": 3753,
