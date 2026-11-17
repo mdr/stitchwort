@@ -14,9 +14,11 @@ def lineWidth: List Text → Nat
   | [] => 0
   | [piece, ..earlier] => if piece == "\n" then 0 else piece.length + lineWidth earlier
 
+--| `indent` spaces are `indent` characters long.
 theorem indentLength ∀ (indent: Nat): (" ".repeat indent).length = indent := match indent with
   | Zero => byComputing
   | Succ less => Eq.cong Succ (indentLength less)
 
+--| The left side of a true conjunction is true.
 theorem andTrueLeft ∀ (left right: Bool) (both: (left && right) = True): left = True := match left, both with
   | True, _ => byComputing

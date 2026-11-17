@@ -155,7 +155,7 @@ comment). Moving the engine under them would mean re-proving the toy
 for nothing. The toy keeps `Toy.Doc`; the new engine starts as a copy.
 
 **Grown in `tools/fmt`, moved into std when closed.** The copy lives
-in `tools/fmt/src/Doc/` (namespace `Doc`) while features are ported, so
+in `tools/fmt/src/Doc/` (namespace `Fmt.Doc`; a plain `Doc` clashes with the type, E-FOREIGN-NAMESPACE) while features are ported, so
 the program can run ahead of its proofs with open goals (`?`, listed by
 `stitchwort axioms`) without putting open goals into the standard
 library. When `axioms` on its top theorems lists none, it moves to
@@ -269,7 +269,7 @@ hour (the toy). Each stage ends in a checkable state.
 | # | Stage | Model | Est. | Ends with |
 |---|---|---|---|---|
 | R0 | **Rust measure fixes** D1–D4 in `engine.rs`, a unit test each (failing before), and the count of changed outputs through `dev/fmt-twin` on goldens, a repo sample and fuzz cases; a D question to Matt only if the changes are many or look worse (§2) | Sonnet | 25 | `engine.rs` tests pass; changed outputs listed and goldens updated |
-| E0 | **Copy** `Toy.Doc` and its 302 theorems to `tools/fmt/src/Doc/` (namespace `Doc`), docs in std style, `Doc.flatWidth`; the toy untouched | Sonnet | 25 | `stitchwort audit Doc`: 302, 0 failed |
+| E0 | **Copy** `Toy.Doc` and its 302 theorems to `tools/fmt/src/Doc/` (namespace `Fmt.Doc`: a plain `Doc` clashes with the type, E-FOREIGN-NAMESPACE), docs in std style, `Doc.flatWidth`; the toy untouched | Sonnet | 25 | `stitchwort audit Fmt.Doc`: 302, 0 failed |
 | E1 | **The engine harness**: `stitchwort dev doc FILE` writes each declaration's `Doc` (a small s-expression form; a dev command, no style change) and `engine::print`'s text; `Fmt.Twin --stage engine` reads the form, prints with `Doc`, compares; `dev/fmt-twin engine` | Sonnet | 35 | the stage runs; a baseline count of differing declarations, by the features they use |
 | E2 | **The program**: every §1 feature in `Doc` (the measures as R0 left them); the 12 `engine.rs` tests as `Doc` tests; a proof broken by a changed definition becomes an open goal, listed | Opus | 60 | `--stage engine` identical on goldens, then the repo sample, fuzz and disturbed; open goals counted |
 | E3 | **Comments' proofs**: held spaces, flat `Line`, the floor, `Displaced`, through `Joins`, `Words`, `Places`, `Lays` | Opus (Fable if `Places` runs over) | 60 | `axioms` lists no open goal from these arms; audit of `Doc` clean of them |
