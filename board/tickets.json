@@ -1,5 +1,5 @@
 {
-  "next": 3825,
+  "next": 3829,
   "tickets": [
     {
       "id": 47,
@@ -21892,17 +21892,69 @@
     {
       "id": 3824,
       "title": "[Fable paper] Proved self-hosted formatter: an incremental, de-risked plan. Thin end-to-end slices on a cut-down grammar first, the sketch's riskiest statements as early spikes, a foundations inventory (std lemmas, tactics, simp, Std.Doc) done ahead of proof lanes, checkpoints with stop rules (Matt, 17 Nov 2026)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.\n\nLane note (Fable, 17 Nov 2026): plan written, docs/proposals/self-hosted-fmt-proof-plan.md (commit 0c3c958bc). Seven slices cut from the real tree by a Bool function (probe checked); spikes K1 (rule N re-layout) and K4 (parser fuel) can start now; foundations F1 (stage 2 tree without layout in leaves) and F2 (Std.Doc) gate slice 1. Finding: stage 2a's tree keeps column and lineStart in its leaves, against the sketch's section 1. Two questions for Matt: slices with rules proved per slice; the narrow meaning (before slice 2). About 11 min (est. 45).\n",
+      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.\n\nLane note (Fable, 17 Nov 2026): plan written, docs/proposals/self-hosted-fmt-proof-plan.md (commit 0c3c958bc). Seven slices cut from the real tree by a Bool function (probe checked); spikes K1 (rule N re-layout) and K4 (parser fuel) can start now; foundations F1 (stage 2 tree without layout in leaves) and F2 (Std.Doc) gate slice 1. Finding: stage 2a's tree keeps column and lineStart in its leaves, against the sketch's section 1. Two questions for Matt: slices with rules proved per slice; the narrow meaning (before slice 2). About 11 min (est. 45).\n\nModel result: fable, worked, 11 min (est. 45). Tree-leaf finding relayed to SW-3819. Decisions for Matt: (1) prove each slice's rules in it, not last [rec yes]; (2) meaning forgets only what a pass changes [rec yes], needed before S2. Filed SW-3825 SW-3826 SW-3827 SW-3828.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
         "0c3c958bc"
       ]
+    },
+    {
+      "id": 3825,
+      "title": "[Fable paper] Proof plan spike K1: can Settled be stated without layout? Re-lay stage 1's settled leaves two ways, lex and settle again, compare without columns (self-hosted-fmt-proof-plan.md; time box 45 min)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3826,
+      "title": "[Opus] Proof plan spike K4: fuel in stage 2a's parser: does Parse.recursiveWith's items-left+1 run out under deep nesting? Measure, then fix the accounting (charge per token consumed) before 2b (after SW-3819 merges; time box 30 min)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3827,
+      "title": "[Sonnet] Proof plan F5: a fuelled-loop combinator in std Parse with its lemmas, replacing hand-fuelled loops (2a has 21) (self-hosted-fmt-proof-plan.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3828,
+      "title": "[DeepSeek] Proof plan F12: proving guide section on slices (a within hypothesis) and arm lemmas; stitchwort axioms needs the full namespace and doesn't suggest near matches (SW-3824 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
     }
   ]
 }
