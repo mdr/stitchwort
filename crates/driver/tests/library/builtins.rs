@@ -373,10 +373,12 @@ fn a_programs_own_list_crosses_the_js_boundary_as_itself() {
 
 /// The core loaded with `from` replaced by `to` in its text: the diagnostics
 /// that refuse it.
-fn refused_after_editing_the_core(from: &str, to: &str) -> Vec<stitchwort_syntax::Diagnostic> {
-    let prelude = prelude();
-    assert!(prelude.contains(from), "the core has no `{from}`");
-    let prelude = prelude.replace(from, to);
+fn refused_after_editing_the_core(edits: &[(&str, &str)]) -> Vec<stitchwort_syntax::Diagnostic> {
+    let mut prelude = prelude().to_string();
+    for (from, to) in edits {
+        assert!(prelude.contains(from), "the core has no `{from}`");
+        prelude = prelude.replace(from, to);
+    }
     let mut session = Session {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),
@@ -390,10 +392,10 @@ fn refused_after_editing_the_core(from: &str, to: &str) -> Vec<stitchwort_syntax
 
 #[test]
 fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
-    let errors = refused_after_editing_the_core(
-        "(yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEq (s byComputing)",
-        "(yesEqual: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEqual (s byComputing)",
-    );
+    let errors = refused_after_editing_the_core(&[
+        ("(yesEq: ∀ (h: p) => y h = z)", "(yesEqual: ∀ (h: p) => y h = z)"),
+        ("=> yesEq (s byComputing)", "=> yesEqual (s byComputing)"),
+    ]);
     let e = errors
         .iter()
         .find(|d| d.code == "E-BUILTIN")
@@ -409,10 +411,10 @@ fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
 
 #[test]
 fn a_reordered_binder_of_a_shaped_builtin_is_refused() {
-    let errors = refused_after_editing_the_core(
-        "theorem Decidable.elimEq [p: Prop] [a: Type]",
-        "theorem Decidable.elimEq [a: Type] [p: Prop]",
-    );
+    let errors = refused_after_editing_the_core(&[(
+        "theorem Decidable.elimEq ∀ [p: Prop] [a: Type]",
+        "theorem Decidable.elimEq ∀ [a: Type] [p: Prop]",
+    )]);
     let e = errors
         .iter()
         .find(|d| d.code == "E-BUILTIN")
