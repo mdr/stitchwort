@@ -41670,7 +41670,7 @@
     {
       "id": 3709,
       "title": "[Opus] Step regression: reads_chain_cost (driver library reads_chain_proofs_stay_within_recorded_step_counts) bisected to SW-3561's merge 09e7f3b4c (readsThen reads p off its first lemma, then j off the goal): readsTwo 38k -> 175k steps (generic), 32k -> 100k (chars), undoing most of SW-3281's 498k -> 61k. Re-measure after SW-3694 (which narrowed SW-3561's trigger), then find and fix the rest with results unchanged (SW-3698)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
