@@ -22819,7 +22819,7 @@
     {
       "id": 3895,
       "title": "[Opus] Whereabouts answerInBand: discharge its two remaining hypotheses. floorCoarse/ceilCoarse (rounding at a band's step moves an edge within 360° outwards by at most 2°: signed quotientCoarse/tenthCoarse at step 0.1, short at step 1) and lonWidth (from a cosLatitude in [1e-17, 1], needing std laws: division antitone in the divisor, finite / positive isn't NaN). Until then the theorem is conditional on them; believed true, but a false one would make it vacuous (SW-3871 left)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22832,7 +22832,7 @@
     {
       "id": 3896,
       "title": "[Sonnet] std Float candidates from SW-3871: leOfUnitsPos/leOfUnitsNeg, ceilAtLeast, remStep, floorFinite360/ceilFinite360 (generalised bound), plus division antitone in the divisor and finite / positive not NaN; add to Float.Theory with docs; use from Whereabouts",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
