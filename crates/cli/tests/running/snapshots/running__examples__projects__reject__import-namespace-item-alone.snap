@@ -22,3 +22,4 @@ expression: output
    │ 
    │ Note: `Spec` is the namespace `Shop.Spec`: add `import Shop (Spec)`, or write `Shop.Spec.total`
 ───╯
+try: add `import Shop (Spec)`
