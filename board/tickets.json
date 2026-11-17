@@ -22806,12 +22806,12 @@
     {
       "id": 3894,
       "title": "[DeepSeek] Whereabouts: use std Float.Theory.leTrans, intLessZeroOfNotNonneg and intLeOfLess instead of the app's duplicates floatLeTrans, intNegOfNotNonneg, intLeOfLess; derive std signedNot from signedFlip (SW-3873 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Model result: deepseek, worked, 14 min (est. 20), with SW-3899. Reviewed: renames and named repeats only; no statement changed; audit 184 (3 app copies deleted), 0 failed.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22871,7 +22871,7 @@
     {
       "id": 3899,
       "title": "[DeepSeek] Undo today's SW-3887 workarounds: put the byComputing locals back as lets where lanes inlined them (apps/whereabouts/src/Whereabouts/Hints/Proofs.sw around 3949-4055, and Float.Theory additions from SW-3873/SW-3895 if any), only where it reads better; check and audit unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
