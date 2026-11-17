@@ -21959,12 +21959,12 @@
     {
       "id": 3829,
       "title": "[Sonnet] proofs::proof_equivalence::closed_terms_agree_with_their_normal_forms now holds about 9 GB (was fine at 53ac0e3ba) and memguard kills Overmind's proofs step: likely its Float.ofNat wrapper, a definition since SW-638, normalised fully in the reference evaluator. Confirm by measurement, fix the test (or the evaluator), memory back under ~1 GB",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "\n\nSonnet lane notes: cause confirmed. Plain mode expands every number literal as Succ^n (reference.rs nat); Float.ofNat now unfolds through Float.Model, whose literals (pow2 1074 etc.) become unary in plain mode. Before: test SIGKILLed at 14.3 GB RSS after 156 s. Fix at test level: removed the Float.ofNat wrapper, the G4 known_gap and the two ignored G4 probes (no float primitives left to test). After: pass, 1.0 s, 422 MB.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
