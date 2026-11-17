@@ -153,9 +153,14 @@ theorem readsBack ∀ (file: SourceFile) (lexed: Lexed)
   ?
 
 --| No file is refused for want of fuel: more changes no answer.
-theorem fuelEnough ∀ (lexed: Lexed) (extra: Nat):
-    grammarWith (lexed.leaves.length + 1 + extra) lexed = grammarWith (lexed.leaves.length + 1) lexed :=
-  ?
+--|
+--| Proof idea: every rule reads an item before it calls itself, and every
+--| loop before it goes round, so at each call the fuel is at least the
+--| items left and one more, and a branch for no fuel is never taken. One
+--| std lemma per combinator (`recursiveWithFuel` with a body that reads
+--| before each call, and the fuelled loop of F5), then one guard lemma per
+--| call site (spike K4, SW-3826).
+theorem fuelEnough ∀ (lexed: Lexed) (extra: Nat): grammarWith extra lexed = grammarWith 0 lexed := ?
 
 -- Layer 4, `meaning` and the passes, on the shared traversal.
 

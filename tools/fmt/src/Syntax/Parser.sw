@@ -463,10 +463,14 @@ def rightOperator (items: List Item): Option Nat := match items with
 
 -- Expressions.
 
---| The fuel is twice the items left, and one more, since a level may hand
---| over to another without reading (`LevelArgument` after an argument).
-def expression (modes: Modes): {Parse Item} Expr :=
-  Parse.recursiveWithFuel (2 * Parse.mark().left + 2) expressionRule { modes, level = LevelFull }
+--| The fuel is `Parse.recursiveWith`'s, the items left and one more, and
+--| never runs out: every rule reads an item before it calls `self`. The
+--| ladder's levels below the goal's are plain calls (`cmpExpr` to `unary`
+--| to `atom`), not calls of `self`, and `self` is called only after a
+--| bracket, an operator, a keyword, a `=>` or an application's head. So a
+--| call `d` deep has at least `d - 1` items read before it, and the fuel
+--| at each call is at least the items left there and one more.
+def expression (modes: Modes): {Parse Item} Expr := Parse.recursiveWith expressionRule { modes, level = LevelFull }
 
 def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item} Expr :=
   let modes := goal.modes
@@ -1380,11 +1384,10 @@ def clauseArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (ki
 
 -- Patterns.
 
---| Twice the items left, and one more: a level may hand over to the plain
---| pattern without reading (`PatternAltOne` to `PatternTupleComponent` to
---| `PatternPlain`).
-def pattern (goal: PatternGoal): {Parse Item} Pattern :=
-  Parse.recursiveWithFuel (2 * Parse.mark().left + 2) patternRule goal
+--| With `Parse.recursiveWith`'s fuel, as `expression`, and for the same
+--| reason: every rule reads an item before it calls `pself`, so a level
+--| hands over to the plain pattern by a plain call (`tupleComponent`).
+def pattern (goal: PatternGoal): {Parse Item} Pattern := Parse.recursiveWith patternRule goal
 
 def patternOf (modes: Modes): {Parse Item} Pattern := pattern { modes, level = PatternPlain }
 
@@ -1504,12 +1507,14 @@ def listPatternItems (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (
           | Some _ => listPatternItems more pself modes [item, ..found]
           | None => ([item, ..found].reverse, False, None)
 
+--| Called after a `[` or `,`, so the call of `pself` follows a read.
 def listItemPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
-  let first := listComponent pself modes
+  let first := pself { modes, level = PatternListComponent }
   alternatives pself modes first PatternListComponent
 
+--| Called after a `(` or `,`, so the call of `pself` follows a read.
 def tupleItem (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
-  let first := tupleComponent pself modes
+  let first := pself { modes, level = PatternTupleComponent }
   alternatives pself modes first PatternTupleComponent
 
 def listComponent (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
@@ -1526,7 +1531,7 @@ def tupleComponent (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes):
     let ctor := ctorArgs pself modes name (kind => kind == Comma || kind == RParen || kind == Pipe || kind == PlusPlus)
     patternAppend pself modes ctor PatternTupleComponent
   else if !modes.at Minus then
-    let plain := pself { modes, level = PatternPlain }
+    let plain := plainPattern pself modes
     patternAppend pself modes plain PatternTupleComponent
   else
     let minus := bump()

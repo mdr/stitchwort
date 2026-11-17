@@ -560,6 +560,58 @@ the candidate), `SettledProofs.sw` (the statements), `SettledTests.sw`
 programs: `stitchwort build --native Fmt.Sketch.Search.main -o search`,
 then `search --count 500000 --seed 1`, and `--candidate`).
 
+## 11. Spike K4's findings (SW-3826)
+
+Opus, 17 November 2026.
+
+**Verdict: (b), enough after a small change, made.** The fuel never ran
+out, and the `2 · left + 2` of stages 2a and 2b was twice what the
+expression parser needs. `Parse.recursiveWithFuel` passes its fuel down
+the call stack, so what it bounds is the depth of nested `self` calls,
+not their number.
+
+- **Expressions: one `self` call per item read, at most.** The ladder's
+  levels are plain calls (`operatorExpr` → `cmpExpr` → … → `unary` →
+  `app` → `atom`), not calls of `self`; stage 2b's worry that
+  `LevelFull → … → LevelArgument` hands over without reading took them
+  for `self` calls. `self` is called only after a bracket, an operator, a
+  keyword, a `=>`, a `:`, a `{` or an application's head, in the calling
+  rule. So a call `d` deep has at least `d - 1` items read before it.
+- **Patterns: two, before the change.** `tupleComponent` (levels
+  `PatternTupleComponent`, `PatternListComponent`, `PatternAltOne`)
+  called `pself` at `PatternPlain` without reading, so a non-reading
+  frame could follow every reading one; `2 · left + 2` was exactly the
+  bound. Now `tupleComponent` calls `plainPattern` directly, and the two
+  helpers that reached it by a plain call from a `(` or `[` (`tupleItem`,
+  `listItemPattern`) call `pself` at their level instead, which keeps the
+  recursion through `pself` for the termination checker.
+- **Loops:** the 20-odd hand-fuelled loops each start at the items left
+  and one more and read at least an item every time round (an operator,
+  a comma, a `|`, an argument), so none ends early.
+- **The accounting:** every recursion is `Parse.recursiveWith`, fuel the
+  items left and one more, and the invariant is "fuel at a call is more
+  than the items left there", kept because each call follows a read.
+  `fuelEnough` is stated against it in `tools/fmt-sketch`: `grammarWith
+  extra` gives every recursion and loop `extra` more, and `grammarWith
+  extra lexed = grammarWith 0 lexed`. Its proof wants a std lemma for
+  `recursiveWithFuel` with a body that reads before each call, and F5's
+  loop lemma; then one guard lemma per call site.
+
+**Evidence.** 31 deep cases (brackets, `- - x`, `! ! b`, applications,
+lambdas, lists, records, sections, `if`, `match`, `->`, Π types,
+interpolation, the whole ladder in one bracket, and patterns: brackets,
+alternatives, constructors, lists, `++`, fields, tuples, negatives),
+through the twin at `--stage tree` and Rust's `dev tree --print`: 24 of
+them at depths 1 to 1000 before the change, all 31 at 1, 2, 3, 10, 100
+and 1000 after it. Every tree the same, the twin at most 27 MB, except
+one case that is not about fuel (`f !!b`, below). The gate on the goldens is unchanged (78 of 124). Two
+tests in `Syntax.Tests` parse 200-deep nests; they fail when the fuel is
+cut to a half (expressions) or a third (patterns) of the items left.
+
+**Found:** the twin refuses `f !!b` ("expected the end of the
+declaration, but found `!`"), which Rust reads as `f (!(!b))`; `f !b`
+is read by both.
+
 ## Sources
 
 `tools/fmt-sketch/SKETCH.md` and `src/`; self-hosted-fmt.md §3.4, §7,

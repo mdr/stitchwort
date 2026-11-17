@@ -10,18 +10,20 @@ import Std (List, Nat, Option, Result, Text)
 
 type FormatResult = | Formatted (text: Text) | Refused (message: Text)
 
---| Stage 2's grammar on `Parse`, run over settled leaves with `fuel` for
---| its recursion, and its error as the message the Rust parser gives.
-def grammarWith (fuel: Nat) (lexed: Lexed): Result SourceFile Text := ?
+--| Stage 2's grammar on `Parse`, run over settled leaves, and its error as
+--| the message the Rust parser gives. Each recursion (`expression`,
+--| `pattern`) and each loop starts with fuel the items left there and one
+--| more, as `Parse.recursiveWith` does, plus `extra`.
+def grammarWith (extra: Nat) (lexed: Lexed): Result SourceFile Text := ?
 
 --| The errors the lowering raises that the formatter must refuse too
 --| (§3.5): a parameter named twice in a header, an or-pattern that binds
 --| names, a condition on an arm with `()` and no body.
 def SourceFile.refusal (file: SourceFile): Option Text := ?
 
---| The tree of settled leaves. One more than the number of leaves is
---| fuel enough for any nesting (`fuelEnough`).
-def parseLexed (lexed: Lexed): Result SourceFile Text := match grammarWith (lexed.leaves.length + 1) lexed with
+--| The tree of settled leaves. No extra fuel is needed for any nesting
+--| (`fuelEnough`).
+def parseLexed (lexed: Lexed): Result SourceFile Text := match grammarWith 0 lexed with
   | Err message => Err message
   | Ok file =>
     match file.refusal with

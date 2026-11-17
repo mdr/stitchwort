@@ -94,8 +94,9 @@ the tree's leaf.
 14. **The lowering's three errors as `SourceFile → Option Text`, called
     inside `parse`**, so `format` is "parse, tidy, print" and the toy's
     glue proofs carry over word for word [checked: they did].
-15. **Fuel = leaves + 1**, passed in, so `fuelEnough` can be stated
-    (§6).
+15. **Fuel = leaves left + 1** at each recursion and loop, with an
+    `extra` passed in, so `fuelEnough` can be stated (§6): every call of
+    the parser's `self` follows a read (spike K4, SW-3826).
 
 Checked while writing this: `(x,)` does not parse, as an expression, a
 type or a pattern [run], so P2 never turns a tuple into a bracket pair.
@@ -374,7 +375,8 @@ At 80–110 theorems an agent hour that is about 30–70 agent hours, against
    (`runsExpressionFuel`) because std's `runsRecursiveWith` says too
    little about the nested parser. Stage 2 should keep one
    `recursiveWith` per recursion and the fuel a function of the leaves
-   left.
+   left. [Spike K4: stage 2's rules read before every call of `self`, so
+   `recursiveWith`'s own fuel, the leaves left and one more, is enough.]
 5. **`traverseIdempotent`'s hypothesis** (`Settles`), as SKETCH-PLUS
    found: for P4 it says merged groups, traversed again and merged
    again, are unchanged, which needs "merging never uncovers a new
