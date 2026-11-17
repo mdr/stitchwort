@@ -147,7 +147,6 @@ pub struct Builtins {
     pub(crate) float_defs: HashMap<DefId, crate::float::FloatDef>,
     /// Off in tests that compare the float natives with their definitions
     /// while the number natives stay on (`disable_natives` turns both off).
-    /// The float primitives' reduction rule is never off.
     pub disable_float_natives: bool,
     /// The float natives fire outside a running program too: only for the
     /// float gate, which compares them with their definitions as terms
@@ -173,9 +172,10 @@ impl Builtins {
         self.primitives.insert(id, prim);
     }
 
-    /// What the evaluator computes for float definition `id`: a primitive
-    /// always; a native only while a program `running`, and unless natives
-    /// are off. Checking computes the natives' definitions.
+    /// What the evaluator computes for float definition `id`: the primitive
+    /// `toText` always (it never reduces); a native only while a program
+    /// `running`, and unless natives are off. Checking computes the
+    /// natives' definitions.
     #[inline]
     pub fn float_def(&self, id: DefId, running: bool) -> Option<crate::float::FloatDef> {
         if self.float_defs.is_empty() {

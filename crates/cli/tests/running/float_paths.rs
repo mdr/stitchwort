@@ -1,8 +1,8 @@
 //! The four execution paths of `Float` (docs/proposals/float.md §3.3, §7.4):
 //! the native kernel, the WebAssembly kernel, the Rust runtime and Node
 //! compute the same canonical bits for every operation the kernel computes
-//! (the primitives `+ - * / %`, `floor`, `ceil`, `trunc`, `round`, `ofInt`
-//! and `ofNat`; `neg`, `abs`, `isNaN`, `isFinite`, `toInt`, `==`, `<`, `<=`
+//! (the rounding operations `+ - * / %`, `floor`, `ceil`, `trunc`, `round`,
+//! `ofInt` and `ofNat`; `neg`, `abs`, `isNaN`, `isFinite`, `toInt`, `==`, `<`, `<=`
 //! (in an `if`, as a `Bool`, and against literals), `Float.compare`,
 //! `Ord.compare`, `Float.less`, `Float.leq`, `Float.ieeeEq`, `ieeeLt`,
 //! `ieeeLe`; the record's constructor and `.bits`), on every pair from an
@@ -14,12 +14,13 @@
 //! its own: the Rust runtime against Node's `String(x)`, and `toSource`
 //! read back by the kernel.
 //!
-//! The kernels compute `+`, `-`, `*`, `ofInt` and `ofNat` through their
-//! definitions (std/Float/Model.sw), the float natives being off while
-//! checking and evaluating outside a run, so these tests compare those
-//! definitions with the hardware and Node; [`add_and_sub_round_like_the_hardware`]
-//! and [`mul_rounds_like_the_hardware`] add pairs built to land on rounding
-//! boundaries, the latter with a slice of Berkeley TestFloat's cases.
+//! The kernels compute every rounding operation through its definition
+//! (std/Float/Model.sw), the float natives being off while checking and
+//! evaluating outside a run, so these tests compare those definitions with
+//! the hardware and Node; [`add_and_sub_round_like_the_hardware`],
+//! [`mul_rounds_like_the_hardware`], [`div_rounds_like_the_hardware`] and
+//! [`rem_and_whole_numbers_match_the_hardware`] add operands built to land
+//! on rounding boundaries, with slices of Berkeley TestFloat's cases.
 //!
 //! The WebAssembly kernel is the playground's bundle in `web/pkg`, run by
 //! `web/tests/float-wasm.mjs` under Node. Build it first (`web/build.sh`, or
@@ -514,7 +515,7 @@ fn the_gate_passes_on_the_webassembly_kernel() {
         .expect("run node");
     let report = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "{report}");
-    assert!(report.contains("2463 passed, 0 failed"), "{report}");
+    assert!(report.contains("3489 passed, 0 failed"), "{report}");
 }
 
 /// Pairs whose sum or difference lands on a rounding boundary
@@ -777,29 +778,48 @@ fn mul_rounds_like_the_hardware() {
         );
         pairs.push((a, b));
     }
+    let items = pairs
+        .iter()
+        .map(|(a, b)| format!("(Float.mul (ofBits {a}) (ofBits {b})).bits"))
+        .collect();
+    let expected = pairs
+        .iter()
+        .map(|&(a, b)| bits(f64::from_bits(a) * f64::from_bits(b)))
+        .collect();
+    agree_with_the_machine("mul", items, expected, |i| {
+        let (a, b) = pairs[i];
+        format!("{a:#018x} * {b:#018x}")
+    });
+}
+
+/// Checks that the kernel (through the definitions), the Rust runtime and
+/// Node each compute `expected` (canonical bits) for `items`, expressions of
+/// `ofBits n` whose `.bits` they are; `describe` names item `i` in a
+/// failure.
+fn agree_with_the_machine(
+    tag: &str,
+    items: Vec<String>,
+    expected: Vec<u64>,
+    describe: impl Fn(usize) -> String,
+) {
     let mut src = String::from(
         "import Std (Float, List, Nat, Text)\n\n\
          def build (b: Nat) (h: Float.isValid b = True): Float := { bits = b, valid = h }\n\n\
          def ofBits (b: Nat): Float := if h: Float.isValid b = True then build b h else Float.nan\n\n",
     );
-    let mut items = Vec::new();
-    let mut expected = Vec::new();
-    for &(a, b) in &pairs {
-        items.push(format!("(Float.mul (ofBits {a}) (ofBits {b})).bits"));
-        expected.push(bits(f64::from_bits(a) * f64::from_bits(b)).to_string());
-    }
+    let expected: Vec<String> = expected.iter().map(u64::to_string).collect();
     let _ = writeln!(src, "def results: List Nat := [{}]\n", items.join(", "));
     src.push_str(
         "def main(): {IO} () := IO.print (results |> List.map (n => n.toText) |> Text.join '\\n')\n",
     );
-    let dir = std::env::temp_dir().join(format!("stitchwort-float-mul-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("stitchwort-float-{tag}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("create temp dir");
-    let path = dir.join("mul.sw");
+    let path = dir.join(format!("{tag}.sw"));
     std::fs::write(&path, &src).expect("write source");
 
     let mut session = Session::new();
     session
-        .load("mul.sw", &src)
+        .load("machine.sw", &src)
         .unwrap_or_else(|e| panic!("{e:?}"));
     let expr = session
         .parse_expression("expression", "results")
@@ -819,9 +839,9 @@ fn mul_rounds_like_the_hardware() {
     for (name, results) in &paths {
         for (i, (got, want)) in results.iter().zip(&expected).enumerate() {
             if got != want {
-                let (a, b) = pairs[i];
                 wrong.push(format!(
-                    "{name}: {a:#018x} * {b:#018x} gave {}, the machine {}",
+                    "{name}: {} gave {}, the machine {}",
+                    describe(i),
                     shown(got),
                     shown(want)
                 ));
@@ -834,4 +854,305 @@ fn mul_rounds_like_the_hardware() {
         wrong.len(),
         wrong[..wrong.len().min(20)].join("\n")
     );
+}
+
+/// Quotients on rounding boundaries. In the normal range a quotient is
+/// never exactly halfway between two doubles, so the ties are subnormal
+/// results (an odd number of half units, to even); beside them, quotients
+/// just either side of a tie, results just under and over a power of two,
+/// overflow and underflow, and the special cases.
+fn div_boundary_pairs() -> Vec<(f64, f64)> {
+    let two = |k: i32| 2f64.powi(k);
+    let max = f64::MAX;
+    let tiny = f64::from_bits(1);
+    let min_normal = f64::MIN_POSITIVE;
+    let largest_subnormal = f64::from_bits(0x000F_FFFF_FFFF_FFFF);
+    vec![
+        // Exact ties, all subnormal: 0.5, 1.5, 2.5 and 3.5 units, to even.
+        (tiny, 2.0),
+        (3.0 * tiny, 2.0),
+        (5.0 * tiny, 2.0),
+        (7.0 * tiny, 2.0),
+        (-tiny, 2.0),
+        (3.0 * tiny, -2.0),
+        (3.0 * tiny, 6.0),
+        (min_normal, two(53)),
+        (3.0 * min_normal, two(53)),
+        (largest_subnormal, 2.0),
+        // Just either side of those ties.
+        (min_normal * (1.0 + two(-52)), two(53)),
+        (min_normal * (1.0 - two(-53)), two(53)),
+        (3.0 * min_normal, two(53) + 2.0),
+        (3.0 * min_normal, two(53) - 1.0),
+        (tiny, 2.0 - two(-52)),
+        (tiny, 2.0 + two(-51)),
+        // Normal quotients near halfway, either way.
+        (1.0, 3.0),
+        (2.0, 3.0),
+        (1.0, 1.0 + two(-52)),
+        (1.0 + two(-52), 1.0 + two(-51)),
+        (1.0, 1.0 - two(-53)),
+        (2.0 - two(-52), 1.0 + two(-52)),
+        (1.0 + two(-51), 1.0 + two(-52)),
+        (9007199254740991.0, 9007199254740990.0),
+        (0.3, 0.1),
+        (1.0, 10.0),
+        (123456789.0, 10.0),
+        (9007199254740991.0, 10.0),
+        (-7.0, 0.1),
+        // Just under and over powers of two.
+        (two(1023), two(1023) + two(971)),
+        (two(1023) - two(970), two(1023)),
+        (1.0, 1.0 - two(-52)),
+        // Overflow, and just below it.
+        (max, 0.5),
+        (max, 1.0 - two(-53)),
+        (max, 1.0 - two(-52) * 0.5 - two(-53)),
+        (max, 1.0 + two(-52)),
+        (two(1000), two(-30)),
+        (-max, two(-1)),
+        // Underflow to a zero and to the smallest subnormal.
+        (tiny, 3.0),
+        (tiny, 1.5),
+        (tiny, max),
+        (-tiny, max),
+        (min_normal, max),
+        (1e-300, 1e300),
+        // Division by a zero, the infinities and the NaN, with their signs.
+        (1.0, 0.0),
+        (1.0, -0.0),
+        (-1.0, 0.0),
+        (0.0, 0.0),
+        (-0.0, 0.0),
+        (0.0, -1.0),
+        (-0.0, -1.0),
+        (f64::INFINITY, f64::INFINITY),
+        (f64::INFINITY, -2.0),
+        (f64::NEG_INFINITY, 0.0),
+        (1.0, f64::INFINITY),
+        (-1.0, f64::INFINITY),
+        (1.0, f64::NEG_INFINITY),
+        (f64::NAN, 1.0),
+        (1.0, f64::NAN),
+        (0.0, f64::NAN),
+    ]
+}
+
+/// The f64_div slice of Berkeley TestFloat (testfloat_f64_div.txt): its
+/// operands and the result it gives, NaNs made canonical.
+fn testfloat_div_cases() -> Vec<(u64, u64, u64)> {
+    let canonical = |h: &str| {
+        let bits = u64::from_str_radix(h, 16).expect("hex");
+        stitchwort_core::float::canonical_bits(f64::from_bits(bits))
+    };
+    include_str!("testfloat_f64_div.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .map(|l| {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            (canonical(f[0]), canonical(f[1]), canonical(f[2]))
+        })
+        .collect()
+}
+
+/// `Float.div`, computed by the kernel through its definition, gives the
+/// machine's bits on [`div_boundary_pairs`] and on TestFloat's cases, as do
+/// the Rust runtime and Node; and the machine gives TestFloat's results.
+#[test]
+fn div_rounds_like_the_hardware() {
+    let bits = |x: f64| stitchwort_core::float::canonical_bits(x);
+    let mut pairs: Vec<(u64, u64)> = div_boundary_pairs()
+        .into_iter()
+        .map(|(x, y)| (bits(x), bits(y)))
+        .collect();
+    for (a, b, r) in testfloat_div_cases() {
+        assert_eq!(
+            bits(f64::from_bits(a) / f64::from_bits(b)),
+            r,
+            "the machine and TestFloat on {a:#018x} / {b:#018x}"
+        );
+        pairs.push((a, b));
+    }
+    let items = pairs
+        .iter()
+        .map(|(a, b)| format!("(Float.div (ofBits {a}) (ofBits {b})).bits"))
+        .collect();
+    let expected = pairs
+        .iter()
+        .map(|&(a, b)| bits(f64::from_bits(a) / f64::from_bits(b)))
+        .collect();
+    agree_with_the_machine("div", items, expected, |i| {
+        let (a, b) = pairs[i];
+        format!("{a:#018x} / {b:#018x}")
+    });
+}
+
+/// Values where `floor`, `ceil`, `trunc` and `round` decide the most: the
+/// zeros, the infinities, the NaN, halves and the doubles beside them, the
+/// neighbourhoods of 2^52 (above which every double is whole) and 2^53,
+/// subnormals and the largest doubles.
+fn whole_number_edges() -> Vec<f64> {
+    let two = |k: i32| 2f64.powi(k);
+    let mut out = vec![
+        0.0,
+        -0.0,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+        f64::from_bits(1),
+        -f64::from_bits(1),
+        f64::from_bits(0x000F_FFFF_FFFF_FFFF),
+        f64::MIN_POSITIVE,
+        f64::MAX,
+        -f64::MAX,
+        1e300,
+        0.1,
+        -0.1,
+        1.0 - two(-53),
+        -(1.0 - two(-53)),
+        1.0,
+        -1.0,
+        1.0 + two(-52),
+        -(1.0 + two(-52)),
+    ];
+    // Halves, and the doubles just below and above them.
+    for k in [0.5, 1.5, 2.5, 3.5, 1e6 + 0.5, two(51) + 0.5, two(52) - 0.5] {
+        for x in [k, -k] {
+            out.push(x);
+            out.push(f64::from_bits(x.to_bits() - 1));
+            out.push(f64::from_bits(x.to_bits() + 1));
+        }
+    }
+    for x in [
+        two(52),
+        two(52) + 1.0,
+        two(52) - 1.0,
+        two(53),
+        two(53) - 1.0,
+        two(53) + 2.0,
+    ] {
+        out.push(x);
+        out.push(-x);
+    }
+    out
+}
+
+/// The f64_roundToInt slice of Berkeley TestFloat
+/// (testfloat_f64_round_to_int.txt): the operation, its operand and the
+/// result TestFloat gives, NaNs made canonical.
+fn testfloat_round_to_int_cases() -> Vec<(String, u64, u64)> {
+    let canonical = |h: &str| {
+        let bits = u64::from_str_radix(h, 16).expect("hex");
+        stitchwort_core::float::canonical_bits(f64::from_bits(bits))
+    };
+    include_str!("testfloat_f64_round_to_int.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .map(|l| {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            (f[0].to_string(), canonical(f[1]), canonical(f[2]))
+        })
+        .collect()
+}
+
+/// `floor`, `ceil`, `trunc` and `round` (JS's `Math.round`, ties towards
+/// +infinity) on [`whole_number_edges`], and the first three on TestFloat's
+/// cases; `%` (JS's, truncating) on pairs of edges and on pairs where the
+/// quotient is huge or tiny. The kernel through the definitions, the Rust
+/// runtime and Node all give the machine's bits, and the machine gives
+/// TestFloat's.
+#[test]
+fn rem_and_whole_numbers_match_the_hardware() {
+    let bits = |x: f64| stitchwort_core::float::canonical_bits(x);
+    let mut cases: Vec<(&str, u64, u64)> = Vec::new();
+    let unary = |name: &str, x: f64| -> f64 {
+        match name {
+            "floor" => x.floor(),
+            "ceil" => x.ceil(),
+            "trunc" => x.trunc(),
+            _ => stitchwort_core::float::js_round(x),
+        }
+    };
+    for x in whole_number_edges() {
+        for name in ["floor", "ceil", "trunc", "round"] {
+            cases.push((name, bits(x), 0));
+        }
+    }
+    let testfloat = testfloat_round_to_int_cases();
+    for (name, a, r) in &testfloat {
+        assert_eq!(
+            bits(unary(name, f64::from_bits(*a))),
+            *r,
+            "the machine and TestFloat on {name} {a:#018x}"
+        );
+    }
+    for (name, a, _) in &testfloat {
+        let name = match name.as_str() {
+            "floor" => "floor",
+            "ceil" => "ceil",
+            _ => "trunc",
+        };
+        cases.push((name, *a, 0));
+    }
+    let two = |k: i32| 2f64.powi(k);
+    let edges = [
+        0.0,
+        -0.0,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+        f64::from_bits(1),
+        f64::MAX,
+        -5.5,
+        2.0,
+        0.1,
+        -3.0,
+        two(53) + 2.0,
+    ];
+    for &x in &edges {
+        for &y in &edges {
+            cases.push(("rem", bits(x), bits(y)));
+        }
+    }
+    for (x, y) in [
+        (f64::MAX, f64::from_bits(1)),
+        (f64::MAX, 3.0),
+        (-f64::MAX, 0.1),
+        (1e300, 1e-300),
+        (f64::from_bits(1), f64::MAX),
+        (two(53) + 2.0, 3.0),
+        (-two(53), 0.1),
+        (5.5, -2.0),
+        (1.0, 0.1),
+        (-1.0, 0.1),
+        (6.0, 3.0),
+        (-6.0, 3.0),
+        (0.30000000000000004, 0.1),
+    ] {
+        cases.push(("rem", bits(x), bits(y)));
+    }
+    let items = cases
+        .iter()
+        .map(|&(name, a, b)| match name {
+            "rem" => format!("(Float.rem (ofBits {a}) (ofBits {b})).bits"),
+            _ => format!("(Float.{name} (ofBits {a})).bits"),
+        })
+        .collect();
+    let expected = cases
+        .iter()
+        .map(|&(name, a, b)| {
+            let x = f64::from_bits(a);
+            bits(match name {
+                "rem" => x % f64::from_bits(b),
+                _ => unary(name, x),
+            })
+        })
+        .collect();
+    agree_with_the_machine("whole", items, expected, |i| {
+        let (name, a, b) = cases[i];
+        match name {
+            "rem" => format!("{a:#018x} % {b:#018x}"),
+            _ => format!("{name} {a:#018x}"),
+        }
+    });
 }

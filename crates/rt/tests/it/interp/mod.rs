@@ -807,28 +807,24 @@ impl<'p> Interp<'p> {
                         let (x, y) = (a?, bits(&args[1])?);
                         boolean(x != NAN && (x == y || (x | y) & !SIGN == 0))
                     }
-                    FloatPrim::Mul => V::Float(canonical(
-                        f64::from_bits(a?) * f64::from_bits(bits(&args[1])?),
-                    )),
-                    FloatPrim::Div | FloatPrim::Rem => {
-                        use stitchwort_core::float::FloatOp;
-                        let op = match f {
-                            FloatPrim::Div => FloatOp::Div,
-                            _ => FloatOp::Rem,
+                    FloatPrim::Mul | FloatPrim::Div | FloatPrim::Rem => {
+                        use stitchwort_core::float::FloatNative;
+                        let native = match f {
+                            FloatPrim::Mul => FloatNative::Mul,
+                            FloatPrim::Div => FloatNative::Div,
+                            _ => FloatNative::Rem,
                         };
-                        V::Float(canonical(
-                            op.apply(f64::from_bits(a?), f64::from_bits(bits(&args[1])?)),
-                        ))
+                        V::Float(native.on_pair(a?, bits(&args[1])?))
                     }
                     FloatPrim::Floor | FloatPrim::Ceil | FloatPrim::Trunc | FloatPrim::Round => {
-                        use stitchwort_core::float::FloatOp;
-                        let op = match f {
-                            FloatPrim::Floor => FloatOp::Floor,
-                            FloatPrim::Ceil => FloatOp::Ceil,
-                            FloatPrim::Trunc => FloatOp::Trunc,
-                            _ => FloatOp::Round,
+                        use stitchwort_core::float::FloatNative;
+                        let native = match f {
+                            FloatPrim::Floor => FloatNative::Floor,
+                            FloatPrim::Ceil => FloatNative::Ceil,
+                            FloatPrim::Trunc => FloatNative::Trunc,
+                            _ => FloatNative::Round,
                         };
-                        V::Float(canonical(op.apply_unary(f64::from_bits(a?))))
+                        V::Float(native.on_bits(a?))
                     }
                     FloatPrim::OfInt => V::Float(canonical(stitchwort_core::float::int_to_f64(
                         &int(&args[0])?,

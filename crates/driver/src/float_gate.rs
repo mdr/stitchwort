@@ -1,7 +1,7 @@
 //! The first gate of `Float`'s stage 1a (docs/proposals/float.md §3.4, D731):
 //! the kernel's float natives agree with the definitions they replace as
-//! whole terms, proofs included, and the primitives' results are the same
-//! records the literal elaborator builds.
+//! whole terms, proofs included, and their results are the same records the
+//! literal elaborator builds.
 //!
 //! Each check runs in a fresh session per mode of evaluation ([`Mode`]), and
 //! compares normal forms (terms read back from values), never just `.bits`
@@ -374,7 +374,14 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         );
         return Run { checks, forms };
     };
-    for native in [FloatNative::Neg, FloatNative::Abs] {
+    for native in [
+        FloatNative::Neg,
+        FloatNative::Abs,
+        FloatNative::Floor,
+        FloatNative::Ceil,
+        FloatNative::Trunc,
+        FloatNative::Round,
+    ] {
         for &bits in PATTERNS {
             let name = format!(
                 "`{}` of `{{ bits = {bits:#x}, valid = p }}` normalises to the record with `Eq.refl True`",
@@ -467,9 +474,16 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
             }
         }
     }
-    // `add`, `sub` and `mul` on records with neutral witnesses: the record
-    // with `Eq.refl True` and the machine's bits, in every mode.
-    for native in [FloatNative::Add, FloatNative::Sub, FloatNative::Mul] {
+    // `add`, `sub`, `mul`, `div` and `rem` on records with neutral
+    // witnesses: the record with `Eq.refl True` and the machine's bits, in
+    // every mode.
+    for native in [
+        FloatNative::Add,
+        FloatNative::Sub,
+        FloatNative::Mul,
+        FloatNative::Div,
+        FloatNative::Rem,
+    ] {
         for &a in PATTERNS {
             for &b in PATTERNS {
                 let name = format!(

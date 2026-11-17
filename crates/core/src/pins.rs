@@ -168,6 +168,30 @@ pub const PINS: &[Pin] = &[
         Builtin::FloatOfNat,
         "2f2cd691811be01cbce8bdfd8f1541f8255b3780876d30e6d32508040d8ad324",
     ),
+    kernel(
+        Builtin::FloatDiv,
+        "73c6706145d33d45abdcb51bb55b124aef7e638865698d5b319d3d82e98395d9",
+    ),
+    kernel(
+        Builtin::FloatRem,
+        "04ee33bd88b5ecee10941d962c1373ec1266bea0e1bc13fb937d00c95ac4555f",
+    ),
+    kernel(
+        Builtin::FloatFloor,
+        "14e81991be26077d4bebc6fbd8ab1fa1e1e4d40c3ce87e4b79e9677c80af234f",
+    ),
+    kernel(
+        Builtin::FloatCeil,
+        "1940920207e9ebbe95891516b6133f2d0eab31420b9163eb267344418b9be61f",
+    ),
+    kernel(
+        Builtin::FloatTrunc,
+        "f146bedcbe390b1aec08ffb303f1a099c8abfec5e97031b2e4b3352971938afa",
+    ),
+    kernel(
+        Builtin::FloatRound,
+        "5a7ed97717f5873c3ba3f823f0bc2bef0acebd1afae8b9cdbef1ec6a22f01ec6",
+    ),
 ];
 
 /// The pin on `b`, if it has one.

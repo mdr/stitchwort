@@ -535,19 +535,19 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
 /// the NaN agree with the kernel's model.
 fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
     use stitchwort_core::float::{
-        FloatOp, canonical_bits, int_to_f64, js_to_string, nat_to_f64, to_int, total_order,
+        canonical_bits, int_to_f64, js_round, js_to_string, nat_to_f64, to_int, total_order,
     };
     let x = |i: usize| args[i].to_f64();
     match f {
         FloatPrim::Add => Value::float(x(0) + x(1)),
         FloatPrim::Sub => Value::float(x(0) - x(1)),
         FloatPrim::Mul => Value::float(x(0) * x(1)),
-        FloatPrim::Div => Value::float(FloatOp::Div.apply(x(0), x(1))),
-        FloatPrim::Rem => Value::float(FloatOp::Rem.apply(x(0), x(1))),
-        FloatPrim::Floor => Value::float(FloatOp::Floor.apply_unary(x(0))),
-        FloatPrim::Ceil => Value::float(FloatOp::Ceil.apply_unary(x(0))),
-        FloatPrim::Trunc => Value::float(FloatOp::Trunc.apply_unary(x(0))),
-        FloatPrim::Round => Value::float(FloatOp::Round.apply_unary(x(0))),
+        FloatPrim::Div => Value::float(x(0) / x(1)),
+        FloatPrim::Rem => Value::float(x(0) % x(1)),
+        FloatPrim::Floor => Value::float(x(0).floor()),
+        FloatPrim::Ceil => Value::float(x(0).ceil()),
+        FloatPrim::Trunc => Value::float(x(0).trunc()),
+        FloatPrim::Round => Value::float(js_round(x(0))),
         FloatPrim::OfInt => Value::float(match args[0] {
             Value::Int(n) => int_to_f64(&BigInt::from(*n)),
             Value::BigInt(n) => int_to_f64(n),
