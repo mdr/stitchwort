@@ -14,11 +14,12 @@
 //! its own: the Rust runtime against Node's `String(x)`, and `toSource`
 //! read back by the kernel.
 //!
-//! The kernels compute `+` and `-` through their definitions
-//! (std/Float/Model.sw), the float natives being off while checking and
-//! evaluating outside a run, so these tests compare those definitions with
-//! the hardware and Node; [`add_and_sub_round_like_the_hardware`] adds
-//! pairs built to land on rounding boundaries.
+//! The kernels compute `+`, `-`, `*`, `ofInt` and `ofNat` through their
+//! definitions (std/Float/Model.sw), the float natives being off while
+//! checking and evaluating outside a run, so these tests compare those
+//! definitions with the hardware and Node; [`add_and_sub_round_like_the_hardware`]
+//! and [`mul_rounds_like_the_hardware`] add pairs built to land on rounding
+//! boundaries, the latter with a slice of Berkeley TestFloat's cases.
 //!
 //! The WebAssembly kernel is the playground's bundle in `web/pkg`, run by
 //! `web/tests/float-wasm.mjs` under Node. Build it first (`web/build.sh`, or
@@ -513,7 +514,7 @@ fn the_gate_passes_on_the_webassembly_kernel() {
         .expect("run node");
     let report = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "{report}");
-    assert!(report.contains("1989 passed, 0 failed"), "{report}");
+    assert!(report.contains("2463 passed, 0 failed"), "{report}");
 }
 
 /// Pairs whose sum or difference lands on a rounding boundary
@@ -655,6 +656,172 @@ fn add_and_sub_round_like_the_hardware() {
                 let op = if i % 2 == 0 { '+' } else { '-' };
                 wrong.push(format!(
                     "{name}: {x:e} {op} {y:e} gave {}, the machine {}",
+                    shown(got),
+                    shown(want)
+                ));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} disagreements:\n{}",
+        wrong.len(),
+        wrong[..wrong.len().min(20)].join("\n")
+    );
+}
+
+/// Products that land on rounding boundaries: ties either way, results just
+/// under and over a power of two, overflow at and just below the halfway
+/// point past the largest double, subnormal results and underflow to a
+/// zero, signed zeros, and the special cases.
+fn mul_boundary_pairs() -> Vec<(f64, f64)> {
+    let two = |k: i32| 2f64.powi(k);
+    let max = f64::MAX;
+    let tiny = f64::from_bits(1);
+    let min_normal = f64::MIN_POSITIVE;
+    // 1 + 2^-52: its square is 1 + 2^-51 + 2^-104, just above a pattern.
+    let next = 1.0 + two(-52);
+    vec![
+        // Exact ties: (2^26 + 1)^2 = 2^52 + 2^27 + 1 is exact; times 2 and
+        // 3 it needs 54 bits, a tie, to even down and up.
+        (67108865.0, 67108865.0 * 2.0),
+        (67108865.0 * 3.0, 67108865.0),
+        (1.5, 1.0 + two(-52)),
+        (1.5, 1.0 + 3.0 * two(-52)),
+        (3.0, 1.0 + two(-52)),
+        (next, next),
+        (next, 1.0 - two(-53)),
+        (1.0 - two(-53), 1.0 - two(-53)),
+        (-1.5, 1.0 + two(-52)),
+        // Just under and over powers of two.
+        (2.0 - two(-52), 1.0 + two(-52)),
+        (2.0 - two(-52), 2.0 - two(-52)),
+        (1.0 + two(-52), 1.0 - two(-53)),
+        // Overflow: 2^1023 * (2 - 2^-53) is halfway past the largest double.
+        (two(1023), 2.0 - two(-53)),
+        (two(1023), 2.0 - two(-52)),
+        (two(1023), 2.0),
+        (max, 1.0 + two(-52)),
+        (max, 1.0),
+        (-max, 2.0),
+        (1e308, 10.0),
+        // Subnormal results, ties among them, and underflow to a zero.
+        (tiny, 0.5),
+        (tiny, 1.5),
+        (3.0 * tiny, 0.5),
+        (tiny, -0.5),
+        (min_normal, 0.5),
+        (min_normal, 1.0 - two(-53)),
+        (min_normal, two(-52)),
+        (min_normal, two(-53)),
+        (min_normal, 1.5 * two(-53)),
+        (1e-200, 1e-200),
+        (-1e-200, 1e-200),
+        (two(-537), two(-537)),
+        (two(-538), two(-537)),
+        // Signed zeros.
+        (0.0, 0.0),
+        (-0.0, 0.0),
+        (-0.0, -0.0),
+        (0.0, -1.5),
+        (-0.0, max),
+        (tiny, -tiny),
+        // Infinities and the NaN.
+        (f64::INFINITY, 0.0),
+        (f64::NEG_INFINITY, -0.0),
+        (f64::INFINITY, -tiny),
+        (f64::NEG_INFINITY, f64::NEG_INFINITY),
+        (f64::NAN, 0.0),
+        (1.0, f64::NAN),
+        // Ordinary values, and by 10, as decimal code does.
+        (0.1, 3.0),
+        (0.1, 10.0),
+        (123456789.0, 10.0),
+        (9007199254740991.0, 10.0),
+        (0.1, 0.1),
+    ]
+}
+
+/// The f64_mul slice of Berkeley TestFloat (testfloat_f64_mul.txt): its
+/// operands and the result it gives, NaNs made canonical.
+fn testfloat_mul_cases() -> Vec<(u64, u64, u64)> {
+    let canonical = |h: &str| {
+        let bits = u64::from_str_radix(h, 16).expect("hex");
+        stitchwort_core::float::canonical_bits(f64::from_bits(bits))
+    };
+    include_str!("testfloat_f64_mul.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .map(|l| {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            (canonical(f[0]), canonical(f[1]), canonical(f[2]))
+        })
+        .collect()
+}
+
+/// `Float.mul`, computed by the kernel through its definition, gives the
+/// machine's bits on [`mul_boundary_pairs`] and on TestFloat's cases, as do
+/// the Rust runtime and Node; and the machine gives TestFloat's results.
+#[test]
+fn mul_rounds_like_the_hardware() {
+    let bits = |x: f64| stitchwort_core::float::canonical_bits(x);
+    let mut pairs: Vec<(u64, u64)> = mul_boundary_pairs()
+        .into_iter()
+        .map(|(x, y)| (bits(x), bits(y)))
+        .collect();
+    for (a, b, r) in testfloat_mul_cases() {
+        assert_eq!(
+            bits(f64::from_bits(a) * f64::from_bits(b)),
+            r,
+            "the machine and TestFloat on {a:#018x} * {b:#018x}"
+        );
+        pairs.push((a, b));
+    }
+    let mut src = String::from(
+        "import Std (Float, List, Nat, Text)\n\n\
+         def build (b: Nat) (h: Float.isValid b = True): Float := { bits = b, valid = h }\n\n\
+         def ofBits (b: Nat): Float := if h: Float.isValid b = True then build b h else Float.nan\n\n",
+    );
+    let mut items = Vec::new();
+    let mut expected = Vec::new();
+    for &(a, b) in &pairs {
+        items.push(format!("(Float.mul (ofBits {a}) (ofBits {b})).bits"));
+        expected.push(bits(f64::from_bits(a) * f64::from_bits(b)).to_string());
+    }
+    let _ = writeln!(src, "def results: List Nat := [{}]\n", items.join(", "));
+    src.push_str(
+        "def main(): {IO} () := IO.print (results |> List.map (n => n.toText) |> Text.join '\\n')\n",
+    );
+    let dir = std::env::temp_dir().join(format!("stitchwort-float-mul-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("mul.sw");
+    std::fs::write(&path, &src).expect("write source");
+
+    let mut session = Session::new();
+    session
+        .load("mul.sw", &src)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let expr = session
+        .parse_expression("expression", "results")
+        .expect("parses");
+    let (kernel, _) = session.elab.eval_expr(&expr).expect("evaluates");
+    let count = expected.len();
+    let paths = [
+        ("kernel", numbers("kernel", &kernel, count)),
+        (
+            "Rust runtime",
+            numbers("Rust runtime", &stitchwort_run(&path, false), count),
+        ),
+        ("Node", numbers("Node", &stitchwort_run(&path, true), count)),
+    ];
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut wrong = Vec::new();
+    for (name, results) in &paths {
+        for (i, (got, want)) in results.iter().zip(&expected).enumerate() {
+            if got != want {
+                let (a, b) = pairs[i];
+                wrong.push(format!(
+                    "{name}: {a:#018x} * {b:#018x} gave {}, the machine {}",
                     shown(got),
                     shown(want)
                 ));

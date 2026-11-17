@@ -50,6 +50,11 @@ const BOUNDS: &[(&str, &str, u64)] = &[
         "import Std (Map, Nat)\ndef m : Map Nat Nat := Map.insert Map.empty 1 2\n",
         35034451,
     ),
+    (
+        "Float",
+        "import Std (Float)\ndef x : Float := Float.ofNat 3 * 0.5 + Float.ofInt (-2)\n",
+        22566104,
+    ),
 ];
 
 fn steps(program: &str) -> u64 {

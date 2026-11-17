@@ -7,11 +7,11 @@
 --|
 --| The exact operations (`neg`, `abs`, `isNaN`, `isFinite`, `==`, the order,
 --| the IEEE comparisons, `toInt`) are ordinary definitions over the bits,
---| and so are `add` and `sub`, through `Float.Model` (std/Float/Model.sw).
---| The checker computes all of these through their definitions; only a
---| running program or test uses the machine's doubles for them. The other
---| rounding operations (`mul`, `div`, `rem`, `floor`, `ceil`, `trunc`,
---| `round`, `ofInt`, `ofNat`) are primitives: the checker computes them on
+--| and so are `add`, `sub`, `mul`, `ofInt` and `ofNat`, through
+--| `Float.Model` (std/Float/Model.sw). The checker computes all of these
+--| through their definitions; only a running program or test uses the
+--| machine's doubles for them. The other rounding operations (`div`, `rem`,
+--| `floor`, `ceil`, `trunc`, `round`) are primitives: the checker computes them on
 --| known doubles with Rust's `f64`, under the contract of
 --| docs/proposals/float.md §3.3, and otherwise they are unknown functions.
 --| `toText` is a primitive the checker never computes: each runtime supplies
@@ -263,12 +263,21 @@ def Float.add: (x: Float) → (y: Float) → Float
 --| `x - y`: `x + (-y)`, rounded once.
 def Float.sub (x y: Float): Float := Float.add x (Float.neg y)
 
+--| `x * y`, exact then rounded (`Float.Model.mulBits`): `-0.0 * 1.0` is
+--| `-0.0`, and `Float.infinity * 0.0` the NaN.
+def Float.mul: (x: Float) → (y: Float) → Float
+  | { bits = a, valid = p }, { bits = b, valid = q } => Float.ofBits (Float.Model.mulBits a b)
+
+--| The double nearest the integer, ties to even, or an infinity beyond the
+--| largest (JS's `Number(n)` of a `bigint`); `0.0` for 0.
+def Float.ofInt (i: Int): Float := Float.ofBits (Float.Model.ofIntBits i)
+
+--| The double nearest the number, ties to even, or +infinity beyond the largest.
+def Float.ofNat (n: Nat): Float := Float.ofInt (OfNat n)
+
 -- The other rounding operations: primitives, with no definition. The kernel
 -- computes them on known doubles (rounding to nearest, ties to even, the NaN
 -- canonical), and the runtime and JS use the machine's.
-
---| `x * y`, rounded to the nearest double (ties to even); a primitive.
-def Float.mul: (x: Float) → (y: Float) → Float
 
 --| `x / y`, rounded to the nearest double (ties to even); a primitive: `1.0 / 0.0` is +infinity.
 def Float.div: (x: Float) → (y: Float) → Float
@@ -292,13 +301,6 @@ def Float.trunc: (x: Float) → Float
 --| The nearest whole double, a half going up towards +infinity (JS's `Math.round`).
 --| `round (-2.5)` is `-2.0`, and the sign of a zero result is kept (`round (-0.4)` is `-0.0`).
 def Float.round: (x: Float) → Float
-
---| The double nearest the integer, ties to even, or an infinity beyond the
---| largest (JS's `Number(n)` of a `bigint`).
-def Float.ofInt: (i: Int) → Float
-
---| The double nearest the number, ties to even, or +infinity beyond the largest.
-def Float.ofNat: (n: Nat) → Float
 
 --| JS's `String(x)`: `0.30000000000000004`, `1e+21`, `NaN`, `-Infinity`, and
 --| `0` for both zeros. The checker doesn't compute it (each runtime supplies

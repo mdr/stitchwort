@@ -19,14 +19,14 @@ fn the_float_natives_agree_with_their_definitions() {
         .map(|c| format!("[{}] {}: {}", c.mode.name(), c.name, c.detail))
         .collect();
     assert!(failed.is_empty(), "{}", failed.join("\n"));
-    // Per mode: the program, 10 natives, 13 pairs, 2 x 12 neutral witnesses
+    // Per mode: the program, 13 natives, 13 pairs, 2 x 12 neutral witnesses
     // for `neg` and `abs`, 3 x 12 for `isNaN`, `isFinite` and `toInt`,
-    // 2 x 12 x 12 for `ieeeLt` and `ieeeLe`, and 2 x 12 x 12 for `add` and
-    // `sub`; then 33 + 24 + 36 + 288 + 288 normal forms compared across the
-    // modes.
+    // 2 x 12 x 12 for `ieeeLt` and `ieeeLe`, 3 x 12 x 12 for `add`, `sub`
+    // and `mul`, and 5 + 7 numbers for `ofNat` and `ofInt`; then 33 + 24 +
+    // 36 + 288 + 432 + 12 normal forms compared across the modes.
     assert_eq!(
         checks.len(),
-        2 * (1 + 10 + 13 + 24 + 36 + 288 + 288) + 33 + 24 + 36 + 288 + 288,
+        2 * (1 + 13 + 13 + 24 + 36 + 288 + 432 + 12) + 33 + 24 + 36 + 288 + 432 + 12,
         "{checks:#?}"
     );
     // The cross-mode comparisons ran.
@@ -96,10 +96,10 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     let session = loaded();
     let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
-    let mul = g
+    let rem = g
         .env
         .registry()
-        .loaded_def(Builtin::FloatMul)
+        .loaded_def(Builtin::FloatRem)
         .expect("loaded");
     let div = g
         .env
@@ -107,8 +107,8 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
         .loaded_def(Builtin::FloatDiv)
         .expect("loaded");
     let hash = |id| def_hash(g, id).unwrap().expect("final");
-    assert_ne!(hash(mul), hash(div), "the same type, different operations");
-    for id in [mul, div] {
+    assert_ne!(hash(rem), hash(div), "the same type, different operations");
+    for id in [rem, div] {
         let now = float_primitive_hash(g, id, float::FLOAT_CONTRACT).unwrap();
         let bumped = float_primitive_hash(g, id, float::FLOAT_CONTRACT + 1).unwrap();
         assert_eq!(now, Some(hash(id)));

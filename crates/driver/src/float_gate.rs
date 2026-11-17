@@ -11,6 +11,7 @@
 //! run it too (`stitchwort_web::float_gate`): the gate is to pass on both
 //! kernels.
 
+use num_bigint::BigInt;
 use stitchwort_core::float::{self, FloatNative};
 use stitchwort_core::native::nat_value;
 use stitchwort_core::registry::Builtin;
@@ -466,9 +467,9 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
             }
         }
     }
-    // `add` and `sub` on records with neutral witnesses: the record with
-    // `Eq.refl True` and the machine's bits, in every mode.
-    for native in [FloatNative::Add, FloatNative::Sub] {
+    // `add`, `sub` and `mul` on records with neutral witnesses: the record
+    // with `Eq.refl True` and the machine's bits, in every mode.
+    for native in [FloatNative::Add, FloatNative::Sub, FloatNative::Mul] {
         for &a in PATTERNS {
             for &b in PATTERNS {
                 let name = format!(
@@ -494,6 +495,63 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                 }
                 check(&mut checks, mode, name, result.map(|_| ()));
             }
+        }
+    }
+    // `ofNat` and `ofInt` on numbers: the record with `Eq.refl True` and
+    // the nearest double's bits, in every mode. Ties either way, and the
+    // overflow threshold.
+    let int = |n: &BigInt| -> Result<Value, String> {
+        let ctor = |b: Builtin| g.env.registry().ctor(b).ok_or("`Int` isn't loaded");
+        let (data, of_nat) = ctor(Builtin::OfNat)?;
+        let (_, neg_succ) = ctor(Builtin::NegSucc)?;
+        Ok(match n.to_biguint() {
+            Some(m) => Value::Ctor(data, of_nat, [nat_value(m)].into()),
+            None => {
+                let m = (-n - BigInt::from(1)).to_biguint().expect("negative");
+                Value::Ctor(data, neg_succ, [nat_value(m)].into())
+            }
+        })
+    };
+    let two = |k: u32| -> BigInt { BigInt::from(2).pow(k) };
+    let one = || BigInt::from(1);
+    let numbers: [BigInt; 7] = [
+        BigInt::from(0),
+        two(53) + one(),
+        two(53) + BigInt::from(3),
+        two(1024) - two(970),
+        two(1024) - two(970) - one(),
+        -(two(53) + one()),
+        -(two(1024) - two(970)),
+    ];
+    for native in [FloatNative::OfNat, FloatNative::OfInt] {
+        for n in &numbers {
+            if native == FloatNative::OfNat && n.sign() == num_bigint::Sign::Minus {
+                continue;
+            }
+            let name = format!(
+                "`{}` of `{n}` normalises to the record with `Eq.refl True`",
+                native.name()
+            );
+            let result = (|| {
+                let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                    .map_err(|e| format!("{e:?}"))?;
+                let arg = match n.to_biguint() {
+                    Some(m) if native == FloatNative::OfNat => nat_value(m),
+                    _ => int(n)?,
+                };
+                let got = apply(g, f, arg).map_err(|e| format!("{e:?}"))?;
+                let expected = literal(float::canonical_bits(float::int_to_f64(n)))?;
+                let (got, expected) = (normal(g, 0, &got)?, normal(g, 0, &expected)?);
+                if got == expected {
+                    Ok(got)
+                } else {
+                    Err(format!("{got} vs {expected}"))
+                }
+            })();
+            if let Ok(form) = &result {
+                forms.push((format!("{} {n}", native.name()), form.clone()));
+            }
+            check(&mut checks, mode, name, result.map(|_| ()));
         }
     }
     Run { checks, forms }

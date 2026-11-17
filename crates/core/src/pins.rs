@@ -156,6 +156,18 @@ pub const PINS: &[Pin] = &[
         Builtin::FloatSub,
         "1aada7832637c892c4e184fdba6b2cead0432fbebee94435d004657d8b3439a1",
     ),
+    kernel(
+        Builtin::FloatMul,
+        "a8fc966041a5f374f82b581bc6b163fca7cbdbe5d360f8125bad181f7ae3f949",
+    ),
+    kernel(
+        Builtin::FloatOfInt,
+        "b0a726b2c61b717aafd5398acc79ce00db0565ecbc5d20af2506a20f30563bb9",
+    ),
+    kernel(
+        Builtin::FloatOfNat,
+        "2f2cd691811be01cbce8bdfd8f1541f8255b3780876d30e6d32508040d8ad324",
+    ),
 ];
 
 /// The pin on `b`, if it has one.
