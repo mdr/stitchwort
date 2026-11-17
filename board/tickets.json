@@ -22936,12 +22936,12 @@
     {
       "id": 3904,
       "title": "[Sonnet] Engine E0: copy Toy.Doc and its 302 theorems into tools/fmt/src/Doc as the start of Std.Doc (docs/proposals/self-hosted-fmt-engine-plan.md stage E0)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet, E0): copied Toy.Doc to tools/fmt/src/Doc as namespace Fmt.Doc (plain `Doc` clashes with the type's own `Doc.steps` extension decls: E-FOREIGN-NAMESPACE). check clean; 19 tests pass; audit Fmt.Doc = 302 theorems, 0 failed, same as Toy.Doc. flatWidth, std-style docs and the held-spaces measure fix not done (held spaces do not exist in the toy: E2/E3).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
