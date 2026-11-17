@@ -44,6 +44,45 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 17 Nov 2026
+
+### SW-3694: check-nested-apps regression (steps +23%, peak heap +38%) from two accidents; both undone
+
+- **Status:** kept (Sonnet). Results, messages and hashes unchanged
+  (D3447). Found by Overmind's broad tier at 9ff2833ca; baseline not
+  updated.
+- **Problem.** `check-nested-apps` (`f (f (… 0))`, 2,000 deep) read 32,081
+  steps (baseline 26,081) and 2.6 MB peak heap (1.9 MB); `text-literal-walk`
+  heap 4 kB (3 kB). Bisected by building `stitchwort-bench` at a dozen
+  commits (steps are deterministic, so one run each).
+- **Cause 1, steps: +3 per application.** SW-3561's trigger for holding
+  lambdas (fd79bb763, then 0bc8e177f) ran on every application that had no
+  `propagation_plan`: `has_implicit_function` forces the callee's type and
+  `applies_unknown` quotes the written result type, both counted as
+  evaluation steps (+1 a level at fd79bb763: 28,081; +2 more with
+  0bc8e177f: 32,081). A call that made no unknown (`f x`, with `f` having
+  no implicit parameter) has nothing for either to find.
+- **Fix 1.** The trigger first checks that the call made an unknown
+  (`metas.len() > metas_from`); only then the two evaluations. Steps are
+  26,081 again.
+- **Cause 2, peak heap: +0.7 MB.** 72b280851 (SW-3322) added the probe's
+  pending context to `undo::Snapshot` as a bare `Option<ProbePending>`
+  (several words: a span, a type value, flags, a name list). A deep
+  recursion keeps a `Snapshot` live at every level, 2,000 here, so the
+  snapshots alone don't explain 0.7 MB on paper (2,000 x a few dozen bytes),
+  so the mechanism is not pinned down; the cause is established by the
+  measurement below (boxing alone restores 1.9 MB).
+- **Fix 2.** `Option<Box<ProbePending>>`: one word in the snapshot, the
+  copy made only when a probe has found something.
+- **Measured** (`stitchwort-bench check-nested-apps --no-time`, release,
+  one run): steps 32,081 -> 26,081; allocations 2,075,500 -> 2,073,500
+  (baseline 2,069,502, +0.2%, well inside the threshold); peak heap 2.6 MB -> 1.9 MB. `text-literal-walk`: peak heap
+  3 kB again.
+- **Not found.** Whether other benchmarks held a similar cost; only the two
+  rows Overmind reported were run.
+
+---
+
 ## 16 Nov 2026
 
 ### SW-3659: today's instance only after a hit as written; `rewrite repeatedly` measured on two std files

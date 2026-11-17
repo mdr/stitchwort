@@ -1438,15 +1438,17 @@ impl Elaborator {
 
     /// The probe's pending context, to put back with
     /// [`Elaborator::restore_probe_pending`]. `None` unless a probe is
-    /// running and has found something, so cheap to take.
-    pub(crate) fn probe_pending(&self) -> Option<ProbePending> {
-        self.goals.borrow().probe.pending.clone()
+    /// running and has found something, so cheap to take. Boxed so that the
+    /// [`crate::undo::Snapshot`] a deep recursion holds a copy of at every
+    /// level stays small.
+    pub(crate) fn probe_pending(&self) -> Option<Box<ProbePending>> {
+        self.goals.borrow().probe.pending.clone().map(Box::new)
     }
 
     /// Puts back the pending context an undone attempt may have replaced
     /// with one whose metavariables no longer exist.
-    pub(crate) fn restore_probe_pending(&self, pending: Option<ProbePending>) {
-        self.goals.borrow_mut().probe.pending = pending;
+    pub(crate) fn restore_probe_pending(&self, pending: Option<Box<ProbePending>>) {
+        self.goals.borrow_mut().probe.pending = pending.map(|boxed| *boxed);
     }
 
     /// The expression at `span`, of type `ty` (checked against it if

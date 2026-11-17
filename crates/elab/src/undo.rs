@@ -62,7 +62,7 @@ pub(crate) struct Snapshot {
     local_types: usize,
     goals: usize,
     steps: usize,
-    probe_pending: Option<crate::goals::ProbePending>,
+    probe_pending: Option<Box<crate::goals::ProbePending>>,
 }
 
 impl Snapshot {
