@@ -22336,7 +22336,7 @@
     {
       "id": 3858,
       "title": "[Opus] Whereabouts answer in band, part 2: the round trip round (k * 0.1 * 10.0) = k (1 <= |k| <= 3601), the step-0.1 bound floorTo x 0.1 <= x + 2^-42, the exact margin row, longitude's wrap of whole-degree edges and the wrapped interval, then the full theorem with the tolerance's lower bound and the ieeeLe bridge (SW-3844 report)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
