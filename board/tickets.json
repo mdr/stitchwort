@@ -1,5 +1,5 @@
 {
-  "next": 3847,
+  "next": 3850,
   "tickets": [
     {
       "id": 47,
@@ -22050,12 +22050,12 @@
     {
       "id": 3836,
       "title": "[Opus] Self-hosted formatter stage 2b: declarations, headers and types; --stage tree and refusal; the shared traversal (sketch item 6), one parameter-group constructor (8) if the dump allows, fuel (13); whole-file timing with a profile before any speed change (self-hosted-fmt.md §8, SW-3819 report)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected: 60 min (orchestrator's brief). Started 16:04.\n\nProgress (lane, 17 Nov):\n- 16:35 done, commit d6f1d2852 on lane/SW-3836: declarations, headers, types (FunctionType, Effect/Row), file loop, --stage tree and refusal; Group (one constructor, kind tag); traversal (Traverse.sw); the lowering's three checks as Decl -> Option Text (Lowering.sw); fuel note. Details in tools/fmt/NOTES.md, stage 2b.\n- Gate: every honest-subset file identical (tree: goldens 78/124, repo 125/300 sampled, fuzz 206/235; refusal same, plus 683/687 broken copies: 3 not parsed yet, 1 mismatched-bracket difference). Not parsed yet: a block's let 117, rewrite 61, cases 12, ...\n- Speed: 972 subset files (1.50 MB), tree stage 4.5 s = 3.0 s/MB, peak 48 MB, load ~5.\n- Tests: Syntax.Tests.Decls (13, new), Exprs (7), Tokens (9) pass.\n",
+      "body": "Expected: 60 min (orchestrator's brief). Started 16:04.\n\nProgress (lane, 17 Nov):\n- 16:35 done, commit d6f1d2852 on lane/SW-3836: declarations, headers, types (FunctionType, Effect/Row), file loop, --stage tree and refusal; Group (one constructor, kind tag); traversal (Traverse.sw); the lowering's three checks as Decl -> Option Text (Lowering.sw); fuel note. Details in tools/fmt/NOTES.md, stage 2b.\n- Gate: every honest-subset file identical (tree: goldens 78/124, repo 125/300 sampled, fuzz 206/235; refusal same, plus 683/687 broken copies: 3 not parsed yet, 1 mismatched-bracket difference). Not parsed yet: a block's let 117, rewrite 61, cases 12, ...\n- Speed: 972 subset files (1.50 MB), tree stage 4.5 s = 3.0 s/MB, peak 48 MB, load ~5.\n- Tests: Syntax.Tests.Decls (13, new), Exprs (7), Tokens (9) pass.\n\nModel result: opus, worked, 31 min (est. 60). Confirmed the Rust formatter keeps forall, ->, <=, &&, ! and Unicode forms as written. Follow-ups SW-3847 SW-3848 SW-3849.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22186,6 +22186,45 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Reproducer (Overmind, 17 Nov 2026): in games/rogue/src/Rogue/Proofs/Bounds.sw (line 196 at 6f49c9d24) replace the whole proof of terrainColumns with a bare cases:\ntheorem terrainColumns ∀ (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr row []).length = levelColumns := cases\nthen cd games/rogue && stitchwort check --no-cache Rogue.Proofs. Unmutated: 7.5 s. Mutant: 900 s unfinished, 'over 2,000,000,000 evaluation steps so far, unfolding Nat.add (it stops at 10,000,000,000)'; earlier notes 250 M Nat.leq, 500 M Nat.sub, 1 G Nat.add. Likely a bare cases (SW-3752's second try) evaluating drawTerrain for a symbolic level. Lane: run it only under 'timeout 60' and a 2 GB memory watch.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3847,
+      "title": "[Opus] Self-hosted formatter stage 2c: blocks of several lines, a block's let, local definitions, handle, calc, rewrite, cases, match induct/reify, rules sets, decreasing/unfolding; the mismatched-bracket lookahead case ([a: (x: Type] a) => x); lambda_result_type's error (SW-3836 report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3848,
+      "title": "[Sonnet] Elaborator: mutually recursive row-polymorphic functions (Expr -> {e} Expr) refused with E-NOT-A-FUNCTION at a call that is a let's value; and E-ABILITY on an effectful call inside a match that is a let's value. Reproduce by putting {e} back for {Fail} in tools/fmt/src/Syntax/Traverse.sw (SW-3836 findings 1, 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3849,
+      "title": "[DeepSeek] Self-hosted formatter: fixed-token sweep over stage 2a's expression tree (tokens with one spelling stored as Comments, sketch item 10); Item.spelled should give Rust describe's ASCII spelling in 'but found' messages; fmt-twin --list with not-parsed-yet tallies (SW-3836 findings 3, 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
