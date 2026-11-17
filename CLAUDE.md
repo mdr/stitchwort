@@ -98,6 +98,11 @@ does not do significant work itself:
   lsp` runs the main checkout's release binary. It selects a run by its
   process tree (see "Stopping a lane's own test runs" in
   `docs/workflow.md`).
+- It collects each lane report's "Working friction" section (the lane's working
+  conditions: briefs, docs, tools; not Stitchwort itself) into
+  `docs/agent-feedback/YYYY-MM.md` as the lane is merged, with the ticket,
+  model and task in a sentence; a weekly paper lane reviews it and proposes
+  instruction changes for Matt to approve (D3673, Matt, 17 Nov 2026).
 - It keeps a daily work log, `docs/worklog/YYYY-MM-DD.md` (Matt, 13 Nov
   2026): one table row per finished piece of work, added as it is merged or
   decided: the time, the ticket(s), the epic, and in a sentence or two what

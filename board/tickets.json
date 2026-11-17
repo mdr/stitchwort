@@ -1,5 +1,5 @@
 {
-  "next": 3779,
+  "next": 3780,
   "tickets": [
     {
       "id": 47,
@@ -42580,6 +42580,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3779,
+      "title": "[Sonnet paper] Weekly agent-feedback review (D3673): read docs/agent-feedback/ for the week, group recurring patterns, propose specific edits to CLAUDE.md, docs/workflow.md, the proving guide, .claude/agents/ or brief templates, each with the entries it answers; for Matt's approval. First run Mon 24 Nov 2026",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",

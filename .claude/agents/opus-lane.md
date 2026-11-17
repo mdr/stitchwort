@@ -32,3 +32,13 @@ Before anything else, read `CLAUDE.md` at the repo root and follow it: the
 - Finish with a report: branch and commits, what changed, the tests you ran
   and their results, what you didn't do, decisions for Matt, and findings
   worth filing as tickets.
+- End the report with a **Working friction** section (D3673, Matt, 17 Nov
+  2026): anything in your working conditions, not in Stitchwort itself,
+  that slowed you down or that you misunderstood. That covers the brief
+  (missing, ambiguous or wrong), `CLAUDE.md` and the docs, how to run
+  something or where something lives, tools, the harness and the
+  environment. For each item, say what happened, roughly how much time it
+  cost, and what would have helped (a line in a doc, a better brief, a
+  tool). Write "none" if nothing did. Friction with the language, tactics
+  or std goes in the findings, as before. The orchestrator collects this
+  section in `docs/agent-feedback/` for a weekly review.
