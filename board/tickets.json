@@ -1,5 +1,5 @@
 {
-  "next": 3748,
+  "next": 3749,
   "tickets": [
     {
       "id": 47,
@@ -42112,12 +42112,12 @@
     {
       "id": 3743,
       "title": "[Sonnet] Toy++ T6: P4 merges adjacent parameter groups of the same type (toy-plus-plus.md §3.2, §5 T6): through the shared traversal (generic traverseKeeps* with the identity step), its own facts on declarations, tidyMerged and 'P4 keeps P1-P3's work'; tidy restated for four passes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: sonnet, worked, 20 min (est. 40). Statements checked by the orchestrator (D2436). P3 and P4 don't commute (merge after brackets dropped); proved as keeps-work. Follow-up SW-3748.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42177,6 +42177,19 @@
         "perf"
       ],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3748,
+      "title": "[Sonnet] Toy++: a generic StepIsIdentity family in TraverseProofs.sw (identity step and the map-over-declarations form) for declaration-only passes; and a cases that closes computed arms of a match group, rest (T6 friction: ~30 lines per mergeOnto lemma) (SW-3743)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
