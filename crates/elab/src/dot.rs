@@ -1311,19 +1311,18 @@ fn unknown_member(
     )
     .with_label(field.span, format!("looked in {}", tried_list(cx, tried)));
     let prefix = format!("{ns}.");
-    let mut near: Vec<(usize, String)> = cx
-        .e
-        .scope
-        .keys()
-        .filter_map(|k| {
-            let member = k.strip_prefix(&prefix)?;
-            if member.contains('.') || member.starts_with('%') {
-                return None;
-            }
-            let distance = scope::edit_distance(member, &field.text);
-            (distance <= 2 && distance < field.text.len()).then(|| (distance, member.to_string()))
-        })
-        .collect();
+    let mut near: Vec<(usize, String)> =
+        cx.e.scope
+            .keys()
+            .filter_map(|k| {
+                let member = k.strip_prefix(&prefix)?;
+                if member.contains('.') || member.starts_with('%') {
+                    return None;
+                }
+                let distance = scope::edit_distance(member, &field.text);
+                scope::near_miss(distance, &field.text).then(|| (distance, member.to_string()))
+            })
+            .collect();
     near.sort();
     // A function that exists elsewhere is the better explanation (its own
     // note below), so a meaning-based guess would only be noise.
