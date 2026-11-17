@@ -22180,7 +22180,7 @@
     {
       "id": 3846,
       "title": "[Opus] A bare 'cases' on Rogue's terrainColumns goal runs 2e9+ evaluation steps (15 min, unfinished) before it could fail: find what cases (SW-3752's second try?) evaluates and fail early with the real error (soundness fuzz 0x3100 mutant 2893-3; reproducer on the ticket)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
