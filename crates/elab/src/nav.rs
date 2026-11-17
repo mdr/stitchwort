@@ -539,7 +539,14 @@ impl Elaborator {
     pub(crate) fn note(&self, at: Span, noted: Noted) {
         if let Some(nav) = &self.present.nav {
             let mut nav = nav.borrow_mut();
-            if nav.generated == 0 {
+            // A set named in a `rewrite repeatedly` is then written at the
+            // same place as each of its members, which are checked there:
+            // the set stays what hover finds.
+            let names_set = |noted: &Noted| match noted.global {
+                Global::Def(d) => self.tables.rule_sets.contains_key(&d),
+                _ => false,
+            };
+            if nav.generated == 0 && !nav.refs.get(&at).is_some_and(names_set) {
                 nav.refs.insert(at, noted);
             }
         }

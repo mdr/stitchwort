@@ -42,6 +42,7 @@ pub enum Kind {
     Constructor,
     Field,
     Operation,
+    Rules,
 }
 
 impl Kind {
@@ -56,6 +57,7 @@ impl Kind {
             Kind::Constructor => "constructor",
             Kind::Field => "field",
             Kind::Operation => "operation",
+            Kind::Rules => "rules",
         }
     }
 
@@ -63,7 +65,7 @@ impl Kind {
     fn is_listed(self) -> bool {
         matches!(
             self,
-            Kind::Definition | Kind::Type | Kind::Interface | Kind::Ability
+            Kind::Definition | Kind::Type | Kind::Interface | Kind::Ability | Kind::Rules
         )
     }
 }
@@ -351,8 +353,17 @@ impl Decls {
                     start,
                     source: source(),
                 }),
-                // Documented in a later stage of simp-revisited.md.
-                Decl::Rules { .. } | Decl::Equation { .. } => {}
+                Decl::Rules { name, .. } => self.entries.push(Entry {
+                    path: format!("{prefix}{}", name.text),
+                    kind: Kind::Rules,
+                    file,
+                    name_at: name.span.start,
+                    start,
+                    header: header(text, tokens, &group, first, Kind::Rules),
+                    container: None,
+                    function: false,
+                }),
+                Decl::Equation { .. } => {}
             }
         }
     }
@@ -1739,6 +1750,28 @@ mod tests {
                 assert!(!last.trim_start().starts_with('|'), "{}: {h}", e.path);
             }
         }
+    }
+
+    /// A rule set is a declaration with a page: its header is the whole
+    /// declaration, rules and all (SW-3662).
+    #[test]
+    fn a_rule_set_has_a_page_showing_its_rules() {
+        let decls = Decls::new(vec![Input {
+            display: "Demo.sw".to_string(),
+            text: "namespace Demo\n\nrules appends := [List.appendAssoc, <- List.appendNil]\n"
+                .to_string(),
+            namespace: Some("Demo".to_string()),
+        }]);
+        let found = decls.resolve("Demo.appends");
+        let [i] = found.entries[..] else {
+            panic!("one entry, got {}", found.entries.len());
+        };
+        let entry = decls.entry(i);
+        assert_eq!(entry.kind, Kind::Rules);
+        assert_eq!(
+            entry.header,
+            "rules appends := [List.appendAssoc, <- List.appendNil]"
+        );
     }
 
     #[test]

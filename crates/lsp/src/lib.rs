@@ -877,15 +877,41 @@ impl Search {
     }
 }
 
-/// The offset of a `rewrite repeatedly` keyword on `line` of `text`, if
-/// there is one: what the "Expand" action is offered on.
-fn expand_target(text: &str, line: u32) -> Option<usize> {
-    let start = offset_at(text, Position::new(line, 0));
-    let rest = text.get(start..)?;
-    let line_text = rest.lines().next()?;
-    let found = line_text.find("rewrite repeatedly")?;
-    let after = line_text[found + "rewrite repeatedly".len()..].trim_start();
-    (after.starts_with('[') || after.is_empty()).then_some(start + found)
+/// The offset of the `rewrite` keyword of the `rewrite repeatedly [rules]`
+/// call the cursor is on, if it is on one (its keywords or its bracketed
+/// rules, a set's name among them): what the "Expand" action is offered on.
+/// Read from the tokens, so the words in a comment or a string aren't a
+/// call.
+fn expand_target(text: &str, cursor: Position) -> Option<usize> {
+    use stitchwort_syntax::{SourceMap, Tok, lex_recovering};
+    let at = offset_at(text, cursor);
+    let file = SourceMap::new().add("input.sw", text);
+    let tokens = lex_recovering(file, text).tokens;
+    let mut found: Option<usize> = None;
+    for (i, token) in tokens.iter().enumerate() {
+        let calls = matches!(token.tok, Tok::KwRewrite)
+            && matches!(tokens.get(i + 1).map(|t| &t.tok), Some(Tok::Lower(w)) if w == "repeatedly")
+            && matches!(tokens.get(i + 2).map(|t| &t.tok), Some(Tok::LBracket));
+        if !calls {
+            continue;
+        }
+        let mut depth = 0i32;
+        let close = tokens[i + 2..].iter().find(|t| {
+            match t.tok {
+                Tok::LBracket => depth += 1,
+                Tok::RBracket => depth -= 1,
+                _ => {}
+            }
+            depth == 0
+        });
+        let end = close.map_or(text.len(), |t| t.span.end as usize);
+        let start = token.span.start as usize;
+        if start <= at && at <= end {
+            // The innermost: a later call starting inside this one.
+            found = Some(start);
+        }
+    }
+    found
 }
 
 /// The "Expand rewrite repeatedly" action for the call at byte `at`: its
@@ -1565,7 +1591,7 @@ impl Main {
             let expand = {
                 let texts = self.texts.borrow();
                 let at = p.range.start;
-                (texts.get(&uri)).and_then(|t| expand_target(t, at.line))
+                (texts.get(&uri)).and_then(|t| expand_target(t, at))
             };
             if let (Some(at), Some(target), true) = (expand, self.search_target(&uri), searching) {
                 let document_changes = self.document_changes;
