@@ -1,5 +1,5 @@
 {
-  "next": 3775,
+  "next": 3778,
   "tickets": [
     {
       "id": 47,
@@ -41917,12 +41917,12 @@
     {
       "id": 3728,
       "title": "[DeepSeek] fmt: a trailing comment between two names of a binder group in a statement's ∀ ('(a-- c' newline 'b: Bool)') makes the output fail to parse ('expected := … found b'); the formatter refuses. Fuzz seed 0x1011 COMMENTS=0.3 case 44514; minimal 8 lines: 'theorem byHyp ∀ (f: Bool → Bool → Bool) (same: ∀ (a-- c' / ' b:' / ' Bool) => f a' / ' a): ∀' / ' (a-- c' / ' b: Bool) =>-- c' / ' f a' / ' b = f b a := cas'. Same family as 0x920/0x953 (comments in binder groups)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, needed care (general engine change in place of a binder-group special case), ~55 min (est. 30).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42047,12 +42047,12 @@
     {
       "id": 3738,
       "title": "[Opus] E-TERMINATION refuses a non-recursive function passed without arguments when a same-named method elsewhere is recursive (Declaration.withoutSpareTypeBrackets refused because TypeExpr.withoutSpareBrackets is recursive); a lambda works (Toy++ T5 friction, SW-3737)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Group 1a (Matt, 17 Nov 2026): a straight bug; fix to use the resolved definition's identity, and audit the elaborator/checker for anything else matching declarations by short or method name rather than full identity. Same bug as SW-3607, SW-3671 (close those with it). Opus.\n\nLane (Opus, 17 Nov 2026, 10:37-11:03, est. 50 min). Cause: the module's dependency analysis links a dot call whose receiver's type it can't see (`inner.withoutSpareBrackets`, `tree.size`) to every declaration with that last name, so unrelated definitions were one group for the kernel; a bare occurrence of one inside the group was then an unsaturated \"recursive\" call. The kernel itself compares by DefId and was right about the group it was given. Fix (elab): a group of several declarations goes to the kernel as the strongly connected components of its checked bodies' DefId references, in dependency order (`kernel::define_reference_groups`); kernel unchanged. Repro: examples/accept/termination-dot-guess-bare.sw (refused by main's binary, accepted now). Std.Graph's IndexTable/distances group was such a group: 11 prelude hashes move. Toy workarounds removed: Passes.sw (T5), Dump.sw x2 (T2a), CarryProofs.parametersComments. Also: E-PARTIAL-MIXED from a guessed cycle now carries the speculative note (examples/reject/partial-mixed-dot-guess.sw); accepting it is a finding. Audit table in the lane report.\n",
+      "body": "Group 1a (Matt, 17 Nov 2026): a straight bug; fix to use the resolved definition's identity, and audit the elaborator/checker for anything else matching declarations by short or method name rather than full identity. Same bug as SW-3607, SW-3671 (close those with it). Opus.\n\nLane (Opus, 17 Nov 2026, 10:37-11:03, est. 50 min). Cause: the module's dependency analysis links a dot call whose receiver's type it can't see (`inner.withoutSpareBrackets`, `tree.size`) to every declaration with that last name, so unrelated definitions were one group for the kernel; a bare occurrence of one inside the group was then an unsaturated \"recursive\" call. The kernel itself compares by DefId and was right about the group it was given. Fix (elab): a group of several declarations goes to the kernel as the strongly connected components of its checked bodies' DefId references, in dependency order (`kernel::define_reference_groups`); kernel unchanged. Repro: examples/accept/termination-dot-guess-bare.sw (refused by main's binary, accepted now). Std.Graph's IndexTable/distances group was such a group: 11 prelude hashes move. Toy workarounds removed: Passes.sw (T5), Dump.sw x2 (T2a), CarryProofs.parametersComments. Also: E-PARTIAL-MIXED from a guessed cycle now carries the speculative note (examples/reject/partial-mixed-dot-guess.sw); accepting it is a finding. Audit table in the lane report.\n\nModel result: opus, worked, 26 min (est. 50). Cause: module.rs dependency guesses for dot calls made false groups; fix splits by real references before the kernel (kernel unchanged; only accepts more). SW-3607 fixed; SW-3671's std half open. Audit follow-ups SW-3775 SW-3776 SW-3777 .",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42528,6 +42528,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3775,
+      "title": "[Opus] E-PARTIAL-MIXED from a guessed dot-call cycle: a partial Box.size and a total Tree.size are refused as calling each other; decide partial vs total after bodies are checked, or retry without guessed links; move examples/reject/partial-mixed-dot-guess.sw to accept (SW-3738 audit)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3776,
+      "title": "[Sonnet] reading.rs names(): method heads matched by last name though the receiver's type is known; use it, as reading_tests does (SW-3738 audit)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3777,
+      "title": "[DeepSeek] Find %step/%unfoldStep (equations.rs:2063) and %go (decreasing.rs:1210) by the definition's own key, not module-relative or suffix match; blocked-declarations list shows 'needs size' for a dot call: show the full name; signature-help fallback at.rs:442 by last segment (SW-3738 audit)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
