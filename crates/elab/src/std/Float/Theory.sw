@@ -6129,3 +6129,28 @@ theorem Float.finiteBetween ∀ (lo x hi: Float)
         (arithmetic [m, k, kb, rh.right]: Float.Model.magnitude x.bits < 9218868437227405312))
 
 test "Float.finiteBetween" := Float.isFinite (0.5 * 0.7) ∧ ¬Float.isFinite Float.infinity
+
+theorem Float.Theory.xorComm ∀ (a b: Bool): Bool.xor a b = Bool.xor b a := match a, b with
+  | True, True => byComputing
+  | True, False => byComputing
+  | False, True => byComputing
+  | False, False => byComputing
+
+--| `*` commutes on finite doubles.
+theorem Float.mulCommFinite ∀ (x c: Float) (fx: Float.isFinite x = True) (fc: Float.isFinite c = True): x * c = c * x :=
+  Float.bitsExt
+    (x * c)
+    (c * x)
+    (rewrite Float.Theory.mulBitsOf x c fx fc,
+        Float.Theory.mulBitsOf c x fc fx,
+        Int.mulComm (Float.Theory.units x) (Float.Theory.units c),
+        Float.Theory.xorComm (Float.Model.signBit x.bits) (Float.Model.signBit c.bits))
+
+--| `0.0 * c` is `0.0` for a non-negative finite `c`.
+theorem Float.zeroMulNonneg ∀ (c: Float) (fc: Float.isFinite c = True) (hc: 0.0 <= c): 0.0 * c = 0.0 :=
+  let z: Int.mul (Float.Theory.units 0.0) (Float.Theory.units c) = OfNat 0 :=
+    rewrite (byComputing: Float.Theory.units 0.0 = OfNat 0) then algebra
+  let s: Float.Model.signBit c.bits = False := Float.Theory.signClear c.bits hc
+  Float.bitsExt (0.0 * c) 0.0 (rewrite Float.Theory.mulBitsOf 0.0 c byComputing fc, z, s then byComputing)
+
+test "Float.mulCommFinite" := 0.1 * 3.0 == 3.0 * 0.1 ∧ (-0.0) * 2.0 == 2.0 * (-0.0) ∧ (0.0 * 5.0).bits == 0

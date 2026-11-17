@@ -286,3 +286,74 @@ theorem clampToKeeps ∀ (lat to: Float)
     (h: lat <= to):
     lat <= Float.min 90.0 to :=
   Float.leMin 90.0 to lat byComputing nt high h
+
+-- The margin before rounding
+
+--| `placeAt` puts the answer from 0.15 to 0.85 of the way across, rounding included.
+theorem placeAtRange ∀ (unit: Float)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    0.15 <= placeAt unit ∧ placeAt unit <= 0.85 :=
+  let c: Float := 1.0 - 2.0 * edge
+  let fu: Float.isFinite unit = True := Float.finiteBetween 0.0 unit 1.0 byComputing byComputing low high
+  let lo: 0.0 * c <= unit * c := Float.mulMonotoneLeft 0.0 unit c byComputing fu byComputing byComputing low
+  let hi: unit * c <= 1.0 * c := Float.mulMonotoneLeft unit 1.0 c fu byComputing byComputing byComputing high
+  let lo2: 0.0 <= unit * c := J (y w => y <= unit * c) lo (byComputing: 0.0 * c = 0.0)
+  let hi2: unit * c <= 0.7 := J (y w => unit * c <= y) hi (byComputing: 1.0 * c = 0.7)
+  let fuc: Float.isFinite (unit * c) = True := Float.finiteBetween 0.0 (unit * c) 0.7 byComputing byComputing lo2 hi2
+  let a: edge + 0.0 <= edge + unit * c := Float.addMonotone 0.0 (unit * c) edge byComputing fuc byComputing lo2
+  let b: edge + unit * c <= edge + 0.7 := Float.addMonotone (unit * c) 0.7 edge fuc byComputing byComputing hi2
+  Both
+    (J (y w => y <= edge + unit * c) a (byComputing: edge + 0.0 = 0.15))
+    (J (y w => edge + unit * c <= y) b (byComputing: edge + 0.7 = 0.85))
+
+--| A share `a` (0 to 1) of a non-negative finite width is finite and from 0 to the width.
+theorem shareOfWidth ∀ (a width: Float)
+    (low: 0.0 <= a)
+    (high: a <= 1.0)
+    (fw: Float.isFinite width = True)
+    (w0: 0.0 <= width):
+    (Float.isFinite (a * width) = True) ∧ ((0.0 <= a * width) ∧ (a * width <= width)) :=
+  let fa: Float.isFinite a = True := Float.finiteBetween 0.0 a 1.0 byComputing byComputing low high
+  let lo: 0.0 * width <= a * width := Float.mulMonotoneLeft 0.0 a width byComputing fa fw w0 low
+  let hi: a * width <= 1.0 * width := Float.mulMonotoneLeft a 1.0 width fa byComputing fw w0 high
+  let lo2: 0.0 <= a * width := J (y w => y <= a * width) lo (Float.zeroMulNonneg width fw w0)
+  let one: 1.0 * width = width := Eq.trans (Float.mulCommFinite 1.0 width byComputing fw) (Float.mulOneRight width)
+  let hi2: a * width <= width := J (y w => a * width <= y) hi one
+  Both (Float.finiteBetween 0.0 (a * width) width byComputing fw lo2 hi2) (Both lo2 hi2)
+
+--| The unrounded lower edge, `lat - placeAt unit * width`, is at least 0.15
+--| of the width below the answer and at most 0.85 below it, each product
+--| and difference rounded as the code rounds it. The margin over the exact
+--| value is a few ulps short of 0.15 · width; bounding that needs the
+--| standard error model (NOTES.md).
+theorem marginRow ∀ (lat width unit: Float)
+    (fl: Float.isFinite lat = True)
+    (fw: Float.isFinite width = True)
+    (w0: 0.0 <= width)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    lat - 0.85 * width <= lat - placeAt unit * width ∧ lat - placeAt unit * width <= lat - 0.15 * width :=
+  let at: Float := placeAt unit
+  let r := placeAtRange unit low high
+  let atLow: 0.0 <= at := floatLeTrans 0.0 0.15 at byComputing r.left
+  let atHigh: at <= 1.0 := floatLeTrans at 0.85 1.0 r.right byComputing
+  let fat: Float.isFinite at = True := Float.finiteBetween 0.15 at 0.85 byComputing byComputing r.left r.right
+  let s15 := shareOfWidth 0.15 width byComputing byComputing fw w0
+  let s85 := shareOfWidth 0.85 width byComputing byComputing fw w0
+  let sAt := shareOfWidth at width atLow atHigh fw w0
+  Both
+    (Float.subAntitoneRight lat
+      (at * width)
+      (0.85 * width)
+      fl
+      sAt.left
+      s85.left
+      (Float.mulMonotoneLeft at 0.85 width fat byComputing fw w0 r.right))
+    (Float.subAntitoneRight lat
+      (0.15 * width)
+      (at * width)
+      fl
+      s15.left
+      sAt.left
+      (Float.mulMonotoneLeft 0.15 at width byComputing fat fw w0 r.left))
