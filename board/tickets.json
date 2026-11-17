@@ -1,5 +1,5 @@
 {
-  "next": 3804,
+  "next": 3805,
   "tickets": [
     {
       "id": 47,
@@ -42913,6 +42913,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3804,
+      "title": "[Fable review] SW-639 (float stage 4: div, rem, floor, ceil, trunc, round as definitions; no float kernel rule left): divBits signs and case table, remBits exactness, floorDiv, round half-up, isSpecial, eta for unary defs, pins; docs/reviews/SW-639-float-stage4-review.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
