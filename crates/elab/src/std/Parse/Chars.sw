@@ -680,6 +680,30 @@ def Parse.Tests.depthSum(): {Parse Char} Nat :=
       ])
     1
 
+test "Parse.loop: until the step says stop" :=
+  Parse.Tests.lineResult "123x" (() =>
+    let digits := Parse.loop (() => Parse.next Parse.isDigit)
+    let rest := Parse.span (char => True)
+    (digits, rest))
+    == Ok (['1', '2', '3'], ['x'])
+
+test "Parse.loop: the step is called at the end, which stops it" :=
+  Parse.Tests.lineResult "12" (() => Parse.loop (() => Parse.next Parse.isDigit)) == Ok ['1', '2']
+
+test "Parse.loop: no input" := Parse.Tests.lineResult "" (() => Parse.loop (() => Parse.next Parse.isDigit)) == Ok []
+
+test "Parse.loop: a failing round fails the parse" :=
+  Parse.Tests.lineResult "12x" (() => Parse.loop (() => Some (Parse.nat())))
+    == Err "column 3: expected a number, got 'x'"
+
+test "Parse.loop: a round that goes on without reading stops the parse" :=
+  Parse.Tests.lineError "ab" (() => Parse.loop (() => Some ()))
+    == "column 1: `loop`: the step went on without reading anything"
+
+test "Parse.loop: a long input needs no more fuel than the items left" :=
+  Parse.whole (List.replicate 300 '7') (() => Parse.loop (() => Parse.next Parse.isDigit))
+    == Ok (List.replicate 300 '7')
+
 test "Parse.recursiveWith: the argument changes with the nesting" :=
   Parse.Tests.lineResult "[1,[2,[]],3]" Parse.Tests.depthSum == Ok 14
 test "Parse.recursiveWith: a bad nested part" :=

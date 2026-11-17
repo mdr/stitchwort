@@ -382,6 +382,46 @@ def Parse.manyToEnd (what: Text) (parser: Parse.Mark t → {Parse t} a): {Parse 
   let start := Parse.mark()
   Parse.manyToEndFrom (start.left + 1) what parser [] start
 
+--| `step`'s values until it says stop, at most `fuel` rounds, from `before`,
+--| the mark at the start of the round. `found` is newest first.
+def Parse.loopFrom (fuel: Nat) (step: () → {Parse t} Option a) (found: List a) (before: Parse.Mark t):
+    {Parse t} List a :=
+  match fuel with
+    | Zero => Empty.absurd (Parse.fatal "`loop`: the step went on without reading anything")
+    | Succ more => Parse.loopRound more step found before (step())
+
+--| What `loopFrom` does with a round's `result` from `before`, with `more`
+--| rounds left after it: stop if the step said so, else go on from the mark
+--| that shows it read something.
+-- A function of its own so that proofs (Parse/Runs.sw) can name it.
+def Parse.loopRound (more: Nat) (step: () → {Parse t} Option a) (found: List a)
+    (before: Parse.Mark t) (result: Option a):
+    {Parse t} List a :=
+  match result with
+    | None => found.reverse
+    | Some value =>
+      let after := Parse.mark()
+      if after.offset > before.offset then Parse.loopFrom more step [value, ..found] after
+      else Empty.absurd (Parse.fatal "`loop`: the step went on without reading anything")
+
+--| `step`'s values, one round after another, until a round gives `None`:
+--| the loop that hand-fuelled parsers write as `loop (fuel: Nat)`, with the
+--| fuel taken from the input left. A round is `step()`, which decides by what
+--| comes next: `None` to stop (it may read before it does), `Some value` to
+--| go on, in which case it must have read at least one item since the round
+--| began, or the whole parse stops (a `Some` that read nothing would repeat
+--| forever). The step is also called when the input has ended, and must say
+--| `None` there, having nothing to read. Unlike `many` it installs no handler:
+--| a failure of `step` is a failure of the whole parse, and a round costs one
+--| operation (the mark after it).
+--|
+--|   Parse.loop (() => if more() then Some (item()) else None)
+-- Every round that goes on reads an item, so the items left plus one are
+-- enough rounds: the last one sees the end of the input and stops.
+def Parse.loop (step: () → {Parse t} Option a): {Parse t} List a :=
+  let start := Parse.mark()
+  Parse.loopFrom (start.left + 1) step [] start
+
 --| `parser`'s values while it succeeds, at least one: a `NonEmptyList`.
 def Parse.many1 (parser: () → {Parse t} a): {Parse t} NonEmptyList a :=
   let first := parser()

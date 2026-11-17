@@ -21933,12 +21933,12 @@
     {
       "id": 3827,
       "title": "[Sonnet] Proof plan F5: a fuelled-loop combinator in std Parse with its lemmas, replacing hand-fuelled loops (2a has 21) (self-hosted-fmt-proof-plan.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "commits: -\n\n\n\nLane notes (Sonnet, 17 Nov 2026): `Parse.loop (step: () → {Parse t} Option a)` in Parse.sw (loopFrom, loopRound): a round is step(); None stops, Some must have read (else fatal), fuel = items left + 1, step is also called at the end of input. Laws in Runs.sw: LoopRuns, loopStepsShort (fuel enough), runsLoopFrom (any fuel above the rounds gives the same, so extra fuel is harmless), runsLoop, loopRoundStuck (a Some that read nothing is the fatal). Six std tests in Chars.sw. Converted in tools/fmt: paramNames, lowerNames (DeclParser.sw), arguments (Parser.sw); twin dumps tokens 124/124, tree 78/124, refusal 78/124 (the gate, unchanged). Left: the other ~17 `(fuel: Nat)` sites in Parser.sw/DeclParser.sw/Lexer.sw (attributeGroups, attributeItems, attributeParts, importItems, headerParams, unfoldingNames, definitionArmsFrom, dataParams, dataIndices, fieldsFrom, constructorsOf, constructorParts, abilityParams, operations, logicLinks, forallParams, lambdaParams, pipesFrom, chainLinks, operatorLinks, suffixes, commaListFrom, interpolations, matchArms, clauseArms, listPatternItems, Lexer qualified/pieces; the lookahead ones lambdaAheadFrom, annotatedFrom, pastAttributes, groupLogic are pure, not Parse loops); leavesOf is unused. Not done: Gives/ReadsIn lemmas for loop; a functional (runFrom) fuel-independence law for loop itself (only the Runs form).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22284,12 +22284,12 @@
     {
       "id": 3854,
       "title": "[Sonnet] std Parse: lemma that recursiveWithFuel with a body that reads before each self call gives the same result with more fuel (fuelEnough needs it; pairs with proof plan F5's loop combinator SW-3827) (SW-3826 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "commits: -\n\n\n\nLane notes (Sonnet, 17 Nov 2026): in Parse/Runs.sw. `Parse.ReadsBeforeCalls body`: from an honest state, runFrom of `body self1 arg` equals that of `body self2 arg` whenever self1 and self2 agree (runFrom equal) at the honest states with fewer items left. `Parse.recursiveWithFuelEnough`: for such a body, an honest state with left < fuel1 ≤ fuel2 runs recursiveWithFuel fuel2 to the same Ok/Err as fuel1. `Parse.recursiveWithFuelMore`: so `recursiveWith`'s own fuel (left + 1) equals left + 1 + more. Instances proved: `readsBeforeCallsNever` (no self call), `readsBeforeCallsNext` (an item read with `next`, then the call, or `stop`). Not done: the predicate for a body that reads through a general parser (the step is an arbitrary effect, which needs a decomposition lemma for runFrom with errors; only the Ok direction, runFromThenOk2, exists) — fmt's real bodies will need that one guard lemma per call site.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

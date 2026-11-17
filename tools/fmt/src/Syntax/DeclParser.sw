@@ -134,7 +134,7 @@ def headerGroupParts (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Gr
   let inner := modes.inBrackets
   refuseAttributes (attributesOf inner) "a definition's parameter"
   let first := paramName inner
-  let names := [first, ..paramNames (Parse.mark().left + 1) inner []]
+  let names := [first, ..paramNames inner]
   let typeFollows := !(inner.at Colon || inner.at RBracket || inner.peek.isNone)
   match names with
     | [auto] if implicit && auto.text == "auto" && typeFollows =>
@@ -192,17 +192,11 @@ def paramName (modes: Modes): {Parse Item} Word := match modes.peek with
   | Some LBrace => modes.fail "a parameter's name"
   | _ => modes.lower "a parameter's name"
 
-def paramNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word :=
-  let ahead := modes.at Lower
-  match fuel with
-    | Succ more if ahead => paramNames more modes [paramName modes, ..found]
-    | _ => found.reverse
+def paramNames (modes: Modes): {Parse Item} List Word :=
+  Parse.loop (() => if modes.at Lower then Some (paramName modes) else None)
 
-def lowerNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word :=
-  let ahead := modes.at Lower
-  match fuel with
-    | Succ more if ahead => lowerNames more modes [modes.lower "a name", ..found]
-    | _ => found.reverse
+def lowerNames (modes: Modes): {Parse Item} List Word :=
+  Parse.loop (() => if modes.at Lower then Some (modes.lower "a name") else None)
 
 --| A type's, constructor's or function type's `(x y: A)` (`binder_with_default`),
 --| with a default only if `defaults`.
@@ -211,7 +205,7 @@ def binderGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (defaults: Boo
   let inner := modes.inBrackets
   let attributes := attributesOf inner
   let first := inner.lower "a name"
-  let names := [first, ..lowerNames (Parse.mark().left + 1) inner []]
+  let names := [first, ..lowerNames inner]
   let colon := inner.expectFixed Colon "`:`"
   let annotation := binderType self inner
   let default :=
@@ -259,7 +253,7 @@ def implicitBinder (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
     let inner := modes.inBrackets
     let attributes := attributesOf inner
     let first := inner.lower "a name"
-    let rest := lowerNames (Parse.mark().left + 1) inner []
+    let rest := lowerNames inner
     let (auto, names) := match rest with
       | [_, .._] if first.text == "auto" => (Some first.comments, rest)
       | _ => (None, [first, ..rest])

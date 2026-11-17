@@ -1098,21 +1098,18 @@ def app (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let start := offset()
   let section := modes.at Dot && modes.sectionHead != Some start
   let head := atom self modes True
-  let applied := if startsAtom modes then App head (arguments (Parse.mark().left + 1) self modes []) else head
+  let applied := if startsAtom modes then App head (arguments self modes) else head
   if section then Section applied else applied
 
-def arguments (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List Expr): {Parse Item} List Expr :=
-  match fuel with
-    | Succ more =>
-      let sectionLine := match left() with
-        | [item, .._] => item.kind == Dot && item.leaf.token.lineStart && !modes.stops item
-        | [] => False
-      let argument :=
-        if sectionLine then fatal "a line can't start with a method section"
-        else if modes.at Upper && isSome LBrace (modes.peekAt 1) then braceArgument self modes
-        else self { modes, level = LevelArgument }
-      if startsAtom modes then arguments more self modes [argument, ..found] else [argument, ..found].reverse
-    | Zero => found.reverse
+def arguments (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Expr := Parse.loop (() =>
+  if startsAtom modes then
+    let sectionLine := match left() with
+      | [item, .._] => item.kind == Dot && item.leaf.token.lineStart && !modes.stops item
+      | [] => False
+    if sectionLine then fatal "a line can't start with a method section"
+    else if modes.at Upper && isSome LBrace (modes.peekAt 1) then Some (braceArgument self modes)
+    else Some (self { modes, level = LevelArgument })
+  else None)
 
 def startsAtom (modes: Modes): {Parse Item} Bool := match modes.peek with
   | Some kind =>

@@ -765,6 +765,141 @@ theorem Parse.runsMany ∀ (p: () → {Parse t} a) (steps: List (List t, a)) (re
       starts
       honest
 
+--| What the rounds of a `loop` read, one after another, and then what the
+--| last round read before saying stop.
+def Parse.loopReads (stopRead: List t): (steps: List (List t, a)) → List t
+  | [] => stopRead
+  | [(read, v), ..steps] => read ++ Parse.loopReads stopRead steps
+
+--| The rounds of `loop step`, one per `(read, value)`: each reads something,
+--| and `step` gives `Some value` with it when what follows is the later
+--| rounds' text and then `rest`; and after the last, `step` reads `stopRead`
+--| and gives `None`, which is what ends the loop. (Why each must read: `loop`
+--| stops the whole parse if a round that goes on reads nothing.)
+def Parse.LoopRuns (step: () → {Parse t} Option a) (stopRead: List t): (steps: List (List t, a)) → (rest: List t) → Prop
+  | [], rest => Parse.Runs step stopRead rest None
+  | [(read, v), ..steps], rest =>
+    read ≠ []
+      ∧ Parse.Runs step read (Parse.loopReads stopRead steps ++ rest) (Some v)
+      ∧ Parse.LoopRuns step stopRead steps rest
+
+--| A loop's input has at least an item per round that goes on: the fuel
+--| `loop` takes from the items left is enough.
+theorem Parse.loopStepsShort ∀ (step: () → {Parse t} Option a) (stopRead: List t)
+    (steps: List (List t, a)) (rest: List t)
+    (runs: Parse.LoopRuns step stopRead steps rest):
+    steps.length ≤ (Parse.loopReads stopRead steps).length :=
+  match steps, runs with
+    | [], runs => byComputing
+    | [(read, v), ..steps], Both nonEmpty (Both runsStep later) =>
+      match read with
+        | [] => (nonEmpty byComputing).impossible
+        | [char, ..more] =>
+          let shorter := Parse.loopStepsShort step stopRead steps rest later
+          arithmetic [shorter, List.lengthAppend more (Parse.loopReads stopRead steps)]
+
+--| A round of `loopFrom` whose step gave `Some v` and moved on: the rest of
+--| `loopFrom` is what goes on from the state it stopped in.
+theorem Parse.runsFromLoopRound ∀ (before: Parse.Mark t) (more: Nat) (step: () → {Parse t} Option a) (found: List a)
+    (v: a) (middle: Parse.State t) (read rest: List t) (value: List a)
+    (advanced: before.offset < middle.at.offset)
+    (runsNext: Parse.RunsFrom middle (() => Parse.loopFrom more step [v, ..found] middle.at) read rest value):
+    Parse.RunsFrom middle (() => Parse.loopRound more step found before (Some v)) read rest value :=
+  let holds: (middle.at.offset > before.offset) = True := arithmetic [advanced]
+  rewrite holds then runsNext
+
+--| A round that goes on without having read anything stops the whole parse:
+--| `loop` reads each time round, or fails.
+theorem Parse.loopRoundStuck ∀ (state: Parse.State t) (before: Parse.Mark t) (more: Nat) (step: () → {Parse t} Option a)
+    (found: List a) (v: a)
+    (stuck: state.at.offset ≤ before.offset):
+    Parse.runFrom state (() => Parse.loopRound more step found before (Some v))
+      = Err {
+        offset = state.at.offset,
+        messages = ["`loop`: the step went on without reading anything"],
+        expected = [],
+        width = 0
+      } :=
+  let holds: (state.at.offset > before.offset) = False := arithmetic [stuck]
+  rewrite Parse.runFromMark state (after =>
+        if after.offset > before.offset then Parse.loopFrom more step [v, ..found] after
+        else Empty.absurd (Parse.fatal "`loop`: the step went on without reading anything")),
+      holds then
+    Parse.runFromFatal state "`loop`: the step went on without reading anything" (x => Empty.absurd x)
+
+--| `loopFrom` from a state that is at its `before` mark, with enough fuel
+--| (more than the rounds that go on), after `found` (newest first): it reads
+--| the rounds and the last one's stop, and gives all the values. Any fuel
+--| over the number of rounds gives the same, which is what makes the
+--| fuel the input left, whatever it is, harmless.
+theorem Parse.runsLoopFrom ∀ (step: () → {Parse t} Option a) (stopRead: List t):
+    ∀ (steps: List (List t, a)) (rest: List t) (fuel: Nat) (found: List a) => steps.length < fuel
+      → Parse.LoopRuns step stopRead steps rest
+      → ∀ (state: Parse.State t) => Parse.RunsFrom state
+        (() => Parse.loopFrom fuel step found state.at)
+        (Parse.loopReads stopRead steps)
+        rest
+        (found.reverse ++ Parse.stepValues steps)
+  | steps, rest, Zero, found, enough, loopRuns, state, starts, honest => Void.impossible (arithmetic [enough])
+  | [], rest, Succ more, found, enough, stops, state, starts, honest =>
+    rewrite List.appendNil found.reverse then
+      (Parse.runsFromBindAt state step
+            (found2 => Parse.loopRound more step found state.at found2)
+            stopRead
+            []
+            stopRead
+            rest
+            None
+            found.reverse
+            (Eq.flipped (List.appendNil stopRead))
+            (stops state)
+            (middle atRest honest2 offset => Parse.runsPure found.reverse rest middle)) starts honest
+  | [(read, v), ..steps], rest, Succ more, found, enough, Both nonEmpty (Both runsStep later), state, starts, honest =>
+    let short: steps.length < more := arithmetic [enough]
+    let value: found.reverse ++ [v, ..Parse.stepValues steps] = [v, ..found].reverse ++ Parse.stepValues steps :=
+      rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps)
+    rewrite value then
+      (Parse.runsFromBindAt state step
+            (found2 => Parse.loopRound more step found state.at found2)
+            read
+            (Parse.loopReads stopRead steps)
+            (read ++ Parse.loopReads stopRead steps)
+            rest
+            (Some v)
+            ([v, ..found].reverse ++ Parse.stepValues steps)
+            byComputing
+            (runsStep state)
+            (middle atRest honest2 offset =>
+              let advanced: state.at.offset < middle.at.offset := match read with
+                | [] => (nonEmpty byComputing).impossible
+                | [char, ..others] => arithmetic [offset]
+              Parse.runsFromLoopRound state.at more step found v middle
+                (Parse.loopReads stopRead steps)
+                rest
+                ([v, ..found].reverse ++ Parse.stepValues steps)
+                advanced
+                (Parse.runsLoopFrom step stopRead steps rest more [v, ..found] short later middle))) starts honest
+
+--| `loop step` where `step` goes on round after round and then stops: it
+--| reads the rounds' text and the last round's, and gives their values, in
+--| order.
+theorem Parse.runsLoop ∀ (step: () → {Parse t} Option a) (stopRead: List t) (steps: List (List t, a)) (rest: List t)
+    (loopRuns: Parse.LoopRuns step stopRead steps rest):
+    Parse.Runs (() => Parse.loop step) (Parse.loopReads stopRead steps) rest (Parse.stepValues steps) :=
+  state starts honest =>
+    let short := Parse.loopStepsShort step stopRead steps rest loopRuns
+    let lengths: state.at.rest.length = (Parse.loopReads stopRead steps).length + rest.length :=
+      rewrite starts then List.lengthAppend (Parse.loopReads stopRead steps) rest
+    let enough: steps.length < state.at.left + 1 := arithmetic [short, lengths, honest]
+    Parse.runsFromMark state
+      (at => Parse.loopFrom (at.left + 1) step [] at)
+      (Parse.loopReads stopRead steps)
+      rest
+      (Parse.stepValues steps)
+      (Parse.runsLoopFrom step stopRead steps rest (state.at.left + 1) [] enough loopRuns state)
+      starts
+      honest
+
 --| One step of `chainLeft` (an operator and an operand), as the lemmas
 --| name it.
 def Parse.chainStep (operand: () → {Parse t} a) (operator: () → {Parse t} (a → a → a)): {Parse t} (a → a → a, a) :=
@@ -1198,6 +1333,93 @@ theorem Parse.runsRecursiveWith ∀ (body: (b → {Parse t} a) → b → {Parse 
       (Parse.runsRecursiveWithFuel body good step (state.at.left + 1) argument read rest v holds small state)
       starts
       honest
+
+--| `body`, the body of a `recursiveWith`, reads before each call of `self`:
+--| from an honest state, what it does depends on `self` only at the honest
+--| states with fewer items left, which is where a call that follows a read
+--| runs. So two nested parsers that agree on those states give `body` the
+--| same result.
+def Parse.ReadsBeforeCalls (body: (b → {Parse t} a) → b → {Parse t} a): Prop :=
+  ∀ (self1 self2: b → {Parse t} a) (argument: b) (state: Parse.State t) => state.at.left = state.at.rest.length
+    → (∀ (inner: b) (later: Parse.State t) => later.at.left = later.at.rest.length
+      → later.at.left < state.at.left
+      → Parse.runFrom later (() => self1 inner) = Parse.runFrom later (() => self2 inner))
+    → Parse.runFrom state (() => body self1 argument) = Parse.runFrom state (() => body self2 argument)
+
+--| More fuel gives `recursiveWithFuel` the same result: for a body that reads
+--| before each call of `self`, from an honest state with fewer items left than
+--| `fuel1`, a larger `fuel2` runs to the same `Ok` or `Err` (the value, the
+--| state's failure and all). `recursiveWith`'s fuel, the items left and one
+--| more, is such a fuel, so is any more, which is what lets a proof about a
+--| parser that nests ignore how much fuel it was given.
+-- By induction on the fuel: a level of either run is `body` with the next
+-- level down, which `reads` lets agree, since the calls it makes are at
+-- states with fewer items left, where the fuel left is still more than that.
+theorem Parse.recursiveWithFuelEnough ∀ (body: (b → {Parse t} a) → b → {Parse t} a)
+    (reads: Parse.ReadsBeforeCalls body):
+    ∀ (fuel1 fuel2: Nat) (argument: b) (state: Parse.State t) => state.at.left = state.at.rest.length
+      → state.at.left < fuel1
+      → fuel1 ≤ fuel2
+      → Parse.runFrom state (() => Parse.recursiveWithFuel fuel2 body argument)
+        = Parse.runFrom state (() => Parse.recursiveWithFuel fuel1 body argument)
+  | Zero, fuel2, argument, state, honest, enough, atLeast => Void.impossible (arithmetic [enough])
+  | Succ more1, Zero, argument, state, honest, enough, atLeast => Void.impossible (arithmetic [atLeast])
+  | Succ more1, Succ more2, argument, state, honest, enough, atLeast =>
+    reads
+      (inner => Parse.recursiveWithFuel more2 body inner)
+      (inner => Parse.recursiveWithFuel more1 body inner)
+      argument
+      state
+      honest
+      (inner later laterHonest fewer =>
+        Parse.recursiveWithFuelEnough body reads more1 more2 inner later laterHonest
+          (arithmetic [enough, fewer])
+          (arithmetic [atLeast]))
+
+--| `recursiveWith` itself, whose fuel is the items left and one more, gives
+--| what any larger fuel gives, for a body that reads before each call.
+theorem Parse.recursiveWithFuelMore ∀ (body: (b → {Parse t} a) → b → {Parse t} a)
+    (reads: Parse.ReadsBeforeCalls body)
+    (more: Nat) (argument: b) (state: Parse.State t)
+    (honest: state.at.left = state.at.rest.length):
+    Parse.runFrom state (() => Parse.recursiveWithFuel (state.at.left + 1 + more) body argument)
+      = Parse.runFrom state (() => Parse.recursiveWith body argument) :=
+  Eq.trans
+    (Parse.recursiveWithFuelEnough body reads
+      (state.at.left + 1)
+      (state.at.left + 1 + more)
+      argument
+      state
+      honest
+      (arithmetic [])
+      (arithmetic []))
+    (Eq.flipped (Parse.runFromMark state (at => Parse.recursiveWithFuel (at.left + 1) body argument)))
+
+--| The trivial case of [`Parse.ReadsBeforeCalls`]: a body that never calls
+--| `self`.
+theorem Parse.readsBeforeCallsNever ∀ (plain: b → {Parse t} a):
+    Parse.ReadsBeforeCalls (self argument => plain argument) :=
+  self1 self2 argument state honest agree => byComputing
+
+--| A body that reads an item with `next` and calls `self` only after it
+--| reads [`Parse.ReadsBeforeCalls`]: `stop` handles an item that doesn't
+--| pass or the end, and calls nothing.
+theorem Parse.readsBeforeCallsNext ∀ (passes: t → Bool) (nested: t → b → b) (stop: b → {Parse t} a):
+    Parse.ReadsBeforeCalls (self argument =>
+      match Parse.next passes with
+        | Some item => self (nested item argument)
+        | None => stop argument) :=
+  self1 self2 argument state honest agree =>
+    match starts: state.at.rest with
+      | [] => byComputing
+      | [item, ..after] =>
+        match holds: passes item with
+          | True =>
+            let advancedHonest: (state.advance after 1).at.left = (state.advance after 1).at.rest.length :=
+              arithmetic [honest]
+            let fewer: (state.advance after 1).at.left < state.at.left := arithmetic [honest]
+            agree (nested item argument) (state.advance after 1) advancedHonest fewer
+          | False => byComputing
 
 --| `Parse.runsRecursiveWithFuel`, where `step` also has a fact about the
 --| nested parser, one that holds of every level but the innermost (which is
