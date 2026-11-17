@@ -4095,8 +4095,7 @@ theorem Float.Theory.magUnitsDoubleHigh ∀ (m: Nat)
   let g: Nat := e - 1
   let here: Float.Theory.magUnits m = Nat.pow 2 g * (f + 4503599627370496) :=
     Eq.trans
-      (Eq.cong Float.Theory.magUnits
-        (arithmetic [c, low, high]: m = g * 4503599627370496 + 4503599627370496 + f))
+      (Eq.cong Float.Theory.magUnits (arithmetic [c, low, high]: m = g * 4503599627370496 + 4503599627370496 + f))
       (Float.Theory.magUnitsFieldNext g f (arithmetic [low, high]))
   let up: Float.Theory.magUnits (m + 4503599627370496) = Nat.pow 2 (Succ g) * (f + 4503599627370496) :=
     Eq.trans
@@ -4113,7 +4112,10 @@ theorem Float.Theory.magUnitsDoubleHigh ∀ (m: Nat)
 
 theorem Float.Theory.magUnitsDouble ∀ (m: Nat):
     Float.Theory.magUnits (Float.Theory.doubleBits m) = Float.Theory.magUnits m + Float.Theory.magUnits m :=
-  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 4503599627370496 m)) (c => Float.Theory.magUnitsDoubleHigh m c) (c =>
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Nat.leq 4503599627370496 m))
+    (c => Float.Theory.magUnitsDoubleHigh m c)
+    (c =>
       let d: Float.Theory.doubleBits m = m + m := rewrite c
       let small: Float.Theory.magUnits m = m := Float.Theory.magUnitsSmall m (arithmetic [c])
       calc Float.Theory.magUnits (Float.Theory.doubleBits m)
@@ -4147,23 +4149,29 @@ theorem Float.Theory.belowInfinity ∀ (m: Nat) (c: Nat.leq 9218868437227405312 
 
 theorem Float.Theory.leLessAbsurd ∀ (a b: Nat) (x: a ≤ b) (y: b < a): Void := arithmetic
 
-theorem Float.Theory.finiteOfUnits ∀ (m: Nat)
-    (h: Float.Theory.magUnits m < Nat.pow 2 2098):
-    m < 9218868437227405312 :=
-  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9218868437227405312 m)) (c =>
+theorem Float.Theory.finiteOfUnits ∀ (m: Nat) (h: Float.Theory.magUnits m < Nat.pow 2 2098): m < 9218868437227405312 :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Nat.leq 9218868437227405312 m))
+    (c =>
       let le: Float.Theory.magUnits 9218868437227405312 ≤ Float.Theory.magUnits m :=
         Float.Theory.magUnitsLe 9218868437227405312 m (Float.Theory.atLeastOf 9218868437227405312 m c)
       let inf: Float.Theory.magUnits 9218868437227405312 = Nat.pow 2 2098 :=
         Eq.trans Float.Theory.unitsAtInfinity (Float.Theory.pow2Pow 2098)
       Void.impossible
-        (Float.Theory.leLessAbsurd (Nat.pow 2 2098) (Float.Theory.magUnits m) (J (y w => y ≤ Float.Theory.magUnits m) le inf) h))
+        (Float.Theory.leLessAbsurd
+          (Nat.pow 2 2098)
+          (Float.Theory.magUnits m)
+          (J (y w => y ≤ Float.Theory.magUnits m) le inf)
+          h))
     (c => Float.Theory.belowInfinity m c)
 
 theorem Float.Theory.gridFinite ∀ (q e: Nat)
     (hq: q ≤ 9007199254740992)
     (fin: q * Nat.pow 2 e < Nat.pow 2 2098):
     Float.Theory.gridBits q e < 9218868437227405312 :=
-  Float.Theory.finiteOfUnits (Float.Theory.gridBits q e) (J (y w => y < Nat.pow 2 2098) fin (Float.Theory.gridUnits q e hq).flipped)
+  Float.Theory.finiteOfUnits
+    (Float.Theory.gridBits q e)
+    (J (y w => y < Nat.pow 2 2098) fin (Float.Theory.gridUnits q e hq).flipped)
 
 theorem Float.Theory.signedNonzero ∀ (s: Bool) (n: Nat) (pn: 0 < n): Int.signed s n ≠ OfNat 0 := match s, n with
   | False, Succ k => (e => cases)
@@ -4214,12 +4222,12 @@ theorem Float.Theory.roundGrid ∀ (s: Bool) (q e: Nat) (z: Bool)
       let r: Float.Model.roundRatio (Int.signed s (q * Nat.pow 2 e)) 1 (-1074) z
         = (if s then m + 9223372036854775808 else m) :=
         rewrite Float.Theory.roundRatioSignIrrelevant 1
-            (-1074)
-            z
-            s
-            (Int.signed s (q * Nat.pow 2 e))
-            (Float.Theory.signedNonzero s (q * Nat.pow 2 e) pn),
-          um.flipped then
+              (-1074)
+              z
+              s
+              (Int.signed s (q * Nat.pow 2 e))
+              (Float.Theory.signedNonzero s (q * Nat.pow 2 e) pn),
+            um.flipped then
           back
       rewrite r, um.flipped then Float.Theory.unitsOfMagnitude m s fm)
 
@@ -4258,8 +4266,7 @@ theorem Float.Theory.roundScaledWhole ∀ (n: Int) (z: Bool)
     Float.Theory.FiniteBits (Float.Model.roundScaled n 0 z)
       ∧ (Float.Model.units (Float.Model.roundScaled n 0 z) = Int.mul n (OfNat (Float.Model.pow2 1074))) :=
   J
-    (r w =>
-      Float.Theory.FiniteBits r ∧ (Float.Model.units r = Int.mul n (OfNat (Float.Model.pow2 1074))))
+    (r w => Float.Theory.FiniteBits r ∧ (Float.Model.units r = Int.mul n (OfNat (Float.Model.pow2 1074))))
     (Float.Theory.roundWholeUnits n z h)
     (Float.Theory.roundWhole n z).flipped
 
@@ -4283,12 +4290,14 @@ theorem Float.Theory.floorDivRange ∀ (s: Bool) (m p: Nat)
       let qb: q < 9007199254740992 := Float.Theory.cancelLessComm q 9007199254740992 p (arithmetic [low, h])
       rewrite f then Both (Both (arithmetic [qb]) (arithmetic [qb])) (arithmetic [high, Float.Theory.succMul q p])
     | True =>
-      Float.Theory.orCase (Float.Theory.boolCases (Nat.equal (q * p) m))
+      Float.Theory.orCase
+        (Float.Theory.boolCases (Nat.equal (q * p) m))
         (e =>
           let ex: q * p = m := Nat.equalSound (q * p) m e
           let f: Float.Model.floorDiv True m p = Int.neg (OfNat q) := rewrite e
           let qb: q < 9007199254740992 := Float.Theory.cancelLessComm q 9007199254740992 p (arithmetic [ex, h])
-          let up: Int.mul (Int.add (Int.neg (OfNat q)) (OfNat 1)) (OfNat p) = Int.add (Int.neg (OfNat (q * p))) (OfNat p) :=
+          let up: Int.mul (Int.add (Int.neg (OfNat q)) (OfNat 1)) (OfNat p)
+            = Int.add (Int.neg (OfNat (q * p))) (OfNat p) :=
             algebra
           rewrite f, up then Both (Both (arithmetic [qb]) (arithmetic [qb])) (arithmetic [ex, pp]))
         (e =>
@@ -4324,7 +4333,8 @@ theorem Float.Theory.absKey ∀ (x: Float): Float.orderKey (Float.abs x) = OfNat
 --| A double with `|x| < 2^53` is finite, with fewer than `2^53 × 2^1074` units either way.
 theorem Float.Theory.absBelowUnits ∀ (x: Float)
     (small: Float.abs x < 9007199254740992.0):
-    Float.Theory.FiniteBits x.bits ∧ (Int.natAbs (Float.Model.units x.bits) < Float.Model.pow2 1074 * 9007199254740992) :=
+    Float.Theory.FiniteBits x.bits
+      ∧ (Int.natAbs (Float.Model.units x.bits) < Float.Model.pow2 1074 * 9007199254740992) :=
   let key: Float.orderKey 9007199254740992.0 = OfNat 4845873199050653696 := byComputing
   let below: Float.Model.magnitude x.bits < 4845873199050653696 := arithmetic [small, Float.Theory.absKey x, key]
   let top: Float.Theory.magUnits 4845873199050653696 = Float.Model.pow2 1074 * 9007199254740992 := byComputing
@@ -4342,9 +4352,15 @@ theorem Float.Theory.intLeLessAbsurd ∀ (a b: Int) (x: Int.leq a b = True) (y: 
 theorem Float.Theory.lessOfUnits ∀ (x y: Float)
     (h: Int.less (Float.Theory.units x) (Float.Theory.units y) = True):
     x < y :=
-  Float.Theory.orCase (Float.Theory.boolCases (Int.leq (Float.Theory.key y.bits) (Float.Theory.key x.bits)))
-    (c => Void.impossible (Float.Theory.intLeLessAbsurd
-      (Float.Theory.units y) (Float.Theory.units x) (Float.Theory.unitsMonoKey y.bits x.bits c) h))
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Int.leq (Float.Theory.key y.bits) (Float.Theory.key x.bits)))
+    (c =>
+      Void.impossible
+        (Float.Theory.intLeLessAbsurd
+          (Float.Theory.units y)
+          (Float.Theory.units x)
+          (Float.Theory.unitsMonoKey y.bits x.bits c)
+          h))
     (c => (arithmetic [c]: Int.less (Float.Theory.key x.bits) (Float.Theory.key y.bits) = True))
 
 theorem Float.Theory.isFiniteOf ∀ (x: Float) (h: Float.Theory.FiniteBits x.bits): Float.isFinite x = True :=
@@ -4371,21 +4387,16 @@ theorem Float.Theory.addWhole ∀ (y c: Float) (f k: Int)
   let z: Bool := Float.Model.signBit y.bits ∧ Float.Model.signBit c.bits
   let sumUnits: Int.add (Float.Theory.units y) (Float.Theory.units c) = Int.mul (Int.add f k) (OfNat p) :=
     Eq.trans (Eq.cong2 Int.add uy uc) (Float.Theory.addMulRight f k p)
-  let sum: (y + c).bits = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat p)) 1 (-1074) z :=
-    calc (y + c).bits
-      _ = (Float.ofBits
-          (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z)).bits :=
-        Eq.cong (w => w.bits) (Float.Theory.addFinite y c (Float.Theory.isFiniteOf y fy) fc)
-      _ = Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z :=
-        Float.Theory.ofBitsBits
-          (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z)
-          (Float.Theory.roundRatioValid 1
-            (-1074)
-            z
-            byComputing
-            (Int.add (Float.Theory.units y) (Float.Theory.units c)))
-      _ = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat p)) 1 (-1074) z :=
-        Eq.cong (u => Float.Model.roundRatio u 1 (-1074) z) sumUnits
+  let sum: (y + c).bits = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat p)) 1 (-1074) z := calc (y + c).bits
+    _ = (Float.ofBits
+        (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z)).bits :=
+      Eq.cong (w => w.bits) (Float.Theory.addFinite y c (Float.Theory.isFiniteOf y fy) fc)
+    _ = Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z :=
+      Float.Theory.ofBitsBits
+        (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z)
+        (Float.Theory.roundRatioValid 1 (-1074) z byComputing (Int.add (Float.Theory.units y) (Float.Theory.units c)))
+    _ = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat p)) 1 (-1074) z :=
+      Eq.cong (u => Float.Model.roundRatio u 1 (-1074) z) sumUnits
   Eq.trans (Eq.cong Float.Model.units sum) (Float.Theory.roundWholeUnits (Int.add f k) z h).right
 
 --| `x < floor x + 1.0` for `|x| < 2^53`: `floor x` and `floor x + 1.0` are
@@ -4410,15 +4421,7 @@ theorem Float.ltFloorAddOne ∀ (x: Float) (small: Float.abs x < 900719925474099
       (Float.Theory.roundScaledWhole f s range.left.left)
       fl.flipped
   let us: Float.Theory.units (Float.floor x + 1.0) = Int.mul (Int.add f (OfNat 1)) (OfNat p) :=
-    Float.Theory.addWhole (Float.floor x)
-      1.0
-      f
-      (OfNat 1)
-      fx.left
-      byComputing
-      fx.right
-      byComputing
-      range.left.right
+    Float.Theory.addWhole (Float.floor x) 1.0 f (OfNat 1) fx.left byComputing fx.right byComputing range.left.right
   Float.Theory.lessOfUnits x
     (Float.floor x + 1.0)
     (J
@@ -4441,7 +4444,9 @@ theorem Float.Theory.subOneMul ∀ (g: Int) (p: Nat):
     Int.mul (Int.add (Int.neg g) (Int.neg (OfNat 1))) (OfNat p) = Int.neg (Int.mul (Int.add g (OfNat 1)) (OfNat p)) :=
   algebra
 
-theorem Float.Theory.natAbsNegLe ∀ (g: Int) (h: Int.natAbs g ≤ 9007199254740992): Int.natAbs (Int.neg g) ≤ 9007199254740992 :=
+theorem Float.Theory.natAbsNegLe ∀ (g: Int)
+    (h: Int.natAbs g ≤ 9007199254740992):
+    Int.natAbs (Int.neg g) ≤ 9007199254740992 :=
   arithmetic [h]
 
 theorem Float.Theory.natAbsNegSuccLe ∀ (g: Int)
@@ -4477,11 +4482,11 @@ theorem Float.ceilSubOneLt ∀ (x: Float) (small: Float.abs x < 9007199254740992
       (r w => Float.Theory.FiniteBits r ∧ (Float.Model.units r = Int.mul (Int.neg g) (OfNat p)))
       (Float.Theory.roundScaledWhole (Int.neg g) s (Float.Theory.natAbsNegLe g range.left.left))
       cl.flipped
-  let ud: Float.Theory.units (Float.ceil x - 1.0)
-    = Int.mul (Int.add (Int.neg g) (Int.neg (OfNat 1))) (OfNat p) :=
+  let ud: Float.Theory.units (Float.ceil x - 1.0) = Int.mul (Int.add (Int.neg g) (Int.neg (OfNat 1))) (OfNat p) :=
     Eq.trans
       (Eq.cong Float.Theory.units (Float.subAddNeg (Float.ceil x) 1.0))
-      (Float.Theory.addWhole (Float.ceil x)
+      (Float.Theory.addWhole
+        (Float.ceil x)
         (-1.0)
         (Int.neg g)
         (Int.neg (OfNat 1))
@@ -4490,7 +4495,8 @@ theorem Float.ceilSubOneLt ∀ (x: Float) (small: Float.abs x < 9007199254740992
         cx.right
         byComputing
         (Float.Theory.natAbsNegSuccLe g range.left.right))
-  Float.Theory.lessOfUnits (Float.ceil x - 1.0)
+  Float.Theory.lessOfUnits
+    (Float.ceil x - 1.0)
     x
     (Float.Theory.negLess
       (Int.mul (Int.add g (OfNat 1)) (OfNat p))
@@ -4565,7 +4571,9 @@ theorem Float.Theory.gridSplit ∀ (r p x y q: Nat)
     (r = (x - y) * p) ∧ (x - y ≤ q) :=
   let yx: y ≤ x := Float.Theory.cancelLe y x p pp (arithmetic [e])
   let split: x * p = (x - y) * p + y * p :=
-    Eq.trans (Eq.cong (t => t * p) (arithmetic [yx]: x = (x - y) + y)) (algebra: ((x - y) + y) * p = (x - y) * p + y * p)
+    Eq.trans
+      (Eq.cong (t => t * p) (arithmetic [yx]: x = (x - y) + y))
+      (algebra: ((x - y) + y) * p = (x - y) * p + y * p)
   let re: r = (x - y) * p := arithmetic [e, split]
   Both re (Float.Theory.cancelLe (x - y) q p pp (arithmetic [re, b]))
 
@@ -4622,8 +4630,7 @@ theorem Float.Theory.combinationExact ∀ (ma mb r j k: Nat) (s z: Bool)
       let ek: k * Float.Theory.magUnits mb = k * (Nat.pow 2 (eb - ea) * qb) * p := rewrite bs then algebra
       let ej: j * Float.Theory.magUnits ma = j * qa * p := rewrite as then algebra
       let g: (r = (j * qa - k * (Nat.pow 2 (eb - ea) * qb)) * p) ∧ (j * qa - k * (Nat.pow 2 (eb - ea) * qb) ≤ qa) :=
-        Float.Theory.gridSplit r
-          p
+        Float.Theory.gridSplit r p
           (j * qa)
           (k * (Nat.pow 2 (eb - ea) * qb))
           qa
@@ -4637,7 +4644,11 @@ theorem Float.Theory.combinationExact ∀ (ma mb r j k: Nat) (s z: Bool)
         z
         g.left
         (arithmetic [g.right, sa.right])
-        (Float.Theory.leLessTrans r (Float.Theory.magUnits ma) (Nat.pow 2 2098) la (Float.Theory.finiteUnitsBelow ma fa)))
+        (Float.Theory.leLessTrans r
+          (Float.Theory.magUnits ma)
+          (Nat.pow 2 2098)
+          la
+          (Float.Theory.finiteUnitsBelow ma fa)))
     (c =>
       let p: Nat := Nat.pow 2 eb
       let as: Float.Theory.magUnits ma = Nat.pow 2 (ea - eb) * qa * p :=
@@ -4646,8 +4657,7 @@ theorem Float.Theory.combinationExact ∀ (ma mb r j k: Nat) (s z: Bool)
       let ek: k * Float.Theory.magUnits mb = k * qb * p := rewrite bs then algebra
       let ej: j * Float.Theory.magUnits ma = j * (Nat.pow 2 (ea - eb) * qa) * p := rewrite as then algebra
       let g: (r = (j * (Nat.pow 2 (ea - eb) * qa) - k * qb) * p) ∧ (j * (Nat.pow 2 (ea - eb) * qa) - k * qb ≤ qb) :=
-        Float.Theory.gridSplit r
-          p
+        Float.Theory.gridSplit r p
           (j * (Nat.pow 2 (ea - eb) * qa))
           (k * qb)
           qb
@@ -4661,7 +4671,11 @@ theorem Float.Theory.combinationExact ∀ (ma mb r j k: Nat) (s z: Bool)
         z
         g.left
         (arithmetic [g.right, sb.right])
-        (Float.Theory.leLessTrans r (Float.Theory.magUnits ma) (Nat.pow 2 2098) la (Float.Theory.finiteUnitsBelow ma fa)))
+        (Float.Theory.leLessTrans r
+          (Float.Theory.magUnits ma)
+          (Nat.pow 2 2098)
+          la
+          (Float.Theory.finiteUnitsBelow ma fa)))
 
 -- The remainder
 
@@ -4686,13 +4700,16 @@ theorem Float.Theory.remFiniteBits ∀ (a b: Nat)
               (Int.natAbs (Float.Model.units a))
               (Int.natAbs (Float.Model.units a))
               (Int.natAbs (Float.Model.units b))
-            * Int.natAbs (Float.Model.units b)))
+              * Int.natAbs (Float.Model.units b)))
         (-1074)
         (Float.Model.signBit a) :=
   let m: Nat := Int.natAbs (Float.Model.units a)
   let d: Nat := Int.natAbs (Float.Model.units b)
   let fin: Nat :=
-    Float.Model.roundScaled (Int.signed (Float.Model.signBit a) (m - Nat.divFuel m m d * d)) (-1074) (Float.Model.signBit a)
+    Float.Model.roundScaled
+      (Int.signed (Float.Model.signBit a) (m - Nat.divFuel m m d * d))
+      (-1074)
+      (Float.Model.signBit a)
   calc Float.Model.remBits a b
     _ = (if Float.Model.isInfinite b then a else fin) :=
       Float.Theory.ifFalse
@@ -4707,7 +4724,11 @@ theorem Float.Theory.remFiniteBits ∀ (a b: Nat)
             (Float.Model.isNaN b)
             (Float.Model.isInfinite a ∨ Float.Model.isZero b)
             (Float.Theory.finiteNotNaN b fb)
-            (Float.Theory.orFalse (Float.Model.isInfinite a) (Float.Model.isZero b) (Float.Theory.finiteNotInfinite a fa) zb)))
+            (Float.Theory.orFalse
+              (Float.Model.isInfinite a)
+              (Float.Model.isZero b)
+              (Float.Theory.finiteNotInfinite a fa)
+              zb)))
     _ = fin := Float.Theory.ifFalse (Float.Model.isInfinite b) a fin (Float.Theory.finiteNotInfinite b fb)
 
 --| The remainder of a finite pattern by a finite nonzero one: finite, of
@@ -4732,15 +4753,15 @@ theorem Float.Theory.remExact ∀ (a b: Nat)
   let mm: m = Float.Theory.magUnits (Float.Model.magnitude a) := Float.Theory.natAbsUnits a
   let dd: d = Float.Theory.magUnits (Float.Model.magnitude b) := Float.Theory.natAbsUnits b
   let magPos: 0 < Float.Model.magnitude b := arithmetic [zb]
-  let dpos: 0 < d :=
-    J (y w => 0 < y) (Float.Theory.magUnitsLess 0 (Float.Model.magnitude b) magPos) dd.flipped
+  let dpos: 0 < d := J (y w => 0 < y) (Float.Theory.magUnitsLess 0 (Float.Model.magnitude b) magPos) dd.flipped
   let low: q * d ≤ m := Nat.divFuelLe m m d
   let high: m < Succ q * d := Nat.divFuelBound m m d (Nat.nonzeroOfPos d dpos) (Nat.leRefl m)
   let lt: r < d := arithmetic [low, high, Float.Theory.succMul q d]
   let qd: q * d = q * Float.Theory.magUnits (Float.Model.magnitude b) := Eq.cong (t => q * t) dd
   let ex: (Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s))
     ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s) = Int.signed s r) :=
-    Float.Theory.combinationExact (Float.Model.magnitude a)
+    Float.Theory.combinationExact
+      (Float.Model.magnitude a)
       (Float.Model.magnitude b)
       r
       1
@@ -4751,13 +4772,14 @@ theorem Float.Theory.remExact ∀ (a b: Nat)
       (arithmetic [low, mm, qd])
       (arithmetic [low, mm])
       (arithmetic [lt, dd])
-  let rb: Float.Model.remBits a b = Float.Model.roundRatio (Int.signed s r) 1 (-1074) s := Float.Theory.remFiniteBits a b fa fb zb
-  let size: Int.natAbs (Float.Model.units (Float.Model.remBits a b)) = r :=
-    calc Int.natAbs (Float.Model.units (Float.Model.remBits a b))
-      _ = Int.natAbs (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s)) :=
-        Eq.cong (w => Int.natAbs (Float.Model.units w)) rb
-      _ = Int.natAbs (Int.signed s r) := Eq.cong Int.natAbs ex.right
-      _ = r := Float.Theory.natAbsSigned s r
+  let rb: Float.Model.remBits a b = Float.Model.roundRatio (Int.signed s r) 1 (-1074) s :=
+    Float.Theory.remFiniteBits a b fa fb zb
+  let size: Int.natAbs (Float.Model.units (Float.Model.remBits a b)) = r := calc Int.natAbs
+    (Float.Model.units (Float.Model.remBits a b))
+    _ = Int.natAbs (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s)) :=
+      Eq.cong (w => Int.natAbs (Float.Model.units w)) rb
+    _ = Int.natAbs (Int.signed s r) := Eq.cong Int.natAbs ex.right
+    _ = r := Float.Theory.natAbsSigned s r
   J
     (y w =>
       (Float.Theory.FiniteBits (Float.Model.remBits a b)
@@ -4777,10 +4799,9 @@ theorem Float.Theory.modelNotZero ∀ (y: Float) (zy: Float.isZero y = False): F
     (c => rewrite c then arithmetic [c, n1])
     (c => rewrite c then n0)
 
-theorem Float.Theory.magLessOfUnits ∀ (m n: Nat)
-    (h: Float.Theory.magUnits m < Float.Theory.magUnits n):
-    m < n :=
-  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq n m))
+theorem Float.Theory.magLessOfUnits ∀ (m n: Nat) (h: Float.Theory.magUnits m < Float.Theory.magUnits n): m < n :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Nat.leq n m))
     (c =>
       Void.impossible
         (Float.Theory.leLessAbsurd
@@ -4798,11 +4819,11 @@ theorem Float.Theory.remOfBits ∀ (x y: Float)
     (x % y).bits = Float.Model.remBits x.bits y.bits :=
   let e: x % y = Float.ofBits (Float.Model.remBits x.bits y.bits) := match x, y with
     | { bits = a, valid = p }, { bits = b, valid = q } => byComputing
-  let ex := Float.Theory.remExact x.bits
-    y.bits
-    (Float.Theory.finiteBits x fx)
-    (Float.Theory.finiteBits y fy)
-    (Float.Theory.modelNotZero y zy)
+  let ex :=
+    Float.Theory.remExact x.bits y.bits
+      (Float.Theory.finiteBits x fx)
+      (Float.Theory.finiteBits y fy)
+      (Float.Theory.modelNotZero y zy)
   Eq.trans
     (Eq.cong (q => q.bits) e)
     (Float.Theory.ofBitsBits
@@ -4810,9 +4831,7 @@ theorem Float.Theory.remOfBits ∀ (x y: Float)
       (Float.Theory.validTo
         (Float.Model.remBits x.bits y.bits)
         (Float.Model.roundRatio
-          (Int.signed
-            (Float.Model.signBit x.bits)
-            (Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))))
+          (Int.signed (Float.Model.signBit x.bits) (Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))))
           1
           (-1074)
           (Float.Model.signBit x.bits))
@@ -4847,20 +4866,17 @@ theorem Float.remAbsLt ∀ (x y: Float)
     Float.abs (x % y) < Float.abs y :=
   let a: Nat := x.bits
   let b: Nat := y.bits
-  let ex := Float.Theory.remExact a
-    b
-    (Float.Theory.finiteBits x fx)
-    (Float.Theory.finiteBits y fy)
-    (Float.Theory.modelNotZero y zy)
+  let ex :=
+    Float.Theory.remExact a b
+      (Float.Theory.finiteBits x fx)
+      (Float.Theory.finiteBits y fy)
+      (Float.Theory.modelNotZero y zy)
   let rb: (x % y).bits = Float.Model.remBits a b := Float.Theory.remOfBits x y fx fy zy
   let units: Float.Theory.magUnits (Float.Model.magnitude (Float.Model.remBits a b))
     < Float.Theory.magUnits (Float.Model.magnitude b) :=
     J
       (u w => u < Float.Theory.magUnits (Float.Model.magnitude b))
-      (J
-        (u w => Int.natAbs (Float.Model.units (Float.Model.remBits a b)) < u)
-        ex.right
-        (Float.Theory.natAbsUnits b))
+      (J (u w => Int.natAbs (Float.Model.units (Float.Model.remBits a b)) < u) ex.right (Float.Theory.natAbsUnits b))
       (Float.Theory.natAbsUnits (Float.Model.remBits a b))
   let mags: Float.Model.magnitude (x % y).bits < Float.Model.magnitude b :=
     J
@@ -4873,8 +4889,8 @@ theorem Float.Theory.signSetOf ∀ (b: Nat)
     (h: Int.leq (Float.Theory.key b) (NegSucc 0) = True):
     Nat.leq 9223372036854775808 b = True :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9223372036854775808 b)) (c => c) (c =>
-    Void.impossible (Float.Theory.intLeLessAbsurd
-      (Float.Theory.key b) (NegSucc 0) h (arithmetic [Float.Theory.keyClear b c])))
+    Void.impossible
+      (Float.Theory.intLeLessAbsurd (Float.Theory.key b) (NegSucc 0) h (arithmetic [Float.Theory.keyClear b c])))
 
 --| The key of `x % y` for finite `x` and finite nonzero `y`: a rounding of
 --| a whole number of units with `x`'s sign.
@@ -4889,14 +4905,15 @@ theorem Float.Theory.remKey ∀ (x y: Float)
         1
         (-1074)
         s :=
-  let ex := Float.Theory.remExact x.bits
-    y.bits
-    (Float.Theory.finiteBits x fx)
-    (Float.Theory.finiteBits y fy)
-    (Float.Theory.modelNotZero y zy)
+  let ex :=
+    Float.Theory.remExact x.bits y.bits
+      (Float.Theory.finiteBits x fx)
+      (Float.Theory.finiteBits y fy)
+      (Float.Theory.modelNotZero y zy)
   let k: Nat := Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))
   calc Float.Theory.key (x % y).bits
-    _ = Float.Theory.key (Float.Model.remBits x.bits y.bits) := Eq.cong Float.Theory.key (Float.Theory.remOfBits x y fx fy zy)
+    _ = Float.Theory.key (Float.Model.remBits x.bits y.bits) :=
+      Eq.cong Float.Theory.key (Float.Theory.remOfBits x y fx fy zy)
     _ = Float.Theory.key
         (Float.Model.roundRatio (Int.signed (Float.Model.signBit x.bits) k) 1 (-1074) (Float.Model.signBit x.bits)) :=
       Eq.cong Float.Theory.key ex.left.right
@@ -4918,7 +4935,15 @@ theorem Float.remNonneg ∀ (x y: Float)
     (Float.Theory.roundKey (Int.signed False k) 1 (-1074) False)
     byComputing
     (Float.Theory.remKey x y fx fy zy False (Float.Theory.signClear x.bits h))
-    (Float.Theory.roundKeyMonoLe 1 (-1074) False False byComputing (OfNat 0) (Int.signed False k) (Float.Theory.signedNonneg k) (w => w))
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      False
+      False
+      byComputing
+      (OfNat 0)
+      (Int.signed False k)
+      (Float.Theory.signedNonneg k)
+      (w => w))
 
 --| `x % y <= -0.0` when `x <= -0.0`.
 theorem Float.remNonpos ∀ (x y: Float)
@@ -4935,7 +4960,15 @@ theorem Float.remNonpos ∀ (x y: Float)
     (Float.Theory.roundKey (Int.signed True 0) 1 (-1074) True)
     (Float.Theory.remKey x y fx fy zy True (Float.Theory.signSetOf x.bits h))
     byComputing
-    (Float.Theory.roundKeyMonoLe 1 (-1074) True True byComputing (Int.signed True k) (Int.signed True 0) (Float.Theory.signedNonpos k) (w => w))
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      True
+      True
+      byComputing
+      (Int.signed True k)
+      (Int.signed True 0)
+      (Float.Theory.signedNonpos k)
+      (w => w))
 
 test "Float.remAbsLt" :=
   Float.abs (5.5 % 2.0) < Float.abs 2.0
@@ -4979,11 +5012,9 @@ theorem Float.Theory.negPositive ∀ (y: Float)
     Eq.trans
       (Float.Theory.negBits y (Float.Theory.finiteNotNaN y.bits (Float.Theory.finiteBits y fy)))
       (Float.flipLow y.bits (Float.Theory.positiveSignClear y pos))
-  Both
-    bits
+  Both bits
     (J
-      (b w =>
-        Float.Theory.FiniteBits b ∧ (Float.Model.units b = Int.neg (OfNat (Float.Theory.magUnits y.bits))))
+      (b w => Float.Theory.FiniteBits b ∧ (Float.Model.units b = Int.neg (OfNat (Float.Theory.magUnits y.bits))))
       (Float.Theory.unitsOfMagnitude y.bits True fin)
       bits.flipped)
 
@@ -5021,9 +5052,7 @@ theorem Float.Theory.natLeOfInt ∀ (a b: Int) (ua ub: Nat)
     ua ≤ ub :=
   arithmetic [k, ea, eb]
 
-theorem Float.Theory.doubleShape ∀ (v e q: Nat)
-    (h: v = Nat.pow 2 e * q):
-    v + v = q * Nat.pow 2 (Succ e) :=
+theorem Float.Theory.doubleShape ∀ (v e q: Nat) (h: v = Nat.pow 2 e * q): v + v = q * Nat.pow 2 (Succ e) :=
   rewrite h, Nat.powSucc 2 e then algebra
 
 --| For positive finite `x` and `y`, `x <= y + y` bounds `x`'s units by
@@ -5054,7 +5083,8 @@ theorem Float.Theory.leDouble ∀ (x y: Float)
       let g: Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed False (v + v)) 1 (-1074) False)
         ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed False (v + v)) 1 (-1074) False)
           = Int.signed False (v + v)) :=
-        Float.Theory.gridExact (v + v)
+        Float.Theory.gridExact
+          (v + v)
           (Float.Theory.sigOf y.bits)
           (Succ (Float.Theory.expOf y.bits))
           False
@@ -5064,36 +5094,35 @@ theorem Float.Theory.leDouble ∀ (x y: Float)
           (Float.Theory.belowOf (Nat.pow 2 2098) (v + v) c)
       let uy: Float.Theory.units y = OfNat v := Float.Theory.positiveUnits y py
       let sy: Float.Model.signBit y.bits = False := Float.Theory.positiveSignClear y py
-      let sum: (y + y).bits = Float.Model.roundRatio (Int.signed False (v + v)) 1 (-1074) False :=
-        calc (y + y).bits
-          _ = (Float.ofBits
-              (Float.Model.roundRatio
-                (Int.add (Float.Theory.units y) (Float.Theory.units y))
-                1
-                (-1074)
-                (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits))).bits :=
-            Eq.cong (w => w.bits) (Float.Theory.addFinite y y fy fy)
-          _ = Float.Model.roundRatio
+      let sum: (y + y).bits = Float.Model.roundRatio (Int.signed False (v + v)) 1 (-1074) False := calc (y + y).bits
+        _ = (Float.ofBits
+            (Float.Model.roundRatio
               (Int.add (Float.Theory.units y) (Float.Theory.units y))
               1
               (-1074)
-              (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits) :=
-            Float.Theory.ofBitsBits
-              (Float.Model.roundRatio
-                (Int.add (Float.Theory.units y) (Float.Theory.units y))
-                1
-                (-1074)
-                (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits))
-              (Float.Theory.roundRatioValid 1
-                (-1074)
-                (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits)
-                byComputing
-                (Int.add (Float.Theory.units y) (Float.Theory.units y)))
-          _ = Float.Model.roundRatio (Int.signed False (v + v)) 1 (-1074) False :=
-            Eq.cong2
-              (n z => Float.Model.roundRatio n 1 (-1074) z)
-              (Float.Theory.addSelfSigned (Float.Theory.units y) v uy)
-              (rewrite sy: (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits) = False)
+              (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits))).bits :=
+          Eq.cong (w => w.bits) (Float.Theory.addFinite y y fy fy)
+        _ = Float.Model.roundRatio
+            (Int.add (Float.Theory.units y) (Float.Theory.units y))
+            1
+            (-1074)
+            (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits) :=
+          Float.Theory.ofBitsBits
+            (Float.Model.roundRatio
+              (Int.add (Float.Theory.units y) (Float.Theory.units y))
+              1
+              (-1074)
+              (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits))
+            (Float.Theory.roundRatioValid 1
+              (-1074)
+              (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits)
+              byComputing
+              (Int.add (Float.Theory.units y) (Float.Theory.units y)))
+        _ = Float.Model.roundRatio (Int.signed False (v + v)) 1 (-1074) False :=
+          Eq.cong2
+            (n z => Float.Model.roundRatio n 1 (-1074) z)
+            (Float.Theory.addSelfSigned (Float.Theory.units y) v uy)
+            (rewrite sy: (Float.Model.signBit y.bits ∧ Float.Model.signBit y.bits) = False)
       let uyy: Float.Theory.units (y + y) = OfNat (v + v) := Eq.trans (Eq.cong Float.Model.units sum) g.right
       let k: Int.leq (Float.Theory.units x) (Float.Theory.units (y + y)) = True :=
         Float.Theory.unitsMonoKey x.bits (y + y).bits h
@@ -5114,11 +5143,11 @@ theorem Float.Theory.sterbenzUnits ∀ (ma mb: Nat) (z: Bool)
     (h1: Float.Theory.magUnits ma ≤ Float.Theory.magUnits mb + Float.Theory.magUnits mb)
     (h2: Float.Theory.magUnits mb ≤ Float.Theory.magUnits ma + Float.Theory.magUnits ma):
     Float.Model.units
-        (Float.Model.roundRatio
-          (Int.add (OfNat (Float.Theory.magUnits ma)) (Int.neg (OfNat (Float.Theory.magUnits mb))))
-          1
-          (-1074)
-          z)
+      (Float.Model.roundRatio
+        (Int.add (OfNat (Float.Theory.magUnits ma)) (Int.neg (OfNat (Float.Theory.magUnits mb))))
+        1
+        (-1074)
+        z)
       = Int.add (OfNat (Float.Theory.magUnits ma)) (Int.neg (OfNat (Float.Theory.magUnits mb))) :=
   let u: Nat := Float.Theory.magUnits ma
   let v: Nat := Float.Theory.magUnits mb
@@ -5126,9 +5155,9 @@ theorem Float.Theory.sterbenzUnits ∀ (ma mb: Nat) (z: Bool)
     (Float.Theory.boolCases (Nat.leq v u))
     (c =>
       let ex: (Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed False (u - v)) 1 (-1074) z))
-        ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed False (u - v)) 1 (-1074) z) = Int.signed False (u - v)) :=
-        Float.Theory.combinationExact ma
-          mb
+        ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed False (u - v)) 1 (-1074) z)
+          = Int.signed False (u - v)) :=
+        Float.Theory.combinationExact ma mb
           (u - v)
           1
           1
@@ -5138,15 +5167,12 @@ theorem Float.Theory.sterbenzUnits ∀ (ma mb: Nat) (z: Bool)
           (Float.Theory.subAddBack u v (Float.Theory.atLeastOf v u c))
           (Float.Theory.subLeSelf u v)
           (Float.Theory.subLeOf u v h1)
-      J
-        (n w => Float.Model.units (Float.Model.roundRatio n 1 (-1074) z) = n)
-        ex.right
-        (Float.Theory.subSignedLe u v c))
+      J (n w => Float.Model.units (Float.Model.roundRatio n 1 (-1074) z) = n) ex.right (Float.Theory.subSignedLe u v c))
     (c =>
       let ex: (Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed True (v - u)) 1 (-1074) z))
-        ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed True (v - u)) 1 (-1074) z) = Int.signed True (v - u)) :=
-        Float.Theory.combinationExact mb
-          ma
+        ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed True (v - u)) 1 (-1074) z)
+          = Int.signed True (v - u)) :=
+        Float.Theory.combinationExact mb ma
           (v - u)
           1
           1
@@ -5156,10 +5182,7 @@ theorem Float.Theory.sterbenzUnits ∀ (ma mb: Nat) (z: Bool)
           (Float.Theory.subAddBack v u (Float.Theory.leOfLeqFalse u v c))
           (Float.Theory.subLeSelf v u)
           (Float.Theory.subLeOf v u h2)
-      J
-        (n w => Float.Model.units (Float.Model.roundRatio n 1 (-1074) z) = n)
-        ex.right
-        (Float.Theory.subSignedGt u v c))
+      J (n w => Float.Model.units (Float.Model.roundRatio n 1 (-1074) z) = n) ex.right (Float.Theory.subSignedGt u v c))
 
 --| Sterbenz's lemma: for positive finite `x` and `y` within a factor of two
 --| of each other (`x <= y + y` and `y <= x + x`), `x - y` is exact.
@@ -5189,8 +5212,7 @@ theorem Float.sterbenz ∀ (x y: Float)
     _ = Float.Model.units
         (Float.Model.roundRatio (Int.add (Float.Theory.units x) (Float.Theory.units (-y))) 1 (-1074) zz) :=
       Eq.trans
-        (Eq.cong Float.Theory.units
-          (Float.Theory.addFinite x (-y) fx (Float.Theory.isFiniteOf (-y) ny.right.left)))
+        (Eq.cong Float.Theory.units (Float.Theory.addFinite x (-y) fx (Float.Theory.isFiniteOf (-y) ny.right.left)))
         (Eq.cong Float.Model.units
           (Float.Theory.ofBitsBits
             (Float.Model.roundRatio (Int.add (Float.Theory.units x) (Float.Theory.units (-y))) 1 (-1074) zz)
@@ -5202,11 +5224,7 @@ theorem Float.sterbenz ∀ (x y: Float)
     _ = Float.Model.units (Float.Model.roundRatio (Int.add (OfNat u) (Int.neg (OfNat v))) 1 (-1074) zz) :=
       Eq.cong (n => Float.Model.units (Float.Model.roundRatio n 1 (-1074) zz)) (Eq.cong2 Int.add ux ny.right.right)
     _ = Int.add (OfNat u) (Int.neg (OfNat v)) :=
-      Float.Theory.sterbenzUnits x.bits
-        y.bits
-        zz
-        finx
-        finy
+      Float.Theory.sterbenzUnits x.bits y.bits zz finx finy
         (Float.Theory.leDouble x y px py fx fy hx)
         (Float.Theory.leDouble y x py px fy fx hy)
     _ = Int.sub (Float.Theory.units x) (Float.Theory.units y) := arithmetic [ux, uy]
@@ -5236,11 +5254,11 @@ theorem Float.Theory.magnitudeFinite ∀ (x: Nat)
   let r: Nat := Float.Model.roundMagnitude False x 1 (OfNat 0)
   let spec: Float.Theory.RoundsTo (Float.Model.scaleUp x (OfNat 0)) (Float.Model.scaleDown 1 (OfNat 0)) r :=
     Float.Theory.roundMagnitudeSpec x 1 (OfNat 0) px byComputing
-  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9218868437227405312 r))
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Nat.leq 9218868437227405312 r))
     (c =>
       Void.impossible
-        (Float.Theory.overflowAbsurd Float.Theory.overflowUnits
-          x
+        (Float.Theory.overflowAbsurd Float.Theory.overflowUnits x
           (Float.Model.scaleUp x (OfNat 0))
           byComputing
           (spec.overflow (Float.Theory.atInfinity r c spec.bounded))
@@ -5288,7 +5306,8 @@ theorem Float.Theory.addBitsOf ∀ (x c: Float)
   let n: Int := Int.add (Float.Theory.units x) (Float.Theory.units c)
   Eq.trans
     (Eq.cong (w => w.bits) (Float.Theory.addFinite x c fx fc))
-    (Float.Theory.ofBitsBits (Float.Model.roundRatio n 1 (-1074) z)
+    (Float.Theory.ofBitsBits
+      (Float.Model.roundRatio n 1 (-1074) z)
       (Float.Theory.roundRatioValid 1 (-1074) z byComputing n))
 
 --| A sum of finite doubles with fewer units than the overflow threshold is finite.
@@ -5297,7 +5316,8 @@ theorem Float.Theory.addFiniteOf ∀ (x c: Float)
     (fc: Float.isFinite c = True)
     (h: Int.natAbs (Int.add (Float.Theory.units x) (Float.Theory.units c)) < Float.Theory.overflowUnits):
     Float.isFinite (x + c) = True :=
-  Float.Theory.isFiniteOf (x + c)
+  Float.Theory.isFiniteOf
+    (x + c)
     (J
       (r w => Float.Theory.FiniteBits r)
       (Float.Theory.roundFinite
@@ -5373,7 +5393,10 @@ theorem Float.Theory.unitsAtMostMax ∀ (x: Float)
     Int.natAbs (Float.Theory.units x) ≤ Float.Theory.magUnits 9218868437227405311 :=
   J
     (u w => u ≤ Float.Theory.magUnits 9218868437227405311)
-    (Float.Theory.magUnitsLe (Float.Model.magnitude x.bits) 9218868437227405311 (arithmetic [Float.Theory.finiteBits x fx]))
+    (Float.Theory.magUnitsLe
+      (Float.Model.magnitude x.bits)
+      9218868437227405311
+      (arithmetic [Float.Theory.finiteBits x fx]))
     (Float.Theory.natAbsUnits x.bits).flipped
 
 --| `x % y` for finite `x` and finite nonzero `y`: finite, and of fewer
@@ -5383,11 +5406,11 @@ theorem Float.Theory.remUnits ∀ (x y: Float)
     (fy: Float.isFinite y = True)
     (zy: Float.isZero y = False):
     (Float.isFinite (x % y) = True) ∧ (Int.natAbs (Float.Theory.units (x % y)) < Int.natAbs (Float.Theory.units y)) :=
-  let ex := Float.Theory.remExact x.bits
-    y.bits
-    (Float.Theory.finiteBits x fx)
-    (Float.Theory.finiteBits y fy)
-    (Float.Theory.modelNotZero y zy)
+  let ex :=
+    Float.Theory.remExact x.bits y.bits
+      (Float.Theory.finiteBits x fx)
+      (Float.Theory.finiteBits y fy)
+      (Float.Theory.modelNotZero y zy)
   let rb: (x % y).bits = Float.Model.remBits x.bits y.bits := Float.Theory.remOfBits x y fx fy zy
   Both
     (Float.Theory.isFiniteOf (x % y) (J (r w => Float.Theory.FiniteBits r) ex.left.left rb.flipped))
