@@ -55,7 +55,7 @@
 --|   names becomes one group a name, where P4 could have made it by
 --|   merging: no `auto`, attributes or default, and a type that names none
 --|   of its names. The compiler reads a group exactly as its split form
---|   (D3679: the lowering splits a group, `ast::Binder::split`, so each
+--|   (D3679: the lowering splits a group, `Written::binders` in `lower/types.rs`, so each
 --|   name checks its own copy of the type and a hole in it is solved per
 --|   name). A type naming one of the names would mean the
 --|   earlier name in the split form, so such a group stays whole. The test
