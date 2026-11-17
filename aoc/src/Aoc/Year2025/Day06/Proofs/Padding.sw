@@ -42,10 +42,12 @@ theorem parseWorksheetSameCells ∀ (lines other: List Text)
     (same: ∀ (c: Nat) => column other c = column lines c):
     parseWorksheet other = parseWorksheet lines :=
   rewrite blocksOver other
-    (Nat.max (gridWidth lines) (gridWidth other))
-    (Nat.leMaxRight (gridWidth lines) (gridWidth other)), blocksOver lines
-    (Nat.max (gridWidth lines) (gridWidth other))
-    (Nat.leMaxLeft (gridWidth lines) (gridWidth other)), same _
+        (Nat.max (gridWidth lines) (gridWidth other))
+        (Nat.leMaxRight (gridWidth lines) (gridWidth other)),
+      blocksOver lines
+        (Nat.max (gridWidth lines) (gridWidth other))
+        (Nat.leMaxLeft (gridWidth lines) (gridWidth other)),
+      same _
 
 --| So spaces on the end of the lines, `spaces line` of them on each, change no
 --| problem: a short line reads as ending in spaces.
@@ -54,4 +56,5 @@ theorem parseWorksheetPadded ∀ (lines: List Text) (spaces: Text → Nat):
       = parseWorksheet lines :=
   parseWorksheetSameCells lines _ (c =>
     rewrite List.mapMap lines (line => charAt line c) (line =>
-      line ++ Text.fromList (List.replicate (spaces line) ' ')), List.getOrAppendReplicate _ ' ' (spaces _) c)
+          line ++ Text.fromList (List.replicate (spaces line) ' ')),
+        List.getOrAppendReplicate _ ' ' (spaces _) c)

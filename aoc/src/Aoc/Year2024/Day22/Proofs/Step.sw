@@ -38,11 +38,12 @@ theorem nextSecretEvolves ∀ (secret: Nat): nextSecret secret = evolve secret :
     Nat.xorBelow 24 (secret * 64 % modulus) (secret % modulus) (belowModulus (secret * 64)) (belowModulus secret)
   let second := Nat.xor (first / 32) first
   let secondSmall: second < modulus := Nat.xorBelow 24 (first / 32) first (arithmetic [firstSmall]) firstSmall
-  rewrite pruneMix (secret * 64) secret, pruneMix (first / 32) first, Nat.modSmall
-    (first / 32)
-    modulus
-    (arithmetic [firstSmall]), Nat.modSmall first modulus firstSmall, pruneMix (second * 2048) second, Nat.modSmall
-      second modulus secondSmall
+  rewrite pruneMix (secret * 64) secret,
+      pruneMix (first / 32) first,
+      Nat.modSmall (first / 32) modulus (arithmetic [firstSmall]),
+      Nat.modSmall first modulus firstSmall,
+      pruneMix (second * 2048) second,
+      Nat.modSmall second modulus secondSmall
 
 theorem part1Correct ∀ (buyers: List Nat): solvePart1 buyers = part1 buyers :=
   List.sumByCong buyers (buyer => Nat.iterate 2000 nextSecret buyer) (buyer => Nat.iterate 2000 evolve buyer) (buyer =>

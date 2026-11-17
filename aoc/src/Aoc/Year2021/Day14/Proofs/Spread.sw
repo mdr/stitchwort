@@ -111,11 +111,8 @@ theorem spreadCorrect ∀ (first: Char) (rest tail: List Char) (counts: PairCoun
     spread [first, ..rest] counts = spreadOf [first, ..tail] :=
   let into := quantitiesInto first tail counts represents
   let back := quantitiesBack first tail counts represents
-  rewrite List.maximumSameMembers
-    (programQuantities first counts)
-    (puzzleQuantities [first, ..tail])
-    into
-    back, List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back
+  rewrite List.maximumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back,
+      List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back
 
 --| The answer is the puzzle's after any number of steps, if no two rules
 --| are for the same pair.

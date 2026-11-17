@@ -1728,9 +1728,8 @@ theorem Parse.runsRepeatFrom ∀ (p: () → {Parse t} a) (extra: Nat) (rest: Lis
     | Succ more, [(read, v), ..steps], Both runsP later => state starts honest =>
       let value: found.reverse ++ [v, ..(Parse.stepValues steps ++ Parse.stepValues optional)]
         = [v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional) :=
-        rewrite List.reverseCons v found, List.appendAssoc found.reverse
-          [v]
-          (Parse.stepValues steps ++ Parse.stepValues optional)
+        rewrite List.reverseCons v found,
+            List.appendAssoc found.reverse [v] (Parse.stepValues steps ++ Parse.stepValues optional)
       rewrite value then
         (Parse.runsBind p
               (value2 => Parse.repeatFrom more extra p [value2, ..found])
@@ -2609,9 +2608,11 @@ theorem Parse.manyRunsOfEach ∀ (p: () → {Parse t} a) (separator: () → {Par
             | [] => Void.impossible (separatorNotEmpty [] u sepOk byComputing)
             | [char, ..others] => rewrite stepSplit then List.consNotNil char (others ++ valueRead)
           let joined: afterFirst ++ rest = separatorRead ++ (valueRead ++ (remaining ++ rest)) :=
-            rewrite split, stepSplit, List.appendAssoc separatorRead valueRead remaining, List.appendAssoc separatorRead
-              (valueRead ++ remaining)
-              rest, List.appendAssoc valueRead remaining rest
+            rewrite split,
+                stepSplit,
+                List.appendAssoc separatorRead valueRead remaining,
+                List.appendAssoc separatorRead (valueRead ++ remaining) rest,
+                List.appendAssoc valueRead remaining rest
           Witness
             [(stepRead, value), ..steps]
             (Both

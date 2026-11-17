@@ -90,17 +90,18 @@ theorem settledExactly ∀ (start: Layout) (plan: Plan) (specRound: Layout → L
         Exists.elim within (reached parts =>
           let (Both early (Both there fixed)) := parts
           rewrite settleComplete plan specRound
-            (Kept start)
-            agree
-            keeps
-            final
-            fixed
-            limit
-            start
-            (keptStart start)
-            reached
-            early
-            there, same))
+                (Kept start)
+                agree
+                keeps
+                final
+                fixed
+                limit
+                start
+                (keptStart start)
+                reached
+                early
+                there,
+              same))
   }
 
 --| Part 1's answer is the occupied seats of the layout part 1's rounds

@@ -267,10 +267,12 @@ theorem Vec.traverseOptionLoopDone ∀ (f: a → Option b) (v: Vec a k) (done: L
     | VCons x xs =>
       match e: f x with
         | Some y =>
-          rewrite Vec.traverseOptionLoopDone f xs [y, ..done], Vec.traverseOptionLoopDone f xs [y], Option.mapMap
-            (ys => List.reverseOnto [y] ys)
-            (ys => List.reverseOnto done ys)
-            (Vec.traverseOptionLoop f [] xs)
+          rewrite Vec.traverseOptionLoopDone f xs [y, ..done],
+              Vec.traverseOptionLoopDone f xs [y],
+              Option.mapMap
+                (ys => List.reverseOnto [y] ys)
+                (ys => List.reverseOnto done ys)
+                (Vec.traverseOptionLoop f [] xs)
         | None => byComputing
 
 theorem Vec.traverseOptionStep ∀ (y: b) (k: Nat) (m: Option (List b)):

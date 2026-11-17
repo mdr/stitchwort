@@ -63,15 +63,15 @@ theorem drawOn ∀ (number: Nat) (later drawn: List Nat): (drawn ++ [number, ..l
 --| `List.length drawn`, is the program's.
 theorem scoreAt ∀ (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
     finalScore (drawn ++ [number]) number board = board.score (drawn ++ [number, ..later]) drawn.length :=
-  rewrite List.filterCongMem (board.numbers) _ _ (x inBoard => unmarkedAfter drawn number later x), drawOn number later
-      drawn
+  rewrite List.filterCongMem (board.numbers) _ _ (x inBoard => unmarkedAfter drawn number later x),
+      drawOn number later drawn
 
 --| A board wins on the draw of `number` when its winning turn is no later.
 theorem winsAfterDraw ∀ (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
     wins (drawn ++ [number]) board = (board.winningTurn (drawn ++ [number, ..later]) < Succ drawn.length) :=
-  rewrite winsBefore (drawn ++ [number]) later (arithmetic [List.lengthSnoc drawn number]) board, List.appendAssoc drawn
-    [number]
-    later, List.lengthSnoc drawn number
+  rewrite winsBefore (drawn ++ [number]) later (arithmetic [List.lengthSnoc drawn number]) board,
+      List.appendAssoc drawn [number] later,
+      List.lengthSnoc drawn number
 
 --| Not won before turn `j` and won by its end is won on it.
 theorem thisTurn ∀ (j t: Nat): ((j ≤ t < Succ j): Bool) = (t == j) := cases
@@ -110,8 +110,8 @@ theorem playFrom ∀ (playing: List Board) (rest drawn: List Nat):
         = List.flatMap (List.rangeFrom (List.length later) (Succ (List.length drawn))) (turn =>
           List.map (List.filter playing (board => turnOf board == turn)) (board =>
             board.score (drawn ++ [number, ..later]) turn)) :=
-        rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later
-          (drawn ++ [number])
+        rewrite List.appendAssoc drawn [number] later,
+            List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
       rewrite wonNow, stillPlaying, afterNow, List.mapCong _ _ _ (scoreAt drawn number later)
 
 --| The program's boards on a turn, found from their pairs with their turns.

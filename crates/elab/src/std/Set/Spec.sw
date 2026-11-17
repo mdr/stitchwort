@@ -694,8 +694,10 @@ theorem Set.unionInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
           Set.containsInsert key (Set.union a b) then
         Bool.orTrue (Set.contains a key)
     else
-      rewrite Set.containsUnion a other (Set.insert b key), Set.containsInsertOther b key other
-          same, Set.containsInsertOther (Set.union a b) key other same, Set.containsUnion a other b)
+      rewrite Set.containsUnion a other (Set.insert b key),
+          Set.containsInsertOther b key other same,
+          Set.containsInsertOther (Set.union a b) key other same,
+          Set.containsUnion a other b)
 
 --| The size of a union of sets with no key in common is the sum of theirs
 --| (Mathlib's `Finset.card_disjUnion`).
@@ -769,8 +771,10 @@ theorem Set.differenceInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
           | True => byComputing
           | False => byComputing
     else
-      rewrite Set.containsDifference a other (Set.insert b key), Set.containsInsertOther b key other
-          same, Set.containsRemoveOther (Set.difference a b) key other same, Set.containsDifference a other b)
+      rewrite Set.containsDifference a other (Set.insert b key),
+          Set.containsInsertOther b key other same,
+          Set.containsRemoveOther (Set.difference a b) key other same,
+          Set.containsDifference a other b)
 
 --| Taking away a subset leaves the rest (Mathlib's `Finset.card_sdiff`).
 theorem Set.sizeDifferenceSubset ∀ [auto ord: Ord k] (a b: Set k)
@@ -935,8 +939,9 @@ theorem Map.containsInInsertInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] 
     (m.insertIn key item).containsIn otherKey otherItem = m.containsIn otherKey otherItem :=
   match sameKey: otherKey == key with
     | False =>
-      rewrite Map.containsInEq (m.insertIn key item) otherKey otherItem, Map.containsInEq m otherKey
-          otherItem, Map.getInsertInOther m key item otherKey sameKey.read
+      rewrite Map.containsInEq (m.insertIn key item) otherKey otherItem,
+          Map.containsInEq m otherKey otherItem,
+          Map.getInsertInOther m key item otherKey sameKey.read
     | True =>
       let isKey: otherKey = key := sameKey.read
       match sameItem: otherItem == item with
@@ -966,8 +971,9 @@ theorem Map.containsInRemoveInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] 
     (m.removeIn key item).containsIn otherKey otherItem = m.containsIn otherKey otherItem :=
   match sameKey: otherKey == key with
     | False =>
-      rewrite Map.containsInEq (m.removeIn key item) otherKey otherItem, Map.containsInEq m otherKey
-          otherItem, Map.getRemoveInOther m key item otherKey sameKey.read
+      rewrite Map.containsInEq (m.removeIn key item) otherKey otherItem,
+          Map.containsInEq m otherKey otherItem,
+          Map.getRemoveInOther m key item otherKey sameKey.read
     | True =>
       let isKey: otherKey = key := sameKey.read
       match sameItem: otherItem == item with

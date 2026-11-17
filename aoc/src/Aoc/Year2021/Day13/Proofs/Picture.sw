@@ -13,12 +13,9 @@ theorem getMapRange ∀ [b: Type] (f: Nat → b) (n i: Nat)
     List.get (List.map (List.range 0 n) f) i = Some (f i) :=
   let long: i < List.length (List.map (List.range 0 n) f) :=
     rewrite List.lengthMap (List.range 0 n) f, List.lengthRangeFrom n 0 then inside
-  rewrite List.getOfGetOr (List.map (List.range 0 n) f) i (f i) long, List.getOrMapRange f
-    (f i)
-    n
-    0
-    i
-    inside, Nat.addZero i
+  rewrite List.getOfGetOr (List.map (List.range 0 n) f) i (f i) long,
+      List.getOrMapRange f (f i) n 0 i inside,
+      Nat.addZero i
 
 --| ...and past it, nothing.
 theorem getMapRangePast ∀ [b: Type] (f: Nat → b) (n i: Nat)
@@ -101,9 +98,8 @@ theorem renderShows ∀ (dots: List Point) (marked: Point → Prop)
   Both
     (spot isMarked =>
       let member := (holds spot).backward isMarked
-      rewrite cellInside dots spot
-        (heightCovers dots spot member)
-        (widthCovers dots spot member), (List.anyEqIff spot dots).backward member)
+      rewrite cellInside dots spot (heightCovers dots spot member) (widthCovers dots spot member),
+          (List.anyEqIff spot dots).backward member)
     (Both
       (spot hash =>
         let inside := cellSomeInside dots spot '#' hash

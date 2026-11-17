@@ -101,13 +101,15 @@ theorem sightOccupied ∀ (layout: Layout) (reach: Nat)
       layout.grid.lookup near == Some Occupied)
       = Spec.occupiedSeen layout position :=
   rewrite List.countFilterMap
-    (direction => firstSeat layout.grid.lookup position direction 1 reach)
-    (near => layout.grid.lookup near == Some Occupied)
-    compass, List.countCongMem compass
-    (direction =>
-      (firstSeat layout.grid.lookup position direction 1 reach).any (near => layout.grid.lookup near == Some Occupied))
-    (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
-    (direction member => seenOccupied layout position direction reach fits)
+        (direction => firstSeat layout.grid.lookup position direction 1 reach)
+        (near => layout.grid.lookup near == Some Occupied)
+        compass,
+      List.countCongMem compass
+        (direction =>
+          (firstSeat layout.grid.lookup position direction 1 reach).any (near =>
+            layout.grid.lookup near == Some Occupied))
+        (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
+        (direction member => seenOccupied layout position direction reach fits)
 
 --| A spec round keeps the layout's height and width.
 theorem roundShape ∀ (layout: Layout) (considered: Position → Nat) (crowded: Nat):

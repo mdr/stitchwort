@@ -38,9 +38,10 @@ theorem walkDistance ∀ (rows: List (List (Option k))) (start: Position) (route
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
 theorem routeCostYours ∀ (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=
-  rewrite sequenceCostFrom Costs.yours (routeKeys route), costFromOnes Activate (routeKeys route), List.lengthAppend
-    (route.map Arrow)
-    [Activate], List.lengthMap route Arrow
+  rewrite sequenceCostFrom Costs.yours (routeKeys route),
+      costFromOnes Activate (routeKeys route),
+      List.lengthAppend (route.map Arrow) [Activate],
+      List.lengthMap route Arrow
 
 --| A key's place is the only one where an arm aims at it.
 theorem numericPlaceOf ∀ (row column: Nat) (key: NumericKey)

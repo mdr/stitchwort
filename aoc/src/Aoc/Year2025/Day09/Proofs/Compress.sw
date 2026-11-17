@@ -76,22 +76,23 @@ theorem onStraightLineSame ∀ (tiles: List Point) (x y x2 y2: Nat)
   match connectionEnds tiles ends m with
     | Both first second =>
       rewrite fromSame
-        (columnsOf tiles)
-        ends.from.x
-        ends.to.x
-        x
-        x2
-        (columnIn tiles ends.from first)
-        (columnIn tiles ends.to second)
-        sx, fromSame
-        (rowsOf tiles)
-        ends.from.y
-        ends.to.y
-        y
-        y2
-        (rowIn tiles ends.from first)
-        (rowIn tiles ends.to second)
-        sy
+            (columnsOf tiles)
+            ends.from.x
+            ends.to.x
+            x
+            x2
+            (columnIn tiles ends.from first)
+            (columnIn tiles ends.to second)
+            sx,
+          fromSame
+            (rowsOf tiles)
+            ends.from.y
+            ends.to.y
+            y
+            y2
+            (rowIn tiles ends.from first)
+            (rowIn tiles ends.to second)
+            sy
 
 theorem crossesRaySame ∀ (tiles: List Point) (x y x2 y2: Nat)
     (sx: SameSide (columnsOf tiles) x x2)
@@ -102,13 +103,11 @@ theorem crossesRaySame ∀ (tiles: List Point) (x y x2 y2: Nat)
     | Both first second =>
       let fy := rowIn tiles ends.from first
       let sy2 := rowIn tiles ends.to second
-      rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx, lessSame
-        (rowsOf tiles)
-        ends.to.y
-        y
-        y2
-        sy2
-        sy, lessSame (rowsOf tiles) ends.from.y y y2 fy sy, (sy ends.from.y fy).left, (sy ends.to.y sy2).left
+      rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx,
+          lessSame (rowsOf tiles) ends.to.y y y2 sy2 sy,
+          lessSame (rowsOf tiles) ends.from.y y y2 fy sy,
+          (sy ends.from.y fy).left,
+          (sy ends.to.y sy2).left
 
 --| Tiles whose columns and rows compare alike with the red tiles' are alike.
 theorem redOrGreenSame ∀ (tiles: List Point) (x y x2 y2: Nat)

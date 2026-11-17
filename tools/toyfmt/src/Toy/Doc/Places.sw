@@ -667,10 +667,12 @@ theorem putStart ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Lis
             (blankWord text [" ".repeat (Succ less), ..out] word),
             byComputing,
             indent,
-            (rewrite <- owes, eventsWord text [" ".repeat (Succ less), ..out] word, eventsGap
-              (" ".repeat (Succ less))
-              out
-              (indentSpaces (Succ less)), stillBlank, wide, same),
+            (rewrite <- owes,
+                eventsWord text [" ".repeat (Succ less), ..out] word,
+                eventsGap (" ".repeat (Succ less)) out (indentSpaces (Succ less)),
+                stillBlank,
+                wide,
+                same),
             byComputing
           )
 

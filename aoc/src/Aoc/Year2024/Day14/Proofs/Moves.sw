@@ -19,12 +19,8 @@ theorem moveWrap ∀ (size x: Nat)
     move size tiles x = Int.modNat (x.toInt + tiles) size :=
   match tiles with
     | OfNat steps =>
-      rewrite iterateWrap size 1
-        (forward size)
-        (y below => Int.modNatSuccWrap size y below)
-        steps
-        x
-        inside, (algebra: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
+      rewrite iterateWrap size 1 (forward size) (y below => Int.modNatSuccWrap size y below) steps x inside,
+          (algebra: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
     | NegSucc steps =>
       Eq.trans
         (iterateWrap size (-1) (backward size) (y below => Int.modNatPredWrap size y below) (Succ steps) x inside)

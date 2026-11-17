@@ -110,11 +110,8 @@ theorem noHitsAbove ∀ (x d r c: Nat) (ls: List (Vec Bool w))
             match c with
               | Zero => rewrite miss Left
               | Succ b =>
-                rewrite anyConsMiss x d { row = r, column = Succ b, turn = Left } (miss Left) _, noHitsAbove x d
-                  (r + 1)
-                  b
-                  rest
-                  (ltSucc x r h)
+                rewrite anyConsMiss x d { row = r, column = Succ b, turn = Left } (miss Left) _,
+                    noHitsAbove x d (r + 1) b rest (ltSucc x r h)
         | False => noHitsAbove x d (r + 1) c rest (ltSucc x r h)
 
 theorem ltSelfSucc ∀ (r: Nat): r < r + 1 := arithmetic
@@ -149,9 +146,8 @@ theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
                 match c with
                   | Zero => rewrite natEqSelf r, f
                   | Succ b =>
-                    rewrite anyConsMiss r d
-                      ({ row = r, column = Succ b, turn = Left }: Hit)
-                      (rewrite natEqSelf r, f) _, noHitsAbove r d (r + 1) b rest (ltSelfSucc r)
+                    rewrite anyConsMiss r d ({ row = r, column = Succ b, turn = Left }: Hit) (rewrite natEqSelf r, f) _,
+                        noHitsAbove r d (r + 1) b rest (ltSelfSucc r)
         | False =>
           rewrite noHitsAbove r d (r + 1) c rest (ltSelfSucc r) then
             match f: c == d with
@@ -225,14 +221,9 @@ theorem fallAt ∀ (row beams: Vec Bool w) (c: Nat)
 theorem splitsInSum ∀ (row beams: Vec Bool w):
     splitsIn row beams = List.sumBy (List.range 0 w) (d => Bool.toNat (splitterAt row d ∧ beams.getOr d False)) :=
   let hit := Vec.zipWith row beams (s b => s ∧ b)
-  rewrite Vec.countSumBy hit (x => x), Vec.sumByGetOr hit False (x => Bool.toNat x), Vec.getOrZipWith
-    (s b => s ∧ b)
-    False
-    False
-    False
-    byComputing
-    row
-    beams _
+  rewrite Vec.countSumBy hit (x => x),
+      Vec.sumByGetOr hit False (x => Bool.toNat x),
+      Vec.getOrZipWith (s b => s ∧ b) False False False byComputing row beams _
 
 --| The particle can fall into column d of row k from a column with a beam.
 def beamReach (beams: Vec Bool w) (ls: List (Vec Bool w)) (k d: Nat): Bool :=
@@ -415,8 +406,10 @@ theorem splitsAtReached ∀ (manifold: Manifold) (k: Nat):
   let w := manifold.width
   let st := manifold.start.toNat
   let start := Vec.tabulate w (c => c == manifold.start)
-  rewrite List.countSumBy (List.range 0 w) (d => reached (timelines manifold) k d), beamStart w manifold.start
-      manifold.rows k _, <- hitsAt manifold.rows 0 st k _, Nat.addZero k
+  rewrite List.countSumBy (List.range 0 w) (d => reached (timelines manifold) k d),
+      beamStart w manifold.start manifold.rows k _,
+      <- hitsAt manifold.rows 0 st k _,
+      Nat.addZero k
 
 --| Part 1 is right: for every manifold, the printed answer is the number of
 --| splitters some timeline of the particle from S reaches.

@@ -143,10 +143,12 @@ theorem checksumSkipFree ∀ (rest: List Block) (free from: Nat):
     | Zero => byComputing
     | Succ free =>
       rewrite List.sumByCons
-        (List.withIndexFrom (Succ from) (List.replicate free Free ++ rest))
-        (MkPair from Free)
-        blockChecksum, blockChecksumFree from, checksumSkipFree rest free (Succ from), (arithmetic: free + Succ from
-        = Succ free + from)
+            (List.withIndexFrom (Succ from) (List.replicate free Free ++ rest))
+            (MkPair from Free)
+            blockChecksum,
+          blockChecksumFree from,
+          checksumSkipFree rest free (Succ from),
+          (arithmetic: free + Succ from = Succ free + from)
 
 --| A file's blocks add their positions times its number.
 theorem checksumFileRun ∀ (id length from: Nat):
@@ -156,10 +158,11 @@ theorem checksumFileRun ∀ (id length from: Nat):
     | Zero => byComputing
     | Succ length =>
       rewrite List.sumByCons
-        (List.withIndexFrom (Succ from) (List.replicate length (FileBlock id)))
-        (MkPair from (FileBlock id))
-        blockChecksum, List.sumByCons (List.rangeFrom length (Succ from)) from (position =>
-        position * id), checksumFileRun id length (Succ from)
+            (List.withIndexFrom (Succ from) (List.replicate length (FileBlock id)))
+            (MkPair from (FileBlock id))
+            blockChecksum,
+          List.sumByCons (List.rangeFrom length (Succ from)) from (position => position * id),
+          checksumFileRun id length (Succ from)
 
 --| A file's part of the checksum is the puzzle's checksum of a disk with just
 --| that file, where it is.

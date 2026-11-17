@@ -100,9 +100,8 @@ theorem divisorWeightsAll ∀ (w: Nat → Int):
       _ = List.sumBy (List.rangeFrom k 2) f + List.sumBy (List.rangeFrom (c - k) (2 + k)) f :=
         List.sumByAppend (List.rangeFrom k 2) (List.rangeFrom (c - k) (2 + k)) f
       _ = List.sumBy (List.rangeFrom k 2) f + 0 :=
-        rewrite Nat.dividesSmall _ (Succ k) byComputing, List.sumByZero
-          [add := Int.instAdd]
-          (List.rangeFrom (c - k) (2 + k))
+        rewrite Nat.dividesSmall _ (Succ k) byComputing,
+            List.sumByZero [add := Int.instAdd] (List.rangeFrom (c - k) (2 + k))
       _ = List.sumBy (List.rangeFrom k 2) f := algebra
 
 -- (3) Periods ----------------------------------------------------------------
@@ -516,8 +515,11 @@ theorem idTermsDivisors ∀ (w: Nat → Int) (size x: Nat)
       List.sumBySwap (List.rangeFrom (size - 1) 2) (List.rangeFrom size 1) (k n =>
         w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)
     _ = List.sumBy (List.rangeFrom (size - 1) 2) (n => x.toInt * (if Nat.divides n (blockCount x) then w n else 0)) :=
-      rewrite Int.sumByMulLeft (w _), <- Int.toIntSumBy _ (List.rangeFrom size 1), collapse x _ _ size hL, copiesDivides
-          x, Int.mulKeepIf (w _) x
+      rewrite Int.sumByMulLeft (w _),
+          <- Int.toIntSumBy _ (List.rangeFrom size 1),
+          collapse x _ _ size hL,
+          copiesDivides x,
+          Int.mulKeepIf (w _) x
     _ = x.toInt * divisorWeights w (blockCount x) (size - 1) :=
       Int.sumByMulLeft x.toInt (n => if Nat.divides n (blockCount x) then w n else 0) (List.rangeFrom (size - 1) 2)
 

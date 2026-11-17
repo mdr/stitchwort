@@ -56,9 +56,9 @@ def AllBalanced (base: List Token): List (Bracket, List Token) → Prop
 --| Closing the innermost open bracket, as lists.
 theorem closeShape ∀ (start: List Token) (opener: Token) (piece: List Token) (closer: Token) (rest: List Token):
     (start ++ [opener, ..piece]) ++ [closer, ..rest] = (start ++ [opener, ..piece ++ [closer]]) ++ rest :=
-  rewrite List.appendAssoc start [opener, ..piece] [closer, ..rest], List.appendAssoc start
-    [opener, ..piece ++ [closer]]
-    rest, List.appendAssoc piece [closer] rest
+  rewrite List.appendAssoc start [opener, ..piece] [closer, ..rest],
+      List.appendAssoc start [opener, ..piece ++ [closer]] rest,
+      List.appendAssoc piece [closer] rest
 
 --| If the scan from the open brackets of `frames` ends with none open,
 --| what was read and what is left make a balanced line.

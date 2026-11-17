@@ -744,10 +744,10 @@ theorem Nat.powSucc ∀ (b e: Nat): Nat.pow b (Succ e) = b * Nat.pow b e := Nat.
 theorem Nat.powAdd ∀ (b e1 e2: Nat): Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2 := match e1 with
   | Zero => Eq.flipped (Nat.addZero (Nat.pow b e2))
   | Succ e1 =>
-    rewrite Nat.powAdd b e1 e2, Nat.mulAssoc (Nat.pow b e1) (Nat.pow b e2) b, Nat.mulComm (Nat.pow b e2) b, Nat.mulAssoc
-      (Nat.pow b e1)
-      b
-      (Nat.pow b e2)
+    rewrite Nat.powAdd b e1 e2,
+        Nat.mulAssoc (Nat.pow b e1) (Nat.pow b e2) b,
+        Nat.mulComm (Nat.pow b e2) b,
+        Nat.mulAssoc (Nat.pow b e1) b (Nat.pow b e2)
 
 theorem Nat.powSuccPos ∀ (b e: Nat): 0 < Nat.pow (Succ b) e := match e with
   | Zero => byComputing

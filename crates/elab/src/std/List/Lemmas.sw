@@ -669,8 +669,9 @@ theorem List.countFlatMap ∀ (f: a → List b) (p: b → Bool) (xs: List a):
   match xs with
     | [] => byComputing
     | [x, ..rest] =>
-      rewrite List.countAppend (f x) (List.flatMap rest f) p, List.sumByCons rest x (x =>
-        List.count (f x) p), List.countFlatMap f p rest
+      rewrite List.countAppend (f x) (List.flatMap rest f) p,
+          List.sumByCons rest x (x => List.count (f x) p),
+          List.countFlatMap f p rest
 
 --| `answer` of `items` have the property `p`: counting by a proposition,
 --| for a `p` with no decision procedure to count with (a statement that
@@ -978,9 +979,9 @@ theorem List.occurrencesFlatMap ∀ (f: a → List b) (p: b → Bool) (xs: List 
   match xs with
     | [] => byComputing
     | [x, ..rest] =>
-      rewrite List.occurrencesAppend (f x) (List.flatMap rest f) p, List.occurrencesFlatMap f p rest, List.sumByCons
-          rest x
-          (x => List.occurrences (f x) p)
+      rewrite List.occurrencesAppend (f x) (List.flatMap rest f) p,
+          List.occurrencesFlatMap f p rest,
+          List.sumByCons rest x (x => List.occurrences (f x) p)
 
 --| Summing 1 for each element counts them.
 theorem List.sumByOne ∀ (xs: List a): List.sumBy xs (x => 1) = List.length xs := match xs with
@@ -1187,8 +1188,8 @@ theorem List.transposeNGrid ∀ (rows: List a) (cols: List b) (cell: a → b →
             List.filterMap rows (x => Some (cell x y)),
             ..List.transposeN (List.length cols) (List.map rows (x => List.map cols (cell x)))
           ] :=
-          rewrite List.filterMapMap rows (.get 0) (x => List.map [y, ..cols] (cell x)), List.mapMap rows (.drop 1) (x =>
-            List.map [y, ..cols] (cell x))
+          rewrite List.filterMapMap rows (.get 0) (x => List.map [y, ..cols] (cell x)),
+              List.mapMap rows (.drop 1) (x => List.map [y, ..cols] (cell x))
         _ = [List.map rows (x => cell x y), ..List.map cols (z => List.map rows (x => cell x z))] :=
           rewrite List.filterMapSome rows (x => cell x y), List.transposeNGrid rows cols cell
 
@@ -2880,8 +2881,12 @@ theorem List.spanAppend ∀ (p: a → Bool) (taken rest: List a)
     (all: List.all taken p = True)
     (stops: List.takeWhile rest p = []):
     List.span (List.append taken rest) p = MkPair taken rest :=
-  rewrite List.spanTakeDrop (List.append taken rest) p, List.takeWhileAppend p rest taken all, stops, List.appendNil
-      taken, List.dropWhileAppend p rest taken all, List.dropWhileStops p rest stops
+  rewrite List.spanTakeDrop (List.append taken rest) p,
+      List.takeWhileAppend p rest taken all,
+      stops,
+      List.appendNil taken,
+      List.dropWhileAppend p rest taken all,
+      List.dropWhileStops p rest stops
 
 -- `map` through the other list functions (SW-198, day 8).
 
@@ -3040,9 +3045,10 @@ theorem List.pairsMap ∀ (xs: List a) (f: a → b):
     | [] => byComputing
     | [x, ..xs] =>
       rewrite List.mapAppend (List.map xs (y => MkPair x y)) (List.pairs xs) (p =>
-        MkPair (f (Pair.fst p)) (f (Pair.snd p))), List.mapMap xs (y => MkPair (f x) y) f, List.mapMap xs
-        (p => MkPair (f (Pair.fst p)) (f (Pair.snd p)))
-        (y => MkPair x y), List.pairsMap xs f
+            MkPair (f (Pair.fst p)) (f (Pair.snd p))),
+          List.mapMap xs (y => MkPair (f x) y) f,
+          List.mapMap xs (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (y => MkPair x y),
+          List.pairsMap xs f
 
 --| A `filterMap` that keeps every element, changed by `g`, is a `map`.
 theorem List.filterMapSomeMem ∀ (xs: List a) (f: a → Option b) (g: a → b)

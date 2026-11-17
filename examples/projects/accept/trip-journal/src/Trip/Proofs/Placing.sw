@@ -104,11 +104,10 @@ theorem placePinSelf ∀ (legs: List Leg)
     placePin legs pin (locate legs pin.start) = Some pin :=
   match e: firstCovering legs pin.start with
     | Some leg =>
-      rewrite List.findKeyDistinct
-        (l => l.id)
-        legs
-        ids
-        leg
-        (And.right (firstCoveringMem legs pin.start leg e)), DecEq.refl leg.start, pinStartAtSame pin, e, DecEq.refl
-          leg.id, fits
+      rewrite List.findKeyDistinct (l => l.id) legs ids leg (And.right (firstCoveringMem legs pin.start leg e)),
+          DecEq.refl leg.start,
+          pinStartAtSame pin,
+          e,
+          DecEq.refl leg.id,
+          fits
     | None => cases

@@ -112,8 +112,10 @@ theorem diagonalSame ∀ (garden: Garden) (start: Position) (plant: Char)
     | Some next =>
       let nextIn := faces.read
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)
-      rewrite notEqualNot, plotGrows, <- sameAcrossFaces garden start plant grows region isRegion next nextIn
-          horizontal, nextGrows
+      rewrite notEqualNot,
+          plotGrows,
+          <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal,
+          nextGrows
 
 --| A corner of the program's, split into outside and inside.
 theorem isCornerSplit ∀ (garden: Garden) (plot: Position)

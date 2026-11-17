@@ -82,9 +82,11 @@ theorem walkComplete ∀ (numbers: List Nat) (preamble answer position: Nat)
     | [] =>
       let index: start + (preamble + (position - start - preamble)) = position := arithmetic
       let gone: numbers.get position = None :=
-        rewrite <- index, <- List.getDrop numbers start
-          (preamble + (position - start - preamble)), <- at, <- List.getDrop front preamble
-          (position - start - preamble), d
+        rewrite <- index,
+            <- List.getDrop numbers start (preamble + (position - start - preamble)),
+            <- at,
+            <- List.getDrop front preamble (position - start - preamble),
+            d
       Void.impossible (Option.noneNotSome answer (Eq.trans gone.flipped listed))
     | [number, ..later] =>
       let (Both atPosition window) := walkAt numbers preamble start front at number later d

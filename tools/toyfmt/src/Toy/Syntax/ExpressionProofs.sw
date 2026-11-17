@@ -648,9 +648,12 @@ theorem noOperatorAtSign ∀ (layout: Layout) (lowest: Nat) (token: Parse.Locate
     (punctuation: Punctuation) (rest: List (Parse.Located Token))
     (signed: token.value.kind = Sign punctuation):
     Parse.operatorAhead (operatorLevels layout) lowest [token, ..rest] = False :=
-  rewrite operatorOfSign layout 1 token punctuation signed, operatorOfSign layout 2 token punctuation
-      signed, operatorOfSign layout 3 token punctuation signed, operatorOfSign layout 4 token punctuation
-      signed, operatorOfSign layout 5 token punctuation signed, operatorOfSign layout 6 token punctuation signed
+  rewrite operatorOfSign layout 1 token punctuation signed,
+      operatorOfSign layout 2 token punctuation signed,
+      operatorOfSign layout 3 token punctuation signed,
+      operatorOfSign layout 4 token punctuation signed,
+      operatorOfSign layout 5 token punctuation signed,
+      operatorOfSign layout 6 token punctuation signed
 
 theorem endsAtClose ∀ (close: Parse.Located Token) (rest: List (Parse.Located Token))
     (closes: close.value.kind = Sign CloseParen):

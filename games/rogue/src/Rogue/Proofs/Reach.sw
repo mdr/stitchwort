@@ -224,9 +224,10 @@ theorem walkWithin ∀ (level: Level) (area: Area)
 
 theorem openCorridor ∀ (level: Level) (area: Area) (listed: List.Mem area level.corridors): Open level area :=
   position contained =>
-    rewrite List.anyOfMem level.corridors (.contains position) area contained listed, Bool.orTrue
-      (level.rooms.any (.contains position)), Bool.orTrue (level.exit.contains position), Bool.orTrue
-      (level.entrance.contains position)
+    rewrite List.anyOfMem level.corridors (.contains position) area contained listed,
+        Bool.orTrue (level.rooms.any (.contains position)),
+        Bool.orTrue (level.exit.contains position),
+        Bool.orTrue (level.entrance.contains position)
 
 theorem minDistanceLeft ∀ (m n: Nat): m ≤ Nat.min m n + distanceBetween m n := match below: Nat.leq m n with
   | True => arithmetic

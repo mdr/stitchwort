@@ -110,16 +110,21 @@ theorem pairFound ∀ (depth: Nat) (left right: Number)
               ({ found | after = found.after ++ leaves (depth + 1) right })
               (Both
                 (rest =>
-                  rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, finds
-                    (leaves (depth + 1) right ++ rest), List.appendAssoc found.after (leaves (depth + 1) right) rest)
+                  rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
+                      finds (leaves (depth + 1) right ++ rest),
+                      List.appendAssoc found.after (leaves (depth + 1) right) rest)
                 (before rest =>
-                  rewrite addToFirstZero rest, leavesAddLeftmost inLeft.toRight (depth + 1) right, List.appendAssoc
-                    (leaves (depth + 1) inLeft.number)
-                    (addToFirst inLeft.toRight (leaves (depth + 1) right))
-                    rest, <- addToFirstAppend inLeft.toRight rest
-                    (leaves (depth + 1) right)
-                    (leavesNotNil (depth + 1) right), equation before
-                    (leaves (depth + 1) right ++ rest), List.appendAssoc found.after (leaves (depth + 1) right) rest))
+                  rewrite addToFirstZero rest,
+                      leavesAddLeftmost inLeft.toRight (depth + 1) right,
+                      List.appendAssoc
+                        (leaves (depth + 1) inLeft.number)
+                        (addToFirst inLeft.toRight (leaves (depth + 1) right))
+                        rest,
+                      <- addToFirstAppend inLeft.toRight rest
+                        (leaves (depth + 1) right)
+                        (leavesNotNil (depth + 1) right),
+                      equation before (leaves (depth + 1) right ++ rest),
+                      List.appendAssoc found.after (leaves (depth + 1) right) rest))
     | None =>
       match er: explode (depth + 1) right with
         | Some inRight =>
@@ -132,23 +137,25 @@ theorem pairFound ∀ (depth: Nat) (left right: Number)
                   ({ found | before = leaves (depth + 1) left ++ found.before })
                   (Both
                     (rest =>
-                      rewrite List.appendAssoc
-                        (leaves (depth + 1) left)
-                        (leaves (depth + 1) right)
-                        rest, And.right shallow (leaves (depth + 1) right ++ rest), finds rest)
+                      rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
+                          And.right shallow (leaves (depth + 1) right ++ rest),
+                          finds rest)
                     (before rest =>
-                      rewrite addToLastZero before, leavesAddRightmost inRight.toLeft (depth + 1) left, List.appendAssoc
-                        (addToLast inRight.toLeft (leaves (depth + 1) left))
-                        (leaves (depth + 1) inRight.number)
-                        (addToFirst inRight.toRight rest), <- List.appendAssoc before
-                        (addToLast inRight.toLeft (leaves (depth + 1) left))
-                        (leaves (depth + 1) inRight.number
-                          ++ addToFirst inRight.toRight rest), <- addToLastAppend inRight.toLeft
-                        (leaves (depth + 1) left)
-                        (leavesNotNil (depth + 1) left)
-                        before, equation (before ++ leaves (depth + 1) left) rest, List.appendAssoc before
-                        (leaves (depth + 1) left)
-                        found.before))
+                      rewrite addToLastZero before,
+                          leavesAddRightmost inRight.toLeft (depth + 1) left,
+                          List.appendAssoc
+                            (addToLast inRight.toLeft (leaves (depth + 1) left))
+                            (leaves (depth + 1) inRight.number)
+                            (addToFirst inRight.toRight rest),
+                          <- List.appendAssoc before
+                            (addToLast inRight.toLeft (leaves (depth + 1) left))
+                            (leaves (depth + 1) inRight.number ++ addToFirst inRight.toRight rest),
+                          <- addToLastAppend inRight.toLeft
+                            (leaves (depth + 1) left)
+                            (leavesNotNil (depth + 1) left)
+                            before,
+                          equation (before ++ leaves (depth + 1) left) rest,
+                          List.appendAssoc before (leaves (depth + 1) left) found.before))
         | None =>
           Void.impossible
             (Option.noneNotSome exploded

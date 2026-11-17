@@ -72,9 +72,9 @@ theorem windowsCorrect ∀ (m: Nat) (depths: List Nat): increasesOver (Succ m) d
             rewrite slideCompare x shared gained, windowsCorrect m rest
           _ = Bool.toNat (List.sum (List.take [x, ..rest] (Succ m)) < List.sum (List.take rest (Succ m)))
               + windowIncreases (Succ m) rest :=
-            rewrite List.sumCons x (List.take rest m), List.takeSucc 0 rest m h, List.sumAppend
-              (List.take rest m)
-              [gained]
+            rewrite List.sumCons x (List.take rest m),
+                List.takeSucc 0 rest m h,
+                List.sumAppend (List.take rest m) [gained]
           _ = increases [
               List.sum (List.take [x, ..rest] (Succ m)),
               List.sum (List.take rest (Succ m)),

@@ -281,10 +281,10 @@ theorem countPair ∀ (first second: Packet)
       = Some ([first, second], { unread = more }) :=
   let step1 := stepComplete (Packets 2) (Packets 1) (encodeAll [second] ++ more) first formedFirst byComputing
   let step2 := stepComplete (Packets 1) (Packets 0) more second formedSecond byComputing
-  rewrite List.appendAssoc (encode first) (encodeAll [second]) more, step1, List.appendAssoc
-    (encode second)
-    []
-    more, step2
+  rewrite List.appendAssoc (encode first) (encodeAll [second]) more,
+      step1,
+      List.appendAssoc (encode second) [] more,
+      step2
 
 --| Filling packets' bits reads them all back.
 theorem fillComplete ∀ (packets: List Packet)

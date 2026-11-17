@@ -190,10 +190,9 @@ theorem setsOfThreeIff ∀ (network: Network) (party: Party):
             (Set.memToList
               (network.links.neighbours second |> .intersect (network.links.neighbours first))
               third).backward
-              (rewrite Set.containsIntersect
-                (network.links.neighbours second)
-                third
-                (network.links.neighbours first), secondThirdLinked, firstThirdLinked)
+              (rewrite Set.containsIntersect (network.links.neighbours second) third (network.links.neighbours first),
+                  secondThirdLinked,
+                  firstThirdLinked)
           let made: List.Mem ({ members = Set.fromList [first, second, third] }) (madeSets network.links) :=
             List.memFlatMapIntro network.links.setsWith first
               ({ members = Set.fromList [first, second, third] })
@@ -217,11 +216,12 @@ theorem setsOfThreeIff ∀ (network: Network) (party: Party):
           let isParty: party = ({ members = Set.fromList [first, second, third] }) :=
             Party.ext party ({ members = Set.fromList [first, second, third] }) isSet
           let sizeKept: (party.members.size == 3) = True := rewrite three
-          rewrite Set.containsFilter (Set.fromList (madeSets network.links)) party (party =>
-            party.size
-              == 3), sizeKept, isParty, (Set.containsFromListIff
-                (madeSets network.links)
-                ({ members = Set.fromList [first, second, third] })).backward made)
+          rewrite Set.containsFilter (Set.fromList (madeSets network.links)) party (party => party.size == 3),
+              sizeKept,
+              isParty,
+              (Set.containsFromListIff
+                    (madeSets network.links)
+                    ({ members = Set.fromList [first, second, third] })).backward made)
   }
 
 --| "How many contain at least one computer with a name that starts with t?"

@@ -109,9 +109,9 @@ theorem rightCount ∀ [n: Nat]
       calc zerosLandedOn (List.replicate (Succ k) (Right 1)) dial
         _ = Bool.toNat ((dial.position.value + 1) % Mod.size n == 0)
             + ((dial.position.value + 1) % Mod.size n + k) / Mod.size n :=
-          rewrite zerosLandedOnCons dial (Right 1) (List.replicate k (Right 1)), rightCount
-            (Dial.move dial (Right 1))
-            k, Mod.valueOfInt (dial.position.toInt + Nat.toInt 1)
+          rewrite zerosLandedOnCons dial (Right 1) (List.replicate k (Right 1)),
+              rightCount (Dial.move dial (Right 1)) k,
+              Mod.valueOfInt (dial.position.toInt + Nat.toInt 1)
         _ = (dial.position.value + Succ k) / Mod.size n :=
           Nat.divSuccStep (Mod.size n) dial.position.value dial.position.isLt k
 

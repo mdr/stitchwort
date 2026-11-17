@@ -24,13 +24,14 @@ theorem bagsAgree ∀ (rules: List Rule) (depth: Nat) (colour: Colour):
   match depth with
     | 0 => byComputing
     | Succ depth =>
-      rewrite contentsAgree rules colour, List.mapCong
-        (Spec.contentsOf rules colour)
-        (content =>
-          ({ all = rules }: Rules).book.bagsToDepth depth content.colour
-            |> .map (inside => content.count * (1 + inside)))
-        (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
-        (content => rewrite bagsAgree rules depth content.colour)
+      rewrite contentsAgree rules colour,
+          List.mapCong
+            (Spec.contentsOf rules colour)
+            (content =>
+              ({ all = rules }: Rules).book.bagsToDepth depth content.colour
+                |> .map (inside => content.count * (1 + inside)))
+            (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
+            (content => rewrite bagsAgree rules depth content.colour)
 
 --| When part 2 gives an answer, the rules settle the total at some depth,
 --| and it is theirs.

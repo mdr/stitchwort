@@ -60,12 +60,14 @@ theorem tallyAfter ∀ (instructions: List Instruction) (k: Nat)
     | Zero => byComputing
     | Succ k =>
       let before := tallyAfter instructions k (Nat.leTrans k (Succ k) instructions.length (Nat.leSucc k) inRange)
-      rewrite List.foldLeftTakeSucc Tally.step Do instructions Tally.start k inRange, before, stepAgrees
-        (instructions.take k)
-        (List.range 0 k |> .sumBy (enabledResult instructions))
-        (instructions.getOr k Do), List.takeSucc Do instructions k inRange, List.sumRangeLast
-        (enabledResult instructions)
-        k
+      rewrite List.foldLeftTakeSucc Tally.step Do instructions Tally.start k inRange,
+          before,
+          stepAgrees
+            (instructions.take k)
+            (List.range 0 k |> .sumBy (enabledResult instructions))
+            (instructions.getOr k Do),
+          List.takeSucc Do instructions k inRange,
+          List.sumRangeLast (enabledResult instructions) k
 
 --| The spec's sum, by index.
 theorem enabledResultsByIndex ∀ (instructions: List Instruction):
@@ -97,9 +99,9 @@ theorem foldWithoutDont ∀ (instructions: List Instruction) (total: Nat)
   match instructions with
     | [] => rewrite Nat.addZero total
     | [Mul left right, ..rest] =>
-      rewrite foldWithoutDont rest (total + left * right) noDont, List.sumByCons rest
-        (Mul left right)
-        Instruction.result, Nat.addAssoc total (left * right) (rest.sumBy Instruction.result)
+      rewrite foldWithoutDont rest (total + left * right) noDont,
+          List.sumByCons rest (Mul left right) Instruction.result,
+          Nat.addAssoc total (left * right) (rest.sumBy Instruction.result)
     | [Do, ..rest] => rewrite foldWithoutDont rest total noDont, List.sumByCons rest Do Instruction.result
 
 --| Without a `don't()`, part 2 is part 1.

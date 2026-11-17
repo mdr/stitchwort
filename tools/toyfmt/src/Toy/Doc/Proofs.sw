@@ -537,11 +537,12 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
           rewrite fitsFromEnough total extra [(Flat, inner)] [] (printer.width - indent - 2) False (arithmetic), later
         | _ =>
           rewrite fitsFromEnough total extra
-            [(Break, option)]
-            rest
-            printer.left
-            (not printer.suffixes.isEmpty)
-            (arithmetic), later
+                [(Break, option)]
+                rest
+                printer.left
+                (not printer.suffixes.isEmpty)
+                (arithmetic),
+              later
 
 --| With `fits`'s budget covering the work list's weight, a step takes the
 --| same choices as with a larger budget.

@@ -1350,8 +1350,9 @@ theorem List.sortWithOfSorted ∀ (le: a → a → Bool)
     _ = (List.buildRuns le [] xs).runsJoined ++ [] :=
       List.mergeRunsJoined le []
         (List.buildRuns le [] xs)
-        (rewrite <- List.appendNil xs, <- List.buildRunsJoined le [] xs
-          (List.pairwiseOfSorted le trans xs s) at List.pairwiseOfSorted le trans xs s)
+        (rewrite <- List.appendNil xs,
+            <- List.buildRunsJoined le [] xs (List.pairwiseOfSorted le trans xs s) at List.pairwiseOfSorted le trans xs
+                s)
     _ = (List.buildRuns le [] xs).runsJoined := List.appendNil (List.runsJoined (List.buildRuns le [] xs))
     _ = xs := List.buildRunsJoined le [] xs (List.pairwiseOfSorted le trans xs s)
 
@@ -1738,10 +1739,9 @@ theorem List.sumByPerm [auto eq: DecEq a] [auto add: Add b]:
   | [], [y, ..ys], same, f => Void.impossible (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
   | [x, ..xs], ys, same, f =>
     let found: List.Mem x ys := List.memPerm [x, ..xs] ys same x (Inl byComputing)
-    rewrite List.sumByCons xs x f, List.sumByPerm xs
-      (ys.removeFirst x)
-      (List.permRemoveFirstOfCons x xs ys same)
-      f, List.sumByRemoveFirst ys x found f
+    rewrite List.sumByCons xs x f,
+        List.sumByPerm xs (ys.removeFirst x) (List.permRemoveFirstOfCons x xs ys same) f,
+        List.sumByRemoveFirst ys x found f
 
 theorem List.sumPerm ∀ [auto eq: DecEq a] [auto add: Add a] (xs ys: List a)
     (same: List.Perm xs ys):
@@ -1928,9 +1928,8 @@ theorem List.memCombinationsTwo ∀ (u v: a) (xs: List a): ([u, v] ∈ List.comb
 theorem List.lengthCombinationsCons ∀ (x: a) (xs: List a) (k: Nat):
     List.length (List.combinations [x, ..xs] (Succ k))
       = List.length (List.combinations xs k) + List.length (List.combinations xs (Succ k)) :=
-  rewrite List.lengthAppend
-    (List.map (List.combinations xs k) (zs => [x, ..zs]))
-    (List.combinations xs (Succ k)), List.lengthMap (List.combinations xs k) (zs => [x, ..zs])
+  rewrite List.lengthAppend (List.map (List.combinations xs k) (zs => [x, ..zs])) (List.combinations xs (Succ k)),
+      List.lengthMap (List.combinations xs k) (zs => [x, ..zs])
 
 theorem List.mergeCount ∀ (xs ys: List a) (le: a → a → Bool) (p: a → Bool):
     List.occurrences (List.merge le xs ys) p = List.occurrences xs p + List.occurrences ys p :=
@@ -2097,9 +2096,11 @@ theorem List.allNotAnyComm ∀ (related: a → b → Bool) (xs: List a) (ys: Lis
             match r: related x y with
               | True => byComputing
               | False => byComputing)
-      rewrite unfolded, List.allAnd ys (y => ¬(related x y)) (y =>
-        ¬(List.any xs (x2 => related x2 y))), <- List.allNotAnyComm related xs ys, List.allNotAny ys (y =>
-        ¬(related x y)), List.anyCong ys (y => ¬(¬(related x y))) (y => related x y) (y => cases)
+      rewrite unfolded,
+          List.allAnd ys (y => ¬(related x y)) (y => ¬(List.any xs (x2 => related x2 y))),
+          <- List.allNotAnyComm related xs ys,
+          List.allNotAny ys (y => ¬(related x y)),
+          List.anyCong ys (y => ¬(¬(related x y))) (y => related x y) (y => cases)
 
 theorem List.allPerm ∀ (xs ys: List a) (h: List.Perm xs ys) (p: a → Bool): List.all xs p = List.all ys p :=
   rewrite List.allNotAny xs p, List.allNotAny ys p, List.anyPerm xs ys h (x => ¬(p x))

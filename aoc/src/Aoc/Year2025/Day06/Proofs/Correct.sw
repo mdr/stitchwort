@@ -59,10 +59,9 @@ theorem columnOperator ∀ (lines: List Text) (c: Nat):
 theorem blockOperator ∀ (lines: List Text) (cs: List Nat):
     (Problem.parse (cs.map (column lines))).operator
       = (cs.filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c)))).head :=
-  rewrite List.findMapIsHeadFilterMap (cs.map (column lines)) (column =>
-    column.last.flatMap Operator.parse), List.filterMapMap cs
-    (column => column.last.flatMap Operator.parse)
-    (column lines), columnOperator lines _
+  rewrite List.findMapIsHeadFilterMap (cs.map (column lines)) (column => column.last.flatMap Operator.parse),
+      List.filterMapMap cs (column => column.last.flatMap Operator.parse) (column lines),
+      columnOperator lines _
 
 --| Adding and multiplying don't mind the order.
 theorem evaluateReverse ∀ (op: Option Operator) (xs: List Nat): evaluate op xs.reverse = evaluate op xs := match op with
@@ -94,10 +93,9 @@ theorem answer1 ∀ (lines: List Text) (lo hi: Nat) (b: Bool)
   match b with
     | False => byComputing
     | True =>
-      rewrite problemColumns lo hi (problemWide lines lo hi h), blockOperator lines [
-        lo,
-        ..List.rangeFrom (hi - Succ lo) (Succ lo)
-      ], blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
+      rewrite problemColumns lo hi (problemWide lines lo hi h),
+          blockOperator lines [lo, ..List.rangeFrom (hi - Succ lo) (Succ lo)],
+          blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
 
 theorem answer2 ∀ (lines: List Text) (lo hi: Nat) (b: Bool)
     (h: isProblem lines lo hi = b):
@@ -106,11 +104,12 @@ theorem answer2 ∀ (lines: List Text) (lo hi: Nat) (b: Bool)
   match b with
     | False => byComputing
     | True =>
-      rewrite blockOperator lines (List.rangeFrom (hi - lo) lo), blockColumns lines
-        (List.rangeFrom (hi - lo) lo), List.mapReverse (List.rangeFrom (hi - lo) lo) (c =>
-        parseNumber (column lines.init c)), evaluateReverse
-        (operatorOf lines lo hi)
-        ((List.rangeFrom (hi - lo) lo).map (c => parseNumber (column lines.init c)))
+      rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
+          blockColumns lines (List.rangeFrom (hi - lo) lo),
+          List.mapReverse (List.rangeFrom (hi - lo) lo) (c => parseNumber (column lines.init c)),
+          evaluateReverse
+            (operatorOf lines lo hi)
+            ((List.rangeFrom (hi - lo) lo).map (c => parseNumber (column lines.init c)))
 
 --| The program's total over the blocks is the total over the problems the
 --| spec finds, for any way `answer` scores a block.

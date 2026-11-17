@@ -17,10 +17,8 @@ theorem anyRemovedIsRemovals ∀ (levels: List Nat) (holds: List Nat → Bool):
   match levels with
     | [] => byComputing
     | [level, ..rest] =>
-      rewrite anyRemovedIsRemovals rest (levels => holds [level, ..levels]), List.anyMap
-        (removals rest)
-        holds
-        (Cons level)
+      rewrite anyRemovedIsRemovals rest (levels => holds [level, ..levels]),
+          List.anyMap (removals rest) holds (Cons level)
 
 theorem anyRemovedNever ∀ (levels: List Nat) (holds: List Nat → Bool)
     (never: ∀ (rest: List Nat) => holds rest = False):

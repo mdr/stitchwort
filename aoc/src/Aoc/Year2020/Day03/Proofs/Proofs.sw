@@ -18,9 +18,9 @@ theorem repeatingAtMod ∀ (pattern: List Square)
   if within: column < pattern.length then
     rewrite repeatingAt.eq.ifTrue pattern column within, Nat.modSmall column pattern.length within
   else
-    rewrite repeatingAt.eq.ifFalse.ifTrue pattern column within nonEmpty, repeatingAtMod pattern nonEmpty
-      (column - pattern.length)
-      [decreasing := arithmetic], Nat.subModSelf column pattern.length arithmetic
+    rewrite repeatingAt.eq.ifFalse.ifTrue pattern column within nonEmpty,
+        repeatingAtMod pattern nonEmpty (column - pattern.length) [decreasing := arithmetic],
+        Nat.subModSelf column pattern.length arithmetic
 
 --| The program's lookup at the wrapped column is the repeating map's
 --| square.
@@ -78,18 +78,19 @@ theorem visitedEnough ∀ (map: Grid Square) (slope: Slope)
     (path slope { row = 0, column = 0 } steps).takeWhile (position => position.row < map.height) = visited map slope :=
   let onPath := (step: Nat) => ({ row = 0 + step * slope.down, column = 0 + step * slope.right }: Position)
   let below: Position → Bool := position => position.row < map.height
-  rewrite pathRange slope { row = 0, column = 0 } steps, pathRange slope
-    { row = 0, column = 0 }
-    map.height, List.takeWhileMap onPath below (List.rangeFrom steps 1), List.takeWhileMap onPath below
-    (List.rangeFrom map.height 1), List.takeWhileRangeCutoff
-    (step => step * slope.down < map.height)
-    map.height
-    (k past => Bool.falseOfNotTrue _ (isTrue => arithmetic [Nat.leMulPos k slope.down goesDown]))
-    steps
-    map.height
-    1
-    arithmetic
-    arithmetic
+  rewrite pathRange slope { row = 0, column = 0 } steps,
+      pathRange slope { row = 0, column = 0 } map.height,
+      List.takeWhileMap onPath below (List.rangeFrom steps 1),
+      List.takeWhileMap onPath below (List.rangeFrom map.height 1),
+      List.takeWhileRangeCutoff
+        (step => step * slope.down < map.height)
+        map.height
+        (k past => Bool.falseOfNotTrue _ (isTrue => arithmetic [Nat.leMulPos k slope.down goesDown]))
+        steps
+        map.height
+        1
+        arithmetic
+        arithmetic
 
 theorem part1Correct ∀ (map: Grid Square) (rectangle: map.isRectangle = True): solvePart1 map = part1Answer map :=
   treesOnSpec map rectangle { right = 3, down = 1 }

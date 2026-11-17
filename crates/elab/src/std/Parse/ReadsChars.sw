@@ -866,12 +866,10 @@ def Parse.SectionsLines (spec: List Char → a → Prop) (value: a): (values: Li
 theorem Parse.appendBlank ∀ (first middle last nextRead afterChunk ending: List Char):
     ((((first ++ (middle ++ last)) ++ nextRead) ++ afterChunk) ++ ending)
       = first ++ (middle ++ (last ++ (nextRead ++ (afterChunk ++ ending)))) :=
-  rewrite List.appendAssoc ((first ++ (middle ++ last)) ++ nextRead) afterChunk ending, List.appendAssoc
-    (first ++ (middle ++ last))
-    nextRead
-    (afterChunk ++ ending), List.appendAssoc first
-    (middle ++ last)
-    (nextRead ++ (afterChunk ++ ending)), List.appendAssoc middle last (nextRead ++ (afterChunk ++ ending))
+  rewrite List.appendAssoc ((first ++ (middle ++ last)) ++ nextRead) afterChunk ending,
+      List.appendAssoc (first ++ (middle ++ last)) nextRead (afterChunk ++ ending),
+      List.appendAssoc first (middle ++ last) (nextRead ++ (afterChunk ++ ending)),
+      List.appendAssoc middle last (nextRead ++ (afterChunk ++ ending))
 
 theorem Parse.sectionsLinesEach ∀ (spec: List Char → a → Prop) (ending: List Char)
     (ended: ending.all (char => char == '\n' ∨ char == '\r') = True)

@@ -384,9 +384,9 @@ theorem List.sumByZipWith ∀ (g: c → Nat) (f: a → b → c) (xs: List a) (ys
   Eq.trans
     (List.sumByGet g (List.zipWith xs ys f) n (Nat.leTrans _ _ n (List.lengthZipWithLe f xs ys) h))
     (List.sumByCong (List.range 0 n) _ _ (j =>
-      rewrite List.getZipWith f xs ys j, <- Option.map2FlatMap f (List.get ys j) (List.get xs j), Option.mapMap2 f g
-        (List.get xs j)
-        (List.get ys j)))
+      rewrite List.getZipWith f xs ys j,
+          <- Option.map2FlatMap f (List.get ys j) (List.get xs j),
+          Option.mapMap2 f g (List.get xs j) (List.get ys j)))
 
 theorem List.sumByZipWith3 ∀ (g: d → Nat) (f: a → b → c → d) (xs: List a) (ys: List b) (zs: List c) (n: Nat)
     (h: List.length xs ≤ n):
@@ -409,11 +409,8 @@ theorem List.sumByZipWith4 ∀ (g: e → Nat) (f: a → b → c → d → e) (xs
   Eq.trans
     (List.sumByGet g (List.zipWith4 xs ys zs ws f) n (Nat.leTrans _ _ n (List.lengthZipWith4Le f xs ys zs ws) h))
     (List.sumByCong (List.range 0 n) _ _ (j =>
-      rewrite List.getZipWith4 f xs ys zs ws j, Option.mapMap4 f g
-        (List.get xs j)
-        (List.get ys j)
-        (List.get zs j)
-        (List.get ws j)))
+      rewrite List.getZipWith4 f xs ys zs ws j,
+          Option.mapMap4 f g (List.get xs j) (List.get ys j) (List.get zs j) (List.get ws j)))
 
 theorem List.sumByZipWithExample: List.sumBy (List.zipWith [1, 2, 3] [10, 20] Nat.add) (x => x) = 33 :=
   List.sumByZipWith (x => x) Nat.add [1, 2, 3] [10, 20] 3 byComputing

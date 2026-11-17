@@ -881,10 +881,12 @@ theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token)
     (match allowed: layout.allows token with
       | True => rewrite reserved
       | False => byComputing),
-    (rewrite operatorOfReserved layout 1 token keyword reserved, operatorOfReserved layout 2 token keyword
-        reserved, operatorOfReserved layout 3 token keyword reserved, operatorOfReserved layout 4 token keyword
-        reserved, operatorOfReserved layout 5 token keyword reserved, operatorOfReserved layout 6 token keyword
-        reserved)
+    (rewrite operatorOfReserved layout 1 token keyword reserved,
+        operatorOfReserved layout 2 token keyword reserved,
+        operatorOfReserved layout 3 token keyword reserved,
+        operatorOfReserved layout 4 token keyword reserved,
+        operatorOfReserved layout 5 token keyword reserved,
+        operatorOfReserved layout 6 token keyword reserved)
   )
 
 --| A keyword that may follow a body follows anything.
@@ -928,9 +930,12 @@ theorem endsUnallowed ∀ (layout: Layout) (token: Parse.Located Token) (rest: L
     EndsExpression layout [token, ..rest] :=
   (
     (rewrite unallowed),
-    (rewrite operatorOfUnallowed layout 1 token unallowed, operatorOfUnallowed layout 2 token
-        unallowed, operatorOfUnallowed layout 3 token unallowed, operatorOfUnallowed layout 4 token
-        unallowed, operatorOfUnallowed layout 5 token unallowed, operatorOfUnallowed layout 6 token unallowed)
+    (rewrite operatorOfUnallowed layout 1 token unallowed,
+        operatorOfUnallowed layout 2 token unallowed,
+        operatorOfUnallowed layout 3 token unallowed,
+        operatorOfUnallowed layout 4 token unallowed,
+        operatorOfUnallowed layout 5 token unallowed,
+        operatorOfUnallowed layout 6 token unallowed)
   )
 
 --| A line start no deeper than `column`, seen from a statement at a

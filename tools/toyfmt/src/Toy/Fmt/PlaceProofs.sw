@@ -125,9 +125,8 @@ theorem ontoFold ∀ (source: Text) (out: List Text) (steps: List (List Char, Le
   match out with
     | [] => byComputing
     | [piece, ..earlier] =>
-      rewrite ontoFold source earlier (addPiece piece steps), addPieceFold source piece steps
-        (charsLength earlier)
-        (laid source earlier)
+      rewrite ontoFold source earlier (addPiece piece steps),
+          addPieceFold source piece steps (charsLength earlier) (laid source earlier)
 
 --| `assemble` over the pieces' steps is `laid`: reading neighbouring
 --| pieces of spaces as one lexeme changes no token.

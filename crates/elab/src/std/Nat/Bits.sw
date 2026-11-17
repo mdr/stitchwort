@@ -80,10 +80,9 @@ theorem Nat.xorMod ∀ (m n: Nat): Nat.xor m n % 2 = (m + n) % 2 := match some: 
 
 theorem Nat.xorDiv ∀ (m n: Nat): Nat.xor m n / 2 = Nat.xor (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
   | False =>
-    rewrite Nat.xorSome m n some, Nat.divAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2, Nat.divSmall
-      ((m + n) % 2)
-      2
-      (Nat.modLess (m + n) 2 (Nat.succNotZero 1))
+    rewrite Nat.xorSome m n some,
+        Nat.divAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2,
+        Nat.divSmall ((m + n) % 2) 2 (Nat.modLess (m + n) 2 (Nat.succNotZero 1))
   | True => rewrite Nat.xorZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 --| Whether the sum of two bits is odd is their exclusive or.
@@ -195,10 +194,9 @@ theorem Nat.andMod ∀ (m n: Nat): Nat.and m n % 2 = m * n % 2 := match some: Na
 
 theorem Nat.andDiv ∀ (m n: Nat): Nat.and m n / 2 = Nat.and (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
   | False =>
-    rewrite Nat.andSome m n some, Nat.divAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2, Nat.divSmall
-      (m * n % 2)
-      2
-      (Nat.modLess (m * n) 2 (Nat.succNotZero 1))
+    rewrite Nat.andSome m n some,
+        Nat.divAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2,
+        Nat.divSmall (m * n % 2) 2 (Nat.modLess (m * n) 2 (Nat.succNotZero 1))
   | True => rewrite Nat.andZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 theorem Nat.testBitAnd ∀ (i m n: Nat): Nat.testBit (Nat.and m n) i = (Nat.testBit m i ∧ Nat.testBit n i) := match i with
@@ -234,13 +232,12 @@ theorem Nat.orMod ∀ (m n: Nat): Nat.or m n % 2 = (m % 2 + n % 2 + m % 2 * (n %
 
 theorem Nat.orDiv ∀ (m n: Nat): Nat.or m n / 2 = Nat.or (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
   | False =>
-    rewrite Nat.orSome m n some, Nat.divAddMul
-      ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
-      (Nat.or (m / 2) (n / 2))
-      2, Nat.divSmall
-      ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
-      2
-      (Nat.modLess (m % 2 + n % 2 + m % 2 * (n % 2)) 2 (Nat.succNotZero 1))
+    rewrite Nat.orSome m n some,
+        Nat.divAddMul ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2) (Nat.or (m / 2) (n / 2)) 2,
+        Nat.divSmall
+          ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
+          2
+          (Nat.modLess (m % 2 + n % 2 + m % 2 * (n % 2)) 2 (Nat.succNotZero 1))
   | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 theorem Nat.testBitOr ∀ (i m n: Nat): Nat.testBit (Nat.or m n) i = (Nat.testBit m i ∨ Nat.testBit n i) := match i with
@@ -483,10 +480,9 @@ theorem Nat.toBitsFold ∀ (k acc: Nat) (bits: List Bool):
     | [bit, ..rest] =>
       let more := Nat.toBitsFold (Succ k) (acc * 2 + Bool.toNat bit) rest
       let step: Nat.toBits (Succ k) (acc * 2 + Bool.toNat bit) ++ rest = Nat.toBits k acc ++ [bit, ..rest] :=
-        rewrite Nat.parityOfDoubleBit acc bit, Nat.halfOfDoubleBit acc bit, List.appendAssoc
-          (Nat.toBits k acc)
-          [bit]
-          rest
+        rewrite Nat.parityOfDoubleBit acc bit,
+            Nat.halfOfDoubleBit acc bit,
+            List.appendAssoc (Nat.toBits k acc) [bit] rest
       Eq.trans more step
 
 --| Any bits are the number they read as, written in as many bits:

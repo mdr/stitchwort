@@ -817,10 +817,8 @@ theorem writeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat) 
           match spaces: text.all (char => char == ' ') with
             | True => waits
             | False =>
-              rewrite (putWritten
-                (printer.newline (printer.continuation indent))
-                text
-                width).right, (newlineWritten printer (printer.continuation indent)).right
+              rewrite (putWritten (printer.newline (printer.continuation indent)) text width).right,
+                  (newlineWritten printer (printer.continuation indent)).right
 
 theorem closeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (text: Text)
     (waits: Every suffix printer.suffixes):
