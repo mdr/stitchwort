@@ -3,7 +3,7 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-NO-READING] Error: this test fact can't be taken apart with a constructor of `Or`
-    ╭─[ reject/reading-pattern-no-reading.sw:11:7 ]
+    ╭─[ reject/reading-pattern-not-or.sw:11:7 ]
     │
  11 │     | Inl x => 0
     │       ──┬──  
