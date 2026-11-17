@@ -3426,21 +3426,30 @@ pub fn near_miss(distance: usize, written: &str) -> bool {
     distance <= limit && distance < length
 }
 
+/// The edit distance between two names, counting a swap of two adjacent
+/// letters as one edit (optimal string alignment): `nmae` is one edit from
+/// `name`, not two. Two independent edits of the same letter aren't allowed,
+/// which is all a suggestion needs.
 pub fn edit_distance(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
+    // `row` is the row for `a[..i]`, `prev` the row before it (`a[..i-1]`),
+    // whose entries the transposition case needs.
+    let mut prev: Vec<usize> = Vec::new();
     let mut row: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.chars().enumerate() {
-        let mut prev = row[0];
-        row[0] = i + 1;
-        for (j, cb) in b.iter().enumerate() {
-            let cur = row[j + 1];
-            row[j + 1] = if ca == *cb {
-                prev
-            } else {
-                1 + prev.min(row[j]).min(cur)
-            };
-            prev = cur;
+    for (i, &ca) in a.iter().enumerate() {
+        let mut cur = Vec::with_capacity(b.len() + 1);
+        cur.push(i + 1);
+        for (j, &cb) in b.iter().enumerate() {
+            let mut distance = (row[j + 1] + 1)
+                .min(cur[j] + 1)
+                .min(row[j] + usize::from(ca != cb));
+            if i > 0 && j > 0 && ca == b[j - 1] && a[i - 1] == cb {
+                distance = distance.min(prev[j - 1] + 1);
+            }
+            cur.push(distance);
         }
+        prev = std::mem::replace(&mut row, cur);
     }
     row[b.len()]
 }
@@ -3519,7 +3528,22 @@ fn other_systems_word(word: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::near_miss;
+    use super::{edit_distance, near_miss};
+
+    #[test]
+    fn edit_distance_counts_an_adjacent_transposition_once() {
+        assert_eq!(edit_distance("nmae", "name"), 1);
+        assert_eq!(edit_distance("cuont", "count"), 1);
+        assert_eq!(edit_distance("lenght", "length"), 1);
+    }
+
+    #[test]
+    fn edit_distance_is_otherwise_levenshtein() {
+        assert_eq!(edit_distance("foo", "Bool"), 2);
+        assert_eq!(edit_distance("kitten", "sitting"), 3);
+        assert_eq!(edit_distance("", "ab"), 2);
+        assert_eq!(edit_distance("same", "same"), 0);
+    }
 
     #[test]
     fn near_miss_is_stricter_on_short_names() {

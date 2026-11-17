@@ -9,5 +9,7 @@ expression: output
     │                                                    ──┬─  
     │                                                      ╰─── looked in `Person`
     │ 
-    │ Note: its fields are `name`, `age`
+    │ Note 1: did you mean `name`?
+    │ 
+    │ Note 2: its fields are `name`, `age`
 ────╯
