@@ -41591,14 +41591,14 @@
     {
       "id": 3690,
       "title": "[Matt decision, formatter style] Lay out rewrite without then like S36's rule lists: one rule per line at 4 when they don't fit (now a fill with mid-rule breaks like 'List.getDrop row 2\\n _'). ~460 files reformat (measured, SW-3683). Before/after in SW-3683's notes (Day04 Part1 acrossSum). Then a sweep",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3668 (Matt, 17 Nov 2026): 'yeah, that's fine' — a rewrite's rule list that doesn't fit goes one rule per line, indented 4 under rewrite; lists that fit stay on one line; then sweep. Started on Sonnet, est. 30 min.",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
