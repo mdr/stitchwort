@@ -21671,7 +21671,7 @@
     {
       "id": 3807,
       "title": "[Sonnet] apps/whereabouts: tenthsKeepTheirLabel computes round and / 10.0 3,601 times through the model (2.8 s -> 9.3 s after SW-639); prove it per tenth from roundOfWhole and ofNatDivExact instead",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22518,7 +22518,7 @@
     {
       "id": 3872,
       "title": "[Opus] Whereabouts check went from about 25 s to 2.5 min: SW-3858's tenthsTable computes 7,203 rows of float operations in the checker's model (~1 ms each). Replace it with the generic divRelError/mulRelError chain (or narrow it), together with SW-3807's per-tenth tenthsKeepTheirLabel; target the check back under 30 s with results unchanged",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
