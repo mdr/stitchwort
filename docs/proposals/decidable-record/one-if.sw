@@ -41,7 +41,7 @@ theorem elimIsIf ∀ (a b x y: Nat): Dec.elim (decLe a b) (h => x) (r => y) = If
 def safeSub (a b: Nat): Nat := Dec.elim (decLe b a) (h => a - b) (r => 0)
 def clamp (a b: Nat): Nat := If (Nat.leq b a) (e => a - b) (e => 0)
 theorem sameFunction ∀ (a b: Nat): safeSub a b = clamp a b := rfl
-theorem safeSubLe ∀ (a b: Nat) (h: b ≤ a): safeSub a b = a - b := rewrite h in rfl
+theorem safeSubLe ∀ (a b: Nat) (h: b ≤ a): safeSub a b = a - b := rewrite h then rfl
 theorem clampSplit ∀ (a b: Nat): clamp a b ≤ a := match h: Nat.leq b a with
   | True => Nat.subLe a b
   | False => Nat.zeroLe a
@@ -73,7 +73,7 @@ theorem andThenIsAnd ∀ (a b c d: Nat):
 
 -- `==` on numbers is `Nat.equal`; a 30-digit fact runs only the test.
 def decEqNat (m n: Nat): Dec (m = n) :=
-  { does = Nat.equal m n, sound = h => Nat.equalSound m n h, complete = h => rewrite h in Nat.equalRefl n }
+  { does = Nat.equal m n, sound = h => Nat.equalSound m n h, complete = h => rewrite h then Nat.equalRefl n }
 theorem eqIsEqual ∀ (a b: Nat): (decEqNat a b).does = Nat.equal a b := rfl
 theorem bigEq: 123456789012345678901234567890 = 123456789012345678901234567890 :=
   (decEqNat 123456789012345678901234567890 123456789012345678901234567890).sound rfl

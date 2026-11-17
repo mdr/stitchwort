@@ -279,7 +279,7 @@ test "nested, unbalanced" := parse nested "[1,[2]" == None
 
 -- Arithmetic with `+`, `*` and brackets, the usual precedence. Only
 -- `factor` recurses, after `(`.
-def arithmetic: Parser True Nat := fix (n =>
+def arithmeticExpr: Parser True Nat := fix (n =>
   self =>
     let factor :=
       balt (lift nat) (eat (lift (char '(')) (open => bseq self (value => bmap (lift (char ')')) (close => value))))
@@ -287,7 +287,7 @@ def arithmetic: Parser True Nat := fix (n =>
       bmap (bmany (eat (lift (char '*')) (times => below factor))) (more => (Cons first more).product))
     bseq term (first => bmap (bmany (eat (lift (char '+')) (plus => below term))) (more => (Cons first more).sum)))
 
-test "arithmetic" := parse arithmetic "2*(3+4)+1" == Some 15
+test "arithmetic" := parse arithmeticExpr "2*(3+4)+1" == Some 15
 
 -- AoC 2024 day 3 in this style.
 

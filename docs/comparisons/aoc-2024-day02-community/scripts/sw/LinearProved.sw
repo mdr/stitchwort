@@ -48,7 +48,8 @@ theorem anyRemovedCong: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) =>
       → anyRemoved holds1 xs = anyRemoved holds2 xs
   | Nil, holds1, holds2, same => byComputing
   | Cons x xs, holds1, holds2, same =>
-    rewrite same xs, anyRemovedCong xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) (ys => same (Cons x ys)) then
+    rewrite same xs,
+        anyRemovedCong xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) (ys => same (Cons x ys)) then
       byComputing
 
 theorem anyRemovedNever: ∀ (xs: List Nat) (holds: List Nat → Bool) => (∀ (ys: List Nat) => holds ys = False)
@@ -60,7 +61,8 @@ theorem anyRemovedNever: ∀ (xs: List Nat) (holds: List Nat → Bool) => (∀ (
 theorem anyRemovedOr: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) => anyRemoved (ys => holds1 ys || holds2 ys) xs
       = (anyRemoved holds1 xs || anyRemoved holds2 xs)
   | Nil, holds1, holds2 => byComputing
-  | Cons x xs, holds1, holds2 => rewrite anyRemovedOr xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) then cases
+  | Cons x xs, holds1, holds2 =>
+    rewrite anyRemovedOr xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) then cases
 
 -- Counting from `Succ start` is counting from `start` with each index moved on.
 theorem anyRangeSucc ∀ (holds: Nat → Bool):

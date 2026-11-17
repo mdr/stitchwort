@@ -17,4 +17,4 @@ theorem leZero: ∀ (m: Nat) => m ≤ 0 → m = 0
 
 -- The hypothesis is the program's test, so it rewrites the program.
 def pick (s: Set Nat) (k: Nat): Nat := if s.contains k && k ≤ 10 then 1 else 2
-theorem pickIn ∀ (s: Set Nat) (k: Nat) (has: k ∈ s) (small: k ≤ 10): pick s k = 1 := rewrite has, small in rfl
+theorem pickIn ∀ (s: Set Nat) (k: Nat) (has: k ∈ s) (small: k ≤ 10): pick s k = 1 := rewrite has, small then rfl

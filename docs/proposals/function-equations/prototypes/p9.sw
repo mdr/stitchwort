@@ -21,7 +21,7 @@ theorem exEq1 ∀ (depth v: Nat): ex depth (Reg v) = 0 := rfl
 -- The goal is stuck on `left`, so `rewrite` finds the call.
 theorem exAtLeast ∀ (depth: Nat) (left right: Num) (h: (a: Nat) → (b: Nat) → left = Reg a → right = Reg b → Void):
     ex (depth + 1) left ≤ ex depth (Pr left right) :=
-  rewrite exEq3 depth left right h in omega
+  rewrite exEq3 depth left right h then omega
 
 -- A transparent constructor arm: the goal has already computed it.
-theorem exReg ∀ (depth v n: Nat): ex depth (Reg v) + n = n := rewrite exEq1 depth v in rfl
+theorem exReg ∀ (depth v n: Nat): ex depth (Reg v) + n = n := rewrite exEq1 depth v then rfl

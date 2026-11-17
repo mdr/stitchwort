@@ -15,7 +15,7 @@ def listing (n: Nat): List Nat := match n with
 
 theorem countIsLength: (n: Nat) → count n = List.length (listing n)
   | Zero => rfl
-  | Succ k => rewrite countIsLength k in rfl
+  | Succ k => rewrite countIsLength k then rfl
 
 -- Checks today.
 theorem sums ∀ (xs: List Nat): List.sumBy xs count = List.sumBy xs (n => List.length (listing n)) :=
@@ -29,7 +29,7 @@ theorem viaRewrite ∀ (xs: List Nat): List.sumBy xs count + 0 = List.sumBy xs (
   rewrite List.sumByCong xs _ _ (n =>
         match n with
           | Zero => rfl
-          | Succ k => countIsLength (Succ k)) in
+          | Succ k => countIsLength (Succ k)) then
     rfl
 
 -- `Eq.trans`'s first argument has a goal with an unknown right side:

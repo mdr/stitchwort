@@ -82,7 +82,7 @@ theorem readsLine: Parse.Reads line Written :=
                                     (Witness rest7
                                       (Witness password
                                         (Both split7 (Both (Both nonEmpty (Both lowers made)) (Both none built))))) =>
-                                  rewrite built, made in
+                                  rewrite built, made then
                                     Witness lowRead
                                       (Witness highRead
                                         (Both
@@ -98,6 +98,6 @@ theorem readsLine: Parse.Reads line Written :=
                                               colon,
                                               split7,
                                               none,
-                                              List.appendNil passwordRead in
+                                              List.appendNil passwordRead then
                                             rfl)
                                           (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers)))))))

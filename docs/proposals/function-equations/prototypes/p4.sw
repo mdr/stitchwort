@@ -9,9 +9,9 @@ def gcd (a b: Nat): Nat
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
 
 -- `gcd.eq.ifTrue` and `gcd.eq.ifFalse`.
-theorem gcdEqIfTrue ∀ (a b: Nat) (h: b = 0): gcd a b = a := rewrite gcd.unfold a b in cases
+theorem gcdEqIfTrue ∀ (a b: Nat) (h: b = 0): gcd a b = a := rewrite gcd.unfold a b then cases
 
-theorem gcdEqIfFalse ∀ (a b: Nat) (h: b ≠ 0): gcd a b = gcd b (a % b) := rewrite gcd.unfold a b in cases
+theorem gcdEqIfFalse ∀ (a b: Nat) (h: b ≠ 0): gcd a b = gcd b (a % b) := rewrite gcd.unfold a b then cases
 
 -- `gcd.induct`: one case per branch, the recursive call's motive as a hypothesis.
 theorem gcdInduct ∀ (motive: Nat → Nat → Prop) (case1: (a: Nat) → (b: Nat) → b = 0 → motive a b)
@@ -26,8 +26,8 @@ theorem gcdInduct ∀ (motive: Nat → Nat → Prop) (case1: (a: Nat) → (b: Na
 theorem gcdZero ∀ (a b: Nat): gcd a b = 0 → a = 0 :=
   gcdInduct
     (a b => gcd a b = 0 → a = 0)
-    (a b z g => rewrite gcdEqIfTrue a b z at g in g)
-    (a b nz ih g => Void.exfalso (nz (ih (rewrite gcdEqIfFalse a b nz at g in g))))
+    (a b z g => rewrite gcdEqIfTrue a b z at g then g)
+    (a b nz ih g => Void.exfalso (nz (ih (rewrite gcdEqIfFalse a b nz at g then g))))
     a
     b
 
@@ -35,6 +35,7 @@ theorem gcdZero ∀ (a b: Nat): gcd a b = 0 → a = 0 :=
 theorem gcdZeroDirect ∀ (a b: Nat) (g: gcd a b = 0): a = 0
     decreasing b
 :=
-  if h: b = 0 then rewrite gcdEqIfTrue a b h at g in g
+  if h: b = 0 then rewrite gcdEqIfTrue a b h at g then g
   else
-    Void.exfalso (h (gcdZeroDirect b (a % b) (rewrite gcdEqIfFalse a b h at g in g) [decreasing := Nat.modLess a b h]))
+    Void.exfalso
+      (h (gcdZeroDirect b (a % b) (rewrite gcdEqIfFalse a b h at g then g) [decreasing := Nat.modLess a b h]))

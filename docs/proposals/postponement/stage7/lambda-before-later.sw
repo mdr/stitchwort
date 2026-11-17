@@ -20,7 +20,7 @@ theorem eachStep ∀ (f: Nat → Option Nat)
 -- call checks today: the lambda fails in place and is checked again after
 -- the application's end, the after-expected path.)
 def lambdaFirst (xs: List Nat) (x y: Nat) (h: next x = Some y): Nat :=
-  let fact := eachStep _ (a b found => rewrite <- Option.someInjective _ _ found in omega) xs rfl x y h
+  let fact := eachStep _ (a b found => rewrite <- Option.someInjective _ _ found then omega) xs rfl x y h
   0
 
 -- Day 10's `firstIllegalOfScan _ Curly rfl`: the `_` is fixed only by the
@@ -35,6 +35,6 @@ type Starts: List Nat → Nat → Prop =
 
 theorem startsOf: (xs: List Nat) → (n: Nat) → firstOf xs = Some n → Starts xs n
   | Nil, n, h => Void.exfalso (Option.noneNotSome n h)
-  | Cons m rest, n, h => rewrite <- Option.someInjective m n h in Here m rest
+  | Cons m rest, n, h => rewrite <- Option.someInjective m n h then Here m rest
 
 theorem rflUnderHole: Starts [3, 4] 3 := startsOf _ 3 rfl

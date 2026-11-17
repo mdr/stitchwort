@@ -31,7 +31,7 @@ def isReg: Num → Bool
 theorem exUse2 ∀ (depth: Nat) (left right: Num)
     (notReg: isReg left = False):
     ex depth (Pr left right) = ex (depth + 1) left + ex (depth + 1) right :=
-  exEq3 depth left right (a b el er => Bool.trueNotFalse (rewrite el at notReg in notReg))
+  exEq3 depth left right (a b el er => Bool.trueNotFalse (rewrite el at notReg then notReg))
 
 -- P3. Literal patterns: the catch-all's equation, with `≠` hypotheses.
 type Command = | Up | Down

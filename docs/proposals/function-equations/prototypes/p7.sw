@@ -47,7 +47,7 @@ theorem explodeEq3Some ∀ (depth: Nat) (left right: Number)
   match left, right with
     | Regular a, Regular b => Void.exfalso (notArm2 a b rfl rfl)
     | Regular a, Pair x y => cases
-    | Pair x y, r => rewrite found in rfl
+    | Pair x y, r => rewrite found then rfl
 
 -- `explode.eq3.none.some`
 theorem explodeEq3NoneSome ∀ (depth: Nat) (left right: Number)
@@ -59,8 +59,8 @@ theorem explodeEq3NoneSome ∀ (depth: Nat) (left right: Number)
         ({ toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight }) :=
   match left, right with
     | Regular a, Regular b => Void.exfalso (notArm2 a b rfl rfl)
-    | Regular a, Pair x y => rewrite found in rfl
-    | Pair x y, r => rewrite none, found in rfl
+    | Regular a, Pair x y => rewrite found then rfl
+    | Pair x y, r => rewrite none, found then rfl
 
 -- `explode.eq3.none.none`
 theorem explodeEq3NoneNone ∀ (depth: Nat)
@@ -70,8 +70,8 @@ theorem explodeEq3NoneNone ∀ (depth: Nat)
     explode depth (Pair left right) = None :=
   match left, right with
     | Regular a, Regular b => Void.exfalso (notArm2 a b rfl rfl)
-    | Regular a, Pair x y => rewrite none, noneRight in rfl
-    | Pair x y, r => rewrite none, noneRight in rfl
+    | Regular a, Pair x y => rewrite none, noneRight then rfl
+    | Pair x y, r => rewrite none, noneRight then rfl
 
 -- A use: the left part a pair, so `cases` gives the overlap hypothesis.
 theorem leftFound ∀ (depth: Nat) (x y right: Number) (inLeft: Explosion)

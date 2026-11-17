@@ -16,7 +16,7 @@ def firstBig: List Nat → Option Big
 theorem byRewrite ∀ (x: Nat) (rest: List Nat)
     (h: Nat.leq 10 x = True):
     firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
-  rewrite h in rfl
+  rewrite h then rfl
 
 theorem byMatch ∀ (x: Nat) (rest: List Nat)
     (h: Nat.leq 10 x = True):
