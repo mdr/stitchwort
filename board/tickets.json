@@ -1,5 +1,5 @@
 {
-  "next": 3791,
+  "next": 3796,
   "tickets": [
     {
       "id": 47,
@@ -536,7 +536,7 @@
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.",
+      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.\n\nCustomer SW-3790 (merged) needs from stage 3: Float.ofNat monotone (m ≤ n → ofNat m <= ofNat n); and later, from stage 4: x/d monotone in x for d > 0, floor x <= x, x * 1.0 = x, whole numbers times/divided by 10 exact, round of a whole double is itself, rem's range. See apps/whereabouts/NOTES.md.",
       "created": "2026-10-26",
       "updated": "2026-11-17",
       "commits": []
@@ -42705,7 +42705,7 @@
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "D3675 (Matt, 17 Nov 2026): 'Yes, I think that makes it simple, right? If we implement our own definitions for these functions rather than the browser's unspecified implementations.' std's exp/log/cos etc. are Stitchwort definitions, same bits everywhere; never Math.*.",
+      "body": "D3675 (Matt, 17 Nov 2026): 'Yes, I think that makes it simple, right? If we implement our own definitions for these functions rather than the browser's unspecified implementations.' std's exp/log/cos etc. are Stitchwort definitions, same bits everywhere; never Math.*.\n\nMatt, 17 Nov 2026: the JVM is a realistic future export target. Own definitions (D3675) need only exact IEEE operations (+ - * / sqrt, floor/ceil, bit casts), which Java has exactly since JEP 306 (Java 17, strict everywhere), and Java has Math.fma, which makes a correctly rounded exp cheaper there. If cheap, add a JVM column to the measurement.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42739,11 +42739,76 @@
     {
       "id": 3790,
       "title": "[Opus] Whereabouts pilot: port hint bands (hintBand, inHintBand, describeHint, seededUnit, floorTo/ceilTo/wrap) to a Stitchwort project apps/whereabouts; tests from hints.test.ts; theorems stated (answer in band, margin, outward rounding, label = band, wrap range), proved where today's laws allow; friction notes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
+      "body": "Model result: opus, worked, 11 min (est. 50). Orchestrator checked each theorem statement against its name and doc: honest; seededUnitInUnit takes ofNat/div monotonicity as hypotheses until SW-638/639. For Whereabouts (Matt's repo): narrow-band miss only below 1e-11 km tolerance; wrap(0.1) = 0.10000000000002274, so narrow longitude edges are not their labels (fix idea: wrap before rounding). Findings SW-3791 SW-3792 SW-3793 SW-3794 SW-3795.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3791,
+      "title": "[DeepSeek] std: Float.min and Float.max (JS Math.min/max semantics noted), and named Float.leTrans / Float.leLtTrans outside Ord (SW-3790 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3792,
+      "title": "[Sonnet] std: JS 32-bit number operations (imul, ToInt32, ToUint32, >>>, |, ^ on Float) as a module, so ports like mulberry32 need no hand model (SW-3790 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3793,
+      "title": "[Sonnet] Messages from SW-3790: foldLeft with arguments swapped says 'this is a function, but the expected type is _'; a let before arithmetic gave E-RESOURCE on the whole theorem header with no step; byComputing on a conjunction should suggest the tuple",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3794,
+      "title": "[Sonnet] JS comparisons (ieeeLe/ieeeLt) have no operators, so ports of JS float code flip every comparison into prefix form; consider operator spellings for the IEEE comparisons (SW-3790 friction; design question first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3795,
+      "title": "[Sonnet] Unboxed unit records (Degrees, Km) have no arithmetic; a way to derive or lift + - * on js.unboxed numeric microtypes (SW-3790 friction; design question first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
