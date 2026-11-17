@@ -9997,6 +9997,21 @@ mod tests {
         Span::point(sources.add("test", ""), 0)
     }
 
+    /// `Held` stays alive in an application's frame while its arguments are
+    /// checked, so a nested application adds one more per level of
+    /// recursion: a field added here multiplies its cost down the recursion.
+    /// A new field must be boxed, or this bound raised with a reason. (The
+    /// size is for a 64-bit target.)
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn held_size_is_bounded() {
+        let size = std::mem::size_of::<Held<'static>>();
+        assert!(
+            size <= 208,
+            "Held grew to {size} bytes, over the 208-byte bound: box the new field, or raise the bound with a reason"
+        );
+    }
+
     /// A case split can refine an earlier variable's type to mention a
     /// later one, as `Int.div`'s `ok: divisor != OfNat 0` mentions `n` in
     /// its `OfNat (Succ n)` case. That later variable isn't ignorable, and

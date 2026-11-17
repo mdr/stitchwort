@@ -224,6 +224,21 @@ mod tests {
         cx.g().meta_solution(m).is_some()
     }
 
+    /// A deep recursion keeps one `Snapshot` alive per level, so a field
+    /// added here multiplies its cost across the whole recursion: an
+    /// unboxed `Option<ProbePending>` once raised a benchmark's peak heap
+    /// from 1.9 MB to 2.6 MB. A new field must be boxed, or this bound
+    /// raised with a reason. (The size is for a 64-bit target.)
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn snapshot_size_is_bounded() {
+        let size = std::mem::size_of::<Snapshot>();
+        assert!(
+            size <= 200,
+            "Snapshot grew to {size} bytes, over the 200-byte bound: box the new field, or raise the bound with a reason"
+        );
+    }
+
     #[test]
     fn a_comparison_that_fails_part_way_solves_nothing() {
         let e = Elaborator::new();
