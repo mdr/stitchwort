@@ -22923,12 +22923,12 @@
     {
       "id": 3903,
       "title": "[Sonnet] Engine R0: fix the four measure bugs in crates/fmt's engine (line indent at a second comment break, real width in fits_flat, the waiting comment in a broken fill's first item, spaces held before a closer), each with a golden; count changed outputs over goldens and the repo; if many change or any looks worse, stop for a D question (docs/proposals/self-hosted-fmt-engine-plan.md, SW-3902)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane notes (Sonnet): four fixes in four commits on lane/SW-3903, each with an engine unit test shown failing first. Repo impact: 3 .sw files change, all from bug 2 (text blocks in one-line-below options): aoc Day08 Tests/Examples.sw, toyfmt Goldens.sw and Probes.sw. Not reformatted: awaiting orchestrator/Matt (looks worse in one place). Goldens unchanged.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
