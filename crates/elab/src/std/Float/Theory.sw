@@ -6381,7 +6381,6 @@ theorem Float.Theory.ratioMagnitude ∀ (num: Int) (den: Nat) (scale: Int) (z: B
     Float.Model.magnitude (Float.Model.roundRatio num den scale z)
       = Float.Model.roundMagnitude False (Int.natAbs num) den (Int.add scale (OfNat 1074)) :=
   match num with
-    | OfNat Zero => Void.impossible (arithmetic [nz])
     | OfNat (Succ k) =>
       let m: Nat := Float.Model.roundMagnitude False (Succ k) den (Int.add scale (OfNat 1074))
       let c: Nat.leq 9223372036854775808 m = False := arithmetic [mb]
@@ -6436,7 +6435,7 @@ theorem Float.divRelError ∀ (x d: Float)
   let fqb: Float.Theory.FiniteBits (x / d).bits := Float.Theory.finiteBits (x / d) fq
   let qAbs: Int.natAbs (Float.Theory.units (x / d)) = Float.Theory.magUnits (Float.Model.magnitude (x / d).bits) :=
     Float.Theory.natAbsUnits (x / d).bits
-  match zn: Float.Theory.zeroOrPos n with
+  match Float.Theory.zeroOrPos n with
     | Inl n0 =>
       Float.Theory.divRelErrorZero
         (Int.natAbs (Float.Theory.units (x / d)))
@@ -6504,7 +6503,7 @@ theorem Float.mulRelError ∀ (x c: Float)
   let pAbs: Int.natAbs (Float.Theory.units (x * c)) = Float.Theory.magUnits (Float.Model.magnitude (x * c).bits) :=
     Float.Theory.natAbsUnits (x * c).bits
   let pd: 0 < Float.Model.pow2 1074 := byComputing
-  match zn: Float.Theory.zeroOrPos n with
+  match Float.Theory.zeroOrPos n with
     | Inl n0 =>
       Float.Theory.mulRelErrorZero
         (Int.natAbs (Float.Theory.units (x * c)))
@@ -6527,3 +6526,57 @@ theorem Float.mulRelError ∀ (x c: Float)
         Float.Theory.roundMagnitudeSpec n 1 (-1074) np byComputing
       let fm: m < 9218868437227405312 := J (y w => y < 9218868437227405312) fpb mm
       rewrite pAbs, mm then Float.Theory.roundsToRelError n (Float.Model.pow2 1074) m spec fm pd small
+
+theorem Float.Theory.addRelErrorZero ∀ (a n: Nat)
+    (n0: n = 0)
+    (a0: a = 0):
+    Nat.absDiff (a * 1) n * 9007199254740992 ≤ n + 1 * 4503599627370496 :=
+  rewrite n0, a0
+
+--| The standard error model for `+` of finite doubles: for a finite sum
+--| below 2^1023 in size, `|x + c|` misses the exact sum's size by at most
+--| 2^-53 of it, or half a unit (2^-1075) below the normal range. In units
+--| of 2^-1074, with `n` the size of the units' sum: `2^53 |s − n| ≤ n + 2^52`.
+--| (In the subnormal range the sum is exact; the bound doesn't say so.)
+theorem Float.addRelError ∀ (x c: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True)
+    (fs: Float.isFinite (x + c) = True)
+    (small: Int.natAbs (Int.add (Float.Theory.units x) (Float.Theory.units c)) < 1 * Nat.pow 2 2097):
+    Nat.absDiff
+      (Int.natAbs (Float.Theory.units (x + c)) * 1)
+      (Int.natAbs (Int.add (Float.Theory.units x) (Float.Theory.units c)))
+      * 9007199254740992
+      ≤ Int.natAbs (Int.add (Float.Theory.units x) (Float.Theory.units c)) + 1 * 4503599627370496 :=
+  let num: Int := Int.add (Float.Theory.units x) (Float.Theory.units c)
+  let n: Nat := Int.natAbs num
+  let z: Bool := Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits
+  let sb: (x + c).bits = Float.Model.roundRatio num 1 (-1074) z := Float.Theory.addBitsOf x c fx fc
+  let fsb: Float.Theory.FiniteBits (x + c).bits := Float.Theory.finiteBits (x + c) fs
+  let sAbs: Int.natAbs (Float.Theory.units (x + c)) = Float.Theory.magUnits (Float.Model.magnitude (x + c).bits) :=
+    Float.Theory.natAbsUnits (x + c).bits
+  match Float.Theory.zeroOrPos n with
+    | Inl n0 =>
+      Float.Theory.addRelErrorZero
+        (Int.natAbs (Float.Theory.units (x + c)))
+        n
+        n0
+        (rewrite sAbs, sb then Float.Theory.ratioZeroUnitsAt num 1 (-1074) z n0)
+    | Inr np =>
+      let m: Nat := Float.Model.roundMagnitude False n 1 (OfNat 0)
+      let mm: Float.Model.magnitude (x + c).bits = m :=
+        J
+          (b w => Float.Model.magnitude b = m)
+          (Float.Theory.ratioMagnitude num 1
+            (-1074)
+            z
+            np
+            (Float.Theory.ratioMagnitudeBound num 1 (-1074) z np byComputing))
+          sb.flipped
+      let spec: Float.Theory.RoundsTo n 1 m :=
+        J
+          (u w => Float.Theory.RoundsTo u 1 m)
+          (Float.Theory.roundMagnitudeSpec n 1 (OfNat 0) np byComputing)
+          (algebra: n * 1 = n)
+      let fm: m < 9218868437227405312 := J (y w => y < 9218868437227405312) fsb mm
+      rewrite sAbs, mm then Float.Theory.roundsToRelError n 1 m spec fm byComputing small
