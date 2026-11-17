@@ -1,5 +1,5 @@
 {
-  "next": 3834,
+  "next": 3836,
   "tickets": [
     {
       "id": 47,
@@ -21959,12 +21959,12 @@
     {
       "id": 3829,
       "title": "[Sonnet] proofs::proof_equivalence::closed_terms_agree_with_their_normal_forms now holds about 9 GB (was fine at 53ac0e3ba) and memguard kills Overmind's proofs step: likely its Float.ofNat wrapper, a definition since SW-638, normalised fully in the reference evaluator. Confirm by measurement, fix the test (or the evaluator), memory back under ~1 GB",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "\n\nSonnet lane notes: cause confirmed. Plain mode expands every number literal as Succ^n (reference.rs nat); Float.ofNat now unfolds through Float.Model, whose literals (pow2 1074 etc.) become unary in plain mode. Before: test SIGKILLed at 14.3 GB RSS after 156 s. Fix at test level: removed the Float.ofNat wrapper, the G4 known_gap and the two ignored G4 probes (no float primitives left to test). After: pass, 1.0 s, 422 MB.\n",
+      "body": "\n\nSonnet lane notes: cause confirmed. Plain mode expands every number literal as Succ^n (reference.rs nat); Float.ofNat now unfolds through Float.Model, whose literals (pow2 1074 etc.) become unary in plain mode. Before: test SIGKILLed at 14.3 GB RSS after 156 s. Fix at test level: removed the Float.ofNat wrapper, the G4 known_gap and the two ignored G4 probes (no float primitives left to test). After: pass, 1.0 s, 422 MB.\n\nModel result: sonnet, worked, 7 min (est. 30). Before: SIGKILL at 156 s, 14.36 GB max RSS (one run, the likely cause of Matt's memory pressure). After: 1.0 s, 422 MB. Follow-ups SW-3834 SW-3835.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22016,6 +22016,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3834,
+      "title": "[Sonnet] Reference evaluator plain mode builds number literals as Succ^n with no size guard: any definition with large literals (Float.Model's pow2 1074) exhausts memory; fail with E-RESOURCE past a size cap instead (SW-3829 finding; it took Matt's Mac out of memory)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3835,
+      "title": "[DeepSeek] Mark G4 obsolete: docs/repros/sw-2236/g4.sw and the G4 rows in docs/proposals/equality-in-the-round.md (float primitives are definitions since SW-638/SW-639; SW-3829 removed the G4 tests)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
