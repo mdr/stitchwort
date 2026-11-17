@@ -2766,3 +2766,197 @@ theorem wrapWholeExact ∀ (e: Float) (n: Int)
             (y w => Float.Theory.units y = Int.mul (wrappedDegrees n) (OfNat (Float.Model.pow2 1074)))
             (J (i w => Float.Theory.units (r2 + (-180.0)) = Int.mul i (OfNat (Float.Model.pow2 1074))) s3.right back)
             (Float.subAddNeg r2 180.0).flipped))
+
+-- The answer in its band: latitude
+
+--| A double from -360° to 360° is under 2^49 in size, as `floorToWhole` and `ceilToWhole` need.
+theorem absWithin360 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.abs x < 562949953421312.0 :=
+  match c: Nat.leq 9223372036854775808 x.bits with
+    | True =>
+      let kl: Int.leq (Float.Theory.key (-360.0).bits) (Float.Theory.key x.bits) = True := lo
+      let kn360: Float.Theory.key (-360.0).bits = NegSucc 4645040803167600640 := byComputing
+      let big: Float.orderKey 562949953421312.0 = OfNat 4827858800541171712 := byComputing
+      let ks := Float.Theory.keySet x.bits c
+      let low: Nat.leq 9223372036854775808 (x.bits - 9223372036854775808) = False := arithmetic [kl, kn360, ks]
+      arithmetic [kl, kn360, ks, Float.Theory.keyClear (x.bits - 9223372036854775808) low, big]
+    | False =>
+      let kh: Int.leq (Float.Theory.key x.bits) (Float.Theory.key 360.0.bits) = True := hi
+      let k360: Float.Theory.key 360.0.bits = OfNat 4645040803167600640 := byComputing
+      let big: Float.orderKey 562949953421312.0 = OfNat 4827858800541171712 := byComputing
+      let m: Float.Model.magnitude x.bits = x.bits := rewrite c
+      arithmetic [kh, k360, Float.Theory.keyClear x.bits c, m, Float.Theory.absKey x, big]
+
+theorem unitsWithinDegrees ∀ (u lo hi: Int) (p: Nat)
+    (pp: 0 < p)
+    (el: lo = Int.neg (OfNat (p * 360)))
+    (eh: hi = OfNat (p * 360))
+    (a: Int.leq lo u = True)
+    (b: Int.leq u hi = True):
+    Int.natAbs u < p * 361 :=
+  arithmetic [pp, el, eh, a, b]
+
+--| A double from -360° to 360° has under 361 · 2^1074 units in size.
+theorem unitsWithin360 ∀ (x: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    Int.natAbs (Float.Theory.units x) < Float.Model.pow2 1074 * 361 :=
+  unitsWithinDegrees
+    (Float.Theory.units x)
+    (Float.Theory.units (-360.0))
+    (Float.Theory.units 360.0)
+    (Float.Model.pow2 1074)
+    byComputing
+    byComputing
+    byComputing
+    (Float.Theory.unitsMonoKey (-360.0).bits x.bits lo)
+    (Float.Theory.unitsMonoKey x.bits 360.0.bits hi)
+
+theorem natAbs361 ∀ (f: Int) (h: Int.natAbs f ≤ 361): Int.natAbs f ≤ 9007199254740992 := arithmetic [h]
+
+theorem natAbsNeg361 ∀ (f: Int) (h: Int.natAbs f ≤ 361): Int.natAbs (Int.neg f) ≤ 9007199254740992 := arithmetic [h]
+
+--| The floor of a double from -360° to 360° is finite.
+theorem floorFinite360 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (Float.floor x) = True :=
+  let fx: Float.isFinite x = True := Float.finiteBetween (-360.0) x 360.0 byComputing byComputing lo hi
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n (Float.Model.pow2 1074)
+  let fb: Int.natAbs f ≤ 361 :=
+    Float.Theory.floorDivBelow s n (Float.Model.pow2 1074) 361 byComputing (unitsWithin360 x lo hi)
+  let fl: (Float.floor x).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans
+      (Float.Theory.floorOfBits x)
+      (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a (Float.Theory.finiteBits x fx)))
+  J
+    (k w => Float.isFinite k = True)
+    (wholeAtFacts f s (natAbs361 f fb)).left
+    (wholeAtOf (Float.floor x) f s fl).flipped
+
+--| The ceiling of a double from -360° to 360° is finite.
+theorem ceilFinite360 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (Float.ceil x) = True :=
+  let fx: Float.isFinite x = True := Float.finiteBetween (-360.0) x 360.0 byComputing byComputing lo hi
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n (Float.Model.pow2 1074)
+  let gb: Int.natAbs g ≤ 361 :=
+    Float.Theory.floorDivBelow (¬s) n (Float.Model.pow2 1074) 361 byComputing (unitsWithin360 x lo hi)
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans
+      (Float.Theory.ceilOfBits x)
+      (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a (Float.Theory.finiteBits x fx)))
+  J
+    (k w => Float.isFinite k = True)
+    (wholeAtFacts (Int.neg g) s (natAbsNeg361 g gb)).left
+    (wholeAtOf (Float.ceil x) (Int.neg g) s cl).flipped
+
+--| A band rounds its edges to tenths or to whole degrees.
+theorem stepEither ∀ (width: Float): (stepFor width = 0.1) ∨ (stepFor width = 1.0) :=
+  match n: Float.ieeeLt width 5.0 with
+    | True => Inl byComputing
+    | False => Inr byComputing
+
+theorem leAddNat ∀ (a b: Int) (p: Nat) (h: Int.leq a b = True): Int.leq a (Int.add b (OfNat p)) = True := arithmetic [h]
+
+--| `floorTo x 0.1` for `|x| ≤ 360` is a tenth within 361°, so finite.
+theorem floorTenthFinite ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (floorTo x 0.1) = True :=
+  let bounds := Bool.andRight (Bool.andRight (Bool.andRight (floorTenthsChecked x lo hi)))
+  (Float.finiteBetween (-361.0) (tenthOf (Float.floor (x / 0.1))) 361.0 byComputing byComputing
+    (Bool.andLeft bounds)
+    (Bool.andRight bounds): Float.isFinite (tenthOf (Float.floor (x / 0.1))) = True)
+
+--| `ceilTo x 0.1` for `|x| ≤ 360` is a tenth within 361°, so finite.
+theorem ceilTenthFinite ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (ceilTo x 0.1) = True :=
+  let bounds := Bool.andRight (Bool.andRight (Bool.andRight (ceilTenthsChecked x lo hi)))
+  (Float.finiteBetween (-361.0) (tenthOf (Float.ceil (x / 0.1))) 361.0 byComputing byComputing
+    (Bool.andLeft bounds)
+    (Bool.andRight bounds): Float.isFinite (tenthOf (Float.ceil (x / 0.1))) = True)
+
+--| Outward rounding at a band's step moves a lower edge `x` within 360° up
+--| by at most 2^-42, in exact units, and leaves it finite: at step 0.1 by
+--| `floorToTenthBound`, at step 1 not at all (`floorTo x 1.0` is `floor x`).
+theorem floorStepBound ∀ (x width: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    (Float.isFinite (floorTo x (stepFor width)) = True)
+      ∧ (Int.leq
+        (Float.Theory.units (floorTo x (stepFor width)))
+        (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+        = True) :=
+  match stepEither width with
+    | Inl e =>
+      J
+        (s z =>
+          (Float.isFinite (floorTo x s) = True)
+            ∧ (Int.leq (Float.Theory.units (floorTo x s)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+              = True))
+        (Both (floorTenthFinite x lo hi) (floorToTenthBound x lo hi))
+        e.flipped
+    | Inr e =>
+      let w: floorTo x 1.0 = Float.floor x := floorToWhole x (absWithin360 x lo hi)
+      let b: Int.leq
+        (Float.Theory.units (Float.floor x))
+        (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+        = True :=
+        leAddNat
+          (Float.Theory.units (Float.floor x))
+          (Float.Theory.units x)
+          (Float.Model.pow2 1032)
+          (Float.Theory.unitsMonoKey (Float.floor x).bits x.bits (Float.floorLe x))
+      J
+        (s z =>
+          (Float.isFinite (floorTo x s) = True)
+            ∧ (Int.leq (Float.Theory.units (floorTo x s)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+              = True))
+        (J
+          (y z =>
+            (Float.isFinite y = True)
+              ∧ (Int.leq (Float.Theory.units y) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032))) = True))
+          (Both (floorFinite360 x lo hi) b)
+          w.flipped)
+        e.flipped
+
+--| Outward rounding at a band's step moves an upper edge `x` within 360°
+--| down by at most 2^-42, in exact units, and leaves it finite, as
+--| `floorStepBound`.
+theorem ceilStepBound ∀ (x width: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    (Float.isFinite (ceilTo x (stepFor width)) = True)
+      ∧ (Int.leq
+        (Float.Theory.units x)
+        (Int.add (Float.Theory.units (ceilTo x (stepFor width))) (OfNat (Float.Model.pow2 1032)))
+        = True) :=
+  match stepEither width with
+    | Inl e =>
+      J
+        (s z =>
+          (Float.isFinite (ceilTo x s) = True)
+            ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (ceilTo x s)) (OfNat (Float.Model.pow2 1032)))
+              = True))
+        (Both (ceilTenthFinite x lo hi) (ceilToTenthBound x lo hi))
+        e.flipped
+    | Inr e =>
+      let w: ceilTo x 1.0 = Float.ceil x := ceilToWhole x (absWithin360 x lo hi)
+      let b: Int.leq
+        (Float.Theory.units x)
+        (Int.add (Float.Theory.units (Float.ceil x)) (OfNat (Float.Model.pow2 1032)))
+        = True :=
+        leAddNat
+          (Float.Theory.units x)
+          (Float.Theory.units (Float.ceil x))
+          (Float.Model.pow2 1032)
+          (Float.Theory.unitsMonoKey x.bits (Float.ceil x).bits (Float.ceilGe x))
+      J
+        (s z =>
+          (Float.isFinite (ceilTo x s) = True)
+            ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (ceilTo x s)) (OfNat (Float.Model.pow2 1032)))
+              = True))
+        (J
+          (y z =>
+            (Float.isFinite y = True)
+              ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1032))) = True))
+          (Both (ceilFinite360 x lo hi) b)
+          w.flipped)
+        e.flipped
