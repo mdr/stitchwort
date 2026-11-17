@@ -41669,7 +41669,7 @@
     {
       "id": 3696,
       "title": "[Sonnet] proof-chain-warning.sw no longer warns: 1e51adaca formatted it, which joined the multi-line trans nests onto one line, and W-PROOF-CHAIN fires only for nests over several lines (SW-3611). Main's accepted_examples_check is red on it. Make the example keep multi-line nests that the formatter leaves alone (e.g. arguments too long for one line; the formatter seems to keep a long nest on one line past the width, check why), or reconsider the warning/formatter interplay (a formatted file should still warn where it would have). Report if it needs a decision",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
