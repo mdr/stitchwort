@@ -1,5 +1,5 @@
 {
-  "next": 3843,
+  "next": 3846,
   "tickets": [
     {
       "id": 47,
@@ -21663,7 +21663,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "SW-3830: check --std doesn't even resolve names in test blocks: a test calling a nonexistent Float.isNegative passed check --std.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -21972,12 +21972,12 @@
     {
       "id": 3830,
       "title": "[Opus] Whereabouts outward rounding for whole-degree steps: x / 1.0 = x, and * 10.0 and / 10.0 exact on negative whole numbers via roundWholeUnits; then the theorem (SW-3805 says 20-30 min plus the theorem)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "Progress (lane, Opus, 17 Nov 2026, 16:05-16:20):\n- Done on lane/SW-3830 (bc651db04). std: Float.divOneRight; Float.Theory.mulTenWhole, divTenWhole (exact * 10.0 and / 10.0 on whole numbers of either sign, via roundWholeUnits); Float.roundTenthsOfFloor/Ceil (round (floor x * 10.0) / 10.0 = floor x for |x| < 2^49, zero signs included); helpers roundRatioScale, roundRatioUnitDen, unitsInjective, mulNonzero, absBelowUnitsOf, floorDivBelow, tenfoldBelow(Neg), absBelowBits, divOneBits, roundTenthsWhole.\n- Whereabouts: floorToWhole, ceilToWhole, outwardRoundingWhole (floorTo from 1.0 <= from and to <= ceilTo to 1.0 for |edge| < 2^49). Audit 21 theorems, 0 failed. NOTES.md table updated with what \"answer in band\" still needs.\n- Tests: hash_stability::prelude (17 names added, re-accepted), fmt_repo:: pass; new std tests run through a scratch file, pass.\n",
+      "body": "Progress (lane, Opus, 17 Nov 2026, 16:05-16:20):\n- Done on lane/SW-3830 (bc651db04). std: Float.divOneRight; Float.Theory.mulTenWhole, divTenWhole (exact * 10.0 and / 10.0 on whole numbers of either sign, via roundWholeUnits); Float.roundTenthsOfFloor/Ceil (round (floor x * 10.0) / 10.0 = floor x for |x| < 2^49, zero signs included); helpers roundRatioScale, roundRatioUnitDen, unitsInjective, mulNonzero, absBelowUnitsOf, floorDivBelow, tenfoldBelow(Neg), absBelowBits, divOneBits, roundTenthsWhole.\n- Whereabouts: floorToWhole, ceilToWhole, outwardRoundingWhole (floorTo from 1.0 <= from and to <= ceilTo to 1.0 for |edge| < 2^49). Audit 21 theorems, 0 failed. NOTES.md table updated with what \"answer in band\" still needs.\n- Tests: hash_stability::prelude (17 names added, re-accepted), fmt_repo:: pass; new std tests run through a scratch file, pass.\n\nModel result: opus, worked, 15 min (est. 45). Follow-ups SW-3843 SW-3844 SW-3845.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -21990,7 +21990,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "SW-3830 hit it too: arithmetic rejects goals once a hypothesis mentioning pow2 1074 * bound is in scope, even when not passed to it.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22133,6 +22133,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3843,
+      "title": "[Opus] std Float: a law bridging the total order to IEEE comparison (x <= y with neither NaN gives Float.ieeeLe x y, and back), plus jsMin/jsMax laws for non-NaN operands; every JS-comparison port needs them (SW-3830 finding; Whereabouts answer-in-band)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3844,
+      "title": "[Opus] Whereabouts answer in band: the step-0.1 case (error bounds for / and *, a spec for round, / 10.0 error), the margin row, latitude clamps, longitude's wrapped interval (apps/whereabouts/NOTES.md table, SW-3830 report); after SW-3843",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3845,
+      "title": "[DeepSeek] Float.Theory: fold floorDivRange and absBelowUnits into instances of the general-bound floorDivBelow and absBelowUnitsOf (SW-3830 kept both to leave hashes unchanged)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
