@@ -1,5 +1,5 @@
 {
-  "next": 3778,
+  "next": 3779,
   "tickets": [
     {
       "id": 47,
@@ -42567,6 +42567,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3778,
+      "title": "[DeepSeek] fmt: a calc whose only step has no ':= proof' (the E-CALC-STEP reject shape), with a trailing comment glued onto the statement line, formats so the step can't be re-read ('expected a step _ = e on the next line, indented past calc'); formatter refuses. Minimal 4 lines: 'theorem bad (n: Nat) (m: Nat): n + m = m + n-- c' / ' :=' / '  calc n + m' / '    _ = m + n'. Fuzz seed 0x1024 plain case 4466; SW-3571 family",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
