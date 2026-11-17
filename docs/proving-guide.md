@@ -124,6 +124,9 @@ result is a hypothesis's predicate applied to arguments (`∀ (x: a) => p x`,
 with `p: a → Prop`). Messages, which have no types for the variables, show
 that as `(x: a) → p x`. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
+With a bare row variable, keep the parentheses around a compound result:
+`{e} (f x)`, since `{e}` followed by a term reads as a record literal applied
+to it; a row with an ability in it (`{IO | e} f x`) reads as a row.
 Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
 (`t => Cons t rs`, `fold Cons`). A rest before an append and an append
@@ -372,7 +375,12 @@ Import what you use: std's theorems live in namespaces that need an import
   names. A hypothesis `h: Some x = Some y` (any one constructor on both
   sides) gives `x = y`, and `cases` then replaces `y` by `x` in the goal and
   the hypotheses, so `f x = f y` needs no `rewrite` or `Eq.cong`; in
-  `cases then t`, `t` may still name `y`. An equation with no variable side (`f x =
+  `cases then t`, `t` may still name `y`. Inside a `cases then …`
+  continuation a constructor's fields have hygienic names (shown as
+  `record✝`) that a proof can't write, so `match` on the constructor first
+  to name them. `cases then (lemma inner)` doesn't refine `inner` in the
+  lemma's type: bind the lemma's result with a `let` first (`let step :=
+  lemma inner`), and `cases` refines `step`'s type. An equation with no variable side (`f x =
   f y`) is only kept as a fact, not rewritten with. An `Int` `==` that a test depends on (`if x + 1 == y then …`) is
   split as one `Bool`, true or false, and `arithmetic` reads it in each case;
   `cases` doesn't take the `Int` apart into `OfNat` and `NegSucc`. At most
@@ -544,6 +552,11 @@ Each was run on the example named; the output is quoted, shortened.
   and, when every variable is finite, points at `Finite.check`
   (`examples/reject/cases-budget.sw`). Otherwise prove a fact that decides
   several cases at once and pass it with `cases then t`, or `match` by hand.
+  A record type with many fields can exhaust the budget without an
+  interesting case: `cases` falls back to splitting each field, and 11
+  fields of a few values each multiply past 64 cases. Match on the
+  constructor first (`match r with | Row a b … => cases`), then use `cases`
+  on the one field that matters.
   The same error comes sooner when a case grows too large to split: a
   goal and hypotheses that, written out in full, have more than a million
   parts (`examples/reject/cases-split-too-large.sw`).
@@ -551,7 +564,11 @@ Each was run on the example named; the output is quoted, shortened.
   satisfies the facts" names values for the atoms; often a fact is missing
   (pass it in `arithmetic […]`) or an atom hides arithmetic (`x % 2`, `x / 2`,
   a call). With a counterexample note, the statement is false
-  (`examples/reject/omega-integer-model.sw`).
+  (`examples/reject/omega-integer-model.sw`). Very large coefficients fail
+  differently: near 2^160 they are "too large" for the search, and a chain
+  near 2^106 runs it out of budget, so keep coefficients under about 2^110.
+  State small lemmas that eliminate one variable per call instead of one
+  `arithmetic` over the whole chain.
 - **`E-MATCH-MOTIVE`**: generalising a `match`'s scrutinee makes the type
   ill-formed, because something else in the type depends on it. The note
   says the fix: a top-level helper with a written signature
@@ -560,6 +577,12 @@ Each was run on the example named; the output is quoted, shortened.
   - `E-REWRITE-NOTHING`: the left side isn't in the goal as written, nor as it computes. The
     notes show the goal "as written" and "as it computes", and say when the
     goal already holds by computing (`examples/reject/rewrite-nothing.sw`).
+    When the note says the goal already computed past the rule, a side with
+    no variables has folded to a literal: close that step with `byComputing`,
+    or use `J` with an explicit motive. The elaborator also folds closed
+    constants in a type annotation (`Float.Model.pow2 1074` becomes its
+    value), so a rule about `pow2 1074` can silently find nothing there;
+    `J` with the motive written out works.
     A `match c: e` refines the hypotheses that mention `e` as well as the
     goal, so inside its arm a hypothesis already has the branch's form: use
     it as it is rather than rewriting it
@@ -689,6 +712,11 @@ Each was run on the example named; the output is quoted, shortened.
   is expected as `… % 2147483648 ≤ 2147483647`, and `Nat.modLt _ _` with
   holes then doesn't match. Give the lemma its arguments
   (`Nat.modLt (seed * 1103515245 + 12345) 2147483648` checks).
+- **`expected Float.isValid N`**: a local equation about a float constant
+  in scope (`pv: Float.Model.pow2 1074 = …`) can make the checker fill a
+  float literal's validity proof with `pv`, giving `expected Float.isValid N`.
+  Inline the step with `byComputing` instead of keeping the local equation
+  (bug SW-3887).
 
 When a message hid the real problem (22 items in agentic-proving.md §5 C), say so in the
 report: messages get fixed from those reports.
@@ -846,6 +874,9 @@ program can be an enormous term.
   namespace taking several seconds cold has something unfolding; halving
   the file (or replacing proofs with `?`) finds it. On day 23 one 100-line
   theorem took 16 s; split into lemmas, 2 s (aoc/NOTES-2024.md:7689).
+  `check` has no `--timings`: to time one theorem, run
+  `time stitchwort check --only NAME --no-cache NAMESPACE` and subtract
+  std's own check time (about 9 s).
 
 ## 7. The report
 
