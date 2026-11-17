@@ -1,5 +1,5 @@
 {
-  "next": 3790,
+  "next": 3791,
   "tickets": [
     {
       "id": 47,
@@ -531,14 +531,14 @@
     {
       "id": 638,
       "title": "Float laws stage 3: mul, ofInt, ofNat defined through roundScaled (docs/proposals/float-laws.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "std-library",
+      "epic": "floats",
       "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.",
       "created": "2026-10-26",
-      "updated": "2026-11-04",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -548,10 +548,10 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "std-library",
+      "epic": "floats",
       "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.",
       "created": "2026-10-26",
-      "updated": "2026-11-04",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -599,10 +599,10 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "std-library",
+      "epic": "floats",
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -42654,6 +42654,7 @@
       "agent": "",
       "where": "",
       "labels": [],
+      "epic": "floats",
       "body": "Model result: fable, worked, 11 min (est. 45). D candidates in the note's §9; orchestrator brings the main one as D3675. Findings SW-3787 SW-3788 SW-3789.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
@@ -42703,7 +42704,8 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "epic": "floats",
+      "body": "D3675 (Matt, 17 Nov 2026): 'Yes, I think that makes it simple, right? If we implement our own definitions for these functions rather than the browser's unspecified implementations.' std's exp/log/cos etc. are Stitchwort definitions, same bits everywhere; never Math.*.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42715,6 +42717,7 @@
       "agent": "",
       "where": "",
       "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
@@ -42727,6 +42730,20 @@
       "agent": "",
       "where": "",
       "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3790,
+      "title": "[Opus] Whereabouts pilot: port hint bands (hintBand, inHintBand, describeHint, seededUnit, floorTo/ceilTo/wrap) to a Stitchwort project apps/whereabouts; tests from hints.test.ts; theorems stated (answer in band, margin, outward rounding, label = band, wrap range), proved where today's laws allow; friction notes",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",

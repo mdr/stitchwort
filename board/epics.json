@@ -570,6 +570,46 @@
         "D2532",
         "docs/reviews/SW-1716-dev-loop-profile.md"
       ]
+    },
+    {
+      "id": "floats",
+      "title": "Floats",
+      "goal": "Every Float operation is a definition with proved laws, and std has its own exp, log, cos and sqrt with the same bits on every engine, so theorems hold about the code that runs.",
+      "status": "active",
+      "done": [
+        "Float.Model and add/sub laws (stages 1-2)",
+        "Design for functions JS leaves loose: own definitions, correctly rounded aim (SW-3783, D3675)"
+      ],
+      "now": [
+        "Stage 3: mul, ofInt, ofNat as definitions (SW-638)"
+      ],
+      "next": [
+        "Stage 4: div, rem, floor, ceil, trunc, round (SW-639)",
+        "Float.sqrt (SW-3788); exp speed measurement (SW-3787)"
+      ],
+      "links": [
+        "docs/proposals/float-laws.md",
+        "docs/proposals/float-transcendentals.md",
+        "D3675"
+      ]
+    },
+    {
+      "id": "whereabouts",
+      "title": "Whereabouts",
+      "goal": "Parts of Matt's Whereabouts game written and proved in Stitchwort, starting with hint bands, so real shipped code drives the float work.",
+      "status": "active",
+      "done": [],
+      "now": [
+        "Hint bands port with theorems stated"
+      ],
+      "next": [
+        "Hint-band proofs once float stages 3-4 land",
+        "Seeded shuffle and standings; the game rules model"
+      ],
+      "links": [
+        "/Users/matt/repos/mdr/whereabouts/docs/stitchwort-candidates.md",
+        "D3674"
+      ]
     }
   ]
 }
