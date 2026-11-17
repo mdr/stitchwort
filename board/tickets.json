@@ -1,5 +1,5 @@
 {
-  "next": 3764,
+  "next": 3767,
   "tickets": [
     {
       "id": 47,
@@ -42381,6 +42381,45 @@
       "id": 3763,
       "title": "[Opus paper] Review SW-3719 (derived ==/< proofs reshaped: %pack/%unpack built as kernel terms, %sameIff, Ordering.thenPairEqual, Ord.instanceFor) before merge (D2364: generates kernel terms): statements unchanged, maintainability of the derivers, the deeper proof nesting (Box 71 -> 855 frames), anything that could break on types the tests don't cover",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3764,
+      "title": "[Sonnet] Record update lemmas T.fK.update.fJ are generated for every pair of fields: 256 lemmas, ~0.38M steps at 16 fields, now the largest cost of a wide record; generate them lazily or per field (SW-3719 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3765,
+      "title": "[Opus] Instance search gets dearer as a proof's context grows (~35K steps a call at 16 fields; find_ready_dictionaries, also in SW-3726's notes); fix in the elaborator, helps hand-written proofs too (SW-3719 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3766,
+      "title": "[Sonnet] Derived instances: per-constructor tag and %etaAt work is ~25K steps per constructor in each of %sameIff, %equal, %trans; now the main cost for many-constructor types like Omega.Fact (SW-3719 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
