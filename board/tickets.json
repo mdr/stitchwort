@@ -1,5 +1,5 @@
 {
-  "next": 3829,
+  "next": 3830,
   "tickets": [
     {
       "id": 47,
@@ -21951,6 +21951,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3829,
+      "title": "[Sonnet] proofs::proof_equivalence::closed_terms_agree_with_their_normal_forms now holds about 9 GB (was fine at 53ac0e3ba) and memguard kills Overmind's proofs step: likely its Float.ofNat wrapper, a definition since SW-638, normalised fully in the reference evaluator. Confirm by measurement, fix the test (or the evaluator), memory back under ~1 GB",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
