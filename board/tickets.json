@@ -22193,7 +22193,7 @@
     {
       "id": 3847,
       "title": "[Opus] Self-hosted formatter stage 2c: blocks of several lines, a block's let, local definitions, handle, calc, rewrite, cases, match induct/reify, rules sets, decreasing/unfolding; the mismatched-bracket lookahead case ([a: (x: Type] a) => x); lambda_result_type's error (SW-3836 report)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
