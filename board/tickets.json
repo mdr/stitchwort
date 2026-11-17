@@ -22570,12 +22570,12 @@
     {
       "id": 3876,
       "title": "[Sonnet] Self-hosted fmt P3: after a row that is just a row variable ({e}), P3 drops brackets Rust keeps, since bare {e} then reads as a record applied to what follows; six repros (0/6 identical) in the SW-3864 scratch probe-e (def a: {e} (.f) := x; (match …); (include \"x\") y; (-x) * y; (!x) ∧ y; (if …)); fix and add the six to the twin's inputs (SW-3864 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 17 Nov 2026): cause: Rust asks the parser whether a bracket pair can go; a row whose first ability is lowercase-led (`{e}`, `{e, f}`, `{}`, `{E.e}`) reads as a record, so a bare section, prefix operator, match, if, include etc. after it joins it. Fix: Passes.sw rowReadsAsRecord + startsApart, a recordRow flag through dropLeft/keepsBrackets; MeaningProofs threaded, checks. Test: Fmt.Tests P3 record-row case; golden ability-row-variable-parens (Rust stable). Twin: six 6/6, goldens 126/126 (124 + the new pair). Model result: Sonnet, worked, 25 min (est. 20).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

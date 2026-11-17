@@ -63,9 +63,9 @@ theorem forallKeepsMeaning ∀ (header: Header): plainHeader (withForall header)
 
 theorem levelAtomic ∀ (expr: Expr) (high: 22 <= expr.level): expr.atomic = True := cases
 
-theorem negativeKept ∀ (membership: Bool) (expr: Expr)
+theorem negativeKept ∀ (membership recordRow: Bool) (expr: Expr)
     (negative: expr.negativeNumeral = True):
-    keepsBrackets membership expr = True :=
+    keepsBrackets membership recordRow expr = True :=
   match expr with
     | Prefix operator (Atom Num word) => cases
     | Prefix operator (Atom Float word) => cases
@@ -79,14 +79,18 @@ theorem enoughAbove ∀ (atomOnly: Bool) (floor more: Nat)
 theorem enoughHead ∀ (floor: Nat) (yes: True = True): 22 <= Nat.max floor 22 := Nat.leMaxRight floor 22
 
 --| A pair `dropLeft` drops is one `forgetLeft` forgets.
-theorem parenForgotten ∀ (floor: Nat) (membership atomOnly: Bool) (open: Word) (inner: Expr) (close: Word)
+theorem parenForgotten ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (open: Word) (inner: Expr) (close: Word)
     (enough: atomOnly = True → 22 <= floor)
-    (drops: (open.bare && close.bare && !holdsFunction inner && floor <= inner.level && !keepsBrackets membership inner)
+    (drops: (open.bare
+      && close.bare
+      && !holdsFunction inner
+      && floor <= inner.level
+      && !keepsBrackets membership recordRow inner)
       = True):
     forgetLeft atomOnly (Paren open inner close) = forgetLeft atomOnly inner :=
   match negative: inner.negativeNumeral with
     | True =>
-      let keeps := negativeKept membership inner negative
+      let keeps := negativeKept membership recordRow inner negative
       cases
     | False =>
       match atomOnly with
@@ -107,38 +111,46 @@ theorem parenForgotten ∀ (floor: Nat) (membership atomOnly: Bool) (open: Word)
 --| below an application's head holds what binds at least as tightly as an
 --| atom (`levelAtomic`), so `forgetLeft` forgets it too; everywhere else
 --| the two rebuild the same node around the same left part.
-theorem dropLeftForgotten ∀ (floor: Nat) (membership atomOnly: Bool) (expr: Expr)
+theorem dropLeftForgotten ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (expr: Expr)
     (enough: atomOnly = True → 22 <= floor):
-    forgetLeft atomOnly (dropLeft floor membership expr) = forgetLeft atomOnly expr :=
+    forgetLeft atomOnly (dropLeft floor membership recordRow expr) = forgetLeft atomOnly expr :=
   match expr with
     | Paren open inner close =>
       match drops: open.bare
         && close.bare
         && !holdsFunction inner
         && floor <= inner.level
-        && !keepsBrackets membership inner with
+        && !keepsBrackets membership recordRow inner with
         | False => byComputing
         | True =>
-          rewrite parenForgotten floor membership atomOnly open inner close enough drops then
-            dropLeftForgotten floor membership atomOnly inner enough
+          rewrite parenForgotten floor membership recordRow atomOnly open inner close enough drops then
+            dropLeftForgotten floor membership recordRow atomOnly inner enough
     | Infix kind left operator right =>
       rewrite dropLeftForgotten
         (Nat.max floor (leftNeeds kind operator.text))
         (membership || kind == InfixMembership)
+        recordRow
         atomOnly
         left
         (enoughAbove atomOnly floor (leftNeeds kind operator.text) enough)
     | Chain first rest =>
-      rewrite dropLeftForgotten (Nat.max floor 8) membership atomOnly first (enoughAbove atomOnly floor 8 enough)
-    | App head arguments => rewrite dropLeftForgotten (Nat.max floor 22) membership True head (enoughHead floor)
+      rewrite dropLeftForgotten
+        (Nat.max floor 8)
+        membership
+        recordRow
+        atomOnly
+        first
+        (enoughAbove atomOnly floor 8 enough)
+    | App head arguments =>
+      rewrite dropLeftForgotten (Nat.max floor 22) membership recordRow True head (enoughHead floor)
     | FieldAccess (Some target) dot field =>
-      rewrite dropLeftForgotten (Nat.max floor 22) membership True target (enoughHead floor)
+      rewrite dropLeftForgotten (Nat.max floor 22) membership recordRow True target (enoughHead floor)
     | _ => cases
 
 --| P3's step at a row: the pairs it drops at the result's left end are
 --| ones `meaning` forgets.
 theorem rowKeepsMeaning ∀ (expr: Expr): plainExpr (dropAfterRow expr) = plainExpr expr := match expr with
-  | Effect row result => rewrite dropLeftForgotten 0 False False result (never => cases)
+  | Effect row result => rewrite dropLeftForgotten 0 False (rowReadsAsRecord row) False result (never => cases)
   | _ => cases
 
 -- P3 around a binder's whole type: `stripBinderType` drops only layers

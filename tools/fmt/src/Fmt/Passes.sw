@@ -35,6 +35,7 @@ import Syntax (
   Lexed,
   InfixKind,
   Param,
+  Row,
   Pattern,
   SourceFile,
   Steps,
@@ -182,34 +183,75 @@ def chainHasArrow: List (Word, Expr) → Bool
   | [] => False
   | [(_, operand), ..rest] => arrowAtTop operand || chainHasArrow rest
 
+--| Whether `{…}` reads as a record rather than a row on its own: the
+--| first ability starts with a lowercase name (`{e}`, `{e, f}`, `{f x}`,
+--| `{E.e}`) or there is none (`{}`). What follows such a row must not start
+--| like the continuation of a record's expression.
+def rowReadsAsRecord (row: Row): Bool := match row.abilities with
+  | [] => True
+  | [first, ..rest] => headIsLower first
+
+def headIsLower: Expr → Bool
+  | Atom kind _ => kind == Lower
+  | App head _ => headIsLower head
+  | _ => False
+
+--| Whether the expression starts with a token (or a keyword) that a bare
+--| `{e}` before it would swallow: a section's `.`, a prefix operator,
+--| `match`, `if`, `include` and the like. A `fun`, `facts` and the atoms
+--| read fine after it.
+def startsApart: Expr → Bool
+  | Prefix _ _ => True
+  | Section _ => True
+  | FieldAccess None _ _ => True
+  | Include _ _ => True
+  | If _ _ _ _ _ _ _ => True
+  | Match _ _ _ _ => True
+  | ClauseLambda _ _ _ => True
+  | LetIn _ _ _ => True
+  | Block _ _ _ => True
+  | Handle _ _ _ _ => True
+  | Reify _ _ _ _ _ => True
+  | Induct _ _ _ _ _ => True
+  | Calc _ _ _ => True
+  | Rewrite _ _ _ _ => True
+  | Cases _ _ _ => True
+  | _ => False
+
 --| A bracket pair that stays: a negative numeral (`{Fail} -1` doesn't read
---| as the number), and before a membership test a `!` (which the grammar
---| refuses to apply to the element).
-def keepsBrackets (membership: Bool): Expr → Bool
+--| as the number), before a membership test a `!` (which the grammar
+--| refuses to apply to the element), and after a row that reads as a record
+--| (`recordRow`) whatever `startsApart`.
+def keepsBrackets (membership recordRow: Bool): Expr → Bool
   | Prefix operator (Atom Num _) => operator.text == "-"
   | Prefix operator (Atom Float _) => operator.text == "-"
-  | Prefix operator _ => membership && operator.text != "-"
-  | _ => False
+  | Prefix operator _ => (membership && operator.text != "-") || recordRow
+  | other => recordRow && startsApart other
 
 --| The result of a row, with the redundant brackets at its left end
 --| removed: `floor` is the level the ancestors on the way down need of what
 --| stands at the left (`membership` keeps a prefix operator's bracket).
-def dropLeft (floor: Nat) (membership: Bool): Expr → Expr
+def dropLeft (floor: Nat) (membership recordRow: Bool): Expr → Expr
   | Paren open inner close =>
-    if open.bare && close.bare && !holdsFunction inner && floor <= inner.level && !keepsBrackets membership inner then
-      dropLeft floor membership inner
+    if open.bare
+      && close.bare
+      && !holdsFunction inner
+      && floor <= inner.level
+      && !keepsBrackets membership recordRow inner then
+      dropLeft floor membership recordRow inner
     else Paren open inner close
   | Infix kind left operator right =>
     let needs := leftNeeds kind operator.text
-    let nested := dropLeft (Nat.max floor needs) (membership || kind == InfixMembership) left
+    let nested := dropLeft (Nat.max floor needs) (membership || kind == InfixMembership) recordRow left
     Infix kind nested operator right
-  | Chain first rest => Chain (dropLeft (Nat.max floor 8) membership first) rest
-  | App head arguments => App (dropLeft (Nat.max floor 22) membership head) arguments
-  | FieldAccess (Some target) dot field => FieldAccess (Some (dropLeft (Nat.max floor 22) membership target)) dot field
+  | Chain first rest => Chain (dropLeft (Nat.max floor 8) membership recordRow first) rest
+  | App head arguments => App (dropLeft (Nat.max floor 22) membership recordRow head) arguments
+  | FieldAccess (Some target) dot field =>
+    FieldAccess (Some (dropLeft (Nat.max floor 22) membership recordRow target)) dot field
   | other => other
 
 def dropAfterRow: Expr → Expr
-  | Effect row result => Effect row (dropLeft 0 False result)
+  | Effect row result => Effect row (dropLeft 0 False (rowReadsAsRecord row) result)
   | other => other
 
 --| `(x: ((T)))` and its kin: the brackets around a binder's whole type,
