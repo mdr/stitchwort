@@ -1,5 +1,5 @@
 {
-  "next": 3812,
+  "next": 3814,
   "tickets": [
     {
       "id": 47,
@@ -544,12 +544,12 @@
     {
       "id": 639,
       "title": "Float laws stage 4: div, rem, floor, ceil, trunc, round as definitions; no float primitive keeps a reduction rule",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.\n\nLane notes (Opus, 17 Nov 2026, 13:57-14:41; est. 60 min):\n- div, rem, floor, ceil, trunc, round are definitions through Float.Model (divBits, remBits, floorDiv, floorBits, ceilBits, truncBits, roundBits); FloatOp keeps only ToText. Natives fire only while running; six new pins.\n- Laws: Float.divMonotone (positive finite d, every x, y), ofNatMonotone, ofNatFinite, ofNatPositive, floorLe, ceilGe, roundOfWhole, roundOfNat, ofNatDivExact (with ofNatMul: * and / 10.0 exact for whole numbers to 2^53).\n- Not done: x < floor x + 1, rem's strict range (both need representability of whole numbers / the exact remainder), negative whole numbers for / 10.0.\n- Whereabouts seededUnitInUnit unconditional.\n- Cost: closed div ~24,100 steps (0.40 ms kernel), was 862; closed floor ~21,700 (0.35 ms), was 761. import_cost Float 22,574,470 (bound 22,566,104, within tolerance). Whereabouts check 7.6 s -> 22.4 s (tenthsKeepTheirLabel 2.8 s -> 9.3 s: it computes round and / 10.0 3,601 times).\n- Tests: gate float:: 5/5; float_paths div, rem/whole, mul, four paths pass (wasm path skipped: web/pkg not built); pinned_hashes 5/5; examples::soundness pass; prelude + float example snapshots re-accepted.\n",
+      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.\n\nLane notes (Opus, 17 Nov 2026, 13:57-14:41; est. 60 min):\n- div, rem, floor, ceil, trunc, round are definitions through Float.Model (divBits, remBits, floorDiv, floorBits, ceilBits, truncBits, roundBits); FloatOp keeps only ToText. Natives fire only while running; six new pins.\n- Laws: Float.divMonotone (positive finite d, every x, y), ofNatMonotone, ofNatFinite, ofNatPositive, floorLe, ceilGe, roundOfWhole, roundOfNat, ofNatDivExact (with ofNatMul: * and / 10.0 exact for whole numbers to 2^53).\n- Not done: x < floor x + 1, rem's strict range (both need representability of whole numbers / the exact remainder), negative whole numbers for / 10.0.\n- Whereabouts seededUnitInUnit unconditional.\n- Cost: closed div ~24,100 steps (0.40 ms kernel), was 862; closed floor ~21,700 (0.35 ms), was 761. import_cost Float 22,574,470 (bound 22,566,104, within tolerance). Whereabouts check 7.6 s -> 22.4 s (tenthsKeepTheirLabel 2.8 s -> 9.3 s: it computes round and / 10.0 3,601 times).\n- Tests: gate float:: 5/5; float_paths div, rem/whole, mul, four paths pass (wasm path skipped: web/pkg not built); pinned_hashes 5/5; examples::soundness pass; prelude + float example snapshots re-accepted.\n\nModel result: opus, worked, 45 + 13 min (est. 60). Review fixes in 1d8f03c99; WebAssembly gate run for real (3483 passed). Follow-ups SW-3812 SW-3813; review findings filed SW-3810 SW-3811; representability lemma SW-3805; tenths per-tenth proof SW-3807.",
       "created": "2026-10-26",
       "updated": "2026-11-17",
       "commits": []
@@ -42921,12 +42921,12 @@
     {
       "id": 3804,
       "title": "[Fable review] SW-639 (float stage 4: div, rem, floor, ceil, trunc, round as definitions; no float kernel rule left): divBits signs and case table, remBits exactness, floorDiv, round half-up, isSpecial, eta for unary defs, pins; docs/reviews/SW-639-float-stage4-review.md",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "Review: docs/reviews/SW-639-float-stage4-review.md (Fable, paper only, 17 Nov 2026; lane/SW-639 at e6c01d77b).\n\nVerdict: merge after fixes. No soundness finding: the run-only gate holds for all six, divBits/remBits/floor/ceil/trunc/round match IEEE and JS on every case reasoned, the nine theorems say what they claim, pins agree with the prelude snapshot.\n\nBefore merge:\n- F1: float_paths.rs:518 asserts 3489; the gate's own formula gives 3483 (3 x 1161).\n- F2: proofs::eta_hold::only_float_add_is_held expects [\"Float.add\"]; should now find eight (may already fail on main since SW-638). Run it by name.\n\nFollow-ups: F3 stale \"float primitive\" comments; F4 no test of a stuck x / y or floor x staying folded; F5-F6 nits; F7 tickets for the five things not done.\n",
+      "body": "Review: docs/reviews/SW-639-float-stage4-review.md (Fable, paper only, 17 Nov 2026; lane/SW-639 at e6c01d77b).\n\nVerdict: merge after fixes. No soundness finding: the run-only gate holds for all six, divBits/remBits/floor/ceil/trunc/round match IEEE and JS on every case reasoned, the nine theorems say what they claim, pins agree with the prelude snapshot.\n\nBefore merge:\n- F1: float_paths.rs:518 asserts 3489; the gate's own formula gives 3483 (3 x 1161).\n- F2: proofs::eta_hold::only_float_add_is_held expects [\"Float.add\"]; should now find eight (may already fail on main since SW-638). Run it by name.\n\nFollow-ups: F3 stale \"float primitive\" comments; F4 no test of a stuck x / y or floor x staying folded; F5-F6 nits; F7 tickets for the five things not done.\n\nModel result: fable, worked, 7 min (est. 30).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -43017,6 +43017,32 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3812,
+      "title": "[Sonnet] reference.rs compact_or_lazy doesn't look inside a Float; its old reason ('float primitives always make a number') no longer holds now the operations are definitions: check whether a Float's bits are always a plain number in the reference evaluator's plain mode (SW-639 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3813,
+      "title": "[DeepSeek] The WebAssembly gate test passes silently when web/pkg is missing or stale; make the skip visible (print a line, or mark it skipped), and document STITCHWORT_REQUIRE_WASM=1 in docs/testing.md (SW-639, SW-3804)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
