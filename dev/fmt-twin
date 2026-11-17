@@ -17,6 +17,11 @@ STAGE is what is compared (the Rust side's dump in brackets):
     passes   (4)  the tidied tree after each pass     [stitchwort dev passes]
     text     (5)  the formatted text                  [stitchwort fmt -]
                   (6 is the same comparison on more inputs)
+    engine   (E1) each declaration's layout document, printed by Fmt.Doc and
+                  compared with Rust's engine's text      [stitchwort dev doc]
+                  (the executable is given the dump, not the source; the
+                  report is counts of matched, mismatched and unsupported
+                  declarations, by the node kinds Fmt.Doc lacks)
 
 The executable is called as `EXE --stage NAME FILE` and answers on standard
 output (and, for a refused file, standard error and a non-zero exit status)
@@ -69,6 +74,7 @@ STAGES = {
     "2": "tree", "tree": "tree", "refusal": "refusal", "expr": "expr",
     "4": "passes", "passes": "passes",
     "5": "text", "6": "text", "text": "text",
+    "engine": "engine",
 }
 
 # The commit that reformatted the repo with the tree printer: "the old layout"
@@ -485,6 +491,118 @@ def run_one(sw, exe, stage, path, key, timeout):
     got = twin_answer(exe, stage, path, timeout)
     return path, want, got, cached, time.monotonic() - start
 
+# ------------------------------------------------------------ the engine stage
+
+
+def engine_dump(sw: Path, path: Path, key: str) -> tuple:
+    """(dump file, error): Rust's `dev doc` of the file, cached; the dump
+    file is None if Rust refuses the file (error) or it has no declarations."""
+    entry = CACHE / "docs" / key / (sha(path.read_bytes()) + ".doc")
+    refused = entry.with_suffix(".refused")
+    if refused.is_file():
+        return None, refused.read_text()
+    if not entry.is_file():
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "doc", str(path)], capture_output=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            refused.write_text("dev doc timed out after 20 s")
+            return None, "dev doc timed out after 20 s"
+        if done.returncode != 0:
+            message = first_line(done.stderr.decode(errors="replace")) or "refused"
+            refused.write_text(message)
+            return None, message
+        tmp = entry.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_bytes(done.stdout)
+        tmp.rename(entry)
+    return (entry if entry.stat().st_size else None), ""
+
+
+def engine_chunk(exe: Path, paths: list, timeout: float) -> tuple:
+    """(path, answer) for each dump of the chunk, and notes: one batch run,
+    then one process a file for what it didn't reach."""
+    output, status, stderr, _ = batch_run(exe, "engine", paths, timeout)
+    parsed, complete, why = parse_batch(output, [str(path) for path in paths])
+    notes = []
+    if why is not None and complete < len(paths):
+        notes.append(f"the batch run stopped at {paths[complete]}: {why}; answered the rest one process a file")
+    out = []
+    for index, path in enumerate(paths):
+        out.append((path, parsed[index] if index < complete else twin_answer(exe, "engine", path, timeout)))
+    return out, notes
+
+
+def engine_stage(args, sw: Path, exe: Path, groups: list, key: str) -> int:
+    """The engine comparison: counts of declarations that matched, differed
+    and used node kinds Fmt.Doc lacks, by kind, over each group."""
+    shown_max = max(args.show, 3)
+    print(f"stage engine; Rust side {sw}; sources hash {key}; cache {CACHE}")
+    for name, files in groups:
+        start = time.monotonic()
+        dumps, refused, empty = [], 0, 0
+        for path in files:
+            dump, error = engine_dump(sw, path, key)
+            if dump is not None:
+                dumps.append((path, dump))
+            elif error:
+                refused += 1
+            else:
+                empty += 1
+        by_dump = {str(dump): path for path, dump in dumps}
+        counts = {"matched": 0, "mismatched": 0, "unsupported": 0, "oversized": 0}
+        uses, alone, sets = {}, {}, {}
+        diffs, failures, notes = [], [], []
+        parts = chunks([dump for _, dump in dumps], args.jobs)
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+            for results, chunk_notes in pool.map(lambda part: engine_chunk(exe, part, args.timeout), parts):
+                notes += chunk_notes
+                for dump, got in results:
+                    source = by_dump[str(dump)]
+                    if got["exit"] != 0:
+                        failures.append(f"{source}: {got['err']}")
+                        continue
+                    lines = got["out"].split("\n")
+                    i = 0
+                    while i < len(lines):
+                        fields = lines[i].split(" ", 3)
+                        if len(fields) < 3 or fields[0] != "decl":
+                            i += 1
+                            continue
+                        kind = fields[2]
+                        counts[kind] = counts.get(kind, 0) + 1
+                        if kind == "unsupported":
+                            kinds = fields[3].split(",")
+                            for k in kinds:
+                                uses[k] = uses.get(k, 0) + 1
+                            if len(kinds) == 1:
+                                alone[kinds[0]] = alone.get(kinds[0], 0) + 1
+                            sets[fields[3]] = sets.get(fields[3], 0) + 1
+                        if kind == "mismatched":
+                            if len(diffs) < shown_max:
+                                diffs.append((source, fields[1], fields[3], lines[i + 1].strip(), lines[i + 2].strip()))
+                            i += 2
+                        i += 1
+        for note in notes:
+            print(f"fmt-twin: {note}", file=sys.stderr)
+        for failure in failures:
+            print(f"fmt-twin: the engine stage failed on {failure}", file=sys.stderr)
+        total = sum(counts.values())
+        print(f"{name}: {len(files)} files: {refused} refused by Rust, {empty} without declarations, "
+              f"{len(dumps)} read ({time.monotonic() - start:.1f} s)")
+        print(f"  declarations {total}: matched {counts['matched']}, mismatched {counts['mismatched']}, "
+              f"unsupported {counts['unsupported']}, oversized {counts['oversized']} (not read: "
+              f"their documents written out in full are over 50000 nodes)")
+        if uses:
+            print("  unsupported, by node kind (declarations using it; declarations whose only missing kind it is):")
+            for k in sorted(uses, key=lambda k: -uses[k]):
+                print(f"    {k:14} {uses[k]:6}  {alone.get(k, 0):6}")
+            print("  unsupported, by the set of kinds (the most common):")
+            for k in sorted(sets, key=lambda k: -sets[k])[:8]:
+                print(f"    {sets[k]:6}  {k}")
+        for source, number, line, expected, got in diffs:
+            print(f"  mismatch, {source}, declaration {number}, line {line}:\n    expected: {expected}\n    got:      {got}")
+    return 0
+
 
 # ----------------------------------------------------------------------- main
 
@@ -505,7 +623,7 @@ def build_exe(args, sw: Path) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
-    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) or text (5, 6)")
+    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) text (5, 6) or engine")
     ap.add_argument("--inputs", default="", help="comma-separated input groups (see below)")
     ap.add_argument("--files", nargs="*", default=[], help="named files or folders")
     ap.add_argument("--exe", help="the executable to compare (default: build --project's --main natively)")
@@ -540,6 +658,8 @@ def main() -> int:
         groups = resolve(args)
         exe = build_exe(args, sw)
         key = tool_hash()
+        if stage == "engine":
+            return engine_stage(args, sw, exe, groups, key)
         total_identical = total = 0
         print(f"stage {stage}; Rust side {sw}; sources hash {key}; cache {CACHE}")
         for name, files in groups:

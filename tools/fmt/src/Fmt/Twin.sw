@@ -25,6 +25,11 @@
 --|   `meaning`, as the dump shows it, or where they don't. No Rust side.
 --| - `meaningdump`: the file's `meaning`, as the dump shows it, for
 --|   `dev/fmt-meaning-oracle` to compare two files' meanings. No Rust side.
+--| - `engine` (SW-3905): the file is a `stitchwort dev doc` dump, not a
+--|   source: each declaration's layout document is built as a `Doc`,
+--|   printed in 120 columns and compared with Rust's text; the answer is a
+--|   line a declaration (`Fmt.DocDump.answer`). `dev/fmt-twin engine` writes
+--|   the dumps and reads the answers.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -50,7 +55,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -111,6 +116,10 @@ def stageAnswer (stage source: Text): Answer := match stage with
           | Ok file => { out = file.meaning.plain.dump, status = 0, message = "" }
           | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
       | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+  | "engine" =>
+    match Fmt.DocDump.answer source with
+      | Ok out => { out, status = 0, message = "" }
+      | Err message => { out = "", status = 1, message = "error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
 
 def meaningAnswer (lexed: Lexed): Answer := match parseFile lexed.settled with
