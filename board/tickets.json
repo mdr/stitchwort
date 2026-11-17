@@ -23120,12 +23120,12 @@
     {
       "id": 3918,
       "title": "[DeepSeek] tools/fmt/NOTES.md: mark stage 4b's 'What 5 inherits' and SW-3877's 'P4 doesn't keep meaning as stated' superseded by the P4 section; add a ready-made wrapper for the interpreted Fmt.Twin (absolute batch paths, run from tools/fmt); note the native twin build peaks at 2.4 GB (SW-3884 friction)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Wrongly moved to doing on 17 Nov (orchestrator briefed SW-3920's work under this number); back to backlog, not started.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23146,12 +23146,12 @@
     {
       "id": 3920,
       "title": "[Sonnet] Audit: let a witness silence the vacuity warning (a theorem applying the warned one to closed arguments, or an attribute naming it); and when every case is thrown out on one hypothesis, name it in the warning (SW-3915 findings; 4 Doc warnings recur otherwise)",
-      "status": "done",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Model result: deepseek, worked, 9 min (est. 15). Each command run and its output quoted.",
+      "body": "Lane SW-3918's branch (lane/SW-3918) did this ticket: the orchestrator briefed it under the wrong number. Witness by inference (closed application of the warned theorem); rejecting hypothesis named. Fmt.Doc 4 warnings -> 0. Supersedes SW-2358; covers SW-2768's warning text.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23213,12 +23213,12 @@
     {
       "id": 3925,
       "title": "[DeepSeek] Proving guide: how to check, audit and test a std lemma (check --std Float/Theory.sw relative to the std folder; audit Std.… from a project folder; test FILE with import Std (…)) (SW-3898 friction)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Model result: deepseek, worked, 9 min (est. 15). Each command run and its output quoted. (Run and merged under the wrong number, SW-3920, in commit and work log; this is the ticket it did.)",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
