@@ -117,7 +117,11 @@ def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | LineStart => StartLays indent place trace next
     | LineStartHere => next (AtStart indent) trace
     | Nest more inner => Lays inner (indent + more) place trace next
+    | Align inner => AlignHolds indent place (column => Lays inner column place trace next)
+    | AlignInset inner => AlignHolds (indent + 2) place (column => Lays inner column place trace next)
+    | Displaced inner => DisplacedHolds indent place (column start => Lays inner column start trace next)
     | Group inner _ => Lays inner indent place trace next
+    | NarrowGroup _ inner _ => Lays inner indent place trace next
     | IdGroup _ inner _ => Lays inner indent place trace next
     | IfBroken _ broken flat => Lays broken indent place trace next ∧ Lays flat indent place trace next
     | Flatten inner => Lays inner indent place trace next
@@ -277,7 +281,27 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | LineStart, lays => startLaysWeaker indent place trace strong weak implies lays
     | LineStartHere, lays => implies _ _ lays
     | Nest more inner, lays => laysWeaker inner (indent + more) place trace strong weak implies lays
+    | Align inner, lays =>
+      match place, lays with
+        | AtStart at, lays => laysWeaker inner indent (AtStart at) trace strong weak implies lays
+        | Broken at, lays => laysWeaker inner indent (Broken at) trace strong weak implies lays
+        | Mid at, lays => column => laysWeaker inner column (Mid at) trace strong weak implies (lays column)
+        | Held at, lays => column => laysWeaker inner column (Held at) trace strong weak implies (lays column)
+    | AlignInset inner, lays =>
+      match place, lays with
+        | AtStart at, lays => laysWeaker inner (indent + 2) (AtStart at) trace strong weak implies lays
+        | Broken at, lays => laysWeaker inner (indent + 2) (Broken at) trace strong weak implies lays
+        | Mid at, lays => column => laysWeaker inner column (Mid at) trace strong weak implies (lays column)
+        | Held at, lays => column => laysWeaker inner column (Held at) trace strong weak implies (lays column)
+    | Displaced inner, lays =>
+      match place, lays with
+        | AtStart at, lays => laysWeaker inner (Nat.max indent at) (AtStart at) trace strong weak implies lays
+        | Broken at, lays => laysWeaker inner (Nat.max indent at) (Broken at) trace strong weak implies lays
+        | Mid at, lays => laysWeaker inner indent (Mid at) trace strong weak implies lays
+        | Held at, lays =>
+          laysWeaker inner (Nat.max indent (at + 2)) (AtStart (Nat.max indent (at + 2))) trace strong weak implies lays
     | Group inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
+    | NarrowGroup max inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
     | IdGroup id inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
     | IfBroken id broken flat, Both brokenLays flatLays => (
       (laysWeaker broken indent place trace strong weak implies brokenLays),
@@ -819,7 +843,42 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
     | LineStart, lays => startLaysPuts indent place laid printed next put onward tracks lays
     | LineStartHere, lays => onward _ _ _ (tracksTucks place laid printed tracks) lays
     | Nest more inner, lays => laysPuts inner (indent + more) place laid printed next put onward tracks lays
+    | Align inner, lays =>
+      match place, tracks, lays with
+        | AtStart at, tracks, lays => laysPuts inner indent (AtStart at) laid printed next put onward tracks lays
+        | Broken at, tracks, lays => laysPuts inner indent (Broken at) laid printed next put onward tracks lays
+        | Mid at, tracks, lays => column =>
+          laysPuts inner column (Mid at) laid printed next put onward tracks (lays column)
+        | Held at, tracks, lays => column =>
+          laysPuts inner column (Held at) laid printed next put onward tracks (lays column)
+    | AlignInset inner, lays =>
+      match place, tracks, lays with
+        | AtStart at, tracks, lays => laysPuts inner (indent + 2) (AtStart at) laid printed next put onward tracks lays
+        | Broken at, tracks, lays => laysPuts inner (indent + 2) (Broken at) laid printed next put onward tracks lays
+        | Mid at, tracks, lays => column =>
+          laysPuts inner column (Mid at) laid printed next put onward tracks (lays column)
+        | Held at, tracks, lays => column =>
+          laysPuts inner column (Held at) laid printed next put onward tracks (lays column)
+    | Displaced inner, lays =>
+      match place, tracks, lays with
+        | AtStart at, tracks, lays =>
+          laysPuts inner (Nat.max indent at) (AtStart at) laid printed next put onward tracks lays
+        | Broken at, tracks, lays =>
+          laysPuts inner (Nat.max indent at) (Broken at) laid printed next put onward tracks lays
+        | Mid at, tracks, lays => laysPuts inner indent (Mid at) laid printed next put onward tracks lays
+        | Held at, tracks, lays =>
+          laysPuts inner
+            (Nat.max indent (at + 2))
+            (AtStart (Nat.max indent (at + 2)))
+            laid
+            printed
+            next
+            put
+            onward
+            (waitsTucks laid printed tracks)
+            lays
     | Group inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
+    | NarrowGroup max inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
     | IdGroup id inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
     | IfBroken id broken flat, Both brokenLays flatLays => (
       (laysPuts broken indent place laid printed next put onward tracks brokenLays),

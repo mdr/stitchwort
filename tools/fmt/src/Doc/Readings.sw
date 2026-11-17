@@ -23,7 +23,7 @@ def IsOption (chosen: Doc): List Doc → Prop
 --| separator is a space (only with no comment waiting) or a line break; a
 --| group goes flat (only if it holds no hard break, or is in a flat one
 --| already) or breaks; a broken fill's first item goes either way; a
---| broken choice takes any option. An id group is a group whose decision
+--| broken choice takes any option; a narrow group is a group. An id group is a group whose decision
 --| is recorded; an `IfBroken` takes the branch the record picks, which is
 --| the printer's own step. Every other step is the printer's,
 --| which doesn't look at the width.
@@ -34,6 +34,9 @@ def StepsTo (printer: Printer) (cmd: Cmd) (rest: List Cmd) (next: (Printer, List
   | Print indent mode doc =>
     match doc with
       | Group inner hard =>
+        ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
+          ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
+      | NarrowGroup _ inner hard =>
         ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
           ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
       | IdGroup id inner hard =>
@@ -105,6 +108,21 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
                 | True => Inr ((byComputing, byComputing))
                 | False =>
                   match fit: printer.fitsHere total [(indent, Flat, inner)] rest with
+                    | True => Inl (((Inr byComputing), byComputing))
+                    | False => Inr ((byComputing, byComputing))
+        | NarrowGroup max inner hard =>
+          match mode with
+            | Flat => Inl (((Inl byComputing), byComputing))
+            | Break =>
+              match hard with
+                | True => Inr ((byComputing, byComputing))
+                | False =>
+                  match fit: fitsFrom total printer.width printer.modes
+                    [(indent, Flat, inner)]
+                    rest
+                    (Nat.min printer.left (max - printer.owed.getOrElse printer.column))
+                    printer.lineIndent
+                    (not printer.suffixes.isEmpty) with
                     | True => Inl (((Inr byComputing), byComputing))
                     | False => Inr ((byComputing, byComputing))
         | IdGroup id inner hard =>

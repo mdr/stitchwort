@@ -148,6 +148,26 @@ def BlankPuts (place: Place) (trace: List Event) (next: Place → List Event →
   | Mid at => next (Mid at) trace
   | Held at => next (Held at) trace
 
+--| An `Align`'s contents, given the indentation of their line breaks:
+--| `atStart` at a line start, otherwise the column the `Align` starts at,
+--| which a place doesn't say, so they must do for every column.
+def AlignHolds (atStart: Nat) (place: Place) (inner: Nat → Prop): Prop := match place with
+  | AtStart _ => inner atStart
+  | Broken _ => inner atStart
+  | Mid _ => ∀ (column: Nat) => inner column
+  | Held _ => ∀ (column: Nat) => inner column
+
+--| A `Displaced` element's contents in a construct indented `indent`,
+--| given the indentation of their line breaks and where they start: at a
+--| line start, the line's indentation if deeper; after words, the
+--| construct's; after a waiting comment, a comment break's, on the line
+--| it starts.
+def DisplacedHolds (indent: Nat) (place: Place) (inner: Nat → Place → Prop): Prop := match place with
+  | AtStart at => inner (Nat.max indent at) (AtStart at)
+  | Broken at => inner (Nat.max indent at) (Broken at)
+  | Mid at => inner indent (Mid at)
+  | Held at => inner (Nat.max indent (at + 2)) (AtStart (Nat.max indent (at + 2)))
+
 --| From `place` with `trace` printed, every way `doc` may print in a
 --| construct indented `indent` puts its words where `next` is told, and
 --| every place it may leave satisfies `next`. A line break that isn't a
@@ -168,7 +188,11 @@ def Puts (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | LineStart => StartPuts indent place trace next
     | LineStartHere => next (AtStart indent) trace
     | Nest more inner => Puts inner (indent + more) place trace next
+    | Align inner => AlignHolds indent place (column => Puts inner column place trace next)
+    | AlignInset inner => AlignHolds (indent + 2) place (column => Puts inner column place trace next)
+    | Displaced inner => DisplacedHolds indent place (column start => Puts inner column start trace next)
     | Group inner _ => Puts inner indent place trace next
+    | NarrowGroup _ inner _ => Puts inner indent place trace next
     | IdGroup _ inner _ => Puts inner indent place trace next
     | IfBroken _ broken flat => Puts broken indent place trace next ∧ Puts flat indent place trace next
     | Flatten inner => Puts inner indent place trace next
@@ -338,7 +362,27 @@ theorem putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | LineStart, lays => startPutsWeaker indent place trace strong weak implies lays
     | LineStartHere, lays => implies _ _ lays
     | Nest more inner, lays => putsWeaker inner (indent + more) place trace strong weak implies lays
+    | Align inner, lays =>
+      match place, lays with
+        | AtStart at, lays => putsWeaker inner indent (AtStart at) trace strong weak implies lays
+        | Broken at, lays => putsWeaker inner indent (Broken at) trace strong weak implies lays
+        | Mid at, lays => column => putsWeaker inner column (Mid at) trace strong weak implies (lays column)
+        | Held at, lays => column => putsWeaker inner column (Held at) trace strong weak implies (lays column)
+    | AlignInset inner, lays =>
+      match place, lays with
+        | AtStart at, lays => putsWeaker inner (indent + 2) (AtStart at) trace strong weak implies lays
+        | Broken at, lays => putsWeaker inner (indent + 2) (Broken at) trace strong weak implies lays
+        | Mid at, lays => column => putsWeaker inner column (Mid at) trace strong weak implies (lays column)
+        | Held at, lays => column => putsWeaker inner column (Held at) trace strong weak implies (lays column)
+    | Displaced inner, lays =>
+      match place, lays with
+        | AtStart at, lays => putsWeaker inner (Nat.max indent at) (AtStart at) trace strong weak implies lays
+        | Broken at, lays => putsWeaker inner (Nat.max indent at) (Broken at) trace strong weak implies lays
+        | Mid at, lays => putsWeaker inner indent (Mid at) trace strong weak implies lays
+        | Held at, lays =>
+          putsWeaker inner (Nat.max indent (at + 2)) (AtStart (Nat.max indent (at + 2))) trace strong weak implies lays
     | Group inner hard, lays => putsWeaker inner indent place trace strong weak implies lays
+    | NarrowGroup max inner hard, lays => putsWeaker inner indent place trace strong weak implies lays
     | IdGroup id inner hard, lays => putsWeaker inner indent place trace strong weak implies lays
     | IfBroken id broken flat, Both brokenPuts flatPuts => (
       (putsWeaker broken indent place trace strong weak implies brokenPuts),
@@ -1438,13 +1482,37 @@ theorem stepPuts ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
         | Blank, steps, lays =>
           rewrite steps then blankStays (after later => StackPuts spec rest after later) printer place trace agrees lays
         | Nest more inner, steps, lays => rewrite steps then (place, trace, agrees, lays)
+        | Align inner, steps, lays =>
+          rewrite steps then
+            (
+              place,
+              trace,
+              agrees,
+              (alignHere printer indent place trace (column => Puts inner column place trace _) agrees lays)
+            )
+        | AlignInset inner, steps, lays =>
+          rewrite steps then
+            (
+              place,
+              trace,
+              agrees,
+              (alignHere printer (indent + 2) place trace (column => Puts inner column place trace _) agrees lays)
+            )
+        | Displaced inner, steps, lays =>
+          rewrite steps then
+            displacedStays printer indent place trace
+              (column start later => Puts inner column start later (after more => StackPuts spec rest after more))
+              agrees
+              lays
         | OneLineBelow inner, steps, Both mid lays => rewrite steps then (place, trace, agrees, mid, (Inr lays))
         | Flatten inner, steps, lays => rewrite steps then (place, trace, agrees, lays)
         | LineSuffix comment, steps, Both word lays =>
           rewrite steps then
             suffixStays (after later => StackPuts spec rest after later) printer comment place trace agrees word lays
         | Group inner hard, Inl (Both _ flat), lays => rewrite flat then (place, trace, agrees, lays)
+        | NarrowGroup max inner hard, Inl (Both _ flat), lays => rewrite flat then (place, trace, agrees, lays)
         | Group inner hard, Inr (Both _ broken), lays => rewrite broken then (place, trace, agrees, lays)
+        | NarrowGroup max inner hard, Inr (Both _ broken), lays => rewrite broken then (place, trace, agrees, lays)
         | IdGroup id inner hard, Inl (Both _ flat), lays => rewrite flat then (place, trace, agrees, lays)
         | IdGroup id inner hard, Inr (Both _ broken), lays => rewrite broken then (place, trace, agrees, lays)
         | IfBroken id broken flat, steps, lays =>
@@ -1505,6 +1573,105 @@ theorem pickPuts ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc) (ind
   match pickEither modes id broken flat, puts with
     | Inl isBroken, Both brokenPuts _ => rewrite isBroken then brokenPuts
     | Inr isFlat, Both _ flatPuts => rewrite isFlat then flatPuts
+
+--| An `Align` at a line start indents its line breaks to `atStart`.
+theorem alignAtStart ∀ (printer: Printer) (atStart: Nat)
+    (start: printer.atLineStart = True):
+    printer.alignAt atStart = atStart :=
+  match at: printer.atLineStart, start with | True, _ => byComputing
+
+--| An `Align`'s contents hold at the indentation the printer gives them.
+theorem alignHere ∀ (printer: Printer) (atStart: Nat) (place: Place) (trace: List Event) (inner: Nat → Prop)
+    (agrees: Agrees printer place trace)
+    (holds: AlignHolds atStart place inner):
+    inner (printer.alignAt atStart) :=
+  match place, agrees, holds with
+    | AtStart at, agrees, holds =>
+      rewrite alignAtStart printer atStart (agreesStart printer (AtStart at) trace agrees) then holds
+    | Broken at, agrees, holds =>
+      rewrite alignAtStart printer atStart (agreesStart printer (Broken at) trace agrees) then holds
+    | Mid at, _, holds => holds (printer.alignAt atStart)
+    | Held at, _, holds => holds (printer.alignAt atStart)
+
+--| With no comment waiting, a `Displaced` element changes nothing before
+--| it.
+theorem displaceClear ∀ (printer: Printer) (indent: Nat)
+    (clear: printer.suffixes.isEmpty = True):
+    printer.displace indent = printer :=
+  match empty: printer.suffixes.isEmpty, clear with | True, _ => byComputing
+
+--| A `Displaced` element after a waiting comment starts a line first.
+theorem displaceWaiting ∀ (printer: Printer) (indent: Nat)
+    (waiting: printer.suffixes.isEmpty = False):
+    printer.displace indent = printer.lineStart indent :=
+  match empty: printer.suffixes.isEmpty, waiting with | False, _ => byComputing
+
+--| At a line start, a `Displaced` element's line breaks go to the line's
+--| indentation, if deeper.
+theorem displacedAtStart ∀ (printer: Printer) (indent at: Nat)
+    (start: printer.atLineStart = True)
+    (owes: printer.owed.getOrElse 0 = at):
+    printer.displacedAt indent = Nat.max indent at :=
+  match on: printer.atLineStart, start with | True, _ => rewrite owes
+
+--| After words, with no comment waiting, a `Displaced` element's line
+--| breaks go to the construct's indentation.
+theorem displacedAtMid ∀ (printer: Printer) (indent: Nat)
+    (start: printer.atLineStart = False)
+    (clear: printer.suffixes.isEmpty = True):
+    printer.displacedAt indent = indent :=
+  match on: printer.atLineStart, start with
+    | False, _ =>
+      match empty: printer.suffixes.isEmpty, clear with
+        | True, _ => byComputing
+
+--| After a waiting comment, a `Displaced` element's line breaks go to the
+--| comment break's indentation.
+theorem displacedAtHeld ∀ (printer: Printer) (indent: Nat)
+    (start: printer.atLineStart = False)
+    (waiting: printer.suffixes.isEmpty = False):
+    printer.displacedAt indent = printer.continuation indent :=
+  match on: printer.atLineStart, start with
+    | False, _ =>
+      match empty: printer.suffixes.isEmpty, waiting with
+        | False, _ => byComputing
+
+--| A `Displaced` element leaves the printer where its contents start, as
+--| `DisplacedHolds` says.
+theorem displacedStays ∀ (printer: Printer) (indent: Nat) (place: Place)
+    (trace: List Event) (put: Nat → Place → List Event → Prop)
+    (agrees: Agrees printer place trace)
+    (holds: DisplacedHolds indent place (column start => put column start trace)):
+    Stays (put (printer.displacedAt indent)) (printer.displace indent) :=
+  match place, agrees, holds with
+    | AtStart at, agrees, holds =>
+      let start := agreesStart printer (AtStart at) trace agrees
+      let clear := agreesClear printer (AtStart at) trace agrees
+      match agrees with
+        | Both _ (Both _ (Both _ (Both _ (Both owes _)))) =>
+          rewrite displaceClear printer indent clear, (displacedAtStart printer indent at start owes) then
+            ((AtStart at), trace, agrees, holds)
+    | Broken at, agrees, holds =>
+      let start := agreesStart printer (Broken at) trace agrees
+      let clear := agreesClear printer (Broken at) trace agrees
+      match agrees with
+        | Both _ (Both _ (Both _ (Both _ (Both owes _)))) =>
+          rewrite displaceClear printer indent clear, (displacedAtStart printer indent at start owes) then
+            ((Broken at), trace, agrees, holds)
+    | Mid at, agrees, holds =>
+      let start := agreesStart printer (Mid at) trace agrees
+      let clear := agreesClear printer (Mid at) trace agrees
+      rewrite displaceClear printer indent clear, displacedAtMid printer indent start clear then
+        ((Mid at), trace, agrees, holds)
+    | Held at, agrees, holds =>
+      let start := agreesStart printer (Held at) trace agrees
+      let waiting := agreesClear printer (Held at) trace agrees
+      let deeper: put (printer.continuation indent) (AtStart (Nat.max indent (at + 2))) trace :=
+        rewrite agreesIndent printer (Held at) trace agrees then holds
+      rewrite displaceWaiting printer indent waiting,
+          lineStartBreaks printer indent start,
+          displacedAtHeld printer indent start waiting then
+        breakStays (put (printer.continuation indent)) printer indent (Held at) trace agrees byComputing deeper
 
 --| A reading that has the steps to finish its work list ends where the
 --| work list's last document leaves it, at a place and trace `spec`

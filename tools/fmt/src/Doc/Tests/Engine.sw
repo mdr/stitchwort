@@ -161,3 +161,27 @@ def belowAfterBroken: Doc :=
 
 test "an IfBroken in a one-line-below option sees an earlier group's mode" :=
   print belowAfterBroken 20 == "${"w".repeat 20}\nz\nalt"
+
+-- SW-3728: the element's first line keeps the element's indentation even
+-- when a part inside it (`f a`, a call's arguments at 4) would break
+-- deeper, so the element's next line isn't left of its first.
+def displacedAfterComment: Doc :=
+  let block := Displaced (Doc.concat [Nest 4 (t "f a"), HardLine, t "b"])
+  Nest 2 (Doc.concat [t "=>", LineSuffix "-- c", t " ", block])
+
+test "a comment break at a displaced element starts its own line" :=
+  print displacedAfterComment 120 == "=> -- c\n  f a\n  b"
+
+def twoLines: Doc := Doc.concat [t "a", HardLine, t "b"]
+
+test "an align indents its line breaks to the column it starts at" :=
+  print (Doc.concat [t "(let ", Align twoLines]) 120 == "(let a\n     b"
+
+test "an align inset at a line start indents its line breaks 2 columns in" :=
+  print (Doc.concat [t "x", HardLine, AlignInset twoLines]) 120 == "x\na\n  b"
+    && print (Doc.concat [t "x ", AlignInset twoLines]) 120 == "x a\n  b"
+
+def narrow: Doc := Doc.concat [t "aaaa", Line, t "bbbb"] |> .narrowGroup 10
+
+test "a narrow group is flat only if its line ends within its columns" :=
+  print narrow 120 == "aaaa bbbb" && print (Doc.concat [t "xx", narrow]) 120 == "xxaaaa\nbbbb"

@@ -172,6 +172,12 @@ theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart 
     | True => byComputing
     | False => newlineWords printer (printer.continuation indent)
 
+--| A `Displaced` element leaves the printer's words as they were.
+theorem displaceWords ∀ (printer: Printer) (indent: Nat): (printer.displace indent).words = printer.words :=
+  match empty: printer.suffixes.isEmpty with
+    | True => byComputing
+    | False => lineStartWords printer indent
+
 --| A blank line leaves the printer's words as they were.
 theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :=
   match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
@@ -231,7 +237,11 @@ def Doc.words: Doc → List Text
   | Closing text => wordsOf [text]
   | LineSuffix comment => wordsOf [comment]
   | Nest _ inner => inner.words
+  | Align inner => inner.words
+  | AlignInset inner => inner.words
+  | Displaced inner => inner.words
   | Group inner _ => inner.words
+  | NarrowGroup _ inner _ => inner.words
   | IdGroup _ inner _ => inner.words
   | IfBroken _ broken _ => broken.words
   | Flatten inner => inner.words
@@ -254,7 +264,11 @@ def wordsFirst: List Doc → List Text
 --| Every option of every choice in the document has the same words.
 def Uniform: Doc → Prop
   | Nest _ inner => Uniform inner
+  | Align inner => Uniform inner
+  | AlignInset inner => Uniform inner
+  | Displaced inner => Uniform inner
   | Group inner _ => Uniform inner
+  | NarrowGroup _ inner _ => Uniform inner
   | IdGroup _ inner _ => Uniform inner
   | IfBroken _ broken flat => Uniform broken ∧ Uniform flat ∧ flat.words = broken.words
   | Flatten inner => Uniform inner
@@ -512,11 +526,16 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
               (rewrite repeatedly [newlineWords])
         | Blank, steps, _ => rewrite repeatedly [steps, wordSteps]
         | Nest more inner, steps, _ => rewrite repeatedly [steps]
+        | Align inner, steps, _ => rewrite repeatedly [steps]
+        | AlignInset inner, steps, _ => rewrite repeatedly [steps]
+        | Displaced inner, steps, _ => rewrite repeatedly [steps, displaceWords]
         | OneLineBelow inner, steps, _ => rewrite repeatedly [steps]
         | Flatten inner, steps, _ => rewrite repeatedly [steps]
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
         | Group inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
+        | NarrowGroup max inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
         | Group inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
+        | NarrowGroup max inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
         | IdGroup id inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat, recordWords]
         | IdGroup id inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken, recordWords]
         | IfBroken id broken flat, steps, Both _ (Both _ same) =>
@@ -562,11 +581,16 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
               restUniform
         | Blank, steps, _ => rewrite repeatedly [steps]
         | Nest more inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Align inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | AlignInset inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Displaced inner, steps, uniform => rewrite steps then (uniform, restUniform)
         | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
         | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
         | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
+        | NarrowGroup max inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
         | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | NarrowGroup max inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
         | IdGroup id inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
         | IdGroup id inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
         | IfBroken id broken flat, steps, Both brokenUniform (Both flatUniform _) =>
@@ -632,6 +656,10 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
         | LineStartHere, steps => rewrite steps then stepLighter printer 0 (Print indent mode LineStartHere) rest
         | Blank, steps => rewrite steps then stepLighter printer 0 (Print indent mode Blank) rest
         | Nest more inner, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Nest more inner)) rest
+        | Align inner, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Align inner)) rest
+        | AlignInset inner, steps =>
+          rewrite steps then stepLighter printer 0 (Print indent mode (AlignInset inner)) rest
+        | Displaced inner, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Displaced inner)) rest
         | OneLineBelow inner, steps =>
           rewrite steps then stepLighter printer 0 (Print indent mode (OneLineBelow inner)) rest
         | Flatten inner, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Flatten inner)) rest
@@ -639,7 +667,9 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
           rewrite steps then stepLighter printer 0 (Print indent mode (LineSuffix comment)) rest
         | Concat docs, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Concat docs)) rest
         | Group inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
+        | NarrowGroup max inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
         | Group inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
+        | NarrowGroup max inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
         | IdGroup id inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
         | IdGroup id inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
         | IfBroken id broken flat, steps =>
@@ -735,7 +765,11 @@ def Marked (closer suffix: Text → Prop): Doc → Prop
   | Closing text => closer text
   | LineSuffix comment => suffix comment
   | Nest _ inner => Marked closer suffix inner
+  | Align inner => Marked closer suffix inner
+  | AlignInset inner => Marked closer suffix inner
+  | Displaced inner => Marked closer suffix inner
   | Group inner _ => Marked closer suffix inner
+  | NarrowGroup _ inner _ => Marked closer suffix inner
   | IdGroup _ inner _ => Marked closer suffix inner
   | IfBroken _ broken flat => Marked closer suffix broken ∧ Marked closer suffix flat
   | Flatten inner => Marked closer suffix inner
@@ -871,11 +905,16 @@ theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: C
               restUniform
         | Blank, steps, _ => rewrite repeatedly [steps]
         | Nest more inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Align inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | AlignInset inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Displaced inner, steps, uniform => rewrite steps then (uniform, restUniform)
         | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
         | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
         | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
+        | NarrowGroup max inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
         | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | NarrowGroup max inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
         | IdGroup id inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
         | IdGroup id inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
         | IfBroken id broken flat, steps, Both brokenMarked flatMarked =>
@@ -954,6 +993,15 @@ theorem lineStartQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: N
     | True => waits
     | False => newlineQuiet suffix printer (printer.continuation indent)
 
+--| A `Displaced` element leaves every waiting comment satisfying the test,
+--| if they did.
+theorem displaceQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat)
+    (waits: Every suffix printer.suffixes):
+    Every suffix (printer.displace indent).suffixes :=
+  match empty: printer.suffixes.isEmpty with
+    | True => waits
+    | False => lineStartQuiet suffix printer indent waits
+
 --| A blank line leaves every waiting comment satisfying the test, if they did.
 theorem blankQuiet ∀ (suffix: Text → Prop) (printer: Printer)
     (waits: Every suffix printer.suffixes):
@@ -1015,12 +1063,17 @@ theorem stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cm
               (newlineQuiet suffix printer indent)
         | Blank, steps, _ => rewrite steps then blankQuiet suffix printer waits
         | Nest more inner, steps, _ => rewrite steps then waits
+        | Align inner, steps, _ => rewrite steps then waits
+        | AlignInset inner, steps, _ => rewrite steps then waits
+        | Displaced inner, steps, _ => rewrite steps then displaceQuiet suffix printer indent waits
         | OneLineBelow inner, steps, _ => rewrite steps then waits
         | Flatten inner, steps, _ => rewrite steps then waits
         | LineSuffix comment, steps, isSuffix =>
           rewrite steps then everyAppend suffix printer.suffixes [comment] waits ((isSuffix, byComputing))
         | Group inner hard, Inl (Both _ flat), _ => rewrite flat then waits
+        | NarrowGroup max inner hard, Inl (Both _ flat), _ => rewrite flat then waits
         | Group inner hard, Inr (Both _ broken), _ => rewrite broken then waits
+        | NarrowGroup max inner hard, Inr (Both _ broken), _ => rewrite broken then waits
         | IdGroup id inner hard, Inl (Both _ flat), _ => rewrite flat then waits
         | IdGroup id inner hard, Inr (Both _ broken), _ => rewrite broken then waits
         | IfBroken id broken flat, steps, _ => rewrite steps then waits

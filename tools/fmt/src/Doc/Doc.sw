@@ -1,8 +1,8 @@
 --| The layout engine's documents: what to print and where lines may break,
 --| after Wadler's "A prettier printer" and Prettier. A port of the core of
 --| the Rust formatter's engine (`crates/fmt/src/printer/engine.rs`): the
---| pieces Sprig's rules need, without `Align`, `Verbatim` and text
---| blocks.
+--| pieces Sprig's rules need, without `Verbatim`, text blocks and the
+--| closer marks.
 --|
 --| A `Group` prints on one line if all of it, plus whatever must follow it
 --| on that line, fits in the width; otherwise every break directly in it
@@ -29,9 +29,27 @@ type Doc =
   | Blank
   --| The contents, with line breaks indented this many more columns.
   | Nest (indent: Nat) (inner: Doc)
+  --| The contents, with line breaks indented to the column this starts
+  --| at: the parts of `(let x := e; body)` line up inside the bracket.
+  | Align (inner: Doc)
+  --| As `Align`, except that where this starts a line the breaks go 2
+  --| columns in rather than to the line's own column: a line ending in `;`
+  --| followed by a line at its block's column ends the block instead of
+  --| continuing the sequence.
+  | AlignInset (inner: Doc)
+  --| An element a comment moves to a line of its own: its continuation
+  --| lines are indented from where its first line lands, not from the
+  --| construct that holds it, since a line left of that first line would
+  --| end the block the element opens there. A trailing comment waiting
+  --| when it starts ends the line first, as a comment break.
+  | Displaced (inner: Doc)
   --| Printed flat if it fits, otherwise with every line in it broken.
   --| `hard` says it holds a hard break, so it never prints flat.
   | Group (inner: Doc) (hard: Bool)
+  --| A `Group` that prints flat only if its line then ends within `max`
+  --| columns, however wide the page is: a type declaration's constructors
+  --| or fields.
+  | NarrowGroup (max: Nat) (inner: Doc) (hard: Bool)
   --| A `Group` whose decision, flat or broken, the printer records under
   --| `id` for the `IfBroken`s after it.
   | IdGroup (id: Nat) (inner: Doc) (hard: Bool)
@@ -83,6 +101,9 @@ def Doc.text (text: Text): Doc := Chunk text text.length
 --| A group, which holds a hard break exactly when its contents do.
 def Doc.group (inner: Doc): Doc := Group inner inner.forcesBreak
 
+--| A narrow group, which holds a hard break exactly when its contents do.
+def Doc.narrowGroup (inner: Doc) (max: Nat): Doc := NarrowGroup max inner inner.forcesBreak
+
 --| An id group, which holds a hard break exactly when its contents do.
 def Doc.idGroup (inner: Doc) (id: Nat): Doc := IdGroup id inner inner.forcesBreak
 
@@ -114,9 +135,13 @@ def Doc.forcesBreak: Doc → Bool
   | BreakParent => True
   | OneLineBelow _ => True
   | Group _ hard => hard
+  | NarrowGroup _ _ hard => hard
   | IdGroup _ _ hard => hard
   | IfBroken _ broken flat => broken.forcesBreak && flat.forcesBreak
   | Nest _ inner => inner.forcesBreak
+  | Align inner => inner.forcesBreak
+  | AlignInset inner => inner.forcesBreak
+  | Displaced inner => inner.forcesBreak
   | Flatten inner => inner.forcesBreak
   | Concat docs => Doc.anyForcesBreak docs
   | Fill items => Doc.anyForcesBreak items
@@ -138,6 +163,10 @@ def Doc.allForceBreak: List Doc → Bool
 def Doc.size: Doc → Nat
   | Nest _ inner => 1 + inner.size
   | Group inner _ => 1 + inner.size
+  | NarrowGroup _ inner _ => 1 + inner.size
+  | Align inner => 1 + inner.size
+  | AlignInset inner => 1 + inner.size
+  | Displaced inner => 1 + inner.size
   | IdGroup _ inner _ => 1 + inner.size
   | IfBroken _ broken flat => 1 + broken.size + flat.size
   | Flatten inner => 1 + inner.size

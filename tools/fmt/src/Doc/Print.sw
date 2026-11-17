@@ -124,10 +124,27 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
       else (printer.newline indent, rest)
     | Blank => (printer.blank, rest)
     | Nest more inner => (printer, [Print (indent + more) mode inner, ..rest])
+    | Align inner => (printer, [Print (printer.alignAt indent) mode inner, ..rest])
+    | AlignInset inner => (printer, [Print (printer.alignAt (indent + 2)) mode inner, ..rest])
+    | Displaced inner => (printer.displace indent, [Print (printer.displacedAt indent) mode inner, ..rest])
     | OneLineBelow inner => (printer, [Print (indent + 2) mode HardLine, Print (indent + 2) mode inner, ..rest])
     | Flatten inner => (printer, [Print indent Flat inner, ..rest])
     | Group inner hard =>
       let flat := mode.isFlat || (not hard && printer.fitsHere total [(indent, Flat, inner)] rest)
+      (printer, [Print indent (if flat then Flat else Break) inner, ..rest])
+    -- Measured in what is left of the line or up to column `max`,
+    -- whichever is less.
+    | NarrowGroup max inner hard =>
+      let room := Nat.min printer.left (max - printer.owed.getOrElse printer.column)
+      let flat :=
+        mode.isFlat
+          || (not hard
+            && fitsFrom total printer.width printer.modes
+              [(indent, Flat, inner)]
+              rest
+              room
+              printer.lineIndent
+              (not printer.suffixes.isEmpty))
       (printer, [Print indent (if flat then Flat else Break) inner, ..rest])
     | IdGroup id inner hard =>
       let flat := mode.isFlat || (not hard && printer.fitsHere total [(indent, Flat, inner)] rest)
@@ -148,6 +165,25 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
       let chosen := if mode.isFlat then options.headOr Empty else printer.choose total indent rest options
       (printer, [Print indent mode chosen, ..rest])
     | LineSuffix comment => ({ printer | suffixes = printer.suffixes ++ [comment] }, rest)
+
+--| The indentation of an `Align`'s line breaks: the column it starts at,
+--| or `atStart` at a line start.
+def Printer.alignAt (printer: Printer) (atStart: Nat): Nat := if printer.atLineStart then atStart else printer.column
+
+--| The indentation of a `Displaced` element's line breaks, in a construct
+--| indented `indent`: where its first line lands. At a line start that is
+--| the indentation owed, if deeper; after a waiting comment, the comment
+--| break's.
+def Printer.displacedAt (printer: Printer) (indent: Nat): Nat :=
+  if printer.atLineStart then Nat.max indent (printer.owed.getOrElse 0)
+  else if printer.suffixes.isEmpty then indent
+  else printer.continuation indent
+
+--| The printer before a `Displaced` element: a trailing comment waiting
+--| ends its line first (a comment break, unless a line starts here), so
+--| the element starts the next.
+def Printer.displace (printer: Printer) (indent: Nat): Printer :=
+  if printer.suffixes.isEmpty then printer else printer.lineStart indent
 
 --| The printer with `mode` recorded as how the `IdGroup` `id` printed.
 def Printer.record (printer: Printer) (id: Nat) (mode: Mode): Printer :=
@@ -326,8 +362,20 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
             | LineStartHere => not mode.isFlat
             | Nest extra inner =>
               fitsFrom more width modes [(indent + extra, mode, inner), ..stack] rest left lineIndent suffix
+            | Align inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
+            | AlignInset inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
+            | Displaced inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
             | Flatten inner => fitsFrom more width modes [(indent, Flat, inner), ..stack] rest left lineIndent suffix
             | Group inner hard =>
+              if hard && mode.isFlat then False
+              else
+                fitsFrom more width modes
+                  [(indent, if hard then Break else mode, inner), ..stack]
+                  rest
+                  left
+                  lineIndent
+                  suffix
+            | NarrowGroup _ inner hard =>
               if hard && mode.isFlat then False
               else
                 fitsFrom more width modes
