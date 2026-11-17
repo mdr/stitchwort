@@ -636,10 +636,10 @@
 -- list. The compiler checks it; change a line and see what it says.
 import Std (Eq, List)
 
-theorem appendLength: (xs: List a) -> (ys: List a) ->
-    List.length (List.append xs ys) = List.length xs + List.length ys
-  | Nil,       ys => byComputing
-  | Cons x xs, ys => Eq.cong Succ (appendLength xs ys)
+theorem appendLength (xs ys: List a):
+    List.length (List.append xs ys) = List.length xs + List.length ys := match xs with
+  | Nil       => byComputing
+  | Cons x xs => Eq.cong Succ (appendLength xs ys)
 
 def reverse: List a -> List a
   | Nil       => Nil
