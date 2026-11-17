@@ -1032,3 +1032,143 @@ changed with these definitions:
   `Bool` test (`E-AUTO-NONE`, "no way to decide"); a helper definition
   (`StaysCalm`) is what the guide says to write, but the message didn't
   point there.
+
+## T5: P3, spare brackets, and the shared traversal (SW-3737)
+
+Opus, 17 November 2026. **[checked]**: `stitchwort check` in
+`tools/toyfmt` (13 namespaces, clean); `stitchwort axioms` on the top
+theorems below (none). **[run]**: the goldens, `Parsing.sw`, the probes,
+`Validation.sw`, the driver tests and the messages tests. This project
+(`plus/`) was not rechecked. About 30 minutes of agent time against 60
+estimated.
+
+### What the toy does now
+
+`tidy` is P1, P2, P3. **P3 (`SourceFile.withoutSpareBrackets`) drops a
+pair** when neither bracket holds a comment, no own-line comment is
+above the content's first token, the content fits the pair's slot
+(`Expr.fits`: a callee or a field's target postfix, `-`'s operand an
+operand, an operator's sides by level), and, outside brackets, the
+content reads the same there (`Expr.standsOutside`, the sketch's finding
+2). Nested pairs go in one run. A type's pair with no comments always
+goes. `isPostfix`, `isOperand`, `isChain` and `chainLevel` moved from
+the proofs into program code (`Syntax/Shape.sw`).
+
+Golden and test changes, all P3 dropping a pair: the Sprig++ golden's
+`(v: (Vec))` prints `(v: Vec)`; two probes ("a trailing comment before
+)", "an if's trailing comment before )") lose their pairs, and two new
+ones keep the probed layout with a pair precedence or a field needs; the
+`- -x` test's `-(-x) - -x` now formats to `- -x - -x`. New:
+`Parsing.sw`'s "format drops spare brackets and keeps the rest" (every
+kind of place, the kept cases, `( -- c` inside a dropped pair, an
+`if` with a noted branch kept outside brackets and dropped inside a
+call) and its idempotence test.
+
+### The traversal: it works
+
+`Fmt/Traverse.sw`: `Expr.traverse step position` (named so, as `rewrite`
+is a keyword and `walk` is the parser's proofs' word) rewrites
+bottom-up: `traverseInside` traverses each child at its position, then
+`step` runs at the node. `SourceFile.traverse step declare` adds a
+function on declarations. **P2 and P3 are both written through it**
+(`dropComma`, `dropPair`).
+
+- **Termination:** accepted as written. `traverse` calls
+  `traverseInside` on the same expression, and so do the theorem pairs
+  (`traversePlain` and `insidePlain`, …), and the mutual `Prop`s
+  `AllAt`/`AllInside`. No `decreasing`.
+- **`Shaped`'s dependence on position:** a step keeps `ShapedAt slot`
+  (`Shaped` and `fits slot`) and `EndKept` (a trailing comment on the
+  last token stays: a closer outside relies on it, through
+  `settledCloser`). The parent's clauses are exactly `fits` of the
+  child's slot (two bridge lemmas for `LeftOf`/`RightOf`). The flag
+  `bracketed` carries `HeadedExpr`'s position. Nothing in `Shaped` or
+  `HeadedExpr` was restated.
+- **Idempotence**, the sketch's uncertain one, is generic too, in a
+  different shape from `walkIdempotent`: a property `done` of a node at
+  its position, `AllAt done` of every node at its own; the step leaves a
+  done node alone (`StepFixes`) and, once everything inside is done,
+  gives a result done throughout (`StepReaches`). For P3, `done` is "not
+  a spare pair here", and `StepReaches` needs "a pair kept inside
+  brackets as a whole expression is kept anywhere" (`spareWhole`,
+  `keptOutside`, and the generic flag lemma `allOutside`).
+- A declaration's `declare` needs `DeclareSettles` (it commutes with
+  traversing the body, and is idempotent) and per-fact hypotheses.
+
+**Theorems per pass** [counted, `grep -c '^theorem'`]:
+
+| | Shared, once | P2 | P3 |
+|---|---|---|---|
+| Written directly (T4's P2) | | 68 (63 in `PassProofs.sw`, 5 comment lemmas), 603 lines | about 115 [estimated: P2's 68, plus `standsOutside` 4, the kept/fixed/reached families for idempotence about 20, types and declarations 16, glue 8] |
+| Through the traversal | 78 (`TraverseProofs.sw` 70, 1,026 lines; 8 comment lemmas) | 28, 290 lines | 48 |
+
+P2's 28 are 7 one-node facts, 15 "no comma" and "fixed" lemmas over
+`NoTrailingCommas` (the printer's predicate, written by hand: stated as
+`AllAt` they would come from the generic lemmas too, leaving about 15),
+and 6 of glue. P3's 48 are 17 at expression level (one-node facts 9 with
+`standsOutside`, idempotence 5, helpers 3), 16 on types and
+declarations, 8 file-level, 6 for comments and `bracketsPrintParses`.
+The shared 78 paid for themselves by the second pass. A pass's
+expression-level cost no longer grows with the tree's parts (expression,
+items, body, lines, statement): it is one `match` over expression kinds
+per fact, and every arm but the step's own nodes is `byComputing` or the
+hypothesis. At 94 kinds that is still 94 arms per fact; `cases` might
+close the trivial ones, which wasn't tried.
+
+**`plain` stays explicit.** Moving it onto the traversal would turn each
+pass's "keeps the meaning" from a one-node fact into a commutation of two
+traversals, a new generic lemma of a different kind, and `plain` is the
+definition a person reviews (D3643). Not cheap; not done.
+
+### Top statements
+
+`bracketsKeepMeaning`, `bracketsKeepParsed`, `bracketsIdempotent`,
+`bracketsKeepCommas`, `bracketsKeepTakes`, `takesBracketsCommute`,
+`bracketsKeepComments`, `bracketsPrintParses` (the precedence argument
+end to end: `parse (file.withoutSpareBrackets.print width) = Ok
+file.withoutSpareBrackets` for a parsed tree with no trailing commas);
+for three passes `tidyKeepsMeaning`, `tidyParsed`, `tidyBare`,
+`tidyTakes`, `tidyBrackets` (new), `tidyIdempotent`,
+`tidyKeepsComments`; and `formatAnswers`, `formatRoundTrip`,
+`formatKeepsMeaning`, `formatIdempotent`, `formatKeepsComments`
+unchanged. `printParses` needs no new hypothesis: the printer prints
+any `Parsed` tree, and P3 keeps `Parsed`.
+
+Breaking the program fails the proofs: `fits (RightOf level)` with `<=`
+for `<` (which would drop the pair in `a - (b - c)`) fails
+`rightOfFits`; `standsOutside` without its own-line comment test fails
+`statementOutsideHeaded`.
+
+### For T6
+
+- P4 is a `declare` only (`identity` step, or none: it touches no
+  expression), so it gets `DeclareSettles`, `DeclareKeepsParsed` and the
+  meaning fact on declarations, and its family follows from
+  `traverseKeepsMeaning`, `traverseKeepsParsed` and `traverseIdempotent`
+  with the identity step (whose one-node facts are trivial; not written
+  yet).
+- P3 before P4: `groupsWithoutSpareBrackets` leaves `TypeName`s where
+  the brackets held no comment, which is what P4's `isNamed` reads.
+- `tidyIdempotent` needs `tidyMerged` and "P4 keeps P1-P3's work", as
+  `tidyBrackets` and the `bracketsKeep…` lemmas here.
+
+### Friction
+
+- **A function passed bare is refused when a namesake is recursive**
+  (the sketch's finding 5, again, and wider): `file.traverse dropPair
+  Declaration.withoutSpareTypeBrackets` was `E-TERMINATION` because
+  `SourceFile.withoutSpareBrackets` shares its last name with the
+  recursive `TypeExpr.withoutSpareBrackets`, though the function passed
+  has a different name. A lambda works (`Fmt/Passes.sw`).
+- **A stuck `match` isn't compared arm by arm.** `(Bracketed o i' c).fits
+  slot` and `(Bracketed o i c).fits slot` compute to the same in every
+  arm of `fits`' `match slot`, but are a type mismatch; a `cases` lemma
+  (`insideFits`, `dropCommaFits`) bridges them.
+- **`.read` takes one `&&` apart**, so a five-part test (`spareParts`)
+  is four nested `let`s.
+- **`match isSpare:` refined `dropPair`'s `if` but not the same test
+  inside `AllAt`'s `pairKept`** in the goal's other conjunct
+  (`dropReaches`); `Eq.cong (kept => not kept) isSpare` did it.
+- `W-MATCH-NOT-FOUND` on every proof-tuple `let` whose arms fail is
+  noise beside the real error (as documented, but it multiplies: 10
+  warnings for one wrong `fits`).
