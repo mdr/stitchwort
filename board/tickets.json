@@ -22648,12 +22648,12 @@
     {
       "id": 3882,
       "title": "[Opus] meaning, per the SW-3878 review: leave comments out (orchestrator's call, D3678) and drop every comment test (Group.bare, noComments) from meaning; correct its doc's grounds (compiler reads the head's first token; group split cites the compiler); forget ∀ on every header; atomic as a list of what may be forgotten; state tidyKeepsComments (order, text, own-line or trailing, blank line above; same token except a deleted comma's; doc-comment blank lines kept). After SW-3881",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "18:50 started (est. 35 min). 18:58 done, commit 1d6f7e016: meaning has no comment test (bare, Group.bare, noComments out), ∀ absent on every header, doc grounds per review S3 + D3679; CommentsKept (tidyKeepsComments's Prop) in Meaning.sw. No proof statement changed. Open: meaning's value still holds Words' comments (compared blanked; dump prints none) - stage 5 decides dump-level statement or a blanking map. Tests: fmt check, test 75/75, fmt-twin passes goldens 128/128, --stage meaning kept 128/128.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
