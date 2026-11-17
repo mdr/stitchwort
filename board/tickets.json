@@ -41891,7 +41891,7 @@
     {
       "id": 3726,
       "title": "[Opus] Elaborator: a right-nested chain of (DecEq.decide a b).holds && … is cubic in its length (32 terms 1.54M steps vs 54K as a == b), and And.left (And.right^k q) chains likewise; Eq.trans of Eq.congs 16x the raw J chain. Profile and fix (SW-3725 note, reproducers gen2.py/gen4.py in its appendix). First lane of SW-3719",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
