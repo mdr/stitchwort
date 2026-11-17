@@ -1,13 +1,12 @@
 --| The passes `format` runs between parsing and printing
 --| (toy-plus-plus.md §3.2), in order: P1 `withTakes`, P2
---| `withoutTrailingCommas`, then P3 `withoutSpareBrackets`. Each is a
---| function on trees, right on every tree, and a tree is tidy for a pass
---| when the pass leaves it alone. P4 (merged parameter groups) comes at
---| stage T6.
+--| `withoutTrailingCommas`, P3 `withoutSpareBrackets`, then P4
+--| `withMergedParameters`. Each is a function on trees, right on every
+--| tree, and a tree is tidy for a pass when the pass leaves it alone.
 
 namespace Toy.Fmt
 import Toy.Syntax (..)
-import Std (Bool, List, Option, Text)
+import Std (Bool, List, NonEmptyList, Option, Text)
 
 -- P1: `takes`, written on every function that has parameters.
 
@@ -120,5 +119,56 @@ def Declaration.withoutSpareTypeBrackets: Declaration → Declaration
 def SourceFile.withoutSpareBrackets (file: SourceFile): SourceFile :=
   file.traverse dropPair (line => line.withoutSpareTypeBrackets)
 
+-- P4: parameter groups that share a type are one group. It reads the
+-- types P3 left bare: a bracketed type that holds a comment is not merged.
+
+--| The name a type is written with, brackets aside.
+def TypeExpr.baseName: TypeExpr → Text
+  | TypeName name _ => name
+  | TypeBracketed _ inner _ => inner.baseName
+
+--| `first`'s names, then `second`'s.
+def joinNames (first second: NonEmptyList Named): NonEmptyList Named :=
+  { head = first.head, tail = first.tail ++ [second.head, ..second.tail] }
+
+--| Whether `group`, written just before `next`, is merged into it: both
+--| are typed, `group`'s `:` and its type, written as a bare name, hold no
+--| comment, and `next`'s type is that name (in brackets or not).
+def ParameterGroup.mergesInto (group next: ParameterGroup): Bool := match group, next with
+  | Typed _ colon (TypeName name comments), Typed _ _ annotation =>
+    colon.isNone && comments.isNone && annotation.baseName == name
+  | _, _ => False
+
+--| `group`'s names in front of `next`'s, with `next`'s `:` and type.
+def ParameterGroup.mergedWith (group next: ParameterGroup): ParameterGroup := match group, next with
+  | Typed names _ _, Typed more colon annotation => Typed (joinNames names more) colon annotation
+  | _, _ => group
+
+--| `group` placed before groups that are already merged: merged into the
+--| first of them if it can be.
+def mergeOnto (group: ParameterGroup) (rest: List ParameterGroup): List ParameterGroup := match rest with
+  | [] => [group]
+  | [next, ..others] => if group.mergesInto next then [group.mergedWith next, ..others] else [group, ..rest]
+
+--| The groups folded once, right to left, so a run of groups with one type
+--| is one group.
+def mergeGroups: List ParameterGroup → List ParameterGroup
+  | [] => []
+  | [group, ..rest] => mergeOnto group (mergeGroups rest)
+
+def Declaration.withMergedParameters: Declaration → Declaration
+  | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
+    Function fnComments name nameComments takes open (mergeGroups parameters) trailingComma close equals body
+  | other => other
+
+--| P4's step: it touches no expression.
+def keepExpr (position: Position) (expr: Expr): Expr := expr
+
+--| P4: no two neighbouring parameter groups share a type that can be
+--| merged.
+def SourceFile.withMergedParameters (file: SourceFile): SourceFile :=
+  file.traverse keepExpr (line => line.withMergedParameters)
+
 --| The passes, in order.
-def SourceFile.tidy (file: SourceFile): SourceFile := file.withTakes.withoutTrailingCommas.withoutSpareBrackets
+def SourceFile.tidy (file: SourceFile): SourceFile :=
+  file.withTakes.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters

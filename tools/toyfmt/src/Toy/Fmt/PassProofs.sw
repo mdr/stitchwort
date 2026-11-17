@@ -412,32 +412,46 @@ theorem commasKeepTakes ∀ (file: SourceFile)
 
 --| The passes keep the meaning, on every tree.
 theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meaning := calc file.tidy.meaning
+  _ = file.withTakes.withoutTrailingCommas.withoutSpareBrackets.meaning :=
+    mergeKeepMeaning file.withTakes.withoutTrailingCommas.withoutSpareBrackets
   _ = file.withTakes.withoutTrailingCommas.meaning := bracketsKeepMeaning file.withTakes.withoutTrailingCommas
   _ = file.withTakes.meaning := commasKeepMeaning file.withTakes
   _ = file.meaning := takesKeepMeaning file
 
 --| The passes keep the parser's guarantees.
 theorem tidyParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.tidy :=
-  bracketsKeepParsed file.withTakes.withoutTrailingCommas
-    (commasKeepParsed file.withTakes (takesKeepParsed file parsed))
+  mergeKeepParsed file.withTakes.withoutTrailingCommas.withoutSpareBrackets
+    (bracketsKeepParsed file.withTakes.withoutTrailingCommas
+      (commasKeepParsed file.withTakes (takesKeepParsed file parsed)))
 
---| A tidy tree has no trailing comma, as the printer needs: P3 kept P2's
---| work.
+--| A tidy tree has no trailing comma, as the printer needs: P3 and P4
+--| kept P2's work.
 theorem tidyBare ∀ (file: SourceFile): file.tidy.withoutTrailingCommas = file.tidy :=
-  bracketsKeepCommas file.withTakes.withoutTrailingCommas (commasIdempotent file.withTakes)
+  mergeKeepCommas file.withTakes.withoutTrailingCommas.withoutSpareBrackets
+    (bracketsKeepCommas file.withTakes.withoutTrailingCommas (commasIdempotent file.withTakes))
 
---| A tidy tree is P1-tidy too: P2 and P3 kept P1's work.
+--| A tidy tree is P1-tidy too: P2, P3 and P4 kept P1's work.
 theorem tidyTakes ∀ (file: SourceFile): file.tidy.withTakes = file.tidy :=
-  bracketsKeepTakes file.withTakes.withoutTrailingCommas (commasKeepTakes file.withTakes (takesIdempotent file))
+  mergeKeepTakes file.withTakes.withoutTrailingCommas.withoutSpareBrackets
+    (bracketsKeepTakes file.withTakes.withoutTrailingCommas (commasKeepTakes file.withTakes (takesIdempotent file)))
 
---| A tidy tree has no spare brackets.
+--| A tidy tree has no spare brackets: P4 kept P3's work.
 theorem tidyBrackets ∀ (file: SourceFile): file.tidy.withoutSpareBrackets = file.tidy :=
-  bracketsIdempotent file.withTakes.withoutTrailingCommas
+  mergeKeepBrackets file.withTakes.withoutTrailingCommas.withoutSpareBrackets
+    (bracketsIdempotent file.withTakes.withoutTrailingCommas)
+
+--| A tidy tree has no parameter groups left to merge.
+theorem tidyMerged ∀ (file: SourceFile): file.tidy.withMergedParameters = file.tidy :=
+  mergeIdempotent file.withTakes.withoutTrailingCommas.withoutSpareBrackets
 
 --| The passes finish in one run: a tidy tree is tidy for each pass.
 theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy := calc file.tidy.tidy
-  _ = file.tidy.withTakes.withoutTrailingCommas.withoutSpareBrackets := byComputing
-  _ = file.tidy.withoutTrailingCommas.withoutSpareBrackets :=
-    Eq.cong ((tree: SourceFile) => tree.withoutTrailingCommas.withoutSpareBrackets) (tidyTakes file)
-  _ = file.tidy.withoutSpareBrackets := Eq.cong ((tree: SourceFile) => tree.withoutSpareBrackets) (tidyBare file)
-  _ = file.tidy := tidyBrackets file
+  _ = file.tidy.withTakes.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters := byComputing
+  _ = file.tidy.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters :=
+    Eq.cong
+      ((tree: SourceFile) => tree.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters)
+      (tidyTakes file)
+  _ = file.tidy.withoutSpareBrackets.withMergedParameters :=
+    Eq.cong ((tree: SourceFile) => tree.withoutSpareBrackets.withMergedParameters) (tidyBare file)
+  _ = file.tidy.withMergedParameters := Eq.cong ((tree: SourceFile) => tree.withMergedParameters) (tidyBrackets file)
+  _ = file.tidy := tidyMerged file

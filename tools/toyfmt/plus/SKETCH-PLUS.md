@@ -1172,3 +1172,93 @@ for `<` (which would drop the pair in `a - (b - c)`) fails
 - `W-MATCH-NOT-FOUND` on every proof-tuple `let` whose arms fail is
   noise beside the real error (as documented, but it multiplies: 10
   warnings for one wrong `fits`).
+
+## T6: P4, merged parameter groups (SW-3743)
+
+Sonnet, 17 November 2026. **[checked]**: `stitchwort check` in
+`tools/toyfmt` (13 namespaces, clean, no warnings); `stitchwort axioms`
+on the top theorems below (none). **[run]**: `Parsing.sw`, `Goldens.sw`,
+the probes, `Validation.sw`, the driver and places tests and the messages
+tests. About 20 minutes of agent time against 45 estimated.
+
+### What the toy does now
+
+`tidy` is P1, P2, P3, P4. **P4 (`SourceFile.withMergedParameters`)** is
+`traverse keepExpr (line => line.withMergedParameters)`: the step touches no
+expression, and `declare` folds a function's groups right to left
+(`mergeGroups`, one `mergeOnto` for each group). A group merges into the
+next when both are typed, its `:` and its type, a bare `TypeName`, hold no
+comment, and the next group's type has the same `baseName` (brackets
+aside); the merged group is the two names lists with the next group's `:`
+and type (`joinNames`). The condition is the table's (§3.2), with one
+reading made explicit: only the first group's `:` and type are tested, so
+`(head: Nat, rest: -- c Nat)` merges to `head rest: -- c Nat`, the comment
+staying on the group it was on.
+
+Test changes: `Goldens.sw`'s Sprig++ golden `stream` had `head: Nat, rest:
+-- c Nat`, which now merges, so its first type is `Int` (source, tree,
+formatted text and dump). New in `Parsing.sw`: "format merges groups with
+one type and keeps the rest" (a run of three, a bracketed type merging
+after P3, a trailing comment on the first type keeping the groups apart, an
+untyped first group, different types, an own-line comment above the second
+name kept, a comment inside a dropped bracket pair kept) and "format leaves
+its merged output alone".
+
+### Theorems [counted]
+
+57 in `Fmt/MergeProofs.sw`, 7 in `KeepsComments.sw`, `tidyMerged` and the
+restated `tidy*` in `PassProofs.sw`. By kind (approximate): the identity step's facts and the traversal
+being the identity (`keepTraverse` and its companions, `keepPlain` ...
+`keepReaches`: about 17); what a merging group is (`typeBareName`,
+`isNoneEq`, `mergesParts`); the meaning (`splitJoin`, `mergedPlain`,
+`mergeOntoPlain`); `Parsed` (`mergeOntoEnds`, `groupsMergeShaped`,
+`groupsMergeLexical` with `namesLexicalAppend`); idempotence (`Unmergeable`
+and four lemmas); P1's work (`takesForMerge`, `mergeTakesCommute`); P3's
+(`mergeOntoSpare`, `groupsMergeSpare`, `declarationMergeBrackets`); P2's;
+and 7 for comments. The traversal needed the identity family only to turn P4
+into a map over declarations (`mergedIsDeclarations`), which the proofs that
+P4 keeps P1's and P3's work use.
+
+That is far more than T6's estimate of about 25: the estimate counted
+statements, not the helpers over lists. Everything is about the list of
+groups; nothing is about expressions.
+
+### Top statements
+
+`mergeKeepMeaning`, `mergeKeepParsed`, `mergeIdempotent`,
+`mergeKeepComments`, `mergeKeepCommas`, `mergeKeepTakes`,
+`mergeKeepBrackets`; for four passes `tidyKeepsMeaning`, `tidyParsed`,
+`tidyBare`, `tidyTakes`, `tidyBrackets`, `tidyMerged` (new),
+`tidyIdempotent`, `tidyKeepsComments`; `printParses`,
+`formatKeepsMeaning`, `formatIdempotent`, `formatKeepsComments` needed no
+change. P4 and P1 commute (`mergeTakesCommute`); P4 and P3 don't (a
+bracketed type merges only after P3 dropped its brackets), hence
+`mergeKeepBrackets` as a hypothesis-taking lemma, from `groupsMergeSpare`.
+
+Breaking the program fails the proofs: dropping the `baseName` comparison
+from `mergesInto` is a type error in `mergeOntoPlain`'s use of
+`mergesParts`.
+
+### Friction
+
+- `match` on a `Prop`-valued function that reads two lists (`Unmergeable`,
+  with `[_]` and `[group, next, ..rest]` arms) works, but each lemma about
+  `mergeOnto` repeats the same five-arm `match group, rest`: the four arms
+  where `mergesInto` is false by computing, then the one that tests it. A
+  `cases` that closed the four would remove about 30 lines (the same
+  point as T5's "94 arms").
+- `W-REWRITE-THEN-COMPUTING` / `W-REWRITE-THEN-REWRITE` fire on code a
+  first draft naturally writes; the quick fixes were right.
+- A name used in two namespaces under `Toy.Fmt.Proofs` is `E-AMBIGUOUS`
+  (`Anywhere`, a `Zone` constructor); the message names both and was fine.
+- `rewrite repeatedly [List.appendAssoc, List.appendNil] then byComputing`
+  closed the comment goal that needed six re-associations by hand.
+- A generic `StepIsIdentity` family in
+  `TraverseProofs.sw` would give any later declaration-only pass its identity step and the map form.
+
+### For T7
+
+- `format` and the goldens are unchanged but for the one golden; the
+  real formatter's P4 should keep the condition's reading above.
+- P4's output still passes through `printParses` unchanged: the printer
+  prints any `Parsed` tree, and a merged group is one it already printed.
