@@ -72,7 +72,9 @@ bare: `(h: xs.any p)`, `isSmall m ∧ isSmall n`, `¬a`. State facts with
 `∧`; write `(a && b) = True` only for a fact a program hands you and you
 mean to `rewrite` with, since that is the term an `if a && b` or a
 `match h: a && b` gives (D3486). Keep `= True` on a side of `=`, and write
-`b = False` as it is.
+`b = False` as it is. A `False` in a statement is the `Bool`, so a goal
+`False` is really `False = True`, which has no proof; for a proposition
+with no proof, write `Void`.
 
 Tests and statements (docs/guide/10-proofs.md, "Tests and
 propositions"): take a fact about a test apart with the patterns of the

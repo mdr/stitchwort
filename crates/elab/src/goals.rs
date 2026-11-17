@@ -20,6 +20,7 @@
 use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force, quote_shown};
 use stitchwort_core::{Ev, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Span, cut_computed};
@@ -339,6 +340,33 @@ fn written_unless_same(
 ) -> Option<String> {
     pretty::value_for_goal_as_written(g, scope, names, predicates, value)
         .filter(|w| w != shown && !shows_helper(w))
+}
+
+/// Whether `goal` is exactly the proposition `False = True`: what the `Bool`
+/// `False` written in a statement is read as (docs/proposals/bool-as-
+/// proposition.md §4). A goal like that has no proof, and a note pointing at
+/// `Void` helps (SW-2901).
+fn is_false_eq_true(g: &Ev, goal: &Value) -> bool {
+    let reg = g.env.registry();
+    let (Some((bool_data, false_ix)), Some((_, true_ix))) =
+        (reg.ctor(Builtin::False), reg.ctor(Builtin::True))
+    else {
+        return false;
+    };
+    let is_ctor = |v: &Value, ix: usize| {
+        matches!(
+            force(g, v.clone()),
+            Ok(Value::Ctor(d, c, _)) if d == bool_data && c == ix
+        )
+    };
+    let Ok(Value::Eq(ty, lhs, rhs)) = force(g, goal.clone()) else {
+        return false;
+    };
+    matches!(
+        force(g, (*ty).clone()),
+        Ok(Value::Data(d, _)) if d == bool_data
+    ) && is_ctor(&lhs, false_ix)
+        && is_ctor(&rhs, true_ix)
 }
 
 /// Whether `text` names a compiler-made helper (`Fail.%elim`, `%match1`):
@@ -1685,6 +1713,13 @@ impl Elaborator {
         };
         let mut diagnostic =
             Diagnostic::goal(format!("in {}", p.owner)).with_label(p.span, lines.join("\n"));
+        if known && is_false_eq_true(g, computed.unwrap_or(&p.expected)) {
+            diagnostic = diagnostic.with_note(
+                "`False` here is the Bool, so this goal is `False = True`, which has no proof \
+                 unless the hypotheses contradict each other; for a proposition with no proof, \
+                 write `Void`",
+            );
+        }
         if p.superseded > 0 {
             let (n, are, them) = match p.superseded {
                 1 => ("1 earlier hypothesis".to_string(), "isn't", "it"),
