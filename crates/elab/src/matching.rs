@@ -1474,7 +1474,12 @@ fn in_arms(
         body
     });
     crate::arm_display::forget_scrutinees(cx, shown);
-    if !not_found.is_empty() {
+    // A pattern `let` is a `match` the compiler makes, not one written in the
+    // source: its names are bound by the arms whether the goal changes or not.
+    // When one of them (or a later statement) fails, every enclosing `let`
+    // would otherwise repeat the warning, one per `let` for one error
+    // (SW-3742). The error is the one to report.
+    if !not_found.is_empty() && kind != MatchKind::Let {
         // If the alternatives failed, whether they use an equation isn't
         // known; the failure is then likely to be this (SW-1485).
         let used = body.as_ref().ok().map(|body| free_levels(body, depth));

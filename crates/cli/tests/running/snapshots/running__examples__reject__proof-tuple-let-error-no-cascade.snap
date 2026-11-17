@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/proof-tuple-let-error-no-cascade.sw:10:21 ]
+    │
+ 10 │   let (g, i) := (e, 2)
+    │                     ┬  
+    │                     ╰── the tuple's first part is a proof, so the tuple proves `∧` and this part must be a proof too
+────╯
