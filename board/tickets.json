@@ -41227,14 +41227,14 @@
     {
       "id": 3662,
       "title": "[Sonnet] Follow-ups to SW-3655: hover on a set's name inside a rewrite repeatedly [set] call shows nothing (set_named restores a snapshot that drops the nav record); doc pages skip Decl::Rules; the expand action offers itself on any line containing the words; expand drops definition one-step unfolds",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
