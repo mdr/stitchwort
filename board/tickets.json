@@ -41933,7 +41933,7 @@
     {
       "id": 3716,
       "title": "[DeepSeek] fmt: a unary minus with a space before a numeral that is applied to arguments ('- 2 is …', parsed as Neg of the application) is refused with 'the output parses to a different tree' (original Neg(, output App(); a variable ('- x y' -> '-x y') is fine. Keep the space, or bracket, when the negated operand is an application headed by a numeral. Fuzz seed 0x100a plain case 187949; minimal 2 lines: 'def f: Ieft withEnt → Nat' / '  | 0 => - 2 is alreas are left withE-NONEXHAUSTIVE'. Same family as SW-3680 (- omega)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
