@@ -2106,22 +2106,23 @@ theorem sumNear ∀ (g d: Float)
     (roundedSumNear (Float.Theory.units g) (Float.Theory.units d) s w w2 gb.left gb.right db.left db.right err sign)
 
 theorem marginArith ∀ (l d s f: Int) (w e: Nat)
-    (ee: e = w * 4)
+    (ee: e = w * 10)
     (pw: 1 ≤ w)
-    (dHi: Int.leq d (Int.neg (OfNat (w * 7))) = True)
+    (dHi: Int.leq d (Int.neg (OfNat (w * 13))) = True)
     (near: Int.leq s (Int.add (Int.add l d) (OfNat (w * 2))) = True)
     (fs: Int.leq f s = True):
     Int.less (Int.add f (OfNat e)) l = True :=
   arithmetic [ee, pw, dHi, near, fs]
 
 --| The exact margin at the lower edge: for a band at least 1e-11° wide, the
---| unrounded lower edge `lat - placeAt unit * width` is more than 2^-42
---| below the answer, in exact units, so `floorTo`'s error at step 0.1
---| (`floorToTenthBound`) can't carry it past the answer. (The margin is
+--| unrounded lower edge `lat - placeAt unit * width` is more than 10 · 2^-44
+--| below the answer, in exact units, so neither `floorTo`'s error at step 0.1
+--| (`floorToTenthBound`, 2^-42) nor that and `wrap`'s (`wrapNear`, 6 · 2^-44)
+--| can carry it past the answer. (The margin is
 --| 0.15 of the width; 1e-11° is far below any real band.)
 --|
 --| The proof: the edge is at most `lat - 0.15 * width` (`marginRow`), and
---| `0.15 * width` is at least `0.15 * 1e-11`, over 7 · 2^-44; the standard
+--| `0.15 * width` is at least `0.15 * 1e-11`, over 13 · 2^-44; the standard
 --| model for the subtraction (`sumNear`) loses at most 2^-43 of it.
 theorem marginBelowExact ∀ (lat width unit: Float)
     (latLo: -361.0 <= lat)
@@ -2131,7 +2132,7 @@ theorem marginBelowExact ∀ (lat width unit: Float)
     (low: 0.0 <= unit)
     (high: unit <= 1.0):
     Int.less
-      (Int.add (Float.Theory.units (lat - placeAt unit * width)) (OfNat (Float.Model.pow2 1032)))
+      (Int.add (Float.Theory.units (lat - placeAt unit * width)) (OfNat (Float.Model.pow2 1030 * 10)))
       (Float.Theory.units lat)
       = True :=
   let fl: Float.isFinite lat = True := Float.finiteBetween (-361.0) lat 361.0 byComputing byComputing latLo latHi
@@ -2155,11 +2156,11 @@ theorem marginBelowExact ∀ (lat width unit: Float)
   let dLo: -361.0 <= d := Float.negAntitone q 361.0 nq byComputing qHi
   let e: lat - q = lat + d := Float.subAddNeg lat q
   let near := (sumNear lat d latLo latHi dLo (floatLeTrans d (-(0.15 * 1e-11)) 361.0 dHi byComputing)).right.right
-  let du: Int.leq (Float.Theory.units d) (Int.neg (OfNat (Float.Model.pow2 1030 * 7))) = True :=
+  let du: Int.leq (Float.Theory.units d) (Int.neg (OfNat (Float.Model.pow2 1030 * 13))) = True :=
     intLeTransOf
       (Float.Theory.units d)
       (Float.Theory.units (-(0.15 * 1e-11)))
-      (Int.neg (OfNat (Float.Model.pow2 1030 * 7)))
+      (Int.neg (OfNat (Float.Model.pow2 1030 * 13)))
       (Float.Theory.unitsMonoKey d.bits (-(0.15 * 1e-11)).bits dHi)
       byComputing
   let edge: Int.leq (Float.Theory.units (lat - placeAt unit * width)) (Float.Theory.units (lat + d)) = True :=
@@ -2173,7 +2174,7 @@ theorem marginBelowExact ∀ (lat width unit: Float)
     (Float.Theory.units (lat + d))
     (Float.Theory.units (lat - placeAt unit * width))
     (Float.Model.pow2 1030)
-    (Float.Model.pow2 1032)
+    (Float.Model.pow2 1030 * 10)
     byComputing
     byComputing
     du
@@ -2365,7 +2366,7 @@ theorem shareAbove ∀ (width: Float)
     wHi
 
 theorem marginUpArith ∀ (l dd rr c wd t2 t: Int) (w e: Nat)
-    (ee: e = w * 4)
+    (ee: e = w * 10)
     (pw: 1 ≤ w)
     (dn: dd = Int.neg rr)
     (core: Int.leq (Int.add rr (OfNat (w * 16))) wd = True)
@@ -2391,7 +2392,7 @@ theorem negShare ∀ (a width: Float)
 
 --| The exact margin at the upper edge: for a band from 1e-11° to 180° wide
 --| around `lat` within 180°, the unrounded upper edge `from + width` is more
---| than 2^-42 above the answer, in exact units, so `ceilTo`'s error at
+--| than 10 · 2^-44 above the answer, in exact units, so `ceilTo`'s error at
 --| step 0.1 (`ceilToTenthBound`) can't carry it below the answer.
 --|
 --| The proof: `from` is at least `lat - 0.85 * width` (`marginRow`), so
@@ -2407,7 +2408,7 @@ theorem marginAboveExact ∀ (lat width unit: Float)
     (low: 0.0 <= unit)
     (high: unit <= 1.0):
     Int.less
-      (Int.add (Float.Theory.units lat) (OfNat (Float.Model.pow2 1032)))
+      (Int.add (Float.Theory.units lat) (OfNat (Float.Model.pow2 1030 * 10)))
       (Float.Theory.units (lat - placeAt unit * width + width))
       = True :=
   let fl: Float.isFinite lat = True := Float.finiteBetween (-180.0) lat 180.0 byComputing byComputing latLo latHi
@@ -2478,7 +2479,7 @@ theorem marginAboveExact ∀ (lat width unit: Float)
     (Float.Theory.units (c + width))
     (Float.Theory.units (fr + width))
     (Float.Model.pow2 1030)
-    (Float.Model.pow2 1032)
+    (Float.Model.pow2 1030 * 10)
     byComputing
     byComputing
     (unitsNeg r nr.left)
@@ -2999,7 +3000,7 @@ theorem unclampedFacts ∀ (lat width unit: Float)
       (lessOfAddNat
         (Float.Theory.units unc)
         (Float.Theory.units lat)
-        (Float.Model.pow2 1032)
+        (Float.Model.pow2 1030 * 10)
         (marginBelowExact lat
           width
           unit
@@ -3029,12 +3030,13 @@ theorem topEdgeRange ∀ (width: Float)
       (byComputing: 90.0 - 0.0 = 90.0)
   Both (Float.finiteBetween (-90.0) (90.0 - width) 90.0 byComputing byComputing lo hi) (Both lo hi)
 
-theorem chainBelow ∀ (a b c d: Int) (p: Nat)
+theorem chainBelow ∀ (a b c d: Int) (p q: Nat)
+    (pq: p ≤ q)
     (h1: Int.leq a (Int.add b (OfNat p)) = True)
     (h2: Int.leq b c = True)
-    (h3: Int.less (Int.add c (OfNat p)) d = True):
+    (h3: Int.less (Int.add c (OfNat q)) d = True):
     Int.less a d = True :=
-  arithmetic [h1, h2, h3]
+  arithmetic [pq, h1, h2, h3]
 
 --| `floorTo (-90.0)` is -90° at either step.
 theorem floorAtSouthPole ∀ (width: Float): floorTo (-90.0) (stepFor width) = -90.0 :=
@@ -3089,6 +3091,8 @@ theorem latitudeFromBelow ∀ (lat width unit: Float)
             (Float.Theory.units unc)
             (Float.Theory.units lat)
             (Float.Model.pow2 1032)
+            (Float.Model.pow2 1030 * 10)
+            byComputing
             fs.right
             (Float.Theory.unitsMonoKey from.bits unc.bits fu)
             (marginBelowExact lat
@@ -3110,12 +3114,13 @@ theorem latitudeFromBelow ∀ (lat width unit: Float)
     (notNaNOfFinite lat fl)
     (clampFromKeeps lat (floorTo from step) nf latLo below)
 
-theorem chainAbove ∀ (l a b c: Int) (p: Nat)
-    (h1: Int.less (Int.add l (OfNat p)) a = True)
+theorem chainAbove ∀ (l a b c: Int) (p q: Nat)
+    (pq: p ≤ q)
+    (h1: Int.less (Int.add l (OfNat q)) a = True)
     (h2: Int.leq a b = True)
     (h3: Int.leq b (Int.add c (OfNat p)) = True):
     Int.less l c = True :=
-  arithmetic [h1, h2, h3]
+  arithmetic [pq, h1, h2, h3]
 
 --| An edge from -90° to 90° plus a width from 0 to 180° is from -90° to 270°.
 theorem edgePlusWidth ∀ (from width: Float)
@@ -3186,6 +3191,8 @@ theorem latitudeToAboveUnclamped ∀ (lat width unit: Float)
         (Float.Theory.units (from + width))
         (Float.Theory.units c)
         (Float.Model.pow2 1032)
+        (Float.Model.pow2 1030 * 10)
+        byComputing
         (marginAboveExact lat
           width
           unit
