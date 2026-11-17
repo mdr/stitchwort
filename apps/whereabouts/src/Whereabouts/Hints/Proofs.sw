@@ -1,9 +1,6 @@
 --| What is proved about hint bands, and what is settled by computing.
---| Only `Float.add` and `Float.sub` have laws in std today; `mul`, `div`,
---| `floor`, `ceil`, `round`, `rem` and `ofNat` are primitives the checker
---| computes on known doubles and knows nothing about otherwise. So a
---| statement over every input that needs one of those takes the law it
---| needs as a hypothesis, named after it, and NOTES.md lists each.
+--| std's float laws (std/Float/Theory.sw) cover `seededUnit`; NOTES.md
+--| lists the laws the other band theorems still need.
 
 namespace Whereabouts.Hints.Proofs
 import Whereabouts.Hints (..)
@@ -23,32 +20,40 @@ theorem floatLeLtTrans ∀ (x y z: Float) (xy: x <= y) (yz: y < z): x < z :=
   let b: Int.less (Float.orderKey y) (Float.orderKey z) = True := yz
   (arithmetic: Int.less (Float.orderKey x) (Float.orderKey z) = True)
 
---| `seededUnit` is in [0, 1), given two laws stage 3 is to prove: `ofNat`
---| and division by a positive double are monotone. The largest word,
---| 2^32 - 1, divides to 0.99999999976716936, below 1.
+--| `seededUnit` is in [0, 1): `ofNat` and division by a positive finite
+--| double are monotone, and the largest word, 2^32 - 1, divides to
+--| 0.99999999976716936, below 1.
 theorem wordUnitInUnit ∀ (word: Nat)
-    (word32: word < 4294967296)
-    (ofNatMonotone: ∀ (m n: Nat) => m ≤ n → Float.ofNat m <= Float.ofNat n)
-    (divMonotone: ∀ (x y d: Float) => 0.0 < d → x <= y → x / d <= y / d):
+    (word32: word < 4294967296):
     0.0 <= Float.ofNat word / 4294967296.0 ∧ Float.ofNat word / 4294967296.0 < 1.0 :=
   let below: word ≤ 4294967295 := arithmetic
   let positive: 0.0 < 4294967296.0 := byComputing
+  let finite: Float.isFinite 4294967296.0 = True := byComputing
   let atLeastZero: Float.ofNat 0 / 4294967296.0 <= Float.ofNat word / 4294967296.0 :=
-    divMonotone (Float.ofNat 0) (Float.ofNat word) 4294967296.0 positive (ofNatMonotone 0 word (arithmetic))
+    Float.divMonotone
+      (Float.ofNat 0)
+      (Float.ofNat word)
+      4294967296.0
+      positive
+      finite
+      (Float.ofNatMonotone 0 word (arithmetic))
   let atMostTop: Float.ofNat word / 4294967296.0 <= Float.ofNat 4294967295 / 4294967296.0 :=
-    divMonotone (Float.ofNat word) (Float.ofNat 4294967295) 4294967296.0 positive (ofNatMonotone word 4294967295 below)
+    Float.divMonotone
+      (Float.ofNat word)
+      (Float.ofNat 4294967295)
+      4294967296.0
+      positive
+      finite
+      (Float.ofNatMonotone word 4294967295 below)
   let zero: Float.ofNat 0 / 4294967296.0 = 0.0 := byComputing
   let top: Float.ofNat 4294967295 / 4294967296.0 < 1.0 := byComputing
   (rewrite zero at atLeastZero then atLeastZero, floatLeLtTrans _ _ 1.0 atMostTop top)
 
---| `seededUnit` is in [0, 1), given the same two laws.
-theorem seededUnitInUnit ∀ (parts: List Float)
-    (ofNatMonotone: ∀ (m n: Nat) => m ≤ n → Float.ofNat m <= Float.ofNat n)
-    (divMonotone: ∀ (x y d: Float) => 0.0 < d → x <= y → x / d <= y / d):
-    0.0 <= seededUnit parts ∧ seededUnit parts < 1.0 :=
-  wordUnitInUnit (finalWord parts) (finalWordBelow parts) ofNatMonotone divMonotone
+--| `seededUnit` is in [0, 1).
+theorem seededUnitInUnit ∀ (parts: List Float): 0.0 <= seededUnit parts ∧ seededUnit parts < 1.0 :=
+  wordUnitInUnit (finalWord parts) (finalWordBelow parts)
 
--- Settled by computing: the checker computes every primitive on known doubles.
+-- Settled by computing: the checker computes every float operation on known doubles.
 
 def point (lat lon: Float): LatLon := { lat = { value = lat }, lon = { value = lon } }
 

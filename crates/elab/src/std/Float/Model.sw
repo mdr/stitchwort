@@ -218,7 +218,8 @@ def Float.Model.divBits (a b: Nat): Nat :=
 --| otherwise `x - n × y` for the whole `n` of `x / y` truncated, which is
 --| exact, with `x`'s sign (a zero result too).
 def Float.Model.remBits (a b: Nat): Nat :=
-  if Float.Model.isNaN a ∨ Float.Model.isNaN b ∨ Float.Model.isInfinite a ∨ Float.Model.isZero b then 9221120237041090560
+  if Float.Model.isNaN a ∨ Float.Model.isNaN b ∨ Float.Model.isInfinite a ∨ Float.Model.isZero b then
+    9221120237041090560
   else if Float.Model.isInfinite b then a
   else
     let m: Nat := Int.natAbs (Float.Model.units a)

@@ -3001,3 +3001,464 @@ test "Float.ofNatMul" :=
     ∧ Float.ofNat 123456789 * 10.0 == Float.ofNat 1234567890
     ∧ Float.ofNat 9007199254740991 * 10.0 == Float.ofNat 90071992547409910
     ∧ Float.ofNat 9007199254740992 * Float.ofNat 9007199254740992 == Float.ofNat (Nat.pow 2 106)
+
+-- Division and the conversions' order
+
+--| A larger number never converts to a smaller double.
+theorem Float.ofNatMonotone ∀ (m n: Nat) (h: m ≤ n): Float.ofNat m <= Float.ofNat n :=
+  Float.ofIntMonotone (OfNat m) (OfNat n) (arithmetic [h])
+
+--| A whole number up to 2^53 converts to a finite double.
+theorem Float.ofNatFinite ∀ (n: Nat) (h: n ≤ 9007199254740992): Float.isFinite (Float.ofNat n) = True :=
+  let fin: Float.Theory.FiniteBits (Float.Model.ofIntBits (OfNat n)) := (Float.Theory.ofIntBitsSmall n h).left.left
+  rewrite Float.Theory.ofBitsBits
+        (Float.Model.ofIntBits (OfNat n))
+        (Float.Theory.roundRatioValid 1 (OfNat 0) False byComputing (OfNat n)) then
+    (arithmetic [fin]: ¬(Nat.leq 9218868437227405312 (Float.clearSignBits (Float.Model.ofIntBits (OfNat n)))) = True)
+
+test "Float.ofNatMonotone" :=
+  Float.ofNat 0 <= Float.ofNat 1
+    ∧ Float.ofNat 9007199254740993 <= Float.ofNat 9007199254740992
+    ∧ Float.ofNat 4294967295 <= Float.ofNat 4294967296
+
+test "Float.ofNatFinite" := Float.isFinite (Float.ofNat 9007199254740992) ∧ Float.isFinite (Float.ofNat 0)
+
+--| Zero numerators' keys are ordered by their signs.
+theorem Float.Theory.zeroKeyLe ∀ (den: Nat) (scale: Int) (z1 z2: Bool)
+    (zs: z1 = False → z2 = False):
+    Int.leq (Float.Theory.roundKey (OfNat 0) den scale z1) (Float.Theory.roundKey (OfNat 0) den scale z2) = True :=
+  match z1, z2 with
+    | True, True => byComputing
+    | True, False => byComputing
+    | False, True => Void.impossible (Bool.falseNotTrue (zs byComputing).flipped)
+    | False, False => byComputing
+
+--| A smaller numerator rounds to a double no greater, if a zero numerator's
+--| sign is no greater either.
+theorem Float.Theory.roundKeyMonoLe ∀ (den: Nat) (scale: Int) (z1 z2: Bool)
+    (pd: 0 < den) (num1 num2: Int)
+    (le: Int.leq num1 num2 = True)
+    (zs: z1 = False → z2 = False):
+    Int.leq (Float.Theory.roundKey num1 den scale z1) (Float.Theory.roundKey num2 den scale z2) = True :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Int.less num1 num2))
+    (lt => Float.Theory.roundKeyMono den scale z1 z2 pd num1 num2 lt)
+    (lt =>
+      let e: num1 = num2 := arithmetic [le, lt]
+      rewrite e then
+        Float.Theory.orCase
+          [goal := Int.leq (Float.Theory.roundKey num2 den scale z1) (Float.Theory.roundKey num2 den scale z2) = True]
+          (Float.Theory.intZeroCases num2)
+          (n0 => rewrite n0 then Float.Theory.zeroKeyLe den scale z1 z2 zs)
+          (ne =>
+            J
+              (y w =>
+                Int.leq (Float.Theory.roundKey num2 den scale z1) (Float.keyOf y (Nat.leq 9223372036854775808 y))
+                  = True)
+              (Float.Theory.keyRefl (Float.Theory.roundKey num2 den scale z1))
+              (Float.Theory.roundRatioSignIrrelevant den scale z1 z2 num2 ne)))
+
+--| The total order on finite patterns is the order of their units.
+theorem Float.Theory.unitsMonoKey ∀ (a c: Nat)
+    (h: Int.leq (Float.Theory.key a) (Float.Theory.key c) = True):
+    Int.leq (Float.Model.units a) (Float.Model.units c) = True :=
+  rewrite Float.Theory.unitsMag a, Float.Theory.unitsMag c then
+    match sa: Nat.leq 9223372036854775808 a, sc: Nat.leq 9223372036854775808 c with
+      | False, False =>
+        let ka: Float.Theory.key a = OfNat a := Float.Theory.keyClear a sa
+        let kc: Float.Theory.key c = OfNat c := Float.Theory.keyClear c sc
+        let le: a ≤ c := arithmetic [h, ka, kc]
+        (arithmetic [Float.Theory.magUnitsLe a c le]: Int.leq
+          (OfNat (Float.Theory.magUnits a))
+          (OfNat (Float.Theory.magUnits c))
+          = True)
+      | True, False => arithmetic
+      | True, True =>
+        (arithmetic [Float.Theory.magUnitsLe (c - 9223372036854775808) (a - 9223372036854775808) h]: Int.leq
+          (Int.neg (OfNat (Float.Theory.magUnits (a - 9223372036854775808))))
+          (Int.neg (OfNat (Float.Theory.magUnits (c - 9223372036854775808))))
+          = True)
+
+--| `divBits` with neither argument the NaN nor infinite and a nonzero
+--| divisor: the units' quotient, rounded.
+theorem Float.Theory.divFiniteBits ∀ (a b: Nat)
+    (na: Float.Model.isNaN a = False)
+    (nb: Float.Model.isNaN b = False)
+    (ia: Float.Model.isInfinite a = False)
+    (ib: Float.Model.isInfinite b = False)
+    (zb: Float.Model.isZero b = False):
+    Float.Model.divBits a b
+      = Float.Model.roundRatio
+        (if Float.Model.signBit b then Int.neg (Float.Model.units a) else Float.Model.units a)
+        (Int.natAbs (Float.Model.units b))
+        (OfNat 0)
+        (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)) :=
+  let sign: Bool := Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)
+  let fin: Nat :=
+    Float.Model.roundRatio
+      (if Float.Model.signBit b then Int.neg (Float.Model.units a) else Float.Model.units a)
+      (Int.natAbs (Float.Model.units b))
+      (OfNat 0)
+      sign
+  let byZero: Nat := if Float.Model.isZero a then 9221120237041090560 else Float.Model.infinityBits sign
+  let atInfinity: Nat := if Float.Model.isInfinite b then 9221120237041090560 else Float.Model.infinityBits sign
+  let finiteA: Nat :=
+    if Float.Model.isInfinite b then Float.Model.zeroBits sign
+    else if Float.Model.isZero b then byZero
+    else fin
+  calc Float.Model.divBits a b
+    _ = (if Float.Model.isInfinite a then atInfinity else finiteA) :=
+      Float.Theory.ifFalse
+        (Float.Model.isNaN a ∨ Float.Model.isNaN b)
+        9221120237041090560
+        (if Float.Model.isInfinite a then atInfinity else finiteA)
+        (Float.Theory.orFalse (Float.Model.isNaN a) (Float.Model.isNaN b) na nb)
+    _ = finiteA := Float.Theory.ifFalse (Float.Model.isInfinite a) atInfinity finiteA ia
+    _ = (if Float.Model.isZero b then byZero else fin) :=
+      Float.Theory.ifFalse
+        (Float.Model.isInfinite b)
+        (Float.Model.zeroBits sign)
+        (if Float.Model.isZero b then byZero else fin)
+        ib
+    _ = fin := Float.Theory.ifFalse (Float.Model.isZero b) byZero fin zb
+
+--| A sign that is clear stays clear up the total order.
+theorem Float.Theory.signClearUp ∀ (a c: Nat)
+    (h: Int.leq (Float.Theory.key a) (Float.Theory.key c) = True)
+    (sa: Nat.leq 9223372036854775808 a = False):
+    Nat.leq 9223372036854775808 c = False :=
+  match sc: Nat.leq 9223372036854775808 c with
+    | False => byComputing
+    | True => Void.impossible (arithmetic [h, Float.Theory.keyClear a sa, Float.Theory.keySet c sc])
+
+--| `x / y` on any two doubles, known or not: their bits' quotient.
+theorem Float.Theory.divOfBits ∀ (x y: Float): x / y = Float.ofBits (Float.Model.divBits x.bits y.bits) :=
+  match x, y with | { bits = a, valid = p }, { bits = b, valid = q } => byComputing
+
+theorem Float.Theory.natAbsPos ∀ (i: Int) (h: Int.less (OfNat 0) i = True): 0 < Int.natAbs i := match i with
+  | OfNat n => arithmetic [h]
+
+theorem Float.Theory.positiveDivisor ∀ (s z: Bool) (u: Int) (den: Nat)
+    (h: s = False):
+    Float.Model.roundRatio (if s then Int.neg u else u) den (OfNat 0) (Bool.xor z s)
+      = Float.Model.roundRatio u den (OfNat 0) z :=
+  rewrite h, Float.Theory.xorFalse z
+
+--| Dividing by a positive finite double: the units' quotient, rounded,
+--| with the dividend's sign for a zero.
+theorem Float.Theory.divPosBits ∀ (a b: Nat)
+    (fa: Float.Theory.FiniteBits a)
+    (fb: Float.Theory.FiniteBits b)
+    (sb: Nat.leq 9223372036854775808 b = False)
+    (zb: Float.Model.isZero b = False):
+    Float.Model.divBits a b
+      = Float.Model.roundRatio
+        (Float.Model.units a)
+        (Int.natAbs (Float.Model.units b))
+        (OfNat 0)
+        (Float.Model.signBit a) :=
+  calc Float.Model.divBits a b
+    _ = Float.Model.roundRatio
+        (if Float.Model.signBit b then Int.neg (Float.Model.units a) else Float.Model.units a)
+        (Int.natAbs (Float.Model.units b))
+        (OfNat 0)
+        (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)) :=
+      Float.Theory.divFiniteBits a b
+        (Float.Theory.finiteNotNaN a fa)
+        (Float.Theory.finiteNotNaN b fb)
+        (Float.Theory.finiteNotInfinite a fa)
+        (Float.Theory.finiteNotInfinite b fb)
+        zb
+    _ = Float.Model.roundRatio
+        (Float.Model.units a)
+        (Int.natAbs (Float.Model.units b))
+        (OfNat 0)
+        (Float.Model.signBit a) :=
+      Float.Theory.positiveDivisor
+        (Float.Model.signBit b)
+        (Float.Model.signBit a)
+        (Float.Model.units a)
+        (Int.natAbs (Float.Model.units b))
+        sb
+
+--| A NaN or infinite dividend over a positive finite double is itself.
+theorem Float.Theory.divSpecialBits ∀ (a b: Nat)
+    (va: Float.isValid a = True)
+    (special: Nat.leq 9218868437227405312 (Float.Model.magnitude a) = True)
+    (fb: Float.Theory.FiniteBits b)
+    (sb: Nat.leq 9223372036854775808 b = False):
+    Float.Model.divBits a b = a :=
+  let sign: Bool := Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)
+  let atInfinity: Nat := if Float.Model.isInfinite b then 9221120237041090560 else Float.Model.infinityBits sign
+  let finiteA: Nat :=
+    if Float.Model.isInfinite b then Float.Model.zeroBits sign
+    else if Float.Model.isZero b then
+      (if Float.Model.isZero a then 9221120237041090560 else Float.Model.infinityBits sign)
+    else
+      Float.Model.roundRatio
+        (if Float.Model.signBit b then Int.neg (Float.Model.units a) else Float.Model.units a)
+        (Int.natAbs (Float.Model.units b))
+        (OfNat 0)
+        sign
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Float.Model.isNaN a))
+    (n =>
+      Eq.trans
+        (Float.Theory.ifTrue
+          (Float.Model.isNaN a ∨ Float.Model.isNaN b)
+          9221120237041090560
+          (if Float.Model.isInfinite a then atInfinity else finiteA)
+          (rewrite n))
+        (Nat.equalSound a 9221120237041090560 n).flipped)
+    (n =>
+      let ia: Float.Model.isInfinite a = True := match c: Nat.leq 9223372036854775808 a with
+        | True =>
+          (arithmetic [Float.highBound a va (arithmetic [c]), special]: Nat.equal
+            (a - 9223372036854775808)
+            9218868437227405312
+            = True)
+        | False => (arithmetic [Float.lowBound a va n c, special]: Nat.equal a 9218868437227405312 = True)
+      calc Float.Model.divBits a b
+        _ = (if Float.Model.isInfinite a then atInfinity else finiteA) :=
+          Float.Theory.ifFalse
+            (Float.Model.isNaN a ∨ Float.Model.isNaN b)
+            9221120237041090560
+            (if Float.Model.isInfinite a then atInfinity else finiteA)
+            (Float.Theory.orFalse (Float.Model.isNaN a) (Float.Model.isNaN b) n (Float.Theory.finiteNotNaN b fb))
+        _ = atInfinity := Float.Theory.ifTrue (Float.Model.isInfinite a) atInfinity finiteA ia
+        _ = Float.Model.infinityBits sign :=
+          Float.Theory.ifFalse
+            (Float.Model.isInfinite b)
+            9221120237041090560
+            (Float.Model.infinityBits sign)
+            (Float.Theory.finiteNotInfinite b fb)
+        _ = Float.Model.infinityBits (Float.Model.signBit a) :=
+          Eq.cong Float.Model.infinityBits
+            (rewrite sb, Float.Theory.xorFalse (Float.Model.signBit a): sign = Float.Model.signBit a)
+        _ = a := Float.Theory.infinityOfBits a ia)
+
+--| A rounding's key is at most +infinity's.
+theorem Float.Theory.roundKeyLeInf ∀ (den: Nat) (scale: Int) (z: Bool)
+    (pd: 0 < den) (num: Int):
+    Int.leq (Float.Theory.roundKey num den scale z) (OfNat 9218868437227405312) = True :=
+  match num with
+    | OfNat Zero => Float.Theory.roundKeyZeroLe den scale z 9218868437227405312
+    | OfNat (Succ k) =>
+      rewrite Float.Theory.roundKeyPos k den scale z pd then
+        (arithmetic [Float.Theory.magnitudeBound (Succ k) den (Int.add scale (OfNat 1074)) byComputing pd]: Int.leq
+          (OfNat (Float.Model.roundMagnitude False (Succ k) den (Int.add scale (OfNat 1074))))
+          (OfNat 9218868437227405312)
+          = True)
+    | NegSucc k => rewrite Float.Theory.roundKeyNeg k den scale z
+
+--| -infinity's key is the least of every valid pattern's.
+theorem Float.Theory.keyAboveNegInf ∀ (r: Nat)
+    (v: Float.isValid r = True):
+    Int.leq (NegSucc 9218868437227405312) (Float.Theory.key r) = True :=
+  match c: Nat.leq 9223372036854775808 r with
+    | True => arithmetic [Float.highBound r v (arithmetic [c])]
+    | False => byComputing
+
+--| A NaN or infinite pattern above a finite one is +infinity or the NaN.
+theorem Float.Theory.specialAbove ∀ (a c: Nat)
+    (fa: Float.Theory.FiniteBits a)
+    (vc: Float.isValid c = True)
+    (special: Nat.leq 9218868437227405312 (Float.Model.magnitude c) = True)
+    (h: Int.leq (Float.Theory.key a) (Float.Theory.key c) = True):
+    Int.leq (OfNat 9218868437227405312) (Float.Theory.key c) = True :=
+  match sc: Nat.leq 9223372036854775808 c with
+    | False => arithmetic [special]
+    | True =>
+      let kc: Float.Theory.key c = NegSucc (c - 9223372036854775808) := Float.Theory.keySet c sc
+      let top: c ≤ 18442240474082181120 := Float.highBound c vc (arithmetic [sc])
+      match sa: Nat.leq 9223372036854775808 a with
+        | True => Void.impossible (arithmetic [h, kc, Float.Theory.keySet a sa, top, special, fa])
+
+--| A NaN or infinite pattern below a finite one is -infinity.
+theorem Float.Theory.specialBelow ∀ (a c: Nat)
+    (va: Float.isValid a = True)
+    (special: Nat.leq 9218868437227405312 (Float.Model.magnitude a) = True)
+    (fc: Float.Theory.FiniteBits c)
+    (h: Int.leq (Float.Theory.key a) (Float.Theory.key c) = True):
+    Int.leq (Float.Theory.key a) (NegSucc 9218868437227405312) = True :=
+  match sa: Nat.leq 9223372036854775808 a with
+    | True => arithmetic [special]
+    | False =>
+      let ka: Float.Theory.key a = OfNat a := Float.Theory.keyClear a sa
+      match sc: Nat.leq 9223372036854775808 c with
+        | False => Void.impossible (arithmetic [h, ka, Float.Theory.keyClear c sc, special, fc])
+
+theorem Float.Theory.leqTrans ∀ (a b c: Int) (x: Int.leq a b = True) (y: Int.leq b c = True): Int.leq a c = True :=
+  arithmetic [x, y]
+
+--| A positive double's sign bit is clear.
+theorem Float.Theory.positiveSignClear ∀ (d: Float) (pos: 0.0 < d): Nat.leq 9223372036854775808 d.bits = False :=
+  Float.Theory.signClearUp 0 d.bits (arithmetic [pos]) byComputing
+
+--| A positive double isn't a zero.
+theorem Float.Theory.positiveNotZero ∀ (d: Float) (pos: 0.0 < d): Float.Model.isZero d.bits = False :=
+  let sb: Nat.leq 9223372036854775808 d.bits = False := Float.Theory.positiveSignClear d pos
+  let kb: Float.Theory.key d.bits = OfNat d.bits := Float.Theory.keyClear d.bits sb
+  let mb: Float.Model.magnitude d.bits = d.bits := rewrite sb
+  (arithmetic [pos, kb, mb]: Nat.equal (Float.Model.magnitude d.bits) 0 = False)
+
+--| The key of a finite double over a positive finite one: its units'
+--| quotient's, rounded.
+theorem Float.Theory.quotientKeyFinite ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True):
+    Float.orderKey (x / d)
+      = Float.Theory.roundKey
+        (Float.Model.units x.bits)
+        (Int.natAbs (Float.Model.units d.bits))
+        (OfNat 0)
+        (Float.Model.signBit x.bits) :=
+  let a: Nat := x.bits
+  let b: Nat := d.bits
+  let den: Nat := Int.natAbs (Float.Model.units b)
+  let r: Nat := Float.Model.roundRatio (Float.Model.units a) den (OfNat 0) (Float.Model.signBit a)
+  let e: Float.Model.divBits a b = r :=
+    Float.Theory.divPosBits a b
+      (Float.Theory.finiteBits x fx)
+      (Float.Theory.finiteBits d fd)
+      (Float.Theory.positiveSignClear d pos)
+      (Float.Theory.positiveNotZero d pos)
+  let pd: 0 < den := Float.Theory.natAbsPos (Float.Model.units b) (Float.Theory.unitsPositive d pos)
+  Eq.cong Float.Theory.key
+    (calc (x / d).bits
+      _ = (Float.ofBits (Float.Model.divBits a b)).bits := Eq.cong (q => q.bits) (Float.Theory.divOfBits x d)
+      _ = Float.Model.divBits a b :=
+        Float.Theory.ofBitsBits
+          (Float.Model.divBits a b)
+          (Float.Theory.validTo
+            (Float.Model.divBits a b)
+            r
+            e
+            (Float.Theory.roundRatioValid den (OfNat 0) (Float.Model.signBit a) pd (Float.Model.units a)))
+      _ = r := e)
+
+--| A NaN or infinite double over a positive finite one is itself.
+theorem Float.Theory.quotientSpecial ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (special: Nat.leq 9218868437227405312 (Float.Model.magnitude x.bits) = True):
+    (x / d).bits = x.bits :=
+  let e: Float.Model.divBits x.bits d.bits = x.bits :=
+    Float.Theory.divSpecialBits x.bits d.bits x.valid special
+      (Float.Theory.finiteBits d fd)
+      (Float.Theory.positiveSignClear d pos)
+  calc (x / d).bits
+    _ = (Float.ofBits (Float.Model.divBits x.bits d.bits)).bits := Eq.cong (q => q.bits) (Float.Theory.divOfBits x d)
+    _ = Float.Model.divBits x.bits d.bits :=
+      Float.Theory.ofBitsBits
+        (Float.Model.divBits x.bits d.bits)
+        (Float.Theory.validTo (Float.Model.divBits x.bits d.bits) x.bits e x.valid)
+    _ = x.bits := e
+
+theorem Float.Theory.specialOf ∀ (x: Float)
+    (nf: Float.isFinite x = False):
+    Nat.leq 9218868437227405312 (Float.Model.magnitude x.bits) = True :=
+  match c: Nat.leq 9218868437227405312 (Float.Model.magnitude x.bits) with | True => byComputing
+
+--| Dividing by a positive finite double never moves down the total order:
+--| `x <= y → x / d <= y / d`, for every `x` and `y`, the NaN and the
+--| infinities included (each is its own quotient).
+-- Finite operands: their units are in order, so their quotients are
+-- (`Float.Theory.roundKeyMonoLe`); a NaN or infinite one is its own quotient, and the
+-- finite ones' quotients lie between -infinity and +infinity.
+theorem Float.divMonotone ∀ (x y d: Float) (pos: 0.0 < d) (fd: Float.isFinite d = True) (h: x <= y): x / d <= y / d :=
+  let den: Nat := Int.natAbs (Float.Model.units d.bits)
+  let pd: 0 < den := Float.Theory.natAbsPos (Float.Model.units d.bits) (Float.Theory.unitsPositive d pos)
+  let roundKey: Float → Int := x =>
+    Float.Theory.roundKey (Float.Model.units x.bits) den (OfNat 0) (Float.Model.signBit x.bits)
+  Float.Theory.orCase
+    [goal := x / d <= y / d]
+    (Float.Theory.boolCases (Float.isFinite x))
+    (fx =>
+      Float.Theory.orCase
+        [goal := x / d <= y / d]
+        (Float.Theory.boolCases (Float.isFinite y))
+        (fy =>
+          Float.Theory.leqVia
+            (Float.orderKey (x / d))
+            (Float.orderKey (y / d))
+            (roundKey x)
+            (roundKey y)
+            (Float.Theory.quotientKeyFinite x d pos fd fx)
+            (Float.Theory.quotientKeyFinite y d pos fd fy)
+            (Float.Theory.roundKeyMonoLe den
+              (OfNat 0)
+              (Float.Model.signBit x.bits)
+              (Float.Model.signBit y.bits)
+              pd
+              (Float.Model.units x.bits)
+              (Float.Model.units y.bits)
+              (Float.Theory.unitsMonoKey x.bits y.bits h)
+              (Float.Theory.signClearUp x.bits y.bits h)))
+        (fy =>
+          let above: Int.leq (OfNat 9218868437227405312) (Float.Theory.key y.bits) = True :=
+            Float.Theory.specialAbove x.bits y.bits
+              (Float.Theory.finiteBits x fx)
+              y.valid
+              (Float.Theory.specialOf y fy)
+              h
+          let low: Int.leq (roundKey x) (OfNat 9218868437227405312) = True :=
+            Float.Theory.roundKeyLeInf den (OfNat 0) (Float.Model.signBit x.bits) pd (Float.Model.units x.bits)
+          Float.Theory.leqVia
+            (Float.orderKey (x / d))
+            (Float.orderKey (y / d))
+            (roundKey x)
+            (Float.Theory.key y.bits)
+            (Float.Theory.quotientKeyFinite x d pos fd fx)
+            (Eq.cong Float.Theory.key (Float.Theory.quotientSpecial y d pos fd (Float.Theory.specialOf y fy)))
+            (Float.Theory.leqTrans (roundKey x) (OfNat 9218868437227405312) (Float.Theory.key y.bits) low above)))
+    (fx =>
+      Float.Theory.orCase
+        [goal := x / d <= y / d]
+        (Float.Theory.boolCases (Float.isFinite y))
+        (fy =>
+          let below: Int.leq (Float.Theory.key x.bits) (NegSucc 9218868437227405312) = True :=
+            Float.Theory.specialBelow x.bits y.bits x.valid
+              (Float.Theory.specialOf x fx)
+              (Float.Theory.finiteBits y fy)
+              h
+          let least: Int.leq (NegSucc 9218868437227405312) (Float.Theory.key (y / d).bits) = True :=
+            Float.Theory.keyAboveNegInf (y / d).bits (y / d).valid
+          Float.Theory.leqVia
+            (Float.orderKey (x / d))
+            (Float.orderKey (y / d))
+            (Float.Theory.key x.bits)
+            (Float.Theory.key (y / d).bits)
+            (Eq.cong Float.Theory.key (Float.Theory.quotientSpecial x d pos fd (Float.Theory.specialOf x fx)))
+            byComputing
+            (Float.Theory.leqTrans
+              (Float.Theory.key x.bits)
+              (NegSucc 9218868437227405312)
+              (Float.Theory.key (y / d).bits)
+              below
+              least))
+        (fy =>
+          Float.Theory.leqVia
+            (Float.orderKey (x / d))
+            (Float.orderKey (y / d))
+            (Float.Theory.key x.bits)
+            (Float.Theory.key y.bits)
+            (Eq.cong Float.Theory.key (Float.Theory.quotientSpecial x d pos fd (Float.Theory.specialOf x fx)))
+            (Eq.cong Float.Theory.key (Float.Theory.quotientSpecial y d pos fd (Float.Theory.specialOf y fy)))
+            h))
+
+test "Float.divMonotone" :=
+  1.0 / 3.0 <= 2.0 / 3.0
+    ∧ -0.0 / 2.0 <= 0.0 / 2.0
+    ∧ -5e-324 / 3.0 <= 5e-324 / 3.0
+    ∧ 1.7976931348623157e308 / 0.5 <= Float.infinity / 0.5
+    ∧ -Float.infinity / 5e-324 <= -1.0 / 5e-324
+    ∧ 1.0 / 5e-324 <= Float.nan / 5e-324
+    ∧ Float.ofNat 4294967295 / 4294967296.0 < 1.0
+
+--| `0.0 < d → x <= y → x / d <= y / d` is false at `d = +infinity`:
+--| `-infinity <= -1.0`, but `-infinity / infinity` is the NaN, above
+--| `-1.0 / infinity`, which is `-0.0`.
+test "division by infinity is not monotone" :=
+  -Float.infinity <= -1.0 ∧ ¬(-Float.infinity / Float.infinity <= -1.0 / Float.infinity)
