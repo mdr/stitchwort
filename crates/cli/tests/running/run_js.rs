@@ -175,12 +175,19 @@ fn examples_print_the_same_both_ways() {
         if source.contains("(run: fails)") || source.contains("(run: random)") {
             return None;
         }
+        // A `main` returning an `ExitStatus` ends with a status of its own
+        // (`a_main_returning_an_exit_status_exits_with_it` checks which).
+        let returns_status = source
+            .lines()
+            .any(|l| l.starts_with("def main") && l.contains("ExitStatus"));
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
             let js = same_both_ways(path, input, true);
             assert!(
-                js.status.success(),
-                "{}: {}",
+                returns_status || js.status.success(),
+                "{} with input {:?} exited with {:?}: {}",
                 path.display(),
+                text(input),
+                js.status.code(),
                 text(&js.stderr)
             );
         }
