@@ -1,0 +1,45 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "left✝",
+          "type": "1 = 1"
+        },
+        {
+          "name": "right✝",
+          "type": "2 = 2"
+        }
+      ],
+      "target": "1 = 1 ∧ 2 = 2"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "left✝: 1 = 1\nright✝: 2 = 2\n⊢ 1 = 1 ∧ 2 = 2",
+        "range": [
+          8,
+          20,
+          8,
+          21
+        ]
+      }
+    ],
+    "message": "in `t`",
+    "notes": [],
+    "range": [
+      8,
+      20,
+      8,
+      21
+    ],
+    "severity": "goal"
+  }
+]

@@ -1,0 +1,118 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "chain",
+          "value": "[]"
+        },
+        {
+          "name": "highest",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "chain",
+          "type": "List Nat"
+        },
+        {
+          "name": "highest",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem middleSpreadGoal1 (chain: List Nat) (highest: Nat): [0, ..chain, highest + 3] = chain := ?",
+      "target": "[0, ..chain, highest + 3] = chain"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "chain: List Nat\nhighest: Nat\n⊢ [0, ..chain, highest + 3] = chain",
+        "range": [
+          6,
+          94,
+          6,
+          95
+        ]
+      }
+    ],
+    "message": "in `middleSpread`",
+    "notes": [
+      "this statement is false; a counterexample:\n  chain = []\n  highest = 0\n`[0, ..chain, highest + 3] = chain` is false:\n  left:  [0, 3]\n  right: []\n  first difference at [0]: right ends, left has 0 (left has 2 elements, right has 0 elements)"
+    ],
+    "range": [
+      6,
+      94,
+      6,
+      95
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "chain",
+          "value": "[]"
+        },
+        {
+          "name": "highest",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "chain",
+          "type": "List Nat"
+        },
+        {
+          "name": "highest",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem appendAtTopGoal1 (chain: List Nat) (highest: Nat): chain ++ [highest + 3] = chain := ?",
+      "target": "chain ++ [highest + 3] = chain"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "chain: List Nat\nhighest: Nat\n⊢ chain ++ [highest + 3] = chain",
+        "range": [
+          8,
+          90,
+          8,
+          91
+        ]
+      }
+    ],
+    "message": "in `appendAtTop`",
+    "notes": [
+      "this statement is false; a counterexample:\n  chain = []\n  highest = 0\n`chain ++ [highest + 3] = chain` is false:\n  left:  [3]\n  right: []\n  first difference at [0]: right ends, left has 3 (left has 1 element, right has 0 elements)"
+    ],
+    "range": [
+      8,
+      90,
+      8,
+      91
+    ],
+    "severity": "goal"
+  }
+]

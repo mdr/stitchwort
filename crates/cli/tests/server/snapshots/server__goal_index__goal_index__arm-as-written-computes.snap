@@ -6,6 +6,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [],
       "target": "f \"ab\" ≠ 0 ∨ \"ab\" = \"\"",
@@ -36,6 +37,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [],
       "lemma": "theorem stepsGoal2: 0 ≠ 0 ∨ \"\" = \"\" := ?",
@@ -67,6 +69,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "s ≠ \"ab\"",
@@ -110,6 +113,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -144,6 +148,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "s ≠ \"ab\""
@@ -193,6 +198,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [],
       "lemma": "theorem paintedGoal1: Red = Blue := ?",
@@ -224,6 +230,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -262,6 +269,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [],
       "lemma": "theorem someTrueGoal1: True = True := ?",
@@ -293,6 +301,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {

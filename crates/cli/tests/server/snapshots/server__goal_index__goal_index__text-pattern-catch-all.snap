@@ -6,6 +6,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [],
       "lemma": "def sizeGoal1: Nat := ?",
@@ -36,6 +37,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -70,6 +72,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {

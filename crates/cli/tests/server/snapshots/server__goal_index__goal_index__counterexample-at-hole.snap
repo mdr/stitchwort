@@ -16,6 +16,7 @@ expression: json
       "verdict": "false"
     },
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {

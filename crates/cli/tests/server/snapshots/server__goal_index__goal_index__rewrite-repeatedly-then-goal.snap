@@ -1,0 +1,46 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "ys",
+          "type": "List Nat"
+        }
+      ],
+      "lemma": "theorem leftGoal1 (xs: List Nat) (ys: List Nat): xs ++ ys = ys ++ xs := ?",
+      "target": "xs ++ ys = ys ++ xs"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\nys: List Nat\n⊢ xs ++ ys = ys ++ xs",
+        "range": [
+          3,
+          106,
+          3,
+          107
+        ]
+      }
+    ],
+    "message": "in `left`",
+    "notes": [],
+    "range": [
+      3,
+      106,
+      3,
+      107
+    ],
+    "severity": "goal"
+  }
+]

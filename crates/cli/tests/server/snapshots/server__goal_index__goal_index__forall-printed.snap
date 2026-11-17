@@ -6,6 +6,32 @@ expression: json
   {
     "code": "W-ARROW-FORALL",
     "file": 0,
+    "fixes": [
+      {
+        "applicability": "certain",
+        "edits": [
+          {
+            "range": [
+              11,
+              39,
+              11,
+              39
+            ],
+            "replacement": "∀ "
+          },
+          {
+            "range": [
+              11,
+              48,
+              11,
+              50
+            ],
+            "replacement": "=>"
+          }
+        ],
+        "title": "Write ∀ instead of ->"
+      }
+    ],
     "labels": [
       {
         "file": 0,
@@ -33,6 +59,32 @@ expression: json
   {
     "code": "W-ARROW-FORALL",
     "file": 0,
+    "fixes": [
+      {
+        "applicability": "certain",
+        "edits": [
+          {
+            "range": [
+              12,
+              23,
+              12,
+              23
+            ],
+            "replacement": "∀ "
+          },
+          {
+            "range": [
+              12,
+              32,
+              12,
+              34
+            ],
+            "replacement": "=>"
+          }
+        ],
+        "title": "Write ∀ instead of ->"
+      }
+    ],
     "labels": [
       {
         "file": 0,
@@ -60,6 +112,32 @@ expression: json
   {
     "code": "W-ARROW-FORALL",
     "file": 0,
+    "fixes": [
+      {
+        "applicability": "certain",
+        "edits": [
+          {
+            "range": [
+              12,
+              11,
+              12,
+              11
+            ],
+            "replacement": "∀ "
+          },
+          {
+            "range": [
+              12,
+              20,
+              12,
+              22
+            ],
+            "replacement": "=>"
+          }
+        ],
+        "title": "Write ∀ instead of ->"
+      }
+    ],
     "labels": [
       {
         "file": 0,
@@ -87,6 +165,32 @@ expression: json
   {
     "code": "W-ARROW-FORALL",
     "file": 0,
+    "fixes": [
+      {
+        "applicability": "certain",
+        "edits": [
+          {
+            "range": [
+              12,
+              61,
+              12,
+              61
+            ],
+            "replacement": "∀ "
+          },
+          {
+            "range": [
+              12,
+              70,
+              12,
+              72
+            ],
+            "replacement": "=>"
+          }
+        ],
+        "title": "Write ∀ instead of ->"
+      }
+    ],
     "labels": [
       {
         "file": 0,
@@ -114,6 +218,32 @@ expression: json
   {
     "code": "W-ARROW-FORALL",
     "file": 0,
+    "fixes": [
+      {
+        "applicability": "certain",
+        "edits": [
+          {
+            "range": [
+              15,
+              4,
+              15,
+              4
+            ],
+            "replacement": "∀ "
+          },
+          {
+            "range": [
+              15,
+              22,
+              15,
+              24
+            ],
+            "replacement": "=>"
+          }
+        ],
+        "title": "Write ∀ instead of ->"
+      }
+    ],
     "labels": [
       {
         "file": 0,
@@ -141,6 +271,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
