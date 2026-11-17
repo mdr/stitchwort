@@ -4068,3 +4068,157 @@ test "Float.ofNatDivExact" :=
     ∧ Float.ofNat 1230 / 10.0 == 123.0
     ∧ Float.ofNat 123 * 10.0 == Float.ofNat 1230
     ∧ Float.ofNat 90071992547409920 / 10.0 == Float.ofNat 9007199254740992
+
+-- Whole numbers of units at any exponent are doubles
+
+--| A pattern up to 2^53 is its own number of units: a subnormal, or a
+--| normal pattern of exponent field 1 or 2's first, where a unit is 2^-1074.
+theorem Float.Theory.magUnitsSmall ∀ (q: Nat) (h: q ≤ 9007199254740992): Float.Theory.magUnits q = q :=
+  calc Float.Theory.magUnits q
+    _ = Float.Theory.magUnits (0 * 4503599627370496 + q) :=
+      Eq.cong Float.Theory.magUnits (arithmetic: q = 0 * 4503599627370496 + q)
+    _ = Nat.pow 2 0 * q := Float.Theory.magUnitsGrid 0 q h (Inl byComputing)
+    _ = q := algebra
+
+--| The pattern with twice `m`'s units: a subnormal's bits doubled, or one
+--| exponent up.
+def Float.Theory.doubleBits (m: Nat): Nat := if Nat.leq 4503599627370496 m then m + 4503599627370496 else m + m
+
+theorem Float.Theory.magUnitsDoubleHigh ∀ (m: Nat)
+    (c: Nat.leq 4503599627370496 m = True):
+    Float.Theory.magUnits (Float.Theory.doubleBits m) = Float.Theory.magUnits m + Float.Theory.magUnits m :=
+  let e: Nat := Nat.divFuel m m 4503599627370496
+  let low: e * 4503599627370496 ≤ m := Nat.divFuelLe m m 4503599627370496
+  let high: m < Succ e * 4503599627370496 :=
+    Nat.divFuelBound m m 4503599627370496 (Nat.nonzeroOfPos 4503599627370496 byComputing) (Nat.leRefl m)
+  let f: Nat := m - e * 4503599627370496
+  let g: Nat := e - 1
+  let here: Float.Theory.magUnits m = Nat.pow 2 g * (f + 4503599627370496) :=
+    Eq.trans
+      (Eq.cong Float.Theory.magUnits
+        (arithmetic [c, low, high]: m = g * 4503599627370496 + 4503599627370496 + f))
+      (Float.Theory.magUnitsFieldNext g f (arithmetic [low, high]))
+  let up: Float.Theory.magUnits (m + 4503599627370496) = Nat.pow 2 (Succ g) * (f + 4503599627370496) :=
+    Eq.trans
+      (Eq.cong Float.Theory.magUnits
+        (arithmetic [c, low, high]: m + 4503599627370496 = Succ g * 4503599627370496 + 4503599627370496 + f))
+      (Float.Theory.magUnitsFieldNext (Succ g) f (arithmetic [low, high]))
+  let d: Float.Theory.doubleBits m = m + 4503599627370496 := rewrite c
+  calc Float.Theory.magUnits (Float.Theory.doubleBits m)
+    _ = Float.Theory.magUnits (m + 4503599627370496) := Eq.cong Float.Theory.magUnits d
+    _ = Nat.pow 2 (Succ g) * (f + 4503599627370496) := up
+    _ = 2 * Nat.pow 2 g * (f + 4503599627370496) := Eq.cong (t => t * (f + 4503599627370496)) (Nat.powSucc 2 g)
+    _ = Nat.pow 2 g * (f + 4503599627370496) + Nat.pow 2 g * (f + 4503599627370496) := algebra
+    _ = Float.Theory.magUnits m + Float.Theory.magUnits m := rewrite here
+
+theorem Float.Theory.magUnitsDouble ∀ (m: Nat):
+    Float.Theory.magUnits (Float.Theory.doubleBits m) = Float.Theory.magUnits m + Float.Theory.magUnits m :=
+  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 4503599627370496 m)) (c => Float.Theory.magUnitsDoubleHigh m c) (c =>
+      let d: Float.Theory.doubleBits m = m + m := rewrite c
+      let small: Float.Theory.magUnits m = m := Float.Theory.magUnitsSmall m (arithmetic [c])
+      calc Float.Theory.magUnits (Float.Theory.doubleBits m)
+        _ = Float.Theory.magUnits (m + m) := Eq.cong Float.Theory.magUnits d
+        _ = m + m := Float.Theory.magUnitsSmall (m + m) (arithmetic [c])
+        _ = Float.Theory.magUnits m + Float.Theory.magUnits m := arithmetic [small])
+
+--| The pattern of `q × 2^e` units: `q`'s own, doubled `e` times.
+def Float.Theory.gridBits (q: Nat): (e: Nat) → Nat
+  | Zero => q
+  | Succ e => Float.Theory.doubleBits (Float.Theory.gridBits q e)
+
+theorem Float.Theory.gridUnits ∀ (q e: Nat)
+    (hq: q ≤ 9007199254740992):
+    Float.Theory.magUnits (Float.Theory.gridBits q e) = q * Nat.pow 2 e :=
+  match e with
+    | Zero => Eq.trans (Float.Theory.magUnitsSmall q hq) (algebra: q = q * Nat.pow 2 0)
+    | Succ e =>
+      calc Float.Theory.magUnits (Float.Theory.doubleBits (Float.Theory.gridBits q e))
+        _ = Float.Theory.magUnits (Float.Theory.gridBits q e) + Float.Theory.magUnits (Float.Theory.gridBits q e) :=
+          Float.Theory.magUnitsDouble (Float.Theory.gridBits q e)
+        _ = q * Nat.pow 2 e + q * Nat.pow 2 e := rewrite Float.Theory.gridUnits q e hq
+        _ = q * (2 * Nat.pow 2 e) := algebra
+        _ = q * Nat.pow 2 (Succ e) := Eq.cong (t => q * t) (Nat.powSucc 2 e).flipped
+
+--| A pattern with fewer units than 2^1024 is finite.
+theorem Float.Theory.atLeastOf ∀ (a b: Nat) (c: Nat.leq a b = True): a ≤ b := c
+
+theorem Float.Theory.belowInfinity ∀ (m: Nat) (c: Nat.leq 9218868437227405312 m = False): m < 9218868437227405312 :=
+  arithmetic [c]
+
+theorem Float.Theory.leLessAbsurd ∀ (a b: Nat) (x: a ≤ b) (y: b < a): Void := arithmetic
+
+theorem Float.Theory.finiteOfUnits ∀ (m: Nat)
+    (h: Float.Theory.magUnits m < Nat.pow 2 2098):
+    m < 9218868437227405312 :=
+  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9218868437227405312 m)) (c =>
+      let le: Float.Theory.magUnits 9218868437227405312 ≤ Float.Theory.magUnits m :=
+        Float.Theory.magUnitsLe 9218868437227405312 m (Float.Theory.atLeastOf 9218868437227405312 m c)
+      let inf: Float.Theory.magUnits 9218868437227405312 = Nat.pow 2 2098 :=
+        Eq.trans Float.Theory.unitsAtInfinity (Float.Theory.pow2Pow 2098)
+      Void.impossible
+        (Float.Theory.leLessAbsurd (Nat.pow 2 2098) (Float.Theory.magUnits m) (J (y w => y ≤ Float.Theory.magUnits m) le inf) h))
+    (c => Float.Theory.belowInfinity m c)
+
+theorem Float.Theory.gridFinite ∀ (q e: Nat)
+    (hq: q ≤ 9007199254740992)
+    (fin: q * Nat.pow 2 e < Nat.pow 2 2098):
+    Float.Theory.gridBits q e < 9218868437227405312 :=
+  Float.Theory.finiteOfUnits (Float.Theory.gridBits q e) (J (y w => y < Nat.pow 2 2098) fin (Float.Theory.gridUnits q e hq).flipped)
+
+theorem Float.Theory.signedNonzero ∀ (s: Bool) (n: Nat) (pn: 0 < n): Int.signed s n ≠ OfNat 0 := match s, n with
+  | False, Succ k => (e => cases)
+  | True, Succ k => (e => cases)
+
+--| The finite pattern of magnitude `m` and sign `s`: its units.
+theorem Float.Theory.unitsOfMagnitude ∀ (m: Nat) (s: Bool)
+    (fm: m < 9218868437227405312):
+    Float.Theory.FiniteBits (if s then m + 9223372036854775808 else m)
+      ∧ (Float.Model.units (if s then m + 9223372036854775808 else m) = Int.signed s (Float.Theory.magUnits m)) :=
+  match s with
+    | False =>
+      let c: Nat.leq 9223372036854775808 m = False := arithmetic [fm]
+      let mag: Float.Model.magnitude m = m := rewrite c
+      Both (arithmetic [mag, fm]) (rewrite Float.Theory.unitsMag m, mag, c)
+    | True =>
+      let c: Nat.leq 9223372036854775808 (m + 9223372036854775808) = True := arithmetic
+      let mag: Float.Model.magnitude (m + 9223372036854775808) = m := arithmetic
+      Both (arithmetic [mag, fm]) (rewrite Float.Theory.unitsMag (m + 9223372036854775808), mag)
+
+--| Representability: a whole number of units within the precision at its
+--| size is a double. `±q × 2^e` units of 2^-1074, for `q ≤ 2^53` and below
+--| 2^2098 units (2^1024, where the finite doubles end), round to a finite
+--| double with exactly those units, whatever the zero sign.
+-- The pattern is `gridBits q e`: `q`'s own pattern doubled `e` times.
+theorem Float.Theory.roundGrid ∀ (s: Bool) (q e: Nat) (z: Bool)
+    (hq: q ≤ 9007199254740992)
+    (fin: q * Nat.pow 2 e < Nat.pow 2 2098):
+    Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s (q * Nat.pow 2 e)) 1 (-1074) z)
+      ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s (q * Nat.pow 2 e)) 1 (-1074) z)
+        = Int.signed s (q * Nat.pow 2 e)) :=
+  Float.Theory.orCase
+    (Float.Theory.zeroOrPos (q * Nat.pow 2 e))
+    (n0 =>
+      rewrite n0 then
+        match s, z with
+          | False, False => Both byComputing byComputing
+          | False, True => Both byComputing byComputing
+          | True, False => Both byComputing byComputing
+          | True, True => Both byComputing byComputing)
+    (pn =>
+      let m: Nat := Float.Theory.gridBits q e
+      let um: Float.Theory.magUnits m = q * Nat.pow 2 e := Float.Theory.gridUnits q e hq
+      let fm: m < 9218868437227405312 := Float.Theory.gridFinite q e hq fin
+      let back: Float.Model.roundRatio (Int.signed s (Float.Theory.magUnits m)) 1 (-1074) s
+        = (if s then m + 9223372036854775808 else m) :=
+        Float.Theory.unitsRound (if s then m + 9223372036854775808 else m) m fm s byComputing
+      let r: Float.Model.roundRatio (Int.signed s (q * Nat.pow 2 e)) 1 (-1074) z
+        = (if s then m + 9223372036854775808 else m) :=
+        rewrite Float.Theory.roundRatioSignIrrelevant 1
+            (-1074)
+            z
+            s
+            (Int.signed s (q * Nat.pow 2 e))
+            (Float.Theory.signedNonzero s (q * Nat.pow 2 e) pn),
+          um.flipped then
+          back
+      rewrite r, um.flipped then Float.Theory.unitsOfMagnitude m s fm)
