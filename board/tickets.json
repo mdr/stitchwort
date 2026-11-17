@@ -42047,7 +42047,7 @@
     {
       "id": 3738,
       "title": "[Opus] E-TERMINATION refuses a non-recursive function passed without arguments when a same-named method elsewhere is recursive (Declaration.withoutSpareTypeBrackets refused because TypeExpr.withoutSpareBrackets is recursive); a lambda works (Toy++ T5 friction, SW-3737)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
