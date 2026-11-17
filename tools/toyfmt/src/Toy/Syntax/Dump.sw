@@ -21,7 +21,7 @@ def Comments.dump (comments: Comments): Text :=
 
 def Declaration.dump: Declaration → Text
   | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
-    let listed := parameters.map (parameter => parameter.dump)
+    let listed := parameters.map ParameterGroup.dump
     let taken := takes.map (comments => " (takes${comments.dump})") |> .getOrElse ""
     "(fn${fnComments.dump} ${name}${nameComments.dump}${taken} ${open.dump}(${listed.joinWith " "}${commaMark trailingComma})${close.dump}${equals.dump} ${body.dump})"
   | Value letComments name nameComments equals body =>
@@ -32,7 +32,7 @@ def Declaration.dump: Declaration → Text
 def ParameterGroup.dump: ParameterGroup → Text
   | Untyped parameter => parameter.dump
   | Typed names colon annotation =>
-    let listed := [names.head, ..names.tail].map (named => named.dump) |> .joinWith " "
+    let listed := [names.head, ..names.tail].map Named.dump |> .joinWith " "
     "(group ${listed} :${colon.dump} ${annotation.dump})"
 
 def Named.dump (named: Named): Text := "${named.name}${named.comments.dump}"

@@ -3751,7 +3751,16 @@ impl Elaborator {
         }
         self.unit.module.item = Some(members[0].0);
         bodies.extend(helpers);
-        if let Err(d) = kernel::define_group(&mut self.kernel, &self.tables, &bodies) {
+        // A group of several declarations may be joined only by a guess at
+        // what a dot call means: the kernel gets the groups the checked
+        // bodies really make. One declaration stays one group with its
+        // helpers.
+        let defined = if members.len() > 1 {
+            kernel::define_reference_groups(&mut self.kernel, &self.tables, &bodies)
+        } else {
+            kernel::define_group(&mut self.kernel, &self.tables, &bodies)
+        };
+        if let Err(d) = defined {
             let d = self.explain_lifted(d);
             out.extend(Self::blame_group(members, d));
             return out;

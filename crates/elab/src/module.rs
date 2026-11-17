@@ -4418,8 +4418,8 @@ fn binds(names: &[ast::Name]) -> (Vec<Work<'_>>, Vec<Work<'_>>) {
 }
 
 /// Tarjan's strongly connected components of a graph given by adjacency
-/// lists, without recursion. Each component's members, components in no
-/// particular order.
+/// lists, without recursion. Each component's members, each component after
+/// every component it has an edge into (reverse topological order).
 pub(crate) fn tarjan(edges: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let n = edges.len();
     let mut index = vec![usize::MAX; n];

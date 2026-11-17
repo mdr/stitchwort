@@ -88,7 +88,7 @@ def headerComments (takes: Option Comments) (open: Comments) (parameters: List P
     List Comment :=
   perhapsComments Comments.all takes ++ open.all ++ parametersComments parameters ++ close.all
 
-def parametersComments (parameters: List ParameterGroup): List Comment := parameters.flatMap (group => group.comments)
+def parametersComments (parameters: List ParameterGroup): List Comment := parameters.flatMap ParameterGroup.comments
 
 def Declaration.comments: Declaration → List Comment
   | Function fnComments _ nameComments takes open parameters trailingComma close equals body =>

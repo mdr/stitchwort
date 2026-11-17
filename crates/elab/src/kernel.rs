@@ -94,6 +94,52 @@ pub fn define_group(g: &mut Kernel, tables: &Tables, members: &[(DefId, Term)]) 
     })
 }
 
+/// Defines `members` as the groups their checked bodies make: each set of
+/// definitions that really call each other (by `DefId`, a strongly connected
+/// component of their references), every group after the ones it uses.
+/// Stops at the first refusal, leaving the members after it pending.
+///
+/// A group the module's dependency analysis made can be bigger than that:
+/// a dot call such as `tree.size` is linked there to every `size` the
+/// receiver's type might have, before types are known. Members joined only
+/// by such a guess don't call each other, so no call between them is on a
+/// cycle; checked together, though, a bare occurrence of one in another
+/// (`boxes.map Box.size`) is refused as an unsaturated recursive call
+/// (SW-3738). Split, each group's termination is decided from the same
+/// cycles, so this only accepts more.
+pub fn define_reference_groups(
+    g: &mut Kernel,
+    tables: &Tables,
+    members: &[(DefId, Term)],
+) -> Result<()> {
+    let ev = g.ev();
+    let edges: Vec<Vec<usize>> = members
+        .iter()
+        .map(|(id, body)| {
+            let ty = ev.def(*id).ty();
+            let mut out: Vec<usize> = [body, ty]
+                .into_iter()
+                .flat_map(Term::subterms)
+                .filter_map(|(t, _)| match t {
+                    Term::Def(d) => members.iter().position(|(m, _)| m == d),
+                    _ => None,
+                })
+                .collect();
+            out.sort_unstable();
+            out.dedup();
+            out
+        })
+        .collect();
+    // Tarjan's algorithm finishes a component only after every component
+    // it reaches, so each comes after the ones it uses.
+    for mut component in crate::module::tarjan(&edges) {
+        component.sort_unstable();
+        let group: Vec<(DefId, Term)> = component.iter().map(|&i| members[i].clone()).collect();
+        define_group(g, tables, &group)?;
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn declare_def(
     g: &mut Kernel,
