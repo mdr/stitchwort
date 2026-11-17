@@ -302,6 +302,20 @@ mod tests {
     }
 
     #[test]
+    fn the_dump_after_each_pass_shows_the_tree_that_pass_left() {
+        let text = "theorem t (a: Nat): f [a,] := byComputing\n";
+        let file = SourceMap::new().add("t.sw", text);
+        let dump = dump_after_each(file, text);
+        let after: Vec<&str> = dump.split("== P").skip(1).collect();
+        assert_eq!(after.len(), 4);
+        let has = |pass: usize, token: &str| after[pass].lines().any(|l| l.trim() == token);
+        // P1 adds the `∀`; P2 takes the comma out; both stay in later trees.
+        assert!(has(0, "∀") && has(0, ","));
+        assert!(has(1, "∀") && !has(1, ","));
+        assert!(has(3, "∀") && !has(3, ","));
+    }
+
+    #[test]
     fn the_runner_applies_a_pass_to_the_tree_the_one_before_it_left() {
         assert_eq!(
             tidied("theorem t (a: Nat): f [a,] := byComputing\n", &PASSES),

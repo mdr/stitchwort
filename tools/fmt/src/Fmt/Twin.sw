@@ -19,6 +19,8 @@
 --|   P1 ==`, its dump, `== P2 ==` and so on, as `stitchwort dev passes`
 --|   prints them; a file the Rust formatter refuses is answered as in
 --|   `refusal`.
+--| - `tidied`: the tree after the last pass alone, for timing the passes
+--|   against `tree`.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -85,6 +87,13 @@ def stageAnswer (stage source: Text): Answer := match stage with
       | Ok lexed =>
         match lexed.tidied with
           | Ok tidied => { out = passesDump tidied, status = 0, message = "" }
+          | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+  | "tidied" =>
+    match lex source with
+      | Ok lexed =>
+        match lexed.tidied with
+          | Ok tidied => { out = tidied.fourth.dump, status = 0, message = "" }
           | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
       | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }

@@ -22401,12 +22401,12 @@
     {
       "id": 3863,
       "title": "[Sonnet] Self-hosted formatter stage 4a: the four passes P1-P4 on the shared traversal (Syntax/Traverse.sw), with the parking-comma order from K1 (last commas out before rule N, Lexed.settledBare); gate: the tidied tree's dump identical to the Rust passes' on every file (self-hosted-fmt.md §8 stage 4; meaning is 4b, waiting on Matt's decision)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 17 Nov 2026): P1-P4 on the shared traversal (Steps record), Rust dev passes, Fmt.Twin --stage passes. Gate: goldens 124/124, repo sample 300 300/300, fuzz 300 253/253, 739 hand cases 739/739; four passes cost about 0.25 s/MB. Notes in tools/fmt/NOTES.md (Stage 4a). Model result: Sonnet, worked, 55 min (est. 50).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
