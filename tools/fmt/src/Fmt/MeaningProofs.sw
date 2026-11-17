@@ -3,22 +3,45 @@
 --| row by induction along the result's left end (`dropLeftForgotten`);
 --| P3's around a binder's type layer by layer (`stripUnwrapped`).
 --|
---| Not here: the traversal's generic lemma, which turns these into each
---| pass's "keeps meaning". For P1 and P2 it is the plain one (the step
---| changes a flag or keyword at the node, never a child). P3's steps
---| rebuild descendants (`dropLeft` takes pairs off the spine,
---| `dropDeclBinders` reaches into the header's type), so the lemma it needs
---| is that `meaning`'s traversal commutes with them. P4's header and
---| binding steps need `splitGroups` of merged groups to be the groups
---| merged, which rests on `Group.typeLines` (the dump) telling types apart
---| for groups with no comment, and on meanings being compared with
---| comments blanked (a split group's pieces each keep its `open`).
+--| Then each of P1, P2 and P3 keeps `meaning` file by file
+--| (`forallKeepsFile`, `commaKeepsFile`, `bracketKeepsFile`, and the three
+--| together, `firstThreeKeepMeaning`), through the traversal lemma
+--| `Fmt.Walk.applyKeeps`: each step, as a pure function, keeps what
+--| `meaning`'s walk gives of the whole node it rewrites, descendants
+--| included (`Keeps`). P3's steps rebuild descendants, so their facts are
+--| stated through the walk (`dropLeftWalk`, `spineWalk`).
+--|
+--| Not here: P4. As `meaning` is stated it doesn't keep it: a merged
+--| group's pieces each take the first group's `open`, comments included,
+--| so `-- note` above `(x: Nat) (y: Nat)` is on both pieces after P4 and on
+--| the first only before. The fact needs meanings compared with comments
+--| blanked, and then `Group.typeLines` (the dump) telling comment-free
+--| types apart, and the merged groups' `kind`s equal (`joins` doesn't
+--| compare them).
 
 namespace Fmt.Proofs
 import Fmt (..)
 import Fmt.Walk (..)
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
-import Syntax (Attributes, BindingKind, Comments, Decl, DefKind, Expr, Fields, Group, Header, InfixKind, Param, Pattern, RuleSet, SourceFile, Steps, Tok, Word)
+import Syntax (
+  Attributes,
+  BindingKind,
+  Comments,
+  Decl,
+  DefKind,
+  Expr,
+  Fields,
+  Group,
+  Header,
+  InfixKind,
+  Param,
+  Pattern,
+  RuleSet,
+  SourceFile,
+  Steps,
+  Tok,
+  Word
+)
 
 theorem commaExprKeepsMeaning ∀ (expr: Expr): plainExpr (withoutCommaExpr expr) = plainExpr expr := cases
 
@@ -221,9 +244,6 @@ def Pure.keep: Pure := {
   ruleSet = (r => r)
 }
 
---| What a pass's steps keep, with its walk written `plain` for short.
-def Expr.plain (expr: Expr): Expr := expr.walk meaningPure
-
 -- P1.
 
 def forallPure: Pure := { Pure.keep | header = withForall }
@@ -274,7 +294,14 @@ def forallKeeps: Keeps forallPure meaningPure := {
 
 --| P1 keeps `meaning`.
 theorem forallKeepsFile ∀ (file: SourceFile): file.withForall.meaning = file.meaning :=
-  rewrite applyKeeps file { Steps.keep | header = withForall } meaningSteps forallPure meaningPure forallAgrees meaningAgrees forallKeeps
+  rewrite applyKeeps file
+    { Steps.keep | header = withForall }
+    meaningSteps
+    forallPure
+    meaningPure
+    forallAgrees
+    meaningAgrees
+    forallKeeps
 
 -- P2.
 
@@ -319,13 +346,11 @@ theorem commaPatternWalk ∀ (pattern: Pattern):
 
 theorem commaFieldsWalk ∀ (fields: Fields):
     { fields | trailingComma = False }.walk meaningPure = fields.walk meaningPure :=
-  match fields with
-    | { open, fields, trailingComma, close } => byComputing
+  match fields with | { open, fields, trailingComma, close } => byComputing
 
 theorem commaRuleSetWalk ∀ (set: RuleSet):
     walkRuleSet meaningPure { set | trailingComma = False } = walkRuleSet meaningPure set :=
-  match set with
-    | { open, rules, trailingComma, close } => byComputing
+  match set with | { open, rules, trailingComma, close } => byComputing
 
 def commaKeeps: Keeps commaPure meaningPure := {
   expr = commaExprWalk,
@@ -345,13 +370,12 @@ theorem commaKeepsFile ∀ (file: SourceFile): file.withoutTrailingCommas.meanin
 -- is a negative numeral and whether it is atomic, so `dropLeft` still
 -- drops only pairs `forgetLeft` forgets.
 
-theorem negativeWalk ∀ (expr: Expr): (expr.walk meaningPure).negativeNumeral = expr.negativeNumeral :=
-  match expr with
-    | Prefix operator operand =>
-      match operand with
-        | Atom kind word => byComputing
-        | _ => cases
-    | _ => cases
+theorem negativeWalk ∀ (expr: Expr): (expr.walk meaningPure).negativeNumeral = expr.negativeNumeral := match expr with
+  | Prefix operator operand =>
+    match operand with
+      | Atom kind word => byComputing
+      | _ => cases
+  | _ => cases
 
 theorem atomicWalk ∀ (expr: Expr): (expr.walk meaningPure).atomic = expr.atomic := match expr with
   | CtorFields ctor record =>
@@ -421,8 +445,7 @@ theorem dropLeftWalk ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (exp
         (enoughAbove atomOnly floor (leftNeeds kind operator.text) enough)
     | Chain first rest =>
       rewrite dropLeftWalk (Nat.max floor 8) membership recordRow atomOnly first (enoughAbove atomOnly floor 8 enough)
-    | App head arguments =>
-      rewrite dropLeftWalk (Nat.max floor 22) membership recordRow True head (enoughHead floor)
+    | App head arguments => rewrite dropLeftWalk (Nat.max floor 22) membership recordRow True head (enoughHead floor)
     | FieldAccess (Some target) dot field =>
       rewrite dropLeftWalk (Nat.max floor 22) membership recordRow True target (enoughHead floor)
     | _ => cases
@@ -560,6 +583,4 @@ theorem bracketKeepsFile ∀ (file: SourceFile): file.withoutSpareBrackets.meani
 --| comments.
 theorem firstThreeKeepMeaning ∀ (file: SourceFile):
     file.withForall.withoutTrailingCommas.withoutSpareBrackets.meaning = file.meaning :=
-  rewrite bracketKeepsFile file.withForall.withoutTrailingCommas,
-    commaKeepsFile file.withForall,
-    forallKeepsFile file
+  rewrite bracketKeepsFile file.withForall.withoutTrailingCommas, commaKeepsFile file.withForall, forallKeepsFile file
