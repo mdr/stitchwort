@@ -277,6 +277,47 @@ fn is_steps_or_depth(message: &str) -> bool {
         .any(|e| message.ends_with(&e.to_string()))
 }
 
+/// Keeps the first `E-AMBIGUOUS` for each name in each file, and drops the
+/// rest: they were errors while checking, so the file fails, but one message
+/// is enough (SW-3685). The first says how many uses it stands for.
+///
+/// The name is in the message (`\`value\` could mean …`), and every use of
+/// one name in a file gives the same message: the same namespaces, written
+/// the same way.
+fn report_each_ambiguity_once(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    let mut counts: HashMap<(FileId, String), usize> = HashMap::default();
+    for d in &diagnostics {
+        if d.code == "E-AMBIGUOUS"
+            && let Some(span) = d.primary_span()
+        {
+            *counts.entry((span.file, d.message.clone())).or_default() += 1;
+        }
+    }
+    let mut seen: HashSet<(FileId, String)> = HashSet::default();
+    let mut out = Vec::with_capacity(diagnostics.len());
+    for mut d in diagnostics {
+        if d.code == "E-AMBIGUOUS"
+            && let Some(span) = d.primary_span()
+        {
+            let key = (span.file, d.message.clone());
+            if !seen.insert(key.clone()) {
+                continue;
+            }
+            if let Some(&count) = counts.get(&key)
+                && count > 1
+            {
+                let more = count - 1;
+                d = d.with_note(format!(
+                    "and {more} more {} in this file",
+                    if more == 1 { "use" } else { "uses" }
+                ));
+            }
+        }
+        out.push(d);
+    }
+    out
+}
+
 impl Elaborator {
     /// Elaborates and checks every declaration of one file, continuing past
     /// errors. Declarations may refer to each other in any order.
@@ -705,6 +746,11 @@ impl Elaborator {
         {
             diagnostics.retain(|d| d.code != "E-FAILED-DEPENDENCY");
         }
+        // An ambiguous name is one error per file, not one for each use
+        // (SW-3685). Every use was still an error while checking, so the file
+        // fails; only the first is printed, and it says how many others it
+        // stands for.
+        let mut diagnostics = report_each_ambiguity_once(diagnostics);
         // Doc links last, once everything the files declare is checked
         // (documentation.md §7); not in a namespace with errors, whose
         // names may be missing for another reason.
