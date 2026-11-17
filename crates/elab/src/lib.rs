@@ -343,6 +343,17 @@ pub enum ProbeKind {
     },
     /// `a && b`.
     And(Box<Probe>, Box<Probe>),
+    /// A `match` whose arms end in comparisons (SW-3736): `term` is the
+    /// test's term with each such arm answering, in place of its `Bool`,
+    /// `Cons k (Cons left right)` of the `marker` data type (`List`): `k`
+    /// numbers the arm in `arms`, with its operator and its comparison's
+    /// span, and `left` and `right` are its sides. Any other arm still
+    /// answers a `Bool`.
+    Arms {
+        term: Term,
+        marker: stitchwort_core::DataId,
+        arms: Vec<(&'static str, Span)>,
+    },
     /// Anything else: nothing to look into.
     Other,
 }
@@ -354,11 +365,21 @@ pub(crate) struct SidesCapture {
     pub(crate) wanted: stitchwort_core::collections::HashSet<Span>,
     pub(crate) sides: stitchwort_core::collections::HashMap<Span, (&'static str, Term, Term)>,
     pub(crate) truths: stitchwort_core::collections::HashMap<Span, Term>,
+    /// The right-hand sides of a `match`'s arms that are comparisons, which
+    /// the probe looks for in the arms' own contexts (`probe::ArmShape`).
+    pub(crate) arm_bodies: stitchwort_core::collections::HashSet<Span>,
+    /// A comparison's sides as elaborated, still in the context of the
+    /// arm (the variables its pattern binds are free in them).
+    pub(crate) raw_sides: stitchwort_core::collections::HashMap<Span, (&'static str, Term, Term)>,
+    pub(crate) arms: Vec<probe::ArmRaw>,
 }
 
 impl SidesCapture {
     pub(crate) fn is_empty(&self) -> bool {
-        self.wanted.is_empty() && self.sides.is_empty() && self.truths.is_empty()
+        self.wanted.is_empty()
+            && self.sides.is_empty()
+            && self.truths.is_empty()
+            && self.arm_bodies.is_empty()
     }
 }
 
@@ -2030,6 +2051,7 @@ impl Elaborator {
             let result = self.with_local_retries(&label, &shown, |e| {
                 *e.decl.sides_capture.borrow_mut() = SidesCapture {
                     wanted: probe::wanted(expr),
+                    arm_bodies: probe::arm_bodies(expr),
                     ..SidesCapture::default()
                 };
                 let (term, ty) = {
@@ -6345,6 +6367,11 @@ fn check_leaf_in(
     cx.reset(mark);
     cx.names = saved_names;
     cx.order = saved_order;
+    if let Ok(body) = &result
+        && text_lets.is_empty()
+    {
+        probe::record_arm(cx, rhs, body);
+    }
     result.map(|body| around_lets(text_lets, body))
 }
 

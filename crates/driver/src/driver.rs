@@ -1627,6 +1627,14 @@ impl Session {
                 None => break,
             }
         }
+        if let ProbeKind::Arms { term, marker, arms } = &probe.kind
+            && let Some((op, at, left, right)) = self.arm(term, *marker, arms)
+        {
+            return Some(Failure {
+                part: self.part(at),
+                comparison: Some(self.compare(op, &left, &right)),
+            });
+        }
         let part = if probe.whole {
             None
         } else {
@@ -1640,6 +1648,32 @@ impl Session {
             return None;
         }
         Some(Failure { part, comparison })
+    }
+
+    /// The comparison of the arm of a `match` that ran (SW-3736): `term` is
+    /// the `match` with each arm that is a comparison answering with its two
+    /// sides, as a `marker` constructor numbering the arm in `arms`.
+    fn arm(
+        &self,
+        term: &Term,
+        marker: stitchwort_core::DataId,
+        arms: &[(&'static str, stitchwort_syntax::Span)],
+    ) -> Option<(&'static str, stitchwort_syntax::Span, Term, Term)> {
+        let g = &self.elab.ev();
+        let _op = g.machine.budget.operation(self.elab.options.limits);
+        let _erasing = g.machine.erasure.running();
+        let fields = |v: Value| match force(g, v).ok()? {
+            Value::Ctor(d, 1, fields) if d == marker && fields.len() == 2 => Some(fields),
+            _ => None,
+        };
+        let answer = fields(eval(g, &[], term).ok()?)?;
+        let Value::Nat(k) = force(g, answer[0].clone()).ok()? else {
+            return None;
+        };
+        let &(op, at) = arms.get(usize::try_from(&*k).ok()?)?;
+        let sides = fields(answer[1].clone())?;
+        let side = |v: &Value| stitchwort_core::value::quote(g, 0, v).ok();
+        Some((op, at, side(&sides[0])?, side(&sides[1])?))
     }
 
     /// Whether the operand `probe` is `True`, if it can be told.

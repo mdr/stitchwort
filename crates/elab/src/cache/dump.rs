@@ -62,6 +62,18 @@ fn dump_probe(out: &mut String, p: &crate::Probe) {
             out.push(' ');
             dump_probe(out, b);
         }
+        crate::ProbeKind::Arms {
+            term: t,
+            marker,
+            arms,
+        } => {
+            let _ = write!(out, "arms d{} ", marker.0);
+            term(out, t);
+            for (op, at) in arms {
+                let _ = write!(out, " {op}");
+                span(out, *at);
+            }
+        }
     }
     out.push(')');
 }

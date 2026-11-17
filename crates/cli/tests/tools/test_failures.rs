@@ -140,6 +140,54 @@ fn a_failed_test_names_the_false_part_and_where_values_differ() {
     insta::assert_snapshot!("failed_parts", run(&dir, &["--no-cache"]));
 }
 
+/// SW-3736: a failing `match` shows the comparison of the arm that ran,
+/// as a comparison written outside the `match` does.
+const MATCHES: &str = r##"import Std (List, Result)
+
+type Tree = { kids: List Nat }
+
+def parse (n: Nat): Result Tree Text :=
+  if n == 0 then Err "zero" else Ok { kids = [n, n] }
+
+def dump (t: Tree): List Nat := t.kids
+
+test "ok arm" := match parse 3 with
+  | Ok tree => dump tree == [3, 4]
+  | Err _ => False
+test "err arm" := match parse 0 with
+  | Ok tree => dump tree == [0]
+  | Err why => why == "fine"
+test "greater" := match parse 3 with
+  | Ok tree => tree.kids.length > 5
+  | Err _ => True
+test "under a let" := let expected := [3]; match parse 3 with
+  | Ok tree => dump tree == expected
+  | Err _ => False
+test "in a conjunction" := 1 == 1 && match parse 3 with
+  | Ok tree => dump tree == []
+  | Err _ => False
+test "an arm that isn't a comparison" := match parse 0 with
+  | Ok tree => dump tree == [0]
+  | Err _ => False
+"##;
+
+#[test]
+fn a_failed_match_shows_the_comparison_of_the_arm_that_ran() {
+    let dir = folder_with("matches", MATCHES);
+    let out = run(&dir, &["--no-cache"]);
+    insta::assert_snapshot!("failed_matches", &out);
+    let cached = run(&dir, &[]);
+    let again = run(&dir, &[]);
+    assert!(again.contains("cached"), "{again}");
+    let lines = |s: &str| -> Vec<String> {
+        s.lines()
+            .filter(|l| l.contains("left:") || l.contains("right:") || l.contains("in: "))
+            .map(str::to_string)
+            .collect()
+    };
+    assert_eq!(lines(&cached), lines(&again));
+}
+
 /// SW-1000: `Float`s inside a list or a record print as literals, as a lone
 /// one does, not as `{ bits = …, valid = ?1 }`.
 #[test]

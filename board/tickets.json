@@ -20740,12 +20740,12 @@
     {
       "id": 3736,
       "title": "[Sonnet] A test whose match evaluates to False shows no left/right values: show the failing arm's comparison (the two compared values, e.g. tree.dump and expected), as a helper def's == does; update docs/syntax.md:236 (Toy++ T4 friction, SW-3724; SW-3808 hit it too)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Group 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.\n\nSW-3808 hit the same gap: a failing test only says 'evaluated to False' for a == comparison too (it took four extra tests to find a reversed list); make sure both sides are shown for == in all positions.\n\nOrchestrator's call, 17 Nov 2026: of DeepSeek's two readings, show the failing arm's comparison (the values the user compared), not the match's value against True. Multi-file, so Sonnet.",
+      "body": "Group 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.\n\nSW-3808 hit the same gap: a failing test only says 'evaluated to False' for a == comparison too (it took four extra tests to find a reversed list); make sure both sides are shown for == in all positions.\n\nOrchestrator's call, 17 Nov 2026: of DeepSeek's two readings, show the failing arm's comparison (the values the user compared), not the match's value against True. Multi-file, so Sonnet.\n\nProgress (lane, 17 Nov 2026, 16:04-16:40): a failing test whose body is a match (also under lets, or an operand of &&) now shows left/right and `in:` for the arm that ran, when the arm is a plain ==, !=, > or >= comparison. Mechanism: the lifted helper is found in the finished test term, each recorded arm comparison is located by path in its leaf, and the helper case tree is rebuilt with those leaves answering with their sides; evaluated only after a failure, so results are unchanged. Not covered: guarded arms, nested match/if inside an arm, `n < literal` (checker rewrites to <=), `if` tests. Test: test_failures::a_failed_match_shows_the_comparison_of_the_arm_that_ran (snapshot failed_matches). Docs: syntax.md, guide 09-testing. Cache FORMAT 35 -> 36.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
