@@ -750,7 +750,7 @@ def dataParams (fuel: Nat) (modes: Modes) (word: Text) (name: Word) (found: List
 --| type.
 def dataIndices (fuel: Nat) (modes: Modes) (found: List (Index, Word)): {Parse Item} (List (Index, Word), Expr) :=
   match fuel with
-    | Zero => (found.reverse, notYet "a data type's indices")
+    | Zero => (found.reverse, fatal "the parser ran out of fuel in a data type's indices")
     | Succ more =>
       if isSome LParen modes.peek && piBinderAhead left() then
         let binder := binderGroup expressionAt modes False

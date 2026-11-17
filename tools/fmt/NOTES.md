@@ -443,3 +443,143 @@ and so nothing was profiled.
 - Mismatched brackets: the Rust parser pairs brackets by a stack that
   ignores their kind, and so does `skipGroup`, but its lambda lookahead
   reads one case differently (the gate's one difference).
+
+## Stage 2c (SW-3847): blocks, `let` and the proof steps
+
+Opus, 17 November 2026.
+
+### What is here
+
+| File | What | Rust counterpart |
+|---|---|---|
+| `Syntax/Statements.sw` | a block's statements (`let`, local definitions), the expression `let`, `handle`, `match induct`/`reify`, `calc`, `rewrite` (rules, `repeatedly` sets, `at`, `then`), `cases`, `then_body` | `statement`, `let_statement`, `local_def`, `handle`, `handler_clause`, `induct_expr`, `reify_expr`, `calc_body`, `rewrite_body`, `cases_expr`, `then_body` |
+| `Syntax/Parser.sw` | `block` reads every line (no more "not parsed yet"); `Modes` gains the ends that look back; R1's gaps and what comes first after them; `skipGroup` pairs brackets by kind; `lambda_result_type_ahead` | `block`, `is_stop`, `ends_construct`, `ran_out`, `match_brackets` |
+| `Syntax/DeclParser.sw` | `definitionParts`, shared by top-level and local definitions, threading the expression parser's `self`; `:=` on its own line after `decreasing`/`unfolding`; `rules` declarations | `definition`, `rule_set` |
+| `Syntax/Expr.sw`, `Decl.sw` | `Block`, `LetIn`, `Handle`, `Reify`, `Induct`, `Calc`, `Rewrite`, `Cases`, `Statement`, `Let`, `HandlerClause`, `InductArm`, `CalcStep`, `RewriteRule`, `Rules`, `RuleSet`, `RuleSetDecl`, and their dump | `NodeKind`s of the same names |
+| `Syntax/Traverse.sw`, `Lowering.sw` | the new nodes traversed; a local definition's parameters checked for repeats | |
+| `Syntax.Tests.Statements` | 19 tests, one or more per construct | |
+
+`notYet` is gone: nothing is refused for being unported.
+
+### The block, and why read-back can be proved
+
+A block is `Block (first: Statement) (rest: List Statement) (result:
+Expr)`: its lines before the value, then the value, each a node, with no
+column, no line start and no count of lines. A block of one line is that
+line's expression, so a `Block` always has a statement (the type says
+so). The same holds for the other layout constructs: a `calc` is its
+steps, a handler its clauses, an `induct` its arms, each a list; none
+keeps where it started.
+
+The parser reads columns from the items (the block's column is the
+column of the line `expr` saw start right of the enclosing one, as in
+Rust) and drops them when it builds the node; every column decision is a
+function of the items, never of the tree. So the read-back statement for
+S3 has the printer on one side: the printer puts each line of a `Block`
+at one indent deeper than the line the block hangs from, and reading
+back needs only that (1) each line starts a line at that indent, (2)
+nothing inside a line starts a line at or left of it (the printer's
+continuation indent is deeper), and (3) the line after the block is
+shallower or is `|`, `where`, `:=`, `decreasing` or `unfolding`
+(`endsBlocks`). Each is a fact about the printer's indentation per
+construct, stated over the tree's structure; none needs the tree to
+remember a column [the shape of the argument; nothing is proved yet]. That is SKETCH.md's risk 3 split into per-construct
+lemmas of one shape: "printed at indent `i`, every line of the node
+starts right of `i`, and its first at `i`", with `stopsByLine` and
+`endsConstruct` the only places the parser looks at columns.
+
+Two things make the proof easier than the Rust code suggests:
+
+- The looks back of `is_stop` (a `rewrite` rule's `then`, a `let`
+  value's `;`, a guard's `=>`) are bracket depths, not token indices:
+  `Item.depth` minus the depth at the rule's first item is Rust's
+  `bracket_depth(start, i)`. The printer keeps brackets, so the depth is
+  the same in its output.
+- A `calc` step ends at a line starting with `_` whatever the brackets
+  (`inCalc`), so the printer must never start a line with `_` inside an
+  operand: one more obligation of the same shape, on the printer [not
+  checked against the Rust printer yet].
+
+### R1 gaps
+
+A recovering body that runs out (R1) is reported and the Rust parser
+reads on; its errors are sorted by position. The twin stops at the gap,
+so it has to know which error the Rust side sorts first: the gap, unless
+a block then ends on a `let` or a local definition (reported at that
+line's first token, before the gap), or a local definition's result type
+ran out (no body, reported at its keyword). `Modes.lines` is the stack
+of blocks being read, innermost first, with what each block's current
+line is; an expression that a token must follow (an `if`'s condition, a
+scrutinee, a `let`'s type, an expression `let`, a guard) is read with
+the stack empty (`Modes.sealed`), since a missing token there is an
+error after the gap. Found by the broken copies below: 3 of 1,600
+differed before this.
+
+### The gate [measured, Speedwell, load 4 to 8]
+
+| Input | Stage | Identical | Not parsed yet | Other differences |
+|---|---|---|---|---|
+| `goldens` (124) | tree, refusal | 124, 124 | 0 | 0 |
+| `repo --sample 300` | tree, refusal | 300, 300 | 0 | 0 |
+| `fuzz --fuzz-cases 300` (235 lex) | tree, refusal | 235, 235 | 0 | 0 |
+| broken copies of repo files using 2c constructs (cut, a token deleted, swapped or inserted, a line dedented near `let`, `rewrite`, `calc`, `handle`…), three seeds | refusal | 400, 600, 600 | 0 | 0 |
+| hand cases: every 2c error, gaps in each position, `then` ending its line, `(f x).at`, nested `rewrite`, the mismatched bracket | refusal | 92 | 0 | 0 |
+
+The mismatched-bracket case (`[a: (x: Type] a) => x`) is right now:
+`match_brackets` pairs by kind and passes over a closer that doesn't
+match the innermost opener, which 2b's note had the other way round;
+`skipGroup` and `groupInside` do the same. `(x: A): B => x` gets
+`lambda_result_type`'s error. `f !!b` (SW-3853) is refused by both: the
+Rust side reads it as `f` and then a stray `!` ("expected the end of the
+declaration, but found `!`"), and so does the twin; K4's note that Rust
+reads it as `f (!(!b))` doesn't hold for this binary.
+
+The broken-copy generator and the hand cases are scratch (no repo
+bloat), as 2a's and 2b's were.
+
+### Speed [measured, Speedwell, load 4 to 6]
+
+400 repo files sampled at random (seed 7), 2.18 MB, one process,
+`--batch`, two runs each:
+
+| Stage | Time | Per MB | Peak memory |
+|---|---|---|---|
+| `tokens` | 3.9–4.0 s | 1.8 s/MB | 77 MB |
+| `tree` | 6.9–7.1 s | 3.2 s/MB | 88 MB |
+
+2b measured 1.7 and 3.0 s/MB on its 972-file subset, so parsing and the
+dump went from 1.3 to 1.4 s/MB: within noise and the sample's mix (the
+files 2b couldn't read are the proof-heavy ones). Nothing changed for
+speed; SW-3837 has the profile.
+
+### Friction
+
+- **Keywords as names, a third time**: `calc`, `handle`, `rewrite` and
+  `cases` can't be function names or fields (`calcExpr`, `inCalc`).
+- **A method call on a record update doesn't run its effect**: `match {
+  modes | allow = Some before }.peek with` was refused with "these
+  patterns match an `Option`, but the argument has type `{Parse Item}
+  Option Tok`"; binding the record first works. The message didn't say
+  the call was the problem.
+- **No effects in a guard**, again (`| Succ more if modes.at Comma`):
+  bind first.
+- **Field projection of a record argument blocks termination**:
+  `header.decreasingClause` in `Header.lines` made the mutual recursion
+  through local definitions fail; destructuring the record fixed it, as
+  2a found for `fields.fields`.
+- **The Rust R1 recovery is the hard part to mirror**, not the grammar:
+  the parser reads on after a gap and sorts its errors, so the strict
+  twin needs a model of which later error lands earlier (above).
+
+### Left
+
+- The tree stage for files that don't parse (an `Error` node holding
+  what parsed): status 1 stays, as the brief says.
+- Local definitions' parameters are checked for repeats after the
+  block's other lowering checks; Rust checks the header first. They
+  differ only for a file with both errors.
+- A gap in a local definition's result type that is an equation (`def g:
+  a =` with nothing after) is E-DEF-EQUALS in Rust and "needs a body"
+  here; not seen in any input.
+- Stage 2a's expressions still hold every token as a `Word`; the new
+  nodes hold fixed tokens as `Comments`.

@@ -1,4 +1,4 @@
---| The parser (stage 2a: expressions and patterns), on `Parse` over the
+--| The parser's expressions and patterns (stage 2a), on `Parse` over the
 --| settled leaves, following `crates/syntax`'s parser function for function
 --| so that the tree and the first line of every error are the same.
 --|
@@ -12,10 +12,10 @@
 --| `pself`, so `Parse.recursiveWith`'s fuel bounds it and every other
 --| function is a plain call or a loop with fuel from the items left.
 --|
---| A block of several lines and the constructs of stage 2c (`let`,
---| `handle`, `calc`, `rewrite`, `cases`, `match induct`) are refused with a
---| message starting "not parsed yet". Declarations, parameter groups and
---| types with abilities are `DeclParser.sw`'s (stage 2b).
+--| Declarations, parameter groups and types with abilities are
+--| `DeclParser.sw`'s (stage 2b); blocks, `let`, local definitions and the
+--| proof steps (`calc`, `rewrite`, `cases`, `match induct`) and `handle`
+--| are `Statements.sw`'s (stage 2c).
 
 namespace Syntax
 import Std (Bool, Empty, List, Nat, Option, Parse, Result, Text)
@@ -303,8 +303,6 @@ type PatternGoal = { modes: Modes, level: PatternLevel }
 -- Reading.
 
 def fatal (message: Text): {Parse Item} a := Empty.absurd (Parse.fatal message)
-
-def notYet (what: Text): {Parse Item} a := fatal "not parsed yet (stage 2c): ${what}"
 
 def left(): {Parse Item} List Item := Parse.mark().rest
 
