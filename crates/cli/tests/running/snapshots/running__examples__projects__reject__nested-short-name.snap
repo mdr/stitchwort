@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `Grid.f`
@@ -11,3 +11,4 @@ expression: output
    │ 
    │ Note: `Grid` is the namespace `Aoc.Grid`: add `import Aoc (Grid)`, or write `Aoc.Grid.f`
 ───╯
+try: add `import Aoc (Grid)`
