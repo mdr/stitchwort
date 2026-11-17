@@ -3774,3 +3774,198 @@ theorem wrapNear ∀ (x: Float)
               byComputing
               (turnsDistribute t1 t2 (Float.Theory.units 360.0))
           k c r.left r.right))
+
+--| A whole number of turns `c · d` strictly between `-2d` and `2d` is `-d`, 0 or `d`.
+theorem turnTimes ∀ (c: Int) (d: Nat)
+    (lo: Int.less (Int.neg (OfNat (d * 2))) (Int.mul c (OfNat d)) = True)
+    (hi: Int.less (Int.mul c (OfNat d)) (OfNat (d * 2)) = True):
+    (Int.mul c (OfNat d) = Int.neg (OfNat d)) ∨ ((Int.mul c (OfNat d) = OfNat 0) ∨ (Int.mul c (OfNat d) = OfNat d)) :=
+      match c with
+        | OfNat j =>
+          match j with
+            | Zero => Inr (Inl algebra)
+            | Succ Zero => Inr (Inr algebra)
+            | Succ (Succ n) =>
+              let e: Int.mul (OfNat (Succ (Succ n))) (OfNat d) = OfNat (Succ (Succ n) * d) := intMulOfNat (Succ (Succ n)) d
+              let big: 2 * d ≤ Succ (Succ n) * d := Nat.leMulRight 2 (Succ (Succ n)) d (arithmetic)
+              Void.impossible (arithmetic [hi, e, big])
+        | NegSucc j =>
+          match j with
+            | Zero => Inl algebra
+            | Succ n =>
+              let e := intMulNegSucc (Succ n) d
+              let big: 2 * d ≤ (Succ n + 1) * d := Nat.leMulRight 2 (Succ n + 1) d (arithmetic)
+              Void.impossible (arithmetic [lo, e, big])
+
+--| Where the wrapped edges `F` and `T` fall against the answer `l`, in
+--| exact units: either `F ≤ l ≤ T` with neither wrapped across ±180°, or
+--| the band crosses ±180°, `T < F`, and the answer is on one side. `F` is
+--| the lower edge `a` less `mA` (a whole number of turns `u`) to within
+--| 6 · 2^-44 (`wrapNear`), `T` likewise; `a` is more than 6 · 2^-44 below
+--| `l` and `b` as far above, and the band is under a turn wide.
+theorem longitudeCases ∀ (ua ub ul uF uT mA mB h u: Int) (w: Nat)
+    (hu: u = Int.add h h)
+    (small: Int.less (OfNat (w * 12)) h = True)
+    (fA: Int.leq uF (Int.add (Int.sub ua mA) (OfNat (w * 6))) = True)
+    (gA: Int.leq (Int.sub ua mA) (Int.add uF (OfNat (w * 6))) = True)
+    (fB: Int.leq uT (Int.add (Int.sub ub mB) (OfNat (w * 6))) = True)
+    (gB: Int.leq (Int.sub ub mB) (Int.add uT (OfNat (w * 6))) = True)
+    (fLo: Int.leq (Int.neg h) uF = True)
+    (fHi: Int.leq uF h = True)
+    (tLo: Int.leq (Int.neg h) uT = True)
+    (tHi: Int.leq uT h = True)
+    (lLo: Int.leq (Int.neg h) ul = True)
+    (lHi: Int.leq ul h = True)
+    (aBelow: Int.less (Int.add ua (OfNat (w * 6))) ul = True)
+    (bAbove: Int.less (Int.add ul (OfNat (w * 6))) ub = True)
+    (narrow: Int.less (Int.add ub (OfNat (w * 12))) (Int.add ua u) = True)
+    (aLow: Int.less (Int.neg u) ua = True)
+    (bHigh: Int.less ub u = True)
+    (tA: (mA = Int.neg u) ∨ ((mA = OfNat 0) ∨ (mA = u)))
+    (tB: (mB = Int.neg u) ∨ ((mB = OfNat 0) ∨ (mB = u))):
+    ((Int.less uF ul = True) ∧ (Int.less ul uT = True))
+      ∨ (((Int.less uT uF = True) ∧ (Int.less ul uT = True)) ∨ ((Int.less uT uF = True) ∧ (Int.less uF ul = True))) :=
+  Float.Theory.orCase
+    tA
+    (a1 =>
+      Float.Theory.orCase
+        tB
+        (b1 => Void.impossible (arithmetic [hu, small, fA, gA, fB, gB, fHi, tLo, tHi, lLo, aBelow, bAbove, a1, b1]))
+        (rest =>
+          Float.Theory.orCase
+            rest
+            (b0 => Inr (Inl (Both (arithmetic [hu, small, fA, gA, fB, gB, narrow, a1, b0]) (arithmetic [hu, small, fB, gB, bAbove, b0]))))
+            (b2 => Void.impossible (arithmetic [hu, small, fA, gA, fB, gB, fHi, tLo, narrow, a1, b2]))))
+    (rest =>
+      Float.Theory.orCase
+        rest
+        (a0 =>
+          Float.Theory.orCase
+            tB
+            (b1 => Void.impossible (arithmetic [hu, small, gB, tHi, lLo, bAbove, b1]))
+            (rest2 =>
+              Float.Theory.orCase
+                rest2
+                (b0 => Inl (Both (arithmetic [hu, small, fA, aBelow, a0]) (arithmetic [hu, small, gB, bAbove, b0])))
+                (b2 => Inr (Inr (Both (arithmetic [hu, small, fA, gA, fB, gB, narrow, a0, b2]) (arithmetic [hu, small, fA, aBelow, a0]))))))
+        (a2 => Void.impossible (arithmetic [hu, small, gA, fLo, lHi, aBelow, a2])))
+
+--| `turnTimes` for a turn `u` given as an equation.
+theorem turnTimesOf ∀ (c u: Int) (d: Nat)
+    (eu: u = OfNat d)
+    (lo: Int.less (Int.neg (Int.add u u)) (Int.mul c u) = True)
+    (hi: Int.less (Int.mul c u) (Int.add u u) = True):
+    (Int.mul c u = Int.neg u) ∨ ((Int.mul c u = OfNat 0) ∨ (Int.mul c u = u)) :=
+  let step: Int.less (Int.neg (Int.add u u)) (Int.mul c u) = True
+    → Int.less (Int.mul c u) (Int.add u u) = True
+    → (Int.mul c u = Int.neg u) ∨ ((Int.mul c u = OfNat 0) ∨ (Int.mul c u = u)) :=
+    J
+      (v z =>
+        Int.less (Int.neg (Int.add v v)) (Int.mul c v) = True
+          → Int.less (Int.mul c v) (Int.add v v) = True
+          → (Int.mul c v = Int.neg v) ∨ ((Int.mul c v = OfNat 0) ∨ (Int.mul c v = v)))
+      (lo2 hi2 => turnTimes c d (arithmetic [lo2]) (arithmetic [hi2]))
+      eu.flipped
+  step lo hi
+
+--| The turns `wrap` takes off an edge within a turn of 0, landing in
+--| [-180°, 180°], are fewer than two either way.
+theorem turnBounds ∀ (x uF m h u: Int) (w: Nat)
+    (hu: u = Int.add h h)
+    (small: Int.less (OfNat (w * 12)) h = True)
+    (f: Int.leq uF (Int.add (Int.sub x m) (OfNat (w * 6))) = True)
+    (g: Int.leq (Int.sub x m) (Int.add uF (OfNat (w * 6))) = True)
+    (fLo: Int.leq (Int.neg h) uF = True)
+    (fHi: Int.leq uF h = True)
+    (xLo: Int.less (Int.neg u) x = True)
+    (xHi: Int.less x u = True):
+    (Int.less (Int.neg (Int.add u u)) m = True) ∧ (Int.less m (Int.add u u) = True) :=
+  Both (arithmetic [hu, small, f, g, fLo, fHi, xLo, xHi]) (arithmetic [hu, small, f, g, fLo, fHi, xLo, xHi])
+
+--| The unrounded edges of a longitude band against the answer, in exact
+--| units, from the margins, the rounding at the step, and the coarse
+--| bounds on rounding (each edge moves at most 2° outwards).
+theorem longitudeEdgeArith ∀ (ua ub ul uf ufw uw u2 u120 um300 h u u361 um361: Int) (w: Nat)
+    (fsA: Int.leq ua (Int.add uf (OfNat (w * 4))) = True)
+    (mb: Int.less (Int.add uf (OfNat (w * 10))) ul = True)
+    (csB: Int.leq ufw (Int.add ub (OfNat (w * 4))) = True)
+    (ma: Int.less (Int.add ul (OfNat (w * 10))) ufw = True)
+    (fc: Int.leq uf (Int.add ua u2) = True)
+    (cc: Int.leq ub (Int.add ufw u2) = True)
+    (sw: Int.leq ufw (Int.add (Int.add uf uw) (OfNat (w * 2))) = True)
+    (uwHi: Int.leq uw u120 = True)
+    (ufLo: Int.leq um300 uf = True)
+    (ulLo: Int.leq (Int.neg h) ul = True)
+    (ulHi: Int.leq ul h = True)
+    (k1: Int.less (Int.add (Int.add (Int.add u2 u2) u120) (OfNat (w * 14))) u = True)
+    (k2: Int.less (Int.neg u) (Int.sub um300 u2) = True)
+    (k3: Int.less (Int.add (Int.add (Int.add h u120) u2) (OfNat (w * 2))) u = True)
+    (k4: Int.less um361 (Int.sub um300 u2) = True)
+    (k5: Int.less h u361 = True)
+    (k6: Int.less um361 (Int.neg h) = True)
+    (k7: Int.less (Int.add (Int.add (Int.add h u120) u2) (OfNat (w * 2))) u361 = True):
+    ((Int.less (Int.add ua (OfNat (w * 6))) ul = True) ∧ (Int.less (Int.add ul (OfNat (w * 6))) ub = True))
+      ∧ (((Int.less (Int.add ub (OfNat (w * 12))) (Int.add ua u) = True)
+        ∧ ((Int.less (Int.neg u) ua = True) ∧ (Int.less ub u = True)))
+        ∧ (((Int.less um361 ua = True) ∧ (Int.less ua u361 = True))
+          ∧ ((Int.less um361 ub = True) ∧ (Int.less ub u361 = True)))) :=
+  Both
+    (Both (arithmetic [fsA, mb]) (arithmetic [csB, ma]))
+    (Both
+      (Both
+        (arithmetic [fc, cc, sw, uwHi, k1])
+        (Both (arithmetic [fc, ufLo, k2]) (arithmetic [cc, sw, uwHi, mb, fsA, fc, ulHi, k3])))
+      (Both
+        (Both (arithmetic [fc, ufLo, k4]) (arithmetic [fsA, mb, ulHi, k5]))
+        (Both (arithmetic [csB, ma, ulLo, k6]) (arithmetic [cc, sw, uwHi, mb, ulHi, k7]))))
+
+--| Doubles other than the NaN with units in strict order are in JS's order.
+theorem ieeeLeOfUnitsLess ∀ (x y: Float)
+    (nx: Float.isNaN x = False)
+    (ny: Float.isNaN y = False)
+    (h: Int.less (Float.Theory.units x) (Float.Theory.units y) = True):
+    Float.ieeeLe x y = True :=
+  Float.ieeeLeOfLe x y nx ny (floatLeOfLt x y (Float.Theory.lessOfUnits x y h))
+
+--| With `y`'s units below `x`'s, JS's `x <= y` is false.
+theorem notIeeeLeOfUnits ∀ (x y: Float)
+    (h: Int.less (Float.Theory.units y) (Float.Theory.units x) = True):
+    Float.ieeeLe x y = False :=
+  match e: Float.ieeeLe x y with
+    | False => byComputing
+    | True =>
+      Void.impossible
+        (Float.Theory.orCase
+          (Float.leOfIeeeLe x y e)
+          (le => arithmetic [Float.Theory.unitsMonoKey x.bits y.bits le, h])
+          (zz => arithmetic [Float.Theory.unitsZero x zz.left, Float.Theory.unitsZero y zz.right, h]))
+
+--| `inHintBand`'s reading of a longitude band, from `longitudeCases`: a
+--| band that doesn't cross ±180° contains the answer between its edges, and
+--| one that does has `from > to` and the answer on one side.
+theorem inLongitudeOfCases ∀ (from to lon: Float)
+    (nf: Float.isNaN from = False)
+    (nt: Float.isNaN to = False)
+    (nl: Float.isNaN lon = False)
+    (sides: ((Int.less (Float.Theory.units from) (Float.Theory.units lon) = True)
+      ∧ (Int.less (Float.Theory.units lon) (Float.Theory.units to) = True))
+      ∨ (((Int.less (Float.Theory.units to) (Float.Theory.units from) = True)
+        ∧ (Int.less (Float.Theory.units lon) (Float.Theory.units to) = True))
+        ∨ ((Int.less (Float.Theory.units to) (Float.Theory.units from) = True)
+          ∧ (Int.less (Float.Theory.units from) (Float.Theory.units lon) = True)))):
+    (if Float.ieeeLe from to then Float.ieeeLe from lon ∧ Float.ieeeLe lon to
+    else Float.ieeeLe from lon ∨ Float.ieeeLe lon to)
+      = True :=
+  Float.Theory.orCase
+    sides
+    (c =>
+      let below := ieeeLeOfUnitsLess from lon nf nl c.left
+      let above := ieeeLeOfUnitsLess lon to nl nt c.right
+      match e: Float.ieeeLe from to with
+        | True => Bool.andIntro below above
+        | False => Bool.orLeft below)
+    (rest =>
+      Float.Theory.orCase
+        rest
+        (c => rewrite notIeeeLeOfUnits from to c.left then Bool.orRight (ieeeLeOfUnitsLess lon to nl nt c.right))
+        (c => rewrite notIeeeLeOfUnits from to c.left then Bool.orLeft (ieeeLeOfUnitsLess from lon nf nl c.right)))
