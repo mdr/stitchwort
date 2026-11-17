@@ -1,5 +1,5 @@
 {
-  "next": 3897,
+  "next": 3898,
   "tickets": [
     {
       "id": 47,
@@ -22767,12 +22767,12 @@
     {
       "id": 3891,
       "title": "[Sonnet] Clean-up after D3679: lowering now always gives one name per Binder/Expr::Pi; narrow names: Vec to a single name where safe, and correct the self-hosted formatter's meaning doc to cite ast::Binder::split and the lowering (SW-3880 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\n\nProgress (Sonnet lane): ast::Binder now has one `name` (lowering's Written holds the group and makes binders); ~17 files updated. Expr::Pi still has names: Vec, left (see report). Meaning.sw doc corrected.\n",
+      "body": "\n\n\nProgress (Sonnet lane): ast::Binder now has one `name` (lowering's Written holds the group and makes binders); ~17 files updated. Expr::Pi still has names: Vec, left (see report). Meaning.sw doc corrected.\n\nModel result: sonnet, worked, 14 min (est. 25). Ran a workspace cargo check --tests to find consumers (compile only). Follow-up SW-3897.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22837,6 +22837,19 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3897,
+      "title": "[Sonnet] After D3679: narrow Expr::Pi names to one name (lowering always emits one; the derive modules build Pi with names, ~20 files), and consider splitting Param::Named groups in headers earlier (SW-3891 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
