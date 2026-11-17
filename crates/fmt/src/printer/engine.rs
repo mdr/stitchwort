@@ -612,23 +612,6 @@ impl Printer {
     }
 }
 
-/// Whether `next`, then the rest of the work list `rest` (from its top),
-/// fits in `left` columns up to the first line break the work would make.
-/// Groups are measured in the mode of what holds them unless they must
-/// break, as Prettier's `fits` does: a group that won't fit flat breaks at
-/// its first line, so measuring up to there is enough.
-fn fits(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, modes: &BTreeMap<u32, Mode>) -> bool {
-    let at = Measure {
-        modes,
-        width: usize::MAX / 2,
-        suffix: false,
-        line_indent: 0,
-        flat_break: false,
-        held: 0,
-    };
-    fits_in(next, rest, left, &at)
-}
-
 /// Where a measure starts.
 struct Measure<'m> {
     /// How each [`Doc::IdGroup`] printed.
@@ -647,7 +630,11 @@ struct Measure<'m> {
     held: usize,
 }
 
-/// [`fits`], from `at`.
+/// Whether `next`, then the rest of the work list `rest` (from its top),
+/// fits in `left` columns up to the first line break the work would make.
+/// Groups are measured in the mode of what holds them unless they must
+/// break, as Prettier's `fits` does: a group that won't fit flat breaks at
+/// its first line, so measuring up to there is enough.
 fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) -> bool {
     let (modes, width) = (at.modes, at.width);
     let mut left = left as isize;
