@@ -254,7 +254,8 @@ def Float.Model.ceilBits (a: Nat): Nat :=
   if Float.Model.isSpecial a then a
   else
     Float.Model.roundScaled
-      (Int.neg (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
+      (Int.neg
+        (Float.Model.floorDiv (¬(Float.Model.signBit a)) (Int.natAbs (Float.Model.units a)) (Float.Model.pow2 1074)))
       0
       (Float.Model.signBit a)
 
@@ -275,7 +276,10 @@ def Float.Model.roundBits (a: Nat): Nat :=
   if Float.Model.isSpecial a then a
   else
     let v: Int := Int.add (Float.Model.units a) (OfNat (Float.Model.pow2 1073))
-    Float.Model.roundScaled (Float.Model.floorDiv (Int.isNeg v) (Int.natAbs v) (Float.Model.pow2 1074)) 0 (Float.Model.signBit a)
+    Float.Model.roundScaled
+      (Float.Model.floorDiv (Int.isNeg v) (Int.natAbs v) (Float.Model.pow2 1074))
+      0
+      (Float.Model.signBit a)
 
 test "Float.Model.pow2" :=
   Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616
