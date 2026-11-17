@@ -41688,7 +41688,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Expected: 45 min (Opus). Started 07:48.\n\nProgress (17 Nov 2026, 08:15): measured and profiled; no code changed. Cold load before/after SW-3369: Nat 11.2M -> 20.7M steps, 1.11 -> 1.77 s; Int 17.3M -> 27.1M, 1.62 -> 2.40 s; Text 10.4M -> 18.9M, 1.06 -> 1.66 s; Map 31.7M -> 45.0M, 2.76 -> 3.90 s. Ord is 2/3 of the extra, DecEq 1/3; twelve Std.Omega/Std.Ring reflection types are 9.0M of Nat's 9.5M (Omega.Fact 4.2M), Map.Tree 2.0M more for Map. Proposal: docs/proposals/derived-instances-import-cost.md (derive std types' instances on first use, rec yes; stopgap: no derivation for internal reflection types, measured Nat 11.6M / 1.23 s). Perf log entry added.\n\nModel result: opus, worked, 16 min (est. 45). Paper; D question to Matt on option A (derive on first use). Follow-ups SW-3719 SW-3720.",
+      "body": "Expected: 45 min (Opus). Started 07:48.\n\nProgress (17 Nov 2026, 08:15): measured and profiled; no code changed. Cold load before/after SW-3369: Nat 11.2M -> 20.7M steps, 1.11 -> 1.77 s; Int 17.3M -> 27.1M, 1.62 -> 2.40 s; Text 10.4M -> 18.9M, 1.06 -> 1.66 s; Map 31.7M -> 45.0M, 2.76 -> 3.90 s. Ord is 2/3 of the extra, DecEq 1/3; twelve Std.Omega/Std.Ring reflection types are 9.0M of Nat's 9.5M (Omega.Fact 4.2M), Map.Tree 2.0M more for Map. Proposal: docs/proposals/derived-instances-import-cost.md (derive std types' instances on first use, rec yes; stopgap: no derivation for internal reflection types, measured Nat 11.6M / 1.23 s). Perf log entry added.\n\nModel result: opus, worked, 16 min (est. 45). Paper; D question to Matt on option A (derive on first use). Follow-ups SW-3719 SW-3720.\n\nD3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41805,7 +41805,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "SW-3725 (Fable): cost is cubic in fields per constructor, not ~50K per constructor; first fix the elaborator slow path (SW-3726), then reshape the generated proofs (nested pairs, Pair.decMk; prototype of == is 3-26x cheaper). Est. 2 Opus lanes, ~3.5 h.",
+      "body": "SW-3725 (Fable): cost is cubic in fields per constructor, not ~50K per constructor; first fix the elaborator slow path (SW-3726), then reshape the generated proofs (nested pairs, Pair.decMk; prototype of == is 3-26x cheaper). Est. 2 Opus lanes, ~3.5 h.\n\nD3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41896,7 +41896,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "D3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
