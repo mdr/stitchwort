@@ -1,5 +1,5 @@
 {
-  "next": 3730,
+  "next": 3732,
   "tickets": [
     {
       "id": 47,
@@ -41670,12 +41670,12 @@
     {
       "id": 3709,
       "title": "[Opus] Step regression: reads_chain_cost (driver library reads_chain_proofs_stay_within_recorded_step_counts) bisected to SW-3561's merge 09e7f3b4c (readsThen reads p off its first lemma, then j off the goal): readsTwo 38k -> 175k steps (generic), 32k -> 100k (chars), undoing most of SW-3281's 498k -> 61k. Re-measure after SW-3694 (which narrowed SW-3561's trigger), then find and fix the rest with results unchanged (SW-3698)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Data point (SW-3715): examples/accept/reads-then-finds-split.sw takes 6.6 s to check uncached on Speedwell, vs 0.26 s for a trivial file with the same imports.\n\nProgress (Opus lane, 17 Nov 2026, 08:05-08:40): profiled by step counts around fallback_holding_lambdas' phases. Cause: under held lambdas the first lemma (Prs.readsSatisfy) was checked in place against `Reads ?p ?first` first; that check unfolds both calls and failed after 35K-92K steps a level (76% of readsTwo generic), then by_arguments_in_place succeeded in ~200. Fix: by_arguments_first tries the comparison by arguments first (same gates), in-place check only if it doesn't match (901c67a53). readsTwo generic 175,035 -> 47,741, characters 100,564 -> 34,358 (bounds recorded); AoC 2020 day 16 reads proofs 2.73M -> 1.05M steps. Hashes: 14 std Parse declarations and 2 in reads-then-finds-split change (proof terms only: ?p is now the lemma's parser where in-place unfolding solved it inside the run). SW-3715's 6.6 s is std's Parse files being checked (lazy loading: the trivial file never loads Parse), unchanged by this; the example's own declarations take 45 ms. Remaining 24% (generic) over pre-SW-3561: the held call's own goal comparison unfolds Reads (6-10K steps a level), left as is (comparing by arguments there is what SW-3561 avoids).\n",
+      "body": "Data point (SW-3715): examples/accept/reads-then-finds-split.sw takes 6.6 s to check uncached on Speedwell, vs 0.26 s for a trivial file with the same imports.\n\nProgress (Opus lane, 17 Nov 2026, 08:05-08:40): profiled by step counts around fallback_holding_lambdas' phases. Cause: under held lambdas the first lemma (Prs.readsSatisfy) was checked in place against `Reads ?p ?first` first; that check unfolds both calls and failed after 35K-92K steps a level (76% of readsTwo generic), then by_arguments_in_place succeeded in ~200. Fix: by_arguments_first tries the comparison by arguments first (same gates), in-place check only if it doesn't match (901c67a53). readsTwo generic 175,035 -> 47,741, characters 100,564 -> 34,358 (bounds recorded); AoC 2020 day 16 reads proofs 2.73M -> 1.05M steps. Hashes: 14 std Parse declarations and 2 in reads-then-finds-split change (proof terms only: ?p is now the lemma's parser where in-place unfolding solved it inside the run). SW-3715's 6.6 s is std's Parse files being checked (lazy loading: the trivial file never loads Parse), unchanged by this; the example's own declarations take 45 ms. Remaining 24% (generic) over pre-SW-3561: the held call's own goal comparison unfolds Reads (6-10K steps a level), left as is (comparing by arguments there is what SW-3561 avoids).\n\nModel result: opus, worked, 31 min (est. 45). Orchestrator's call: accept the 16 changed proof hashes (an optimisation with statements, results and messages unchanged; D2303: hash churn doesn't count against a change). Follow-ups SW-3730 SW-3731.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41753,7 +41753,7 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Orchestrator: not the mutant. examples/accept/reads-then-finds-split.sw itself takes 6.6 s with --no-cache on Speedwell (a trivial file importing Std (Char, Nat, Parse) takes 0.26 s); the mutant 6.7 s, warm cache 0.44 s. So this is SW-3709's cost (reads chains 3-5x more steps since SW-3561, whose example this is). Closed as a duplicate of SW-3709.",
+      "body": "Orchestrator: not the mutant. examples/accept/reads-then-finds-split.sw itself takes 6.6 s with --no-cache on Speedwell (a trivial file importing Std (Char, Nat, Parse) takes 0.26 s); the mutant 6.7 s, warm cache 0.44 s. So this is SW-3709's cost (reads chains 3-5x more steps since SW-3561, whose example this is). Closed as a duplicate of SW-3709.\n\nCorrection (SW-3709): the 0.26 s baseline never loaded Parse; a file using a Parse name is 0.39 s cached. The 6.6 s is std's Parse files checked cold (Reads.sw 2.7 s), not the example.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41935,6 +41935,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3730,
+      "title": "[Opus] Std.Parse.runFromLabelWholeFromOkTree costs 15M steps and 1.05 s of every cold Parse load (the largest single std declaration there): profile and cheapen its proof (SW-3709 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3731,
+      "title": "[Sonnet] examples/accept files seem to recheck std's Parse files without --no-cache (reads-then-finds-split 7.6 s) while a scratch file using Parse replays them from the cache: find why (cache dir per examples folder? key?) (SW-3709 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
