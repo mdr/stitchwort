@@ -75,7 +75,9 @@ const REFERENCE_STEPS: u64 = 5_000_000;
 static SKIPPED: AtomicUsize = AtomicUsize::new(0);
 
 /// The most skips the sweep tolerates. The whole corpus (the all tier)
-/// skips 48, nearly all in a few examples (float-playlist.sw, random-seed.sw,
+/// skipped 48 before the float stages (10 Nov 2026; their definitions are now
+/// [`left_out`]), nearly all in a few examples (float-playlist.sw,
+/// random-seed.sw,
 /// kernel-same-call-arguments.sw, as-written-unconfirmed.sw,
 /// match-bounded-search.sw, ...); a sample can land on more or fewer of
 /// them (the broad sample, 0 on 10 Nov 2026), so one limit serves every tier,
@@ -93,6 +95,26 @@ fn reference_steps() -> u64 {
             .and_then(|v| v.parse().ok())
             .unwrap_or(REFERENCE_STEPS)
     })
+}
+
+/// Definitions the sweep leaves out on purpose, so [`MAX_SKIPPED`] counts only
+/// comparisons that were meant to happen (SW-3855).
+///
+/// - `Float.Theory.*` are theorems about the float model: their proofs and
+///   statements unfold `Float.Model` and have no run-time meaning, and the
+///   model is compared through its own definitions. Their types alone are
+///   over the budget (hundreds of skips in every example that imports `Float`).
+/// - `Float.Model.floorBits`, `ceilBits` and `roundBits` rebuild a float from
+///   its bits with the shared-nothing reference: over 5 million steps even
+///   applied to one variable. The rest of `Float.Model` (`addBits`, `mulBits`,
+///   ...) stays in, and `Float.floor` and friends are checked by the
+///   examples' own tests.
+fn left_out(name: &str) -> bool {
+    name.starts_with("Float.Theory.")
+        || matches!(
+            name,
+            "Float.Model.floorBits" | "Float.Model.ceilBits" | "Float.Model.roundBits"
+        )
 }
 
 /// `f`, with the reference evaluator on this thread limited to
@@ -123,7 +145,7 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
     for i in 0..g.env.defs().len() {
         let id = DefId(i);
         let def = g.def(id);
-        if def.body().is_none() {
+        if def.body().is_none() || left_out(def.name()) {
             continue;
         }
         let icits = param_icits(g, id);
@@ -193,7 +215,7 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
 /// pair the reference can't decide within its budget is skipped.
 fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
     let defs: Vec<(String, Value, Value)> = (0..g.env.defs().len())
-        .filter(|&i| g.env.defs()[i].body().is_some())
+        .filter(|&i| g.env.defs()[i].body().is_some() && !left_out(g.env.defs()[i].name()))
         .map(|i| {
             let def = &g.env.defs()[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
