@@ -544,3 +544,243 @@ theorem floorToTenth ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): floorTo 
 --| `ceilTo x 0.1` is the ceiling of `x / 0.1` over ten, for `|x| ≤ 360`.
 theorem ceilToTenth ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): ceilTo x 0.1 = Float.ceil (x / 0.1) / 10.0 :=
   Eq.cong (r => r / 10.0) (roundTripOf (Float.ceil (x / 0.1)) (ceilTenthsChecked x lo hi))
+
+theorem intNegOfNotNonneg ∀ (a: Int) (h: Int.leq (OfNat 0) a = False): Int.less a (OfNat 0) = True := arithmetic [h]
+
+theorem intLeOfLess ∀ (a b: Int) (h: Int.less a b = True): Int.leq a b = True := arithmetic [h]
+
+theorem floatLeOfLt ∀ (x y: Float) (h: x < y): x <= y :=
+  let a: Int.less (Float.orderKey x) (Float.orderKey y) = True := h
+  (arithmetic: Int.leq (Float.orderKey x) (Float.orderKey y) = True)
+
+theorem floatLtIrrefl ∀ (x: Float) (h: x < x): Void :=
+  Float.Theory.intLeLessAbsurd (Float.orderKey x) (Float.orderKey x) (arithmetic) h
+
+--| If a double `c` below `x`'s tenth divides by 0.1 to below `floor (x / 0.1)`,
+--| `x` is at least `c`, so anything at most `E` units above `c` is at most
+--| `E` above `x`.
+theorem floorTenthBelow ∀ (x c: Float) (g: Int) (e: Nat)
+    (lt: c / 0.1 < Float.floor (x / 0.1))
+    (close: Int.leq g (Int.add (Float.Theory.units c) (OfNat e)) = True):
+    Int.leq g (Int.add (Float.Theory.units x) (OfNat e)) = True :=
+  let k: Float := Float.floor (x / 0.1)
+  Float.Theory.orCase
+    [goal := Int.leq g (Int.add (Float.Theory.units x) (OfNat e)) = True]
+    (Float.Theory.boolCases (Int.less (Float.Theory.units x) (Float.Theory.units c)))
+    (below =>
+      let q: x / 0.1 <= c / 0.1 :=
+        Float.divMonotone x c 0.1 byComputing byComputing (floatLeOfLt x c (Float.Theory.lessOfUnits x c below))
+      let kc: k <= c / 0.1 := floatLeTrans k (x / 0.1) (c / 0.1) (Float.floorLe (x / 0.1)) q
+      (floatLtIrrefl k (floatLeLtTrans k (c / 0.1) k kc lt)).impossible)
+    (notBelow => arithmetic [notBelow, close])
+
+--| The same for `ceil (x / 0.1)` and a double `c` above `x`'s tenth.
+theorem ceilTenthAbove ∀ (x c: Float) (g: Int) (e: Nat)
+    (lt: Float.ceil (x / 0.1) < c / 0.1)
+    (close: Int.leq (Float.Theory.units c) (Int.add g (OfNat e)) = True):
+    Int.leq (Float.Theory.units x) (Int.add g (OfNat e)) = True :=
+  let k: Float := Float.ceil (x / 0.1)
+  Float.Theory.orCase
+    [goal := Int.leq (Float.Theory.units x) (Int.add g (OfNat e)) = True]
+    (Float.Theory.boolCases (Int.less (Float.Theory.units c) (Float.Theory.units x)))
+    (above =>
+      let q: c / 0.1 <= x / 0.1 :=
+        Float.divMonotone c x 0.1 byComputing byComputing (floatLeOfLt c x (Float.Theory.lessOfUnits c x above))
+      let ck: c / 0.1 <= k := floatLeTrans (c / 0.1) (x / 0.1) k q (Float.ceilGe (x / 0.1))
+      (floatLtIrrefl (c / 0.1) (floatLeLtTrans (c / 0.1) k (c / 0.1) ck lt)).impossible)
+    (notAbove => arithmetic [notAbove, close])
+
+--| A sum of `g` within 361° (`g` in units of 2^-1074, `w` = 2^1030) and
+--| `n`: the rounded sum `s` is at least `g + n` less one `w`. The standard
+--| model bounds `s`'s size; the sign cases give its direction.
+theorem roundedSumAbove ∀ (g n s: Int) (w t: Nat)
+    (w2: 2 ≤ w)
+    (gLo: Int.leq (Int.neg (OfNat (w * 6350779162034176))) g = True)
+    (gHi: Int.leq g (OfNat (w * 6350779162034176)) = True)
+    (nSize: Int.natAbs n = 3 * w)
+    (err: Nat.absDiff (Int.natAbs s * 1) (Int.natAbs (Int.add g n)) * 9007199254740992
+      ≤ Int.natAbs (Int.add g n) + 1 * 4503599627370496)
+    (sign: ((Int.leq (OfNat 0) (Int.add g n) = True) ∧ (Int.leq (OfNat 0) s = True))
+      ∨ ((Int.less (Int.add g n) (OfNat 0) = True) ∧ (Int.leq s (OfNat 0) = True))):
+    (Int.leq (Int.add g n) (Int.add s (OfNat w)) = True) ∧ (Int.leq s (Int.add (Int.add g n) (OfNat w)) = True) :=
+  match sign with
+    | Inl b =>
+      let b1 := b.left
+      let b2 := b.right
+      Both (arithmetic [w2, gLo, gHi, nSize, err, b1, b2]) (arithmetic [w2, gLo, gHi, nSize, err, b1, b2])
+    | Inr b =>
+      let b1 := b.left
+      let b2 := b.right
+      Both (arithmetic [w2, gLo, gHi, nSize, err, b1, b2]) (arithmetic [w2, gLo, gHi, nSize, err, b1, b2])
+
+theorem sumSmall ∀ (g n: Int) (w t: Nat)
+    (w2: 2 ≤ w)
+    (gLo: Int.leq (Int.neg (OfNat (w * 6350779162034176))) g = True)
+    (gHi: Int.leq g (OfNat (w * 6350779162034176)) = True)
+    (nSize: Int.natAbs n = 3 * w)
+    (top: w * 1000000000000000000 ≤ t):
+    Int.natAbs (Int.add g n) < t :=
+  arithmetic [w2, gLo, gHi, nSize, top]
+
+--| Adding `d`, 3 · 2^-44 in size, to a `g` within 361°: the rounded sum is
+--| within 2^-44 of the exact one, in units of 2^-1074.
+theorem slackSum ∀ (g d: Float)
+    (fd: Float.isFinite d = True)
+    (dSize: Int.natAbs (Float.Theory.units d) = 3 * Float.Model.pow2 1030)
+    (lo: -361.0 <= g)
+    (hi: g <= 361.0)
+    (flo: Float.isFinite (-361.0 + d) = True)
+    (fhi: Float.isFinite (361.0 + d) = True):
+    (Int.leq
+      (Int.add (Float.Theory.units g) (Float.Theory.units d))
+      (Int.add (Float.Theory.units (g + d)) (OfNat (Float.Model.pow2 1030)))
+      = True)
+      ∧ (Int.leq
+        (Float.Theory.units (g + d))
+        (Int.add (Int.add (Float.Theory.units g) (Float.Theory.units d)) (OfNat (Float.Model.pow2 1030)))
+        = True) :=
+  let w: Nat := Float.Model.pow2 1030
+  let fg: Float.isFinite g = True := Float.finiteBetween (-361.0) g 361.0 byComputing byComputing lo hi
+  let fs: Float.isFinite (g + d) = True :=
+    Float.finiteBetween
+      (-361.0 + d)
+      (g + d)
+      (361.0 + d)
+      flo
+      fhi
+      (Float.addMonotoneLeft (-361.0) g d byComputing fg fd lo)
+      (Float.addMonotoneLeft g 361.0 d fg byComputing fd hi)
+  let gLo: Int.leq (Int.neg (OfNat (w * 6350779162034176))) (Float.Theory.units g) = True :=
+    J
+      (y z => Int.leq y (Float.Theory.units g) = True)
+      (Float.Theory.unitsMonoKey (-361.0).bits g.bits lo)
+      (byComputing: Float.Theory.units (-361.0) = Int.neg (OfNat (w * 6350779162034176)))
+  let gHi: Int.leq (Float.Theory.units g) (OfNat (w * 6350779162034176)) = True :=
+    J
+      (y z => Int.leq (Float.Theory.units g) y = True)
+      (Float.Theory.unitsMonoKey g.bits 361.0.bits hi)
+      (byComputing: Float.Theory.units 361.0 = OfNat (w * 6350779162034176))
+  let w2: 2 ≤ w := byComputing
+  let sum: Int := Int.add (Float.Theory.units g) (Float.Theory.units d)
+  let s: Int := Float.Theory.units (g + d)
+  let err :=
+    Float.addRelError g d fg fd fs
+      (sumSmall (Float.Theory.units g) (Float.Theory.units d) w (1 * Nat.pow 2 2097) w2 gLo gHi dSize byComputing)
+  let zero: Float.Theory.units 0.0 = OfNat 0 := byComputing
+  let negZero: Float.Theory.units (-0.0) = OfNat 0 := byComputing
+  let sign: ((Int.leq (OfNat 0) sum = True) ∧ (Int.leq (OfNat 0) s = True))
+    ∨ ((Int.less sum (OfNat 0) = True) ∧ (Int.leq s (OfNat 0) = True)) :=
+    Float.Theory.orCase
+      [goal := ((Int.leq (OfNat 0) sum = True) ∧ (Int.leq (OfNat 0) s = True))
+        ∨ ((Int.less sum (OfNat 0) = True) ∧ (Int.leq s (OfNat 0) = True))]
+      (Float.Theory.boolCases (Int.leq (OfNat 0) sum))
+      (nonneg =>
+        let atLeast: -0.0 <= g + d :=
+          Float.Theory.addAtLeast g d
+            (-0.0)
+            fg
+            fd
+            byComputing
+            (J (y z => Int.leq y sum = True) nonneg negZero.flipped)
+            (b => (Bool.trueNotFalse b).impossible)
+        Inl
+          (Both nonneg
+            (J (y z => Int.leq y s = True) (Float.Theory.unitsMonoKey (-0.0).bits (g + d).bits atLeast) negZero)))
+      (neg =>
+        let below: Int.less sum (OfNat 0) = True := intNegOfNotNonneg sum neg
+        let atMost: g + d <= 0.0 :=
+          Float.Theory.addAtMost g d 0.0 fg fd byComputing
+            (J (y z => Int.leq sum y = True) (intLeOfLess sum (OfNat 0) below) zero.flipped)
+            (b => byComputing)
+        Inr (Both below (J (y z => Int.leq s y = True) (Float.Theory.unitsMonoKey (g + d).bits 0.0.bits atMost) zero)))
+  roundedSumAbove (Float.Theory.units g) (Float.Theory.units d) s w (1 * Nat.pow 2 2097) w2 gLo gHi dSize err sign
+
+theorem slackCloseBelow ∀ (g d c: Int) (w e: Nat)
+    (ed: d = Int.neg (OfNat (3 * w)))
+    (ee: e = 4 * w)
+    (h: Int.leq (Int.add g d) (Int.add c (OfNat w)) = True):
+    Int.leq g (Int.add c (OfNat e)) = True :=
+  arithmetic [ed, ee, h]
+
+theorem slackCloseAbove ∀ (g d c: Int) (w e: Nat)
+    (ed: d = OfNat (3 * w))
+    (ee: e = 4 * w)
+    (h: Int.leq c (Int.add (Int.add g d) (OfNat w)) = True):
+    Int.leq c (Int.add g (OfNat e)) = True :=
+  arithmetic [ed, ee, h]
+
+--| Outward rounding to tenths moves a lower edge up by at most 2^-42, for
+--| `|x| ≤ 360`: `floorTo x 0.1 ≤ x + 2^-42` in exact units of 2^-1074. It
+--| can be above `x` (`floorToTenthOneUlpAbove`), which is why the band
+--| needs a margin.
+--|
+--| The proof: `floor (x / 0.1)` is a whole number `k` of tenths up to 3601
+--| in size, and for each such `k`, by computing, the double `c` 3 · 2^-44
+--| below `tenthOf k` divides by 0.1 to below `k` (`tenthsCheck`). If `x`
+--| were below `c`, monotonicity of `/ 0.1` and `floor x ≤ x` would put `k`
+--| below itself; so `x ≥ c`, and `c` is within 2^-44 of its exact value by
+--| the standard model for `+` (`slackSum`).
+theorem floorToTenthBound ∀ (x: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    Int.leq (Float.Theory.units (floorTo x 0.1)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+      = True :=
+  let k: Float := Float.floor (x / 0.1)
+  let g: Float := tenthOf k
+  let rest := Bool.andRight (floorTenthsChecked x lo hi)
+  let lt: (g - tenthsSlack) / 0.1 < k := Bool.andLeft rest
+  let bounds := Bool.andRight (Bool.andRight rest)
+  let d: Float := -tenthsSlack
+  let sum := slackSum g d byComputing byComputing (Bool.andLeft bounds) (Bool.andRight bounds) byComputing byComputing
+  let e: g - tenthsSlack = g + d := Float.subAddNeg g tenthsSlack
+  let close: Int.leq
+    (Float.Theory.units g)
+    (Int.add (Float.Theory.units (g - tenthsSlack)) (OfNat (Float.Model.pow2 1032)))
+    = True :=
+    slackCloseBelow
+      (Float.Theory.units g)
+      (Float.Theory.units d)
+      (Float.Theory.units (g - tenthsSlack))
+      (Float.Model.pow2 1030)
+      (Float.Model.pow2 1032)
+      byComputing
+      byComputing
+      (J
+        (y z =>
+          Int.leq
+            (Int.add (Float.Theory.units g) (Float.Theory.units d))
+            (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1030)))
+            = True)
+        sum.left
+        e.flipped)
+  floorTenthBelow x (g - tenthsSlack) (Float.Theory.units g) (Float.Model.pow2 1032) lt close
+
+--| Outward rounding to tenths moves an upper edge down by at most 2^-42,
+--| for `|x| ≤ 360`: `x ≤ ceilTo x 0.1 + 2^-42` in exact units, as
+--| `floorToTenthBound`.
+theorem ceilToTenthBound ∀ (x: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (ceilTo x 0.1)) (OfNat (Float.Model.pow2 1032)))
+      = True :=
+  let k: Float := Float.ceil (x / 0.1)
+  let g: Float := tenthOf k
+  let rest := Bool.andRight (Bool.andRight (ceilTenthsChecked x lo hi))
+  let lt: k < (g + tenthsSlack) / 0.1 := Bool.andLeft rest
+  let bounds := Bool.andRight rest
+  let sum :=
+    slackSum g tenthsSlack byComputing byComputing (Bool.andLeft bounds) (Bool.andRight bounds) byComputing byComputing
+  let close: Int.leq
+    (Float.Theory.units (g + tenthsSlack))
+    (Int.add (Float.Theory.units g) (OfNat (Float.Model.pow2 1032)))
+    = True :=
+    slackCloseAbove
+      (Float.Theory.units g)
+      (Float.Theory.units tenthsSlack)
+      (Float.Theory.units (g + tenthsSlack))
+      (Float.Model.pow2 1030)
+      (Float.Model.pow2 1032)
+      byComputing
+      byComputing
+      sum.right
+  ceilTenthAbove x (g + tenthsSlack) (Float.Theory.units g) (Float.Model.pow2 1032) lt close
