@@ -1,5 +1,5 @@
 {
-  "next": 3819,
+  "next": 3821,
   "tickets": [
     {
       "id": 47,
@@ -42934,7 +42934,7 @@
     {
       "id": 3805,
       "title": "[Opus] Float.Theory: a whole number of units (|n| below 2^53 × the spacing) is representable as a double; then x < floor x + 1, ceil likewise, |x % y| < |y|, Sterbenz (SW-639 finding; unlocks Whereabouts wrap and outward rounding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -43108,6 +43108,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3819,
+      "title": "[Opus] Self-hosted formatter stage 2a (self-hosted-fmt.md §8): the parser on Parse over the settled leaves, expressions and patterns first; tree types per construct; Fmt.Twin --stage tree and refusal; a parse-rate timing",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3820,
+      "title": "[Fable paper] Self-hosted formatter stage 3, the sketch (§8): meaning for the node kinds; every top theorem and each layer's statements in a side project with open goals, checked for fit; theorem counts per layer replacing §7.3's estimates",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
