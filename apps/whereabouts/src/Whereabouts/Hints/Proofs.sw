@@ -3415,3 +3415,70 @@ theorem ceilStepAtLeastNinety ∀ (x width: Float)
             (byComputing: OfNat ((89 + 1) * Float.Model.pow2 1074) = Float.Theory.units 90.0))
       let r2: 90.0 <= ceilTo x 1.0 := J (v z => 90.0 <= v) c90 (ceilToWhole x (absWithin360 x lo hi)).flipped
       J (st z => 90.0 <= ceilTo x st) r2 e.flipped)
+
+--| The upper edge `to` of a latitude band clamped at 90° is at least the
+--| answer, by JS's `<=`: `from` is `90 - width`, `from + width` is above
+--| 89.95° (`nearNinety`), and rounding up takes it to at least 90°
+--| (`ceilStepAtLeastNinety`), which the answer is at most.
+theorem latitudeToAboveClamped ∀ (lat width unit: Float)
+    (latHi: lat <= 90.0)
+    (fl: Float.isFinite lat = True)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0)
+    (atTop: Float.min (Float.max (lat - placeAt unit * width) (-90.0)) (90.0 - width) = 90.0 - width):
+    Float.ieeeLe lat (latitudeBand lat width (placeAt unit)).to.value = True :=
+  let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
+  let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
+  let top := topEdgeRange width fw w0 wHi
+  let x: Float := 90.0 - width + width
+  let r := edgePlusWidth (90.0 - width) width top.right.left top.right.right fw w0 wHi
+  let c: Float := ceilTo x (stepFor width)
+  let nc: Float.isNaN c = False := notNaNOfFinite c (ceilStepBound x width r.left r.right).left
+  let le: lat <= c := floatLeTrans lat 90.0 c latHi (ceilStepAtLeastNinety x width r.left r.right (nearNinety width wLo wHi))
+  J
+    (f z => Float.ieeeLe lat (Float.min 90.0 (ceilTo (f + width) (stepFor width))) = True)
+    (Float.ieeeLeOfLe lat
+      (Float.min 90.0 c)
+      (notNaNOfFinite lat fl)
+      (Float.minNotNaN 90.0 c byComputing nc)
+      (clampToKeeps lat c nc latHi le))
+    atTop.flipped
+
+--| A latitude band's upper edge is at least the answer, by JS's `<=`, with
+--| the hypotheses of `latitudeFromBelow`: clamped at 90° or not.
+theorem latitudeToAbove ∀ (lat width unit: Float)
+    (latLo: -90.0 <= lat)
+    (latHi: lat <= 90.0)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    Float.ieeeLe lat (latitudeBand lat width (placeAt unit)).to.value = True :=
+  let fl: Float.isFinite lat = True := Float.finiteBetween (-90.0) lat 90.0 byComputing byComputing latLo latHi
+  let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
+  let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
+  let unc: Float := lat - placeAt unit * width
+  let nu: Float.isNaN unc = False :=
+    notNaNOfFinite unc (unclampedFacts lat width unit latLo latHi wLo wHi low high).left
+  Float.Theory.orCase
+    (Float.minEither
+      (Float.max unc (-90.0))
+      (90.0 - width)
+      (Float.maxNotNaN unc (-90.0) nu byComputing)
+      (notNaNOfFinite (90.0 - width) (topEdgeRange width fw w0 wHi).left))
+    (e => latitudeToAboveUnclamped lat width unit latLo latHi wLo wHi low high e)
+    (e => latitudeToAboveClamped lat width unit latHi fl wLo wHi e)
+
+--| The answer is in its latitude band, by JS's comparisons, for a latitude
+--| within [-90°, 90°], a width from 1e-11° to 180° and `unit` from 0 to 1.
+theorem latitudeBandContains ∀ (lat lon width unit: Float)
+    (latLo: -90.0 <= lat)
+    (latHi: lat <= 90.0)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    inHintBand (latitudeBand lat width (placeAt unit)) (point lat lon) = True :=
+  Bool.andIntro
+    (latitudeFromBelow lat width unit latLo latHi wLo wHi low high)
+    (latitudeToAbove lat width unit latLo latHi wLo wHi low high)
