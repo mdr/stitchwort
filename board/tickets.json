@@ -42034,12 +42034,12 @@
     {
       "id": 3737,
       "title": "[Opus] Toy++ T5: P3, spare brackets dropped (the precedence argument), and toy-plus-plus.md §3.4's shared-traversal experiment; P3's fixed-point, keeps-meaning, keeps-Parsed, idempotence family and how it composes with P1/P2; tidy restated for three passes. About 70 theorems",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (lane, 17 Nov 2026, 08:41-09:12):\n- Fmt/Traverse.sw: `Expr.traverse step position` (bottom-up; Position = slot + bracketed flag) and `SourceFile.traverse step declare`. Termination accepted as written.\n- Fmt/TraverseProofs.sw: 70 generic lemmas, proved once for every step: meaning, Shaped (as ShapedAt slot + EndKept), Lexical, HeadedExpr, no trailing commas, idempotence (AllAt done, StepFixes, StepReaches, DoneOutside), declaration and file level. 8 more for comments in KeepsComments.sw.\n- P3 `withoutSpareBrackets` (Passes.sw: spare, dropPair, standsOutside, type brackets) in tidy; BracketProofs.sw 41 theorems: bracketsKeepMeaning, bracketsKeepParsed (precedence via dropShaped), bracketsIdempotent, bracketsKeepCommas, bracketsKeepTakes, takesBracketsCommute; bracketsKeepComments; bracketsPrintParses (DirectProofs).\n- P2 moved onto the traversal: 63+5 theorems down to 28.\n- tidy theorems restated for three passes (+ tidyBrackets); format* unchanged. axioms: none on all 23 top theorems checked.\n- isPostfix/isOperand/isChain/chainLevel moved to program code (Syntax/Shape.sw).\n- Tests: Sprig++ golden `(v: (Vec))` -> `(v: Vec)`; two bracket probes lose their pair, two new ones keep it where needed; `-(-x) - -x` now `- -x - -x`; new P3 format test + idempotence test.\n- Net +88 theorems (1,588 -> 1,676). Notes and counts: tools/toyfmt/plus/SKETCH-PLUS.md \"T5\".\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

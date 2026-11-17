@@ -268,36 +268,6 @@ theorem runsAtomThenSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)}
           value
           (runsSuffixes (middle.at.left + 1) (arithmetic [honest, lengths]) middle))
 
---| An expression that `atom` and `suffixesFrom` read: an atom with its
---| calls and fields.
-def Expr.isPostfix: Expr → Bool
-  | Var _ _ => True
-  | NumberLiteral _ _ => True
-  | StringLiteral _ _ => True
-  | Bracketed _ _ _ => True
-  | ListLiteral _ _ _ _ => True
-  | Call _ _ _ _ _ => True
-  | Field _ _ _ _ => True
-  | _ => False
-
---| An operand of an operator chain: a postfix expression, or `-` before
---| an operand.
-def Expr.isOperand: Expr → Bool
-  | Negate _ _ => True
-  | expr => expr.isPostfix
-
---| An operator chain or an operand: any expression but an `if`, which
---| stands only as a whole expression.
-def Expr.isChain: Expr → Bool
-  | Binary _ _ _ _ => True
-  | expr => expr.isOperand
-
---| The level of a chain's outermost operator; 7, past every level, for an
---| operand.
-def Expr.chainLevel: Expr → Nat
-  | Binary operator _ _ _ => operator.level
-  | _ => 7
-
 --| The shape of the expressions the parser gives: a field's target is a
 --| postfix expression, `-` stands before an operand, and an operator's
 --| sides are grouped by precedence, the same level chaining from the left.

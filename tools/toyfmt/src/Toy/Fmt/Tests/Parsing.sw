@@ -33,3 +33,62 @@ test "a trailing comma is read and recorded" :=
 
 test "format drops trailing commas and writes takes" :=
   format trailing 80 == Formatted "let x = [1, 2]\nlet y = f(a)\nfn g takes (a, b) = a\n"
+
+--| P3 at each kind of place: a pair goes where its content is read as it
+--| stands (a callee, an operand, either side of an operator by
+--| precedence, an item, a body), nested pairs in one run, and a type's;
+--| it stays where precedence needs it, where it holds a comment, and
+--| where an `if`'s branch has an own-line comment above it, which outside
+--| brackets would start a block (toy-plus-plus.md §3.2).
+def spareBrackets: Text := """
+  let a = ((x))
+  let b = (a + b) * c
+  let c = a + (b * c)
+  let d = -(-x)
+  let e = x - (-y)
+  let f = (f)((x))
+  let g = (a - b) - c
+  let h = a - (b - c)
+  let i = (( -- kept
+    x))
+  let j = [(1), (if a then b else c)]
+  let k = (if a then
+    -- why
+    b else c)
+  let m = f((if a then
+    -- why
+    b else c))
+  fn n(v: ((Vec))) = (v).w
+  """
+
+test "format drops spare brackets and keeps the rest" := format spareBrackets 80 == Formatted """
+  let a = x
+  let b = (a + b) * c
+  let c = a + b * c
+  let d = - -x
+  let e = x - -y
+  let f = f(x)
+  let g = a - b - c
+  let h = a - (b - c)
+  let i =
+    ( -- kept
+      x)
+  let j = [1, if a then b else c]
+  let k =
+    (if a then
+      -- why
+      b
+    else c)
+  let m =
+    f(
+      if a then
+        -- why
+        b
+      else c
+    )
+  fn n takes (v: Vec) = v.w
+  """
+
+test "format leaves its output without spare brackets alone" := match format spareBrackets 80 with
+  | Formatted text => format text 80 == Formatted text
+  | ParseError _ => False

@@ -129,6 +129,17 @@ theorem printParses ∀ (file: SourceFile) (width: Nat)
               pending
               offsets))
 
+--| The precedence argument, end to end: a tree with spare pairs dropped
+--| prints to text that reads back as that tree, so the parser groups each
+--| dropped pair's content as the pair did, at every width. It is
+--| `printParses` after `bracketsKeepParsed`, where a pair goes only if its
+--| content is read as it stands in the pair's place (`dropShaped`).
+theorem bracketsPrintParses ∀ (file: SourceFile) (width: Nat)
+    (parsed: Parsed file)
+    (bare: file.withoutTrailingCommas = file):
+    parse (file.withoutSpareBrackets.print width) = Ok file.withoutSpareBrackets :=
+  printParses file.withoutSpareBrackets width (bracketsKeepParsed file parsed) (bracketsKeepCommas file bare)
+
 --| `format` answers every source that parses, with its tree tidied and
 --| printed; it refuses only what the parser refuses.
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)

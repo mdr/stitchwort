@@ -26,8 +26,9 @@ test "an empty source lexes to no lexemes, which cover it" :=
   lex "" |> .map (lexed => (lexed.lexemes.length, covers "" lexed.lexemes)) == Ok (0, True)
 
 test "a minus before a minus is spaced, so the two don't print as a comment" :=
-  ["let y = - -x\n", "let y = - - -f(x)\n", "let y = -(-x) - -x\n"].all (source =>
+  ["let y = - -x\n", "let y = - - -f(x)\n", "let y = x - -x\n"].all (source =>
     format source 80 |> .toOption == Some source)
+    && format "let y = -(-x) - -x\n" 80 |> .toOption == Some "let y = - -x - -x\n"
 
 --| A comment ending an `if` inside brackets belongs to the `if`'s last
 --| branch. A `,` or closing bracket is printed before it on its line, and

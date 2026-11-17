@@ -53,112 +53,132 @@ def NoTrailingCommasFile: SourceFile → Prop
 
 -- P2 leaves no trailing comma, and leaves alone a tree with none.
 
-theorem exprCommasNone ∀ (expr: Expr): NoTrailingCommas expr.withoutTrailingCommas := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ inner _ => exprCommasNone inner
-  | ListLiteral _ items _ _ => (byComputing, itemsCommasNone items)
-  | Call callee _ arguments _ _ => (byComputing, exprCommasNone callee, itemsCommasNone arguments)
-  | Field target _ _ _ => exprCommasNone target
-  | Negate _ operand => exprCommasNone operand
-  | Binary _ _ left right => (exprCommasNone left, exprCommasNone right)
-  | If _ condition _ whenTrue _ whenFalse =>
-    (exprCommasNone condition, bodyCommasNone whenTrue, bodyCommasNone whenFalse)
+--| By induction on the expression: the step clears the node's own flag,
+--| and each child was traversed first.
+theorem exprCommasNone ∀ (expr: Expr) (position: Position): NoTrailingCommas (expr.traverse dropComma position) :=
+  match expr with
+    | Var _ _ => byComputing
+    | NumberLiteral _ _ => byComputing
+    | StringLiteral _ _ => byComputing
+    | Bracketed _ inner _ => exprCommasNone inner { bracketed = True, slot = Whole }
+    | ListLiteral _ items _ _ => (byComputing, itemsCommasNone items)
+    | Call callee _ arguments _ _ => (
+      byComputing,
+      exprCommasNone callee { bracketed = position.bracketed, slot = PostfixSlot },
+      itemsCommasNone arguments
+    )
+    | Field target _ _ _ => exprCommasNone target { bracketed = position.bracketed, slot = PostfixSlot }
+    | Negate _ operand => exprCommasNone operand { bracketed = position.bracketed, slot = OperandSlot }
+    | Binary operator _ left right => (
+      exprCommasNone left { bracketed = position.bracketed, slot = LeftOf operator.level },
+      exprCommasNone right { bracketed = position.bracketed, slot = RightOf operator.level }
+    )
+    | If _ condition _ whenTrue _ whenFalse => (
+      exprCommasNone condition { bracketed = position.bracketed, slot = Whole },
+      bodyCommasNone whenTrue position.bracketed,
+      bodyCommasNone whenFalse position.bracketed
+    )
 
-theorem itemsCommasNone ∀ (items: List Expr): NoTrailingCommasItems (itemsWithoutTrailingCommas items) :=
-  match items with
-    | [] => byComputing
-    | [value, ..rest] => (exprCommasNone value, itemsCommasNone rest)
+theorem itemsCommasNone ∀ (items: List Expr): NoTrailingCommasItems (traverseItems dropComma items) := match items with
+  | [] => byComputing
+  | [value, ..rest] => (exprCommasNone value { bracketed = True, slot = Whole }, itemsCommasNone rest)
 
-theorem bodyCommasNone ∀ (body: Body): NoTrailingCommasBody body.withoutTrailingCommas := match body with
-  | { statements } => linesCommasNone statements
+theorem bodyCommasNone ∀ (body: Body) (bracketed: Bool): NoTrailingCommasBody (body.traverse dropComma bracketed) :=
+  match body with | { statements } => linesCommasNone statements bracketed
 
-theorem linesCommasNone ∀ (lines: List (Spaced Statement)): NoTrailingCommasLines (linesWithoutTrailingCommas lines) :=
+theorem linesCommasNone ∀ (lines: List (Spaced Statement)) (bracketed: Bool):
+    NoTrailingCommasLines (traverseLines dropComma bracketed lines) :=
   match lines with
     | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => (statementCommasNone line, linesCommasNone rest)
+    | [{ blankBefore, line }, ..rest] => (statementCommasNone line bracketed, linesCommasNone rest bracketed)
 
-theorem statementCommasNone ∀ (line: Statement): NoTrailingCommasStatement line.withoutTrailingCommas := match line with
-  | Let _ _ _ _ body => bodyCommasNone body
-  | Bare value => exprCommasNone value
-  | StatementNote _ => byComputing
-
-theorem declarationCommasNone ∀ (line: Declaration): NoTrailingCommasDeclaration line.withoutTrailingCommas :=
+theorem statementCommasNone ∀ (line: Statement) (bracketed: Bool):
+    NoTrailingCommasStatement (line.traverse dropComma bracketed) :=
   match line with
-    | Function _ _ _ _ _ _ _ _ _ body => (byComputing, bodyCommasNone body)
-    | Value _ _ _ _ body => bodyCommasNone body
-    | DeclarationNote _ => byComputing
+    | Let _ _ _ _ body => bodyCommasNone body False
+    | Bare value => exprCommasNone value { bracketed, slot = Whole }
+    | StatementNote _ => byComputing
 
 theorem declarationsCommasNone ∀ (lines: List (Spaced Declaration)):
-    NoTrailingCommasDeclarations (declarationsWithoutTrailingCommas lines) :=
+    NoTrailingCommasDeclarations (traverseDeclarations dropComma (line => line.withoutTrailingComma) lines) :=
   match lines with
     | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => (declarationCommasNone line, declarationsCommasNone rest)
+    | [{ blankBefore, line = Function _ _ _ _ _ _ _ _ _ body }, ..rest] =>
+      ((byComputing, bodyCommasNone body False), declarationsCommasNone rest)
+    | [{ blankBefore, line = Value _ _ _ _ body }, ..rest] => (bodyCommasNone body False, declarationsCommasNone rest)
+    | [{ blankBefore, line = DeclarationNote _ }, ..rest] => (byComputing, declarationsCommasNone rest)
 
 --| P2's result has no trailing comma.
 theorem commasNone ∀ (file: SourceFile): NoTrailingCommasFile file.withoutTrailingCommas :=
   declarationsCommasNone file.declarations
 
-theorem exprCommasFixed ∀ (expr: Expr) (none: NoTrailingCommas expr): expr.withoutTrailingCommas = expr :=
+--| By induction on the expression: each child is left alone, and the
+--| node's flag is already `False`, so the step changes nothing.
+theorem exprCommasFixed ∀ (expr: Expr) (position: Position)
+    (none: NoTrailingCommas expr):
+    expr.traverse dropComma position = expr :=
   match expr, none with
     | Var _ _, _ => byComputing
     | NumberLiteral _ _, _ => byComputing
     | StringLiteral _ _, _ => byComputing
-    | Bracketed _ inner _, none => rewrite exprCommasFixed inner none
+    | Bracketed _ inner _, none => rewrite exprCommasFixed inner { bracketed = True, slot = Whole } none
     | ListLiteral _ items _ _, (unwritten, itemsNone) => rewrite itemsCommasFixed items itemsNone, unwritten
     | Call callee _ arguments _ _, (unwritten, calleeNone, argumentsNone) =>
-      rewrite exprCommasFixed callee calleeNone, itemsCommasFixed arguments argumentsNone, unwritten
-    | Field target _ _ _, none => rewrite exprCommasFixed target none
-    | Negate _ operand, none => rewrite exprCommasFixed operand none
-    | Binary _ _ left right, (leftNone, rightNone) =>
-      rewrite exprCommasFixed left leftNone, exprCommasFixed right rightNone
+      rewrite exprCommasFixed callee { bracketed = position.bracketed, slot = PostfixSlot } calleeNone,
+          itemsCommasFixed arguments argumentsNone,
+          unwritten
+    | Field target _ _ _, none =>
+      rewrite exprCommasFixed target { bracketed = position.bracketed, slot = PostfixSlot } none
+    | Negate _ operand, none =>
+      rewrite exprCommasFixed operand { bracketed = position.bracketed, slot = OperandSlot } none
+    | Binary operator _ left right, (leftNone, rightNone) =>
+      rewrite exprCommasFixed left { bracketed = position.bracketed, slot = LeftOf operator.level } leftNone,
+          exprCommasFixed right { bracketed = position.bracketed, slot = RightOf operator.level } rightNone
     | If _ condition _ whenTrue _ whenFalse, (conditionNone, trueNone, falseNone) =>
-      rewrite exprCommasFixed condition conditionNone,
-          bodyCommasFixed whenTrue trueNone,
-          bodyCommasFixed whenFalse falseNone
+      rewrite exprCommasFixed condition { bracketed = position.bracketed, slot = Whole } conditionNone,
+          bodyCommasFixed whenTrue position.bracketed trueNone,
+          bodyCommasFixed whenFalse position.bracketed falseNone
 
 theorem itemsCommasFixed ∀ (items: List Expr)
     (none: NoTrailingCommasItems items):
-    itemsWithoutTrailingCommas items = items :=
+    traverseItems dropComma items = items :=
   match items, none with
     | [], _ => byComputing
-    | [value, ..rest], (valueNone, restNone) => rewrite exprCommasFixed value valueNone, itemsCommasFixed rest restNone
+    | [value, ..rest], (valueNone, restNone) =>
+      rewrite exprCommasFixed value { bracketed = True, slot = Whole } valueNone, itemsCommasFixed rest restNone
 
-theorem bodyCommasFixed ∀ (body: Body) (none: NoTrailingCommasBody body): body.withoutTrailingCommas = body :=
-  match body, none with | { statements }, none => rewrite linesCommasFixed statements none
+theorem bodyCommasFixed ∀ (body: Body) (bracketed: Bool)
+    (none: NoTrailingCommasBody body):
+    body.traverse dropComma bracketed = body :=
+  match body, none with | { statements }, none => rewrite linesCommasFixed statements bracketed none
 
-theorem linesCommasFixed ∀ (lines: List (Spaced Statement))
+theorem linesCommasFixed ∀ (lines: List (Spaced Statement)) (bracketed: Bool)
     (none: NoTrailingCommasLines lines):
-    linesWithoutTrailingCommas lines = lines :=
+    traverseLines dropComma bracketed lines = lines :=
   match lines, none with
     | [], _ => byComputing
     | [{ blankBefore, line }, ..rest], (lineNone, restNone) =>
-      rewrite statementCommasFixed line lineNone, linesCommasFixed rest restNone
+      rewrite statementCommasFixed line bracketed lineNone, linesCommasFixed rest bracketed restNone
 
-theorem statementCommasFixed ∀ (line: Statement)
+theorem statementCommasFixed ∀ (line: Statement) (bracketed: Bool)
     (none: NoTrailingCommasStatement line):
-    line.withoutTrailingCommas = line :=
+    line.traverse dropComma bracketed = line :=
   match line, none with
-    | Let _ _ _ _ body, none => rewrite bodyCommasFixed body none
-    | Bare value, none => rewrite exprCommasFixed value none
+    | Let _ _ _ _ body, none => rewrite bodyCommasFixed body False none
+    | Bare value, none => rewrite exprCommasFixed value { bracketed, slot = Whole } none
     | StatementNote _, _ => byComputing
-
-theorem declarationCommasFixed ∀ (line: Declaration)
-    (none: NoTrailingCommasDeclaration line):
-    line.withoutTrailingCommas = line :=
-  match line, none with
-    | Function _ _ _ _ _ _ _ _ _ body, (unwritten, bodyNone) => rewrite bodyCommasFixed body bodyNone, unwritten
-    | Value _ _ _ _ body, none => rewrite bodyCommasFixed body none
-    | DeclarationNote _, _ => byComputing
 
 theorem declarationsCommasFixed ∀ (lines: List (Spaced Declaration))
     (none: NoTrailingCommasDeclarations lines):
-    declarationsWithoutTrailingCommas lines = lines :=
+    traverseDeclarations dropComma (line => line.withoutTrailingComma) lines = lines :=
   match lines, none with
     | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineNone, restNone) =>
-      rewrite declarationCommasFixed line lineNone, declarationsCommasFixed rest restNone
+    | [{ blankBefore, line = Function _ _ _ _ _ _ _ _ _ body }, ..rest], ((unwritten, bodyNone), restNone) =>
+      rewrite bodyCommasFixed body False bodyNone, unwritten, declarationsCommasFixed rest restNone
+    | [{ blankBefore, line = Value _ _ _ _ body }, ..rest], (bodyNone, restNone) =>
+      rewrite bodyCommasFixed body False bodyNone, declarationsCommasFixed rest restNone
+    | [{ blankBefore, line = DeclarationNote _ }, ..rest], (_, restNone) =>
+      rewrite declarationsCommasFixed rest restNone
 
 --| A file with no trailing comma is P2-tidy.
 theorem commasFixed ∀ (file: SourceFile) (none: NoTrailingCommasFile file): file.withoutTrailingCommas = file :=
@@ -174,70 +194,11 @@ theorem commasIdempotent ∀ (file: SourceFile):
     file.withoutTrailingCommas.withoutTrailingCommas = file.withoutTrailingCommas :=
   commasFixed file.withoutTrailingCommas (commasNone file)
 
--- P2 keeps the parser's guarantees: what they read of a tree, a trailing
--- comma doesn't change.
+-- P2's step and `declare` keep, at one node, what the traversal's lemmas
+-- ask: they change only a flag that nothing but `NoTrailingCommas`
+-- reads.
 
-theorem exprCommasPostfix ∀ (expr: Expr): expr.withoutTrailingCommas.isPostfix = expr.isPostfix := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
-
-theorem exprCommasOperand ∀ (expr: Expr): expr.withoutTrailingCommas.isOperand = expr.isOperand := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
-
-theorem exprCommasChain ∀ (expr: Expr): expr.withoutTrailingCommas.isChain = expr.isChain := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
-
-theorem exprCommasLevel ∀ (expr: Expr): expr.withoutTrailingCommas.chainLevel = expr.chainLevel := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
-
-theorem exprCommasFirstAbove ∀ (expr: Expr): expr.withoutTrailingCommas.firstAbove = expr.firstAbove := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call callee _ _ _ _ => exprCommasFirstAbove callee
-  | Field target _ _ _ => exprCommasFirstAbove target
-  | Negate _ _ => byComputing
-  | Binary _ _ left _ => exprCommasFirstAbove left
-  | If _ _ _ _ _ _ => byComputing
-
-theorem exprCommasEnds ∀ (expr: Expr): expr.withoutTrailingCommas.endsWithComment = expr.endsWithComment :=
+theorem dropCommaPlain: StepKeepsPlain dropComma := position expr =>
   match expr with
     | Var _ _ => byComputing
     | NumberLiteral _ _ => byComputing
@@ -246,360 +207,84 @@ theorem exprCommasEnds ∀ (expr: Expr): expr.withoutTrailingCommas.endsWithComm
     | ListLiteral _ _ _ _ => byComputing
     | Call _ _ _ _ _ => byComputing
     | Field _ _ _ _ => byComputing
-    | Negate _ operand => exprCommasEnds operand
-    | Binary _ _ _ right => exprCommasEnds right
-    | If _ _ _ _ _ whenFalse => bodyCommasEnds whenFalse
+    | Negate _ _ => byComputing
+    | Binary _ _ _ _ => byComputing
+    | If _ _ _ _ _ _ => byComputing
 
-theorem bodyCommasEnds ∀ (body: Body): body.withoutTrailingCommas.endsWithComment = body.endsWithComment :=
-  match body with | { statements } => linesCommasEnds statements
+--| A list or call keeps its form, and so the slots it fits, without its
+--| trailing comma.
+theorem dropCommaFits ∀ (position: Position) (expr: Expr) (slot: Slot):
+    (dropComma position expr).fits slot = expr.fits slot :=
+  cases
 
-theorem linesCommasEnds ∀ (lines: List (Spaced Statement)):
-    statementsEndWithComment (linesWithoutTrailingCommas lines) = statementsEndWithComment lines :=
-  match lines with
-    | [] => byComputing
-    | [{ blankBefore, line }] => statementCommasEnds line
-    | [first, second, ..rest] => linesCommasEnds [second, ..rest]
-
-theorem statementCommasEnds ∀ (line: Statement): line.withoutTrailingCommas.endsWithComment = line.endsWithComment :=
-  match line with
-    | Let _ _ _ _ body => bodyCommasEnds body
-    | Bare value => exprCommasEnds value
-    | StatementNote _ => byComputing
-
-theorem itemsCommasEnd ∀ (open: Comments) (items: List Expr):
-    itemsEndWithComment open (itemsWithoutTrailingCommas items) = itemsEndWithComment open items :=
-  match items with
-    | [] => byComputing
-    | [last] => exprCommasEnds last
-    | [first, second, ..rest] => itemsCommasEnd open [second, ..rest]
-
-theorem statementCommasCoded ∀ (line: Statement) (coded: Coded line): Coded line.withoutTrailingCommas :=
-  match line, coded with
-    | Let _ _ _ _ _, _ => byComputing
-    | Bare _, _ => byComputing
-    | StatementNote _, coded => coded
-
-theorem linesCommasClosed ∀ (lines: List (Spaced Statement))
-    (closed: ClosedLines lines):
-    ClosedLines (linesWithoutTrailingCommas lines) :=
-  match lines, closed with
-    | [], closed => closed
-    | [{ blankBefore, line }], coded => statementCommasCoded line coded
-    | [first, second, ..rest], closed => linesCommasClosed [second, ..rest] closed
-
-theorem exprCommasShaped ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withoutTrailingCommas :=
+theorem dropCommaShaped: StepKeepsShaped dropComma := position expr shaped =>
   match expr, shaped with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
-    | Bracketed _ inner _, (innerShaped, settled) =>
-      (exprCommasShaped inner innerShaped, (rewrite exprCommasEnds inner then settled))
-    | ListLiteral open items _ _, (itemsShaped, settled) =>
-      (itemsCommasShaped items itemsShaped, (rewrite itemsCommasEnd open items then settled))
-    | Call callee open arguments _ _, (postfix, calleeShaped, argumentsShaped, settled) => (
-      (rewrite exprCommasPostfix callee then postfix),
-      exprCommasShaped callee calleeShaped,
-      itemsCommasShaped arguments argumentsShaped,
-      (rewrite itemsCommasEnd open arguments then settled)
-    )
-    | Field target _ _ _, (postfix, targetShaped) =>
-      ((rewrite exprCommasPostfix target then postfix), exprCommasShaped target targetShaped)
-    | Negate _ operand, (isOperand, operandShaped) =>
-      ((rewrite exprCommasOperand operand then isOperand), exprCommasShaped operand operandShaped)
-    | Binary _ _ left right, (leftLevel, rightLevel, leftChain, rightChain, leftShaped, rightShaped) => (
-      (rewrite exprCommasLevel left then leftLevel),
-      (rewrite exprCommasLevel right then rightLevel),
-      (rewrite exprCommasChain left then leftChain),
-      (rewrite exprCommasChain right then rightChain),
-      exprCommasShaped left leftShaped,
-      exprCommasShaped right rightShaped
-    )
-    | If _ condition _ whenTrue _ whenFalse, (conditionShaped, trueShaped, falseShaped) => (
-      exprCommasShaped condition conditionShaped,
-      bodyCommasShaped whenTrue trueShaped,
-      bodyCommasShaped whenFalse falseShaped
-    )
+    | Var _ _, shaped => (shaped, (ends => ends))
+    | NumberLiteral _ _, shaped => (shaped, (ends => ends))
+    | StringLiteral _ _, shaped => (shaped, (ends => ends))
+    | Bracketed _ _ _, shaped => (shaped, (ends => ends))
+    | ListLiteral _ _ _ _, (shaped, fits) =>
+      ((shaped, (rewrite dropCommaFits position expr position.slot then fits)), (ends => ends))
+    | Call _ _ _ _ _, (shaped, fits) =>
+      ((shaped, (rewrite dropCommaFits position expr position.slot then fits)), (ends => ends))
+    | Field _ _ _ _, shaped => (shaped, (ends => ends))
+    | Negate _ _, shaped => (shaped, (ends => ends))
+    | Binary _ _ _ _, shaped => (shaped, (ends => ends))
+    | If _ _ _ _ _ _, shaped => (shaped, (ends => ends))
 
-theorem itemsCommasShaped ∀ (items: List Expr)
-    (shaped: ShapedItems items):
-    ShapedItems (itemsWithoutTrailingCommas items) :=
-  match items, shaped with
-    | [], _ => byComputing
-    | [value, ..rest], (valueShaped, restShaped) =>
-      (exprCommasShaped value valueShaped, itemsCommasShaped rest restShaped)
-
-theorem bodyCommasShaped ∀ (body: Body) (shaped: ShapedBody body): ShapedBody body.withoutTrailingCommas :=
-  match body, shaped with
-    | { statements }, (linesShaped, closed) =>
-      (linesCommasShaped statements linesShaped, linesCommasClosed statements closed)
-
-theorem linesCommasShaped ∀ (lines: List (Spaced Statement))
-    (shaped: ShapedLines lines):
-    ShapedLines (linesWithoutTrailingCommas lines) :=
-  match lines, shaped with
-    | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineShaped, restShaped) =>
-      (statementCommasShaped line lineShaped, linesCommasShaped rest restShaped)
-
-theorem statementCommasShaped ∀ (line: Statement)
-    (shaped: ShapedStatement line):
-    ShapedStatement line.withoutTrailingCommas :=
-  match line, shaped with
-    | Let _ _ _ _ body, shaped => bodyCommasShaped body shaped
-    | Bare value, shaped => exprCommasShaped value shaped
-    | StatementNote _, _ => byComputing
-
-theorem declarationCommasShaped ∀ (line: Declaration)
-    (shaped: ShapedDeclaration line):
-    ShapedDeclaration line.withoutTrailingCommas :=
-  match line, shaped with
-    | Function _ _ _ _ _ _ _ _ _ body, (parameters, bodyShaped) => (parameters, bodyCommasShaped body bodyShaped)
-    | Value _ _ _ _ body, shaped => bodyCommasShaped body shaped
-    | DeclarationNote _, _ => byComputing
-
-theorem declarationsCommasShaped ∀ (lines: List (Spaced Declaration))
-    (shaped: ShapedDeclarations lines):
-    ShapedDeclarations (declarationsWithoutTrailingCommas lines) :=
-  match lines, shaped with
-    | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineShaped, restShaped) =>
-      (declarationCommasShaped line lineShaped, declarationsCommasShaped rest restShaped)
-
-theorem exprCommasLexical ∀ (expr: Expr) (lexical: Lexical expr): Lexical expr.withoutTrailingCommas :=
+theorem dropCommaLexical: StepKeepsLexical dropComma := position expr lexical =>
   match expr, lexical with
     | Var _ _, lexical => lexical
     | NumberLiteral _ _, lexical => lexical
     | StringLiteral _ _, lexical => lexical
-    | Bracketed _ inner _, (open, innerLexical, close) => (open, exprCommasLexical inner innerLexical, close)
-    | ListLiteral _ items _ _, (open, itemsLexical, close) => (open, itemsCommasLexical items itemsLexical, close)
-    | Call callee _ arguments _ _, (calleeLexical, open, argumentsLexical, close) =>
-      (exprCommasLexical callee calleeLexical, open, itemsCommasLexical arguments argumentsLexical, close)
-    | Field target _ _ _, (targetLexical, others) => (exprCommasLexical target targetLexical, others)
-    | Negate _ operand, (minus, operandLexical) => (minus, exprCommasLexical operand operandLexical)
-    | Binary _ _ left right, (sign, leftLexical, rightLexical) =>
-      (sign, exprCommasLexical left leftLexical, exprCommasLexical right rightLexical)
-    | If _ condition _ whenTrue _ whenFalse, (ifFine, conditionLexical, thenFine, trueLexical, elseFine,
-        falseLexical) => (
-      ifFine,
-      exprCommasLexical condition conditionLexical,
-      thenFine,
-      bodyCommasLexical whenTrue trueLexical,
-      elseFine,
-      bodyCommasLexical whenFalse falseLexical
-    )
+    | Bracketed _ _ _, lexical => lexical
+    | ListLiteral _ _ _ _, lexical => lexical
+    | Call _ _ _ _ _, lexical => lexical
+    | Field _ _ _ _, lexical => lexical
+    | Negate _ _, lexical => lexical
+    | Binary _ _ _ _, lexical => lexical
+    | If _ _ _ _ _ _, lexical => lexical
 
-theorem itemsCommasLexical ∀ (items: List Expr)
-    (lexical: LexicalItems items):
-    LexicalItems (itemsWithoutTrailingCommas items) :=
-  match items, lexical with
-    | [], _ => byComputing
-    | [value, ..rest], (valueLexical, restLexical) =>
-      (exprCommasLexical value valueLexical, itemsCommasLexical rest restLexical)
-
-theorem bodyCommasLexical ∀ (body: Body) (lexical: LexicalBody body): LexicalBody body.withoutTrailingCommas :=
-  match body, lexical with
-    | { statements }, (linesLexical, closed) =>
-      (linesCommasLexical statements linesLexical, linesCommasClosed statements closed)
-
-theorem linesCommasLexical ∀ (lines: List (Spaced Statement))
-    (lexical: LexicalLines lines):
-    LexicalLines (linesWithoutTrailingCommas lines) :=
-  match lines, lexical with
-    | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineLexical, restLexical) =>
-      (statementCommasLexical line lineLexical, linesCommasLexical rest restLexical)
-
-theorem statementCommasLexical ∀ (line: Statement)
-    (lexical: LexicalStatement line):
-    LexicalStatement line.withoutTrailingCommas :=
-  match line, lexical with
-    | Let _ _ _ _ body, (letFine, isName, nameFine, equalsFine, bodyLexical) =>
-      (letFine, isName, nameFine, equalsFine, bodyCommasLexical body bodyLexical)
-    | Bare value, lexical => exprCommasLexical value lexical
-    | StatementNote _, lexical => lexical
-
-theorem declarationCommasLexical ∀ (line: Declaration)
-    (lexical: LexicalDeclaration line):
-    LexicalDeclaration line.withoutTrailingCommas :=
-  match line, lexical with
-    | Function _ _ _ _ _ _ _ _ _ body, (fnFine, isName, nameFine, takesFine, openFine, parameters, closeFine,
-        equalsFine, bodyLexical) => (
-      fnFine,
-      isName,
-      nameFine,
-      takesFine,
-      openFine,
-      parameters,
-      closeFine,
-      equalsFine,
-      bodyCommasLexical body bodyLexical
-    )
-    | Value _ _ _ _ body, (letFine, isName, nameFine, equalsFine, bodyLexical) =>
-      (letFine, isName, nameFine, equalsFine, bodyCommasLexical body bodyLexical)
-    | DeclarationNote _, lexical => lexical
-
-theorem declarationsCommasLexical ∀ (lines: List (Spaced Declaration))
-    (lexical: LexicalDeclarations lines):
-    LexicalDeclarations (declarationsWithoutTrailingCommas lines) :=
-  match lines, lexical with
-    | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineLexical, restLexical) =>
-      (declarationCommasLexical line lineLexical, declarationsCommasLexical rest restLexical)
-
-theorem linesCommasUnspaced ∀ (lines: List (Spaced Statement))
-    (unspaced: Unspaced lines):
-    Unspaced (linesWithoutTrailingCommas lines) :=
-  match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
-    | [{ blankBefore = True, line }, ..rest], unspaced => cases
-
-theorem declarationsCommasUnspaced ∀ (lines: List (Spaced Declaration))
-    (unspaced: Unspaced lines):
-    Unspaced (declarationsWithoutTrailingCommas lines) :=
-  match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
-    | [{ blankBefore = True, line }, ..rest], unspaced => cases
-
-theorem linesCommasOne ∀ (lines: List (Spaced Statement))
-    (one: OneExpression lines):
-    OneExpression (linesWithoutTrailingCommas lines) :=
-  match lines, one with | [{ blankBefore, line = Bare _ }], _ => byComputing
-
-theorem exprCommasHeaded ∀ (bracketed: Bool) (expr: Expr)
-    (headed: HeadedExpr bracketed expr):
-    HeadedExpr bracketed expr.withoutTrailingCommas :=
+theorem dropCommaHeaded: StepKeepsHeaded dropComma := position expr headed =>
   match expr, headed with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
-    | Bracketed _ inner _, headed => exprCommasHeaded True inner headed
-    | ListLiteral _ items _ _, headed => itemsCommasHeaded items headed
-    | Call callee _ arguments _ _, (calleeHeaded, argumentsHeaded) =>
-      (exprCommasHeaded bracketed callee calleeHeaded, itemsCommasHeaded arguments argumentsHeaded)
-    | Field target _ _ _, headed => exprCommasHeaded bracketed target headed
-    | Negate _ operand, headed => exprCommasHeaded bracketed operand headed
-    | Binary _ _ left right, (leftHeaded, rightHeaded) =>
-      (exprCommasHeaded bracketed left leftHeaded, exprCommasHeaded bracketed right rightHeaded)
-    | If _ condition _ whenTrue _ whenFalse, (conditionHeaded, trueHeaded, falseHeaded) => (
-      exprCommasHeaded bracketed condition conditionHeaded,
-      bodyCommasHeaded bracketed whenTrue trueHeaded,
-      bodyCommasHeaded bracketed whenFalse falseHeaded
-    )
+    | Var _ _, headed => (headed, byComputing)
+    | NumberLiteral _ _, headed => (headed, byComputing)
+    | StringLiteral _ _, headed => (headed, byComputing)
+    | Bracketed _ _ _, headed => (headed, byComputing)
+    | ListLiteral _ _ _ _, headed => (headed, byComputing)
+    | Call _ _ _ _ _, headed => (headed, byComputing)
+    | Field _ _ _ _, headed => (headed, byComputing)
+    | Negate _ _, headed => (headed, byComputing)
+    | Binary _ _ _ _, headed => (headed, byComputing)
+    | If _ _ _ _ _ _, headed => (headed, byComputing)
 
-theorem itemsCommasHeaded ∀ (items: List Expr)
-    (headed: HeadedItems items):
-    HeadedItems (itemsWithoutTrailingCommas items) :=
-  match items, headed with
-    | [], _ => byComputing
-    | [value, ..rest], (valueHeaded, restHeaded) =>
-      (exprCommasHeaded True value valueHeaded, itemsCommasHeaded rest restHeaded)
+theorem declareCommaPlain ∀ (line: Declaration): line.withoutTrailingComma.plain = line.plain := match line with
+  | Function _ _ _ _ _ _ _ _ _ _ => byComputing
+  | Value _ _ _ _ _ => byComputing
+  | DeclarationNote _ => byComputing
 
-theorem bodyCommasHeaded ∀ (bracketed: Bool) (body: Body)
-    (headed: HeadedBody bracketed body):
-    HeadedBody bracketed body.withoutTrailingCommas :=
-  match body, headed with
-    | { statements }, (linesHeaded, unspaced, one) => (
-      linesCommasHeaded bracketed statements linesHeaded,
-      linesCommasUnspaced statements unspaced,
-      (inside => linesCommasOne statements (one inside))
-    )
-
-theorem linesCommasHeaded ∀ (bracketed: Bool) (lines: List (Spaced Statement))
-    (headed: HeadedLines bracketed lines):
-    HeadedLines bracketed (linesWithoutTrailingCommas lines) :=
-  match lines, headed with
-    | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineHeaded, restHeaded) =>
-      (statementCommasHeaded bracketed line lineHeaded, linesCommasHeaded bracketed rest restHeaded)
-
-theorem statementCommasHeaded ∀ (bracketed: Bool) (line: Statement)
-    (headed: HeadedStatement bracketed line):
-    HeadedStatement bracketed line.withoutTrailingCommas :=
-  match line, headed with
-    | Let _ _ _ _ body, (letAbove, bodyHeaded) => (letAbove, bodyCommasHeaded False body bodyHeaded)
-    | Bare value, (noAbove, valueHeaded) => (
-      (outside => rewrite exprCommasFirstAbove value then noAbove outside),
-      exprCommasHeaded bracketed value valueHeaded
-    )
-    | StatementNote _, _ => byComputing
-
-theorem declarationCommasHeaded ∀ (line: Declaration)
-    (headed: HeadedDeclaration line):
-    HeadedDeclaration line.withoutTrailingCommas :=
-  match line, headed with
-    | Function _ _ _ _ _ _ _ _ _ body, (fnAbove, bodyHeaded) => (fnAbove, bodyCommasHeaded False body bodyHeaded)
-    | Value _ _ _ _ body, (letAbove, bodyHeaded) => (letAbove, bodyCommasHeaded False body bodyHeaded)
-    | DeclarationNote _, _ => byComputing
-
-theorem declarationsCommasHeaded ∀ (lines: List (Spaced Declaration))
-    (headed: HeadedDeclarations lines):
-    HeadedDeclarations (declarationsWithoutTrailingCommas lines) :=
-  match lines, headed with
-    | [], _ => byComputing
-    | [{ blankBefore, line }, ..rest], (lineHeaded, restHeaded) =>
-      (declarationCommasHeaded line lineHeaded, declarationsCommasHeaded rest restHeaded)
+theorem declareCommaParsed: DeclareKeepsParsed (line => line.withoutTrailingComma) := line shaped lexical headed =>
+  match line with
+    | Function _ _ _ _ _ _ _ _ _ _ => (shaped, lexical, headed)
+    | Value _ _ _ _ _ => (shaped, lexical, headed)
+    | DeclarationNote _ => (shaped, lexical, headed)
 
 --| P2 keeps the parser's guarantees: what each says of a tree, dropping
 --| a trailing comma doesn't change.
 theorem commasKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.withoutTrailingCommas :=
-  match file, parsed with
-    | { declarations }, (shaped, lexical, (headed, unspaced)) => (
-      declarationsCommasShaped declarations shaped,
-      declarationsCommasLexical declarations lexical,
-      (declarationsCommasHeaded declarations headed, declarationsCommasUnspaced declarations unspaced)
-    )
+  traverseKeepsParsed dropComma
+    (line => line.withoutTrailingComma)
+    dropCommaShaped
+    dropCommaLexical
+    dropCommaHeaded
+    declareCommaParsed
+    file
+    parsed
 
--- P2 keeps the meaning: `plain` sets every trailing comma's flag to
--- `False` already.
-
-theorem exprCommasPlain ∀ (expr: Expr): expr.withoutTrailingCommas.plain = expr.plain := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ inner _ => rewrite exprCommasPlain inner
-  | ListLiteral _ items _ _ => rewrite itemsCommasPlain items
-  | Call callee _ arguments _ _ => rewrite exprCommasPlain callee, itemsCommasPlain arguments
-  | Field target _ _ _ => rewrite exprCommasPlain target
-  | Negate _ operand => rewrite exprCommasPlain operand
-  | Binary _ _ left right => rewrite exprCommasPlain left, exprCommasPlain right
-  | If _ condition _ whenTrue _ whenFalse =>
-    rewrite exprCommasPlain condition, bodyCommasPlain whenTrue, bodyCommasPlain whenFalse
-
-theorem itemsCommasPlain ∀ (items: List Expr): plainItems (itemsWithoutTrailingCommas items) = plainItems items :=
-  match items with
-    | [] => byComputing
-    | [value, ..rest] => rewrite exprCommasPlain value, itemsCommasPlain rest
-
-theorem bodyCommasPlain ∀ (body: Body): body.withoutTrailingCommas.plain = body.plain := match body with
-  | { statements } => rewrite linesCommasPlain statements
-
-theorem linesCommasPlain ∀ (lines: List (Spaced Statement)):
-    plainLines (linesWithoutTrailingCommas lines) = plainLines lines :=
-  match lines with
-    | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => rewrite statementCommasPlain line, linesCommasPlain rest
-
-theorem statementCommasPlain ∀ (line: Statement): line.withoutTrailingCommas.plain = line.plain := match line with
-  | Let _ _ _ _ body => rewrite bodyCommasPlain body
-  | Bare value => rewrite exprCommasPlain value
-  | StatementNote _ => byComputing
-
-theorem declarationCommasPlain ∀ (line: Declaration): line.withoutTrailingCommas.plain = line.plain := match line with
-  | Function _ _ _ _ _ _ _ _ _ body => rewrite bodyCommasPlain body
-  | Value _ _ _ _ body => rewrite bodyCommasPlain body
-  | DeclarationNote _ => byComputing
-
-theorem declarationsCommasPlain ∀ (lines: List (Spaced Declaration)):
-    plainDeclarations (declarationsWithoutTrailingCommas lines) = plainDeclarations lines :=
-  match lines with
-    | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => rewrite declarationCommasPlain line, declarationsCommasPlain rest
-
---| P2 keeps the meaning, on every tree.
+--| P2 keeps the meaning, on every tree: `plain` sets every trailing
+--| comma's flag to `False` already.
 theorem commasKeepMeaning ∀ (file: SourceFile): file.withoutTrailingCommas.meaning = file.meaning :=
-  rewrite declarationsCommasPlain file.declarations
+  traverseKeepsMeaning dropComma (line => line.withoutTrailingComma) dropCommaPlain declareCommaPlain file
 
 -- P1: `takes` on every function with parameters.
 
@@ -697,15 +382,17 @@ theorem takesKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed fil
 -- P2 keeps P1's work: the two passes change different fields.
 
 theorem declarationTakesCommas ∀ (line: Declaration):
-    line.withoutTrailingCommas.withTakes = line.withTakes.withoutTrailingCommas :=
+    (line.traverseBody dropComma).withoutTrailingComma.withTakes
+      = line.withTakes.traverseBody dropComma |>.withoutTrailingComma :=
   match line with
-    | Function _ _ _ _ _ _ _ _ _ _ => byComputing
+    | Function _ _ _ _ _ [] _ _ _ _ => byComputing
+    | Function _ _ _ _ _ [_, .._] _ _ _ _ => byComputing
     | Value _ _ _ _ _ => byComputing
     | DeclarationNote _ => byComputing
 
 theorem declarationsTakesCommas ∀ (lines: List (Spaced Declaration)):
-    declarationsWithTakes (declarationsWithoutTrailingCommas lines)
-      = declarationsWithoutTrailingCommas (declarationsWithTakes lines) :=
+    declarationsWithTakes (traverseDeclarations dropComma (line => line.withoutTrailingComma) lines)
+      = traverseDeclarations dropComma (line => line.withoutTrailingComma) (declarationsWithTakes lines) :=
   match lines with
     | [] => byComputing
     | [{ blankBefore, line }, ..rest] => rewrite declarationTakesCommas line, declarationsTakesCommas rest
@@ -725,22 +412,32 @@ theorem commasKeepTakes ∀ (file: SourceFile)
 
 --| The passes keep the meaning, on every tree.
 theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meaning := calc file.tidy.meaning
+  _ = file.withTakes.withoutTrailingCommas.meaning := bracketsKeepMeaning file.withTakes.withoutTrailingCommas
   _ = file.withTakes.meaning := commasKeepMeaning file.withTakes
   _ = file.meaning := takesKeepMeaning file
 
 --| The passes keep the parser's guarantees.
 theorem tidyParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.tidy :=
-  commasKeepParsed file.withTakes (takesKeepParsed file parsed)
+  bracketsKeepParsed file.withTakes.withoutTrailingCommas
+    (commasKeepParsed file.withTakes (takesKeepParsed file parsed))
 
---| A tidy tree has no trailing comma, as the printer needs.
-theorem tidyBare ∀ (file: SourceFile): file.tidy.withoutTrailingCommas = file.tidy := commasIdempotent file.withTakes
+--| A tidy tree has no trailing comma, as the printer needs: P3 kept P2's
+--| work.
+theorem tidyBare ∀ (file: SourceFile): file.tidy.withoutTrailingCommas = file.tidy :=
+  bracketsKeepCommas file.withTakes.withoutTrailingCommas (commasIdempotent file.withTakes)
 
---| A tidy tree is P1-tidy too: P2 kept P1's work.
+--| A tidy tree is P1-tidy too: P2 and P3 kept P1's work.
 theorem tidyTakes ∀ (file: SourceFile): file.tidy.withTakes = file.tidy :=
-  commasKeepTakes file.withTakes (takesIdempotent file)
+  bracketsKeepTakes file.withTakes.withoutTrailingCommas (commasKeepTakes file.withTakes (takesIdempotent file))
 
---| The passes finish in one run.
+--| A tidy tree has no spare brackets.
+theorem tidyBrackets ∀ (file: SourceFile): file.tidy.withoutSpareBrackets = file.tidy :=
+  bracketsIdempotent file.withTakes.withoutTrailingCommas
+
+--| The passes finish in one run: a tidy tree is tidy for each pass.
 theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy := calc file.tidy.tidy
-  _ = file.tidy.withTakes.withoutTrailingCommas := byComputing
-  _ = file.tidy.withoutTrailingCommas := Eq.cong ((tree: SourceFile) => tree.withoutTrailingCommas) (tidyTakes file)
-  _ = file.tidy := tidyBare file
+  _ = file.tidy.withTakes.withoutTrailingCommas.withoutSpareBrackets := byComputing
+  _ = file.tidy.withoutTrailingCommas.withoutSpareBrackets :=
+    Eq.cong ((tree: SourceFile) => tree.withoutTrailingCommas.withoutSpareBrackets) (tidyTakes file)
+  _ = file.tidy.withoutSpareBrackets := Eq.cong ((tree: SourceFile) => tree.withoutSpareBrackets) (tidyBare file)
+  _ = file.tidy := tidyBrackets file

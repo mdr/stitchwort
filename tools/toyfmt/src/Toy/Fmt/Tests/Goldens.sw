@@ -456,8 +456,9 @@ def route: Golden :=
 test "mixed: nesting in a narrow width" := route.printed == route.formatted
 
 --| Sprig++ (toy-plus-plus.md §1): `takes`, typed parameter groups and
---| types in brackets, printed as written, with comments after `takes`,
---| `:` and above `)` (from the sketch's inputs, `plus/inputs`).
+--| types in brackets, with comments after `takes`, `:` and above `)`
+--| (from the sketch's inputs, `plus/inputs`). A type's brackets with no
+--| comments go (P3).
 def parameterGroups: Golden :=
   {
     width = 40,
@@ -496,7 +497,7 @@ def parameterGroups: Golden :=
     ],
     formatted = """
       fn area takes (w h: Int) = w * h
-      fn readVec takes (v: (Vec)) = v
+      fn readVec takes (v: Vec) = v
       fn stream takes (
           head: Nat,
           rest: -- c
@@ -510,7 +511,8 @@ def parameterGroups: Golden :=
       """
   }
 
-test "Sprig++: parameter groups and takes print as written" := parameterGroups.printed == parameterGroups.formatted
+test "Sprig++: parameter groups and takes print as written, a type without spare brackets" :=
+  parameterGroups.printed == parameterGroups.formatted
 
 test "a dump shows takes, groups and types" :=
   parameterGroups.tree.dump
