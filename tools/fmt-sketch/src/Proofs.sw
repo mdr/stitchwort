@@ -7,6 +7,7 @@
 
 namespace Fmt.Sketch.Proofs
 import Fmt.Sketch (..)
+import Fmt.Sketch.Settled (..)
 import Syntax (Comment, Leaf, Lexed, Tok, Trivia, lex, trimEnd)
 import Std (Bool, Eq, List, Nat, Option, Result, Text)
 
@@ -35,11 +36,15 @@ def SourceFile.comments (file: SourceFile): List Text := ?
 --| comma has none.
 def Shaped (file: SourceFile): Prop := ?
 
---| Rule N's result, said of the tree: a closing bracket or a record
---| update's `|` has a trailing comment only when it has own-line
---| comments above it or the token before it ends its line with a
---| comment; no `->` has one, nor has the type after it comments above;
---| no comment's text ends in a space.
+--| Rule N's result, said of the tree, with no layout (spike K1,
+--| `Settled.sw`): the tree's leaves in order are `homed`, that is, a
+--| closing bracket or a record update's `|` has a trailing comment only
+--| when it has own-line comments above it, or the code before it ends
+--| with a comment, looking back past closers, commas and bars (not only
+--| on the token just before); no `->` has one, nor has the type after it
+--| comments above; no comment's text ends in a space. Which of two
+--| closers holds a comment is the tree's to say: both are settled, and
+--| the printer starts a line at the one that holds it.
 def Settled (file: SourceFile): Prop := ?
 
 --| Each `Word` lexes to one token of the kind its place asks, each
@@ -60,6 +65,8 @@ def Spells (file: SourceFile) (lexed: Lexed): Prop := ?
 --| The lexer's leaves of the printed text, before rule N: the tree's
 --| tokens in order, but for each trailing comment the engine wrote after
 --| the closers on its line, which the lexer gives to the last of them.
+--| Every closer or bar the tree has a trailing comment on starts its
+--| line (`printedKeeping`).
 def Printed (file: SourceFile) (lexed: Lexed): Prop := ?
 
 -- Layer 1, the engine. The toy's engine and theory (`Toy.Doc`, about
@@ -85,8 +92,14 @@ theorem settledKeepsTokens ∀ (lexed: Lexed):
 --| Rule N keeps every comment, in order, less the spaces at its end.
 theorem settledKeepsComments ∀ (lexed: Lexed): lexed.settled.comments = lexed.comments.map trimEnd := ?
 
---| Applying rule N to its own result changes nothing.
-theorem settledIdempotent ∀ (lexed: Lexed): lexed.settled.settled = lexed.settled := ?
+--| Applying rule N to its own result changes nothing, for leaves the
+--| lexer could give (`Lexed.laid`) that are `plain`. Without `plain` it is
+--| false (SW-3825): `-> ->`, a bar before a closer, and a trailing comma
+--| that starts the closer's line each move a comment the second time.
+theorem settledIdempotent ∀ (lexed: Lexed) (choices: List Bool)
+    (plainly: plain (lexed.laid False choices).leaves = True):
+    (lexed.laid False choices).settled.settled = (lexed.laid False choices).settled :=
+  ?
 
 def bareComma (leaf: Leaf): Bool := match leaf.token.kind with
   | Tok.Comma => leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone
@@ -273,8 +286,23 @@ theorem printLexes ∀ (file: SourceFile) (width: Nat)
     ∃ (lexed: Lexed) => lex (file.print width) = Ok lexed ∧ Printed file lexed :=
   ?
 
+--| The printer's half of `printedSettle`: the printed leaves are leaves
+--| that spell the tree, `homed` since the tree is `Settled`, in a layout
+--| that starts a line at each closer or bar holding a comment
+--| (`Lexed.laid`, keeping). Rule N's half is `settledAnyLayout`: such a
+--| layout settles to the leaves it was made from.
+theorem printedKeeping ∀ (file: SourceFile) (lexed: Lexed)
+    (parsed: Parsed file)
+    (printed: Printed file lexed):
+    ∃ (spelled: Lexed) => ∃ (choices: List Bool) => Spells file spelled
+      ∧ homed spelled.leaves = True
+      ∧ lexed.bare = (spelled.laid True choices).bare :=
+  ?
+
 --| Rule N takes each comment the engine wrote after closers back to the
---| token the tree has it on, and then the leaves spell the file.
+--| token the tree has it on, and then the leaves spell the file. From
+--| `printedKeeping` and `SettledProofs.settledAnyLayout`; the tree has no
+--| line starts to consult, and needs none.
 theorem printedSettle ∀ (file: SourceFile) (lexed: Lexed)
     (parsed: Parsed file)
     (printed: Printed file lexed):
