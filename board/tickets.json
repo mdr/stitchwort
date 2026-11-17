@@ -22676,7 +22676,7 @@
     {
       "id": 3884,
       "title": "[Opus] Stage 5 planning: make meaning genuinely comment-free (today a meaning still stores every token's comments, unread). Options: (a) Meaning as the dump of the plain tree (least code; trusts the dump, which Twin already does; proofs then go through the dumper), (b) a map blanking every comment (~90 places of trusted code). Orchestrator's call under D3678 when stage 5's top theorem is set up, weighing proof cost (SW-3882 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
