@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `noProof`
+   ╭─[ goals/false-in-statement.sw:5:52 ]
+   │
+ 5 │ theorem noProof ∀ (n: Nat): n = 0 → False := n0 => ?
+   │                                                    ┬  
+   │                                                    ╰── n: Nat
+   │                                                        n0: n = 0
+   │                                                        ⊢ False = True
+   │ 
+   │ Note 1: `False` here is the Bool, so this goal is `False = True`, which has no proof unless the hypotheses contradict each other; for a proposition with no proof, write `Void`
+   │ 
+   │ Note 2: this statement is false; a counterexample:
+   │           n = 0
+   │         `n = 0` holds
+   │         `False = True` is false:
+   │           left:  False
+   │           right: True
+───╯
