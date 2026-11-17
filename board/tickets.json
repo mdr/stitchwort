@@ -1,5 +1,5 @@
 {
-  "next": 3857,
+  "next": 3858,
   "tickets": [
     {
       "id": 47,
@@ -22297,12 +22297,12 @@
     {
       "id": 3855,
       "title": "[Sonnet] proofs::differential::the_evaluators_agree_on_the_prelude_and_every_example: 219 comparisons 'too big to compare' (budget 5,000,000 steps) against at most 60, since float stages 3/4 made Float operations definitions: find which comparisons grew (likely Float.Model terms), and restore coverage (skip float-model internals deliberately, or compare them at a cheaper level), not just raise the guard. The test takes ~12 min; run it filtered or capped, never over 2 GB (Overmind, rolling check at b375ebc98)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "SW-3855 progress (Sonnet lane): prelude alone 0 skips; the 220 skips were all in 3 examples importing Float (float-playlist 153, float-times 33, ord-proofs 33, let-chain-match 1): Float.Theory types and Float.Model floor/ceil/roundBits and their conversion pairs. Fix: left_out() excludes Float.Theory.* and those three Model defs by name; 22 skips remain (21 Float.Model add/mul/div/rem conversion pairs, 1 let-chain-match). Full sweep passed, 195 s, peak 1.10 GB. Model result: Sonnet, worked, 25 min (est. 45).",
+      "body": "SW-3855 progress (Sonnet lane): prelude alone 0 skips; the 220 skips were all in 3 examples importing Float (float-playlist 153, float-times 33, ord-proofs 33, let-chain-match 1): Float.Theory types and Float.Model floor/ceil/roundBits and their conversion pairs. Fix: left_out() excludes Float.Theory.* and those three Model defs by name; 22 skips remain (21 Float.Model add/mul/div/rem conversion pairs, 1 let-chain-match). Full sweep passed, 195 s, peak 1.10 GB. Model result: Sonnet, worked, 25 min (est. 45).\n\nModel result: sonnet, worked, 16 min (est. 45). Full sweep 3.5-4.3 min, not 12 (my estimate wrong); peak 1.10 GB. Follow-up SW-3857.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22315,6 +22315,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3857,
+      "title": "[DeepSeek] differential oracle: compare_conversion pairs every definition with every other (quadratic in float definitions); leave out the 21 Float.Model addBits/mulBits/divBits/remBits conversion pairs or compare each against itself, and check the all tier's skip count (48 before the float stages, limit 60) (SW-3855 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
