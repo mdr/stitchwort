@@ -1,5 +1,5 @@
 {
-  "next": 3798,
+  "next": 3802,
   "tickets": [
     {
       "id": 47,
@@ -42830,6 +42830,58 @@
     {
       "id": 3797,
       "title": "[Sonnet] float::with_every_native_off_float_runs_out_of_budget (driver elaboration) runs past 400 s on main (17 Nov 2026, c67cadcbb era): find what changed and make it finish or fail fast; it should prove float checking runs out of budget, not hang",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3798,
+      "title": "[Opus] Float laws: the general toInt/ofInt theorem (toInt x = Some n → x ≠ -0.0 → ofInt n = x, float.md:1150) and mul monotone for finite operands (SW-3796 F2; planned for stage 3, not done)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3799,
+      "title": "[DeepSeek] float_paths: a conversions test like mul_rounds_like_the_hardware for ofInt/ofNat (ties, 2^53 boundary, overflow), and the model checked with natives off for the new Theory tests (SW-3796 F5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3800,
+      "title": "[Sonnet] Goals with Float.ofNat n / ofInt i on unknown n now unfold into Float.Model (SW-638); docs/syntax.md:2777 promises they don't: an example showing what such a goal prints, and keep them folded (SW-3796 F4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3801,
+      "title": "[DeepSeek] Float.ofNatExact corollaries: ofNat 0 = 0.0, and a value-level statement (SW-3796 F6); ofIntMonotone's hypothesis as i ≤ j (F7)",
       "status": "backlog",
       "agent": "",
       "where": "",
