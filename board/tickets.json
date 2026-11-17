@@ -1,5 +1,5 @@
 {
-  "next": 3717,
+  "next": 3719,
   "tickets": [
     {
       "id": 47,
@@ -41227,12 +41227,12 @@
     {
       "id": 3662,
       "title": "[Sonnet] Follow-ups to SW-3655: hover on a set's name inside a rewrite repeatedly [set] call shows nothing (set_named restores a snapshot that drops the nav record); doc pages skip Decl::Rules; the expand action offers itself on any line containing the words; expand drops definition one-step unfolds",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Lane notes (Sonnet, commit 10fcca6a2 on lane/SW-3662):\n- Hover: the cause wasn't the snapshot restore: each set member is checked at the set name's span and its reference overwrote the set's. `Elaborator::note` now keeps a rule set's reference at a span. Test hover_on_a_set_named_in_a_call_shows_its_members (failed before: showed List.appendAssoc).\n- Docs: Kind::Rules, header is the whole declaration. Unit test a_rule_set_has_a_page_showing_its_rules.\n- Expand action: offered only when the cursor is within a lexed `rewrite repeatedly [` ... `]`; words in a comment or string aren't tokens. Tests: a_rewrite_repeatedly_call_expands_into_its_steps (off the call on the same line, failed before), expand_is_not_offered_on_the_words_in_a_comment_or_string.\n- Unfolds: a definition's forward unfold has no rewrite spelling and rewrite's search reads the computed goal, so a single chain still leaves it out (docs/syntax.md says so deliberately). Now recorded in the expansion: kept in the one-`rewrite repeatedly` form of a per-case call, and a chain that folds one (`<- f`) is refused. Tests: expand_is_not_offered_where_a_call_folds_a_definition (failed before: offered a chain that doesn't prove it), expand_file_keeps_unfolds_where_it_stays_repeatedly.\nModel result: sonnet, worked, ~25 min (est. 40).\n",
+      "body": "Lane notes (Sonnet, commit 10fcca6a2 on lane/SW-3662):\n- Hover: the cause wasn't the snapshot restore: each set member is checked at the set name's span and its reference overwrote the set's. `Elaborator::note` now keeps a rule set's reference at a span. Test hover_on_a_set_named_in_a_call_shows_its_members (failed before: showed List.appendAssoc).\n- Docs: Kind::Rules, header is the whole declaration. Unit test a_rule_set_has_a_page_showing_its_rules.\n- Expand action: offered only when the cursor is within a lexed `rewrite repeatedly [` ... `]`; words in a comment or string aren't tokens. Tests: a_rewrite_repeatedly_call_expands_into_its_steps (off the call on the same line, failed before), expand_is_not_offered_on_the_words_in_a_comment_or_string.\n- Unfolds: a definition's forward unfold has no rewrite spelling and rewrite's search reads the computed goal, so a single chain still leaves it out (docs/syntax.md says so deliberately). Now recorded in the expansion: kept in the one-`rewrite repeatedly` form of a per-case call, and a chain that folds one (`<- f`) is refused. Tests: expand_is_not_offered_where_a_call_folds_a_definition (failed before: offered a chain that doesn't prove it), expand_file_keeps_unfolds_where_it_stays_repeatedly.\nModel result: sonnet, worked, ~25 min (est. 40).\n\nModel result: sonnet, worked, 17 min (est. 40). Item 4 as orchestrator's call: one-chain expansions still omit forward unfolds; the fallback keeps them; chains folding one aren't offered. Follow-up SW-3717.",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
@@ -41383,12 +41383,12 @@
     {
       "id": 3674,
       "title": "[Sonnet] A record pattern directly under a constructor needs brackets (Typed ({ head, tail }) colon a); 'Typed { … }' gives 'braces after Typed in a pattern take no further arguments'. Accept it in the parser, or suggest the brackets (from Toy++ T2b)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: sonnet, worked, 4 min (est. 30). Ambiguous by design (C { f } is C's own fields): error got a second label; the note already suggested brackets.",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
@@ -41682,12 +41682,12 @@
     {
       "id": 3697,
       "title": "[Sonnet] W-PROOF-CHAIN counts lines, so stitchwort fmt silences it whenever a nest fits in 120 columns (SW-3696). Make it count the nest (two or more nested trans, any layout?) and recheck the std pins (SW-3611 lowered 205 to 157 by exempting one-line nests: measure what the new rule warns on before choosing)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\n\nLane: removed the one-line exemption (keep_written_arrows); the rule now counts the nest. Example reverted to short natural names plus a one-line case. std: at least 37 warnings in 11 files (crude list), aoc at least 6 in 4 files; not fixed. Branch lane/SW-3697.\n",
+      "body": "\n\n\nLane: removed the one-line exemption (keep_written_arrows); the rule now counts the nest. Example reverted to short natural names plus a one-line case. std: at least 37 warnings in 11 files (crude list), aoc at least 6 in 4 files; not fixed. Branch lane/SW-3697.\n\nModel result: sonnet, worked, 145 min (est. 65 with the sweep; mostly build/test waits). Follow-up SW-3718 for the AoC nests kept.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41938,6 +41938,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3717,
+      "title": "[Sonnet] LSP: every code-action request on a line with a rewrite repeatedly call queues a full search and check for the expand action (the expand tests take ~50 s each): precheck cheaply or reuse the last check's expansions (SW-3662)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3718,
+      "title": "[Sonnet] Convert the last W-PROOF-CHAIN nests in AoC (2021 Day16 Proofs/Answers.sw:66; 2024 Day12 Proofs/Sides.sw:305, :342): state the middle facts (they sit in untyped lets or are long foldLefts) so each becomes a calc (SW-3697)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-older",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
