@@ -344,9 +344,8 @@ theorem declarationsTakesUnspaced ∀ (lines: List (Spaced Declaration))
     (unspaced: Unspaced lines):
     Unspaced (declarationsWithTakes lines) :=
   match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
     | [{ blankBefore = True, line }, ..rest], unspaced => cases
+    | _, _ => cases
 
 --| P1 keeps the parser's guarantees: none of them reads `takes` but for
 --| its comments, and the `takes` it adds holds none.

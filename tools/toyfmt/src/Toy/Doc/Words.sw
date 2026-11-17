@@ -307,9 +307,8 @@ theorem fillSepsUniform ∀ (indent: Nat) (items: List Doc)
 
 --| The lines a flat fill puts between its items are no words.
 theorem joinLinesWords ∀ (items: List Doc): wordsAll (Doc.joinLines items) = wordsAll items := match items with
-  | [] => byComputing
-  | [only] => byComputing
   | [item, next, ..rest] => rewrite repeatedly [joinLinesWords [next, ..rest]]
+  | _ => cases
 
 theorem joinLinesUniform ∀ (items: List Doc) (uniform: AllUniform items): AllUniform (Doc.joinLines items) :=
   match items, uniform with

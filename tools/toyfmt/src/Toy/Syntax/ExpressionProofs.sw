@@ -1621,9 +1621,8 @@ theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.
 theorem clearedOpenEnds ∀ (open: Comments) (items: List Expr):
     itemsEndWithComment { open | above = [] } items = itemsEndWithComment open items :=
   match items with
-    | [] => byComputing
-    | [last] => byComputing
     | [first, second, ..rest] => clearedOpenEnds open [second, ..rest]
+    | _ => cases
 
 theorem shapedCleared ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withoutFirstAbove := match expr, shaped with
   | Var name comments, shaped => shaped

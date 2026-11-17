@@ -455,19 +455,17 @@ theorem lineEndedSnoc ∀ (stretches: List Stretch) (last: Stretch)
     (apart: EndsKept stretches ∨ last.Starts):
     LineEnded (stretches ++ [last]) :=
   match stretches, spaced, apart with
-    | [], _, _ => byComputing
-    | [Kept event], _, _ => byComputing
     | [Tucked comment closers], _, Inl never => (Bool.falseNotTrue never).impossible
     | [Tucked comment closers], _, Inr starts => (starts, byComputing)
     | [Kept event, next, ..rest], spaced, apart => lineEndedSnoc [next, ..rest] last spaced apart
     | [Tucked comment closers, next, ..rest], (starts, spaced), apart =>
       (starts, (lineEndedSnoc [next, ..rest] last spaced apart))
+    | _, _, _ => cases
 
 theorem endsKeptSnoc ∀ (stretches: List Stretch) (event: Event): EndsKept (stretches ++ [Kept event]) :=
   match stretches with
-    | [] => byComputing
-    | [first] => byComputing
     | [first, next, ..rest] => endsKeptSnoc [next, ..rest] event
+    | _ => cases
 
 theorem laidSnoc ∀ (stretches: List Stretch) (last: Stretch):
     laidOf (stretches ++ [last]) = laidOf stretches ++ last.laid :=

@@ -355,10 +355,9 @@ def DescendingBelow (bound: Nat): List Nat → Prop
 
 theorem belowDescending ∀ (bound: Nat) (offsets: List Nat) (below: DescendingBelow bound offsets): Descending offsets :=
   match offsets, below with
-    | [], below => byComputing
-    | [only], below => byComputing
     | [newer, older, ..rest], Both first (Both second others) =>
       (second, (belowDescending newer [older, ..rest] ((second, others))))
+    | _, _ => cases
 
 theorem belowWider ∀ (bound wider: Nat) (offsets: List Nat)
     (grows: bound ≤ wider)

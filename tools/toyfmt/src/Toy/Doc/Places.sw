@@ -947,9 +947,8 @@ theorem writeStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
 theorem tuckedSnoc ∀ (event last: Event) (before: List Event):
     tucked event (before ++ [last]) = before ++ [event, last] :=
   match before with
-    | [] => byComputing
-    | [first] => byComputing
     | [first, second, ..rest] => rewrite repeatedly [tuckedSnoc event last [second, ..rest]]
+    | _ => cases
 
 --| A word put on a line where a comment waits goes before the comment,
 --| which still waits.

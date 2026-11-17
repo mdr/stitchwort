@@ -163,9 +163,8 @@ def StaysCalm (found: Option Prior) (seen: Views): Prop := match found with
 
 theorem ownLineLast ∀ (front: List Trivia) (comment: Comment): hasOwnLine (front ++ [OwnLine comment]) = True :=
   match front with
-    | [] => byComputing
-    | [OwnLine first, ..rest] => byComputing
     | [BlankLine, ..rest] => ownLineLast rest comment
+    | _ => cases
 
 theorem ownLineReversed ∀ (comment: Comment) (rest: List Trivia): hasOwnLine [OwnLine comment, ..rest].reverse = True :=
   rewrite List.reverseCons (OwnLine comment) rest then ownLineLast rest.reverse comment
@@ -197,8 +196,6 @@ theorem afterWordViews ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (seen
           let bare: pending = [] → SteadyView view views := none =>
             ((isComma => ((rewrite none), byComputing)), (wrong => (Bool.falseNotTrue wrong).impossible))
           match prior, suited with
-            | Blanked, _ => byComputing
-            | Noted, _ => byComputing
             | Worded free, (none, _) => (
               (byComputing, view, views, byComputing, byComputing, (wrong => (Bool.falseNotTrue wrong).impossible)),
               (bare none),
@@ -209,6 +206,7 @@ theorem afterWordViews ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (seen
               (bare none),
               stable
             )
+            | _, _ => cases
         | False =>
           let steady: SteadyView view views := freshSteady kind start pending.reverse views comma
           match closer: kind.isCloser with

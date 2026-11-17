@@ -71,58 +71,49 @@ def Enters (expr: Expr) (edge: Edge): Prop := match edge with
   | _ => True
 
 theorem freeMeets ∀ (edge: Edge) (free: Free edge): Meets edge := match edge, free with
-  | Plain None, _ => byComputing
-  | Edge.Waiting None, _ => byComputing
   | Edge.Waiting (Some word), any => any
   | Plain (Some word), any => (following closing => any following)
+  | _, _ => cases
 
 theorem gappedFree ∀ (edge: Edge) (gapped: Gapped edge): Free edge := match edge, gapped with
-  | Plain None, _ => byComputing
-  | Edge.Waiting None, _ => byComputing
   | Edge.Waiting (Some word), any => any
   | Plain (Some word), never => (Bool.falseNotTrue never).impossible
+  | _, _ => cases
 
 theorem gappedMeets ∀ (edge: Edge) (gapped: Gapped edge): Meets edge := freeMeets edge (gappedFree edge gapped)
 
 theorem gappedLoose ∀ (edge: Edge) (gapped: Gapped edge): Loose edge := match edge, gapped with
-  | Plain None, _ => byComputing
-  | Edge.Waiting waited, _ => byComputing
   | Plain (Some word), never => (Bool.falseNotTrue never).impossible
+  | _, _ => cases
 
 theorem freeAdmits ∀ (text: Text) (edge: Edge) (free: Free edge): Admits text edge := match edge, free with
-  | Plain None, _ => byComputing
-  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), any => any text
+  | _, _ => cases
 
 theorem looseAdmits ∀ (text: Text) (edge: Edge) (loose: Loose edge): Admits text edge := match edge, loose with
-  | Plain None, _ => byComputing
-  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), never => (Bool.falseNotTrue never).impossible
+  | _, _ => cases
 
 theorem meetsAdmits ∀ (text: Text) (closing: Shuts text) (edge: Edge) (meets: Meets edge): Admits text edge :=
   match edge, meets with
-    | Plain None, _ => byComputing
-    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), any => any text closing
+    | _, _ => cases
 
 theorem freeEnters ∀ (expr: Expr) (edge: Edge) (free: Free edge): Enters expr edge := match edge, free with
-  | Plain None, _ => byComputing
-  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), any => ((text opens => any text), (minus => any "-"))
+  | _, _ => cases
 
 theorem looseEnters ∀ (expr: Expr) (edge: Edge) (loose: Loose edge): Enters expr edge := match edge, loose with
-  | Plain None, _ => byComputing
-  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), never => (Bool.falseNotTrue never).impossible
+  | _, _ => cases
 
 theorem entersAdmits ∀ (expr: Expr) (text: Text)
     (opens: Opens text) (edge: Edge)
     (enters: Enters expr edge):
     Admits text edge :=
   match edge, enters with
-    | Plain None, _ => byComputing
-    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), Both any _ => any text opens
+    | _, _ => cases
 
 theorem leftMeets ∀ (text: Text) (ends: Ends text) (edge: Edge) (left: Left text edge): Meets edge :=
   match edge, left with

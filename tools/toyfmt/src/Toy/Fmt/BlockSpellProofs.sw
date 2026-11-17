@@ -189,9 +189,8 @@ theorem risingFront ∀ (front back: List (Parse.Located Token))
     (rising: Rising ((front ++ back).map (found => found.offset))):
     Rising (front.map (found => found.offset)) :=
   match front, rising with
-    | [], _ => byComputing
-    | [only], _ => byComputing
     | [lower, higher, ..rest], Both above more => (above, (risingFront [higher, ..rest] back more))
+    | _, _ => cases
 
 theorem risingBack ∀ (front back: List (Parse.Located Token))
     (rising: Rising ((front ++ back).map (found => found.offset))):

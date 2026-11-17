@@ -186,9 +186,8 @@ theorem statementTraverseCoded ∀ (step: Position → Expr → Expr) (line: Sta
     (coded: Coded line):
     Coded (line.traverse step bracketed) :=
   match line, coded with
-    | Let _ _ _ _ _, _ => byComputing
-    | Bare _, _ => byComputing
     | StatementNote _, coded => coded
+    | _, _ => cases
 
 --| The traversal keeps every statement a statement, so a body still ends
 --| in one.
@@ -558,9 +557,8 @@ theorem linesTraverseUnspaced ∀ (step: Position → Expr → Expr) (lines: Lis
     (unspaced: Unspaced lines):
     Unspaced (traverseLines step bracketed lines) :=
   match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
     | [{ blankBefore = True, line }, ..rest], unspaced => cases
+    | _, _ => cases
 
 theorem linesTraverseOne ∀ (step: Position → Expr → Expr) (lines: List (Spaced Statement)) (bracketed: Bool)
     (one: OneExpression lines):
@@ -919,9 +917,8 @@ theorem declarationsTraverseUnspaced ∀ (step: Position → Expr → Expr)
     (unspaced: Unspaced lines):
     Unspaced (traverseDeclarations step declare lines) :=
   match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
     | [{ blankBefore = True, line }, ..rest], unspaced => cases
+    | _, _ => cases
 
 --| A traversal whose step and `declare` keep the parser's guarantees
 --| keeps the file's.
