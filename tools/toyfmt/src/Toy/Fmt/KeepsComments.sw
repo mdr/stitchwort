@@ -101,13 +101,16 @@ theorem commasKeepComments ∀ (file: SourceFile): file.withTakes.withoutTrailin
 def StepKeepsComments (step: Position → Expr → Expr): Prop :=
   ∀ (position: Position) (expr: Expr) => (step position expr).comments = expr.comments
 
-theorem traverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (expr: Expr)
-    (position: Position):
+theorem traverseComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step)
+    (expr: Expr) (position: Position):
     (expr.traverse step position).comments = expr.comments :=
   rewrite keeps position (expr.traverseInside step position.bracketed) then
     insideComments step keeps expr position.bracketed
 
-theorem insideComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (expr: Expr) (bracketed: Bool):
+theorem insideComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step)
+    (expr: Expr) (bracketed: Bool):
     (expr.traverseInside step bracketed).comments = expr.comments :=
   match expr with
     | Var _ _ => byComputing
@@ -128,19 +131,23 @@ theorem insideComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsC
           bodyTraverseComments step keeps whenTrue bracketed,
           bodyTraverseComments step keeps whenFalse bracketed
 
-theorem itemsTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (items: List Expr):
+theorem itemsTraverseComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step) (items: List Expr):
     itemsComments (traverseItems step items) = itemsComments items :=
   match items with
     | [] => byComputing
     | [value, ..rest] =>
-      rewrite traverseComments step keeps value { bracketed = True, slot = Whole }, itemsTraverseComments step keeps rest
+      rewrite traverseComments step keeps value { bracketed = True, slot = Whole },
+          itemsTraverseComments step keeps rest
 
-theorem bodyTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (body: Body)
-    (bracketed: Bool):
+theorem bodyTraverseComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step)
+    (body: Body) (bracketed: Bool):
     (body.traverse step bracketed).comments = body.comments :=
   match body with | { statements } => rewrite linesTraverseComments step keeps statements bracketed
 
-theorem linesTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step)
+theorem linesTraverseComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step)
     (lines: List (Spaced Statement)) (bracketed: Bool):
     linesComments (traverseLines step bracketed lines) = linesComments lines :=
   match lines with
@@ -148,16 +155,17 @@ theorem linesTraverseComments ∀ (step: Position → Expr → Expr) (keeps: Ste
     | [{ blankBefore, line }, ..rest] =>
       rewrite statementTraverseComments step keeps line bracketed, linesTraverseComments step keeps rest bracketed
 
-theorem statementTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (line: Statement)
-    (bracketed: Bool):
+theorem statementTraverseComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step)
+    (line: Statement) (bracketed: Bool):
     (line.traverse step bracketed).comments = line.comments :=
   match line with
     | Let _ _ _ _ body => rewrite bodyTraverseComments step keeps body False
     | Bare value => rewrite traverseComments step keeps value { bracketed, slot = Whole }
     | StatementNote _ => byComputing
 
-theorem declarationTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step)
-    (line: Declaration):
+theorem declarationTraverseComments ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsComments step) (line: Declaration):
     (line.traverseBody step).comments = line.comments :=
   match line with
     | Function _ _ _ _ _ _ _ _ _ body => rewrite bodyTraverseComments step keeps body False
@@ -166,8 +174,7 @@ theorem declarationTraverseComments ∀ (step: Position → Expr → Expr) (keep
 
 theorem declarationsTraverseComments ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
     (keeps: StepKeepsComments step)
-    (declareKeeps: ∀ (line: Declaration) => (declare line).comments = line.comments)
-    (lines: List (Spaced Declaration)):
+    (declareKeeps: ∀ (line: Declaration) => (declare line).comments = line.comments) (lines: List (Spaced Declaration)):
     (traverseDeclarations step declare lines).flatMap (spaced => spaced.line.comments)
       = lines.flatMap (spaced => spaced.line.comments) :=
   match lines with
@@ -179,8 +186,8 @@ theorem declarationsTraverseComments ∀ (step: Position → Expr → Expr) (dec
 
 -- P3 keeps every comment: it drops only pairs that hold none.
 
-theorem noneAll ∀ (comments: Comments) (none: comments.isNone = True): comments.all = [] :=
-  match comments, none with | { above = [], after = None }, _ => byComputing
+theorem noneAll ∀ (comments: Comments) (none: comments.isNone = True): comments.all = [] := match comments, none with
+  | { above = [], after = None }, _ => byComputing
 
 theorem dropComments: StepKeepsComments dropPair := position expr =>
   match expr with
@@ -226,7 +233,10 @@ theorem declareSpareComments ∀ (line: Declaration): line.withoutSpareTypeBrack
 
 --| P3 keeps every comment the tree holds, in order.
 theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.comments = file.comments :=
-  declarationsTraverseComments dropPair (line => line.withoutSpareTypeBrackets) dropComments declareSpareComments
+  declarationsTraverseComments dropPair
+    (line => line.withoutSpareTypeBrackets)
+    dropComments
+    declareSpareComments
     file.declarations
 
 --| The passes keep every comment the tree holds, in order.

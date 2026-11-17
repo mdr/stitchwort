@@ -21,12 +21,16 @@ import Std (Bool, Eq, List, Nat, Option, Text)
 def StepKeepsPlain (step: Position → Expr → Expr): Prop :=
   ∀ (position: Position) (expr: Expr) => (step position expr).plain = expr.plain
 
-theorem traversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step) (expr: Expr) (position: Position):
+theorem traversePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step)
+    (expr: Expr) (position: Position):
     (expr.traverse step position).plain = expr.plain :=
   rewrite keeps position (expr.traverseInside step position.bracketed) then
     insidePlain step keeps expr position.bracketed
 
-theorem insidePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step) (expr: Expr) (bracketed: Bool):
+theorem insidePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step)
+    (expr: Expr) (bracketed: Bool):
     (expr.traverseInside step bracketed).plain = expr.plain :=
   match expr with
     | Var _ _ => byComputing
@@ -35,8 +39,7 @@ theorem insidePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlai
     | Bracketed _ inner _ => rewrite traversePlain step keeps inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => rewrite itemsTraversePlain step keeps items
     | Call callee _ arguments _ _ =>
-      rewrite traversePlain step keeps callee { bracketed, slot = PostfixSlot },
-          itemsTraversePlain step keeps arguments
+      rewrite traversePlain step keeps callee { bracketed, slot = PostfixSlot }, itemsTraversePlain step keeps arguments
     | Field target _ _ _ => rewrite traversePlain step keeps target { bracketed, slot = PostfixSlot }
     | Negate _ operand => rewrite traversePlain step keeps operand { bracketed, slot = OperandSlot }
     | Binary operator _ left right =>
@@ -47,18 +50,22 @@ theorem insidePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlai
           bodyTraversePlain step keeps whenTrue bracketed,
           bodyTraversePlain step keeps whenFalse bracketed
 
-theorem itemsTraversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step) (items: List Expr):
+theorem itemsTraversePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step) (items: List Expr):
     plainItems (traverseItems step items) = plainItems items :=
   match items with
     | [] => byComputing
     | [value, ..rest] =>
       rewrite traversePlain step keeps value { bracketed = True, slot = Whole }, itemsTraversePlain step keeps rest
 
-theorem bodyTraversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step) (body: Body) (bracketed: Bool):
+theorem bodyTraversePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step)
+    (body: Body) (bracketed: Bool):
     (body.traverse step bracketed).plain = body.plain :=
   match body with | { statements } => rewrite linesTraversePlain step keeps statements bracketed
 
-theorem linesTraversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step)
+theorem linesTraversePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step)
     (lines: List (Spaced Statement)) (bracketed: Bool):
     plainLines (traverseLines step bracketed lines) = plainLines lines :=
   match lines with
@@ -66,8 +73,9 @@ theorem linesTraversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKe
     | [{ blankBefore, line }, ..rest] =>
       rewrite statementTraversePlain step keeps line bracketed, linesTraversePlain step keeps rest bracketed
 
-theorem statementTraversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step) (line: Statement)
-    (bracketed: Bool):
+theorem statementTraversePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step)
+    (line: Statement) (bracketed: Bool):
     (line.traverse step bracketed).plain = line.plain :=
   match line with
     | Let _ _ _ _ body => rewrite bodyTraversePlain step keeps body False
@@ -79,12 +87,18 @@ theorem statementTraversePlain ∀ (step: Position → Expr → Expr) (keeps: St
 def StepKeepsLexical (step: Position → Expr → Expr): Prop :=
   ∀ (position: Position) (expr: Expr) (lexical: Lexical expr) => Lexical (step position expr)
 
-theorem traverseLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLexical step) (expr: Expr) (position: Position)
+theorem traverseLexical ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsLexical step)
+    (expr: Expr) (position: Position)
     (lexical: Lexical expr):
     Lexical (expr.traverse step position) :=
-  keeps position (expr.traverseInside step position.bracketed) (insideLexical step keeps expr position.bracketed lexical)
+  keeps position
+    (expr.traverseInside step position.bracketed)
+    (insideLexical step keeps expr position.bracketed lexical)
 
-theorem insideLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLexical step) (expr: Expr) (bracketed: Bool)
+theorem insideLexical ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsLexical step)
+    (expr: Expr) (bracketed: Bool)
     (lexical: Lexical expr):
     Lexical (expr.traverseInside step bracketed) :=
   match expr, lexical with
@@ -110,7 +124,8 @@ theorem insideLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLe
       traverseLexical step keeps left { bracketed, slot = LeftOf operator.level } leftLexical,
       traverseLexical step keeps right { bracketed, slot = RightOf operator.level } rightLexical
     )
-    | If _ condition _ whenTrue _ whenFalse, (ifFine, conditionLexical, thenFine, trueLexical, elseFine, falseLexical) => (
+    | If _ condition _ whenTrue _ whenFalse, (ifFine, conditionLexical, thenFine, trueLexical, elseFine,
+        falseLexical) => (
       ifFine,
       traverseLexical step keeps condition { bracketed, slot = Whole } conditionLexical,
       thenFine,
@@ -119,7 +134,8 @@ theorem insideLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLe
       bodyTraverseLexical step keeps whenFalse bracketed falseLexical
     )
 
-theorem itemsTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLexical step) (items: List Expr)
+theorem itemsTraverseLexical ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsLexical step) (items: List Expr)
     (lexical: LexicalItems items):
     LexicalItems (traverseItems step items) :=
   match items, lexical with
@@ -129,8 +145,10 @@ theorem itemsTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: Step
       itemsTraverseLexical step keeps rest restLexical
     )
 
-theorem bodyTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLexical step) (body: Body)
-    (bracketed: Bool) (lexical: LexicalBody body):
+theorem bodyTraverseLexical ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsLexical step)
+    (body: Body) (bracketed: Bool)
+    (lexical: LexicalBody body):
     LexicalBody (body.traverse step bracketed) :=
   match body, lexical with
     | { statements }, (linesLexical, closed) => (
@@ -138,8 +156,10 @@ theorem bodyTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: StepK
       linesTraverseClosed step statements bracketed closed
     )
 
-theorem linesTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLexical step)
-    (lines: List (Spaced Statement)) (bracketed: Bool) (lexical: LexicalLines lines):
+theorem linesTraverseLexical ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsLexical step)
+    (lines: List (Spaced Statement)) (bracketed: Bool)
+    (lexical: LexicalLines lines):
     LexicalLines (traverseLines step bracketed lines) :=
   match lines, lexical with
     | [], _ => byComputing
@@ -148,8 +168,10 @@ theorem linesTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: Step
       linesTraverseLexical step keeps rest bracketed restLexical
     )
 
-theorem statementTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: StepKeepsLexical step) (line: Statement)
-    (bracketed: Bool) (lexical: LexicalStatement line):
+theorem statementTraverseLexical ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsLexical step)
+    (line: Statement) (bracketed: Bool)
+    (lexical: LexicalStatement line):
     LexicalStatement (line.traverse step bracketed) :=
   match line, lexical with
     | Let _ _ _ _ body, (letFine, isName, nameFine, equalsFine, bodyLexical) =>
@@ -157,7 +179,8 @@ theorem statementTraverseLexical ∀ (step: Position → Expr → Expr) (keeps: 
     | Bare value, lexical => traverseLexical step keeps value { bracketed, slot = Whole } lexical
     | StatementNote _, lexical => lexical
 
-theorem statementTraverseCoded ∀ (step: Position → Expr → Expr) (line: Statement) (bracketed: Bool) (coded: Coded line):
+theorem statementTraverseCoded ∀ (step: Position → Expr → Expr) (line: Statement) (bracketed: Bool)
+    (coded: Coded line):
     Coded (line.traverse step bracketed) :=
   match line, coded with
     | Let _ _ _ _ _, _ => byComputing
@@ -179,12 +202,16 @@ theorem linesTraverseClosed ∀ (step: Position → Expr → Expr) (lines: List 
 def StepKeepsCommas (step: Position → Expr → Expr): Prop :=
   ∀ (position: Position) (expr: Expr) (none: NoTrailingCommas expr) => NoTrailingCommas (step position expr)
 
-theorem traverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step) (expr: Expr) (position: Position)
+theorem traverseCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step)
+    (expr: Expr) (position: Position)
     (none: NoTrailingCommas expr):
     NoTrailingCommas (expr.traverse step position) :=
   keeps position (expr.traverseInside step position.bracketed) (insideCommas step keeps expr position.bracketed none)
 
-theorem insideCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step) (expr: Expr) (bracketed: Bool)
+theorem insideCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step)
+    (expr: Expr) (bracketed: Bool)
     (none: NoTrailingCommas expr):
     NoTrailingCommas (expr.traverseInside step bracketed) :=
   match expr, none with
@@ -210,7 +237,8 @@ theorem insideCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCom
       bodyTraverseCommas step keeps whenFalse bracketed falseNone
     )
 
-theorem itemsTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step) (items: List Expr)
+theorem itemsTraverseCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step) (items: List Expr)
     (none: NoTrailingCommasItems items):
     NoTrailingCommasItems (traverseItems step items) :=
   match items, none with
@@ -220,13 +248,17 @@ theorem itemsTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepK
       itemsTraverseCommas step keeps rest restNone
     )
 
-theorem bodyTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step) (body: Body)
-    (bracketed: Bool) (none: NoTrailingCommasBody body):
+theorem bodyTraverseCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step)
+    (body: Body) (bracketed: Bool)
+    (none: NoTrailingCommasBody body):
     NoTrailingCommasBody (body.traverse step bracketed) :=
   match body, none with | { statements }, none => linesTraverseCommas step keeps statements bracketed none
 
-theorem linesTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step)
-    (lines: List (Spaced Statement)) (bracketed: Bool) (none: NoTrailingCommasLines lines):
+theorem linesTraverseCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step)
+    (lines: List (Spaced Statement)) (bracketed: Bool)
+    (none: NoTrailingCommasLines lines):
     NoTrailingCommasLines (traverseLines step bracketed lines) :=
   match lines, none with
     | [], _ => byComputing
@@ -235,8 +267,10 @@ theorem linesTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepK
       linesTraverseCommas step keeps rest bracketed restNone
     )
 
-theorem statementTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step) (line: Statement)
-    (bracketed: Bool) (none: NoTrailingCommasStatement line):
+theorem statementTraverseCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step)
+    (line: Statement) (bracketed: Bool)
+    (none: NoTrailingCommasStatement line):
     NoTrailingCommasStatement (line.traverse step bracketed) :=
   match line, none with
     | Let _ _ _ _ body, none => bodyTraverseCommas step keeps body False none
@@ -255,22 +289,29 @@ def ShapedAt (slot: Slot) (expr: Expr): Prop := Shaped expr ∧ expr.fits slot =
 def EndKept (before after: Expr): Prop := before.endsWithComment = True → after.endsWithComment = True
 
 def StepKeepsShaped (step: Position → Expr → Expr): Prop :=
-  ∀ (position: Position) (expr: Expr) (shaped: ShapedAt position.slot expr) =>
-    ShapedAt position.slot (step position expr) ∧ EndKept expr (step position expr)
+  ∀ (position: Position) (expr: Expr) (shaped: ShapedAt position.slot expr) => ShapedAt position.slot
+    (step position expr)
+    ∧ EndKept expr (step position expr)
 
-theorem fitsLeftOf ∀ (expr: Expr) (level: Nat) (chain: expr.isChain = True) (low: level ≤ expr.chainLevel):
+theorem fitsLeftOf ∀ (expr: Expr) (level: Nat)
+    (chain: expr.isChain = True)
+    (low: level ≤ expr.chainLevel):
     expr.fits (LeftOf level) = True :=
   (chain, low)
 
-theorem leftOfFits ∀ (expr: Expr) (level: Nat) (fits: expr.fits (LeftOf level) = True):
+theorem leftOfFits ∀ (expr: Expr) (level: Nat)
+    (fits: expr.fits (LeftOf level) = True):
     expr.isChain = True ∧ level ≤ expr.chainLevel :=
   fits.read
 
-theorem fitsRightOf ∀ (expr: Expr) (level: Nat) (chain: expr.isChain = True) (low: level < expr.chainLevel):
+theorem fitsRightOf ∀ (expr: Expr) (level: Nat)
+    (chain: expr.isChain = True)
+    (low: level < expr.chainLevel):
     expr.fits (RightOf level) = True :=
   (chain, low)
 
-theorem rightOfFits ∀ (expr: Expr) (level: Nat) (fits: expr.fits (RightOf level) = True):
+theorem rightOfFits ∀ (expr: Expr) (level: Nat)
+    (fits: expr.fits (RightOf level) = True):
     expr.isChain = True ∧ level < expr.chainLevel :=
   fits.read
 
@@ -287,7 +328,9 @@ theorem insideFits ∀ (step: Position → Expr → Expr) (expr: Expr) (brackete
     (expr.traverseInside step bracketed).fits slot = expr.fits slot :=
   cases
 
-theorem traverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsShaped step) (expr: Expr) (position: Position)
+theorem traverseShaped ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsShaped step)
+    (expr: Expr) (position: Position)
     (shaped: ShapedAt position.slot expr):
     ShapedAt position.slot (expr.traverse step position) ∧ EndKept expr (expr.traverse step position) :=
   let (insideShaped, insideEnd) := insideShaped step keeps expr position.bracketed shaped.left
@@ -298,7 +341,9 @@ theorem traverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsS
 
 --| A node's children traversed keep their shape where they stand, so the
 --| node keeps its own.
-theorem insideShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsShaped step) (expr: Expr) (bracketed: Bool)
+theorem insideShaped ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsShaped step)
+    (expr: Expr) (bracketed: Bool)
     (shaped: Shaped expr):
     Shaped (expr.traverseInside step bracketed) ∧ EndKept expr (expr.traverseInside step bracketed) :=
   match expr, shaped with
@@ -306,7 +351,8 @@ theorem insideShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsSha
     | NumberLiteral _ _, shaped => (shaped, (ends => ends))
     | StringLiteral _ _, shaped => (shaped, (ends => ends))
     | Bracketed _ inner close, (innerShaped, settled) =>
-      let (innerAt, innerEnd) := traverseShaped step keeps inner { bracketed = True, slot = Whole } (innerShaped, byComputing)
+      let (innerAt, innerEnd) :=
+        traverseShaped step keeps inner { bracketed = True, slot = Whole } (innerShaped, byComputing)
       ((innerAt.left, settledGrows _ _ close settled innerEnd), (ends => ends))
     | ListLiteral open items _ close, (itemsShaped, settled) =>
       let (itemsAt, itemsEnd) := itemsTraverseShaped step keeps open items itemsShaped
@@ -323,36 +369,44 @@ theorem insideShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsSha
         traverseShaped step keeps operand { bracketed, slot = OperandSlot } (operandShaped, isOperand)
       ((operandAt.right, operandAt.left), operandEnd)
     | Binary operator _ left right, (leftLevel, rightLevel, leftChain, rightChain, leftShaped, rightShaped) =>
-      let (leftAt, _) :=
-        traverseShaped step keeps left { bracketed, slot = LeftOf operator.level }
-          (leftShaped, fitsLeftOf left operator.level leftChain leftLevel)
-      let (rightAt, rightEnd) :=
-        traverseShaped step keeps right { bracketed, slot = RightOf operator.level }
-          (rightShaped, fitsRightOf right operator.level rightChain rightLevel)
+      let (leftAt, _) := traverseShaped step keeps left { bracketed, slot = LeftOf operator.level } (
+        leftShaped,
+        fitsLeftOf left operator.level leftChain leftLevel
+      )
+      let (rightAt, rightEnd) := traverseShaped step keeps right { bracketed, slot = RightOf operator.level } (
+        rightShaped,
+        fitsRightOf right operator.level rightChain rightLevel
+      )
       let (leftChain1, leftLevel1) := leftOfFits _ operator.level leftAt.right
       let (rightChain1, rightLevel1) := rightOfFits _ operator.level rightAt.right
       ((leftLevel1, rightLevel1, leftChain1, rightChain1, leftAt.left, rightAt.left), rightEnd)
     | If _ condition _ whenTrue _ whenFalse, (conditionShaped, trueShaped, falseShaped) =>
-      let (conditionAt, _) := traverseShaped step keeps condition { bracketed, slot = Whole } (conditionShaped, byComputing)
+      let (conditionAt, _) :=
+        traverseShaped step keeps condition { bracketed, slot = Whole } (conditionShaped, byComputing)
       let (trueAt, _) := bodyTraverseShaped step keeps whenTrue bracketed trueShaped
       let (falseAt, falseEnd) := bodyTraverseShaped step keeps whenFalse bracketed falseShaped
       ((conditionAt.left, trueAt, falseAt), falseEnd)
 
-theorem itemsTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsShaped step) (open: Comments)
-    (items: List Expr) (shaped: ShapedItems items):
+theorem itemsTraverseShaped ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsShaped step)
+    (open: Comments) (items: List Expr)
+    (shaped: ShapedItems items):
     ShapedItems (traverseItems step items)
       ∧ (itemsEndWithComment open items = True → itemsEndWithComment open (traverseItems step items) = True) :=
   match items, shaped with
     | [], _ => (byComputing, (ends => ends))
     | [value], (valueShaped, _) =>
-      let (valueAt, valueEnd) := traverseShaped step keeps value { bracketed = True, slot = Whole } (valueShaped, byComputing)
+      let (valueAt, valueEnd) :=
+        traverseShaped step keeps value { bracketed = True, slot = Whole } (valueShaped, byComputing)
       ((valueAt.left, byComputing), valueEnd)
     | [first, second, ..rest], (firstShaped, restShaped) =>
       let (firstAt, _) := traverseShaped step keeps first { bracketed = True, slot = Whole } (firstShaped, byComputing)
       let (restAt, restEnd) := itemsTraverseShaped step keeps open [second, ..rest] restShaped
       ((firstAt.left, restAt), restEnd)
 
-theorem bodyTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsShaped step) (body: Body) (bracketed: Bool)
+theorem bodyTraverseShaped ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsShaped step)
+    (body: Body) (bracketed: Bool)
     (shaped: ShapedBody body):
     ShapedBody (body.traverse step bracketed)
       ∧ (body.endsWithComment = True → (body.traverse step bracketed).endsWithComment = True) :=
@@ -361,10 +415,13 @@ theorem bodyTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKe
       let (linesAt, linesEnd) := linesTraverseShaped step keeps statements bracketed linesShaped
       ((linesAt, linesTraverseClosed step statements bracketed closed), linesEnd)
 
-theorem linesTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsShaped step)
-    (lines: List (Spaced Statement)) (bracketed: Bool) (shaped: ShapedLines lines):
+theorem linesTraverseShaped ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsShaped step)
+    (lines: List (Spaced Statement)) (bracketed: Bool)
+    (shaped: ShapedLines lines):
     ShapedLines (traverseLines step bracketed lines)
-      ∧ (statementsEndWithComment lines = True → statementsEndWithComment (traverseLines step bracketed lines) = True) :=
+      ∧ (statementsEndWithComment lines = True
+        → statementsEndWithComment (traverseLines step bracketed lines) = True) :=
   match lines, shaped with
     | [], _ => (byComputing, (ends => ends))
     | [{ blankBefore, line }], (lineShaped, _) =>
@@ -375,8 +432,10 @@ theorem linesTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepK
       let (restAt, restEnd) := linesTraverseShaped step keeps [second, ..rest] bracketed restShaped
       ((lineAt, restAt), restEnd)
 
-theorem statementTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: StepKeepsShaped step) (line: Statement)
-    (bracketed: Bool) (shaped: ShapedStatement line):
+theorem statementTraverseShaped ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsShaped step)
+    (line: Statement) (bracketed: Bool)
+    (shaped: ShapedStatement line):
     ShapedStatement (line.traverse step bracketed)
       ∧ (line.endsWithComment = True → (line.traverse step bracketed).endsWithComment = True) :=
   match line, shaped with
@@ -391,17 +450,23 @@ theorem statementTraverseShaped ∀ (step: Position → Expr → Expr) (keeps: S
 -- its statement asks of it outside brackets.
 
 def StepKeepsHeaded (step: Position → Expr → Expr): Prop :=
-  ∀ (position: Position) (expr: Expr) (headed: HeadedExpr position.bracketed expr) =>
-    HeadedExpr position.bracketed (step position expr) ∧ (step position expr).firstAbove = expr.firstAbove
+  ∀ (position: Position) (expr: Expr) (headed: HeadedExpr position.bracketed expr) => HeadedExpr position.bracketed
+    (step position expr)
+    ∧ (step position expr).firstAbove = expr.firstAbove
 
-theorem traverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHeaded step) (expr: Expr) (position: Position)
+theorem traverseHeaded ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsHeaded step)
+    (expr: Expr) (position: Position)
     (headed: HeadedExpr position.bracketed expr):
-    HeadedExpr position.bracketed (expr.traverse step position) ∧ (expr.traverse step position).firstAbove = expr.firstAbove :=
+    HeadedExpr position.bracketed (expr.traverse step position)
+      ∧ (expr.traverse step position).firstAbove = expr.firstAbove :=
   let (insideHeaded, insideAbove) := insideHeaded step keeps expr position.bracketed headed
   let (stepHeaded, stepAbove) := keeps position (expr.traverseInside step position.bracketed) insideHeaded
   (stepHeaded, stepAbove.trans insideAbove)
 
-theorem insideHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHeaded step) (expr: Expr) (bracketed: Bool)
+theorem insideHeaded ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsHeaded step)
+    (expr: Expr) (bracketed: Bool)
     (headed: HeadedExpr bracketed expr):
     HeadedExpr bracketed (expr.traverseInside step bracketed)
       ∧ (expr.traverseInside step bracketed).firstAbove = expr.firstAbove :=
@@ -413,13 +478,15 @@ theorem insideHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHea
       ((traverseHeaded step keeps inner { bracketed = True, slot = Whole } headed).left, byComputing)
     | ListLiteral _ items _ _, headed => (itemsTraverseHeaded step keeps items headed, byComputing)
     | Call callee _ arguments _ _, (calleeHeaded, argumentsHeaded) =>
-      let (calleeHeaded1, calleeAbove) := traverseHeaded step keeps callee { bracketed, slot = PostfixSlot } calleeHeaded
+      let (calleeHeaded1, calleeAbove) :=
+        traverseHeaded step keeps callee { bracketed, slot = PostfixSlot } calleeHeaded
       ((calleeHeaded1, itemsTraverseHeaded step keeps arguments argumentsHeaded), calleeAbove)
     | Field target _ _ _, headed => traverseHeaded step keeps target { bracketed, slot = PostfixSlot } headed
     | Negate _ operand, headed =>
       ((traverseHeaded step keeps operand { bracketed, slot = OperandSlot } headed).left, byComputing)
     | Binary operator _ left right, (leftHeaded, rightHeaded) =>
-      let (leftHeaded1, leftAbove) := traverseHeaded step keeps left { bracketed, slot = LeftOf operator.level } leftHeaded
+      let (leftHeaded1, leftAbove) :=
+        traverseHeaded step keeps left { bracketed, slot = LeftOf operator.level } leftHeaded
       let (rightHeaded1, _) := traverseHeaded step keeps right { bracketed, slot = RightOf operator.level } rightHeaded
       ((leftHeaded1, rightHeaded1), leftAbove)
     | If _ condition _ whenTrue _ whenFalse, (conditionHeaded, trueHeaded, falseHeaded) => (
@@ -431,7 +498,8 @@ theorem insideHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHea
       byComputing
     )
 
-theorem itemsTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHeaded step) (items: List Expr)
+theorem itemsTraverseHeaded ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsHeaded step) (items: List Expr)
     (headed: HeadedItems items):
     HeadedItems (traverseItems step items) :=
   match items, headed with
@@ -441,8 +509,10 @@ theorem itemsTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepK
       itemsTraverseHeaded step keeps rest restHeaded
     )
 
-theorem bodyTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHeaded step) (body: Body)
-    (bracketed: Bool) (headed: HeadedBody bracketed body):
+theorem bodyTraverseHeaded ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsHeaded step)
+    (body: Body) (bracketed: Bool)
+    (headed: HeadedBody bracketed body):
     HeadedBody bracketed (body.traverse step bracketed) :=
   match body, headed with
     | { statements }, (linesHeaded, unspaced, one) => (
@@ -451,8 +521,10 @@ theorem bodyTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKe
       (inside => linesTraverseOne step statements bracketed (one inside))
     )
 
-theorem linesTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHeaded step)
-    (lines: List (Spaced Statement)) (bracketed: Bool) (headed: HeadedLines bracketed lines):
+theorem linesTraverseHeaded ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsHeaded step)
+    (lines: List (Spaced Statement)) (bracketed: Bool)
+    (headed: HeadedLines bracketed lines):
     HeadedLines bracketed (traverseLines step bracketed lines) :=
   match lines, headed with
     | [], _ => byComputing
@@ -461,8 +533,10 @@ theorem linesTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepK
       linesTraverseHeaded step keeps rest bracketed restHeaded
     )
 
-theorem statementTraverseHeaded ∀ (step: Position → Expr → Expr) (keeps: StepKeepsHeaded step) (line: Statement)
-    (bracketed: Bool) (headed: HeadedStatement bracketed line):
+theorem statementTraverseHeaded ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsHeaded step)
+    (line: Statement) (bracketed: Bool)
+    (headed: HeadedStatement bracketed line):
     HeadedStatement bracketed (line.traverse step bracketed) :=
   match line, headed with
     | Let _ _ _ _ body, (letAbove, bodyHeaded) => (letAbove, bodyTraverseHeaded step keeps body False bodyHeaded)
@@ -497,9 +571,12 @@ def AllInside (done: Position → Expr → Prop) (bracketed: Bool): Expr → Pro
   | Field target _ _ _ => AllAt done { bracketed, slot = PostfixSlot } target
   | Negate _ operand => AllAt done { bracketed, slot = OperandSlot } operand
   | Binary operator _ left right =>
-    AllAt done { bracketed, slot = LeftOf operator.level } left ∧ AllAt done { bracketed, slot = RightOf operator.level } right
+    AllAt done { bracketed, slot = LeftOf operator.level } left
+      ∧ AllAt done { bracketed, slot = RightOf operator.level } right
   | If _ condition _ whenTrue _ whenFalse =>
-    AllAt done { bracketed, slot = Whole } condition ∧ AllBody done bracketed whenTrue ∧ AllBody done bracketed whenFalse
+    AllAt done { bracketed, slot = Whole } condition
+      ∧ AllBody done bracketed whenTrue
+      ∧ AllBody done bracketed whenFalse
   | _ => True
 
 def AllItems (done: Position → Expr → Prop): List Expr → Prop
@@ -524,16 +601,20 @@ def StepFixes (step: Position → Expr → Expr) (done: Position → Expr → Pr
 
 --| Once every node inside is done, the step's result is done throughout.
 def StepReaches (step: Position → Expr → Expr) (done: Position → Expr → Prop): Prop :=
-  ∀ (position: Position) (expr: Expr) (inside: AllInside done position.bracketed expr) =>
-    AllAt done position (step position expr)
+  ∀ (position: Position) (expr: Expr) (inside: AllInside done position.bracketed expr) => AllAt done position
+    (step position expr)
 
-theorem traverseFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (expr: Expr) (position: Position) (all: AllAt done position expr):
+theorem traverseFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (expr: Expr) (position: Position)
+    (all: AllAt done position expr):
     expr.traverse step position = expr :=
   rewrite insideFixed step done fixes expr position.bracketed all.right then fixes position expr all.left
 
-theorem insideFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (expr: Expr) (bracketed: Bool) (all: AllInside done bracketed expr):
+theorem insideFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (expr: Expr) (bracketed: Bool)
+    (all: AllInside done bracketed expr):
     expr.traverseInside step bracketed = expr :=
   match expr, all with
     | Var _ _, _ => byComputing
@@ -554,8 +635,9 @@ theorem insideFixed ∀ (step: Position → Expr → Expr) (done: Position → E
           bodyFixed step done fixes whenTrue bracketed trueAll,
           bodyFixed step done fixes whenFalse bracketed falseAll
 
-theorem itemsFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (items: List Expr) (all: AllItems done items):
+theorem itemsFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done) (items: List Expr)
+    (all: AllItems done items):
     traverseItems step items = items :=
   match items, all with
     | [], _ => byComputing
@@ -563,33 +645,43 @@ theorem itemsFixed ∀ (step: Position → Expr → Expr) (done: Position → Ex
       rewrite traverseFixed step done fixes value { bracketed = True, slot = Whole } valueAll,
           itemsFixed step done fixes rest restAll
 
-theorem bodyFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (body: Body) (bracketed: Bool) (all: AllBody done bracketed body):
+theorem bodyFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (body: Body) (bracketed: Bool)
+    (all: AllBody done bracketed body):
     body.traverse step bracketed = body :=
   match body, all with | { statements }, all => rewrite linesFixed step done fixes statements bracketed all
 
-theorem linesFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (lines: List (Spaced Statement)) (bracketed: Bool) (all: AllLines done bracketed lines):
+theorem linesFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (lines: List (Spaced Statement)) (bracketed: Bool)
+    (all: AllLines done bracketed lines):
     traverseLines step bracketed lines = lines :=
   match lines, all with
     | [], _ => byComputing
     | [{ blankBefore, line }, ..rest], (lineAll, restAll) =>
       rewrite statementFixed step done fixes line bracketed lineAll, linesFixed step done fixes rest bracketed restAll
 
-theorem statementFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (line: Statement) (bracketed: Bool) (all: AllStatement done bracketed line):
+theorem statementFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (line: Statement) (bracketed: Bool)
+    (all: AllStatement done bracketed line):
     line.traverse step bracketed = line :=
   match line, all with
     | Let _ _ _ _ body, all => rewrite bodyFixed step done fixes body False all
     | Bare value, all => rewrite traverseFixed step done fixes value { bracketed, slot = Whole } all
     | StatementNote _, _ => byComputing
 
-theorem traverseReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (reaches: StepReaches step done)
+theorem traverseReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (reaches: StepReaches step done)
     (expr: Expr) (position: Position):
     AllAt done position (expr.traverse step position) :=
-  reaches position (expr.traverseInside step position.bracketed) (insideReaches step done reaches expr position.bracketed)
+  reaches position
+    (expr.traverseInside step position.bracketed)
+    (insideReaches step done reaches expr position.bracketed)
 
-theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (reaches: StepReaches step done)
+theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (reaches: StepReaches step done)
     (expr: Expr) (bracketed: Bool):
     AllInside done bracketed (expr.traverseInside step bracketed) :=
   match expr with
@@ -598,8 +690,10 @@ theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position →
     | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => traverseReaches step done reaches inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => itemsReaches step done reaches items
-    | Call callee _ arguments _ _ =>
-      (traverseReaches step done reaches callee { bracketed, slot = PostfixSlot }, itemsReaches step done reaches arguments)
+    | Call callee _ arguments _ _ => (
+      traverseReaches step done reaches callee { bracketed, slot = PostfixSlot },
+      itemsReaches step done reaches arguments
+    )
     | Field target _ _ _ => traverseReaches step done reaches target { bracketed, slot = PostfixSlot }
     | Negate _ operand => traverseReaches step done reaches operand { bracketed, slot = OperandSlot }
     | Binary operator _ left right => (
@@ -612,20 +706,22 @@ theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position →
       bodyReaches step done reaches whenFalse bracketed
     )
 
-theorem itemsReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (reaches: StepReaches step done)
-    (items: List Expr):
+theorem itemsReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (reaches: StepReaches step done) (items: List Expr):
     AllItems done (traverseItems step items) :=
   match items with
     | [] => byComputing
     | [value, ..rest] =>
       (traverseReaches step done reaches value { bracketed = True, slot = Whole }, itemsReaches step done reaches rest)
 
-theorem bodyReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (reaches: StepReaches step done)
+theorem bodyReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (reaches: StepReaches step done)
     (body: Body) (bracketed: Bool):
     AllBody done bracketed (body.traverse step bracketed) :=
   match body with | { statements } => linesReaches step done reaches statements bracketed
 
-theorem linesReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (reaches: StepReaches step done)
+theorem linesReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (reaches: StepReaches step done)
     (lines: List (Spaced Statement)) (bracketed: Bool):
     AllLines done bracketed (traverseLines step bracketed lines) :=
   match lines with
@@ -633,7 +729,8 @@ theorem linesReaches ∀ (step: Position → Expr → Expr) (done: Position → 
     | [{ blankBefore, line }, ..rest] =>
       (statementReaches step done reaches line bracketed, linesReaches step done reaches rest bracketed)
 
-theorem statementReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (reaches: StepReaches step done)
+theorem statementReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (reaches: StepReaches step done)
     (line: Statement) (bracketed: Bool):
     AllStatement done bracketed (line.traverse step bracketed) :=
   match line with
@@ -642,8 +739,10 @@ theorem statementReaches ∀ (step: Position → Expr → Expr) (done: Position 
     | StatementNote _ => byComputing
 
 --| A traversed body is left alone by a second traversal.
-theorem bodyTraverseTwice ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop) (fixes: StepFixes step done)
-    (reaches: StepReaches step done) (body: Body) (bracketed: Bool):
+theorem bodyTraverseTwice ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (reaches: StepReaches step done)
+    (body: Body) (bracketed: Bool):
     (body.traverse step bracketed).traverse step bracketed = body.traverse step bracketed :=
   bodyFixed step done fixes (body.traverse step bracketed) bracketed (bodyReaches step done reaches body bracketed)
 
@@ -652,15 +751,20 @@ theorem bodyTraverseTwice ∀ (step: Position → Expr → Expr) (done: Position
 
 --| `done` asks no more of a node inside brackets than outside them.
 def DoneOutside (done: Position → Expr → Prop): Prop :=
-  ∀ (slot: Slot) (bracketed: Bool) (expr: Expr) (isDone: done { bracketed = True, slot } expr) =>
-    done { bracketed, slot } expr
+  ∀ (slot: Slot) (bracketed: Bool) (expr: Expr) (isDone: done { bracketed = True, slot } expr) => done
+    { bracketed, slot }
+    expr
 
-theorem allOutside ∀ (done: Position → Expr → Prop) (outside: DoneOutside done) (expr: Expr) (slot: Slot)
-    (bracketed: Bool) (all: AllAt done { bracketed = True, slot } expr):
+theorem allOutside ∀ (done: Position → Expr → Prop)
+    (outside: DoneOutside done)
+    (expr: Expr) (slot: Slot) (bracketed: Bool)
+    (all: AllAt done { bracketed = True, slot } expr):
     AllAt done { bracketed, slot } expr :=
   (outside slot bracketed expr all.left, insideOutside done outside expr bracketed all.right)
 
-theorem insideOutside ∀ (done: Position → Expr → Prop) (outside: DoneOutside done) (expr: Expr) (bracketed: Bool)
+theorem insideOutside ∀ (done: Position → Expr → Prop)
+    (outside: DoneOutside done)
+    (expr: Expr) (bracketed: Bool)
     (all: AllInside done True expr):
     AllInside done bracketed expr :=
   match expr, all with
@@ -683,13 +787,17 @@ theorem insideOutside ∀ (done: Position → Expr → Prop) (outside: DoneOutsi
       bodyOutside done outside whenFalse bracketed falseAll
     )
 
-theorem bodyOutside ∀ (done: Position → Expr → Prop) (outside: DoneOutside done) (body: Body) (bracketed: Bool)
+theorem bodyOutside ∀ (done: Position → Expr → Prop)
+    (outside: DoneOutside done)
+    (body: Body) (bracketed: Bool)
     (all: AllBody done True body):
     AllBody done bracketed body :=
   match body, all with | { statements }, all => linesOutside done outside statements bracketed all
 
-theorem linesOutside ∀ (done: Position → Expr → Prop) (outside: DoneOutside done) (lines: List (Spaced Statement))
-    (bracketed: Bool) (all: AllLines done True lines):
+theorem linesOutside ∀ (done: Position → Expr → Prop)
+    (outside: DoneOutside done)
+    (lines: List (Spaced Statement)) (bracketed: Bool)
+    (all: AllLines done True lines):
     AllLines done bracketed lines :=
   match lines, all with
     | [], _ => byComputing
@@ -703,7 +811,8 @@ theorem linesOutside ∀ (done: Position → Expr → Prop) (outside: DoneOutsid
 -- Declarations and the file: each body traversed, then `declare` at each
 -- declaration.
 
-theorem declarationTraversePlain ∀ (step: Position → Expr → Expr) (keeps: StepKeepsPlain step) (line: Declaration):
+theorem declarationTraversePlain ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsPlain step) (line: Declaration):
     (line.traverseBody step).plain = line.plain :=
   match line with
     | Function _ _ _ _ _ _ _ _ _ body => rewrite bodyTraversePlain step keeps body False
@@ -712,8 +821,7 @@ theorem declarationTraversePlain ∀ (step: Position → Expr → Expr) (keeps: 
 
 theorem declarationsTraversePlain ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
     (keeps: StepKeepsPlain step)
-    (declareKeeps: ∀ (line: Declaration) => (declare line).plain = line.plain)
-    (lines: List (Spaced Declaration)):
+    (declareKeeps: ∀ (line: Declaration) => (declare line).plain = line.plain) (lines: List (Spaced Declaration)):
     plainDeclarations (traverseDeclarations step declare lines) = plainDeclarations lines :=
   match lines with
     | [] => byComputing
@@ -726,22 +834,19 @@ theorem declarationsTraversePlain ∀ (step: Position → Expr → Expr) (declar
 --| file's.
 theorem traverseKeepsMeaning ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
     (keeps: StepKeepsPlain step)
-    (declareKeeps: ∀ (line: Declaration) => (declare line).plain = line.plain)
-    (file: SourceFile):
+    (declareKeeps: ∀ (line: Declaration) => (declare line).plain = line.plain) (file: SourceFile):
     (file.traverse step declare).meaning = file.meaning :=
   rewrite declarationsTraversePlain step declare keeps declareKeeps file.declarations
 
 --| What `declare` must keep of the parser's guarantees.
 def DeclareKeepsParsed (declare: Declaration → Declaration): Prop :=
-  ∀ (line: Declaration) (shaped: ShapedDeclaration line) (lexical: LexicalDeclaration line)
-    (headed: HeadedDeclaration line) =>
-    ShapedDeclaration (declare line) ∧ LexicalDeclaration (declare line) ∧ HeadedDeclaration (declare line)
+  ∀ (line: Declaration) (shaped: ShapedDeclaration line) (lexical: LexicalDeclaration line) (headed: HeadedDeclaration
+      line) => ShapedDeclaration (declare line) ∧ LexicalDeclaration (declare line) ∧ HeadedDeclaration (declare line)
 
 theorem declarationTraverseParsed ∀ (step: Position → Expr → Expr)
     (shapedKeeps: StepKeepsShaped step)
     (lexicalKeeps: StepKeepsLexical step)
-    (headedKeeps: StepKeepsHeaded step)
-    (line: Declaration)
+    (headedKeeps: StepKeepsHeaded step) (line: Declaration)
     (shaped: ShapedDeclaration line)
     (lexical: LexicalDeclaration line)
     (headed: HeadedDeclaration line):
@@ -749,9 +854,8 @@ theorem declarationTraverseParsed ∀ (step: Position → Expr → Expr)
       ∧ LexicalDeclaration (line.traverseBody step)
       ∧ HeadedDeclaration (line.traverseBody step) :=
   match line, shaped, lexical, headed with
-    | Function _ _ _ _ _ _ _ _ _ body, (parameters, bodyShaped),
-        (fnFine, isName, nameFine, takesFine, openFine, groups, closeFine, equalsFine, bodyLexical),
-        (fnAbove, bodyHeaded) => (
+    | Function _ _ _ _ _ _ _ _ _ body, (parameters, bodyShaped), (fnFine, isName, nameFine, takesFine, openFine, groups,
+        closeFine, equalsFine, bodyLexical), (fnAbove, bodyHeaded) => (
       (parameters, (bodyTraverseShaped step shapedKeeps body False bodyShaped).left),
       (
         fnFine,
@@ -777,8 +881,7 @@ theorem declarationsTraverseParsed ∀ (step: Position → Expr → Expr) (decla
     (shapedKeeps: StepKeepsShaped step)
     (lexicalKeeps: StepKeepsLexical step)
     (headedKeeps: StepKeepsHeaded step)
-    (declareKeeps: DeclareKeepsParsed declare)
-    (lines: List (Spaced Declaration))
+    (declareKeeps: DeclareKeepsParsed declare) (lines: List (Spaced Declaration))
     (shaped: ShapedDeclarations lines)
     (lexical: LexicalDeclarations lines)
     (headed: HeadedDeclarations lines):
@@ -793,12 +896,13 @@ theorem declarationsTraverseParsed ∀ (step: Position → Expr → Expr) (decla
       let (lineShaped1, lineLexical1, lineHeaded1) :=
         declareKeeps (line.traverseBody step) bodyShaped bodyLexical bodyHeaded
       let (restShaped1, restLexical1, restHeaded1) :=
-        declarationsTraverseParsed step declare shapedKeeps lexicalKeeps headedKeeps declareKeeps rest restShaped restLexical
-          restHeaded
+        declarationsTraverseParsed step declare shapedKeeps lexicalKeeps headedKeeps declareKeeps rest restShaped
+            restLexical restHeaded
       ((lineShaped1, restShaped1), (lineLexical1, restLexical1), (lineHeaded1, restHeaded1))
 
-theorem declarationsTraverseUnspaced ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
-    (lines: List (Spaced Declaration)) (unspaced: Unspaced lines):
+theorem declarationsTraverseUnspaced ∀ (step: Position → Expr → Expr)
+    (declare: Declaration → Declaration) (lines: List (Spaced Declaration))
+    (unspaced: Unspaced lines):
     Unspaced (traverseDeclarations step declare lines) :=
   match lines, unspaced with
     | [], _ => byComputing
@@ -811,18 +915,18 @@ theorem traverseKeepsParsed ∀ (step: Position → Expr → Expr) (declare: Dec
     (shapedKeeps: StepKeepsShaped step)
     (lexicalKeeps: StepKeepsLexical step)
     (headedKeeps: StepKeepsHeaded step)
-    (declareKeeps: DeclareKeepsParsed declare)
-    (file: SourceFile)
+    (declareKeeps: DeclareKeepsParsed declare) (file: SourceFile)
     (parsed: Parsed file):
     Parsed (file.traverse step declare) :=
   match file, parsed with
     | { declarations }, (shaped, lexical, (headed, unspaced)) =>
       let (shaped1, lexical1, headed1) :=
-        declarationsTraverseParsed step declare shapedKeeps lexicalKeeps headedKeeps declareKeeps declarations shaped lexical
-          headed
+        declarationsTraverseParsed step declare shapedKeeps lexicalKeeps headedKeeps declareKeeps declarations shaped
+            lexical headed
       (shaped1, lexical1, (headed1, declarationsTraverseUnspaced step declare declarations unspaced))
 
-theorem declarationTraverseCommas ∀ (step: Position → Expr → Expr) (keeps: StepKeepsCommas step) (line: Declaration)
+theorem declarationTraverseCommas ∀ (step: Position → Expr → Expr)
+    (keeps: StepKeepsCommas step) (line: Declaration)
     (none: NoTrailingCommasDeclaration line):
     NoTrailingCommasDeclaration (line.traverseBody step) :=
   match line, none with
@@ -833,9 +937,8 @@ theorem declarationTraverseCommas ∀ (step: Position → Expr → Expr) (keeps:
 
 theorem declarationsTraverseCommas ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
     (keeps: StepKeepsCommas step)
-    (declareKeeps: ∀ (line: Declaration) (none: NoTrailingCommasDeclaration line) =>
-      NoTrailingCommasDeclaration (declare line))
-    (lines: List (Spaced Declaration))
+    (declareKeeps: ∀ (line: Declaration) (none: NoTrailingCommasDeclaration line) => NoTrailingCommasDeclaration
+      (declare line)) (lines: List (Spaced Declaration))
     (none: NoTrailingCommasDeclarations lines):
     NoTrailingCommasDeclarations (traverseDeclarations step declare lines) :=
   match lines, none with
@@ -849,16 +952,16 @@ theorem declarationsTraverseCommas ∀ (step: Position → Expr → Expr) (decla
 --| file with none without one.
 theorem traverseKeepsCommas ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
     (keeps: StepKeepsCommas step)
-    (declareKeeps: ∀ (line: Declaration) (none: NoTrailingCommasDeclaration line) =>
-      NoTrailingCommasDeclaration (declare line))
-    (file: SourceFile)
+    (declareKeeps: ∀ (line: Declaration) (none: NoTrailingCommasDeclaration line) => NoTrailingCommasDeclaration
+      (declare line)) (file: SourceFile)
     (none: NoTrailingCommasFile file):
     NoTrailingCommasFile (file.traverse step declare) :=
   match file, none with
     | { declarations }, none => declarationsTraverseCommas step declare keeps declareKeeps declarations none
 
 theorem declarationTraverseTwice ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
-    (fixes: StepFixes step done) (reaches: StepReaches step done) (line: Declaration):
+    (fixes: StepFixes step done)
+    (reaches: StepReaches step done) (line: Declaration):
     (line.traverseBody step).traverseBody step = line.traverseBody step :=
   match line with
     | Function _ _ _ _ _ _ _ _ _ body => rewrite bodyTraverseTwice step done fixes reaches body False
@@ -871,10 +974,13 @@ def DeclareSettles (step: Position → Expr → Expr) (declare: Declaration → 
   (∀ (line: Declaration) => (declare line).traverseBody step = declare (line.traverseBody step))
     ∧ (∀ (line: Declaration) => declare (declare line) = declare line)
 
-theorem declarationsTraverseTwice ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
-    (done: Position → Expr → Prop) (fixes: StepFixes step done) (reaches: StepReaches step done)
+theorem declarationsTraverseTwice ∀ (step: Position → Expr → Expr)
+    (declare: Declaration → Declaration) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (reaches: StepReaches step done)
     (settles: DeclareSettles step declare) (lines: List (Spaced Declaration)):
-    traverseDeclarations step declare (traverseDeclarations step declare lines) = traverseDeclarations step declare lines :=
+    traverseDeclarations step declare (traverseDeclarations step declare lines)
+      = traverseDeclarations step declare lines :=
   match lines with
     | [] => byComputing
     | [{ blankBefore, line }, ..rest] =>
@@ -886,8 +992,10 @@ theorem declarationsTraverseTwice ∀ (step: Position → Expr → Expr) (declar
 
 --| A traversal finishes in one run when its step leaves what it has done
 --| alone and `declare` settles.
-theorem traverseIdempotent ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
-    (done: Position → Expr → Prop) (fixes: StepFixes step done) (reaches: StepReaches step done)
+theorem traverseIdempotent ∀ (step: Position → Expr → Expr)
+    (declare: Declaration → Declaration) (done: Position → Expr → Prop)
+    (fixes: StepFixes step done)
+    (reaches: StepReaches step done)
     (settles: DeclareSettles step declare) (file: SourceFile):
     (file.traverse step declare).traverse step declare = file.traverse step declare :=
   rewrite declarationsTraverseTwice step declare done fixes reaches settles file.declarations

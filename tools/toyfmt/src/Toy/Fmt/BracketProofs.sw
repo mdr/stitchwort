@@ -85,7 +85,9 @@ theorem dropShaped: StepKeepsShaped dropPair := position expr shaped =>
 -- tokens may hold own-line comments; `standsOutside` says there are
 -- none, which is all `HeadedExpr` asks more outside brackets.
 
-theorem standsOutsideHeaded ∀ (expr: Expr) (stands: expr.standsOutside = True) (headed: HeadedExpr True expr):
+theorem standsOutsideHeaded ∀ (expr: Expr)
+    (stands: expr.standsOutside = True)
+    (headed: HeadedExpr True expr):
     HeadedExpr False expr :=
   match expr, headed with
     | Var _ _, headed => headed
@@ -109,7 +111,9 @@ theorem standsOutsideHeaded ∀ (expr: Expr) (stands: expr.standsOutside = True)
         bodyOutsideHeaded whenFalse falseStands falseHeaded
       )
 
-theorem bodyOutsideHeaded ∀ (body: Body) (stands: body.standsOutside = True) (headed: HeadedBody True body):
+theorem bodyOutsideHeaded ∀ (body: Body)
+    (stands: body.standsOutside = True)
+    (headed: HeadedBody True body):
     HeadedBody False body :=
   match body, headed with
     | { statements }, (linesHeaded, unspaced, _) =>
@@ -125,14 +129,18 @@ theorem linesOutsideHeaded ∀ (lines: List (Spaced Statement))
       let (lineStands, restStands) := stands.read
       (statementOutsideHeaded line lineStands lineHeaded, linesOutsideHeaded rest restStands restHeaded)
 
-theorem statementOutsideHeaded ∀ (line: Statement) (stands: line.standsOutside = True)
+theorem statementOutsideHeaded ∀ (line: Statement)
+    (stands: line.standsOutside = True)
     (headed: HeadedStatement True line):
     HeadedStatement False line :=
   match line, headed with
     | Let _ _ _ _ _, headed => headed
     | Bare value, (_, valueHeaded) =>
       let (noAbove, valueStands) := stands.read
-      ((outside => (List.isEmptyReads value.firstAbove).forward noAbove), standsOutsideHeaded value valueStands valueHeaded)
+      (
+        (outside => (List.isEmptyReads value.firstAbove).forward noAbove),
+        standsOutsideHeaded value valueStands valueHeaded
+      )
     | StatementNote _, _ => byComputing
 
 theorem dropHeaded: StepKeepsHeaded dropPair := position expr headed =>
@@ -204,7 +212,8 @@ def NoSparePair (position: Position) (expr: Expr): Prop := pairKept position exp
 theorem dropFixes: StepFixes dropPair NoSparePair := position expr kept =>
   match expr with
     | Bracketed open inner close =>
-      match isSpare: spare position open inner close with | False => byComputing
+      match isSpare: spare position open inner close with
+        | False => byComputing
     | Var _ _ => byComputing
     | NumberLiteral _ _ => byComputing
     | StringLiteral _ _ => byComputing
@@ -225,7 +234,8 @@ theorem spareWhole ∀ (position: Position) (open: Comments) (inner: Expr) (clos
       match closeNone: close.isNone with
         | False => byComputing
         | True =>
-          match noAbove: inner.firstAbove.isEmpty with | False => byComputing
+          match noAbove: inner.firstAbove.isEmpty with
+            | False => byComputing
 
 theorem keptAnywhere ∀ (expr: Expr) (position: Position) (kept: NoSparePair { bracketed = True, slot = Whole } expr):
     NoSparePair position expr :=
@@ -256,7 +266,8 @@ theorem keptOutside: DoneOutside NoSparePair := slot bracketed expr kept =>
                   match noAbove: inner.firstAbove.isEmpty with
                     | False => byComputing
                     | True =>
-                      match fits: inner.fits slot with | False => byComputing
+                      match fits: inner.fits slot with
+                        | False => byComputing
     | Var _ _ => byComputing
     | NumberLiteral _ _ => byComputing
     | StringLiteral _ _ => byComputing
@@ -271,8 +282,10 @@ theorem dropReaches: StepReaches dropPair NoSparePair := position expr inside =>
   match expr, inside with
     | Bracketed open inner close, inside =>
       match isSpare: spare position open inner close with
-        | True =>
-          (keptAnywhere inner position inside.left, insideOutside NoSparePair keptOutside inner position.bracketed inside.right)
+        | True => (
+          keptAnywhere inner position inside.left,
+          insideOutside NoSparePair keptOutside inner position.bracketed inside.right
+        )
         | False => (Eq.cong (kept => not kept) isSpare, inside)
     | Var _ _, inside => (byComputing, inside)
     | NumberLiteral _ _, inside => (byComputing, inside)
@@ -306,7 +319,8 @@ theorem typeSpareTwice ∀ (annotation: TypeExpr):
     annotation.withoutSpareBrackets.withoutSpareBrackets = annotation.withoutSpareBrackets :=
   rewrite typeSpareIsPlain annotation.withoutSpareBrackets, typeSpareIsPlain annotation then typePlainTwice annotation
 
-theorem typeSpareShaped ∀ (annotation: TypeExpr) (shaped: ShapedType annotation):
+theorem typeSpareShaped ∀ (annotation: TypeExpr)
+    (shaped: ShapedType annotation):
     ShapedType annotation.withoutSpareBrackets
       ∧ (annotation.endsWithComment = True → annotation.withoutSpareBrackets.endsWithComment = True) :=
   match annotation, shaped with
@@ -319,7 +333,8 @@ theorem typeSpareShaped ∀ (annotation: TypeExpr) (shaped: ShapedType annotatio
           (innerShaped1, (ends => (Bool.falseNotTrue (rewrite noComment at ends then ends)).impossible))
         | False => ((innerShaped1, settledGrows _ _ close settled innerEnd), (ends => ends))
 
-theorem typeSpareLexical ∀ (annotation: TypeExpr) (lexical: LexicalType annotation):
+theorem typeSpareLexical ∀ (annotation: TypeExpr)
+    (lexical: LexicalType annotation):
     LexicalType annotation.withoutSpareBrackets :=
   match annotation, lexical with
     | TypeName _ _, lexical => lexical
@@ -345,16 +360,19 @@ theorem groupsSpareTwice ∀ (groups: List ParameterGroup):
     | [Untyped _, ..rest] => rewrite groupsSpareTwice rest
     | [Typed _ _ annotation, ..rest] => rewrite typeSpareTwice annotation, groupsSpareTwice rest
 
-theorem groupSpareShaped ∀ (group: ParameterGroup) (shaped: ShapedGroup group):
+theorem groupSpareShaped ∀ (group: ParameterGroup)
+    (shaped: ShapedGroup group):
     ShapedGroup group.withoutSpareBrackets
       ∧ (group.endsWithComment = True → group.withoutSpareBrackets.endsWithComment = True) :=
   match group, shaped with
     | Untyped _, shaped => (shaped, (ends => ends))
     | Typed _ _ annotation, shaped => typeSpareShaped annotation shaped
 
-theorem groupsSpareShaped ∀ (open: Comments) (groups: List ParameterGroup) (shaped: ShapedGroups groups):
+theorem groupsSpareShaped ∀ (open: Comments) (groups: List ParameterGroup)
+    (shaped: ShapedGroups groups):
     ShapedGroups (groupsWithoutSpareBrackets groups)
-      ∧ (groupsEndWithComment open groups = True → groupsEndWithComment open (groupsWithoutSpareBrackets groups) = True) :=
+      ∧ (groupsEndWithComment open groups = True
+        → groupsEndWithComment open (groupsWithoutSpareBrackets groups) = True) :=
   match groups, shaped with
     | [], _ => (byComputing, (ends => ends))
     | [group], (groupShaped, _) =>
@@ -364,7 +382,8 @@ theorem groupsSpareShaped ∀ (open: Comments) (groups: List ParameterGroup) (sh
       let (restShaped1, restEnd) := groupsSpareShaped open [second, ..rest] restShaped
       (((groupSpareShaped group groupShaped).left, restShaped1), restEnd)
 
-theorem groupsSpareLexical ∀ (groups: List ParameterGroup) (lexical: LexicalParameters groups):
+theorem groupsSpareLexical ∀ (groups: List ParameterGroup)
+    (lexical: LexicalParameters groups):
     LexicalParameters (groupsWithoutSpareBrackets groups) :=
   match groups, lexical with
     | [], _ => byComputing
@@ -381,8 +400,8 @@ theorem declareSparePlain ∀ (line: Declaration): line.withoutSpareTypeBrackets
 
 theorem declareSpareParsed: DeclareKeepsParsed (line => line.withoutSpareTypeBrackets) := line shaped lexical headed =>
   match line, shaped, lexical with
-    | Function _ _ _ _ open parameters _ close _ _, ((groupsShaped, settled), bodyShaped),
-        (fnFine, isName, nameFine, takesFine, openFine, groupsLexical, closeFine, equalsFine, bodyLexical) =>
+    | Function _ _ _ _ open parameters _ close _ _, ((groupsShaped, settled), bodyShaped), (fnFine, isName, nameFine,
+        takesFine, openFine, groupsLexical, closeFine, equalsFine, bodyLexical) =>
       let (groupsShaped1, groupsEnd) := groupsSpareShaped open parameters groupsShaped
       (
         ((groupsShaped1, settledGrows _ _ close settled groupsEnd), bodyShaped),
@@ -402,7 +421,8 @@ theorem declareSpareParsed: DeclareKeepsParsed (line => line.withoutSpareTypeBra
     | Value _ _ _ _ _, shaped, lexical => (shaped, lexical, headed)
     | DeclarationNote _, shaped, lexical => (shaped, lexical, headed)
 
-theorem declareSpareCommas ∀ (line: Declaration) (none: NoTrailingCommasDeclaration line):
+theorem declareSpareCommas ∀ (line: Declaration)
+    (none: NoTrailingCommasDeclaration line):
     NoTrailingCommasDeclaration line.withoutSpareTypeBrackets :=
   match line, none with
     | Function _ _ _ _ _ _ _ _ _ _, none => none
@@ -433,13 +453,24 @@ theorem bracketsKeepMeaning ∀ (file: SourceFile): file.withoutSpareBrackets.me
 --| is read as it stands (precedence), and reads the same outside
 --| brackets.
 theorem bracketsKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.withoutSpareBrackets :=
-  traverseKeepsParsed dropPair (line => line.withoutSpareTypeBrackets) dropShaped dropLexical dropHeaded declareSpareParsed file
+  traverseKeepsParsed dropPair
+    (line => line.withoutSpareTypeBrackets)
+    dropShaped
+    dropLexical
+    dropHeaded
+    declareSpareParsed
+    file
     parsed
 
 --| P3 finishes in one run: nested pairs go together, the inner first.
 theorem bracketsIdempotent ∀ (file: SourceFile):
     file.withoutSpareBrackets.withoutSpareBrackets = file.withoutSpareBrackets :=
-  traverseIdempotent dropPair (line => line.withoutSpareTypeBrackets) NoSparePair dropFixes dropReaches declareSpareSettles
+  traverseIdempotent dropPair
+    (line => line.withoutSpareTypeBrackets)
+    NoSparePair
+    dropFixes
+    dropReaches
+    declareSpareSettles
     file
 
 --| P3 keeps P2's work: dropping a pair adds no trailing comma.
@@ -447,7 +478,11 @@ theorem bracketsKeepCommas ∀ (file: SourceFile)
     (tidy: file.withoutTrailingCommas = file):
     file.withoutSpareBrackets.withoutTrailingCommas = file.withoutSpareBrackets :=
   commasFixed file.withoutSpareBrackets
-    (traverseKeepsCommas dropPair (line => line.withoutSpareTypeBrackets) dropCommas declareSpareCommas file
+    (traverseKeepsCommas dropPair
+      (line => line.withoutSpareTypeBrackets)
+      dropCommas
+      declareSpareCommas
+      file
       (commasTidyNone file tidy))
 
 theorem declarationTakesBrackets ∀ (line: Declaration):

@@ -731,7 +731,8 @@ theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meanin
 
 --| The passes keep the parser's guarantees.
 theorem tidyParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.tidy :=
-  bracketsKeepParsed file.withTakes.withoutTrailingCommas (commasKeepParsed file.withTakes (takesKeepParsed file parsed))
+  bracketsKeepParsed file.withTakes.withoutTrailingCommas
+    (commasKeepParsed file.withTakes (takesKeepParsed file parsed))
 
 --| A tidy tree has no trailing comma, as the printer needs: P3 kept P2's
 --| work.

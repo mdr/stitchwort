@@ -135,8 +135,12 @@ def groupsWithoutSpareBrackets: List ParameterGroup → List ParameterGroup
 
 def Declaration.withoutSpareTypeBrackets: Declaration → Declaration
   | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
-    Function fnComments name nameComments takes open (groupsWithoutSpareBrackets parameters) trailingComma close equals
-        body
+    Function fnComments name nameComments takes open
+      (groupsWithoutSpareBrackets parameters)
+      trailingComma
+      close
+      equals
+      body
   | other => other
 
 --| P3: no bracket pair that could go is left. Pairs nested in each other

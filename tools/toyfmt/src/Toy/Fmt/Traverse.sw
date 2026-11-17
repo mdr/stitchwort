@@ -45,7 +45,12 @@ def Expr.traverseInside (expr: Expr) (step: Position → Expr → Expr) (bracket
   | Bracketed open inner close => Bracketed open (inner.traverse step { bracketed = True, slot = Whole }) close
   | ListLiteral open items trailingComma close => ListLiteral open (traverseItems step items) trailingComma close
   | Call callee open arguments trailingComma close =>
-    Call (callee.traverse step { bracketed, slot = PostfixSlot }) open (traverseItems step arguments) trailingComma close
+    Call
+      (callee.traverse step { bracketed, slot = PostfixSlot })
+      open
+      (traverseItems step arguments)
+      trailingComma
+      close
   | Field target dot name nameComments =>
     Field (target.traverse step { bracketed, slot = PostfixSlot }) dot name nameComments
   | Negate minus operand => Negate minus (operand.traverse step { bracketed, slot = OperandSlot })
@@ -69,17 +74,15 @@ def traverseItems (step: Position → Expr → Expr): List Expr → List Expr
 def Body.traverse (body: Body) (step: Position → Expr → Expr) (bracketed: Bool): Body := match body with
   | { statements } => { statements = traverseLines step bracketed statements }
 
-def traverseLines (step: Position → Expr → Expr) (bracketed: Bool):
-    List (Spaced Statement) → List (Spaced Statement)
+def traverseLines (step: Position → Expr → Expr) (bracketed: Bool): List (Spaced Statement) → List (Spaced Statement)
   | [] => []
   | [{ blankBefore, line }, ..rest] =>
     [{ blankBefore, line = line.traverse step bracketed }, ..traverseLines step bracketed rest]
 
-def Statement.traverse (line: Statement) (step: Position → Expr → Expr) (bracketed: Bool): Statement :=
-  match line with
-    | Let letComments name nameComments equals body => Let letComments name nameComments equals (body.traverse step False)
-    | Bare value => Bare (value.traverse step { bracketed, slot = Whole })
-    | note => note
+def Statement.traverse (line: Statement) (step: Position → Expr → Expr) (bracketed: Bool): Statement := match line with
+  | Let letComments name nameComments equals body => Let letComments name nameComments equals (body.traverse step False)
+  | Bare value => Bare (value.traverse step { bracketed, slot = Whole })
+  | note => note
 
 --| The declaration with its body traversed.
 def Declaration.traverseBody (line: Declaration) (step: Position → Expr → Expr): Declaration := match line with

@@ -174,8 +174,21 @@ def probes: List Probe :=
       let y = (a -- before )
         )
       """, dump = "(let y (body (bare (bracketed (var a{ after -- before ) })))))\n", formatted = """
-        let y = (a) -- before )
+        let y = a -- before )
         """ },
+    {
+      name = "a trailing comment before a ) precedence needs",
+      source = """
+        let y = (a + b -- before )
+          ) * c
+        """,
+      dump = "(let y (body (bare (* (bracketed (+ (var a) (var b{ after -- before ) }))) (var c)))))\n",
+      formatted = """
+        let y =
+          (a + b) -- before )
+            * c
+        """
+    },
     { name = "a trailing comment after .", source = """
       let y = order. -- after .
         items
@@ -250,7 +263,22 @@ def probes: List Probe :=
         """,
       dump = "(let y (body (bare (bracketed (if (var a) (body (bare (var b))) (body (bare (var c{ after -- k }))))))))\n",
       formatted = """
-        let y = (if a then b else c) -- k
+        let y = if a then b else c -- k
+        """
+    },
+    {
+      name = "an if's trailing comment before a ) a field needs",
+      source = """
+        let y = (if a then b else c -- k
+        ).d
+        """,
+      dump = "(let y (body (bare (field (bracketed (if (var a) (body (bare (var b))) (body (bare (var c{ after -- k }))))) d))))\n",
+      formatted = """
+        let y =
+          (if a then b
+          else
+            c) -- k
+              .d
         """
     }
   ]
