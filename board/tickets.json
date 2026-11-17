@@ -33765,14 +33765,14 @@
     {
       "id": 3116,
       "title": "[DeepSeek] Add a reject example for a test fact with no reading at all (an opaque Bool def taken apart with Inl/Inr: E-NO-READING 'has no reading, so it has no parts'): reading-pattern-no-reading now covers a reading that isn't an Or, since SW-3067 gave n < 10 a reading",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -33791,14 +33791,14 @@
     {
       "id": 3118,
       "title": "[DeepSeek] SW-3096 review follow-ups: readings-unfold-defs.sw bodies use the parts they bind, plus nested, lambda and = False cases (versions in docs/reviews/SW-3096-review.md); a reject example for patlet's E-NO-READING with a non-proposition goal; drop the 'Before SW-3096' history from bool-as-proposition.md §6.1; records.rs:223 'a `And`' → 'an'",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
