@@ -98,6 +98,10 @@ pub(crate) struct Decl {
     /// `if`, `let` or `match` checked against `Prop`, which is coerced whole
     /// instead (`check::whole_test`).
     pub(crate) not_coerced: RefCell<Vec<usize>>,
+    /// The short names written where a type is wanted (a type's head and
+    /// its bare arguments): one of them that means both a type and its
+    /// constructor of the same name is the type (`check::type_names`).
+    pub(crate) type_names: RefCell<Vec<String>>,
     /// While `logic::condition` tries the `Bool` reading of a condition `a
     /// && b`: the address of `a`, and the conjunction that reading decides
     /// with its decision, once `logic::as_bool` has found them. A guard.
@@ -350,6 +354,7 @@ impl Decl {
             late_literals,
             condition,
             not_coerced,
+            type_names,
             conjunction,
             app_expected,
             settled,
@@ -403,6 +408,7 @@ impl Decl {
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
             ("not_coerced", not_coerced.borrow().is_empty()),
+            ("type_names", type_names.borrow().is_empty()),
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
             ("settled", settled.borrow().is_empty()),

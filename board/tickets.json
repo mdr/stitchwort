@@ -38521,15 +38521,17 @@
     {
       "id": 3471,
       "title": "[Sonnet] A constructor named like an existing def in the namespace makes every use of that name E-AMBIGUOUS, in other files too (toyfmt Loose broke JoinProofs.sw); better diagnostic or resolution rule; and _ for a continuation argument isn't inferred from the expected type (SW-3418 part 11 friction 59-60)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
-      "commits": []
+      "updated": "2026-11-17",
+      "commits": [
+        "dd933e525"
+      ]
     },
     {
       "id": 3472,
@@ -38562,15 +38564,17 @@
     {
       "id": 3474,
       "title": "[Sonnet] Elaborator friction from SW-3418 lane 1: a new def named like a constructor used elsewhere breaks every pattern using it, errors at each pattern and none at the def; match h: a == a, lemma a refused when one scrutinee's type mentions another; a match inside a lambda argument gives E-MATCH-MOTIVE (repros in tools/toyfmt/NOTES.md part 15)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
-      "commits": []
+      "updated": "2026-11-17",
+      "commits": [
+        "dd933e525"
+      ]
     },
     {
       "id": 3475,
@@ -38627,15 +38631,17 @@
     {
       "id": 3479,
       "title": "[Sonnet] Duplicate names in one namespace across files are reported at every use in the older file (~40 type errors) and not at the second definition (SW-3418 lane 4: Closing, Opens, Joins); lane 1 saw the same with a def named like a constructor. Report E-DUPLICATE (or similar) at the second definition and suppress the cascade; repro in tools/toyfmt/NOTES.md part 18",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
-      "commits": []
+      "updated": "2026-11-17",
+      "commits": [
+        "dd933e525"
+      ]
     },
     {
       "id": 3480,
@@ -41969,15 +41975,17 @@
     {
       "id": 3732,
       "title": "[DeepSeek] A local def shadowed silently by a (..)-imported name of the same name gives a misleading type error ('expected List, got Punctuation': closerAhead vs BlockProofs.closerAhead): say which closerAhead was used and that the local one is hidden (Toy++ T4 friction, SW-3724)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "D3671 (Matt, 17 Nov 2026): local definitions win (incl. the namespace's other files) over (..) imports; no standing warning ('a warning is something you should be able to action'); a type error involving a shadowed name says which hid which, as for constructors (W-CTOR-HIDES pattern). Also: type Box = | Box then (b: Box) is E-AMBIGUOUS; in a type position only the type makes sense. Sonnet, with SW-3479/3474/3471 (duplicates once at the second definition).",
+      "body": "D3671 (Matt, 17 Nov 2026): local definitions win (incl. the namespace's other files) over (..) imports; no standing warning ('a warning is something you should be able to action'); a type error involving a shadowed name says which hid which, as for constructors (W-CTOR-HIDES pattern). Also: type Box = | Box then (b: Box) is E-AMBIGUOUS; in a type position only the type makes sense. Sonnet, with SW-3479/3474/3471 (duplicates once at the second definition).\n\nLane notes (Sonnet, 17 Nov 2026):\n- 1c: T4's case does not reproduce: file-own and sibling-file declarations of the same namespace already rank above `(..)` imports (Level::Module). Added the note on a type mismatch on a definition that hides an imported one (\"`closerAhead` here means `App.closerAhead`, which hides `Lib.closerAhead` (from an `import … (..)`)\"); no warning.\n- Type in type position: `type Box = | Box` then `(b: Box)` now means the type (ambiguity stays for values).\n- 1b: a second definition of a name (any files of a namespace) is one E-DUPLICATE; the first declaration is taken as failed, so uses aren't reported. A def named like a constructor (either order) is one E-DUPLICATE at the later one.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "dd933e525"
+      ]
     },
     {
       "id": 3733,

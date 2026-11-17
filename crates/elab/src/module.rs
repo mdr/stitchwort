@@ -1607,9 +1607,23 @@ impl Elaborator {
                     && let Err(d) = self.register(index, item.decl)
                 {
                     let (d, fatal) = *d;
+                    let duplicate = d.code == "E-DUPLICATE" && fatal;
                     diagnostics.push((item.position, d));
                     if fatal {
                         left_out.insert(index);
+                        // A name declared twice means one thing or the
+                        // other to each use, and which isn't known: the
+                        // first declaration is taken as failed, so a use
+                        // of either isn't reported as a type error of its
+                        // own, only the duplicate is.
+                        if duplicate
+                            && let Some(main) = declared_names(item.decl).0
+                            && let Ok(key) = self.declaration_key(&main)
+                            && let Some((Global::Unchecked(first), _)) = self.scope.stored(&key)
+                            && !left_out.contains(first)
+                        {
+                            self.unit.module.items[*first].status = Status::Failed;
+                        }
                     } else {
                         self.unit.module.items[index].status = Status::Failed;
                     }
@@ -1794,6 +1808,10 @@ impl Elaborator {
             .map_err(|d| Box::new((d, true)))?;
         self.new_module_name(&key, &main)
             .map_err(|d| Box::new((d, true)))?;
+        if !main.text.contains('.') && self.unit.module.items[index].kind == Kind::Def {
+            self.clashes_with_follower(&main)
+                .map_err(|d| Box::new((d, true)))?;
+        }
         self.scope
             .insert(&key, Global::Unchecked(index), main.span, false);
         self.unit.module.names.insert(key.clone());
@@ -1809,7 +1827,12 @@ impl Elaborator {
                     format!("`{}` is already defined", member.text),
                 )
                 .with_label(earlier.span, "first defined here")),
-                None => self.new_module_name(&member_key, member),
+                None => self
+                    .new_module_name(&member_key, member)
+                    .and_then(|()| match follower {
+                        true => self.clashes_with_def(&key, member),
+                        false => Ok(()),
+                    }),
             };
             match checked {
                 Ok(()) => {
@@ -1829,6 +1852,81 @@ impl Elaborator {
             }
         }
         result
+    }
+
+    /// A definition at the namespace's root named like a constructor or
+    /// operation already registered at its root: both would be the short
+    /// name's meaning, so each use would be `E-AMBIGUOUS`. The clash is
+    /// reported once, at the later of the two.
+    fn clashes_with_follower(&self, main: &ast::Name) -> crate::Result<()> {
+        if self.unit.loading_prelude {
+            return Ok(());
+        }
+        let root = self.root();
+        for follower in self.followers_named(&main.text) {
+            let owner = crate::scope::parent(follower).unwrap_or("");
+            if owner.strip_prefix(root).is_some_and(|p| !p.contains('.'))
+                && self.unit.module.names.contains(follower.as_str())
+                && let Some((_, previous)) = self.scope.get(follower)
+            {
+                return Err(error(
+                    "E-DUPLICATE",
+                    main.span,
+                    format!(
+                        "`{}` is already a constructor of `{}`",
+                        main.text,
+                        crate::scope::display(owner)
+                    ),
+                )
+                .with_label(previous, "first defined here")
+                .with_note(format!(
+                    "a short name can't mean both a definition and a constructor: rename \
+                     one, or write the constructor as `{}`",
+                    crate::scope::display(follower)
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// A constructor or operation `member` of the declaration at `owner`,
+    /// named like a definition already registered at the namespace's root
+    /// ([`Self::clashes_with_follower`], the other way round).
+    fn clashes_with_def(&self, owner: &str, member: &ast::Name) -> crate::Result<()> {
+        if self.unit.loading_prelude {
+            return Ok(());
+        }
+        let key = format!("{}{}", self.root(), member.text);
+        let at_root = owner
+            .strip_prefix(self.root())
+            .is_some_and(|p| !p.contains('.'));
+        if at_root
+            && self.is_root_def(&key)
+            && let Some((_, previous)) = self.scope.get(&key)
+            && self.unit.module.names.contains(&key)
+        {
+            return Err(error(
+                "E-DUPLICATE",
+                member.span,
+                format!("`{}` is already defined", member.text),
+            )
+            .with_label(previous, "first defined here")
+            .with_note(format!(
+                "a short name can't mean both a definition and a constructor: rename one, \
+                 or write the constructor as `{}`",
+                crate::scope::display(&Self::member_key(owner, &member.text))
+            )));
+        }
+        Ok(())
+    }
+
+    /// Whether `key` is a definition (not a type or ability) of this
+    /// module, at its root.
+    fn is_root_def(&self, key: &str) -> bool {
+        matches!(
+            self.scope.get(key),
+            Some((Global::Unchecked(j), _)) if self.unit.module.items[j].kind == Kind::Def
+        )
     }
 
     /// A name a module declaration claims: not built in, and not already

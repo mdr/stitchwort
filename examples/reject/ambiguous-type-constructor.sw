@@ -1,7 +1,7 @@
 -- expect-error: E-AMBIGUOUS
--- A type and its only constructor have the same name. The constructor can be
--- written `YUp.YUp`, but the type has no qualified form: rename the
--- constructor.
+-- A type and its only constructor have the same name. Where a type is
+-- written (`y: YUp`) the name is the type; where a value is wanted it is
+-- ambiguous, and the constructor is written `YUp.YUp`.
 type YUp: Type =
   | YUp
 

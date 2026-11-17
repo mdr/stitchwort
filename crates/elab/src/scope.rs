@@ -461,7 +461,7 @@ pub fn short(key: &str) -> &str {
 }
 
 /// `key`'s namespace, if it has one.
-fn parent(key: &str) -> Option<&str> {
+pub(crate) fn parent(key: &str) -> Option<&str> {
     key.rfind('.').map(|i| &key[..i])
 }
 
@@ -1160,6 +1160,12 @@ impl Elaborator {
         }
     }
 
+    /// The keys of the constructors and operations named `x`, whatever
+    /// owns them.
+    pub(crate) fn followers_named(&self, x: &str) -> impl Iterator<Item = &String> {
+        self.scope.followers.get(x).into_iter().flatten()
+    }
+
     /// A short name, at the first level that has it. Constructors and
     /// operations are found only with `followers`.
     pub(crate) fn resolve_short(&self, x: &str, followers: bool) -> Resolved<'_> {
@@ -1746,8 +1752,58 @@ impl Elaborator {
     pub(crate) fn named(&self, written: &str) -> Option<&(Global, Span)> {
         match self.resolve(written) {
             Resolved::Found { key, rest, .. } if rest.is_empty() => self.scope.stored(key),
+            // A type and its constructor of the same name, where a type is
+            // written: the type.
+            Resolved::Ambiguous(keys, _)
+                if self.decl.type_names.borrow().iter().any(|n| n == written) =>
+            {
+                let (type_key, _) = self.type_and_constructor(&keys)?;
+                self.scope.stored(type_key)
+            }
             _ => None,
         }
+    }
+
+    /// For a definition `written` (a short name) finds, the declarations of
+    /// the same name it hides: ones this file's `import`s and `(..)`
+    /// imports would otherwise bring (D3671: the file's own win, and a
+    /// type mismatch says so).
+    pub(crate) fn hidden_by(&self, written: &str) -> Option<String> {
+        if written.contains('.') {
+            return None;
+        }
+        let Resolved::Found { key, level, .. } = self.resolve_short(written, false) else {
+            return None;
+        };
+        let mut hidden: Vec<(Level, &str)> = Vec::new();
+        for lower in [Level::Import, Level::Wildcard] {
+            if lower <= level {
+                continue;
+            }
+            self.candidates(lower, written, false, &mut |other| {
+                if other != key && !hidden.iter().any(|(_, k)| *k == other) {
+                    hidden.push((lower, other));
+                }
+            });
+        }
+        if hidden.is_empty() {
+            return None;
+        }
+        let list: Vec<String> = hidden
+            .iter()
+            .map(|(via, other)| {
+                let how = match via {
+                    Level::Import => "imported by name",
+                    _ => "from an `import … (..)`",
+                };
+                format!("`{}` ({how})", display(other))
+            })
+            .collect();
+        Some(format!(
+            "`{written}` here means `{}`, which hides {}; write the full name for the other",
+            display(key),
+            list.join(" and ")
+        ))
     }
 
     /// Which declaration `written` found, where, and the other
@@ -1978,21 +2034,15 @@ impl Elaborator {
             Some((type_key, ctor_key)) => {
                 let type_shown = self.written(type_key);
                 let ctor_shown = self.written(ctor_key);
-                let type_alternative = match parent(type_key) {
-                    Some(_) => format!(", or write the type as `{type_shown}`"),
-                    None => {
-                        "; the type has no qualified name, so its uses need the rename".to_string()
-                    }
-                };
                 d.with_label(
                     name.span,
                     format!("`{}` is both a type and its constructor", name.text),
                 )
                 .with_note(format!(
-                    "`{type_shown}` names both the type and its constructor `{ctor_shown}`, so \
-                     on its own it is ambiguous: rename the constructor, as in \
-                     `| Mk{ctor_short}`, or write the constructor as `{ctor_shown}`\
-                     {type_alternative}",
+                    "`{type_shown}` names both the type and its constructor `{ctor_shown}`; \
+                     where a type is written it means the type, and here a value is wanted, \
+                     so write the constructor as `{ctor_shown}`, or rename it, as in \
+                     `| Mk{ctor_short}`",
                     ctor_short = short(ctor_key),
                 ))
             }

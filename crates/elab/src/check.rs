@@ -3113,7 +3113,12 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         None => Err(cx.e.not_found_with(name, &cx.scope_names())),
         Some((Global::Def(id), _)) => {
             let head = (Term::Def(*id), crate::kernel::def_ty(&cx.g(), *id)?);
-            apply_named_head(cx, head, args, fill, name.span)
+            apply_named_head(cx, head, args, fill, name.span).map_err(|e| {
+                match cx.e.hidden_by(&name.text) {
+                    Some(note) if e.code == "E-TYPE-MISMATCH" => e.with_note(note),
+                    _ => e,
+                }
+            })
         }
         // The parameters, then the indices: one telescope; `auto` parameters
         // are found (docs/proposals/interfaces.md §7.5).
@@ -9676,7 +9681,11 @@ pub(crate) fn check_type_defaulting(
         let term = with_span(cx, span, |cx| crate::logic::as_prop(cx, logic))?;
         return Ok((Term::Loc(span, Rc::new(term)), Sort::Prop));
     }
-    let (term, ty) = match infer(cx, expr) {
+    let marked = type_names(written, &mut cx.e.decl.type_names.borrow_mut());
+    let inferred = infer(cx, expr);
+    let kept = cx.e.decl.type_names.borrow().len() - marked;
+    cx.e.decl.type_names.borrow_mut().truncate(kept);
+    let (term, ty) = match inferred {
         Ok(found) => found,
         // A constructor with arguments missing is inferred as a function whose
         // parameter types are unknown yet, and that can fail on a dependent
@@ -9716,6 +9725,30 @@ pub(crate) fn check_type_defaulting(
             None => Err(not_a_type(cx, span, &other)),
         },
     }
+}
+
+/// Pushes onto `out` the short names `ty` writes as a type: its head, and
+/// its bare arguments (`List Box`). Returns how many it pushed.
+fn type_names(ty: &Expr, out: &mut Vec<String>) -> usize {
+    let before = out.len();
+    let mut head = ty;
+    loop {
+        match head {
+            Expr::App(f, arg) => {
+                if let Expr::Var(name) = &**arg {
+                    out.push(name.text.clone());
+                }
+                head = f;
+            }
+            Expr::Bracketed(inner, _) => head = inner,
+            Expr::Var(name) => {
+                out.push(name.text.clone());
+                break;
+            }
+            _ => break,
+        }
+    }
+    out.len() - before
 }
 
 /// `term`, a `Bool` `b` written as `expr` where a proposition is expected,
