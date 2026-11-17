@@ -22414,7 +22414,7 @@
     {
       "id": 3864,
       "title": "[Opus] Self-hosted formatter stage 4b: meaning (D3678: the narrow form, forgetting only what a pass changes where it changes it), on the shared traversal; correct self-hosted-fmt.md §3.4's first row and the 94 kinds to 98; prove the sketch's per-pass 'keeps meaning' step facts that are cheap; Opus review of Meaning.sw with Traverse.sw (after SW-3863)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
