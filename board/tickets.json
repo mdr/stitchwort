@@ -1,5 +1,5 @@
 {
-  "next": 3725,
+  "next": 3726,
   "tickets": [
     {
       "id": 47,
@@ -41870,6 +41870,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3725,
+      "title": "[Fable paper] Think through derived instances' cost (SW-3710): why generated ==/< law proofs are expensive, whether std's internal types need them at all, and the space of solutions (lazy, cheaper proofs, direct terms, shipped cache, others), with a recommendation (Matt, 17 Nov 2026)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
