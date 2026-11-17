@@ -41775,15 +41775,17 @@
     {
       "id": 3704,
       "title": "[Sonnet] Broad tier A rest, F, I singles: web playground example ex-lists warns W-ARROW-FORALL (write ∀); cli timings::the_largest_read_back_and_deepest_frames_are_reported; web project::tests::an_error_in_a_shared_file_comes_with_its_file_and_line; driver resources::a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds (now out of steps); cli indexed_families::a_nested_number_column_reports_the_numbers_the_outer_arms_leave_out; cli sweep::sweep_theorem_binders_files_checks_a_single_file_on_its_own; cli test_json::a_body_that_does_not_parse_stands_in_for_its_statement; projects navigation::diagnostics_are_in_the_index (errors:true listing std files); cli run_reference::examples_print_the_same_both_ways (likely the exit-status example, as SW-3693). Each alone, cause, fix",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane notes: all nine fixed as stale tests or the playground example (see commits); resources test: Std's lazily checked Omega declarations exceed the old size limit of 100, limit raised in the test only (SW-3710 related).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "78d7922bb 096b65235 3a9296c81 a86a68e4c 0afe3263d 0ce09761a 6aaf5d3b8 fb0b73326 284267949"
+      ]
     },
     {
       "id": 3705,
