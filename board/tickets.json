@@ -1,5 +1,5 @@
 {
-  "next": 3821,
+  "next": 3824,
   "tickets": [
     {
       "id": 47,
@@ -21840,12 +21840,51 @@
     {
       "id": 3820,
       "title": "[Fable paper] Self-hosted formatter stage 3, the sketch (§8): meaning for the node kinds; every top theorem and each layer's statements in a side project with open goals, checked for fit; theorem counts per layer replacing §7.3's estimates",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 17 Nov 2026: happy for the sketch to run, but wants to discuss the practicalities before any theorem-proving stage of the self-hosted formatter starts. No proof lanes until that discussion.",
+      "body": "Matt, 17 Nov 2026: happy for the sketch to run, but wants to discuss the practicalities before any theorem-proving stage of the self-hosted formatter starts. No proof lanes until that discussion.\n\nModel result: fable, worked, 17 min (est. 45). 66 statements, 44 open; re-estimate 3,200-5,900 (middle 4,400). Tree advice relayed to SW-3819. Decision for Matt pending (meaning forgets only what a pass changes, where it changes it), held until the practicalities discussion. Findings SW-3821 SW-3822 SW-3823.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3821,
+      "title": "[Opus] Fused tidy passes: the sketch states tidyFused (the four passes as one traversal; no counterexample found): prove it and have the driver walk the tree once, not four times (SW-3820 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3822,
+      "title": "[DeepSeek] Rust rule N: does arrowsFrom leave a trailing comment on an -> that is the file's last leaf, as stage 1's Stitchwort rule does? Check crates/fmt tidy.rs and add a test either way (SW-3820 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3823,
+      "title": "[DeepSeek] Proving guide: in the sketch advice, run 'check --counterexamples' on every sketch statement about written code (found a false statement in 15 s, SW-3820); note constructor-name clashes with kind lists",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
