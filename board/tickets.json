@@ -1,5 +1,5 @@
 {
-  "next": 3787,
+  "next": 3790,
   "tickets": [
     {
       "id": 47,
@@ -42650,11 +42650,11 @@
     {
       "id": 3783,
       "title": "[Fable paper] Floats: transcendental functions (exp, log, cos, ...) whose JS results are implementation-approximated (ECMA-262 §21.3.2): how can theorems hold about the code that runs in the browser without giving up native Math speed? Survey prior art, options, recommendation; docs/proposals/float-transcendentals.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Model result: fable, worked, 11 min (est. 45). D candidates in the note's §9; orchestrator brings the main one as D3675. Findings SW-3787 SW-3788 SW-3789.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42691,6 +42691,42 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3787,
+      "title": "[Sonnet] Floats stage 0 (SW-3783): measure fdlibm-style and correctly rounded exp in JS against Math.exp, then extracted from Stitchwort; needs D3675",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3788,
+      "title": "[Sonnet] Float.sqrt as a primitive on the host's exact Math.sqrt (SW-3783)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3789,
+      "title": "[DeepSeek] docs/proposals/float.md §3.6: the pow/exp/trig row says engines differing is unverified; it is now verified, point at float-transcendentals.md (SW-3783)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
