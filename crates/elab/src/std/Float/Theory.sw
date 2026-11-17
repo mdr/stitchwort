@@ -6138,19 +6138,118 @@ theorem Float.Theory.xorComm ∀ (a b: Bool): Bool.xor a b = Bool.xor b a := mat
 
 --| `*` commutes on finite doubles.
 theorem Float.mulCommFinite ∀ (x c: Float) (fx: Float.isFinite x = True) (fc: Float.isFinite c = True): x * c = c * x :=
+  let ux: Int := Float.Theory.units x
+  let uc: Int := Float.Theory.units c
+  let sx: Bool := Float.Model.signBit x.bits
+  let sc: Bool := Float.Model.signBit c.bits
   Float.bitsExt
     (x * c)
     (c * x)
-    (rewrite Float.Theory.mulBitsOf x c fx fc,
-        Float.Theory.mulBitsOf c x fc fx,
-        Int.mulComm (Float.Theory.units x) (Float.Theory.units c),
-        Float.Theory.xorComm (Float.Model.signBit x.bits) (Float.Model.signBit c.bits))
+    (calc (x * c).bits
+      _ = Float.Model.roundRatio (Int.mul ux uc) 1 (-2148) (Bool.xor sx sc) := Float.Theory.mulBitsOf x c fx fc
+      _ = Float.Model.roundRatio (Int.mul uc ux) 1 (-2148) (Bool.xor sx sc) :=
+        Eq.cong (n => Float.Model.roundRatio n 1 (-2148) (Bool.xor sx sc)) (Int.mulComm ux uc)
+      _ = Float.Model.roundRatio (Int.mul uc ux) 1 (-2148) (Bool.xor sc sx) :=
+        Eq.cong (z => Float.Model.roundRatio (Int.mul uc ux) 1 (-2148) z) (Float.Theory.xorComm sx sc)
+      _ = (c * x).bits := (Float.Theory.mulBitsOf c x fc fx).flipped)
 
 --| `0.0 * c` is `0.0` for a non-negative finite `c`.
 theorem Float.zeroMulNonneg ∀ (c: Float) (fc: Float.isFinite c = True) (hc: 0.0 <= c): 0.0 * c = 0.0 :=
   let z: Int.mul (Float.Theory.units 0.0) (Float.Theory.units c) = OfNat 0 :=
     rewrite (byComputing: Float.Theory.units 0.0 = OfNat 0) then algebra
   let s: Float.Model.signBit c.bits = False := Float.Theory.signClear c.bits hc
-  Float.bitsExt (0.0 * c) 0.0 (rewrite Float.Theory.mulBitsOf 0.0 c byComputing fc, z, s then byComputing)
+  Float.bitsExt (0.0 * c) 0.0 (rewrite Float.Theory.mulBitsOf 0.0 c byComputing fc, z, s)
 
 test "Float.mulCommFinite" := 0.1 * 3.0 == 3.0 * 0.1 ∧ (-0.0) * 2.0 == 2.0 * (-0.0) ∧ (0.0 * 5.0).bits == 0
+
+-- Rounding error
+
+--| A rounding to a finite pattern is at least as near `t / d` as any
+--| representable grid point `q × 2^e` units (`q ≤ 2^53`, below 2^2098).
+theorem Float.Theory.roundsToGrid ∀ (t d r q e: Nat)
+    (spec: Float.Theory.RoundsTo t d r)
+    (fr: r < 9218868437227405312)
+    (hq: q ≤ 9007199254740992)
+    (fin: q * Nat.pow 2 e < Nat.pow 2 2098):
+    Nat.absDiff (Float.Theory.magUnits r * d) t ≤ Nat.absDiff (q * Nat.pow 2 e * d) t :=
+  J
+    (u w => Nat.absDiff (Float.Theory.magUnits r * d) t ≤ Nat.absDiff (u * d) t)
+    (spec.nearest (Float.Theory.gridBits q e) (Float.Theory.gridFinite q e hq fin) fr)
+    (Float.Theory.gridUnits q e hq)
+
+theorem Float.Theory.halfSpacing ∀ (a h p: Nat) (x: a ≤ h) (y: a ≤ p - h) (hp: h < p): a + a ≤ p :=
+  arithmetic [x, y, hp]
+
+theorem Float.Theory.quotientRoom ∀ (t p q h: Nat)
+    (split: t = q * p + h)
+    (top: t < p * 9007199254740992):
+    q + 1 ≤ 9007199254740992 :=
+  let below: q * p < p * 9007199254740992 := arithmetic [split, top]
+  let less: q < 9007199254740992 :=
+    Float.Theory.cancelLess q 9007199254740992 p (J (y w => q * p < y) below (Nat.mulComm p 9007199254740992))
+  arithmetic [less]
+
+theorem Float.Theory.pow53: 9007199254740992 = Nat.pow 2 53 := byComputing
+
+theorem Float.Theory.powLtDouble ∀ (n: Nat): Nat.pow 2 n < Nat.pow 2 (Succ n) :=
+  arithmetic [Nat.powSucc 2 n, Nat.powSuccPos 1 n]
+
+theorem Float.Theory.mulPowLe ∀ (k e b: Nat) (kb: k ≤ Nat.pow 2 b): k * Nat.pow 2 e ≤ Nat.pow 2 (b + e) :=
+  J (y w => k * Nat.pow 2 e ≤ y) (Nat.leMulRight k (Nat.pow 2 b) (Nat.pow 2 e) kb) (Nat.powAdd 2 b e).flipped
+
+--| Grid points of up to 53 bits at spacing `2^e` are below 2^2098 units if `53 + e ≤ 2097`.
+theorem Float.Theory.gridRoom ∀ (k e: Nat)
+    (kb: k ≤ Nat.pow 2 53)
+    (room: 53 + e ≤ 2097):
+    k * Nat.pow 2 e < Nat.pow 2 2098 :=
+  let kLe: k * Nat.pow 2 e ≤ Nat.pow 2 (53 + e) := Float.Theory.mulPowLe k e 53 kb
+  Float.Theory.leLessTrans
+    (k * Nat.pow 2 e)
+    (Nat.pow 2 2097)
+    (Nat.pow 2 2098)
+    (Nat.leTrans (k * Nat.pow 2 e) (Nat.pow 2 (53 + e)) (Nat.pow 2 2097) kLe (Nat.powMono 1 (53 + e) 2097 room))
+    (Float.Theory.powLtDouble 2097)
+
+theorem Float.Theory.absDiffBelow ∀ (t a h: Nat) (split: t = a + h): Nat.absDiff a t = h :=
+  rewrite Float.Theory.absDiffDef a t then arithmetic [split]
+
+theorem Float.Theory.absDiffAbove ∀ (t a h p: Nat) (split: t = a + h) (hp: h < p): Nat.absDiff (a + p) t = p - h :=
+  rewrite Float.Theory.absDiffDef (a + p) t then arithmetic [split, hp]
+
+--| `roundsToSpacing` with the quotient and remainder named.
+theorem Float.Theory.roundsToSpacingAt ∀ (t d r e q h: Nat)
+    (spec: Float.Theory.RoundsTo t d r)
+    (fr: r < 9218868437227405312)
+    (split: t = q * (d * Nat.pow 2 e) + h)
+    (hp: h < d * Nat.pow 2 e)
+    (qTop: q + 1 ≤ 9007199254740992)
+    (room: 53 + e ≤ 2097):
+    Nat.absDiff (Float.Theory.magUnits r * d) t + Nat.absDiff (Float.Theory.magUnits r * d) t ≤ d * Nat.pow 2 e :=
+  let p: Nat := d * Nat.pow 2 e
+  let qb: q ≤ 9007199254740992 := arithmetic [qTop]
+  let below: Nat.absDiff (Float.Theory.magUnits r * d) t ≤ Nat.absDiff (q * Nat.pow 2 e * d) t :=
+    Float.Theory.roundsToGrid t d r q e spec fr qb
+      (Float.Theory.gridRoom q e (J (y w => q ≤ y) qb Float.Theory.pow53) room)
+  let above: Nat.absDiff (Float.Theory.magUnits r * d) t ≤ Nat.absDiff ((q + 1) * Nat.pow 2 e * d) t :=
+    Float.Theory.roundsToGrid t d r
+      (q + 1)
+      e
+      spec
+      fr
+      qTop
+      (Float.Theory.gridRoom (q + 1) e (J (y w => q + 1 ≤ y) qTop Float.Theory.pow53) room)
+  let eq1: q * Nat.pow 2 e * d = q * p := algebra
+  let eq2: (q + 1) * Nat.pow 2 e * d = q * p + p := algebra
+  Float.Theory.halfSpacing
+    (Nat.absDiff (Float.Theory.magUnits r * d) t)
+    h
+    p
+    (J
+      (y w => Nat.absDiff (Float.Theory.magUnits r * d) t ≤ y)
+      below
+      (Eq.trans (Eq.cong (u => Nat.absDiff u t) eq1) (Float.Theory.absDiffBelow t (q * p) h split)))
+    (J
+      (y w => Nat.absDiff (Float.Theory.magUnits r * d) t ≤ y)
+      above
+      (Eq.trans (Eq.cong (u => Nat.absDiff u t) eq2) (Float.Theory.absDiffAbove t (q * p) h p split hp)))
+    hp
