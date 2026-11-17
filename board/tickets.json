@@ -1,5 +1,5 @@
 {
-  "next": 3797,
+  "next": 3798,
   "tickets": [
     {
       "id": 47,
@@ -42818,6 +42818,19 @@
       "id": 3796,
       "title": "[Fable review] SW-638 (float stage 3: mul, ofInt, ofNat as definitions through roundScaled): soundness review of the runtime-only native gate, mulBits against IEEE 754, pins, docs/core.md; docs/reviews/SW-638-float-stage3-review.md",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3797,
+      "title": "[Sonnet] float::with_every_native_off_float_runs_out_of_budget (driver elaboration) runs past 400 s on main (17 Nov 2026, c67cadcbb era): find what changed and make it finish or fail fast; it should prove float checking runs out of budget, not hang",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
