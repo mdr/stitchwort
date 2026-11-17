@@ -22505,7 +22505,7 @@
     {
       "id": 3871,
       "title": "[Opus] Whereabouts answer in band, part 3: the wrapped-interval reading of inHintBand (bands crossing ±180), latitude's clamped edges into the unit bounds and then ieeeLe, the width's lower bound from the tolerance via kmToDegrees, longitude's narrow bands (wrap's error on tenths, finding 2) and the cosine bound; then the full theorem (SW-3858 report)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
