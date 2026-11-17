@@ -23014,7 +23014,7 @@
     {
       "id": 3910,
       "title": "[DeepSeek] Proving guide: state facts about {Fail} functions through a named wrapper (Fail.toResult (() => x.traverse on) otherwise wraps the thunk as a value) (SW-3877 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23040,7 +23040,7 @@
     {
       "id": 3912,
       "title": "[DeepSeek] docs/proposals/README.md index is out of date (says 156 notes; the folder has ~235): regenerate or list the missing ones (SW-3888 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23133,7 +23133,7 @@
     {
       "id": 3919,
       "title": "[DeepSeek] Proving guide: a {Fail} step whose body never fails won't evaluate under Fail.toResult and blows cases' budget; declare such steps pure (SW-3884, stage 4b) — merge with SW-3910",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
