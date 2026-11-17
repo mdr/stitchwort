@@ -752,3 +752,35 @@ No axioms (`stitchwort axioms Fmt.Proofs.firstThreeKeepMeaning`).
 - annotations equal from equal `typeLines`: the dump of a comment-free type telling types apart (an induction over `Expr.lines`), or `joins` comparing blanked trees;
 - equal `kind`s: `joins` doesn't compare `GroupKind` (the parser never mixes them in one list, but nothing in the tree says so);
 - `Group.bare` is parse-time and not tied to the tree's comments, so a proof can't use it; with comments blanked it doesn't need to.
+
+## A comment-free `meaning` (SW-3884)
+
+Opus, 17 November 2026.
+
+### What is here
+
+| Piece | Where |
+|---|---|
+| The blanking map: one function a step (`blankExpr`, `blankPattern`, `blankHeader`, `blankDecl`, `blankFields`, `blankAttributes`, `blankRuleSet`), each blanking the comments the node holds itself and those of the records inside it with no step of their own (groups, rows, lets, arms, clauses, constructors); `blankSteps`, and `SourceFile.withoutComments` | `src/Fmt/Blank.sw` |
+| `meaning`'s steps blank a node before they read it, and `meaning` blanks the file's end comments (`withoutEnd`) | `src/Fmt/Meaning.sw` |
+| `meaningBlanksFirst`: `file.withoutComments.meaning = file.meaning`, through `applyKeeps` with `blankKeeps` (blanking a node keeps what `meaning`'s walk gives of it); 50 theorems, about one a blanking function | `src/Fmt/BlankProofs.sw` |
+| `joins` compares the groups' `kind`s (SW-3908) | `src/Fmt/Passes.sw` |
+| Test: a merged group's pieces hold no comments, before and after `tidy` (fails with the header step not blanking) | `src/Fmt/Tests/Meaning.sw` |
+
+The decision was the plan's option (b) (`docs/proposals/self-hosted-fmt-engine-plan.md` §4): blank before the steps. It is done one node at a time, inside the one traversal, rather than as a traversal of its own followed by `meaning`'s: the passes' facts then stay `Keeps` facts about one walk, and `meaningBlanksFirst` is the plan's `file.withoutComments.apply meaningSteps`, so stage 5 gets equal meanings from equal blanked trees by congruence.
+
+P1 to P3's proofs needed four changes: the binder-type lemmas are stated through the blanking (`(blankGroups …).map Group.plainType`), `parenWalkForgotten` takes any words for the pair (`meaning` sees the blanked ones), `negativeWalk` splits the atom's kind, and the file theorems apply to `file.withoutEnd`. No axioms (`firstThreeKeepMeaning`, `meaningBlanksFirst`).
+
+### Checked [run]
+
+- `Fmt.Twin --stage meaning`: `kept` on the 132 golden files and 224 repo files (every fourth `.sw` under `crates/elab/src/std`, `aoc/src`, `tools`, `games`), with a twin built from this branch.
+- `dev/fmt-meaning-oracle`: 120 pairs, 103 agreed, all 103 the same to the compiler, 0 findings.
+- `dev/fmt-twin passes`: goldens 132 of 132, repo `--sample 300` 300 of 300 identical (with `joins` comparing kinds).
+
+### P4 and the four passes
+
+`tidyKeepsMeaning`: `file.tidy.meaning = file.meaning`, no axioms (`src/Fmt/MergeProofs.sw`).
+
+- **`joins` gained a second half** (the orchestrator's call): `joins = rustJoins ∧ meaningJoins`. `rustJoins` is the Rust pass's test as before, with `kind`s compared (SW-3908). `meaningJoins` asks that `meaning` read the two groups alike but for their names (`Group.meaningForm`, the group walked with `meaning`'s steps, blanked and unwrapped, compared with `Group`'s derived `==`), and that it split each of them and their merge (`Group.meaningSplits`: one group a name, so self-naming is asked of the walked type). The two tests read different trees: the dump compares raw tokens and can't be tied to the walked type in general (it leaves out an atom's `Tok`), and the walked comparison alone would merge `(x: Nat -- a) (y: Nat -- b)`, dropping a comment `meaning` can't see. Together P4 merges a subset of what Rust merges.
+- **The proof**: `mergePieces` (two groups `meaning` reads alike, each split and split merged: the merge's pieces are theirs, by the names' lists), `joinedPieces` (what `joins` gives: `(a == b) = True` read as `a = b`), then induction along a header's groups (`mergeFromKeeps`) and a binder's parameters (`mergeParamsFromKeeps`, `mergeParamsKeeps`), and `applyKeeps`. `mergeHeader` and `mergeBinding` became pure, as P1 to P3's steps did in 4b.
+- **Checked**, with the interpreted `Fmt.Twin` (`stitchwort run Fmt.Twin.main`; the native build peaks at 2.4 GB): `dev/fmt-twin passes` goldens 132 of 132, repo `--sample 300` 300 of 300 identical; `--stage meaning` `kept` on 132 goldens and 224 repo files.
