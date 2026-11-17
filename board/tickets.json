@@ -22622,12 +22622,12 @@
     {
       "id": 3880,
       "title": "[Opus] D3679 (decided): a parameter group (a b: T) is pure sugar for (a: T) (b: T): the elaborator checks the type once per name (infer_pi, crates/elab/src/check.rs ~2896), so (x y: _) and (a b: Box) with an implicit check exactly when the split form does; repros in docs/reviews/SW-3878-meaning.md M1; guide and syntax.md say so",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3679 decided (Matt, 17 Nov 2026): option 1, 'Yeah, I'm happy with option one. Let's keep it as a pure syntax sugar.' The compiler reads (a b: T) exactly as (a: T) (b: T), elaborating the type once per name; the formatter's merge and meaning's split stay as they are. Lane: Opus (elaborator, core language), next free build slot.",
+      "body": "D3679 decided (Matt, 17 Nov 2026): option 1, 'Yeah, I'm happy with option one. Let's keep it as a pure syntax sugar.' The compiler reads (a b: T) exactly as (a: T) (b: T), elaborating the type once per name; the formatter's merge and meaning's split stay as they are. Lane: Opus (elaborator, core language), next free build slot.\n\nLane (Opus, 17 Nov 2026, 18:59-19:20, est. 40 min): done in the lowering, not the elaborator. Every place a group is lowered (header params via lower_header, `∀` via forall, `(x y: A) -> B`, data, interface and ability params, constructor fields; lambdas and `∃` already split) now gives each name its own binder and its own copy of the type (ast::Binder::split), so the elaborator checks it once per name, as for the split form. No elaborator or kernel change. The theorem-binders sweep (driver/binder_sweep.rs) gathers a split group's binders back into one token group. Messages unchanged (an error in the type is reported once; a `?` there shows one goal). One reading change, as the split form has it: in `∀ (a b: a)`, b's type is the parameter a, not an outer a. Tests: 4 examples (group-hole-forall, group-hole-header, group-implicit-argument, group-hole-positions; all failed before), lowering test a_group_is_a_binder_per_name, hash test a_group_hashes_as_its_split_form; std hashes unchanged (hash_stability::prelude), no existing example hash changed. Docs: syntax.md bullet, guide ch. 2.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

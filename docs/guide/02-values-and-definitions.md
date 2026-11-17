@@ -15,6 +15,8 @@ def greeting (name: Text): Text := "Hello, " ++ name ++ "!"
 def area (width height: Nat): Nat := width * height
 ```
 
+Parameters of the same type can share brackets: `(width height: Nat)` is shorthand for `(width: Nat) (height: Nat)`, and means exactly the same, wherever parameters are written. Each name gets its own copy of the type, so a `_` in it (a type left for the compiler to work out) can come out differently for each name.
+
 The house style is `name: Type`, with no space before the colon, as in Scala and TypeScript. A declaration starts in column 0, and every line that continues it is indented. `--` starts a comment that runs to the end of the line.
 
 There are no statements and no mutation. A definition is a value, and calling a function computes a new value from its arguments. `=` is only equality (a proposition, used in theorems), and `:=` gives a definition or a `let` its value.
