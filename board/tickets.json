@@ -1,5 +1,5 @@
 {
-  "next": 3770,
+  "next": 3771,
   "tickets": [
     {
       "id": 47,
@@ -42463,6 +42463,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3770,
+      "title": "[DeepSeek] fmt: a parameter's function type split by comment lines after the colon and after the arrow ('(kif:-- c' / ' List Nat →' / '-- c' / ' Nat)') makes the output fail to parse ('expected ) to close the parameter … found →'); formatter refuses. Fuzz seed 0x101d COMMENTS=0.3 case 29111. Arrow family (0x920, SW-3570/3573) in a def parameter",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
