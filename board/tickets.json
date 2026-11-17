@@ -42315,12 +42315,12 @@
     {
       "id": 3758,
       "title": "[Opus] match refinement S1+S2 (D3672 experiment (docs/proposals/match-refinement.md) §7): hidden equation for an unnamed match made when an arm needs it (arguments), and rewrite along it when a closer's computed goal still has e; §2's repros as accept examples; record elab lines added and std/AoC step counts before/after",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Expected: 50 min (lane started 11:50).\n\n17 Nov 2026, lane (Opus), 12:25: done on lane/SW-3758, commit 3341e71ec.\n- S1: `matching::with_hidden_equation` checks a generalised match's arms again with the unnamed scrutinee named `%tested` when they failed and an arm noted a failed proof comparison with that scrutinee on one side (`Ctx::note_equation_wanted`); a failed retry reruns the first way, so errors are today's.\n- S2: `Ctx::refined_again` (rewrite the goal along the innermost equation whose scrutinee it holds, retry, carry back with `transport_along`; 8 rounds then `E-MATCH-ROUNDS`), called from `byComputing` only.\n- Measurements in match-refinement.md §7, \"S1/S2 measured\": elab +325 −14; hashes unchanged (prelude, match examples); import_cost flat (Int/Map +1,247 steps).\n- Five reject examples now check (as the rule says) and moved to accept under new names; new accept examples for §2.1 and §2.2, a reject example for the cap.\n- Tests: test:example NAME=match, hash_stability::prelude, hash_stability::examples (EXAMPLES=match), examples::soundness, import_cost: all pass.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
