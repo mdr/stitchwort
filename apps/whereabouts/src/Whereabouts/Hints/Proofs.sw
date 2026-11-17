@@ -259,3 +259,30 @@ theorem tenthsKeepTheirLabel: (List.range 0 3601).all (k =>
       Float.round (tenth (OfNat k - 1800) * 10.0) / 10.0 == tenth (OfNat k - 1800))
       = True :=
   byComputing
+
+-- Latitude's clamps
+
+--| Clamping to [-90°, 90°] lands in it, for every double but the NaN.
+theorem latitudeClampRange ∀ (y: Float)
+    (ny: Float.isNaN y = False):
+    -90.0 <= Float.max (-90.0) (Float.min 90.0 y) ∧ Float.max (-90.0) (Float.min 90.0 y) <= 90.0 :=
+  let nm: Float.isNaN (Float.min 90.0 y) = False := Float.minNotNaN 90.0 y byComputing ny
+  Both
+    (Float.leMaxLeft (-90.0) (Float.min 90.0 y) byComputing nm)
+    (Float.maxLe (-90.0) (Float.min 90.0 y) 90.0 byComputing nm byComputing (Float.minLeLeft 90.0 y byComputing ny))
+
+--| Clamping a lower edge at -90° keeps it at most a latitude it was at most.
+theorem clampFromKeeps ∀ (lat from: Float)
+    (nf: Float.isNaN from = False)
+    (low: -90.0 <= lat)
+    (h: from <= lat):
+    Float.max (-90.0) from <= lat :=
+  Float.maxLe (-90.0) from lat byComputing nf low h
+
+--| Clamping an upper edge at 90° keeps it at least a latitude it was at least.
+theorem clampToKeeps ∀ (lat to: Float)
+    (nt: Float.isNaN to = False)
+    (high: lat <= 90.0)
+    (h: lat <= to):
+    lat <= Float.min 90.0 to :=
+  Float.leMin 90.0 to lat byComputing nt high h
