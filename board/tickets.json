@@ -41695,12 +41695,12 @@
     {
       "id": 3698,
       "title": "[Sonnet] Broad tier 9ff2833ca, driver library/elaboration reds: natives::the_real_prelude_registers_every_native, builtins::a_renamed_binder_of_a_shaped_builtin_is_refused, builtins::a_reordered_binder_of_a_shaped_builtin_is_refused, hash_stability::examples, import_cost::importing_std_namespaces_stays_within_recorded_step_counts, reads_chain_cost::reads_chain_proofs_stay_within_recorded_step_counts. Run each alone, read the failure, find the cause; fix or update the recorded counts/snapshots only where the change was deliberate (say which commit and why)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nNotes (Sonnet): fixed natives (test applies keep_written_arrows), builtins x2, compact_text, trial_edits (core/std text now formatted differently), hash_stability (missing rewrite-then-warning snapshot, SW-3648), import_cost bounds (SW-3369 derived instances, deliberate). OPEN: reads_chain_cost, readsTwo 38k->175k (generic) and 32k->100k (characters) since SW-3561 merge 09e7f3b4c; not papered over.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
