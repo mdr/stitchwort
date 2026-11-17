@@ -31123,14 +31123,14 @@
     {
       "id": 2924,
       "title": "[DeepSeek] The same sum prints as (a + 1) before a rewrite and as Succ b after it in the Goals panel's steps (SW-2921)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41383,14 +41383,14 @@
     {
       "id": 3674,
       "title": "[Sonnet] A record pattern directly under a constructor needs brackets (Typed ({ head, tail }) colon a); 'Typed { … }' gives 'braces after Typed in a pattern take no further arguments'. Accept it in the parser, or suggest the brackets (from Toy++ T2b)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
