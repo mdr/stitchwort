@@ -432,22 +432,50 @@ impl Elaborator {
             Field::Recursive(t) => Some(t),
             _ => None,
         };
-        // Field `k`'s comparison of `x` and `y`.
-        let cmp = |ctor: usize, k: usize, x: Expr, y: Expr| match recursive(ctor, k) {
-            Some(t) => s.app(s.var(&of(t, "compare")), vec![x, y]),
-            None => s.app(s.var("Std.Ord.compare"), vec![x, y]),
+        // `f [ord := %ok]`: `f` given field `k`'s `Ord` instance, bound by
+        // `with_instances`.
+        let by_instance = |f: &str, k: usize| {
+            let instance = Expr::NamedArg(
+                s.n("ord"),
+                Box::new(s.var(&format!("%o{k}"))),
+                s.span,
+                Bracket::Square,
+            );
+            s.app(s.var(f), vec![instance])
         };
+        // `let %ok := Ord.instanceFor %ak` around `body`, for each field of
+        // `ctor` compared by its `Ord` instance.
+        let with_instances = |ctor: usize, body: Expr| {
+            data_fields[ctor].iter().rev().fold(body, |body, &k| {
+                if matches!(member_fields[ctor][k], Field::Recursive(_)) {
+                    return body;
+                }
+                let instance = s.app(s.var("Std.Ord.instanceFor"), vec![s.var(&format!("%a{k}"))]);
+                let_in(s.span, &format!("%o{k}"), None, instance, body)
+            })
+        };
+        // Field `k`'s comparison of `x` and `y`.
+        let cmp_by =
+            |ctor: usize, k: usize, x: Expr, y: Expr, named: bool| match member_fields[ctor][k] {
+                Field::Recursive(t) => s.app(s.var(&of(t, "compare")), vec![x, y]),
+                _ if named => s.app(by_instance("Std.Ord.compare", k), vec![x, y]),
+                _ => s.app(s.var("Std.Ord.compare"), vec![x, y]),
+            };
         // The comparison of the data fields of `ctor`: `x(k)` with `y(k)`.
+        let chain_by =
+            |ctor: usize, x: &dyn Fn(usize) -> Expr, y: &dyn Fn(usize) -> Expr, named: bool| {
+                let mut result: Option<Expr> = None;
+                for &k in data_fields[ctor].iter().rev() {
+                    let here = cmp_by(ctor, k, x(k), y(k), named);
+                    result = Some(match result {
+                        None => here,
+                        Some(rest) => s.app(s.var("Std.Ordering.andThen"), vec![here, rest]),
+                    });
+                }
+                result.unwrap_or_else(|| ordering("Equal"))
+            };
         let chain = |ctor: usize, x: &dyn Fn(usize) -> Expr, y: &dyn Fn(usize) -> Expr| {
-            let mut result: Option<Expr> = None;
-            for &k in data_fields[ctor].iter().rev() {
-                let here = cmp(ctor, k, x(k), y(k));
-                result = Some(match result {
-                    None => here,
-                    Some(rest) => s.app(s.var("Std.Ordering.andThen"), vec![here, rest]),
-                });
-            }
-            result.unwrap_or_else(|| ordering("Equal"))
+            chain_by(ctor, x, y, false)
         };
         let va = |k: usize| s.var(&a(k));
         let vb = |k: usize| s.var(&b(k));
@@ -461,6 +489,56 @@ impl Elaborator {
         let equal_fields = |ctor: usize, f: &str| {
             let fields = &data_fields[ctor];
             let count = fields.len();
+            let field_law = |k: usize| match recursive(ctor, k) {
+                Some(target) => call(&of(target, "equal"), &[&a(k), &b(k)]),
+                None if tagged => s.app(
+                    by_instance("Std.Ord.equal", k),
+                    vec![s.var(&a(k)), s.var(&b(k))],
+                ),
+                None => call("Std.Ord.equal", &[&a(k), &b(k)]),
+            };
+            // With the constructor's fields as nested pairs (`T.%C%unpack`,
+            // `derive.rs`): the pairs' equality, a field at a time by
+            // `Ordering.thenPairEqual`, carried back by one `Eq.cong`.
+            let unpack = format!("{prefix}{}%unpack", ctor_list[ctor].name);
+            let tupled = self.has_member(
+                plan.members[m].owner,
+                &format!("{}{}%unpack", plan.members[m].prefix, ctor_list[ctor].name),
+            );
+            if count > 0 && tupled {
+                // Ordering.thenPairEqual %f (law0 %a0 %b0) (%g1 => Ordering.thenPairEqual %g1 … (%gn => lawn %an %bn %gn))
+                let h = |t: usize| {
+                    if t == 0 {
+                        f.to_string()
+                    } else {
+                        format!("%g{t}")
+                    }
+                };
+                let mut pairs = s.app(field_law(fields[count - 1]), vec![s.var(&h(count - 1))]);
+                for t in (0..count - 1).rev() {
+                    pairs = s.app(
+                        s.var("Std.Ordering.thenPairEqual"),
+                        vec![
+                            s.var(&h(t)),
+                            field_law(fields[t]),
+                            s.lam(&[&h(t + 1)], pairs),
+                        ],
+                    );
+                }
+                let tuple = |x: &dyn Fn(usize) -> String| {
+                    let mut t = s.var(&x(fields[count - 1]));
+                    for &k in fields[..count - 1].iter().rev() {
+                        t = s.app(s.var("Std.Pair.MkPair"), vec![s.var(&x(k)), t]);
+                    }
+                    t
+                };
+                let pairs = Expr::Ann(
+                    Box::new(pairs),
+                    Box::new(s.eq(tuple(&a), tuple(&b))),
+                    s.span,
+                );
+                return s.app(s.var("Std.Eq.cong"), vec![s.var(&unpack), pairs]);
+            }
             // The proof that field `fields[t]`'s comparison is `Equal`,
             // from the whole comparison's, by `Ordering.thenEqual`.
             let mut rest = s.var(f);
@@ -528,16 +606,26 @@ impl Elaborator {
                 let rec = recursive(ctor, k);
                 let s = &s;
                 let of = &of;
+                let by_instance = &by_instance;
                 proof = Some(Box::new(move |h1: Expr, h2: Expr| {
-                    let law = match rec {
-                        Some(target) => of(target, "trans"),
-                        None => "Std.Ord.trans".to_string(),
+                    // `f [ord := %ok] %ak %bk %ck`, with the field's instance
+                    // found once, by `with_instances`, before the hypotheses
+                    // of the fields before it are in scope, where each search
+                    // is dearer.
+                    let by_instance = |f: &str| {
+                        let args = [&ak, &bk, &ck].into_iter().map(|x| s.var(x)).collect();
+                        s.app(by_instance(f, k), args)
                     };
                     let Some(next) = &next else {
-                        return s.app(call(&law, &[&ak, &bk, &ck]), vec![h1, h2]);
+                        let law = match rec {
+                            Some(target) => call(&of(target, "trans"), &[&ak, &bk, &ck]),
+                            None => by_instance("Std.Ord.trans"),
+                        };
+                        return s.app(law, vec![h1, h2]);
                     };
                     let rest = s.lam(&[&p, &q], next(s.var(&p), s.var(&q)));
                     if let Some(target) = rec {
+                        let law = of(target, "trans");
                         let (compare, equal) = (of(target, "compare"), of(target, "equal"));
                         let (e, x, y) = (format!("%e{t}"), format!("%x{t}"), format!("%y{t}"));
                         s.app(
@@ -556,15 +644,12 @@ impl Elaborator {
                             ],
                         )
                     } else {
-                        s.app(
-                            call("Std.Ord.thenTrans", &[&ak, &bk, &ck]),
-                            vec![h1, h2, rest],
-                        )
+                        s.app(by_instance("Std.Ord.thenTrans"), vec![h1, h2, rest])
                     }
                 }));
             }
             match &proof {
-                Some(proof) => proof(h1, h2),
+                Some(proof) => with_instances(ctor, proof(h1, h2)),
                 None => s.app(
                     s.var("Std.Void.impossible"),
                     vec![s.app(s.var("Std.Ordering.equalNotLess"), vec![h1])],
@@ -698,7 +783,7 @@ impl Elaborator {
                     s.var("Std.Eq.trans"),
                     vec![equal_fields(ctor, "%f"), eta_at("%s", ctor, "%e")],
                 );
-                let viewed_ty = s.eq(chain(ctor, &va, &vb), ordering("Equal"));
+                let viewed_ty = s.eq(chain_by(ctor, &va, &vb, true), ordering("Equal"));
                 let body = let_in(s.span, "%f", Some(viewed_ty), viewed, body);
                 let body = known(ctor, &b, "%s", "%e", body);
                 let body = let_in(
@@ -709,6 +794,7 @@ impl Elaborator {
                     body,
                 );
                 let body = let_in(s.span, "%t", None, split, body);
+                let body = with_instances(ctor, body);
                 equations.push(equation(&equal, patterns(second), body));
             } else {
                 equations.push(equation(
