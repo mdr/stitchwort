@@ -22154,7 +22154,7 @@
     {
       "id": 3844,
       "title": "[Opus] Whereabouts answer in band: the step-0.1 case (error bounds for / and *, a spec for round, / 10.0 error), the margin row, latitude clamps, longitude's wrapped interval (apps/whereabouts/NOTES.md table, SW-3830 report); after SW-3843",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
