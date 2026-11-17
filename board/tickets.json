@@ -22609,12 +22609,12 @@
     {
       "id": 3879,
       "title": "[DeepSeek] Proving guide: cases on a large record (e.g. Header, 11 fields) exhausts its 64-case budget by splitting every field; split by hand first. Also note that {e} alone may read as a record (SW-3864 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (the row note's example was wrong; orchestrator corrected it), 22 min (est. 15).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22741,7 +22741,7 @@
     {
       "id": 3889,
       "title": "[DeepSeek] Proving guide: arithmetic rejects coefficients around 2^160 and runs out on chains near 2^106 (keep under ~2^110, one variable per call); rewrite's 'goal already computed past it' hint means use byComputing; stitchwort check has no --timings, use --only with --no-cache less std's ~9 s (SW-3872 findings; add to SW-3879)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
