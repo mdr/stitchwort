@@ -176,7 +176,10 @@ type Modes = {
 --| line's first token, which is before the gap and so the first error.
 type BlockLine = { column: Nat, many: Bool, kind: LineKind }
 
-type LineKind = | ExprLine | LetLine | DefLine
+--| `DefHeaderLine` is a local definition's result type or `decreasing`:
+--| a gap there leaves it no body, which `local_def` reports at its keyword
+--| whether or not the block goes on.
+type LineKind = | ExprLine | LetLine | DefLine | DefHeaderLine
 
 def Modes.start: Modes := {
   guard = False,
@@ -632,6 +635,13 @@ def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
           else exprInline self modes
     | _ => exprInline self modes
 
+--| The modes for an expression that a keyword or token must follow (an
+--| `if`'s condition, a scrutinee): after a gap there, that token is missing,
+--| an error after the gap, so no block's ending can come before it.
+def Modes.sealed (modes: Modes): Modes := { modes | lines = [] }
+
+def localNeedsBody: Text := "a local definition needs a body: `:=` and an expression, or arms starting with `|`"
+
 def ranOutLine: Text := "expected an expression, but the line ends here"
 
 --| R1: what was wanted ran out where a line or the declaration ends. The
@@ -650,12 +660,13 @@ def blockEnd (lines: List BlockLine) (next: Option Item): Option Text := match l
     let continues := match next with
       | Some item => item.leaf.token.lineStart && item.leaf.token.column == column && !endsBlocks item.kind
       | None => False
-    if many && continues then None
+    if kind == DefHeaderLine then Some localNeedsBody
+    else if many && continues then None
     else
       match kind with
         | LetLine => Some "a block must end with an expression, not `let`"
         | DefLine => Some "a block must end with an expression, not a local `def` or `theorem`"
-        | ExprLine => blockEnd outer next
+        | _ => blockEnd outer next
 
 --| A line at the block's column that starts with one of these after a
 --| line that ran out is the next statement (R1), not the rest of the line
@@ -731,7 +742,7 @@ def headIndent(): {Parse Item} Nat := left().head.map (item => item.lineIndent) 
 def exprInline (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match modes.peek with
   | Some KwHandle => handleExpr self modes
   | Some KwLet =>
-    let binding := letStatement self modes
+    let binding := letStatement self modes.sealed
     letBody self modes binding
   | Some KwCalc => calcExpr self modes
   | Some KwRewrite => rewriteExpr self modes
@@ -905,9 +916,9 @@ def leavesOf (fuel: Nat) (modes: Modes) (kind: Tok) (found: List Word): {Parse I
 
 def ifExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyword: Word): {Parse Item} Expr :=
   let binder := namedBinder modes
-  let condition := full self modes
+  let condition := full self modes.sealed
   let thenKeyword := modes.expectKeyword KwThen "`then`" indent
-  let whenTrue := full self modes
+  let whenTrue := full self modes.sealed
   let elseKeyword := modes.expectKeyword KwElse "`else`" indent
   If keyword binder condition thenKeyword whenTrue elseKeyword (full self modes)
 
@@ -1504,7 +1515,7 @@ def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word):
 
 def scrutinee (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Scrutinee :=
   let name := namedBinder modes
-  { name, value = self { modes, level = LevelInline } }
+  { name, value = self { modes = modes.sealed, level = LevelInline } }
 
 def plural (count: Nat) (noun: Text): Text := if count == 1 then "${count} ${noun}" else "${count} ${noun}s"
 
@@ -1552,7 +1563,7 @@ def guardOf (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Opti
   if modes.at KwIf then
     let keyword := bump()
     let binder := namedBinder modes
-    let condition := full self { modes | guard = True }
+    let condition := full self { modes | guard = True, lines = [] }
     Some { keyword, binder, condition }
   else None
 

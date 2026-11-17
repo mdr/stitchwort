@@ -53,7 +53,7 @@ def letStatement (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item}
   let annotation :=
     if modes.at Colon then
       let colon := fixedFrom()
-      Some (colon, self { modes, level = LevelInline })
+      Some (colon, self { modes = modes.sealed, level = LevelInline })
     else None
   if modes.at Equals then fatal defEquals
   else
@@ -91,7 +91,7 @@ def localDef (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List
   let (header, body) := definitionParts self modes None None (Some d)
   match header.unfoldingClause, body with
     | Some _, _ => fatal "a local definition can't have `unfolding`"
-    | None, Primitive => fatal "a local definition needs a body: `:=` and an expression, or arms starting with `|`"
+    | None, Primitive => fatal localNeedsBody
     | None, _ => LocalDef attributes header body
 
 -- Handlers.
@@ -99,13 +99,13 @@ def localDef (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List
 --| `handle e with | …`
 def handleExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let keyword := fixedFrom()
-  let computation := self { modes, level = LevelInline }
+  let computation := self { modes = modes.sealed, level = LevelInline }
   let withKeyword := modes.expectFixed KwWith "`with`"
   Handle keyword computation withKeyword (handlerClauses self modes)
 
 --| `match reify t with | …`, after `match` and `reify`.
 def reifyExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword reify: Comments): {Parse Item} Expr :=
-  let computation := self { modes, level = LevelInline }
+  let computation := self { modes = modes.sealed, level = LevelInline }
   if modes.at Comma then fatal "`match reify` takes one computation, with nothing else to match"
   else
     let withKeyword := modes.expectFixed KwWith "`with`"
@@ -150,7 +150,7 @@ def handlerClause (self: Goal → {Parse Item} Expr) (modes: Modes) (bar: Commen
 --| `match induct (f args) with | eqK x ih => …`, after `match` and
 --| `induct`.
 def inductExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword induct: Comments): {Parse Item} Expr :=
-  let call := self { modes, level = LevelInline }
+  let call := self { modes = modes.sealed, level = LevelInline }
   if modes.at Comma then fatal "`match induct` takes one call, with nothing else to match"
   else
     let withKeyword := modes.expectFixed KwWith "`with`"
@@ -185,7 +185,7 @@ def calcExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Exp
   let indent := headIndent()
   let keyword := fixedFrom()
   let inner := { modes | inCalc = True }
-  let first := calcOperand self inner
+  let first := calcOperand self inner.sealed
   match inner.peek with
     | Some kind if kind.isComparison =>
       fatal "`calc` starts with one expression; each relation goes on a line of its own"

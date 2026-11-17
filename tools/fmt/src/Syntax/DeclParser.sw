@@ -561,16 +561,19 @@ def definitionParts (self: Goal → {Parse Item} Expr) (modes: Modes)
         if modes.at LParen || modes.at LBracket then Some word
         else modes.fail "a parameter such as `(x: Nat)` after `∀`"
     else None
-  let params := headerParams (Parse.mark().left + 1) self modes []
+  let params := headerParams (Parse.mark().left + 1) self modes.sealed []
   let colon := fixedFrom()
-  let result := resultType self modes
+  let headerModes := match local with
+    | Some _ => { modes | lines = [{ column = 0, many = False, kind = DefHeaderLine }] }
+    | None => modes
+  let result := resultType self headerModes
   let isInstance := kind == DefInstance
   let decreasingClause :=
     if modes.at KwDecreasing then
       if isInstance then fatal "an instance can't have `decreasing`"
       else
         let keyword := fixedFrom()
-        Some (keyword, self { modes, level = LevelFull })
+        Some (keyword, self { modes = headerModes, level = LevelFull })
     else None
   let afterDecreasing := if decreasingClause.isSome then allowColonEq modes else modes
   let unfoldingClause :=
