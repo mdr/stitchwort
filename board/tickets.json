@@ -41435,14 +41435,14 @@
     {
       "id": 3678,
       "title": "[Sonnet] From Toy++ T3a: 'match e: expr' replaces expr only where visible, not inside a computed inner match (Token.comments), so byComputing refuses equal sides; at least say so in the message. And a proving-guide line: a && b && c nests right, so Bool.andLeft/andRight take a and b && c",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
