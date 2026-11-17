@@ -41683,7 +41683,7 @@
     {
       "id": 3710,
       "title": "[Opus paper] Std import cost roughly doubled with D3609's derived ==, < and printing for std types (SW-3369, 2f4c14504): Nat 10.3M -> 19.8M steps, Int 16.4M -> 26.1M, Text 9.5M -> 17.9M, Map 30.8M -> 43.9M (import_cost bounds raised in SW-3698). Profile where the derived instances cost and propose cheaper derivation (lazy? shared?), with measured gains",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
