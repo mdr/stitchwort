@@ -61,7 +61,15 @@ theorem forallKeepsMeaning ∀ (header: Header): plainHeader (withForall header)
 
 -- P3 after a row: `dropLeft` removes only pairs that `forgetLeft` forgets.
 
-theorem levelAtomic ∀ (expr: Expr) (high: 22 <= expr.level): expr.atomic = True := cases
+theorem levelAtomic ∀ (expr: Expr) (high: 22 <= expr.level): expr.atomic = True := match expr with
+  | CtorFields ctor record =>
+    match record with
+      | Record open base fields comma close =>
+        match base with
+          | None => cases
+          | Some pair => cases
+      | other => cases
+  | other => cases
 
 theorem negativeKept ∀ (membership recordRow: Bool) (expr: Expr)
     (negative: expr.negativeNumeral = True):

@@ -109,6 +109,7 @@ def Expr.level: Expr → Nat
   | Chain _ _ => 6
   | Prefix _ _ => 18
   | App _ _ => 20
+  | CtorFields _ (Record _ (Some _) _ _ _) => 20
   | Binding _ _ _ _ _ => 0
   | If _ _ _ _ _ _ _ => 0
   | Match _ _ _ _ => 0

@@ -88,6 +88,10 @@ test "P3: an operator's left side stands bare as the grammar's levels allow" :=
     && unchanged "def a: {Fail} (a ++ b) ++ c := x" SourceFile.withoutSpareBrackets
     && unchanged "def a: {Fail} (a ∧ b) ∧ c := x" SourceFile.withoutSpareBrackets
 
+test "P3: a constructor update at an application's head keeps its brackets after a row" :=
+  unchanged "def a: {IO} (P { r | x = 1 }) 2 := z" SourceFile.withoutSpareBrackets
+    && sameTree "def a: {IO} (P { x = 1 }) 2 := z" SourceFile.withoutSpareBrackets "def a: {IO} P { x = 1 } 2 := z"
+
 test "P4: adjacent parameters of one type merge" :=
   sameTree "def f (a: Nat) (b: Nat) [t: Type] [u: Type] (x: t): Nat := a" SourceFile.withMergedParameters
       "def f (a b: Nat) [t u: Type] (x: t): Nat := a"

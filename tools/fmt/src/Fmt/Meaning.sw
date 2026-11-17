@@ -154,7 +154,8 @@ def Expr.negativeNumeral: Expr → Bool
   | _ => False
 
 --| The forms that are one bracketed or single-token thing, none of which
---| the compiler reads as an application.
+--| the compiler reads as an application. A constructor update
+--| (`C { r | x = 1 }`) lowers to one, so it isn't here.
 def Expr.atomic: Expr → Bool
   | Atom _ _ => True
   | Paren _ _ _ => True
@@ -166,6 +167,7 @@ def Expr.atomic: Expr → Bool
   | Spread _ _ => True
   | Record _ _ _ _ _ => True
   | RecordField _ _ _ => True
+  | CtorFields _ (Record _ (Some _) _ _ _) => False
   | CtorFields _ _ => True
   | NamedArg _ _ _ _ _ => True
   | FieldAccess (Some _) _ _ => True
