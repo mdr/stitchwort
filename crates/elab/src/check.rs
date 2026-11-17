@@ -2711,17 +2711,25 @@ fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         cx.set_written(crate::dot::Written::Here(shifted));
     }
     let result = check_type(cx, cod);
+    // `(x: Nat) -> x + 1` is a function type whose codomain isn't one;
+    // written with `=>` it would be the lambda `(x: Nat) => x + 1`. Only
+    // say so when the codomain is a value: a comparison mistake such as
+    // `(a ≠ b) = !d` isn't a lambda written with the wrong arrow. The
+    // error may pass out through several binders, so add the note once.
+    const LAMBDA_ARROW: &str = "if this was meant as a lambda, its parameter and body are \
+                                 separated by `=>`, not `->`: `(x: Nat) => body`";
+    let lambda_note = matches!(
+        &result,
+        Err(error)
+            if error.code == "E-NOT-A-TYPE"
+                && !names.is_empty()
+                && !error.notes.iter().any(|note| note == LAMBDA_ARROW)
+                && codomain_is_value(cx, cod)
+    );
     cx.reset(mark);
     let (mut term, s2) = match result {
         Ok(checked) => checked,
-        // `(x: Nat) -> x + 1` is a function type whose codomain isn't one;
-        // written with `=>` it would be the lambda `(x: Nat) => x + 1`.
-        Err(error) if error.code == "E-NOT-A-TYPE" && !names.is_empty() => {
-            return Err(error.with_note(
-                "if this was meant as a lambda, its parameter and body are separated by `=>`, \
-                 not `->`: `(x: Nat) => body`",
-            ));
-        }
+        Err(error) if lambda_note => return Err(error.with_note(LAMBDA_ARROW)),
         Err(error) => return Err(error),
     };
     crate::arrow_forall::note(cx, names, *implicit || *auto, dom_end, cod, s1, s2, *span);
@@ -2734,6 +2742,22 @@ fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         );
     }
     Ok((term, Value::Sort(Sort::pi(s1, s2))))
+}
+
+/// Whether `expr`, a function type's codomain that isn't a type, is a value
+/// of data: what a lambda body would be. A `Bool` isn't, nor is a
+/// proposition or a comparison mistake such as `(a ≠ b) = !d`.
+fn codomain_is_value(cx: &mut Ctx, expr: &Expr) -> bool {
+    let mark = cx.mark();
+    let result = infer(cx, expr);
+    cx.reset(mark);
+    let Ok((_, ty)) = result else {
+        return false;
+    };
+    matches!(
+        force(&cx.g(), ty),
+        Ok(Value::Data(d, _)) if !cx.g().env.registry().is_data(Builtin::Bool, d)
+    )
 }
 
 /// [`infer_value`] of `A -> B`.
