@@ -1,5 +1,5 @@
 {
-  "next": 3824,
+  "next": 3825,
   "tickets": [
     {
       "id": 47,
@@ -21885,6 +21885,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3824,
+      "title": "[Fable paper] Proved self-hosted formatter: an incremental, de-risked plan. Thin end-to-end slices on a cut-down grammar first, the sketch's riskiest statements as early spikes, a foundations inventory (std lemmas, tactics, simp, Std.Doc) done ahead of proof lanes, checkpoints with stop rules (Matt, 17 Nov 2026)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
