@@ -3109,3 +3109,97 @@ theorem latitudeFromBelow ∀ (lat width unit: Float)
     (Float.maxNotNaN (-90.0) (floorTo from step) byComputing nf)
     (notNaNOfFinite lat fl)
     (clampFromKeeps lat (floorTo from step) nf latLo below)
+
+theorem chainAbove ∀ (l a b c: Int) (p: Nat)
+    (h1: Int.less (Int.add l (OfNat p)) a = True)
+    (h2: Int.leq a b = True)
+    (h3: Int.leq b (Int.add c (OfNat p)) = True):
+    Int.less l c = True :=
+  arithmetic [h1, h2, h3]
+
+--| An edge from -90° to 90° plus a width from 0 to 180° is from -90° to 270°.
+theorem edgePlusWidth ∀ (from width: Float)
+    (fromLo: -90.0 <= from)
+    (fromHi: from <= 90.0)
+    (fw: Float.isFinite width = True)
+    (w0: 0.0 <= width)
+    (wHi: width <= 180.0):
+    (-360.0 <= from + width) ∧ (from + width <= 360.0) :=
+  let ff: Float.isFinite from = True := Float.finiteBetween (-90.0) from 90.0 byComputing byComputing fromLo fromHi
+  let lo: -90.0 + 0.0 <= from + width :=
+    floatLeTrans (-90.0 + 0.0)
+      (from + 0.0)
+      (from + width)
+      (Float.addMonotoneLeft (-90.0) from 0.0 byComputing ff byComputing fromLo)
+      (Float.addMonotone 0.0 width from byComputing fw ff w0)
+  let hi: from + width <= 90.0 + 180.0 :=
+    floatLeTrans (from + width)
+      (90.0 + width)
+      (90.0 + 180.0)
+      (Float.addMonotoneLeft from 90.0 width ff byComputing fw fromHi)
+      (Float.addMonotone width 180.0 90.0 fw byComputing byComputing wHi)
+  Both (floatLeTrans (-360.0) (-90.0 + 0.0) (from + width) byComputing lo) (floatLeTrans (from + width) (90.0 + 180.0) 360.0 hi byComputing)
+
+--| The upper edge `to` of a latitude band is at least the answer, by JS's
+--| `<=`, when the band isn't clamped at 90°: its unrounded `from` is the
+--| lower edge clamped at -90° only, so at least the unclamped one, and
+--| `from + width` is more than 2^-42 above the answer
+--| (`marginAboveExact`), which rounding moves down by at most 2^-42
+--| (`ceilStepBound`).
+theorem latitudeToAboveUnclamped ∀ (lat width unit: Float)
+    (latLo: -90.0 <= lat)
+    (latHi: lat <= 90.0)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0)
+    (notTop: Float.min (Float.max (lat - placeAt unit * width) (-90.0)) (90.0 - width)
+      = Float.max (lat - placeAt unit * width) (-90.0)):
+    Float.ieeeLe lat (latitudeBand lat width (placeAt unit)).to.value = True :=
+  let fl: Float.isFinite lat = True := Float.finiteBetween (-90.0) lat 90.0 byComputing byComputing latLo latHi
+  let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
+  let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
+  let unc: Float := lat - placeAt unit * width
+  let u := unclampedFacts lat width unit latLo latHi wLo wHi low high
+  let nu: Float.isNaN unc = False := notNaNOfFinite unc u.left
+  let m: Float := Float.max unc (-90.0)
+  let nm: Float.isNaN m = False := Float.maxNotNaN unc (-90.0) nu byComputing
+  let top := topEdgeRange width fw w0 wHi
+  let nt: Float.isNaN (90.0 - width) = False := notNaNOfFinite (90.0 - width) top.left
+  let from: Float := Float.min m (90.0 - width)
+  let fromLo: -90.0 <= from :=
+    Float.leMin m (90.0 - width) (-90.0) nm nt (Float.leMaxRight unc (-90.0) nu byComputing) top.right.left
+  let fromHi: from <= 90.0 :=
+    floatLeTrans from (90.0 - width) 90.0 (Float.minLeRight m (90.0 - width) nm nt) top.right.right
+  let ff: Float.isFinite from = True := Float.finiteBetween (-90.0) from 90.0 byComputing byComputing fromLo fromHi
+  let uf: unc <= from := J (y z => unc <= y) (Float.leMaxLeft unc (-90.0) nu byComputing) notTop.flipped
+  let step: Float := stepFor width
+  let r := edgePlusWidth from width fromLo fromHi fw w0 wHi
+  let cs := ceilStepBound (from + width) width r.left r.right
+  let c: Float := ceilTo (from + width) step
+  let nc: Float.isNaN c = False := notNaNOfFinite c cs.left
+  let lt: lat < c :=
+    Float.Theory.lessOfUnits lat c
+      (chainAbove
+        (Float.Theory.units lat)
+        (Float.Theory.units (unc + width))
+        (Float.Theory.units (from + width))
+        (Float.Theory.units c)
+        (Float.Model.pow2 1032)
+        (marginAboveExact lat
+          width
+          unit
+          (floatLeTrans (-180.0) (-90.0) lat byComputing latLo)
+          (floatLeTrans lat 90.0 180.0 latHi byComputing)
+          wLo
+          wHi
+          low
+          high)
+        (Float.Theory.unitsMonoKey (unc + width).bits (from + width).bits
+          (Float.addMonotoneLeft unc from width u.left ff fw uf))
+        cs.right)
+  Float.ieeeLeOfLe lat
+    (Float.min 90.0 c)
+    (notNaNOfFinite lat fl)
+    (Float.minNotNaN 90.0 c byComputing nc)
+    (clampToKeeps lat c nc latHi (floatLeOfLt lat c lt))
