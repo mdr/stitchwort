@@ -31,50 +31,21 @@ def SourceFile.withTakes (file: SourceFile): SourceFile := { declarations = decl
 -- P2: no trailing commas. Rule N has left no comment on a comma, so
 -- dropping one loses nothing.
 
-def Expr.withoutTrailingCommas: Expr → Expr
-  | Bracketed open inner close => Bracketed open inner.withoutTrailingCommas close
-  | ListLiteral open items _ close => ListLiteral open (itemsWithoutTrailingCommas items) False close
-  | Call callee open arguments _ close =>
-    Call callee.withoutTrailingCommas open (itemsWithoutTrailingCommas arguments) False close
-  | Field target dot name nameComments => Field target.withoutTrailingCommas dot name nameComments
-  | Negate minus operand => Negate minus operand.withoutTrailingCommas
-  | Binary operator sign left right => Binary operator sign left.withoutTrailingCommas right.withoutTrailingCommas
-  | If ifComments condition thenComments whenTrue elseComments whenFalse =>
-    If ifComments condition.withoutTrailingCommas thenComments whenTrue.withoutTrailingCommas elseComments
-        whenFalse.withoutTrailingCommas
-  | leaf => leaf
+--| P2's step: a list or call is written with no comma after its last
+--| item.
+def dropComma (position: Position) (expr: Expr): Expr := match expr with
+  | ListLiteral open items _ close => ListLiteral open items False close
+  | Call callee open arguments _ close => Call callee open arguments False close
+  | other => other
 
-def itemsWithoutTrailingCommas: List Expr → List Expr
-  | [] => []
-  | [value, ..rest] => [value.withoutTrailingCommas, ..itemsWithoutTrailingCommas rest]
-
-def Body.withoutTrailingCommas: Body → Body
-  | { statements } => { statements = linesWithoutTrailingCommas statements }
-
-def linesWithoutTrailingCommas: List (Spaced Statement) → List (Spaced Statement)
-  | [] => []
-  | [{ blankBefore, line }, ..rest] =>
-    [{ blankBefore, line = line.withoutTrailingCommas }, ..linesWithoutTrailingCommas rest]
-
-def Statement.withoutTrailingCommas: Statement → Statement
-  | Let letComments name nameComments equals body => Let letComments name nameComments equals body.withoutTrailingCommas
-  | Bare value => Bare value.withoutTrailingCommas
-  | StatementNote comment => StatementNote comment
-
-def Declaration.withoutTrailingCommas: Declaration → Declaration
+def Declaration.withoutTrailingComma: Declaration → Declaration
   | Function fnComments name nameComments takes open parameters _ close equals body =>
-    Function fnComments name nameComments takes open parameters False close equals body.withoutTrailingCommas
-  | Value letComments name nameComments equals body =>
-    Value letComments name nameComments equals body.withoutTrailingCommas
-  | DeclarationNote comment => DeclarationNote comment
+    Function fnComments name nameComments takes open parameters False close equals body
+  | other => other
 
-def declarationsWithoutTrailingCommas: List (Spaced Declaration) → List (Spaced Declaration)
-  | [] => []
-  | [{ blankBefore, line }, ..rest] =>
-    [{ blankBefore, line = line.withoutTrailingCommas }, ..declarationsWithoutTrailingCommas rest]
-
+--| P2: no list, call or parameter list has a comma after its last item.
 def SourceFile.withoutTrailingCommas (file: SourceFile): SourceFile :=
-  { declarations = declarationsWithoutTrailingCommas file.declarations }
+  file.traverse dropComma (line => line.withoutTrailingComma)
 
 -- P3: no spare brackets.
 

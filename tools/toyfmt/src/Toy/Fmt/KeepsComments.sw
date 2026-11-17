@@ -41,60 +41,6 @@ theorem parseCarries ∀ (source: Text) (lexed: Lexed) (tree: SourceFile)
 -- The passes keep every comment: P1 adds a `takes` with none, and P2
 -- drops only commas, which hold none.
 
-theorem exprCommasComments ∀ (expr: Expr): expr.withoutTrailingCommas.comments = expr.comments := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ inner _ => rewrite exprCommasComments inner
-  | ListLiteral _ items _ _ => rewrite itemsCommasComments items
-  | Call callee _ arguments _ _ => rewrite exprCommasComments callee, itemsCommasComments arguments
-  | Field target _ _ _ => rewrite exprCommasComments target
-  | Negate _ operand => rewrite exprCommasComments operand
-  | Binary _ _ left right => rewrite exprCommasComments left, exprCommasComments right
-  | If _ condition _ whenTrue _ whenFalse =>
-    rewrite exprCommasComments condition, bodyCommasComments whenTrue, bodyCommasComments whenFalse
-
-theorem itemsCommasComments ∀ (items: List Expr):
-    itemsComments (itemsWithoutTrailingCommas items) = itemsComments items :=
-  match items with
-    | [] => byComputing
-    | [value, ..rest] => rewrite exprCommasComments value, itemsCommasComments rest
-
-theorem bodyCommasComments ∀ (body: Body): body.withoutTrailingCommas.comments = body.comments := match body with
-  | { statements } => rewrite linesCommasComments statements
-
-theorem linesCommasComments ∀ (lines: List (Spaced Statement)):
-    linesComments (linesWithoutTrailingCommas lines) = linesComments lines :=
-  match lines with
-    | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => rewrite statementCommasComments line, linesCommasComments rest
-
-theorem statementCommasComments ∀ (line: Statement): line.withoutTrailingCommas.comments = line.comments :=
-  match line with
-    | Let _ _ _ _ body => rewrite bodyCommasComments body
-    | Bare value => rewrite exprCommasComments value
-    | StatementNote _ => byComputing
-
-theorem declarationTidyComments ∀ (line: Declaration): line.withTakes.withoutTrailingCommas.comments = line.comments :=
-  match line with
-    | Function _ _ _ None _ [] _ _ _ body => rewrite bodyCommasComments body
-    | Function _ _ _ None _ [_, .._] _ _ _ body => rewrite bodyCommasComments body
-    | Function _ _ _ (Some _) _ [] _ _ _ body => rewrite bodyCommasComments body
-    | Function _ _ _ (Some _) _ [_, .._] _ _ _ body => rewrite bodyCommasComments body
-    | Value _ _ _ _ body => rewrite bodyCommasComments body
-    | DeclarationNote _ => byComputing
-
-theorem declarationsTidyComments ∀ (lines: List (Spaced Declaration)):
-    (declarationsWithoutTrailingCommas (declarationsWithTakes lines)).flatMap (spaced => spaced.line.comments)
-      = lines.flatMap (spaced => spaced.line.comments) :=
-  match lines with
-    | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => rewrite declarationTidyComments line, declarationsTidyComments rest
-
---| P1 and P2 keep every comment the tree holds, in order.
-theorem commasKeepComments ∀ (file: SourceFile): file.withTakes.withoutTrailingCommas.comments = file.comments :=
-  declarationsTidyComments file.declarations
-
 -- The traversal keeps the comments where its step does (as
 -- `TraverseProofs.sw` for the other facts).
 
@@ -239,10 +185,60 @@ theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.c
     declareSpareComments
     file.declarations
 
+-- P2 keeps every comment: it drops only commas, which hold none. P1
+-- adds a `takes` with none.
+
+theorem dropCommaComments: StepKeepsComments dropComma := position expr =>
+  match expr with
+    | Var _ _ => byComputing
+    | NumberLiteral _ _ => byComputing
+    | StringLiteral _ _ => byComputing
+    | Bracketed _ _ _ => byComputing
+    | ListLiteral _ _ _ _ => byComputing
+    | Call _ _ _ _ _ => byComputing
+    | Field _ _ _ _ => byComputing
+    | Negate _ _ => byComputing
+    | Binary _ _ _ _ => byComputing
+    | If _ _ _ _ _ _ => byComputing
+
+theorem declareCommaComments ∀ (line: Declaration): line.withoutTrailingComma.comments = line.comments :=
+  match line with
+    | Function _ _ _ _ _ _ _ _ _ _ => byComputing
+    | Value _ _ _ _ _ => byComputing
+    | DeclarationNote _ => byComputing
+
+--| P2 keeps every comment the tree holds, in order.
+theorem commasKeepComments ∀ (file: SourceFile): file.withoutTrailingCommas.comments = file.comments :=
+  declarationsTraverseComments dropComma
+    (line => line.withoutTrailingComma)
+    dropCommaComments
+    declareCommaComments
+    file.declarations
+
+theorem declarationTakesComments ∀ (line: Declaration): line.withTakes.comments = line.comments := match line with
+  | Function _ _ _ None _ [] _ _ _ _ => byComputing
+  | Function _ _ _ None _ [_, .._] _ _ _ _ => byComputing
+  | Function _ _ _ (Some _) _ [] _ _ _ _ => byComputing
+  | Function _ _ _ (Some _) _ [_, .._] _ _ _ _ => byComputing
+  | Value _ _ _ _ _ => byComputing
+  | DeclarationNote _ => byComputing
+
+theorem declarationsTakesComments ∀ (lines: List (Spaced Declaration)):
+    (declarationsWithTakes lines).flatMap (spaced => spaced.line.comments)
+      = lines.flatMap (spaced => spaced.line.comments) :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite declarationTakesComments line, declarationsTakesComments rest
+
+--| P1 keeps every comment the tree holds, in order.
+theorem takesKeepComments ∀ (file: SourceFile): file.withTakes.comments = file.comments :=
+  declarationsTakesComments file.declarations
+
 --| The passes keep every comment the tree holds, in order.
 theorem tidyKeepsComments ∀ (file: SourceFile): file.tidy.comments = file.comments := calc file.tidy.comments
   _ = file.withTakes.withoutTrailingCommas.comments := bracketsKeepComments file.withTakes.withoutTrailingCommas
-  _ = file.comments := commasKeepComments file
+  _ = file.withTakes.comments := commasKeepComments file.withTakes
+  _ = file.comments := takesKeepComments file
 
 --| Formatting keeps every comment, with the same text and in the same
 --| order: the comments the lexer finds in the output are those it finds
