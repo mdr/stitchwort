@@ -3018,7 +3018,7 @@ theorem Float.ofNatFinite ∀ (n: Nat) (h: n ≤ 9007199254740992): Float.isFini
 
 test "Float.ofNatMonotone" :=
   Float.ofNat 0 <= Float.ofNat 1
-    ∧ Float.ofNat 9007199254740993 <= Float.ofNat 9007199254740992
+    ∧ Float.ofNat 9007199254740992 <= Float.ofNat 9007199254740993
     ∧ Float.ofNat 4294967295 <= Float.ofNat 4294967296
 
 test "Float.ofNatFinite" := Float.isFinite (Float.ofNat 9007199254740992) ∧ Float.isFinite (Float.ofNat 0)

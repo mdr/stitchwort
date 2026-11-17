@@ -114,8 +114,8 @@ pub const PINS: &[Pin] = &[
         Builtin::EqNatSound,
         "3d0d96fda1ee07a0d13f9471deb5d5d99e2ddf62eaf2031ffca198a36663c4ac",
     ),
-    // `Float`, whose `isValid` the float primitives' results rely on, and
-    // the float natives (`float.rs`).
+    // `Float`, whose `isValid` the float natives' results rely on, and the
+    // float natives' definitions (`float.rs`).
     kernel(
         Builtin::Float,
         "e4ff60202ca96f2ac20c3db9d79474c8def3839c88836496a736df95675bceb7",

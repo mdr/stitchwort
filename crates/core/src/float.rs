@@ -59,9 +59,11 @@ use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{Elim, Value, conv, eval};
 
-/// The version of the semantic contract of the float primitives: their
-/// table, types and reduction rules (docs/proposals/float.md §3.3, §2.5,
-/// §3.6). Bump it for any deliberate change of meaning.
+/// The version of the semantic contract the runtimes follow for floats,
+/// `Float.toText`'s meaning included (docs/proposals/float.md §3.3, §2.5,
+/// §3.6); it is in `toText`'s hash. The kernel computes every other float
+/// operation through its definition. Bump it for any deliberate change of
+/// meaning.
 pub const FLOAT_CONTRACT: u32 = 1;
 
 /// The definitions bound here, each with a native or put in one's result,

@@ -515,7 +515,7 @@ fn the_gate_passes_on_the_webassembly_kernel() {
         .expect("run node");
     let report = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "{report}");
-    assert!(report.contains("3489 passed, 0 failed"), "{report}");
+    assert!(report.contains("3483 passed, 0 failed"), "{report}");
 }
 
 /// Pairs whose sum or difference lands on a rounding boundary

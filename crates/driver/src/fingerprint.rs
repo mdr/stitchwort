@@ -6,7 +6,8 @@
 /// and contents), and the Rust toolchain (`rustc -vV`) and target it is built
 /// with. The toolchain is there because the checker's floats depend on it:
 /// literals are parsed by the standard library's `str::parse::<f64>`, and
-/// the float primitives are compiled by it (docs/proposals/float.md §3.3).
+/// the float natives that run tests are compiled by it
+/// (docs/proposals/float.md §3.3).
 pub fn fingerprint(
     lock: Option<&[u8]>,
     files: &[(String, Vec<u8>)],
@@ -418,7 +419,7 @@ mod tests {
         }
     }
 
-    /// The toolchain and target are part of it (float primitives).
+    /// The toolchain and target are part of it (float literals and natives).
     #[test]
     fn the_evaluation_fingerprint_has_the_toolchain_and_target() {
         let dir = fake_workspace();
