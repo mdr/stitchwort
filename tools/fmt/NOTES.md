@@ -753,6 +753,12 @@ No axioms (`stitchwort axioms Fmt.Proofs.firstThreeKeepMeaning`).
 - equal `kind`s: `joins` doesn't compare `GroupKind` (the parser never mixes them in one list, but nothing in the tree says so);
 - `Group.bare` is parse-time and not tied to the tree's comments, so a proof can't use it; with comments blanked it doesn't need to.
 
+## Engine stage E1 (SW-3905): the engine harness
+
+`stitchwort dev doc FILE` writes, per declaration, `decl N`, `size K` (nodes written out in full), `text ESCAPED` (Rust's printed text) and the layout document one node a line in pre-order (tag, arguments, children after; `Shared ID`/`Ref ID` for shared docs). `dev/fmt-twin engine` caches the dumps, runs `Fmt.Twin --stage engine` over them (`Fmt.DocDump`: reads a `Fmt.Doc`, prints in 120 columns, compares) and counts matched, mismatched, unsupported (by node kind) and oversized (over 50,000 nodes written out in full: `Doc.size` and `forcesBreak` walk a shared doc once per use, so E2 needs them cached first).
+
+Baseline (before E2): goldens, 644 declarations: 22 matched, 0 mismatched, 622 unsupported. Repo, 34,531: 4,303 matched, 0 mismatched, 29,838 unsupported, 390 oversized. `IdGroup`+`IfBroken` (every declaration body) is 25,442 of the unsupported alone.
+
 ## A comment-free `meaning` (SW-3884)
 
 Opus, 17 November 2026.

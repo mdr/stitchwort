@@ -128,6 +128,33 @@ fn print_file(
     text: &str,
     passes: &[crate::passes::Pass],
 ) -> Result<PrintedFile, Error> {
+    print_file_seeing(file, text, passes, &mut |_, _| {})
+}
+
+/// Each declaration's layout document as [`engine::dump`] writes it, its
+/// [`engine::expanded_size`], and the text the engine prints for it, for
+/// `stitchwort dev doc`.
+pub fn declaration_docs(text: &str) -> Result<Vec<(String, u64, String)>, Error> {
+    let file = SourceMap::new().add("input.sw", text);
+    let mut docs = Vec::new();
+    print_file_seeing(file, text, &crate::passes::PASSES, &mut |doc, printed| {
+        docs.push((
+            engine::dump(doc),
+            engine::expanded_size(doc),
+            printed.to_string(),
+        ));
+    })?;
+    Ok(docs)
+}
+
+/// [`print_file`], calling `see` with each declaration's document and the
+/// text printed for it.
+fn print_file_seeing(
+    file: FileId,
+    text: &str,
+    passes: &[crate::passes::Pass],
+    see: &mut dyn FnMut(&engine::Doc, &str),
+) -> Result<PrintedFile, Error> {
     lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
     let tidied = crate::passes::run(file, text, passes);
@@ -187,11 +214,9 @@ fn print_file(
         if let Some(problem) = printer.take_unexpected() {
             return Err(Error::Internal(problem));
         }
-        item(
-            &mut out,
-            first.blank_lines_before,
-            &engine::print(&doc, WIDTH).text,
-        );
+        let printed = engine::print(&doc, WIDTH).text;
+        see(&doc, &printed);
+        item(&mut out, first.blank_lines_before, &printed);
     }
     for comment in &eof.leading {
         item(&mut out, comment.blank_lines_before, &comment.text);

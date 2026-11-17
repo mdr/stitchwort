@@ -293,6 +293,17 @@ enum DevCommand {
         /// Files or folders
         paths: Vec<PathBuf>,
     },
+    /// Print the layout document the formatter's rules build for each
+    /// declaration of every `.sw` file, with the text the engine prints for it
+    /// (the dump the self-hosted formatter's engine is compared with,
+    /// `task fmt:twin`): per declaration a line `decl N`, a line `size N`, a line `text
+    /// ESCAPED`, then the document one node a line in pre-order. A file the
+    /// formatter refuses prints `error: MESSAGE` on standard error; exit
+    /// status 1
+    Doc {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+    },
     /// Print the lossless tree of every `.sw` file after each of the
     /// formatter's four tidy passes (`== P1 ==`, the tree, `== P2 ==`, ...),
     /// for the self-hosted formatter's comparison (`task fmt:twin`). A file
@@ -1488,6 +1499,7 @@ fn run(cli: Cli) -> ExitCode {
         Command::Dev(DevCommand::FmtTree { paths, print }) => fmt_tree_command(&paths, print),
         Command::Dev(DevCommand::Tokens { paths }) => tokens_command(&paths),
         Command::Dev(DevCommand::Passes { paths }) => passes_command(&paths),
+        Command::Dev(DevCommand::Doc { paths }) => doc_command(&paths),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -5561,6 +5573,45 @@ fn tokens_command(paths: &[PathBuf]) -> ExitCode {
             Ok(dump) => print!("{dump}"),
             Err(message) => {
                 eprintln!("error: {message}");
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
+    status
+}
+
+/// `dev doc`: each declaration's layout document and printed text, per file.
+fn doc_command(paths: &[PathBuf]) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let mut status = ExitCode::SUCCESS;
+    for file in &files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        };
+        match stitchwort_fmt::printer::declaration_docs(&text) {
+            Ok(docs) => {
+                for (n, (doc, size, printed)) in docs.iter().enumerate() {
+                    println!("decl {}", n + 1);
+                    println!("size {size}");
+                    println!(
+                        "text {}",
+                        stitchwort_fmt::printer::engine::dump_escape(printed)
+                    );
+                    print!("{doc}");
+                }
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
                 status = ExitCode::FAILURE;
             }
         }

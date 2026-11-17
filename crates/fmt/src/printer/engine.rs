@@ -215,6 +215,139 @@ impl Doc {
     }
 }
 
+/// The document in a plain line form for `stitchwort dev doc`: one node a
+/// line in pre-order, the node's tag, its arguments, then its children as
+/// the lines that follow. A text is the rest of its line, with backslash,
+/// line feed and carriage return written `\\`, `\n` and `\r`. [`Doc::Shared`]
+/// is written once, as `Shared ID` and the doc, and again as `Ref ID` where
+/// it is used again: a doc used in several options of nested choices would
+/// be exponentially long written out in full.
+pub fn dump(doc: &Doc) -> String {
+    let mut out = String::new();
+    dump_into(doc, &mut out, &mut BTreeMap::new());
+    out
+}
+
+/// The number of nodes of the document written out in full, every use of a
+/// shared doc counted again (at most `u64::MAX`): how large the
+/// document is for a printer that doesn't keep what is shared.
+pub fn expanded_size(doc: &Doc) -> u64 {
+    fn size(doc: &Doc, seen: &mut BTreeMap<*const Doc, u64>) -> u64 {
+        let children: u64 = match doc {
+            Doc::Nest(_, inner)
+            | Doc::Align(inner)
+            | Doc::AlignInset(inner)
+            | Doc::Displaced(inner)
+            | Doc::Group(inner, _)
+            | Doc::NarrowGroup(_, inner, _)
+            | Doc::IdGroup(_, inner, _)
+            | Doc::Flat(inner)
+            | Doc::OneLineBelow(inner) => size(inner, seen),
+            Doc::IfBroken { broken, flat, .. } => {
+                size(broken, seen).saturating_add(size(flat, seen))
+            }
+            Doc::Concat(docs) | Doc::Fill(docs) | Doc::Choice(docs) => docs
+                .iter()
+                .fold(0, |sum: u64, doc| sum.saturating_add(size(doc, seen))),
+            Doc::Shared(inner, _) => {
+                let key = Rc::as_ptr(inner);
+                if let Some(known) = seen.get(&key) {
+                    return *known;
+                }
+                let total = size(inner, seen);
+                seen.insert(key, total);
+                return total;
+            }
+            _ => 0,
+        };
+        children.saturating_add(1)
+    }
+    size(doc, &mut BTreeMap::new())
+}
+
+/// A text for a dump line: backslash, line feed and carriage return escaped.
+pub fn dump_escape(text: &str) -> String {
+    let mut out = String::new();
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+fn dump_into(doc: &Doc, out: &mut String, shared: &mut BTreeMap<*const Doc, usize>) {
+    let one = |out: &mut String, shared: &mut BTreeMap<*const Doc, usize>, tag: &str, doc: &Doc| {
+        out.push_str(tag);
+        out.push('\n');
+        dump_into(doc, out, shared);
+    };
+    let many =
+        |out: &mut String, shared: &mut BTreeMap<*const Doc, usize>, tag: &str, docs: &[Doc]| {
+            out.push_str(&format!("{tag} {}\n", docs.len()));
+            for doc in docs {
+                dump_into(doc, out, shared);
+            }
+        };
+    match doc {
+        Doc::Nil => out.push_str("Nil\n"),
+        Doc::Text(text, _) => out.push_str(&format!("Text {}\n", dump_escape(text))),
+        Doc::Line => out.push_str("Line\n"),
+        Doc::SoftLine => out.push_str("SoftLine\n"),
+        Doc::HardLine => out.push_str("HardLine\n"),
+        Doc::Blank => out.push_str("Blank\n"),
+        Doc::Nest(indent, inner) => {
+            out.push_str(&format!("Nest {indent}\n"));
+            dump_into(inner, out, shared);
+        }
+        Doc::Align(inner) => one(out, shared, "Align", inner),
+        Doc::AlignInset(inner) => one(out, shared, "AlignInset", inner),
+        Doc::Displaced(inner) => one(out, shared, "Displaced", inner),
+        Doc::Group(inner, _) => one(out, shared, "Group", inner),
+        Doc::NarrowGroup(max, inner, _) => {
+            out.push_str(&format!("NarrowGroup {max}\n"));
+            dump_into(inner, out, shared);
+        }
+        Doc::IdGroup(id, inner, _) => {
+            out.push_str(&format!("IdGroup {id}\n"));
+            dump_into(inner, out, shared);
+        }
+        Doc::IfBroken { id, broken, flat } => {
+            out.push_str(&format!("IfBroken {id}\n"));
+            dump_into(broken, out, shared);
+            dump_into(flat, out, shared);
+        }
+        Doc::Concat(docs) => many(out, shared, "Concat", docs),
+        Doc::Shared(inner, _) => {
+            let key = Rc::as_ptr(inner);
+            if let Some(id) = shared.get(&key) {
+                out.push_str(&format!("Ref {id}\n"));
+            } else {
+                let id = shared.len() + 1;
+                shared.insert(key, id);
+                out.push_str(&format!("Shared {id}\n"));
+                dump_into(inner, out, shared);
+            }
+        }
+        Doc::Fill(items) => many(out, shared, "Fill", items),
+        Doc::Flat(inner) => one(out, shared, "Flat", inner),
+        Doc::Choice(options) => many(out, shared, "Choice", options),
+        Doc::OneLineBelow(inner) => one(out, shared, "OneLineBelow", inner),
+        Doc::LineSuffix(text) => out.push_str(&format!("LineSuffix {}\n", dump_escape(text))),
+        Doc::BreakParent => out.push_str("BreakParent\n"),
+        Doc::TextBlock { text, src_indent } => {
+            out.push_str(&format!("TextBlock {src_indent} {}\n", dump_escape(text)));
+        }
+        Doc::LineStart => out.push_str("LineStart\n"),
+        Doc::LineStartHere => out.push_str("LineStartHere\n"),
+        Doc::Mark(key) => out.push_str(&format!("Mark {key}\n")),
+        Doc::CloserLine(key) => out.push_str(&format!("CloserLine {key}\n")),
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Mode {
     Flat,
