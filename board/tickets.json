@@ -1,5 +1,5 @@
 {
-  "next": 3796,
+  "next": 3797,
   "tickets": [
     {
       "id": 47,
@@ -42809,6 +42809,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3796,
+      "title": "[Fable review] SW-638 (float stage 3: mul, ofInt, ofNat as definitions through roundScaled): soundness review of the runtime-only native gate, mulBits against IEEE 754, pins, docs/core.md; docs/reviews/SW-638-float-stage3-review.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
