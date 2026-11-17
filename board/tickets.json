@@ -22609,7 +22609,7 @@
     {
       "id": 3879,
       "title": "[DeepSeek] Proving guide: cases on a large record (e.g. Header, 11 fields) exhausts its 64-case budget by splitting every field; split by hand first. Also note that {e} alone may read as a record (SW-3864 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22728,7 +22728,7 @@
     {
       "id": 3888,
       "title": "[Opus] A closed statement such as List.all … = True is evaluated in full by the checker even when its proof is general (17 s for 3,601 items), so a table can't be replaced by a proof without changing the statement; find where and whether it's needed (SW-3872 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
