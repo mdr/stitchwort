@@ -20740,7 +20740,7 @@
     {
       "id": 3736,
       "title": "[Sonnet] A test whose match evaluates to False shows no left/right values: show the failing arm's comparison (the two compared values, e.g. tree.dump and expected), as a helper def's == does; update docs/syntax.md:236 (Toy++ T4 friction, SW-3724; SW-3808 hit it too)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -21972,7 +21972,7 @@
     {
       "id": 3830,
       "title": "[Opus] Whereabouts outward rounding for whole-degree steps: x / 1.0 = x, and * 10.0 and / 10.0 exact on negative whole numbers via roundWholeUnits; then the theorem (SW-3805 says 20-30 min plus the theorem)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22050,7 +22050,7 @@
     {
       "id": 3836,
       "title": "[Opus] Self-hosted formatter stage 2b: declarations, headers and types; --stage tree and refusal; the shared traversal (sketch item 6), one parameter-group constructor (8) if the dump allows, fuel (13); whole-file timing with a profile before any speed change (self-hosted-fmt.md §8, SW-3819 report)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
