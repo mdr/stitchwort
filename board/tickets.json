@@ -42198,12 +42198,12 @@
     {
       "id": 3749,
       "title": "[Sonnet] Toy++ T7 close (toy-plus-plus.md §5 T7, §6): the timing for D3636 (1 MB Sprig++ file, native, instruction counts plus seconds), the disturber's five new changes, NOTES with friction and theorem counts by layer, tag toy-v2",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 17 Nov 2026): timing done (whole format 2.43 s/MB, 2.82 with the harness's print; bar 3.0 passes; passes+settle 3.8% of instructions); disturber's five changes added and tested; NOTES \"Toy++ closed\" section written; tag toy-v2 on the lane's final commit. Commits f1719c0a9 (NOTES), 8cb3313df (timing, disturber).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
