@@ -1814,6 +1814,24 @@ fn unify_shapes(
             work.push(records);
             true
         }
+        // Two unknowns, one of which may ignore arguments that aren't
+        // variables (`Meta::ignorable`): the other is solved with it if it
+        // can be, so that the one that may ignore stays unsolved, rather
+        // than being solved with a pruned copy of the other that may not
+        // (SW-3890).
+        (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2))
+            if g.store.meta_ignorable(*m1).is_some() != g.store.meta_ignorable(*m2).is_some() =>
+        {
+            let (m, spine, other, (n, n_spine, n_other)) = if g.store.meta_ignorable(*m1).is_some()
+            {
+                (*m2, s2, a, (*m1, s1, b))
+            } else {
+                (*m1, s1, b, (*m2, s2, a))
+            };
+            solve(g, level, m, spine, other)?
+                || solve(g, level, n, n_spine, n_other)?
+                || first_order(g, level, n, n_spine, n_other)?
+        }
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {
             solve(g, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
@@ -4794,6 +4812,24 @@ mod tests {
         )
         .unwrap();
         assert!(is_var(g, &applied, 5));
+    }
+
+    #[test]
+    fn an_unknown_that_may_ignore_is_left_for_the_other() {
+        // ?a x0 = ?b x0 x1, either way round, where ?a may ignore x0: ?b is
+        // solved with ?a, so ?a keeps what it may ignore (SW-3890). Solving
+        // ?a instead would prune x1 from ?b into a new unknown without it.
+        for flipped in [false, true] {
+            let fresh = Fresh::default();
+            let g = &fresh.unifier();
+            let (a, lhs) = meta(g, &[0]);
+            g.store.set_meta_ignorable(a, Rc::from([true]));
+            let (b, rhs) = meta(g, &[0, 1]);
+            let (l, r) = if flipped { (&rhs, &lhs) } else { (&lhs, &rhs) };
+            assert!(unify(g, 2, l, r).unwrap());
+            assert!(g.meta_solution(a).is_none());
+            assert!(g.meta_solution(b).is_some());
+        }
     }
 
     #[test]
