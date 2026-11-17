@@ -212,7 +212,8 @@ it is `Parse`'s handler: a lexeme costs about six operations (`mark`,
   or-pattern check is done while parsing, not as `SourceFile → Option
   Text`: Rust does it in its lowering, so the messages differ only when a
   later syntax error follows), 13 (fuel is `2 * left + 2`, since a level
-  hands over to another without reading).
+  hands over to another without reading; stage 2b's notes say why
+  `left + 1` is enough after all).
 
 ### Layout
 
@@ -351,17 +352,13 @@ strict parser has no partial nodes to dump (sketch item 5).
   kinds), 10 for the new types, 12 (the lowering's three errors, called
   inside `parseFile`; the or-pattern check moved out of the parser, and
   `parseExpression` runs the same checks), 13 (below).
-- Fuel (13): `2 · left + 2` is kept, and written down at `expressionAt`:
-  every call of `self` either reads an item before the next call or hands
-  over to a lower level without reading, and a level never hands back up
-  without reading, so between two reads there are at most as many calls
-  as levels, and the levels are entered in a strict descent; two per item
-  and two to start is the bound if no read is followed by more than one
-  hand-over. That last step is the claim spike K4 should test: a chain
-  `LevelFull → LevelInline → … → LevelArgument` hands over several times
-  without reading, so the honest bound may be `levels · left + levels`.
-  It has never run out on the corpus (it would show as "the parser ran
-  out of fuel" or a wrong tree).
+- Fuel (13): spike K4 (SW-3826) found the hand-overs between ladder
+  levels are plain calls, not calls of `self`, so every recursion now has
+  `Parse.recursiveWith`'s fuel, the items left and one more: each call of
+  `self` or `pself` follows a read, so a call `d` deep has `d - 1` items
+  behind it. Patterns did hand over without reading (`tupleComponent` to
+  `PatternPlain`); that is now a plain call. Details in the proof plan,
+  §11.
 - Left: 9 (`∀` as `Option Comments`: kept a `Word`, since `∀` and `forall`
   are both spellings the formatter keeps); 10 for stage 2a's expressions.
 

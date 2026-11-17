@@ -36,3 +36,25 @@ test "a word keeps its text and comments, not its layout" := match parsed "f\n\n
   | Ok (App _ [Atom _ word]) =>
     word == { text = "x", comments = { above = [{ text = "-- note", blankBefore = True }], after = Some "-- after" } }
   | _ => False
+
+--| `fuelEnough` on chains 200 deep: each call of `self` or `pself` follows
+--| a read, so the items left and one more is fuel enough (spike K4).
+def nested (depth: Nat) (open inner close: Text): Text := "${open.repeat depth}${inner}${close.repeat depth}"
+
+def readsWhole (source: Text): Bool := match parsed source with
+  | Ok _ => True
+  | Err _ => False
+
+test "brackets, prefixes and lambdas nested 200 deep" :=
+  readsWhole (nested 200 "(" "1" ")")
+    && readsWhole (nested 200 "- " "1" "")
+    && readsWhole (nested 200 "f (" "x" ")")
+    && readsWhole (nested 200 "y => " "1" "")
+    && readsWhole (nested 200 "match y with | _ => " "1" "")
+
+test "patterns nested 200 deep" :=
+  readsWhole "match y with | ${nested 200 "(" "a" ")"} => 1"
+    && readsWhole "match y with | ${nested 200 "(A | " "B" ")"} => 1"
+    && readsWhole "match y with | ${nested 200 "(-1, " "-2" ")"} => 1"
+    && readsWhole "match y with | ${nested 200 "[A | " "B" "]"} => 1"
+    && readsWhole "match y with | ${nested 200 "(\"s\" ++ " "r" ")"} => 1"

@@ -12,18 +12,10 @@
 namespace Syntax
 import Std (Bool, List, Nat, Option, Parse, Result, Text)
 
---| An expression at `goal` read from a declaration's level.
---|
---| The fuel is `2 · left + 2`, as stage 2a's `expression` has. Between
---| two items read, the calls of `self` only descend the levels (a level's
---| function reads before it calls `self` at its own level or above), so
---| the calls are bounded by the items left times the number of levels; `2`
---| in place of that number holds while no read is followed by more than
---| one hand-over without reading. It never ran out on the gate's files;
---| spike K4 is to test the bound on the deepest chains (tools/fmt/NOTES.md,
---| stage 2b).
-def expressionAt (goal: Goal): {Parse Item} Expr :=
-  Parse.recursiveWithFuel (2 * Parse.mark().left + 2) expressionRule goal
+--| An expression at `goal` read from a declaration's level, with
+--| `Parse.recursiveWith`'s fuel, as `expression` has (which says why it
+--| is enough).
+def expressionAt (goal: Goal): {Parse Item} Expr := Parse.recursiveWith expressionRule goal
 
 def fixedFrom(): {Parse Item} Comments := bump().comments
 

@@ -21925,7 +21925,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Started 16:37, est. 30 min (Opus).\n\n16:55 done. Verdict (b): enough after a small change, made. Fuel never ran out (31 deep cases to depth 1000, twin = Rust except `f !!b`, not fuel). Expressions need only left+1: ladder levels are plain calls, every `self` call follows a read. Patterns did hand over without reading (tupleComponent → pself Plain), so 2·left+2 was exactly their bound; now a plain call. Both recursions are `Parse.recursiveWith` (left+1). `fuelEnough` restated in tools/fmt-sketch as `grammarWith extra = grammarWith 0`. Gate unchanged (goldens 78/124). Two 200-deep tests in Syntax.Tests (fail at half/third fuel). Findings: proof plan §11.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
