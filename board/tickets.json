@@ -22179,13 +22179,13 @@
     },
     {
       "id": 3846,
-      "title": "[Opus] A wrong proof can cost over 2e9 evaluation steps before failing: soundness-fuzz mutant 3100-2893-3 of Rogue terrainColumns (games/rogue Proofs/Bounds.sw) ran 15 min alone, still unfolding Nat.add (limit 1e10). Find why the elaborator evaluates so far on a wrong proof and fail early with the real error. Reproducer in Overmind's scratchpad chain/filler/sound6-0x3100-expensive/3100-2893-3-expensive.sw (copy it into the repo first)",
+      "title": "[Opus] A bare 'cases' on Rogue's terrainColumns goal runs 2e9+ evaluation steps (15 min, unfinished) before it could fail: find what cases (SW-3752's second try?) evaluates and fail early with the real error (soundness fuzz 0x3100 mutant 2893-3; reproducer on the ticket)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Reproducer (Overmind, 17 Nov 2026): in games/rogue/src/Rogue/Proofs/Bounds.sw (line 196 at 6f49c9d24) replace the whole proof of terrainColumns with a bare cases:\ntheorem terrainColumns ∀ (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr row []).length = levelColumns := cases\nthen cd games/rogue && stitchwort check --no-cache Rogue.Proofs. Unmutated: 7.5 s. Mutant: 900 s unfinished, 'over 2,000,000,000 evaluation steps so far, unfolding Nat.add (it stops at 10,000,000,000)'; earlier notes 250 M Nat.leq, 500 M Nat.sub, 1 G Nat.add. Likely a bare cases (SW-3752's second try) evaluating drawTerrain for a symbolic level. Lane: run it only under 'timeout 60' and a 2 GB memory watch.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
