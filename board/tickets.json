@@ -1,5 +1,5 @@
 {
-  "next": 3868,
+  "next": 3871,
   "tickets": [
     {
       "id": 47,
@@ -22401,12 +22401,12 @@
     {
       "id": 3863,
       "title": "[Sonnet] Self-hosted formatter stage 4a: the four passes P1-P4 on the shared traversal (Syntax/Traverse.sw), with the parking-comma order from K1 (last commas out before rule N, Lexed.settledBare); gate: the tidied tree's dump identical to the Rust passes' on every file (self-hosted-fmt.md §8 stage 4; meaning is 4b, waiting on Matt's decision)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (Sonnet lane, 17 Nov 2026): P1-P4 on the shared traversal (Steps record), Rust dev passes, Fmt.Twin --stage passes. Gate: goldens 124/124, repo sample 300 300/300, fuzz 300 253/253, 739 hand cases 739/739; four passes cost about 0.25 s/MB. Notes in tools/fmt/NOTES.md (Stage 4a). Model result: Sonnet, worked, 55 min (est. 50).",
+      "body": "\n\nProgress (Sonnet lane, 17 Nov 2026): P1-P4 on the shared traversal (Steps record), Rust dev passes, Fmt.Twin --stage passes. Gate: goldens 124/124, repo sample 300 300/300, fuzz 300 253/253, 739 hand cases 739/739; four passes cost about 0.25 s/MB. Notes in tools/fmt/NOTES.md (Stage 4a). Model result: Sonnet, worked, 55 min (est. 50).\n\nModel result: sonnet, worked, 38 min (est. 50). P3's precedence table (dropLeft, Expr.level, leftNeeds) needs review and proof against the parser (stage 4b/Opus review). Follow-ups SW-3868 SW-3869 SW-3870.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22453,6 +22453,45 @@
     {
       "id": 3867,
       "title": "[Sonnet] std Parse: a runFrom decomposition lemma for j (p()) when p fails (only runFromThenOk2 exists), to prove ReadsBeforeCalls for bodies that read through an arbitrary parser; and Gives/ReadsIn lemmas for Parse.loop (SW-3854 left)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3868,
+      "title": "[DeepSeek] Self-hosted formatter refusal: disturbed/00057-sequence-semicolon-comment.after.sw: Rust says 'expected an expression, but the line ends here', the twin 'a block must end with an expression, not let'; match Rust, with a test (SW-3863 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3869,
+      "title": "[DeepSeek] dev/fmt-twin rebuilds the native executable (about 2 min) on every invocation unless --exe is given: reuse target/fmt-twin/fmt when the sources hash is unchanged; document --exe in docs/testing.md (SW-3863, SW-3847 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3870,
+      "title": "[Sonnet] fmt-twin: include comments in the tree dump on both sides (or a comments stage), so K1's parking-comma comment placement and rule N's results are compared through the harness, not only by unit test (SW-3863 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
