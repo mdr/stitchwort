@@ -109,8 +109,8 @@ SW-3807 replaced the three, which had taken it to 2.7 minutes):
   the half unit `round` allows. (It was a computed list of the 3,601 tenths
   from -180° to 180°; the checker evaluates a closed `List.all` statement
   even when the proof is general, so the law took its quantified form.)
-- `floatLeTrans`, `floatLeLtTrans`: transitivity of the total order, for
-  the above (std has it only inside `Ord`; see "std gaps").
+- `floatLeLtTrans`: transitivity of the total order for `<` after `<=`,
+  for the above (std's `Float.Theory.leTrans` covers the other case).
 - Latitude's clamps (SW-3844): `latitudeClampRange` (`Float.max (-90.0)
   (Float.min 90.0 y)` is in [-90, 90] for every `y` but the NaN), and the
   two the band uses: `clampFromKeeps` (clamping a lower edge at -90 keeps
@@ -269,10 +269,9 @@ Other std gaps:
 
 - `Math.min`/`Math.max` (`Float.min`/`max` are listed as later in
   float.md).
-- Transitivity of `<=`/`<` on `Float` as named theorems
-  (`Float.leTrans`, `Float.leLtTrans`): they exist only as `Ord`'s `trans`
-  on `compare`, so the proofs here prove them again through `orderKey` and
-  `arithmetic`.
+- Transitivity of `<` after `<=` on `Float` as a named theorem
+  (`Float.leLtTrans`): `<=`'s case is `Float.Theory.leTrans`, and the mixed
+  one here is proved again through `orderKey` and `arithmetic`.
 
 Error messages that misled:
 
