@@ -41762,7 +41762,7 @@
     {
       "id": 3703,
       "title": "[DeepSeek] E6 follow-up (broad tier H): REPL 'foo' gets 'did you mean `Bool`?' (repl::a_one_line_error_is_a_caret_without_a_box). Distance 2 on a 3-letter name is too loose: use a stricter threshold for short names (e.g. <= 1 when the name has <= 4 chars; check what fields use and keep both the same), then the REPL test passes unchanged",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
