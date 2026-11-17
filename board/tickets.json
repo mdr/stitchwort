@@ -1,5 +1,5 @@
 {
-  "next": 3921,
+  "next": 3924,
   "tickets": [
     {
       "id": 47,
@@ -22949,12 +22949,12 @@
     {
       "id": 3905,
       "title": "[Sonnet] Engine E1: stitchwort dev doc writes each declaration's layout document; Fmt.Twin --stage engine prints and compares it (docs/proposals/self-hosted-fmt-engine-plan.md stage E1)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Progress (Sonnet lane): dev doc + Fmt.DocDump + --stage engine + dev/fmt-twin engine done. Baseline goldens: 22 matched, 0 mismatched, 622 unsupported. Repo: 4303 matched, 0 mismatched, 29838 unsupported, 390 oversized. First attempt serialised Shared docs as trees (300 MB dumps, a 1.8 GB run on Day16 Proofs/Parse.sw); fixed with Shared/Ref and a size line.\nModel result: Sonnet, worked, 55 min (est. 35)\n",
+      "body": "Progress (Sonnet lane): dev doc + Fmt.DocDump + --stage engine + dev/fmt-twin engine done. Baseline goldens: 22 matched, 0 mismatched, 622 unsupported. Repo: 4303 matched, 0 mismatched, 29838 unsupported, 390 oversized. First attempt serialised Shared docs as trees (300 MB dumps, a 1.8 GB run on Day16 Proofs/Parse.sw); fixed with Shared/Ref and a size line.\nModel result: Sonnet, worked, 55 min (est. 35)\n\nModel result: sonnet, needed fixes (first dev doc serialiser exponential on shared docs: 1.8 GB runaway; fixed with Shared/Ref ids and a 20 s timeout), 45 min incl. merge (est. 35). Follow-ups SW-3921 SW-3922 SW-3923.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23151,6 +23151,45 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3921,
+      "title": "[Opus] Engine E2 part 1: IdGroup and IfBroken in Fmt.Doc (print and measure, matching crates/fmt engine.rs), with the toy proofs extended; gate: dev/fmt-twin engine identical on every goldens and repo declaration using only them (25,442 + 2,126 in the repo) (SW-3905 counts; plan stage E2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3922,
+      "title": "[Sonnet] Fmt.Doc: cache forcesBreak and size on shared docs so the 390 oversized repo declarations can be compared (SW-3905 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3923,
+      "title": "[DeepSeek] dev/fmt-twin: a memory cap per child (watch RSS, kill above a limit) alongside the 20 s timeout; ulimit -v doesn't work on macOS (SW-3905)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
