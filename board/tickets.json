@@ -41788,7 +41788,7 @@
     {
       "id": 3705,
       "title": "[Sonnet] Fuzz finding (broad tier, fuzz_elab oracle 4, budget with the cache): seed 0x5eede1ab00000685 case 70, a mutant of accept/parse-lex-then-parse.sw, hangs under the cache (input at Overmind's chain/filler/broad3-findings/5eede1ab00000685-70.sw; ask Overmind to paste it). Reproduce, find why the budget doesn't stop it, fix with the input as a test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
