@@ -22427,12 +22427,12 @@
     {
       "id": 3865,
       "title": "[Sonnet] Self-hosted formatter tree stage: 5 of 1,936 repo files differ from Rust after stage 2c, first aoc/src/Aoc/Year2024/Day04/Tests/Examples.sw line 30 (Rust: FieldAccess; twin: a \"\"\" text, i.e. a method or field on a \"\"\" text literal); fix all five with tests. The 479 old-layout differences are files the current grammar refuses (refusal stage identical on all 1,696), out of scope (SW-3847 verifier)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note: one cause for all five. Parser.sw glued test used column + text length, wrong after a multi-line \"\"\" text, so `\"\"\".lines` was not glued and no FieldAccess was made. Fixed with endColumn; test \"a field access on a block text\". Tree 1936/1936 on repo, goldens 124/124 (tree, tokens, refusal), check and Syntax.Tests 51/51.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
