@@ -77,8 +77,13 @@ const WORK: u64 = 300_000_000;
 /// several of the runaway cases reached it, for a verdict, `E-RESOURCE`,
 /// that comes the same at half).
 const SIZE: u64 = 1_000_000;
-/// A case still running after this long is a hang.
-const WATCHDOG: Duration = Duration::from_secs(60);
+/// A case still running after this long is a hang. A check that imports the
+/// parser library costs about 20 s of CPU in a debug build, whatever the
+/// program (the standard library is checked afresh in each session), and
+/// a cache comparison runs three; four workers beside other jobs can slow
+/// one run past a minute, which SW-3705 took for a hang. The work limit
+/// bounds a genuine runaway well inside this.
+const WATCHDOG: Duration = Duration::from_secs(240);
 /// A check of a case running this long is named as it runs. Short, because
 /// a case that runs away in memory can fill 16 GB in under ten seconds.
 const SLOW: Duration = Duration::from_secs(5);
