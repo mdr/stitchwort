@@ -92,3 +92,43 @@ test "format drops spare brackets and keeps the rest" := format spareBrackets 80
 test "format leaves its output without spare brackets alone" := match format spareBrackets 80 with
   | Formatted text => format text 80 == Formatted text
   | ParseError _ => False
+
+--| P4: neighbouring groups with one type are one group, a run of them is,
+--| and a type written in brackets counts once P3 has dropped them. Groups
+--| stay apart when their types differ, when the first group is untyped, or
+--| when a comment sits on the first group's `:` or type
+--| (toy-plus-plus.md §3.2).
+def mergeable: Text := """
+  fn a(w: Int, h: Int, d: Nat, e: (Nat), f: Nat) = w
+  fn b(x: Int, -- note
+    y: Int) = x
+  fn c(p, q: Int, r: Int) = p
+  fn d(a: Int, b: Nat) = a
+  fn e(a: Int,
+    -- above b
+    b: Int) = a
+  fn f(a: Int, b: (Int -- why
+    )) = a
+  """
+
+test "format merges groups with one type and keeps the rest" := format mergeable 80 == Formatted """
+  fn a takes (w h: Int, d e f: Nat) = w
+  fn b takes (
+      x: Int, -- note
+      y: Int
+  ) = x
+  fn c takes (p, q r: Int) = p
+  fn d takes (a: Int, b: Nat) = a
+  fn e takes (
+      a
+        -- above b
+        b: Int
+  ) = a
+  fn f takes (
+      a b: Int -- why
+  ) = a
+  """
+
+test "format leaves its merged output alone" := match format mergeable 80 with
+  | Formatted text => format text 80 == Formatted text
+  | ParseError _ => False

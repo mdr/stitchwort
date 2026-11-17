@@ -458,7 +458,8 @@ test "mixed: nesting in a narrow width" := route.printed == route.formatted
 --| Sprig++ (toy-plus-plus.md §1): `takes`, typed parameter groups and
 --| types in brackets, with comments after `takes`, `:` and above `)`
 --| (from the sketch's inputs, `plus/inputs`). A type's brackets with no
---| comments go (P3).
+--| comments go (P3). `stream`'s groups have different types, so P4 leaves
+--| them apart.
 def parameterGroups: Golden :=
   {
     width = 40,
@@ -466,7 +467,7 @@ def parameterGroups: Golden :=
       fn area takes (w h: Int) = w * h
       fn readVec(v:
         (Vec)) = v
-      fn stream(head: Nat, rest: -- c
+      fn stream(head: Int, rest: -- c
         Nat) = rest
       fn next takes -- why
         (n: Nat
@@ -485,7 +486,7 @@ def parameterGroups: Golden :=
         none
         (expr (v "v")),
       fnGroups "stream" None none
-        [typed "head" [] none (TypeName "Nat" none), typed "rest" [] (after "-- c") (TypeName "Nat" none)]
+        [typed "head" [] none (TypeName "Int" none), typed "rest" [] (after "-- c") (TypeName "Nat" none)]
         none
         (expr (v "rest")),
       fnGroups "next"
@@ -499,7 +500,7 @@ def parameterGroups: Golden :=
       fn area takes (w h: Int) = w * h
       fn readVec takes (v: Vec) = v
       fn stream takes (
-          head: Nat,
+          head: Int,
           rest: -- c
             Nat
       ) = rest
@@ -516,7 +517,7 @@ test "Sprig++: parameter groups and takes print as written, a type without spare
 
 test "a dump shows takes, groups and types" :=
   parameterGroups.tree.dump
-    == "(fn area (takes) ((group w h : Int)) (body (bare (* (var w) (var h)))))\n(fn readVec ((group v : (bracketed Vec))) (body (bare (var v))))\n(fn stream ((group head : Nat) (group rest :{ after -- c } Nat)) (body (bare (var rest))))\n(fn next (takes{ after -- why }) ((group n : Nat)){ above -- c } (body (bare (+ (var n) (number 1)))))\n"
+    == "(fn area (takes) ((group w h : Int)) (body (bare (* (var w) (var h)))))\n(fn readVec ((group v : (bracketed Vec))) (body (bare (var v))))\n(fn stream ((group head : Int) (group rest :{ after -- c } Nat)) (body (bare (var rest))))\n(fn next (takes{ after -- why }) ((group n : Nat)){ above -- c } (body (bare (+ (var n) (number 1)))))\n"
 
 test "P8: a ] joins the line of a trailing comment on a list's last item" :=
   let tree := sprig [value "pair" (ListLiteral none [num "1", NumberLiteral "2" (after "-- two")] False none)]

@@ -15,7 +15,7 @@ import Toy.Fmt.Carry (..)
 import Toy.Fmt.Proofs (..)
 import Toy.Syntax (..)
 import Toy.Syntax.Proofs (settledKeepsComments)
-import Std (Bool, List, Nat, Option, Parse, Result, Text)
+import Std (Bool, List, NonEmptyList, Nat, Option, Parse, Result, Text)
 
 --| The parser's half: the tree holds exactly the comments the lexer
 --| found, in the same order. Rule N keeps every comment in order
@@ -238,8 +238,70 @@ theorem declarationsTakesComments ∀ (lines: List (Spaced Declaration)):
 theorem takesKeepComments ∀ (file: SourceFile): file.withTakes.comments = file.comments :=
   declarationsTakesComments file.declarations
 
+-- P4 keeps every comment: the group that goes holds none, on its `:` or
+-- its type, and its names stay in front of the next group's.
+
+theorem namesCommentsAppend ∀ (front back: List Named):
+    namesComments (front ++ back) = namesComments front ++ namesComments back :=
+  match front with
+    | [] => byComputing
+    | [named, ..rest] => rewrite namesCommentsAppend rest back then (List.appendAssoc _ _ _).flipped
+
+theorem mergedComments ∀ (names more: NonEmptyList Named) (colon: Comments) (annotation: TypeExpr)
+    (name: Text) (others: List ParameterGroup):
+    parametersComments [Typed (joinNames names more) colon annotation, ..others]
+      = parametersComments [
+        Typed names Comments.none (TypeName name Comments.none),
+        Typed more colon annotation,
+        ..others
+      ] :=
+  rewrite namesCommentsAppend names.tail [more.head, ..more.tail] then
+    rewrite repeatedly [List.appendAssoc, List.appendNil] then byComputing
+
+theorem mergeOntoComments ∀ (group: ParameterGroup) (rest: List ParameterGroup):
+    parametersComments (mergeOnto group rest) = parametersComments [group, ..rest] :=
+  match group, rest with
+    | Untyped _, [] => byComputing
+    | Typed _ _ _, [] => byComputing
+    | Untyped _, [_, .._] => byComputing
+    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
+    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
+    | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
+      match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
+        | False => byComputing
+        | True =>
+          let (colonNone, commentsNone, _) := mergesParts names more colon colon2 comments name annotation merges
+          rewrite colonNone, commentsNone then mergedComments names more colon2 annotation name others
+
+theorem groupsMergeComments ∀ (groups: List ParameterGroup):
+    parametersComments (mergeGroups groups) = parametersComments groups :=
+  match groups with
+    | [] => byComputing
+    | [group, ..rest] =>
+      calc parametersComments (mergeGroups [group, ..rest])
+        _ = parametersComments [group, ..mergeGroups rest] := mergeOntoComments group (mergeGroups rest)
+        _ = parametersComments [group, ..rest] := rewrite groupsMergeComments rest
+
+theorem declareMergeComments ∀ (line: Declaration): line.withMergedParameters.comments = line.comments :=
+  match line with
+    | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsMergeComments parameters
+    | Value _ _ _ _ _ => byComputing
+    | DeclarationNote _ => byComputing
+
+theorem keepComments: StepKeepsComments keepExpr := position expr => byComputing
+
+--| P4 keeps every comment the tree holds, in order.
+theorem mergeKeepComments ∀ (file: SourceFile): file.withMergedParameters.comments = file.comments :=
+  declarationsTraverseComments keepExpr
+    (line => line.withMergedParameters)
+    keepComments
+    declareMergeComments
+    file.declarations
+
 --| The passes keep every comment the tree holds, in order.
 theorem tidyKeepsComments ∀ (file: SourceFile): file.tidy.comments = file.comments := calc file.tidy.comments
+  _ = file.withTakes.withoutTrailingCommas.withoutSpareBrackets.comments :=
+    mergeKeepComments file.withTakes.withoutTrailingCommas.withoutSpareBrackets
   _ = file.withTakes.withoutTrailingCommas.comments := bracketsKeepComments file.withTakes.withoutTrailingCommas
   _ = file.withTakes.comments := commasKeepComments file.withTakes
   _ = file.comments := takesKeepComments file
