@@ -341,8 +341,7 @@ theorem traverseShaped ∀ (step: Position → Expr → Expr)
     (shaped: ShapedAt position.slot expr):
     ShapedAt position.slot (expr.traverse step position) ∧ EndKept expr (expr.traverse step position) :=
   let (insideShaped, insideEnd) := insideShaped step keeps expr position.bracketed shaped.left
-  let insideFits: (expr.traverseInside step position.bracketed).fits position.slot = True :=
-    rewrite insideFits step expr position.bracketed position.slot then shaped.right
+  let insideFits: (expr.traverseInside step position.bracketed).fits position.slot = True := cases
   let (stepShaped, stepEnd) := keeps position (expr.traverseInside step position.bracketed) (insideShaped, insideFits)
   (stepShaped, (ends => stepEnd (insideEnd ends)))
 

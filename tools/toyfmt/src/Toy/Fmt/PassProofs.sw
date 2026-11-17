@@ -198,18 +198,7 @@ theorem commasIdempotent ∀ (file: SourceFile):
 -- ask: they change only a flag that nothing but `NoTrailingCommas`
 -- reads.
 
-theorem dropCommaPlain: StepKeepsPlain dropComma := position expr =>
-  match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | Bracketed _ _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+theorem dropCommaPlain: StepKeepsPlain dropComma := position expr => cases
 
 --| A list or call keeps its form, and so the slots it fits, without its
 --| trailing comma.

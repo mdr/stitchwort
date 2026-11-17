@@ -140,18 +140,13 @@ theorem mergedPlain ∀ (names more: NonEmptyList Named) (colon: Comments) (anno
 theorem mergeOntoPlain ∀ (group: ParameterGroup) (rest: List ParameterGroup):
     plainGroups (mergeOnto group rest) = plainGroups [group, ..rest] :=
   match group, rest with
-    | Untyped _, [] => byComputing
-    | Untyped _, [_, .._] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
-    | Typed _ _ (TypeName _ _), [] => byComputing
-    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => byComputing
         | True =>
           let (colonNone, commentsNone, bare) := mergesParts names more colon colon2 comments name annotation merges
           rewrite colonNone, commentsNone then mergedPlain names more colon2 annotation name bare others
+    | _, _ => cases
 
 theorem groupsMergePlain ∀ (groups: List ParameterGroup): plainGroups (mergeGroups groups) = plainGroups groups :=
   match groups with
