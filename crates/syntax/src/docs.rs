@@ -304,8 +304,7 @@ fn names(module: &Module) -> (Vec<u32>, Vec<u32>) {
                 tops.push(name.span.start);
                 for ctor in ctors {
                     if *record {
-                        let fields = ctor.fields.iter().flat_map(|binder| &binder.names);
-                        members.extend(fields.map(|field| field.span.start));
+                        members.extend(ctor.fields.iter().map(|binder| binder.name.span.start));
                     } else {
                         members.push(ctor.name.span.start);
                     }

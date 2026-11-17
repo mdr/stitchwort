@@ -64,11 +64,8 @@ impl Elaborator {
                     .iter()
                     .zip(&ctor.defaults)
                     .filter_map(move |(binder, default)| {
-                        default
-                            .as_ref()
-                            .map(|v| binder.names.iter().map(move |n| (c, n, v)))
+                        default.as_ref().map(|v| (c, &binder.name, v))
                     })
-                    .flatten()
             })
             .collect();
         let Some(&(_, first, _)) = written.first() else {

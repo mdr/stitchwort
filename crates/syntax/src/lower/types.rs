@@ -2,7 +2,7 @@
 //! binders, constructors and fields; and the types written with binders or
 //! abilities: `(x: A) -> B` and `{IO} T`.
 
-use crate::ast::{Binder, CtorDecl, Decl, Expr, NAMELESS, Name, Row};
+use crate::ast::{Attribute, Binder, CtorDecl, Decl, Expr, NAMELESS, Name, Row};
 use crate::lexer::Tok;
 use crate::tree::{Element, Node, NodeKind};
 
@@ -15,13 +15,33 @@ use super::{Lower, Lowering};
 /// A data type's index types, each with its name if written as a binder.
 type Indices = Vec<(Option<Name>, Expr)>;
 
-/// A binder as written: its parts, whether it is in square brackets, and
+/// A binder as written: its names (a group, `(x y: A)`, has several), the
+/// type and attributes they share, whether it is in square brackets, and
 /// whether it is `auto`.
 struct Written {
-    binder: Binder,
+    names: Vec<Name>,
+    ty: Expr,
+    attrs: Vec<Attribute>,
     implicit: bool,
     auto: bool,
     default: Option<Expr>,
+}
+
+impl Written {
+    /// A binder per name, each with its own copy of the type and
+    /// attributes: a group `(a b: T)` is shorthand for `(a: T) (b: T)`
+    /// (D3679), so each name's type is checked on its own and a hole or an
+    /// implicit argument in it is worked out separately for each.
+    fn binders(&self) -> Vec<Binder> {
+        self.names
+            .iter()
+            .map(|name| Binder {
+                name: name.clone(),
+                ty: self.ty.clone(),
+                attrs: self.attrs.clone(),
+            })
+            .collect()
+    }
 }
 
 impl<'f> Lower<'f> {
@@ -39,7 +59,7 @@ impl<'f> Lower<'f> {
         let (mut params, mut auto_params) = (Vec::new(), Vec::new());
         for binder in root.child_nodes().filter(|n| n.kind() == NodeKind::Binder) {
             let written = self.binder(binder)?;
-            for binder in written.binder.split() {
+            for binder in written.binders() {
                 params.push(binder);
                 auto_params.push(written.auto);
             }
@@ -82,13 +102,15 @@ impl<'f> Lower<'f> {
         let name = required(name, kind, "its name")?;
         let mut params = Vec::new();
         for binder in root.child_nodes().filter(|n| n.kind() == NodeKind::Binder) {
-            let Written { binder, auto, .. } = self.binder(binder)?;
+            let Written {
+                names, ty, auto, ..
+            } = self.binder(binder)?;
             // An `auto` parameter, `[auto ord: Ord k]`, is one of the
             // definition's.
             params.push(Param::Named {
-                span: binder.names[0].span.to(binder.ty.span()),
-                names: binder.names,
-                ty: binder.ty,
+                span: names[0].span.to(ty.span()),
+                names,
+                ty,
                 implicit: auto,
                 auto,
                 default: None,
@@ -141,7 +163,7 @@ impl<'f> Lower<'f> {
         let mut ops = Vec::new();
         for node in root.child_nodes() {
             match node.kind() {
-                NodeKind::Binder => params.extend(self.binder(node)?.binder.split()),
+                NodeKind::Binder => params.extend(self.binder(node)?.binders()),
                 NodeKind::AbilityOp => {
                     let op = node.own_leaves().next().and_then(super::decls::name);
                     let op = required(op, NodeKind::AbilityOp, "its name")?;
@@ -169,9 +191,8 @@ impl<'f> Lower<'f> {
             match part {
                 Element::Leaf(leaf) if *leaf.tok() == Tok::Arrow => {}
                 Element::Node(node) if node.kind() == NodeKind::Binder => {
-                    let binder = self.binder(node)?.binder;
-                    for name in binder.names {
-                        indices.push((Some(name), binder.ty.clone()));
+                    for binder in self.binder(node)?.binders() {
+                        indices.push((Some(binder.name), binder.ty));
                     }
                 }
                 ty => {
@@ -200,7 +221,7 @@ impl<'f> Lower<'f> {
             match node.kind() {
                 NodeKind::Binder => {
                     let written = self.binder(node)?;
-                    for binder in written.binder.split() {
+                    for binder in written.binders() {
                         fields.push(binder);
                         implicit.push(written.implicit);
                         defaults.push(written.default.clone());
@@ -269,7 +290,7 @@ impl<'f> Lower<'f> {
             let ty = required(field.after(&Tok::Colon), kind, "its type")?;
             out.push((
                 Binder {
-                    names: vec![name],
+                    name,
                     ty: self.expr(ty)?,
                     attrs,
                 },
@@ -308,14 +329,12 @@ impl<'f> Lower<'f> {
             let auto = required(auto, kind, "`auto`")?;
             let ty = required(parts.get(2).copied(), kind, "its type")?;
             return Ok(Written {
-                binder: Binder {
-                    names: vec![Name {
-                        text: NAMELESS.to_string(),
-                        span: auto.span(),
-                    }],
-                    ty: self.expr(ty)?,
-                    attrs,
-                },
+                names: vec![Name {
+                    text: NAMELESS.to_string(),
+                    span: auto.span(),
+                }],
+                ty: self.expr(ty)?,
+                attrs,
                 implicit,
                 auto: true,
                 default: None,
@@ -332,11 +351,9 @@ impl<'f> Lower<'f> {
         }
         let ty = required(parts.get(colon + 1).copied(), kind, "its type")?;
         Ok(Written {
-            binder: Binder {
-                names,
-                ty: self.expr(ty)?,
-                attrs,
-            },
+            names,
+            ty: self.expr(ty)?,
+            attrs,
             implicit,
             auto,
             default: self.default(node)?,
@@ -351,7 +368,8 @@ impl<'f> Lower<'f> {
         let binder = required(node.child(NodeKind::Binder), kind, "its binder")?;
         let start = required(binder.span(), kind, "its binder")?;
         let Written {
-            binder,
+            names,
+            ty,
             implicit,
             auto,
             ..
@@ -361,19 +379,14 @@ impl<'f> Lower<'f> {
         // A group is shorthand for a parameter per name (D3679), each
         // checking its own copy of the type.
         let span = start.to(cod.span());
-        let ty = binder.ty;
-        Ok(binder
-            .names
-            .into_iter()
-            .rev()
-            .fold(cod, |cod, name| Expr::Pi {
-                span,
-                names: vec![name],
-                implicit,
-                auto,
-                dom: Box::new(ty.clone()),
-                cod: Box::new(cod),
-            }))
+        Ok(names.into_iter().rev().fold(cod, |cod, name| Expr::Pi {
+            span,
+            names: vec![name],
+            implicit,
+            auto,
+            dom: Box::new(ty.clone()),
+            cod: Box::new(cod),
+        }))
     }
 
     /// `{IO, State s} T`: a type with abilities.

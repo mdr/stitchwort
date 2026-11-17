@@ -1522,17 +1522,16 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 for ctor in ctors {
                     if *record {
                         for binder in &ctor.fields {
-                            for field in &binder.names {
-                                let full = format!("{prefix}{}.{}", name.text, field.text);
-                                item(
-                                    &mut out,
-                                    full,
-                                    "field",
-                                    name_range(field),
-                                    Some(owner),
-                                    None,
-                                );
-                            }
+                            let field = &binder.name;
+                            let full = format!("{prefix}{}.{}", name.text, field.text);
+                            item(
+                                &mut out,
+                                full,
+                                "field",
+                                name_range(field),
+                                Some(owner),
+                                None,
+                            );
                         }
                     } else {
                         let full = format!("{prefix}{}", ctor.name.text);
