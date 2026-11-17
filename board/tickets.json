@@ -43137,7 +43137,9 @@
       "body": "Stage 3 sketch (Fable, 17 Nov 2026), on lane/SW-3820. Expected 45 min; took about 17.\n\n- `tools/fmt-sketch/`: a side project (`check: open-goals: warn`, `syntax` a symlink to `../fmt/src/Syntax`). `stitchwort check` there: 57 goals open, no errors.\n- `meaning` written in full for the 98 Rust node kinds (the paper said 94), as the shared traversal with four plain steps; 7 cases proved by computing.\n- 66 theorems stated: engine 1, lexer and rule N 7 (against stage 1's code), parser 7, meaning and passes 26, rules and spelling 4, glue 21. 44 open; the 22 proved are the top theorems and `tidy`'s, from the open ones, so the layers fit.\n- `check --counterexamples` on the statements: one was false as first stated (`settledArrowsBare`: an `->` that is the last leaf keeps its trailing comment) and was restated; none found for the other lexer and rule N statements.\n- SKETCH.md §1 is the advice for stage 2 (what the tree must not hold; what it should have). §5 replaces the proposal's §7.3: about 3,200-5,900 theorems, middle 4,400 [estimated from the toy's measured rates].\n- Finding: §3.4's \"every comment-free bracket pair is forgotten\" is too wide (the compiler reads the pair at an application's head); `meaning` here forgets only what a pass changes, where it changes it.\n- Not done: per-function lemmas are counted, not stated; the open predicates (`Shaped`, `Settled`, `Lexical`, `Spells`, `Printed`) wait for stage 2's tree; the engine's statements are the toy's, not restated.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "ff0a47278"
+      ]
     }
   ]
 }
