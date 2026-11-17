@@ -278,17 +278,18 @@ mistake:
 
 | Freedom | In plain form |
 |---|---|
-| A round bracket pair where P3 drops one: at the left end of a row's result (`{Fail} (List Nat)`), and around a binder's or annotation's whole type (`(h: (∀ …))`) | forgotten, if it holds no comment: the tree's shape already says how the expression groups. Nowhere else (D3678): the compiler reads the pair in `(f a) b` (`Expr::Bracketed`), so "every comment-free pair", as this row first said, was false. At an application's head a pair is forgotten only around an atomic form, and a pair around a negative numeral never |
-| Parameter grouping, `(a b: Nat)` against `(a: Nat) (b: Nat)` | split to one binder per name, for the groups P4 could have made: a header's (not an instance's), a `∀`'s or lambda's (not an `∃`'s), with no comment, `auto`, attribute or default, and a type that names none of its names |
-| `∀` after a theorem's name | present wherever P1 writes it (a theorem with an explicit parameter), with no comments |
+| A round bracket pair where P3 drops one: at the left end of a row's result (`{Fail} (List Nat)`), and around a binder's or annotation's whole type (`(h: (∀ …))`) | forgotten: the tree's shape already says how the expression groups. Nowhere else (D3678): the compiler reads the pair in `(f a) b` (`Expr::Bracketed`), so "every comment-free pair", as this row first said, was false. At an application's head a pair is forgotten only around an atomic form, and a pair around a negative numeral never |
+| Parameter grouping, `(a b: Nat)` against `(a: Nat) (b: Nat)` | split to one binder per name, for the groups P4 could have made: a header's (not an instance's), a `∀`'s or lambda's (not an `∃`'s), with no `auto`, attribute or default, and a type that names none of its names. The compiler reads a group as its split form (D3679; SW-3880 makes the elaborator check the type once per name) |
+| `∀` after a theorem's name | absent on every header: the lowering skips it (D3472) |
 | A comma before a closer | the flag set to absent |
-| Which side of a closer a comment was written | nothing to do: rule N already put it on its token |
+| Comments, and which side of a closer one was written | left out (SW-3882): no step reads one, and meanings are compared with every comment blanked. What formatting keeps of them is `CommentsKept`, stated over the leaves: every comment's text, own-line or trailing, and blank line above, in order; its token, but for a comma P2 deletes (K1); and the blank line between comments and their token, which decides a doc |
 | Blank-line counts | present or absent, as the tree keeps them |
 | A text block's lines | by value |
 
-Everything else is kept: names, literals, operators, order, every
-comment's text and its token. The rule (D3678): `meaning` forgets exactly
-what a pass changes, where the pass changes it. It is
+Everything else is kept: names, literals, operators, order. Positions
+are left out too (the tree keeps none; the compiler reads them only for
+messages). The rule (D3678): `meaning` forgets what a pass changes, at
+least where the pass changes it, and nothing the compiler reads. It is
 [`tools/fmt/src/Fmt/Meaning.sw`](../../tools/fmt/src/Fmt/Meaning.sw), whose
 doc gives the compiler's reading behind each row. So the theorem chain is: the parser reads
 the source to a tree; each pass keeps `meaning`; the printer is exact
@@ -532,7 +533,9 @@ theorem formatKeepsComments ∀ (source output: Text) (h: format source = Format
 plus the rest of D3663's must set (`formatSameTree`, the refusals,
 `Degenerate`), and per pass the three theorems of
 toy-plus-plus.md §3.2. "Every comment kept" is stated between the two
-texts through the lexer only, so it doesn't lean on `meaning`.
+texts through the lexer only, so it doesn't lean on `meaning`; its
+conclusion is `CommentsKept (lex source) (lex output)`
+(`tools/fmt/src/Fmt/Meaning.sw`, SW-3882).
 
 Not proved, and why:
 

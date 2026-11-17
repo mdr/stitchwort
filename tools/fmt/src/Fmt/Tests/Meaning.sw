@@ -1,7 +1,6 @@
 --| `meaning` on small cases: what it forgets, what it keeps, and that the
 --| four passes keep it. Meanings are compared by their dumps, which leave
---| comments out; a bracket pair kept for its comment still shows as a
---| `Paren`.
+--| comments out, as `meaning` does.
 
 namespace Fmt.Tests
 import Fmt (..)
@@ -37,7 +36,11 @@ test "meaning: a pair around a constructor update at a row's application head is
 test "meaning: a pair P3 must keep after a row is kept" :=
   differentMeaning "def a: {IO} (f a) b" "def a: {IO} f a b"
     && differentMeaning "def a: {Fail} (a + b) * c" "def a: {Fail} a + b * c"
-    && differentMeaning "def a: {Fail}\n  -- why\n  (List Nat) := []" "def a: {Fail} List Nat := []"
+
+test "meaning: comments are left out" :=
+  sameMeaning "def a: {Fail}\n  -- why\n  (List Nat) := []" "def a: {Fail} List Nat := []"
+    && sameMeaning "def f (a -- why\n  b: Nat): Nat := a" "def f (a: Nat) (b: Nat): Nat := a"
+    && sameMeaning "def f (x: ( -- why\n  Nat)): Nat := x" "def f (x: Nat): Nat := x"
 
 test "meaning: a pair around a binder's whole type is forgotten" :=
   sameMeaning "theorem c ∀ (h: (∀ (i: Nat) => i = i)): True := h" "theorem c ∀ (h: ∀ (i: Nat) => i = i): True := h"
@@ -55,7 +58,7 @@ test "meaning: a group is split where P4 could have merged it" :=
 
 test "meaning: ∀ and trailing commas are forgotten" :=
   sameMeaning "theorem t (a: Nat): a = a := byComputing" "theorem t ∀ (a: Nat): a = a := byComputing"
-    && differentMeaning "theorem t [a: Nat]: a = a := byComputing" "theorem t ∀ [a: Nat]: a = a := byComputing"
+    && sameMeaning "theorem t [a: Nat]: a = a := byComputing" "theorem t ∀ [a: Nat]: a = a := byComputing"
     && sameMeaning "def x: T := [1, 2,]" "def x: T := [1, 2]"
     && sameMeaning "def f: Nat := match x with | (p, q,) => 1" "def f: Nat := match x with | (p, q) => 1"
 

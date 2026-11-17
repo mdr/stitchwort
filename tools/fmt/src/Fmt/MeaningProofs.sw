@@ -11,7 +11,8 @@
 --| is that `meaning`'s traversal commutes with them. P4's header and
 --| binding steps need `splitGroups` of merged groups to be the groups
 --| merged, which rests on `Group.typeLines` (the dump) telling types apart
---| for groups with no comment.
+--| for groups with no comment, and on meanings being compared with
+--| comments blanked (a split group's pieces each keep its `open`).
 
 namespace Fmt.Proofs
 import Fmt (..)
