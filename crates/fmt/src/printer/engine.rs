@@ -468,6 +468,7 @@ impl Printer {
                                         suffix: false,
                                         line_indent: indent + 2,
                                         flat_break: false,
+                                        held: 0,
                                     };
                                     return fits_flat(
                                         inner,
@@ -501,6 +502,7 @@ impl Printer {
             suffix: !self.suffixes.is_empty(),
             line_indent: self.line_indent,
             flat_break: false,
+            held: self.held_spaces,
         };
         fits_in(next, rest, left, &at)
     }
@@ -622,6 +624,7 @@ fn fits(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, modes: &BTreeMap<u32, M
         suffix: false,
         line_indent: 0,
         flat_break: false,
+        held: 0,
     };
     fits_in(next, rest, left, &at)
 }
@@ -640,6 +643,8 @@ struct Measure<'m> {
     /// A flat line break after the waiting comment has been measured: code
     /// that follows would start a line.
     flat_break: bool,
+    /// Spaces already held back after it.
+    held: usize,
 }
 
 /// [`fits`], from `at`.
@@ -667,6 +672,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
     // The indentation of the line being measured: a comment break starts
     // a new line, which the next comment break is deeper than.
     let mut line_indent = at.line_indent;
+    // Spaces held after the waiting comment, which the printer writes if a
+    // closer follows and drops at a comment break.
+    let mut held = at.held;
     loop {
         let Some((indent, mode, doc)) = stack.pop() else {
             match rest.next() {
@@ -690,20 +698,23 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 }
             }
             Doc::Text(text, width) => {
-                if suffix
-                    && !text
-                        .chars()
-                        .all(|c| matches!(c, ')' | ']' | '}' | ',' | ' '))
-                {
-                    if flat_break {
-                        return false;
+                if suffix {
+                    if text.chars().all(|c| c == ' ') {
+                        // Held back: written only before a closer.
+                        held += *width;
+                        continue;
                     }
-                    suffix = false;
-                    line_indent = indent.max(line_indent + 2);
-                    left = at.width as isize - line_indent as isize;
-                } else if suffix && text.chars().all(|c| c == ' ') {
-                    // Held back, and dropped at a comment break.
-                    continue;
+                    if text.chars().all(|c| matches!(c, ')' | ']' | '}' | ',')) {
+                        left -= std::mem::take(&mut held) as isize;
+                    } else {
+                        if flat_break {
+                            return false;
+                        }
+                        suffix = false;
+                        held = 0;
+                        line_indent = indent.max(line_indent + 2);
+                        left = at.width as isize - line_indent as isize;
+                    }
                 }
                 left -= *width as isize;
             }
@@ -759,6 +770,7 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                         suffix,
                         line_indent,
                         flat_break,
+                        held,
                     };
                     return items
                         .first()
@@ -1102,5 +1114,18 @@ mod tests {
             choice(Doc::Fill(vec![t(&y)])),
         ]);
         assert_eq!(print(&doc, 120).text, "x -- c\n  alt");
+    }
+
+    #[test]
+    fn spaces_held_before_a_closer_after_a_comment_count_in_the_measure() {
+        // The printer writes the two spaces before the `}`: 4 + 2 + 1 > 5.
+        let option = Doc::concat([
+            t("aaaa"),
+            Doc::LineSuffix("-- c".into()),
+            t(" "),
+            t(" "),
+            t("}"),
+        ]);
+        assert_eq!(print(&choice(option), 5).text, "alt");
     }
 }
