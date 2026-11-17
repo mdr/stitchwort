@@ -80,6 +80,13 @@ theorem spacesAppend ∀ (front back: List Char)
           match never with
             | ()
 
+theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)
+    (space: first = ' '):
+    lexemeStart ([first, ..others] ++ rest) = Some Spaces :=
+  rewrite space
+
+theorem spacesNotSymbols ∀ (wrong: Some Spaces = Some SymbolsLexeme): Void := cases
+
 --| Only spaces start with a space.
 theorem standsNoSpace ∀ (lexeme: Lexeme) (read rest more: List Char)
     (stands: Stands lexeme read rest)
@@ -93,7 +100,15 @@ theorem standsNoSpace ∀ (lexeme: Lexeme) (read rest more: List Char)
     | DigitsLexeme, Witness first (Witness others (Both same (Both digit _))), _ => rewrite same then cases
     | StringLexeme, Witness segments (Both same _), _ => rewrite same
     | SignLexeme, Witness mark (Both same _), _ => rewrite same then cases
-    | SymbolsLexeme, Witness first (Witness others (Both same (Both starts _))), _ => rewrite same then cases
+    | SymbolsLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
+      match isSpace: first == ' ' with
+        | False => rewrite same then isSpace
+        | True =>
+          let symbols: lexemeStart ([first, ..others] ++ rest) = Some SymbolsLexeme :=
+            Eq.trans (Eq.flipped (Eq.cong ((chars: List Char) => lexemeStart (chars ++ rest)) same)) starts
+          Void.impossible
+            (spacesNotSymbols
+              (Eq.trans (Eq.flipped (spaceStartsSpaces first others rest (DecEq.sound isSpace))) symbols))
     | StrayLexeme, never, _ =>
       match never with
         | ()
