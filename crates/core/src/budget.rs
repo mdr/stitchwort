@@ -175,6 +175,21 @@ impl Limits {
         }
     }
 
+    /// These limits, with `work`, `size`, `frames` and `native_frames` raised to
+    /// [`Limits::default`]'s where they are lower; `stack` as it is, since
+    /// it depends on the thread. For checking what the program's limits
+    /// shouldn't bound, the library.
+    pub fn at_least_default_resources(self) -> Limits {
+        let floor = Limits::default();
+        Limits {
+            work: self.work.max(floor.work),
+            stack: self.stack,
+            size: self.size.max(floor.size),
+            frames: self.frames.max(floor.frames),
+            native_frames: self.native_frames.max(floor.native_frames),
+        }
+    }
+
     /// Only `stack` bytes of stack: for passes over checked declarations
     /// (like generating JavaScript), whose only limit is how deeply they may
     /// recurse. Evaluating a checked type can't run out of anything else.

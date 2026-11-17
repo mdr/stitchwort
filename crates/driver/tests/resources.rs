@@ -149,10 +149,10 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
              opaque def big (n: Nat): List Nat := replicate 5000 n\n",
         )
         .expect("checks");
-    // Above the largest of std's own declarations (`Omega.Fact` reads back about
-    // 3,300 nodes), which are checked lazily under this limit; below `big`'s 20,000.
+    // A small limit. Std's own declarations (`Omega.Fact` reads back about
+    // 3,300 nodes) are checked lazily, but not under it (SW-3711).
     session.elab.options.limits = Limits {
-        size: 10_000,
+        size: 100,
         ..Limits::default()
     };
     let diagnostics = session
