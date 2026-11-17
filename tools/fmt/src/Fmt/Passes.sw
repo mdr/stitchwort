@@ -326,11 +326,13 @@ def Group.typeLines (group: Group): List Text := match group.annotation with
   | None => []
 
 --| Whether `next` goes into the group `current` is the merge of so far:
---| the same brackets and the same type, no comment between them, and a type
---| that doesn't name any of their names (a dependent `(x: P x) (y: P x)`).
+--| the same kind of group, the same brackets and the same type, no comment
+--| between them, and a type that doesn't name any of their names (a
+--| dependent `(x: P x) (y: P x)`).
 def joins (current next: Group): Bool :=
   current.mergeable
     && next.mergeable
+    && current.kind == next.kind
     && current.implicit == next.implicit
     && next.open.above.isEmpty
     && current.typeLines == next.typeLines
