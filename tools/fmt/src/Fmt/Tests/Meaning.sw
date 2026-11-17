@@ -30,6 +30,10 @@ test "meaning: a pair at a row's left end is forgotten" :=
     && sameMeaning "def a: {IO} ((f a)) b" "def a: {IO} (f a) b"
     && sameMeaning "def a: {e} (Nat -> Nat) := id" "def a: {e} ((Nat -> Nat)) := id"
 
+test "meaning: a pair around a constructor update at a row's application head is kept" :=
+  differentMeaning "def a: {IO} (P { r | x = 1 }) 2 := z" "def a: {IO} P { r | x = 1 } 2 := z"
+    && sameMeaning "def a: {IO} (P { x = 1 }) 2 := z" "def a: {IO} P { x = 1 } 2 := z"
+
 test "meaning: a pair P3 must keep after a row is kept" :=
   differentMeaning "def a: {IO} (f a) b" "def a: {IO} f a b"
     && differentMeaning "def a: {Fail} (a + b) * c" "def a: {Fail} a + b * c"
