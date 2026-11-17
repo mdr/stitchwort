@@ -211,6 +211,16 @@ impl Elaborator {
                 );
             }
         }
+        // The cycle may be only a guess at what a dot call means: one that
+        // takes a total member back to a partial one.
+        let items: Vec<usize> = members.iter().map(|m| m.0).collect();
+        let is_partial =
+            |item: usize| (items.iter().position(|&i| i == item)).is_some_and(|k| partial[k]);
+        if let Some(note) =
+            self.speculative_note_from(&items, |from, to| !is_partial(from) && is_partial(to))
+        {
+            d = d.with_note(note);
+        }
         d.with_note(
             "a recursive group must be all `Partial` or all total: split the cycle, so that the \
              total definitions don't refer back to the partial ones, or make them all `Partial`",
