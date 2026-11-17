@@ -1,5 +1,5 @@
 {
-  "next": 3836,
+  "next": 3839,
   "tickets": [
     {
       "id": 47,
@@ -21827,12 +21827,12 @@
     {
       "id": 3819,
       "title": "[Opus] Self-hosted formatter stage 2a (self-hosted-fmt.md §8): the parser on Parse over the settled leaves, expressions and patterns first; tree types per construct; Fmt.Twin --stage tree and refusal; a parse-rate timing",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected: 75 min (lane started 15:13).\n\nProgress (15:59): done on lane/SW-3819 (44f5f144f, 3aefb53d7). Parser for expressions and patterns on Parse, total; tree with Word leaves (text + comments, no layout), trailingComma flags, Infix/Binding/Facts/Atom tags; continued lines as in Rust (blocks of one line, is_stop, then/else, |>, arm columns); `dev tree --expression` + `fmt-twin expr`. Gate: corpus 21,135/22,373, broken 1,925/2,032, edge 82/82, lines 20/20 identical, every difference \"not parsed yet\" (rewrite, calc, let, cases, named-param function types, match induct, effect row). Speed: ~3.5-4 s/MB parser+dump, 6.5-7.5 s/MB with lexing, at load 15-37, dense input; over §5's 2.5-3.5 for the whole formatter. Details in tools/fmt/NOTES.md \"Stage 2a\". To review.\n",
+      "body": "Expected: 75 min (lane started 15:13).\n\nProgress (15:59): done on lane/SW-3819 (44f5f144f, 3aefb53d7). Parser for expressions and patterns on Parse, total; tree with Word leaves (text + comments, no layout), trailingComma flags, Infix/Binding/Facts/Atom tags; continued lines as in Rust (blocks of one line, is_stop, then/else, |>, arm columns); `dev tree --expression` + `fmt-twin expr`. Gate: corpus 21,135/22,373, broken 1,925/2,032, edge 82/82, lines 20/20 identical, every difference \"not parsed yet\" (rewrite, calc, let, cases, named-param function types, match induct, effect row). Speed: ~3.5-4 s/MB parser+dump, 6.5-7.5 s/MB with lexing, at load 15-37, dense input; over §5's 2.5-3.5 for the whole formatter. Details in tools/fmt/NOTES.md \"Stage 2a\". To review.\n\nModel result: opus, worked, 47 min (est. 75). Sketch item 10 (fixed tokens as Comments only): orchestrator's call: the tree keeps a token's spelling where it varies (→/->, ∧/&&) and the formatter keeps it as written; item 10 applies to tokens with one spelling. Check in 2b that the formatter keeps spellings as written. Follow-ups SW-3836 SW-3837 SW-3838.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22042,6 +22042,45 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3836,
+      "title": "[Opus] Self-hosted formatter stage 2b: declarations, headers and types; --stage tree and refusal; the shared traversal (sketch item 6), one parameter-group constructor (8) if the dump allows, fuel (13); whole-file timing with a profile before any speed change (self-hosted-fmt.md §8, SW-3819 report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3837,
+      "title": "[Sonnet] Self-hosted formatter speed: lexer + parser about 6.5-7.5 s/MB on dense input against §5's 2.5-3.5 for the whole formatter (timed at high load); profile whole files in a quiet window first, then change only measured hotspots (SW-3819 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3838,
+      "title": "[DeepSeek] Proving guide / style notes: List.length used as fuel at every step, and text built by nested interpolation, are silent quadratic traps (SW-3819 hit both: 3,000-item list took 10.7 s); a line in the guide, and consider a lint",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
