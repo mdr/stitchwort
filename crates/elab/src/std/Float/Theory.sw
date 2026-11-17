@@ -4354,39 +4354,39 @@ theorem Float.Theory.isFiniteOf ∀ (x: Float) (h: Float.Theory.FiniteBits x.bit
 theorem Float.Theory.notSpecialOf ∀ (a: Nat) (h: Float.Theory.FiniteBits a): Float.Model.isSpecial a = False :=
   arithmetic [h]
 
-theorem Float.Theory.addOneMul ∀ (f: Int) (p: Nat):
-    Int.add (Int.mul f (OfNat p)) (OfNat p) = Int.mul (Int.add f (OfNat 1)) (OfNat p) :=
+theorem Float.Theory.addMulRight ∀ (f k: Int) (p: Nat):
+    Int.add (Int.mul f (OfNat p)) (Int.mul k (OfNat p)) = Int.mul (Int.add f k) (OfNat p) :=
   algebra
 
---| The bits of `y + 1.0` for a double `y` of `f × 2^1074` units, `f` and
---| `f + 1` whole numbers at most 2^53 in size: exactly `f + 1`, rounded.
-theorem Float.Theory.addOneWhole ∀ (y: Float) (f: Int)
+--| The sum of two doubles of `f × 2^1074` and `k × 2^1074` units, for
+--| whole numbers with `|f + k| ≤ 2^53`: exactly `f + k`.
+theorem Float.Theory.addWhole ∀ (y c: Float) (f k: Int)
     (fy: Float.Theory.FiniteBits y.bits)
+    (fc: Float.isFinite c = True)
     (uy: Float.Model.units y.bits = Int.mul f (OfNat (Float.Model.pow2 1074)))
-    (h: Int.natAbs (Int.add f (OfNat 1)) ≤ 9007199254740992):
-    Float.Theory.units (y + 1.0) = Int.mul (Int.add f (OfNat 1)) (OfNat (Float.Model.pow2 1074)) :=
+    (uc: Float.Model.units c.bits = Int.mul k (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs (Int.add f k) ≤ 9007199254740992):
+    Float.Theory.units (y + c) = Int.mul (Int.add f k) (OfNat (Float.Model.pow2 1074)) :=
   let p: Nat := Float.Model.pow2 1074
-  let z: Bool := Float.Model.signBit y.bits ∧ Float.Model.signBit 1.0.bits
-  let sumUnits: Int.add (Float.Theory.units y) (Float.Theory.units 1.0) = Int.mul (Int.add f (OfNat 1)) (OfNat p) :=
-    Eq.trans
-      (Eq.cong2 Int.add uy (byComputing: Float.Theory.units 1.0 = OfNat p))
-      (Float.Theory.addOneMul f p)
-  let sum: (y + 1.0).bits = Float.Model.roundRatio (Int.mul (Int.add f (OfNat 1)) (OfNat p)) 1 (-1074) z :=
-    calc (y + 1.0).bits
+  let z: Bool := Float.Model.signBit y.bits ∧ Float.Model.signBit c.bits
+  let sumUnits: Int.add (Float.Theory.units y) (Float.Theory.units c) = Int.mul (Int.add f k) (OfNat p) :=
+    Eq.trans (Eq.cong2 Int.add uy uc) (Float.Theory.addMulRight f k p)
+  let sum: (y + c).bits = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat p)) 1 (-1074) z :=
+    calc (y + c).bits
       _ = (Float.ofBits
-          (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units 1.0)) 1 (-1074) z)).bits :=
-        Eq.cong (w => w.bits) (Float.Theory.addFinite y 1.0 (Float.Theory.isFiniteOf y fy) byComputing)
-      _ = Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units 1.0)) 1 (-1074) z :=
+          (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z)).bits :=
+        Eq.cong (w => w.bits) (Float.Theory.addFinite y c (Float.Theory.isFiniteOf y fy) fc)
+      _ = Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z :=
         Float.Theory.ofBitsBits
-          (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units 1.0)) 1 (-1074) z)
+          (Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z)
           (Float.Theory.roundRatioValid 1
             (-1074)
             z
             byComputing
-            (Int.add (Float.Theory.units y) (Float.Theory.units 1.0)))
-      _ = Float.Model.roundRatio (Int.mul (Int.add f (OfNat 1)) (OfNat p)) 1 (-1074) z :=
+            (Int.add (Float.Theory.units y) (Float.Theory.units c)))
+      _ = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat p)) 1 (-1074) z :=
         Eq.cong (u => Float.Model.roundRatio u 1 (-1074) z) sumUnits
-  Eq.trans (Eq.cong Float.Model.units sum) (Float.Theory.roundWholeUnits (Int.add f (OfNat 1)) z h).right
+  Eq.trans (Eq.cong Float.Model.units sum) (Float.Theory.roundWholeUnits (Int.add f k) z h).right
 
 --| `x < floor x + 1.0` for `|x| < 2^53`: `floor x` and `floor x + 1.0` are
 --| whole numbers of that size, so the sum is exact, and above `x`. From
@@ -4410,7 +4410,15 @@ theorem Float.ltFloorAddOne ∀ (x: Float) (small: Float.abs x < 900719925474099
       (Float.Theory.roundScaledWhole f s range.left.left)
       fl.flipped
   let us: Float.Theory.units (Float.floor x + 1.0) = Int.mul (Int.add f (OfNat 1)) (OfNat p) :=
-    Float.Theory.addOneWhole (Float.floor x) f fx.left fx.right range.left.right
+    Float.Theory.addWhole (Float.floor x)
+      1.0
+      f
+      (OfNat 1)
+      fx.left
+      byComputing
+      fx.right
+      byComputing
+      range.left.right
   Float.Theory.lessOfUnits x
     (Float.floor x + 1.0)
     (J
@@ -4424,3 +4432,78 @@ test "Float.ltFloorAddOne" :=
     ∧ -0.0 < Float.floor -0.0 + 1.0
     ∧ 9007199254740991.0 < Float.floor 9007199254740991.0 + 1.0
     ∧ ¬(9007199254740992.0 < Float.floor 9007199254740992.0 + 1.0)
+
+theorem Float.Theory.signedFlip ∀ (s: Bool) (n: Nat): Int.signed s n = Int.neg (Int.signed (¬s) n) := match s with
+  | False => algebra
+  | True => byComputing
+
+theorem Float.Theory.subOneMul ∀ (g: Int) (p: Nat):
+    Int.mul (Int.add (Int.neg g) (Int.neg (OfNat 1))) (OfNat p) = Int.neg (Int.mul (Int.add g (OfNat 1)) (OfNat p)) :=
+  algebra
+
+theorem Float.Theory.natAbsNegLe ∀ (g: Int) (h: Int.natAbs g ≤ 9007199254740992): Int.natAbs (Int.neg g) ≤ 9007199254740992 :=
+  arithmetic [h]
+
+theorem Float.Theory.natAbsNegSuccLe ∀ (g: Int)
+    (h: Int.natAbs (Int.add g (OfNat 1)) ≤ 9007199254740992):
+    Int.natAbs (Int.add (Int.neg g) (Int.neg (OfNat 1))) ≤ 9007199254740992 :=
+  arithmetic [h]
+
+theorem Float.Theory.negLess ∀ (a b c d: Int)
+    (h: Int.less b a = True)
+    (ec: c = Int.neg a)
+    (ed: d = Int.neg b):
+    Int.less c d = True :=
+  arithmetic [h, ec, ed]
+
+--| `ceil x - 1.0 < x` for `|x| < 2^53`, where the difference is exact.
+--| (`ceil x < x + 1.0` is false: `x + 1.0` rounds, and for `x` = 2^-60
+--| both sides are `1.0`.)
+theorem Float.ceilSubOneLt ∀ (x: Float) (small: Float.abs x < 9007199254740992.0): Float.ceil x - 1.0 < x :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let range: ((Int.natAbs g ≤ 9007199254740992) ∧ (Int.natAbs (Int.add g (OfNat 1)) ≤ 9007199254740992))
+    ∧ (Int.less (Int.signed (¬s) n) (Int.mul (Int.add g (OfNat 1)) (OfNat p)) = True) :=
+    Float.Theory.floorDivRange (¬s) n p byComputing fin.right
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits x) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  let cx: Float.Theory.FiniteBits (Float.ceil x).bits
+    ∧ (Float.Model.units (Float.ceil x).bits = Int.mul (Int.neg g) (OfNat p)) :=
+    J
+      (r w => Float.Theory.FiniteBits r ∧ (Float.Model.units r = Int.mul (Int.neg g) (OfNat p)))
+      (Float.Theory.roundScaledWhole (Int.neg g) s (Float.Theory.natAbsNegLe g range.left.left))
+      cl.flipped
+  let ud: Float.Theory.units (Float.ceil x - 1.0)
+    = Int.mul (Int.add (Int.neg g) (Int.neg (OfNat 1))) (OfNat p) :=
+    Eq.trans
+      (Eq.cong Float.Theory.units (Float.subAddNeg (Float.ceil x) 1.0))
+      (Float.Theory.addWhole (Float.ceil x)
+        (-1.0)
+        (Int.neg g)
+        (Int.neg (OfNat 1))
+        cx.left
+        byComputing
+        cx.right
+        byComputing
+        (Float.Theory.natAbsNegSuccLe g range.left.right))
+  Float.Theory.lessOfUnits (Float.ceil x - 1.0)
+    x
+    (Float.Theory.negLess
+      (Int.mul (Int.add g (OfNat 1)) (OfNat p))
+      (Int.signed (¬s) n)
+      (Float.Theory.units (Float.ceil x - 1.0))
+      (Float.Theory.units x)
+      range.right
+      (Eq.trans ud (Float.Theory.subOneMul g p))
+      (Eq.trans (Float.Theory.unitsSigned a).flipped (Float.Theory.signedFlip s n)))
+
+test "Float.ceilSubOneLt" :=
+  Float.ceil 2.5 - 1.0 < 2.5
+    ∧ Float.ceil -2.5 - 1.0 < -2.5
+    ∧ Float.ceil 0.0 - 1.0 < 0.0
+    ∧ Float.ceil -9007199254740991.0 - 1.0 < -9007199254740991.0
+    ∧ Float.ceil 8.673617379884035e-19 == 8.673617379884035e-19 + 1.0
