@@ -1,6 +1,6 @@
 # Design notes: an index
 
-There are 156 notes in this folder (the `*.md` files other than this one),
+There are 236 notes in this folder (the `*.md` files other than this one),
 plus a few prototype folders beside them. A note is a design as it was
 argued; it isn't kept current, so its own status line is often out of date.
 This index says where each note stands. It was written on 7 November 2026
@@ -58,6 +58,11 @@ status line now says the wrong thing; the details are in
 | [well-founded-recursion.md](well-founded-recursion.md) | `decreasing n` instead of fuel | in progress: stages 1-3d built (`crates/elab/src/decreasing.rs`); rest of stage 3 open | SW-199, SW-253 |
 | [decreasing-with-hypothesis.md](decreasing-with-hypothesis.md) | A decrease proof that can use what a `match` or `if` just learned | proposed (design item for SW-199) | SW-2013, SW-2029-SW-2032 |
 | [proof-check-speed.md](proof-check-speed.md) | Why AoC 2025 day 2 and day 4 proofs checked slowly | record (led to folded-calls.md) | SW-163, SW-252 |
+| [enough-fuel.md](enough-fuel.md) | "Enough fuel finishes": a termination argument for recursion that runs out of fuel | proposed: D3080, D3081 | SW-2137 |
+| [equality-in-the-round.md](equality-in-the-round.md) | One rule for the five ways a call is kept unevaluated, checked against an evaluator with no shortcuts | proposed: D3250 | SW-2236 |
+| [recursion-through-map.md](recursion-through-map.md) | Recursion through `map`, and on a text's rest | in progress: rule 3 built (SW-3376, D3612); rules 1-2 parked (D3611) | SW-3359, SW-3365 |
+| [stuck-field-calls.md](stuck-field-calls.md) | Stuck field calls `(f x).i` remember their call | proposed: D3020, D3021 | SW-1914 |
+| [term-sharing.md](term-sharing.md) | Big terms: sharing, limits, and where memory runs away | proposed: three questions in §7 | SW-2660 |
 
 ## Elaborator
 
@@ -88,6 +93,16 @@ status line now says the wrong thing; the details are in
 | [namespaces.md](namespaces.md) | Namespaces, imports and dot notation | built, stages 0-2: `crates/elab/src/module.rs` | SW-14, SW-21, SW-123, SW-165; open SW-150 |
 | [multi-file.md](multi-file.md) | Programs in several files | built, stages 1-2; the rest is unbuilt design | SW-89, SW-106, SW-132, SW-511; open SW-150 |
 | [import-aliases.md](import-aliases.md) | `Spec.x` for an imported namespace; `import M (x as y)` | built, stages 1-2 | SW-804 |
+| [catch-all-facts.md](catch-all-facts.md) | What a catch-all arm can use of the literals above it | built: `crates/elab/src/literal_facts.rs` | SW-3318, SW-3335 |
+| [catch-all-goals.md](catch-all-goals.md) | What a catch-all arm's goal shows | proposed: changes goal display only | SW-3301 |
+| [constructor-names.md](constructor-names.md) | Constructors found by the type they build or match | proposed: D3615 | SW-510 |
+| [derived-equality.md](derived-equality.md) | Derived `==`, `<` and `${…}` for every data type | built, stages 1-3 (SW-3369-SW-3371) | SW-3354, SW-3358, SW-3369-SW-3371 |
+| [derived-instances-import-cost.md](derived-instances-import-cost.md) | What std's derived instances cost every importer | proposed: options A-D, measured | SW-3710 |
+| [derived-instances-rethink.md](derived-instances-rethink.md) | Derived instances' cost, thought through again | proposed | SW-3725 |
+| [goal-printing-gaps.md](goal-printing-gaps.md) | Goals that print forms the source doesn't have, outside bounded read-back | proposed: D3090 | SW-2143 |
+| [match-call-field.md](match-call-field.md) | `match` and `rewrite` on a field of a call, `(f x).i` | proposed: D2990-D2992 | SW-1999 |
+| [match-refinement.md](match-refinement.md) | What a `match` refines | proposed | SW-3754 |
+| [using-unfinished-proofs.md](using-unfinished-proofs.md) | Checking what relies on an open goal | proposed: D-a to D-d open | SW-2797 |
 
 ## Tactics and proofs
 
@@ -107,6 +122,14 @@ status line now says the wrong thing; the details are in
 | [counterexample-search.md](counterexample-search.md) | Search for a counterexample when a proof fails | built, stages 1-2: `crates/elab/src/counterexample/`; stages 3-4 not built | SW-330, SW-436 |
 | [proof-reification.md](proof-reification.md) | `match reify`: proofs that look inside a computation | built, R1-R2: `crates/elab/src/reify.rs` | SW-419, SW-420; open SW-660 |
 | [tailrec.md](tailrec.md) | A checked `@[tailrec]` attribute | built: `crates/elab/src/tailrec.rs` | SW-1213, SW-1222 |
+| [bool-as-proposition.md](bool-as-proposition.md) | Reading a `Bool` fact as a proposition | built, stages 1-3: readings, the stuck-decision step, `W-DECISION-TEST` | SW-2704, SW-2734, SW-2967, SW-2977, SW-3019, SW-3029, SW-3031 |
+| [bool-as-proposition-building.md](bool-as-proposition-building.md) | Building a test fact from a proof of its reading (D3549a) | built (SW-3087) | SW-3087 |
+| [bool-operators-in-propositions.md](bool-operators-in-propositions.md) | `∧` on `Bool`s in a proposition: D3486 decided | built: D3486, as bool-as-proposition.md §4.3 | SW-2735 |
+| [decidable-record.md](decidable-record.md) | `Decidable` as a `Bool` with its two proofs | proposed: D3483-D3485 | SW-2703 |
+| [proof-tuples.md](proof-tuples.md) | Proof tuples: a short way to build and take apart "exists/and" facts | proposed: D3630 | SW-3514 |
+| [proof-vocabulary.md](proof-vocabulary.md) | Proof vocabulary: names that say what happens | proposed: D3649 | SW-3565 |
+| [rewrite-syntax.md](rewrite-syntax.md) | How `rewrite` is written: the rule, `at`, and `rewrite repeatedly` | proposed: D3666 | SW-3647 |
+| [simp-revisited.md](simp-revisited.md) | `simp`: a rewriter that leaves computing alone | in progress: stage 1 built (`rewrite repeatedly`); D3647, D3648 decided | SW-3522 |
 
 ## Syntax
 
@@ -133,6 +156,10 @@ status line now says the wrong thing; the details are in
 | [direct-style-grammars.md](direct-style-grammars.md) | Sequence expressions `(a; b)` and `Parse.before` | built | SW-888, SW-889; open SW-887 |
 | [private-helpers.md](private-helpers.md) | Hiding std's internal helpers, `@[internal]` | proposed | SW-2008, SW-2037-SW-2040 |
 | [entry-points.md](entry-points.md) | How a program declares its entry point: `@[entry]`, `main` checked where defined, or both | proposed: D3452-D3454 (recommends `main` by name, checked at definition) | SW-2550; SW-2549 |
+| [forall-style-enforcement.md](forall-style-enforcement.md) | Keeping the `∀` house style | proposed: options note | SW-2595 |
+| [syntax-tree-architecture.md](syntax-tree-architecture.md) | One lossless tree, the compiler's tree, and who reads which | proposed: D3559 | SW-3155 |
+| [syntax-tree-lowering.md](syntax-tree-lowering.md) | Building the compiler's tree from the lossless tree | built: lanes L0-L7 (SW-3207-SW-3214) | SW-3160 |
+| [theorem-binders.md](theorem-binders.md) | How a theorem's variables are written | proposed: options note | SW-2640 |
 
 ## Effects
 
@@ -160,6 +187,9 @@ status line now says the wrong thing; the details are in
 | [row-settling-order.md](row-settling-order.md) | When a call's effect row may be settled as empty | proposed (analysis) | SW-1926, SW-1581, SW-1994 |
 | [terminal-io.md](terminal-io.md) | Terminal control as a library ability | built, lanes 1, 2, 4: `crates/elab/src/std/Terminal/`; D1258 still open | SW-483, SW-495-SW-497 |
 | [text-and-io.md](text-and-io.md) | `Char`, `Text`, `IO` and `main` | built: steps 1-6 and compact text's stages A and B1; B2 parked | SW-57, SW-68 |
+| [ability-granularity.md](ability-granularity.md) | How fine abilities should be: files, `IO`, and a name for "everything" | proposed: D3585, D3595, D3596 | SW-3262 |
+| [file-io-and-text.md](file-io-and-text.md) | File access and fast text | proposed: D3579 | SW-3234 |
+| [operations-in-place.md](operations-in-place.md) | Operations in place, for every effect | proposed: D3400 | SW-2339 |
 
 ## Runtime and backends
 
@@ -184,6 +214,11 @@ status line now says the wrong thing; the details are in
 | [effect-runtime-allocation.md](effect-runtime-allocation.md) | Fewer objects built by the effect runtime (about 14 per operation on the parsers): one-object resumptions, the loop reusing the cells it takes apart, a perform's `bind` folded into its `Call`, no resumption for a fused state handler that can't use `k`; local changes, not operations in place (D3430) | proposed: staged plan in §4, questions in §5 | SW-2444 |
 | [compiled-handler-dispatch.md](compiled-handler-dispatch.md) | A handler's step lowered to one dispatch closure (switch on the operation's tag, clauses inlined) instead of `handlePlus` and `%elim` partial applications that copy every clause per operation; a lowering rewrite, no hash changes; complements operations in place | proposed: staged plan in §7, questions in §8 | SW-2498 |
 | [borrow-inference.md](borrow-inference.md) | Borrowed parameters inferred Lean-style (read-only, never stored, returned or reused), so walks like `Map.get` over a live map stop counting each node; tail calls and step/frame counts unchanged (owned copies for value uses), the machine checks borrows instead of exploiting them, native code gets the speed-up | proposed: D3440-D3442, staged plan in §6 (B0 measures first) | SW-2518 |
+| [comparative-speed.md](comparative-speed.md) | Stitchwort against Python and Lean: the measurement plan | proposed: D3330-D3342 | SW-2290 |
+| [exit-status.md](exit-status.md) | Exit statuses: how a program says 0, 1, 2 or 42 | proposed: D3616 | SW-3345 |
+| [interpreter-speed.md](interpreter-speed.md) | Where the machine's time goes, and what to change first | proposed: D3060, D3061 | SW-813 |
+| [parse-runtime.md](parse-runtime.md) | Making `Std.Parse` cheap at run time | proposed | SW-2327 |
+| [sharing-repeated-calls.md](sharing-repeated-calls.md) | Whether the optimiser should merge repeated pure calls | proposed: D3390, D3391 | SW-2325 |
 
 ## Standard library and data types
 
@@ -208,6 +243,16 @@ status line now says the wrong thing; the details are in
 | [parser-combinators.md](parser-combinators.md) | `Std.Parse`, a parser library for puzzle input | built, stage 1: `crates/elab/src/std/Parse/Parse.sw` | SW-861, SW-1107 |
 | [total-parsers.md](total-parsers.md) | Parsers that are total by type | parked (D1710: not now) | SW-884, SW-891 |
 | [aoc-geometry.md](aoc-geometry.md) | A 2D geometry library for `Aoc.Common` | in progress: stage 1 built (`aoc/src/Aoc/Common/Plane.sw`) | SW-1617, SW-1484; open SW-1474, SW-1475, SW-1482, SW-1587, SW-1588, SW-1592 |
+| [args.md](args.md) | `Std.Args`: a command-line library | in progress: stage A1 built; A2 dropped (D3614) | SW-3378 |
+| [dense-distances.md](dense-distances.md) | Dijkstra over an array, for states with a dense index | built, stages 1-2b: `Graph.distances` | SW-2377, SW-2394, SW-2396 |
+| [float-transcendentals.md](float-transcendentals.md) | `exp`, `log`, `cos` and friends when JavaScript doesn't say what they return | proposed: decisions in §9 | SW-3783 |
+| [generic-parse.md](generic-parse.md) | A generic `Std.Parse`: parsing any token type | proposed: D3579, D3588 | SW-3235 |
+| [map-set-list-model.md](map-set-list-model.md) | `Map`/`Set` lemmas for maps of sets, then 2024 day 9 part 2 | proposed: D3070, D3071 | SW-745 |
+| [parse-on-text.md](parse-on-text.md) | Parsing on `Text`: what `Std.Parse` reads in the end | proposed | SW-3269 |
+| [parse-proof-library.md](parse-proof-library.md) | Std's parser-proof library: the end state | proposed | SW-3493 |
+| [parser-input-naming.md](parser-input-naming.md) | Naming the character case of a generic parser | record (survey for D3588) | SW-3277 |
+| [std-lemma-references.md](std-lemma-references.md) | The compiler's references to std, checked | proposed | SW-1392 |
+| [std-naming.md](std-naming.md) | One name per operation in std, and how lemmas are named | proposed | SW-2179 |
 
 ## Tooling and the editor
 
@@ -232,6 +277,25 @@ status line now says the wrong thing; the details are in
 | [check-cache.md](check-cache.md) | A cache of checked declarations across runs | built, stages 1-3: `crates/driver/src/check_cache.rs` | SW-239, SW-240, SW-245, SW-880 |
 | [check-cache-key.md](check-cache-key.md) | Check caches that survive a compiler change | parked: D2560 yes, no narrower key; SW-1741 fixed the cause instead | SW-1753, SW-1745, SW-1741 |
 | [check-cache-trust.md](check-cache-trust.md) | What the check cache trusts when it skips the kernel | proposed: D2800-D2802, D2680 | SW-1971, SW-1919, SW-1925, SW-1995, SW-1996 |
+| [after-the-toy-proof.md](after-the-toy-proof.md) | What the toy proof taught, what to tidy, and where next | record (roadmap behind D3623-D3625) | SW-3489 |
+| [cold-std-check.md](cold-std-check.md) | Checking std from a cold cache | proposed: D3120, D3121 | SW-2156 |
+| [every-comment-placed.md](every-comment-placed.md) | Every comment has a place | built (SW-3447); D3619 adopted | SW-3446, SW-3447 |
+| [fmt-author-breaks.md](fmt-author-breaks.md) | When the formatter joins lines the author broke | proposed: D3605 | SW-3298 |
+| [fmt-passes.md](fmt-passes.md) | The Rust formatter as tidy passes, then a white-space printer | in progress: L1, L2 built (SW-3495, SW-3496); L3-L6 open | SW-3492 |
+| [formatter-architecture.md](formatter-architecture.md) | The formatter's architecture: tokens and lines, or a pretty printer from a tree? | proposed: D3557 | SW-3152 |
+| [formatter-properties.md](formatter-properties.md) | Formatter properties: which are worth proving | proposed: D3662 | SW-3626 |
+| [formatter-style.md](formatter-style.md) | The formatter's style sheet | built: `crates/fmt/src/printer/` | SW-3194 |
+| [goal-at-any-point.md](goal-at-any-point.md) | The goal at any point of a proof | proposed: D3496 | SW-2715 |
+| [goals-panel.md](goals-panel.md) | The Goals panel: what a goal shows, compared with other provers | proposed: D3497, D3499 | SW-2921 |
+| [helpful-errors.md](helpful-errors.md) | Helpful compiler errors | proposed: D3642 | SW-3539 |
+| [proving-with-stitchwort-outline.md](proving-with-stitchwort-outline.md) | *Proving with Stitchwort*, an outline | proposed: D3520 | SW-2891 |
+| [refactoring.md](refactoring.md) | Refactoring in the editor and playground | in progress: steps R1-R4 (D3467) | SW-2626, SW-2628 |
+| [self-hosted-fmt.md](self-hosted-fmt.md) | A Stitchwort formatter written in Stitchwort | in progress: third plan; D3623, D3635, D3636 decided | SW-3417 |
+| [self-hosted-fmt-proof-plan.md](self-hosted-fmt-proof-plan.md) | The proved formatter, in slices: a de-risked plan | proposed: plan | SW-3824 |
+| [self-hosted-fmt-engine-plan.md](self-hosted-fmt-engine-plan.md) | The self-hosted formatter's engine: from `Toy.Doc` to `Std.Doc` | proposed: plan | SW-3902 |
+| [toy-formatter.md](toy-formatter.md) | The toy formatter: every moving part, at a small size | built: `tools/toyfmt/` | SW-3339 |
+| [toy-plus-plus.md](toy-plus-plus.md) | Toy++: a sketch | in progress: stage T0 done (SW-3600); T1-T7 open | SW-3434 |
+| [toy-proof-complexity.md](toy-proof-complexity.md) | Why the toy proof is 16 times its program | record | SW-3500 |
 
 ## Tests and process
 
@@ -243,22 +307,23 @@ status line now says the wrong thing; the details are in
 | [mutation-check.md](mutation-check.md) | Break the program; some proof or test must notice | proposed: D2920-D2924 | SW-1064, SW-2056-SW-2062 |
 | [split-elab.md](split-elab.md) | Splitting the `elab` crate for build speed | in progress: SW-1776 in review | SW-1737, SW-1777, SW-1776 |
 | [proof-irrelevance-review.md](proof-irrelevance-review.md) | Independent review of proof-irrelevance.md, draft 4 | record | SW-1268 |
+| [audit-proved-instances.md](audit-proved-instances.md) | Proved instances answer the audit's vacuity warning | proposed: D3230, D3231 | SW-2229 |
 
 ## Counts
 
 | Status | Notes |
 |---|---|
-| built | 102 |
-| in progress | 16 |
-| proposed | 20 |
-| superseded | 4 |
+| built | 113 |
+| in progress | 23 |
+| proposed | 80 |
+| superseded | 5 |
 | parked | 4 |
-| record | 8 |
-| **total** | **154** |
+| record | 11 |
+| **total** | **236** |
 
 "Built" includes notes where only the decided part is built and the rest
 was left as someday/maybe (partial.md, records.md, multi-file.md). None of
-the 102 has a status line that still says otherwise.
+the 113 has a status line that still says otherwise.
 
 ## Stale claims
 
