@@ -42211,12 +42211,12 @@
     {
       "id": 3750,
       "title": "[DeepSeek] fmt: a trailing comment right after a let's := in a bracketed sequence makes the output fail to parse ('; needs an expression after it'); formatter refuses. Minimal: 'def value: Text :=' / ' (let x :=-- c' / ' 1; 2; x)'. Fuzz seed 0x1017 COMMENTS=0.3 case 223232. The ; family (0x925 fixed; this is a new shape)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~40 min (est. 30). Layout for this mutator shape is ':=' under the comment; parses and idempotent.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
