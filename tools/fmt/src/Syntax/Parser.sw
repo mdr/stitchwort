@@ -12,11 +12,10 @@
 --| `pself`, so `Parse.recursiveWith`'s fuel bounds it and every other
 --| function is a plain call or a loop with fuel from the items left.
 --|
---| Stage 2a reads expressions on one line: a token starting a later line
---| (a block, a continued line), and the constructs of stages 2b and 2c
---| (`let`, `handle`, `calc`, `rewrite`, `cases`, `match induct`, function
---| types with named parameters, effect rows), are refused with a message
---| starting "not parsed yet".
+--| A block of several lines and the constructs of stage 2c (`let`,
+--| `handle`, `calc`, `rewrite`, `cases`, `match induct`) are refused with a
+--| message starting "not parsed yet". Declarations, parameter groups and
+--| types with abilities are `DeclParser.sw`'s (stage 2b).
 
 namespace Syntax
 import Std (Bool, Empty, List, Nat, Option, Parse, Result, Text)
@@ -138,18 +137,23 @@ def Item.spelled (item: Item): Text := match item.kind with
 
 -- Modes and goals.
 
---| What the Rust parser keeps in `Modes` that stage 2a needs: whether a
---| guard's condition is being read, outside brackets opened since (so a
---| `=>` ends it), and where a method section that starts an expression
---| starts (an offset), which its own parser marks.
+--| What the Rust parser keeps in `Modes` that stages 2a and 2b need:
+--| whether a guard's condition is being read, outside brackets opened since
+--| (so a `=>` ends it); where a method section that starts an expression
+--| starts (an offset), which its own parser marks; the block's column
+--| (`limit`) and the statement's first token (`allow`); and whether this is
+--| a top-level definition's body, where the Rust parser recovers from an
+--| error (`recover`), which changes one message: a missing expression where
+--| a line at the block's column starts.
 type Modes = {
   guard: Bool,
   sectionHead: Option Nat,
   limit: Option Nat,
-  allow: Option Nat
+  allow: Option Nat,
+  recover: Bool
 }
 
-def Modes.start: Modes := { guard = False, sectionHead = None, limit = None, allow = None }
+def Modes.start: Modes := { guard = False, sectionHead = None, limit = None, allow = None, recover = False }
 
 --| The modes inside a bracket: a `=>` there is no guard's.
 def Modes.inBrackets (modes: Modes): Modes := { modes | guard = False }
@@ -216,6 +220,8 @@ type Level =
   | LevelUnary
   --| `atom(false)`: an argument.
   | LevelArgument
+  --| `app`: a row's ability, a data type's index, a constructor's result.
+  | LevelApp
 
 type Goal = { modes: Modes, level: Level }
 
@@ -238,7 +244,7 @@ type PatternGoal = { modes: Modes, level: PatternLevel }
 
 def fatal (message: Text): {Parse Item} a := Empty.absurd (Parse.fatal message)
 
-def notYet (what: Text): {Parse Item} a := fatal "not parsed yet (stage 2b or 2c): ${what}"
+def notYet (what: Text): {Parse Item} a := fatal "not parsed yet (stage 2c): ${what}"
 
 def left(): {Parse Item} List Item := Parse.mark().rest
 
@@ -476,6 +482,7 @@ def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item}
     | LevelMultiplicative => mulExpr self modes
     | LevelUnary => unary self modes
     | LevelArgument => atom self modes False
+    | LevelApp => app self modes
 
 def full (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := self { modes, level = LevelFull }
 
@@ -548,8 +555,9 @@ def exprInline (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
           let keyword := bump()
           ifExpr self modes indent keyword
         | _ =>
-          if implicitBinderAhead (Parse.mark().left + 1) left() || piBinderAhead left() then
-            notYet "a function type with named parameters"
+          if implicitBinderAhead (Parse.mark().left + 1) left() && isSome LBracket modes.peek then
+            piExpr self modes True
+          else if piBinderAhead left() && isSome LParen modes.peek then piExpr self modes False
           else operatorExpr self modes
 
 def andOrAhead (modes: Modes): {Parse Item} Bool := modes.at AndAnd || modes.at OrOr
@@ -567,7 +575,7 @@ def operatorExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item}
   match modes.peek with
     | Some Arrow =>
       let arrow := bump()
-      if modes.at LBrace then notYet "an effect row" else Infix InfixArrow sectioned arrow (full self modes)
+      Infix InfixArrow sectioned arrow (resultType self modes)
     | Some Semi =>
       let semicolon := bump()
       match modes.peek with
@@ -648,9 +656,10 @@ def forallParams (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (
       match item.kind with
         | Lower if !isQualified item => forallParams more self modes [NameParam bump(), ..found]
         | Underscore => forallParams more self modes [NameParam bump(), ..found]
-        | LParen if annotatedParamAhead items => forallParams more self modes [typedParam self modes False, ..found]
+        | LParen if annotatedParamAhead items =>
+          forallParams more self modes [Grouped (headerGroup self modes GroupLambda (Some forallDefault)), ..found]
         | LBracket if implicitGroupAt items || namelessAutoAt items =>
-          forallParams more self modes [typedParam self modes True, ..found]
+          forallParams more self modes [Grouped (headerGroup self modes GroupLambda (Some forallDefault)), ..found]
         | _ => found.reverse
     | _, _ => found.reverse
 
@@ -671,50 +680,22 @@ def lambdaParams (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (
         | Lower => lambdaParams more self modes [NameParam (modes.lower "a name"), ..found]
         | Underscore => lambdaParams more self modes [NameParam bump(), ..found]
         | LParen =>
-          if annotatedParamAhead left() then lambdaParams more self modes [typedParam self modes False, ..found]
+          if annotatedParamAhead left() then
+            lambdaParams more self modes [Grouped (headerGroup self modes GroupLambda (Some defaultPlaces)), ..found]
           else if annotatedPatternAhead (Parse.mark().left + 1) left() then
             let open := bump()
             let inner := modes.inBrackets
             let pattern := patternOf inner
             let colon := inner.expect Colon "`:`"
-            let annotation := full self inner
+            let annotation := binderType self inner
             let close := inner.expect RParen "`)`"
             lambdaParams more self modes [TypedPattern open pattern colon annotation close, ..found]
           else lambdaParams more self modes [PatternParam (patternOf modes), ..found]
         | LBracket if implicitGroupAt items || namelessAutoAt items =>
-          lambdaParams more self modes [typedParam self modes True, ..found]
+          lambdaParams more self modes [Grouped (headerGroup self modes GroupLambda (Some defaultPlaces)), ..found]
         | LBrace => lambdaParams more self modes [PatternParam (patternOf modes), ..found]
         | _ => found.reverse
     | _, _ => found.reverse
-
---| `(x y: A)`, `[a: Type]`, `[auto h: P]` or `[auto P]` (the Rust
---| parser's `header_param_parts`, without defaults, which a lambda refuses).
-def typedParam (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Param :=
-  let open := bump()
-  let inner := modes.inBrackets
-  let names := leavesOf (Parse.mark().left + 1) inner Lower []
-  let closer := if implicit then RBracket else RParen
-  let closeText := if implicit then "`]`" else "`)`"
-  let typeFollows := !(inner.at Colon || inner.at RBracket || inner.peek.isNone)
-  match names with
-    | [auto] if implicit && auto.text == "auto" && typeFollows =>
-      let annotation := full self inner
-      let close := inner.expect RBracket "`]` to close the parameter `[auto …]`"
-      TypedParam open names None annotation close
-    | _ =>
-      if inner.at Colon then
-        let colon := bump()
-        let annotation := full self inner
-        if inner.at ColonEq then fatal "only a definition's parameter or a field can have a default value"
-        else
-          let texts := names.map (name => name.text)
-          let written := match texts with
-            | ["auto", second, ..more] if implicit => "auto ${[second, ..more].joinWith " "}"
-            | _ => texts.joinWith " "
-          let opener := if implicit then "[" else "("
-          let close := inner.expect closer "${closeText} to close the parameter `${opener}${written}: …`"
-          TypedParam open names (Some colon) annotation close
-      else fatal "a parameter needs a type"
 
 --| The tokens of kind `kind` that come next.
 def leavesOf (fuel: Nat) (modes: Modes) (kind: Tok) (found: List Word): {Parse Item} List Word :=
@@ -1028,7 +1009,10 @@ def atomBase (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Exp
   | Some LBrace => recordExpr self modes
   | Some Dot => sectionStart modes
   | Some kind if isWord kind => Atom kind bump()
-  | _ => if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression" else modes.fail "an expression"
+  | _ =>
+    if modes.recover && ranOutAtLine modes then fatal "expected an expression, but the line ends here"
+    else if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression"
+    else modes.fail "an expression"
 
 def isWord: Tok → Bool
   | Lower => True
@@ -1333,7 +1317,7 @@ def matchArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scr
           "this alternative has ${plural patterns.length "pattern"}, but the `match` has ${plural scrutinees "scrutinee"}"
       else
         let guard := guardOf self modes
-        let body := armBody self modes (anyAbsurd patterns)
+        let body := armBody self modes (anyAbsurd patterns) "`=>`"
         matchArms more self modes scrutinees column [{ bar, patterns, guard, body }, ..found]
     | _ => found.reverse
 
@@ -1352,10 +1336,11 @@ def armPatterns (modes: Modes): {Parse Item} List Pattern :=
   patterns
 
 --| `=> e`, or nothing after an absurd pattern with no `=>`.
-def armBody (self: Goal → {Parse Item} Expr) (modes: Modes) (absurd: Bool): {Parse Item} Option (Word, Expr) :=
+def armBody (self: Goal → {Parse Item} Expr) (modes: Modes) (absurd: Bool) (what: Text):
+    {Parse Item} Option (Word, Expr) :=
   if absurd && !modes.at FatArrow then None
   else
-    let arrow := modes.expect FatArrow "`=>`"
+    let arrow := modes.expect FatArrow what
     Some (arrow, full self modes)
 
 def guardOf (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Guard :=
@@ -1387,9 +1372,9 @@ def clauseArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (ki
           let guard := guardOf self modes
           let absurd := anyAbsurd patterns
           let body := match kind with
-            | ClauseMatches => if modes.at FatArrow then armBody self modes False else None
-            | ClausePlain => armBody self modes absurd
-            | ClauseSome => armBody self modes False
+            | ClauseMatches => if modes.at FatArrow then armBody self modes False "`=>`" else None
+            | ClausePlain => armBody self modes absurd "`=>`"
+            | ClauseSome => armBody self modes False "`=>`"
           clauseArms more self modes kind (Some patterns.length) column [{ bar, patterns, guard, body }, ..found]
     | _ => found.reverse
 
@@ -1646,8 +1631,7 @@ def alternatives (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (f
     {Parse Item} Pattern :=
   match alternativeLinks (Parse.mark().left + 1) pself modes next [] with
     | [] => first
-    | links =>
-      if first.binds || anyLinkBinds links then fatal "an or-pattern can't bind names" else PatternOr first links
+    | links => PatternOr first links
 
 def alternativeLinks (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (next: PatternLevel) (found: List (Word, Pattern)):
@@ -1664,51 +1648,12 @@ def alternativeLinks (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (
 --| A whole input read as one expression (`parse_expression_tree`): its
 --| tree, or the first line of the Rust parser's message.
 def parseExpression (leaves: List Leaf): Result Expr Text := match Parse.run (items leaves) wholeExpression with
-  | Ok value => Ok value
+  | Ok value =>
+    match value.loweringError with
+      | Some message => Err message
+      | None => Ok value
   | Err failure => Err (failure.messages.head.getOrElse "the parser failed without a message")
 
 def wholeExpression(): {Parse Item} Expr :=
   let value := expression Modes.start
   if left().isEmpty then value else Modes.start.fail "the end of the declaration"
-
--- The lowering's own error that stage 2a meets: an or-pattern binding a
--- name. The Rust side finds it after the parse, so a file with a syntax
--- error after the or-pattern gets the other message there.
-
---| Whether a pattern binds a name: a lowercase name, or a punned field.
-def Pattern.binds: Pattern → Bool
-  | PatternWord kind word => kind == Lower && word.text != "Quot.mk"
-  | PatternCtor _ arguments => anyBinds arguments
-  | PatternCtorFields _ fields => fieldsBind fields
-  | PatternRecord fields => fieldsBind fields
-  | PatternTuple _ items _ _ => anyBinds items
-  | PatternList _ items _ tail _ =>
-    anyBinds items
-      || (match tail with
-        | Some (_, rest) => rest.binds
-        | None => False)
-  | PatternNamed _ _ _ value _ => value.binds
-  | PatternOr first rest => first.binds || anyLinkBinds rest
-  | PatternParen _ inner _ => inner.binds
-  | PatternNegative _ _ => False
-  | PatternAbsurd _ _ => False
-  | PatternAppend start _ rest => start.binds || rest.binds
-
-def anyBinds: List Pattern → Bool
-  | [] => False
-  | [first, ..rest] => first.binds || anyBinds rest
-
-def anyLinkBinds: List (Word, Pattern) → Bool
-  | [] => False
-  | [(bar, item), ..rest] => item.binds || anyLinkBinds rest
-
-def fieldsBind: FieldsPattern → Bool
-  | { open, fields, trailingComma, rest, close } => anyFieldBinds fields
-
-def anyFieldBinds: List FieldPattern → Bool
-  | [] => False
-  | [{ name, value }, ..rest] =>
-    (match value with
-      | Some (_, pattern) => pattern.binds
-      | None => True)
-      || anyFieldBinds rest

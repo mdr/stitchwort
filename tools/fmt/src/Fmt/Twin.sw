@@ -9,6 +9,12 @@
 --| - `expr` (stage 2a): the file read as one expression, its tree as
 --|   `stitchwort dev tree --expression` prints it, or `error: MESSAGE` on
 --|   standard error and status 1 if it doesn't parse.
+--| - `tree` (stage 2b): the file's tree as `stitchwort dev tree --print`
+--|   prints it, without its header and totals. A file with a declaration
+--|   that doesn't parse (an `Error` node there) is answered with status 1
+--|   and the message, which the harness counts as a difference.
+--| - `refusal` (stage 2b): nothing if the file parses, or status 2 and
+--|   `fmt -`'s first line, `[CODE] Error: MESSAGE`.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -18,7 +24,7 @@
 --| exit with, and MESSAGE the first line it would write to standard error.
 namespace Fmt.Twin
 import Std (Args, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
-import Syntax (Expr, Lexed, lex, parseExpression)
+import Syntax (Expr, Lexed, SourceFile, codeOf, lex, parseExpression, parseFile)
 
 --| What the command line asks for: the stage whose answer to print, the file
 --| to read, or a LIST of files to answer for in one run.
@@ -55,6 +61,20 @@ def stageAnswer (stage source: Text): Answer := match stage with
           | Ok tree => { out = "Expression\n${tree.dump 1}", status = 0, message = "" }
           | Err message => { out = "", status = 1, message = "error: ${message}" }
       | Err message => { out = "", status = 1, message = "error: ${message}" }
+  | "tree" =>
+    match lex source with
+      | Ok lexed =>
+        match parseFile lexed.settled with
+          | Ok file => { out = file.dump, status = 0, message = "" }
+          | Err message => { out = "", status = 1, message = "error: ${message}" }
+      | Err message => { out = "", status = 1, message = "error: ${message}" }
+  | "refusal" =>
+    match lex source with
+      | Ok lexed =>
+        match parseFile lexed.settled with
+          | Ok _ => { out = "", status = 0, message = "" }
+          | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
 
 --| A stage's answer for one file.
@@ -101,7 +121,7 @@ def run (options: Options): {Files, IO} ExitStatus := match options.batch with
     else
       let answers := options.files.map (answer options.stage)
       if answers.all (ok => ok) then ExitStatus.success
-      else if options.stage == "tokens" || options.stage == "expr" then ExitStatus.of 1
+      else if options.stage == "tokens" || options.stage == "expr" || options.stage == "tree" then ExitStatus.of 1
       else ExitStatus.of 2
 
 def main(): {Files, IO} ExitStatus := Args.runStatus program options run
