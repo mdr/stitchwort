@@ -1,5 +1,5 @@
 {
-  "next": 3855,
+  "next": 3856,
   "tickets": [
     {
       "id": 47,
@@ -22289,6 +22289,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3855,
+      "title": "[Sonnet] proofs::differential::the_evaluators_agree_on_the_prelude_and_every_example: 219 comparisons 'too big to compare' (budget 5,000,000 steps) against at most 60, since float stages 3/4 made Float operations definitions: find which comparisons grew (likely Float.Model terms), and restore coverage (skip float-model internals deliberately, or compare them at a cheaper level), not just raise the guard. The test takes ~12 min; run it filtered or capped, never over 2 GB (Overmind, rolling check at b375ebc98)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",

@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/server/search.rs
-assertion_line: 502
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -9,9 +8,9 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "checks": "(varies)",
     "exhausted": true,
     "internalErrors": 0,
-    "matched": 67,
+    "matched": 71,
     "maxCandidates": 50,
-    "outOfBudget": 3,
+    "outOfBudget": 6,
     "tried": 50,
     "truncated": true
   },
@@ -54,7 +53,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "line": 51,
       "name": "Std.Nat.leTrans",
       "proof": "Nat.leTrans a b c h1 h2",
-      "searchRank": 15,
+      "searchRank": 18,
       "type": "∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c"
     },
     {
@@ -97,13 +96,13 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "cases"
   ],
   "total": {
-    "applicable": 8,
+    "applicable": 10,
     "closing": 5,
     "rewrites": 1
   },
   "version": 1,
   "warnings": [
-    "67 declarations match the target; the first 50 were tried (--candidates N for more)",
-    "3 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove): those may match and weren't listed"
+    "71 declarations match the target; the first 50 were tried (--candidates N for more)",
+    "6 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove and 1 more): those may match and weren't listed"
   ]
 }
