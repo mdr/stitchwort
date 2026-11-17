@@ -4094,6 +4094,9 @@ fn explicit_arg<'a>(
         Ready::Held(applied) => return Ok((applied, None)),
         Ready::Check(ready) => ready,
     };
+    if let Some(applied) = by_arguments_first(cx, &ready, value, held)? {
+        return Ok((applied, None));
+    }
     match check_arg(cx, &ready.term, value, &ready.dom) {
         Ok(checked) => explicit_arg_checked(cx, ready, value, checked),
         Err(e) if crate::undo::fatal(&e) => Err(e),
@@ -4272,15 +4275,34 @@ fn explicit_arg_failed<'a>(
     if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
     }
-    if held.hold_lambdas
-        && let Some(applied) = by_arguments_in_place(cx, &term, &cod, value, &dom)?
-    {
-        return Ok(applied);
-    }
     first_error.get_or_insert_with(|| Box::new(e));
     let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
     held.after_expected.push((value, dom, placeholder, id));
     Ok((term, ty))
+}
+
+/// In an application whose lambdas wait for its expected type
+/// ([`infer_expecting`]), the argument `value`, ready to be checked, by
+/// [`by_arguments_in_place`] before it is checked in place: `None`, with
+/// nothing changed, if that doesn't apply or doesn't match. Tried first
+/// because the in-place check, comparing a lemma's `Parse.Reads (() =>
+/// Parse.satisfy ?passes) …` with `Parse.Reads ?p ?first`, unfolds both
+/// calls before it fails, which cost most of a `readsThen` chain's steps
+/// (SW-3709); where it would fail, the result is the same.
+#[inline(never)]
+fn by_arguments_first(
+    cx: &mut Ctx,
+    ready: &Checking,
+    value: &Expr,
+    held: &Held<'_>,
+) -> Result<Option<(Term, Value)>> {
+    if !held.hold_lambdas
+        || ready.snapshot.is_none()
+        || crate::interfaces::unsolved_in(cx, &ready.dom)?.is_none()
+    {
+        return Ok(None);
+    }
+    by_arguments_in_place(cx, &ready.term, &ready.cod, value, &ready.dom)
 }
 
 /// The argument `value` of the application `term`, whose parameter type is
