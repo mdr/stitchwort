@@ -314,8 +314,7 @@ impl Decls {
                     for ctor in ctors {
                         let members: Vec<(&str, u32, Kind)> = if *record {
                             (ctor.fields.iter())
-                                .flat_map(|b| &b.names)
-                                .map(|n| (n.text.as_str(), n.span.start, Kind::Field))
+                                .map(|b| (b.name.text.as_str(), b.name.span.start, Kind::Field))
                                 .collect()
                         } else {
                             vec![(

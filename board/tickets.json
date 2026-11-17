@@ -22767,12 +22767,12 @@
     {
       "id": 3891,
       "title": "[Sonnet] Clean-up after D3679: lowering now always gives one name per Binder/Expr::Pi; narrow names: Vec to a single name where safe, and correct the self-hosted formatter's meaning doc to cite ast::Binder::split and the lowering (SW-3880 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n\nProgress (Sonnet lane): ast::Binder now has one `name` (lowering's Written holds the group and makes binders); ~17 files updated. Expr::Pi still has names: Vec, left (see report). Meaning.sw doc corrected.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

@@ -2162,7 +2162,7 @@ impl Elaborator {
             .iter()
             .enumerate()
             .filter(|(i, _)| !decl.implicit.get(*i).copied().unwrap_or(false))
-            .flat_map(|(_, b)| b.names.iter().map(move |n| (n, &b.ty)))
+            .map(|(_, b)| (&b.name, &b.ty))
             .collect();
         let (_, ty) = match slot {
             CtorSlot::Position(k) => *explicit.get(k)?,
@@ -2173,7 +2173,7 @@ impl Elaborator {
         let bound_in_decl = params
             .iter()
             .chain(decl.fields.iter())
-            .flat_map(|b| &b.names)
+            .map(|b| &b.name)
             .chain(indices.iter().filter_map(|(n, _)| n.as_ref()))
             .any(|n| n.text == variable);
         (!bound_in_decl).then_some(head)
@@ -3382,8 +3382,7 @@ pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name,
                     ctors
                         .iter()
                         .flat_map(|c| &c.fields)
-                        .flat_map(|b| &b.names)
-                        .map(|n| (n.clone(), false)),
+                        .map(|b| (b.name.clone(), false)),
                 )
                 .collect(),
         ),
@@ -3789,10 +3788,9 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
             let mut bind_params = Vec::new();
             for binder in params {
                 header.push(Work::Expr(&binder.ty));
-                for n in &binder.names {
-                    header.push(Work::Bind(&n.text));
-                    bind_params.push(Work::Bind(&n.text));
-                }
+                let n = &binder.name;
+                header.push(Work::Bind(&n.text));
+                bind_params.push(Work::Bind(&n.text));
             }
             add(free_names(header), true);
             // The index telescope (`type T: Q -> Type`) is a header too. A
@@ -3817,7 +3815,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                     if let Some(Some(default)) = ctor.defaults.get(k) {
                         work.push(Work::Expr(default));
                     }
-                    work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
+                    work.push(Work::Bind(&binder.name.text));
                 }
                 // The result type (`: Box a (Succ n)`) sees the fields.
                 work.extend(ctor.result.iter().map(Work::Expr));
@@ -3829,10 +3827,9 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
             let mut header = Vec::new();
             for binder in params {
                 header.push(Work::Expr(&binder.ty));
-                for n in &binder.names {
-                    header.push(Work::Bind(&n.text));
-                    bind_params.push(Work::Bind(&n.text));
-                }
+                let n = &binder.name;
+                header.push(Work::Bind(&n.text));
+                bind_params.push(Work::Bind(&n.text));
             }
             add(free_names(header), true);
             for (_, ty) in ops {

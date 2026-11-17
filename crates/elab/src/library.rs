@@ -727,9 +727,20 @@ pub(crate) fn file_names(
         } = decl
         {
             for binder in ctors.iter().flat_map(|c| &c.fields) {
-                for name in &binder.names {
+                let name = &binder.name;
+                out.push(IndexedName {
+                    key: Elaborator::member_key(&key, &name.text),
+                    kind: PendingKind::Def,
+                    follower: false,
+                    function: true,
+                    span: name.span,
+                    candidate: false,
+                    accessor: true,
+                });
+                // An interface's own projections, beside its methods.
+                if interface {
                     out.push(IndexedName {
-                        key: Elaborator::member_key(&key, &name.text),
+                        key: Elaborator::member_key(&key, &format!("%{}", name.text)),
                         kind: PendingKind::Def,
                         follower: false,
                         function: true,
@@ -737,18 +748,6 @@ pub(crate) fn file_names(
                         candidate: false,
                         accessor: true,
                     });
-                    // An interface's own projections, beside its methods.
-                    if interface {
-                        out.push(IndexedName {
-                            key: Elaborator::member_key(&key, &format!("%{}", name.text)),
-                            kind: PendingKind::Def,
-                            follower: false,
-                            function: true,
-                            span: name.span,
-                            candidate: false,
-                            accessor: true,
-                        });
-                    }
                 }
             }
         }
@@ -770,7 +769,7 @@ pub(crate) fn file_names(
                     .iter()
                     .enumerate()
                     .filter(|(k, _)| !c.implicit.get(*k).copied().unwrap_or(false))
-                    .flat_map(|(_, b)| b.names.iter().map(|n| n.text.clone()))
+                    .map(|(_, b)| b.name.text.clone())
                     .collect()
             };
             let Some((first, rest)) = ctors.split_first() else {
@@ -784,22 +783,21 @@ pub(crate) fn file_names(
                 .filter(|(k, _)| !first.implicit.get(*k).copied().unwrap_or(false))
                 .map(|(_, b)| b)
             {
-                for name in &binder.names {
-                    let member = Elaborator::member_key(&key, &name.text);
-                    if others.iter().all(|o| o.contains(&name.text))
-                        && !out.iter().any(|n: &IndexedName| n.key == member)
-                        && !declares(file, scratch, &member)
-                    {
-                        out.push(IndexedName {
-                            key: member,
-                            kind: PendingKind::Def,
-                            follower: false,
-                            function: true,
-                            span: name.span,
-                            candidate: true,
-                            accessor: true,
-                        });
-                    }
+                let name = &binder.name;
+                let member = Elaborator::member_key(&key, &name.text);
+                if others.iter().all(|o| o.contains(&name.text))
+                    && !out.iter().any(|n: &IndexedName| n.key == member)
+                    && !declares(file, scratch, &member)
+                {
+                    out.push(IndexedName {
+                        key: member,
+                        kind: PendingKind::Def,
+                        follower: false,
+                        function: true,
+                        span: name.span,
+                        candidate: true,
+                        accessor: true,
+                    });
                 }
             }
             // Their update lemmas `T.f.update.g` (`update_lemmas.rs`), by
@@ -809,7 +807,7 @@ pub(crate) fn file_names(
                 .iter()
                 .enumerate()
                 .filter(|(k, _)| !first.implicit.get(*k).copied().unwrap_or(false))
-                .flat_map(|(_, b)| b.names.iter().map(|n| &n.text))
+                .map(|(_, b)| &b.name.text)
                 .filter(|f| others.iter().all(|o| o.contains(f)))
                 .collect();
             for f in &fields {
