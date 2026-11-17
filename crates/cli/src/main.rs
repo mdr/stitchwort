@@ -234,6 +234,12 @@ enum DevCommand {
         /// the lossless tree or a single token, and print each that isn't
         #[arg(long)]
         spans: bool,
+        /// Parse each file as one expression, as a search query is, and
+        /// print its tree (`Expression` and the expression), or on standard
+        /// error `error: MESSAGE` and exit 1 if it doesn't parse (the
+        /// self-hosted formatter's stage 2a gate, SW-3819)
+        #[arg(long, conflicts_with_all = ["time", "spans"])]
+        expression: bool,
     },
     /// The one-line-break oracle of syntax error recovery
     /// (docs/proposals/syntax-error-recovery.md §6): break each line of
@@ -1440,6 +1446,15 @@ fn run(cli: Cli) -> ExitCode {
             time,
             parse_only,
             spans,
+            expression,
+        }) if expression => expression_tree_command(&paths),
+        Command::Dev(DevCommand::Tree {
+            paths,
+            print,
+            time,
+            parse_only,
+            spans,
+            ..
         }) => tree_command(&paths, print, time, parse_only, spans),
         Command::Dev(DevCommand::Breaks {
             paths,
@@ -5541,6 +5556,37 @@ fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
         out.push(path.to_path_buf());
     }
     Ok(())
+}
+
+/// `dev tree --expression`: each file parsed as one expression, its tree
+/// printed, or `error: MESSAGE` on standard error if it doesn't parse.
+fn expression_tree_command(paths: &[PathBuf]) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let id = SourceMap::new().next_id();
+    let mut status = ExitCode::SUCCESS;
+    for file in &files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        };
+        match stitchwort_syntax::parse_expression_tree(id, &text, TREE_STACK) {
+            (Ok(_), tree) => print!("{}", tree.dump(&text)),
+            (Err(error), _) => {
+                eprintln!("error: {}", error.message);
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
+    status
 }
 
 fn tree_command(

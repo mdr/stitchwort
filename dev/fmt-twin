@@ -12,6 +12,8 @@ STAGE is what is compared (the Rust side's dump in brackets):
     tokens   (1)  tokens with trivia after rule N     [stitchwort dev tokens]
     tree     (2)  the lossless tree                   [stitchwort dev tree --print]
     refusal  (2)  formatted or refused, and why       [stitchwort fmt -]
+    expr     (2a) a file read as one expression: its   [stitchwort dev tree --expression]
+                  tree, or the parse error as a refusal
     passes   (4)  the tidied tree after each pass     [not built yet]
     text     (5)  the formatted text                  [stitchwort fmt -]
                   (6 is the same comparison on more inputs)
@@ -64,7 +66,7 @@ UNIT = "\x1f"
 
 STAGES = {
     "1": "tokens", "tokens": "tokens",
-    "2": "tree", "tree": "tree", "refusal": "refusal",
+    "2": "tree", "tree": "tree", "refusal": "refusal", "expr": "expr",
     "4": "passes", "passes": "passes",
     "5": "text", "6": "text", "text": "text",
 }
@@ -285,6 +287,10 @@ def rust_answer(sw: Path, stage: str, path: Path) -> dict:
         end = max((i for i, line in enumerate(lines) if re.match(r"\d+ files \(", line)), default=len(lines))
         body = lines[1:end]
         return {"exit": 0, "out": "\n".join(body).rstrip("\n") + "\n", "err": ""}
+    if stage == "expr":
+        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tree", "--expression", str(path)], capture_output=True)
+        return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
+                "err": first_line(done.stderr.decode(errors="replace"))}
     if stage in ("refusal", "text"):
         done = subprocess.run(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, capture_output=True)
         err = first_line(done.stderr.decode(errors="replace"))
@@ -512,7 +518,7 @@ def main() -> int:
     try:
         stage = STAGES.get(args.stage)
         if stage is None:
-            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, passes or text")
+            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, expr, passes or text")
         if stage == "passes":
             raise Stop("stage 4's pass-by-pass dump isn't built yet: the Rust side needs a dev dump after "
                        "passes::run (a stub entry, SW-3772)")
