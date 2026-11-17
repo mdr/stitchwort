@@ -6474,6 +6474,112 @@ test "Float.divRelError" :=
     ∧ err 5e-324 3.0 ≤ bound 5e-324 3.0
     ∧ 0 < err 1.0 3.0
 
+theorem Float.Theory.divNearArith ∀ (ux uq: Int) (n q den p: Nat)
+    (en: n = Int.natAbs ux)
+    (eq: q = Int.natAbs uq)
+    (pd: 0 < den)
+    (err: Nat.absDiff (q * den) (n * p) * 9007199254740992 ≤ n * p + den * 4503599627370496)
+    (sign: ((Int.less (OfNat 0) ux = True) ∧ (Int.leq (OfNat 0) uq = True))
+      ∨ (((Int.less ux (OfNat 0) = True) ∧ (Int.leq uq (OfNat 0) = True)) ∨ (ux = OfNat 0))):
+    (Int.leq
+      (Int.mul (Int.mul uq (OfNat den)) (OfNat 9007199254740992))
+      (Int.add (Int.mul (Int.mul ux (OfNat p)) (OfNat 9007199254740992)) (OfNat (n * p + den * 4503599627370496)))
+      = True)
+      ∧ (Int.leq
+        (Int.mul (Int.mul ux (OfNat p)) (OfNat 9007199254740992))
+        (Int.add (Int.mul (Int.mul uq (OfNat den)) (OfNat 9007199254740992)) (OfNat (n * p + den * 4503599627370496)))
+        = True) :=
+  let d: Nat.absDiff (q * den) (n * p) = ((q * den) - (n * p)) + ((n * p) - (q * den)) :=
+    Float.Theory.absDiffDef (q * den) (n * p)
+  match sign with
+    | Inl b =>
+      let uqe: uq = OfNat q := arithmetic [eq, b.right]
+      let uxe: ux = OfNat n := arithmetic [en, b.left]
+      rewrite uqe, uxe then Both (arithmetic [d, err]) (arithmetic [d, err])
+    | Inr r =>
+      match r with
+        | Inl b =>
+          let uqe: uq = Int.neg (OfNat q) := arithmetic [eq, b.right]
+          let uxe: ux = Int.neg (OfNat n) := arithmetic [en, b.left]
+          let mq := Float.Theory.negMul q den
+          let mn := Float.Theory.negMul n p
+          rewrite uqe, uxe then Both (arithmetic [d, err, mq, mn]) (arithmetic [d, err, mq, mn])
+        | Inr z =>
+          let nz: n = 0 := arithmetic [en, z]
+          let np0: n * p = 0 := rewrite nz
+          match Float.Theory.zeroOrPos q with
+            | Inl q0 =>
+              let u0: uq = OfNat 0 := arithmetic [eq, q0]
+              rewrite z, u0, nz then Both (arithmetic) (arithmetic)
+            | Inr qp =>
+              let h: 1 * den ≤ q * den := Nat.leMulRight 1 q den qp
+              Both (arithmetic [d, err, np0, h, pd]) (arithmetic [d, err, np0, h, pd])
+
+--| `Float.divRelError` for signed units: `|x / d|` misses `x / d` by at
+--| most 2^-53 of it (or half a unit below the normal range), both ways, with
+--| the signs kept. With `ux`, `uq` and `n` the units of `x` and `x / d` and
+--| the size of `x`'s, `den` the size of `d`'s units and `p` = 2^1074:
+--| `2^53 (uq·den − ux·p) ≤ n·p + den·2^52` and `2^53 (ux·p − uq·den) ≤ n·p +
+--| den·2^52`, written without subtraction. `sign` says the quotient's units
+--| are of `x`'s sign (as `0 < ux` gives `0 ≤ uq`, shown by `Float.divMonotone`
+--| against 0.0); it is the caller's, since a zero dividend's sign takes a
+--| computed `0.0 / d = 0.0` or `-0.0 / d = -0.0`.
+theorem Float.divNear ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True)
+    (fq: Float.isFinite (x / d) = True)
+    (small: Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074
+      < Int.natAbs (Float.Theory.units d) * Nat.pow 2 2097)
+    (sign: ((Int.less (OfNat 0) (Float.Theory.units x) = True)
+      ∧ (Int.leq (OfNat 0) (Float.Theory.units (x / d)) = True))
+      ∨ (((Int.less (Float.Theory.units x) (OfNat 0) = True) ∧ (Int.leq (Float.Theory.units (x / d)) (OfNat 0) = True))
+        ∨ (Float.Theory.units x = OfNat 0))):
+    (Int.leq
+      (Int.mul
+        (Int.mul (Float.Theory.units (x / d)) (OfNat (Int.natAbs (Float.Theory.units d))))
+        (OfNat 9007199254740992))
+      (Int.add
+        (Int.mul (Int.mul (Float.Theory.units x) (OfNat (Float.Model.pow2 1074))) (OfNat 9007199254740992))
+        (OfNat
+          (Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074
+            + Int.natAbs (Float.Theory.units d) * 4503599627370496)))
+      = True)
+      ∧ (Int.leq
+        (Int.mul (Int.mul (Float.Theory.units x) (OfNat (Float.Model.pow2 1074))) (OfNat 9007199254740992))
+        (Int.add
+          (Int.mul
+            (Int.mul (Float.Theory.units (x / d)) (OfNat (Int.natAbs (Float.Theory.units d))))
+            (OfNat 9007199254740992))
+          (OfNat
+            (Int.natAbs (Float.Theory.units x) * Float.Model.pow2 1074
+              + Int.natAbs (Float.Theory.units d) * 4503599627370496)))
+        = True) :=
+  Float.Theory.divNearArith
+    (Float.Theory.units x)
+    (Float.Theory.units (x / d))
+    (Int.natAbs (Float.Theory.units x))
+    (Int.natAbs (Float.Theory.units (x / d)))
+    (Int.natAbs (Float.Theory.units d))
+    (Float.Model.pow2 1074)
+    byComputing
+    byComputing
+    (Float.Theory.natAbsPos (Float.Model.units d.bits) (Float.Theory.unitsPositive d pos))
+    (Float.divRelError x d pos fd fx fq small)
+    sign
+
+test "Float.divNear" :=
+  let near := (x d: Float) =>
+    let ux := Float.Theory.units x
+    let y :=
+      Int.mul
+        (Int.mul (Float.Theory.units (x / d)) (OfNat (Int.natAbs (Float.Theory.units d))))
+        (OfNat 9007199254740992)
+    let z := Int.mul (Int.mul ux (OfNat (Float.Model.pow2 1074))) (OfNat 9007199254740992)
+    let h := OfNat (Int.natAbs ux * Float.Model.pow2 1074 + Int.natAbs (Float.Theory.units d) * 4503599627370496)
+    (Int.leq y (Int.add z h) = True) ∧ (Int.leq z (Int.add y h) = True)
+  near 1.0 3.0 ∧ near (-359.9) 0.1 ∧ near (-1.0) 3.0
+
 theorem Float.Theory.mulRelErrorZero ∀ (a n p: Nat)
     (n0: n = 0)
     (a0: a = 0):
@@ -6713,6 +6819,36 @@ theorem Float.Theory.leTrans ∀ (x y z: Float) (xy: x <= y) (yz: y <= z): x <= 
   let a: Int.leq (Float.orderKey x) (Float.orderKey y) = True := xy
   let b: Int.leq (Float.orderKey y) (Float.orderKey z) = True := yz
   (arithmetic: Int.leq (Float.orderKey x) (Float.orderKey z) = True)
+
+--| A double between `-b` and `b` is below `c` in size when `b < c`, for `b`
+--| other than the NaN. By cases on `x`'s sign: the keys of `-b` and `b`
+--| mirror about -1/2 (`keyFlip`), so `-b <= x` bounds a negative `x`'s
+--| magnitude by `b`'s key and `x <= b` a positive one's; `absKey` reads the
+--| size's key off the bits.
+theorem Float.Theory.absBelowOf ∀ (x b c: Float)
+    (nb: Float.isNaN b = False)
+    (lo: -b <= x)
+    (hi: x <= b)
+    (bc: b < c):
+    Float.abs x < c :=
+  let kn: Float.Theory.key (-b).bits = Int.sub (NegSucc 0) (Float.Theory.key b.bits) :=
+    Eq.trans
+      (Eq.cong Float.Theory.key (Float.Theory.negBits b nb))
+      (Float.Theory.keyFlip b.bits (Float.Theory.bitsBelow b))
+  let kb: Int.less (Float.Theory.key b.bits) (Float.orderKey c) = True := bc
+  match c2: Nat.leq 9223372036854775808 x.bits with
+    | True =>
+      let kl: Int.leq (Float.Theory.key (-b).bits) (Float.Theory.key x.bits) = True := lo
+      let ks := Float.Theory.keySet x.bits c2
+      let low: Nat.leq 9223372036854775808 (x.bits - 9223372036854775808) = False :=
+        arithmetic [kl, kn, ks, Float.Theory.bitsBelow x]
+      arithmetic [kl, kn, ks, kb, Float.Theory.keyClear (x.bits - 9223372036854775808) low, Float.Theory.absKey x]
+    | False =>
+      let kh: Int.leq (Float.Theory.key x.bits) (Float.Theory.key b.bits) = True := hi
+      let m: Float.Model.magnitude x.bits = x.bits := rewrite c2
+      arithmetic [kh, kb, Float.Theory.keyClear x.bits c2, m, Float.Theory.absKey x]
+
+test "Float.Theory.absBelowOf" := Float.abs (-359.5) < 562949953421312.0 ∧ Float.abs 3600.0 < 9007199254740992.0
 
 --| A negative integer: not at least zero.
 theorem Float.Theory.intLessZeroOfNotNonneg ∀ (a: Int) (h: Int.leq (OfNat 0) a = False): Int.less a (OfNat 0) = True :=
