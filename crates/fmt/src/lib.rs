@@ -55,7 +55,7 @@ impl std::error::Error for Error {}
 /// as written, and their exact text and error positions are tested (D1019).
 /// `stitchwort fmt DIR` skips them, and `crates/cli/tests/tools/fmt_repo.rs`
 /// uses the same list, so the two can't drift apart.
-pub const DELIBERATELY_UNFORMATTED: [&str; 10] = [
+pub const DELIBERATELY_UNFORMATTED: [&str; 11] = [
     // D1019: files that exist to be rejected.
     "examples/reject/",
     "examples/soundness/",
@@ -71,6 +71,7 @@ pub const DELIBERATELY_UNFORMATTED: [&str; 10] = [
     "crates/fmt/tests/it/golden/",
     // Exercises layouts the formatter normalises.
     "examples/accept/list-literal-layout.sw",
+    "examples/accept/rewrite-then-let-same-column.sw",
 ];
 
 /// Formats a whole file.

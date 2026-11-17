@@ -8,7 +8,7 @@ use std::path::PathBuf;
 mod repo_files;
 
 /// Paths (prefixes, or whole files) the formatter leaves alone.
-const EXCLUDED: [&str; 10] = stitchwort_fmt::DELIBERATELY_UNFORMATTED;
+const EXCLUDED: [&str; 11] = stitchwort_fmt::DELIBERATELY_UNFORMATTED;
 
 #[test]
 fn tracked_sw_files_are_formatted() {
