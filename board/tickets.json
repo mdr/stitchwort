@@ -1,5 +1,5 @@
 {
-  "next": 3772,
+  "next": 3773,
   "tickets": [
     {
       "id": 47,
@@ -42489,6 +42489,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3772,
+      "title": "[Sonnet] Real formatter stage 0 (docs/proposals/self-hosted-fmt.md §6, §8; D3670): the comparison harness task fmt:twin: Rust-side token dump, cached Rust answers keyed by input and crates/syntax+fmt hashes, the old-layout checkout made at run time, fuzzer programs written out from a seed, the disturber; gate: a stub that copies its input scores 0/N on unformatted input and N/N on the repo",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
