@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ hidden-import-mismatch/src/app.sw:8:39 ]
+   │
+ 8 │ def next (n: Nat): Nat := closerAhead n
+   │                                       ┬  
+   │                                       ╰── expected `List Nat`, but this has type `Nat`
+   │ 
+   │ Note: `closerAhead` here means `App.closerAhead`, which hides `Lib.closerAhead` (from an `import … (..)`); write the full name for the other
+───╯

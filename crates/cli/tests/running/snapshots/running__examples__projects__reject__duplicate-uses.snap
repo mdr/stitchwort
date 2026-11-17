@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `Closing` is already defined
+   ╭─[ duplicate-uses/src/b.sw:5:5 ]
+   │
+ 5 │ def Closing (n: Nat): Prop := n = n
+   │     ───┬───  
+   │        ╰───── `Closing` is already defined
+   │
+   ├─[ duplicate-uses/src/a.sw:4:5 ]
+   │
+ 4 │ def Closing (n: Nat): Nat := n + 1
+   │     ───┬───  
+   │        ╰───── first defined here
+───╯

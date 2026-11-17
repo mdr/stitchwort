@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `Plain` is already a constructor of `N.Tok`
+   ╭─[ def-named-like-constructor/src/b.sw:5:5 ]
+   │
+ 5 │ def Plain (n: Nat): Nat := n
+   │     ──┬──  
+   │       ╰──── `Plain` is already a constructor of `N.Tok`
+   │
+   ├─[ def-named-like-constructor/src/a.sw:4:14 ]
+   │
+ 4 │ type Tok = | Plain | Other
+   │              ──┬──  
+   │                ╰──── first defined here
+   │ 
+   │ Note: a short name can't mean both a definition and a constructor: rename one, or write the constructor as `N.Tok.Plain`
+───╯
