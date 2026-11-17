@@ -1,5 +1,5 @@
 {
-  "next": 3863,
+  "next": 3864,
   "tickets": [
     {
       "id": 47,
@@ -22389,6 +22389,19 @@
       "id": 3862,
       "title": "[DeepSeek] dev/fmt-twin: an --interpreted option (run stitchwort run --project tools/fmt Fmt.Twin.main) to skip the 2-minute native build on small inputs, and a gate script running the six stage gates; document both in docs/testing.md, with R1 recovery's sort-by-position rule for refusals (SW-3847 friction)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3863,
+      "title": "[Sonnet] Self-hosted formatter stage 4a: the four passes P1-P4 on the shared traversal (Syntax/Traverse.sw), with the parking-comma order from K1 (last commas out before rule N, Lexed.settledBare); gate: the tidied tree's dump identical to the Rust passes' on every file (self-hosted-fmt.md §8 stage 4; meaning is 4b, waiting on Matt's decision)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
