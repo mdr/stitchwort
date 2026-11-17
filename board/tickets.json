@@ -41930,7 +41930,7 @@
     {
       "id": 3729,
       "title": "[DeepSeek] fmt refuses a rule list with a trailing comma: 'rules appends := [List.appendAssoc, ]' gives 'a RewriteRules node … isn't a bracket whose last item follows its last comma' (crates/fmt/src/printer/rules.rs:1244, since 04039b751, not SW-3690). Drop the trailing comma (as other lists do) or lay it out; also for rewrite repeatedly [r, ]. Fuzz seed 0x1012 plain case 177307",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
