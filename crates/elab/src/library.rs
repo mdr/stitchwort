@@ -1380,7 +1380,15 @@ impl Elaborator {
         // the entry's of a namespace it loads inside.
         let outer = self.session.owners.enter(self.ids());
         self.unit_changed();
+        // The library is checked under at least the default resource limits:
+        // a program's small limit bounds what the program asks for, not the
+        // library declarations it happens to need, which would report
+        // errors in the library (SW-3711). `stack` stays the session's, as
+        // it depends on the thread.
+        let user_limits = self.options.limits;
+        self.options.limits = user_limits.at_least_default_resources();
         let loaded = self.load_library_file_in_unit(f);
+        self.options.limits = user_limits;
         self.session.owners.leave(self.ids(), outer);
         self.unit_changed();
         loaded
