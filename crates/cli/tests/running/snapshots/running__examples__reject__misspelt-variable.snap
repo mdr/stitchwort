@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `xs`
@@ -8,4 +8,6 @@ expression: output
  7 │ theorem lengthNil (ys: List Nat): List.length xs = List.length xs := byComputing
    │                                               ─┬  
    │                                                ╰── not in scope
+   │ 
+   │ Note: did you mean `ys`?
 ───╯

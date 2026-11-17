@@ -3,5 +3,5 @@
 -- the `Text`, and the error points back at the pattern, though `Text` is
 -- not the expected side.
 def m: Nat :=
-  let f := fun x => match x with | "a" => x + 1 | _ => 0
+  let f := x => match x with | "a" => x + 1 | _ => 0
   f "b"
