@@ -4662,3 +4662,106 @@ theorem Float.Theory.combinationExact ∀ (ma mb r j k: Nat) (s z: Bool)
         g.left
         (arithmetic [g.right, sb.right])
         (Float.Theory.leLessTrans r (Float.Theory.magUnits ma) (Nat.pow 2 2098) la (Float.Theory.finiteUnitsBelow ma fa)))
+
+-- The remainder
+
+--| A finite pattern's size in units is its magnitude's units.
+theorem Float.Theory.natAbsUnits ∀ (a: Nat):
+    Int.natAbs (Float.Model.units a) = Float.Theory.magUnits (Float.Model.magnitude a) :=
+  Eq.trans
+    (Eq.cong Int.natAbs (Float.Theory.unitsMag a))
+    (Float.Theory.natAbsSigned (Float.Model.signBit a) (Float.Theory.magUnits (Float.Model.magnitude a)))
+
+--| What `remBits` computes for a finite pattern over a finite nonzero one.
+theorem Float.Theory.remFiniteBits ∀ (a b: Nat)
+    (fa: Float.Theory.FiniteBits a)
+    (fb: Float.Theory.FiniteBits b)
+    (zb: Float.Model.isZero b = False):
+    Float.Model.remBits a b
+      = Float.Model.roundScaled
+        (Int.signed
+          (Float.Model.signBit a)
+          (Int.natAbs (Float.Model.units a)
+            - Nat.divFuel
+              (Int.natAbs (Float.Model.units a))
+              (Int.natAbs (Float.Model.units a))
+              (Int.natAbs (Float.Model.units b))
+            * Int.natAbs (Float.Model.units b)))
+        (-1074)
+        (Float.Model.signBit a) :=
+  let m: Nat := Int.natAbs (Float.Model.units a)
+  let d: Nat := Int.natAbs (Float.Model.units b)
+  let fin: Nat :=
+    Float.Model.roundScaled (Int.signed (Float.Model.signBit a) (m - Nat.divFuel m m d * d)) (-1074) (Float.Model.signBit a)
+  calc Float.Model.remBits a b
+    _ = (if Float.Model.isInfinite b then a else fin) :=
+      Float.Theory.ifFalse
+        (Float.Model.isNaN a ∨ Float.Model.isNaN b ∨ Float.Model.isInfinite a ∨ Float.Model.isZero b)
+        9221120237041090560
+        (if Float.Model.isInfinite b then a else fin)
+        (Float.Theory.orFalse
+          (Float.Model.isNaN a)
+          (Float.Model.isNaN b ∨ Float.Model.isInfinite a ∨ Float.Model.isZero b)
+          (Float.Theory.finiteNotNaN a fa)
+          (Float.Theory.orFalse
+            (Float.Model.isNaN b)
+            (Float.Model.isInfinite a ∨ Float.Model.isZero b)
+            (Float.Theory.finiteNotNaN b fb)
+            (Float.Theory.orFalse (Float.Model.isInfinite a) (Float.Model.isZero b) (Float.Theory.finiteNotInfinite a fa) zb)))
+    _ = fin := Float.Theory.ifFalse (Float.Model.isInfinite b) a fin (Float.Theory.finiteNotInfinite b fb)
+
+--| The remainder of a finite pattern by a finite nonzero one: finite, of
+--| units with the dividend's sign and a size below the divisor's.
+theorem Float.Theory.remExact ∀ (a b: Nat)
+    (fa: Float.Theory.FiniteBits a)
+    (fb: Float.Theory.FiniteBits b)
+    (zb: Float.Model.isZero b = False):
+    (Float.Theory.FiniteBits (Float.Model.remBits a b)
+      ∧ (Float.Model.remBits a b
+        = Float.Model.roundRatio
+          (Int.signed (Float.Model.signBit a) (Int.natAbs (Float.Model.units (Float.Model.remBits a b))))
+          1
+          (-1074)
+          (Float.Model.signBit a)))
+      ∧ (Int.natAbs (Float.Model.units (Float.Model.remBits a b)) < Int.natAbs (Float.Model.units b)) :=
+  let s: Bool := Float.Model.signBit a
+  let m: Nat := Int.natAbs (Float.Model.units a)
+  let d: Nat := Int.natAbs (Float.Model.units b)
+  let q: Nat := Nat.divFuel m m d
+  let r: Nat := m - q * d
+  let mm: m = Float.Theory.magUnits (Float.Model.magnitude a) := Float.Theory.natAbsUnits a
+  let dd: d = Float.Theory.magUnits (Float.Model.magnitude b) := Float.Theory.natAbsUnits b
+  let magPos: 0 < Float.Model.magnitude b := arithmetic [zb]
+  let dpos: 0 < d :=
+    J (y w => 0 < y) (Float.Theory.magUnitsLess 0 (Float.Model.magnitude b) magPos) dd.flipped
+  let low: q * d ≤ m := Nat.divFuelLe m m d
+  let high: m < Succ q * d := Nat.divFuelBound m m d (Nat.nonzeroOfPos d dpos) (Nat.leRefl m)
+  let lt: r < d := arithmetic [low, high, Float.Theory.succMul q d]
+  let qd: q * d = q * Float.Theory.magUnits (Float.Model.magnitude b) := Eq.cong (t => q * t) dd
+  let ex: (Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s))
+    ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s) = Int.signed s r) :=
+    Float.Theory.combinationExact (Float.Model.magnitude a)
+      (Float.Model.magnitude b)
+      r
+      1
+      q
+      s
+      s
+      fa
+      (arithmetic [low, mm, qd])
+      (arithmetic [low, mm])
+      (arithmetic [lt, dd])
+  let rb: Float.Model.remBits a b = Float.Model.roundRatio (Int.signed s r) 1 (-1074) s := Float.Theory.remFiniteBits a b fa fb zb
+  let size: Int.natAbs (Float.Model.units (Float.Model.remBits a b)) = r :=
+    calc Int.natAbs (Float.Model.units (Float.Model.remBits a b))
+      _ = Int.natAbs (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s)) :=
+        Eq.cong (w => Int.natAbs (Float.Model.units w)) rb
+      _ = Int.natAbs (Int.signed s r) := Eq.cong Int.natAbs ex.right
+      _ = r := Float.Theory.natAbsSigned s r
+  J
+    (y w =>
+      (Float.Theory.FiniteBits (Float.Model.remBits a b)
+        ∧ (Float.Model.remBits a b = Float.Model.roundRatio (Int.signed s y) 1 (-1074) s))
+        ∧ (y < d))
+    (Both (Both (J (w v => Float.Theory.FiniteBits w) ex.left rb.flipped) rb) lt)
+    size.flipped
