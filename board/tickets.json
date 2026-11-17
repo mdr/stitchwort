@@ -41974,7 +41974,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "D3671 (Matt, 17 Nov 2026): local definitions win (incl. the namespace's other files) over (..) imports; no standing warning ('a warning is something you should be able to action'); a type error involving a shadowed name says which hid which, as for constructors (W-CTOR-HIDES pattern). Also: type Box = | Box then (b: Box) is E-AMBIGUOUS; in a type position only the type makes sense. Sonnet, with SW-3479/3474/3471 (duplicates once at the second definition).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42052,7 +42052,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Group 1a (Matt, 17 Nov 2026): a straight bug; fix to use the resolved definition's identity, and audit the elaborator/checker for anything else matching declarations by short or method name rather than full identity. Same bug as SW-3607, SW-3671 (close those with it). Opus.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
