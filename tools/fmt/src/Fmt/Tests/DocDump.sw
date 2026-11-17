@@ -14,7 +14,8 @@ test "a closer text is a Closing: it stays before a waiting comment" :=
   answer (decl "1" "f x) -- c" "Concat 3\nText f x\nLineSuffix -- c\nText )\n") == Ok "decl 1 matched\n"
 
 test "a different text is a mismatch, with the first line that differs" :=
-  answer (decl "7" "a\\nb" "Concat 3\nText a\nHardLine\nText c\n") == Ok "decl 7 mismatched 2\n  expected: b\n  got: c\n"
+  answer (decl "7" "a\\nb" "Concat 3\nText a\nHardLine\nText c\n")
+    == Ok "decl 7 mismatched 2\n  expected: b\n  got: c\n"
 
 test "text is escaped in the dump: backslash and line break" :=
   unescape "a\\\\b\\nc" == "a\\b\nc" && escape "a\\b\nc" == "a\\\\b\\nc"
