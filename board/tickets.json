@@ -42261,7 +42261,7 @@
     {
       "id": 3753,
       "title": "[Sonnet] After SW-3752: go back over the toy proofs (tools/toyfmt) and replace hand-written matches and helper lemmas that the new cases closes (T4's ten-arm isPostfix match, T6's mergeOnto arms, SW-3418's lexing helpers); report lines saved (Matt, 17 Nov 2026)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42534,7 +42534,7 @@
     {
       "id": 3774,
       "title": "[DeepSeek] fmt:twin: a batch mode on both sides instead of one process per file, for the full repo (3,000+ files) (SW-3772 follow-up)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
