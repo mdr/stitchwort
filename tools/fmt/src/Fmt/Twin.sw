@@ -6,6 +6,9 @@
 --| - `tokens`: the tokens with trivia after rule N, as `stitchwort dev
 --|   tokens` prints them, or for a file that doesn't lex, `error: MESSAGE`
 --|   on standard error and status 1.
+--| - `expr` (stage 2a): the file read as one expression, its tree as
+--|   `stitchwort dev tree --expression` prints it, or `error: MESSAGE` on
+--|   standard error and status 1 if it doesn't parse.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -15,7 +18,7 @@
 --| exit with, and MESSAGE the first line it would write to standard error.
 namespace Fmt.Twin
 import Std (Args, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
-import Syntax (Lexed, lex)
+import Syntax (Expr, Lexed, lex, parseExpression)
 
 --| What the command line asks for: the stage whose answer to print, the file
 --| to read, or a LIST of files to answer for in one run.
@@ -27,7 +30,10 @@ def program: Args.Program :=
 def options: Args.Spec Options :=
   Args.Spec.start ((stage: Text) (batch: Option Path) (files: List Path) => ({ stage, batch, files }: Options))
     |> .and
-      (Args.option "stage" (default := "text") (metavar := "STAGE") (help := "tokens, tree, refusal, passes or text."))
+      (Args.option "stage"
+        (default := "text")
+        (metavar := "STAGE")
+        (help := "tokens, expr, tree, refusal, passes or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -41,6 +47,13 @@ def stageAnswer (stage source: Text): Answer := match stage with
   | "tokens" =>
     match lex source with
       | Ok lexed => { out = lexed.settled.dump, status = 0, message = "" }
+      | Err message => { out = "", status = 1, message = "error: ${message}" }
+  | "expr" =>
+    match lex source with
+      | Ok lexed =>
+        match parseExpression lexed.settled.leaves with
+          | Ok tree => { out = "Expression\n${tree.dump 1}", status = 0, message = "" }
+          | Err message => { out = "", status = 1, message = "error: ${message}" }
       | Err message => { out = "", status = 1, message = "error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
 
@@ -88,7 +101,7 @@ def run (options: Options): {Files, IO} ExitStatus := match options.batch with
     else
       let answers := options.files.map (answer options.stage)
       if answers.all (ok => ok) then ExitStatus.success
-      else if options.stage == "tokens" then ExitStatus.of 1
+      else if options.stage == "tokens" || options.stage == "expr" then ExitStatus.of 1
       else ExitStatus.of 2
 
 def main(): {Files, IO} ExitStatus := Args.runStatus program options run

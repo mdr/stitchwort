@@ -21827,12 +21827,12 @@
     {
       "id": 3819,
       "title": "[Opus] Self-hosted formatter stage 2a (self-hosted-fmt.md §8): the parser on Parse over the settled leaves, expressions and patterns first; tree types per construct; Fmt.Twin --stage tree and refusal; a parse-rate timing",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 75 min (lane started 15:13).\n\nProgress (15:59): done on lane/SW-3819 (44f5f144f, 3aefb53d7). Parser for expressions and patterns on Parse, total; tree with Word leaves (text + comments, no layout), trailingComma flags, Infix/Binding/Facts/Atom tags; continued lines as in Rust (blocks of one line, is_stop, then/else, |>, arm columns); `dev tree --expression` + `fmt-twin expr`. Gate: corpus 21,135/22,373, broken 1,925/2,032, edge 82/82, lines 20/20 identical, every difference \"not parsed yet\" (rewrite, calc, let, cases, named-param function types, match induct, effect row). Speed: ~3.5-4 s/MB parser+dump, 6.5-7.5 s/MB with lexing, at load 15-37, dense input; over §5's 2.5-3.5 for the whole formatter. Details in tools/fmt/NOTES.md \"Stage 2a\". To review.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
