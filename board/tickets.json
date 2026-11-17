@@ -22089,7 +22089,7 @@
     {
       "id": 3839,
       "title": "[Sonnet] Rust fmt refuses a valid file with 'formatter bug ... a Error node at line 2 isn't part of a file the parser accepts': def f: List Nat :=⏎  g ([⏎    1,⏎    ]⏎  ) (check parses it). Fix with a failing-first test; same bug in the self-hosted formatter if present (D3677) (SW-3825 finding)",
-      "status": "done",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22102,7 +22102,7 @@
     {
       "id": 3840,
       "title": "[Sonnet] Rule N not idempotent on a parking comma: g ([⏎1⏎-- above⏎, ] -- b⏎) -- c: applied twice, c moves to 1 past two comments. passes.rs P2's note is false there; tidy.rs's doc omits that rule 1 stops on a comma; add the case to tidy.rs's placed tests (SW-3825 findings 2, 3)",
-      "status": "done",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
