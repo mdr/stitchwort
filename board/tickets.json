@@ -1,5 +1,5 @@
 {
-  "next": 3818,
+  "next": 3819,
   "tickets": [
     {
       "id": 47,
@@ -41990,7 +41990,7 @@
     {
       "id": 3733,
       "title": "[Sonnet] After 'rewrite … then', a let on the next line at the same indent doesn't parse; the block must be indented further. Accept it, or say so in the error (Toy++ T4 friction, SW-3724)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42081,7 +42081,7 @@
     {
       "id": 3740,
       "title": "[Sonnet] .read takes apart only one &&: a five-part conjunction needs four nested lets; destructure the whole chain (Toy++ T5 friction, SW-3737)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42973,12 +42973,12 @@
     {
       "id": 3808,
       "title": "[Opus] Self-hosted formatter stage 1 (docs/proposals/self-hosted-fmt.md §8): the project skeleton, the typed tree and its dump, the lexer, rule N on tokens; gate: fmt:twin STAGE=tokens identical on every file that lexes, same lexical refusals",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Estimate 70 min (orchestrator). Started 14:43, review 15:03 (about 20 min).\n\nDone (Opus): tools/fmt/src/Syntax (Token, Lexer, Settle, Tree, Dump, Tests/Tokens) and Fmt.Twin --stage tokens from the real lexer. Lexer on Parse over characters (lexemes covering the source, then a fold for columns and trivia); lexical errors via Parse.fatal with the Rust messages; rule N as five structural passes in the Rust order.\n\nGate (fmt:twin STAGE=tokens, Rust side = main's release binary): goldens 124/124, repo --sample 300 300/300, fuzz --fuzz-cases 300 240/240, disturbed 62/62; 70 hand-written edge cases (47 refusals) 70/70. stitchwort check and test on tools/fmt: 9 tests pass.\n\nSpeed: 1.4 s/MB to lex and apply rule N, 2.0 s/MB with the dump (300 files, 1.07 MB, load 12-18); §5 plans 2.5-3.5 s/MB for the whole formatter. Details and friction in tools/fmt/NOTES.md, \"Stage 1\".\n",
+      "body": "Estimate 70 min (orchestrator). Started 14:43, review 15:03 (about 20 min).\n\nDone (Opus): tools/fmt/src/Syntax (Token, Lexer, Settle, Tree, Dump, Tests/Tokens) and Fmt.Twin --stage tokens from the real lexer. Lexer on Parse over characters (lexemes covering the source, then a fold for columns and trivia); lexical errors via Parse.fatal with the Rust messages; rule N as five structural passes in the Rust order.\n\nGate (fmt:twin STAGE=tokens, Rust side = main's release binary): goldens 124/124, repo --sample 300 300/300, fuzz --fuzz-cases 300 240/240, disturbed 62/62; 70 hand-written edge cases (47 refusals) 70/70. stitchwort check and test on tools/fmt: 9 tests pass.\n\nSpeed: 1.4 s/MB to lex and apply rule N, 2.0 s/MB with the dump (300 files, 1.07 MB, load 12-18); §5 plans 2.5-3.5 s/MB for the whole formatter. Details and friction in tools/fmt/NOTES.md, \"Stage 1\".\n\nModel result: opus, worked, 20 min (est. 70). Gate: goldens 124/124, repo sample 300/300, fuzz 240/240, disturbed 62/62, 70 edge cases incl. 47 refusals. 1.4 s/MB with rule N. Findings SW-3814..SW-3817.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42986,12 +42986,12 @@
     {
       "id": 3809,
       "title": "[Sonnet] Toy++ friction group 4: SW-3740 (.read destructures a whole && chain) and SW-3733 (a let after 'rewrite … then' at the same indent)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\n\nLane note: done, commit 32de99103 on lane/SW-3809; both tickets in review.\n",
+      "body": "\n\n\nLane note: done, commit 32de99103 on lane/SW-3809; both tickets in review.\n\nModel result: sonnet, worked, 22 min (est. 40). Orchestrator added the same-column example to DELIBERATELY_UNFORMATTED. Finding SW-3818.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -43095,6 +43095,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3818,
+      "title": "[DeepSeek] h.read on x != 0 gives (x.decEq 0).holds = False and needs a second .read to reach x ≠ 0: a note in the guide's .read section, and consider a deep .read (SW-3809 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
