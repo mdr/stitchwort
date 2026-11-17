@@ -21671,12 +21671,12 @@
     {
       "id": 3807,
       "title": "[Sonnet] apps/whereabouts: tenthsKeepTheirLabel computes round and / 10.0 3,601 times through the model (2.8 s -> 9.3 s after SW-639); prove it per tenth from roundOfWhole and ofNatDivExact instead",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "",
+      "body": "Done with SW-3872 on lane/SW-3872 (Opus).\n- tenthsKeepTheirLabel is now the law per tenth: round (tenth r * 10.0) / 10.0 = tenth r for every |r| <= 3601 (labelRound: divRelError and mulRelError, then roundNear). Stronger than the old statement (a computed List.all over the 3,601 tenths from -180 to 180 with ==), which it implies.\n- The statement changed shape because the checker evaluates a closed `List.all ... = True` statement in full even when the proof is general (tried List.allBetweenIntro and a lemma for any n: still 17 s).\n- 17 s -> 0.15 s of checking.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22518,12 +22518,12 @@
     {
       "id": 3872,
       "title": "[Opus] Whereabouts check went from about 25 s to 2.5 min: SW-3858's tenthsTable computes 7,203 rows of float operations in the checker's model (~1 ms each). Replace it with the generic divRelError/mulRelError chain (or narrow it), together with SW-3807's per-tenth tenthsKeepTheirLabel; target the check back under 30 s with results unchanged",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "",
+      "body": "Expected: 50 min (Opus lane with SW-3807). Started 18:28, done 19:05.\n\nProgress (Opus, lane/SW-3872):\n- tenthsTable (7,203 computed rows) replaced by a general proof of tenthsAt: the round trip from mulRelError twice and roundNear (tripNonzero), the step-0.1 slack from divRelError, slackSum and divRelError again (slackBelow, slackAbove). Every downstream statement unchanged, the 2^-42 bound kept (the error terms come to about 27.5 of the 30 · 2^-44 the slack moves it at |k| = 3601).\n- wrapWholeExact: wrapTable (801 rows) replaced by exact rem on whole numbers (remUnitsExact, remWholeStep, addWholeExact, wrapArith); statement unchanged.\n- tenthsKeepTheirLabel: see SW-3807.\n- Check without cache: 162.7 s -> 10.7 s (8.5-9 s of it std's own check). Per theorem (--only, no cache, less the 9.3 s baseline): tenthsAt chain about 0.7 s (was most of 2 min), wrapWholeExact 0.15 s (was 7.6 s), tenthsKeepTheirLabel 0.15 s (was 17 s).\n- Audit: 143 theorems, 0 failed, 17 warnings (no random input met the hypotheses of 17 arithmetic helpers; each is used with its hypotheses proved).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
