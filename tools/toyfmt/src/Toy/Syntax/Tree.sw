@@ -19,7 +19,8 @@
 --|   copies them there as it reads each token and decides nothing from
 --|   them, so every source that parses has a tree, and the tree holds every
 --|   comment once.
---| - A comma holds no comments and isn't in the tree: rule N
+--| - A comma holds no comments and isn't in the tree, but for a flag
+--|   saying whether one followed the last item (`trailingComma`): rule N
 --|   (`Settle.sw`) gives what was written beside one to the tokens around
 --|   it before the parser reads them.
 --| - The own-line comments above a declaration's or statement's first
@@ -89,8 +90,9 @@ type Expr =
   | StringLiteral (written: Text) (comments: Comments)
   --| `( … )`: brackets are kept as written.
   | Bracketed (open: Comments) (inner: Expr) (close: Comments)
-  | ListLiteral (open: Comments) (items: List Expr) (close: Comments)
-  | Call (callee: Expr) (open: Comments) (arguments: List Expr) (close: Comments)
+  --| `trailingComma`: whether a comma was written after the last item.
+  | ListLiteral (open: Comments) (items: List Expr) (trailingComma: Bool) (close: Comments)
+  | Call (callee: Expr) (open: Comments) (arguments: List Expr) (trailingComma: Bool) (close: Comments)
   | Field (target: Expr) (dot: Comments) (name: Text) (nameComments: Comments)
   | Negate (minus: Comments) (operand: Expr)
   --| Left-nested for a chain of one level: `a - b + c` is `(a - b) + c`.
@@ -139,6 +141,8 @@ type Declaration =
       (takes: Option Comments)
       (open: Comments)
       (parameters: List ParameterGroup)
+      --| `trailingComma`: whether a comma was written after the last group.
+  (trailingComma: Bool)
       (close: Comments)
       (equals: Comments)
       (body: Body)

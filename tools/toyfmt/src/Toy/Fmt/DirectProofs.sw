@@ -104,10 +104,15 @@ theorem settledViews ∀ (file: SourceFile) (width: Nat)
             (rewrite sameOffsets then offsets)
           )
 
---| The printed text of a tree with the parser's guarantees parses to the
---| same tree, at every width. No source is mentioned: a tree a pass built
---| qualifies as well as one the parser read.
-theorem printParses ∀ (file: SourceFile) (width: Nat) (parsed: Parsed file): parse (file.print width) = Ok file :=
+--| The printed text of a tree with the parser's guarantees and no
+--| trailing comma (which the printer never writes) parses to the same
+--| tree, at every width. No source is mentioned: a tree a pass built
+--| qualifies as well as one the parser read. The printer needs nothing of
+--| the other passes: it prints `takes` as the tree has it.
+theorem printParses ∀ (file: SourceFile) (width: Nat)
+    (parsed: Parsed file)
+    (bare: file.withoutTrailingCommas = file):
+    parse (file.print width) = Ok file :=
   match settledViews file width parsed with
     | (events, lexed, tokens, endTrivia, laid, lexes, sameTokens, sameTrivia, views, pending, offsets) =>
       parseReads
@@ -117,33 +122,58 @@ theorem printParses ∀ (file: SourceFile) (width: Nat) (parsed: Parsed file): p
         lexes
         (rewrite sameTokens, sameTrivia then
           runsFileSpelled file tokens.reverse endTrivia.reverse parsed.left
-            (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right laid views pending
-                offsets))
+            (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right
+              (commasTidyNone file bare)
+              laid
+              views
+              pending
+              offsets))
 
---| `format` answers every source that parses, with its tree printed; it
---| refuses only what the parser refuses.
+--| `format` answers every source that parses, with its tree tidied and
+--| printed; it refuses only what the parser refuses.
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
-    format source width = Formatted (tree.print width) :=
+    format source width = Formatted (tree.tidy.print width) :=
   rewrite parsed
 
---| Round trip: the output of `format` parses to the source's tree.
+--| Round trip: the output of `format` parses to the source's tree as the
+--| passes leave it.
 theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
     (h: format source width = Formatted output):
-    ∃ (tree: SourceFile) => parse source = Ok tree ∧ output = tree.print width ∧ parse output = Ok tree :=
+    ∃ (tree: SourceFile) => parse source = Ok tree ∧ output = tree.tidy.print width ∧ parse output = Ok tree.tidy :=
   match e: parse source with
     | Ok tree =>
-      let same := formattedInjective (tree.print width) output h
-      (tree, byComputing, same.flipped, (rewrite <- same then printParses tree width (parseParsed source tree e)))
+      let same := formattedInjective (tree.tidy.print width) output h
+      (
+        tree,
+        byComputing,
+        same.flipped,
+        (rewrite <- same then printParses tree.tidy width (tidyParsed tree (parseParsed source tree e)) (tidyBare tree))
+      )
+
+--| The whole: the output parses, to a tree that means the same program
+--| as the source's.
+theorem formatKeepsMeaning ∀ (source: Text) (width: Nat) (output: Text)
+    (h: format source width = Formatted output):
+    ∃ (before after: SourceFile) => parse source = Ok before
+      ∧ parse output = Ok after
+      ∧ after.meaning = before.meaning :=
+  match formatRoundTrip source width output h with
+    | (tree, parsed, _, reparsed) => (tree, tree.tidy, parsed, reparsed, tidyKeepsMeaning tree)
 
 --| Idempotence: formatting the output again, at the same width, gives
---| the output.
+--| the output. The output parses to the tidy tree, which the passes
+--| leave alone (`tidyIdempotent`).
 theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Text)
     (h: format source width = Formatted output):
     format output width = Formatted output :=
   match formatRoundTrip source width output h with
     | (tree, parsed, same, reparsed) =>
-      rewrite same then formatAnswers (tree.print width) width tree (rewrite <- same then reparsed)
+      calc format output width
+        _ = Formatted (tree.tidy.tidy.print width) := formatAnswers output width tree.tidy reparsed
+        _ = Formatted (tree.tidy.print width) :=
+          Eq.cong ((tidied: SourceFile) => Formatted (tidied.print width)) (tidyIdempotent tree)
+        _ = Formatted output := Eq.cong Formatted same.flipped
 
 --| The output depends on the source only through its tree: two sources
 --| that parse to the same tree format to the same text, however each was

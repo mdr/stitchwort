@@ -41865,12 +41865,12 @@
     {
       "id": 3724,
       "title": "[Opus] Toy++ T4: the pass frame: meaning, tidy, format and toy-plus-plus.md §3.3's theorems, with P1 (withTakes) and P2 (withoutTrailingCommas: the parser accepts a trailing comma, with its flag). About 60 theorems",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (lane, 17 Nov 2026, 08:08-08:37):\n- Parser: a trailing comma is accepted in lists, call arguments and parameter lists, recorded as `trailingComma: Bool` on ListLiteral, Call and Function. `closingNext` peeks for the closer after a comma. Parser proofs (runs, walk, carry) updated.\n- Passes.sw: P1 `withTakes`, P2 `withoutTrailingCommas`, `tidy`; Meaning.sw: `meaning`/`plain`; `format` prints `tree.tidy`.\n- PassProofs.sw: per pass no-comma, fixed point, idempotence, keeps-meaning, keeps-Parsed; P1/P2 commute; tidyKeepsMeaning, tidyParsed, tidyBare, tidyIdempotent.\n- printParses takes `bare: file.withoutTrailingCommas = file` (review finding 5), threaded as `NoTrailingCommas*` into spellsFile; no CalmProofs change needed.\n- formatAnswers/formatRoundTrip restated for tidy; new formatKeepsMeaning; formatIdempotent via tidyIdempotent; formatKeepsComments via tidyKeepsComments. Degenerate's RoundTrips is now formatKeepsMeaning's statement.\n- 102 theorems added (5 restated). axioms: none on all top theorems.\n- Goldens/probes/Driver expected text now has `takes`; new tests for trailing commas (parse + format) and messages.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

@@ -22,7 +22,7 @@ def probes: List Probe :=
       fn odd(x) = -- after =
         x % 2
       """, dump = "(fn odd (x){ after -- after = } (body (bare (% (var x) (number 2)))))\n", formatted = """
-        fn odd(x) = -- after =
+        fn odd takes (x) = -- after =
           x % 2
         """ },
     {
@@ -36,7 +36,7 @@ def probes: List Probe :=
         """,
       dump = "(fn f (x) (body (bare (if (var x){ after -- after then } (body (bare (number 1))){ after -- after else } (body (bare (number 2)))))))\n",
       formatted = """
-        fn f(x) =
+        fn f takes (x) =
           if x then -- after then
             1
           else -- after else
@@ -98,7 +98,7 @@ def probes: List Probe :=
       fn f( -- inside a header
         x) = x
       """, dump = "(fn f { after -- inside a header }(x) (body (bare (var x))))\n", formatted = """
-        fn f( -- inside a header
+        fn f takes ( -- inside a header
             x
         ) = x
         """ },
@@ -106,7 +106,7 @@ def probes: List Probe :=
       fn f(x) -- after the header
         = x
       """, dump = "(fn f (x{ after -- after the header }) (body (bare (var x))))\n", formatted = """
-        fn f(
+        fn f takes (
             x -- after the header
         ) = x
         """ },
@@ -135,7 +135,7 @@ def probes: List Probe :=
         """,
       dump = "(fn f (x) (body (let y{ after -- after let = } (body (bare (var x)))) (bare (var y))))\n",
       formatted = """
-        fn f(x) =
+        fn f takes (x) =
           let y = -- after let =
             x
           y
@@ -238,7 +238,7 @@ def probes: List Probe :=
         f(x) = x
       """, dump = "(fn{ after -- after fn } f (x) (body (bare (var x))))\n", formatted = """
         fn -- after fn
-          f(
+          f takes (
             x
         ) = x
         """ },

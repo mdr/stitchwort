@@ -7,7 +7,7 @@ import Std (Args, Disk, ExitStatus, Files, IO, List, Nat, Option, Path, Result, 
 import Std.Args.Outcome (Run, Help, Wrong)
 import Std.Args.Error (Missing, NeedsValue, BadValue)
 
-def tidy: Text := "fn add(a, b) = a + b\n"
+def tidy: Text := "fn add takes (a, b) = a + b\n"
 
 def untidy: Text := "fn add(a,b) = a+b\n"
 

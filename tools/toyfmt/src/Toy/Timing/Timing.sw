@@ -52,9 +52,9 @@ def bare (value: Expr): Body := { statements = [plainLine (Bare value)] }
 def sample (index: Nat): List (Spaced Declaration) :=
   let suffix := "${index}"
   let parameters := ["order", "rates"].map (text => Untyped { name = text, comments = none })
-  let total := Function none "total${suffix}" none None none parameters none none {
+  let total := Function none "total${suffix}" none None none parameters False none none {
     statements = [
-      plainLine (Let none "base" none none (bare (Call (var "sum") none [name "order", name "items"] none))),
+      plainLine (Let none "base" none none (bare (Call (var "sum") none [name "order", name "items"] False none))),
       plainLine
         (Let none "tax" none none
           (bare (binary Divide (binary Times (var "base") (field (var "rates") "tax")) (NumberLiteral "100" none)))),
@@ -71,6 +71,7 @@ def sample (index: Nat): List (Spaced Declaration) :=
                   (var "discount")
                   none
                   [name "order", Var "rates" { above = [], after = Some { text = "-- loyal" } }]
+                  False
                   none)))
             none
             (bare (binary Plus (var "base") (var "tax"))))
@@ -82,5 +83,5 @@ def sample (index: Nat): List (Spaced Declaration) :=
   [
     plainLine (DeclarationNote { text = "-- Totals for one order." }),
     plainLine total,
-    { blankBefore = True, line = Value none "names${suffix}" none none (bare (ListLiteral none names none)) }
+    { blankBefore = True, line = Value none "names${suffix}" none none (bare (ListLiteral none names False none)) }
   ]

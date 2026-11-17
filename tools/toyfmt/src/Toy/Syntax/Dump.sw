@@ -20,10 +20,10 @@ def Comments.dump (comments: Comments): Text :=
   if comments.above.isEmpty && comments.after.isNone then "" else "{${above}${after} }"
 
 def Declaration.dump: Declaration → Text
-  | Function fnComments name nameComments takes open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
     let listed := parameters.map (parameter => parameter.dump)
     let taken := takes.map (comments => " (takes${comments.dump})") |> .getOrElse ""
-    "(fn${fnComments.dump} ${name}${nameComments.dump}${taken} ${open.dump}(${listed.joinWith " "})${close.dump}${equals.dump} ${body.dump})"
+    "(fn${fnComments.dump} ${name}${nameComments.dump}${taken} ${open.dump}(${listed.joinWith " "}${commaMark trailingComma})${close.dump}${equals.dump} ${body.dump})"
   | Value letComments name nameComments equals body =>
     "(let${letComments.dump} ${name}${nameComments.dump}${equals.dump} ${body.dump})"
   | DeclarationNote comment => "(note ${comment.text})"
@@ -59,13 +59,18 @@ def Expr.dump: Expr → Text
   | NumberLiteral digits comments => "(number ${digits}${comments.dump})"
   | StringLiteral written comments => "(string ${written}${comments.dump})"
   | Bracketed open inner close => "(bracketed${open.dump} ${inner.dump}${close.dump})"
-  | ListLiteral open items close => "(list${open.dump}${dumpItems items}${close.dump})"
-  | Call callee open arguments close => "(call ${callee.dump}${open.dump}${dumpItems arguments}${close.dump})"
+  | ListLiteral open items trailingComma close =>
+    "(list${open.dump}${dumpItems items}${commaMark trailingComma}${close.dump})"
+  | Call callee open arguments trailingComma close =>
+    "(call ${callee.dump}${open.dump}${dumpItems arguments}${commaMark trailingComma}${close.dump})"
   | Field target dot name nameComments => "(field ${target.dump}${dot.dump} ${name}${nameComments.dump})"
   | Negate minus operand => "(negate${minus.dump} ${operand.dump})"
   | Binary operator sign left right => "(${operator.spelling}${sign.dump} ${left.dump} ${right.dump})"
   | If ifComments condition thenComments whenTrue elseComments whenFalse =>
     "(if${ifComments.dump} ${condition.dump}${thenComments.dump} ${whenTrue.dump}${elseComments.dump} ${whenFalse.dump})"
+
+--| ` ,` where a trailing comma was written.
+def commaMark (trailingComma: Bool): Text := if trailingComma then " ," else ""
 
 def dumpItems: List Expr → Text
   | [] => ""

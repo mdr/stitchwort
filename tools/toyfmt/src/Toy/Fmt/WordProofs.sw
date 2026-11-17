@@ -258,8 +258,8 @@ def Expr.pieces: Expr → List Text
   | NumberLiteral digits comments => tokenPieces comments digits
   | StringLiteral written comments => tokenPieces comments written
   | Bracketed open inner close => tokenPieces open "(" ++ (inner.pieces ++ tokenPieces close ")")
-  | ListLiteral open items close => tokenPieces open "[" ++ (itemPieces items ++ tokenPieces close "]")
-  | Call callee open arguments close =>
+  | ListLiteral open items trailingComma close => tokenPieces open "[" ++ (itemPieces items ++ tokenPieces close "]")
+  | Call callee open arguments trailingComma close =>
     callee.pieces ++ (tokenPieces open "(" ++ (itemPieces arguments ++ tokenPieces close ")"))
   | Field target dot name nameComments => target.pieces ++ (tokenPieces dot "." ++ tokenPieces nameComments name)
   | Negate minus operand => tokenPieces minus "-" ++ operand.pieces
@@ -319,7 +319,7 @@ def headerPieces (fnComments: Comments) (name: Text) (nameComments: Comments) (t
     ++ (parameterPieces parameters ++ (tokenPieces close ")" ++ tokenPieces equals "="))
 
 def Declaration.pieces: Declaration → List Text
-  | Function fnComments name nameComments takes open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
     headerPieces fnComments name nameComments takes open parameters close equals ++ body.pieces
   | Value letComments name nameComments equals body => bindingPieces letComments name nameComments equals body.pieces
   | DeclarationNote comment => [comment.text]
@@ -507,8 +507,8 @@ theorem chainWrites ∀ (level: Nat) (expr: Expr)
     | NumberLiteral digits comments => writesCons _ _ _ _ whole rest
     | StringLiteral written comments => writesCons _ _ _ _ whole rest
     | Bracketed open inner close => writesCons _ _ _ _ whole rest
-    | ListLiteral open items close => writesCons _ _ _ _ whole rest
-    | Call callee open arguments close => writesCons _ _ _ _ whole rest
+    | ListLiteral open items trailingComma close => writesCons _ _ _ _ whole rest
+    | Call callee open arguments trailingComma close => writesCons _ _ _ _ whole rest
     | Field target dot name nameComments => writesCons _ _ _ _ whole rest
     | Negate minus operand => writesCons _ _ _ _ whole rest
     | If ifComments condition thenComments whenTrue elseComments whenFalse => writesCons _ _ _ _ whole rest
@@ -520,8 +520,9 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
   | StringLiteral written comments => writesToken comments written
   | Bracketed open inner close =>
     writesThree _ _ _ _ _ _ (writesToken open "(") (exprWrites inner) (writesCloseAfter inner close ")")
-  | ListLiteral open items close => listWrites open items close
-  | Call callee open arguments close => writesTwo _ _ _ _ (exprWrites callee) (argumentsWrite open arguments close)
+  | ListLiteral open items trailingComma close => listWrites open items trailingComma close
+  | Call callee open arguments trailingComma close =>
+    writesTwo _ _ _ _ (exprWrites callee) (argumentsWrite open arguments close)
   | Field target dot name nameComments =>
     writesThree _ _ _ _ _ _ (exprWrites target) (writesToken dot ".") (writesToken nameComments name)
   | Negate minus operand =>
@@ -564,8 +565,8 @@ theorem itemDocsWrite ∀ (items: List Expr): WritesAll (itemDocs items) (itemPi
       (writesTwo _ _ _ _ (exprWrites value) (writesCloser Comments.none ","))
       (itemDocsWrite [next, ..rest])
 
-theorem listWrites ∀ (open: Comments) (items: List Expr) (close: Comments):
-    Writes (listLayout open items close) (ListLiteral open items close).pieces :=
+theorem listWrites ∀ (open: Comments) (items: List Expr) (trailingComma: Bool) (close: Comments):
+    Writes (listLayout open items close) (ListLiteral open items trailingComma close).pieces :=
   match items with
     | [] => writesTwo _ _ _ _ (writesToken open "[") (writesCloser close "]")
     | [first, ..rest] =>
@@ -699,10 +700,11 @@ theorem afterEqualsWrites ∀ (body: Body) (equals: Comments): Writes (body.afte
       match g: equals.after.isNone with
         | True =>
           match value with
-            | ListLiteral open items close =>
+            | ListLiteral open items trailingComma close =>
               writesChoiceTwo _ _ _
-                (writesTwo _ _ [] _ writesSpace (writesFlatten _ _ (exprWrites (ListLiteral open items close))))
-                (writesTwo _ _ [] _ writesSpace (exprWrites (ListLiteral open items close)))
+                (writesTwo _ _ [] _ writesSpace
+                  (writesFlatten _ _ (exprWrites (ListLiteral open items trailingComma close))))
+                (writesTwo _ _ [] _ writesSpace (exprWrites (ListLiteral open items trailingComma close)))
             | _ =>
               writesChoiceThree _ _ _ _
                 (writesTwo _ _ [] _ writesSpace (writesFlatten _ _ (exprWrites value)))
@@ -848,7 +850,7 @@ theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
 --| A declaration's document writes its tokens and comments in order.
 theorem declarationWrites ∀ (declaration: Declaration): Writes declaration.layout declaration.pieces :=
   match declaration with
-    | Function fnComments name nameComments takes open parameters close equals body =>
+    | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
       writesTwo _ _ _ _
         (headerWrites fnComments name nameComments takes open parameters close equals)
         (afterEqualsWrites body equals)

@@ -34,18 +34,19 @@ def KeepsComments (formatter: Formatter): Prop :=
     = Formatted output) (lexedBefore: lex source = Ok before) (lexedAfter: lex output = Ok after) => after.comments
     = before.comments
 
---| `formatRoundTrip`'s statement, without the part that names the printer:
---| the output parses to the source's tree.
+--| `formatKeepsMeaning`'s statement: the output parses, to a tree that
+--| means what the source's does.
 def RoundTrips (formatter: Formatter): Prop :=
   ∀ (source: Text) (width: Nat) (output: Text) (formats: formatter source width
-    = Formatted output) => ∃ (tree: SourceFile) => parse source = Ok tree ∧ parse output = Ok tree
+    = Formatted output) => ∃ (before after: SourceFile) => parse source = Ok before
+    ∧ parse output = Ok after
+    ∧ after.meaning = before.meaning
 
 theorem formatHasSameTree: SameTree format := formatSameTree
 
 theorem formatHasKeepsComments: KeepsComments format := formatKeepsComments
 
-theorem formatRoundTrips: RoundTrips format := source width output formats =>
-  match formatRoundTrip source width output formats with | (tree, parsed, same, reparsed) => (tree, parsed, reparsed)
+theorem formatRoundTrips: RoundTrips format := formatKeepsMeaning
 
 -- The identity formatter.
 
@@ -123,7 +124,7 @@ def oneLine (source: Text) (width: Nat): FormatResult := match format source wid
 --| one line don't parse.
 theorem oneLineDoesNotParse ∀ (holds: RoundTrips oneLine): Void :=
   match holds "let x = 1\nlet y = 2\n" 80 "let x = 1 let y = 2\n" byComputing with
-    | (tree, parsed, reparsed) => notOk (parse "let x = 1 let y = 2\n") tree byComputing reparsed
+    | (before, after, parsed, reparsed, same) => notOk (parse "let x = 1 let y = 2\n") after byComputing reparsed
 
 -- The tree tells files apart.
 

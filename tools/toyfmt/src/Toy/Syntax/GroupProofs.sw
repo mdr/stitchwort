@@ -406,31 +406,45 @@ theorem runsParameters ∀ (firstTokens: List (Parse.Located Token)) (first: Par
       (() => Parse.optional parameterList)
       (firstTokens ++ Parse.joinReads steps)
       rest
-      (Some (first, Parse.stepValues steps)) :=
+      (Some (first, Parse.stepValues steps, False)) :=
   Parse.runsOptional parameterList
     (firstTokens ++ Parse.joinReads steps)
     rest
-    (first, Parse.stepValues steps)
+    (first, Parse.stepValues steps, False)
     (Parse.runsBind
       (() => parameterGroup())
       (first1 =>
         let others := Parse.many parameterStep
-        (first1, others))
+        let trailing := signInBrackets "','" Comma
+        (first1, others, trailing.isSome))
       firstTokens
       (Parse.joinReads steps)
       (firstTokens ++ Parse.joinReads steps)
       rest
       first
-      (first, Parse.stepValues steps)
+      (first, Parse.stepValues steps, False)
       byComputing
       runsFirst
-      (Parse.runsMap
+      (Parse.runsBind
         (() => Parse.many parameterStep)
-        (others => (first, others))
+        (others =>
+          let trailing := signInBrackets "','" Comma
+          (first, others, trailing.isSome))
+        (Parse.joinReads steps)
+        []
         (Parse.joinReads steps)
         rest
         (Parse.stepValues steps)
-        (Parse.runsMany parameterStep steps rest (parameterRounds steps rest spelled ends))))
+        (first, Parse.stepValues steps, False)
+        (List.appendNil (Parse.joinReads steps)).flipped
+        (Parse.runsMany parameterStep steps rest (parameterRounds steps rest spelled ends))
+        (Parse.runsMap
+          (() => signInBrackets "','" Comma)
+          (trailing => (first, Parse.stepValues steps, trailing.isSome))
+          []
+          rest
+          None
+          (runsSignAbsent "','" Comma rest ends))))
 
 --| No parameters: the next token is not a name.
 theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Located Token))
@@ -442,7 +456,8 @@ theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Loc
       (() => parameterGroup())
       (first =>
         let others := Parse.many parameterStep
-        (first, others))
+        let trailing := signInBrackets "','" Comma
+        (first, others, trailing.isSome))
       [token, ..rest]
       (Parse.declinesBind
         (() => name InBrackets)

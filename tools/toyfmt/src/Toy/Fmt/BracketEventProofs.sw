@@ -54,13 +54,13 @@ theorem eventsFree ∀ (zone: Zone) (head wide: Option Nat → Prop) (expr: Expr
             (piece laid => laid)
             held)
         holds
-    | ListLiteral open items close, holds =>
+    | ListLiteral open items trailingComma close, holds =>
       thenWider _ _ _ _ events
         (part held => tokenWider head wide open "[" part wider held)
         (part held =>
           thenWider _ _ _ _ part (piece laid => itemsFree zone.inside items piece laid) (piece laid => laid) held)
         holds
-    | Call callee open arguments close, holds =>
+    | Call callee open arguments trailingComma close, holds =>
       thenWider _ _ _ _ events
         (part held => eventsFree zone head wide callee part wider held)
         (part held =>

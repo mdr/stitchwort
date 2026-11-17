@@ -1,8 +1,8 @@
 --| The golden pairs: one for each printing rule, P1 to P10, and two mixed.
 --| Each has a source as an author might write it, the tree the parser must
---| make of it, and the formatted text. The tests here print the tree;
---| `Parsing.sw` checks that the source parses to it and that both texts
---| format to the formatted one.
+--| make of it, and the formatted text. The tests here print the tree as
+--| `format` does, after the passes; `Parsing.sw` checks that the source
+--| parses to it and that both texts format to the formatted one.
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)
@@ -11,7 +11,7 @@ import Std (List, Option, Text)
 
 type Golden = { width: Nat, source: Text, tree: SourceFile, formatted: Text }
 
-def Golden.printed (golden: Golden): Text := golden.tree.print golden.width
+def Golden.printed (golden: Golden): Text := golden.tree.tidy.print golden.width
 
 --| P1: a group goes on one line if it fits, else all its breaks break; the
 --| group inside decides again, and fits.
@@ -53,8 +53,8 @@ def headers: Golden :=
             (call "abs" [op Minus (v "fromColumn") (v "toColumn")])))
     ],
     formatted = """
-      fn add(a, b) = a + b
-      fn distance(
+      fn add takes (a, b) = a + b
+      fn distance takes (
           fromRow,
           fromColumn,
           toRow,
@@ -230,15 +230,16 @@ def conditionals: Golden :=
         (expr (ifThen (v "flag") (expr (call "computeTheFirstAnswer" [v "alpha", v "beta"])) (expr (num "0"))))
     ],
     formatted = """
-      fn sign(x) = if x < 0 then -1 else 1
-      fn describe(count) =
+      fn sign takes (x) =
+        if x < 0 then -1 else 1
+      fn describe takes (count) =
         if count == 0 then "nothing at all"
         else "some things"
-      fn classify(n) =
+      fn classify takes (n) =
         if n < 10 then "small"
         else if n < 100 then "medium"
         else "large"
-      fn pick(flag) =
+      fn pick takes (flag) =
         if flag then
           computeTheFirstAnswer(alpha, beta)
         else 0
@@ -272,21 +273,26 @@ def comments: Golden :=
         (block [
           plain (StatementNote { text = "-- the base price" }),
           plain
-            (letBody "base" (expr (Call (v "sum") none [Field (v "order") none "items" (after "-- before tax")] none))),
+            (letBody "base"
+              (expr (Call (v "sum") none [Field (v "order") none "items" (after "-- before tax")] False none))),
           bare (op Plus (v "base") (call "tax" [v "base"]))
         ]),
       value "weights"
-        (ListLiteral none [NumberLiteral "1" (above ["-- light"]), NumberLiteral "2" (after "-- two"), num "3"] none),
+        (ListLiteral none
+          [NumberLiteral "1" (above ["-- light"]), NumberLiteral "2" (after "-- two"), num "3"]
+          False
+          none),
       plain
         (Function none "odd" none None none
           [parameter "x"]
+          False
           none
           (after "-- why")
           (expr (op Remainder (v "x") (num "2"))))
     ],
     formatted = """
       -- Totals for one order.
-      fn total(order) =
+      fn total takes (order) =
         -- the base price
         let base = sum(order.items) -- before tax
         base + tax(base)
@@ -294,7 +300,7 @@ def comments: Golden :=
         -- light
         1, 2, -- two
         3]
-      fn odd(x) = -- why
+      fn odd takes (x) = -- why
         x % 2
       """
   }
@@ -392,7 +398,7 @@ def order: Golden :=
                 (expr
                   (op Minus
                     (op Plus (v "base") (v "tax"))
-                    (Call (v "discount") none [v "order", Var "rates" (after "-- loyal")] none)))
+                    (Call (v "discount") none [v "order", Var "rates" (after "-- loyal")] False none)))
                 (expr (op Plus (v "base") (v "tax")))))
         ]),
       afterBlank
@@ -401,7 +407,7 @@ def order: Golden :=
     ],
     formatted = """
       -- Totals for one order.
-      fn total(order, rates) =
+      fn total takes (order, rates) =
         let base = sum(order.items.map(price))
         let tax = base * rates.tax / 100
 
@@ -433,7 +439,7 @@ def route: Golden :=
         ])
     ],
     formatted = """
-      fn route(map, start) =
+      fn route takes (map, start) =
         let path =
           search(
             map,
@@ -490,8 +496,8 @@ def parameterGroups: Golden :=
     ],
     formatted = """
       fn area takes (w h: Int) = w * h
-      fn readVec(v: (Vec)) = v
-      fn stream(
+      fn readVec takes (v: (Vec)) = v
+      fn stream takes (
           head: Nat,
           rest: -- c
             Nat
@@ -511,7 +517,7 @@ test "a dump shows takes, groups and types" :=
     == "(fn area (takes) ((group w h : Int)) (body (bare (* (var w) (var h)))))\n(fn readVec ((group v : (bracketed Vec))) (body (bare (var v))))\n(fn stream ((group head : Nat) (group rest :{ after -- c } Nat)) (body (bare (var rest))))\n(fn next (takes{ after -- why }) ((group n : Nat)){ above -- c } (body (bare (+ (var n) (number 1)))))\n"
 
 test "P8: a ] joins the line of a trailing comment on a list's last item" :=
-  let tree := sprig [value "pair" (ListLiteral none [num "1", NumberLiteral "2" (after "-- two")] none)]
+  let tree := sprig [value "pair" (ListLiteral none [num "1", NumberLiteral "2" (after "-- two")] False none)]
   tree.print 40 == "let pair = [1, 2] -- two\n"
 
 test "a tree's dump shows its structure" :=

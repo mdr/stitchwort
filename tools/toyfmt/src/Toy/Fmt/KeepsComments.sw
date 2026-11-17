@@ -6,7 +6,8 @@
 --| the proof's middle term and appear in no statement about `format`:
 --| the parser's half (`parseCarries`) says the tree holds exactly the
 --| lexer's comments, and `formatRoundTrip` says the output parses to the
---| source's tree.
+--| source's tree as the passes leave it, which holds the same comments
+--| (`tidyKeepsComments`).
 
 namespace Toy.Fmt.KeepsComments
 import Toy.Fmt (..)
@@ -37,6 +38,63 @@ theorem parseCarries ∀ (source: Text) (lexed: Lexed) (tree: SourceFile)
                 tokensCarry tokens.settled.tokens tokens.settled.endTrivia file (settledFits source tokens found) whole
               _ = tokens.comments := settledKeepsComments tokens
 
+-- The passes keep every comment: P1 adds a `takes` with none, and P2
+-- drops only commas, which hold none.
+
+theorem exprCommasComments ∀ (expr: Expr): expr.withoutTrailingCommas.comments = expr.comments := match expr with
+  | Var _ _ => byComputing
+  | NumberLiteral _ _ => byComputing
+  | StringLiteral _ _ => byComputing
+  | Bracketed _ inner _ => rewrite exprCommasComments inner
+  | ListLiteral _ items _ _ => rewrite itemsCommasComments items
+  | Call callee _ arguments _ _ => rewrite exprCommasComments callee, itemsCommasComments arguments
+  | Field target _ _ _ => rewrite exprCommasComments target
+  | Negate _ operand => rewrite exprCommasComments operand
+  | Binary _ _ left right => rewrite exprCommasComments left, exprCommasComments right
+  | If _ condition _ whenTrue _ whenFalse =>
+    rewrite exprCommasComments condition, bodyCommasComments whenTrue, bodyCommasComments whenFalse
+
+theorem itemsCommasComments ∀ (items: List Expr):
+    itemsComments (itemsWithoutTrailingCommas items) = itemsComments items :=
+  match items with
+    | [] => byComputing
+    | [value, ..rest] => rewrite exprCommasComments value, itemsCommasComments rest
+
+theorem bodyCommasComments ∀ (body: Body): body.withoutTrailingCommas.comments = body.comments := match body with
+  | { statements } => rewrite linesCommasComments statements
+
+theorem linesCommasComments ∀ (lines: List (Spaced Statement)):
+    linesComments (linesWithoutTrailingCommas lines) = linesComments lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite statementCommasComments line, linesCommasComments rest
+
+theorem statementCommasComments ∀ (line: Statement): line.withoutTrailingCommas.comments = line.comments :=
+  match line with
+    | Let _ _ _ _ body => rewrite bodyCommasComments body
+    | Bare value => rewrite exprCommasComments value
+    | StatementNote _ => byComputing
+
+theorem declarationTidyComments ∀ (line: Declaration): line.withTakes.withoutTrailingCommas.comments = line.comments :=
+  match line with
+    | Function _ _ _ None _ [] _ _ _ body => rewrite bodyCommasComments body
+    | Function _ _ _ None _ [_, .._] _ _ _ body => rewrite bodyCommasComments body
+    | Function _ _ _ (Some _) _ [] _ _ _ body => rewrite bodyCommasComments body
+    | Function _ _ _ (Some _) _ [_, .._] _ _ _ body => rewrite bodyCommasComments body
+    | Value _ _ _ _ body => rewrite bodyCommasComments body
+    | DeclarationNote _ => byComputing
+
+theorem declarationsTidyComments ∀ (lines: List (Spaced Declaration)):
+    (declarationsWithoutTrailingCommas (declarationsWithTakes lines)).flatMap (spaced => spaced.line.comments)
+      = lines.flatMap (spaced => spaced.line.comments) :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite declarationTidyComments line, declarationsTidyComments rest
+
+--| The passes keep every comment the tree holds, in order.
+theorem tidyKeepsComments ∀ (file: SourceFile): file.tidy.comments = file.comments :=
+  declarationsTidyComments file.declarations
+
 --| Formatting keeps every comment, with the same text and in the same
 --| order: the comments the lexer finds in the output are those it finds
 --| in the source. Neither side goes through the parser, the tree or the
@@ -50,7 +108,8 @@ theorem formatKeepsComments ∀ (source output: Text) (width: Nat) (before after
   match formatRoundTrip source width output formats with
     | (tree, parsed, same, reparsed) =>
       calc after.comments
-        _ = tree.comments := (parseCarries output after tree lexedAfter reparsed).flipped
+        _ = tree.tidy.comments := (parseCarries output after tree.tidy lexedAfter reparsed).flipped
+        _ = tree.comments := tidyKeepsComments tree
         _ = before.comments := parseCarries source before tree lexedBefore parsed
 
 -- Both statements on sources with a comment in each kind of place.

@@ -23,8 +23,8 @@ def Lexical: Expr → Prop
   | NumberLiteral digits comments => IsDigits digits ∧ Fine comments
   | StringLiteral written comments => IsString written ∧ Fine comments
   | Bracketed open inner close => Fine open ∧ Lexical inner ∧ Fine close
-  | ListLiteral open items close => Fine open ∧ LexicalItems items ∧ Fine close
-  | Call callee open arguments close => Lexical callee ∧ Fine open ∧ LexicalItems arguments ∧ Fine close
+  | ListLiteral open items trailingComma close => Fine open ∧ LexicalItems items ∧ Fine close
+  | Call callee open arguments trailingComma close => Lexical callee ∧ Fine open ∧ LexicalItems arguments ∧ Fine close
   | Field target dot name nameComments => Lexical target ∧ Fine dot ∧ IsName name ∧ Fine nameComments
   | Negate minus operand => Fine minus ∧ Lexical operand
   | Binary operator sign left right => Fine sign ∧ Lexical left ∧ Lexical right
@@ -76,7 +76,7 @@ def LexicalParameters: List ParameterGroup → Prop
 def FineTakes (takes: Option Comments): Prop := Parse.Perhaps Fine takes
 
 def LexicalDeclaration: Declaration → Prop
-  | Function fnComments name nameComments takes open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
     Fine fnComments
       ∧ IsName name
       ∧ Fine nameComments
@@ -424,8 +424,8 @@ theorem chainPasses ∀ (level: Nat) (expr: Expr)
     | NumberLiteral digits comments, _ => passesCons _ _ _ Meets post whole rest
     | StringLiteral written comments, _ => passesCons _ _ _ Meets post whole rest
     | Bracketed open inner close, _ => passesCons _ _ _ Meets post whole rest
-    | ListLiteral open items close, _ => passesCons _ _ _ Meets post whole rest
-    | Call callee open arguments close, _ => passesCons _ _ _ Meets post whole rest
+    | ListLiteral open items trailingComma close, _ => passesCons _ _ _ Meets post whole rest
+    | Call callee open arguments trailingComma close, _ => passesCons _ _ _ Meets post whole rest
     | Field target dot name nameComments, _ => passesCons _ _ _ Meets post whole rest
     | Negate minus operand, _ => passesCons _ _ _ Meets post whole rest
     | If ifComments condition thenComments whenTrue elseComments whenFalse, _ => passesCons _ _ _ Meets post whole rest
@@ -470,22 +470,22 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
             (passesFrom _ _ Free _ (exprPasses inner lexInner) (freeEnters inner))
             (passesLast _ Meets Meets
               (closeAfterPasses inner close ")" fineClose (signToken CloseParen closeSign) shutsClose))))
-    | ListLiteral open items close, Both fineOpen (Both lexItems fineClose) =>
+    | ListLiteral open items trailingComma close, Both fineOpen (Both lexItems fineClose) =>
       listPasses open items close
-        (Enters (ListLiteral open items close))
+        (Enters (ListLiteral open items trailingComma close))
         fineOpen
         fineClose
         (itemDocsPass items lexItems)
-        (entersAdmits (ListLiteral open items close) "[" (later => byComputing))
-    | Call callee open arguments close, Both lexCallee (Both fineOpen (Both lexArguments fineClose)) =>
+        (entersAdmits (ListLiteral open items trailingComma close) "[" (later => byComputing))
+    | Call callee open arguments trailingComma close, Both lexCallee (Both fineOpen (Both lexArguments fineClose)) =>
       passesTwo callee.layout
         (argumentsLayout open arguments close)
-        (Enters (Call callee open arguments close))
+        (Enters (Call callee open arguments trailingComma close))
         Meets
         Meets
         (passesFrom _
           (Enters callee)
-          (Enters (Call callee open arguments close))
+          (Enters (Call callee open arguments trailingComma close))
           Meets
           (exprPasses callee lexCallee)
           (edge enters => enters))
@@ -781,17 +781,24 @@ theorem afterEqualsPasses ∀ (body: Body) (equals: Comments)
       match g: equals.after.isNone with
         | True =>
           match value with
-            | ListLiteral open items close =>
+            | ListLiteral open items trailingComma close =>
               passesChoiceTwo _ _ Meets Meets
                 (passesTwo
                   (Doc.text " ")
-                  (Flatten (ListLiteral open items close).layout)
+                  (Flatten (ListLiteral open items trailingComma close).layout)
                   Meets
                   Loose
                   Meets
                   passesSpace
                   whole)
-                (passesTwo (Doc.text " ") (ListLiteral open items close).layout Meets Loose Meets passesSpace whole)
+                (passesTwo
+                  (Doc.text " ")
+                  (ListLiteral open items trailingComma close).layout
+                  Meets
+                  Loose
+                  Meets
+                  passesSpace
+                  whole)
             | _ =>
               passesChoiceThree _ _ _ Meets Meets
                 (passesTwo (Doc.text " ") (Flatten value.layout) Meets Loose Meets passesSpace whole)
@@ -1010,7 +1017,7 @@ theorem declarationPasses ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):
     Passes declaration.layout Loose Open :=
   match declaration, lexical with
-    | Function fnComments name nameComments takes open parameters close equals body, (
+    | Function fnComments name nameComments takes open parameters trailingComma close equals body, (
         fineFn,
         (word, _),
         fineName,

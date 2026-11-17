@@ -347,8 +347,8 @@ theorem postfixChain ∀ (expr: Expr) (postfix: expr.isPostfix = True): expr.isC
   | NumberLiteral _ _, _ => byComputing
   | StringLiteral _ _, _ => byComputing
   | Bracketed _ _ _, _ => byComputing
-  | ListLiteral _ _ _, _ => byComputing
-  | Call _ _ _ _, _ => byComputing
+  | ListLiteral _ _ _ _, _ => byComputing
+  | Call _ _ _ _ _, _ => byComputing
   | Field _ _ _ _, _ => byComputing
 
 theorem operandChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isChain = True := match expr, operand with
@@ -356,8 +356,8 @@ theorem operandChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isC
   | NumberLiteral _ _, _ => byComputing
   | StringLiteral _ _, _ => byComputing
   | Bracketed _ _ _, _ => byComputing
-  | ListLiteral _ _ _, _ => byComputing
-  | Call _ _ _ _, _ => byComputing
+  | ListLiteral _ _ _ _, _ => byComputing
+  | Call _ _ _ _ _, _ => byComputing
   | Field _ _ _ _, _ => byComputing
   | Negate _ _, _ => byComputing
 
@@ -369,8 +369,8 @@ theorem chainNoIf ∀ (expr: Expr) (shaped: Shaped expr) (chain: expr.isChain = 
     | NumberLiteral _ _, _, _ => byComputing
     | StringLiteral _ _, _, _ => byComputing
     | Bracketed _ _ _, _, _ => byComputing
-    | ListLiteral _ _ _, _, _ => byComputing
-    | Call callee _ _ _, Both postfix (Both shapedCallee _), _ =>
+    | ListLiteral _ _ _ _, _, _ => byComputing
+    | Call callee _ _ trailingComma _, Both postfix (Both shapedCallee _), _ =>
       chainNoIf callee shapedCallee (postfixChain callee postfix)
     | Field target _ _ _, Both postfix shapedTarget, _ => chainNoIf target shapedTarget (postfixChain target postfix)
     | Negate _ operand, Both isOperand shapedOperand, _ =>
@@ -394,6 +394,7 @@ theorem plainOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (eve
     (shaped: Shaped expr)
     (lexical: Lexical expr)
     (headed: HeadedExpr False expr)
+    (commaless: NoTrailingCommas expr)
     (plain: NoIf expr)
     (laid: Events (Deeper column) head expr events):
     SpellsOut column pending head expr events :=
@@ -408,6 +409,7 @@ theorem plainOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (eve
     shaped
     lexical
     headed
+    commaless
     plain
     laid with
     | (first, others, seen, spells, starts) =>
@@ -549,28 +551,57 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
     (shaped: Shaped expr)
     (lexical: Lexical expr)
     (headed: HeadedExpr False expr)
+    (commaless: NoTrailingCommas expr)
     (laid: Events (Deeper column) head expr events):
     SpellsOut column pending head expr events :=
   match expr, shaped, lexical, headed, laid with
     | Var name comments, shaped, lexical, headed, laid =>
-      plainOut column head (Var name comments) events pending shaped lexical headed byComputing laid
+      plainOut column head (Var name comments) events pending shaped lexical headed commaless byComputing laid
     | NumberLiteral digits comments, shaped, lexical, headed, laid =>
-      plainOut column head (NumberLiteral digits comments) events pending shaped lexical headed byComputing laid
-    | StringLiteral written comments, shaped, lexical, headed, laid =>
-      plainOut column head (StringLiteral written comments) events pending shaped lexical headed byComputing laid
-    | Bracketed open inner close, shaped, lexical, headed, laid =>
-      plainOut column head (Bracketed open inner close) events pending shaped lexical headed byComputing laid
-    | ListLiteral open items close, shaped, lexical, headed, laid =>
-      plainOut column head (ListLiteral open items close) events pending shaped lexical headed byComputing laid
-    | Call callee open arguments close, shaped, lexical, headed, laid =>
       plainOut column head
-        (Call callee open arguments close)
+        (NumberLiteral digits comments)
         events
         pending
         shaped
         lexical
         headed
-        (chainNoIf (Call callee open arguments close) shaped byComputing)
+        commaless
+        byComputing
+        laid
+    | StringLiteral written comments, shaped, lexical, headed, laid =>
+      plainOut column head
+        (StringLiteral written comments)
+        events
+        pending
+        shaped
+        lexical
+        headed
+        commaless
+        byComputing
+        laid
+    | Bracketed open inner close, shaped, lexical, headed, laid =>
+      plainOut column head (Bracketed open inner close) events pending shaped lexical headed commaless byComputing laid
+    | ListLiteral open items trailingComma close, shaped, lexical, headed, laid =>
+      plainOut column head
+        (ListLiteral open items trailingComma close)
+        events
+        pending
+        shaped
+        lexical
+        headed
+        commaless
+        byComputing
+        laid
+    | Call callee open arguments trailingComma close, shaped, lexical, headed, laid =>
+      plainOut column head
+        (Call callee open arguments trailingComma close)
+        events
+        pending
+        shaped
+        lexical
+        headed
+        commaless
+        (chainNoIf (Call callee open arguments trailingComma close) shaped byComputing)
         laid
     | Field target dot name nameComments, shaped, lexical, headed, laid =>
       plainOut column head
@@ -580,6 +611,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
+        commaless
         (chainNoIf (Field target dot name nameComments) shaped byComputing)
         laid
     | Negate minus operand, shaped, lexical, headed, laid =>
@@ -590,6 +622,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
+        commaless
         (chainNoIf (Negate minus operand) shaped byComputing)
         laid
     | Binary operator sign left right, shaped, lexical, headed, laid =>
@@ -600,6 +633,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
+        commaless
         (chainNoIf (Binary operator sign left right) shaped byComputing)
         laid
     | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, Both shapedCondition
@@ -640,6 +674,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shapedCondition
         conditionLexical
         headedCondition
+        commaless.left
         conditionLaid, tokenSeen
         (Deeper column).allows
         thenComments
@@ -649,7 +684,8 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         []
         fineThen
         (seen start => keywordEvent seen ThenKeyword start)
-        thenLaid, bodyOut column whenTrue trueEvents shapedTrue trueLexical headedTrue trueLaid, tokenSeen
+        thenLaid, bodyOut column whenTrue trueEvents shapedTrue trueLexical headedTrue commaless.right.left
+          trueLaid, tokenSeen
         (Deeper column).reaches
         elseComments
         "else"
@@ -658,7 +694,8 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         []
         fineElse
         (seen start => keywordEvent seen ElseKeyword start)
-        elseLaid, bodyOut column whenFalse falseEvents shapedFalse falseLexical headedFalse falseLaid with
+        elseLaid, bodyOut column whenFalse falseEvents shapedFalse falseLexical headedFalse commaless.right.right
+          falseLaid with
         | Witness ifStart (Both ifAllowed ifSeen), Witness conditionFirst
             (Witness conditionOthers (Both conditionSeen (Both conditionSpells _))), Witness thenStart
             (Both thenAllowed thenSeen), Witness trueFirst
@@ -876,6 +913,7 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
     (shaped: ShapedBody body)
     (lexical: LexicalBody body)
     (headed: HeadedBody False body)
+    (commaless: NoTrailingCommasBody body)
     (laid: BodyEvents (Deeper column) body events):
     BodySpells column body events :=
   match body, shaped, lexical, headed, laid with
@@ -889,6 +927,7 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
         shapedValue
         valueLexical
         headedValue
+        commaless.left
         inline with
         | Witness first (Witness others (Both seen (Both spells (Both starts _)))) => (
           first,
@@ -955,7 +994,7 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
     | { statements = [_, _, .._] }, _, _, _, Inl never => (Bool.falseNotTrue never).impossible
     | { statements }, Both shapedLines closed, Both lexicalLines _, Both headedLines (Both unspaced _), Inr
         (Witness deeper (Both under lines)) =>
-      match linesOut deeper True [] statements events [] shapedLines lexicalLines headedLines
+      match linesOut deeper True [] statements events [] shapedLines lexicalLines headedLines commaless
         (closingBody statements closed)
         (isFirst => unspaced)
         byComputing
@@ -1010,6 +1049,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
     (shaped: ShapedLines lines)
     (lexical: LexicalLines lines)
     (headed: HeadedLines False lines)
+    (commaless: NoTrailingCommasLines lines)
     (closed: LinesClose noted pending lines)
     (unspaced: isFirst = True → Unspaced (noted ++ lines))
     (waits: notesOf StatementNote pending = (noted, False))
@@ -1035,6 +1075,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         shapedMore
         lexicalMore
         headedMore
+        commaless.right
         (closingNote
           (noted ++ [{ blankBefore, line = StatementNote comment }])
           [OwnLine comment, ..blankOf blankBefore pending]
@@ -1073,7 +1114,8 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         shapedValue
         valueLexical
         headedValue
-        valueLaid, linesOut column False [] more back [] shapedMore lexicalMore headedMore
+        commaless.left
+        valueLaid, linesOut column False [] more back [] shapedMore lexicalMore headedMore commaless.right
         (closingCoded { blankBefore, line = Bare value } more closed)
         (never => falseFirst (Unspaced ([] ++ more)) never)
         byComputing
@@ -1218,8 +1260,8 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         []
         fineEquals
         (seen start => signEvent seen Defines start)
-        equalsAt, bodyOut column body bodyEvents shapedBody bodyLexical headedBody bodyLaid, linesOut column False []
-          more back [] shapedMore lexicalMore headedMore
+        equalsAt, bodyOut column body bodyEvents shapedBody bodyLexical headedBody commaless.left bodyLaid, linesOut
+          column False [] more back [] shapedMore lexicalMore headedMore commaless.right
           (closingCoded { blankBefore, line = Let letComments name nameComments equals body } more closed)
           (never => falseFirst (Unspaced ([] ++ more)) never)
           byComputing
@@ -1801,12 +1843,12 @@ theorem parameterListOut ∀ (parameters: List ParameterGroup) (events: List Eve
       ∧ (∀ (tokens: List (Parse.Located Token)) (close: Parse.Located Token) (rest: List
         (Parse.Located Token)) => tokens.map viewOf = views
         → close.value.kind = Sign CloseParen
-        → ∃ (listed: Option (ParameterGroup, List ParameterGroup)) => Parse.Runs
+        → ∃ (listed: Option (ParameterGroup, List ParameterGroup, Bool)) => Parse.Runs
           (() => Parse.optional parameterList)
           tokens
           [close, ..rest]
           listed
-          ∧ parameters = parametersOf listed) :=
+          ∧ (parameters, False) = parametersOf listed) :=
   match parameters, lexical, shaped, laid with
     | [], _, _, laid => (
       [],
@@ -1814,12 +1856,12 @@ theorem parameterListOut ∀ (parameters: List ParameterGroup) (events: List Eve
       (tokens close rest same closeKind =>
         viewsNil
           (found =>
-            ∃ (listed: Option (ParameterGroup, List ParameterGroup)) => Parse.Runs
+            ∃ (listed: Option (ParameterGroup, List ParameterGroup, Bool)) => Parse.Runs
               (() => Parse.optional parameterList)
               found
               [close, ..rest]
               listed
-              ∧ ([]: List ParameterGroup) = parametersOf listed)
+              ∧ (([]: List ParameterGroup), False) = parametersOf listed)
           tokens
           same
           ((None, (runsNoParameters close rest (rewrite closeKind)), byComputing)))
@@ -1832,10 +1874,10 @@ theorem parameterListOut ∀ (parameters: List ParameterGroup) (events: List Eve
           (tokens close rest same closeKind =>
             match spells tokens close rest same closeKind with
               | (first, firstTokens, steps, split, runsFirst, stepsSpelled, values) => (
-                (Some (first, Parse.stepValues steps)),
+                (Some (first, Parse.stepValues steps, False)),
                 (rewrite split then
                   runsParameters firstTokens first steps [close, ..rest] runsFirst stepsSpelled (rewrite closeKind)),
-                values
+                (rewrite <- values)
               ))
         )
 
@@ -1932,7 +1974,13 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
     ∃ (views: List TokenView) => Seen [] (takesEvents ++ (openEvents ++ (parameterEvents ++ closeEvents))) views
       ∧ (∀ (from: Nat) (tokens rest: List (Parse.Located Token)) => tokens.map viewOf = views
         → AllApart (InStatement 0 from) tokens
-        → Parse.Runs (() => functionHeader (InStatement 0 from)) tokens rest { takes, open, parameters, close }) :=
+        → Parse.Runs (() => functionHeader (InStatement 0 from)) tokens rest {
+          takes,
+          open,
+          parameters,
+          trailingComma = False,
+          close
+        }) :=
   match takesOut takes takesEvents fineTakes takesLaid, tokenSeen
     (Deeper 0).allows
     open
@@ -1971,7 +2019,13 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
           viewsSplit
             (found =>
               AllApart layout found
-                → Parse.Runs (() => functionHeader layout) found rest { takes, open, parameters, close })
+                → Parse.Runs (() => functionHeader layout) found rest {
+                  takes,
+                  open,
+                  parameters,
+                  trailingComma = False,
+                  close
+                })
             tokens
             takesViews
             [openView, ..parameterViews ++ [closeView]]
@@ -1984,6 +2038,7 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                       takes,
                       open,
                       parameters,
+                      trailingComma = False,
                       close
                     })
                 afterTakes
@@ -1998,6 +2053,7 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                           takes,
                           open,
                           parameters,
+                          trailingComma = False,
                           close
                         })
                     afterOpen
@@ -2012,7 +2068,7 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                               (() => functionHeader layout)
                               (takesTokens ++ [openToken, ..parameterTokens ++ found])
                               rest
-                              { takes, open, parameters, close })
+                              { takes, open, parameters, trailingComma = False, close })
                         closeTokens
                         closeView
                         closeSame
@@ -2034,7 +2090,7 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                               match parametersSpell parameterTokens closeToken rest parameterSame closeKind with
                                 | (listed, runsParameters, listedSame) =>
                                   let settled: settledCloser
-                                    (groupsEndWithComment (layout.comments openToken) (parametersOf listed))
+                                    (groupsEndWithComment (layout.comments openToken) (parametersOf listed).fst)
                                     (Layout.comments InBrackets closeToken)
                                     = True :=
                                     rewrite <- openNotes, <- closeNotes, <- listedSame then shaped.right
@@ -2051,12 +2107,13 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                                       openAllows
                                       runsParameters
                                       closeKind
-                                  rewrite openNotes, closeNotes, listedSame then
-                                    (rewrite closingSame
+                                  let closed :=
+                                    rewrite closingSame
                                           (Layout.comments InBrackets closeToken)
-                                          (groupsEndWithComment (layout.comments openToken) (parametersOf listed))
+                                          (groupsEndWithComment (layout.comments openToken) (parametersOf listed).fst)
                                           settled at ran then
-                                      ran)))))
+                                      ran
+                                  rewrite openNotes, closeNotes then (rewrite <- listedSame at closed then closed)))))
             apart)
       )
 
@@ -2203,6 +2260,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
     (shaped: ShapedDeclarations lines)
     (lexical: LexicalDeclarations lines)
     (headed: HeadedDeclarations lines)
+    (commaless: NoTrailingCommasDeclarations lines)
     (unspaced: isFirst = True → Unspaced (noted ++ lines))
     (waits: notesOf DeclarationNote pending = (noted, False))
     (laid: LaterDeclarations lines events):
@@ -2237,6 +2295,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         shapedMore
         lexicalMore
         headedMore
+        commaless.right
         (first =>
           rewrite List.appendAssoc noted [{ blankBefore, line = DeclarationNote comment }] more then unspaced first)
         (noteNotes DeclarationNote blankBefore pending noted comment waits)
@@ -2299,8 +2358,8 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         []
         fineEquals
         (seen start => signEvent seen Defines start)
-        equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody bodyLaid, declarationsOut False [] more
-          back [] shapedMore lexicalMore headedMore
+        equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody commaless.left bodyLaid, declarationsOut
+          False [] more back [] shapedMore lexicalMore headedMore commaless.right
           (never => falseFirst (Unspaced ([] ++ more)) never)
           byComputing
           moreLaid with
@@ -2494,10 +2553,13 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                   (risingBack [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising))
                               ))))))
         )
-    | [{ blankBefore, line = Function fnComments name nameComments takes open parameters close equals body }, ..more], (
-        (bare, shapedBody),
-        shapedMore
-      ), (
+    | [
+        {
+          blankBefore,
+          line = Function fnComments name nameComments takes open parameters trailingComma close equals body
+        },
+        ..more
+      ], ((bare, shapedBody), shapedMore), (
         (fineFn, isName, fineName, fineTakes, fineOpen, parametersLexical, fineClose, fineEquals, bodyLexical),
         lexicalMore
       ), ((fnAbove, headedBody), headedMore), unspaced, (
@@ -2517,226 +2579,228 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         ),
         moreLaid
       ) =>
-      let declared := Function fnComments name nameComments takes open parameters close equals body
-      let headerEvents := takesEvents ++ (openEvents ++ (parameterEvents ++ closeEvents))
-      match tokenSeen
-        (atColumn 0)
-        fnComments
-        "fn"
-        (Reserved FnKeyword)
-        fnEvents
-        (blankOf blankBefore pending)
-        fineFn
-        (seen start => keywordEvent seen FnKeyword start)
-        fnAt, tokenSeen
-        (Deeper 0).allows
-        nameComments
-        name
-        (Name name)
-        nameEvents
-        []
-        fineName
-        (seen start => nameEvent seen name start isName)
-        nameAt, headerOut takes open parameters close takesEvents openEvents parameterEvents closeEvents fineTakes
-          fineOpen parametersLexical bare fineClose takesLaid openAt parametersLaid closeAt, tokenSeen
-        (Deeper 0).allows
-        equals
-        "="
-        (Sign Defines)
-        equalsEvents
-        []
-        fineEquals
-        (seen start => signEvent seen Defines start)
-        equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody bodyLaid, declarationsOut False [] more
-          back [] shapedMore lexicalMore headedMore
+      rewrite commaless.left.left then
+        let declared := Function fnComments name nameComments takes open parameters False close equals body
+        let headerEvents := takesEvents ++ (openEvents ++ (parameterEvents ++ closeEvents))
+        match tokenSeen
+          (atColumn 0)
+          fnComments
+          "fn"
+          (Reserved FnKeyword)
+          fnEvents
+          (blankOf blankBefore pending)
+          fineFn
+          (seen start => keywordEvent seen FnKeyword start)
+          fnAt, tokenSeen
+          (Deeper 0).allows
+          nameComments
+          name
+          (Name name)
+          nameEvents
+          []
+          fineName
+          (seen start => nameEvent seen name start isName)
+          nameAt, headerOut takes open parameters close takesEvents openEvents parameterEvents closeEvents fineTakes
+            fineOpen parametersLexical bare fineClose takesLaid openAt parametersLaid closeAt, tokenSeen
+          (Deeper 0).allows
+          equals
+          "="
+          (Sign Defines)
+          equalsEvents
+          []
+          fineEquals
+          (seen start => signEvent seen Defines start)
+          equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody commaless.left.right
+            bodyLaid, declarationsOut False [] more back [] shapedMore lexicalMore headedMore commaless.right
           (never => falseFirst (Unspaced ([] ++ more)) never)
           byComputing
           moreLaid with
-        | (fnStart, fnAllowed, fnSeen), (nameStart, nameAllowed, nameSeen), (headerViews, headerSeen,
-            headerSpells), (equalsStart, equalsAllowed, equalsSeen), (bodyFirst, bodyOthers, bodySeen,
-            bodySpells), (moreViews, left, moreSeen, moreStarts, moreSpells) =>
-          let fnView := tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments
-          let nameView := tokenView [] (Name name) nameStart nameComments
-          let equalsView := tokenView [] (Sign Defines) equalsStart equals
-          let afterHeader := [equalsView, bodyFirst, ..bodyOthers]
-          let statementViews := [fnView, nameView] ++ (headerViews ++ afterHeader)
-          let statementEvents := fnEvents ++ (nameEvents ++ (headerEvents ++ (equalsEvents ++ bodyEvents)))
-          let goal := (found: List (Parse.Located Token)) =>
-            DeclarationsGoal isFirst noted [{ blankBefore, line = declared }, ..more] left.reverse found
-          (
-            (statementViews ++ moreViews),
-            left,
-            (rewrite split,
-                thenSplit,
-                headSplit,
-                fnSplit,
-                nameSplit,
-                takesSplit,
-                parameterSplit,
-                closeSplit,
-                equalsSplit,
-                headerEventsTogether fnEvents nameEvents takesEvents openEvents parameterEvents closeEvents
-                  (equalsEvents ++ bodyEvents) then
-              seenBlank blankBefore pending left
-                (statementEvents ++ back)
-                (statementViews ++ moreViews)
-                (seenToThen
-                  (blankOf blankBefore pending)
-                  []
-                  left
-                  statementEvents
-                  back
-                  statementViews
-                  moreViews
-                  (seenThen
+          | (fnStart, fnAllowed, fnSeen), (nameStart, nameAllowed, nameSeen), (headerViews, headerSeen,
+              headerSpells), (equalsStart, equalsAllowed, equalsSeen), (bodyFirst, bodyOthers, bodySeen,
+              bodySpells), (moreViews, left, moreSeen, moreStarts, moreSpells) =>
+            let fnView := tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments
+            let nameView := tokenView [] (Name name) nameStart nameComments
+            let equalsView := tokenView [] (Sign Defines) equalsStart equals
+            let afterHeader := [equalsView, bodyFirst, ..bodyOthers]
+            let statementViews := [fnView, nameView] ++ (headerViews ++ afterHeader)
+            let statementEvents := fnEvents ++ (nameEvents ++ (headerEvents ++ (equalsEvents ++ bodyEvents)))
+            let goal := (found: List (Parse.Located Token)) =>
+              DeclarationsGoal isFirst noted [{ blankBefore, line = declared }, ..more] left.reverse found
+            (
+              (statementViews ++ moreViews),
+              left,
+              (rewrite split,
+                  thenSplit,
+                  headSplit,
+                  fnSplit,
+                  nameSplit,
+                  takesSplit,
+                  parameterSplit,
+                  closeSplit,
+                  equalsSplit,
+                  headerEventsTogether fnEvents nameEvents takesEvents openEvents parameterEvents closeEvents
+                    (equalsEvents ++ bodyEvents) then
+                seenBlank blankBefore pending left
+                  (statementEvents ++ back)
+                  (statementViews ++ moreViews)
+                  (seenToThen
                     (blankOf blankBefore pending)
-                    fnEvents
-                    (nameEvents ++ (headerEvents ++ (equalsEvents ++ bodyEvents)))
-                    [fnView]
-                    ([nameView] ++ (headerViews ++ afterHeader))
-                    fnSeen
-                    (seenThen [] nameEvents
-                      (headerEvents ++ (equalsEvents ++ bodyEvents))
-                      [nameView]
-                      (headerViews ++ afterHeader)
-                      nameSeen
-                      (seenThen [] headerEvents
-                        (equalsEvents ++ bodyEvents)
-                        headerViews
-                        afterHeader
-                        headerSeen
-                        (seenThen [] equalsEvents bodyEvents
-                          [equalsView]
-                          [bodyFirst, ..bodyOthers]
-                          equalsSeen
-                          bodySeen))))
-                  moreSeen)),
-            fnAllowed,
-            (tokens same =>
-              viewsCons goal tokens fnView
-                (([nameView] ++ (headerViews ++ afterHeader)) ++ moreViews)
-                same
-                (firstToken afterFirst firstSame afterFirstSame =>
-                  viewsCons
-                    (found => goal [firstToken, ..found])
-                    afterFirst
-                    nameView
-                    ((headerViews ++ afterHeader) ++ moreViews)
-                    afterFirstSame
-                    (named afterNamed namedSame afterNamedSame =>
-                      viewsSplit
-                        (found => goal [firstToken, named, ..found])
-                        afterNamed
+                    []
+                    left
+                    statementEvents
+                    back
+                    statementViews
+                    moreViews
+                    (seenThen
+                      (blankOf blankBefore pending)
+                      fnEvents
+                      (nameEvents ++ (headerEvents ++ (equalsEvents ++ bodyEvents)))
+                      [fnView]
+                      ([nameView] ++ (headerViews ++ afterHeader))
+                      fnSeen
+                      (seenThen [] nameEvents
+                        (headerEvents ++ (equalsEvents ++ bodyEvents))
+                        [nameView]
                         (headerViews ++ afterHeader)
-                        moreViews
-                        afterNamedSame
-                        (statementRest laterTokens restSame laterSame =>
-                          viewsSplit
-                            (found => goal [firstToken, named, ..found ++ laterTokens])
-                            statementRest
-                            headerViews
-                            afterHeader
-                            restSame
-                            (headerTokens afterHeaderTokens headerSame afterHeaderSame =>
-                              viewsCons
-                                (found => goal [firstToken, named, ..(headerTokens ++ found) ++ laterTokens])
-                                afterHeaderTokens
-                                equalsView
-                                [bodyFirst, ..bodyOthers]
-                                afterHeaderSame
-                                (equalsToken bodyTokens equalsSame bodySame rising =>
-                                  let layout := InStatement 0 firstToken.offset
-                                  let statement := [named, ..headerTokens ++ [equalsToken, ..bodyTokens]]
-                                  let risingStatement := risingFront [firstToken, ..statement] laterTokens rising
-                                  let apart := laterApart 0 firstToken statement risingStatement
-                                  let apartTail := apartBack layout headerTokens [equalsToken, ..bodyTokens] apart.right
-                                  let after :=
-                                    lastAfter 0 firstToken statement laterTokens
-                                      (rewrite laterSame then moreStarts)
-                                      rising
-                                  match innerFits
-                                    (Deeper 0)
-                                    layout
-                                    named
-                                    (Name name)
-                                    nameStart
-                                    nameComments
-                                    byComputing
-                                    apart.left
-                                    nameAllowed
-                                    namedSame, innerFits
-                                    (Deeper 0)
-                                    layout
-                                    equalsToken
-                                    (Sign Defines)
-                                    equalsStart
-                                    equals
-                                    byComputing
-                                    apartTail.left
-                                    equalsAllowed
-                                    equalsSame with
-                                    | (nameKind, nameAllows, nameNotes), (equalsKind, equalsAllows, equalsNotes) => (
-                                      firstToken,
-                                      named,
-                                      equalsToken,
-                                      headerTokens,
-                                      bodyTokens,
-                                      laterTokens,
-                                      (Eq.cong
-                                        ((tail: List (Parse.Located Token)) => [firstToken, named, ..tail])
-                                        (List.appendAssoc headerTokens [equalsToken, ..bodyTokens] laterTokens)),
-                                      (startsAtLine firstToken 0
-                                        (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) fnAllowed)),
-                                      (Eq.cong ((view: TokenView) => view.kind) firstSame),
-                                      nameKind,
-                                      nameAllows,
-                                      equalsKind,
-                                      equalsAllows,
-                                      (headerSpells firstToken.offset headerTokens
-                                        ([equalsToken, ..bodyTokens] ++ laterTokens)
-                                        headerSame
-                                        (apartFront layout headerTokens [equalsToken, ..bodyTokens] apart.right)),
-                                      (keywordComments 0 firstToken
-                                        (blankOf blankBefore pending)
-                                        (Reserved FnKeyword)
-                                        fnStart
-                                        fnComments
-                                        fnAbove
-                                        firstSame),
-                                      nameNotes,
-                                      equalsNotes,
-                                      (notedDeclarationLine isFirst pending noted more blankBefore declared
-                                          firstToken.value.above
-                                          (Eq.trans
-                                            (Eq.cong ((view: TokenView) => view.above) firstSame)
-                                            (Eq.cong
-                                              ((comments: List Comment) =>
-                                                (waiting (blankOf blankBefore pending) comments).reverse)
-                                              fnAbove))
-                                          waits
-                                          unspaced),
-                                      (bodySpells firstToken.offset bodyTokens laterTokens bodySame
-                                        (risingBack
-                                          [equalsToken]
-                                          bodyTokens
+                        nameSeen
+                        (seenThen [] headerEvents
+                          (equalsEvents ++ bodyEvents)
+                          headerViews
+                          afterHeader
+                          headerSeen
+                          (seenThen [] equalsEvents bodyEvents
+                            [equalsView]
+                            [bodyFirst, ..bodyOthers]
+                            equalsSeen
+                            bodySeen))))
+                    moreSeen)),
+              fnAllowed,
+              (tokens same =>
+                viewsCons goal tokens fnView
+                  (([nameView] ++ (headerViews ++ afterHeader)) ++ moreViews)
+                  same
+                  (firstToken afterFirst firstSame afterFirstSame =>
+                    viewsCons
+                      (found => goal [firstToken, ..found])
+                      afterFirst
+                      nameView
+                      ((headerViews ++ afterHeader) ++ moreViews)
+                      afterFirstSame
+                      (named afterNamed namedSame afterNamedSame =>
+                        viewsSplit
+                          (found => goal [firstToken, named, ..found])
+                          afterNamed
+                          (headerViews ++ afterHeader)
+                          moreViews
+                          afterNamedSame
+                          (statementRest laterTokens restSame laterSame =>
+                            viewsSplit
+                              (found => goal [firstToken, named, ..found ++ laterTokens])
+                              statementRest
+                              headerViews
+                              afterHeader
+                              restSame
+                              (headerTokens afterHeaderTokens headerSame afterHeaderSame =>
+                                viewsCons
+                                  (found => goal [firstToken, named, ..(headerTokens ++ found) ++ laterTokens])
+                                  afterHeaderTokens
+                                  equalsView
+                                  [bodyFirst, ..bodyOthers]
+                                  afterHeaderSame
+                                  (equalsToken bodyTokens equalsSame bodySame rising =>
+                                    let layout := InStatement 0 firstToken.offset
+                                    let statement := [named, ..headerTokens ++ [equalsToken, ..bodyTokens]]
+                                    let risingStatement := risingFront [firstToken, ..statement] laterTokens rising
+                                    let apart := laterApart 0 firstToken statement risingStatement
+                                    let apartTail :=
+                                      apartBack layout headerTokens [equalsToken, ..bodyTokens] apart.right
+                                    let after :=
+                                      lastAfter 0 firstToken statement laterTokens
+                                        (rewrite laterSame then moreStarts)
+                                        rising
+                                    match innerFits
+                                      (Deeper 0)
+                                      layout
+                                      named
+                                      (Name name)
+                                      nameStart
+                                      nameComments
+                                      byComputing
+                                      apart.left
+                                      nameAllowed
+                                      namedSame, innerFits
+                                      (Deeper 0)
+                                      layout
+                                      equalsToken
+                                      (Sign Defines)
+                                      equalsStart
+                                      equals
+                                      byComputing
+                                      apartTail.left
+                                      equalsAllowed
+                                      equalsSame with
+                                      | (nameKind, nameAllows, nameNotes), (equalsKind, equalsAllows, equalsNotes) => (
+                                        firstToken,
+                                        named,
+                                        equalsToken,
+                                        headerTokens,
+                                        bodyTokens,
+                                        laterTokens,
+                                        (Eq.cong
+                                          ((tail: List (Parse.Located Token)) => [firstToken, named, ..tail])
+                                          (List.appendAssoc headerTokens [equalsToken, ..bodyTokens] laterTokens)),
+                                        (startsAtLine firstToken 0
+                                          (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) fnAllowed)),
+                                        (Eq.cong ((view: TokenView) => view.kind) firstSame),
+                                        nameKind,
+                                        nameAllows,
+                                        equalsKind,
+                                        equalsAllows,
+                                        (headerSpells firstToken.offset headerTokens
+                                          ([equalsToken, ..bodyTokens] ++ laterTokens)
+                                          headerSame
+                                          (apartFront layout headerTokens [equalsToken, ..bodyTokens] apart.right)),
+                                        (keywordComments 0 firstToken
+                                          (blankOf blankBefore pending)
+                                          (Reserved FnKeyword)
+                                          fnStart
+                                          fnComments
+                                          fnAbove
+                                          firstSame),
+                                        nameNotes,
+                                        equalsNotes,
+                                        (notedDeclarationLine isFirst pending noted more blankBefore declared
+                                            firstToken.value.above
+                                            (Eq.trans
+                                              (Eq.cong ((view: TokenView) => view.above) firstSame)
+                                              (Eq.cong
+                                                ((comments: List Comment) =>
+                                                  (waiting (blankOf blankBefore pending) comments).reverse)
+                                                fnAbove))
+                                            waits
+                                            (rewrite commaless.left.left at unspaced then unspaced)),
+                                        (bodySpells firstToken.offset bodyTokens laterTokens bodySame
                                           (risingBack
-                                            [firstToken, named, ..headerTokens]
-                                            [equalsToken, ..bodyTokens]
-                                            risingStatement))
-                                        apartTail.right
-                                        (afterBack layout
-                                          [equalsToken]
-                                          bodyTokens
-                                          laterTokens
+                                            [equalsToken]
+                                            bodyTokens
+                                            (risingBack
+                                              [firstToken, named, ..headerTokens]
+                                              [equalsToken, ..bodyTokens]
+                                              risingStatement))
+                                          apartTail.right
                                           (afterBack layout
-                                            [firstToken, named, ..headerTokens]
-                                            [equalsToken, ..bodyTokens]
+                                            [equalsToken]
+                                            bodyTokens
                                             laterTokens
-                                            after))),
-                                      (moreSpells laterTokens laterSame
-                                        (risingBack [firstToken, ..statement] laterTokens rising))
-                                    )))))))
-          )
+                                            (afterBack layout
+                                              [firstToken, named, ..headerTokens]
+                                              [equalsToken, ..bodyTokens]
+                                              laterTokens
+                                              after))),
+                                        (moreSpells laterTokens laterSame
+                                          (risingBack [firstToken, ..statement] laterTokens rising))
+                                      )))))))
+            )
 
 --| E2. Tokens whose views are those of a trace of the file's events,
 --| with falling offsets (they are listed the newest first), spell the
@@ -2746,6 +2810,7 @@ theorem spellsFile ∀ (file: SourceFile) (events: List Event)
     (shaped: ShapedFile file)
     (lexical: LexicalFile file)
     (headed: HeadedFile file)
+    (commaless: NoTrailingCommasFile file)
     (laid: FileEvents file events)
     (views: tokens.map viewOf = (viewsOf events).views)
     (pending: endTrivia = (viewsOf events).pending)
@@ -2753,7 +2818,7 @@ theorem spellsFile ∀ (file: SourceFile) (events: List Event)
     SpelledFile file tokens.reverse endTrivia.reverse :=
   match file, shaped, lexical, headed, laid with
     | { declarations }, shaped, lexical, (headedLines, unspaced), laid =>
-      match declarationsOut True [] declarations events [] shaped lexical headedLines
+      match declarationsOut True [] declarations events [] shaped lexical headedLines commaless
         (first => unspaced)
         byComputing
         (laterOfDeclarations declarations events unspaced laid) with
