@@ -1538,7 +1538,7 @@ theorem Float.Theory.roundsToExact ∀ (m r: Nat)
         (Float.Theory.capAbsurd Float.Theory.overflowUnits
           (Float.Theory.magUnits m)
           (Float.Theory.magUnits 9218868437227405311)
-          (spec.overflow (Float.Theory.atInfinity r c spec.bounded))
+          (spec.overflow (arithmetic [c, spec.bounded]))
           (Float.Theory.magUnitsLe m 9218868437227405311 (arithmetic [hm]))
           Float.Theory.largestUnder)
     | False =>
