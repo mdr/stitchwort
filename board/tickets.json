@@ -41721,7 +41721,7 @@
     {
       "id": 3700,
       "title": "[DeepSeek] Broad tier B: 22 docs/proposals/**/*.sw files still use 'in' after rewrite/cases (E-PARSE: write then, not in), so cli fmt_repo::tracked_sw_files_are_formatted fails. Find them with stitchwort fmt --check docs/, change in to then, run stitchwort fmt on them, and the fmt_repo test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41734,7 +41734,7 @@
     {
       "id": 3701,
       "title": "[Sonnet] Broad tier E: five LSP code-action tests fail (cli::server lsp.rs): a_document_edited_during_a_search_gets_no_stale_edit (2991) and a_newer_action_request_supersedes_and_a_cancelled_one_is_answered (3012) now get a code action where they expect none; a_code_action_at_a_goal_offers_what_closes_it (2643), ..._in_a_project_... (2709), proof_searches_are_bounded_by_the_pool (3047) fail their asserts. Likely one change to what a goal's code action offers; find it, decide which side is right",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
