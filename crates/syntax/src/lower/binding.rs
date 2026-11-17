@@ -525,7 +525,11 @@ impl<'f> Lower<'f> {
                     else {
                         return Err(Unsupported::Missing(kind, "a named parameter"));
                     };
-                    groups.push((names, implicit, implicit && auto, ty));
+                    // A group is shorthand for a parameter per name
+                    // (D3679), each checking its own copy of the type.
+                    for name in names {
+                        groups.push((vec![name], implicit, implicit && auto, ty.clone()));
+                    }
                 }
                 Element::Node(_) => return Err(Unsupported::Missing(kind, "a parameter")),
             }

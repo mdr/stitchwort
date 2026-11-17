@@ -152,6 +152,61 @@ fn parses_both_kinds_of_if() {
     ));
 }
 
+/// The names of the binders on `ty`'s spine, one list per binder.
+fn spine_names(mut ty: &Expr) -> Vec<Vec<&str>> {
+    let mut out = Vec::new();
+    while let Expr::Pi { names, cod, .. } = ty {
+        out.push(names.iter().map(|n| n.text.as_str()).collect());
+        ty = cod;
+    }
+    out
+}
+
+/// A group `(a b: T)` is shorthand for `(a: T) (b: T)` (D3679): wherever
+/// it's written, the lowering gives each name its own binder and its own
+/// copy of the type, so the elaborator checks the type once per name.
+#[test]
+fn a_group_is_a_binder_per_name() {
+    let module = parse(
+        "def f (a b: Nat) [c d: Type]: Nat := 0\n\
+         def g: (a b: Nat) -> Nat\n\
+         def h: Prop := ∀ (a b: Nat) [c d: Type] => True\n\
+         type T (a b: Type) = | C (x y: a) [m n: Nat] (z: b := 1)\n\
+         ability A (s t: Type) where\n  get: () -> s\n",
+    );
+    let Decl::Signature { ty, .. } = &module.decls[0] else {
+        panic!("expected a signature");
+    };
+    assert_eq!(spine_names(ty), [["a"], ["b"], ["c"], ["d"]]);
+    let Decl::Signature { ty, .. } = &module.decls[2] else {
+        panic!("expected a signature");
+    };
+    assert_eq!(spine_names(ty), [["a"], ["b"]]);
+    let Some(Decl::Equation { rhs: Some(rhs), .. }) = module.decls.get(4) else {
+        panic!("expected an equation");
+    };
+    assert_eq!(spine_names(rhs), [["a"], ["b"], ["c"], ["d"]]);
+    let Decl::Data {
+        params,
+        auto_params,
+        ctors,
+        ..
+    } = &module.decls[5]
+    else {
+        panic!("expected a data type");
+    };
+    let one = |bs: &[Binder]| bs.iter().map(|b| b.names.len()).collect::<Vec<_>>();
+    assert_eq!(one(params), [1, 1]);
+    assert_eq!(auto_params, &[false, false]);
+    assert_eq!(one(&ctors[0].fields), [1, 1, 1, 1, 1]);
+    assert_eq!(ctors[0].implicit, [false, false, true, true, false]);
+    assert_eq!(ctors[0].defaults.len(), 5);
+    let Decl::Ability { params, .. } = &module.decls[6] else {
+        panic!("expected an ability");
+    };
+    assert_eq!(one(params), [1, 1]);
+}
+
 #[test]
 fn parses_auto_binders_and_absurd_patterns() {
     let module = parse(
@@ -160,7 +215,11 @@ fn parses_auto_binders_and_absurd_patterns() {
     let Decl::Signature { ty, .. } = &module.decls[0] else {
         panic!("expected a signature");
     };
+    // `(n d : Nat)` is a binder per name, `d`'s inside `n`'s.
     let Expr::Pi { cod, .. } = ty else {
+        panic!("expected a function type");
+    };
+    let Expr::Pi { cod, .. } = cod.as_ref() else {
         panic!("expected a function type");
     };
     assert!(

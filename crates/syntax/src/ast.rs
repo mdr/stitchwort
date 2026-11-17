@@ -1139,6 +1139,24 @@ pub struct Binder {
     pub attrs: Vec<Attribute>,
 }
 
+impl Binder {
+    /// A binder per name, each with its own copy of the type and
+    /// attributes: a group `(a b: T)` is shorthand for `(a: T) (b: T)`
+    /// (D3679), so each name's type is checked on its own and a hole or an
+    /// implicit argument in it is worked out separately for each.
+    pub fn split(self) -> Vec<Binder> {
+        let Binder { names, ty, attrs } = self;
+        names
+            .into_iter()
+            .map(|name| Binder {
+                names: vec![name],
+                ty: ty.clone(),
+                attrs: attrs.clone(),
+            })
+            .collect()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CtorDecl {
     /// The attributes written after the constructor's `|`.

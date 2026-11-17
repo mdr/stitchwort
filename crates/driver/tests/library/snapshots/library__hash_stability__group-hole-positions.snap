@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.f e8e2b70c02dbfbd197d12a1236c3e19b232903d492ce3a44c283dd37d3e2f765
+Main.g e8e2b70c02dbfbd197d12a1236c3e19b232903d492ce3a44c283dd37d3e2f765
