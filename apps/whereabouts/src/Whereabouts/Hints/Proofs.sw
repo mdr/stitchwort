@@ -594,9 +594,9 @@ theorem ceilTenthAbove ∀ (x c: Float) (g: Int) (e: Nat)
     (notAbove => arithmetic [notAbove, close])
 
 --| A sum of `g` within 361° (`g` in units of 2^-1074, `w` = 2^1030) and
---| `n`: the rounded sum `s` is at least `g + n` less one `w`. The standard
+--| `n` of size 3w: the rounded sum `s` is within one `w` of `g + n`. The standard
 --| model bounds `s`'s size; the sign cases give its direction.
-theorem roundedSumAbove ∀ (g n s: Int) (w t: Nat)
+theorem roundedSumWithin ∀ (g n s: Int) (w t: Nat)
     (w2: 2 ≤ w)
     (gLo: Int.leq (Int.neg (OfNat (w * 6350779162034176))) g = True)
     (gHi: Int.leq g (OfNat (w * 6350779162034176)) = True)
@@ -696,7 +696,7 @@ theorem slackSum ∀ (g d: Float)
             (J (y z => Int.leq sum y = True) (intLeOfLess sum (OfNat 0) below) zero.flipped)
             (b => byComputing)
         Inr (Both below (J (y z => Int.leq s y = True) (Float.Theory.unitsMonoKey (g + d).bits 0.0.bits atMost) zero)))
-  roundedSumAbove (Float.Theory.units g) (Float.Theory.units d) s w (1 * Nat.pow 2 2097) w2 gLo gHi dSize err sign
+  roundedSumWithin (Float.Theory.units g) (Float.Theory.units d) s w (1 * Nat.pow 2 2097) w2 gLo gHi dSize err sign
 
 theorem slackCloseBelow ∀ (g d c: Int) (w e: Nat)
     (ed: d = Int.neg (OfNat (3 * w)))
@@ -837,7 +837,7 @@ theorem unitsWithin361 ∀ (g: Float)
       (Float.Theory.unitsMonoKey g.bits 361.0.bits hi)
       (byComputing: Float.Theory.units 361.0 = OfNat (Float.Model.pow2 1030 * 6350779162034176)))
 
---| The sum of two doubles within 361° is at most 2^-43 above the exact
+--| The sum of two doubles within 361° is finite and within 2^-43 of the exact
 --| sum, in units of 2^-1074: the standard model for `+`, with the sign
 --| of the rounded sum following the exact one's.
 theorem sumNear ∀ (g d: Float)
@@ -1305,3 +1305,67 @@ theorem marginAboveExact ∀ (lat width unit: Float)
     s1.right.left
     s2.right.left
     (Float.Theory.unitsMonoKey (c + width).bits (fr + width).bits t1)
+
+-- Longitude: `wrap` on whole degrees
+
+--| Where `wrap` sends the whole number `n` of degrees: `n` shifted by a
+--| multiple of 360 into [-180, 180).
+def wrappedDegrees (n: Int): Int := Int.sub (OfNat (Int.modNat (Int.add n (OfNat 180)) 360)) (OfNat 180)
+
+def wrapCheck (n: Int): Bool :=
+  Nat.equal (wrap (wholeAt n False)).bits (wholeAt (wrappedDegrees n) False).bits
+    ∧ Nat.equal (wrap (wholeAt n True)).bits (wholeAt (wrappedDegrees n) False).bits
+
+def wrapRow (j: Nat): Bool := wrapCheck (Int.sub (OfNat j) (OfNat 400))
+
+--| `wrap` is exact on every whole number of degrees from -400 to 400.
+theorem wrapTable: List.all (List.range 0 (800 + 1)) wrapRow = True := byComputing
+
+theorem wrapRowIndex ∀ (i: Int)
+    (h: Int.natAbs i ≤ 400):
+    Int.sub (OfNat (Int.natAbs (Int.add i (OfNat 400)))) (OfNat 400) = i :=
+  arithmetic [h]
+
+theorem wrapRowBelow ∀ (i: Int) (h: Int.natAbs i ≤ 400): Int.natAbs (Int.add i (OfNat 400)) ≤ 800 := arithmetic [h]
+
+theorem wrappedSize ∀ (r: Nat) (h: r < 360): Int.natAbs (Int.sub (OfNat r) (OfNat 180)) ≤ 9007199254740992 :=
+  arithmetic [h]
+
+theorem wrapAtSign ∀ (n: Int) (s: Bool)
+    (check: wrapCheck n = True):
+    (wrap (wholeAt n s)).bits = (wholeAt (wrappedDegrees n) False).bits :=
+  match s with
+    | False => Nat.equalSound (wrap (wholeAt n False)).bits (wholeAt (wrappedDegrees n) False).bits (Bool.andLeft check)
+    | True => Nat.equalSound (wrap (wholeAt n True)).bits (wholeAt (wrappedDegrees n) False).bits (Bool.andRight check)
+
+--| `wrap` of a whole number `n` of degrees, up to 400 in size, is exactly
+--| `wrappedDegrees n`: `n` shifted by a multiple of 360 into [-180, 180).
+--| (Tenths are another matter: `wrapTenth`.) Checked for each `n`, both
+--| zero signs included.
+theorem wrapWholeExact ∀ (e: Float) (n: Int)
+    (fe: Float.isFinite e = True)
+    (whole: Float.Theory.units e = Int.mul n (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs n ≤ 400):
+    Float.Theory.units (wrap e) = Int.mul (wrappedDegrees n) (OfNat (Float.Model.pow2 1074)) :=
+  let a: Nat := e.bits
+  let sb: Bool := Float.Model.signBit a
+  let eb: e.bits = Float.Model.roundScaled n 0 sb := calc e.bits
+    _ = Float.Model.roundRatio (Float.Model.units a) 1 (-1074) sb :=
+      (Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteBits e fe)).flipped
+    _ = Float.Model.roundRatio (Int.mul n (OfNat (Float.Model.pow2 1074))) 1 (-1074) sb :=
+      Eq.cong (u => Float.Model.roundRatio u 1 (-1074) sb) whole
+    _ = Float.Model.roundScaled n 0 sb := (Float.Theory.roundWhole n sb).flipped
+  let j: Nat := Int.natAbs (Int.add n (OfNat 400))
+  let row: wrapRow j = True :=
+    List.allBetweenElim [q := wrapRow] [lo := 0] [hi := 800] wrapTable [k := j] (arithmetic) (wrapRowBelow n h)
+  let check: wrapCheck n = True := J (y w => wrapCheck y = True) row (wrapRowIndex n h)
+  let m: Int := wrappedDegrees n
+  let same: (wrap (wholeAt n sb)).bits = (wholeAt m False).bits := wrapAtSign n sb check
+  let target: (wholeAt m False).bits = Float.Model.roundScaled m 0 False :=
+    Float.Theory.ofBitsBits (Float.Model.roundScaled m 0 False) (wholeAtValid m False)
+  let mu :=
+    Float.Theory.roundScaledWhole m False
+      (wrappedSize (Int.modNat (Int.add n (OfNat 180)) 360) (Int.modNatLt (Int.add n (OfNat 180)) 360))
+  let wb: (wrap e).bits = Float.Model.roundScaled m 0 False :=
+    Eq.trans (J (y w => (wrap y).bits = (wholeAt m False).bits) same (wholeAtOf e n sb eb).flipped) target
+  J (b w => Float.Model.units b = Int.mul m (OfNat (Float.Model.pow2 1074))) mu.right wb.flipped
