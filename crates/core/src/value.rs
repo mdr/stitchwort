@@ -901,15 +901,61 @@ pub fn force_solved(g: &Ev, value: Value) -> Result<Value> {
         {
             return force(g, value);
         }
-        let mut applied = solution;
-        for elim in spine.iter() {
-            let Elim::App(arg, icit) = elim else {
-                unreachable!("checked above")
-            };
-            applied = apply_icit(g, applied, arg.clone(), *icit)?;
-        }
-        value = applied;
+        let args: Vec<(Value, Icit)> = (spine.iter())
+            .map(|elim| match elim {
+                Elim::App(arg, icit) => (arg.clone(), *icit),
+                _ => unreachable!("checked above"),
+            })
+            .collect();
+        value = apply_all(g, solution, &args)?;
     }
+}
+
+/// `f` applied to `args` in turn, a closure's run of lambdas taking its
+/// arguments at once ([`enter_run`]).
+fn apply_all(g: &Ev, mut f: Value, args: &[(Value, Icit)]) -> Result<Value> {
+    let mut next = 0;
+    while next < args.len() {
+        if let Value::Lam(_, _, closure) = &f {
+            let (body, env, taken) = enter_run(closure, args[next..].iter().map(|(a, _)| a));
+            f = run(g, Control::Eval(body, env))?;
+            next += taken;
+        } else {
+            let (arg, icit) = &args[next];
+            f = apply_icit(g, f, arg.clone(), *icit)?;
+            next += 1;
+        }
+    }
+    Ok(f)
+}
+
+/// Applying `closure` to the first of `args` and then, while its body is
+/// another lambda, the result to the next, without making the closures in
+/// between: the body reached, its environment, and how many arguments it
+/// took (at least one). A metavariable's solution is a function of every
+/// variable in scope where it was made, and is applied to all of them each
+/// time it is forced; entering each lambda on its own copies the
+/// environment to add one, quadratic in the variables (SW-3726).
+fn enter_run<'a>(
+    closure: &Closure,
+    args: impl Iterator<Item = &'a Value>,
+) -> (Rc<Term>, Env, usize) {
+    let mut args = args.peekable();
+    let mut env: Vec<Value> = closure.env.to_vec();
+    env.extend(args.next().cloned());
+    let mut body = &closure.body;
+    loop {
+        match &**body {
+            Term::Loc(_, inner) => body = inner,
+            Term::Lam(_, _, inner) if args.peek().is_some() => {
+                env.extend(args.next().cloned());
+                body = inner;
+            }
+            _ => break,
+        }
+    }
+    let taken = env.len() - closure.env.len();
+    (body.clone(), env.into(), taken)
 }
 
 /// Glued call `id spine` unfolded one step: its case tree run, the calls in
@@ -2149,6 +2195,25 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         }
         Frame::Replay { spine, next } => match spine.get(next) {
             None => Control::Force(value),
+            Some(Elim::App(..)) if matches!(value, Value::Lam(..)) => {
+                let Value::Lam(_, _, closure) = &value else {
+                    unreachable!("matched above")
+                };
+                let args = spine[next..].iter().map_while(|e| match e {
+                    Elim::App(arg, _) => Some(arg),
+                    _ => None,
+                });
+                let (body, env, taken) = enter_run(closure, args);
+                push(
+                    g,
+                    stack,
+                    Frame::Replay {
+                        spine,
+                        next: next + taken,
+                    },
+                )?;
+                Control::Eval(body, env)
+            }
             Some(Elim::App(arg, icit)) => {
                 let (arg, icit) = (arg.clone(), *icit);
                 push(
