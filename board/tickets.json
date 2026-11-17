@@ -1,5 +1,5 @@
 {
-  "next": 3751,
+  "next": 3752,
   "tickets": [
     {
       "id": 47,
@@ -42198,12 +42198,12 @@
     {
       "id": 3749,
       "title": "[Sonnet] Toy++ T7 close (toy-plus-plus.md §5 T7, §6): the timing for D3636 (1 MB Sprig++ file, native, instruction counts plus seconds), the disturber's five new changes, NOTES with friction and theorem counts by layer, tag toy-v2",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (Sonnet lane, 17 Nov 2026): timing done (whole format 2.43 s/MB, 2.82 with the harness's print; bar 3.0 passes; passes+settle 3.8% of instructions); disturber's five changes added and tested; NOTES \"Toy++ closed\" section written; tag toy-v2 on the lane's final commit. Commits f1719c0a9 (NOTES), 8cb3313df (timing, disturber).\n",
+      "body": "\n\nProgress (Sonnet lane, 17 Nov 2026): timing done (whole format 2.43 s/MB, 2.82 with the harness's print; bar 3.0 passes; passes+settle 3.8% of instructions); disturber's five changes added and tested; NOTES \"Toy++ closed\" section written; tag toy-v2 on the lane's final commit. Commits f1719c0a9 (NOTES), 8cb3313df (timing, disturber).\n\nModel result: sonnet, worked, 15 min (est. 30). Timing passes the D3636 bar: 2.43 s/MB vs 3.0 (baseline 2.05), passes+settle 3.8%. Follow-up SW-3751.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42216,6 +42216,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3751,
+      "title": "[DeepSeek] toyfmt disturber: weak seed mixing (state = seed * 7919 + 17), so the first roll barely varies over seeds 0-49 and one-candidate changes never fire; hash the seed or throw away a roll (Toy++ T7 finding, SW-3749)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
