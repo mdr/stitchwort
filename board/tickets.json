@@ -1,5 +1,5 @@
 {
-  "next": 3884,
+  "next": 3886,
   "tickets": [
     {
       "id": 47,
@@ -22648,12 +22648,12 @@
     {
       "id": 3882,
       "title": "[Opus] meaning, per the SW-3878 review: leave comments out (orchestrator's call, D3678) and drop every comment test (Group.bare, noComments) from meaning; correct its doc's grounds (compiler reads the head's first token; group split cites the compiler); forget ∀ on every header; atomic as a list of what may be forgotten; state tidyKeepsComments (order, text, own-line or trailing, blank line above; same token except a deleted comma's; doc-comment blank lines kept). After SW-3881",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "18:50 started (est. 35 min). 18:58 done, commit 1d6f7e016: meaning has no comment test (bare, Group.bare, noComments out), ∀ absent on every header, doc grounds per review S3 + D3679; CommentsKept (tidyKeepsComments's Prop) in Meaning.sw. No proof statement changed. Open: meaning's value still holds Words' comments (compared blanked; dump prints none) - stage 5 decides dump-level statement or a blanking map. Tests: fmt check, test 75/75, fmt-twin passes goldens 128/128, --stage meaning kept 128/128.\n",
+      "body": "18:50 started (est. 35 min). 18:58 done, commit 1d6f7e016: meaning has no comment test (bare, Group.bare, noComments out), ∀ absent on every header, doc grounds per review S3 + D3679; CommentsKept (tidyKeepsComments's Prop) in Meaning.sw. No proof statement changed. Open: meaning's value still holds Words' comments (compared blanked; dump prints none) - stage 5 decides dump-level statement or a blanking map. Tests: fmt check, test 75/75, fmt-twin passes goldens 128/128, --stage meaning kept 128/128.\n\nModel result: opus, worked, 9 min (est. 35). Follow-ups SW-3884 SW-3885; S4 oracle is SW-3883.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22661,6 +22661,32 @@
     {
       "id": 3883,
       "title": "[Sonnet] An oracle for the self-hosted formatter's meaning: check both sides of a meaning-equal pair and compare declaration hashes, with generated inputs for the group-split and head-bracket shapes; catches a wrong meaning, which Twin --stage meaning cannot (SW-3878 S4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3884,
+      "title": "[Opus] Stage 5 planning: make meaning genuinely comment-free (today a meaning still stores every token's comments, unread). Options: (a) Meaning as the dump of the plain tree (least code; trusts the dump, which Twin already does; proofs then go through the dumper), (b) a map blanking every comment (~90 places of trusted code). Orchestrator's call under D3678 when stage 5's top theorem is set up, weighing proof cost (SW-3882 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3885,
+      "title": "[DeepSeek] dev/fmt-twin: add a meaning stage (Fmt.Twin has one; lanes loop over files by hand) (SW-3882 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
