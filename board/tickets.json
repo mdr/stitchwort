@@ -22949,12 +22949,12 @@
     {
       "id": 3905,
       "title": "[Sonnet] Engine E1: stitchwort dev doc writes each declaration's layout document; Fmt.Twin --stage engine prints and compares it (docs/proposals/self-hosted-fmt-engine-plan.md stage E1)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Sonnet lane): dev doc + Fmt.DocDump + --stage engine + dev/fmt-twin engine done. Baseline goldens: 22 matched, 0 mismatched, 622 unsupported. Repo: 4303 matched, 0 mismatched, 29838 unsupported, 390 oversized. First attempt serialised Shared docs as trees (300 MB dumps, a 1.8 GB run on Day16 Proofs/Parse.sw); fixed with Shared/Ref and a size line.\nModel result: Sonnet, worked, 55 min (est. 35)\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
