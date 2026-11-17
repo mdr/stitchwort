@@ -22531,12 +22531,12 @@
     {
       "id": 3873,
       "title": "[Sonnet] std Float candidates from Whereabouts: unitsNeg, sumNear (two-sided addRelError with signs handled), and the cancel-the-scale lemmas absDiffBelow, scaleLeft, scaleRight, shareErrorScaled: move to Float.Theory with docs (SW-3858 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Lane notes: moved to std/Float/Theory.sw (all additions): Float.Theory.unitsNeg (+signFlipBits, signedNot), sumNear (generalised: bounds lo/hi Float, units bound m ≤ 7e15 w; +roundedSumNear, sumSmallNear, leTrans, intLessZeroOfNotNonneg, intLeOfLess), relCancelUp/Down/relCancel, relCancelScaled (was shareErrorScaled; +scaleLeft, scaleRight, scaledAbsDiffLe (was absDiffBelow, name taken)), remUnitsExact, addWholeExact, Float.mulBetween. Whereabouts keeps a thin sumNear361 instance. Audit Whereabouts.Hints.Proofs 0 failed. prelude snapshot re-accepted, search:: 15 pass, fmt_repo pass.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22700,12 +22700,12 @@
     {
       "id": 3886,
       "title": "[Sonnet] std Float candidates from Whereabouts (SW-3872): remUnitsExact (exact value of x % y, which remExact proves but doesn't state), addWholeExact, relCancel, mulBetween; move to Float.Theory with docs (add to SW-3873's batch)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Lane notes: moved to std/Float/Theory.sw (all additions): Float.Theory.unitsNeg (+signFlipBits, signedNot), sumNear (generalised: bounds lo/hi Float, units bound m ≤ 7e15 w; +roundedSumNear, sumSmallNear, leTrans, intLessZeroOfNotNonneg, intLeOfLess), relCancelUp/Down/relCancel, relCancelScaled (was shareErrorScaled; +scaleLeft, scaleRight, scaledAbsDiffLe (was absDiffBelow, name taken)), remUnitsExact, addWholeExact, Float.mulBetween. Whereabouts keeps a thin sumNear361 instance. Audit Whereabouts.Hints.Proofs 0 failed. prelude snapshot re-accepted, search:: 15 pass, fmt_repo pass.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

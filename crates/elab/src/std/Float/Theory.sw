@@ -6666,3 +6666,361 @@ test "Float.roundNear" :=
     ∧ Float.round 1.5 == 2.0
     ∧ Float.round (-2.5) == -2.0
     ∧ Float.round (-2.5000000000000004) == -3.0
+
+-- Lemmas moved from the Whereabouts app (SW-3873, SW-3886)
+
+--| Flipping the sign bit of a 64-bit word flips `signBit`.
+theorem Float.Theory.signFlipBits ∀ (n: Nat)
+    (v: n < 18446744073709551616):
+    Float.Model.signBit (Float.flipSignBits n) = ¬(Float.Model.signBit n) :=
+  match c: Nat.leq 9223372036854775808 n with
+    | True =>
+      let c2: Nat.leq 9223372036854775808 (n - 9223372036854775808) = False := arithmetic [c, v]
+      rewrite c2
+    | False =>
+      let c2: Nat.leq 9223372036854775808 (n + 9223372036854775808) = True := arithmetic
+      rewrite c2
+
+--| `Int.signed` with the opposite sign is the negation.
+theorem Float.Theory.signedNot ∀ (s: Bool) (m: Nat): Int.signed (¬s) m = Int.neg (Int.signed s m) := match s with
+  | True => Float.Theory.signedFlip False m
+  | False => Float.Theory.signedFlip True m
+
+--| Negation negates units, for every double but the NaN: `units (-x) = -units x`.
+theorem Float.Theory.unitsNeg ∀ (x: Float)
+    (nx: Float.isNaN x = False):
+    Float.Theory.units (-x) = Int.neg (Float.Theory.units x) :=
+  let n: Nat := x.bits
+  let v: n < 18446744073709551616 := Float.Theory.bitsBelow x
+  let flip: Float.Model.units (Float.flipSignBits n) = Int.neg (Float.Model.units n) := calc Float.Model.units
+    (Float.flipSignBits n)
+    _ = Int.signed
+        (Float.Model.signBit (Float.flipSignBits n))
+        (Float.Theory.magUnits (Float.Model.magnitude (Float.flipSignBits n))) :=
+      Float.Theory.unitsMag (Float.flipSignBits n)
+    _ = Int.signed (¬(Float.Model.signBit n)) (Float.Theory.magUnits (Float.Model.magnitude n)) :=
+      Eq.cong2
+        (s m => Int.signed s (Float.Theory.magUnits m))
+        (Float.Theory.signFlipBits n v)
+        (Float.Theory.magFlip n v)
+    _ = Int.neg (Int.signed (Float.Model.signBit n) (Float.Theory.magUnits (Float.Model.magnitude n))) :=
+      Float.Theory.signedNot (Float.Model.signBit n) (Float.Theory.magUnits (Float.Model.magnitude n))
+    _ = Int.neg (Float.Model.units n) := Eq.cong Int.neg (Float.Theory.unitsMag n).flipped
+  J (b w => Float.Model.units b = Int.neg (Float.Model.units n)) flip (Float.Theory.negBits x nx).flipped
+
+--| `<=` on doubles is transitive.
+theorem Float.Theory.leTrans ∀ (x y z: Float) (xy: x <= y) (yz: y <= z): x <= z :=
+  let a: Int.leq (Float.orderKey x) (Float.orderKey y) = True := xy
+  let b: Int.leq (Float.orderKey y) (Float.orderKey z) = True := yz
+  (arithmetic: Int.leq (Float.orderKey x) (Float.orderKey z) = True)
+
+--| A negative integer: not at least zero.
+theorem Float.Theory.intLessZeroOfNotNonneg ∀ (a: Int) (h: Int.leq (OfNat 0) a = False): Int.less a (OfNat 0) = True :=
+  arithmetic [h]
+
+--| Strictly below is at most.
+theorem Float.Theory.intLeOfLess ∀ (a b: Int) (h: Int.less a b = True): Int.leq a b = True := arithmetic [h]
+
+--| `a * m ≤ b * m + c` when `a` and `b` are within `c / m` of each other: the
+--| one-sided half of an absolute-difference bound after scaling by `m`.
+theorem Float.Theory.scaledAbsDiffLe ∀ (a b m c: Nat) (h: Nat.absDiff a b * m ≤ c): a * m ≤ b * m + c :=
+  let d: Nat := Nat.absDiff a b
+  let s: a * m ≤ (b + d) * m := Nat.leMulRight a (b + d) m (arithmetic)
+  let e: (b + d) * m = b * m + d * m := algebra
+  arithmetic [s, e, h]
+
+--| The error model's bound with the common unit `p` cancelled, from above:
+--| `|a p − c p| k ≤ c p + p h` gives `a k ≤ c k + c + h`.
+theorem Float.Theory.relCancelUp ∀ (a c p k h: Nat)
+    (pp: 0 < p)
+    (err: Nat.absDiff (a * p) (c * p) * k ≤ c * p + p * h):
+    a * k ≤ c * k + c + h :=
+  let s: a * p * k ≤ c * p * k + (c * p + p * h) := Float.Theory.scaledAbsDiffLe (a * p) (c * p) k (c * p + p * h) err
+  let e1: a * p * k = a * k * p := algebra
+  let e2: c * p * k + (c * p + p * h) = (c * k + c + h) * p := algebra
+  Float.Theory.cancelLe (a * k) (c * k + c + h) p pp (rewrite e1.flipped, e2.flipped then s)
+
+--| The same bound from below: `c k ≤ a k + c + h`.
+theorem Float.Theory.relCancelDown ∀ (a c p k h: Nat)
+    (pp: 0 < p)
+    (err: Nat.absDiff (a * p) (c * p) * k ≤ c * p + p * h):
+    c * k ≤ a * k + c + h :=
+  let s: c * p * k ≤ a * p * k + (c * p + p * h) :=
+    Float.Theory.scaledAbsDiffLe (c * p) (a * p) k (c * p + p * h) (rewrite Nat.absDiffComm (c * p) (a * p) then err)
+  let e1: c * p * k = c * k * p := algebra
+  let e2: a * p * k + (c * p + p * h) = (a * k + c + h) * p := algebra
+  Float.Theory.cancelLe (c * k) (a * k + c + h) p pp (rewrite e1.flipped, e2.flipped then s)
+
+--| The error model's two-sided bound with the common unit `p` cancelled: for
+--| `aa = a p`, `cc = c p` and `hh = p h`, `|aa − cc| k ≤ cc + hh` gives both
+--| `a k ≤ c k + c + h` and `c k ≤ a k + c + h`. (The equations let a caller
+--| state the bound on its own terms, such as `Float.addRelError`'s.)
+theorem Float.Theory.relCancel ∀ (a c p k h aa cc hh: Nat)
+    (pp: 0 < p)
+    (ea: aa = a * p)
+    (ec: cc = c * p)
+    (eh: hh = p * h)
+    (err: Nat.absDiff aa cc * k ≤ cc + hh):
+    (a * k ≤ c * k + c + h) ∧ (c * k ≤ a * k + c + h) :=
+  let e: Nat.absDiff (a * p) (c * p) * k ≤ c * p + p * h := rewrite ea.flipped, ec.flipped, eh.flipped then err
+  Both (Float.Theory.relCancelUp a c p k h pp e) (Float.Theory.relCancelDown a c p k h pp e)
+
+--| Regrouping for `relCancelScaled`: `r (v m) m = r (m m) v`.
+theorem Float.Theory.scaleLeft ∀ (r v m: Nat): r * (v * m) * m = r * (m * m) * v := algebra
+
+--| Regrouping for `relCancelScaled`.
+theorem Float.Theory.scaleRight ∀ (wd v k m h: Nat):
+    v * k * wd * m + (v * k * wd + v * m * h) = (wd * (k * m + k) + m * h) * v :=
+  algebra
+
+--| The error model's bound when both sides carry a scale `v` (and one a
+--| further `m`): `|r v m − v k wd| m ≤ v k wd + v m h` gives
+--| `r m m ≤ wd (k m + k) + m h`, with `v` cancelled.
+theorem Float.Theory.relCancelScaled ∀ (r wd v k m h: Nat)
+    (pv: 0 < v)
+    (err: Nat.absDiff (r * (v * m)) (v * k * wd) * m ≤ v * k * wd + v * m * h):
+    r * (m * m) ≤ wd * (k * m + k) + m * h :=
+  let a: r * (v * m) * m ≤ v * k * wd * m + (v * k * wd + v * m * h) :=
+    Float.Theory.scaledAbsDiffLe (r * (v * m)) (v * k * wd) m (v * k * wd + v * m * h) err
+  let b: r * (m * m) * v ≤ (wd * (k * m + k) + m * h) * v :=
+    rewrite (Float.Theory.scaleLeft r v m).flipped, (Float.Theory.scaleRight wd v k m h).flipped then a
+  Float.Theory.cancelLe (r * (m * m)) (wd * (k * m + k) + m * h) v pv b
+
+--| Multiplying a double known to lie between two finite ones by a
+--| non-negative finite `c`, when the products with the bounds are finite,
+--| keeps it finite and between the products.
+theorem Float.mulBetween ∀ (lo x hi c: Float)
+    (flo: Float.isFinite lo = True)
+    (fhi: Float.isFinite hi = True)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True)
+    (hc: 0.0 <= c)
+    (flc: Float.isFinite (lo * c) = True)
+    (fhc: Float.isFinite (hi * c) = True)
+    (a: lo <= x)
+    (b: x <= hi):
+    (Float.isFinite (x * c) = True) ∧ ((lo * c <= x * c) ∧ (x * c <= hi * c)) :=
+  let l: lo * c <= x * c := Float.mulMonotoneLeft lo x c flo fx fc hc a
+  let r: x * c <= hi * c := Float.mulMonotoneLeft x hi c fx fhi fc hc b
+  Both (Float.finiteBetween (lo * c) (x * c) (hi * c) flc fhc l r) (Both l r)
+
+--| `x % y` is exact for finite `x` and a finite non-zero `y`: its units are
+--| `x`'s size less the largest whole number of `y`'s that fits (the quotient
+--| `Nat.divFuel` finds), with `x`'s sign. `Float.remExact` bounds the result's
+--| size; this gives its value.
+theorem Float.Theory.remUnitsExact ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False):
+    Float.Theory.units (x % y)
+      = Int.signed
+        (Float.Model.signBit x.bits)
+        (Int.natAbs (Float.Theory.units x)
+          - Nat.divFuel
+            (Int.natAbs (Float.Theory.units x))
+            (Int.natAbs (Float.Theory.units x))
+            (Int.natAbs (Float.Theory.units y))
+            * Int.natAbs (Float.Theory.units y)) :=
+  let a: Nat := x.bits
+  let b: Nat := y.bits
+  let fa: Float.Theory.FiniteBits a := Float.Theory.finiteBits x fx
+  let fb: Float.Theory.FiniteBits b := Float.Theory.finiteBits y fy
+  let zb: Float.Model.isZero b = False := Float.Theory.modelNotZero y zy
+  let s: Bool := Float.Model.signBit a
+  let m: Nat := Int.natAbs (Float.Model.units a)
+  let d: Nat := Int.natAbs (Float.Model.units b)
+  let q: Nat := Nat.divFuel m m d
+  let r: Nat := m - q * d
+  let mm: m = Float.Theory.magUnits (Float.Model.magnitude a) := Float.Theory.natAbsUnits a
+  let dd: d = Float.Theory.magUnits (Float.Model.magnitude b) := Float.Theory.natAbsUnits b
+  let magPos: 0 < Float.Model.magnitude b := arithmetic [zb]
+  let dpos: 0 < d := J (y w => 0 < y) (Float.Theory.magUnitsLess 0 (Float.Model.magnitude b) magPos) dd.flipped
+  let low: q * d ≤ m := Nat.divFuelLe m m d
+  let high: m < Succ q * d := Nat.divFuelBound m m d (Nat.nonzeroOfPos d dpos) (Nat.leRefl m)
+  let lt: r < d := arithmetic [low, high, Float.Theory.succMul q d]
+  let qd: q * d = q * Float.Theory.magUnits (Float.Model.magnitude b) := Eq.cong (t => q * t) dd
+  let ex: (Float.Theory.FiniteBits (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s))
+    ∧ (Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s) = Int.signed s r) :=
+    Float.Theory.combinationExact
+      (Float.Model.magnitude a)
+      (Float.Model.magnitude b)
+      r
+      1
+      q
+      s
+      s
+      fa
+      (arithmetic [low, mm, qd])
+      (arithmetic [low, mm])
+      (arithmetic [lt, dd])
+  let rb: Float.Model.remBits a b = Float.Model.roundRatio (Int.signed s r) 1 (-1074) s :=
+    Float.Theory.remFiniteBits a b fa fb zb
+  calc Float.Theory.units (x % y)
+    _ = Float.Model.units (Float.Model.remBits a b) := Eq.cong Float.Model.units (Float.Theory.remOfBits x y fx fy zy)
+    _ = Float.Model.units (Float.Model.roundRatio (Int.signed s r) 1 (-1074) s) := Eq.cong Float.Model.units rb
+    _ = Int.signed s r := ex.right
+
+--| The sum of two finite doubles that are whole numbers, `f` and `k` whole
+--| units of 2^-1074 each, is finite and exactly the sum, when that sum is at
+--| most 2^53 in size (`Float.Theory.addWhole` with the sum's finiteness).
+theorem Float.Theory.addWholeExact ∀ (y c: Float) (f k: Int)
+    (fy: Float.isFinite y = True)
+    (fc: Float.isFinite c = True)
+    (uy: Float.Theory.units y = Int.mul f (OfNat (Float.Model.pow2 1074)))
+    (uc: Float.Theory.units c = Int.mul k (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs (Int.add f k) ≤ 9007199254740992):
+    (Float.isFinite (y + c) = True)
+      ∧ (Float.Theory.units (y + c) = Int.mul (Int.add f k) (OfNat (Float.Model.pow2 1074))) :=
+  let z: Bool := Float.Model.signBit y.bits ∧ Float.Model.signBit c.bits
+  let rb: (y + c).bits = Float.Model.roundScaled (Int.add f k) 0 z := calc (y + c).bits
+    _ = Float.Model.roundRatio (Int.add (Float.Theory.units y) (Float.Theory.units c)) 1 (-1074) z :=
+      Float.Theory.addBitsOf y c fy fc
+    _ = Float.Model.roundRatio (Int.mul (Int.add f k) (OfNat (Float.Model.pow2 1074))) 1 (-1074) z :=
+      Eq.cong
+        (u => Float.Model.roundRatio u 1 (-1074) z)
+        (Eq.trans (Eq.cong2 Int.add uy uc) (Float.Theory.addMulRight f k (Float.Model.pow2 1074)))
+    _ = Float.Model.roundScaled (Int.add f k) 0 z := (Float.Theory.roundWhole (Int.add f k) z).flipped
+  let rs := Float.Theory.roundScaledWhole (Int.add f k) z h
+  Both
+    (Float.Theory.isFiniteOf (y + c) (J (b w => Float.Theory.FiniteBits b) rs.left rb.flipped))
+    (J (b w => Float.Model.units b = Int.mul (Int.add f k) (OfNat (Float.Model.pow2 1074))) rs.right rb.flipped)
+
+--| The integers' side of `Float.Theory.sumNear`: `g` and `n` are at most `m`
+--| in size, with `m ≤ 7e15 w` and `w ≥ 2`. A rounded sum `s` that meets
+--| `Float.addRelError`'s bound (`2^53 ||s| − |g + n|| ≤ |g + n| + 2^52`) and
+--| has the exact sum's sign is within `2 w` of it.
+theorem Float.Theory.roundedSumNear ∀ (g n s: Int) (w m: Nat)
+    (w2: 2 ≤ w)
+    (mw: m ≤ w * 7000000000000000)
+    (gLo: Int.leq (Int.neg (OfNat m)) g = True)
+    (gHi: Int.leq g (OfNat m) = True)
+    (nLo: Int.leq (Int.neg (OfNat m)) n = True)
+    (nHi: Int.leq n (OfNat m) = True)
+    (err: Nat.absDiff (Int.natAbs s * 1) (Int.natAbs (Int.add g n)) * 9007199254740992
+      ≤ Int.natAbs (Int.add g n) + 1 * 4503599627370496)
+    (sign: ((Int.leq (OfNat 0) (Int.add g n) = True) ∧ (Int.leq (OfNat 0) s = True))
+      ∨ ((Int.less (Int.add g n) (OfNat 0) = True) ∧ (Int.leq s (OfNat 0) = True))):
+    (Int.leq (Int.add g n) (Int.add s (OfNat (w * 2))) = True)
+      ∧ (Int.leq s (Int.add (Int.add g n) (OfNat (w * 2))) = True) :=
+  match sign with
+    | Inl b =>
+      let b1 := b.left
+      let b2 := b.right
+      Both (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2]) (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2])
+    | Inr b =>
+      let b1 := b.left
+      let b2 := b.right
+      Both (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2]) (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2])
+
+--| The sum of two units of size at most `m ≤ 7e15 w`, `w ≥ 1`, is below `t`
+--| when `w · 10^18 ≤ t`.
+theorem Float.Theory.sumSmallNear ∀ (g n: Int) (w m t: Nat)
+    (w2: 2 ≤ w)
+    (mw: m ≤ w * 7000000000000000)
+    (gLo: Int.leq (Int.neg (OfNat m)) g = True)
+    (gHi: Int.leq g (OfNat m) = True)
+    (nLo: Int.leq (Int.neg (OfNat m)) n = True)
+    (nHi: Int.leq n (OfNat m) = True)
+    (top: w * 1000000000000000000 ≤ t):
+    Int.natAbs (Int.add g n) < t :=
+  arithmetic [w2, mw, gLo, gHi, nLo, nHi, top]
+
+--| The sum of two doubles in `[lo, hi]` is finite and within `2 w` units
+--| (2^-1074 each) of the exact sum, both ways: the standard model for `+`
+--| (`Float.addRelError`) with the sign of the rounded sum following the exact
+--| one's. The bounds are given as doubles and by their units: `m`, at most
+--| `7e15 w`, bounds the units of `lo` and `hi` in size, and `w · 10^18` is
+--| below 2^2097 (the size `addRelError` needs). With `w = 2^1030`,
+--| `lo = -361.0` and `hi = 361.0` (units `2^1030 · 6350779162034176`), the
+--| error is 2^-43 (`w · 2` units): the sum of two angles. The sums `lo + lo`
+--| and `hi + hi` must be finite.
+theorem Float.Theory.sumNear ∀ (g d lo hi: Float) (w m: Nat)
+    (flo: Float.isFinite lo = True)
+    (fhi: Float.isFinite hi = True)
+    (fll: Float.isFinite (lo + lo) = True)
+    (fhh: Float.isFinite (hi + hi) = True)
+    (gLo: lo <= g)
+    (gHi: g <= hi)
+    (dLo: lo <= d)
+    (dHi: d <= hi)
+    (w2: 2 ≤ w)
+    (mw: m ≤ w * 7000000000000000)
+    (uLo: Int.leq (Int.neg (OfNat m)) (Float.Theory.units lo) = True)
+    (uHi: Int.leq (Float.Theory.units hi) (OfNat m) = True)
+    (top: w * 1000000000000000000 ≤ 1 * Nat.pow 2 2097):
+    (Float.isFinite (g + d) = True)
+      ∧ ((Int.leq
+        (Int.add (Float.Theory.units g) (Float.Theory.units d))
+        (Int.add (Float.Theory.units (g + d)) (OfNat (w * 2)))
+        = True)
+        ∧ (Int.leq
+          (Float.Theory.units (g + d))
+          (Int.add (Int.add (Float.Theory.units g) (Float.Theory.units d)) (OfNat (w * 2)))
+          = True)) :=
+  let fg: Float.isFinite g = True := Float.finiteBetween lo g hi flo fhi gLo gHi
+  let fd: Float.isFinite d = True := Float.finiteBetween lo d hi flo fhi dLo dHi
+  let fs: Float.isFinite (g + d) = True :=
+    Float.finiteBetween
+      (lo + lo)
+      (g + d)
+      (hi + hi)
+      fll
+      fhh
+      (Float.Theory.leTrans
+        (lo + lo)
+        (lo + d)
+        (g + d)
+        (Float.addMonotone lo d lo flo fd flo dLo)
+        (Float.addMonotoneLeft lo g d flo fg fd gLo))
+      (Float.Theory.leTrans
+        (g + d)
+        (hi + d)
+        (hi + hi)
+        (Float.addMonotoneLeft g hi d fg fhi fd gHi)
+        (Float.addMonotone d hi hi fd fhi fhi dHi))
+  let gl := Float.Theory.leqTrans _ _ _ uLo (Float.Theory.unitsMonoKey lo.bits g.bits gLo)
+  let gh := Float.Theory.leqTrans _ _ _ (Float.Theory.unitsMonoKey g.bits hi.bits gHi) uHi
+  let dl := Float.Theory.leqTrans _ _ _ uLo (Float.Theory.unitsMonoKey lo.bits d.bits dLo)
+  let dh := Float.Theory.leqTrans _ _ _ (Float.Theory.unitsMonoKey d.bits hi.bits dHi) uHi
+  let sum: Int := Int.add (Float.Theory.units g) (Float.Theory.units d)
+  let s: Int := Float.Theory.units (g + d)
+  let err :=
+    Float.addRelError g d fg fd fs
+      (Float.Theory.sumSmallNear (Float.Theory.units g) (Float.Theory.units d) w m _ w2 mw gl gh dl dh top)
+  let sign: ((Int.leq (OfNat 0) sum = True) ∧ (Int.leq (OfNat 0) s = True))
+    ∨ ((Int.less sum (OfNat 0) = True) ∧ (Int.leq s (OfNat 0) = True)) :=
+    Float.Theory.orCase
+      [goal := ((Int.leq (OfNat 0) sum = True) ∧ (Int.leq (OfNat 0) s = True))
+        ∨ ((Int.less sum (OfNat 0) = True) ∧ (Int.leq s (OfNat 0) = True))]
+      (Float.Theory.boolCases (Int.leq (OfNat 0) sum))
+      (nonneg =>
+        let atLeast: -0.0 <= g + d :=
+          Float.Theory.addAtLeast g d
+            (-0.0)
+            fg
+            fd
+            byComputing
+            (J (y z => Int.leq y sum = True) nonneg (byComputing: Float.Theory.units (-0.0) = OfNat 0).flipped)
+            (b => (Bool.trueNotFalse b).impossible)
+        Inl
+          (Both nonneg
+            (J
+              (y z => Int.leq y s = True)
+              (Float.Theory.unitsMonoKey (-0.0).bits (g + d).bits atLeast)
+              (byComputing: Float.Theory.units (-0.0) = OfNat 0))))
+      (neg =>
+        let below: Int.less sum (OfNat 0) = True := Float.Theory.intLessZeroOfNotNonneg sum neg
+        let atMost: g + d <= 0.0 :=
+          Float.Theory.addAtMost g d 0.0 fg fd byComputing
+            (J
+              (y z => Int.leq sum y = True)
+              (Float.Theory.intLeOfLess sum (OfNat 0) below)
+              (byComputing: Float.Theory.units 0.0 = OfNat 0).flipped)
+            (b => byComputing)
+        Inr
+          (Both below
+            (J
+              (y z => Int.leq s y = True)
+              (Float.Theory.unitsMonoKey (g + d).bits 0.0.bits atMost)
+              (byComputing: Float.Theory.units 0.0 = OfNat 0))))
+  Both fs (Float.Theory.roundedSumNear (Float.Theory.units g) (Float.Theory.units d) s w m w2 mw gl gh dl dh err sign)

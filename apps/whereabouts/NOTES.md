@@ -152,18 +152,18 @@ SW-3807 replaced the three, which had taken it to 2.7 minutes):
   `units (lat - placeAt unit * width) + 2^1032 ≤ units lat`.
   `marginAboveExact`: for `|lat| ≤ 180` and a width from 1e-11° to 180°,
   the unrounded upper edge `from + width` is at least 2^-42 above it. With
-  `sumNear` (a rounded sum within 361° is within 2^-43 of the exact one,
-  by `Float.addRelError` with the sign cases), `shareAbove` (`0.85 *
+  `sumNear361` (a rounded sum within 361° is within 2^-43 of the exact one,
+  std's `Float.Theory.sumNear` at ±361), `shareAbove` (`0.85 *
   width` is at least 8 · 2^-44 below `width`, by `Float.mulRelError`) and
-  `unitsNeg` (`units (-x) = -units x`, a std candidate). A width of 1e-11° is a tolerance of about 1.1e-10 km (10 tolerances wide,
+  std's `Float.Theory.unitsNeg` (`units (-x) = -units x`). A width of 1e-11° is a tolerance of about 1.1e-10 km (10 tolerances wide,
   111 km a degree on latitude); finding 1's counterexamples are at 1e-13 and
   2.6e-12 km.
 - Longitude on whole degrees (SW-3858): `wrapWholeExact`: `wrap` of a
   whole number `n` of degrees, `|n| ≤ 400`, is exactly `wrappedDegrees n`
   (`(n + 180) mod 360 - 180`, `n` shifted by a multiple of 360 into
   [-180, 180)). Every step is exact on whole numbers (SW-3872, replacing
-  a table of the 801 values): the sums by `addWholeExact`, the remainders
-  by `remWholeStep` from `remUnitsExact` (`x % y` is `x` less a whole
+  a table of the 801 values): the sums by `Float.Theory.addWholeExact`, the remainders
+  by `remWholeStep` from `Float.Theory.remUnitsExact` (`x % y` is `x` less a whole
   number of `y`s, with `x`'s sign, which std's `remExact` proves inside
   but doesn't state), and `wrapArith` for the integers' side.
 
@@ -212,11 +212,9 @@ What was awkward to express:
 Missing laws: see the table. Monotonicity, the standard-model error bound
 (SW-3844), `round`'s spec (SW-3844), `rem`'s range and Sterbenz are done;
 the step-0.1 chain and the exact margin use them (SW-3858). What is left is
-assembling the containment theorem (the table's last rows). std candidates
-from SW-3858: `unitsNeg` (`units (-x) = -units x` for non-NaN `x`), and
-`sumNear`'s two-sided form of `Float.addRelError` with the sign handled. From SW-3872: `remUnitsExact` (the exact value of `x % y`),
-`addWholeExact` (`Float.Theory.addWhole` with the sum's finiteness), and
-`relCancel` (the error model's bounds with the common unit cancelled).
+assembling the containment theorem (the table's last rows). The lemmas that were std candidates (SW-3858, SW-3872) are now in std
+(`Float.Theory.unitsNeg`, `sumNear`, `remUnitsExact`, `addWholeExact`,
+`relCancel`, `relCancelScaled`, `Float.mulBetween`; SW-3873, SW-3886).
 
 Other std gaps:
 
