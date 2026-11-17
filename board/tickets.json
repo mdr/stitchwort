@@ -1,5 +1,5 @@
 {
-  "next": 3805,
+  "next": 3808,
   "tickets": [
     {
       "id": 47,
@@ -42926,6 +42926,45 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3805,
+      "title": "[Opus] Float.Theory: a whole number of units (|n| below 2^53 × the spacing) is representable as a double; then x < floor x + 1, ceil likewise, |x % y| < |y|, Sterbenz (SW-639 finding; unlocks Whereabouts wrap and outward rounding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3806,
+      "title": "[Sonnet] Run one std file's test blocks: check --std checks but doesn't run std tests, and stitchwort test has no --std; a lane-sized way (SW-638 and SW-639 both lost time; a wrong test slipped past)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3807,
+      "title": "[Sonnet] apps/whereabouts: tenthsKeepTheirLabel computes round and / 10.0 3,601 times through the model (2.8 s -> 9.3 s after SW-639); prove it per tenth from roundOfWhole and ofNatDivExact instead",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
