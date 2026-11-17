@@ -41513,12 +41513,12 @@
     {
       "id": 3684,
       "title": "[Sonnet] Elab friction (Toy++ T3b): two match scrutinees where one's type mentions the other are refused with E-MATCH-MOTIVE; a helper lemma with a variable scrutinee works. At least say so in the note (generalise into a helper); ideally abstract the dependent one",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane note: variable scrutinees (n, v) and (x, h) already generalise together; only a non-variable expression mentioned by another scrutinee's type is refused (let-binding it does not help). Not abstracting; added Note 2 showing a helper (top-level or local def) with both as parameters. Commit db2553fc4. Accept: examples/accept/match-dependent-scrutinee-helper.sw.\n",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
