@@ -650,6 +650,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
     // (rule N, crate::tidy).
     let mut suffix = at.suffix;
     let mut flat_break = false;
+    // The indentation of the line being measured: a comment break starts
+    // a new line, which the next comment break is deeper than.
+    let mut line_indent = at.line_indent;
     loop {
         let Some((indent, mode, doc)) = stack.pop() else {
             match rest.next() {
@@ -682,7 +685,8 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                         return false;
                     }
                     suffix = false;
-                    left = at.width as isize - indent.max(at.line_indent + 2) as isize;
+                    line_indent = indent.max(line_indent + 2);
+                    left = at.width as isize - line_indent as isize;
                 } else if suffix && text.chars().all(|c| c == ' ') {
                     // Held back, and dropped at a comment break.
                     continue;
@@ -761,7 +765,8 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 }
                 if suffix {
                     suffix = false;
-                    left = at.width as isize - indent.max(at.line_indent + 2) as isize;
+                    line_indent = indent.max(line_indent + 2);
+                    left = at.width as isize - line_indent as isize;
                 }
                 let (first, last) = match (text.split_once('\n'), text.rsplit_once('\n')) {
                     (Some((first, _)), Some((_, last))) => (first, last),
@@ -1034,5 +1039,24 @@ mod tests {
         // At the start of a line, the line moves there.
         let doc = Doc::concat([t("[x"), Doc::HardLine, comments, Doc::HardLine, t("]")]);
         assert_eq!(print(&doc, 120).text, "[x\n  -- c\n]");
+    }
+
+    /// A choice between `option` and a short `alt`: the measure decides.
+    fn choice(option: Doc) -> Doc {
+        Doc::Choice(vec![option, t("alt")])
+    }
+
+    #[test]
+    fn a_second_comment_break_is_measured_from_the_line_the_first_made() {
+        // The first break puts `b` at 2, the second `c` at 4: 4 + 117 > 120.
+        let c = "c".repeat(117);
+        let option = Doc::concat([
+            t("a"),
+            Doc::LineSuffix("-- 1".into()),
+            t("b"),
+            Doc::LineSuffix("-- 2".into()),
+            t(&c),
+        ]);
+        assert_eq!(print(&choice(option), 120).text, "alt");
     }
 }
