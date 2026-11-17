@@ -126,7 +126,7 @@ the tree, not the text, and that the check becomes proofs.
 |---|---|---|
 | Lexer (`crates/syntax`, `lexer.rs`) | about 1,535 | all of it, less the long explanations of invisible characters |
 | Parser (`parser.rs`, `parser/`) | about 6,150, 234 functions | the grammar on `Parse`; not the wording of its errors, not recovery |
-| Tree (`tree.rs`) | 866, 94 node kinds | a typed tree; the dump |
+| Tree (`tree.rs`) | 866, 98 node kinds | a typed tree; the dump |
 | Lowering (`lower.rs`, `lower/`) | about 4,000 | none, except its three errors ([§3.5](#35-refusals)) |
 | Rule N (`tidy.rs`) | about 185 | all |
 | Passes (`passes.rs`, `parens.rs`, `merge.rs`) | about 640 | all, as tree functions |
@@ -177,14 +177,14 @@ Choices, and why:
 - **A typed tree, not `Node (kind) (children)`.** Every layer of the toy's
   proof goes by cases on constructors, and the passes' side conditions
   (what may stand where a bracket pair stood) are about specific
-  constructs. A generic node with 94 kinds would push every case into a
+  constructs. A generic node with 98 kinds would push every case into a
   kind test and a list shape. The cost is that the tree dump is a
   function written per type, not one generic walk.
 - **The parser on `Parse`** (D3636; [§3.2](#32-the-options)).
 - **Passes on the tree, on one traversal.** Toy++ T0 found that one
   `Expr.walk` type-checks and carries all four passes (SW-3600,
   `tools/toyfmt/plus/SKETCH-PLUS.md`); Toy++ T5 measures whether its
-  lemmas hold up. At 94 kinds this is the difference between a pass
+  lemmas hold up. At 98 kinds this is the difference between a pass
   costing a few dozen theorems and one costing an induction over every
   construct.
 - **Rule N as a reading rule, not a pass.** Plain text can't hold its
@@ -278,16 +278,19 @@ mistake:
 
 | Freedom | In plain form |
 |---|---|
-| A redundant bracket pair (expression or type) | forgotten, if it holds no comment: the tree's shape already says how the expression groups |
-| Parameter grouping, `(a b: Nat)` against `(a: Nat) (b: Nat)` | split to one binder per name |
-| `∀` after a theorem's name | present, with no comments |
+| A round bracket pair where P3 drops one: at the left end of a row's result (`{Fail} (List Nat)`), and around a binder's or annotation's whole type (`(h: (∀ …))`) | forgotten, if it holds no comment: the tree's shape already says how the expression groups. Nowhere else (D3678): the compiler reads the pair in `(f a) b` (`Expr::Bracketed`), so "every comment-free pair", as this row first said, was false. At an application's head a pair is forgotten only around an atomic form, and a pair around a negative numeral never |
+| Parameter grouping, `(a b: Nat)` against `(a: Nat) (b: Nat)` | split to one binder per name, for the groups P4 could have made: a header's (not an instance's), a `∀`'s or lambda's (not an `∃`'s), with no comment, `auto`, attribute or default, and a type that names none of its names |
+| `∀` after a theorem's name | present wherever P1 writes it (a theorem with an explicit parameter), with no comments |
 | A comma before a closer | the flag set to absent |
 | Which side of a closer a comment was written | nothing to do: rule N already put it on its token |
 | Blank-line counts | present or absent, as the tree keeps them |
 | A text block's lines | by value |
 
 Everything else is kept: names, literals, operators, order, every
-comment's text and its token. So the theorem chain is: the parser reads
+comment's text and its token. The rule (D3678): `meaning` forgets exactly
+what a pass changes, where the pass changes it. It is
+[`tools/fmt/src/Fmt/Meaning.sw`](../../tools/fmt/src/Fmt/Meaning.sw), whose
+doc gives the compiler's reading behind each row. So the theorem chain is: the parser reads
 the source to a tree; each pass keeps `meaning`; the printer is exact
 (`parse (print t) = t` for a tidy tree). Between the tidied tree and the
 output, the lossless tree *is* the same; between the source and the
@@ -311,7 +314,7 @@ compiler saw.
 **What it costs** [estimated]:
 
 - `meaning` itself: about 60 lines for Sprig (toy-plus-plus.md §2); for
-  94 node kinds on the shared traversal, most kinds are the identity, and
+  98 node kinds on the shared traversal, most kinds are the identity, and
   I'd expect 200–400 lines, of which the trusted substance is the seven
   rows above.
 - Per pass, three theorems (keeps `meaning`, idempotent, keeps what the
@@ -345,7 +348,7 @@ change on Sprig. Its status, and what each part hands the real formatter:
 | T2: typed parameter groups, `takes`, type brackets | done (SW-3666, SW-3667, merge `b00c0b7be`) | how a second bracket kind and grouped binders enter every layer |
 | T3: **rule N**: `settle` on tokens; the engine's `Closing` leaf and its theory; commas hold no comments; `Settled`; `settledViews` | done (SW-3675, SW-3676, merges `359d1f8fc`, `36277b392`); review SW-3677 running | the hardest part of the printer's proof. Two lessons: `printedTokens` lost its "pieces in order" clause (rule N makes it false; `printedEvents` keeps the exact order), and `Settled` is pairwise, since `Tidy` is false of settled tokens (SW-3675's note) |
 | T4: `meaning`, `tidy`, `format`; P1 (`takes`) and P2 (**trailing commas**: the parser accepts them, with a flag, and the pass drops them) | next | the pass frame and the first two passes |
-| T5: P3 (spare brackets, the precedence side condition) and the shared traversal | after T4 | whether passes are cheap at 94 kinds |
+| T5: P3 (spare brackets, the precedence side condition) and the shared traversal | after T4 | whether passes are cheap at 98 kinds |
 | T6: P4 (merging) and the P3-before-P4 order | after T5 | the one real ordering dependency |
 | T7: the timing (D3636), the disturber's new changes, counts by layer, `toy-v2` | last | the bar before this plan's stage 2: at most 3.0 s/MB with passes and rule N, no check |
 
@@ -557,7 +560,7 @@ The toy figures are after the tidy-up and the parser-proof library (the
 three walks are one walk since L4, SW-3506), so the library's saving is
 already in them.
 
-| Layer | Toy after T3, by layer [estimated: after-the-toy-proof.md §1's counts, less the tidy-up, plus Toy++'s additions; total measured] | Grows with | Real (94 kinds, 234 functions) |
+| Layer | Toy after T3, by layer [estimated: after-the-toy-proof.md §1's counts, less the tidy-up, plus Toy++'s additions; total measured] | Grows with | Real (98 kinds, 234 functions) |
 |---|---|---|---|
 | Engine, with `Closing`, SW-3452 and SW-3416 | about 300 | one engine, about 1.5× the code | 350–500, or about 100 new once it is `Std.Doc` |
 | Lexer and rule N's token theorems | about 250 | lexer size (text blocks, interpolation, 4 clauses of N) | 500–900 |
@@ -636,7 +639,7 @@ count, its speed numbers, and friction notes in `tools/fmt/NOTES.md`.
 | 0 | The harness: the token dump on the Rust side, cached Rust answers, the old-layout checkout, the fuzzer's programs written out, the disturber. Toy++ T7's timing has passed (D3636) | a stub that copies its input scores 0 of N on unformatted input and N of N on the repo | Sonnet | 1–2 h |
 | 1 | The project skeleton; the typed tree and its dump; the lexer; rule N on tokens | token dump (after N) identical on every file that lexes; the same lexical refusals | Opus (sets the project's shape) | 2–3 h |
 | 2 | The parser on `Parse`, in three lanes: expressions and patterns; declarations, headers and types; blocks, `match`, handlers and proofs. The lowering's three errors. A timing | tree dump identical on every file that parses; refused or not identical on every file; the parse rate per MB recorded against §5 | Opus for the first lane, Sonnet after | 4–6 h |
-| 3 | **The sketch** (as SKETCH.md and Toy++ T0): `meaning` for 94 kinds; every top theorem and every layer's statements, in a side project with open goals, checked for fit; a count of stated theorems per layer | the side project checks with only open goals; §7.3 replaced by counts | Fable | 1–2 h |
+| 3 | **The sketch** (as SKETCH.md and Toy++ T0): `meaning` for 98 kinds; every top theorem and every layer's statements, in a side project with open goals, checked for fit; a count of stated theorems per layer | the side project checks with only open goals; §7.3 replaced by counts | Fable | 1–2 h |
 | 4 | `meaning` and the four passes, on the shared traversal | the tidied tree's dump identical to the Rust passes' on every file | Sonnet, Opus for `meaning` and its review | 2–3 h |
 | 5 | The engine (from the toy's, with SW-3452 and SW-3416, or `Std.Doc` if it exists), spacing, the file driver, the rules for declarations, headers, bodies and blocks | engine tests pass; every declaration using only those constructs identical | Opus | 2–4 h |
 | 6 | The remaining rules, two lanes | identical on everything: goldens, old layout, fuzzer, disturbed; formats its own source | Sonnet; one rule family a fair DeepSeek trial | 3–5 h |

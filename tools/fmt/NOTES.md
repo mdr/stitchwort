@@ -649,3 +649,55 @@ Found in the stage 2 parser, not fixed here:
 - **A row variable in a step's ability still doesn't check** (as in 2b), so every step is `{Fail}` and each declaration goes through `Fail.toResult` with a fallback that never runs.
 - **`stitchwort check` of the project takes 13 to 31 s** with every edit; the Traverse change (one parameter to a record) touched 40 functions and was one script, which is the cost of not having the row variable.
 - **Brackets in expressions are inconsistent in the dump**: `Paren` has its own node, `(a, b)` is `Tuple`, `(x: T)` is `Annotation`, and the Rust pass can't tell them apart by tokens (it asks the parser); the table in P3 had to say which node kinds hold a bracket pair.
+
+## Stage 4b (SW-3864): `meaning`
+
+Opus, 17 November 2026.
+
+### What is here
+
+| Piece | Where |
+|---|---|
+| `meaning`, the trusted definition of "the same program" (D3678's narrow form): the shared traversal with steps that forget what a pass changes, where it changes it; its doc gives the compiler's reading behind each thing it forgets | `src/Fmt/Meaning.sw` |
+| The passes' step facts against it, proved: P2's five steps, P1's header step, P3's row step (`dropLeftForgotten`, by induction along the left end) and P3's binder-type layers (`stripUnwrapped`, `groupStripUnwrapped`, `paramStripUnwrapped`), with `levelAtomic` and `negativeKept` tying P3's table to `meaning`'s two exceptions | `src/Fmt/MeaningProofs.sw` |
+| Tests: what it forgets, what it keeps (`(f) x` against `f x`, `{IO} (f a) b`, `{Fail} (a + b) * c`, a pair holding a comment, a dependent group, an `∃` group, `∀` on an implicit-only theorem), and `tidy` keeping it | `src/Fmt/Tests/Meaning.sw` (7) |
+| `Fmt.Twin --stage meaning`: `kept`, or where `tidy` or `Lexed.tidied` change the file's meaning as its dump shows it (no Rust side) | `src/Fmt/Twin.sw` |
+
+The steps P1, P2 and P3's row step became pure functions (`Expr → Expr`, `Header → Header`), which `Steps`' `{Fail}` fields accept, so that the facts are equations.
+
+### The node kinds
+
+All 98 of the Rust `NodeKind`s, as the real tree holds them:
+
+| Kinds | Count | In `meaning` |
+|---|---|---|
+| `Paren` | 1 | forgotten at a row's result's left end (through `Binary` and its kin's left operand, `Chain`'s first, `App`'s head, `FieldAccess`'s target) and as a binder's or annotation's whole type, if it holds no comment; at an application's head only around an atomic form; never around a negative numeral |
+| `Param`, `Binder`, `LambdaParam` | 3 | a header's (not an instance's), `∀`'s or lambda's group split one a name where P4 could have merged it; an `∃`'s and a function type's binder kept whole; the whole type unwrapped as above |
+| `Theorem` | 1 | `∀` where P1 writes it |
+| `Tuple`, `List`, `Record`, `PatternTuple`, `PatternList`, `PatternRecord`, `PatternCtorFields`, `Fields`, `Attributes`, `RewriteRules` | 10 | the comma flag `False` (`Import` has none in the tree: the parser keeps no flag for it) |
+| `Effect`, `Annotation`, `FunctionType`, `Forall`, `Exists`, `Lambda`, `PatternTyped` | 7 | where the rows above apply; otherwise kept |
+| every other kind but `Error` and `Expression` | 74 | kept: the traversal goes into its parts and the step is the identity |
+| `Error`, `Expression` | 2 | never in a file's tree (the parser is strict; a lone expression isn't a file) |
+
+### Checked [measured, Speedwell]
+
+- `tidy` and `Lexed.tidied` keep `meaning`'s dump on the 124 golden files and on 223 repo files (every fourth `.sw` under `crates/elab/src/std`, `aoc/src`, `tools` and `games`, 2.4 MB, 15.5 s, 168 MB peak).
+- `dev/fmt-twin passes --inputs goldens`: 124 of 124 identical.
+
+### What 5 inherits
+
+- **Comments are in `meaning`** (it keeps every `Word` with its comments). The parked comma (K1) moves a comment when P2's comma goes, so `Lexed.tidied`'s tree can differ from the parse in where a comment sits, and the top theorem's `after.meaning = before.meaning` can't hold there as stated [inferred: the dump the checks compare leaves comments out, so they can't see it]. Either `meaning` leaves comments out and `tidyKeepsComments` carries them, or the top theorem is stated with K1's case apart.
+- **The generic lemma.** P1's and P2's steps change a flag or keyword at the node, so the plain lemma (a traversal whose step keeps the meaning step keeps `meaning`) finishes them. P3's steps rebuild descendants, so it needs the stronger form: `meaning`'s traversal commutes with `dropLeft` and `dropDeclBinders`. P4 needs `splitGroups (mergeGroups gs) = splitGroups gs` for plain groups, which rests on `Group.typeLines` telling types apart when they hold no comment.
+
+### P3's table against the parser
+
+Read against `Syntax/Parser.sw`'s ladder (`operatorExpr` → `logicChain` → `cmpExpr` → `pipedRange` → `rangeExpr` → `appendExpr` → `addExpr` → `mulExpr` → `unary` → `app` → `atom`), `Expr.level` and `leftNeeds` agree rung for rung: each operator's left operand is parsed one rung up, or at its own rung where it nests to the left (`+`, `*`, `|>`), and `↔`'s 3 is the same as 4 since no level is 3. 30 probes after `{Fail}` (sections, `match`, `if`, `include`, a prefix before `*` and `∧`, constructors with fields under a field access, chains, ranges, pipes, `↔`) are identical to Rust.
+
+It is wrong after a row that is a lone row variable, `{e}`: there the bare form reads as a record, `{e}`, applied to what follows, so Rust keeps the pair and the Twin drops it. `{e} (.f)`, `{e} (match x with | _ => 1)`, `{e} (include "x") y`, `{e} (-x) * y`, `{e} (!x) ∧ y` and `{e} (if a then b else c)`: 0 of 6 identical [run]. `meaning` is unaffected (the trees differ only by the `Paren`); the Twin's P3 output there doesn't print back to its own tree.
+
+Provable as written? The table's facts, given `Parsed` stated by the same ladder, are an induction along the left end like `dropLeftForgotten`; but "a dropped pair reads back as the same tree" is not a fact about the table alone: it needs the row's form (`{e}` above) and the token rules for a `-` or `!` after `}` (`argument_prefix`), which the table models only as `keepsBrackets`. So not as written: with the row-variable case fixed it is provable as part of `printParses`, not on its own.
+
+### Friction
+
+- `cases` splits a record's every field as a fallback and runs out of its 64 cases on `Header` (11 fields) though the goal turns on three; splitting the record by hand, then `kind` and `forallKeyword`, then matching the `any` closed it by computing.
+- `cases then [lemma inner]` doesn't see `inner` refined by the cases it makes; a `let` of the lemma before `cases` does.

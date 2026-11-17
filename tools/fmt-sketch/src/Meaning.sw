@@ -1,3 +1,14 @@
+--| Superseded by the real `meaning`, `tools/fmt/src/Fmt/Meaning.sw`
+--| (SW-3864, D3678), on the real tree and traversal; this one stays as the
+--| sketch's fit check. The real one differs where the real passes do: P3
+--| drops pairs along the whole left end of a row's result (into a left
+--| operand, a chain's first operand, an application's head, a field
+--| access's target), not only around the whole result, and around an
+--| annotation's type; so the real `meaning` forgets those, keeps a pair
+--| at an application's head unless it holds an atomic form, and keeps a
+--| pair around a negative numeral. Groups split as here, and only those
+--| P4 merges (no `instance`, no `∃`).
+--|
 --| What formatting must keep (self-hosted-fmt.md §3.4, D3635, D3643): a
 --| file's tree in plain form, each freedom the formatter has set to one
 --| spelling. Two files are the same program when their meanings are
