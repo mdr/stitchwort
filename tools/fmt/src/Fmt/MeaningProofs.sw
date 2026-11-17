@@ -16,8 +16,9 @@
 
 namespace Fmt.Proofs
 import Fmt (..)
-import Std (Bool, Eq, List, Nat, Option, Text)
-import Syntax (Attributes, DefKind, Expr, Fields, Group, Header, InfixKind, Param, Pattern, RuleSet, Tok, Word)
+import Fmt.Walk (..)
+import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
+import Syntax (Attributes, Comments, Decl, DefKind, Expr, Fields, Group, Header, InfixKind, Param, Pattern, RuleSet, SourceFile, Steps, Tok, Word)
 
 theorem commaExprKeepsMeaning ∀ (expr: Expr): plainExpr (withoutCommaExpr expr) = plainExpr expr := cases
 
@@ -185,3 +186,157 @@ theorem paramStripUnwrapped ∀ (param: Param): (dropParam param).plainType = pa
   | Grouped group => rewrite groupStripUnwrapped group
   | TypedPattern open pattern colon annotation close => rewrite stripUnwrapped annotation
   | _ => cases
+
+-- The passes keep `meaning`: each pass's steps, as pure functions, keep
+-- what `meaning`'s walk gives of the node they rewrite (`Keeps`), and the
+-- traversal lemma (`applyKeeps`) does the rest.
+
+def meaningPure: Pure := {
+  expr = plainExpr,
+  pattern = plainPattern,
+  header = plainHeader,
+  decl = (decl => decl),
+  fields = (fields => { fields | trailingComma = False }),
+  attributes = (attributes => { attributes | trailingComma = False }),
+  ruleSet = (set => { set | trailingComma = False })
+}
+
+def meaningAgrees: Agrees meaningSteps meaningPure := {
+  expr = (z => byComputing),
+  pattern = (z => byComputing),
+  header = (z => byComputing),
+  decl = (z => byComputing),
+  fields = (z => byComputing),
+  attributes = (z => byComputing),
+  ruleSet = (z => byComputing)
+}
+
+def Pure.keep: Pure := {
+  expr = (e => e),
+  pattern = (p => p),
+  header = (h => h),
+  decl = (d => d),
+  fields = (f => f),
+  attributes = (a => a),
+  ruleSet = (r => r)
+}
+
+--| What a pass's steps keep, with its walk written `plain` for short.
+def Expr.plain (expr: Expr): Expr := expr.walk meaningPure
+
+-- P1.
+
+def forallPure: Pure := { Pure.keep | header = withForall }
+
+def forallAgrees: Agrees { Steps.keep | header = withForall } forallPure := {
+  expr = (z => byComputing),
+  pattern = (z => byComputing),
+  header = (z => byComputing),
+  decl = (z => byComputing),
+  fields = (z => byComputing),
+  attributes = (z => byComputing),
+  ruleSet = (z => byComputing)
+}
+
+theorem forallWalk ∀ (header: Header): walkHeader meaningPure (withForall header) = walkHeader meaningPure header :=
+  match header with
+    | {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params,
+        colon,
+        result,
+        decreasingClause,
+        unfoldingClause
+      } =>
+      match kind, forallKeyword with
+        | DefTheorem, None =>
+          match explicit: params.any Group.explicit with
+            | True => byComputing
+            | False => byComputing
+        | DefTheorem, Some _ => byComputing
+        | DefPlain, _ => byComputing
+        | DefInstance, _ => byComputing
+
+def forallKeeps: Keeps forallPure meaningPure := {
+  expr = (z => byComputing),
+  pattern = (z => byComputing),
+  header = forallWalk,
+  decl = (z => byComputing),
+  fields = (z => byComputing),
+  attributes = (z => byComputing),
+  ruleSet = (z => byComputing)
+}
+
+--| P1 keeps `meaning`.
+theorem forallKeepsFile ∀ (file: SourceFile): file.withForall.meaning = file.meaning :=
+  rewrite applyKeeps file { Steps.keep | header = withForall } meaningSteps forallPure meaningPure forallAgrees meaningAgrees forallKeeps
+
+-- P2.
+
+def commaSteps: Steps := { Steps.keep |
+  expr = withoutCommaExpr,
+  pattern = withoutCommaPattern,
+  fields = (fields => { fields | trailingComma = False }),
+  attributes = (attributes => { attributes | trailingComma = False }),
+  ruleSet = (set => { set | trailingComma = False })
+}
+
+def commaPure: Pure := { Pure.keep |
+  expr = withoutCommaExpr,
+  pattern = withoutCommaPattern,
+  fields = (fields => { fields | trailingComma = False }),
+  attributes = (attributes => { attributes | trailingComma = False }),
+  ruleSet = (set => { set | trailingComma = False })
+}
+
+def commaAgrees: Agrees commaSteps commaPure := {
+  expr = (z => byComputing),
+  pattern = (z => byComputing),
+  header = (z => byComputing),
+  decl = (z => byComputing),
+  fields = (z => byComputing),
+  attributes = (z => byComputing),
+  ruleSet = (z => byComputing)
+}
+
+theorem commaExprWalk ∀ (expr: Expr): (withoutCommaExpr expr).walk meaningPure = expr.walk meaningPure := cases
+
+theorem commaPatternWalk ∀ (pattern: Pattern):
+    (withoutCommaPattern pattern).walk meaningPure = pattern.walk meaningPure :=
+  match pattern with
+    | PatternRecord fields =>
+      match fields with
+        | { open, fields, trailingComma, rest, close } => byComputing
+    | PatternCtorFields name fields =>
+      match fields with
+        | { open, fields, trailingComma, rest, close } => byComputing
+    | _ => cases
+
+theorem commaFieldsWalk ∀ (fields: Fields):
+    { fields | trailingComma = False }.walk meaningPure = fields.walk meaningPure :=
+  match fields with
+    | { open, fields, trailingComma, close } => byComputing
+
+theorem commaRuleSetWalk ∀ (set: RuleSet):
+    walkRuleSet meaningPure { set | trailingComma = False } = walkRuleSet meaningPure set :=
+  match set with
+    | { open, rules, trailingComma, close } => byComputing
+
+def commaKeeps: Keeps commaPure meaningPure := {
+  expr = commaExprWalk,
+  pattern = commaPatternWalk,
+  header = (z => byComputing),
+  decl = (z => byComputing),
+  fields = commaFieldsWalk,
+  attributes = commaAttributesKeepsMeaning,
+  ruleSet = commaRuleSetWalk
+}
+
+--| P2 keeps `meaning`.
+theorem commaKeepsFile ∀ (file: SourceFile): file.withoutTrailingCommas.meaning = file.meaning :=
+  rewrite applyKeeps file commaSteps meaningSteps commaPure meaningPure commaAgrees meaningAgrees commaKeeps

@@ -3,6 +3,7 @@
 namespace Fmt.Walk
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
+import Fmt (..)
 
 --| `Steps` that can't fail.
 type Pure = {
@@ -1223,3 +1224,37 @@ theorem beforeTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Option (Expr, k))
     | Some (value, word) => rewrite exprTwice s m keeps value
     | None => byComputing
 
+-- A file.
+
+def walkDecls (p: Pure): List Decl → List Decl
+  | [] => []
+  | [decl, ..rest] => [decl.walk p, ..walkDecls p rest]
+
+theorem applyDeclsWalk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (decls: List Decl):
+    applyDecls on decls = walkDecls p decls :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] => rewrite declOk on p agree decl, applyDeclsWalk on p agree rest
+
+theorem walkDeclsTwice ∀ (s m: Pure) (keeps: Keeps s m) (decls: List Decl):
+    walkDecls m (walkDecls s decls) = walkDecls m decls :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] => rewrite declTwice s m keeps decl, walkDeclsTwice s m keeps rest
+
+--| A pass whose steps all finish is its pure copy's walk.
+theorem applyWalk ∀ (file: SourceFile) (on: Steps) (p: Pure) (agree: Agrees on p):
+    file.apply on = { file | decls = walkDecls p file.decls } :=
+  rewrite applyDeclsWalk on p agree file.decls
+
+--| The traversal lemma: a pass `on` whose steps finish as `s`'s do, and
+--| `s`'s each keep what walking with `m` gives, keeps what applying `mean`
+--| (whose steps finish as `m`'s) gives. The steps may rebuild the node's
+--| descendants (`Keeps`).
+theorem applyKeeps ∀ (file: SourceFile) (on mean: Steps) (s m: Pure)
+    (agreeS: Agrees on s) (agreeM: Agrees mean m) (keeps: Keeps s m):
+    (file.apply on).apply mean = file.apply mean :=
+  rewrite applyWalk file on s agreeS,
+    applyWalk { file | decls = walkDecls s file.decls } mean m agreeM,
+    applyWalk file mean m agreeM,
+    walkDeclsTwice s m keeps file.decls
