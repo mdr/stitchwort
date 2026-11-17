@@ -1708,7 +1708,7 @@ impl Elaborator {
             .filter_map(|k| k.strip_prefix(&prefix))
             .filter(|m| !m.contains('.') && !m.starts_with('%'))
             .map(|m| (edit_distance(m, member), m))
-            .filter(|&(distance, _)| distance <= 2 && distance < member.len())
+            .filter(|&(distance, _)| near_miss(distance, member))
             .collect();
         near.sort_unstable();
         near.dedup();
@@ -1804,8 +1804,8 @@ impl Elaborator {
 
     /// [`Elaborator::not_found`] for an expression's name, with a "did you
     /// mean" among `locals` and the unqualified names this file can write
-    /// (imports included) when one is within the distance the field
-    /// suggestion uses (docs/proposals/helpful-errors.md §5 rank 6). Only
+    /// (imports included) when one is within the distance [`near_miss`]
+    /// allows (docs/proposals/helpful-errors.md §5 rank 6). Only
     /// names already in scope are suggested; when the name needs an import,
     /// the import note says so instead.
     pub(crate) fn not_found_with(&self, name: &ast::Name, locals: &[String]) -> Diagnostic {
@@ -1824,9 +1824,9 @@ impl Elaborator {
 
     /// The nearest in-scope name `written` may be a misspelling of: a local
     /// in `locals`, or a short name this file can write (imports included),
-    /// within the distance the field suggestion uses (`<= 2`, and less than
-    /// the name's length). The closest, then alphabetically, when several.
-    /// Only called on the error path.
+    /// within the distance [`near_miss`] allows, the same rule as the field
+    /// suggestion. The closest, then alphabetically, when several. Only
+    /// called on the error path.
     fn nearest_visible_name(&self, written: &str, locals: &[String]) -> Option<String> {
         let visible = self.short_names_visible();
         let mut near: Vec<(usize, &str)> = locals
@@ -1835,7 +1835,7 @@ impl Elaborator {
             .chain(visible.iter().map(|(name, ..)| name.as_str()))
             .filter(|name| *name != written && !name.starts_with('%'))
             .map(|name| (edit_distance(name, written), name))
-            .filter(|&(distance, _)| distance <= 2 && distance < written.len())
+            .filter(|&(distance, _)| near_miss(distance, written))
             .collect();
         near.sort_unstable();
         near.dedup();
@@ -2173,7 +2173,7 @@ impl Elaborator {
                             continue;
                         }
                         let distance = edit_distance(m, member);
-                        if distance <= 2 && distance < member.len() {
+                        if near_miss(distance, member) {
                             near.push((distance, format!("{first}.{m}")));
                         }
                     }
@@ -3067,7 +3067,7 @@ impl Elaborator {
             .keys()
             .filter_map(|k| k.strip_prefix(&prefix))
             .filter(|m| !m.contains('.') && !m.starts_with('%'))
-            .filter(|m| edit_distance(m, &item.text) <= 2)
+            .filter(|m| near_miss(edit_distance(m, &item.text), &item.text))
             .collect();
         near.sort_unstable();
         if let Some(m) = near.first() {
@@ -3413,6 +3413,19 @@ fn or_list(items: &[String]) -> String {
     }
 }
 
+/// Whether `distance` edits from `written` is close enough to suggest a
+/// correction: at most 2 for names longer than 4 characters, at most 1 for
+/// shorter ones, and never as many as the name's length. Two edits on a
+/// short name aren't evidence of a typo: `foo` is two edits from `Bool`, but
+/// nobody typing `foo` meant it. The field suggestion and
+/// [`Elaborator::nearest_visible_name`] share this rule
+/// (docs/proposals/helpful-errors.md §5 rank 6).
+pub fn near_miss(distance: usize, written: &str) -> bool {
+    let length = written.chars().count();
+    let limit = if length <= 4 { 1 } else { 2 };
+    distance <= limit && distance < length
+}
+
 pub fn edit_distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
@@ -3502,4 +3515,20 @@ fn other_systems_word(word: &str) -> Option<String> {
         .iter()
         .find(|(words, _)| words.contains(&word))
         .map(|(_, ours)| format!("`{word}` isn't a Stitchwort name: {ours}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::near_miss;
+
+    #[test]
+    fn near_miss_is_stricter_on_short_names() {
+        assert!(!near_miss(2, "foo"), "two edits on a 3-letter name");
+        assert!(near_miss(1, "foo"));
+        assert!(!near_miss(2, "fo"), "two edits on a 2-letter name");
+        assert!(near_miss(1, "fo"));
+        assert!(!near_miss(1, "f"), "an edit as long as the name");
+        assert!(near_miss(2, "cuont"));
+        assert!(near_miss(2, "lenght"));
+    }
 }
