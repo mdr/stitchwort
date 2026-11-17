@@ -21892,15 +21892,17 @@
     {
       "id": 3824,
       "title": "[Fable paper] Proved self-hosted formatter: an incremental, de-risked plan. Thin end-to-end slices on a cut-down grammar first, the sketch's riskiest statements as early spikes, a foundations inventory (std lemmas, tactics, simp, Std.Doc) done ahead of proof lanes, checkpoints with stop rules (Matt, 17 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.",
+      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.\n\nLane note (Fable, 17 Nov 2026): plan written, docs/proposals/self-hosted-fmt-proof-plan.md (commit 0c3c958bc). Seven slices cut from the real tree by a Bool function (probe checked); spikes K1 (rule N re-layout) and K4 (parser fuel) can start now; foundations F1 (stage 2 tree without layout in leaves) and F2 (Std.Doc) gate slice 1. Finding: stage 2a's tree keeps column and lineStart in its leaves, against the sketch's section 1. Two questions for Matt: slices with rules proved per slice; the narrow meaning (before slice 2). About 11 min (est. 45).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "0c3c958bc"
+      ]
     }
   ]
 }
