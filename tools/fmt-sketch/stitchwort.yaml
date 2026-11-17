@@ -1,0 +1,3 @@
+sources: [src, syntax]
+check:
+  open-goals: warn
