@@ -23187,12 +23187,12 @@
     {
       "id": 3923,
       "title": "[DeepSeek] dev/fmt-twin: a memory cap per child (watch RSS, kill above a limit) alongside the 20 s timeout; ulimit -v doesn't work on macOS (SW-3905)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: deepseek, worked, 13 min (est. 20). Cap test shown (400 MB child killed at 100 MB in 0.22 s); passes stage on goldens unchanged (132/132). Note: an over-limit answer is cached like a refusal; clear the cache to retry.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
