@@ -59,18 +59,8 @@ theorem suffixesEndRun ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located T
                     match punctuation with
                       | OpenParen => cases
                       | Dot => cases
-                      | CloseParen => byComputing
-                      | OpenSquare => byComputing
-                      | CloseSquare => byComputing
-                      | Comma => byComputing
-                      | Colon => byComputing
-                      | Defines => byComputing
-                  | Name text => byComputing
-                  | Number digits => byComputing
-                  | Str written => byComputing
-                  | Reserved keyword => byComputing
-                  | Op operator => byComputing
-                  | Stray text => byComputing
+                      | _ => cases
+                  | _ => cases
 
 --| After an atom, a token that opens no call or field ends its suffixes:
 --| `suffixesFrom` reads nothing and gives the atom back.

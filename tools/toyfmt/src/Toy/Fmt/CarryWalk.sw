@@ -836,9 +836,7 @@ theorem linesFlat ∀ (lines: List (Spaced Statement)): linesComments lines = sp
 
 theorem unblankedSame ∀ (measure: a → List Comment) (lines: List (Spaced a)):
     spacedComments measure (withoutFirstBlank lines) = spacedComments measure lines :=
-  match lines with
-    | [] => byComputing
-    | [{ blankBefore, line }, ..rest] => byComputing
+  cases
 
 --| One more note among those found adds its comment.
 theorem snocNote ∀ [note: Comment → a] (measure: a → List Comment)
@@ -1029,9 +1027,7 @@ def ClearAt (layout: Layout) (rest: List Tok): Prop := match rest with
   | [] => True
   | [head, ..tail] => layout.allows head = True → HeadClear layout head
 
-theorem clearBrackets ∀ (rest: List Tok): ClearAt InBrackets rest := match rest with
-  | [] => byComputing
-  | [head, ..tail] => allowed => byComputing
+theorem clearBrackets ∀ (rest: List Tok): ClearAt InBrackets rest := cases
 
 theorem headedSame ∀ (layout: Layout) (head: Tok) (value: Expr)
     (clear: HeadClear layout head)

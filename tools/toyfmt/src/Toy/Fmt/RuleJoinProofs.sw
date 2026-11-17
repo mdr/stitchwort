@@ -208,9 +208,8 @@ theorem negateAdmits ∀ (minus: Comments) (operand: Expr) (edge: Edge)
     (enters: Enters (Negate minus operand) edge):
     Admits "-" edge :=
   match edge, enters with
-    | Plain None, _ => byComputing
-    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), Both _ startsMinus => startsMinus byComputing
+    | _, _ => cases
 
 --| After a `-`: a space before an operand that starts with `-`, else
 --| the operand at once.

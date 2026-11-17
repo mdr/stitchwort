@@ -130,9 +130,7 @@ def trailEnd (line: Nat) (after: Option Comment): Place := match after with
 
 --| After a token, with or without a trailing comment, words are on the
 --| line.
-theorem trailMid ∀ (line: Nat) (after: Option Comment): (trailEnd line after).midLine = True := match after with
-  | None => byComputing
-  | Some _ => byComputing
+theorem trailMid ∀ (line: Nat) (after: Option Comment): (trailEnd line after).midLine = True := cases
 
 theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List Event) (next: Place → List Event → Prop)
     (fine: FineAbove comments) (reached: next (AtStart column) (trace ++ aboveEvents column comments)):
@@ -452,10 +450,7 @@ theorem endedSeated ∀ (zone: Zone) (place: Place) (ended: Ended zone place): S
     | Held at, ended => ended
 
 --| After a token there are words on the line.
-theorem endedMid ∀ (zone: Zone) (place: Place) (ended: Ended zone place): place.midLine = True :=
-  match place, ended with
-    | Mid at, _ => byComputing
-    | Held at, _ => byComputing
+theorem endedMid ∀ (zone: Zone) (place: Place) (ended: Ended zone place): place.midLine = True := cases
 
 -- A closing bracket.
 

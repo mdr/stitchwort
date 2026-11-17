@@ -27,16 +27,12 @@ def HeadedBodyAt (layout: Layout) (found: Body): Prop := HeadedBody (bracketedOf
 -- Clearing.
 
 theorem clearedFirstAbove ∀ (expr: Expr): expr.withoutFirstAbove.firstAbove = [] := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
   | Call callee _ _ trailingComma _ => clearedFirstAbove callee
   | Field target _ _ _ => clearedFirstAbove target
   | Negate _ _ => byComputing
   | Binary _ _ left _ => clearedFirstAbove left
   | If _ _ _ _ _ _ => byComputing
+  | _ => cases
 
 theorem headedCleared ∀ (bracketed: Bool) (expr: Expr)
     (headed: HeadedExpr bracketed expr):
@@ -148,9 +144,7 @@ theorem headedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     | [{ blankBefore, line }, ..rest], Both lineHeaded restHeaded => (lineHeaded, restHeaded)
 
 --| `withoutFirstBlank` leaves no blank line above the first line.
-theorem unspacedWithout ∀ (lines: List (Spaced a)): Unspaced (withoutFirstBlank lines) := match lines with
-  | [] => byComputing
-  | [{ blankBefore, line }, ..rest] => byComputing
+theorem unspacedWithout ∀ (lines: List (Spaced a)): Unspaced (withoutFirstBlank lines) := cases
 
 theorem headedConcat ∀ (groups: List (List (Spaced Statement)))
     (all: List.All (HeadedLines False) groups):

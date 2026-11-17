@@ -81,9 +81,7 @@ theorem viewsSnoc ∀ (seen: Views) (events: List Event) (last: Event):
 
 theorem trailingViews ∀ (tokens: List (Parse.Located Token)) (comment: Parse.Located Comment):
     (withTrailing tokens comment).map viewOf = viewTrailing (tokens.map viewOf) comment.value :=
-  match tokens with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  cases
 
 theorem gapPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offset: Nat)
     (gap: piece.all (char => char == ' ') = True):
@@ -109,14 +107,7 @@ theorem wordViews ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offse
               Eq.cong
                 ((views: List TokenView) => ({ views, pending = placed.pending }: Views))
                 (trailingViews placed.tokens { value = { text = piece }, offset, length = piece.length })
-        | Spaces => byComputing
-        | LineBreak => byComputing
-        | WordLexeme => byComputing
-        | DigitsLexeme => byComputing
-        | StringLexeme => byComputing
-        | SignLexeme => byComputing
-        | SymbolsLexeme => byComputing
-        | StrayLexeme => byComputing
+        | _ => cases
 
 theorem breakViews ∀ (earlier: List Text) (blank: Bool)
     (is: lineBlank earlier = blank)

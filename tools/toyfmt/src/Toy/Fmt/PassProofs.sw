@@ -57,9 +57,6 @@ def NoTrailingCommasFile: SourceFile → Prop
 --| and each child was traversed first.
 theorem exprCommasNone ∀ (expr: Expr) (position: Position): NoTrailingCommas (expr.traverse dropComma position) :=
   match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => exprCommasNone inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => (byComputing, itemsCommasNone items)
     | Call callee _ arguments _ _ => (
@@ -78,6 +75,7 @@ theorem exprCommasNone ∀ (expr: Expr) (position: Position): NoTrailingCommas (
       bodyCommasNone whenTrue position.bracketed,
       bodyCommasNone whenFalse position.bracketed
     )
+    | _ => cases
 
 theorem itemsCommasNone ∀ (items: List Expr): NoTrailingCommasItems (traverseItems dropComma items) := match items with
   | [] => byComputing
@@ -118,9 +116,6 @@ theorem exprCommasFixed ∀ (expr: Expr) (position: Position)
     (none: NoTrailingCommas expr):
     expr.traverse dropComma position = expr :=
   match expr, none with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
     | Bracketed _ inner _, none => rewrite exprCommasFixed inner { bracketed = True, slot = Whole } none
     | ListLiteral _ items _ _, (unwritten, itemsNone) => rewrite itemsCommasFixed items itemsNone, unwritten
     | Call callee _ arguments _ _, (unwritten, calleeNone, argumentsNone) =>
@@ -138,6 +133,7 @@ theorem exprCommasFixed ∀ (expr: Expr) (position: Position)
       rewrite exprCommasFixed condition { bracketed = position.bracketed, slot = Whole } conditionNone,
           bodyCommasFixed whenTrue position.bracketed trueNone,
           bodyCommasFixed whenFalse position.bracketed falseNone
+    | _, _ => cases
 
 theorem itemsCommasFixed ∀ (items: List Expr)
     (none: NoTrailingCommasItems items):
@@ -198,18 +194,7 @@ theorem commasIdempotent ∀ (file: SourceFile):
 -- ask: they change only a flag that nothing but `NoTrailingCommas`
 -- reads.
 
-theorem dropCommaPlain: StepKeepsPlain dropComma := position expr =>
-  match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | Bracketed _ _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+theorem dropCommaPlain: StepKeepsPlain dropComma := position expr => cases
 
 --| A list or call keeps its form, and so the slots it fits, without its
 --| trailing comma.
@@ -258,10 +243,7 @@ theorem dropCommaHeaded: StepKeepsHeaded dropComma := position expr headed =>
     | Binary _ _ _ _, headed => (headed, byComputing)
     | If _ _ _ _ _ _, headed => (headed, byComputing)
 
-theorem declareCommaPlain ∀ (line: Declaration): line.withoutTrailingComma.plain = line.plain := match line with
-  | Function _ _ _ _ _ _ _ _ _ _ => byComputing
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+theorem declareCommaPlain ∀ (line: Declaration): line.withoutTrailingComma.plain = line.plain := cases
 
 theorem declareCommaParsed: DeclareKeepsParsed (line => line.withoutTrailingComma) := line shaped lexical headed =>
   match line with
@@ -290,15 +272,11 @@ theorem commasKeepMeaning ∀ (file: SourceFile): file.withoutTrailingCommas.mea
 
 theorem takesForPlain ∀ (takes: Option Comments) (parameters: List ParameterGroup):
     (takesFor takes parameters).getOrElse Comments.none = takes.getOrElse Comments.none :=
-  match parameters with
-    | [] => byComputing
-    | [_, .._] => byComputing
+  cases
 
 theorem takesForTwice ∀ (takes: Option Comments) (parameters: List ParameterGroup):
     takesFor (takesFor takes parameters) parameters = takesFor takes parameters :=
-  match parameters with
-    | [] => byComputing
-    | [_, .._] => byComputing
+  cases
 
 theorem takesForFine ∀ (takes: Option Comments) (parameters: List ParameterGroup)
     (fine: FineTakes takes):
@@ -310,8 +288,7 @@ theorem takesForFine ∀ (takes: Option Comments) (parameters: List ParameterGro
 
 theorem declarationTakesPlain ∀ (line: Declaration): line.withTakes.plain = line.plain := match line with
   | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForPlain takes parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem declarationsTakesPlain ∀ (lines: List (Spaced Declaration)):
     plainDeclarations (declarationsWithTakes lines) = plainDeclarations lines :=
@@ -326,8 +303,7 @@ theorem takesKeepMeaning ∀ (file: SourceFile): file.withTakes.meaning = file.m
 
 theorem declarationTakesTwice ∀ (line: Declaration): line.withTakes.withTakes = line.withTakes := match line with
   | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForTwice takes parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem declarationsTakesTwice ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (declarationsWithTakes lines) = declarationsWithTakes lines :=
@@ -368,9 +344,8 @@ theorem declarationsTakesUnspaced ∀ (lines: List (Spaced Declaration))
     (unspaced: Unspaced lines):
     Unspaced (declarationsWithTakes lines) :=
   match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
     | [{ blankBefore = True, line }, ..rest], unspaced => cases
+    | _, _ => cases
 
 --| P1 keeps the parser's guarantees: none of them reads `takes` but for
 --| its comments, and the `takes` it adds holds none.
@@ -384,11 +359,7 @@ theorem takesKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed fil
 theorem declarationTakesCommas ∀ (line: Declaration):
     (line.traverseBody dropComma).withoutTrailingComma.withTakes
       = line.withTakes.traverseBody dropComma |>.withoutTrailingComma :=
-  match line with
-    | Function _ _ _ _ _ [] _ _ _ _ => byComputing
-    | Function _ _ _ _ _ [_, .._] _ _ _ _ => byComputing
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+  cases
 
 theorem declarationsTakesCommas ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (traverseDeclarations dropComma (line => line.withoutTrailingComma) lines)

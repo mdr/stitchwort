@@ -185,166 +185,33 @@ theorem lexemesRead ∀ (source: Text) (found: List (Parse.Located Lexeme))
       ∧ Parse.LexemesRead LexemeSpec steps :=
   Parse.allLocatedToEnd source lexemeAt LexemeSpec lexemeReads { holds = Trivial } found h
 
--- From what `lexemeStart` chose back to the first characters.
-
---| The lexeme a text starts with when its first character is no space,
---| line break or quote and no comment starts there: the tests of
---| `lexemeStart`'s later arms, one after another.
-def charClass (char: Char): Lexeme :=
-  if isWordStart char then WordLexeme
-  else if char.isAsciiDigit then DigitsLexeme
-  else if (punctuation char).isSome then SignLexeme
-  else if isOperatorChar char then SymbolsLexeme
-  else StrayLexeme
-
-theorem guardedStart ∀ (char: Char) (tail: List Char)
-    (apart: char ∉ [' ', '\n', '"'])
-    (noComment: ∀ (tail1: List Char) => char = '-' → tail ≠ ['-', ..tail1]):
-    lexemeStart [char, ..tail] = Some (charClass char) :=
-  match w: isWordStart char with
-    | True => lexemeStart.eq5 char tail apart noComment w
-    | False =>
-      match d: char.isAsciiDigit with
-        | True => lexemeStart.eq6 char tail apart noComment w d
-        | False =>
-          match p: (punctuation char).isSome with
-            | True => lexemeStart.eq7 char tail apart noComment w d p
-            | False =>
-              match o: isOperatorChar char with
-                | True => lexemeStart.eq8 char tail apart noComment w d p o
-                | False => lexemeStart.eq9 char tail apart noComment w d p o
-
---| The lexemes of `lexemeStart`'s later arms: all but those one character
---| decides.
-def isLater: Lexeme → Bool
-  | Spaces => False
-  | LineBreak => False
-  | StringLexeme => False
-  | _ => True
-
 def isCommentLexeme: Lexeme → Bool
   | CommentLexeme => True
   | _ => False
-
---| Whether `rest` starts with `--`.
-def startsComment: List Char → Bool
-  | [first, second, .._] => first == '-' && second == '-'
-  | _ => False
-
-theorem apartOf ∀ (first: Char) (tail: List Char) (lexeme: Lexeme)
-    (starts: lexemeStart [first, ..tail] = Some lexeme)
-    (later: isLater lexeme = True):
-    first ∉ [' ', '\n', '"'] :=
-  among =>
-    match among with
-      | Inl same =>
-        let bad: lexemeStart [' ', ..tail] = Some lexeme := rewrite <- same at starts then starts
-        let found: Spaces = lexeme := Option.someInjective bad
-        let never: isLater Spaces = True := rewrite <- found at later then later
-        cases
-      | Inr (Inl same) =>
-        let bad: lexemeStart ['\n', ..tail] = Some lexeme := rewrite <- same at starts then starts
-        let found: LineBreak = lexeme := Option.someInjective bad
-        let never: isLater LineBreak = True := rewrite <- found at later then later
-        cases
-      | Inr (Inr (Inl same)) =>
-        let bad: lexemeStart ['"', ..tail] = Some lexeme := rewrite <- same at starts then starts
-        let found: StringLexeme = lexeme := Option.someInjective bad
-        let never: isLater StringLexeme = True := rewrite <- found at later then later
-        cases
-      | Inr (Inr (Inr never)) => never
-
-theorem noCommentOf ∀ (first: Char) (tail: List Char)
-    (notStart: startsComment [first, ..tail] = False) (tail1: List Char)
-    (isMinus: first = '-'):
-    tail ≠ ['-', ..tail1] :=
-  sameTail =>
-    let bad: startsComment ['-', '-', ..tail1] = False := rewrite isMinus, sameTail at notStart then notStart
-    cases
-
---| A later lexeme of a text that starts no comment is its first
---| character's.
-theorem classOf ∀ (first: Char) (tail: List Char) (lexeme: Lexeme)
-    (starts: lexemeStart [first, ..tail] = Some lexeme)
-    (later: isLater lexeme = True)
-    (notStart: startsComment [first, ..tail] = False):
-    lexeme = charClass first :=
-  Option.someInjective
-    (Eq.trans starts.flipped
-      (guardedStart first tail (apartOf first tail lexeme starts later) (noCommentOf first tail notStart)))
-
-theorem commentStarts ∀ (rest: List Char)
-    (starts: startsComment rest = True):
-    ∃ (tail: List Char) => rest = ['-', '-', ..tail] :=
-  match rest, starts with
-    | [], never => cases
-    | [first], never => cases
-    | [first, second, ..tail], both =>
-      match a: first == '-' with
-        | True =>
-          match b: second == '-' with
-            | True => (tail, (rewrite a.read, b.read))
-
-theorem classNoComment ∀ (char: Char) (same: CommentLexeme = charClass char): Void := match w: isWordStart char with
-  | False =>
-    match d: char.isAsciiDigit with
-      | False =>
-        match p: (punctuation char).isSome with
-          | False =>
-            match o: isOperatorChar char with
-              | False => cases
 
 --| A text that starts with a comment starts with `--`.
 theorem commentStartOf ∀ (rest: List Char)
     (starts: lexemeStart rest = Some CommentLexeme):
     ∃ (tail: List Char) => rest = ['-', '-', ..tail] :=
-  match c: startsComment rest with
-    | True => commentStarts rest c
-    | False =>
-      match rest, starts, c with
-        | [], never, _ => cases
-        | [first, ..tail], starts1, notStart =>
-          Void.impossible (classNoComment first (classOf first tail CommentLexeme starts1 byComputing notStart))
+  match rest with
+    | ['-', '-', ..tail] => (tail, byComputing)
+    | ['-', _, .._] => cases
+    | [' ', .._] => cases
+    | ['\n', .._] => cases
+    | ['"', .._] => cases
+    | [c, .._] => cases
 
 --| A text that starts with a word starts with a letter or `_`.
 theorem wordStartOf ∀ (first: Char) (tail: List Char)
     (starts: lexemeStart [first, ..tail] = Some WordLexeme):
     isWordStart first = True :=
-  match c: startsComment [first, ..tail] with
-    | True =>
-      match commentStarts [first, ..tail] c with
-        | Witness tail1 same => cases
-    | False =>
-      let class: WordLexeme = charClass first := classOf first tail WordLexeme starts byComputing c
-      match w: isWordStart first with
-        | True => byComputing
-        | False =>
-          match d: first.isAsciiDigit with
-            | False =>
-              match p: (punctuation first).isSome with
-                | False =>
-                  match o: isOperatorChar first with
-                    | False => cases
+  cases
 
 --| A text that starts with a number starts with a digit.
 theorem digitStartOf ∀ (first: Char) (tail: List Char)
     (starts: lexemeStart [first, ..tail] = Some DigitsLexeme):
     first.isAsciiDigit = True :=
-  match c: startsComment [first, ..tail] with
-    | True =>
-      match commentStarts [first, ..tail] c with
-        | Witness tail1 same => cases
-    | False =>
-      let class: DigitsLexeme = charClass first := classOf first tail DigitsLexeme starts byComputing c
-      match w: isWordStart first with
-        | False =>
-          match d: first.isAsciiDigit with
-            | True => byComputing
-            | False =>
-              match p: (punctuation first).isSome with
-                | False =>
-                  match o: isOperatorChar first with
-                    | False => cases
+  cases
 
 -- The texts of the lexemes a token keeps.
 
@@ -395,11 +262,7 @@ theorem lexemeText ∀ (read later: List Char) (lexeme: Lexeme)
               (List.allTakeWhile (char => char != '\n') tail)
             )
         | StringLexeme, _, shape => shape
-        | Spaces, _, _ => byComputing
-        | LineBreak, _, _ => byComputing
-        | SignLexeme, _, _ => byComputing
-        | SymbolsLexeme, _, _ => byComputing
-        | StrayLexeme, _, _ => byComputing
+        | _, _, _ => cases
 
 --| A lex that succeeded: the source is its lexemes one after another
 --| (`steps`), each read as [`LexemeSpec`] says and never empty; the
@@ -522,8 +385,7 @@ theorem signKindFine ∀ (text: Text): FineKind (lexemeKind SignLexeme text) := 
   | [] => byComputing
   | [char] =>
     match p: punctuation char with
-      | Some mark => byComputing
-      | None => byComputing
+      | _ => cases
   | [first, second, ..rest] => byComputing
 
 --| The kind made of a lexeme with its kind's text has the lexer's text.
@@ -536,10 +398,7 @@ theorem lexemeKindFine ∀ (lexeme: Lexeme) (read: List Char)
     | StringLexeme, isString => isString
     | SignLexeme, _ => signKindFine (MkText read)
     | SymbolsLexeme, _ => symbolsKindFine (MkText read)
-    | StrayLexeme, _ => byComputing
-    | Spaces, _ => byComputing
-    | LineBreak, _ => byComputing
-    | CommentLexeme, _ => byComputing
+    | _, _ => cases
 
 theorem commentCut ∀ (text: Text) (read: List Char)
     (same: text = MkText read)

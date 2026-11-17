@@ -80,22 +80,6 @@ theorem spacesAppend ∀ (front back: List Char)
           match never with
             | ()
 
-theorem notSpaceBy ∀ (passes: Char → Bool) (first: Char)
-    (holds: passes first = True)
-    (fails: passes ' ' = False):
-    (first == ' ') = False :=
-  DecEq.falseOfNe (apartBy passes first ' ' holds fails)
-
-theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := match mark with
-  | OpenParen => byComputing
-  | CloseParen => byComputing
-  | OpenSquare => byComputing
-  | CloseSquare => byComputing
-  | Comma => byComputing
-  | Dot => byComputing
-  | Colon => byComputing
-  | Defines => byComputing
-
 theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)
     (space: first = ' '):
     lexemeStart ([first, ..others] ++ rest) = Some Spaces :=
@@ -112,12 +96,10 @@ theorem standsNoSpace ∀ (lexeme: Lexeme) (read rest more: List Char)
     | Spaces, _, apart => (apart byComputing).impossible
     | LineBreak, same, _ => rewrite same
     | CommentLexeme, Witness others (Both same _), _ => rewrite same
-    | WordLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
-      rewrite same then notSpaceBy isWordStart first starts byComputing
-    | DigitsLexeme, Witness first (Witness others (Both same (Both digit _))), _ =>
-      rewrite same then notSpaceBy (char => char.isAsciiDigit) first digit byComputing
+    | WordLexeme, Witness first (Witness others (Both same (Both starts _))), _ => rewrite same then cases
+    | DigitsLexeme, Witness first (Witness others (Both same (Both digit _))), _ => rewrite same then cases
     | StringLexeme, Witness segments (Both same _), _ => rewrite same
-    | SignLexeme, Witness mark (Both same _), _ => rewrite same then signNoSpace mark
+    | SignLexeme, Witness mark (Both same _), _ => rewrite same then cases
     | SymbolsLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
       match isSpace: first == ' ' with
         | False => rewrite same then isSpace
@@ -138,14 +120,7 @@ theorem gapConsJoin ∀ (spaces: List Char) (steps: List (List Char, Lexeme)):
     | [(read, lexeme), ..more] =>
       match lexeme with
         | Spaces => List.appendAssoc spaces read (Parse.joinReads more)
-        | LineBreak => byComputing
-        | CommentLexeme => byComputing
-        | WordLexeme => byComputing
-        | DigitsLexeme => byComputing
-        | StringLexeme => byComputing
-        | SignLexeme => byComputing
-        | SymbolsLexeme => byComputing
-        | StrayLexeme => byComputing
+        | _ => cases
 
 theorem gapStep ∀ (tail read: List Char) (lexeme: Lexeme) (more: List (List Char, Lexeme))
     (spaces: tail.all (char => char == ' ') = True)

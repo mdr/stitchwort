@@ -42261,12 +42261,12 @@
     {
       "id": 3753,
       "title": "[Sonnet] After SW-3752: go back over the toy proofs (tools/toyfmt) and replace hand-written matches and helper lemmas that the new cases closes (T4's ten-arm isPostfix match, T6's mergeOnto arms, SW-3418's lexing helpers); report lines saved (Matt, 17 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Sonnet lane, 17 Nov 2026): lane/SW-3753. The three demo spots from SW-3752 applied, then every run of byComputing arms in tools/toyfmt closed by one `| _, _ => cases` arm (about 70 matches), lexeme-start inversions (wordStartOf, digitStartOf, commentStartOf, wordLexemeStart, digitsLexemeStart, minusStarts, wordNoOperator, wordToken/digitsToken's solidChars arguments) by cases. 36 files, +144/-767 lines; 14 theorems and 3 defs deleted. Checks: stitchwort check of tools/toyfmt (whole project) and audit of Toy.Syntax.Proofs, Toy.Doc.Proofs, Toy.Fmt.Carry, Toy.Fmt.KeepsComments, Toy.Fmt.Proofs: 0 failed.\nKept by hand: standsNoSpace's symbols arm (cases there adds about 10 s of check time).\nFindings: cases fails or blows its budget on commentStartOf-shaped goals unless the arms are split by hand; breakAfter (takeWhile hypothesis); closingAll; declarationTakesComments; closingSettled; runFuelEnough; fitsFromEnough; suffixesEndRun.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

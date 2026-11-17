@@ -359,10 +359,9 @@ theorem joinedWithWords ∀ (separator: Doc) (docs: List Doc)
     (none: separator.words = []):
     wordsAll (Doc.joinedWith separator docs) = wordsAll docs :=
   match docs with
-    | [] => byComputing
-    | [only] => byComputing
     | [doc, next, ..rest] =>
       rewrite none then Eq.cong (later => doc.words ++ later) (joinedWithWords separator [next, ..rest] none)
+    | _ => cases
 
 theorem joinedWithUniform ∀ (separator: Doc) (docs: List Doc)
     (uniform: Uniform separator)

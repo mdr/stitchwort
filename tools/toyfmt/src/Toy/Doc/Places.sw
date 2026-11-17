@@ -947,9 +947,8 @@ theorem writeStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
 theorem tuckedSnoc ∀ (event last: Event) (before: List Event):
     tucked event (before ++ [last]) = before ++ [event, last] :=
   match before with
-    | [] => byComputing
-    | [first] => byComputing
     | [first, second, ..rest] => rewrite repeatedly [tuckedSnoc event last [second, ..rest]]
+    | _ => cases
 
 --| A word put on a line where a comment waits goes before the comment,
 --| which still waits.
@@ -1015,8 +1014,7 @@ theorem sepMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: P
   match place, lays with
     | AtStart at, never => never
     | Broken at, never => never
-    | Mid at, _ => byComputing
-    | Held at, _ => byComputing
+    | _, _ => cases
 
 theorem softMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SoftPuts indent place trace next):
@@ -1024,8 +1022,7 @@ theorem softMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: 
   match place, lays with
     | AtStart at, never => never
     | Broken at, never => never
-    | Mid at, _ => byComputing
-    | Held at, _ => byComputing
+    | _, _ => cases
 
 --| With nothing at the start of its line the printer is after words.
 theorem startMid ∀ (printer: Printer) (place: Place) (trace: List Event)
@@ -1035,8 +1032,7 @@ theorem startMid ∀ (printer: Printer) (place: Place) (trace: List Event)
   match place, agrees with
     | AtStart at, Both other _ => Eq.trans start.flipped other
     | Broken at, Both other _ => Eq.trans start.flipped other
-    | Mid at, _ => byComputing
-    | Held at, _ => byComputing
+    | _, _ => cases
 
 --| A separator written as a space, with no comment waiting.
 theorem sepSpace ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (place: Place) (trace: List Event)

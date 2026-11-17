@@ -160,9 +160,7 @@ theorem endedUp ∀ (zone: Zone) (column: Nat) (place: Place) (under: zone.under
     | Deeper outer, Mid at, under, ended => arithmetic
     | Deeper outer, Held at, under, ended => arithmetic
 
-theorem allowsNone ∀ (zone: Zone): zone.allows None := match zone with
-  | Anywhere column => byComputing
-  | Deeper column => byComputing
+theorem allowsNone ∀ (zone: Zone): zone.allows None := cases
 
 --| The line a construct's leftmost token is on is no shallower than the
 --| statement, wherever comments above it put it.
@@ -206,9 +204,7 @@ theorem seatedReach ∀ (zone: Zone) (indent: Nat) (place: Place) (above: List C
 --| comments above it.
 theorem startAt ∀ (indent at: Nat) (above: List Comment):
     atColumn at (wordStart indent (aboveEnd indent (AtStart at) above)) :=
-  match above with
-    | [] => byComputing
-    | [comment, ..rest] => byComputing
+  cases
 
 theorem commentsNotNil ∀ (first: Comment) (rest: List Comment) (wrong: [first, ..rest] = []): Void := cases
 

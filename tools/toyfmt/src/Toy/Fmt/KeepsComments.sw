@@ -61,9 +61,6 @@ theorem insideComments ∀ (step: Position → Expr → Expr)
     (expr: Expr) (bracketed: Bool):
     (expr.traverseInside step bracketed).comments = expr.comments :=
   match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => rewrite traverseComments step keeps inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => rewrite itemsTraverseComments step keeps items
     | Call callee _ arguments _ _ =>
@@ -78,6 +75,7 @@ theorem insideComments ∀ (step: Position → Expr → Expr)
       rewrite traverseComments step keeps condition { bracketed, slot = Whole },
           bodyTraverseComments step keeps whenTrue bracketed,
           bodyTraverseComments step keeps whenFalse bracketed
+    | _ => cases
 
 theorem itemsTraverseComments ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsComments step) (items: List Expr):
@@ -147,15 +145,7 @@ theorem dropComments: StepKeepsComments dropPair := position expr =>
           let (openNone, closeNone, _) := spareParts position open inner close isSpare
           rewrite noneAll open openNone, noneAll close closeNone then (List.appendNil inner.comments).flipped
         | False => byComputing
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+    | _ => cases
 
 theorem typeSpareComments ∀ (annotation: TypeExpr): annotation.withoutSpareBrackets.comments = annotation.comments :=
   match annotation with
@@ -178,8 +168,7 @@ theorem groupsSpareComments ∀ (groups: List ParameterGroup):
 theorem declareSpareComments ∀ (line: Declaration): line.withoutSpareTypeBrackets.comments = line.comments :=
   match line with
     | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsSpareComments parameters
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+    | _ => cases
 
 --| P3 keeps every comment the tree holds, in order.
 theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.comments = file.comments :=
@@ -192,24 +181,9 @@ theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.c
 -- P2 keeps every comment: it drops only commas, which hold none. P1
 -- adds a `takes` with none.
 
-theorem dropCommaComments: StepKeepsComments dropComma := position expr =>
-  match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | Bracketed _ _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+theorem dropCommaComments: StepKeepsComments dropComma := position expr => match expr with | _ => cases
 
-theorem declareCommaComments ∀ (line: Declaration): line.withoutTrailingComma.comments = line.comments :=
-  match line with
-    | Function _ _ _ _ _ _ _ _ _ _ => byComputing
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+theorem declareCommaComments ∀ (line: Declaration): line.withoutTrailingComma.comments = line.comments := cases
 
 --| P2 keeps every comment the tree holds, in order.
 theorem commasKeepComments ∀ (file: SourceFile): file.withoutTrailingCommas.comments = file.comments :=
@@ -261,17 +235,13 @@ theorem mergedComments ∀ (names more: NonEmptyList Named) (colon: Comments) (a
 theorem mergeOntoComments ∀ (group: ParameterGroup) (rest: List ParameterGroup):
     parametersComments (mergeOnto group rest) = parametersComments [group, ..rest] :=
   match group, rest with
-    | Untyped _, [] => byComputing
-    | Typed _ _ _, [] => byComputing
-    | Untyped _, [_, .._] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
-    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => byComputing
         | True =>
           let (colonNone, commentsNone, _) := mergesParts names more colon colon2 comments name annotation merges
           rewrite colonNone, commentsNone then mergedComments names more colon2 annotation name others
+    | _, _ => cases
 
 theorem groupsMergeComments ∀ (groups: List ParameterGroup):
     parametersComments (mergeGroups groups) = parametersComments groups :=
@@ -285,8 +255,7 @@ theorem groupsMergeComments ∀ (groups: List ParameterGroup):
 theorem declareMergeComments ∀ (line: Declaration): line.withMergedParameters.comments = line.comments :=
   match line with
     | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsMergeComments parameters
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+    | _ => cases
 
 theorem keepComments: StepKeepsComments keepExpr := position expr => byComputing
 

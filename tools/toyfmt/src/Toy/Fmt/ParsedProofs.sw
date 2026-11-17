@@ -320,10 +320,7 @@ theorem goodKind ∀ (kind: Kind) (fine: FineKind kind): GoodKind kind := match 
   | Name text, isName => isName
   | Number digits, isDigits => isDigits
   | Str written, read => stringReadClosed written read
-  | Reserved keyword, _ => byComputing
-  | Sign punctuation, _ => byComputing
-  | Op operator, _ => byComputing
-  | Stray text, _ => byComputing
+  | _, _ => cases
 
 --| The lexer's tokens are good ones.
 theorem goodTokens ∀ (tokens: List (Parse.Located Token)) (fine: FineTokens tokens): List.All Good tokens :=
