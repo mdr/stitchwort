@@ -1,5 +1,5 @@
 {
-  "next": 3871,
+  "next": 3876,
   "tickets": [
     {
       "id": 47,
@@ -22497,6 +22497,71 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3871,
+      "title": "[Opus] Whereabouts answer in band, part 3: the wrapped-interval reading of inHintBand (bands crossing ±180), latitude's clamped edges into the unit bounds and then ieeeLe, the width's lower bound from the tolerance via kmToDegrees, longitude's narrow bands (wrap's error on tenths, finding 2) and the cosine bound; then the full theorem (SW-3858 report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3872,
+      "title": "[Opus] Whereabouts check went from about 25 s to 2.5 min: SW-3858's tenthsTable computes 7,203 rows of float operations in the checker's model (~1 ms each). Replace it with the generic divRelError/mulRelError chain (or narrow it), together with SW-3807's per-tenth tenthsKeepTheirLabel; target the check back under 30 s with results unchanged",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3873,
+      "title": "[Sonnet] std Float candidates from Whereabouts: unitsNeg, sumNear (two-sided addRelError with signs handled), and the cancel-the-scale lemmas absDiffBelow, scaleLeft, scaleRight, shareErrorScaled: move to Float.Theory with docs (SW-3858 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3874,
+      "title": "[Sonnet] The elaborator folds closed constants (Float.Model.pow2 1074) inside type annotations into literals, so a rewrite with pow2 1074 = v * 2^53 silently finds nothing; J with an explicit motive works. Make rewrite see through the folding or warn; and algebra runs out of resources on identities with 30-digit constants (SW-3858 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3875,
+      "title": "[DeepSeek] Docs: whether stitchwort check caches per theorem, and a way to check a single theorem (a --only NAME flag if missing); lanes waited 2.5 min per app check (SW-3858 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
