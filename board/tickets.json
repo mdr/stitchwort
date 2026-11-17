@@ -22635,12 +22635,12 @@
     {
       "id": 3881,
       "title": "[Sonnet] Self-hosted fmt: P3 drops the brackets around a constructor update (C { r | x = 1 }) at an application's head; the compiler keeps them (finishes a call with defaults). Count CtorFields with a base as an application in Expr.atomic and Expr.level; repro test (SW-3878 M2; Rust keeps them already)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Done on lane/SW-3881: Expr.atomic and Expr.level treat a CtorFields with a base as an application (level 20); levelAtomic proof splits that case; tests in Tests/Passes.sw and Tests/Meaning.sw (failed before), golden ability-row-ctor-update-head; twin passes goldens 128/128 identical.\n",
+      "body": "Done on lane/SW-3881: Expr.atomic and Expr.level treat a CtorFields with a base as an application (level 20); levelAtomic proof splits that case; tests in Tests/Passes.sw and Tests/Meaning.sw (failed before), golden ability-row-ctor-update-head; twin passes goldens 128/128 identical.\n\nModel result: sonnet, worked, 4 min (est. 15).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
