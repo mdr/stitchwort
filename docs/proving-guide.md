@@ -38,8 +38,11 @@ These aren't style. A lane that breaks one has to say so in its report.
    and read every line** ([workflow.md](workflow.md#how-a-proof-lane-finishes),
    [syntax.md](syntax.md#auditing-theorems-stitchwort-audit)). `✗` is a
    failure: fix it or list it under "Not proved". `!` is a warning: read the
-   statement and decide whether its hypotheses contradict each other. Quote
-   the summary line in the report.
+   statement and decide whether its hypotheses contradict each other. For a
+   vacuity warning (random inputs never met the hypotheses), add a closed
+   witness theorem that applies it to arguments for every hypothesis
+   (`theorem fooExample: … := foo 3 byComputing`); the warning becomes a pass
+   and `--verbose` names the witness. Quote the summary line in the report.
 4. **No new `opaque` definition just to get past a check.** `opaque` is
    honest when it stops the checker computing something it should only name
    (§6 below). It doesn't make anything true, but it changes what later

@@ -4390,6 +4390,9 @@ fn print_audit(
             }
             if let Some(search) = &a.search {
                 println!("    search: {}", search.line);
+                if let Some(witness) = &search.witness {
+                    println!("    witness: {witness}");
+                }
             }
         }
     }

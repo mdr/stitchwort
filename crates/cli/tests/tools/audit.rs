@@ -127,8 +127,8 @@ fn vacuous_hypotheses_warn_and_fail_only_with_strict() {
     assert_eq!(code, 0, "{out}");
     assert_eq!(
         out,
-        "! vacuous\n    warn: no input made the hypotheses true (0 of 1500 cases): if they \
-         contradict each other, the theorem is vacuous\n\
+        "! vacuous\n    warn: no input made the hypotheses true (0 of 1500 cases), every one \
+         rejected by hypothesis `n + 1 = 0`: if they contradict each other, the theorem is vacuous\n\
          audited 1 theorem: 0 failed, 1 with warnings, 0 passed\n"
     );
     let (code, out) = audit_file("vacuous-strict", VACUOUS, &["--strict"]);
@@ -142,6 +142,52 @@ fn vacuous_hypotheses_warn_and_fail_only_with_strict() {
     // Without the search, there's nothing to warn about.
     let (code, out) = audit_file("vacuous-no-search", VACUOUS, &["--strict", "--no-search"]);
     assert_eq!(code, 0, "{out}");
+}
+
+/// A closed theorem that applies the warned one to arguments for all of its
+/// hypotheses shows they can hold together: the warning becomes a pass.
+#[test]
+fn a_witness_answers_the_vacuity_warning() {
+    let rare = "theorem rare (n: Nat) (h: n = 123456789): n + 1 = 123456790 := arithmetic\n";
+    let (code, out) = audit_file("no-witness", rare, &["--strict"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(
+        out.starts_with("! rare\n    warn: no input made the hypotheses true"),
+        "{out}"
+    );
+    let witnessed = format!(
+        "{rare}\ntheorem rareExample: 123456789 + 1 = 123456790 := rare 123456789 byComputing\n"
+    );
+    let (code, out) = audit_file("witness", &witnessed, &["--strict", "--verbose"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("✓ rare\n"), "{out}");
+    assert!(out.contains("    witness: Main.rareExample\n"), "{out}");
+    assert!(
+        out.ends_with("audited 2 theorems: 0 failed, 0 with warnings, 2 passed\n"),
+        "{out}"
+    );
+}
+
+/// A theorem that only mentions the warned one, or applies it to too few
+/// arguments, isn't a witness.
+#[test]
+fn a_theorem_that_only_mentions_the_warned_one_is_no_witness() {
+    let source = "theorem rare (n: Nat) (h: n = 123456789): n + 1 = 123456790 := arithmetic\n\n\
+                  theorem usesRare (n: Nat) (h: n = 123456789): n + 1 = 123456790 := rare n h\n";
+    let (_, out) = audit_file("mention", source, &[]);
+    assert!(out.starts_with("! rare\n"), "{out}");
+    assert!(out.contains("! usesRare\n"), "{out}");
+}
+
+/// When every input was thrown out on the same hypothesis, the warning
+/// names it.
+#[test]
+fn the_vacuity_warning_names_the_hypothesis_that_rejected_the_inputs() {
+    let (_, out) = audit_file("names", VACUOUS, &[]);
+    assert!(
+        out.contains("(0 of 1500 cases), every one rejected by hypothesis `"),
+        "{out}"
+    );
 }
 
 /// A theorem that concludes `Void`, or a `Not`, claims its hypotheses
