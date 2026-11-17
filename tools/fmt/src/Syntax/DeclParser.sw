@@ -121,7 +121,8 @@ def headerGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: GroupKi
         colon = None,
         annotation = None,
         default = None,
-        close
+        close,
+        bare = False
       }
     | Some LParen, _ => headerGroupParts self modes kind refused False
     | Some LBracket, _ => headerGroupParts self modes kind refused True
@@ -130,6 +131,7 @@ def headerGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: GroupKi
 def headerGroupParts (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: GroupKind)
     (refused: Option Text) (implicit: Bool):
     {Parse Item} Group :=
+  let started := Parse.mark()
   let open := fixedFrom()
   let inner := modes.inBrackets
   refuseAttributes (attributesOf inner) "a definition's parameter"
@@ -150,7 +152,8 @@ def headerGroupParts (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Gr
         colon = None,
         annotation = Some annotation,
         default = None,
-        close
+        close,
+        bare = False
       }
     | _ =>
       let (auto, named) := match names with
@@ -182,8 +185,21 @@ def headerGroupParts (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Gr
             colon = Some colon,
             annotation = Some annotation,
             default,
-            close
+            close,
+            bare = default.isNone && consumedBare started
           }
+
+--| Whether the items read since `started` have no comments, except above
+--| the first: the trivia the Rust merge pass checks on a group's tokens.
+def consumedBare (started: Parse.Mark Item): {Parse Item} Bool :=
+  let taken := (started.rest).take (Parse.mark().offset - started.offset)
+  match taken with
+    | [] => True
+    | [first, ..rest] => first.leaf.trivia.trailing.isNone && itemsBare rest
+
+def itemsBare: List Item → Bool
+  | [] => True
+  | [item, ..rest] => item.leaf.trivia.leading.isEmpty && item.leaf.trivia.trailing.isNone && itemsBare rest
 
 --| A parameter's name (`param_name`).
 def paramName (modes: Modes): {Parse Item} Word := match modes.peek with
@@ -232,7 +248,8 @@ def binderGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (defaults: Boo
       colon = Some colon,
       annotation = Some annotation,
       default,
-      close
+      close,
+      bare = False
     }
 
 --| `[x y: A]`, `[auto x: P]` or `[auto P]` (`implicit_binder_parts`).
@@ -252,7 +269,8 @@ def implicitBinder (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
       colon = None,
       annotation = Some annotation,
       default = None,
-      close
+      close,
+      bare = False
     }
   else
     let open := modes.expectFixed LBracket "`[`"
@@ -276,7 +294,8 @@ def implicitBinder (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
       colon = Some colon,
       annotation = Some annotation,
       default = None,
-      close
+      close,
+      bare = False
     }
 
 --| A `{` starting a line at the block's own column may start the type

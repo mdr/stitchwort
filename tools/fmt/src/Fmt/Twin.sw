@@ -15,6 +15,10 @@
 --|   and the message, which the harness counts as a difference.
 --| - `refusal` (stage 2b): nothing if the file parses, or status 2 and
 --|   `fmt -`'s first line, `[CODE] Error: MESSAGE`.
+--| - `passes` (stage 4a): the tree after each of the four tidy passes, `==
+--|   P1 ==`, its dump, `== P2 ==` and so on, as `stitchwort dev passes`
+--|   prints them; a file the Rust formatter refuses is answered as in
+--|   `refusal`.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -24,6 +28,7 @@
 --| exit with, and MESSAGE the first line it would write to standard error.
 namespace Fmt.Twin
 import Std (Args, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
+import Fmt (..)
 import Syntax (Expr, Lexed, SourceFile, codeOf, lex, parseExpression, parseFile)
 
 --| What the command line asks for: the stage whose answer to print, the file
@@ -75,7 +80,22 @@ def stageAnswer (stage source: Text): Answer := match stage with
           | Ok _ => { out = "", status = 0, message = "" }
           | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
       | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+  | "passes" =>
+    match lex source with
+      | Ok lexed =>
+        match parseFile lexed.settled with
+          | Ok file => { out = passesDump file, status = 0, message = "" }
+          | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
+
+--| The tree after each tidy pass, each under its `== Pn ==` line.
+def passesDump (file: SourceFile): Text :=
+  let first := file.withForall
+  let second := first.withoutTrailingCommas
+  let third := second.withoutSpareBrackets
+  let fourth := third.withMergedParameters
+  "== P1 ==\n${first.dump}== P2 ==\n${second.dump}== P3 ==\n${third.dump}== P4 ==\n${fourth.dump}"
 
 --| A stage's answer for one file.
 def answerOf (stage: Text) (path: Path): {Files} Answer := match Files.read path with

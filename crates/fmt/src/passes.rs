@@ -70,6 +70,30 @@ pub fn run(file: FileId, text: &str, passes: &[Pass]) -> Tidied {
     }
 }
 
+/// The tree after each of [`PASSES`], as `dev passes` prints it for the
+/// self-hosted formatter's comparison (`task fmt:twin STAGE=passes`): a line
+/// `== P1 ==`, then the tree's dump, for each pass in the order they run.
+pub fn dump_after_each(file: FileId, text: &str) -> String {
+    let mut text = text.to_string();
+    let mut tree = parse_tree(file, &text, DEFAULT_STACK);
+    let mut out = String::new();
+    for (number, pass) in PASSES.iter().enumerate() {
+        let edits = pass(&tree, &text);
+        if !edits.is_empty() {
+            text = apply(&text, edits);
+            tree = parse_tree(file, &text, DEFAULT_STACK);
+        }
+        out.push_str(&format!("== P{} ==\n", number + 1));
+        let dump = tree.dump(&text);
+        let dump = dump.trim_end_matches('\n');
+        if !dump.is_empty() {
+            out.push_str(dump);
+            out.push('\n');
+        }
+    }
+    out
+}
+
 /// `text` with the edits made. They must not overlap.
 fn apply(text: &str, mut edits: Vec<Edit>) -> String {
     edits.sort_by_key(|edit| std::cmp::Reverse(edit.range.start));
