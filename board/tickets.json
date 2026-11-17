@@ -1,5 +1,5 @@
 {
-  "next": 3780,
+  "next": 3782,
   "tickets": [
     {
       "id": 47,
@@ -41995,7 +41995,7 @@
     {
       "id": 3734,
       "title": "[Sonnet] cases on an equality between values of a non-recursive type (isPostfix t = True after a pass) finds 'nothing to split on'; a ten-arm match was needed. Split by the type's constructors (Toy++ T4 friction, SW-3724)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42237,12 +42237,12 @@
     {
       "id": 3752,
       "title": "[Opus] cases: split an equality between constructor values (isPostfix t = True), split a hypothesis not only the goal, close arms that compute, and a budget that copes with ten character comparisons (Toy++ friction group 2a: SW-3734, SW-3461, SW-3459, SW-3748's cases part)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Also (group 3, SW-3739 option C): cases on a stuck scrutinee shared by both sides of an equation closes the arms that compute, e.g. T5's insideFits/dropCommaFits ((Bracketed o i' c).fits slot = (Bracketed o i c).fits slot) as by cases slot.\n\nProgress (Opus lane, 17 Nov 2026, 10:47-12:03): done on lane/SW-3752, commits 82c053f4b and 048446b77.\n- SW-3734 (equality between constructor values) and SW-3748's `cases` part (computed arms of `group, rest`): a last-resort split of a recursive value, once (never a part of an earlier split, so no induction). `(dropComma expr).plain = expr.plain` is ten cases that compute; `| _, _ => cases` closes mergeOnto's other arms.\n- SW-3461 (split a hypothesis) and SW-3459 (ten character comparisons): a failing `cases` tries once more, with hypotheses and their parts first, `arithmetic` before each split, and a budget of 256 cases. The first try is unchanged, so its terms are too.\n- Number and character patterns: a NumCase scrutinee is split into its numbers and the rest.\n- SW-3739 option C: closes at the T5 use site with an inline `cases`.\n- Pre-existing bug fixed: in matching.rs, a generalised match now copies hypotheses in dependency order. Before, there was an E-MATCH-MOTIVE on a number match on a character's code.\n- Examples: accept/cases-recursive-once, cases-hypotheses-first, cases-number-patterns, cases-stuck-scrutinee, match-number-dependent-field. The reject budgets were raised past 256, and cases-nothing was reworded.\n- Tests: test:example NAME=cases,match-number-dependent-field; hash_stability::prelude (unchanged); hash_stability::examples for the cases examples (existing unchanged, new ones added); examples::soundness. All pass.\n- Toy demo (not committed): 3 spots, 20 lines down to 3.\n",
+      "body": "Also (group 3, SW-3739 option C): cases on a stuck scrutinee shared by both sides of an equation closes the arms that compute, e.g. T5's insideFits/dropCommaFits ((Bracketed o i' c).fits slot = (Bracketed o i c).fits slot) as by cases slot.\n\nProgress (Opus lane, 17 Nov 2026, 10:47-12:03): done on lane/SW-3752, commits 82c053f4b and 048446b77.\n- SW-3734 (equality between constructor values) and SW-3748's `cases` part (computed arms of `group, rest`): a last-resort split of a recursive value, once (never a part of an earlier split, so no induction). `(dropComma expr).plain = expr.plain` is ten cases that compute; `| _, _ => cases` closes mergeOnto's other arms.\n- SW-3461 (split a hypothesis) and SW-3459 (ten character comparisons): a failing `cases` tries once more, with hypotheses and their parts first, `arithmetic` before each split, and a budget of 256 cases. The first try is unchanged, so its terms are too.\n- Number and character patterns: a NumCase scrutinee is split into its numbers and the rest.\n- SW-3739 option C: closes at the T5 use site with an inline `cases`.\n- Pre-existing bug fixed: in matching.rs, a generalised match now copies hypotheses in dependency order. Before, there was an E-MATCH-MOTIVE on a number match on a character's code.\n- Examples: accept/cases-recursive-once, cases-hypotheses-first, cases-number-patterns, cases-stuck-scrutinee, match-number-dependent-field. The reject budgets were raised past 256, and cases-nothing was reworded.\n- Tests: test:example NAME=cases,match-number-dependent-field; hash_stability::prelude (unchanged); hash_stability::examples for the cases examples (existing unchanged, new ones added); examples::soundness. All pass.\n- Toy demo (not committed): 3 spots, 20 lines down to 3.\n\nModel result: opus, worked, 76 min (est. 70). Toy demo: three spots 20 lines -> 3 (SW-3753 to apply). Orchestrator checked cases-later-field's new message: it names the failing split (xs = []), the goal (0 = 5) and a counterexample; clearer. Findings SW-3780 SW-3781.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
@@ -42596,6 +42596,32 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3780,
+      "title": "[DeepSeek] In a named number match, the default arm's variable name still refers to the variable from before the split and gives W-MATCH-NOT-FOUND (SW-3752 finding)|",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3781,
+      "title": "[Sonnet] Guide checked examples can only be tested through the whole guide:: suite (minutes): a per-file or per-snippet filter so lanes can check the guide file they touched (SW-3752 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
