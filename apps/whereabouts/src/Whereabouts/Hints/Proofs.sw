@@ -3221,3 +3221,197 @@ theorem leOfUnitsPos ∀ (x y: Float)
         | False =>
           let le: Float.Theory.magUnits x.bits ≤ Float.Theory.magUnits y.bits := arithmetic [h]
           arithmetic [Float.Theory.magUnitsLeReflect x.bits y.bits le]
+
+theorem intMulNegSucc ∀ (j m: Nat): Int.mul (NegSucc j) (OfNat m) = Int.neg (OfNat ((j + 1) * m)) := algebra
+
+theorem doubleMul ∀ (j h: Nat): j * (h * 2) = (2 * j) * h := algebra
+
+--| A whole number `c` of units `h * 2` at least `(k + 1/2)` of them is at least `k + 1`.
+theorem halfStep ∀ (c u: Int) (h k p: Nat)
+    (hp: 0 < h)
+    (ep: p = h * 2)
+    (hu: Int.leq (OfNat ((2 * k + 1) * h)) u = True)
+    (hc: Int.leq u (Int.mul c (OfNat p)) = True):
+    Int.leq (OfNat (k + 1)) c = True :=
+  let hc2: Int.leq u (Int.mul c (OfNat (h * 2))) = True := J (q z => Int.leq u (Int.mul c (OfNat q)) = True) hc ep
+  match c with
+    | OfNat j =>
+      let e: Int.mul (OfNat j) (OfNat (h * 2)) = OfNat (j * (h * 2)) := intMulOfNat j (h * 2)
+      let a: (2 * k + 1) * h ≤ (2 * j) * h := arithmetic [hu, hc2, e, doubleMul j h]
+      arithmetic [Float.Theory.cancelLe (2 * k + 1) (2 * j) h hp a]
+    | NegSucc j =>
+      let big: 1 * (h * 2) ≤ (j + 1) * (h * 2) := Nat.leMulRight 1 (j + 1) (h * 2) (arithmetic)
+      Void.impossible (arithmetic [hu, hc2, intMulNegSucc j (h * 2), hp, big])
+
+theorem natAbsNeg3601 ∀ (g: Int) (h: Int.natAbs g ≤ 3601): Int.natAbs (Int.neg g) ≤ 9007199254740992 := arithmetic [h]
+
+theorem mulLeOf ∀ (c: Int) (k p: Nat) (h: Int.leq (OfNat k) c = True): Int.leq (OfNat (k * p)) (Int.mul c (OfNat p)) = True :=
+  match c with
+    | OfNat j => arithmetic [Nat.leMulRight k j p (arithmetic [h]), intMulOfNat j p]
+
+--| The ceiling of a double `y` within 3600 that is at least `k + 1/2` is at
+--| least `k + 1`, in units: `ceil` gives a whole number of units of 2^1074
+--| at least `y`'s (`ceilDivGe`), and the next whole number above `k` is `k + 1`.
+theorem ceilAtLeast ∀ (y: Float) (k: Nat)
+    (lo: -3600.0 <= y)
+    (hi: y <= 3600.0)
+    (hu: Int.leq (OfNat ((2 * k + 1) * Float.Model.pow2 1073)) (Float.Theory.units y) = True):
+    Int.leq (OfNat ((k + 1) * Float.Model.pow2 1074)) (Float.Theory.units (Float.ceil y)) = True :=
+  let fy: Float.isFinite y = True := Float.finiteBetween (-3600.0) y 3600.0 byComputing byComputing lo hi
+  let a: Nat := y.bits
+  let s: Bool := Float.Model.signBit a
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let small: n < Float.Model.pow2 1074 * 3601 :=
+    unitsWithin
+      (Float.Theory.units y)
+      (Float.Theory.units (-3600.0))
+      (Float.Theory.units 3600.0)
+      (Float.Model.pow2 1074)
+      byComputing
+      byComputing
+      byComputing
+      (Float.Theory.unitsMonoKey (-3600.0).bits y.bits lo)
+      (Float.Theory.unitsMonoKey y.bits 3600.0.bits hi)
+  let g: Int := Float.Model.floorDiv (¬s) n (Float.Model.pow2 1074)
+  let gb: Int.natAbs g ≤ 3601 := Float.Theory.floorDivBelow (¬s) n (Float.Model.pow2 1074) 3601 byComputing small
+  let c: Int := Int.neg g
+  let cl: (Float.ceil y).bits = Float.Model.roundScaled c 0 s :=
+    Eq.trans
+      (Float.Theory.ceilOfBits y)
+      (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a (Float.Theory.finiteBits y fy)))
+  let facts := wholeAtFacts c s (natAbsNeg3601 g gb)
+  let ge: Int.leq (Float.Theory.units y) (Int.mul c (OfNat (Float.Model.pow2 1074))) = True :=
+    J
+      (v z => Int.leq v (Int.mul c (OfNat (Float.Model.pow2 1074))) = True)
+      (Float.Theory.ceilDivGe s n (Float.Model.pow2 1074) byComputing)
+      (Float.Theory.unitsSigned a)
+  let ck := halfStep c (Float.Theory.units y) (Float.Model.pow2 1073) k (Float.Model.pow2 1074) byComputing byComputing hu ge
+  J
+    (v z => Int.leq (OfNat ((k + 1) * Float.Model.pow2 1074)) (Float.Theory.units v) = True)
+    (J
+      (v z => Int.leq (OfNat ((k + 1) * Float.Model.pow2 1074)) v = True)
+      (mulLeOf c (k + 1) (Float.Model.pow2 1074) ck)
+      facts.right.flipped)
+    (wholeAtOf (Float.ceil y) c s cl).flipped
+
+theorem posOfLeMul ∀ (u: Int) (k p: Nat)
+    (pk: 1 ≤ k)
+    (pp: 0 < p)
+    (h: Int.leq (OfNat (k * p)) u = True):
+    Int.less (OfNat 0) u = True :=
+  arithmetic [h, pp, Nat.leMulRight 1 k p pk]
+
+theorem nearNinetyArith ∀ (n90 nw dneg q x u: Int) (w: Nat)
+    (dn: dneg = Int.neg nw)
+    (s1: Int.leq (Int.add n90 dneg) (Int.add q (OfNat (w * 2))) = True)
+    (s2: Int.leq (Int.add q nw) (Int.add x (OfNat (w * 2))) = True)
+    (gap: Int.less (Int.add u (OfNat (w * 4))) n90 = True):
+    Int.less u x = True :=
+  arithmetic [dn, s1, s2, gap]
+
+--| `(90 - width) + width`, the upper edge of a band clamped at 90°, is
+--| above 89.95°: each rounding moves it by at most 2^-43 (`sumNear`). (It is
+--| 90 exactly in a search of millions of widths, but the standard model
+--| alone doesn't show that.)
+theorem nearNinety ∀ (width: Float)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0):
+    89.95 < 90.0 - width + width :=
+  let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
+  let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
+  let nw: Float.isNaN width = False := notNaNOfFinite width fw
+  let top := topEdgeRange width fw w0 wHi
+  let q: Float := 90.0 - width
+  let dLo: -361.0 <= -width := Float.negAntitone width 361.0 nw byComputing (floatLeTrans width 180.0 361.0 wHi byComputing)
+  let dHi: -width <= 361.0 :=
+    floatLeTrans (-width) (-1e-11) 361.0 (Float.negAntitone 1e-11 width byComputing nw wLo) byComputing
+  let s1 := sumNear 90.0 (-width) byComputing byComputing dLo dHi
+  let s1q: Int.leq
+    (Int.add (Float.Theory.units 90.0) (Float.Theory.units (-width)))
+    (Int.add (Float.Theory.units q) (OfNat (Float.Model.pow2 1030 * 2)))
+    = True :=
+    J
+      (y z =>
+        Int.leq
+          (Int.add (Float.Theory.units 90.0) (Float.Theory.units (-width)))
+          (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1030 * 2)))
+          = True)
+      s1.right.left
+      (Float.subAddNeg 90.0 width).flipped
+  let s2 :=
+    sumNear q
+      width
+      (floatLeTrans (-361.0) (-90.0) q byComputing top.right.left)
+      (floatLeTrans q 90.0 361.0 top.right.right byComputing)
+      (floatLeTrans (-361.0) 0.0 width byComputing w0)
+      (floatLeTrans width 180.0 361.0 wHi byComputing)
+  Float.Theory.lessOfUnits 89.95
+    (q + width)
+    (nearNinetyArith
+      (Float.Theory.units 90.0)
+      (Float.Theory.units width)
+      (Float.Theory.units (-width))
+      (Float.Theory.units q)
+      (Float.Theory.units (q + width))
+      (Float.Theory.units 89.95)
+      (Float.Model.pow2 1030)
+      (unitsNeg width nw)
+      s1q
+      s2.right.left
+      byComputing)
+
+--| An upper edge above 89.95° rounds up to at least 90° at either step:
+--| `ceil` is whole, so above 899.5 tenths (or 89.5 degrees) it reaches 900
+--| (or 90) (`ceilAtLeast`).
+theorem ceilStepAtLeastNinety ∀ (x width: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0)
+    (near: 89.95 < x):
+    90.0 <= ceilTo x (stepFor width) :=
+  let near2: 89.95 <= x := floatLeOfLt 89.95 x near
+  Float.Theory.orCase
+    (stepEither width)
+    (e =>
+      let y: Float := x / 0.1
+      let pos: 0.0 < 0.1 := byComputing
+      let f01: Float.isFinite 0.1 = True := byComputing
+      let yNear: 899.5 <= y := J (z w => z <= y) (Float.divMonotone 89.95 x 0.1 pos f01 near2) (byComputing: 89.95 / 0.1 = 899.5)
+      let yLo: -3600.0 <= y := J (z w => z <= y) (Float.divMonotone (-360.0) x 0.1 pos f01 lo) (byComputing: -360.0 / 0.1 = -3600.0)
+      let yHi: y <= 3600.0 := J (z w => y <= z) (Float.divMonotone x 360.0 0.1 pos f01 hi) (byComputing: 360.0 / 0.1 = 3600.0)
+      let hu: Int.leq (OfNat ((2 * 899 + 1) * Float.Model.pow2 1073)) (Float.Theory.units y) = True :=
+        J
+          (v z => Int.leq v (Float.Theory.units y) = True)
+          (Float.Theory.unitsMonoKey 899.5.bits y.bits yNear)
+          (byComputing: Float.Theory.units 899.5 = OfNat ((2 * 899 + 1) * Float.Model.pow2 1073))
+      let cu := ceilAtLeast y 899 yLo yHi hu
+      let c900: 900.0 <= Float.ceil y :=
+        leOfUnitsPos 900.0
+          (Float.ceil y)
+          (posOfLeMul (Float.Theory.units (Float.ceil y)) (899 + 1) (Float.Model.pow2 1074) byComputing byComputing cu)
+          (J
+            (v z => Int.leq v (Float.Theory.units (Float.ceil y)) = True)
+            cu
+            (byComputing: OfNat ((899 + 1) * Float.Model.pow2 1074) = Float.Theory.units 900.0))
+      let d: 900.0 / 10.0 <= Float.ceil y / 10.0 := Float.divMonotone 900.0 (Float.ceil y) 10.0 byComputing byComputing c900
+      let r: 90.0 <= Float.ceil y / 10.0 := J (v z => v <= Float.ceil y / 10.0) d (byComputing: 900.0 / 10.0 = 90.0)
+      let r2: 90.0 <= ceilTo x 0.1 := J (v z => 90.0 <= v) r (ceilToTenth x lo hi).flipped
+      J (st z => 90.0 <= ceilTo x st) r2 e.flipped)
+    (e =>
+      let xLo: -3600.0 <= x := floatLeTrans (-3600.0) (-360.0) x byComputing lo
+      let xHi: x <= 3600.0 := floatLeTrans x 360.0 3600.0 hi byComputing
+      let hu: Int.leq (OfNat ((2 * 89 + 1) * Float.Model.pow2 1073)) (Float.Theory.units x) = True :=
+        J
+          (v z => Int.leq v (Float.Theory.units x) = True)
+          (Float.Theory.unitsMonoKey 89.5.bits x.bits (floatLeTrans 89.5 89.95 x byComputing near2))
+          (byComputing: Float.Theory.units 89.5 = OfNat ((2 * 89 + 1) * Float.Model.pow2 1073))
+      let cu := ceilAtLeast x 89 xLo xHi hu
+      let c90: 90.0 <= Float.ceil x :=
+        leOfUnitsPos 90.0
+          (Float.ceil x)
+          (posOfLeMul (Float.Theory.units (Float.ceil x)) (89 + 1) (Float.Model.pow2 1074) byComputing byComputing cu)
+          (J
+            (v z => Int.leq v (Float.Theory.units (Float.ceil x)) = True)
+            cu
+            (byComputing: OfNat ((89 + 1) * Float.Model.pow2 1074) = Float.Theory.units 90.0))
+      let r2: 90.0 <= ceilTo x 1.0 := J (v z => 90.0 <= v) c90 (ceilToWhole x (absWithin360 x lo hi)).flipped
+      J (st z => 90.0 <= ceilTo x st) r2 e.flipped)
