@@ -1,5 +1,5 @@
 {
-  "next": 3707,
+  "next": 3708,
   "tickets": [
     {
       "id": 47,
@@ -41788,12 +41788,12 @@
     {
       "id": 3705,
       "title": "[Sonnet] Fuzz finding (broad tier, fuzz_elab oracle 4, budget with the cache): seed 0x5eede1ab00000685 case 70, a mutant of accept/parse-lex-then-parse.sw, hangs under the cache (input at Overmind's chain/filler/broad3-findings/5eede1ab00000685-70.sw; ask Overmind to paste it). Reproduce, find why the budget doesn't stop it, fix with the input as a test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Reproducer: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3705/hang.sw = examples/accept/parse-lex-then-parse.sw with 'sumIsTwentyFour ... = Ok 25 := byComputing' (a false statement by computing); hangs only with the cache (fuzz_elab oracle 4).\n\nLane note: not a budget bug. The input checks fine every time (CLI no-cache 26 s, cache 30 s then 1.8 s warm, debug; the unmutated example takes 24 s). The cost is the std parser library checked afresh per session (Parse/Runs, Reads ~6 s each, debug). A cache comparison is three such runs, each against a 60 s wall-clock watchdog; load pushed one past 60 s. Fix: WATCHDOG 240 s (lane/SW-3705). No regression test possible (load-dependent).\n",
+      "body": "Reproducer: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3705/hang.sw = examples/accept/parse-lex-then-parse.sw with 'sumIsTwentyFour ... = Ok 25 := byComputing' (a false statement by computing); hangs only with the cache (fuzz_elab oracle 4).\n\nLane note: not a budget bug. The input checks fine every time (CLI no-cache 26 s, cache 30 s then 1.8 s warm, debug; the unmutated example takes 24 s). The cost is the std parser library checked afresh per session (Parse/Runs, Reads ~6 s each, debug). A cache comparison is three such runs, each against a 60 s wall-clock watchdog; load pushed one past 60 s. Fix: WATCHDOG 240 s (lane/SW-3705). No regression test possible (load-dependent).\n\nModel result: sonnet, worked, 11 min (est. 45). Not a hang: slow under load (26 s quiet, debug). Follow-up SW-3707.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41806,6 +41806,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3707,
+      "title": "[Sonnet] fuzz_elab checks std afresh in every case (~20 s CPU in debug for a std-heavy mutant, x3 for cache cases): share one std cache across cases in the test process, then put the watchdog back to 60 s (SW-3705)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
