@@ -4765,3 +4765,183 @@ theorem Float.Theory.remExact ∀ (a b: Nat)
         ∧ (y < d))
     (Both (Both (J (w v => Float.Theory.FiniteBits w) ex.left rb.flipped) rb) lt)
     size.flipped
+
+theorem Float.Theory.modelNotZero ∀ (y: Float) (zy: Float.isZero y = False): Float.Model.isZero y.bits = False :=
+  let b: Nat := y.bits
+  let n0: Nat.equal b 0 = False := Float.Theory.orLeftFalse (Nat.equal b 0) (Nat.equal b 9223372036854775808) zy
+  let n1: Nat.equal b 9223372036854775808 = False :=
+    Float.Theory.orRightFalse (Nat.equal b 0) (Nat.equal b 9223372036854775808) zy
+  Float.Theory.orCase
+    [goal := Float.Model.isZero b = False]
+    (Float.Theory.boolCases (Nat.leq 9223372036854775808 b))
+    (c => rewrite c then arithmetic [c, n1])
+    (c => rewrite c then n0)
+
+theorem Float.Theory.magLessOfUnits ∀ (m n: Nat)
+    (h: Float.Theory.magUnits m < Float.Theory.magUnits n):
+    m < n :=
+  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq n m))
+    (c =>
+      Void.impossible
+        (Float.Theory.leLessAbsurd
+          (Float.Theory.magUnits n)
+          (Float.Theory.magUnits m)
+          (Float.Theory.magUnitsLe n m (Float.Theory.atLeastOf n m c))
+          h))
+    (c => arithmetic [c])
+
+--| `x % y` on finite doubles, `y` not a zero: their bits' remainder.
+theorem Float.Theory.remOfBits ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False):
+    (x % y).bits = Float.Model.remBits x.bits y.bits :=
+  let e: x % y = Float.ofBits (Float.Model.remBits x.bits y.bits) := match x, y with
+    | { bits = a, valid = p }, { bits = b, valid = q } => byComputing
+  let ex := Float.Theory.remExact x.bits
+    y.bits
+    (Float.Theory.finiteBits x fx)
+    (Float.Theory.finiteBits y fy)
+    (Float.Theory.modelNotZero y zy)
+  Eq.trans
+    (Eq.cong (q => q.bits) e)
+    (Float.Theory.ofBitsBits
+      (Float.Model.remBits x.bits y.bits)
+      (Float.Theory.validTo
+        (Float.Model.remBits x.bits y.bits)
+        (Float.Model.roundRatio
+          (Int.signed
+            (Float.Model.signBit x.bits)
+            (Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))))
+          1
+          (-1074)
+          (Float.Model.signBit x.bits))
+        ex.left.right
+        (Float.Theory.roundRatioValid 1
+          (-1074)
+          (Float.Model.signBit x.bits)
+          byComputing
+          (Int.signed
+            (Float.Model.signBit x.bits)
+            (Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits)))))))
+
+theorem Float.Theory.absLessOf ∀ (u v: Float)
+    (h: Float.Model.magnitude u.bits < Float.Model.magnitude v.bits):
+    Float.abs u < Float.abs v :=
+  arithmetic [Float.Theory.absKey u, Float.Theory.absKey v, h]
+
+theorem Float.Theory.signedNonneg ∀ (k: Nat): Int.leq (OfNat 0) (Int.signed False k) = True := arithmetic
+
+theorem Float.Theory.signedNonpos ∀ (k: Nat): Int.leq (Int.signed True k) (Int.signed True 0) = True := arithmetic
+
+--| `|x % y| < |y|` for finite `x` and finite nonzero `y`: the remainder
+--| `x - n × y`, for the whole `n` of `x / y` truncated, is exact, so it is
+--| below `y` in size as the exact one is.
+-- Exact because `x` and `y` are multiples of 2^E for the smaller of their
+-- exponents `E`, and so is the remainder, which is at most both of them
+-- (`Float.Theory.combinationExact`).
+theorem Float.remAbsLt ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False):
+    Float.abs (x % y) < Float.abs y :=
+  let a: Nat := x.bits
+  let b: Nat := y.bits
+  let ex := Float.Theory.remExact a
+    b
+    (Float.Theory.finiteBits x fx)
+    (Float.Theory.finiteBits y fy)
+    (Float.Theory.modelNotZero y zy)
+  let rb: (x % y).bits = Float.Model.remBits a b := Float.Theory.remOfBits x y fx fy zy
+  let units: Float.Theory.magUnits (Float.Model.magnitude (Float.Model.remBits a b))
+    < Float.Theory.magUnits (Float.Model.magnitude b) :=
+    J
+      (u w => u < Float.Theory.magUnits (Float.Model.magnitude b))
+      (J
+        (u w => Int.natAbs (Float.Model.units (Float.Model.remBits a b)) < u)
+        ex.right
+        (Float.Theory.natAbsUnits b))
+      (Float.Theory.natAbsUnits (Float.Model.remBits a b))
+  let mags: Float.Model.magnitude (x % y).bits < Float.Model.magnitude b :=
+    J
+      (r w => Float.Model.magnitude r < Float.Model.magnitude b)
+      (Float.Theory.magLessOfUnits (Float.Model.magnitude (Float.Model.remBits a b)) (Float.Model.magnitude b) units)
+      rb.flipped
+  Float.Theory.absLessOf (x % y) y mags
+
+theorem Float.Theory.signSetOf ∀ (b: Nat)
+    (h: Int.leq (Float.Theory.key b) (NegSucc 0) = True):
+    Nat.leq 9223372036854775808 b = True :=
+  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9223372036854775808 b)) (c => c) (c =>
+    Void.impossible (Float.Theory.intLeLessAbsurd
+      (Float.Theory.key b) (NegSucc 0) h (arithmetic [Float.Theory.keyClear b c])))
+
+--| The key of `x % y` for finite `x` and finite nonzero `y`: a rounding of
+--| a whole number of units with `x`'s sign.
+theorem Float.Theory.remKey ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False) (s: Bool)
+    (sx: Nat.leq 9223372036854775808 x.bits = s):
+    Float.orderKey (x % y)
+      = Float.Theory.roundKey
+        (Int.signed s (Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))))
+        1
+        (-1074)
+        s :=
+  let ex := Float.Theory.remExact x.bits
+    y.bits
+    (Float.Theory.finiteBits x fx)
+    (Float.Theory.finiteBits y fy)
+    (Float.Theory.modelNotZero y zy)
+  let k: Nat := Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))
+  calc Float.Theory.key (x % y).bits
+    _ = Float.Theory.key (Float.Model.remBits x.bits y.bits) := Eq.cong Float.Theory.key (Float.Theory.remOfBits x y fx fy zy)
+    _ = Float.Theory.key
+        (Float.Model.roundRatio (Int.signed (Float.Model.signBit x.bits) k) 1 (-1074) (Float.Model.signBit x.bits)) :=
+      Eq.cong Float.Theory.key ex.left.right
+    _ = Float.Theory.key (Float.Model.roundRatio (Int.signed s k) 1 (-1074) s) :=
+      Eq.cong (t => Float.Theory.key (Float.Model.roundRatio (Int.signed t k) 1 (-1074) t)) sx
+
+--| `x % y` has `x`'s sign: `0.0 <= x % y` when `0.0 <= x`.
+theorem Float.remNonneg ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False)
+    (h: 0.0 <= x):
+    0.0 <= x % y :=
+  let k: Nat := Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))
+  Float.Theory.leqVia
+    (Float.orderKey 0.0)
+    (Float.orderKey (x % y))
+    (Float.Theory.roundKey (OfNat 0) 1 (-1074) False)
+    (Float.Theory.roundKey (Int.signed False k) 1 (-1074) False)
+    byComputing
+    (Float.Theory.remKey x y fx fy zy False (Float.Theory.signClear x.bits h))
+    (Float.Theory.roundKeyMonoLe 1 (-1074) False False byComputing (OfNat 0) (Int.signed False k) (Float.Theory.signedNonneg k) (w => w))
+
+--| `x % y <= -0.0` when `x <= -0.0`.
+theorem Float.remNonpos ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False)
+    (h: x <= -0.0):
+    x % y <= -0.0 :=
+  let k: Nat := Int.natAbs (Float.Model.units (Float.Model.remBits x.bits y.bits))
+  Float.Theory.leqVia
+    (Float.orderKey (x % y))
+    (Float.orderKey (-0.0))
+    (Float.Theory.roundKey (Int.signed True k) 1 (-1074) True)
+    (Float.Theory.roundKey (Int.signed True 0) 1 (-1074) True)
+    (Float.Theory.remKey x y fx fy zy True (Float.Theory.signSetOf x.bits h))
+    byComputing
+    (Float.Theory.roundKeyMonoLe 1 (-1074) True True byComputing (Int.signed True k) (Int.signed True 0) (Float.Theory.signedNonpos k) (w => w))
+
+test "Float.remAbsLt" :=
+  Float.abs (5.5 % 2.0) < Float.abs 2.0
+    ∧ Float.abs (-5.5 % 2.0) < Float.abs 2.0
+    ∧ Float.abs (1e300 % 3e-300) < 3e-300
+    ∧ Float.abs (5e-324 % -1e300) < 1e300
+    ∧ 0.0 <= 7.0 % -3.0
+    ∧ -7.0 % 3.0 <= -0.0
+    ∧ -6.0 % 3.0 == -0.0
