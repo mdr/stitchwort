@@ -41656,7 +41656,7 @@
     {
       "id": 3695,
       "title": "[DeepSeek] examples/projects/** still have redundant then byComputing (trip-journal Trip/Proofs/Self.sw: 18 warnings, and others): apply the quick fixes (stitchwort check --index ranges), keep each project checking, refresh its snapshots (SW-3681 follow-up)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41708,7 +41708,7 @@
     {
       "id": 3699,
       "title": "[DeepSeek] Cheap guard for SW-3694's heap regression: a unit test pinning size_of::<undo::Snapshot>() (and Held) with a comment saying a deep recursion keeps one per level, so a field added there must be boxed or justified",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41881,7 +41881,7 @@
     {
       "id": 3712,
       "title": "[Sonnet] cli run_reference::examples_print_the_same_both_ways takes ~500 s at 2 threads: give it a rotating daily sample like conv_shortcut (EXAMPLES= to narrow), or split it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
