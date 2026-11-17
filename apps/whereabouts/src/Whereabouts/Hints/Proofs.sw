@@ -393,7 +393,7 @@ def tenthOf (k: Float): Float := Float.round (k * 0.1 * 10.0) / 10.0
 --| whole number of tenths, and it is under 2^-42 even after rounding.
 def tenthsSlack: Float := 1.7053025658242404e-13
 
---| What is checked for each whole number `k` of tenths: the round trip; that
+--| What holds for each whole number `k` of tenths (`tenthsAt`): the round trip; that
 --| `tenthsSlack` below its tenth divides by 0.1 to below `k`, and above it
 --| to above `k`; and that the tenth is within 361°.
 def tenthsCheck (k: Float): Bool :=
@@ -578,6 +578,9 @@ theorem kBelowTop ∀ (u: Int) (b v: Nat)
       ∧ (Int.less (Int.neg (OfNat (v * 129775726862308212736))) u = True) :=
   Both (arithmetic [ku, bv, v1]) (arithmetic [ku, bv, v1])
 
+--| `tripNonzero` once the signs are known: `tripMagnitudes` puts the result
+--| within `20b + 20` units of `(2^55 + 2) b`, under half a unit from `n`
+--| (`tripNear`), and `roundNear` finds `n`.
 theorem tripFinish ∀ (k: Float) (n: Int) (b: Nat)
     (fk: Float.isFinite k = True)
     (whole: Float.Theory.units k = Int.mul n (OfNat (Float.Model.pow2 1074)))
@@ -872,7 +875,10 @@ theorem natAbsWithin ∀ (u lo hi: Int) (bound: Nat)
     Int.natAbs u ≤ bound :=
   arithmetic [el, eh, a, b]
 
---| `k / 10.0` within the standard model, for `k` of `b · 2^55` units of 2^-1074.
+--| `k / 10.0` within the standard model, for `k` of `b · 2^55` units of
+--| 2^-1074: ten times the quotient's units are within `14404 · 2^1019 + 5`
+--| of `k`'s. `divRelError`, with 2^1074 cancelled (`relCancel`) and the
+--| relative error bounded by `|k| ≤ 3601`.
 theorem tenthCoarse ∀ (k: Float) (b: Nat)
     (bv: b ≤ Float.Model.pow2 1019 * 3601)
     (ku: Int.natAbs (Float.Theory.units k) = b * 36028797018963968)
@@ -908,7 +914,9 @@ theorem tenthCoarse ∀ (k: Float) (b: Nat)
       err
   tenthCoarseArith tt b (Float.Model.pow2 1019) bv two.left two.right
 
---| `c / 0.1` within the standard model, for `c` within 362°.
+--| `c / 0.1` within the standard model, for `c` within 362°: the quotient's
+--| units times 0.1's significand are within `4 |c| + 0.1's significand` of
+--| `c`'s units times 2^55. `divRelError`, with 2^1019 cancelled.
 theorem quotientCoarse ∀ (c: Float)
     (lo: -362.0 <= c)
     (hi: c <= 362.0)
@@ -1619,8 +1627,9 @@ theorem roundTripOf ∀ (k: Float) (c: tenthsCheck k = True): Float.round (k * 0
 
 --| The round trip in `floorTo` and `ceilTo` at step 0.1: a whole double `k`
 --| of `n` (up to 3601 in size) comes back from `round (k * 0.1 * 10.0)`,
---| though neither product need be exact. Checked for each `n`, by computing,
---| zeros of both signs included.
+--| though neither product need be exact: the standard model for `*`, twice,
+--| keeps it within half a unit (`tripNonzero`); zeros of both signs by
+--| computing.
 theorem tenthsRoundTrip ∀ (k: Float) (n: Int)
     (fk: Float.isFinite k = True)
     (whole: Float.Theory.units k = Int.mul n (OfNat (Float.Model.pow2 1074)))
@@ -1889,8 +1898,9 @@ theorem slackCloseAbove ∀ (g d c: Int) (w e: Nat)
 --| needs a margin.
 --|
 --| The proof: `floor (x / 0.1)` is a whole number `k` of tenths up to 3601
---| in size, and for each such `k`, by computing, the double `c` 3 · 2^-44
---| below `tenthOf k` divides by 0.1 to below `k` (`tenthsCheck`). If `x`
+--| in size, and for each such `k` the double `c` 3 · 2^-44 below
+--| `tenthOf k` divides by 0.1 to below `k` (`tenthsCheck`, by `slackBelow`
+--| from the standard model for `/`). If `x`
 --| were below `c`, monotonicity of `/ 0.1` and `floor x ≤ x` would put `k`
 --| below itself; so `x ≥ c`, and `c` is within 2^-44 of its exact value by
 --| the standard model for `+` (`slackSum`).
@@ -2483,7 +2493,10 @@ theorem marginAboveExact ∀ (lat width unit: Float)
 --| multiple of 360 into [-180, 180).
 def wrappedDegrees (n: Int): Int := Int.sub (OfNat (Int.modNat (Int.add n (OfNat 180)) 360)) (OfNat 180)
 
---| `x % y` is exact: its units are `x`'s less a whole number of `y`'s, with `x`'s sign.
+--| `x % y` is exact: its units are `x`'s less a whole number of `y`'s, with
+--| `x`'s sign. std's `remExact` proves this inside (`remFiniteBits` and
+--| `combinationExact` with the quotient `divFuel` finds) but states only the
+--| result's size; a std candidate.
 theorem remUnitsExact ∀ (x y: Float)
     (fx: Float.isFinite x = True)
     (fy: Float.isFinite y = True)
@@ -2586,6 +2599,9 @@ theorem signedScaled ∀ (s: Bool) (r p: Nat): Int.signed s (r * p) = Int.mul (I
   | False => algebra
   | True => algebra
 
+--| The whole-number side of `remWholeStep`, for `m = a·p` units over
+--| `d = 360·p`: the quotient `q` has `360q ≤ a < 360q + 360`, and the
+--| remainder is `(a - 360q)·p`.
 theorem remCore ∀ (m d a p: Nat)
     (pp: 0 < p)
     (em: m = a * p)

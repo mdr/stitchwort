@@ -64,12 +64,13 @@ NaN, ±Infinity, -0 and 2^60): `hintBand`'s edges (`Object.is`),
 
 ## Theorems
 
-Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 89 theorems, 0 failed,
-5 with warnings, SW-3858: the random tests found no inputs meeting the
-hypotheses of five arithmetic helpers stated over 2^1074-sized units, each
-used with its hypotheses proved, so none is vacuous). Checking takes about
-2.5 minutes, nearly all of it `tenthsTable` (7,203 rows of float operations
-in the checker's model):
+Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 143 theorems, 0
+failed, 17 with warnings, SW-3872: the random tests found no inputs meeting
+the hypotheses of 17 arithmetic helpers stated over 2^1074-sized units or
+exact integer relations, each used with its hypotheses proved, so none is
+vacuous). Checking takes about 11 s without the cache, 8.5 s of it std's
+own check; nothing is settled by a computed table any more (SW-3872 and
+SW-3807 replaced the three, which had taken it to 2.7 minutes):
 
 - `finalWordBelow`: mulberry32's last word is below 2^32. Unconditional.
 - `seededUnitInUnit` (via `wordUnitInUnit`): `0.0 <= seededUnit parts ∧
@@ -98,10 +99,16 @@ in the checker's model):
   total one: `ceilTo (-0.5) 1.0` is `-0.0`, which is above -0.5 either way.
 - By computing: `narrowLatitudeBandMissesAnswer`,
   `narrowLongitudeBandMissesAnswer`, `wrapTenth`, `wrapWhole` (23 → 23,
-  180 → -180, -180 → -180), and `tenthsKeepTheirLabel`: `describeHint`'s
-  rounding, `Math.round(d * 10) / 10`, leaves each of the 3,601 tenths from
-  -180° to 180° as it is. So the label of an edge that *is* a tenth is that
-  edge; finding 2 is that longitude edges aren't tenths.
+  180 → -180, -180 → -180).
+- `tenthsKeepTheirLabel` (SW-3807): `describeHint`'s rounding,
+  `Math.round(d * 10) / 10`, leaves every tenth up to 360.1° in size as it
+  is: `round (tenth r * 10.0) / 10.0 = tenth r` for `|r| ≤ 3601`. So the
+  label of an edge that *is* a tenth is that edge; finding 2 is that
+  longitude edges aren't tenths. By the standard model (`labelRound`):
+  `/ 10.0` and `* 10.0` each miss by at most 2^-53 of the value, far inside
+  the half unit `round` allows. (It was a computed list of the 3,601 tenths
+  from -180° to 180°; the checker evaluates a closed `List.all` statement
+  even when the proof is general, so the law took its quantified form.)
 - `floatLeTrans`, `floatLeLtTrans`: transitivity of the total order, for
   the above (std has it only inside `Ord`; see "std gaps").
 - Latitude's clamps (SW-3844): `latitudeClampRange` (`Float.max (-90.0)
@@ -119,10 +126,14 @@ in the checker's model):
 - By computing (SW-3844): `floorToTenthOneUlpAbove` and
   `ceilToTenthOneUlpBelow`, the counterexamples to the earlier step-0.1
   bound (see the table).
-- Outward rounding to tenths (SW-3858). `tenthsTable` checks by computing,
-  for each whole number `k` of tenths from -3601 to 3601: the round trip
-  `round (k * 0.1 * 10.0) = k`, and that the doubles 3 · 2^-44 below and
-  above its tenth divide by 0.1 to below and above `k`. From it:
+- Outward rounding to tenths (SW-3858, SW-3872). `tenthsAt` proves, for
+  each whole number `k` of tenths from -3601 to 3601: the round trip
+  `round (k * 0.1 * 10.0) = k` (`tripNonzero`: `Float.mulRelError` twice,
+  then `Float.roundNear`), and that the doubles 3 · 2^-44 below and above
+  its tenth divide by 0.1 to below and above `k` (`slackBelow`,
+  `slackAbove`: `Float.divRelError` for `k / 10.0`, `slackSum` for the
+  shift, `divRelError` again for `/ 0.1`; the errors come to about 27.5 of
+  the 30 · 2^-44 the slack moves it, at `|k| = 3601`). From it:
   `tenthsRoundTrip` (the round trip for every whole double up to 3601,
   both zeros included), `floorToTenth` and `ceilToTenth` (`floorTo x 0.1 =
   floor (x / 0.1) / 10.0` for `|x| ≤ 360`, likewise `ceil`), and the
@@ -131,10 +142,10 @@ in the checker's model):
   units of 2^-1074. The argument: if `x` were below the double `c` 3 ·
   2^-44 under `floorTo x 0.1`, `x / 0.1 ≤ c / 0.1 < k ≤ x / 0.1`
   (`Float.divMonotone`, `Float.floorLe`); and `c` is within 2^-44 of its
-  exact value (`slackSum`, from `Float.addRelError`). The table, not
-  `divRelError` and `mulRelError` as planned, does the per-`k` work: it is
-  shorter and checks the true one-ulp behaviour rather than a 3-ulp bound,
-  at a cost of about 2 minutes of checking.
+  exact value (`slackSum`, from `Float.addRelError`). SW-3858 did the
+  per-`k` work with a computed table of 7,203 rows (2 minutes of
+  checking); SW-3872 replaced it with the general proof above, with the
+  same statements and the same 2^-42 bound.
 - The margin, exactly (SW-3858). `marginBelowExact`: for `|lat| ≤ 361`,
   `0 ≤ unit ≤ 1` and a width from 1e-11° to 361°, the unrounded lower
   edge is at least 2^-42 below the answer in exact units:
@@ -150,7 +161,11 @@ in the checker's model):
 - Longitude on whole degrees (SW-3858): `wrapWholeExact`: `wrap` of a
   whole number `n` of degrees, `|n| ≤ 400`, is exactly `wrappedDegrees n`
   (`(n + 180) mod 360 - 180`, `n` shifted by a multiple of 360 into
-  [-180, 180)), by computing over the 801 values (`wrapTable`).
+  [-180, 180)). Every step is exact on whole numbers (SW-3872, replacing
+  a table of the 801 values): the sums by `addWholeExact`, the remainders
+  by `remWholeStep` from `remUnitsExact` (`x % y` is `x` less a whole
+  number of `y`s, with `x`'s sign, which std's `remExact` proves inside
+  but doesn't state), and `wrapArith` for the integers' side.
 
 Not proved, with the law each needs. Each holds only for finite inputs in
 range (|lat| ≤ 90, -180 ≤ lon < 180, 0 ≤ unit ≤ 1, 0 < width ≤ 120 for
@@ -199,7 +214,9 @@ Missing laws: see the table. Monotonicity, the standard-model error bound
 the step-0.1 chain and the exact margin use them (SW-3858). What is left is
 assembling the containment theorem (the table's last rows). std candidates
 from SW-3858: `unitsNeg` (`units (-x) = -units x` for non-NaN `x`), and
-`sumNear`'s two-sided form of `Float.addRelError` with the sign handled.
+`sumNear`'s two-sided form of `Float.addRelError` with the sign handled. From SW-3872: `remUnitsExact` (the exact value of `x % y`),
+`addWholeExact` (`Float.Theory.addWhole` with the sum's finiteness), and
+`relCancel` (the error model's bounds with the common unit cancelled).
 
 Other std gaps:
 
@@ -228,5 +245,5 @@ Error messages that misled:
 What went well: `stitchwort test` runs `describeHint`'s text tests at run
 time even though the checker can't compute `Float.toText`; `byComputing`
 settles real questions about a whole program on known doubles
-(counterexamples as theorems, 3,601 tenths checked in well under a second);
+(counterexamples as theorems);
 and the extracted JS matched the TypeScript bit for bit first time.
