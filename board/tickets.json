@@ -42642,14 +42642,16 @@
     {
       "id": 3783,
       "title": "[Fable paper] Floats: transcendental functions (exp, log, cos, ...) whose JS results are implementation-approximated (ECMA-262 §21.3.2): how can theorems hold about the code that runs in the browser without giving up native Math speed? Survey prior art, options, recommendation; docs/proposals/float-transcendentals.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Paper lane (Fable), 17 Nov 2026. Note: docs/proposals/float-transcendentals.md (commit d28f65ed7 on lane/SW-3783).\n\n- Checked ECMA-262 21.3.2: exp, log, cos, pow and others are implementation-approximated with no accuracy bound; Math.sqrt is exact.\n- Found: V8 moved its Math functions from fdlibm to LLVM's libc between May and Nov 2026 (old exp correctly rounded on 80.3% of its benchmark, new on 100%, and faster); Chromium's glibc-path Math.sin measured 1063 ulp out; Firefox uses fdlibm; libraries differ by up to several ulp.\n- Recommendation: std's exp, log, cos and friends are Stitchwort definitions aiming at correct rounding (same bits everywhere, nothing new trusted); Float.sqrt on the host; no axioms about engines; host functions only as export arguments with visible hypotheses. Stage 0 measures the speed of such a function in extracted JS before any std work.\n- Five decisions for Matt at the end of the note, unnumbered.\n- No builds or tests run.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "d28f65ed7"
+      ]
     }
   ]
 }
