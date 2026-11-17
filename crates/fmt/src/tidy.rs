@@ -17,6 +17,39 @@
 
 use stitchwort_syntax::{Comment, Tok, Token, Trivia};
 
+/// The file's tokens with their trivia after rule N, one line a token, for
+/// the comparison harness (`task fmt:twin`, docs/proposals/self-hosted-fmt.md
+/// §6): the token's kind, its text, its column, whether it starts its line,
+/// the blank lines before it, each own-line comment before it (column, blank
+/// lines before, text) and its trailing comment. A last line gives the end
+/// of the file's trivia. A file that doesn't lex gives its diagnostic.
+pub fn token_dump(file: stitchwort_syntax::FileId, text: &str) -> Result<String, String> {
+    let lexed = stitchwort_syntax::lex_with_trivia(file, text).map_err(|d| d.message)?;
+    let (trivia, eof) = place_comments(&lexed.tokens, &lexed.trivia, &lexed.eof);
+    let comment = |c: &Comment| format!("{}:{}:{:?}", c.column, c.blank_lines_before, c.text);
+    let leading = |t: &Trivia| t.leading.iter().map(comment).collect::<Vec<_>>().join(" ");
+    let mut out = String::new();
+    for (token, trivia) in lexed.tokens.iter().zip(&trivia) {
+        let kind = format!("{:?}", token.tok);
+        let kind = kind.split(['(', ' ', '{']).next().unwrap_or("");
+        let source = &text[token.span.start as usize..token.span.end as usize];
+        out.push_str(&format!(
+            "{kind} {source:?} col={} line_start={} blank={} leading=[{}] trailing={}\n",
+            token.column,
+            token.line_start,
+            trivia.blank_lines_before,
+            leading(trivia),
+            trivia.trailing.as_ref().map_or("none".to_string(), comment),
+        ));
+    }
+    out.push_str(&format!(
+        "EOF blank={} leading=[{}]\n",
+        eof.blank_lines_before,
+        leading(&eof)
+    ));
+    Ok(out)
+}
+
 /// Each token's comments, and the end of file's, placed by rule N:
 ///
 /// 1. A trailing comment on a comma, a closing bracket or a record update's
@@ -252,7 +285,25 @@ pub(crate) fn record_update_bar(tokens: &[Token], bar: usize) -> bool {
 mod tests {
     use stitchwort_syntax::{SourceMap, lex_with_trivia};
 
-    use super::place_comments;
+    use super::{place_comments, token_dump};
+
+    #[test]
+    fn the_token_dump_shows_a_closer_comment_on_the_token_before_it() {
+        let text = "def f := g (\n  1,\n  2\n) -- last\n";
+        let file = SourceMap::new().add("t.sw", text);
+        let dump = token_dump(file, text).expect("lexes");
+        let lines: Vec<&str> = dump.lines().collect();
+        assert_eq!(lines.len(), 10, "{dump}");
+        assert_eq!(
+            lines[0],
+            "KwDef \"def\" col=0 line_start=true blank=0 leading=[] trailing=none"
+        );
+        assert!(lines[7].starts_with("Num \"2\""), "{dump}");
+        assert!(lines[7].ends_with("trailing=2:0:\"-- last\""), "{dump}");
+        assert_eq!(lines[9], "EOF blank=0 leading=[]");
+        let bad = SourceMap::new().add("t.sw", "def y := \"abc\n");
+        assert!(token_dump(bad, "def y := \"abc\n").is_err());
+    }
 
     /// Each comment after N, as (text, own line, the text of its token).
     fn placed(text: &str) -> Vec<(String, bool, String)> {

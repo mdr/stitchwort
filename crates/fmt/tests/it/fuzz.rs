@@ -16,6 +16,9 @@
 //! input to that file (overwriting it) before the case is formatted, so a run
 //! killed for memory or time leaves the case it was on behind.
 //!
+//! `FUZZ_WRITE_DIR=<dir>` writes every case that parses to `<dir>/case-N.sw`
+//! (N the 0-based index, zero-padded), for `task fmt:twin`'s fuzzer inputs.
+//!
 //! `FUZZ_COMMENTS=<rate>` (a number from 0 to 1) also inserts a `-- c` comment
 //! at each token boundary with that chance, half trailing (ending at a line
 //! end, which is added if needed) and half on a line of their own. Boundaries
@@ -563,6 +566,10 @@ fn the_formatter_never_panics_and_is_idempotent() {
         None => eprintln!("fuzz fmt: {cases} cases, seed {seed:#x}"),
     }
     let dump = dump_path();
+    let write_dir = std::env::var_os("FUZZ_WRITE_DIR").filter(|dir| !dir.is_empty());
+    if let Some(dir) = &write_dir {
+        std::fs::create_dir_all(dir).unwrap_or_else(|e| panic!("can't create FUZZ_WRITE_DIR: {e}"));
+    }
     let corpus = read_corpus();
     let mut rng = Rng(seed);
     let mut skipped = 0;
@@ -584,6 +591,13 @@ fn the_formatter_never_panics_and_is_idempotent() {
                     path.display()
                 )
             });
+        }
+        if let Some(dir) = &write_dir
+            && parses(&text)
+        {
+            let path = Path::new(dir).join(format!("case-{case:06}.sw"));
+            std::fs::write(&path, &text)
+                .unwrap_or_else(|e| panic!("can't write {}: {e}", path.display()));
         }
         if only.is_some() {
             print!("{text}");
