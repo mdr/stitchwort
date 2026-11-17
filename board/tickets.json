@@ -42921,12 +42921,12 @@
     {
       "id": 3804,
       "title": "[Fable review] SW-639 (float stage 4: div, rem, floor, ceil, trunc, round as definitions; no float kernel rule left): divBits signs and case table, remBits exactness, floorDiv, round half-up, isSpecial, eta for unary defs, pins; docs/reviews/SW-639-float-stage4-review.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Review: docs/reviews/SW-639-float-stage4-review.md (Fable, paper only, 17 Nov 2026; lane/SW-639 at e6c01d77b).\n\nVerdict: merge after fixes. No soundness finding: the run-only gate holds for all six, divBits/remBits/floor/ceil/trunc/round match IEEE and JS on every case reasoned, the nine theorems say what they claim, pins agree with the prelude snapshot.\n\nBefore merge:\n- F1: float_paths.rs:518 asserts 3489; the gate's own formula gives 3483 (3 x 1161).\n- F2: proofs::eta_hold::only_float_add_is_held expects [\"Float.add\"]; should now find eight (may already fail on main since SW-638). Run it by name.\n\nFollow-ups: F3 stale \"float primitive\" comments; F4 no test of a stuck x / y or floor x staying folded; F5-F6 nits; F7 tickets for the five things not done.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
