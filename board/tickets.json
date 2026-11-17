@@ -23159,7 +23159,7 @@
     {
       "id": 3921,
       "title": "[Opus] Engine E2 part 1: IdGroup and IfBroken in Fmt.Doc (print and measure, matching crates/fmt engine.rs), with the toy proofs extended; gate: dev/fmt-twin engine identical on every goldens and repo declaration using only them (25,442 + 2,126 in the repo) (SW-3905 counts; plan stage E2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
