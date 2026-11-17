@@ -31,7 +31,8 @@ theorem pickStock ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
     Abort.needEqSome rest (label foundLabel rest =>
       Abort.needEqSome rest (bin foundBin rest =>
         Abort.ensureEqSome rest (enough picked =>
-          rewrite foundStock, <- Option.someInjective picked, (arithmetic: order.quantity + (onHand - order.quantity) = onHand)))))
+          rewrite foundStock, <- Option.someInjective picked, (arithmetic: order.quantity + (onHand - order.quantity)
+            = onHand)))))
 
 -- The bin picked from is the one the item's label names.
 theorem pickBin ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)

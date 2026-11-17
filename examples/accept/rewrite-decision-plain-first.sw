@@ -16,5 +16,4 @@ def pick (b: Bool): Nat := Decidable.elim (decTrue b) (_ => 1) (_ => 0)
 
 def pickWith (g: (Nat → Bool) → Bool) (f: Nat → Bool): Nat := pick (g f)
 
-theorem pickWithTrue ∀ (g: (Nat → Bool) → Bool) (f: Nat → Bool) (h: g (x => f x) = True): pickWith g f = 1 :=
-  rewrite h
+theorem pickWithTrue ∀ (g: (Nat → Bool) → Bool) (f: Nat → Bool) (h: g (x => f x) = True): pickWith g f = 1 := rewrite h

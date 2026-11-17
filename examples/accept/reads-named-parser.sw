@@ -46,5 +46,4 @@ theorem readsBoundsStepwise: Parse.Reads bounds Written := Parse.readsThen Parse
 
 theorem readsLabelled: Parse.Reads labelled (read r => ∃ (rest: List Char) => read = ['#'] ++ rest ∧ Written rest r) :=
   Parse.readsThen (Parse.readsChar '#') (hashRead u hash =>
-    Parse.readsWeaken readsRange (rangeRead r written =>
-      Witness rangeRead (Both (rewrite hash) written)))
+    Parse.readsWeaken readsRange (rangeRead r written => Witness rangeRead (Both (rewrite hash) written)))

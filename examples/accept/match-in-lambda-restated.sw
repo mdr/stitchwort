@@ -41,9 +41,9 @@ theorem labelThenSuccRewritten ∀ (xs: List Nat):
           | Succ k => k)
           + 1) :=
   rewrite List.mapMap xs (m => m + 1) (n =>
-        match n with
-          | Zero => 1
-          | Succ k => k)
+    match n with
+      | Zero => 1
+      | Succ k => k)
 
 -- Under `byComputing`, with the binders renamed.
 theorem labelRefl ∀ (xs: List Nat):

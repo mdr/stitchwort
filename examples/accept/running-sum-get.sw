@@ -24,18 +24,20 @@ theorem slotAt ∀ (start: Nat) (durations: List Nat) (k: Nat):
       = (durations.get k).map (duration =>
         (start + (durations.take k |> .sumBy (d => d)), start + (durations.take k |> .sumBy (d => d)) + duration)) :=
   rewrite List.getZipWithScanLeft
-        (total duration => total + duration)
-        (duration begin => (begin, begin + duration))
-        durations
-        start
-        k,
-      List.sumByFrom (durations.take k) start (d => d)
+    (total duration => total + duration)
+    (duration begin => (begin, begin + duration))
+    durations
+    start
+    k, List.sumByFrom (durations.take k) start (d => d)
 
 -- Durations from spans: start k folds over the first k (end, begin) pairs.
 theorem startFromSpans ∀ (ends begins: List Nat) (k: Nat)
     (h: k ≤ (ends.zipWith begins Nat.sub).length):
     (starts 0 (ends.zipWith begins Nat.sub)).get k
       = Some (List.zip (ends.take k) (begins.take k) |> .foldLeft 0 (total span => total + (span.fst - span.snd))) :=
-  rewrite List.getScanLeft (total duration => total + duration) (ends.zipWith begins Nat.sub) 0 k h,
-      List.takeZipWith Nat.sub ends begins k,
-      List.foldLeftZipWith Nat.sub (total duration => total + duration) (ends.take k) (begins.take k) 0
+  rewrite List.getScanLeft (total duration => total + duration) (ends.zipWith begins Nat.sub) 0 k h, List.takeZipWith
+      Nat.sub ends begins k, List.foldLeftZipWith Nat.sub
+    (total duration => total + duration)
+    (ends.take k)
+    (begins.take k)
+    0

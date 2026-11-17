@@ -4,8 +4,6 @@
 -- built from (SW-2151). At the top of a term, `++` stays `++`.
 import Std (List, Nat)
 
-theorem middleSpread ∀ (chain: List Nat) (highest: Nat):
-    [0, ..chain, highest + 3] = chain := ?
+theorem middleSpread ∀ (chain: List Nat) (highest: Nat): [0, ..chain, highest + 3] = chain := ?
 
-theorem appendAtTop ∀ (chain: List Nat) (highest: Nat):
-    chain ++ [highest + 3] = chain := ?
+theorem appendAtTop ∀ (chain: List Nat) (highest: Nat): chain ++ [highest + 3] = chain := ?

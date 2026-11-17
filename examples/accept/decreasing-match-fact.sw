@@ -200,8 +200,7 @@ def countGuard (n k: Nat): Nat
     | Succ _ if countGuard n (k + 1) == n => n
     | Succ _ => k
 
-theorem countGuardZero ∀ (n k: Nat) (zero: n - k = Zero): countGuard n k = k :=
-  rewrite countGuard.unfold n k, zero
+theorem countGuardZero ∀ (n k: Nat) (zero: n - k = Zero): countGuard n k = k := rewrite countGuard.unfold n k, zero
 
 test "countUp" := countUp 10 3 == 10
 test "drain" := drain [3, 1, 2].toSet 0 == 6

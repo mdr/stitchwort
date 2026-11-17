@@ -19,8 +19,7 @@ theorem Point.zeroAdd ∀ (p: Point): Point.add Point.origin p = p := match p wi
 theorem Point.assoc ∀ (p q r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
   rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y
 
-theorem Point.comm ∀ (p q: Point): Point.add p q = Point.add q p :=
-  rewrite Int.addComm p.x q.x, Int.addComm p.y q.y
+theorem Point.comm ∀ (p q: Point): Point.add p q = Point.add q p := rewrite Int.addComm p.x q.x, Int.addComm p.y q.y
 
 instance Point.instAdd: Add Point :=
   { zero = Point.origin, add = Point.add, zeroAdd = Point.zeroAdd, assoc = Point.assoc, comm = Point.comm }
