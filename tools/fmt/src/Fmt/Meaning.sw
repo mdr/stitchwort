@@ -3,71 +3,87 @@
 --| one spelling. Two files are the same program when their meanings are
 --| equal, and the top theorem says the formatter keeps `meaning`.
 --|
+--| Left out on purpose, so not part of "the same program":
+--|
+--| - **Positions.** The tree keeps none, and every position moves under
+--|   formatting. The compiler reads them only for messages (spans, and a
+--|   negative numeral's `NegForm`, `lower/numbers.rs`).
+--| - **Comments.** No step here reads one, and two meanings are compared
+--|   with every comment blanked (the dump the checks compare prints none;
+--|   `Group.bare` is a summary of comments and goes with them). The
+--|   compiler reads a comment only to resolve a `--|` doc's links
+--|   (`W-DOC-LINK`), and docs attach by where comments sit: both are
+--|   `CommentsKept`'s job, stated over the leaves, not this one's.
+--|
 --| Nothing proves this definition right, so it is meant to be read line by
 --| line. It is the shared traversal (`Syntax/Traverse.sw`) with steps that
---| forget exactly what a pass changes, where the pass changes it, and
---| nothing else; comments, blank lines and every other token stay. Each
---| thing it forgets is safe because the compiler's reading of the file
---| (`crates/syntax/src/lower`, the tree the elaborator gets) doesn't see
---| it:
+--| forget what a pass changes, at least where the pass changes it; every
+--| other token stays. Each thing it forgets is safe because the
+--| compiler's reading of the file (`crates/syntax/src/lower`, the tree the
+--| elaborator gets) doesn't see it:
 --|
 --| - **A comma before a closer** (P2): the flag is `False` everywhere.
 --|   The compiler's list, tuple, record, pattern, field, attribute and
 --|   rule-set readings take the items only ("a trailing comma changes
 --|   nothing", `lower/exprs.rs`, `list`).
---| - **A `∀` after a theorem's name** (P1): there whenever P1 writes it, on
---|   a theorem with an explicit `(…)` parameter. The compiler reads a
---|   theorem's parameters the same with or without it.
+--| - **A `∀` after a definition's name** (P1): absent on every header.
+--|   The parser allows it on a theorem only, and the lowering skips it
+--|   (`lower/definitions.rs`, "cosmetic", D3472), so the term and hash are
+--|   those of the header without it.
 --| - **A round bracket pair at the left end of a row's result** (P3,
---|   `{Fail} (List Nat)`, `{IO} (f a) + 1`), holding no comment, walking
---|   in through the left operand, a chain's first operand, an
---|   application's head and a field access's target, as P3 does. The
---|   compiler reads a pair in three places only (`lower/exprs.rs`): around
---|   an application that is the head of another, `(f a) b`
---|   (`Expr::Bracketed`); around a list's one range, `[(0 ..< n)]`, which
---|   is never at a row's left end; and around a negative numeral, whose
---|   reading (`NegForm`) depends on the token before its `-`. So at an
+--|   `{Fail} (List Nat)`, `{IO} (f a) + 1`), walking in through the left
+--|   operand, a chain's first operand, an application's head and a field
+--|   access's target, as P3 does. The compiler reads a pair in three places
+--|   only (`lower/exprs.rs`): at an application's head with arguments
+--|   after it, when the head's first token is `(` and the head lowers to an
+--|   application (`app`, `Expr::Bracketed`: `(f a) b`, and `(C { r | x = 1
+--|   }) b`, since a constructor update lowers to `C` applied to the
+--|   update); around a list's one range, `[(0 ..< n)]`, which is never at a
+--|   row's left end; and around a negative numeral, whose reading
+--|   (`NegForm`) depends on the token before its `-`. So at an
 --|   application's head, or further left inside one, a pair is forgotten
---|   only around a form that never reads as an application (`atomic`),
+--|   only around a form that never lowers to an application (`atomic`),
 --|   and a pair around a negative numeral is never forgotten.
 --| - **Round bracket pairs around a binder's or annotation's whole type**
---|   (P3, `(h: (∀ …))`), each layer holding no comment, in a header's
---|   parameters, a `∀`, `∃` or lambda's parameters, a function type's
---|   binder and an annotation `(e: T)`. The whole type is never an
---|   application's head or a list's item, and no `-` there follows a
---|   token that makes it an argument, so the compiler doesn't see these.
+--|   (P3, `(h: (∀ …))`), in a header's parameters, a `∀`, `∃` or lambda's
+--|   parameters, a function type's binder and an annotation `(e: T)`. The
+--|   whole type is never an application's head or a list's item, and no
+--|   `-` there follows a token that makes it an argument, so the compiler
+--|   doesn't see these.
 --| - **How a group of parameters is split** (P4): a header's (not an
 --|   instance's) or a `∀` or lambda's (not an `∃`'s) group of several
 --|   names becomes one group a name, where P4 could have made it by
---|   merging: no comment but above its bracket (`bare`), no `auto`,
---|   attributes or default, and a type that names none of its names. The
---|   compiler reads `(a b: T)` as `(a: T) (b: T)` (the Rust tree check's
---|   `one_binder_per_name`); a type naming one of the names would mean the
+--|   merging: no `auto`, attributes or default, and a type that names none
+--|   of its names. The compiler reads a group exactly as its split form
+--|   (D3679; SW-3880 makes the elaborator do so: before it, `infer_pi`
+--|   checks a `∀`'s or header's group type once for all its names, so a
+--|   hole in it is shared). A type naming one of the names would mean the
 --|   earlier name in the split form, so such a group stays whole. The test
 --|   for naming is every token's text in the type: a use of a local name
 --|   is a token with that text, so it may say "names" wrongly, never
 --|   "doesn't".
 --|
---| `meaning` forgets less than the compiler does (any comment-free pair
---| in the middle of an expression, say): the less it forgets, the less
---| there is to trust.
+--| `meaning` forgets less than the compiler does (any pair in the middle
+--| of an expression, say): the less it forgets, the less there is to
+--| trust.
 
 namespace Fmt
-import Std (Bool, Fail, List, Option, Text)
+import Std (Bool, Fail, List, Nat, Option, Text)
 import Syntax (
   BindingKind,
-  Comments,
   DefKind,
   Expr,
   Group,
   GroupKind,
   Header,
+  Leaf,
+  Lexed,
   Param,
   Pattern,
   SourceFile,
   Steps,
   Tok,
-  Word
+  Trivia
 )
 
 --| A file's tree with the formatter's freedoms set to one spelling.
@@ -104,10 +120,8 @@ def plainPattern: Pattern → Pattern
   | PatternCtorFields name fields => PatternCtorFields name { fields | trailingComma = False }
   | other => other
 
-def plainHeader (header: Header): Header := { header |
-  params = plainGroups header.kind header.params,
-  forallKeyword = plainForall header.kind header.forallKeyword header.params
-}
+def plainHeader (header: Header): Header :=
+  { header | params = plainGroups header.kind header.params, forallKeyword = None }
 
 def plainGroups (kind: DefKind) (groups: List Group): List Group :=
   let typed := groups.map Group.plainType
@@ -115,18 +129,11 @@ def plainGroups (kind: DefKind) (groups: List Group): List Group :=
     | DefInstance => typed
     | _ => splitGroups typed
 
-def plainForall (kind: DefKind) (written: Option Word) (groups: List Group): Option Word := match kind, written with
-  | DefTheorem, None if groups.any Group.explicit => Some { text = "∀", comments = noComments }
-  | _, _ => written
-
 -- Brackets.
 
-def noComments: Comments := { above = [], after = None }
-
---| Without the comment-free round pairs around it; a pair with a comment
---| stays, and the pairs inside it still go.
+--| Without the round pairs around it.
 def Expr.unwrapped: Expr → Expr
-  | Paren open inner close => if open.bare && close.bare then inner.unwrapped else Paren open inner.unwrapped close
+  | Paren _ inner _ => inner.unwrapped
   | other => other
 
 def Group.plainType (group: Group): Group := { group | annotation = group.annotation.map Expr.unwrapped }
@@ -136,12 +143,11 @@ def Param.plainType: Param → Param
   | TypedPattern open pattern colon annotation close => TypedPattern open pattern colon annotation.unwrapped close
   | other => other
 
---| Without the comment-free round pairs at its left end. `atomOnly` says
+--| Without the round pairs at its left end. `atomOnly` says
 --| the walk has passed an application's head or a field access's target.
 def forgetLeft (atomOnly: Bool): Expr → Expr
   | Paren open inner close =>
-    if open.bare && close.bare && !inner.negativeNumeral && (!atomOnly || inner.atomic) then forgetLeft atomOnly inner
-    else Paren open inner close
+    if !inner.negativeNumeral && (!atomOnly || inner.atomic) then forgetLeft atomOnly inner else Paren open inner close
   | Infix kind left operator right => Infix kind (forgetLeft atomOnly left) operator right
   | Chain first rest => Chain (forgetLeft atomOnly first) rest
   | App head arguments => App (forgetLeft True head) arguments
@@ -153,9 +159,11 @@ def Expr.negativeNumeral: Expr → Bool
   | Prefix operator (Atom Float _) => operator.text == "-"
   | _ => False
 
---| The forms that are one bracketed or single-token thing, none of which
---| the compiler reads as an application. A constructor update
---| (`C { r | x = 1 }`) lowers to one, so it isn't here.
+--| The forms a pair may be forgotten around at an application's head: one
+--| bracketed or single-token thing, none of which lowers to an
+--| application. A list of what may go, so a form added to the tree is kept
+--| until someone checks its lowering. A constructor update
+--| (`C { r | x = 1 }`) lowers to an application, so it isn't here.
 def Expr.atomic: Expr → Bool
   | Atom _ _ => True
   | Paren _ _ _ => True
@@ -190,19 +198,16 @@ def Group.namesItself (group: Group): Bool := match group.annotation with
   | None => True
 
 def Group.splits (group: Group): Bool :=
-  group.bare
-    && group.auto.isNone
+  group.auto.isNone
     && group.attributes.isEmpty
     && group.colon.isSome
     && group.default.isNone
     && group.names.all (name => name.text != "auto")
     && !group.namesItself
 
---| One group a name, the first with the group's opening bracket and its
---| comments above.
+--| One group a name.
 def Group.pieces (group: Group): List Group := match group.names with
-  | [first, ..rest] if group.splits =>
-    [{ group | names = [first] }, ..rest.map (name => { group | names = [name], open = noComments })]
+  | [first, ..rest] if group.splits => [{ group | names = [first] }, ..rest.map (name => { group | names = [name] })]
   | _ => [group]
 
 def splitGroups: List Group → List Group
@@ -213,3 +218,64 @@ def splitParams: List Param → List Param
   | [] => []
   | [Grouped group, ..rest] => group.pieces.map Grouped ++ splitParams rest
   | [other, ..rest] => [other, ..splitParams rest]
+
+-- Comments: what `meaning` leaves out, stated over the leaves.
+
+--| A comment as a reader finds it: its text, whether it is on a line of
+--| its own (or trails a token), and whether a blank line is above it.
+type CommentView = { text: Text, ownLine: Bool, blankAbove: Bool }
+
+--| A token that holds comments: its text, how many own-line comments are
+--| above it, whether one trails it, and whether a blank line separates
+--| the last comment above from it (which decides whether they are its
+--| doc, `docs.rs`, `attached`).
+type Holder = { token: Text, above: Nat, trailing: Bool, blankBelow: Bool }
+
+def Trivia.commentViews (trivia: Trivia): List CommentView :=
+  trivia.leading.map (comment => { text = comment.text, ownLine = True, blankAbove = comment.blankLines > 0 })
+    ++ trivia.trailing.toList.map (comment => { text = comment.text, ownLine = False, blankAbove = False })
+
+--| Every comment in the file, in order.
+def Lexed.commentViews (lexed: Lexed): List CommentView :=
+  lexed.leaves.flatMap (leaf => leaf.trivia.commentViews) ++ lexed.end.commentViews
+
+--| The tokens that hold comments, in order.
+def Lexed.holders (lexed: Lexed): List Holder := lexed.leaves.filterMap (leaf => leaf.holder)
+
+def Leaf.holder (leaf: Leaf): Option Holder :=
+  if leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone then None
+  else
+    Some {
+      token = leaf.token.text,
+      above = leaf.trivia.leading.length,
+      trailing = leaf.trivia.trailing.isSome,
+      blankBelow = !leaf.trivia.leading.isEmpty && leaf.trivia.blankLines > 0
+    }
+
+--| What formatting keeps of a file's comments, between the source's leaves
+--| and the output's, each after rule N; the source's with P2's commas
+--| taken out first (`settledBare`), which moves a comment held by a
+--| deleted comma to the closer after it, or to the token before it if it
+--| trailed the comma (K1). Three things, the statement of
+--| `tidyKeepsComments` (SW-3878 review, S1):
+--|
+--| 1. the comments in order, each with its text, whether it is own-line
+--|    or trailing, and whether a blank line is above it (`commentViews`,
+--|    the file's end included): this is `W-DOC-LINK`'s input;
+--| 2. each on the same token (`holders`: the comment-holding tokens in
+--|    order, each with its text and how many comments it holds; with 1,
+--|    that pins every comment to its token), except a deleted comma's, as
+--|    above;
+--| 3. whether a blank line separates the comments above a token from it
+--|    (`Holder.blankBelow`), which decides a declaration's or member's doc.
+--|    Stated for every token holding a comment above it, which is more than
+--|    docs need: if the printer can't keep it inside an expression, narrow
+--|    it to a declaration's or member's first token.
+--|
+--| A token holding no comment may come or go (a dropped bracket, a merged
+--| group's `: T) (`, a written `∀`): P3 and P4 touch only tokens with none.
+--| The theorem, once the printer exists:
+--| `∀ (source output: Text) (formatted: format source = Formatted output),
+--| CommentsKept (lex source) (lex output)` for the lexed texts.
+def CommentsKept (source output: Lexed): Prop :=
+  source.settledBare.commentViews = output.settled.commentViews ∧ source.settledBare.holders = output.settled.holders
