@@ -117,7 +117,7 @@ def Declaration.withoutSpareTypeBrackets: Declaration → Declaration
 --| go in one run: the traversal drops the inner pair before it looks at
 --| the outer.
 def SourceFile.withoutSpareBrackets (file: SourceFile): SourceFile :=
-  file.traverse dropPair (line => line.withoutSpareTypeBrackets)
+  file.traverse dropPair Declaration.withoutSpareTypeBrackets
 
 -- P4: parameter groups that share a type are one group. It reads the
 -- types P3 left bare: a bracketed type that holds a comment is not merged.

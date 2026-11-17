@@ -2770,11 +2770,21 @@ impl Elaborator {
     /// Why a component may exist only because of dot notation: the first
     /// speculative reference between its members, as a note.
     pub(crate) fn speculative_note(&self, component: &[usize]) -> Option<String> {
+        self.speculative_note_from(component, |_, _| true)
+    }
+
+    /// [`Self::speculative_note`], for the first speculative reference from
+    /// member `i` to member `j` that `wanted(i, j)` accepts.
+    pub(crate) fn speculative_note_from(
+        &self,
+        component: &[usize],
+        wanted: impl Fn(usize, usize) -> bool,
+    ) -> Option<String> {
         let items = &self.unit.module.items;
         component.iter().find_map(|&i| {
             items[i].deps.iter().find_map(|d| {
                 let why = d.speculative.as_ref()?;
-                component.contains(&d.item).then(|| {
+                (component.contains(&d.item) && wanted(i, d.item)).then(|| {
                     format!(
                         "in `{}`, {why}, so `{}` and `{}` are checked together; write the full \
                          name, as in `T.f x`, or write the receiver's type, to say which function \
@@ -4418,8 +4428,8 @@ fn binds(names: &[ast::Name]) -> (Vec<Work<'_>>, Vec<Work<'_>>) {
 }
 
 /// Tarjan's strongly connected components of a graph given by adjacency
-/// lists, without recursion. Each component's members, components in no
-/// particular order.
+/// lists, without recursion. Each component's members, each component after
+/// every component it has an edge into (reverse topological order).
 pub(crate) fn tarjan(edges: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let n = edges.len();
     let mut index = vec![usize::MAX; n];

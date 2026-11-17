@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARTIAL-MIXED] Error: `Tree.size`, `sizes` and `Box.size` call each other, but only `Box.size` is `Partial`
+    ╭─[ reject/partial-mixed-dot-guess.sw:9:5 ]
+    │
+  9 │ def Tree.size: Tree → Nat
+    │     ────┬────  
+    │         ╰────── `Tree.size` isn't `Partial`
+    │ 
+ 12 │ def sizes: List Tree → Nat
+    │     ──┬──  
+    │       ╰──── `sizes` isn't `Partial`
+    │ 
+ 16 │ def Box.size (box: Box): {Partial} Nat := box.tree.size + Box.size box
+    │     ────┬───  
+    │         ╰───── `Box.size` is `Partial`
+    │ 
+    │ Note 1: in `sizes`, `.size` might mean `Box.size`, so `sizes` and `Box.size` are checked together; write the full name, as in `T.f x`, or write the receiver's type, to say which function is meant
+    │ 
+    │ Note 2: a recursive group must be all `Partial` or all total: split the cycle, so that the total definitions don't refer back to the partial ones, or make them all `Partial`
+────╯
