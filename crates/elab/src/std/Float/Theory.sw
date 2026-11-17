@@ -4189,6 +4189,7 @@ theorem Float.Theory.unitsOfMagnitude ∀ (m: Nat) (s: Bool)
       let mag: Float.Model.magnitude m = m := rewrite c
       Both (arithmetic [mag, fm]) (rewrite Float.Theory.unitsMag m, mag, c)
     | True =>
+      let c: Nat.leq 9223372036854775808 (m + 9223372036854775808) = True := arithmetic
       let mag: Float.Model.magnitude (m + 9223372036854775808) = m := arithmetic
       Both (arithmetic [mag, fm]) (rewrite Float.Theory.unitsMag (m + 9223372036854775808), mag)
 
