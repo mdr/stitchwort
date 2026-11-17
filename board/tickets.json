@@ -1,5 +1,5 @@
 {
-  "next": 3752,
+  "next": 3755,
   "tickets": [
     {
       "id": 47,
@@ -42000,7 +42000,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Group 2a (Matt, 17 Nov 2026: 'sounds good'): done in SW-3752; toy proofs tidied after in SW-3753.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42229,6 +42229,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3752,
+      "title": "[Opus] cases: split an equality between constructor values (isPostfix t = True), split a hypothesis not only the goal, close arms that compute, and a budget that copes with ten character comparisons (Toy++ friction group 2a: SW-3734, SW-3461, SW-3459, SW-3748's cases part)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3753,
+      "title": "[Sonnet] After SW-3752: go back over the toy proofs (tools/toyfmt) and replace hand-written matches and helper lemmas that the new cases closes (T4's ten-arm isPostfix match, T6's mergeOnto arms, SW-3418's lexing helpers); report lines saved (Matt, 17 Nov 2026)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3754,
+      "title": "[Fable paper] What a match refines (Toy++ friction 2b and 2c): which hypotheses a match on e rewrites, whether it unfolds definitions to find e, how that shows in goals and errors, and what's known about implicits after a refinement; compare Lean, Agda, Rocq, Idris from sources; recommend a rule (Matt, 17 Nov 2026)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
