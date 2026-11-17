@@ -37768,14 +37768,14 @@
     {
       "id": 3417,
       "title": "[Opus paper] Refresh docs/proposals/self-hosted-fmt.md before stage 0: §3.2 option C (Parse now reads tokens; keep the hand-written parser per SW-3414), SW-3149/SW-3150 status, theorem estimates from the toy (SW-3414 report)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "D3636 (Matt, 16 Nov 2026): yes, 'let's plan to write it with standard parse'. The proved Stitchwort formatter's parser uses std Parse (reverses SW-3414's hand-written recommendation); Parse speed becomes formatter work too. Toy++ records a timing (s per MB, no check) to confirm before the real formatter's stage 0.",
       "created": "2026-11-15",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41250,14 +41250,14 @@
     {
       "id": 3677,
       "title": "[Opus paper] Review Toy++ T3 once T3b merges (D2364: a theorem was weakened): printedTokens lost its 'printed words are the file's pieces in order' clause in T3a (rule N makes it false; printedEvents keeps exact order); check each changed statement still says what its name claims, and T3b's Settled/settledViews/tokensCarry statements. 30 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
