@@ -22193,12 +22193,12 @@
     {
       "id": 3847,
       "title": "[Opus] Self-hosted formatter stage 2c: blocks of several lines, a block's let, local definitions, handle, calc, rewrite, cases, match induct/reify, rules sets, decreasing/unfolding; the mismatched-bracket lookahead case ([a: (x: Type] a) => x); lambda_result_type's error (SW-3836 report)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Started 16:59, est. 70 min. Done 17:31 (32 min).\n- 693716992: every 2c construct parsed (Statements.sw); goldens 124/124, repo sample 300/300, fuzz 235/235 identical, tree and refusal.\n- b9ab0e7fe / c96c179bc: R1 gaps report the error Rust sorts first; skipGroup pairs brackets by kind (mismatched-bracket case fixed); lambda_result_type ported; 19 tests in Syntax.Tests.Statements.\n- c2be19657: NOTES.md stage 2c (gate, block representation and read-back, speed 3.2 s/MB tree vs 2b's 3.0, friction, left). notYet removed.\n- Refusals: 1,600 broken copies of 2c-heavy repo files (3 seeds) and 92 hand cases identical.\n- SW-3853 (f !!b): not reproducible; Rust refuses it too and the twin agrees.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

@@ -293,7 +293,7 @@ def binderType (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
   let allowed := allowBrace modes
   match allowed.peek, left() with
     | Some LBrace, [open, ..rest] =>
-      match skipGroup 0 [open, ..rest] with
+      match skipGroup [] [open, ..rest] with
         | Some [next, .._] if typeStarts next.kind => fatal "an ability row can't be written in a parameter's type"
         | _ => full self allowed
     | _, _ => full self allowed
@@ -500,9 +500,19 @@ def declarationBody (modes: Modes) (attributes: List Attributes): {Parse Item} D
   | Some KwDef => definition modes attributes None None
   | Some KwTheorem => definition modes attributes None None
   | Some Lower =>
-    if wordAhead modes "rules" && isSome Lower (modes.peekAt 1) then notYet "a rule set" else fatal missingKeyword
+    if wordAhead modes "rules" && isSome Lower (modes.peekAt 1) then ruleSetDecl modes else fatal missingKeyword
   | Some Upper => fatal missingKeyword
   | _ => modes.fail "a declaration"
+
+--| `rules name := [r1, <- r2]` (`rule_set`).
+def ruleSetDecl (modes: Modes): {Parse Item} Decl :=
+  let keyword := fixedFrom()
+  let name := if modes.at Upper then modes.upperQualified "a name" else modes.lowerQualified "a name"
+  if modes.at Equals then fatal defEquals
+  else
+    let colonEq := modes.expectFixed ColonEq "`:=`"
+    if !modes.at LBracket then modes.fail "the set's rules, in brackets: `[r1, <- r2]`"
+    else RuleSetDecl keyword name colonEq (ruleSet expressionAt modes)
 
 def missingKeyword: Text :=
   "expected a declaration: `def`, `theorem`, `type`, `ability`, `interface`, `instance` or `test`"
@@ -525,10 +535,18 @@ def testDecl (modes: Modes): {Parse Item} Decl :=
 
 def defEquals: Text := "a definition's body follows `:=`; `=` is equality"
 
---| `def`, `theorem` or `instance`: the header, then the body (`definition`).
---| A top-level declaration's keyword is in column 0, which is `d`.
+--| `def`, `theorem` or `instance` at the top level.
 def definition (modes: Modes) (attributes: List Attributes) (exportKeyword opaqueKeyword: Option Comments):
     {Parse Item} Decl :=
+  let (header, body) := definitionParts expressionAt modes exportKeyword opaqueKeyword None
+  Definition attributes header body
+
+--| The header, then the body (`definition`). `local` is the column of a
+--| local definition's keyword, `d`; a top-level one's is column 0, and its
+--| body is where the Rust parser recovers from errors (`recover`).
+def definitionParts (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (exportKeyword opaqueKeyword: Option Comments) (local: Option Nat):
+    {Parse Item} (Header, DefBody) :=
   let kind := match modes.peek with
     | Some KwTheorem => DefTheorem
     | Some KwInstance => DefInstance
@@ -543,25 +561,30 @@ def definition (modes: Modes) (attributes: List Attributes) (exportKeyword opaqu
         if modes.at LParen || modes.at LBracket then Some word
         else modes.fail "a parameter such as `(x: Nat)` after `∀`"
     else None
-  let params := headerParams (Parse.mark().left + 1) modes []
+  let params := headerParams (Parse.mark().left + 1) self modes.sealed []
   let colon := fixedFrom()
-  let result := resultType expressionAt modes
+  let headerModes := match local with
+    | Some _ => { modes | lines = [{ column = 0, many = False, kind = DefHeaderLine }] }
+    | None => modes
+  let result := resultType self headerModes
   let isInstance := kind == DefInstance
   let decreasingClause :=
     if modes.at KwDecreasing then
       if isInstance then fatal "an instance can't have `decreasing`"
       else
         let keyword := fixedFrom()
-        Some (keyword, expressionAt { modes, level = LevelFull })
+        Some (keyword, self { modes = headerModes, level = LevelFull })
     else None
+  let afterDecreasing := if decreasingClause.isSome then allowColonEq modes else modes
   let unfoldingClause :=
-    if modes.at KwUnfolding then
+    if afterDecreasing.at KwUnfolding then
       if isInstance then fatal "an instance can't have `unfolding`"
       else
         let keyword := fixedFrom()
-        Some (keyword, unfoldingNames (Parse.mark().left + 1) modes [])
+        Some (keyword, unfoldingNames (Parse.mark().left + 1) afterDecreasing [])
     else None
-  if modes.at KwDecreasing && unfoldingClause.isSome then fatal "`decreasing` goes before `unfolding`"
+  let afterUnfolding := if unfoldingClause.isSome then allowColonEq afterDecreasing else afterDecreasing
+  if afterUnfolding.at KwDecreasing && unfoldingClause.isSome then fatal "`decreasing` goes before `unfolding`"
   else
     let header := {
       exportKeyword,
@@ -576,14 +599,22 @@ def definition (modes: Modes) (attributes: List Attributes) (exportKeyword opaqu
       decreasingClause,
       unfoldingClause
     }
-    let recovering := !isInstance && (modes.at ColonEq || modes.at Pipe)
-    let body := definitionBody { modes | recover = recovering } result isInstance
-    Definition attributes header body
+    let bodyModes := match local with
+      | Some _ => afterUnfolding
+      | None => { afterUnfolding | recover = !isInstance && (afterUnfolding.at ColonEq || afterUnfolding.at Pipe) }
+    (header, definitionBody self bodyModes result isInstance (local.getOrElse 0))
 
-def headerParams (fuel: Nat) (modes: Modes) (found: List Group): {Parse Item} List Group :=
+--| After `decreasing` or `unfolding`, `:=` may start a line of its own,
+--| at the declaration's column.
+def allowColonEq (modes: Modes): {Parse Item} Modes := match left() with
+  | [next, .._] if next.kind == ColonEq && next.leaf.token.lineStart => { modes | allow = Some next.index }
+  | _ => modes
+
+def headerParams (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List Group):
+    {Parse Item} List Group :=
   let ahead := !modes.at Colon
   match fuel with
-    | Succ more if ahead => headerParams more modes [headerGroup expressionAt modes GroupParam None, ..found]
+    | Succ more if ahead => headerParams more self modes [headerGroup self modes GroupParam None, ..found]
     | _ =>
       if ahead then modes.fail "a parameter such as `(x: Nat)`, or `:` and the definition's type" else found.reverse
 
@@ -599,13 +630,14 @@ def unfoldingNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} L
   | Zero => found.reverse
 
 --| `:= e`, arms, or nothing (`definition_body`).
-def definitionBody (modes: Modes) (result: Expr) (isInstance: Bool): {Parse Item} DefBody :=
+def definitionBody (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (isInstance: Bool) (d: Nat):
+    {Parse Item} DefBody :=
   let body := match modes.peek with
     | Some ColonEq =>
       let colonEq := fixedFrom()
-      let value := expressionAt { modes, level = LevelFull }
+      let value := self { modes, level = LevelFull }
       if modes.at Pipe then fatal "a definition has a `:=` body or arms, not both" else Assigned colonEq value
-    | Some Pipe => Arms (definitionArms modes 0)
+    | Some Pipe => Arms (definitionArms self modes d)
     | Some Equals => fatal defEquals
     | None => if isEquation result then fatal defEquals else Primitive
     | _ => modes.fail "`:=` and the body, or arms starting with `|` on their own lines"
@@ -623,34 +655,36 @@ def isEquation: Expr → Bool
 
 --| The arms under a header (`arms`): each `|` starts a line at one
 --| column, right of `d`, the column of the definition's keyword.
-def definitionArms (modes: Modes) (d: Nat): {Parse Item} List Arm := match left() with
+def definitionArms (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat): {Parse Item} List Arm := match left() with
   | [first, .._] =>
     if !first.leaf.token.lineStart then fatal "arms start on their own lines"
     else if first.leaf.token.column <= d then fatal "arms are indented further than the definition they belong to"
-    else definitionArmsFrom (Parse.mark().left + 1) { modes | limit = Some first.leaf.token.column } d []
+    else definitionArmsFrom (Parse.mark().left + 1) self { modes | limit = Some first.leaf.token.column } d []
   | [] => modes.fail "`|`"
 
-def definitionArmsFrom (fuel: Nat) (modes: Modes) (d: Nat) (found: List Arm): {Parse Item} List Arm := match fuel with
-  | Zero => found.reverse
-  | Succ more =>
-    let armModes := { modes | allow = Some offset() }
-    let arm := definitionArm armModes
-    let done := [arm, ..found]
-    let column := modes.limit.getOrElse 0
-    match left() with
-      | [] => done.reverse
-      | [next, .._] =>
-        if !next.leaf.token.lineStart then armModes.fail "the end of the arm"
-        else if next.leaf.token.column <= d || next.kind == KwWhere then done.reverse
-        else if next.kind == Pipe && next.leaf.token.column == column then definitionArmsFrom more modes d done
-        else if next.kind == Pipe then fatal "this `|` doesn't line up with the definition's arms"
-        else fatal "expected `|` and another arm, or the end of the definition, but found ${next.spelled}"
+def definitionArmsFrom (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat) (found: List Arm):
+    {Parse Item} List Arm :=
+  match fuel with
+    | Zero => found.reverse
+    | Succ more =>
+      let armModes := { modes | allow = Some offset() }
+      let arm := definitionArm self armModes
+      let done := [arm, ..found]
+      let column := modes.limit.getOrElse 0
+      match left() with
+        | [] => done.reverse
+        | [next, .._] =>
+          if !next.leaf.token.lineStart then armModes.fail "the end of the arm"
+          else if next.leaf.token.column <= d || next.kind == KwWhere then done.reverse
+          else if next.kind == Pipe && next.leaf.token.column == column then definitionArmsFrom more self modes d done
+          else if next.kind == Pipe then fatal "this `|` doesn't line up with the definition's arms"
+          else fatal "expected `|` and another arm, or the end of the definition, but found ${next.spelled}"
 
-def definitionArm (modes: Modes): {Parse Item} Arm :=
+def definitionArm (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Arm :=
   let bar := bump()
   let patterns := armPatterns modes
-  let guard := guardOf expressionAt modes
-  let body := armBody expressionAt modes (anyAbsurd patterns) "`=>` and the arm's body"
+  let guard := guardOf self modes
+  let body := armBody self modes (anyAbsurd patterns) "`=>` and the arm's body"
   { bar, patterns, guard, body }
 
 --| `type T …` or `interface I …` (`data`).
@@ -716,7 +750,7 @@ def dataParams (fuel: Nat) (modes: Modes) (word: Text) (name: Word) (found: List
 --| type.
 def dataIndices (fuel: Nat) (modes: Modes) (found: List (Index, Word)): {Parse Item} (List (Index, Word), Expr) :=
   match fuel with
-    | Zero => (found.reverse, notYet "a data type's indices")
+    | Zero => (found.reverse, fatal "the parser ran out of fuel in a data type's indices")
     | Succ more =>
       if isSome LParen modes.peek && piBinderAhead left() then
         let binder := binderGroup expressionAt modes False
@@ -964,6 +998,7 @@ def codeOf (message: Text): Text :=
   if message.startsWith "attributes can't be used on" || message == "attributes can't be written here" then
     "E-ATTRIBUTE"
   else if message == defEquals then "E-DEF-EQUALS"
+  else if message.startsWith "a `calc` chain goes one way" then "E-CALC-RELATION"
   else if message.startsWith "the namespace line must come first" then "E-NAMESPACE-NOT-FIRST"
   else if message.startsWith "`where` isn't part of Stitchwort" then "E-WHERE"
   else if message == orPatternBinds then "E-OR-PATTERN-BINDS"

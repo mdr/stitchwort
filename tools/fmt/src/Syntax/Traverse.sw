@@ -68,7 +68,105 @@ def Expr.traverse (expr: Expr) (onExpr: Expr → {Fail} Expr) (onPattern: Patter
     | Effect row result =>
       let row' := traverseRow onExpr onPattern row
       Effect row' (result.traverse onExpr onPattern)
+    | Block first rest result =>
+      let first' := traverseStatement onExpr onPattern first
+      let rest' := traverseStatements onExpr onPattern rest
+      Block first' rest' (result.traverse onExpr onPattern)
+    | LetIn binding semicolon body =>
+      let binding' := traverseLet onExpr onPattern binding
+      LetIn binding' semicolon (body.traverse onExpr onPattern)
+    | Handle keyword computation withKeyword clauses =>
+      let computation' := computation.traverse onExpr onPattern
+      Handle keyword computation' withKeyword (traverseClauses onExpr onPattern clauses)
+    | Reify keyword reify computation withKeyword clauses =>
+      let computation' := computation.traverse onExpr onPattern
+      Reify keyword reify computation' withKeyword (traverseClauses onExpr onPattern clauses)
+    | Induct keyword induct call withKeyword arms =>
+      let call' := call.traverse onExpr onPattern
+      Induct keyword induct call' withKeyword (traverseInductArms onExpr onPattern arms)
+    | Calc keyword first steps =>
+      let first' := first.traverse onExpr onPattern
+      Calc keyword first' (traverseSteps onExpr onPattern steps)
+    | Rewrite keyword rules target body =>
+      let rules' := traverseRules onExpr onPattern rules
+      let target' := traverseAfter onExpr onPattern target
+      Rewrite keyword rules' target' (traverseAfter onExpr onPattern body)
+    | Cases keyword thenKeyword body => Cases keyword thenKeyword (body.traverse onExpr onPattern)
   onExpr rebuilt
+
+def traverseStatements (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: List Statement):
+    {Fail} List Statement :=
+  match input with
+    | [] => []
+    | [first, ..rest] =>
+      let first' := traverseStatement onExpr onPattern first
+      [first', ..traverseStatements onExpr onPattern rest]
+
+def traverseStatement (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: Statement):
+    {Fail} Statement :=
+  match input with
+    | LetStatement binding => LetStatement (traverseLet onExpr onPattern binding)
+    | LocalDef attributes header body =>
+      let header' := traverseHeader onExpr onPattern header
+      LocalDef attributes header' (traverseDefBody onExpr onPattern body)
+    | ExprStatement value => ExprStatement (value.traverse onExpr onPattern)
+
+def traverseLet (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: Let): {Fail} Let :=
+  match input with
+    | { keyword, pattern, annotation, colonEq, value } =>
+      let pattern' := pattern.traverse onPattern
+      let annotation' := traverseAfter onExpr onPattern annotation
+      let value' := value.traverse onExpr onPattern
+      { keyword, pattern = pattern', annotation = annotation', colonEq, value = value' }
+
+def traverseClauses (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: List HandlerClause):
+    {Fail} List HandlerClause :=
+  match input with
+    | [] => []
+    | [ReturnClause bar keyword name arrow body, ..rest] =>
+      let body' := body.traverse onExpr onPattern
+      [ReturnClause bar keyword name arrow body', ..traverseClauses onExpr onPattern rest]
+    | [OperationClause bar operation argument comma continuation arrow body, ..rest] =>
+      let argument' := argument.traverse onPattern
+      let body' := body.traverse onExpr onPattern
+      [OperationClause bar operation argument' comma continuation arrow body', ..traverseClauses onExpr onPattern rest]
+
+def traverseInductArms (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: List InductArm):
+    {Fail} List InductArm :=
+  match input with
+    | [] => []
+    | [{ bar, case, names, arrow, body }, ..rest] =>
+      let body' := body.traverse onExpr onPattern
+      [{ bar, case, names, arrow, body = body' }, ..traverseInductArms onExpr onPattern rest]
+
+def traverseSteps (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: List CalcStep):
+    {Fail} List CalcStep :=
+  match input with
+    | [] => []
+    | [{ underscore, relation, operand, proof }, ..rest] =>
+      let operand' := operand.traverse onExpr onPattern
+      let proof' := traverseAfter onExpr onPattern proof
+      [{ underscore, relation, operand = operand', proof = proof' }, ..traverseSteps onExpr onPattern rest]
+
+def traverseRules (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: Rules): {Fail} Rules :=
+  match input with
+    | RuleList rules => RuleList (traverseRuleList onExpr onPattern rules)
+    | Repeatedly word set => Repeatedly word (traverseRuleSet onExpr onPattern set)
+
+def traverseRuleSet (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: RuleSet):
+    {Fail} RuleSet :=
+  match input with
+    | { open, rules, trailingComma, close } =>
+      let rules' := traverseRuleList onExpr onPattern rules
+      { open, rules = rules', trailingComma, close }
+
+def traverseRuleList (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: List RewriteRule):
+    {Fail} List RewriteRule :=
+  match input with
+    | [] => []
+    | [{ reverse, rule }, ..rest] =>
+      let rule' := rule.traverse onExpr onPattern
+      [{ reverse, rule = rule' }, ..traverseRuleList onExpr onPattern rest]
 
 def traverseRow (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: Row): {Fail} Row :=
   match input with
@@ -203,41 +301,8 @@ def Decl.traverse (decl: Decl) (onExpr: Expr → {Fail} Expr) (onPattern: Patter
     | Namespace keyword name => Namespace keyword name
     | Import keyword path open imported close => Import keyword path open imported close
     | Definition attributes header body =>
-      let header' := match header with
-        | {
-            exportKeyword,
-            opaqueKeyword,
-            kind,
-            keyword,
-            name,
-            forallKeyword,
-            params,
-            colon,
-            result,
-            decreasingClause,
-            unfoldingClause
-          } =>
-          let params' := groups params
-          let result' := ex result
-          let decreasing' := traverseAfter onExpr onPattern decreasingClause
-          {
-            exportKeyword,
-            opaqueKeyword,
-            kind,
-            keyword,
-            name,
-            forallKeyword,
-            params = params',
-            colon,
-            result = result',
-            decreasingClause = decreasing',
-            unfoldingClause
-          }
-      let body' := match body with
-        | Primitive => Primitive
-        | Assigned colonEq value => Assigned colonEq (ex value)
-        | Arms arms => Arms (traverseArms onExpr onPattern arms)
-      Definition attributes header' body'
+      let header' := traverseHeader onExpr onPattern header
+      Definition attributes header' (traverseDefBody onExpr onPattern body)
     | Data attributes isInterface keyword name params indices body =>
       let params' := groups params
       let indices' := match indices with
@@ -255,6 +320,48 @@ def Decl.traverse (decl: Decl) (onExpr: Expr → {Fail} Expr) (onPattern: Patter
       let params' := groups params
       Ability keyword name params' whereKeyword (traverseOperations onExpr onPattern operations)
     | Test keyword name colonEq body => Test keyword name colonEq (ex body)
+    | RuleSetDecl keyword name colonEq set => RuleSetDecl keyword name colonEq (traverseRuleSet onExpr onPattern set)
+
+def traverseHeader (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: Header): {Fail} Header :=
+  match input with
+    | {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params,
+        colon,
+        result,
+        decreasingClause,
+        unfoldingClause
+      } =>
+      let params' := traverseGroups onExpr onPattern params
+      let result' := result.traverse onExpr onPattern
+      let decreasing' := traverseAfter onExpr onPattern decreasingClause
+      {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params = params',
+        colon,
+        result = result',
+        decreasingClause = decreasing',
+        unfoldingClause
+      }
+
+def traverseDefBody (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: DefBody):
+    {Fail} DefBody :=
+  match input with
+    | Primitive => Primitive
+    | Assigned colonEq value =>
+      let value' := value.traverse onExpr onPattern
+      Assigned colonEq value'
+    | Arms arms => Arms (traverseArms onExpr onPattern arms)
 
 def traverseGroups (onExpr: Expr → {Fail} Expr) (onPattern: Pattern → {Fail} Pattern) (input: List Group):
     {Fail} List Group :=
