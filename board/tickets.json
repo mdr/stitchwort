@@ -23053,7 +23053,7 @@
     {
       "id": 3913,
       "title": "[DeepSeek] crates/fmt engine: fits_flat and Choice's OneLineBelow measure use an empty modes map (IfBroken inside can't see an earlier group's mode), and OneLineBelow is the only measure not through fits_here: route it through fits_here, with a test (SW-3903 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23120,7 +23120,7 @@
     {
       "id": 3918,
       "title": "[DeepSeek] tools/fmt/NOTES.md: mark stage 4b's 'What 5 inherits' and SW-3877's 'P4 doesn't keep meaning as stated' superseded by the P4 section; add a ready-made wrapper for the interpreted Fmt.Twin (absolute batch paths, run from tools/fmt); note the native twin build peaks at 2.4 GB (SW-3884 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
