@@ -42315,7 +42315,7 @@
     {
       "id": 3758,
       "title": "[Opus] match refinement S1+S2 (D3672 experiment (docs/proposals/match-refinement.md) §7): hidden equation for an unnamed match made when an arm needs it (arguments), and rewrite along it when a closer's computed goal still has e; §2's repros as accept examples; record elab lines added and std/AoC step counts before/after",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42471,7 +42471,7 @@
     {
       "id": 3770,
       "title": "[DeepSeek] fmt: a parameter's function type split by comment lines after the colon and after the arrow ('(kif:-- c' / ' List Nat →' / '-- c' / ' Nat)') makes the output fail to parse ('expected ) to close the parameter … found →'); formatter refuses. Fuzz seed 0x101d COMMENTS=0.3 case 29111. Arrow family (0x920, SW-3570/3573) in a def parameter",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42484,7 +42484,7 @@
     {
       "id": 3771,
       "title": "[DeepSeek] fmt: '- 1 -1' (a spaced unary minus applied to a numeral, then a negative literal argument) formats so it reparses as an application, not Neg; formatter refuses. Minimal: 'def decrement (xs: List Int): List Int := xs.map (- 1 -1)'. SW-3716's '- 2 n' fix doesn't cover a negative-literal argument. Fuzz seed 0x101e plain case 45406",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
