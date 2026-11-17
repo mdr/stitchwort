@@ -223,14 +223,17 @@ theorem trueOrFalse ∀ (flag: Bool): flag = True ∨ flag = False := match flag
 -- The document's words, and the readings.
 
 --| The words of a document, in order: its chunks' texts and its trailing
---| comments, apart from layout. A choice's are its first option's; in a
---| `Uniform` document every option has the same.
+--| comments, apart from layout. A choice's are its first option's and an
+--| `IfBroken`'s its broken branch's; in a `Uniform` document every option,
+--| and both branches, have the same.
 def Doc.words: Doc → List Text
   | Chunk text _ => wordsOf [text]
   | Closing text => wordsOf [text]
   | LineSuffix comment => wordsOf [comment]
   | Nest _ inner => inner.words
   | Group inner _ => inner.words
+  | IdGroup _ inner _ => inner.words
+  | IfBroken _ broken _ => broken.words
   | Flatten inner => inner.words
   | OneLineBelow inner => inner.words
   | Concat docs => wordsAll docs
@@ -252,6 +255,8 @@ def wordsFirst: List Doc → List Text
 def Uniform: Doc → Prop
   | Nest _ inner => Uniform inner
   | Group inner _ => Uniform inner
+  | IdGroup _ inner _ => Uniform inner
+  | IfBroken _ broken flat => Uniform broken ∧ Uniform flat ∧ flat.words = broken.words
   | Flatten inner => Uniform inner
   | OneLineBelow inner => Uniform inner
   | Concat docs => AllUniform docs
@@ -416,6 +421,35 @@ theorem chosenWords ∀ (chosen: Doc) (options: List Doc)
     | [], picked, _ => rewrite repeatedly [picked]
     | [option, ..others], picked, given => optionWords chosen option.words option others picked given
 
+--| The branch an `IfBroken` takes is one of its two.
+theorem pickEither ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc):
+    pickBranch modes id broken flat = broken ∨ pickBranch modes id broken flat = flat :=
+  match picked: brokenIn modes id with
+    | True => Inl byComputing
+    | False => Inr byComputing
+
+--| The branch an `IfBroken` takes has the broken branch's words, if both
+--| branches have the same.
+theorem pickWords ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
+    (same: flat.words = broken.words):
+    (pickBranch modes id broken flat).words = broken.words :=
+  match pickEither modes id broken flat with
+    | Inl isBroken => rewrite isBroken
+    | Inr isFlat => rewrite isFlat then same
+
+--| The branch an `IfBroken` takes is uniform if both are.
+theorem pickUniform ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
+    (brokenUniform: Uniform broken)
+    (flatUniform: Uniform flat):
+    Uniform (pickBranch modes id broken flat) :=
+  match pickEither modes id broken flat with
+    | Inl isBroken => rewrite isBroken then brokenUniform
+    | Inr isFlat => rewrite isFlat then flatUniform
+
+--| Recording a group's mode writes nothing.
+theorem recordWords ∀ (printer: Printer) (id: Nat) (mode: Mode): (printer.record id mode).words = printer.words :=
+  byComputing
+
 --| The rules `stepWords` rewrites a step's words with: what each printer
 --| operation writes, and how a stack's words split.
 rules wordSteps :=
@@ -483,6 +517,10 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
         | Group inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
         | Group inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
+        | IdGroup id inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat, recordWords]
+        | IdGroup id inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken, recordWords]
+        | IfBroken id broken flat, steps, Both _ (Both _ same) =>
+          rewrite repeatedly [steps, pickWords printer.modes id broken flat same]
         | Concat docs, steps, _ => rewrite repeatedly [steps, wordSteps]
         | Fill [], steps, _ => rewrite repeatedly [steps]
         | Fill [first, ..others], Inl (Both _ flat), _ => rewrite repeatedly [flat, wordSteps]
@@ -529,6 +567,10 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
         | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
         | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | IdGroup id inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
+        | IdGroup id inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | IfBroken id broken flat, steps, Both brokenUniform (Both flatUniform _) =>
+          rewrite steps then ((pickUniform printer.modes id broken flat brokenUniform flatUniform), restUniform)
         | Concat docs, steps, uniform =>
           rewrite steps then
             stackUniformAppend (docs.map (Print indent mode)) rest (printsUniform indent mode docs uniform) restUniform
@@ -598,6 +640,10 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
         | Concat docs, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Concat docs)) rest
         | Group inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
         | Group inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
+        | IdGroup id inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
+        | IdGroup id inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
+        | IfBroken id broken flat, steps =>
+          rewrite steps then stepLighter printer 0 (Print indent mode (IfBroken id broken flat)) rest
         | Fill [], steps => rewrite steps then arithmetic
         | Fill [first, ..others], Inl (Both _ flat) =>
           let bound := joinLinesSteps [first, ..others]
@@ -690,6 +736,8 @@ def Marked (closer suffix: Text → Prop): Doc → Prop
   | LineSuffix comment => suffix comment
   | Nest _ inner => Marked closer suffix inner
   | Group inner _ => Marked closer suffix inner
+  | IdGroup _ inner _ => Marked closer suffix inner
+  | IfBroken _ broken flat => Marked closer suffix broken ∧ Marked closer suffix flat
   | Flatten inner => Marked closer suffix inner
   | OneLineBelow inner => Marked closer suffix inner
   | Concat docs => AllMarked closer suffix docs
@@ -776,6 +824,15 @@ theorem headOrMarked ∀ (closer suffix: Text → Prop) (options: List Doc)
     | [], _ => byComputing
     | [option, ..others], Both first _ => first
 
+--| The branch an `IfBroken` takes is marked if both are.
+theorem pickMarked ∀ (closer suffix: Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
+    (brokenMarked: Marked closer suffix broken)
+    (flatMarked: Marked closer suffix flat):
+    Marked closer suffix (pickBranch modes id broken flat) :=
+  match pickEither modes id broken flat with
+    | Inl isBroken => rewrite isBroken then brokenMarked
+    | Inr isFlat => rewrite isFlat then flatMarked
+
 --| A step of a reading leaves the work list marked.
 theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cmd)
     (rest: List Cmd) (result: (Printer, List Cmd))
@@ -819,6 +876,11 @@ theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: C
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
         | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
         | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | IdGroup id inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
+        | IdGroup id inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | IfBroken id broken flat, steps, Both brokenMarked flatMarked =>
+          rewrite steps then
+            ((pickMarked closer suffix printer.modes id broken flat brokenMarked flatMarked), restUniform)
         | Concat docs, steps, uniform =>
           rewrite steps then
             stackMarkedAppend closer suffix
@@ -959,6 +1021,9 @@ theorem stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cm
           rewrite steps then everyAppend suffix printer.suffixes [comment] waits ((isSuffix, byComputing))
         | Group inner hard, Inl (Both _ flat), _ => rewrite flat then waits
         | Group inner hard, Inr (Both _ broken), _ => rewrite broken then waits
+        | IdGroup id inner hard, Inl (Both _ flat), _ => rewrite flat then waits
+        | IdGroup id inner hard, Inr (Both _ broken), _ => rewrite broken then waits
+        | IfBroken id broken flat, steps, _ => rewrite steps then waits
         | Concat docs, steps, _ => rewrite steps then waits
         | Fill [], steps, _ => rewrite steps then waits
         | Fill [first, ..others], Inl (Both _ flat), _ => rewrite flat then waits

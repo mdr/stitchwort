@@ -138,3 +138,14 @@ test "a flat width is that of the flat print, whatever the layout would do" :=
     && (Choice [Flatten (t "f a"), Doc.concat [t "f", HardLine, t "a"]]).flatWidth == Some 3
     && (Doc.concat [t "x", LineSuffix "-- c"]).flatWidth == Some 6
     && (Doc.concat [t "a", Closing ")"]).flatWidth == Some 2
+
+--| A header whose group records its decision, and a body that goes below
+--| it if it broke: `def f (x: Nat) := x`, or the body on a line of its own.
+def headerAndBody: Doc :=
+  let header := Doc.concat [t "def f", Nest 4 (Doc.concat [Line, t "(x: Nat)"])] |> .idGroup 1
+  Doc.concat [header, IfBroken 1 (Nest 2 (Doc.concat [HardLine, t ":= x"])) (t " := x")]
+
+test "an IfBroken takes its broken branch after its group broke" :=
+  print headerAndBody 120 == "def f (x: Nat) := x" && print headerAndBody 16 == "def f\n    (x: Nat)\n  := x"
+
+test "an IfBroken whose group hasn't printed takes its flat branch" := print (IfBroken 9 (t "b") (t "f")) 120 == "f"

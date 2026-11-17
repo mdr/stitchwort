@@ -140,8 +140,11 @@ def parseNode (line: Text): (Node, Option Text) :=
     | "AlignInset" => missing tag 1
     | "Displaced" => missing tag 1
     | "NarrowGroup" => missing tag 1
-    | "IdGroup" => missing tag 1
-    | "IfBroken" => missing tag 2
+    | "IdGroup" => numbered tag line argument (id inner => inner.idGroup id)
+    | "IfBroken" =>
+      match argument.toNat with
+        | Some id => (Open 2 (docs => IfBroken id (first docs) (docs.drop 1 |> first)), None)
+        | None => (Bad "IfBroken: no number in `${line}`", None)
     | "Mark" => (Leaf Empty, Some tag)
     | "CloserLine" => (Leaf Empty, Some tag)
     | "TextBlock" => (Leaf Empty, Some tag)

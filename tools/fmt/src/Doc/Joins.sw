@@ -117,6 +117,8 @@ def Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge 
   | LineStartHere => StartJoins edge next
   | Nest _ inner => Joins follows inner edge next
   | Group inner _ => Joins follows inner edge next
+  | IdGroup _ inner _ => Joins follows inner edge next
+  | IfBroken _ broken flat => Joins follows broken edge next ∧ Joins follows flat edge next
   | Flatten inner => Joins follows inner edge next
   | OneLineBelow inner => Joins follows inner (Plain None) next
   | Concat docs => JoinsAll follows docs edge next
@@ -240,6 +242,11 @@ theorem joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge
     | LineStartHere, joins => startWeaker edge strong weak implies joins
     | Nest more inner, joins => joinsWeaker follows inner edge strong weak implies joins
     | Group inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
+    | IdGroup id inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
+    | IfBroken id broken flat, Both brokenJoins flatJoins => (
+      (joinsWeaker follows broken edge strong weak implies brokenJoins),
+      (joinsWeaker follows flat edge strong weak implies flatJoins)
+    )
     | Flatten inner, joins => joinsWeaker follows inner edge strong weak implies joins
     | OneLineBelow inner, joins => joinsWeaker follows inner (Plain None) strong weak implies joins
     | Concat docs, joins => allWeaker follows docs edge strong weak implies joins
@@ -994,6 +1001,15 @@ theorem eitherStep ∀ (follows: Text → Text → Prop) (flat clear: Bool) (yes
     | False, True, _ => whenNo
     | False, False, _ => whenNo
 
+--| The branch an `IfBroken` takes joins if both do.
+theorem pickJoins ∀ (follows: Text → Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
+    (edge: Edge) (next: Edge → Prop)
+    (joins: Joins follows (IfBroken id broken flat) edge next):
+    Joins follows (pickBranch modes id broken flat) edge next :=
+  match pickEither modes id broken flat, joins with
+    | Inl isBroken, Both brokenJoins _ => rewrite isBroken then brokenJoins
+    | Inr isFlat, Both _ flatJoins => rewrite isFlat then flatJoins
+
 --| A step of a reading keeps the printer sound, and the work list it
 --| leaves joins from the edge it leaves.
 theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd: Cmd)
@@ -1093,6 +1109,16 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
             suffixHolds follows (edge => StackJoins follows rest edge) printer comment sound filled joins
         | Group inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
         | Group inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
+        | IdGroup id inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
+        | IdGroup id inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
+        | IfBroken id broken flat, steps, joins =>
+          rewrite steps then
+            (
+              sound,
+              (pickJoins follows printer.modes id broken flat printer.edge
+                (after => StackJoins follows rest after)
+                joins)
+            )
         | Concat docs, steps, joins =>
           rewrite steps then (sound, (printsJoin follows indent mode docs rest printer.edge joins))
         | Fill [], steps, joins => rewrite steps then (sound, joins)
