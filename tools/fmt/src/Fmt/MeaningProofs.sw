@@ -11,13 +11,12 @@
 --| included (`Keeps`). P3's steps rebuild descendants, so their facts are
 --| stated through the walk (`dropLeftWalk`, `spineWalk`).
 --|
---| Not here: P4. As `meaning` is stated it doesn't keep it: a merged
---| group's pieces each take the first group's `open`, comments included,
---| so `-- note` above `(x: Nat) (y: Nat)` is on both pieces after P4 and on
---| the first only before. The fact needs meanings compared with comments
---| blanked, and then `Group.typeLines` (the dump) telling comment-free
---| types apart, and the merged groups' `kind`s equal (`joins` doesn't
---| compare them).
+--| Not here: P4. Its `joins` reads the raw type's dump
+--| (`Group.typeLines`) where `meaning` reads the walked type, in two
+--| tests: equal dumps don't give equal walked types (the dump leaves out
+--| an atom's token kind, so the fact is false for trees the lexer can't
+--| make), and a raw type that doesn't name a group's names doesn't, as
+--| proved so far, give a walked type that doesn't.
 
 namespace Fmt.Proofs
 import Fmt (..)
@@ -586,9 +585,7 @@ theorem bracketKeepsFile ∀ (file: SourceFile): file.withoutSpareBrackets.meani
   rewrite applyKeeps file.withoutEnd bracketSteps meaningSteps bracketPure meaningPure bracketAgrees meaningAgrees
       bracketKeeps
 
---| The first three passes keep `meaning`. P4 doesn't, as `meaning` is
---| stated: a merged group's pieces each take the first group's `open`
---| comments.
+--| The first three passes keep `meaning`.
 theorem firstThreeKeepMeaning ∀ (file: SourceFile):
     file.withForall.withoutTrailingCommas.withoutSpareBrackets.meaning = file.meaning :=
   rewrite bracketKeepsFile file.withForall.withoutTrailingCommas, commaKeepsFile file.withForall, forallKeepsFile file

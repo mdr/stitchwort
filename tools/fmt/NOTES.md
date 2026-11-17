@@ -752,3 +752,36 @@ No axioms (`stitchwort axioms Fmt.Proofs.firstThreeKeepMeaning`).
 - annotations equal from equal `typeLines`: the dump of a comment-free type telling types apart (an induction over `Expr.lines`), or `joins` comparing blanked trees;
 - equal `kind`s: `joins` doesn't compare `GroupKind` (the parser never mixes them in one list, but nothing in the tree says so);
 - `Group.bare` is parse-time and not tied to the tree's comments, so a proof can't use it; with comments blanked it doesn't need to.
+
+## A comment-free `meaning` (SW-3884)
+
+Opus, 17 November 2026.
+
+### What is here
+
+| Piece | Where |
+|---|---|
+| The blanking map: one function a step (`blankExpr`, `blankPattern`, `blankHeader`, `blankDecl`, `blankFields`, `blankAttributes`, `blankRuleSet`), each blanking the comments the node holds itself and those of the records inside it with no step of their own (groups, rows, lets, arms, clauses, constructors); `blankSteps`, and `SourceFile.withoutComments` | `src/Fmt/Blank.sw` |
+| `meaning`'s steps blank a node before they read it, and `meaning` blanks the file's end comments (`withoutEnd`) | `src/Fmt/Meaning.sw` |
+| `meaningBlanksFirst`: `file.withoutComments.meaning = file.meaning`, through `applyKeeps` with `blankKeeps` (blanking a node keeps what `meaning`'s walk gives of it); 50 theorems, about one a blanking function | `src/Fmt/BlankProofs.sw` |
+| `joins` compares the groups' `kind`s (SW-3908) | `src/Fmt/Passes.sw` |
+| Test: a merged group's pieces hold no comments, before and after `tidy` (fails with the header step not blanking) | `src/Fmt/Tests/Meaning.sw` |
+
+The decision was the plan's option (b) (`docs/proposals/self-hosted-fmt-engine-plan.md` §4): blank before the steps. It is done one node at a time, inside the one traversal, rather than as a traversal of its own followed by `meaning`'s: the passes' facts then stay `Keeps` facts about one walk, and `meaningBlanksFirst` is the plan's `file.withoutComments.apply meaningSteps`, so stage 5 gets equal meanings from equal blanked trees by congruence.
+
+P1 to P3's proofs needed four changes: the binder-type lemmas are stated through the blanking (`(blankGroups …).map Group.plainType`), `parenWalkForgotten` takes any words for the pair (`meaning` sees the blanked ones), `negativeWalk` splits the atom's kind, and the file theorems apply to `file.withoutEnd`. No axioms (`firstThreeKeepMeaning`, `meaningBlanksFirst`).
+
+### Checked [run]
+
+- `Fmt.Twin --stage meaning`: `kept` on the 132 golden files and 224 repo files (every fourth `.sw` under `crates/elab/src/std`, `aoc/src`, `tools`, `games`), with a twin built from this branch.
+- `dev/fmt-meaning-oracle`: 120 pairs, 103 agreed, all 103 the same to the compiler, 0 findings.
+- `dev/fmt-twin passes`: goldens 132 of 132, repo `--sample 300` 300 of 300 identical (with `joins` comparing kinds).
+
+### P4: what it still needs
+
+P4's step is `mergeHeader` (and `mergeBinding`); its `Keeps` fact is `walkHeader meaningPure (mergeHeader z) = walkHeader meaningPure z` for every header `z`. With comments blanked and kinds compared, a merged group's pieces agree with the separate groups' in every field but two, both read by `joins` from the raw type and by `meaning` from the walked one:
+
+- **The type.** `joins` compares `Group.typeLines`, the raw type's dump; `meaning`'s pieces hold the walked type. "Equal dumps give equal walked types" is false over all trees: the dump prints an atom's text and not its `Tok` (`Atom Ident w` and `Atom Num w` dump alike), and `Keeps` quantifies over every header, not only parsed ones.
+- **Self-naming.** `joins` asks that no line of the raw type equal a name; `meaning`'s `Group.splits` asks it of the walked type. The walk only drops or copies tokens, so it holds, but proving it is an induction over the whole dump (every node kind's lines).
+
+Both are statement changes, so they wait for a decision. The cheapest end state: `joins` compares the groups' types as `meaning` reads them, `current.annotation.map (walk meaningPure) == next.annotation.map (walk meaningPure)` with `Expr`'s derived `==`, and asks self-naming of the merged group's walked type; then the merge fact is a list induction over `mergeFrom`. P4 would then merge where the walked types agree, a little more than where the dumps do (where they differ only in what `meaning` forgets and P1 to P4 left, such as a bracket pair P3 keeps after a lone row variable); on the corpora that should be no file [inferred], which `dev/fmt-twin passes` would show.
