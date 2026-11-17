@@ -29,6 +29,9 @@
 //! 4. the case finishes: the session's work limit is `WORK` (a hit is
 //!    `E-RESOURCE`, an acceptable outcome), and a wall-clock watchdog of
 //!    `WATCHDOG` reports a hang, naming the case;
+//!    (The main check shares one cache of the library's files across the
+//!    run, so the standard library is checked once, not in every case:
+//!    SW-3707.)
 //! 5. on every `CACHE_EVERY`th case, a cold and then a warm check cache give
 //!    the same verdict and the same diagnostic codes;
 //! 6. no check holds more than `MEM_CAP` bytes of heap (`FUZZ_MEM_CAP_MB`
@@ -54,12 +57,15 @@
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use stitchwort_core::budget::{Budget, Limits};
+use stitchwort_driver::check_cache::CheckCache;
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier};
+use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{SourceMap, parse_module_recovering};
 
 #[path = "support/heap_cap.rs"]
@@ -77,13 +83,9 @@ const WORK: u64 = 300_000_000;
 /// several of the runaway cases reached it, for a verdict, `E-RESOURCE`,
 /// that comes the same at half).
 const SIZE: u64 = 1_000_000;
-/// A case still running after this long is a hang. A check that imports the
-/// parser library costs about 20 s of CPU in a debug build, whatever the
-/// program (the standard library is checked afresh in each session), and
-/// a cache comparison runs three; four workers beside other jobs can slow
-/// one run past a minute, which SW-3705 took for a hang. The work limit
-/// bounds a genuine runaway well inside this.
-const WATCHDOG: Duration = Duration::from_secs(240);
+/// A case still running after this long is a hang. The work limit bounds a
+/// genuine runaway well inside this.
+const WATCHDOG: Duration = Duration::from_secs(60);
 /// A check of a case running this long is named as it runs. Short, because
 /// a case that runs away in memory can fill 16 GB in under ten seconds.
 const SLOW: Duration = Duration::from_secs(5);
@@ -572,8 +574,56 @@ struct Report {
     peak: i64,
 }
 
+/// Which check cache a check uses.
+#[derive(Clone)]
+enum CacheUse {
+    /// The library files' entries, kept in one directory for the whole run
+    /// (SW-3707): a library file's entry is keyed by its own text, so a
+    /// case's declarations cannot reach another case through it, and the
+    /// cases skip re-checking the standard library (about 20 s of CPU in a
+    /// debug build for the parser library).
+    SharedLibrary,
+    /// A directory of the case's own, for the cold and warm comparison.
+    Own(PathBuf),
+}
+
+/// A check cache that keeps only library files' entries (unit names
+/// `std.…`), not the case's own namespaces.
+struct LibraryOnly(CheckCache);
+
+impl Store for LibraryOnly {
+    fn compiler(&self) -> &str {
+        self.0.compiler()
+    }
+    fn salt(&self) -> [u8; 16] {
+        self.0.salt()
+    }
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        unit.starts_with("std.").then(|| self.0.read(unit, key))?
+    }
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        if unit.starts_with("std.") {
+            self.0.write(unit, key, entry);
+        }
+    }
+}
+
+/// The directory of the shared library cache, made on first use.
+fn shared_library_dir() -> &'static Path {
+    static DIR: OnceLock<PathBuf> = OnceLock::new();
+    DIR.get_or_init(|| {
+        let dir =
+            std::env::temp_dir().join(format!("stitchwort-fuzz-elab-std-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // Makes the salt before any two checks race to.
+        let _ = CheckCache::at(&dir);
+        dir
+    })
+}
+
 /// `None` if the check held more heap than the cap and was cancelled.
-fn check(text: &str, cache: Option<&Path>) -> Option<Report> {
+fn check(text: &str, cache: &CacheUse) -> Option<Report> {
     Budget::set_cancel_hook(heap_cap::over_cap);
     let before = heap_cap::start(mem_cap(), None);
     let mut sources = SourceMap::new();
@@ -590,8 +640,11 @@ fn check(text: &str, cache: Option<&Path>) -> Option<Report> {
     };
     // A timed counterexample search can differ between two runs.
     session.elab.options.untimed_counterexamples = true;
-    if let Some(dir) = cache {
-        session.use_check_cache(dir);
+    match cache {
+        CacheUse::SharedLibrary => session
+            .elab
+            .set_check_cache(Rc::new(LibraryOnly(CheckCache::at(shared_library_dir())))),
+        CacheUse::Own(dir) => session.use_check_cache(dir),
     }
     stitchwort_elab::record_kernel_rejections(true);
     stitchwort_elab::take_kernel_rejections();
@@ -637,14 +690,14 @@ enum Ran {
 }
 
 /// Runs `check` on a thread of its own, with the watchdog.
-fn run_watched(text: &str, cache: Option<&Path>) -> Ran {
+fn run_watched(text: &str, cache: &CacheUse) -> Ran {
     let (tx, rx) = mpsc::channel();
     let text = text.to_string();
-    let cache = cache.map(Path::to_path_buf);
+    let cache = cache.clone();
     let spawned = std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(move || {
-            let outcome = catch_unwind(AssertUnwindSafe(|| check(&text, cache.as_deref())));
+            let outcome = catch_unwind(AssertUnwindSafe(|| check(&text, &cache)));
             let _ = tx.send(match outcome {
                 Ok(Some(report)) => Ran::Done(Box::new(report)),
                 Ok(None) => Ran::OverMemory,
@@ -735,12 +788,12 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
         )
     };
     starting();
-    let report = match run_watched(&case.text, None) {
+    let report = match run_watched(&case.text, &CacheUse::SharedLibrary) {
         Ran::Done(report) => *report,
         Ran::Panicked(message) => {
             return fail(tally, "1 (no panic)", format!("panicked: {message}"));
         }
-        Ran::OverMemory => return over_memory(tally, "no cache"),
+        Ran::OverMemory => return over_memory(tally, "shared library cache"),
         Ran::Hung => {
             return fail(
                 tally,
@@ -749,7 +802,7 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
             );
         }
     };
-    note_heavy(case, "no cache", &report);
+    note_heavy(case, "shared library cache", &report);
     tally.parsed += usize::from(report.parsed);
     tally.reached += usize::from(report.reached);
     tally.accepted += usize::from(report.verdict.accepted);
@@ -775,9 +828,9 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
         tally.cache_checked += 1;
         let dir = temp_dir(case.number);
         starting();
-        let cold = run_watched(&case.text, Some(&dir));
+        let cold = run_watched(&case.text, &CacheUse::Own(dir.clone()));
         starting();
-        let warm = run_watched(&case.text, Some(&dir));
+        let warm = run_watched(&case.text, &CacheUse::Own(dir.clone()));
         let _ = std::fs::remove_dir_all(&dir);
         match (cold, warm) {
             (Ran::Done(cold), Ran::Done(warm)) => {
@@ -794,7 +847,10 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
                     fail(
                         tally,
                         "5 (cache changes nothing)",
-                        format!("no cache {:?}, cold {:?}", report.verdict, cold.verdict),
+                        format!(
+                            "shared library cache {:?}, cold {:?}",
+                            report.verdict, cold.verdict
+                        ),
                     );
                 }
             }
@@ -944,6 +1000,7 @@ fn mutated_examples_check_without_internal_errors() {
         handles.into_iter().map(|h| h.join().unwrap()).collect()
     });
 
+    let _ = std::fs::remove_dir_all(shared_library_dir());
     let total = all.len();
     let sum = |f: fn(&Tally) -> usize| tallies.iter().map(f).sum::<usize>();
     let pct = |n: usize| 100.0 * n as f64 / total.max(1) as f64;
