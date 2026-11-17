@@ -1,5 +1,5 @@
 {
-  "next": 3926,
+  "next": 3928,
   "tickets": [
     {
       "id": 47,
@@ -23159,12 +23159,12 @@
     {
       "id": 3921,
       "title": "[Opus] Engine E2 part 1: IdGroup and IfBroken in Fmt.Doc (print and measure, matching crates/fmt engine.rs), with the toy proofs extended; gate: dev/fmt-twin engine identical on every goldens and repo declaration using only them (25,442 + 2,126 in the repo) (SW-3905 counts; plan stage E2)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Progress (Opus, 21:50-22:06, est. 60 min): IdGroup and IfBroken in Fmt.Doc (Doc, printer with a modes record, fitsFrom with modes; fill first item and OneLineBelow measured with no modes, as Rust's fits_flat); DocDump reads them. All Fmt.Doc theorems keep their statements, none restricted; 9 new lemmas; audit 319 theorems, 0 failed, 3 warnings. Harness: goldens 548 matched / 10 mismatched / 86 unsupported (was 22/0/622); repo 32,085 / 0 / 2,278, 390 oversized (was 4,303 / 0 / 29,838). The 10 golden mismatches are plan §1.1 comment differences (flat SoftLine while a comment waits x4, comment floor vs CommentEnd x6), not this port. Commit 94eeea548.\n",
+      "body": "Progress (Opus, 21:50-22:06, est. 60 min): IdGroup and IfBroken in Fmt.Doc (Doc, printer with a modes record, fitsFrom with modes; fill first item and OneLineBelow measured with no modes, as Rust's fits_flat); DocDump reads them. All Fmt.Doc theorems keep their statements, none restricted; 9 new lemmas; audit 319 theorems, 0 failed, 3 warnings. Harness: goldens 548 matched / 10 mismatched / 86 unsupported (was 22/0/622); repo 32,085 / 0 / 2,278, 390 oversized (was 4,303 / 0 / 29,838). The 10 golden mismatches are plan §1.1 comment differences (flat SoftLine while a comment waits x4, comment floor vs CommentEnd x6), not this port. Commit 94eeea548.\n\nModel result: opus, worked, 16 min (est. 60). No idFree restriction needed. The empty-modes finding was fixed in Rust by SW-3913 meanwhile; Fmt.Doc follows in SW-3926. Audit's known warnings now 3 (spacesAfterComment found by search); name them in briefs: closesWord, putMid, putSpaces. Next SW-3927.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
@@ -23218,6 +23218,32 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3926,
+      "title": "[Sonnet] Fmt.Doc: a broken Fill's first item and a OneLineBelow option are measured with the real modes, as Rust's engine does since SW-3913 (Fmt.Doc copied the old empty-map behaviour); a Doc/Tests/Engine.sw test mirroring SW-3913's Rust one; keep theorems checking",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3927,
+      "title": "[Opus] Engine E2 part 2: NarrowGroup (1,388 repo declarations need only it), Align/AlignInset, Displaced in Fmt.Doc with proofs extended; gate: engine harness identical on every declaration using only supported kinds (SW-3921 counts: 2,278 unsupported)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
