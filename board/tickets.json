@@ -43082,7 +43082,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Full-repo token comparison after SW-3808 merged: 1912 of 1914 identical; the differences are this escaping issue, e.g. tools/toyfmt/src/Toy/Fmt/Tests/Validation.sw line 81: Rust prints \\u{10ffff} escaped, the twin prints the character. Old layout 1696/1696, goldens 124/124.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
