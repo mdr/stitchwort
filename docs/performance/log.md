@@ -46,6 +46,43 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 17 Nov 2026
 
+### SW-3709: readsThen chains 3-5x the steps after SW-3561; the first lemma is compared by its arguments first
+
+- **Status:** kept (Opus). Statements, accept/reject results and messages
+  unchanged; proof terms of readsThen calls whose first lemma matched in
+  place change (hashes: 14 std `Parse` declarations, 2 in the example
+  `reads-then-finds-split`), see below.
+- **Measured.** `reads_chain_proofs_stay_within_recorded_step_counts`,
+  readsTwo's steps: generic 175,035 → 47,741, characters 100,564 → 34,358
+  (before SW-3561: 38,452 and 32,406; bounds recorded at the new counts).
+  AoC 2020 day 16's four `reads*` proofs: 2.73M → 1.05M steps, 192 → 71 ms
+  elaboration (`check --no-cache Aoc.Year2020.Day16.Proofs`).
+- **Profile.** Step counts around each phase of `fallback_holding_lambdas`
+  in readsTwo: of the outer call's 167K steps (generic), the in-place check
+  of the first lemma `Prs.readsSatisfy` against `Prs.Reads ?p ?first` took
+  35K and 92K at the two levels (127K, 76%) and failed: the unifier
+  compares two calls of one definition with unknowns by unfolding them,
+  and the run it unfolds to is stuck on `?p ()`. Then
+  `by_arguments_in_place`, the comparison by the calls' arguments, took
+  about 200 steps and succeeded. Characters: 66K of 94K.
+- **Change.** Under held lambdas (`infer_expecting`'s `hold_lambdas`), an
+  argument whose type has unknowns is compared by arguments first
+  (`by_arguments_first`), and checked in place only if that doesn't match.
+  Where the in-place check fails, the result is the same. Where it
+  succeeds (a lemma that is a variable, `readsItem: Parse.ReadsIn inv item
+  …`), it also got there by unfolding, and solved `?p` inside the run; by
+  arguments it is the lemma's own parser, so those proof terms change.
+- **Not the cause.** SW-3715's 6.6 s for `examples/accept/reads-then-finds-split.sw`
+  against 0.26 s for a trivial file with its imports: std files load lazily,
+  so the trivial file never loads `Parse`; the example's own declarations
+  take 45 ms, and the rest is std's `Parse/Reads.sw` (2.7 s, led by
+  `runFromLabelWholeFromOkTree`, 1.05 s) and its neighbours, the same
+  before and after this change (6.87 s → 6.74 s wall, `check --no-cache`).
+- **Left.** readsTwo is still 24% (generic) and 6% (characters) over its
+  pre-SW-3561 count: the held call's comparison of its type with the goal
+  (6-10K steps a level) unfolds `Reads` too. Not changed: comparing by
+  arguments there is the choice SW-3561 exists to avoid (`afterMark`).
+
 ### SW-3710: std's derived instances cost every importer +40-60% on a cold load; profiled, fix proposed, nothing changed yet
 
 - **Status:** profiled (Opus); fix waiting for a decision in

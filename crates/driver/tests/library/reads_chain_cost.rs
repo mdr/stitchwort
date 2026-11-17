@@ -22,11 +22,11 @@ const TOLERANCE_PERCENT: u64 = 25;
 /// `(name, program, steps of its readsTwo)`. To update after a deliberate
 /// change: `READS_CHAIN_PRINT=1 task test:one -- reads_chain` prints them.
 const BOUNDS: &[(&str, &str, u64)] = &[
-    ("generic", include_str!("reads_chain/generic.sw"), 38452),
+    ("generic", include_str!("reads_chain/generic.sw"), 47741),
     (
         "characters",
         include_str!("reads_chain/characters.sw"),
-        32406,
+        34358,
     ),
 ];
 
