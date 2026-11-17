@@ -22622,7 +22622,7 @@
     {
       "id": 3880,
       "title": "[Opus] D3679 (decided): a parameter group (a b: T) is pure sugar for (a: T) (b: T): the elaborator checks the type once per name (infer_pi, crates/elab/src/check.rs ~2896), so (x y: _) and (a b: Box) with an implicit check exactly when the split form does; repros in docs/reviews/SW-3878-meaning.md M1; guide and syntax.md say so",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
