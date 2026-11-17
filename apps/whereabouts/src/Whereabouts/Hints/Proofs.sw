@@ -4227,3 +4227,65 @@ theorem longitudeBandContains ∀ (lat lon width unit: Float)
               e.right.left.right.right
               (turnTimesOf ca u (Int.natAbs u) byComputing tbA.left tbA.right)
               (turnTimesOf cb u (Int.natAbs u) byComputing tbB.left tbB.right))))
+
+-- The answer in its band
+
+--| The answer is in its hint band, either axis, by JS's comparisons: the
+--| TypeScript's `inHintBand(hintBand(answer, tolerance, axis, unit,
+--| cosLatitude), answer)` is true. The hypotheses:
+--|
+--| - `latLo`, `latHi`, `lonLo`, `lonHi`: the answer is a real place, with
+--|   latitude in [-90°, 90°] and longitude in [-180°, 180°), as Whereabouts
+--|   stores them (`wrap`'s range).
+--| - `tolLo`, `tolHi`: the tolerance is from 1.2e-10 km to 20,000 km (see
+--|   `answerInLatitudeBand`); below about 1e-13 km the answer can fall
+--|   outside (finding 1).
+--| - `low`, `high`: `unit` is from 0 to 1, as `seededUnit` gives.
+--| - `lonWidth`: the longitude band's width, `min (span / cosLatitude) 120`,
+--|   is from 1e-11° to 120°. It follows from `tolLo` and the caller's
+--|   cosine being in (0, 1] (`Math.cos` of a latitude in radians is at
+--|   least 6.1e-17), as `span / c >= span` for such `c`, once std has
+--|   division's antitonicity in the divisor (NOTES.md); until then the
+--|   caller states it.
+--| - `floorCoarse`, `ceilCoarse`: rounding at a band's step moves an edge
+--|   within 360° outwards by at most 2° (it is at most one step, 1° or
+--|   0.1°). True of `floorTo` and `ceilTo` but not yet proved (NOTES.md);
+--|   they keep a band under a turn wide, which `inHintBand`'s wrapped
+--|   reading needs.
+theorem answerInBand ∀ (answer: LatLon) (tolerance: Km) (axis: HintAxis) (unit cosLatitude: Float)
+    (latLo: -90.0 <= answer.lat.value)
+    (latHi: answer.lat.value <= 90.0)
+    (lonLo: -180.0 <= answer.lon.value)
+    (lonHi: answer.lon.value < 180.0)
+    (tolLo: 1.2e-10 <= tolerance.value)
+    (tolHi: tolerance.value <= 20000.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0)
+    (lonWidth: (1e-11
+      <= Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan)
+      ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan <= 120.0))
+    (floorCoarse: ∀ (width x: Float) => -360.0 <= x
+      → x <= 360.0
+      → Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x (stepFor width))) (Float.Theory.units 2.0))
+        = True)
+    (ceilCoarse: ∀ (width x: Float) => -360.0 <= x
+      → x <= 360.0
+      → Int.leq (Float.Theory.units (ceilTo x (stepFor width))) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0))
+        = True):
+    inHintBand (hintBand answer tolerance axis unit cosLatitude) answer = True :=
+  match axis with
+    | Latitude => answerInLatitudeBand answer tolerance unit cosLatitude latLo latHi tolLo tolHi low high
+    | Longitude =>
+      let width: Float := Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan
+      longitudeBandContains answer.lat.value
+        answer.lon.value
+        width
+        unit
+        lonLo
+        lonHi
+        lonWidth.left
+        lonWidth.right
+        low
+        high
+        (floorCoarse width)
+        (ceilCoarse width)
