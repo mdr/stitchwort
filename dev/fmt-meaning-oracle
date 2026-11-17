@@ -1,0 +1,347 @@
+#!/usr/bin/env python3
+"""An oracle for the self-hosted formatter's `meaning` (SW-3883, tools/fmt/NOTES.md).
+
+`meaning` (tools/fmt/src/Fmt/Meaning.sw) is the trusted definition of "the same
+program"; its only test, `Fmt.Twin --stage meaning`, checks that `tidy` keeps
+it, which cannot catch a `meaning` that equates too much. This runs the
+compiler on both files of a pair `meaning` calls equal and compares what it
+says: `stitchwort hash --json` (a declaration's hash, its type's
+hash, its kind) when the project checks, else the diagnostic codes when it
+doesn't (positions and wording left out, since the two files lay out
+differently).
+
+    dev/fmt-meaning-oracle [-v] [--keep DIR] [--cache-dir DIR]
+
+Pairs:
+  golden   crates/fmt/tests/it/golden/*.before.sw and .after.sw: the Rust
+           formatter's input and output.
+  group    `(x y: T)` against `(x: T) (y: T)` in a ∀, an ∃, a theorem header,
+           a def header and a lambda, for T in `_`, `Box` (a type with an
+           implicit argument), `Nat`, `List Nat`, `Bool` (review S4, M1).
+  head     brackets round the head of an application: `(f) x` and `f x`, a
+           constructor update, an application (review S4, M2).
+
+Whether `meaning` calls a pair equal is read off `meaning` itself: the Twin's
+`--stage meaningdump` (tools/fmt/src/Fmt/Twin.sw) prints a file's `meaning` as
+the dump the `meaning` stage compares, and the pair is "agreed" when the two
+dumps are the same. That runs from the worktree's own tools/fmt sources, with
+`stitchwort run Fmt.Twin.main`, so an edit to Meaning.sw is what's tested and
+no executable is rebuilt (the first run in a fresh worktree checks the project,
+about 20 s). Only agreed pairs go to the compiler; for the others, "unconfirmed"
+means the dumps differ, and the count is shown for completeness.
+
+Exit status: 0 if no agreed pair differs unexpectedly, 1 if one does, 2 for a
+setup error. A group pair whose type is `_` or `Box` in a ∀, ∃, theorem or def
+header is expected to differ until SW-3880 makes the elaborator read a group as
+sugar for one binder a name (D3679); it is reported as such, and when it agrees
+it says so, so the expectation can be dropped.
+"""
+import argparse
+import concurrent.futures
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+MAIN = Path(os.environ.get("STITCHWORT_MAIN_CHECKOUT", "/Users/agent/repos/mdr/stitchwort"))
+GOLDEN = ROOT / "crates/fmt/tests/it/golden"
+
+NS = "namespace T\n\n"
+
+
+def golden_pairs():
+    for before in sorted(GOLDEN.glob("*.before.sw")):
+        after = before.with_name(before.name.replace(".before.sw", ".after.sw"))
+        a, b = before.read_text(), after.read_text()
+        yield dict(id=before.name[: -len(".before.sw")], kind="golden", a=with_ns(a), b=with_ns(b),
+                   expect=False)
+
+
+def with_ns(text):
+    return text if re.match(r"\s*namespace\s", text) else NS + text
+
+
+# For each type: its name in the source, and bodies that use two or three
+# names of that type. `probe` is one the review found tells grouped from split.
+TYPES = {
+    "_": dict(neutral="x = x ∧ y = y", probe="x + 1 = 2 ∧ y = True", expect=True),
+    "Box": dict(neutral="x = x ∧ y = y", probe="x = [1] ∧ y = [True]", expect=True),
+    "Nat": dict(neutral="x + 1 = 2 ∧ y = 3", probe=None, expect=False),
+    "List Nat": dict(neutral="x = [1] ∧ y = [2]", probe=None, expect=False),
+    "Bool": dict(neutral="x = True ∧ y = False", probe=None, expect=False),
+}
+
+PRELUDE_GROUP = "def Box [t: Type]: Type := List t\n\n"
+
+
+def group_pairs():
+    for ty, info in TYPES.items():
+        bodies = [("", info["neutral"])] + ([("-probe", info["probe"])] if info["probe"] else [])
+        for suffix, body in bodies:
+            for form in ("forall", "exists", "theorem", "def", "lambda"):
+                for names in ("x y", "x y z"):
+                    ns = names.split()
+                    if len(ns) == 3:
+                        if suffix or ty in ("_", "Box"):
+                            continue  # one three-name group is enough, on plain types
+                        body3 = body.replace("y = 3", "y = 3 ∧ z = 3") if ty == "Nat" else None
+                        if body3 is None:
+                            continue
+                        body_ = body3
+                    else:
+                        body_ = body
+                    grouped = f"({names}: {ty})"
+                    split = " ".join(f"({n}: {ty})" for n in ns)
+                    # Mixed: first two names grouped, the rest split off
+                    if form == "forall":
+                        mk = lambda b: f"def p: Prop := ∀ {b} => {body_}\n"
+                    elif form == "exists":
+                        mk = lambda b: f"def p: Prop := ∃ {b} => {body_}\n"
+                    elif form == "theorem":
+                        if suffix:  # the review's repro: the hypotheses tell the types
+                            hyps = {"_": "(hx: x = 1) (hy: y = True)", "Box": "(hx: x = [1]) (hy: y = [True])"}[ty]
+                            mk = lambda b: f"theorem t ∀ {b} {hyps}: x = x := byComputing\n"
+                        else:
+                            mk = lambda b: f"theorem t ∀ {b}: x = x := byComputing\n"
+                    elif form == "def":
+                        mk = lambda b: f"def f {b}: Prop := {body_}\n"
+                    else:
+                        arrow = {"_": "Nat → Nat", "Box": "List Nat → List Nat", "Nat": "Nat → Nat",
+                                 "List Nat": "List Nat → List Nat", "Bool": "Bool → Bool"}[ty]
+                        if suffix:
+                            arrow = {"_": "Nat → Bool", "Box": "List Nat → List Bool"}[ty]
+                        arrows = " → ".join([arrow.split(" → ")[0]] * (len(ns) - 2) + [arrow, "Prop"])
+                        mk = lambda b: f"def f: {arrows} := {b} => {body_}\n"
+                    pre = PRELUDE_GROUP if ty == "Box" else ""
+                    yield dict(id=f"group {form} ({names}: {ty}){suffix}", kind="group",
+                               a=NS + pre + mk(grouped), b=NS + pre + mk(split),
+                               expect=bool(suffix) and form != "lambda")
+
+
+HEAD_PRELUDE = """type R = { x: Nat }
+
+def Pick (r: R) (k: Nat := 5): Nat → Type := j => Nat
+
+def r0: R := { x = 0 }
+
+def id1 (n: Nat): Nat := n
+
+def F (n: Nat): Type := Nat
+
+def G: Nat → Type := n => Nat
+
+def G2 (a: Nat): Nat → Type := b => Nat
+
+def H (a b: Type): Type := Nat
+
+"""
+
+# (name, with bracket, without, whether `meaning` is expected to forget the
+# bracket). The compiler reads a bracket only at an application's head when
+# the head lowers to an application, so P3 and `meaning` drop one only at the
+# left end of a row's result, and only round an atomic form: the cases outside
+# a row and round an application are controls that `meaning` must tell apart.
+HEAD_CASES = [
+    ("name", "def v: {IO} (F) 1 := 3", "def v: {IO} F 1 := 3", True),
+    ("function-typed value", "def v: {IO} (G) 1 := 3", "def v: {IO} G 1 := 3", True),
+    ("two arguments", "def v: {IO} (H) Nat Bool := 3", "def v: {IO} H Nat Bool := 3", True),
+    ("type constructor", "def v: {IO} (Option) Nat := None", "def v: {IO} Option Nat := None", True),
+    ("list type", "def v: {IO} (List) Nat := []", "def v: {IO} List Nat := []", True),
+    ("qualified name", "def v: {IO} (Std.List) Nat := []", "def v: {IO} Std.List Nat := []", True),
+    ("doubled pair", "def v: {IO} ((F)) 1 := 3", "def v: {IO} F 1 := 3", True),
+    ("pair round the whole type", "def v: {IO} (F 1) := 3", "def v: {IO} F 1 := 3", True),
+    ("application head", "def v: {IO} (G2 1) 2 := 3", "def v: {IO} G2 1 2 := 3", False),
+    ("application head with a default", "def v: {IO} (Pick r0) 2 := 3", "def v: {IO} Pick r0 2 := 3", False),
+    ("constructor update head", "def v: {IO} (Pick { r0 | x = 1 }) 2 := 3", "def v: {IO} Pick { r0 | x = 1 } 2 := 3", False),
+    ("constructor fields head", "def v: {IO} (Pick { x = 1 }) 2 := 3", "def v: {IO} Pick { x = 1 } 2 := 3", True),
+    ("outside a row", "def v: Nat := (id1) 2", "def v: Nat := id1 2", False),
+    ("outside a row, application", "def v: Nat := (id1 1) + 2", "def v: Nat := id1 1 + 2", False),
+]
+
+
+def head_pairs():
+    for name, a, b, forgets in HEAD_CASES:
+        yield dict(id=f"head {name}", kind="head", a=NS + HEAD_PRELUDE + a + "\n",
+                   b=NS + HEAD_PRELUDE + b + "\n", expect=False, forgets=forgets)
+
+
+def all_pairs():
+    yield from golden_pairs()
+    yield from group_pairs()
+    yield from head_pairs()
+
+
+def run_dumps(stitchwort, texts, work):
+    """`meaning`'s dump (stdout, status) for each text, in one batch run."""
+    paths = []
+    for i, t in enumerate(texts):
+        p = work / f"in{i}.sw"
+        p.write_text(t)
+        paths.append(str(p))
+    lst = work / "list"
+    lst.write_text("\n".join(paths) + "\n")
+    out = subprocess.run([str(stitchwort), "run", "Fmt.Twin.main", "--", "--stage", "meaningdump",
+                          "--batch", str(lst)], cwd=ROOT / "tools/fmt", capture_output=True,
+                         text=True, check=False)
+    res, pos, s = [], 0, out.stdout
+    if not s.startswith("\x1e"):
+        raise SystemExit("fmt-meaning-oracle: tools/fmt did not run:\n" + (out.stderr + s)[:2000])
+    for p in paths:
+        assert s[pos] == "\x1e", f"batch framing at {pos}"
+        pos = s.index("\n", pos) + 1
+        end = s.index("\n", pos)
+        _, status, length, _msg = s[pos:end].split("\x1f", 3)
+        pos = end + 1
+        n = int(length)
+        res.append((s[pos:pos + n], int(status)))
+        pos += n
+    return res
+
+
+def compiler_answers(stitchwort, texts, work, cache):
+    """What the compiler says of each text (a dict key -> source): ('ok', its
+    declarations' hashes) when it checks, else ('error', its diagnostic codes).
+
+    All the texts of one side go in one project, a namespace each, so the
+    compiler starts once, not once per file (about a second each, since it
+    reads the library's cache): `hash` checks everything and prints nothing
+    on an error, so files that fail are taken out, with the codes their errors
+    carry, and it runs again."""
+    proj = Path(tempfile.mkdtemp(dir=work))
+    (proj / "src").mkdir()
+    (proj / "stitchwort.yaml").write_text("sources: [src]\ncheck:\n  open-goals: warn\n")
+    names = {k: f"N{n}" for n, k in enumerate(texts)}
+    for k, t in texts.items():
+        body = re.sub(r"\A(\s*)namespace\s+\S+", r"\1namespace " + names[k], t, count=1)
+        (proj / "src" / f"{names[k]}.sw").write_text(body)
+    by_name = {v: k for k, v in names.items()}
+    answers = {}
+    for _ in range(len(texts) + 2):
+        r = subprocess.run([str(stitchwort), "hash", "--json", "--cache-dir", str(cache), "--color", "never"],
+                           cwd=proj, capture_output=True, text=True, check=False)
+        if r.returncode == 0:
+            decls = json.loads(r.stdout)["declarations"]
+            for k, nm in names.items():
+                if k not in answers:
+                    mine = sorted((d["name"][len(nm):], d["kind"], d["hash"], d["typeHash"])
+                                  for d in decls if d["name"].startswith(nm + "."))
+                    answers[k] = ("ok", mine)
+            return answers
+        failed = {}
+        for m in re.finditer(r"^\[(E-[A-Z0-9-]+|GOAL)\][^\n]*\n\s*╭─\[ [^\]]*?/(N\d+)\.sw", r.stderr, re.M):
+            failed.setdefault(m.group(2), []).append(m.group(1))
+        if not failed:
+            raise SystemExit("fmt-meaning-oracle: hash failed without a located error:\n" + r.stderr[:2000])
+        for nm, codes in failed.items():
+            answers[by_name[nm]] = ("error", codes)
+            (proj / "src" / f"{nm}.sw").unlink()
+    raise SystemExit("fmt-meaning-oracle: hash kept failing")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("-v", "--verbose", action="store_true", help="list every pair, not only the differing and unconfirmed")
+    ap.add_argument("--cache-dir", help="the compiler's cache (default: a temporary one, so each run starts cold)")
+    ap.add_argument("--keep", metavar="DIR", help="write each pair's two files under DIR")
+    ap.add_argument("--stitchwort", default=str(MAIN / "target/release/stitchwort"))
+    ap.add_argument("--twin", default=str(MAIN / "target/fmt-twin/fmt"))
+    args = ap.parse_args()
+    for exe in (args.stitchwort, args.twin):
+        if not os.access(exe, os.X_OK):
+            print(f"fmt-meaning-oracle: {exe} is not an executable (build it, or pass --stitchwort / --twin)", file=sys.stderr)
+            return 2
+    pairs = list(all_pairs())
+    with tempfile.TemporaryDirectory(prefix="fmt-meaning-oracle-") as w:
+        work = Path(w)
+        texts = [t for p in pairs for t in (p["a"], p["b"])]
+        dumps = run_dumps(args.stitchwort, texts, work)
+        # One cache for every project: without it each run checks the library
+        # again (25 s); the cache is keyed by content, so a file's answer is its own.
+        cache = Path(args.cache_dir) if args.cache_dir else work / "cache"
+        cache.mkdir(parents=True, exist_ok=True)
+        compiler_answers(args.stitchwort, {0: NS + "def warm: Nat := 1\n"}, work, cache)
+        todo_a, todo_b = {}, {}
+        for i, p in enumerate(pairs):
+            da, db = dumps[2 * i], dumps[2 * i + 1]
+            p["agreed"] = da[1] == 0 and db[1] == 0 and da[0] == db[0]
+            p["why_unconfirmed"] = ("the Twin refuses a side" if da[1] or db[1]
+                                    else "meaning's dumps differ")
+            if p["a"] == p["b"]:
+                p["ra"] = p["rb"] = ("ok", "identical text")
+            elif p["agreed"]:
+                todo_a[i], todo_b[i] = p["a"], p["b"]
+        with concurrent.futures.ThreadPoolExecutor(2) as ex:
+            ra, rb = ex.map(lambda t: compiler_answers(args.stitchwort, t, work, cache), (todo_a, todo_b))
+        for i in ra:
+            pairs[i]["ra"], pairs[i]["rb"] = ra[i], rb[i]
+        for p in pairs:
+            p.setdefault("ra", ("unchecked", "")); p.setdefault("rb", ("unchecked", ""))
+            if not p["agreed"]:
+                p["ra"] = p["rb"] = ("unchecked", "")
+        for p in pairs:
+            p["same"] = p["ra"] == p["rb"]
+            p["checks"] = p["ra"][0] == "ok" and p["rb"][0] == "ok"
+        if args.keep:
+            keep = Path(args.keep)
+            for i, p in enumerate(pairs):
+                d = keep / re.sub(r"[^A-Za-z0-9._-]+", "_", f"{i:03}-{p['id']}")
+                d.mkdir(parents=True, exist_ok=True)
+                (d / "a.sw").write_text(p["a"])
+                (d / "b.sw").write_text(p["b"])
+
+    unexpected, expected, nowagree, unconfirmed_diff = [], [], [], []
+    for p in pairs:
+        if p["agreed"] and not p["same"]:
+            (expected if p["expect"] else unexpected).append(p)
+        elif p["agreed"] and p["same"] and p["expect"]:
+            nowagree.append(p)
+        elif not p["agreed"]:
+            unconfirmed_diff.append(p)
+    agreed = [p for p in pairs if p["agreed"]]
+    print(f"pairs checked: {len(pairs)}  (golden {sum(p['kind']=='golden' for p in pairs)},"
+          f" group {sum(p['kind']=='group' for p in pairs)}, head {sum(p['kind']=='head' for p in pairs)})")
+    print(f"meaning agreed (same dump from `meaning`): {len(agreed)}")
+    print(f"  compiler agrees (same hashes, or same diagnostics): {sum(p['same'] for p in agreed)}"
+          f"  (both check: {sum(p['same'] and p['checks'] for p in agreed)}, both fail alike: {sum(p['same'] and not p['checks'] for p in agreed)})")
+    print(f"  differ, expected until SW-3880: {len(expected)}")
+    print(f"  differ, UNEXPECTED: {len(unexpected)}")
+    print(f"  expected-to-differ pairs that now agree: {len(nowagree)}")
+    print(f"meaning tells apart (dumps differ, not sent to the compiler): {len(pairs) - len(agreed)}")
+
+    def show(p, tag):
+        print(f"--- {tag}: {p['id']}")
+        print(f"    a: {p['ra'][0]} {p['ra'][1] if p['ra'][0] != 'ok' else ''}")
+        print(f"    b: {p['rb'][0]} {p['rb'][1] if p['rb'][0] != 'ok' else ''}")
+        if p["ra"][0] == p["rb"][0] == "ok":
+            print("    hashes differ")
+        la, lb = p["a"].splitlines(), p["b"].splitlines()
+        for tag_, mine, other in (("a", la, lb), ("b", lb, la)):
+            print(f"    {tag_} only: " + " / ".join(l.strip() for l in mine if l not in other and l.strip()))
+
+    for p in pairs:
+        if "forgets" in p and p["forgets"] != p["agreed"]:
+            print(f"note: {p['id']}: meaning {'tells apart' if p['forgets'] else 'equates'} the pair, "
+                  f"against Meaning.sw's documented rules")
+    for p in unexpected:
+        show(p, "UNEXPECTED")
+    if args.verbose:
+        for p in expected:
+            show(p, "expected until SW-3880")
+        for p in nowagree:
+            print(f"--- now agrees: {p['id']}")
+        for p in unconfirmed_diff:
+            print(f"--- meaning tells apart: {p['id']} ({p['why_unconfirmed']})")
+    else:
+        for p in expected:
+            print(f"expected until SW-3880: {p['id']}")
+        for p in unconfirmed_diff:
+            pass
+    return 1 if unexpected else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
