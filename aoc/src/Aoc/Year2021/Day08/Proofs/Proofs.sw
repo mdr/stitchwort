@@ -30,7 +30,11 @@ theorem part1AnswerUnique ∀ (entries: List Entry) (first second: Nat)
     first = second :=
   match h1, h2 with
     | Witness w1 (Both d1 e1), Witness w2 (Both d2 e2) =>
-      Eq.trans e1 (Eq.trans (part1Correct entries w1 d1).flipped (Eq.trans (part1Correct entries w2 d2) e2.flipped))
+      calc first
+        _ = entries.sumBy (entry => easyDigits (w1 entry) entry) := e1
+        _ = solvePart1 entries := (part1Correct entries w1 d1).flipped
+        _ = entries.sumBy (entry => easyDigits (w2 entry) entry) := part1Correct entries w2 d2
+        _ = second := e2.flipped
 
 theorem part2AnswerUnique ∀ (entries: List Entry) (first second: Nat)
     (h1: Part2Answer entries first)
@@ -38,7 +42,11 @@ theorem part2AnswerUnique ∀ (entries: List Entry) (first second: Nat)
     first = second :=
   match h1, h2 with
     | Witness w1 (Both d1 e1), Witness w2 (Both d2 e2) =>
-      Eq.trans e1 (Eq.trans (part2Correct entries w1 d1).flipped (Eq.trans (part2Correct entries w2 d2) e2.flipped))
+      calc first
+        _ = entries.sumBy (entry => decodedValue (w1 entry) entry) := e1
+        _ = solvePart2 entries := (part2Correct entries w1 d1).flipped
+        _ = entries.sumBy (entry => decodedValue (w2 entry) entry) := part2Correct entries w2 d2
+        _ = second := e2.flipped
 
 --| Two wirings that decode a display read the same output value.
 theorem decodedValueUnique ∀ (first second: Segment → Segment) (entry: Entry)

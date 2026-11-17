@@ -44,7 +44,10 @@ theorem Set.ext ∀ [auto ord: Ord k] (s t: Set k) (h: ∀ (key: k) => Set.conta
           Set.presentInjective
             (Map.get m key)
             (Map.get n key)
-            (Eq.trans (Set.containsPresent key m).flipped (Eq.trans (h key) (Set.containsPresent key n)))))
+            (calc Set.present (Map.get m key)
+              _ = Map.contains m key := (Set.containsPresent key m).flipped
+              _ = Map.contains n key := h key
+              _ = Set.present (Map.get n key) := Set.containsPresent key n)))
 
 -- Maps and sets
 
@@ -195,7 +198,12 @@ theorem Set.containsOfRemove ∀ [auto ord: Ord k] (s: Set k) (key other: k)
   match same: other == key with
     | True =>
       let moved := Eq.cong (found => Set.contains (Set.remove s key) found) same.read.flipped
-      Void.impossible (Bool.falseNotTrue (Eq.trans (Set.containsRemove s key).flipped (Eq.trans moved there)))
+      Void.impossible
+        (Bool.falseNotTrue
+          (calc False
+            _ = Set.contains (Set.remove s key) key := (Set.containsRemove s key).flipped
+            _ = Set.contains (Set.remove s key) other := moved
+            _ = True := there))
     | False => Eq.trans (Eq.flipped (Set.containsRemoveOther s key other same.read)) there
 
 theorem Set.lastMapFst ∀ (xs: List (k, ())): Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst) :=
@@ -732,7 +740,11 @@ theorem Set.sizeMapInjective ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set
         match (Set.containsMap t f (f key)).forward inImage with
           | Witness x (Both inT same) =>
             let isKey := injectiveInserted x key (Set.containsInsertMono t key x inT) (Set.containsInsert key t) same
-            Bool.falseNotTrue (Eq.trans absent.flipped (Eq.trans (Eq.flipped (Eq.cong (Set.contains t) isKey)) inT))
+            Bool.falseNotTrue
+              (calc False
+                _ = Set.contains t key := absent.flipped
+                _ = Set.contains t x := (Eq.cong (Set.contains t) isKey).flipped
+                _ = True := inT)
       rewrite Set.mapInsert t f key then
         arithmetic [Set.sizeInsertNew (Set.map t f) (f key) newImage, Set.sizeInsertNew t key absent, held injectiveT])
     s

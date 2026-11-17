@@ -136,7 +136,11 @@ theorem Nat.eqOfTestBit ∀ (m n: Nat) (same: ∀ (i: Nat) => Nat.testBit m i = 
         Nat.eqOfTestBit
           (m / 2)
           (n / 2)
-          (i => Eq.trans (Nat.testBitSucc m i).flipped (Eq.trans (same (Succ i)) (Nat.testBitSucc n i)))
+          (i =>
+            calc Nat.testBit (m / 2) i
+              _ = Nat.testBit m (Succ i) := (Nat.testBitSucc m i).flipped
+              _ = Nat.testBit n (Succ i) := same (Succ i)
+              _ = Nat.testBit (n / 2) i := Nat.testBitSucc n i)
           [decreasing := Nat.halvesLess m n some]
       arithmetic [Nat.divModEq m 2, Nat.divModEq n 2, low, high]
 

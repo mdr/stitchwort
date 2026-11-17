@@ -2497,7 +2497,11 @@ theorem Map.Raw.equivOfGet ∀ [auto ord: Ord k] (m n: Map.Raw k v)
     (Map.Raw.toList n)
     (Map.Raw.toListSorted m)
     (Map.Raw.toListSorted n)
-    (key => Eq.trans (Map.Raw.getToList key m).flipped (Eq.trans (h key) (Map.Raw.getToList key n)))
+    (key =>
+      calc Map.Tree.lookupList key (Map.Raw.toList m)
+        _ = Map.Raw.get key m := (Map.Raw.getToList key m).flipped
+        _ = Map.Raw.get key n := h key
+        _ = Map.Tree.lookupList key (Map.Raw.toList n) := Map.Raw.getToList key n)
 
 -- Each operation respects `Map.Raw.Equiv`: equivalent maps give equal results,
 -- or equivalent maps.
@@ -2505,7 +2509,10 @@ theorem Map.Raw.equivOfGet ∀ [auto ord: Ord k] (m n: Map.Raw k v)
 theorem Map.Raw.getRespects ∀ [auto ord: Ord k] (key: k) (m n: Map.Raw k v)
     (h: Map.Raw.Equiv m n):
     Map.Raw.get key m = Map.Raw.get key n :=
-  Eq.trans (Map.Raw.getToList key m) (Eq.trans (Eq.cong (Map.Tree.lookupList key) h) (Map.Raw.getToList key n).flipped)
+  calc Map.Raw.get key m
+    _ = Map.Tree.lookupList key (Map.Raw.toList m) := Map.Raw.getToList key m
+    _ = Map.Tree.lookupList key (Map.Raw.toList n) := Eq.cong (Map.Tree.lookupList key) h
+    _ = Map.Raw.get key n := (Map.Raw.getToList key n).flipped
 
 theorem Map.Raw.getOrRespects ∀ [auto ord: Ord k] (key: k) (d: v) (m n: Map.Raw k v)
     (h: Map.Raw.Equiv m n):
@@ -2518,7 +2525,10 @@ theorem Map.Raw.containsRespects ∀ [auto ord: Ord k] (key: k) (m n: Map.Raw k 
   rewrite Map.Raw.getRespects key m n h
 
 theorem Map.Raw.sizeRespects ∀ (m n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.size m = Map.Raw.size n :=
-  Eq.trans (Map.Raw.sizeToList m) (Eq.trans (Eq.cong List.length h) (Map.Raw.sizeToList n).flipped)
+  calc Map.Raw.size m
+    _ = List.length (Map.Raw.toList m) := Map.Raw.sizeToList m
+    _ = List.length (Map.Raw.toList n) := Eq.cong List.length h
+    _ = Map.Raw.size n := (Map.Raw.sizeToList n).flipped
 
 theorem Map.Raw.isEmptyRespects ∀ (m n: Map.Raw k v [ord := o])
     (h: Map.Raw.Equiv m n):
@@ -2581,12 +2591,18 @@ theorem Map.Raw.adjustRespects ∀ [auto ord: Ord k] (f: v → v) (key: k) (m n:
 theorem Map.Raw.mapRespects ∀ (f: v → w) (m n: Map.Raw k v [ord := o])
     (h: Map.Raw.Equiv m n):
     Map.Raw.Equiv (Map.Raw.map f m) (Map.Raw.map f n) :=
-  Eq.trans (Map.Raw.toListMap f m) (Eq.trans (Eq.cong (Map.Spec.mapValues f) h) (Map.Raw.toListMap f n).flipped)
+  calc Map.Raw.toList (Map.Raw.map f m)
+    _ = Map.Spec.mapValues f (Map.Raw.toList m) := Map.Raw.toListMap f m
+    _ = Map.Spec.mapValues f (Map.Raw.toList n) := Eq.cong (Map.Spec.mapValues f) h
+    _ = Map.Raw.toList (Map.Raw.map f n) := (Map.Raw.toListMap f n).flipped
 
 theorem Map.Raw.filterRespects ∀ [auto ord: Ord k] (p: k → v → Bool) (m n: Map.Raw k v)
     (h: Map.Raw.Equiv m n):
     Map.Raw.Equiv (Map.Raw.filter p m) (Map.Raw.filter p n) :=
-  Eq.trans (Map.Raw.toListFilter p m) (Eq.trans (Eq.cong (Map.Spec.filter p) h) (Map.Raw.toListFilter p n).flipped)
+  calc Map.Raw.toList (Map.Raw.filter p m)
+    _ = Map.Spec.filter p (Map.Raw.toList m) := Map.Raw.toListFilter p m
+    _ = Map.Spec.filter p (Map.Raw.toList n) := Eq.cong (Map.Spec.filter p) h
+    _ = Map.Raw.toList (Map.Raw.filter p n) := (Map.Raw.toListFilter p n).flipped
 
 theorem Map.Raw.unionRespects ∀ [auto ord: Ord k] (a a2 b b2: Map.Raw k v)
     (ha: Map.Raw.Equiv a a2)
@@ -2637,10 +2653,16 @@ theorem Map.Raw.mapMaybeRespects ∀ [auto ord: Ord k] (f: k → v → Option w)
     _ = (Map.Raw.mapMaybe f n).toList := (Map.Raw.toListMapMaybe f n).flipped
 
 theorem Map.Raw.minRespects ∀ (m n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.min m = Map.Raw.min n :=
-  Eq.trans (Map.Raw.minToList m) (Eq.trans (Eq.cong List.head h) (Map.Raw.minToList n).flipped)
+  calc Map.Raw.min m
+    _ = List.head (Map.Raw.toList m) := Map.Raw.minToList m
+    _ = List.head (Map.Raw.toList n) := Eq.cong List.head h
+    _ = Map.Raw.min n := (Map.Raw.minToList n).flipped
 
 theorem Map.Raw.maxRespects ∀ (m n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.max m = Map.Raw.max n :=
-  Eq.trans (Map.Raw.maxToList m) (Eq.trans (Eq.cong List.last h) (Map.Raw.maxToList n).flipped)
+  calc Map.Raw.max m
+    _ = List.last (Map.Raw.toList m) := Map.Raw.maxToList m
+    _ = List.last (Map.Raw.toList n) := Eq.cong List.last h
+    _ = Map.Raw.max n := (Map.Raw.maxToList n).flipped
 
 theorem Map.Raw.belowRespects ∀ [auto ord: Ord k] (key: k) (m n: Map.Raw k v)
     (h: Map.Raw.Equiv m n):

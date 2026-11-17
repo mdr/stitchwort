@@ -344,8 +344,7 @@ theorem Parse.stripPrefixBySameChar ∀ (input prefix: List Char):
       let byIf := (b: Bool) => if b then List.stripPrefixBy more ps Text.sameChar else None
       let charsIf := (b: Bool) => if b then Text.stripPrefixChars ps more else None
       match same: Text.sameChar p x with
-        | True =>
-          Eq.trans (Eq.cong byIf same) (Eq.trans (Parse.stripPrefixBySameChar more ps) (Eq.cong charsIf same).flipped)
+        | True => Parse.stripPrefixBySameChar more ps
         | False => Eq.trans (Eq.cong byIf same) (Eq.cong charsIf same).flipped
 
 theorem Parse.runFromCharThere ∀ (state: Parse.State Char) (expected: Char) (rest: List Char) (k: () → {Parse Char} a)

@@ -1,8 +1,10 @@
 -- Arithmetic lemmas from the prelude, used in small proofs.
 import Std (Eq, Nat)
 
-theorem addSwap ∀ (a b c: Nat): a + (b + c) = b + (a + c) :=
-  Eq.trans (Nat.addAssoc a b c).flipped (Eq.trans (Eq.cong (t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c))
+theorem addSwap ∀ (a b c: Nat): a + (b + c) = b + (a + c) := calc a + (b + c)
+  _ = a + b + c := (Nat.addAssoc a b c).flipped
+  _ = b + a + c := Eq.cong (t => t + c) (Nat.addComm a b)
+  _ = b + (a + c) := Nat.addAssoc b a c
 
 theorem squareOfSum ∀ (a b: Nat): (a + b) * (a + b) = a * (a + b) + b * (a + b) := Nat.mulDistribRight a b (a + b)
 

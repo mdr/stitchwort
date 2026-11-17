@@ -520,7 +520,12 @@ theorem List.sumRangeFromOne ∀ (q: Nat → Bool) (g: Nat → Nat) (v: Nat)
             _ = g v :=
               List.sumRangeFromOne q g v hv uniq c
                 (Succ s)
-                (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans hv.flipped (Eq.trans (Eq.cong q e.flipped) hs))))
+                (Nat.leNeSucc s v h1 (e =>
+                  Bool.trueNotFalse
+                    (calc True
+                      _ = q v := hv.flipped
+                      _ = q s := Eq.cong q e.flipped
+                      _ = False := hs)))
                 (Nat.ltSuccAdd s c v h2))
 
 --| A sum over a run of numbers that is 0 has every term 0.
@@ -644,7 +649,12 @@ theorem List.anyRangeIntro ∀ (q: Nat → Bool) (c s k: Nat)
             (List.anyRangeIntro q c
               (Succ s)
               k
-              (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans hk.flipped (Eq.trans (Eq.cong q e.flipped) f))))
+              (Nat.leNeSucc s k h1 (e =>
+                Bool.trueNotFalse
+                  (calc True
+                    _ = q k := hk.flipped
+                    _ = q s := Eq.cong q e.flipped
+                    _ = False := f)))
               (Nat.ltSuccAdd s c k h2)
               hk))
 
@@ -756,7 +766,12 @@ theorem Nat.firstFromFound ∀ (q: Nat → Bool) (c s k: Nat)
           rewrite <- Nat.firstFromSkip q c s f at Nat.firstFromFound q c
             (Succ s)
             k
-            (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans hk.flipped (Eq.trans (Eq.cong q e.flipped) f))))
+            (Nat.leNeSucc s k h1 (e =>
+              Bool.trueNotFalse
+                (calc True
+                  _ = q k := hk.flipped
+                  _ = q s := Eq.cong q e.flipped
+                  _ = False := f)))
             (Nat.ltSuccAdd s c k h2)
             hk)
 

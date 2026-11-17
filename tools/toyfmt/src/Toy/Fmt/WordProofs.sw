@@ -69,7 +69,13 @@ theorem writesConcat ∀ (docs: List Doc) (pieces: List Text)
         | [] => (byComputing, (Eq.trans keptWords words))
         | [only] =>
           match keptUniform with
-            | Both first _ => (first, (Eq.trans (List.appendNil only.words).flipped (Eq.trans keptWords words)))
+            | Both first _ => (
+              first,
+              (calc only.words
+                _ = only.words ++ [] := (List.appendNil only.words).flipped
+                _ = wordsAll docs := keptWords
+                _ = wordsOf pieces := words)
+            )
         | [first, second, ..rest] => (keptUniform, (Eq.trans keptWords words))
 
 theorem writesEmpty: Writes Empty [] := (byComputing, byComputing)

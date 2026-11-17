@@ -1029,8 +1029,10 @@ theorem List.occurrencesTrue ∀ (xs: List a): List.occurrences xs (x => True) =
   | [] => byComputing
   | [x, ..xs] => Eq.cong Succ (List.occurrencesTrue xs)
 
-theorem List.permLength ∀ (xs ys: List a) (h: List.Perm xs ys): List.length xs = List.length ys :=
-  Eq.trans (List.occurrencesTrue xs).flipped (Eq.trans (h (x => True)) (List.occurrencesTrue ys))
+theorem List.permLength ∀ (xs ys: List a) (h: List.Perm xs ys): List.length xs = List.length ys := calc List.length xs
+  _ = List.occurrences xs (x => True) := (List.occurrencesTrue xs).flipped
+  _ = List.occurrences ys (x => True) := h (x => True)
+  _ = List.length ys := List.occurrencesTrue ys
 
 --| Some element passes `p` exactly when at least one does, so permutations
 --| agree on `any`.
@@ -1045,7 +1047,10 @@ theorem List.anyOccurrences ∀ (xs: List a) (p: a → Bool): List.any xs p = Na
         (f => List.anyOccurrences xs p)
 
 theorem List.anyPerm ∀ (xs ys: List a) (h: List.Perm xs ys) (p: a → Bool): List.any xs p = List.any ys p :=
-  Eq.trans (List.anyOccurrences xs p) (Eq.trans (Eq.cong (n => Nat.leq 1 n) (h p)) (List.anyOccurrences ys p).flipped)
+  calc List.any xs p
+    _ = Nat.leq 1 (List.occurrences xs p) := List.anyOccurrences xs p
+    _ = Nat.leq 1 (List.occurrences ys p) := Eq.cong (n => Nat.leq 1 n) (h p)
+    _ = List.any ys p := (List.anyOccurrences ys p).flipped
 
 -- Reversing is a permutation, and keeps sums.
 

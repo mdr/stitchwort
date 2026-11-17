@@ -104,7 +104,11 @@ theorem ProtoMap.ext ∀ (m n: ProtoMap k v [ord := o])
       (ProtoMap.toList n)
       (ProtoMap.toListSorted m)
       (ProtoMap.toListSorted n)
-      (key => Eq.trans (ProtoMap.getToList m key).flipped (Eq.trans (h key) (ProtoMap.getToList n key))))
+      (key =>
+        calc Map.Tree.lookupList key (ProtoMap.toList m)
+          _ = ProtoMap.get m key := (ProtoMap.getToList m key).flipped
+          _ = ProtoMap.get n key := h key
+          _ = Map.Tree.lookupList key (ProtoMap.toList n) := ProtoMap.getToList n key))
 
 -- `==`: compare the entry lists. The branch is chosen by the list
 -- comparison; `Quot.sound` is only inside the yes proof.
