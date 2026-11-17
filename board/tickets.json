@@ -42112,15 +42112,17 @@
     {
       "id": 3743,
       "title": "[Sonnet] Toy++ T6: P4 merges adjacent parameter groups of the same type (toy-plus-plus.md §3.2, §5 T6): through the shared traversal (generic traverseKeeps* with the identity step), its own facts on declarations, tidyMerged and 'P4 keeps P1-P3's work'; tidy restated for four passes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Sonnet, 17 Nov): P4 done on lane/SW-3743, commit 3c4693992. tidy is four passes; tidyMerged added; whole toyfmt checks clean; axioms none on the top theorems; Parsing and Goldens tests pass (one golden changed: Sprig++ stream head Nat -> Int, since head: Nat, rest: Nat now merges). Notes in tools/toyfmt/plus/SKETCH-PLUS.md (T6).\nModel result: Sonnet, worked, 20 min (est. 45)\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "3c4693992"
+      ]
     }
   ]
 }
