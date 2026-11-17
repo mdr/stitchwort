@@ -21920,7 +21920,7 @@
     {
       "id": 3826,
       "title": "[Opus] Proof plan spike K4: fuel in stage 2a's parser: does Parse.recursiveWith's items-left+1 run out under deep nesting? Measure, then fix the accounting (charge per token consumed) before 2b (after SW-3819 merges; time box 30 min)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
