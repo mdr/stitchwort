@@ -22621,13 +22621,13 @@
     },
     {
       "id": 3880,
-      "title": "[Opus] Decide-then-fix (D3679): the compiler checks a parameter group's type once and shares it, so (x y: _) / (a b: Box) with an implicit differ from the split form; Rust fmt's P4 merges split groups and breaks programs that checked (repros in docs/reviews/SW-3878-meaning.md M1). Waits for D3679",
+      "title": "[Opus] D3679 (decided): a parameter group (a b: T) is pure sugar for (a: T) (b: T): the elaborator checks the type once per name (infer_pi, crates/elab/src/check.rs ~2896), so (x y: _) and (a b: Box) with an implicit check exactly when the split form does; repros in docs/reviews/SW-3878-meaning.md M1; guide and syntax.md say so",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "D3679 decided (Matt, 17 Nov 2026): option 1, 'Yeah, I'm happy with option one. Let's keep it as a pure syntax sugar.' The compiler reads (a b: T) exactly as (a: T) (b: T), elaborating the type once per name; the formatter's merge and meaning's split stay as they are. Lane: Opus (elaborator, core language), next free build slot.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
