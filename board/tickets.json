@@ -30822,14 +30822,14 @@
     {
       "id": 2901,
       "title": "[DeepSeek] Book G10: False in a statement reads as the Bool (False = True): a hover or note saying so, suggesting Void (proving-with-stitchwort-outline.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41539,14 +41539,14 @@
     {
       "id": 3686,
       "title": "[DeepSeek] E-AUTO-NONE on a statement that spells out a match returning a Prop: the fix is the proving guide's helper definition; the message should point there (note + guide anchor)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41682,7 +41682,7 @@
     {
       "id": 3697,
       "title": "[Sonnet] W-PROOF-CHAIN counts lines, so stitchwort fmt silences it whenever a nest fits in 120 columns (SW-3696). Make it count the nest (two or more nested trans, any layout?) and recheck the std pins (SW-3611 lowered 205 to 157 by exempting one-line nests: measure what the new rule warns on before choosing)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
