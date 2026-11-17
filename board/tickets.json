@@ -42817,12 +42817,12 @@
     {
       "id": 3796,
       "title": "[Fable review] SW-638 (float stage 3: mul, ofInt, ofNat as definitions through roundScaled): soundness review of the runtime-only native gate, mulBits against IEEE 754, pins, docs/core.md; docs/reviews/SW-638-float-stage3-review.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "\n\nProgress (Fable paper lane, 17 Nov 2026, 13:42-13:51, est. 30 min): review in docs/reviews/SW-638-float-stage3-review.md. Verdict: merge after fixes. No soundness finding (run-only gate, mulBits against IEEE 754, pins and the five theorem statements all hold on paper). Blocking: SW-638 breaks the four-paths Node leg (passes on main; cause not found on paper; the lane fix was not yet on the branch at a0c1ed9cc, so unreviewed), and two hash snapshots unrun. Docs: no as-built stage 3 in float-laws.md, toInt/ofInt theorem not proved, stale comment at value.rs:2529. Follow-ups: F4-F8 in the review.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
