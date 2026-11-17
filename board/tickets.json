@@ -21933,7 +21933,7 @@
     {
       "id": 3827,
       "title": "[Sonnet] Proof plan F5: a fuelled-loop combinator in std Parse with its lemmas, replacing hand-fuelled loops (2a has 21) (self-hosted-fmt-proof-plan.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22284,7 +22284,7 @@
     {
       "id": 3854,
       "title": "[Sonnet] std Parse: lemma that recursiveWithFuel with a body that reads before each self call gives the same result with more fuel (fuelEnough needs it; pairs with proof plan F5's loop combinator SW-3827) (SW-3826 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
