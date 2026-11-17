@@ -1,5 +1,5 @@
 {
-  "next": 3920,
+  "next": 3921,
   "tickets": [
     {
       "id": 47,
@@ -23079,12 +23079,12 @@
     {
       "id": 3915,
       "title": "[Opus] Toy.Doc/Fmt.Doc audit warnings: closesWord, putMid, putSpaces and one more have hypotheses no generated input satisfies (0 of 1500); check each is not vacuous, before E1 (SW-3904 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected 25 min (started 21:38).\n\nResult (Opus, 17 Nov): none of the four is vacuous; each has a checked witness.\n- closesWord: `)` (closesWordExample, new). Random texts are rarely exactly `)`, `]` or `,`.\n- spacesAfterComment: spacesAfterCommentExample (already there): \" \" after a waiting `-- c`. Random texts are rarely non-empty and all spaces.\n- putMid, putSpaces: putMidExample, putSpacesExample (new), built on midExample. `Agrees printer (Mid at) trace` is a 7-part invariant tying the printer's output to the trace; random printers never meet it.\nSame change in tools/fmt and tools/toyfmt. The warnings stay: the audit has no way to take a witness into account (finding: let audit accept a named witness theorem).\nTests: check, test (19/19), audit (0 failed, the same 4 warnings, 305 theorems) on Fmt.Doc and Toy.Doc; fmt on touched files.\n",
+      "body": "Expected 25 min (started 21:38).\n\nResult (Opus, 17 Nov): none of the four is vacuous; each has a checked witness.\n- closesWord: `)` (closesWordExample, new). Random texts are rarely exactly `)`, `]` or `,`.\n- spacesAfterComment: spacesAfterCommentExample (already there): \" \" after a waiting `-- c`. Random texts are rarely non-empty and all spaces.\n- putMid, putSpaces: putMidExample, putSpacesExample (new), built on midExample. `Agrees printer (Mid at) trace` is a 7-part invariant tying the printer's output to the trace; random printers never meet it.\nSame change in tools/fmt and tools/toyfmt. The warnings stay: the audit has no way to take a witness into account (finding: let audit accept a named witness theorem).\nTests: check, test (19/19), audit (0 failed, the same 4 warnings, 305 theorems) on Fmt.Doc and Toy.Doc; fmt on touched files.\n\nModel result: opus, worked, 2 min (est. 25). No statement changed; witnesses added. Follow-up SW-3920.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
@@ -23138,6 +23138,19 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3920,
+      "title": "[Sonnet] Audit: let a witness silence the vacuity warning (a theorem applying the warned one to closed arguments, or an attribute naming it); and when every case is thrown out on one hypothesis, name it in the warning (SW-3915 findings; 4 Doc warnings recur otherwise)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
