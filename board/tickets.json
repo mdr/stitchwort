@@ -41513,27 +41513,27 @@
     {
       "id": 3684,
       "title": "[Sonnet] Elab friction (Toy++ T3b): two match scrutinees where one's type mentions the other are refused with E-MATCH-MOTIVE; a helper lemma with a variable scrutinee works. At least say so in the note (generalise into a helper); ideally abstract the dependent one",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
       "id": 3685,
       "title": "[DeepSeek] Name collision across (..) imports is reported at every use, not once at the definition/import (T3b: Spaced cost 34 errors). Report once at the import with both sources, or dedupe per name per file",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41894,7 +41894,7 @@
     {
       "id": 3713,
       "title": "[DeepSeek] Did-you-mean: count a transposition as one edit (Damerau), so nmae -> name (4 chars, plain distance 2) is suggested again after SW-3703's short-name rule",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
