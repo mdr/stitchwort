@@ -42,19 +42,6 @@ def kmToDegrees (km: Float): Float := km / ((earthRadius * pi) / 180.0)
 
 def toRadians (degrees: Float): Float := (degrees * pi) / 180.0
 
---| JS's `Math.min` of two: the NaN if either is, and `-0` below `0`, which
---| the total order already gives.
-def jsMin (a b: Float): Float :=
-  if Float.isNaN a ∨ Float.isNaN b then Float.nan
-  else if a <= b then a
-  else b
-
---| JS's `Math.max` of two.
-def jsMax (a b: Float): Float :=
-  if Float.isNaN a ∨ Float.isNaN b then Float.nan
-  else if a <= b then b
-  else a
-
 def floorTo (value step: Float): Float := Float.round (Float.floor (value / step) * step * 10.0) / 10.0
 
 def ceilTo (value step: Float): Float := Float.round (Float.ceil (value / step) * step * 10.0) / 10.0
@@ -72,12 +59,12 @@ def stepFor (width: Float): Float := if Float.ieeeLt width 5.0 then 0.1 else 1.0
 --| The latitude band `width` wide (at most 180°) around `lat`, with `lat` at `at` across it.
 def latitudeBand (lat width at: Float): HintBand :=
   let unclamped := lat - at * width
-  let from := jsMin (jsMax unclamped (-90.0)) (90.0 - width)
+  let from := Float.min (Float.max unclamped (-90.0)) (90.0 - width)
   let step := stepFor width
   {
     axis = Latitude,
-    from = { value = jsMax (-90.0) (floorTo from step) },
-    to = { value = jsMin 90.0 (ceilTo (from + width) step) }
+    from = { value = Float.max (-90.0) (floorTo from step) },
+    to = { value = Float.min 90.0 (ceilTo (from + width) step) }
   }
 
 --| The longitude band `width` wide around `lon`, with `lon` at `at` across it.
@@ -96,8 +83,8 @@ export def hintBand (answer: LatLon) (tolerance: Km) (axis: HintAxis) (unit cosL
   let span := kmToDegrees (hintWidthTolerances * tolerance.value)
   let at := placeAt unit
   match axis with
-    | Latitude => latitudeBand answer.lat.value (jsMin span 180.0) at
-    | Longitude => longitudeBand answer.lon.value (jsMin (span / cosLatitude) maxLongitudeSpan) at
+    | Latitude => latitudeBand answer.lat.value (Float.min span 180.0) at
+    | Longitude => longitudeBand answer.lon.value (Float.min (span / cosLatitude) maxLongitudeSpan) at
 
 --| Whether a point lies in the band, edges included, by JS's comparisons.
 export def inHintBand (band: HintBand) (point: LatLon): Bool :=

@@ -22141,12 +22141,12 @@
     {
       "id": 3843,
       "title": "[Opus] std Float: a law bridging the total order to IEEE comparison (x <= y with neither NaN gives Float.ieeeLe x y, and back), plus jsMin/jsMax laws for non-NaN operands; every JS-comparison port needs them (SW-3830 finding; Whereabouts answer-in-band)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Progress (Opus lane, 16:21-16:53, est. 30 min): done in commit d4c603517 on lane/SW-3843.\n- Bridge: Float.ieeeLeOfLe, Float.leOfIeeeLe (or both zeros), Float.ieeeLtOfLt (needs not both zeros), Float.ltOfIeeeLt (Float.sw).\n- jsMin/jsMax moved to std as Float.min/Float.max (JS Math.min/max of two) with laws in both orders (Float.sw); Whereabouts.Hints uses them.\n- Float.addMonotoneLeft/addMonotone, Float.mulMonotoneLeft/mulMonotone (non-negative finite factor), all finite operands (Theory.sw).\n- Tests: hash_stability::prelude (48 additions, re-accepted), fmt_repo:: pass; std tests via scratch file pass; whereabouts check and audit Whereabouts.Hints.Proofs (21 passed).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

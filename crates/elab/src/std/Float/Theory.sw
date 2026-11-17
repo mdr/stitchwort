@@ -5388,6 +5388,189 @@ theorem Float.Theory.addAtMost ∀ (x c hi: Float)
       h
       zs)
 
+theorem Float.Theory.andFalseUp ∀ (a b c: Bool) (f: a = False → b = False) (k: (a ∧ c) = False): (b ∧ c) = False :=
+  match a, b with
+    | _, False => byComputing
+    | False, True => Void.impossible (Bool.trueNotFalse (f byComputing))
+    | True, True => k
+
+theorem Float.Theory.xorFalseUp ∀ (a b c: Bool)
+    (hc: c = False)
+    (f: a = False → b = False)
+    (k: Bool.xor a c = False):
+    Bool.xor b c = False :=
+  match a, b with
+    | False, False => k
+    | False, True => Void.impossible (Bool.trueNotFalse (f byComputing))
+    | True, True => k
+    | True, False => hc
+
+theorem Float.Theory.intMulLeRight ∀ (a b c: Int)
+    (h: Int.leq a b = True)
+    (hc: Int.leq (OfNat 0) c = True):
+    Int.leq (Int.mul a c) (Int.mul b c) = True :=
+  let d: 0 ≤ (b - a) * c := Int.mulNonneg (b - a) c (arithmetic [h]) hc
+  let e: (b - a) * c = b * c - a * c := algebra
+  arithmetic [d, e]
+
+theorem Float.Theory.intMulLeLeft ∀ (a b c: Int)
+    (h: Int.leq a b = True)
+    (hc: Int.leq (OfNat 0) c = True):
+    Int.leq (Int.mul c a) (Int.mul c b) = True :=
+  rewrite Int.mulComm c a, Int.mulComm c b then Float.Theory.intMulLeRight a b c h hc
+
+--| A non-negative double has non-negative units.
+theorem Float.Theory.unitsNonneg ∀ (c: Float) (hc: 0.0 <= c): Int.leq (OfNat 0) (Float.Theory.units c) = True :=
+  let sc: Nat.leq 9223372036854775808 c.bits = False := Float.Theory.signClear c.bits hc
+  let uc: Float.Theory.units c = OfNat (Float.Theory.magUnits c.bits) := rewrite sc
+  rewrite uc
+
+--| The bits of a product of finite doubles: their units' product, rounded.
+theorem Float.Theory.mulBitsOf ∀ (x c: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True):
+    (x * c).bits
+      = Float.Model.roundRatio
+        (Int.mul (Float.Theory.units x) (Float.Theory.units c))
+        1
+        (-2148)
+        (Bool.xor (Float.Model.signBit x.bits) (Float.Model.signBit c.bits)) :=
+  let fa: Float.Theory.FiniteBits x.bits := Float.Theory.finiteBits x fx
+  let fb: Float.Theory.FiniteBits c.bits := Float.Theory.finiteBits c fc
+  let n: Int := Int.mul (Float.Theory.units x) (Float.Theory.units c)
+  let z: Bool := Bool.xor (Float.Model.signBit x.bits) (Float.Model.signBit c.bits)
+  let rounded: Float.Model.mulBits x.bits c.bits = Float.Model.roundRatio n 1 (-2148) z :=
+    Float.Theory.mulFiniteBits x.bits c.bits
+      (Float.Theory.finiteNotNaN x.bits fa)
+      (Float.Theory.finiteNotNaN c.bits fb)
+      (Float.Theory.finiteNotInfinite x.bits fa)
+      (Float.Theory.finiteNotInfinite c.bits fb)
+  let valid: Float.isValid (Float.Model.mulBits x.bits c.bits) = True :=
+    J (r w => Float.isValid r = True) (Float.Theory.roundRatioValid 1 (-2148) z byComputing n) rounded.flipped
+  calc (x * c).bits
+    _ = (Float.ofBits (Float.Model.mulBits x.bits c.bits)).bits := Eq.cong (w => w.bits) (Float.Theory.mulOfBits x c)
+    _ = Float.Model.mulBits x.bits c.bits := Float.Theory.ofBitsBits (Float.Model.mulBits x.bits c.bits) valid
+    _ = Float.Model.roundRatio n 1 (-2148) z := rounded
+
+--| Adding the same finite double to finite doubles keeps their order.
+theorem Float.addMonotoneLeft ∀ (x y z: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (fz: Float.isFinite z = True)
+    (h: x <= y):
+    x + z <= y + z :=
+  let sx: Bool := Float.Model.signBit x.bits
+  let sy: Bool := Float.Model.signBit y.bits
+  let sz: Bool := Float.Model.signBit z.bits
+  let ux: Int := Float.Theory.units x
+  let uy: Int := Float.Theory.units y
+  let uz: Int := Float.Theory.units z
+  let units: Int.leq ux uy = True := Float.Theory.unitsMonoKey x.bits y.bits h
+  Float.Theory.leqVia
+    (Float.orderKey (x + z))
+    (Float.orderKey (y + z))
+    (Float.Theory.roundKey (Int.add ux uz) 1 (-1074) (sx ∧ sz))
+    (Float.Theory.roundKey (Int.add uy uz) 1 (-1074) (sy ∧ sz))
+    (Eq.cong Float.Theory.key (Float.Theory.addBitsOf x z fx fz))
+    (Eq.cong Float.Theory.key (Float.Theory.addBitsOf y z fy fz))
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      (sx ∧ sz)
+      (sy ∧ sz)
+      byComputing
+      (Int.add ux uz)
+      (Int.add uy uz)
+      (arithmetic [units])
+      (Float.Theory.andFalseUp sx sy sz (Float.Theory.signClearUp x.bits y.bits h)))
+
+test "Float.addMonotoneLeft" :=
+  -0.0 + 0.0 <= 0.0 + 0.0
+    ∧ -0.0 + (-0.0) <= 0.0 + (-0.0)
+    ∧ 1.0 + 1e-17 <= 1.0000000000000002 + 1e-17
+    ∧ -1.7976931348623157e308 + -1.7976931348623157e308 <= 1.0 + -1.7976931348623157e308
+
+--| Adding a finite double to the same finite double keeps their order.
+theorem Float.addMonotone ∀ (x y z: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (fz: Float.isFinite z = True)
+    (h: x <= y):
+    z + x <= z + y :=
+  rewrite Float.addComm z x, Float.addComm z y then Float.addMonotoneLeft x y z fx fy fz h
+
+--| Multiplying finite doubles by the same non-negative finite double keeps
+--| their order.
+theorem Float.mulMonotoneLeft ∀ (x y c: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (fc: Float.isFinite c = True)
+    (hc: 0.0 <= c)
+    (h: x <= y):
+    x * c <= y * c :=
+  let sx: Bool := Float.Model.signBit x.bits
+  let sy: Bool := Float.Model.signBit y.bits
+  let sc: Bool := Float.Model.signBit c.bits
+  let ux: Int := Float.Theory.units x
+  let uy: Int := Float.Theory.units y
+  let uc: Int := Float.Theory.units c
+  Float.Theory.leqVia
+    (Float.orderKey (x * c))
+    (Float.orderKey (y * c))
+    (Float.Theory.roundKey (Int.mul ux uc) 1 (-2148) (Bool.xor sx sc))
+    (Float.Theory.roundKey (Int.mul uy uc) 1 (-2148) (Bool.xor sy sc))
+    (Eq.cong Float.Theory.key (Float.Theory.mulBitsOf x c fx fc))
+    (Eq.cong Float.Theory.key (Float.Theory.mulBitsOf y c fy fc))
+    (Float.Theory.roundKeyMonoLe 1
+      (-2148)
+      (Bool.xor sx sc)
+      (Bool.xor sy sc)
+      byComputing
+      (Int.mul ux uc)
+      (Int.mul uy uc)
+      (Float.Theory.intMulLeRight ux uy uc (Float.Theory.unitsMonoKey x.bits y.bits h) (Float.Theory.unitsNonneg c hc))
+      (Float.Theory.xorFalseUp sx sy sc (Float.Theory.signClear c.bits hc) (Float.Theory.signClearUp x.bits y.bits h)))
+
+--| Multiplying the same non-negative finite double by finite doubles keeps
+--| their order.
+theorem Float.mulMonotone ∀ (x y c: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (fc: Float.isFinite c = True)
+    (hc: 0.0 <= c)
+    (h: x <= y):
+    c * x <= c * y :=
+  let sx: Bool := Float.Model.signBit x.bits
+  let sy: Bool := Float.Model.signBit y.bits
+  let sc: Bool := Float.Model.signBit c.bits
+  let ux: Int := Float.Theory.units x
+  let uy: Int := Float.Theory.units y
+  let uc: Int := Float.Theory.units c
+  let clear: sc = False := Float.Theory.signClear c.bits hc
+  Float.Theory.leqVia
+    (Float.orderKey (c * x))
+    (Float.orderKey (c * y))
+    (Float.Theory.roundKey (Int.mul uc ux) 1 (-2148) (Bool.xor sc sx))
+    (Float.Theory.roundKey (Int.mul uc uy) 1 (-2148) (Bool.xor sc sy))
+    (Eq.cong Float.Theory.key (Float.Theory.mulBitsOf c x fc fx))
+    (Eq.cong Float.Theory.key (Float.Theory.mulBitsOf c y fc fy))
+    (Float.Theory.roundKeyMonoLe 1
+      (-2148)
+      (Bool.xor sc sx)
+      (Bool.xor sc sy)
+      byComputing
+      (Int.mul uc ux)
+      (Int.mul uc uy)
+      (Float.Theory.intMulLeLeft ux uy uc (Float.Theory.unitsMonoKey x.bits y.bits h) (Float.Theory.unitsNonneg c hc))
+      (k => rewrite clear then Float.Theory.signClearUp x.bits y.bits h (rewrite clear at k)))
+
+test "Float.mulMonotoneLeft" :=
+  -0.0 * 0.0 <= 0.0 * 0.0
+    ∧ -1.0 * 0.0 <= 1.0 * 0.0
+    ∧ 0.1 * 3.0 <= 0.2 * 3.0
+    ∧ -1.7976931348623157e308 * 2.0 <= 1.0 * 2.0
+    ∧ 5e-324 * 0.5 <= 1e-323 * 0.5
+    ∧ 0.15 * 7.0 <= 0.85 * 7.0
+
 --| A finite double has at most the largest finite double's units in size.
 theorem Float.Theory.unitsAtMostMax ∀ (x: Float)
     (fx: Float.isFinite x = True):
