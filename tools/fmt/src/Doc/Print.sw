@@ -161,7 +161,7 @@ def Printer.choose (printer: Printer) (total indent: Nat) (rest: List Cmd): (opt
     let fitting := match option with
       | OneLineBelow inner =>
         printer.width >= indent + 2
-          && fitsFrom total printer.width []
+          && fitsFrom total printer.width printer.modes
             [(indent + 2, Flat, inner)]
             []
             (printer.width - indent - 2)
@@ -284,9 +284,8 @@ def Printer.blank (printer: Printer): Printer :=
 --| none.
 --|
 --| `modes` is how each `IdGroup` printed so far, for the `IfBroken`s
---| measured. A broken `Fill`'s first item and a `OneLineBelow` option are
---| measured with none recorded, as Rust's `fits_flat` measures them, so
---| an `IfBroken` there counts as flat.
+--| measured, a broken `Fill`'s first item and a `OneLineBelow` option
+--| included.
 def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc)) (rest: List Cmd)
     (left lineIndent: Nat) (suffix: Bool):
     Bool :=
@@ -369,7 +368,7 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
               else
                 match items with
                   | [] => True
-                  | [first, .._] => fitsFrom more width [] [(indent, Flat, first)] [] left lineIndent suffix
+                  | [first, .._] => fitsFrom more width modes [(indent, Flat, first)] [] left lineIndent suffix
             | OneLineBelow _ => True
             | Choice options =>
               match (if mode.isFlat then options.head else options.last) with

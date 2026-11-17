@@ -466,7 +466,7 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
                   match items with
                     | [] => byComputing
                     | [first, ..others] =>
-                      rewrite fitsFromEnough more extra width []
+                      rewrite fitsFromEnough more extra width modes
                         [(indent, Flat, first)]
                         []
                         left
@@ -677,7 +677,7 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
       let later := chooseEnough printer total extra indent rest [next, ..others] (arithmetic)
       match option with
         | OneLineBelow inner =>
-          rewrite fitsFromEnough total extra printer.width []
+          rewrite fitsFromEnough total extra printer.width printer.modes
                 [(indent + 2, Flat, inner)]
                 []
                 (printer.width - indent - 2)

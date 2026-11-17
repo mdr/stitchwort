@@ -149,3 +149,15 @@ test "an IfBroken takes its broken branch after its group broke" :=
   print headerAndBody 120 == "def f (x: Nat) := x" && print headerAndBody 16 == "def f\n    (x: Nat)\n  := x"
 
 test "an IfBroken whose group hasn't printed takes its flat branch" := print (IfBroken 9 (t "b") (t "f")) 120 == "f"
+
+-- The id group is 22 columns at width 20, so it breaks and the option below
+-- takes `IfBroken`'s broken branch: 19 columns on a line at 2, more than the
+-- 18 there, so the option doesn't fit, where the flat branch would have.
+def belowAfterBroken: Doc :=
+  let wide := "w".repeat 20
+  let group := Doc.concat [t wide, Line, t "z"] |> .idGroup 7
+  let below := OneLineBelow (IfBroken 7 (t ("b".repeat 19)) (t "short"))
+  Doc.concat [group, HardLine, Choice [below, t "alt"]]
+
+test "an IfBroken in a one-line-below option sees an earlier group's mode" :=
+  print belowAfterBroken 20 == "${"w".repeat 20}\nz\nalt"
