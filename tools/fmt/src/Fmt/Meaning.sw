@@ -8,9 +8,9 @@
 --| - **Positions.** The tree keeps none, and every position moves under
 --|   formatting. The compiler reads them only for messages (spans, and a
 --|   negative numeral's `NegForm`, `lower/numbers.rs`).
---| - **Comments.** No step here reads one, and two meanings are compared
---|   with every comment blanked (the dump the checks compare prints none;
---|   `Group.bare` is a summary of comments and goes with them). The
+--| - **Comments.** Every step blanks a node's comments before it reads
+--|   it (`Fmt/Blank.sw`; `Group.bare`, a summary of comments, goes with
+--|   them), and the file's end comments are blanked. The
 --|   compiler reads a comment only to resolve a `--|` doc's links
 --|   (`W-DOC-LINK`), and docs attach by where comments sit: both are
 --|   `CommentsKept`'s job, stated over the leaves, not this one's.
@@ -71,6 +71,7 @@ namespace Fmt
 import Std (Bool, Fail, List, Nat, Option, Text)
 import Syntax (
   BindingKind,
+  Comments,
   DefKind,
   Expr,
   Group,
@@ -91,16 +92,23 @@ import Syntax (
 --| the parser would read back to it.
 type Meaning = { plain: SourceFile }
 
-def SourceFile.meaning (file: SourceFile): Meaning := { plain = file.apply meaningSteps }
+--| Each step blanks the node's comments (`Fmt/Blank.sw`) before it reads
+--| it, so the traversal is `blankSteps`' and then these, one node at a
+--| time: `meaningBlanksFirst` says it is the file without comments, with
+--| these steps.
+def SourceFile.meaning (file: SourceFile): Meaning := { plain = file.withoutEnd.apply meaningSteps }
+
+--| Without the comments after the last token.
+def SourceFile.withoutEnd (file: SourceFile): SourceFile := { file | end = Comments.none }
 
 def meaningSteps: Steps := {
-  expr = plainExpr,
-  pattern = plainPattern,
-  header = plainHeader,
-  decl = (decl => decl),
-  fields = (fields => { fields | trailingComma = False }),
-  attributes = (attributes => { attributes | trailingComma = False }),
-  ruleSet = (set => { set | trailingComma = False })
+  expr = (expr => plainExpr (blankExpr expr)),
+  pattern = (pattern => plainPattern (blankPattern pattern)),
+  header = (header => plainHeader (blankHeader header)),
+  decl = blankDecl,
+  fields = (fields => { blankFields fields | trailingComma = False }),
+  attributes = (attributes => { blankAttributes attributes | trailingComma = False }),
+  ruleSet = (set => { blankRuleSet set | trailingComma = False })
 }
 
 def plainExpr: Expr → Expr
