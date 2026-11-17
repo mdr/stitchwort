@@ -941,6 +941,19 @@ and Sterbenz's lemma `Float.sterbenz` (positive finite `x`, `y` with `x <= y + y
 exact value lies between two finite doubles' lies between them in the total order) they prove
 Whereabouts' `wrap` ∈ [-180, 180) for every finite input.
 
+**The error model (SW-3844).** `Float.Theory.roundsToRelError`: a rounding (`RoundsTo t d r`) to a
+finite pattern of `t / d` units below 2^2097 units satisfies `|r·d − t| · 2^53 ≤ t + d · 2^52`, so
+a relative error of at most 2^-53 in the normal range and half a unit below it. It comes from
+`nearest` against two grid points `q·2^e` and `(q + 1)·2^e` (`roundsToGrid`, `roundsToSpacingAt`,
+using `gridBits`), with `e` from the quotient's bit length. `Float.addRelError`,
+`Float.mulRelError` and `Float.divRelError` (a positive divisor) state it for `+`, `*` and `/` of
+finite doubles with a finite result, over the sizes of the units. `Float.roundNear` is `round`'s
+specification: `y` from half a unit below the whole double `k` to just under half above rounds to
+`k`. Also `Float.negAntitone`, `Float.negFinite`, `Float.subMonotoneLeft`, `Float.subAntitoneRight`,
+`Float.finiteBetween` (between two finite doubles is finite), `Float.mulCommFinite` and
+`Float.zeroMulNonneg`. Stated over units because `arithmetic` refuses numbers the size of 2^1074:
+a proof that chains these keeps 2^1074 as a variable.
+
 Stages 3 and 4 have no program waiting for them; they can wait for one, but leaving a mix of
 "definition" and "primitive with rule" is a permanent two-mechanism cost, so doing them soon after
 is reasonable [inferred].
