@@ -54,6 +54,8 @@ theorem traverseComments ∀ (step: Position → Expr → Expr)
   rewrite keeps position (expr.traverseInside step position.bracketed) then
     insideComments step keeps expr position.bracketed
 
+--| By cases on the node: each child keeps its comments
+--| (`traverseComments`, mutually), and the node's own are unchanged.
 theorem insideComments ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsComments step)
     (expr: Expr) (bracketed: Bool):
@@ -135,6 +137,8 @@ theorem declarationsTraverseComments ∀ (step: Position → Expr → Expr) (dec
 theorem noneAll ∀ (comments: Comments) (none: comments.isNone = True): comments.all = [] := match comments, none with
   | { above = [], after = None }, _ => byComputing
 
+--| A dropped pair's brackets hold no comments, so the pair's comments
+--| are its content's; every other node is left as it is.
 theorem dropComments: StepKeepsComments dropPair := position expr =>
   match expr with
     | Bracketed open inner close =>

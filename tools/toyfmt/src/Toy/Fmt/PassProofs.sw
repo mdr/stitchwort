@@ -53,6 +53,8 @@ def NoTrailingCommasFile: SourceFile → Prop
 
 -- P2 leaves no trailing comma, and leaves alone a tree with none.
 
+--| By induction on the expression: the step clears the node's own flag,
+--| and each child was traversed first.
 theorem exprCommasNone ∀ (expr: Expr) (position: Position): NoTrailingCommas (expr.traverse dropComma position) :=
   match expr with
     | Var _ _ => byComputing
@@ -110,6 +112,8 @@ theorem declarationsCommasNone ∀ (lines: List (Spaced Declaration)):
 theorem commasNone ∀ (file: SourceFile): NoTrailingCommasFile file.withoutTrailingCommas :=
   declarationsCommasNone file.declarations
 
+--| By induction on the expression: each child is left alone, and the
+--| node's flag is already `False`, so the step changes nothing.
 theorem exprCommasFixed ∀ (expr: Expr) (position: Position)
     (none: NoTrailingCommas expr):
     expr.traverse dropComma position = expr :=

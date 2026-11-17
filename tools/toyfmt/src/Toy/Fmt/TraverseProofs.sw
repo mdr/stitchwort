@@ -28,6 +28,8 @@ theorem traversePlain ∀ (step: Position → Expr → Expr)
   rewrite keeps position (expr.traverseInside step position.bracketed) then
     insidePlain step keeps expr position.bracketed
 
+--| By cases on the node: each child is traversed and keeps its meaning
+--| (`traversePlain`, mutually), and the node's own fields are unchanged.
 theorem insidePlain ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsPlain step)
     (expr: Expr) (bracketed: Bool):
@@ -96,6 +98,9 @@ theorem traverseLexical ∀ (step: Position → Expr → Expr)
     (expr.traverseInside step position.bracketed)
     (insideLexical step keeps expr position.bracketed lexical)
 
+--| By cases on the node: each child keeps its texts (`traverseLexical`,
+--| mutually), the node's own tokens are unchanged, and a body's lines
+--| stay statements (`linesTraverseClosed`).
 theorem insideLexical ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsLexical step)
     (expr: Expr) (bracketed: Bool)
@@ -209,6 +214,8 @@ theorem traverseCommas ∀ (step: Position → Expr → Expr)
     NoTrailingCommas (expr.traverse step position) :=
   keeps position (expr.traverseInside step position.bracketed) (insideCommas step keeps expr position.bracketed none)
 
+--| By cases on the node: each child keeps having no trailing comma
+--| (`traverseCommas`, mutually), and the node's own flags are unchanged.
 theorem insideCommas ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsCommas step)
     (expr: Expr) (bracketed: Bool)
@@ -340,7 +347,10 @@ theorem traverseShaped ∀ (step: Position → Expr → Expr)
   (stepShaped, (ends => stepEnd (insideEnd ends)))
 
 --| A node's children traversed keep their shape where they stand, so the
---| node keeps its own.
+--| node keeps its own: by cases on the node, each child traversed at the
+--| slot its parent's `Shaped` asks of it (`traverseShaped`, mutually),
+--| and each closer settled still, since the token before it keeps its
+--| trailing comment (`settledGrows`).
 theorem insideShaped ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsShaped step)
     (expr: Expr) (bracketed: Bool)
@@ -464,6 +474,10 @@ theorem traverseHeaded ∀ (step: Position → Expr → Expr)
   let (stepHeaded, stepAbove) := keeps position (expr.traverseInside step position.bracketed) insideHeaded
   (stepHeaded, stepAbove.trans insideAbove)
 
+--| By cases on the node: each child is traversed at the flag `HeadedExpr`
+--| reads it at (the node's own, or `True` inside its brackets), so
+--| `traverseHeaded` (mutually) keeps it, and the node's first token is
+--| its first child's, whose comments the step keeps.
 theorem insideHeaded ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsHeaded step)
     (expr: Expr) (bracketed: Bool)
@@ -611,6 +625,8 @@ theorem traverseFixed ∀ (step: Position → Expr → Expr) (done: Position →
     expr.traverse step position = expr :=
   rewrite insideFixed step done fixes expr position.bracketed all.right then fixes position expr all.left
 
+--| By cases on the node: each child is done throughout, so its traversal
+--| leaves it alone (`traverseFixed`, mutually).
 theorem insideFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
     (fixes: StepFixes step done)
     (expr: Expr) (bracketed: Bool)
@@ -680,6 +696,8 @@ theorem traverseReaches ∀ (step: Position → Expr → Expr) (done: Position �
     (expr.traverseInside step position.bracketed)
     (insideReaches step done reaches expr position.bracketed)
 
+--| By cases on the node: each child's traversal is done throughout
+--| (`traverseReaches`, mutually), at the position it stands in.
 theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
     (reaches: StepReaches step done)
     (expr: Expr) (bracketed: Bool):
@@ -762,6 +780,9 @@ theorem allOutside ∀ (done: Position → Expr → Prop)
     AllAt done { bracketed, slot } expr :=
   (outside slot bracketed expr all.left, insideOutside done outside expr bracketed all.right)
 
+--| By cases on the node: inside brackets, and in an item, the flag is
+--| `True` whatever is outside; elsewhere each child is at the node's
+--| flag, so `allOutside` (mutually) moves it.
 theorem insideOutside ∀ (done: Position → Expr → Prop)
     (outside: DoneOutside done)
     (expr: Expr) (bracketed: Bool)
@@ -843,6 +864,8 @@ def DeclareKeepsParsed (declare: Declaration → Declaration): Prop :=
   ∀ (line: Declaration) (shaped: ShapedDeclaration line) (lexical: LexicalDeclaration line) (headed: HeadedDeclaration
       line) => ShapedDeclaration (declare line) ∧ LexicalDeclaration (declare line) ∧ HeadedDeclaration (declare line)
 
+--| By cases on the declaration: its body is traversed outside brackets, so
+--| the body lemmas give each guarantee; its other parts are unchanged.
 theorem declarationTraverseParsed ∀ (step: Position → Expr → Expr)
     (shapedKeeps: StepKeepsShaped step)
     (lexicalKeeps: StepKeepsLexical step)
@@ -877,6 +900,8 @@ theorem declarationTraverseParsed ∀ (step: Position → Expr → Expr)
     )
     | DeclarationNote _, shaped, lexical, headed => (shaped, lexical, headed)
 
+--| By induction on the declarations: each body traversed
+--| (`declarationTraverseParsed`), then `declare`.
 theorem declarationsTraverseParsed ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
     (shapedKeeps: StepKeepsShaped step)
     (lexicalKeeps: StepKeepsLexical step)

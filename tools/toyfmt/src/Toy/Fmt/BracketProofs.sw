@@ -39,6 +39,8 @@ theorem spareParts ∀ (position: Position) (open: Comments) (inner: Expr) (clos
 
 -- The step keeps the meaning: `plain` forgets a pair with no comments.
 
+--| A pair the step drops has no comments, and `plain` forgets such a
+--| pair; every other node is left as it is.
 theorem dropPlain: StepKeepsPlain dropPair := position expr =>
   match expr with
     | Bracketed open inner close =>
@@ -61,6 +63,9 @@ theorem dropPlain: StepKeepsPlain dropPair := position expr =>
 -- dropped only where its content fits the pair's slot, and a pair with
 -- no comments has none on its `)` for a closer outside it to rely on.
 
+--| A dropped pair's content is `Shaped` (it was inside the pair) and fits
+--| the slot (`spare` asks it); the pair's `)` held no comment, so no
+--| trailing comment is lost for a closer outside to rely on.
 theorem dropShaped: StepKeepsShaped dropPair := position expr shaped =>
   match expr, shaped with
     | Bracketed open inner close, ((innerShaped, settled), fits) =>
@@ -85,6 +90,9 @@ theorem dropShaped: StepKeepsShaped dropPair := position expr shaped =>
 -- tokens may hold own-line comments; `standsOutside` says there are
 -- none, which is all `HeadedExpr` asks more outside brackets.
 
+--| By induction on the expression: `HeadedExpr` differs inside and
+--| outside brackets only at a branch's statements, whose first tokens
+--| `standsOutside` says hold no own-line comments.
 theorem standsOutsideHeaded ∀ (expr: Expr)
     (stands: expr.standsOutside = True)
     (headed: HeadedExpr True expr):
@@ -143,6 +151,11 @@ theorem statementOutsideHeaded ∀ (line: Statement)
       )
     | StatementNote _, _ => byComputing
 
+--| A dropped pair's content was headed inside brackets; at a position
+--| inside brackets that is enough, and outside them `standsOutside`
+--| gives it (`standsOutsideHeaded`). The first token's comments are
+--| none either way: the `(` held none and `spare` asks the content's
+--| first token to hold none above it.
 theorem dropHeaded: StepKeepsHeaded dropPair := position expr headed =>
   match expr with
     | Bracketed open inner close =>
@@ -251,6 +264,8 @@ theorem keptAnywhere ∀ (expr: Expr) (position: Position) (kept: NoSparePair { 
     | Binary _ _ _ _ => byComputing
     | If _ _ _ _ _ _ => byComputing
 
+--| A pair kept inside brackets is kept outside them: `spare` asks more
+--| outside (`standsOutside`), so by cases on the parts it asks for.
 theorem keptOutside: DoneOutside NoSparePair := slot bracketed expr kept =>
   match expr with
     | Bracketed open inner close =>
@@ -278,6 +293,9 @@ theorem keptOutside: DoneOutside NoSparePair := slot bracketed expr kept =>
     | Binary _ _ _ _ => byComputing
     | If _ _ _ _ _ _ => byComputing
 
+--| A pair kept is done, and its content was done inside it. A pair dropped
+--| leaves its content, done as a whole expression inside brackets, and
+--| so done wherever it now stands (`keptAnywhere`, `insideOutside`).
 theorem dropReaches: StepReaches dropPair NoSparePair := position expr inside =>
   match expr, inside with
     | Bracketed open inner close, inside =>
@@ -398,6 +416,9 @@ theorem declareSparePlain ∀ (line: Declaration): line.withoutSpareTypeBrackets
   | Value _ _ _ _ _ => byComputing
   | DeclarationNote _ => byComputing
 
+--| Only the parameters' types change: each keeps its shape and texts
+--| (`groupsSpareShaped`, `groupsSpareLexical`), and the list's `)` stays
+--| settled because the last token's trailing comment is kept.
 theorem declareSpareParsed: DeclareKeepsParsed (line => line.withoutSpareTypeBrackets) := line shaped lexical headed =>
   match line, shaped, lexical with
     | Function _ _ _ _ open parameters _ close _ _, ((groupsShaped, settled), bodyShaped), (fnFine, isName, nameFine,
