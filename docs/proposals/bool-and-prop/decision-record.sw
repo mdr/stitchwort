@@ -36,4 +36,4 @@ def safeSub (a b: Nat): Nat := elimEq (decLe b a).does (h => a - b) (h => 0)
 theorem clampGe ∀ (lo x: Nat): lo ≤ clamp lo x := match h: Nat.leq lo x with
   | True => h
   | False => Nat.leRefl lo
-theorem safeSubLe ∀ (a b: Nat) (h: b ≤ a): safeSub a b = a - b := rewrite h in rfl
+theorem safeSubLe ∀ (a b: Nat) (h: b ≤ a): safeSub a b = a - b := rewrite h then rfl

@@ -8,7 +8,7 @@ type Dec (p: Prop) = {
   complete: p → does = True
 }
 def decEqNat (m n: Nat): Dec (m = n) :=
-  { does = Nat.equal m n, sound = h => Nat.equalSound m n h, complete = h => rewrite h in Nat.equalRefl n }
+  { does = Nat.equal m n, sound = h => Nat.equalSound m n h, complete = h => rewrite h then Nat.equalRefl n }
 def Dec.or [p q: Prop] (dp: Dec p) (dq: Dec q): Dec (p ∨ q) :=
   { does = dp.does || dq.does, sound = h => Dec.orSound dp dq h, complete = h => Dec.orComplete dp dq h }
 theorem Dec.orSound ∀ [p q: Prop] (dp: Dec p) (dq: Dec q) (h: (dp.does || dq.does) = True): p ∨ q := match dp, dq with

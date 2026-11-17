@@ -28,12 +28,13 @@ theorem readsThen ∀ (p: () → {Parse} a) (j: a → {Parse} b) (first: List Ch
                 Witness
                   (firstRead ++ nextRead)
                   (Both
-                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest in rfl)
+                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest then rfl)
                     (Both honest2 holds2))
 
 --| A value, read as `spec` says when `spec` holds of nothing read and it.
 theorem readsDone ∀ (x: a) (spec: List Char → a → Prop) (holds: spec [] x): Parse.Reads (() => x) spec :=
-  Parse.readsWeaken _ _ _ (Parse.readsPure x) (read v h => match h with | Both none same => rewrite none, same in holds)
+  Parse.readsWeaken _ _ _ (Parse.readsPure x) (read v h =>
+    match h with | Both none same => rewrite none, same then holds)
 
 type Entry = { low: Nat, high: Nat, letter: Char, password: Text }
 
@@ -74,9 +75,9 @@ theorem readsLine: Parse.Reads line Written := readsThen Parse.nat _ _ _ Parse.r
                 (passwordRead password (Both nonEmpty (Both lowers made)) =>
                   readsDone
                     { low, high, letter, password } _
-                    (rewrite made in
+                    (rewrite made then
                       Witness lowRead
                         (Witness highRead
                           (Both
-                            (rewrite dash, space, letterIs, colon, List.appendNil passwordRead in rfl)
+                            (rewrite dash, space, letterIs, colon, List.appendNil passwordRead then rfl)
                             (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers))))))))))))))

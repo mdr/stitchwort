@@ -20,7 +20,7 @@ theorem trueOfNotFalse: (b: Bool) → Not (b = False) → b = True
 -- `Garden.fill.eq1`
 theorem fillEq1 ∀ (garden: Garden) (plant: Char) (visited: Set Position) (members: List Position):
     Garden.fill garden plant Nil visited members = members :=
-  rewrite Garden.fill.unfold garden plant Nil visited members in rfl
+  rewrite Garden.fill.unfold garden plant Nil visited members then rfl
 
 -- `Garden.fill.eq2.ifTrue.ifTrue`
 theorem fillEq2IfTrueIfTrue ∀ (garden: Garden) (plant: Char) (position: Position) (rest: List Position)
@@ -32,7 +32,7 @@ theorem fillEq2IfTrueIfTrue ∀ (garden: Garden) (plant: Char) (position: Positi
         (garden.neighboursGrowing plant position ++ rest)
         (visited.insert position)
         (Cons position members) :=
-  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
+  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members then
     Decidable.elimEq _ _ _ _
       (isFresh => Decidable.elimEq _ _ _ _ (isGrowing => rfl) (notGrowing => Void.exfalso (notGrowing grows)))
       (notFresh => Void.exfalso (notFresh fresh))
@@ -43,7 +43,7 @@ theorem fillEq2IfTrueIfFalse ∀ (garden: Garden) (plant: Char) (position: Posit
     (fresh: visited.contains position = False)
     (grows: Not (garden.plantAt position = Some plant)):
     Garden.fill garden plant (Cons position rest) visited members = Garden.fill garden plant rest visited members :=
-  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
+  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members then
     Decidable.elimEq _ _ _ _
       (isFresh => Decidable.elimEq _ _ _ _ (isGrowing => Void.exfalso (grows isGrowing)) (notGrowing => rfl))
       (notFresh => Void.exfalso (notFresh fresh))
@@ -53,7 +53,7 @@ theorem fillEq2IfFalse ∀ (garden: Garden) (plant: Char) (position: Position) (
     (visited: Set Position) (members: List Position)
     (notFresh: visited.contains position = True):
     Garden.fill garden plant (Cons position rest) visited members = Garden.fill garden plant rest visited members :=
-  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
+  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members then
     Decidable.elimEq _ _ _ _
       (isFresh => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym notFresh) isFresh)))
       (other => rfl)
@@ -120,7 +120,7 @@ theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position)
       FillState garden plant start stack visited members
         → FillResult garden plant start stack members (Garden.fill garden plant stack visited members))
     (visited members state =>
-      rewrite fillEq1 garden plant visited members in
+      rewrite fillEq1 garden plant visited members then
         let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
         Both distinct
           (Both sound
@@ -133,7 +133,7 @@ theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position)
     (position rest visited members fresh grows ih state =>
       let (Both distinct (Both sound (Both closed (Both kept fromStack)))) :=
         ih (takeKeeps garden plant start position rest visited members state fresh grows)
-      rewrite fillEq2IfTrueIfTrue garden plant position rest visited members fresh grows in
+      rewrite fillEq2IfTrueIfTrue garden plant position rest visited members fresh grows then
         Both distinct
           (Both sound
             (Both closed
@@ -147,25 +147,25 @@ theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position)
     (position rest visited members fresh other ih state =>
       let (Both distinct (Both sound (Both closed (Both kept fromStack)))) :=
         ih (popKeeps garden plant start position rest visited members state (Inr other))
-      rewrite fillEq2IfTrueIfFalse garden plant position rest visited members fresh other in
+      rewrite fillEq2IfTrueIfFalse garden plant position rest visited members fresh other then
         Both distinct
           (Both sound
             (Both closed
               (Both kept (candidate onStack grows =>
                 match onStack with
-                  | Inl here => Void.exfalso (other (rewrite here in grows))
+                  | Inl here => Void.exfalso (other (rewrite here then grows))
                   | Inr later => fromStack candidate later grows)))))
     (position rest visited members notFresh ih state =>
       let isMember := (And.left state position).forward notFresh
       let (Both distinct (Both sound (Both closed (Both kept fromStack)))) :=
         ih (popKeeps garden plant start position rest visited members state (Inl isMember))
-      rewrite fillEq2IfFalse garden plant position rest visited members notFresh in
+      rewrite fillEq2IfFalse garden plant position rest visited members notFresh then
         Both distinct
           (Both sound
             (Both closed
               (Both kept (other onStack grows =>
                 match onStack with
-                  | Inl here => kept other (rewrite <- here in isMember)
+                  | Inl here => kept other (rewrite <- here then isMember)
                   | Inr later => fromStack other later grows)))))
     stack
     visited

@@ -47,7 +47,7 @@ theorem byHyp ∀ (f: Bool → Bool → Bool)
 theorem notLess ∀ (n: Nat): n + 1 < n → Void := cases
 
 -- The term after `in` is tried against the whole goal.
-theorem byTerm: (a: Bool) → (b: Bool) → (a ∨ b) = (b ∨ a) := cases in Bool.orComm
+theorem byTerm: (a: Bool) → (b: Bool) → (a ∨ b) = (b ∨ a) := cases then Bool.orComm
 
 -- A leading implicit binder is introduced by the checker before `cases` runs.
 theorem implicitAfter: [b: Bool] → not (not b) = b := cases

@@ -10,7 +10,7 @@ type Finite (a: Type) = { all: List a, complete: (x: a) → x ∈ all }
 -- `List.all` true of a list is true of each member (day 21's `allMember`).
 theorem allMember ∀ (passes: a → Bool): (xs: List a) → List.all xs passes = True → (x: a) → x ∈ xs → passes x = True
   | Nil, all, x, member => Void.exfalso member
-  | Cons first rest, all, x, Inl same => rewrite <- same in Bool.andLeft _ _ all
+  | Cons first rest, all, x, Inl same => rewrite <- same then Bool.andLeft _ _ all
   | Cons first rest, all, x, Inr later => allMember passes rest (Bool.andRight _ _ all) x later
 
 -- The generic soundness lemma `decide` would use: check every value, get

@@ -50,7 +50,7 @@ theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position)
           (Both closed
             (Both kept (candidate onStack grows =>
               match onStack with
-                | Inl here => Void.exfalso (other (rewrite here in grows))
+                | Inl here => Void.exfalso (other (rewrite here then grows))
                 | Inr later => fromStack candidate later grows)))))
     (visited members position rest notFresh ih state =>
       let isMember := (And.left state position).forward notFresh
@@ -61,7 +61,7 @@ theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position)
           (Both closed
             (Both kept (other onStack grows =>
               match onStack with
-                | Inl here => kept other (rewrite <- here in isMember)
+                | Inl here => kept other (rewrite <- here then isMember)
                 | Inr later => fromStack other later grows)))))
     stack
     visited
