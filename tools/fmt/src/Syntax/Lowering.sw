@@ -32,14 +32,16 @@ def firstLoweringError: List Decl → Option Text
       | None => firstLoweringError rest
 
 --| The first of the lowering's errors in an expression read on its own.
-def Expr.loweringError (expr: Expr): Option Text :=
-  match Fail.toResult (() => expr.traverse checkExpr checkPattern) with
-    | Err message => Some message
-    | Ok _ => None
-
-def traversalError (decl: Decl): Option Text := match Fail.toResult (() => decl.traverse checkExpr checkPattern) with
+def Expr.loweringError (expr: Expr): Option Text := match Fail.toResult (() => expr.traverse checkSteps) with
   | Err message => Some message
   | Ok _ => None
+
+def traversalError (decl: Decl): Option Text := match Fail.toResult (() => decl.traverse checkSteps) with
+  | Err message => Some message
+  | Ok _ => None
+
+--| The lowering's checks as traversal steps.
+def checkSteps: Steps := { Steps.keep | expr = checkExpr, pattern = checkPattern }
 
 def checkPattern (pattern: Pattern): {Fail} Pattern := match pattern with
   | PatternOr first rest => if first.binds || anyLinkBinds rest then Fail.fail orPatternBinds else pattern

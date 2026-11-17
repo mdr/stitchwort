@@ -14,7 +14,7 @@ STAGE is what is compared (the Rust side's dump in brackets):
     refusal  (2)  formatted or refused, and why       [stitchwort fmt -]
     expr     (2a) a file read as one expression: its   [stitchwort dev tree --expression]
                   tree, or the parse error as a refusal
-    passes   (4)  the tidied tree after each pass     [not built yet]
+    passes   (4)  the tidied tree after each pass     [stitchwort dev passes]
     text     (5)  the formatted text                  [stitchwort fmt -]
                   (6 is the same comparison on more inputs)
 
@@ -291,6 +291,16 @@ def rust_answer(sw: Path, stage: str, path: Path) -> dict:
         done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tree", "--expression", str(path)], capture_output=True)
         return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
                 "err": first_line(done.stderr.decode(errors="replace"))}
+    if stage == "passes":
+        # A file the formatter refuses is answered as in `refusal`; else
+        # the tree after each tidy pass.
+        refused = subprocess.run(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, capture_output=True)
+        if refused.returncode != 0:
+            return {"exit": refused.returncode, "out": "",
+                    "err": first_line(refused.stderr.decode(errors="replace"))}
+        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "passes", str(path)], capture_output=True)
+        return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
+                "err": first_line(done.stderr.decode(errors="replace"))}
     if stage in ("refusal", "text"):
         done = subprocess.run(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, capture_output=True)
         err = first_line(done.stderr.decode(errors="replace"))
@@ -524,9 +534,6 @@ def main() -> int:
         stage = STAGES.get(args.stage)
         if stage is None:
             raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, expr, passes or text")
-        if stage == "passes":
-            raise Stop("stage 4's pass-by-pass dump isn't built yet: the Rust side needs a dev dump after "
-                       "passes::run (a stub entry, SW-3772)")
         sw = Path(args.sw)
         if not sw.is_file():
             raise Stop(f"{sw} doesn't exist: run `task build`")

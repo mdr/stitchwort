@@ -28,7 +28,10 @@ def GroupKind.name: GroupKind → Text
 --| A parameter group in brackets: `(x y: A)`, `(x: A := v)`, `[a: Type]`,
 --| `[auto h: P]`, `[auto P]` (an `auto` and no names or colon), `()` (no
 --| names, colon or type), with a constructor field's attributes before its
---| names. `implicit` says the brackets are `[` and `]`.
+--| names. `implicit` says the brackets are `[` and `]`. `bare` says no token
+--| of a header group (`(x: A)`) has a comment, except above the opening
+--| bracket: the parameter-merging pass reads it, so it needn't walk the
+--| type for comments (the Rust pass reads the trivia of the group's tokens).
 type Group = {
   kind: GroupKind,
   implicit: Bool,
@@ -39,7 +42,8 @@ type Group = {
   colon: Option Comments,
   annotation: Option Expr,
   default: Option (Comments, Expr),
-  close: Comments
+  close: Comments,
+  bare: Bool
 }
 
 --| One group of attributes, `@[js.name "x", inline]`.
@@ -168,7 +172,7 @@ def fixedIf (depth: Nat) (text: Text): Option Comments → List Text
   | None => []
 
 def Group.lines (group: Group) (depth: Nat): List Text := match group with
-  | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close } =>
+  | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } =>
     let d := depth + 1
     let (opener, closer) := if implicit then ("[", "]") else ("(", ")")
     let annotated := match annotation with

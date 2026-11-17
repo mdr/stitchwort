@@ -293,6 +293,15 @@ enum DevCommand {
         /// Files or folders
         paths: Vec<PathBuf>,
     },
+    /// Print the lossless tree of every `.sw` file after each of the
+    /// formatter's four tidy passes (`== P1 ==`, the tree, `== P2 ==`, ...),
+    /// for the self-hosted formatter's comparison (`task fmt:twin`). A file
+    /// that doesn't lex prints `error: MESSAGE` on standard error; exit
+    /// status 1
+    Passes {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+    },
     /// The formatter's report over a tree of files: format every `.sw` file
     /// under the paths, without writing anything, and check each result: the
     /// same tokens up to the tidy passes' rewrites, the same comments on the
@@ -1478,6 +1487,7 @@ fn run(cli: Cli) -> ExitCode {
         }),
         Command::Dev(DevCommand::FmtTree { paths, print }) => fmt_tree_command(&paths, print),
         Command::Dev(DevCommand::Tokens { paths }) => tokens_command(&paths),
+        Command::Dev(DevCommand::Passes { paths }) => passes_command(&paths),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -5551,6 +5561,36 @@ fn tokens_command(paths: &[PathBuf]) -> ExitCode {
             Ok(dump) => print!("{dump}"),
             Err(message) => {
                 eprintln!("error: {message}");
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
+    status
+}
+
+/// `dev passes`: the tree after each tidy pass, per file.
+fn passes_command(paths: &[PathBuf]) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let id = SourceMap::new().next_id();
+    let mut status = ExitCode::SUCCESS;
+    for file in &files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        };
+        match stitchwort_syntax::lex_with_trivia(id, &text) {
+            Ok(_) => print!("{}", stitchwort_fmt::passes::dump_after_each(id, &text)),
+            Err(d) => {
+                eprintln!("error: {}", d.message);
                 status = ExitCode::FAILURE;
             }
         }
