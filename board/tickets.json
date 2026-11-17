@@ -41617,7 +41617,7 @@
     {
       "id": 3692,
       "title": "[DeepSeek] Broad tier 9ff2833ca stale expectations: (1) projects reject snapshots import-namespace-item-alone and nested-short-name gained a final 'try: add `import Shop (Spec)`' / 'try: add `import Aoc (Grid)`' line: check it's right and accept; (2) driver search_at_aoc search_at_on_real_2021_goals (search_at_aoc.rs:565) looks for the exact text 'rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits then byComputing' in Day16/Proofs/Answers.sw, which SW-3648's sweep changed: update the expected text",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41630,7 +41630,7 @@
     {
       "id": 3693,
       "title": "[Sonnet] Broad tier 9ff2833ca: run_js::examples_print_the_same_both_ways panics at run_js.rs:180 on examples/accept/main-exit-status.sw (message empty in the log). Run it alone, see the two outputs, find the cause (SW-3345's exit-status area?), fix with the test as failing-first",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41643,7 +41643,7 @@
     {
       "id": 3694,
       "title": "[Sonnet] Bench regression (broad tier 9ff2833ca, bench::baseline counts_have_not_regressed): check-nested-apps steps +23% (26,081 -> 32,081), peak heap +37.7% (1.9 -> 2.6 MB); text-literal-walk heap +18%. Find the commit (bench that row only on a few commits since the baseline), profile, and fix if it is an accident; if it is a deliberate cost (e.g. a new check), report with the numbers. Results unchanged (D3447); performance-log entry",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
