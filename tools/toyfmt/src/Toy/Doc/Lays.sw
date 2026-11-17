@@ -606,6 +606,10 @@ theorem closesWord ∀ (text: Text) (closes: closesText text = True): isLayout t
               let same: text = "," := DecEq.sound comma
               rewrite same
 
+--| An instance of `closesWord`, so it isn't vacuous. The audit's random
+--| search misses one: it rarely makes a text that is exactly `)`, `]` or `,`.
+theorem closesWordExample: isLayout ")" = False := closesWord ")" byComputing
+
 -- Every `Lays` is a `Puts`.
 
 theorem writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
