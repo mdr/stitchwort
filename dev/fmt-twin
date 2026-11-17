@@ -46,6 +46,11 @@ process per file, the old path.
 Nothing is written into the repository. Everything the harness generates
 (the old layout, the fuzzer's programs, the disturbed files, the answers) is
 under $FMT_TWIN_CACHE, default ~/.cache/stitchwort/fmt-twin.
+
+Every stitchwort or executable child the harness starts (and the native build)
+is watched while it runs: one whose resident memory goes over --mem-limit-mb
+megabytes (1500 by default) is killed and reported as "over N MB", the way a
+timeout is, so one runaway file cannot take the machine's memory.
 """
 
 import argparse
@@ -63,6 +68,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = Path(os.environ.get("FMT_TWIN_CACHE") or Path.home() / ".cache/stitchwort/fmt-twin")
+
+# How big a child may get (resident megabytes) and how often to look at it.
+MEM_LIMIT_MB = 1500
+MEM_POLL_SECONDS = 0.2
 
 # The batch protocol (see the docstring): a record separator starts a block,
 # a unit separator divides its metadata.
@@ -99,6 +108,61 @@ class Stop(Exception):
 
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:32]
+
+
+# -------------------------------------------------- running the capped children
+
+
+class OverLimit(Exception):
+    """A child was killed for using more resident memory than it may."""
+
+    def __init__(self, limit_mb: float):
+        super().__init__(f"over {limit_mb:g} MB")
+        self.limit_mb = limit_mb
+
+
+def rss_mb(pid: int) -> float:
+    """The child's resident memory in megabytes, or 0 if it has gone."""
+    done = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)], capture_output=True, text=True)
+    try:
+        return int(done.stdout.strip() or 0) / 1024
+    except ValueError:
+        return 0
+
+
+def run_capped(args, *, input=None, timeout=None, cwd=None, env=None, limit_mb=MEM_LIMIT_MB):
+    """`subprocess.run(args, ...)`, killing the child if it grows over `limit_mb`.
+
+    The resident memory is read every `MEM_POLL_SECONDS` seconds (`ps -o rss=`);
+    over the limit the child is killed and `OverLimit` is raised. The wait is a
+    loop of short `communicate` calls, with no input after the first, so the
+    stdout and stderr pipes are drained as the child writes and cannot fill.
+    """
+    proc = subprocess.Popen(args, cwd=cwd, env=env,
+                            stdin=subprocess.PIPE if input is not None else None,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    deadline = None if timeout is None else time.monotonic() + timeout
+    pending, out, err = input, b"", b""
+    while True:
+        wait = MEM_POLL_SECONDS
+        if deadline is not None:
+            wait = max(0.0, min(wait, deadline - time.monotonic()))
+        try:
+            out, err = proc.communicate(pending, timeout=wait)
+            break
+        except subprocess.TimeoutExpired as stop:
+            # communicate() keeps what it has read; each call returns it all.
+            out, err = stop.output or b"", stop.stderr or b""
+            pending = None
+            if deadline is not None and time.monotonic() >= deadline:
+                proc.kill()
+                out, err = proc.communicate()
+                raise subprocess.TimeoutExpired(args, timeout, output=out, stderr=err) from None
+        if limit_mb is not None and rss_mb(proc.pid) > limit_mb:
+            proc.kill()
+            out, err = proc.communicate()
+            raise OverLimit(limit_mb)
+    return subprocess.CompletedProcess(args, proc.returncode, out, err)
 
 
 # -------------------------------------------------------- the Rust side's key
@@ -277,15 +341,15 @@ def first_line(text: str) -> str:
     return text.strip().split("\n", 1)[0] if text.strip() else ""
 
 
-def rust_answer(sw: Path, stage: str, path: Path) -> dict:
+def rust_answer(sw: Path, stage: str, path: Path, limit: float) -> dict:
     """(exit, out, err) as the Rust side gives it for this stage."""
     data = path.read_bytes()
     if stage == "tokens":
-        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tokens", str(path)], capture_output=True)
+        done = run_capped(["nice", "-n", "15", str(sw), "dev", "tokens", str(path)], limit_mb=limit)
         out, err = done.stdout.decode(errors="replace"), first_line(done.stderr.decode(errors="replace"))
         return {"exit": done.returncode, "out": out, "err": err}
     if stage == "tree":
-        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tree", "--print", str(path)], capture_output=True)
+        done = run_capped(["nice", "-n", "15", str(sw), "dev", "tree", "--print", str(path)], limit_mb=limit)
         if done.returncode != 0:
             return {"exit": done.returncode, "out": "", "err": first_line(done.stderr.decode(errors="replace"))}
         lines = done.stdout.decode(errors="replace").split("\n")
@@ -294,21 +358,21 @@ def rust_answer(sw: Path, stage: str, path: Path) -> dict:
         body = "\n".join(lines[1:end]).rstrip("\n")
         return {"exit": 0, "out": body + "\n" if body else "", "err": ""}
     if stage == "expr":
-        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tree", "--expression", str(path)], capture_output=True)
+        done = run_capped(["nice", "-n", "15", str(sw), "dev", "tree", "--expression", str(path)], limit_mb=limit)
         return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
                 "err": first_line(done.stderr.decode(errors="replace"))}
     if stage == "passes":
         # A file the formatter refuses is answered as in `refusal`; else
         # the tree after each tidy pass.
-        refused = subprocess.run(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, capture_output=True)
+        refused = run_capped(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, limit_mb=limit)
         if refused.returncode != 0:
             return {"exit": refused.returncode, "out": "",
                     "err": first_line(refused.stderr.decode(errors="replace"))}
-        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "passes", str(path)], capture_output=True)
+        done = run_capped(["nice", "-n", "15", str(sw), "dev", "passes", str(path)], limit_mb=limit)
         return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
                 "err": first_line(done.stderr.decode(errors="replace"))}
     if stage in ("refusal", "text"):
-        done = subprocess.run(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, capture_output=True)
+        done = run_capped(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, limit_mb=limit)
         err = first_line(done.stderr.decode(errors="replace"))
         if stage == "refusal":
             return {"exit": done.returncode, "out": "", "err": err}
@@ -316,7 +380,7 @@ def rust_answer(sw: Path, stage: str, path: Path) -> dict:
     raise Stop(f"the Rust side has no dump for stage {stage!r} yet")
 
 
-def cached_rust_answer(sw: Path, stage: str, path: Path, key: str) -> tuple:
+def cached_rust_answer(sw: Path, stage: str, path: Path, key: str, limit: float) -> tuple:
     """The answer, and whether it came from the cache."""
     entry = CACHE / "answers" / key / stage / (sha(path.read_bytes()) + ".json")
     if entry.is_file():
@@ -326,7 +390,10 @@ def cached_rust_answer(sw: Path, stage: str, path: Path, key: str) -> tuple:
         if stage == "tree" and answer["out"] == "\n":
             answer["out"] = ""
         return answer, True
-    answer = rust_answer(sw, stage, path)
+    try:
+        answer = rust_answer(sw, stage, path, limit)
+    except OverLimit as stop:
+        answer = {"exit": -1, "out": "", "err": str(stop)}
     entry.parent.mkdir(parents=True, exist_ok=True)
     tmp = entry.with_suffix(f".{os.getpid()}.tmp")
     tmp.write_text(json.dumps(answer))
@@ -337,12 +404,14 @@ def cached_rust_answer(sw: Path, stage: str, path: Path, key: str) -> tuple:
 # ------------------------------------------------------------- the twin side
 
 
-def twin_answer(exe: Path, stage: str, path: Path, timeout: float) -> dict:
+def twin_answer(exe: Path, stage: str, path: Path, timeout: float, limit: float) -> dict:
     try:
-        done = subprocess.run(["nice", "-n", "15", str(exe), "--stage", stage, str(path)],
-                              capture_output=True, timeout=timeout)
+        done = run_capped(["nice", "-n", "15", str(exe), "--stage", stage, str(path)],
+                          timeout=timeout, limit_mb=limit)
     except subprocess.TimeoutExpired:
         return {"exit": -1, "out": "", "err": f"timed out after {timeout:.0f} s"}
+    except OverLimit as stop:
+        return {"exit": -1, "out": "", "err": str(stop)}
     return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
             "err": first_line(done.stderr.decode(errors="replace"))}
 
@@ -408,7 +477,7 @@ def self_test() -> int:
     return 1
 
 
-def batch_run(exe: Path, stage: str, paths: list, timeout: float) -> tuple:
+def batch_run(exe: Path, stage: str, paths: list, timeout: float, limit: float) -> tuple:
     """(stdout, exit status, stderr, seconds) for one batch run of `paths`."""
     folder = CACHE / "lists"
     folder.mkdir(parents=True, exist_ok=True)
@@ -420,25 +489,27 @@ def batch_run(exe: Path, stage: str, paths: list, timeout: float) -> tuple:
             file.write("".join(f"{path}\n" for path in paths))
         start = time.monotonic()
         try:
-            done = subprocess.run(
+            done = run_capped(
                 ["nice", "-n", "15", str(exe), "--stage", stage, "--batch", str(list_path)],
-                capture_output=True, timeout=budget)
+                timeout=budget, limit_mb=limit)
         except subprocess.TimeoutExpired:
             return "", None, f"timed out after {budget:.0f} s", time.monotonic() - start
+        except OverLimit as stop:
+            return "", None, str(stop), time.monotonic() - start
         return (done.stdout.decode(errors="replace"), done.returncode,
                 done.stderr.decode(errors="replace"), time.monotonic() - start)
     finally:
         list_path.unlink(missing_ok=True)
 
 
-def run_batch_chunk(sw, exe, stage, paths, key, timeout) -> tuple:
+def run_batch_chunk(sw, exe, stage, paths, key, timeout, limit) -> tuple:
     """One chunk's per-file results, the executable's seconds, and crash notes.
 
     A batch that fails partway is parsed as far as it got; the file it was on
     and the rest of the chunk are answered one process a file instead.
     """
-    wants = [cached_rust_answer(sw, stage, path, key) for path in paths]
-    output, status, stderr, took = batch_run(exe, stage, paths, timeout)
+    wants = [cached_rust_answer(sw, stage, path, key, limit) for path in paths]
+    output, status, stderr, took = batch_run(exe, stage, paths, timeout, limit)
     parsed, complete, why = parse_batch(output, [str(path) for path in paths])
     notes = []
     if why is not None or status != 0:
@@ -456,7 +527,7 @@ def run_batch_chunk(sw, exe, stage, paths, key, timeout) -> tuple:
             got = parsed[index]
         else:
             start = time.monotonic()
-            got = twin_answer(exe, stage, path, timeout)
+            got = twin_answer(exe, stage, path, timeout, limit)
             took += time.monotonic() - start
         results.append((path, want, got, cached, 0.0))
     return results, took, notes
@@ -485,16 +556,16 @@ def difference(want: dict, got: dict) -> str:
     return ""
 
 
-def run_one(sw, exe, stage, path, key, timeout):
-    want, cached = cached_rust_answer(sw, stage, path, key)
+def run_one(sw, exe, stage, path, key, timeout, limit):
+    want, cached = cached_rust_answer(sw, stage, path, key, limit)
     start = time.monotonic()
-    got = twin_answer(exe, stage, path, timeout)
+    got = twin_answer(exe, stage, path, timeout, limit)
     return path, want, got, cached, time.monotonic() - start
 
 # ------------------------------------------------------------ the engine stage
 
 
-def engine_dump(sw: Path, path: Path, key: str) -> tuple:
+def engine_dump(sw: Path, path: Path, key: str, limit: float) -> tuple:
     """(dump file, error): Rust's `dev doc` of the file, cached; the dump
     file is None if Rust refuses the file (error) or it has no declarations."""
     entry = CACHE / "docs" / key / (sha(path.read_bytes()) + ".doc")
@@ -504,10 +575,15 @@ def engine_dump(sw: Path, path: Path, key: str) -> tuple:
     if not entry.is_file():
         entry.parent.mkdir(parents=True, exist_ok=True)
         try:
-            done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "doc", str(path)], capture_output=True, timeout=20)
+            done = run_capped(["nice", "-n", "15", str(sw), "dev", "doc", str(path)],
+                              timeout=20, limit_mb=limit)
         except subprocess.TimeoutExpired:
             refused.write_text("dev doc timed out after 20 s")
             return None, "dev doc timed out after 20 s"
+        except OverLimit as stop:
+            message = f"dev doc {stop}"
+            refused.write_text(message)
+            return None, message
         if done.returncode != 0:
             message = first_line(done.stderr.decode(errors="replace")) or "refused"
             refused.write_text(message)
@@ -518,17 +594,17 @@ def engine_dump(sw: Path, path: Path, key: str) -> tuple:
     return (entry if entry.stat().st_size else None), ""
 
 
-def engine_chunk(exe: Path, paths: list, timeout: float) -> tuple:
+def engine_chunk(exe: Path, paths: list, timeout: float, limit: float) -> tuple:
     """(path, answer) for each dump of the chunk, and notes: one batch run,
     then one process a file for what it didn't reach."""
-    output, status, stderr, _ = batch_run(exe, "engine", paths, timeout)
+    output, status, stderr, _ = batch_run(exe, "engine", paths, timeout, limit)
     parsed, complete, why = parse_batch(output, [str(path) for path in paths])
     notes = []
     if why is not None and complete < len(paths):
         notes.append(f"the batch run stopped at {paths[complete]}: {why}; answered the rest one process a file")
     out = []
     for index, path in enumerate(paths):
-        out.append((path, parsed[index] if index < complete else twin_answer(exe, "engine", path, timeout)))
+        out.append((path, parsed[index] if index < complete else twin_answer(exe, "engine", path, timeout, limit)))
     return out, notes
 
 
@@ -541,7 +617,7 @@ def engine_stage(args, sw: Path, exe: Path, groups: list, key: str) -> int:
         start = time.monotonic()
         dumps, refused, empty = [], 0, 0
         for path in files:
-            dump, error = engine_dump(sw, path, key)
+            dump, error = engine_dump(sw, path, key, args.mem_limit_mb)
             if dump is not None:
                 dumps.append((path, dump))
             elif error:
@@ -554,7 +630,7 @@ def engine_stage(args, sw: Path, exe: Path, groups: list, key: str) -> int:
         diffs, failures, notes = [], [], []
         parts = chunks([dump for _, dump in dumps], args.jobs)
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
-            for results, chunk_notes in pool.map(lambda part: engine_chunk(exe, part, args.timeout), parts):
+            for results, chunk_notes in pool.map(lambda part: engine_chunk(exe, part, args.timeout, args.mem_limit_mb), parts):
                 notes += chunk_notes
                 for dump, got in results:
                     source = by_dump[str(dump)]
@@ -613,10 +689,11 @@ def build_exe(args, sw: Path) -> Path:
     out = ROOT / "target/fmt-twin/fmt"
     out.parent.mkdir(parents=True, exist_ok=True)
     print(f"building {args.project}'s {args.main} natively ...", flush=True)
-    done = subprocess.run(["nice", "-n", "15", str(sw), "build", "--native", args.main, "-o", str(out)],
-                          cwd=ROOT / args.project, capture_output=True, text=True)
+    done = run_capped(["nice", "-n", "15", str(sw), "build", "--native", args.main, "-o", str(out)],
+                      cwd=ROOT / args.project, limit_mb=args.mem_limit_mb)
     if done.returncode != 0:
-        raise Stop("the native build failed:\n" + done.stdout[-2000:] + done.stderr[-2000:])
+        raise Stop("the native build failed:\n" + done.stdout.decode(errors="replace")[-2000:]
+                   + done.stderr.decode(errors="replace")[-2000:])
     return out
 
 
@@ -641,6 +718,8 @@ def main() -> int:
     ap.add_argument("--show", type=int, default=1, help="how many differences to print per group")
     ap.add_argument("--jobs", type=int, default=2, help="chunks (batch mode) or processes (--no-batch) run in parallel")
     ap.add_argument("--timeout", type=float, default=30.0, help="seconds the executable may take on one file")
+    ap.add_argument("--mem-limit-mb", type=float, default=MEM_LIMIT_MB,
+                    help="megabytes of resident memory a child may use before it is killed")
     ap.add_argument("--no-batch", action="store_true", help="one process per file (the old path)")
     ap.add_argument("--self-test", action="store_true", help="run the batch block parser's test and exit")
     args = ap.parse_args()
@@ -669,7 +748,7 @@ def main() -> int:
             if args.no_batch:
                 with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
                     results = list(pool.map(
-                        lambda f: run_one(sw, exe, stage, f, key, args.timeout), files))
+                        lambda f: run_one(sw, exe, stage, f, key, args.timeout, args.mem_limit_mb), files))
                 for path, want, got, cached, took in results:
                     cached_hits += cached
                     twin_time += took
@@ -682,7 +761,7 @@ def main() -> int:
                 parts = chunks(files, args.jobs)
                 with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
                     for results, took, chunk_notes in pool.map(
-                            lambda part: run_batch_chunk(sw, exe, stage, part, key, args.timeout), parts):
+                            lambda part: run_batch_chunk(sw, exe, stage, part, key, args.timeout, args.mem_limit_mb), parts):
                         twin_time += took
                         notes += chunk_notes
                         for path, want, got, cached, _ in results:
@@ -703,7 +782,7 @@ def main() -> int:
                 print(f"  first difference, {path}: {why}")
         print(f"total: {total_identical} of {total} identical")
         return 0 if total_identical == total else 1
-    except Stop as stop:
+    except (Stop, OverLimit) as stop:
         print(f"fmt-twin: {stop}", file=sys.stderr)
         return 2
 
