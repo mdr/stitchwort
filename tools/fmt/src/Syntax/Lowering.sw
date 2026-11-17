@@ -32,10 +32,9 @@ def firstLoweringError: List Decl → Option Text
       | None => firstLoweringError rest
 
 --| The first of the lowering's errors in an expression read on its own.
-def Expr.loweringError (expr: Expr): Option Text :=
-  match Fail.toResult (() => expr.traverse checkSteps) with
-    | Err message => Some message
-    | Ok _ => None
+def Expr.loweringError (expr: Expr): Option Text := match Fail.toResult (() => expr.traverse checkSteps) with
+  | Err message => Some message
+  | Ok _ => None
 
 def traversalError (decl: Decl): Option Text := match Fail.toResult (() => decl.traverse checkSteps) with
   | Err message => Some message

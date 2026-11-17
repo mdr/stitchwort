@@ -261,3 +261,42 @@ def Lexed.settled (lexed: Lexed): Lexed :=
   let commas := commasFrom [] None homed lexed.end
   let leaves := letsFrom [] (arrows commas.leaves)
   { leaves = leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = commas.end.trimmed }
+
+-- The last commas, taken out before rule N (the parking comma: proof plan
+-- §10, spike K1). The Rust P2 deletes a comma before a closer from the
+-- text, and rule N runs again on what is left; running rule N first and
+-- deleting the comma from the tree would leave a comment where the first
+-- run parked it, which differs when the comma starts its line.
+
+def Leaf.startingLine (leaf: Leaf) (lineStart: Bool): Leaf := { leaf | token = { leaf.token | lineStart } }
+
+--| Whether a comma may follow `behind`'s newest leaf as a last one: some
+--| item must be before it (`[,]` has none).
+def hasItem: List Leaf → Bool
+  | [] => False
+  | [leaf, ..rest] =>
+    match leaf.kind with
+      | Comma => False
+      | Pipe => False
+      | kind => !kind.isOpener
+
+--| The leaves without each comma directly before a closer. The comma's own-line
+--| comments stay above the closer; its trailing comment ends the line
+--| before it, or, if the comma started its line, stands above the closer
+--| too; and the closer starts the line if the comma did.
+def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
+  | [] => behind.reverse
+  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+    let starts := comma.token.lineStart
+    let above := match comma.trivia.trailing with
+      | Some comment if starts => comma.trivia.leading ++ [comment.unspaced]
+      | _ => comma.trivia.leading
+    let moved := (closer.startingLine (starts || closer.token.lineStart)).withLeading (above ++ closer.trivia.leading)
+    match comma.trivia.trailing, behind with
+      | Some comment, [previous, ..earlier] if !starts =>
+        withoutLastCommas [moved, previous.withTrailing (Some comment), ..earlier] after
+      | _, _ => withoutLastCommas [moved, ..behind] after
+  | [leaf, ..after] => withoutLastCommas [leaf, ..behind] after
+
+--| Rule N after the last commas are taken out.
+def Lexed.settledBare (lexed: Lexed): Lexed := { lexed | leaves = withoutLastCommas [] lexed.leaves }.settled

@@ -4,8 +4,8 @@
 --| traversal's one generic fact and a few facts about its steps:
 --|
 --| - P1: a `∀` after the name of every theorem with explicit parameters;
---| - P2: no comma before a closer, a one-item tuple `(a,)` becoming the
---|   bracketed `(a)` the Rust pass leaves when it re-parses;
+--| - P2: no comma before a closer (a tuple has two items at least, so
+--|   none becomes a bracketed item);
 --| - P3: no redundant round brackets after a row or around a binder's whole
 --|   type;
 --| - P4: adjacent parameters of one type merge into one group.
@@ -21,7 +21,7 @@
 --| answers, and checked against its levels in `Syntax/Parser.sw`).
 
 namespace Fmt
-import Std (Bool, Fail, List, Nat, Option, Text)
+import Std (Bool, Fail, List, Nat, Option, Result, Text)
 import Syntax (
   BindingKind,
   Comments,
@@ -31,12 +31,16 @@ import Syntax (
   Group,
   GroupKind,
   Header,
+  Leaf,
+  Lexed,
   InfixKind,
   Param,
   Pattern,
   SourceFile,
   Steps,
-  Word
+  Tok,
+  Word,
+  parseFile
 )
 
 -- Running a pass.
@@ -73,30 +77,25 @@ def SourceFile.withForall (file: SourceFile): SourceFile := file.apply { Steps.k
 -- P2: no comma before a closer.
 
 def withoutCommaExpr: Expr → {Fail} Expr
-  | Tuple open [item] _ close => Paren open item close
   | Tuple open items _ close => Tuple open items False close
   | ListOf open items _ close => ListOf open items False close
   | Record open base fields _ close => Record open base fields False close
   | other => other
 
 def withoutCommaPattern: Pattern → {Fail} Pattern
-  | PatternTuple open [item] _ close => PatternParen open item close
   | PatternTuple open items _ close => PatternTuple open items False close
   | PatternList open items _ tail close => PatternList open items False tail close
   | PatternRecord fields => PatternRecord { fields | trailingComma = False }
   | PatternCtorFields name fields => PatternCtorFields name { fields | trailingComma = False }
   | other => other
 
-def SourceFile.withoutTrailingCommas (file: SourceFile): SourceFile :=
-  file.apply
-    {
-      Steps.keep |
-      expr = withoutCommaExpr,
-      pattern = withoutCommaPattern,
-      fields = (fields => { fields | trailingComma = False }),
-      attributes = (attributes => { attributes | trailingComma = False }),
-      ruleSet = (set => { set | trailingComma = False })
-    }
+def SourceFile.withoutTrailingCommas (file: SourceFile): SourceFile := file.apply { Steps.keep |
+  expr = withoutCommaExpr,
+  pattern = withoutCommaPattern,
+  fields = (fields => { fields | trailingComma = False }),
+  attributes = (attributes => { attributes | trailingComma = False }),
+  ruleSet = (set => { set | trailingComma = False })
+}
 
 -- P3: no spare bracket pair after a row or around a parameter's whole type.
 
@@ -109,7 +108,6 @@ def Expr.level: Expr → Nat
   | Chain _ _ => 6
   | Prefix _ _ => 18
   | App _ _ => 20
-  | CtorFields _ _ => 20
   | Binding _ _ _ _ _ => 0
   | If _ _ _ _ _ _ _ => 0
   | Match _ _ _ _ => 0
@@ -184,8 +182,13 @@ def chainHasArrow: List (Word, Expr) → Bool
   | [] => False
   | [(_, operand), ..rest] => arrowAtTop operand || chainHasArrow rest
 
-def isPrefix: Expr → Bool
-  | Prefix _ _ => True
+--| A bracket pair that stays: a negative numeral (`{Fail} -1` doesn't read
+--| as the number), and before a membership test a `!` (which the grammar
+--| refuses to apply to the element).
+def keepsBrackets (membership: Bool): Expr → Bool
+  | Prefix operator (Atom Num _) => operator.text == "-"
+  | Prefix operator (Atom Float _) => operator.text == "-"
+  | Prefix operator _ => membership && operator.text != "-"
   | _ => False
 
 --| The result of a row, with the redundant brackets at its left end
@@ -193,7 +196,7 @@ def isPrefix: Expr → Bool
 --| stands at the left (`membership` keeps a prefix operator's bracket).
 def dropLeft (floor: Nat) (membership: Bool): Expr → Expr
   | Paren open inner close =>
-    if open.bare && close.bare && !holdsFunction inner && floor <= inner.level && !(membership && isPrefix inner) then
+    if open.bare && close.bare && !holdsFunction inner && floor <= inner.level && !keepsBrackets membership inner then
       dropLeft floor membership inner
     else Paren open inner close
   | Infix kind left operator right =>
@@ -225,7 +228,8 @@ def dropGroupParens (group: Group): Group :=
 
 def dropParam: Param → Param
   | Grouped group => Grouped (dropGroupParens group)
-  | TypedPattern open pattern colon annotation close => TypedPattern open pattern colon (stripBinderType annotation) close
+  | TypedPattern open pattern colon annotation close =>
+    TypedPattern open pattern colon (stripBinderType annotation) close
   | other => other
 
 --| The binders reached from a header's type without going inside brackets:
@@ -245,15 +249,12 @@ def spineAll: List Expr → List Expr
   | [] => []
   | [first, ..rest] => [spineBinders first, ..spineAll rest]
 
-def dropBinderBrackets (header: Header): Header :=
-  match header with
-    | { params, result, decreasingClause, .. } =>
-      {
-        header |
-        params = params.map dropGroupParens,
-        result = spineBinders result,
-        decreasingClause = decreasingClause.map ((word, measure) => (word, spineBinders measure))
-      }
+def dropBinderBrackets (header: Header): Header := match header with
+  | { params, result, decreasingClause, .. } => { header |
+    params = params.map dropGroupParens,
+    result = spineBinders result,
+    decreasingClause = decreasingClause.map ((word, measure) => (word, spineBinders measure))
+  }
 
 def dropDeclBinders: Decl → {Fail} Decl
   | Definition attributes header body => Definition attributes (dropBinderBrackets header) body
@@ -277,10 +278,9 @@ def Group.mergeable (group: Group): Bool :=
     && group.annotation.isSome
 
 --| The tokens of a group's type, as its dump's lines show them.
-def Group.typeLines (group: Group): List Text :=
-  match group.annotation with
-    | Some written => written.lines 0
-    | None => []
+def Group.typeLines (group: Group): List Text := match group.annotation with
+  | Some written => written.lines 0
+  | None => []
 
 --| Whether `next` goes into the group `current` is the merge of so far:
 --| the same brackets and the same type, no comment between them, and a type
@@ -330,3 +330,35 @@ def SourceFile.withMergedParameters (file: SourceFile): SourceFile :=
 --| The four passes in order.
 def SourceFile.tidy (file: SourceFile): SourceFile :=
   file.withForall.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters
+
+-- The passes on a lexed file.
+
+--| Whether a comma before a closer holds a comment as the lexer left it. Rule
+--| N then parks the comment on the closer, and where it is parked depends
+--| on the comma being there (K1), so the Rust P2, which deletes the comma
+--| from the text and settles again, isn't the tree step alone.
+def parksComment: List Leaf → Bool
+  | [comma, closer, ..rest] =>
+    (comma.kind == Comma && closer.kind.isCloser && (!comma.trivia.leading.isEmpty || comma.trivia.trailing.isSome))
+      || parksComment [closer, ..rest]
+  | _ => False
+
+--| The tree after each pass, in order. P2 starts from the file settled
+--| without its last commas when one parks a comment, as Rust re-parses.
+type Tidied = {
+  first: SourceFile,
+  second: SourceFile,
+  third: SourceFile,
+  fourth: SourceFile
+}
+
+def Lexed.tidied (lexed: Lexed): Result Tidied Text := match parseFile lexed.settled with
+  | Err message => Err message
+  | Ok parsed =>
+    let first := parsed.withForall
+    let bare := if parksComment lexed.leaves then parseFile lexed.settledBare else Ok parsed
+    let second := match bare with
+      | Ok settled => settled.withForall.withoutTrailingCommas
+      | Err _ => first.withoutTrailingCommas
+    let third := second.withoutSpareBrackets
+    Ok { first, second, third, fourth = third.withMergedParameters }

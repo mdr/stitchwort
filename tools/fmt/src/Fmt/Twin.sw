@@ -83,19 +83,15 @@ def stageAnswer (stage source: Text): Answer := match stage with
   | "passes" =>
     match lex source with
       | Ok lexed =>
-        match parseFile lexed.settled with
-          | Ok file => { out = passesDump file, status = 0, message = "" }
+        match lexed.tidied with
+          | Ok tidied => { out = passesDump tidied, status = 0, message = "" }
           | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
       | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
 
 --| The tree after each tidy pass, each under its `== Pn ==` line.
-def passesDump (file: SourceFile): Text :=
-  let first := file.withForall
-  let second := first.withoutTrailingCommas
-  let third := second.withoutSpareBrackets
-  let fourth := third.withMergedParameters
-  "== P1 ==\n${first.dump}== P2 ==\n${second.dump}== P3 ==\n${third.dump}== P4 ==\n${fourth.dump}"
+def passesDump (tidied: Tidied): Text :=
+  "== P1 ==\n${tidied.first.dump}== P2 ==\n${tidied.second.dump}== P3 ==\n${tidied.third.dump}== P4 ==\n${tidied.fourth.dump}"
 
 --| A stage's answer for one file.
 def answerOf (stage: Text) (path: Path): {Files} Answer := match Files.read path with
