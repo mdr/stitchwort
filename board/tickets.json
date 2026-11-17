@@ -41847,7 +41847,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Data point (SW-3715): examples/accept/reads-then-finds-split.sw takes 6.6 s to check uncached on Speedwell, vs 0.26 s for a trivial file with the same imports.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41920,12 +41920,12 @@
     {
       "id": 3715,
       "title": "[Sonnet] An elab-fuzz mutant of reads-then-finds-split.sw (seed 0x4001 case 1655; Overmind's scratchpad chain/filler/sw-1655-slow-cached.sw) takes 12.9 s uncached and 9.1 s even with the check cache: profile where the cached time goes (stitchwort check --timings) and file or fix the hotspot",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Orchestrator: not the mutant. examples/accept/reads-then-finds-split.sw itself takes 6.6 s with --no-cache on Speedwell (a trivial file importing Std (Char, Nat, Parse) takes 0.26 s); the mutant 6.7 s, warm cache 0.44 s. So this is SW-3709's cost (reads chains 3-5x more steps since SW-3561, whose example this is). Closed as a duplicate of SW-3709.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
