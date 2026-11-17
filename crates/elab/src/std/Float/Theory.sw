@@ -5416,3 +5416,402 @@ theorem Float.Theory.remUnits ∀ (x y: Float)
   Both
     (Float.Theory.isFiniteOf (x % y) (J (r w => Float.Theory.FiniteBits r) ex.left.left rb.flipped))
     (J (r w => Int.natAbs (Float.Model.units r) < Int.natAbs (Float.Model.units y.bits)) ex.right rb.flipped)
+
+-- Scaling by one and by ten
+
+--| Rounding `num × d / den1 × 2^s1` and `num / den2 × 2^s2` gives the same
+--| double when the two fractions are equal for every positive `num`.
+theorem Float.Theory.roundRatioScale ∀ (num: Int) (d den1 den2: Nat) (s1 s2: Int) (z: Bool)
+    (pd: 0 < d)
+    (p1: 0 < den1)
+    (p2: 0 < den2)
+    (e: ∀ (k: Nat) => Float.Model.scaleUp (k * d) (Int.add s1 (OfNat 1074))
+      * Float.Model.scaleDown den2 (Int.add s2 (OfNat 1074))
+      = Float.Model.scaleUp k (Int.add s2 (OfNat 1074)) * Float.Model.scaleDown den1 (Int.add s1 (OfNat 1074))):
+    Float.Model.roundRatio (Int.mul num (OfNat d)) den1 s1 z = Float.Model.roundRatio num den2 s2 z :=
+  match num with
+    | OfNat Zero =>
+      rewrite (algebra: Int.mul (OfNat 0) (OfNat d) = OfNat 0) then
+        Eq.trans (Float.Theory.roundRatioZeroNum den1 s1 z) (Float.Theory.roundRatioZeroNum den2 s2 z).flipped
+    | OfNat (Succ k) =>
+      let pk: 0 < Succ k := byComputing
+      let pkd: 0 < Succ k * d := Float.Theory.mulPos (Succ k) d pk pd
+      rewrite (algebra: Int.mul (OfNat (Succ k)) (OfNat d) = OfNat (Succ k * d)) then
+        calc Float.Model.roundRatio (OfNat (Succ k * d)) den1 s1 z
+          _ = Float.Model.roundMagnitude False (Succ k * d) den1 (Int.add s1 (OfNat 1074)) :=
+            Float.Theory.roundRatioOfPos den1 s1 z (Succ k * d) pkd
+          _ = Float.Model.roundMagnitude False (Succ k) den2 (Int.add s2 (OfNat 1074)) :=
+            Float.Theory.magnitudeCross
+              (Succ k * d)
+              den1
+              (Succ k)
+              den2
+              (Int.add s1 (OfNat 1074))
+              (Int.add s2 (OfNat 1074))
+              pkd
+              p1
+              pk
+              p2
+              (e (Succ k))
+          _ = Float.Model.roundRatio (OfNat (Succ k)) den2 s2 z :=
+            (Float.Theory.roundRatioOfPos den2 s2 z (Succ k) pk).flipped
+    | NegSucc k =>
+      let pk: 0 < Succ k := byComputing
+      let pkd: 0 < Succ k * d := Float.Theory.mulPos (Succ k) d pk pd
+      rewrite (algebra: Int.mul (NegSucc k) (OfNat d) = Int.neg (OfNat (Succ k * d))) then
+        calc Float.Model.roundRatio (Int.neg (OfNat (Succ k * d))) den1 s1 z
+          _ = Float.Model.roundMagnitude False (Succ k * d) den1 (Int.add s1 (OfNat 1074)) + 9223372036854775808 :=
+            Float.Theory.roundRatioOfNeg den1 s1 z (Succ k * d) pkd
+          _ = Float.Model.roundMagnitude False (Succ k) den2 (Int.add s2 (OfNat 1074)) + 9223372036854775808 :=
+            Eq.cong
+              (t => t + 9223372036854775808)
+              (Float.Theory.magnitudeCross
+                (Succ k * d)
+                den1
+                (Succ k)
+                den2
+                (Int.add s1 (OfNat 1074))
+                (Int.add s2 (OfNat 1074))
+                pkd
+                p1
+                pk
+                p2
+                (e (Succ k)))
+          _ = Float.Model.roundRatio (NegSucc k) den2 s2 z := (Float.Theory.roundRatioNeg k den2 s2 z).flipped
+
+--| Units over `2^1074` at scale 0 are the units themselves at scale -1074.
+theorem Float.Theory.roundRatioUnitDen ∀ (num: Int) (z: Bool):
+    Float.Model.roundRatio num (Float.Model.pow2 1074) (OfNat 0) z = Float.Model.roundRatio num 1 (-1074) z :=
+  let p: Nat := Float.Model.pow2 1074
+  Eq.trans
+    (Eq.cong (t => Float.Model.roundRatio t p (OfNat 0) z) (algebra: num = Int.mul num (OfNat 1)))
+    (Float.Theory.roundRatioScale num 1 p 1 (OfNat 0) (-1074) z byComputing byComputing byComputing (k =>
+      (algebra: k * 1 * p * 1 = k * 1 * p)))
+
+theorem Float.Theory.divOneBits ∀ (a: Nat)
+    (va: Float.isValid a = True):
+    Float.Model.divBits a 4607182418800017408 = a :=
+  Float.Theory.orCase
+    (Float.Theory.boolCases (Float.Model.isSpecial a))
+    (sp => Float.Theory.divSpecialBits a 4607182418800017408 va sp byComputing byComputing)
+    (sp =>
+      let fa: Float.Theory.FiniteBits a := Float.Theory.finiteOfSpecial a sp
+      calc Float.Model.divBits a 4607182418800017408
+        _ = Float.Model.roundRatio
+            (Float.Model.units a)
+            (Int.natAbs (Float.Model.units 4607182418800017408))
+            (OfNat 0)
+            (Float.Model.signBit a) :=
+          Float.Theory.divPosBits a 4607182418800017408 fa byComputing byComputing byComputing
+        _ = Float.Model.roundRatio (Float.Model.units a) (Float.Model.pow2 1074) (OfNat 0) (Float.Model.signBit a) :=
+          Eq.cong
+            (d => Float.Model.roundRatio (Float.Model.units a) d (OfNat 0) (Float.Model.signBit a))
+            (byComputing: Int.natAbs (Float.Model.units 4607182418800017408) = Float.Model.pow2 1074)
+        _ = Float.Model.roundRatio (Float.Model.units a) 1 (-1074) (Float.Model.signBit a) :=
+          Float.Theory.roundRatioUnitDen (Float.Model.units a) (Float.Model.signBit a)
+        _ = a := Float.Theory.roundRatioUnitsBits a fa)
+
+--| `x / 1.0` is `x`, zeros, infinities and the NaN included.
+theorem Float.divOneRight ∀ (x: Float): x / 1.0 = x := match x with
+  | { bits = a, valid = p } =>
+    Float.bitsExt
+      (Float.ofBits (Float.Model.divBits a 4607182418800017408))
+      { bits = a, valid = p }
+      (Eq.trans
+        (Float.Theory.ofBitsBits
+          (Float.Model.divBits a 4607182418800017408)
+          (Float.Theory.validTo (Float.Model.divBits a 4607182418800017408) a (Float.Theory.divOneBits a p) p))
+        (Float.Theory.divOneBits a p))
+
+test "Float.divOneRight" :=
+  2.5 / 1.0 == 2.5
+    ∧ Float.ieeeEq (-87.60000000000001 / 1.0) (-87.60000000000001)
+    ∧ (-0.0 / 1.0).bits == 9223372036854775808
+    ∧ 5e-324 / 1.0 == 5e-324
+    ∧ Float.infinity / 1.0 == Float.infinity
+    ∧ Float.isNaN (Float.nan / 1.0)
+
+--| A whole double times ten: for `y` of `n × 2^1074` units (the whole
+--| number `n`, negative or not) with `|10n| ≤ 2^53`, `y * 10.0` is finite
+--| with exactly `10n × 2^1074` units.
+theorem Float.Theory.mulTenWhole ∀ (y: Float) (n: Int)
+    (fy: Float.Theory.FiniteBits y.bits)
+    (uy: Float.Theory.units y = Int.mul n (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs (Int.mul n (OfNat 10)) ≤ 9007199254740992):
+    Float.Theory.FiniteBits (y * 10.0).bits
+      ∧ (Float.Theory.units (y * 10.0) = Int.mul (Int.mul n (OfNat 10)) (OfNat (Float.Model.pow2 1074))) :=
+  let p: Nat := Float.Model.pow2 1074
+  let a: Nat := y.bits
+  let z: Bool := Bool.xor (Float.Model.signBit a) False
+  let ten: Int := Int.mul n (OfNat 10)
+  let product: Int.mul (Float.Model.units a) (Float.Model.units 4621819117588971520)
+    = Int.mul (Int.mul ten (OfNat p)) (OfNat p) :=
+    rewrite uy, (byComputing: Float.Model.units 4621819117588971520 = OfNat (10 * p)) then algebra
+  let m: Float.Model.mulBits a 4621819117588971520 = Float.Model.roundRatio (Int.mul ten (OfNat p)) 1 (-1074) z :=
+    calc Float.Model.mulBits a 4621819117588971520
+      _ = Float.Model.roundRatio
+          (Int.mul (Float.Model.units a) (Float.Model.units 4621819117588971520))
+          1
+          (-2148)
+          (Bool.xor (Float.Model.signBit a) (Float.Model.signBit 4621819117588971520)) :=
+        Float.Theory.mulFiniteBits a 4621819117588971520
+          (Float.Theory.finiteNotNaN a fy)
+          byComputing
+          (Float.Theory.finiteNotInfinite a fy)
+          byComputing
+      _ = Float.Model.roundRatio (Int.mul (Int.mul ten (OfNat p)) (OfNat p)) 1 (-2148) z :=
+        Eq.cong (u => Float.Model.roundRatio u 1 (-2148) z) product
+      _ = Float.Model.roundRatio (Int.mul ten (OfNat p)) 1 (-1074) z :=
+        Float.Theory.roundRatioScale
+          (Int.mul ten (OfNat p))
+          p
+          1
+          1
+          (-2148)
+          (-1074)
+          z
+          byComputing
+          byComputing
+          byComputing
+          (k => (algebra: k * p * 1 = k * 1 * (1 * p)))
+  let r: (y * 10.0).bits = Float.Model.roundRatio (Int.mul ten (OfNat p)) 1 (-1074) z := calc (y * 10.0).bits
+    _ = (Float.ofBits (Float.Model.mulBits a 4621819117588971520)).bits :=
+      Eq.cong (q => q.bits) (Float.Theory.mulOfBits y 10.0)
+    _ = Float.Model.mulBits a 4621819117588971520 :=
+      Float.Theory.ofBitsBits
+        (Float.Model.mulBits a 4621819117588971520)
+        (Float.Theory.validTo
+          (Float.Model.mulBits a 4621819117588971520)
+          (Float.Model.roundRatio (Int.mul ten (OfNat p)) 1 (-1074) z)
+          m
+          (Float.Theory.roundRatioValid 1 (-1074) z byComputing (Int.mul ten (OfNat p))))
+    _ = Float.Model.roundRatio (Int.mul ten (OfNat p)) 1 (-1074) z := m
+  J
+    (b w => Float.Theory.FiniteBits b ∧ (Float.Model.units b = Int.mul ten (OfNat p)))
+    (Float.Theory.roundWholeUnits ten z h)
+    r.flipped
+
+--| A multiple of ten over ten: for `c` of `10n × 2^1074` units with `|n| ≤
+--| 2^53`, `c / 10.0` is finite with exactly `n × 2^1074` units.
+theorem Float.Theory.divTenWhole ∀ (c: Float) (n: Int)
+    (fc: Float.Theory.FiniteBits c.bits)
+    (uc: Float.Theory.units c = Int.mul (Int.mul n (OfNat 10)) (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs n ≤ 9007199254740992):
+    Float.Theory.FiniteBits (c / 10.0).bits
+      ∧ (Float.Theory.units (c / 10.0) = Int.mul n (OfNat (Float.Model.pow2 1074))) :=
+  let p: Nat := Float.Model.pow2 1074
+  let z: Bool := Float.Model.signBit c.bits
+  let q: (c / 10.0).bits = Float.Model.roundRatio (Int.mul n (OfNat p)) 1 (-1074) z := calc (c / 10.0).bits
+    _ = Float.Model.roundRatio (Float.Model.units c.bits) (Int.natAbs (Float.Model.units 10.0.bits)) (OfNat 0) z :=
+      Float.Theory.quotientBits c 10.0 byComputing byComputing (Float.Theory.isFiniteOf c fc)
+    _ = Float.Model.roundRatio (Int.mul n (OfNat (10 * p))) (10 * p) (OfNat 0) z :=
+      Eq.cong2
+        (u d => Float.Model.roundRatio u d (OfNat 0) z)
+        (Eq.trans uc (algebra: Int.mul (Int.mul n (OfNat 10)) (OfNat p) = Int.mul n (OfNat (10 * p))))
+        (byComputing: Int.natAbs (Float.Model.units 10.0.bits) = 10 * p)
+    _ = Float.Model.roundRatio n 1 (OfNat 0) z :=
+      Float.Theory.roundRatioScale n (10 * p) (10 * p) 1 (OfNat 0) (OfNat 0) z byComputing byComputing byComputing (k =>
+        (algebra: k * (10 * p) * p * 1 = k * p * (10 * p)))
+    _ = Float.Model.roundRatio (Int.mul n (OfNat p)) 1 (-1074) z := Float.Theory.roundWhole n z
+  J
+    (b w => Float.Theory.FiniteBits b ∧ (Float.Model.units b = Int.mul n (OfNat p)))
+    (Float.Theory.roundWholeUnits n z h)
+    q.flipped
+
+--| Two finite doubles with the same nonzero units are the same double.
+theorem Float.Theory.unitsInjective ∀ (x y: Float)
+    (fx: Float.Theory.FiniteBits x.bits)
+    (fy: Float.Theory.FiniteBits y.bits)
+    (e: Float.Theory.units x = Float.Theory.units y)
+    (nz: Float.Theory.units x ≠ OfNat 0):
+    x = y :=
+  Float.bitsExt x y
+    (calc x.bits
+      _ = Float.Model.roundRatio (Float.Model.units x.bits) 1 (-1074) (Float.Model.signBit x.bits) :=
+        (Float.Theory.roundRatioUnitsBits x.bits fx).flipped
+      _ = Float.Model.roundRatio (Float.Model.units x.bits) 1 (-1074) (Float.Model.signBit y.bits) :=
+        Float.Theory.roundRatioSignIrrelevant 1
+          (-1074)
+          (Float.Model.signBit x.bits)
+          (Float.Model.signBit y.bits)
+          (Float.Model.units x.bits)
+          nz
+      _ = Float.Model.roundRatio (Float.Model.units y.bits) 1 (-1074) (Float.Model.signBit y.bits) :=
+        Eq.cong (u => Float.Model.roundRatio u 1 (-1074) (Float.Model.signBit y.bits)) e
+      _ = y.bits := Float.Theory.roundRatioUnitsBits y.bits fy)
+
+theorem Float.Theory.mulNonzero ∀ (n: Int) (p: Nat) (pp: 0 < p) (nz: n ≠ OfNat 0): Int.mul n (OfNat p) ≠ OfNat 0 :=
+  match n with
+    | OfNat Zero => Void.impossible (nz byComputing)
+    | OfNat (Succ k) =>
+      let pos: 0 < Succ k * p := Float.Theory.mulPos (Succ k) p byComputing pp
+      rewrite (algebra: Int.mul (OfNat (Succ k)) (OfNat p) = OfNat (Succ k * p)) then (e => arithmetic [e, pos])
+    | NegSucc k =>
+      let pos: 0 < Succ k * p := Float.Theory.mulPos (Succ k) p byComputing pp
+      rewrite (algebra: Int.mul (NegSucc k) (OfNat p) = Int.neg (OfNat (Succ k * p))) then (e => arithmetic [e, pos])
+
+--| A whole double survives `round (y * 10.0) / 10.0`, zero signs included:
+--| for `y` of `n × 2^1074` units with `|10n| ≤ 2^53`, `* 10.0` and
+--| `/ 10.0` are exact and `round` keeps a whole number.
+theorem Float.Theory.roundTenthsWhole ∀ (y: Float) (n: Int)
+    (fy: Float.Theory.FiniteBits y.bits)
+    (uy: Float.Theory.units y = Int.mul n (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs (Int.mul n (OfNat 10)) ≤ 9007199254740992):
+    Float.round (y * 10.0) / 10.0 = y :=
+  let p: Nat := Float.Model.pow2 1074
+  Float.Theory.orCase
+    [goal := Float.round (y * 10.0) / 10.0 = y]
+    (Float.Theory.intZeroCases n)
+    (n0 =>
+      let u0: Float.Model.units y.bits = OfNat 0 := Eq.trans uy (rewrite n0 then algebra)
+      Float.Theory.orCase
+        (Float.Theory.unitsZeroIsZeroBits y.bits u0)
+        (b =>
+          J
+            (w k => Float.round (w * 10.0) / 10.0 = w)
+            (byComputing: Float.round (0.0 * 10.0) / 10.0 = 0.0)
+            (Float.bitsExt y 0.0 b).flipped)
+        (b =>
+          J
+            (w k => Float.round (w * 10.0) / 10.0 = w)
+            (byComputing: Float.round (-0.0 * 10.0) / 10.0 = -0.0)
+            (Float.bitsExt y (-0.0) b).flipped))
+    (nz =>
+      let m: Float.Theory.FiniteBits (y * 10.0).bits
+        ∧ (Float.Theory.units (y * 10.0) = Int.mul (Int.mul n (OfNat 10)) (OfNat p)) :=
+        Float.Theory.mulTenWhole y n fy uy h
+      let r: Float.round (y * 10.0) = y * 10.0 := Float.roundOfWhole (y * 10.0) (Int.mul n (OfNat 10)) m.right
+      let d: Float.Theory.FiniteBits (y * 10.0 / 10.0).bits
+        ∧ (Float.Theory.units (y * 10.0 / 10.0) = Int.mul n (OfNat p)) :=
+        Float.Theory.divTenWhole (y * 10.0) n m.left m.right (arithmetic [h])
+      rewrite r then
+        Float.Theory.unitsInjective
+          (y * 10.0 / 10.0)
+          y
+          d.left
+          fy
+          (Eq.trans d.right uy.flipped)
+          (J (u k => u ≠ OfNat 0) (Float.Theory.mulNonzero n p byComputing nz) d.right.flipped))
+
+theorem Float.Theory.absBelowBits ∀ (x b: Float)
+    (sb: Nat.leq 9223372036854775808 b.bits = False)
+    (small: Float.abs x < b):
+    Float.Model.magnitude x.bits < b.bits :=
+  let kb: Float.orderKey b = OfNat b.bits := Float.Theory.keyClear b.bits sb
+  arithmetic [small, Float.Theory.absKey x, kb]
+
+theorem Float.Theory.tenfoldBelow ∀ (f: Int)
+    (h: Int.natAbs f ≤ 562949953421312):
+    (Int.natAbs f ≤ 9007199254740992) ∧ (Int.natAbs (Int.mul f (OfNat 10)) ≤ 9007199254740992) :=
+  Both (arithmetic [h]) (arithmetic [h])
+
+theorem Float.Theory.tenfoldBelowNeg ∀ (g: Int)
+    (h: Int.natAbs g ≤ 562949953421312):
+    (Int.natAbs (Int.neg g) ≤ 9007199254740992) ∧ (Int.natAbs (Int.mul (Int.neg g) (OfNat 10)) ≤ 9007199254740992) :=
+  Both (arithmetic [h]) (arithmetic [h])
+
+--| A double below a positive finite `b` in size (`b` of `bound × 2^1074`
+--| units) is finite, with fewer than `bound × 2^1074` units either way.
+theorem Float.Theory.absBelowUnitsOf ∀ (x b: Float) (bound: Nat)
+    (fb: Float.Theory.FiniteBits b.bits)
+    (sb: Nat.leq 9223372036854775808 b.bits = False)
+    (ub: Float.Theory.magUnits b.bits = Float.Model.pow2 1074 * bound)
+    (small: Float.abs x < b):
+    Float.Theory.FiniteBits x.bits ∧ (Int.natAbs (Float.Model.units x.bits) < Float.Model.pow2 1074 * bound) :=
+  let mb: Float.Model.magnitude b.bits = b.bits := rewrite sb
+  let below: Float.Model.magnitude x.bits < b.bits := Float.Theory.absBelowBits x b sb small
+  Both
+    (Nat.lessTrans
+      (Float.Model.magnitude x.bits)
+      b.bits
+      9218868437227405312
+      below
+      (J (y w => y < 9218868437227405312) fb mb))
+    (rewrite Float.Theory.unitsMag x.bits, Float.Theory.natAbsSigned (Float.Model.signBit x.bits) then
+      J
+        (y w => Float.Theory.magUnits (Float.Model.magnitude x.bits) < y)
+        (Float.Theory.magUnitsLess (Float.Model.magnitude x.bits) b.bits below)
+        ub)
+
+--| `floorDiv` of a size below `bound × p` is at most `bound` in size.
+theorem Float.Theory.floorDivBelow ∀ (s: Bool) (m p bound: Nat)
+    (pp: 0 < p)
+    (h: m < p * bound):
+    Int.natAbs (Float.Model.floorDiv s m p) ≤ bound :=
+  let q: Nat := Nat.divFuel m m p
+  let low: q * p ≤ m := Nat.divFuelLe m m p
+  match s with
+    | False =>
+      let f: Float.Model.floorDiv False m p = OfNat q := byComputing
+      let qb: q < bound := Float.Theory.cancelLessComm q bound p (arithmetic [low, h])
+      rewrite f then arithmetic [qb]
+    | True =>
+      Float.Theory.orCase
+        (Float.Theory.boolCases (Nat.equal (q * p) m))
+        (e =>
+          let ex: q * p = m := Nat.equalSound (q * p) m e
+          let f: Float.Model.floorDiv True m p = Int.neg (OfNat q) := rewrite e
+          let qb: q < bound := Float.Theory.cancelLessComm q bound p (arithmetic [ex, h])
+          rewrite f then arithmetic [qb])
+        (e =>
+          let ne: q * p ≠ m := Nat.equalFalse (q * p) m e
+          let f: Float.Model.floorDiv True m p = NegSucc q := rewrite e
+          let qb: q < bound := Float.Theory.cancelLessComm q bound p (arithmetic [low, ne, h])
+          rewrite f then arithmetic [qb])
+
+--| `floor x` survives `round (floor x * 10.0) / 10.0` for `|x| < 2^49`
+--| (where `floor x * 10.0` is exact), zero signs included. So rounding a
+--| whole-degree floor "to tenths" leaves it as it is.
+theorem Float.roundTenthsOfFloor ∀ (x: Float)
+    (small: Float.abs x < 562949953421312.0):
+    Float.round (Float.floor x * 10.0) / 10.0 = Float.floor x :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 562949953421312) :=
+    Float.Theory.absBelowUnitsOf x 562949953421312.0 562949953421312 byComputing byComputing byComputing small
+  let fb: Int.natAbs f ≤ 562949953421312 := Float.Theory.floorDivBelow s n p 562949953421312 byComputing fin.right
+  let fl: (Float.floor x).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans (Float.Theory.floorOfBits x) (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a fin.left))
+  let tb := Float.Theory.tenfoldBelow f fb
+  let fx: Float.Theory.FiniteBits (Float.floor x).bits
+    ∧ (Float.Model.units (Float.floor x).bits = Int.mul f (OfNat p)) :=
+    J
+      (r w => Float.Theory.FiniteBits r ∧ (Float.Model.units r = Int.mul f (OfNat p)))
+      (Float.Theory.roundScaledWhole f s tb.left)
+      fl.flipped
+  Float.Theory.roundTenthsWhole (Float.floor x) f fx.left fx.right tb.right
+
+--| `ceil x` survives `round (ceil x * 10.0) / 10.0` for `|x| < 2^49`, zero
+--| signs included.
+theorem Float.roundTenthsOfCeil ∀ (x: Float)
+    (small: Float.abs x < 562949953421312.0):
+    Float.round (Float.ceil x * 10.0) / 10.0 = Float.ceil x :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 562949953421312) :=
+    Float.Theory.absBelowUnitsOf x 562949953421312.0 562949953421312 byComputing byComputing byComputing small
+  let gb: Int.natAbs g ≤ 562949953421312 := Float.Theory.floorDivBelow (¬s) n p 562949953421312 byComputing fin.right
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits x) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  let tb := Float.Theory.tenfoldBelowNeg g gb
+  let cx: Float.Theory.FiniteBits (Float.ceil x).bits
+    ∧ (Float.Model.units (Float.ceil x).bits = Int.mul (Int.neg g) (OfNat p)) :=
+    J
+      (r w => Float.Theory.FiniteBits r ∧ (Float.Model.units r = Int.mul (Int.neg g) (OfNat p)))
+      (Float.Theory.roundScaledWhole (Int.neg g) s tb.left)
+      cl.flipped
+  Float.Theory.roundTenthsWhole (Float.ceil x) (Int.neg g) cx.left cx.right tb.right
+
+test "Float.roundTenthsOfFloor" :=
+  Float.round (Float.floor 2.5 * 10.0) / 10.0 == Float.floor 2.5
+    ∧ Float.round (Float.floor -87.60000000000001 * 10.0) / 10.0 == -88.0
+    ∧ (Float.round (Float.floor -0.0 * 10.0) / 10.0).bits == 9223372036854775808
+    ∧ Float.round (Float.ceil -0.5 * 10.0) / 10.0 == Float.ceil -0.5
+    ∧ (Float.round (Float.ceil -0.5 * 10.0) / 10.0).bits == 9223372036854775808
+    ∧ Float.round (Float.ceil 562949953421311.5 * 10.0) / 10.0 == 562949953421312.0

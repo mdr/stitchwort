@@ -4,7 +4,7 @@
 
 namespace Whereabouts.Hints.Proofs
 import Whereabouts.Hints (..)
-import Std (Bool, Float, Int, List, Nat)
+import Std (Bool, Eq, Float, Int, List, Nat)
 
 --| mulberry32's last word is a word.
 theorem finalWordBelow ∀ (parts: List Float): finalWord parts < 4294967296 :=
@@ -214,6 +214,41 @@ theorem wrapRange ∀ (lon: Float) (fin: Float.isFinite lon = True): -180.0 <= w
       180.0
       (J (y k => y <= 179.99999999999994) upper e.flipped)
       byComputing)
+
+-- Outward rounding to whole degrees
+
+--| `floorTo x 1.0` is `floor x`: `/ 1.0` and `* 1.0` change nothing, and
+--| a whole number survives `* 10.0`, `round` and `/ 10.0`. `|x| < 2^49`
+--| keeps `* 10.0` exact; an edge is within 300° of 0.
+theorem floorToWhole ∀ (x: Float) (small: Float.abs x < 562949953421312.0): floorTo x 1.0 = Float.floor x :=
+  calc floorTo x 1.0
+    _ = Float.round (Float.floor (x / 1.0) * 1.0 * 10.0) / 10.0 := byComputing
+    _ = Float.round (Float.floor x * 1.0 * 10.0) / 10.0 :=
+      Eq.cong (y => Float.round (Float.floor y * 1.0 * 10.0) / 10.0) (Float.divOneRight x)
+    _ = Float.round (Float.floor x * 10.0) / 10.0 :=
+      Eq.cong (y => Float.round (y * 10.0) / 10.0) (Float.mulOneRight (Float.floor x))
+    _ = Float.floor x := Float.roundTenthsOfFloor x small
+
+--| `ceilTo x 1.0` is `ceil x`, as `floorToWhole`.
+theorem ceilToWhole ∀ (x: Float) (small: Float.abs x < 562949953421312.0): ceilTo x 1.0 = Float.ceil x := calc ceilTo x
+    1.0
+  _ = Float.round (Float.ceil (x / 1.0) * 1.0 * 10.0) / 10.0 := byComputing
+  _ = Float.round (Float.ceil x * 1.0 * 10.0) / 10.0 :=
+    Eq.cong (y => Float.round (Float.ceil y * 1.0 * 10.0) / 10.0) (Float.divOneRight x)
+  _ = Float.round (Float.ceil x * 10.0) / 10.0 :=
+    Eq.cong (y => Float.round (y * 10.0) / 10.0) (Float.mulOneRight (Float.ceil x))
+  _ = Float.ceil x := Float.roundTenthsOfCeil x small
+
+--| Outward rounding to whole degrees contains the unrounded band: the
+--| lower edge rounds down and the upper edge rounds up, in the total order
+--| (so `-0.0` counts as below `0.0`; `ceilTo -0.5 1.0` is `-0.0`).
+theorem outwardRoundingWhole ∀ (from to: Float)
+    (smallFrom: Float.abs from < 562949953421312.0)
+    (smallTo: Float.abs to < 562949953421312.0):
+    floorTo from 1.0 <= from ∧ to <= ceilTo to 1.0 :=
+  Both
+    (J (y w => y <= from) (Float.floorLe from) (floorToWhole from smallFrom).flipped)
+    (J (y w => to <= y) (Float.ceilGe to) (ceilToWhole to smallTo).flipped)
 
 --| A tenth of a degree, `r / 10`, as `floorTo` and `ceilTo` give one.
 def tenth (r: Int): Float := Float.ofInt r / 10.0

@@ -64,7 +64,7 @@ NaN, ±Infinity, -0 and 2^60): `hintBand`'s edges (`Object.is`),
 
 ## Theorems
 
-Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 18 theorems, 0 failed,
+Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 21 theorems, 0 failed,
 0 with warnings):
 
 - `finalWordBelow`: mulberry32's last word is below 2^32. Unconditional.
@@ -81,6 +81,17 @@ Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 18 theorems, 0 failed,
   359.99999999999994, the double below; then `- 180.0` rounds between -180
   and 179.99999999999994 (`addAtLeast`, `addAtMost`). Sterbenz isn't needed:
   the bound by the double below 360 does the work.
+- `outwardRoundingWhole` (SW-3830): for `|from|, |to| < 2^49`,
+  `floorTo from 1.0 <= from ∧ to <= ceilTo to 1.0`, so rounding to whole
+  degrees never moves an edge inwards. It follows from `floorToWhole`
+  (`floorTo x 1.0 = Float.floor x`) and `ceilToWhole` (`ceilTo x 1.0 =
+  Float.ceil x`), zero signs included, with std's `Float.floorLe` and
+  `Float.ceilGe`. Those two use std's `Float.divOneRight` (`x / 1.0 = x`),
+  `Float.mulOneRight`, and `Float.roundTenthsOfFloor` / `roundTenthsOfCeil`
+  (`round (floor x * 10.0) / 10.0 = floor x` for `|x| < 2^49`), built on
+  `Float.Theory.mulTenWhole` and `divTenWhole` (`* 10.0` and `/ 10.0` exact
+  on whole numbers of either sign, via `roundWholeUnits`). The order is the
+  total one: `ceilTo (-0.5) 1.0` is `-0.0`, which is above -0.5 either way.
 - By computing: `narrowLatitudeBandMissesAnswer`,
   `narrowLongitudeBandMissesAnswer`, `wrapTenth`, `wrapWhole` (23 → 23,
   180 → -180, -180 → -180), and `tenthsKeepTheirLabel`: `describeHint`'s
@@ -98,9 +109,9 @@ finding 1.
 | Theorem | Laws it needs (stage 3 or 4) |
 |---|---|
 | margin before rounding: the answer is at least 0.15 · width from each unrounded edge | `placeAt 0 = 0.15` and `placeAt 1 = 0.85` compute; it needs `*` monotone in each argument for non-negative finite operands, `+` monotone in its *left* argument for finite operands (std has only `addMonotoneRight`, `s <= s + d`), and an error bound on `lat - at * width` against the exact value (the standard model, `|fl(a ∘ b) − (a ∘ b)| ≤ 2^-53 · |a ∘ b|` for `∘` in `+ - * /` without overflow). The real-number statement is not quite the float one: with rounding the margin is 0.15 · width minus a few ulps. |
-| outward rounding contains the unrounded band, step 1 | In std since stage 4 (SW-639): `Float.floorLe` and `Float.ceilGe` (every `x`), `Float.mulOneRight`, `Float.roundOfWhole` (`round` of a whole double is itself), and `Float.ofNatDivExact` with `Float.ofNatMul` (`* 10.0` and `/ 10.0` exact for whole numbers up to 2^53). SW-3805 added `Float.ltFloorAddOne` (`x < floor x + 1.0` for `|x| < 2^53`), `Float.ceilSubOneLt` (`ceil x - 1.0 < x`; `ceil x < x + 1.0` is false, as `x + 1.0` rounds), and representability (`Float.Theory.roundGrid`, `roundWholeUnits`: a whole number of units within 2^53 steps at its exponent rounds to itself). Still missing, for `floorTo x 1.0` and `ceilTo x 1.0`: `x / 1.0 = x`; `* 10.0` and `/ 10.0` exact for negative whole numbers (`ofInt`, or a units form of `ofNatMul`/`ofNatDivExact`: `roundWholeUnits` gives the result once `mulBits` and `divBits` of whole doubles are shown to round `n × 10 × 2^1074` units); then the theorem itself. |
+| outward rounding contains the unrounded band, step 1 | Done (`outwardRoundingWhole`, SW-3830), for edges below 2^49 in size. |
 | outward rounding, step 0.1 | false as stated (finding 1). True form: `floorTo x 0.1 <= x + 2^-45` for `|x| ≤ 360` (and `ceilTo` symmetric), which needs the error bounds of `/` and `*`, `floor`'s spec, and `round` within ½ of its argument. |
-| the answer is in its band | the two rows above, plus `jsMin`/`jsMax` laws (provable today from the order), plus for longitude the `wrap` row below and the wrapped-interval reading of `inHintBand` (`from > to` means `[from, 180) ∪ [-180, to]`). |
+| the answer is in its band | the step 0.1 row (wide bands need only step 1, done) and the margin row; `jsMin`/`jsMax` laws for non-NaN operands (`jsMin a b <= a`, `<= b`, and is one of them; `jsMax` the same upwards; provable today from `Float.leTotal` and transitivity); latitude's clamps (`jsMax (-90.0) _`, `jsMin 90.0 _`) keep an answer with `|lat| ≤ 90`; a bridge from the total order to JS's comparison, which `inHintBand` uses (`x <= y` with neither the NaN gives `Float.ieeeLe x y`; not in std yet); the tolerance's lower bound from finding 1; and for longitude, that `wrap` of a whole-degree edge is the edge shifted by an exact multiple of 360 (sums of whole numbers below 2^53 are exact, `Float.Theory.addWhole`, and `rem` is exact), and the wrapped-interval reading of `inHintBand` (`from > to` means `[from, 180) ∪ [-180, to]`) against the unwrapped band. |
 | `wrap` ∈ [-180, 180) for finite input | Done (`wrapRange`, SW-3805). It used: `rem`'s range: `y > 0` finite, `x` finite → `|x % y| < y`, sign of `x`, exact (`x − n·y` for the whole `n` of truncated division); `+ 360.0` of a value in (-360, 360) lands in [0, 720] (rounding may reach 720, which `% 360` maps to 0); Sterbenz for `z - 180.0` with `z` in [90, 360) (exact), and `z - 180.0 < 180.0` for `z < 360` below 90 by monotonicity. |
 | `describeHint` names the edges | nothing about `Float.toText` can be proved (only the runtimes compute it). What can be stated is `tenthsKeepTheirLabel` (done), and for every input, that latitude edges are tenths: `round` returns a whole double (`Float.toInt (round x) = Some k`), and `/ 10.0` of a whole double is `tenth k`. Longitude edges aren't (finding 2). |
 
