@@ -124,9 +124,12 @@ result is a hypothesis's predicate applied to arguments (`∀ (x: a) => p x`,
 with `p: a → Prop`). Messages, which have no types for the variables, show
 that as `(x: a) → p x`. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
-With a bare row variable, keep the parentheses around a compound result:
-`{e} (f x)`, since `{e}` followed by a term reads as a record literal applied
-to it; a row with an ability in it (`{IO | e} f x`) reads as a row.
+After a row whose first ability starts lowercase (`{e}`, `{e, f}`) or an
+empty row `{}`, keep the brackets around a result that starts with a section,
+a prefix operator, `match`, `if`, `include` or the like (`{e} (.f)`,
+`{e} (-x) * y`): without them the row reads as a record joined to what
+follows. An application or an atom needs none (`{e} f x`), and a row that
+starts with an ability (`{IO | e}`, `{Fail, e}`) never reads as a record.
 Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
 (`t => Cons t rs`, `fold Cons`). A rest before an append and an append
@@ -713,7 +716,8 @@ Each was run on the example named; the output is quoted, shortened.
   holes then doesn't match. Give the lemma its arguments
   (`Nat.modLt (seed * 1103515245 + 12345) 2147483648` checks).
 - **`expected Float.isValid N`**: a local equation about a float constant
-  in scope (`pv: Float.Model.pow2 1074 = …`) can make the checker fill a
+  in scope (`pv: Float.Model.pow2 1074 = …`, or one about `units` of a
+  literal) can make the checker fill a
   float literal's validity proof with `pv`, giving `expected Float.isValid N`.
   Inline the step with `byComputing` instead of keeping the local equation
   (bug SW-3887).
