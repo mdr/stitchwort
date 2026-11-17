@@ -22440,7 +22440,7 @@
     {
       "id": 3866,
       "title": "[DeepSeek] tools/fmt: move the remaining ~28 hand-fuelled loops to std Parse.loop (list on SW-3827), mechanically, keeping token/tree/refusal dumps identical; delete dead leavesOf in Parser.sw (SW-3827 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
