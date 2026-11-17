@@ -16466,14 +16466,14 @@
     {
       "id": 3416,
       "title": "[Sonnet] Toy Doc.group recomputes forcesBreak over the whole inner document (quadratic in nesting); cache it in the node; matters for the real formatter's engine (SW-3414 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -22570,7 +22570,7 @@
     {
       "id": 3876,
       "title": "[Sonnet] Self-hosted fmt P3: after a row that is just a row variable ({e}), P3 drops brackets Rust keeps, since bare {e} then reads as a record applied to what follows; six repros (0/6 identical) in the SW-3864 scratch probe-e (def a: {e} (.f) := x; (match …); (include \"x\") y; (-x) * y; (!x) ∧ y; (if …)); fix and add the six to the twin's inputs (SW-3864 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22596,7 +22596,7 @@
     {
       "id": 3878,
       "title": "[Opus] Independent review of the self-hosted formatter's meaning (tools/fmt/src/Fmt/Meaning.sw, trusted, D3678): does each forgotten thing really not change the compiler's reading (check lower/exprs.rs and the parser), are all 98 kinds covered, and does leaving comments out (orchestrator's call under D3678) leave a gap tidyKeepsComments must close; paper lane",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
