@@ -1,5 +1,5 @@
 {
-  "next": 3784,
+  "next": 3787,
   "tickets": [
     {
       "id": 47,
@@ -41975,12 +41975,12 @@
     {
       "id": 3732,
       "title": "[DeepSeek] A local def shadowed silently by a (..)-imported name of the same name gives a misleading type error ('expected List, got Punctuation': closerAhead vs BlockProofs.closerAhead): say which closerAhead was used and that the local one is hidden (Toy++ T4 friction, SW-3724)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "D3671 (Matt, 17 Nov 2026): local definitions win (incl. the namespace's other files) over (..) imports; no standing warning ('a warning is something you should be able to action'); a type error involving a shadowed name says which hid which, as for constructors (W-CTOR-HIDES pattern). Also: type Box = | Box then (b: Box) is E-AMBIGUOUS; in a type position only the type makes sense. Sonnet, with SW-3479/3474/3471 (duplicates once at the second definition).\n\nLane notes (Sonnet, 17 Nov 2026):\n- 1c: T4's case does not reproduce: file-own and sibling-file declarations of the same namespace already rank above `(..)` imports (Level::Module). Added the note on a type mismatch on a definition that hides an imported one (\"`closerAhead` here means `App.closerAhead`, which hides `Lib.closerAhead` (from an `import … (..)`)\"); no warning.\n- Type in type position: `type Box = | Box` then `(b: Box)` now means the type (ambiguity stays for values).\n- 1b: a second definition of a name (any files of a namespace) is one E-DUPLICATE; the first declaration is taken as failed, so uses aren't reported. A def named like a constructor (either order) is one E-DUPLICATE at the later one.\n",
+      "body": "D3671 (Matt, 17 Nov 2026): local definitions win (incl. the namespace's other files) over (..) imports; no standing warning ('a warning is something you should be able to action'); a type error involving a shadowed name says which hid which, as for constructors (W-CTOR-HIDES pattern). Also: type Box = | Box then (b: Box) is E-AMBIGUOUS; in a type position only the type makes sense. Sonnet, with SW-3479/3474/3471 (duplicates once at the second definition).\n\nLane notes (Sonnet, 17 Nov 2026):\n- 1c: T4's case does not reproduce: file-own and sibling-file declarations of the same namespace already rank above `(..)` imports (Level::Module). Added the note on a type mismatch on a definition that hides an imported one (\"`closerAhead` here means `App.closerAhead`, which hides `Lib.closerAhead` (from an `import … (..)`)\"); no warning.\n- Type in type position: `type Box = | Box` then `(b: Box)` now means the type (ambiguity stays for values).\n- 1b: a second definition of a name (any files of a namespace) is one E-DUPLICATE; the first declaration is taken as failed, so uses aren't reported. A def named like a constructor (either order) is one E-DUPLICATE at the later one.\n\nModel result: sonnet, worked, 22 min (est. 45). T4's case: not reproducible; local and sibling-file definitions already win over (..) imports (scope.rs Level::Module); pinned by wildcard-sibling-wins. Orchestrator reviewed the four new error messages. Risk: def-vs-constructor E-DUPLICATE may reject code that never used the clashing name; rolling check watches aoc/rogue. Findings SW-3784 SW-3785 SW-3786.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
@@ -42654,6 +42654,43 @@
       "agent": "",
       "where": "",
       "labels": [],
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3784,
+      "title": "[DeepSeek] After an E-DUPLICATE, the 'N errors: in …' summary counts the silenced dependents; count only reported errors (SW-3732 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3785,
+      "title": "[DeepSeek] crates/elab/src/lib.rs builds E-DUPLICATE diagnostics in about a dozen places; share a helper (SW-3732 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3786,
+      "title": "[Sonnet] Lanes need a safe way to stop their own test and build runs: a task that selects by the worktree's process tree (SW-3732 used pkill -f on a cargo-nextest pattern, which could hit other lanes or the verifier)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
