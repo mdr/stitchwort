@@ -246,10 +246,10 @@ fn as_prelude(source: &str) -> Vec<&'static str> {
     let module = parse_module(file, source).expect("parses");
     let mut elab = Elaborator::new();
     elab.set_loading_prelude(true);
-    elab.elaborate_module(&module)
-        .into_iter()
-        .map(|d| d.code)
-        .collect()
+    let mut diagnostics = elab.elaborate_module(&module);
+    // The elaborator only proposes `W-ARROW-FORALL`; the text decides.
+    stitchwort_elab::keep_written_arrows(&mut diagnostics, |_| Some(source));
+    diagnostics.into_iter().map(|d| d.code).collect()
 }
 
 #[test]
