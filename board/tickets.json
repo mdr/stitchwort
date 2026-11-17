@@ -1,5 +1,5 @@
 {
-  "next": 3810,
+  "next": 3812,
   "tickets": [
     {
       "id": 47,
@@ -42991,6 +42991,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3810,
+      "title": "[Sonnet] Float goals stay folded: a reject example showing a stuck x / y and Float.floor x (and ofNat n, SW-3800) in a goal and a failed byComputing; widen docs/syntax.md:2777 beyond sums (SW-3804 F4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3811,
+      "title": "[DeepSeek] Float.ofNatFinite holds to about 2^1024, not just 2^53; roundOfWhole's hypothesis uses internal Float.Theory.units: state it with a public form (SW-3804 F5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
