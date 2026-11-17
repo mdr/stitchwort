@@ -1,5 +1,5 @@
 {
-  "next": 3876,
+  "next": 3880,
   "tickets": [
     {
       "id": 47,
@@ -22562,6 +22562,58 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3876,
+      "title": "[Sonnet] Self-hosted fmt P3: after a row that is just a row variable ({e}), P3 drops brackets Rust keeps, since bare {e} then reads as a record applied to what follows; six repros (0/6 identical) in the SW-3864 scratch probe-e (def a: {e} (.f) := x; (match …); (include \"x\") y; (-x) * y; (!x) ∧ y; (if …)); fix and add the six to the twin's inputs (SW-3864 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3877,
+      "title": "[Opus] Self-hosted fmt proofs: the generic traversal lemma in its strong form (steps that rebuild nodes below the one they act on), then P3's header step (dropDeclBinders) and P4's merge fact (splitting merged groups gives back the originals, via Group.typeLines) (SW-3864 left)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3878,
+      "title": "[Opus] Independent review of the self-hosted formatter's meaning (tools/fmt/src/Fmt/Meaning.sw, trusted, D3678): does each forgotten thing really not change the compiler's reading (check lower/exprs.rs and the parser), are all 98 kinds covered, and does leaving comments out (orchestrator's call under D3678) leave a gap tidyKeepsComments must close; paper lane",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3879,
+      "title": "[DeepSeek] Proving guide: cases on a large record (e.g. Header, 11 fields) exhausts its 64-case budget by splitting every field; split by hand first. Also note that {e} alone may read as a record (SW-3864 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
