@@ -5,9 +5,8 @@
 //!
 //! It is found in the written syntax of a declaration's body, so the
 //! `Eq.trans` a `calc` or a `rewrite` produces never counts. Only the
-//! outermost call of a nest is reported, once. Only the elaborator's
-//! candidates are made here: `keep_written_arrows`, which has the file's
-//! text, drops those on one line (SW-3611).
+//! outermost call of a nest is reported, once. The shape counts, not the
+//! layout: a nest that fits on one line warns too (SW-3697).
 
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Decl, Expr, Guard};
