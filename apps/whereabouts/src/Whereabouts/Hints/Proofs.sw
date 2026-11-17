@@ -3548,3 +3548,222 @@ theorem answerInLatitudeBand ∀ (answer: LatLon) (tolerance: Km) (unit cosLatit
     w.right
     low
     high
+
+-- The answer in its band: longitude
+
+--| Units in order give the total order when the smaller is negative, as
+--| `leOfUnitsPos`. A std candidate.
+theorem leOfUnitsNeg ∀ (x y: Float)
+    (neg: Int.less (Float.Theory.units x) (OfNat 0) = True)
+    (h: Int.leq (Float.Theory.units x) (Float.Theory.units y) = True):
+    x <= y :=
+  let ux := Float.Theory.unitsMag x.bits
+  match sx: Nat.leq 9223372036854775808 x.bits with
+    | True =>
+      match sy: Nat.leq 9223372036854775808 y.bits with
+        | False => byComputing
+        | True =>
+          let le: Float.Theory.magUnits (y.bits - 9223372036854775808)
+            ≤ Float.Theory.magUnits (x.bits - 9223372036854775808) :=
+            arithmetic [h]
+          arithmetic [Float.Theory.magUnitsLeReflect (y.bits - 9223372036854775808) (x.bits - 9223372036854775808) le]
+
+--| A double within 361 · 2^1074 units of zero, short of it, is within 361°.
+theorem within361OfUnits ∀ (x: Float)
+    (lo: Int.less (Float.Theory.units (-361.0)) (Float.Theory.units x) = True)
+    (hi: Int.less (Float.Theory.units x) (Float.Theory.units 361.0) = True):
+    (-361.0 <= x) ∧ (x <= 361.0) :=
+  Both
+    (leOfUnitsNeg (-361.0) x byComputing (intLeOfLess (Float.Theory.units (-361.0)) (Float.Theory.units x) lo))
+    (leOfUnitsPos x 361.0 byComputing (intLeOfLess (Float.Theory.units x) (Float.Theory.units 361.0) hi))
+
+theorem remStepArith ∀ (s: Bool) (m q d r: Nat) (ux ur qd: Int)
+    (eu: ux = Int.signed s m)
+    (er: ur = Int.signed s r)
+    (eq: qd = Int.mul (Int.signed s q) (OfNat d))
+    (eqd: Int.mul (Int.signed s q) (OfNat d) = Int.signed s (q * d))
+    (low: q * d ≤ m)
+    (rr: r = m - q * d)
+    (high: m < Succ q * d):
+    (Int.add ur qd = ux)
+      ∧ ((Int.natAbs ur < d) ∧ (Int.leq (OfNat 0) ux = True → Int.leq (OfNat 0) ur = True)) :=
+  let lt: m < q * d + d := arithmetic [high, Float.Theory.succMul q d]
+  match s with
+    | False => Both (arithmetic [eu, er, eq, eqd, low, rr]) (Both (arithmetic [er, rr, lt, low]) (n => arithmetic [er]))
+    | True =>
+      Both
+        (arithmetic [eu, er, eq, eqd, low, rr])
+        (Both (arithmetic [er, rr, lt, low]) (n => arithmetic [n, eu, er, rr, low]))
+
+--| `x % 360.0` is `x` less a whole number `t` of 360s, below 360° in size,
+--| and not negative when `x` isn't: `remUnitsExact` with the quotient's
+--| bounds.
+theorem remStep ∀ (x: Float)
+    (fx: Float.isFinite x = True)
+    [goal: Prop]
+    (k: ∀ (t: Int) => Int.add (Float.Theory.units (x % 360.0)) (Int.mul t (Float.Theory.units 360.0)) = Float.Theory.units x
+      → Int.natAbs (Float.Theory.units (x % 360.0)) < Int.natAbs (Float.Theory.units 360.0)
+      → (Int.leq (OfNat 0) (Float.Theory.units x) = True → Int.leq (OfNat 0) (Float.Theory.units (x % 360.0)) = True)
+      → goal):
+    goal :=
+  let s: Bool := Float.Model.signBit x.bits
+  let m: Nat := Int.natAbs (Float.Theory.units x)
+  let d: Nat := Int.natAbs (Float.Theory.units 360.0)
+  let q: Nat := Nat.divFuel m m d
+  let dpos: 0 < d := byComputing
+  let low: q * d ≤ m := Nat.divFuelLe m m d
+  let high: m < Succ q * d := Nat.divFuelBound m m d (Nat.nonzeroOfPos d dpos) (Nat.leRefl m)
+  let du: Float.Theory.units 360.0 = OfNat d := byComputing
+  let sa :=
+    remStepArith s
+      m
+      q
+      d
+      (m - q * d)
+      (Float.Theory.units x)
+      (Float.Theory.units (x % 360.0))
+      (Int.mul (Int.signed s q) (Float.Theory.units 360.0))
+      (Float.Theory.unitsSigned x.bits).flipped
+      (remUnitsExact x 360.0 fx byComputing byComputing)
+      (Eq.cong (u => Int.mul (Int.signed s q) u) du)
+      (signedScaled s q d).flipped
+      low
+      byComputing
+      high
+  k (Int.signed s q) sa.left (J (v z => Int.natAbs (Float.Theory.units (x % 360.0)) < v) sa.right.left (Eq.cong Int.natAbs du).flipped) sa.right.right
+
+theorem remainderWithin ∀ (u lo hi a: Int) (d p: Nat)
+    (el: lo = Int.neg (OfNat (p * 361)))
+    (eh: hi = OfNat (p * 361))
+    (ed: Int.natAbs a = p * 360)
+    (h: Int.natAbs u < Int.natAbs a):
+    (Int.less lo u = True) ∧ (Int.less u hi = True) :=
+  Both (arithmetic [el, ed, h]) (arithmetic [eh, ed, h])
+
+theorem turnsDistribute ∀ (t1 t2 u: Int):
+    Int.mul (Int.sub (Int.add t1 t2) (OfNat 1)) u = Int.sub (Int.add (Int.mul t1 u) (Int.mul t2 u)) u :=
+  algebra
+
+theorem wrapNearArith ∀ (ux us1 ur1 us2 ur2 uw h u nh t1u t2u tu: Int) (w: Nat)
+    (n1a: Int.leq (Int.add ux h) (Int.add us1 (OfNat (w * 2))) = True)
+    (n1b: Int.leq us1 (Int.add (Int.add ux h) (OfNat (w * 2))) = True)
+    (e1: Int.add ur1 t1u = us1)
+    (n2a: Int.leq (Int.add ur1 u) (Int.add us2 (OfNat (w * 2))) = True)
+    (n2b: Int.leq us2 (Int.add (Int.add ur1 u) (OfNat (w * 2))) = True)
+    (e2: Int.add ur2 t2u = us2)
+    (n3a: Int.leq (Int.add ur2 nh) (Int.add uw (OfNat (w * 2))) = True)
+    (n3b: Int.leq uw (Int.add (Int.add ur2 nh) (OfNat (w * 2))) = True)
+    (enh: nh = Int.neg h)
+    (dist: tu = Int.sub (Int.add t1u t2u) u):
+    (Int.leq uw (Int.add (Int.sub ux tu) (OfNat (w * 6))) = True)
+      ∧ (Int.leq (Int.sub ux tu) (Int.add uw (OfNat (w * 6))) = True) :=
+  Both (arithmetic [n1a, n1b, e1, n2a, n2b, e2, n3a, n3b, enh, dist]) (arithmetic [n1a, n1b, e1, n2a, n2b, e2, n3a, n3b, enh, dist])
+
+--| `wrap x`, for `x` within 361°, is `x` less a whole number `c` of 360s to
+--| within 6 · 2^-44, in exact units: each `%` is exact (`remStep`) and each
+--| of the three sums is within 2^-43 (`sumNear`). On whole degrees it is
+--| exact (`wrapWholeExact`); on tenths it isn't (`wrapTenth`, finding 2),
+--| and this bound is what a narrow band's margin has to outlast.
+theorem wrapNear ∀ (x: Float)
+    (lo: -361.0 <= x)
+    (hi: x <= 361.0)
+    [goal: Prop]
+    (k: ∀ (c: Int) => Int.leq
+      (Float.Theory.units (wrap x))
+      (Int.add (Int.sub (Float.Theory.units x) (Int.mul c (Float.Theory.units 360.0))) (OfNat (Float.Model.pow2 1030 * 6)))
+      = True
+      → Int.leq
+        (Int.sub (Float.Theory.units x) (Int.mul c (Float.Theory.units 360.0)))
+        (Int.add (Float.Theory.units (wrap x)) (OfNat (Float.Model.pow2 1030 * 6)))
+        = True
+      → goal):
+    goal :=
+  let n1 := sumNear x 180.0 lo hi byComputing byComputing
+  remStep (x + 180.0)
+    n1.left
+    (t1 e1 a1 g1 =>
+      let r1: Float := (x + 180.0) % 360.0
+      let w1 :=
+        remainderWithin
+          (Float.Theory.units r1)
+          (Float.Theory.units (-361.0))
+          (Float.Theory.units 361.0)
+          (Float.Theory.units 360.0)
+          0
+          (Float.Model.pow2 1074)
+          byComputing
+          byComputing
+          byComputing
+          a1
+      let b1 := within361OfUnits r1 w1.left w1.right
+      let n2 := sumNear r1 360.0 b1.left b1.right byComputing byComputing
+      remStep (r1 + 360.0)
+        n2.left
+        (t2 e2 a2 g2 =>
+          let r2: Float := (r1 + 360.0) % 360.0
+          let w2 :=
+            remainderWithin
+              (Float.Theory.units r2)
+              (Float.Theory.units (-361.0))
+              (Float.Theory.units 361.0)
+              (Float.Theory.units 360.0)
+              0
+              (Float.Model.pow2 1074)
+              byComputing
+              byComputing
+              byComputing
+              a2
+          let b2 := within361OfUnits r2 w2.left w2.right
+          let n3 := sumNear r2 (-180.0) b2.left b2.right byComputing byComputing
+          let e3: r2 + -180.0 = wrap x := (Float.subAddNeg r2 180.0).flipped
+          let n3a: Int.leq
+            (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
+            (Int.add (Float.Theory.units (wrap x)) (OfNat (Float.Model.pow2 1030 * 2)))
+            = True :=
+            J
+              (y z =>
+                Int.leq
+                  (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
+                  (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1030 * 2)))
+                  = True)
+              n3.right.left
+              e3
+          let n3b: Int.leq
+            (Float.Theory.units (wrap x))
+            (Int.add (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0))) (OfNat (Float.Model.pow2 1030 * 2)))
+            = True :=
+            J
+              (y z =>
+                Int.leq
+                  (Float.Theory.units y)
+                  (Int.add (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0))) (OfNat (Float.Model.pow2 1030 * 2)))
+                  = True)
+              n3.right.right
+              e3
+          let c: Int := Int.sub (Int.add t1 t2) (OfNat 1)
+          let r :=
+            wrapNearArith
+              (Float.Theory.units x)
+              (Float.Theory.units (x + 180.0))
+              (Float.Theory.units r1)
+              (Float.Theory.units (r1 + 360.0))
+              (Float.Theory.units r2)
+              (Float.Theory.units (wrap x))
+              (Float.Theory.units 180.0)
+              (Float.Theory.units 360.0)
+              (Float.Theory.units (-180.0))
+              (Int.mul t1 (Float.Theory.units 360.0))
+              (Int.mul t2 (Float.Theory.units 360.0))
+              (Int.mul c (Float.Theory.units 360.0))
+              (Float.Model.pow2 1030)
+              n1.right.left
+              n1.right.right
+              e1
+              n2.right.left
+              n2.right.right
+              e2
+              n3a
+              n3b
+              byComputing
+              (turnsDistribute t1 t2 (Float.Theory.units 360.0))
+          k c r.left r.right))
