@@ -3483,10 +3483,93 @@ fn cheap_limits() -> stitchwort_core::Limits {
     }
 }
 
-/// Whether a `let`'s value, as a normal form, is worth folding back: an
-/// alias of a variable, or a constant, costs nothing to compute again.
-pub(crate) fn worth_folding(normal: &Term) -> bool {
-    !matches!(normal.strip_loc(), Term::Var(_) | Term::Nat(_))
+/// Whether a `let`'s value, as a normal form, is worth folding back, and
+/// safe to: an alias of a variable, or a constant, costs nothing to compute
+/// again, and a form whose type it doesn't fix can't be folded back
+/// ([`type_fixed`]).
+pub(crate) fn worth_folding(g: &Ev, normal: &Term) -> bool {
+    !matches!(normal.strip_loc(), Term::Var(_) | Term::Nat(_)) && type_fixed(g, normal)
+}
+
+/// Whether every type `term` has, in its context, is the same up to
+/// conversion. Folding an occurrence back to a `let`'s variable gives it
+/// the variable's type, so a form that also has other types mustn't be
+/// folded: with `let e: 2 = 2 := byComputing` in scope, the `Refl` witness
+/// of a `Float` literal in a solution would become `e`, a proof of `2 = 2`
+/// (SW-3887), and `let xs: List Nat := []` would take `[]: List Bool`. Not
+/// fixed: `Refl`, a lambda (its parameter's type isn't written), a
+/// constructor of a type with parameters its fields don't fix (`[]`,
+/// `None`, `Left 1`), and the forms with no motive written (`match`, `J`).
+/// Conservative: a form it can't tell about isn't fixed.
+pub(crate) fn type_fixed(g: &Ev, term: &Term) -> bool {
+    match term.strip_loc() {
+        Term::Var(_)
+        | Term::Def(_)
+        | Term::Nat(_)
+        | Term::Chars(_)
+        | Term::Sort(_)
+        | Term::Data(..)
+        | Term::Eq(..) => true,
+        Term::Pi(_, _, a, b) => type_fixed(g, a) && type_fixed(g, b),
+        Term::Ann(..) => true,
+        Term::Let(_, _, _, body, _) => type_fixed(g, body),
+        Term::Proj(_, _, record) => type_fixed(g, record),
+        // A function's result type is its codomain at the arguments, which
+        // the term writes, implicit ones included.
+        Term::App(..) => match term.spine().0.strip_loc() {
+            Term::Var(_) | Term::Def(_) => true,
+            Term::Proj(_, _, record) => type_fixed(g, record),
+            _ => false,
+        },
+        Term::Ctor(d, c, fields) => ctor_type_fixed(g, *d, *c, fields),
+        Term::Refl
+        | Term::Lam(..)
+        | Term::Case(..)
+        | Term::NumCase(..)
+        | Term::J(..)
+        | Term::Quot(..)
+        | Term::Meta(_) => false,
+        Term::Loc(..) => unreachable!("stripped"),
+    }
+}
+
+/// [`type_fixed`] of constructor `c` of `d` applied to `fields`: its type
+/// is `d` at its parameters (the indices follow from them and the fields),
+/// and the term doesn't write the parameters, so each must be fixed by a
+/// field whose own type is fixed and mentions it where conversion can't
+/// lose it (`A` in `head: A` or `tail: List A`).
+fn ctor_type_fixed(g: &Ev, d: stitchwort_core::DataId, c: usize, fields: &[Rc<Term>]) -> bool {
+    let data = g.data(d);
+    let np = data.params().len();
+    if np == 0 {
+        return true;
+    }
+    let Some(ctor) = data.ctors().get(c) else {
+        return false;
+    };
+    let mut fixed = vec![false; np];
+    for (i, ((_, ty), value)) in ctor.fields.iter().zip(fields).enumerate() {
+        if !fixed.iter().all(|f| *f) && type_fixed(g, value) {
+            // Field `i`'s type is in the context of the parameters and the
+            // `i` fields before it: parameter `k` is `Var(np + i - 1 - k)`.
+            for (k, f) in fixed.iter_mut().enumerate() {
+                *f = *f || rigidly_mentions(ty, np + i - 1 - k);
+            }
+        }
+    }
+    fixed.into_iter().all(|f| f)
+}
+
+/// Whether type `ty` mentions variable `ix` where conversion keeps it: as
+/// the type itself, or inside a data type's arguments or a function
+/// type's parts, which conversion compares part by part.
+fn rigidly_mentions(ty: &Term, ix: usize) -> bool {
+    match ty.strip_loc() {
+        Term::Var(i) => *i == ix,
+        Term::Data(_, args) => args.iter().any(|a| rigidly_mentions(a, ix)),
+        Term::Pi(_, _, a, b) => rigidly_mentions(a, ix) || rigidly_mentions(b, ix + 1),
+        _ => false,
+    }
 }
 
 /// A `let` that `term` is inside, in [`zonk_in`]: its level, how many
@@ -3542,7 +3625,8 @@ pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Ter
 /// `let`, occurrences of the value's normal form are folded back to the
 /// variable, outermost `let` first (so a later one's value, which mentions
 /// an earlier one, is recognised). That's the same term to the checker, and
-/// the program shares the value.
+/// the program shares the value; only a form whose type it fixes is folded
+/// ([`worth_folding`]), since the variable has only the `let`'s type.
 pub(crate) fn zonk_in(
     g: &Unifier<'_>,
     level: usize,
@@ -3954,7 +4038,7 @@ fn zonk_let(
     let normals: Vec<Term> = normals
         .unwrap_or_default()
         .into_iter()
-        .filter(worth_folding)
+        .filter(|n| worth_folding(g, n))
         .collect();
     let b2 = if normals.is_empty() {
         go(b, level + 1)?

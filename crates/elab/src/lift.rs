@@ -1225,7 +1225,7 @@ impl Elaborator {
                 })
             {
                 for normal in normals {
-                    if crate::unify::worth_folding(&normal) {
+                    if crate::unify::worth_folding(g, &normal) {
                         around.push((l, scope, Rc::new(normal)));
                     }
                 }
