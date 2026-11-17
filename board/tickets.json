@@ -1,5 +1,5 @@
 {
-  "next": 3908,
+  "next": 3911,
   "tickets": [
     {
       "id": 47,
@@ -22583,12 +22583,12 @@
     {
       "id": 3877,
       "title": "[Opus] Self-hosted fmt proofs: the generic traversal lemma in its strong form (steps that rebuild nodes below the one they act on), then P3's header step (dropDeclBinders) and P4's merge fact (splitting merged groups gives back the originals, via Group.typeLines) (SW-3864 left)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Opus lane, 17 Nov 2026, 20:49 to 21:10 (expected 60 min).\n\n- Done: the traversal lemma in its strong form (`Fmt.Walk.applyKeeps`, over a pure copy of the traversal, `walk`: 39 `…Ok` and 39 `…Twice` theorems, generated arm by arm); P3's header step and row step through `meaning`'s walk; P1, P2, P3 keep `meaning` file by file and together (`firstThreeKeepMeaning`, no axioms).\n- Not done, stopped as the brief says: P4's merge fact needs a statement change. As `meaning` is stated, P4 doesn't keep it: `Group.pieces` gives every piece the group's `open`, so a comment above the first of two merged groups ends up on both pieces after P4 (scratch test: `open.above` lengths `[1, 0]` before, `[1, 1]` after). Needs comments blanked in the comparison, plus a dump-injectivity lemma for `typeLines` and equal `GroupKind`s in `joins`. See tools/fmt/NOTES.md, \"P4 doesn't keep `meaning` as stated\".\n- Tests: `check`, `test` (76 passed), `audit Fmt.Walk` (193 passed), `audit Fmt.Proofs` (41 passed), `axioms` on the top theorems: none.\n",
+      "body": "Opus lane, 17 Nov 2026, 20:49 to 21:10 (expected 60 min).\n\n- Done: the traversal lemma in its strong form (`Fmt.Walk.applyKeeps`, over a pure copy of the traversal, `walk`: 39 `…Ok` and 39 `…Twice` theorems, generated arm by arm); P3's header step and row step through `meaning`'s walk; P1, P2, P3 keep `meaning` file by file and together (`firstThreeKeepMeaning`, no axioms).\n- Not done, stopped as the brief says: P4's merge fact needs a statement change. As `meaning` is stated, P4 doesn't keep it: `Group.pieces` gives every piece the group's `open`, so a comment above the first of two merged groups ends up on both pieces after P4 (scratch test: `open.above` lengths `[1, 0]` before, `[1, 1]` after). Needs comments blanked in the comparison, plus a dump-injectivity lemma for `typeLines` and equal `GroupKind`s in `joins`. See tools/fmt/NOTES.md, \"P4 doesn't keep `meaning` as stated\".\n- Tests: `check`, `test` (76 passed), `audit Fmt.Walk` (193 passed), `audit Fmt.Proofs` (41 passed), `axioms` on the top theorems: none.\n\nModel result: opus, worked, 18 min (est. 60). Statements checked by orchestrator: each xKeepsFile is file.pass.meaning = file.meaning; applyKeeps as briefed. P4 is false for meaning as written (split pieces inherit the open bracket's comments): resolved by SW-3884's blanking map (orchestrator's call from SW-3902, no new D). Follow-ups SW-3908 SW-3909 SW-3910.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22681,7 +22681,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.",
+      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.\n\nNow needed: SW-3877 showed P4 doesn't keep meaning as written (split group pieces all carry the opening bracket's comments). Do (b) the blanking map, then P4's merge fact and the four-pass theorem.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22980,6 +22980,45 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3908,
+      "title": "[DeepSeek] tools/fmt Passes.sw: joins compares the two groups' GroupKind (harmless on parsed files; needed for P4's proof) (SW-3877 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3909,
+      "title": "[Opus] Generic-ability traversal (Traverse.sw generic in the steps' abilities, {e}) so Fmt.Walk's 2,865-line pure copy can go; blocked by E-NOT-A-FUNCTION (stage 2b friction) (SW-3877 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3910,
+      "title": "[DeepSeek] Proving guide: state facts about {Fail} functions through a named wrapper (Fail.toResult (() => x.traverse on) otherwise wraps the thunk as a value) (SW-3877 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
