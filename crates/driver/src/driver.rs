@@ -228,6 +228,30 @@ pub fn tier_sample<T>(items: Vec<T>, broad_stride: usize) -> Vec<T> {
     items.into_iter().step_by(stride).collect()
 }
 
+/// [`tier_sample`] of `items` rotated to start at today's place: the seed
+/// is the environment variable `seed_var` if set, otherwise the day (days
+/// since 1970, UTC). Every run on one day takes the same sample, so the
+/// rolling check's runs agree; from one day to the next it moves on, so
+/// every item is covered within a few days' runs although each run takes
+/// only a share. Prints the seed (set the variable to repeat a sample). The
+/// all tier takes every item.
+#[doc(hidden)]
+pub fn daily_tier_sample<T>(mut items: Vec<T>, broad_stride: usize, seed_var: &str) -> Vec<T> {
+    let seed = std::env::var(seed_var)
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or_else(|| {
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+            now.map_or(0, |d| d.as_secs() / 86_400)
+        });
+    eprintln!("{seed_var}={seed} (set it to take the same sample again)");
+    if !items.is_empty() {
+        let by = (seed % items.len() as u64) as usize;
+        items.rotate_left(by);
+    }
+    tier_sample(items, broad_stride)
+}
+
 /// Where an eager session gets the standard library's files.
 enum StdCache {
     /// Checked from source.

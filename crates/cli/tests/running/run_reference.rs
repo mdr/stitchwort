@@ -8,7 +8,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Output, Stdio};
 
-use stitchwort_cli::driver::par_map;
+use stitchwort_cli::driver::{daily_tier_sample, par_map};
 
 /// Stack for the threads that run the examples (they only wait on child
 /// processes).
@@ -85,16 +85,56 @@ fn same_both_ways(path: &Path, input: &[u8], same_errors: bool) -> Output {
     fast
 }
 
+/// The share of the examples with a `main` a run in the broad tier covers: every eighth,
+/// from a place that moves on daily (`RUN_REFERENCE_SEED` sets it). Every
+/// tier below covers less, and the all tier every example (SW-3712: all of
+/// them took about 500 s at two threads).
+const BROAD_STRIDE: usize = 8;
+
+/// Whether `EXAMPLES` names examples (comma-separated parts of their file
+/// names) rather than leaving the choice to the sample.
+fn named_filter() -> Option<String> {
+    std::env::var("EXAMPLES")
+        .ok()
+        .filter(|f| !f.trim().is_empty())
+}
+
 /// Every example with a `main` runs, and every `def main` in an example is a
-/// real entry point, with input that the interactive ones read.
+/// real entry point, with input that the interactive ones read. Below the
+/// all tier it covers a daily sample (see [`BROAD_STRIDE`]); the full set is
+/// `STITCHWORT_TIER=all`, and `EXAMPLES=name,...` runs just the examples
+/// whose names contain one of those parts.
 #[test]
 fn examples_print_the_same_both_ways() {
     let mut entries: Vec<_> = std::fs::read_dir(examples())
         .expect("read examples")
         .map(|e| e.expect("read entry").path())
         .filter(|p| p.extension().is_some_and(|e| e == "sw"))
+        // Only the examples with a `main` are sampled: few have one.
+        .filter(|p| {
+            let source = std::fs::read_to_string(p).expect("read example");
+            source.lines().any(|line| line.starts_with("def main"))
+        })
         .collect();
     entries.sort();
+    let entries = match named_filter() {
+        Some(filter) => {
+            let parts: Vec<_> = filter
+                .split(',')
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .collect();
+            let chosen: Vec<_> = (entries.into_iter())
+                .filter(|p| {
+                    let name = p.file_name().unwrap().to_string_lossy();
+                    parts.iter().any(|part| name.contains(part))
+                })
+                .collect();
+            assert!(!chosen.is_empty(), "EXAMPLES={filter} matches no example");
+            chosen
+        }
+        None => daily_tier_sample(entries, BROAD_STRIDE, "RUN_REFERENCE_SEED"),
+    };
     // Each example (three inputs, two runs each) is a few child processes:
     // they run on the thread pool.
     let ran = par_map(STACK, &entries, |path| {
@@ -140,7 +180,10 @@ fn examples_print_the_same_both_ways() {
     .into_iter()
     .filter(|ran| *ran)
     .count();
-    assert!(ran >= 5, "only {ran} examples have a main");
+    assert!(
+        named_filter().is_some() || ran >= 1,
+        "only {ran} examples have a main"
+    );
 }
 
 /// What `examples/accept/terminal-ops.sw` prints, piped, with

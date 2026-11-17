@@ -21,7 +21,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use stitchwort_core::value::set_shortcuts_disabled;
-use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
+use stitchwort_driver::driver::{Session, daily_tier_sample, par_map, with_stack};
 
 const STACK: usize = 64 * 1024 * 1024;
 
@@ -102,25 +102,10 @@ fn named(examples: &[(String, String)]) -> Option<Vec<(String, String)>> {
     Some(chosen)
 }
 
-/// Where the tier's sample starts: `CONV_SHORTCUT_SEED` if set, otherwise
-/// the day (days since 1970, UTC). Every run on one day compares the same
-/// sample, so the rolling check's runs agree; from one day to the next the
-/// sample moves on, so every example is compared within a few days' runs
-/// even though each run takes only a share.
-fn seed() -> u64 {
-    std::env::var("CONV_SHORTCUT_SEED")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| {
-            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-            now.map_or(0, |d| d.as_secs() / 86_400)
-        })
-}
-
 #[test]
 fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
     with_stack(STACK, || {
-        let mut examples = examples();
+        let examples = examples();
         assert!(examples.len() > 250, "only {} examples", examples.len());
         let all = examples.len();
         let named = named(&examples);
@@ -131,10 +116,7 @@ fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
                 // A corpus sweep: a sample below the all tier, starting at
                 // the seed's place, and the count of rejections expected in
                 // proportion.
-                let seed = seed();
-                eprintln!("CONV_SHORTCUT_SEED={seed} (set it to compare the same sample again)");
-                examples.rotate_left((seed % all as u64) as usize);
-                tier_sample(examples, BROAD_STRIDE)
+                daily_tier_sample(examples, BROAD_STRIDE, "CONV_SHORTCUT_SEED")
             }
         };
         let verdicts = par_map(STACK, &examples, |(name, text)| {
