@@ -2350,7 +2350,9 @@ theorem shareAboveAt ∀ (width: Float) (v e: Nat)
 theorem shareAbove ∀ (width: Float)
     (wLo: 1e-11 <= width)
     (wHi: width <= 180.0):
-    Int.leq (Int.add (Float.Theory.units (0.85 * width)) (OfNat (Float.Model.pow2 1030 * 16))) (Float.Theory.units width)
+    Int.leq
+      (Int.add (Float.Theory.units (0.85 * width)) (OfNat (Float.Model.pow2 1030 * 16)))
+      (Float.Theory.units width)
       = True :=
   shareAboveAt width
     (Float.Model.pow2 1021)
@@ -2829,10 +2831,7 @@ theorem floorFinite360 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.
     Eq.trans
       (Float.Theory.floorOfBits x)
       (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a (Float.Theory.finiteBits x fx)))
-  J
-    (k w => Float.isFinite k = True)
-    (wholeAtFacts f s (natAbs361 f fb)).left
-    (wholeAtOf (Float.floor x) f s fl).flipped
+  J (k w => Float.isFinite k = True) (wholeAtFacts f s (natAbs361 f fb)).left (wholeAtOf (Float.floor x) f s fl).flipped
 
 --| The ceiling of a double from -360° to 360° is finite.
 theorem ceilFinite360 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (Float.ceil x) = True :=
@@ -2863,14 +2862,24 @@ theorem leAddNat ∀ (a b: Int) (p: Nat) (h: Int.leq a b = True): Int.leq a (Int
 --| `floorTo x 0.1` for `|x| ≤ 360` is a tenth within 361°, so finite.
 theorem floorTenthFinite ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (floorTo x 0.1) = True :=
   let bounds := Bool.andRight (Bool.andRight (Bool.andRight (floorTenthsChecked x lo hi)))
-  (Float.finiteBetween (-361.0) (tenthOf (Float.floor (x / 0.1))) 361.0 byComputing byComputing
+  (Float.finiteBetween
+    (-361.0)
+    (tenthOf (Float.floor (x / 0.1)))
+    361.0
+    byComputing
+    byComputing
     (Bool.andLeft bounds)
     (Bool.andRight bounds): Float.isFinite (tenthOf (Float.floor (x / 0.1))) = True)
 
 --| `ceilTo x 0.1` for `|x| ≤ 360` is a tenth within 361°, so finite.
 theorem ceilTenthFinite ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.isFinite (ceilTo x 0.1) = True :=
   let bounds := Bool.andRight (Bool.andRight (Bool.andRight (ceilTenthsChecked x lo hi)))
-  (Float.finiteBetween (-361.0) (tenthOf (Float.ceil (x / 0.1))) 361.0 byComputing byComputing
+  (Float.finiteBetween
+    (-361.0)
+    (tenthOf (Float.ceil (x / 0.1)))
+    361.0
+    byComputing
+    byComputing
     (Bool.andLeft bounds)
     (Bool.andRight bounds): Float.isFinite (tenthOf (Float.ceil (x / 0.1))) = True)
 
@@ -2890,7 +2899,9 @@ theorem floorStepBound ∀ (x width: Float)
       J
         (s z =>
           (Float.isFinite (floorTo x s) = True)
-            ∧ (Int.leq (Float.Theory.units (floorTo x s)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+            ∧ (Int.leq
+              (Float.Theory.units (floorTo x s))
+              (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
               = True))
         (Both (floorTenthFinite x lo hi) (floorToTenthBound x lo hi))
         e.flipped
@@ -2908,12 +2919,15 @@ theorem floorStepBound ∀ (x width: Float)
       J
         (s z =>
           (Float.isFinite (floorTo x s) = True)
-            ∧ (Int.leq (Float.Theory.units (floorTo x s)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+            ∧ (Int.leq
+              (Float.Theory.units (floorTo x s))
+              (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
               = True))
         (J
           (y z =>
             (Float.isFinite y = True)
-              ∧ (Int.leq (Float.Theory.units y) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032))) = True))
+              ∧ (Int.leq (Float.Theory.units y) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
+                = True))
           (Both (floorFinite360 x lo hi) b)
           w.flipped)
         e.flipped
@@ -2934,7 +2948,9 @@ theorem ceilStepBound ∀ (x width: Float)
       J
         (s z =>
           (Float.isFinite (ceilTo x s) = True)
-            ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (ceilTo x s)) (OfNat (Float.Model.pow2 1032)))
+            ∧ (Int.leq
+              (Float.Theory.units x)
+              (Int.add (Float.Theory.units (ceilTo x s)) (OfNat (Float.Model.pow2 1032)))
               = True))
         (Both (ceilTenthFinite x lo hi) (ceilToTenthBound x lo hi))
         e.flipped
@@ -2952,12 +2968,15 @@ theorem ceilStepBound ∀ (x width: Float)
       J
         (s z =>
           (Float.isFinite (ceilTo x s) = True)
-            ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (ceilTo x s)) (OfNat (Float.Model.pow2 1032)))
+            ∧ (Int.leq
+              (Float.Theory.units x)
+              (Int.add (Float.Theory.units (ceilTo x s)) (OfNat (Float.Model.pow2 1032)))
               = True))
         (J
           (y z =>
             (Float.isFinite y = True)
-              ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1032))) = True))
+              ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1032)))
+                = True))
           (Both (ceilFinite360 x lo hi) b)
           w.flipped)
         e.flipped
@@ -2988,12 +3007,23 @@ theorem unclampedFacts ∀ (lat width unit: Float)
   let a: -90.0 - 0.85 * width <= lat - 0.85 * width :=
     Float.subMonotoneLeft (-90.0) lat (0.85 * width) byComputing fl s85.left latLo
   let b: -90.0 - 180.0 <= -90.0 - 0.85 * width :=
-    Float.subAntitoneRight (-90.0) (0.85 * width) 180.0 byComputing s85.left byComputing
+    Float.subAntitoneRight
+      (-90.0)
+      (0.85 * width)
+      180.0
+      byComputing
+      s85.left
+      byComputing
       (floatLeTrans (0.85 * width) width 180.0 s85.right.right wHi)
   let lo: -270.0 <= unc :=
     J
       (y z => y <= unc)
-      (floatLeTrans (-90.0 - 180.0) (lat - 0.85 * width) unc (floatLeTrans (-90.0 - 180.0) (-90.0 - 0.85 * width) (lat - 0.85 * width) b a) row.left)
+      (floatLeTrans
+        (-90.0 - 180.0)
+        (lat - 0.85 * width)
+        unc
+        (floatLeTrans (-90.0 - 180.0) (-90.0 - 0.85 * width) (lat - 0.85 * width) b a)
+        row.left)
       (byComputing: -90.0 - 180.0 = -270.0)
   let lt: unc < lat :=
     Float.Theory.lessOfUnits unc lat
@@ -3001,9 +3031,7 @@ theorem unclampedFacts ∀ (lat width unit: Float)
         (Float.Theory.units unc)
         (Float.Theory.units lat)
         (Float.Model.pow2 1030 * 10)
-        (marginBelowExact lat
-          width
-          unit
+        (marginBelowExact lat width unit
           (floatLeTrans (-361.0) (-90.0) lat byComputing latLo)
           (floatLeTrans lat 90.0 361.0 latHi byComputing)
           wLo
@@ -3039,10 +3067,9 @@ theorem chainBelow ∀ (a b c d: Int) (p q: Nat)
   arithmetic [pq, h1, h2, h3]
 
 --| `floorTo (-90.0)` is -90° at either step.
-theorem floorAtSouthPole ∀ (width: Float): floorTo (-90.0) (stepFor width) = -90.0 :=
-  match stepEither width with
-    | Inl e => J (s z => floorTo (-90.0) s = -90.0) byComputing e.flipped
-    | Inr e => J (s z => floorTo (-90.0) s = -90.0) byComputing e.flipped
+theorem floorAtSouthPole ∀ (width: Float): floorTo (-90.0) (stepFor width) = -90.0 := match stepEither width with
+  | Inl e => J (s z => floorTo (-90.0) s = -90.0) byComputing e.flipped
+  | Inr e => J (s z => floorTo (-90.0) s = -90.0) byComputing e.flipped
 
 --| A latitude band's lower edge is at most the answer, by JS's `<=`, for
 --| the answer within [-90°, 90°], a width from 1e-11° to 180° (`latitudeWidthRange`
@@ -3073,40 +3100,47 @@ theorem latitudeFromBelow ∀ (lat width unit: Float)
   let nt: Float.isNaN (90.0 - width) = False := notNaNOfFinite (90.0 - width) top.left
   let from: Float := Float.min m (90.0 - width)
   let fromM: from <= m := Float.minLeLeft m (90.0 - width) nm nt
-  let fromLo: -90.0 <= from := Float.leMin m (90.0 - width) (-90.0) nm nt (Float.leMaxRight unc (-90.0) nu byComputing) top.right.left
-  let fromHi: from <= 90.0 := floatLeTrans from (90.0 - width) 90.0 (Float.minLeRight m (90.0 - width) nm nt) top.right.right
+  let fromLo: -90.0 <= from :=
+    Float.leMin m (90.0 - width) (-90.0) nm nt (Float.leMaxRight unc (-90.0) nu byComputing) top.right.left
+  let fromHi: from <= 90.0 :=
+    floatLeTrans from (90.0 - width) 90.0 (Float.minLeRight m (90.0 - width) nm nt) top.right.right
   let step: Float := stepFor width
   let fs :=
-    floorStepBound from width (floatLeTrans (-360.0) (-90.0) from byComputing fromLo) (floatLeTrans from 90.0 360.0 fromHi byComputing)
+    floorStepBound from width
+      (floatLeTrans (-360.0) (-90.0) from byComputing fromLo)
+      (floatLeTrans from 90.0 360.0 fromHi byComputing)
   let nf: Float.isNaN (floorTo from step) = False := notNaNOfFinite (floorTo from step) fs.left
-  let below: floorTo from step <= lat := Float.Theory.orCase
-    (Float.maxEither unc (-90.0) nu byComputing)
-    (e =>
-      let fu: from <= unc := J (y z => from <= y) fromM e
-      floatLeOfLt (floorTo from step) lat
-        (Float.Theory.lessOfUnits (floorTo from step) lat
-          (chainBelow
-            (Float.Theory.units (floorTo from step))
-            (Float.Theory.units from)
-            (Float.Theory.units unc)
-            (Float.Theory.units lat)
-            (Float.Model.pow2 1032)
-            (Float.Model.pow2 1030 * 10)
-            byComputing
-            fs.right
-            (Float.Theory.unitsMonoKey from.bits unc.bits fu)
-            (marginBelowExact lat
-              width
-              unit
-              (floatLeTrans (-361.0) (-90.0) lat byComputing latLo)
-              (floatLeTrans lat 90.0 361.0 latHi byComputing)
-              wLo
-              (floatLeTrans width 180.0 361.0 wHi byComputing)
-              low
-              high))))
-    (e =>
-      let atPole: from = -90.0 := Ord.leAntisymm from (-90.0) (J (y z => from <= y) fromM e) fromLo
-      J (y z => floorTo y step <= lat) (J (y z => y <= lat) latLo (floorAtSouthPole width).flipped) atPole.flipped)
+  let below: floorTo from step <= lat :=
+    Float.Theory.orCase
+      (Float.maxEither unc (-90.0) nu byComputing)
+      (e =>
+        let fu: from <= unc := J (y z => from <= y) fromM e
+        floatLeOfLt
+          (floorTo from step)
+          lat
+          (Float.Theory.lessOfUnits
+            (floorTo from step)
+            lat
+            (chainBelow
+              (Float.Theory.units (floorTo from step))
+              (Float.Theory.units from)
+              (Float.Theory.units unc)
+              (Float.Theory.units lat)
+              (Float.Model.pow2 1032)
+              (Float.Model.pow2 1030 * 10)
+              byComputing
+              fs.right
+              (Float.Theory.unitsMonoKey from.bits unc.bits fu)
+              (marginBelowExact lat width unit
+                (floatLeTrans (-361.0) (-90.0) lat byComputing latLo)
+                (floatLeTrans lat 90.0 361.0 latHi byComputing)
+                wLo
+                (floatLeTrans width 180.0 361.0 wHi byComputing)
+                low
+                high))))
+      (e =>
+        let atPole: from = -90.0 := Ord.leAntisymm from (-90.0) (J (y z => from <= y) fromM e) fromLo
+        J (y z => floorTo y step <= lat) (J (y z => y <= lat) latLo (floorAtSouthPole width).flipped) atPole.flipped)
   Float.ieeeLeOfLe
     (Float.max (-90.0) (floorTo from step))
     lat
@@ -3132,18 +3166,22 @@ theorem edgePlusWidth ∀ (from width: Float)
     (-360.0 <= from + width) ∧ (from + width <= 360.0) :=
   let ff: Float.isFinite from = True := Float.finiteBetween (-90.0) from 90.0 byComputing byComputing fromLo fromHi
   let lo: -90.0 + 0.0 <= from + width :=
-    floatLeTrans (-90.0 + 0.0)
+    floatLeTrans
+      (-90.0 + 0.0)
       (from + 0.0)
       (from + width)
       (Float.addMonotoneLeft (-90.0) from 0.0 byComputing ff byComputing fromLo)
       (Float.addMonotone 0.0 width from byComputing fw ff w0)
   let hi: from + width <= 90.0 + 180.0 :=
-    floatLeTrans (from + width)
+    floatLeTrans
+      (from + width)
       (90.0 + width)
       (90.0 + 180.0)
       (Float.addMonotoneLeft from 90.0 width ff byComputing fw fromHi)
       (Float.addMonotone width 180.0 90.0 fw byComputing byComputing wHi)
-  Both (floatLeTrans (-360.0) (-90.0 + 0.0) (from + width) byComputing lo) (floatLeTrans (from + width) (90.0 + 180.0) 360.0 hi byComputing)
+  Both
+    (floatLeTrans (-360.0) (-90.0 + 0.0) (from + width) byComputing lo)
+    (floatLeTrans (from + width) (90.0 + 180.0) 360.0 hi byComputing)
 
 --| The upper edge `to` of a latitude band is at least the answer, by JS's
 --| `<=`, when the band isn't clamped at 90°: its unrounded `from` is the
@@ -3193,16 +3231,16 @@ theorem latitudeToAboveUnclamped ∀ (lat width unit: Float)
         (Float.Model.pow2 1032)
         (Float.Model.pow2 1030 * 10)
         byComputing
-        (marginAboveExact lat
-          width
-          unit
+        (marginAboveExact lat width unit
           (floatLeTrans (-180.0) (-90.0) lat byComputing latLo)
           (floatLeTrans lat 90.0 180.0 latHi byComputing)
           wLo
           wHi
           low
           high)
-        (Float.Theory.unitsMonoKey (unc + width).bits (from + width).bits
+        (Float.Theory.unitsMonoKey
+          (unc + width).bits
+          (from + width).bits
           (Float.addMonotoneLeft unc from width u.left ff fw uf))
         cs.right)
   Float.ieeeLeOfLe lat
@@ -3252,9 +3290,10 @@ theorem halfStep ∀ (c u: Int) (h k p: Nat)
 
 theorem natAbsNeg3601 ∀ (g: Int) (h: Int.natAbs g ≤ 3601): Int.natAbs (Int.neg g) ≤ 9007199254740992 := arithmetic [h]
 
-theorem mulLeOf ∀ (c: Int) (k p: Nat) (h: Int.leq (OfNat k) c = True): Int.leq (OfNat (k * p)) (Int.mul c (OfNat p)) = True :=
-  match c with
-    | OfNat j => arithmetic [Nat.leMulRight k j p (arithmetic [h]), intMulOfNat j p]
+theorem mulLeOf ∀ (c: Int) (k p: Nat)
+    (h: Int.leq (OfNat k) c = True):
+    Int.leq (OfNat (k * p)) (Int.mul c (OfNat p)) = True :=
+  match c with | OfNat j => arithmetic [Nat.leMulRight k j p (arithmetic [h]), intMulOfNat j p]
 
 --| The ceiling of a double `y` within 3600 that is at least `k + 1/2` is at
 --| least `k + 1`, in units: `ceil` gives a whole number of units of 2^1074
@@ -3292,7 +3331,8 @@ theorem ceilAtLeast ∀ (y: Float) (k: Nat)
       (v z => Int.leq v (Int.mul c (OfNat (Float.Model.pow2 1074))) = True)
       (Float.Theory.ceilDivGe s n (Float.Model.pow2 1074) byComputing)
       (Float.Theory.unitsSigned a)
-  let ck := halfStep c (Float.Theory.units y) (Float.Model.pow2 1073) k (Float.Model.pow2 1074) byComputing byComputing hu ge
+  let ck :=
+    halfStep c (Float.Theory.units y) (Float.Model.pow2 1073) k (Float.Model.pow2 1074) byComputing byComputing hu ge
   J
     (v z => Int.leq (OfNat ((k + 1) * Float.Model.pow2 1074)) (Float.Theory.units v) = True)
     (J
@@ -3320,16 +3360,14 @@ theorem nearNinetyArith ∀ (n90 nw dneg q x u: Int) (w: Nat)
 --| above 89.95°: each rounding moves it by at most 2^-43 (`sumNear`). (It is
 --| 90 exactly in a search of millions of widths, but the standard model
 --| alone doesn't show that.)
-theorem nearNinety ∀ (width: Float)
-    (wLo: 1e-11 <= width)
-    (wHi: width <= 180.0):
-    89.95 < 90.0 - width + width :=
+theorem nearNinety ∀ (width: Float) (wLo: 1e-11 <= width) (wHi: width <= 180.0): 89.95 < 90.0 - width + width :=
   let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
   let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
   let nw: Float.isNaN width = False := notNaNOfFinite width fw
   let top := topEdgeRange width fw w0 wHi
   let q: Float := 90.0 - width
-  let dLo: -361.0 <= -width := Float.negAntitone width 361.0 nw byComputing (floatLeTrans width 180.0 361.0 wHi byComputing)
+  let dLo: -361.0 <= -width :=
+    Float.negAntitone width 361.0 nw byComputing (floatLeTrans width 180.0 361.0 wHi byComputing)
   let dHi: -width <= 361.0 :=
     floatLeTrans (-width) (-1e-11) 361.0 (Float.negAntitone 1e-11 width byComputing nw wLo) byComputing
   let s1 := sumNear 90.0 (-width) byComputing byComputing dLo dHi
@@ -3346,8 +3384,7 @@ theorem nearNinety ∀ (width: Float)
       s1.right.left
       (Float.subAddNeg 90.0 width).flipped
   let s2 :=
-    sumNear q
-      width
+    sumNear q width
       (floatLeTrans (-361.0) (-90.0) q byComputing top.right.left)
       (floatLeTrans q 90.0 361.0 top.right.right byComputing)
       (floatLeTrans (-361.0) 0.0 width byComputing w0)
@@ -3382,9 +3419,12 @@ theorem ceilStepAtLeastNinety ∀ (x width: Float)
       let y: Float := x / 0.1
       let pos: 0.0 < 0.1 := byComputing
       let f01: Float.isFinite 0.1 = True := byComputing
-      let yNear: 899.5 <= y := J (z w => z <= y) (Float.divMonotone 89.95 x 0.1 pos f01 near2) (byComputing: 89.95 / 0.1 = 899.5)
-      let yLo: -3600.0 <= y := J (z w => z <= y) (Float.divMonotone (-360.0) x 0.1 pos f01 lo) (byComputing: -360.0 / 0.1 = -3600.0)
-      let yHi: y <= 3600.0 := J (z w => y <= z) (Float.divMonotone x 360.0 0.1 pos f01 hi) (byComputing: 360.0 / 0.1 = 3600.0)
+      let yNear: 899.5 <= y :=
+        J (z w => z <= y) (Float.divMonotone 89.95 x 0.1 pos f01 near2) (byComputing: 89.95 / 0.1 = 899.5)
+      let yLo: -3600.0 <= y :=
+        J (z w => z <= y) (Float.divMonotone (-360.0) x 0.1 pos f01 lo) (byComputing: -360.0 / 0.1 = -3600.0)
+      let yHi: y <= 3600.0 :=
+        J (z w => y <= z) (Float.divMonotone x 360.0 0.1 pos f01 hi) (byComputing: 360.0 / 0.1 = 3600.0)
       let hu: Int.leq (OfNat ((2 * 899 + 1) * Float.Model.pow2 1073)) (Float.Theory.units y) = True :=
         J
           (v z => Int.leq v (Float.Theory.units y) = True)
@@ -3399,7 +3439,8 @@ theorem ceilStepAtLeastNinety ∀ (x width: Float)
             (v z => Int.leq v (Float.Theory.units (Float.ceil y)) = True)
             cu
             (byComputing: OfNat ((899 + 1) * Float.Model.pow2 1074) = Float.Theory.units 900.0))
-      let d: 900.0 / 10.0 <= Float.ceil y / 10.0 := Float.divMonotone 900.0 (Float.ceil y) 10.0 byComputing byComputing c900
+      let d: 900.0 / 10.0 <= Float.ceil y / 10.0 :=
+        Float.divMonotone 900.0 (Float.ceil y) 10.0 byComputing byComputing c900
       let r: 90.0 <= Float.ceil y / 10.0 := J (v z => v <= Float.ceil y / 10.0) d (byComputing: 900.0 / 10.0 = 90.0)
       let r2: 90.0 <= ceilTo x 0.1 := J (v z => 90.0 <= v) r (ceilToTenth x lo hi).flipped
       J (st z => 90.0 <= ceilTo x st) r2 e.flipped)
@@ -3441,7 +3482,8 @@ theorem latitudeToAboveClamped ∀ (lat width unit: Float)
   let r := edgePlusWidth (90.0 - width) width top.right.left top.right.right fw w0 wHi
   let c: Float := ceilTo x (stepFor width)
   let nc: Float.isNaN c = False := notNaNOfFinite c (ceilStepBound x width r.left r.right).left
-  let le: lat <= c := floatLeTrans lat 90.0 c latHi (ceilStepAtLeastNinety x width r.left r.right (nearNinety width wLo wHi))
+  let le: lat <= c :=
+    floatLeTrans lat 90.0 c latHi (ceilStepAtLeastNinety x width r.left r.right (nearNinety width wLo wHi))
   J
     (f z => Float.ieeeLe lat (Float.min 90.0 (ceilTo (f + width) (stepFor width))) = True)
     (Float.ieeeLeOfLe lat
@@ -3499,7 +3541,8 @@ theorem latitudeWidthRange ∀ (tolerance: Float)
     (tolHi: tolerance <= 20000.0):
     (1e-11 <= Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0)
       ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0 <= 180.0) :=
-  let ft: Float.isFinite tolerance = True := Float.finiteBetween 1.2e-10 tolerance 20000.0 byComputing byComputing tolLo tolHi
+  let ft: Float.isFinite tolerance = True :=
+    Float.finiteBetween 1.2e-10 tolerance 20000.0 byComputing byComputing tolLo tolHi
   let k: Float := (earthRadius * pi) / 180.0
   let pos: 0.0 < k := byComputing
   let fk: Float.isFinite k = True := byComputing
@@ -3513,10 +3556,19 @@ theorem latitudeWidthRange ∀ (tolerance: Float)
   let hi: span <= (hintWidthTolerances * 20000.0) / k :=
     Float.divMonotone (hintWidthTolerances * tolerance) (hintWidthTolerances * 20000.0) k pos fk b
   let fs: Float.isFinite span = True :=
-    Float.finiteBetween ((hintWidthTolerances * 1.2e-10) / k) span ((hintWidthTolerances * 20000.0) / k) byComputing byComputing lo hi
+    Float.finiteBetween
+      ((hintWidthTolerances * 1.2e-10) / k)
+      span
+      ((hintWidthTolerances * 20000.0) / k)
+      byComputing
+      byComputing
+      lo
+      hi
   let ns: Float.isNaN span = False := notNaNOfFinite span fs
   Both
-    (Float.leMin span 180.0 1e-11 ns byComputing (floatLeTrans 1e-11 ((hintWidthTolerances * 1.2e-10) / k) span byComputing lo) byComputing)
+    (Float.leMin span 180.0 1e-11 ns byComputing
+      (floatLeTrans 1e-11 ((hintWidthTolerances * 1.2e-10) / k) span byComputing lo)
+      byComputing)
     (Float.minLeRight span 180.0 ns byComputing)
 
 --| The answer is in its latitude hint band, by JS's comparisons, the TypeScript's
@@ -3545,8 +3597,7 @@ theorem answerInLatitudeBand ∀ (answer: LatLon) (tolerance: Km) (unit cosLatit
     (high: unit <= 1.0):
     inHintBand (hintBand answer tolerance Latitude unit cosLatitude) answer = True :=
   let w := latitudeWidthRange tolerance.value tolLo tolHi
-  latitudeBandContains answer.lat.value
-    answer.lon.value
+  latitudeBandContains answer.lat.value answer.lon.value
     (Float.min (kmToDegrees (hintWidthTolerances * tolerance.value)) 180.0)
     unit
     latLo
@@ -3592,8 +3643,7 @@ theorem remStepArith ∀ (s: Bool) (m q d r: Nat) (ux ur qd: Int)
     (low: q * d ≤ m)
     (rr: r = m - q * d)
     (high: m < Succ q * d):
-    (Int.add ur qd = ux)
-      ∧ ((Int.natAbs ur < d) ∧ (Int.leq (OfNat 0) ux = True → Int.leq (OfNat 0) ur = True)) :=
+    (Int.add ur qd = ux) ∧ ((Int.natAbs ur < d) ∧ (Int.leq (OfNat 0) ux = True → Int.leq (OfNat 0) ur = True)) :=
   let lt: m < q * d + d := arithmetic [high, Float.Theory.succMul q d]
   match s with
     | False => Both (arithmetic [eu, er, eq, eqd, low, rr]) (Both (arithmetic [er, rr, lt, low]) (n => arithmetic [er]))
@@ -3608,7 +3658,8 @@ theorem remStepArith ∀ (s: Bool) (m q d r: Nat) (ux ur qd: Int)
 theorem remStep ∀ (x: Float)
     (fx: Float.isFinite x = True)
     [goal: Prop]
-    (k: ∀ (t: Int) => Int.add (Float.Theory.units (x % 360.0)) (Int.mul t (Float.Theory.units 360.0)) = Float.Theory.units x
+    (k: ∀ (t: Int) => Int.add (Float.Theory.units (x % 360.0)) (Int.mul t (Float.Theory.units 360.0))
+      = Float.Theory.units x
       → Int.natAbs (Float.Theory.units (x % 360.0)) < Int.natAbs (Float.Theory.units 360.0)
       → (Int.leq (OfNat 0) (Float.Theory.units x) = True → Int.leq (OfNat 0) (Float.Theory.units (x % 360.0)) = True)
       → goal):
@@ -3622,10 +3673,7 @@ theorem remStep ∀ (x: Float)
   let high: m < Succ q * d := Nat.divFuelBound m m d (Nat.nonzeroOfPos d dpos) (Nat.leRefl m)
   let du: Float.Theory.units 360.0 = OfNat d := byComputing
   let sa :=
-    remStepArith s
-      m
-      q
-      d
+    remStepArith s m q d
       (m - q * d)
       (Float.Theory.units x)
       (Float.Theory.units (x % 360.0))
@@ -3637,7 +3685,11 @@ theorem remStep ∀ (x: Float)
       low
       byComputing
       high
-  k (Int.signed s q) sa.left (J (v z => Int.natAbs (Float.Theory.units (x % 360.0)) < v) sa.right.left (Eq.cong Int.natAbs du).flipped) sa.right.right
+  k
+    (Int.signed s q)
+    sa.left
+    (J (v z => Int.natAbs (Float.Theory.units (x % 360.0)) < v) sa.right.left (Eq.cong Int.natAbs du).flipped)
+    sa.right.right
 
 theorem remainderWithin ∀ (u lo hi a: Int) (d p: Nat)
     (el: lo = Int.neg (OfNat (p * 361)))
@@ -3664,7 +3716,9 @@ theorem wrapNearArith ∀ (ux us1 ur1 us2 ur2 uw h u nh t1u t2u tu: Int) (w: Nat
     (dist: tu = Int.sub (Int.add t1u t2u) u):
     (Int.leq uw (Int.add (Int.sub ux tu) (OfNat (w * 6))) = True)
       ∧ (Int.leq (Int.sub ux tu) (Int.add uw (OfNat (w * 6))) = True) :=
-  Both (arithmetic [n1a, n1b, e1, n2a, n2b, e2, n3a, n3b, enh, dist]) (arithmetic [n1a, n1b, e1, n2a, n2b, e2, n3a, n3b, enh, dist])
+  Both
+    (arithmetic [n1a, n1b, e1, n2a, n2b, e2, n3a, n3b, enh, dist])
+    (arithmetic [n1a, n1b, e1, n2a, n2b, e2, n3a, n3b, enh, dist])
 
 --| `wrap x`, for `x` within 361°, is `x` less a whole number `c` of 360s to
 --| within 6 · 2^-44, in exact units: each `%` is exact (`remStep`) and each
@@ -3677,7 +3731,9 @@ theorem wrapNear ∀ (x: Float)
     [goal: Prop]
     (k: ∀ (c: Int) => Int.leq
       (Float.Theory.units (wrap x))
-      (Int.add (Int.sub (Float.Theory.units x) (Int.mul c (Float.Theory.units 360.0))) (OfNat (Float.Model.pow2 1030 * 6)))
+      (Int.add
+        (Int.sub (Float.Theory.units x) (Int.mul c (Float.Theory.units 360.0)))
+        (OfNat (Float.Model.pow2 1030 * 6)))
       = True
       → Int.leq
         (Int.sub (Float.Theory.units x) (Int.mul c (Float.Theory.units 360.0)))
@@ -3686,13 +3742,27 @@ theorem wrapNear ∀ (x: Float)
       → goal):
     goal :=
   let n1 := sumNear x 180.0 lo hi byComputing byComputing
-  remStep (x + 180.0)
-    n1.left
-    (t1 e1 a1 g1 =>
-      let r1: Float := (x + 180.0) % 360.0
-      let w1 :=
+  remStep (x + 180.0) n1.left (t1 e1 a1 g1 =>
+    let r1: Float := (x + 180.0) % 360.0
+    let w1 :=
+      remainderWithin
+        (Float.Theory.units r1)
+        (Float.Theory.units (-361.0))
+        (Float.Theory.units 361.0)
+        (Float.Theory.units 360.0)
+        0
+        (Float.Model.pow2 1074)
+        byComputing
+        byComputing
+        byComputing
+        a1
+    let b1 := within361OfUnits r1 w1.left w1.right
+    let n2 := sumNear r1 360.0 b1.left b1.right byComputing byComputing
+    remStep (r1 + 360.0) n2.left (t2 e2 a2 g2 =>
+      let r2: Float := (r1 + 360.0) % 360.0
+      let w2 :=
         remainderWithin
-          (Float.Theory.units r1)
+          (Float.Theory.units r2)
           (Float.Theory.units (-361.0))
           (Float.Theory.units 361.0)
           (Float.Theory.units 360.0)
@@ -3701,101 +3771,85 @@ theorem wrapNear ∀ (x: Float)
           byComputing
           byComputing
           byComputing
-          a1
-      let b1 := within361OfUnits r1 w1.left w1.right
-      let n2 := sumNear r1 360.0 b1.left b1.right byComputing byComputing
-      remStep (r1 + 360.0)
-        n2.left
-        (t2 e2 a2 g2 =>
-          let r2: Float := (r1 + 360.0) % 360.0
-          let w2 :=
-            remainderWithin
-              (Float.Theory.units r2)
-              (Float.Theory.units (-361.0))
-              (Float.Theory.units 361.0)
-              (Float.Theory.units 360.0)
-              0
-              (Float.Model.pow2 1074)
-              byComputing
-              byComputing
-              byComputing
-              a2
-          let b2 := within361OfUnits r2 w2.left w2.right
-          let n3 := sumNear r2 (-180.0) b2.left b2.right byComputing byComputing
-          let e3: r2 + -180.0 = wrap x := (Float.subAddNeg r2 180.0).flipped
-          let n3a: Int.leq
-            (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
-            (Int.add (Float.Theory.units (wrap x)) (OfNat (Float.Model.pow2 1030 * 2)))
-            = True :=
-            J
-              (y z =>
-                Int.leq
-                  (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
-                  (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1030 * 2)))
-                  = True)
-              n3.right.left
-              e3
-          let n3b: Int.leq
-            (Float.Theory.units (wrap x))
-            (Int.add (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0))) (OfNat (Float.Model.pow2 1030 * 2)))
-            = True :=
-            J
-              (y z =>
-                Int.leq
-                  (Float.Theory.units y)
-                  (Int.add (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0))) (OfNat (Float.Model.pow2 1030 * 2)))
-                  = True)
-              n3.right.right
-              e3
-          let c: Int := Int.sub (Int.add t1 t2) (OfNat 1)
-          let r :=
-            wrapNearArith
-              (Float.Theory.units x)
-              (Float.Theory.units (x + 180.0))
-              (Float.Theory.units r1)
-              (Float.Theory.units (r1 + 360.0))
-              (Float.Theory.units r2)
-              (Float.Theory.units (wrap x))
-              (Float.Theory.units 180.0)
-              (Float.Theory.units 360.0)
-              (Float.Theory.units (-180.0))
-              (Int.mul t1 (Float.Theory.units 360.0))
-              (Int.mul t2 (Float.Theory.units 360.0))
-              (Int.mul c (Float.Theory.units 360.0))
-              (Float.Model.pow2 1030)
-              n1.right.left
-              n1.right.right
-              e1
-              n2.right.left
-              n2.right.right
-              e2
-              n3a
-              n3b
-              byComputing
-              (turnsDistribute t1 t2 (Float.Theory.units 360.0))
-          k c r.left r.right))
+          a2
+      let b2 := within361OfUnits r2 w2.left w2.right
+      let n3 := sumNear r2 (-180.0) b2.left b2.right byComputing byComputing
+      let e3: r2 + -180.0 = wrap x := (Float.subAddNeg r2 180.0).flipped
+      let n3a: Int.leq
+        (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
+        (Int.add (Float.Theory.units (wrap x)) (OfNat (Float.Model.pow2 1030 * 2)))
+        = True :=
+        J
+          (y z =>
+            Int.leq
+              (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
+              (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1030 * 2)))
+              = True)
+          n3.right.left
+          e3
+      let n3b: Int.leq
+        (Float.Theory.units (wrap x))
+        (Int.add (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0))) (OfNat (Float.Model.pow2 1030 * 2)))
+        = True :=
+        J
+          (y z =>
+            Int.leq
+              (Float.Theory.units y)
+              (Int.add
+                (Int.add (Float.Theory.units r2) (Float.Theory.units (-180.0)))
+                (OfNat (Float.Model.pow2 1030 * 2)))
+              = True)
+          n3.right.right
+          e3
+      let c: Int := Int.sub (Int.add t1 t2) (OfNat 1)
+      let r :=
+        wrapNearArith
+          (Float.Theory.units x)
+          (Float.Theory.units (x + 180.0))
+          (Float.Theory.units r1)
+          (Float.Theory.units (r1 + 360.0))
+          (Float.Theory.units r2)
+          (Float.Theory.units (wrap x))
+          (Float.Theory.units 180.0)
+          (Float.Theory.units 360.0)
+          (Float.Theory.units (-180.0))
+          (Int.mul t1 (Float.Theory.units 360.0))
+          (Int.mul t2 (Float.Theory.units 360.0))
+          (Int.mul c (Float.Theory.units 360.0))
+          (Float.Model.pow2 1030)
+          n1.right.left
+          n1.right.right
+          e1
+          n2.right.left
+          n2.right.right
+          e2
+          n3a
+          n3b
+          byComputing
+          (turnsDistribute t1 t2 (Float.Theory.units 360.0))
+      k c r.left r.right))
 
 --| A whole number of turns `c · d` strictly between `-2d` and `2d` is `-d`, 0 or `d`.
 theorem turnTimes ∀ (c: Int) (d: Nat)
     (lo: Int.less (Int.neg (OfNat (d * 2))) (Int.mul c (OfNat d)) = True)
     (hi: Int.less (Int.mul c (OfNat d)) (OfNat (d * 2)) = True):
     (Int.mul c (OfNat d) = Int.neg (OfNat d)) ∨ ((Int.mul c (OfNat d) = OfNat 0) ∨ (Int.mul c (OfNat d) = OfNat d)) :=
-      match c with
-        | OfNat j =>
-          match j with
-            | Zero => Inr (Inl algebra)
-            | Succ Zero => Inr (Inr algebra)
-            | Succ (Succ n) =>
-              let e: Int.mul (OfNat (Succ (Succ n))) (OfNat d) = OfNat (Succ (Succ n) * d) := intMulOfNat (Succ (Succ n)) d
-              let big: 2 * d ≤ Succ (Succ n) * d := Nat.leMulRight 2 (Succ (Succ n)) d (arithmetic)
-              Void.impossible (arithmetic [hi, e, big])
-        | NegSucc j =>
-          match j with
-            | Zero => Inl algebra
-            | Succ n =>
-              let e := intMulNegSucc (Succ n) d
-              let big: 2 * d ≤ (Succ n + 1) * d := Nat.leMulRight 2 (Succ n + 1) d (arithmetic)
-              Void.impossible (arithmetic [lo, e, big])
+  match c with
+    | OfNat j =>
+      match j with
+        | Zero => Inr (Inl algebra)
+        | Succ Zero => Inr (Inr algebra)
+        | Succ (Succ n) =>
+          let e: Int.mul (OfNat (Succ (Succ n))) (OfNat d) = OfNat (Succ (Succ n) * d) := intMulOfNat (Succ (Succ n)) d
+          let big: 2 * d ≤ Succ (Succ n) * d := Nat.leMulRight 2 (Succ (Succ n)) d (arithmetic)
+          Void.impossible (arithmetic [hi, e, big])
+    | NegSucc j =>
+      match j with
+        | Zero => Inl algebra
+        | Succ n =>
+          let e := intMulNegSucc (Succ n) d
+          let big: 2 * d ≤ (Succ n + 1) * d := Nat.leMulRight 2 (Succ n + 1) d (arithmetic)
+          Void.impossible (arithmetic [lo, e, big])
 
 --| Where the wrapped edges `F` and `T` fall against the answer `l`, in
 --| exact units: either `F ≤ l ≤ T` with neither wrapped across ±180°, or
@@ -3825,29 +3879,31 @@ theorem longitudeCases ∀ (ua ub ul uF uT mA mB h u: Int) (w: Nat)
     (tB: (mB = Int.neg u) ∨ ((mB = OfNat 0) ∨ (mB = u))):
     ((Int.less uF ul = True) ∧ (Int.less ul uT = True))
       ∨ (((Int.less uT uF = True) ∧ (Int.less ul uT = True)) ∨ ((Int.less uT uF = True) ∧ (Int.less uF ul = True))) :=
-  Float.Theory.orCase
-    tA
+  Float.Theory.orCase tA
     (a1 =>
-      Float.Theory.orCase
-        tB
+      Float.Theory.orCase tB
         (b1 => Void.impossible (arithmetic [hu, small, fA, gA, fB, gB, fHi, tLo, tHi, lLo, aBelow, bAbove, a1, b1]))
         (rest =>
-          Float.Theory.orCase
-            rest
-            (b0 => Inr (Inl (Both (arithmetic [hu, small, fA, gA, fB, gB, narrow, a1, b0]) (arithmetic [hu, small, fB, gB, bAbove, b0]))))
+          Float.Theory.orCase rest
+            (b0 =>
+              Inr
+                (Inl
+                  (Both
+                    (arithmetic [hu, small, fA, gA, fB, gB, narrow, a1, b0])
+                    (arithmetic [hu, small, fB, gB, bAbove, b0]))))
             (b2 => Void.impossible (arithmetic [hu, small, fA, gA, fB, gB, fHi, tLo, narrow, a1, b2]))))
     (rest =>
-      Float.Theory.orCase
-        rest
+      Float.Theory.orCase rest
         (a0 =>
-          Float.Theory.orCase
-            tB
-            (b1 => Void.impossible (arithmetic [hu, small, gB, tHi, lLo, bAbove, b1]))
-            (rest2 =>
-              Float.Theory.orCase
-                rest2
-                (b0 => Inl (Both (arithmetic [hu, small, fA, aBelow, a0]) (arithmetic [hu, small, gB, bAbove, b0])))
-                (b2 => Inr (Inr (Both (arithmetic [hu, small, fA, gA, fB, gB, narrow, a0, b2]) (arithmetic [hu, small, fA, aBelow, a0]))))))
+          Float.Theory.orCase tB (b1 => Void.impossible (arithmetic [hu, small, gB, tHi, lLo, bAbove, b1])) (rest2 =>
+            Float.Theory.orCase rest2
+              (b0 => Inl (Both (arithmetic [hu, small, fA, aBelow, a0]) (arithmetic [hu, small, gB, bAbove, b0])))
+              (b2 =>
+                Inr
+                  (Inr
+                    (Both
+                      (arithmetic [hu, small, fA, gA, fB, gB, narrow, a0, b2])
+                      (arithmetic [hu, small, fA, aBelow, a0]))))))
         (a2 => Void.impossible (arithmetic [hu, small, gA, fLo, lHi, aBelow, a2])))
 
 --| `turnTimes` for a turn `u` given as an equation.
@@ -3970,10 +4026,9 @@ theorem inLongitudeOfCases ∀ (from to lon: Float)
         ∨ ((Int.less (Float.Theory.units to) (Float.Theory.units from) = True)
           ∧ (Int.less (Float.Theory.units from) (Float.Theory.units lon) = True)))):
     (if Float.ieeeLe from to then Float.ieeeLe from lon ∧ Float.ieeeLe lon to
-    else Float.ieeeLe from lon ∨ Float.ieeeLe lon to)
+     else Float.ieeeLe from lon ∨ Float.ieeeLe lon to)
       = True :=
-  Float.Theory.orCase
-    sides
+  Float.Theory.orCase sides
     (c =>
       let below := ieeeLeOfUnitsLess from lon nf nl c.left
       let above := ieeeLeOfUnitsLess lon to nl nt c.right
@@ -3981,8 +4036,7 @@ theorem inLongitudeOfCases ∀ (from to lon: Float)
         | True => Bool.andIntro below above
         | False => Bool.orLeft below)
     (rest =>
-      Float.Theory.orCase
-        rest
+      Float.Theory.orCase rest
         (c => rewrite notIeeeLeOfUnits from to c.left then Bool.orRight (ieeeLeOfUnitsLess lon to nl nt c.right))
         (c => rewrite notIeeeLeOfUnits from to c.left then Bool.orLeft (ieeeLeOfUnitsLess from lon nf nl c.right)))
 
@@ -4006,12 +4060,23 @@ theorem longitudeFromRange ∀ (lon width unit: Float)
   let a: -180.0 - 0.85 * width <= lon - 0.85 * width :=
     Float.subMonotoneLeft (-180.0) lon (0.85 * width) byComputing fl s85.left lonLo
   let b: -180.0 - 120.0 <= -180.0 - 0.85 * width :=
-    Float.subAntitoneRight (-180.0) (0.85 * width) 120.0 byComputing s85.left byComputing
+    Float.subAntitoneRight
+      (-180.0)
+      (0.85 * width)
+      120.0
+      byComputing
+      s85.left
+      byComputing
       (floatLeTrans (0.85 * width) width 120.0 s85.right.right wHi)
   let lo: -300.0 <= from :=
     J
       (y z => y <= from)
-      (floatLeTrans (-180.0 - 120.0) (lon - 0.85 * width) from (floatLeTrans (-180.0 - 120.0) (-180.0 - 0.85 * width) (lon - 0.85 * width) b a) row.left)
+      (floatLeTrans
+        (-180.0 - 120.0)
+        (lon - 0.85 * width)
+        from
+        (floatLeTrans (-180.0 - 120.0) (-180.0 - 0.85 * width) (lon - 0.85 * width) b a)
+        row.left)
       (byComputing: -180.0 - 120.0 = -300.0)
   let lt: from < lon :=
     Float.Theory.lessOfUnits from lon
@@ -4019,9 +4084,7 @@ theorem longitudeFromRange ∀ (lon width unit: Float)
         (Float.Theory.units from)
         (Float.Theory.units lon)
         (Float.Model.pow2 1030 * 10)
-        (marginBelowExact lon
-          width
-          unit
+        (marginBelowExact lon width unit
           (floatLeTrans (-361.0) (-180.0) lon byComputing lonLo)
           (floatLeTrans lon 180.0 361.0 lonHi byComputing)
           wLo
@@ -4041,18 +4104,22 @@ theorem lonEdgePlusWidth ∀ (from width: Float)
     (-360.0 <= from + width) ∧ (from + width <= 360.0) :=
   let ff: Float.isFinite from = True := Float.finiteBetween (-300.0) from 180.0 byComputing byComputing fromLo fromHi
   let lo: -300.0 + 0.0 <= from + width :=
-    floatLeTrans (-300.0 + 0.0)
+    floatLeTrans
+      (-300.0 + 0.0)
       (from + 0.0)
       (from + width)
       (Float.addMonotoneLeft (-300.0) from 0.0 byComputing ff byComputing fromLo)
       (Float.addMonotone 0.0 width from byComputing fw ff w0)
   let hi: from + width <= 180.0 + 120.0 :=
-    floatLeTrans (from + width)
+    floatLeTrans
+      (from + width)
       (180.0 + width)
       (180.0 + 120.0)
       (Float.addMonotoneLeft from 180.0 width ff byComputing fw fromHi)
       (Float.addMonotone width 120.0 180.0 fw byComputing byComputing wHi)
-  Both (floatLeTrans (-360.0) (-300.0 + 0.0) (from + width) byComputing lo) (floatLeTrans (from + width) (180.0 + 120.0) 360.0 hi byComputing)
+  Both
+    (floatLeTrans (-360.0) (-300.0 + 0.0) (from + width) byComputing lo)
+    (floatLeTrans (from + width) (180.0 + 120.0) 360.0 hi byComputing)
 
 --| The answer is in its longitude band, by JS's comparisons and the band's
 --| wrapped reading (`from > to` is `[from, 180) ∪ [-180, to]`), for a
@@ -4076,11 +4143,15 @@ theorem longitudeBandContains ∀ (lat lon width unit: Float)
     (high: unit <= 1.0)
     (floorCoarse: ∀ (x: Float) => -360.0 <= x
       → x <= 360.0
-      → Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x (stepFor width))) (Float.Theory.units 2.0))
+      → Int.leq
+        (Float.Theory.units x)
+        (Int.add (Float.Theory.units (floorTo x (stepFor width))) (Float.Theory.units 2.0))
         = True)
     (ceilCoarse: ∀ (x: Float) => -360.0 <= x
       → x <= 360.0
-      → Int.leq (Float.Theory.units (ceilTo x (stepFor width))) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0))
+      → Int.leq
+        (Float.Theory.units (ceilTo x (stepFor width)))
+        (Int.add (Float.Theory.units x) (Float.Theory.units 2.0))
         = True):
     inHintBand (longitudeBand lon width (placeAt unit)) (point lat lon) = True :=
   let lonLe: lon <= 180.0 := floatLeOfLt lon 180.0 lonHi
@@ -4099,8 +4170,7 @@ theorem longitudeBandContains ∀ (lat lon width unit: Float)
   let b: Float := ceilTo (from + width) step
   let cs := ceilStepBound (from + width) width r.left r.right
   let sw :=
-    sumNear from
-      width
+    sumNear from width
       (floatLeTrans (-361.0) (-300.0) from byComputing fr.right.left)
       (floatLeTrans from 180.0 361.0 fr.right.right byComputing)
       (floatLeTrans (-361.0) 0.0 width byComputing w0)
@@ -4121,32 +4191,31 @@ theorem longitudeBandContains ∀ (lat lon width unit: Float)
       (Float.Theory.units 361.0)
       (Float.Theory.units (-361.0))
       (Float.Model.pow2 1030)
-      (J (q z => Int.leq (Float.Theory.units a) (Int.add (Float.Theory.units from) (OfNat q)) = True) fs.right (byComputing: Float.Model.pow2 1032 = Float.Model.pow2 1030 * 4))
-      (marginBelowExact lon
-        width
-        unit
+      (J
+        (q z => Int.leq (Float.Theory.units a) (Int.add (Float.Theory.units from) (OfNat q)) = True)
+        fs.right
+        (byComputing: Float.Model.pow2 1032 = Float.Model.pow2 1030 * 4))
+      (marginBelowExact lon width unit
         (floatLeTrans (-361.0) (-180.0) lon byComputing lonLo)
         (floatLeTrans lon 180.0 361.0 lonLe byComputing)
         wLo
         (floatLeTrans width 120.0 361.0 wHi byComputing)
         low
         high)
-      (J (q z => Int.leq (Float.Theory.units (from + width)) (Int.add (Float.Theory.units b) (OfNat q)) = True) cs.right (byComputing: Float.Model.pow2 1032 = Float.Model.pow2 1030 * 4))
-      (marginAboveExact lon
-        width
-        unit
-        lonLo
-        lonLe
-        wLo
-        (floatLeTrans width 120.0 180.0 wHi byComputing)
-        low
-        high)
+      (J
+        (q z => Int.leq (Float.Theory.units (from + width)) (Int.add (Float.Theory.units b) (OfNat q)) = True)
+        cs.right
+        (byComputing: Float.Model.pow2 1032 = Float.Model.pow2 1030 * 4))
+      (marginAboveExact lon width unit lonLo lonLe wLo (floatLeTrans width 120.0 180.0 wHi byComputing) low high)
       (floorCoarse from fromLo fromHi)
       (ceilCoarse (from + width) r.left r.right)
       sw.right.right
       (Float.Theory.unitsMonoKey width.bits 120.0.bits wHi)
       (Float.Theory.unitsMonoKey (-300.0).bits from.bits fr.right.left)
-      (J (q z => Int.leq q (Float.Theory.units lon) = True) (Float.Theory.unitsMonoKey (-180.0).bits lon.bits lonLo) (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0)))
+      (J
+        (q z => Int.leq q (Float.Theory.units lon) = True)
+        (Float.Theory.unitsMonoKey (-180.0).bits lon.bits lonLo)
+        (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0)))
       (Float.Theory.unitsMonoKey lon.bits 180.0.bits lonLe)
       byComputing
       byComputing
@@ -4162,71 +4231,138 @@ theorem longitudeBandContains ∀ (lat lon width unit: Float)
   let ra := wrapRange a fa
   let rb := wrapRange b fb
   let nF: Float.isNaN (wrap a) = False :=
-    notNaNOfFinite (wrap a) (Float.finiteBetween (-180.0) (wrap a) 180.0 byComputing byComputing ra.left (floatLeOfLt (wrap a) 180.0 ra.right))
+    notNaNOfFinite
+      (wrap a)
+      (Float.finiteBetween
+        (-180.0)
+        (wrap a)
+        180.0
+        byComputing
+        byComputing
+        ra.left
+        (floatLeOfLt (wrap a) 180.0 ra.right))
   let nT: Float.isNaN (wrap b) = False :=
-    notNaNOfFinite (wrap b) (Float.finiteBetween (-180.0) (wrap b) 180.0 byComputing byComputing rb.left (floatLeOfLt (wrap b) 180.0 rb.right))
-  wrapNear a
-    aIn.left
-    aIn.right
-    (ca fA gA =>
-      wrapNear b
-        bIn.left
-        bIn.right
-        (cb fB gB =>
-          let u: Int := Float.Theory.units 360.0
-          let h: Int := Float.Theory.units 180.0
-          let fLo: Int.leq (Int.neg h) (Float.Theory.units (wrap a)) = True :=
-            J (q z => Int.leq q (Float.Theory.units (wrap a)) = True) (Float.Theory.unitsMonoKey (-180.0).bits (wrap a).bits ra.left) (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0))
-          let fHi: Int.leq (Float.Theory.units (wrap a)) h = True :=
-            Float.Theory.unitsMonoKey (wrap a).bits 180.0.bits (floatLeOfLt (wrap a) 180.0 ra.right)
-          let tLo: Int.leq (Int.neg h) (Float.Theory.units (wrap b)) = True :=
-            J (q z => Int.leq q (Float.Theory.units (wrap b)) = True) (Float.Theory.unitsMonoKey (-180.0).bits (wrap b).bits rb.left) (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0))
-          let tHi: Int.leq (Float.Theory.units (wrap b)) h = True :=
-            Float.Theory.unitsMonoKey (wrap b).bits 180.0.bits (floatLeOfLt (wrap b) 180.0 rb.right)
-          let tbA :=
-            turnBounds (Float.Theory.units a) (Float.Theory.units (wrap a)) (Int.mul ca u) h u (Float.Model.pow2 1030) (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0)) (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True) fA gA fLo fHi
-              e.right.left.right.left
-              (belowTurn (Float.Theory.units a) (Float.Theory.units lon) h u (Float.Model.pow2 1030) e.left.left (Float.Theory.unitsMonoKey lon.bits 180.0.bits lonLe) (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0)) (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True))
-          let tbB :=
-            turnBounds (Float.Theory.units b) (Float.Theory.units (wrap b)) (Int.mul cb u) h u (Float.Model.pow2 1030) (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0)) (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True) fB gB tLo tHi
-              (aboveNegTurn (Float.Theory.units b) (Float.Theory.units lon) h u (Float.Model.pow2 1030) e.left.right (J (q z => Int.leq q (Float.Theory.units lon) = True) (Float.Theory.unitsMonoKey (-180.0).bits lon.bits lonLo) (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0))) (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0)) (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True))
-              e.right.left.right.right
-          inLongitudeOfCases (wrap a)
-            (wrap b)
-            lon
-            nF
-            nT
-            nl
-            (longitudeCases
-              (Float.Theory.units a)
-              (Float.Theory.units b)
-              (Float.Theory.units lon)
-              (Float.Theory.units (wrap a))
-              (Float.Theory.units (wrap b))
-              (Int.mul ca u)
-              (Int.mul cb u)
-              h
-              u
-              (Float.Model.pow2 1030)
-              (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0))
-              (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True)
-              fA
-              gA
-              fB
-              gB
-              fLo
-              fHi
-              tLo
-              tHi
-              (J (q z => Int.leq q (Float.Theory.units lon) = True) (Float.Theory.unitsMonoKey (-180.0).bits lon.bits lonLo) (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0)))
-              (Float.Theory.unitsMonoKey lon.bits 180.0.bits lonLe)
-              e.left.left
-              e.left.right
-              e.right.left.left
-              e.right.left.right.left
-              e.right.left.right.right
-              (turnTimesOf ca u (Int.natAbs u) byComputing tbA.left tbA.right)
-              (turnTimesOf cb u (Int.natAbs u) byComputing tbB.left tbB.right))))
+    notNaNOfFinite
+      (wrap b)
+      (Float.finiteBetween
+        (-180.0)
+        (wrap b)
+        180.0
+        byComputing
+        byComputing
+        rb.left
+        (floatLeOfLt (wrap b) 180.0 rb.right))
+  wrapNear a aIn.left aIn.right (ca fA gA =>
+    wrapNear b bIn.left bIn.right (cb fB gB =>
+      let u: Int := Float.Theory.units 360.0
+      let h: Int := Float.Theory.units 180.0
+      let fLo: Int.leq (Int.neg h) (Float.Theory.units (wrap a)) = True :=
+        J
+          (q z => Int.leq q (Float.Theory.units (wrap a)) = True)
+          (Float.Theory.unitsMonoKey (-180.0).bits (wrap a).bits ra.left)
+          (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0))
+      let fHi: Int.leq (Float.Theory.units (wrap a)) h = True :=
+        Float.Theory.unitsMonoKey (wrap a).bits 180.0.bits (floatLeOfLt (wrap a) 180.0 ra.right)
+      let tLo: Int.leq (Int.neg h) (Float.Theory.units (wrap b)) = True :=
+        J
+          (q z => Int.leq q (Float.Theory.units (wrap b)) = True)
+          (Float.Theory.unitsMonoKey (-180.0).bits (wrap b).bits rb.left)
+          (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0))
+      let tHi: Int.leq (Float.Theory.units (wrap b)) h = True :=
+        Float.Theory.unitsMonoKey (wrap b).bits 180.0.bits (floatLeOfLt (wrap b) 180.0 rb.right)
+      let tbA :=
+        turnBounds
+          (Float.Theory.units a)
+          (Float.Theory.units (wrap a))
+          (Int.mul ca u)
+          h
+          u
+          (Float.Model.pow2 1030)
+          (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0))
+          (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True)
+          fA
+          gA
+          fLo
+          fHi
+          e.right.left.right.left
+          (belowTurn
+            (Float.Theory.units a)
+            (Float.Theory.units lon)
+            h
+            u
+            (Float.Model.pow2 1030)
+            e.left.left
+            (Float.Theory.unitsMonoKey lon.bits 180.0.bits lonLe)
+            (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0))
+            (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True))
+      let tbB :=
+        turnBounds
+          (Float.Theory.units b)
+          (Float.Theory.units (wrap b))
+          (Int.mul cb u)
+          h
+          u
+          (Float.Model.pow2 1030)
+          (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0))
+          (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True)
+          fB
+          gB
+          tLo
+          tHi
+          (aboveNegTurn
+            (Float.Theory.units b)
+            (Float.Theory.units lon)
+            h
+            u
+            (Float.Model.pow2 1030)
+            e.left.right
+            (J
+              (q z => Int.leq q (Float.Theory.units lon) = True)
+              (Float.Theory.unitsMonoKey (-180.0).bits lon.bits lonLo)
+              (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0)))
+            (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0))
+            (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True))
+          e.right.left.right.right
+      inLongitudeOfCases
+        (wrap a)
+        (wrap b)
+        lon
+        nF
+        nT
+        nl
+        (longitudeCases
+          (Float.Theory.units a)
+          (Float.Theory.units b)
+          (Float.Theory.units lon)
+          (Float.Theory.units (wrap a))
+          (Float.Theory.units (wrap b))
+          (Int.mul ca u)
+          (Int.mul cb u)
+          h
+          u
+          (Float.Model.pow2 1030)
+          (byComputing: Float.Theory.units 360.0 = Int.add (Float.Theory.units 180.0) (Float.Theory.units 180.0))
+          (byComputing: Int.less (OfNat (Float.Model.pow2 1030 * 12)) (Float.Theory.units 180.0) = True)
+          fA
+          gA
+          fB
+          gB
+          fLo
+          fHi
+          tLo
+          tHi
+          (J
+            (q z => Int.leq q (Float.Theory.units lon) = True)
+            (Float.Theory.unitsMonoKey (-180.0).bits lon.bits lonLo)
+            (byComputing: Float.Theory.units (-180.0) = Int.neg (Float.Theory.units 180.0)))
+          (Float.Theory.unitsMonoKey lon.bits 180.0.bits lonLe)
+          e.left.left
+          e.left.right
+          e.right.left.left
+          e.right.left.right.left
+          e.right.left.right.right
+          (turnTimesOf ca u (Int.natAbs u) byComputing tbA.left tbA.right)
+          (turnTimesOf cb u (Int.natAbs u) byComputing tbB.left tbB.right))))
 
 -- The answer in its band
 
@@ -4261,31 +4397,26 @@ theorem answerInBand ∀ (answer: LatLon) (tolerance: Km) (axis: HintAxis) (unit
     (tolHi: tolerance.value <= 20000.0)
     (low: 0.0 <= unit)
     (high: unit <= 1.0)
-    (lonWidth: (1e-11
-      <= Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan)
+    (lonWidth: (1e-11 <= Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan)
       ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan <= 120.0))
     (floorCoarse: ∀ (width x: Float) => -360.0 <= x
       → x <= 360.0
-      → Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x (stepFor width))) (Float.Theory.units 2.0))
+      → Int.leq
+        (Float.Theory.units x)
+        (Int.add (Float.Theory.units (floorTo x (stepFor width))) (Float.Theory.units 2.0))
         = True)
     (ceilCoarse: ∀ (width x: Float) => -360.0 <= x
       → x <= 360.0
-      → Int.leq (Float.Theory.units (ceilTo x (stepFor width))) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0))
+      → Int.leq
+        (Float.Theory.units (ceilTo x (stepFor width)))
+        (Int.add (Float.Theory.units x) (Float.Theory.units 2.0))
         = True):
     inHintBand (hintBand answer tolerance axis unit cosLatitude) answer = True :=
   match axis with
     | Latitude => answerInLatitudeBand answer tolerance unit cosLatitude latLo latHi tolLo tolHi low high
     | Longitude =>
       let width: Float := Float.min (kmToDegrees (hintWidthTolerances * tolerance.value) / cosLatitude) maxLongitudeSpan
-      longitudeBandContains answer.lat.value
-        answer.lon.value
-        width
-        unit
-        lonLo
-        lonHi
-        lonWidth.left
-        lonWidth.right
-        low
-        high
-        (floorCoarse width)
-        (ceilCoarse width)
+      longitudeBandContains answer.lat.value answer.lon.value width unit lonLo lonHi lonWidth.left lonWidth.right low
+          high
+          (floorCoarse width)
+          (ceilCoarse width)
