@@ -253,12 +253,19 @@ theorem outwardRoundingWhole ∀ (from to: Float)
 --| A tenth of a degree, `r / 10`, as `floorTo` and `ceilTo` give one.
 def tenth (r: Int): Float := Float.ofInt r / 10.0
 
---| `describeHint`'s rounding to tenths leaves every tenth from -180° to 180°
---| as it is, so the label of an edge that is a tenth is that edge.
-theorem tenthsKeepTheirLabel: (List.range 0 3601).all (k =>
-      Float.round (tenth (OfNat k - 1800) * 10.0) / 10.0 == tenth (OfNat k - 1800))
-      = True :=
-  byComputing
+--| `describeHint`'s rounding to tenths leaves every tenth up to 360.1° in
+--| size as it is, so the label of an edge that is a tenth is that edge.
+--| (`labelRound`: `/ 10.0` and `* 10.0` stay well within half a unit of
+--| the whole number.)
+theorem tenthsKeepTheirLabel ∀ (r: Int) (h: Int.natAbs r ≤ 3601): Float.round (tenth r * 10.0) / 10.0 = tenth r :=
+  let k: Float := wholeAt r False
+  let f := wholeAtFacts r False (tenthsSizeSmall r h)
+  Float.Theory.orCase
+    [goal := Float.round (k / 10.0 * 10.0) / 10.0 = k / 10.0]
+    (Float.Theory.intZeroCases r)
+    (r0 =>
+      J (y w => Float.round (wholeAt y False / 10.0 * 10.0) / 10.0 = wholeAt y False / 10.0) byComputing r0.flipped)
+    (nz => Eq.cong (y => y / 10.0) (labelRound k r f.left f.right nz h))
 
 -- Latitude's clamps
 
@@ -1394,6 +1401,215 @@ theorem tenthsAt ∀ (i: Int) (s: Bool) (h: Int.natAbs i ≤ 3601): tenthsCheck 
             = True)
         base
         (tripNonzero k i fk whole nz h).flipped)
+
+theorem tenfoldCoarse ∀ (z x v: Nat)
+    (up: z * 9007199254740992 ≤ x * 9007199254740992 + x + 4503599627370496)
+    (down: x * 9007199254740992 ≤ z * 9007199254740992 + x + 4503599627370496)
+    (top: x ≤ v * 129775726862308212736):
+    (z ≤ x + v * 14408 + 1) ∧ (x ≤ z + v * 14408 + 1) :=
+  Both (arithmetic [up, top]) (arithmetic [down, top])
+
+theorem labelNear ∀ (np u: Int) (b z tt v h p: Nat)
+    (en: Int.natAbs np = b * 36028797018963968)
+    (eu: Int.natAbs u = z)
+    (eh: h = v * 18014398509481984)
+    (ep: p = v * 36028797018963968)
+    (v1: 1 ≤ v)
+    (t1: tt * 10 ≤ b * 36028797018963968 + v * 14404 + 5)
+    (t2: b * 36028797018963968 ≤ tt * 10 + v * 14404 + 5)
+    (z1: z ≤ tt * 10 + v * 14408 + 1)
+    (z2: tt * 10 ≤ z + v * 14408 + 1)
+    (sign: ((Int.leq (OfNat 0) np = True) ∧ (Int.leq (OfNat 0) u = True))
+      ∨ ((Int.less np (OfNat 0) = True) ∧ (Int.leq u (OfNat 0) = True))):
+    (Int.leq np (Int.add u (OfNat h)) = True) ∧ (Int.less (Int.add u (OfNat h)) (Int.add np (OfNat p)) = True) :=
+  match sign with
+    | Inl s =>
+      let s1 := s.left
+      let s2 := s.right
+      Both
+        (arithmetic [en, eu, eh, ep, v1, t1, t2, z1, z2, s1, s2])
+        (arithmetic [en, eu, eh, ep, v1, t1, t2, z1, z2, s1, s2])
+    | Inr s =>
+      let s1 := s.left
+      let s2 := s.right
+      Both
+        (arithmetic [en, eu, eh, ep, v1, t1, t2, z1, z2, s1, s2])
+        (arithmetic [en, eu, eh, ep, v1, t1, t2, z1, z2, s1, s2])
+
+theorem tenfoldTop ∀ (tt b v: Nat)
+    (bv: b ≤ v * 3601)
+    (t1: tt * 10 ≤ b * 36028797018963968 + v * 14404 + 5)
+    (v1: 1 ≤ v):
+    tt * 10 ≤ v * 129775726862308212736 :=
+  arithmetic [bv, t1, v1]
+
+--| `round (k / 10.0 * 10.0) = k` for a whole double `k` of a nonzero `i` up
+--| to 3601 in size: `/ 10.0` and `* 10.0` each miss by at most 2^-53 of the
+--| value (the standard model), far under the half unit `round` allows.
+theorem labelRound ∀ (k: Float) (i: Int)
+    (fk: Float.isFinite k = True)
+    (whole: Float.Theory.units k = Int.mul i (OfNat (Float.Model.pow2 1074)))
+    (nz: i ≠ OfNat 0)
+    (h: Int.natAbs i ≤ 3601):
+    Float.round (k / 10.0 * 10.0) = k :=
+  let v: Nat := Float.Model.pow2 1019
+  let m: Nat := Int.natAbs i
+  let b: Nat := m * v
+  let bv: b ≤ v * 3601 := scaledBound m v h
+  let ku: Int.natAbs (Float.Theory.units k) = b * 36028797018963968 := wholeSize k i whole
+  let t: Float := k / 10.0
+  let z: Float := t * 10.0
+  let ts := tenthSetup k b bv ku
+  let tc := tenthCoarse k b bv ku fk ts.left
+  let tt: Nat := Int.natAbs (Float.Theory.units t)
+  let zz: Nat := Int.natAbs (Float.Theory.units z)
+  let mb :=
+    mulBetween
+      (-361.0)
+      t
+      361.0
+      10.0
+      byComputing
+      byComputing
+      ts.left
+      byComputing
+      byComputing
+      byComputing
+      byComputing
+      ts.right.left
+      ts.right.right
+  let ttop: tt * 10 ≤ v * 129775726862308212736 := tenfoldTop tt b v bv tc.left byComputing
+  let small: Int.natAbs (Int.mul (Float.Theory.units t) (Float.Theory.units 10.0))
+    < Float.Model.pow2 1074 * Nat.pow 2 2097 :=
+    J
+      (x w => x < Float.Model.pow2 1074 * Nat.pow 2 2097)
+      (Float.Theory.leLessTrans
+        (tt * 10 * Float.Model.pow2 1074)
+        (v * 129775726862308212736 * Float.Model.pow2 1074)
+        (Float.Model.pow2 1074 * Nat.pow 2 2097)
+        (Nat.leMulRight (tt * 10) (v * 129775726862308212736) (Float.Model.pow2 1074) ttop)
+        byComputing)
+      (calc Int.natAbs (Int.mul (Float.Theory.units t) (Float.Theory.units 10.0))
+        _ = tt * Int.natAbs (Float.Theory.units 10.0) := Int.natAbsMul (Float.Theory.units t) (Float.Theory.units 10.0)
+        _ = tt * (Float.Model.pow2 1074 * 10) :=
+          Eq.cong (x => tt * x) (byComputing: Int.natAbs (Float.Theory.units 10.0) = Float.Model.pow2 1074 * 10)
+        _ = tt * 10 * Float.Model.pow2 1074 := algebra).flipped
+  let err := Float.mulRelError t 10.0 ts.left byComputing mb.left small
+  let two :=
+    relCancel zz
+      (tt * 10)
+      (Float.Model.pow2 1074)
+      9007199254740992
+      4503599627370496
+      (zz * Float.Model.pow2 1074)
+      (Int.natAbs (Int.mul (Float.Theory.units t) (Float.Theory.units 10.0)))
+      (Float.Model.pow2 1074 * 4503599627370496)
+      byComputing
+      byComputing
+      (calc Int.natAbs (Int.mul (Float.Theory.units t) (Float.Theory.units 10.0))
+        _ = tt * Int.natAbs (Float.Theory.units 10.0) := Int.natAbsMul (Float.Theory.units t) (Float.Theory.units 10.0)
+        _ = tt * (Float.Model.pow2 1074 * 10) :=
+          Eq.cong (x => tt * x) (byComputing: Int.natAbs (Float.Theory.units 10.0) = Float.Model.pow2 1074 * 10)
+        _ = tt * 10 * Float.Model.pow2 1074 := algebra)
+      byComputing
+      err
+  let zc := tenfoldCoarse zz (tt * 10) v two.left two.right ttop
+  let sign: ((Int.leq (OfNat 0) (Float.Theory.units k) = True) ∧ (Int.leq (OfNat 0) (Float.Theory.units z) = True))
+    ∨ ((Int.less (Float.Theory.units k) (OfNat 0) = True) ∧ (Int.leq (Float.Theory.units z) (OfNat 0) = True)) :=
+    Float.Theory.orCase
+      [goal := ((Int.leq (OfNat 0) (Float.Theory.units k) = True) ∧ (Int.leq (OfNat 0) (Float.Theory.units z) = True))
+        ∨ ((Int.less (Float.Theory.units k) (OfNat 0) = True) ∧ (Int.leq (Float.Theory.units z) (OfNat 0) = True))]
+      (Float.Theory.boolCases (Int.leq (OfNat 0) (Float.Theory.units k)))
+      (nonneg =>
+        let kPos: Int.less (OfNat 0) (Float.Theory.units k) = True :=
+          posOfNonzero
+            (Float.Theory.units k)
+            nonneg
+            (J (y w => y ≠ OfNat 0) (Float.Theory.mulNonzero i (Float.Model.pow2 1074) byComputing nz) whole.flipped)
+        let k0: 0.0 <= k :=
+          floatLeOfLt 0.0 k
+            (Float.Theory.lessOfUnits 0.0 k
+              (J
+                (y w => Int.less y (Float.Theory.units k) = True)
+                kPos
+                (byComputing: OfNat 0 = Float.Theory.units 0.0)))
+        let t0: 0.0 <= t :=
+          J (y w => y <= t) (Float.divMonotone 0.0 k 10.0 byComputing byComputing k0) (byComputing: 0.0 / 10.0 = 0.0)
+        let z0: 0.0 <= z :=
+          J
+            (y w => y <= z)
+            (Float.mulMonotoneLeft 0.0 t 10.0 byComputing ts.left byComputing byComputing t0)
+            (byComputing: 0.0 * 10.0 = 0.0)
+        Inl (Both nonneg (Float.Theory.unitsNonneg z z0)))
+      (notNonneg =>
+        let kNeg: Int.less (Float.Theory.units k) (OfNat 0) = True := intNegOfNotNonneg (Float.Theory.units k) notNonneg
+        let k0: k <= -0.0 :=
+          floatLeOfLt k
+            (-0.0)
+            (Float.Theory.lessOfUnits k
+              (-0.0)
+              (J
+                (y w => Int.less (Float.Theory.units k) y = True)
+                kNeg
+                (byComputing: OfNat 0 = Float.Theory.units (-0.0))))
+        let t0: t <= -0.0 :=
+          J
+            (y w => t <= y)
+            (Float.divMonotone k (-0.0) 10.0 byComputing byComputing k0)
+            (byComputing: -0.0 / 10.0 = -0.0)
+        let z0: z <= -0.0 :=
+          J
+            (y w => z <= y)
+            (Float.mulMonotoneLeft t (-0.0) 10.0 ts.left byComputing byComputing byComputing t0)
+            (byComputing: -0.0 * 10.0 = -0.0)
+        Inr
+          (Both kNeg
+            (J
+              (y w => Int.leq (Float.Theory.units z) y = True)
+              (Float.Theory.unitsMonoKey z.bits (-0.0).bits z0)
+              (byComputing: Float.Theory.units (-0.0) = OfNat 0))))
+  let near :=
+    labelNear
+      (Float.Theory.units k)
+      (Float.Theory.units z)
+      b
+      zz
+      tt
+      v
+      (Float.Model.pow2 1073)
+      (Float.Model.pow2 1074)
+      ku
+      byComputing
+      byComputing
+      byComputing
+      byComputing
+      tc.left
+      tc.right
+      zc.left
+      zc.right
+      sign
+  Float.roundNear z k i mb.left fk whole nz
+    (J (y w => Int.leq y (Int.add (Float.Theory.units z) (OfNat (Float.Model.pow2 1073))) = True) near.left whole)
+    (J
+      (y w =>
+        Int.less
+          (Int.add (Float.Theory.units z) (OfNat (Float.Model.pow2 1073)))
+          (Int.add y (OfNat (Float.Model.pow2 1074)))
+          = True)
+      near.right
+      whole)
+
+--| A whole double `wholeAt i s` up to 2^53 in size is finite with `i` whole units.
+theorem wholeAtFacts ∀ (i: Int) (s: Bool)
+    (h: Int.natAbs i ≤ 9007199254740992):
+    (Float.isFinite (wholeAt i s) = True)
+      ∧ (Float.Theory.units (wholeAt i s) = Int.mul i (OfNat (Float.Model.pow2 1074))) :=
+  let rs := Float.Theory.roundScaledWhole i s h
+  let kb: (wholeAt i s).bits = Float.Model.roundScaled i 0 s :=
+    Float.Theory.ofBitsBits (Float.Model.roundScaled i 0 s) (wholeAtValid i s)
+  Both
+    (Float.Theory.isFiniteOf (wholeAt i s) (J (r w => Float.Theory.FiniteBits r) rs.left kb.flipped))
+    (J (r w => Float.Model.units r = Int.mul i (OfNat (Float.Model.pow2 1074))) rs.right kb.flipped)
 
 theorem roundTripOf ∀ (k: Float) (c: tenthsCheck k = True): Float.round (k * 0.1 * 10.0) = k :=
   Float.bitsExt
