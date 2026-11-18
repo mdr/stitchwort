@@ -13,6 +13,9 @@ def refuses1 (source: Text): Bool := match formatWithin1 source with
 test "slice 1's driver formats a declaration that fits on one line" :=
   formats1 "-- a\ndef x:Nat:=f  (a,b)  [1,2,] -  -y -- b\n" "-- a\ndef x: Nat := f (a, b) [1, 2] - -y -- b\n"
 
+test "slice 1's driver formats binary operators, which read-back doesn't cover yet" :=
+  formats1 "def x: Nat := a+b * c\n" "def x: Nat := a + b * c\n"
+
 test "slice 1's driver formats a declaration whose value goes on the next line and fits there" :=
   formats1
       "def long: Nat := someFunction argumentNumberOne argumentNumberTwo argumentNumberThree argumentNumberFour argumentNumberFive\n"

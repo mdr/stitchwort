@@ -74,7 +74,11 @@ def PrintedGroup (decl read: Decl) (group: List Leaf): Prop :=
 --| What it needs: the tokens are the rules' spelling, comma between items and kinds the lexer's (`printedTokens1`);
 --| the group's words are `read`'s (the hypothesis); and the glue facts each item carries (`glued`, `afterOperand`),
 --| which come from the printed spacing: SW-4075 (std's `touches`), SW-4076 (`printedSpacing1`, then `Spelt` of a
---| printed expression), with SW-4077's weaker prefix equation; `Spelt` covers binary operators only after SW-4071.
+--| printed expression), with SW-4077's weaker prefix equation.
+--|
+--| **False today for a declaration with a binary operator** (`a + b`), which the driver accepts: `Spelt` of
+--| `InfixBinary` is `Void` until SW-4071 widens it, and `lineKind` has no binary operator (`binaryNotLine`). The
+--| statement holds unchanged once SW-4071 widens `Spelt`, `lineKind` and `readsBackLineWithin` in place.
 theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
     (printed: PrintedGroup decl read group):
     ∃ (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr) => GroupSplit group read
@@ -85,7 +89,8 @@ theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
 --| declaration are of the kinds read-back reads on a line, and start lines only where `oneLine1` lets them.
 --|
 --| What it needs: `lineAll` from slice 1's alphabet (every printed kind is one), and the rest from `oneLine1` read
---| through `items` (an item's line start is its token's) and `Spelt` (the type's items hold no `:=`).
+--| through `items` (an item's line start is its token's) and `Spelt` (the type's items hold no `:=`). True today of
+--| binary operators only because `Spelt` has none; SW-4071 must widen `lineKind` with `Spelt`.
 theorem printedLines1 ∀ (decl read: Decl) (group: List Leaf) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (printed: PrintedGroup decl read group)
@@ -136,3 +141,10 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     (ends: lexed.end.comments = file.calmTop.end) (decls: DeclsReadBack):
     parseFile lexed = Ok file.calmTop :=
   ?
+
+--| `readsBackLineWithin` reads no binary operator yet: `+` is no kind it reads on a line (SW-4071).
+theorem binaryNotLine: (match lex "a + b" with
+      | Ok lexed => lineAll (items lexed.leaves)
+      | Err _ => True)
+      = False :=
+  byComputing

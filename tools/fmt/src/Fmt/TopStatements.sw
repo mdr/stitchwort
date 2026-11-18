@@ -8,7 +8,8 @@
 --| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: here
 --| (`declElementsOneLine1`, `tidiedDeclsUnreturned1`, `printedSpelledPlain1` and the `calmTop` facts),
 --| in `Fmt.TopReadBack` (read-back), and `tidiedUnreturned1` in `Fmt.SettleOutputProofs`. `stitchwort goal` lists what
---| is left.
+--| is left. One of them, `printedSplit1`, is false today of a declaration with a binary operator, which read-back
+--| doesn't read yet (SW-4071).
 --|
 --| What slice 1 covers: files of `def name: Type := value` with no parameters, the type and value names, numerals,
 --| brackets, tuples, lists, calls, `-`, `!`, `¬`, binary operators and `->`, with comments and blank lines; the
