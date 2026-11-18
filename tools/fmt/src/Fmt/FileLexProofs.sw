@@ -7,7 +7,7 @@
 
 namespace Fmt.FileLexProofs
 import Std (Bool, Char, Doc, Eq, List, Nat, Option, Parse, Result, Text, Void, byDecision)
-import Std.Doc.Proofs (Every, Joins, Plain, Uniform, printedJoins, printedPieces)
+import Std.Doc.Proofs (Every, Joins, Leads, Plain, Uniform, leadsConcat, printedJoins, printedLeads, printedPieces)
 import Syntax (..)
 import Syntax.Proofs (AllPlain, AllSpelled, Laid, PairsFollow, Piece, lexPrintedPairs, pieceSteps, piecesText)
 import Fmt (..)
@@ -25,6 +25,7 @@ import Fmt.PrintLexProofs (
   piecesTextIsConcat,
   remarkSpelled
 )
+import Fmt.CalmProofs (plainDef, plainDefIs)
 import Fmt.JoinProofs (doc1Passes)
 import Fmt.SpellProofs (declSoundOfSettled, doc1Spells, notesSound, textsAll)
 import Fmt.TreeJoinProofs (declJoins, declOperators, declPrintable, declReal, lexKind)
@@ -375,21 +376,83 @@ theorem seamedOfTail ∀ (pieces front: List Piece) (kind first: Tok) (start tex
         | [Remark _, _, .._], never => cases
   Witness first (Witness start (Witness rest (Both starts ended)))
 
---| `printedStart1`, the first half of `printedSeam1` (open): a slice 1 declaration's printed text starts with a
---| token, its `def`, with no space, line break or comment before it.
---|
---| Why it should hold: `defDoc` starts with the `def` chunk (`Told`: `defDoc.told Spot.lineStart` starts `Said "def"`),
---| so the first event of the printed trace is `def`, with no blank line or comment before it (`printTold`); the
---| hang fold's `Opening` puts it at column 0 (`hangsPrinted`), so no spaces come before it (`eventsOf`: an event
---| starts its line at the width of the spaces before it); and every printed piece is non-empty (`printedPiecesOk`'s
---| `Good`), so the first piece is that word.
+--| A plain definition's document starts with its `def` chunk: the keyword's own-line comments are the file's
+--| (`hoisted`), and each `Doc.concat` on the way keeps its first document first.
+theorem plainDefLeads ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
+    (colonEq: Comments) (value: Expr):
+    Leads "def" (plainDef keyword name colon result colonEq value) :=
+  let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
+  let keywordWord := fixedWord "def" keyword
+  let colonWord := fixedWord ":" colon
+  let assign := fixedWord ":=" colonEq
+  let headWords := [keywordWord, name]
+  let colonAround := start.next (trailsBack headWords.reverse) 2
+  let typeDoc := result.el (start.next colonWord.trails 3)
+  let headDoc := spaced (headDocs start headWords)
+  let typed := if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
+  let headerDoc := Doc.concat ([headDoc, colonWord.leaf colonAround 2] ++ typed)
+  let inside :=
+    (headWords.reverse.drop 1 |> .any Word.trails)
+      || colonWord.trails
+      || (result.words.reverse.drop 1 |> .any Word.trails)
+      || (value.layoutBody && (lastCode headWords).trails)
+  let body := bodyAfter value assign (start.next assign.trails (4 + result.size)) False
+  let assignLeaf := assign.leaf (start.next result.trails (3 + result.size)) (3 + result.size)
+  let keywordLeads: Leads "def" (keywordWord.leaf start 0) :=
+    leadsConcat "def" (Doc.text "def") keywordWord.trailing byComputing
+  let headLeads: Leads "def" headDoc :=
+    leadsConcat "def"
+      (keywordWord.leaf start 0)
+      [Doc.text " ", name.leaf (start.next keywordWord.trails 1) 1]
+      keywordLeads
+  let headerLeads: Leads "def" headerDoc :=
+    leadsConcat "def" headDoc ([colonWord.leaf colonAround 2] ++ typed) headLeads
+  leadsConcat "def"
+    (IdGroup 0 headerDoc (headerDoc.forcesBreak || inside))
+    [Doc.text " ", assignLeaf, IfBroken 0 body.fst body.snd]
+    headerLeads
+
+--| `printedStart1`, the first half of `printedSeam1`: a slice 1 declaration's printed text starts with a token, its
+--| `def`, with no space, line break or comment before it: the document leads with the `def` chunk
+--| (`plainDefLeads`), which the printer writes first at every width (`printedLeads`).
 theorem printedStart1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True):
     ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => decl.pieces1 = [Code kind text, ..rest] :=
-  ?
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header, within with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          }, _ =>
+          match printedLeads "def"
+            (plainDef keyword name colon result colonEq value)
+            width
+            (plainDefLeads keyword name colon result colonEq value)
+            byComputing
+            byComputing with
+            | (more, starts) =>
+              let printed :=
+                Eq.trans
+                  (Eq.cong ((doc: Doc) => printedPieces doc width) (plainDefIs keyword name colon result colonEq value))
+                  starts
+              Witness
+                (lexKind "def")
+                (Witness "def"
+                  (Witness (pieceFold lexKind more) (Eq.cong ((texts: List Text) => pieceFold lexKind texts) printed)))
+        | _, never => cases
 
 --| `printedFinish1`, the second half of `printedSeam1` (open): a slice 1 declaration's printed text has a last token,
 --| and after it only spaces and a trailing comment on its line.
