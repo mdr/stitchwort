@@ -896,7 +896,7 @@ theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (wi
 --| An instance: a space after a waiting comment is held.
 theorem spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
       = { Printer.start 80 | suffixes = ["-- c"], heldSpaces = 1 } :=
-  byComputing
+  spacesAfterComment { Printer.start 80 | suffixes = ["-- c"] } 0 " " 1 byComputing byComputing byComputing
 
 --| An instance: `Both ( ) -- c`.
 theorem closeAfterCommentExample: (print
