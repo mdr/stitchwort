@@ -6,6 +6,7 @@ namespace Syntax.ReadBackRuns
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text)
 import Syntax (..)
 import Fmt (..)
+import Syntax.ReadBackProofs (..)
 
 -- Steps that read nothing or one item.
 
@@ -2069,3 +2070,174 @@ theorem runsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
                   value
                   (runsPiHere modes items (rewrite peeked then noPi))
                   opRuns)))))
+
+-- Lines and blocks.
+
+--| A line that is an expression: `statement` reads it with `exprInline`.
+theorem runsStatementValue ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr)
+    (open: modes.stops item = False)
+    (notOther: startsOtherStatement item.kind = False)
+    (inline: Parse.Runs (() => exprInline self modes) [item, ..more] rest value):
+    Parse.Runs (() => statement self modes) [item, ..more] rest (ExprStatement value) :=
+  runsLook
+    (() => modes.peek)
+    (seen => statementOn self modes seen)
+    (Some item.kind)
+    [item, ..more]
+    rest _
+    (rewrite <- peekFirst modes item (more ++ rest) open then runsPeekOn modes [item, ..more ++ rest])
+    (rewrite notOther then Parse.runsMap (() => exprInline self modes) ExprStatement [item, ..more] rest value inline)
+
+--| A column right of the block limit in force, if any.
+def rightOfLimit (column: Nat): Option Nat → Bool
+  | None => True
+  | Some limit => column > limit
+
+--| `exprBlock` at a line start right of the limit: a block at that column.
+theorem runsExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
+    (read rest: List Item) (value: Expr)
+    (right: rightOfLimit item.leaf.token.column modes.limit = True)
+    (blockRuns: Parse.Runs (() => block self modes item.leaf.token.column True) read rest value):
+    Parse.Runs (() => exprBlock self modes item) read rest value :=
+  match limit: modes.limit, right with
+    | None, right => blockRuns
+    | Some limit, right =>
+      let past: (item.leaf.token.column > limit) = True := right
+      rewrite past then blockRuns
+
+--| Whether `exprOn` takes the next item, `later` in the declaration, as the start of a block.
+def startsBlock (modes: Modes) (later: Bool) (item: Item): Bool :=
+  item.leaf.token.lineStart && later && modes.allow != Some item.index && !modes.endsConstruct item
+
+theorem runsExprLaterInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool) (item: Item)
+    (more rest: List Item) (value: Expr)
+    (inline: startsBlock modes later item = False)
+    (inlineRuns: Parse.Runs (() => exprInline self modes) [item, ..more] rest value):
+    Parse.Runs (() => exprLater self modes later) [item, ..more] rest value :=
+  runsLook
+    (() => left())
+    (items => exprOn self modes later items)
+    [item, ..more ++ rest]
+    [item, ..more]
+    rest
+    value
+    (runsLeftOn [item, ..more ++ rest])
+    (rewrite (inline: (item.leaf.token.lineStart
+          && later
+          && modes.allow != Some item.index
+          && !modes.endsConstruct item)
+          = False) then
+      inlineRuns)
+
+theorem runsExprLaterBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool) (item: Item)
+    (more rest: List Item) (value: Expr)
+    (starts: startsBlock modes later item = True)
+    (blockRuns: Parse.Runs (() => exprBlock self modes item) [item, ..more] rest value):
+    Parse.Runs (() => exprLater self modes later) [item, ..more] rest value :=
+  runsLook
+    (() => left())
+    (items => exprOn self modes later items)
+    [item, ..more ++ rest]
+    [item, ..more]
+    rest
+    value
+    (runsLeftOn [item, ..more ++ rest])
+    (rewrite (starts: (item.leaf.token.lineStart
+          && later
+          && modes.allow != Some item.index
+          && !modes.endsConstruct item)
+          = True) then
+      blockRuns)
+
+--| `expr` from one state: `exprLater` with whether anything was read before it.
+theorem runsFromExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (state: Parse.State Item)
+    (read rest: List Item) (value: Expr)
+    (at: Parse.RunsFrom state (() => exprLater self modes (state.at.offset > 0)) read rest value):
+    Parse.RunsFrom state (() => expr self modes) read rest value :=
+  Parse.runsFromMark state (here => exprLater self modes (here.offset > 0)) read rest value at
+
+--| A block at `column` of one line: `runsBlockOneLine` from a line that `statement` reads in any of its line modes.
+theorem runsBlockLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat)
+    (read rest: List Item) (value: Expr)
+    (line: ∀ (kind: LineKind) (before: Nat) => Parse.Runs
+      (() => statement self (lineModes (blockModes modes column True) column True before kind))
+      read
+      rest
+      (ExprStatement value))
+    (ends: continuesAt column rest = False):
+    Parse.Runs (() => block self modes column True) read rest value :=
+  state =>
+    runsBlockOneLine self modes column True state read rest value
+      (kind middle _ => line kind state.at.offset middle)
+      ends
+
+-- The `def` frame.
+
+theorem runsFixedFrom ∀ (item: Item) (rest: List Item):
+    Parse.Runs (() => fixedFrom()) [item] rest item.leaf.word.comments :=
+  Parse.runsMap (() => bump()) (word => word.comments) [item] rest item.leaf.word (runsBump item rest)
+
+--| `:=` and the value, at the end of the declaration's items: `Assigned`.
+theorem runsDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (colonEq: Item)
+    (read: List Item) (value: Expr)
+    (open: modes.stops colonEq = False)
+    (isColonEq: colonEq.kind = ColonEq)
+    (valueRuns: Parse.Runs (() => self { modes, level = LevelFull }) read [] value):
+    Parse.Runs
+      (() => definitionBody self modes result False 0)
+      [colonEq, ..read]
+      []
+      (Assigned colonEq.leaf.word.comments value) :=
+  runsLook
+    (() => modes.peek)
+    (seen => definitionChecked False (definitionBodyOn self modes result 0 seen))
+    (Some colonEq.kind)
+    [colonEq, ..read]
+    [] _
+    (rewrite <- peekFirst modes colonEq (read ++ []) open then runsPeekOn modes [colonEq, ..read ++ []])
+    (Parse.runsBind
+      (() => definitionBodyOn self modes result 0 (Some colonEq.kind))
+      (body => definitionChecked False body)
+      [colonEq, ..read]
+      []
+      [colonEq, ..read]
+      []
+      (Assigned colonEq.leaf.word.comments value) _
+      (List.appendNil [colonEq, ..read]).flipped
+      (rewrite isColonEq then
+        Parse.runsBind
+          (() => fixedFrom()) _
+          [colonEq]
+          read
+          [colonEq, ..read]
+          []
+          colonEq.leaf.word.comments _
+          byComputing
+          (runsFixedFrom colonEq (read ++ []))
+          (Parse.runsBind
+            (() => self { modes, level = LevelFull })
+            (value => assignedValue modes colonEq.leaf.word.comments value)
+            read
+            []
+            read
+            []
+            value _
+            (List.appendNil read).flipped
+            valueRuns
+            (runsLook
+              (() => modes.at Pipe)
+              (arms => assignedEnd colonEq.leaf.word.comments value arms)
+              False
+              []
+              [] _
+              (runsAtOn modes Pipe [])
+              (Parse.runsPure (Assigned colonEq.leaf.word.comments value) []))))
+      (runsLook
+        (() => left())
+        (items => definitionWhere False (Assigned colonEq.leaf.word.comments value) items)
+        []
+        []
+        [] _
+        (runsLeftOn [])
+        (Parse.runsPure (Assigned colonEq.leaf.word.comments value) [])))
