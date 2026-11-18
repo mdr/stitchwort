@@ -12,10 +12,13 @@ import Syntax.SettleProofs (
   lexedTexts,
   arrowFollow,
   backOk,
+  leafTexts,
+  optionText,
   passableKind,
   plain1,
   plainFrom,
-  tokens
+  tokens,
+  triviaTexts
 )
 import Syntax.SettleBareProofs (..)
 
@@ -142,6 +145,7 @@ theorem laidWithout ∀ (behind rest: List Leaf)
             | [closer, ..after2] =>
               let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
               let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
+              let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
               let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
               let nostart := plainNoStart leaf closer after2 isComma isCloser plain
               let leadOk := Bool.andLeft fwd
@@ -273,3 +277,151 @@ theorem plainWithout ∀ (behind rest: List Leaf)
                       after2
                       (plainPair leaf closer previous tail after2 isComma nostart item join)
                       (plainTail closer after2 (plainTail leaf [closer, ..after2] plain))
+
+-- What the leaves hold stays what they hold.
+
+theorem allAppendB ∀ (xs ys: List a) (p: a → Bool): (xs ++ ys).all p = (xs.all p && ys.all p) := match xs with
+  | [] => byComputing
+  | [x, ..rest] =>
+    match p x with
+      | True => allAppendB rest ys p
+      | False => byComputing
+
+--| `withoutLastCommas` keeps every token, but the commas it drops: a test on every token still holds.
+theorem allTokensWithout ∀ (q: Token → Bool) (behind rest: List Leaf)
+    (plain: plainFrom (tokens rest) = True)
+    (kept: (tokens behind).all q = True)
+    (coming: (tokens rest).all q = True):
+    (tokens (withoutR behind rest)).all q = True :=
+  match rest with
+    | [] => kept
+    | [leaf, ..after] =>
+      match pair: fwdPair behind leaf after with
+        | False =>
+          rewrite withoutRNop leaf behind after pair then
+            allTokensWithout q
+              [leaf, ..behind]
+              after
+              (plainTail leaf after plain)
+              (Bool.andIntro (Bool.andLeft coming) kept)
+              (Bool.andRight coming)
+        | True =>
+          match after with
+            | [closer, ..after2] =>
+              let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
+              let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
+              let nostart := plainNoStart leaf closer after2 isComma isCloser plain
+              let (fstTok, sndToks) := commaMovedTokens leaf closer behind nostart
+              rewrite withoutRPair leaf closer behind after2 pair then
+                allTokensWithout q
+                  [(commaMoved leaf closer behind).fst, ..(commaMoved leaf closer behind).snd]
+                  after2
+                  (plainTail closer after2 (plainTail leaf [closer, ..after2] plain))
+                  (rewrite fstTok, sndToks then Bool.andIntro (Bool.andLeft (Bool.andRight coming)) kept)
+                  (Bool.andRight (Bool.andRight coming))
+
+theorem textsCons ∀ (leaf: Leaf) (rest: List Leaf):
+    leafTexts [leaf, ..rest] = triviaTexts leaf.trivia ++ leafTexts rest :=
+  byComputing
+
+theorem textsParked ∀ (q: Text → Bool) (comment: Comment) (previous: Leaf) (earlier: List Leaf)
+    (kept: (leafTexts [previous, ..earlier]).all q = True)
+    (said: q comment.text = True):
+    (leafTexts [previous.withTrailing (Some comment), ..earlier]).all q = True :=
+  match previous with
+    | { token, trivia } =>
+      match trivia with
+        | { leading, blankLines, trailing } =>
+          let split :=
+            rewrite textsCons { token, trivia = { leading, blankLines, trailing } } earlier,
+                allAppendB (triviaTexts { leading, blankLines, trailing }) (leafTexts earlier) q at kept then
+              kept
+          let triv := Bool.andLeft split
+          let lead: (leading.map (c => c.text)).all q = True :=
+            Bool.andLeft (rewrite allAppendB (leading.map (c => c.text)) (optionText trailing) q at triv then triv)
+          rewrite textsCons { token, trivia = { leading, blankLines, trailing = Some comment } } earlier,
+              allAppendB (triviaTexts { leading, blankLines, trailing = Some comment }) (leafTexts earlier) q then
+            Bool.andIntro
+              (rewrite allAppendB (leading.map (c => c.text)) (optionText (Some comment)) q then
+                Bool.andIntro lead (Bool.andIntro said byComputing))
+              (Bool.andRight split)
+
+theorem textsParkedAll ∀ (q: Text → Bool) (trailing: Option Comment) (behind: List Leaf)
+    (kept: (leafTexts behind).all q = True)
+    (said: (optionText trailing).all q = True):
+    (leafTexts (parked trailing behind)).all q = True :=
+  match trailing with
+    | None => kept
+    | Some comment =>
+      match behind with
+        | [] => kept
+        | [previous, ..earlier] => textsParked q comment previous earlier kept (Bool.andLeft said)
+
+--| `withoutLastCommas` keeps every comment but the text it moves is the same text: a test on every comment text still
+--| holds.
+theorem textsWithout ∀ (q: Text → Bool) (behind rest: List Leaf)
+    (back: laidBack behind = True)
+    (fwd: laidOut (pendB behind) rest = True)
+    (plain: plainFrom (tokens rest) = True)
+    (kept: (leafTexts behind).all q = True)
+    (coming: (leafTexts rest).all q = True):
+    (leafTexts (withoutR behind rest)).all q = True :=
+  match rest with
+    | [] => kept
+    | [leaf, ..after] =>
+      match pair: fwdPair behind leaf after with
+        | False =>
+          let (b, f) := laidNop leaf behind after back fwd
+          let split :=
+            rewrite textsCons leaf after, allAppendB (triviaTexts leaf.trivia) (leafTexts after) q at coming then coming
+          rewrite withoutRNop leaf behind after pair then
+            textsWithout q
+              [leaf, ..behind]
+              after
+              b
+              f
+              (plainTail leaf after plain)
+              (rewrite textsCons leaf behind, allAppendB (triviaTexts leaf.trivia) (leafTexts behind) q then
+                Bool.andIntro (Bool.andLeft split) kept)
+              (Bool.andRight split)
+        | True =>
+          match after with
+            | [closer, ..after2] =>
+              let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
+              let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
+              let nostart := plainNoStart leaf closer after2 isComma isCloser plain
+              let leadOk := Bool.andLeft fwd
+              let nolead: leaf.trivia.leading = [] :=
+                emptyOf leaf.trivia.leading (orOfFalse leaf.trivia.leading.isEmpty leaf.token.lineStart leadOk nostart)
+              match behind with
+                | [] => cases
+                | [previous, ..tail] =>
+                  let (b, f) := laidPair leaf closer previous tail after2 nostart back fwd
+                  let (movedFst, movedSnd) := commaMovedPlain leaf closer [previous, ..tail] nostart nolead
+                  let split1 :=
+                    rewrite textsCons leaf [closer, ..after2],
+                        allAppendB (triviaTexts leaf.trivia) (leafTexts [closer, ..after2]) q at coming then
+                      coming
+                  let commaHeld := Bool.andLeft split1
+                  let commaAll: (optionText leaf.trivia.trailing).all q = True :=
+                    rewrite nolead at commaHeld then commaHeld
+                  let closerPart := Bool.andRight split1
+                  let split2 :=
+                    rewrite textsCons closer after2,
+                        allAppendB (triviaTexts closer.trivia) (leafTexts after2) q at closerPart then
+                      closerPart
+                  let parkedAll := textsParkedAll q leaf.trivia.trailing [previous, ..tail] kept commaAll
+                  rewrite withoutRPair leaf closer [previous, ..tail] after2 pair, movedFst, movedSnd then
+                    textsWithout q
+                      [closer, ..parked leaf.trivia.trailing [previous, ..tail]]
+                      after2
+                      b
+                      f
+                      (plainTail closer after2 (plainTail leaf [closer, ..after2] plain))
+                      (rewrite textsCons closer (parked leaf.trivia.trailing [previous, ..tail]),
+                          allAppendB
+                            (triviaTexts closer.trivia)
+                            (leafTexts (parked leaf.trivia.trailing [previous, ..tail]))
+                            q then
+                        Bool.andIntro (Bool.andLeft split2) parkedAll)
+                      (Bool.andRight split2)
