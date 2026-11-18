@@ -996,36 +996,62 @@ def iff (self: Goal → {Parse Item} Expr) (modes: Modes) (left: Expr): {Parse I
 
 def quantifierAhead (modes: Modes): {Parse Item} Bool := modes.at KwExists || modes.at KwForall
 
-def quantifier (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match left() with
-  | [item, .._] if item.kind == KwForall => forallExpr self modes
-  | _ =>
-    let keyword := bump()
-    if lambdaAhead modes (Parse.mark().left + 1) left() then lambda self modes (Some keyword)
-    else modes.fail "a parameter and `=>` after `exists`"
+def quantifier (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := quantifierOn self modes left()
+
+def quantifierOn (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Expr :=
+  match items with
+    | [item, .._] => if item.kind == KwForall then forallExpr self modes else existsExpr self modes
+    | _ => existsExpr self modes
+
+def existsExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  let keyword := bump()
+  let here := Parse.mark()
+  let items := left()
+  existsLambda self modes keyword (lambdaAhead modes (here.left + 1) items)
+
+def existsLambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (ahead: Bool): {Parse Item} Expr :=
+  if ahead then lambda self modes (Some keyword) else modes.fail "a parameter and `=>` after `exists`"
 
 --| `∀ (x: A) [b: B] n => P`: names and typed groups, but no patterns.
 def forallExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let keyword := bump()
   let params := forallParams self modes
   if params.isEmpty then modes.fail "a parameter after `${keyword.text}`"
-  else if modes.at FatArrow then
+  else forallArrow self modes keyword params (modes.at FatArrow)
+
+def forallArrow (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (params: List Param) (atArrow: Bool):
+    {Parse Item} Expr :=
+  if atArrow then
     let arrow := bump()
     Binding BindsForall (Some keyword) params arrow (full self modes)
   else modes.fail "`=>` after the parameters of `${keyword.text}`"
 
-def forallParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param := Parse.loop (() =>
-  let items := left()
+def forallParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param :=
+  Parse.loop (() => forallStep self modes left())
+
+def forallStep (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Option Param :=
   match items with
-    | [item, .._] if !modes.stops item =>
-      match item.kind with
-        | Lower if !isQualified item => Some (NameParam bump())
-        | Underscore => Some (NameParam bump())
-        | LParen if annotatedParamAhead items =>
-          Some (Grouped (headerGroup self modes GroupLambda (Some forallDefault)))
-        | LBracket if implicitGroupAt items || namelessAutoAt items =>
-          Some (Grouped (headerGroup self modes GroupLambda (Some forallDefault)))
-        | _ => None
-    | _ => None)
+    | [item, .._] => if modes.stops item then None else forallParam self modes items item
+    | _ => None
+
+def forallParam (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item) (item: Item):
+    {Parse Item} Option Param :=
+  match item.kind with
+    | Lower =>
+      if isQualified item then None
+      else
+        let name := bump()
+        Some (NameParam name)
+    | Underscore =>
+      let name := bump()
+      Some (NameParam name)
+    | LParen => if annotatedParamAhead items then forallGroup self modes else None
+    | LBracket => if implicitGroupAt items || namelessAutoAt items then forallGroup self modes else None
+    | _ => None
+
+def forallGroup (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Param :=
+  let group := headerGroup self modes GroupLambda (Some forallDefault)
+  Some (Grouped group)
 
 --| A lambda's parameters, `=>` and body; with a keyword, an `∃`'s.
 def lambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Option Word): {Parse Item} Expr :=
@@ -1035,29 +1061,52 @@ def lambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Option Wo
     let arrow := modes.expect FatArrow "`=>`"
     Binding (if keyword.isSome then BindsExists else BindsLambda) keyword params arrow (full self modes)
 
-def lambdaParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param := Parse.loop (() =>
-  let items := left()
+def lambdaParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param :=
+  Parse.loop (() => lambdaStep self modes left())
+
+def lambdaStep (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Option Param :=
   match items with
-    | [item, .._] if !modes.stops item =>
-      match item.kind with
-        | Lower => Some (NameParam (modes.lower "a name"))
-        | Underscore => Some (NameParam bump())
-        | LParen =>
-          if annotatedParamAhead items then Some (Grouped (headerGroup self modes GroupLambda (Some defaultPlaces)))
-          else if annotatedPatternAhead (Parse.mark().left + 1) items then
-            let open := bump()
-            let inner := modes.inBrackets
-            let pattern := patternOf inner
-            let colon := inner.expect Colon "`:`"
-            let annotation := binderType self inner
-            let close := inner.expect RParen "`)`"
-            Some (TypedPattern open pattern colon annotation close)
-          else Some (PatternParam (patternOf modes))
-        | LBracket if implicitGroupAt items || namelessAutoAt items =>
-          Some (Grouped (headerGroup self modes GroupLambda (Some defaultPlaces)))
-        | LBrace => Some (PatternParam (patternOf modes))
-        | _ => None
-    | _ => None)
+    | [item, .._] => if modes.stops item then None else lambdaParam self modes items item.kind
+    | _ => None
+
+def lambdaParam (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item) (kind: Tok):
+    {Parse Item} Option Param :=
+  match kind with
+    | Lower =>
+      let name := modes.lower "a name"
+      Some (NameParam name)
+    | Underscore =>
+      let name := bump()
+      Some (NameParam name)
+    | LParen => lambdaParen self modes items
+    | LBracket => if implicitGroupAt items || namelessAutoAt items then lambdaGroup self modes else None
+    | LBrace =>
+      let pattern := patternOf modes
+      Some (PatternParam pattern)
+    | _ => None
+
+def lambdaGroup (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Param :=
+  let group := headerGroup self modes GroupLambda (Some defaultPlaces)
+  Some (Grouped group)
+
+def lambdaParen (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Option Param :=
+  if annotatedParamAhead items then lambdaGroup self modes
+  else
+    let here := Parse.mark()
+    lambdaPattern self modes (annotatedPatternAhead (here.left + 1) items)
+
+def lambdaPattern (self: Goal → {Parse Item} Expr) (modes: Modes) (typed: Bool): {Parse Item} Option Param :=
+  if typed then
+    let open := bump()
+    let inner := modes.inBrackets
+    let pattern := patternOf inner
+    let colon := inner.expect Colon "`:`"
+    let annotation := binderType self inner
+    let close := inner.expect RParen "`)`"
+    Some (TypedPattern open pattern colon annotation close)
+  else
+    let pattern := patternOf modes
+    Some (PatternParam pattern)
 
 def ifExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyword: Word): {Parse Item} Expr :=
   let binder := namedBinder modes

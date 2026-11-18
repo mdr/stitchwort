@@ -547,9 +547,12 @@ def rowClose (modes: Modes) (open: Comments) (abilities: List Expr) (variable: O
   let close := modes.expectFixed RBrace "`}`"
   { open, abilities, variable, close }
 
+def piBinder (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Group :=
+  if implicit then implicitBinder self modes else binderGroup self modes False
+
 --| `(x: A) -> B` or `[x: A] -> B` (`pi_expr`).
 def piExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Expr :=
-  let binder := if implicit then implicitBinder self modes else binderGroup self modes False
+  let binder := piBinder self modes implicit
   refuseAttributes binder.attributes "a function type's parameter"
   let arrow := modes.expect Arrow "`->`"
   FunctionType binder arrow (resultType self modes)
