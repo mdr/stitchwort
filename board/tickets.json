@@ -23410,7 +23410,7 @@
     {
       "id": 3940,
       "title": "[Opus] Self-hosted fmt engine E4: ids and columns in Fmt.Doc proofs and program as engine.rs: IfBroken, NarrowGroup, Align, AlignInset, Mark/CloserLine through Readings, Words, Places; Mark+CloserLine's 6 unsupported goldens compared and matching (docs/proposals/self-hosted-fmt-engine-plan.md §3.3, E4 row; tools/fmt/NOTES.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
