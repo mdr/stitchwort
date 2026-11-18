@@ -1196,3 +1196,47 @@ What keeps the rest out [measured, as SW-3990's count]: of 2,627 declarations ou
 - **Rule N.** A record's `{` and `}` are a bracket pair as a list's: the opener's `Mark` and the closer's own line come from `opening` and `leaf`.
 - **Spacing.** New gaps: a space inside a record's braces and around `=`, `|`, `∈` and `∉`; none after a spread's `..` (the list starts with a name or bracket). The copied gaps above are the open ones.
 - P1 to P4 change nothing new: membership was already a proposition for `premises` (`propositionIn`), and no binder or row is added.
+
+## Slice 6a, the program (SW-3999)
+
+Opus, 18 November 2026. The proof steps, on top of slices 1 to 5a, 4b and 4c: SW-3995's census put `RewriteRule` (799) and `Rewrite` (798) first among the kinds in a declaration kept out, and `Omega` (40) and `Iff` (25) among those alone in keeping one out.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `rewriteDoc`, `ruleDocs`, `targetDocs`, `RewriteRule.el`: `rewrite rules at h then body` flat if it fits; else the body below at 2, and the rules one a line at 4 with `then` after the last when they don't fit on the `rewrite` line; without `then`, several rules as before one and a single rule joined by spaces; `<-` glued, a space after it; `at h` stays with the last rule | `src/Fmt/Rules.sw` | `rewrite`, `join` for `RewriteRule` |
+| `ruleSetDoc`, `brokenRules`: `repeatedly [a, <- b]` as a comma bracket, flat or one rule a line at 2, never filled | `src/Fmt/Rules.sw` | `comma_bracket` for `RewriteRules` |
+| `calcDoc`, `stepLines`, `CalcStep.el`: `calc e0` then each step on a line at 2 (a blank line above one kept); `_ R e := proof` with the proof as after a declaration's `:=`; a `calc` joins the `:=` line when its first line fits (a new arm in `bodyAfter`'s `lambda` choice, so it gets no `OneLineBelow`), goes below an arm's `=>`, and is a layout body for the header | `src/Fmt/Rules.sw` | `calc`, `calc_step`, `body_after`, `arm` |
+| `cases then t`, `arithmetic [h]`, `algebra [h]` (and the keywords alone) | `src/Fmt/Rules.sw` | `join` |
+| `↔` by `chain` with no level (nothing flattens into it) | `src/Fmt/Rules.sw` | `chain` for `Iff` |
+| `within6a`, `Tok.within6a` (slice 4c's and `rewrite`, `cases`, `calc`, `arithmetic`, `algebra`, `↔`), `Decl.printed6a`, `SourceFile.printed6a`; `formatWithin` moves here from `Slice4c.sw` and refuses with `outside slice 6a` | `src/Fmt/Slice6a.sw` | |
+| `Fmt.Twin --stage s6a`, `dev/fmt-twin s6a` | `src/Fmt/Twin.sw`, `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice6a.sw` (6) | |
+
+**The slice's edge.** `rewrite` is in every place an expression is (after `:=` and `=>`, in blocks, after another `rewrite`'s `then`, as a `calc` step's proof). Left out:
+
+- **A gap Rust copies that the tree can't say:** the one after `<-` (`spacing.rs`'s `RewriteArrow` keeps the source's gap), printed as a space; no tracked `.sw` file has `<-` glued to its rule.
+- **Comments on `<` or `-`** (a comment after `<-` makes Rust print an odd layout), and above a `calc` step's `:=`.
+- **A `calc` whose first expression could hug** (`hugsNowhere`): Rust prints it with `no_hug`, a flag the `Around` doesn't carry; the slice takes only names, calls whose last argument is no tuple, list or record, operators, brackets and fields there.
+- Pipes, sections, the unit and the rest as before.
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s6a --exe` with the interpreted twin (a slim copy with `Slice4a.sw` to `Slice4c.sw` and `Slice6a.sw`, without `Syntax/LexProofs.sw` and `Syntax/SettleProofs.sw`; a copied binary with `STITCHWORT_STD_DIR`; a fresh `FMT_TWIN_CACHE`, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 to 5a, 4b, 4c and 6a | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 420 | 420 | 0 |
+| `repo --sample 300` (seed 1) | 5,870 | 3,940 | 3,940 | 0 |
+
+The slices cover 67.1% of the sample's declarations; slices 1 to 5a, 4b and 4c cover 3,253 of the same 5,870 (55.4%; SW-3995 measured 55.8% of 5,947), so slice 6a adds 687. On the same runs `s1` stays 82 of 82 and 40 of 40, `s2` 230 of 230 and 436 of 436, `s3` 288 of 288 and 570 of 570, `s4a` 304 of 304 and 982 of 982, `s5a` 336 of 336 and 2,375 of 2,375, `s4b` 352 of 352 and 2,768 of 2,768, `s4c` 410 of 410 and 3,253 of 3,253. Hand files of rewrites flat and broken (with and without `then`, `at`, `repeatedly`, a long set), `then` chains ending in facts and `cases then`, a block after `then`, comments after a rule's comma, after `then` and above a rule, `calc` after `:=`, in an arm and as a block's value with a blank line and a comment between steps, and a long `↔`: `--stage text` identical to `stitchwort fmt -`.
+
+What keeps the rest out [measured, as SW-3990's count]: of 1,930 declarations outside, 861 have no foreign kind (a shape the slice refuses), 629 two or more. With one foreign kind: `Unit` 157, `Section` 44, `Instance` 42, `Pipe` 37, `Chain` 26, `OperatorSection` 25, `ClauseLambda` 15, `Include` 15. Any foreign kind: `Binder` 234, `Unit` 229, `Pipe` 198, `Section` 198, `FunctionType` 137, `Fields` 132, `Field` 132, `RecordType` 121. Why the 861 shapes are refused wasn't looked into; they are now the largest group.
+
+### For the proof lanes
+
+- **The F1 tree is unchanged.**
+- **Columns.** A broken `rewrite` puts its body at 2 from the `rewrite`'s line and later rules at 4; a broken `repeatedly` set puts its rules at 2 from that (6) and `]` at 4. `calc` steps are at 2 from the `calc`'s line, a step's broken proof at 2 from the step. A broken `↔` puts `↔` at 2. `cases then`, facts and `at h` never break between their tokens.
+- **Rule N.** A `repeatedly` set's `[` and `]` are a bracket pair as a list's. A `calc` step is an item (a blank line above it kept), framed by its `_`; a rule is framed by its first token, as the `RewriteRule` node is in Rust's tree.
+- **Edits to existing rules** are new arms only: `Expr.words`, `Expr.el`, `Expr.layoutBody`, `armDoc` and `bodyAfter`'s `lambda` match.
