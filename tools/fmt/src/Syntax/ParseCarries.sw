@@ -1367,7 +1367,8 @@ theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
 --| `self` gives what `ParseWalk` says and carries its items, at every goal: the two walks' hypothesis, held together
 --| so the recursion can be tied once for both.
 def NestedBoth (self: Goal → {Parse Item} Expr): Prop :=
-  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (read value => GoalParsed goal value ∧ Carried read value)
+  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (read value =>
+    GoalRead goal read value ∧ Carried read value)
 
 theorem nestedOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self): Nested self := goal =>
   Parse.readsWeaken (both goal) (read value facts => facts.left)
@@ -1383,7 +1384,7 @@ theorem carriesOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth s
 --| and `readsExpressionRule`, joined by `Parse.readsBoth`.
 theorem bothExpressionAt ∀ (ladder: LadderCarries): NestedBoth expressionAt := goal =>
   Parse.readsRecursiveWith expressionRule
-    (inner read value => GoalParsed inner value ∧ Carried read value)
+    (inner read value => GoalRead inner read value ∧ Carried read value)
     (self both argument =>
       let nested := nestedOfBoth both
       let carries := carriesOfBoth both

@@ -23,14 +23,20 @@ theorem parsedWeaken ∀ [floor lower: Nat] [expr: Expr]
     (shaped, lexical, arithmetic [high, below])
 
 --| A binary operator's right operand is at the level `rightNeeds` asks, given the floor its parser reads it at: the
---| operator's own level, and for a comparison (`leftNeeds` is 8) the 8 its operand needs.
+--| operator's own level, for a comparison (`leftNeeds` is 8) the 8 its operand needs, and for an operator that nests
+--| to the left (`leftNeeds` is its own level) the next level up.
 theorem rightNeedsLe ∀ (text: Text) (rightFloor: Nat)
     (allows: infixLevel InfixBinary text <= rightFloor)
-    (compares: leftNeeds InfixBinary text = 8 → 8 <= rightFloor):
+    (compares: leftNeeds InfixBinary text = 8 → 8 <= rightFloor)
+    (leftward: leftNeeds InfixBinary text = infixLevel InfixBinary text
+      → infixLevel InfixBinary text + 2 <= rightFloor):
     rightNeeds InfixBinary text <= rightFloor :=
   match isCompare: leftNeeds InfixBinary text == 8 with
     | True => arithmetic [compares (DecEq.sound isCompare)]
-    | False => arithmetic [allows]
+    | False =>
+      match isLeft: leftNeeds InfixBinary text == infixLevel InfixBinary text with
+        | True => arithmetic [leftward (DecEq.sound isLeft)]
+        | False => arithmetic [allows]
 
 --| A binary operator's tree is parsed when its operands are, at levels the operator's table allows.
 theorem infixParsed ∀ (left right: Expr) (operator: Word) (leftFloor rightFloor: Nat)
@@ -39,7 +45,9 @@ theorem infixParsed ∀ (left right: Expr) (operator: Word) (leftFloor rightFloo
     (spelled: (operatorTok operator.text).isSome = True)
     (needs: leftNeeds InfixBinary operator.text <= leftFloor)
     (allows: infixLevel InfixBinary operator.text <= rightFloor)
-    (compares: leftNeeds InfixBinary operator.text = 8 → 8 <= rightFloor):
+    (compares: leftNeeds InfixBinary operator.text = 8 → 8 <= rightFloor)
+    (leftward: leftNeeds InfixBinary operator.text = infixLevel InfixBinary operator.text
+      → infixLevel InfixBinary operator.text + 2 <= rightFloor):
     Parsed1 (infixLevel InfixBinary operator.text) (Infix InfixBinary left operator right) :=
   within =>
     let (leftWithin, rightWithin, operatorWithin) := within
@@ -47,7 +55,7 @@ theorem infixParsed ∀ (left right: Expr) (operator: Word) (leftFloor rightFloo
     let (rightShaped, rightLexical, rightHigh) := rightParsed rightWithin
     let needed: leftNeeds InfixBinary operator.text <= left.level := arithmetic [needs, leftHigh]
     let allowed: rightNeeds InfixBinary operator.text <= right.level :=
-      arithmetic [rightNeedsLe operator.text rightFloor allows compares, rightHigh]
+      arithmetic [rightNeedsLe operator.text rightFloor allows compares leftward, rightHigh]
     let own: infixLevel InfixBinary operator.text <= infixLevel InfixBinary operator.text := arithmetic
     (Both leftShaped (Both rightShaped (Both needed allowed)), Both leftLexical (Both spelled rightLexical), own)
 
@@ -59,17 +67,19 @@ theorem infixParsedAt ∀ (left right: Expr) (operator: Word) (level leftFloor r
     (needs: leftNeeds InfixBinary operator.text <= leftFloor)
     (allows: infixLevel InfixBinary operator.text <= rightFloor)
     (compares: leftNeeds InfixBinary operator.text = 8 → 8 <= rightFloor)
+    (leftward: leftNeeds InfixBinary operator.text = infixLevel InfixBinary operator.text
+      → infixLevel InfixBinary operator.text + 2 <= rightFloor)
     (own: infixLevel InfixBinary operator.text = level):
     Parsed1 level (Infix InfixBinary left operator right) :=
   rewrite <- own then
-    infixParsed left right operator leftFloor rightFloor leftParsed rightParsed spelled needs allows compares
+    infixParsed left right operator leftFloor rightFloor leftParsed rightParsed spelled needs allows compares leftward
 
---| An operator at `level` that nests to the left, with its operand: `leftNested`'s links.
+--| An operator at `level` that nests to the left, with its operand at the next level up: `leftNested`'s links.
 def LeftLink (level: Nat) (link: (Word, Expr)): Prop :=
   (operatorTok link.fst.text).isSome = True
     ∧ leftNeeds InfixBinary link.fst.text = level
     ∧ infixLevel InfixBinary link.fst.text = level
-    ∧ Parsed1 level link.snd
+    ∧ Parsed1 (level + 2) link.snd
 
 --| Folding links to the left keeps a tree parsed, at the links' level.
 --|
@@ -85,10 +95,15 @@ theorem leftNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Expr
       leftNestedParsed level
         (Infix InfixBinary first operator next)
         rest
-        (infixParsedAt first next operator level level level firstParsed nextParsed spelled
+        (infixParsedAt first next operator level level
+          (level + 2)
+          firstParsed
+          nextParsed
+          spelled
           (arithmetic [needs])
           (arithmetic [own])
           (same => arithmetic [needs, same])
+          (same => arithmetic [own])
           own)
         restParsed
 
@@ -121,6 +136,7 @@ theorem rightNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Exp
         (arithmetic [needs])
         (arithmetic [own])
         (same => arithmetic [needs, same, high])
+        (same => arithmetic [needs, own, same])
         own
 
 -- The items.
@@ -219,7 +235,7 @@ theorem leftLinkOf ∀ (takes: Tok → Bool) (level: Nat)
     (item: Item) (value: Expr)
     (good: GoodItem item)
     (took: takes item.kind = True)
-    (parsed: Parsed1 level value):
+    (parsed: Parsed1 (level + 2) value):
     LeftLink level (item.leaf.word, value) :=
   let (symbolic, texts) := takesGood item.kind item.text took
   let within: item.kind.within1 = True := symbolicWithin item.kind symbolic
@@ -230,17 +246,17 @@ theorem leftLinkOf ∀ (takes: Tok → Bool) (level: Nat)
 theorem givesOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr) (level: Nat)
     (takesGood: ∀ (kind: Tok) (text: Text) => takes kind = True
       → kind.symbolic1 = True ∧ (Spells kind text → TextAt level level text))
-    (operandGives: Parse.Gives GoodItems operand (Parsed1 level)):
+    (operandGives: Parse.Gives GoodItems operand (Parsed1 (level + 2))):
     Parse.Gives GoodItems (() => operatorLinks modes takes operand) (List.All (LeftLink level)) :=
   Parse.givesLoop
-    (givesOperatorStep modes takes operand level (LeftLink level) (leftLinkOf takes level takesGood) operandGives)
+    (givesOperatorStep modes takes operand (level + 2) (LeftLink level) (leftLinkOf takes level takesGood) operandGives)
 
 --| A first operand and the links after it, folded to the left.
 theorem givesLeftChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: () → {Parse Item} Expr) (level: Nat)
     (takesGood: ∀ (kind: Tok) (text: Text) => takes kind = True
       → kind.symbolic1 = True ∧ (Spells kind text → TextAt level level text))
     (firstGives: Parse.Gives GoodItems first (Parsed1 level))
-    (operandGives: Parse.Gives GoodItems operand (Parsed1 level)):
+    (operandGives: Parse.Gives GoodItems operand (Parsed1 (level + 2))):
     Parse.Gives GoodItems (() => leftNested (first()) (operatorLinks modes takes operand)) (Parsed1 level) :=
   Parse.givesThen firstGives (head headParsed =>
     Parse.givesThen (givesOperatorLinks modes takes operand level takesGood operandGives) (links linksParsed =>
@@ -265,7 +281,7 @@ theorem addTakesGood ∀ (kind: Tok) (text: Text)
 
 --| `mul_expr`, from what `unary` gives.
 theorem givesMulExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (unaryGives: Parse.Gives GoodItems (() => unary self modes) (Parsed1 16)):
+    (unaryGives: Parse.Gives GoodItems (() => unary self modes) (Parsed1 18)):
     Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16) :=
   givesLeftChain modes
     (kind => kind == Star || kind == Slash || kind == Percent)
@@ -273,12 +289,12 @@ theorem givesMulExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (() => unary self modes)
     16
     mulTakesGood
-    unaryGives
+    (Parse.givesWeaken unaryGives (value parsed => parsedWeaken parsed byComputing))
     unaryGives
 
 --| `add_expr`, from what `mul_expr` gives.
 theorem givesAddExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (mulGives: Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 14)):
+    (mulGives: Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16)):
     Parse.Gives GoodItems (() => addExpr self modes) (Parsed1 14) :=
   givesLeftChain modes
     (kind => kind == Plus || kind == Minus)
@@ -286,7 +302,7 @@ theorem givesAddExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (() => mulExpr self modes)
     14
     addTakesGood
-    mulGives
+    (Parse.givesWeaken mulGives (value parsed => parsedWeaken parsed byComputing))
     mulGives
 
 theorem appendTakesGood ∀ (kind: Tok) (text: Text)
