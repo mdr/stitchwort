@@ -8,7 +8,6 @@ mod dev_doc;
 mod doc;
 mod doc_equations;
 mod fmt;
-mod fmt_repo;
 mod guide;
 mod indexed_families;
 mod lambda_shadow;

@@ -1,10 +1,13 @@
 //! `stitchwort fmt` (docs/proposals/formatter.md §5.1, still the interface), end to end with the
 //! built command.
 
-use crate::fmt_repo::repo_files;
+#[path = "../../../fmt/tests/it/support/repo_files.rs"]
+mod repo_files;
+
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use stitchwort_fmt::DELIBERATELY_UNFORMATTED;
 
 fn stitchwort(cwd: &Path, args: &[&str], input: Option<&str>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
@@ -214,13 +217,21 @@ fn check_skips_a_named_deliberately_unformatted_file() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The repository's own `.sw` sources are formatted: every tracked one,
-/// bar the paths kept as written (`fmt --check` skips those by itself, named
-/// or not).
+/// The repository's own `.sw` sources are formatted: every tracked one
+/// outside the paths kept as written. The list is filtered here rather than
+/// left to `fmt --check`, which finds those paths by their `.git` root and so
+/// can't in the Nix build's source copy.
 #[test]
 fn the_repository_sources_are_formatted() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let files = repo_files::repo_files(&root, &[".sw"]);
+    let files: Vec<String> = repo_files::repo_files(&root, &[".sw"])
+        .into_iter()
+        .filter(|path| {
+            !DELIBERATELY_UNFORMATTED
+                .iter()
+                .any(|excluded| path.starts_with(excluded))
+        })
+        .collect();
     assert!(files.len() > 300, "found only {} files", files.len());
     let mut args = vec!["fmt", "--check"];
     args.extend(files.iter().map(String::as_str));

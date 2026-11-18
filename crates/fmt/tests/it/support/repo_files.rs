@@ -1,5 +1,5 @@
 //! The repo's files of some kinds, for the tests that check every one of
-//! them (`crates/fmt/tests/it/repo.rs`, `crates/cli/tests/tools/fmt_repo.rs`,
+//! them (`crates/fmt/tests/it/repo.rs`, `crates/cli/tests/tools/fmt.rs`,
 //! `crates/driver/tests/library/fmt_hashes.rs`, which include this file by path).
 //!
 //! In a git checkout these are the tracked files (`git ls-files`). The Nix
