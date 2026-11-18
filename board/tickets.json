@@ -24770,12 +24770,12 @@
     {
       "id": 4041,
       "title": "[Sonnet] fmt S1 output D: SourceFile.calm clears the file's first blank-line flag; re-prove calmTwice, calmWithin, calmMeans, calmPrints; calmTop goes (docs/reviews/SW-4025-output-statements.md ticket D)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-4079): calmTopWithin, calmTopPrints, calmTopMeans become existing calm theorems; add calmTopCommaFree and calmTopOneLine (small).",
+      "body": "Also (SW-4079): calmTopWithin, calmTopPrints, calmTopMeans become existing calm theorems; add calmTopCommaFree and calmTopOneLine (small).\n\n\nLane note (Sonnet, 18 Nov): took the direct route (calmTop kept, not removed). New Fmt.CalmTopProofs (commit 3bb494fda on lane/SW-4041) proves calmTopWithin, calmTopCommaFree, calmTopOneLine, calmTopPrints, calmTopMeans as stated; calm keeps comma-freeness and one-line (new lemmas there). TopStatements goals removed, formatKeepsProgram1/formatIdempotent1 untouched. Checks: Fmt.CalmTopProofs check+audit clean, Fmt.TopStatements 0 errors, Fmt.Tests 118 pass.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
