@@ -1,5 +1,5 @@
 {
-  "next": 4073,
+  "next": 4075,
   "tickets": [
     {
       "id": 47,
@@ -24272,7 +24272,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.\n\nCheck (SW-3969): hangs is stronger than the sketch's (two clauses, counterexamples def d: A -> / B / C := x and def d / : A := x); confirm printedHangs covers them so the top theorem's condition is still discharged.\n\nOrchestrator's call (SW-3964): CommentsKept stays stated on settledBare (Rust's model), and SW-4006 proves bareSettles, rather than restating it on settledOnce, which would make glue free but weaken what it promises. Check this at the checkpoint.\n\nCheck (SW-3971): printLexes1 holds under DeclJoins and Every Printable (SW-4010 derives them); Joinable (App ...) needs arguments ≠ [] (the parser gives it); MayFollow Bang loosened to match the lexer exactly.\n\nFrom SW-4018: the five undischarged conditions (good for the source; laidOut for the source; plain1 of the source, now refused by the driver; rule N idle on the output; output at file level) each have a ticket (SW-4024, SW-4023, SW-3973, SW-4025); D-A narrowed within1 (qualified names, exponents); D-B driver refuses non-plain sources.\n\nCheckpoint review should look at SW-4034's internal statement changes: CloserFold's leftOf indent block moved into CloserSeat's Broken case (it was false when the inner's break lands at the indentation); LinkFacts/PairFacts weakened to RunOperator; printedHangs's DeclHangs hypothesis (to be discharged by SW-4045).\n\nAlso review (SW-4039): noteComment now reads withoutReturn note.text (a definition in printedFileLexes1's statement changed to make it true; crDropped); see SW-4054 for the underlying CR comment bug.\n\nAlso review (SW-4045): printedHangs1Quiet carries DeclQuiet (a narrowing of what's covered: no comments above header leaves or inside type/value); orchestrator's call: accept for now and fix by SW-4057, SW-4058, SW-4035 so it shrinks to the four tree facts.\n\nAlso review (SW-4051): printedStands1 gained decl.unreturned1 (false without it: returnedFalls, a hand-built trailing comment ending in CR) and DeclHangs lexKind decl (orchestrator's call, the most general; Quiet corollary is one line). Check both are discharged by glue (tidiedUnreturned1; DeclHangs via SW-4057/4058 lifting DeclQuiet).\n\nAlso review (SW-4031): shaped1 accepted trees whose print reads back differently (a - b - c from a right-nested Infix; !x y; f - -x); being tightened in SW-4069. Check the tightened shaped1 still has parseShaped1 and that readsBack1 uses it.",
+      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.\n\nCheck (SW-3969): hangs is stronger than the sketch's (two clauses, counterexamples def d: A -> / B / C := x and def d / : A := x); confirm printedHangs covers them so the top theorem's condition is still discharged.\n\nOrchestrator's call (SW-3964): CommentsKept stays stated on settledBare (Rust's model), and SW-4006 proves bareSettles, rather than restating it on settledOnce, which would make glue free but weaken what it promises. Check this at the checkpoint.\n\nCheck (SW-3971): printLexes1 holds under DeclJoins and Every Printable (SW-4010 derives them); Joinable (App ...) needs arguments ≠ [] (the parser gives it); MayFollow Bang loosened to match the lexer exactly.\n\nFrom SW-4018: the five undischarged conditions (good for the source; laidOut for the source; plain1 of the source, now refused by the driver; rule N idle on the output; output at file level) each have a ticket (SW-4024, SW-4023, SW-3973, SW-4025); D-A narrowed within1 (qualified names, exponents); D-B driver refuses non-plain sources.\n\nCheckpoint review should look at SW-4034's internal statement changes: CloserFold's leftOf indent block moved into CloserSeat's Broken case (it was false when the inner's break lands at the indentation); LinkFacts/PairFacts weakened to RunOperator; printedHangs's DeclHangs hypothesis (to be discharged by SW-4045).\n\nAlso review (SW-4039): noteComment now reads withoutReturn note.text (a definition in printedFileLexes1's statement changed to make it true; crDropped); see SW-4054 for the underlying CR comment bug.\n\nAlso review (SW-4045): printedHangs1Quiet carries DeclQuiet (a narrowing of what's covered: no comments above header leaves or inside type/value); orchestrator's call: accept for now and fix by SW-4057, SW-4058, SW-4035 so it shrinks to the four tree facts.\n\nAlso review (SW-4051): printedStands1 gained decl.unreturned1 (false without it: returnedFalls, a hand-built trailing comment ending in CR) and DeclHangs lexKind decl (orchestrator's call, the most general; Quiet corollary is one line). Check both are discharged by glue (tidiedUnreturned1; DeclHangs via SW-4057/4058 lifting DeclQuiet).\n\nAlso review (SW-4031): shaped1 accepted trees whose print reads back differently (a - b - c from a right-nested Infix; !x y; f - -x); being tightened in SW-4069. Check the tightened shaped1 still has parseShaped1 and that readsBack1 uses it.\n\nAlso (SW-4017): FrameRest was uninhabitable until frameRest, so theorems over it were vacuous; check that the slice 1 top statements now use frameRest, not an assumed frame.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24449,12 +24449,12 @@
     {
       "id": 4017,
       "title": "[Sonnet] fmt S1 parser proofs 16f: walk declarationOther (type, interface, ability, test, rules, instance, export: data declarations and constructors) as Gives facts, discharging FrameRest's last field 'others' (SW-4008)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nLane note (Sonnet, 18 Nov): others discharged. Syntax.ParseWalkOthers (63 theorems, audited clean): givesDeclarationOther, frameRest, parseCarriesSourceProved/parseSettledSourceProved. FrameRest.others as stated was false for seen = Some KwInstance (seen not tied to position); instanceDecl now checks the header's kind. DeclParser data/ability/test/rules/export parsers split into named steps. Branch lane/SW-4017, 3 commits.\n",
+      "body": "\n\nLane note (Sonnet, 18 Nov): others discharged. Syntax.ParseWalkOthers (63 theorems, audited clean): givesDeclarationOther, frameRest, parseCarriesSourceProved/parseSettledSourceProved. FrameRest.others as stated was false for seen = Some KwInstance (seen not tied to position); instanceDecl now checks the header's kind. DeclParser data/ability/test/rules/export parsers split into named steps. Branch lane/SW-4017, 3 commits.\n\nMerged 18 Nov. Model result: sonnet, worked, 15 min (est. 40). Orchestrator's call: keep the instanceDecl guard (dead on reachable inputs). Found FrameRest.others was false, so FrameRest-taking theorems were vacuous until now.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25186,6 +25186,32 @@
     {
       "id": 4072,
       "title": "[Sonnet] fmt: drop ItemsHang's separate before argument now that before = seat at every caller (SW-4035), restating brokenItemsHang; and prove cells' path has earlier items' trails False (only a test pins it now)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4073,
+      "title": "[Sonnet] fmt parser proofs: drop the frame: FrameRest hypothesis from its consumers now that frameRest is proved (SW-4017), so the top parser statements read without it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4074,
+      "title": "[Fable paper] fmt parser proofs: audit every Gives/Frame assumption in Syntax for the SW-4017 pattern (an assumption quantified over a parser-read value detached from position, making the frame uninhabitable and its theorems vacuous); list each assumption, whether it is inhabited, and how it is discharged",
       "status": "backlog",
       "agent": "",
       "where": "",
