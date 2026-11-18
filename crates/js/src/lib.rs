@@ -13,8 +13,9 @@ use std::fmt::Write;
 use std::rc::Rc;
 
 use stitchwort_core::backend::View;
-use stitchwort_core::check::{is_type_former, telescope};
+use stitchwort_core::check::is_type_former;
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::erase::def_telescope;
 use stitchwort_core::globals::FieldDefault;
 use stitchwort_core::js_repr::{self, JsRepr};
 use stitchwort_core::native;
@@ -237,7 +238,7 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
             "the generated module exports something else with that name".into(),
         ));
     }
-    let tel = telescope(g, def.ty_value(), def.span())?;
+    let tel = def_telescope(g, id)?;
     if tel.result_erased {
         return Err(refuse(
             "it's a proof or a type, so it has no runtime value".into(),

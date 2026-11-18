@@ -6,7 +6,10 @@
 //!
 //! 1. an argument of a definition whose parameter is erased (its type is a
 //!    proposition, or a type former such as `Type` or `Nat -> Type`) isn't
-//!    evaluated: it's the [`erased`] placeholder;
+//!    evaluated: it's the [`erased`] placeholder. A definition's parameters
+//!    are read in one view, its type under its own transparency set
+//!    ([`def_telescope`]), so one written behind an opaque nickname the
+//!    definition unfolds counts, as it does for the runtimes;
 //! 2. likewise a constructor's erased fields (`Ctor::field_erased`);
 //! 3. a definition whose result is erased (a theorem, a proof-producing
 //!    function, a type-level function) isn't run once it has all its
@@ -68,9 +71,10 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::check;
-use crate::globals::State;
+use crate::globals::{Def, State};
 use crate::term::DefId;
 use crate::value::{Apart, Head, Spine, Value};
+use stitchwort_syntax::Diagnostic;
 
 /// The level of the placeholder's variable: never a real one.
 pub(crate) const ERASED: usize = usize::MAX - 1;
@@ -180,21 +184,40 @@ impl Erasure {
     }
 }
 
-/// Runs `f`, which reads a definition's kept type (`Def::ty_value`), in the
-/// modes that type was made in: not erasing (erasing inside it would change
-/// what a telescope sees), no program running and every opaque definition
-/// hidden. The answers are remembered per definition, so they mustn't
-/// depend on the modes of the first use: a codomain or a glued call forced
-/// while a program runs, or under a transparency set, would see through an
-/// opaque nickname that a type without parameters, or the same type read
-/// at check time, doesn't (SW-3916). The runtimes read the kept type the
-/// same way (`rt` `erasure`, `specialise`).
-fn as_kept<T>(g: &Ev, f: impl FnOnce() -> T) -> T {
+/// Runs `f`, which reads definition `def`'s type, in the one view every
+/// reader of its parameters shares: the type under the definition's own
+/// transparency set ([`check::def_type`]), glued, not erasing (erasing
+/// inside it would change what a telescope sees) and with no program
+/// running. That is the type its body was checked against, so it shows at
+/// least as many parameters as the body has lambdas, even when some of them
+/// are behind an opaque nickname the definition unfolds (`f: Fun unfolding
+/// Fun := m => ...`). With every opaque definition hidden it would show
+/// fewer, and a runtime that cut a call's erasure mask to that length
+/// would disagree with the body's lambdas (SW-3933). The view depends only
+/// on the definition (its type, and its transparency set, which is made
+/// from its hashed `unfolding` list) and the environment, never on the
+/// caller's modes, so the answers remembered per definition below are the
+/// same on a cold check and a cached replay (SW-3916).
+fn in_own_view<T>(g: &Ev, def: &Def, f: impl FnOnce() -> T) -> T {
     let modes = g.machine.erasure.stop();
-    let _set = g.machine.transparent.set(Rc::default());
+    let glue = g.machine.glue.replace(true);
+    let set = g.machine.transparent.set(def.transparent.clone());
     let result = f();
+    drop(set);
+    g.machine.glue.set(glue);
     g.machine.erasure.put_back(modes);
     result
+}
+
+/// Definition `id`'s parameters and result, in the view its body was
+/// checked in ([`in_own_view`]): what erasure here, `Replay::of_def`, and
+/// the runtimes' lowering (`rt` `def_shape`, `specialise`, `js`) all read,
+/// so a call and the definition's body agree on which arguments are passed.
+pub fn def_telescope(g: &Ev, id: DefId) -> std::result::Result<check::Telescope, Diagnostic> {
+    let def = g.def(id);
+    in_own_view(g, def, || {
+        check::telescope(g, &check::def_type(g, def)?, def.span)
+    })
 }
 
 /// Which parts of definition `id` are erased, or `None` if it isn't final.
@@ -206,7 +229,7 @@ pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     if def.state != State::Final {
         return None;
     }
-    let tel = as_kept(g, || check::telescope(g, &def.ty_value, def.span));
+    let tel = def_telescope(g, id);
     let Ok(tel) = tel else {
         // Out of resources (nothing else can fail: the type is checked).
         // Erasing nothing is safe, and the machine stops at its next step.
@@ -247,7 +270,9 @@ pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
     if def.state != State::Final {
         return None;
     }
-    let tel = as_kept(g, || check::proof_telescope(g, &def.ty_value, def.span));
+    let tel = in_own_view(g, def, || {
+        check::proof_telescope(g, &check::def_type(g, def)?, def.span)
+    });
     // Out of resources: nothing is a proof, which only makes more
     // differences count.
     let (params, result) = tel.unwrap_or_default();

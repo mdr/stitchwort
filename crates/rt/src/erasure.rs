@@ -4,7 +4,7 @@
 //! both recognise in checked terms. What's erased is described in
 //! docs/core.md, "Erasure and JS extraction".
 
-use stitchwort_core::check::telescope;
+use stitchwort_core::erase::def_telescope;
 use stitchwort_core::globals::NatShape;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
@@ -44,7 +44,7 @@ impl DefShape {
 /// arity): for backends that build `Delay` values rather than erasing them.
 pub fn def_shape(g: &Ev, id: DefId, primitives_whole: bool) -> Result<DefShape, Diagnostic> {
     let def = g.def(id);
-    let tel = telescope(g, def.ty_value(), def.span())?;
+    let tel = def_telescope(g, id)?;
     let partial = match (
         force(g, tel.result)?,
         g.env.builtins().primitive_id(Primitive::Delay),

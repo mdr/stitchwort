@@ -44,7 +44,7 @@
 use num_bigint::BigUint;
 use stitchwort_syntax::Diagnostic;
 
-use crate::check::{def_type, substitute_in, telescope};
+use crate::check::substitute_in;
 use crate::ev::Ev;
 use crate::globals::State;
 use crate::term::{DataId, DefId, NumArm, Sort, Term};
@@ -186,10 +186,10 @@ impl Replay {
     pub fn of_def(g: &Ev, id: DefId) -> Result<Replay> {
         let _modes = KernelModes::enter(g, id);
         let def = g.def(id);
-        // Its type as its body was checked against, under its transparency
-        // set: a type written through an opaque nickname it unfolds shows
-        // the parameters its lambdas bind.
-        let tel = telescope(g, &def_type(g, def)?, def.span)?;
+        // Its type as its body was checked against: a type written through
+        // an opaque nickname it unfolds shows the parameters its lambdas
+        // bind.
+        let tel = crate::erase::def_telescope(g, id)?;
         if tel.params.len() < def.arity {
             return Err(internal(format!(
                 "`{}` has fewer parameters than lambdas",
