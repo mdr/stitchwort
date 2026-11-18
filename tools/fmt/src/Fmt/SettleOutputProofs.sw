@@ -9,7 +9,7 @@ import Syntax (..)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
-import Fmt.FileLexProofs (laidNotesFalse, printedFileLexes1)
+import Fmt.FileLexProofs (laidNotesFalse, printedFileLexes1, returnKept)
 import Fmt.OutputFileProofs (declStartsKw, printedAlphabet1, printedGroups1, printedPlain1)
 import Syntax.ParseSettledStatements (..)
 import Fmt.CalmProofs (..)
@@ -1252,6 +1252,11 @@ def returnFails (source: Text): Bool := match tidiedOf source with
 --| (`commentText` allows it), the file loop prints it, and the lexer reads the printed line back without it. Above a
 --| declaration and at the end. Trees the parser gives have none (`crDropped`).
 theorem returnLost: (returnFails "-- a\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\n") = True := byComputing
+
+--| A parsed tree can have a comment ending in `\r`: the lexer strips the `\r`s at the end of a comment's text
+--| (`withoutReturn`), and rule 5 then trims the space before one, leaving it at the end. So `-- a\r ` above a
+--| declaration gives a tree with `unreturned1` false.
+theorem returnSurvives: returnKept "-- a\r \ndef d: A := b\n" = True := byComputing
 
 -- Standing, joined.
 
