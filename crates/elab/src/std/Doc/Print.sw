@@ -355,6 +355,18 @@ def Doc.Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
 def Doc.floorAfter (text: Text) (carry: Carry): Carry :=
   if text.startsWith "--" then carry else { carry | floor = None }
 
+--| A comment leaves the carry as it was: the comment floor stays in force.
+theorem Doc.commentKeepsFloor ∀ (text: Text) (carry: Carry)
+    (comment: text.startsWith "--" = True):
+    floorAfter text carry = carry :=
+  rewrite comment
+
+--| An instance of `commentKeepsFloor`, so it isn't vacuous: the audit's
+--| random search rarely makes a text that starts with `--`.
+theorem Doc.commentKeepsFloorExample: floorAfter "-- c" { floor = Some 4, marks = [] }
+      = { floor = Some 4, marks = [] } :=
+  commentKeepsFloor "-- c" { floor = Some 4, marks = [] } byComputing
+
 --| The indentation of a comment break in a construct indented `indent`:
 --| deeper than the line being broken, so what follows continues it.
 def Doc.Printer.continuation (printer: Printer) (indent: Nat): Nat := Nat.max indent (printer.lineIndent + 2)

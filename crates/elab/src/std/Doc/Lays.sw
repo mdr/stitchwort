@@ -23,6 +23,13 @@ import Doc.Proofs (..)
 def Doc.Proofs.IsComment (text: Text): Prop :=
   ∃ (others: List Char) => text.toList = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True
 
+--| A comment's text starts with `--`.
+theorem Doc.Proofs.commentStarts ∀ (text: Text) (comment: IsComment text): text.startsWith "--" = True :=
+  match comment with
+    | (others, chars, _) =>
+      let starts: Text.startsWithChars "--".toList text.toList = True := rewrite chars
+      starts
+
 --| The texts `Closing` is for: a closing bracket or a comma.
 def Doc.Proofs.closesText (text: Text): Bool := text == ")" || text == "]" || text == ","
 
@@ -70,16 +77,16 @@ def Doc.Proofs.SepLays (indent: Nat) (place: Place) (trace: List Event) (next: P
     | AtStart _ _ => False
     | Broken _ _ => False
     | Mid at carry =>
-      next (Mid at { carry | floor = None }) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
-    | Held at carry => next (Held at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+      next (Mid at { carry | floor = None }) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
+    | Held at carry => next (Held at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
 
 --| A `SoftLine`: nothing or a line break, after words.
 def Doc.Proofs.SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart _ _ => False
     | Broken _ _ => False
-    | Mid at carry => next (Mid at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
-    | Held at carry => next (Held at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+    | Mid at carry => next (Mid at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
+    | Held at carry => next (Held at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
 
 --| A `LineStart`: a comment break, deeper than the line, unless a line
 --| starts here; the break's indentation is the floor until the next
@@ -87,13 +94,13 @@ def Doc.Proofs.SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: 
 def Doc.Proofs.StartLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart at carry => next (AtStart at carry) trace
-    | Broken at carry => next (AtStart at carry) trace
+    | Broken at carry => next (Broken at carry) trace
     | Mid at carry =>
       let broken := Nat.max indent (at + 2)
-      next (AtStart (floored carry broken) (carry.startFloor broken)) trace
+      next (Broken (floored carry broken) (carry.startFloor broken)) trace
     | Held at carry =>
       let broken := Nat.max indent (at + 2)
-      next (AtStart (floored carry broken) (carry.startFloor broken)) trace
+      next (Broken (floored carry broken) (carry.startFloor broken)) trace
 
 --| A trailing comment: after words on its line, with no other waiting.
 def Doc.Proofs.SuffixLays (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
@@ -116,8 +123,10 @@ def Doc.Proofs.BlankLays (place: Place) (trace: List Event) (next: Place → Lis
 --| construct indented `indent` puts its words where `next` is told, and
 --| every place it may leave satisfies `next`. A line break that isn't a
 --| `Line` or `SoftLine` comes only after words (at a line start it would
---| leave a blank line); after a `HardLine` the document says whether a
---| `Blank` follows (`Broken`) or not (`AtStart`).
+--| leave a blank line). Every line break after words leaves `Broken`, as
+--| the printer is then (one line break behind it), so a `Blank` may
+--| follow; after a `HardLine` the document may say instead that none
+--| does (`AtStart`).
 def Doc.Proofs.Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match doc with
@@ -150,7 +159,7 @@ def Doc.Proofs.Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) 
       place.midLine = True
         ∧ Lays inner
           (indent + 2)
-          (AtStart (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
+          (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
           trace
           next
     | Concat docs => LaysAll docs indent place trace next
@@ -341,7 +350,7 @@ theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
         | Held at carry, lays =>
           laysWeaker inner
             (Nat.max indent (at + 2))
-            (AtStart (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
+            (Broken (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
             trace
             strong
             weak
@@ -359,7 +368,7 @@ theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
       mid,
       (laysWeaker inner
         (indent + 2)
-        (AtStart (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
+        (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
         trace
         strong
         weak
@@ -965,7 +974,7 @@ theorem Doc.Proofs.laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid pr
         | Held at carry, tracks, lays =>
           laysPuts inner
             (Nat.max indent (at + 2))
-            (AtStart (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
+            (Broken (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
             laid
             printed
             next
@@ -985,7 +994,7 @@ theorem Doc.Proofs.laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid pr
       mid,
       (laysPuts inner
         (indent + 2)
-        (AtStart (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
+        (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
         laid
         printed
         next
@@ -1106,3 +1115,17 @@ theorem Doc.Proofs.printLays ∀ (spec: Place → List Event → Prop) (doc: Doc
       (([], (), byComputing, byComputing, byComputing))
       lays
   match printPuts put doc width puts with | (place, laid, holds, tucks) => (place, laid, holds, tucks)
+
+--| A `Blank` after a `Line` lays where the line breaks: `f`, a blank
+--| line and `x`, or `f x` where it doesn't.
+theorem Doc.Proofs.blankAfterLineExample ∀ (width: Nat):
+    ∃ (place: Place) => ∃ (laid: List Event) => (laid = [{ word = "f", start = Some 0 }, { word = "x", start = None }]
+      ∨ laid = [{ word = "f", start = Some 0 }, Event.blankLine, { word = "x", start = Some 0 }])
+      ∧ Tucks laid (eventsOf (printedPieces (Concat [Chunk "f" 1, Line, Blank, Chunk "x" 1]) width).reverse) :=
+  printLays
+    (place laid =>
+      laid = [{ word = "f", start = Some 0 }, { word = "x", start = None }]
+        ∨ laid = [{ word = "f", start = Some 0 }, Event.blankLine, { word = "x", start = Some 0 }])
+    (Concat [Chunk "f" 1, Line, Blank, Chunk "x" 1])
+    width
+    ((byComputing, ((byComputing, (Inl byComputing)), (byComputing, (Inr byComputing)))))

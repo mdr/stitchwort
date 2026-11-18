@@ -55,7 +55,8 @@ def Doc.Proofs.eventsOf: List Text → List Event
 --| indentation of the lines up to the next code) and the open marks.
 type Doc.Proofs.Place =
   --| Nothing but indentation on the line; the next word starts it at
-  --| column `indent`.
+  --| column `indent`. A `Blank` here may print nothing (at the start of
+  --| the output, after a blank line), so none is allowed.
   | AtStart (indent: Nat) (carry: Carry)
   --| As `AtStart`, right after the line break that ended a line of
   --| words: the one place a `Blank` leaves a blank line.
@@ -124,16 +125,16 @@ def Doc.Proofs.SepPuts (indent: Nat) (place: Place) (trace: List Event) (next: P
     | AtStart _ _ => False
     | Broken _ _ => False
     | Mid at carry =>
-      next (Mid at { carry | floor = None }) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
-    | Held at carry => next (Held at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+      next (Mid at { carry | floor = None }) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
+    | Held at carry => next (Held at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
 
 --| A `SoftLine`: nothing or a line break, after words.
 def Doc.Proofs.SoftPuts (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart _ _ => False
     | Broken _ _ => False
-    | Mid at carry => next (Mid at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
-    | Held at carry => next (Held at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+    | Mid at carry => next (Mid at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
+    | Held at carry => next (Held at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
 
 --| A `LineStart`: a comment break, deeper than the line, unless a line
 --| starts here; the break's indentation is the floor until the next
@@ -141,22 +142,22 @@ def Doc.Proofs.SoftPuts (indent: Nat) (place: Place) (trace: List Event) (next: 
 def Doc.Proofs.StartPuts (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart at carry => next (AtStart at carry) trace
-    | Broken at carry => next (AtStart at carry) trace
+    | Broken at carry => next (Broken at carry) trace
     | Mid at carry =>
       let broken := Nat.max indent (at + 2)
-      next (AtStart (floored carry broken) (carry.startFloor broken)) trace
+      next (Broken (floored carry broken) (carry.startFloor broken)) trace
     | Held at carry =>
       let broken := Nat.max indent (at + 2)
-      next (AtStart (floored carry broken) (carry.startFloor broken)) trace
+      next (Broken (floored carry broken) (carry.startFloor broken)) trace
 
 --| A `LineStartHere`: at a line start the line moves to `indent`;
 --| after words, a line break there.
 def Doc.Proofs.HerePuts (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart _ carry => next (AtStart indent carry) trace
-    | Broken _ carry => next (AtStart indent carry) trace
-    | Mid _ carry => next (AtStart (floored carry indent) (carry.breakTo indent)) trace
-    | Held _ carry => next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+    | Broken _ carry => next (Broken indent carry) trace
+    | Mid _ carry => next (Broken (floored carry indent) (carry.breakTo indent)) trace
+    | Held _ carry => next (Broken (floored carry indent) (carry.breakTo indent)) trace
 
 --| The place, carrying `carry` instead of its own.
 def Doc.Proofs.Place.withCarry (place: Place) (carry: Carry): Place := match place with
@@ -171,7 +172,7 @@ def Doc.Proofs.Place.withCarry (place: Place) (carry: Carry): Place := match pla
 def Doc.Proofs.CloserPuts (key indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   let column := place.carry.closerAt key indent
-  place.midLine = True ∧ next (AtStart column ((place.carry.close key).breakTo column)) trace
+  place.midLine = True ∧ next (Broken column ((place.carry.close key).breakTo column)) trace
 
 --| A trailing comment: after words on its line, with no other waiting.
 def Doc.Proofs.SuffixPuts (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
@@ -210,14 +211,16 @@ def Doc.Proofs.DisplacedHolds (indent: Nat) (place: Place) (inner: Nat → Place
   | Mid at carry => inner indent (Mid at carry)
   | Held at carry =>
     let broken := Nat.max indent (at + 2)
-    inner broken (AtStart (floored carry broken) (carry.breakTo broken))
+    inner broken (Broken (floored carry broken) (carry.breakTo broken))
 
 --| From `place` with `trace` printed, every way `doc` may print in a
 --| construct indented `indent` puts its words where `next` is told, and
 --| every place it may leave satisfies `next`. A line break that isn't a
 --| `Line` or `SoftLine` comes only after words (at a line start it would
---| leave a blank line); after a `HardLine` the document says whether a
---| `Blank` follows (`Broken`) or not (`AtStart`).
+--| leave a blank line). Every line break after words leaves `Broken`, as
+--| the printer is then (one line break behind it), so a `Blank` may
+--| follow; after a `HardLine` the document may say instead that none
+--| does (`AtStart`).
 def Doc.Proofs.Puts (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match doc with
@@ -250,7 +253,7 @@ def Doc.Proofs.Puts (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) 
       place.midLine = True
         ∧ Puts inner
           (indent + 2)
-          (AtStart (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
+          (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
           trace
           next
     | Concat docs => PutsAll docs indent place trace next
@@ -464,7 +467,7 @@ theorem Doc.Proofs.putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
         | Held at carry, lays =>
           putsWeaker inner
             (Nat.max indent (at + 2))
-            (AtStart (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
+            (Broken (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
             trace
             strong
             weak
@@ -482,7 +485,7 @@ theorem Doc.Proofs.putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
       mid,
       (putsWeaker inner
         (indent + 2)
-        (AtStart (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
+        (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
         trace
         strong
         weak
@@ -1121,10 +1124,10 @@ theorem Doc.Proofs.closerStays ∀ (next: Place → List Event → Prop) (printe
       let column := place.carry.closerAt key indent
       let moved := carryAgrees printer place closed trace agrees
       let midMoved: (place.withCarry closed).midLine = True := Eq.trans (withCarryMid place closed) mid
-      let broken := newlineAgrees { printer | carry = closed } column (place.withCarry closed) trace moved midMoved
-      let lands: Agrees ({ printer | carry = closed }.newline column) (AtStart column (closed.breakTo column)) trace :=
+      let broken := newlineBroken { printer | carry = closed } column (place.withCarry closed) trace moved midMoved
+      let lands: Agrees ({ printer | carry = closed }.newline column) (Broken column (closed.breakTo column)) trace :=
         rewrite withCarryCarry place closed at broken
-      rewrite agreesFloor printer place trace agrees then (AtStart column (closed.breakTo column), trace, lands, after)
+      rewrite agreesFloor printer place trace agrees then (Broken column (closed.breakTo column), trace, lands, after)
 
 --| A carry set at a line start (a new comment floor) is the place's.
 theorem Doc.Proofs.floorAgrees ∀ (printer: Printer) (at: Nat) (carry other: Carry) (trace: List Event)
@@ -1133,6 +1136,15 @@ theorem Doc.Proofs.floorAgrees ∀ (printer: Printer) (at: Nat) (carry other: Ca
   match agrees with
     | (start, none, blank, empty, owes, indent, events, _) =>
       (start, none, blank, empty, owes, indent, events, byComputing)
+
+--| A carry set right after a line break (a new comment floor) is the
+--| place's.
+theorem Doc.Proofs.floorBroken ∀ (printer: Printer) (at: Nat) (carry other: Carry) (trace: List Event)
+    (agrees: Agrees printer (Broken at carry) trace):
+    Agrees { printer | carry = other } (Broken at other) trace :=
+  match agrees with
+    | (start, none, blank, empty, owes, indent, events, started, newlines, _) =>
+      (start, none, blank, empty, owes, indent, events, started, newlines, byComputing)
 
 --| A printer agreeing with a place has the place's indentation as its line's.
 theorem Doc.Proofs.agreesIndent ∀ (printer: Printer) (place: Place) (trace: List Event)
@@ -1197,17 +1209,17 @@ theorem Doc.Proofs.wordNotLayout ∀ (text: Text)
       match never with
         | ()
 
---| A line break from the middle of a line leaves the printer at a place that
---| satisfies what follows.
+--| A line break from the middle of a line leaves the printer right after
+--| it, at a place that satisfies what follows.
 theorem Doc.Proofs.newlineStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat)
     (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
-    (mid: place.midLine = True) (after: next (AtStart (floored place.carry indent) (place.carry.breakTo indent)) trace):
+    (mid: place.midLine = True) (after: next (Broken (floored place.carry indent) (place.carry.breakTo indent)) trace):
     Stays next (printer.newline indent) :=
   (
-    (AtStart (floored place.carry indent) (place.carry.breakTo indent)),
+    (Broken (floored place.carry indent) (place.carry.breakTo indent)),
     trace,
-    (newlineAgrees printer indent place trace agrees mid),
+    (newlineBroken printer indent place trace agrees mid),
     after
   )
 
@@ -1217,13 +1229,13 @@ theorem Doc.Proofs.breakStays ∀ (next: Place → List Event → Prop) (printer
     (agrees: Agrees printer place trace)
     (mid: place.midLine = True)
     (after: next
-      (AtStart
+      (Broken
         (floored place.carry (Nat.max indent (place.indent + 2)))
         (place.carry.breakTo (Nat.max indent (place.indent + 2))))
       trace):
     Stays next (printer.newline (printer.continuation indent)) :=
   let deeper: next
-    (AtStart
+    (Broken
       (floored place.carry (Nat.max indent (printer.lineIndent + 2)))
       (place.carry.breakTo (Nat.max indent (printer.lineIndent + 2))))
     trace :=
@@ -1473,7 +1485,7 @@ theorem Doc.Proofs.closeStays ∀ (next: Place → List Event → Prop) (printer
 --| A separator's puts, where it breaks, hold `next` at the start of a line.
 theorem Doc.Proofs.sepBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SepPuts indent place trace next):
-    next (AtStart (floored place.carry indent) (place.carry.breakTo indent)) trace :=
+    next (Broken (floored place.carry indent) (place.carry.breakTo indent)) trace :=
   match place, lays with
     | AtStart at carry, never => (Bool.falseNotTrue never).impossible
     | Broken at carry, never => (Bool.falseNotTrue never).impossible
@@ -1550,7 +1562,7 @@ theorem Doc.Proofs.sepStays ∀ (next: Place → List Event → Prop) (printer: 
 --| A soft line's puts, where it breaks, hold `next` at the start of a line.
 theorem Doc.Proofs.softBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SoftPuts indent place trace next):
-    next (AtStart (floored place.carry indent) (place.carry.breakTo indent)) trace :=
+    next (Broken (floored place.carry indent) (place.carry.breakTo indent)) trace :=
   match place, lays with
     | AtStart at carry, never => (Bool.falseNotTrue never).impossible
     | Broken at carry, never => (Bool.falseNotTrue never).impossible
@@ -1596,54 +1608,61 @@ theorem Doc.Proofs.lineStartStays ∀ (next: Place → List Event → Prop) (pri
         ((AtStart at carry), trace, agrees, lays)
     | Broken at carry, agrees, lays =>
       rewrite lineStartSame printer indent (agreesStart printer (Broken at carry) trace agrees) then
-        ((AtStart at carry), trace, (brokenStart printer at carry trace agrees), lays)
+        ((Broken at carry), trace, agrees, lays)
     | Mid at carry, agrees, lays =>
       let broken := Nat.max indent (printer.lineIndent + 2)
-      let deeper: next (AtStart (floored carry broken) (printer.carry.startFloor broken)) trace :=
+      let deeper: next (Broken (floored carry broken) (printer.carry.startFloor broken)) trace :=
         rewrite agreesIndent printer (Mid at carry) trace agrees, agreesFloor printer (Mid at carry) trace agrees then
           lays
       rewrite lineStartBreaks printer indent (agreesStart printer (Mid at carry) trace agrees) then
         (
-          (AtStart (floored carry broken) (printer.carry.startFloor broken)),
+          (Broken (floored carry broken) (printer.carry.startFloor broken)),
           trace,
-          (floorAgrees
+          (floorBroken
             (printer.newline broken)
             (floored carry broken)
             (carry.breakTo broken)
             (printer.carry.startFloor broken)
             trace
-            (newlineAgrees printer broken (Mid at carry) trace agrees byComputing)),
+            (newlineBroken printer broken (Mid at carry) trace agrees byComputing)),
           deeper
         )
     | Held at carry, agrees, lays =>
       let broken := Nat.max indent (printer.lineIndent + 2)
-      let deeper: next (AtStart (floored carry broken) (printer.carry.startFloor broken)) trace :=
+      let deeper: next (Broken (floored carry broken) (printer.carry.startFloor broken)) trace :=
         rewrite agreesIndent printer (Held at carry) trace agrees, agreesFloor printer (Held at carry) trace agrees then
           lays
       rewrite lineStartBreaks printer indent (agreesStart printer (Held at carry) trace agrees) then
         (
-          (AtStart (floored carry broken) (printer.carry.startFloor broken)),
+          (Broken (floored carry broken) (printer.carry.startFloor broken)),
           trace,
-          (floorAgrees
+          (floorBroken
             (printer.newline broken)
             (floored carry broken)
             (carry.breakTo broken)
             (printer.carry.startFloor broken)
             trace
-            (newlineAgrees printer broken (Held at carry) trace agrees byComputing)),
+            (newlineBroken printer broken (Held at carry) trace agrees byComputing)),
           deeper
         )
+
+--| The line start a place is at, moved to `indent`: still right after a
+--| line break if it was. A place after words has no line start to move,
+--| and is taken as a plain one.
+def Doc.Proofs.Place.movedTo (place: Place) (indent: Nat): Place := match place with
+  | Broken _ carry => Broken indent carry
+  | _ => AtStart indent place.carry
 
 --| Indentation set at the start of a line.
 theorem Doc.Proofs.hereAgrees ∀ (printer: Printer) (indent: Nat) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
     (start: printer.atLineStart = True):
-    Agrees { printer | owed = Some indent, lineIndent = indent } (AtStart indent place.carry) trace :=
+    Agrees { printer | owed = Some indent, lineIndent = indent } (place.movedTo indent) trace :=
   match place, agrees with
     | AtStart at carry, (_, none, blank, empty, _, _, events, floors) =>
       (start, none, blank, empty, byComputing, byComputing, events, floors)
-    | Broken at carry, (_, none, blank, empty, _, _, events, _, _, floors) =>
-      (start, none, blank, empty, byComputing, byComputing, events, floors)
+    | Broken at carry, (_, none, blank, empty, _, _, events, started, newlines, floors) =>
+      (start, none, blank, empty, byComputing, byComputing, events, started, newlines, floors)
     | Mid at carry, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
     | Held at carry, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
 
@@ -1651,7 +1670,7 @@ theorem Doc.Proofs.hereAgrees ∀ (printer: Printer) (indent: Nat) (place: Place
 theorem Doc.Proofs.herePlace ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (start: place.midLine = False)
     (lays: HerePuts indent place trace next):
-    next (AtStart indent place.carry) trace :=
+    next (place.movedTo indent) trace :=
   match place, start, lays with
     | AtStart at carry, _, lays => lays
     | Broken at carry, _, lays => lays
@@ -1662,7 +1681,7 @@ theorem Doc.Proofs.herePlace ∀ (next: Place → List Event → Prop) (indent: 
 theorem Doc.Proofs.hereBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (mid: place.midLine = True)
     (lays: HerePuts indent place trace next):
-    next (AtStart (floored place.carry indent) (place.carry.breakTo indent)) trace :=
+    next (Broken (floored place.carry indent) (place.carry.breakTo indent)) trace :=
   match place, mid, lays with
     | AtStart at carry, never, _ => (Bool.falseNotTrue never).impossible
     | Broken at carry, never, _ => (Bool.falseNotTrue never).impossible
@@ -1876,7 +1895,12 @@ theorem Doc.Proofs.stepPuts ∀ (spec: Place → List Event → Prop) (printer: 
             )
         | HardLine, steps, Both mid (Inr started) =>
           rewrite steps then
-            newlineStays (after later => StackPuts spec rest after later) printer indent place trace agrees mid started
+            (
+              (AtStart (floored place.carry indent) (place.carry.breakTo indent)),
+              trace,
+              (newlineAgrees printer indent place trace agrees mid),
+              started
+            )
         | LineStart, steps, lays =>
           rewrite steps then
             lineStartStays (after later => StackPuts spec rest after later) printer indent place trace agrees lays
@@ -1885,7 +1909,7 @@ theorem Doc.Proofs.stepPuts ∀ (spec: Place → List Event → Prop) (printer: 
             | True =>
               rewrite steps then
                 (
-                  (AtStart indent place.carry),
+                  (place.movedTo indent),
                   trace,
                   (hereAgrees printer indent place trace agrees start),
                   (herePlace
@@ -1939,7 +1963,7 @@ theorem Doc.Proofs.stepPuts ∀ (spec: Place → List Event → Prop) (printer: 
               (column start later => Puts inner column start later (after more => StackPuts spec rest after more))
               agrees
               lays
-        | OneLineBelow inner, steps, Both mid lays => rewrite steps then (place, trace, agrees, mid, (Inr lays))
+        | OneLineBelow inner, steps, Both mid lays => rewrite steps then (place, trace, agrees, mid, (Inl lays))
         | Flatten inner, steps, lays => rewrite steps then (place, trace, agrees, lays)
         | LineSuffix comment, steps, Both word lays =>
           rewrite steps then
@@ -2110,7 +2134,7 @@ theorem Doc.Proofs.displacedStays ∀ (printer: Printer) (indent: Nat) (place: P
       let waiting := agreesClear printer (Held at carry) trace agrees
       let deeper: put
         (printer.continuation indent)
-        (AtStart (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
+        (Broken (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
         trace :=
         rewrite agreesIndent printer (Held at carry) trace agrees then holds
       rewrite displaceWaiting printer indent waiting,
@@ -2216,6 +2240,18 @@ theorem Doc.Proofs.printPutsExample ∀ (width: Nat):
     (Concat [Chunk "f" 1, Nest 2 (Concat [HardLine, Chunk "x" 1])])
     width
     ((byComputing, byComputing, (Inr ((byComputing, byComputing)))))
+
+--| A `Blank` right after a line break leaves a blank line: `f`, then
+--| a blank line, then `-- c` two columns in, on the line a `LineStart`
+--| starts, at every width.
+theorem Doc.Proofs.blankAfterBreakExample ∀ (width: Nat):
+    ∃ (place: Place) => eventsOf (printedPieces (Concat [Chunk "f" 1, LineStart, Blank, Chunk "-- c" 4]) width).reverse
+      = [{ word = "f", start = Some 0 }, Event.blankLine, { word = "-- c", start = Some 2 }] :=
+  printPuts
+    (place trace => trace = [{ word = "f", start = Some 0 }, Event.blankLine, { word = "-- c", start = Some 2 }])
+    (Concat [Chunk "f" 1, LineStart, Blank, Chunk "-- c" 4])
+    width
+    ((byComputing, (byComputing, byComputing)))
 
 --| A closer after a trailing comment is printed before it: `x) -- c` at
 --| every width, the comment last in the trace.
