@@ -2888,8 +2888,15 @@ pub fn set_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
         let ev = g.ev();
         let mut cx = Ctx::new(&ev, def.span);
         let _set = g.machine.transparent.set(def.transparent.clone());
-        let ty = def_type(&g.ev(), def)?;
-        let checked = check(&mut cx, body, &ty)?;
+        // Glued, as `admit_group` checks a body (D483): a run body is
+        // checked against the same type the same way. Gluing changes when
+        // something is computed, not what's accepted.
+        let was = g.machine.glue.replace(true);
+        let checked = def_type(&g.ev(), def)
+            .map_err(Diagnostic::from)
+            .and_then(|ty| check(&mut cx, body, &ty));
+        g.machine.glue.set(was);
+        let checked = checked?;
         g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
         Ok(())
     })
