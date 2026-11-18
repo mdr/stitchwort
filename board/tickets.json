@@ -1,5 +1,5 @@
 {
-  "next": 3998,
+  "next": 3999,
   "tickets": [
     {
       "id": 47,
@@ -23769,12 +23769,12 @@
     {
       "id": 3966,
       "title": "[Opus] fmt S1 ticket 15: rule N proofs (sketch §2, 150-230 theorems, est. 130 min; was Fable's in the plan)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Estimate: 80 min (brief). Started 12:58, done 13:40 (42 min).\n\nProgress (Opus lane, branch lane/SW-3966): tools/fmt/src/Syntax/SettleProofs.sw, namespace Syntax.SettleProofs, 111 theorems; audit 0 failed, 2 vacuity warnings (sampling only; witnesses exist).\n- Proved: settledKeepsTokens, settledCommasBare, settledTrimmed (all lexed); letsQuiet1, barsQuiet1; settledArrowsBare1, settledKeepsComments, settledHomed, settledIdempotent (under alphabet1, plus laidOut for the last three and plain1 for the last two).\n- Not proved: settledAnyLayout (scaffold laidFrom/relayFrom/laidFromOnto/chainSteps in place), general settledArrowsBare, bareSettles (not defined by the sketch; §3.4 way 1 needs none, way 2 waits for 13c's search).\n- Settle.sw split (behaviour same; Fmt.Tests 61/61, Syntax.Tests 52/52): barBelow out of homeFrom; commasFrom and letsFrom matches use guards.\n- arrowsBare also exists in Fmt (Predicates1, on words); mine is Syntax.SettleProofs.arrowsBare on leaves; both kept.\n",
+      "body": "Estimate: 80 min (brief). Started 12:58, done 13:40 (42 min).\n\nProgress (Opus lane, branch lane/SW-3966): tools/fmt/src/Syntax/SettleProofs.sw, namespace Syntax.SettleProofs, 111 theorems; audit 0 failed, 2 vacuity warnings (sampling only; witnesses exist).\n- Proved: settledKeepsTokens, settledCommasBare, settledTrimmed (all lexed); letsQuiet1, barsQuiet1; settledArrowsBare1, settledKeepsComments, settledHomed, settledIdempotent (under alphabet1, plus laidOut for the last three and plain1 for the last two).\n- Not proved: settledAnyLayout (scaffold laidFrom/relayFrom/laidFromOnto/chainSteps in place), general settledArrowsBare, bareSettles (not defined by the sketch; §3.4 way 1 needs none, way 2 waits for 13c's search).\n- Settle.sw split (behaviour same; Fmt.Tests 61/61, Syntax.Tests 52/52): barBelow out of homeFrom; commasFrom and letsFrom matches use guards.\n- arrowsBare also exists in Fmt (Predicates1, on words); mine is Syntax.SettleProofs.arrowsBare on leaves; both kept.\n\nMerged 18 Nov, 42 min (est. 80). Orchestrator's calls on the lane's two questions: (1) accept the conditions on the rule N statements (alphabet1, laidOut, plain1): they are facts of slice 1's input that the lexer and parser lanes establish, so the slice's top statement is unchanged; laidOut goes to the lexer (SW-3985); (2) bareSettles dropped from ticket 15, settled at slice 1's checkpoint by sketch 3.4's way 1 or 2 (with 13c, SW-3964). Statements checked: settledKeepsTokens, settledCommasBare (any input), settledKeepsComments, settledHomed, settledIdempotent, letsQuiet1, settledArrowsBare1: each says what its doc claims, no axioms. Audit: 2 vacuity warnings (endsTransfer, chainSteps), satisfiable per the lane. Filed SW-3998.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23997,7 +23997,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24023,7 +24023,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24174,6 +24174,19 @@
     {
       "id": 3997,
       "title": "[Sonnet] Rust fmt spacing: no rule for a record next to a call argument, so f{ a = 1 } and { a = 1 }x copy the source gap; give them a space (D3677 bug fix), failing-first test (SW-3995)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3998,
+      "title": "[Opus] fmt S1 rule N: settledAnyLayout (K1's re-layout), from SW-3966's groundwork in Syntax.SettleProofs (relayFrom, laidFromOnto, chainSteps): the invariant through rule 1 over re-laid leaves; and the general settledArrowsBare (any lexed, trailing comments only); rename SettleProofs.arrowsBare to leavesArrowsBare (clashes with Fmt.arrowsBare). Est. 60-90 min",
       "status": "backlog",
       "agent": "",
       "where": "",
