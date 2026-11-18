@@ -1,5 +1,5 @@
 {
-  "next": 4014,
+  "next": 4015,
   "tickets": [
     {
       "id": 47,
@@ -23882,7 +23882,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-3964: formatWithin = print (tidy (parseFile lexed.settledOnce)); parse1 should be parseFile lexed.settledOnce; formatWithinKeepsMeaning no longer needs quiet; formatWithinKeepsComments needs bareSettles (SW-4006).",
+      "body": "From SW-3964: formatWithin = print (tidy (parseFile lexed.settledOnce)); parse1 should be parseFile lexed.settledOnce; formatWithinKeepsMeaning no longer needs quiet; formatWithinKeepsComments needs bareSettles (SW-4006).\n\nFrom SW-4006: bareSettles proved (Syntax.SettleBareProofs); settledOnceNone gives settledOnce = settled when noLast [] lexed.leaves (every printed text); rewrite with it for parseFile settledOnce = parseFile settled.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24025,7 +24025,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.\n\nAlso (SW-3969): a match with an unreachable arm discharges an if whose Bool rewrite can't replace (E-REWRITE-MOTIVE); 'at' can't be a variable in a theorem (rewrite ... at), and the parse error points elsewhere (worth a diagnostics ticket).\n\nAlso (SW-4000): Some (x, effect) desugars to a nested bind, so givesDone needs [holds := ...] [x := ...] hints or a split parser (8 min).\n\nAlso (SW-3971): a match refining a hypothesis doesn't refine explicit arguments written in the arm (use a helper theorem over a variable); implicit list arguments through Doc.concat's inner match must be written out; run stitchwort fmt just before commit, not before scripted edits.\n\nAlso (SW-4004): bind associativity doesn't compute once stuck, so nest runsMap to follow the source's lets; runsBind/runsLook need the continuation written out after a peek or at (~10 times); lanes check their diff with git diff main...HEAD (three dots).",
+      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.\n\nAlso (SW-3969): a match with an unreachable arm discharges an if whose Bool rewrite can't replace (E-REWRITE-MOTIVE); 'at' can't be a variable in a theorem (rewrite ... at), and the parse error points elsewhere (worth a diagnostics ticket).\n\nAlso (SW-4000): Some (x, effect) desugars to a nested bind, so givesDone needs [holds := ...] [x := ...] hints or a split parser (8 min).\n\nAlso (SW-3971): a match refining a hypothesis doesn't refine explicit arguments written in the arm (use a helper theorem over a variable); implicit list arguments through Doc.concat's inner match must be written out; run stitchwort fmt just before commit, not before scripted edits.\n\nAlso (SW-4004): bind associativity doesn't compute once stuck, so nest runsMap to follow the source's lets; runsBind/runsLook need the continuation written out after a peek or at (~10 times); lanes check their diff with git diff main...HEAD (three dots).\n\nAlso (SW-4006): which hole form prints goals (?name mostly gave unknown name; one hole at a time worked, 5 min); name Bool guards used in matches as a def, since a match doesn't replace a guard spelled with == or a projection (15 min).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24306,12 +24306,12 @@
     {
       "id": 4006,
       "title": "[Sonnet] fmt S1: prove bareSettles: under alphabet1 and plain1, rule N on withBareLastCommas leaves, with the last commas then dropped, equals settledBare (SW-3964; proof idea: plain1 rules out a line-starting last comma and a -> before one, so rules 1-3 walk one extra leaf); glue's formatWithinKeepsComments needs it; also the identity parseFile lexed.settledOnce = parseFile lexed.settled on texts with no comma before a closer",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane notes (Sonnet, 18 Nov 2026), branch lane/SW-4006, tools/fmt/src/Syntax/SettleBareProofs.sw (new, 78 theorems):\n- bareSettles proved, not weakened: under alphabet1 and plain1, dropF [] lexed.settledOnce.leaves = lexed.settledBare.leaves and the ends are equal. No layout hypothesis.\n- Rules 1 to 3 each commute with dropping the bare last commas: walkDrop (rule 1's walk), home1Drop, commasDrop, arrowsDrop; buildDrop ties withBareLastCommas to withoutLastCommas; withBareRTokens shows plain1 means no last comma starts its line, so making them bare moves no token.\n- settledOnceNone: noLast (no comma directly before a closer after an item) gives settledOnce = settled. The parseFile-level identity follows by rewriting; not stated.\n- plain1's doc fixed (K1's case parses and is not plain).\n- Checks: check Syntax Syntax.SettleProofs Syntax.SettleBareProofs ok; audit SettleBareProofs 0 failed, 10 vacuity warnings (lastPair hypothesis never hit by the 1500 random cases); audit SettleProofs unchanged (2 warnings); test Syntax.Tests 52/52, Fmt.Tests 94/94.\nModel result: Sonnet, worked, about 35 min (est. 35)\n",
+      "body": "Lane notes (Sonnet, 18 Nov 2026), branch lane/SW-4006, tools/fmt/src/Syntax/SettleBareProofs.sw (new, 78 theorems):\n- bareSettles proved, not weakened: under alphabet1 and plain1, dropF [] lexed.settledOnce.leaves = lexed.settledBare.leaves and the ends are equal. No layout hypothesis.\n- Rules 1 to 3 each commute with dropping the bare last commas: walkDrop (rule 1's walk), home1Drop, commasDrop, arrowsDrop; buildDrop ties withBareLastCommas to withoutLastCommas; withBareRTokens shows plain1 means no last comma starts its line, so making them bare moves no token.\n- settledOnceNone: noLast (no comma directly before a closer after an item) gives settledOnce = settled. The parseFile-level identity follows by rewriting; not stated.\n- plain1's doc fixed (K1's case parses and is not plain).\n- Checks: check Syntax Syntax.SettleProofs Syntax.SettleBareProofs ok; audit SettleBareProofs 0 failed, 10 vacuity warnings (lastPair hypothesis never hit by the 1500 random cases); audit SettleProofs unchanged (2 warnings); test Syntax.Tests 52/52, Fmt.Tests 94/94.\nModel result: Sonnet, worked, about 35 min (est. 35)\n\nMerged 18 Nov. Model result: sonnet, worked, 35 min (est. 35). Statement checked by the orchestrator: bareSettles is exactly the ticket's statement, needs no laidOut, no axioms.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24324,7 +24324,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Also (SW-4006): the S1 sketch's §3.4 table rows (lines ~527, ~540) say bareSettles 'searched': change to 'proved (SW-4006)'.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24402,6 +24402,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4014,
+      "title": "[Sonnet] audit generator: satisfy structural hypotheses like SW-4006's lastPair (a comma then a closer after an item) so narrow-but-satisfiable lemmas don't get vacuity warnings (10 in SettleBareProofs, 4 in JoinProofs, andLevels/orLevels in ParseWalk)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
