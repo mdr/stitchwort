@@ -1714,3 +1714,164 @@ theorem settledHomed ∀ (lexed: Lexed)
       (relatedReverseOnto arrowed trimmed [] [] (trimRelated arrowed) byComputing)
       (backOkOf arrowed (tokens lexed.leaves) arrowedTokens plain)
       homedArrows
+
+-- Rule N applied to its own result changes nothing.
+
+theorem homedSuffix ∀ (xs behind: List Leaf)
+    (homed: homedBehind (xs.reverseOnto behind) = True):
+    homedBehind behind = True :=
+  match xs with
+    | [] => homed
+    | [x, ..rest] => Bool.andRight (homedSuffix rest [x, ..behind] homed)
+
+--| A closer rule 1 stops on has its walk end at once.
+theorem stepsZero ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (within: leaf.kind.within1 = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (closer: leaf.kind.isCloser = True)
+    (stops: (behind.isEmpty || stopsAt leaf behind) = True):
+    stepsBack leaf behind ahead 0 = 0 :=
+  match behind with
+    | [] => byComputing
+    | [previous, ..earlier] =>
+      let passes: skipped leaf [previous, ..earlier] ahead = True :=
+        rewrite skippedQuiet1 leaf [previous, ..earlier] ahead within then Bool.orRight closer
+      rewrite passes, endsOnQuiet1 [previous, ..earlier] [leaf, ..ahead] behindWithin, stops
+
+--| On homed leaves with bare commas rule 1 moves nothing.
+theorem homeIdle ∀ (behind rest: List Leaf)
+    (homed: homedBehind (rest.reverseOnto behind) = True)
+    (bare: rest.all bareComma = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (within: rest.all (leaf => leaf.kind.within1) = True):
+    homeFrom behind None rest = behind.reverseOnto rest :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      let leafWithin := Bool.andLeft within
+      let next :=
+        homeIdle
+          [leaf, ..behind]
+          after
+          homed
+          (Bool.andRight bare)
+          (rewrite leafWithin then behindWithin)
+          (Bool.andRight within)
+      match trailing: leaf.trivia.trailing with
+        | None => next
+        | Some comment =>
+          match fixed: movable leaf behind after with
+            | False => next
+            | True =>
+              let here := Bool.andLeft (homedSuffix after [leaf, ..behind] homed)
+              let leafBare := Bool.andLeft bare
+              let notComma: (leaf.kind == Comma) = False :=
+                Bool.notTrue _ (rewrite Bool.andFalse at leafBare then leafBare)
+              let closer: leaf.kind.isCloser = True :=
+                rewrite movableQuiet1 leaf behind after leafWithin, notComma at fixed then fixed
+              let stops := Bool.andLeft (rewrite trailing, closer at here then here)
+              rewrite stepsZero leaf behind after leafWithin behindWithin closer stops,
+                  barsQuiet1 leaf behind after leafWithin then
+                next
+
+--| With every comma bare rule 2 moves nothing.
+theorem commasIdle ∀ (done rest: List Leaf) (end: Trivia)
+    (bare: rest.all bareComma = True):
+    commasFrom done None rest end = { leaves = done.reverseOnto rest, end } :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      let next := commasIdle [leaf, ..done] after end (Bool.andRight bare)
+      match carries: commaCarries leaf.trivia with
+        | None => next
+        | Some carry =>
+          match comma: leaf.kind == Comma with
+            | False => next
+            | True =>
+              let leafBare := Bool.andLeft bare
+              let empty := rewrite Bool.orFalse at leafBare then leafBare
+              match leaf.trivia.leading, leaf.trivia.trailing with
+                | [], None => cases
+
+--| With no comment after an `->` and no `->` before another, rule 3 moves
+--| nothing.
+theorem arrowsIdle ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
+    (bare: arrowsBare [current, ..rest] = True)
+    (plain: plainFrom (tokens [current, ..rest]) = True):
+    arrowsFrom done current rest = done.reverseOnto [current, ..rest] :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] =>
+      let later := arrowsIdle [current, ..done] next more (Bool.andRight bare) (Bool.andRight (Bool.andRight plain))
+      match arrow: current.kind == Arrow with
+        | False => later
+        | True =>
+          let follows := Bool.notTrue _ (Bool.andLeft plain)
+          let notArrow: (next.kind == Arrow) = False := Bool.orFalseRight _ _ follows
+          let clause := Bool.andLeft bare
+          let empty: next.trivia.leading.isEmpty = True :=
+            rewrite notArrow, Bool.orFalse at clause then Bool.andRight clause
+          match current.trivia.trailing with
+            | None => rewrite empty then later
+
+theorem arrowsIdleAll ∀ (leaves: List Leaf)
+    (bare: arrowsBare leaves = True)
+    (plain: plainFrom (tokens leaves) = True):
+    arrows leaves = leaves :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] => arrowsIdle [] first rest bare plain
+
+theorem commentTrimmedTwice ∀ (comment: Comment): comment.trimmed.trimmed = comment.trimmed :=
+  rewrite trimEndTwice comment.text
+
+theorem commentsTrimmedTwice ∀ (comments: List Comment):
+    (comments.map Comment.trimmed).map Comment.trimmed = comments.map Comment.trimmed :=
+  match comments with
+    | [] => byComputing
+    | [comment, ..rest] => rewrite commentTrimmedTwice comment, commentsTrimmedTwice rest
+
+theorem triviaTrimmedTwice ∀ (trivia: Trivia): trivia.trimmed.trimmed = trivia.trimmed := match trivia.trailing with
+  | None => rewrite commentsTrimmedTwice trivia.leading
+  | Some comment => rewrite commentsTrimmedTwice trivia.leading, commentTrimmedTwice comment
+
+theorem leavesTrimmedTwice ∀ (leaves: List Leaf):
+    (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })).map (leaf => { leaf | trivia = leaf.trivia.trimmed })
+      = leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }) :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] => rewrite triviaTrimmedTwice leaf.trivia, leavesTrimmedTwice rest
+
+--| Applying rule N to its own result changes nothing, for `plain` leaves
+--| laid out as the lexer lays them out, under slice 1's alphabet.
+--|
+--| Proof idea: rule N's result is homed with bare commas, so rule 1 moves
+--| nothing (`homeIdle`); its commas are bare, so rule 2 moves nothing; no
+--| `->` keeps a comment and none comes before another, so rule 3 moves
+--| nothing; rule 4 does nothing in the alphabet, and trimming twice is
+--| trimming once.
+theorem settledIdempotent ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True)
+    (laid: laidOut False lexed.leaves = True)
+    (plain: plain1 (tokens lexed.leaves) = True):
+    lexed.settled.settled = lexed.settled :=
+  let settled := lexed.settled
+  let bare := settledCommasBare lexed
+  let settledWithin := alphabet1Leaves settled.leaves (settledAlphabet1 lexed within)
+  let homeSame: homeFrom [] None settled.leaves = settled.leaves :=
+    homeIdle [] settled.leaves (settledHomed lexed within laid plain) bare byComputing settledWithin
+  let commasSame: commasFrom [] None settled.leaves settled.end = { leaves = settled.leaves, end = settled.end } :=
+    commasIdle [] settled.leaves settled.end bare
+  let plainSettled: plainFrom (tokens settled.leaves) = True :=
+    rewrite settledKeepsTokens lexed then plainFromOf (tokens lexed.leaves) plain
+  let arrowsSame: arrows settled.leaves = settled.leaves :=
+    arrowsIdleAll settled.leaves (settledArrowsBare1 lexed within) plainSettled
+  let letsSame: letsFrom [] settled.leaves = settled.leaves := letsQuiet1 [] settled.leaves byComputing settledWithin
+  let reached: settled.settled
+    = { leaves = settled.leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = settled.end.trimmed } :=
+    rewrite homeSame, commasSame, arrowsSame, letsSame
+  let commas := commasFrom [] None (homeFrom [] None lexed.leaves) lexed.end
+  calc lexed.settled.settled
+    _ = { leaves = settled.leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = settled.end.trimmed } :=
+      reached
+    _ = lexed.settled := rewrite leavesTrimmedTwice (letsFrom [] (arrows commas.leaves)), triviaTrimmedTwice commas.end
