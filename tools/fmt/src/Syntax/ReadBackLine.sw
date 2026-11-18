@@ -1,15 +1,16 @@
---| Slice 1's read-back on one line (ticket 17d, first part): a declaration whose type and value are words,
---| parentheses, tuples and lists, all on the `def`'s line, parses to that declaration (`readsBackLine`).
+--| Slice 1's read-back on one line (tickets 17d and 17e): a declaration whose type and value are words,
+--| parentheses, tuples and lists, the type on the `def`'s line and the value on it or on a line of its own, parses to
+--| that declaration (`readsBackLine`).
 --|
 --| The items are related to the tree by `Spelt` (each node's tokens in order, each item carrying the node's word, a
 --| comma between bracket items and none after the last); the look-aheads are discharged by `Syntax.ReadBackEnds`
---| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. On one line
---| the modes never stop (`Quiet`), so no block starts and the line rule never applies: `hangs` holds trivially, and
---| none of `FullReads`' block reading is needed. Calls, `-`, `!`, operators and lines starting inside the
---| declaration are not here yet.
+--| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. In `Quiet` modes
+--| only a line start stops a reading, so within a line nothing does; a value starting its own line is a block of that
+--| one line, whose modes allow its first item (`fullAnyLine`). Calls, `-`, `!`, operators and lines starting inside
+--| an expression are not here yet.
 
 namespace Syntax.ReadBackLine
-import Std (Bool, Eq, List, Nat, Option, Parse, Void)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
@@ -18,30 +19,56 @@ import Syntax.ReadBackRuns (plainHeader)
 import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
 
---| Modes in which nothing stops a reading: no guard, `calc`, `rewrite` rule or line limit, as in a declaration's
---| type and body and inside their brackets.
+theorem notTrueFalse ∀ (b: Bool) (no: (!b) = True): b = False := match b, no with
+  | False, _ => byComputing
+  | True, never => (Bool.falseNotTrue never).impossible
+
+--| Modes in which nothing but a line start stops a reading: no guard, `calc` or `rewrite` rule, as in a declaration's
+--| type and body, inside their brackets, and in a block's line.
 type Quiet (modes: Modes): Prop = {
   noGuard: modes.guard = False,
   noCalc: modes.inCalc = False,
-  noRule: modes.rewriteRule = None,
-  noLimit: modes.limit = None
+  noRule: modes.rewriteRule = None
 }
 
-theorem quietStops ∀ (modes: Modes) (item: Item) (quiet: Quiet modes): modes.stops item = False :=
-  rewrite quiet.noGuard, quiet.noCalc, quiet.noRule, quiet.noLimit
+--| In quiet modes, no item that doesn't start a line stops a reading.
+theorem quietStops ∀ (modes: Modes) (item: Item)
+    (quiet: Quiet modes)
+    (inLine: item.leaf.token.lineStart = False):
+    modes.stops item = False :=
+  match limit: modes.limit with
+    | None => rewrite quiet.noGuard, quiet.noCalc, quiet.noRule
+    | Some column =>
+      rewrite quiet.noGuard, quiet.noCalc, quiet.noRule, inLine then
+        andFalseMiddle
+          (modes.allow != Some item.index)
+          (item.leaf.token.column <= column
+            && !((item.kind == Comma || item.kind.isCloser) && item.depth > 0)
+            && !(item.leaf.token.column == column && item.kind.isInfixOnly))
 
-theorem quietPeek ∀ (modes: Modes) (item: Item) (later: List Item)
-    (quiet: Quiet modes):
-    peekIn modes 0 [item, ..later] = Some item.kind :=
-  rewrite quietStops modes item quiet
+--| Whether the first item, if any, doesn't stop a reading: what follows an expression lets it end.
+def openHead (modes: Modes): List Item → Bool
+  | [] => True
+  | [next, .._] => !modes.stops next
+
+theorem openHeadOf ∀ (modes: Modes) (item: Item) (later: List Item)
+    (open: modes.stops item = False):
+    openHead modes [item, ..later] = True :=
+  rewrite open
+
+theorem openHeadStops ∀ (modes: Modes) (item: Item) (later: List Item)
+    (open: openHead modes [item, ..later] = True):
+    modes.stops item = False :=
+  notTrueFalse _ open
 
 theorem quietPeekSecond ∀ (modes: Modes) (first second: Item) (later: List Item)
-    (quiet: Quiet modes):
+    (open1: modes.stops first = False)
+    (open2: modes.stops second = False):
     peekIn modes 1 [first, second, ..later] = Some second.kind :=
-  rewrite quietStops modes first quiet, quietStops modes second quiet
+  rewrite open1, open2
 
 theorem quietBrackets ∀ (modes: Modes) (quiet: Quiet modes): Quiet modes.inBrackets :=
-  { noGuard = byComputing, noCalc = quiet.noCalc, noRule = quiet.noRule, noLimit = quiet.noLimit }
+  { noGuard = byComputing, noCalc = quiet.noCalc, noRule = quiet.noRule }
 
 --| The kinds of a one-line declaration's items from its type on, in this part: words, brackets, commas and `:=`.
 def lineKind: Tok → Bool
@@ -253,21 +280,22 @@ def exprHead: List Item → Bool
 theorem peekTwo ∀ (modes: Modes)
     (quiet: Quiet modes)
     (first second: Item) (more tail: List Item)
+    (open1: modes.stops first = False)
+    (open2: modes.stops second = False)
+    (inMore: inLineAll more = True)
+    (tailOpen: openHead modes tail = True)
     (kinds: exprAll more = True)
     (head: exprHead tail = True):
     ∃ (kind: Tok) => peekIn modes 2 [first, second, ..more ++ tail] = Some kind ∧ exprKind kind = True :=
-  match more, kinds with
-    | [], _ =>
-      match tail, head with
-        | [], never => (Bool.falseNotTrue never).impossible
-        | [next, .._], head => (
-          next.kind,
-          (rewrite quietStops modes first quiet, quietStops modes second quiet, quietStops modes next quiet),
-          head
-        )
-    | [third, .._], kinds => (
+  match more, kinds, inMore with
+    | [], _, _ =>
+      match tail, head, tailOpen with
+        | [], never, _ => (Bool.falseNotTrue never).impossible
+        | [next, ..later], head, tailOpen =>
+          (next.kind, (rewrite open1, open2, openHeadStops modes next later tailOpen), head)
+    | [third, .._], kinds, inMore => (
       third.kind,
-      (rewrite quietStops modes first quiet, quietStops modes second quiet, quietStops modes third quiet),
+      (rewrite open1, open2, quietStops modes third quiet (notTrueFalse _ (Bool.andLeft inMore))),
       Bool.andLeft kinds
     )
 
@@ -310,10 +338,6 @@ theorem groupLine ∀ (open: List Tok) (found items inside: List Item)
                         | [next, ..more], groups =>
                           groupLine [next, ..more] [item, ..found] rest inside fresh later groups
 
-theorem notTrueFalse ∀ (b: Bool) (no: (!b) = True): b = False := match b, no with
-  | False, _ => byComputing
-  | True, never => (Bool.falseNotTrue never).impossible
-
 --| No `(k +)` section: no item of this part is a section operator.
 theorem rightLine ∀ (first: Item) (rest: List Item) (line: lineAll rest = True): rightOperator [first, ..rest] = None :=
   match groups: groupInside [LParen] [] rest with
@@ -331,21 +355,19 @@ theorem startFacts ∀ (kind: Tok)
     (kind == Dot) = False ∧ (kind == KwMatch) = False ∧ (kind == Minus || kind == Bang) = False :=
   cases
 
---| An atom on its line's middle that nothing continues reads as a full expression: every rung above the atom with no
---| links, no block starting.
+--| An atom that nothing continues reads inline: every rung above the atom with no links.
 --|
---| Proof idea: `fullWord`'s ladder, for any atom: an application with no arguments, then each chain with no links,
---| no comparison, logic or end; the first item doesn't start a line, so `FullReads` asks for no block.
-theorem fullOfAtom ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
+--| Proof idea: `inlineWord`'s ladder, for any atom: an application with no arguments, then each chain with no links,
+--| no comparison, logic or end.
+theorem inlineOfAtom ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr)
-    (inLine: item.leaf.token.lineStart = False)
     (open: modes.stops item = False)
     (starts: startKind item.kind = True)
     (noBar: matchesBarOn modes [item, ..more ++ rest] = False)
     (inline: InlinePlain modes item [item, ..more ++ rest])
     (ends: OperandEnds modes rest)
     (atomReads: AtomReads sub modes True [item, ..more] rest value):
-    FullReads sub modes [item, ..more] rest value :=
+    InlineAt sub modes item more rest value :=
   let read := [item, ..more]
   let (notDot, notMatch, unsigned) := startFacts item.kind starts
   let noSection: isSome Dot (peekIn modes 0 (read ++ rest)) = False :=
@@ -371,7 +393,7 @@ theorem fullOfAtom ∀ (sub: Goal → List Item → List Item → Expr → Prop)
     ends.noIff,
     Inl (byComputing, byComputing, ends.noEnd)
   )
-  fullOfInline sub modes item more rest value inLine (open, inline, operatorReads)
+  (open, inline, operatorReads)
 
 def inLineAll: List Item → Bool
   | [] => True
@@ -417,19 +439,20 @@ theorem endsOperandOf ∀ (modes: Modes) (rest: List Item) (ends: endsHere rest 
 
 theorem endsNotBrace ∀ (kind: Tok) (ends: endsOperand kind = True): (kind == LBrace) = False := cases
 
-theorem endsAtom ∀ (modes: Modes)
-    (quiet: Quiet modes)
-    (head: Bool) (kind: Tok) (rest: List Item)
+theorem endsAtom ∀ (modes: Modes) (head: Bool) (kind: Tok) (rest: List Item)
+    (restOpen: openHead modes rest = True)
     (ends: endsHere rest = True):
     AtomEnds modes head kind rest :=
   let operand := endsOperandOf modes rest ends
-  let plain: (isSome Upper (Some kind) && head && isSome LBrace (peekIn modes 0 rest)) = False := match rest with
-    | [] => andFalseRight (isSome Upper (Some kind)) head _ byComputing
-    | [next, ..later] =>
-      andFalseRight
-        (isSome Upper (Some kind))
-        head _
-        (rewrite quietPeek modes next later quiet then endsNotBrace next.kind ends)
+  let plain: (isSome Upper (Some kind) && head && isSome LBrace (peekIn modes 0 rest)) = False :=
+    match rest, restOpen with
+      | [], _ => andFalseRight (isSome Upper (Some kind)) head _ byComputing
+      | [next, ..later], restOpen =>
+        andFalseRight
+          (isSome Upper (Some kind))
+          head _
+          (rewrite peekFirst modes next later (openHeadStops modes next later restOpen) then
+            endsNotBrace next.kind ends)
   { plain, noCall = operand.noCall, noDot = operand.noDot }
 
 theorem endsSteps ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr)) (last: Item) (rest: List Item)
@@ -542,8 +565,80 @@ theorem inLineSplit ∀ (first rest: List Item)
     inLineAll first = True ∧ inLineAll rest = True :=
   andBoth _ _ (rewrite <- inLineAppend first rest then line)
 
---| A spelt expression is what `expr` reads in quiet modes, at any depth its nesting fits in: its atom reading
---| (`atomLine`) lifted by `fullOfAtom`, the look-aheads from the kinds and what follows.
+--| Whether no item after the first starts a line.
+def laterInLine: List Item → Bool
+  | [] => True
+  | [_, ..rest] => inLineAll rest
+
+--| A bracket's elements after a comma end where the next comma or the closer comes, neither starting a line.
+theorem openSteps ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (steps: List (Item, List Item, Expr)) (last: Item) (rest: List Item)
+    (inCommas: inLineAll (commaReads steps) = True)
+    (inLast: last.leaf.token.lineStart = False):
+    openHead modes ((commaReads steps ++ [last]) ++ rest) = True :=
+  match steps, inCommas with
+    | [], _ => openHeadOf modes last rest (quietStops modes last quiet inLast)
+    | [(comma, read, value), ..later], inCommas =>
+      rewrite quietStops modes comma quiet (notTrueFalse _ (Bool.andLeft inCommas))
+
+theorem openStepsRest ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (steps: List (Item, List Item, Expr)) (last: Item) (rest: List Item)
+    (inCommas: inLineAll (commaReads steps) = True)
+    (inLast: last.leaf.token.lineStart = False):
+    openHead modes (commaReads steps ++ [last, ..rest]) = True :=
+  rewrite <- List.appendAssoc (commaReads steps) [last] rest then openSteps modes quiet steps last rest inCommas inLast
+
+--| A spelt expression whose first item doesn't stop the modes, and whose other items don't start a line, is what
+--| `exprInline` reads in quiet modes, at any depth its nesting fits in: its atom reading (`atomLine`) lifted by
+--| `inlineOfAtom`, the look-aheads from the kinds and what follows.
+theorem inlineLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr [item, ..more])
+    (lineRead: lineAll [item, ..more] = True)
+    (lineRest: lineAll rest = True)
+    (open: modes.stops item = False)
+    (inLater: inLineAll more = True)
+    (restOpen: openHead modes rest = True)
+    (ends: endsHere rest = True):
+    InlineAt (TreeN depth) modes item more rest expr :=
+  let atom :=
+    atomLine modes quiet True expr
+      [item, ..more]
+      rest
+      depth
+      deep
+      spelt
+      lineRead
+      lineRest
+      (openHeadOf modes item more open)
+      inLater
+      restOpen
+      ends
+  let (first, inside, isRead, starts) := speltStarts expr [item, ..more] spelt
+  let itemStarts: startKind item.kind = True := rewrite firstKind item first more inside isRead then starts
+  let lineAfter: lineAll (more ++ rest) = True := lineJoin more rest (Bool.andRight lineRead) lineRest
+  inlineOfAtom
+    (TreeN depth)
+    modes
+    item
+    more
+    rest
+    expr
+    open
+    itemStarts
+    (noBarLine modes item (more ++ rest) lineAfter)
+    (inlinePlainOf modes item
+      (more ++ rest)
+      (linePlain [item, ..more ++ rest] (lineJoin [item, ..more] rest lineRead lineRest))
+      (noAutoLine expr item more rest spelt))
+    (endsOperandOf modes rest ends)
+    atom
+
+--| A spelt expression on its line's middle is what `expr` reads in quiet modes: `inlineLine`, no block starting.
 theorem fullLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read rest: List Item) (depth: Nat)
@@ -552,32 +647,76 @@ theorem fullLine ∀ (modes: Modes)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
     (inLine: inLineAll read = True)
+    (restOpen: openHead modes rest = True)
     (ends: endsHere rest = True):
     FullReads (TreeN depth) modes read rest expr :=
-  let atom := atomLine modes quiet True expr read rest depth deep spelt lineRead lineRest inLine ends
-  let (item, more, isRead, starts) := speltStarts expr read spelt
+  let (item, more, isRead, _) := speltStarts expr read spelt
   let sameSpelt: Spelt expr [item, ..more] := rewrite <- isRead then spelt
   let lineItems: lineAll [item, ..more] = True := rewrite <- isRead then lineRead
   let inItems: inLineAll [item, ..more] = True := rewrite <- isRead then inLine
-  let lineAfter: lineAll (more ++ rest) = True := lineJoin more rest (Bool.andRight lineItems) lineRest
+  let inFirst: item.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inItems)
   rewrite isRead then
-    fullOfAtom
+    fullOfInline
       (TreeN depth)
       modes
       item
       more
       rest
       expr
-      (notTrueFalse _ (Bool.andLeft inItems))
-      (quietStops modes item quiet)
-      starts
-      (noBarLine modes item (more ++ rest) lineAfter)
-      (inlinePlainOf modes item
-        (more ++ rest)
-        (linePlain [item, ..more ++ rest] (lineJoin [item, ..more] rest lineItems lineRest))
-        (noAutoLine expr item more rest sameSpelt))
-      (endsOperandOf modes rest ends)
-      (rewrite <- isRead then atom)
+      inFirst
+      (inlineLine modes quiet expr item more rest depth deep sameSpelt lineItems lineRest
+        (quietStops modes item quiet inFirst)
+        (Bool.andRight inItems)
+        restOpen
+        ends)
+
+theorem startNotOther ∀ (kind: Tok) (starts: startKind kind = True): startsOtherStatement kind = False := cases
+
+--| A spelt expression that ends what is read, its items after the first not starting a line, is what `expr` reads in
+--| quiet modes with no line limit, whatever line its first item starts: where no block starts, inline; where one
+--| does, as a block's one line, whose modes allow the first item's index.
+theorem fullAnyLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (noLimit: modes.limit = None)
+    (expr: Expr) (item: Item) (more: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr [item, ..more])
+    (lineRead: lineAll [item, ..more] = True)
+    (inLater: inLineAll more = True):
+    FullReads (TreeN depth) modes [item, ..more] [] expr :=
+  let (first, inside, isRead, starts) := speltStarts expr [item, ..more] spelt
+  let itemStarts: startKind item.kind = True := rewrite firstKind item first more inside isRead then starts
+  let column := item.leaf.token.column
+  let right: rightOfLimit column modes.limit = True := rewrite noLimit
+  fullOfStarts
+    (TreeN depth)
+    modes
+    item
+    more
+    []
+    expr
+    (startsBlock modes item)
+    byComputing
+    (inline =>
+      inlineLine modes quiet expr item more [] depth deep spelt lineRead byComputing
+        (rewrite quiet.noGuard, quiet.noCalc, quiet.noRule, noLimit)
+        inLater
+        byComputing
+        byComputing)
+    (blockStarts =>
+      (
+        right,
+        byComputing,
+        startNotOther item.kind itemStarts,
+        kind =>
+          let lined := lineModes (blockModes modes column True) column True (Some item.index) kind
+          let lineQuiet: Quiet lined := { noGuard = quiet.noGuard, noCalc = quiet.noCalc, noRule = quiet.noRule }
+          inlineLine lined lineQuiet expr item more [] depth deep spelt lineRead byComputing
+            (rewrite quiet.noGuard, quiet.noCalc, quiet.noRule, DecEq.neSelf (Some item.index))
+            inLater
+            byComputing
+            byComputing
+      ))
 
 --| A spelt expression is what `atom` reads, at any depth its nesting fits in.
 --|
@@ -592,20 +731,23 @@ theorem atomLine ∀ (modes: Modes)
     (spelt: Spelt expr read)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
-    (inLine: inLineAll read = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (restOpen: openHead modes rest = True)
     (ends: endsHere rest = True):
     AtomReads (TreeN depth) modes head read rest expr :=
   let inner := modes.inBrackets
   let innerQuiet := quietBrackets modes quiet
   match expr, spelt with
     | Atom kind word, (item, isRead, isKind, isWord, word) =>
+      let openItem: openHead modes [item] = True := rewrite <- isRead then openFirst
       rewrite isRead then
         (
           item,
           [],
           byComputing,
-          quietStops modes item quiet,
-          endsAtom modes quiet head item.kind rest ends,
+          openHeadStops modes item [] openItem,
+          endsAtom modes head item.kind rest restOpen ends,
           Inl (byComputing, (rewrite isKind, isWord), rewrite isKind then (wordPlain kind word).left)
         )
     | Paren open body close, (first, inside, last, isRead, isOpen, isOpenWord, isClose, isCloseWord, bodySpelt) =>
@@ -613,9 +755,12 @@ theorem atomLine ∀ (modes: Modes)
         | Zero, deep => Void.impossible (arithmetic [deep])
         | Succ below, deep =>
           let lineItems: lineAll [first, ..inside ++ [last]] = True := rewrite <- isRead then lineRead
-          let inItems: inLineAll [first, ..inside ++ [last]] = True := rewrite <- isRead then inLine
+          let openItems: openHead modes [first, ..inside ++ [last]] = True := rewrite <- isRead then openFirst
+          let inTail: laterInLine [first, ..inside ++ [last]] = True := rewrite <- isRead then inLater
+          let open1 := openHeadStops modes first (inside ++ [last]) openItems
           let (lineInside, lineLast) := lineSplit inside [last] (Bool.andRight lineItems)
-          let (inInside, _) := inLineSplit inside [last] (Bool.andRight inItems)
+          let (inInside, inLastOnly) := inLineSplit inside [last] inTail
+          let inLast: last.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inLastOnly)
           let bodyTree: TreeN (Succ below) { modes = inner, level = LevelFull } inside [last, ..rest] body :=
             fullLine inner innerQuiet body inside
               [last, ..rest]
@@ -625,16 +770,26 @@ theorem atomLine ∀ (modes: Modes)
               lineInside
               (lineJoin [last] rest lineLast lineRest)
               inInside
+              (openHeadOf inner last rest (quietStops inner last innerQuiet inLast))
               (rewrite isClose)
           let (second, more, isInside, starts) := speltStarts body inside bodySpelt
           let kinds: exprAll [second, ..more] = True := rewrite <- isInside then speltExpr body inside bodySpelt
+          let inBody: inLineAll [second, ..more] = True := rewrite <- isInside then inInside
+          let open2 := quietStops modes second quiet (notTrueFalse _ (Bool.andLeft inBody))
           let (kind, peek2, kindExpr) :=
-            peekTwo modes quiet first second more [last, ..rest] (Bool.andRight kinds) (rewrite isClose)
+            peekTwo modes quiet first second more
+              [last, ..rest]
+              open1
+              open2
+              (Bool.andRight inBody)
+              (openHeadOf modes last rest (quietStops modes last quiet inLast))
+              (Bool.andRight kinds)
+              (rewrite isClose)
           let assoc: (inside ++ [last]) ++ rest = inside ++ [last, ..rest] := List.appendAssoc inside [last] rest
           let plain: ParenPlain modes [first, ..(inside ++ [last]) ++ rest] := {
             notOutside = rewrite assoc,
                 isInside,
-                quietPeekSecond modes first second (more ++ [last, ..rest]) quiet,
+                quietPeekSecond modes first second (more ++ [last, ..rest]) open1 open2,
                 peek2 then
               startOutside second.kind kind starts kindExpr,
             noRight = rightLine first
@@ -646,8 +801,8 @@ theorem atomLine ∀ (modes: Modes)
               first,
               inside ++ [last],
               byComputing,
-              quietStops modes first quiet,
-              endsAtom modes quiet head first.kind rest ends,
+              open1,
+              endsAtom modes head first.kind rest restOpen ends,
               Inr
                 (Inl (
                   inside,
@@ -658,7 +813,7 @@ theorem atomLine ∀ (modes: Modes)
                   isOpen,
                   plain,
                   bodyTree,
-                  quietStops inner last innerQuiet,
+                  quietStops inner last innerQuiet inLast,
                   isClose
                 ))
             )
@@ -669,13 +824,19 @@ theorem atomLine ∀ (modes: Modes)
         | Succ below, deep =>
           let elements := [separator, ..read2] ++ (commaReads steps ++ [last])
           let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then lineRead
-          let inItems: inLineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then inLine
+          let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then openFirst
+          let inTail: laterInLine [first, ..read1 ++ elements] = True := rewrite <- isRead then inLater
+          let open1 := openHeadStops modes first (read1 ++ elements) openItems
           let (line1, lineElements) := lineSplit read1 elements (Bool.andRight lineItems)
           let (line2, lineSteps) := lineSplit read2 (commaReads steps ++ [last]) (Bool.andRight lineElements)
           let (lineCommas, lineLast) := lineSplit (commaReads steps) [last] lineSteps
-          let (in1, inElements) := inLineSplit read1 elements (Bool.andRight inItems)
+          let (in1, inElements) := inLineSplit read1 elements inTail
+          let inSeparator: separator.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inElements)
           let (in2, inSteps) := inLineSplit read2 (commaReads steps ++ [last]) (Bool.andRight inElements)
-          let (inCommas, _) := inLineSplit (commaReads steps) [last] inSteps
+          let (inCommas, inLastOnly) := inLineSplit (commaReads steps) [last] inSteps
+          let inLast: last.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inLastOnly)
+          let elementsOpen: ∀ (lined: Modes) => Quiet lined → openHead lined (elements ++ rest) = True :=
+            lined linedQuiet => rewrite quietStops lined separator linedQuiet inSeparator
           let goal: Goal := { modes = inner, level = LevelFull }
           let oneTree: TreeN (Succ below) goal read1 (elements ++ rest) one :=
             fullLine inner innerQuiet one read1
@@ -686,6 +847,7 @@ theorem atomLine ∀ (modes: Modes)
               line1
               (lineJoin elements rest lineElements lineRest)
               in1
+              (elementsOpen inner innerQuiet)
               (rewrite isComma)
           let twoTree: TreeN (Succ below) goal read2 ((commaReads steps ++ [last]) ++ rest) two :=
             fullLine inner innerQuiet two read2
@@ -696,6 +858,7 @@ theorem atomLine ∀ (modes: Modes)
               line2
               (lineJoin (commaReads steps ++ [last]) rest lineSteps lineRest)
               in2
+              (openSteps inner innerQuiet steps last rest inCommas inLast)
               (rewrite List.appendAssoc (commaReads steps) [last] rest then
                 endsSteps others steps last rest stepsSpelt (rewrite isClose))
           let rounds: CommaReads inner (tupleEnds inner) (TreeN (Succ below) goal) 2 steps [last, ..rest] :=
@@ -705,16 +868,26 @@ theorem atomLine ∀ (modes: Modes)
               lineCommas
               (lineJoin [last] rest lineLast lineRest)
               inCommas
+              inLast
               isClose
           let (second, more, isRead1, starts) := speltStarts one read1 oneSpelt
           let kinds: exprAll [second, ..more] = True := rewrite <- isRead1 then speltExpr one read1 oneSpelt
+          let inOne: inLineAll [second, ..more] = True := rewrite <- isRead1 then in1
+          let open2 := quietStops modes second quiet (notTrueFalse _ (Bool.andLeft inOne))
           let (kind, peek2, kindExpr) :=
-            peekTwo modes quiet first second more (elements ++ rest) (Bool.andRight kinds) (rewrite isComma)
+            peekTwo modes quiet first second more
+              (elements ++ rest)
+              open1
+              open2
+              (Bool.andRight inOne)
+              (elementsOpen modes quiet)
+              (Bool.andRight kinds)
+              (rewrite isComma)
           let assoc: (read1 ++ elements) ++ rest = read1 ++ (elements ++ rest) := List.appendAssoc read1 elements rest
           let plain: ParenPlain modes [first, ..(read1 ++ elements) ++ rest] := {
             notOutside = rewrite assoc,
                 isRead1,
-                quietPeekSecond modes first second (more ++ (elements ++ rest)) quiet,
+                quietPeekSecond modes first second (more ++ (elements ++ rest)) open1 open2,
                 peek2 then
               startOutside second.kind kind starts kindExpr,
             noRight = rightLine first
@@ -726,8 +899,8 @@ theorem atomLine ∀ (modes: Modes)
               first,
               read1 ++ elements,
               byComputing,
-              quietStops modes first quiet,
-              endsAtom modes quiet head first.kind rest ends,
+              open1,
+              endsAtom modes head first.kind rest restOpen ends,
               Inr
                 (Inr
                   (Inl (
@@ -743,22 +916,26 @@ theorem atomLine ∀ (modes: Modes)
                     isOpen,
                     plain,
                     oneTree,
-                    quietStops inner separator innerQuiet,
+                    quietStops inner separator innerQuiet inSeparator,
                     isComma,
                     twoTree,
                     rounds,
-                    quietStops inner last innerQuiet,
+                    quietStops inner last innerQuiet inLast,
                     isClose
                   )))
             )
     | ListOf open [] comma close, (first, last, isRead, isBare, isOpen, isOpenWord, isClose, isCloseWord) =>
+      let openItems: openHead modes [first, last] = True := rewrite <- isRead then openFirst
+      let inTail: laterInLine [first, last] = True := rewrite <- isRead then inLater
+      let open1 := openHeadStops modes first [last] openItems
+      let inLast: last.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inTail)
       rewrite isRead then
         (
           first,
           [last],
           byComputing,
-          quietStops modes first quiet,
-          endsAtom modes quiet head first.kind rest ends,
+          open1,
+          endsAtom modes head first.kind rest restOpen ends,
           Inr
             (Inr
               (Inr
@@ -767,8 +944,8 @@ theorem atomLine ∀ (modes: Modes)
                   byComputing,
                   (rewrite isBare, isOpenWord, isCloseWord),
                   isOpen,
-                  (rewrite quietPeekSecond modes first last rest quiet, isClose),
-                  quietStops inner last innerQuiet,
+                  (rewrite quietPeekSecond modes first last rest open1 (quietStops modes last quiet inLast), isClose),
+                  quietStops inner last innerQuiet inLast,
                   isClose
                 ))))
         )
@@ -779,11 +956,14 @@ theorem atomLine ∀ (modes: Modes)
         | Succ below, deep =>
           let elements := commaReads steps ++ [last]
           let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then lineRead
-          let inItems: inLineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then inLine
+          let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then openFirst
+          let inTail: laterInLine [first, ..read1 ++ elements] = True := rewrite <- isRead then inLater
+          let open1 := openHeadStops modes first (read1 ++ elements) openItems
           let (line1, lineElements) := lineSplit read1 elements (Bool.andRight lineItems)
           let (lineCommas, lineLast) := lineSplit (commaReads steps) [last] lineElements
-          let (in1, inElements) := inLineSplit read1 elements (Bool.andRight inItems)
-          let (inCommas, _) := inLineSplit (commaReads steps) [last] inElements
+          let (in1, inElements) := inLineSplit read1 elements inTail
+          let (inCommas, inLastOnly) := inLineSplit (commaReads steps) [last] inElements
+          let inLast: last.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inLastOnly)
           let goal: Goal := { modes = inner, level = LevelFull }
           let (second, more, isRead1, starts) := speltStarts one read1 oneSpelt
           let (_, notBracket, notSpread) := startNotClose second.kind starts
@@ -796,6 +976,7 @@ theorem atomLine ∀ (modes: Modes)
               line1
               (lineJoin elements rest lineElements lineRest)
               in1
+              (openSteps inner innerQuiet steps last rest inCommas inLast)
               (rewrite List.appendAssoc (commaReads steps) [last] rest then
                 endsSteps others steps last rest stepsSpelt (rewrite isClose))
           let rounds: CommaReads inner (count => inner.at RBracket) (ListElement (TreeN (Succ below)) inner) 1 steps [
@@ -808,25 +989,35 @@ theorem atomLine ∀ (modes: Modes)
               lineCommas
               (lineJoin [last] rest lineLast lineRest)
               inCommas
+              inLast
               isClose
           let kinds: exprAll [second, ..more] = True := rewrite <- isRead1 then speltExpr one read1 oneSpelt
+          let inOne: inLineAll [second, ..more] = True := rewrite <- isRead1 then in1
+          let inSecond: second.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inOne)
+          let open2 := quietStops modes second quiet inSecond
           let (kind, peek2, kindExpr) :=
             peekTwo modes quiet first second more
               (elements ++ rest)
+              open1
+              open2
+              (Bool.andRight inOne)
+              (openSteps modes quiet steps last rest inCommas inLast)
               (Bool.andRight kinds)
               (exprHeadSteps others steps last rest stepsSpelt (rewrite isClose))
           let assoc: (read1 ++ elements) ++ rest = read1 ++ (elements ++ rest) := List.appendAssoc read1 elements rest
           let firstPeek: peekIn inner 0 ((read1 ++ elements) ++ rest) = Some second.kind :=
-            rewrite assoc, isRead1 then quietPeek inner second (more ++ (elements ++ rest)) innerQuiet
+            rewrite assoc, isRead1 then
+              peekFirst inner second (more ++ (elements ++ rest)) (quietStops inner second innerQuiet inSecond)
           let elementPeek: peekIn inner 0 (read1 ++ (elements ++ rest)) = Some second.kind :=
-            rewrite isRead1 then quietPeek inner second (more ++ (elements ++ rest)) innerQuiet
+            rewrite isRead1 then
+              peekFirst inner second (more ++ (elements ++ rest)) (quietStops inner second innerQuiet inSecond)
           rewrite isRead then
             (
               first,
               read1 ++ elements,
               byComputing,
-              quietStops modes first quiet,
-              endsAtom modes quiet head first.kind rest ends,
+              open1,
+              endsAtom modes head first.kind rest restOpen ends,
               Inr
                 (Inr
                   (Inr
@@ -841,13 +1032,13 @@ theorem atomLine ∀ (modes: Modes)
                         isOpen,
                         (rewrite assoc,
                             isRead1,
-                            quietPeekSecond modes first second (more ++ (elements ++ rest)) quiet,
+                            quietPeekSecond modes first second (more ++ (elements ++ rest)) open1 open2,
                             peek2 then
                           startBracketPlain second.kind kind starts kindExpr),
                         (rewrite firstPeek then notBracket),
                         ((rewrite elementPeek then notSpread), oneTree),
                         rounds,
-                        quietStops inner last innerQuiet,
+                        quietStops inner last innerQuiet inLast,
                         isClose
                       )))))
             )
@@ -862,10 +1053,11 @@ theorem tupleSteps ∀ (modes: Modes)
     (lineSteps: lineAll (commaReads steps) = True)
     (lineRest: lineAll [last, ..rest] = True)
     (inSteps: inLineAll (commaReads steps) = True)
+    (inLast: last.leaf.token.lineStart = False)
     (isClose: last.kind = RParen):
     CommaReads modes (tupleEnds modes) (TreeN (Succ depth) { modes, level = LevelFull }) count steps [last, ..rest] :=
   match exprs, spelt with
-    | [], isEmpty => rewrite isEmpty, quietPeek modes last rest quiet, isClose
+    | [], isEmpty => rewrite isEmpty, peekFirst modes last rest (quietStops modes last quiet inLast), isClose
     | [expr, ..more], (comma, read, later, isSteps, isComma, exprSpelt, moreSpelt) =>
       let lineAll1: lineAll [comma, ..read ++ commaReads later] = True :=
         Eq.trans (Eq.cong (taken => lineAll (commaReads taken)) isSteps).flipped lineSteps
@@ -874,14 +1066,18 @@ theorem tupleSteps ∀ (modes: Modes)
       let (lineRead, lineLater) := lineSplit read (commaReads later) (Bool.andRight lineAll1)
       let (inRead, inLater) := inLineSplit read (commaReads later) (Bool.andRight inAll1)
       let (first, inside, isRead, starts) := speltStarts expr read exprSpelt
+      let inComma: comma.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inAll1)
+      let inFirst: inLineAll [first, ..inside] = True := rewrite <- isRead then inRead
+      let openFirst := quietStops modes first quiet (notTrueFalse _ (Bool.andLeft inFirst))
       let (notClose, _, _) := startNotClose first.kind starts
       rewrite isSteps then
         (
-          quietStops modes comma quiet,
+          quietStops modes comma quiet inComma,
           isComma,
           runsTupleEndsGo modes count
             (read ++ commaReads later ++ [last, ..rest])
-            (rewrite isRead, quietPeek modes first (inside ++ commaReads later ++ [last, ..rest]) quiet then notClose),
+            (rewrite isRead, peekFirst modes first (inside ++ commaReads later ++ [last, ..rest]) openFirst then
+              notClose),
           fullLine modes quiet expr read
             (commaReads later ++ [last, ..rest])
             depth
@@ -890,6 +1086,7 @@ theorem tupleSteps ∀ (modes: Modes)
             lineRead
             (lineJoin (commaReads later) [last, ..rest] lineLater lineRest)
             inRead
+            (openStepsRest modes quiet later last rest inLater inLast)
             (endsSteps more later last rest moreSpelt (rewrite isClose)),
           tupleSteps modes quiet more later
             (count + 1)
@@ -901,6 +1098,7 @@ theorem tupleSteps ∀ (modes: Modes)
             lineLater
             lineRest
             inLater
+            inLast
             isClose
         )
 
@@ -913,10 +1111,11 @@ theorem listSteps ∀ (modes: Modes)
     (lineSteps: lineAll (commaReads steps) = True)
     (lineRest: lineAll [last, ..rest] = True)
     (inSteps: inLineAll (commaReads steps) = True)
+    (inLast: last.leaf.token.lineStart = False)
     (isClose: last.kind = RBracket):
     CommaReads modes (count => modes.at RBracket) (ListElement (TreeN (Succ depth)) modes) count steps [last, ..rest] :=
   match exprs, spelt with
-    | [], isEmpty => rewrite isEmpty, quietPeek modes last rest quiet, isClose
+    | [], isEmpty => rewrite isEmpty, peekFirst modes last rest (quietStops modes last quiet inLast), isClose
     | [expr, ..more], (comma, read, later, isSteps, isComma, exprSpelt, moreSpelt) =>
       let lineAll1: lineAll [comma, ..read ++ commaReads later] = True :=
         Eq.trans (Eq.cong (taken => lineAll (commaReads taken)) isSteps).flipped lineSteps
@@ -925,12 +1124,15 @@ theorem listSteps ∀ (modes: Modes)
       let (lineRead, lineLater) := lineSplit read (commaReads later) (Bool.andRight lineAll1)
       let (inRead, inLater) := inLineSplit read (commaReads later) (Bool.andRight inAll1)
       let (first, inside, isRead, starts) := speltStarts expr read exprSpelt
+      let inComma: comma.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inAll1)
+      let inFirst: inLineAll [first, ..inside] = True := rewrite <- isRead then inRead
+      let openFirst := quietStops modes first quiet (notTrueFalse _ (Bool.andLeft inFirst))
       let (_, notBracket, notSpread) := startNotClose first.kind starts
       let firstPeek: peekIn modes 0 (read ++ commaReads later ++ [last, ..rest]) = Some first.kind :=
-        rewrite isRead then quietPeek modes first (inside ++ commaReads later ++ [last, ..rest]) quiet
+        rewrite isRead then peekFirst modes first (inside ++ commaReads later ++ [last, ..rest]) openFirst
       rewrite isSteps then
         (
-          quietStops modes comma quiet,
+          quietStops modes comma quiet inComma,
           isComma,
           (rewrite <- (rewrite firstPeek then notBracket: isSome RBracket
                 (peekIn modes 0 (read ++ commaReads later ++ [last, ..rest]))
@@ -946,6 +1148,7 @@ theorem listSteps ∀ (modes: Modes)
               lineRead
               (lineJoin (commaReads later) [last, ..rest] lineLater lineRest)
               inRead
+              (openStepsRest modes quiet later last rest inLater inLast)
               (endsSteps more later last rest moreSpelt (rewrite isClose))
           ),
           listSteps modes quiet more later
@@ -958,17 +1161,19 @@ theorem listSteps ∀ (modes: Modes)
             lineLater
             lineRest
             inLater
+            inLast
             isClose
         )
 
 theorem startNotBrace ∀ (kind: Tok) (starts: startKind kind = True): (kind == LBrace) = False := cases
 
---| The read-back of a one-line declaration (ticket 17d, first part): `def name: A := b`, with `A` and `b` words,
---| parentheses, tuples and lists spelt by the items between `:` and `:=` and after `:=`, none starting a line, parses
---| as `parseGroups` runs it to that definition, the words being the items'.
+--| The read-back of a declaration on its `def`'s line, or with its value on the next (tickets 17d and 17e):
+--| `def name: A := b`, with `A` and `b` words, parentheses, tuples and lists spelt by the items between `:` and `:=`
+--| and after `:=`, none starting a line but `b`'s first, parses as `parseGroups` runs it to that definition, the words
+--| being the items'.
 --|
---| Proof idea: `declarationTree`, with the type and value as `fullLine` trees at their nesting depth, the modes of the
---| start and the body being quiet.
+--| Proof idea: `declarationTree`, with the type as a `fullLine` tree and the value as a `fullAnyLine` tree at their
+--| nesting depth, the modes of the start and the body being quiet with no line limit.
 theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (isDef: keyword.kind = KwDef)
@@ -980,16 +1185,14 @@ theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeLine: lineAll typeRead = True)
     (valueLine: lineAll valueRead = True)
     (typeInLine: inLineAll typeRead = True)
-    (valueInLine: inLineAll valueRead = True):
+    (valueLater: laterInLine valueRead = True):
     Parse.run [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] (() =>
       let decl := declaration seen
       decl)
       = Ok (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)) :=
-  let startQuiet: Quiet Modes.start :=
-    { noGuard = byComputing, noCalc = byComputing, noRule = byComputing, noLimit = byComputing }
+  let startQuiet: Quiet Modes.start := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
   let body := { Modes.start | recover = True }
-  let bodyQuiet: Quiet body :=
-    { noGuard = byComputing, noCalc = byComputing, noRule = byComputing, noLimit = byComputing }
+  let bodyQuiet: Quiet body := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
   let after := [colonEq, ..valueRead]
   let lineAfter: lineAll after = True := rewrite isColonEq, valueLine
   let (first, more, isType, starts) := speltStarts result typeRead typeSpelt
@@ -998,7 +1201,7 @@ theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (isSome LBrace (peekIn (allowBraceOn Modes.start (typeRead ++ after)) 0 (typeRead ++ after)))
     (typeRead ++ after)
     = False :=
-    rewrite allowed, isType, quietPeek Modes.start first (more ++ after) startQuiet, startNotBrace first.kind starts
+    rewrite allowed, isType, peekFirst Modes.start first (more ++ after) byComputing, startNotBrace first.kind starts
   let typeTree: Tree { modes = allowBraceOn Modes.start (typeRead ++ after), level = LevelFull } typeRead after
       result :=
     rewrite allowed then
@@ -1010,18 +1213,23 @@ theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
           typeLine
           lineAfter
           typeInLine
+          byComputing
           (rewrite isColonEq)
       )
-  let valueTree: Tree { modes = body, level = LevelFull } valueRead [] value := (
-    Succ value.nest1,
-    fullLine body bodyQuiet value valueRead [] value.nest1
-      (arithmetic [])
-      valueSpelt
-      valueLine
-      byComputing
-      valueInLine
-      byComputing
-  )
+  let (valueFirst, valueMore, isValue, _) := speltStarts value valueRead valueSpelt
+  let firstSpelt: Spelt value [valueFirst, ..valueMore] := rewrite <- isValue then valueSpelt
+  let firstLine: lineAll [valueFirst, ..valueMore] = True := rewrite <- isValue then valueLine
+  let firstLater: laterInLine [valueFirst, ..valueMore] = True := rewrite <- isValue then valueLater
+  let valueTree: Tree { modes = body, level = LevelFull } valueRead [] value :=
+    rewrite isValue then
+      (
+        Succ value.nest1,
+        fullAnyLine body bodyQuiet byComputing value valueFirst valueMore value.nest1
+          (arithmetic [])
+          firstSpelt
+          firstLine
+          firstLater
+      )
   declarationTree seen keyword name colon colonEq typeRead valueRead result value {
     isDef,
     isLower,
@@ -1091,6 +1299,116 @@ theorem readsBackLineExample: Parse.run
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
     (
       wordItem LParen "(" 5,
+      [wordItem Lower "a" 6],
+      wordItem Comma "," 7,
+      [wordItem LBracket "[" 8, wordItem Lower "b" 9, wordItem RBracket "]" 10],
+      [],
+      wordItem RParen ")" 11,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "a" 6, byComputing, byComputing, byComputing, byComputing),
+      (
+        wordItem LBracket "[" 8,
+        [wordItem Lower "b" 9],
+        [],
+        wordItem RBracket "]" 10,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "b" 9, byComputing, byComputing, byComputing, byComputing),
+        byComputing
+      ),
+      byComputing
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| An item for the witnesses below that starts the second line, at column 2.
+def lineStartItem (kind: Tok) (text: Text) (index: Nat): Item := {
+  leaf = { token = { kind, text, column = 2, lineStart = True }, trivia = Trivia.empty },
+  glued = False,
+  afterOperand = False,
+  afterDot = False,
+  index,
+  depth = 0,
+  lineIndent = 2
+}
+
+--| `exampleItems` on a line of their own: `def d: A :=⏎  (a, [b])`.
+def ownLineItems: List Item := [
+  lineStartItem LParen "(" 5,
+  wordItem Lower "a" 6,
+  wordItem Comma "," 7,
+  wordItem LBracket "[" 8,
+  wordItem Lower "b" 9,
+  wordItem RBracket "]" 10,
+  wordItem RParen ")" 11
+]
+
+def ownLineValue: Expr :=
+  Tuple
+    (lineStartItem LParen "(" 5).leaf.word
+    [
+      Atom Lower (wordItem Lower "a" 6).leaf.word,
+      ListOf
+        (wordItem LBracket "[" 8).leaf.word
+        [Atom Lower (wordItem Lower "b" 9).leaf.word]
+        False
+        (wordItem RBracket "]" 10).leaf.word
+    ]
+    False
+    (wordItem RParen ")" 11).leaf.word
+
+--| The value of `def d: A :=⏎  (a, [b])` starts a block.
+theorem ownLineStartsBlock: startsBlock { Modes.start | recover = True } (lineStartItem LParen "(" 5) = True :=
+  byComputing
+
+--| `def d: A :=⏎  (a, [b])`, the value starting a line of its own: `readsBackLine`'s hypotheses can hold where the
+--| value is read as a block (`ownLineStartsBlock`).
+theorem readsBackOwnLineExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3] ++ [wordItem ColonEq ":=" 4, ..ownLineItems]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned (wordItem ColonEq ":=" 4).leaf.word.comments ownLineValue)) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    ownLineItems
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    ownLineValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      lineStartItem LParen "(" 5,
       [wordItem Lower "a" 6],
       wordItem Comma "," 7,
       [wordItem LBracket "[" 8, wordItem Lower "b" 9, wordItem RBracket "]" 10],
