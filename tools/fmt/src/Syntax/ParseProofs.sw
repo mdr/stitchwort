@@ -388,28 +388,11 @@ theorem reads0PeekAt ∀ (modes: Modes) (ahead: Nat): Reads0 (() => modes.peekAt
 theorem reads0At ∀ (modes: Modes) (wanted: Tok): Reads0 (() => modes.at wanted) :=
   reads0Then (reads0Peek modes) (found => reads0Done _)
 
-theorem reads0BareCases ∀ (modes: Modes): Reads0 (() => bareCases modes) := reads0Then (reads0PeekAt modes 1) (found =>
-  match found with
-    | Some KwThen => reads0Done False
-    | Some KwIn => reads0Done False
-    | other => reads0Done True)
+theorem reads0BareCases ∀ (modes: Modes): Reads0 (() => bareCases modes) :=
+  reads0Then reads0Left (items => reads0Done (bareCasesOn modes items))
 
-theorem reads0StartsAtom ∀ (modes: Modes): Reads0 (() => startsAtom modes) := reads0Then (reads0Peek modes) (found =>
-  match found with
-    | Some kind =>
-      match opensArgument kind with
-        | True => reads0Done True
-        | False =>
-          reads0Then
-            (reads0If (kind == Dot) (reads0Then reads0Left (items => reads0Done (sectionAt items))) (reads0Done False))
-            (dotSection =>
-              match dotSection with
-                | True => reads0Done True
-                | False => reads0Then (reads0If (kind == KwCases) (reads0BareCases modes) (reads0Done False)) (bare =>
-                  match bare with
-                    | True => reads0Done True
-                    | False => reads0Then reads0Left (items => reads0Done (argumentPrefix items))))
-    | None => reads0Done False)
+theorem reads0StartsAtom ∀ (modes: Modes): Reads0 (() => startsAtom modes) :=
+  reads0Then reads0Left (items => reads0Done (startsAtomOn modes items))
 
 -- Atoms and what follows them.
 
