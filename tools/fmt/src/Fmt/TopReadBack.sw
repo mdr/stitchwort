@@ -76,9 +76,9 @@ def PrintedGroup (decl read: Decl) (group: List Leaf): Prop :=
 --| which come from the printed spacing: SW-4075 (std's `touches`), SW-4076 (`printedSpacing1`, then `Spelt` of a
 --| printed expression), with SW-4077's weaker prefix equation.
 --|
---| **False today for a declaration with a binary operator** (`a + b`), which the driver accepts: `Spelt` of
---| `InfixBinary` is `Void` until SW-4071 widens it, and `lineKind` has no binary operator (`binaryNotLine`). The
---| statement holds unchanged once SW-4071 widens `Spelt`, `lineKind` and `readsBackLineWithin` in place.
+--| **False today for a declaration with `&&` or `||`** (`a && b`), which the driver accepts: SW-4071 widened
+--| `Spelt`, `lineKind` and `readsBackLineWithin` for the other binary operators, but not the logical ones
+--| (`binaryNotLine`). The statement holds unchanged once `&&` and `||` are widened in place too.
 theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
     (printed: PrintedGroup decl read group):
     ∃ (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr) => GroupSplit group read
@@ -142,8 +142,8 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     parseFile lexed = Ok file.calmTop :=
   ?
 
---| `readsBackLineWithin` reads no binary operator yet: `+` is no kind it reads on a line (SW-4071).
-theorem binaryNotLine: (match lex "a + b" with
+--| `readsBackLineWithin` reads no logical operator yet: `&&` is no kind it reads on a line.
+theorem binaryNotLine: (match lex "a && b" with
       | Ok lexed => lineAll (items lexed.leaves)
       | Err _ => True)
       = False :=
