@@ -1972,7 +1972,7 @@ theorem doc1Spells ∀ (decl: Decl) (doc: Doc)
             spellsEq _ _ _
               (plainDefIs keyword name colon result colonEq value)
               (plainDefSpells keyword name colon result colonEq value
-                (Bool.andLeft within)
+                (Bool.andRight (Bool.andLeft within))
                 (Bool.andRight within)
                 (Bool.andLeft sound)
                 (Bool.andLeft (Bool.andRight sound))

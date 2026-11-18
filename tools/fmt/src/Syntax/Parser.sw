@@ -373,7 +373,9 @@ def Modes.failNameOn (modes: Modes) (what: Text) (items: List Item): {Parse Item
 def keywordHere (modes: Modes) (item: Item): Bool := !modes.stops item && Tok.keyword item.text |> .isSome
 
 --| An unqualified lowercase name (the Rust parser's `lower`).
-def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := match left() with
+def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := modes.lowerOn what left()
+
+def Modes.lowerOn (modes: Modes) (what: Text) (items: List Item): {Parse Item} Word := match items with
   | [item, .._] if item.kind == Lower && !modes.stops item =>
     if isQualified item then fatal "`${item.text}` is a qualified name, which can't be used here" else bump()
   | _ => modes.failName what
@@ -923,13 +925,16 @@ def arrowEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (ar
 
 def semiExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr): {Parse Item} Expr :=
   let semicolon := bump()
-  match modes.peek with
-    | None => fatal semicolonAtEnd
-    | Some RParen => fatal semicolonAtEnd
-    | Some RBracket => fatal semicolonAtEnd
-    | Some RBrace => fatal semicolonAtEnd
-    | Some Comma => fatal semicolonAtEnd
-    | _ => Infix InfixSeq value semicolon (full self modes)
+  semiAfter self modes value semicolon modes.peek
+
+def semiAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (semicolon: Word):
+    Option Tok → {Parse Item} Expr
+  | None => fatal semicolonAtEnd
+  | Some RParen => fatal semicolonAtEnd
+  | Some RBracket => fatal semicolonAtEnd
+  | Some RBrace => fatal semicolonAtEnd
+  | Some Comma => fatal semicolonAtEnd
+  | _ => Infix InfixSeq value semicolon (full self modes)
 
 def semicolonAtEnd: Text := "`;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value"
 
@@ -1064,15 +1069,23 @@ def ifExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyw
 
 --| `h:` before a condition or scrutinee.
 def namedBinder (modes: Modes): {Parse Item} Option (Word, Word) :=
-  if modes.at Lower && isSome Colon (modes.peekAt 1) then
+  namedBinderOn modes (modes.at Lower) (modes.peekAt 1)
+
+def namedBinderOn (modes: Modes) (lower: Bool) (second: Option Tok): {Parse Item} Option (Word, Word) :=
+  if lower && isSome Colon second then
     let name := modes.lower "a name"
-    Some (name, bump())
+    let colon := bump()
+    Some (name, colon)
   else None
 
 --| `then` or `else`, which may also start a line left of the block's
 --| column, if not left of the `if`'s line (`expect_keyword`).
 def Modes.expectKeyword (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat): {Parse Item} Word :=
-  match modes.peek, left() with
+  modes.expectKeywordOn wanted what indent modes.peek left()
+
+def Modes.expectKeywordOn (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat) (seen: Option Tok) (items: List Item):
+    {Parse Item} Word :=
+  match seen, items with
     | None, [item, .._] if item.kind == wanted && item.leaf.token.lineStart && item.leaf.token.column >= indent =>
       bump()
     | _, _ => modes.expect wanted what
@@ -1460,13 +1473,18 @@ def atomRest (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Par
 
 def includeAtom (modes: Modes): {Parse Item} Expr :=
   let keyword := bump()
-  if modes.at Str then
-    let path := bump()
-    Include keyword path
+  includeAfter modes keyword (modes.at Str)
+
+def includeAfter (modes: Modes) (keyword: Word) (path: Bool): {Parse Item} Expr :=
+  if path then
+    let word := bump()
+    Include keyword word
   else modes.fail "a path in quotes, as in `include \"inputs/day04.txt\"`"
 
-def casesAtom (modes: Modes): {Parse Item} Expr :=
-  if bareCases modes then
+def casesAtom (modes: Modes): {Parse Item} Expr := casesAfter modes (bareCases modes)
+
+def casesAfter (modes: Modes) (bare: Bool): {Parse Item} Expr :=
+  if bare then
     let keyword := bump()
     Atom KwCases keyword
   else modes.fail "an expression"
@@ -1484,11 +1502,19 @@ def universeAfter (modes: Modes) (keyword: Word) (items: List Item): {Parse Item
   | _ => Atom TypeU keyword
 
 --| What `atomBase` reads at a token that starts no atom: an error.
-def atomMissing (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  if modes.recover && modes.peek.isNone then
-    modes.gap (if ranOutAtLine modes then ranOutLine else modes.unexpected "an expression")
-  else if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression"
-  else modes.fail "an expression"
+def atomMissing (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := atomMissingAt modes modes.peek
+
+def atomMissingAt (modes: Modes) (seen: Option Tok): {Parse Item} Expr :=
+  if modes.recover && seen.isNone then atomGap modes (ranOutAtLine modes) else atomNamed modes (modes.peekAt 1)
+
+def atomGap (modes: Modes) (ran: Bool): {Parse Item} Expr :=
+  if ran then modes.gap ranOutLine
+  else
+    let message := modes.unexpected "an expression"
+    modes.gap message
+
+def atomNamed (modes: Modes) (second: Option Tok): {Parse Item} Expr :=
+  if isSome FatArrow second then modes.failName "an expression" else modes.fail "an expression"
 
 def bracketAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   bracketSecond self modes (modes.peekAt 1)
@@ -1543,10 +1569,18 @@ def prefixAtom (self: Goal → {Parse Item} Expr) (modes: Modes) (negates: Bool)
 --| `arithmetic` or `algebra`, and its facts if a list follows.
 def facts (self: Goal → {Parse Item} Expr) (modes: Modes) (token: Tok) (kind: FactsKind): {Parse Item} Expr :=
   let keyword := bump()
-  if modes.at LBracket then
+  factsAfter self modes token kind keyword (modes.at LBracket)
+
+def factsAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (token: Tok) (kind: FactsKind)
+    (keyword: Word) (bracket: Bool):
+    {Parse Item} Expr :=
+  if bracket then
     let list := listExpr self modes
-    if hasSpread list then fatal "a list of facts can't have a `..` spread" else Facts kind keyword list
+    factsEnd kind keyword list
   else Atom token keyword
+
+def factsEnd (kind: FactsKind) (keyword: Word) (list: Expr): {Parse Item} Expr :=
+  if hasSpread list then fatal "a list of facts can't have a `..` spread" else Facts kind keyword list
 
 def hasSpread: Expr → Bool
   | ListOf _ items _ _ => items.any (matches
@@ -1556,18 +1590,33 @@ def hasSpread: Expr → Bool
 --| `.name` with no receiver, starting a method section.
 def sectionStart (modes: Modes): {Parse Item} Expr :=
   let dot := bump()
-  match left() with
-    | [name, .._] if name.kind == Lower && name.glued && !isQualified name && !modes.stops name =>
-      FieldAccess None dot bump()
-    | _ => fatal "expected a name right after `.`"
+  sectionAfter modes dot left()
+
+def sectionAfter (modes: Modes) (dot: Word) (items: List Item): {Parse Item} Expr := match items with
+  | [name, .._] if name.kind == Lower && name.glued && !isQualified name && !modes.stops name =>
+    FieldAccess None dot bump()
+  | _ => fatal "expected a name right after `.`"
 
 --| `(x := e)` or `[x := e]`.
 def namedArgument (self: Goal → {Parse Item} Expr) (modes: Modes) (closer: Tok) (closeText: Text): {Parse Item} Expr :=
   let open := bump()
   let inner := modes.inBrackets
-  let name := if inner.at KwDecreasing then bump() else inner.lower "a name"
+  namedHead self inner open closer closeText (inner.at KwDecreasing)
+
+def namedHead (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (closer: Tok)
+    (closeText: Text) (keyword: Bool):
+    {Parse Item} Expr :=
+  let name := if keyword then bump() else inner.lower "a name"
+  namedColon self inner open name closer closeText
+
+def namedColon (self: Goal → {Parse Item} Expr) (inner: Modes) (open name: Word) (closer: Tok) (closeText: Text):
+    {Parse Item} Expr :=
   let colonEq := bump()
   let value := full self inner
+  namedClose inner open name colonEq value closer closeText
+
+def namedClose (inner: Modes) (open name colonEq: Word) (value: Expr) (closer: Tok) (closeText: Text):
+    {Parse Item} Expr :=
   NamedArg open name colonEq value (inner.expect closer closeText)
 
 --| What starts with `(`: `()`, a named argument, an operator section, a
@@ -1628,7 +1677,11 @@ def parenClose (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
 def annotated (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
   let colon := bump()
   let annotation := full self inner
-  if inner.at Comma then fatal tupleAnnotation
+  annotatedEnd inner open first colon annotation (inner.at Comma)
+
+def annotatedEnd (inner: Modes) (open: Word) (first: Expr) (colon: Word) (annotation: Expr) (comma: Bool):
+    {Parse Item} Expr :=
+  if comma then fatal tupleAnnotation
   else
     let close := inner.expect RParen "`)`"
     Annotation open first colon annotation close
@@ -1697,14 +1750,26 @@ def commaListAfter (more: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) 
 --| `(+ 1)`, `(&&)`: the operator first.
 def operatorSection (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
-  let operatorKind := left().head.map Item.kind |> .getOrElse Plus
+  operatorFirst self modes.inBrackets open left()
+
+def operatorFirst (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (items: List Item): {Parse Item} Expr :=
+  let operatorKind := items.head.map Item.kind |> .getOrElse Plus
   let operator := bump()
-  if inner.at RParen then OperatorSection open None operator None bump()
+  operatorHead self inner open operatorKind operator (inner.at RParen)
+
+def operatorHead (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (operatorKind: Tok)
+    (operator: Word) (closed: Bool):
+    {Parse Item} Expr :=
+  if closed then operatorClose open operator None
   else
     let operand := sectionOperand self inner operatorKind
-    if inner.at RParen then OperatorSection open None operator (Some operand) bump()
-    else inner.fail "`)` after the operand of a section"
+    operatorEnd inner open operator operand (inner.at RParen)
+
+def operatorEnd (inner: Modes) (open operator: Word) (operand: Expr) (closed: Bool): {Parse Item} Expr :=
+  if closed then operatorClose open operator (Some operand) else inner.fail "`)` after the operand of a section"
+
+def operatorClose (open operator: Word) (operand: Option Expr): {Parse Item} Expr :=
+  OperatorSection open None operator operand bump()
 
 --| A left section's operand: what binds tighter than its operator.
 def sectionOperand (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: Tok): {Parse Item} Expr :=
@@ -1724,12 +1789,19 @@ def sectionOperand (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: 
 --| items after the `(`.
 def rightSection (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
   let start := offset()
-  let operatorKind := match left().drop (inside - 1) with
+  rightKind self modes.inBrackets open inside start left()
+
+def rightKind (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (inside start: Nat) (items: List Item):
+    {Parse Item} Expr :=
+  let operatorKind := match items.drop (inside - 1) with
     | [item, .._] => item.kind
     | [] => Plus
-  let operand := match operatorKind with
+  let operand := rightOperand self inner operatorKind
+  rightEnd inner open inside start operand offset()
+
+def rightOperand (self: Goal → {Parse Item} Expr) (inner: Modes) (operatorKind: Tok): {Parse Item} Expr :=
+  match operatorKind with
     | Plus => self { modes = inner, level = LevelMultiplicative }
     | Star => self { modes = inner, level = LevelUnary }
     | Slash => self { modes = inner, level = LevelUnary }
@@ -1739,10 +1811,15 @@ def rightSection (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat)
     | OrOr => self { modes = inner, level = LevelComparison }
     | IffArrow => self { modes = inner, level = LevelComparison }
     | _ => self { modes = inner, level = LevelAppend }
-  if offset() != start + inside - 1 then inner.fail "`)` after the operator of a section"
+
+def rightEnd (inner: Modes) (open: Word) (inside start: Nat) (operand: Expr) (here: Nat): {Parse Item} Expr :=
+  if here != start + inside - 1 then inner.fail "`)` after the operator of a section"
   else
     let operator := bump()
-    OperatorSection open (Some operand) operator None (inner.expect RParen "`)`")
+    rightClose inner open operand operator
+
+def rightClose (inner: Modes) (open: Word) (operand: Expr) (operator: Word): {Parse Item} Expr :=
+  OperatorSection open (Some operand) operator None (inner.expect RParen "`)`")
 
 def listExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
@@ -1791,28 +1868,49 @@ def listSpread (self: Goal → {Parse Item} Expr) (modes: Modes) (dots: Word) (e
 def recordExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := modes.expect LBrace "`{`"
   let inner := modes.inBrackets
-  if inner.at RBrace then Record open None [] False bump()
+  recordBody self inner open (inner.at RBrace)
+
+def recordBody (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (empty: Bool): {Parse Item} Expr :=
+  if empty then Record open None [] False bump() else recordLiteral self inner open (inner.at Lower) (inner.peekAt 1)
+
+def recordLiteral (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (lower: Bool) (second: Option Tok):
+    {Parse Item} Expr :=
+  let literal := lower && literalSecond second
+  let base := recordBase self inner literal
+  recordFields self inner open base
+
+def literalSecond: Option Tok → Bool
+  | Some Equals => True
+  | Some Comma => True
+  | Some RBrace => True
+  | _ => False
+
+def recordBase (self: Goal → {Parse Item} Expr) (inner: Modes) (literal: Bool): {Parse Item} Option (Expr, Word) :=
+  if literal then None
   else
-    let literal :=
-      inner.at Lower
-        && (match inner.peekAt 1 with
-          | Some Equals => True
-          | Some Comma => True
-          | Some RBrace => True
-          | _ => False)
-    let base :=
-      if literal then None
-      else
-        let record := full self inner
-        Some (record, inner.expect Pipe "`|` and the fields to update")
-    let first := recordField self inner
-    let (fields, trailingComma) :=
-      commaList (Parse.mark().left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first []
-    Record open base fields trailingComma (inner.expect RBrace "`,` or `}`")
+    let record := full self inner
+    recordPipe inner record
+
+def recordPipe (inner: Modes) (record: Expr): {Parse Item} Option (Expr, Word) :=
+  let bar := inner.expect Pipe "`|` and the fields to update"
+  Some (record, bar)
+
+def recordFields (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (base: Option (Expr, Word)):
+    {Parse Item} Expr :=
+  let first := recordField self inner
+  recordEnd inner open base
+    (commaList (Parse.mark().left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first [])
+
+def recordEnd (inner: Modes) (open: Word) (base: Option (Expr, Word)) (pair: (List Expr, Bool)): {Parse Item} Expr :=
+  match pair with | (fields, trailingComma) => Record open base fields trailingComma (inner.expect RBrace "`,` or `}`")
 
 def recordField (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let name := modes.lower "a field name"
-  if modes.at Equals then
+  recordFieldAfter self modes name (modes.at Equals)
+
+def recordFieldAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (name: Word) (equalsNext: Bool):
+    {Parse Item} Expr :=
+  if equalsNext then
     let equals := bump()
     RecordField name equals (full self modes)
   else Atom Lower name
@@ -1824,20 +1922,36 @@ def braceArgument (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item
 
 def interpolated (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let start := bump()
-  Interpolated [TextPiece start, ..interpolations self modes]
+  let pieces := interpolations self modes
+  Interpolated [TextPiece start, ..pieces]
 
 def interpolations (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Piece :=
-  let pieces := Parse.loop (() =>
-    if modes.at StrMid then Some (TextPiece bump())
-    else if modes.at InterpOpen then
-      let open := modes.expect InterpOpen "`\${`"
-      let value := full self modes
-      let close := modes.expect InterpClose "`}`"
-      Some (Interpolation open value close)
-    else if modes.at StrEnd then None
-    else modes.fail "`\${` or the end of the text")
-  let last := if modes.at StrEnd then bump() else modes.fail "`\${` or the end of the text"
+  let pieces := Parse.loop (() => interpolationStep self modes)
+  interpolationLast modes pieces (modes.at StrEnd)
+
+def interpolationStep (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Piece :=
+  interpolationOn self modes modes.peek
+
+def interpolationOn (self: Goal → {Parse Item} Expr) (modes: Modes) (seen: Option Tok): {Parse Item} Option Piece :=
+  if isSome StrMid seen then
+    let word := bump()
+    Some (TextPiece word)
+  else if isSome InterpOpen seen then interpolationOpen self modes
+  else if isSome StrEnd seen then None
+  else modes.fail "`\${` or the end of the text"
+
+def interpolationOpen (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Piece :=
+  let open := modes.expect InterpOpen "`\${`"
+  let value := full self modes
+  let close := modes.expect InterpClose "`}`"
+  Some (Interpolation open value close)
+
+def interpolationLast (modes: Modes) (pieces: List Piece) (ended: Bool): {Parse Item} List Piece :=
+  let last := interpolationEnd modes ended
   pieces ++ [TextPiece last]
+
+def interpolationEnd (modes: Modes) (ended: Bool): {Parse Item} Word :=
+  if ended then bump() else modes.fail "`\${` or the end of the text"
 
 -- `match` and clause lambdas.
 

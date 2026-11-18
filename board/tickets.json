@@ -1,5 +1,5 @@
 {
-  "next": 4005,
+  "next": 4010,
   "tickets": [
     {
       "id": 47,
@@ -12087,9 +12087,9 @@
       "where": ".claude/worktrees/SW-2809",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)\nParked (Matt, 11 Nov 2026): D3516 (what a run does at a cast or Array.getLt bound whose proof relies on a goal; rec: run-time bound check, stop at casts, JS load-time fix, warning names unchecked goals, mark passes relying on goals) goes on the backlog undecided. Work stays on lane/SW-2809 (ab1b7dcb8, 7eb0b39e9); Opus review docs/reviews/SW-2809-running-with-goals-review.md.",
+      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)\nParked (Matt, 11 Nov 2026): D3516 (what a run does at a cast or Array.getLt bound whose proof relies on a goal; rec: run-time bound check, stop at casts, JS load-time fix, warning names unchecked goals, mark passes relying on goals) goes on the backlog undecided. Work stays on lane/SW-2809 (ab1b7dcb8, 7eb0b39e9); Opus review docs/reviews/SW-2809-running-with-goals-review.md.\n\nD3683 (Matt, 18 Nov 2026): worktree removed to free 1.6 GB of build output; the branch is kept. To pick this up again (after D3516 is decided): (1) branch lane/SW-2809, local and pushed to origin, tip 7eb0b39e9 (work commit ab1b7dcb8, about 760 lines in 27 files: runtimes, JS, web, docs); (2) Opus review docs/reviews/SW-2809-running-with-goals-review.md; (3) Fable review of the design docs/reviews/SW-2804-assumptions-review.md (F1: a false goal behind an erased proof can give a mistyped value or the 'impossible branch' panic at value.rs:2312; F7: messages at rt lower.rs:130, js lib.rs:1001, js run.rs:152 should name the open goal); (4) design docs/proposals/using-unfinished-proofs.md, decisions D3504-D3507, open D3516 (what a run does at a cast or Array.getLt bound relying on a goal). Restart with 'git worktree add .claude/worktrees/SW-2809 lane/SW-2809' (or worktree:new, then merge the branch), merge main first: it is a week behind.",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-18",
       "commits": []
     },
     {
@@ -23741,12 +23741,12 @@
     {
       "id": 3964,
       "title": "[Opus] fmt S1 ticket 13c: one-parse driver: Lexed.tidied parses twice when a comma before a closer holds a comment, so 'same program' needs two parser runs; restructure to parse once, K1's search first (sketch §3). Before ticket 20",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Estimate 45 min (lane started 14:45; review at 15:17, ~32 min).\nDone (lane/SW-3964, 2839d303c): K1's search chose way 2 with the bare comma keeping its line start (off its line, the parser accepts 54/3,000 generated files Rust refuses). Lexed.tidied parses once from Lexed.settledOnce (withBareLastCommas, then rule N); P2 drops the commas on the tree; parksComment removed; commaMoved shared with withoutLastCommas. Fixes two families vs Rust (tests in Tests/Slice1.sw, failing first). Gate: passes and s1-s6a 100% on goldens and --sample 300, text as before. Fmt.Tests 94/94, Syntax.Tests 52/52; audits SettleProofs (2 known vacuity warnings, same on old code), PassProofs, CalmProofs, SpellProofs clean. bareSettles searched (5,400 generated + corpus, 0 exceptions), not proved: follow-up.\n\nMerged 18 Nov. 32 min (est. 45). Two driver bugs fixed with failing-first tests in Fmt/Tests/Slice1.sw. Filed SW-4006 SW-4007.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23882,7 +23882,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-3964: formatWithin = print (tidy (parseFile lexed.settledOnce)); parse1 should be parseFile lexed.settledOnce; formatWithinKeepsMeaning no longer needs quiet; formatWithinKeepsComments needs bareSettles (SW-4006).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24025,7 +24025,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.\n\nAlso (SW-3969): a match with an unreachable arm discharges an if whose Bool rewrite can't replace (E-REWRITE-MOTIVE); 'at' can't be a variable in a theorem (rewrite ... at), and the parse error points elsewhere (worth a diagnostics ticket).",
+      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.\n\nAlso (SW-3969): a match with an unreachable arm discharges an if whose Bool rewrite can't replace (E-REWRITE-MOTIVE); 'at' can't be a variable in a theorem (rewrite ... at), and the parse error points elsewhere (worth a diagnostics ticket).\n\nAlso (SW-4000): Some (x, effect) desugars to a nested bind, so givesDone needs [holds := ...] [x := ...] hints or a split parser (8 min).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24228,12 +24228,12 @@
     {
       "id": 4000,
       "title": "[Sonnet] fmt S1 ticket 16c: parser proofs, the walks of parsers outside slice 1 (recordExpr, interpolated, facts, matchExpr, clauseLambda, lambda, ifExpr, piExpr, handleExpr, calcExpr, rewriteExpr, casesExpr, pattern parsers) as Parse.Gives, needed even to show a result is outside the slice; then parseSettled1, parseCarries1, fuelEnough1 (SW-3967's split)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-3968: discharge the records OutsideGives (∀ self, Nested self → Outside self: matchExpr, clauseLambda, braceArgument, recordExpr, atomRest, atomMissing, parenOther, rightSection, annotated, namedArgument, membership, comparisonChain, cmpIf, pipeChain, iff, quantifier, semiExpr, exprKeyword, lambda, ifKeyword, piExpr, effectResult, statementOther) and Frame expressionAt (attributesOf, namespaceStep, importStep, declarationOther, forallPart, headerParams, decreasingPart, unfoldingPart, armsBody), all in Syntax/ParseWalk.sw. Note pipeChain can return its input (a |> left of indent): its fact is result = value ∨ Out result. Also (orchestrator's call): make Header.within1 require a lower-case name, so parseLexical1 drops its lowerNamed1 hypothesis; recheck the slice gates.",
+      "body": "From SW-3968: discharge the records OutsideGives (∀ self, Nested self → Outside self: matchExpr, clauseLambda, braceArgument, recordExpr, atomRest, atomMissing, parenOther, rightSection, annotated, namedArgument, membership, comparisonChain, cmpIf, pipeChain, iff, quantifier, semiExpr, exprKeyword, lambda, ifKeyword, piExpr, effectResult, statementOther) and Frame expressionAt (attributesOf, namespaceStep, importStep, declarationOther, forallPart, headerParams, decreasingPart, unfoldingPart, armsBody), all in Syntax/ParseWalk.sw. Note pipeChain can return its input (a |> left of indent): its fact is result = value ∨ Out result. Also (orchestrator's call): make Header.within1 require a lower-case name, so parseLexical1 drops its lowerNamed1 hypothesis; recheck the slice gates.\n\nLane notes (Sonnet, 18 Nov 2026), branch lane/SW-4000 (10 commits, 305b4080f..ee3a6c401):\n- Header.within1 now needs `name.lexesAs Lower`; Word.lexesAs goes through textLexesAs (comments are no part of the lexing); lexicalLoose1 and lowerNamed1 gone; parseLexical1 has no lowerNamed1 hypothesis. Gate: fmt-twin s1 goldens, 82 declarations within the slice, 82 matched, 0 mismatched; fmt-twin tree goldens 132 of 132 identical.\n- Outside: 11 of 23 facts proved (semis, annotations, namedArguments, missings, ifKeywords, rightSections, parenOthers, cmpIfs, records, effectResults, rests). OutsideGives is now Nested self -> OutsideRest self; `outsideOf` builds Outside from it.\n- Frame: 6 of 9 proved (attributes, namespaces, imports, foralls, decreasings, unfoldings). parseGroupsOk, parseFileOk, parseShaped1, parseLexical1 take FrameRest; `frameOf` builds Frame.\n- Still assumed: matches, clauseLambdas, braceArguments, memberships, comparisonChains, pipeChains, iffs, quantifiers, keywords, lambdas, piExprs, statementOthers; Frame: others, params, arms.\n- Why those stay: (a) the pattern parser (patternRule and 25 functions) is not walked: needed by lambdas, quantifiers, matches, clauseLambdas, keywords (let/match) and statementOthers; (b) headerGroup/binderGroup/implicitBinder are not walked: needed by params, piExprs, lambdas, quantifiers; (c) braceArguments, memberships, comparisonChains, pipeChains and iffs need the walks of atoms and cmp, which take the whole Outside record: circular unless Outside is staged (the lemmas retyped to a sub-record per tier: atoms, then braceArguments, pipeChains, memberships and comparisonChains, then iffs; 72 lemma signatures).\n- parseSettled1, parseCarries1, fuelEnough1: not started.\n\nMerged 18 Nov, partial. Model result: sonnet, worked (partial), 33 min (est. 50). Statements checked by the orchestrator: parseShaped1/parseLexical1 now with fewer hypotheses; within1 narrowed to lower-case names (orchestrator's call), s1 gate 82/82 on goldens. Filed SW-4008 SW-4009.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24272,7 +24272,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.\n\nCheck (SW-3969): hangs is stronger than the sketch's (two clauses, counterexamples def d: A -> / B / C := x and def d / : A := x); confirm printedHangs covers them so the top theorem's condition is still discharged.",
+      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.\n\nCheck (SW-3969): hangs is stronger than the sketch's (two clauses, counterexamples def d: A -> / B / C := x and def d / : A := x); confirm printedHangs covers them so the top theorem's condition is still discharged.\n\nOrchestrator's call (SW-3964): CommentsKept stays stated on settledBare (Rust's model), and SW-4006 proves bareSettles, rather than restating it on settledOnce, which would make glue free but weaken what it promises. Check this at the checkpoint.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24280,6 +24280,71 @@
     {
       "id": 4004,
       "title": "[Opus] fmt S1 ticket 17b: readsBack1, the tree-by-tree read-back: a RunsFrom per parser function (~35, atoms up to the def frame), on SW-3968's named steps, from SW-3969's blockOneLine and Item facts; plan in tools/fmt/NOTES.md (SW-3969 section)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4005,
+      "title": "[Sonnet] Disk: kache cache is 27 GB (~/Library/Caches/kache, auto-gc.log empty) and main's target/ 56 GB (debug 26, release 24); check kache 1.0.0's size cap and gc against its source/docs, set a cap in KACHE_CONFIG_SETUP, and add a task (sweep stale target artifacts) the orchestrator runs weekly; worktree:rm should delete the lane's scratch subfolder too (lanes copy a ~300 MB binary there; 9.5 GB of them piled up by 18 Nov)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Orchestrator, 18 Nov: freed 9.5 GB of lane scratch and 19.25 GB of target/ with 'nix shell nixpkgs#cargo-sweep -c cargo sweep --time 2' (target 56 -> 33 GB; disk 88% -> 81%). kache is already self-limited: 'kache stats' shows a 23 GiB budget (5% of disk, floor 5 GiB, cap 100 GiB), 1.2 TiB pruned automatically; 'kache clean --dry-run' found no stale target dirs. Remaining scope: a weekly 'task disk:sweep' (cargo sweep --time 3 on main's target), worktree:rm deleting the lane's scratch folder, and optionally a lower kache budget via kache config.",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4006,
+      "title": "[Sonnet] fmt S1: prove bareSettles: under alphabet1 and plain1, rule N on withBareLastCommas leaves, with the last commas then dropped, equals settledBare (SW-3964; proof idea: plain1 rules out a line-starting last comma and a -> before one, so rules 1-3 walk one extra leaf); glue's formatWithinKeepsComments needs it; also the identity parseFile lexed.settledOnce = parseFile lexed.settled on texts with no comma before a closer",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4007,
+      "title": "[DeepSeek] fmt small fixes from SW-3964: plain1's doc wrongly says every parsing file is plain (K1's case parses and isn't); probe.py gets an if __name__ == '__main__' guard; generated parked-comma files (trailing comment on a closer after a bare comma; K1's case) added to the disturbed or fuzz inputs; dev/README: don't edit tracked .sw files during a gate, rebuild the slim copy only with the script, text stage is compared against a baseline, a copied binary needs STITCHWORT_STD_DIR for fmt -",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4008,
+      "title": "[Sonnet] fmt S1 parser proofs 16d: walk the pattern parser (patternRule and ~25 functions; it doesn't call the expression parser) and the binder parsers (headerGroupParts, binderGroup, implicitBinder, binderType) as Gives facts (SW-4000's blockers 1 and 2), then discharge OutsideRest's lambdas, quantifiers, matches, clauseLambdas, keywords, statementOthers, piExprs and FrameRest's params, arms, others",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4009,
+      "title": "[Sonnet] fmt S1 parser proofs 16e: stage Outside into tiers (atoms; then braceArguments and pipeChains; then memberships and comparisonChains; then iffs) so the circular facts can use the ones below (SW-4000's blocker 3; ~72 lemma signatures retyped), discharge those five, then parseSettled1, parseCarries1, fuelEnough1; after SW-4008",
       "status": "backlog",
       "agent": "",
       "where": "",

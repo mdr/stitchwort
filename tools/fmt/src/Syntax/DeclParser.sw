@@ -25,7 +25,9 @@ def Modes.expectFixed (modes: Modes) (wanted: Tok) (what: Text): {Parse Item} Co
 --| Whether the next item is a line at or left of the block's column, where
 --| a recovering body reports a missing expression as "the line ends here"
 --| (`ran_out_after`).
-def ranOutAtLine (modes: Modes): {Parse Item} Bool := match modes.peek, left(), modes.limit with
+def ranOutAtLine (modes: Modes): {Parse Item} Bool := ranOutOn modes modes.peek left()
+
+def ranOutOn (modes: Modes) (seen: Option Tok) (items: List Item): Bool := match seen, items, modes.limit with
   | None, [item, .._], Some limit =>
     !modes.endsGuard item && item.leaf.token.lineStart && item.leaf.token.column <= limit
   | _, _, _ => False
@@ -42,40 +44,68 @@ def misplaced (what: Text): Text := "attributes can't be used on ${what}"
 --| The attribute groups next, `@[a, b "x"] @[c]`.
 def attributesOf (modes: Modes): {Parse Item} List Attributes := attributeGroups modes
 
-def attributeGroups (modes: Modes): {Parse Item} List Attributes := Parse.loop (() =>
-  if modes.at At then
-    let at := fixedFrom()
-    let open := modes.expectFixed LBracket "`[`"
-    let (items, trailingComma) := attributeItems (Parse.mark().left + 1) modes []
-    let close := modes.expectFixed RBracket "`,` or `]` after the attribute"
-    Some { at, open, items, trailingComma, close }
-  else None)
+def attributeGroups (modes: Modes): {Parse Item} List Attributes := Parse.loop (() => attributeGroupStep modes)
+
+def attributeGroupStep (modes: Modes): {Parse Item} Option Attributes := attributeGroupAt modes (modes.at At)
+
+def attributeGroupAt (modes: Modes) (found: Bool): {Parse Item} Option Attributes :=
+  if found then attributeGroup modes else None
+
+def attributeGroup (modes: Modes): {Parse Item} Option Attributes :=
+  let at := fixedFrom()
+  let open := modes.expectFixed LBracket "`[`"
+  let here := Parse.mark()
+  let pair := attributeItems (here.left + 1) modes []
+  attributeGroupEnd modes at open pair
+
+def attributeGroupEnd (modes: Modes) (at open: Comments) (pair: (List Attribute, Bool)):
+    {Parse Item} Option Attributes :=
+  match pair with
+    | (items, trailingComma) =>
+      let close := modes.expectFixed RBracket "`,` or `]` after the attribute"
+      Some { at, open, items, trailingComma, close }
 
 --| The attributes in one group, and whether a comma ended them.
 def attributeItems (fuel: Nat) (modes: Modes) (found: List Attribute): {Parse Item} (List Attribute, Bool) :=
   match fuel with
-    | Succ more =>
-      if modes.at RBracket && !found.isEmpty then (found.reverse, True)
-      else
-        let name := modes.lowerQualified "an attribute's name, such as `js.name`"
-        let parts := attributeParts modes
-        let argument :=
-          if modes.at Str then Some bump()
-          else if modes.at StrStart then fatal "an attribute's argument is a plain string, without `\${…}`"
-          else None
-        let done := [{ name, parts, argument }, ..found]
-        if modes.at Comma then
-          let _ := bump()
-          attributeItems more modes done
-        else (done.reverse, False)
+    | Succ more => attributeItemsAt more modes found (modes.at RBracket)
     | Zero => (found.reverse, False)
 
-def attributeParts (modes: Modes): {Parse Item} List (Comments, Word) := Parse.loop (() =>
-  if modes.at Dot then
-    let dot := fixedFrom()
+def attributeItemsAt (more: Nat) (modes: Modes) (found: List Attribute) (closed: Bool):
+    {Parse Item} (List Attribute, Bool) :=
+  if closed && !found.isEmpty then (found.reverse, True) else attributeItem more modes found
+
+def attributeItem (more: Nat) (modes: Modes) (found: List Attribute): {Parse Item} (List Attribute, Bool) :=
+  let name := modes.lowerQualified "an attribute's name, such as `js.name`"
+  let parts := attributeParts modes
+  let argument := attributeArgument modes
+  attributeNext more modes [{ name, parts, argument }, ..found] (modes.at Comma)
+
+def attributeArgument (modes: Modes): {Parse Item} Option Word := attributeArgumentOn modes modes.peek
+
+def attributeArgumentOn (modes: Modes) (seen: Option Tok): {Parse Item} Option Word :=
+  if isSome Str seen then
+    let word := bump()
+    Some word
+  else if isSome StrStart seen then fatal "an attribute's argument is a plain string, without `\${…}`"
+  else None
+
+def attributeNext (more: Nat) (modes: Modes) (done: List Attribute) (comma: Bool):
+    {Parse Item} (List Attribute, Bool) :=
+  if comma then
+    let _ := bump()
+    attributeItems more modes done
+  else (done.reverse, False)
+
+def attributeParts (modes: Modes): {Parse Item} List (Comments, Word) :=
+  Parse.loop (() => attributePart modes (modes.at Dot))
+
+def attributePart (modes: Modes) (dot: Bool): {Parse Item} Option (Comments, Word) :=
+  if dot then
+    let written := fixedFrom()
     let part := modes.lowerQualified "the rest of the attribute's name"
-    Some (dot, part)
-  else None)
+    Some (written, part)
+  else None
 
 --| A lowercase name, possibly qualified (`lower_q`).
 def Modes.lowerQualified (modes: Modes) (what: Text): {Parse Item} Word := modes.lowerQualifiedOn what modes.peek
@@ -388,23 +418,39 @@ def afterCloseBrace (depth: Nat): List Item → Option (List Item)
 --| `{A, B args | e}`, `{e}` or `{}` (`row`).
 def rowOf (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Row :=
   let open := modes.expectFixed LBrace "`{`"
-  if modes.at Lower && isSome Colon (modes.peekAt 1) then
-    fatal "a record type can't be written here: `{` in a type starts an ability row"
+  rowStart self modes open (modes.at Lower) (modes.peekAt 1)
+
+def rowStart (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Comments) (lower: Bool) (second: Option Tok):
+    {Parse Item} Row :=
+  if lower && isSome Colon second then fatal "a record type can't be written here: `{` in a type starts an ability row"
   else
-    let abilities :=
-      if modes.at RBrace || modes.at Pipe then []
-      else
-        let first := self { modes, level = LevelApp }
-        let (entries, _) :=
-          commaList (Parse.mark().left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first []
-        entries
-    let variable :=
-      if modes.at Pipe then
-        let bar := fixedFrom()
-        Some (bar, modes.lower "a row variable")
-      else None
-    let close := modes.expectFixed RBrace "`}`"
-    { open, abilities, variable, close }
+    let abilities := rowAbilities self modes (modes.at RBrace) (modes.at Pipe)
+    rowVariable modes open abilities
+
+def rowAbilities (self: Goal → {Parse Item} Expr) (modes: Modes) (closed pipe: Bool): {Parse Item} List Expr :=
+  if closed || pipe then []
+  else
+    let first := self { modes, level = LevelApp }
+    rowEntries
+      (commaList (Parse.mark().left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first [])
+
+def rowEntries (pair: (List Expr, Bool)): List Expr := match pair with | (entries, _) => entries
+
+def rowVariable (modes: Modes) (open: Comments) (abilities: List Expr): {Parse Item} Row :=
+  let variable := rowPart modes (modes.at Pipe)
+  rowClose modes open abilities variable
+
+def rowPart (modes: Modes) (pipe: Bool): {Parse Item} Option (Comments, Word) :=
+  if pipe then
+    let bar := fixedFrom()
+    let name := modes.lower "a row variable"
+    Some (bar, name)
+  else None
+
+def rowClose (modes: Modes) (open: Comments) (abilities: List Expr) (variable: Option (Comments, Word)):
+    {Parse Item} Row :=
+  let close := modes.expectFixed RBrace "`}`"
+  { open, abilities, variable, close }
 
 --| `(x: A) -> B` or `[x: A] -> B` (`pi_expr`).
 def piExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Expr :=
@@ -473,51 +519,97 @@ def declarationEnd (modes: Modes) (decl: Decl) (items: List Item): {Parse Item} 
 
 def namespaceLine (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  match modes.peek with
-    | Some Upper => Namespace keyword bump()
-    | Some Lower => fatal "each part of a namespace's name starts with a capital letter"
-    | _ => modes.fail "a namespace, such as `Day05`"
+  namespaceAfter modes keyword modes.peek
+
+def namespaceAfter (modes: Modes) (keyword: Comments): Option Tok → {Parse Item} Decl
+  | Some Upper => Namespace keyword bump()
+  | Some Lower => fatal "each part of a namespace's name starts with a capital letter"
+  | _ => modes.fail "a namespace, such as `Day05`"
 
 def importLine (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  let path := if modes.at Upper then bump() else modes.fail "a namespace, such as `List`"
-  if wordAhead modes "as" then
-    fatal "`import M as A` isn't Stitchwort: a namespace is imported as an item of the namespace above it"
-  else
-    let open := modes.expectFixed LParen "`(` and the names to import"
-    let imported :=
-      if modes.at DotDot then
-        let dots := fixedFrom()
-        if modes.at RParen then ImportAll dots else fatal (mixedImport path)
-      else ImportItems (importItems (Parse.mark().left + 1) modes path [])
-    Import keyword path open imported (modes.expectFixed RParen "`)`")
+  let path := importPath modes (modes.at Upper)
+  importAfter modes keyword path (wordAhead modes "as")
+
+def importPath (modes: Modes) (upper: Bool): {Parse Item} Word :=
+  if upper then bump() else modes.fail "a namespace, such as `List`"
+
+def importAfter (modes: Modes) (keyword: Comments) (path: Word) (asNext: Bool): {Parse Item} Decl :=
+  if asNext then fatal "`import M as A` isn't Stitchwort: a namespace is imported as an item of the namespace above it"
+  else importOpen modes keyword path
+
+def importOpen (modes: Modes) (keyword: Comments) (path: Word): {Parse Item} Decl :=
+  let open := modes.expectFixed LParen "`(` and the names to import"
+  let imported := importedOf modes path (modes.at DotDot)
+  importClose modes keyword path open imported
+
+def importedOf (modes: Modes) (path: Word) (dots: Bool): {Parse Item} Imported :=
+  if dots then
+    let written := fixedFrom()
+    importAllEnd path written (modes.at RParen)
+  else importNames modes path
+
+def importAllEnd (path: Word) (dots: Comments) (closed: Bool): {Parse Item} Imported :=
+  if closed then ImportAll dots else fatal (mixedImport path)
+
+def importNames (modes: Modes) (path: Word): {Parse Item} Imported :=
+  let here := Parse.mark()
+  let items := importItems (here.left + 1) modes path []
+  ImportItems items
+
+def importClose (modes: Modes) (keyword: Comments) (path: Word) (open: Comments) (imported: Imported):
+    {Parse Item} Decl :=
+  let close := modes.expectFixed RParen "`)`"
+  Import keyword path open imported close
 
 def mixedImport (path: Word): Text :=
   "`..` imports everything from a namespace, so it goes on its own: `import ${path.text} (..)`"
 
 def importItems (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem): {Parse Item} List ImportItem :=
-  match fuel, left() with
+  importItemsOn fuel modes path found left()
+
+def importItemsOn (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem) (items: List Item):
+    {Parse Item} List ImportItem :=
+  match fuel, items with
     | Succ more, [item, .._] if (item.kind == Lower || item.kind == Upper) && !isQualified item && !modes.stops item =>
-      let name := bump()
-      let alias := importAlias modes name
-      let done := [{ name, alias }, ..found]
-      if modes.at Comma then
-        let _ := bump()
-        importItems more modes path done
-      else done.reverse
-    | _, _ => if modes.at DotDot && !found.isEmpty then fatal (mixedImport path) else modes.fail "a name to import"
+      importNamed more modes path found
+    | _, _ => importStop modes path found (modes.at DotDot)
+
+def importStop (modes: Modes) (path: Word) (found: List ImportItem) (dots: Bool): {Parse Item} List ImportItem :=
+  if dots && !found.isEmpty then fatal (mixedImport path) else modes.fail "a name to import"
+
+def importNamed (more: Nat) (modes: Modes) (path: Word) (found: List ImportItem): {Parse Item} List ImportItem :=
+  let name := bump()
+  let alias := importAlias modes name
+  importTail more modes path [{ name, alias }, ..found] (modes.at Comma)
+
+def importTail (more: Nat) (modes: Modes) (path: Word) (done: List ImportItem) (comma: Bool):
+    {Parse Item} List ImportItem :=
+  if comma then
+    let _ := bump()
+    importItems more modes path done
+  else done.reverse
 
 def importAlias (modes: Modes) (name: Word): {Parse Item} Option (Comments, Word) :=
-  if wordAhead modes "as" then
+  importAliasOn modes name (wordAhead modes "as")
+
+def importAliasOn (modes: Modes) (name: Word) (asNext: Bool): {Parse Item} Option (Comments, Word) :=
+  if asNext then
     let asWord := fixedFrom()
-    match left() with
-      | [alias, .._] if (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias =>
-        if startsUpper name.text != startsUpper alias.text then
-          let case := if startsUpper name.text then "a capital letter" else "a lower-case letter"
-          fatal "`${name.text}` starts with ${case}, so its new name must too"
-        else Some (asWord, bump())
-      | _ => modes.fail "the name to use instead, as in `x as y`"
+    importAliasWord modes name asWord left()
   else None
+
+def importAliasWord (modes: Modes) (name: Word) (asWord: Comments) (items: List Item):
+    {Parse Item} Option (Comments, Word) :=
+  match items with
+    | [alias, .._] if (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias =>
+      if startsUpper name.text != startsUpper alias.text then
+        let case := if startsUpper name.text then "a capital letter" else "a lower-case letter"
+        fatal "`${name.text}` starts with ${case}, so its new name must too"
+      else
+        let word := bump()
+        Some (asWord, word)
+    | _ => modes.fail "the name to use instead, as in `x as y`"
 
 def startsUpper (text: Text): Bool := match text.toList with
   | [first, .._] => first.isAsciiUppercase
@@ -657,33 +749,48 @@ def definitionName (modes: Modes): {Parse Item} Word := definitionNameAfter mode
 def definitionNameAfter (modes: Modes) (upper: Bool): {Parse Item} Word :=
   if upper then modes.upperQualified "a name" else modes.lowerQualified "a name"
 
-def forallPart (modes: Modes) (kind: DefKind): {Parse Item} Option Word :=
-  if modes.at KwForall then
-    if kind != DefTheorem then fatal "`∀` before the parameters is only for theorems"
-    else
-      let word := bump()
-      if modes.at LParen || modes.at LBracket then Some word else modes.fail "a parameter such as `(x: Nat)` after `∀`"
+def forallPart (modes: Modes) (kind: DefKind): {Parse Item} Option Word := forallAt modes kind (modes.at KwForall)
+
+def forallAt (modes: Modes) (kind: DefKind) (found: Bool): {Parse Item} Option Word :=
+  if found then if kind != DefTheorem then fatal "`∀` before the parameters is only for theorems" else forallBump modes
   else None
+
+def forallBump (modes: Modes): {Parse Item} Option Word :=
+  let word := bump()
+  forallEnd modes word (modes.at LParen) (modes.at LBracket)
+
+def forallEnd (modes: Modes) (word: Word) (paren bracket: Bool): {Parse Item} Option Word :=
+  if paren || bracket then Some word else modes.fail "a parameter such as `(x: Nat)` after `∀`"
 
 def decreasingPart (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool):
     {Parse Item} Option (Comments, Expr) :=
-  if modes.at KwDecreasing then
-    if isInstance then fatal "an instance can't have `decreasing`"
-    else
-      let keyword := fixedFrom()
-      Some (keyword, self { modes = headerModes, level = LevelFull })
+  decreasingAt self headerModes isInstance (modes.at KwDecreasing)
+
+def decreasingAt (self: Goal → {Parse Item} Expr) (headerModes: Modes) (isInstance found: Bool):
+    {Parse Item} Option (Comments, Expr) :=
+  if found then if isInstance then fatal "an instance can't have `decreasing`" else decreasingClauseOf self headerModes
   else None
+
+def decreasingClauseOf (self: Goal → {Parse Item} Expr) (headerModes: Modes): {Parse Item} Option (Comments, Expr) :=
+  let keyword := fixedFrom()
+  let tail := self { modes = headerModes, level = LevelFull }
+  Some (keyword, tail)
 
 def afterDecreasingOf (modes: Modes) (decreasingClause: Option (Comments, Expr)): {Parse Item} Modes :=
   if decreasingClause.isSome then allowColonEq modes else modes
 
 def unfoldingPart (modes afterDecreasing: Modes) (isInstance: Bool): {Parse Item} Option (Comments, List Word) :=
-  if afterDecreasing.at KwUnfolding then
-    if isInstance then fatal "an instance can't have `unfolding`"
-    else
-      let keyword := fixedFrom()
-      Some (keyword, unfoldingNames (Parse.mark().left + 1) afterDecreasing [])
+  unfoldingAt afterDecreasing isInstance (afterDecreasing.at KwUnfolding)
+
+def unfoldingAt (afterDecreasing: Modes) (isInstance found: Bool): {Parse Item} Option (Comments, List Word) :=
+  if found then if isInstance then fatal "an instance can't have `unfolding`" else unfoldingClauseOf afterDecreasing
   else None
+
+def unfoldingClauseOf (afterDecreasing: Modes): {Parse Item} Option (Comments, List Word) :=
+  let keyword := fixedFrom()
+  let here := Parse.mark()
+  let names := unfoldingNames (here.left + 1) afterDecreasing []
+  Some (keyword, names)
 
 def afterUnfoldingOf (afterDecreasing: Modes) (unfoldingClause: Option (Comments, List Word)): {Parse Item} Modes :=
   if unfoldingClause.isSome then allowColonEq afterDecreasing else afterDecreasing
@@ -708,14 +815,19 @@ def headerParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item}
 
 def unfoldingNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word := match fuel with
   | Succ more =>
-    let name :=
-      if modes.at Upper then modes.upperQualified "the name of an opaque definition"
-      else modes.lowerQualified "the name of an opaque definition"
-    if modes.at Comma then
-      let _ := bump()
-      unfoldingNames more modes [name, ..found]
-    else [name, ..found].reverse
+    let name := unfoldingName modes (modes.at Upper)
+    unfoldingNext more modes found name (modes.at Comma)
   | Zero => found.reverse
+
+def unfoldingName (modes: Modes) (upper: Bool): {Parse Item} Word :=
+  if upper then modes.upperQualified "the name of an opaque definition"
+  else modes.lowerQualified "the name of an opaque definition"
+
+def unfoldingNext (more: Nat) (modes: Modes) (found: List Word) (name: Word) (comma: Bool): {Parse Item} List Word :=
+  if comma then
+    let _ := bump()
+    unfoldingNames more modes [name, ..found]
+  else [name, ..found].reverse
 
 --| `:= e`, arms, or nothing (`definition_body`).
 def definitionBody (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (isInstance: Bool) (d: Nat):

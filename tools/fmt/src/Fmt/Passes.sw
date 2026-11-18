@@ -408,18 +408,7 @@ def SourceFile.tidy (file: SourceFile): SourceFile :=
 
 -- The passes on a lexed file.
 
---| Whether a comma before a closer holds a comment as the lexer left it. Rule
---| N then parks the comment on the closer, and where it is parked depends
---| on the comma being there (K1), so the Rust P2, which deletes the comma
---| from the text and settles again, isn't the tree step alone.
-def parksComment: List Leaf → Bool
-  | [comma, closer, ..rest] =>
-    (comma.kind == Comma && closer.kind.isCloser && (!comma.trivia.leading.isEmpty || comma.trivia.trailing.isSome))
-      || parksComment [closer, ..rest]
-  | _ => False
-
---| The tree after each pass, in order. P2 starts from the file settled
---| without its last commas when one parks a comment, as Rust re-parses.
+--| The tree after each pass, in order.
 type Tidied = {
   first: SourceFile,
   second: SourceFile,
@@ -427,13 +416,14 @@ type Tidied = {
   fourth: SourceFile
 }
 
-def Lexed.tidied (lexed: Lexed): Result Tidied Text := match parseFile lexed.settled with
+--| The passes on one parse of the leaves settled with their last commas
+--| bare (`Lexed.settledOnce`): the comments are where the Rust P2 leaves
+--| them, deleting those commas from the text and settling again, and the
+--| tree is the one the source reads as.
+def Lexed.tidied (lexed: Lexed): Result Tidied Text := match parseFile lexed.settledOnce with
   | Err message => Err message
   | Ok parsed =>
     let first := parsed.withForall
-    let bare := if parksComment lexed.leaves then parseFile lexed.settledBare else Ok parsed
-    let second := match bare with
-      | Ok settled => settled.withForall.withoutTrailingCommas
-      | Err _ => first.withoutTrailingCommas
+    let second := first.withoutTrailingCommas
     let third := second.withoutSpareBrackets
     Ok { first, second, third, fourth = third.withMergedParameters }

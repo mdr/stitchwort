@@ -47,3 +47,12 @@ test "a last comma on a line of its own leaves a blank line between the comments
 
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
   refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Unit := ()\n"
+
+test "a comma that starts the closer's line, with a comment above it, leaves the comments where Rust does" :=
+  -- Without the comma the closer at the item's column wouldn't parse; the
+  -- Rust P2 deletes the comma from the text and settles again.
+  formats "def x: T := g ([\n    1\n    -- above\n  , ] -- b\n  ) -- c\n"
+      "def x: T :=\n  g\n    ([1\n      -- above\n    ] -- b\n    ) -- c\n"
+
+test "a closer's comment stays on it when a last comma with no comment starts the closer's line" :=
+  formats "def x: T := g ([\n    1 -- a\n  , ] -- b\n  )\n" "def x: T :=\n  g\n    ([\n      1 -- a\n\n    ]) -- b\n"

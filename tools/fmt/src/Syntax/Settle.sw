@@ -266,11 +266,13 @@ def Lexed.settled (lexed: Lexed): Lexed :=
   let leaves := letsFrom [] (arrows commas.leaves)
   { leaves = leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = commas.end.trimmed }
 
--- The last commas, taken out before rule N (the parking comma: proof plan
+-- The last commas, emptied before rule N (the parking comma: proof plan
 -- §10, spike K1). The Rust P2 deletes a comma before a closer from the
 -- text, and rule N runs again on what is left; running rule N first and
 -- deleting the comma from the tree would leave a comment where the first
--- run parked it, which differs when the comma starts its line.
+-- run parked it, which differs when the comma starts its line. Moving the
+-- comma's comments first, and leaving it in bare, gives Rust's comments
+-- from one parse.
 
 def Leaf.startingLine (leaf: Leaf) (lineStart: Bool): Leaf := { leaf | token = { leaf.token | lineStart } }
 
@@ -284,29 +286,53 @@ def hasItem: List Leaf → Bool
       | Pipe => False
       | kind => !kind.isOpener
 
---| The leaves without each comma directly before a closer. The comma's own-line
---| comments stay above the closer; its trailing comment ends the line
---| before it, or, if the comma started its line, stands above the closer
---| too, with the comma's blank line above it; a comma that started its
---| line, with no comment, leaves a blank line before the closer's first
---| own-line comment, as deleting it from the text does; and the closer
---| starts the line if the comma did.
+--| A last comma's comments moved as deleting the comma from the text moves
+--| them: the closer after it, and `behind` (newest first), the leaves before
+--| it. The comma's own-line comments go above the closer; its trailing
+--| comment ends the line before it, or, if the comma started its line,
+--| stands above the closer too, with the comma's blank line above it; a
+--| comma that started its line, with no comment, leaves a blank line before
+--| the closer's first own-line comment; and the closer starts the line if
+--| the comma did.
+def commaMoved (comma closer: Leaf) (behind: List Leaf): (Leaf, List Leaf) :=
+  let starts := comma.token.lineStart
+  let above := match comma.trivia.trailing with
+    | Some comment if starts => comma.trivia.leading ++ [{ comment | blankLines = comma.trivia.blankLines }]
+    | _ => comma.trivia.leading
+  let kept := match comma.trivia.trailing, closer.trivia.leading with
+    | None, [first, ..others] if starts => [{ first | blankLines = 1 }, ..others]
+    | _, leading => leading
+  let moved := (closer.startingLine (starts || closer.token.lineStart)).withLeading (above ++ kept)
+  match comma.trivia.trailing, behind with
+    | Some comment, [previous, ..earlier] if !starts => (moved, [previous.withTrailing (Some comment), ..earlier])
+    | _, _ => (moved, behind)
+
+--| The leaves without each comma directly before a closer, its comments
+--| moved (`commaMoved`).
 def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
   | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
-    let starts := comma.token.lineStart
-    let above := match comma.trivia.trailing with
-      | Some comment if starts => comma.trivia.leading ++ [{ comment | blankLines = comma.trivia.blankLines }]
-      | _ => comma.trivia.leading
-    let kept := match comma.trivia.trailing, closer.trivia.leading with
-      | None, [first, ..others] if starts => [{ first | blankLines = 1 }, ..others]
-      | _, leading => leading
-    let moved := (closer.startingLine (starts || closer.token.lineStart)).withLeading (above ++ kept)
-    match comma.trivia.trailing, behind with
-      | Some comment, [previous, ..earlier] if !starts =>
-        withoutLastCommas [moved, previous.withTrailing (Some comment), ..earlier] after
-      | _, _ => withoutLastCommas [moved, ..behind] after
+    let (moved, earlier) := commaMoved comma closer behind
+    withoutLastCommas [moved, ..earlier] after
   | [leaf, ..after] => withoutLastCommas [leaf, ..behind] after
 
---| Rule N after the last commas are taken out.
+--| The leaves with each comma directly before a closer kept but bare: its
+--| comments moved as `withoutLastCommas` moves them, the comma left with
+--| no comment and no blank line, still starting its line if it did. Rule N
+--| then treats the comma as if it weren't there (the search in SW-3964
+--| found no case where it doesn't), and the parser still reads it, so a
+--| file reads as the source does, commas and all.
+def withBareLastCommas (behind rest: List Leaf): List Leaf := match rest with
+  | [] => behind.reverse
+  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+    let (moved, earlier) := commaMoved comma closer behind
+    withBareLastCommas [moved, { comma | trivia = Trivia.empty }, ..earlier] after
+  | [leaf, ..after] => withBareLastCommas [leaf, ..behind] after
+
+--| Rule N after the last commas are taken out, as the Rust P2 leaves the
+--| file's comments.
 def Lexed.settledBare (lexed: Lexed): Lexed := { lexed | leaves = withoutLastCommas [] lexed.leaves }.settled
+
+--| The leaves the formatter parses: rule N after the last commas are made
+--| bare.
+def Lexed.settledOnce (lexed: Lexed): Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }.settled
