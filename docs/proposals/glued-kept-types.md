@@ -1,7 +1,7 @@
 # Keeping a declaration's type glued
 
-Status: proposed (SW-3888). Needs Matt's decision and an Opus review of the
-kernel change before it's built.
+Status: built (D3680, SW-3930), with the review's changes
+([SW-3911](../reviews/SW-3911-glued-kept-types.md)) and its `Refl` case.
 
 ## The problem
 

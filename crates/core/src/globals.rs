@@ -221,7 +221,10 @@ impl Def {
         &self.ty
     }
 
-    /// Its type, evaluated.
+    /// Its type, evaluated glued with every opaque definition hidden
+    /// (D3680): its top, or its first parameter's type, may be a call, so
+    /// a reader that looks at its shape forces it first. Under a non-empty
+    /// transparency set, `check::def_type` is the type to use.
     pub fn ty_value(&self) -> &Value {
         &self.ty_value
     }

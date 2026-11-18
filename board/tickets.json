@@ -23094,12 +23094,12 @@
     {
       "id": 3916,
       "title": "[Opus] Kernel readers determined.rs:189 and erase.rs:195/238 read Def::ty_value where def_type is meant: what the telescope sees behind an opaque nickname depends on how the type is written (and for erasure, the mode at first use); probe sketched in docs/reviews/SW-3911-glued-kept-types.md (F1)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nDone on lane/SW-3930 (Opus): `Replay::of_def` reads the type through `def_type` under the definition's transparency set; `erase::of_def` and `proof_positions` read `Def::ty_value` in the modes it was made in (`erase.rs` `as_kept`: no erasure, no program, every opaque hidden), so their per-definition answers no longer depend on the first use. The hidden view, not the see-through one, because the runtimes read the kept type the same way (rt erasure/specialise) and re-evaluating every type in program mode would compute closed statements again. Tests failing first: `opaque::a_replay_reads_a_type_through_an_opaque_nickname_it_unfolds` (\"fewer parameters than lambdas\" before), `opaque::erasure_of_a_definition_doesnt_depend_on_its_first_use`.\n",
       "created": "2026-11-17",
       "updated": "2026-11-18",
       "commits": []
@@ -23107,12 +23107,12 @@
     {
       "id": 3917,
       "title": "[Opus] check.rs set_run_body checks with gluing off, unlike admit_group: deliberate or not? (SW-3911 F2)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nNot deliberate (Opus, lane/SW-3930): set_run_body came in 7c27c8a07 (22 Oct, SW-199), three days before D483 (1cd934968, 25 Oct), which turned gluing on around the body check in admit_group only and never mentions run bodies. Now glued like admit_group, with a comment. Gluing changes only when something is computed. Test run: assumptions::reliance_through_a_run_body.\n",
       "created": "2026-11-17",
       "updated": "2026-11-18",
       "commits": []
@@ -23278,12 +23278,12 @@
     {
       "id": 3930,
       "title": "[Opus] D3680: kernel keeps declared types glued (push_def/retype_def), with SW-3911's R1-R5: kernel flag in value.rs Modes matched in Kept::fits; force before matching in the five readers; step-count kernel test; docs/core.md and folded-calls.md; measurements (byComputing kernel time ≤1.5x, whole-AoC peak memory ≤ +10%) before merge (docs/proposals/glued-kept-types.md, docs/reviews/SW-3911-glued-kept-types.md)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "D3680 (Matt, 18 Nov 2026): 'Okay, let's agree to D3680.' Build glued kept types with SW-3911's R1-R5; merge only if by-computing kernel time ≤1.5x and whole-AoC peak memory ≤ +10% (orchestrator's conditions, stated to Matt with the recommendation). SW-3916 and SW-3917 ride along.",
+      "body": "D3680 (Matt, 18 Nov 2026): 'Okay, let's agree to D3680.' Build glued kept types with SW-3911's R1-R5; merge only if by-computing kernel time ≤1.5x and whole-AoC peak memory ≤ +10% (orchestrator's conditions, stated to Matt with the recommendation). SW-3916 and SW-3917 ride along.\n\nProgress (Opus, lane/SW-3930, 08:52-09:30): built.\n- push_def/retype_def evaluate the kept type glued (`check.rs` `kept_type`); no A/B switch kept.\n- R1 `Modes::kernel` matched in `Kept::fits`. R2 force in auto.rs result_head, dot.rs receiver_type and annotation_type, interfaces.rs hint, library.rs helper; elaboration test `interfaces::a_decision_procedure_typed_through_a_nickname_is_found` (E-AUTO-NONE without the auto.rs force). R3 kernel test `kernel::a_closed_statement_proved_by_a_general_lemma_is_never_computed` (E-RESOURCE without the change). R4 comments, core.md \"Glued calls\" (review §6), folded-calls.md stage 4 note, proposal status. R6 done: admit_group evaluates def_type glued.\n- R5(a): reproducer kernel time for byComputing 2.9 s -> 4.46-4.52 s (1.52-1.56x) on the bare change, so the review's `Refl` case is in: a body of `Refl` alone is checked against the type evaluated unglued: 2.87-2.94 s -> 3.06-3.08 s (1.06x). General proof: kernel 6.8 s -> 0.0 s, 182.8M steps -> 1,029. Population: closed `:= byComputing` declarations (grep): std 94, AoC 37, apps 3, rogue 1; tests aren't computed at check. Five AoC namespaces with most of them: kernel 396 ms -> 338-360 ms.\n- R5(b) peak memory: command for Overmind in the lane report (not run here). Whereabouts 548 -> 558 MB, Day20.Proofs 415 -> 416 MB, Day04.Proofs 330 -> 331 MB.\n- Hashes unchanged (hash_stability::, pinned_hashes:: all pass).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

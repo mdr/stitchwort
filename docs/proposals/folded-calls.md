@@ -749,6 +749,14 @@ is `Def::ty_value`, already unfolded. Evaluating it again, glued, for the
 body made it work, but cost a second evaluation of every closed type
 (`check-list-rfl` +11% steps), so it isn't done.
 
+> **Since changed (D3680, SW-3930).** A type's kept value is now made
+> glued too, so glued values do outlive the check, and a closed statement
+> proved by a general lemma is no longer computed at all; a body that is
+> `Refl` alone is still checked against the type evaluated unglued. See
+> [glued-kept-types.md](glued-kept-types.md), its review
+> ([SW-3911](../reviews/SW-3911-glued-kept-types.md)) and docs/core.md,
+> "Glued calls".
+
 *The failure path.* When the arguments differ, the unfoldings usually
 contain the same arguments again (`next n = Succ n`): comparing `next^40 x`
 with `next^40 y` would compare each inner pair twice per level, 2^40 times

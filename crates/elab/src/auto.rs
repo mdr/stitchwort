@@ -1416,7 +1416,9 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
         return Ok(*head);
     }
     let g = cx.g();
-    let mut ty = g.def(id).ty_value().clone();
+    // A kept type is glued, so a type written through a nickname is a call
+    // until forced.
+    let mut ty = force(&g, g.def(id).ty_value().clone())?;
     let mut level = 0;
     while let Value::Pi(_, _, _, cod) = &ty {
         ty = force(&g, cod.apply(&g, Value::var(level))?)?;

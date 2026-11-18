@@ -180,6 +180,23 @@ impl Erasure {
     }
 }
 
+/// Runs `f`, which reads a definition's kept type (`Def::ty_value`), in the
+/// modes that type was made in: not erasing (erasing inside it would change
+/// what a telescope sees), no program running and every opaque definition
+/// hidden. The answers are remembered per definition, so they mustn't
+/// depend on the modes of the first use: a codomain or a glued call forced
+/// while a program runs, or under a transparency set, would see through an
+/// opaque nickname that a type without parameters, or the same type read
+/// at check time, doesn't (SW-3916). The runtimes read the kept type the
+/// same way (`rt` `erasure`, `specialise`).
+fn as_kept<T>(g: &Ev, f: impl FnOnce() -> T) -> T {
+    let modes = g.machine.erasure.stop();
+    let _set = g.machine.transparent.set(Rc::default());
+    let result = f();
+    g.machine.erasure.put_back(modes);
+    result
+}
+
 /// Which parts of definition `id` are erased, or `None` if it isn't final.
 pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     if let Some(Some(known)) = g.caches.erasure_defs.borrow().get(id.0) {
@@ -189,11 +206,7 @@ pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     if def.state != State::Final {
         return None;
     }
-    // The type is evaluated normally: erasing inside it would change what
-    // the telescope sees.
-    let was = g.machine.erasure.active.replace(false);
-    let tel = check::telescope(g, &def.ty_value, def.span);
-    g.machine.erasure.active.set(was);
+    let tel = as_kept(g, || check::telescope(g, &def.ty_value, def.span));
     let Ok(tel) = tel else {
         // Out of resources (nothing else can fail: the type is checked).
         // Erasing nothing is safe, and the machine stops at its next step.
@@ -234,9 +247,7 @@ pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
     if def.state != State::Final {
         return None;
     }
-    let was = g.machine.erasure.active.replace(false);
-    let tel = check::proof_telescope(g, &def.ty_value, def.span);
-    g.machine.erasure.active.set(was);
+    let tel = as_kept(g, || check::proof_telescope(g, &def.ty_value, def.span));
     // Out of resources: nothing is a proof, which only makes more
     // differences count.
     let (params, result) = tel.unwrap_or_default();

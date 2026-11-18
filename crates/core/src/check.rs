@@ -2405,10 +2405,12 @@ pub fn infer_closed(g: &Ev, term: &Term, span: Span) -> Result<(Term, Value)> {
 }
 
 /// Definition `def`'s type as a value under the current transparency set.
-/// [`Def::ty_value`] was evaluated with every opaque definition hidden, so a
-/// call of one is neutral there for good; under a set that holds it, the
-/// type is evaluated again, so that call computes (a type `Code`, with
-/// `Code` unfolded, is `Nat`).
+/// [`Def::ty_value`] was evaluated glued, with every opaque definition
+/// hidden, so a call of one is neutral there for good; under a set that
+/// holds it, the type is evaluated again, in the caller's gluing mode, so
+/// that call computes (a type `Code`, with `Code` unfolded, is `Nat`).
+/// Either way a call at the top of the type may be glued: a caller that
+/// looks at its shape forces it first.
 pub fn def_type(g: &Ev, def: &Def) -> budget::Result<Value> {
     if g.machine.transparent.is_empty() {
         Ok(def.ty_value.clone())
@@ -2571,19 +2573,34 @@ fn admit_group(g: &Ev, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
         let mut cx = Ctx::new(g, def.span);
         // Its body sees the opaque definitions it unfolds (`transparency`).
         let _set = g.machine.transparent.set(def.transparent.clone());
-        let ty = def_type(g, def)?;
         // Checking keeps every location and lambda, so the checked body has
         // the same parameters; the termination checker refuses it if not.
         // With gluing on, so that two calls of the same definition are
-        // compared by their arguments first (`value.rs`, `CallMemo`; D483).
-        // Only here: the values made here are dropped once the body is
-        // checked, where a type's value is kept (`Def::ty_value`, made
-        // unglued by `declare_def`; `def_type` above, unglued too). A type
-        // with parameters is a function type whose codomain is evaluated
-        // now, glued; one without (`f 5 = f 5`) was evaluated unglued, so
-        // its calls are already unfolded.
-        let was = g.machine.glue.replace(true);
-        let result = check(&mut cx, body, &ty);
+        // compared by their arguments first (`value.rs`, `CallMemo`; D483):
+        // a closed statement proved by a general lemma (`xs.all p = True`)
+        // is then never computed. The type is glued too: `Def::ty_value`
+        // was made glued (`kept_type`), and `def_type` evaluates it again,
+        // glued, under a non-empty transparency set.
+        //
+        // Except for a body that is `Refl` alone (`byComputing`), which
+        // forces both sides of the equation whatever the mode: its type is
+        // evaluated again, unglued, which computes them faster than forcing
+        // the glued calls would (each glued call it forces keeps a call
+        // and its unfolding, about 1.5x the kernel's time on a closed
+        // statement proved by computing, SW-3930). The kept value was never
+        // forced, so nothing is computed twice, and both are evaluations of
+        // the one checked term, so what's accepted is the same.
+        let refl = matches!(body.strip_loc(), Term::Refl);
+        let was = g.machine.glue.replace(!refl);
+        let ty = if refl {
+            eval(g, &[], &def.ty)
+        } else {
+            def_type(g, def)
+        };
+        g.machine.glue.set(true);
+        let result = ty
+            .map_err(Diagnostic::from)
+            .and_then(|ty| check(&mut cx, body, &ty));
         g.machine.glue.set(was);
         checked.push(result?);
     }
@@ -2633,7 +2650,7 @@ pub fn declare_def(
         // keeps `P n` a call instead of unfolding it all, which for a
         // proposition that doubles at each level is exponential (SW-1779).
         // The values made here are dropped with `cx`; the type's kept
-        // value is made unglued by `push_def`. The checked term is rebuilt
+        // value is made again, glued too, by `push_def`. The checked term is rebuilt
         // from `ty`, or read back with `quote`, which unfolds calls, so it
         // is the same term either way.
         let was = g.machine.glue.replace(true);
@@ -2668,8 +2685,9 @@ fn not_a_prop(cx: &mut Ctx, name: &Name, ty: &Term, span: Span) -> Result<Diagno
 }
 
 /// Adds a pending definition with the checked type `ty`, for
-/// [`declare_def`] and [`admit_trusted_def`]. Its type's value is evaluated
-/// with every opaque definition hidden (the caller's transparency set).
+/// [`declare_def`], [`assume`] and [`admit_trusted_def`]. Its type's value
+/// ([`kept_type`]) is evaluated with every opaque definition hidden (the
+/// caller's transparency set) and with gluing on.
 fn push_def(
     g: &mut Kernel,
     name: &Name,
@@ -2679,7 +2697,7 @@ fn push_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    let ty_value = eval(&g.ev(), &[], &ty)?;
+    let ty_value = kept_type(&g.ev(), &ty)?;
     g.env.defs_mut().push(Def {
         name: name.clone(),
         path: path.clone(),
@@ -2707,6 +2725,20 @@ fn push_def(
         span,
     });
     Ok(DefId(g.env.defs().len() - 1))
+}
+
+/// The value a definition keeps of its checked type `ty`
+/// ([`Def::ty_value`]), evaluated with gluing on (D3680): a call in a
+/// closed type, or in a first parameter's type, stays a call and is
+/// computed only when something takes it apart. So a closed statement
+/// proved by a general lemma is never computed, and one proved by
+/// computing is computed once, by the body's check (docs/core.md, "Glued
+/// calls").
+fn kept_type(g: &Ev, ty: &Term) -> budget::Result<Value> {
+    let was = g.machine.glue.replace(true);
+    let value = eval(g, &[], ty);
+    g.machine.glue.set(was);
+    value
 }
 
 /// Adds an **assumption** (docs/core.md "Assumptions (open goals)";
@@ -2776,7 +2808,7 @@ pub fn assume(
             return Err(failed_dependency(&cx, name, &dep));
         }
         // Glued, as `declare_def` checks a signature; the kept value is
-        // made unglued by `push_def`.
+        // made by `push_def`, glued too.
         let was = g.machine.glue.replace(true);
         let checked = check_type(&mut cx, ty);
         g.machine.glue.set(was);
@@ -2823,7 +2855,7 @@ pub fn retype_def(g: &mut Kernel, id: DefId, ty: &Term) -> Result<()> {
         if def.theorem && sort != Sort::Prop {
             return Err(not_a_prop(&mut cx, &def.name, &ty, span)?);
         }
-        let ty_value = eval(&g.ev(), &[], &ty)?;
+        let ty_value = kept_type(&g.ev(), &ty)?;
         let def = &mut g.env.defs_mut()[id.0];
         def.ty = ty;
         def.ty_value = ty_value;
@@ -2856,8 +2888,15 @@ pub fn set_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
         let ev = g.ev();
         let mut cx = Ctx::new(&ev, def.span);
         let _set = g.machine.transparent.set(def.transparent.clone());
-        let ty = def_type(&g.ev(), def)?;
-        let checked = check(&mut cx, body, &ty)?;
+        // Glued, as `admit_group` checks a body (D483): a run body is
+        // checked against the same type the same way. Gluing changes when
+        // something is computed, not what's accepted.
+        let was = g.machine.glue.replace(true);
+        let checked = def_type(&g.ev(), def)
+            .map_err(Diagnostic::from)
+            .and_then(|ty| check(&mut cx, body, &ty));
+        g.machine.glue.set(was);
+        let checked = checked?;
         g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
         Ok(())
     })

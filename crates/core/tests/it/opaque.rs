@@ -840,3 +840,54 @@ fn a_group_members_opacity_changes_every_members_hash() {
     assert_ne!(odd, odd2);
     assert_ne!(group([true, false]), group([false, true]));
 }
+
+/// `Replay::of_def` reads a definition's type under its transparency set,
+/// as its body was checked (SW-3916): `f: Fun := n => n`, unfolding the
+/// opaque `Fun := Nat -> Nat`, has the one parameter its lambda binds, though
+/// its kept type, made with every opaque definition hidden, has none.
+#[test]
+fn a_replay_reads_a_type_through_an_opaque_nickname_it_unfolds() {
+    let mut p = Prelude::new();
+    let fun_ty = arrow(p.nat_ty(), p.nat_ty());
+    let fun = submit(&mut p.g, "Fun", OPAQUE, ty(), fun_ty).unwrap();
+    let how = How {
+        opaque: true,
+        theorem: false,
+        unfolding: &[fun],
+    };
+    let f = submit(&mut p.g, "f", how, Term::Def(fun), lam("n", v(0))).unwrap();
+    let _op = p.g.machine.budget.operation(Limits::default());
+    let replay = stitchwort_core::determined::Replay::of_def(&p.g.ev(), f)
+        .map_err(|d| d.message)
+        .expect("a parameter for the lambda");
+    assert_eq!(replay.level(), 1);
+}
+
+/// Which parameters erasure drops doesn't depend on whether a program was
+/// running when it was first asked (SW-3916): for `g (n: Nat): Fun`, with
+/// the opaque `Fun := (a: Type) -> Nat`, a running program sees through
+/// `Fun` while checking doesn't, and the answer is remembered per
+/// definition. Both read the kept type as it was made, every opaque
+/// definition hidden: one parameter, kept.
+#[test]
+fn erasure_of_a_definition_doesnt_depend_on_its_first_use() {
+    let params = |first_use_running: bool| {
+        let mut p = Prelude::new();
+        let fun_ty = pi("a", ty(), p.nat_ty());
+        let fun = submit(&mut p.g, "Fun", OPAQUE, ty_n(1), fun_ty).unwrap();
+        let how = How {
+            opaque: true,
+            theorem: false,
+            unfolding: &[fun],
+        };
+        let zero = p.num(0);
+        let g_ty = pi("n", p.nat_ty(), Term::Def(fun));
+        let g = submit(&mut p.g, "g", how, g_ty, lam("n", lam("a", zero))).unwrap();
+        let _op = p.g.machine.budget.operation(Limits::default());
+        let _running = first_use_running.then(|| p.g.machine.erasure.running());
+        let erasure = stitchwort_core::erase::of_def(&p.g.ev(), g).expect("final");
+        erasure.params.to_vec()
+    };
+    assert_eq!(params(true), params(false));
+    assert_eq!(params(false), vec![false]);
+}

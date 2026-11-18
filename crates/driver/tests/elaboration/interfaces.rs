@@ -450,3 +450,24 @@ theorem projected: Ordered.less [ordered := alias] 1 2 = True := byComputing
     let wrong = format!("{NAMED}\ntheorem wrong: descending = Ordered.instNat := byComputing\n");
     assert_eq!(load(None, &wrong).0, vec!["E-REFL"]);
 }
+
+/// A decision procedure whose type is written through a nickname,
+/// `DecFineFive := Decidable (Fine 5)`, is found for an `auto` argument: a
+/// kept type is glued (D3680), so its head is a call until forced, and
+/// `auto` forces it before reading it (SW-3930).
+#[test]
+fn a_decision_procedure_typed_through_a_nickname_is_found() {
+    let source = "\
+type Fine (n: Nat): Prop =
+  | MkFine
+
+def DecFineFive: Type := Decidable (Fine 5)
+
+instance decFineFive: DecFineFive := { holds = True, sound = h => MkFine, complete = h => byComputing }
+
+def needsFine [auto h: Fine 5]: Nat := 1
+
+def one: Nat := needsFine
+";
+    assert_eq!(load(None, source), (vec![], 0));
+}

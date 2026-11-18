@@ -1290,8 +1290,10 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         if def.body().is_none() || def.instance() {
             continue;
         }
-        if let Value::Data(i, args) = def.ty_value()
-            && *i == interface
+        // Forced, as a kept type is glued: a dictionary's type may be
+        // written through a nickname.
+        if let Ok(Value::Data(i, args)) = force(&g, def.ty_value().clone())
+            && i == interface
             && conv(&g, cx.level(), &args[0], &arg).unwrap_or(false)
             && !e.tables.helper_keys.contains_key(&def.name().to_string())
         {

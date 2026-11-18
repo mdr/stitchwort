@@ -1834,6 +1834,37 @@ fn same_call_arguments_first_accepts_equal_arguments_without_unfolding() {
     );
 }
 
+/// A closed statement's kept type is glued (D3680, SW-3930): `mix 40 1 =
+/// mix 40 1`, proved by the general lemma `same 1`, is declared and admitted
+/// within a budget that computing the statement would exceed many times
+/// over, since its calls are compared with the lemma's by their arguments
+/// and never unfolded. Proved by `Refl` instead, it must be computed, and
+/// runs out of the same budget.
+#[test]
+fn a_closed_statement_proved_by_a_general_lemma_is_never_computed() {
+    let mut p = Prelude::new();
+    let mix = define_mix(&mut p, "mix");
+    let rounds = p.num(40);
+    let mix_of = |s: Term| app(Term::Def(mix), [rounds.clone(), s]);
+    let same = pi("s", p.nat_ty(), eq(None, mix_of(v(0)), mix_of(v(0))));
+    let same = define(&mut p.g, "same", same, lam("s", Term::Refl)).expect("same");
+    let one = p.num(1);
+    let closed = eq(None, mix_of(one.clone()), mix_of(one.clone()));
+    assert_eq!(
+        define_small(
+            &mut p,
+            "closed",
+            closed.clone(),
+            app(Term::Def(same), [one])
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        define_small(&mut p, "byComputing", closed, Term::Refl),
+        Err("E-RESOURCE")
+    );
+}
+
 #[test]
 fn same_call_different_arguments_with_equal_results_are_still_equal() {
     let mut p = Prelude::new();
