@@ -1,3 +1,13 @@
+--| Slice 1's read-back on one line (ticket 17d, first part): a declaration whose type and value are words,
+--| parentheses, tuples and lists, all on the `def`'s line, parses to that declaration (`readsBackLine`).
+--|
+--| The items are related to the tree by `Spelt` (each node's tokens in order, each item carrying the node's word, a
+--| comma between bracket items and none after the last); the look-aheads are discharged by `Syntax.ReadBackEnds`
+--| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. On one line
+--| the modes never stop (`Quiet`), so no block starts and the line rule never applies: `hangs` holds trivially, and
+--| none of `FullReads`' block reading is needed. Calls, `-`, `!`, operators and lines starting inside the
+--| declaration are not here yet.
+
 namespace Syntax.ReadBackLine
 import Std (Bool, Eq, List, Nat, Option, Parse, Void)
 import Syntax (..)
@@ -8,6 +18,8 @@ import Syntax.ReadBackRuns (plainHeader)
 import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
 
+--| Modes in which nothing stops a reading: no guard, `calc`, `rewrite` rule or line limit, as in a declaration's
+--| type and body and inside their brackets.
 type Quiet (modes: Modes): Prop = {
   noGuard: modes.guard = False,
   noCalc: modes.inCalc = False,
@@ -31,6 +43,7 @@ theorem quietPeekSecond ∀ (modes: Modes) (first second: Item) (later: List Ite
 theorem quietBrackets ∀ (modes: Modes) (quiet: Quiet modes): Quiet modes.inBrackets :=
   { noGuard = byComputing, noCalc = quiet.noCalc, noRule = quiet.noRule, noLimit = quiet.noLimit }
 
+--| The kinds of a one-line declaration's items from its type on, in this part: words, brackets, commas and `:=`.
 def lineKind: Tok → Bool
   | Lower => True
   | Upper => True
@@ -48,6 +61,7 @@ def lineAll: List Item → Bool
   | [] => True
   | [item, ..rest] => lineKind item.kind && lineAll rest
 
+--| The kinds an expression of this part starts with.
 def startKind: Tok → Bool
   | Lower => True
   | Upper => True
@@ -57,6 +71,8 @@ def startKind: Tok → Bool
   | LBracket => True
   | _ => False
 
+--| `read` spells `expr`: the node's tokens in order, each an item of the token's kind carrying the node's word, a
+--| comma between each two bracket items and none after the last (`comma = False`); a tuple has two items or more.
 def Spelt: Expr → List Item → Prop
   | Atom kind word, read =>
     ∃ (item: Item) => read = [item] ∧ item.kind = kind ∧ item.leaf.word = word ∧ kind.wordWithin1 = True
@@ -98,6 +114,7 @@ def Spelt: Expr → List Item → Prop
       ∧ SpeltSteps others steps
   | _, _ => Void
 
+--| The bracket items after the first (or first two), as `CommaReads`' steps: a comma, then an item's reading.
 def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
   | [], steps => steps = []
   | [expr, ..rest], steps =>
@@ -106,6 +123,7 @@ def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
       ∧ Spelt expr read
       ∧ SpeltSteps rest later
 
+--| How deep `self` calls nest when the parser reads the expression: one more for each bracket.
 def Expr.nest1: Expr → Nat
   | Paren _ inner _ => inner.nest1 + 1
   | Tuple _ items _ _ => nestAll items + 1
@@ -131,6 +149,7 @@ theorem speltStarts ∀ (expr: Expr) (read: List Item)
       (first, read1 ++ (commaReads steps ++ [last]), isRead, rewrite isOpen)
     | _, never => Void.impossible never
 
+--| The kinds inside an expression of this part: `lineKind` without `:=`.
 def exprKind: Tok → Bool
   | Lower => True
   | Upper => True
@@ -252,12 +271,18 @@ theorem peekTwo ∀ (modes: Modes)
       Bool.andLeft kinds
     )
 
+--| The first item is no section operator.
 def headPlain: List Item → Bool
   | [] => True
   | [item, .._] => !item.kind.isSectionOperator
 
 theorem lineSection ∀ (kind: Tok) (line: lineKind kind = True): kind.isSectionOperator = False := cases
 
+--| `groupInside` gives what it has collected when the group closes, newest first reversed; on these kinds none is a
+--| section operator, so neither is the last item inside.
+--|
+--| Proof idea: by induction on the items, as `groupInside` steps; when the group closes, the items collected are
+--| `found`, whose head the invariant `headPlain` covers.
 theorem groupLine ∀ (open: List Tok) (found items inside: List Item)
     (plain: headPlain found = True)
     (line: lineAll items = True)
@@ -289,6 +314,7 @@ theorem notTrueFalse ∀ (b: Bool) (no: (!b) = True): b = False := match b, no w
   | False, _ => byComputing
   | True, never => (Bool.falseNotTrue never).impossible
 
+--| No `(k +)` section: no item of this part is a section operator.
 theorem rightLine ∀ (first: Item) (rest: List Item) (line: lineAll rest = True): rightOperator [first, ..rest] = None :=
   match groups: groupInside [LParen] [] rest with
     | None => byComputing
@@ -305,6 +331,11 @@ theorem startFacts ∀ (kind: Tok)
     (kind == Dot) = False ∧ (kind == KwMatch) = False ∧ (kind == Minus || kind == Bang) = False :=
   cases
 
+--| An atom on its line's middle that nothing continues reads as a full expression: every rung above the atom with no
+--| links, no block starting.
+--|
+--| Proof idea: `fullWord`'s ladder, for any atom: an application with no arguments, then each chain with no links,
+--| no comparison, logic or end; the first item doesn't start a line, so `FullReads` asks for no block.
 theorem fullOfAtom ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr)
     (inLine: item.leaf.token.lineStart = False)
@@ -444,6 +475,10 @@ theorem firstKind ∀ (item first: Item) (more inside: List Item)
   rewrite List.consInjectiveHead item first more inside isRead
 
 --| No `[auto Upper` starts a list on one line with no calls: a word inside is followed by a comma or `]`.
+--| No `[auto Upper` starts a list in this part, which has no calls: a word inside is followed by a comma or `]`.
+--|
+--| Proof idea: only a list starts with `[`; its first item's first token is a bracket, or a word followed by a comma
+--| or the `]`.
 theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
     (spelt: Spelt expr [item, ..more]):
     (item.kind == LBracket && namelessAutoAt [item, ..more ++ rest]) = False :=
@@ -514,6 +549,8 @@ theorem inLineSplit ∀ (first rest: List Item)
     inLineAll first = True ∧ inLineAll rest = True :=
   andBoth _ _ (rewrite <- inLineAppend first rest then line)
 
+--| A spelt expression is what `expr` reads in quiet modes, at any depth its nesting fits in: its atom reading
+--| (`atomLine`) lifted by `fullOfAtom`, the look-aheads from the kinds and what follows.
 theorem fullLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read rest: List Item) (depth: Nat)
@@ -549,6 +586,12 @@ theorem fullLine ∀ (modes: Modes)
       (endsOperandOf modes rest ends)
       (rewrite <- isRead then atom)
 
+--| A spelt expression is what `atom` reads, at any depth its nesting fits in.
+--|
+--| Proof idea: by induction on the expression, with `fullLine` for the brackets' items one level down
+--| (`tupleSteps` and `listSteps` for the items after the first). A word is `WordBase`; a bracket is its base with
+--| the look-aheads from the first two items inside (`startOutside`, `startBracketPlain`, `peekTwo`) and the kinds
+--| (`rightLine`), each item followed by a comma or the closer.
 theorem atomLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (head: Bool) (expr: Expr) (read rest: List Item) (depth: Nat)
@@ -817,6 +860,7 @@ theorem atomLine ∀ (modes: Modes)
             )
     | _, never => Void.impossible never
 
+--| A tuple's items after the second, spelt, are its `CommaReads`, each read by `fullLine`.
 theorem tupleSteps ∀ (modes: Modes)
     (quiet: Quiet modes)
     (exprs: List Expr) (steps: List (Item, List Item, Expr)) (count: Nat) (last: Item) (rest: List Item) (depth: Nat)
@@ -867,6 +911,7 @@ theorem tupleSteps ∀ (modes: Modes)
             isClose
         )
 
+--| A list's items after the first, spelt, are its `CommaReads`, each read by `fullLine` after no `..`.
 theorem listSteps ∀ (modes: Modes)
     (quiet: Quiet modes)
     (exprs: List Expr) (steps: List (Item, List Item, Expr)) (count: Nat) (last: Item) (rest: List Item) (depth: Nat)
@@ -925,6 +970,12 @@ theorem listSteps ∀ (modes: Modes)
 
 theorem startNotBrace ∀ (kind: Tok) (starts: startKind kind = True): (kind == LBrace) = False := cases
 
+--| The read-back of a one-line declaration (ticket 17d, first part): `def name: A := b`, with `A` and `b` words,
+--| parentheses, tuples and lists spelt by the items between `:` and `:=` and after `:=`, none starting a line, parses
+--| as `parseGroups` runs it to that definition, the words being the items'.
+--|
+--| Proof idea: `declarationTree`, with the type and value as `fullLine` trees at their nesting depth, the modes of the
+--| start and the body being quiet.
 theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (isDef: keyword.kind = KwDef)
@@ -986,3 +1037,111 @@ theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     typeReads = (noRow, typeTree),
     valueTree
   }
+
+--| `(a, [b])`, as `wordItem`s from index 5: the value of `readsBackLineExample`.
+def exampleItems: List Item := [
+  wordItem LParen "(" 5,
+  wordItem Lower "a" 6,
+  wordItem Comma "," 7,
+  wordItem LBracket "[" 8,
+  wordItem Lower "b" 9,
+  wordItem RBracket "]" 10,
+  wordItem RParen ")" 11
+]
+
+def exampleValue: Expr :=
+  Tuple
+    (wordItem LParen "(" 5).leaf.word
+    [
+      Atom Lower (wordItem Lower "a" 6).leaf.word,
+      ListOf
+        (wordItem LBracket "[" 8).leaf.word
+        [Atom Lower (wordItem Lower "b" 9).leaf.word]
+        False
+        (wordItem RBracket "]" 10).leaf.word
+    ]
+    False
+    (wordItem RParen ")" 11).leaf.word
+
+--| `def d: A := (a, [b])` on one line: `readsBackLine`'s hypotheses can hold.
+theorem readsBackLineExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3] ++ [wordItem ColonEq ":=" 4, ..exampleItems]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned (wordItem ColonEq ":=" 4).leaf.word.comments exampleValue)) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    exampleItems
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    exampleValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      wordItem LParen "(" 5,
+      [wordItem Lower "a" 6],
+      wordItem Comma "," 7,
+      [wordItem LBracket "[" 8, wordItem Lower "b" 9, wordItem RBracket "]" 10],
+      [],
+      wordItem RParen ")" 11,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "a" 6, byComputing, byComputing, byComputing, byComputing),
+      (
+        wordItem LBracket "[" 8,
+        [wordItem Lower "b" 9],
+        [],
+        wordItem RBracket "]" 10,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "b" 9, byComputing, byComputing, byComputing, byComputing),
+        byComputing
+      ),
+      byComputing
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| A group closed at once: `groupLine`'s hypotheses can hold.
+theorem groupLineExample: headPlain [wordItem Lower "a" 1].reverse = True :=
+  groupLine
+    [LParen]
+    []
+    [wordItem Lower "a" 1, wordItem RParen ")" 2]
+    [wordItem Lower "a" 1]
+    byComputing
+    byComputing
+    byComputing
+
+theorem firstKindExample: (wordItem Lower "a" 0).kind = (wordItem Lower "a" 0).kind :=
+  firstKind (wordItem Lower "a" 0) (wordItem Lower "a" 0) [] [] byComputing

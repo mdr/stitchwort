@@ -4,7 +4,7 @@
 --| items from the type on (`plainAll`: no `=>`, `:`, `_` or `{`, so no lambda, binder or record look-ahead fires).
 
 namespace Syntax.ReadBackEnds
-import Std (Bool, Eq, List, Nat, Option, Parse, Void)
+import Std (Bool, Eq, List, Nat, Option, Parse, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
@@ -526,3 +526,53 @@ theorem declarationTreeNever ∀ (keyword name colon colonEq value: Item) (typeR
     (reads: DeclarationTree keyword name colon colonEq typeRead [value] result read):
     Void :=
   treeNever { Modes.start | recover = True } value [] [] read word starts (rewrite starts) reads.valueTree
+
+--| An item for the witnesses below: a token on the first line, unglued, at bracket depth 0.
+def wordItem (kind: Tok) (text: Text) (index: Nat): Item := {
+  leaf = { token = { kind, text, column = index, lineStart = False }, trivia = Trivia.empty },
+  glued = False,
+  afterOperand = False,
+  afterDot = False,
+  index,
+  depth = 0,
+  lineIndent = 0
+}
+
+--| `()` skips to nothing after it: `skipPlain`'s hypotheses can hold.
+theorem skipPlainExample: plainAll [] = True :=
+  skipPlain [] [wordItem LParen "(" 0, wordItem RParen ")" 1] [] byComputing byComputing
+
+--| `def d: A := b`: `readsBackWords`' hypotheses can hold.
+theorem readsBackWordsExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3] ++ [wordItem ColonEq ":=" 4, ..[wordItem Lower "b" 5]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned (wordItem ColonEq ":=" 4).leaf.word.comments (Atom Lower (wordItem Lower "b" 5).leaf.word))) :=
+  readsBackWords Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem Upper "A" 3)
+    (wordItem ColonEq ":=" 4)
+    (wordItem Lower "b" 5)
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
