@@ -892,3 +892,890 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
         each
         inner)
       (empty => match items, empty with | [], _ => byComputing)
+
+-- Calls.
+
+--| A token's own-line comments and kept blank line, as the document `Word.leading` writes them.
+theorem leadingIs ∀ (word: Word) (around: Around) (key: Nat)
+    (sound: word.sound = True):
+    Is (Doc.concat (word.leading around key)) (word.toldLead around) :=
+  spot =>
+    rewrite concatTell (word.leading around key) spot, leadingTell word around key spot sound then
+      refinesSelf _ (toldAboveExact (word.printed around).comments)
+
+--| The own-line comments a frame writes, then the token hoisted, are the token's shape.
+theorem toldLeadShape ∀ (word: Word) (around: Around):
+    word.toldLead around ++ word.shapeK around.item True = word.shapeK around.item around.hoisted :=
+  match around.hoisted with
+    | True => byComputing
+    | False => (shapeKLead word around.item).flipped
+
+--| A hugged bracket and its hug tell the bracket's shape.
+--|
+--| Proof idea: the opener's own-line comments (`leadingIs`), then the bracket's content in a group
+--| (`bracketContentShape`, with the opener hoisted); `toldLeadShape` puts the comments back on the opener.
+theorem huggedBracketShape ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (prior: List Word)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (nonCloser: allNonCloser items = True)
+    (openSound: open.sound = True)
+    (closeSound: close.sound = True)
+    (opens: isCloserText open.text = False)
+    (each: AllElShape items)
+    (homed: homedBack (([open, ..itemsWords items] ++ [close]).reverse ++ prior) = True):
+    Is
+      (huggedBracket list open items close around).fst
+      (open.shapeK around.item around.hoisted
+        ++ itemsShape (!(list && items.all Expr.plainItem)) items
+        ++ close.shapeK False False)
+      ∧ ∀ (hugged: Doc) => (huggedBracket list open items close around).snd = Some hugged
+        → Is hugged
+          (open.shapeK around.item around.hoisted
+            ++ itemsShape (!(list && items.all Expr.plainItem)) items
+            ++ close.shapeK False False) :=
+  let content :=
+    bracketContentShape list open items close
+      { around | hoisted = True }
+      prior
+      within
+      sound
+      nonCloser
+      openSound
+      closeSound
+      opens
+      each
+      homed
+  let leading := leadingIs open around around.at openSound
+  let moved: open.toldLead around
+    ++ (open.shapeK around.item True
+      ++ itemsShape (!(list && items.all Expr.plainItem)) items
+      ++ close.shapeK False False)
+    = open.shapeK around.item around.hoisted
+      ++ itemsShape (!(list && items.all Expr.plainItem)) items
+      ++ close.shapeK False False :=
+    rewrite <- toldLeadShape open around,
+        List.appendAssoc
+          (open.toldLead around)
+          (open.shapeK around.item True)
+          (itemsShape (!(list && items.all Expr.plainItem)) items ++ close.shapeK False False)
+  (
+    isSame _ _ _
+      (isConcat _ _
+        (isCons _ _ _ _ leading
+          (isLast _ _
+            (isGroup
+              (bracketContent list open items close { around | hoisted = True })
+              (bracketContent list open items close { around | hoisted = True }).forcesBreak _
+              content))))
+      moved,
+    hugged same =>
+      rewrite <- Option.someInjective same then
+        isSame _ _ _
+          (isConcat _ _
+            (isCons _ _ _ _ leading
+              (isLast _ _ (isGroup (bracketContent list open items close { around | hoisted = True }) True _ content))))
+          moved
+  )
+
+--| What a call's last argument and its hug tell.
+def LastShape (last: (Doc, Option Doc)) (shape: List Told): Prop :=
+  Is last.fst shape ∧ (∀ (hugged: Doc) => last.snd = Some hugged → Is hugged shape)
+
+--| A call's last argument and its hug tell the argument's shape.
+--|
+--| Proof idea: Cases on the argument as `lastArgument` has them: a tuple or list hugs (`huggedBracketShape`), any
+--| other is its element.
+theorem lastArgumentShape ∀ (argument: Expr) (around: Around) (prior: List Word)
+    (within: argument.within1 = True)
+    (sound: argument.sound = True)
+    (nonCloser: argument.nonCloser = True)
+    (each: ElShape argument)
+    (homed: homedBack (argument.words.reverse ++ prior) = True):
+    LastShape (lastArgument argument around) (argument.shape around.item around.hoisted) :=
+  match argument with
+    | Tuple open items comma close =>
+      huggedBracketShape False open items close around prior within
+        (Bool.andLeft (Bool.andRight sound))
+        (Bool.andRight nonCloser)
+        (Bool.andLeft sound)
+        (Bool.andRight (Bool.andRight sound))
+        (Bool.notTrue _ (Bool.andLeft nonCloser))
+        (allElShape items within (Bool.andLeft (Bool.andRight sound)) (Bool.andRight nonCloser))
+        homed
+    | ListOf open items comma close =>
+      huggedBracketShape True open items close around prior within
+        (Bool.andLeft (Bool.andRight sound))
+        (Bool.andRight nonCloser)
+        (Bool.andLeft sound)
+        (Bool.andRight (Bool.andRight sound))
+        (Bool.notTrue _ (Bool.andLeft nonCloser))
+        (allElShape items within (Bool.andLeft (Bool.andRight sound)) (Bool.andRight nonCloser))
+        homed
+    | Paren open inner close =>
+      match inner with
+        | Binding _ _ _ _ _ => cases
+        | Block _ _ _ => cases
+        | _ => (each around prior within sound nonCloser homed, (hugged same => cases))
+    | Record _ _ _ _ _ => cases
+    | _ => (each around prior within sound nonCloser homed, (hugged same => cases))
+
+def LastOpt: Option (Doc, Option Doc) → List Told → Prop
+  | None, shape => shape = []
+  | Some last, shape => LastShape last shape
+
+--| What `argumentDocs` makes of arguments tells: the documents before the last, each its shape, and the last.
+def ArgsShape (made: (List Doc, Option (Doc, Option Doc))) (front: List (List Told)) (last: List Told): Prop :=
+  IsEach made.fst front ∧ LastOpt made.snd last
+
+theorem argsShapeEq ∀ (made made': (List Doc, Option (Doc, Option Doc))) (front: List (List Told)) (last: List Told)
+    (same: made = made')
+    (shape: ArgsShape made' front last):
+    ArgsShape made front last :=
+  rewrite same then shape
+
+--| A call's arguments tell their shapes, split into the documents before the last and the last.
+--|
+--| Proof idea: Induction on the arguments; each stands after the one before.
+theorem argumentDocsShape ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Expr) (prior: List Word)
+    (within: allWithin1 arguments = True)
+    (sound: allSound arguments = True)
+    (nonCloser: allNonCloser arguments = True)
+    (each: AllElShape arguments)
+    (homed: homedBack ((itemsWords arguments).reverse ++ prior) = True):
+    ∃ (front: List (List Told)) (last: List Told) => ArgsShape (argumentDocs arm previous at arguments) front last
+      ∧ joinShapes front ++ last = argumentsShape arguments :=
+  match arguments, each with
+    | [], _ => ([], [], (byComputing, byComputing), byComputing)
+    | [argument], (kept, _) =>
+      let (head, _) := itemsHomed argument [] prior homed
+      (
+        [],
+        argument.shape False False,
+        (
+          byComputing,
+          lastArgumentShape argument
+            { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+            prior
+            (Bool.andLeft within)
+            (Bool.andLeft sound)
+            (Bool.andLeft nonCloser)
+            kept
+            head
+        ),
+        (List.appendNil (argument.shape False False)).flipped
+      )
+    | [argument, next, ..more], (kept, others) =>
+      let (head, tail) := itemsHomed argument [next, ..more] prior homed
+      let (front, last, (docsShape, lastShape), joined) :=
+        argumentDocsShape arm argument
+          (at + argument.size)
+          [next, ..more]
+          (argument.words.reverse ++ prior)
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight nonCloser)
+          others
+          tail
+      (
+        [argument.shape False False, ..front],
+        last,
+        (argsShapeEq _ _ _ _ (argumentDocsConsTest arm previous argument next at more) (
+          (
+            kept
+              { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+              prior
+              (Bool.andLeft within)
+              (Bool.andLeft sound)
+              (Bool.andLeft nonCloser)
+              head,
+            docsShape
+          ),
+          lastShape
+        )),
+        rewrite <- joined then List.appendAssoc (argument.shape False False) (joinShapes front) last
+      )
+
+theorem allElShape ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (nonCloser: allNonCloser items = True):
+    AllElShape items :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] => (
+      around prior w s n h => elShape first around prior w s n h,
+      allElShape rest (Bool.andRight within) (Bool.andRight sound) (Bool.andRight nonCloser)
+    )
+
+theorem eachTake ∀ (docs: List Doc) (shapes: List (List Told)) (count: Nat)
+    (each: IsEach docs shapes):
+    IsEach (docs.take count) (shapes.take count) :=
+  match docs, shapes, count with
+    | [], [], Zero => byComputing
+    | [], [], Succ less => byComputing
+    | [doc, ..more], [shape, ..rest], Zero => byComputing
+    | [doc, ..more], [shape, ..rest], Succ less =>
+      let (head, tail) := each
+      (head, eachTake more rest less tail)
+
+theorem eachDrop ∀ (docs: List Doc) (shapes: List (List Told)) (count: Nat)
+    (each: IsEach docs shapes):
+    IsEach (docs.drop count) (shapes.drop count) :=
+  match docs, shapes, count with
+    | [], [], Zero => byComputing
+    | [], [], Succ less => byComputing
+    | [doc, ..more], [shape, ..rest], Zero => each
+    | [doc, ..more], [shape, ..rest], Succ less =>
+      let (head, tail) := each
+      eachDrop more rest less tail
+
+theorem takeDropJoin ∀ (shapes: List (List Told)) (count: Nat):
+    joinShapes (shapes.take count) ++ joinShapes (shapes.drop count) = joinShapes shapes :=
+  match shapes, count with
+    | [], Zero => byComputing
+    | [], Succ less => byComputing
+    | [shape, ..rest], Zero => byComputing
+    | [shape, ..rest], Succ less =>
+      rewrite List.appendAssoc shape (joinShapes (rest.take less)) (joinShapes (rest.drop less)), takeDropJoin rest less
+
+theorem joinedAll ∀ (docs: List Doc) (shapes: List (List Told))
+    (each: IsEach docs shapes):
+    IsAll (Doc.joinedWith (Doc.text " ") docs) (joinShapes shapes) :=
+  match docs, shapes with
+    | [], [] => isNil
+    | [only], [shape] => isAllSame _ _ _ (isLast only shape each.left) (List.appendNil shape).flipped
+    | [only], [first, second, ..rest] => cases
+    | [doc, next, ..more], [shape] => cases
+    | [doc, next, ..more], [shape, second, ..rest] =>
+      let (head, tail) := each
+      isCons doc
+        [Doc.text " ", ..Doc.joinedWith (Doc.text " ") [next, ..more]]
+        shape
+        (joinShapes [second, ..rest])
+        head
+        (isCons
+          (Doc.text " ")
+          (Doc.joinedWith (Doc.text " ") [next, ..more])
+          []
+          (joinShapes [second, ..rest])
+          isSpace
+          (joinedAll [next, ..more] [second, ..rest] tail))
+
+theorem isSpaced ∀ (docs: List Doc) (shapes: List (List Told))
+    (each: IsEach docs shapes):
+    Is (spaced docs) (joinShapes shapes) :=
+  isConcat _ _ (joinedAll docs shapes each)
+
+theorem concatMapAll ∀ (docs: List Doc) (shapes: List (List Told))
+    (each: IsEach docs shapes):
+    IsAll (docs.concatMap (doc => [HardLine, doc])) (joinShapes shapes) :=
+  match docs, shapes with
+    | [], [] => isNil
+    | [doc, ..more], [shape, ..rest] =>
+      let (head, tail) := each
+      isCons HardLine
+        [doc, ..more.concatMap (doc => [HardLine, doc])]
+        []
+        (shape ++ joinShapes rest)
+        isHardLine
+        (isCons doc
+          (more.concatMap (doc => [HardLine, doc]))
+          shape
+          (joinShapes rest)
+          head
+          (concatMapAll more rest tail))
+
+--| A call that breaks keeps some elements on its line and the rest each on a line of its own: the shape is the
+--| elements'.
+theorem frontRestShape ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (shapes: List (List Told))
+    (each: IsEach docs shapes):
+    Is
+      (Doc.concat [
+        if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep),
+        if fillFront then
+          IfBroken id
+            (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+            (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+        else Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc])))
+      ])
+      (joinShapes shapes) :=
+  let kept := eachTake docs shapes keep each
+  let rest := isConcat _ _ (concatMapAll (docs.drop keep) (shapes.drop keep) (eachDrop docs shapes keep each))
+  rewrite <- takeDropJoin shapes keep then
+    isConcat _ _
+      (isCons
+        (if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep))
+        [
+          if fillFront then
+            IfBroken id
+              (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+              (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+          else Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc])))
+        ]
+        (joinShapes (shapes.take keep))
+        (joinShapes (shapes.drop keep))
+        (match fillFront with
+          | True => isIdGroup id (Nest 4 (Fill (docs.take keep))) False _ (isNest 4 _ _ (isFill _ _ kept))
+          | False => isSpaced (docs.take keep) (shapes.take keep) kept)
+        (isLast
+          (if fillFront then
+             IfBroken id
+               (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+               (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+           else Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+          (joinShapes (shapes.drop keep))
+          (match fillFront with
+            | True => isIfBroken id _ _ _ (isNest 4 _ _ rest) (isNest 2 _ _ rest)
+            | False => isNest 2 _ _ rest)))
+
+theorem eachSnoc ∀ (docs: List Doc) (shapes: List (List Told)) (last: Doc) (shape: List Told)
+    (each: IsEach docs shapes)
+    (is: Is last shape):
+    IsEach (docs ++ [last]) (shapes ++ [shape]) :=
+  match docs, shapes with
+    | [], [] => (is, byComputing)
+    | [doc, ..more], [first, ..rest] =>
+      let (head, tail) := each
+      (head, eachSnoc more rest last shape tail is)
+
+theorem joinSnoc ∀ (shapes: List (List Told)) (shape: List Told):
+    joinShapes (shapes ++ [shape]) = joinShapes shapes ++ shape :=
+  match shapes with
+    | [] => List.appendNil shape
+    | [first, ..rest] => rewrite joinSnoc rest shape then (List.appendAssoc first (joinShapes rest) shape).flipped
+
+--| What a call's pieces tell, and what its hug tells.
+def AppShape (applied: Applied) (shape: List Told): Prop :=
+  Is applied.doc shape ∧ (∀ (hugged: Doc) => applied.hug = Some hugged → Is hugged shape)
+
+--| A call's document and its hug tell the function and its arguments.
+--|
+--| Proof idea: Cases on whether every element stays on its line; else each option of the choice (flat, hugged if the
+--| last argument hugs, the front and the rest) tells the same shape (`isChoice`).
+theorem appFromShape ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc) (front: List Doc)
+    (hug: Option Doc) (headShape lastShape: List Told) (frontShapes: List (List Told))
+    (headIs: Is headDoc headShape)
+    (frontEach: IsEach front frontShapes)
+    (lastIs: Is lastDoc lastShape)
+    (hugIs: ∀ (hugged: Doc) => hug = Some hugged → Is hugged lastShape):
+    AppShape
+      (appFrom id keep between betweenFront headDoc front lastDoc hug)
+      (headShape ++ joinShapes frontShapes ++ lastShape) :=
+  let each: IsEach ([headDoc, ..front] ++ [lastDoc]) ([headShape, ..frontShapes] ++ [lastShape]) :=
+    eachSnoc [headDoc, ..front] [headShape, ..frontShapes] lastDoc lastShape (headIs, frontEach) lastIs
+  let joined: joinShapes ([headShape, ..frontShapes] ++ [lastShape])
+    = headShape ++ joinShapes frontShapes ++ lastShape :=
+    rewrite joinSnoc [headShape, ..frontShapes] lastShape, List.appendAssoc headShape (joinShapes frontShapes) lastShape
+  rewrite <- joined then
+    match keep == ([headDoc, ..front] ++ [lastDoc]).length with
+      | True => (
+        (match between with
+          | True => isSpaced ([headDoc, ..front] ++ [lastDoc]) ([headShape, ..frontShapes] ++ [lastShape]) each
+          | False =>
+            isNest 4
+              (Fill ([headDoc, ..front] ++ [lastDoc])) _
+              (isFill ([headDoc, ..front] ++ [lastDoc]) ([headShape, ..frontShapes] ++ [lastShape]) each)),
+        (hugged none => cases)
+      )
+      | False =>
+        let third :=
+          frontRestShape id keep
+            (keep > 2 && !betweenFront)
+            ([headDoc, ..front] ++ [lastDoc])
+            ([headShape, ..frontShapes] ++ [lastShape])
+            each
+        let all :=
+          isFlatten _ _ (isSpaced ([headDoc, ..front] ++ [lastDoc]) ([headShape, ..frontShapes] ++ [lastShape]) each)
+        match hug with
+          | None => (
+            isChoice
+              (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
+              [
+                Doc.concat [
+                  if keep > 2 && !betweenFront then
+                    IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
+                  else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
+                  if keep > 2 && !betweenFront then
+                    IfBroken id
+                      (Nest 4
+                        (Doc.concat
+                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                      (Nest 2
+                        (Doc.concat
+                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                  else
+                    Nest 2
+                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
+                ]
+              ]
+              (joinShapes ([headShape, ..frontShapes] ++ [lastShape]))
+              (all, (third, byComputing)),
+            (hugged same => cases)
+          )
+          | Some opened =>
+            let huggedIs: Is
+              (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened])
+              (joinShapes ([headShape, ..frontShapes] ++ [lastShape])) :=
+              isConcat _ _
+                (isAllSame _ _ _
+                  (isCons
+                    (Flatten (spaced [headDoc, ..front]))
+                    [Doc.text " ", opened]
+                    (headShape ++ joinShapes frontShapes)
+                    ([] ++ lastShape)
+                    (isFlatten _ _ (isSpaced [headDoc, ..front] [headShape, ..frontShapes] (headIs, frontEach)))
+                    (isCons
+                      (Doc.text " ")
+                      [opened]
+                      []
+                      lastShape
+                      isSpace
+                      (isLast opened lastShape (hugIs opened byComputing))))
+                  (rewrite joinSnoc [headShape, ..frontShapes] lastShape))
+            (
+              isChoice
+                (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
+                [
+                  Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened],
+                  Doc.concat [
+                    if keep > 2 && !betweenFront then
+                      IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
+                    else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
+                    if keep > 2 && !betweenFront then
+                      IfBroken id
+                        (Nest 4
+                          (Doc.concat
+                            (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                        (Nest 2
+                          (Doc.concat
+                            (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                    else
+                      Nest 2
+                        (Doc.concat
+                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
+                  ]
+                ]
+                (joinShapes ([headShape, ..frontShapes] ++ [lastShape]))
+                (all, (huggedIs, (third, byComputing))),
+              (hugged same => rewrite <- Option.someInjective same then huggedIs)
+            )
+
+theorem pickShape ∀ (option: Option (Doc, Option Doc)) (shape: List Told)
+    (last: LastOpt option shape):
+    LastShape (option.getOrElse (Nothing, None)) shape :=
+  match option, last with
+    | None, same => (rewrite same then (spot => byComputing), (hugged same => cases))
+    | Some pair, shape => shape
+
+--| A call tells its function and its arguments.
+--|
+--| Proof idea: `appDocsIs` (the facts `appDocs` reads, as projections) and `appFromShape`, with the arguments' shapes
+--| from `argumentDocsShape`; the function stands where the call does, each argument after the words before it.
+theorem appDocsShape ∀ (head: Expr) (arguments: List Expr) (around: Around) (prior: List Word)
+    (headWithin: head.within1 = True)
+    (headSound: head.sound = True)
+    (headNonCloser: head.nonCloser = True)
+    (eachHead: ElShape head)
+    (within: allWithin1 arguments = True)
+    (sound: allSound arguments = True)
+    (nonCloser: allNonCloser arguments = True)
+    (each: AllElShape arguments)
+    (homed: homedBack ((head.words ++ itemsWords arguments).reverse ++ prior) = True):
+    AppShape (appDocs head arguments around) (head.shape around.item around.hoisted ++ argumentsShape arguments) :=
+  let split: (head.words ++ itemsWords arguments).reverse ++ prior
+    = (itemsWords arguments).reverse ++ (head.words.reverse ++ prior) :=
+    rewrite List.reverseAppend head.words (itemsWords arguments),
+        List.appendAssoc (itemsWords arguments).reverse head.words.reverse prior
+  let whole := rewrite split at homed then homed
+  let (front, last, (frontIs, lastIs), joined) :=
+    argumentDocsShape around.inArm head
+      (around.at + head.size)
+      arguments
+      (head.words.reverse ++ prior)
+      within
+      sound
+      nonCloser
+      each
+      whole
+  let picked := pickShape (argumentDocs around.inArm head (around.at + head.size) arguments).snd last lastIs
+  rewrite <- joined, appDocsIs head arguments around then
+    appFromShape
+      (around.at + 1)
+      (1 + keptFront head arguments)
+      (commentBetween head arguments)
+      (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+      (head.el around)
+      ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).fst
+      (argumentDocs around.inArm head (around.at + head.size) arguments).fst
+      ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).snd
+      (head.shape around.item around.hoisted)
+      last
+      front
+      (eachHead around prior headWithin headSound headNonCloser
+        (homedSuffix (itemsWords arguments).reverse (head.words.reverse ++ prior) whole))
+      frontIs
+      picked.left
+      picked.right
+
+-- Chains.
+
+theorem concatTailSaid ∀ (head: Doc) (indent: Nat) (tail: List Doc) (spot: Spot):
+    (Doc.tellAll [head, Nest indent (Doc.concat tail)] spot).said = (Doc.tellAll [head, ..tail] spot).said :=
+  rewrite concatTell tail (head.tell spot).after, List.appendNil (Doc.tellAll tail (head.tell spot).after).said
+
+--| A chain's lines, grouped, tell what the lines do.
+theorem chainOfShape ∀ (arms: Bool) (links: List Doc) (shape: List Told)
+    (all: IsAll links shape):
+    Is (chainOf arms links) shape :=
+  match links, all with
+    | [], all => spot => all spot
+    | [head, ..tail], all =>
+      isGroup
+        (Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)])
+        (Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)]).forcesBreak _
+        (isConcat _ _ (spot => rewrite concatTailSaid head (if arms then 0 else 2) tail spot then all spot))
+
+theorem chainRightShape ∀ (level: Option Nat) (right: Expr) (around: Around)
+    (within: right.within1 = True)
+    (link: IsAll (linkDocs level False right around) (right.shape around.item around.hoisted)):
+    IsAll (chainRight level right around) (right.shape around.item around.hoisted) :=
+  match right with
+    | Block _ _ _ => cases
+    | _ =>
+      isCons (Doc.text " ") (linkDocs level False right around) [] (right.shape around.item around.hoisted) isSpace link
+
+theorem infixHomed ∀ (left: Expr) (operator: Word) (right: Expr) (prior: List Word)
+    (homed: homedBack ((left.words ++ [operator, ..right.words]).reverse ++ prior) = True):
+    homedBack (left.words.reverse ++ prior) = True
+      ∧ homedBack (right.words.reverse ++ ([operator] ++ (left.words.reverse ++ prior))) = True :=
+  let split: (left.words ++ [operator, ..right.words]).reverse ++ prior
+    = right.words.reverse ++ ([operator] ++ (left.words.reverse ++ prior)) :=
+    rewrite List.reverseAppend left.words [operator, ..right.words],
+        List.reverseCons operator right.words,
+        List.appendAssoc (right.words.reverse ++ [operator]) left.words.reverse prior,
+        List.appendAssoc right.words.reverse [operator] (left.words.reverse ++ prior)
+  let whole := rewrite split at homed then homed
+  (
+    homedSuffix
+      (right.words.reverse ++ [operator])
+      (left.words.reverse ++ prior)
+      (rewrite List.appendAssoc right.words.reverse [operator] (left.words.reverse ++ prior) then whole),
+    whole
+  )
+
+--| A chain's lines tell the first operand, the operator and the last operand.
+--|
+--| Proof idea: The first operand's lines (`linkDocsShape`), a `Line`, the operator's leaf and what follows it
+--| (`chainRightShape`).
+theorem chainLinksShape ∀ (level: Option Nat) (first: Bool) (left: Expr) (operator: Word) (right: Expr)
+    (around: Around) (prior: List Word)
+    (leftWithin: left.within1 = True)
+    (rightWithin: right.within1 = True)
+    (leftSound: left.sound = True)
+    (operatorSound: operator.sound = True)
+    (rightSound: right.sound = True)
+    (leftNonCloser: left.nonCloser = True)
+    (operatorOpens: isCloserText operator.text = False)
+    (rightNonCloser: right.nonCloser = True)
+    (homed: homedBack ((left.words ++ [operator, ..right.words]).reverse ++ prior) = True):
+    IsAll
+      (chainLinks level first left operator right around)
+      (left.shape around.item around.hoisted ++ operator.shapeK False False ++ right.shape False False) :=
+  let (leftHomed, rightHomed) := infixHomed left operator right prior homed
+  isAppend
+    (linkDocs level first left around)
+    [
+      Line,
+      operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at,
+      ..chainRight level right (around.next operator.trails (left.size + 1))
+    ]
+    (left.shape around.item around.hoisted)
+    (operator.shapeK False False ++ right.shape False False)
+    (linkDocsShape level first left around prior leftWithin leftSound leftNonCloser leftHomed)
+    (isCons Line
+      [
+        operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at,
+        ..chainRight level right (around.next operator.trails (left.size + 1))
+      ]
+      []
+      (operator.shapeK False False ++ right.shape False False)
+      isLine
+      (isCons
+        (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
+        (chainRight level right (around.next operator.trails (left.size + 1)))
+        (operator.shapeK False False)
+        (right.shape False False)
+        (spot =>
+          rewrite <- printedShape operator (around.next left.trails left.size) then
+            leafShape operator
+              (around.next left.trails left.size)
+              (around.next left.trails left.size).at
+              spot
+              operatorSound
+              (homesOpen operator (around.next left.trails left.size) operatorOpens))
+        (chainRightShape level right
+          (around.next operator.trails (left.size + 1))
+          rightWithin
+          (linkDocsShape level False right
+            (around.next operator.trails (left.size + 1))
+            ([operator] ++ (left.words.reverse ++ prior))
+            rightWithin
+            rightSound
+            rightNonCloser
+            rightHomed))))
+
+--| A chain operand's documents tell what the operand does.
+--|
+--| Proof idea: A chain of the level is its links, any other operand its element, as in `linkDocsSpells`.
+theorem linkDocsShape ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (prior: List Word)
+    (within: expr.within1 = True)
+    (sound: expr.sound = True)
+    (nonCloser: expr.nonCloser = True)
+    (homed: homedBack (expr.words.reverse ++ prior) = True):
+    IsAll (linkDocs level first expr around) (expr.shape around.item around.hoisted) :=
+  match expr with
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          match (Infix InfixBinary left operator right).inChain level with
+            | True =>
+              chainLinksShape level first left operator right around prior
+                (Bool.andLeft within)
+                (Bool.andLeft (Bool.andRight within))
+                (Bool.andLeft sound)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andRight (Bool.andRight sound))
+                (Bool.andLeft nonCloser)
+                (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser)))
+                (Bool.andRight (Bool.andRight nonCloser))
+                homed
+            | False =>
+              isLast
+                ((Infix InfixBinary left operator right).el around)
+                ((Infix InfixBinary left operator right).shape around.item around.hoisted)
+                (elShape (Infix InfixBinary left operator right) around prior within sound nonCloser homed)
+        | InfixArrow =>
+          match (Infix InfixArrow left operator right).inChain level with
+            | True =>
+              chainLinksShape level first left operator right around prior
+                (Bool.andLeft within)
+                (Bool.andLeft (Bool.andRight within))
+                (Bool.andLeft sound)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andRight (Bool.andRight sound))
+                (Bool.andLeft nonCloser)
+                (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser)))
+                (Bool.andRight (Bool.andRight nonCloser))
+                homed
+            | False =>
+              isLast
+                ((Infix InfixArrow left operator right).el around)
+                ((Infix InfixArrow left operator right).shape around.item around.hoisted)
+                (elShape (Infix InfixArrow left operator right) around prior within sound nonCloser homed)
+        | _ => cases
+    | Match _ _ _ _ => cases
+    | _ =>
+      isLast
+        (expr.el around)
+        (expr.shape around.item around.hoisted)
+        (elShape expr around prior within sound nonCloser homed)
+
+-- Elements.
+
+theorem bracketBackWords ∀ (open: Word) (middle: List Word) (close: Word):
+    ([open, ..middle] ++ [close]).reverse = [close, ..(middle.reverse ++ [open])] :=
+  rewrite List.reverseSnoc [open, ..middle] close, List.reverseCons open middle
+
+--| What stands before a bracket's inside and its closer, from what stands before the bracket.
+theorem bracketHomed ∀ (open: Word) (middle: List Word) (close: Word) (prior: List Word)
+    (homed: homedBack (([open, ..middle] ++ [close]).reverse ++ prior) = True):
+    homedBack (middle.reverse ++ ([open] ++ prior)) = True :=
+  rewrite <- List.appendAssoc middle.reverse [open] prior then
+    homedSuffix [close] _ (rewrite bracketBackWords open middle close at homed then homed)
+
+--| The rules print an expression telling its shape, wherever it stands.
+--|
+--| Proof idea: Induction on the expression, as `elSpells`: a token by `leafShape`, a node by its rule's lemma inside
+--| `framedShape`; every closer is homed by what `homedBack` says of the code before it.
+theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
+    (within: expr.within1 = True)
+    (sound: expr.sound = True)
+    (nonCloser: expr.nonCloser = True)
+    (homed: homedBack (expr.words.reverse ++ prior) = True):
+    Is (expr.el around) (expr.shape around.item around.hoisted) :=
+  match expr with
+    | Atom kind word => spot =>
+      rewrite <- printedShape word around then
+        leafShape word around around.at spot sound (homesOpen word around (Bool.notTrue _ nonCloser))
+    | Paren open inner close =>
+      framedShape
+        (Paren open inner close)
+        around
+        (parenDoc open inner close { around | hoisted = True })
+        within
+        (leadSound (Paren open inner close) sound)
+        (parenShape open inner close
+          { around | hoisted = True }
+          (Bool.andLeft sound)
+          (Bool.andRight (Bool.andRight sound))
+          (Bool.notTrue _ (Bool.andLeft nonCloser))
+          (closeHomes close
+            (inner.words.reverse ++ [open])
+            prior
+            ({ around | hoisted = True }.next inner.trails (1 + inner.size))
+            (codedSnoc inner.words.reverse open (Bool.notTrue _ (Bool.andLeft nonCloser)))
+            (trailsBackCoded inner.words.reverse [open] (codedOf inner within (Bool.andRight nonCloser))).flipped
+            byComputing
+            (rewrite bracketBackWords open inner.words close at homed then homed))
+          (elShape inner
+            ({ around | hoisted = True }.next open.trails 1)
+            ([open] ++ prior)
+            within
+            (Bool.andLeft (Bool.andRight sound))
+            (Bool.andRight nonCloser)
+            (bracketHomed open inner.words close prior homed)))
+    | Tuple open items comma close =>
+      framedShape
+        (Tuple open items comma close)
+        around
+        (commaBracket (list := False) open items close { around | hoisted = True })
+        within
+        (leadSound (Tuple open items comma close) sound)
+        (isGroup
+          (bracketContent False open items close { around | hoisted = True })
+          (bracketContent False open items close { around | hoisted = True }).forcesBreak _
+          (bracketContentShape False open items close
+            { around | hoisted = True }
+            prior
+            within
+            (Bool.andLeft (Bool.andRight sound))
+            (Bool.andRight nonCloser)
+            (Bool.andLeft sound)
+            (Bool.andRight (Bool.andRight sound))
+            (Bool.notTrue _ (Bool.andLeft nonCloser))
+            (allElShape items within (Bool.andLeft (Bool.andRight sound)) (Bool.andRight nonCloser))
+            homed))
+    | ListOf open items comma close =>
+      framedShape
+        (ListOf open items comma close)
+        around
+        (commaBracket (list := True) open items close { around | hoisted = True })
+        within
+        (leadSound (ListOf open items comma close) sound)
+        (isGroup
+          (bracketContent True open items close { around | hoisted = True })
+          (bracketContent True open items close { around | hoisted = True }).forcesBreak _
+          (bracketContentShape True open items close
+            { around | hoisted = True }
+            prior
+            within
+            (Bool.andLeft (Bool.andRight sound))
+            (Bool.andRight nonCloser)
+            (Bool.andLeft sound)
+            (Bool.andRight (Bool.andRight sound))
+            (Bool.notTrue _ (Bool.andLeft nonCloser))
+            (allElShape items within (Bool.andLeft (Bool.andRight sound)) (Bool.andRight nonCloser))
+            homed))
+    | App head arguments =>
+      framedShape
+        (App head arguments)
+        around
+        (appDocs head arguments { around | hoisted = True }).doc
+        within
+        (leadSound (App head arguments) sound)
+        (appDocsShape head arguments
+          { around | hoisted = True }
+          prior
+          (Bool.andLeft within)
+          (Bool.andLeft sound)
+          (Bool.andLeft nonCloser)
+          (around prior w s n h => elShape head around prior w s n h)
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight nonCloser)
+          (allElShape arguments (Bool.andRight within) (Bool.andRight sound) (Bool.andRight nonCloser))
+          homed).left
+    | Prefix operator operand =>
+      framedShape
+        (Prefix operator operand)
+        around
+        (Doc.concat [
+          operator.leaf { around | hoisted = True } around.at,
+          prefixGap operator operand,
+          operand.el (around.next operator.trails 1)
+        ])
+        within
+        (leadSound (Prefix operator operand) sound)
+        (prefixShape operator operand around
+          (Bool.andLeft sound)
+          (Bool.notTrue _ (Bool.andLeft nonCloser))
+          (elShape operand
+            (around.next operator.trails 1)
+            ([operator] ++ prior)
+            (Bool.andLeft within)
+            (Bool.andRight sound)
+            (Bool.andRight nonCloser)
+            (rewrite <- List.appendAssoc operand.words.reverse [operator] prior then
+              rewrite List.reverseCons operator operand.words at homed then homed)))
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          framedShape
+            (Infix InfixBinary left operator right)
+            around
+            (chain (Infix InfixBinary left operator right).chainLevel left operator right { around | hoisted = True })
+            within
+            (leadSound (Infix InfixBinary left operator right) sound)
+            (chainOfShape
+              (left.opensArms (Infix InfixBinary left operator right).chainLevel)
+              (chainLinks (Infix InfixBinary left operator right).chainLevel True left operator right { around |
+                hoisted = True
+              }) _
+              (chainLinksShape
+                (Infix InfixBinary left operator right).chainLevel
+                True
+                left
+                operator
+                right
+                { around | hoisted = True }
+                prior
+                (Bool.andLeft within)
+                (Bool.andLeft (Bool.andRight within))
+                (Bool.andLeft sound)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andRight (Bool.andRight sound))
+                (Bool.andLeft nonCloser)
+                (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser)))
+                (Bool.andRight (Bool.andRight nonCloser))
+                homed))
+        | InfixArrow =>
+          framedShape
+            (Infix InfixArrow left operator right)
+            around
+            (chain (Infix InfixArrow left operator right).chainLevel left operator right { around | hoisted = True })
+            within
+            (leadSound (Infix InfixArrow left operator right) sound)
+            (chainOfShape
+              (left.opensArms (Infix InfixArrow left operator right).chainLevel)
+              (chainLinks (Infix InfixArrow left operator right).chainLevel True left operator right { around |
+                hoisted = True
+              }) _
+              (chainLinksShape
+                (Infix InfixArrow left operator right).chainLevel
+                True
+                left
+                operator
+                right
+                { around | hoisted = True }
+                prior
+                (Bool.andLeft within)
+                (Bool.andLeft (Bool.andRight within))
+                (Bool.andLeft sound)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andRight (Bool.andRight sound))
+                (Bool.andLeft nonCloser)
+                (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser)))
+                (Bool.andRight (Bool.andRight nonCloser))
+                homed))
+        | _ => cases
