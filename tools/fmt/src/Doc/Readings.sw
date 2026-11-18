@@ -95,7 +95,7 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
             rest
             (printer.left - 1)
             printer.lineIndent
-            False with
+            Clear with
             | True => Inl ((byComputing, byComputing))
             | False => Inr byComputing
     | Print indent mode doc =>
@@ -122,7 +122,7 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
                     rest
                     (Nat.min printer.left (max - printer.owed.getOrElse printer.column))
                     printer.lineIndent
-                    (not printer.suffixes.isEmpty) with
+                    printer.waiting with
                     | True => Inl (((Inr byComputing), byComputing))
                     | False => Inr ((byComputing, byComputing))
         | IdGroup id inner hard =>

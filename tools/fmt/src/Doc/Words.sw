@@ -166,17 +166,31 @@ theorem writeWords ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat
                 | (brokenWritten, brokenSuffixes) =>
                   rewrite repeatedly [<- brokenWritten, putClearWords _ text width brokenSuffixes]
 
+--| A comment break leaves the printer's words as they were.
+theorem commentBreakWords ∀ (printer: Printer) (indent: Nat): (printer.commentBreak indent).words = printer.words :=
+  match start: printer.atLineStart with
+    | True => byComputing
+    | False => newlineWords printer (printer.continuation indent)
+
+--| Setting the comment floor leaves the printer's words as they were.
+theorem floorWords ∀ (printer: Printer) (floor: Option Nat): { printer | commentFloor = floor }.words = printer.words :=
+  byComputing
+
 --| A line start leaves the printer's words as they were.
 theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart indent).words = printer.words :=
   match start: printer.atLineStart with
     | True => byComputing
-    | False => newlineWords printer (printer.continuation indent)
+    | False =>
+      let broken := printer.newline (printer.continuation indent)
+      Eq.trans
+        (floorWords broken (Some (printer.continuation indent)))
+        (newlineWords printer (printer.continuation indent))
 
 --| A `Displaced` element leaves the printer's words as they were.
 theorem displaceWords ∀ (printer: Printer) (indent: Nat): (printer.displace indent).words = printer.words :=
   match empty: printer.suffixes.isEmpty with
     | True => byComputing
-    | False => lineStartWords printer indent
+    | False => commentBreakWords printer indent
 
 --| A blank line leaves the printer's words as they were.
 theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :=
@@ -184,14 +198,32 @@ theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :
     | True => rewrite repeatedly [layoutSnoc "\n" printer.out byComputing]
     | False => byComputing
 
+--| Writing the spaces held writes no word and leaves the comments
+--| waiting.
+theorem writeHeldWritten ∀ (printer: Printer):
+    printer.writeHeld.written = printer.written ∧ printer.writeHeld.suffixes = printer.suffixes :=
+  match start: printer.atLineStart with
+    | True => (byComputing, byComputing)
+    | False =>
+      match held: printer.heldSpaces with
+        | Zero => (byComputing, byComputing)
+        | Succ less =>
+          ((layoutSnoc (" ".repeat (Succ less)) printer.out (spacesIsLayout _ (indentSpaces (Succ less)))), byComputing)
+
 --| A closer is the next word written, before the comments that wait.
 theorem closeWords ∀ (printer: Printer) (text: Text):
     (printer.close text).words = printer.written ++ (wordsOf [text] ++ wordsOf printer.suffixes) :=
   match empty: text.isEmpty with
     | True => rewrite repeatedly [layoutNoWord text (emptyIsLayout text empty)]
     | False =>
-      match putWritten printer text text.length with
-        | (written, suffixes) => rewrite repeatedly [written, suffixes, List.appendAssoc]
+      match waiting: printer.suffixes.isEmpty with
+        | True =>
+          match putWritten printer text text.length with
+            | (written, suffixes) => rewrite repeatedly [written, suffixes, List.appendAssoc]
+        | False =>
+          match putWritten printer.writeHeld text text.length, writeHeldWritten printer with
+            | (written, suffixes), (heldWritten, heldSuffixes) =>
+              rewrite repeatedly [written, suffixes, heldWritten, heldSuffixes, List.appendAssoc]
 
 --| Where no comment waits, a closer is written as a chunk is.
 theorem closeClear ∀ (printer: Printer) (indent: Nat) (text: Text)
@@ -206,15 +238,13 @@ theorem closeClear ∀ (printer: Printer) (indent: Nat) (text: Text)
           match never with
             | ()
 
---| A closer that isn't empty is written as text as wide as it is long.
+--| A closer that isn't empty, while a comment waits, is written as text
+--| as wide as it is long, after the spaces held.
 theorem closePut ∀ (printer: Printer) (text: Text)
-    (filled: text.isEmpty = False):
-    printer.close text = printer.put text text.length :=
-  match empty: text.isEmpty, filled with
-    | False, _ => byComputing
-    | True, never =>
-      match never with
-        | ()
+    (filled: text.isEmpty = False)
+    (waiting: printer.suffixes.isEmpty = False):
+    printer.close text = printer.writeHeld.put text text.length :=
+  rewrite filled, waiting
 
 --| A word has at least one character.
 theorem wordFilled ∀ (text: Text) (word: isLayout text = False): text.isEmpty = False := match empty: text.isEmpty with
@@ -516,7 +546,6 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
         | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords]
         | HardLine, steps, _ => rewrite repeatedly [steps, wordSteps]
         | LineStart, steps, _ => rewrite repeatedly [steps, wordSteps]
-        | CommentEnd, steps, _ => rewrite repeatedly [steps, wordSteps]
         | LineStartHere, steps, _ =>
           rewrite steps then
             eitherWords _
@@ -571,7 +600,6 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
           rewrite steps then eitherUniform _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
         | HardLine, steps, _ => rewrite repeatedly [steps]
         | LineStart, steps, _ => rewrite repeatedly [steps]
-        | CommentEnd, steps, _ => rewrite repeatedly [steps]
         | LineStartHere, steps, _ =>
           rewrite steps then
             eitherUniform _
@@ -652,7 +680,6 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
         | SoftLine, steps => rewrite steps then stepLighter printer 0 (Print indent mode SoftLine) rest
         | HardLine, steps => rewrite steps then stepLighter printer 0 (Print indent mode HardLine) rest
         | LineStart, steps => rewrite steps then stepLighter printer 0 (Print indent mode LineStart) rest
-        | CommentEnd, steps => rewrite steps then stepLighter printer 0 (Print indent mode CommentEnd) rest
         | LineStartHere, steps => rewrite steps then stepLighter printer 0 (Print indent mode LineStartHere) rest
         | Blank, steps => rewrite steps then stepLighter printer 0 (Print indent mode Blank) rest
         | Nest more inner, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Nest more inner)) rest
@@ -895,7 +922,6 @@ theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: C
             eitherMarked closer suffix _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
         | HardLine, steps, _ => rewrite repeatedly [steps]
         | LineStart, steps, _ => rewrite repeatedly [steps]
-        | CommentEnd, steps, _ => rewrite repeatedly [steps]
         | LineStartHere, steps, _ =>
           rewrite steps then
             eitherMarked closer suffix _
@@ -983,7 +1009,20 @@ theorem closeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (text: Text)
     Every suffix (printer.close text).suffixes :=
   match empty: text.isEmpty with
     | True => waits
-    | False => rewrite (putWritten printer text text.length).right then waits
+    | False =>
+      match waiting: printer.suffixes.isEmpty with
+        | True => rewrite (putWritten printer text text.length).right then waits
+        | False =>
+          rewrite (putWritten printer.writeHeld text text.length).right, (writeHeldWritten printer).right then waits
+
+--| A comment break leaves every waiting comment satisfying the test, if
+--| they did.
+theorem commentBreakQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat)
+    (waits: Every suffix printer.suffixes):
+    Every suffix (printer.commentBreak indent).suffixes :=
+  match start: printer.atLineStart with
+    | True => waits
+    | False => newlineQuiet suffix printer (printer.continuation indent)
 
 --| A line start leaves every waiting comment satisfying the test, if they did.
 theorem lineStartQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat)
@@ -1000,7 +1039,7 @@ theorem displaceQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Na
     Every suffix (printer.displace indent).suffixes :=
   match empty: printer.suffixes.isEmpty with
     | True => waits
-    | False => lineStartQuiet suffix printer indent waits
+    | False => commentBreakQuiet suffix printer indent waits
 
 --| A blank line leaves every waiting comment satisfying the test, if they did.
 theorem blankQuiet ∀ (suffix: Text → Prop) (printer: Printer)
@@ -1053,7 +1092,6 @@ theorem stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cm
               (newlineQuiet suffix printer indent)
         | HardLine, steps, _ => rewrite steps then newlineQuiet suffix printer indent
         | LineStart, steps, _ => rewrite steps then lineStartQuiet suffix printer indent waits
-        | CommentEnd, steps, _ => rewrite steps then newlineQuiet suffix printer printer.lineIndent
         | LineStartHere, steps, _ =>
           rewrite steps then
             eitherQuiet suffix _

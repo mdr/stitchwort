@@ -77,15 +77,17 @@ def CloseJoins (follows: Text → Text → Prop) (edge: Edge) (text: Text) (next
       ∧ follows text " "
       ∧ next (Waiting (textTouch text))
 
---| A `Line` or a fill's separator: a space or a line break.
+--| A `Line` or a fill's separator: a space or a line break. After a
+--| waiting comment the space is held, written only before a closer, so
+--| the edge stays as it was.
 def SepJoins (follows: Text → Text → Prop) (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => PutOk follows touching " " ∧ next (Plain None)
-  | Waiting _ => next (Plain None)
+  | Waiting touching => next (Waiting touching) ∧ next (Plain None)
 
---| A `SoftLine`: nothing or a line break; a line break if a comment waits.
+--| A `SoftLine`: nothing or a line break.
 def SoftJoins (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => next (Plain touching) ∧ next (Plain None)
-  | Waiting _ => next (Plain None)
+  | Waiting touching => next (Waiting touching) ∧ next (Plain None)
 
 --| A `LineStart` or `LineStartHere`: a line break unless a line starts
 --| here, where a comment may still wait from the line before.
@@ -118,7 +120,6 @@ def Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge 
   | Line => SepJoins follows edge next
   | SoftLine => SoftJoins edge next
   | HardLine => next (Plain None)
-  | CommentEnd => next (Plain None)
   | LineStart => StartJoins edge next
   | LineStartHere => StartJoins edge next
   | Nest _ inner => Joins follows inner edge next
@@ -203,7 +204,7 @@ theorem sepWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
     SepJoins follows edge weak :=
   match edge, joins with
     | Plain touching, Both ok after => (ok, (implies _ after))
-    | Waiting _, after => implies _ after
+    | Waiting touching, Both held after => ((implies _ held), (implies _ after))
 
 --| `SoftJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
@@ -212,7 +213,7 @@ theorem softWeaker ∀ (edge: Edge) (strong weak: Edge → Prop) (implies: ∀ (
     SoftJoins edge weak :=
   match edge, joins with
     | Plain touching, Both same broken => ((implies _ same), (implies _ broken))
-    | Waiting _, after => implies _ after
+    | Waiting touching, Both same broken => ((implies _ same), (implies _ broken))
 
 --| `StartJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
@@ -247,7 +248,6 @@ theorem joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge
     | Line, joins => sepWeaker follows edge strong weak implies joins
     | SoftLine, joins => softWeaker edge strong weak implies joins
     | HardLine, joins => implies _ joins
-    | CommentEnd, joins => implies _ joins
     | LineStart, joins => startWeaker edge strong weak implies joins
     | LineStartHere, joins => startWeaker edge strong weak implies joins
     | Nest more inner, joins => joinsWeaker follows inner edge strong weak implies joins
@@ -719,7 +719,7 @@ theorem newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (i
     | (_, none) =>
       let parts: SoundParts follows
         ["\n", ..({ printer | out = trimSpaces printer.out }).flushSuffixes.out]
-        (Some indent)
+        (Some (floored printer.commentFloor indent))
         True
         ({ printer | out = trimSpaces printer.out }).flushSuffixes.suffixes :=
         rewrite none then
@@ -843,6 +843,74 @@ theorem putWaiting ∀ (follows: Text → Text → Prop) (printer: Printer) (tex
             rewrite same
           (parts, edge)
 
+--| Spaces may stand where a space may.
+theorem gapAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (gap: Text)
+    (spaces: gap.all (char => char == ' ') = True)
+    (accepts: Accepts follows out " "):
+    Accepts follows out gap :=
+  match out, accepts with
+    | [], _ => byComputing
+    | [last, ..earlier], Inl layout => Inl layout
+    | [last, ..earlier], Inr (Inl never) =>
+      let differ: (" " == "\n") = False := byComputing
+      let same: (" " == "\n") = True := rewrite never
+      Void.impossible (Bool.falseNotTrue (Eq.trans differ.flipped same))
+    | [last, ..earlier], Inr (Inr ok) => Inr (Inr (rewrite spaces then ok))
+
+--| Spaces held after a waiting comment, written before a closer, leave
+--| the printer sound: they may follow the line, as the comment may.
+theorem heldSound ∀ (follows: Text → Text → Prop) (printer: Printer)
+    (sound: Sound follows printer)
+    (waits: printer.suffixes.isEmpty = False):
+    Sound follows printer.writeHeld :=
+  match start: printer.atLineStart with
+    | True => sound
+    | False =>
+      match held: printer.heldSpaces with
+        | Zero => sound
+        | Succ less =>
+          match sound with
+            | (pairs, owedOk, _, waitsParts) =>
+              let gap := " ".repeat (Succ less)
+              let spaces := indentSpaces (Succ less)
+              match suffixes: printer.suffixes, waitsParts, waits with
+                | [], _, never =>
+                  match never with
+                    | ()
+                | [first, second, ..more], never, _ =>
+                  match never with
+                    | ()
+                | [only], (filled, ready), _ =>
+                  let owedNone: printer.owed = None := match owedOk with
+                    | Inl none => none
+                    | Inr never =>
+                      match never with
+                        | ()
+                  let parts: SoundParts follows [gap, ..printer.out] printer.owed False [only] := (
+                    (
+                      byComputing,
+                      (gapAccepts follows printer.out gap spaces (readyAccepts follows printer.out ready)),
+                      pairs
+                    ),
+                    (Inl owedNone),
+                    (Inl byComputing),
+                    filled,
+                    (rewrite spaces then ready)
+                  )
+                  parts
+
+--| What a closer may follow on the line, it may follow once the spaces
+--| held are written: the same, or spaces.
+theorem heldPutOk ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)
+    (ok: PutOk follows (outTouch printer.out) text):
+    PutOk follows (outTouch printer.writeHeld.out) text :=
+  match start: printer.atLineStart with
+    | True => ok
+    | False =>
+      match held: printer.heldSpaces with
+        | Zero => ok
+        | Succ less => rewrite spacesIsLayout (" ".repeat (Succ less)) (indentSpaces (Succ less))
+
 --| A closer written where the document allowed it.
 theorem closeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (text: Text)
     (sound: Sound follows printer)
@@ -856,8 +924,17 @@ theorem closeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (
     | Inr waits =>
       match closeWaiting follows printer.suffixes printer.out text next waits joins with
         | (word, filled, ok, tail, after) =>
-          match putWaiting follows printer text text.length sound waits word filled ok tail with
-            | (soundAfter, edge) => rewrite closePut printer text filled then (soundAfter, (rewrite edge then after))
+          let heldWaits: printer.writeHeld.suffixes.isEmpty = False :=
+            rewrite (writeHeldWritten printer).right then waits
+          match putWaiting follows printer.writeHeld text text.length
+            (heldSound follows printer sound waits)
+            heldWaits
+            word
+            filled
+            (heldPutOk follows printer text ok)
+            tail with
+            | (soundAfter, edge) =>
+              rewrite closePut printer text filled waits then (soundAfter, (rewrite edge then after))
 
 --| A separator joins where it breaks, with nothing touched after the break.
 theorem sepBreak ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (edge: Edge)
@@ -865,43 +942,34 @@ theorem sepBreak ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (ed
     next (Plain None) :=
   match edge, joins with
     | Plain touching, Both _ after => after
-    | Waiting _, after => after
+    | Waiting _, Both _ after => after
 
---| A separator's space, written where no comment waits.
+--| A separator's space: written where no comment waits, held where one
+--| does.
 theorem sepWrite ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
-    (clear: printer.suffixes.isEmpty = True)
     (joins: SepJoins follows printer.edge next):
     Holds follows next (printer.write indent " " 1) :=
-  match waiting: printer.suffixes.isEmpty, clear, joins with
-    | True, _, Both ok after => (
+  match waiting: printer.suffixes.isEmpty, joins with
+    | True, Both ok after => (
       (putSound follows printer " " 1 sound
         (emptyNil printer.suffixes waiting)
         byComputing
         (touchAccepts follows printer.out " " ok)),
       (rewrite putEdge printer " " 1 (emptyNil printer.suffixes waiting) then after)
     )
-    | False, never, _ =>
-      match never with
-        | ()
+    | False, Both held _ => (sound, held)
 
 --| A soft line joins where it breaks, with nothing touched after the break.
 theorem softBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next (Plain None) :=
   match edge, joins with
     | Plain touching, Both _ broken => broken
-    | Waiting _, after => after
+    | Waiting _, Both _ broken => broken
 
---| A soft line that stays flat, with no comment waiting, leaves the edge as it
---| was.
-theorem softStay ∀ (next: Edge → Prop) (printer: Printer)
-    (clear: printer.suffixes.isEmpty = True)
-    (joins: SoftJoins printer.edge next):
-    next printer.edge :=
-  match waiting: printer.suffixes.isEmpty, clear, joins with
-    | True, _, Both same _ => same
-    | False, never, _ =>
-      match never with
-        | ()
+--| A soft line that stays flat leaves the edge as it was.
+theorem softStay ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next edge := match edge, joins with
+  | Plain touching, Both same _ => same
+  | Waiting touching, Both same _ => same
 
 --| A line start that breaks leaves nothing touched after it.
 theorem startBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: StartJoins edge next): next (Plain None) :=
@@ -923,6 +991,23 @@ theorem startStay ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (p
         | True, after => rewrite touch then after
         | False, Both same _ => same
 
+--| A comment break leaves a sound printer sound, with the edge the
+--| document's rule wants.
+theorem commentBreakHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+    (sound: Sound follows printer)
+    (joins: StartJoins printer.edge next):
+    Holds follows next (printer.commentBreak indent) :=
+  match start: printer.atLineStart with
+    | True => (sound, (startStay follows next printer sound start joins))
+    | False =>
+      newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins)
+
+--| The comment floor is no part of what the printer has written.
+theorem floorHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (floor: Option Nat)
+    (holds: Holds follows next printer):
+    Holds follows next { printer | commentFloor = floor } :=
+  holds
+
 --| A line start leaves a sound printer sound, with the edge the document's rule
 --| wants.
 theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
@@ -932,7 +1017,10 @@ theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Pro
   match start: printer.atLineStart with
     | True => (sound, (startStay follows next printer sound start joins))
     | False =>
-      newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins)
+      floorHolds follows next
+        (printer.newline (printer.continuation indent))
+        (Some (printer.continuation indent))
+        (newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins))
 
 --| A `Displaced` element leaves a sound printer sound: a comment waiting
 --| ends its line first.
@@ -942,7 +1030,7 @@ theorem displaceHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop
     Holds follows next (printer.displace indent) :=
   match waiting: printer.suffixes.isEmpty, joins with
     | True, joins => (sound, joins)
-    | False, joins => lineStartHolds follows next printer indent sound joins
+    | False, joins => commentBreakHolds follows next printer indent sound joins
 
 --| A line start here, at a line's start, leaves the printer sound.
 theorem hereHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
@@ -1019,17 +1107,15 @@ theorem suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) 
           (parts, edge)
 
 --| A step that goes one way or the other holds if each way does.
-theorem eitherStep ∀ (follows: Text → Text → Prop) (flat clear: Bool) (yes no: Printer) (rest: List Cmd)
-    (whenYes: clear = True → Holds follows (edge => StackJoins follows rest edge) yes)
+theorem eitherStep ∀ (follows: Text → Text → Prop) (flat: Bool) (yes no: Printer) (rest: List Cmd)
+    (whenYes: Holds follows (edge => StackJoins follows rest edge) yes)
     (whenNo: Holds follows (edge => StackJoins follows rest edge) no):
     Holds follows
-      (edge => StackJoins follows (if flat && clear then (yes, rest) else (no, rest)).snd edge)
-      (if flat && clear then (yes, rest) else (no, rest)).fst :=
-  match flat, clear, whenYes with
-    | True, True, whenYes => whenYes byComputing
-    | True, False, _ => whenNo
-    | False, True, _ => whenNo
-    | False, False, _ => whenNo
+      (edge => StackJoins follows (if flat then (yes, rest) else (no, rest)).snd edge)
+      (if flat then (yes, rest) else (no, rest)).fst :=
+  match flat with
+    | True => whenYes
+    | False => whenNo
 
 --| The branch an `IfBroken` takes joins if both do.
 theorem pickJoins ∀ (follows: Text → Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
@@ -1056,7 +1142,6 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
           printer
           indent
           sound
-          clear
           joins
     | FillSep indent item, Inr broken, joins =>
       rewrite broken then
@@ -1080,11 +1165,11 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
           rewrite steps then closeHolds follows (edge => StackJoins follows rest edge) printer text sound joins
         | Line, steps, joins =>
           rewrite steps then
-            eitherStep follows mode.isFlat printer.suffixes.isEmpty
+            eitherStep follows mode.isFlat
               (printer.write indent " " 1)
               (printer.newline indent)
               rest
-              (clear => sepWrite follows (edge => StackJoins follows rest edge) printer indent sound clear joins)
+              (sepWrite follows (edge => StackJoins follows rest edge) printer indent sound joins)
               (newlineHolds follows
                 (edge => StackJoins follows rest edge)
                 printer
@@ -1093,10 +1178,10 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 (sepBreak follows (edge => StackJoins follows rest edge) printer.edge joins))
         | SoftLine, steps, joins =>
           rewrite steps then
-            eitherStep follows mode.isFlat printer.suffixes.isEmpty printer
+            eitherStep follows mode.isFlat printer
               (printer.newline indent)
               rest
-              (clear => (sound, (softStay (edge => StackJoins follows rest edge) printer clear joins)))
+              (sound, (softStay (edge => StackJoins follows rest edge) printer.edge joins))
               (newlineHolds follows
                 (edge => StackJoins follows rest edge)
                 printer
@@ -1105,9 +1190,6 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 (softBreak (edge => StackJoins follows rest edge) printer.edge joins))
         | HardLine, steps, joins =>
           rewrite steps then newlineHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
-        | CommentEnd, steps, joins =>
-          rewrite steps then
-            newlineHolds follows (edge => StackJoins follows rest edge) printer printer.lineIndent sound joins
         | LineStart, steps, joins =>
           rewrite steps then lineStartHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
         | LineStartHere, steps, joins =>

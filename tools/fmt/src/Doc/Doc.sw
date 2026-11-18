@@ -74,7 +74,8 @@ type Doc =
   --| it is on, after any `Closing` that joins that line. A group that
   --| would put a chunk after it breaks; a chunk that still follows it on
   --| the line starts the next line instead (a comment break), indented as
-  --| a continuation line.
+  --| a continuation line. Spaces after it, a flat `Line`'s included, are
+  --| held back and written only before a `Closing`.
   | LineSuffix (comment: Text)
   --| A closing bracket or a comma: text that stays on its line when a
   --| trailing comment waits there, written before the comment. Which
@@ -82,12 +83,10 @@ type Doc =
   --| comment follows them and reading puts it back (rule N).
   | Closing (text: Text)
   --| A line break here unless at the start of a line: before an own-line
-  --| comment. A line started this way is a comment break, indented as a
-  --| continuation line.
+  --| comment. A line started this way is a comment break, and the lines
+  --| after it up to the next code, that code's included, are indented at
+  --| least as deep (the comment floor).
   | LineStart
-  --| A line break after an own-line comment, to a line indented as the
-  --| comment's: what follows stays where the comment is.
-  | CommentEnd
   --| A line break at the indentation in force, or at the start of a line,
   --| that line moved there: own-line comments before a closing bracket, at
   --| its items' indentation.
@@ -130,7 +129,6 @@ def Doc.isEmpty: Doc → Bool := matches | Empty
 def Doc.forcesBreak: Doc → Bool
   | HardLine => True
   | LineStart => True
-  | CommentEnd => True
   | LineStartHere => True
   | BreakParent => True
   | OneLineBelow _ => True
