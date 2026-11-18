@@ -25396,7 +25396,7 @@
     {
       "id": 4088,
       "title": "[Opus] fmt S1 goal declElementsOneLine1: DeclElements for a one-line declaration (DeclQuiet plus trailing comment on the last type token, one above/before the value, one after the value) (TopStatements; SW-4082 is the general form)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
