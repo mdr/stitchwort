@@ -25396,12 +25396,12 @@
     {
       "id": 4088,
       "title": "[Opus] fmt S1 goal declElementsOneLine1: DeclElements for a one-line declaration (DeclQuiet plus trailing comment on the last type token, one above/before the value, one after the value) (TopStatements; SW-4082 is the general form)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\nLane note (Opus, 23:23-23:32, est. 45 min): stopped early, goal left open; too large for the brief. Branch lane/SW-4088, commit 8df3f3274 (two driver tests, goal doc scope note; statement unchanged). Findings: (1) the goal needs a bridge from oneLine1 (printed lineStart flags) to the tree's comments, and the only existing one (standsOfDoc/printTold) needs the doc to lay, i.e. DeclHangs, which this goal feeds: circular. A non-circular bridge would go through printedJoins' CommentsEnd and printedSpells (comments end their line, so the next printed word starts one). (2) On one line a trailing comment may sit on the last non-closer word with closers after it: def x: F (a -- c ) := b prints def x: F (a) -- c / := / b, so DeclElements needs ElHangs/BodyLays with a comment held across closers (CloseLays Held), i.e. trailing-comment hang facts through Paren/Tuple/List/App/Infix/Prefix: a slice of SW-4082. Rec: split into (A) bridge oneLine1 -> tree predicate (endQuiet type, lead+endQuiet value) and (B) that predicate -> DeclElements; Fable to fix the statements, Opus for each. Fmt.Tests 120/120; check Fmt.TopStatements 0 errors.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
