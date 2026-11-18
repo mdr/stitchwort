@@ -394,16 +394,14 @@
             src = ./.;
             package = pkgs.prek;
             hooks = {
-              # The dev shell's rustfmt, as `cargo fmt` uses; `--check` so the
-              # hook fails rather than rewriting files behind the commit.
+              # The dev shell's rustfmt, on the staged files alone: `cargo fmt`
+              # takes 3 s over the workspace, this 0.1 s. Every crate is
+              # edition 2024 (the workspace's); there's no rustfmt.toml.
               rustfmt = {
                 enable = true;
-                packageOverrides = {
-                  cargo = toolchainFor pkgs;
-                  rustfmt = toolchainFor pkgs;
-                };
-                settings.check = true;
-                settings.color = "never";
+                entry = "${toolchainFor pkgs}/bin/rustfmt --check --edition 2024";
+                files = "\\.rs$";
+                language = "system";
               };
               stitchwort-fmt = {
                 enable = true;
