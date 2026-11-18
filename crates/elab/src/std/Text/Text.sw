@@ -663,7 +663,6 @@ theorem Text.startsWithCharsAppendRight ∀ (needle xs ys: List Char)
     Text.startsWithChars needle (List.append xs ys) = True :=
   match needle, xs with
     | [], xs => byComputing
-    | [p, ..ps], [] => (Bool.falseNotTrue h).impossible
     | [p, ..ps], [c, ..cs] =>
       match same: Text.sameChar p c with
         | True =>
@@ -671,9 +670,6 @@ theorem Text.startsWithCharsAppendRight ∀ (needle xs ys: List Char)
             (Eq.cong (b => if b then Text.startsWithChars ps (List.append cs ys) else False) same)
             (Text.startsWithCharsAppendRight ps cs ys
               (Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps cs else False) same).flipped h))
-        | False =>
-          (Bool.falseNotTrue
-            (Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps cs else False) same).flipped h)).impossible
 
 --| Characters that start with `needle` contain it.
 theorem Text.containsCharsOfStarts ∀ (needle chars: List Char)
@@ -712,7 +708,6 @@ theorem Text.containsCharsAppendLeft ∀ (needle xs ys: List Char)
     | [] =>
       match needle with
         | [] => Text.containsCharsEmpty ys
-        | [p, ..ps] => (Bool.falseNotTrue h).impossible
     | [c, ..cs] =>
       match same: Text.startsWithChars needle [c, ..cs] with
         | True =>
