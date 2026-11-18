@@ -417,10 +417,7 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
                   text.length <= left && fitsFrom more width modes stack rest (left - text.length) lineIndent Clear
                 | Pending held flatBreak =>
                   held + text.length <= left
-                    && fitsFrom more width modes stack rest
-                      (left - held - text.length)
-                      lineIndent
-                      (Pending 0 flatBreak)
+                    && fitsFrom more width modes stack rest (left - held - text.length) lineIndent (Pending 0 flatBreak)
             | Line =>
               not mode.isFlat
                 || (match suffix with

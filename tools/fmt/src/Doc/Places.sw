@@ -99,7 +99,8 @@ def tucked (event: Event): List Event → List Event
 --| waits; where one waits, a word on the comment's line, before it.
 def ClosePuts (indent: Nat) (text: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
-    | Held at floor => isLayout text = False ∧ next (Held at (floorAfter text floor)) (tucked { word = text, start = None } trace)
+    | Held at floor =>
+      isLayout text = False ∧ next (Held at (floorAfter text floor)) (tucked { word = text, start = None } trace)
     | _ => WritePuts indent text place trace next
 
 --| Whether words are on the line: a line break here ends their line, and
@@ -400,20 +401,26 @@ theorem putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
         | AtStart at floor, lays => putsWeaker inner indent (AtStart at floor) trace strong weak implies lays
         | Broken at floor, lays => putsWeaker inner indent (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => column => putsWeaker inner column (Mid at floor) trace strong weak implies (lays column)
-        | Held at floor, lays => column => putsWeaker inner column (Held at floor) trace strong weak implies (lays column)
+        | Held at floor, lays => column =>
+          putsWeaker inner column (Held at floor) trace strong weak implies (lays column)
     | AlignInset inner, lays =>
       match place, lays with
         | AtStart at floor, lays => putsWeaker inner (indent + 2) (AtStart at floor) trace strong weak implies lays
         | Broken at floor, lays => putsWeaker inner (indent + 2) (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => column => putsWeaker inner column (Mid at floor) trace strong weak implies (lays column)
-        | Held at floor, lays => column => putsWeaker inner column (Held at floor) trace strong weak implies (lays column)
+        | Held at floor, lays => column =>
+          putsWeaker inner column (Held at floor) trace strong weak implies (lays column)
     | Displaced inner, lays =>
       match place, lays with
-        | AtStart at floor, lays => putsWeaker inner (Nat.max indent at) (AtStart at floor) trace strong weak implies lays
+        | AtStart at floor, lays =>
+          putsWeaker inner (Nat.max indent at) (AtStart at floor) trace strong weak implies lays
         | Broken at floor, lays => putsWeaker inner (Nat.max indent at) (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => putsWeaker inner indent (Mid at floor) trace strong weak implies lays
         | Held at floor, lays =>
-          putsWeaker inner (Nat.max indent (at + 2)) (AtStart (floored floor (Nat.max indent (at + 2))) floor) trace
+          putsWeaker inner
+            (Nat.max indent (at + 2))
+            (AtStart (floored floor (Nat.max indent (at + 2))) floor)
+            trace
             strong
             weak
             implies
@@ -426,8 +433,17 @@ theorem putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
       (putsWeaker flat indent place trace strong weak implies flatPuts)
     )
     | Flatten inner, lays => putsWeaker inner indent place trace strong weak implies lays
-    | OneLineBelow inner, Both mid lays =>
-      (mid, (putsWeaker inner (indent + 2) (AtStart (floored place.floor (indent + 2)) place.floor) trace strong weak implies lays))
+    | OneLineBelow inner, Both mid lays => (
+      mid,
+      (putsWeaker inner
+        (indent + 2)
+        (AtStart (floored place.floor (indent + 2)) place.floor)
+        trace
+        strong
+        weak
+        implies
+        lays)
+    )
     | Concat docs, lays => allPutsWeaker docs indent place trace strong weak implies lays
     | Fill items, lays => fillPutsWeaker items indent place trace strong weak implies lays
     | Choice options, lays => optionsPutWeaker options indent place trace strong weak implies lays
@@ -994,7 +1010,11 @@ theorem newlineAgrees ∀ (printer: Printer) (indent: Nat) (place: Place) (trace
     (agrees: Agrees printer place trace)
     (mid: place.midLine = True):
     Agrees (printer.newline indent) (AtStart (floored place.floor indent) place.floor) trace :=
-  brokenStart (printer.newline indent) (floored place.floor indent) place.floor trace
+  brokenStart
+    (printer.newline indent)
+    (floored place.floor indent)
+    place.floor
+    trace
     (newlineBroken printer indent place trace agrees mid)
 
 --| A comment floor set at a line start is the place's.
@@ -1002,7 +1022,8 @@ theorem floorAgrees ∀ (printer: Printer) (at: Nat) (floor other: Option Nat) (
     (agrees: Agrees printer (AtStart at floor) trace):
     Agrees { printer | commentFloor = other } (AtStart at other) trace :=
   match agrees with
-    | (start, none, blank, empty, owes, indent, events, _) => (start, none, blank, empty, owes, indent, events, byComputing)
+    | (start, none, blank, empty, owes, indent, events, _) =>
+      (start, none, blank, empty, owes, indent, events, byComputing)
 
 --| A printer agreeing with a place has the place's indentation as its line's.
 theorem agreesIndent ∀ (printer: Printer) (place: Place) (trace: List Event)
@@ -1074,7 +1095,12 @@ theorem newlineStays ∀ (next: Place → List Event → Prop) (printer: Printer
     (agrees: Agrees printer place trace)
     (mid: place.midLine = True) (after: next (AtStart (floored place.floor indent) place.floor) trace):
     Stays next (printer.newline indent) :=
-  ((AtStart (floored place.floor indent) place.floor), trace, (newlineAgrees printer indent place trace agrees mid), after)
+  (
+    (AtStart (floored place.floor indent) place.floor),
+    trace,
+    (newlineAgrees printer indent place trace agrees mid),
+    after
+  )
 
 --| A comment break: a line break to deeper than the line it breaks.
 theorem breakStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat)
@@ -1089,8 +1115,8 @@ theorem breakStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
 
 --| Writing at a line start, with no comment waiting, leaves the printer at a
 --| place that satisfies what follows.
-theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
-    (width at: Nat) (floor: Option Nat) (trace: List Event)
+theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text) (width at: Nat)
+    (floor: Option Nat) (trace: List Event)
     (agrees: Agrees printer (AtStart at floor) trace)
     (clear: printer.suffixes.isEmpty = True)
     (lays: WritePuts indent text (AtStart at floor) trace next):
@@ -1102,18 +1128,17 @@ theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) 
         | True, never => (Bool.falseNotTrue never).impossible
         | False, Both oneLine lays =>
           match waiting: printer.suffixes.isEmpty, clear with
-            | True, _ =>
-              (
-                (Mid at (floorAfter text floor)),
-                _,
-                (putStart printer text width at floor trace agrees (wordNotLayout text spaces oneLine)),
-                lays
-              )
+            | True, _ => (
+              (Mid at (floorAfter text floor)),
+              _,
+              (putStart printer text width at floor trace agrees (wordNotLayout text spaces oneLine)),
+              lays
+            )
 
 --| Writing in the middle of a line, with no comment waiting, leaves the printer
 --| at a place that satisfies what follows.
-theorem writeMid ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
-    (width at: Nat) (floor: Option Nat) (trace: List Event)
+theorem writeMid ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text) (width at: Nat)
+    (floor: Option Nat) (trace: List Event)
     (agrees: Agrees printer (Mid at floor) trace)
     (clear: printer.suffixes.isEmpty = True)
     (lays: WritePuts indent text (Mid at floor) trace next):
@@ -1124,17 +1149,20 @@ theorem writeMid ∀ (next: Place → List Event → Prop) (printer: Printer) (i
       match spaces: text.all (char => char == ' '), lays with
         | True, lays =>
           match waiting: printer.suffixes.isEmpty, clear with
-            | True, _ =>
-              ((Mid at (floorAfter text floor)), trace, (putSpaces printer text width at floor trace agrees spaces), lays)
+            | True, _ => (
+              (Mid at (floorAfter text floor)),
+              trace,
+              (putSpaces printer text width at floor trace agrees spaces),
+              lays
+            )
         | False, Both oneLine lays =>
           match waiting: printer.suffixes.isEmpty, clear with
-            | True, _ =>
-              (
-                (Mid at (floorAfter text floor)),
-                _,
-                (putMid printer text width at floor trace agrees (wordNotLayout text spaces oneLine)),
-                lays
-              )
+            | True, _ => (
+              (Mid at (floorAfter text floor)),
+              _,
+              (putMid printer text width at floor trace agrees (wordNotLayout text spaces oneLine)),
+              lays
+            )
 
 --| Spaces held after a waiting comment leave the printer where it was.
 theorem holdAgrees ∀ (printer: Printer) (held: Nat) (place: Place) (trace: List Event)
@@ -1144,8 +1172,8 @@ theorem holdAgrees ∀ (printer: Printer) (held: Nat) (place: Place) (trace: Lis
 
 --| Writing while a comment waits leaves the printer at a place that satisfies
 --| what follows.
-theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
-    (width at: Nat) (floor: Option Nat) (trace: List Event)
+theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text) (width at: Nat)
+    (floor: Option Nat) (trace: List Event)
     (agrees: Agrees printer (Held at floor) trace)
     (waits: printer.suffixes.isEmpty = False)
     (lays: WritePuts indent text (Held at floor) trace next):
@@ -1156,13 +1184,12 @@ theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (
       match spaces: text.all (char => char == ' '), lays with
         | True, lays =>
           match waiting: printer.suffixes.isEmpty, waits with
-            | False, _ =>
-              (
-                (Held at floor),
-                trace,
-                (holdAgrees printer (printer.heldSpaces + text.length) (Held at floor) trace agrees),
-                lays
-              )
+            | False, _ => (
+              (Held at floor),
+              trace,
+              (holdAgrees printer (printer.heldSpaces + text.length) (Held at floor) trace agrees),
+              lays
+            )
         | False, Both oneLine lays =>
           let broken := floored floor (Nat.max indent (printer.lineIndent + 2))
           let deeper: next (Mid broken (floorAfter text floor)) (trace ++ [{ word = text, start = Some broken }]) :=
@@ -1185,8 +1212,8 @@ theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (
 
 --| Writing after a blank line, with no comment waiting, leaves the printer at a
 --| place that satisfies what follows.
-theorem writeBroken ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
-    (width at: Nat) (floor: Option Nat) (trace: List Event)
+theorem writeBroken ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text) (width at: Nat)
+    (floor: Option Nat) (trace: List Event)
     (agrees: Agrees printer (Broken at floor) trace)
     (clear: printer.suffixes.isEmpty = True)
     (lays: WritePuts indent text (Broken at floor) trace next):
@@ -1215,13 +1242,21 @@ theorem writeStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
     Stays next (printer.write indent text width) :=
   match place, agrees, lays with
     | AtStart at floor, agrees, lays =>
-      writeStart next printer indent text width at floor trace agrees (agreesClear printer (AtStart at floor) trace agrees) lays
+      writeStart next printer indent text width at floor trace agrees
+        (agreesClear printer (AtStart at floor) trace agrees)
+        lays
     | Broken at floor, agrees, lays =>
-      writeBroken next printer indent text width at floor trace agrees (agreesClear printer (Broken at floor) trace agrees) lays
+      writeBroken next printer indent text width at floor trace agrees
+        (agreesClear printer (Broken at floor) trace agrees)
+        lays
     | Mid at floor, agrees, lays =>
-      writeMid next printer indent text width at floor trace agrees (agreesClear printer (Mid at floor) trace agrees) lays
+      writeMid next printer indent text width at floor trace agrees
+        (agreesClear printer (Mid at floor) trace agrees)
+        lays
     | Held at floor, agrees, lays =>
-      writeHeld next printer indent text width at floor trace agrees (agreesClear printer (Held at floor) trace agrees) lays
+      writeHeld next printer indent text width at floor trace agrees
+        (agreesClear printer (Held at floor) trace agrees)
+        lays
 
 --| A comment tucked into events that end with `last` goes before `last`.
 theorem tuckedSnoc ∀ (event last: Event) (before: List Event):
@@ -1379,7 +1414,12 @@ theorem sepStays ∀ (next: Place → List Event → Prop) (printer: Printer) (i
     | Held at floor, agrees, Both held _ =>
       let waits: printer.suffixes.isEmpty = False := agreesClear printer (Held at floor) trace agrees
       rewrite spacesAfterComment printer indent " " 1 byComputing waits byComputing then
-        ((Held at floor), trace, (holdAgrees printer (printer.heldSpaces + " ".length) (Held at floor) trace agrees), held)
+        (
+          (Held at floor),
+          trace,
+          (holdAgrees printer (printer.heldSpaces + " ".length) (Held at floor) trace agrees),
+          held
+        )
     | Mid at floor, agrees, lays =>
       sepSpace next printer indent (Mid at floor) trace agrees (agreesClear printer (Mid at floor) trace agrees) lays
     | AtStart at floor, _, never => (Bool.falseNotTrue never).impossible
@@ -1441,7 +1481,12 @@ theorem lineStartStays ∀ (next: Place → List Event → Prop) (printer: Print
         (
           (AtStart (floored floor broken) (Some broken)),
           trace,
-          (floorAgrees (printer.newline broken) (floored floor broken) floor (Some broken) trace
+          (floorAgrees
+            (printer.newline broken)
+            (floored floor broken)
+            floor
+            (Some broken)
+            trace
             (newlineAgrees printer broken (Mid at floor) trace agrees byComputing)),
           deeper
         )
@@ -1453,7 +1498,12 @@ theorem lineStartStays ∀ (next: Place → List Event → Prop) (printer: Print
         (
           (AtStart (floored floor broken) (Some broken)),
           trace,
-          (floorAgrees (printer.newline broken) (floored floor broken) floor (Some broken) trace
+          (floorAgrees
+            (printer.newline broken)
+            (floored floor broken)
+            floor
+            (Some broken)
+            trace
             (newlineAgrees printer broken (Held at floor) trace agrees byComputing)),
           deeper
         )
@@ -1675,7 +1725,12 @@ theorem stepPuts ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
             eitherStays spec mode.isFlat printer
               (printer.newline indent)
               rest
-              (place, trace, agrees, (softSame (after later => StackPuts spec rest after later) indent place trace lays))
+              (
+                place,
+                trace,
+                agrees,
+                (softSame (after later => StackPuts spec rest after later) indent place trace lays)
+              )
               (newlineStays
                 (after later => StackPuts spec rest after later)
                 printer
@@ -1707,7 +1762,11 @@ theorem stepPuts ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                   (AtStart indent place.floor),
                   trace,
                   (hereAgrees printer indent place trace agrees start),
-                  (herePlace (after later => StackPuts spec rest after later) indent place trace
+                  (herePlace
+                    (after later => StackPuts spec rest after later)
+                    indent
+                    place
+                    trace
                     (startNotMid printer place trace agrees start)
                     lays)
                 )
@@ -1952,12 +2011,24 @@ theorem flushAgrees ∀ (printer: Printer) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace):
     trace = eventsOf printer.flushSuffixes.out :=
   match printer, place, agrees with
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes, .. }, AtStart
-          at floor, Both _ (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) => rewrite none then events
+    | {
+        width = total,
+        out,
+        column,
+        owed,
+        atLineStart,
+        suffixes,
+        lineIndent,
+        newlinesAtEnd,
+        started,
+        modes,
+        ..
+      }, AtStart at floor, Both _ (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) =>
+      rewrite none then events
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes, .. }, Broken
           at floor, Both _ (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) => rewrite none then events
-    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes, .. }, Mid
-          at floor, Both _ (Both none (Both _ (Both _ (Both _ (Both events _))))) => rewrite none then events
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes, .. }, Mid at
+          floor, Both _ (Both none (Both _ (Both _ (Both _ (Both events _))))) => rewrite none then events
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started, modes, .. }, Held
           at floor, Both start (Both (Witness comment (Both one (Both word events))) (Both blank _)) =>
       let written: eventsOf [comment, " ", ..out] = eventsOf out ++ [{ word = comment, start = None }] :=
@@ -2045,5 +2116,7 @@ theorem putMidExample: Agrees (((Printer.start 80).put "f" 1).put "g" 1) (Mid 0 
 
 --| An instance of `putSpaces` with all its hypotheses met, as for
 --| `putMidExample`: a space after `f` leaves the trace alone.
-theorem putSpacesExample: Agrees (((Printer.start 80).put "f" 1).put " " 1) (Mid 0 None) [{ word = "f", start = Some 0 }] :=
+theorem putSpacesExample: Agrees (((Printer.start 80).put "f" 1).put " " 1) (Mid 0 None) [
+      { word = "f", start = Some 0 }
+    ] :=
   putSpaces ((Printer.start 80).put "f" 1) " " 1 0 None [{ word = "f", start = Some 0 }] midExample byComputing

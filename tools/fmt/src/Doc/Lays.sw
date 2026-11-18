@@ -294,20 +294,26 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
         | AtStart at floor, lays => laysWeaker inner indent (AtStart at floor) trace strong weak implies lays
         | Broken at floor, lays => laysWeaker inner indent (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => column => laysWeaker inner column (Mid at floor) trace strong weak implies (lays column)
-        | Held at floor, lays => column => laysWeaker inner column (Held at floor) trace strong weak implies (lays column)
+        | Held at floor, lays => column =>
+          laysWeaker inner column (Held at floor) trace strong weak implies (lays column)
     | AlignInset inner, lays =>
       match place, lays with
         | AtStart at floor, lays => laysWeaker inner (indent + 2) (AtStart at floor) trace strong weak implies lays
         | Broken at floor, lays => laysWeaker inner (indent + 2) (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => column => laysWeaker inner column (Mid at floor) trace strong weak implies (lays column)
-        | Held at floor, lays => column => laysWeaker inner column (Held at floor) trace strong weak implies (lays column)
+        | Held at floor, lays => column =>
+          laysWeaker inner column (Held at floor) trace strong weak implies (lays column)
     | Displaced inner, lays =>
       match place, lays with
-        | AtStart at floor, lays => laysWeaker inner (Nat.max indent at) (AtStart at floor) trace strong weak implies lays
+        | AtStart at floor, lays =>
+          laysWeaker inner (Nat.max indent at) (AtStart at floor) trace strong weak implies lays
         | Broken at floor, lays => laysWeaker inner (Nat.max indent at) (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => laysWeaker inner indent (Mid at floor) trace strong weak implies lays
         | Held at floor, lays =>
-          laysWeaker inner (Nat.max indent (at + 2)) (AtStart (floored floor (Nat.max indent (at + 2))) floor) trace
+          laysWeaker inner
+            (Nat.max indent (at + 2))
+            (AtStart (floored floor (Nat.max indent (at + 2))) floor)
+            trace
             strong
             weak
             implies
@@ -320,8 +326,17 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
       (laysWeaker flat indent place trace strong weak implies flatLays)
     )
     | Flatten inner, lays => laysWeaker inner indent place trace strong weak implies lays
-    | OneLineBelow inner, Both mid lays =>
-      (mid, (laysWeaker inner (indent + 2) (AtStart (floored place.floor (indent + 2)) place.floor) trace strong weak implies lays))
+    | OneLineBelow inner, Both mid lays => (
+      mid,
+      (laysWeaker inner
+        (indent + 2)
+        (AtStart (floored place.floor (indent + 2)) place.floor)
+        trace
+        strong
+        weak
+        implies
+        lays)
+    )
     | Concat docs, lays => allLaysWeaker docs indent place trace strong weak implies lays
     | Fill items, lays => fillLaysWeaker items indent place trace strong weak implies lays
     | Choice options, lays => optionsLayWeaker options indent place trace strong weak implies lays
@@ -746,8 +761,10 @@ theorem closeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printe
   match place, tracks, lays with
     | Held at floor, tracks, (closes, lays) =>
       ((closesWord text closes), (onward _ _ _ (waitsClose laid printed text tracks closes) lays))
-    | AtStart at floor, tracks, lays => writeLaysPuts indent text (AtStart at floor) laid printed next put onward tracks lays
-    | Broken at floor, tracks, lays => writeLaysPuts indent text (Broken at floor) laid printed next put onward tracks lays
+    | AtStart at floor, tracks, lays =>
+      writeLaysPuts indent text (AtStart at floor) laid printed next put onward tracks lays
+    | Broken at floor, tracks, lays =>
+      writeLaysPuts indent text (Broken at floor) laid printed next put onward tracks lays
     | Mid at floor, tracks, lays => writeLaysPuts indent text (Mid at floor) laid printed next put onward tracks lays
 
 --| `SepLays` gives `SepPuts`, in the printer's own trace, given how the traces
@@ -872,16 +889,20 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
     | Nest more inner, lays => laysPuts inner (indent + more) place laid printed next put onward tracks lays
     | Align inner, lays =>
       match place, tracks, lays with
-        | AtStart at floor, tracks, lays => laysPuts inner indent (AtStart at floor) laid printed next put onward tracks lays
-        | Broken at floor, tracks, lays => laysPuts inner indent (Broken at floor) laid printed next put onward tracks lays
+        | AtStart at floor, tracks, lays =>
+          laysPuts inner indent (AtStart at floor) laid printed next put onward tracks lays
+        | Broken at floor, tracks, lays =>
+          laysPuts inner indent (Broken at floor) laid printed next put onward tracks lays
         | Mid at floor, tracks, lays => column =>
           laysPuts inner column (Mid at floor) laid printed next put onward tracks (lays column)
         | Held at floor, tracks, lays => column =>
           laysPuts inner column (Held at floor) laid printed next put onward tracks (lays column)
     | AlignInset inner, lays =>
       match place, tracks, lays with
-        | AtStart at floor, tracks, lays => laysPuts inner (indent + 2) (AtStart at floor) laid printed next put onward tracks lays
-        | Broken at floor, tracks, lays => laysPuts inner (indent + 2) (Broken at floor) laid printed next put onward tracks lays
+        | AtStart at floor, tracks, lays =>
+          laysPuts inner (indent + 2) (AtStart at floor) laid printed next put onward tracks lays
+        | Broken at floor, tracks, lays =>
+          laysPuts inner (indent + 2) (Broken at floor) laid printed next put onward tracks lays
         | Mid at floor, tracks, lays => column =>
           laysPuts inner column (Mid at floor) laid printed next put onward tracks (lays column)
         | Held at floor, tracks, lays => column =>

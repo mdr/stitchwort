@@ -857,7 +857,8 @@ theorem printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat) (mode:
 --| `softLineAfterComment`, `textAfterComment` and `closePut`,
 --| this is why every trailing comment ends its line, whatever document
 --| the engine prints.
-theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (waiting: printer.suffixes.isEmpty = False):
+theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd)
+    (waiting: printer.suffixes.isEmpty = False):
     printer.printDoc total indent Flat Line rest = ({ printer | heldSpaces = printer.heldSpaces + 1 }, rest) :=
   rewrite waiting
 
@@ -893,13 +894,16 @@ theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (wi
   rewrite nonEmpty, waiting, spaces
 
 --| An instance: a space after a waiting comment is held.
-theorem spacesAfterCommentExample:
-    ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1 = { Printer.start 80 | suffixes = ["-- c"], heldSpaces = 1 } :=
+theorem spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
+      = { Printer.start 80 | suffixes = ["-- c"], heldSpaces = 1 } :=
   byComputing
 
 --| An instance: `Both ( ) -- c`.
-theorem closeAfterCommentExample:
-    (print (Doc.concat [Doc.text "Both (", LineSuffix "-- c", Doc.text " ", Closing ")"]) 120 == "Both ( ) -- c") = True :=
+theorem closeAfterCommentExample: (print
+      (Doc.concat [Doc.text "Both (", LineSuffix "-- c", Doc.text " ", Closing ")"])
+      120
+      == "Both ( ) -- c")
+      = True :=
   byComputing
 
 --| A comment break is deeper than the line it breaks.

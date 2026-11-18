@@ -182,7 +182,9 @@ theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart 
     | True => byComputing
     | False =>
       let broken := printer.newline (printer.continuation indent)
-      Eq.trans (floorWords broken (Some (printer.continuation indent))) (newlineWords printer (printer.continuation indent))
+      Eq.trans
+        (floorWords broken (Some (printer.continuation indent)))
+        (newlineWords printer (printer.continuation indent))
 
 --| A `Displaced` element leaves the printer's words as they were.
 theorem displaceWords ∀ (printer: Printer) (indent: Nat): (printer.displace indent).words = printer.words :=
@@ -1010,7 +1012,8 @@ theorem closeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (text: Text)
     | False =>
       match waiting: printer.suffixes.isEmpty with
         | True => rewrite (putWritten printer text text.length).right then waits
-        | False => rewrite (putWritten printer.writeHeld text text.length).right, (writeHeldWritten printer).right then waits
+        | False =>
+          rewrite (putWritten printer.writeHeld text text.length).right, (writeHeldWritten printer).right then waits
 
 --| A comment break leaves every waiting comment satisfying the test, if
 --| they did.
