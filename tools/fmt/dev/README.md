@@ -17,13 +17,20 @@ SLIM=/path/to/scratch/slim
 mkdir -p $SLIM/src/Fmt $SLIM/src/Syntax
 cp tools/fmt/stitchwort.yaml $SLIM/
 cp tools/fmt/src/Syntax/*.sw $SLIM/src/Syntax/
-for f in Blank Meaning Passes Rules Spacing Slice1 Slice2 Slice3 DocDump Twin; do
+rm $SLIM/src/Syntax/LexProofs.sw
+for f in Blank Meaning Passes Rules Spacing Slice1 Slice2 Slice3 Slice4a Slice5a Slice4b DocDump Twin; do
   cp tools/fmt/src/Fmt/$f.sw $SLIM/src/Fmt/
 done
-printf '#!/bin/sh\nexec nice -n 15 %s run --project %s Fmt.Twin.main -- "$@"\n' \
-  "$PWD/target/release/stitchwort" "$SLIM" > /path/to/scratch/twin
+cp target/release/stitchwort /path/to/scratch/stitchwort
+printf '#!/bin/sh\nSTITCHWORT_STD_DIR=%s exec nice -n 15 %s run --project %s Fmt.Twin.main -- "$@"\n' \
+  "$PWD/crates/elab/src/std" /path/to/scratch/stitchwort "$SLIM" > /path/to/scratch/twin
 chmod +x /path/to/scratch/twin
 ```
+
+A copied binary doesn't find std beside it, hence `STITCHWORT_STD_DIR`.
+Copy the binary so a rebuild in the worktree doesn't change it mid-run,
+and use a fresh `FMT_TWIN_CACHE` for a gate: the harness's cache is keyed
+on the sources, not the binary.
 
 Copy the slim folder again after changing the formatter. Each batch
 starts by checking the project (about 25 s), then takes 850 MB to 1.5 GB.
