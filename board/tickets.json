@@ -23769,12 +23769,12 @@
     {
       "id": 3966,
       "title": "[Opus] fmt S1 ticket 15: rule N proofs (sketch §2, 150-230 theorems, est. 130 min; was Fable's in the plan)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Estimate: 80 min (brief). Started 12:58, done 13:40 (42 min).\n\nProgress (Opus lane, branch lane/SW-3966): tools/fmt/src/Syntax/SettleProofs.sw, namespace Syntax.SettleProofs, 111 theorems; audit 0 failed, 2 vacuity warnings (sampling only; witnesses exist).\n- Proved: settledKeepsTokens, settledCommasBare, settledTrimmed (all lexed); letsQuiet1, barsQuiet1; settledArrowsBare1, settledKeepsComments, settledHomed, settledIdempotent (under alphabet1, plus laidOut for the last three and plain1 for the last two).\n- Not proved: settledAnyLayout (scaffold laidFrom/relayFrom/laidFromOnto/chainSteps in place), general settledArrowsBare, bareSettles (not defined by the sketch; §3.4 way 1 needs none, way 2 waits for 13c's search).\n- Settle.sw split (behaviour same; Fmt.Tests 61/61, Syntax.Tests 52/52): barBelow out of homeFrom; commasFrom and letsFrom matches use guards.\n- arrowsBare also exists in Fmt (Predicates1, on words); mine is Syntax.SettleProofs.arrowsBare on leaves; both kept.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
