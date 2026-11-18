@@ -24371,12 +24371,12 @@
     {
       "id": 4011,
       "title": "[Opus] fmt S1 rules proofs 18d: printedHangs (the printer's output satisfies Fmt.hangs, with SW-3969's two clauses), on a Lays/Puts column framework like the toy's EventProofs/LaidProofs (~3,000 lines there; reuse what Std.Doc's proofs already give); then printedKeeping and printedSettle1 (SW-3971)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus, 18 Nov 2026, branch lane/SW-4011):\n- Framework (recorded in tools/fmt/NOTES.md): the hangs fold runs over the printer's trace (hangOf over Doc.Proofs events); HangLays triples like JoinProofs' Passes; hangsPrinted is the engine end via printLays/Tucks; an element folds as one plain token at its first word (ElHangs/openedBy).\n- Fmt.HangProofs: 92 theorems, audit 0 failed. printedHangs itself not proved: done are the fold, all Doc constructors, words, every HangState step, plain leaves, displaced/framed elements, element-then-part, prefix operators, a token's own-line comments to its line start.\n- Finding: Std.Doc's Lays can't lay a Blank right after a Line/SoftLine break or LineStart (they give AtStart; BlankLays AtStart = False), though the printer prints it. Blocks items with kept blank lines; fix is in Std (breaks give Broken, StartLays keeps Broken, printPuts re-proved).\n- Owed: noted leaf as element, closers via CloserLine (marks invariant), Word.opening, Expr.el for paren/brackets/app/chain, bodyAfter/headDocs/defDoc/doc1, the leaves-to-events bridge, printedHangs. List in NOTES.\n- Tests: check Syntax, Fmt, Fmt.JoinProofs, Fmt.HangProofs; audit Fmt.HangProofs (92 thm, 0 failed) and Fmt.JoinProofs (162 thm, 0 failed, 4 with warnings, untouched); test Fmt.Tests 94/94.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
