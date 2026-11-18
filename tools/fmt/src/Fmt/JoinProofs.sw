@@ -12,7 +12,7 @@ namespace Fmt.JoinProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void, byDecision)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Tok, Word, isWordChar)
+import Syntax (Expr, Tok, Word, isWordChar)
 import Syntax.Proofs (MayFollow)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
@@ -560,6 +560,13 @@ theorem closerCloses ∀ (text: Text) (closer: isCloserText text = True): Closes
         match brace: text == "}" with
           | True => Inr (Inr (Inl (DecEq.sound brace)))
 
+theorem closerNotComma ∀ (text: Text) (closer: isCloserText text = True): (text == ",") = False :=
+  match closerCloses text closer with
+    | Inl same => rewrite same
+    | Inr (Inl same) => rewrite same
+    | Inr (Inr (Inl same)) => rewrite same
+    | Inr (Inr (Inr same)) => rewrite same at closer then cases
+
 --| A closer or comma: from where it may stand, the line ends with it, and a comment waiting before it still waits.
 theorem closingPasses ∀ (kinds: Text → Tok) (before: Bool) (text: Text)
     (closes: Closes text):
@@ -954,3 +961,412 @@ theorem leafPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key:
                 (leafFlag (isCloserText word.text) around.before word.trails)
                 edge
                 left))))
+
+-- What the tree's words must be.
+
+--| A token that is no closer or comma, printed as the rules print it.
+def WordJoins (word: Word): Prop :=
+  word.sound = True ∧ Token word.text ∧ (word.text == ",") = False ∧ isCloserText word.text = False
+
+--| A closing bracket.
+def CloserJoins (word: Word): Prop := word.sound = True ∧ isCloserText word.text = True
+
+--| An opening bracket: anything may follow it.
+def OpenerJoins (kinds: Text → Tok) (word: Word): Prop :=
+  WordJoins word ∧ ∀ (next: Text) => Follows kinds word.text next
+
+--| The facts that carry the glue, for each token of an expression: what kind of token it is, and that a prefix
+--| operator's operand may follow it where nothing is written between them.
+def Joinable (kinds: Text → Tok): Expr → Prop
+  | Atom _ word => WordJoins word
+  | Paren open inner close => OpenerJoins kinds open ∧ CloserJoins close ∧ Joinable kinds inner
+  | Tuple open items _ close => OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
+  | ListOf open items _ close => OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
+  | App head arguments => Joinable kinds head ∧ AllJoinable kinds arguments
+  | Infix _ left operator right => Joinable kinds left ∧ WordJoins operator ∧ Joinable kinds right
+  | Prefix operator operand =>
+    WordJoins operator
+      ∧ Joinable kinds operand
+      ∧ ((prefixGap operator operand).isEmpty = True → Follows kinds operator.text operand.lead.text)
+  | _ => False
+
+def AllJoinable (kinds: Text → Tok): List Expr → Prop
+  | [] => True
+  | [expr, ..rest] => Joinable kinds expr ∧ AllJoinable kinds rest
+
+--| What the rules' lemmas say of an expression: its element joins from where its first token may stand, and leaves
+--| the line ending with a token, a comment waiting only if it ends with one.
+def ElPasses (kinds: Text → Tok) (expr: Expr): Prop :=
+  expr.within1 = True
+    → Joinable kinds expr
+    → ∀ (around: Around) => Passes kinds (expr.el around) (Ready kinds around.before expr.lead.text) (Ended expr.trails)
+
+-- Comments ending an element.
+
+theorem trailsBackAppend ∀ (front back: List Word)
+    (trails: trailsBack front = True):
+    trailsBack (front ++ back) = True :=
+  match front with
+    | [word, ..rest] =>
+      match own: word.trails with
+        | True => byComputing
+        | False =>
+          match closer: isCloserText word.text with
+            | True => trailsBackAppend rest back trails
+
+--| A bracket ends with a comment when its closer does, or the code before the closer does.
+theorem bracketTrails ∀ (open close: Word) (middle: List Word)
+    (closer: isCloserText close.text = True):
+    trailsBack ([open, ..middle] ++ [close]).reverse = (close.trails || trailsBack (middle.reverse ++ [open])) :=
+  rewrite List.reverseSnoc [open, ..middle] close, List.reverseCons open middle, closer
+
+-- Openers, and the comments before an element.
+
+theorem ownEmpty ∀ (text: Text) (rest: Bool) (key: Nat)
+    (closer: isCloserText text = False):
+    (if isCloserText text && rest then [CloserLine key] else []) = [] :=
+  rewrite closer
+
+theorem flagSame ∀ (before: Bool) (text: Text) (trails: Bool)
+    (closer: isCloserText text = False):
+    (before && !(isCloserText text && trails)) = before :=
+  rewrite closer, andTrueSame before
+
+--| A token's own-line comments and kept blank line, before a token that is no closer.
+theorem leadingPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
+    (sound: word.sound = True)
+    (closer: isCloserText word.text = False):
+    PassesAll kinds
+      (word.leading around key)
+      (Ready kinds around.before word.text)
+      (Ready kinds around.before word.text) :=
+  let front :=
+    frontPasses kinds word around key sound (same => (Bool.falseNotTrue (Eq.trans closer.flipped same)).impossible)
+  rewrite ownEmpty word.text (!word.noted && around.before && word.trails) key closer,
+      flagSame around.before word.text word.trails closer at front then
+    rewrite List.appendNil (word.leading around key) at front then front
+
+theorem markListPasses ∀ (kinds: Text → Tok) (marked: Bool) (key: Nat) (pre: Edge → Prop):
+    PassesAll kinds (if marked then [Mark key] else []) pre pre :=
+  match marked with
+    | True => passesLast kinds (Mark key) pre pre (passesMark kinds key pre)
+    | False => passesNil kinds pre pre (edge holds => holds)
+
+--| An opening bracket, from where it may stand: then anything may come next.
+theorem openingPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (closer: Word)
+    (opener: OpenerJoins kinds word):
+    Passes kinds (word.opening around closer) (Ready kinds around.before word.text) (Free kinds word.trails) :=
+  match opener with
+    | ((sound, token, comma, notCloser), free) =>
+      let marked := closer.noted || closer.trails
+      let solid: isLayout word.text = False := Bool.notTrue (isLayout word.text) (Bool.andLeft sound)
+      let after: afterSound word.comments.after = True := Bool.andRight (Bool.andRight sound)
+      let piecePass := piecePasses kinds around.before word.text solid comma
+      passesConcat kinds _ _ _
+        (passesAppend kinds
+          (word.leading around around.at)
+          ((if marked then [Mark around.at] else []) ++ [piece word.text] ++ word.trailing)
+          (Ready kinds around.before word.text)
+          (Ready kinds around.before word.text)
+          (Free kinds word.trails)
+          (leadingPasses kinds word around around.at sound notCloser)
+          (passesAppend kinds
+            (if marked then [Mark around.at] else [])
+            ([piece word.text] ++ word.trailing)
+            (Ready kinds around.before word.text)
+            (Ready kinds around.before word.text)
+            (Free kinds word.trails)
+            (markListPasses kinds marked around.at (Ready kinds around.before word.text))
+            (passesCons kinds
+              (piece word.text)
+              word.trailing
+              (Ready kinds around.before word.text)
+              (Left word.text False)
+              (Free kinds word.trails)
+              (passesTo kinds
+                (piece word.text)
+                (Ready kinds around.before word.text)
+                (Left word.text (isCloserText word.text && around.before))
+                (Left word.text False)
+                piecePass
+                (edge left =>
+                  leftWeaker word.text
+                    (isCloserText word.text && around.before)
+                    False
+                    (flag => rewrite notCloser at flag then flag)
+                    edge
+                    left))
+              (allTo kinds word.trailing
+                (Left word.text False)
+                (Left word.text (word.trails || False))
+                (Free kinds word.trails)
+                (trailingPasses kinds word False after token (trailing => byComputing))
+                (edge left =>
+                  match edge, left with
+                    | Plain (Some last), same => rewrite same then free
+                    | Waiting (Some last), (same, waits) =>
+                      (rewrite Bool.orFalse word.trails at waits then waits, rewrite same then token)
+                    | Plain None, never => (Bool.falseNotTrue never).impossible
+                    | Waiting None, never => (Bool.falseNotTrue never).impossible)))))
+
+-- Framing, and the elements of the slice.
+
+--| A node's document after its first token's own-line comments, displaced or not.
+theorem framedPasses ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (post: Edge → Prop)
+    (sound: first.sound = True)
+    (closer: isCloserText first.text = False)
+    (inner: Passes kinds doc (Ready kinds around.before first.text) post):
+    Passes kinds (framedBy first around doc) (Ready kinds around.before first.text) post :=
+  let pre := Ready kinds around.before first.text
+  let placed := if first.noted || around.before then Displaced doc else doc
+  let placedPasses: Passes kinds placed pre post := match first.noted || around.before with
+    | True => passesDisplaced kinds doc pre post inner byComputing
+    | False => inner
+  passesConcat kinds _ pre post
+    (passesTwo kinds
+      (Doc.concat (first.leading around around.at))
+      placed
+      pre
+      pre
+      post
+      (passesConcat kinds
+        (first.leading around around.at)
+        pre
+        pre
+        (leadingPasses kinds first around around.at sound closer))
+      placedPasses)
+
+--| The leftmost token of an element is one that joins as a token.
+theorem leadJoins ∀ (kinds: Text → Tok) (expr: Expr) (joinable: Joinable kinds expr): WordJoins expr.lead :=
+  match expr, joinable with
+    | Atom kind word, joins => joins
+    | Paren open inner close, (opener, _) => opener.left
+    | Tuple open items comma close, (opener, _) => opener.left
+    | ListOf open items comma close, (opener, _) => opener.left
+    | App head arguments, (headJoins, _) => leadJoins kinds head headJoins
+    | Infix kind left operator right, (leftJoins, _) => leadJoins kinds left leftJoins
+    | Prefix operator operand, (operator, _) => operator
+
+theorem framedExprPasses ∀ (kinds: Text → Tok) (expr: Expr) (around: Around) (doc: Doc) (post: Edge → Prop)
+    (within: expr.within1 = True)
+    (joinable: Joinable kinds expr)
+    (inner: Passes kinds doc (Ready kinds around.before expr.lead.text) post):
+    Passes kinds (expr.framed around doc) (Ready kinds around.before expr.lead.text) post :=
+  let lead := leadJoins kinds expr joinable
+  rewrite <- firstWordLead expr within then
+    framedPasses kinds expr.firstWord around doc post
+      (rewrite firstWordLead expr within then lead.left)
+      (rewrite firstWordLead expr within then lead.right.right.right)
+      (rewrite firstWordLead expr within then inner)
+
+theorem atomTrails ∀ (word: Word) (before: Bool)
+    (closer: isCloserText word.text = False)
+    (flag: (word.trails || (isCloserText word.text && before)) = True):
+    trailsBack [word] = True :=
+  rewrite closer at flag then match own: word.trails with | True => byComputing
+
+--| A name or numeral.
+theorem atomPasses ∀ (kinds: Text → Tok) (kind: Tok) (word: Word) (around: Around)
+    (joins: WordJoins word):
+    Passes kinds ((Atom kind word).el around) (Ready kinds around.before word.text) (Ended (Atom kind word).trails) :=
+  match joins with
+    | (sound, token, comma, closer) =>
+      passesTo kinds
+        (word.leaf around around.at)
+        (Ready kinds around.before word.text)
+        (Left word.text (word.trails || (isCloserText word.text && around.before)))
+        (Ended (Atom kind word).trails)
+        (leafPasses kinds word around around.at sound token comma (same =>
+          (Bool.falseNotTrue (Eq.trans closer.flipped same)).impossible))
+        (edge left =>
+          endedWeaker
+            (word.trails || (isCloserText word.text && around.before))
+            (trailsBack [word])
+            (atomTrails word around.before closer)
+            edge
+            (leftEnded word.text (word.trails || (isCloserText word.text && around.before)) token edge left))
+
+--| A bracket ends with a comment where its closer, or the code before it, does.
+theorem closeTrails ∀ (open close: Word) (middle: List Word)
+    (closer: isCloserText close.text = True)
+    (flag: (close.trails || (isCloserText close.text && trailsBack middle.reverse)) = True):
+    trailsBack ([open, ..middle] ++ [close]).reverse = True :=
+  rewrite bracketTrails open close middle closer then
+    match own: close.trails with
+      | True => byComputing
+      | False => rewrite closer at flag then trailsBackAppend middle.reverse [open] flag
+
+--| A closer after an element, ending its bracket.
+theorem closePasses ∀ (kinds: Text → Tok) (open close: Word) (middle: List Word) (around: Around) (key: Nat)
+    (closer: CloserJoins close)
+    (fresh: around.hoisted = False)
+    (before: around.before = trailsBack middle.reverse):
+    Passes kinds
+      (close.leaf around key)
+      (Ended around.before)
+      (Ended (trailsBack ([open, ..middle] ++ [close]).reverse)) :=
+  match closer with
+    | (sound, isCloser) =>
+      let closes := closerCloses close.text isCloser
+      let token := closesToken close.text closes
+      passesFrom kinds
+        (close.leaf around key)
+        (Ready kinds around.before close.text)
+        (Ended around.before)
+        (Ended (trailsBack ([open, ..middle] ++ [close]).reverse))
+        (passesTo kinds
+          (close.leaf around key)
+          (Ready kinds around.before close.text)
+          (Left close.text (close.trails || (isCloserText close.text && around.before)))
+          (Ended (trailsBack ([open, ..middle] ++ [close]).reverse))
+          (leafPasses kinds close around key sound token (closerNotComma close.text isCloser) (same => fresh))
+          (edge left =>
+            endedWeaker
+              (close.trails || (isCloserText close.text && around.before))
+              (trailsBack ([open, ..middle] ++ [close]).reverse)
+              (flag => closeTrails open close middle isCloser (rewrite <- before then flag))
+              edge
+              (leftEnded close.text (close.trails || (isCloserText close.text && around.before)) token edge left)))
+        (edge ended => endedReadyCloser kinds around.before close.text closes edge ended)
+
+theorem parenInnerPasses ∀ (kinds: Text → Tok) (inner: Expr) (around: Around) (pre post: Edge → Prop)
+    (within: inner.within1 = True)
+    (passes: Passes kinds (inner.el around) pre post):
+    Passes kinds (parenInner inner around) pre post :=
+  match inner with
+    | Block _ _ _ => cases
+    | If _ _ _ _ _ _ _ => cases
+    | _ => passes
+
+--| `( … )`: the opener, the element inside, which may follow it, and the closer.
+theorem parenPasses ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: Word) (around: Around)
+    (within: inner.within1 = True)
+    (opener: OpenerJoins kinds open)
+    (closer: CloserJoins close)
+    (innerPasses: ∀ (place: Around) => Passes kinds
+      (inner.el place)
+      (Ready kinds place.before inner.lead.text)
+      (Ended inner.trails)):
+    Passes kinds
+      (parenDoc open inner close around)
+      (Ready kinds around.before open.text)
+      (Ended (Paren open inner close).trails) :=
+  let innerAround := around.next open.trails 1
+  let closeAround := around.next inner.trails (1 + inner.size)
+  passesConcat kinds _ _ _
+    (passesCons kinds
+      (open.opening around close)
+      [parenInner inner innerAround, close.leaf closeAround around.at]
+      (Ready kinds around.before open.text)
+      (Free kinds open.trails)
+      (Ended (Paren open inner close).trails)
+      (openingPasses kinds open around close opener)
+      (passesTwo kinds
+        (parenInner inner innerAround)
+        (close.leaf closeAround around.at)
+        (Free kinds open.trails)
+        (Ended inner.trails)
+        (Ended (Paren open inner close).trails)
+        (passesFrom kinds
+          (parenInner inner innerAround)
+          (Ready kinds open.trails inner.lead.text)
+          (Free kinds open.trails)
+          (Ended inner.trails)
+          (parenInnerPasses kinds inner innerAround _ _ within (innerPasses innerAround))
+          (edge free => freeReady kinds open.trails inner.lead.text edge free))
+        (closePasses kinds open close inner.words closeAround around.at closer byComputing byComputing)))
+
+--| What a prefix operator writes before its operand: a space before a `-` or a numeral's application, else nothing,
+--| where the operand may follow the operator.
+theorem gapPasses ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr)
+    (token: Token operator.text)
+    (glue: (prefixGap operator operand).isEmpty = True → Follows kinds operator.text operand.lead.text):
+    Passes kinds
+      (prefixGap operator operand)
+      (Left operator.text operator.trails)
+      (Ready kinds operator.trails operand.lead.text) :=
+  match spaced: operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication) with
+    | True =>
+      passesTo kinds
+        (Doc.text " ")
+        (Left operator.text operator.trails)
+        (Gapped operator.trails)
+        (Ready kinds operator.trails operand.lead.text)
+        (passesFrom kinds
+          (Doc.text " ")
+          (Ended operator.trails)
+          (Left operator.text operator.trails)
+          (Gapped operator.trails)
+          (passesSpace kinds operator.trails)
+          (edge left => leftEnded operator.text operator.trails token edge left))
+        (edge gapped => gappedReady kinds operator.trails operand.lead.text edge gapped)
+    | False =>
+      let follows := glue byComputing
+      edge next left after =>
+        after edge
+          (match edge, left with
+            | Plain (Some last), same => rewrite same then follows
+            | Waiting (Some last), (same, waits) => (waits, (rewrite same then token))
+            | Plain None, never => (Bool.falseNotTrue never).impossible
+            | Waiting None, never => (Bool.falseNotTrue never).impossible)
+
+--| A prefix operator and its operand.
+theorem prefixPasses ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) (around: Around)
+    (joins: WordJoins operator)
+    (glue: (prefixGap operator operand).isEmpty = True → Follows kinds operator.text operand.lead.text)
+    (operandPasses: ∀ (place: Around) => Passes kinds
+      (operand.el place)
+      (Ready kinds place.before operand.lead.text)
+      (Ended operand.trails)):
+    Passes kinds
+      (Doc.concat [
+        operator.leaf { around | hoisted = True } around.at,
+        prefixGap operator operand,
+        operand.el (around.next operator.trails 1)
+      ])
+      (Ready kinds around.before operator.text)
+      (Ended (Prefix operator operand).trails) :=
+  match joins with
+    | (sound, token, comma, closer) =>
+      passesConcat kinds _ _ _
+        (passesCons kinds
+          (operator.leaf { around | hoisted = True } around.at)
+          [prefixGap operator operand, operand.el (around.next operator.trails 1)]
+          (Ready kinds around.before operator.text)
+          (Left operator.text operator.trails)
+          (Ended (Prefix operator operand).trails)
+          (passesTo kinds
+            (operator.leaf { around | hoisted = True } around.at)
+            (Ready kinds around.before operator.text)
+            (Left operator.text (operator.trails || (isCloserText operator.text && around.before)))
+            (Left operator.text operator.trails)
+            (leafPasses kinds operator { around | hoisted = True } around.at sound token comma (same =>
+              (Bool.falseNotTrue (Eq.trans closer.flipped same)).impossible))
+            (edge left =>
+              leftWeaker operator.text
+                (operator.trails || (isCloserText operator.text && around.before))
+                operator.trails
+                (flag => rewrite closer, Bool.orFalse operator.trails at flag then flag)
+                edge
+                left))
+          (passesTwo kinds
+            (prefixGap operator operand)
+            (operand.el (around.next operator.trails 1))
+            (Left operator.text operator.trails)
+            (Ready kinds operator.trails operand.lead.text)
+            (Ended (Prefix operator operand).trails)
+            (gapPasses kinds operator operand token glue)
+            (passesTo kinds
+              (operand.el (around.next operator.trails 1))
+              (Ready kinds operator.trails operand.lead.text)
+              (Ended operand.trails)
+              (Ended (Prefix operator operand).trails)
+              (operandPasses (around.next operator.trails 1))
+              (edge ended =>
+                endedWeaker operand.trails
+                  (Prefix operator operand).trails
+                  (trails =>
+                    rewrite List.reverseCons operator operand.words then
+                      trailsBackAppend operand.words.reverse [operator] trails)
+                  edge
+                  ended))))
