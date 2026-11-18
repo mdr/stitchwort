@@ -166,8 +166,10 @@ def symbol (rest: List Char): Option (Tok, Nat) := match rest with
 
 --| A name or keyword. `afterDot` says a `.` comes just before it, where
 --| `exists` and `forall` are names (`x.exists p`).
-def word (afterDot: Bool): {Parse Char} Parse.Located Lexeme :=
-  let from := Parse.mark()
+def word (afterDot: Bool): {Parse Char} Parse.Located Lexeme := wordFrom afterDot Parse.mark()
+
+--| `word` from the mark where it starts (a function of its own so that the proofs can name it).
+def wordFrom (afterDot: Bool) (from: Parse.Mark Char): {Parse Char} Parse.Located Lexeme :=
   let first := Parse.span isWordChar
   let firstUpper := first.head.map (char => char.isAsciiUppercase) |> .getOrElse False
   let kind := match qualified (from.left + 1) firstUpper None with
@@ -180,13 +182,16 @@ def word (afterDot: Bool): {Parse Char} Parse.Located Lexeme :=
 --| component read is uppercase, if any was.
 def qualified (fuel: Nat) (upper: Bool) (found: Option Bool): {Parse Char} Option Bool := match fuel with
   | Zero => found
-  | Succ more =>
-    match Parse.mark().rest with
-      | ['.', next, .._] if upper && next.isAsciiLetter =>
-        skip 1
-        let component := Parse.span isWordChar
-        qualified more next.isAsciiUppercase (Some next.isAsciiUppercase)
-      | _ => found
+  | Succ more => qualifiedOn more upper found Parse.mark().rest
+
+--| `qualified` with `more` fuel left, where the input is `input`.
+def qualifiedOn (more: Nat) (upper: Bool) (found: Option Bool) (input: List Char): {Parse Char} Option Bool :=
+  match input with
+    | ['.', next, .._] if upper && next.isAsciiLetter =>
+      skip 1
+      let component := Parse.span isWordChar
+      qualified more next.isAsciiUppercase (Some next.isAsciiUppercase)
+    | _ => found
 
 def wordKind (afterDot: Bool) (word: Text): Tok := match word with
   | "_" => Underscore
@@ -201,30 +206,50 @@ def wordKind (afterDot: Bool) (word: Text): Tok := match word with
 
 --| A number: digits, then a fraction and an exponent unless a `.` comes
 --| just before it (`xs.0.1` is `xs`, `.`, `0`, `.`, `1`).
-def number (afterDot: Bool): {Parse Char} Parse.Located Lexeme :=
-  let from := Parse.mark()
+def number (afterDot: Bool): {Parse Char} Parse.Located Lexeme := numberFrom afterDot Parse.mark()
+
+--| `number` from the mark where it starts (a function of its own so that the proofs can name it).
+def numberFrom (afterDot: Bool) (from: Parse.Mark Char): {Parse Char} Parse.Located Lexeme :=
   let digits := Parse.span Char.isAsciiDigit
-  let float :=
-    if afterDot then False
-    else
-      let fraction := match Parse.mark().rest with
-        | ['.', next, .._] if next.isAsciiDigit =>
-          skip 1
-          let decimals := Parse.span Char.isAsciiDigit
-          True
-        | _ => False
-      let exponent := match Parse.mark().rest with
-        | [e, sign, next, .._] if (e == 'e' || e == 'E') && (sign == '+' || sign == '-') && next.isAsciiDigit =>
-          skip 2
-          let power := Parse.span Char.isAsciiDigit
-          True
-        | [e, next, .._] if (e == 'e' || e == 'E') && next.isAsciiDigit =>
-          skip 1
-          let power := Parse.span Char.isAsciiDigit
-          True
-        | _ => False
-      fraction || exponent
+  let float := numberTail afterDot
   located (TokenLexeme (if float then Float else Num)) from
+
+--| What follows a number's digits: whether a fraction or an exponent made it a float.
+def numberTail (afterDot: Bool): {Parse Char} Bool :=
+  if afterDot then False
+  else
+    let fraction := fractionPart()
+    let exponent := exponentPart()
+    fraction || exponent
+
+def fractionPart(): {Parse Char} Bool := fractionFrom Parse.mark()
+
+def fractionFrom (at: Parse.Mark Char): {Parse Char} Bool :=
+  if fractionAhead at.rest then
+    skip 1
+    let decimals := Parse.span Char.isAsciiDigit
+    True
+  else False
+
+def exponentPart(): {Parse Char} Bool := exponentFrom Parse.mark()
+
+def exponentFrom (at: Parse.Mark Char): {Parse Char} Bool := match exponentSkip at.rest with
+  | Some count =>
+    skip count
+    let power := Parse.span Char.isAsciiDigit
+    True
+  | None => False
+
+--| Whether a `.` and a digit come next: the fraction of a number.
+def fractionAhead (input: List Char): Bool := match input with
+  | ['.', next, .._] => next.isAsciiDigit
+  | _ => False
+
+--| The characters to skip before the digits of an exponent that comes next, `e` or `E`, then perhaps a sign.
+def exponentSkip (input: List Char): Option Nat := match input with
+  | [e, sign, next, .._] if (e == 'e' || e == 'E') && (sign == '+' || sign == '-') && next.isAsciiDigit => Some 2
+  | [e, next, .._] if (e == 'e' || e == 'E') && next.isAsciiDigit => Some 1
+  | _ => None
 
 --| `.`, `..`, `..<` or `..=`, and after `.` or `..` the number or name
 --| that follows it with no space.
@@ -389,8 +414,20 @@ def segment (block: Bool): {Parse Char} Option Text := match Parse.mark().rest, 
 --| its `}`.
 def item (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (place: Place):
     {Parse Char} List (Parse.Located Lexeme) :=
-  let from := Parse.mark()
-  match from.rest with
+  itemAt self source place Parse.mark()
+
+--| `item` from the mark where it starts (a function of its own so that the
+--| proofs can name it).
+def itemAt (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (place: Place) (from: Parse.Mark Char):
+    {Parse Char} List (Parse.Located Lexeme) :=
+  itemOn self source place from from.rest
+
+--| `item` from the mark `from`, whose input is `input`.
+def itemOn (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (place: Place)
+    (from: Parse.Mark Char) (input: List Char):
+    {Parse Char} List (Parse.Located Lexeme) :=
+  match input with
     | [] =>
       match place with
         | TopLevel => stop()
@@ -430,7 +467,7 @@ def item (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Tex
         | Some kind => [tokenOf kind 1]
         | None => fail (unexpected next)
     | [next, .._] =>
-      match symbol from.rest with
+      match symbol input with
         | Some (kind, count) => [tokenOf kind count]
         | None => fail (if next == '@' then strayAt else unexpected next)
 
