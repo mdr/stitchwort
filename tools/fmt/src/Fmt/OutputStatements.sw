@@ -84,17 +84,7 @@ def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs d
 
 -- `printedFileLexes1`, that the file loop's text lexes to `SourceFile.lexed1`, is proved in `Fmt.FileLexProofs`.
 
---| `printedAlphabet1`: the output passes the alphabet, the driver's first test on the second run.
---|
---| Proof idea: by `printedTokens1` a token's text is a comma or a word's of the tree and its kind the lexer's for
---| that text; `lexical1` and `within1` put every word's kind in the alphabet.
-theorem printedAlphabet1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    alphabet1 file.lexed1.leaves = True :=
-  ?
+-- `printedAlphabet1`, that the output passes the alphabet, is proved in `Fmt.OutputFileProofs`.
 
 --| `printedNoLast1`: the output has no comma directly before a closer, so `settledOnce` of it is `settled`
 --| (`settledOnceNone`). It holds whatever the tree's trailing-comma flags say: the rules never print one.
