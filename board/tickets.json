@@ -24633,12 +24633,12 @@
     {
       "id": 4031,
       "title": "[Opus] fmt S1 read-back 17f: - and ! (lineKind admits Minus and Bang; groupLine's no-section-operator proof looks only at the last item before ); a separate sign kind in speltStarts), operators, multi-line declarations, then readsBack1 over calm, discharging lineAll/inLineAll/laterInLine from printedHangs and Spelt from printedSpells (SW-4026's notes in tools/fmt/NOTES.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4027: within1 now refuses any Lower name 'auto', so Expr.autoFree1 follows from within1 (state it as a lemma, then readsBackLine's typeFree/valueFree come from the tree).\n\nFrom SW-4025: read-back's end is over calmTop (or calm after SW-4041), not calm; read.calm = T.calm is false for a leading blank line (topFlagLost). Interface for step 6 in docs/reviews/SW-4025-output-statements.md. SW-4044 generalises to any comments.",
+      "body": "From SW-4027: within1 now refuses any Lower name 'auto', so Expr.autoFree1 follows from within1 (state it as a lemma, then readsBackLine's typeFree/valueFree come from the tree).\n\nFrom SW-4025: read-back's end is over calmTop (or calm after SW-4041), not calm; read.calm = T.calm is false for a leading blank line (topFlagLost). Interface for step 6 in docs/reviews/SW-4025-output-statements.md. SW-4044 generalises to any comments.\n\nLane notes (SW-4031, Opus, 18 Nov): step 1 done (signs at the unary level and as call arguments; groupLine looks only at the item before the closer). Step 2 partly done: arrows on one line (arrowLine), UnaryEnds as the shared base for the binary operators, which aren't started. Step 4 partly done: typeFree/valueFree come from within1 (readsBackLineWithin). Steps 3 and 4's Spelt/hang discharge not started. Finding: shaped1 admits trees that don't read back (a - b - c nested to the right, !x y, f - -x), so readsBack1 needs a stricter shape. Glue (spacing) is also a printer fact no lemma states yet. Details are in tools/fmt/NOTES.md, under \"Read-back, signs and arrows\". Audit: 118 theorems, 0 failed, 0 warnings.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
