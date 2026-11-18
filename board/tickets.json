@@ -1,5 +1,5 @@
 {
-  "next": 3948,
+  "next": 3949,
   "tickets": [
     {
       "id": 47,
@@ -23502,6 +23502,19 @@
       "id": 3947,
       "title": "[Opus] Sweep erase::def_telescope's callers for matches on a parameter type without forcing it first (js boundary had one, SW-3936); boundary's out-of-resources gives E-EXPORT not E-RESOURCE",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3948,
+      "title": "[Fable paper] Review SW-3936's kernel change before merge: add_validator reads erase::def_telescope and checks the decision under the definition's transparency set, glued; retype_def's signature now checked glued",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
