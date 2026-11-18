@@ -24280,12 +24280,12 @@
     {
       "id": 4004,
       "title": "[Opus] fmt S1 ticket 17b: readsBack1, the tree-by-tree read-back: a RunsFrom per parser function (~35, atoms up to the def frame), on SW-3968's named steps, from SW-3969's blockOneLine and Item facts; plan in tools/fmt/NOTES.md (SW-3969 section)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 70 min. Lane notes (Opus, 18 Nov 2026, branch lane/SW-4004, 15:18-15:50):\n- New tools/fmt/src/Syntax/ReadBackRuns.sw: 108 theorems (audit clean) of Parse.Runs completeness facts for slice 1's parser functions, bottom up: primitives, atoms, prefixes, brackets (paren, tuple, list), applications, the operator ladder (mul/add/append chains, range, comparison, logic, top), the inline/line/block expression rules, the def frame (definitionParts, declaration, Parse.run of a group), and the recursiveWith knot for a one-word expression.\n- Capstone: declarationRuns: Parse.run of a group `def name: type := value` gives Definition [] (plainHeader ...) (Assigned ...), given that resultType reads the type and expressionAt reads the value.\n- Parser split (behaviour kept): startsAtom -> startsAtomOn/startsAtomKind over items; bareCases -> bareCasesOn. Twin tree/goldens 132/132.\n- Not done: readsBack1 itself (tree induction over Spells/hangs; discharging the look-ahead hypotheses from the glue facts; ItemsAt link). Look-aheads are hypotheses, as pure functions of the items.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
