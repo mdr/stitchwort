@@ -579,9 +579,9 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
 
 -- The file.
 
---| A comment line the file loop prints reads back as it is: its text doesn't end in a carriage return, which the
---| lexer takes off (`crDropped`).
-def Note.unreturned (note: Note): Bool := !note.text.endsWith "\r"
+--| A comment line the file loop prints reads back as it is: its text doesn't end in a carriage return or a space,
+--| which the lexer takes off (`crDropped`).
+def Note.unreturned (note: Note): Bool := !note.text.endsWith "\r" && !note.text.endsWith " "
 
 --| No own-line comment the file loop prints ends in a carriage return: those above each declaration and at the end.
 def SourceFile.unreturned1 (file: SourceFile): Bool :=
@@ -810,7 +810,8 @@ theorem noteBack ∀ (note: Note)
   match note with
     | { text = written, blankBefore } =>
       let unspaced: written.endsWith " " = False := Bool.notTrue _ (Bool.andRight (Bool.andRight text))
-      let kept: trimReturns written.toList = written.toList := trimReturnsSame written.toList (Bool.notTrue _ plain)
+      let kept: trimReturns written.toList = written.toList :=
+        trimReturnsSame written.toList (Bool.notTrue _ (Bool.andLeft plain)) (Bool.notTrue _ (Bool.andRight plain))
       let unspacedKept: Text.startsWithChars [' '] (written.toList.reverseOnto []) = False := unspaced
       rewrite kept, unspacedKept then
         match written, blankBefore with
@@ -842,14 +843,16 @@ theorem reverseOntoFilled ∀ (xs acc: List Char) (filled: acc.isEmpty = False):
     | [] => filled
     | [x, ..rest] => reverseOntoFilled rest [x, ..acc] byComputing
 
-theorem startsHead ∀ (ys zs: List Char)
+theorem startsHead ∀ (mark: Char) (ys zs: List Char)
     (filled: ys.isEmpty = False):
-    Text.startsWithChars ['\r'] (ys ++ zs) = Text.startsWithChars ['\r'] ys :=
+    Text.startsWithChars [mark] (ys ++ zs) = Text.startsWithChars [mark] ys :=
   match ys with | [y, ..more] => byComputing
 
---| Characters that don't end in a carriage return keep all of them when the ones ending them are taken off.
+--| Characters that end in neither a carriage return nor a space keep all of them when the lexer takes those off the
+--| end.
 theorem trimReturnsSame ∀ (chars: List Char)
-    (plain: Text.startsWithChars ['\r'] chars.reverse = False):
+    (plain: Text.startsWithChars ['\r'] chars.reverse = False)
+    (unspaced: Text.startsWithChars [' '] chars.reverse = False):
     trimReturns chars = chars :=
   match chars with
     | [] => byComputing
@@ -860,20 +863,35 @@ theorem trimReturnsSame ∀ (chars: List Char)
             | True =>
               let same := DecEq.sound cut
               Void.impossible (Bool.trueNotFalse (rewrite same at plain then plain))
-            | False => byComputing
+            | False =>
+              match cutSpace: char == ' ' with
+                | True =>
+                  let same := DecEq.sound cutSpace
+                  Void.impossible (Bool.trueNotFalse (rewrite same at unspaced then unspaced))
+                | False => byComputing
         | [next, ..more] =>
           let filled: (List.reverse [next, ..more]).isEmpty = False := reverseOntoFilled more [next] byComputing
           let tail: Text.startsWithChars ['\r'] (List.reverse [next, ..more]) = False :=
-            rewrite <- startsHead (List.reverse [next, ..more]) [char] filled then
+            rewrite <- startsHead '\r' (List.reverse [next, ..more]) [char] filled then
               rewrite List.reverseCons char [next, ..more] at plain then plain
-          let same := trimReturnsSame [next, ..more] tail
+          let tailSpace: Text.startsWithChars [' '] (List.reverse [next, ..more]) = False :=
+            rewrite <- startsHead ' ' (List.reverse [next, ..more]) [char] filled then
+              rewrite List.reverseCons char [next, ..more] at unspaced then unspaced
+          let same := trimReturnsSame [next, ..more] tail tailSpace
           match cut: char == '\r' with
             | True => rewrite same
-            | False => rewrite same
+            | False =>
+              match cutSpace: char == ' ' with
+                | True => rewrite same
+                | False => rewrite same
 
---| A text that doesn't end in a carriage return keeps it all when the lexer takes one off.
-theorem unreturnedSame ∀ (text: Text) (plain: (!text.endsWith "\r") = True): withoutReturn text = text :=
-  match text with | MkText chars => rewrite trimReturnsSame chars (Bool.notTrue _ plain)
+--| A text that doesn't end in a carriage return or a space keeps it all when the lexer takes those off.
+theorem unreturnedSame ∀ (text: Text)
+    (plain: (!text.endsWith "\r" && !text.endsWith " ") = True):
+    withoutReturn text = text :=
+  match text with
+    | MkText chars =>
+      rewrite trimReturnsSame chars (Bool.notTrue _ (Bool.andLeft plain)) (Bool.notTrue _ (Bool.andRight plain))
 
 --| Trimming leaves whose comments are words' comment texts changes nothing.
 --| A comment whose text rule 5 leaves alone.
@@ -1048,6 +1066,22 @@ def returnFails (source: Text): Bool := match tidiedOf source with
 --| (`commentText` allows it), the file loop prints it, and the lexer reads the printed line back without it. Above a
 --| declaration and at the end. Trees the parser gives have none (`crDropped`).
 theorem returnLost: (returnFails "-- a\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\n") = True := byComputing
+
+--| `tidiedUnreturned1` (open, SW-3973's parser side): the tree the formatter prints has no own-line comment ending in
+--| a carriage return or a space, which is `printedSettle1`'s hypothesis `unreturned1` for trees from source.
+--|
+--| Why it should hold, and the route: the lexer gives each comment `withoutReturn` of its characters, which ends in
+--| neither (`trimReturns`, whose last-character facts follow from its definition by induction, with `commentRaw`'s
+--| `trimReturnsNone` as the model); `settledOnce` only trims (`trimEnd`, which keeps a text that doesn't end in a space)
+--| and moves comments between leaves, never changing a text (`SettleOnceProofs.textsParked` and its neighbours);
+--| `parseFile` turns each leaf's comments into the notes above a declaration or at the end unchanged
+--| (`SettleOnceProofs.noteTexts`); and the tidy passes (`withForall` to `withMergedParameters`) keep every note. What
+--| is missing is the last two: that the parser's notes, and the passes' notes, are the lexed texts and no others.
+theorem tidiedUnreturned1 ∀ (source: Text) (lexed: Lexed) (tidied: Tidied)
+    (lexes: lex source = Ok lexed)
+    (tidy: lexed.tidied = Ok tidied):
+    tidied.fourth.unreturned1 = True :=
+  ?
 
 -- Standing, joined.
 

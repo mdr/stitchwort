@@ -959,6 +959,11 @@ def returnKept (source: Text): Bool := match tidiedOf source with
 --| `\r\n` reads back as the same comment.
 theorem crDropped: returnKept "-- a\r\r\ndef d: A := b\n" = False := byComputing
 
+--| Nor does one with a space after the `\r` (SW-4065): the lexer takes the `\r`s and spaces off together, so rule 5
+--| has no space left to trim that would uncover a `\r`.
+theorem crSpaceDropped: (returnKept "-- a\r \ndef d: A := b\n" || returnKept "-- a \r\ndef d: A := b\n") = False :=
+  byComputing
+
 --| `printedSeam1`'s conclusion, of each declaration in a source's tidied tree.
 def seamedOn (source: Text): Bool := match tidiedOf source with
   | None => False

@@ -72,3 +72,15 @@ test "a comment line ending in two carriage returns keeps none and formats the s
     && formats "-- a\r\r\ndef d: A := b\n" "-- a\ndef d: A := b\n"
 
 test "a carriage return inside a comment, not at its end, is kept" := settles "def d: A := b -- a\rb\r\n"
+
+test "a comment ending in carriage returns and spaces, in any order, loses all of them and formats the same twice" :=
+  settles "-- a\r \ndef d: A := b\n"
+    && settles "-- a \r\ndef d: A := b\n"
+    && settles "-- a\r \r\ndef d: A := b\n"
+    && settles "def d: A := b\n-- a\r \r \n"
+    && settles "def d: A := b -- a \r \r\n"
+    && formats "-- a\r \ndef d: A := b\n" "-- a\ndef d: A := b\n"
+    && formats "-- a\r \r\ndef d: A := b\n" "-- a\ndef d: A := b\n"
+
+test "a carriage return or tab that text follows in a comment is kept and the output is stable" :=
+  settles "-- a\r\t\ndef d: A := b\n" && settles "-- a\rb\ndef d: A := b\n" && settles "def d: A := b -- a\rb \r\n"
