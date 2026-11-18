@@ -597,6 +597,46 @@ theorem wordKeptTwice ∀ (word: Word) (item closer: Bool):
     (word.kept item closer).kept item closer = word.kept item closer :=
   rewrite keptTwice word.comments item closer
 
+theorem wordKeptNoted ∀ (word: Word) (item closer: Bool): (word.kept item closer).noted = word.noted := cases
+
+--| `calm` keeps which items are plain values: it changes no token's
+--| own-line comments, only their blank-line flags.
+theorem exprCalmPlain ∀ (expr: Expr) (item: Bool): (expr.calm item).plainItem = expr.plainItem := match expr with
+  | Atom kind word => rewrite wordKeptNoted word item False
+  | _ => cases
+
+theorem calmAllPlain ∀ (items: List Expr) (item: Bool):
+    (calmAll item items).all Expr.plainItem = items.all Expr.plainItem :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] => rewrite exprCalmPlain first item, calmAllPlain rest item
+
+theorem calmLeadPlain ∀ (items: List Expr): (calmLead items).all Expr.plainItem = items.all Expr.plainItem :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] => rewrite exprCalmPlain first False, calmAllPlain rest True
+
+theorem calmLeadTwice ∀ (items: List Expr): calmLead (calmLead items) = calmLead items := match items with
+  | [] => byComputing
+  | [first, ..rest] => rewrite exprCalmTwice first False, calmAllTwice rest True
+
+theorem pickPlain ∀ (items: List Expr) (plain: Bool)
+    (same: items.all Expr.plainItem = plain):
+    (pickItems plain items).all Expr.plainItem = plain :=
+  match plain with
+    | True => rewrite calmLeadPlain items, same
+    | False => rewrite calmAllPlain items True, same
+
+theorem pickTwice ∀ (items: List Expr) (plain: Bool)
+    (same: items.all Expr.plainItem = plain):
+    pickItems plain (pickItems plain items) = pickItems plain items :=
+  match plain with
+    | True => calmLeadTwice items
+    | False => calmAllTwice items True
+
+theorem calmItemsTwice ∀ (items: List Expr): calmItems (calmItems items) = calmItems items :=
+  rewrite pickPlain items (items.all Expr.plainItem) byComputing, pickTwice items (items.all Expr.plainItem) byComputing
+
 theorem exprCalmTwice ∀ (expr: Expr) (item: Bool): (expr.calm item).calm item = expr.calm item := match expr with
   | Atom kind word => rewrite wordKeptTwice word item False
   | Paren open inner close =>
@@ -604,7 +644,7 @@ theorem exprCalmTwice ∀ (expr: Expr) (item: Bool): (expr.calm item).calm item 
   | Tuple open items comma close =>
     rewrite wordKeptTwice open item False, calmAllTwice items True, wordKeptTwice close False True
   | ListOf open items comma close =>
-    rewrite wordKeptTwice open item False, calmAllTwice items True, wordKeptTwice close False True
+    rewrite wordKeptTwice open item False, calmItemsTwice items, wordKeptTwice close False True
   | App head arguments => rewrite exprCalmTwice head item, calmAllTwice arguments False
   | Infix kind left operator right =>
     rewrite exprCalmTwice left item, wordKeptTwice operator False False, exprCalmTwice right False
@@ -654,7 +694,7 @@ theorem exprCalmWithin ∀ (expr: Expr) (item: Bool): (expr.calm item).within1 =
   | Atom kind word => byComputing
   | Paren open inner close => rewrite exprCalmWithin inner False
   | Tuple open items comma close => rewrite calmAllWithin items True
-  | ListOf open items comma close => rewrite calmAllWithin items True
+  | ListOf open items comma close => pickWithin items (items.all Expr.plainItem)
   | App head arguments => rewrite exprCalmWithin head item, calmAllWithin arguments False
   | Infix kind left operator right =>
     match kind with
@@ -668,6 +708,15 @@ theorem calmAllWithin ∀ (items: List Expr) (item: Bool): allWithin1 (calmAll i
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite exprCalmWithin first item, calmAllWithin rest item
+
+theorem calmLeadWithin ∀ (items: List Expr): allWithin1 (calmLead items) = allWithin1 items := match items with
+  | [] => byComputing
+  | [first, ..rest] => rewrite exprCalmWithin first False, calmAllWithin rest True
+
+theorem pickWithin ∀ (items: List Expr) (plain: Bool): allWithin1 (pickItems plain items) = allWithin1 items :=
+  match plain with
+    | True => calmLeadWithin items
+    | False => calmAllWithin items True
 
 theorem headerWithinResult ∀ (header: Header) (name: Word) (colon: Comments) (result: Expr)
     (same: result.within1 = header.result.within1):
@@ -715,7 +764,7 @@ theorem exprCalmWalk ∀ (expr: Expr) (item: Bool): (expr.calm item).walk meanin
     | Atom kind word => byComputing
     | Paren open inner close => rewrite exprCalmWalk inner False
     | Tuple open items comma close => rewrite calmAllWalk items True
-    | ListOf open items comma close => rewrite calmAllWalk items True
+    | ListOf open items comma close => rewrite pickWalk items (items.all Expr.plainItem)
     | App head arguments => rewrite exprCalmWalk head item, calmAllWalk arguments False
     | Infix kind left operator right => rewrite exprCalmWalk left item, exprCalmWalk right False
     | Prefix operator operand => rewrite exprCalmWalk operand False
@@ -726,6 +775,17 @@ theorem calmAllWalk ∀ (items: List Expr) (item: Bool):
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite exprCalmWalk first item, calmAllWalk rest item
+
+theorem calmLeadWalk ∀ (items: List Expr): walkExprs meaningPure (calmLead items) = walkExprs meaningPure items :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] => rewrite exprCalmWalk first False, calmAllWalk rest True
+
+theorem pickWalk ∀ (items: List Expr) (plain: Bool):
+    walkExprs meaningPure (pickItems plain items) = walkExprs meaningPure items :=
+  match plain with
+    | True => calmLeadWalk items
+    | False => calmAllWalk items True
 
 theorem declCalmWalk ∀ (decl: Decl): decl.calm.walk meaningPure = decl.walk meaningPure := match decl with
   | Definition attributes header (Assigned colonEq value) =>

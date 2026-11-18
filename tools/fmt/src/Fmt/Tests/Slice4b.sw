@@ -37,3 +37,7 @@ test "a record pattern, `.._` and the unit are outside the slice" :=
   refuses "def f: P → Nat\n  | { x, .. } => x\n"
     && refuses "def f: List Nat → Nat\n  | [x, .._] => x\n  | _ => 0\n"
     && refuses "def u: Unit := ()\n"
+
+test "a blank line before a filled tuple pattern's first cell is dropped" :=
+  formats "def sum (pair: (Nat, Nat)): Nat := match pair with\n  | (\n\n    a, b) => a + b\n"
+      "def sum (pair: (Nat, Nat)): Nat := match pair with | (a, b) => a + b\n"

@@ -484,6 +484,12 @@ def commaBracket (list: Bool) (open: Word) (items: List Expr) (close: Word) (aro
 --| ends its line with a comment), then after a comma.
 def itemAround (arm before: Bool) (at: Nat): Around := { before, hoisted = False, item = True, at, inArm = arm }
 
+--| Where a list's first item stands: `bare` (a list of only plain values)
+--| makes it no item for blank lines, as its blank line would write nothing
+--| mid-line when the list fills, yet still break the groups around it
+--| (SW-3963).
+def firstAround (bare arm before: Bool) (at: Nat): Around := { itemAround arm before at | item = !bare }
+
 --| A plain value of a list that fills its lines (D3572).
 def Expr.plainItem: Expr → Bool
   | Atom kind word =>
@@ -499,12 +505,17 @@ def bracketContent (list: Bool) (open: Word) (items: List Expr) (close: Word) (a
   let closeAround := around.next whole.trailsBeforeClose (whole.size - 1)
   let closer := close.leaf closeAround around.at
   let prefix := open.opening around close
+  let bare := list && items.all Expr.plainItem
   if items.isEmpty then Doc.concat [prefix, closer]
   else if list && !whole.holdsTrailingComment && items.all Expr.plainItem then
-    Doc.concat [prefix, Nest 2 (Fill (cells around.inArm open.trails (around.at + 1) items)), closer]
+    Doc.concat [prefix, Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) items)), closer]
   else
-    let parts :=
-      [prefix, Nest 2 (Doc.concat (brokenItems around.inArm True open.trails (around.at + 1) items)), SoftLine, closer]
+    let parts := [
+      prefix,
+      Nest 2 (Doc.concat (brokenItems bare around.inArm True open.trails (around.at + 1) items)),
+      SoftLine,
+      closer
+    ]
     Doc.concat (if whole.holdsTrailingComment then parts ++ [BreakParent] else parts)
 
 --| Whether the code before a bracket's closer, closers aside, ends its line
@@ -512,21 +523,21 @@ def bracketContent (list: Bool) (open: Word) (items: List Expr) (close: Word) (a
 def Expr.trailsBeforeClose (expr: Expr): Bool := trailsBack (expr.words.reverse.drop 1)
 
 --| A filled list's cells: each item with its comma.
-def cells (arm before: Bool) (at: Nat): List Expr → List Doc
+def cells (bare arm before: Bool) (at: Nat): List Expr → List Doc
   | [] => []
-  | [item] => [item.el (itemAround arm before at)]
+  | [item] => [item.el (firstAround bare arm before at)]
   | [item, ..rest] =>
-    [Doc.concat [item.el (itemAround arm before at), Closing ","], ..cells arm False (at + item.size) rest]
+    [Doc.concat [item.el (firstAround bare arm before at), Closing ","], ..cells False arm False (at + item.size) rest]
 
 --| A broken bracket's items: each starts a line, with its comma after it.
-def brokenItems (arm first before: Bool) (at: Nat): List Expr → List Doc
+def brokenItems (bare arm first before: Bool) (at: Nat): List Expr → List Doc
   | [] => []
-  | [item] => [if first then SoftLine else Line, item.el (itemAround arm before at)]
+  | [item] => [if first then SoftLine else Line, item.el (firstAround bare arm before at)]
   | [item, ..rest] => [
     if first then SoftLine else Line,
-    item.el (itemAround arm before at),
+    item.el (firstAround bare arm before at),
     Closing ",",
-    ..brokenItems arm False False (at + item.size) rest
+    ..brokenItems False arm False False (at + item.size) rest
   ]
 
 -- Calls.
@@ -1304,12 +1315,13 @@ def patternBracket (tuple: Bool) (open: Word) (items: List Pattern) (rest: List 
   let words := [open, ..patternsWords items] ++ rest ++ [close]
   let closer := close.leaf (around.next (trailsBack (words.reverse.drop 1)) (words.length - 1)) around.at
   let prefix := open.opening around close
+  let bare := tuple && items.all Pattern.plainName
   let holds := (words.filter Word.trails |> .length) > (if trailsBack words.reverse then 1 else 0)
   if items.isEmpty && tail.isNone then Doc.concat [prefix, closer]
   else if tuple && !holds && items.all Pattern.plainName then
-    Doc.concat [prefix, Nest 2 (Fill (patternCells around.inArm open.trails (around.at + 1) items)), closer]
+    Doc.concat [prefix, Nest 2 (Fill (patternCells bare around.inArm open.trails (around.at + 1) items)), closer]
   else
-    let body := brokenPatterns around.inArm True open.trails (around.at + 1) items tail
+    let body := brokenPatterns bare around.inArm True open.trails (around.at + 1) items tail
     let parts := [prefix, Nest 2 (Doc.concat body), SoftLine, closer]
     Doc.concat (if holds then parts ++ [BreakParent] else parts)
 
@@ -1320,17 +1332,17 @@ def Pattern.plainName: Pattern → Bool
   | _ => False
 
 --| A filled tuple pattern's cells: each item with its comma.
-def patternCells (arm before: Bool) (at: Nat): List Pattern → List Doc
+def patternCells (bare arm before: Bool) (at: Nat): List Pattern → List Doc
   | [] => []
-  | [item] => [item.el (itemAround arm before at)]
+  | [item] => [item.el (firstAround bare arm before at)]
   | [item, ..rest] => [
-    Doc.concat [item.el (itemAround arm before at), Closing ","],
-    ..patternCells arm False (at + item.words.length) rest
+    Doc.concat [item.el (firstAround bare arm before at), Closing ","],
+    ..patternCells False arm False (at + item.words.length) rest
   ]
 
 --| A broken tuple or list pattern's items, as `brokenItems`, then a list's
 --| `..rest`.
-def brokenPatterns (arm first before: Bool) (at: Nat) (items: List Pattern) (tail: Option Doc): List Doc :=
+def brokenPatterns (bare arm first before: Bool) (at: Nat) (items: List Pattern) (tail: Option Doc): List Doc :=
   match items with
     | [] =>
       match tail with
@@ -1338,9 +1350,9 @@ def brokenPatterns (arm first before: Bool) (at: Nat) (items: List Pattern) (tai
         | None => []
     | [item, ..rest] =>
       let more := !rest.isEmpty || tail.isSome
-      [if first then SoftLine else Line, item.el (itemAround arm before at)]
+      [if first then SoftLine else Line, item.el (firstAround bare arm before at)]
         ++ (if more then [Closing ","] else [])
-        ++ brokenPatterns arm False False (at + item.words.length) rest tail
+        ++ brokenPatterns False arm False False (at + item.words.length) rest tail
 
 --| `(name := value)`, a named argument (`join`: no rule of its own).
 def namedArgDoc (open name colonEq: Word) (value: Expr) (close: Word) (around: Around): Doc := Doc.concat [

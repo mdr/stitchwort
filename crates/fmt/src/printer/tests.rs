@@ -1012,6 +1012,44 @@ fn a_closer_after_a_trailing_comment_goes_left_of_the_lines_inside_its_brackets(
     );
 }
 
+/// A blank line before the first cell of a filled list is dropped: it
+/// would write nothing in mid-line but still break the groups around it,
+/// and the result would format to another text (SW-3963).
+#[test]
+fn a_blank_line_before_a_filled_lists_first_cell_is_dropped() {
+    check("def d: A := g [\n\n  f, a]\n", "def d: A := g [f, a]\n");
+}
+
+/// The same for a filled tuple pattern (SW-3992 filled them).
+#[test]
+fn a_blank_line_before_a_filled_tuple_patterns_first_cell_is_dropped() {
+    check(
+        "def sum (pair: (Nat, Nat)): Nat := match pair with\n  | (\n\n    a, b) => a + b\n",
+        "def sum (pair: (Nat, Nat)): Nat := match pair with | (a, b) => a + b\n",
+    );
+}
+
+/// A last comma that starts its line, after a blank line, hands its
+/// trailing comment to the closer's own-line comments with that blank line
+/// (SW-3963: the Stitchwort formatter dropped it).
+#[test]
+fn a_last_commas_trailing_comment_keeps_the_commas_blank_line_above_it() {
+    check(
+        "def d: A := f [g -- t12\n  -- o13\n\n , -- t14\n]\n",
+        "def d: A := f [g -- t12\n  -- o13\n\n  -- t14\n]\n",
+    );
+}
+
+/// A last comma on a line of its own, between comments, is deleted as text
+/// and leaves its line blank (SW-3963).
+#[test]
+fn a_last_comma_on_its_own_line_leaves_a_blank_line_between_the_comments_around_it() {
+    check(
+        "def d: A := f [g\n  -- o2\n  ,\n  -- o3\n]\n",
+        "def d: A := f [g\n  -- o2\n\n  -- o3\n]\n",
+    );
+}
+
 /// A lambda right before a `;` keeps its body after `=>`: below, the body
 /// would be a block, which the `;` would end as a sequence of its own
 /// (SW-3605, SW-3587: here after a comment broke the parameters).

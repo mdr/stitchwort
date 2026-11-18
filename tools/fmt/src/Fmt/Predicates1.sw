@@ -75,11 +75,23 @@ def Expr.calm (expr: Expr) (item: Bool): Expr := match expr with
   | Atom kind word => Atom kind (word.kept item False)
   | Paren open inner close => Paren (open.kept item False) (inner.calm False) (close.kept False True)
   | Tuple open items comma close => Tuple (open.kept item False) (calmAll True items) comma (close.kept False True)
-  | ListOf open items comma close => ListOf (open.kept item False) (calmAll True items) comma (close.kept False True)
+  | ListOf open items comma close => ListOf (open.kept item False) (calmItems items) comma (close.kept False True)
   | App head arguments => App (head.calm item) (calmAll False arguments)
   | Infix kind left operator right => Infix kind (left.calm item) (operator.kept False False) (right.calm False)
   | Prefix operator operand => Prefix (operator.kept item False) (operand.calm False)
   | other => other
+
+--| The items of a list of only plain values: the first is no item for
+--| blank lines (`firstAround`).
+def calmLead: List Expr → List Expr
+  | [] => []
+  | [first, ..rest] => [first.calm False, ..calmAll True rest]
+
+--| A bracket's items.
+def calmItems (items: List Expr): List Expr := pickItems (items.all Expr.plainItem) items
+
+--| `calmItems`, given whether the items are all plain values.
+def pickItems (plain: Bool) (items: List Expr): List Expr := if plain then calmLead items else calmAll True items
 
 def calmAll (item: Bool): List Expr → List Expr
   | [] => []

@@ -1279,10 +1279,33 @@ impl<'a> Rules<'a> {
                         _ => false,
                     })
             });
+        // The first item of a list of only plain values is no item for blank
+        // lines: filled, its blank line would write nothing mid-line but
+        // still break the groups around it (SW-3963). `plain` also needs no
+        // trailing comment, which `calm` can't see through; this doesn't.
+        let all_plain = (node.kind() == NodeKind::List || pattern_names)
+            && items.iter().all(|(item, _)| {
+                matches!(item.as_slice(), [el @ Element::Leaf(_)]
+                if !self.has_leading(*el)
+                    && match self.tok(*el) {
+                        Some(Tok::Lower(_)) => true,
+                        Some(Tok::Underscore) => pattern_names,
+                        Some(
+                            Tok::Num(_)
+                            | Tok::Float(_)
+                            | Tok::Char(_)
+                            | Tok::Str(_)
+                            | Tok::Upper(_),
+                        ) => !pattern_names,
+                        _ => false,
+                    })
+            });
         if plain {
             let mut cells = Vec::new();
-            for (item, comma) in &items {
-                self.mark_item(item[0]);
+            for (k, (item, comma)) in items.iter().enumerate() {
+                if k > 0 || !all_plain {
+                    self.mark_item(item[0]);
+                }
                 let mut cell = vec![self.join(item)];
                 if let Some(comma) = comma {
                     cell.push(self.el(*comma));
@@ -1297,7 +1320,9 @@ impl<'a> Rules<'a> {
             if item.is_empty() {
                 return self.unexpected(node, "a bracket with an item between each pair of commas");
             }
-            self.mark_item(item[0]);
+            if k > 0 || !all_plain {
+                self.mark_item(item[0]);
+            }
             body.push(if k == 0 { edge() } else { Doc::Line });
             body.push(self.join(item));
             if let Some(comma) = comma {
