@@ -363,10 +363,14 @@ def Modes.unexpectedAt (modes: Modes) (what: Text) (items: List Item): Text := m
 def Modes.fail (modes: Modes) (what: Text): {Parse Item} a := fatal (modes.unexpected what)
 
 --| `unexpected`, naming a keyword as one (`unexpected_name`).
-def Modes.failName (modes: Modes) (what: Text): {Parse Item} a := match left() with
-  | [item, .._] if !modes.stops item && Tok.keyword item.text |> .isSome =>
-    fatal "expected ${what}, but found the keyword `${item.text}`"
-  | _ => modes.fail what
+def Modes.failName (modes: Modes) (what: Text): {Parse Item} a := modes.failNameOn what left()
+
+def Modes.failNameOn (modes: Modes) (what: Text) (items: List Item): {Parse Item} a := match items with
+  | [item, .._] =>
+    if keywordHere modes item then fatal "expected ${what}, but found the keyword `${item.text}`" else modes.fail what
+  | [] => modes.fail what
+
+def keywordHere (modes: Modes) (item: Item): Bool := !modes.stops item && Tok.keyword item.text |> .isSome
 
 --| An unqualified lowercase name (the Rust parser's `lower`).
 def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := match left() with
@@ -1301,7 +1305,10 @@ def atomMissing (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} 
   else modes.fail "an expression"
 
 def bracketAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  bracketAt self modes (modes.peekAt 1) (modes.peekAt 2)
+  bracketSecond self modes (modes.peekAt 1)
+
+def bracketSecond (self: Goal → {Parse Item} Expr) (modes: Modes) (second: Option Tok): {Parse Item} Expr :=
+  bracketAt self modes second (modes.peekAt 2)
 
 def bracketAt (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok): {Parse Item} Expr :=
   if (isSome Lower second || isSome KwDecreasing second) && isSome ColonEq third then
@@ -1380,7 +1387,10 @@ def namedArgument (self: Goal → {Parse Item} Expr) (modes: Modes) (closer: Tok
 --| What starts with `(`: `()`, a named argument, an operator section, a
 --| bracketed expression, a tuple or an annotation.
 def parenAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  parenOn self modes (modes.peekAt 1) (modes.peekAt 2)
+  parenSecond self modes (modes.peekAt 1)
+
+def parenSecond (self: Goal → {Parse Item} Expr) (modes: Modes) (second: Option Tok): {Parse Item} Expr :=
+  parenOn self modes second (modes.peekAt 2)
 
 def parenOn (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok): {Parse Item} Expr :=
   if parenOutside second third then parenOther self modes second third else parenRest self modes left()
@@ -1408,8 +1418,13 @@ def parenRest (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Ite
 
 def bracketed (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
+  bracketedTail self modes open
+
+def bracketedTail (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Word): {Parse Item} Expr :=
   let inner := modes.inBrackets
-  let first := full self inner
+  bracketedFirst self inner open (full self inner)
+
+def bracketedFirst (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
   bracketedAfter self inner open first inner.peek
 
 def bracketedAfter (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr):
@@ -1435,16 +1450,26 @@ def annotated (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (fi
 --| A tuple: the comma after its first item is read here, so that the items come to at least two (`commaListFrom`
 --| would read the same comma and the next item, as the first round of `commaList`).
 def tupleRest (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
-  let fuel := Parse.mark().left
-  let comma := bump()
-  let second := full self inner
-  let (items, trailingComma) :=
-    commaListFrom fuel inner (count => inner.at RParen && count >= 2) (() => full self inner) 2 second [first]
-  let close := tupleClose inner
-  Tuple open items trailingComma close
+  tupleFuel self inner open first Parse.mark().left
 
-def tupleClose (modes: Modes): {Parse Item} Word :=
-  if modes.at Colon then fatal tupleAnnotation else modes.expect RParen "`)`"
+def tupleFuel (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr) (fuel: Nat):
+    {Parse Item} Expr :=
+  let comma := bump()
+  tupleSecond self inner open first fuel (full self inner)
+
+def tupleSecond (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr) (fuel: Nat) (second: Expr):
+    {Parse Item} Expr :=
+  tupleEnd inner open (commaListFrom fuel inner (tupleEnds inner) (() => full self inner) 2 second [first])
+
+def tupleEnds (inner: Modes) (count: Nat): {Parse Item} Bool := inner.at RParen && count >= 2
+
+def tupleEnd (inner: Modes) (open: Word) (pair: (List Expr, Bool)): {Parse Item} Expr := match pair with
+  | (items, trailingComma) => Tuple open items trailingComma (tupleClose inner)
+
+def tupleClose (modes: Modes): {Parse Item} Word := tupleCloseAfter modes (modes.at Colon)
+
+def tupleCloseAfter (modes: Modes) (annotated: Bool): {Parse Item} Word :=
+  if annotated then fatal tupleAnnotation else modes.expect RParen "`)`"
 
 def tupleAnnotation: Text := "an annotation can't be written inside a tuple without brackets"
 
@@ -1535,7 +1560,12 @@ def rightSection (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat)
 
 def listExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
+  listTail self modes open
+
+def listTail (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Word): {Parse Item} Expr :=
+  listPeek self modes.inBrackets open
+
+def listPeek (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): {Parse Item} Expr :=
   listAfter self inner open inner.peek
 
 def listAfter (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): Option Tok → {Parse Item} Expr
@@ -1547,18 +1577,30 @@ def listAfter (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): Op
   | None => listItems self inner open
 
 def listItems (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): {Parse Item} Expr :=
-  let first := listItem self inner
-  let (items, trailingComma) :=
-    commaList (Parse.mark().left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first []
-  let close := inner.expect RBracket "`,` or `]`"
-  ListOf open items trailingComma close
+  listItemsFrom self inner open (listItem self inner)
+
+def listItemsFrom (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
+  listItemsEnd self inner open
+    (commaList (Parse.mark().left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first [])
+
+def listItemsEnd (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (pair: (List Expr, Bool)):
+    {Parse Item} Expr :=
+  match pair with
+    | (items, trailingComma) =>
+      let close := inner.expect RBracket "`,` or `]`"
+      ListOf open items trailingComma close
 
 def listItem (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  if modes.at DotDot then
+  listItemAfter self modes (modes.at DotDot)
+
+def listItemAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (spread: Bool): {Parse Item} Expr :=
+  if spread then
     let dots := bump()
-    if modes.at Comma || modes.at RBracket then fatal "expected a list after `..`, as in `[x, ..xs]`"
-    else Spread dots (full self modes)
+    listSpread self modes dots (modes.at Comma || modes.at RBracket)
   else full self modes
+
+def listSpread (self: Goal → {Parse Item} Expr) (modes: Modes) (dots: Word) (empty: Bool): {Parse Item} Expr :=
+  if empty then fatal "expected a list after `..`, as in `[x, ..xs]`" else Spread dots (full self modes)
 
 def recordExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := modes.expect LBrace "`{`"
