@@ -10,7 +10,7 @@
 --| `hangs` and the glue facts.
 
 namespace Syntax.ReadBackTree
-import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
@@ -992,3 +992,107 @@ theorem runsOperatorTree ∀ (sub: Goal → List Item → List Item → Expr →
           selfRuns
           (arithmetic [small, whole, first, later])
           endReads))
+
+-- Expressions in full, and the knot.
+
+theorem runsInlineTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: [item, ..more].length <= bound)
+    (reads: InlineAt sub modes item more rest value):
+    Parse.Runs (() => exprInline self modes) [item, ..more] rest value :=
+  let (open, inline, operatorReads) := reads
+  runsExprInline self modes item more rest value open inline.notKeyword inline.noLambda inline.noResult
+      inline.notQuantifier inline.notIf inline.noImplicit inline.noPi
+      (runsOperatorTree sub self bound modes [item, ..more] rest value selfRuns small operatorReads)
+
+theorem runsBlockTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: [item, ..more].length <= bound)
+    (reads: BlockAt sub modes item more rest value):
+    Parse.Runs (() => exprBlock self modes item) [item, ..more] rest value :=
+  let (right, ends, notOther, lines) := reads
+  let column := item.leaf.token.column
+  runsExprBlock self modes item
+    [item, ..more]
+    rest
+    value
+    right
+    (runsBlockLine self modes column
+      [item, ..more]
+      rest
+      value
+      (kind before =>
+        let lined := lineModes (blockModes modes column True) column True before kind
+        let line := lines kind before
+        runsStatementValue self lined item more rest value line.left notOther
+          (runsInlineTree sub self bound lined item more rest value selfRuns small line))
+      ends)
+
+theorem andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a with
+  | True => byComputing
+  | False => byComputing
+
+--| A block starts only after the input's first item.
+theorem startsBlockLater ∀ (modes: Modes) (later: Bool) (item: Item)
+    (starts: startsBlock modes later item = True):
+    startsBlock modes True item = True :=
+  match later, starts with
+    | True, starts => starts
+    | False, starts =>
+      let never: startsBlock modes False item = False :=
+        andFalseMiddle item.leaf.token.lineStart (modes.allow != Some item.index && !modes.endsConstruct item)
+      (Bool.falseNotTrue (Eq.trans never.flipped starts)).impossible
+
+theorem runsFullTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: FullReads sub modes read rest value):
+    Parse.Runs (() => expr self modes) read rest value :=
+  let (item, more, isRead, inlineAt, blockAt) := reads
+  let sized: [item, ..more].length <= bound := arithmetic [small, Eq.cong List.length isRead]
+  let later: ∀ (later: Bool) => Parse.Runs (() => exprLater self modes later) [item, ..more] rest value := later =>
+    match starts: startsBlock modes later item with
+      | False =>
+        runsExprLaterInline self modes later item more rest value starts
+          (runsInlineTree sub self bound modes item more rest value selfRuns sized inlineAt)
+      | True =>
+        runsExprLaterBlock self modes later item more rest value starts
+          (runsBlockTree sub self bound modes item more rest value selfRuns sized
+            (blockAt (startsBlockLater modes later item starts)))
+  rewrite isRead then
+    state => runsFromExpr self modes state [item, ..more] rest value (later (state.at.offset > 0) state)
+
+--| One step of the knot: `expressionRule` reads what `Tree` holds of, given that `self` reads the shorter ones.
+theorem treeStep ∀ (self: Goal → {Parse Item} Expr) (goal: Goal) (read rest: List Item) (value: Expr)
+    (tree: Tree goal read rest value)
+    (nested: ∀ (inner: Goal) (innerRead innerRest: List Item) (innerValue: Expr) => Tree inner innerRead innerRest
+        innerValue
+      → innerRead.length < read.length
+      → Parse.Runs (() => self inner) innerRead innerRest innerValue):
+    Parse.Runs (() => expressionRule self goal) read rest value :=
+  let (depth, holds) := tree
+  match depth, holds with
+    | Zero, never => Void.impossible never
+    | Succ inner, layer =>
+      let selfRuns: SelfRuns (TreeN inner) self read.length :=
+        innerGoal innerRead innerRest innerValue innerHolds shorter =>
+          nested innerGoal innerRead innerRest innerValue (inner, innerHolds) shorter
+      match goal, layer with
+        | { modes, level }, layer =>
+          match level, layer with
+            | LevelFull, layer =>
+              runsFullTree (TreeN inner) self read.length modes read rest value selfRuns (arithmetic []) layer
+            | LevelUnary, layer =>
+              runsUnaryTree (TreeN inner) self read.length modes read rest value selfRuns (arithmetic []) layer
+            | LevelArgument, layer =>
+              runsAtomTree (TreeN inner) self read.length modes False read rest value selfRuns (arithmetic []) layer
+            | other, layer => Void.impossible layer
+
+--| The knot for a whole tree (ticket 17c): `expressionAt` reads every tree the relation holds of.
+theorem runsTree ∀ (goal: Goal) (read rest: List Item) (value: Expr)
+    (tree: Tree goal read rest value):
+    Parse.Runs (() => expressionAt goal) read rest value :=
+  Parse.runsRecursiveWith expressionRule Tree treeStep goal read rest value tree
