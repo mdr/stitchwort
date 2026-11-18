@@ -23715,7 +23715,7 @@
     {
       "id": 3962,
       "title": "[Opus] fmt S1 ticket 13a: family A, a def type's bracket with a comment after its ( prints the ) at its contents' column, which parses as a new statement (def d: ( -- t7 / a -- t9 / ) -- t10 / := b). Fix in both formatters (D3677 bug exception), failing-first tests; commit SW-3955's search scripts (scratchpad sw3955/probe.py, hangs.py) under tools/fmt/dev/ and rerun them (sketch §3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
