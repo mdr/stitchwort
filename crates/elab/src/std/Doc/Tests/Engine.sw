@@ -217,6 +217,10 @@ test "a closer line goes at its marked line's indentation when a line since is l
   let opened := Nest 2 (Doc.concat [HardLine, Mark 0, t "("])
   Doc.print (Doc.concat [t "f", opened, HardLine, t "y", Nest 4 (CloserLine 0), t ")"]) 120 == "f\n  (\ny\n  )"
 
+test "a closer line right after a break moves that line, leaving no empty line" :=
+  let items := Nest 2 (Doc.concat [SoftLine, t "a", LineSuffix "-- c"])
+  Doc.print (Doc.concat [t "f", Mark 0, t "[", items, SoftLine, CloserLine 0, t "]"]) 3 == "f[\n  a -- c\n]"
+
 -- What `Doc.Proofs.BlankLays` states: a blank line only right after a line
 -- break that ended a line of words, whichever break it was.
 def Doc.Tests.blankAfterLine: Doc := Doc.group (Doc.concat [t "aaaa", Line, Blank, t "b"])

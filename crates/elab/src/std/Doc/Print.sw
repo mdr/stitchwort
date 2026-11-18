@@ -179,9 +179,7 @@ def Doc.Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (do
       else (printer.newline indent, rest)
     | Blank => (printer.blank, rest)
     | Mark key => ({ printer | carry = printer.carry.mark key printer.lineIndent }, rest)
-    | CloserLine key =>
-      let column := printer.carry.closerAt key indent
-      ({ printer | carry = printer.carry.close key }.newline column, rest)
+    | CloserLine key => (printer.closerLine key indent, rest)
     | Nest more inner => (printer, [Print (indent + more) mode inner, ..rest])
     | Align inner => (printer, [Print (printer.alignAt indent) mode inner, ..rest])
     | AlignInset inner => (printer, [Print (printer.alignAt (indent + 2)) mode inner, ..rest])
@@ -382,6 +380,17 @@ def Doc.Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
   if printer.atLineStart then printer
   else
     { printer.newline (printer.continuation indent) | carry = printer.carry.startFloor (printer.continuation indent) }
+
+--| A `CloserLine` with this key in a construct indented `indent`: its mark
+--| closed and the comment floor ended, a line break to where the closer
+--| goes (`Carry.closerAt`). At a line start with no comment waiting,
+--| where a break before it has ended the line already, that line moves
+--| there instead, as a second break would leave it empty.
+def Doc.Printer.closerLine (printer: Printer) (key indent: Nat): Printer :=
+  let column := printer.carry.closerAt key indent
+  if printer.atLineStart && printer.suffixes.isEmpty then
+    { printer | owed = Some column, lineIndent = column, carry = (printer.carry.close key).breakTo column }
+  else { printer | carry = printer.carry.close key }.newline column
 
 --| Writes the trailing comments that wait, each after a space, ending their
 --| line.

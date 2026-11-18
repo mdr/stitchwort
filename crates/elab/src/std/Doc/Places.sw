@@ -166,13 +166,24 @@ def Doc.Proofs.Place.withCarry (place: Place) (carry: Carry): Place := match pla
   | Mid at _ => Mid at carry
   | Held at _ => Held at carry
 
---| A `CloserLine` in a construct indented `indent`: a line break after
---| words, to where the open marks put the closer (`Carry.closerAt`),
---| with its mark closed and no comment floor.
+--| Where a `CloserLine` with this key in a construct indented `indent`
+--| leaves the printer: at the start of the closer's line, where the open
+--| marks put it (`Carry.closerAt`), with its mark closed and no comment
+--| floor. After words that is a line break; at a line start (a break
+--| before it ended the line already) the line moves there, still right
+--| after a line break if it was.
+def Doc.Proofs.Place.closerLine (place: Place) (key indent: Nat): Place :=
+  let column := place.carry.closerAt key indent
+  let carry := (place.carry.close key).breakTo column
+  match place with
+    | AtStart _ _ => AtStart column carry
+    | _ => Broken column carry
+
+--| A `CloserLine` in a construct indented `indent`: the closer's line,
+--| after a line break or at the line start one left (`Place.closerLine`).
 def Doc.Proofs.CloserPuts (key indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
-  let column := place.carry.closerAt key indent
-  place.midLine = True ∧ next (Broken column ((place.carry.close key).breakTo column)) trace
+  next (place.closerLine key indent) trace
 
 --| A trailing comment: after words on its line, with no other waiting.
 def Doc.Proofs.SuffixPuts (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
@@ -442,7 +453,7 @@ theorem Doc.Proofs.putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
     | LineStart, lays => startPutsWeaker indent place trace strong weak implies lays
     | LineStartHere, lays => herePutsWeaker indent place trace strong weak implies lays
     | Mark key, lays => implies _ _ lays
-    | CloserLine key, Both mid lays => (mid, (implies _ _ lays))
+    | CloserLine key, lays => implies _ _ lays
     | Nest more inner, lays => putsWeaker inner (indent + more) place trace strong weak implies lays
     | Align inner, lays =>
       match place, lays with
@@ -1111,15 +1122,69 @@ theorem Doc.Proofs.markStays ∀ (next: Place → List Event → Prop) (printer:
     moved
   )
 
---| A `CloserLine` after words breaks the line where the open marks say,
---| with its mark closed and no comment floor.
+--| A closer's line at a line start with no comment waiting moves that
+--| line to where the open marks say, with the closer's mark closed and no
+--| comment floor.
+theorem Doc.Proofs.closerLineMoves ∀ (printer: Printer) (key indent: Nat)
+    (start: printer.atLineStart = True)
+    (clear: printer.suffixes = []):
+    printer.closerLine key indent
+      = { printer |
+        owed = Some (printer.carry.closerAt key indent),
+        lineIndent = printer.carry.closerAt key indent,
+        carry = (printer.carry.close key).breakTo (printer.carry.closerAt key indent)
+      } :=
+  match at: printer.atLineStart, start with | True, _ => rewrite clear then byComputing
+
+--| After words, the closer's line is right after a line break.
+theorem Doc.Proofs.closerLineMid ∀ (place: Place) (key indent: Nat)
+    (mid: place.midLine = True):
+    place.closerLine key indent
+      = Broken (place.carry.closerAt key indent) ((place.carry.close key).breakTo (place.carry.closerAt key indent)) :=
+  match place, mid with
+    | AtStart _ _, never => (Bool.falseNotTrue never).impossible
+    | Broken _ _, never => (Bool.falseNotTrue never).impossible
+    | Mid _ _, _ => byComputing
+    | Held _ _, _ => byComputing
+
+--| At a line start no comment waits.
+theorem Doc.Proofs.startClear ∀ (printer: Printer) (place: Place) (trace: List Event)
+    (agrees: Agrees printer place trace)
+    (start: printer.atLineStart = True):
+    printer.suffixes = [] :=
+  match place, agrees with
+    | AtStart at carry, (_, none, _) => none
+    | Broken at carry, (_, none, _) => none
+    | Mid at carry, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
+    | Held at carry, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
+
+--| A closer's line at a line start: the line moved, as the place says.
+theorem Doc.Proofs.closerMoveAgrees ∀ (printer: Printer) (key indent: Nat) (place: Place) (trace: List Event)
+    (agrees: Agrees printer place trace)
+    (start: printer.atLineStart = True):
+    Agrees (printer.closerLine key indent) (place.closerLine key indent) trace :=
+  rewrite closerLineMoves printer key indent start (startClear printer place trace agrees start),
+      agreesFloor printer place trace agrees then
+    match place, agrees with
+      | AtStart at carry, (_, none, blank, empty, _, _, events, _) =>
+        (start, none, blank, empty, byComputing, byComputing, events, byComputing)
+      | Broken at carry, (_, none, blank, empty, _, _, events, started, newlines, _) =>
+        (start, none, blank, empty, byComputing, byComputing, events, started, newlines, byComputing)
+      | Mid at carry, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
+      | Held at carry, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
+
+--| A `CloserLine` leaves the printer where its puts say: after words a
+--| line break where the open marks say, at a line start that line moved
+--| there, with its mark closed and no comment floor.
 theorem Doc.Proofs.closerStays ∀ (next: Place → List Event → Prop) (printer: Printer) (key indent: Nat)
     (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
     (puts: CloserPuts key indent place trace next):
-    Stays next ({ printer | carry = printer.carry.close key }.newline (printer.carry.closerAt key indent)) :=
-  match puts with
-    | (mid, after) =>
+    Stays next (printer.closerLine key indent) :=
+  match start: printer.atLineStart with
+    | True => (place.closerLine key indent, trace, (closerMoveAgrees printer key indent place trace agrees start), puts)
+    | False =>
+      let mid := startMid printer place trace agrees start
       let closed := place.carry.close key
       let column := place.carry.closerAt key indent
       let moved := carryAgrees printer place closed trace agrees
@@ -1127,6 +1192,8 @@ theorem Doc.Proofs.closerStays ∀ (next: Place → List Event → Prop) (printe
       let broken := newlineBroken { printer | carry = closed } column (place.withCarry closed) trace moved midMoved
       let lands: Agrees ({ printer | carry = closed }.newline column) (Broken column (closed.breakTo column)) trace :=
         rewrite withCarryCarry place closed at broken
+      let after: next (Broken column (closed.breakTo column)) trace :=
+        rewrite closerLineMid place key indent mid at puts
       rewrite agreesFloor printer place trace agrees then (Broken column (closed.breakTo column), trace, lands, after)
 
 --| A carry set at a line start (a new comment floor) is the place's.

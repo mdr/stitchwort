@@ -119,7 +119,9 @@ pub enum Doc {
     /// of its own: at the indentation in force, unless a line written since
     /// the [`Doc::Mark`] with the same key is at or left of that, which
     /// would make the bracket a line of the block that line starts; then at
-    /// the indentation of the marked line (S40).
+    /// the indentation of the marked line (S40). At the start of a line
+    /// with no trailing comment waiting (a break before it already ended
+    /// the line) it moves that line there instead.
     CloserLine(usize),
 }
 
@@ -469,7 +471,18 @@ impl Printer {
                         _ => indent,
                     };
                     self.comment_floor = None;
-                    self.newline(column);
+                    if self.at_line_start && self.suffixes.is_empty() {
+                        // A break before the closer already ended the line
+                        // (and wrote its waiting comment): move this line,
+                        // as a second break would leave an empty one.
+                        self.owed = Some(column);
+                        self.line_indent = column;
+                        for (_, least) in self.marks.values_mut() {
+                            *least = (*least).min(column);
+                        }
+                    } else {
+                        self.newline(column);
+                    }
                 }
                 Doc::LineStartHere => {
                     if self.at_line_start {

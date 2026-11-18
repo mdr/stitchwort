@@ -192,6 +192,19 @@ theorem Doc.Proofs.lineStartWords ∀ (printer: Printer) (indent: Nat):
         (floorWords broken (printer.carry.startFloor (printer.continuation indent)))
         (newlineWords printer (printer.continuation indent))
 
+--| A closer's line leaves the printer's words as they were.
+theorem Doc.Proofs.closerLineWords ∀ (printer: Printer) (key indent: Nat):
+    (printer.closerLine key indent).words = printer.words :=
+  let closed := { printer | carry = printer.carry.close key }
+  let broken :=
+    Eq.trans (newlineWords closed (printer.carry.closerAt key indent)) (floorWords printer (printer.carry.close key))
+  match start: printer.atLineStart with
+    | True =>
+      match waiting: printer.suffixes.isEmpty with
+        | True => byComputing
+        | False => broken
+    | False => broken
+
 --| A `Displaced` element leaves the printer's words as they were.
 theorem Doc.Proofs.displaceWords ∀ (printer: Printer) (indent: Nat): (printer.displace indent).words = printer.words :=
   match empty: printer.suffixes.isEmpty with
@@ -559,7 +572,7 @@ theorem Doc.Proofs.stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) 
         | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords]
         | HardLine, steps, _ => rewrite repeatedly [steps, wordSteps]
         | Mark key, steps, _ => rewrite repeatedly [steps]
-        | CloserLine key, steps, _ => rewrite repeatedly [steps, newlineWords]
+        | CloserLine key, steps, _ => rewrite repeatedly [steps, closerLineWords]
         | LineStart, steps, _ => rewrite repeatedly [steps, wordSteps]
         | LineStartHere, steps, _ =>
           rewrite steps then
@@ -1053,6 +1066,19 @@ theorem Doc.Proofs.lineStartQuiet ∀ (suffix: Text → Prop) (printer: Printer)
     | True => waits
     | False => newlineQuiet suffix printer (printer.continuation indent)
 
+--| A closer's line leaves every waiting comment satisfying the test, if
+--| they did.
+theorem Doc.Proofs.closerLineQuiet ∀ (suffix: Text → Prop) (printer: Printer) (key indent: Nat)
+    (waits: Every suffix printer.suffixes):
+    Every suffix (printer.closerLine key indent).suffixes :=
+  let broken := newlineQuiet suffix { printer | carry = printer.carry.close key } (printer.carry.closerAt key indent)
+  match start: printer.atLineStart with
+    | True =>
+      match waiting: printer.suffixes.isEmpty with
+        | True => waits
+        | False => broken
+    | False => broken
+
 --| A `Displaced` element leaves every waiting comment satisfying the test,
 --| if they did.
 theorem Doc.Proofs.displaceQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat)
@@ -1113,9 +1139,7 @@ theorem Doc.Proofs.stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printe
               (newlineQuiet suffix printer indent)
         | HardLine, steps, _ => rewrite steps then newlineQuiet suffix printer indent
         | Mark key, steps, _ => rewrite steps then waits
-        | CloserLine key, steps, _ =>
-          rewrite steps then
-            newlineQuiet suffix { printer | carry = printer.carry.close key } (printer.carry.closerAt key indent)
+        | CloserLine key, steps, _ => rewrite steps then closerLineQuiet suffix printer key indent waits
         | LineStart, steps, _ => rewrite steps then lineStartQuiet suffix printer indent waits
         | LineStartHere, steps, _ =>
           rewrite steps then

@@ -325,7 +325,7 @@ theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
     | LineStart, lays => startLaysWeaker indent place trace strong weak implies lays
     | LineStartHere, lays => herePutsWeaker indent place trace strong weak implies lays
     | Mark key, lays => implies _ _ lays
-    | CloserLine key, Both mid lays => (mid, (implies _ _ lays))
+    | CloserLine key, lays => implies _ _ lays
     | Nest more inner, lays => laysWeaker inner (indent + more) place trace strong weak implies lays
     | Align inner, lays =>
       match place, lays with
@@ -678,6 +678,18 @@ theorem Doc.Proofs.tracksTucks ∀ (place: Place) (laid printed: List Event)
     | Mid at carry, settles => settlesTucks laid printed settles
     | Held at carry, waits => waitsTucks laid printed waits
 
+--| Traces that track each other at a place track each other at the start
+--| of a closer's line from there: every waiting comment has been written.
+theorem Doc.Proofs.closerTracks ∀ (place: Place) (key indent: Nat) (laid printed: List Event)
+    (tracks: Tracks place laid printed):
+    Tracks (place.closerLine key indent) laid printed :=
+  let tucks := tracksTucks place laid printed tracks
+  match place with
+    | AtStart _ _ => tucks
+    | Broken _ _ => tucks
+    | Mid _ _ => tucks
+    | Held _ _ => tucks
+
 --| A trailing comment starts to wait: it is in both traces, last.
 theorem Doc.Proofs.settlesWaits ∀ (laid printed: List Event) (comment: Text)
     (settles: Settles laid printed)
@@ -942,7 +954,7 @@ theorem Doc.Proofs.laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid pr
     | LineStart, lays => startLaysPuts indent place laid printed next put onward tracks lays
     | LineStartHere, lays => hereLaysPuts indent place laid printed next put onward tracks lays
     | Mark key, lays => onward _ _ _ (carryTracks place (place.carry.mark key place.indent) laid printed tracks) lays
-    | CloserLine key, Both mid lays => (mid, (onward _ _ _ (tracksTucks place laid printed tracks) lays))
+    | CloserLine key, lays => onward _ _ _ (closerTracks place key indent laid printed tracks) lays
     | Nest more inner, lays => laysPuts inner (indent + more) place laid printed next put onward tracks lays
     | Align inner, lays =>
       match place, tracks, lays with

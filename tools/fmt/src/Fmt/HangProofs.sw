@@ -391,16 +391,12 @@ theorem hangsStartHere ∀ (kinds: Text → Tok) (indent: Nat) (pre post: Place 
       after
       (moves place trace holds)
 
---| A `CloserLine`: a line break after words, to where the open marks put the closer.
+--| A `CloserLine`: the closer's line, where the open marks put it, after a line break or at the line start one
+--| left (`Place.closerLine`).
 theorem hangsCloserLine ∀ (kinds: Text → Tok) (key indent: Nat) (pre post: Place → Hang → Prop)
-    (moves: ∀ (place: Place) (hang: Hang) => pre place hang
-      → place.midLine = True
-        ∧ post
-          (Broken (place.carry.closerAt key indent) ((place.carry.close key).breakTo (place.carry.closerAt key indent)))
-          hang):
+    (moves: ∀ (place: Place) (hang: Hang) => pre place hang → post (place.closerLine key indent) hang):
     HangLays kinds (CloserLine key) indent pre post :=
-  place trace next holds after =>
-    match moves place (hangOf kinds trace) holds with | (mid, reached) => (mid, after _ trace reached)
+  place trace next holds after => after _ trace (moves place (hangOf kinds trace) holds)
 
 theorem hangsDisplaced ∀ (kinds: Text → Tok) (inner: Doc) (indent: Nat)
     (pre post: Place → Hang → Prop) (seat: Nat → Place → Hang → Prop)
@@ -1968,11 +1964,11 @@ theorem laterCloserNotesHang ∀ (kinds: Text → Tok) (notes: List Note) (inden
               more)
 
 --| Where a bracket's closer may be written, the fold at `state`: after its contents ended (a comment waiting only if
---| `before`), or right after the line break before it, at the indentation with no comment floor; there not if the
---| closer takes a line of its own after a trailing comment (`lone`), whose line break would leave a blank line.
+--| `before`), or right after the line break before it: at the indentation with no comment floor, or anywhere if the
+--| closer takes a line of its own after a trailing comment (`lone`), as that line break's line then moves to it.
 def CloserSeat (indent: Nat) (before lone: Bool) (state: HangState) (place: Place): Prop := match place with
   | AtStart _ _ => False
-  | Broken at carry => lone = False ∧ at = indent ∧ carry.floor = None
+  | Broken at carry => lone = True ∨ (at = indent ∧ carry.floor = None)
   | Mid at carry => carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
   | Held at carry => before = True ∧ carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
 
@@ -2035,7 +2031,8 @@ theorem closingHangs ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (befor
             (waits, floorAfterToken text carry token, arithmetic),
             stepCloser kinds state block outer text None (tokenCode text None token solid) closer open byComputing
           )
-          | Broken at carry, (_, atIndent, floor) =>
+          | Broken at carry, Inl never => (Bool.falseNotTrue never).impossible
+          | Broken at carry, Inr (atIndent, floor) =>
             rewrite atIndent then
               (
                 (floorAfterToken text carry token, clear),
@@ -2084,7 +2081,7 @@ theorem closingAtHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Na
         | Mid at carry, never => (Bool.falseNotTrue never).impossible
         | Held at carry, never => (Bool.falseNotTrue never).impossible)
 
---| A closer's line of its own, after words: where the open marks put it.
+--| A closer's line of its own, after words or the line break before it: where the open marks put it.
 theorem closerLineHangs ∀ (kinds: Text → Tok) (key indent: Nat) (before: Bool) (state: HangState) (entry: Place):
     HangLays kinds
       (CloserLine key)
@@ -2097,10 +2094,9 @@ theorem closerLineHangs ∀ (kinds: Text → Tok) (key indent: Nat) (before: Boo
     (place hang (isEntry, folded, seat) =>
       rewrite isEntry then
         match entry, seat with
-          | Mid at carry, _ => (byComputing, (folded, byComputing, byComputing))
-          | Held at carry, _ => (byComputing, (folded, byComputing, byComputing))
-          | Broken at carry, (never, _, _) => (Bool.trueNotFalse never).impossible
-          | AtStart at carry, never => (Bool.falseNotTrue never).impossible)
+          | Mid at carry, _ => (folded, byComputing, byComputing)
+          | Held at carry, _ => (folded, byComputing, byComputing)
+          | Broken at carry, _ => (folded, byComputing, byComputing))
 
 --| A closer with own-line comments: the comments at 2 deeper, each on its line, then the closer's line of its own,
 --| where the open marks put it at the closer's seat (the comments' lines are deeper than the construct, so they don't
@@ -2148,7 +2144,8 @@ theorem closerLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Aroun
           | Held at carry, (_, floor, _) =>
             let landed: floored carry (indent + 2) = indent + 2 := rewrite floor
             (folded, landed, floor, breakKeepsCloser carry key indent floor)
-          | Broken at carry, (_, _, floor) => (folded, byComputing, floor, byComputing))
+          | Broken at carry, Inl never => (Bool.falseNotTrue never).impossible
+          | Broken at carry, Inr (_, floor) => (folded, byComputing, floor, byComputing))
   let inner: HangLays kinds
     (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]])
     (indent + 2)
@@ -2177,7 +2174,7 @@ theorem closerLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Aroun
   let line: HangLays kinds (CloserLine key) indent (NoteWritten indent key column hang) (LandsAt column hang) :=
     hangsCloserLine kinds key indent (NoteWritten indent key column hang) (LandsAt column hang) (place now written =>
       match place, written with
-        | Mid at carry, (same, _, _, lands) => (byComputing, (same, lands, byComputing))
+        | Mid at carry, (same, _, _, lands) => (same, lands, byComputing)
         | AtStart at carry, never => (Bool.falseNotTrue never).impossible
         | Broken at carry, never => (Bool.falseNotTrue never).impossible
         | Held at carry, never => (Bool.falseNotTrue never).impossible)
