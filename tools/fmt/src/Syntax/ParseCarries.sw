@@ -4,8 +4,8 @@
 --| the slice makes it empty, so each `Out` fact of `ParseWalk` gives its lemma by `Parse.readsWeaken` (`readsOut`).
 --|
 --| This file has the spec, its combinators, the atoms, brackets and comma lists, arguments and applications, `unary`,
---| and the recursion's knot (`carriesExpressionAt`), which takes the operator ladder, `expr` and blocks as one
---| hypothesis (`RuleCarries`) for the second half (SW-4020) to discharge.
+--| the operator links and the ladder from `mul_expr` to `append_expr`, and the recursion's knot (`bothExpressionAt`),
+--| which takes the levels above `append_expr` as one hypothesis (`LadderCarries`) for the second half (SW-4020).
 
 namespace Syntax.ParseCarries
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
@@ -1101,18 +1101,180 @@ theorem readsUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (start fine stops => app start fine)
     (start item later shape fine stopped => readsUnarySome self modes nested outside app start item later shape fine)
 
+-- Operator links, for the ladder's levels: a model for the second half.
+
+--| An operator link, read: the operator's item, no comma, then what its operand read.
+def LinkCarried (read: List Item) (link: (Word, Expr)): Prop :=
+  ∃ (operator: Item) (rest: List Item) => read = [operator, ..rest]
+    ∧ (operator.kind == Comma) = False
+    ∧ link.fst = operator.leaf.word
+    ∧ Carried rest link.snd
+
+theorem carriedInfix ∀ (operator: Item) [first rest: List Item] [left right: Expr]
+    (code: (operator.kind == Comma) = False)
+    (leftCarried: Carried first left)
+    (rightCarried: Carried rest right):
+    Carried (first ++ [operator, ..rest]) (Infix InfixBinary left operator.leaf.word right) :=
+  within =>
+    rewrite itemWordsAppend first [operator, ..rest],
+        itemWordsCons operator rest code,
+        leftCarried (Bool.andLeft within),
+        rightCarried (Bool.andRight within)
+
+--| Folding links to the left keeps the words in the order read.
+theorem carriedLeftNested ∀ [first: List Item] [head: Expr] (links: List (Word, Expr)) [rest: List Item]
+    (carried: Carried first head)
+    (rounds: Parse.Rounds (Parse.Maybe LinkCarried) rest links):
+    Carried (first ++ rest) (leftNested head links) :=
+  match links, rounds with
+    | [], none => rewrite none, List.appendNil first then carried
+    | [(word, next), ..more], (
+        taken,
+        others,
+        split,
+        _,
+        (operator, operand, single, code, same, nextCarried),
+        restRounds
+      ) =>
+      let joined := carriedInfix operator code carried nextCarried
+      let folded := carriedLeftNested more (rewrite <- same at joined then joined) restRounds
+      rewrite split, single then (rewrite List.appendAssoc first [operator, ..operand] others at folded then folded)
+
+--| Folding links to the right keeps the words in the order read.
+theorem carriedRightNested ∀ [first: List Item] [head: Expr] (links: List (Word, Expr)) [rest: List Item]
+    (carried: Carried first head)
+    (rounds: Parse.Rounds (Parse.Maybe LinkCarried) rest links):
+    Carried (first ++ rest) (rightNested head links) :=
+  match links, rounds with
+    | [], none => rewrite none, List.appendNil first then carried
+    | [(word, next), ..more], (
+        taken,
+        others,
+        split,
+        _,
+        (operator, operand, single, code, same, nextCarried),
+        restRounds
+      ) =>
+      let below := carriedRightNested more nextCarried restRounds
+      rewrite split, single, same then carriedInfix operator code carried below
+
+--| One round of `operatorLinks`: the next item, if `takes` accepts it, and its operand; or nothing.
+theorem readsOperatorStep ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr)
+    (code: ∀ (kind: Tok) => takes kind = True → (kind == Comma) = False)
+    (operandReads: Parse.ReadsIn GoodItems operand Carried):
+    Parse.ReadsIn GoodItems
+      (() =>
+        match modes.peek with
+          | Some kind if takes kind =>
+            let operator := bump()
+            let value := operand()
+            Some (operator, value)
+          | _ => None)
+      (Parse.Maybe LinkCarried) :=
+  Parse.readsInMark _ _ (start fine =>
+    match start with
+      | { rest = [], offset, left } => Parse.readsAtDone _ None _ byComputing
+      | { rest = [item, ..later], offset, left } =>
+        match stopped: modes.stops item with
+          | True => Parse.readsAtDone _ None _ byComputing
+          | False =>
+            match took: takes item.kind with
+              | False => Parse.readsAtDone _ None _ byComputing
+              | True =>
+                Parse.readsAtThen
+                  (readsAtBump
+                    [start := { rest = [item, ..later], offset, left }]
+                    [item := item]
+                    [later := later]
+                    byComputing)
+                  (read word after starts (single, same) =>
+                    Parse.readsAtThen
+                      (operandReads after (Parse.Fits.after fine starts))
+                      (more value later2 starts2 carried =>
+                        Parse.readsAtDone later2
+                          (Some (word, value)) _
+                          (rewrite single then
+                            (
+                              item,
+                              more ++ [],
+                              byComputing,
+                              code item.kind took,
+                              same,
+                              rewrite List.appendNil more then carried
+                            )))))
+
+--| A first operand and the links after it, folded to the left: how `mulExpr` and `addExpr` carry their items.
+theorem readsLeftChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: () → {Parse Item} Expr)
+    (code: ∀ (kind: Tok) => takes kind = True → (kind == Comma) = False)
+    (firstReads: Parse.ReadsIn GoodItems first Carried)
+    (operandReads: Parse.ReadsIn GoodItems operand Carried):
+    Parse.ReadsIn GoodItems (() => leftNested (first()) (operatorLinks modes takes operand)) Carried :=
+  Parse.readsThen firstReads (r1 head carried =>
+    Parse.readsThen (Parse.readsLoop _ _ (readsOperatorStep modes takes operand code operandReads)) (r2 links rounds =>
+      Parse.readsDone _ _ (rewrite List.appendNil r2 then carriedLeftNested links carried rounds)))
+
+theorem mulCode ∀ (kind: Tok)
+    (took: (kind == Star || kind == Slash || kind == Percent) = True):
+    (kind == Comma) = False :=
+  match kind, took with
+    | Star, took => byComputing
+    | Slash, took => byComputing
+    | Percent, took => byComputing
+    | other, took => (Bool.falseNotTrue took).impossible
+
+--| `mul_expr`, from what `unary` carries: a ladder level, proved as the second half proves the others.
+theorem readsMulExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (unaryReads: Parse.ReadsIn GoodItems (() => unary self modes) Carried):
+    Parse.ReadsIn GoodItems (() => mulExpr self modes) Carried :=
+  readsLeftChain modes
+    (kind => kind == Star || kind == Slash || kind == Percent)
+    (() => unary self modes)
+    (() => unary self modes)
+    mulCode
+    unaryReads
+    unaryReads
+
+theorem addCode ∀ (kind: Tok) (took: (kind == Plus || kind == Minus) = True): (kind == Comma) = False :=
+  match kind, took with
+    | Plus, took => byComputing
+    | Minus, took => byComputing
+    | other, took => (Bool.falseNotTrue took).impossible
+
+theorem appendCode ∀ (kind: Tok) (took: (kind == PlusPlus) = True): (kind == Comma) = False := match kind, took with
+  | PlusPlus, took => byComputing
+  | other, took => (Bool.falseNotTrue took).impossible
+
+--| `add_expr`, from what `mul_expr` carries.
+theorem readsAddExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (mulReads: Parse.ReadsIn GoodItems (() => mulExpr self modes) Carried):
+    Parse.ReadsIn GoodItems (() => addExpr self modes) Carried :=
+  readsLeftChain modes
+    (kind => kind == Plus || kind == Minus)
+    (() => mulExpr self modes)
+    (() => mulExpr self modes)
+    addCode
+    mulReads
+    mulReads
+
+--| `append_expr`, from what `add_expr` carries: `++`s nest to the right.
+theorem readsAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (addReads: Parse.ReadsIn GoodItems (() => addExpr self modes) Carried):
+    Parse.ReadsIn GoodItems (() => appendExpr self modes) Carried :=
+  Parse.readsThen addReads (r1 head carried =>
+    Parse.readsThen
+      (Parse.readsLoop _ _
+        (readsOperatorStep modes (kind => kind == PlusPlus) (() => addExpr self modes) appendCode addReads))
+      (r2 links rounds => Parse.readsDone _ _ (rewrite List.appendNil r2 then carriedRightNested links carried rounds)))
+
 -- The recursion.
 
---| The levels of the expression parser above `unary`, carried: the second half's (SW-4020) to prove, given `self` at
+--| The levels of the expression parser above `append_expr`, carried: the second half's (SW-4020) to prove, given `self` at
 --| every goal and what the parsers outside slice 1 give.
 type Ladder (self: Goal → {Parse Item} Expr) = {
   full: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => expr self modes) Carried,
   inline: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => exprInline self modes) Carried,
   logic: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => logicLevel self modes) Carried,
   comparison: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => cmpExpr self modes) Carried,
-  append: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => appendExpr self modes) Carried,
-  additive: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => addExpr self modes) Carried,
-  multiplicative: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => mulExpr self modes) Carried,
   thenBody: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => thenBody self modes) Carried
 }
 
@@ -1128,8 +1290,8 @@ theorem basesCarry ∀ (self: Goal → {Parse Item} Expr)
     BasesCarry self :=
   readsAtomBases self carries outside.below.below.below.below.below
 
---| One level of the expression parser carries its items: the ladder's levels from `ladder`, `unary`, an argument and
---| an application from this file's walk.
+--| One level of the expression parser carries its items: the levels above `append_expr` from `ladder`, the others
+--| from this file's walk.
 theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
     (carries: NestedCarries self)
     (outside: Outside self)
@@ -1138,6 +1300,9 @@ theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
   let atoms := outside.below.below.below.below.below
   let braced := outside.below.below.below.below
   let bases := basesCarry self carries outside
+  let unaryAt := (modes: Modes) => readsUnary self modes carries atoms (readsApp self modes carries braced bases)
+  let mulAt := (modes: Modes) => readsMulExpr self modes (unaryAt modes)
+  let addAt := (modes: Modes) => readsAddExpr self modes (mulAt modes)
   match goal with
     | { modes, level } =>
       match level with
@@ -1145,10 +1310,10 @@ theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
         | LevelInline => ladder.inline modes
         | LevelLogic => ladder.logic modes
         | LevelComparison => ladder.comparison modes
-        | LevelAppend => ladder.append modes
-        | LevelAdditive => ladder.additive modes
-        | LevelMultiplicative => ladder.multiplicative modes
-        | LevelUnary => readsUnary self modes carries atoms (readsApp self modes carries braced bases)
+        | LevelAppend => readsAppendExpr self modes (addAt modes)
+        | LevelAdditive => addAt modes
+        | LevelMultiplicative => mulAt modes
+        | LevelUnary => unaryAt modes
         | LevelArgument => readsAtomArgument self modes False atoms bases
         | LevelApp => readsApp self modes carries braced bases
         | LevelThenBody => ladder.thenBody modes
