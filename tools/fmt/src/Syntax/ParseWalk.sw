@@ -3147,6 +3147,159 @@ type Frame (self: Goal → {Parse Item} Expr) = {
   arms: ∀ (modes: Modes) (d: Nat) => Parse.Gives GoodItems (() => armsBody self modes d) BodyOk
 }
 
+--| The part of `Frame` SW-4000 has not yet proved (`frameOf` gives the rest).
+type FrameRest (self: Goal → {Parse Item} Expr) = {
+  attributes: ∀ (modes: Modes) => Parse.Gives GoodItems (() => attributesOf modes) (found => True),
+  imports: ∀ (seen: Seen) (modes: Modes) => Parse.Gives GoodItems (() => importStep seen modes) DeclOut,
+  others: ∀ (modes: Modes) (attributes: List Attributes) (seen: Option Tok) => Parse.Gives GoodItems
+    (() => declarationOther modes attributes seen)
+    DeclOut,
+  params: ∀ (modes: Modes) => Parse.Gives GoodItems (() => headerParams self modes) (found => True),
+  arms: ∀ (modes: Modes) (d: Nat) => Parse.Gives GoodItems (() => armsBody self modes d) BodyOk
+}
+
+theorem givesForallEnd ∀ (modes: Modes) (word: Word) (paren bracket: Bool):
+    Parse.Gives GoodItems (() => forallEnd modes word paren bracket) (found => True) :=
+  match paren || bracket with
+    | True => Parse.givesDone byComputing
+    | False => givesFail modes _
+
+theorem givesForallBump ∀ (modes: Modes): Parse.Gives GoodItems (() => forallBump modes) (found => True) :=
+  Parse.givesThen givesBump (taken _ =>
+    givesAfter0
+      [p := () => modes.at LParen]
+      [j := paren => forallEnd modes taken paren (modes.at LBracket)]
+      (reads0At modes LParen)
+      (paren =>
+        givesAfter0
+          [p := () => modes.at LBracket]
+          [j := bracket => forallEnd modes taken paren bracket]
+          (reads0At modes LBracket)
+          (bracket => givesForallEnd modes taken paren bracket)))
+
+theorem givesForallPart ∀ (modes: Modes) (kind: DefKind):
+    Parse.Gives GoodItems (() => forallPart modes kind) (found => True) :=
+  givesAfter0
+    [p := () => modes.at KwForall]
+    [j := found => forallAt modes kind found]
+    (reads0At modes KwForall)
+    (found =>
+      match found with
+        | True =>
+          match kind != DefTheorem with
+            | True => Parse.readsFatal _ _
+            | False => givesForallBump modes
+        | False => Parse.givesDone byComputing)
+
+theorem givesDecreasingClauseOf ∀ (self: Goal → {Parse Item} Expr) (headerModes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => decreasingClauseOf self headerModes) (found => True) :=
+  Parse.givesThen givesFixedFrom (keyword _ =>
+    Parse.givesThen (nested { modes = headerModes, level = LevelFull }) (tail _ => Parse.givesDone byComputing))
+
+theorem givesDecreasingPart ∀ (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => decreasingPart self modes headerModes isInstance) (found => True) :=
+  givesAfter0
+    [p := () => modes.at KwDecreasing]
+    [j := found => decreasingAt self headerModes isInstance found]
+    (reads0At modes KwDecreasing)
+    (found =>
+      match found with
+        | True =>
+          match isInstance with
+            | True => Parse.readsFatal _ _
+            | False => givesDecreasingClauseOf self headerModes nested
+        | False => Parse.givesDone byComputing)
+
+theorem givesUnfoldingName ∀ (modes: Modes) (upper: Bool):
+    Parse.Gives GoodItems (() => unfoldingName modes upper) (found => True) :=
+  match upper with
+    | True => Parse.givesWeaken (givesUpperQualified modes _) (found ok => byComputing)
+    | False => Parse.givesWeaken (givesLowerQualified modes _) (found ok => byComputing)
+
+theorem givesUnfoldingNext ∀ (more: Nat) (modes: Modes) (found: List Word) (name: Word) (comma: Bool):
+    Parse.Gives GoodItems (() => unfoldingNext more modes found name comma) (names => True) :=
+  match comma with
+    | True => Parse.givesThen givesBump (gone _ => givesUnfoldingNames more modes [name, ..found])
+    | False => Parse.givesDone byComputing
+
+theorem givesUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found: List Word):
+    Parse.Gives GoodItems (() => unfoldingNames fuel modes found) (names => True) :=
+  match fuel with
+    | Zero => Parse.givesDone byComputing
+    | Succ more =>
+      Parse.givesThen
+        [p := () => unfoldingName modes (modes.at Upper)]
+        [j := name => unfoldingNext more modes found name (modes.at Comma)]
+        (givesAfter0
+          [p := () => modes.at Upper]
+          [j := upper => unfoldingName modes upper]
+          (reads0At modes Upper)
+          (upper => givesUnfoldingName modes upper))
+        (name _ =>
+          givesAfter0
+            [p := () => modes.at Comma]
+            [j := comma => unfoldingNext more modes found name comma]
+            (reads0At modes Comma)
+            (comma => givesUnfoldingNext more modes found name comma))
+
+theorem givesUnfoldingClauseOf ∀ (afterDecreasing: Modes):
+    Parse.Gives GoodItems (() => unfoldingClauseOf afterDecreasing) (found => True) :=
+  Parse.givesThen givesFixedFrom (keyword _ =>
+    Parse.givesThen Parse.givesMark (here _ =>
+      Parse.givesThen (givesUnfoldingNames (here.left + 1) afterDecreasing []) (names _ =>
+        Parse.givesDone byComputing)))
+
+theorem givesUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool):
+    Parse.Gives GoodItems (() => unfoldingPart modes afterDecreasing isInstance) (found => True) :=
+  givesAfter0
+    [p := () => afterDecreasing.at KwUnfolding]
+    [j := found => unfoldingAt afterDecreasing isInstance found]
+    (reads0At afterDecreasing KwUnfolding)
+    (found =>
+      match found with
+        | True =>
+          match isInstance with
+            | True => Parse.readsFatal _ _
+            | False => givesUnfoldingClauseOf afterDecreasing
+        | False => Parse.givesDone byComputing)
+
+theorem givesNamespaceAfter ∀ (modes: Modes) (keyword: Comments) (seen: Option Tok):
+    Parse.Gives GoodItems (() => namespaceAfter modes keyword seen) DeclOut :=
+  match seen with
+    | Some Upper => Parse.givesThen [p := () => bump()] [j := name => Namespace keyword name] givesBump (name _ =>
+      Parse.givesDone byComputing)
+    | Some Lower => Parse.readsFatal _ _
+    | other => givesFail modes _
+
+theorem givesNamespaceStep ∀ (seen: Seen) (modes: Modes):
+    Parse.Gives GoodItems (() => namespaceStep seen modes) DeclOut :=
+  match seen.hasNamespace with
+    | True => Parse.readsFatal _ _
+    | False =>
+      match seen.hasImports || seen.hasDecls with
+        | True => Parse.readsFatal _ _
+        | False => Parse.givesThen givesFixedFrom (keyword _ =>
+          givesAfter0
+            [p := () => modes.peek]
+            [j := seen => namespaceAfter modes keyword seen]
+            (reads0Peek modes)
+            (seen => givesNamespaceAfter modes keyword seen))
+
+--| Everything `Frame` says, from what is not yet proved and `Nested`.
+def frameOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: FrameRest self): Frame self := {
+  attributes = rest.attributes,
+  namespaces = (seen modes => givesNamespaceStep seen modes),
+  imports = rest.imports,
+  others = rest.others,
+  foralls = (modes kind => givesForallPart modes kind),
+  params = rest.params,
+  decreasings = (modes headerModes isInstance => givesDecreasingPart self modes headerModes isInstance nested),
+  unfoldings = (modes afterDecreasing isInstance => givesUnfoldingPart modes afterDecreasing isInstance),
+  arms = rest.arms
+}
+
 theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => assignedBody self modes) BodyOk :=
@@ -3454,7 +3607,7 @@ theorem groupRanOk ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List 
     | Ok decl, ranOk, parses =>
       groupLoweredOk seen rest found decls decl decl.loweringError (ranOk decl byComputing) foundOk again parses
 
-theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (seen: Seen)
+theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (seen: Seen)
     (groups: List (List Leaf)) (found decls: List Decl)
     (good: List.All (group => List.All GoodItem (items group)) groups)
     (foundOk: List.All DeclOk found)
@@ -3475,7 +3628,9 @@ theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (s
             (items group)
             (() => declaration seen)
             DeclOk
-            (givesDeclaration seen nested (outsideOf expressionAt nested (outside expressionAt nested)) frame)
+            (givesDeclaration seen nested
+              (outsideOf expressionAt nested (outside expressionAt nested))
+              (frameOf expressionAt nested frame))
             { holds = groupGood }
             decl
             ran)
@@ -3494,7 +3649,7 @@ theorem fileEndOk ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
     | Err message, good, parses => (Result.errNotOk parses).impossible
 
 --| The declarations of a file that parses from good items are each as `DeclOk` says.
-theorem parseFileOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
+theorem parseFileOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file):
     List.All DeclOk file.decls :=
@@ -3522,7 +3677,7 @@ theorem declsShapedLexical ∀ (decls: List Decl)
 --|
 --| It assumes what the parsers outside slice 1 give (`OutsideGives`, `Frame`), which SW-4000 proves, and that every
 --| item of every declaration's group is good (the lexer's spelling, `GoodItem`).
-theorem parseShaped1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
+theorem parseShaped1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
@@ -3531,7 +3686,7 @@ theorem parseShaped1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (le
 
 --| Every word of the file lexes as one token of its kind (a definition's name as a lower-case name, which
 --| `Header.within1` asks for).
-theorem parseLexical1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
+theorem parseLexical1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):

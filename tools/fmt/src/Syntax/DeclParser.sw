@@ -491,10 +491,12 @@ def declarationEnd (modes: Modes) (decl: Decl) (items: List Item): {Parse Item} 
 
 def namespaceLine (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  match modes.peek with
-    | Some Upper => Namespace keyword bump()
-    | Some Lower => fatal "each part of a namespace's name starts with a capital letter"
-    | _ => modes.fail "a namespace, such as `Day05`"
+  namespaceAfter modes keyword modes.peek
+
+def namespaceAfter (modes: Modes) (keyword: Comments): Option Tok → {Parse Item} Decl
+  | Some Upper => Namespace keyword bump()
+  | Some Lower => fatal "each part of a namespace's name starts with a capital letter"
+  | _ => modes.fail "a namespace, such as `Day05`"
 
 def importLine (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
@@ -675,33 +677,48 @@ def definitionName (modes: Modes): {Parse Item} Word := definitionNameAfter mode
 def definitionNameAfter (modes: Modes) (upper: Bool): {Parse Item} Word :=
   if upper then modes.upperQualified "a name" else modes.lowerQualified "a name"
 
-def forallPart (modes: Modes) (kind: DefKind): {Parse Item} Option Word :=
-  if modes.at KwForall then
-    if kind != DefTheorem then fatal "`∀` before the parameters is only for theorems"
-    else
-      let word := bump()
-      if modes.at LParen || modes.at LBracket then Some word else modes.fail "a parameter such as `(x: Nat)` after `∀`"
+def forallPart (modes: Modes) (kind: DefKind): {Parse Item} Option Word := forallAt modes kind (modes.at KwForall)
+
+def forallAt (modes: Modes) (kind: DefKind) (found: Bool): {Parse Item} Option Word :=
+  if found then if kind != DefTheorem then fatal "`∀` before the parameters is only for theorems" else forallBump modes
   else None
+
+def forallBump (modes: Modes): {Parse Item} Option Word :=
+  let word := bump()
+  forallEnd modes word (modes.at LParen) (modes.at LBracket)
+
+def forallEnd (modes: Modes) (word: Word) (paren bracket: Bool): {Parse Item} Option Word :=
+  if paren || bracket then Some word else modes.fail "a parameter such as `(x: Nat)` after `∀`"
 
 def decreasingPart (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool):
     {Parse Item} Option (Comments, Expr) :=
-  if modes.at KwDecreasing then
-    if isInstance then fatal "an instance can't have `decreasing`"
-    else
-      let keyword := fixedFrom()
-      Some (keyword, self { modes = headerModes, level = LevelFull })
+  decreasingAt self headerModes isInstance (modes.at KwDecreasing)
+
+def decreasingAt (self: Goal → {Parse Item} Expr) (headerModes: Modes) (isInstance found: Bool):
+    {Parse Item} Option (Comments, Expr) :=
+  if found then if isInstance then fatal "an instance can't have `decreasing`" else decreasingClauseOf self headerModes
   else None
+
+def decreasingClauseOf (self: Goal → {Parse Item} Expr) (headerModes: Modes): {Parse Item} Option (Comments, Expr) :=
+  let keyword := fixedFrom()
+  let tail := self { modes = headerModes, level = LevelFull }
+  Some (keyword, tail)
 
 def afterDecreasingOf (modes: Modes) (decreasingClause: Option (Comments, Expr)): {Parse Item} Modes :=
   if decreasingClause.isSome then allowColonEq modes else modes
 
 def unfoldingPart (modes afterDecreasing: Modes) (isInstance: Bool): {Parse Item} Option (Comments, List Word) :=
-  if afterDecreasing.at KwUnfolding then
-    if isInstance then fatal "an instance can't have `unfolding`"
-    else
-      let keyword := fixedFrom()
-      Some (keyword, unfoldingNames (Parse.mark().left + 1) afterDecreasing [])
+  unfoldingAt afterDecreasing isInstance (afterDecreasing.at KwUnfolding)
+
+def unfoldingAt (afterDecreasing: Modes) (isInstance found: Bool): {Parse Item} Option (Comments, List Word) :=
+  if found then if isInstance then fatal "an instance can't have `unfolding`" else unfoldingClauseOf afterDecreasing
   else None
+
+def unfoldingClauseOf (afterDecreasing: Modes): {Parse Item} Option (Comments, List Word) :=
+  let keyword := fixedFrom()
+  let here := Parse.mark()
+  let names := unfoldingNames (here.left + 1) afterDecreasing []
+  Some (keyword, names)
 
 def afterUnfoldingOf (afterDecreasing: Modes) (unfoldingClause: Option (Comments, List Word)): {Parse Item} Modes :=
   if unfoldingClause.isSome then allowColonEq afterDecreasing else afterDecreasing
@@ -726,14 +743,19 @@ def headerParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item}
 
 def unfoldingNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word := match fuel with
   | Succ more =>
-    let name :=
-      if modes.at Upper then modes.upperQualified "the name of an opaque definition"
-      else modes.lowerQualified "the name of an opaque definition"
-    if modes.at Comma then
-      let _ := bump()
-      unfoldingNames more modes [name, ..found]
-    else [name, ..found].reverse
+    let name := unfoldingName modes (modes.at Upper)
+    unfoldingNext more modes found name (modes.at Comma)
   | Zero => found.reverse
+
+def unfoldingName (modes: Modes) (upper: Bool): {Parse Item} Word :=
+  if upper then modes.upperQualified "the name of an opaque definition"
+  else modes.lowerQualified "the name of an opaque definition"
+
+def unfoldingNext (more: Nat) (modes: Modes) (found: List Word) (name: Word) (comma: Bool): {Parse Item} List Word :=
+  if comma then
+    let _ := bump()
+    unfoldingNames more modes [name, ..found]
+  else [name, ..found].reverse
 
 --| `:= e`, arms, or nothing (`definition_body`).
 def definitionBody (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (isInstance: Bool) (d: Nat):
