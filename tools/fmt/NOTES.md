@@ -1303,9 +1303,40 @@ Ticket 17f, in `Syntax/ReadBackLine.sw`. What reads back on one line now, and wh
 
 `rightNeeds` lets a left-nesting operator's right operand sit at the operator's own level, `argument1` lets a head be any prefix and an argument's prefix nest. The parser never builds these, so the end theorem is not false; but `readsBack1` can't take `shaped1` as its shape fact. It needs the parser's own shape: a left-nesting chain's right operand one level up, a head an atom or `-` on a numeral, an argument's sign on an atom or bracket. Either `shaped1` is tightened (and `parseShaped1` re-proved) or `readsBack1` takes a stricter fact proved of the parse.
 
-**Glue is a printer fact nobody has stated.** `Spelt` now says how signs are glued (`negativeNumeral`, `argumentGlue`), and a binary `-` will need its right operand not glued (or `a -b` reads as a call). `printedTokens1` gives texts and kinds, `printedSpells` words; neither gives the items' `glued` or `afterOperand`. Step 4 needs a lemma on the printed items' spacing (`prefixGap` and the spaces around operators and between arguments).
+**Glue is a printer fact nobody has stated.** `Spelt` now says how signs are glued (`negativeNumeral`, `argumentGlue`), and a binary `-` will need its right operand not glued (or `a -b` reads as a call). `printedTokens1` gives texts and kinds, `printedSpells` words; neither gives the items' `glued` or `afterOperand`. Step 4 needs a lemma on the printed items' spacing (`prefixGap` and the spaces around operators and between arguments): stated by SW-4070, "Printed spacing" below.
 
 **What's left of `readsBack1`**: the binary operators (`* / %`, `+ -`, `++` as chains, comparisons, `&&`/`||` through `groupLogic`, and an arrow's left side at the logic level), each rung reading a chain by flattening the tree's spine, with the ends of each operand being the next operator (`UnaryEnds` and the chain rungs' `takesAhead`); multi-line declarations (step 3); and step 4's discharge: `Spelt` from `printedTokens1` and `printedSpells` plus the glue lemma, `lineAll`/`inLineAll`/`laterInLine` from the hang facts.
+
+## Printed spacing (SW-4070, Opus, 18 November 2026)
+
+What read-back's `Spelt` reads of the printed items' spacing, stated in `Fmt/OutputStatements.sw` and checked, not proved.
+
+**The statement.** `Decl.spacing1` gives one `Spacing` (`Free`, `Glued`, `Apart`) for each token of `decl.spelt.filter notComment`, commas included; `printedSpacing1` would be `spacingAdmits decl.spacing1 (items decl.leaves1) = True` from `within1`, `shaped1`, `settled1` and `lexical1`. It asks only what `Spelt` reads, plus what SW-4071's binary `-` will:
+
+- a call argument's sign `Apart` from what precedes it, its operand's first token `Glued` (`argumentGlue`);
+- `-` on a numeral: the numeral `Glued` (`negativeNumeral`); `-` on a numeral's call (`- 2 n`): `Apart`, which `prefixGap` spaces;
+- an infix operator's right operand `Apart` from the operator, so `a - x` isn't read as the call `a -x` (an arrow's too: the same rule);
+- the `Glued` demands only where no comment sits between the sign and its operand (`signQuiet`): a comment breaks the line.
+
+`afterOperand` needs no printer fact: it is the token before's kind (`closesOperand`), which `printedTokens1` gives. `holdsOn` checks the statement on every example (`holdsOnSigns`, `holdsOnSignComments` added), and `spacingMatters` shows it isn't empty: `f - x`, `- 1`, `p -x` and `-2 n` fail it against the trees of `f -x`, `-1`, `p - x` and `- 2 n`. [computed, `byComputing`; and `formatWithin` on 15 sign and arrow cases, each as `stitchwort fmt` prints it]
+
+**Found: `Spelt`'s prefix equation is false of a parsed source.** `def d: A := (- -- c\n  1)` prints as written: the comment breaks the line, so `1` isn't glued and `negativeNumeral` is `False`, while `Spelt` asks it to equal `operand.numeral1 = True`. The output still reads back (`readsBack` is `True`): the parser reads `-` then `1` as the same `Prefix`. So `Spelt`'s `Prefix` case should ask `negativeNumeral … = True → operand.numeral1 = True` (a glued numeral reads as one atom, which must be the tree's), and the converse only where the two readings differ: a call's head (`-1 n` against `- 1 n`, not in `Spelt` yet) or an argument (`argumentGlue` already). `unaryLine` would then split on `negativeNumeral` instead of on the operand. The same holds of an own-line comment above the numeral (`(-\n  -- o\n  2)`).
+
+**Found: a comment on a glued sign breaks read-back, and the tree facts allow it** [computed, `stitchwort eval` on hand-built trees, each `within1`, `shaped1`, `settled1` and `lexical1`, `readsBack` `False`]:
+
+| Tree | Prints | Reads back as |
+|---|---|---|
+| `App f [Prefix (- -- c) x]` | `def d: A := f - -- c` / `    x` | `f - x` |
+| `App (Prefix (- -- c) 1) [n]` | `def d: A := - -- c` / `    1 n` | `-(1 n)` |
+
+The parser never builds them (a glued `-x` or `-1` has no room for a comment), and SW-4069's shape (an argument's sign on an atom or bracket, a head an atom or `-` on a numeral) still admits them. `readsBack1` needs a tree fact proved of the parse: an argument's sign, and a head's `-`, has no trailing comment and its operand's first token none above it (`signQuiet`).
+
+**Why it isn't proved: no printer fact says where the spaces are.** `printedSpells` and `printedTokens1` give the words in order. `Joins` (Std.Doc) bounds which pieces may touch, by text, so it can't tell a binary `-` from a sign, and says nothing of what must touch. `Puts`/`Told` record a word's column only when it starts its line. The proof needs, in order:
+
+1. Std.Doc: whether each word touches the piece before it. Either `Event` gains it (`eventsOf`: the piece before is no layout and the line isn't blank) and `Puts`, `Lays`, `Told` (`Spot` gains `touching`) and their printer theorems carry it, or a separate predicate in continuation style with its own printer theorem, as `Joins` has. Core std, so Opus.
+2. The rules: an operand right after its sign with `prefixGap` empty and no comment touches it; `spaced`/`argumentDocs` and the chain's links put a space or a `Line` before each argument and right operand, so those never touch. Over slice 1's `Expr.el`, as `JoinProofs` does for `Joins`.
+3. The lexer bridge: in `items` of `Decl.leaves1`, a leaf laid right after a `Code` piece is glued (`endColumn` is `column + utf8Length` for a one-line text), one after a `Gap` or `Break` is not.
+4. `printedSpacing1` from 1 to 3; then `Spelt`'s `Prefix` fix above, and `Spelt` of a printed expression for atoms, brackets, calls, signs and arrows (step 4's discharge).
 
 ## One parse (SW-3964, proof plan ticket 13c)
 

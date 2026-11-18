@@ -42,6 +42,83 @@ def Leaf.kinded (leaf: Leaf): Bool := leaf.token.kind == lexKind leaf.token.text
 -- `printedTokens1`, that a declaration's printed tokens are the texts the rules spell for it without the comments, each of
 -- the lexer's kind, is proved in `Fmt.TokenProofs`.
 
+-- The printed tokens' spacing (SW-4070): what read-back's `Spelt` reads of the items' `glued`. Their `afterOperand`
+-- needs no printer fact: it is the kind of the token before, which `printedTokens1` gives.
+
+--| What a printed token's spacing must be: anything, glued to the token before it on its line, or not.
+type Spacing = | Free | Glued | Apart
+
+def Spacing.admits (spacing: Spacing) (glued: Bool): Bool := match spacing with
+  | Free => True
+  | Glued => glued
+  | Apart => !glued
+
+--| The first token's spacing set, the rest kept.
+def spacedFirst (spacing: Spacing): List Spacing → List Spacing
+  | [] => []
+  | [_, ..rest] => [spacing, ..rest]
+
+--| No comment between a sign and its operand: none trailing the sign and none above the operand's first token. A
+--| comment there breaks the line, so nothing is glued: `(- -- c` then `1)` on the next line.
+def signQuiet (operator: Word) (operand: Expr): Bool := match operator.comments.after, operand.lead.comments.above with
+  | None, [] => True
+  | _, _ => False
+
+--| A prefix's operand's first token: spaced from `-` on a numeral's call (`- 2 n`, which glued would read as `(-2)
+--| n`); with no comment between them, glued to a call argument's sign (`f -x`, `argumentGlue`) and to `-` on a
+--| numeral (`-1`, one atom to the parser). The parser's `negativeNumeral` reads this.
+def operandSpacing (argument: Bool) (operator: Word) (operand: Expr): Option Spacing :=
+  if operator.text == "-" && operand.numeralApplication then Some Apart
+  else if !signQuiet operator operand then None
+  else if argument then Some Glued
+  else if operator.text == "-" && operand.numeral1 then Some Glued
+  else None
+
+--| The spacing `Spelt` reads of an expression's printed tokens, one entry for each of `spelt`'s tokens with the
+--| comments left out (commas included): a call argument's sign apart from what precedes it (`argumentGlue`), each
+--| prefix's operand as `operandSpacing` says, and an infix operator's right operand apart from the operator, so a
+--| binary `-` isn't read as a sign; everything else free. `argument` says the expression is a call's argument.
+def Expr.spacing1: Expr → Bool → List Spacing
+  | Atom _ _, _ => [Free]
+  | Paren _ inner _, _ => [Free, ..inner.spacing1 False] ++ [Free]
+  | Tuple _ items _ _, _ => [Free, ..commaSpacing1 items] ++ [Free]
+  | ListOf _ items _ _, _ => [Free, ..commaSpacing1 items] ++ [Free]
+  | App head arguments, _ => head.spacing1 False ++ argumentsSpacing1 arguments
+  | Infix _ left _ right, _ => left.spacing1 False ++ [Free, ..spacedFirst Apart (right.spacing1 False)]
+  | Prefix operator operand, argument =>
+    let sign := if argument then Apart else Free
+    let inner := operand.spacing1 False
+    match operandSpacing argument operator operand with
+      | Some spacing => [sign, ..spacedFirst spacing inner]
+      | None => [sign, ..inner]
+  | _, _ => []
+
+--| A bracket's items and the commas between them, as `commaSpelt`.
+def commaSpacing1: List Expr → List Spacing
+  | [] => []
+  | [item] => item.spacing1 False
+  | [item, ..rest] => item.spacing1 False ++ [Free] ++ commaSpacing1 rest
+
+def argumentsSpacing1: List Expr → List Spacing
+  | [] => []
+  | [argument, ..rest] => argument.spacing1 True ++ argumentsSpacing1 rest
+
+--| A definition's spacing, as `Decl.spelt`'s tokens: `def`, the name, `:`, the type, `:=` and the value.
+def Decl.spacing1: Decl → List Spacing
+  | Definition _ header (Assigned _ value) =>
+    [Free, Free, Free] ++ header.result.spacing1 False ++ [Free] ++ value.spacing1 False
+  | _ => []
+
+--| Each item's `glued` is as its spacing says, the two lists alike in length.
+def spacingAdmits: List Spacing → List Item → Bool
+  | [], [] => True
+  | [spacing, ..rest], [item, ..later] => spacing.admits item.glued && spacingAdmits rest later
+  | _, _ => False
+
+-- `printedSpacing1`, that a slice 1 declaration's printed items are spaced as `Decl.spacing1` says
+-- (`spacingAdmits decl.spacing1 (items decl.leaves1) = True`, from `within1`, `shaped1`, `settled1` and `lexical1`),
+-- is not proved: the printer facts it needs are in tools/fmt/NOTES.md, "Printed spacing". `holdsOn` checks it.
+
 -- The file's leaves.
 
 --| An own-line comment the file loop printed, as the lexer reads it back: at column 0, after one blank line or none,
@@ -145,6 +222,7 @@ def holdsOn (source: Text): Bool := match tidiedOf source with
           && file.hung1
           && file.decls.all (decl => tokenTexts decl.leaves1 == decl.spelt.filter notComment)
           && file.decls.all (decl => decl.leaves1.all Leaf.kinded)
+          && file.decls.all (decl => spacingAdmits decl.spacing1 (items decl.leaves1))
           && sameLexed lexed file.lexed1
           && alphabet1 lexed.leaves
           && noLast [] lexed.leaves
@@ -175,6 +253,33 @@ theorem holdsOnClosers: holdsOn "def d: A := f [a, -- c\n    b -- e\n  ] (c -- d
 
 --| A file that starts with blank lines, and one of comments only.
 theorem holdsOnTop: (holdsOn "\n\n-- a\n\ndef d: A := b\n" && holdsOn "\n\n-- a\n\n-- b\n" && holdsOn "") = True :=
+  byComputing
+
+--| Signs as arguments, on numerals and on numerals' calls, after a binary `-` and after an arrow: the spacing
+--| `Decl.spacing1` asks for.
+theorem holdsOnSigns: holdsOn "def d: A := f -x !b -1 [-1, -x] (p - -1) (q -> -1) (- 2 n) -(-1) (!c)\n" = True :=
+  byComputing
+
+--| A comment after a sign, or above its operand, breaks the line: the operand is not glued, and the parser reads a
+--| prefix on the numeral, not a negative numeral.
+theorem holdsOnSignComments: holdsOn "def d: A := (- -- c\n  1) (-\n  -- o\n  2) (! -- b\n  x)\n" = True := byComputing
+
+--| Whether a text is spaced as `Decl.spacing1` asks of a source's one declaration.
+def spacingOn (source text: Text): Bool := match tidiedOf source, lex text with
+  | Some file, Ok lexed =>
+    match file.decls with
+      | [decl] => spacingAdmits decl.spacing1 (items lexed.leaves)
+      | _ => False
+  | _, _ => False
+
+--| `Decl.spacing1` is no empty demand: each of these texts has the source's tokens, spaced as the parser would read
+--| differently (`f - x` a subtraction, `- 1` no numeral, `p -x` a call, `-2 n` a call of `-2`).
+theorem spacingMatters: (spacingOn "def d: A := f -x\n" "def d: A := f -x\n"
+      && !spacingOn "def d: A := f -x\n" "def d: A := f - x\n"
+      && !spacingOn "def d: A := -1\n" "def d: A := - 1\n"
+      && !spacingOn "def d: A := p - x\n" "def d: A := p -x\n"
+      && !spacingOn "def d: A := - 2 n\n" "def d: A := -2 n\n")
+      = True :=
   byComputing
 
 --| Whether rule N leaves the lexed output of a source as it is.

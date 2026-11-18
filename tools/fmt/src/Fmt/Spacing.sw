@@ -22,6 +22,12 @@ def prefixGap (operator: Word) (operand: Expr): Doc :=
   if operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication) then Doc.text " "
   else Nothing
 
+--| A numeral: what `-` glued to it reads as one atom with.
+def Expr.numeral1: Expr → Bool
+  | Atom Num _ => True
+  | Atom Float _ => True
+  | _ => False
+
 --| An application whose head is a numeral (`numeral_application`).
 def Expr.numeralApplication: Expr → Bool
   | App (Atom Num _) _ => True

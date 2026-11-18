@@ -125,12 +125,6 @@ def leadKind: Tok → Bool
   | Bang => True
   | _ => False
 
---| A numeral: what `-` glued to it reads as one atom with.
-def Expr.numeral1: Expr → Bool
-  | Atom Num _ => True
-  | Atom Float _ => True
-  | _ => False
-
 --| An expression that starts with a sign: a prefix, or an arrow whose left side does.
 def Expr.signed1: Expr → Bool
   | Prefix _ _ => True
