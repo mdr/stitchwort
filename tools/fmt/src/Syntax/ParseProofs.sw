@@ -429,9 +429,9 @@ theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
 theorem givesLeft: Parse.Gives GoodItems (() => left()) (found => True) :=
   Parse.readsInMark (here => here.rest) _ (start fine => Parse.readsAtDone _ start.rest _ byComputing)
 
-theorem givesSuffixCalled ∀ (floor: Nat) (target: Expr) (callable paren: Bool)
-    (parsed: Parsed1 floor target):
-    Parse.Gives GoodItems (() => suffixCalled target callable paren) (Parsed1 floor) :=
+theorem givesSuffixCalled ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+    (target: Expr) (callable paren: Bool) (parsed: holds target):
+    Parse.Gives GoodItems (() => suffixCalled target callable paren) (holds) :=
   Parse.givesThen givesLeft (seen found =>
     match unitCall seen with
       | False => Parse.givesDone parsed
@@ -440,15 +440,15 @@ theorem givesSuffixCalled ∀ (floor: Nat) (target: Expr) (callable paren: Bool)
           | False => Parse.givesDone parsed
           | True => Parse.givesThen givesBump (open _ =>
             Parse.givesThen givesBump (close _ =>
-              Parse.givesDone (parsedOutside floor (App target [Unit open close]) (Bool.andFalse target.within1)))))
+              Parse.givesDone (outside (App target [Unit open close]) (Bool.andFalse target.within1)))))
 
 --| `suffixes` after the call: a field access starts another round on a tree outside the slice, and nothing else changes
 --| the tree.
-theorem givesSuffixesOn ∀ (floor more: Nat) (modes: Modes) (called: Expr) (paren: Bool) (items: List Item)
-    (parsed: Parsed1 floor called)
-    (next: ∀ (target: Expr) (callable: Bool) => Parsed1 floor target
-      → Parse.Gives GoodItems (() => suffixes more modes target callable paren) (Parsed1 floor)):
-    Parse.Gives GoodItems (() => suffixesOn more modes called paren items) (Parsed1 floor) :=
+theorem givesSuffixesOn ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+    (more: Nat) (modes: Modes) (called: Expr) (paren: Bool) (items: List Item) (parsed: holds called)
+    (next: ∀ (target: Expr) (callable: Bool) => holds target
+      → Parse.Gives GoodItems (() => suffixes more modes target callable paren) (holds)):
+    Parse.Gives GoodItems (() => suffixesOn more modes called paren items) (holds) :=
   match items with
     | [dot, field, ..later] =>
       match dot.kind == Dot && !modes.stops dot && !sectionAt [dot, field, ..later] with
@@ -461,7 +461,7 @@ theorem givesSuffixesOn ∀ (floor more: Nat) (modes: Modes) (called: Expr) (par
                 | True => Parse.readsFatal _ _
                 | False => Parse.givesThen givesBump (dotLeaf _ =>
                   Parse.givesThen givesBump (name _ =>
-                    next (FieldAccess (Some called) dotLeaf name) True (parsedOutside floor _ byComputing)))
+                    next (FieldAccess (Some called) dotLeaf name) True (outside _ byComputing)))
     | [dot] =>
       match dot.kind == Dot && !modes.stops dot with
         | True => Parse.readsFatal _ _
@@ -471,15 +471,16 @@ theorem givesSuffixesOn ∀ (floor more: Nat) (modes: Modes) (called: Expr) (par
 --| `suffixes` keeps a parsed tree: a call or a field access makes one outside the slice.
 --|
 --| Proof idea: by induction on the fuel; each round is `suffixCalled`, then `suffixesOn` with the round after it.
-theorem givesSuffixes ∀ (floor fuel: Nat) (modes: Modes) (target: Expr) (callable paren: Bool)
-    (parsed: Parsed1 floor target):
-    Parse.Gives GoodItems (() => suffixes fuel modes target callable paren) (Parsed1 floor) :=
+theorem givesSuffixes ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr) (fuel: Nat)
+    (modes: Modes) (target: Expr) (callable paren: Bool) (parsed: holds target):
+    Parse.Gives GoodItems (() => suffixes fuel modes target callable paren) (holds) :=
   match fuel with
     | Zero => Parse.givesDone parsed
-    | Succ more => Parse.givesThen (givesSuffixCalled floor target callable paren parsed) (called calledParsed =>
-      Parse.givesThen givesLeft (seen _ =>
-        givesSuffixesOn floor more modes called paren seen calledParsed (later again againParsed =>
-          givesSuffixes floor more modes later again paren againParsed)))
+    | Succ more =>
+      Parse.givesThen (givesSuffixCalled holds outside target callable paren parsed) (called calledParsed =>
+        Parse.givesThen givesLeft (seen _ =>
+          givesSuffixesOn holds outside more modes called paren seen calledParsed (later again againParsed =>
+            givesSuffixes holds outside more modes later again paren againParsed)))
 
 theorem givesAt ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => modes.at wanted) (found => True) :=
   Parse.readsInMark (here => isSome wanted (peekIn modes 0 here.rest)) _ (start fine =>
@@ -488,11 +489,11 @@ theorem givesAt ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => m
 theorem givesPeek ∀ (modes: Modes): Parse.Gives GoodItems (() => modes.peek) (found => True) :=
   Parse.readsInMark (here => peekIn modes 0 here.rest) _ (start fine => Parse.readsAtDone _ _ _ byComputing)
 
-theorem givesAtomRecord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head upper: Bool)
-    (base: Expr) (callable: Bool)
-    (parsed: Parsed1 18 base)
+theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+    (self: Goal → {Parse Item} Expr) (modes: Modes) (head upper: Bool) (base: Expr)
+    (callable: Bool) (parsed: holds base)
     (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
-    Parse.Gives GoodItems (() => atomRecord self modes head upper base callable) (pair => Parsed1 18 pair.fst) :=
+    Parse.Gives GoodItems (() => atomRecord self modes head upper base callable) (pair => holds pair.fst) :=
   match upper with
     | False => Parse.givesDone parsed
     | True =>
@@ -508,16 +509,16 @@ theorem givesAtomRecord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (h
                 (fields _ =>
                   Parse.givesDone
                     [x := (CtorFields base fields, False)]
-                    [holds := pair => Parsed1 18 pair.fst]
-                    (parsedOutside 18 (CtorFields base fields) byComputing))
+                    [holds := pair => holds pair.fst]
+                    (outside (CtorFields base fields) byComputing))
             | False => Parse.givesDone parsed)
 
-theorem givesAtomAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr)
-    (parsed: Parsed1 18 base)
+theorem givesAtomAfter ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+    (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr) (parsed: holds base)
     (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
-    Parse.Gives GoodItems (() => atomAfter self modes head first base) (Parsed1 18) :=
+    Parse.Gives GoodItems (() => atomAfter self modes head first base) (holds) :=
   Parse.givesThen
-    (givesAtomRecord self modes head
+    (givesAtomRecord holds outside self modes head
       (isSome Upper first)
       base
       (isSome Lower first || isSome Upper first || isSome Dot first)
@@ -527,19 +528,21 @@ theorem givesAtomAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (he
       match pair with
         | (based, callable) => Parse.givesThen Parse.givesMark (here _ =>
           Parse.givesThen
-            (givesSuffixes 18 (here.left + 1) modes based callable (isSome LParen first) pairParsed)
+            (givesSuffixes holds outside (here.left + 1) modes based callable (isSome LParen first) pairParsed)
             (result resultParsed =>
               match isSome Dot first && !head with
-                | True => Parse.givesDone (parsedOutside 18 (Section result) byComputing)
+                | True => Parse.givesDone (outside (Section result) byComputing)
                 | False => Parse.givesDone resultParsed)))
 
 --| `atom`, from what `atom_base` and a record's fields give.
-theorem givesAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool)
-    (baseGives: Parse.Gives GoodItems (() => atomBase self modes) (Parsed1 18))
+theorem givesAtom ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+    (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool)
+    (baseGives: Parse.Gives GoodItems (() => atomBase self modes) (holds))
     (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
-    Parse.Gives GoodItems (() => atom self modes head) (Parsed1 18) :=
+    Parse.Gives GoodItems (() => atom self modes head) (holds) :=
   Parse.givesThen (givesPeek modes) (first _ =>
-    Parse.givesThen baseGives (base baseParsed => givesAtomAfter self modes head first base baseParsed recordGives))
+    Parse.givesThen baseGives (base baseParsed =>
+      givesAtomAfter holds outside self modes head first base baseParsed recordGives))
 
 -- Reading a token that must be there.
 
