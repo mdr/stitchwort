@@ -23566,15 +23566,25 @@
     {
       "id": 3952,
       "title": "[Sonnet] D3681: pre-commit hook via git-hooks.nix run by prek (git-hooks.package = pkgs.prek): rustfmt and stitchwort fmt --check on staged files only, installed by the dev shell's shellHook; no clippy/tests in the hook, not wired into nix flake check; works in lane worktrees and DeepSeek scratch clones",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "D3681 (Matt, 18 Nov 2026): asked for a pre-commit setup ('Could we sort out a pre-commit hook?'), then 'Isn't there some sort of like Nix managed pre-commit alternative...' and 'git-hooks.nix run by prek ideally'.",
+      "body": "D3681 (Matt, 18 Nov 2026): asked for a pre-commit setup ('Could we sort out a pre-commit hook?'), then 'Isn't there some sort of like Nix managed pre-commit alternative...' and 'git-hooks.nix run by prek ideally'.\n\n\nLane notes (Sonnet, 18 Nov 2026): hook built and proved in a scratch clone (commit refused naming bad .sw/.rs, passes when fixed, --no-verify bypasses, 0.43 s with files staged). Branch lane/SW-3952. Findings: git-hooks.nix sets a relative core.hooksPath in a main checkout, so the shellHook rewrites it absolute; a checkout without .pre-commit-config.yaml fails every commit, so worktree:new/scratch:new enter the devShell once. Orchestrator step: run `nix develop -c true` in the main checkout after merging.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "f00e90814",
+        "609c25d5f",
+        "d34251674",
+        "5a469b0eb",
+        "13f041e32",
+        "5dd013fce",
+        "c98bdcf18",
+        "b6807e521",
+        "be05b3bbb"
+      ]
     }
   ]
 }
