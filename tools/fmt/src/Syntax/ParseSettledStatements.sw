@@ -10,7 +10,7 @@
 --| Each open goal is a proof ticket.
 
 namespace Syntax.ParseSettledStatements
-import Std (Bool, List, Nat, Option, Result, Text)
+import Std (Bool, Eq, List, Nat, Option, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (..)
@@ -21,6 +21,7 @@ import Syntax.ParseCarriesFile (parseCarriesOf)
 import Syntax.ParseCarriesDecl (groupCarries)
 import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
 import Syntax.SettleOnceProofs (onceSettledProved)
+import Syntax.SettleSplitProofs (declsSettled, declsWordsOpen, groupWordsConcat, groupsConcat, settledOf, settledPieces)
 
 -- The words of leaves.
 
@@ -65,14 +66,21 @@ theorem parseCarries1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: 
 --| leaves (`groupsOf` only splits), so `settledWords` holds of all the
 --| declarations' words together; each declaration's words start with `def`, which is no closer, so a closer's
 --| look back (`trailsBack`) never leaves its declaration and `homedBack` holds of each alone; `arrowsBare` and the
---| comments' texts hold of every part of a list they hold of.
+--| comments' texts hold of every part of a list they hold of (`settledPieces`, `Syntax.SettleSplitProofs`).
 theorem parseSettled1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True)
     (settled: lexed.wordsSettled1 = True):
     file.settled1 = True :=
-  ?
+  match parseCarries1 frame lexed file good parses within with
+    | (words, fileEnd) =>
+      let joined: (file.decls.map Decl.words).concat = codeWords lexed.leaves :=
+        rewrite words then Eq.trans (groupWordsConcat (groupsOf lexed.leaves)) (rewrite groupsConcat lexed.leaves)
+      let whole: settledOf (file.decls.map Decl.words).concat = True := rewrite joined then Bool.andLeft settled
+      let ends := Bool.andRight settled
+      let pieces := settledPieces (file.decls.map Decl.words) (declsWordsOpen file.decls) whole
+      rewrite fileEnd then Bool.andIntro (declsSettled file.decls pieces) ends
 
 -- What the parser's leaves must be, and who gives it.
 
