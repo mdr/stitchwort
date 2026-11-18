@@ -48,12 +48,7 @@ def lineModes (modes: Modes) (column: Nat) (many: Bool) (before: Nat) (kind: Lin
 theorem readsAtLineKind ∀ (modes: Modes) (start: Parse.Mark Item):
     Parse.ReadsAt start (() => lineKind modes) (read kind => read = []) :=
   Parse.readsAtThen (readsAtPeekNothing modes start) (read found after starts (none, _) =>
-    match found with
-      | Some KwLet => Parse.readsAtDone after LetLine _ (rewrite none)
-      | Some KwDef => Parse.readsAtDone after DefLine _ (rewrite none)
-      | Some KwTheorem => Parse.readsAtDone after DefLine _ (rewrite none)
-      | Some At => Parse.readsAtDone after DefLine _ (rewrite none)
-      | _ => Parse.readsAtDone after ExprLine _ (rewrite none))
+    Parse.readsAtDone after (lineKindOf found) _ (rewrite none))
 
 theorem andFalseRight ∀ (a b c: Bool) (no: c = False): (a && b && c) = False := match a, b with
   | True, True => no
@@ -133,3 +128,142 @@ theorem blockOneLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (colu
         | ExprStatement value => Parse.readsAtDone after value _ (rewrite List.appendNil read then holds)
         | LetStatement _ => Parse.readsFatal [inv := Parse.Invariant.any] _ _ after { holds = Trivial }
         | LocalDef _ _ _ => Parse.readsFatal [inv := Parse.Invariant.any] _ _ after { holds = Trivial })
+
+-- Blocks, run: the completeness half, what the read-back builds on.
+
+theorem runsOffset ∀ (state: Parse.State Item) (rest: List Item):
+    Parse.RunsFrom state (() => offset()) [] rest state.at.offset :=
+  Parse.runsFromMark state (here => here.offset) [] rest state.at.offset (Parse.runsPure state.at.offset rest state)
+
+theorem runsLeft ∀ (state: Parse.State Item) (rest: List Item):
+    Parse.RunsFrom state (() => left()) [] rest state.at.rest :=
+  Parse.runsFromMark state (here => here.rest) [] rest state.at.rest (Parse.runsPure state.at.rest rest state)
+
+theorem runsPeek ∀ (modes: Modes) (state: Parse.State Item) (rest: List Item):
+    Parse.RunsFrom state (() => modes.peek) [] rest (peekIn modes 0 state.at.rest) :=
+  Parse.runsFromMark state (here => peekIn modes 0 here.rest) [] rest _ (Parse.runsPure _ rest state)
+
+theorem runsLineKind ∀ (modes: Modes) (state: Parse.State Item) (rest: List Item):
+    Parse.RunsFrom state (() => lineKind modes) [] rest (lineKindOf (peekIn modes 0 state.at.rest)) :=
+  Parse.runsFromBindAt state
+    (() => modes.peek)
+    (found => lineKindOf found)
+    []
+    []
+    []
+    rest _ _
+    byComputing
+    (runsPeek modes state rest)
+    (middle _ _ _ => Parse.runsPure _ rest middle)
+
+theorem runsBlockAgain ∀ (before column: Nat) (many: Bool) (state: Parse.State Item) (rest: List Item)
+    (ends: continuesAt column rest = False):
+    Parse.RunsFrom state (() => blockAgain before column many) [] rest False :=
+  Parse.runsFromBindAt state
+    (() => offset()) _
+    []
+    []
+    []
+    rest
+    state.at.offset
+    False
+    byComputing
+    (runsOffset state rest)
+    (middle restAt _ _ =>
+      Parse.runsFromBindAt middle
+        (() => left()) _
+        []
+        []
+        []
+        rest
+        middle.at.rest
+        False
+        byComputing
+        (runsLeft middle rest)
+        (inner _ _ _ =>
+          rewrite restAt then
+            match rest with
+              | [next, ..later] =>
+                rewrite andFalseRight (state.at.offset != before) many _ ends then
+                  Parse.runsPure False [next, ..later] inner
+              | [] => Parse.runsPure False [] inner))
+
+--| `blockLines` runs one round: from `state`, where the line's statement runs reading `read`, and what follows it
+--| doesn't continue the block.
+theorem runsBlockLinesOneLine ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (state: Parse.State Item) (read rest: List Item) (first: Statement)
+    (line: ∀ (kind: LineKind) (middle: Parse.State Item) => middle.at.offset = state.at.offset
+      → Parse.RunsFrom middle (() => statement self (lineModes modes column many state.at.offset kind)) read rest first)
+    (ends: continuesAt column rest = False):
+    Parse.RunsFrom state (() => blockLines (Succ more) self modes column many found) read rest [first, ..found] :=
+  Parse.runsFromBindAt state
+    (() => offset()) _
+    []
+    read
+    read
+    rest
+    state.at.offset _
+    byComputing
+    (runsOffset state (read ++ rest))
+    (middle _ _ offset1 =>
+      Parse.runsFromBindAt middle
+        (() => lineKind { modes | allow = Some state.at.offset }) _
+        []
+        read
+        read
+        rest _ _
+        byComputing
+        (runsLineKind _ middle (read ++ rest))
+        (middle2 _ _ offset2 =>
+          Parse.runsFromBindAt middle2 _ _ read [] read rest first _
+            (List.appendNil read).flipped
+            (line _ middle2 (rewrite offset2, offset1 then arithmetic))
+            (middle3 _ _ _ =>
+              Parse.runsFromBindAt middle3
+                (() => blockAgain state.at.offset column many) _
+                []
+                []
+                []
+                rest
+                False _
+                byComputing
+                (runsBlockAgain state.at.offset column many middle3 rest ends)
+                (middle4 _ _ _ => Parse.runsPure [first, ..found] rest middle4))))
+
+--| `blockOneLine`, run: where a block's first line is an expression `value` that runs reading `read`, and what follows
+--| doesn't continue the block, `block` runs reading `read` and gives `value`. The read-back meets `ends` with `hangs`:
+--| every later line of the item starts right of its column, and the leaf after it is on the same line, a closer or
+--| comma left of it, or `:=`.
+theorem runsBlockOneLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (state: Parse.State Item) (read rest: List Item) (value: Expr)
+    (line: ∀ (kind: LineKind) (middle: Parse.State Item) => middle.at.offset = state.at.offset
+      → Parse.RunsFrom middle
+        (() => statement self (lineModes (blockModes modes column many) column many state.at.offset kind))
+        read
+        rest
+        (ExprStatement value))
+    (ends: continuesAt column rest = False):
+    Parse.RunsFrom state (() => block self modes column many) read rest value :=
+  let lines :=
+    Parse.runsFromMark state
+      (here => blockLines (here.left + 1) self (blockModes modes column many) column many [])
+      read
+      rest
+      [ExprStatement value]
+      (runsBlockLinesOneLine state.at.left self
+        (blockModes modes column many)
+        column
+        many
+        []
+        state
+        read
+        rest
+        (ExprStatement value)
+        line
+        ends)
+  Parse.runsFromBindAt state _ _ read [] read rest
+    [ExprStatement value]
+    value
+    (List.appendNil read).flipped
+    lines
+    (middle _ _ _ => Parse.runsPure value rest middle)

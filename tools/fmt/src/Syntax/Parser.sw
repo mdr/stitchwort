@@ -726,7 +726,9 @@ def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (co
       if blockAgain before column many then blockLines more self modes column many done else done
 
 --| What a block's line is, by its first token.
-def lineKind (modes: Modes): {Parse Item} LineKind := match modes.peek with
+def lineKind (modes: Modes): {Parse Item} LineKind := lineKindOf modes.peek
+
+def lineKindOf: Option Tok → LineKind
   | Some KwLet => LetLine
   | Some KwDef => DefLine
   | Some KwTheorem => DefLine
