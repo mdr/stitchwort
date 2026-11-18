@@ -10,9 +10,11 @@
 --| depth below (`appLine`). No list may start with `auto` on a type's name (`Expr.autoFree1`), which reads as an
 --| implicit binder. A prefix `-` or `!` reads its operand at the unary level (`unaryLine`), and `-` glued to a numeral
 --| reads as one atom, as `Spelt` says the parser sees it. A sign may start a call's argument (`f -x !b -1`), glued
---| to its atom and spaced from what precedes it (`argumentGlue`); not a call's head (`-1 n`). An arrow `A -> B` whose
---| left side has no infix reads its right side in full (`arrowLine`), so arrows nest to the right. Other infix
---| operators and lines starting inside an expression are not here yet.
+--| to its atom and spaced from what precedes it (`argumentGlue`); not a call's head (`-1 n`). Binary operators read
+--| as the parser's chains: `* / %` and `+ -` nest to the left, the spine flattened into links (`mulAcc`, `addAcc`), each
+--| operator ending the operand before it (`opEnds`) and spaced from the one after (`operandApart`, so `a - x` is no
+--| call `a -x`). An arrow `A -> B` reads its left side as a comparison and logic links (`operatorLine`) and its right
+--| side in full (`arrowLine`), so arrows nest to the right. Lines starting inside an expression are not here yet.
 
 namespace Syntax.ReadBackLine
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void)
@@ -83,6 +85,10 @@ def lineKind: Tok → Bool
   | Num => True
   | Float => True
   | Minus => True
+  | Star => True
+  | Slash => True
+  | Percent => True
+  | Plus => True
   | Bang => True
   | Arrow => True
   | ColonEq => True
@@ -125,7 +131,47 @@ def leadKind: Tok → Bool
   | Bang => True
   | _ => False
 
---| An expression that starts with a sign: a prefix, or an arrow whose left side does.
+--| The binary operators of this part.
+def binaryTok: Tok → Bool
+  | Star => True
+  | Slash => True
+  | Percent => True
+  | Plus => True
+  | Minus => True
+  | _ => False
+
+--| The operator token an infix of this kind is spelt with: `->` for an arrow, a binary operator of this part.
+def infixTok (kind: InfixKind) (tok: Tok): Bool := match kind with
+  | InfixArrow => tok == Arrow
+  | InfixBinary => binaryTok tok
+  | _ => False
+
+--| `infixLevel` by the operator's token: how tightly it binds in the parser's ladder.
+def tokLevel: Tok → Nat
+  | Arrow => 1
+  | OrOr => 4
+  | AndAnd => 5
+  | Equals => 6
+  | EqEq => 6
+  | NotEq => 6
+  | Lt => 6
+  | Le => 6
+  | Gt => 6
+  | Ge => 6
+  | PlusPlus => 12
+  | Plus => 14
+  | Minus => 14
+  | Star => 16
+  | Slash => 16
+  | Percent => 16
+  | _ => 0
+
+--| An infix's right operand doesn't touch its operator: so `a - x` isn't read as the call `a -x`.
+def operandApart: List Item → Bool
+  | [first, .._] => !first.glued
+  | [] => True
+
+--| An expression that starts with a sign: a prefix, or an infix whose left side does.
 def Expr.signed1: Expr → Bool
   | Prefix _ _ => True
   | Infix _ left _ _ => left.signed1
@@ -139,8 +185,10 @@ def Expr.unary1: Expr → Bool
 --| `read` spells `expr`: the node's tokens in order, each an item of the token's kind carrying the node's word, a
 --| comma between each two bracket items and none after the last (`comma = False`); a tuple has two items or more. A
 --| prefix is its sign and its operand, no infix, the two read as a negative numeral exactly when the operand is a
---| numeral after `-`: the glue the printer gives, which the parser's `negativeNumeral` reads. An arrow is its left
---| side, `->` and its right side; its left side has no infix at the top (other operators are not here yet).
+--| numeral after `-`: the glue the printer gives, which the parser's `negativeNumeral` reads. An infix (an arrow, or a
+--| binary operator of `binaryTok`) is its left side, its operator and its right side: the operator's text binds as its
+--| token does (`tokLevel`), the operands sit at the levels `shaped1` asks (`leftNeeds`, `rightNeeds`), and the right
+--| operand doesn't touch the operator (`operandApart`).
 def Spelt: Expr → List Item → Prop
   | Atom kind word, read =>
     ∃ (item: Item) => read = [item] ∧ item.kind = kind ∧ item.leaf.word = word ∧ kind.wordWithin1 = True
@@ -195,11 +243,14 @@ def Spelt: Expr → List Item → Prop
       ∧ negativeNumeral [sign, ..more] = (sign.kind == Minus && operand.numeral1)
       ∧ operand.unary1 = True
       ∧ Spelt operand more
-  | Infix InfixArrow left operator right, read =>
-    ∃ (leftRead: List Item) (arrow: Item) (rightRead: List Item) => read = leftRead ++ [arrow, ..rightRead]
-      ∧ arrow.kind = Arrow
-      ∧ arrow.leaf.word = operator
-      ∧ left.unary1 = True
+  | Infix kind left operator right, read =>
+    ∃ (leftRead: List Item) (op: Item) (rightRead: List Item) => read = leftRead ++ [op, ..rightRead]
+      ∧ infixTok kind op.kind = True
+      ∧ op.leaf.word = operator
+      ∧ infixLevel kind operator.text = tokLevel op.kind
+      ∧ leftNeeds kind operator.text <= left.level
+      ∧ rightNeeds kind operator.text <= right.level
+      ∧ operandApart rightRead = True
       ∧ Spelt left leftRead
       ∧ Spelt right rightRead
   | _, _ => Void
@@ -350,7 +401,7 @@ theorem speltStarts ∀ (expr: Expr) (read: List Item)
       let (first, more, isHead, starts) := speltStarts head headRead headSpelt
       (first, more ++ (argRead ++ Parse.loopReads [] steps), (rewrite isRead, isHead), starts)
     | Prefix _ _, (sign, more, isRead, signed, _) => (sign, more, isRead, signLead sign.kind signed)
-    | Infix InfixArrow left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, leftSpelt, _) =>
+    | Infix _ left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, _, _, _, leftSpelt, _) =>
       let (first, more, isLeft, starts) := speltStarts left leftRead leftSpelt
       (first, more ++ [arrow, ..rightRead], (rewrite isRead, isLeft), starts)
     | _, never => Void.impossible never
@@ -372,7 +423,7 @@ theorem speltPlainStarts ∀ (expr: Expr) (read: List Item)
       let (first, more, isHead, starts) := speltPlainStarts head headRead headSpelt (atomicUnsigned head headAtomic)
       (first, more ++ (argRead ++ Parse.loopReads [] steps), (rewrite isRead, isHead), starts)
     | Prefix _ _, _, never => (Bool.falseNotTrue never.flipped).impossible
-    | Infix InfixArrow left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, leftSpelt, _), unsigned =>
+    | Infix _ left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, _, _, _, leftSpelt, _), unsigned =>
       let (first, more, isLeft, starts) := speltPlainStarts left leftRead leftSpelt unsigned
       (first, more ++ [arrow, ..rightRead], (rewrite isRead, isLeft), starts)
     | _, never, _ => Void.impossible never
@@ -384,6 +435,10 @@ def exprKind: Tok → Bool
   | Num => True
   | Float => True
   | Minus => True
+  | Star => True
+  | Slash => True
+  | Percent => True
+  | Plus => True
   | Bang => True
   | Arrow => True
   | LParen => True
@@ -405,6 +460,23 @@ theorem exprAppend ∀ (first rest: List Item): exprAll (first ++ rest) = (exprA
         match exprKind item.kind with
           | True => byComputing
           | False => byComputing
+
+--| An infix's operator is a kind of this part.
+theorem infixExpr ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = True): exprKind tok = True :=
+  match kind, isOp with
+    | InfixArrow, isOp => rewrite DecEq.sound isOp
+    | InfixBinary, isOp => binaryExpr tok isOp
+    | _, never => (Bool.falseNotTrue never).impossible
+
+theorem binaryExpr ∀ (tok: Tok) (isOp: binaryTok tok = True): exprKind tok = True := cases
+
+theorem infixNotUpper ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = True): (tok == Upper) = False :=
+  match kind, isOp with
+    | InfixArrow, isOp => rewrite DecEq.sound isOp
+    | InfixBinary, isOp => binaryNotUpper tok isOp
+    | _, never => (Bool.falseNotTrue never).impossible
+
+theorem binaryNotUpper ∀ (tok: Tok) (isOp: binaryTok tok = True): (tok == Upper) = False := cases
 
 theorem wordExpr ∀ (kind: Tok) (word: kind.wordWithin1 = True): exprKind kind = True := cases
 
@@ -446,11 +518,11 @@ theorem speltExpr ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read): e
           argsExpr more steps argsSpelt
     | Prefix _ operand, (sign, more, isRead, signed, _, _, _, operandSpelt) =>
       rewrite isRead, signExpr sign.kind signed, speltExpr operand more operandSpelt
-    | Infix InfixArrow left _ right, (leftRead, arrow, rightRead, isRead, isArrow, _, _, leftSpelt, rightSpelt) =>
+    | Infix kind left _ right, (leftRead, arrow, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, rightSpelt) =>
       rewrite isRead,
           exprAppend leftRead [arrow, ..rightRead],
           speltExpr left leftRead leftSpelt,
-          isArrow,
+          infixExpr kind arrow.kind isOp,
           speltExpr right rightRead rightSpelt
     | _, never => Void.impossible never
 
@@ -566,7 +638,7 @@ theorem speltOutside ∀ (modes: Modes)
           let in3: inLineAll [third, ..others] = True := rewrite <- isMore then Bool.andRight in2
           let open3 := quietStops modes third quiet (notTrueFalse _ (Bool.andLeft in3))
           rewrite isRead, isMore, open1, open2, open3 then signOutside sign.kind third.kind isSign thirdLead
-        | Infix InfixArrow left _ _, (leftRead, arrow, rightRead, isRead, isArrow, _, _, leftSpelt, _), _ =>
+        | Infix kind left _ _, (leftRead, arrow, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, _), _ =>
           let ins: inLineAll (leftRead ++ [arrow, ..rightRead]) = True := rewrite <- isRead then inRead
           let (inLeft, inArrowRight) := inLineSplit leftRead [arrow, ..rightRead] ins
           let openArrow := quietStops modes arrow quiet (notTrueFalse _ (Bool.andLeft inArrowRight))
@@ -577,8 +649,7 @@ theorem speltOutside ∀ (modes: Modes)
               open1
               inLeft
               (openHeadOf modes arrow (rightRead ++ after) openArrow)
-              (rewrite isArrow)
-        | Infix _ _ _ _, never, _ => Void.impossible never
+              (infixExpr kind arrow.kind isOp)
         | other, _, never => (Bool.falseNotTrue never).impossible
 
 def exprHead: List Item → Bool
@@ -611,8 +682,6 @@ theorem peekTwo ∀ (modes: Modes)
 def headPlain: List Item → Bool
   | [] => True
   | [item, .._] => !item.kind.isSectionOperator
-
-theorem lineSection ∀ (kind: Tok) (line: lineKind kind = True): kind.isSectionOperator = False := cases
 
 --| No section operator comes straight before a closer: all `rightOperator` needs of a group's items.
 def beforeClosePlain: List Item → Bool
@@ -680,16 +749,6 @@ theorem groupLine ∀ (open: List Tok) (found items inside: List Item)
                         | [next, ..more], groups =>
                           groupLine [next, ..more] [item, ..found] rest inside fresh later groups
 
---| Items of this part have no section operator at all.
-theorem lineBefore ∀ (items: List Item) (line: lineAll items = True): beforeClosePlain items = True := match items with
-  | [] => byComputing
-  | [_] => byComputing
-  | [first, second, ..rest] =>
-    rewrite lineSection first.kind (Bool.andLeft line),
-        lineBefore [second, ..rest] (Bool.andRight line),
-        orTrueRight (!second.kind.isCloser)
-
---| No `(k +)` section: no section operator comes straight before the closer of the group.
 theorem rightPlain ∀ (first: Item) (rest: List Item)
     (before: beforeClosePlain rest = True):
     rightOperator [first, ..rest] = None :=
@@ -703,49 +762,252 @@ theorem rightPlain ∀ (first: Item) (rest: List Item)
           let lastPlain: headPlain [last, ..more] = True := rewrite <- backwards then plain
           rewrite notTrueFalse last.kind.isSectionOperator lastPlain
 
---| No `(k +)` section: no item of this part is a section operator.
-theorem rightLine ∀ (first: Item) (rest: List Item) (line: lineAll rest = True): rightOperator [first, ..rest] = None :=
-  rightPlain first rest (lineBefore rest line)
+theorem ontoAppend ∀ (first rest found: List Item):
+    List.reverseOnto (first ++ rest) found = List.reverseOnto rest (List.reverseOnto first found) :=
+  match first with
+    | [] => byComputing
+    | [item, ..more] => ontoAppend more rest [item, ..found]
+
+--| An item that opens and closes no bracket is collected as it is.
+theorem groupPlain ∀ (open: Tok) (outer: List Tok) (found: List Item) (item: Item) (rest: List Item)
+    (notOpen: item.kind.isOpener = False)
+    (notClose: item.kind.isCloser = False):
+    groupInside [open, ..outer] found [item, ..rest] = groupInside [open, ..outer] [item, ..found] rest :=
+  rewrite notOpen, notClose
+
+theorem wordFlat ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.isOpener = False ∧ kind.isCloser = False := cases
+
+theorem signFlat ∀ (kind: Tok) (signed: signKind kind = True): kind.isOpener = False ∧ kind.isCloser = False := cases
+
+theorem binaryFlat ∀ (tok: Tok) (isOp: binaryTok tok = True): tok.isOpener = False ∧ tok.isCloser = False := cases
+
+theorem infixFlat ∀ (kind: InfixKind) (tok: Tok)
+    (isOp: infixTok kind tok = True):
+    tok.isOpener = False ∧ tok.isCloser = False :=
+  match kind, isOp with
+    | InfixArrow, isOp => rewrite DecEq.sound isOp then (byComputing, byComputing)
+    | InfixBinary, isOp => binaryFlat tok isOp
+    | _, never => (Bool.falseNotTrue never).impossible
+
+theorem wordNotSection ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.isSectionOperator = False := cases
+
+--| Inside an open group, a spelt expression's items are collected as they are: every bracket it opens, it closes.
+--|
+--| Proof idea: by induction on the expression; an opener pushes its kind, the inside is walked by induction, and its
+--| closer pairs it and pops back to the group outside, which is still open; words, signs, commas and operators open
+--| and close nothing.
+theorem groupWalk ∀ (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read)
+    (open: Tok) (outer: List Tok) (found rest: List Item):
+    groupInside [open, ..outer] found (read ++ rest) = groupInside [open, ..outer] (List.reverseOnto read found) rest :=
+  match expr, spelt with
+    | Atom kind word, (item, isRead, isKind, _, word) =>
+      let (notOpen, notClose) := wordFlat kind word
+      rewrite isRead then
+        groupPlain open outer found item rest (rewrite isKind then notOpen) (rewrite isKind then notClose)
+    | Paren _ inner _, (first, inside, last, isRead, isOpen, _, isClose, _, innerSpelt) =>
+      rewrite isRead,
+          isOpen,
+          List.appendAssoc inside [last] rest,
+          groupWalk inner inside innerSpelt LParen [open, ..outer] [first, ..found] [last, ..rest],
+          isClose,
+          ontoAppend inside [last] [first, ..found]
+    | Tuple _ [one, two, ..others] _ _, (first, read1, separator, read2, steps, last, isRead, _, isOpen, _, isComma,
+        isClose, _, oneSpelt, twoSpelt, stepsSpelt) =>
+      let body := read1 ++ ([separator, ..read2] ++ commaReads steps)
+      let shape: (read1 ++ ([separator, ..read2] ++ (commaReads steps ++ [last]))) ++ rest = body ++ [last, ..rest] :=
+        rewrite repeatedly [List.appendAssoc] then byComputing
+      rewrite isRead,
+          isOpen,
+          shape,
+          tupleWalk one two others read1 separator read2 steps oneSpelt isComma twoSpelt stepsSpelt LParen
+            [open, ..outer]
+            [first, ..found]
+            [last, ..rest],
+          isClose,
+          ontoAppend read1 ([separator, ..read2] ++ (commaReads steps ++ [last])) [first, ..found],
+          ontoAppend read1 ([separator, ..read2] ++ commaReads steps) [first, ..found],
+          <- List.appendAssoc read2 (commaReads steps) [last],
+          ontoAppend (read2 ++ commaReads steps) [last] [separator, ..List.reverseOnto read1 [first, ..found]]
+    | ListOf _ [] _ _, (first, last, isRead, _, isOpen, _, isClose, _) => rewrite isRead, isOpen, isClose
+    | ListOf _ [one, ..others] _ _, (first, read1, steps, last, isRead, _, isOpen, _, isClose, _, oneSpelt,
+        stepsSpelt) =>
+      rewrite isRead,
+          isOpen,
+          List.appendAssoc read1 (commaReads steps ++ [last]) rest,
+          groupWalk one read1 oneSpelt LBracket [open, ..outer] [first, ..found] ((commaReads steps ++ [last]) ++ rest),
+          List.appendAssoc (commaReads steps) [last] rest,
+          stepsWalk others steps stepsSpelt LBracket [open, ..outer] (List.reverseOnto read1 [first, ..found]) [
+            last,
+            ..rest
+          ],
+          isClose,
+          ontoAppend read1 (commaReads steps ++ [last]) [first, ..found],
+          ontoAppend (commaReads steps) [last] (List.reverseOnto read1 [first, ..found])
+    | App head [argument, ..more], (headRead, argRead, steps, isRead, _, _, headSpelt, argSpelt, argsSpelt) =>
+      rewrite isRead,
+          List.appendAssoc headRead (argRead ++ Parse.loopReads [] steps) rest,
+          groupWalk head headRead headSpelt open outer found ((argRead ++ Parse.loopReads [] steps) ++ rest),
+          List.appendAssoc argRead (Parse.loopReads [] steps) rest,
+          groupWalk argument argRead argSpelt open outer
+            (List.reverseOnto headRead found)
+            (Parse.loopReads [] steps ++ rest),
+          argsWalk more steps argsSpelt open outer (List.reverseOnto argRead (List.reverseOnto headRead found)) rest,
+          ontoAppend headRead (argRead ++ Parse.loopReads [] steps) found,
+          ontoAppend argRead (Parse.loopReads [] steps) (List.reverseOnto headRead found)
+    | Prefix _ operand, (sign, more, isRead, signed, _, _, _, operandSpelt) =>
+      let (notOpen, notClose) := signFlat sign.kind signed
+      rewrite isRead,
+          groupPlain open outer found sign (more ++ rest) notOpen notClose,
+          groupWalk operand more operandSpelt open outer [sign, ..found] rest
+    | Infix kind left _ right, (leftRead, op, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, rightSpelt) =>
+      let (notOpen, notClose) := infixFlat kind op.kind isOp
+      rewrite isRead,
+          List.appendAssoc leftRead [op, ..rightRead] rest,
+          groupWalk left leftRead leftSpelt open outer found ([op, ..rightRead] ++ rest),
+          groupPlain open outer (List.reverseOnto leftRead found) op (rightRead ++ rest) notOpen notClose,
+          groupWalk right rightRead rightSpelt open outer [op, ..List.reverseOnto leftRead found] rest,
+          ontoAppend leftRead [op, ..rightRead] found
+    | _, never => Void.impossible never
+
+--| A tuple's items before its closer, walked as `groupWalk` walks each.
+theorem tupleWalk ∀ (one two: Expr) (others: List Expr) (read1: List Item) (separator: Item)
+    (read2: List Item) (steps: List (Item, List Item, Expr))
+    (oneSpelt: Spelt one read1)
+    (isComma: separator.kind = Comma)
+    (twoSpelt: Spelt two read2)
+    (stepsSpelt: SpeltSteps others steps)
+    (open: Tok) (outer: List Tok) (found rest: List Item):
+    groupInside [open, ..outer] found ((read1 ++ ([separator, ..read2] ++ commaReads steps)) ++ rest)
+      = groupInside
+        [open, ..outer]
+        (List.reverseOnto (read1 ++ ([separator, ..read2] ++ commaReads steps)) found)
+        rest :=
+  rewrite List.appendAssoc read1 ([separator, ..read2] ++ commaReads steps) rest,
+      groupWalk one read1 oneSpelt open outer found (([separator, ..read2] ++ commaReads steps) ++ rest),
+      groupPlain open outer
+        (List.reverseOnto read1 found)
+        separator
+        ((read2 ++ commaReads steps) ++ rest)
+        (rewrite isComma)
+        (rewrite isComma),
+      List.appendAssoc read2 (commaReads steps) rest,
+      groupWalk two read2 twoSpelt open outer [separator, ..List.reverseOnto read1 found] (commaReads steps ++ rest),
+      stepsWalk others steps stepsSpelt open outer
+        (List.reverseOnto read2 [separator, ..List.reverseOnto read1 found])
+        rest,
+      ontoAppend read1 ([separator, ..read2] ++ commaReads steps) found,
+      ontoAppend read2 (commaReads steps) [separator, ..List.reverseOnto read1 found]
+
+theorem stepsWalk ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr))
+    (spelt: SpeltSteps exprs steps)
+    (open: Tok) (outer: List Tok) (found rest: List Item):
+    groupInside [open, ..outer] found (commaReads steps ++ rest)
+      = groupInside [open, ..outer] (List.reverseOnto (commaReads steps) found) rest :=
+  match exprs, spelt with
+    | [], isEmpty => rewrite isEmpty
+    | [expr, ..more], (comma, read, later, isSteps, isComma, exprSpelt, laterSpelt) =>
+      rewrite isSteps,
+          List.appendAssoc [comma, ..read] (commaReads later) rest,
+          groupPlain open outer found comma (read ++ (commaReads later ++ rest)) (rewrite isComma) (rewrite isComma),
+          groupWalk expr read exprSpelt open outer [comma, ..found] (commaReads later ++ rest),
+          stepsWalk more later laterSpelt open outer (List.reverseOnto read [comma, ..found]) rest,
+          ontoAppend [comma, ..read] (commaReads later) found
+
+theorem argsWalk ∀ (exprs: List Expr) (steps: List (List Item, Expr))
+    (spelt: SpeltArgs exprs steps)
+    (open: Tok) (outer: List Tok) (found rest: List Item):
+    groupInside [open, ..outer] found (Parse.loopReads [] steps ++ rest)
+      = groupInside [open, ..outer] (List.reverseOnto (Parse.loopReads [] steps) found) rest :=
+  match exprs, spelt with
+    | [], isEmpty => rewrite isEmpty
+    | [argument, ..more], (read, later, isSteps, _, argSpelt, laterSpelt) =>
+      rewrite isSteps,
+          List.appendAssoc read (Parse.loopReads [] later) rest,
+          groupWalk argument read argSpelt open outer found (Parse.loopReads [] later ++ rest),
+          argsWalk more later laterSpelt open outer (List.reverseOnto read found) rest,
+          ontoAppend read (Parse.loopReads [] later) found
+
+--| What ends with `ending`'s items keeps their last, whatever came before.
+theorem lastOf ∀ (first ending found: List Item)
+    (plain: ∀ (before: List Item) => headPlain (List.reverseOnto ending before) = True):
+    headPlain (List.reverseOnto (first ++ ending) found) = True :=
+  rewrite ontoAppend first ending found then plain (List.reverseOnto first found)
+
+--| A spelt expression ends with no section operator: a word, a closer, or an operand's last.
+theorem speltLast ∀ (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read) (found: List Item):
+    headPlain (List.reverseOnto read found) = True :=
+  match expr, spelt with
+    | Atom kind word, (item, isRead, isKind, _, word) => rewrite isRead, isKind, wordNotSection kind word
+    | Paren _ _ _, (first, inside, last, isRead, _, _, isClose, _) =>
+      rewrite isRead then lastOf inside [last] [first, ..found] (before => rewrite isClose)
+    | Tuple _ [_, _, .._] _ _, (first, read1, separator, read2, steps, last, isRead, _, _, _, _, isClose, _) =>
+      rewrite isRead then
+        lastOf read1 ([separator, ..read2] ++ (commaReads steps ++ [last])) [first, ..found] (before =>
+          lastOf [separator, ..read2] (commaReads steps ++ [last]) before (later =>
+            lastOf (commaReads steps) [last] later (end => rewrite isClose)))
+    | ListOf _ [] _ _, (first, last, isRead, _, _, _, isClose, _) => rewrite isRead, isClose
+    | ListOf _ [_, .._] _ _, (first, read1, steps, last, isRead, _, _, _, isClose, _) =>
+      rewrite isRead then
+        lastOf read1 (commaReads steps ++ [last]) [first, ..found] (before =>
+          lastOf (commaReads steps) [last] before (end => rewrite isClose))
+    | App head [argument, ..more], (headRead, argRead, steps, isRead, _, _, _, argSpelt, argsSpelt) =>
+      rewrite isRead then
+        lastOf headRead (argRead ++ Parse.loopReads [] steps) found (before =>
+          rewrite ontoAppend argRead (Parse.loopReads [] steps) before then
+            argsLast more steps argsSpelt
+              (List.reverseOnto argRead before)
+              (speltLast argument argRead argSpelt before))
+    | Prefix _ operand, (sign, more, isRead, _, _, _, _, operandSpelt) =>
+      rewrite isRead then speltLast operand more operandSpelt [sign, ..found]
+    | Infix _ _ _ right, (leftRead, op, rightRead, isRead, _, _, _, _, _, _, _, rightSpelt) =>
+      rewrite isRead then
+        lastOf leftRead [op, ..rightRead] found (before => speltLast right rightRead rightSpelt [op, ..before])
+    | _, never => Void.impossible never
+
+theorem argsLast ∀ (exprs: List Expr) (steps: List (List Item, Expr))
+    (spelt: SpeltArgs exprs steps) (found: List Item)
+    (plain: headPlain found = True):
+    headPlain (List.reverseOnto (Parse.loopReads [] steps) found) = True :=
+  match exprs, spelt with
+    | [], isEmpty => rewrite isEmpty then plain
+    | [argument, ..more], (read, later, isSteps, _, argSpelt, laterSpelt) =>
+      rewrite isSteps, ontoAppend read (Parse.loopReads [] later) found then
+        argsLast more later laterSpelt (List.reverseOnto read found) (speltLast argument read argSpelt found)
+
+theorem stepsLast ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr))
+    (spelt: SpeltSteps exprs steps) (found: List Item)
+    (plain: headPlain found = True):
+    headPlain (List.reverseOnto (commaReads steps) found) = True :=
+  match exprs, spelt with
+    | [], isEmpty => rewrite isEmpty then plain
+    | [expr, ..more], (comma, read, later, isSteps, _, exprSpelt, laterSpelt) =>
+      rewrite isSteps, ontoAppend [comma, ..read] (commaReads later) found then
+        stepsLast more later laterSpelt
+          (List.reverseOnto read [comma, ..found])
+          (speltLast expr read exprSpelt [comma, ..found])
+
+--| No `(k +)` section: the group a `(` opens closes at `last`, after a body whose last item is no section operator.
+theorem rightClosed ∀ (first: Item) (body: List Item) (last: Item) (rest: List Item)
+    (walk: groupInside [LParen] [] (body ++ [last, ..rest])
+      = groupInside [LParen] (List.reverseOnto body []) [last, ..rest])
+    (plain: headPlain (List.reverseOnto body []) = True)
+    (isClose: last.kind = RParen):
+    rightOperator [first, ..body ++ [last, ..rest]] = None :=
+  let closes: groupInside [LParen] [] (body ++ [last, ..rest]) = Some (List.reverseOnto body []).reverse :=
+    rewrite walk, isClose
+  rewrite closes, List.reverseReverse (List.reverseOnto body []) then
+    match backwards: List.reverseOnto body [] with
+      | [] => byComputing
+      | [lastItem, ..more] =>
+        let lastPlain: headPlain [lastItem, ..more] = True := rewrite <- backwards then plain
+        rewrite notTrueFalse lastItem.kind.isSectionOperator lastPlain
 
 theorem startFacts ∀ (kind: Tok)
     (starts: startKind kind = True):
     (kind == Dot) = False ∧ (kind == KwMatch) = False ∧ (kind == Minus || kind == Bang) = False :=
   cases
-
---| A unary reading that nothing continues reads inline: every rung above it with no links.
---|
---| Proof idea: `inlineWord`'s ladder, for any unary reading: each chain with no links, no comparison, logic or end.
-theorem inlineOfUnary ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
-    (more rest: List Item) (value: Expr)
-    (open: modes.stops item = False)
-    (notDot: (item.kind == Dot) = False)
-    (inline: InlinePlain modes item [item, ..more ++ rest])
-    (ends: OperandEnds modes rest)
-    (unaryReads: UnaryReads sub modes [item, ..more] rest value):
-    InlineAt sub modes item more rest value :=
-  let read := [item, ..more]
-  let noSection: isSome Dot (peekIn modes 0 (read ++ rest)) = False :=
-    rewrite peekFirst modes item (more ++ rest) open then notDot
-  let noLinks: read = read ++ Parse.loopReads [] (linkSteps []) := (List.appendNil read).flipped
-  let mulReads: MulReads sub modes read rest value := (read, value, [], noLinks, byComputing, unaryReads, ends.noMul)
-  let addReads: AddReads sub modes read rest value := (read, value, [], noLinks, byComputing, mulReads, ends.noAdd)
-  let appendReads: AppendReads sub modes read rest value :=
-    (read, value, [], noLinks, byComputing, addReads, ends.noAppend)
-  let whole: read = read ++ [] ++ [] := (List.appendNil read).flipped
-  let operatorReads: OperatorReads sub modes read rest value := (
-    read,
-    [],
-    [],
-    value,
-    value,
-    whole,
-    rewrite List.appendNil read then noSection,
-    Inl ((ends.noRange, ends.noPipe, appendReads), ends.noCmp),
-    Inl (byComputing, byComputing, ends.noAndOr),
-    ends.noIff,
-    Inl (byComputing, byComputing, ends.noEnd)
-  )
-  (open, inline, operatorReads)
 
 def inLineAll: List Item → Bool
   | [] => True
@@ -902,7 +1164,7 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
         noAutoLine head first inside ((argRead ++ Parse.loopReads [] steps) ++ rest) headAt (Bool.andLeft free)
     | Prefix _ _, (sign, _, isRead, signed, _), _ =>
       rewrite firstKind item sign more _ isRead, signNotBracket sign.kind signed
-    | Infix InfixArrow left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, leftSpelt, _), free =>
+    | Infix _ left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, _, _, _, leftSpelt, _), free =>
       let (first, inside, isLeft, _) := speltStarts left leftRead leftSpelt
       let joined: [item, ..more] = [first, ..inside ++ [arrow, ..rightRead]] := calc [item, ..more]
         _ = leftRead ++ [arrow, ..rightRead] := isRead
@@ -950,9 +1212,13 @@ theorem noAutoFirst ∀ (expr: Expr) (item: Item) (read later: List Item)
     | App head arguments, callSpelt, notAuto => noAutoCall head arguments item read later callSpelt notAuto
     | Prefix _ _, (second, _, isRead, signed, _), _ =>
       rewrite isRead then autoSecond item second _ (signNotLower second.kind signed)
-    | Infix InfixArrow left _ _, (leftRead, arrow, rightRead, isRead, isArrow, _, _, leftSpelt, _), notAuto =>
+    | Infix kind left _ _, (leftRead, arrow, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, _), notAuto =>
       rewrite isRead, List.appendAssoc leftRead [arrow, ..rightRead] later then
-        noAutoFirst left item leftRead ([arrow, ..rightRead] ++ later) leftSpelt notAuto (rewrite isArrow)
+        noAutoFirst left item leftRead
+          ([arrow, ..rightRead] ++ later)
+          leftSpelt
+          notAuto
+          (rewrite infixNotUpper kind arrow.kind isOp)
     | _, never, _ => Void.impossible never
 
 --| A call that is no `auto` call on a type's name doesn't make the list it starts an implicit binder.
@@ -1145,7 +1411,7 @@ theorem speltNoUnit ∀ (expr: Expr) (first: Item) (more later: List Item)
       let notParen: (first.kind == LParen) = False :=
         rewrite firstKind first sign more inside isRead then signNotParen sign.kind signed
       unitNotParen first (more ++ later) notParen
-    | Infix InfixArrow left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, leftSpelt, _) =>
+    | Infix _ left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, _, _, _, leftSpelt, _) =>
       let (start, inside, isLeft, _) := speltStarts left leftRead leftSpelt
       let joined: [first, ..more] = [start, ..inside ++ [arrow, ..rightRead]] := calc [first, ..more]
         _ = leftRead ++ [arrow, ..rightRead] := isRead
@@ -1723,74 +1989,712 @@ theorem unaryLine ∀ (modes: Modes)
         | Infix _ _ _ _, _, _, _, _ => (Bool.falseNotTrue unary).impossible
         | other, _, never, _, _ => (Bool.falseNotTrue never).impossible
 
---| A spelt expression whose first item doesn't stop the modes, and whose other items don't start a line, is what
---| `exprInline` reads in quiet modes, at any depth its nesting fits in: its atom reading (`atomLine`) lifted by
---| `inlineOfAtom`, the look-aheads from the kinds and what follows.
-theorem inlineUnary ∀ (modes: Modes)
-    (quiet: Quiet modes)
-    (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat)
-    (deep: expr.nest1 <= depth)
-    (spelt: Spelt expr [item, ..more])
-    (free: expr.autoFree1 = True)
-    (lineRead: lineAll [item, ..more] = True)
-    (lineRest: lineAll rest = True)
-    (open: modes.stops item = False)
-    (inLater: inLineAll more = True)
+-- Operators: what ends an operand, and the chains.
+
+--| The rung of the ladder an operator of this part is read at: `&&` and `||` share the logic links.
+def tokRung: Tok → Nat
+  | Arrow => 1
+  | OrOr => 5
+  | AndAnd => 5
+  | Equals => 6
+  | EqEq => 6
+  | NotEq => 6
+  | Lt => 6
+  | Le => 6
+  | Gt => 6
+  | Ge => 6
+  | PlusPlus => 12
+  | Plus => 14
+  | Minus => 14
+  | Star => 16
+  | Slash => 16
+  | Percent => 16
+  | _ => 0
+
+--| What follows an operand read at `level` of the ladder ends it there: what ends a unary reading, and no operator
+--| of a rung from `level` up. An operator of a looser rung gives it (`opEnds`), as does what ends every expression
+--| (`endsAtOf`).
+type EndsAt (modes: Modes) (level: Nat) (rest: List Item): Prop = {
+  unary: UnaryEnds modes rest,
+  noMul: level <= 16 → takesAhead modes (kind => kind == Star || kind == Slash || kind == Percent) rest = False,
+  noAdd: level <= 14 → takesAhead modes (kind => kind == Plus || kind == Minus) rest = False,
+  noAppend: level <= 12 → takesAhead modes (kind => kind == PlusPlus) rest = False,
+  noRange: rangeAhead modes rest = False,
+  noPipe: atPipeOn modes rest = False,
+  noCmp: level <= 6 → cmpAhead modes rest = False,
+  noAndOr: level <= 5 → andOrOn modes rest = False,
+  noIff: isSome IffArrow (peekIn modes 0 rest) = False,
+  noEnd: level <= 1 → opEndsAhead modes (sequenceOn modes rest) rest = False
+}
+
+--| What ends every expression ends an operand at every level.
+theorem endsAtOf ∀ (modes: Modes) (level: Nat) (rest: List Item)
     (restOpen: openHead modes rest = True)
-    (ends: endsHere rest = True)
+    (ends: endsHere rest = True):
+    EndsAt modes level rest :=
+  let operand := endsOperandOf modes rest ends
+  {
+    unary = unaryEndsOf modes rest restOpen ends,
+    noMul = _ => operand.noMul,
+    noAdd = _ => operand.noAdd,
+    noAppend = _ => operand.noAppend,
+    noRange = operand.noRange,
+    noPipe = operand.noPipe,
+    noCmp = _ => operand.noCmp,
+    noAndOr = _ => operand.noAndOr,
+    noIff = operand.noIff,
+    noEnd = _ => operand.noEnd
+  }
+
+--| What ends an operand at a level ends it at any tighter one.
+theorem endsAtUp ∀ (modes: Modes) (low high: Nat) (rest: List Item)
+    (up: low <= high)
+    (ends: EndsAt modes low rest):
+    EndsAt modes high rest :=
+  {
+    unary = ends.unary,
+    noMul = below => ends.noMul (arithmetic [below, up]),
+    noAdd = below => ends.noAdd (arithmetic [below, up]),
+    noAppend = below => ends.noAppend (arithmetic [below, up]),
+    noRange = ends.noRange,
+    noPipe = ends.noPipe,
+    noCmp = below => ends.noCmp (arithmetic [below, up]),
+    noAndOr = below => ends.noAndOr (arithmetic [below, up]),
+    noIff = ends.noIff,
+    noEnd = below => ends.noEnd (arithmetic [below, up])
+  }
+
+--| An operator of this part, as `infixTok` admits them.
+def opTok (tok: Tok): Bool := tok == Arrow || binaryTok tok
+
+theorem infixOp ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = True): opTok tok = True :=
+  match kind, isOp with
+    | InfixArrow, isOp => rewrite DecEq.sound isOp
+    | InfixBinary, isOp => rewrite isOp then orTrueRight (tok == Arrow)
+    | _, never => (Bool.falseNotTrue never).impossible
+
+--| An operator is no bracket, field, argument, `cases`, range, pipe or `<->`, and its rung is at least 1.
+type OpKind (tok: Tok): Prop = {
+  notOpen: (tok == LParen) = False,
+  notBrace: (tok == LBrace) = False,
+  notDot: (tok == Dot) = False,
+  notArgument: opensArgument tok = False,
+  notCases: (tok == KwCases) = False,
+  notRange: (tok == DotDot || tok == DotDotLt || tok == DotDotEq) = False,
+  notPipe: (tok == PipeGt) = False,
+  notIff: (tok == IffArrow) = False,
+  ranked: 1 <= tokRung tok
+}
+
+theorem opKind ∀ (tok: Tok) (isOp: opTok tok = True): OpKind tok := match tok, isOp with
+  | Arrow, _ =>
+    opKindOf Arrow byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Star, _ =>
+    opKindOf Star byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Slash, _ =>
+    opKindOf Slash byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Percent, _ =>
+    opKindOf Percent byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Plus, _ =>
+    opKindOf Plus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Minus, _ =>
+    opKindOf Minus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | _, never => (Bool.falseNotTrue never).impossible
+
+theorem opKindOf ∀ (tok: Tok)
+    (notOpen: (tok == LParen) = False)
+    (notBrace: (tok == LBrace) = False)
+    (notDot: (tok == Dot) = False)
+    (notArgument: opensArgument tok = False)
+    (notCases: (tok == KwCases) = False)
+    (notRange: (tok == DotDot || tok == DotDotLt || tok == DotDotEq) = False)
+    (notPipe: (tok == PipeGt) = False)
+    (notIff: (tok == IffArrow) = False)
+    (ranked: 1 <= tokRung tok):
+    OpKind tok :=
+  { notOpen, notBrace, notDot, notArgument, notCases, notRange, notPipe, notIff, ranked }
+
+theorem rungMul ∀ (tok: Tok) (level: Nat)
+    (isOp: opTok tok = True)
+    (above: tokRung tok < level)
+    (low: level <= 16):
+    (tok == Star || tok == Slash || tok == Percent) = False :=
+  cases
+
+theorem rungAdd ∀ (tok: Tok) (level: Nat)
+    (isOp: opTok tok = True)
+    (above: tokRung tok < level)
+    (low: level <= 14):
+    (tok == Plus || tok == Minus) = False :=
+  cases
+
+theorem rungAppend ∀ (tok: Tok) (level: Nat)
+    (isOp: opTok tok = True)
+    (above: tokRung tok < level)
+    (low: level <= 12):
+    (tok == PlusPlus) = False :=
+  cases
+
+theorem rungCmp ∀ (tok: Tok) (level: Nat)
+    (isOp: opTok tok = True)
+    (above: tokRung tok < level)
+    (low: level <= 6):
+    (tok == KwIn || tok == NotIn || tok.isComparison) = False :=
+  cases
+
+theorem rungAndOr ∀ (tok: Tok) (level: Nat)
+    (isOp: opTok tok = True)
+    (above: tokRung tok < level)
+    (low: level <= 5):
+    (tok == AndAnd || tok == OrOr) = False :=
+  cases
+
+--| A sign is an argument's only where the item after it touches it: an operator spaced from its operand is none.
+theorem prefixApart ∀ (op: Item) (after: List Item)
+    (apart: operandApart after = True):
+    argumentPrefix [op, ..after] = False :=
+  match after, apart with
+    | [], _ => byComputing
+    | [next, .._], apart =>
+      rewrite notTrueFalse _ apart then
+        match op.kind == Minus || op.kind == Bang with
+          | False => byComputing
+          | True =>
+            match op.afterOperand with
+              | False => byComputing
+              | True =>
+                match op.leaf.token.lineStart || !op.glued with
+                  | False => byComputing
+                  | True => byComputing
+
+--| An operator, its operand spaced from it, ends an operand at every level tighter than its rung.
+--|
+--| Proof idea: the modes don't stop at the operator, so each look-ahead sees its kind: no bracket, field or argument
+--| (`OpKind`, `prefixApart`), and an operator of each rung from `level` up only if its rung were that tight.
+theorem opEnds ∀ (modes: Modes) (level: Nat) (op: Item) (after: List Item) (kind: InfixKind)
+    (open: modes.stops op = False)
+    (isOp: infixTok kind op.kind = True)
+    (apart: operandApart after = True)
+    (above: tokRung op.kind < level):
+    EndsAt modes level [op, ..after] :=
+  let opIs := infixOp kind op.kind isOp
+  let facts := opKind op.kind opIs
+  let peek: peekIn modes 0 [op, ..after] = Some op.kind := peekFirst modes op after open
+  {
+    unary = {
+      atom = head atomKind =>
+        {
+          plain = andFalseRight _ head _ (rewrite peek then facts.notBrace),
+          noCall = unitNotParen op after facts.notOpen,
+          noDot = rewrite facts.notDot
+        },
+      noArgument = rewrite peek, facts.notArgument, facts.notDot, facts.notCases, prefixApart op after apart
+    },
+    noMul = low => rewrite peek then rungMul op.kind level opIs above low,
+    noAdd = low => rewrite peek then rungAdd op.kind level opIs above low,
+    noAppend = low => rewrite peek then rungAppend op.kind level opIs above low,
+    noRange = rewrite peek then facts.notRange,
+    noPipe = (rewrite facts.notPipe),
+    noCmp = low => rewrite peek then rungCmp op.kind level opIs above low,
+    noAndOr = low => rewrite peek then rungAndOr op.kind level opIs above low,
+    noIff = rewrite peek then facts.notIff,
+    noEnd = low => Void.impossible (arithmetic [low, above, facts.ranked])
+  }
+
+--| What an infix's parts tell, from its items on one line.
+type InfixParts (modes: Modes) (leftRead: List Item) (op: Item) (rightRead: List Item): Prop = {
+  lineLeft: lineAll leftRead = True,
+  lineOpRight: lineAll [op, ..rightRead] = True,
+  openLeft: openHead modes leftRead = True,
+  laterLeft: laterInLine leftRead = True,
+  openOp: modes.stops op = False,
+  openRight: openHead modes rightRead = True,
+  inRight: inLineAll rightRead = True
+}
+
+theorem infixParts ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (left right: Expr) (leftRead: List Item) (op: Item) (rightRead: List Item)
+    (leftSpelt: Spelt left leftRead)
+    (rightSpelt: Spelt right rightRead)
+    (lineRead: lineAll (leftRead ++ [op, ..rightRead]) = True)
+    (openFirst: openHead modes (leftRead ++ [op, ..rightRead]) = True)
+    (inLater: laterInLine (leftRead ++ [op, ..rightRead]) = True):
+    InfixParts modes leftRead op rightRead :=
+  let (first, inside, isLeft, _) := speltStarts left leftRead leftSpelt
+  let (lineLeft, lineOpRight) := lineSplit leftRead [op, ..rightRead] lineRead
+  let firstOpen: (!modes.stops first) = True := rewrite isLeft at openFirst then openFirst
+  let inMore: inLineAll (inside ++ [op, ..rightRead]) = True := rewrite isLeft at inLater then inLater
+  let (inInside, inOpRight) := inLineSplit inside [op, ..rightRead] inMore
+  let inRight: inLineAll rightRead = True := Bool.andRight inOpRight
+  let (rightFirst, rightMore, isRight, _) := speltStarts right rightRead rightSpelt
+  let inRightItems: inLineAll [rightFirst, ..rightMore] = True := rewrite <- isRight then inRight
+  {
+    lineLeft,
+    lineOpRight,
+    openLeft = rewrite isLeft then openHeadOf modes first inside (notTrueFalse _ firstOpen),
+    laterLeft = rewrite isLeft then inInside,
+    openOp = quietStops modes op quiet (notTrueFalse _ (Bool.andLeft inOpRight)),
+    openRight = rewrite isRight then
+      openHeadOf modes rightFirst rightMore
+        (quietStops modes rightFirst quiet (notTrueFalse _ (Bool.andLeft inRightItems))),
+    inRight
+  }
+
+theorem laterOfIn ∀ (read: List Item) (inLine: inLineAll read = True): laterInLine read = True := match read with
+  | [] => byComputing
+  | [_, .._] => Bool.andRight inLine
+
+theorem binaryAtMost ∀ (tok: Tok) (isOp: binaryTok tok = True): tokLevel tok <= 16 := cases
+
+theorem infixAtMost ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = True): tokLevel tok <= 16 :=
+  match kind, isOp with
+    | InfixArrow, isOp => rewrite DecEq.sound isOp then arithmetic []
+    | InfixBinary, isOp => binaryAtMost tok isOp
+    | _, never => (Bool.falseNotTrue never).impossible
+
+--| An expression of this part binding tighter than every infix is no infix.
+theorem highUnary ∀ (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read)
+    (high: 17 <= expr.level):
+    expr.unary1 = True :=
+  match expr, spelt, high with
+    | Infix kind _ operator _, (_, op, _, _, isOp, _, level, _), high =>
+      Void.impossible (arithmetic [high, level, infixAtMost kind op.kind isOp])
+    | Atom _ _, _, _ => byComputing
+    | Paren _ _ _, _, _ => byComputing
+    | Tuple _ _ _ _, _, _ => byComputing
+    | ListOf _ _ _ _, _, _ => byComputing
+    | App _ _, _, _ => byComputing
+    | Prefix _ _, _, _ => byComputing
+    | _, never, _ => Void.impossible never
+
+--| A spelt expression that is no infix binds at the unary level or tighter.
+theorem unaryLevel ∀ (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read)
     (unary: expr.unary1 = True):
-    InlineAt (TreeN depth) modes item more rest expr :=
-  let unary :=
-    unaryLine modes quiet expr
-      [item, ..more]
-      rest
+    18 <= expr.level :=
+  match expr, spelt, unary with
+    | Atom _ _, _, _ => arithmetic []
+    | Paren _ _ _, _, _ => arithmetic []
+    | Tuple _ _ _ _, _, _ => arithmetic []
+    | ListOf _ _ _ _, _, _ => arithmetic []
+    | App _ _, _, _ => arithmetic []
+    | Prefix _ _, _, _ => arithmetic []
+    | Infix _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
+    | _, never, _ => Void.impossible never
+
+theorem mulOf ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (high: 16 <= tokLevel tok):
+    (tok == Star || tok == Slash || tok == Percent) = True :=
+  cases
+
+theorem addOf ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (is14: tokLevel tok = 14):
+    (tok == Plus || tok == Minus) = True :=
+  cases
+
+--| The binary operators of this part bind at the additive or the multiplicative level.
+theorem binaryLevels ∀ (tok: Tok) (isOp: binaryTok tok = True): tokLevel tok = 14 ∨ tokLevel tok = 16 :=
+  match tok, isOp with
+    | Plus, _ => Inl byComputing
+    | Minus, _ => Inl byComputing
+    | Star, _ => Inr byComputing
+    | Slash, _ => Inr byComputing
+    | Percent, _ => Inr byComputing
+    | _, never => (Bool.falseNotTrue never).impossible
+
+--| `*`, `/` and `%` nest to the left, their right operand one rung up.
+theorem mulNeeds ∀ (text: Text)
+    (is16: infixLevel InfixBinary text = 16):
+    leftNeeds InfixBinary text = 16 ∧ rightNeeds InfixBinary text = 18 :=
+  cases
+
+--| `+` and `-` nest to the left, their right operand one rung up.
+theorem addNeeds ∀ (text: Text)
+    (is14: infixLevel InfixBinary text = 14):
+    leftNeeds InfixBinary text = 14 ∧ rightNeeds InfixBinary text = 16 :=
+  cases
+
+--| A multiplicative chain, read on from its first operand: `expr` spelt, then `links` (each operator and a unary
+--| operand), reads as `mulExpr`'s chain nested to the left.
+--|
+--| Proof idea: by induction on `expr`'s left spine. A unary expression is the chain's first operand (`unaryLine`);
+--| `left * right` reads `left` with the link `* right` put before the others, and `leftNested` takes that link first.
+--| What follows each operand is an operator (`opEnds`) or what follows the chain.
+theorem mulAcc ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read: List Item) (links: List (Item, List Item, Expr)) (rest: List Item) (depth: Nat)
+    (all: List Item) (value: Expr)
+    (whole: all = read ++ Parse.loopReads [] (linkSteps links))
+    (isValue: value = leftNested expr (Parse.stepValues (linkSteps links)))
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineAfter: lineAll (Parse.loopReads [] (linkSteps links) ++ rest) = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (after: UnaryEnds modes (Parse.loopReads [] (linkSteps links) ++ rest))
+    (linked: LinkReads modes
+      (kind => kind == Star || kind == Slash || kind == Percent)
+      (UnaryReads (TreeN depth) modes)
+      links
+      rest)
+    (fits: 16 <= expr.level):
+    MulReads (TreeN depth) modes all rest value :=
+  match unary: expr.unary1 with
+    | True => (
+      read,
+      expr,
+      links,
+      whole,
+      isValue,
+      unaryLine modes quiet expr read
+        (Parse.loopReads [] (linkSteps links) ++ rest)
+        depth
+        deep
+        spelt
+        free
+        lineRead
+        lineAfter
+        openFirst
+        inLater
+        after
+        unary,
+      linked
+    )
+    | False =>
+      match expr, spelt, unary, fits with
+        | Infix InfixBinary left operator right, (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits,
+            rightFits, apart, leftSpelt, rightSpelt), _, fits =>
+          let parts :=
+            infixParts modes quiet left right leftRead op rightRead leftSpelt rightSpelt
+              (rewrite <- isRead then lineRead)
+              (rewrite <- isRead then openFirst)
+              (rewrite <- isRead then inLater)
+          let at16: infixLevel InfixBinary operator.text = 16 := arithmetic [fits, level, binaryAtMost op.kind isOp]
+          let (leftNeed, rightNeed) := mulNeeds operator.text at16
+          let isMul := mulOf op.kind isOp (arithmetic [at16, level])
+          let rightAfter := Parse.loopReads [] (linkSteps links) ++ rest
+          let rightReads: UnaryReads (TreeN depth) modes rightRead rightAfter right :=
+            unaryLine modes quiet right rightRead rightAfter depth
+              (arithmetic [deep])
+              rightSpelt
+              (Bool.andRight free)
+              (Bool.andRight parts.lineOpRight)
+              lineAfter
+              parts.openRight
+              (laterOfIn rightRead parts.inRight)
+              after
+              (highUnary right rightRead rightSpelt (arithmetic [rightFits, rightNeed]))
+          let tail := [(op, rightRead, right), ..links]
+          let lineTail: lineAll (Parse.loopReads [] (linkSteps tail) ++ rest) = True :=
+            rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
+              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight lineAfter
+          let afterTail: UnaryEnds modes (Parse.loopReads [] (linkSteps tail) ++ rest) :=
+            rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
+              (opEnds modes 17 op
+                (rightRead ++ rightAfter)
+                InfixBinary
+                parts.openOp
+                isOp
+                (rewrite speltApart right rightRead rightAfter rightSpelt then apart)
+                (arithmetic [rungMulOf op.kind isMul])).unary
+          let wholeTail: all = leftRead ++ Parse.loopReads [] (linkSteps tail) :=
+            rewrite whole, isRead then
+              List.appendAssoc leftRead [op, ..rightRead] (Parse.loopReads [] (linkSteps links))
+          let valueTail: value = leftNested left (Parse.stepValues (linkSteps tail)) := rewrite isValue, isWord
+          mulAcc modes quiet left leftRead tail rest depth all value wholeTail valueTail
+            (arithmetic [deep])
+            leftSpelt
+            (Bool.andLeft free)
+            parts.lineLeft
+            lineTail
+            parts.openLeft
+            parts.laterLeft
+            afterTail
+            (parts.openOp, isMul, rightReads, linked)
+            (arithmetic [leftFits, leftNeed])
+        | Infix InfixArrow _ _ _, _, _, fits => Void.impossible (arithmetic [fits])
+        | Infix _ _ _ _, (_, _, _, _, never, _), _, _ => (Bool.falseNotTrue never).impossible
+        | _, _, never, _ => (Bool.falseNotTrue never.flipped).impossible
+
+theorem rungMulOf ∀ (tok: Tok) (isMul: (tok == Star || tok == Slash || tok == Percent) = True): tokRung tok = 16 :=
+  cases
+
+theorem rungAddOf ∀ (tok: Tok) (isAdd: (tok == Plus || tok == Minus) = True): tokRung tok = 14 := cases
+
+--| A spelt read's spacing from what precedes it is its first item's, whatever follows.
+theorem speltApart ∀ (expr: Expr) (read rest: List Item)
+    (spelt: Spelt expr read):
+    operandApart (read ++ rest) = operandApart read :=
+  let (first, more, isRead, _) := speltStarts expr read spelt
+  rewrite isRead
+
+--| An expression binding at the multiplicative level or tighter, spelt on one line and ended there, is what `mulExpr`
+--| reads.
+theorem mulLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineRest: lineAll rest = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 16 rest)
+    (fits: 16 <= expr.level):
+    MulReads (TreeN depth) modes read rest expr :=
+  mulAcc modes quiet expr read [] rest depth read expr
+    (List.appendNil read).flipped
+    byComputing
+    deep
+    spelt
+    free
+    lineRead
+    lineRest
+    openFirst
+    inLater
+    ends.unary
+    (ends.noMul (arithmetic []))
+    fits
+
+--| An additive chain, read on from its first operand, as `mulAcc` reads a multiplicative one, each operand a
+--| multiplicative chain (`mulLine`).
+--|
+--| Proof idea: by induction on `expr`'s left spine: an expression at the multiplicative level or tighter is the first
+--| operand; `left + right` reads `left` with the link `+ right` put first.
+theorem addAcc ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read: List Item) (links: List (Item, List Item, Expr)) (rest: List Item) (depth: Nat)
+    (all: List Item) (value: Expr)
+    (whole: all = read ++ Parse.loopReads [] (linkSteps links))
+    (isValue: value = leftNested expr (Parse.stepValues (linkSteps links)))
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineAfter: lineAll (Parse.loopReads [] (linkSteps links) ++ rest) = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (after: EndsAt modes 16 (Parse.loopReads [] (linkSteps links) ++ rest))
+    (linked: LinkReads modes (kind => kind == Plus || kind == Minus) (MulReads (TreeN depth) modes) links rest)
+    (fits: 14 <= expr.level):
+    AddReads (TreeN depth) modes all rest value :=
+  match expr, spelt, fits with
+    | Infix InfixBinary left operator right, sp, fits =>
+      let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
+        sp
+      match binaryLevels op.kind isOp with
+        | Inr is16 =>
+          addBase modes quiet
+            (Infix InfixBinary left operator right)
+            read
+            links
+            rest
+            depth
+            all
+            value
+            whole
+            isValue
+            deep
+            sp
+            free
+            lineRead
+            lineAfter
+            openFirst
+            inLater
+            after
+            linked
+            (arithmetic [level, is16])
+        | Inl is14 =>
+          let parts :=
+            infixParts modes quiet left right leftRead op rightRead leftSpelt rightSpelt
+              (rewrite <- isRead then lineRead)
+              (rewrite <- isRead then openFirst)
+              (rewrite <- isRead then inLater)
+          let at14: infixLevel InfixBinary operator.text = 14 := arithmetic [level, is14]
+          let (leftNeed, rightNeed) := addNeeds operator.text at14
+          let isAdd := addOf op.kind isOp is14
+          let rightAfter := Parse.loopReads [] (linkSteps links) ++ rest
+          let rightReads: MulReads (TreeN depth) modes rightRead rightAfter right :=
+            mulLine modes quiet right rightRead rightAfter depth
+              (arithmetic [deep])
+              rightSpelt
+              (Bool.andRight free)
+              (Bool.andRight parts.lineOpRight)
+              lineAfter
+              parts.openRight
+              (laterOfIn rightRead parts.inRight)
+              after
+              (arithmetic [rightFits, rightNeed])
+          let tail := [(op, rightRead, right), ..links]
+          let lineTail: lineAll (Parse.loopReads [] (linkSteps tail) ++ rest) = True :=
+            rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
+              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight lineAfter
+          let afterTail: EndsAt modes 16 (Parse.loopReads [] (linkSteps tail) ++ rest) :=
+            rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
+              opEnds modes 16 op
+                (rightRead ++ rightAfter)
+                InfixBinary
+                parts.openOp
+                isOp
+                (rewrite speltApart right rightRead rightAfter rightSpelt then apart)
+                (arithmetic [rungAddOf op.kind isAdd])
+          let wholeTail: all = leftRead ++ Parse.loopReads [] (linkSteps tail) :=
+            rewrite whole, isRead then
+              List.appendAssoc leftRead [op, ..rightRead] (Parse.loopReads [] (linkSteps links))
+          let valueTail: value = leftNested left (Parse.stepValues (linkSteps tail)) := rewrite isValue, isWord
+          addAcc modes quiet left leftRead tail rest depth all value wholeTail valueTail
+            (arithmetic [deep])
+            leftSpelt
+            (Bool.andLeft free)
+            parts.lineLeft
+            lineTail
+            parts.openLeft
+            parts.laterLeft
+            afterTail
+            (parts.openOp, isAdd, rightReads, linked)
+            (arithmetic [leftFits, leftNeed])
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ =>
+      addBase modes quiet other read links rest depth all value whole isValue deep spelt free lineRead lineAfter
+          openFirst inLater after linked
+          (arithmetic [unaryLevel other read spelt byComputing])
+
+--| An additive chain whose first operand binds at the multiplicative level or tighter.
+theorem addBase ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read: List Item) (links: List (Item, List Item, Expr)) (rest: List Item) (depth: Nat)
+    (all: List Item) (value: Expr)
+    (whole: all = read ++ Parse.loopReads [] (linkSteps links))
+    (isValue: value = leftNested expr (Parse.stepValues (linkSteps links)))
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineAfter: lineAll (Parse.loopReads [] (linkSteps links) ++ rest) = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (after: EndsAt modes 16 (Parse.loopReads [] (linkSteps links) ++ rest))
+    (linked: LinkReads modes (kind => kind == Plus || kind == Minus) (MulReads (TreeN depth) modes) links rest)
+    (high: 16 <= expr.level):
+    AddReads (TreeN depth) modes all rest value :=
+  (
+    read,
+    expr,
+    links,
+    whole,
+    isValue,
+    mulLine modes quiet expr read
+      (Parse.loopReads [] (linkSteps links) ++ rest)
       depth
       deep
       spelt
       free
       lineRead
-      lineRest
-      (openHeadOf modes item more open)
+      lineAfter
+      openFirst
       inLater
-      (unaryEndsOf modes rest restOpen ends)
-      unary
-  let (first, inside, isRead, starts) := speltStarts expr [item, ..more] spelt
-  let itemStarts: leadKind item.kind = True := rewrite firstKind item first more inside isRead then starts
-  inlineOfUnary
-    (TreeN depth)
-    modes
-    item
-    more
-    rest
-    expr
-    open
-    (leadNotDot item.kind itemStarts)
-    (inlinePlainOf modes item
-      (more ++ rest)
-      (linePlain [item, ..more ++ rest] (lineJoin [item, ..more] rest lineRead lineRest))
-      (noAutoLine expr item more rest spelt free))
-    (endsOperandOf modes rest ends)
-    unary
+      after
+      high,
+    linked
+  )
 
---| Before `->`, a unary reading ends.
-theorem arrowUnaryEnds ∀ (modes: Modes) (arrow: Item) (later: List Item)
-    (isArrow: arrow.kind = Arrow)
-    (open: modes.stops arrow = False):
-    UnaryEnds modes [arrow, ..later] :=
-  let peek: peekIn modes 0 [arrow, ..later] = Some Arrow := rewrite peekFirst modes arrow later open, isArrow
-  {
-    atom = head kind =>
-      {
-        plain = andFalseRight _ head _ (rewrite peek),
-        noCall = (match later with
-          | [] => byComputing
-          | [_, .._] => rewrite isArrow),
-        noDot = (rewrite isArrow)
-      },
-    noArgument = (match later with
-      | [] => rewrite peek
-      | [_, .._] => rewrite peek, isArrow)
-  }
+--| An expression binding at the additive level or tighter, spelt on one line and ended there, is what `addExpr`
+--| reads.
+theorem addLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineRest: lineAll rest = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 14 rest)
+    (fits: 14 <= expr.level):
+    AddReads (TreeN depth) modes read rest expr :=
+  addAcc modes quiet expr read [] rest depth read expr
+    (List.appendNil read).flipped
+    byComputing
+    deep
+    spelt
+    free
+    lineRead
+    lineRest
+    openFirst
+    inLater
+    (endsAtUp modes 14 16 rest (arithmetic []) ends)
+    (ends.noAdd (arithmetic []))
+    fits
+
+--| A spelt expression that is no arrow binds at the additive level or tighter: no looser operator is spelt yet.
+theorem plainLevel ∀ (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read)
+    (fits: 2 <= expr.level):
+    14 <= expr.level :=
+  match expr, spelt, fits with
+    | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), _ =>
+      match binaryLevels op.kind isOp with
+        | Inl is14 => arithmetic [level, is14]
+        | Inr is16 => arithmetic [level, is16]
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ => arithmetic [unaryLevel other read spelt byComputing]
+
+--| An expression that is no arrow, spelt on one line and followed by `read3` (nothing, or `->` and a result), is
+--| what `operatorExpr` reads: a comparison (`cmpExpr`) and its logic links (`logicAfter`), no `<->`, then `read3` as
+--| `ending` says.
+theorem operatorLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read read3 rest: List Item) (depth: Nat) (all: List Item) (value: Expr)
+    (whole: all = read ++ read3)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineAfter: lineAll (read3 ++ rest) = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 5 (read3 ++ rest))
+    (fits: 2 <= expr.level)
+    (noSection: isSome Dot (peekIn modes 0 ((read ++ read3) ++ rest)) = False)
+    (ending: EndReads (TreeN depth) modes expr (sequenceOn modes (read3 ++ rest)) read3 rest value):
+    OperatorReads (TreeN depth) modes all rest value :=
+  let after := read3 ++ rest
+  let addReads :=
+    addLine modes quiet expr read after depth deep spelt free lineRead lineAfter openFirst inLater
+      (endsAtUp modes 5 14 after (arithmetic []) ends)
+      (plainLevel expr read spelt fits)
+  let noLinks: read = read ++ Parse.loopReads [] (linkSteps []) := (List.appendNil read).flipped
+  let appendReads: AppendReads (TreeN depth) modes read after expr :=
+    (read, expr, [], noLinks, byComputing, addReads, ends.noAppend (arithmetic []))
+  (
+    read,
+    [],
+    read3,
+    expr,
+    expr,
+    whole,
+    noSection,
+    Inl ((ends.noRange, ends.noPipe, appendReads), ends.noCmp (arithmetic [])),
+    Inl (byComputing, byComputing, ends.noAndOr (arithmetic [])),
+    ends.noIff,
+    ending
+  )
 
 --| No `{` first: `allowBraceOn` leaves the modes.
 theorem allowNoBrace ∀ (modes: Modes) (item: Item) (rest: List Item)
@@ -1800,12 +2704,11 @@ theorem allowNoBrace ∀ (modes: Modes) (item: Item) (rest: List Item)
     | None => byComputing
     | Some column => rewrite notBrace
 
---| An arrow spelt on one line, its left side no infix, nothing after it continuing it, is what `exprInline` reads:
---| the left side as a comparison with no links or logic, then `->` and the right side read in full.
+--| An arrow spelt on one line, nothing after it continuing it, is what `exprInline` reads: the left side as a
+--| comparison and its logic links (`logicLine`), then `->` and the right side read in full.
 --|
---| Proof idea: `OperatorReads` with the left side by `unaryLine` (ended by `->`, `arrowUnaryEnds`) lifted through
---| each chain with no links, no comparison and no logic; `EndReads`' arrow, its result by `fullLine` one level down,
---| `allowBraceOn` leaving the modes since no `{` starts it.
+--| Proof idea: `OperatorReads` with the left side by `logicLine`, ended by `->` (`opEnds`); `EndReads`' arrow, its
+--| result by `fullLine` one level down, `allowBraceOn` leaving the modes since no `{` starts it.
 theorem arrowLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (left right: Expr) (operator: Word) (item: Item) (more rest: List Item) (depth: Nat)
@@ -1819,29 +2722,27 @@ theorem arrowLine ∀ (modes: Modes)
     (restOpen: openHead modes rest = True)
     (ends: endsHere rest = True):
     InlineAt (TreeN depth) modes item more rest (Infix InfixArrow left operator right) :=
-  let (leftRead, arrow, rightRead, isRead, isArrow, isWord, leftUnary, leftSpelt, rightSpelt) := spelt
+  let (leftRead, arrow, rightRead, isRead, isOp, isWord, _, leftFits, _, apart, leftSpelt, rightSpelt) := spelt
+  let arrowIs: (arrow.kind == Arrow) = True := isOp
+  let isArrow: arrow.kind = Arrow := DecEq.sound arrowIs
   let (first, inside, isLeft, starts) := speltStarts left leftRead leftSpelt
   let joined: [item, ..more] = [first, ..inside ++ [arrow, ..rightRead]] := calc [item, ..more]
     _ = leftRead ++ [arrow, ..rightRead] := isRead
     _ = [first, ..inside ++ [arrow, ..rightRead]] := rewrite isLeft
   let isItem: item = first := List.consInjectiveHead item first more _ joined
-  let isMore: more = inside ++ [arrow, ..rightRead] := Eq.cong (.drop 1) joined
   let itemLead: leadKind item.kind = True := rewrite isItem then starts
-  let lineAll1: lineAll (leftRead ++ [arrow, ..rightRead]) = True := rewrite <- isRead then lineRead
-  let (lineLeft, lineArrowRight) := lineSplit leftRead [arrow, ..rightRead] lineAll1
-  let lineRight: lineAll rightRead = True := Bool.andRight lineArrowRight
-  let inMore: inLineAll (inside ++ [arrow, ..rightRead]) = True := rewrite <- isMore then inLater
-  let (inInside, inArrowRight) := inLineSplit inside [arrow, ..rightRead] inMore
-  let openArrow := quietStops modes arrow quiet (notTrueFalse _ (Bool.andLeft inArrowRight))
-  let inRight: inLineAll rightRead = True := Bool.andRight inArrowRight
-  let openLeft: openHead modes leftRead = True :=
-    rewrite isLeft then openHeadOf modes first inside (rewrite <- isItem then open)
-  let laterLeft: laterInLine leftRead = True := rewrite isLeft then inInside
+  let parts :=
+    infixParts modes quiet left right leftRead arrow rightRead leftSpelt rightSpelt
+      (rewrite <- isRead then lineRead)
+      (rewrite <- isRead then openHeadOf modes item more open)
+      (rewrite <- isRead then inLater)
+  let lineRight: lineAll rightRead = True := Bool.andRight parts.lineOpRight
   let after := rightRead ++ rest
-  let lineAfterLeft: lineAll [arrow, ..after] = True := lineJoin [arrow, ..rightRead] rest lineArrowRight lineRest
-  let peekArrow: peekIn modes 0 [arrow, ..after] = Some Arrow := rewrite peekFirst modes arrow after openArrow, isArrow
+  let lineAfterLeft: lineAll [arrow, ..after] = True := lineJoin [arrow, ..rightRead] rest parts.lineOpRight lineRest
+  let peekArrow: peekIn modes 0 [arrow, ..after] = Some Arrow :=
+    rewrite peekFirst modes arrow after parts.openOp, isArrow
   let (rightFirst, rightMore, isRight, rightStarts) := speltStarts right rightRead rightSpelt
-  let inRightItems: inLineAll [rightFirst, ..rightMore] = True := rewrite <- isRight then inRight
+  let inRightItems: inLineAll [rightFirst, ..rightMore] = True := rewrite <- isRight then parts.inRight
   let openRight := quietStops modes rightFirst quiet (notTrueFalse _ (Bool.andLeft inRightItems))
   let allowed: allowBraceOn modes (rightRead ++ rest) = modes :=
     rewrite isRight then allowNoBrace modes rightFirst (rightMore ++ rest) (startNotBrace rightFirst.kind rightStarts)
@@ -1857,26 +2758,10 @@ theorem arrowLine ∀ (modes: Modes)
     | Zero, deep => Void.impossible (arithmetic [deep])
     | Succ below, deep =>
       let sub := TreeN (Succ below)
-      let unaryReads: UnaryReads sub modes leftRead [arrow, ..after] left :=
-        unaryLine modes quiet left leftRead
-          [arrow, ..after]
-          (Succ below)
-          (arithmetic [deep])
-          leftSpelt
-          (Bool.andLeft free)
-          lineLeft
-          lineAfterLeft
-          openLeft
-          laterLeft
-          (arrowUnaryEnds modes arrow after isArrow openArrow)
-          leftUnary
-      let noLinks: leftRead = leftRead ++ Parse.loopReads [] (linkSteps []) := (List.appendNil leftRead).flipped
-      let mulReads: MulReads sub modes leftRead [arrow, ..after] left :=
-        (leftRead, left, [], noLinks, byComputing, unaryReads, takesEnds modes _ arrow after (rewrite isArrow))
-      let addReads: AddReads sub modes leftRead [arrow, ..after] left :=
-        (leftRead, left, [], noLinks, byComputing, mulReads, takesEnds modes _ arrow after (rewrite isArrow))
-      let appendReads: AppendReads sub modes leftRead [arrow, ..after] left :=
-        (leftRead, left, [], noLinks, byComputing, addReads, takesEnds modes _ arrow after (rewrite isArrow))
+      let leftEnds: EndsAt modes 5 [arrow, ..after] :=
+        opEnds modes 5 arrow after InfixArrow parts.openOp isOp
+          (rewrite speltApart right rightRead rest rightSpelt then apart)
+          (rewrite isArrow then arithmetic [])
       let rightTree: sub { modes = allowBraceOn modes (rightRead ++ rest), level = LevelFull } rightRead rest right :=
         rewrite allowed then
           fullLine modes quiet right rightRead rest below
@@ -1885,22 +2770,36 @@ theorem arrowLine ∀ (modes: Modes)
             (Bool.andRight free)
             lineRight
             lineRest
-            inRight
+            parts.inRight
             restOpen
             ends
-      let operatorReads: OperatorReads sub modes [item, ..more] rest (Infix InfixArrow left operator right) := (
-        leftRead,
-        [],
-        [arrow, ..rightRead],
-        left,
-        left,
-        isRead,
-        (rewrite <- isRead, peekFirst modes item (more ++ rest) open then leadNotDot item.kind itemLead),
-        Inl (((rewrite peekArrow), (rewrite isArrow), appendReads), (rewrite peekArrow)),
-        Inl (byComputing, byComputing, (rewrite peekArrow)),
-        (rewrite peekArrow),
-        Inr (arrow, rightRead, right, byComputing, (rewrite isWord), openArrow, isArrow, (noRow, rightTree))
-      )
+      let ending: EndReads sub modes left
+        (sequenceOn modes ([arrow, ..rightRead] ++ rest))
+        [arrow, ..rightRead]
+        rest
+        (Infix InfixArrow left operator right) :=
+        Inr (arrow, rightRead, right, byComputing, (rewrite isWord), parts.openOp, isArrow, (noRow, rightTree))
+      let noSection: isSome Dot (peekIn modes 0 ((leftRead ++ [arrow, ..rightRead]) ++ rest)) = False :=
+        rewrite <- isRead, peekFirst modes item (more ++ rest) open then leadNotDot item.kind itemLead
+      let operatorReads: OperatorReads sub modes [item, ..more] rest (Infix InfixArrow left operator right) :=
+        operatorLine modes quiet left leftRead
+          [arrow, ..rightRead]
+          rest
+          (Succ below)
+          [item, ..more]
+          (Infix InfixArrow left operator right)
+          isRead
+          (arithmetic [deep])
+          leftSpelt
+          (Bool.andLeft free)
+          parts.lineLeft
+          lineAfterLeft
+          parts.openLeft
+          parts.laterLeft
+          leftEnds
+          leftFits
+          noSection
+          ending
       (
         open,
         inlinePlainOf modes item
@@ -1910,8 +2809,58 @@ theorem arrowLine ∀ (modes: Modes)
         operatorReads
       )
 
+--| A spelt expression that is no arrow, its first item not stopping the modes and its others not starting a line,
+--| is what `exprInline` reads in quiet modes: its comparison and logic (`logicLine`), no `<->` and no end after.
+theorem inlinePlainLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr [item, ..more])
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll [item, ..more] = True)
+    (lineRest: lineAll rest = True)
+    (open: modes.stops item = False)
+    (inLater: inLineAll more = True)
+    (restOpen: openHead modes rest = True)
+    (ends: endsHere rest = True)
+    (fits: 2 <= expr.level):
+    InlineAt (TreeN depth) modes item more rest expr :=
+  let restEnds := endsAtOf modes 1 rest restOpen ends
+  let (first, inside, isRead, starts) := speltStarts expr [item, ..more] spelt
+  let itemLead: leadKind item.kind = True := rewrite firstKind item first more inside isRead then starts
+  let noSection: isSome Dot (peekIn modes 0 (([item, ..more] ++ []) ++ rest)) = False :=
+    rewrite List.appendNil [item, ..more], peekFirst modes item (more ++ rest) open then leadNotDot item.kind itemLead
+  let operatorReads: OperatorReads (TreeN depth) modes [item, ..more] rest expr :=
+    operatorLine modes quiet expr
+      [item, ..more]
+      []
+      rest
+      depth
+      [item, ..more]
+      expr
+      (List.appendNil [item, ..more]).flipped
+      deep
+      spelt
+      free
+      lineRead
+      lineRest
+      (openHeadOf modes item more open)
+      inLater
+      (endsAtUp modes 1 5 rest (arithmetic []) restEnds)
+      fits
+      noSection
+      (Inl (byComputing, byComputing, restEnds.noEnd (arithmetic [])))
+  (
+    open,
+    inlinePlainOf modes item
+      (more ++ rest)
+      (linePlain [item, ..more ++ rest] (lineJoin [item, ..more] rest lineRead lineRest))
+      (noAutoLine expr item more rest spelt free),
+    operatorReads
+  )
+
 --| A spelt expression whose first item doesn't stop the modes, and whose other items don't start a line, is what
---| `exprInline` reads in quiet modes: an arrow by `arrowLine`, anything else by `inlineUnary`.
+--| `exprInline` reads in quiet modes: an arrow by `arrowLine`, anything else by `inlinePlainLine`.
 theorem inlineLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat)
@@ -1925,17 +2874,35 @@ theorem inlineLine ∀ (modes: Modes)
     (restOpen: openHead modes rest = True)
     (ends: endsHere rest = True):
     InlineAt (TreeN depth) modes item more rest expr :=
-  match unary: expr.unary1 with
-    | True =>
-      inlineUnary modes quiet expr item more rest depth deep spelt free lineRead lineRest open inLater restOpen ends
-          unary
-    | False =>
-      match expr, spelt, unary with
-        | Infix InfixArrow left operator right, spelt, _ =>
-          arrowLine modes quiet left right operator item more rest depth deep spelt free lineRead lineRest open inLater
-              restOpen ends
-        | Infix _ _ _ _, never, _ => Void.impossible never
-        | other, _, never => (Bool.falseNotTrue never.flipped).impossible
+  match expr, spelt with
+    | Infix InfixArrow left operator right, spelt =>
+      arrowLine modes quiet left right operator item more rest depth deep spelt free lineRead lineRest open inLater
+          restOpen ends
+    | Infix InfixBinary left operator right, spelt =>
+      let (_, op, _, _, isOp, _, level, _) := spelt
+      inlinePlainLine modes quiet
+        (Infix InfixBinary left operator right)
+        item
+        more
+        rest
+        depth
+        deep
+        spelt
+        free
+        lineRead
+        lineRest
+        open
+        inLater
+        restOpen
+        ends
+        (match binaryLevels op.kind isOp with
+          | Inl is14 => arithmetic [level, is14]
+          | Inr is16 => arithmetic [level, is16])
+    | Infix _ _ _ _, (_, _, _, _, never, _) => (Bool.falseNotTrue never).impossible
+    | other, spelt =>
+      inlinePlainLine modes quiet other item more rest depth deep spelt free lineRead lineRest open inLater restOpen
+          ends
+          (arithmetic [unaryLevel other [item, ..more] spelt byComputing])
 
 --| A spelt expression on its line's middle is what `expr` reads in quiet modes: `inlineLine`, no block starting.
 theorem fullLine ∀ (modes: Modes)
@@ -2085,9 +3052,11 @@ theorem atomLine ∀ (modes: Modes)
                 inInside
                 (openHeadOf modes last rest (quietStops modes last quiet inLast))
                 (rewrite isClose),
-            noRight = rightLine first
-              ((inside ++ [last]) ++ rest)
-              (lineJoin (inside ++ [last]) rest (Bool.andRight lineItems) lineRest)
+            noRight = rewrite List.appendAssoc inside [last] rest then
+              rightClosed first inside last rest
+                (groupWalk body inside bodySpelt LParen [] [] [last, ..rest])
+                (speltLast body inside bodySpelt [])
+                isClose
           }
           rewrite isRead then
             (
@@ -2176,9 +3145,21 @@ theorem atomLine ∀ (modes: Modes)
                 in1
                 (elementsOpen modes quiet)
                 (rewrite isComma),
-            noRight = rightLine first
-              ((read1 ++ elements) ++ rest)
-              (lineJoin (read1 ++ elements) rest (Bool.andRight lineItems) lineRest)
+            noRight =
+              let body := read1 ++ ([separator, ..read2] ++ commaReads steps)
+              let shape: (read1 ++ elements) ++ rest = body ++ [last, ..rest] :=
+                rewrite repeatedly [List.appendAssoc] then byComputing
+              rewrite shape then
+                rightClosed first body last rest
+                  (tupleWalk one two others read1 separator read2 steps oneSpelt isComma twoSpelt stepsSpelt LParen []
+                      []
+                      [last, ..rest])
+                  (lastOf read1 ([separator, ..read2] ++ commaReads steps) [] (before =>
+                    rewrite ontoAppend [separator, ..read2] (commaReads steps) before then
+                      stepsLast others steps stepsSpelt
+                        (List.reverseOnto [separator, ..read2] before)
+                        (speltLast two read2 twoSpelt [separator, ..before])))
+                  isClose
           }
           rewrite isRead then
             (
@@ -3144,11 +4125,17 @@ theorem readsBackArrowExample: Parse.run
       byComputing,
       byComputing,
       byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
       (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing),
       (
         [wordItem Upper "B" 5],
         wordItem Arrow "->" 6,
         [wordItem Upper "C" 7],
+        byComputing,
+        byComputing,
+        byComputing,
         byComputing,
         byComputing,
         byComputing,
