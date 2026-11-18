@@ -1,5 +1,5 @@
 {
-  "next": 3978,
+  "next": 3980,
   "tickets": [
     {
       "id": 47,
@@ -23915,6 +23915,32 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3978,
+      "title": "[DeepSeek] Not-in-scope hint for a bare print got worse since Std.Doc (SW-3944): it now says 'the library has IO.print or Std.Doc.print' and drops the 'try: add import Std.IO (print)' line (snapshot reject__io-bare-print). Rank candidates by whether their type fits the call (print \"x\" fits IO.print, not Doc.print) and keep the try line when one fits; failing-first is the existing snapshot",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3979,
+      "title": "[Sonnet] Quick tier over its 4 GB memguard cap since Std.Doc joined std: named_arguments::named_calls_keep_every_hash peaks 2.21 GB, hash_stability::examples 0.63, prelude 0.53; Overmind's rolling check is killed mid-tier (c176cf4ad). Measure each test's peak before and after SW-3944, find why named_calls_keep_every_hash needs 2.2 GB, cut it; don't just raise the cap",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
