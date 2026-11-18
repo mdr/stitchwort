@@ -34,7 +34,8 @@ import Syntax.SettleProofs (
   letsQuiet1,
   plain1,
   plainFrom,
-  plainFromOf
+  plainFromOf,
+  tokensReverseOnto
 )
 
 -- What rule 1 has passed.
@@ -1096,3 +1097,74 @@ theorem standsDecl ∀ (header: Header) (colonEq: Comments) (value: Expr) (empty
             stood
             afterSame
             fresh
+
+-- The parser's groups.
+
+def groupTokens (groups: List (List Leaf)): List (List Token) := groups.map tokens
+
+--| The parser cuts leaves into groups by their tokens alone.
+theorem splitTokens ∀ (state: Splitter) (current other: List Leaf)
+    (groups others: List (List Leaf)) (leaves rest: List Leaf)
+    (same: tokens leaves = tokens rest)
+    (sameCurrent: tokens current = tokens other)
+    (sameGroups: groupTokens groups = groupTokens others):
+    groupTokens (splitFrom state current groups leaves) = groupTokens (splitFrom state other others rest) :=
+  match leaves, rest with
+    | [], [] =>
+      let flush := (all: List Leaf) (done: List (List Leaf)) => if all.isEmpty then done else [all.reverse, ..done]
+      calc groupTokens (flush current groups).reverse
+        _ = (groupTokens (flush current groups)).reverse := List.mapReverse (flush current groups) tokens
+        _ = (groupTokens (flush other others)).reverse :=
+          Eq.cong (all => all.reverse) (flushTokens current other groups others sameCurrent sameGroups)
+        _ = groupTokens (flush other others).reverse := Eq.flipped (List.mapReverse (flush other others) tokens)
+    | [leaf, ..after], [twin, ..beyond] =>
+      let headSame: twin.token = leaf.token := Eq.flipped (Eq.cong (tokens => tokens.headOr leaf.token) same)
+      let tailSame: tokens after = tokens beyond := Eq.cong (tokens => tokens.drop 1) same
+      let token := leaf.token
+      let inside := state.depth > 0 || state.opening
+      let continues := state.openBrackets > 0 && (token.kind == Comma || token.kind.isCloser)
+      rewrite headSame then
+        match starts: token.column == 0
+          && token.kind != ColonEq
+          && ((!inside && !state.attributesOnly && !continues) || (inside && token.kind.startsGroup)) with
+          | True =>
+            splitTokens _
+              [leaf]
+              [twin] _ _
+              after
+              beyond
+              tailSame
+              (rewrite headSame)
+              (flushTokens current other groups others sameCurrent sameGroups)
+          | False =>
+            splitTokens _
+              [leaf, ..current]
+              [twin, ..other]
+              groups
+              others
+              after
+              beyond
+              tailSame
+              (rewrite headSame, sameCurrent)
+              sameGroups
+
+theorem tokensReverse ∀ (leaves: List Leaf): tokens leaves.reverse = (tokens leaves).reverse :=
+  tokensReverseOnto leaves []
+
+--| Closing the group in progress keeps the groups' tokens alike.
+theorem flushTokens ∀ (current other: List Leaf) (groups others: List (List Leaf))
+    (sameCurrent: tokens current = tokens other)
+    (sameGroups: groupTokens groups = groupTokens others):
+    groupTokens (if current.isEmpty then groups else [current.reverse, ..groups])
+      = groupTokens (if other.isEmpty then others else [other.reverse, ..others]) :=
+  match current, other with
+    | [], [] => sameGroups
+    | [first, ..more], [second, ..later] =>
+      let reversed: tokens [first, ..more].reverse = tokens [second, ..later].reverse := calc tokens
+        [first, ..more].reverse
+        _ = (tokens [first, ..more]).reverse := tokensReverse [first, ..more]
+        _ = (tokens [second, ..later]).reverse := Eq.cong (all => all.reverse) sameCurrent
+        _ = tokens [second, ..later].reverse := Eq.flipped (tokensReverse [second, ..later])
+      consCong _ _ _ _ reversed sameGroups
+
+theorem consCong ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] := rewrite head, tail
