@@ -1991,11 +1991,13 @@ theorem laterCloserNotesHang ∀ (kinds: Text → Tok) (notes: List Note) (inden
               more)
 
 --| Where a bracket's closer may be written, the fold at `state`: after its contents ended (a comment waiting only if
---| `before`), or right after the line break before it: at the indentation with no comment floor, or anywhere if the
---| closer takes a line of its own after a trailing comment (`lone`), as that line break's line then moves to it.
+--| `before`), or right after the line break before it: at the indentation with no comment floor, left of the
+--| bracket's block (the innermost), or anywhere if the closer takes a line of its own after a trailing comment
+--| (`lone`), as that line break's line then moves to it.
 def CloserSeat (indent: Nat) (before lone: Bool) (state: HangState) (place: Place): Prop := match place with
   | AtStart _ _ => False
-  | Broken at carry => lone = True ∨ (at = indent ∧ carry.floor = None)
+  | Broken at carry =>
+    lone = True ∨ (at = indent ∧ carry.floor = None ∧ leftOf indent (state.blocks.headOr None) = True)
   | Mid at carry => carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
   | Held at carry => before = True ∧ carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
 
@@ -2034,8 +2036,7 @@ theorem closingHangs ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (befor
     (open: state.blocks = [block, ..outer])
     (unglued: state.glue = False)
     (nested: (inForce outer state.top <= inForce state.blocks state.top) = True)
-    (clear: (inForce outer state.top <= indent) = True)
-    (shallow: leftOf indent block = True):
+    (clear: (inForce outer state.top <= indent) = True):
     HangLays kinds
       (Closing text)
       indent
@@ -2059,7 +2060,8 @@ theorem closingHangs ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (befor
             stepCloser kinds state block outer text None (tokenCode text None token solid) closer open byComputing
           )
           | Broken at carry, Inl never => (Bool.falseNotTrue never).impossible
-          | Broken at carry, Inr (atIndent, floor) =>
+          | Broken at carry, Inr (atIndent, floor, inner) =>
+            let shallow: leftOf indent block = True := rewrite open at inner then inner
             rewrite atIndent then
               (
                 (floorAfterToken text carry token, clear),
@@ -2172,7 +2174,7 @@ theorem closerLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Aroun
             let landed: floored carry (indent + 2) = indent + 2 := rewrite floor
             (folded, landed, floor, breakKeepsCloser carry key indent floor)
           | Broken at carry, Inl never => (Bool.falseNotTrue never).impossible
-          | Broken at carry, Inr (_, floor) => (folded, byComputing, floor, byComputing))
+          | Broken at carry, Inr (_, floor, _) => (folded, byComputing, floor, byComputing))
   let inner: HangLays kinds
     (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]])
     (indent + 2)
@@ -2283,14 +2285,13 @@ theorem trailingAfterClose ∀ (kinds: Text → Tok) (word: Word) (indent: Nat) 
           (place hang => Ended state True place ∧ hang = At state)
           (place hang held => held)
 
---| The fold facts a bracket's closer needs: its block innermost, nothing glued, what is in force outside the bracket
---| not right of the block nor of the construct's indentation, and a line starting at the indentation left of the block.
+--| The fold facts a bracket's closer needs: its block innermost, nothing glued, and what is in force outside the
+--| bracket not right of the block nor of the construct's indentation.
 def CloserFold (indent: Nat) (state: HangState) (block: Option Nat) (outer: List (Option Nat)): Prop :=
   state.blocks = [block, ..outer]
     ∧ state.glue = False
     ∧ (inForce outer state.top <= inForce state.blocks state.top) = True
     ∧ (inForce outer state.top <= indent) = True
-    ∧ leftOf indent block = True
 
 --| The closer's token: a closer the lexer reads as one, not a comment or layout.
 def CloserToken (kinds: Text → Tok) (text: Text): Prop :=
@@ -2328,7 +2329,7 @@ theorem closerAtLineHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around
       (CloserExit word around state outer) :=
   let closed := closedFrom state outer
   let (closer, closes, _, notComment, solid) := token
-  let (open, unglued, _, _, _) := fold
+  let (open, unglued, _, _) := fold
   hangsCons kinds
     (Closing word.text)
     word.trailing
@@ -2456,7 +2457,7 @@ theorem plainCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
       (CloserEntry kinds word around key indent state block outer)
       (CloserExit word around state outer) :=
   let (closer, closes, text, notComment, solid) := token
-  let (open, unglued, nested, clear, shallow) := fold
+  let (open, unglued, nested, clear) := fold
   let closed := closedFrom state outer
   let quiet: (around.before && word.trails) = False := rewrite bare at lone then lone
   let pre := CloserEntry kinds word around key indent state block outer
@@ -2482,7 +2483,7 @@ theorem plainCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
             pre
             ended
             (closingHangs kinds word.text indent around.before state block outer closer closes notComment solid open
-                unglued nested clear shallow)
+                unglued nested clear)
             (place hang (folded, seat, _) => (folded, rewrite lone at seat then seat)))
           (trailingAfterClose kinds word indent closed around.before trailed quiet))
         place
