@@ -351,6 +351,14 @@ theorem operatorFacts ∀ (text: Text) (listed: operatorText1 text = True): Oper
             | True => operatorC text c
             | False => operatorD text listed
 
+--| `+`, `->` and `>` meet their operator lemmas' conditions.
+theorem operatorWitnesses: OperatorFacts "+" ∧ OperatorFacts "->" ∧ OperatorFacts ">" ∧ OperatorFacts "→" := (
+  operatorFacts "+" byComputing,
+  arrowOperator "->" byComputing byComputing,
+  operatorD ">" byComputing,
+  operatorA "→" byComputing
+)
+
 --| A quiet infix operator of slice 1, after an operand that trails nothing, runs as a plain token or as `->`.
 theorem quietRun ∀ (text: Text) (around: Around) (key: Nat)
     (listed: operatorText1 text = True):
