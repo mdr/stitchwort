@@ -24540,7 +24540,7 @@
     {
       "id": 4024,
       "title": "[Opus] fmt S1 GoodItem for the source's items (SW-4018 ticket F): from lex on any slice 1 source (within1 narrowed to exclude qualified names and exponent numbers, orchestrator's call on D-A, done in SW-4010); docs/reviews/SW-4018-parser-statements.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -24553,7 +24553,7 @@
     {
       "id": 4025,
       "title": "[Fable paper] fmt S1: state rule N idle on the output (printedKeeping/printedSettle1: settled leaves stay put, printed leaves homed from T.settled1, plain1 of the output) and the output at file level (the file loop's text lexes, passes the alphabet, has no last comma) (SW-4018 items 4 and 5); after SW-4016's printedHangs statement; docs/reviews/SW-4018-parser-statements.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
