@@ -2,7 +2,7 @@
 --| (docs/proposals/self-hosted-fmt-s1-sketch.md, ticket 15).
 
 namespace Syntax.SettleProofs
-import Std (Bool, Char, DecEq, Eq, Finite, List, Nat, Option, Text)
+import Std (Bool, Char, DecEq, Eq, Finite, List, Nat, Option, Text, Void)
 import Syntax (..)
 import Fmt (..)
 
@@ -960,3 +960,132 @@ theorem movedEnds ∀ (x: Leaf) (behind ahead: List Leaf) (steps: Nat) (comment:
               (Bool.andLeft behindWithin)
               (Bool.andRight behindWithin)
               (Bool.andRight (Bool.andRight (Bool.andRight quiet)))
+
+--| Rule 1's walk is clean from any next leaf laid out as the lexer lays
+--| it out, given whether the leaf before had a trailing comment.
+def CleanFor (behind: List Leaf) (pending: Bool): Prop :=
+  ∀ (next: Leaf) (ahead: List Leaf) => (next.trivia.leading.isEmpty || next.token.lineStart) = True
+    → (!pending || next.token.lineStart) = True
+    → walkClean next behind ahead = True
+
+theorem withinOfTokens ∀ (xs ys: List Leaf)
+    (same: tokens xs = tokens ys)
+    (within: ys.all (leaf => leaf.kind.within1) = True):
+    xs.all (leaf => leaf.kind.within1) = True :=
+  let viaTokens: (tokens ys).all (token => token.kind.within1) = True :=
+    rewrite List.allMapBool ys (token => token.kind.within1) (leaf => leaf.token) then within
+  rewrite <- List.allMapBool xs (token => token.kind.within1) (leaf => leaf.token), same then viaTokens
+
+--| A leaf with no trailing comment keeps the walk clean.
+theorem cleanUntrailed ∀ (leaf: Leaf) (behind: List Leaf) (pending later: Bool)
+    (clean: CleanFor behind pending)
+    (laid: (leaf.trivia.leading.isEmpty || leaf.token.lineStart) = True)
+    (afterPending: (!pending || leaf.token.lineStart) = True)
+    (untrailed: leaf.trivia.trailing.isNone = True):
+    CleanFor [leaf, ..behind] later :=
+  next ahead nextLaid nextPending =>
+    match skipped next [leaf, ..behind] ahead with
+      | False => byComputing
+      | True =>
+        match stops: next.token.lineStart
+          && (!next.trivia.leading.isEmpty || endsWithComment [leaf, ..behind] [next, ..ahead]) with
+          | True => byComputing
+          | False =>
+            match next.trivia.leading with
+              | [] => Bool.andIntro untrailed (clean leaf [next, ..ahead] laid afterPending)
+              | [first, ..more] => Void.impossible (Bool.trueNotFalse (rewrite nextLaid at stops then stops))
+
+--| A leaf with a trailing comment stops every walk from the leaf after it,
+--| which starts its line.
+theorem cleanTrailed ∀ (leaf: Leaf) (behind: List Leaf)
+    (ends: ∀ (ahead: List Leaf) => endsWithComment [leaf, ..behind] ahead = True):
+    CleanFor [leaf, ..behind] True :=
+  next ahead nextLaid nextPending =>
+    match skipped next [leaf, ..behind] ahead with
+      | False => byComputing
+      | True => rewrite nextPending, ends [next, ..ahead], Bool.orTrue
+
+--| Rule 1 keeps the comments in order, for leaves laid out as the lexer
+--| lays them out, under slice 1's alphabet.
+--|
+--| Proof idea: by induction on the leaves left, keeping `CleanFor`: the
+--| walk from the next leaf passes no comment (`walkSteps`), so a comment
+--| moved back lands after everything it passes (`movedTexts`); and a leaf
+--| that held a trailing comment, kept or moved, stops the walk from the
+--| leaf after it, which starts its line (`movedEnds`).
+theorem homeFromTexts ∀ (behind rest: List Leaf) (pending: Bool)
+    (clean: CleanFor behind pending)
+    (laid: laidOut pending rest = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (restWithin: rest.all (leaf => leaf.kind.within1) = True):
+    leafTexts (homeFrom behind None rest) = leafTexts (behind.reverseOnto rest) :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      let leafLaid := Bool.andLeft laid
+      let leafPending := Bool.andLeft (Bool.andRight laid)
+      let afterLaid := Bool.andRight (Bool.andRight laid)
+      let within := Bool.andLeft restWithin
+      let afterWithin := Bool.andRight restWithin
+      let withLeaf: [leaf, ..behind].all (leaf => leaf.kind.within1) = True := rewrite within then behindWithin
+      let kept := (later: Bool) (cleanLater: CleanFor [leaf, ..behind] later) (laidLater: laidOut later after = True) =>
+        Eq.trans
+          (homeFromTexts [leaf, ..behind] after later cleanLater laidLater withLeaf afterWithin)
+          (consTexts leaf leaf behind behind after byComputing byComputing)
+      match trailing: leaf.trivia.trailing with
+        | None => kept False (cleanUntrailed leaf behind pending False clean leafLaid leafPending byComputing) afterLaid
+        | Some comment =>
+          let trailed := cleanTrailed leaf behind (ahead => byComputing)
+          match movable leaf behind after with
+            | False => kept True trailed afterLaid
+            | True =>
+              let (passed, walked, quiet) :=
+                walkSteps leaf behind after 0 (clean leaf after leafLaid leafPending) within behindWithin
+              rewrite walked then
+                match passed, quiet with
+                  | Zero, _ => rewrite barsQuiet1 leaf behind after within then kept True trailed afterLaid
+                  | Succ more, Inl zero => cases
+                  | Succ more, Inr (leadEmpty, leafPassable, quietBehind) =>
+                    let moved := leaf.withTrailing None
+                    let target := trailingAt behind (Succ more) comment
+                    let movedWithin: [moved, ..target].all (leaf => leaf.kind.within1) = True :=
+                      rewrite within then
+                        withinOfTokens target behind (trailingAtTokens behind (Succ more) comment) behindWithin
+                    let movedClean: CleanFor [moved, ..target] True := cleanTrailed moved target (ahead =>
+                      movedEnds moved behind ahead
+                        (Succ more)
+                        comment
+                        byComputing
+                        leafPassable
+                        within
+                        behindWithin
+                        quietBehind)
+                    let empty := emptyOf leaf.trivia.leading leadEmpty
+                    calc leafTexts (homeFrom [moved, ..target] None after)
+                      _ = leafTexts ([moved, ..target].reverseOnto after) :=
+                        homeFromTexts [moved, ..target] after True movedClean afterLaid movedWithin afterWithin
+                      _ = leafTexts (target.reverseOnto []) ++ (triviaTexts moved.trivia ++ leafTexts after) :=
+                        leafTextsReverseOnto target [moved, ..after]
+                      _ = (leafTexts (behind.reverseOnto []) ++ [comment.text])
+                          ++ (triviaTexts moved.trivia ++ leafTexts after) :=
+                        rewrite movedTexts behind (Succ more) comment quietBehind
+                      _ = leafTexts (behind.reverseOnto []) ++ (triviaTexts leaf.trivia ++ leafTexts after) :=
+                        rewrite empty, trailing then rewrite repeatedly [List.appendAssoc]
+                      _ = leafTexts (behind.reverseOnto [leaf, ..after]) :=
+                        (leafTextsReverseOnto behind [leaf, ..after]).flipped
+
+--| Rule N keeps every comment, in order, less the spaces at its end, for
+--| leaves laid out as the lexer lays them out, under slice 1's alphabet.
+theorem settledKeepsComments ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True)
+    (laid: laidOut False lexed.leaves = True):
+    lexedTexts lexed.settled = (lexedTexts lexed).map trimEnd :=
+  let homed: leafTexts (homeFrom [] None lexed.leaves) = leafTexts lexed.leaves :=
+    homeFromTexts [] lexed.leaves False
+      (next ahead nextLaid nextPending => byComputing)
+      laid
+      byComputing
+      (alphabet1Leaves lexed.leaves within)
+  calc lexedTexts lexed.settled
+    _ = (leafTexts (homeFrom [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd := settledTextsAfterHome lexed
+    _ = (leavesTexts lexed.leaves lexed.end).map trimEnd := rewrite homed, leavesTextsSplit lexed.leaves lexed.end
