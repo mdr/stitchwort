@@ -1,5 +1,5 @@
 {
-  "next": 3997,
+  "next": 3998,
   "tickets": [
     {
       "id": 47,
@@ -24062,7 +24062,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.",
+      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.\n\nAlso (SW-3995): census script --show to print sample locations of refused shapes; dev README: the shell is zsh, loop over files rather than a variable of paths.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24148,12 +24148,12 @@
     {
       "id": 3995,
       "title": "[Opus] Self-hosted fmt S4c program: records: record literals and updates ({ r | f = e }), record fields, spread (..), record patterns, membership (x ∈ s) if cheap; within4c, Fmt.Twin --stage s4c; gate identical to Rust; census after (SW-3992's top: Record 581 present, RecordField 526, Spread 347 present/114 only, Membership 81 only, PatternRecord 35 only)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected: 30 min. Started 13:25, done 13:38 (about 13 min).\n\nProgress (Opus lane, 18 Nov): slice 4c built on lane/SW-3995 (1b3a05b81): records, updates, C { … }, spreads, record patterns, membership; within4c, Fmt.Twin --stage s4c, dev/fmt-twin s4c.\nGate: s4c goldens 410/410, repo --sample 300 3,320/3,320; coverage 48.1% (s4b, 2,858) to 55.8% on the same 5,947. s1 to s4b all still 100%. Fmt.Tests 78/78. F1 tree unchanged. Details in tools/fmt/NOTES.md, Slice 4c.\n",
+      "body": "Expected: 30 min. Started 13:25, done 13:38 (about 13 min).\n\nProgress (Opus lane, 18 Nov): slice 4c built on lane/SW-3995 (1b3a05b81): records, updates, C { … }, spreads, record patterns, membership; within4c, Fmt.Twin --stage s4c, dev/fmt-twin s4c.\nGate: s4c goldens 410/410, repo --sample 300 3,320/3,320; coverage 48.1% (s4b, 2,858) to 55.8% on the same 5,947. s1 to s4b all still 100%. Fmt.Tests 78/78. F1 tree unchanged. Details in tools/fmt/NOTES.md, Slice 4c.\n\nMerged 18 Nov (NOTES.md conflict with SW-3963 resolved by hand), ~13 min (est. 30). Gate 410/410, 3,320/3,320; coverage 55.8% (4b 48.1% on the same 5,947). Census (only): Unit 117, Instance 42, Omega 40, Section 33, Pipe 30, Iff 25, Chain 24, OperatorSection 19; (any) RewriteRule 799, Rewrite 798, Unit 239, Binder 230. 759 refused shapes. Filed SW-3997.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24161,6 +24161,19 @@
     {
       "id": 3996,
       "title": "[Sonnet] fmt in both formatters: a closer after own-line comments, with a trailing comment of its own ([ / a -- t / ] -- t2), still differs from Rust's... check which side is wrong (SW-3963's search, ~4 files a seed); failing-first tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3997,
+      "title": "[Sonnet] Rust fmt spacing: no rule for a record next to a call argument, so f{ a = 1 } and { a = 1 }x copy the source gap; give them a space (D3677 bug fix), failing-first test (SW-3995)",
       "status": "backlog",
       "agent": "",
       "where": "",
