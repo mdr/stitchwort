@@ -173,6 +173,9 @@ def AtomReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: 
 -- From the rungs to runs: atoms.
 
 --| `atomOf` at a `(` that starts no `()`, named argument or section: `bracketed`.
+--|
+--| Proof idea: `atomOf` at `(` is `parenAtom`, which peeks two items ahead and then looks at `rightOperator`;
+--| the look-aheads say no to both, leaving `bracketed`.
 theorem runsParenAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr)
     (isOpen: item.kind = LParen)
@@ -208,6 +211,9 @@ theorem runsParenAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (i
             (rewrite plain.noRight then bracketedRuns)))
 
 --| `atomOf` at a `[` that starts no named argument: `listExpr`.
+--|
+--| Proof idea: `atomOf` at `[` is `bracketAtom`, which peeks two items ahead; the look-ahead says no named
+--| argument, leaving `listExpr`.
 theorem runsBracketAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr)
     (isOpen: item.kind = LBracket)
@@ -238,6 +244,8 @@ theorem runsBracketAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
           listRuns))
 
 --| `CommaReads` gives `CommaRuns` where each element `element` holds of is one `next` reads.
+--|
+--| Proof idea: step by step; each step's element is shorter than the steps' reads, by the comma before it.
 theorem commaRunsOf ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (element: List Item → List Item → Expr → Prop)
     (next: () → {Parse Item} Expr) (bound count: Nat) (steps: List (Item, List Item, Expr)) (rest: List Item)
     (converts: ∀ (read later: List Item) (value: Expr) => element read later value
@@ -631,6 +639,9 @@ def Tree (goal: Goal) (read rest: List Item) (value: Expr): Prop := ∃ (depth: 
 -- From the rungs to runs: applications and unary.
 
 --| The later arguments' rounds, each read by `argument` through `self`.
+--|
+--| Proof idea: round by round, `runsArgumentStepSome` with `runsArgument` and `selfRuns`, each argument within
+--| the bound; after the last, `runsArgumentStepNone`.
 theorem argsRunsOf ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (steps: List (List Item, Expr)) (rest: List Item)
     (selfRuns: SelfRuns sub self bound)
@@ -663,6 +674,9 @@ theorem argsRunsOf ∀ (sub: Goal → List Item → List Item → Expr → Prop)
       )
 
 --| What `AppReads` holds of, `app` reads.
+--|
+--| Proof idea: from any start, a head alone is `runsAppAtHead`; with arguments, `runsAppAtCall`, the head by
+--| `runsAtomTree`, the arguments through `selfRuns`, each shorter than the whole since the head reads an item.
 theorem runsAppTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -720,6 +734,9 @@ theorem signNotMatch ∀ (kind: Tok) (signed: (kind == Minus || kind == Bang) = 
     | other, signed => (Bool.falseNotTrue signed).impossible
 
 --| What `UnaryReads` holds of, `unary` reads.
+--|
+--| Proof idea: a sign is `runsUnaryPrefix` with the operand through `selfRuns`; otherwise `runsUnaryApp` or, after
+--| a `-1`, `runsUnaryNumeral`, with `runsAppTree`.
 theorem runsUnaryTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -767,6 +784,10 @@ theorem linkRunsOf ∀ (modes: Modes) (takes: Tok → Bool) (operandReads: List 
         linkRunsOf modes takes operandReads operand bound later rest converts (arithmetic [small, lengths]) more
       )
 
+--| What `MulReads` holds of, `mulExpr` reads.
+--|
+--| Proof idea: `runsMulExpr`, the first operand and each link's by `runsUnaryTree`, each within the bound since
+--| the chain's reads add up to the whole.
 theorem runsMulTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -797,6 +818,9 @@ theorem runsMulTree ∀ (sub: Goal → List Item → List Item → Expr → Prop
         (arithmetic [small, whole, split])
         linkReads)
 
+--| What `AddReads` holds of, `addExpr` reads.
+--|
+--| Proof idea: as `runsMulTree`, one rung up: `runsAddExpr` with the operands by `runsMulTree`.
 theorem runsAddTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -827,6 +851,9 @@ theorem runsAddTree ∀ (sub: Goal → List Item → List Item → Expr → Prop
         (arithmetic [small, whole, split])
         linkReads)
 
+--| What `AppendReads` holds of, `appendExpr` reads.
+--|
+--| Proof idea: as `runsMulTree`, with `runsAppendExpr` (nested to the right) and the operands by `runsAddTree`.
 theorem runsAppendTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -857,6 +884,7 @@ theorem runsAppendTree ∀ (sub: Goal → List Item → List Item → Expr → P
         (arithmetic [small, whole, split])
         linkReads)
 
+--| What `PipedReads` holds of, `pipedRange` reads.
 theorem runsPipedTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -867,6 +895,9 @@ theorem runsPipedTree ∀ (sub: Goal → List Item → List Item → Expr → Pr
   runsPipedRange self modes read rest value noRange noPipe
     (runsAppendTree sub self bound modes read rest value selfRuns small appendReads)
 
+--| What `CmpReads` holds of, `cmpExpr` reads.
+--|
+--| Proof idea: alone, `runsCmpPlain`; compared, `runsCmpCompare`, each side by `runsPipedTree`.
 theorem runsCmpTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -899,6 +930,8 @@ theorem runsCmpTree ∀ (sub: Goal → List Item → List Item → Expr → Prop
           noChain
 
 --| `LogicReads` gives `LogicRuns`.
+--|
+--| Proof idea: link by link, each comparison by `runsCmpTree`.
 theorem logicRunsOf ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (links: List (Item, List Item, Expr)) (rest: List Item)
     (selfRuns: SelfRuns sub self bound)
@@ -923,6 +956,7 @@ theorem logicRunsOf ∀ (sub: Goal → List Item → List Item → Expr → Prop
         logicRunsOf sub self bound modes later rest selfRuns (arithmetic [small, lengths]) more
       )
 
+--| What `LogicAfterReads` holds of, `logicAfter` reads.
 theorem runsLogicAfterTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr)
     (bound: Nat) (modes: Modes) (compared: Expr) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -937,6 +971,7 @@ theorem runsLogicAfterTree ∀ (sub: Goal → List Item → List Item → Expr �
           (rewrite <- isRead then ahead)
           (logicRunsOf sub self bound modes links rest selfRuns (rewrite <- isRead then small) linkReads)
 
+--| What `EndReads` holds of, `opEnd` reads: the result after `->` is a call to `self`, shorter than the whole.
 theorem runsEndTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (logic: Expr) (sequence: Bool) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -958,6 +993,10 @@ theorem runsEndTree ∀ (sub: Goal → List Item → List Item → Expr → Prop
               resultHolds
               shorter))
 
+--| What `OperatorReads` holds of, `operatorExpr` reads.
+--|
+--| Proof idea: `runsOpStartWith` from any start, its three parts by `runsCmpTree`, `runsLogicAfterTree` and
+--| `runsEndTree`, each part within the bound.
 theorem runsOperatorTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr)
     (bound: Nat) (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -994,6 +1033,7 @@ theorem runsOperatorTree ∀ (sub: Goal → List Item → List Item → Expr →
 
 -- Expressions in full, and the knot.
 
+--| What `InlineAt` holds of, `exprInline` reads.
 theorem runsInlineTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -1005,6 +1045,10 @@ theorem runsInlineTree ∀ (sub: Goal → List Item → List Item → Expr → P
       inline.notQuantifier inline.notIf inline.noImplicit inline.noPi
       (runsOperatorTree sub self bound modes [item, ..more] rest value selfRuns small operatorReads)
 
+--| What `BlockAt` holds of, `exprBlock` reads: one line at the item's column.
+--|
+--| Proof idea: `runsExprBlock` and `runsBlockLine`, the line in each line mode by `runsStatementValue` and
+--| `runsInlineTree`.
 theorem runsBlockTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -1044,6 +1088,10 @@ theorem startsBlockLater ∀ (modes: Modes) (later: Bool) (item: Item)
         andFalseMiddle item.leaf.token.lineStart (modes.allow != Some item.index && !modes.endsConstruct item)
       (Bool.falseNotTrue (Eq.trans never.flipped starts)).impossible
 
+--| What `FullReads` holds of, `expr` reads, from any state.
+--|
+--| Proof idea: `exprLater` for either answer of `offset() > 0`: where no block starts, `runsInlineTree`; where
+--| one does, the input's first item is behind (`startsBlockLater`), so `BlockAt` holds and `runsBlockTree`.
 theorem runsFullTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
@@ -1065,6 +1113,10 @@ theorem runsFullTree ∀ (sub: Goal → List Item → List Item → Expr → Pro
     state => runsFromExpr self modes state [item, ..more] rest value (later (state.at.offset > 0) state)
 
 --| One step of the knot: `expressionRule` reads what `Tree` holds of, given that `self` reads the shorter ones.
+--|
+--| Proof idea: the depth is a successor, so `Layer` holds of `TreeN` one less, whose reads `nested` runs; then the
+--| rung for the goal's level: `runsFullTree`, `runsUnaryTree` or `runsAtomTree`, the bound being the read's own
+--| length.
 theorem treeStep ∀ (self: Goal → {Parse Item} Expr) (goal: Goal) (read rest: List Item) (value: Expr)
     (tree: Tree goal read rest value)
     (nested: ∀ (inner: Goal) (innerRead innerRest: List Item) (innerValue: Expr) => Tree inner innerRead innerRest
@@ -1132,6 +1184,7 @@ theorem declarationTree ∀ (seen: Seen) (keyword name colon colonEq: Item)
 
 -- Building trees: each rung is monotone in `sub`, so children of different depths meet at the deepest.
 
+--| The rungs are monotone in `sub`: what holds of children through one relation holds through a weaker one.
 theorem commaMono ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (before after: List Item → List Item → Expr → Prop)
     (count: Nat) (steps: List (Item, List Item, Expr))
     (rest: List Item) (map: ∀ (read later: List Item) (value: Expr) => before read later value → after read later value)
@@ -1147,6 +1200,9 @@ theorem commaMono ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (before a
       commaMono modes ends before after (count + 1) later rest map more
     )
 
+--| `BaseReads` is monotone in `sub`.
+--|
+--| Proof idea: case by case, mapping each child's fact and the comma lists by `commaMono`.
 theorem baseMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
@@ -1278,6 +1334,9 @@ theorem argsMono ∀ (before after: Goal → List Item → List Item → Expr �
       argsMono before after map modes later rest more
     )
 
+--| `AppReads` is monotone in `sub`.
+--|
+--| Proof idea: the head by `atomMono`, the first argument by `map` and the rest by `argsMono`.
 theorem appMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
@@ -1315,6 +1374,7 @@ theorem appMono ∀ (before after: Goal → List Item → List Item → Expr →
       argsMono before after map modes steps rest more
     )
 
+--| `UnaryReads` is monotone in `sub`: the operand by `map`, an application by `appMono`.
 theorem unaryMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
@@ -1418,6 +1478,7 @@ theorem pipedMono ∀ (before after: Goal → List Item → List Item → Expr �
   let (noRange, noPipe, appendReads) := reads
   (noRange, noPipe, appendMono before after map modes read rest value appendReads)
 
+--| `CmpReads` is monotone in `sub`: each side by `pipedMono`.
 theorem cmpMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
@@ -1516,6 +1577,9 @@ theorem inlineMono ∀ (before after: Goal → List Item → List Item → Expr 
   let (open, inline, operatorReads) := reads
   (open, inline, operatorMono before after map modes [item, ..more] rest value operatorReads)
 
+--| `FullReads` is monotone in `sub`.
+--|
+--| Proof idea: the inline reading by `inlineMono`, and the block's in every line mode.
 theorem fullMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
@@ -1544,6 +1608,7 @@ theorem fullMono ∀ (before after: Goal → List Item → List Item → Expr �
       )
   )
 
+--| `Layer` is monotone in `sub`: the rung for each level by its own lemma.
 theorem layerMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (goal: Goal) (read rest: List Item) (value: Expr)
@@ -1586,6 +1651,9 @@ theorem treeOfLayer ∀ (depth: Nat) (goal: Goal) (read rest: List Item) (value:
 
 --| A word in the middle of a line, that nothing after it continues, is what `expr` should read, with no calls to
 --| `self`.
+--|
+--| Proof idea: every rung with no links and nothing after, as `runsWordOperator` goes down the ladder; no block
+--| starts, the word being in the middle of a line.
 theorem fullWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
     (inLine: item.leaf.token.lineStart = False)
     (open: modes.stops item = False)
