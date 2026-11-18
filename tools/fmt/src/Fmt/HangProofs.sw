@@ -2300,14 +2300,14 @@ def CloserToken (kinds: Text → Tok) (text: Text): Prop :=
     ∧ text.startsWith "--" = False
     ∧ isLayout text = False
 
---| Where a closer may start, and where its line of its own may land.
+--| Where a closer may start, and where its line of its own, if it takes one, may land.
 def CloserEntry (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
     (block: Option Nat) (outer: List (Option Nat)):
     Place → Hang → Prop :=
   place hang =>
     hang = At state
       ∧ CloserSeat indent around.before (word.lone around) state place
-      ∧ CloserFits key indent block (inForce outer state.top) place.carry
+      ∧ ((word.noted || word.lone around) = True → CloserFits key indent block (inForce outer state.top) place.carry)
 
 --| After a closer: the bracket's block gone, a comment waiting only if the closer or the code before it trails one.
 def CloserExit (word: Word) (around: Around) (state: HangState) (outer: List (Option Nat)): Place → Hang → Prop :=
@@ -2360,9 +2360,10 @@ theorem notedCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
       indent
       (CloserEntry kinds word around key indent state block outer)
       (CloserExit word around state outer) :=
-  place trace next (folded, seat, (left, right)) after =>
+  place trace next (folded, seat, fits) after =>
     let (_, _, text, _, _) := token
     let lone: word.lone around = False := rewrite noted
+    let (left, right) := fits (rewrite noted)
     let unlone: CloserSeat indent around.before False state place := rewrite lone at seat then seat
     let column := place.carry.closerAt key indent
     let pre: Place → Hang → Prop := entry hang =>
@@ -2410,9 +2411,10 @@ theorem loneCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) 
       indent
       (CloserEntry kinds word around key indent state block outer)
       (CloserExit word around state outer) :=
-  place trace next (folded, seat, (left, right)) after =>
+  place trace next (folded, seat, fits) after =>
     let (_, _, text, _, _) := token
     let alone: CloserSeat indent around.before True state place := rewrite lone at seat then seat
+    let (left, right) := fits ((Bool.orReads _ _).backward (Inr lone))
     let column := place.carry.closerAt key indent
     let pre: Place → Hang → Prop := entry hang =>
       entry = place ∧ hang = At state ∧ CloserSeat indent around.before True state place
