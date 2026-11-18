@@ -24931,27 +24931,29 @@
     {
       "id": 4053,
       "title": "[Sonnet] fmt S1 printedSeam1: a declaration's printed pieces start with its def token and leave nothing waiting at the end (no trailing line break, spaces or own-line comment); carry 'first event is def at column 0' and 'ends mid-line after the last word' through the defDoc trace proofs (SW-4039; Fmt/FileLexProofs.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 18 Nov 2026), partial, lane/SW-4053 a24df1fc6: printedSeam1 is now proved from two open goals (printedStart1: first piece is a Code; printedFinish1: last token then only TailOk pieces, no line break) by the new seamedOfTail. Neither half was provable from existing lemmas: start needs Told's first Said \"def\" plus eventsOf; finish needs the printer's final lineBlank (Agrees, not exposed by printPuts) and the final Joins edge (StackJoins ends in True). Escalate: Opus/Fable, with a small std change first.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "a24df1fc6"
+      ]
     },
     {
       "id": 4054,
       "title": "[Sonnet] fmt bug?: a comment ending in CR inside the tree (source '-- a\\r\\r\\ndef d: A := b\\n') keeps '-- a\\r'; the first output still has the CR, so a second run may differ (idempotence) in the self-hosted and maybe the Rust formatter. Write the failing test first (both formatters), then fix (rule 5 trims CR, or commentText refuses it) (SW-4039)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "parser-proofs",
-      "body": "Confirmed by SW-4043: source '-- a\\r\\r\\ndef d: A := b\\n' (and at file end, and trailing 'def d: A := b -- a\\r\\r\\n') formats differently the second time; breaks printedSettle1 and printedStands1. Orchestrator's call: fix the formatter (bug fix, allowed under D3677 in both), so the tree never keeps a comment ending in CR; then SettleOutputProofs' unreturned1 and the stood1 case follow from settled1.",
+      "body": "Confirmed by SW-4043: source '-- a\\r\\r\\ndef d: A := b\\n' (and at file end, and trailing 'def d: A := b -- a\\r\\r\\n') formats differently the second time; breaks printedSettle1 and printedStands1. Orchestrator's call: fix the formatter (bug fix, allowed under D3677 in both), so the tree never keeps a comment ending in CR; then SettleOutputProofs' unreturned1 and the stood1 case follow from settled1.\n\nLane (Sonnet, 20:25, ~25 min): fixed in both (commit b7bca3a20 on lane/SW-4054). Rust had the bug (lexer.rs strip one \\r); now all. Self-hosted: Lexer.trimReturns, withoutReturn over it; commentRaw reproved (LexReadsProofs), crDropped now says the tree keeps none. Tests: Rust a_comment_ending_in_two_carriage_returns_keeps_none; Slice1 two tests. twin s6a 430/430; Fmt.Tests 97, Syntax.Tests 52; stitchwort-fmt 151 and syntax 324 pass.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
