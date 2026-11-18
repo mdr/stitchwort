@@ -1,6 +1,6 @@
---| The Rust engine's own tests (`crates/fmt/src/printer/engine.rs`), ported:
---| six of its eight, leaving out the two on `Verbatim` and `LineStart`,
---| which this engine doesn't have.
+--| The Rust engine's own tests (`crates/fmt/src/printer/engine.rs`), ported,
+--| leaving out the ones on text blocks and closer marks, which this engine
+--| doesn't have.
 
 namespace Fmt.Doc.Tests
 import Fmt.Doc (..)
@@ -54,12 +54,30 @@ test "code after a trailing comment starts a continuation line, without the spac
 
 --| What follows the comment goes on a line indented as the comment's.
 test "an own-line comment no layout broke for starts a continuation line" :=
-  let comment := Doc.concat [t "f", LineStart, t "-- c", CommentEnd, t "x"]
+  let comment := Doc.concat [t "f", LineStart, t "-- c", HardLine, t "x"]
   print comment 120 == "f\n  -- c\n  x"
     && print (Doc.concat [comment, HardLine, t "y"]) 120 == "f\n  -- c\n  x\ny"
-    && print (Doc.concat [t "f", HardLine, LineStart, t "-- c", CommentEnd, t "x"]) 120 == "f\n-- c\nx"
-    && print (Doc.concat [t "f +", t " ", LineStart, t "-- c", CommentEnd, t "x"]) 120 == "f +\n  -- c\n  x"
-    && print (Nest 4 (Doc.concat [t "f", HardLine, LineStart, t "-- c", CommentEnd, t "x"])) 120 == "f\n    -- c\n    x"
+    && print (Doc.concat [t "f", HardLine, LineStart, t "-- c", HardLine, t "x"]) 120 == "f\n-- c\nx"
+    && print (Doc.concat [t "f +", t " ", LineStart, t "-- c", HardLine, t "x"]) 120 == "f +\n  -- c\n  x"
+    && print (Nest 4 (Doc.concat [t "f", HardLine, LineStart, t "-- c", HardLine, t "x"])) 120 == "f\n    -- c\n    x"
+
+test "the comment floor lasts until the next code" :=
+  print (Doc.concat [t "f", LineStart, t "-- c", HardLine, t "-- d", HardLine, t "x", HardLine, t "y"]) 120
+    == "f\n  -- c\n  -- d\n  x\ny"
+    && print (Doc.concat [t "f", LineStart, t "-- c", Nest 4 (Doc.concat [HardLine, t "x"])]) 120 == "f\n  -- c\n    x"
+
+test "spaces after a trailing comment are held for a closer" :=
+  print (Doc.concat [t "Both (", LineSuffix "-- c", t " ", Closing ")"]) 120 == "Both ( ) -- c"
+    && print (Doc.concat [t "f", LineSuffix "-- c", t " ", HardLine, t "x"]) 120 == "f -- c\nx"
+
+test "a flat line after a trailing comment holds a space, and code after it starts a line" :=
+  print (Flatten (Doc.concat [t "(a +", LineSuffix "-- c", Line, t "b", Closing ")"])) 120 == "(a + -- c\n  b)"
+    && print (Doc.group (Doc.concat [t "g (a,", Line, t "b", LineSuffix "-- c", SoftLine, Closing ")"])) 120
+      == "g (a, b) -- c"
+
+test "spaces held before a closer after a comment count in the measure" :=
+  let option := Doc.concat [t "aaaa", LineSuffix "-- c", t " ", t " ", Closing "}"]
+  print (Choice [option, t "alt"]) 5 == "alt" && print (Choice [option, t "alt"]) 7 == "aaaa  } -- c"
 
 test "comments before a closer go at the indentation in force" :=
   let comments := Nest 2 (Doc.concat [LineStartHere, t "-- c"])
@@ -89,9 +107,8 @@ test "a group stays flat when only closers follow a trailing comment" :=
 test "a closer with no comment waiting is a chunk" :=
   print (Doc.concat [t "(", t "a", Closing ")"]) 120 == "(a)" && print (Closing "") 120 == ""
 
---| A call keeps a `SoftLine` before its `)`, which breaks where a comment
---| waits; a rule that wants `f(a, b) -- c` offers the flat call, with no
---| `SoftLine`, as the first option of a choice.
+--| A call whose last argument has a trailing comment: flat, its `)` joins
+--| the comment's line; broken, it starts a line of its own.
 def closedCall: Doc :=
   let arguments := Doc.concat [t "a,", Line, t "b", LineSuffix "-- c"]
   Choice [
