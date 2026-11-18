@@ -25108,12 +25108,12 @@
     {
       "id": 4066,
       "title": "[Opus] fmt S1 printedFinish1: the end-side mirror of Std.Doc Leads (a run lemma that the last chunk written stays at the head of the output, at most one trailing comment, never a bare newline), then an induction over slice 1's expressions (framed, parenDoc, commaBracket, appDocs/appFrom, chain, prefix, bodyAfter) that the value ends on a token in any layout; sketch the predicate first (SW-4062's recommended route; doc on printedFinish1)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus), 20:56-21:23 (27 min, est. 60):\n\n- Done: printedFinish1 proved, statement unchanged; printedSeam1, declsLay, fileLaid, printedFileLexes1 have no open goal under them. Std.Doc Ends.sw: Silent, Finishes (named so, not Ends: FileLexProofs has an Ends), StackFinishes/Topped/Finishing, stepFront, readingFinishes, readingQuiet, printedFinishes (pieces = front ++ [word, \" \", c1, \" \", c2, ...], every c a trailing comment) + building lemmas; 29 theorems. New Fmt/FinishProofs.sw (31 theorems): elFinishes induction shaped as JoinProofs' elPasses, bodyFinishes, defFinishes. FileLexProofs: pieceFoldCode, spacedFold, tailOfComments (PairsFollow rules out a second comment), commentShape + example. Commits 47a990a40, 7291c70bc, ab8124ab9, 87f210ed0.\n- Tests: check --std Doc/Ends.sw; audit of the 29 new std theorems (pass); test --std Doc/Tests 39/39; check Fmt.FileLexProofs (16 namespaces, 0 errors); audit Fmt.FileLexProofs 56/56 pass; audit Fmt.FinishProofs 31/31 pass; test Fmt.Tests 99/99; hash_stability prelude updated (51 names, additions only), rerun passes.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
