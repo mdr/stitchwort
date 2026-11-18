@@ -24358,12 +24358,12 @@
     {
       "id": 4010,
       "title": "[Sonnet] fmt S1 rules proofs 18c: derive DeclJoins and Every Printable from lexical1, sound and within1 with kinds = the lexer's kind of each text (lexer inversion: textLexesAs text kind = True gives Spells kind text and not-a-comment), plus Joinable (App ...)'s arguments ≠ [] from the parser (SW-3968's appliedTo), so printLexes1 takes only tree facts (SW-3971)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane notes (Sonnet): lane/SW-4010, 1a65ec087 and 5dfc9d11d. printLexes1Tree and printLexes1Settled in Fmt/TreeJoinProofs.sw. within1 narrowed in Fmt/Slice1.sw (textSpells1, Word.nameWithin1); twin s1 goldens matched 80/80. Operators still need a tree fact (operators1); see report.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
