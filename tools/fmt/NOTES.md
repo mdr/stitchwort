@@ -1800,3 +1800,14 @@ Two hypotheses beyond the four tree facts:
 
 - A witness that `printedStands1` applies to a declaration with comments: `atomDeclStands` has none, since a
   `DeclHangs` proof for a commented declaration is long by hand.
+
+## Slice 1 rules proofs, noted header leaves (SW-4057, Sonnet, 18 November 2026)
+
+`DeclQuiet` no longer excludes comments above the name, the `:` and the `:=` (SW-4045 finding 1); it is now `header.result.quiet1 = True ∧ value.quiet1 = True`. `printedHangs1Quiet` keeps its name and conclusion with the smaller hypothesis. `Fmt.DeclHangProofs` 35 theorems (7 new), `Fmt.DeclFactsProofs` 24 (6 new), audits clean.
+
+- **`notedStepHangs`** (and `lineStepHangs`): a header token with own-line comments above it, after words: `leadingHangs` to the start of its line, the token there as one step of the fold (a hypothesis, `step`, from `state` to `final`), then its trailing comment. `colonNotedHangs` (`stepColon`, to `topFrom`) and `assignNotedHangs` (`stepAssign`, from `topState top`) apply it; `colonAnyHangs` and `assignAnyHangs` split on the comments (`notesCases`) and use the bare `colonHangs`/`assignHangs` otherwise. The room for the token comes from `Ended`'s `inForce ≤ at` alone: the comment break lands at `max indent (at + 2)`.
+- **The name** (`namePartHangs`): bare (`elPart` of `plainLeafHangs`) or noted (`notedPartHangs`); `headHangs` takes `NotesComment name.comments.above` in place of `name.comments.above = []`.
+- **`DeclHangs`** asks `NotesComment` of the three comment lists instead of `= []`; **`DeclElements`** loses those three conjuncts, since `declHangsOf` derives them from `sound` (`notesOfWord`, from `commentIs`). So `printedHangs1` is stronger too.
+- Witnesses: `colonNotedDecl` (`def d⏎  -- c⏎  : A := b`) and `assignNotedDecl` (`def d: A⏎  -- c⏎  := b`) meet `DeclQuiet`, `within1`, `shaped1`, `sound` and `lexical1` (`colonNotedMeets`, `assignNotedMeets`).
+- No comment above the name witness: not tried (`nameWithin1` may exclude one; `namePartHangs` covers it anyway).
+- Still owed from SW-4045: a noted element's start inside the type and the value (SW-4058), and items after a trailing comment.
