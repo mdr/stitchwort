@@ -23397,7 +23397,7 @@
     {
       "id": 3939,
       "title": "[Sonnet] Text.contains and Text.joinWith lemmas, then the Std.Args theorem 'help lists every option' (left from SW-3391); and Text.toAsciiLower beside Text.toAsciiUpper",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
