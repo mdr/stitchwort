@@ -9,16 +9,19 @@
 --| nothing; and as a chain's operand at any level, its `LinkFacts` hold with no trailing comment. The second half is
 --| carried because a chain's operands are read through `linkDocs`, which flattens the operands of the same level.
 --|
---| Why quiet: with comments, `ElHangs`' fixed `wordStart` is not where a token with comments above it starts (it
---| starts a line of its own even where the element is entered mid-line, so the fold's block column differs), and an
---| item after one that trails a comment is entered at the comment break without being displaced (`brokenItems`
---| passes `before = False`). Both are statement-level gaps in the rule-level lemmas (NOTES, SW-4045).
+--| The induction (`leadFacts`) is over the expressions quiet but for own-line comments above their first token
+--| (`Expr.leadQuiet1`), wherever the element doesn't write them (`bareAt`: hoisted, or none); where it does, the
+--| element starts after them (`Fmt.DeclFactsProofs.leadElHangs`). `ExprFacts` is the quiet case.
+--|
+--| Why quiet otherwise: a later token with comments above it, or any trailing comment, is not yet carried through
+--| the rule-level lemmas, whose sub-elements' `ElHangs` start at `wordStart` and trail nothing (NOTES, SW-4045,
+--| SW-4058).
 
 namespace Fmt.ExprHangProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Comments, Expr, InfixKind, Tok, Word)
+import Syntax (Comments, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.MarkProofs (allKeysFrom, keysFrom)
@@ -45,6 +48,7 @@ import Fmt.BracketHangProofs (
   tupleHangs
 )
 import Fmt.DeclHangProofs (WordToken, bareAtomHangs)
+import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (
   lexKind,
   lexKindOfSpells,
@@ -435,6 +439,205 @@ theorem opensNoArms ∀ (expr: Expr) (level: Option Nat) (within: expr.within1 =
           Bool.andFalse ((Infix InfixArrow left operator right).inChain level)
     | Prefix _ _, _ => byComputing
 
+-- Comments above the first token.
+
+--| A token with no comment after it and no blank line kept above it; it may have own-line comments above it.
+def Word.lead1 (word: Word): Bool := match word.comments with
+  | { above = _, after = None, blankBefore = False } => True
+  | _ => False
+
+--| A lead token's comments: those above it only.
+def leadComments (above: List Note): Comments := { above, after = None, blankBefore = False }
+
+--| An expression quiet but for own-line comments above its first token (`Expr.lead`), as a declaration's type or
+--| value may have them.
+def Expr.leadQuiet1: Expr → Bool
+  | Atom _ word => word.lead1
+  | Paren open inner close => open.lead1 && inner.quiet1 && close.quiet1
+  | Tuple open items _ close => open.lead1 && allQuiet1 items && close.quiet1
+  | ListOf open items _ close => open.lead1 && allQuiet1 items && close.quiet1
+  | App head arguments => !arguments.isEmpty && head.leadQuiet1 && allQuiet1 arguments
+  | Infix _ left operator right => left.leadQuiet1 && operator.quiet1 && right.quiet1
+  | Prefix operator operand => operator.lead1 && operand.quiet1
+  | _ => False
+
+--| Where the first token's own-line comments are written elsewhere (`hoisted`), or it has none: as for a quiet
+--| expression, the element writes no comments above its first token.
+def Expr.bareAt (expr: Expr) (around: Around): Bool := around.hoisted || !expr.lead.noted
+
+theorem leadIs ∀ (word: Word)
+    (lead: word.lead1 = True):
+    word = fixedWord word.text (leadComments word.comments.above) :=
+  match word, lead with | { text, comments = { above, after = None, blankBefore = False } }, _ => byComputing
+
+theorem quietWordLead ∀ (word: Word) (quiet: word.quiet1 = True): word.lead1 = True := match word, quiet with
+  | { text, comments = { above = [], after = None, blankBefore = False } }, _ => byComputing
+
+theorem leadNoTrail ∀ (word: Word) (lead: word.lead1 = True): word.trails = False := match word, lead with
+  | { text, comments = { above, after = None, blankBefore = False } }, _ => byComputing
+
+--| A lead token writes no own-line comments where they are written elsewhere or it has none.
+theorem leadLeading ∀ (word: Word) (around: Around) (key: Nat)
+    (lead: word.lead1 = True)
+    (bare: (around.hoisted || !word.noted) = True):
+    word.leading around key = [] :=
+  match word, lead with
+    | { text, comments = { above, after = None, blankBefore = False } }, _ =>
+      match hoisted: around.hoisted, above with
+        | True, _ => byComputing
+        | False, [] =>
+          match around.item with
+            | True => byComputing
+            | False => byComputing
+
+theorem quietLead ∀ (expr: Expr) (quiet: expr.quiet1 = True): expr.leadQuiet1 = True := match expr, quiet with
+  | Atom _ word, quiet => quietWordLead word quiet
+  | Paren open inner close, quiet => rewrite quietWordLead open (Bool.andLeft quiet), Bool.andRight quiet
+  | Tuple open items _ close, quiet => rewrite quietWordLead open (Bool.andLeft quiet), Bool.andRight quiet
+  | ListOf open items _ close, quiet => rewrite quietWordLead open (Bool.andLeft quiet), Bool.andRight quiet
+  | App head arguments, quiet =>
+    rewrite Bool.andLeft quiet, quietLead head (Bool.andLeft (Bool.andRight quiet)), Bool.andRight (Bool.andRight quiet)
+  | Infix _ left operator right, quiet => rewrite quietLead left (Bool.andLeft quiet), Bool.andRight quiet
+  | Prefix operator operand, quiet => rewrite quietWordLead operator (Bool.andLeft quiet), Bool.andRight quiet
+
+--| A quiet expression's first token has no own-line comments above it.
+theorem quietUnnoted ∀ (expr: Expr) (quiet: expr.quiet1 = True): expr.lead.noted = False := match expr, quiet with
+  | Atom _ word, quiet => wordQuietUnnoted word quiet
+  | Paren open inner close, quiet => wordQuietUnnoted open (Bool.andLeft quiet)
+  | Tuple open items _ close, quiet => wordQuietUnnoted open (Bool.andLeft quiet)
+  | ListOf open items _ close, quiet => wordQuietUnnoted open (Bool.andLeft quiet)
+  | App head arguments, quiet => quietUnnoted head (Bool.andLeft (Bool.andRight quiet))
+  | Infix _ left operator right, quiet => quietUnnoted left (Bool.andLeft quiet)
+  | Prefix operator operand, quiet => wordQuietUnnoted operator (Bool.andLeft quiet)
+
+theorem unnotedBare ∀ (expr: Expr) (around: Around) (unnoted: expr.lead.noted = False): expr.bareAt around = True :=
+  match hoisted: around.hoisted with
+    | True => byComputing
+    | False => rewrite unnoted
+
+--| A lead token with no comments above it is quiet.
+theorem wordLeadQuiet ∀ (word: Word) (lead: word.lead1 = True) (unnoted: word.noted = False): word.quiet1 = True :=
+  match word, lead with
+    | { text, comments = { above, after = None, blankBefore = False } }, _ =>
+      match above, unnoted with
+        | [], _ => byComputing
+        | [note, ..rest], never => (Bool.trueNotFalse never).impossible
+
+--| An expression quiet but for comments above its first token, with none there, is quiet.
+theorem leadUnnotedQuiet ∀ (expr: Expr)
+    (lead: expr.leadQuiet1 = True)
+    (unnoted: expr.lead.noted = False):
+    expr.quiet1 = True :=
+  match expr, lead with
+    | Atom _ word, lead => wordLeadQuiet word lead unnoted
+    | Paren open inner close, lead => rewrite wordLeadQuiet open (Bool.andLeft lead) unnoted, Bool.andRight lead
+    | Tuple open items _ close, lead => rewrite wordLeadQuiet open (Bool.andLeft lead) unnoted, Bool.andRight lead
+    | ListOf open items _ close, lead => rewrite wordLeadQuiet open (Bool.andLeft lead) unnoted, Bool.andRight lead
+    | App head arguments, lead =>
+      rewrite Bool.andLeft lead,
+          leadUnnotedQuiet head (Bool.andLeft (Bool.andRight lead)) unnoted,
+          Bool.andRight (Bool.andRight lead)
+    | Infix _ left operator right, lead => rewrite leadUnnotedQuiet left (Bool.andLeft lead) unnoted, Bool.andRight lead
+    | Prefix operator operand, lead => rewrite wordLeadQuiet operator (Bool.andLeft lead) unnoted, Bool.andRight lead
+
+theorem quietBare ∀ (expr: Expr) (around: Around) (quiet: expr.quiet1 = True): expr.bareAt around = True :=
+  unnotedBare expr around (quietUnnoted expr quiet)
+
+--| The first token of an expression quiet but for comments above it is a lead token.
+theorem leadOfLead ∀ (expr: Expr) (lead: expr.leadQuiet1 = True): expr.lead.lead1 = True := match expr, lead with
+  | Atom _ word, lead => lead
+  | Paren open inner close, lead => Bool.andLeft lead
+  | Tuple open items _ close, lead => Bool.andLeft lead
+  | ListOf open items _ close, lead => Bool.andLeft lead
+  | App head arguments, lead => leadOfLead head (Bool.andLeft (Bool.andRight lead))
+  | Infix _ left operator right, lead => leadOfLead left (Bool.andLeft lead)
+  | Prefix operator operand, lead => Bool.andLeft lead
+
+--| Lead tokens trail nothing.
+theorem leadAppend ∀ (front back: List Word)
+    (first: front.all Word.lead1 = True)
+    (second: back.all Word.lead1 = True):
+    (front ++ back).all Word.lead1 = True :=
+  match front with
+    | [] => second
+    | [word, ..rest] => rewrite Bool.andLeft first, leadAppend rest back (Bool.andRight first) second
+
+theorem leadReverse ∀ (words: List Word) (lead: words.all Word.lead1 = True): words.reverse.all Word.lead1 = True :=
+  match words with
+    | [] => byComputing
+    | [word, ..rest] =>
+      rewrite List.reverseCons word rest then
+        leadAppend rest.reverse [word] (leadReverse rest (Bool.andRight lead)) (rewrite Bool.andLeft lead)
+
+theorem quietAllLead ∀ (words: List Word) (quiet: words.all Word.quiet1 = True): words.all Word.lead1 = True :=
+  match words with
+    | [] => byComputing
+    | [word, ..rest] => rewrite quietWordLead word (Bool.andLeft quiet), quietAllLead rest (Bool.andRight quiet)
+
+theorem trailsBackLead ∀ (words: List Word) (lead: words.all Word.lead1 = True): trailsBack words = False :=
+  match words with
+    | [] => byComputing
+    | [word, ..rest] =>
+      rewrite leadNoTrail word (Bool.andLeft lead),
+          trailsBackLead rest (Bool.andRight lead),
+          Bool.andFalse (isCloserText word.text)
+
+theorem leadWords ∀ (expr: Expr) (lead: expr.leadQuiet1 = True): expr.words.all Word.lead1 = True :=
+  match expr, lead with
+    | Atom _ word, lead => rewrite lead
+    | Paren open inner close, lead =>
+      leadAppend
+        [open, ..inner.words]
+        [close]
+        (rewrite Bool.andLeft lead then quietAllLead inner.words (quietWords inner (Bool.andLeft (Bool.andRight lead))))
+        (rewrite quietWordLead close (Bool.andRight (Bool.andRight lead)))
+    | Tuple open items _ close, lead =>
+      leadAppend
+        [open, ..itemsWords items]
+        [close]
+        (rewrite Bool.andLeft lead then
+          quietAllLead (itemsWords items) (itemsQuiet items (Bool.andLeft (Bool.andRight lead))))
+        (rewrite quietWordLead close (Bool.andRight (Bool.andRight lead)))
+    | ListOf open items _ close, lead =>
+      leadAppend
+        [open, ..itemsWords items]
+        [close]
+        (rewrite Bool.andLeft lead then
+          quietAllLead (itemsWords items) (itemsQuiet items (Bool.andLeft (Bool.andRight lead))))
+        (rewrite quietWordLead close (Bool.andRight (Bool.andRight lead)))
+    | App head arguments, lead =>
+      leadAppend head.words
+        (itemsWords arguments)
+        (leadWords head (Bool.andLeft (Bool.andRight lead)))
+        (quietAllLead (itemsWords arguments) (itemsQuiet arguments (Bool.andRight (Bool.andRight lead))))
+    | Infix _ left operator right, lead =>
+      leadAppend left.words
+        [operator, ..right.words]
+        (leadWords left (Bool.andLeft lead))
+        (quietAllLead
+          [operator, ..right.words]
+          (rewrite Bool.andLeft (Bool.andRight lead) then quietWords right (Bool.andRight (Bool.andRight lead))))
+    | Prefix operator operand, lead =>
+      rewrite Bool.andLeft lead then quietAllLead operand.words (quietWords operand (Bool.andRight lead))
+
+theorem leadDrop ∀ (words: List Word) (lead: words.all Word.lead1 = True): (words.drop 1).all Word.lead1 = True :=
+  match words with
+    | [] => byComputing
+    | [word, ..rest] => Bool.andRight lead
+
+--| A bracket quiet but for comments above its opener has no comment before its closer.
+theorem leadBeforeClose ∀ (open: Word) (items: List Expr) (close: Word)
+    (lead: (ListOf open items False close).leadQuiet1 = True):
+    (ListOf open items False close).trailsBeforeClose = False :=
+  let words := (ListOf open items False close).words
+  trailsBackLead
+    (words.reverse.drop 1)
+    (leadDrop words.reverse (leadReverse words (leadWords (ListOf open items False close) lead)))
+
+--| An expression quiet but for comments above its first token trails no comment.
+theorem leadTrails ∀ (expr: Expr) (lead: expr.leadQuiet1 = True): expr.trails = False :=
+  trailsBackLead expr.words.reverse (leadReverse expr.words (leadWords expr lead))
+
 -- Brackets' marks.
 
 --| Every quiet slice 1 expression's document has its `Mark` and `CloserLine` keys at least `low`; it has none, as
@@ -523,6 +726,28 @@ def ExprFacts (expr: Expr): Prop :=
   (∀ (around: Around) => HangsAt lexKind around.before False (expr.el around))
     ∧ (∀ (level: Option Nat) (first: Bool) (around: Around) => LinkFacts lexKind level first expr around False)
 
+--| The invariant for an expression quiet but for comments above its first token: as `ExprFacts`, where the element
+--| writes no comments above its first token (`bareAt`).
+def LeadFacts (expr: Expr): Prop :=
+  (∀ (around: Around) => expr.bareAt around = True → HangsAt lexKind around.before False (expr.el around))
+    ∧ (∀ (level: Option Nat) (first: Bool) (around: Around) => expr.bareAt around = True
+      → LinkFacts lexKind level first expr around False)
+
+theorem leadHangsOf ∀ (expr: Expr)
+    (facts: LeadFacts expr) (around: Around)
+    (bare: expr.bareAt around = True):
+    HangsAt lexKind around.before False (expr.el around) :=
+  let (hangs, _) := facts
+  hangs around bare
+
+theorem leadLinksOf ∀ (expr: Expr)
+    (facts: LeadFacts expr)
+    (level: Option Nat) (first: Bool) (around: Around)
+    (bare: expr.bareAt around = True):
+    LinkFacts lexKind level first expr around False :=
+  let (_, links) := facts
+  links level first around bare
+
 theorem hangsOf ∀ (expr: Expr)
     (facts: ExprFacts expr) (around: Around):
     HangsAt lexKind around.before False (expr.el around) :=
@@ -597,10 +822,16 @@ theorem itemsHang ∀ (items: List Expr) (inset: Nat) (bare arm: Bool) (at: Nat)
   match items with
     | [] => byComputing
     | [item, ..rest] =>
-      let facts := exprFacts item (Bool.andLeft within) (Bool.andLeft lexical) (Bool.andLeft quiet) keys
+      let facts :=
+        leadFacts item (Bool.andLeft within) (Bool.andLeft lexical) (quietLead item (Bool.andLeft quiet)) keys
       let quietItem := quietTrails item (Bool.andLeft quiet)
       let first: ElHangs lexKind (item.el (firstAround bare arm False at)) inset inset False item.trails wordStart :=
-        rewrite quietItem then hangsOf item facts (firstAround bare arm False at) inset inset
+        rewrite quietItem then
+          leadHangsOf item facts
+            (firstAround bare arm False at)
+            (quietBare item (firstAround bare arm False at) (Bool.andLeft quiet))
+            inset
+            inset
       let later: ItemsHang lexKind inset False arm item.trails item.trails (at + item.size) rest :=
         rewrite quietItem then
           itemsHang rest inset False arm
@@ -673,9 +904,9 @@ theorem lastHangs ∀ (argument: Expr) (around: Around)
     Hangs lexKind around.before False (lastArgument argument around).fst
       ∧ (∀ (opened: Doc) => (lastArgument argument around).snd = Some opened
         → Hangs lexKind around.before False opened) :=
-  let facts := exprFacts argument within lexical quiet keys
+  let facts := leadFacts argument within lexical (quietLead argument quiet) keys
   let plain: Hangs lexKind around.before False (argument.el around) := inset =>
-    hangsOf argument facts around inset inset
+    leadHangsOf argument facts around (quietBare argument around quiet) inset inset
   match argument, within with
     | Atom _ _, _ => (plain, opened never => cases)
     | Paren open inner close, within =>
@@ -723,9 +954,16 @@ theorem argsHang ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
           keys
     | [argument, next, ..more] =>
       let argumentQuiet := quietTrails argument (Bool.andLeft quiet)
-      let facts := exprFacts argument (Bool.andLeft within) (Bool.andLeft lexical) (Bool.andLeft quiet) keys
+      let facts :=
+        leadFacts argument (Bool.andLeft within) (Bool.andLeft lexical) (quietLead argument (Bool.andLeft quiet)) keys
       let first: Hangs lexKind previous.trails argument.trails (argument.el (argAround arm previous at)) :=
-        rewrite argumentQuiet then (inset => hangsOf argument facts (argAround arm previous at) inset inset)
+        rewrite argumentQuiet then
+          (inset =>
+            leadHangsOf argument facts
+              (argAround arm previous at)
+              (quietBare argument (argAround arm previous at) (Bool.andLeft quiet))
+              inset
+              inset)
       (
         first,
         argsHang arm argument
@@ -738,47 +976,61 @@ theorem argsHang ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
           keys
       )
 
---| Each quiet slice 1 expression hangs as an element wherever it stands, and as a chain's operand.
+--| Each slice 1 expression quiet but for comments above its first token hangs as an element wherever it writes no
+--| comments above that token (`bareAt`: they are written elsewhere, or there are none), and as a chain's operand.
 --|
---| Proof idea: by the expression, each case its rule-level lemma: a name or numeral `bareAtomHangs`; a prefix
+--| Proof idea: by the expression, each case its rule-level lemma: a name or numeral `plainLeafHangs`; a prefix
 --| `prefixHangs` on its operand's; a paren `parenElHangs` (its opener trails nothing); a list or tuple `listHangs` or
 --| `tupleHangs` with `itemsHang`; a call `appElHangs` with `argsHang` (the last argument as `huggedBracket` writes it,
 --| `hugFacts`); a chain `binaryChainHangs` or `arrowChainHangs`, whose `PairFacts` are the operands' `LinkFacts`
 --| (the second half of the invariant) and the operator's `quietRun`. An operand that is a chain of the chain's level
---| gives its `LinkFacts` from its own operands'; anything else's are its element facts.
-theorem exprFacts ∀ (expr: Expr)
+--| gives its `LinkFacts` from its own operands'; anything else's are its element facts. Only the first token, the
+--| call's head's or the chain's first operand's, may have comments above it; it shares `bareAt` with the expression,
+--| and the rest are quiet, so bare anywhere.
+theorem leadFacts ∀ (expr: Expr)
     (within: expr.within1 = True)
     (lexical: expr.lexical1 = True)
-    (quiet: expr.quiet1 = True) (keys: QuietKeys):
-    ExprFacts expr :=
+    (lead: expr.leadQuiet1 = True) (keys: QuietKeys):
+    LeadFacts expr :=
   match expr, within with
     | Atom kind word, within =>
-      let (plain, token) := wordFacts kind word.text within
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-        ((Atom kind (fixedWord word.text Comments.none)).el around) :=
-        around indent column => bareAtomHangs lexKind kind word.text around indent column plain token
-      rewrite quietIs word quiet then (hangs, level first around => hangs around)
-    | Prefix operator operand, within =>
-      let word := fixedWord operator.text Comments.none
-      let (plain, (notComment, solid, closer, comma)) := prefixToken operator.text (Bool.andRight within)
-      let inner := exprFacts operand (Bool.andLeft within) (Bool.andRight lexical) (Bool.andRight quiet) keys
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False ((Prefix word operand).el around) :=
-        around indent column =>
-          prefixHangs lexKind word operand around indent column False plain notComment solid closer comma
-            (quietLeading word around around.at byComputing)
+      let (plain, (notComment, solid, closer, comma)) := wordFacts kind word.text within
+      let fixed := fixedWord word.text (leadComments word.comments.above)
+      let hangs: ∀ (around: Around) => (Atom kind fixed).bareAt around = True
+        → HangsAt lexKind around.before False ((Atom kind fixed).el around) :=
+        around bare indent column =>
+          plainLeafHangs lexKind fixed around around.at indent column plain notComment solid closer comma
+            (leadLeading fixed around around.at byComputing bare)
             byComputing
-            (inset => hangsOf operand inner (around.next False 1) inset inset)
-      rewrite quietIs operator (Bool.andLeft quiet) then (hangs, level first around => hangs around)
+      rewrite leadIs word lead then (hangs, level first around bare => hangs around bare)
+    | Prefix operator operand, within =>
+      let word := fixedWord operator.text (leadComments operator.comments.above)
+      let (plain, (notComment, solid, closer, comma)) := prefixToken operator.text (Bool.andRight within)
+      let operandQuiet: operand.quiet1 = True := Bool.andRight lead
+      let inner := leadFacts operand (Bool.andLeft within) (Bool.andRight lexical) (quietLead operand operandQuiet) keys
+      let hangs: ∀ (around: Around) => (Prefix word operand).bareAt around = True
+        → HangsAt lexKind around.before False ((Prefix word operand).el around) :=
+        around bare indent column =>
+          prefixHangs lexKind word operand around indent column False plain notComment solid closer comma
+            (leadLeading word around around.at byComputing bare)
+            byComputing
+            (inset =>
+              leadHangsOf operand inner
+                (around.next False 1)
+                (quietBare operand (around.next False 1) operandQuiet)
+                inset
+                inset)
+      rewrite leadIs operator (Bool.andLeft lead) then (hangs, level first around bare => hangs around bare)
     | Paren open inner close, within =>
-      let openWord := fixedWord open.text Comments.none
+      let openWord := fixedWord open.text (leadComments open.comments.above)
       let closeWord := fixedWord close.text Comments.none
       let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
       let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
-      let innerQuiet := Bool.andLeft (Bool.andRight quiet)
-      let facts := exprFacts inner within (Bool.andRight (Bool.andRight lexical)) innerQuiet keys
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-        ((Paren openWord inner closeWord).el around) :=
-        around indent column =>
+      let innerQuiet := Bool.andLeft (Bool.andRight lead)
+      let facts := leadFacts inner within (Bool.andRight (Bool.andRight lexical)) (quietLead inner innerQuiet) keys
+      let hangs: ∀ (around: Around) => (Paren openWord inner closeWord).bareAt around = True
+        → HangsAt lexKind around.before False ((Paren openWord inner closeWord).el around) :=
+        around bare indent column =>
           let el :=
             parenElHangs lexKind openWord inner closeWord around indent column
               (rewrite isOpen then openParen)
@@ -787,25 +1039,31 @@ theorem exprFacts ∀ (expr: Expr)
               (rewrite isClose then closeParen)
               byComputing
               byComputing
-              (quietLeading openWord around around.at byComputing)
+              (leadLeading openWord around around.at byComputing bare)
               (parenInnerPlain inner (around.next False 1) within)
-              (inset => rewrite quietTrails inner innerQuiet then hangsOf inner facts (around.next False 1) inset inset)
+              (inset =>
+                rewrite quietTrails inner innerQuiet then
+                  leadHangsOf inner facts
+                    (around.next False 1)
+                    (quietBare inner (around.next False 1) innerQuiet)
+                    inset
+                    inset)
               (keys inner (around.next False 1) (around.at + 1) within innerQuiet)
           elQuiet lexKind _ indent column around.before _ wordStart el (quietTrails inner innerQuiet)
-      rewrite quietIs open (Bool.andLeft quiet), quietIs close (Bool.andRight (Bool.andRight quiet)) then
-        (hangs, level first around => hangs around)
+      rewrite leadIs open (Bool.andLeft lead), quietIs close (Bool.andRight (Bool.andRight lead)) then
+        (hangs, level first around bare => hangs around bare)
     | ListOf open items trailing close, within =>
-      let openWord := fixedWord open.text Comments.none
+      let openWord := fixedWord open.text (leadComments open.comments.above)
       let closeWord := fixedWord close.text Comments.none
       let isOpen: open.text = "[" := DecEq.sound (Bool.andLeft lexical)
       let isClose: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
       let itemsLexical := Bool.andRight (Bool.andRight lexical)
-      let itemsQuietly: allQuiet1 items = True := Bool.andLeft (Bool.andRight quiet)
-      let beforeClose := quietBeforeClose openWord items closeWord (rewrite itemsQuietly)
+      let itemsQuietly: allQuiet1 items = True := Bool.andLeft (Bool.andRight lead)
+      let beforeClose := leadBeforeClose openWord items closeWord (rewrite itemsQuietly)
       let bareItems := True && items.all Expr.plainItem
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-        ((ListOf openWord items trailing closeWord).el around) :=
-        around indent column =>
+      let hangs: ∀ (around: Around) => (ListOf openWord items trailing closeWord).bareAt around = True
+        → HangsAt lexKind around.before False ((ListOf openWord items trailing closeWord).el around) :=
+        around bare indent column =>
           let el :=
             listHangs lexKind openWord items trailing closeWord around indent column
               (rewrite isOpen then openBracket)
@@ -814,7 +1072,7 @@ theorem exprFacts ∀ (expr: Expr)
               byComputing
               byComputing
               byComputing
-              (quietLeading openWord around around.at byComputing)
+              (leadLeading openWord around around.at byComputing bare)
               (deep =>
                 itemsHang items (deep + 2) bareItems around.inArm (around.at + 1) within itemsLexical itemsQuietly keys)
               (cellsKeys items (around.at + 1) bareItems around.inArm False (around.at + 1) within itemsQuietly keys)
@@ -830,19 +1088,19 @@ theorem exprFacts ∀ (expr: Expr)
                 keys)
               (never => (Bool.falseNotTrue (Eq.trans (lastTrailsQuiet items itemsQuietly).flipped never)).impossible)
           elQuiet lexKind _ indent column around.before _ wordStart el beforeClose
-      rewrite quietIs open (Bool.andLeft quiet), quietIs close (Bool.andRight (Bool.andRight quiet)) then
-        (hangs, level first around => hangs around)
+      rewrite leadIs open (Bool.andLeft lead), quietIs close (Bool.andRight (Bool.andRight lead)) then
+        (hangs, level first around bare => hangs around bare)
     | Tuple open items trailing close, within =>
-      let openWord := fixedWord open.text Comments.none
+      let openWord := fixedWord open.text (leadComments open.comments.above)
       let closeWord := fixedWord close.text Comments.none
       let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
       let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
       let itemsLexical := Bool.andRight (Bool.andRight lexical)
-      let itemsQuietly: allQuiet1 items = True := Bool.andLeft (Bool.andRight quiet)
-      let beforeClose := quietBeforeClose openWord items closeWord (rewrite itemsQuietly)
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-        ((Tuple openWord items trailing closeWord).el around) :=
-        around indent column =>
+      let itemsQuietly: allQuiet1 items = True := Bool.andLeft (Bool.andRight lead)
+      let beforeClose := leadBeforeClose openWord items closeWord (rewrite itemsQuietly)
+      let hangs: ∀ (around: Around) => (Tuple openWord items trailing closeWord).bareAt around = True
+        → HangsAt lexKind around.before False ((Tuple openWord items trailing closeWord).el around) :=
+        around bare indent column =>
           let el :=
             tupleHangs lexKind openWord items trailing closeWord around indent column
               (rewrite isOpen then openParen)
@@ -851,30 +1109,32 @@ theorem exprFacts ∀ (expr: Expr)
               byComputing
               byComputing
               byComputing
-              (quietLeading openWord around around.at byComputing)
+              (leadLeading openWord around around.at byComputing bare)
               (deep =>
                 itemsHang items (deep + 2) False around.inArm (around.at + 1) within itemsLexical itemsQuietly keys)
               (cellsKeys items (around.at + 1) False around.inArm False (around.at + 1) within itemsQuietly keys)
               (brokenKeys items (around.at + 1) False around.inArm True False (around.at + 1) within itemsQuietly keys)
               (never => (Bool.falseNotTrue (Eq.trans (lastTrailsQuiet items itemsQuietly).flipped never)).impossible)
           elQuiet lexKind _ indent column around.before _ wordStart el beforeClose
-      rewrite quietIs open (Bool.andLeft quiet), quietIs close (Bool.andRight (Bool.andRight quiet)) then
-        (hangs, level first around => hangs around)
+      rewrite leadIs open (Bool.andLeft lead), quietIs close (Bool.andRight (Bool.andRight lead)) then
+        (hangs, level first around bare => hangs around bare)
     | App head arguments, within =>
-      match arguments, quiet with
+      match arguments, lead with
         | [], never => (Bool.falseNotTrue never).impossible
-        | [argument, ..rest], quiet =>
-          let headQuiet: head.quiet1 = True := Bool.andLeft quiet
-          let argumentsQuiet: allQuiet1 [argument, ..rest] = True := Bool.andRight quiet
-          let headFacts := exprFacts head (Bool.andLeft within) (Bool.andLeft lexical) headQuiet keys
-          let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-            ((App head [argument, ..rest]).el around) :=
-            around indent column =>
+        | [argument, ..rest], lead =>
+          let headLead: head.leadQuiet1 = True := Bool.andLeft lead
+          let argumentsQuiet: allQuiet1 [argument, ..rest] = True := Bool.andRight lead
+          let headFacts := leadFacts head (Bool.andLeft within) (Bool.andLeft lexical) headLead keys
+          let headTrails := leadTrails head headLead
+          let hangs: ∀ (around: Around) => (App head [argument, ..rest]).bareAt around = True
+            → HangsAt lexKind around.before False ((App head [argument, ..rest]).el around) :=
+            around bare indent column =>
               let el :=
                 appElHangs lexKind head argument rest around indent column
-                  (firstLeading (App head [argument, ..rest]) around around.at quiet)
+                  (rewrite firstWordLead (App head [argument, ..rest]) within then
+                    leadLeading head.lead around around.at (leadOfLead head headLead) bare)
                   (inset seat =>
-                    rewrite quietTrails head headQuiet then
+                    rewrite headTrails then
                       elUnheld lexKind
                         (head.el { around | hoisted = True })
                         inset
@@ -882,82 +1142,109 @@ theorem exprFacts ∀ (expr: Expr)
                         around.before
                         False
                         wordStart
-                        (hangsOf head headFacts { around | hoisted = True } inset seat))
+                        (leadHangsOf head headFacts { around | hoisted = True } byComputing inset seat))
                   (argsHang around.inArm head
                     (around.at + head.size)
                     [argument, ..rest]
-                    (quietTrails head headQuiet)
+                    headTrails
                     (Bool.andRight within)
                     (Bool.andRight lexical)
                     argumentsQuiet
                     keys)
               elQuiet lexKind _ indent column around.before _ wordStart el (lastQuiet argument rest argumentsQuiet)
-          (hangs, level first around => hangs around)
+          (hangs, level first around bare => hangs around bare)
     | Infix InfixBinary left operator right, within =>
       let word := fixedWord operator.text Comments.none
-      let leftQuiet := Bool.andLeft quiet
-      let rightQuiet := Bool.andRight (Bool.andRight quiet)
-      let leftFacts := exprFacts left (Bool.andLeft within) (Bool.andLeft lexical) leftQuiet keys
+      let leftLead := Bool.andLeft lead
+      let rightQuiet := Bool.andRight (Bool.andRight lead)
+      let leftFacts := leadFacts left (Bool.andLeft within) (Bool.andLeft lexical) leftLead keys
       let rightFacts :=
-        exprFacts right (Bool.andLeft (Bool.andRight within)) (Bool.andRight (Bool.andRight lexical)) rightQuiet keys
+        leadFacts right
+          (Bool.andLeft (Bool.andRight within))
+          (Bool.andRight (Bool.andRight lexical))
+          (quietLead right rightQuiet)
+          keys
       let listed := Bool.andRight (Bool.andRight within)
-      let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => PairFacts lexKind level first left word right
-          around False False :=
-        level first around =>
+      let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => left.bareAt around = True
+        → PairFacts lexKind level first left word right around False False :=
+        level first around bare =>
           (
-            linksOf left leftFacts level first around,
+            leadLinksOf left leftFacts level first around bare,
             quietRun operator.text (around.next left.trails left.size) (around.next left.trails left.size).at listed,
             chainRightPlain level right (around.next False (left.size + 1)) (Bool.andLeft (Bool.andRight within)),
-            linksOf right rightFacts level False (around.next False (left.size + 1))
+            leadLinksOf right rightFacts level False
+              (around.next False (left.size + 1))
+              (quietBare right (around.next False (left.size + 1)) rightQuiet)
           )
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-        ((Infix InfixBinary left word right).el around) :=
-        around indent column =>
+      let hangs: ∀ (around: Around) => (Infix InfixBinary left word right).bareAt around = True
+        → HangsAt lexKind around.before False ((Infix InfixBinary left word right).el around) :=
+        around bare indent column =>
           binaryChainHangs lexKind left word right around indent column False False
-            (firstLeading (Infix InfixBinary left word right) around around.at (rewrite leftQuiet, rightQuiet))
+            (rewrite firstWordLead (Infix InfixBinary left word right) within then
+              leadLeading left.lead around around.at (leadOfLead left leftLead) bare)
             (opensNoArms left (Infix InfixBinary left word right).chainLevel (Bool.andLeft within))
-            (pair (Infix InfixBinary left word right).chainLevel True { around | hoisted = True })
-      rewrite quietIs operator (Bool.andLeft (Bool.andRight quiet)) then
+            (pair (Infix InfixBinary left word right).chainLevel True { around | hoisted = True } byComputing)
+      rewrite quietIs operator (Bool.andLeft (Bool.andRight lead)) then
         (
           hangs,
-          level first around =>
+          level first around bare =>
             match chained: (Infix InfixBinary left word right).inChain level with
               | True =>
-                let (leftLinks, run, rightDocs, rightLinks) := pair level first around
+                let (leftLinks, run, rightDocs, rightLinks) := pair level first around bare
                 (False, leftLinks, run, rightDocs, rightLinks)
-              | False => hangs around
+              | False => hangs around bare
         )
     | Infix InfixArrow left operator right, within =>
       let word := fixedWord operator.text Comments.none
-      let leftQuiet := Bool.andLeft quiet
-      let rightQuiet := Bool.andRight (Bool.andRight quiet)
-      let leftFacts := exprFacts left (Bool.andLeft within) (Bool.andLeft lexical) leftQuiet keys
+      let leftLead := Bool.andLeft lead
+      let rightQuiet := Bool.andRight (Bool.andRight lead)
+      let leftFacts := leadFacts left (Bool.andLeft within) (Bool.andLeft lexical) leftLead keys
       let rightFacts :=
-        exprFacts right (Bool.andLeft (Bool.andRight within)) (Bool.andRight (Bool.andRight lexical)) rightQuiet keys
+        leadFacts right
+          (Bool.andLeft (Bool.andRight within))
+          (Bool.andRight (Bool.andRight lexical))
+          (quietLead right rightQuiet)
+          keys
       let listed := Bool.andRight (Bool.andRight within)
-      let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => PairFacts lexKind level first left word right
-          around False False :=
-        level first around =>
+      let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => left.bareAt around = True
+        → PairFacts lexKind level first left word right around False False :=
+        level first around bare =>
           (
-            linksOf left leftFacts level first around,
+            leadLinksOf left leftFacts level first around bare,
             quietRun operator.text (around.next left.trails left.size) (around.next left.trails left.size).at listed,
             chainRightPlain level right (around.next False (left.size + 1)) (Bool.andLeft (Bool.andRight within)),
-            linksOf right rightFacts level False (around.next False (left.size + 1))
+            leadLinksOf right rightFacts level False
+              (around.next False (left.size + 1))
+              (quietBare right (around.next False (left.size + 1)) rightQuiet)
           )
-      let hangs: ∀ (around: Around) => HangsAt lexKind around.before False
-        ((Infix InfixArrow left word right).el around) :=
-        around indent column =>
+      let hangs: ∀ (around: Around) => (Infix InfixArrow left word right).bareAt around = True
+        → HangsAt lexKind around.before False ((Infix InfixArrow left word right).el around) :=
+        around bare indent column =>
           arrowChainHangs lexKind left word right around indent column False False
-            (firstLeading (Infix InfixArrow left word right) around around.at (rewrite leftQuiet, rightQuiet))
+            (rewrite firstWordLead (Infix InfixArrow left word right) within then
+              leadLeading left.lead around around.at (leadOfLead left leftLead) bare)
             (opensNoArms left (Infix InfixArrow left word right).chainLevel (Bool.andLeft within))
-            (pair (Infix InfixArrow left word right).chainLevel True { around | hoisted = True })
-      rewrite quietIs operator (Bool.andLeft (Bool.andRight quiet)) then
+            (pair (Infix InfixArrow left word right).chainLevel True { around | hoisted = True } byComputing)
+      rewrite quietIs operator (Bool.andLeft (Bool.andRight lead)) then
         (
           hangs,
-          level first around =>
+          level first around bare =>
             match chained: (Infix InfixArrow left word right).inChain level with
               | True =>
-                let (leftLinks, run, rightDocs, rightLinks) := pair level first around
+                let (leftLinks, run, rightDocs, rightLinks) := pair level first around bare
                 (False, leftLinks, run, rightDocs, rightLinks)
-              | False => hangs around
+              | False => hangs around bare
         )
+
+--| Each quiet slice 1 expression hangs as an element wherever it stands, and as a chain's operand: `leadFacts`,
+--| with no comments above its first token.
+theorem exprFacts ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True)
+    (quiet: expr.quiet1 = True) (keys: QuietKeys):
+    ExprFacts expr :=
+  let facts := leadFacts expr within lexical (quietLead expr quiet) keys
+  (
+    around => leadHangsOf expr facts around (quietBare expr around quiet),
+    level first around => leadLinksOf expr facts level first around (quietBare expr around quiet)
+  )
