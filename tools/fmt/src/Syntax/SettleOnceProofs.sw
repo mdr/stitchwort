@@ -7,12 +7,14 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (
   alphabet1,
+  alphabet1Leaves,
   bareComma,
   dropSpacesStart,
   emptyOf,
   endsOn,
   homedBehind,
   homedLeaf,
+  leavesTextsSplit,
   laidOut,
   lexedTexts,
   arrowFollow,
@@ -23,8 +25,16 @@ import Syntax.SettleProofs (
   passableKind,
   plain1,
   plainFrom,
+  plainFromOf,
+  settledAlphabet1,
+  settledArrowsBare1,
+  settledCommasBare,
+  settledHomed,
+  settledKeepsComments,
+  settledKeepsTokens,
   stopsAt,
   tokens,
+  tokensReverseOnto,
   triviaTexts
 )
 import Syntax.SettleBareProofs (..)
@@ -834,3 +844,281 @@ theorem arrowsWords ∀ (leaves: List Leaf)
               match isArrow: first.token.kind == Arrow with
                 | False => arrowsWordsPlain first [next, ..more] isComma isArrow (Bool.andLeft marked) ih
                 | True => arrowsWordsArrow first next more isComma (Bool.andLeft arrows) (Bool.andLeft plain) ih
+
+-- Reading the leaves the other way round.
+
+theorem andSwap ∀ (a b c: Bool): (a && (b && c)) = (b && (a && c)) := cases
+
+theorem allReverseOnto ∀ (xs acc: List a) (p: a → Bool): (xs.reverseOnto acc).all p = (xs.all p && acc.all p) :=
+  match xs with
+    | [] => byComputing
+    | [x, ..rest] =>
+      calc (rest.reverseOnto [x, ..acc]).all p
+        _ = (rest.all p && [x, ..acc].all p) := allReverseOnto rest [x, ..acc] p
+        _ = ([x, ..rest].all p && acc.all p) := cases
+
+theorem textsReverseOnto ∀ (q: Text → Bool) (xs acc: List Leaf):
+    (leafTexts (xs.reverseOnto acc)).all q = ((leafTexts xs).all q && (leafTexts acc).all q) :=
+  match xs with
+    | [] => byComputing
+    | [x, ..rest] =>
+      calc (leafTexts (rest.reverseOnto [x, ..acc])).all q
+        _ = ((leafTexts rest).all q && (leafTexts [x, ..acc]).all q) := textsReverseOnto q rest [x, ..acc]
+        _ = ((leafTexts rest).all q && ((triviaTexts x.trivia).all q && (leafTexts acc).all q)) :=
+          rewrite textsCons x acc, allAppendB (triviaTexts x.trivia) (leafTexts acc) q
+        _ = ((triviaTexts x.trivia).all q && ((leafTexts rest).all q && (leafTexts acc).all q)) := andSwap _ _ _
+        _ = ((leafTexts [x, ..rest]).all q && (leafTexts acc).all q) :=
+          rewrite textsCons x rest, allAppendB (triviaTexts x.trivia) (leafTexts rest) q then cases
+
+theorem laidOnto ∀ (behind rest: List Leaf)
+    (back: laidBack behind = True)
+    (fwd: laidOut (pendB behind) rest = True):
+    laidOut False (behind.reverseOnto rest) = True :=
+  match behind with
+    | [] => fwd
+    | [leaf, ..older] =>
+      laidOnto older
+        [leaf, ..rest]
+        (Bool.andRight (Bool.andRight back))
+        (Bool.andIntro (Bool.andLeft back) (Bool.andIntro (Bool.andLeft (Bool.andRight back)) fwd))
+
+theorem plainOfJoin ∀ (out: List Leaf) (join: plainJoin out [] = True): plain1 (tokens (out.reverseOnto [])) = True :=
+  match out with
+    | [] => byComputing
+    | [newest, ..older] =>
+      plainOfBack
+        (tokens ([newest, ..older].reverseOnto []))
+        (rewrite tokensReverseOnto [newest, ..older] [], List.reverseReverse (tokens [newest, ..older]) then
+          Bool.andLeft join)
+
+--| `isMarked`, of the token alone.
+def markedToken (token: Token): Bool :=
+  isCloserText token.text == token.kind.isCloser && (operatorTok token.text == Some Arrow) == (token.kind == Arrow)
+
+theorem markedTokens ∀ (leaves: List Leaf): leaves.all isMarked = (tokens leaves).all markedToken := match leaves with
+  | [] => byComputing
+  | [leaf, ..rest] => rewrite markedTokens rest
+
+theorem wordsOfReverseOnto ∀ (xs acc: List Leaf):
+    wordsOf (xs.reverseOnto acc) = (wordsOf xs).reverseOnto (wordsOf acc) :=
+  match xs with
+    | [] => byComputing
+    | [x, ..rest] =>
+      match isComma: x.token.kind == Comma with
+        | True =>
+          calc wordsOf (rest.reverseOnto [x, ..acc])
+            _ = (wordsOf rest).reverseOnto (wordsOf [x, ..acc]) := wordsOfReverseOnto rest [x, ..acc]
+            _ = (wordsOf rest).reverseOnto (wordsOf acc) := rewrite wordsOfComma x acc isComma
+        | False =>
+          calc wordsOf (rest.reverseOnto [x, ..acc])
+            _ = (wordsOf rest).reverseOnto (wordsOf [x, ..acc]) := wordsOfReverseOnto rest [x, ..acc]
+            _ = (wordsOf rest).reverseOnto [x.word, ..wordsOf acc] := rewrite wordsOfItem x acc isComma
+
+theorem allTrimmed ∀ (texts: List Text)
+    (raw: texts.all (text => text.startsWith "--" && !text.contains "\n") = True):
+    (texts.map trimEnd).all commentText = True :=
+  match texts with
+    | [] => byComputing
+    | [text, ..rest] =>
+      Bool.andIntro
+        (trimmedComment text (Bool.andLeft (Bool.andLeft raw)) (Bool.andRight (Bool.andLeft raw)).read)
+        (allTrimmed rest (Bool.andRight raw))
+
+-- The end of the file.
+
+theorem intoTrailing ∀ (carry: Carried) (trivia: Trivia): (carry.into trivia).trailing = trivia.trailing :=
+  match trivia with
+    | { leading, blankLines, trailing } =>
+      match leading with
+        | [] => byComputing
+        | [first, ..more] => byComputing
+
+--| Rule 2 leaves the end's trailing comment as it was: a carried comment goes in front of the own-line ones.
+theorem commasEndTrailing ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
+    (commasFrom done carried rest end).end.trailing = end.trailing :=
+  match rest with
+    | [] =>
+      match carried with
+        | None => byComputing
+        | Some held => intoTrailing held end
+    | [leaf, ..after] =>
+      let step := (x: Leaf) (next: Option Carried) => commasEndTrailing [x, ..done] next after end
+      match carried with
+        | None =>
+          match commaCarries leaf.trivia with
+            | None => step leaf None
+            | Some carry =>
+              match leaf.kind == Comma with
+                | True => step { leaf | trivia = Trivia.empty } (Some carry)
+                | False => step leaf None
+        | Some held =>
+          let received := { leaf | trivia = held.into leaf.trivia }
+          match commaCarries received.trivia with
+            | None => step received None
+            | Some carry =>
+              match leaf.kind == Comma with
+                | True => step { leaf | trivia = Trivia.empty } (Some carry)
+                | False => step received None
+
+theorem noneOf ∀ (option: Option Comment) (none: option.isNone = True): option = None := match option with
+  | None => byComputing
+
+--| No trailing comment comes out where none went in.
+theorem settledEndNone ∀ (lexed: Lexed)
+    (none: lexed.end.trailing.isNone = True):
+    lexed.settled.end.trailing.isNone = True :=
+  let homed := homeFrom [] None lexed.leaves
+  let kept: (commasFrom [] None homed lexed.end).end.trailing = None :=
+    Eq.trans (commasEndTrailing [] None homed lexed.end) (noneOf lexed.end.trailing none)
+  match trailing: (commasFrom [] None homed lexed.end).end.trailing with | None => byComputing
+
+theorem wordsOfCons ∀ (leaf: Leaf) (first second: List Leaf)
+    (same: wordsOf first = wordsOf second):
+    wordsOf [leaf, ..first] = wordsOf [leaf, ..second] :=
+  match isComma: leaf.token.kind == Comma with
+    | True => same
+    | False => Eq.cong (tail => [leaf.word, ..tail]) same
+
+--| Dropping the last commas drops no word: a comma is no word.
+theorem wordsOfDropF ∀ (behind rest: List Leaf): wordsOf (dropF behind rest) = wordsOf rest := match rest with
+  | [] => byComputing
+  | [leaf, ..after] =>
+    match after with
+      | [] => wordsOfCons leaf (dropF [leaf, ..behind] []) [] byComputing
+      | [closer, ..after2] =>
+        match pair: lastPair closer.token.kind leaf behind with
+          | True =>
+            let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
+            rewrite wordsOfComma leaf [closer, ..after2] isComma then
+              wordsOfCons closer
+                (dropF [closer, leaf, ..behind] after2)
+                after2
+                (wordsOfDropF [closer, leaf, ..behind] after2)
+          | False =>
+            wordsOfCons leaf
+              (dropF [leaf, ..behind] [closer, ..after2])
+              [closer, ..after2]
+              (wordsOfDropF [leaf, ..behind] [closer, ..after2])
+
+theorem endTexts ∀ (trivia: Trivia): trivia.comments.texts = triviaTexts trivia :=
+  rewrite noteTexts trivia.leading, optionTexts trivia.trailing
+
+theorem endAfterNone ∀ (trivia: Trivia) (none: trivia.trailing.isNone = True): trivia.comments.after.isNone = True :=
+  match trivia.trailing with | None => byComputing
+
+-- The leaves the formatter parses, read as words, are settled.
+
+--| `settledWords`, `Lexed.wordsSettled1` of `Syntax.ParseSettledStatements` for the leaves rule N makes bare
+--| (`settledOnce`).
+def settledWordsOf (words: List Word): Bool :=
+  homedBack words.reverse && arrowsBare words && words.all (word => word.comments.texts.all commentText)
+
+--| The words of the leaves are settled, and so is the end.
+def settledLexed (lexed: Lexed): Bool :=
+  settledWordsOf (wordsOf lexed.leaves) && lexed.end.comments.texts.all commentText && lexed.end.comments.after.isNone
+
+theorem settledFrom ∀ (once bare: Lexed)
+    (wordsEq: wordsOf once.leaves = wordsOf bare.leaves)
+    (endEq: once.end = bare.end)
+    (homed: homedBack (wordsOf bare.leaves).reverse = True)
+    (arrows: arrowsBare (wordsOf bare.leaves) = True)
+    (texts: (wordsOf bare.leaves).all (word => word.comments.texts.all commentText) = True)
+    (endTexts: bare.end.comments.texts.all commentText = True)
+    (after: bare.end.comments.after.isNone = True):
+    settledLexed once = True :=
+  rewrite wordsEq, endEq then
+    Bool.andIntro (Bool.andIntro homed (Bool.andIntro arrows texts)) (Bool.andIntro endTexts after)
+
+--| The leaves the formatter parses, `settledOnce`, are settled as words: closers homed, `->` bare, every comment as
+--| rule N leaves it, and the end likewise. For leaves of slice 1's alphabet that are `plain`, laid out as the lexer lays
+--| them out, each token's text agreeing with its kind (`isMarked`), with comments `--` to the end of a line.
+--|
+--| Proof idea: `settledOnce` is `settledBare` with last commas, all bare, left in (`bareSettles`), and a comma is no
+--| word, so the words are those of `settledBare`, rule N on `withoutLastCommas` of the leaves. That keeps the leaves
+--| laid out, `plain`, in the alphabet and `marked`, and every comment's text (`laidWithout`, `plainWithout`,
+--| `allTokensWithout`, `textsWithout`: a last comma that is laid out and `plain` starts no line and holds no own-line
+--| comment, so only its trailing comment moves, to the leaf before). So rule N's facts apply to it: `settledHomed`,
+--| `settledArrowsBare1`, `settledCommasBare`, `settledKeepsComments`. They are said of leaves; the words' versions
+--| follow (`homedWords`: a closer's look back passes only bare commas, and `endsOnTrails` reads a comment ending the
+--| line off the words; `arrowsWords`: no comma follows a `->`; `trimmedComment`: a trimmed `--` comment is a
+--| `commentText`).
+theorem onceSettledProved ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True)
+    (plain: plain1 (tokens lexed.leaves) = True)
+    (laid: laidOut False lexed.leaves = True)
+    (marked: lexed.leaves.all isMarked = True)
+    (raw: (lexedTexts lexed).all (text => text.startsWith "--" && !text.contains "\n") = True)
+    (noTrailing: lexed.end.trailing.isNone = True):
+    settledLexed lexed.settledOnce = True :=
+  let leaves := lexed.leaves
+  let plainF := plainFromOf (tokens leaves) plain
+  let out := withoutR [] leaves
+  let swapped: withoutLastCommas [] leaves = out.reverseOnto [] := withoutFromR [] leaves
+  let lexedB: Lexed := { lexed | leaves = withoutLastCommas [] lexed.leaves }
+  let laidB: laidOut False lexedB.leaves = True :=
+    rewrite swapped then laidOnto out [] (laidWithout [] leaves byComputing laid plainF) byComputing
+  let plainB: plain1 (tokens lexedB.leaves) = True :=
+    rewrite swapped then plainOfJoin out (plainWithout [] leaves plain plainF)
+  let tokensB: ∀ (q: Token → Bool) (kept: (tokens leaves).all q = True) => (tokens lexedB.leaves).all q = True :=
+    q kept =>
+      rewrite swapped, tokensReverseOnto out [], allReverseOnto (tokens out) [] q then
+        Bool.andIntro (allTokensWithout q [] leaves plainF byComputing kept) byComputing
+  let withinB: alphabet1 lexedB.leaves = True := tokensB (token => token.kind.within1) within
+  let markedB: lexedB.leaves.all isMarked = True :=
+    rewrite markedTokens lexedB.leaves then tokensB markedToken (rewrite <- markedTokens leaves then marked)
+  let rawSplit :=
+    rewrite leavesTextsSplit leaves lexed.end,
+        allAppendB (leafTexts leaves) (triviaTexts lexed.end) (text =>
+          text.startsWith "--" && !text.contains "\n") at raw then
+      raw
+  let rawLeavesB: (leafTexts lexedB.leaves).all (text => text.startsWith "--" && !text.contains "\n") = True :=
+    rewrite swapped, textsReverseOnto (text => text.startsWith "--" && !text.contains "\n") out [] then
+      Bool.andIntro
+        (textsWithout
+          (text => text.startsWith "--" && !text.contains "\n")
+          []
+          leaves
+          byComputing
+          laid
+          plainF
+          byComputing
+          (Bool.andLeft rawSplit))
+        byComputing
+  let rawB: (lexedTexts lexedB).all (text => text.startsWith "--" && !text.contains "\n") = True :=
+    rewrite leavesTextsSplit lexedB.leaves lexedB.end,
+        allAppendB (leafTexts lexedB.leaves) (triviaTexts lexedB.end) (text =>
+          text.startsWith "--" && !text.contains "\n") then
+      Bool.andIntro rawLeavesB (Bool.andRight rawSplit)
+  let settled := lexedB.settled
+  let homedS := settledHomed lexedB withinB laidB plainB
+  let bareS := settledCommasBare lexedB
+  let tokensS: tokens settled.leaves = tokens lexedB.leaves := settledKeepsTokens lexedB
+  let plainS: plainFrom (tokens settled.leaves) = True := rewrite tokensS then plainFromOf (tokens lexedB.leaves) plainB
+  let markedS: settled.leaves.all isMarked = True :=
+    rewrite markedTokens settled.leaves, tokensS, <- markedTokens lexedB.leaves then markedB
+  let arrowsS := settledArrowsBare1 lexedB withinB
+  let textsS: (lexedTexts settled).all commentText = True :=
+    rewrite settledKeepsComments lexedB withinB laidB then allTrimmed (lexedTexts lexedB) rawB
+  let (leavesEq, endEq) := bareSettles lexed within plain
+  let wordsEq: wordsOf lexed.settledOnce.leaves = wordsOf settled.leaves :=
+    Eq.trans (wordsOfDropF [] lexed.settledOnce.leaves).flipped (rewrite leavesEq)
+  let reversedWords := wordsOfReverseOnto settled.leaves []
+  let bareR: (settled.leaves.reverseOnto []).all bareComma = True :=
+    rewrite allReverseOnto settled.leaves [] bareComma then Bool.andIntro bareS byComputing
+  let markedR: (settled.leaves.reverseOnto []).all isMarked = True :=
+    rewrite allReverseOnto settled.leaves [] isMarked then Bool.andIntro markedS byComputing
+  let homedWordsS: homedBack (wordsOf settled.leaves).reverse = True :=
+    rewrite <- reversedWords then homedWords (settled.leaves.reverseOnto []) homedS bareR markedR
+  let textsSplit :=
+    rewrite leavesTextsSplit settled.leaves settled.end,
+        allAppendB (leafTexts settled.leaves) (triviaTexts settled.end) commentText at textsS then
+      textsS
+  let wordTextsS := wordsCommentTexts settled.leaves (leavesCommentTexts settled.leaves (Bool.andLeft textsSplit))
+  let endTextsS: lexedB.settled.end.comments.texts.all commentText = True :=
+    rewrite endTexts lexedB.settled.end then Bool.andRight textsSplit
+  let afterNone := endAfterNone lexedB.settled.end (settledEndNone lexedB noTrailing)
+  settledFrom lexed.settledOnce settled wordsEq endEq homedWordsS
+    (arrowsWords settled.leaves arrowsS plainS markedS)
+    wordTextsS
+    endTextsS
+    afterNone

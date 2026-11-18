@@ -17,6 +17,7 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
+import Syntax.SettleOnceProofs (onceSettledProved)
 
 -- The words of leaves.
 
@@ -107,7 +108,11 @@ theorem onceWordsSettled1 ∀ (lexed: Lexed)
     (plain: plain1 (tokens lexed.leaves) = True)
     (laid: lexed.laid1 = True):
     lexed.settledOnce.wordsSettled1 = True :=
-  ?
+  onceSettledProved lexed within plain
+    (Bool.andLeft laid)
+    (Bool.andLeft (Bool.andRight laid))
+    (Bool.andLeft (Bool.andRight (Bool.andRight laid)))
+    (Bool.andRight (Bool.andRight (Bool.andRight laid)))
 
 -- Cases the statements apply to, so their hypotheses can be met; and two the lexer's spelling leaves out.
 
