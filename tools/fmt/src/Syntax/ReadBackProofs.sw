@@ -3,7 +3,7 @@
 --| start at a block's column, `block` reads one line and `blockLines` doesn't go round.
 
 namespace Syntax.ReadBackProofs
-import Std (Bool, Eq, List, Nat, Option, Parse, Text)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text)
 import Syntax (..)
 import Fmt (..)
 
@@ -190,7 +190,6 @@ theorem runsBlockLinesOneLine ∀ (more: Nat) (self: Goal → {Parse Item} Expr)
                             && next.leaf.token.lineStart
                             && next.leaf.token.column == column
                             && !endsBlocks next.kind with
-                            | True => (Bool.falseNotTrue (rewrite <- no then again)).impossible
                             | False => Parse.runsPure [first, ..found] [next, ..later] middle5)
                     | [] => Parse.runsPure [first, ..found] [] middle4))))
 
@@ -231,3 +230,143 @@ theorem runsBlockOneLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     (List.appendNil read).flipped
     lines
     (middle _ _ _ => Parse.runsPure value rest middle)
+
+-- The items of printed leaves: what the parser learns from spans, recomputed from the leaves alone.
+
+--| Where `itemsAfter` is in a list of leaves: the token before, the next item's index, the brackets open and the
+--| column of the current line's first token.
+type ItemsAt = { before: Option Token, index: Nat, depth: Nat, lineIndent: Nat }
+
+--| The start of a declaration's leaves (`items`).
+def ItemsAt.start: ItemsAt := { before = None, index = 0, depth = 0, lineIndent = 0 }
+
+def ItemsAt.items (place: ItemsAt) (leaves: List Leaf): List Item :=
+  itemsAfter place.before place.index place.depth place.lineIndent leaves
+
+--| Bracket depth after a token.
+def depthPast (depth: Nat) (kind: Tok): Nat :=
+  if kind.isOpener then depth + 1
+  else if kind.isCloser then depth - 1
+  else depth
+
+--| The place after one leaf.
+def ItemsAt.step (place: ItemsAt) (leaf: Leaf): ItemsAt := {
+  before = Some leaf.token,
+  index = place.index + 1,
+  depth = depthPast place.depth leaf.token.kind,
+  lineIndent = if leaf.token.lineStart then leaf.token.column else place.lineIndent
+}
+
+--| The place after some leaves.
+def ItemsAt.past (place: ItemsAt): List Leaf → ItemsAt
+  | [] => place
+  | [leaf, ..rest] => (place.step leaf).past rest
+
+theorem itemsStart ∀ (leaves: List Leaf): items leaves = ItemsAt.start.items leaves := byComputing
+
+--| The first item: its leaf, with what it is glued to and its place.
+theorem itemsCons ∀ (place: ItemsAt) (leaf: Leaf) (rest: List Leaf):
+    place.items [leaf, ..rest]
+      = [
+        {
+          leaf,
+          glued = match place.before with
+            | Some previous => !leaf.token.lineStart && endColumn previous == leaf.token.column
+            | None => False,
+          afterOperand = place.before.map (previous => previous.kind.closesOperand) |> .getOrElse False,
+          afterDot = place.before.map (previous => previous.kind == Dot) |> .getOrElse False,
+          index = place.index,
+          depth = place.depth,
+          lineIndent = if leaf.token.lineStart then leaf.token.column else place.lineIndent
+        },
+        ..(place.step leaf).items rest
+      ] :=
+  byComputing
+
+--| The items of leaves read one after another are the first leaves' items, then the rest's from where they end.
+theorem itemsAppend ∀ (place: ItemsAt) (first rest: List Leaf):
+    place.items (first ++ rest) = place.items first ++ (place.past first).items rest :=
+  match first with
+    | [] => byComputing
+    | [leaf, ..more] =>
+      let inner := itemsAppend (place.step leaf) more rest
+      rewrite inner
+
+theorem itemsLeaves ∀ (place: ItemsAt) (leaves: List Leaf): (place.items leaves).map (item => item.leaf) = leaves :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] => Eq.cong (Cons leaf) (itemsLeaves (place.step leaf) rest)
+
+theorem itemsLength ∀ (place: ItemsAt) (leaves: List Leaf): (place.items leaves).length = leaves.length :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] => Eq.cong Succ (itemsLength (place.step leaf) rest)
+
+--| Each leaf moves the index on by one, so the items of a declaration are numbered by their offsets.
+theorem pastIndex ∀ (place: ItemsAt) (leaves: List Leaf): (place.past leaves).index = place.index + leaves.length :=
+  match leaves with
+    | [] => arithmetic
+    | [leaf, ..rest] => arithmetic [pastIndex (place.step leaf) rest]
+
+theorem pastAppend ∀ (place: ItemsAt) (first rest: List Leaf):
+    place.past (first ++ rest) = (place.past first).past rest :=
+  match first with
+    | [] => byComputing
+    | [leaf, ..more] => pastAppend (place.step leaf) more rest
+
+--| After a leaf, the token before is that leaf's: what `glued`, `afterOperand` and `afterDot` of the next item read.
+theorem pastLast ∀ (place: ItemsAt) (first: List Leaf) (leaf: Leaf):
+    (place.past (first ++ [leaf])).before = Some leaf.token :=
+  rewrite pastAppend place first [leaf]
+
+--| Whether leaves close every bracket they open, `open` brackets being open already: no closer below the start.
+def balancedFrom (open: Nat): List Leaf → Bool
+  | [] => open == 0
+  | [leaf, ..rest] =>
+    if leaf.token.kind.isOpener then balancedFrom (open + 1) rest
+    else if leaf.token.kind.isCloser then open > 0 && balancedFrom (open - 1) rest
+    else balancedFrom open rest
+
+def ItemsAt.balanced (leaves: List Leaf): Bool := balancedFrom 0 leaves
+
+--| The brackets left open after a token, of those the leaves opened.
+def openPast (open: Nat) (kind: Tok): Nat :=
+  if kind.isOpener then open + 1
+  else if kind.isCloser then open - 1
+  else open
+
+--| One leaf of balanced leaves: the rest are balanced from the brackets now open, the depth still counts them, and
+--| the depth before is found from the depth after.
+theorem balancedStep ∀ (depth open: Nat) (leaf: Leaf) (rest: List Leaf)
+    (inside: open <= depth) (balanced: balancedFrom open [leaf, ..rest]):
+    balancedFrom (openPast open leaf.token.kind) rest
+      ∧ openPast open leaf.token.kind <= depthPast depth leaf.token.kind
+      ∧ (∀ (x: Nat) => x + openPast open leaf.token.kind = depthPast depth leaf.token.kind → x + open = depth) :=
+  match opener: leaf.token.kind.isOpener with
+    | True => (balanced, arithmetic, x same => arithmetic [same])
+    | False =>
+      match closer: leaf.token.kind.isCloser with
+        | True =>
+          let some: open > 0 := Bool.andLeft balanced
+          (Bool.andRight balanced, arithmetic [inside, some], x same => arithmetic [same, inside, some])
+        | False => (balanced, inside, x same => same)
+
+--| Leaves with brackets balanced leave the depth as it was: a subtree's items are at the depth of its first.
+--|
+--| Proof idea: by induction on the leaves, with `open` the brackets the leaves so far left open, which the depth
+--| counts; `balancedStep` takes one leaf.
+theorem pastDepthOpen ∀ (place: ItemsAt) (open: Nat) (leaves: List Leaf)
+    (inside: open <= place.depth) (balanced: balancedFrom open leaves):
+    (place.past leaves).depth + open = place.depth :=
+  match leaves with
+    | [] =>
+      let none: open = 0 := DecEq.sound balanced
+      arithmetic [none]
+    | [leaf, ..rest] =>
+      let (more, deeper, back) := balancedStep place.depth open leaf rest inside balanced
+      back _ (pastDepthOpen (place.step leaf) (openPast open leaf.token.kind) rest deeper more)
+
+theorem pastDepth ∀ (place: ItemsAt) (leaves: List Leaf) (balanced: balancedFrom 0 leaves):
+    (place.past leaves).depth = place.depth :=
+  let same := pastDepthOpen place 0 leaves (arithmetic) balanced
+  arithmetic [same]
