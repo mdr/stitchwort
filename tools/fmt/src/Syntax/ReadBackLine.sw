@@ -207,8 +207,9 @@ def Expr.unary1: Expr → Bool
 
 --| `read` spells `expr`: the node's tokens in order, each an item of the token's kind carrying the node's word, a
 --| comma between each two bracket items and none after the last (`comma = False`); a tuple has two items or more. A
---| prefix is its sign and its operand, no infix, the two read as a negative numeral exactly when the operand is a
---| numeral after `-`: the glue the printer gives, which the parser's `negativeNumeral` reads. An infix (an arrow, or a
+--| prefix is its sign and its operand, no infix, the two read as a negative numeral (the parser's `negativeNumeral`)
+--| only when the operand is a numeral: a `-` before a numeral but apart from it, as across a comment in
+--| `(- -- c⏎  1)`, reads as a sign on its operand. An infix (an arrow, or a
 --| binary operator of `binaryTok`, `&&` and `||` among them) is its left side, its operator and its right side: the operator's text binds as its
 --| token does (`tokLevel`), the operands sit at the levels `shaped1` asks (`leftNeeds`, `rightNeeds`), and the right
 --| operand doesn't touch the operator (`operandApart`).
@@ -263,7 +264,7 @@ def Spelt: Expr → List Item → Prop
     ∃ (sign: Item) (more: List Item) => read = [sign, ..more]
       ∧ signKind sign.kind = True
       ∧ sign.leaf.word = operator
-      ∧ negativeNumeral [sign, ..more] = (sign.kind == Minus && operand.numeral1)
+      ∧ (negativeNumeral [sign, ..more] = True → operand.numeral1 = True)
       ∧ operand.unary1 = True
       ∧ Spelt operand more
   | Infix kind left operator right, read =>
@@ -1553,8 +1554,8 @@ theorem argStarts ∀ (modes: Modes) (argument: Expr) (first: Item) (more later:
 --| A sign on an atom, spelt on one line, at the argument level: the sign glued to the atom, read as a negative numeral
 --| (`NumberBase`) where it is `-` on a numeral, and as a sign on an argument (`SignBase`) otherwise.
 --|
---| Proof idea: the spacing `argumentGlue` gives is `argumentPrefix`'s; `Spelt` says whether `negativeNumeral` holds,
---| and the operand is an atom or a bracket, read by `atomLine` one level down.
+--| Proof idea: the spacing `argumentGlue` gives is `argumentPrefix`'s; where `negativeNumeral` holds, `Spelt` says the
+--| operand is a numeral, and otherwise it is an atom or a bracket, read by `atomLine` one level down.
 theorem signArgLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (operator: Word) (operand: Expr) (read later: List Item) (depth: Nat)
@@ -1592,15 +1593,14 @@ theorem signArgLine ∀ (modes: Modes)
     | Zero, deep => Void.impossible (arithmetic [deep])
     | Succ below, deep =>
       let base: BaseReads (TreeN (Succ below)) modes sign more later (Prefix operator operand) :=
-        match glued: (sign.kind == Minus && operand.numeral1) with
+        match negative: negativeNumeral [sign, ..more] with
           | False =>
             let signs: (sign.kind = Minus
               ∧ negativeNumeral [sign, ..more ++ later] = False
               ∧ argumentMinus [sign, ..more ++ later] = True)
               ∨ (sign.kind = Bang ∧ argumentBang [sign, ..more ++ later] = True) :=
               match signCases sign.kind isSign with
-                | Inl isMinus =>
-                  Inl (isMinus, (rewrite numeralAfter then Eq.trans numeral glued), (rewrite isMinus, atMore))
+                | Inl isMinus => Inl (isMinus, (rewrite numeralAfter then negative), (rewrite isMinus, atMore))
                 | Inr isBang => Inr (isBang, (rewrite isBang, atMore))
             Inr
               (Inr
@@ -1623,16 +1623,16 @@ theorem signArgLine ∀ (modes: Modes)
                           after
                       ))))))
           | True =>
-            match operand, operandSpelt, numeral, glued with
-              | Atom kind word, (number, isNumber, isKind, isNumberWord, _), numeral, glued =>
-                let isMinus: sign.kind = Minus := minusOf sign.kind (Bool.andLeft glued)
-                let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then Eq.trans numeral glued
+            match operand, operandSpelt, numeral negative with
+              | Atom kind word, (number, isNumber, isKind, isNumberWord, _), _ =>
+                let isMinus: sign.kind = Minus := negativeMinus sign more negative
+                let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then negative
                 let negNumber: negativeNumeral [sign, number, ..later] = True := atNumber
                 Inr
                   (Inr
                     (Inr
                       (Inr (Inr (Inl (number, isNumber, (rewrite isWord, isKind, isNumberWord), isMinus, negNumber))))))
-              | other, _, _, never => (Bool.falseNotTrue (Bool.andRight never)).impossible
+              | other, _, never => (Bool.falseNotTrue never).impossible
       (sign, more, isRead, openSign, after sign.kind, base)
 
 --| An argument spelt on one line: what `arguments` reads for each argument.
@@ -1904,12 +1904,23 @@ theorem signOr ∀ (kind: Tok) (signed: signKind kind = True): (kind == Minus ||
 
 theorem minusOf ∀ (kind: Tok) (minus: (kind == Minus) = True): kind = Minus := cases
 
+--| A negative numeral starts with `-`.
+theorem negativeMinus ∀ (sign: Item) (more: List Item)
+    (numeral: negativeNumeral [sign, ..more] = True):
+    sign.kind = Minus :=
+  match more, numeral with
+    | [_, .._], numeral => minusOf sign.kind (Bool.andLeft numeral)
+    | [], never => (Bool.falseNotTrue never).impossible
+
+--| The `-1` of `def d: A := f -x [-1]` (`lexedLineIs`) is a negative numeral: `negativeMinus` isn't vacuous.
+theorem negativeMinusExample: (lexedAt 9).kind = Minus := negativeMinus (lexedAt 9) [lexedAt 10] byComputing
+
 --| A spelt expression, nothing after it continuing it, is what `unary` reads: a sign and its operand, a `-` glued to
 --| a numeral as one atom, or anything else as `app` reads it.
 --|
---| Proof idea: by induction on the prefixes. A sign whose operand is no numeral after `-` is `UnaryReads`' sign
---| reading, the operand read by `unaryLine` one level down; a `-` glued to a numeral is the negative numeral's atom
---| (`NumberBase`), which `Spelt` says the parser sees exactly there; anything else is `appAny`, after no sign.
+--| Proof idea: by induction on the prefixes. A sign the parser doesn't read as a negative numeral is `UnaryReads`'
+--| sign reading, the operand read by `unaryLine` one level down; a negative numeral is the numeral's atom
+--| (`NumberBase`), its operand a numeral by `Spelt`; anything else is `appAny`, after no sign.
 theorem unaryLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read rest: List Item) (depth: Nat)
@@ -1958,7 +1969,7 @@ theorem unaryLine ∀ (modes: Modes)
           let laterMore: laterInLine more = True := rewrite isMore then Bool.andRight inFirst
           let noBar := noBarLine modes sign (more ++ rest) (lineJoin more rest lineMore lineRest)
           let numeralAfter: negativeNumeral [sign, ..more ++ rest] = negativeNumeral [sign, ..more] := rewrite isMore
-          match glued: (sign.kind == Minus && operand.numeral1) with
+          match negative: negativeNumeral [sign, ..more] with
             | False => Inl (
               sign,
               more,
@@ -1968,7 +1979,7 @@ theorem unaryLine ∀ (modes: Modes)
               openSign,
               signOr sign.kind isSign,
               noBar,
-              (rewrite numeralAfter, numeral then andRightFalse _ _ glued),
+              (rewrite numeralAfter then andRightFalse _ _ negative),
               unaryLine modes quiet operand more rest below
                 (arithmetic [deep])
                 operandSpelt
@@ -1981,11 +1992,10 @@ theorem unaryLine ∀ (modes: Modes)
                 operandUnary
             )
             | True =>
-              match operand, operandSpelt, numeral, glued with
-                | Atom kind word, (number, isNumber, isKind, isNumberWord, _), numeral, glued =>
-                  let isMinus: sign.kind = Minus := minusOf sign.kind (Bool.andLeft glued)
-                  let atMore: negativeNumeral [sign, ..more] = True := Eq.trans numeral glued
-                  let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then atMore
+              match operand, operandSpelt, numeral negative with
+                | Atom kind word, (number, isNumber, isKind, isNumberWord, _), _ =>
+                  let isMinus: sign.kind = Minus := negativeMinus sign more negative
+                  let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then negative
                   let negNumber: negativeNumeral [sign, number, ..rest] = True := atNumber
                   let atomReads: AtomReads
                     (TreeN (Succ below))
@@ -2015,10 +2025,10 @@ theorem unaryLine ∀ (modes: Modes)
                       openSign,
                       (rewrite isMinus),
                       noBar,
-                      Inr (Bool.andLeft glued, (rewrite isNumber then negNumber)),
+                      Inr ((rewrite isMinus), (rewrite isNumber then negNumber)),
                       Inl ((rewrite peekFirst modes sign (more ++ rest) openSign, isMinus), atomReads, ends.noArgument)
                     )
-                | other, _, _, never => (Bool.falseNotTrue (Bool.andRight never)).impossible
+                | other, _, never => (Bool.falseNotTrue never).impossible
         | Infix _ _ _ _, _, _, _, _ => (Bool.falseNotTrue unary).impossible
         | other, _, never, _, _ => (Bool.falseNotTrue never).impossible
 
@@ -4741,7 +4751,7 @@ theorem readsBackSignExample: Parse.run
       byComputing,
       byComputing,
       byComputing,
-      byComputing,
+      (never => (Bool.falseNotTrue never).impossible),
       byComputing,
       (
         wordItem LParen "(" 6,
@@ -4758,7 +4768,7 @@ theorem readsBackSignExample: Parse.run
           byComputing,
           byComputing,
           byComputing,
-          byComputing,
+          (_ => byComputing),
           byComputing,
           (gluedOne, byComputing, byComputing, byComputing, byComputing)
         )
@@ -4846,7 +4856,7 @@ theorem readsBackSignArgExample: Parse.run
         byComputing,
         byComputing,
         byComputing,
-        byComputing,
+        (never => (Bool.falseNotTrue never).impossible),
         byComputing,
         (spacedItem Lower "x" 7 True False, byComputing, byComputing, byComputing, byComputing)
       ),
@@ -4868,7 +4878,7 @@ theorem readsBackSignArgExample: Parse.run
           byComputing,
           byComputing,
           byComputing,
-          byComputing,
+          (never => (Bool.falseNotTrue never).impossible),
           byComputing,
           (spacedItem Lower "y" 9 True False, byComputing, byComputing, byComputing, byComputing)
         ),
@@ -4883,7 +4893,7 @@ theorem readsBackSignArgExample: Parse.run
             byComputing,
             byComputing,
             byComputing,
-            byComputing,
+            (_ => byComputing),
             byComputing,
             (spacedItem Num "1" 11 True False, byComputing, byComputing, byComputing, byComputing)
           ),
@@ -5110,7 +5120,7 @@ theorem readsBackLexedExample: Parse.run
         byComputing,
         byComputing,
         byComputing,
-        byComputing,
+        (never => (Bool.falseNotTrue never).impossible),
         byComputing,
         (lexedAt 7, byComputing, byComputing, byComputing, byComputing)
       ),
@@ -5136,7 +5146,7 @@ theorem readsBackLexedExample: Parse.run
             byComputing,
             byComputing,
             byComputing,
-            byComputing,
+            (_ => byComputing),
             byComputing,
             (lexedAt 10, byComputing, byComputing, byComputing, byComputing)
           ),
@@ -5151,6 +5161,76 @@ theorem readsBackLexedExample: Parse.run
     byComputing
     byComputing
     byComputing
+
+-- A `-` before a numeral, apart from it across a comment (SW-4077): a sign on its operand, not a negative numeral.
+
+--| `def d: A := (- -- c⏎  1)`: the comment ends the line, so the `1` isn't glued to the `-`.
+def commentLine: List Item := lexedItems "def d: A := (- -- c\n  1)\n"
+
+--| The lexer's item at `index` of `commentLine`.
+def commentAt (index: Nat): Item := match commentLine.drop index with
+  | [item, .._] => item
+  | [] => lexedAt 0
+
+theorem commentLineIs: commentLine
+      = [
+        commentAt 0,
+        commentAt 1,
+        commentAt 2,
+        commentAt 3,
+        commentAt 4,
+        commentAt 5,
+        commentAt 6,
+        commentAt 7,
+        commentAt 8
+      ] :=
+  byComputing
+
+--| The `-` on `1`, apart from it: the parser reads no negative numeral, though the operand is a numeral after `-`.
+theorem commentMinusApart: negativeNumeral [commentAt 6, commentAt 7] = False
+      ∧ ((commentAt 6).kind == Minus && (Atom Num (commentAt 7).leaf.word).numeral1) = True :=
+  (byComputing, byComputing)
+
+--| `(- -- c⏎  1)`.
+def commentValue: Expr :=
+  Paren
+    (commentAt 5).leaf.word
+    (Prefix (commentAt 6).leaf.word (Atom Num (commentAt 7).leaf.word))
+    (commentAt 8).leaf.word
+
+--| `Spelt` holds of the lexer's items for `(- -- c⏎  1)`: a `-` read as no negative numeral asks nothing of its
+--| operand.
+theorem commentSpeltExample: Spelt commentValue [commentAt 5, commentAt 6, commentAt 7, commentAt 8] := (
+  commentAt 5,
+  [commentAt 6, commentAt 7],
+  commentAt 8,
+  byComputing,
+  byComputing,
+  byComputing,
+  byComputing,
+  byComputing,
+  (
+    commentAt 6,
+    [commentAt 7],
+    byComputing,
+    byComputing,
+    byComputing,
+    (never => (Bool.falseNotTrue never).impossible),
+    byComputing,
+    (commentAt 7, byComputing, byComputing, byComputing, byComputing)
+  )
+)
+
+--| The parser reads `def d: A := (- -- c⏎  1)` back as `commentValue`.
+theorem readsBackCommentExample: Parse.run commentLine (() =>
+      let decl := declaration Seen.start
+      decl)
+      = Ok
+        (Definition []
+          (plainHeader (commentAt 0) (commentAt 1) (commentAt 2) (Atom Upper (commentAt 3).leaf.word))
+          (Assigned (commentAt 4).leaf.word.comments commentValue)) :=
+  byComputing
+
 --| `def d: A := a - b - c`: `-` nests to the left, and spaced from its operand is no sign.
 theorem readsBackMinusExample: Parse.run
       [
@@ -5852,7 +5932,7 @@ theorem readsBackLexedOpExample: Parse.run
           byComputing,
           byComputing,
           byComputing,
-          byComputing,
+          (never => (Bool.falseNotTrue never).impossible),
           byComputing,
           (lexedOpAt 15, byComputing, byComputing, byComputing, byComputing)
         )
@@ -6329,7 +6409,7 @@ theorem readsBackLexedLogicExample: Parse.run
         byComputing,
         byComputing,
         byComputing,
-        byComputing,
+        (never => (Bool.falseNotTrue never).impossible),
         byComputing,
         (lexedLogicAt 13, byComputing, byComputing, byComputing, byComputing)
       )
