@@ -137,6 +137,13 @@ def trailingAt (behind: List Leaf) (steps: Nat) (comment: Comment): List Leaf :=
   | [leaf, ..earlier], Succ more => [leaf, ..trailingAt earlier more comment]
   | _, _ => behind
 
+--| Whether a bar's trailing comment that stays starts the line below
+--| instead: the base's comment is printed after the bar, so the bar's own
+--| would run into it on one line.
+def barBelow (leaf: Leaf) (behind ahead: List Leaf): Bool := match leaf.kind, behind, ahead with
+  | Pipe, [previous, .._], [_, .._] => previous.trivia.trailing.isSome
+  | _, _, _ => False
+
 --| Rule 1 over `rest`, with `behind` the leaves already settled, newest
 --| first, and `bumped` a comment for the next leaf's own-line comments.
 def homeFrom (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): List Leaf := match rest with
@@ -147,12 +154,8 @@ def homeFrom (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): Lis
       | Some comment if movable leaf behind after =>
         match stepsBack leaf behind after 0 with
           | Zero =>
-            match leaf.kind, behind, after with
-              | Pipe, [previous, .._], [_, .._] if previous.trivia.trailing.isSome =>
-                -- The base's comment is printed after the bar, so the bar's
-                -- own would run into it on one line: it starts the line below.
-                homeFrom [leaf.withTrailing None, ..behind] (Some comment.unspaced) after
-              | _, _, _ => homeFrom [leaf, ..behind] None after
+            if barBelow leaf behind after then homeFrom [leaf.withTrailing None, ..behind] (Some comment.unspaced) after
+            else homeFrom [leaf, ..behind] None after
           | steps => homeFrom [leaf.withTrailing None, ..trailingAt behind steps comment] None after
       | _ => homeFrom [leaf, ..behind] None after
 
@@ -186,9 +189,10 @@ def commasFrom (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (en
     | [] => { leaves = done.reverse, end = receive end }
     | [leaf, ..after] =>
       let leaf := { leaf | trivia = receive leaf.trivia }
-      match leaf.kind, commaCarries leaf.trivia with
-        | Comma, Some carry => commasFrom [{ leaf | trivia = Trivia.empty }, ..done] (Some carry) after end
-        | _, _ => commasFrom [leaf, ..done] None after end
+      match commaCarries leaf.trivia with
+        | Some carry if leaf.kind == Comma =>
+          commasFrom [{ leaf | trivia = Trivia.empty }, ..done] (Some carry) after end
+        | _ => commasFrom [leaf, ..done] None after end
 
 -- Rule 3: comments after `->` go before it.
 
@@ -237,12 +241,12 @@ def semicolonAfter (ahead: List Leaf) (depth: Nat): Bool := match ahead with
 def letsFrom (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
   | [leaf, ..after] =>
-    match leaf.kind, leaf.trivia.trailing with
-      | ColonEq, Some comment if letBefore behind 0 && semicolonAfter after 0 =>
+    match leaf.trivia.trailing with
+      | Some comment if leaf.kind == ColonEq && letBefore behind 0 && semicolonAfter after 0 =>
         let moved :=
           { leaf | trivia = { leaf.trivia | leading = leaf.trivia.leading ++ [comment.unspaced], trailing = None } }
         letsFrom [moved, ..behind] after
-      | _, _ => letsFrom [leaf, ..behind] after
+      | _ => letsFrom [leaf, ..behind] after
 
 -- Rule 5: comment text loses its trailing spaces.
 
