@@ -720,23 +720,28 @@ def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (co
     | Succ more =>
       let before := offset()
       let statementModes := { modes | allow = Some before }
-      let kind := match statementModes.peek with
-        | Some KwLet => LetLine
-        | Some KwDef => DefLine
-        | Some KwTheorem => DefLine
-        | Some At => DefLine
-        | _ => ExprLine
+      let kind := lineKind statementModes
       let line := statement self { statementModes | lines = [{ column, many, kind }, ..modes.lines] }
       let done := [line, ..found]
-      let again := match left() with
-        | [next, .._] =>
-          offset() != before
-            && many
-            && next.leaf.token.lineStart
-            && next.leaf.token.column == column
-            && !endsBlocks next.kind
-        | [] => False
-      if again then blockLines more self modes column many done else done
+      if blockAgain before column many then blockLines more self modes column many done else done
+
+--| What a block's line is, by its first token.
+def lineKind (modes: Modes): {Parse Item} LineKind := match modes.peek with
+  | Some KwLet => LetLine
+  | Some KwDef => DefLine
+  | Some KwTheorem => DefLine
+  | Some At => DefLine
+  | _ => ExprLine
+
+--| Whether a block goes on after a line that started at offset `before`:
+--| the line read something, and the next starts a line at the block's
+--| column with what doesn't end blocks.
+def blockAgain (before column: Nat) (many: Bool): {Parse Item} Bool :=
+  let at := offset()
+  match left() with
+    | [next, .._] =>
+      at != before && many && next.leaf.token.lineStart && next.leaf.token.column == column && !endsBlocks next.kind
+    | [] => False
 
 def endsBlocks: Tok → Bool
   | Pipe => True
