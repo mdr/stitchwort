@@ -1040,3 +1040,153 @@ theorem bracketContentHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
                     next
                     entered
                     after
+
+--| A tuple or list (`commaBracket`) as one element.
+theorem commaBracketHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (indent column: Nat)
+    (opener: OpenerToken kinds open.text)
+    (hoisted: around.hoisted = True)
+    (openTrailed: TrailsComment open)
+    (closer: CloserToken kinds close.text)
+    (closeComments: NotesComment close.comments.above)
+    (closeTrailed: TrailsComment close)
+    (comma: kinds "," = Comma)
+    (each: ItemsHang kinds
+      (indent + 2)
+      (list && items.all Expr.plainItem)
+      around.inArm
+      open.trails
+      open.trails
+      (around.at + 1)
+      items)
+    (filledKeys: allKeysFrom
+      (around.at + 1)
+      (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
+      = True)
+    (brokenKeys: allKeysFrom
+      (around.at + 1)
+      (brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
+      = True)
+    (closeBefore: lastTrails open.trails items = True → (ListOf open items False close).trailsBeforeClose = True):
+    ElHangs kinds
+      (commaBracket list open items close around)
+      indent
+      column
+      False
+      (close.trails || (ListOf open items False close).trailsBeforeClose)
+      wordStart :=
+  state entry =>
+    hangsGroup kinds
+      (bracketContent list open items close around)
+      (bracketContent list open items close around).forcesBreak
+      indent
+      (Entered indent column False state entry (wordStart indent entry))
+      (place hang =>
+        Ended
+          (openedBy state (wordStart indent entry))
+          (close.trails || (ListOf open items False close).trailsBeforeClose)
+          place
+          ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
+      (bracketContentHangs kinds list open items close around indent column opener hoisted openTrailed closer
+          closeComments closeTrailed comma each filledKeys brokenKeys closeBefore state entry)
+
+--| A bracket's trailing comment: on its closer, or, the closer being one, on what comes before it.
+theorem bracketTrails ∀ (open: Word) (items: List Expr) (list: Bool) (close: Word)
+    (closer: isCloserText close.text = True):
+    (ListOf open items list close).trails = (close.trails || (ListOf open items False close).trailsBeforeClose) :=
+  rewrite List.reverseSnoc [open, ..itemsWords items] close, closer
+
+theorem tupleTrails ∀ (open: Word) (items: List Expr) (list: Bool) (close: Word)
+    (closer: isCloserText close.text = True):
+    (Tuple open items list close).trails = (close.trails || (ListOf open items False close).trailsBeforeClose) :=
+  rewrite List.reverseSnoc [open, ..itemsWords items] close, closer
+
+--| A list's items each hang, wherever the list is: from its indentation, `inset` further in.
+def ItemsHangFrom (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (around: Around): Prop :=
+  ∀ (indent: Nat) => ItemsHang kinds
+    (indent + 2)
+    (list && items.all Expr.plainItem)
+    around.inArm
+    open.trails
+    open.trails
+    (around.at + 1)
+    items
+
+--| A list (`[ … ]`) as an element, its trailing comment as `bracketTrails` reads it.
+theorem listHangs ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
+    (around: Around) (indent column: Nat)
+    (opener: OpenerToken kinds open.text)
+    (openTrailed: TrailsComment open)
+    (closer: CloserToken kinds close.text)
+    (closeComments: NotesComment close.comments.above)
+    (closeTrailed: TrailsComment close)
+    (comma: kinds "," = Comma)
+    (bare: open.leading around around.at = [])
+    (each: ItemsHangFrom kinds True open items around)
+    (filledKeys: allKeysFrom
+      (around.at + 1)
+      (cells (items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
+      = True)
+    (brokenKeys: allKeysFrom
+      (around.at + 1)
+      (brokenItems (items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
+      = True)
+    (closeBefore: lastTrails open.trails items = True → (ListOf open items False close).trailsBeforeClose = True):
+    ElHangs kinds
+      (Expr.el (ListOf open items trailing close) around)
+      indent
+      column
+      around.before
+      (close.trails || (ListOf open items False close).trailsBeforeClose)
+      wordStart :=
+  let inside := { around | hoisted = True }
+  framedHangs kinds open around
+    (commaBracket True open items close inside)
+    indent
+    column
+    (close.trails || (ListOf open items False close).trailsBeforeClose)
+    bare
+    (inset seat =>
+      commaBracketHangs kinds True open items close inside inset seat opener byComputing openTrailed closer
+          closeComments closeTrailed comma
+          (each inset)
+          filledKeys
+          brokenKeys
+          closeBefore)
+
+--| A tuple (`( … , … )`) as an element, its trailing comment as `tupleTrails` reads it.
+theorem tupleHangs ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
+    (around: Around) (indent column: Nat)
+    (opener: OpenerToken kinds open.text)
+    (openTrailed: TrailsComment open)
+    (closer: CloserToken kinds close.text)
+    (closeComments: NotesComment close.comments.above)
+    (closeTrailed: TrailsComment close)
+    (comma: kinds "," = Comma)
+    (bare: open.leading around around.at = [])
+    (each: ItemsHangFrom kinds False open items around)
+    (filledKeys: allKeysFrom (around.at + 1) (cells False around.inArm open.trails (around.at + 1) items) = True)
+    (brokenKeys: allKeysFrom (around.at + 1) (brokenItems False around.inArm True open.trails (around.at + 1) items)
+      = True)
+    (closeBefore: lastTrails open.trails items = True → (ListOf open items False close).trailsBeforeClose = True):
+    ElHangs kinds
+      (Expr.el (Tuple open items trailing close) around)
+      indent
+      column
+      around.before
+      (close.trails || (ListOf open items False close).trailsBeforeClose)
+      wordStart :=
+  let inside := { around | hoisted = True }
+  framedHangs kinds open around
+    (commaBracket False open items close inside)
+    indent
+    column
+    (close.trails || (ListOf open items False close).trailsBeforeClose)
+    bare
+    (inset seat =>
+      commaBracketHangs kinds False open items close inside inset seat opener byComputing openTrailed closer
+          closeComments closeTrailed comma
+          (each inset)
+          filledKeys
+          brokenKeys
+          closeBefore)
