@@ -23951,12 +23951,12 @@
     {
       "id": 3980,
       "title": "[Opus] Self-hosted fmt S4a program: field access (and dot calls) ahead of the rest of S4: SW-3961 found it the only thing outside S1-S3 for 478 of 5,294 sampled declarations (~doubles coverage); next by count: test 392, namespace 137, import 124, definition arms 105, list patterns 63, named arguments 51",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Worktree made 18 Nov; agent held: 5-min load 26 at start (verifier + two lane builds). Starts when load is 15 or below.\n\nLane (Opus, 18 Nov, 12:49-12:58): built slice 4a (commit 85a2fcdfc on lane/SW-3980). FieldAccess printed as Rust's join (glued, never breaks); Expr.simple for fields; within4a, Tok.within4a, printed4a, formatWithin moved to Slice4a.sw; Fmt.Twin --stage s4a, dev/fmt-twin s4a. Gate: goldens 304/304, repo --sample 300 963/963 of 5,854 (16.4%, from 9.5% for S1-S3 on the same sample); s1/s2/s3 all 100%. Left out: method sections, f(), (x -- c).f, - 1.f. F1 tree unchanged. Fmt.Tests 61/61. Notes: tools/fmt/NOTES.md, Slice 4a.\n",
+      "body": "Worktree made 18 Nov; agent held: 5-min load 26 at start (verifier + two lane builds). Starts when load is 15 or below.\n\nLane (Opus, 18 Nov, 12:49-12:58): built slice 4a (commit 85a2fcdfc on lane/SW-3980). FieldAccess printed as Rust's join (glued, never breaks); Expr.simple for fields; within4a, Tok.within4a, printed4a, formatWithin moved to Slice4a.sw; Fmt.Twin --stage s4a, dev/fmt-twin s4a. Gate: goldens 304/304, repo --sample 300 963/963 of 5,854 (16.4%, from 9.5% for S1-S3 on the same sample); s1/s2/s3 all 100%. Left out: method sections, f(), (x -- c).f, - 1.f. F1 tree unchanged. Fmt.Tests 61/61. Notes: tools/fmt/NOTES.md, Slice 4a.\n\nMerged 18 Nov, ~10 min (est. 30). Gate 304/304, 963/963; coverage 16.4%. Left out: .f sections, f(), (x -- c).f, - 1.abs.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24060,7 +24060,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
