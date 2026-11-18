@@ -1,5 +1,5 @@
 {
-  "next": 4057,
+  "next": 4060,
   "tickets": [
     {
       "id": 47,
@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).\n\nAlso (SW-4019): readsNever for any Parse.Invariant; readsAfter0 generalised; SameOrOut/sameOrOutThen as a kept-or-replaced ReadsIn spec.\n\nAlso (SW-4022): a Bool List.allAppend (allAppendB), allReverseOnto, andSwap.\n\nAlso (SW-4030): joinedWithIs (Doc.joinedWith as concatMap) into Std.Doc; chainedSplit generic list lemma.\n\nAlso (SW-4020): Parse readsAtMark, readsAtLoopFirst, readsAtLeft (generic over Parse).\n\nAlso (SW-4021): List concatAppend (check std first), List.allPrefix/allSuffix for Bool all.\n\nAlso (SW-4023): Parse located-lexeme lemmas atThen/atMarkThen/atManyFrom/atMany/atManyFromOr/EachAt/manyKeeps, Yields/yieldsThen; List.allConcat; List.takeWhileCons; Bool.notFalse, andFalseRight.\n\nAlso (SW-4034): startsWith \"--\" to toList prefix lemma.\n\nAlso (SW-4024): InStep/Lexes family (reading in step with the source: offsets tied to input; bind, mark, many, recursiveWith); readsAtThenMoved/readsAtMark/readsAtNextAny/readsAtSkip/readsAtLocated; takeOwnLength, allOfConcat.\n\nAlso (SW-4039): reverseConsAppend; List.concatAppend (again; SW-4021 too).\n\nAlso (SW-4024): Parse.readsAtThen with the stop offset (readsAtThenMoved/atThen); RoundOk, atManyFromOr.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).\n\nAlso (SW-4019): readsNever for any Parse.Invariant; readsAfter0 generalised; SameOrOut/sameOrOutThen as a kept-or-replaced ReadsIn spec.\n\nAlso (SW-4022): a Bool List.allAppend (allAppendB), allReverseOnto, andSwap.\n\nAlso (SW-4030): joinedWithIs (Doc.joinedWith as concatMap) into Std.Doc; chainedSplit generic list lemma.\n\nAlso (SW-4020): Parse readsAtMark, readsAtLoopFirst, readsAtLeft (generic over Parse).\n\nAlso (SW-4021): List concatAppend (check std first), List.allPrefix/allSuffix for Bool all.\n\nAlso (SW-4023): Parse located-lexeme lemmas atThen/atMarkThen/atManyFrom/atMany/atManyFromOr/EachAt/manyKeeps, Yields/yieldsThen; List.allConcat; List.takeWhileCons; Bool.notFalse, andFalseRight.\n\nAlso (SW-4034): startsWith \"--\" to toList prefix lemma.\n\nAlso (SW-4024): InStep/Lexes family (reading in step with the source: offsets tied to input; bind, mark, many, recursiveWith); readsAtThenMoved/readsAtMark/readsAtNextAny/readsAtSkip/readsAtLocated; takeOwnLength, allOfConcat.\n\nAlso (SW-4039): reverseConsAppend; List.concatAppend (again; SW-4021 too).\n\nAlso (SW-4024): Parse.readsAtThen with the stop offset (readsAtThenMoved/atThen); RoundOk, atManyFromOr.\n\nAlso (SW-4045): Bool List allAppend/allReverse; Std.Doc keys allKeysAppend/Take/Drop, filterKeys, keysConcat; Text withoutNewline/dashed (containsChars/startsWithChars to characters).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24077,7 +24077,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.\n\nAlso (SW-3995): census script --show to print sample locations of refused shapes; dev README: the shell is zsh, loop over files rather than a variable of paths.\n\nAlso (SW-3999): the slim recipe must leave out every *Proofs.sw (LexProofs, SettleProofs, ParseProofs, PassProofs); README: never share or delete a FMT_TWIN_CACHE in use, a repo sample is ~1 min a stage in batch mode; the per-file fallback hits E-RESOURCE on LexProofs.sw.\n\nAlso (SW-4020): stitchwort check --show-type NAME to print a lemma's expanded type.",
+      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.\n\nAlso (SW-3995): census script --show to print sample locations of refused shapes; dev README: the shell is zsh, loop over files rather than a variable of paths.\n\nAlso (SW-3999): the slim recipe must leave out every *Proofs.sw (LexProofs, SettleProofs, ParseProofs, PassProofs); README: never share or delete a FMT_TWIN_CACHE in use, a repo sample is ~1 min a stage in batch mode; the per-file fallback hits E-RESOURCE on LexProofs.sw.\n\nAlso (SW-4020): stitchwort check --show-type NAME to print a lemma's expanded type.\n\nAlso (SW-4045, SW-4048): board show N --body (plain body without jq).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24272,7 +24272,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.\n\nCheck (SW-3969): hangs is stronger than the sketch's (two clauses, counterexamples def d: A -> / B / C := x and def d / : A := x); confirm printedHangs covers them so the top theorem's condition is still discharged.\n\nOrchestrator's call (SW-3964): CommentsKept stays stated on settledBare (Rust's model), and SW-4006 proves bareSettles, rather than restating it on settledOnce, which would make glue free but weaken what it promises. Check this at the checkpoint.\n\nCheck (SW-3971): printLexes1 holds under DeclJoins and Every Printable (SW-4010 derives them); Joinable (App ...) needs arguments ≠ [] (the parser gives it); MayFollow Bang loosened to match the lexer exactly.\n\nFrom SW-4018: the five undischarged conditions (good for the source; laidOut for the source; plain1 of the source, now refused by the driver; rule N idle on the output; output at file level) each have a ticket (SW-4024, SW-4023, SW-3973, SW-4025); D-A narrowed within1 (qualified names, exponents); D-B driver refuses non-plain sources.\n\nCheckpoint review should look at SW-4034's internal statement changes: CloserFold's leftOf indent block moved into CloserSeat's Broken case (it was false when the inner's break lands at the indentation); LinkFacts/PairFacts weakened to RunOperator; printedHangs's DeclHangs hypothesis (to be discharged by SW-4045).\n\nAlso review (SW-4039): noteComment now reads withoutReturn note.text (a definition in printedFileLexes1's statement changed to make it true; crDropped); see SW-4054 for the underlying CR comment bug.",
+      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.\n\nCheck (SW-3969): hangs is stronger than the sketch's (two clauses, counterexamples def d: A -> / B / C := x and def d / : A := x); confirm printedHangs covers them so the top theorem's condition is still discharged.\n\nOrchestrator's call (SW-3964): CommentsKept stays stated on settledBare (Rust's model), and SW-4006 proves bareSettles, rather than restating it on settledOnce, which would make glue free but weaken what it promises. Check this at the checkpoint.\n\nCheck (SW-3971): printLexes1 holds under DeclJoins and Every Printable (SW-4010 derives them); Joinable (App ...) needs arguments ≠ [] (the parser gives it); MayFollow Bang loosened to match the lexer exactly.\n\nFrom SW-4018: the five undischarged conditions (good for the source; laidOut for the source; plain1 of the source, now refused by the driver; rule N idle on the output; output at file level) each have a ticket (SW-4024, SW-4023, SW-3973, SW-4025); D-A narrowed within1 (qualified names, exponents); D-B driver refuses non-plain sources.\n\nCheckpoint review should look at SW-4034's internal statement changes: CloserFold's leftOf indent block moved into CloserSeat's Broken case (it was false when the inner's break lands at the indentation); LinkFacts/PairFacts weakened to RunOperator; printedHangs's DeclHangs hypothesis (to be discharged by SW-4045).\n\nAlso review (SW-4039): noteComment now reads withoutReturn note.text (a definition in printedFileLexes1's statement changed to make it true; crDropped); see SW-4054 for the underlying CR comment bug.\n\nAlso review (SW-4045): printedHangs1Quiet carries DeclQuiet (a narrowing of what's covered: no comments above header leaves or inside type/value); orchestrator's call: accept for now and fix by SW-4057, SW-4058, SW-4035 so it shrinks to the four tree facts.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24692,7 +24692,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "SW-4045 finding 3 is this: items after one that trails a comment are entered at the comment's break without being moved down, so ItemsHang probably fails for a compound item there; after this change, extend ExprFacts beyond quiet items.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24817,12 +24817,12 @@
     {
       "id": 4045,
       "title": "[Opus] fmt S1 line-break 18h: derive DeclHangs from the tree facts, so printedHangs needs only within1/shaped1/sound/lexical1: each slice 1 expression's ElHangs from within1 by induction (assembling ItemsHang, ArgsHang, LinkFacts, PairFacts, HeldLowers, Coded, the bare arrow token, huggedBracket's opened form); TrailsComment from sound (commentText to IsComment); no comments above : and := (from shaped1/sound or a leaf lemma); the name's Plain/WordToken from nameWithin1 (SW-4034's Owed list in tools/fmt/NOTES.md)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 18:56 on Opus (est. 60 min). Lane notes, 19:28 (32 min):\n\n- Done: `printedHangs1Quiet` (Fmt.DeclFactsProofs): `hangs lexed.leaves = True` from within1, shaped1, sound, lexical1 and `DeclQuiet` (no own-line comments: name, `:`, `:=` bare; type and value `Expr.quiet1`). `printedHangs1` takes `DeclElements` in place of `DeclQuiet`; `printedHangs` unchanged.\n- Induction invariant `ExprFacts` (Fmt.ExprHangProofs.exprFacts), keys by `Fmt.QuietKeyProofs.quietKeys`, call hugs by `quietHug`.\n- Step 3 of the brief is false: comments above `:`, `:=` and the name are slice 1 and kept by the printer (counterexamples in NOTES, SW-4045). Two more statement gaps (noted elements' start under `wordStart`; items after a trailing comment in `brokenItems`) limit the induction to quiet expressions.\n- Checks: Fmt, Fmt.DeclHangProofs, DeclFactsProofs, ExprHangProofs, QuietKeyProofs clean; audits 0 failed (ExprHangProofs 4 sampling warnings, witnessed by `operatorWitnesses`); test Fmt.Tests 95/95.\n",
+      "body": "Started 18:56 on Opus (est. 60 min). Lane notes, 19:28 (32 min):\n\n- Done: `printedHangs1Quiet` (Fmt.DeclFactsProofs): `hangs lexed.leaves = True` from within1, shaped1, sound, lexical1 and `DeclQuiet` (no own-line comments: name, `:`, `:=` bare; type and value `Expr.quiet1`). `printedHangs1` takes `DeclElements` in place of `DeclQuiet`; `printedHangs` unchanged.\n- Induction invariant `ExprFacts` (Fmt.ExprHangProofs.exprFacts), keys by `Fmt.QuietKeyProofs.quietKeys`, call hugs by `quietHug`.\n- Step 3 of the brief is false: comments above `:`, `:=` and the name are slice 1 and kept by the printer (counterexamples in NOTES, SW-4045). Two more statement gaps (noted elements' start under `wordStart`; items after a trailing comment in `brokenItems`) limit the induction to quiet expressions.\n- Checks: Fmt, Fmt.DeclHangProofs, DeclFactsProofs, ExprHangProofs, QuietKeyProofs clean; audits 0 failed (ExprHangProofs 4 sampling warnings, witnessed by `operatorWitnesses`); test Fmt.Tests 95/95.\n\nMerged 18 Nov. 32 min (est. 60). Orchestrator's call on its D question: file the three findings (SW-4057, SW-4058, SW-4035) and accept DeclQuiet meanwhile; reversible and on the way to the four tree facts.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24969,6 +24969,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4057,
+      "title": "[Sonnet] fmt S1 hangs, noted header leaves: colonHangs/assignHangs and the name in a noted form built from leadingHangs, so comments above the name, : and := hang (def x⏎  -- c⏎  : T := a); drops that part of DeclQuiet (SW-4045 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4058,
+      "title": "[Opus] fmt S1 hangs, noted starts: ElHangs's start per element (leadStart for an element with comments above its first token, which starts its own line at leadColumn from any entry) through every rule-level hang lemma; use notedLeafHangs; drops quiet1's no-comment-above part (def x:⏎  -- c⏎  T := a) (SW-4045 finding 2; refactor across the hang files)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4059,
+      "title": "[Opus] stitchwort termination: a recursive theorem can't be passed whole as an argument to a lemma (refused even eta-expanded), forcing mutual copies (cellsKeys/brokenKeys); repro and fix or file (SW-4045)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
