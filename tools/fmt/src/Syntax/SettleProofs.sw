@@ -2,7 +2,7 @@
 --| (docs/proposals/self-hosted-fmt-s1-sketch.md, ticket 15).
 
 namespace Syntax.SettleProofs
-import Std (Bool, Char, Eq, List, Nat, Option, Text)
+import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (..)
 
 --| The leaves' tokens, comments aside.
@@ -186,3 +186,144 @@ theorem settledKeepsTokens ∀ (lexed: Lexed): tokens lexed.settled.leaves = tok
     _ = tokens commas.leaves := arrowsTokens commas.leaves
     _ = tokens homed := commasFromTokens [] None homed lexed.end
     _ = tokens lexed.leaves := homeFromTokens [] None lexed.leaves
+
+theorem allReverseOnto ∀ (p: a → Bool) (xs acc: List a)
+    (allXs: xs.all p = True)
+    (allAcc: acc.all p = True):
+    (xs.reverseOnto acc).all p = True :=
+  match xs with
+    | [] => allAcc
+    | [x, ..rest] =>
+      match held: p x with
+        | True => allReverseOnto p rest [x, ..acc] allXs (rewrite held then allAcc)
+
+--| A comma with no comment.
+def bareComma (leaf: Leaf): Bool := (leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone) || leaf.kind != Comma
+
+theorem carriesNoneBare ∀ (trivia: Trivia)
+    (none: commaCarries trivia = None):
+    (trivia.leading.isEmpty && trivia.trailing.isNone) = True :=
+  match trivia.leading, trivia.trailing with
+    | [], None => byComputing
+    | [_, .._], _ => cases
+
+theorem notCommaBare ∀ (leaf: Leaf) (other: (leaf.kind == Comma) = False): bareComma leaf = True :=
+  Bool.orRight (rewrite other)
+
+--| After rule 2 no comma holds a comment.
+theorem commasFromBare ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia)
+    (doneBare: done.all bareComma = True):
+    (commasFrom done carried rest end).leaves.all bareComma = True :=
+  match rest with
+    | [] => allReverseOnto bareComma done [] doneBare byComputing
+    | [leaf, ..after] =>
+      let received := { leaf | trivia = carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia }
+      match c: commaCarries received.trivia with
+        | None =>
+          commasFromBare
+            [received, ..done]
+            None
+            after
+            end
+            (rewrite Bool.orLeft (carriesNoneBare received.trivia c) then doneBare)
+        | Some carry =>
+          match k: leaf.kind == Comma with
+            | True => commasFromBare [{ received | trivia = Trivia.empty }, ..done] (Some carry) after end doneBare
+            | False => commasFromBare [received, ..done] None after end (rewrite notCommaBare received k then doneBare)
+
+theorem withoutLeadingBare ∀ (leaf: Leaf) (bare: bareComma leaf = True): bareComma (leaf.withLeading []) = True := cases
+
+theorem kindNotComma ∀ (leaf: Leaf) (kind: Tok)
+    (is: (leaf.kind == kind) = True)
+    (other: (kind == Comma) = False):
+    (leaf.kind == Comma) = False :=
+  rewrite DecEq.sound is then other
+
+--| Rule 3 gives a comma no comment.
+theorem arrowsFromBare ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
+    (doneBare: done.all bareComma = True)
+    (currentBare: bareComma current = True)
+    (restBare: rest.all bareComma = True):
+    (arrowsFrom done current rest).all bareComma = True :=
+  match rest with
+    | [] => allReverseOnto bareComma done [current] doneBare (rewrite currentBare)
+    | [next, ..more] =>
+      match nextBare: bareComma next with
+        | True =>
+          match moves: current.kind == Arrow && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) with
+            | True =>
+              let moved := { current |
+                trivia = { current.trivia |
+                  leading = current.trivia.leading
+                    ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+                    ++ next.trivia.leading,
+                  trailing = None
+                }
+              }
+              arrowsFromBare
+                [moved, ..done]
+                (next.withLeading [])
+                more
+                (rewrite notCommaBare moved (kindNotComma current Arrow (Bool.andLeft moves) byComputing) then doneBare)
+                (withoutLeadingBare next nextBare)
+                restBare
+            | False => arrowsFromBare [current, ..done] next more (rewrite currentBare then doneBare) nextBare restBare
+
+theorem arrowsBareCommas ∀ (leaves: List Leaf)
+    (bare: leaves.all bareComma = True):
+    (arrows leaves).all bareComma = True :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] =>
+      match firstBare: bareComma first with
+        | True => arrowsFromBare [] first rest byComputing firstBare bare
+
+--| Rule 4 gives a comma no comment.
+theorem letsFromBare ∀ (behind rest: List Leaf)
+    (behindBare: behind.all bareComma = True)
+    (restBare: rest.all bareComma = True):
+    (letsFrom behind rest).all bareComma = True :=
+  match rest with
+    | [] => allReverseOnto bareComma behind [] behindBare byComputing
+    | [leaf, ..after] =>
+      match leafBare: bareComma leaf with
+        | True =>
+          match leaf.trivia.trailing with
+            | None => letsFromBare [leaf, ..behind] after behindBare restBare
+            | Some comment =>
+              match moves: leaf.kind == ColonEq && letBefore behind 0 && semicolonAfter after 0 with
+                | True =>
+                  let moved := { leaf |
+                    trivia = { leaf.trivia | leading = leaf.trivia.leading ++ [comment.unspaced], trailing = None }
+                  }
+                  letsFromBare
+                    [moved, ..behind]
+                    after
+                    (rewrite notCommaBare moved (kindNotComma leaf ColonEq (Bool.andLeft moves) byComputing) then
+                      behindBare)
+                    restBare
+                | False => letsFromBare [leaf, ..behind] after behindBare restBare
+
+--| Rule 5 gives a comma no comment.
+theorem trimmedBare ∀ (leaves: List Leaf)
+    (bare: leaves.all bareComma = True):
+    (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })).all bareComma = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      match leafBare: bareComma leaf with
+        | True =>
+          let trimmedLeaf: bareComma { leaf | trivia = leaf.trivia.trimmed } = True := cases
+          rewrite trimmedLeaf then trimmedBare rest bare
+
+--| After rule N no comma holds a comment, so the tree needs no place for
+--| one.
+theorem settledCommasBare ∀ (lexed: Lexed): lexed.settled.leaves.all bareComma = True :=
+  let homed := homeFrom [] None lexed.leaves
+  let commas := commasFrom [] None homed lexed.end
+  trimmedBare
+    (letsFrom [] (arrows commas.leaves))
+    (letsFromBare []
+      (arrows commas.leaves)
+      byComputing
+      (arrowsBareCommas commas.leaves (commasFromBare [] None homed lexed.end byComputing)))
