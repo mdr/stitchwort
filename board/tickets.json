@@ -23317,7 +23317,7 @@
     {
       "id": 3933,
       "title": "[Opus] Bug on main: a definition with more lambdas than its type shows behind an opaque nickname (opaque def Fun: Type := Nat -> Nat; opaque def inc: Fun unfolding Fun := m => m + 1) breaks the fast runtime (E-RUNTIME v0 read where not bound; machine.rs:556 panic with a parameter first) and JS (lib.rs:4198 index out of bounds); run --reference is right. Fix with one view of a definition's parameters for erase::of_def, proof_positions, rt def_shape, specialise and JS, read through one function (SW-3931 T1+T2; reproducer in docs/reviews/SW-3931-glued-kept-types-diff.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
