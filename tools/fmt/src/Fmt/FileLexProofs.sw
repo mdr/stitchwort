@@ -344,15 +344,82 @@ def Seamed (pieces: List Piece): Prop :=
   ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => pieces = [Code kind text, ..rest]
     ∧ Ended (pieces.foldLeft Laid.start Laid.lay)
 
+--| What may follow a declaration's last token: spaces and a trailing comment, no line break.
+def TailOk: List Piece → Prop
+  | [] => True
+  | [Gap count] => True
+  | [Remark text] => True
+  | [Gap count, Remark text] => True
+  | _ => False
+
+--| Pieces that start with a token and have no line break after their last one leave nothing waiting: a trailing
+--| comment is on the token's line, so it waits for nothing.
+theorem seamedOfTail ∀ (pieces front: List Piece) (kind first: Tok) (start text: Text) (rest tail: List Piece)
+    (starts: pieces = [Code first start, ..rest])
+    (split: pieces = front ++ [Code kind text, ..tail])
+    (ok: TailOk tail):
+    Seamed pieces :=
+  let ended: Ended (pieces.foldLeft Laid.start Laid.lay) :=
+    rewrite split, List.foldLeftAppend front Laid.start [Code kind text, ..tail] Laid.lay then
+      match tail, ok with
+        | [], _ => (byComputing, byComputing, byComputing)
+        | [Gap count], _ => (byComputing, byComputing, byComputing)
+        | [Remark comment], _ => (byComputing, byComputing, byComputing)
+        | [Gap count, Remark comment], _ => (byComputing, byComputing, byComputing)
+        | [Code _ _, .._], never => cases
+        | [Break, .._], never => cases
+        | [Gap _, Code _ _, .._], never => cases
+        | [Gap _, Break, .._], never => cases
+        | [Gap _, Gap _, .._], never => cases
+        | [Gap _, Remark _, _, .._], never => cases
+        | [Remark _, _, .._], never => cases
+  Witness first (Witness start (Witness rest (Both starts ended)))
+
+--| `printedStart1`, the first half of `printedSeam1` (open): a slice 1 declaration's printed text starts with a
+--| token, its `def`, with no space, line break or comment before it.
+--|
+--| Why it should hold: `defDoc` starts with the `def` chunk (`Told`: `defDoc.told Spot.lineStart` starts `Said "def"`),
+--| so the first event of the printed trace is `def`, with no blank line or comment before it (`printTold`); the
+--| hang fold's `Opening` puts it at column 0 (`hangsPrinted`), so no spaces come before it (`eventsOf`: an event
+--| starts its line at the width of the spaces before it); and every printed piece is non-empty (`printedPiecesOk`'s
+--| `Good`), so the first piece is that word.
+theorem printedStart1 ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True):
+    ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => decl.pieces1 = [Code kind text, ..rest] :=
+  ?
+
+--| `printedFinish1`, the second half of `printedSeam1` (open): a slice 1 declaration's printed text has a last token,
+--| and after it only spaces and a trailing comment on its line.
+--|
+--| Why it should hold, and what is missing: the printer ends on a line (`Agrees` at a `Mid` or `Held` place says
+--| `lineBlank out = False`), and no comment stands alone as the last word (`Joins` with the final edge `Ended`).
+--| Neither is exposed by `printPuts`/`printedJoins`: `Puts` hands only the place and trace to its `spec`, and
+--| `StackJoins` ends in `True`, not in a condition on the last edge.
+theorem printedFinish1 ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True):
+    ∃ (front: List Piece) => ∃ (kind: Tok) => ∃ (text: Text) => ∃ (tail: List Piece) => decl.pieces1
+      = front ++ [Code kind text, ..tail]
+      ∧ TailOk tail :=
+  ?
+
 --| `printedSeam1`: a slice 1 declaration's printed text starts with its `def` and ends with its last token or that
---| token's trailing comment, with no line break or spaces after.
+--| token's trailing comment, with no line break after.
 theorem printedSeam1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True):
     Seamed decl.pieces1 :=
-  ?
+  match printedStart1 decl within shaped settled lexical, printedFinish1 decl within shaped settled lexical with
+    | Witness first (Witness start (Witness rest starts)), Witness front
+        (Witness kind (Witness text (Witness tail (Both split ok)))) =>
+      seamedOfTail decl.pieces1 front kind first start text rest tail starts split ok
 
 --| The layout after a declaration's own-line comments, the line breaks before it and its pieces: its leaves, the
 --| first holding the comments and blank line, after the earlier ones, with nothing waiting.
