@@ -181,12 +181,21 @@ theorem readsAtParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 -- The header.
 
---| `defKindOf` of a `def` that isn't stopped is `DefPlain`, reading nothing.
+theorem kindPlainIsDef ∀ (kind: Tok)
+    (ok: (kind == KwDef || kind == KwTheorem) = True)
+    (plain: defKindOn (Some kind) = DefPlain):
+    kind = KwDef :=
+  match kind, ok, plain with
+    | KwDef, ok, plain => byComputing
+    | KwTheorem, ok, plain => (Bool.falseNotTrue (Eq.cong (found => found == DefPlain) plain)).impossible
+    | other, ok, plain => (Bool.falseNotTrue ok).impossible
+
+--| `defKindOf` of a `def` or `theorem` that isn't stopped is `DefPlain` only for a `def`, reading nothing.
 theorem readsAtDefKind ∀ (start: Parse.Mark Item) (modes: Modes) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
-    (isDef: item.kind = KwDef)
+    (ok: (item.kind == KwDef || item.kind == KwTheorem) = True)
     (notStopped: modes.stops item = False):
-    Parse.ReadsAt start (() => defKindOf modes) (read kind => read = [] ∧ kind = DefPlain) :=
+    Parse.ReadsAt start (() => defKindOf modes) (read kind => read = [] ∧ (kind = DefPlain → item.kind = KwDef)) :=
   Parse.readsAtThen
     [p := () => left()]
     [j := items => defKindOn (peekIn modes 0 items)]
@@ -194,7 +203,8 @@ theorem readsAtDefKind ∀ (start: Parse.Mark Item) (modes: Modes) (item: Item) 
     (read items after starts (empty, same) =>
       Parse.readsAtDone after
         (defKindOn (peekIn modes 0 items)) _
-        (rewrite empty then (byComputing, rewrite same, shape, notStopped, isDef)))
+        (rewrite empty then
+          (byComputing, plain => kindPlainIsDef item.kind ok (rewrite same, shape, notStopped at plain then plain))))
 
 --| `fixedFrom()` reads the item that is next and gives its comments.
 theorem readsAtFixed ∀ (start: Parse.Mark Item) (item: Item) (later: List Item)
@@ -557,13 +567,12 @@ theorem restSame ∀ [start after: Parse.Mark Item] [read: List Item]
 
 theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
-    (isDef: item.kind = KwDef)
+    (ok: (item.kind == KwDef || item.kind == KwTheorem) = True)
     (notStopped: modes.stops item = False)
     (nested: Nested expressionAt) (carries: NestedCarries expressionAt) (outside: Outside expressionAt)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => definitionParts expressionAt modes None None None) PartsCarried :=
-  Parse.readsAtThen (readsAtDefKind start modes item later shape isDef notStopped) (r1 kind after1 starts1 (e1,
-    kindEq) =>
+  Parse.readsAtThen (readsAtDefKind start modes item later shape ok notStopped) (r1 kind after1 starts1 (e1, kindEq) =>
     let shape1: after1.rest = [item, ..later] := (Eq.trans shape.flipped (restSame starts1 e1)).flipped
     let fine1 := Parse.Fits.after fine starts1
     Parse.readsAtThen (readsAtFixed after1 item later shape1 fine1) (r2 keyword after2 starts2 (single2, keywordEq) =>
@@ -628,54 +637,222 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                       fine13)
                                                     (r14 body after14 starts14 bodyFact =>
                                                       Parse.readsAtDone after14 _ _
-                                                        (rewrite kindEq then
-                                                          (within =>
-                                                            match forallKeyword, params, decreasingClause, unfoldingClause, body, within with
-                                                              | None, [], None, None, Assigned colonEq value, within =>
-                                                                let (headerWithin, valueWithin) := within
-                                                                let resultWithin := Bool.andRight headerWithin
-                                                                let (e5, nextIs) := paramsFact byComputing
-                                                                let (colonItem, single6, colonSame, colonKind) :=
-                                                                  colonFact
-                                                                let (isColon, colonText) := colonKind byComputing
-                                                                let (nameItem, single3, nameEq, nameCode) := nameFact
-                                                                let (bodyItem, rest, single14, isColonEq, bodyText,
-                                                                  colonEqSame, valueCarried) :=
-                                                                  bodyFact
-                                                                rewrite List.appendNil r14,
-                                                                    e1,
-                                                                    single2,
-                                                                    single3,
-                                                                    forallFact byComputing,
-                                                                    e5,
-                                                                    single6,
-                                                                    decreasingFact byComputing,
-                                                                    e9,
-                                                                    unfoldingFact byComputing,
-                                                                    e11,
-                                                                    e13,
-                                                                    single14 then
-                                                                  wordsOfParts item nameItem colonItem bodyItem r7 rest
-                                                                      keyword colon colonEq name result value keywordEq
-                                                                      (textOfGood item KwDef
-                                                                        (goodHead fine shape)
-                                                                        isDef
-                                                                        byComputing)
-                                                                      (codeAs isDef byComputing)
-                                                                      nameEq
-                                                                      nameCode
-                                                                      colonSame
-                                                                      colonText
-                                                                      (codeAs isColon byComputing)
-                                                                      (resultCarried resultWithin)
-                                                                      colonEqSame
-                                                                      bodyText
-                                                                      (codeAs isColonEq byComputing)
-                                                                      (valueCarried valueWithin)
-                                                              | other, others, clauses, unfoldings, Primitive, within =>
-                                                                (Bool.falseNotTrue within).impossible
-                                                              | other, others, clauses, unfoldings, Arms arms, within =>
-                                                                (Bool.falseNotTrue within).impossible
-                                                              | other, others, clauses, unfoldings, Assigned colonEq
-                                                                    value, within =>
-                                                                (Bool.falseNotTrue within).impossible))))))))))))))))
+                                                        ((within =>
+                                                          match kind, forallKeyword, params, decreasingClause, unfoldingClause, body, within with
+                                                            | DefPlain, None, [], None, None, Assigned colonEq
+                                                                  value, within =>
+                                                              let isDef := kindEq byComputing
+                                                              let (headerWithin, valueWithin) := within
+                                                              let resultWithin := Bool.andRight headerWithin
+                                                              let (e5, nextIs) := paramsFact byComputing
+                                                              let (colonItem, single6, colonSame, colonKind) :=
+                                                                colonFact
+                                                              let (isColon, colonText) := colonKind byComputing
+                                                              let (nameItem, single3, nameEq, nameCode) := nameFact
+                                                              let (bodyItem, rest, single14, isColonEq, bodyText,
+                                                                colonEqSame, valueCarried) :=
+                                                                bodyFact
+                                                              rewrite List.appendNil r14,
+                                                                  e1,
+                                                                  single2,
+                                                                  single3,
+                                                                  forallFact byComputing,
+                                                                  e5,
+                                                                  single6,
+                                                                  decreasingFact byComputing,
+                                                                  e9,
+                                                                  unfoldingFact byComputing,
+                                                                  e11,
+                                                                  e13,
+                                                                  single14 then
+                                                                wordsOfParts item nameItem colonItem bodyItem r7 rest
+                                                                    keyword colon colonEq name result value keywordEq
+                                                                    (textOfGood item KwDef
+                                                                      (goodHead fine shape)
+                                                                      isDef
+                                                                      byComputing)
+                                                                    (codeAs isDef byComputing)
+                                                                    nameEq
+                                                                    nameCode
+                                                                    colonSame
+                                                                    colonText
+                                                                    (codeAs isColon byComputing)
+                                                                    (resultCarried resultWithin)
+                                                                    colonEqSame
+                                                                    bodyText
+                                                                    (codeAs isColonEq byComputing)
+                                                                    (valueCarried valueWithin)
+                                                            | kinds, other, others, clauses, unfoldings, Primitive, within =>
+                                                              (Bool.falseNotTrue within).impossible
+                                                            | kinds, other, others, clauses, unfoldings, Arms
+                                                                  arms, within => (Bool.falseNotTrue within).impossible
+                                                            | kinds, other, others, clauses, unfoldings, Assigned
+                                                                  colonEq value, within =>
+                                                              (Bool.falseNotTrue within).impossible))))))))))))))))
+
+-- A declaration.
+
+--| A group of attributes is read, never `None`.
+theorem readsAttributeGroupSome ∀ (modes: Modes):
+    Parse.ReadsIn GoodItems (() => attributeGroup modes) (read found => found = None → False) :=
+  Parse.readsThen givesFixedFrom (r1 at _ =>
+    Parse.readsThen (givesExpectFixed modes LBracket "`[`") (r2 open _ =>
+      Parse.readsThen Parse.readsMark (r3 here _ =>
+        Parse.readsThen (givesAttributeItems (here.left + 1) modes []) (r4 pair _ =>
+          match pair with
+            | (items, trailingComma) =>
+              Parse.readsThen (givesExpectFixed modes RBracket "`,` or `]` after the attribute") (r5 close _ =>
+                Parse.readsDone _ _ (equal =>
+                  (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible))))))
+
+--| No attributes means nothing was read for them.
+theorem readsAttributesOf ∀ (modes: Modes):
+    Parse.ReadsIn GoodItems (() => attributesOf modes) (read found => found = [] → read = []) :=
+  Parse.readsWeaken
+    (Parse.readsLoop
+      (() => attributeGroupStep modes)
+      (read found => found = None → read = [])
+      (readsAfter0 [p := () => modes.at At] [j := found => attributeGroupAt modes found] (reads0At modes At) (found =>
+        match found with
+          | True => Parse.readsWeaken (readsAttributeGroupSome modes) (read result got =>
+            equal => (Bool.falseNotTrue (got equal)).impossible)
+          | False => Parse.readsDone _ _ (equal => byComputing))))
+    (read found rounds =>
+      equal =>
+        let atNone := rewrite equal at rounds
+        atNone byComputing)
+
+--| A declaration within slice 1 has the words of the items read for it.
+def DeclCarried (read: List Item) (decl: Decl): Prop := decl.within1 = True → decl.words = itemWords read
+
+--| After attributes were read (`before`): no attributes means `before` is empty.
+def DeclAfter (before: List Item) (attributes: List Attributes) (read: List Item) (decl: Decl): Prop :=
+  (attributes = [] → before = []) → DeclCarried (before ++ read) decl
+
+theorem declOutAfter ∀ (before: List Item) (attributes: List Attributes) [read: List Item] [decl: Decl]
+    (out: DeclOut decl):
+    DeclAfter before attributes read decl :=
+  attributesEmpty within => (Bool.falseNotTrue (rewrite out at within)).impossible
+
+theorem readsAtDefinition ∀ (modes: Modes) (attributes: List Attributes) (before: List Item) (start: Parse.Mark Item)
+    (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (ok: (item.kind == KwDef || item.kind == KwTheorem) = True)
+    (notStopped: modes.stops item = False)
+    (nested: Nested expressionAt) (carries: NestedCarries expressionAt) (outside: Outside expressionAt)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => definition modes attributes None None) (DeclAfter before attributes) :=
+  Parse.readsAtThen
+    (readsAtDefinitionParts modes start item later shape ok notStopped nested carries outside fine)
+    (r1 parts after1 starts1 carried =>
+      Parse.readsAtDone after1 (definitionOf attributes parts) _ (attributesEmpty =>
+        match parts with
+          | (header, body) =>
+            match attributes with
+              | [] => within => rewrite attributesEmpty byComputing, List.appendNil r1 then carried within
+              | [group, ..groups] => within => (Bool.falseNotTrue within).impossible))
+
+theorem readsDeclarationBody ∀ (modes: Modes) (attributes: List Attributes) (before: List Item)
+    (nested: Nested expressionAt) (carries: NestedCarries expressionAt)
+    (outside: Outside expressionAt) (frame: FrameRest expressionAt):
+    Parse.ReadsIn GoodItems (() => declarationBody modes attributes) (DeclAfter before attributes) :=
+  readsInPeeked modes
+    (seen => declarationBodyOn modes attributes seen) _
+    (start fine stops =>
+      Parse.readsAtWeaken (frame.others modes attributes None start fine) (read decl out =>
+        declOutAfter before attributes out))
+    (start item later shape fine stopped =>
+      match isDef: item.kind == KwDef || item.kind == KwTheorem with
+        | True =>
+          readsAtDefinition modes attributes before start item later shape isDef stopped nested carries outside fine
+        | False => Parse.readsAtWeaken (frame.others modes attributes (Some item.kind) start fine) (read decl out =>
+          declOutAfter before attributes out))
+
+theorem readsDeclarationKind ∀ (seen: Seen) (modes: Modes) (attributes: List Attributes) (before: List Item)
+    (nested: Nested expressionAt) (carries: NestedCarries expressionAt)
+    (outside: Outside expressionAt) (frame: FrameRest expressionAt):
+    Parse.ReadsIn GoodItems (() => declarationKind seen modes attributes modes.peek) (DeclAfter before attributes) :=
+  readsInPeeked modes
+    (next => declarationKind seen modes attributes next) _
+    (start fine stops => readsDeclarationBody modes attributes before nested carries outside frame start fine)
+    (start item later shape fine stopped =>
+      match isNamespace: item.kind == KwNamespace with
+        | True => Parse.readsAtWeaken (givesNamespaceStep seen modes start fine) (read decl out =>
+          declOutAfter before attributes out)
+        | False =>
+          match isImport: item.kind == KwImport with
+            | True => Parse.readsAtWeaken (givesImportStep seen modes start fine) (read decl out =>
+              declOutAfter before attributes out)
+            | False => readsDeclarationBody modes attributes before nested carries outside frame start fine)
+
+--| One declaration group, read whole: what it read is all the items, and the declaration has their words if it is
+--| within slice 1.
+theorem readsAtDeclaration ∀ (seen: Seen) (start: Parse.Mark Item) (nested: Nested expressionAt)
+    (carries: NestedCarries expressionAt) (outside: Outside expressionAt) (frame: FrameRest expressionAt)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => declaration seen) (read decl => read = start.rest ∧ DeclCarried read decl) :=
+  Parse.readsAtThen
+    [p := () => attributesOf Modes.start]
+    [j := attributes => declarationAttributes seen Modes.start attributes]
+    (readsAttributesOf Modes.start start fine)
+    (r1 attributes after1 starts1 attributesFact =>
+      let fine1 := Parse.Fits.after fine starts1
+      readsAtAfter0
+        [p := () => Modes.start.peek]
+        [j := next => declarationRefusal seen Modes.start attributes next]
+        (reads0Peek Modes.start)
+        fine1
+        (peeked after2 same2 fine2 =>
+          match attributesRefused attributes peeked with
+            | Some message => Parse.readsFatal _ _ after2 fine2
+            | None =>
+              Parse.readsAtThen
+                [p := () => declarationKind seen Modes.start attributes Modes.start.peek]
+                [j := decl => declarationFinish Modes.start decl]
+                (readsDeclarationKind seen Modes.start attributes r1 nested carries outside frame after2 fine2)
+                (r3 decl after3 starts3 kindFact =>
+                  let fine3 := Parse.Fits.after fine2 starts3
+                  Parse.readsAtThen
+                    [p := () => left()]
+                    [j := items => declarationEnd Modes.start decl items]
+                    (readsAtLeft after3)
+                    (r4 items after4 starts4 (empty4, itemsEq) =>
+                      let fine4 := Parse.Fits.after fine3 starts4
+                      match items, itemsEq with
+                        | [], itemsEq => Parse.readsAtDone after4 decl _ (
+                          (rewrite starts1, <- same2, starts3, <- itemsEq, empty4),
+                          (rewrite empty4, List.appendNil r3 then kindFact attributesFact)
+                        )
+                        | [head, ..more], itemsEq => readsFail Modes.start _ after4 fine4))))
+
+--| A declaration parsed from good items carries the items it was parsed from.
+theorem runCarries ∀ (input: List Item) (seen: Seen) (frame: FrameRest expressionAt)
+    (fits: Parse.Fits Item GoodItems input) (decl: Decl)
+    (ran: Parse.run input (() =>
+      let found := declaration seen
+      found)
+      = Ok decl):
+    DeclCarried input decl :=
+  match Parse.runFromThenOk (() => declaration seen) (Parse.State.start input) (found => found) decl ran with
+    | Witness found (Witness middle (Both started rest)) =>
+      match readsAtDeclaration seen
+        (Parse.State.start input).at
+        givesExpressionAt
+        expressionAtCarries
+        (outsideOf expressionAt givesExpressionAt)
+        frame
+        fits
+        input.length
+        (Parse.State.start input)
+        found
+        middle.at
+        byComputing
+        (Both byComputing (arithmetic []))
+        started with
+        | Witness read (Both starts (Both honest (readEq, carried))) =>
+          let same: found = decl := Result.okInjective rest
+          rewrite <- same then (rewrite readEq at carried then carried)
+
+--| Every declaration of a group of good items that parses carries the group's words.
+theorem groupCarries ∀ (frame: FrameRest expressionAt): GroupCarries frame := seen group decl good ran within =>
+  rewrite <- itemWordsOfGroup group then runCarries (items group) seen frame { holds = good } decl ran within

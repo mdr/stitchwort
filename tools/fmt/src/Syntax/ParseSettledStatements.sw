@@ -17,6 +17,8 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseCarries (codeWords)
+import Syntax.ParseCarriesFile (parseCarriesOf)
+import Syntax.ParseCarriesDecl (groupCarries)
 import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
 
 -- The words of leaves.
@@ -45,12 +47,16 @@ def Lexed.wordsSettled1 (lexed: Lexed): Bool :=
 --|
 --| The hypotheses are `parseShaped1`'s. `good` is needed for the three tokens the tree keeps only the comments of
 --| (`def`, `:`, `:=`), whose texts `Decl.words` writes back.
+--|
+--| Proof idea: each group's declaration carries its items (`groupCarries`: the parser reads them all, the `def`, name,
+--| `:`, result type, `:=` and body in order, and what a header or body outside slice 1 would read is absent), and the
+--| file's declarations are those of the groups in order (`parseCarriesOf`).
 theorem parseCarries1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.leaves).map codeWords ∧ file.end = lexed.end.comments :=
-  ?
+  parseCarriesOf frame (groupCarries frame) lexed file good parses within
 
 --| `parseSettled1`: the tree of settled leaves is settled.
 --|
