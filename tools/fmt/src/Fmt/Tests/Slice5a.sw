@@ -26,5 +26,5 @@ test "a definition's arms, one a line at 2, with comments and a blank line kept"
       "def f: Nat → Nat\n  | 0 => 1 -- one\n  -- above\n  | Succ n => n\n\n  | _ => 2\ndef g (n: Nat) (m: Nat): Nat → Nat → Nat\n  | 0, _ => 1\n  | n, m => n + m\n"
       "def f: Nat → Nat\n  | 0 => 1 -- one\n  -- above\n  | Succ n => n\n\n  | _ => 2\ndef g (n m: Nat): Nat → Nat → Nat\n  | 0, _ => 1\n  | n, m => n + m\n"
 
-test "a list pattern in an arm, and a record in a test, are outside the slice" :=
-  refuses "test \"a\" := { a = 1 }.a == 1\n" && refuses "def f: List Nat → Nat\n  | [x, ..xs] => x\n  | [] => 0\n"
+test "a record pattern in an arm, and a record in a test, are outside the slice" :=
+  refuses "test \"a\" := { a = 1 }.a == 1\n" && refuses "def f: P → Nat\n  | { x, .. } => x\n"

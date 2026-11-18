@@ -171,18 +171,3 @@ def Decl.printed5a (decl: Decl): Option Text :=
   if decl.within5a then decl.doc5a.map (doc => Doc.print doc width) else None
 
 def SourceFile.printed5a (file: SourceFile): Text := file.printedBy Decl.printed5a
-
---| The source formatted, if it is within slices 1 to 5a: lexed, refused if
---| a token is outside the alphabet, then parsed, tidied and printed as
---| `format` does.
-def formatWithin (source: Text): Result Text Text := match lex source with
-  | Err message => Err message
-  | Ok lexed =>
-    match lexed.leaves.find (leaf => !leaf.token.kind.within5a) with
-      | Some leaf => Err "outside slice 5a: `${leaf.token.text}`"
-      | None =>
-        match lexed.tidied with
-          | Err message => Err message
-          | Ok tidied =>
-            if tidied.fourth.within5a then Ok tidied.fourth.printed5a
-            else Err "outside slice 5a: a construct slices 1 to 5a don't have"

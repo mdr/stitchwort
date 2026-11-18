@@ -37,4 +37,4 @@ test "a closer after a trailing comment goes left of the lines inside its bracke
   formats "def d: ( -- t7\n    a -- t9\n  ) -- t10\n  := b\n" "def d: ( -- t7\n    a -- t9\n) -- t10\n  :=\n  b\n"
 
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
-  refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Nat := (a: Nat)\n"
+  refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Unit := ()\n"

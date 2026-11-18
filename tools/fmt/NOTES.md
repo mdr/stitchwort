@@ -1102,3 +1102,47 @@ What keeps the rest out [measured: the twin's `s5a` answers against `dev tree --
 - **No new columns beyond slice 3's.** A definition's arms are at 2, as a `match`'s arms are from the indentation in force (0); `|` can't begin an expression, so they read back. A broken import's items are at 2 with `)` at 0, a comma bracket's shape. A namespace line and a test's head never break.
 - **Rule N's bar.** Nothing new: an import item holds own-line comments as a list item does (`item`, a blank line above kept).
 - `defArmsDoc` repeats `defDoc`'s header lines rather than changing `defDoc` while slice 1's proofs are being written against it; a shared header function would let them go.
+
+## Slice 4b, the program (SW-3992)
+
+Opus, 18 November 2026. The patterns of the plan's S4 row, on top of slices 1 to 5a: SW-3990's census put `PatternList` (205), `PatternAbsurd` (112), `Annotation` (77), `NamedArg` (50) and `PatternTuple` (39) among the constructs alone in keeping a declaration out.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `Pattern.el` for `(p)` and `()` (the brackets and what they hold), tuple and list patterns (`patternBracket`, `patternCells`, `brokenPatterns`: flat if it fits, else one item a line at 2 and the closer alone; a tuple of only names and `_` fills its lines; a list's `..rest` the last item, glued), and a constructor with an argument that is no token (`patternApp`: flat, else its leading tokens on the line and each other argument below) | `src/Fmt/Rules.sw` | `join`, `comma_bracket_content` (its `pattern_names` case), `app` with no hug |
+| `Pattern.words` for the new patterns, `tailWords`, `Pattern.simple` | `src/Fmt/Rules.sw` | `simple`: no pattern but a token is simple, `[]` included |
+| An absurd arm, with no `=>`: its tokens on a line, in `armDoc` | `src/Fmt/Rules.sw` | `arm`'s `join` when there is no `=>` |
+| `namedArgDoc` (`(n := e)`) and `annotationDoc` (`(e: T)`), in `Expr.el` and `Expr.words` | `src/Fmt/Rules.sw` | `join` (no rule of their own) |
+| `within4b` (on `Expr`, `Pattern`, `Arm`, `Let`, `Header`, `Decl`, `SourceFile`), `Tok.within4b` (slice 5a's alphabet, which has every token these need), `Decl.printed4b`, `SourceFile.printed4b`; `formatWithin` moves here from `Slice5a.sw` and refuses with `outside slice 4b` | `src/Fmt/Slice4b.sw` | |
+| `Fmt.Twin --stage s4b`, `dev/fmt-twin s4b` | `src/Fmt/Twin.sw`, `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice4b.sw` (6); slice 1's and 5a's refusal tests now use the unit and a record pattern, since annotations and list patterns are within | |
+
+**The slice's edge.** Patterns are in arms (a `match`'s and a definition's) and after `let`; a lambda's parameters are still names, `_` and groups. Left out:
+
+- **Record patterns** and a constructor's named fields (records), `p | q` inside brackets, `-1`, `"a" ++ rest`, `(n := p)`.
+- **Gaps Rust copies that the tree can't say:** `.._` (after `..` Rust keeps the source's gap unless a name or bracket follows), `()` as a constructor's argument, and the unit `()` anywhere (`f ()` against `f()`, D1039). The unit is now the construct most often alone in keeping a declaration out (133); taking it needs the gap in the tree, or `within` to allow it only where no name comes before it.
+- **Comments on a list's `..`**.
+
+A tuple pattern of names fills its lines as a list of plain values does; SW-3963's family B fix (a blank line before a filled list's first cell) will want the same change in `patternCells` once both are in.
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s4b --exe` with the interpreted twin (a slim copy with `Slice4a.sw`, `Slice5a.sw` and `Slice4b.sw`, without `Syntax/LexProofs.sw`; a copied binary with `STITCHWORT_STD_DIR`; a fresh `FMT_TWIN_CACHE`, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 to 5a and 4b | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 352 | 352 | 0 |
+| `repo --sample 300` (seed 1) | 5,888 | 2,741 | 2,741 | 0 |
+
+The slices cover 46.6% of the sample's declarations; slices 1 to 5a cover 2,368 of the same 5,888 (40.2%; SW-3990 measured 41.1% of a sample of 5,527, which has moved with the tracked files), so slice 4b adds 373. On the same runs `s1` stays 82 of 82 and 41 of 41, `s2` 230 of 230 and 434 of 434, `s3` 288 of 288 and 564 of 564, `s4a` 304 of 304 and 969 of 969, `s5a` 336 of 336 and 2,368 of 2,368. Hand files of list patterns with tails, nested tuples and `(p)`, an absurd arm, tuple patterns after both kinds of `let`, a long list pattern, a long tuple of names, a comment after `[`, a constructor with a list argument past the width, named arguments (flat, broken, commented) and annotations (flat and broken): `--stage text` identical to `stitchwort fmt -`.
+
+What keeps the rest out [measured, as SW-3990's count]: of 3,147 declarations outside, 642 have no foreign kind (a shape the slice refuses, up from 385: the declarations the new kinds let in as far as their next refusal), 1,879 two or more. With one foreign kind: `Unit` 133, `Spread` 114, `Membership` 81, `PatternRecord` 35, `Pipe` 32, `Section` 27, `Omega` 27, `Chain` 21. Any foreign kind: `RewriteRule` 769, `Rewrite` 768, `Record` 581, `RecordField` 526, `Spread` 347, `Unit` 274, `Membership` 235, `Binder` 232.
+
+### For the proof lanes
+
+- **The F1 tree is unchanged.**
+- **Columns.** A broken tuple or list pattern puts its items at 2 from the line it opens on and its closer at that line's indentation, a comma bracket's shape; in an arm's head that is inside the head's `Nest 2`, so items at 4 and the closer at 2 from the arm's `|`, as Rust has them. A filled tuple pattern continues at 2. A constructor whose arguments break puts each non-token argument on a line at 2 (4 when its leading tokens fill). An absurd arm is one line.
+- **Rule N.** A named argument or annotation is a bracket pair like `(e)`: its opener's `Mark` and its closer's own line come from `opening` and `leaf` as `parenDoc`'s do.
+- P1 to P4 change nothing new: no binder, row or theorem header is added.
