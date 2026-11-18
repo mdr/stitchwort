@@ -25277,7 +25277,7 @@
     {
       "id": 4079,
       "title": "[Opus] fmt S1 glue part 1 (SW-4078 rec 1): define formatWithin1, state both top theorems (same program up to calm, idempotence) and prove them from what exists, leaving the gaps as named open goals (read-back in file form, hung1 of a parsed tree, tidiedUnreturned1, parseShapedSource/parseLexicalSource from SW-4073), so stitchwort goal lists what is left",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
