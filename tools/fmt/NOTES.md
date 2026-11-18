@@ -935,3 +935,28 @@ Slices 1 and 2 cover 7.3% of the sample's declarations (slice 1 alone: 45, 0.7%)
 - The F1 tree is unchanged.
 - P1, P3 and P4 are live in slice 2: `theorem t (n: Nat)` gets its `∀` and `(n: Nat) (m: Nat)` merges in a theorem's header (the first test shows both); `within2` is on the tidied tree, as `within1`.
 - `printDecls2` repeats `printDecls` with `printed2`; a slice-indexed file loop would let later slices share it.
+
+## Slice 1 lexer proofs (SW-3965, Sonnet, 18 November 2026)
+
+`Syntax/LexProofs.sw` (namespace `Syntax.Proofs`), 150 theorems, `stitchwort audit Syntax.Proofs` clean. What is
+proved, for the alphabet of slice 1 only:
+
+- **`item` per lexeme** (`ItemReads read lexeme rest`): the 24 fixed spellings, the 7 Unicode ones, spaces, a line
+  break, a comment, a name or keyword, digits and a float. Each needs a fact about the first character after it
+  (`MayFollow`), stricter than the lexer where that is simpler (a `!` is never followed by `i`).
+  `lexWord1` states all kinds at once from `Spells kind text`.
+- **The spine**: `many` of `item` inside `recursiveWith` (`lexemesOfSteps`), so `lexCovers` for a source read
+  lexeme by lexeme. `ItemReads` is about one state because a lexeme holds its offset; `runsItemsFrom` is
+  `Parse.runsManyFrom` for that.
+- **The layout** (`Laid`, `lexPrinted`, `lexPieces`, `lexPrintedPairs`): pieces `Code`, `Gap`, `Break`, `Remark` lex
+  to the leaves with columns in bytes, line starts, own-line comments, trailing comments and blank lines. The
+  concrete list `examplePieces` shows the hypotheses can be met, and `exampleLayout` is the same layout by computing.
+- **One `lexesAs…` per token kind**, `operatorTokLexes`.
+
+What is not proved: `lexCovers` for every source (it needs a theory of what a `Parse` program reads, not only that it
+succeeds); `operatorTok text = Some kind` implying `Spells kind text` (the converse of `operatorTokOfSpells`); text
+literals, `${…}`, characters, qualified names and `.` (outside slice 1).
+
+The lexer was split into named parts for the proofs, with the same behaviour (`Syntax.Tests` and `Fmt.Tests` pass):
+`itemAt` and `itemOn` (the input as a parameter), `wordFrom`, `qualifiedOn`, `numberFrom`, `numberTail`,
+`fractionPart`, `exponentPart`, and the pure `fractionAhead` and `exponentSkip`.

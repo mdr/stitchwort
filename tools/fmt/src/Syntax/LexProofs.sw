@@ -1,3 +1,16 @@
+--| Proofs about the lexer (`Syntax/Lexer.sw`) for the alphabet of slice 1 of the proved formatter
+--| (docs/proposals/self-hosted-fmt-s1-sketch.md, ticket 14).
+--|
+--| In layers, bottom up:
+--|
+--| 1. `item` reads one lexeme from a text that spells it and goes on with a character that doesn't extend it
+--|    (`ItemReads`; `itemReadsColon`, `itemReadsWord`, `itemReadsNum`, … and `lexWord1` for all the kinds at once, by
+--|    `Spells` and `MayFollow`).
+--| 2. `many` over `item` and `recursiveWith`, for a source read lexeme by lexeme (`lexemesOfSteps`, `lexCovers`).
+--| 3. `assemble`'s layout of pieces (`Laid`): columns in bytes, line starts, the comments and blank lines above each
+--|    token (`lexPrinted`, `lexPieces`, `lexPrintedPairs`).
+--| 4. One standalone read-back for each token kind (`lexesAs…`) and `operatorTokLexes`.
+
 namespace Syntax.Proofs
 import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Parse, Result, Text, Void)
 import Syntax (..)
@@ -12,6 +25,8 @@ def LexesAs (text: Text) (kind: Tok): Prop :=
     }
 
 --| `skip` reads exactly the characters it is asked for.
+--|
+--| Proof idea: Induction on the count: one `Parse.next` that accepts anything, then `skip` on the rest.
 theorem runsSkip ∀ (count: Nat) (read rest: List Char)
     (counted: read.length = count):
     Parse.Runs (() => skip count) read rest () :=
@@ -34,6 +49,8 @@ theorem runsSkip ∀ (count: Nat) (read rest: List Char)
         (runsSkip more others rest (arithmetic [counted]))
 
 --| A token of `count` characters, read from where `state` is.
+--|
+--| Proof idea: `tokenOf` is a mark, `skip`, then `located`: `runsSkip` for the middle, and the offsets add up because the second mark is `count` further on.
 theorem runsFromTokenOf ∀ (state: Parse.State Char) (kind: Tok) (count: Nat) (read rest: List Char)
     (counted: read.length = count):
     Parse.RunsFrom state (() => tokenOf kind count) read rest {
@@ -74,6 +91,8 @@ theorem runsFromTokenOf ∀ (state: Parse.State Char) (kind: Tok) (count: Nat) (
             Parse.runsPure _ rest middle)))
 
 --| One token lexeme, as a list.
+--|
+--| Proof idea: Sequence `tokenOf` with a function that makes the singleton; nothing more is read.
 theorem runsFromTokenList ∀ (state: Parse.State Char) (kind: Tok) (count: Nat) (read rest: List Char)
     (counted: read.length = count):
     Parse.RunsFrom state (() => [tokenOf kind count]) read rest [
@@ -98,6 +117,8 @@ theorem runsFromTokenList ∀ (state: Parse.State Char) (kind: Tok) (count: Nat)
 
 --| `optional p` where `p` succeeds from this state: as `Parse.runsOptional`, for a `p` whose value depends on where
 --| it starts.
+--|
+--| Proof idea: As `Parse.runsOptional`, which needs a `p` that doesn't depend on its offset: the same proof from the one state's run.
 theorem runsFromOptional ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (read rest: List Char) (v: a)
     (runsP: Parse.RunsFrom state p read rest v):
     Parse.RunsFrom state (() => Parse.optional p) read rest (Some v) :=
@@ -151,6 +172,8 @@ theorem roundsShort ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme
           arithmetic [shorter, List.lengthAppend more (Parse.joinReads steps)]
 
 --| `manyFrom` over `item`, from a state at its `before` mark with enough fuel, after `found`: it gives the rounds.
+--|
+--| Proof idea: Induction on the rounds, as `Parse.runsManyFrom` is, with each round's `ItemReads` taken at the state it starts from, so that the offsets in the lexemes follow the state's: the offset after a round is the offset before it plus what it read.
 theorem runsItemsFrom ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text):
     ∀ (steps: List (List Char, Lexeme)) (rest: List Char) (fuel: Nat) (found: List
       (List (Parse.Located Lexeme))) => steps.length < fuel
@@ -236,6 +259,8 @@ theorem concatRounds ∀ (offset: Nat) (steps: List (List Char, Lexeme)):
     | [(read, lexeme), ..more] => rewrite concatRounds (offset + read.length) more
 
 --| `many (item …)` from any state reads the rounds, with each lexeme's offset from the state's.
+--|
+--| Proof idea: `many` marks where it starts and gives `manyFrom` as many rounds of fuel as there are characters left, which is more than the rounds.
 theorem runsItems ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
     (steps: List (List Char, Lexeme)) (rest: List Char)
     (rounds: ItemRounds self source steps rest) (state: Parse.State Char):
@@ -259,6 +284,8 @@ theorem runsItems ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
 
 --| The lexemes of a source read lexeme by lexeme to its end (`steps`, from the first character, none reading nothing):
 --| the lexer's `lexemes` gives them, each at its offset. The statement `lexCovers` and `lexPrinted` stand on.
+--|
+--| Proof idea: `lexemes` runs `lexemesIn` from the start state. `recursiveWith` starts one level in with as much fuel as there are characters; at the top level its body is `many` of `item`, which doesn't call itself for a lexeme that has no `{` or text literal, so any nested parser serves (`ItemRounds` is for every `self`), and `concatRounds` joins the one-lexeme rounds.
 theorem lexemesOfSteps ∀ (source: Text) (steps: List (List Char, Lexeme))
     (reads: source.toList = Parse.joinReads steps)
     (rounds: ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) => ItemRounds self source steps []):
@@ -357,6 +384,8 @@ theorem breakOfRun ∀ (read: List Char)
   afterLastBreakNone read None byComputing noBreak
 
 --| A token: its layout is where the line is, and it takes the comments and blank lines that waited for it.
+--|
+--| Proof idea: Unfold `Assembly.add` with the slice replaced by the characters read; a token with no line break leaves the line start where it was, and its width is its UTF-8 length (`widthOfRun`).
 theorem addToken ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char) (kind: Tok)
     (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
     (noBreak: read.all (char => char != '\n') = True):
@@ -400,6 +429,8 @@ theorem addBreak ∀ (assembly: Assembly) (source: Text) (offset: Nat):
   byComputing
 
 --| A comment on a line of its own waits for the next token.
+--|
+--| Proof idea: Unfold `Assembly.add` on the fresh-line branch; the width is the UTF-8 length.
 theorem addOwnComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
     (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
     (fresh: assembly.freshLine = True):
@@ -571,6 +602,9 @@ theorem addLineBreak ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: N
   rewrite addBreak (Assembly.of laid lineStart) source offset,
       (arithmetic: lineStart + laid.column + 1 + 0 = lineStart + laid.column + 1)
 
+--| A comment, from its `--` to the end of the line: on a line of its own it waits for the next token, after a token it is that token's.
+--|
+--| Proof idea: Unfold `Assembly.add` with the slice replaced by the characters read, and `utf8Sum` for the width.
 theorem addComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
     (cut: (source.toList.drop offset).take (offset + read.length - offset) = read):
     assembly.add source { value = CommentLexeme, offset, length = read.length }
@@ -625,6 +659,8 @@ theorem addPiece ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat) 
     | Remark text, Both nonEmpty noBreak => addRemark laid lineStart source offset text cut
 
 --| The fold `assemble` makes over the lexemes of pieces, from layout `laid`: the layout the pieces make.
+--|
+--| Proof idea: Induction on the pieces: `addPiece` for the first, with the slice for its lexeme cut out of the source (`cutOfMade`), then the rest from the layout it leaves, at the offset after it.
 theorem foldPieces ∀ (source: Text) (pieces: List Piece) (before after: List Char) (laid: Laid) (lineStart: Nat)
     (made: source.toList = before ++ (Parse.joinReads (pieceSteps pieces) ++ after))
     (plain: AllPlain pieces):
@@ -656,6 +692,8 @@ theorem foldPieces ∀ (source: Text) (pieces: List Piece) (before after: List C
 --| `lexPrinted`: pieces that the lexer reads lexeme by lexeme (each `ItemReads`, with what follows it) lex to the leaves
 --| of the layout they make: each token with its column in bytes, whether it starts its line, and the comments and
 --| blank lines above it; the comments and blank lines after the last token end the file.
+--|
+--| Proof idea: `lexemesOfSteps` gives the lexemes, `foldPieces` the fold of `assemble` over them from `Assembly.start`, which is the assembly of the empty layout.
 theorem lexPrinted ∀ (source: Text) (pieces: List Piece)
     (reads: source.toList = Parse.joinReads (pieceSteps pieces))
     (rounds: ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) => ItemRounds self source
@@ -690,13 +728,6 @@ theorem lexCovers ∀ (source: Text) (steps: List (List Char, Lexeme))
 theorem declinesItemEnd ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text):
     Parse.Declines (() => item self source TopLevel) [] :=
   state starts honest => rewrite starts
-
-theorem symbolColon ∀ (next: Char) (more: List Char)
-    (notEq: (next == '=') = False):
-    symbol [':', next, ..more] = Some (Colon, 1) :=
-  match next, notEq with
-    | '=', notEq => (Bool.falseNotTrue notEq.flipped).impossible
-    | other, notEq => byComputing
 
 --| What `item` does on `read` followed by `rest`, said of `itemOn` at the mark where it starts.
 theorem itemReadsVia ∀ (read rest: List Char) (lexeme: Lexeme)
@@ -882,6 +913,8 @@ theorem itemReadsNotEqUnicode ∀ (rest: List Char): ItemReads ['≠'] (TokenLex
 
 --| A lexeme made as `item` makes the spaces, line breaks and comments: something read, then the lexeme located from
 --| where the item began.
+--|
+--| Proof idea: Sequence the reading with the `located`: its length is the offset of the mark after the reading minus the one before, which is the length of what was read.
 theorem runsFromThenLocated ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (read rest: List Char)
     (v: a) (value: Lexeme)
     (runs: Parse.Runs p read rest v):
@@ -938,6 +971,8 @@ theorem spacesStop ∀ (rest: List Char)
     | [next, ..more], Both space carriage => rewrite headNe next more ' ' space, headNe next more '\r' carriage
 
 --| A run of spaces up to a character that isn't a space or a carriage return.
+--|
+--| Proof idea: `item` on a space reads `span` of spaces and carriage returns, which takes the whole run (`runsSpan`) and stops where the next character isn't one.
 theorem itemReadsSpaces ∀ (count: Nat) (rest: List Char)
     (positive: count ≠ 0)
     (follow: rest.head ≠ Some ' ' ∧ rest.head ≠ Some '\r'):
@@ -959,6 +994,8 @@ theorem itemReadsSpaces ∀ (count: Nat) (rest: List Char)
           (spacesStop rest follow)))
 
 --| A comment, from its `--` to the end of the line, in `item` at the top level.
+--|
+--| Proof idea: `span` of everything but a line break reads the whole comment (`runsSpan`); the `${…}` cases of the match are for another place, so the last arm gives the lexeme.
 theorem itemReadsComment ∀ (others rest: List Char)
     (oneLine: others.all (char => char != '\n') = True)
     (ends: rest.takeWhile (char => char != '\n') = []):
@@ -1012,6 +1049,8 @@ theorem itemReadsComment ∀ (others rest: List Char)
 theorem wordStartIsChar ∀ (first: Char) (starts: isWordStart first = True): isWordChar first = True := cases
 
 --| `located` after something read: the lexeme at where the item began.
+--|
+--| Proof idea: `located` marks the end: its length is the offset there minus the start's.
 theorem runsFromLocatedAfter ∀ (state middle: Parse.State Char) (value: Lexeme) (read rest: List Char)
     (atRest: middle.at.rest = rest)
     (honest: middle.at.left = middle.at.rest.length)
@@ -1044,6 +1083,8 @@ theorem runsQualifiedNone ∀ (fuel: Nat) (upper: Bool) (rest: List Char)
               | other => Parse.runsPure None [other, ..more] state starts honest)
 
 --| `word`: a run of word characters, which isn't a qualified name, as the kind says.
+--|
+--| Proof idea: `span` reads the run (`runsSpan`); the look-ahead for a qualified name reads nothing, since no `.` follows (`runsQualifiedNone`), so the kind is `wordKind`'s of the text; then `located`.
 theorem runsFromWordKind ∀ (state: Parse.State Char) (first: Char) (others rest: List Char)
     (word: others.all isWordChar = True)
     (starts: isWordStart first = True)
@@ -1129,6 +1170,9 @@ theorem runsFromWord ∀ (state: Parse.State Char) (first: Char) (others rest: L
     } :=
   rewrite <- kinded then runsFromWordKind state first others rest word starts ends noDot
 
+--| `word`, as the one-item list `item` gives.
+--|
+--| Proof idea: `runsFromWord` and a singleton.
 theorem runsFromWordList ∀ (state: Parse.State Char) (first: Char) (others rest: List Char) (kind: Tok)
     (word: others.all isWordChar = True)
     (starts: isWordStart first = True)
@@ -1156,6 +1200,8 @@ theorem runsFromWordList ∀ (state: Parse.State Char) (first: Char) (others res
         middle)
 
 --| A name or keyword: word characters up to one that isn't, which isn't a `.` (so it isn't qualified).
+--|
+--| Proof idea: `item` tries the other lexemes first, each on a first character that a word start isn't (ten literal cases), then `isWordStart` holds and the word is read (`runsFromWordList`).
 theorem itemReadsWord ∀ (first: Char) (others rest: List Char) (kind: Tok)
     (starts: isWordStart first = True)
     (word: others.all isWordChar = True)
@@ -1221,6 +1267,8 @@ theorem runsExponentNone ∀ (rest: List Char)
       rewrite starts, exponentNone rest noE then Parse.runsPure False rest state starts honest)
 
 --| A fraction: a `.` and the digits after it, which no digit follows.
+--|
+--| Proof idea: `fractionAhead` holds, `skip 1` reads the `.` and `span` the digits.
 theorem runsFraction ∀ (first: Char) (others rest: List Char)
     (digit: first.isAsciiDigit = True)
     (digits: others.all Char.isAsciiDigit = True)
@@ -1259,6 +1307,8 @@ theorem runsFraction ∀ (first: Char) (others rest: List Char)
           honest)
 
 --| What follows a number's digits when nothing does that belongs to the number.
+--|
+--| Proof idea: Neither the fraction nor the exponent is there (`fractionNone`, `exponentNone`), so each reads nothing and gives `False`.
 theorem runsTailNone ∀ (rest: List Char)
     (noDot: rest.head ≠ Some '.')
     (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
@@ -1290,6 +1340,8 @@ theorem runsTailNone ∀ (rest: List Char)
       (Parse.runsPure False rest))
 
 --| What follows a number's digits when a fraction does and then nothing.
+--|
+--| Proof idea: The fraction reads (`runsFraction`) and gives `True`; the exponent isn't there.
 theorem runsTailFraction ∀ (first: Char) (others rest: List Char)
     (digit: first.isAsciiDigit = True)
     (digits: others.all Char.isAsciiDigit = True)
@@ -1323,6 +1375,8 @@ theorem runsTailFraction ∀ (first: Char) (others rest: List Char)
       (Parse.runsPure True rest))
 
 --| `number`: digits, then what `numberTail` read, with the kind that says.
+--|
+--| Proof idea: `span` of digits (`runsSpan`), then the tail, then `located` with `Float` if the tail was a fraction or exponent and `Num` if not.
 theorem runsFromNumber ∀ (state: Parse.State Char) (digits tail read rest: List Char) (float: Bool)
     (joined: read = digits ++ tail)
     (all: digits.all Char.isAsciiDigit = True)
@@ -1373,6 +1427,8 @@ theorem runsFromNumber ∀ (state: Parse.State Char) (digits tail read rest: Lis
               (arithmetic [offset, offset2, Eq.cong List.length joined, List.lengthAppend digits tail]))))
 
 --| Digits and nothing that goes on with a number after them.
+--|
+--| Proof idea: `item` tries the other lexemes first, each on a first character that a digit isn't (ten literal cases) and a word start (`digitNotWordStart`); then `number` is read (`runsFromNumber`, with a tail that reads nothing).
 theorem itemReadsNum ∀ (first: Char) (others rest: List Char)
     (digit: first.isAsciiDigit = True)
     (digits: others.all Char.isAsciiDigit = True)
@@ -1426,6 +1482,8 @@ theorem itemReadsNum ∀ (first: Char) (others rest: List Char)
             honest))
 
 --| A float: digits, a `.` and digits, with nothing after them that goes on with the number.
+--|
+--| Proof idea: As `itemReadsNum`, with the tail that is a fraction (`runsTailFraction`).
 theorem itemReadsFloat ∀ (first: Char) (others: List Char) (second: Char) (more rest read: List Char)
     (split: read = [first, ..others] ++ ['.', second, ..more])
     (digit: first.isAsciiDigit = True)
@@ -1569,6 +1627,9 @@ def MayFollow (kind: Tok) (text: Text) (rest: List Char): Prop := match kind wit
 
 --| `lexWord1`: a text that spells a token of slice 1's alphabet, followed by something it may be followed by, is read
 --| by the lexer's `item` as that token, whatever follows after that.
+--|
+--| Proof idea: one case per kind and spelling, each the per-token theorem (`itemReadsColon`, `itemReadsWord`, …)
+--| with the text's spelling rewritten in and `MayFollow`'s conditions handed on.
 theorem lexWord1 ∀ (kind: Tok) (text: Text) (rest: List Char)
     (spells: Spells kind text)
     (follows: MayFollow kind text rest):
@@ -1685,6 +1746,8 @@ def piecesText (pieces: List Piece): Text := Text.fromList (Parse.joinReads (pie
 
 --| `lexPrinted`, from what the pieces are: spelled as the lexer reads them, with nothing after the last, lex to the
 --| leaves of their layout.
+--|
+--| Proof idea: `lexableRounds` makes each piece's `ItemReads` from `pieceReads`, and `declinesItemEnd` ends the rounds.
 theorem lexPieces ∀ (pieces: List Piece)
     (plain: AllPlain pieces)
     (lexable: Lexable pieces []):
@@ -1730,6 +1793,8 @@ theorem allImplies ∀ (chars: List Char) (passes follows: Char → Bool)
       Bool.andIntro (implied first (Bool.andLeft all)) (allImplies more passes follows implied (Bool.andRight all))
 
 --| A spelled token has something in it and no line break.
+--|
+--| Proof idea: Each fixed spelling is a literal; names and numbers are made of characters that aren't a line break (`wordCharNoBreak`, `digitNoBreak`).
 theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Code kind text).Plain :=
   match kind, spells with
     | LParen, same => rewrite same then Both byDecision byComputing
@@ -1927,6 +1992,8 @@ def Tok.symbolic1: Tok → Bool
 
 --| `operatorTok`, which the rules use to tell which operator a word is, gives the kind the lexer gives, for each
 --| spelling of it.
+--|
+--| Proof idea: One literal case per kind and spelling, each by computing.
 theorem operatorTokOfSpells ∀ (kind: Tok) (text: Text)
     (spells: Spells kind text)
     (symbolic: kind.symbolic1 = True):
@@ -2002,6 +2069,9 @@ def examplePieces: List Piece := [
 
 theorem examplePlain: AllPlain examplePieces := byDecision
 
+--| A list of pieces that lexes, as a witness that `lexPieces`' hypotheses can be met.
+--|
+--| Proof idea: `Spells` for each piece by its literal text, `Follows` by deciding.
 theorem exampleLexable: Lexable examplePieces [] :=
   Both
     (Witness [' ', 't', 'o', 'p'] (Both byComputing byComputing))
@@ -2103,3 +2173,99 @@ theorem exampleLayout: (lex (piecesText examplePieces)).map (lexed =>
         (Lower, 2, True)
       ] :=
   byComputing
+
+-- Pieces and the pieces next to them.
+
+theorem takeWhileSameHead ∀ (passes: Char → Bool) (before after: List Char)
+    (same: before.head = after.head)
+    (stops: before.takeWhile passes = []):
+    after.takeWhile passes = [] :=
+  match before, after, same with
+    | [], [], same => stops
+    | [first, ..more], [other, ..others], same =>
+      rewrite <- Option.someInjective same then
+        match passes first with
+          | False => byComputing
+
+--| What a token needs of the text after it depends on that text's first character only.
+--|
+--| Proof idea: Each condition of `MayFollow` is about the head or about `takeWhile` stopping at it (`takeWhileSameHead`).
+theorem followsSameHead ∀ (piece: Piece) (before after: List Char)
+    (same: before.head = after.head) (follows: piece.Follows before):
+    piece.Follows after :=
+  match piece, follows with
+    | Code Colon text, follows => rewrite <- same then follows
+    | Code Equals text, follows => rewrite <- same then follows
+    | Code Plus text, follows => rewrite <- same then follows
+    | Code Minus text, follows => rewrite <- same then follows
+    | Code Lt text, follows => rewrite <- same then follows
+    | Code Gt text, follows => rewrite <- same then follows
+    | Code Bang text, follows => same2 => rewrite <- same then follows same2
+    | Code KwDef text, Both stops noDot =>
+      Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
+    | Code Lower text, Both stops noDot =>
+      Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
+    | Code Upper text, Both stops noDot =>
+      Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
+    | Code Num text, Both stops (Both noDot noE) =>
+      Both (takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then Both noDot noE)
+    | Code Float text, Both stops noE =>
+      Both (takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then noE)
+    | Code other text, follows => follows
+    | Gap count, follows => rewrite <- same then follows
+    | Break, follows => follows
+    | Remark text, follows => takeWhileSameHead (char => char != '\n') before after same follows
+
+--| Each piece of a list is spelled as the lexer reads it.
+def AllSpelled: List Piece → Prop
+  | [] => True
+  | [piece, ..more] => piece.Spells ∧ AllSpelled more
+
+--| What each piece needs of the one after it, and the last of the end of the text: the pairs of neighbours.
+def PairsFollow: List Piece → Prop
+  | [] => True
+  | [piece] => piece.Follows []
+  | [piece, next, ..more] => piece.Follows next.chars ∧ PairsFollow [next, ..more]
+
+theorem headOfJoin ∀ (front middle back: List Char)
+    (nonEmpty: front ≠ []):
+    ((front ++ middle) ++ back).head = front.head :=
+  match front, nonEmpty with
+    | [], nonEmpty => (nonEmpty byComputing).impossible
+    | [first, ..more], nonEmpty => byComputing
+
+--| Neighbours that follow one another make a list of pieces that lexes: the lexer's look-ahead only ever looks at
+--| the first character of the next piece.
+theorem lexableOfPairs ∀ (pieces: List Piece)
+    (plain: AllPlain pieces)
+    (spelled: AllSpelled pieces)
+    (pairs: PairsFollow pieces):
+    Lexable pieces [] :=
+  match pieces, plain, spelled, pairs with
+    | [], plain, spelled, pairs => byComputing
+    | [piece], Both pieceOk moreOk, Both spells moreSpelled, follows => Both spells (Both follows byComputing)
+    | [piece, next, ..more], Both pieceOk (Both nextOk moreOk), Both spells later, Both follows laterPairs =>
+      Both spells
+        (Both
+          (followsSameHead piece next.chars
+            (Parse.joinReads (pieceSteps [next, ..more]) ++ [])
+            (headOfJoin next.chars (Parse.joinReads (pieceSteps more)) [] (nonEmptyChars next nextOk)).flipped
+            follows)
+          (lexableOfPairs [next, ..more] (Both nextOk moreOk) later laterPairs))
+
+--| `lexPrinted`, as the printer's proofs will use it: pieces that are spelled as the lexer reads them, each of which
+--| may be followed by the next, lex to the leaves of their layout.
+theorem lexPrintedPairs ∀ (pieces: List Piece)
+    (plain: AllPlain pieces)
+    (spelled: AllSpelled pieces)
+    (pairs: PairsFollow pieces):
+    lex (piecesText pieces)
+      = Ok {
+        leaves = (pieces.foldLeft Laid.start Laid.lay).leaves.reverse,
+        end = {
+          leading = (pieces.foldLeft Laid.start Laid.lay).pending.reverse,
+          blankLines = (pieces.foldLeft Laid.start Laid.lay).blankRun,
+          trailing = None
+        }
+      } :=
+  lexPieces pieces plain (lexableOfPairs pieces plain spelled pairs)
