@@ -190,6 +190,14 @@ theorem firstLeading ∀ (expr: Expr) (around: Around) (key: Nat)
     expr.firstWord.leading around key = [] :=
   quietLeading expr.firstWord around key (headQuiet expr.words (quietWords expr quiet))
 
+--| A quiet token has no own-line comments above it.
+theorem wordQuietUnnoted ∀ (word: Word) (quiet: word.quiet1 = True): word.noted = False := match word, quiet with
+  | { text, comments = { above = [], after = None, blankBefore = False } }, _ => byComputing
+
+--| A quiet expression's first token has no own-line comments above it.
+theorem quietNoted ∀ (expr: Expr) (quiet: expr.quiet1 = True): expr.noted = False :=
+  wordQuietUnnoted expr.firstWord (headQuiet expr.words (quietWords expr quiet))
+
 --| The first of quiet words is quiet, and so is the word that stands for none.
 theorem headQuiet ∀ (words: List Word) (quiet: words.all Word.quiet1 = True): (words.headOr Word.none).quiet1 = True :=
   match words with

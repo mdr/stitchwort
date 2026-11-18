@@ -138,7 +138,7 @@ def DeclElements (kinds: Text → Tok): Decl → Prop
       4
       header.colon.after.isSome
       trails
-      wordStart)
+      (startFor header.result.noted))
       ∧ BodyLays kinds value (declStart.next colonEq.after.isSome (4 + header.result.size)) colonEq.after.isSome
   | _ => False
 
@@ -356,13 +356,14 @@ theorem quietBody ∀ (value: Expr) (around: Around)
   let hangs := hangsOf value (quietExprFacts value within lexical quiet) around
   match around, hangs with
     | { before = False, hoisted, item, at, inArm }, hangs =>
-      rewrite plainBodyEl value { before = False, hoisted, item, at, inArm } then
+      rewrite plainBodyEl value { before = False, hoisted, item, at, inArm }, quietNoted value quiet then
         (
           (False, hangs 2 2),
-          _ => ((False, hangs 0 0), quietHug value { before = False, hoisted, item, at, inArm } within lexical quiet)
+          _ _ => ((False, hangs 0 0), quietHug value { before = False, hoisted, item, at, inArm } within lexical quiet)
         )
     | { before = True, hoisted, item, at, inArm }, hangs =>
-      rewrite plainBodyEl value { before = True, hoisted, item, at, inArm } then ((False, hangs 2 2), never => cases)
+      rewrite plainBodyEl value { before = True, hoisted, item, at, inArm }, quietNoted value quiet then
+        ((False, hangs 2 2), never => cases)
 
 --| A declaration whose element facts follow from its tree's: its type and value have no own-line comments inside
 --| (`Expr.quiet1`). Comments above the name, the `:` and the `:=` are allowed.
@@ -401,7 +402,7 @@ theorem quietElements ∀ (decl: Decl)
               (quietExprFacts result typeWithin typeLexical typeQuiet)
               (declStart.next colon.after.isSome 3)
           (
-            (False, typed 4 4),
+            (False, rewrite quietNoted result typeQuiet then typed 4 4),
             quietBody value (declStart.next colonEq.after.isSome (4 + result.size)) valueWithin valueLexical valueQuiet
           )
 
