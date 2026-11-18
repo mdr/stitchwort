@@ -10,6 +10,7 @@ import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.FileLexProofs (laidNotesFalse)
+import Fmt.OutputFileProofs (printedAlphabet1, printedGroups1, printedPlain1)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (
   barsQuiet1,
