@@ -1069,15 +1069,23 @@ def ifExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyw
 
 --| `h:` before a condition or scrutinee.
 def namedBinder (modes: Modes): {Parse Item} Option (Word, Word) :=
-  if modes.at Lower && isSome Colon (modes.peekAt 1) then
+  namedBinderOn modes (modes.at Lower) (modes.peekAt 1)
+
+def namedBinderOn (modes: Modes) (lower: Bool) (second: Option Tok): {Parse Item} Option (Word, Word) :=
+  if lower && isSome Colon second then
     let name := modes.lower "a name"
-    Some (name, bump())
+    let colon := bump()
+    Some (name, colon)
   else None
 
 --| `then` or `else`, which may also start a line left of the block's
 --| column, if not left of the `if`'s line (`expect_keyword`).
 def Modes.expectKeyword (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat): {Parse Item} Word :=
-  match modes.peek, left() with
+  modes.expectKeywordOn wanted what indent modes.peek left()
+
+def Modes.expectKeywordOn (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat) (seen: Option Tok) (items: List Item):
+    {Parse Item} Word :=
+  match seen, items with
     | None, [item, .._] if item.kind == wanted && item.leaf.token.lineStart && item.leaf.token.column >= indent =>
       bump()
     | _, _ => modes.expect wanted what
@@ -1489,11 +1497,19 @@ def universeAfter (modes: Modes) (keyword: Word) (items: List Item): {Parse Item
   | _ => Atom TypeU keyword
 
 --| What `atomBase` reads at a token that starts no atom: an error.
-def atomMissing (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  if modes.recover && modes.peek.isNone then
-    modes.gap (if ranOutAtLine modes then ranOutLine else modes.unexpected "an expression")
-  else if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression"
-  else modes.fail "an expression"
+def atomMissing (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := atomMissingAt modes modes.peek
+
+def atomMissingAt (modes: Modes) (seen: Option Tok): {Parse Item} Expr :=
+  if modes.recover && seen.isNone then atomGap modes (ranOutAtLine modes) else atomNamed modes (modes.peekAt 1)
+
+def atomGap (modes: Modes) (ran: Bool): {Parse Item} Expr :=
+  if ran then modes.gap ranOutLine
+  else
+    let message := modes.unexpected "an expression"
+    modes.gap message
+
+def atomNamed (modes: Modes) (second: Option Tok): {Parse Item} Expr :=
+  if isSome FatArrow second then modes.failName "an expression" else modes.fail "an expression"
 
 def bracketAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   bracketSecond self modes (modes.peekAt 1)

@@ -25,7 +25,9 @@ def Modes.expectFixed (modes: Modes) (wanted: Tok) (what: Text): {Parse Item} Co
 --| Whether the next item is a line at or left of the block's column, where
 --| a recovering body reports a missing expression as "the line ends here"
 --| (`ran_out_after`).
-def ranOutAtLine (modes: Modes): {Parse Item} Bool := match modes.peek, left(), modes.limit with
+def ranOutAtLine (modes: Modes): {Parse Item} Bool := ranOutOn modes modes.peek left()
+
+def ranOutOn (modes: Modes) (seen: Option Tok) (items: List Item): Bool := match seen, items, modes.limit with
   | None, [item, .._], Some limit =>
     !modes.endsGuard item && item.leaf.token.lineStart && item.leaf.token.column <= limit
   | _, _, _ => False

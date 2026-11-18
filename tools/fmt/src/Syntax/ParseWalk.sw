@@ -2290,6 +2290,99 @@ theorem givesNamedArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         (reads0At modes.inBrackets KwDecreasing)
         (clause => givesNamedHead self modes.inBrackets open closer closeText nested clause))
 
+--| A gap is an error, which gives anything.
+theorem givesGap ∀ (modes: Modes) (message: Text) [holds: a → Prop]:
+    Parse.Gives GoodItems (() => modes.gap message) holds :=
+  givesAfter0 [p := () => left()] [j := items => modes.gapOn message items] reads0Left (items =>
+    match blockEnd modes.lines items.head with
+      | Some ending => Parse.readsFatal _ _
+      | None => Parse.readsFatal _ _)
+
+theorem reads0RanOutAtLine ∀ (modes: Modes): Reads0 (() => ranOutAtLine modes) :=
+  reads0Then [p := () => modes.peek] (reads0Peek modes) (seen =>
+    reads0Then [p := () => left()] reads0Left (items => reads0Done (ranOutOn modes seen items)))
+
+theorem givesAtomGap ∀ (modes: Modes) (ran: Bool): Parse.Gives GoodItems (() => atomGap modes ran) Out := match ran with
+  | True => givesGap modes ranOutLine
+  | False =>
+    Parse.givesThen
+      [p := () => modes.unexpected "an expression"]
+      [j := message => modes.gap message]
+      (givesUnexpected modes "an expression")
+      (message _ => givesGap modes message)
+
+theorem givesAtomNamed ∀ (modes: Modes) (second: Option Tok):
+    Parse.Gives GoodItems (() => atomNamed modes second) Out :=
+  match isSome FatArrow second with
+    | True => givesFailName modes "an expression"
+    | False => givesFail modes "an expression"
+
+theorem givesAtomMissing ∀ (self: Goal → {Parse Item} Expr) (modes: Modes):
+    Parse.Gives GoodItems (() => atomMissing self modes) Out :=
+  givesAfter0 [p := () => modes.peek] [j := seen => atomMissingAt modes seen] (reads0Peek modes) (seen =>
+    match modes.recover && seen.isNone with
+      | True =>
+        givesAfter0 [p := () => ranOutAtLine modes] [j := ran => atomGap modes ran] (reads0RanOutAtLine modes) (ran =>
+          givesAtomGap modes ran)
+      | False =>
+        givesAfter0
+          [p := () => modes.peekAt 1]
+          [j := second => atomNamed modes second]
+          (reads0PeekAt modes 1)
+          (second => givesAtomNamed modes second))
+
+theorem givesNamedBinder ∀ (modes: Modes): Parse.Gives GoodItems (() => namedBinder modes) (found => True) :=
+  givesAfter0
+    [p := () => modes.at Lower]
+    [j := lower => namedBinderOn modes lower (modes.peekAt 1)]
+    (reads0At modes Lower)
+    (lower =>
+      givesAfter0
+        [p := () => modes.peekAt 1]
+        [j := second => namedBinderOn modes lower second]
+        (reads0PeekAt modes 1)
+        (second =>
+          match lower && isSome Colon second with
+            | True => Parse.givesThen (givesLower modes "a name") (name _ =>
+              Parse.givesThen givesBump (colon _ => Parse.givesDone byComputing))
+            | False => Parse.givesDone byComputing))
+
+theorem givesExpectKeyword ∀ (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat):
+    Parse.Gives GoodItems (() => modes.expectKeyword wanted what indent) (word => True) :=
+  givesAfter0
+    [p := () => modes.peek]
+    [j := seen => modes.expectKeywordOn wanted what indent seen left()]
+    (reads0Peek modes)
+    (seen =>
+      givesAfter0
+        [p := () => left()]
+        [j := items => modes.expectKeywordOn wanted what indent seen items]
+        reads0Left
+        (items =>
+          match seen, items with
+            | None, [item, ..rest] =>
+              match line: item.kind == wanted && item.leaf.token.lineStart && item.leaf.token.column >= indent with
+                | True => givesBump
+                | False => givesExpectAny modes wanted what
+            | None, [] => givesExpectAny modes wanted what
+            | Some kind, others => givesExpectAny modes wanted what))
+
+theorem givesIf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyword: Word)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => ifExpr self modes indent keyword) Out :=
+  Parse.givesThen (givesNamedBinder modes) (binder _ =>
+    Parse.givesThen (nested { modes = modes.sealed, level = LevelFull }) (condition _ =>
+      Parse.givesThen (givesExpectKeyword modes KwThen "`then`" indent) (thenKeyword _ =>
+        Parse.givesThen (nested { modes = modes.sealed, level = LevelFull }) (whenTrue _ =>
+          Parse.givesThen (givesExpectKeyword modes KwElse "`else`" indent) (elseKeyword _ =>
+            Parse.givesThen (nested { modes, level = LevelFull }) (tail _ => Parse.givesDone byComputing))))))
+
+theorem givesIfKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => ifKeyword self modes) Out :=
+  givesAfter0 reads0HeadIndent (indent =>
+    Parse.givesThen givesBump (keyword _ => givesIf self modes indent keyword nested))
+
 --| What the parsers outside slice 1 give, for every `self` that gives what `GoalParsed` says: SW-4000 proves it.
 def OutsideGives: Type := ∀ (self: Goal → {Parse Item} Expr) => Nested self → Outside self
 
