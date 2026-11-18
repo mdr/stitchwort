@@ -2380,20 +2380,31 @@ theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
 
 -- Declarations.
 
---| `Decl.lexical1`, but a definition's name may be an upper-case name too (`def Foo: Nat := 1` is in slice 1,
---| `Header.within1` not asking for a lower-case name).
-def Decl.lexicalLoose1: Decl → Bool
-  | Definition _ header (Assigned _ value) =>
-    (header.name.lexesAs Lower || header.name.lexesAs Upper) && header.result.lexical1 && value.lexical1
-  | _ => False
-
-def SourceFile.lexicalLoose1 (file: SourceFile): Bool := file.decls.all Decl.lexicalLoose1
-
 --| What a declaration the parser gives is, when it is within slice 1.
-def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧ decl.lexicalLoose1 = True
+def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧ decl.lexical1 = True
 
 theorem declOut ∀ [decl: Decl] (out: DeclOut decl): DeclOk decl := within =>
   (Bool.falseNotTrue (rewrite out at within)).impossible
+
+theorem headerNameLower ∀ (header: Header) (within: header.within1 = True): header.name.lexesAs Lower = True :=
+  match header with
+    | {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params,
+        colon,
+        result,
+        decreasingClause,
+        unfoldingClause
+      } =>
+      match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
+        | None, None, DefPlain, None, [], None, None, within => Bool.andLeft within
+        | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
+          (Bool.falseNotTrue within).impossible
 
 theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
   match header with
@@ -2411,7 +2422,7 @@ theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True):
         unfoldingClause
       } =>
       match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
-        | None, None, DefPlain, None, [], None, None, within => within
+        | None, None, DefPlain, None, [], None, None, within => Bool.andRight within
         | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
           (Bool.falseNotTrue within).impossible
 
@@ -2424,7 +2435,7 @@ theorem definitionOk ∀ (attributes: List Attributes) (header: Header) (body: D
         let (headerWithin, valueWithin) := within
         let (resultShaped, resultLexical, resultHigh) := resultParsed (headerResultWithin header headerWithin)
         let (valueShaped, valueLexical, valueHigh) := valueParsed valueWithin
-        (Both resultShaped valueShaped, Both nameOk (Both resultLexical valueLexical))
+        (Both resultShaped valueShaped, Both (headerNameLower header headerWithin) (Both resultLexical valueLexical))
 
 theorem givesDefinition ∀ (modes: Modes) (attributes: List Attributes) (exportKeyword opaqueKeyword: Option Comments)
     (nested: Nested expressionAt) (outside: Outside expressionAt) (frame: Frame expressionAt):
@@ -2600,15 +2611,15 @@ theorem parseFileOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lex
         (decls ran => parseGroupsOk outside frame Seen.start (groupsOf lexed.leaves) [] decls good () ran)
         parses
 
-theorem declsShapedLoose ∀ (decls: List Decl)
+theorem declsShapedLexical ∀ (decls: List Decl)
     (ok: List.All DeclOk decls)
     (within: decls.all Decl.within1 = True):
-    decls.all Decl.shaped1 = True ∧ decls.all Decl.lexicalLoose1 = True :=
+    decls.all Decl.shaped1 = True ∧ decls.all Decl.lexical1 = True :=
   match decls, ok, within with
     | [], ok, within => (byComputing, byComputing)
     | [decl, ..rest], (declOk, restOk), (Both declWithin restWithin) =>
       let (declShaped, declLexical) := declOk declWithin
-      let (restShaped, restLexical) := declsShapedLoose rest restOk restWithin
+      let (restShaped, restLexical) := declsShapedLexical rest restOk restWithin
       (Both declShaped restShaped, Both declLexical restLexical)
 
 --| Every declaration of a file of slice 1 that the parser gives is shaped (`Shaped1`, `Decl.shaped1`).
@@ -2620,54 +2631,13 @@ theorem parseShaped1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (le
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.shaped1 = True :=
-  (declsShapedLoose file.decls (parseFileOk outside frame lexed file good parses) within).left
+  (declsShapedLexical file.decls (parseFileOk outside frame lexed file good parses) within).left
 
---| Every declaration's words lex as their kinds, but for a name: `def Foo: Nat := 1` is in slice 1 with an
---| upper-case name, which `Decl.lexical1` doesn't allow.
-theorem parseLexicalLoose1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
-    (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
-    (parses: parseFile lexed = Ok file)
-    (within: file.within1 = True):
-    file.lexicalLoose1 = True :=
-  (declsShapedLoose file.decls (parseFileOk outside frame lexed file good parses) within).right
-
---| A definition's name lexes as a lower-case name.
-def Decl.lowerNamed1: Decl → Bool
-  | Definition _ header _ => header.name.lexesAs Lower
-  | _ => True
-
-def SourceFile.lowerNamed1 (file: SourceFile): Bool := file.decls.all Decl.lowerNamed1
-
-theorem lexicalOfLoose ∀ (decl: Decl)
-    (loose: decl.lexicalLoose1 = True)
-    (lower: decl.lowerNamed1 = True):
-    decl.lexical1 = True :=
-  match decl, loose, lower with
-    | Definition attributes header (Assigned colonEq value), (Both named (Both result value1)), lower =>
-      Both lower (Both result value1)
-    | Definition attributes header Primitive, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Definition attributes header (Arms arms), loose, lower => (Bool.falseNotTrue loose).impossible
-    | Namespace keyword name, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Import keyword path open imported close, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Data attributes isInterface keyword name params indices body, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Ability keyword name params whereKeyword operations, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Test keyword name colonEq body, loose, lower => (Bool.falseNotTrue loose).impossible
-    | RuleSetDecl keyword name colonEq set, loose, lower => (Bool.falseNotTrue loose).impossible
-
-theorem declsLexical ∀ (decls: List Decl)
-    (loose: decls.all Decl.lexicalLoose1 = True)
-    (lower: decls.all Decl.lowerNamed1 = True):
-    decls.all Decl.lexical1 = True :=
-  match decls, loose, lower with
-    | [], loose, lower => byComputing
-    | [decl, ..rest], (Both declLoose restLoose), (Both declLower restLower) =>
-      Both (lexicalOfLoose decl declLoose declLower) (declsLexical rest restLoose restLower)
-
---| Every word of the file lexes as one token of its kind, for a file whose definitions are named in lower case.
+--| Every word of the file lexes as one token of its kind (a definition's name as a lower-case name, which
+--| `Header.within1` asks for).
 theorem parseLexical1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
-    (within: file.within1 = True)
-    (lower: file.lowerNamed1 = True):
+    (within: file.within1 = True):
     file.lexical1 = True :=
-  declsLexical file.decls (parseLexicalLoose1 outside frame lexed file good parses within) lower
+  (declsShapedLexical file.decls (parseFileOk outside frame lexed file good parses) within).right

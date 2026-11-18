@@ -1995,7 +1995,7 @@ theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True):
         result,
         decreasingClause = None,
         unfoldingClause = None
-      } => within
+      } => Bool.andRight within
 
 theorem headerCalmWithin ∀ (header: Header) (within: header.within1 = True): header.calm.within1 = True :=
   match header with
@@ -2011,7 +2011,10 @@ theorem headerCalmWithin ∀ (header: Header) (within: header.within1 = True): h
         result,
         decreasingClause = None,
         unfoldingClause = None
-      } => withinCalm result False within
+      } =>
+      Bool.andIntro
+        (rewrite Word.keptLexesAs name False False Lower then Bool.andLeft within)
+        (withinCalm result False (Bool.andRight within))
 
 theorem declCalmWithin ∀ (decl: Decl) (within: decl.within1 = True): decl.calm.within1 = True := match decl with
   | Definition [] header (Assigned colonEq value) =>
