@@ -593,3 +593,332 @@ theorem commentRaw ∀ (body: List Char)
               (match rest with
                 | MkText cs => byComputing)
           rewrite text, containsBreak inner innerNone
+
+-- Every part of the lexer reads honestly: what it read is a start of the input, and it stopped at an honest mark.
+
+theorem soundSkip ∀ (count: Nat): Sound (() => skip count) := start fine =>
+  Parse.readsAtWeaken (atSkip count start) (read v h => byComputing)
+
+theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
+    Gives (() => located value from) (lexeme => lexeme.value = value) :=
+  start fine =>
+    Parse.readsAtWeaken (atLocated value from start) (read lexeme made =>
+      match made with | Both none same => rewrite same)
+
+theorem soundLocated ∀ (value: Lexeme) (from: Parse.Mark Char): Sound (() => located value from) :=
+  soundOf (givesLocated value from)
+
+theorem soundQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (input: List Char)
+    (ih: ∀ (upper2: Bool) (found2: Option Bool) => Sound (() => qualified more upper2 found2)):
+    Sound (() => qualifiedOn more upper found input) :=
+  match input with
+    | ['.', next, ..rest] =>
+      match guard: upper && next.isAsciiLetter with
+        | True => soundThen (soundSkip 1) (u =>
+          soundThen (soundSpan isWordChar) (component => ih next.isAsciiUppercase (Some next.isAsciiUppercase)))
+        | False => soundDone found
+    | _ => soundDone found
+
+theorem soundQualified ∀ (fuel: Nat) (upper: Bool) (found: Option Bool): Sound (() => qualified fuel upper found) :=
+  match fuel with
+    | Zero => soundDone found
+    | Succ more => soundThen soundMark (at =>
+      soundQualifiedOn more upper found at.rest (upper2 found2 => soundQualified more upper2 found2))
+
+theorem soundWordFrom ∀ (afterDot: Bool) (from: Parse.Mark Char): Sound (() => wordFrom afterDot from) :=
+  soundThen (soundSpan isWordChar) (first =>
+    soundThen soundMark (at =>
+      soundThen
+        (soundThen
+          (soundQualifiedOn from.left
+            (first.head.map (char => char.isAsciiUppercase) |> .getOrElse False)
+            None
+            at.rest
+            (upper2 found2 => soundQualified from.left upper2 found2))
+          (found =>
+            match found with
+              | Some lastUpper =>
+                match lastUpper with
+                  | True => soundDone Upper
+                  | False => soundDone Lower
+              | None => soundDone (wordKind afterDot (Text.fromList first))))
+        (kind => soundLocated _ from)))
+
+theorem soundWord ∀ (afterDot: Bool): Sound (() => word afterDot) :=
+  soundThen soundMark (from => soundWordFrom afterDot from)
+
+theorem soundFractionFrom ∀ (at: Parse.Mark Char): Sound (() => fractionFrom at) :=
+  match ahead: fractionAhead at.rest with
+    | True => soundThen (soundSkip 1) (u => soundThen (soundSpan Char.isAsciiDigit) (decimals => soundDone True))
+    | False => soundDone False
+
+theorem soundExponentFrom ∀ (at: Parse.Mark Char): Sound (() => exponentFrom at) := match e: exponentSkip at.rest with
+  | Some count => soundThen (soundSkip count) (u => soundThen (soundSpan Char.isAsciiDigit) (power => soundDone True))
+  | None => soundDone False
+
+theorem soundNumberTail ∀ (afterDot: Bool): Sound (() => numberTail afterDot) := match afterDot with
+  | True => soundDone False
+  | False => soundThen (soundThen soundMark (at => soundFractionFrom at)) (fraction =>
+    soundThen (soundThen soundMark (at => soundExponentFrom at)) (exponent => soundDone (fraction || exponent)))
+
+theorem soundNumber ∀ (afterDot: Bool): Sound (() => number afterDot) := soundThen soundMark (from =>
+  soundThen (soundSpan Char.isAsciiDigit) (digits =>
+    soundThen (soundNumberTail afterDot) (float => soundLocated _ from)))
+
+--| None of the lexemes is a token of the alphabet: what a text literal, a character or a `.` gives.
+def Foreign (lexemes: List (Parse.Located Lexeme)): Prop := lexemes.all (lexeme => lexeme.value.within) = False
+
+theorem foreignCons ∀ (lexeme: Parse.Located Lexeme) (rest: List (Parse.Located Lexeme))
+    (outside: lexeme.value.within = False):
+    Foreign [lexeme, ..rest] :=
+  rewrite outside
+
+theorem dotsAfter ∀ (kind: Tok) (count: Nat) (dot: Parse.Located Lexeme)
+    (outside: kind.within1 = False)
+    (isDot: dot.value = TokenLexeme kind):
+    Gives
+      (() =>
+        match Parse.mark().rest with
+          | [next, .._] if next.isAsciiDigit => [dot, number True]
+          | [next, .._] if isWordStart next => [dot, word True]
+          | _ => [dot])
+      Foreign :=
+  let first: dot.value.within = False := rewrite isDot then outside
+  givesThen soundMark (at =>
+    match at.rest with
+      | [] => givesDone [dot] Foreign (foreignCons dot [] first)
+      | [next, ..rest] =>
+        match digit: next.isAsciiDigit with
+          | True =>
+            givesThen (soundNumber True) (lexeme => givesDone [dot, lexeme] Foreign (foreignCons dot [lexeme] first))
+          | False =>
+            match starts: isWordStart next with
+              | True =>
+                givesThen (soundWord True) (lexeme => givesDone [dot, lexeme] Foreign (foreignCons dot [lexeme] first))
+              | False => givesDone [dot] Foreign (foreignCons dot [] first))
+
+theorem dotsFrom ∀ (kind: Tok) (count: Nat)
+    (outside: kind.within1 = False):
+    Gives
+      (() =>
+        let dot := tokenOf kind count
+        if count == 3 then [dot]
+        else
+          match Parse.mark().rest with
+            | [next, .._] if next.isAsciiDigit => [dot, number True]
+            | [next, .._] if isWordStart next => [dot, word True]
+            | _ => [dot])
+      Foreign :=
+  Parse.readsThen (soundTokenOf kind count) (read dot isDot =>
+    match three: count == 3 with
+      | True => givesDone [dot] Foreign (foreignCons dot [] (rewrite isDot then outside))
+      | False => dotsAfter kind count dot outside isDot)
+
+theorem givesDots: Gives (() => dots()) Foreign := givesThen soundMark (at =>
+  match at.rest with
+    | ['.', '.', '<', ..rest] => dotsFrom DotDotLt 3 byComputing
+    | ['.', '.', '=', ..rest] => dotsFrom DotDotEq 3 byComputing
+    | ['.', '.', ..rest] => dotsFrom DotDot 2 byComputing
+    | _ => dotsFrom Dot 1 byComputing)
+
+theorem soundFatal ∀ (message: Text): Sound (() => (Empty.absurd (Parse.fatal message): a)) :=
+  Parse.readsFatal message (read value => Holds)
+
+theorem soundStop: Sound (() => (Empty.absurd Parse.stop(): a)) := Parse.readsStop (read value => Holds)
+
+theorem soundReadEscape ∀ (rest: List Char): Sound (() => readEscape rest) := match e: escapeLength rest with
+  | Ok count => soundThen (soundSkip count) (u => soundDone 1)
+  | Err message => soundFatal message
+
+theorem soundCharPiece: Sound (() => charPiece()) := soundThen soundMark (at =>
+  match at.rest with
+    | ['\\', ..rest] => soundThen soundMark (here => soundReadEscape here.rest)
+    | ['\'', ..rest] => soundStop
+    | ['\n', ..rest] => soundStop
+    | [] => soundStop
+    | _ =>
+      soundThen
+        [p := () => Parse.span (char => char != '\'' && char != '\\' && char != '\n')]
+        (soundSpan (char => char != '\'' && char != '\\' && char != '\n'))
+        (run => soundDone run.length))
+
+theorem givesCharLiteral: Gives (() => charLiteral()) (lexeme => lexeme.value = TokenLexeme CharLit) :=
+  givesThen soundMark (from =>
+    givesThen (soundSkip 1) (u =>
+      givesThen (soundMany [p := () => charPiece()] soundCharPiece) (counts =>
+        givesThen soundMark (at =>
+          match at.rest with
+            | ['\'', ..rest] => givesThen (soundSkip 1) (u2 =>
+              match one: counts.sum == 1 with
+                | True => givesLocated (TokenLexeme CharLit) from
+                | False => givesFatal charHoldsOne _)
+            | _ => givesFatal unclosedChar _))))
+
+-- Text literals: whatever they read, they give a token outside the alphabet. Said of a run (`Yields`), not of what
+-- was read, so that nothing need be known of what a `${…}` inside reads.
+
+--| Whenever `parser` succeeds, `holds` of its value.
+def Yields (parser: () → {Parse Char} a) (holds: a → Prop): Prop :=
+  ∀ (state: Parse.State Char) (value: a) (after: Parse.Mark Char) => Parse.runFrom state (() =>
+    (parser(), Parse.mark()))
+    = Ok (value, after)
+    → holds value
+
+--| Names a parser, so that `yieldsThen` reads it off.
+def Ran (parser: () → {Parse Char} a): Prop := parser = parser
+
+theorem ran ∀ (parser: () → {Parse Char} a): Ran parser := byComputing
+
+--| `p`, then `j` of its value, gives what `j` gives of every value.
+theorem yieldsThen ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [holds: b → Prop]
+    (first: Ran p)
+    (rest: ∀ (v: a) => Yields (() => j v) holds):
+    Yields (() => j (p())) holds :=
+  state value after h =>
+    match Parse.runFromThenOk2 p state j _ _ h with
+      | Witness v (Witness middle (Both ranFirst restRun)) => rest v middle value after restRun
+
+theorem yieldsDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Yields (() => x) holds := state value after h =>
+  let same := Result.okInjective h
+  let valueSame: x = value := Pair.mkInjectiveFst same
+  rewrite <- valueSame then proved
+
+theorem yieldsFatal ∀ (message: Text) (holds: a → Prop): Yields (() => (fail message: a)) holds :=
+  state value after h => (Result.errNotOk h).impossible
+
+theorem locatedValue ∀ (value: Lexeme) (from: Parse.Mark Char) (state: Parse.State Char)
+    (lexeme: Parse.Located Lexeme) (after: Parse.Mark Char)
+    (h: Parse.runFrom state (() => (located value from, Parse.mark())) = Ok (lexeme, after)):
+    lexeme.value = value :=
+  let same := Result.okInjective h
+  let lexemeSame: { value, offset = from.offset, length = state.at.offset - from.offset } = lexeme :=
+    Pair.mkInjectiveFst same
+  rewrite <- lexemeSame
+
+--| `located`, then `j` of the lexeme: `j` of a lexeme of that value.
+theorem yieldsLocated ∀ [j: Parse.Located Lexeme → {Parse Char} b] [holds: b → Prop]
+    (value: Lexeme) (from: Parse.Mark Char)
+    (rest: ∀ (lexeme: Parse.Located Lexeme) => lexeme.value = value → Yields (() => j lexeme) holds):
+    Yields (() => j (located value from)) holds :=
+  state result after h =>
+    match Parse.runFromThenOk2 (() => located value from) state j _ _ h with
+      | Witness lexeme (Witness middle (Both ranFirst restRun)) =>
+        rest lexeme (locatedValue value from state lexeme middle.at ranFirst) middle result after restRun
+
+theorem andFalseRight ∀ (x: Bool): (x && False) = False := match x with
+  | True => byComputing
+  | False => byComputing
+
+--| A text literal's pieces end with its last piece, which is `Str` or `StrEnd`, after the ones found.
+theorem endForeign ∀ (first: Bool) (piece: Parse.Located Lexeme) (found: List (Parse.Located Lexeme))
+    (marked: (first || !(found.all (lexeme => lexeme.value.within))) = True)
+    (isPiece: piece.value = TokenLexeme (if first then Str else StrEnd)):
+    Foreign [piece, ..found].reverse :=
+  let cut: ([piece, ..found].reverseOnto []).all (lexeme => lexeme.value.within)
+    = ([piece, ..found].all (lexeme => lexeme.value.within) && True) :=
+    allReverseOnto [piece, ..found] [] (lexeme => lexeme.value.within)
+  match first with
+    | True => rewrite cut, isPiece
+    | False =>
+      let foundOut: found.all (lexeme => lexeme.value.within) = False := Bool.notTrue _ marked
+      rewrite cut, foundOut, andFalseRight piece.value.within
+
+--| The pieces found after a `${…}`: the piece before it when it is the first, or the ones found before.
+theorem openForeign ∀ (first: Bool) (piece open close: Parse.Located Lexeme) (inner found: List (Parse.Located Lexeme))
+    (marked: (first || !(found.all (lexeme => lexeme.value.within))) = True)
+    (isPiece: piece.value = TokenLexeme (if first then StrStart else StrMid)):
+    (False
+      || !(([close, ..inner.reverse] ++ [open, ..(if first || piece.length > 0 then [piece, ..found] else found)]).all
+        (lexeme => lexeme.value.within)))
+      = True :=
+  let withPiece := if first || piece.length > 0 then [piece, ..found] else found
+  let pieceOut: withPiece.all (lexeme => lexeme.value.within) = False := match first with
+    | True => rewrite isPiece
+    | False =>
+      let foundOut: found.all (lexeme => lexeme.value.within) = False := Bool.notTrue _ marked
+      match piece.length > 0 with
+        | True => rewrite foundOut, andFalseRight piece.value.within
+        | False => foundOut
+  rewrite allAppendB [close, ..inner.reverse] [open, ..withPiece] (lexeme => lexeme.value.within),
+      pieceOut,
+      andFalseRight open.value.within,
+      andFalseRight ([close, ..inner.reverse].all (lexeme => lexeme.value.within))
+
+theorem closeBlockForeign ∀ (source: Text) (body: Nat) (escape: Option Text) (first: Bool)
+    (pieceStart: Parse.Mark Char) (found: List (Parse.Located Lexeme))
+    (marked: (first || !(found.all (lexeme => lexeme.value.within))) = True):
+    Yields (() => closeBlock source body escape first pieceStart found) Foreign :=
+  yieldsThen (ran (() => Parse.mark())) (at =>
+    yieldsThen (ran (() => skip 3)) (u =>
+      match indent: tabbedIndent (source.slice body at.offset) with
+        | True => yieldsFatal blockTab Foreign
+        | False =>
+          match escape with
+            | Some message => yieldsFatal message Foreign
+            | None => yieldsLocated (TokenLexeme (if first then Str else StrEnd)) pieceStart (made isPiece =>
+              yieldsDone [made, ..found].reverse Foreign (endForeign first made found marked isPiece))))
+
+--| A text literal's pieces, after the first or after a piece outside the alphabet, give a token outside it.
+--|
+--| Proof idea: by the fuel. Each `${…}` adds the piece before it (`StrStart` when it is the first) to what was
+--| found, and the closing quote adds the last piece (`Str` when it is the first) and gives them all; what is read in
+--| between is never looked at.
+theorem piecesForeign ∀ (fuel: Nat) (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (place: Place) (block: Bool) (body: Nat) (first: Bool) (pieceStart: Parse.Mark Char)
+    (escape: Option Text) (found: List (Parse.Located Lexeme))
+    (marked: (first || !(found.all (lexeme => lexeme.value.within))) = True):
+    Yields (() => pieces fuel self source place block body first pieceStart escape found) Foreign :=
+  match fuel with
+    | Zero => yieldsFatal "the lexer read a text literal without moving" Foreign
+    | Succ more => yieldsThen (ran (() => Parse.many (() => segment block))) (segments =>
+      yieldsThen (ran (() => Parse.mark())) (at =>
+        match at.rest with
+          | ['$', '{', ..rest] =>
+            yieldsLocated (TokenLexeme (if first then StrStart else StrMid)) pieceStart (made isPiece =>
+              yieldsThen (ran (() => tokenOf InterpOpen 2)) (open =>
+                yieldsThen (ran (() => self (Inside block (block || place.scanning)))) (inner =>
+                  yieldsThen (ran (() => tokenOf InterpClose 1)) (close =>
+                    yieldsThen (ran (() => Parse.mark())) (after =>
+                      piecesForeign more self source place block body False after _ _
+                        (openForeign first made open close inner found marked isPiece))))))
+          | ['"', '"', '"', ..rest] =>
+            match block with
+              | True => closeBlockForeign source body _ first pieceStart found marked
+              | False => quoteForeign first pieceStart found marked
+          | ['"', ..rest] =>
+            match block with
+              | True => yieldsFatal unclosedBlock Foreign
+              | False => quoteForeign first pieceStart found marked
+          | _ => yieldsFatal _ Foreign))
+
+theorem quoteForeign ∀ (first: Bool) (pieceStart: Parse.Mark Char) (found: List (Parse.Located Lexeme))
+    (marked: (first || !(found.all (lexeme => lexeme.value.within))) = True):
+    Yields
+      (() =>
+        skip 1
+        let piece := located (TokenLexeme (if first then Str else StrEnd)) pieceStart
+        [piece, ..found].reverse)
+      Foreign :=
+  yieldsThen (ran (() => skip 1)) (u =>
+    yieldsLocated (TokenLexeme (if first then Str else StrEnd)) pieceStart (made isPiece =>
+      yieldsDone [made, ..found].reverse Foreign (endForeign first made found marked isPiece)))
+
+--| A text literal gives a token outside the alphabet.
+theorem textForeign ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (place: Place):
+    Yields (() => textLiteral self source place) Foreign :=
+  yieldsThen (ran (() => Parse.mark())) (from =>
+    match from.rest with
+      | ['"', '"', '"', ..rest] =>
+        match scanning: place.scanning with
+          | True => yieldsFatal blockInBlockInterpolation Foreign
+          | False => yieldsThen (ran (() => skip 3)) (u =>
+            yieldsThen (ran (() => Parse.span (char => char == ' ' || char == '\r'))) (gap =>
+              yieldsThen (ran (() => Parse.mark())) (at =>
+                match at.rest with
+                  | ['\n', ..more] => yieldsThen (ran (() => skip 1)) (u2 =>
+                    yieldsThen (ran (() => Parse.mark())) (bodyAt =>
+                      piecesForeign (from.left + 1) self source place True bodyAt.offset True from None [] byComputing))
+                  | [] => yieldsFatal unclosedBlock Foreign
+                  | _ => yieldsFatal blockOpeningLine Foreign)))
+      | _ => yieldsThen (ran (() => skip 1)) (u =>
+        piecesForeign (from.left + 1) self source place False 0 True from None [] byComputing))
