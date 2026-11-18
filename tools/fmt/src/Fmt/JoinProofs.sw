@@ -13,11 +13,13 @@ import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void, byDecisio
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Expr, Tok, Word, isWordChar)
-import Syntax.Proofs (MayFollow)
+import Syntax.Proofs (Laid, MayFollow)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)
-import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, valueElPlain)
+import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
+import Fmt.PrintLexProofs (Printable, pieceFold, printedLexes)
+import Syntax (Comments, Decl, DefBody, DefKind, Header, lex)
 import Syntax (InfixKind, Note)
 
 -- What may follow a token.
@@ -2937,3 +2939,265 @@ theorem bodyAfterPasses ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (
                       ends))
               (below, byComputing)))
       )
+
+-- Declarations.
+
+theorem endedReadyColon ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge)
+    (ended: Ended trails edge):
+    Ready kinds trails ":" edge :=
+  match edge, ended with
+    | Plain None, _ => byComputing
+    | Plain (Some word), token => followsStops kinds word ":" ':' token byComputing stopsColon
+    | Waiting None, waits => waits
+    | Waiting (Some word), waits => waits
+
+--| A token that is no closer, then the line ends with it.
+theorem wordEnds ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
+    (joins: WordJoins word):
+    Passes kinds (word.leaf around key) (Ready kinds True word.text) (Ended True) :=
+  passesTo kinds
+    (word.leaf around key)
+    (Ready kinds True word.text)
+    (Left word.text word.trails)
+    (Ended True)
+    (wordLeafPasses kinds word around key joins)
+    (edge left => endedTrue word.trails edge (leftEnded word.text word.trails joins.right.left edge left))
+
+theorem wordAfterGap ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
+    (joins: WordJoins word):
+    Passes kinds (word.leaf around key) (Gapped True) (Ended True) :=
+  passesFrom kinds
+    (word.leaf around key)
+    (Ready kinds True word.text)
+    (Gapped True)
+    (Ended True)
+    (wordEnds kinds word around key joins)
+    (edge gapped => gappedReadyTrue kinds True word.text edge gapped)
+
+--| A definition's type: below the `:` if a comment follows it, else after a space.
+theorem typedPasses ∀ (kinds: Text → Tok) (trails: Bool) (typeDoc: Doc) (first: Text)
+    (typePass: Passes kinds typeDoc (Ready kinds True first) (Ended True)):
+    PassesAll kinds
+      (if trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc])
+      (Ended True)
+      (Ended True) :=
+  match trails with
+    | True =>
+      passesLast kinds
+        (Nest 4 (Doc.concat [HardLine, typeDoc]))
+        (Ended True)
+        (Ended True)
+        (passesNest kinds 4 _
+          (Ended True)
+          (Ended True)
+          (passesConcat kinds
+            [HardLine, typeDoc]
+            (Ended True)
+            (Ended True)
+            (passesTwo kinds HardLine typeDoc
+              (Ended True)
+              (Ready kinds True first)
+              (Ended True)
+              (passesHard kinds (Ended True) (Ready kinds True first) byComputing)
+              typePass)))
+    | False =>
+      passesTwo kinds
+        (Doc.text " ")
+        (Nest 4 typeDoc)
+        (Ended True)
+        (Gapped True)
+        (Ended True)
+        (passesSpace kinds True)
+        (passesNest kinds 4 typeDoc
+          (Gapped True)
+          (Ended True)
+          (passesFrom kinds typeDoc (Ready kinds True first) (Gapped True) (Ended True) typePass (edge gapped =>
+            gappedReadyTrue kinds True first edge gapped)))
+
+--| A plain definition: its keyword, name, `:`, type, `:=` and body, from the start of a line.
+--|
+--| Proof idea: The header's tokens one after another with spaces (`spacedSeq`), the `:` after any token
+--| (`endedReadyColon`), the type after a space or a line break, then the `:=` after a space and the body
+--| (`bodyAfterPasses`) in either of `IfBroken`'s forms.
+theorem plainDefPasses ∀ (kinds: Text → Tok) (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
+    (colonEq: Comments) (value: Expr) (post: Edge → Prop)
+    (resultWithin: result.within1 = True)
+    (valueWithin: value.within1 = True)
+    (keywordJoins: WordJoins (fixedWord "def" keyword))
+    (nameJoins: WordJoins name)
+    (colonJoins: WordJoins (fixedWord ":" colon))
+    (resultJoins: Joinable kinds result)
+    (assignJoins: WordJoins (fixedWord ":=" colonEq))
+    (valueJoins: Joinable kinds value) (ends: ∀ (edge: Edge) => Ended value.trails edge → post edge):
+    Passes kinds (plainDef keyword name colon result colonEq value) (Ready kinds True "def") post :=
+  let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
+  let keywordWord := fixedWord "def" keyword
+  let colonWord := fixedWord ":" colon
+  let assign := fixedWord ":=" colonEq
+  let colonAround := start.next (trailsBack [name, keywordWord]) 2
+  let typeDoc := result.el (start.next colonWord.trails 3)
+  let headDoc := spaced (headDocs start [keywordWord, name])
+  let typed := if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
+  let headerDoc := Doc.concat ([headDoc, colonWord.leaf colonAround 2] ++ typed)
+  let typeReady := Ready kinds True result.lead.text
+  let typePass: Passes kinds typeDoc typeReady (Ended True) :=
+    passesTo kinds typeDoc typeReady
+      (Ended result.trails)
+      (Ended True)
+      (elPasses kinds result resultWithin resultJoins (start.next colonWord.trails 3))
+      (edge ended => endedTrue result.trails edge ended)
+  let headPass: Passes kinds headDoc (Ready kinds True "def") (Ended True) :=
+    spacedSeq kinds
+      [keywordWord.leaf start 0, name.leaf (start.next keywordWord.trails 1) 1]
+      (Ready kinds True "def")
+      (Ended True)
+      (
+        wordEnds kinds keywordWord start 0 keywordJoins,
+        wordAfterGap kinds name (start.next keywordWord.trails 1) 1 nameJoins
+      )
+  let colonPass: Passes kinds (colonWord.leaf colonAround 2) (Ended True) (Ended True) :=
+    passesFrom kinds
+      (colonWord.leaf colonAround 2)
+      (Ready kinds True ":")
+      (Ended True)
+      (Ended True)
+      (wordEnds kinds colonWord colonAround 2 colonJoins)
+      (edge ended => endedReadyColon kinds True edge ended)
+  let typedPass: PassesAll kinds typed (Ended True) (Ended True) :=
+    typedPasses kinds colonWord.trails typeDoc result.lead.text typePass
+  let headerPass: Passes kinds headerDoc (Ready kinds True "def") (Ended True) :=
+    passesConcat kinds
+      ([headDoc, colonWord.leaf colonAround 2] ++ typed)
+      (Ready kinds True "def")
+      (Ended True)
+      (passesCons kinds headDoc
+        [colonWord.leaf colonAround 2, ..typed]
+        (Ready kinds True "def")
+        (Ended True)
+        (Ended True)
+        headPass
+        (passesCons kinds
+          (colonWord.leaf colonAround 2)
+          typed
+          (Ended True)
+          (Ended True)
+          (Ended True)
+          colonPass
+          typedPass))
+  let body := bodyAfter value assign (start.next assign.trails (4 + result.size)) False
+  let (belowPass, choicePass) :=
+    bodyAfterPasses kinds value assign
+      (start.next assign.trails (4 + result.size))
+      False
+      post
+      valueWithin
+      valueJoins
+      ends
+  let assignLeaf := assign.leaf (start.next result.trails (3 + result.size)) (3 + result.size)
+  let breaks :=
+    headerDoc.forcesBreak
+      || (([keywordWord, name].reverse.drop 1 |> .any Word.trails)
+        || colonWord.trails
+        || (result.words.reverse.drop 1 |> .any Word.trails)
+        || (value.layoutBody && (lastCode [keywordWord, name]).trails))
+  passesConcat kinds
+    [IdGroup 0 headerDoc breaks, Doc.text " ", assignLeaf, IfBroken 0 body.fst body.snd]
+    (Ready kinds True "def")
+    post
+    (passesCons kinds
+      (IdGroup 0 headerDoc breaks)
+      [Doc.text " ", assignLeaf, IfBroken 0 body.fst body.snd]
+      (Ready kinds True "def")
+      (Ended True)
+      post
+      (passesIdGroup kinds 0 headerDoc breaks (Ready kinds True "def") (Ended True) headerPass)
+      (passesCons kinds
+        (Doc.text " ")
+        [assignLeaf, IfBroken 0 body.fst body.snd]
+        (Ended True)
+        (Gapped True)
+        post
+        (passesSpace kinds True)
+        (passesTwo kinds assignLeaf
+          (IfBroken 0 body.fst body.snd)
+          (Gapped True)
+          (Ended True)
+          post
+          (wordAfterGap kinds assign (start.next result.trails (3 + result.size)) (3 + result.size) assignJoins)
+          (passesIfBroken kinds 0 body.fst body.snd (Ended True) post belowPass choicePass))))
+
+--| What `printLexes1` needs of a declaration's tokens, beyond its words being `Printable`: each may be followed
+--| as the rules print it (`WordJoins`, `Joinable`). It is the tree-side leaf statement that read-back reads.
+def DeclJoins (kinds: Text → Tok): Decl → Prop
+  | Definition [] header (Assigned colonEq value) =>
+    WordJoins (fixedWord header.kind.keywordText header.keyword)
+      ∧ WordJoins header.name
+      ∧ WordJoins (fixedWord ":" header.colon)
+      ∧ Joinable kinds header.result
+      ∧ WordJoins (fixedWord ":=" colonEq)
+      ∧ Joinable kinds value
+  | _ => False
+
+--| A slice 1 declaration's document joins from the start of a line.
+theorem doc1Passes ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (joins: DeclJoins kinds decl)
+    (shows: decl.doc1 = Some doc):
+    Joins (Follows kinds) doc (Plain None) (after => True) :=
+  match decl, joins with
+    | Definition [] header (Assigned colonEq value), (keywordJoins, nameJoins, colonJoins, resultJoins, assignJoins,
+        valueJoins) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          rewrite <- Option.someInjective shows, plainDefIs keyword name colon result colonEq value then
+            plainDefPasses kinds keyword name colon result colonEq value
+              (after => True)
+              (Bool.andRight (Bool.andLeft within))
+              (Bool.andRight within)
+              keywordJoins
+              nameJoins
+              colonJoins
+              resultJoins
+              assignJoins
+              valueJoins
+              (edge ended => byComputing)
+              (Plain None)
+              (after => True)
+              byComputing
+              (after holds => holds)
+
+--| `printLexes1`: the text the rules print for a slice 1 declaration, at any width, lexes to the leaves of the
+--| printed pieces' layout, given that its words are `Printable` (each piece lexes as its kind says) and its tokens
+--| join as the rules print them (`DeclJoins`).
+--|
+--| Proof idea: `doc1Spells` gives `Uniform` and the document's words; `doc1Passes` gives `Joins`; `printedLexes`
+--| does the rest.
+theorem printLexes1 ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc) (width: Nat)
+    (within: decl.within1 = True)
+    (sound: decl.sound = True)
+    (joins: DeclJoins kinds decl)
+    (printable: Every (Printable kinds) decl.spelt)
+    (shows: decl.doc1 = Some doc):
+    lex (Doc.print doc width)
+      = Ok {
+        leaves = ((pieceFold kinds (printedPieces doc width)).foldLeft Laid.start Laid.lay).leaves.reverse,
+        end = {
+          leading = ((pieceFold kinds (printedPieces doc width)).foldLeft Laid.start Laid.lay).pending.reverse,
+          blankLines = ((pieceFold kinds (printedPieces doc width)).foldLeft Laid.start Laid.lay).blankRun,
+          trailing = None
+        }
+      } :=
+  let (uniform, _, words) := doc1Spells decl doc within sound shows
+  printedLexes doc width kinds uniform (doc1Passes kinds decl doc within joins shows) (rewrite words then printable)
