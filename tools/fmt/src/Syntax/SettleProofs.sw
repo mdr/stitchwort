@@ -2,8 +2,9 @@
 --| (docs/proposals/self-hosted-fmt-s1-sketch.md, ticket 15).
 
 namespace Syntax.SettleProofs
-import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text)
+import Std (Bool, Char, DecEq, Eq, Finite, List, Nat, Option, Text)
 import Syntax (..)
+import Fmt (..)
 
 --| The leaves' tokens, comments aside.
 def tokens (leaves: List Leaf): List Token := leaves.map (leaf => leaf.token)
@@ -327,3 +328,87 @@ theorem settledCommasBare ∀ (lexed: Lexed): lexed.settled.leaves.all bareComma
       (arrows commas.leaves)
       byComputing
       (arrowsBareCommas commas.leaves (commasFromBare [] None homed lexed.end byComputing)))
+
+-- Under slice 1's alphabet there is no `let` and no `|`, so rule N's
+-- clauses for an expression `let`'s `:=` and a record update's bar do
+-- nothing.
+
+--| Every leaf's token is in slice 1's alphabet.
+def alphabet1 (leaves: List Leaf): Bool := leaves.all (leaf => leaf.kind.within1)
+
+theorem within1NotLet ∀ (kind: Tok) (within: kind.within1 = True): (kind == KwLet) = False :=
+  let checked := Finite.check (kind => !kind.within1 || !(kind == KwLet)) byComputing kind
+  Bool.notTrue (kind == KwLet) (rewrite within at checked then checked)
+
+theorem within1NotPipe ∀ (kind: Tok) (within: kind.within1 = True): (kind == Pipe) = False :=
+  let checked := Finite.check (kind => !kind.within1 || !(kind == Pipe)) byComputing kind
+  Bool.notTrue (kind == Pipe) (rewrite within at checked then checked)
+
+--| Without a `let` behind, no `:=` is an expression `let`'s.
+theorem letBeforeNone ∀ (behind: List Leaf) (depth: Nat)
+    (noLet: behind.all (leaf => leaf.kind.within1) = True):
+    letBefore behind depth = False :=
+  match behind with
+    | [] => byComputing
+    | [leaf, ..earlier] =>
+      match within: leaf.kind.within1 with
+        | True =>
+          match leaf.kind.isCloser with
+            | True => letBeforeNone earlier (depth + 1) noLet
+            | False =>
+              match leaf.kind.isOpener with
+                | True => rewrite letBeforeNone earlier (depth - 1) noLet then Bool.andFalse (depth > 0)
+                | False =>
+                  match depth > 0 with
+                    | True => letBeforeNone earlier depth noLet
+                    | False =>
+                      match isLet: leaf.kind == KwLet with
+                        | True => Eq.trans isLet.flipped (within1NotLet leaf.kind within)
+                        | False =>
+                          match leaf.kind == Semi || leaf.kind == FatArrow || leaf.kind.startsDeclaration with
+                            | True => byComputing
+                            | False => letBeforeNone earlier depth noLet
+
+--| Under slice 1's alphabet rule 4 does nothing.
+theorem letsQuiet1 ∀ (behind rest: List Leaf)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (restWithin: rest.all (leaf => leaf.kind.within1) = True):
+    letsFrom behind rest = behind.reverseOnto rest :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match within: leaf.kind.within1 with
+        | True =>
+          let next := letsQuiet1 [leaf, ..behind] after (rewrite within then behindWithin) restWithin
+          match leaf.trivia.trailing with
+            | None => next
+            | Some comment =>
+              rewrite letBeforeNone behind 0 behindWithin, Bool.andFalse (leaf.kind == ColonEq) then next
+
+theorem notPipe1 ∀ (leaf: Leaf) (within: leaf.kind.within1 = True): leaf.kind ≠ Pipe :=
+  DecEq.soundFalse leaf.kind Pipe (within1NotPipe leaf.kind within)
+
+--| Under slice 1's alphabet rule 1 walks past commas and closers only.
+theorem skippedQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (within: leaf.kind.within1 = True):
+    skipped leaf behind ahead = (leaf.kind == Comma || leaf.kind.isCloser) :=
+  match comma: leaf.kind == Comma with
+    | True => rewrite skipped.eq.comma leaf behind ahead (DecEq.sound comma)
+    | False => rewrite skipped.eq.alt3 leaf behind ahead (DecEq.soundFalse leaf.kind Comma comma) (notPipe1 leaf within)
+
+--| Under slice 1's alphabet rule 1 moves comments from commas that don't
+--| start their lines and from closers only.
+theorem movableQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (within: leaf.kind.within1 = True):
+    movable leaf behind ahead = ((leaf.kind == Comma && !leaf.token.lineStart) || leaf.kind.isCloser) :=
+  match comma: leaf.kind == Comma with
+    | True =>
+      let isComma := DecEq.sound comma
+      rewrite movable.eq.comma leaf behind ahead isComma, isComma, Bool.orFalse
+    | False => rewrite movable.eq.alt3 leaf behind ahead (DecEq.soundFalse leaf.kind Comma comma) (notPipe1 leaf within)
+
+--| Under slice 1's alphabet no bar's comment starts the line below.
+theorem barsQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (within: leaf.kind.within1 = True):
+    barBelow leaf behind ahead = False :=
+  rewrite barBelow.eq.alt2 leaf behind ahead (previous tail head tail2 isBehind isAhead => notPipe1 leaf within)
