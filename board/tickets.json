@@ -24488,7 +24488,7 @@
     {
       "id": 4020,
       "title": "[Sonnet] fmt S1 parseCarries1, second half (SW-4018 ticket B): the operator ladder, expr, block, the def frame, the file; after SW-4019; docs/reviews/SW-4018-parser-statements.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
