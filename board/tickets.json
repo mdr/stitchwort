@@ -24449,12 +24449,12 @@
     {
       "id": 4017,
       "title": "[Sonnet] fmt S1 parser proofs 16f: walk declarationOther (type, interface, ability, test, rules, instance, export: data declarations and constructors) as Gives facts, discharging FrameRest's last field 'others' (SW-4008)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 18 Nov): others discharged. Syntax.ParseWalkOthers (63 theorems, audited clean): givesDeclarationOther, frameRest, parseCarriesSourceProved/parseSettledSourceProved. FrameRest.others as stated was false for seen = Some KwInstance (seen not tied to position); instanceDecl now checks the header's kind. DeclParser data/ability/test/rules/export parsers split into named steps. Branch lane/SW-4017, 3 commits.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
