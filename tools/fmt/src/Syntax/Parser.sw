@@ -1158,23 +1158,37 @@ def pipeChain (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (v
 
 def pipesFrom (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (value: Expr):
     {Parse Item} Expr :=
-  let ahead := match left() with
-    | [item, .._] =>
-      item.kind == PipeGt && (!modes.stops item || (item.leaf.token.lineStart && item.leaf.token.column >= indent))
-    | [] => False
+  pipesStep fuel self modes indent value (pipeAheadOn modes indent left())
+
+def pipeAheadOn (modes: Modes) (indent: Nat): List Item → Bool
+  | [item, .._] =>
+    item.kind == PipeGt && (!modes.stops item || (item.leaf.token.lineStart && item.leaf.token.column >= indent))
+  | [] => False
+
+def pipesStep (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (value: Expr) (ahead: Bool):
+    {Parse Item} Expr :=
   match fuel with
     | Succ more if ahead =>
       let operator := bump()
-      let function :=
-        if lambdaAhead modes (Parse.mark().left + 1) left() then lambda self modes None
-        else
-          let start := offset()
-          let section := modes.at Dot
-          let inner := if section then { modes | sectionHead = Some start } else modes
-          let operand := appendExpr self inner
-          if section then Section operand else operand
-      pipesFrom more self modes indent (Infix InfixPipe value operator function)
+      pipesAfter more self modes indent value operator (lambdaHere modes)
     | _ => value
+
+def pipesAfter (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (value: Expr)
+    (operator: Word) (lambdas: Bool):
+    {Parse Item} Expr :=
+  let function := pipeFunction self modes lambdas
+  pipesFrom more self modes indent (Infix InfixPipe value operator function)
+
+def pipeFunction (self: Goal → {Parse Item} Expr) (modes: Modes) (lambdas: Bool): {Parse Item} Expr :=
+  if lambdas then lambda self modes None else pipeOperand self modes
+
+def pipeOperand (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  pipeSection self modes offset() (modes.at Dot)
+
+def pipeSection (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat) (section: Bool): {Parse Item} Expr :=
+  let inner := if section then { modes | sectionHead = Some start } else modes
+  let operand := appendExpr self inner
+  if section then Section operand else operand
 
 --| `cmp_expr`: one comparison, a chain of them, or a membership test,
 --| each operand a range and its pipeline.
@@ -1246,28 +1260,40 @@ def comparisonChain (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Ex
     (operator: Word) (second: Expr):
     {Parse Item} Expr :=
   if kind == Equals || kind == EqEq || kind == NotEq then fatal (chainRefused kind)
-  else
-    let descending := kind == Gt || kind == Ge
-    Chain first [(operator, second), ..chainLinks self modes descending]
+  else chainAfter self modes first operator second (isDescending kind)
+
+def chainAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Expr) (operator: Word)
+    (second: Expr) (descending: Bool):
+    {Parse Item} Expr :=
+  let links := chainLinks self modes descending
+  Chain first [(operator, second), ..links]
+
+--| `>` and `>=` start a chain that goes down.
+def isDescending (kind: Tok): Bool := kind == Gt || kind == Ge
 
 def chainRefused (kind: Tok): Text := "`${kind.written}` can't be part of a chain of comparisons"
 
 def chainLinks (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool): {Parse Item} List (Word, Expr) :=
-  Parse.loop (() =>
-    match modes.peek with
-      | Some kind =>
-        let flip := kind == Gt || kind == Ge
-        if kind == Equals || kind == EqEq then fatal (chainRefused kind)
-        else if kind == NotEq then fatal "`!=` can't be part of a chain of comparisons"
-        else if kind == KwIn || kind == NotIn then fatal "`in` can't be part of a chain of comparisons"
-        else if !(kind == Lt || kind == Le || flip) then None
-        else if flip != descending then
-          fatal "a chain of comparisons goes one way: `<` and `<=` can't be mixed with `>` and `>=`"
-        else
-          let operator := bump()
-          let operand := pipedRange self modes
-          Some (operator, operand)
-      | None => None)
+  Parse.loop (() => chainOn self modes descending modes.peek)
+
+def chainOn (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool):
+    Option Tok → {Parse Item} Option (Word, Expr)
+  | Some kind => chainLink self modes descending kind
+  | None => None
+
+def chainLink (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool) (kind: Tok):
+    {Parse Item} Option (Word, Expr) :=
+  let flip := isDescending kind
+  if kind == Equals || kind == EqEq then fatal (chainRefused kind)
+  else if kind == NotEq then fatal "`!=` can't be part of a chain of comparisons"
+  else if kind == KwIn || kind == NotIn then fatal "`in` can't be part of a chain of comparisons"
+  else if !(kind == Lt || kind == Le || flip) then None
+  else if flip != descending then
+    fatal "a chain of comparisons goes one way: `<` and `<=` can't be mixed with `>` and `>=`"
+  else
+    let operator := bump()
+    let operand := pipedRange self modes
+    Some (operator, operand)
 
 def rangeExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   rangeFrom self modes (appendExpr self modes)

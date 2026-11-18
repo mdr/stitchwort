@@ -146,20 +146,6 @@ type Outside (self: Goal → {Parse Item} Expr) = {
 --| The parsers outside slice 1 that SW-4000 has not yet proved give what `Outside` says of them; the rest of
 --| `Outside` is proved below (`outsideOf`).
 type OutsideRest (self: Goal → {Parse Item} Expr) = {
-  matches: ∀ (modes: Modes) (keyword: Word) => Parse.Gives GoodItems (() => matchExpr self modes keyword) Out,
-  clauseLambdas: ∀ (modes: Modes) (keyword: Word) => Parse.Gives GoodItems
-    (() => clauseLambda self modes keyword None ClauseMatches)
-    Out,
-  braceArguments: ∀ (modes: Modes) => Parse.Gives GoodItems (() => braceArgument self modes) Out,
-  memberships: ∀ (modes: Modes) (first: Option Tok) (element: Expr) => Parse.Gives GoodItems
-    (() => membership self modes first element)
-    Out,
-  comparisonChains: ∀ (modes: Modes) (lhs: Expr) (kind: Tok) (operator: Word) (second: Expr) => Parse.Gives GoodItems
-    (() => comparisonChain self modes lhs kind operator second)
-    Out,
-  pipeChains: ∀ (modes: Modes) (indent: Nat) (value: Expr) => Parse.Gives GoodItems
-    (() => pipeChain self modes indent value)
-    (result => result = value ∨ Out result),
   iffs: ∀ (modes: Modes) (logic: Expr) => Parse.Gives GoodItems (() => iff self modes logic) Out,
   calcs: ∀ (modes: Modes) => Parse.Gives GoodItems (() => calcExpr self modes) Out,
   rewrites: ∀ (modes: Modes) => Parse.Gives GoodItems (() => rewriteExpr self modes) Out
@@ -5031,6 +5017,7 @@ theorem givesMatchPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 theorem givesExprKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
     (nested: Nested self)
+    (piped: OutsidePiped self)
     (rest: OutsideRest self):
     Parse.Gives GoodItems (() => exprKeyword self modes kind) Out :=
   match kind == KwHandle with
@@ -5047,7 +5034,7 @@ theorem givesExprKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
                 | False =>
                   match kind == KwCases with
                     | True => givesCasesExpr self modes nested
-                    | False => givesMatchPiped self modes nested rest.pipeChains
+                    | False => givesMatchPiped self modes nested piped.pipeChains
 
 -- Statements other than expressions.
 
@@ -5145,6 +5132,173 @@ theorem givesStatementOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
                 | True => Parse.readsFatal _ _
                 | False => Parse.readsFatal _ _
 
+-- The facts of the tiers above the atoms, from the walks of the tiers below.
+
+theorem givesBraceArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideAtoms self):
+    Parse.Gives GoodItems (() => braceArgument self modes) Out :=
+  Parse.givesThen
+    [p := () => atomBase self modes]
+    [j := ctor => CtorFields ctor (recordExpr self modes)]
+    (givesAtomBases self nested outside modes)
+    (ctor _ => Parse.givesThen (givesRecordExpr self modes nested) (record _ => Parse.givesDone byComputing))
+
+theorem givesPipeFunction ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self) (lambdas: Bool):
+    Parse.Gives GoodItems (() => pipeFunction self modes lambdas) (function => True) :=
+  match lambdas with
+    | True => Parse.givesWeaken (givesLambda self modes None nested) (function _ => byComputing)
+    | False =>
+      givesAfter0
+        [p := () => offset()]
+        [j := start => pipeSection self modes start (modes.at Dot)]
+        reads0Offset
+        (start =>
+          givesAfter0
+            [p := () => modes.at Dot]
+            [j := section => pipeSection self modes start section]
+            (reads0At modes Dot)
+            (section =>
+              Parse.givesThen
+                [p := () => appendExpr self (if section then { modes | sectionHead = Some start } else modes)]
+                [j := operand => if section then Section operand else operand]
+                (givesAppendOf self
+                  (if section then { modes | sectionHead = Some start } else modes)
+                  nested
+                  outside
+                  bases)
+                (operand _ =>
+                  match section with
+                    | True => Parse.givesDone byComputing
+                    | False => Parse.givesDone byComputing)))
+
+theorem givesPipesFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self)
+    (fuel: Nat) (value: Expr):
+    Parse.Gives GoodItems (() => pipesFrom fuel self modes indent value) (result => result = value ∨ Out result) :=
+  match fuel with
+    | Zero =>
+      givesAfter0
+        [p := () => left()]
+        [j := items => pipesStep Zero self modes indent value (pipeAheadOn modes indent items)]
+        reads0Left
+        (items => Parse.givesDone (Inl byComputing))
+    | Succ more =>
+      givesAfter0
+        [p := () => left()]
+        [j := items => pipesStep (Succ more) self modes indent value (pipeAheadOn modes indent items)]
+        reads0Left
+        (items =>
+          match pipeAheadOn modes indent items with
+            | False => Parse.givesDone (Inl byComputing)
+            | True => Parse.givesThen givesBump (operator _ =>
+              givesAfter0
+                [p := () => lambdaHere modes]
+                [j := lambdas => pipesAfter more self modes indent value operator lambdas]
+                (reads0LambdaHere modes)
+                (lambdas =>
+                  Parse.givesThen
+                    [p := () => pipeFunction self modes lambdas]
+                    [j := function => pipesFrom more self modes indent (Infix InfixPipe value operator function)]
+                    (givesPipeFunction self modes nested outside bases lambdas)
+                    (function _ =>
+                      Parse.givesWeaken
+                        (givesPipesFrom self modes indent nested outside bases more
+                          (Infix InfixPipe value operator function))
+                        [holds := result => result = Infix InfixPipe value operator function ∨ Out result]
+                        [weaker := result => result = value ∨ Out result]
+                        (result same =>
+                          match same with
+                            | Inl equal => Inr (rewrite equal)
+                            | Inr out => Inr out)))))
+
+theorem givesPipeChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (value: Expr)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => pipeChain self modes indent value) (result => result = value ∨ Out result) :=
+  Parse.givesThen Parse.givesMark (here _ =>
+    givesPipesFrom self modes indent nested outside bases (here.left + 1) value)
+
+theorem givesMembership ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (element: Expr)
+    (nested: Nested self)
+    (outside: OutsidePiped self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => membership self modes first element) Out :=
+  match isSome Bang first with
+    | True => Parse.readsFatal _ _
+    | False => Parse.givesThen givesBump (operator _ =>
+      Parse.givesThen (givesPipedOf self modes nested outside bases) (range _ => Parse.givesDone byComputing))
+
+theorem givesChainLink ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool) (kind: Tok)
+    (nested: Nested self)
+    (outside: OutsidePiped self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => chainLink self modes descending kind) (Parse.Perhaps (link => True)) :=
+  match kind == Equals || kind == EqEq with
+    | True => Parse.readsFatal _ _
+    | False =>
+      match kind == NotEq with
+        | True => Parse.readsFatal _ _
+        | False =>
+          match kind == KwIn || kind == NotIn with
+            | True => Parse.readsFatal _ _
+            | False =>
+              match !(kind == Lt || kind == Le || isDescending kind) with
+                | True => Parse.givesDone byComputing
+                | False =>
+                  match isDescending kind != descending with
+                    | True => Parse.readsFatal _ _
+                    | False => Parse.givesThen givesBump (operator _ =>
+                      Parse.givesThen (givesPipedOf self modes nested outside bases) (operand _ =>
+                        Parse.givesDone byComputing))
+
+theorem givesChainOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool)
+    (nested: Nested self)
+    (outside: OutsidePiped self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => chainOn self modes descending modes.peek) (Parse.Perhaps (link => True)) :=
+  readsInPeeked modes
+    (seen => chainOn self modes descending seen) _
+    (start fine stops => Parse.givesDone byComputing start fine)
+    (start item later shape fine stopped =>
+      givesChainLink self modes descending item.kind nested outside bases start fine)
+
+theorem givesChainLinks ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool)
+    (nested: Nested self)
+    (outside: OutsidePiped self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => Syntax.chainLinks self modes descending) (List.All (link => True)) :=
+  Parse.givesLoop (givesChainOn self modes descending nested outside bases)
+
+theorem givesChainAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (operator: Word)
+    (second: Expr) (descending: Bool)
+    (nested: Nested self)
+    (outside: OutsidePiped self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => chainAfter self modes lhs operator second descending) Out :=
+  Parse.givesThen
+    [p := () => Syntax.chainLinks self modes descending]
+    [j := links => Chain lhs [(operator, second), ..links]]
+    [holds := Out]
+    (givesChainLinks self modes descending nested outside bases)
+    (links _ => Parse.givesDone byComputing)
+
+theorem givesComparisonChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
+    (operator: Word) (second: Expr)
+    (nested: Nested self)
+    (outside: OutsidePiped self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => comparisonChain self modes lhs kind operator second) Out :=
+  match kind == Equals || kind == EqEq || kind == NotEq with
+    | True => Parse.readsFatal _ _
+    | False => givesChainAfter self modes lhs operator second (isDescending kind) nested outside bases
+
 --| Each tier of `Outside` from `Nested` and what is not yet proved: a tier's facts are proved with the walks of the
 --| tiers below it.
 def outsideAtomsOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsideAtoms self := {
@@ -5159,24 +5313,34 @@ def outsideAtomsOf (self: Goal → {Parse Item} Expr) (nested: Nested self): Out
   missings = (modes => givesAtomMissing self modes)
 }
 
-def outsideBracedOf (self: Goal → {Parse Item} Expr)
-    (nested: Nested self)
-    (rest: OutsideRest self):
-    OutsideBraced self :=
-  { below = outsideAtomsOf self nested, braceArguments = rest.braceArguments }
+def outsideBracedOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsideBraced self := {
+  below = outsideAtomsOf self nested,
+  braceArguments = (modes => givesBraceArgument self modes nested (outsideAtomsOf self nested))
+}
 
-def outsidePipedOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): OutsidePiped self :=
-  { below = outsideBracedOf self nested rest, pipeChains = rest.pipeChains }
+def outsidePipedOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsidePiped self := {
+  below = outsideBracedOf self nested,
+  pipeChains = (modes indent value =>
+    givesPipeChain self modes indent value nested
+      (outsideBracedOf self nested)
+      (givesAtomBases self nested (outsideAtomsOf self nested)))
+}
 
 def outsideComparedOf (self: Goal → {Parse Item} Expr)
     (nested: Nested self)
     (rest: OutsideRest self):
     OutsideCompared self :=
   {
-    below = outsidePipedOf self nested rest,
-    comparisonChains = rest.comparisonChains,
+    below = outsidePipedOf self nested,
+    comparisonChains = (modes lhs kind operator second =>
+      givesComparisonChain self modes lhs kind operator second nested
+        (outsidePipedOf self nested)
+        (givesAtomBases self nested (outsideAtomsOf self nested))),
     cmpIfs = (modes lhs operator => givesCmpIf self modes lhs operator nested),
-    memberships = rest.memberships,
+    memberships = (modes first element =>
+      givesMembership self modes first element nested
+        (outsidePipedOf self nested)
+        (givesAtomBases self nested (outsideAtomsOf self nested))),
     quantifiers = (modes => givesQuantifier self modes nested)
   }
 
@@ -5194,7 +5358,7 @@ def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: Ou
   piExprs = (modes implicit => givesPiExpr self modes implicit nested),
   ifKeywords = (modes => givesIfKeyword self modes nested),
   lambdas = (modes => givesLambda self modes None nested),
-  keywords = (modes kind starts => givesExprKeyword self modes kind nested rest),
+  keywords = (modes kind starts => givesExprKeyword self modes kind nested (outsidePipedOf self nested) rest),
   statementOthers = (modes kind starts => givesStatementOther self modes kind nested)
 }
 
