@@ -11,7 +11,7 @@
 --|   slice 1's driver makes of the source as it tests the alphabet.
 
 namespace Syntax.GoodItemProofs
-import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, DecEq, Empty, Eq, List, Nat, Option, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (Spells)
@@ -307,3 +307,197 @@ theorem unicodeFixed ∀ (char: Char) (kind: Tok)
   cases
 
 theorem unicodeFixedExample: fixedSpells1 Arrow (Text.fromList ['→']) = True := unicodeFixed '→' Arrow byComputing
+
+-- Reading in step with the source: what a parser gives from any mark whose input left is the source from its offset.
+-- `Parse.ReadsIn` can't say this (its invariant is of the input left alone), so a lexeme's offset couldn't be tied to
+-- the source with it.
+
+--| A mark in step with the source: what is left is the source from the mark's offset.
+def InStep (chars: List Char) (at: Parse.Mark Char): Prop := at.rest = chars.drop at.offset
+
+--| What `parser` gives, run from any mark in step with `chars`: `holds` of its value.
+def Lexes (chars: List Char) (parser: () → {Parse Char} a) (holds: a → Prop): Prop :=
+  ∀ (start: Parse.Mark Char) => InStep chars start → Parse.ReadsAt start parser (read value => holds value)
+
+--| Reading keeps a mark in step.
+theorem inStepAfter ∀ [chars: List Char] [total: Nat] [start after: Parse.Mark Char] [read: List Char]
+    (step: InStep chars start)
+    (before: Parse.Honest total start)
+    (now: Parse.Honest total after)
+    (starts: start.rest = read ++ after.rest):
+    InStep chars after :=
+  let moved: after.offset = start.offset + read.length := Parse.honestMoved before now starts
+  let wanted: after.rest = chars.drop after.offset := calc after.rest
+    _ = (read ++ after.rest).drop read.length := (List.dropAppend read after.rest).flipped
+    _ = start.rest.drop read.length := rewrite starts
+    _ = (chars.drop start.offset).drop read.length := rewrite step
+    _ = chars.drop (start.offset + read.length) := (List.dropAdd start.offset read.length chars).flipped
+    _ = chars.drop after.offset := rewrite moved
+  wanted
+
+--| A parser read from every mark gives what it gives from marks in step.
+theorem lexesOfReads ∀ [chars: List Char] [parser: () → {Parse Char} a] [holds: a → Prop]
+    (reads: Parse.Reads parser (read value => holds value)):
+    Lexes chars parser holds :=
+  start step => reads start { holds = Trivial }
+
+theorem lexesWeaken ∀ [chars: List Char] [parser: () → {Parse Char} a] [holds weaker: a → Prop]
+    (lexes: Lexes chars parser holds) (implies: ∀ (value: a) => holds value → weaker value):
+    Lexes chars parser weaker :=
+  start step => Parse.readsAtWeaken (lexes start step) (read value => implies value)
+
+--| `p`, then `j` of its value.
+theorem lexesBind ∀ [chars: List Char] (p: () → {Parse Char} a) (j: a → {Parse Char} b)
+    [first: a → Prop] [next: b → Prop]
+    (lexesFirst: Lexes chars p first)
+    (lexesNext: ∀ (v: a) => first v → Lexes chars (() => j v) next):
+    Lexes chars (() => j (p())) next :=
+  start step total state value after here honest h =>
+    match Parse.runFromThenOk2 p state j _ _ h with
+      | Witness v (Witness middle (Both ran restRun)) =>
+        match lexesFirst start step total state v middle.at here honest ran with
+          | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
+            match lexesNext v holds1 middle.at
+              (inStepAfter step honest honest1 starts1)
+              total
+              middle
+              value
+              after
+              byComputing
+              honest1
+              restRun with
+              | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
+                Witness
+                  (firstRead ++ nextRead)
+                  (Both
+                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
+                    (Both honest2 holds2))
+
+--| A parser that looks at where it is, `k (Parse.mark())`.
+theorem lexesMark ∀ [chars: List Char] (k: Parse.Mark Char → {Parse Char} a) [holds: a → Prop]
+    (each: ∀ (start: Parse.Mark Char) => InStep chars start
+      → Parse.ReadsAt start (() => k start) (read value => holds value)):
+    Lexes chars (() => k (Parse.mark())) holds :=
+  start step total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each start step total state value after here honest (rewrite <- here then ran)
+
+--| `manyFrom` from a mark in step, after values found that hold: every value holds.
+--|
+--| Proof idea: `Parse.readsManyFrom`'s induction on the fuel, the mark kept in step by `inStepAfter` where that keeps
+--| the invariant.
+theorem lexesManyFrom ∀ [chars: List Char] (p: () → {Parse Char} a) (holds: a → Prop)
+    (lexes: Lexes chars p holds)
+    (fuel: Nat) (found: List a)
+    (foundHolds: List.All holds found)
+    (total: Nat) (state: Parse.State Char) (value: List a) (after: Parse.Mark Char)
+    (step: InStep chars state.at)
+    (honest: Parse.Honest total state.at)
+    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
+    ∃ (read: List Char) => state.at.rest = read ++ after.rest ∧ Parse.Honest total after ∧ List.All holds value :=
+  match fuel with
+    | Zero =>
+      match Parse.readsPure
+        [inv := Parse.Invariant.any]
+        (List.reverse found)
+        state.at
+        { holds = Trivial }
+        total
+        state
+        value
+        after
+        byComputing
+        honest
+        h with
+        | Witness read (Both starts (Both honestAfter (Both none same))) =>
+          Witness read (Both starts (Both honestAfter (rewrite same then List.allReverse holds found foundHolds)))
+    | Succ more =>
+      match Parse.runFromOptionalFromOk2 p state.at state
+        (found2 => Parse.manyRound more p found state.at found2)
+        (x => (x, Parse.mark()))
+        (value, after)
+        h with
+        | Inl (Witness v (Witness middle (Both ran rest))) =>
+          match lexes state.at step total state v middle.at byComputing honest ran with
+            | Witness read1 (Both starts1 (Both honest1 holds1)) =>
+              match Parse.runFromIfOk
+                (middle.at.offset > state.at.offset)
+                (() => Parse.manyFrom more p [v, ..found] middle.at)
+                (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
+                middle
+                value
+                after
+                rest with
+                | Inl (Both isTrue yesRun) =>
+                  match lexesManyFrom p holds lexes more
+                    [v, ..found]
+                    (holds1, foundHolds)
+                    total
+                    middle
+                    value
+                    after
+                    (inStepAfter step honest honest1 starts1)
+                    honest1
+                    yesRun with
+                    | Witness read2 (Both starts2 (Both honest2 all2)) =>
+                      Witness
+                        (read1 ++ read2)
+                        (Both (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest) (Both honest2 all2))
+                | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
+        | Inr (Witness middle (Both back rest)) =>
+          match Parse.readsPure
+            [inv := Parse.Invariant.any]
+            (List.reverse found)
+            middle.at
+            { holds = Trivial }
+            total
+            middle
+            value
+            after
+            byComputing
+            (rewrite back then honest)
+            rest with
+            | Witness read (Both starts (Both honestAfter (Both none same))) =>
+              Witness []
+                (Both
+                  (rewrite <- back then (rewrite none at starts then starts))
+                  (Both honestAfter (rewrite same then List.allReverse holds found foundHolds)))
+
+--| `many p` gives values that all hold, when `p` gives one that does.
+theorem lexesMany ∀ [chars: List Char] (p: () → {Parse Char} a) (holds: a → Prop)
+    (lexes: Lexes chars p holds):
+    Lexes chars (() => Parse.many p) (values => List.All holds values) :=
+  start step total state value after here honest h =>
+    rewrite <- here then
+      lexesManyFrom p holds lexes
+        (state.at.left + 1)
+        []
+        Trivial
+        total
+        state
+        value
+        after
+        (rewrite here then step)
+        (rewrite here then honest)
+        h
+
+theorem lexesRecursiveWithFuel ∀ [chars: List Char] (body: (b → {Parse Char} a) → b → {Parse Char} a) (holds: a → Prop)
+    (lexesBody: ∀ (self: b → {Parse Char} a) => (∀ (inner: b) => Lexes chars (() => self inner) holds)
+      → ∀ (argument: b) => Lexes chars (() => body self argument) holds)
+    (fuel: Nat) (argument: b):
+    Lexes chars (() => Parse.recursiveWithFuel fuel body argument) holds :=
+  match fuel with
+    | Zero => lexesOfReads (Parse.readsFatal _ _)
+    | Succ more =>
+      lexesBody
+        (inner => Parse.recursiveWithFuel more body inner)
+        (inner => lexesRecursiveWithFuel body holds lexesBody more inner)
+        argument
+
+--| `recursiveWith body argument` gives what holds, when `body` does given a nested parser that does.
+theorem lexesRecursiveWith ∀ [chars: List Char] (body: (b → {Parse Char} a) → b → {Parse Char} a) (holds: a → Prop)
+    (lexesBody: ∀ (self: b → {Parse Char} a) => (∀ (inner: b) => Lexes chars (() => self inner) holds)
+      → ∀ (argument: b) => Lexes chars (() => body self argument) holds) (argument: b):
+    Lexes chars (() => Parse.recursiveWith body argument) holds :=
+  lexesMark (at => Parse.recursiveWithFuel (at.left + 1) body argument) (start step =>
+    lexesRecursiveWithFuel body holds lexesBody (start.left + 1) argument start step)
