@@ -777,6 +777,29 @@ Proofs: every theorem keeps its statement, none restricted. Readings give `Narro
 
 Harness [measured, Speedwell]: goldens, 644 declarations: 614 matched, 12 mismatched, 18 unsupported (were 548, 10, 86). Repo, 34,795: 34,207 matched, 0 mismatched, 198 unsupported (all `TextBlock`), 390 oversized (were 32,085, 0, 2,278, 390 of 34,753). The 12 golden mismatches are all E3's: the 10 of part 1, and `paren-comment-in-body` (before and after), `Both ( ) -- c` where Fmt.Doc prints `Both () -- c`: Rust holds the space after a waiting comment and writes it before the closer, Fmt.Doc drops it (held spaces). The 18 unsupported are `TextBlock` (12, E5) and `Mark`+`CloserLine` (6, E4).
 
+## Engine stage E3 (SW-3932): comments as engine.rs prints them
+
+The printer gains `heldSpaces` and `commentFloor`, and `CommentEnd` is gone:
+
+- Spaces written while a comment waits are held, and written before a closer on the comment's line (`Printer.writeHeld`).
+- Other code after a waiting comment starts a comment break (`commentBreak`: `newline (continuation indent)`).
+- A flat `Line` is a written (or held) space, and a flat `SoftLine` nothing, whether or not a comment waits.
+- `LineStart` after text breaks at `max indent (line + 2)` and sets the floor there. Every `newline` breaks at `max indent floor` and drops the held spaces. Writing a text that doesn't start `--` clears the floor (`floorAfter`), as `before_code` does.
+
+`fitsFrom` measures as `fits_in` does. Its last argument is `Trailing` (`Clear`, or `Pending held flatBreak`): spaces after a comment add to `held`, a closer pays `held` with its own width, a flat `Line`/`SoftLine` after a comment sets `flatBreak`, and code after that doesn't fit.
+
+Not ported: Rust's `before_code` at a line start, which writes code before a comment still waiting there. The toy keeps the comment first. `readingWords` (the printed words are the document's in order) would be false with Rust's order, and no rule builds such a document: `SuffixPuts` is `False` at a line start, so no golden or repo declaration meets it. `Printer.write`'s doc says so.
+
+Proofs: every theorem keeps its meaning, none is restricted, and no goal is open.
+- `Place`'s constructors carry the floor (`AtStart at floor` and so on) and `Agrees` asks the printer's `commentFloor` to be it.
+- `Puts`/`Lays`: `HardLine`, `OneLineBelow` and the separators' broken arms go to `floored floor indent`, and `LineStart` after words starts a floor. `LineStartHere` is `HerePuts` (the floor kept, the break floored). `Held` now allows a flat separator (the space held) and a flat soft line.
+- `Joins`: `SepJoins`/`SoftJoins` at `Waiting` ask both ways.
+- Four theorems described the old printer and are restated to describe the new one: in Proofs, `lineAfterComment` (a flat `Line` holds a space), `softLineAfterComment` (nothing) and `spacesAfterComment` (held, not dropped); in Words, `closePut` (needs a waiting comment, and writes the held spaces first).
+- New lemmas: `writeHeldWritten`, `commentBreakWords`, `floorWords`, `commentBreakQuiet` (Words); `gapAccepts`, `heldSound`, `heldPutOk`, `commentBreakHolds`, `floorHolds` (Joins); `floorAgrees`, `agreesFloor`, `heldAgrees`, `holdAgrees`, `sepStays`, `herePlace`, `hereBroken`, `startNotMid`, `commentBreakBreaks`, `herePutsWeaker` (Places); `hereLaysPuts` (Lays).
+- `audit Fmt.Doc`: 351 theorems, 0 failed, 0 warnings.
+
+Harness [measured, Speedwell]: goldens, 644 declarations: 626 matched, 0 mismatched, 18 unsupported (were 614, 12, 18). Repo, a 300-file sample, 5,773 declarations: 5,619 matched, 0 mismatched, 32 unsupported (`TextBlock`), 122 oversized. The native `Fmt.Twin` build peaks over 2 GB, so the counts come from a driver with only the engine stage (`Doc`, `Print`, `DocDump`).
+
 ## A comment-free `meaning` (SW-3884)
 
 Opus, 17 November 2026.
