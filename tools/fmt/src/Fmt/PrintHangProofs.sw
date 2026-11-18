@@ -9,12 +9,39 @@
 
 namespace Fmt.PrintHangProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
-import Std.Doc.Proofs (Event, eventsOf, isLayout, lineBlank, lineWidth)
-import Syntax (Comment, Leaf, Tok, Token, Trivia, withTrailing)
+import Std.Doc (Carry)
+import Std.Doc.Proofs (
+  AtStart,
+  Event,
+  Every,
+  Joins,
+  Pairs,
+  Plain,
+  Uniform,
+  eventsOf,
+  isLayout,
+  lineBlank,
+  lineWidth,
+  printedJoins,
+  printedPieces
+)
+import Syntax (Comment, Leaf, Lexed, Tok, Token, Trivia, lex, withTrailing)
 import Syntax.Proofs (Laid, Piece)
 import Fmt (HangState, hangs, hangsFrom, startBlocks)
-import Fmt.HangProofs (Hang, blankHang, codeEvent, eventLeaf, hangCode, hangOf, hangSnoc, hangStep, staleBlocks)
-import Fmt.PrintLexProofs (addPiece, pieceFold, pieceOf)
+import Fmt.HangProofs (
+  Hang,
+  HangLays,
+  blankHang,
+  codeEvent,
+  eventLeaf,
+  hangCode,
+  hangOf,
+  hangSnoc,
+  hangStep,
+  hangsPrinted,
+  staleBlocks
+)
+import Fmt.PrintLexProofs (Follows, Printable, addPiece, pieceFold, pieceOf, printedLexes)
 
 -- The fold over the leaves.
 
@@ -420,3 +447,46 @@ theorem leavesHangOfTrace ∀ (kinds: Text → Tok) (texts: List Text)
     hangsOfFold
       (laidOf kinds texts.reverse).leaves.reverse
       (rewrite <- leavesHangFold (laidOf kinds texts.reverse).leaves then leavesWhole)
+
+-- The printer's pieces.
+
+--| A comment isn't layout: it starts `--`.
+theorem commentLayout ∀ (text: Text) (starts: text.startsWith "--" = True): isLayout text = False := match text with
+  | MkText [first, ..rest] =>
+    match same: Text.sameChar '-' first with
+      | True => rewrite (DecEq.sound (rewrite Text.sameCharEq '-' first at same then same)).flipped
+
+--| Pieces that may stand after one another have no text after a comment on its line.
+theorem pairsEnd ∀ (kinds: Text → Tok) (out: List Text) (pairs: Pairs (Follows kinds) out): CommentsEnd out :=
+  match out, pairs with
+    | [], _ => byComputing
+    | [text], _ => byComputing
+    | [text, earlier, ..rest], (_, pair, others) => (
+      comment =>
+        match pair with
+          | Inl layout => (Bool.falseNotTrue (rewrite commentLayout earlier comment at layout then layout)).impossible
+          | Inr (Inl broken) => broken
+          | Inr (Inr (notComment, _)) => (Bool.trueNotFalse (rewrite comment at notComment then notComment)).impossible,
+      pairsEnd kinds [earlier, ..rest] others
+    )
+
+--| The engine's half of `printedHangs`: a document whose every layout keeps the fold unbroken from the start of the
+--| output (the rules' triple, `HangLays`), and whose pieces the lexer reads (`printedLexes`' hypotheses), prints text
+--| whose leaves keep the line rule.
+--|
+--| Proof idea: `hangsPrinted` takes the triple to the printed trace; `printedJoins` says no text follows a comment on
+--| its line (`pairsEnd`); `leavesHangOfTrace` takes the trace's fold to the leaves `printedLexes` says the lexer reads.
+theorem hangsOfLays ∀ (kinds: Text → Tok) (doc: Doc) (width: Nat)
+    (uniform: Uniform doc)
+    (joins: Joins (Follows kinds) doc (Plain None) (after => True))
+    (all: Every (Printable kinds) doc.words)
+    (lays: HangLays kinds doc 0 (place hang => place = AtStart 0 Carry.none ∧ hang = Opening) (place hang =>
+      hang ≠ Broke)) (lexed: Lexed)
+    (read: lex (Doc.print doc width) = Ok lexed):
+    hangs lexed.leaves = True :=
+  let (_, _, pairs) := printedJoins (Follows kinds) (Printable kinds) doc width uniform joins all
+  let whole := hangsPrinted kinds doc width lays
+  let leaves :=
+    leavesHangOfTrace kinds (printedPieces doc width) (pairsEnd kinds (printedPieces doc width).reverse pairs) whole
+  let same := Eq.trans (printedLexes doc width kinds uniform joins all).flipped read
+  match lexed, same with | { leaves = found, end }, same => cases then leaves
