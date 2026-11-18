@@ -24527,7 +24527,7 @@
     {
       "id": 4023,
       "title": "[Opus] fmt S1 lexLaid1: the lexer gives laid1 (laidOut, token text agreeing with its kind on closers and ->, comments -- to end of line, no trailing comment at the end) for any source in the alphabet (SW-4018 ticket E); fold in SW-3985's lexLaidOut; docs/reviews/SW-4018-parser-statements.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
