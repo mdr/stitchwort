@@ -17,7 +17,7 @@ import Syntax.Proofs (MayFollow)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)
-import Fmt.CalmProofs (bracketFrom, bracketIs)
+import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, valueElPlain)
 import Syntax (InfixKind, Note)
 
 -- What may follow a token.
@@ -2727,3 +2727,213 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
         (joins, operandJoins, glue)
         (prefixPasses kinds operator operand around joins glue (place =>
           elPasses kinds operand within operandJoins place))
+
+-- Hugs.
+
+--| A call's hug: the function and the arguments before the last flattened, a space, and the last opened.
+theorem appFromHugPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc)
+    (front: List Doc) (hug: Option Doc) (pre post: Edge → Prop)
+    (seq: PassesSeq kinds pre post ([headDoc, ..front] ++ [lastDoc]))
+    (hugPasses: HugPasses kinds hug (Gapped True) post):
+    HugPasses kinds (appFrom id keep between betweenFront headDoc front lastDoc hug).hug pre post :=
+  let docs := [headDoc, ..front] ++ [lastDoc]
+  match full: keep == docs.length with
+    | True => byComputing
+    | False =>
+      match hug, hugPasses with
+        | None, _ => byComputing
+        | Some open, opens =>
+          let (headSeq, _) :=
+            splitSeq kinds
+              [headDoc, ..front]
+              [lastDoc]
+              pre
+              post
+              (List.consNotNil headDoc front)
+              (List.consNotNil lastDoc [])
+              seq
+          passesConcat kinds
+            [Flatten (spaced [headDoc, ..front]), Doc.text " ", open]
+            pre
+            post
+            (passesCons kinds
+              (Flatten (spaced [headDoc, ..front]))
+              [Doc.text " ", open]
+              pre
+              (Ended True)
+              post
+              (passesFlatten kinds _ pre (Ended True) (spacedSeq kinds [headDoc, ..front] pre (Ended True) headSeq))
+              (passesTwo kinds (Doc.text " ") open (Ended True) (Gapped True) post (passesSpace kinds True) opens))
+
+theorem callHugPasses ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
+    (within: value.within1 = True)
+    (joinable: Joinable kinds value):
+    HugPasses kinds (value.callHug inside) (Ready kinds True value.lead.text) (Ended value.trails) :=
+  match value, joinable with
+    | App head arguments, (headJoins, each, filled) =>
+      let pre := Ready kinds True head.lead.text
+      let post := Ended (trailsBack (head.words ++ itemsWords arguments).reverse)
+      let results := argumentDocs inside.inArm head (inside.at + head.size) arguments
+      let front := results.fst
+      let lastDoc := (results.snd.getOrElse (Nothing, None)).fst
+      let (seq, hugs, _) :=
+        argumentsSeq kinds inside.inArm head
+          (inside.at + head.size)
+          arguments
+          head.words
+          filled
+          (Bool.andRight within)
+          each
+      rewrite appDocsIs head arguments inside then
+        appFromHugPasses kinds
+          (inside.at + 1)
+          (1 + keptFront head arguments)
+          (commentBetween head arguments)
+          (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+          (head.el inside)
+          lastDoc
+          front
+          (results.snd.getOrElse (Nothing, None)).snd
+          pre
+          post
+          (seqPrepend kinds pre post
+            (head.el inside)
+            (front ++ [lastDoc])
+            (passesTo kinds
+              (head.el inside)
+              pre
+              (Ended head.trails)
+              (Ended True)
+              (elPasses kinds head (Bool.andLeft within) headJoins inside)
+              (edge ended => endedTrue head.trails edge ended))
+            seq
+            (snocNotNil front lastDoc))
+          hugs
+    | Atom _ _, _ => byComputing
+    | Paren _ _ _, _ => byComputing
+    | Tuple _ _ _ _, _ => byComputing
+    | ListOf _ _ _ _, _ => byComputing
+    | Infix _ _ _ _, _ => byComputing
+    | Prefix _ _, _ => byComputing
+
+-- The body after `:=`.
+
+theorem eachAppend ∀ (kinds: Text → Tok) (pre post: Edge → Prop) (front back: List Doc)
+    (first: EachPasses kinds pre post front)
+    (second: EachPasses kinds pre post back):
+    EachPasses kinds pre post (front ++ back) :=
+  match front, first with
+    | [], _ => second
+    | [doc, ..rest], (passes, others) => (passes, eachAppend kinds pre post rest back others second)
+
+theorem spacedHugsPass ∀ (kinds: Text → Tok) (hug: Option Doc) (post: Edge → Prop)
+    (passes: HugPasses kinds hug (Gapped True) post):
+    EachPasses kinds (Ended True) post (optionList (hug.map (open => Doc.concat [Doc.text " ", open]))) :=
+  match hug, passes with
+    | None, _ => byComputing
+    | Some open, opens => (
+      passesConcat kinds
+        [Doc.text " ", open]
+        (Ended True)
+        post
+        (passesTwo kinds (Doc.text " ") open (Ended True) (Gapped True) post (passesSpace kinds True) opens),
+      byComputing
+    )
+
+--| What follows a `:=`: the value below, or one of the layouts that keep its start on the line.
+--|
+--| Proof idea: `matchedNone`, `valueElPlain` and `lambdaHugNone` leave the value's element; each option is it after
+--| a space or a line break, or the call's hug after a space (`callHugPasses`).
+theorem bodyAfterPasses ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (around: Around)
+    (semi: Bool) (post: Edge → Prop)
+    (within: value.within1 = True)
+    (joinable: Joinable kinds value) (ends: ∀ (edge: Edge) => Ended value.trails edge → post edge):
+    Passes kinds (bodyAfter value assign around semi).fst (Ended True) post
+      ∧ Passes kinds (bodyAfter value assign around semi).snd (Ended True) post :=
+  let inside: Around := { around | hoisted = True }
+  let ready := Ready kinds True value.lead.text
+  let element: Passes kinds (value.el around) ready post :=
+    passesTo kinds (value.el around) ready (Ended value.trails) post (elPasses kinds value within joinable around) ends
+  let afterGap: Passes kinds (value.el around) (Gapped True) post :=
+    passesFrom kinds (value.el around) ready (Gapped True) post element (edge gapped =>
+      gappedReadyTrue kinds True value.lead.text edge gapped)
+  let spacedPass: Passes kinds (Doc.concat [Doc.text " ", value.el around]) (Ended True) post :=
+    passesConcat kinds
+      [Doc.text " ", value.el around]
+      (Ended True)
+      post
+      (passesTwo kinds
+        (Doc.text " ")
+        (value.el around)
+        (Ended True)
+        (Gapped True)
+        post
+        (passesSpace kinds True)
+        afterGap)
+  let below: Passes kinds (Nest 2 (Doc.concat [HardLine, value.el around])) (Ended True) post :=
+    passesNest kinds 2 _
+      (Ended True)
+      post
+      (passesConcat kinds
+        [HardLine, value.el around]
+        (Ended True)
+        post
+        (passesTwo kinds HardLine
+          (value.el around)
+          (Ended True)
+          ready
+          post
+          (passesHard kinds (Ended True) ready byComputing)
+          element))
+  let lowered: Passes kinds (OneLineBelow (value.el around)) (Ended True) post :=
+    passesOneLineBelow kinds
+      (value.el around)
+      (Ended True)
+      post
+      (passesFrom kinds (value.el around) ready (edge => edge = Plain None) post element (edge fresh => rewrite fresh))
+  let hugs := callHugPasses kinds value inside within joinable
+  rewrite matchedNone value inside within,
+      valueElPlain value around semi within,
+      lambdaHugNone value semi inside (value.el around) within then
+    match plain: assign.trails || value.noted || value.isBlock with
+      | True => (below, below)
+      | False => (
+        below,
+        passesChoiceOf kinds
+          (Flatten (Doc.concat [Doc.text " ", value.el around])) _
+          (Ended True)
+          post
+          (passesFlatten kinds _ (Ended True) post spacedPass)
+          (eachAppend kinds
+            (Ended True)
+            post
+            (if value.opensBracket || (value.callHug inside).isSome then [OneLineBelow (value.el around)] else [])
+            ((if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
+              else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
+              ++ [Nest 2 (Doc.concat [HardLine, value.el around])])
+            (match value.opensBracket || (value.callHug inside).isSome with
+              | True => (lowered, byComputing)
+              | False => byComputing)
+            (eachAppend kinds
+              (Ended True)
+              post
+              (if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
+               else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
+              [Nest 2 (Doc.concat [HardLine, value.el around])]
+              (match value.opensBracket with
+                | True => (spacedPass, byComputing)
+                | False =>
+                  spacedHugsPass kinds
+                    (value.callHug inside)
+                    post
+                    (hugFrom kinds
+                      (value.callHug inside)
+                      ready
+                      (Gapped True)
+                      (Ended value.trails)
+                      post
+                      hugs
+                      (edge gapped => gappedReadyTrue kinds True value.lead.text edge gapped)
+                      ends))
+              (below, byComputing)))
+      )
