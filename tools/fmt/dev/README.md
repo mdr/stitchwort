@@ -18,7 +18,7 @@ mkdir -p $SLIM/src/Fmt $SLIM/src/Syntax
 cp tools/fmt/stitchwort.yaml $SLIM/
 cp tools/fmt/src/Syntax/*.sw $SLIM/src/Syntax/
 rm $SLIM/src/Syntax/LexProofs.sw
-for f in Blank Meaning Passes Rules Spacing Slice1 Slice2 Slice3 Slice4a Slice5a Slice4b DocDump Twin; do
+for f in Blank Meaning Passes Rules Spacing Slice1 Slice2 Slice3 Slice4a Slice5a Slice4b Slice4c DocDump Twin; do
   cp tools/fmt/src/Fmt/$f.sw $SLIM/src/Fmt/
 done
 cp target/release/stitchwort /path/to/scratch/stitchwort

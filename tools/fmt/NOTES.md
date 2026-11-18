@@ -1146,3 +1146,47 @@ What keeps the rest out [measured, as SW-3990's count]: of 3,147 declarations ou
 - **Columns.** A broken tuple or list pattern puts its items at 2 from the line it opens on and its closer at that line's indentation, a comma bracket's shape; in an arm's head that is inside the head's `Nest 2`, so items at 4 and the closer at 2 from the arm's `|`, as Rust has them. A filled tuple pattern continues at 2. A constructor whose arguments break puts each non-token argument on a line at 2 (4 when its leading tokens fill). An absurd arm is one line.
 - **Rule N.** A named argument or annotation is a bracket pair like `(e)`: its opener's `Mark` and its closer's own line come from `opening` and `leaf` as `parenDoc`'s do.
 - P1 to P4 change nothing new: no binder, row or theorem header is added.
+
+## Slice 4c, the program (SW-3995)
+
+Opus, 18 November 2026. The records of the plan's S4 row, and membership, on top of slices 1 to 5a and 4b: SW-3992's census put `Record` (581), `RecordField` (526) and `Spread` (347) among the kinds most often in a declaration kept out, and `Spread` (114), `Membership` (81) and `PatternRecord` (35) among those alone in keeping one out.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `recordContent`, `recordItems`: `{ a = 1, b }` flat if it fits, else each field on a line at 2 and `}` alone; an update's `{ r \|` stays on the opener's line; never filled | `src/Fmt/Rules.sw` | `comma_bracket_content` with brace edges (`Line`, not `SoftLine`), its update case |
+| `recordFieldDoc` (`name = value`), `CtorFields` (`C { … }`), `Spread` (`..xs`, glued), `membershipDoc` (`x ∈ s`, never broken) in `Expr.el` and `Expr.words` | `src/Fmt/Rules.sw` | `join` (no rules of their own) |
+| A record hugs as a call's last argument (`huggedRecord`) and after `:=` or `=>` (`bodyAfter`'s `opens`: on the line, or one line below when it fits there, D3571) | `src/Fmt/Rules.sw` | `huggable`, `last_argument`, `body_after` |
+| `fieldsContent`, `fieldItems`, `FieldPattern.el`: record patterns `{ a, b = p, .. }` as records; `fieldsJoined` for `C { a, .. }`, on one line | `src/Fmt/Rules.sw` | `comma_bracket_content` for `PatternRecord`; `join` for `PatternCtorFields`, whose braces and fields are the constructor's children in Rust's tree |
+| `within4c` (on `Expr`, `Pattern`, `FieldsPattern`, `Arm`, `Let`, `Header`, `Decl`, `SourceFile`), `Tok.within4c` (slice 4b's and `∈`, `∉`), `Decl.printed4c`, `SourceFile.printed4c`; `formatWithin` moves here from `Slice4b.sw` and refuses with `outside slice 4c` | `src/Fmt/Slice4c.sw` | |
+| `Fmt.Twin --stage s4c`, `dev/fmt-twin s4c` | `src/Fmt/Twin.sw`, `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice4c.sw` (6); slice 4b's and 5a's refusal tests now use a negative pattern and pipes, since record patterns and records are within | |
+
+**The slice's edge.** Records are in values, arguments, headers' types and theorem statements (`{ p | x = 3 }.x = 3`); record patterns in arms, after `let` and as a constructor's argument. Left out:
+
+- **Gaps Rust copies that the tree can't say:** the empty record `{}` and pattern `{}` (Rust keeps the gap between the braces), and a spread whose list starts with anything but a name or a bracket (`..` before anything else keeps the source's gap, as for a list pattern's tail).
+- **Gaps Rust copies that the slice prints as a space:** a record right after a name or closer, or a name or bracket right after a record's `}`, as a call's arguments (`f{ a = 1 }`, `{ a = 1 }x`): `spacing.rs` has no rule for the pair and copies the source (`Gap::Copied`). They mean the same either way, so the slice prints the space Rust prints for the usual spaced source; the gate's 100% says no sampled declaration has one glued. The same holds for a record pattern after a constructor's earlier argument. A rule in `spacing.rs` (a space) would close it on the Rust side.
+- **Comments** after a spread's `..`, after an update's record (Rust moves that comment past the `|`, `defer_trailing`, SW-3487), and anywhere in a `C { … }` pattern (printed by `join`, whose bracket keys the slice doesn't need yet).
+- **`C { … }` after anything but a plain constructor name**, field values that are blocks, and what slice 4b left out (the unit, sections, pipes, `rewrite`).
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s4c --exe` with the interpreted twin (a slim copy with `Slice4a.sw` to `Slice4c.sw`, without `Syntax/LexProofs.sw`; a copied binary with `STITCHWORT_STD_DIR`; a fresh `FMT_TWIN_CACHE`, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 to 5a, 4b and 4c | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 410 | 410 | 0 |
+| `repo --sample 300` (seed 1) | 5,947 | 3,320 | 3,320 | 0 |
+
+The slices cover 55.8% of the sample's declarations; slices 1 to 5a and 4b cover 2,858 of the same 5,947 (48.1%; SW-3992 measured 46.6% of a sample of 5,888, which has moved with the tracked files), so slice 4c adds 462. On the same runs `s1` stays 82 of 82 and 38 of 38, `s2` 230 of 230 and 438 of 438, `s3` 288 of 288 and 575 of 575, `s4a` 304 of 304 and 1,004 of 1,004, `s5a` 336 of 336 and 2,477 of 2,477, `s4b` 352 of 352 and 2,858 of 2,858. A hand file of literals, punned fields, updates flat and broken, a record hugged by a call, comments inside a record and after `=`, a constructor's fields, spreads, membership in a header and a body, record patterns flat and broken in an arm, after `let` and after a constructor, and a field of an update in a theorem's statement: `--stage text` identical to `stitchwort fmt -`.
+
+What keeps the rest out [measured, as SW-3990's count]: of 2,627 declarations outside, 759 have no foreign kind (a shape the slice refuses), 1,440 two or more. With one foreign kind: `Unit` 117, `Instance` 42, `Omega` 40, `Section` 33, `Pipe` 30, `Iff` 25, `Chain` 24, `OperatorSection` 19. Any foreign kind: `RewriteRule` 799, `Rewrite` 798, `Unit` 239, `Binder` 230, `Section` 197, `Pipe` 190, `FunctionType` 137, `Fields` 122. Of the 759 shapes, 71 hold a record, 40 a membership and 23 a spread; why each is refused wasn't looked into. The unit is now the clear next construct, then proofs.
+
+### For the proof lanes
+
+- **The F1 tree is unchanged.**
+- **Columns.** A broken record puts its fields at 2 from the line it opens on and `}` at that line's indentation, a comma bracket's shape with brace edges; an update's `{ r |` is that first line. A broken record pattern in an arm's head is inside the head's `Nest 2`: fields at 4 and `}` at 2 from the arm's `|`, as a list pattern's. Membership, a spread, a record field's `name =` and `C { … }` patterns never break between their tokens; a field's value may break as the value does elsewhere.
+- **Rule N.** A record's `{` and `}` are a bracket pair as a list's: the opener's `Mark` and the closer's own line come from `opening` and `leaf`.
+- **Spacing.** New gaps: a space inside a record's braces and around `=`, `|`, `∈` and `∉`; none after a spread's `..` (the list starts with a name or bracket). The copied gaps above are the open ones.
+- P1 to P4 change nothing new: membership was already a proposition for `premises` (`propositionIn`), and no binder or row is added.
