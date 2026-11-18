@@ -25147,7 +25147,7 @@
     {
       "id": 4069,
       "title": "[Opus] fmt S1 parse shape for read-back: tighten shaped1 to the parser's shape (a left-nesting chain's right operand one level up; a call's head an atom or - on a numeral; an argument's sign on an atom or bracket) and re-prove parseShaped1 and its users; SW-4031's counterexamples (Infix - a (Infix - b c), App (Prefix ! x) [y], App f [Prefix - (Prefix - x)]) become witnesses that shaped1 rejects them",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -25212,7 +25212,7 @@
     {
       "id": 4074,
       "title": "[Fable paper] fmt parser proofs: audit every Gives/Frame assumption in Syntax for the SW-4017 pattern (an assumption quantified over a parser-read value detached from position, making the frame uninhabitable and its theorems vacuous); list each assumption, whether it is inhabited, and how it is discharged",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
