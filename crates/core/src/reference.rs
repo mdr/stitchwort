@@ -826,12 +826,24 @@ pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     conv_in(g, level, a, b, Mode::Normal)
 }
 
+/// The reference evaluator never glues, so a call reaching its conversion
+/// code is a bug: say so, as `quote` does, instead of quietly comparing it
+/// unequal to everything (SW-3941).
+#[inline]
+fn no_glued_call(value: &Value) {
+    if matches!(value, Value::Call(..)) {
+        unreachable!("the reference evaluator never glues");
+    }
+}
+
 /// [`conv`] in `mode` (`value::Mode`: constructors' proof fields are
 /// compared in shortcut mode). The shortcuts here are the folded calls,
 /// partially applied definitions and hidden opaque calls, each compared by
 /// its spine in shortcut mode.
 fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
     step()?;
+    no_glued_call(a);
+    no_glued_call(b);
     // Folded calls: the same one applied to equal arguments is equal;
     // otherwise they're compared unfolded.
     if is_folded(g, a) || is_folded(g, b) {
@@ -1089,6 +1101,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
                     // Rule E: the scrutinee's head, a folded call unfolded
                     // and a number split, as `eval_tree` takes it (G1, G3).
                     let s = unfold_folded(g, force(g, e[e.len() - 1 - ix].clone())?)?;
+                    no_glued_call(&s);
                     let split = match &s {
                         Value::Ctor(d2, c, fields) if d2 == d => Some((*c, fields.to_vec())),
                         Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
@@ -1234,7 +1247,21 @@ fn conv_spines(
                     base: b2,
                 },
             ) => conv_in(g, level, m1, m2, mode)? && conv_in(g, level, b1, b2, mode)?,
-            _ => false,
+            _ => {
+                // A difference in shape answers "different", but a glued
+                // call in either elimination is a bug, not a difference.
+                for e in [pair.0, pair.1] {
+                    match e {
+                        Elim::App(v, _) => no_glued_call(v),
+                        Elim::J { motive, base } => {
+                            no_glued_call(motive);
+                            no_glued_call(base);
+                        }
+                        Elim::Proj(..) => {}
+                    }
+                }
+                false
+            }
         };
         if !same {
             return Ok(false);
