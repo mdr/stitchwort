@@ -2138,3 +2138,20 @@ theorem printedSpellsExample ∀ (width: Nat):
 theorem calmPrintsExample: ({ decls = [exampleDecl], end = Comments.none }: SourceFile).calm.printed1
       = ({ decls = [exampleDecl], end = Comments.none }: SourceFile).printed1 :=
   Fmt.CalmProofs.calmPrints { decls = [exampleDecl], end = Comments.none } byComputing byComputing
+
+--| The text a declaration prints is the printer's pieces joined, and they spell the declaration (`printedSpells`).
+theorem printedSpellsText ∀ (decl: Decl) (text: Text)
+    (within: decl.within1 = True)
+    (settled: decl.settled1 = True)
+    (real: decl.real = True)
+    (printed: decl.printed1 = Some text):
+    ∃ (doc: Doc) => decl.doc1 = Some doc
+      ∧ text = (printedPieces doc width).joinWith ""
+      ∧ (wordsOf (printedPieces doc width)).filter notCloser = decl.spelt.filter notCloser
+      ∧ (wordsOf (printedPieces doc width)).filter notComment = decl.spelt.filter notComment :=
+  match shows: decl.doc1 with
+    | None => cases
+    | Some doc =>
+      let mapped: Doc.print doc width = text := Option.someInjective (rewrite within at printed then printed)
+      let spelled := printedSpellsSettled decl doc width within settled real shows
+      (doc, byComputing, Eq.trans mapped.flipped (printIsPieces doc width), spelled.left, spelled.right)
