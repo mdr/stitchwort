@@ -263,3 +263,40 @@ Orchestrator's calls:
 - The lexer's layout fact `laidOut` for printed leaves comes free from
   `lexLaid1` and `printedFileLexes1`; G doesn't need it, since `stands`
   carries the line starts it reads.
+
+## 8. F1's finding: `Lays` can't give the blank-line flags (SW-4048)
+
+Opus, 18 November 2026. F1 stopped before writing `Doc.told`.
+
+**The gap.** `Lays` doesn't follow modes: a `Line`, `SoftLine` or fill
+separator may be a space or a break wherever it stands, and a `Blank`
+after words is nothing (`BlankLays`, `Mid`). So a `Blank` that follows
+one of them has two laid traces, one with the blank line and one
+without. `Doc.Proofs.blankAfterLineExample` (Lays.sw) shows exactly
+this of `Concat [Chunk "f" 1, Line, Blank, Chunk "x" 1]`. No function of
+the document can be the reading of both traces, so `laysTold` with exact
+blank flags is false for such a document [source].
+
+**Where the rules do it.** `Word.leading` (`Rules.sw:132`): an item
+with no comments above and a kept blank line gets `[BreakParent,
+Blank]`, after `brokenItems`' `SoftLine`/`Line` or a `Fill` separator
+(`cells`). `Comments.kept` keeps that flag (`item`, no comments), so
+`stands` asks for it, e.g. `b` in `def d: A := [a,⏎⏎  b]`. The printer
+does print the blank line (`BreakParent` breaks the group), but that is
+a fact of modes, which neither `Lays` nor `HangLays` carries. Every
+other `Blank` the rules write follows a `HardLine`, a `LineStart` or a
+`LineStartHere`, where the place is `Broken` in every trace, and every
+comment is read where the line state is known, so the rest of Fable's
+reading is layout-independent as planned [source].
+
+**Ways on** (not tried):
+
+1. The rules write that break so that `Lays` sees it: in `brokenItems`,
+   a `HardLine` instead of the `Line`/`SoftLine` before an item whose
+   first word keeps a blank line, and a list holding such an item not
+   filled (`plainItem` false). The second changes the formatter's output
+   (such a list goes one item a line), so it is a D question.
+2. A mode-aware `Lays` (a group holding `BreakParent` breaks): large,
+   std-wide, and it touches every `Lays` proof.
+3. `told` with a flag "blank line, if the line broke", and `stands`
+   reading it as either: weakens `printedStands1`, so not without Matt.
