@@ -23689,12 +23689,12 @@
     {
       "id": 3960,
       "title": "[DeepSeek] js exportable: the Partial check (E-JS-PARTIAL) reads def.ty_value, not def_telescope's view, so a Partial result behind an opaque nickname gets a vaguer E-EXPORT; read it from tel. And generic_field_boundaries' .expect on boundary can in principle panic now boundary returns a Resource refusal: pass it on instead (SW-3947 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, needed no fixes but went wider than asked (fields precomputed into Gen so codegen can't hit a refusal; run --js passes an empty map), ~40 min (est. 20). Failing-first shown: E-EXPORT before, E-JS-PARTIAL after.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23923,7 +23923,7 @@
     {
       "id": 3978,
       "title": "[DeepSeek] Not-in-scope hint for a bare print got worse since Std.Doc (SW-3944): it now says 'the library has IO.print or Std.Doc.print' and drops the 'try: add import Std.IO (print)' line (snapshot reject__io-bare-print). Rank candidates by whether their type fits the call (print \"x\" fits IO.print, not Doc.print) and keep the try line when one fits; failing-first is the existing snapshot",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
