@@ -24488,12 +24488,12 @@
     {
       "id": 4020,
       "title": "[Sonnet] fmt S1 parseCarries1, second half (SW-4018 ticket B): the operator ladder, expr, block, the def frame, the file; after SW-4019; docs/reviews/SW-4018-parser-statements.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4019: discharge LadderCarries (expr, exprInline, logicLevel, cmpExpr, thenBody; mirror ParseWalk's gives proofs with readsThen/readsAfter0/readsOut), then carriesExpressionAt ladderOf gives expressionAt for the def frame and file; pipeChain needs its own proof (SameOrOut value), as do block statements (StatementOk allows ExprStatement); check blockResult, groupLogic/conjunctionOf keep words in order, and the def frame needs good and (items group).map Item.leaf = group. See NOTES section from SW-4019.",
+      "body": "From SW-4019: discharge LadderCarries (expr, exprInline, logicLevel, cmpExpr, thenBody; mirror ParseWalk's gives proofs with readsThen/readsAfter0/readsOut), then carriesExpressionAt ladderOf gives expressionAt for the def frame and file; pipeChain needs its own proof (SameOrOut value), as do block statements (StatementOk allows ExprStatement); check blockResult, groupLogic/conjunctionOf keep words in order, and the def frame needs good and (items group).map Item.leaf = group. See NOTES section from SW-4019.\n\nLane notes (Sonnet, 18 Nov 2026, branch lane/SW-4020): parseCarries1 proved. LadderCarries discharged (Syntax.ParseCarriesLadder, 70 theorems), file level (Syntax.ParseCarriesFile, 8) and the def frame (Syntax.ParseCarriesDecl, about 45), audits clean; ParseSettledStatements.parseCarries1 is no longer an open goal. Also fixed ParseCarries after SW-4027's within1 (57363f565). Not done: parseSettled1 (SW-4021). Details in tools/fmt/NOTES.md, section SW-4020.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
