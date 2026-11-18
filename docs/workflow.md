@@ -133,7 +133,7 @@ would cost, and on how quietly it would fail:
 | Paper (designs, research) | Read the conclusions and decisions. Check that sources are cited and that claims are marked measured or estimated. |
 | Mechanical (renames, sweeps, snapshots) | DeepSeek: every line. Sonnet: the diff's size and shape, plus a sample of hunks. |
 | Ordinary feature or fix | The report, `git diff --stat`, and the core logic hunk read. A bug fix has a failing-first test. A user-visible change updated the guide and `syntax.md`. |
-| New or restated theorems | Each statement checked against its name and doc (D2436). |
+| New or restated theorems | Each statement checked against its name and doc (D2436). A new assumption a top theorem takes (a hypothesis record, a parser or printer fact, a `Prop` about a function's behaviour) comes with a closed term or example in the same lane, or the lane goes back: reading can't tell an assumption that can never hold (D3684, Matt, 18 Nov 2026; SW-4017 found `FrameRest.others` false, so its theorems had been vacuous for days). |
 | Generates kernel terms, weakens a theorem, changes a tactic's meaning, touches a safety check | A separate Opus review lane before merge, or Fable for the kernel and soundness. It gets the code, not the orchestrator's conclusion, and the lane fixes what it finds. The lane and the review run the soundness set on the branch. |
 
 Every review also:
