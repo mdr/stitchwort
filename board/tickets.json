@@ -23653,7 +23653,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Also (SW-3959): the interpreted twin wrapper hard-codes a worktree's binary; make it a task taking the worktree, e.g. task fmt:twin-interp.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23674,12 +23674,12 @@
     {
       "id": 3959,
       "title": "[Opus] Self-hosted fmt S2 program: binders (def/theorem headers with parameter groups, a theorem's ∀, Lambda, ∀/∃ with NameParam and TypedParam, effect rows, PatternWord) on Std.Doc, within2, Fmt.Twin --stage s2; gate: identical to Rust on every golden and repo-sample declaration within S1+S2 (proof plan S2 row; SW-3950's pattern)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected: 45 min (S1 took 20 of 50). Started 11:28, done about 11:50.\n\nProgress (Opus, 18 Nov):\n- Rules for S2 on Std.Doc in `tools/fmt/src/Fmt/Rules.sw`: headers with parameter groups (premises, balanced fills, the `:`), a theorem's `∀`, lambdas (hug, `:=` line), `∀`/`∃`, ability rows; `within2`, the alphabet, `formatWithin` widened (`Slice2.sw`); `Fmt.Twin --stage s2`, `dev/fmt-twin s2`; 6 tests (`Fmt/Tests/Slice2.sw`).\n- Slice choices: `Type`/`Prop` are words of the slice; a row is within only before a header's result type (Rust spaces `{ }` elsewhere); `PatternWord` is vacuous (the parser makes names and `_` `NameParam`s).\n- Gate: goldens 230 of 230 within S1+S2 matched (644 in all); repo --sample 300: 444 of 444 (6,072 in all, 7.3%). S1 stays 82/82 and 45/45. Hand cases identical to `fmt -`.\n- Rust copies `)(` in lambda and quantifier heads and the gap after a row's `}`; the rules write a space (none in the sample). F1 tree unchanged.\n- Pre-existing failing test, not this lane's: SW-3956.\n- Details in tools/fmt/NOTES.md, \"Slice 2, the program\".\n",
+      "body": "Expected: 45 min (S1 took 20 of 50). Started 11:28, done about 11:50.\n\nProgress (Opus, 18 Nov):\n- Rules for S2 on Std.Doc in `tools/fmt/src/Fmt/Rules.sw`: headers with parameter groups (premises, balanced fills, the `:`), a theorem's `∀`, lambdas (hug, `:=` line), `∀`/`∃`, ability rows; `within2`, the alphabet, `formatWithin` widened (`Slice2.sw`); `Fmt.Twin --stage s2`, `dev/fmt-twin s2`; 6 tests (`Fmt/Tests/Slice2.sw`).\n- Slice choices: `Type`/`Prop` are words of the slice; a row is within only before a header's result type (Rust spaces `{ }` elsewhere); `PatternWord` is vacuous (the parser makes names and `_` `NameParam`s).\n- Gate: goldens 230 of 230 within S1+S2 matched (644 in all); repo --sample 300: 444 of 444 (6,072 in all, 7.3%). S1 stays 82/82 and 45/45. Hand cases identical to `fmt -`.\n- Rust copies `)(` in lambda and quantifier heads and the gap after a row's `}`; the rules write a space (none in the sample). F1 tree unchanged.\n- Pre-existing failing test, not this lane's: SW-3956.\n- Details in tools/fmt/NOTES.md, \"Slice 2, the program\".\n\nMerged 18 Nov. Gate: goldens 230/230 within S1+S2, sample 444/444 (7.3% of 6,072). Known untold-apart spacing: )( between groups in a lambda/quantifier head, {IO}Nat. 17 min (est. 45).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
