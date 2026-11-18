@@ -913,10 +913,7 @@ fn proof_positions_doesnt_remember_an_out_of_resources_answer() {
         case(
             0,
             p.nat,
-            vec![
-                (vec![], proposition.clone()),
-                (vec!["k"], proposition),
-            ],
+            vec![(vec![], proposition.clone()), (vec!["k"], proposition)],
         ),
     );
     let p_ty = pi("n", p.nat_ty(), prop());
