@@ -744,3 +744,90 @@ theorem arrowsFromTexts ∀ (current: Leaf) (rest: List Leaf):
 theorem arrowsTexts ∀ (leaves: List Leaf): leafTexts (arrows leaves) = leafTexts leaves := match leaves with
   | [] => byComputing
   | [first, ..rest] => arrowsFromTexts first rest
+
+def carriedTexts: Option Carried → List Text
+  | Some carried => carried.comments.map (comment => comment.text)
+  | None => []
+
+theorem intoTexts ∀ (carried: Carried) (trivia: Trivia):
+    triviaTexts (carried.into trivia) = carried.comments.map (comment => comment.text) ++ triviaTexts trivia :=
+  match trivia.leading with
+    | [] => byComputing
+    | [first, ..more] => rewrite repeatedly [List.mapAppend, List.appendAssoc]
+
+theorem receivedTexts ∀ (carried: Option Carried) (trivia: Trivia):
+    triviaTexts (carried.map (carry => carry.into trivia) |> .getOrElse trivia)
+      = carriedTexts carried ++ triviaTexts trivia :=
+  match carried with
+    | None => byComputing
+    | Some carry => intoTexts carry trivia
+
+theorem carriesTexts ∀ (trivia: Trivia) (carry: Carried)
+    (carries: commaCarries trivia = Some carry):
+    carriedTexts (Some carry) = triviaTexts trivia :=
+  match trivia.leading, trivia.trailing with
+    | [], Some comment => cases
+    | [first, ..more], Some comment =>
+      cases then rewrite List.mapAppend more [{ comment | blankLines = trivia.blankLines }] (comment => comment.text)
+    | [first, ..more], None => rewrite List.appendNil then cases
+
+--| Rule 2 keeps the comments in order: a comma's go to the token after it.
+theorem commasFromTexts ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
+    leafTexts (commasFrom done carried rest end).leaves ++ triviaTexts (commasFrom done carried rest end).end
+      = leafTexts (done.reverseOnto []) ++ (carriedTexts carried ++ (leafTexts rest ++ triviaTexts end)) :=
+  match rest with
+    | [] => rewrite receivedTexts carried end
+    | [leaf, ..after] =>
+      let received := { leaf | trivia = carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia }
+      let receivedText: triviaTexts received.trivia = carriedTexts carried ++ triviaTexts leaf.trivia :=
+        receivedTexts carried leaf.trivia
+      let kept := commasFromTexts [received, ..done] None after end
+      let keptText: leafTexts (commasFrom [received, ..done] None after end).leaves
+        ++ triviaTexts (commasFrom [received, ..done] None after end).end
+        = leafTexts (done.reverseOnto []) ++ (carriedTexts carried ++ (leafTexts [leaf, ..after] ++ triviaTexts end)) :=
+        rewrite kept, leafTextsReverseOnto done [received], receivedText then
+          rewrite repeatedly [List.appendAssoc, List.appendNil]
+      match c: commaCarries received.trivia with
+        | None => keptText
+        | Some carry =>
+          match leaf.kind == Comma with
+            | True =>
+              let emptied := { received | trivia = Trivia.empty }
+              rewrite commasFromTexts [emptied, ..done] (Some carry) after end,
+                  leafTextsReverseOnto done [emptied],
+                  carriesTexts received.trivia carry c,
+                  receivedText then
+                rewrite repeatedly [List.appendAssoc]
+            | False => keptText
+
+theorem trimmedTriviaTexts ∀ (trivia: Trivia): triviaTexts trivia.trimmed = (triviaTexts trivia).map trimEnd :=
+  let leading: (trivia.leading.map Comment.trimmed).map (comment => comment.text)
+    = (trivia.leading.map (comment => comment.text)).map trimEnd :=
+    rewrite List.mapMap trivia.leading (comment => comment.text) Comment.trimmed,
+        List.mapMap trivia.leading trimEnd (comment => comment.text)
+  match trivia.trailing with
+    | None => rewrite List.mapAppend, leading
+    | Some comment => rewrite List.mapAppend, leading
+
+--| Rule 5 trims each comment and keeps them in order.
+theorem trimmedTexts ∀ (leaves: List Leaf) (end: Trivia):
+    leavesTexts (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) end.trimmed
+      = (leavesTexts leaves end).map trimEnd :=
+  match leaves with
+    | [] => trimmedTriviaTexts end
+    | [leaf, ..rest] => rewrite List.mapAppend, trimmedTriviaTexts leaf.trivia, trimmedTexts rest end
+
+--| Rules 2 to 5 keep the comments in order, trimmed: rule N keeps them if
+--| rule 1 does.
+theorem settledTextsAfterHome ∀ (lexed: Lexed):
+    lexedTexts lexed.settled = (leafTexts (homeFrom [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd :=
+  let homed := homeFrom [] None lexed.leaves
+  let commas := commasFrom [] None homed lexed.end
+  let arrowed := arrows commas.leaves
+  calc lexedTexts lexed.settled
+    _ = (leavesTexts (letsFrom [] arrowed) commas.end).map trimEnd := trimmedTexts (letsFrom [] arrowed) commas.end
+    _ = (leafTexts (letsFrom [] arrowed) ++ triviaTexts commas.end).map trimEnd :=
+      rewrite leavesTextsSplit (letsFrom [] arrowed) commas.end
+    _ = (leafTexts commas.leaves ++ triviaTexts commas.end).map trimEnd :=
+      rewrite letsFromTexts [] arrowed, arrowsTexts commas.leaves
+    _ = (leafTexts homed ++ triviaTexts lexed.end).map trimEnd := rewrite commasFromTexts [] None homed lexed.end
