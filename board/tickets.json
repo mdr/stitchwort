@@ -24739,12 +24739,12 @@
     {
       "id": 4039,
       "title": "[Opus] fmt S1 output B: prove printedFileLexes1 (lex file.printed1 = Ok file.lexed1, exact: the seam between declarations; a declaration's text ends with a token or its comment) (docs/reviews/SW-4025-output-statements.md ticket B)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Estimate 45 min (brief). Started 18:48.\n\nProgress (lane, 19:14, ~26 min): printedFileLexes1 proved as stated, in new Fmt.FileLexProofs (moved out of Fmt.OutputStatements, which nothing imports, so the proof can use its definitions), from one new open goal printedSeam1: a slice 1 declaration's printed pieces start with a token (`def`) and leave nothing waiting at the end (no trailing line break, spaces or own-line comment). The seam itself (notes, gaps, the shift of a declaration's layout after earlier leaves, the text as pieces) is proved. printedSeam1 is printer-level (first and last thing the printer writes for defDoc); suggested as its own ticket after SW-4034's Lays proofs. Statement fix: noteComment reads withoutReturn note.text (counterexample crDropped: \"-- a\\r\\r\\n\" keeps one \\r in the tree, the lexer drops it). Audit: 42 theorems + 30 generated, 4 fail (printedSeam1 open, 3 rely on it), rest pass. Fmt.Tests 95/95.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
