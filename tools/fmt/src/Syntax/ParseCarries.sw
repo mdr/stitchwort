@@ -312,7 +312,7 @@ theorem carriedPrefix ∀ (item: Item) (read: List Item) (operand: Expr)
     (code: (item.kind == Comma) = False)
     (carried: Carried read operand):
     Carried [item, ..read] (Prefix item.leaf.word operand) :=
-  within => rewrite itemWordsCons item read code, carried within
+  within => rewrite itemWordsCons item read code, carried (Bool.andLeft within)
 
 theorem readsWordAtom ∀ (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
@@ -1159,7 +1159,7 @@ theorem carriedInfix ∀ (operator: Item) [first rest: List Item] [left right: E
     rewrite itemWordsAppend first [operator, ..rest],
         itemWordsCons operator rest code,
         leftCarried (Bool.andLeft within),
-        rightCarried (Bool.andRight within)
+        rightCarried (Bool.andLeft (Bool.andRight within))
 
 --| Folding links to the left keeps the words in the order read.
 theorem carriedLeftNested ∀ [first: List Item] [head: Expr] (links: List (Word, Expr)) [rest: List Item]
