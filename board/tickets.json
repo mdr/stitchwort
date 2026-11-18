@@ -1,5 +1,5 @@
 {
-  "next": 3930,
+  "next": 3931,
   "tickets": [
     {
       "id": 47,
@@ -22733,9 +22733,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Expected: 45 min (Opus). Started 20:56, done 21:15.\n\nProgress (Opus, lane/SW-3888):\n- Reproduced in a scratch project: a closed `(List.range 0 3601).all slow = True` proved by List.allTrue from a per-element lemma checks in 9.6 s, against 2.0 s with 3 items.\n- Cause (samply): two kernel sites, none in the elaborator. 67% in admit_group's conv (found_as_expected): the proof's glued type, a call, against Def::ty_value, already unfolded to `True = True`, so the call is forced. 21% in push_def: ty_value is evaluated unglued, so the closed statement is computed at once. Not needed for soundness or a feature: a side effect of folded-calls.md stage 4's \"a type's kept value is made unglued\".\n- Fix found but not built (kernel change): evaluate ty_value glued in push_def (and retype_def). Prototype: 9.6 s -> 1.95 s; byComputing closed statements 9.6 -> 10.9 s (the kernel's run of it is now glued, ~1.4x); Whereabouts and two AoC 2020 proof namespaces unchanged within noise; soundness examples and hash_stability::{examples,prelude} pass. Written up in docs/proposals/glued-kept-types.md for Matt and an Opus review.\n\nModel result: opus, worked, 21 min (est. 45). Kernel cause, so stopped at a proposal as briefed. Prototype patch kept in the session scratchpad (sw3888/toggle.patch). Review SW-3911 (Fable) before the D question to Matt. Finding SW-3912.\n\nD3680 (build glued kept types with SW-3911's R1-R5?) raised 17 Nov; Matt: discuss tomorrow when fresh (18 Nov). Not started.",
+      "body": "Expected: 45 min (Opus). Started 20:56, done 21:15.\n\nProgress (Opus, lane/SW-3888):\n- Reproduced in a scratch project: a closed `(List.range 0 3601).all slow = True` proved by List.allTrue from a per-element lemma checks in 9.6 s, against 2.0 s with 3 items.\n- Cause (samply): two kernel sites, none in the elaborator. 67% in admit_group's conv (found_as_expected): the proof's glued type, a call, against Def::ty_value, already unfolded to `True = True`, so the call is forced. 21% in push_def: ty_value is evaluated unglued, so the closed statement is computed at once. Not needed for soundness or a feature: a side effect of folded-calls.md stage 4's \"a type's kept value is made unglued\".\n- Fix found but not built (kernel change): evaluate ty_value glued in push_def (and retype_def). Prototype: 9.6 s -> 1.95 s; byComputing closed statements 9.6 -> 10.9 s (the kernel's run of it is now glued, ~1.4x); Whereabouts and two AoC 2020 proof namespaces unchanged within noise; soundness examples and hash_stability::{examples,prelude} pass. Written up in docs/proposals/glued-kept-types.md for Matt and an Opus review.\n\nModel result: opus, worked, 21 min (est. 45). Kernel cause, so stopped at a proposal as briefed. Prototype patch kept in the session scratchpad (sw3888/toggle.patch). Review SW-3911 (Fable) before the D question to Matt. Finding SW-3912.\n\nD3680 (build glued kept types with SW-3911's R1-R5?) raised 17 Nov; Matt: discuss tomorrow when fresh (18 Nov). Not started.\n\nD3680 agreed by Matt 18 Nov; implementation SW-3930.",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-18",
       "commits": []
     },
     {
@@ -23094,27 +23094,27 @@
     {
       "id": 3916,
       "title": "[Opus] Kernel readers determined.rs:189 and erase.rs:195/238 read Def::ty_value where def_type is meant: what the telescope sees behind an opaque nickname depends on how the type is written (and for erasure, the mode at first use); probe sketched in docs/reviews/SW-3911-glued-kept-types.md (F1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-18",
       "commits": []
     },
     {
       "id": 3917,
       "title": "[Opus] check.rs set_run_body checks with gluing off, unlike admit_group: deliberate or not? (SW-3911 F2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-18",
       "commits": []
     },
     {
@@ -23273,6 +23273,19 @@
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3930,
+      "title": "[Opus] D3680: kernel keeps declared types glued (push_def/retype_def), with SW-3911's R1-R5: kernel flag in value.rs Modes matched in Kept::fits; force before matching in the five readers; step-count kernel test; docs/core.md and folded-calls.md; measurements (byComputing kernel time ≤1.5x, whole-AoC peak memory ≤ +10%) before merge (docs/proposals/glued-kept-types.md, docs/reviews/SW-3911-glued-kept-types.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "D3680 (Matt, 18 Nov 2026): 'Okay, let's agree to D3680.' Build glued kept types with SW-3911's R1-R5; merge only if by-computing kernel time ≤1.5x and whole-AoC peak memory ≤ +10% (orchestrator's conditions, stated to Matt with the recommendation). SW-3916 and SW-3917 ride along.",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
       "commits": []
     }
   ]
