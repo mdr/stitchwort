@@ -288,6 +288,23 @@ theorem wordCode ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == Comma
 theorem carriedAtom ∀ (item: Item): Carried [item] (Atom item.kind item.leaf.word) := within =>
   rewrite itemWordsCode item (wordCode item.kind (Bool.andLeft within))
 
+--| A name with a comment, read as an atom: `carriedAtom`'s hypothesis can be met.
+def nameItem: Item := {
+  leaf = {
+    token = { kind = Lower, text = "a", column = 0, lineStart = True },
+    trivia = { leading = [], blankLines = 0, trailing = Some { text = "-- note", column = 2, blankLines = 0 } }
+  },
+  glued = False,
+  afterOperand = False,
+  afterDot = False,
+  index = 0,
+  depth = 0,
+  lineIndent = 0
+}
+
+theorem carriedAtomExample: (Atom Lower nameItem.leaf.word).words = itemWords [nameItem] :=
+  carriedAtom nameItem byComputing
+
 theorem carriedPrefix ∀ (item: Item) (read: List Item) (operand: Expr)
     (code: (item.kind == Comma) = False)
     (carried: Carried read operand):
