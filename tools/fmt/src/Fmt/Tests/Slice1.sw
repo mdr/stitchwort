@@ -36,5 +36,14 @@ test "a call hugs its last argument, a list, when the list can't fit below" :=
 test "a closer after a trailing comment goes left of the lines inside its brackets" :=
   formats "def d: ( -- t7\n    a -- t9\n  ) -- t10\n  := b\n" "def d: ( -- t7\n    a -- t9\n) -- t10\n  :=\n  b\n"
 
+test "a blank line before a filled list's first cell is dropped, not left to break its groups" :=
+  formats "def d: A := g [\n\n  f, a]\n" "def d: A := g [f, a]\n"
+
+test "a last comma's trailing comment keeps the comma's blank line above it" :=
+  formats "def d: A := f [g -- t12\n  -- o13\n\n , -- t14\n]\n" "def d: A := f [g -- t12\n  -- o13\n\n  -- t14\n]\n"
+
+test "a last comma on a line of its own leaves a blank line between the comments around it" :=
+  formats "def d: A := f [g\n  -- o2\n  ,\n  -- o3\n]\n" "def d: A := f [g\n  -- o2\n\n  -- o3\n]\n"
+
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
   refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Nat := (a: Nat)\n"

@@ -283,15 +283,21 @@ def hasItem: List Leaf → Bool
 --| The leaves without each comma directly before a closer. The comma's own-line
 --| comments stay above the closer; its trailing comment ends the line
 --| before it, or, if the comma started its line, stands above the closer
---| too; and the closer starts the line if the comma did.
+--| too, with the comma's blank line above it; a comma that started its
+--| line, with no comment, leaves a blank line before the closer's first
+--| own-line comment, as deleting it from the text does; and the closer
+--| starts the line if the comma did.
 def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
   | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
     let starts := comma.token.lineStart
     let above := match comma.trivia.trailing with
-      | Some comment if starts => comma.trivia.leading ++ [comment.unspaced]
+      | Some comment if starts => comma.trivia.leading ++ [{ comment | blankLines = comma.trivia.blankLines }]
       | _ => comma.trivia.leading
-    let moved := (closer.startingLine (starts || closer.token.lineStart)).withLeading (above ++ closer.trivia.leading)
+    let kept := match comma.trivia.trailing, closer.trivia.leading with
+      | None, [first, ..others] if starts => [{ first | blankLines = 1 }, ..others]
+      | _, leading => leading
+    let moved := (closer.startingLine (starts || closer.token.lineStart)).withLeading (above ++ kept)
     match comma.trivia.trailing, behind with
       | Some comment, [previous, ..earlier] if !starts =>
         withoutLastCommas [moved, previous.withTrailing (Some comment), ..earlier] after
