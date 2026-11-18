@@ -370,3 +370,82 @@ theorem pastDepth ∀ (place: ItemsAt) (leaves: List Leaf) (balanced: balancedFr
     (place.past leaves).depth = place.depth :=
   let same := pastDepthOpen place 0 leaves (arithmetic) balanced
   arithmetic [same]
+
+-- The line rule over parts of the leaves.
+
+--| The line rule's state after some leaves, or `None` if one breaks it.
+def HangState.after (state: HangState): List Leaf → Option HangState
+  | [] => Some state
+  | [leaf, ..rest] =>
+    match state.step leaf with
+      | Some next => next.after rest
+      | None => None
+
+def hangsAfter (state: Option HangState) (leaves: List Leaf): Bool := match state with
+  | Some known => hangsFrom known leaves
+  | None => False
+
+--| The line rule holds of leaves read one after another when it holds of the first, and of the rest from where the
+--| first left it: what lets the read-back take `hangs` apart along the tree.
+theorem hangsAppend ∀ (state: HangState) (first rest: List Leaf):
+    hangsFrom state (first ++ rest) = hangsAfter (state.after first) rest :=
+  match first with
+    | [] => byComputing
+    | [leaf, ..more] =>
+      match stepped: state.step leaf with
+        | Some next => hangsAppend next more rest
+        | None => byComputing
+
+--| Whether a leaf would take a block at `column` round again: `continuesAt` of its item.
+def continuesLeaf (column: Nat) (leaf: Leaf): Bool :=
+  leaf.token.lineStart && leaf.token.column == column && !endsBlocks leaf.token.kind
+
+theorem continuesItem ∀ (column: Nat) (item: Item) (later: List Item):
+    continuesAt column [item, ..later] = continuesLeaf column item.leaf :=
+  byComputing
+
+--| Inside a bracket whose current item started a line at `column`, a leaf the line rule accepts doesn't take that
+--| item's block round again: `blockOneLine`'s `ends`, from `hangs`.
+theorem stepInBracket ∀ (state next: HangState) (leaf: Leaf) (column: Nat) (outer: List (Option Nat))
+    (inside: state.blocks = [Some column, ..outer])
+    (stepped: state.step leaf = Some next):
+    continuesLeaf column leaf = False :=
+  match state with | { blocks, top, start, glue } => rewrite inside at stepped then cases
+
+--| Likewise for the type or the body, which started a line at `column`, outside brackets.
+theorem stepAtTop ∀ (state next: HangState) (leaf: Leaf) (column: Nat)
+    (outside: state.blocks = [])
+    (top: state.top = Some column)
+    (stepped: state.step leaf = Some next):
+    continuesLeaf column leaf = False :=
+  match state with | { blocks, top = above, start, glue } => rewrite outside, top at stepped then cases
+
+--| A closer at column 2 on its own line, its item at 4: `stepInBracket`'s hypotheses can hold.
+theorem stepInBracketExample: continuesLeaf 4 {
+      token = { kind = RParen, text = ")", column = 2, lineStart = True },
+      trivia = Trivia.empty
+    }
+      = False :=
+  stepInBracket
+    { blocks = [Some 4], top = None, start = False, glue = False }
+    { blocks = [], top = None, start = False, glue = False }
+    { token = { kind = RParen, text = ")", column = 2, lineStart = True }, trivia = Trivia.empty }
+    4
+    []
+    byComputing
+    byComputing
+
+--| `:=` at the type's column 2: `stepAtTop`'s hypotheses can hold.
+theorem stepAtTopExample: continuesLeaf 2 {
+      token = { kind = ColonEq, text = ":=", column = 2, lineStart = True },
+      trivia = Trivia.empty
+    }
+      = False :=
+  stepAtTop
+    { blocks = [], top = Some 2, start = False, glue = False }
+    { blocks = [], top = None, start = True, glue = False }
+    { token = { kind = ColonEq, text = ":=", column = 2, lineStart = True }, trivia = Trivia.empty }
+    2
+    byComputing
+    byComputing
+    byComputing
