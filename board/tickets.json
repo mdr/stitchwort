@@ -24423,12 +24423,12 @@
     {
       "id": 4015,
       "title": "[Opus] Std.Doc proofs: a Blank right after a line break can't be laid (SepLays/SoftLays give AtStart after a break, StartLays turns Broken into AtStart, BlankLays AtStart is False), though the printer prints it; make break branches give Broken and StartLays keep it, re-prove printPuts; blocks printedHangs for blank lines kept between bracket items (SW-4011); also commentKeepsFloor next to floorAfter",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus, 18 Nov 2026, lane/SW-4015, commit 74f2be993):\n- Printer: Printer.blank prints one empty line iff at a line start, started, newlinesAtEnd < 2; every newline after words leaves newlinesAtEnd = 1 (Agrees' Broken). So the fix is exact: every line break after words in Lays/Puts now leaves Broken (Sep/Soft/fill separator, LineStart and LineStartHere incl. keeping Broken, CloserLine, OneLineBelow, Displaced's comment break). AtStart only at the output's start, after a Blank, and HardLine's no-Blank option. No printer bug found.\n- printPuts/laysPuts re-proved; examples blankAfterBreakExample, blankAfterLineExample (fail before); 3 Blank printer tests in Doc/Tests/Engine.sw.\n- Doc.commentKeepsFloor (Print.sw, + Example), Doc.Proofs.commentStarts (Lays.sw); removed from HangProofs.\n- HangProofs: leadingHangs' quiet is now (plainStart entry && note.blankBefore && around.item) = False; new startHangsBroken, notesHangBroken, startNotesHang, blankLeadHangs ([BreakParent, Blank] from Broken).\n- Hashes moved: Std.Doc.Proofs predicates and proofs, Std.Doc.Tests; prelude snapshot regenerated. No pins moved (binding test passes).\n- Checked: std Doc check, Doc/Tests 38/38, audit Std.Doc.Proofs (357, 0 failed) + commentKeepsFloor; fmt check of the 5 namespaces, audit of the 4 proof namespaces (0 failed, 4 old JoinProofs vacuity warnings), Fmt.Tests 94/94, hash_stability, every_binding_by_hash.\nModel result: Opus, worked, ~15 min (est. 45 min)\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
