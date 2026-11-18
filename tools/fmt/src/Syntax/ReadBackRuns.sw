@@ -1623,3 +1623,449 @@ theorem runsCmpCompare ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (re
                       let notCmp: next.isComparison = False := Bool.orFalseRight _ _ others
                       rewrite notCmp, notIn2 then Parse.runsPure (Infix InfixBinary lhs operator.leaf.word second) rest
                     | None, noChain => Parse.runsPure (Infix InfixBinary lhs operator.leaf.word second) rest)))))))
+
+-- `&&` and `||`.
+
+--| `quantifierAhead` where neither quantifier comes next.
+theorem runsQuantifierNone ∀ (modes: Modes) (items: List Item)
+    (noExists: isSome KwExists (peekIn modes 0 items) = False)
+    (noForall: isSome KwForall (peekIn modes 0 items) = False):
+    Parse.Runs (() => quantifierAhead modes) [] items False :=
+  runsLook
+    (() => modes.at KwExists)
+    (found => found || modes.at KwForall)
+    False
+    []
+    items
+    False
+    (runsSame _ [] _ _ False noExists (runsAtOn modes KwExists items))
+    (runsSame _ [] _ _ False noForall (runsAtOn modes KwForall items))
+
+--| Each link is a `&&` or `||` the modes don't stop at, then a comparison that isn't a quantifier; after the last, no
+--| `&&` or `||` comes next.
+def LogicRuns (self: Goal → {Parse Item} Expr) (modes: Modes): List (Item, List Item, Expr) → List Item → Prop
+  | [], rest => andOrOn modes rest = False
+  | [(operator, read, value), ..links], rest =>
+    modes.stops operator = False
+      ∧ (operator.kind == AndAnd || operator.kind == OrOr) = True
+      ∧ isSome KwExists (peekIn modes 0 (read ++ Parse.loopReads [] (linkSteps links) ++ rest)) = False
+      ∧ isSome KwForall (peekIn modes 0 (read ++ Parse.loopReads [] (linkSteps links) ++ rest)) = False
+      ∧ Parse.Runs (() => cmpExpr self modes) read (Parse.loopReads [] (linkSteps links) ++ rest) value
+      ∧ LogicRuns self modes links rest
+
+theorem runsLogicStepSome ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: Item)
+    (read rest: List Item) (value: Expr)
+    (open: modes.stops operator = False)
+    (andOr: (operator.kind == AndAnd || operator.kind == OrOr) = True)
+    (noExists: isSome KwExists (peekIn modes 0 (read ++ rest)) = False)
+    (noForall: isSome KwForall (peekIn modes 0 (read ++ rest)) = False)
+    (cmpRuns: Parse.Runs (() => cmpExpr self modes) read rest value):
+    Parse.Runs (() => logicOn self modes modes.peek) [operator, ..read] rest (Some (operator.leaf.word, value)) :=
+  runsLook
+    (() => modes.peek)
+    (seen => logicOn self modes seen)
+    (Some operator.kind)
+    [operator, ..read]
+    rest _
+    (rewrite <- peekFirst modes operator (read ++ rest) open then runsPeekOn modes [operator, ..read ++ rest])
+    (rewrite andOr then
+      Parse.runsBind
+        (() => bump())
+        (word => logicOperand self modes word (quantifierAhead modes))
+        [operator]
+        read
+        [operator, ..read]
+        rest
+        operator.leaf.word _
+        byComputing
+        (runsBump operator (read ++ rest))
+        (runsLook
+          (() => quantifierAhead modes)
+          (quantified => logicOperand self modes operator.leaf.word quantified)
+          False
+          read
+          rest _
+          (runsQuantifierNone modes (read ++ rest) noExists noForall)
+          (Parse.runsMap
+            (() => cmpExpr self modes)
+            (operand => Some (operator.leaf.word, operand))
+            read
+            rest
+            value
+            cmpRuns)))
+
+theorem runsLogicStepNone ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (rest: List Item)
+    (ends: andOrOn modes rest = False):
+    Parse.Runs (() => logicOn self modes modes.peek) [] rest None :=
+  runsLook
+    (() => modes.peek)
+    (seen => logicOn self modes seen)
+    (peekIn modes 0 rest)
+    []
+    rest
+    None
+    (runsPeekOn modes rest)
+    (match peekIn modes 0 rest, ends with
+      | Some kind, ends => rewrite ends then Parse.runsPure None rest
+      | None, ends => Parse.runsPure None rest)
+
+theorem logicLoopRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (links: List (Item, List Item, Expr)) (rest: List Item)
+    (runs: LogicRuns self modes links rest):
+    Parse.LoopRuns (() => logicOn self modes modes.peek) [] (linkSteps links) rest :=
+  match links, runs with
+    | [], ends => runsLogicStepNone self modes rest ends
+    | [(operator, read, value), ..later], (open, andOr, noExists, noForall, cmpRuns, others) =>
+      Both
+        (List.consNotNil operator read)
+        (Both
+          (runsLogicStepSome self modes operator read
+            (Parse.loopReads [] (linkSteps later) ++ rest)
+            value
+            open
+            andOr
+            noExists
+            noForall
+            cmpRuns)
+          (logicLoopRuns self modes later rest others))
+
+--| `logicAfter` where no `&&` or `||` follows: what was compared.
+theorem runsLogicAfterNone ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (compared: Expr) (rest: List Item)
+    (ends: andOrOn modes rest = False):
+    Parse.Runs (() => logicAfter self modes compared) [] rest compared :=
+  runsLook
+    (() => andOrAhead modes)
+    (ahead => logicOf self modes compared ahead)
+    False
+    []
+    rest
+    compared
+    (runsSame _ [] _ _ False ends (Parse.runsMap (() => left()) (andOrOn modes) [] rest rest (runsLeftOn rest)))
+    (Parse.runsPure compared rest)
+
+--| `logicAfter` where links follow: they are read and grouped by `groupLogic`.
+theorem runsLogicAfterChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Expr)
+    (links: List (Item, List Item, Expr)) (rest: List Item)
+    (ahead: andOrOn modes (Parse.loopReads [] (linkSteps links) ++ rest) = True)
+    (runs: LogicRuns self modes links rest):
+    Parse.Runs
+      (() => logicAfter self modes first)
+      (Parse.loopReads [] (linkSteps links))
+      rest
+      (groupLogic ((Parse.stepValues (linkSteps links)).length + 1) first (Parse.stepValues (linkSteps links))) :=
+  runsLook
+    (() => andOrAhead modes)
+    (ahead => logicOf self modes first ahead)
+    True
+    (Parse.loopReads [] (linkSteps links))
+    rest _
+    (runsSame _ [] _ _ True ahead
+      (Parse.runsMap
+        (() => left())
+        (andOrOn modes)
+        []
+        (Parse.loopReads [] (linkSteps links) ++ rest)
+        (Parse.loopReads [] (linkSteps links) ++ rest)
+        (runsLeftOn (Parse.loopReads [] (linkSteps links) ++ rest))))
+    (Parse.runsMap
+      (() => logicLinks self modes)
+      (links => groupLogic (links.length + 1) first links)
+      (Parse.loopReads [] (linkSteps links))
+      rest
+      (Parse.stepValues (linkSteps links))
+      (Parse.runsLoop
+        (() => logicOn self modes modes.peek)
+        []
+        (linkSteps links)
+        rest
+        (logicLoopRuns self modes links rest runs)))
+
+-- The operators' top: `<->`, `->` and `;`.
+
+--| What `opEnd` reads on after a value: `->`, or `;` where a sequence may be.
+def opEndsAhead (modes: Modes) (sequence: Bool) (items: List Item): Bool := match peekIn modes 0 items with
+  | Some kind => kind == Arrow || (kind == Semi && sequence)
+  | None => False
+
+--| `opStart` after its comparison and logic: no `<->`, then `opEnd`'s look at what follows.
+theorem runsOpStartWith ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat)
+    (read1 read2 read3 rest: List Item) (compared logic value: Expr)
+    (noSection: isSome Dot (peekIn modes 0 ((read1 ++ read2 ++ read3) ++ rest)) = False)
+    (cmpRuns: Parse.Runs (() => cmpExpr self modes) read1 (read2 ++ read3 ++ rest) compared)
+    (logicRuns: Parse.Runs (() => logicAfter self modes compared) read2 (read3 ++ rest) logic)
+    (noIff: isSome IffArrow (peekIn modes 0 (read3 ++ rest)) = False)
+    (ending: Parse.Runs (() => opEnd self modes logic (sequenceOn modes (read3 ++ rest)) modes.peek) read3 rest value):
+    Parse.Runs (() => opStart self modes start) (read1 ++ read2 ++ read3) rest value :=
+  runsLook
+    (() => modes.at Dot)
+    (section => opSection self modes start section)
+    False
+    (read1 ++ read2 ++ read3)
+    rest
+    value
+    (runsSame _ [] _ _ False noSection (runsAtOn modes Dot ((read1 ++ read2 ++ read3) ++ rest)))
+    (Parse.runsBind
+      (() => cmpExpr self modes)
+      (compared => opCompared self modes False compared)
+      read1
+      (read2 ++ read3)
+      (read1 ++ read2 ++ read3)
+      rest
+      compared
+      value
+      byComputing
+      (rewrite List.appendAssoc read2 read3 rest then cmpRuns)
+      (Parse.runsBind
+        (() => logicAfter self modes compared)
+        (logic => opLogic self modes False logic)
+        read2
+        read3
+        (read2 ++ read3)
+        rest
+        logic
+        value
+        byComputing
+        logicRuns
+        (runsLook
+          (() => modes.at IffArrow)
+          (ahead => opIffed self modes False (iffOf self modes logic ahead))
+          False
+          read3
+          rest
+          value
+          (runsSame _ [] _ _ False noIff (runsAtOn modes IffArrow (read3 ++ rest)))
+          (runsLook
+            (() => sequenceAhead modes)
+            (sequence => opSequence self modes logic sequence)
+            (sequenceOn modes (read3 ++ rest))
+            read3
+            rest
+            value
+            (Parse.runsMap
+              (() => left())
+              (sequenceOn modes)
+              []
+              (read3 ++ rest)
+              (read3 ++ rest)
+              (runsLeftOn (read3 ++ rest)))
+            ending))))
+
+--| `opEnd` with nothing after the value that it reads.
+theorem runsOpEndNone ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (sequence: Bool) (rest: List Item)
+    (ends: opEndsAhead modes sequence rest = False):
+    Parse.Runs (() => opEnd self modes value sequence modes.peek) [] rest value :=
+  runsLook
+    (() => modes.peek)
+    (seen => opEnd self modes value sequence seen)
+    (peekIn modes 0 rest)
+    []
+    rest
+    value
+    (runsPeekOn modes rest)
+    (match peekIn modes 0 rest, ends with
+      | Some kind, ends =>
+        let notArrow: (kind == Arrow) = False := Bool.orFalseLeft _ _ ends
+        let notSemi: (kind == Semi && sequence) = False := Bool.orFalseRight _ _ ends
+        rewrite notArrow, notSemi then Parse.runsPure value rest
+      | None, ends => Parse.runsPure value rest)
+
+--| `opEnd` at a `->`: the arrow, then a result type.
+theorem runsOpEndArrow ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value result: Expr) (sequence: Bool)
+    (arrow: Item) (read rest: List Item)
+    (open: modes.stops arrow = False)
+    (isArrow: arrow.kind = Arrow)
+    (resultRuns: Parse.Runs (() => resultType self modes) read rest result):
+    Parse.Runs
+      (() => opEnd self modes value sequence modes.peek)
+      [arrow, ..read]
+      rest
+      (Infix InfixArrow value arrow.leaf.word result) :=
+  runsLook
+    (() => modes.peek)
+    (seen => opEnd self modes value sequence seen)
+    (Some arrow.kind)
+    [arrow, ..read]
+    rest _
+    (rewrite <- peekFirst modes arrow (read ++ rest) open then runsPeekOn modes [arrow, ..read ++ rest])
+    (rewrite isArrow then
+      Parse.runsBind
+        (() => bump())
+        (word => arrowEnd self modes value word)
+        [arrow]
+        read
+        [arrow, ..read]
+        rest
+        arrow.leaf.word _
+        byComputing
+        (runsBump arrow (read ++ rest))
+        (Parse.runsMap
+          (() => resultType self modes)
+          (Infix InfixArrow value arrow.leaf.word)
+          read
+          rest
+          result
+          resultRuns))
+
+--| `operatorExpr`, from `opStart` at every offset it may start at.
+theorem runsOperatorExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item) (value: Expr)
+    (at: ∀ (start: Nat) => Parse.Runs (() => opStart self modes start) read rest value):
+    Parse.Runs (() => operatorExpr self modes) read rest value :=
+  state starts honest =>
+    Parse.runsFromMark state
+      (here => opStart self modes here.offset)
+      read
+      rest
+      value
+      (at state.at.offset state)
+      starts
+      honest
+
+-- An expression on its line: the look-aheads for what isn't an operator expression.
+
+theorem runsLambdaHere ∀ (modes: Modes) (items: List Item)
+    (no: lambdaAhead modes (items.length + 1) items = False):
+    Parse.Runs (() => lambdaHere modes) [] items False :=
+  state starts honest =>
+    let none: lambdaAhead modes (state.at.left + 1) state.at.rest = False := rewrite honest, starts then no
+    Parse.runsFromMark state
+      (here => lambdaAhead modes (here.left + 1) here.rest)
+      []
+      items
+      False
+      (runsFromPure state _ False items none)
+      starts
+      honest
+
+theorem runsLambdaResultHere ∀ (modes: Modes) (items: List Item)
+    (no: lambdaResultType modes (items.length + 1) False items = False):
+    Parse.Runs (() => lambdaResultHere modes) [] items False :=
+  state starts honest =>
+    let none: lambdaResultType modes (state.at.left + 1) False state.at.rest = False := rewrite honest, starts then no
+    Parse.runsFromMark state
+      (here => lambdaResultType modes (here.left + 1) False here.rest)
+      []
+      items
+      False
+      (runsFromPure state _ False items none)
+      starts
+      honest
+
+theorem runsImplicitHere ∀ (modes: Modes) (items: List Item)
+    (no: implicitOn (items.length + 1) items (peekIn modes 0 items) = False):
+    Parse.Runs (() => implicitHere modes) [] items False :=
+  state starts honest =>
+    let none: implicitOn (state.at.left + 1) items (peekIn modes 0 items) = False := rewrite honest, starts then no
+    Parse.runsFromMark state
+      (here => implicitOn (here.left + 1) left() modes.peek)
+      []
+      items
+      False
+      (runsLook
+        (() => left())
+        (later => implicitOn (state.at.left + 1) later modes.peek)
+        items
+        []
+        items
+        False
+        (runsLeftOn items)
+        (runsLook
+          (() => modes.peek)
+          (seen => implicitOn (state.at.left + 1) items seen)
+          (peekIn modes 0 items)
+          []
+          items
+          False
+          (runsPeekOn modes items)
+          (runsSame _ [] items _ False none (Parse.runsPure _ items)))
+        state)
+      starts
+      honest
+
+theorem runsPiHere ∀ (modes: Modes) (items: List Item)
+    (no: piOn items (peekIn modes 0 items) = False):
+    Parse.Runs (() => piHere modes) [] items False :=
+  runsLook
+    (() => left())
+    (later => piOn later modes.peek)
+    items
+    []
+    items
+    False
+    (runsLeftOn items)
+    (runsLook
+      (() => modes.peek)
+      (seen => piOn items seen)
+      (peekIn modes 0 items)
+      []
+      items
+      False
+      (runsPeekOn modes items)
+      (runsSame _ [] items _ False no (Parse.runsPure _ items)))
+
+--| `exprInline` of an operator expression: none of the keywords, lambdas, quantifiers, `if` or binders it looks for
+--| first.
+theorem runsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr)
+    (open: modes.stops item = False)
+    (notKeyword: startsKeywordExpr item.kind = False)
+    (noLambda: lambdaAhead modes ([item, ..more ++ rest].length + 1) [item, ..more ++ rest] = False)
+    (noResult: lambdaResultType modes ([item, ..more ++ rest].length + 1) False [item, ..more ++ rest] = False)
+    (notQuantifier: (item.kind == KwExists || item.kind == KwForall) = False)
+    (notIf: (item.kind == KwIf) = False)
+    (noImplicit: implicitOn ([item, ..more ++ rest].length + 1) [item, ..more ++ rest] (Some item.kind) = False)
+    (noPi: piOn [item, ..more ++ rest] (Some item.kind) = False)
+    (opRuns: Parse.Runs (() => operatorExpr self modes) [item, ..more] rest value):
+    Parse.Runs (() => exprInline self modes) [item, ..more] rest value :=
+  let items := [item, ..more ++ rest]
+  let peeked: peekIn modes 0 items = Some item.kind := peekFirst modes item (more ++ rest) open
+  runsLook
+    (() => modes.peek)
+    (seen => exprInlineOn self modes seen)
+    (Some item.kind)
+    [item, ..more]
+    rest
+    value
+    (rewrite <- peeked then runsPeekOn modes items)
+    (rewrite notKeyword then
+      runsLook
+        (() => lambdaHere modes)
+        (lambdas => exprLambda self modes lambdas)
+        False
+        [item, ..more]
+        rest
+        value
+        (runsLambdaHere modes items noLambda)
+        (runsLook
+          (() => lambdaResultHere modes)
+          (refused => exprResult self modes refused)
+          False
+          [item, ..more]
+          rest
+          value
+          (runsLambdaResultHere modes items noResult)
+          (runsLook
+            (() => modes.peek)
+            (seen => exprBinder self modes seen)
+            (Some item.kind)
+            [item, ..more]
+            rest
+            value
+            (rewrite <- peeked then runsPeekOn modes items)
+            (rewrite notQuantifier, notIf then
+              runsLook
+                (() => implicitHere modes)
+                (implicit => exprImplicit self modes implicit)
+                False
+                [item, ..more]
+                rest
+                value
+                (runsImplicitHere modes items (rewrite peeked then noImplicit))
+                (runsLook
+                  (() => piHere modes)
+                  (pi => exprPi self modes pi)
+                  False
+                  [item, ..more]
+                  rest
+                  value
+                  (runsPiHere modes items (rewrite peeked then noPi))
+                  opRuns)))))
