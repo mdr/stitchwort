@@ -1576,3 +1576,70 @@ Findings (not consequences of the tree facts, so `DeclQuiet` names them):
   layout, so `ItemsHang` likely fails for it; SW-4030 suggested passing the previous item's trails as `before`.
 
 Owed: the three findings above, each of which widens `DeclQuiet` towards the four tree facts alone.
+
+## Slice 1 trivia proofs, F2: what a word's document tells (SW-4049, Sonnet, 18 November 2026)
+
+`Fmt/ToldWordProofs.sw` (namespace `Fmt.ToldWordProofs`), after SW-4056's `Doc.told` (`Std.Doc.Told`). Ticket F2 of
+`docs/reviews/SW-4042-trivia-statement.md`: for every rule function that writes one word, what `doc.tell spot` says,
+against the spot the rules enter it from. F3 (brackets, calls, chains, the declaration) composes these.
+
+### The lemma shape
+
+`Doc.tell doc spot` is a `Telling`: `said` (the entries) and `after` (where the printer may be after). Each rule
+function gets one lemma, an equation between the document's `Telling` at a spot `spot` and a function of the word's
+data:
+
+```
+theorem leafTell: (word.leaf around key).tell spot = word.leafTelling around spot   -- under word.sound
+theorem openingTell: (word.opening around closer).tell spot = word.leafTelling around spot
+theorem atomTell: ((Atom kind word).el around).tell spot = word.leafTelling around spot
+theorem framedTell: (framedBy first around doc).tell spot
+  = { said = first.toldLead around ++ (doc.tell (first.placedSpot around spot)).said, after = … }
+theorem parenTell: (parenDoc open inner close around).tell spot
+  = (open.leafTelling around spot).andThen ((parenInside …).andThen (close.leafTelling … (parenInside …).after))
+theorem prefixTell / prefixElTell
+```
+
+- **Equations, not `ReadsAs`**: both `said` and `after` are stated, and `Telling.andThen` composes them
+  (`tellAllAppend`, `concatTell`, `tellingQuietRight/Left`, `tellingAssoc` are here). F3's walk is `rewrite
+  concatTell …, <each part's lemma>`, with the spot of each later part being the `after` of the one before. `spot` is
+  universally quantified; the rules enter a word at `Spot.lineStart`, `Spot.afterWords.afterSep` (after `Line`,
+  `SoftLine`, a fill separator) or after words, and `leafAtLineStart`, `leafAfterSep`, `leafAfterWords`,
+  `leafAfterComment` give the result at each, with starts/follows as plain Booleans.
+- **The word's reading is its printed word.** `Word.printed word around` is the word with the comments `Comments.kept`
+  leaves (item flag from `around.item`, closer flag from its text), or, when the node's frame writes its own-line
+  comments (`around.hoisted`), with none above and no blank line. `leafTelling`'s `said` is `(word.printed
+  around).comments.toldAbove ++ [the word's own entry] ++ word.toldTrail`: for each note a `Gap` if flagged and `Said
+  text True False`, then a `Gap` if the word's own blank line is flagged, the word, then `Said comment False True`.
+  That is `stands`' `headedAs` word (its text, its comments above with their flags, its blank-line flag) and its
+  trailing comment as `Said` on the same line. F3's link to `decl.stood` is a lemma per rule: the `calm` word at a
+  position is `word.printed around` for the `around` the rule passes (`calm` writes `kept item closer`; the rules'
+  `around.item` is `item`).
+- **The word's own entry** is `Said text starts follows` read off the spot: at a line start `True False`; after a
+  separator `True (!forced)`; after words `forced (!forced)`; after a waiting comment a closer with no line of its own
+  slips in front of it (`False True`, `after` still the comment's) and anything else starts a line. `Word.forced` is
+  "its comments or a kept blank line come first, or it is a closer taking a line of its own" (`ownsLine`).
+- **Exactness** (`toldExact`, `leafTellingExact`, `exactAndThen`): no entry is `MaybeGap` or `Lost`. A `Blank` the
+  rules write is always after a `LineStart`, `LineStartHere` or `HardLine`, so every `Gap` is exact (SW-4056).
+- **Hypotheses**: `word.sound` (text not layout, notes are comments, SpellProofs' notion), and for `Word.opening`
+  `isCloserText word.text = False`, so the opener has no line of its own.
+
+### What is proved (count: see the file)
+
+Notes and the word's pieces: `notesAboveTell`, `closerNotesTell`, `laterCloserNotesTell`, `closerLeadTell`,
+`keptNone/Noted/Closer`, `leadingTell` (leading ends at a line start if it wrote anything), `pieceTell`, `bodyTell`.
+Words: `leafTell` and its four spots, `openingTell`, `atomTell`, `toldLeadQuiet`. Frames and nodes: `framedTell`,
+`parenInnerTell`, `parenTell`, `prefixTell`, `prefixElTell`. Exactness and witnesses (`toldItemBlank`,
+`toldCloserOwnLine`, `toldCloserTucked`, …).
+
+### For F3
+
+- A node's `el` is `framedBy first around doc`: `framedTell` gives `first.toldLead around` then the document told from
+  `first.placedSpot around spot`; inside, the first token is entered with `hoisted = True`, so its `toldLead` is empty.
+- Composition: `(Doc.concat docs).tell spot = Doc.tellAll docs spot` (`concatTell`); a list split by `tellAllAppend`;
+  a part's `Telling` is `andThen`ed; `rewrite` with the part's lemma at the exact spot.
+- `Doc.tell` on `Group`, `Nest`, `Align` passes the spot unchanged; `Displaced` uses `spot.displaced`; the separators
+  `afterSep`. `leafAfterSep` is the lemma for a first word after a `Line`.
+- Not done here: items of a comma bracket (`itemAround`: `item = True` is where `leadSpot` reads `Gap`), `Fill`'s
+  `plainItem` words, calls, chains, the declaration; `Doc.Proofs.laysTold` and `printTold` (SW-4056) carry the reading
+  from the tell to the laid trace.
