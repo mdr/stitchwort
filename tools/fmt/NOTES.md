@@ -1536,3 +1536,43 @@ at 2, and on the `:=`'s line with its hug when the `:=` trails nothing). `atomDe
   needs a `startsWith` to `toList` lemma), no comments above `:` and `:=` (or a lemma for their leading comments),
   and the name's `Plain` and `WordToken` from `nameWithin1`.
 - Parameter groups: slice 1 has none, so `defDocHangs` takes `params = []`; later slices need `paramsHeader`.
+
+## Slice 1 rules proofs, `DeclHangs` from the tree facts (SW-4045, Opus, 18 November 2026)
+
+`printedHangs1Quiet` (`Fmt.DeclFactsProofs`) gives `hangs lexed.leaves = True` from `within1`, `shaped1`, `sound`,
+`lexical1` and `DeclQuiet`: no own-line comments above the name, `:` or `:=`, and the type and value quiet
+(`Expr.quiet1`: every token with no comments above, none after, no kept blank line, and every call with an
+argument). `printedHangs1` is the general form, taking `DeclElements` (the bare-token conjuncts, the type's
+`ElHangs` and the value's `BodyLays`) in place of `DeclQuiet`; `printedHangs` is unchanged.
+
+- **Trailing comments** (`trailsOfSound`): `afterSound` gives `commentText`, which gives `IsComment` through the
+  characters (`dashed`: `--` then no line break; `withoutNewline`).
+- **The name** (`nameFacts`): `Plain` and `WordToken` from `nameWithin1`'s `spellsOfText1 Lower`.
+- **The induction** (`Fmt.ExprHangProofs.exprFacts`). Invariant, `ExprFacts expr`: for every `around`, the element
+  hangs at any indentation and column after a waiting comment only where `around.before` says, trailing nothing
+  (`HangsAt lexKind around.before False`); and for every level and `first`, its `LinkFacts` hold with no trailing
+  comment. The second half is needed because a chain reads its operands through `linkDocs`, which flattens those
+  of the same level. Mutual with `itemsHang`, `argsHang`, `lastHangs` and `hugFacts` (brackets' items, a call's
+  arguments, the last argument as `huggedBracket` writes it).
+- **Keys** (`Fmt.QuietKeyProofs.quietKeys`): a quiet expression's document has no `Mark` or `CloserLine` below
+  any floor, by the same induction; `appFromKeys` covers every layout of a call. `quietExprFacts` is `exprFacts`
+  with it.
+- **Call hugs** (`quietHug`, from `appDocsHug`/`appFromHug`): the hug hangs as the function's element, from the
+  front's spaced parts and the opened argument as a part, the same facts `appFromHangs` uses inside.
+
+Findings (not consequences of the tree facts, so `DeclQuiet` names them):
+
+- **Comments above `:`, `:=` and the name are slice 1.** Neither `shaped1` nor `sound` rules them out, and the
+  printer keeps them: `def x\n  -- c\n  : T := a` prints `def x\n  -- c\n  : T :=\n  a`; `def x: T\n  -- c\n  := a`
+  prints as it stands; `def\n  -- c\n  x: T := a` prints `def\n  -- c\n  x: T :=\n  a`. `DeclHangs`' bare-token
+  conjuncts fail for these. The fix is a noted form of `colonHangs`/`assignHangs` built from `leadingHangs`.
+- **A noted element's start** (comment above a sub-expression's first token): `ElHangs` fixes the start function
+  to `wordStart` (no start from a mid-line entry), but such a token starts its own line at `leadColumn` from any
+  entry, so the post-state differs and `ElHangs` is false for it (`def x:\n  -- c\n  T := a`;
+  `def x: T :=\n  -- c\n  a` likewise for the value). `notedLeafHangs` exists but nothing consumes it. The fix is a
+  per-element start function (`leadStart` for noted elements) through every consumer lemma.
+- **Items after a trailing comment** (`brokenItems` passes `before = False` to items after the first): a compound
+  item after one that trails a comment is entered at the comment's break, held, but not displaced in a `Lays`
+  layout, so `ItemsHang` likely fails for it; SW-4030 suggested passing the previous item's trails as `before`.
+
+Owed: the three findings above, each of which widens `DeclQuiet` towards the four tree facts alone.
