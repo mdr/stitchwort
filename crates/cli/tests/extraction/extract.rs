@@ -174,6 +174,34 @@ fn a_precondition_behind_an_opaque_nickname_is_checked() {
     assert_eq!(positions, [2], "{name}: one check, of `ok`");
 }
 
+/// A map's key type written through a nickname is the type it names: an
+/// argument of a type read glued is a call until forced (SW-3947).
+#[test]
+fn a_map_key_through_a_nickname_crosses() {
+    let source = "\
+import Std (Map, Text)
+
+def Name: Type := Text
+
+export def count (m: Map Name Nat): Nat := m.size
+";
+    let mut session = new_session();
+    session
+        .load("map-key.sw", source)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let g = &session.elab.backend();
+    let id = (0..g.env.defs().len())
+        .map(DefId)
+        .find(|id| &**g.def(*id).name() == "count")
+        .expect("`count` is declared");
+    let sig = exportable(g, id).unwrap_or_else(|e| panic!("{}", e.message));
+    assert!(
+        matches!(&sig.params[..], [(_, Boundary::Map(_, key, _))] if **key == Boundary::Text),
+        "{:?}",
+        sig.params
+    );
+}
+
 /// A session whose library files replay from the test std cache outside the
 /// all tier (docs/testing.md, "The test std cache"): these tests are of the
 /// extracted code, and the all tier still checks the library from source in
