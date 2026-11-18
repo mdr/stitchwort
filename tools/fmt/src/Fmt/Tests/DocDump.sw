@@ -23,8 +23,12 @@ test "text is escaped in the dump: backslash and line break" :=
 test "a breaking group prints broken in the width" :=
   answer (decl "1" "a\\nb" "Group\nConcat 3\nText a\nHardLine\nText b\n") == Ok "decl 1 matched\n"
 
-test "nodes Doc lacks are unsupported, by kind, and not compared" :=
-  answer (decl "2" "whatever" "Concat 3\nMark 4\nText x\nCloserLine 4\n") == Ok "decl 2 unsupported CloserLine,Mark\n"
+test "only TextBlock is unsupported; Mark and CloserLine are read and compared" :=
+  answer
+    (decl "2" "f\\n  (\\ny\\n  )"
+        "Concat 6\nText f\nNest 2\nConcat 3\nHardLine\nMark 0\nText (\nHardLine\nText y\nNest 4\nCloserLine 0\nText )\n")
+    == Ok "decl 2 matched\n"
+    && answer (decl "3" "whatever" "TextBlock\n") == Ok "decl 3 unsupported TextBlock\n"
 
 test "an align and a narrow group are read" :=
   answer (decl "1" "(let a\\n     b" "Concat 2\nText (let \nAlign\nConcat 3\nText a\nHardLine\nText b\n")
