@@ -24817,12 +24817,12 @@
     {
       "id": 4045,
       "title": "[Opus] fmt S1 line-break 18h: derive DeclHangs from the tree facts, so printedHangs needs only within1/shaped1/sound/lexical1: each slice 1 expression's ElHangs from within1 by induction (assembling ItemsHang, ArgsHang, LinkFacts, PairFacts, HeldLowers, Coded, the bare arrow token, huggedBracket's opened form); TrailsComment from sound (commentText to IsComment); no comments above : and := (from shaped1/sound or a leaf lemma); the name's Plain/WordToken from nameWithin1 (SW-4034's Owed list in tools/fmt/NOTES.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Started 18:56 on Opus (est. 60 min). Lane notes, 19:28 (32 min):\n\n- Done: `printedHangs1Quiet` (Fmt.DeclFactsProofs): `hangs lexed.leaves = True` from within1, shaped1, sound, lexical1 and `DeclQuiet` (no own-line comments: name, `:`, `:=` bare; type and value `Expr.quiet1`). `printedHangs1` takes `DeclElements` in place of `DeclQuiet`; `printedHangs` unchanged.\n- Induction invariant `ExprFacts` (Fmt.ExprHangProofs.exprFacts), keys by `Fmt.QuietKeyProofs.quietKeys`, call hugs by `quietHug`.\n- Step 3 of the brief is false: comments above `:`, `:=` and the name are slice 1 and kept by the printer (counterexamples in NOTES, SW-4045). Two more statement gaps (noted elements' start under `wordStart`; items after a trailing comment in `brokenItems`) limit the induction to quiet expressions.\n- Checks: Fmt, Fmt.DeclHangProofs, DeclFactsProofs, ExprHangProofs, QuietKeyProofs clean; audits 0 failed (ExprHangProofs 4 sampling warnings, witnessed by `operatorWitnesses`); test Fmt.Tests 95/95.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
