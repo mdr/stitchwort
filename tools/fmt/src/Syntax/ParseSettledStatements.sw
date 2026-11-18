@@ -178,13 +178,14 @@ theorem holdsOnLineComma: holdsOn "def d: A := f (a -- item\n  , b) -- close\n" 
 --| which rule N keeps the tokens.
 theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
+    (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
     (plain: plain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
       ∧ file.end = lexed.settledOnce.end.comments :=
-  parseCarries1 frame lexed.settledOnce file (settledGood source lexed lexes spelled plain) parses within
+  parseCarries1 frame lexed.settledOnce file (settledGood source lexed lexes alphabet spelled plain) parses within
 
 --| `parseSettled1` from the source: the tree the formatter parses from a source of slice 1's alphabet, plain and
 --| spelled plainly, is settled. Its leaves are settled by `onceWordsSettled1`, with `lexLaid1`.
@@ -197,7 +198,7 @@ theorem parseSettledSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     (within: file.within1 = True):
     file.settled1 = True :=
   parseSettled1 frame lexed.settledOnce file
-    (settledGood source lexed lexes spelled plain)
+    (settledGood source lexed lexes alphabet spelled plain)
     parses
     within
     (onceWordsSettled1 lexed alphabet plain (lexLaid1 source lexed lexes alphabet))

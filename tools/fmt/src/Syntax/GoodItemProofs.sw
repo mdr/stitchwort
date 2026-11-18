@@ -4,7 +4,8 @@
 --| Two halves, as D-A chose (`within1` checks a name's or numeral's text, `textSpells1`):
 --|
 --| - A token of fixed spelling (`def`, a bracket, `:`, an operator) has its kind's text: the lexer's soundness
---|   (`lexFixed`), what a successful `lex` of any source gave.
+--|   (`lexFixed`), what a successful `lex` of a source in slice 1's alphabet gave: each round of `item` is spelled from
+--|   where it read (`itemFixed`), joined as in `Syntax.LexReadsProofs`'s `lexemesRounds` (`lexemesFixed`).
 --| - A name or numeral is spelled plainly (no `.`, no exponent) only if the source says so: `List.map` lexes as one
 --|   `Lower` token and `1e3` as a `Float`, both in slice 1's alphabet, and `GoodItem` is false of them. So that half is a
 --|   test on the lexed leaves (`spelledPlain1`), the same `textSpells1` that `within1` makes of the tree's words, which
@@ -177,18 +178,6 @@ def lexemeFixed (source: Text) (lexeme: Parse.Located Lexeme): Bool := match lex
   | TokenLexeme kind => fixedSpells1 kind (source.slice lexeme.offset (lexeme.offset + lexeme.length))
   | _ => True
 
---| The lexemes of any source that lexes are spelled as their kinds are.
---|
---| Not yet proved: the walk of `lexemesIn`, below this file's reading lemmas. Done: reading in step with the source
---| (`Lexes`, with bind, mark, many and `recursiveWith`), `tokenOfText` (a token's text is what it read), and the kinds
---| of fixed spelling (`symbolFixed`, `unicodeFixed`, `wordFine`, `givesNumber`). Left: `itemOn`'s arms, with `dots`,
---| `charLiteral` and `textLiteral` (`pieces`, `segment`, `closeBlock`) as `Goes`-style lemmas whose tokens are of no
---| fixed spelling, and the run of `lexemes` from the start mark.
-theorem lexemesFixed ∀ (source: Text) (found: List (Parse.Located Lexeme))
-    (lexes: lexemes source = Ok found):
-    found.all (lexemeFixed source) = True :=
-  ?
-
 def Assembly.fixed1 (assembly: Assembly): Bool := (tokens assembly.leaves).all Token.fixed1
 
 --| A trailing comment keeps the leaves' tokens.
@@ -227,14 +216,16 @@ theorem foldFixed ∀ (source: Text) (lexemes: List (Parse.Located Lexeme)) (ass
 
 --| `lexFixed`: every token of fixed spelling that `lex` gives has its kind's text.
 theorem lexFixed ∀ (source: Text) (lexed: Lexed)
-    (lexes: lex source = Ok lexed):
+    (lexes: lex source = Ok lexed)
+    (alphabet: alphabet1 lexed.leaves = True):
     (tokens lexed.leaves).all Token.fixed1 = True :=
   match found: lexemes source, lexes with
     | Ok lexemesFound, lexes =>
+      let same: assemble source lexemesFound = lexed := Result.okInjective lexes
+      let within := assembleWithin source lexemesFound (rewrite same then alphabet)
       let done := lexemesFound.foldLeft Assembly.start (assembly lexeme => assembly.add source lexeme)
       let doneFixed: done.fixed1 = True :=
-        foldFixed source lexemesFound Assembly.start byComputing (lexemesFixed source lexemesFound found)
-      let same: assemble source lexemesFound = lexed := Result.okInjective lexes
+        foldFixed source lexemesFound Assembly.start byComputing (lexemesFixed source lexemesFound found within)
       rewrite <- same then reversedFixed done.leaves doneFixed
     | Err _, lexes => (Result.errNotOk lexes).impossible
 
@@ -251,9 +242,10 @@ theorem reversedFixed ∀ (leaves: List Leaf)
 --| plainly: the `good` of `parseCarries1` and `parseSettled1` on the leaves `lex` gave.
 theorem lexGood ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
+    (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True):
     List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves) :=
-  goodOfTokens lexed.leaves spelled (lexFixed source lexed lexes)
+  goodOfTokens lexed.leaves spelled (lexFixed source lexed lexes alphabet)
 
 --| Rule N, with the last commas made bare first, keeps every token's kind and text, for `plain` leaves.
 theorem settledOnceTokens ∀ (lexed: Lexed)
@@ -267,11 +259,14 @@ theorem settledOnceTokens ∀ (lexed: Lexed)
 --| `GoodItem` for the leaves the formatter parses, `settledOnce` of the lexed source.
 theorem settledGood ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
+    (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
     (plain: plain1 (tokens lexed.leaves) = True):
     List.All (group => List.All GoodItem (items group)) (groupsOf lexed.settledOnce.leaves) :=
   let same := settledOnceTokens lexed plain
-  goodOfTokens lexed.settledOnce.leaves (rewrite same then spelled) (rewrite same then lexFixed source lexed lexes)
+  goodOfTokens lexed.settledOnce.leaves
+    (rewrite same then spelled)
+    (rewrite same then lexFixed source lexed lexes alphabet)
 
 -- Where the source's test is needed, and where it passes.
 
@@ -311,199 +306,9 @@ theorem unicodeFixed ∀ (char: Char) (kind: Tok)
 
 theorem unicodeFixedExample: fixedSpells1 Arrow (Text.fromList ['→']) = True := unicodeFixed '→' Arrow byComputing
 
--- Reading in step with the source: what a parser gives from any mark whose input left is the source from its offset.
--- `Parse.ReadsIn` can't say this (its invariant is of the input left alone), so a lexeme's offset couldn't be tied to
--- the source with it.
-
---| A mark in step with the source: what is left is the source from the mark's offset.
+--| A mark in step with the source: what is left is the source from the mark's offset. `Parse.ReadsIn` can't say this
+--| (its invariant is of the input left alone), so a lexeme's offset couldn't be tied to the source with it.
 def InStep (chars: List Char) (at: Parse.Mark Char): Prop := at.rest = chars.drop at.offset
-
---| What `parser` gives, run from any mark in step with `chars`: `holds` of its value.
-def Lexes (chars: List Char) (parser: () → {Parse Char} a) (holds: a → Prop): Prop :=
-  ∀ (start: Parse.Mark Char) => InStep chars start → Parse.ReadsAt start parser (read value => holds value)
-
---| Reading keeps a mark in step.
-theorem inStepAfter ∀ [chars: List Char] [total: Nat] [start after: Parse.Mark Char] [read: List Char]
-    (step: InStep chars start)
-    (before: Parse.Honest total start)
-    (now: Parse.Honest total after)
-    (starts: start.rest = read ++ after.rest):
-    InStep chars after :=
-  let moved: after.offset = start.offset + read.length := Parse.honestMoved before now starts
-  let wanted: after.rest = chars.drop after.offset := calc after.rest
-    _ = (read ++ after.rest).drop read.length := (List.dropAppend read after.rest).flipped
-    _ = start.rest.drop read.length := rewrite starts
-    _ = (chars.drop start.offset).drop read.length := rewrite step
-    _ = chars.drop (start.offset + read.length) := (List.dropAdd start.offset read.length chars).flipped
-    _ = chars.drop after.offset := rewrite moved
-  wanted
-
---| A parser read from every mark gives what it gives from marks in step.
-theorem lexesOfReads ∀ [chars: List Char] [parser: () → {Parse Char} a] [holds: a → Prop]
-    (reads: Parse.Reads parser (read value => holds value)):
-    Lexes chars parser holds :=
-  start step => reads start { holds = Trivial }
-
-theorem lexesWeaken ∀ [chars: List Char] [parser: () → {Parse Char} a] [holds weaker: a → Prop]
-    (lexes: Lexes chars parser holds) (implies: ∀ (value: a) => holds value → weaker value):
-    Lexes chars parser weaker :=
-  start step => Parse.readsAtWeaken (lexes start step) (read value => implies value)
-
---| `p`, then `j` of its value.
-theorem lexesBind ∀ [chars: List Char] (p: () → {Parse Char} a) (j: a → {Parse Char} b)
-    [first: a → Prop] [next: b → Prop]
-    (lexesFirst: Lexes chars p first)
-    (lexesNext: ∀ (v: a) => first v → Lexes chars (() => j v) next):
-    Lexes chars (() => j (p())) next :=
-  start step total state value after here honest h =>
-    match Parse.runFromThenOk2 p state j _ _ h with
-      | Witness v (Witness middle (Both ran restRun)) =>
-        match lexesFirst start step total state v middle.at here honest ran with
-          | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
-            match lexesNext v holds1 middle.at
-              (inStepAfter step honest honest1 starts1)
-              total
-              middle
-              value
-              after
-              byComputing
-              honest1
-              restRun with
-              | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
-                Witness
-                  (firstRead ++ nextRead)
-                  (Both
-                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
-                    (Both honest2 holds2))
-
---| A parser that looks at where it is, `k (Parse.mark())`.
-theorem lexesMark ∀ [chars: List Char] (k: Parse.Mark Char → {Parse Char} a) [holds: a → Prop]
-    (each: ∀ (start: Parse.Mark Char) => InStep chars start
-      → Parse.ReadsAt start (() => k start) (read value => holds value)):
-    Lexes chars (() => k (Parse.mark())) holds :=
-  start step total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each start step total state value after here honest (rewrite <- here then ran)
-
---| `manyFrom` from a mark in step, after values found that hold: every value holds.
---|
---| Proof idea: `Parse.readsManyFrom`'s induction on the fuel, the mark kept in step by `inStepAfter` where that keeps
---| the invariant.
-theorem lexesManyFrom ∀ [chars: List Char] (p: () → {Parse Char} a) (holds: a → Prop)
-    (lexes: Lexes chars p holds)
-    (fuel: Nat) (found: List a)
-    (foundHolds: List.All holds found)
-    (total: Nat) (state: Parse.State Char) (value: List a) (after: Parse.Mark Char)
-    (step: InStep chars state.at)
-    (honest: Parse.Honest total state.at)
-    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
-    ∃ (read: List Char) => state.at.rest = read ++ after.rest ∧ Parse.Honest total after ∧ List.All holds value :=
-  match fuel with
-    | Zero =>
-      match Parse.readsPure
-        [inv := Parse.Invariant.any]
-        (List.reverse found)
-        state.at
-        { holds = Trivial }
-        total
-        state
-        value
-        after
-        byComputing
-        honest
-        h with
-        | Witness read (Both starts (Both honestAfter (Both none same))) =>
-          Witness read (Both starts (Both honestAfter (rewrite same then List.allReverse holds found foundHolds)))
-    | Succ more =>
-      match Parse.runFromOptionalFromOk2 p state.at state
-        (found2 => Parse.manyRound more p found state.at found2)
-        (x => (x, Parse.mark()))
-        (value, after)
-        h with
-        | Inl (Witness v (Witness middle (Both ran rest))) =>
-          match lexes state.at step total state v middle.at byComputing honest ran with
-            | Witness read1 (Both starts1 (Both honest1 holds1)) =>
-              match Parse.runFromIfOk
-                (middle.at.offset > state.at.offset)
-                (() => Parse.manyFrom more p [v, ..found] middle.at)
-                (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
-                middle
-                value
-                after
-                rest with
-                | Inl (Both isTrue yesRun) =>
-                  match lexesManyFrom p holds lexes more
-                    [v, ..found]
-                    (holds1, foundHolds)
-                    total
-                    middle
-                    value
-                    after
-                    (inStepAfter step honest honest1 starts1)
-                    honest1
-                    yesRun with
-                    | Witness read2 (Both starts2 (Both honest2 all2)) =>
-                      Witness
-                        (read1 ++ read2)
-                        (Both (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest) (Both honest2 all2))
-                | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
-        | Inr (Witness middle (Both back rest)) =>
-          match Parse.readsPure
-            [inv := Parse.Invariant.any]
-            (List.reverse found)
-            middle.at
-            { holds = Trivial }
-            total
-            middle
-            value
-            after
-            byComputing
-            (rewrite back then honest)
-            rest with
-            | Witness read (Both starts (Both honestAfter (Both none same))) =>
-              Witness []
-                (Both
-                  (rewrite <- back then (rewrite none at starts then starts))
-                  (Both honestAfter (rewrite same then List.allReverse holds found foundHolds)))
-
---| `many p` gives values that all hold, when `p` gives one that does.
-theorem lexesMany ∀ [chars: List Char] (p: () → {Parse Char} a) (holds: a → Prop)
-    (lexes: Lexes chars p holds):
-    Lexes chars (() => Parse.many p) (values => List.All holds values) :=
-  start step total state value after here honest h =>
-    rewrite <- here then
-      lexesManyFrom p holds lexes
-        (state.at.left + 1)
-        []
-        Trivial
-        total
-        state
-        value
-        after
-        (rewrite here then step)
-        (rewrite here then honest)
-        h
-
-theorem lexesRecursiveWithFuel ∀ [chars: List Char] (body: (b → {Parse Char} a) → b → {Parse Char} a) (holds: a → Prop)
-    (lexesBody: ∀ (self: b → {Parse Char} a) => (∀ (inner: b) => Lexes chars (() => self inner) holds)
-      → ∀ (argument: b) => Lexes chars (() => body self argument) holds)
-    (fuel: Nat) (argument: b):
-    Lexes chars (() => Parse.recursiveWithFuel fuel body argument) holds :=
-  match fuel with
-    | Zero => lexesOfReads (Parse.readsFatal _ _)
-    | Succ more =>
-      lexesBody
-        (inner => Parse.recursiveWithFuel more body inner)
-        (inner => lexesRecursiveWithFuel body holds lexesBody more inner)
-        argument
-
---| `recursiveWith body argument` gives what holds, when `body` does given a nested parser that does.
-theorem lexesRecursiveWith ∀ [chars: List Char] (body: (b → {Parse Char} a) → b → {Parse Char} a) (holds: a → Prop)
-    (lexesBody: ∀ (self: b → {Parse Char} a) => (∀ (inner: b) => Lexes chars (() => self inner) holds)
-      → ∀ (argument: b) => Lexes chars (() => body self argument) holds) (argument: b):
-    Lexes chars (() => Parse.recursiveWith body argument) holds :=
-  lexesMark (at => Parse.recursiveWithFuel (at.left + 1) body argument) (start step =>
-    lexesRecursiveWithFuel body holds lexesBody (start.left + 1) argument start step)
 
 -- Reading from one mark, where the offsets are needed.
 
@@ -725,10 +530,6 @@ theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
   Parse.readsWithMark (to => { value, offset = from.offset, length = to.offset - from.offset }) _ (to fine =>
     Parse.givesDone byComputing)
 
-theorem goesReadEscape ∀ (rest: List Char): Goes (() => readEscape rest) := match escapeLength rest with
-  | Ok count => Parse.givesThen (goesSkip count) (u done => Parse.givesDone Trivial)
-  | Err message => Parse.readsFatal message _
-
 theorem goesFraction: Goes (() => fractionPart()) := Parse.readsWithMark fractionFrom _ (at fine =>
   match fractionAhead at.rest with
     | True => Parse.givesThen (goesSkip 1) (u skipped =>
@@ -915,6 +716,10 @@ theorem symbolSpelled ∀ (start: Parse.Mark Char) (input: List Char) (kind: Tok
   let fixed: symbolFixed1 input = True := symbolFixed input
   rewrite here then (rewrite e at fixed then fixed)
 
+theorem symbolSpelledExample: fixedSpells1 Arrow (Text.fromList ((Parse.State.start ['-', '>', 'x']).at.rest.take 2))
+      = True :=
+  symbolSpelled (Parse.State.start ['-', '>', 'x']).at ['-', '>', 'x'] Arrow 2 byComputing byComputing
+
 --| One round of `item` at the top level, from a mark in step with the source: unless it gave a token outside the
 --| alphabet, every lexeme it gave is spelled as its kind is. By the same match as `itemOn`'s, so each arm computes.
 theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
@@ -1038,3 +843,61 @@ theorem concatFine ∀ (source: Text) (rounds: List (List (Parse.Located Lexeme)
   match rounds with
     | [] => byComputing
     | [round, ..more] => rewrite allAppendB round more.concat (lexemeFixed source), concatFine source more
+
+--| The lexemes of any source that lexes, all of slice 1's alphabet, are spelled as their kinds are, where they stand
+--| in the source.
+--|
+--| Proof idea: as `lexemesRounds`, the lexemes are rounds of `item` joined, read in turn from the start of the source
+--| (`atManyFromOr`); each round of the alphabet is spelled (`itemFixedAt`), since each begins where the source is
+--| (`eachFixed`).
+theorem lexemesFixed ∀ (source: Text) (found: List (Parse.Located Lexeme))
+    (lexes: lexemes source = Ok found)
+    (within: found.all (lexeme => lexeme.value.within) = True):
+    found.all (lexemeFixed source) = True :=
+  let body := (self: Place → {Parse Char} List (Parse.Located Lexeme)) (inner: Place) =>
+    Parse.many (() => item self source inner) |> List.concat
+  let self0 := (inner: Place) => Parse.recursiveWithFuel source.toList.length body inner
+  let first := Parse.State.start source.toList
+  match r: Parse.run source.toList (() => lexemesIn source TopLevel) with
+    | Ok got =>
+      let gotFound: got = found := Result.okInjective lexes
+      let r1 := Eq.trans (Parse.runFromMark first (at => Parse.recursiveWithFuel (at.left + 1) body TopLevel)).flipped r
+      let r2: Parse.runFrom first (() => List.concat (Parse.many (() => item self0 source TopLevel))) = Ok got := r1
+      match Parse.runFromThenOk
+        (() => Parse.many (() => item self0 source TopLevel))
+        first
+        (rounds => List.concat rounds)
+        got
+        r2 with
+        | Witness rounds (Witness after (Both ranMany restRun)) =>
+          let joined: Ok rounds.concat = Ok got := Eq.trans (Parse.runFromPure after rounds.concat).flipped restRun
+          let foundIs: found = rounds.concat := rewrite <- gotFound then (Result.okInjective joined).flipped
+          let ranMany2 :=
+            Eq.trans
+              (Parse.runFromMark first (m =>
+                (Parse.manyFrom (m.left + 1) (() => item self0 source TopLevel) [] m, Parse.mark()))).flipped
+              ranMany
+          let honest: Parse.Honest source.toList.length first.at := Both byComputing (arithmetic [])
+          let all: rounds.concat.all (lexeme => lexeme.value.within) = True := rewrite <- foundIs then within
+          let roundsWithin: rounds.all (round => round.all (lexeme => lexeme.value.within)) = True :=
+            rewrite concatWithin rounds at all then all
+          match atManyFromOr
+            (() => item self0 source TopLevel)
+            (FixedAt source)
+            (start => itemFixedAt self0 source start)
+            (first.at.left + 1)
+            []
+            source.toList.length
+            first
+            rounds
+            after.at
+            honest
+            ranMany2 with
+            | Inl outside => (Bool.trueNotFalse (Eq.trans roundsWithin.flipped outside)).impossible
+            | Inr (Witness read (Both starts (Both honest2 (Witness more (Both same each))))) =>
+              let roundsAre: rounds = more := same
+              let fine: rounds.all (lexemesFine source) = True :=
+                rewrite roundsAre at roundsWithin then
+                  rewrite roundsAre then eachFixed source more 0 source.toList read each byComputing roundsWithin
+              let joinedFine: lexemesFine source rounds.concat = True := rewrite concatFine source rounds then fine
+              rewrite foundIs then joinedFine
