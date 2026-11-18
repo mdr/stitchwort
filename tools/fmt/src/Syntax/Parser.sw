@@ -339,11 +339,17 @@ def bump(): {Parse Item} Word := match Parse.next (item => True) with
 
 def Modes.eat (modes: Modes) (wanted: Tok): {Parse Item} Option Word := if modes.at wanted then Some bump() else None
 
-def Modes.expect (modes: Modes) (wanted: Tok) (what: Text): {Parse Item} Word :=
-  if modes.at wanted then bump() else modes.fail what
+def Modes.expect (modes: Modes) (wanted: Tok) (what: Text): {Parse Item} Word := modes.expectOn wanted what modes.peek
+
+--| `expect`, given what `modes.peek` saw.
+def Modes.expectOn (modes: Modes) (wanted: Tok) (what: Text) (seen: Option Tok): {Parse Item} Word :=
+  if isSome wanted seen then bump() else modes.fail what
 
 --| "expected `what`, but …": the Rust parser's `unexpected`.
-def Modes.unexpected (modes: Modes) (what: Text): {Parse Item} Text := match left() with
+def Modes.unexpected (modes: Modes) (what: Text): {Parse Item} Text := modes.unexpectedAt what left()
+
+--| The message, given the items left.
+def Modes.unexpectedAt (modes: Modes) (what: Text) (items: List Item): Text := match items with
   | [] => "expected ${what}, but reached the end of the declaration"
   | [item, .._] =>
     if item.kind == At && !modes.stops item then "attributes can't be written here"
@@ -1132,15 +1138,27 @@ def bareCases (modes: Modes): {Parse Item} Bool := match modes.peekAt 1 with
 --| An atom, then `()` calls and field accesses.
 def atom (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool): {Parse Item} Expr :=
   let first := modes.peek
+  let base := atomBase self modes
+  atomAfter self modes head first base
+
+--| `base`, which started with a token of kind `first`, and what follows it: a record's fields, calls and field
+--| accesses.
+def atomAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr):
+    {Parse Item} Expr :=
   let section := isSome Dot first
   let upper := isSome Upper first
   let paren := isSome LParen first
   let callable := isSome Lower first || upper || section
-  let base := atomBase self modes
-  let (based, callable) :=
-    if upper && head && modes.at LBrace then (CtorFields base (recordExpr self modes), False) else (base, callable)
+  let (based, callable) := atomRecord self modes head upper base callable
   let result := suffixes (Parse.mark().left + 1) modes based callable paren
   if section && !head then Section result else result
+
+def atomRecord (self: Goal → {Parse Item} Expr) (modes: Modes) (head upper: Bool) (base: Expr) (callable: Bool):
+    {Parse Item} (Expr, Bool) :=
+  if upper && head && modes.at LBrace then
+    let fields := recordExpr self modes
+    (CtorFields base fields, False)
+  else (base, callable)
 
 def suffixes (fuel: Nat) (modes: Modes) (target: Expr) (callable paren: Bool): {Parse Item} Expr := match fuel with
   | Zero => target

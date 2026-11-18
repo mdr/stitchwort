@@ -3,7 +3,7 @@
 --| function at a time with std's `Parse.Gives` lemmas.
 
 namespace Syntax.ParseProofs
-import Std (Bool, Eq, List, Nat, Option, Parse, Text)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (..)
@@ -480,3 +480,130 @@ theorem givesSuffixes ∀ (floor fuel: Nat) (modes: Modes) (target: Expr) (calla
       Parse.givesThen givesLeft (seen _ =>
         givesSuffixesOn floor more modes called paren seen calledParsed (later again againParsed =>
           givesSuffixes floor more modes later again paren againParsed)))
+
+theorem givesAt ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => modes.at wanted) (found => True) :=
+  Parse.readsInMark (here => isSome wanted (peekIn modes 0 here.rest)) _ (start fine =>
+    Parse.readsAtDone _ _ _ byComputing)
+
+theorem givesPeek ∀ (modes: Modes): Parse.Gives GoodItems (() => modes.peek) (found => True) :=
+  Parse.readsInMark (here => peekIn modes 0 here.rest) _ (start fine => Parse.readsAtDone _ _ _ byComputing)
+
+theorem givesAtomRecord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head upper: Bool)
+    (base: Expr) (callable: Bool)
+    (parsed: Parsed1 18 base)
+    (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
+    Parse.Gives GoodItems (() => atomRecord self modes head upper base callable) (pair => Parsed1 18 pair.fst) :=
+  match upper with
+    | False => Parse.givesDone parsed
+    | True =>
+      match head with
+        | False => Parse.givesDone parsed
+        | True => Parse.givesThen (givesAt modes LBrace) (found _ =>
+          match found with
+            | True =>
+              Parse.givesThen
+                [p := () => recordExpr self modes]
+                [j := fields => (CtorFields base fields, False)]
+                recordGives
+                (fields _ =>
+                  Parse.givesDone
+                    [x := (CtorFields base fields, False)]
+                    [holds := pair => Parsed1 18 pair.fst]
+                    (parsedOutside 18 (CtorFields base fields) byComputing))
+            | False => Parse.givesDone parsed)
+
+theorem givesAtomAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr)
+    (parsed: Parsed1 18 base)
+    (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
+    Parse.Gives GoodItems (() => atomAfter self modes head first base) (Parsed1 18) :=
+  Parse.givesThen
+    (givesAtomRecord self modes head
+      (isSome Upper first)
+      base
+      (isSome Lower first || isSome Upper first || isSome Dot first)
+      parsed
+      recordGives)
+    (pair pairParsed =>
+      match pair with
+        | (based, callable) => Parse.givesThen Parse.givesMark (here _ =>
+          Parse.givesThen
+            (givesSuffixes 18 (here.left + 1) modes based callable (isSome LParen first) pairParsed)
+            (result resultParsed =>
+              match isSome Dot first && !head with
+                | True => Parse.givesDone (parsedOutside 18 (Section result) byComputing)
+                | False => Parse.givesDone resultParsed)))
+
+--| `atom`, from what `atom_base` and a record's fields give.
+theorem givesAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool)
+    (baseGives: Parse.Gives GoodItems (() => atomBase self modes) (Parsed1 18))
+    (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
+    Parse.Gives GoodItems (() => atom self modes head) (Parsed1 18) :=
+  Parse.givesThen (givesPeek modes) (first _ =>
+    Parse.givesThen baseGives (base baseParsed => givesAtomAfter self modes head first base baseParsed recordGives))
+
+-- Reading a token that must be there.
+
+theorem givesUnexpected ∀ (modes: Modes) (what: Text):
+    Parse.Gives GoodItems (() => modes.unexpected what) (message => True) :=
+  Parse.givesThen givesLeft (seen _ => Parse.givesDone byComputing)
+
+--| A parse that fails gives anything.
+theorem givesFail ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
+    Parse.Gives GoodItems (() => modes.fail what) holds :=
+  Parse.givesThen (givesUnexpected modes what) (message _ => Parse.readsFatal _ _)
+
+--| `expect` gives the word of a token of the kind it was asked for.
+theorem givesExpect ∀ (modes: Modes) (wanted: Tok) (what: Text)
+    (within: wanted.within1 = True):
+    Parse.Gives GoodItems (() => modes.expect wanted what) (word => Spells wanted word.text) :=
+  readsInPeeked modes
+    (seen => modes.expectOn wanted what seen) _
+    (start fine stops => givesFail modes what start fine)
+    (start item later shape fine stopped =>
+      match took: isSome wanted (Some item.kind) with
+        | False => givesFail modes what start fine
+        | True => Parse.readsAtWeaken (readsAtBump shape) (read word (single, same) =>
+          rewrite same then
+            (rewrite <- DecEq.sound took then
+              goodFirst [item := item] (rewrite shape at fine) (rewrite DecEq.sound took then within))))
+
+-- Facts the pure look-aheads give.
+
+--| A negative numeral is a `-` and a number or float.
+theorem negativeNumeralKinds ∀ (items: List Item)
+    (found: negativeNumeral items = True):
+    ∃ (minus number: Item) (later: List Item) => items = [minus, number, ..later]
+      ∧ minus.kind = Minus
+      ∧ (number.kind = Num ∨ number.kind = Float) :=
+  match items, found with
+    | [minus, number, ..later], found =>
+      match isMinus: minus.kind, found with
+        | Minus, found =>
+          match isNumber: number.kind, found with
+            | Num, found =>
+              Witness minus (Witness number (Witness later (Both byComputing (Both isMinus (Inl isNumber)))))
+            | Float, found =>
+              Witness minus (Witness number (Witness later (Both byComputing (Both isMinus (Inr isNumber)))))
+            | other, found => (Bool.falseNotTrue found).impossible
+        | other, found => (Bool.falseNotTrue found).impossible
+    | [], found => (Bool.falseNotTrue found).impossible
+    | [only], found => (Bool.falseNotTrue found).impossible
+
+--| A `-` or `!` that negates an argument is followed by an item that opens an atom.
+theorem argumentPrefixOpens ∀ (items: List Item)
+    (found: argumentPrefix items = True):
+    ∃ (sign next: Item) (later: List Item) => items = [sign, next, ..later]
+      ∧ (sign.kind = Minus ∨ sign.kind = Bang)
+      ∧ next.kind.opensAtom = True :=
+  match items, found with
+    | [sign, next, ..later], found =>
+      match isMinus: sign.kind, found with
+        | Minus, found =>
+          let (signs, operand, spaced, glued, opens) := found
+          Witness sign (Witness next (Witness later (Both byComputing (Both (Inl isMinus) opens))))
+        | Bang, found =>
+          let (signs, operand, spaced, glued, opens) := found
+          Witness sign (Witness next (Witness later (Both byComputing (Both (Inr isMinus) opens))))
+        | other, found => (Bool.falseNotTrue found).impossible
+    | [], found => (Bool.falseNotTrue found).impossible
+    | [only], found => (Bool.falseNotTrue found).impossible
