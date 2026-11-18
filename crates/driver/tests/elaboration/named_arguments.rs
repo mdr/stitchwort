@@ -28,7 +28,9 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId, Icit, Term};
-use stitchwort_driver::driver::{Session, par_map_with, tier_sample, with_session, with_stack};
+use stitchwort_driver::driver::{
+    Session, Tier, par_map_with_at_most, tier, tier_sample, with_session, with_stack,
+};
 use stitchwort_driver::rewind::Mark;
 use stitchwort_syntax::ast::{Clause, Decl, Expr, Pattern};
 use stitchwort_syntax::{SourceMap, Span, parse_module};
@@ -456,6 +458,18 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
     (out, count)
 }
 
+/// How many workers the sweep uses. Each holds a whole eager session (about
+/// 0.3 GB), so eight on the quick tier's pool peaked at 2.6 GB and, with the
+/// tier's other tests, passed its 4 GB cap (SW-3979); the quick sample is a
+/// quarter of the files, so two workers repeat the library load least. The
+/// broad and all tiers check more files and use every thread.
+fn workers() -> usize {
+    match tier() {
+        Tier::Quick | Tier::Lane => 2,
+        _ => usize::MAX,
+    }
+}
+
 #[test]
 fn named_calls_keep_every_hash() {
     let filter = std::env::var("NAMED_ARGUMENTS").unwrap_or_default();
@@ -468,27 +482,32 @@ fn named_calls_keep_every_hash() {
         .collect();
     files.sort();
     let files = tier_sample(files, 1);
-    let results = par_map_with(STACK, &files, eager_worker, |(session, mark), path| {
-        let name = path.display().to_string();
-        let text = std::fs::read_to_string(path).unwrap();
-        session.rewind(mark);
-        let Ok(before) = load_in(session, &name, &text) else {
-            return (0, 0, Vec::new());
-        };
-        let mut sources = SourceMap::new();
-        let file = sources.add(name.clone(), text.clone());
-        let Ok(module) = parse_module(file, &text) else {
-            return (0, 0, Vec::new());
-        };
-        let mut walk = Walk::default();
-        module.decls.iter().for_each(|d| walk.decl(d));
-        let (rewritten, count) = named(session, &text, &walk);
-        if count == 0 {
-            return (1, 0, Vec::new());
-        }
-        let mut failures = Vec::new();
-        session.rewind(mark);
-        match load_in(session, &name, &rewritten) {
+    let results = par_map_with_at_most(
+        STACK,
+        workers(),
+        &files,
+        eager_worker,
+        |(session, mark), path| {
+            let name = path.display().to_string();
+            let text = std::fs::read_to_string(path).unwrap();
+            session.rewind(mark);
+            let Ok(before) = load_in(session, &name, &text) else {
+                return (0, 0, Vec::new());
+            };
+            let mut sources = SourceMap::new();
+            let file = sources.add(name.clone(), text.clone());
+            let Ok(module) = parse_module(file, &text) else {
+                return (0, 0, Vec::new());
+            };
+            let mut walk = Walk::default();
+            module.decls.iter().for_each(|d| walk.decl(d));
+            let (rewritten, count) = named(session, &text, &walk);
+            if count == 0 {
+                return (1, 0, Vec::new());
+            }
+            let mut failures = Vec::new();
+            session.rewind(mark);
+            match load_in(session, &name, &rewritten) {
             Err(errors) => failures.push(format!(
                 "{name}: doesn't load with named arguments:\n{errors}\n--- rewritten:\n{rewritten}"
             )),
@@ -504,8 +523,9 @@ fn named_calls_keep_every_hash() {
             }
             Ok(_) => {}
         }
-        (1, count, failures)
-    });
+            (1, count, failures)
+        },
+    );
     let files_checked: usize = results.iter().map(|r| r.0).sum();
     let named_args: usize = results.iter().map(|r| r.1).sum();
     let failures: Vec<&String> = results.iter().flat_map(|r| &r.2).collect();
