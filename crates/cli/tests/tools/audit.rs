@@ -168,6 +168,19 @@ fn a_witness_answers_the_vacuity_warning() {
     );
 }
 
+/// A nickname for a vacuous statement doesn't hide its binders: an alias
+/// that restates `w: Claim` without applying `w` to them isn't a witness.
+#[test]
+fn a_nickname_does_not_hide_the_warned_theorems_binders() {
+    let source = "def Claim: Prop := ∀ (n: Nat) (h: n + 1 = 0) => n = 42\n\n\
+                  theorem w: Claim := n => h => arithmetic\n\n\
+                  theorem alias: Claim := w\n";
+    let (code, out) = audit_file("nickname", source, &["--strict"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(out.starts_with("! w\n"), "{out}");
+    assert!(out.contains("! alias\n"), "{out}");
+}
+
 /// A theorem that only mentions the warned one, or applies it to too few
 /// arguments, isn't a witness.
 #[test]
