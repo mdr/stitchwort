@@ -93,7 +93,6 @@ when it's unclear.
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
 
-
 ## Pre-commit hook
 
 Unformatted `.sw` and `.rs` files that reach `main` turn Overmind's rolling
