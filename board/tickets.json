@@ -1,5 +1,5 @@
 {
-  "next": 4048,
+  "next": 4053,
   "tickets": [
     {
       "id": 47,
@@ -24778,12 +24778,12 @@
     {
       "id": 4042,
       "title": "[Fable paper] fmt S1 output E: state the printed trivia fact (where printed comments and blank lines stand, the third walk of the rules; note section 4) as a test and an open goal; split the proof (F) into lanes (after SW-4034; docs/reviews/SW-4025-output-statements.md ticket E)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane note (Fable, 18 Nov): statement written and committed on lane/SW-4042 (0e24095c9). `printedStands1` in tools/fmt/src/Fmt/TriviaStatements.sw: `stands None decl.stood decl.leaves1`, 1 open goal, 5 computed witnesses; probe 699 of 699 sources stand and give printedSettle1's conclusion. Note: docs/reviews/SW-4042-trivia-statement.md (F as four lanes: F1 Opus Doc.told + laysTold, F2 and F3 Sonnet walks, F4 Opus engine end; G one Opus lane from stood1 as a hypothesis). No D question.\n",
+      "body": "Lane note (Fable, 18 Nov): statement written and committed on lane/SW-4042 (0e24095c9). `printedStands1` in tools/fmt/src/Fmt/TriviaStatements.sw: `stands None decl.stood decl.leaves1`, 1 open goal, 5 computed witnesses; probe 699 of 699 sources stand and give printedSettle1's conclusion. Note: docs/reviews/SW-4042-trivia-statement.md (F as four lanes: F1 Opus Doc.told + laysTold, F2 and F3 Sonnet walks, F4 Opus engine end; G one Opus lane from stood1 as a hypothesis). No D question.\n\nMerged 18 Nov. 13 min (est. 35). Orchestrator's calls: printedStands1 takes DeclHangs until SW-4045 lands; F as four lanes (SW-4048-SW-4051).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24796,7 +24796,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-4042: G sketch in docs/reviews/SW-4042-trivia-statement.md (one Opus lane, 45 min, takes SourceFile.stood1 as a hypothesis, can run beside F): standsAppend, homeStands (the one induction; new lemma endsOn behind = trailsBack of the words done), rules 2-5 idle, groups via SettleSplitProofs. Can start now.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24850,6 +24850,71 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4048,
+      "title": "[Opus] fmt S1 trivia F1: Std.Doc.Proofs Doc.told (the document's reading with a line-begun bit) and laysTold (every trace a Uniform document Lays reads as doc.told); report before starting if Lays won't give it without exact places (docs/reviews/SW-4042-trivia-statement.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4049,
+      "title": "[Sonnet] fmt S1 trivia F2: words (Word.leading, Word.leaf, Word.opening, closerNotes), atoms, parens, prefix; flags as Comments.kept (after SW-4048's Doc.told definition; docs/reviews/SW-4042-trivia-statement.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4050,
+      "title": "[Sonnet] fmt S1 trivia F3: brackets, calls, chains, defDoc, doc1: doc.told is decl.stood with bare commas and trailing closers marked as starting a line (after SW-4049; docs/reviews/SW-4042-trivia-statement.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4051,
+      "title": "[Opus] fmt S1 trivia F4: the engine end: the tuck over Tucks stretches, Laid.lay against the printed events, assembly as printedHangs does it; printedStands1 takes DeclHangs until SW-4045 lands (after SW-4048; docs/reviews/SW-4042-trivia-statement.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4052,
+      "title": "[Sonnet] fmt S1 tidy after SW-4043: delete SettleProofs' unused K1 half (laidFrom, relaid, relayFrom, laidFromOnto, ~line 1880) once G lands (SW-4042)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
