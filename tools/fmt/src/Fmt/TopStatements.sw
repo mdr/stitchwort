@@ -30,6 +30,7 @@ import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
 import Fmt.UnreturnedProofs (commaUnreturned)
 import Fmt.DeclFactsProofs (DeclElements, declHangsOf, printedHangs1)
+import Fmt.OneLineStatements (edgeElements1, edgeQuietOneLine1)
 import Fmt.TreeJoinProofs (lexKind, printLexes1Tree)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.SpellProofs (declSoundOfSettled)
@@ -56,7 +57,7 @@ theorem declElementsOneLine1 ∀ (decl: Decl)
     (lexical: decl.lexical1 = True)
     (oneLine: decl.oneLine1 = True):
     DeclElements lexKind decl :=
-  ?
+  edgeElements1 decl within shaped settled lexical (edgeQuietOneLine1 decl within shaped settled lexical oneLine)
 
 --| P2 is the identity on an expression with no last comma.
 theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
