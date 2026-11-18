@@ -1,5 +1,5 @@
 {
-  "next": 3940,
+  "next": 3941,
   "tickets": [
     {
       "id": 47,
@@ -23402,6 +23402,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3940,
+      "title": "[Opus] Self-hosted fmt engine E4: ids and columns in Fmt.Doc proofs and program as engine.rs: IfBroken, NarrowGroup, Align, AlignInset, Mark/CloserLine through Readings, Words, Places; Mark+CloserLine's 6 unsupported goldens compared and matching (docs/proposals/self-hosted-fmt-engine-plan.md §3.3, E4 row; tools/fmt/NOTES.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
