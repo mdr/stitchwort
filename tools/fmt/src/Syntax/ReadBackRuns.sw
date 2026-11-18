@@ -2712,7 +2712,7 @@ theorem declarationRuns ∀ (seen: Seen) (keyword name colon colonEq: Item)
 
 --| What follows an operand, read at every level of the ladder, ends it: no call, field, argument, operator, range,
 --| pipe, comparison, `&&` or `||`, `<->`, `->` or `;`.
-type OperandEnds (modes: Modes) (rest: List Item) = {
+type OperandEnds (modes: Modes) (rest: List Item): Prop = {
   noCall: unitCall rest = False,
   noDot: dotAhead modes rest = False,
   noArgument: startsAtomOn modes rest = False,
@@ -2830,7 +2830,7 @@ theorem runsResultPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (r
       fullRuns)
 
 --| What `exprInline` looks for before an operator expression, none of it there.
-type InlinePlain (modes: Modes) (item: Item) (items: List Item) = {
+type InlinePlain (modes: Modes) (item: Item) (items: List Item): Prop = {
   notKeyword: startsKeywordExpr item.kind = False,
   noLambda: lambdaAhead modes (items.length + 1) items = False,
   noResult: lambdaResultType modes (items.length + 1) False items = False,
