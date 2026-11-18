@@ -24620,7 +24620,7 @@
     {
       "id": 4030,
       "title": "[Opus] fmt S1 line-break proofs 18f: give ElHangs an indentation separate from the seat column (orchestrator's call, SW-4016's recommended option) so an application's broken arguments (+4) and a chain's operators (+2) can be seated, and add the marks invariant (a lower bound on keys plus marks kept or lowered) in the same change; short design note in NOTES first; then the bracket, application, chain and declaration-level triples and printedHangs via hangsOfLays; after SW-4029 for the blank-before-closer case",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
