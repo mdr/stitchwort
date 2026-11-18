@@ -23475,7 +23475,7 @@
     {
       "id": 3945,
       "title": "[Sonnet] Std.Args: factor help's let-bound column and lines into Args.helpColumn/helpLines so helpListsOption stops restating them (SW-3939 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23488,7 +23488,7 @@
     {
       "id": 3946,
       "title": "[DeepSeek] Docs for lanes: a fresh worktree has no binary (cargo build --release -p stitchwort-cli, or task build for --native); how to accept one .snap.new without cargo insta; examples/README.md names the test binary per examples folder and the EXAMPLES filter, and how to write one extract example's snapshots (SW-3939, SW-3936, SW-3933 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
