@@ -1296,3 +1296,200 @@ theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
                       movedWithin
                       afterWithin
                       (trailingAtHomed behind (Succ more) comment leaf homed quietBehind landsHere)
+
+-- From rule 1's result to rule N's: rules 2 to 5 take comments off commas
+-- and `->`, and add own-line comments, so a closer rule 1 stops on still
+-- stops, given that no comma that starts its line and no `->` comes just
+-- before a comma or closer.
+
+--| A comma or closer, by kind.
+def passableKind (kind: Tok): Bool := kind == Comma || kind.isCloser
+
+--| What may not follow `->`: a comma, a closer, or another `->`.
+def arrowFollow (kind: Tok): Bool := passableKind kind || kind == Arrow
+
+--| `plain` (spike K1) for slice 1's alphabet, from the second token on:
+--| no `->` before a comma, closer or `->`, and no comma that starts its
+--| line before a comma or closer.
+def plainFrom: List Token → Bool
+  | [first, second, ..rest] =>
+    (!(first.kind == Arrow) || !arrowFollow second.kind)
+      && (!(first.kind == Comma && first.lineStart) || !passableKind second.kind)
+      && plainFrom [second, ..rest]
+  | _ => True
+
+--| `plain` for slice 1's alphabet: as `plainFrom`, and the first token is
+--| no comma or closer. Every file that parses is `plain`.
+def plain1 (tokens: List Token): Bool := match tokens with
+  | [] => True
+  | [first, .._] => !passableKind first.kind && plainFrom tokens
+
+--| `plain1` read newest first.
+def backOk: List Token → Bool
+  | [newer, older, ..rest] =>
+    (!(older.kind == Arrow) || !arrowFollow newer.kind)
+      && (!(older.kind == Comma && older.lineStart) || !passableKind newer.kind)
+      && backOk [older, ..rest]
+  | [only] => !passableKind only.kind
+  | [] => True
+
+theorem plainBack ∀ (ahead: List Token) (newest: Token) (behind: List Token)
+    (ok: backOk [newest, ..behind] = True)
+    (plain: plainFrom [newest, ..ahead] = True):
+    backOk (ahead.reverseOnto [newest, ..behind]) = True :=
+  match ahead with
+    | [] => ok
+    | [next, ..rest] =>
+      plainBack rest next
+        [newest, ..behind]
+        (Bool.andIntro (Bool.andLeft plain) (Bool.andIntro (Bool.andLeft (Bool.andRight plain)) ok))
+        (Bool.andRight (Bool.andRight plain))
+
+theorem plainReversed ∀ (tokens: List Token) (plain: plain1 tokens = True): backOk (tokens.reverseOnto []) = True :=
+  match tokens with
+    | [] => byComputing
+    | [first, ..rest] => plainBack rest first [] (Bool.andLeft plain) (Bool.andRight plain)
+
+--| How a pass may change a leaf's comments: take a trailing comment away,
+--| keeping those of leaves other than commas and `->`, and keep a
+--| closer's own-line comments.
+def relatedLeaf (before after: Leaf): Bool :=
+  (after.trivia.trailing.isNone || before.trivia.trailing.isSome)
+    && (before.kind == Comma || before.kind == Arrow || before.trivia.trailing.isNone || after.trivia.trailing.isSome)
+    && (!before.kind.isCloser || before.trivia.leading.isEmpty || !after.trivia.leading.isEmpty)
+
+def related: List Leaf → List Leaf → Bool
+  | [], [] => True
+  | [before, ..befores], [after, ..afters] => relatedLeaf before after && related befores afters
+  | _, _ => False
+
+theorem headToken ∀ (before after: Leaf) (befores afters: List Leaf)
+    (same: tokens [before, ..befores] = tokens [after, ..afters]):
+    after.token = before.token :=
+  (Eq.cong (list => list.head.getOrElse before.token) same).flipped
+
+theorem tailTokens ∀ (before after: Leaf) (befores afters: List Leaf)
+    (same: tokens [before, ..befores] = tokens [after, ..afters]):
+    tokens befores = tokens afters :=
+  Eq.cong (list => list.drop 1) same
+
+--| A line that ends with a comment before a rule 2 to 5 pass still does
+--| after it, seen from a comma or closer.
+--|
+--| Proof idea: by induction on the line, newest first. The comment the
+--| line ends with is on a leaf the pass keeps it on: not a comma, which
+--| would start its line before a comma or closer (or be the first token),
+--| nor a `->` before one.
+theorem endsTransfer ∀ (befores afters: List Leaf) (newer: Token)
+    (same: tokens befores = tokens afters)
+    (rel: related befores afters = True)
+    (ok: backOk [newer, ..tokens befores] = True)
+    (newerPassable: passableKind newer.kind = True)
+    (homed: homedBehind befores = True)
+    (ends: endsOn befores = True):
+    endsOn afters = True :=
+  match befores, afters with
+    | [before, ..older], [after, ..olders] =>
+      let kind := headToken before after older olders same
+      match trailing: before.trivia.trailing with
+        | Some comment =>
+          match comma: before.kind == Comma with
+            | True =>
+              match older with
+                | [] => Void.impossible (Bool.falseNotTrue (Bool.andRight (Bool.andRight ok)))
+                | [first, ..rest] =>
+                  let starts := Bool.andRight (Bool.andLeft homed)
+                  let clause := rewrite starts, newerPassable at Bool.andLeft (Bool.andRight ok)
+                  Void.impossible (Bool.falseNotTrue clause)
+            | False =>
+              match arrow: before.kind == Arrow with
+                | True => Void.impossible (Bool.falseNotTrue (rewrite newerPassable at Bool.andLeft ok))
+                | False => Bool.orLeft (Bool.andLeft (Bool.andRight (Bool.andLeft rel)))
+        | None =>
+          match older, olders with
+            | [first, ..rest], [next, ..nexts] =>
+              match passes: passable before with
+                | True =>
+                  let untrailed := Bool.andLeft (Bool.andLeft rel)
+                  let later :=
+                    endsTransfer
+                      [first, ..rest]
+                      [next, ..nexts]
+                      before.token
+                      (tailTokens before after [first, ..rest] [next, ..nexts] same)
+                      (Bool.andRight rel)
+                      (Bool.andRight (Bool.andRight ok))
+                      passes
+                      homed
+                      ends
+                  match after.trivia.trailing with
+                    | None => rewrite kind, passes then later
+            | [first, ..rest], [] => cases
+
+theorem backOkTail ∀ (newer: Token) (older: List Token) (ok: backOk [newer, ..older] = True): backOk older = True :=
+  match older with
+    | [] => byComputing
+    | [_, .._] => Bool.andRight (Bool.andRight ok)
+
+--| A pass that changes comments only as `relatedLeaf` allows keeps the
+--| leaves homed.
+--|
+--| Proof idea: by induction on the leaves, newest first. A trailing
+--| comment after the pass was there before; a closer that held one keeps
+--| its line start and own-line comments, and the line before it still ends
+--| with a comment (`endsTransfer`); a comma that held one still starts its
+--| line.
+theorem homedTransfer ∀ (befores afters: List Leaf)
+    (same: tokens befores = tokens afters)
+    (rel: related befores afters = True)
+    (ok: backOk (tokens befores) = True)
+    (homed: homedBehind befores = True):
+    homedBehind afters = True :=
+  match befores, afters with
+    | [], [] => byComputing
+    | [before, ..older], [after, ..olders] =>
+      let kind := headToken before after older olders same
+      let sameOlder := tailTokens before after older olders same
+      let rest :=
+        homedTransfer older olders sameOlder
+          (Bool.andRight rel)
+          (backOkTail before.token (tokens older) ok)
+          (Bool.andRight homed)
+      let here: homedLeaf after olders = True := match trailing: after.trivia.trailing with
+        | None => byComputing
+        | Some comment =>
+          match before.trivia.trailing with
+            | Some kept =>
+              let parts := Bool.andLeft homed
+              let closerBefore := Bool.andLeft parts
+              let commaBefore := Bool.andRight parts
+              rewrite kind then
+                match older, olders with
+                  | [], [] => rewrite repeatedly [Bool.orTrue]
+                  | [first, ..others], [next, ..nexts] =>
+                    let closerPart: (!before.token.kind.isCloser
+                      || ([next, ..nexts].isEmpty
+                        || (before.token.lineStart && (!after.trivia.leading.isEmpty || endsOn [next, ..nexts]))))
+                      = True :=
+                      match closer: before.token.kind.isCloser with
+                        | False => byComputing
+                        | True =>
+                          match before.trivia.leading with
+                            | [] =>
+                              Bool.andIntro
+                                (Bool.andLeft closerBefore)
+                                (Bool.orRight
+                                  (endsTransfer
+                                    [first, ..others]
+                                    [next, ..nexts]
+                                    before.token
+                                    sameOlder
+                                    (Bool.andRight rel)
+                                    ok
+                                    (Bool.orRight closer)
+                                    (Bool.andRight homed)
+                                    (Bool.andRight closerBefore)))
+                            | [_, .._] =>
+                              Bool.andIntro (Bool.andLeft closerBefore) (Bool.orLeft (Bool.andRight (Bool.andLeft rel)))
+                    Bool.andIntro closerPart commaBefore
+      Bool.andIntro here rest
