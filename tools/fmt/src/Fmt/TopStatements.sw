@@ -6,7 +6,7 @@
 --| - `formatIdempotent1`: formatting what it prints gives the same text.
 --|
 --| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: here
---| (`declElementsOneLine1`, `tidiedDeclsUnreturned1`, `printedSpelledPlain1` and the `calmTop` facts),
+--| (`declElementsOneLine1`, `tidiedDeclsUnreturned1` and the `calmTop` facts),
 --| in `Fmt.TopReadBack` (read-back), and `tidiedUnreturned1` in `Fmt.SettleOutputProofs`. `stitchwort goal` lists what
 --| is left. One of them, `printedSplit1`, is false today of a declaration with a binary operator, which read-back
 --| doesn't read yet (SW-4071).
@@ -28,6 +28,7 @@ import Fmt.CalmTopProofs (..)
 import Fmt.Proofs (firstThreeKeepMeaning)
 import Fmt.FileLexProofs (printedFileLexes1)
 import Fmt.OutputFileProofs (printedAlphabet1, printedNoLast1, printedPlain1)
+import Fmt.SpelledOutputProofs (printedSpelledPlain1)
 import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
 import Fmt.DeclFactsProofs (DeclElements, declHangsOf, printedHangs1)
@@ -67,18 +68,6 @@ theorem tidiedDeclsUnreturned1 ∀ (source: Text) (lexed: Lexed) (tidied: Tidied
     (lexes: lex source = Ok lexed)
     (tidy: lexed.tidied = Ok tidied):
     tidied.fourth.decls.all Decl.unreturned1 = True :=
-  ?
-
---| `printedSpelledPlain1` (open; **not in the stock take's map**): the output's names and numerals are spelled
---| plainly, so the second run passes the driver's `spelledPlain1` test. From `printedTokens1` (each printed token's
---| text is a word's, its kind the lexer's) and `lexical1` with `within1` (each name or numeral of the tree is spelled
---| plainly, `textSpells1`).
-theorem printedSpelledPlain1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    spelledPlain1 file.lexed1.leaves = True :=
   ?
 
 --| P2 is the identity on an expression with no last comma.
