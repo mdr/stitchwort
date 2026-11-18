@@ -646,3 +646,316 @@ theorem shapeSplit ∀ (text: Text) (notes: List Note) (after: Option Text) (bla
             (notesTold notes)
             [Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = False } })]
             ({ text, comments = { above = notes, after, blankBefore = False } }.toldTrail ++ more)
+
+--| The view with `after` for its trailing comment.
+def View.withAfter (view: View) (after: Option Text): View :=
+  { view | word = { view.word | comments = { view.word.comments | after } } }
+
+--| What `bitsHeard` says of `bits`: from wherever the lexer is between tokens, the printed events of a reading of the
+--| bits (a comment owed with closers to print before it, or none) add views that `Heard` reads as the bits.
+def HeardFrom (kinds: Text → Tok) (bits: List Bit): Prop :=
+  ∀ (owe: Option Event) (pending: List Event) (stretches: List Stretch) (heard: Hearing) => BitsFine kinds bits
+    → List.All Stretch.Fits stretches
+    → Waiting owe pending
+    → ReadsAs (bitsShape bits) (pending ++ laidOf stretches)
+    → heard.above = []
+    → heard.blank = False
+    → ∃ (views: List View) => ((nowPrinted owe pending stretches).foldLeft heard (hearOn kinds)).views
+      = views ++ heard.views
+      ∧ Heard (owe.map (comment => comment.word)) bits views.reverse
+
+--| A comma or closer printed while `comment` waits: its view, holding the comment if it is the last before it.
+theorem tuckedStep ∀ (kinds: Text → Tok) (rest: List Bit) (comment closer: Event) (closers: List Event)
+    (stretches: List Stretch) (heard: Hearing)
+    (next: HeardFrom kinds rest)
+    (fineRest: BitsFine kinds rest)
+    (fits: List.All Stretch.Fits stretches)
+    (closersAll: List.All Closer closers)
+    (unstarted: comment.start = None)
+    (fineComment: CommentFine comment.word)
+    (code: closer.word.startsWith "--" = False)
+    (unbroken: (closer.word == "\n") = False)
+    (reads: ReadsAs (bitsShape rest) (closers ++ laidOf stretches))
+    (above: heard.above = [])
+    (blank: heard.blank = False):
+    ∃ (more: List View) => ∃ (after: Option Text) => (((([closer, ..closers] ++ [comment])
+      ++ printedOf stretches).foldLeft heard
+      (hearOn kinds)).views
+      = more ++ [(tokenView kinds closer.word [] False closer).withAfter after, ..heard.views])
+      ∧ ((after = Some comment.word ∧ Heard None rest more.reverse)
+        ∨ (after = None ∧ Heard (Some comment.word) rest more.reverse)) :=
+  let (starts, plain) := fineComment
+  let first: Hearing :=
+    { views = [tokenView kinds closer.word [] False closer, ..heard.views], above = [], blank = False }
+  match closers, closersAll with
+    | [], _ =>
+      let held: Hearing := {
+        views = [(tokenView kinds closer.word [] False closer).withAfter (Some comment.word), ..heard.views],
+        above = [],
+        blank = False
+      }
+      match next None [] stretches held fineRest fits byComputing reads byComputing byComputing with
+        | (more, folds, heardRest) => (
+          more,
+          Some comment.word,
+          (rewrite unbroken, code, above, blank, commentNotBreak comment.word starts, starts, unstarted, plain, folds),
+          Inl (byComputing, heardRest)
+        )
+    | [second, ..others], closersAll =>
+      match next
+        (Some comment)
+        [second, ..others]
+        stretches
+        first
+        fineRest
+        fits
+        (List.consNotNil second others, closersAll, unstarted, fineComment)
+        reads
+        byComputing
+        byComputing with
+        | (more, folds, heardRest) =>
+          (more, None, (rewrite unbroken, code, above, blank, folds), Inr (byComputing, heardRest))
+
+--| A word's token that holds a comment, if a closer, starts its line where the reading says.
+theorem closerStarts ∀ (text: Text) (event: Event)
+    (start: startsAs True (!(isCloserText text && True)) event.start = True)
+    (shut: isCloserText text = True):
+    event.start.isSome = True :=
+  match started: event.start, start with
+    | Some at, _ => byComputing
+    | None, never => (Bool.falseNotTrue (rewrite shut at never then never)).impossible
+
+--| The tuck: the printed events of a reading of the bits, each trailing comment after the closers and commas tucked in
+--| front of it on its line, are heard as `Heard` says.
+--|
+--| Proof idea: by induction on the bits. A word's own-line comments, blank line and token are kept as they stand
+--| (`keptFront`) and heard as the token's view (`hearHead`); its trailing comment is kept, then heard as the view's, or
+--| tucked, and then the closers and commas after it are heard as owing it (`tuckedStep`) until the last, which holds
+--| it. Each step hears from where the one before left the lexer, so the views add up.
+theorem bitsHeard ∀ (kinds: Text → Tok) (bits: List Bit): HeardFrom kinds bits :=
+  owe pending stretches heard fine fits waiting reads above blank =>
+    match bits, fine with
+      | [], _ =>
+        match owe, waiting with
+          | None, nil =>
+            let empty: laidOf stretches = [] := rewrite nil at reads then reads
+            match stretches, empty with
+              | [], _ => ([], byComputing, byComputing)
+              | [Kept event, ..later], never => cases
+          | Some comment, (notNil, _) =>
+            match pending, reads with
+              | [], _ => (notNil byComputing).impossible
+              | [first, ..others], never => cases
+      | [AComma, ..rest], (commaKind, fineRest) =>
+        match owe, waiting with
+          | None, nil =>
+            let readsLaid: ReadsAs (bitsShape [AComma, ..rest]) (laidOf stretches) := rewrite nil at reads then reads
+            match stretches, fits, readsLaid with
+              | [Kept event, ..later], (_, fitsLater), (word, _, readsRest) =>
+                let view := tokenView kinds "," [] False event
+                let after: Hearing := { views = [view, ..heard.views], above = [], blank = False }
+                match bitsHeard kinds rest None [] later after fineRest fitsLater byComputing readsRest byComputing
+                    byComputing with
+                  | (more, folds, heardRest) => (
+                    more ++ [view],
+                    (rewrite word, above, blank, folds, List.appendAssoc more [view] heard.views),
+                    (rewrite List.reverseSnoc more view then
+                      (commaKind, byComputing, byComputing, (byComputing, heardRest)))
+                  )
+              | [Tucked comment closers, ..later], ((_, isComment, _), _), (word, _, _) =>
+                (codeNotComment "," byComputing (rewrite word at isComment then isComment)).impossible
+          | Some comment, (notNil, closersAll, unstarted, fineComment) =>
+            match pending, closersAll, reads with
+              | [], _, _ => (notNil byComputing).impossible
+              | [closer, ..closers], ((closerStart, _), closersRest), (word, _, readsRest) =>
+                match tuckedStep kinds rest comment closer closers stretches heard
+                  (bitsHeard kinds rest)
+                  fineRest
+                  fits
+                  closersRest
+                  unstarted
+                  fineComment
+                  (rewrite word)
+                  (rewrite word)
+                  readsRest
+                  above
+                  blank with
+                  | (more, after, folds, choice) =>
+                    let view := (tokenView kinds closer.word [] False closer).withAfter after
+                    (
+                      more ++ [view],
+                      (rewrite folds, List.appendAssoc more [view] heard.views),
+                      (rewrite List.reverseSnoc more view, word then
+                        (commaKind, byComputing, byComputing, ((rewrite closerStart), choice)))
+                    )
+      | [AWord { text, comments = { above = notes, after = trail, blankBefore = wordBlank } }, ..rest], (
+          (notComma, closerKind, code, unbroken, textNotComma, notesFine, trailFine),
+          fineRest
+        ) =>
+        match owe, waiting with
+          | Some comment, (notNil, closersAll, unstarted, fineComment) =>
+            match pending, closersAll with
+              | [], _ => (notNil byComputing).impossible
+              | [closer, ..closers], ((closerStart, closes), closersRest) =>
+                match notes, wordBlank, reads with
+                  | [{ text = noteText, blankBefore = True }, ..others], _, (isBlank, _) =>
+                    (Bool.falseNotTrue (rewrite isBlank at closes then closes)).impossible
+                  | [{ text = noteText, blankBefore = False }, ..others], _, (_, start, _) =>
+                    (Bool.falseNotTrue (rewrite closerStart at start then start)).impossible
+                  | [], True, (isBlank, _) => (Bool.falseNotTrue (rewrite isBlank at closes then closes)).impossible
+                  | [], False, (word, start, readsRest) =>
+                    let shut: isCloserText text = True :=
+                      closesCloser text (rewrite word at closes then closes) textNotComma
+                    match trail, readsRest with
+                      | Some trailText, _ =>
+                        (Bool.falseNotTrue (rewrite closerStart, shut at start then start)).impossible
+                      | None, readsRest =>
+                        match tuckedStep kinds rest comment closer closers stretches heard
+                          (bitsHeard kinds rest)
+                          fineRest
+                          fits
+                          closersRest
+                          unstarted
+                          fineComment
+                          (rewrite word then code)
+                          (rewrite word then unbroken)
+                          readsRest
+                          above
+                          blank with
+                          | (more, after, folds, choice) =>
+                            let view := (tokenView kinds closer.word [] False closer).withAfter after
+                            (
+                              more ++ [view],
+                              (rewrite folds, List.appendAssoc more [view] heard.views),
+                              (rewrite List.reverseSnoc more view, word then
+                                (
+                                  byComputing,
+                                  byComputing,
+                                  byComputing,
+                                  notComma,
+                                  closerKind,
+                                  (shut, (rewrite closerStart), choice)
+                                ))
+                            )
+          | None, nil =>
+            let flag := !closerTrails { text, comments = { above = notes, after = trail, blankBefore = wordBlank } }
+            let split: ReadsAs
+              ((notesTold notes ++ ((if wordBlank then [Told.Gap] else []) ++ [Said text True flag]))
+                ++ ({ text, comments = { above = notes, after = trail, blankBefore = wordBlank } }.toldTrail
+                  ++ bitsShape rest))
+              (laidOf stretches) :=
+              rewrite nil, shapeSplit text notes trail wordBlank (bitsShape rest) at reads then reads
+            match keptFront
+              (notesTold notes ++ ((if wordBlank then [Told.Gap] else []) ++ [Said text True flag]))
+              ({ text, comments = { above = notes, after = trail, blankBefore = wordBlank } }.toldTrail
+                ++ bitsShape rest)
+              stretches
+              (headUnmoved notes wordBlank text flag code)
+              fits
+              split with
+              | (front, later, printed, readsFront, readsMore, fitsLater) =>
+                match hearHead kinds notes wordBlank text flag front heard notesFine code unbroken blank readsFront with
+                  | (event, word, start, heads) =>
+                    let view := tokenView kinds text notes wordBlank event
+                    let first: Hearing := { views = [view, ..heard.views], above = [], blank = False }
+                    let reached: (printedOf stretches).foldLeft heard (hearOn kinds)
+                      = (printedOf later).foldLeft first (hearOn kinds) :=
+                      rewrite printed, List.foldLeftAppend front heard (printedOf later) (hearOn kinds), heads, above
+                    match trail, trailFine, readsMore with
+                      | None, _, readsRest =>
+                        match bitsHeard kinds rest None [] later first fineRest fitsLater byComputing readsRest
+                            byComputing byComputing with
+                          | (more, folds, heardRest) => (
+                            more ++ [view],
+                            (rewrite reached, folds, List.appendAssoc more [view] heard.views),
+                            (rewrite List.reverseSnoc more view then
+                              (byComputing, byComputing, byComputing, notComma, closerKind, (byComputing, heardRest)))
+                          )
+                      | Some trailText, (trailStarts, trailPlain), readsTrail =>
+                        let opens: isCloserText text = True → view.starts = True := shut =>
+                          closerStarts text event start shut
+                        let held := view.withAfter (Some trailText)
+                        let second: Hearing := { views = [held, ..heard.views], above = [], blank = False }
+                        match later, fitsLater, readsTrail with
+                          | [], _, never => cases
+                          | [Kept comment, ..after], (_, fitsAfter), (commentWord, commentStart, readsRest) =>
+                            match started: comment.start, commentStart with
+                              | Some at, never => cases
+                              | None, _ =>
+                                match bitsHeard kinds rest None [] after second fineRest fitsAfter byComputing readsRest
+                                    byComputing byComputing with
+                                  | (more, folds, heardRest) => (
+                                    more ++ [held],
+                                    (rewrite reached,
+                                        commentWord,
+                                        commentNotBreak trailText trailStarts,
+                                        trailStarts,
+                                        trailPlain,
+                                        folds,
+                                        List.appendAssoc more [held] heard.views),
+                                    (rewrite List.reverseSnoc more held then
+                                      (
+                                        byComputing,
+                                        byComputing,
+                                        byComputing,
+                                        notComma,
+                                        closerKind,
+                                        (opens, Inl (byComputing, heardRest))
+                                      ))
+                                  )
+                          | [Tucked comment closers, ..after], ((unstarted, _, closersAll), fitsAfter), (commentWord, _,
+                              readsRest) =>
+                            match closers, closersAll with
+                              | [], _ =>
+                                match bitsHeard kinds rest None [] after second fineRest fitsAfter byComputing readsRest
+                                    byComputing byComputing with
+                                  | (more, folds, heardRest) => (
+                                    more ++ [held],
+                                    (rewrite reached,
+                                        unstarted,
+                                        commentWord,
+                                        commentNotBreak trailText trailStarts,
+                                        trailStarts,
+                                        trailPlain,
+                                        folds,
+                                        List.appendAssoc more [held] heard.views),
+                                    (rewrite List.reverseSnoc more held then
+                                      (
+                                        byComputing,
+                                        byComputing,
+                                        byComputing,
+                                        notComma,
+                                        closerKind,
+                                        (opens, Inl (byComputing, heardRest))
+                                      ))
+                                  )
+                              | [closer, ..others], closersAll =>
+                                match bitsHeard kinds rest
+                                  (Some comment)
+                                  [closer, ..others]
+                                  after
+                                  first
+                                  fineRest
+                                  fitsAfter
+                                  (
+                                    List.consNotNil closer others,
+                                    closersAll,
+                                    unstarted,
+                                    (rewrite commentWord then (trailStarts, trailPlain))
+                                  )
+                                  readsRest
+                                  byComputing
+                                  byComputing with
+                                  | (more, folds, heardRest) => (
+                                    more ++ [view],
+                                    (rewrite reached, folds, List.appendAssoc more [view] heard.views),
+                                    (rewrite List.reverseSnoc more view then
+                                      (
+                                        byComputing,
+                                        byComputing,
+                                        byComputing,
+                                        notComma,
+                                        closerKind,
+                                        (opens, Inr (byComputing, rewrite commentWord at heardRest then heardRest))
+                                      ))
+                                  )
