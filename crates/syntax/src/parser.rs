@@ -966,6 +966,12 @@ impl<'t> Parser<'t> {
                         "to continue the expression on the line above, indent this line \
                          further than the block's column",
                     )
+                } else if token.tok == Tok::Pipe {
+                    diagnostic.with_note(
+                        "the alternatives of a `match` that ends a block (after `let` or \
+                         another statement) go further right than the block's column: \
+                         indent them",
+                    )
                 } else {
                     diagnostic
                 };
