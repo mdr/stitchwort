@@ -463,17 +463,20 @@ impl Session {
         let arity = pi_arity(g, id)?;
         (0..g.env.defs().len()).map(DefId).find_map(|w| {
             let def = g.def(w);
-            let closed = pi_arity(g, w) == Some(0);
-            let applies = def.body().is_some_and(|body| {
-                let (head, args) = spine(body);
-                matches!(head, Term::Def(d) if *d == id) && args >= arity
-            });
+            let applies = || {
+                def.body().is_some_and(|body| {
+                    let (head, args) = spine(body);
+                    matches!(head, Term::Def(d) if *d == id) && args >= arity
+                })
+            };
+            // The cheap tests first: unfolding a type is costly, and this
+            // runs over every definition for each warning.
             (w != id
                 && def.theorem()
                 && def.assumption().is_none()
-                && closed
-                && applies
                 && matches!(def.state(), State::Final)
+                && applies()
+                && pi_arity(g, w) == Some(0)
                 && !self.elab.relies_on_goal(w))
             .then(|| def.path().to_string())
         })
