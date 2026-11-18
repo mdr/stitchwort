@@ -23808,12 +23808,12 @@
     {
       "id": 3969,
       "title": "[Opus] fmt S1 ticket 17: read-back proofs, starting with the one-line-block lemma; settle hangs' final form before 18b (sketch §2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 70 min (sketch 90). Lane notes (Opus, 18 Nov 2026, branch lane/SW-3969):\n- hangs in its final form: Fmt.hangs (Fmt/Predicates1.sw), a step function HangState.step. Two clauses added to the sketch's: the leaf after -> doesn't start a line (else `def d: A ->⏎    B⏎    C := x` hangs, spells A -> B C, and parses as A -> Block), and a : that starts a line is right of column 0 (groupsOf splits at it). Twin --stage hangs; dev/hangs.py the same. Cross-check, seed 11, 400 files, 250 formatted, 465 declarations: both agree; only 3 declarations outside slice 1 break it (-> with a block operand).\n- blockOneLine proved both ways (ReadsAt: blockLinesOneLine, blockOneLine; Runs: runsBlockLinesOneLine, runsBlockOneLine), over SW-3968's split of block, copied verbatim so the branches merge clean.\n- ItemsAt and the item facts recomputed from leaves (itemsAppend, itemsLeaves, itemsLength, pastIndex, pastLast, pastDepth); hangsAppend; stepInBracket and stepAtTop (hangs gives blockOneLine's ends).\n- Left: the node-by-node read-back of readsBack1 (about 35 functions). It waited for SW-3968's split of the parser, merged meanwhile; main merged into the branch (Parser.sw now equal to main's), everything rechecked.\n- Audit Syntax.ReadBackProofs: 29 theorems, 0 failed, 0 warnings. Fmt.PassProofs: 90, 0 failed. Tests Syntax.Tests 52/52, Fmt.Tests 88/88.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
