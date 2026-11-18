@@ -1,5 +1,5 @@
 {
-  "next": 3932,
+  "next": 3933,
   "tickets": [
     {
       "id": 47,
@@ -23296,6 +23296,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3932,
+      "title": "[Opus] Self-hosted fmt engine E3: comments in Fmt.Doc (held spaces, flat Line while a comment waits, the comment floor replacing CommentEnd, before_code at a line start, Displaced) as in engine.rs, theorems extended through Joins, Words, Places, Lays; the 12 golden mismatches to 0 (docs/proposals/self-hosted-fmt-engine-plan.md §3.3, §5 E3; tools/fmt/NOTES.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
