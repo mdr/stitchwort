@@ -1,21 +1,21 @@
 --| The layout engine's documents: what to print and where lines may break,
 --| after Wadler's "A prettier printer" and Prettier. A port of the core of
 --| the Rust formatter's engine (`crates/fmt/src/printer/engine.rs`): the
---| pieces Sprig's rules need, without `Verbatim`, text blocks and the
---| closer marks.
+--| pieces Sprig's rules need, without `Verbatim` and text blocks.
 --|
 --| A `Group` prints on one line if all of it, plus whatever must follow it
 --| on that line, fits in the width; otherwise every break directly in it
 --| breaks, and each inner group decides again for itself. Width is counted
 --| in characters: `∀` and `→` are one column each.
 
-namespace Fmt.Doc
-import Std (List, Text)
+import Doc (..)
+import Bool (not)
 
---| A document: what to print and where lines may break, for `print` to lay out
+--| A document: what to print and where lines may break, for `Doc.print` to lay out
 --| in a given width.
 type Doc =
-  | Empty
+  --| No output at all: it takes no width and no line.
+  | Nothing
   --| Text without line breaks, and its width in characters.
   | Chunk (text: Text) (width: Nat)
   --| A space if its group prints flat, otherwise a line break.
@@ -118,12 +118,13 @@ def Doc.idGroup (inner: Doc) (id: Nat): Doc := IdGroup id inner inner.forcesBrea
 
 --| The docs in order, leaving out the empty ones.
 def Doc.concat (docs: List Doc): Doc := match docs.filter (doc => not doc.isEmpty) with
-  | [] => Empty
+  | [] => Doc.Nothing
   | [only] => only
   | several => Concat several
 
 --| The docs with `separator` between each two.
-def joined (docs: List Doc) (separator: Doc): Doc := Doc.concat (Doc.joinedWith separator docs)
+@[noReceiver]
+def Doc.joined (docs: List Doc) (separator: Doc): Doc := Doc.concat (Doc.joinedWith separator docs)
 
 --| The docs with `separator` between each two, as a list.
 def Doc.joinedWith (separator: Doc): (docs: List Doc) → List Doc
@@ -131,8 +132,8 @@ def Doc.joinedWith (separator: Doc): (docs: List Doc) → List Doc
   | [only] => [only]
   | [doc, ..docs] => [doc, separator, ..Doc.joinedWith separator docs]
 
---| Whether the doc is `Empty`.
-def Doc.isEmpty: Doc → Bool := matches | Empty
+--| Whether the doc is `Nothing`.
+def Doc.isEmpty: Doc → Bool := matches | Doc.Nothing
 
 --| Whether printing this always breaks a line, so a group around it can't
 --| be flat.

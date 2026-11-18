@@ -1373,3 +1373,30 @@ fn a_rule_set_in_a_library_file_is_found_by_name() {
         "a set's name is taken"
     );
 }
+
+/// A library file's references are resolved with the file's own imports
+/// (SW-3944): a name it imports and writes short names the file that
+/// declares it, so the loader loads that file with it.
+#[test]
+fn a_library_file_s_imported_short_name_is_an_edge_to_its_file() {
+    let files = [
+        ("A.sw", "def Lib.Tools.double (n: Nat): Nat := n + n\n"),
+        (
+            "B.sw",
+            "import Lib.Tools (double)\n\
+             def Lib.quadruple (n: Nat): Nat := double (double n)\n",
+        ),
+    ];
+    let index = LibraryIndex::build(prelude(), &files, STACK).expect("the files index");
+    let a = index
+        .owner("Std.Lib.Tools.double")
+        .expect("A.sw declares `double`");
+    let b = index
+        .owner("Std.Lib.quadruple")
+        .expect("B.sw declares `quadruple`");
+    assert!(
+        index.files[b].edges.contains(&a),
+        "B.sw uses A.sw's `double` through its import: {:?}",
+        index.files[b].edges
+    );
+}

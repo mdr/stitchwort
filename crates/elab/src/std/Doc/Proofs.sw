@@ -7,9 +7,8 @@
 --| start (`Cmd.weight`), so `fits` never runs out either, where it would
 --| answer "fits" without looking. Any larger budget prints the same text.
 
-namespace Fmt.Doc.Proofs
-import Fmt.Doc (..)
-import Std (Bool, List, Nat, Option, Text, Void)
+import Doc (..)
+import Doc.Proofs (..)
 
 --| The steps the printer can still take on `doc`, at most: a step on a
 --| node replaces it by its parts, which weigh less.
@@ -30,22 +29,22 @@ def Doc.steps: Doc → Nat
   | _ => 1
 
 --| The steps the printer can still take on the docs, added up.
-def stepsOf: List Doc → Nat
+def Doc.Proofs.stepsOf: List Doc → Nat
   | [] => 0
   | [doc, ..docs] => doc.steps + stepsOf docs
 
 --| The steps the printer can still take on a command.
-def Cmd.cost: Cmd → Nat
+def Doc.Cmd.cost: Cmd → Nat
   | Print _ _ doc => doc.steps
   | FillSep _ item => item.steps + 1
 
 --| The steps the printer can still take on a work list.
-def stackCost: List Cmd → Nat
+def Doc.Proofs.stackCost: List Cmd → Nat
   | [] => 0
   | [cmd, ..rest] => cmd.cost + stackCost rest
 
 --| Every doc takes at least one step.
-theorem stepsPositive ∀ (doc: Doc): 1 ≤ doc.steps := match doc with
+theorem Doc.Proofs.stepsPositive ∀ (doc: Doc): 1 ≤ doc.steps := match doc with
   | Nest more inner => arithmetic
   | Align inner => arithmetic
   | AlignInset inner => arithmetic
@@ -62,27 +61,28 @@ theorem stepsPositive ∀ (doc: Doc): 1 ≤ doc.steps := match doc with
   | _ => arithmetic
 
 --| The cost of two work lists put together is the sum of their costs.
-theorem stackCostAppend ∀ (front back: List Cmd): stackCost (front ++ back) = stackCost front + stackCost back :=
+theorem Doc.Proofs.stackCostAppend ∀ (front back: List Cmd):
+    stackCost (front ++ back) = stackCost front + stackCost back :=
   match front with
     | [] => byComputing
     | [cmd, ..rest] => rewrite stackCostAppend rest back then arithmetic
 
 --| Printing each of the docs costs the docs' steps.
-theorem costPrints ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
+theorem Doc.Proofs.costPrints ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
     stackCost (docs.map (Print indent mode)) = stepsOf docs :=
   match docs with
     | [] => byComputing
     | [doc, ..rest] => rewrite costPrints indent mode rest
 
 --| The separators before the items of a fill cost their items' steps.
-theorem costFillSeps ∀ (indent: Nat) (items: List Doc):
+theorem Doc.Proofs.costFillSeps ∀ (indent: Nat) (items: List Doc):
     stackCost (items.map (FillSep indent)) = stepsOf items + items.length :=
   match items with
     | [] => byComputing
     | [item, ..rest] => rewrite costFillSeps indent rest then arithmetic
 
 --| Putting a `Line` between the items adds at most one step each.
-theorem joinLinesSteps ∀ (items: List Doc): stepsOf (Doc.joinLines items) ≤ stepsOf items + items.length :=
+theorem Doc.Proofs.joinLinesSteps ∀ (items: List Doc): stepsOf (Doc.joinLines items) ≤ stepsOf items + items.length :=
   match items with
     | [] => arithmetic
     | [only] => arithmetic
@@ -92,12 +92,13 @@ theorem joinLinesSteps ∀ (items: List Doc): stepsOf (Doc.joinLines items) ≤ 
 
 --| The first option of a choice takes no more steps than all the options and
 --| one.
-theorem headOrSteps ∀ (options: List Doc): (options.headOr Empty).steps ≤ stepsOf options + 1 := match options with
-  | [] => arithmetic
-  | [option, ..rest] => arithmetic
+theorem Doc.Proofs.headOrSteps ∀ (options: List Doc): (options.headOr Doc.Nothing).steps ≤ stepsOf options + 1 :=
+  match options with
+    | [] => arithmetic
+    | [option, ..rest] => arithmetic
 
 --| A bound on both branches of an `if` bounds the `if`, in steps.
-theorem ifStepsBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
+theorem Doc.Proofs.ifStepsBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
     (yesBound: yes.steps ≤ bound)
     (noBound: no.steps ≤ bound):
     (if condition then yes else no).steps ≤ bound :=
@@ -106,12 +107,12 @@ theorem ifStepsBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
     | False => noBound
 
 --| The branch an `IfBroken` takes costs no more steps than both.
-theorem pickSteps ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc):
+theorem Doc.Proofs.pickSteps ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc):
     (pickBranch modes id broken flat).steps ≤ broken.steps + flat.steps :=
   ifStepsBound (brokenIn modes id) broken flat _ (arithmetic) (arithmetic)
 
 --| Whatever option a `Choice` takes costs at most the options' steps and one.
-theorem chooseSteps ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
+theorem Doc.Proofs.chooseSteps ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
     (printer.choose total indent rest options).steps ≤ stepsOf options + 1 :=
   match options with
     | [] => arithmetic
@@ -121,7 +122,7 @@ theorem chooseSteps ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) 
       ifStepsBound _ option (printer.choose total indent rest [next, ..others]) _ (arithmetic) (arithmetic [later])
 
 --| A bound on the cost of both results of an `if` bounds the `if`'s result.
-theorem ifPairBound ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (bound: Nat)
+theorem Doc.Proofs.ifPairBound ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (bound: Nat)
     (yesBound: stackCost yes.snd < bound)
     (noBound: stackCost no.snd < bound):
     stackCost (if condition then yes else no).snd < bound :=
@@ -130,7 +131,7 @@ theorem ifPairBound ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (bound: 
     | False => noBound
 
 --| Every step weighs the work list down.
-theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd):
+theorem Doc.Proofs.stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd):
     stackCost (printer.step total cmd rest).snd < cmd.cost + stackCost rest :=
   match cmd with
     | FillSep indent item =>
@@ -142,7 +143,7 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
         (arithmetic)
     | Print indent mode doc =>
       match doc with
-        | Empty => arithmetic
+        | Doc.Nothing => arithmetic
         | BreakParent => arithmetic
         | Chunk text width => arithmetic
         | Closing text => arithmetic
@@ -205,13 +206,13 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
               arithmetic
 
 --| Every command costs at least one step.
-theorem costPositive ∀ (cmd: Cmd): 1 ≤ cmd.cost := match cmd with
+theorem Doc.Proofs.costPositive ∀ (cmd: Cmd): 1 ≤ cmd.cost := match cmd with
   | Print indent mode doc => stepsPositive doc
   | FillSep indent item => arithmetic
 
 --| Once the fuel covers the work list's weight, more fuel prints the same:
 --| the work list runs out first.
-theorem runFuelEnough ∀ (printer: Printer) (total fuel extra: Nat) (stack: List Cmd)
+theorem Doc.Proofs.runFuelEnough ∀ (printer: Printer) (total fuel extra: Nat) (stack: List Cmd)
     (enough: stackCost stack ≤ fuel):
     printer.run total (fuel + extra) stack = printer.run total fuel stack :=
   match fuel, stack with
@@ -229,7 +230,7 @@ theorem runFuelEnough ∀ (printer: Printer) (total fuel extra: Nat) (stack: Lis
         | (next, stack) => runFuelEnough next total more extra stack (arithmetic)
 
 --| Every doc has at least one node.
-theorem sizePositive ∀ (doc: Doc): 1 ≤ doc.size := match doc with
+theorem Doc.Proofs.sizePositive ∀ (doc: Doc): 1 ≤ doc.size := match doc with
   | Nest more inner => arithmetic
   | Align inner => arithmetic
   | AlignInset inner => arithmetic
@@ -246,7 +247,7 @@ theorem sizePositive ∀ (doc: Doc): 1 ≤ doc.size := match doc with
   | _ => arithmetic
 
 --| A list of docs has no more docs than nodes.
-theorem lengthUnderSizes ∀ (docs: List Doc): docs.length ≤ Doc.sizes docs := match docs with
+theorem Doc.Proofs.lengthUnderSizes ∀ (docs: List Doc): docs.length ≤ Doc.sizes docs := match docs with
   | [] => arithmetic
   | [doc, ..rest] =>
     let head := sizePositive doc
@@ -254,7 +255,7 @@ theorem lengthUnderSizes ∀ (docs: List Doc): docs.length ≤ Doc.sizes docs :=
     arithmetic
 
 --| A doc takes at most two steps for each of its nodes.
-theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc with
+theorem Doc.Proofs.stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc with
   | Nest more inner =>
     let inside := stepsUnderSize inner
     arithmetic
@@ -296,7 +297,7 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | Choice options =>
     let inside := stepsOfUnderSizes options
     arithmetic
-  | Empty => arithmetic
+  | Doc.Nothing => arithmetic
   | BreakParent => arithmetic
   | Chunk text width => arithmetic
   | Closing text => arithmetic
@@ -311,7 +312,7 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | LineSuffix comment => arithmetic
 
 --| A list of docs takes at most two steps for each of its nodes.
-theorem stepsOfUnderSizes ∀ (docs: List Doc): stepsOf docs ≤ 2 * Doc.sizes docs := match docs with
+theorem Doc.Proofs.stepsOfUnderSizes ∀ (docs: List Doc): stepsOf docs ≤ 2 * Doc.sizes docs := match docs with
   | [] => arithmetic
   | [doc, ..rest] =>
     let head := stepsUnderSize doc
@@ -321,37 +322,37 @@ theorem stepsOfUnderSizes ∀ (docs: List Doc): stepsOf docs ≤ 2 * Doc.sizes d
 --| `print`'s step budget, three steps per node and three more, is enough:
 --| the printer runs out of work before it runs out of steps, so any larger
 --| budget prints the same.
-theorem printStepsEnough ∀ (printer: Printer) (total extra: Nat) (doc: Doc) (indent: Nat) (mode: Mode):
+theorem Doc.Proofs.printStepsEnough ∀ (printer: Printer) (total extra: Nat) (doc: Doc) (indent: Nat) (mode: Mode):
     printer.run total (3 * doc.size + 3 + extra) [Print indent mode doc]
       = printer.run total (3 * doc.size + 3) [Print indent mode doc] :=
   let bound := stepsUnderSize doc
   runFuelEnough printer total (3 * doc.size + 3) extra [Print indent mode doc] (arithmetic)
 
 --| The steps `fits` can take measuring `stack`.
-def pairSteps: List (Nat, Mode, Doc) → Nat
+def Doc.Proofs.pairSteps: List (Nat, Mode, Doc) → Nat
   | [] => 0
   | [(_, _, doc), ..stack] => doc.steps + pairSteps stack
 
 --| The steps `fits` can take reading on into the work list, up to the
 --| first fill separator, where it stops.
-def restNeed: List Cmd → Nat
+def Doc.Proofs.restNeed: List Cmd → Nat
   | [Print _ _ doc, ..others] => 1 + doc.steps + restNeed others
   | _ => 0
 
 --| The steps `fits` can take measuring `stack`, then reading on into the work
 --| list `rest`.
-def fitsNeed (stack: List (Nat, Mode, Doc)) (rest: List Cmd): Nat := pairSteps stack + restNeed rest
+def Doc.Proofs.fitsNeed (stack: List (Nat, Mode, Doc)) (rest: List Cmd): Nat := pairSteps stack + restNeed rest
 
 --| Measuring docs at one indentation and mode costs their steps, then the rest
 --| of the stack.
-theorem pairStepsMap ∀ (indent: Nat) (mode: Mode) (docs: List Doc) (stack: List (Nat, Mode, Doc)):
+theorem Doc.Proofs.pairStepsMap ∀ (indent: Nat) (mode: Mode) (docs: List Doc) (stack: List (Nat, Mode, Doc)):
     pairSteps (docs.map (inner => (indent, mode, inner)) ++ stack) = stepsOf docs + pairSteps stack :=
   match docs with
     | [] => byComputing
     | [doc, ..rest] => rewrite pairStepsMap indent mode rest stack then arithmetic
 
 --| The last option of a choice takes no more steps than all the options.
-theorem lastSteps ∀ (options: List Doc) (option: Doc)
+theorem Doc.Proofs.lastSteps ∀ (options: List Doc) (option: Doc)
     (picked: options.last = Some option):
     option.steps ≤ stepsOf options :=
   match options with
@@ -361,7 +362,7 @@ theorem lastSteps ∀ (options: List Doc) (option: Doc)
       arithmetic
 
 --| The first option of a choice takes no more steps than all the options.
-theorem headSteps ∀ (options: List Doc) (option: Doc)
+theorem Doc.Proofs.headSteps ∀ (options: List Doc) (option: Doc)
     (picked: options.head = Some option):
     option.steps ≤ stepsOf options :=
   match options with | [first, ..others] => rewrite <- Option.someInjective picked then arithmetic
@@ -369,7 +370,7 @@ theorem headSteps ∀ (options: List Doc) (option: Doc)
 --| With fuel for every step it could take, `fits` gives the same answer
 --| as with more: it never stops for want of fuel, where it would answer
 --| "fits" without looking.
-theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc))
+theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc))
     (rest: List Cmd) (left lineIndent: Nat) (suffix: Trailing)
     (enough: fitsNeed stack rest ≤ fuel):
     fitsFrom (fuel + extra) width modes stack rest left lineIndent suffix
@@ -406,7 +407,7 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
           let same := (at to: Nat) (waits: Trailing) (fewer: fitsNeed stack rest ≤ more) =>
             fitsFromEnough more extra width modes stack rest at to waits fewer
           match doc with
-            | Empty => rewrite same left lineIndent suffix (arithmetic)
+            | Doc.Nothing => rewrite same left lineIndent suffix (arithmetic)
             | Blank => rewrite same left lineIndent suffix (arithmetic)
             | Mark key => rewrite same left lineIndent suffix (arithmetic)
             | LineSuffix comment => rewrite same left lineIndent suffix.noted (arithmetic)
@@ -578,38 +579,39 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
 --| What the work list can still cost `fits`, all calls together: a
 --| command's steps, and one more step for each node, which reading it out
 --| of the work list costs.
-def Cmd.weight: Cmd → Nat
+def Doc.Cmd.weight: Cmd → Nat
   | Print _ _ doc => doc.steps + doc.size
   | FillSep _ item => item.steps + 1 + item.size
 
 --| The most the work list can cost `fits`, all calls together.
-def stackWeight: List Cmd → Nat
+def Doc.Proofs.stackWeight: List Cmd → Nat
   | [] => 0
   | [cmd, ..rest] => cmd.weight + stackWeight rest
 
 --| The weight of two work lists put together is the sum of their weights.
-theorem stackWeightAppend ∀ (front back: List Cmd):
+theorem Doc.Proofs.stackWeightAppend ∀ (front back: List Cmd):
     stackWeight (front ++ back) = stackWeight front + stackWeight back :=
   match front with
     | [] => byComputing
     | [cmd, ..rest] => rewrite stackWeightAppend rest back then arithmetic
 
 --| Printing each of the docs weighs their sizes.
-theorem weightPrints ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
+theorem Doc.Proofs.weightPrints ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
     stackWeight (docs.map (Print indent mode)) = stepsOf docs + Doc.sizes docs :=
   match docs with
     | [] => byComputing
     | [doc, ..rest] => rewrite weightPrints indent mode rest then arithmetic
 
 --| The separators before the items of a fill weigh their items' sizes.
-theorem weightFillSeps ∀ (indent: Nat) (items: List Doc):
+theorem Doc.Proofs.weightFillSeps ∀ (indent: Nat) (items: List Doc):
     stackWeight (items.map (FillSep indent)) = stepsOf items + items.length + Doc.sizes items :=
   match items with
     | [] => byComputing
     | [item, ..rest] => rewrite weightFillSeps indent rest then arithmetic
 
 --| Putting a `Line` between the items adds at most one node each.
-theorem joinLinesSizes ∀ (items: List Doc): Doc.sizes (Doc.joinLines items) ≤ Doc.sizes items + items.length :=
+theorem Doc.Proofs.joinLinesSizes ∀ (items: List Doc):
+    Doc.sizes (Doc.joinLines items) ≤ Doc.sizes items + items.length :=
   match items with
     | [] => arithmetic
     | [only] => arithmetic
@@ -618,12 +620,13 @@ theorem joinLinesSizes ∀ (items: List Doc): Doc.sizes (Doc.joinLines items) �
       arithmetic
 
 --| The first option of a choice has no more nodes than all the options and one.
-theorem headOrSize ∀ (options: List Doc): (options.headOr Empty).size ≤ Doc.sizes options + 1 := match options with
-  | [] => arithmetic
-  | [option, ..rest] => arithmetic
+theorem Doc.Proofs.headOrSize ∀ (options: List Doc): (options.headOr Doc.Nothing).size ≤ Doc.sizes options + 1 :=
+  match options with
+    | [] => arithmetic
+    | [option, ..rest] => arithmetic
 
 --| A bound on both branches of an `if` bounds the `if`, in nodes.
-theorem ifBothBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
+theorem Doc.Proofs.ifBothBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
     (yesBound: yes.steps + yes.size ≤ bound)
     (noBound: no.steps + no.size ≤ bound):
     (if condition then yes else no).steps + (if condition then yes else no).size ≤ bound :=
@@ -632,13 +635,13 @@ theorem ifBothBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
     | False => noBound
 
 --| The branch an `IfBroken` takes weighs no more than both.
-theorem pickWeight ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc):
+theorem Doc.Proofs.pickWeight ∀ (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc):
     (pickBranch modes id broken flat).steps + (pickBranch modes id broken flat).size
       ≤ broken.steps + flat.steps + broken.size + flat.size :=
   ifBothBound (brokenIn modes id) broken flat _ (arithmetic) (arithmetic)
 
 --| Whatever option a `Choice` takes weighs at most the options' sizes and one.
-theorem chooseWeight ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
+theorem Doc.Proofs.chooseWeight ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
     (printer.choose total indent rest options).steps + (printer.choose total indent rest options).size
       ≤ stepsOf options + Doc.sizes options + 2 :=
   match options with
@@ -649,7 +652,7 @@ theorem chooseWeight ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd)
       ifBothBound _ option (printer.choose total indent rest [next, ..others]) _ (arithmetic) (arithmetic [later])
 
 --| A bound on the weight of both results of an `if` bounds the `if`'s result.
-theorem ifPairWeight ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (bound: Nat)
+theorem Doc.Proofs.ifPairWeight ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (bound: Nat)
     (yesBound: stackWeight yes.snd ≤ bound)
     (noBound: stackWeight no.snd ≤ bound):
     stackWeight (if condition then yes else no).snd ≤ bound :=
@@ -658,7 +661,7 @@ theorem ifPairWeight ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (bound:
     | False => noBound
 
 --| No step makes the work list heavier for `fits`.
-theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd):
+theorem Doc.Proofs.stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd):
     stackWeight (printer.step total cmd rest).snd ≤ cmd.weight + stackWeight rest :=
   match cmd with
     | FillSep indent item =>
@@ -670,7 +673,7 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
         (arithmetic)
     | Print indent mode doc =>
       match doc with
-        | Empty => arithmetic
+        | Doc.Nothing => arithmetic
         | BreakParent => arithmetic
         | Chunk text width => arithmetic
         | Closing text => arithmetic
@@ -738,7 +741,7 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
               arithmetic
 
 --| What `fits` can read into a work list is within its weight.
-theorem restNeedUnder ∀ (rest: List Cmd): restNeed rest ≤ stackWeight rest := match rest with
+theorem Doc.Proofs.restNeedUnder ∀ (rest: List Cmd): restNeed rest ≤ stackWeight rest := match rest with
   | [] => arithmetic
   | [FillSep indent item, ..others] => arithmetic
   | [Print indent mode doc, ..others] =>
@@ -748,7 +751,7 @@ theorem restNeedUnder ∀ (rest: List Cmd): restNeed rest ≤ stackWeight rest :
 
 --| With `fits`'s budget covering the work list's weight, a `Choice` takes the
 --| same option as with a larger budget.
-theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: List Cmd) (options: List Doc)
+theorem Doc.Proofs.chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: List Cmd) (options: List Doc)
     (enough: stepsOf options + restNeed rest ≤ total):
     printer.choose (total + extra) indent rest options = printer.choose total indent rest options :=
   match options with
@@ -777,7 +780,7 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
 
 --| With `fits`'s budget covering the work list's weight, a step takes the
 --| same choices as with a larger budget.
-theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: List Cmd)
+theorem Doc.Proofs.stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: List Cmd)
     (enough: cmd.weight + stackWeight rest ≤ total):
     printer.step (total + extra) cmd rest = printer.step total cmd rest :=
   let under := restNeedUnder rest
@@ -839,7 +842,7 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
 
 --| Once `fits`'s budget covers the work list's weight, a larger budget
 --| prints the same.
-theorem runTotalEnough ∀ (printer: Printer) (total extra fuel: Nat) (stack: List Cmd)
+theorem Doc.Proofs.runTotalEnough ∀ (printer: Printer) (total extra fuel: Nat) (stack: List Cmd)
     (enough: stackWeight stack ≤ total):
     printer.run (total + extra) fuel stack = printer.run total fuel stack :=
   match fuel, stack with
@@ -853,7 +856,8 @@ theorem runTotalEnough ∀ (printer: Printer) (total extra fuel: Nat) (stack: Li
 --| `print`'s budget, 3 * size + 3, is enough both for the printer's steps
 --| and for every `fits` it asks: printing with any larger budgets gives
 --| the same text.
-theorem printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat) (mode: Mode) (extraTotal extraFuel: Nat):
+theorem Doc.Proofs.printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat)
+    (mode: Mode) (extraTotal extraFuel: Nat):
     printer.run (3 * doc.size + 3 + extraTotal) (3 * doc.size + 3 + extraFuel) [Print indent mode doc]
       = printer.run (3 * doc.size + 3) (3 * doc.size + 3) [Print indent mode doc] :=
   let bound := stepsUnderSize doc
@@ -865,19 +869,19 @@ theorem printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat) (mode:
 --| `softLineAfterComment`, `textAfterComment` and `closePut`,
 --| this is why every trailing comment ends its line, whatever document
 --| the engine prints.
-theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd)
+theorem Doc.Proofs.lineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd)
     (waiting: printer.suffixes.isEmpty = False):
     printer.printDoc total indent Flat Line rest = ({ printer | heldSpaces = printer.heldSpaces + 1 }, rest) :=
   rewrite waiting
 
 --| A flat `SoftLine` is nothing, while a trailing comment waits too.
-theorem softLineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd):
+theorem Doc.Proofs.softLineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd):
     printer.printDoc total indent Flat SoftLine rest = (printer, rest) :=
   byComputing
 
 --| The next item of a broken `Fill` starts a new line while a trailing
 --| comment waits.
-theorem fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Doc) (rest: List Cmd)
+theorem Doc.Proofs.fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Doc) (rest: List Cmd)
     (waiting: printer.suffixes.isEmpty = False):
     printer.step total (FillSep indent item) rest = (printer.newline indent, [Print indent Break item, ..rest]) :=
   rewrite waiting
@@ -886,7 +890,7 @@ theorem fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Do
 --| (a comment break), at least 2 deeper than the line it
 --| breaks. So no text ever follows a trailing comment on its line, in any
 --| document.
-theorem textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
+theorem Doc.Proofs.textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (nonEmpty: text.isEmpty = False)
     (waiting: printer.suffixes.isEmpty = False)
     (notSpaces: text.all (char => char == ' ') = False):
@@ -894,7 +898,7 @@ theorem textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (widt
   rewrite nonEmpty, waiting, notSpaces
 
 --| Spaces written while a trailing comment waits are held.
-theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
+theorem Doc.Proofs.spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (nonEmpty: text.isEmpty = False)
     (waiting: printer.suffixes.isEmpty = False)
     (spaces: text.all (char => char == ' ') = True):
@@ -902,12 +906,12 @@ theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (wi
   rewrite nonEmpty, waiting, spaces
 
 --| An instance: a space after a waiting comment is held.
-theorem spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
+theorem Doc.Proofs.spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
       = { Printer.start 80 | suffixes = ["-- c"], heldSpaces = 1 } :=
   spacesAfterComment { Printer.start 80 | suffixes = ["-- c"] } 0 " " 1 byComputing byComputing byComputing
 
 --| An instance: `Both ( ) -- c`.
-theorem closeAfterCommentExample: (print
+theorem Doc.Proofs.closeAfterCommentExample: (Doc.print
       (Doc.concat [Doc.text "Both (", LineSuffix "-- c", Doc.text " ", Closing ")"])
       120
       == "Both ( ) -- c")
@@ -915,5 +919,6 @@ theorem closeAfterCommentExample: (print
   byComputing
 
 --| A comment break is deeper than the line it breaks.
-theorem continuationDeeper ∀ (printer: Printer) (indent: Nat): printer.lineIndent + 2 ≤ printer.continuation indent :=
+theorem Doc.Proofs.continuationDeeper ∀ (printer: Printer) (indent: Nat):
+    printer.lineIndent + 2 ≤ printer.continuation indent :=
   Nat.leMaxRight indent (printer.lineIndent + 2)

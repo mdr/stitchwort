@@ -6,34 +6,36 @@
 --| list at most twice, so three times the document's size is more steps
 --| than any print needs, and running out is unreachable.
 
-namespace Fmt.Doc
-import Std (List, Nat, Option, Text)
+import Doc (..)
+import Bool (not)
 
 --| How a group is being printed: all its breaks as spaces (`Flat`), or each as
 --| a line break (`Break`).
-type Mode = | Flat | Break
+type Doc.Mode = | Flat | Break
 
 --| Whether the mode is `Flat`.
-def Mode.isFlat: Mode → Bool := matches | Flat
+def Doc.Mode.isFlat: Mode → Bool := matches | Flat
 
 --| Whether the `IdGroup` with this id printed broken, by the record
 --| `modes` (the latest first). A group not printed yet counts as flat.
-def brokenIn (modes: List (Nat, Mode)) (id: Nat): Bool := match modes.lookup id with
+def Doc.brokenIn (modes: List (Nat, Mode)) (id: Nat): Bool := match modes.lookup id with
   | Some Break => True
   | _ => False
 
 --| The branch of an `IfBroken` the record `modes` picks.
-def pickBranch (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc): Doc := if brokenIn modes id then broken else flat
+@[noReceiver]
+def Doc.pickBranch (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc): Doc :=
+  if brokenIn modes id then broken else flat
 
 --| One step of the printer's work.
-type Cmd =
+type Doc.Cmd =
   | Print (indent: Nat) (mode: Mode) (doc: Doc)
   --| Before the next item of a broken `Fill`: a space if the item fits on
   --| the line, otherwise a line break.
   | FillSep (indent: Nat) (item: Doc)
 
 --| The printer's state: what it has written, and the line it is on.
-type Printer = {
+type Doc.Printer = {
   width: Nat,
   --| What is printed so far, in pieces, the last first.
   out: List Text,
@@ -62,10 +64,10 @@ type Printer = {
 --| A `Mark` whose `CloserLine` hasn't come: the indentation of the line
 --| it is on, and the least indentation of the lines printed since (none
 --| before the next line break).
-type OpenMark = { key: Nat, marked: Nat, least: Option Nat }
+type Doc.OpenMark = { key: Nat, marked: Nat, least: Option Nat }
 
 --| What the printer carries from line to line.
-type Carry = {
+type Doc.Carry = {
   --| After a comment break before an own-line comment: the least
   --| indentation of the lines up to the next code.
   floor: Option Nat,
@@ -74,51 +76,51 @@ type Carry = {
 }
 
 --| No comment floor and no open marks.
-def Carry.none: Carry := { floor = None, marks = [] }
+def Doc.Carry.none: Carry := { floor = None, marks = [] }
 
 --| The open marks after a line indented `at`.
-def lowerMarks (at: Nat): List OpenMark → List OpenMark
+def Doc.lowerMarks (at: Nat): List OpenMark → List OpenMark
   | [] => []
   | [mark, ..marks] => [{ mark | least = Some (lowest mark.least at) }, ..lowerMarks at marks]
 
 --| `at`, or the least so far if that is less.
-def lowest (least: Option Nat) (at: Nat): Nat := match least with
+def Doc.lowest (least: Option Nat) (at: Nat): Nat := match least with
   | None => at
   | Some least => Nat.min least at
 
 --| What is carried to a line broken at `indent`: the line is at the
 --| floor if that is deeper, and every open mark has seen it.
-def Carry.breakTo (carry: Carry) (indent: Nat): Carry :=
+def Doc.Carry.breakTo (carry: Carry) (indent: Nat): Carry :=
   { carry | marks = lowerMarks (floored carry indent) carry.marks }
 
 --| What is carried to the line a comment break at `broken` starts: the
 --| break's indentation is the floor until the next code.
-def Carry.startFloor (carry: Carry) (broken: Nat): Carry := { carry.breakTo broken | floor = Some broken }
+def Doc.Carry.startFloor (carry: Carry) (broken: Nat): Carry := { carry.breakTo broken | floor = Some broken }
 
 --| A `Mark` with this key, on a line indented `at`.
-def Carry.mark (carry: Carry) (key at: Nat): Carry :=
+def Doc.Carry.mark (carry: Carry) (key at: Nat): Carry :=
   { carry | marks = [{ key, marked = at, least = None }, ..carry.marks] }
 
 --| Where a `CloserLine` with this key in a construct indented `indent`
 --| starts its line: at `indent`, unless a line since its mark is at or
 --| left of that; then at the marked line's indentation, if less.
-def Carry.closerAt (carry: Carry) (key indent: Nat): Nat := match carry.marks.find (mark => mark.key == key) with
+def Doc.Carry.closerAt (carry: Carry) (key indent: Nat): Nat := match carry.marks.find (mark => mark.key == key) with
   | Some { marked, least = Some least, .. } => if least <= indent then Nat.min marked indent else indent
   | _ => indent
 
 --| The carry before a `CloserLine`'s line break: its mark closed, and no
 --| comment floor.
-def Carry.close (carry: Carry) (key: Nat): Carry :=
+def Doc.Carry.close (carry: Carry) (key: Nat): Carry :=
   { floor = None, marks = carry.marks.filter (mark => mark.key != key) }
 
 --| `doc` printed in `width` columns.
-def print (doc: Doc) (width: Nat): Text :=
+def Doc.print (doc: Doc) (width: Nat): Text :=
   let fuel := 3 * doc.size + 3
   let done := (Printer.start width).run fuel fuel [Print 0 Break doc] |> .flushSuffixes
   done.out.reverse.joinWith ""
 
 --| The printer before anything is printed.
-def Printer.start (width: Nat): Printer := {
+def Doc.Printer.start (width: Nat): Printer := {
   width,
   out = [],
   column = 0,
@@ -135,7 +137,7 @@ def Printer.start (width: Nat): Printer := {
 
 --| Runs the work list for at most `fuel` steps; `total` is the budget given to
 --| each `fits` question.
-def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer := match fuel, stack with
+def Doc.Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer := match fuel, stack with
   | 0, _ => printer
   | _, [] => printer
   | Succ more, [cmd, ..rest] =>
@@ -144,7 +146,7 @@ def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer 
 
 --| One step of the printer: the first command on the work list, and what it
 --| leaves of the list.
-def Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (Printer, List Cmd) := match cmd with
+def Doc.Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (Printer, List Cmd) := match cmd with
   | FillSep indent item =>
     if printer.suffixes.isEmpty
       && fitsFrom total printer.width printer.modes
@@ -159,10 +161,10 @@ def Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (P
 
 --| The step for a `Print` command: writes or breaks at a leaf, and replaces a
 --| composite by its parts.
-def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: Doc) (rest: List Cmd):
+def Doc.Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: Doc) (rest: List Cmd):
     (Printer, List Cmd) :=
   match doc with
-    | Empty => (printer, rest)
+    | Doc.Nothing => (printer, rest)
     | BreakParent => (printer, rest)
     | Chunk text width => (printer.write indent text width, rest)
     | Closing text => (printer.close text, rest)
@@ -219,19 +221,20 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
             let firstMode := if printer.fitsHere total [(indent, Flat, first)] stack then Flat else Break
             (printer, [Print indent firstMode first, ..stack])
     | Choice options =>
-      let chosen := if mode.isFlat then options.headOr Empty else printer.choose total indent rest options
+      let chosen := if mode.isFlat then options.headOr Doc.Nothing else printer.choose total indent rest options
       (printer, [Print indent mode chosen, ..rest])
     | LineSuffix comment => ({ printer | suffixes = printer.suffixes ++ [comment] }, rest)
 
 --| The indentation of an `Align`'s line breaks: the column it starts at,
 --| or `atStart` at a line start.
-def Printer.alignAt (printer: Printer) (atStart: Nat): Nat := if printer.atLineStart then atStart else printer.column
+def Doc.Printer.alignAt (printer: Printer) (atStart: Nat): Nat :=
+  if printer.atLineStart then atStart else printer.column
 
 --| The indentation of a `Displaced` element's line breaks, in a construct
 --| indented `indent`: where its first line lands. At a line start that is
 --| the indentation owed, if deeper; after a waiting comment, the comment
 --| break's.
-def Printer.displacedAt (printer: Printer) (indent: Nat): Nat :=
+def Doc.Printer.displacedAt (printer: Printer) (indent: Nat): Nat :=
   if printer.atLineStart then Nat.max indent (printer.owed.getOrElse 0)
   else if printer.suffixes.isEmpty then indent
   else printer.continuation indent
@@ -239,16 +242,16 @@ def Printer.displacedAt (printer: Printer) (indent: Nat): Nat :=
 --| The printer before a `Displaced` element: a trailing comment waiting
 --| ends its line first (a comment break, unless a line starts here), so
 --| the element starts the next.
-def Printer.displace (printer: Printer) (indent: Nat): Printer :=
+def Doc.Printer.displace (printer: Printer) (indent: Nat): Printer :=
   if printer.suffixes.isEmpty then printer else printer.commentBreak indent
 
 --| The printer with `mode` recorded as how the `IdGroup` `id` printed.
-def Printer.record (printer: Printer) (id: Nat) (mode: Mode): Printer :=
+def Doc.Printer.record (printer: Printer) (id: Nat) (mode: Mode): Printer :=
   { printer | modes = [(id, mode), ..printer.modes] }
 
 --| The first option that fits, as `Choice` takes it; the last if none does.
-def Printer.choose (printer: Printer) (total indent: Nat) (rest: List Cmd): (options: List Doc) → Doc
-  | [] => Empty
+def Doc.Printer.choose (printer: Printer) (total indent: Nat) (rest: List Cmd): (options: List Doc) → Doc
+  | [] => Doc.Nothing
   | [last] => last
   | [option, ..others] =>
     let fitting := match option with
@@ -266,17 +269,17 @@ def Printer.choose (printer: Printer) (total indent: Nat) (rest: List Cmd): (opt
 --| Whether `next`, then the rest of the work list, fits on this line, as
 --| `fitsFrom` measures it, with any trailing comment already waiting
 --| counted.
-def Printer.fitsHere (printer: Printer) (total: Nat) (next: List (Nat, Mode, Doc)) (rest: List Cmd): Bool :=
+def Doc.Printer.fitsHere (printer: Printer) (total: Nat) (next: List (Nat, Mode, Doc)) (rest: List Cmd): Bool :=
   fitsFrom total printer.width printer.modes next rest printer.left printer.lineIndent printer.waiting
 
 --| What a measure from where the printer is knows of a trailing comment
 --| waiting there.
-def Printer.waiting (printer: Printer): Trailing :=
+def Doc.Printer.waiting (printer: Printer): Trailing :=
   if printer.suffixes.isEmpty then Clear else Pending printer.heldSpaces False
 
 --| What a measure knows of a trailing comment waiting on the line it
 --| measures.
-type Trailing =
+type Doc.Trailing =
   | Clear
   --| One waits, with `held` spaces after it, which a closer would write
   --| before itself; `flatBreak` says a flat line break came after it, so
@@ -284,7 +287,7 @@ type Trailing =
   | Pending (held: Nat) (flatBreak: Bool)
 
 --| The measure's state once a trailing comment starts to wait.
-def Trailing.noted: Trailing → Trailing
+def Doc.Trailing.noted: Trailing → Trailing
   | Clear => Pending 0 False
   | Pending held _ => Pending held False
 
@@ -295,10 +298,10 @@ def Doc.joinLines: List Doc → List Doc
   | [item, ..items] => [item, Line, ..Doc.joinLines items]
 
 --| Columns left on this line.
-def Printer.left (printer: Printer): Nat := printer.width - printer.owed.getOrElse printer.column
+def Doc.Printer.left (printer: Printer): Nat := printer.width - printer.owed.getOrElse printer.column
 
 --| Writes the indentation owed, if any, before text on a fresh line.
-def Printer.payIndent (printer: Printer): Printer := match printer.owed with
+def Doc.Printer.payIndent (printer: Printer): Printer := match printer.owed with
   | None => printer
   | Some 0 => { printer | owed = None, column = 0 }
   | Some indent => { printer | out = [" ".repeat indent, ..printer.out], owed = None, column = indent }
@@ -312,7 +315,7 @@ def Printer.payIndent (printer: Printer): Printer := match printer.owed with
 --| trailing comment follows a word); there the Rust engine writes the
 --| text first and the comment after it, and this one keeps the
 --| document's order, as `readingWords` states of every document.
-def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Printer :=
+def Doc.Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Printer :=
   if text.isEmpty then printer
   else if printer.suffixes.isEmpty then printer.put text width
   else if text.all (char => char == ' ') then { printer | heldSpaces = printer.heldSpaces + text.length }
@@ -320,14 +323,14 @@ def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Pr
 
 --| A closing bracket or comma: on the line as it stands, before any
 --| trailing comment waiting there, after the spaces held since it.
-def Printer.close (printer: Printer) (text: Text): Printer :=
+def Doc.Printer.close (printer: Printer) (text: Text): Printer :=
   if text.isEmpty then printer
   else if printer.suffixes.isEmpty then printer.put text text.length
   else printer.writeHeld.put text text.length
 
 --| The spaces held after a waiting comment, written. None are held at a
 --| line start, where they would move the next word.
-def Printer.writeHeld (printer: Printer): Printer :=
+def Doc.Printer.writeHeld (printer: Printer): Printer :=
   if printer.atLineStart then printer
   else
     match printer.heldSpaces with
@@ -336,7 +339,7 @@ def Printer.writeHeld (printer: Printer): Printer :=
 
 --| Writes `text`, `width` columns wide, on the current line, after any
 --| indentation owed. Code ends a comment floor; a comment doesn't.
-def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
+def Doc.Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
   let paid := printer.payIndent
   { paid |
     out = [text, ..paid.out],
@@ -349,32 +352,33 @@ def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
 
 --| The carry after `text` is written: a comment keeps the comment floor, code
 --| ends it.
-def floorAfter (text: Text) (carry: Carry): Carry := if text.startsWith "--" then carry else { carry | floor = None }
+def Doc.floorAfter (text: Text) (carry: Carry): Carry :=
+  if text.startsWith "--" then carry else { carry | floor = None }
 
 --| The indentation of a comment break in a construct indented `indent`:
 --| deeper than the line being broken, so what follows continues it.
-def Printer.continuation (printer: Printer) (indent: Nat): Nat := Nat.max indent (printer.lineIndent + 2)
+def Doc.Printer.continuation (printer: Printer) (indent: Nat): Nat := Nat.max indent (printer.lineIndent + 2)
 
 --| A comment break, unless a line starts here.
-def Printer.commentBreak (printer: Printer) (indent: Nat): Printer :=
+def Doc.Printer.commentBreak (printer: Printer) (indent: Nat): Printer :=
   if printer.atLineStart then printer else printer.newline (printer.continuation indent)
 
 --| A comment break before an own-line comment, unless a line starts here.
 --| The lines after it, up to the next code, are indented at least as
 --| deep (the comment floor).
-def Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
+def Doc.Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
   if printer.atLineStart then printer
   else
     { printer.newline (printer.continuation indent) | carry = printer.carry.startFloor (printer.continuation indent) }
 
 --| Writes the trailing comments that wait, each after a space, ending their
 --| line.
-def Printer.flushSuffixes (printer: Printer): Printer :=
+def Doc.Printer.flushSuffixes (printer: Printer): Printer :=
   printer.suffixes.foldLeft { printer | suffixes = [] } Printer.flushOne
 
 --| A waiting trailing comment written: after one space, or at the line's
 --| indentation if nothing else is on the line.
-def Printer.flushOne (printer: Printer) (comment: Text): Printer :=
+def Doc.Printer.flushOne (printer: Printer) (comment: Text): Printer :=
   let spaced := if printer.atLineStart then printer.payIndent else { printer | out = [" ", ..printer.out] }
   { spaced | out = [comment, ..spaced.out], atLineStart = False, newlinesAtEnd = 0, started = True }
 
@@ -382,7 +386,7 @@ def Printer.flushOne (printer: Printer) (comment: Text): Printer :=
 --| a line break, and owes `indent` columns on the next, or the comment
 --| floor's if deeper. Spaces held are dropped, and the open marks see
 --| the new line.
-def Printer.newline (printer: Printer) (indent: Nat): Printer :=
+def Doc.Printer.newline (printer: Printer) (indent: Nat): Printer :=
   let flushed := { printer | out = trimSpaces printer.out }.flushSuffixes
   let at := floored printer.carry indent
   { flushed |
@@ -398,20 +402,20 @@ def Printer.newline (printer: Printer) (indent: Nat): Printer :=
   }
 
 --| `indent`, or the comment floor if there is one and it is deeper.
-def floored (carry: Carry) (indent: Nat): Nat := match carry.floor with
+def Doc.floored (carry: Carry) (indent: Nat): Nat := match carry.floor with
   | None => indent
   | Some least => Nat.max indent least
 
 --| The pieces printed (the last first) without the pieces of spaces at
 --| their end: a space the layout put before a break it didn't plan, a
 --| comment break, would end its line.
-def trimSpaces (out: List Text): List Text := match out with
+def Doc.trimSpaces (out: List Text): List Text := match out with
   | [last, ..earlier] if last.all (char => char == ' ') => trimSpaces earlier
   | _ => out
 
 --| An empty line, if the printer is at a line start after some output and the
 --| line before isn't already empty.
-def Printer.blank (printer: Printer): Printer :=
+def Doc.Printer.blank (printer: Printer): Printer :=
   if printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 then
     { printer | out = ["\n", ..printer.out], newlinesAtEnd = printer.newlinesAtEnd + 1 }
   else printer
@@ -438,7 +442,7 @@ def Printer.blank (printer: Printer): Printer :=
 --| `modes` is how each `IdGroup` printed so far, for the `IfBroken`s
 --| measured, a broken `Fill`'s first item and a `OneLineBelow` option
 --| included.
-def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc)) (rest: List Cmd)
+def Doc.fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc)) (rest: List Cmd)
     (left lineIndent: Nat) (suffix: Trailing):
     Bool :=
   match fuel with
@@ -453,7 +457,7 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
             | _ => True
         | [(indent, mode, doc), ..stack] =>
           match doc with
-            | Empty => fitsFrom more width modes stack rest left lineIndent suffix
+            | Doc.Nothing => fitsFrom more width modes stack rest left lineIndent suffix
             | Blank => fitsFrom more width modes stack rest left lineIndent suffix
             | Mark _ => fitsFrom more width modes stack rest left lineIndent suffix
             | LineSuffix _ => fitsFrom more width modes stack rest left lineIndent suffix.noted

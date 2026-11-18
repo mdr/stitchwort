@@ -4,21 +4,20 @@
 --| places use them; the `Tracks` and `Measured` invariants that used to
 --| live here were never reached from the final theorems.
 
-namespace Fmt.Doc.Proofs
-import Fmt.Doc (..)
-import Std (Bool, Eq, List, Nat, Text)
+import Doc (..)
+import Doc.Proofs (..)
 
 --| The characters on the last line of the output (its pieces the last
 --| first).
-def lineWidth: List Text → Nat
+def Doc.Proofs.lineWidth: List Text → Nat
   | [] => 0
   | [piece, ..earlier] => if piece == "\n" then 0 else piece.length + lineWidth earlier
 
 --| `indent` spaces are `indent` characters long.
-theorem indentLength ∀ (indent: Nat): (" ".repeat indent).length = indent := match indent with
+theorem Doc.Proofs.indentLength ∀ (indent: Nat): (" ".repeat indent).length = indent := match indent with
   | Zero => byComputing
   | Succ less => Eq.cong Succ (indentLength less)
 
 --| The left side of a true conjunction is true.
-theorem andTrueLeft ∀ (left right: Bool) (both: (left && right) = True): left = True := match left, both with
+theorem Doc.Proofs.andTrueLeft ∀ (left right: Bool) (both: (left && right) = True): left = True := match left, both with
   | True, _ => byComputing

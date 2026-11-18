@@ -7,14 +7,13 @@
 --| is proved of every reading (that its text lexes and parses back to the
 --| tree) holds of `print` at every width, with nothing about `fits`.
 
-namespace Fmt.Doc.Proofs
-import Fmt.Doc (..)
-import Std (Bool, List, Nat, Option, Text)
+import Doc (..)
+import Doc.Proofs (..)
 
 --| `chosen` is what a `Choice` of `options` may print: one of them, or
 --| nothing for no options.
-def IsOption (chosen: Doc): List Doc → Prop
-  | [] => chosen = Empty
+def Doc.Proofs.IsOption (chosen: Doc): List Doc → Prop
+  | [] => chosen = Doc.Nothing
   | [last] => chosen = last
   | [option, ..others] => chosen = option ∨ IsOption chosen others
 
@@ -27,43 +26,45 @@ def IsOption (chosen: Doc): List Doc → Prop
 --| is recorded; an `IfBroken` takes the branch the record picks, which is
 --| the printer's own step. Every other step is the printer's,
 --| which doesn't look at the width.
-def StepsTo (printer: Printer) (cmd: Cmd) (rest: List Cmd) (next: (Printer, List Cmd)): Prop := match cmd with
-  | FillSep indent item =>
-    (printer.suffixes.isEmpty = True ∧ next = (printer.write indent " " 1, [Print indent Flat item, ..rest]))
-      ∨ next = (printer.newline indent, [Print indent Break item, ..rest])
-  | Print indent mode doc =>
-    match doc with
-      | Group inner hard =>
-        ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
-          ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
-      | NarrowGroup _ inner hard =>
-        ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
-          ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
-      | IdGroup id inner hard =>
-        ((mode.isFlat = True ∨ hard = False) ∧ next = (printer.record id Flat, [Print indent Flat inner, ..rest]))
-          ∨ (mode.isFlat = False ∧ next = (printer.record id Break, [Print indent Break inner, ..rest]))
-      | Fill [] => next = (printer, rest)
-      | Fill [first, ..others] =>
-        (mode.isFlat = True ∧ next = (printer, (Doc.joinLines [first, ..others] |> .map (Print indent Flat)) ++ rest))
-          ∨ (mode.isFlat = False
-            ∧ (∃ (firstMode: Mode) => next
-              = (printer, [Print indent firstMode first, ..others.map (FillSep indent) ++ rest])))
-      | Choice options =>
-        (mode.isFlat = True ∧ next = (printer, [Print indent mode (options.headOr Empty), ..rest]))
-          ∨ (mode.isFlat = False
-            ∧ (∃ (chosen: Doc) => IsOption chosen options ∧ next = (printer, [Print indent mode chosen, ..rest])))
-      | _ => next = printer.printDoc 0 indent mode doc rest
+def Doc.Proofs.StepsTo (printer: Printer) (cmd: Cmd) (rest: List Cmd) (next: (Printer, List Cmd)): Prop :=
+  match cmd with
+    | FillSep indent item =>
+      (printer.suffixes.isEmpty = True ∧ next = (printer.write indent " " 1, [Print indent Flat item, ..rest]))
+        ∨ next = (printer.newline indent, [Print indent Break item, ..rest])
+    | Print indent mode doc =>
+      match doc with
+        | Group inner hard =>
+          ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
+            ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
+        | NarrowGroup _ inner hard =>
+          ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
+            ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
+        | IdGroup id inner hard =>
+          ((mode.isFlat = True ∨ hard = False) ∧ next = (printer.record id Flat, [Print indent Flat inner, ..rest]))
+            ∨ (mode.isFlat = False ∧ next = (printer.record id Break, [Print indent Break inner, ..rest]))
+        | Fill [] => next = (printer, rest)
+        | Fill [first, ..others] =>
+          (mode.isFlat = True ∧ next = (printer, (Doc.joinLines [first, ..others] |> .map (Print indent Flat)) ++ rest))
+            ∨ (mode.isFlat = False
+              ∧ (∃ (firstMode: Mode) => next
+                = (printer, [Print indent firstMode first, ..others.map (FillSep indent) ++ rest])))
+        | Choice options =>
+          (mode.isFlat = True ∧ next = (printer, [Print indent mode (options.headOr Doc.Nothing), ..rest]))
+            ∨ (mode.isFlat = False
+              ∧ (∃ (chosen: Doc) => IsOption chosen options ∧ next = (printer, [Print indent mode chosen, ..rest])))
+        | _ => next = printer.printDoc 0 indent mode doc rest
 
 --| `final` is where a reading of the work list `stack` from `printer`
 --| stops, in at most `fuel` steps.
-def Reads (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer): Prop := match fuel, stack with
+def Doc.Proofs.Reads (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer): Prop := match fuel, stack with
   | 0, _ => final = printer
   | _, [] => final = printer
   | Succ more, [cmd, ..rest] =>
-    ∃ (next: Printer) => ∃ (later: List Cmd) => StepsTo printer cmd rest (next, later) ∧ Reads next more later final
+    ∃ (next: Printer) => ∃ (later: List Cmd) => StepsTo printer cmd rest (next, later)
+      ∧ Doc.Proofs.Reads next more later final
 
 --| An `if` between two options of a choice picks one of them.
-theorem ifIsOption ∀ (condition: Bool) (option later: Doc) (others: List Doc)
+theorem Doc.Proofs.ifIsOption ∀ (condition: Bool) (option later: Doc) (others: List Doc)
     (laterIs: IsOption later others):
     (if condition then option else later) = option ∨ IsOption (if condition then option else later) others :=
   match condition with
@@ -71,7 +72,7 @@ theorem ifIsOption ∀ (condition: Bool) (option later: Doc) (others: List Doc)
     | False => Inr laterIs
 
 --| What a broken `Choice` takes is one of its options.
-theorem chooseIsOption ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
+theorem Doc.Proofs.chooseIsOption ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
     IsOption (printer.choose total indent rest options) options :=
   match options with
     | [option, next, ..others] =>
@@ -83,7 +84,7 @@ theorem chooseIsOption ∀ (printer: Printer) (total indent: Nat) (rest: List Cm
 
 --| Every step of the printer, at any width and budget, is a step of a
 --| reading.
-theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd):
+theorem Doc.Proofs.stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd):
     StepsTo printer cmd rest (printer.step total cmd rest) :=
   match cmd with
     | FillSep indent item =>
@@ -161,8 +162,8 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
         | _ => cases
 
 --| A run of the printer, at any width and budget, is a reading.
-theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
-    Reads printer fuel stack (printer.run total fuel stack) :=
+theorem Doc.Proofs.runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
+    Doc.Proofs.Reads printer fuel stack (printer.run total fuel stack) :=
   match fuel, stack with
     | Succ more, [cmd, ..rest] =>
       let isStep := stepIsReading printer total cmd rest
@@ -174,9 +175,9 @@ theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
 --| what some reading of the document, from the empty printer, leaves
 --| (its pieces joined, after the last line's trailing comment). So the
 --| width never matters to what holds of every reading.
-theorem printIsReading ∀ (doc: Doc) (width: Nat):
-    ∃ (final: Printer) => Reads (Printer.start width) (3 * doc.size + 3) [Print 0 Break doc] final
-      ∧ print doc width = final.flushSuffixes.out.reverse.joinWith "" :=
+theorem Doc.Proofs.printIsReading ∀ (doc: Doc) (width: Nat):
+    ∃ (final: Printer) => Doc.Proofs.Reads (Printer.start width) (3 * doc.size + 3) [Print 0 Break doc] final
+      ∧ Doc.print doc width = final.flushSuffixes.out.reverse.joinWith "" :=
   (
     ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]),
     (runIsReading (Printer.start width) (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]),

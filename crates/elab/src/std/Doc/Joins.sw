@@ -16,12 +16,11 @@
 --| holds of exactly the layouts some reading can make, up to the mode of
 --| a `Line` (a space is asked for also where the group is broken).
 
-namespace Fmt.Doc.Proofs
-import Fmt.Doc (..)
-import Std (Bool, Eq, List, Nat, Option, Text, Void)
+import Doc (..)
+import Doc.Proofs (..)
 
 --| What the next piece on the line would stand after.
-type Edge =
+type Doc.Proofs.Edge =
   --| No trailing comment waits: the next text follows `touching`, the
   --| last piece if it isn't layout, or nothing (a line start, or after
   --| spaces).
@@ -31,33 +30,34 @@ type Edge =
   | Waiting (touching: Option Text)
 
 --| Spaces of any length ask what one space asks.
-def gapOr (later: Text): Text := if later.all (char => char == ' ') then " " else later
+def Doc.Proofs.gapOr (later: Text): Text := if later.all (char => char == ' ') then " " else later
 
 --| What a line ending in `text` touches: nothing for layout (spaces or an empty
 --| text), else the text.
-def textTouch (text: Text): Option Text := if isLayout text then None else Some text
+def Doc.Proofs.textTouch (text: Text): Option Text := if isLayout text then None else Some text
 
 --| What the output so far ends with, as a touch: nothing at its start, or after
 --| layout.
-def outTouch: List Text → Option Text
+def Doc.Proofs.outTouch: List Text → Option Text
   | [] => None
   | [last, .._] => textTouch last
 
 --| The edge of the output `out` with `suffixes` waiting: `Waiting` if any
 --| comment waits.
-def edgeOf (suffixes out: List Text): Edge := if suffixes.isEmpty then Plain (outTouch out) else Waiting (outTouch out)
+def Doc.Proofs.edgeOf (suffixes out: List Text): Edge :=
+  if suffixes.isEmpty then Plain (outTouch out) else Waiting (outTouch out)
 
 --| The edge of what the printer has written, and whether a comment waits.
-def Printer.edge (printer: Printer): Edge := edgeOf printer.suffixes printer.out
+def Doc.Printer.edge (printer: Printer): Edge := edgeOf printer.suffixes printer.out
 
 --| `text` may be put after what the line ends with.
-def PutOk (follows: Text → Text → Prop) (touching: Option Text) (text: Text): Prop := match touching with
+def Doc.Proofs.PutOk (follows: Text → Text → Prop) (touching: Option Text) (text: Text): Prop := match touching with
   | Some word => follows word (gapOr text)
   | None => True
 
 --| A chunk: nothing if empty; after a waiting comment, spaces are dropped
 --| and text starts a new line.
-def WriteJoins (follows: Text → Text → Prop) (edge: Edge) (text: Text) (next: Edge → Prop): Prop :=
+def Doc.Proofs.WriteJoins (follows: Text → Text → Prop) (edge: Edge) (text: Text) (next: Edge → Prop): Prop :=
   if text.isEmpty then next edge
   else
     match edge with
@@ -68,36 +68,37 @@ def WriteJoins (follows: Text → Text → Prop) (edge: Edge) (text: Text) (next
 --| A closer: a chunk where no comment waits. Where one waits, the closer
 --| joins its line before it: so it isn't spaces, it may follow what the
 --| line ends with, and the comment's space may follow it.
-def CloseJoins (follows: Text → Text → Prop) (edge: Edge) (text: Text) (next: Edge → Prop): Prop := match edge with
-  | Plain touching => WriteJoins follows (Plain touching) text next
-  | Waiting touching =>
-    text.all (char => char == ' ') = False
-      ∧ text.isEmpty = False
-      ∧ PutOk follows touching text
-      ∧ follows text " "
-      ∧ next (Waiting (textTouch text))
+def Doc.Proofs.CloseJoins (follows: Text → Text → Prop) (edge: Edge) (text: Text) (next: Edge → Prop): Prop :=
+  match edge with
+    | Plain touching => WriteJoins follows (Plain touching) text next
+    | Waiting touching =>
+      text.all (char => char == ' ') = False
+        ∧ text.isEmpty = False
+        ∧ PutOk follows touching text
+        ∧ follows text " "
+        ∧ next (Waiting (textTouch text))
 
 --| A `Line` or a fill's separator: a space or a line break. After a
 --| waiting comment the space is held, written only before a closer, so
 --| the edge stays as it was.
-def SepJoins (follows: Text → Text → Prop) (edge: Edge) (next: Edge → Prop): Prop := match edge with
+def Doc.Proofs.SepJoins (follows: Text → Text → Prop) (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => PutOk follows touching " " ∧ next (Plain None)
   | Waiting touching => next (Waiting touching) ∧ next (Plain None)
 
 --| A `SoftLine`: nothing or a line break.
-def SoftJoins (edge: Edge) (next: Edge → Prop): Prop := match edge with
+def Doc.Proofs.SoftJoins (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => next (Plain touching) ∧ next (Plain None)
   | Waiting touching => next (Waiting touching) ∧ next (Plain None)
 
 --| A `LineStart` or `LineStartHere`: a line break unless a line starts
 --| here, where a comment may still wait from the line before.
-def StartJoins (edge: Edge) (next: Edge → Prop): Prop := match edge with
+def Doc.Proofs.StartJoins (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => next (Plain None)
   | Waiting touching => next (Waiting touching) ∧ next (Plain None)
 
 --| A `Displaced` element's contents, from where they start: where they
 --| are, or after a line break if a comment waits (none at a line start).
-def DisplacedJoins (edge: Edge) (inner: Edge → Prop): Prop := match edge with
+def Doc.Proofs.DisplacedJoins (edge: Edge) (inner: Edge → Prop): Prop := match edge with
   | Plain _ => inner edge
   | Waiting touching => inner (Waiting touching) ∧ inner (Plain None)
 
@@ -105,14 +106,14 @@ def DisplacedJoins (edge: Edge) (inner: Edge → Prop): Prop := match edge with
 --| space at the end of the line. A
 --| second one while the first waits is refused: both would be flushed on
 --| one line, the second inside the first.
-def SuffixJoins (follows: Text → Text → Prop) (edge: Edge) (next: Edge → Prop): Prop := match edge with
+def Doc.Proofs.SuffixJoins (follows: Text → Text → Prop) (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => PutOk follows touching " " ∧ next (Waiting touching)
   | Waiting _ => False
 
 --| From `edge`, every way `doc` may print puts each piece after one it
 --| may follow, and every edge it may leave satisfies `next`.
-def Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge → Prop): Prop := match doc with
-  | Empty => next edge
+def Doc.Proofs.Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge → Prop): Prop := match doc with
+  | Doc.Nothing => next edge
   | BreakParent => next edge
   | Blank => next edge
   | Chunk text _ => WriteJoins follows edge text next
@@ -140,31 +141,34 @@ def Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge 
   | LineSuffix comment => comment.isEmpty = False ∧ SuffixJoins follows edge next
 
 --| The documents one after another.
-def JoinsAll (follows: Text → Text → Prop) (docs: List Doc) (edge: Edge) (next: Edge → Prop): Prop := match docs with
-  | [] => next edge
-  | [doc, ..rest] => Joins follows doc edge (after => JoinsAll follows rest after next)
+def Doc.Proofs.JoinsAll (follows: Text → Text → Prop) (docs: List Doc) (edge: Edge) (next: Edge → Prop): Prop :=
+  match docs with
+    | [] => next edge
+    | [doc, ..rest] => Joins follows doc edge (after => JoinsAll follows rest after next)
 
 --| A fill's items, a separator before each but the first.
-def FillJoins (follows: Text → Text → Prop) (items: List Doc) (edge: Edge) (next: Edge → Prop): Prop := match items with
-  | [] => next edge
-  | [first, ..others] => Joins follows first edge (after => SepsJoin follows others after next)
+def Doc.Proofs.FillJoins (follows: Text → Text → Prop) (items: List Doc) (edge: Edge) (next: Edge → Prop): Prop :=
+  match items with
+    | [] => next edge
+    | [first, ..others] => Joins follows first edge (after => SepsJoin follows others after next)
 
 --| The items of a fill, each after a separator that is a space or a line break,
 --| join as `follows` allows.
-def SepsJoin (follows: Text → Text → Prop) (items: List Doc) (edge: Edge) (next: Edge → Prop): Prop := match items with
-  | [] => next edge
-  | [item, ..more] =>
-    SepJoins follows edge (middle => Joins follows item middle (after => SepsJoin follows more after next))
+def Doc.Proofs.SepsJoin (follows: Text → Text → Prop) (items: List Doc) (edge: Edge) (next: Edge → Prop): Prop :=
+  match items with
+    | [] => next edge
+    | [item, ..more] =>
+      SepJoins follows edge (middle => Joins follows item middle (after => SepsJoin follows more after next))
 
 --| Whichever option a choice takes.
-def OptionsJoin (follows: Text → Text → Prop) (options: List Doc) (edge: Edge) (next: Edge → Prop): Prop :=
+def Doc.Proofs.OptionsJoin (follows: Text → Text → Prop) (options: List Doc) (edge: Edge) (next: Edge → Prop): Prop :=
   match options with
     | [] => next edge
     | [last] => Joins follows last edge next
     | [option, ..others] => Joins follows option edge next ∧ OptionsJoin follows others edge next
 
 --| The work list, from `edge` to the end.
-def StackJoins (follows: Text → Text → Prop) (stack: List Cmd) (edge: Edge): Prop := match stack with
+def Doc.Proofs.StackJoins (follows: Text → Text → Prop) (stack: List Cmd) (edge: Edge): Prop := match stack with
   | [] => True
   | [Print _ _ doc, ..rest] => Joins follows doc edge (after => StackJoins follows rest after)
   | [FillSep _ item, ..rest] =>
@@ -174,7 +178,7 @@ def StackJoins (follows: Text → Text → Prop) (stack: List Cmd) (edge: Edge):
 
 --| `WriteJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem writeWeaker ∀ (follows: Text → Text → Prop) (edge: Edge) (text: Text)
+theorem Doc.Proofs.writeWeaker ∀ (follows: Text → Text → Prop) (edge: Edge) (text: Text)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: WriteJoins follows edge text strong):
     WriteJoins follows edge text weak :=
@@ -190,7 +194,7 @@ theorem writeWeaker ∀ (follows: Text → Text → Prop) (edge: Edge) (text: Te
 
 --| `CloseJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem closeWeaker ∀ (follows: Text → Text → Prop) (edge: Edge) (text: Text)
+theorem Doc.Proofs.closeWeaker ∀ (follows: Text → Text → Prop) (edge: Edge) (text: Text)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: CloseJoins follows edge text strong):
     CloseJoins follows edge text weak :=
@@ -200,7 +204,7 @@ theorem closeWeaker ∀ (follows: Text → Text → Prop) (edge: Edge) (text: Te
 
 --| `SepJoins` holds with a weaker requirement on the edge after it, if it holds
 --| with a stronger one.
-theorem sepWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
+theorem Doc.Proofs.sepWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: SepJoins follows edge strong):
     SepJoins follows edge weak :=
@@ -210,7 +214,8 @@ theorem sepWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
 
 --| `SoftJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem softWeaker ∀ (edge: Edge) (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
+theorem Doc.Proofs.softWeaker ∀ (edge: Edge)
+    (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: SoftJoins edge strong):
     SoftJoins edge weak :=
   match edge, joins with
@@ -219,7 +224,8 @@ theorem softWeaker ∀ (edge: Edge) (strong weak: Edge → Prop) (implies: ∀ (
 
 --| `StartJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem startWeaker ∀ (edge: Edge) (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
+theorem Doc.Proofs.startWeaker ∀ (edge: Edge)
+    (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: StartJoins edge strong):
     StartJoins edge weak :=
   match edge, joins with
@@ -228,7 +234,7 @@ theorem startWeaker ∀ (edge: Edge) (strong weak: Edge → Prop) (implies: ∀ 
 
 --| `SuffixJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem suffixWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
+theorem Doc.Proofs.suffixWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: SuffixJoins follows edge strong):
     SuffixJoins follows edge weak :=
@@ -237,12 +243,12 @@ theorem suffixWeaker ∀ (follows: Text → Text → Prop) (edge: Edge)
     | Waiting _, never => never
 
 --| What holds with a continuation holds with any it implies.
-theorem joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge)
+theorem Doc.Proofs.joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: Joins follows doc edge strong):
     Joins follows doc edge weak :=
   match doc, joins with
-    | Empty, joins => implies edge joins
+    | Doc.Nothing, joins => implies edge joins
     | BreakParent, joins => implies edge joins
     | Blank, joins => implies edge joins
     | Chunk text width, joins => writeWeaker follows edge text strong weak implies joins
@@ -280,7 +286,7 @@ theorem joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge
 
 --| `JoinsAll` holds with a weaker requirement on the edge after it, if it holds
 --| with a stronger one.
-theorem allWeaker ∀ (follows: Text → Text → Prop) (docs: List Doc) (edge: Edge)
+theorem Doc.Proofs.allWeaker ∀ (follows: Text → Text → Prop) (docs: List Doc) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: JoinsAll follows docs edge strong):
     JoinsAll follows docs edge weak :=
@@ -295,7 +301,7 @@ theorem allWeaker ∀ (follows: Text → Text → Prop) (docs: List Doc) (edge: 
 
 --| `FillJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem fillWeaker ∀ (follows: Text → Text → Prop) (items: List Doc) (edge: Edge)
+theorem Doc.Proofs.fillWeaker ∀ (follows: Text → Text → Prop) (items: List Doc) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: FillJoins follows items edge strong):
     FillJoins follows items edge weak :=
@@ -310,7 +316,7 @@ theorem fillWeaker ∀ (follows: Text → Text → Prop) (items: List Doc) (edge
 
 --| `SepsJoin` holds with a weaker requirement on the edge after it, if it holds
 --| with a stronger one.
-theorem sepsWeaker ∀ (follows: Text → Text → Prop) (items: List Doc) (edge: Edge)
+theorem Doc.Proofs.sepsWeaker ∀ (follows: Text → Text → Prop) (items: List Doc) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: SepsJoin follows items edge strong):
     SepsJoin follows items edge weak :=
@@ -330,7 +336,7 @@ theorem sepsWeaker ∀ (follows: Text → Text → Prop) (items: List Doc) (edge
 
 --| `OptionsJoin` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
-theorem optionsWeaker ∀ (follows: Text → Text → Prop) (options: List Doc) (edge: Edge)
+theorem Doc.Proofs.optionsWeaker ∀ (follows: Text → Text → Prop) (options: List Doc) (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: OptionsJoin follows options edge strong):
     OptionsJoin follows options edge weak :=
@@ -346,7 +352,7 @@ theorem optionsWeaker ∀ (follows: Text → Text → Prop) (options: List Doc) 
 
 --| Docs printed in order, then the work list, join as `follows` allows, if the
 --| docs and then the work list do.
-theorem printsJoin ∀ (follows: Text → Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc)
+theorem Doc.Proofs.printsJoin ∀ (follows: Text → Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc)
     (rest: List Cmd) (edge: Edge)
     (joins: JoinsAll follows docs edge (after => StackJoins follows rest after)):
     StackJoins follows (docs.map (Print indent mode) ++ rest) edge :=
@@ -360,7 +366,8 @@ theorem printsJoin ∀ (follows: Text → Text → Prop) (indent: Nat) (mode: Mo
         joins
 
 --| A flat fill is its items with a `Line` between each two.
-theorem linesJoin ∀ (follows: Text → Text → Prop) (first: Doc) (others: List Doc) (edge: Edge) (next: Edge → Prop)
+theorem Doc.Proofs.linesJoin ∀ (follows: Text → Text → Prop) (first: Doc) (others: List Doc)
+    (edge: Edge) (next: Edge → Prop)
     (joins: Joins follows first edge (after => SepsJoin follows others after next)):
     JoinsAll follows (Doc.joinLines [first, ..others]) edge next :=
   match others, joins with
@@ -378,7 +385,8 @@ theorem linesJoin ∀ (follows: Text → Text → Prop) (first: Doc) (others: Li
         joins
 
 --| A broken fill's separators and items, as the work list holds them.
-theorem fillSepsJoin ∀ (follows: Text → Text → Prop) (indent: Nat) (items: List Doc) (rest: List Cmd) (edge: Edge)
+theorem Doc.Proofs.fillSepsJoin ∀ (follows: Text → Text → Prop) (indent: Nat) (items: List Doc)
+    (rest: List Cmd) (edge: Edge)
     (joins: SepsJoin follows items edge (after => StackJoins follows rest after)):
     StackJoins follows (items.map (FillSep indent) ++ rest) edge :=
   match items, joins with
@@ -397,7 +405,8 @@ theorem fillSepsJoin ∀ (follows: Text → Text → Prop) (indent: Nat) (items:
         joins
 
 --| A doc that is one of the options of a choice joins as the options do.
-theorem optionJoins ∀ (follows: Text → Text → Prop) (chosen: Doc) (options: List Doc) (edge: Edge) (next: Edge → Prop)
+theorem Doc.Proofs.optionJoins ∀ (follows: Text → Text → Prop) (chosen: Doc) (options: List Doc)
+    (edge: Edge) (next: Edge → Prop)
     (isOption: IsOption chosen options)
     (joins: OptionsJoin follows options edge next):
     Joins follows chosen edge next :=
@@ -409,9 +418,9 @@ theorem optionJoins ∀ (follows: Text → Text → Prop) (chosen: Doc) (options
       optionJoins follows chosen [second, ..others] edge next later rest
 
 --| The first option of a choice joins as the options do.
-theorem headOrJoins ∀ (follows: Text → Text → Prop) (options: List Doc) (edge: Edge) (next: Edge → Prop)
+theorem Doc.Proofs.headOrJoins ∀ (follows: Text → Text → Prop) (options: List Doc) (edge: Edge) (next: Edge → Prop)
     (joins: OptionsJoin follows options edge next):
-    Joins follows (options.headOr Empty) edge next :=
+    Joins follows (options.headOr Doc.Nothing) edge next :=
   match options, joins with
     | [], joins => joins
     | [last], joins => joins
@@ -422,41 +431,41 @@ theorem headOrJoins ∀ (follows: Text → Text → Prop) (options: List Doc) (e
 --| `later` may stand straight after `earlier`: after layout anything
 --| may, a line break may follow anything, and otherwise the document
 --| allowed it.
-def Pair (follows: Text → Text → Prop) (earlier later: Text): Prop :=
+def Doc.Proofs.Pair (follows: Text → Text → Prop) (earlier later: Text): Prop :=
   isLayout earlier = True ∨ later = "\n" ∨ follows earlier (gapOr later)
 
 --| `later` may be written after the pieces `out` (the last first).
-def Accepts (follows: Text → Text → Prop) (out: List Text) (later: Text): Prop := match out with
+def Doc.Proofs.Accepts (follows: Text → Text → Prop) (out: List Text) (later: Text): Prop := match out with
   | [] => True
-  | [earlier, .._] => Pair follows earlier later
+  | [earlier, .._] => Doc.Proofs.Pair follows earlier later
 
 --| Every piece of `out` (the last first) has at least one character and
 --| may stand after the one before.
-def Pairs (follows: Text → Text → Prop): List Text → Prop
+def Doc.Proofs.Pairs (follows: Text → Text → Prop): List Text → Prop
   | [] => True
   | [later, ..earlier] => later.isEmpty = False ∧ Accepts follows earlier later ∧ Pairs follows earlier
 
 --| Nothing is on the last line of `out`.
-def Fresh: List Text → Prop
+def Doc.Proofs.Fresh: List Text → Prop
   | [] => True
   | [last, .._] => last = "\n"
 
 --| A space may be written after `out`.
-def HeadReady (follows: Text → Text → Prop): List Text → Prop
+def Doc.Proofs.HeadReady (follows: Text → Text → Prop): List Text → Prop
   | [] => True
   | [last, .._] => isLayout last = True ∨ follows last " "
 
 --| At most one trailing comment waits; it has at least one character and
 --| may be written, after a space, at the end of the line once the spaces
 --| there are dropped.
-def WaitsParts (follows: Text → Text → Prop) (suffixes out: List Text): Prop := match suffixes with
+def Doc.Proofs.WaitsParts (follows: Text → Text → Prop) (suffixes out: List Text): Prop := match suffixes with
   | [] => True
   | [only] => only.isEmpty = False ∧ HeadReady follows (trimSpaces out)
   | _ => False
 
 --| `Sound`, from the printer's parts: the output's pairs, the owed indentation,
 --| the line start and the waiting comments.
-def SoundParts (follows: Text → Text → Prop) (out: List Text) (owed: Option Nat)
+def Doc.Proofs.SoundParts (follows: Text → Text → Prop) (out: List Text) (owed: Option Nat)
     (atLineStart: Bool) (suffixes: List Text):
     Prop :=
   Pairs follows out
@@ -467,15 +476,15 @@ def SoundParts (follows: Text → Text → Prop) (out: List Text) (owed: Option 
 --| The output so far is joined as allowed, indentation is owed only at a
 --| line start, a line marked as only started has nothing on it, and the
 --| waiting comment can be flushed.
-def Sound (follows: Text → Text → Prop) (printer: Printer): Prop :=
+def Doc.Proofs.Sound (follows: Text → Text → Prop) (printer: Printer): Prop :=
   SoundParts follows printer.out printer.owed printer.atLineStart printer.suffixes
 
 --| The printer is sound and its edge satisfies `next`.
-def Holds (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer): Prop :=
+def Doc.Proofs.Holds (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer): Prop :=
   Sound follows printer ∧ next printer.edge
 
 --| A line that has only started accepts any text.
-theorem freshAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (later: Text)
+theorem Doc.Proofs.freshAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (later: Text)
     (fresh: Fresh out):
     Accepts follows out later :=
   match out, fresh with
@@ -483,23 +492,27 @@ theorem freshAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (lat
     | [last, ..earlier], isBreak => Inl (rewrite isBreak)
 
 --| A line break is accepted after any output.
-theorem breakAccepts ∀ (follows: Text → Text → Prop) (out: List Text): Accepts follows out "\n" := match out with
-  | [] => byComputing
-  | [last, ..earlier] => Inr (Inl byComputing)
+theorem Doc.Proofs.breakAccepts ∀ (follows: Text → Text → Prop) (out: List Text): Accepts follows out "\n" :=
+  match out with
+    | [] => byComputing
+    | [last, ..earlier] => Inr (Inl byComputing)
 
 --| A line that has only started touches nothing.
-theorem freshTouch ∀ (out: List Text) (fresh: Fresh out): outTouch out = None := match out, fresh with
+theorem Doc.Proofs.freshTouch ∀ (out: List Text) (fresh: Fresh out): outTouch out = None := match out, fresh with
   | [], _ => byComputing
   | [last, ..earlier], isBreak => rewrite isBreak
 
 --| A line is fresh if a flag that is true says so, or the flag is false.
-theorem freshWhen ∀ (flag: Bool) (out: List Text) (start: flag = True) (either: flag = False ∨ Fresh out): Fresh out :=
+theorem Doc.Proofs.freshWhen ∀ (flag: Bool) (out: List Text)
+    (start: flag = True)
+    (either: flag = False ∨ Fresh out):
+    Fresh out :=
   match either with
     | Inr fresh => fresh
     | Inl other => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
 
 --| Text accepted after what the output touches is accepted after the output.
-theorem touchAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (text: Text)
+theorem Doc.Proofs.touchAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (text: Text)
     (ok: PutOk follows (outTouch out) text):
     Accepts follows out text :=
   match out, ok with
@@ -511,7 +524,7 @@ theorem touchAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (tex
 
 --| A space accepted after what the output touches means a space may be written
 --| after the output.
-theorem touchReady ∀ (follows: Text → Text → Prop) (out: List Text)
+theorem Doc.Proofs.touchReady ∀ (follows: Text → Text → Prop) (out: List Text)
     (ok: PutOk follows (outTouch out) " "):
     HeadReady follows out :=
   match out, ok with
@@ -522,7 +535,7 @@ theorem touchReady ∀ (follows: Text → Text → Prop) (out: List Text)
         | False, ok => Inr ok
 
 --| If a space may be written after the output, it is accepted there.
-theorem headAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
+theorem Doc.Proofs.headAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
     (ready: HeadReady follows out):
     Accepts follows out " " :=
   match out, ready with
@@ -532,7 +545,7 @@ theorem headAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
 
 --| Dropping the spaces at the end of the output leaves its pairs joined as
 --| allowed.
-theorem trimPairs ∀ (follows: Text → Text → Prop) (out: List Text)
+theorem Doc.Proofs.trimPairs ∀ (follows: Text → Text → Prop) (out: List Text)
     (pairs: Pairs follows out):
     Pairs follows (trimSpaces out) :=
   match out, pairs with
@@ -543,12 +556,12 @@ theorem trimPairs ∀ (follows: Text → Text → Prop) (out: List Text)
         | False => (filled, first, rest)
 
 --| Dropping the spaces at the end of a fresh line leaves it fresh.
-theorem trimFresh ∀ (out: List Text) (fresh: Fresh out): Fresh (trimSpaces out) := match out, fresh with
+theorem Doc.Proofs.trimFresh ∀ (out: List Text) (fresh: Fresh out): Fresh (trimSpaces out) := match out, fresh with
   | [], _ => byComputing
   | [last, ..earlier], isBreak => rewrite isBreak
 
 --| As `trimFresh`, under a flag that may rule out a fresh line.
-theorem trimFreshOr ∀ (flag: Bool) (out: List Text)
+theorem Doc.Proofs.trimFreshOr ∀ (flag: Bool) (out: List Text)
     (either: flag = False ∨ Fresh out):
     flag = False ∨ Fresh (trimSpaces out) :=
   match either with
@@ -557,7 +570,7 @@ theorem trimFreshOr ∀ (flag: Bool) (out: List Text)
 
 --| A space may be written where the comment will be flushed, also before
 --| the spaces at the end of the line are dropped.
-theorem readyAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
+theorem Doc.Proofs.readyAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
     (ready: HeadReady follows (trimSpaces out)):
     Accepts follows out " " :=
   match out, ready with
@@ -569,10 +582,11 @@ theorem readyAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
         | False, Inr ok => Inr (Inr ok)
 
 --| Spaces ask what one space asks.
-theorem gapSpaces ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): gapOr text = " " := rewrite spaces
+theorem Doc.Proofs.gapSpaces ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): gapOr text = " " :=
+  rewrite spaces
 
 --| What stands before spaces may be followed by one space.
-theorem gapBefore ∀ (follows: Text → Text → Prop) (earlier: List Text) (last: Text)
+theorem Doc.Proofs.gapBefore ∀ (follows: Text → Text → Prop) (earlier: List Text) (last: Text)
     (spaces: last.all (char => char == ' ') = True)
     (accepts: Accepts follows earlier last):
     HeadReady follows earlier :=
@@ -586,7 +600,7 @@ theorem gapBefore ∀ (follows: Text → Text → Prop) (earlier: List Text) (la
 
 --| If a space may follow the output, it may once the spaces at its end
 --| are dropped.
-theorem trimmedReady ∀ (follows: Text → Text → Prop) (out: List Text)
+theorem Doc.Proofs.trimmedReady ∀ (follows: Text → Text → Prop) (out: List Text)
     (pairs: Pairs follows out)
     (ready: HeadReady follows out):
     HeadReady follows (trimSpaces out) :=
@@ -598,12 +612,12 @@ theorem trimmedReady ∀ (follows: Text → Text → Prop) (out: List Text)
         | False => ready
 
 --| Paying the indentation owed leaves none owed.
-theorem payOwed ∀ (printer: Printer): printer.payIndent.owed = None := match owed: printer.owed with
+theorem Doc.Proofs.payOwed ∀ (printer: Printer): printer.payIndent.owed = None := match owed: printer.owed with
   | None => owed
   | _ => cases
 
 --| Indentation is paid on an empty line, so text may follow it.
-theorem payPairs ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)
+theorem Doc.Proofs.payPairs ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)
     (pairs: Pairs follows printer.out)
     (owedOk: printer.owed = None ∨ printer.atLineStart = True)
     (freshOk: printer.atLineStart = False ∨ Fresh printer.out)
@@ -624,7 +638,7 @@ theorem payPairs ∀ (follows: Text → Text → Prop) (printer: Printer) (text:
 
 --| Writing text that the output accepts, with no comment waiting, leaves the
 --| printer sound.
-theorem putSound ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text) (width: Nat)
+theorem Doc.Proofs.putSound ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text) (width: Nat)
     (sound: Sound follows printer)
     (clear: printer.suffixes = [])
     (filled: text.isEmpty = False)
@@ -647,7 +661,7 @@ theorem putSound ∀ (follows: Text → Text → Prop) (printer: Printer) (text:
       parts
 
 --| After writing text with no comment waiting, the edge is the text's touch.
-theorem putEdge ∀ (printer: Printer) (text: Text) (width: Nat)
+theorem Doc.Proofs.putEdge ∀ (printer: Printer) (text: Text) (width: Nat)
     (clear: printer.suffixes = []):
     (printer.put text width).edge = Plain (textTouch text) :=
   match payIndentWritten printer with
@@ -657,7 +671,7 @@ theorem putEdge ∀ (printer: Printer) (text: Text) (width: Nat)
       edge
 
 --| Writing a waiting comment keeps the output's pairs joined as allowed.
-theorem flushOnePairs ∀ (follows: Text → Text → Prop) (printer: Printer) (comment: Text)
+theorem Doc.Proofs.flushOnePairs ∀ (follows: Text → Text → Prop) (printer: Printer) (comment: Text)
     (pairs: Pairs follows printer.out)
     (owedOk: printer.owed = None ∨ printer.atLineStart = True)
     (freshOk: printer.atLineStart = False ∨ Fresh printer.out)
@@ -673,7 +687,7 @@ theorem flushOnePairs ∀ (follows: Text → Text → Prop) (printer: Printer) (
     | False, _ => (filled, (Inl byComputing), byComputing, gap, pairs)
 
 --| The comment waiting at a line break is written where it may stand.
-theorem flushedPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
+theorem Doc.Proofs.flushedPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
     (sound: Sound follows printer):
     Pairs follows ({ printer | out = trimSpaces printer.out }).flushSuffixes.out :=
   match sound with
@@ -695,7 +709,7 @@ theorem flushedPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
 
 --| The comment waiting at the end of the print is written where it may
 --| stand.
-theorem finalPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
+theorem Doc.Proofs.finalPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
     (sound: Sound follows printer):
     Pairs follows printer.flushSuffixes.out :=
   match sound with
@@ -716,7 +730,7 @@ theorem finalPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
             | ()
 
 --| A line break leaves a sound printer sound.
-theorem newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer):
     Sound follows (printer.newline indent) :=
   match flushWritten { printer | out = trimSpaces printer.out } with
@@ -736,11 +750,11 @@ theorem newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (i
       parts
 
 --| A line break leaves no comment waiting.
-theorem newlineClear ∀ (printer: Printer) (indent: Nat): (printer.newline indent).suffixes = [] :=
+theorem Doc.Proofs.newlineClear ∀ (printer: Printer) (indent: Nat): (printer.newline indent).suffixes = [] :=
   match newlineWritten printer indent with | (_, none) => none
 
 --| After a line break, nothing is touched and nothing waits.
-theorem newlineEdge ∀ (printer: Printer) (indent: Nat): (printer.newline indent).edge = Plain None :=
+theorem Doc.Proofs.newlineEdge ∀ (printer: Printer) (indent: Nat): (printer.newline indent).edge = Plain None :=
   let edge: edgeOf (printer.newline indent).suffixes [
     "\n",
     ..({ printer | out = trimSpaces printer.out }).flushSuffixes.out
@@ -750,13 +764,13 @@ theorem newlineEdge ∀ (printer: Printer) (indent: Nat): (printer.newline inden
   edge
 
 --| After a line break the printer is sound, at a line start.
-theorem newlineHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.newlineHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer) (after: next (Plain None)):
     Holds follows next (printer.newline indent) :=
   ((newlineSound follows printer indent sound), (rewrite newlineEdge printer indent then after))
 
 --| A chunk written where the document allowed it.
-theorem writeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.writeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (text: Text) (width: Nat)
     (sound: Sound follows printer)
     (joins: WriteJoins follows printer.edge text next):
@@ -793,7 +807,7 @@ theorem writeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (
             )
 
 --| With no comment waiting, a closer asks what a chunk asks.
-theorem closePlain ∀ (follows: Text → Text → Prop) (suffixes out: List Text) (text: Text) (next: Edge → Prop)
+theorem Doc.Proofs.closePlain ∀ (follows: Text → Text → Prop) (suffixes out: List Text) (text: Text) (next: Edge → Prop)
     (clear: suffixes.isEmpty = True)
     (joins: CloseJoins follows (edgeOf suffixes out) text next):
     WriteJoins follows (edgeOf suffixes out) text next :=
@@ -801,7 +815,8 @@ theorem closePlain ∀ (follows: Text → Text → Prop) (suffixes out: List Tex
 
 --| A closer that joins while a comment waits is written on the line before it:
 --| it isn't spaces or empty and is accepted after what the line touches.
-theorem closeWaiting ∀ (follows: Text → Text → Prop) (suffixes out: List Text) (text: Text) (next: Edge → Prop)
+theorem Doc.Proofs.closeWaiting ∀ (follows: Text → Text → Prop) (suffixes out: List Text)
+    (text: Text) (next: Edge → Prop)
     (waits: suffixes.isEmpty = False)
     (joins: CloseJoins follows (edgeOf suffixes out) text next):
     text.all (char => char == ' ') = False
@@ -813,7 +828,7 @@ theorem closeWaiting ∀ (follows: Text → Text → Prop) (suffixes out: List T
 
 --| A closer put on a line where a comment waits: the comment still
 --| waits, and can be flushed after the closer.
-theorem putWaiting ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text) (width: Nat)
+theorem Doc.Proofs.putWaiting ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text) (width: Nat)
     (sound: Sound follows printer)
     (waits: printer.suffixes.isEmpty = False)
     (word: text.all (char => char == ' ') = False)
@@ -848,7 +863,7 @@ theorem putWaiting ∀ (follows: Text → Text → Prop) (printer: Printer) (tex
           (parts, edge)
 
 --| Spaces may stand where a space may.
-theorem gapAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (gap: Text)
+theorem Doc.Proofs.gapAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (gap: Text)
     (spaces: gap.all (char => char == ' ') = True)
     (accepts: Accepts follows out " "):
     Accepts follows out gap :=
@@ -863,7 +878,7 @@ theorem gapAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (gap: 
 
 --| Spaces held after a waiting comment, written before a closer, leave
 --| the printer sound: they may follow the line, as the comment may.
-theorem heldSound ∀ (follows: Text → Text → Prop) (printer: Printer)
+theorem Doc.Proofs.heldSound ∀ (follows: Text → Text → Prop) (printer: Printer)
     (sound: Sound follows printer)
     (waits: printer.suffixes.isEmpty = False):
     Sound follows printer.writeHeld :=
@@ -905,7 +920,7 @@ theorem heldSound ∀ (follows: Text → Text → Prop) (printer: Printer)
 
 --| What a closer may follow on the line, it may follow once the spaces
 --| held are written: the same, or spaces.
-theorem heldPutOk ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)
+theorem Doc.Proofs.heldPutOk ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)
     (ok: PutOk follows (outTouch printer.out) text):
     PutOk follows (outTouch printer.writeHeld.out) text :=
   match start: printer.atLineStart with
@@ -916,7 +931,7 @@ theorem heldPutOk ∀ (follows: Text → Text → Prop) (printer: Printer) (text
         | Succ less => rewrite spacesIsLayout (" ".repeat (Succ less)) (indentSpaces (Succ less))
 
 --| A closer written where the document allowed it.
-theorem closeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (text: Text)
+theorem Doc.Proofs.closeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (text: Text)
     (sound: Sound follows printer)
     (joins: CloseJoins follows printer.edge text next):
     Holds follows next (printer.close text) :=
@@ -941,7 +956,7 @@ theorem closeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (
               rewrite closePut printer text filled waits then (soundAfter, (rewrite edge then after))
 
 --| A separator joins where it breaks, with nothing touched after the break.
-theorem sepBreak ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (edge: Edge)
+theorem Doc.Proofs.sepBreak ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (edge: Edge)
     (joins: SepJoins follows edge next):
     next (Plain None) :=
   match edge, joins with
@@ -950,7 +965,7 @@ theorem sepBreak ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (ed
 
 --| A separator's space: written where no comment waits, held where one
 --| does.
-theorem sepWrite ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.sepWrite ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
     (joins: SepJoins follows printer.edge next):
     Holds follows next (printer.write indent " " 1) :=
@@ -965,25 +980,26 @@ theorem sepWrite ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (pr
     | False, Both held _ => (sound, held)
 
 --| A soft line joins where it breaks, with nothing touched after the break.
-theorem softBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next (Plain None) :=
+theorem Doc.Proofs.softBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next (Plain None) :=
   match edge, joins with
     | Plain touching, Both _ broken => broken
     | Waiting _, Both _ broken => broken
 
 --| A soft line that stays flat leaves the edge as it was.
-theorem softStay ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next edge := match edge, joins with
-  | Plain touching, Both same _ => same
-  | Waiting touching, Both same _ => same
+theorem Doc.Proofs.softStay ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next edge :=
+  match edge, joins with
+    | Plain touching, Both same _ => same
+    | Waiting touching, Both same _ => same
 
 --| A line start that breaks leaves nothing touched after it.
-theorem startBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: StartJoins edge next): next (Plain None) :=
+theorem Doc.Proofs.startBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: StartJoins edge next): next (Plain None) :=
   match edge, joins with
     | Plain touching, after => after
     | Waiting _, Both _ broken => broken
 
 --| At a line start the edge is the same after a `LineStart`: nothing is
 --| on the line, or a comment still waits.
-theorem startStay ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
+theorem Doc.Proofs.startStay ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
     (sound: Sound follows printer)
     (start: printer.atLineStart = True)
     (joins: StartJoins printer.edge next):
@@ -997,7 +1013,8 @@ theorem startStay ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (p
 
 --| A comment break leaves a sound printer sound, with the edge the
 --| document's rule wants.
-theorem commentBreakHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.commentBreakHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop)
+    (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
     (joins: StartJoins printer.edge next):
     Holds follows next (printer.commentBreak indent) :=
@@ -1007,14 +1024,14 @@ theorem commentBreakHolds ∀ (follows: Text → Text → Prop) (next: Edge → 
       newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins)
 
 --| The comment floor and the marks are no part of what the printer has written.
-theorem floorHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (carry: Carry)
+theorem Doc.Proofs.floorHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (carry: Carry)
     (holds: Holds follows next printer):
     Holds follows next { printer | carry = carry } :=
   holds
 
 --| A line start leaves a sound printer sound, with the edge the document's rule
 --| wants.
-theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
     (joins: StartJoins printer.edge next):
     Holds follows next (printer.lineStart indent) :=
@@ -1028,7 +1045,7 @@ theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Pro
 
 --| A `Displaced` element leaves a sound printer sound: a comment waiting
 --| ends its line first.
-theorem displaceHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.displaceHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
     (joins: DisplacedJoins printer.edge next):
     Holds follows next (printer.displace indent) :=
@@ -1037,14 +1054,14 @@ theorem displaceHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop
     | False, joins => commentBreakHolds follows next printer indent sound joins
 
 --| A line start here, at a line's start, leaves the printer sound.
-theorem hereHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+theorem Doc.Proofs.hereHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
     (start: printer.atLineStart = True) (after: next printer.edge):
     Holds follows next { printer | owed = Some indent, lineIndent = indent } :=
   match sound with | (pairs, _, freshOk, waits) => (((pairs, (Inr start), freshOk, waits)), after)
 
 --| A line break keeps the waiting comments writable.
-theorem breakWaits ∀ (follows: Text → Text → Prop) (suffixes out: List Text)
+theorem Doc.Proofs.breakWaits ∀ (follows: Text → Text → Prop) (suffixes out: List Text)
     (waits: WaitsParts follows suffixes out):
     WaitsParts follows suffixes ["\n", ..out] :=
   match suffixes, waits with
@@ -1053,13 +1070,15 @@ theorem breakWaits ∀ (follows: Text → Text → Prop) (suffixes out: List Tex
     | [first, second, ..more], never => never
 
 --| A line break after a fresh line leaves the edge as it was.
-theorem breakEdge ∀ (suffixes out: List Text) (fresh: Fresh out): edgeOf suffixes ["\n", ..out] = edgeOf suffixes out :=
+theorem Doc.Proofs.breakEdge ∀ (suffixes out: List Text)
+    (fresh: Fresh out):
+    edgeOf suffixes ["\n", ..out] = edgeOf suffixes out :=
   match empty: suffixes.isEmpty with
     | True => rewrite freshTouch out fresh
     | False => rewrite freshTouch out fresh
 
 --| A kept blank line: the edge is as it was, a line start.
-theorem blankedHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
+theorem Doc.Proofs.blankedHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
     (sound: Sound follows printer)
     (start: printer.atLineStart = True) (after: next printer.edge):
     Holds follows next { printer | out = ["\n", ..printer.out], newlinesAtEnd = printer.newlinesAtEnd + 1 } :=
@@ -1079,7 +1098,7 @@ theorem blankedHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop)
       )
 
 --| A blank line leaves a sound printer sound.
-theorem blankHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
+theorem Doc.Proofs.blankHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
     (sound: Sound follows printer) (after: next printer.edge):
     Holds follows next printer.blank :=
   match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
@@ -1087,7 +1106,7 @@ theorem blankHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (
     | True => blankedHolds follows next printer sound (andTrueLeft _ _ blank) after
 
 --| A trailing comment starts waiting where a space may follow the line.
-theorem suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (comment: Text)
+theorem Doc.Proofs.suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (comment: Text)
     (sound: Sound follows printer)
     (filled: comment.isEmpty = False)
     (joins: SuffixJoins follows printer.edge next):
@@ -1111,7 +1130,7 @@ theorem suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) 
           (parts, edge)
 
 --| A step that goes one way or the other holds if each way does.
-theorem eitherStep ∀ (follows: Text → Text → Prop) (flat: Bool) (yes no: Printer) (rest: List Cmd)
+theorem Doc.Proofs.eitherStep ∀ (follows: Text → Text → Prop) (flat: Bool) (yes no: Printer) (rest: List Cmd)
     (whenYes: Holds follows (edge => StackJoins follows rest edge) yes)
     (whenNo: Holds follows (edge => StackJoins follows rest edge) no):
     Holds follows
@@ -1122,7 +1141,7 @@ theorem eitherStep ∀ (follows: Text → Text → Prop) (flat: Bool) (yes no: P
     | False => whenNo
 
 --| The branch an `IfBroken` takes joins if both do.
-theorem pickJoins ∀ (follows: Text → Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
+theorem Doc.Proofs.pickJoins ∀ (follows: Text → Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
     (edge: Edge) (next: Edge → Prop)
     (joins: Joins follows (IfBroken id broken flat) edge next):
     Joins follows (pickBranch modes id broken flat) edge next :=
@@ -1132,7 +1151,7 @@ theorem pickJoins ∀ (follows: Text → Text → Prop) (modes: List (Nat, Mode)
 
 --| A step of a reading keeps the printer sound, and the work list it
 --| leaves joins from the edge it leaves.
-theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd: Cmd)
+theorem Doc.Proofs.stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd: Cmd)
     (rest: List Cmd) (result: (Printer, List Cmd))
     (steps: StepsTo printer cmd rest result)
     (sound: Sound follows printer)
@@ -1160,7 +1179,7 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
             joins)
     | Print indent mode doc, steps, joins =>
       match doc, steps, joins with
-        | Empty, steps, joins => rewrite steps then (sound, joins)
+        | Doc.Nothing, steps, joins => rewrite steps then (sound, joins)
         | BreakParent, steps, joins => rewrite steps then (sound, joins)
         | Chunk text width, steps, joins =>
           rewrite steps then
@@ -1297,8 +1316,9 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
 
 --| Through every reading of a work list that joins from the printer's
 --| edge, however far it gets, the printer stays sound.
-theorem readingJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer)
-    (reads: Reads printer fuel stack final)
+theorem Doc.Proofs.readingJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (fuel: Nat)
+    (stack: List Cmd) (final: Printer)
+    (reads: Doc.Proofs.Reads printer fuel stack final)
     (sound: Sound follows printer)
     (joins: StackJoins follows stack printer.edge):
     Sound follows final :=
@@ -1311,18 +1331,18 @@ theorem readingJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (f
         | Both nextSound nextJoins => readingJoins follows next more later final laterReads nextSound nextJoins
 
 --| The printer before anything is printed is sound.
-theorem startSound ∀ (follows: Text → Text → Prop) (width: Nat): Sound follows (Printer.start width) :=
+theorem Doc.Proofs.startSound ∀ (follows: Text → Text → Prop) (width: Nat): Sound follows (Printer.start width) :=
   (byComputing, (Inl byComputing), (Inr byComputing), byComputing)
 
 --| `printedPieces` are the pieces `print` joins, so that what is said of
 --| `print`'s text can be said of the same pieces as `printLays`: what
 --| holds of every word of the document holds of every word printed, and
 --| each piece stands after one it may follow.
-theorem printedJoins ∀ (follows: Text → Text → Prop) (holds: Text → Prop) (doc: Doc) (width: Nat)
+theorem Doc.Proofs.printedJoins ∀ (follows: Text → Text → Prop) (holds: Text → Prop) (doc: Doc) (width: Nat)
     (uniform: Uniform doc)
     (joins: Joins follows doc (Plain None) (after => True))
     (all: Every holds doc.words):
-    print doc width = (printedPieces doc width).joinWith ""
+    Doc.print doc width = (printedPieces doc width).joinWith ""
       ∧ Every holds (wordsOf (printedPieces doc width))
       ∧ Pairs follows (printedPieces doc width).reverse :=
   let fuel := 3 * doc.size + 3
@@ -1354,7 +1374,7 @@ theorem printedJoins ∀ (follows: Text → Text → Prop) (holds: Text → Prop
 --| order no filter can tell from the document's if it keeps no closer,
 --| or keeps no trailing comment (`readingWords`, of `print`'s own
 --| reading).
-theorem printedWords ∀ (keep: Text → Bool) (closer suffix: Text → Prop) (doc: Doc) (width: Nat)
+theorem Doc.Proofs.printedWords ∀ (keep: Text → Bool) (closer suffix: Text → Prop) (doc: Doc) (width: Nat)
     (uniform: Uniform doc)
     (marked: Marked closer suffix doc)
     (apart: (∀ (text: Text) => closer text → keep text = False)
@@ -1385,7 +1405,7 @@ theorem printedWords ∀ (keep: Text → Bool) (closer suffix: Text → Prop) (d
 --| `printedWords` computes, and its hypotheses can be met: of `x) -- c`,
 --| printed from `x`, the comment, then the closer, a filter that drops
 --| the closer sees the document's order.
-theorem printedWordsExample ∀ (width: Nat):
+theorem Doc.Proofs.printedWordsExample ∀ (width: Nat):
     (wordsOf (printedPieces (Concat [Chunk "x" 1, LineSuffix "-- c", Closing ")"]) width)).filter (word => word != ")")
       = ["x", "-- c"] :=
   printedWords
@@ -1396,4 +1416,4 @@ theorem printedWordsExample ∀ (width: Nat):
     width
     ((byComputing, byComputing, byComputing, byComputing))
     ((byComputing, byComputing, byComputing, byComputing))
-    (Inl (text isCloser => rewrite isCloser))
+    (Inl (word isCloser => rewrite isCloser))
