@@ -1,5 +1,5 @@
 {
-  "next": 3961,
+  "next": 3962,
   "tickets": [
     {
       "id": 47,
@@ -23692,6 +23692,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3961,
+      "title": "[Opus] Self-hosted fmt S3 program: layout core (Block, Let, Match with arms, If with block branches, a then that ends its line) on Std.Doc, within3, Fmt.Twin --stage s3; gate: identical to Rust on every golden and repo-sample declaration within S1-S3 (proof plan S3 row; SW-3950/SW-3959 pattern)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
