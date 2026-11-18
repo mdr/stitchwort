@@ -761,52 +761,77 @@ theorem Text.containsAppendMiddle ∀ (front needle back: Text):
 
 --| The characters `Text.joinWith` makes from `field` and the `texts` after it,
 --| with `separator` between each two, contain `needle` when `field` does or
---| one of the texts is `needle`.
-theorem Text.containsJoinTextChars ∀ (needle: Text) (separator field: List Char) (texts: List Text)
-    (found: (Text.containsChars (Text.toList needle) field = True) ∨ (needle ∈ texts)):
-    Text.containsChars (Text.toList needle) (Text.joinTextChars separator field (Text.charListsOf texts)) = True :=
+--| `part`, one of the texts, does.
+theorem Text.containsJoinTextChars ∀ (needle separator field: List Char) (texts: List Text) (part: Text)
+    (inPart: Text.containsChars needle (Text.toList part) = True)
+    (found: (Text.containsChars needle field = True) ∨ (part ∈ texts)):
+    Text.containsChars needle (Text.joinTextChars separator field (Text.charListsOf texts)) = True :=
   match texts, found with
     | [], Inl h => h
     | [], Inr m => m.impossible
-    | [next, ..later], Inl h => Text.containsCharsAppendLeft (Text.toList needle) field _ h
+    | [next, ..later], Inl h => Text.containsCharsAppendLeft needle field _ h
     | [next, ..later], Inr (Inl same) =>
-      Text.containsCharsAppendRight
-        (Text.toList needle)
-        field _
-        (Text.containsCharsAppendRight
-          (Text.toList needle)
-          separator _
+      Text.containsCharsAppendRight needle field _
+        (Text.containsCharsAppendRight needle separator _
           (Text.containsJoinTextChars needle separator
             (Text.toList next)
             later
-            (Inl (rewrite same then Text.containsCharsSelf (Text.toList needle)))))
+            part
+            inPart
+            (Inl (rewrite same then inPart))))
     | [next, ..later], Inr (Inr m) =>
-      Text.containsCharsAppendRight
+      Text.containsCharsAppendRight needle field _
+        (Text.containsCharsAppendRight needle separator _
+          (Text.containsJoinTextChars needle separator (Text.toList next) later part inPart (Inr m)))
+
+--| A text joined from parts contains whatever one of the parts contains,
+--| whatever the separator: `Text.joinWith ["ab", "cd"] ", "` contains `"d"`.
+theorem Text.containsJoinWithPart ∀ (texts: List Text) (separator part needle: Text)
+    (h: part ∈ texts)
+    (inPart: Text.contains part needle = True):
+    Text.contains (Text.joinWith texts separator) needle = True :=
+  match texts, h with
+    | [], h => h.impossible
+    | [first, ..rest], Inl same =>
+      Text.containsJoinTextChars
         (Text.toList needle)
-        field _
-        (Text.containsCharsAppendRight
-          (Text.toList needle)
-          separator _
-          (Text.containsJoinTextChars needle separator (Text.toList next) later (Inr m)))
+        (Text.toList separator)
+        (Text.toList first)
+        rest
+        part
+        inPart
+        (Inl (rewrite same then inPart))
+    | [first, ..rest], Inr m =>
+      Text.containsJoinTextChars
+        (Text.toList needle)
+        (Text.toList separator)
+        (Text.toList first)
+        rest
+        part
+        inPart
+        (Inr m)
 
 --| A text joined from parts contains each part, whatever the separator:
 --| `Text.joinWith ["a", "b"] ", "` contains `"a"` and `"b"`.
 theorem Text.containsJoinWith ∀ (texts: List Text) (separator part: Text)
     (h: part ∈ texts):
     Text.contains (Text.joinWith texts separator) part = True :=
-  match texts, h with
-    | [], h => h.impossible
-    | [first, ..rest], Inl same =>
-      Text.containsJoinTextChars part
-        (Text.toList separator)
-        (Text.toList first)
-        rest
-        (Inl (rewrite same then Text.containsCharsSelf (Text.toList part)))
-    | [first, ..rest], Inr m => Text.containsJoinTextChars part (Text.toList separator) (Text.toList first) rest (Inr m)
+  Text.containsJoinWithPart texts separator part part h (Text.containsSelf part)
+
+--| A text padded on the right contains whatever the text contains.
+theorem Text.padRightContains ∀ (text: Text) (width: Nat) (char: Char) (needle: Text)
+    (h: Text.contains text needle = True):
+    Text.contains (Text.padRight text width char) needle = True :=
+  Text.containsCharsAppendLeft
+    (Text.toList needle)
+    (Text.toList text)
+    (List.replicate (width - List.length (Text.toList text)) char)
+    h
 
 test "contains of a join" :=
   Text.contains (Text.joinWith ["ab", "cd", "e"] ", ") "cd"
     ∧ Text.contains (Text.append "x" (Text.append "yz" "w")) "yz"
+    ∧ Text.contains (Text.joinWith ["ab", "cd"] ", ") "d"
 
 theorem Text.takeDropChars ∀ (n: Nat) (cs: List Char): List.append (List.take cs n) (List.drop cs n) = cs :=
   match n, cs with
