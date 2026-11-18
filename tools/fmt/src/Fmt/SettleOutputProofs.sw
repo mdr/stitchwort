@@ -596,7 +596,84 @@ theorem standsFile ∀ (file: SourceFile)
     (stood: file.stood1 = True)
     (unreturned: file.unreturned1 = True):
     stands None file.words1 file.lexed1.leaves = True :=
+  let starts := leavesStart1 file within shaped settled lexical
+  match file with
+    | { decls, end } =>
+      let withinDecls: decls.all Decl.within1 = True := within
+      match decls with
+        | [] => byComputing
+        | [Definition [] header (Assigned colonEq value), ..rest] =>
+          let plain := Bool.andLeft (Bool.andLeft unreturned)
+          let keyword := header.keyword
+          let aboveTop: readNotes (laidNotes True keyword.above) = keyword.topped.above :=
+            match above: keyword.above with
+              | [] => byComputing
+              | [first, ..more] =>
+                match first with
+                  | { text, blankBefore } =>
+                    rewrite unreturnedSame text (Bool.andLeft plain), notesRead more (Bool.andRight plain)
+          let blankTop: ((if keyword.blankBefore && !(True && keyword.above.isEmpty) then 1 else 0) > 0)
+            = keyword.topped.blankBefore :=
+            match above: keyword.above with
+              | [] =>
+                match keyword.blankBefore with
+                  | True => byComputing
+                  | False => byComputing
+              | [first, ..more] =>
+                match keyword.blankBefore with
+                  | True => byComputing
+                  | False => byComputing
+          let afterTop: keyword.topped.after = keyword.after := match above: keyword.above with
+            | [] => byComputing
+            | [first, ..more] => byComputing
+          standsAppend None _ _ _ _
+            (standsDecl header colonEq value True keyword.topped
+              (Bool.andLeft stood)
+              (Bool.andLeft starts)
+              aboveTop
+              blankTop
+              afterTop)
+            (standsRest rest
+              (Bool.andRight withinDecls)
+              (Bool.andRight stood)
+              (Bool.andRight (Bool.andLeft unreturned))
+              (Bool.andRight starts))
+
+--| Every declaration's printed leaves start with no comma (they start with `def`: `printedTokens1`).
+theorem leavesStart1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True):
+    file.decls.all (decl => notCommaFirst decl.leaves1) = True :=
   ?
+
+--| The leaves of declarations after the first stand against their calm words.
+theorem standsRest ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (stood: decls.all Decl.stands1 = True)
+    (plain: decls.all (decl => decl.firstComments.above.all Note.unreturned) = True)
+    (starts: decls.all (decl => notCommaFirst decl.leaves1) = True):
+    stands None ((decls.map Decl.calm).map Decl.words).concat (groupsFrom False decls).concat = True :=
+  match decls with
+    | [] => byComputing
+    | [Definition [] header (Assigned colonEq value), ..rest] =>
+      let keyword := header.keyword
+      let aboveRead: readNotes (laidNotes False keyword.above) = keyword.above :=
+        rewrite laidNotesFalse keyword.above then notesRead keyword.above (Bool.andLeft plain)
+      let blankRead: ((if keyword.blankBefore && !(False && keyword.above.isEmpty) then 1 else 0) > 0)
+        = keyword.blankBefore :=
+        match keyword.blankBefore with
+          | True => byComputing
+          | False => byComputing
+      standsAppend None _ _ _ _
+        (standsDecl header colonEq value False keyword
+          (Bool.andLeft stood)
+          (Bool.andLeft starts)
+          aboveRead
+          blankRead
+          byComputing)
+        (standsRest rest (Bool.andRight within) (Bool.andRight stood) (Bool.andRight plain) (Bool.andRight starts))
 
 --| The output tree's words are settled as the tree's are: `calm` and `calmTop` change only blank-line flags.
 theorem wordsSettled1 ∀ (file: SourceFile)
