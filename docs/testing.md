@@ -161,7 +161,9 @@ A lane that needs more than its area runs `task test:one -- NAME` for the tests 
 
 ### Snapshots and generated text
 
-`task snap:examples NAME=…` and `task snap:hashes NAME=…` update the error-message and hash snapshots (every example when `NAME` is unset), then list the changed `.snap` files for review; a `NAME` part (or `EXAMPLES` part) that matches no example fails the test instead of updating nothing. `task snap:one -- FILTER` does the same for any tests. `task guide:update` regenerates the language guide's quoted blocks. `task examples:scan` (`dev/examples-scan`) compares every example's `-- expect-error:` and `-- expect-warning:` header codes with the release CLI's output and fails, listing them, on any mismatch: a fast check of the headers without the snapshot tests (60 s per file).
+`task snap:examples NAME=…` and `task snap:hashes NAME=…` update the error-message and hash snapshots (every example when `NAME` is unset), then list the changed `.snap` files for review; a `NAME` part (or `EXAMPLES` part) that matches no example fails the test instead of updating nothing. `task snap:one -- FILTER` does the same for any tests.
+
+**Accepting one snapshot without `cargo insta`.** Run only its test through `task snap:one -- -E '…'`: the `snap:*` tasks set `INSTA_UPDATE=always`, so insta writes the `.snap` file in place (there is no `.snap.new` to rename and no `assertion_line` header to delete), and the task ends with `git status --short -- '*.snap'` so the change is listed. For example, `task snap:one -- -E 'binary(running) & test(=examples::rejected_examples_fail_for_the_expected_reason)'`. `task snap:examples NAME=…` and `task snap:hashes NAME=…` are the same for the example and hash snapshots. (`cargo insta review` is in the dev shell too.) The extraction snapshots have no per-example filter: `task snap:one -- -E 'binary(extraction) & test(=extract::generated_code_is_stable)'` reruns every extraction example and rewrites the ones that changed (see `examples/README.md`). `task guide:update` regenerates the language guide's quoted blocks. `task examples:scan` (`dev/examples-scan`) compares every example's `-- expect-error:` and `-- expect-warning:` header codes with the release CLI's output and fails, listing them, on any mismatch: a fast check of the headers without the snapshot tests (60 s per file).
 
 | Layer | Where | What it catches |
 |---|---|---|
@@ -211,6 +213,13 @@ If none exists the process stops with a message naming the places tried. WebAsse
 - A library whose core differs from the built-in natives' expectations is stopped by registration (`E-BUILTIN`) or the pinned hashes (`pinned_hashes`); there is no separate version check (see the note above).
 
 ## Running
+
+**A fresh worktree has no binary.** A lane checkout starts with no `target/`, so `target/release/stitchwort` doesn't exist yet. (Tasks with `deps: [build]`, such as `task sw`, build it first; a command that runs `target/release/stitchwort` itself needs one of the following.) Build one:
+
+- `nix develop -c cargo build --release -p stitchwort-cli` builds the CLI alone, which is what `check`, `test`, `run`, `fmt` and the `.sw` tasks need. It takes about 50 s with the compiler cache (12 s when kache had every crate; 18 Nov 2026, a fresh scratch worktree).
+- `nix develop -c task build` builds the same binary with `--features stitchwort-cli/dev` and, beside it, `libstitchwort_standalone.a` (`Taskfile.yml`, `DEV_FEATURES`). Use it when `stitchwort build --native` (or `run --native`) is needed: a plain `cargo build` lacks the `native` feature, and `build --native` refuses it with "this `stitchwort` was built without native code; build it with `task build`" (`crates/cli/src/build.rs`).
+
+**The first test build takes 2-3 minutes.** A fresh worktree's first `task test:one` or `task test:lane` compiles test binaries before it runs anything: `cargo nextest list --release --workspace` here took 3 min 3 s (18 Nov 2026). That is what a bare test-name filter builds, because `dev/test-scope` reads no package or binary from it and asks for `--workspace` (see "Features"), so give the command a foreground timeout above 120 s. Naming the package and binary (`task test:one -- -E 'package(stitchwort-driver) & binary(library)'`) builds one test target instead: 23 s once kache had the libraries (same machine and day).
 
 The tiers are above; `task --list` has the rest. By hand, or for what has no task:
 
