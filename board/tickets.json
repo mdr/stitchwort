@@ -1,5 +1,5 @@
 {
-  "next": 4001,
+  "next": 4003,
   "tickets": [
     {
       "id": 47,
@@ -24062,7 +24062,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.\n\nAlso (SW-3995): census script --show to print sample locations of refused shapes; dev README: the shell is zsh, loop over files rather than a variable of paths.",
+      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.\n\nAlso (SW-3995): census script --show to print sample locations of refused shapes; dev README: the shell is zsh, loop over files rather than a variable of paths.\n\nAlso (SW-3999): the slim recipe must leave out every *Proofs.sw (LexProofs, SettleProofs, ParseProofs, PassProofs); README: never share or delete a FMT_TWIN_CACHE in use, a repo sample is ~1 min a stage in batch mode; the per-file fallback hits E-RESOURCE on LexProofs.sw.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24200,12 +24200,12 @@
     {
       "id": 3999,
       "title": "[Opus] Self-hosted fmt S6a program: rewrite (the rewrite ... then chains and their rules), the construct in the most sampled declarations (798 contain it after S4c); plus Iff and Omega if cheap; within6a, Fmt.Twin --stage s6a; gate identical to Rust; census after",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected: 30 min (orchestrator's estimate).\n\nProgress (Opus lane, 18 Nov 2026):\n- 13:40 start. 14:16 commit 76de18697 on lane/SW-3999: rewrite (rules, `<-`, `at`, `then` chains, `repeatedly [...]`), calc, `cases then`, facts (arithmetic/algebra), `↔`; within6a, Fmt.Twin --stage s6a, dev/fmt-twin s6a, Tests/Slice6a.sw (6).\n- check Fmt / Fmt.Twin / Fmt.Tests clean; test Fmt.Tests 88/88.\n- Gate: goldens s6a 420/420. Repo-sample s6a 3,856/3,856 on a disturbed run (two runs shared a cache; LexProofs.sw hit the step limit when it fell back to one process a file). Clean rerun of s6a and s1..s4c started 14:16; NOTES.md section and census not yet written.\n- 14:20 clean gate (fresh cache): s6a goldens 420/420, repo sample 3,940/3,940 of 5,870 (67.1%, from 55.4% for s4c on the same sample); s1..s4c all 100% on both inputs. The disturbed run's LexProofs.sw step-limit refusal didn't recur in batch mode.\n- 14:22 commit cb6ec7eb7: NOTES.md section with census (alone: Unit 157, Section 44, Instance 42, Pipe 37, Chain 26, OperatorSection 25, ClauseLambda 15, Include 15; 861 shapes with no foreign kind). Moved to review.\n",
+      "body": "Expected: 30 min (orchestrator's estimate).\n\nProgress (Opus lane, 18 Nov 2026):\n- 13:40 start. 14:16 commit 76de18697 on lane/SW-3999: rewrite (rules, `<-`, `at`, `then` chains, `repeatedly [...]`), calc, `cases then`, facts (arithmetic/algebra), `↔`; within6a, Fmt.Twin --stage s6a, dev/fmt-twin s6a, Tests/Slice6a.sw (6).\n- check Fmt / Fmt.Twin / Fmt.Tests clean; test Fmt.Tests 88/88.\n- Gate: goldens s6a 420/420. Repo-sample s6a 3,856/3,856 on a disturbed run (two runs shared a cache; LexProofs.sw hit the step limit when it fell back to one process a file). Clean rerun of s6a and s1..s4c started 14:16; NOTES.md section and census not yet written.\n- 14:20 clean gate (fresh cache): s6a goldens 420/420, repo sample 3,940/3,940 of 5,870 (67.1%, from 55.4% for s4c on the same sample); s1..s4c all 100% on both inputs. The disturbed run's LexProofs.sw step-limit refusal didn't recur in batch mode.\n- 14:22 commit cb6ec7eb7: NOTES.md section with census (alone: Unit 157, Section 44, Instance 42, Pipe 37, Chain 26, OperatorSection 25, ClauseLambda 15, Include 15; 861 shapes with no foreign kind). Moved to review.\n\nMerged 18 Nov, 42 min (est. 30; ~20 min lost to two gate runs sharing a cache). Gate 420/420, 3,940/3,940; coverage 67.1% (4c 55.4% on the same 5,870). Census (only): Unit 157, Section 44, Instance 42, Pipe 37, Chain 26, OperatorSection 25; (any) Binder 234, Unit 229, Pipe 198, Section 198. 861 refused shapes. Filed SW-4001 SW-4002. The lane wrote its board move into the main checkout's board, not its branch.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24213,6 +24213,32 @@
     {
       "id": 4000,
       "title": "[Sonnet] fmt S1 ticket 16c: parser proofs, the walks of parsers outside slice 1 (recordExpr, interpolated, facts, matchExpr, clauseLambda, lambda, ifExpr, piExpr, handleExpr, calcExpr, rewriteExpr, casesExpr, pattern parsers) as Parse.Gives, needed even to show a result is outside the slice; then parseSettled1, parseCarries1, fuelEnough1 (SW-3967's split)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4001,
+      "title": "[Sonnet] Rust fmt: rewrite <- -- c puts the rule and then rfl on the next line at 4 (SW-3999); check against the other comment-after-operator layouts, fix in both if a bug (D3677), failing-first test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4002,
+      "title": "[Sonnet] fmt census of the 861 sampled declarations refused on shape though every construct is inside slice 6a: sort by cause (SW-3992/3995/3999 all saw this group grow); needs the census --show option (SW-3988)",
       "status": "backlog",
       "agent": "",
       "where": "",
