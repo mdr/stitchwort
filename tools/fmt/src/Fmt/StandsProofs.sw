@@ -1740,3 +1740,17 @@ theorem returnedFalls: returnedDecl.within1 = True
 --| `def d: A := b` meets every hypothesis, so `printedStands1` applies.
 theorem atomDeclStands: atomDecl.stands1 = True :=
   printedStands1 atomDecl byComputing byComputing byComputing byComputing byComputing atomDeclHangs
+
+--| The narrow hypotheses of the lemmas above hold of some input.
+theorem commentNotBreakWitness: ("-- c" == "\n") = False := commentNotBreak "-- c" byComputing
+
+theorem closesCloserWitness: isCloserText ")" = True := closesCloser ")" byComputing byComputing
+
+theorem commentNotClosesWitness: closesText "-- c" = False := commentNotCloses "-- c" byComputing
+
+theorem closerStartsWitness: (Some 0).isSome = True :=
+  closerStarts ")" { word = ")", start = Some 0 } byComputing byComputing
+
+theorem commentFineWitness: CommentFine "-- c" := commentFineOf "-- c" byComputing byComputing
+
+theorem prefixKindOkWitness: KindOk "-" ∧ isCloserText "-" = False := prefixKindOk "-" (Inl byComputing)
