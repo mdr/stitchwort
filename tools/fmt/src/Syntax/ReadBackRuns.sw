@@ -1059,3 +1059,215 @@ theorem runsAppAtCall ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (sta
               rest
               (Parse.stepValues steps)
               (Parse.runsLoop (() => argumentStep self modes (startsAtom modes)) [] steps rest more))))))
+
+-- The operator ladder: links of an operator and an operand.
+
+--| The next item is an operator `takes` accepts, and the modes don't stop at it.
+def takesAhead (modes: Modes) (takes: Tok → Bool) (items: List Item): Bool := match peekIn modes 0 items with
+  | Some kind => takes kind
+  | None => False
+
+--| A round of `operatorLinks` that reads an operator and its operand.
+theorem runsOperatorStepSome ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr) (operator: Item)
+    (read rest: List Item) (value: Expr)
+    (open: modes.stops operator = False)
+    (took: takes operator.kind = True)
+    (operandRuns: Parse.Runs operand read rest value):
+    Parse.Runs
+      (() =>
+        match modes.peek with
+          | Some kind if takes kind =>
+            let operator := bump()
+            let value := operand()
+            Some (operator, value)
+          | _ => None)
+      [operator, ..read]
+      rest
+      (Some (operator.leaf.word, value)) :=
+  runsLook
+    (() => modes.peek) _
+    (Some operator.kind)
+    [operator, ..read]
+    rest _
+    (rewrite <- peekFirst modes operator (read ++ rest) open then runsPeekOn modes [operator, ..read ++ rest])
+    (rewrite took then
+      Parse.runsBind
+        (() => bump()) _
+        [operator]
+        read
+        [operator, ..read]
+        rest
+        operator.leaf.word _
+        byComputing
+        (runsBump operator (read ++ rest))
+        (Parse.runsMap operand (value => Some (operator.leaf.word, value)) read rest value operandRuns))
+
+--| The round of `operatorLinks` that ends it: no operator it takes comes next.
+theorem runsOperatorStepNone ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr) (rest: List Item)
+    (ends: takesAhead modes takes rest = False):
+    Parse.Runs
+      (() =>
+        match modes.peek with
+          | Some kind if takes kind =>
+            let operator := bump()
+            let value := operand()
+            Some (operator, value)
+          | _ => None)
+      []
+      rest
+      None :=
+  runsLook
+    (() => modes.peek) _
+    (peekIn modes 0 rest)
+    []
+    rest _
+    (runsPeekOn modes rest)
+    (match peekIn modes 0 rest, ends with
+      | Some kind, ends => rewrite ends then Parse.runsPure None rest
+      | None, ends => Parse.runsPure None rest)
+
+--| The links of an operator chain as `operatorLinks`' rounds: each reads its operator and operand.
+def linkSteps: List (Item, List Item, Expr) → List (List Item, (Word, Expr))
+  | [] => []
+  | [(operator, read, value), ..links] => [([operator, ..read], (operator.leaf.word, value)), ..linkSteps links]
+
+--| Each link's operator is one `takes` accepts, not stopped at, and `operand` reads what follows it; after the last, no
+--| operator `takes` accepts comes next.
+def LinkRuns (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr):
+    List (Item, List Item, Expr) → List Item → Prop
+  | [], rest => takesAhead modes takes rest = False
+  | [(operator, read, value), ..links], rest =>
+    modes.stops operator = False
+      ∧ takes operator.kind = True
+      ∧ Parse.Runs operand read (Parse.loopReads [] (linkSteps links) ++ rest) value
+      ∧ LinkRuns modes takes operand links rest
+
+theorem linkLoopRuns ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr)
+    (links: List (Item, List Item, Expr)) (rest: List Item)
+    (runs: LinkRuns modes takes operand links rest):
+    Parse.LoopRuns
+      (() =>
+        match modes.peek with
+          | Some kind if takes kind =>
+            let operator := bump()
+            let value := operand()
+            Some (operator, value)
+          | _ => None)
+      []
+      (linkSteps links)
+      rest :=
+  match links, runs with
+    | [], ends => runsOperatorStepNone modes takes operand rest ends
+    | [(operator, read, value), ..later], (open, took, operandRuns, others) =>
+      Both
+        (List.consNotNil operator read)
+        (Both
+          (runsOperatorStepSome modes takes operand operator read
+            (Parse.loopReads [] (linkSteps later) ++ rest)
+            value
+            open
+            took
+            operandRuns)
+          (linkLoopRuns modes takes operand later rest others))
+
+--| `operatorLinks` over links that `LinkRuns` describes: it reads them and gives each operator's word and operand.
+theorem runsOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr)
+    (links: List (Item, List Item, Expr)) (rest: List Item)
+    (runs: LinkRuns modes takes operand links rest):
+    Parse.Runs
+      (() => operatorLinks modes takes operand)
+      (Parse.loopReads [] (linkSteps links))
+      rest
+      (Parse.stepValues (linkSteps links)) :=
+  Parse.runsLoop _ [] (linkSteps links) rest (linkLoopRuns modes takes operand links rest runs)
+
+--| A first operand and the links after it, folded to the left (`mulExpr`, `addExpr`).
+theorem runsLeftChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: () → {Parse Item} Expr)
+    (read rest: List Item) (head: Expr) (links: List (Item, List Item, Expr))
+    (firstRuns: Parse.Runs first read (Parse.loopReads [] (linkSteps links) ++ rest) head)
+    (runs: LinkRuns modes takes operand links rest):
+    Parse.Runs
+      (() => leftNested (first()) (operatorLinks modes takes operand))
+      (read ++ Parse.loopReads [] (linkSteps links))
+      rest
+      (leftNested head (Parse.stepValues (linkSteps links))) :=
+  Parse.runsBind first
+    (head => leftNested head (operatorLinks modes takes operand))
+    read
+    (Parse.loopReads [] (linkSteps links))
+    (read ++ Parse.loopReads [] (linkSteps links))
+    rest
+    head _
+    byComputing
+    firstRuns
+    (Parse.runsMap
+      (() => operatorLinks modes takes operand)
+      (leftNested head)
+      (Parse.loopReads [] (linkSteps links))
+      rest
+      (Parse.stepValues (linkSteps links))
+      (runsOperatorLinks modes takes operand links rest runs))
+
+--| The same, folded to the right (`appendExpr`).
+theorem runsRightChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: () → {Parse Item} Expr)
+    (read rest: List Item) (head: Expr) (links: List (Item, List Item, Expr))
+    (firstRuns: Parse.Runs first read (Parse.loopReads [] (linkSteps links) ++ rest) head)
+    (runs: LinkRuns modes takes operand links rest):
+    Parse.Runs
+      (() => rightNested (first()) (operatorLinks modes takes operand))
+      (read ++ Parse.loopReads [] (linkSteps links))
+      rest
+      (rightNested head (Parse.stepValues (linkSteps links))) :=
+  Parse.runsBind first
+    (head => rightNested head (operatorLinks modes takes operand))
+    read
+    (Parse.loopReads [] (linkSteps links))
+    (read ++ Parse.loopReads [] (linkSteps links))
+    rest
+    head _
+    byComputing
+    firstRuns
+    (Parse.runsMap
+      (() => operatorLinks modes takes operand)
+      (rightNested head)
+      (Parse.loopReads [] (linkSteps links))
+      rest
+      (Parse.stepValues (linkSteps links))
+      (runsOperatorLinks modes takes operand links rest runs))
+
+theorem runsMulExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item)
+    (head: Expr) (links: List (Item, List Item, Expr))
+    (firstRuns: Parse.Runs (() => unary self modes) read (Parse.loopReads [] (linkSteps links) ++ rest) head)
+    (runs: LinkRuns modes
+      (kind => kind == Star || kind == Slash || kind == Percent)
+      (() => unary self modes)
+      links
+      rest):
+    Parse.Runs
+      (() => mulExpr self modes)
+      (read ++ Parse.loopReads [] (linkSteps links))
+      rest
+      (leftNested head (Parse.stepValues (linkSteps links))) :=
+  runsLeftChain modes _ (() => unary self modes) (() => unary self modes) read rest head links firstRuns runs
+
+theorem runsAddExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item)
+    (head: Expr) (links: List (Item, List Item, Expr))
+    (firstRuns: Parse.Runs (() => mulExpr self modes) read (Parse.loopReads [] (linkSteps links) ++ rest) head)
+    (runs: LinkRuns modes (kind => kind == Plus || kind == Minus) (() => mulExpr self modes) links rest):
+    Parse.Runs
+      (() => addExpr self modes)
+      (read ++ Parse.loopReads [] (linkSteps links))
+      rest
+      (leftNested head (Parse.stepValues (linkSteps links))) :=
+  runsLeftChain modes _ (() => mulExpr self modes) (() => mulExpr self modes) read rest head links firstRuns runs
+
+theorem runsAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item)
+    (head: Expr) (links: List (Item, List Item, Expr))
+    (firstRuns: Parse.Runs (() => addExpr self modes) read (Parse.loopReads [] (linkSteps links) ++ rest) head)
+    (runs: LinkRuns modes (kind => kind == PlusPlus) (() => addExpr self modes) links rest):
+    Parse.Runs
+      (() => appendExpr self modes)
+      (read ++ Parse.loopReads [] (linkSteps links))
+      rest
+      (rightNested head (Parse.stepValues (linkSteps links))) :=
+  runsRightChain modes _ (() => addExpr self modes) (() => addExpr self modes) read rest head links firstRuns runs
