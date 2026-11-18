@@ -1401,3 +1401,25 @@ recursion), and `carriesExpressionAt (ladder: LadderCarries): NestedCarries expr
   line's; the logic chain's regrouping (`groupLogic`, `conjunctionOf`) must keep the words in order; the `def` frame's
   `def`, `:` and `:=` need `good` for their texts (`Decl.words` writes them back), and `(items group).map Item.leaf =
   group` for the file.
+
+## `parseCarries1`, second half (SW-4020, Sonnet, 18 November 2026)
+
+`parseCarries1` is proved (`Syntax.ParseSettledStatements`, from `Syntax.ParseCarriesFile.parseCarriesOf` and
+`Syntax.ParseCarriesDecl.groupCarries`); hypotheses as stated: `FrameRest expressionAt`, `good` for every item of every
+group, `parseFile lexed = Ok file` and `file.within1`. Three namespaces, audits clean:
+
+- `Syntax.ParseCarriesLadder` (70 theorems): `ladderOf: LadderCarries` and `expressionAtCarries`. Pipelines (`pipeChain`
+  as `SameOrOut value`), ranges, comparisons, `&&`/`||` (`carriedGroupLogic`: `groupLogic` keeps the words in order,
+  given its fuel is more than the links), `->`, `expr_inline`, blocks (`BlockRead`: nothing, exactly one line, or more
+  than one; `blockResult` of one line is that line's value), `expr`, `thenBody`. A block line from `statementOther`
+  is proved outside the slice (`StatementOut`, copies of the four `StatementOk` proofs with the stronger conclusion).
+- `Syntax.ParseCarriesFile` (8): `GroupCarries frame` (each declaration in a group carries the group's words),
+  `parseGroupsCarried`, `parseCarriesOf`, `itemsLeaves` (`(items group).map Item.leaf = group`).
+- `Syntax.ParseCarriesDecl` (about 45): `readsAtDeclaration` (a declaration group is read whole: `read = start.rest`),
+  `readsAtDefinitionParts` (the header and body of a plain `def`), `readsAtLoopFirst` (a `loop` that gave `[]` stopped
+  in its first round, from the mark it started at) and `readsAtParams`, which is how the `:` is known to be a `:`.
+
+The def frame needed two facts the walks had no spec for, both found by reading the code: the header's `colon :=
+fixedFrom()` bumps whatever follows the parameters, so its kind comes from the parameter loop having stopped at a `:`;
+and `defKindOf` is `DefPlain` for any token but `theorem` and `instance`, so a `def` is known from the dispatch in
+`declarationBody`. Neither is a statement change.
