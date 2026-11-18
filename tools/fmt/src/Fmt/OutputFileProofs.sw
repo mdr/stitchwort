@@ -3,20 +3,26 @@
 --|
 --| One pass over a declaration's printed texts (`Scan.run`) checks what the first three need: every token of the
 --| alphabet, no token that can't follow the one before (a comma before a closer, `->` before a comma, closer or
---| `->`) and no closer without an open bracket. A comment is skipped.
+--| `->`) and no closer without an open bracket. A comment is skipped. `exprRuns` takes the pass along an expression,
+--| `declRuns` along a declaration, and `leafScan` carries it to the leaves, whose kinds are the lexer's
+--| (`printedTokens1`).
+--|
+--| The groups (`printedGroups1`) also need three facts of the leaves: a leaf in column 0 starts its line (the
+--| layout, `declColLines`), a leaf that starts its line in column 0 is a closer or `:=` (`hangs`, `hangsCol`), and a
+--| closer has its bracket open (`declDepth`); `groupsSplit` runs the parser's splitter over them.
 
 namespace Fmt.OutputFileProofs
-import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
+import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (..)
-import Syntax.Proofs (Spells)
-import Syntax.SettleProofs (alphabet1, plain1, plainFrom, tokens)
-import Syntax.SettleBareProofs (fwdPair, lastPair, noLast)
-import Syntax.SettleProofs (arrowFollow, passableKind)
+import Syntax.Proofs (AllPlain, Laid, Piece, Spells, utf8Chars, utf8OfText)
+import Syntax.SettleProofs (allReverseOnto, alphabet1, arrowFollow, plain1, plainFrom, tokens)
+import Syntax.SettleBareProofs (lastPair, noLast)
 import Fmt (..)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (..)
 import Fmt.TokenProofs (declRealOfLexical, printedTokens1)
 import Fmt.OutputStatements (..)
+import Fmt.FileLexProofs (..)
 
 -- One pass over the texts.
 
@@ -904,6 +910,431 @@ theorem groupsWithin ∀ (empty: Bool) (decls: List Decl)
           (Bool.andRight settled)
           (Bool.andRight lexical)
 
+-- The brackets a declaration's leaves open.
+
+--| The open brackets after a token of kind `kind`.
+def bump (open: Nat) (kind: Tok): Nat :=
+  if kind.isOpener then open + 1
+  else if kind.isCloser then open - 1
+  else open
+
+--| Each closer finds a bracket open, `open` the number open before the leaves.
+def closersDeep (open: Nat): List Leaf → Bool
+  | [] => True
+  | [leaf, ..rest] => (!leaf.token.kind.isCloser || open > 0) && closersDeep (bump open leaf.token.kind) rest
+
+--| The number of brackets open after the leaves.
+def bumpAll (open: Nat): List Leaf → Nat
+  | [] => open
+  | [leaf, ..rest] => bumpAll (bump open leaf.token.kind) rest
+
+theorem goDepth ∀ (scan next: Scan) (kind: Tok)
+    (go: scan.go kind = Some next):
+    (!kind.isCloser || scan.open > 0) = True ∧ next.open = bump scan.open kind :=
+  match ok: kind.within1 && prevOk scan.previous kind && (!kind.isCloser || scan.open > 0) with
+    | True => (Bool.andRight (Bool.andRight ok), rewrite <- Option.someInjective go)
+
+--| What a successful scan of the leaves' texts says of their brackets.
+theorem leafDepth ∀ (leaves: List Leaf) (scan end: Scan)
+    (kinded: leaves.all Leaf.kinded = True)
+    (plain: (tokenTexts leaves).all notComment = True)
+    (run: scan.run (tokenTexts leaves) = Some end):
+    closersDeep scan.open leaves = True ∧ bumpAll scan.open leaves = end.open :=
+  match leaves with
+    | [] => (byComputing, rewrite Option.someInjective run)
+    | [leaf, ..rest] =>
+      match runStep scan end leaf.token.text (tokenTexts rest) run with
+        | Witness next (step, restRun) =>
+          let lexes: lexKind leaf.token.text = leaf.token.kind := (DecEq.sound (Bool.andLeft kinded)).flipped
+          let go: scan.go leaf.token.kind = Some next :=
+            Eq.trans
+              (stepToken scan leaf.token.text leaf.token.kind lexes (Bool.notTrue _ (Bool.andLeft plain))).flipped
+              step
+          let facts := goDepth scan next leaf.token.kind go
+          let (deep, total) := leafDepth rest next end (Bool.andRight kinded) (Bool.andRight plain) restRun
+          (Bool.andIntro facts.left (rewrite facts.right at deep then deep), rewrite facts.right at total then total)
+
+--| A declaration's brackets are balanced, each closer after its opener.
+theorem declDepth ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True):
+    closersDeep 0 decl.leaves1 = True ∧ bumpAll 0 decl.leaves1 = 0 :=
+  let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
+  let (texts, kinded) := printedTokens1 decl within shaped settled lexical
+  match declRuns decl within sound lexical (declOperators decl within) with
+    | Witness last (run, quiet) =>
+      let filtered: Scan.start.run (decl.spelt.filter notComment) = Some { previous = Some last, open = 0 } :=
+        Eq.trans (runFilter decl.spelt Scan.start).flipped run
+      let plain: (tokenTexts decl.leaves1).all notComment = True := rewrite texts then filterNotComment decl.spelt
+      leafDepth decl.leaves1 Scan.start { previous = Some last, open = 0 } kinded plain (rewrite texts then filtered)
+
+-- Where `hangs` lets a leaf stand in column 0.
+
+--| A leaf that starts a line in column 0 is a closer or `:=`.
+def colStarts (leaves: List Leaf): Bool := leaves.all (leaf =>
+  !(leaf.token.column == 0 && leaf.token.lineStart) || leaf.token.kind.isCloser || leaf.token.kind == ColonEq)
+
+theorem stepColNone ∀ (state: HangState) (leaf: Leaf)
+    (zero: (leaf.token.column == 0) = True)
+    (starts: leaf.token.lineStart = True)
+    (notCloser: leaf.token.kind.isCloser = False)
+    (notAssign: (leaf.token.kind == ColonEq) = False):
+    state.step leaf = None :=
+  rewrite DecEq.sound zero, starts, notCloser, notAssign then
+    match state.glue with
+      | True => byComputing
+      | False =>
+        match isComma: leaf.token.kind == Comma with
+          | True =>
+            match state.blocks with
+              | [] => byComputing
+              | [block, ..outer] => rewrite starts
+          | False => byComputing
+
+theorem stepColCont ∀ (state: HangState) (leaf: Leaf) (next: HangState)
+    (step: state.step leaf = Some next)
+    (zero: (leaf.token.column == 0) = True)
+    (starts: leaf.token.lineStart = True)
+    (notCloser: leaf.token.kind.isCloser = False)
+    (notAssign: (leaf.token.kind == ColonEq) = False):
+    Void :=
+  (Option.noneNotSome next (Eq.trans (stepColNone state leaf zero starts notCloser notAssign).flipped step)).impossible
+
+theorem stepCol ∀ (state: HangState) (leaf: Leaf) (next: HangState)
+    (step: state.step leaf = Some next):
+    (!(leaf.token.column == 0 && leaf.token.lineStart) || leaf.token.kind.isCloser || leaf.token.kind == ColonEq)
+      = True :=
+  let cont := stepColCont state leaf next step
+  match flat: leaf.token.column == 0 && leaf.token.lineStart with
+    | False => byComputing
+    | True =>
+      match closer: leaf.token.kind.isCloser with
+        | True => byComputing
+        | False =>
+          match assign: leaf.token.kind == ColonEq with
+            | True => byComputing
+            | False => (cont (Bool.andLeft flat) (Bool.andRight flat) closer assign).impossible
+
+theorem hangsFromCol ∀ (leaves: List Leaf) (state: HangState)
+    (hung: hangsFrom state leaves = True):
+    colStarts leaves = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      match hangsStep state leaf rest hung with
+        | Witness next (step, more) => Bool.andIntro (stepCol state leaf next step) (hangsFromCol rest next more)
+
+-- A leaf in column 0 starts its line.
+
+--| A leaf in column 0 starts its line.
+def colLines (leaves: List Leaf): Bool := leaves.all (leaf => !(leaf.token.column == 0) || leaf.token.lineStart)
+
+--| The layout so far: the line has a token on it or the column isn't 0, and each leaf made keeps `colLines`.
+def laidOk (laid: Laid): Bool := (laid.freshLine || !(laid.column == 0)) && colLines laid.leaves
+
+theorem nonZeroAdd ∀ (a b: Nat) (nonzero: (a == 0) = False): (b + a == 0) = False := match a with
+  | Succ k => byComputing
+
+theorem nonZeroAddLeft ∀ (a b: Nat) (nonzero: (a == 0) = False): (a + b == 0) = False := match a with
+  | Succ k => byComputing
+
+theorem utf8Positive ∀ (char: Char): ((Char.utf8 char).length == 0) = False := match Nat.leq char.toNat 127 with
+  | True => byComputing
+  | False =>
+    match Nat.leq char.toNat 2047 with
+      | True => byComputing
+      | False =>
+        match Nat.leq char.toNat 65535 with
+          | True => byComputing
+          | False => byComputing
+
+--| A text that isn't empty has bytes.
+theorem textBytes ∀ (text: Text) (filled: text.toList ≠ []): (text.utf8Length == 0) = False :=
+  rewrite utf8OfText text then
+    match text.toList with
+      | [] => (filled byComputing).impossible
+      | [char, ..more] => nonZeroAddLeft (Char.utf8 char).length (utf8Chars more) (utf8Positive char)
+
+theorem colLinesWithTrailing ∀ (leaves: List Leaf) (comment: Comment):
+    colLines (withTrailing leaves comment) = colLines leaves :=
+  match leaves with
+    | [] => byComputing
+    | [last, ..earlier] => byComputing
+
+theorem layOk ∀ (laid: Laid) (piece: Piece)
+    (ok: laidOk laid = True) (plain: piece.Plain):
+    laidOk (laid.lay piece) = True :=
+  match piece with
+    | Code kind text =>
+      Bool.andIntro
+        (rewrite nonZeroAdd text.utf8Length laid.column (textBytes text plain.left))
+        (Bool.andIntro (orSwap _ _ (Bool.andLeft ok)) (Bool.andRight ok))
+    | Gap count =>
+      match laid.freshLine with
+        | True => ok
+        | False =>
+          Bool.andIntro (rewrite nonZeroAddLeft laid.column count (Bool.notTrue _ (Bool.andLeft ok))) (Bool.andRight ok)
+    | Break => Bool.andRight ok
+    | Remark text =>
+      match laid.freshLine with
+        | True => ok
+        | False =>
+          Bool.andIntro
+            (rewrite nonZeroAddLeft laid.column text.utf8Length (Bool.notTrue _ (Bool.andLeft ok)))
+            (rewrite colLinesWithTrailing laid.leaves {
+                  text = withoutReturn text,
+                  column = laid.column,
+                  blankLines = 0
+                } then
+              Bool.andRight ok)
+
+theorem foldOk ∀ (pieces: List Piece) (laid: Laid)
+    (ok: laidOk laid = True)
+    (plain: AllPlain pieces):
+    laidOk (pieces.foldLeft laid Laid.lay) = True :=
+  match pieces with
+    | [] => ok
+    | [piece, ..rest] => foldOk rest (laid.lay piece) (layOk laid piece ok plain.left) plain.right
+
+--| A declaration's leaves in column 0 start their lines.
+theorem declColLines ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True):
+    colLines decl.leaves1 = True :=
+  let (plain, _, _, _) := declPiecesOk decl within shaped settled lexical
+  let made := Bool.andRight (foldOk decl.pieces1 Laid.start byComputing plain)
+  rewrite leavesOfPieces decl then
+    allReverseOnto
+      (leaf => !(leaf.token.column == 0) || leaf.token.lineStart)
+      (decl.pieces1.foldLeft Laid.start Laid.lay).leaves
+      []
+      made
+      byComputing
+
+-- The parser's groups.
+
+--| The splitter in a declaration, `open` brackets open.
+def Splitter.at (open: Nat): Splitter := { depth = 0, opening = False, attributesOnly = False, openBrackets = open }
+
+--| A leaf after a declaration's `def` starts no group: it is not in column 0, or is `:=`, or is a comma or closer
+--| inside a bracket.
+def stays (open: Nat) (leaf: Leaf): Bool :=
+  !(leaf.token.column == 0
+    && leaf.token.kind != ColonEq
+    && !(open > 0 && (leaf.token.kind == Comma || leaf.token.kind.isCloser)))
+
+def Stays (open: Nat): List Leaf → Bool
+  | [] => True
+  | [leaf, ..rest] => stays open leaf && Stays (bump open leaf.token.kind) rest
+
+theorem notAt ∀ (kind: Tok) (within: kind.within1 = True): (kind == At) = False := match same: kind == At with
+  | True => (Bool.falseNotTrue (rewrite DecEq.sound same at within then within)).impossible
+  | False => byComputing
+
+--| A leaf that starts no group leaves the splitter in a declaration, with the bracket counted.
+theorem splitStay ∀ (open: Nat) (current: List Leaf) (groups: List (List Leaf)) (leaf: Leaf) (rest: List Leaf)
+    (within: leaf.token.kind.within1 = True)
+    (stay: stays open leaf = True):
+    splitFrom (Splitter.at open) current groups [leaf, ..rest]
+      = splitFrom (Splitter.at (bump open leaf.token.kind)) [leaf, ..current] groups rest :=
+  rewrite notAt leaf.token.kind within then
+    match zero: leaf.token.column == 0 with
+      | False => rewrite Bool.andFalse leaf.token.kind.isOpener, Bool.andFalse leaf.token.kind.isCloser
+      | True =>
+        match assign: leaf.token.kind != ColonEq with
+          | False => rewrite Bool.andFalse leaf.token.kind.isOpener, Bool.andFalse leaf.token.kind.isCloser
+          | True =>
+            match inner: open > 0 && (leaf.token.kind == Comma || leaf.token.kind.isCloser) with
+              | True => rewrite Bool.andFalse leaf.token.kind.isOpener, Bool.andFalse leaf.token.kind.isCloser
+
+--| A declaration's `def`, in column 0, starts a group; the leaves are then the group's.
+theorem splitStart ∀ (current: List Leaf) (groups: List (List Leaf)) (leaf: Leaf) (rest: List Leaf)
+    (zero: (leaf.token.column == 0) = True)
+    (keyword: (leaf.token.kind == KwDef) = True):
+    splitFrom (Splitter.at 0) current groups [leaf, ..rest]
+      = splitFrom (Splitter.at 0) [leaf] (if current.isEmpty then groups else [current.reverse, ..groups]) rest :=
+  rewrite DecEq.sound zero, DecEq.sound keyword
+
+theorem tailSplit ∀ (tail: List Leaf) (open: Nat) (current: List Leaf) (groups: List (List Leaf)) (rest: List Leaf)
+    (within: leafWithin tail = True)
+    (stay: Stays open tail = True):
+    splitFrom (Splitter.at open) current groups (tail ++ rest)
+      = splitFrom (Splitter.at (bumpAll open tail)) (tail.reverseOnto current) groups rest :=
+  match tail with
+    | [] => byComputing
+    | [leaf, ..more] =>
+      Eq.trans
+        (splitStay open current groups leaf (more ++ rest) (Bool.andLeft within) (Bool.andLeft stay))
+        (tailSplit more
+          (bump open leaf.token.kind)
+          [leaf, ..current]
+          groups
+          rest
+          (Bool.andRight within)
+          (Bool.andRight stay))
+
+--| A declaration's leaves, from its `def`, are one group.
+theorem declSplit ∀ (above: List Comment) (blank: Nat) (first: Leaf)
+    (tail rest current: List Leaf) (groups: List (List Leaf))
+    (zero: (first.token.column == 0) = True)
+    (keyword: (first.token.kind == KwDef) = True)
+    (within: leafWithin tail = True)
+    (stay: Stays 0 tail = True)
+    (balanced: bumpAll 0 tail = 0):
+    splitFrom (Splitter.at 0) current groups (headed above blank [first, ..tail] ++ rest)
+      = splitFrom
+        (Splitter.at 0)
+        (headed above blank [first, ..tail]).reverse
+        (if current.isEmpty then groups else [current.reverse, ..groups])
+        rest :=
+  let tailRun :=
+    tailSplit tail 0
+      [{ first | trivia = { first.trivia | leading = above, blankLines = blank } }]
+      (if current.isEmpty then groups else [current.reverse, ..groups])
+      rest
+      within
+      stay
+  Eq.trans
+    (splitStart current groups
+      { first | trivia = { first.trivia | leading = above, blankLines = blank } }
+      (tail ++ rest)
+      zero
+      keyword)
+    (rewrite balanced at tailRun then tailRun)
+
+--| No leaf after a declaration's `def` starts a group: in column 0 a leaf starts its line (`colLines`), so it is a
+--| closer, which finds its bracket open (`closersDeep`), or `:=` (`colStarts`).
+theorem staysOf ∀ (open: Nat) (tail: List Leaf)
+    (deep: closersDeep open tail = True)
+    (lines: colLines tail = True)
+    (starts: colStarts tail = True):
+    Stays open tail = True :=
+  match tail with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      let deeper := Bool.andLeft deep
+      let lined := Bool.andLeft lines
+      let started := Bool.andLeft starts
+      let recur :=
+        staysOf (bump open leaf.token.kind) rest (Bool.andRight deep) (Bool.andRight lines) (Bool.andRight starts)
+      match zero: leaf.token.column == 0 with
+        | False => Bool.andIntro byComputing recur
+        | True =>
+          match closer: leaf.token.kind.isCloser with
+            | True =>
+              Bool.andIntro
+                (rewrite orTrue (leaf.token.kind == Comma), deeper, Bool.andFalse (leaf.token.kind != ColonEq))
+                recur
+            | False =>
+              match assign: leaf.token.kind == ColonEq with
+                | True => Bool.andIntro byComputing recur
+                | False => (Bool.falseNotTrue (rewrite lined at started then started)).impossible
+
+--| `hangs` gives the leaves after `def` their line rule: none in column 0 but a closer or `:=` starts a line.
+theorem hangsCol ∀ (first: Leaf) (tail: List Leaf) (hung: hangs [first, ..tail] = True): colStarts tail = True :=
+  hangsFromCol tail HangState.initial (Bool.andRight (Bool.andRight hung))
+
+--| One declaration's leaves, as laid in the file, are one group: the splitter reads them from a state that is
+--| outside any declaration, and leaves it so.
+theorem laidSplit ∀ (decl: Decl) (empty: Bool) (rest current: List Leaf) (groups: List (List Leaf))
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (hung: hangs decl.leaves1 = True):
+    splitFrom (Splitter.at 0) current groups (decl.laid1 empty ++ rest)
+      = splitFrom
+        (Splitter.at 0)
+        (decl.laid1 empty).reverse
+        (if current.isEmpty then groups else [current.reverse, ..groups])
+        rest :=
+  let (leavesWithin, _) := declLeaves decl within shaped settled lexical
+  let (deepAll, balancedAll) := declDepth decl within shaped settled lexical
+  let lined := declColLines decl within shaped settled lexical
+  let starts := declStartsKw decl within shaped settled lexical
+  match shows: decl.leaves1 with
+    | [first, ..tail] =>
+      let keyword: (first.token.kind == KwDef) = True := Bool.andLeft hung
+      let zero: (first.token.column == 0) = True := Bool.andLeft (Bool.andRight hung)
+      let deep: closersDeep 0 tail = True := rewrite DecEq.sound keyword at deepAll then deepAll
+      let balanced: bumpAll 0 tail = 0 := rewrite DecEq.sound keyword at balancedAll then balancedAll
+      declSplit
+        (laidNotes empty decl.firstComments.above)
+        (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
+        first
+        tail
+        rest
+        current
+        groups
+        zero
+        keyword
+        (Bool.andRight leavesWithin)
+        (staysOf 0 tail deep (Bool.andRight lined) (hangsCol first tail hung))
+        balanced
+
+theorem reverseOntoFilled ∀ (xs acc: List Leaf) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
+  match xs with
+    | [] => filled
+    | [x, ..rest] => reverseOntoFilled rest [x, ..acc] byComputing
+
+theorem flushLaid ∀ (laid: List Leaf) (groups: List (List Leaf))
+    (filled: kindFirst laid = True):
+    (if laid.reverse.isEmpty then groups else [laid.reverse.reverse, ..groups]) = [laid, ..groups] :=
+  match laid with
+    | [first, ..rest] => rewrite reverseOntoFilled rest [first] byComputing, List.reverseReverse [first, ..rest]
+
+--| The splitter cuts the file's leaves into the declarations'.
+theorem groupsSplit ∀ (empty: Bool) (decls: List Decl) (current: List Leaf) (groups: List (List Leaf))
+    (within: decls.all Decl.within1 = True)
+    (shaped: decls.all Decl.shaped1 = True)
+    (settled: decls.all Decl.settled1 = True)
+    (lexical: decls.all Decl.lexical1 = True)
+    (hung: decls.all (decl => hangs decl.leaves1) = True):
+    splitFrom (Splitter.at 0) current groups (groupsFrom empty decls).concat
+      = (if current.isEmpty then groups else [current.reverse, ..groups]).reverse ++ groupsFrom empty decls :=
+  match decls with
+    | [] => Eq.flipped (List.appendNil _)
+    | [decl, ..rest] =>
+      let first :=
+        declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+      let laidFirst: kindFirst (decl.laid1 empty) = True :=
+        rewrite headedFirst
+              (laidNotes empty decl.firstComments.above)
+              (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
+              decl.leaves1 then
+          first
+      let flushed := if current.isEmpty then groups else [current.reverse, ..groups]
+      let rec :=
+        groupsSplit False rest
+          (decl.laid1 empty).reverse
+          flushed
+          (Bool.andRight within)
+          (Bool.andRight shaped)
+          (Bool.andRight settled)
+          (Bool.andRight lexical)
+          (Bool.andRight hung)
+      calc splitFrom (Splitter.at 0) current groups (decl.laid1 empty ++ (groupsFrom False rest).concat)
+        _ = splitFrom (Splitter.at 0) (decl.laid1 empty).reverse flushed (groupsFrom False rest).concat :=
+          laidSplit decl empty
+            (groupsFrom False rest).concat
+            current
+            groups
+            (Bool.andLeft within)
+            (Bool.andLeft shaped)
+            (Bool.andLeft settled)
+            (Bool.andLeft lexical)
+            (Bool.andLeft hung)
+        _ = (if (decl.laid1 empty).reverse.isEmpty then flushed
+             else [(decl.laid1 empty).reverse.reverse, ..flushed]).reverse
+            ++ groupsFrom False rest := rec
+        _ = flushed.reverse ++ [decl.laid1 empty, ..groupsFrom False rest] :=
+          rewrite flushLaid (decl.laid1 empty) flushed laidFirst, List.reverseCons (decl.laid1 empty) flushed then
+            List.appendAssoc flushed.reverse [decl.laid1 empty] (groupsFrom False rest)
+
 -- Where a declaration starts.
 
 def defFirst (texts: List Text): Bool := match texts with
@@ -975,7 +1406,7 @@ def startsDef (leaves: List Leaf): Bool := match leaves with
   | [] => True
 
 --| Pairs of leaves, with a declaration after them: its `def` may follow anything.
-theorem pairsAppend ∀ (xs ys: List Leaf)
+theorem leafPairsAppend ∀ (xs ys: List Leaf)
     (front: leafPairs xs = True)
     (back: leafPairs ys = True)
     (starts: startsDef ys = True):
@@ -987,7 +1418,7 @@ theorem pairsAppend ∀ (xs ys: List Leaf)
         | [] => byComputing
         | [first, ..rest] => Bool.andIntro (rewrite DecEq.sound starts) back
     | [x, y, ..more] =>
-      Bool.andIntro (Bool.andLeft front) (pairsAppend [y, ..more] ys (Bool.andRight front) back starts)
+      Bool.andIntro (Bool.andLeft front) (leafPairsAppend [y, ..more] ys (Bool.andRight front) back starts)
 
 theorem startsAppend ∀ (xs ys: List Leaf) (first: kindFirst xs = True): startsDef (xs ++ ys) = True := match xs with
   | [x, ..rest] => first
@@ -1025,7 +1456,7 @@ theorem groupsPairs ∀ (empty: Bool) (decls: List Decl)
               decl.leaves1 then
           leavesPairs
       (
-        pairsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidPairs restPairs restStarts,
+        leafPairsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidPairs restPairs restStarts,
         startsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidFirst
       )
 
@@ -1198,3 +1629,54 @@ theorem printedPlain1 ∀ (file: SourceFile)
     plain1 (tokens file.lexed1.leaves) = True :=
   let (pairs, starts) := groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical
   plainOfLeaves file.lexed1.leaves pairs (groupsFlat True file.decls hung) starts
+
+--| `printedGroups1`: the parser's groups of the output are the declarations' leaves, one group a declaration.
+--|
+--| Proof idea: a group starts at a token in column 0 that is no `:=`, outside brackets or not a closer or comma;
+--| each declaration starts with `def` in column 0, and by `hangs` its later leaves that start a line stand right of
+--| column 0 unless they are a closer or `:=`. A leaf in column 0 starts its line (the layout, `foldOk`), a closer
+--| in column 0 has its bracket open (the scan's count, `declDepth`), and the declaration's brackets balance, so the
+--| splitter is outside every declaration when the next `def` comes (`groupsSplit`).
+theorem printedGroups1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (hung: file.hung1 = True):
+    groupsOf file.lexed1.leaves = groupsFrom True file.decls :=
+  groupsSplit True file.decls [] [] within shaped (Bool.andLeft settled) lexical hung
+
+-- Cases the lemmas apply to, so their hypotheses can be met.
+
+theorem stepCommentExample: Scan.start.step "-- a" = Some Scan.start := stepComment Scan.start "-- a" byComputing
+
+theorem stepStartsExample: Scan.start.step "-- a" = Some Scan.start := stepStarts Scan.start "-- a" byComputing
+
+theorem goCloseExample: ({ previous = Some Lower, open = 1 }: Scan).go RParen
+      = Some { previous = Some RParen, open = 0 } :=
+  goClose
+    { previous = Some Lower, open = 1 }
+    Lower
+    RParen
+    0
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+theorem wordRunExample: Scan.start.run ((fixedWord "a" Comments.none).spelledAt False)
+      = Some { previous = Some Lower, open = 0 } :=
+  wordRun (fixedWord "a" Comments.none) False Scan.start { previous = Some Lower, open = 0 } byComputing byComputing
+
+theorem opKindAExample: opKind "->" = True := opKindA "->" byComputing
+
+theorem opKindBExample: opKind "+" = True := opKindB "+" byComputing
+
+theorem opKindCExample: opKind "!=" = True := opKindC "!=" byComputing
+
+theorem opKindDExample: opKind ">" = True := opKindD ">" byComputing
+
+theorem leavesStartDefExample: kindFirst exampleDecl.leaves1 = True :=
+  leavesStartDef exampleDecl.leaves1 (exampleDecl.spelt.filter notComment) byComputing byComputing byComputing

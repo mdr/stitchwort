@@ -90,19 +90,8 @@ def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs d
 
 -- `printedPlain1`, that the output is `plain1`, is proved in `Fmt.OutputFileProofs`.
 
---| `printedGroups1`: the parser's groups of the output are the declarations' leaves, one group a declaration.
---|
---| Proof idea: a group starts at a token in column 0 that is no `:=`, outside brackets or not a closer or comma;
---| each declaration starts with `def` in column 0, and by `hangs` its later leaves that start a line stand right of
---| column 0 unless they are a closer or `:=`.
-theorem printedGroups1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    groupsOf file.lexed1.leaves = groupsFrom True file.decls :=
-  ?
+-- `printedGroups1`, that the parser's groups of the output are the declarations' leaves, is proved in
+-- `Fmt.OutputFileProofs`.
 
 -- Rule N on the output.
 
