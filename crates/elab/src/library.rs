@@ -961,7 +961,10 @@ impl Elaborator {
         let decidable = g.env.registry().data(Builtin::Decidable);
         let mut found = Vec::new();
         for id in self.tables.prelude_defs..g.env.defs().len() {
-            let mut ty = g.def(DefId(id)).ty_value().clone();
+            let Ok(mut ty) = stitchwort_core::value::force(g, g.def(DefId(id)).ty_value().clone())
+            else {
+                continue;
+            };
             let mut level = 0;
             while let Value::Pi(_, _, _, cod) = &ty {
                 let Ok(next) = cod

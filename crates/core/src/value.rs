@@ -284,6 +284,14 @@ struct Modes {
     erasing: bool,
     /// A program running: every opaque definition's body is visible.
     program: bool,
+    /// The kernel checking ([`Machine::kernel`](crate::machine::Machine)):
+    /// [`eta_fields`] builds a stuck field of a folded call differently
+    /// for the kernel and the elaborator, and a kept type's calls
+    /// (`Def::ty_value`) are forced by both, so an unfolding the kernel
+    /// made while checking a body must not serve the elaborator, or what a
+    /// goal shows would depend on whether that body was checked or
+    /// replayed from the cache.
+    kernel: bool,
     /// The opaque definitions whose bodies were visible.
     transparent: Rc<[DefId]>,
 }
@@ -294,6 +302,7 @@ impl Modes {
             glue: g.machine.glue.get(),
             erasing: g.machine.erasure.active(),
             program: g.machine.erasure.program_running(),
+            kernel: g.machine.kernel.get(),
             transparent: g.machine.transparent.0.borrow().clone(),
         }
     }
@@ -301,19 +310,28 @@ impl Modes {
 
 impl Kept {
     /// Whether a reader now may use this unfolding: from epoch 0 (made with
-    /// no metavariables, by the kernel: `Def::ty_value`) or the current one
-    /// (one from another epoch may have used a metavariable solution that's
-    /// since been taken back), and made in the reader's modes, except that
-    /// one made glued serves a reader with gluing off: such a reader forces
-    /// the calls in it as it meets them, and sees what it would have
-    /// computed. Not the reverse: the folded read-back writes a call as the
-    /// call, and one unfolded unglued has none left.
+    /// no metavariables, by the kernel) or the current one (one from
+    /// another epoch may have used a metavariable solution that's since
+    /// been taken back), and made in the reader's modes, except that one
+    /// made glued serves a reader with gluing off: such a reader forces the
+    /// calls in it as it meets them, and sees what it would have computed.
+    /// Not the reverse: the folded read-back writes a call as the call, and
+    /// one unfolded unglued has none left.
+    ///
+    /// Most unfoldings die with the check that made them; those of the
+    /// calls in a kept type (`Def::ty_value`, evaluated glued, D3680) live
+    /// as long as the definition and are forced by the kernel and the
+    /// elaborator alike. The kernel's `Ev` is at epoch 0, so it never uses
+    /// one the elaborator made (its epochs start at 1) and recomputes it;
+    /// and since whether the kernel made it is one of the modes, the
+    /// elaborator never uses one the kernel made either.
     fn fits(&self, g: &Ev) -> bool {
         let m = &self.modes;
         (self.epoch == 0 || self.epoch == g.metas.epoch())
             && (m.glue || !g.machine.glue.get())
             && m.erasing == g.machine.erasure.active()
             && m.program == g.machine.erasure.program_running()
+            && m.kernel == g.machine.kernel.get()
             && {
                 let now = g.machine.transparent.0.borrow();
                 Rc::ptr_eq(&m.transparent, &now) || *m.transparent == **now

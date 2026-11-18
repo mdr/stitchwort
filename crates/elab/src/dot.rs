@@ -2010,7 +2010,11 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         }
     } else {
         match cx.e.named(&name.text) {
-            Some((Global::Def(id), _)) if !matches!(g.def(*id).ty_value(), Value::Pi(_, i, _, _) if i.is_implicit()) => {
+            // A kept type is glued: forced, so a type written through a
+            // nickname shows its parameters.
+            Some((Global::Def(id), _))
+                if !matches!(force(&g, g.def(*id).ty_value().clone())?, Value::Pi(_, i, _, _) if i.is_implicit()) =>
+            {
                 Ty::Term(Rc::new(g.def(*id).ty().clone()), Vec::new())
             }
             _ => return Ok(None),
@@ -2038,8 +2042,10 @@ fn annotation_type(cx: &Ctx, ty: &Expr) -> Result<Option<Ty>> {
     let g = cx.g();
     Ok(match cx.e.named(&name.text) {
         Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new().into()))),
+        // Forced, as a kept type is glued: a definition whose type is a
+        // nickname for a function type has parameters.
         Some((Global::Def(id), _))
-            if !applied && !matches!(g.def(*id).ty_value(), Value::Pi(..)) =>
+            if !applied && !matches!(force(&g, g.def(*id).ty_value().clone())?, Value::Pi(..)) =>
         {
             Some(Ty::Term(Rc::new(Term::Def(*id)), Vec::new()))
         }

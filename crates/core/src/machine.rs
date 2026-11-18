@@ -25,9 +25,11 @@ pub struct Machine {
     /// as the call, a [`Value::Call`](crate::value::Value::Call), unfolding
     /// it only when something looks inside (glued evaluation,
     /// docs/proposals/folded-calls.md). Off unless the elaborator turns it
-    /// on; the kernel is entered with it off and turns it on only to check
-    /// a definition's body (D483, `check.rs` `admit_group`) and its
-    /// signature (`declare_def`, SW-1779); never while a program runs.
+    /// on; the kernel is entered with it off and turns it on to check a
+    /// definition's body (D483, `check.rs` `admit_group`) and its signature
+    /// (`declare_def`, SW-1779), and to evaluate the type a definition
+    /// keeps (`Def::ty_value`, `check.rs` `kept_type`, D3680), whose calls
+    /// then outlive the check; never while a program runs.
     pub glue: Cell<bool>,
     /// Whether the kernel is checking: set by [`in_kernel_modes`] for the
     /// admission function it runs. Gluing alone doesn't say so, since the
