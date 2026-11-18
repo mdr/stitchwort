@@ -2027,9 +2027,11 @@ def matchesBarOn (modes: Modes) (items: List Item): Bool :=
 
 --| `match induct` and `match reify`: the word, then not what a scrutinee
 --| named `induct` would have after it.
-def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool :=
-  wordAhead modes word
-    && (match modes.peekAt 1 with
+def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool := specialOf (wordAhead modes word) (modes.peekAt 1)
+
+def specialOf (word: Bool) (second: Option Tok): Bool :=
+  word
+    && (match second with
       | Some KwWith => False
       | Some Comma => False
       | Some Colon => False
@@ -2037,16 +2039,29 @@ def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool :=
       | _ => True)
 
 def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word): {Parse Item} Expr :=
-  if specialAhead modes "induct" then
-    let induct := fixedFrom()
-    inductExpr self modes keyword.comments induct
-  else if specialAhead modes "reify" then
-    let reify := fixedFrom()
-    reifyExpr self modes keyword.comments reify
-  else if modes.at Pipe then clauseLambda self modes keyword None ClausePlain
-  else if wordAhead modes "some" && isSome Pipe (modes.peekAt 1) then
-    let some := bump()
-    clauseLambda self modes keyword (Some some) ClauseSome
+  matchSpecial self modes keyword (specialAhead modes "induct")
+
+def matchSpecial (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (induct: Bool): {Parse Item} Expr :=
+  if induct then
+    let word := fixedFrom()
+    inductExpr self modes keyword.comments word
+  else matchReify self modes keyword (specialAhead modes "reify")
+
+def matchReify (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (reify: Bool): {Parse Item} Expr :=
+  if reify then
+    let word := fixedFrom()
+    reifyExpr self modes keyword.comments word
+  else matchPipe self modes keyword (modes.at Pipe)
+
+def matchPipe (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (piped: Bool): {Parse Item} Expr :=
+  if piped then clauseLambda self modes keyword None ClausePlain
+  else matchSome self modes keyword (wordAhead modes "some") (modes.peekAt 1)
+
+def matchSome (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (some: Bool) (second: Option Tok):
+    {Parse Item} Expr :=
+  if some && isSome Pipe second then
+    let word := bump()
+    clauseLambda self modes keyword (Some word) ClauseSome
   else
     let first := scrutinee self modes
     let (scrutinees, _) :=
@@ -2057,35 +2072,52 @@ def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word):
 
 def scrutinee (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Scrutinee :=
   let name := namedBinder modes
-  { name, value = self { modes = modes.sealed, level = LevelInline } }
+  let value := self { modes = modes.sealed, level = LevelInline }
+  { name, value }
 
 def plural (count: Nat) (noun: Text): Text := if count == 1 then "${count} ${noun}" else "${count} ${noun}s"
 
 def matchArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat)
     (column: Option Nat) (found: List Arm):
     {Parse Item} List Arm :=
-  let (lined, column) := armColumn column
-  let ahead := modes.at Pipe && lined
+  matchArmsLined fuel self modes scrutinees found (armColumn column)
+
+def matchArmsLined (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat)
+    (found: List Arm) (columned: (Bool, Option Nat)):
+    {Parse Item} List Arm :=
+  match columned with | (lined, column) => matchArmsAhead fuel self modes scrutinees column found lined (modes.at Pipe)
+
+def matchArmsAhead (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat) (column: Option Nat)
+    (found: List Arm) (lined atPipe: Bool):
+    {Parse Item} List Arm :=
   match fuel with
-    | Succ more if ahead =>
-      let bar := bump()
-      let patterns := armPatterns modes
-      if patterns.length != scrutinees then
-        fatal
-          "this alternative has ${plural patterns.length "pattern"}, but the `match` has ${plural scrutinees "scrutinee"}"
-      else
-        let guard := guardOf self modes
-        let body := armBody self modes (anyAbsurd patterns) "`=>`"
-        matchArms more self modes scrutinees column [{ bar, patterns, guard, body }, ..found]
-    | _ => found.reverse
+    | Succ more => if atPipe && lined then matchArm more self modes scrutinees column found else found.reverse
+    | Zero => found.reverse
+
+def matchArm (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat)
+    (column: Option Nat) (found: List Arm):
+    {Parse Item} List Arm :=
+  let bar := bump()
+  let patterns := armPatterns modes
+  if patterns.length != scrutinees then
+    fatal
+      "this alternative has ${plural patterns.length "pattern"}, but the `match` has ${plural scrutinees "scrutinee"}"
+  else
+    let guard := guardOf self modes
+    let body := armBody self modes (anyAbsurd patterns) "`=>`"
+    matchArms more self modes scrutinees column [{ bar, patterns, guard, body }, ..found]
 
 --| Whether an arm's `|` starting a line lines up with the first arm that
 --| did, and the column they line up at.
-def armColumn (column: Option Nat): {Parse Item} (Bool, Option Nat) := match left() with
-  | [item, .._] if item.leaf.token.lineStart =>
-    match column with
-      | None => (True, Some item.leaf.token.column)
-      | Some first => (first == item.leaf.token.column, column)
+def armColumn (column: Option Nat): {Parse Item} (Bool, Option Nat) := armColumnOn column left()
+
+def armColumnOn (column: Option Nat) (items: List Item): (Bool, Option Nat) := match items with
+  | [item, .._] =>
+    if item.leaf.token.lineStart then
+      match column with
+        | None => (True, Some item.leaf.token.column)
+        | Some first => (first == item.leaf.token.column, column)
+    else (True, column)
   | _ => (True, column)
 
 def armPatterns (modes: Modes): {Parse Item} List Pattern :=
@@ -2096,13 +2128,21 @@ def armPatterns (modes: Modes): {Parse Item} List Pattern :=
 --| `=> e`, or nothing after an absurd pattern with no `=>`.
 def armBody (self: Goal → {Parse Item} Expr) (modes: Modes) (absurd: Bool) (what: Text):
     {Parse Item} Option (Word, Expr) :=
-  if absurd && !modes.at FatArrow then None
+  armBodyOf self modes absurd what (modes.at FatArrow)
+
+def armBodyOf (self: Goal → {Parse Item} Expr) (modes: Modes) (absurd: Bool) (what: Text) (atArrow: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  if absurd && !atArrow then None
   else
     let arrow := modes.expect FatArrow what
-    Some (arrow, full self modes)
+    let value := full self modes
+    Some (arrow, value)
 
 def guardOf (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Guard :=
-  if modes.at KwIf then
+  guardAt self modes (modes.at KwIf)
+
+def guardAt (self: Goal → {Parse Item} Expr) (modes: Modes) (atIf: Bool): {Parse Item} Option Guard :=
+  if atIf then
     let keyword := bump()
     let binder := namedBinder modes
     let condition := full self { modes | guard = True, lines = [] }
@@ -2117,24 +2157,50 @@ def clauseLambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Wor
 def clauseArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind)
     (count column: Option Nat) (found: List Arm):
     {Parse Item} List Arm :=
-  let (lined, column) := armColumn column
-  let ahead := modes.at Pipe && lined
+  clauseArmsLined fuel self modes kind count found (armColumn column)
+
+def clauseArmsLined (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind) (count: Option Nat)
+    (found: List Arm) (columned: (Bool, Option Nat)):
+    {Parse Item} List Arm :=
+  match columned with | (lined, column) => clauseArmsAhead fuel self modes kind count column found lined (modes.at Pipe)
+
+def clauseArmsAhead (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind)
+    (count column: Option Nat) (found: List Arm) (lined atPipe: Bool):
+    {Parse Item} List Arm :=
   match fuel with
-    | Succ more if ahead =>
-      let bar := bump()
-      let patterns := armPatterns modes
-      match count with
-        | Some first if first != patterns.length =>
-          fatal "this alternative has ${plural patterns.length "pattern"}, but the first has ${first}"
-        | _ =>
-          let guard := guardOf self modes
-          let absurd := anyAbsurd patterns
-          let body := match kind with
-            | ClauseMatches => if modes.at FatArrow then armBody self modes False "`=>`" else None
-            | ClausePlain => armBody self modes absurd "`=>`"
-            | ClauseSome => armBody self modes False "`=>`"
-          clauseArms more self modes kind (Some patterns.length) column [{ bar, patterns, guard, body }, ..found]
-    | _ => found.reverse
+    | Succ more => if atPipe && lined then clauseArm more self modes kind count column found else found.reverse
+    | Zero => found.reverse
+
+def clauseArm (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind)
+    (count column: Option Nat) (found: List Arm):
+    {Parse Item} List Arm :=
+  let bar := bump()
+  let patterns := armPatterns modes
+  match count with
+    | Some first =>
+      if first != patterns.length then
+        fatal "this alternative has ${plural patterns.length "pattern"}, but the first has ${first}"
+      else clauseArmBody more self modes kind column found bar patterns
+    | None => clauseArmBody more self modes kind column found bar patterns
+
+def clauseArmBody (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind) (column: Option Nat)
+    (found: List Arm) (bar: Word) (patterns: List Pattern):
+    {Parse Item} List Arm :=
+  let guard := guardOf self modes
+  let absurd := anyAbsurd patterns
+  let body := clauseBody self modes kind absurd
+  clauseArms more self modes kind (Some patterns.length) column [{ bar, patterns, guard, body }, ..found]
+
+def clauseBody (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind) (absurd: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  match kind with
+    | ClauseMatches => clauseMatchesBody self modes (modes.at FatArrow)
+    | ClausePlain => armBody self modes absurd "`=>`"
+    | ClauseSome => armBody self modes False "`=>`"
+
+def clauseMatchesBody (self: Goal → {Parse Item} Expr) (modes: Modes) (atArrow: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  if atArrow then armBody self modes False "`=>`" else None
 
 -- Patterns.
 

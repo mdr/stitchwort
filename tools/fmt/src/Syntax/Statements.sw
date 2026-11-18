@@ -127,76 +127,138 @@ def handleExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
 --| `match reify t with | …`, after `match` and `reify`.
 def reifyExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword reify: Comments): {Parse Item} Expr :=
   let computation := self { modes = modes.sealed, level = LevelInline }
-  if modes.at Comma then fatal "`match reify` takes one computation, with nothing else to match"
+  reifyComma self modes keyword reify computation (modes.at Comma)
+
+def reifyComma (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword reify: Comments)
+    (computation: Expr) (comma: Bool):
+    {Parse Item} Expr :=
+  if comma then fatal "`match reify` takes one computation, with nothing else to match"
   else
     let withKeyword := modes.expectFixed KwWith "`with`"
     Reify keyword reify computation withKeyword (handlerClauses self modes)
 
 --| At least one clause; clauses starting lines line up.
 def handlerClauses (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List HandlerClause :=
-  match clausesFrom (Parse.mark().left + 1) self modes None [] with
-    | [] => modes.fail "`|` and a handler clause"
-    | clauses => clauses
+  let here := Parse.mark()
+  handlerClausesEnd modes (clausesFrom (here.left + 1) self modes None [])
+
+def handlerClausesEnd (modes: Modes) (clauses: List HandlerClause): {Parse Item} List HandlerClause :=
+  if clauses.isEmpty then modes.fail "`|` and a handler clause" else clauses
 
 def clausesFrom (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (column: Option Nat) (found: List HandlerClause):
     {Parse Item} List HandlerClause :=
-  let (lined, column) := armColumn column
-  let ahead := modes.at Pipe && lined
+  clausesLined fuel self modes found (armColumn column)
+
+def clausesLined (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (found: List HandlerClause) (columned: (Bool, Option Nat)):
+    {Parse Item} List HandlerClause :=
+  match columned with | (lined, column) => clausesAhead fuel self modes column found lined (modes.at Pipe)
+
+def clausesAhead (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Option Nat)
+    (found: List HandlerClause) (lined atPipe: Bool):
+    {Parse Item} List HandlerClause :=
   match fuel with
-    | Succ more if ahead =>
-      let bar := fixedFrom()
-      clausesFrom more self modes column [handlerClause self modes bar, ..found]
-    | _ => found.reverse
+    | Succ more =>
+      if atPipe && lined then
+        let bar := fixedFrom()
+        let clause := handlerClause self modes bar
+        clausesFrom more self modes column [clause, ..found]
+      else found.reverse
+    | Zero => found.reverse
 
 --| `return x => e` or `op p, k => e`, after the `|` (`handler_clause`).
 def handlerClause (self: Goal → {Parse Item} Expr) (modes: Modes) (bar: Comments): {Parse Item} HandlerClause :=
-  if modes.at KwReturn then
+  handlerClauseOf self modes bar (modes.at KwReturn)
+
+def handlerClauseOf (self: Goal → {Parse Item} Expr) (modes: Modes) (bar: Comments) (atReturn: Bool):
+    {Parse Item} HandlerClause :=
+  if atReturn then
     let keyword := fixedFrom()
-    let name := if modes.at Underscore then bump() else modes.lower "a name for the result"
+    let name := handlerName modes "a name for the result" (modes.at Underscore)
     let arrow := modes.expectFixed FatArrow "`=>`"
     ReturnClause bar keyword name arrow (full self modes)
   else
     let operation := modes.lowerQualified "an operation, or `return`"
     let argument := patternOf modes
-    if modes.at FatArrow then fatal "name the continuation: `| ${operation.text} x, k => …`"
-    else
-      let comma := modes.expectFixed Comma "`,` and a name for the continuation"
-      let continuation := if modes.at Underscore then bump() else modes.lower "a name for the continuation"
-      if modes.at Comma then fatal "an operation takes one argument; bracket a tuple: `(a, b)`"
-      else
-        let arrow := modes.expectFixed FatArrow "`=>`"
-        OperationClause bar operation argument comma continuation arrow (full self modes)
+    operationClause self modes bar operation argument (modes.at FatArrow)
+
+def handlerName (modes: Modes) (what: Text) (underscore: Bool): {Parse Item} Word :=
+  if underscore then bump() else modes.lower what
+
+def operationClause (self: Goal → {Parse Item} Expr) (modes: Modes) (bar: Comments) (operation: Word)
+    (argument: Pattern) (atArrow: Bool):
+    {Parse Item} HandlerClause :=
+  if atArrow then fatal "name the continuation: `| ${operation.text} x, k => …`"
+  else
+    let comma := modes.expectFixed Comma "`,` and a name for the continuation"
+    let continuation := handlerName modes "a name for the continuation" (modes.at Underscore)
+    operationEnd self modes bar operation argument comma continuation (modes.at Comma)
+
+def operationEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (bar: Comments) (operation: Word) (argument: Pattern)
+    (comma: Comments) (continuation: Word) (atComma: Bool):
+    {Parse Item} HandlerClause :=
+  if atComma then fatal "an operation takes one argument; bracket a tuple: `(a, b)`"
+  else
+    let arrow := modes.expectFixed FatArrow "`=>`"
+    OperationClause bar operation argument comma continuation arrow (full self modes)
 
 --| `match induct (f args) with | eqK x ih => …`, after `match` and
 --| `induct`.
 def inductExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword induct: Comments): {Parse Item} Expr :=
   let call := self { modes = modes.sealed, level = LevelInline }
-  if modes.at Comma then fatal "`match induct` takes one call, with nothing else to match"
+  inductComma self modes keyword induct call (modes.at Comma)
+
+def inductComma (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword induct: Comments) (call: Expr) (comma: Bool):
+    {Parse Item} Expr :=
+  if comma then fatal "`match induct` takes one call, with nothing else to match"
   else
     let withKeyword := modes.expectFixed KwWith "`with`"
-    match inductArms (Parse.mark().left + 1) self modes None [] with
-      | [] => modes.fail "`|` and an alternative named after a case"
-      | arms => Induct keyword induct call withKeyword arms
+    let here := Parse.mark()
+    inductEnd modes keyword induct call withKeyword (inductArms (here.left + 1) self modes None [])
+
+def inductEnd (modes: Modes) (keyword induct: Comments) (call: Expr) (withKeyword: Comments) (arms: List InductArm):
+    {Parse Item} Expr :=
+  if arms.isEmpty then modes.fail "`|` and an alternative named after a case"
+  else Induct keyword induct call withKeyword arms
 
 def inductArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Option Nat) (found: List InductArm):
     {Parse Item} List InductArm :=
-  let (lined, column) := armColumn column
-  let ahead := modes.at Pipe && lined
-  match fuel with
-    | Succ more if ahead =>
-      let bar := fixedFrom()
-      let case := modes.lower "the name of a case of `f.induct`"
-      let names := caseNames (Parse.mark().left + 1) modes []
-      let arrow := modes.expectFixed FatArrow "`=>`"
-      let body := full self modes
-      inductArms more self modes column [{ bar, case, names, arrow, body }, ..found]
-    | _ => found.reverse
+  inductLined fuel self modes found (armColumn column)
 
-def caseNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word := match fuel, modes.peek with
-  | Succ more, Some Lower => caseNames more modes [modes.lower "a name", ..found]
-  | Succ more, Some Underscore => caseNames more modes [bump(), ..found]
-  | _, _ => found.reverse
+def inductLined (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (found: List InductArm) (columned: (Bool, Option Nat)):
+    {Parse Item} List InductArm :=
+  match columned with | (lined, column) => inductAhead fuel self modes column found lined (modes.at Pipe)
+
+def inductAhead (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Option Nat)
+    (found: List InductArm) (lined atPipe: Bool):
+    {Parse Item} List InductArm :=
+  match fuel with
+    | Succ more =>
+      if atPipe && lined then
+        let bar := fixedFrom()
+        let case := modes.lower "the name of a case of `f.induct`"
+        let here := Parse.mark()
+        let names := caseNames (here.left + 1) modes []
+        let arrow := modes.expectFixed FatArrow "`=>`"
+        let body := full self modes
+        inductArms more self modes column [{ bar, case, names, arrow, body }, ..found]
+      else found.reverse
+    | Zero => found.reverse
+
+def caseNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word :=
+  caseNamesOn fuel modes found modes.peek
+
+def caseNamesOn (fuel: Nat) (modes: Modes) (found: List Word) (seen: Option Tok): {Parse Item} List Word :=
+  match fuel, seen with
+    | Succ more, Some Lower =>
+      let name := modes.lower "a name"
+      caseNames more modes [name, ..found]
+    | Succ more, Some Underscore =>
+      let name := bump()
+      caseNames more modes [name, ..found]
+    | _, _ => found.reverse
 
 -- `calc`.
 
