@@ -23371,12 +23371,12 @@
     {
       "id": 3937,
       "title": "[Opus] Fix the 5 rolling-check failures from SW-3930 (D3680 glued kept types), Overmind report roll/reports/75a6bf593.md: bench check_work checking_computes_needed_values (dot notation whose result type depends on the receiver: checking no longer computes cost); rejected_projects_fail_for_the_expected_reason; quot::c4_sound_with_a_proof_of_another_relation_is_refused (message changed); differential the_evaluators_agree_on_quotients and on_the_prelude_and_every_example ('the reference evaluator never glues', reference.rs:790: a glued kept type reaches the reference evaluator)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Opus, 18 Nov): done, 23d8fb93d. All five are expectations D3680 legitimately moved; no code fix.\n- differential (both): tests handed Def::ty_value (now glued) to the reference evaluator; now give it the machine's unglued evaluation of def.ty(), and keep comparing the kept type by machine conv. Reference stays glue-free.\n- bench: old 'needed' dot case (box = box by box.same) never needed cost; it was only computed by the unglued kept type. Moved to CONSTANT (pins D3680's gain); new needed case: result type T box.n.\n- quot c4: message now 'AllTrue False False' (was 'Unit'): names the relation; re-accepted.\n- instance-orphan-synonym: 'Area LocalNat' (was 'Area Nat'), as written, note 2 still names Nat; re-accepted.\n- docs/core.md: a sentence on messages and the differential tests.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
