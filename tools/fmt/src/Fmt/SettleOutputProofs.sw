@@ -37,6 +37,7 @@ import Syntax.SettleProofs (
   plainFromOf,
   tokensReverseOnto
 )
+import Syntax.SettleSplitProofs (codeWordsAppend, groupsConcat)
 
 -- What rule 1 has passed.
 
@@ -587,16 +588,16 @@ def SourceFile.unreturned1 (file: SourceFile): Bool :=
 --| The words the output's tree has, all declarations' in a row.
 def SourceFile.words1 (file: SourceFile): List Word := (file.calmTop.decls.map Decl.words).concat
 
---| The file's leaves stand against its words: each declaration's (`stood1`), the `def` holding the comments the file
---| loop prints above it.
-theorem standsFile ∀ (file: SourceFile)
+--| Each declaration's leaves in the file stand against its words in the output's tree (`stood1`), the `def` holding the
+--| comments the file loop prints above it.
+theorem standsEachFile ∀ (file: SourceFile)
     (within: file.within1 = True)
     (shaped: file.shaped1 = True)
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True)
     (stood: file.stood1 = True)
     (unreturned: file.unreturned1 = True):
-    stands None file.words1 file.lexed1.leaves = True :=
+    standsEach (file.calmTop.decls.map Decl.words) (groupsFrom True file.decls) = True :=
   let starts := leavesStart1 file within shaped settled lexical
   match file with
     | { decls, end } =>
@@ -627,7 +628,7 @@ theorem standsFile ∀ (file: SourceFile)
           let afterTop: keyword.topped.after = keyword.after := match above: keyword.above with
             | [] => byComputing
             | [first, ..more] => byComputing
-          standsAppend None _ _ _ _
+          Bool.andIntro
             (standsDecl header colonEq value True keyword.topped
               (Bool.andLeft stood)
               (Bool.andLeft starts)
@@ -655,7 +656,7 @@ theorem standsRest ∀ (decls: List Decl)
     (stood: decls.all Decl.stands1 = True)
     (plain: decls.all (decl => decl.firstComments.above.all Note.unreturned) = True)
     (starts: decls.all (decl => notCommaFirst decl.leaves1) = True):
-    stands None ((decls.map Decl.calm).map Decl.words).concat (groupsFrom False decls).concat = True :=
+    standsEach ((decls.map Decl.calm).map Decl.words) (groupsFrom False decls) = True :=
   match decls with
     | [] => byComputing
     | [Definition [] header (Assigned colonEq value), ..rest] =>
@@ -667,7 +668,7 @@ theorem standsRest ∀ (decls: List Decl)
         match keyword.blankBefore with
           | True => byComputing
           | False => byComputing
-      standsAppend None _ _ _ _
+      Bool.andIntro
         (standsDecl header colonEq value False keyword
           (Bool.andLeft stood)
           (Bool.andLeft starts)
@@ -715,7 +716,22 @@ theorem groupsBack ∀ (file: SourceFile)
     (unreturned: file.unreturned1 = True)
     (m: matched (homeFrom [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
     (groupsOf (homeFrom [] None file.lexed1.leaves)).map codeWords = file.calmTop.decls.map Decl.words :=
-  ?
+  let leaves := file.lexed1.leaves
+  let homed := homeFrom [] None leaves
+  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens [] None leaves) byComputing
+  let groupsSame: groupTokens (groupsOf homed) = groupTokens (groupsFrom True file.decls) :=
+    Eq.trans
+      (splitTokens Splitter.start [] [] [] [] homed leaves tokensSame byComputing byComputing)
+      (Eq.cong groupTokens (printedGroups1 file within shaped settled lexical hung))
+  let lengths: (groupsOf homed).map codeLength = (file.calmTop.decls.map Decl.words).map (all => all.length) :=
+    Eq.trans
+      (codeLengthsTokens _ _ groupsSame)
+      (standsLengths _ _ (standsEachFile file within shaped settled lexical stood unreturned))
+  let wordsOf: codeWords homed = file.words1 := calc codeWords homed
+    _ = codeWords (homed.reverse.reverseOnto []) := rewrite List.reverseReverse homed
+    _ = (file.words1.reverseOnto []).reverseOnto [] := matchedWords homed.reverse [] (file.words1.reverseOnto []) m
+    _ = file.words1 := List.reverseReverse file.words1
+  piecesWords (groupsOf homed) (file.calmTop.decls.map Decl.words) (rewrite groupsConcat homed then wordsOf) lengths
 
 --| The end's comments read back as the tree's.
 theorem endBack ∀ (file: SourceFile)
@@ -1168,3 +1184,132 @@ theorem flushTokens ∀ (current other: List Leaf) (groups others: List (List Le
       consCong _ _ _ _ reversed sameGroups
 
 theorem consCong ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] := rewrite head, tail
+
+-- Standing, group by group.
+
+--| Each group of leaves stands against its words.
+def standsEach: List (List Word) → List (List Leaf) → Bool
+  | [], [] => True
+  | [words, ..more], [leaves, ..rest] => stands None words leaves && standsEach more rest
+  | _, _ => False
+
+theorem standsConcat ∀ (words: List (List Word)) (groups: List (List Leaf))
+    (each: standsEach words groups = True):
+    stands None words.concat groups.concat = True :=
+  match words, groups with
+    | [], [] => byComputing
+    | [first, ..more], [group, ..rest] =>
+      standsAppend None first more.concat group rest.concat
+        (Bool.andLeft each)
+        (standsConcat more rest (Bool.andRight each))
+
+--| The file's leaves stand against the output tree's words.
+theorem standsFile ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (stood: file.stood1 = True)
+    (unreturned: file.unreturned1 = True):
+    stands None file.words1 file.lexed1.leaves = True :=
+  standsConcat _ _ (standsEachFile file within shaped settled lexical stood unreturned)
+
+--| Leaves standing against words have a non-comma leaf for each word.
+theorem standsLength ∀ (owed: Option Text) (words: List Word) (leaves: List Leaf)
+    (standing: stands owed words leaves = True):
+    (codeWords leaves).length = words.length :=
+  match leaves with
+    | [] =>
+      match owed with
+        | None => rewrite emptyOf words (Bool.andLeft standing)
+        | Some text => Void.impossible (Bool.falseNotTrue (Bool.andRight standing))
+    | [leaf, ..after] =>
+      match comma: leaf.kind == Comma with
+        | True =>
+          match tuck: tucked owed leaf with
+            | None => Void.impossible (Bool.falseNotTrue (Bool.andRight (Bool.andRight standing)))
+            | Some still => standsLength still words after (Bool.andRight (Bool.andRight standing))
+        | False =>
+          match words with
+            | [word, ..later] =>
+              let clause := Bool.andRight standing
+              let next := (still: Option Text) (rest: stands still later after = True) =>
+                Eq.cong (n => n + 1) (standsLength still later after rest)
+              match owed, afterIs: word.comments.after with
+                | Some text, None =>
+                  match tuck: tucked (Some text) leaf with
+                    | None => Void.impossible (Bool.falseNotTrue (Bool.andRight clause))
+                    | Some still => next still (Bool.andRight clause)
+                | None, None => next None (Bool.andRight clause)
+                | None, Some text =>
+                  match trailing: leaf.trivia.trailing with
+                    | None => next (Some text) (Bool.andRight clause)
+                    | Some comment => next None (Bool.andRight (Bool.andRight clause))
+
+def codeLength (leaves: List Leaf): Nat := (codeWords leaves).length
+
+theorem codeLengthTokens ∀ (xs ys: List Leaf) (same: tokens xs = tokens ys): codeLength xs = codeLength ys :=
+  match xs, ys with
+    | [], [] => byComputing
+    | [x, ..xr], [y, ..yr] =>
+      let headSame: y.token = x.token := Eq.flipped (Eq.cong (all => all.headOr x.token) same)
+      let rest := codeLengthTokens xr yr (Eq.cong (all => all.drop 1) same)
+      let kindSame: y.kind = x.kind := Eq.cong (token => token.kind) headSame
+      match comma: x.kind == Comma with
+        | True =>
+          let twin: (y.kind == Comma) = True := rewrite kindSame then comma
+          rewrite twin then rest
+        | False =>
+          let twin: (y.kind == Comma) = False := rewrite kindSame then comma
+          rewrite twin then Eq.cong (n => n + 1) rest
+
+theorem codeLengthsTokens ∀ (xs ys: List (List Leaf))
+    (same: groupTokens xs = groupTokens ys):
+    xs.map codeLength = ys.map codeLength :=
+  match xs, ys with
+    | [], [] => byComputing
+    | [x, ..xr], [y, ..yr] =>
+      consCong _ _ _ _
+        (codeLengthTokens x y (Eq.cong (all => all.headOr []) same))
+        (codeLengthsTokens xr yr (Eq.cong (all => all.drop 1) same))
+
+theorem standsLengths ∀ (words: List (List Word)) (groups: List (List Leaf))
+    (each: standsEach words groups = True):
+    groups.map codeLength = words.map (all => all.length) :=
+  match words, groups with
+    | [], [] => byComputing
+    | [first, ..more], [group, ..rest] =>
+      consCong _ _ _ _
+        (standsLength None first group (Bool.andLeft each))
+        (standsLengths more rest (Bool.andRight each))
+
+theorem appendCancel ∀ (a c b d: List x) (joined: a ++ b = c ++ d) (lengths: a.length = c.length): a = c ∧ b = d :=
+  match a, c with
+    | [], [] => (byComputing, joined)
+    | [], [q, ..qs] => Void.impossible (Nat.zeroNotSucc qs.length lengths)
+    | [p, ..ps], [] => Void.impossible (Nat.succNotZero ps.length lengths)
+    | [p, ..ps], [q, ..qs] =>
+      let headSame: p = q := Eq.cong (all => all.headOr p) joined
+      let (restSame, tailSame) :=
+        appendCancel ps qs b d (Eq.cong (all => all.drop 1) joined) (Eq.cong (n => n - 1) lengths)
+      (consCong p q ps qs headSame restSame, tailSame)
+
+--| Pieces whose words, joined, are the words wanted, each with as many words as wanted of it, have those words.
+theorem piecesWords ∀ (pieces: List (List Leaf)) (words: List (List Word))
+    (joined: codeWords pieces.concat = words.concat)
+    (lengths: pieces.map codeLength = words.map (all => all.length)):
+    pieces.map codeWords = words :=
+  match pieces, words with
+    | [], [] => byComputing
+    | [piece, ..rest], [first, ..more] =>
+      let split: codeWords piece ++ codeWords rest.concat = first ++ more.concat :=
+        Eq.trans (Eq.flipped (codeWordsAppend piece rest.concat)) joined
+      let (pieceSame, restSame) :=
+        appendCancel
+          (codeWords piece)
+          first
+          (codeWords rest.concat)
+          more.concat
+          split
+          (Eq.cong (all => all.headOr 0) lengths)
+      consCong _ _ _ _ pieceSame (piecesWords rest more restSame (Eq.cong (all => all.drop 1) lengths))
