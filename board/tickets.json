@@ -23635,7 +23635,7 @@
     {
       "id": 3956,
       "title": "[DeepSeek] Fmt.Tests: 'nodes Doc lacks are unsupported' in the DocDump tests still expects Mark and CloserLine unsupported; since E4 (SW-3940) only TextBlock is; update the test (SW-3950 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23661,7 +23661,7 @@
     {
       "id": 3958,
       "title": "[DeepSeek] Merge the duplicate repo-formatted tests: fmt::the_repository_sources_are_formatted and fmt_repo::tracked_sw_files_are_formatted now walk the same tracked files (37 s each); keep one (SW-3953 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23687,7 +23687,7 @@
     {
       "id": 3960,
       "title": "[DeepSeek] js exportable: the Partial check (E-JS-PARTIAL) reads def.ty_value, not def_telescope's view, so a Partial result behind an opaque nickname gets a vaguer E-EXPORT; read it from tel. And generic_field_boundaries' .expect on boundary can in principle panic now boundary returns a Resource refusal: pass it on instead (SW-3947 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
