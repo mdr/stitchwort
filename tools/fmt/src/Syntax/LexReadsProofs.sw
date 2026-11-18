@@ -1475,3 +1475,76 @@ theorem itemRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
                       roundOfYields
                         [p := () => fail (if other == '@' then strayAt else unexpected other)]
                         (yieldsFatal (if other == '@' then strayAt else unexpected other) Foreign)
+
+-- The lexer at the top level: rounds of `item`, joined.
+
+theorem itemRoundAt ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (start: Parse.Mark Char):
+    RoundOk start (() => item self source TopLevel) (RoundFine start.offset start.rest) :=
+  total state value after here honest h =>
+    let marked := Eq.trans (Parse.runFromMark state (m => (itemAt self source TopLevel m, Parse.mark()))).flipped h
+    let given: Parse.runFrom state (() => (itemOn self source TopLevel start start.rest, Parse.mark()))
+      = Ok (value, after) :=
+      rewrite here at marked then marked
+    itemRound self source start start.rest byComputing total state value after here honest given
+
+theorem concatWithin ∀ (rounds: List (List (Parse.Located Lexeme))):
+    rounds.concat.all (lexeme => lexeme.value.within)
+      = rounds.all (round => round.all (lexeme => lexeme.value.within)) :=
+  match rounds with
+    | [] => byComputing
+    | [round, ..more] => rewrite allAppendB round more.concat (lexeme => lexeme.value.within), concatWithin more
+
+--| The lexer's lexemes, all of the alphabet, are rounds of `item` joined, each fine and read in turn from the start
+--| of the source.
+theorem lexemesRounds ∀ (source: Text) (found: List (Parse.Located Lexeme))
+    (ok: lexemes source = Ok found)
+    (within: found.all (lexeme => lexeme.value.within) = True):
+    ∃ (rounds: List (List (Parse.Located Lexeme))) => ∃ (read: List Char) => ∃ (tail: List Char) => found
+      = rounds.concat
+      ∧ source.toList = read ++ tail
+      ∧ EachAt RoundFine 0 source.toList read rounds :=
+  let body := (self: Place → {Parse Char} List (Parse.Located Lexeme)) (inner: Place) =>
+    Parse.many (() => item self source inner) |> List.concat
+  let self0 := (inner: Place) => Parse.recursiveWithFuel source.toList.length body inner
+  let first := Parse.State.start source.toList
+  match r: Parse.run source.toList (() => lexemesIn source TopLevel) with
+    | Ok got =>
+      let gotFound: got = found := Result.okInjective ok
+      let r1 := Eq.trans (Parse.runFromMark first (at => Parse.recursiveWithFuel (at.left + 1) body TopLevel)).flipped r
+      let r2: Parse.runFrom first (() => List.concat (Parse.many (() => item self0 source TopLevel))) = Ok got := r1
+      match Parse.runFromThenOk
+        (() => Parse.many (() => item self0 source TopLevel))
+        first
+        (rounds => List.concat rounds)
+        got
+        r2 with
+        | Witness rounds (Witness after (Both ranMany restRun)) =>
+          let joined: Ok rounds.concat = Ok got := Eq.trans (Parse.runFromPure after rounds.concat).flipped restRun
+          let foundIs: found = rounds.concat := rewrite <- gotFound then (Result.okInjective joined).flipped
+          let ranMany2 :=
+            Eq.trans
+              (Parse.runFromMark first (m =>
+                (Parse.manyFrom (m.left + 1) (() => item self0 source TopLevel) [] m, Parse.mark()))).flipped
+              ranMany
+          let honest: Parse.Honest source.toList.length first.at := Both byComputing (arithmetic [])
+          match atManyFromOr
+            (() => item self0 source TopLevel)
+            RoundFine
+            (start => itemRoundAt self0 source start)
+            (first.at.left + 1)
+            []
+            source.toList.length
+            first
+            rounds
+            after.at
+            honest
+            ranMany2 with
+            | Inl outside =>
+              let all: rounds.concat.all (lexeme => lexeme.value.within) = True := rewrite <- foundIs then within
+              let none: rounds.concat.all (lexeme => lexeme.value.within) = False :=
+                rewrite concatWithin rounds then outside
+              (Bool.trueNotFalse (Eq.trans all.flipped none)).impossible
+            | Inr (Witness read (Both starts (Both honest2 (Witness more (Both same each))))) =>
+              let roundsAre: rounds = more := same
+              Witness rounds
+                (Witness read (Witness after.at.rest (Both foundIs (Both starts (rewrite roundsAre then each)))))
