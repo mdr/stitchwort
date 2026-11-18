@@ -22,6 +22,10 @@ STAGE is what is compared (the Rust side's dump in brackets):
                   (the executable is given the dump, not the source; the
                   report is counts of matched, mismatched and unsupported
                   declarations, by the node kinds Std.Doc lacks)
+    s1       (S1) each declaration within slice 1, formatted, against
+                  Rust's text for it                       [stitchwort dev doc]
+                  (the report is counts of declarations within the slice,
+                  matched and mismatched; text compares whole files)
 
 The executable is called as `EXE --stage NAME FILE` and answers on standard
 output (and, for a refused file, standard error and a non-zero exit status)
@@ -84,6 +88,7 @@ STAGES = {
     "4": "passes", "passes": "passes",
     "5": "text", "6": "text", "text": "text",
     "engine": "engine",
+    "s1": "s1",
 }
 
 # The commit that reformatted the repo with the tree printer: "the old layout"
@@ -680,6 +685,96 @@ def engine_stage(args, sw: Path, exe: Path, groups: list, key: str) -> int:
     return 0
 
 
+# ------------------------------------------------------------ the slice 1 stage
+
+
+def rust_texts(dump: Path) -> dict:
+    """Each declaration's printed text, escaped, from a `dev doc` dump, by number."""
+    texts, number = {}, None
+    for line in dump.read_text().split("\n"):
+        if line.startswith("decl "):
+            number = line[5:]
+        elif line.startswith("text ") and number is not None:
+            texts[number] = line[5:]
+            number = None
+    return texts
+
+
+def slice_stage(args, sw: Path, exe: Path, groups: list, key: str) -> int:
+    """The slice 1 comparison: each declaration the executable says is
+    within slice 1 (`--stage s1`), its text against the text Rust's `dev
+    doc` printed for it."""
+    print(f"stage s1; Rust side {sw}; sources hash {key}; cache {CACHE}")
+    total_within = total_matched = 0
+    for name, files in groups:
+        start = time.monotonic()
+        rust, refused = {}, 0
+        for path in files:
+            dump, error = engine_dump(sw, path, key, args.mem_limit_mb)
+            if dump is not None:
+                rust[str(path)] = rust_texts(dump)
+            elif error:
+                refused += 1
+        read = [path for path in files if str(path) in rust]
+        counts = {"declarations": 0, "within": 0, "matched": 0, "mismatched": 0, "missing": 0}
+        diffs, failures, notes = [], [], []
+        parts = chunks(read, args.jobs)
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+            for results, chunk_notes in pool.map(
+                    lambda part: slice_chunk(exe, part, args.timeout, args.mem_limit_mb), parts):
+                notes += chunk_notes
+                for path, got in results:
+                    if got["exit"] != 0:
+                        failures.append(f"{path}: {got['err']}")
+                        continue
+                    want = rust[str(path)]
+                    lines = got["out"].split("\n")
+                    for i, line in enumerate(lines):
+                        fields = line.split(" ")
+                        if len(fields) != 3 or fields[0] != "decl":
+                            continue
+                        counts["declarations"] += 1
+                        if fields[2] != "within":
+                            continue
+                        counts["within"] += 1
+                        text = lines[i + 1][5:] if i + 1 < len(lines) and lines[i + 1].startswith("text ") else None
+                        expected = want.get(fields[1])
+                        if expected is None:
+                            counts["missing"] += 1
+                        elif text == expected:
+                            counts["matched"] += 1
+                        else:
+                            counts["mismatched"] += 1
+                            if len(diffs) < max(args.show, 3):
+                                diffs.append((path, fields[1], expected, text))
+        for note in notes:
+            print(f"fmt-twin: {note}", file=sys.stderr)
+        for failure in failures[: max(args.show, 3)]:
+            print(f"fmt-twin: the s1 stage failed on {failure}", file=sys.stderr)
+        print(f"{name}: {len(files)} files: {refused} refused by Rust, {len(failures)} refused by the executable, "
+              f"{len(read) - len(failures)} read ({time.monotonic() - start:.1f} s)")
+        print(f"  declarations {counts['declarations']}: within slice 1 {counts['within']}: "
+              f"matched {counts['matched']}, mismatched {counts['mismatched']}, "
+              f"not in Rust's dump {counts['missing']}")
+        for path, number, expected, got in diffs:
+            print(f"  mismatch, {path}, declaration {number}:\n    expected: {expected}\n    got:      {got}")
+        total_within += counts["within"]
+        total_matched += counts["matched"]
+    return 0 if total_within == total_matched else 1
+
+
+def slice_chunk(exe: Path, paths: list, timeout: float, limit: float) -> tuple:
+    """(path, answer) for each source of the chunk, and notes, as `engine_chunk`."""
+    output, status, stderr, _ = batch_run(exe, "s1", paths, timeout, limit)
+    parsed, complete, why = parse_batch(output, [str(path) for path in paths])
+    notes = []
+    if why is not None and complete < len(paths):
+        notes.append(f"the batch run stopped at {paths[complete]}: {why}; answered the rest one process a file")
+    out = [(path, parsed[index] if index < complete else twin_answer(exe, "s1", path, timeout, limit))
+           for index, path in enumerate(paths)]
+    return out, notes
+
+
 # ----------------------------------------------------------------------- main
 
 
@@ -700,7 +795,7 @@ def build_exe(args, sw: Path) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
-    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) text (5, 6) or engine")
+    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) text (5, 6), engine or s1")
     ap.add_argument("--inputs", default="", help="comma-separated input groups (see below)")
     ap.add_argument("--files", nargs="*", default=[], help="named files or folders")
     ap.add_argument("--exe", help="the executable to compare (default: build --project's --main natively)")
@@ -730,7 +825,7 @@ def main() -> int:
     try:
         stage = STAGES.get(args.stage)
         if stage is None:
-            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, expr, passes or text")
+            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, expr, passes, text, engine or s1")
         sw = Path(args.sw)
         if not sw.is_file():
             raise Stop(f"{sw} doesn't exist: run `task build`")
@@ -739,6 +834,8 @@ def main() -> int:
         key = tool_hash()
         if stage == "engine":
             return engine_stage(args, sw, exe, groups, key)
+        if stage == "s1":
+            return slice_stage(args, sw, exe, groups, key)
         total_identical = total = 0
         print(f"stage {stage}; Rust side {sw}; sources hash {key}; cache {CACHE}")
         for name, files in groups:
