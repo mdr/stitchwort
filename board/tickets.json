@@ -25303,7 +25303,7 @@
     {
       "id": 4081,
       "title": "[Opus] fmt S1 item invariant: glued items carry no comments between them (no trailing comment on the item before, none above the glued item), proved through the lexer and rule N; then shaped1's argument1/head1 refuse a comment on a glued sign and SW-4070's two trees (App f [Prefix (- -- c) x], App (Prefix (- -- c) 1) [n]) become witnesses (SW-4069 note; D3686 dropped)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
