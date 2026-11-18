@@ -3,7 +3,7 @@
 --|
 --| The seam is one declaration's group: `readsBackDecl1` is proved from read-back's one-line theorem
 --| (`readsBackLineWithin`) and two open goals about the printer's items (`printedSplit1`, `printedLines1`). The file
---| form, `readsBackFile1`, takes it as a hypothesis and is open.
+--| form, `readsBackFile1`, takes it as a hypothesis and is proved, with the file-level lemmas of `Fmt.ReadBackFile`.
 
 namespace Fmt.TopReadBack
 import Std (Bool, Eq, List, Nat, Option, Parse, Result, Text, Void)
@@ -16,6 +16,9 @@ import Syntax.SettleProofs (tokens)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ReadBackRuns (plainHeader)
 import Syntax.ReadBackLine (Spelt, inLineAll, laterInLine, lineAll, readsBackLineWithin)
+import Fmt.CalmProofs (headerCalmWithin, withinCalm)
+import Fmt.OutputFileProofs (printedGroups1)
+import Fmt.ReadBackFile (declLowers, groupReads, groupsFromTokens, groupsTokens, refusalNone)
 
 -- One declaration.
 
@@ -120,14 +123,164 @@ def DeclsReadBack: Prop :=
 
 theorem declsReadBack: DeclsReadBack := seen decl read group printed => readsBackDecl1 seen decl read group printed
 
---| `readsBackFile1` (open; the stock take's U2, SW-4044's file half): leaves whose tokens are a printed one-line
---| file's, and whose groups' words and end are `calmTop`'s, parse to `calmTop`, given each declaration's group reads
---| back.
+--| `calm`, with the file's first flag cleared or not, keeps a declaration in slice 1.
+theorem calmAtWithin ∀ (decl: Decl) (top: Bool) (within: decl.within1 = True): (decl.calmAt top).within1 = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          let both :=
+            Bool.andIntro
+              (headerCalmWithin
+                {
+                  exportKeyword = None,
+                  opaqueKeyword = None,
+                  kind = DefPlain,
+                  keyword,
+                  name,
+                  forallKeyword = None,
+                  params = [],
+                  colon,
+                  result,
+                  decreasingClause = None,
+                  unfoldingClause = None
+                }
+                (Bool.andLeft within))
+              (withinCalm value False (Bool.andRight within))
+          match top with
+            | True => both
+            | False => both
+        | _ => cases
+
+--| The first of a list.
+def firstOr (fallback: a): List a → a
+  | [] => fallback
+  | [first, .._] => first
+
+--| The groups after the file's first read back to the rest of its declarations, `calm`.
 --|
---| What it needs: the groups of `leaves` are the declarations' (`printedGroups1`, with `groupsOf` reading only
---| tokens); the first leaf is a `def` in column 0, so `fileRefusal` passes; `parseGroups` runs each group as
---| `DeclReadsBack` says (the file's first with `top`, as `calmTop` has it), and every declaration of slice 1 passes the
---| lowering's checks; the end's comments are the hypothesis's.
+--| Proof idea: by the declarations, a group each (the tokens say so); each group's facts are `PrintedGroup`'s for
+--| `calm` of its declaration, so it reads back (`DeclsReadBack`), passes the lowering's checks (`declLowers`), and
+--| `parseGroups` goes on to the next with the declaration pushed on `found`.
+theorem groupsReadBack ∀ (seen: Seen) (decls: List Decl) (groups: List (List Leaf)) (found: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (shaped: decls.all Decl.shaped1 = True)
+    (settled: decls.all Decl.settled1 = True)
+    (lexical: decls.all Decl.lexical1 = True)
+    (commaFree: decls.all Decl.commaFree = True)
+    (oneLine: decls.all Decl.oneLine1 = True)
+    (tokensSame: groups.map tokens = decls.map (decl => tokens decl.leaves1))
+    (words: groups.map codeWords = (decls.map Decl.calm).map Decl.words) (reads: DeclsReadBack):
+    parseGroups seen groups found = Ok (found.reverse ++ decls.map Decl.calm) :=
+  match decls, groups with
+    | [], [] => rewrite List.appendNil found.reverse
+    | [decl, ..rest], [group, ..others] =>
+      let printed: PrintedGroup decl (decl.calmAt False) group := (
+        Bool.andLeft within,
+        Bool.andLeft shaped,
+        Bool.andLeft settled,
+        Bool.andLeft lexical,
+        Bool.andLeft commaFree,
+        Bool.andLeft oneLine,
+        Eq.cong (firstOr (tokens group)) tokensSame,
+        Eq.cong (firstOr (codeWords group)) words,
+        (False, byComputing)
+      )
+      let next :=
+        groupsReadBack
+          (seen.after (decl.calmAt False))
+          rest
+          others
+          [decl.calmAt False, ..found]
+          (Bool.andRight within)
+          (Bool.andRight shaped)
+          (Bool.andRight settled)
+          (Bool.andRight lexical)
+          (Bool.andRight commaFree)
+          (Bool.andRight oneLine)
+          (Eq.cong (xs => xs.drop 1) tokensSame)
+          (Eq.cong (xs => xs.drop 1) words)
+          reads
+      rewrite groupReads seen group others found
+            (decl.calmAt False)
+            (reads seen decl (decl.calmAt False) group printed)
+            (declLowers (decl.calmAt False) (calmAtWithin decl False (Bool.andLeft within))),
+          next,
+          List.reverseCons (decl.calmAt False) found,
+          List.appendAssoc found.reverse [decl.calmAt False] (rest.map Decl.calm)
+
+--| A printed file's groups read back to `calmTop`'s declarations: the first with its flag cleared, then
+--| `groupsReadBack`.
+theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (commaFree: file.commaFree = True)
+    (oneLine: file.oneLine1 = True)
+    (tokensSame: groups.map tokens = file.decls.map (decl => tokens decl.leaves1))
+    (words: groups.map codeWords = file.calmTop.decls.map Decl.words) (reads: DeclsReadBack):
+    parseGroups Seen.start groups [] = Ok file.calmTop.decls :=
+  match file with
+    | { decls = [], end } =>
+      match groups with
+        | [] => byComputing
+    | { decls = [first, ..rest], end } =>
+      match first, groups with
+        | Definition [] header (Assigned colonEq value), [group, ..others] =>
+          let decl := Definition [] header (Assigned colonEq value)
+          let declsSettled := Bool.andLeft settled
+          let printed: PrintedGroup decl (decl.calmAt True) group := (
+            Bool.andLeft within,
+            Bool.andLeft shaped,
+            Bool.andLeft declsSettled,
+            Bool.andLeft lexical,
+            Bool.andLeft commaFree,
+            Bool.andLeft oneLine,
+            Eq.cong (firstOr (tokens group)) tokensSame,
+            Eq.cong (firstOr (codeWords group)) words,
+            (True, byComputing)
+          )
+          let next :=
+            groupsReadBack
+              (Seen.start.after (decl.calmAt True))
+              rest
+              others
+              [decl.calmAt True]
+              (Bool.andRight within)
+              (Bool.andRight shaped)
+              (Bool.andRight declsSettled)
+              (Bool.andRight lexical)
+              (Bool.andRight commaFree)
+              (Bool.andRight oneLine)
+              (Eq.cong (xs => xs.drop 1) tokensSame)
+              (Eq.cong (xs => xs.drop 1) words)
+              reads
+          rewrite groupReads Seen.start group others []
+                (decl.calmAt True)
+                (reads Seen.start decl (decl.calmAt True) group printed)
+                (declLowers (decl.calmAt True) (calmAtWithin decl True (Bool.andLeft within))) then
+            next
+
+--| `readsBackFile1` (the stock take's U2, SW-4044's file half): leaves whose tokens are a printed one-line file's,
+--| and whose groups' words and end are `calmTop`'s, parse to `calmTop`, given each declaration's group reads back.
+--|
+--| Proof idea: the splitter reads only tokens (`groupsTokens`), so the leaves' groups have the tokens of the printed
+--| file's groups, which are the declarations' (`printedGroups1`, `groupsFromTokens`); the first leaf is a `def` in
+--| column 0, so `fileRefusal` passes (`refusalNone`); each group reads back to its declaration, `calm`, and the
+--| file's first with its flag cleared (`fileGroupsRead`); and the end's comments are the hypothesis's.
 theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     (within: file.within1 = True)
     (shaped: file.shaped1 = True)
@@ -140,7 +293,14 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     (words: (groupsOf lexed.leaves).map codeWords = file.calmTop.decls.map Decl.words)
     (ends: lexed.end.comments = file.calmTop.end) (decls: DeclsReadBack):
     parseFile lexed = Ok file.calmTop :=
-  ?
+  let groupsSame: (groupsOf lexed.leaves).map tokens = file.decls.map (decl => tokens decl.leaves1) :=
+    Eq.trans
+      (groupsTokens lexed.leaves file.lexed1.leaves tokensSame)
+      (rewrite printedGroups1 file within shaped settled lexical hung then groupsFromTokens True file.decls)
+  let refusal := refusalNone lexed.leaves file.decls within shaped (Bool.andLeft settled) lexical hung tokensSame
+  let parsed :=
+    fileGroupsRead file (groupsOf lexed.leaves) within shaped settled lexical commaFree oneLine groupsSame words decls
+  rewrite refusal, parsed, ends
 
 --| `readsBackLineWithin` reads no binary operator yet: `+` is no kind it reads on a line (SW-4071).
 theorem binaryNotLine: (match lex "a + b" with
