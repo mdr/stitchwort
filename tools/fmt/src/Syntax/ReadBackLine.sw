@@ -99,6 +99,8 @@ def lineKind: Tok → Bool
   | Le => True
   | Gt => True
   | Ge => True
+  | AndAnd => True
+  | OrOr => True
   | Bang => True
   | Arrow => True
   | ColonEq => True
@@ -156,6 +158,8 @@ def binaryTok: Tok → Bool
   | Le => True
   | Gt => True
   | Ge => True
+  | AndAnd => True
+  | OrOr => True
   | _ => False
 
 --| The operator token an infix of this kind is spelt with: `->` for an arrow, a binary operator of this part.
@@ -465,6 +469,8 @@ def exprKind: Tok → Bool
   | Le => True
   | Gt => True
   | Ge => True
+  | AndAnd => True
+  | OrOr => True
   | Bang => True
   | Arrow => True
   | LParen => True
@@ -2155,6 +2161,12 @@ theorem opKind ∀ (tok: Tok) (isOp: opTok tok = True): OpKind tok := match tok,
   | Ge, _ =>
     opKindOf Ge byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
+  | AndAnd, _ =>
+    opKindOf AndAnd byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | OrOr, _ =>
+    opKindOf OrOr byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
   | _, never => (Bool.falseNotTrue never).impossible
 
 theorem opKindOf ∀ (tok: Tok)
@@ -2366,8 +2378,19 @@ theorem binaryAppend ∀ (tok: Tok)
     tokLevel tok = 12 ∨ 14 <= tokLevel tok :=
   cases
 
---| A binary operator of this part is a comparison or binds at the append level or tighter.
-theorem binaryCmp ∀ (tok: Tok) (isOp: binaryTok tok = True): tokLevel tok = 6 ∨ 12 <= tokLevel tok := cases
+--| A binary operator of this part binding at the comparison level or tighter is a comparison or binds at the append
+--| level or tighter.
+theorem binaryCmp ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (high: 6 <= tokLevel tok):
+    tokLevel tok = 6 ∨ 12 <= tokLevel tok :=
+  cases
+
+--| A binary operator of this part is `||`, `&&`, or binds at the comparison level or tighter.
+theorem binaryLogic ∀ (tok: Tok)
+    (isOp: binaryTok tok = True):
+    tokLevel tok = 4 ∨ tokLevel tok = 5 ∨ 6 <= tokLevel tok :=
+  cases
 
 theorem appendOf ∀ (tok: Tok) (isOp: binaryTok tok = True) (is12: tokLevel tok = 12): (tok == PlusPlus) = True := cases
 
@@ -2870,7 +2893,7 @@ theorem appendBase ∀ (modes: Modes)
 theorem aboveCmp ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 7 <= expr.level): 12 <= expr.level :=
   match expr, spelt, fits with
     | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), fits =>
-      match binaryCmp op.kind isOp with
+      match binaryCmp op.kind isOp (arithmetic [fits, level]) with
         | Inl is6 => Void.impossible (arithmetic [fits, level, is6])
         | Inr high => arithmetic [level, high]
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
@@ -2921,7 +2944,7 @@ theorem cmpLine ∀ (modes: Modes)
     | Infix InfixBinary left operator right, sp, fits =>
       let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
         sp
-      match binaryCmp op.kind isOp with
+      match binaryCmp op.kind isOp (arithmetic [fits, level]) with
         | Inr high =>
           cmpAlone modes quiet
             (Infix InfixBinary left operator right)
@@ -3008,16 +3031,22 @@ theorem cmpLine ∀ (modes: Modes)
 
 theorem rungCmpOf ∀ (tok: Tok) (isCmp: tok.isComparison = True): tokRung tok = 6 := cases
 
---| A spelt expression that is no arrow binds at the comparison level or tighter: no looser operator is spelt yet.
-theorem plainLevel ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 2 <= expr.level): 6 <= expr.level :=
+theorem binaryAboveArrow ∀ (tok: Tok) (isOp: binaryTok tok = True): 4 <= tokLevel tok := cases
+
+--| A spelt expression that is no arrow binds at the `||` level or tighter: no looser operator is spelt yet.
+theorem plainLevel ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 2 <= expr.level): 4 <= expr.level :=
   match expr, spelt, fits with
     | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), _ =>
-      match binaryCmp op.kind isOp with
-        | Inl is6 => arithmetic [level, is6]
-        | Inr high => arithmetic [level, high]
+      arithmetic [level, binaryAboveArrow op.kind isOp]
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ => arithmetic [unaryLevel other read spelt byComputing]
+
+--| A level of the logic ladder or tighter is a comparison's or tighter, or the logic's own.
+theorem cmpOrLogic ∀ (level: Nat) (fits: 4 <= level): 6 <= level ∨ (4 <= level ∧ level <= 5) :=
+  match high: 6 <= level with
+    | True => Inl high
+    | False => Inr (fits, arithmetic [high])
 
 --| An expression that is no arrow, spelt on one line and followed by `read3` (nothing, or `->` and a result), is
 --| what `operatorExpr` reads: a comparison (`cmpExpr`) and its logic links (`logicAfter`), no `<->`, then `read3` as
@@ -3039,21 +3068,23 @@ theorem operatorLine ∀ (modes: Modes)
     (ending: EndReads (TreeN depth) modes expr (sequenceOn modes (read3 ++ rest)) read3 rest value):
     OperatorReads (TreeN depth) modes all rest value :=
   let after := read3 ++ rest
-  (
-    read,
-    [],
-    read3,
-    expr,
-    expr,
-    whole,
-    noSection,
-    cmpLine modes quiet expr read after depth deep spelt free lineRead lineAfter openFirst inLater
-      (endsAtUp modes 5 6 after (arithmetic []) ends)
-      (plainLevel expr read spelt fits),
-    Inl (byComputing, byComputing, ends.noAndOr (arithmetic [])),
-    ends.noIff,
-    ending
-  )
+  match cmpOrLogic expr.level (plainLevel expr read spelt fits) with
+    | Inl high => (
+      read,
+      [],
+      read3,
+      expr,
+      expr,
+      whole,
+      noSection,
+      cmpLine modes quiet expr read after depth deep spelt free lineRead lineAfter openFirst inLater
+        (endsAtUp modes 5 6 after (arithmetic []) ends)
+        high,
+      Inl (byComputing, byComputing, ends.noAndOr (arithmetic [])),
+      ends.noIff,
+      ending
+    )
+    | Inr low => ?
 
 --| No `{` first: `allowBraceOn` leaves the modes.
 theorem allowNoBrace ∀ (modes: Modes) (item: Item) (rest: List Item)
@@ -3254,9 +3285,7 @@ theorem inlineLine ∀ (modes: Modes)
         inLater
         restOpen
         ends
-        (match binaryCmp op.kind isOp with
-          | Inl is6 => arithmetic [level, is6]
-          | Inr high => arithmetic [level, high])
+        (arithmetic [level, binaryAboveArrow op.kind isOp])
     | Infix _ _ _ _, (_, _, _, _, never, _) => (Bool.falseNotTrue never).impossible
     | other, spelt =>
       inlinePlainLine modes quiet other item more rest depth deep spelt free lineRead lineRest open inLater restOpen
