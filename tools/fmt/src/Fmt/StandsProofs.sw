@@ -27,6 +27,7 @@ import Std.Doc.Proofs (
 import Syntax (Comment, Comments, Leaf, Note, Tok, Token, Trivia, Word, withTrailing, withoutReturn)
 import Fmt (isCloserText)
 import Fmt.TriviaStatements (..)
+import Fmt.ToldWordProofs (..)
 import Fmt.ToldDeclProofs (..)
 import Syntax.Proofs (Laid, Piece)
 import Fmt.PrintHangProofs (CommentsEnd, Tracks, endsRest, freshIsBlank, lastComment, tracks)
@@ -482,3 +483,93 @@ theorem keptFront ∀ (told more: List Told) (stretches: List Stretch)
           let follows: follows = True := rewrite unstarted at start then start
           let code: text.startsWith "--" = False := rewrite follows at moves then Bool.notTrue _ (Bool.andLeft moves)
           (codeNotComment text code (rewrite word at isComment then isComment)).impossible
+
+--| The view of a token heard with `above` waiting and `blank` before it.
+def tokenView (kinds: Text → Tok) (text: Text) (above: List Note) (blank: Bool) (event: Event): View := {
+  kind = kinds text,
+  word = { text, comments = { above, after = None, blankBefore = blank } },
+  starts = event.start.isSome
+}
+
+theorem commentNotBreak ∀ (text: Text) (comment: text.startsWith "--" = True): (text == "\n") = False :=
+  match same: text == "\n" with
+    | False => byComputing
+    | True => (Bool.falseNotTrue (rewrite DecEq.sound same at comment then comment)).impossible
+
+--| A word's own-line comments, its blank line and its token, heard where no blank line waits: the token's view, with
+--| the comments above it.
+--|
+--| Proof idea: by induction on the comments: a blank line sets the flag, an own-line comment (its event starts a line)
+--| waits with it, and the token takes them.
+theorem hearHead ∀ (kinds: Text → Tok) (notes: List Note) (blankW: Bool) (text: Text) (flag: Bool)
+    (events: List Event) (heard: Hearing)
+    (fine: NotesFine notes)
+    (code: text.startsWith "--" = False)
+    (unbroken: (text == "\n") = False)
+    (blank: heard.blank = False)
+    (reads: ReadsAs (notesTold notes ++ ((if blankW then [Told.Gap] else []) ++ [Said text True flag])) events):
+    ∃ (event: Event) => event.word = text
+      ∧ startsAs True flag event.start
+      ∧ events.foldLeft heard (hearOn kinds)
+        = {
+          views = [tokenView kinds text (heard.above.reverse ++ notes) blankW event, ..heard.views],
+          above = [],
+          blank = False
+        } :=
+  match notes, fine with
+    | [], _ =>
+      match blankW, events, reads with
+        | True, [gapEvent, event, ..rest], (isBlank, (word, start, done)) =>
+          rewrite isBlank, done then
+            (event, word, start, rewrite word, unbroken, code, List.appendNil heard.above.reverse)
+        | False, [event, ..rest], (word, start, done) =>
+          rewrite done, blank then
+            (event, word, start, rewrite word, unbroken, code, List.appendNil heard.above.reverse)
+        | True, [], never => cases
+        | True, [gapEvent], (_, never) => cases
+        | False, [], never => cases
+    | [{ text = noteText, blankBefore = noteBlank }, ..others], ((starts, plain), fineOthers) =>
+      let unbrokenNote := commentNotBreak noteText starts
+      match noteBlank, events, reads with
+        | True, [gapEvent, noteEvent, ..rest], (isBlank, (word, start, readsRest)) =>
+          match started: noteEvent.start, start with
+            | Some at, _ =>
+              let after: Hearing :=
+                { views = heard.views, above = [{ text = noteText, blankBefore = True }, ..heard.above], blank = False }
+              match hearHead kinds others blankW text flag rest after fineOthers code unbroken byComputing
+                  readsRest with
+                | (event, eventWord, eventStart, folds) =>
+                  rewrite isBlank, word, unbrokenNote, starts, plain then
+                    (
+                      event,
+                      eventWord,
+                      eventStart,
+                      rewrite folds,
+                          List.reverseCons { text = noteText, blankBefore = True } heard.above,
+                          List.appendAssoc heard.above.reverse [{ text = noteText, blankBefore = True }] others
+                    )
+            | None, never => cases
+        | False, [noteEvent, ..rest], (word, start, readsRest) =>
+          match started: noteEvent.start, start with
+            | Some at, _ =>
+              let after: Hearing := {
+                views = heard.views,
+                above = [{ text = noteText, blankBefore = False }, ..heard.above],
+                blank = False
+              }
+              match hearHead kinds others blankW text flag rest after fineOthers code unbroken byComputing
+                  readsRest with
+                | (event, eventWord, eventStart, folds) =>
+                  rewrite word, unbrokenNote, starts, plain, blank then
+                    (
+                      event,
+                      eventWord,
+                      eventStart,
+                      rewrite folds,
+                          List.reverseCons { text = noteText, blankBefore = False } heard.above,
+                          List.appendAssoc heard.above.reverse [{ text = noteText, blankBefore = False }] others
+                    )
+            | None, never => cases
+        | True, [], never => cases
+        | True, [gapEvent], (_, never) => cases
+        | False, [], never => cases
