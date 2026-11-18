@@ -381,23 +381,32 @@ def Args.helpRow (column: Nat) (left description: Text): List Text :=
     | [] => ["  ${left}"]
     | [first, ..rest] => ["  ${left.padRight column ' '}  ${first}", ..rest.map (line => "${" ".repeat margin}${line}")]
 
---| The help: usage, what the program does, then each positional and each
---| option with its help and default. `-h, --help` is always listed.
-def Args.help (program: Args.Program) (spec: Args.Spec a): Text :=
+--| The width of the help's left column: the longest syntax among the
+--| positionals, the options and `-h, --help`.
+def Args.helpColumn (spec: Args.Spec a): Nat :=
   let positionals := spec.items.filter (info => !info.isOption)
   let options := spec.items.filter .isOption
   let lefts := (positionals ++ options).map .syntax ++ ["-h, --help"]
-  let column := (lefts.maximumOf .length).getOrElse 0
+  (lefts.maximumOf .length).getOrElse 0
+
+--| The lines of the help, before they are joined: usage, what the program
+--| does, then each positional and each option, ending with `-h, --help`.
+def Args.helpLines (program: Args.Program) (spec: Args.Spec a): List Text :=
+  let positionals := spec.items.filter (info => !info.isOption)
+  let options := spec.items.filter .isOption
+  let column := Args.helpColumn spec
   let rows := (items: List Args.Info) => items.flatMap (info => Args.helpRow column info.syntax info.description)
-  let lines :=
-    ["usage: ${Args.usage program spec}"]
-      ++ (if program.about.isEmpty then [] else [program.about])
-      ++ [""]
-      ++ (if positionals.isEmpty then [] else ["arguments:"] ++ rows positionals)
-      ++ ["options:"]
-      ++ rows options
-      ++ Args.helpRow column "-h, --help" "Show this help."
-  lines.joinWith "\n"
+  ["usage: ${Args.usage program spec}"]
+    ++ (if program.about.isEmpty then [] else [program.about])
+    ++ [""]
+    ++ (if positionals.isEmpty then [] else ["arguments:"] ++ rows positionals)
+    ++ ["options:"]
+    ++ rows options
+    ++ Args.helpRow column "-h, --help" "Show this help."
+
+--| The help: usage, what the program does, then each positional and each
+--| option with its help and default. `-h, --help` is always listed.
+def Args.help (program: Args.Program) (spec: Args.Spec a): Text := (Args.helpLines program spec).joinWith "\n"
 
 --| The start of an option's help line names it: the syntax contains `--` and the
 --| option's name.
@@ -446,20 +455,8 @@ theorem Args.helpListsOption ∀ (program: Args.Program) (spec: Args.Spec a) (in
     (declared: info ∈ spec.items)
     (option: info.isOption = True):
     Text.contains (Args.help program spec) "--${info.long}" = True :=
-  let column :=
-    (((spec.items.filter (info => !info.isOption) ++ spec.items.filter .isOption).map .syntax
-              ++ ["-h, --help"]).maximumOf .length).getOrElse 0
-  let row := (items: List Args.Info) => items.flatMap (item => Args.helpRow column item.syntax item.description)
-  let positionals := spec.items.filter (info => !info.isOption)
-  let options := spec.items.filter .isOption
-  let lines :=
-    ["usage: ${Args.usage program spec}"]
-      ++ (if program.about.isEmpty then [] else [program.about])
-      ++ [""]
-      ++ (if positionals.isEmpty then [] else ["arguments:"] ++ row positionals)
-      ++ ["options:"]
-      ++ row options
-      ++ Args.helpRow column "-h, --help" "Show this help."
+  let column := Args.helpColumn spec
+  let lines := Args.helpLines program spec
   match Args.helpRowContains column info.syntax info.description
     "--${info.long}"
     (Args.syntaxContainsLong info option) with
