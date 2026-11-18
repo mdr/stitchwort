@@ -25147,12 +25147,12 @@
     {
       "id": 4069,
       "title": "[Opus] fmt S1 parse shape for read-back: tighten shaped1 to the parser's shape (a left-nesting chain's right operand one level up; a call's head an atom or - on a numeral; an argument's sign on an atom or bracket) and re-prove parseShaped1 and its users; SW-4031's counterexamples (Infix - a (Infix - b c), App (Prefix ! x) [y], App f [Prefix - (Prefix - x)]) become witnesses that shaped1 rejects them",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (SW-4069, Opus, 18 Nov): shaped1 tightened (rightNeeds: left-nesting operators' right operand one rung up; App head Expr.head1 = atom, bracket or - on a numeral; Expr.argument1 = atom, bracket or a sign on one). parseShaped1 re-proved, statement unchanged: Nested is now ReadsIn with GoalRead, the argument goal says ArgRead (atom, or a sign if one was read first); heads walked from unaryNext's mark; LevelApp goal gives True. PassProofs gains headUncomma. Witnesses: Fmt/Tests/Shape1.sw (11 tests). Commits 1e4668cee, c9d4db978, 5e99b79d2. Audits: ParseProofs 49, ParseWalk 539 (5 search-coverage warnings, 3 new on hard-to-hit look-ahead hypotheses), ParseCarries 96, PassProofs 92, 0 failed. Fmt.Tests 111 and Syntax.Tests 52 pass. Not done: comments on a glued sign (SW-4070 finding 2) needs an item invariant from the lexer and rule N; follow-up. Found: Fmt.StandsProofs.commentFineOf fails on main already (cb04e69be). ~27 min (est. 50).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
