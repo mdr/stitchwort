@@ -182,6 +182,22 @@ fn looking_inside_forces_a_call_everywhere() {
     );
 }
 
+/// SW-3941: the reference evaluator never glues, so a glued call must be
+/// refused loudly by `reference::conv`, as `reference::quote` does, rather
+/// than quietly comparing unequal to everything.
+#[test]
+#[should_panic(expected = "never glues")]
+fn reference_conv_refuses_a_glued_call() {
+    let d = defs();
+    let g = &d.p.g;
+    let term = app(Term::Def(d.double), [d.p.num(3)]);
+    g.machine.glue.set(true);
+    let call = eval(&g.ev(), &[], &term).unwrap();
+    g.machine.glue.set(false);
+    assert!(matches!(call, Value::Call(..)), "{call:?}");
+    let _ = stitchwort_core::reference::conv(&g.ev(), 0, &call, &call);
+}
+
 #[test]
 fn natives_never_glue() {
     let mut d = defs();
