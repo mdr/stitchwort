@@ -1701,7 +1701,7 @@ theorem printedTold ∀ (decl: Decl) (doc: Doc)
 
 135 theorems, 35 defs. Foundations (`Refines`, merge, append): 6; words and leaves (`leafShape`, `openingShape`,
 `homes`): 11; shapes and frames: 7; `Is` combinators: 24; homedBack/coded lemmas: 6; items and brackets: 9; calls: 19;
-chains: 6; `elShape` and its helpers: 3; the body: 7; the declaration: 9; stood and texts: 25; witnesses: 6.
+chains: 6; `elShape` and its helpers: 3; the body: 7; the declaration: 9; stood and texts: 24; witnesses: 4 (sections as in the file; counts are of `theorem` lines).
 
 ### Not done / for F4
 
