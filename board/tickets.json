@@ -24332,12 +24332,12 @@
     {
       "id": 4008,
       "title": "[Sonnet] fmt S1 parser proofs 16d: walk the pattern parser (patternRule and ~25 functions; it doesn't call the expression parser) and the binder parsers (headerGroupParts, binderGroup, implicitBinder, binderType) as Gives facts (SW-4000's blockers 1 and 2), then discharge OutsideRest's lambdas, quantifiers, matches, clauseLambdas, keywords, statementOthers, piExprs and FrameRest's params, arms, others",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 18 Nov 2026), branch lane/SW-4008 (4 commits on 4eb26bc0a):\n- Pattern parser walked (patternRule and ~35 functions, Gives True, PatternNested), binder parsers walked (headerGroup, binderGroup, implicitBinder, binderType, paramNames, lowerNames), lambdas, quantifiers (forall, exists), piExpr, match/clauseLambda/induct/reify/handle, let, cases, matchPiped, statementOther (local defs, attributes), definition arms.\n- OutsideRest now: braceArguments, memberships, comparisonChains, pipeChains, iffs (SW-4009's), plus calcs and rewrites (keywords split: calc and rewrite walk appendExpr/rangeExpr/logicChain, which take the whole Outside: circular until SW-4009 stages it). FrameRest: others (declarationOther: type/interface/ability/test/rules declarations, not walked).\n- Frame lost foralls, params, decreasings, unfoldings, arms (givesDefinitionParts/Body no longer take a frame; givesDefinitionPartsAny is the Gives True version without Outside).\n- Checks: check Syntax Syntax.ParseWalk Syntax.ParseProofs Fmt clean; audits ParseWalk 469 theorems 0 failed (2 warnings, andLevels/orLevels, existing), ParseProofs 48 clean, Fmt.PassProofs 117 clean; Syntax.Tests 52/52, Fmt.Tests 94/94; fmt:twin tree goldens 132/132.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
