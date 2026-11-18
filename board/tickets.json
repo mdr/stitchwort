@@ -24892,12 +24892,12 @@
     {
       "id": 4050,
       "title": "[Sonnet] fmt S1 trivia F3: brackets, calls, chains, defDoc, doc1: doc.told is decl.stood with bare commas and trailing closers marked as starting a line (after SW-4049; docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4049: compose by rewrite concatTell, <part lemma>, each part's spot the after of the one before (NOTES 'Slice 1 trivia proofs, F2'); framedTell/parenTell are the shapes; F3 must prove the calm word at each position is word.printed around for the around the rule passes; Fill's plainItem words not covered yet. Ready.",
+      "body": "From SW-4049: compose by rewrite concatTell, <part lemma>, each part's spot the after of the one before (NOTES 'Slice 1 trivia proofs, F2'); framedTell/parenTell are the shapes; F3 must prove the calm word at each position is word.printed around for the around the rule passes; Fill's plainItem words not covered yet. Ready.\n\nSW-4050 lane (Sonnet, 18 Nov 2026): tools/fmt/src/Fmt/ToldDeclProofs.sw, branch lane/SW-4050. printedTold: Refines (doc.told Spot.lineStart) decl.shape and dropCommas decl.shape = wordsShape decl.stood (135 theorems, audit clean, no quiet-only hypothesis; hypotheses within1, settled1, decl.real, DeclJoins). Closers that hold a comment are told Said text True False; other words left True True; no MaybeGap/Lost. Fill plainItem cells done (cellsShape). Check of Fmt, Fmt.ToldWordProofs, Fmt.ToldDeclProofs clean; test Fmt.Tests 95/95. NOTES: Slice 1 trivia proofs, F3. For F4: tuck flags are not in decl.shape. In review.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
