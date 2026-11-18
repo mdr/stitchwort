@@ -24306,12 +24306,12 @@
     {
       "id": 4006,
       "title": "[Sonnet] fmt S1: prove bareSettles: under alphabet1 and plain1, rule N on withBareLastCommas leaves, with the last commas then dropped, equals settledBare (SW-3964; proof idea: plain1 rules out a line-starting last comma and a -> before one, so rules 1-3 walk one extra leaf); glue's formatWithinKeepsComments needs it; also the identity parseFile lexed.settledOnce = parseFile lexed.settled on texts with no comma before a closer",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 18 Nov 2026), branch lane/SW-4006, tools/fmt/src/Syntax/SettleBareProofs.sw (new, 78 theorems):\n- bareSettles proved, not weakened: under alphabet1 and plain1, dropF [] lexed.settledOnce.leaves = lexed.settledBare.leaves and the ends are equal. No layout hypothesis.\n- Rules 1 to 3 each commute with dropping the bare last commas: walkDrop (rule 1's walk), home1Drop, commasDrop, arrowsDrop; buildDrop ties withBareLastCommas to withoutLastCommas; withBareRTokens shows plain1 means no last comma starts its line, so making them bare moves no token.\n- settledOnceNone: noLast (no comma directly before a closer after an item) gives settledOnce = settled. The parseFile-level identity follows by rewriting; not stated.\n- plain1's doc fixed (K1's case parses and is not plain).\n- Checks: check Syntax Syntax.SettleProofs Syntax.SettleBareProofs ok; audit SettleBareProofs 0 failed, 10 vacuity warnings (lastPair hypothesis never hit by the 1500 random cases); audit SettleProofs unchanged (2 warnings); test Syntax.Tests 52/52, Fmt.Tests 94/94.\nModel result: Sonnet, worked, about 35 min (est. 35)\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
