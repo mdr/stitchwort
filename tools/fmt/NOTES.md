@@ -1836,3 +1836,20 @@ Two hypotheses beyond the four tree facts:
 - Witnesses: `colonNotedDecl` (`def d⏎  -- c⏎  : A := b`) and `assignNotedDecl` (`def d: A⏎  -- c⏎  := b`) meet `DeclQuiet`, `within1`, `shaped1`, `sound` and `lexical1` (`colonNotedMeets`, `assignNotedMeets`).
 - No comment above the name witness: not tried (`nameWithin1` may exclude one; `namePartHangs` covers it anyway).
 - Still owed from SW-4045: a noted element's start inside the type and the value (SW-4058), and items after a trailing comment.
+## Parser proofs 16f: `FrameRest`'s last field (SW-4017, Sonnet, 18 November 2026)
+
+`FrameRest.others`, the assumption that `declarationOther` gives a declaration outside slice 1, is proved:
+`Syntax.ParseWalkOthers` (63 theorems; `givesDeclarationOther`, `frameRest: FrameRest expressionAt`, and
+`parseCarriesSourceProved` / `parseSettledSourceProved`, the two source theorems without the frame hypothesis). Every
+parser it reaches (type, interface, ability, test, rules, export, opaque, instance) is walked as `Gives` facts of the
+parts (binders, constructors, fields, operations, the expression parser through `givesExpressionAt`); the result is
+outside slice 1 by construction (not a `Definition`), or, for `export` and `opaque`, by the header keeping the keyword
+(`givesDefinitionPartsAny` now says so; `headerOutOfExport`, `headerOutOfOpaque`).
+
+- `FrameRest.others` as it stood was false: `declarationOther modes attributes (Some KwInstance)` parsed a
+  `definition`, which reads its kind from the next token again, and `seen` isn't tied to the parser's position, so with
+  `def x: Nat := 1` next it gave a plain definition, within slice 1. `instanceDecl` now fails unless the header's kind
+  is `DefInstance` (it always is, when `seen` is what the next token is), and `givesInstanceOf` uses that.
+- `DeclParser`'s data, ability, test, rules, export and opaque parsers are split into named steps, one effectful
+  condition each (`dataIndexAt`, `constructorBraced`, `exportAfter` ...), as the other walks need; behaviour is unchanged.
+- `FrameRest` and the theorems that take it keep their statements; `frameRest` is what to pass.

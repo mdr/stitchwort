@@ -5045,10 +5045,12 @@ theorem givesExprKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
 
 -- Statements other than expressions.
 
+--| The header keeps the `export` and `opaque` keywords it was given (so a declaration with either is outside slice 1).
 theorem givesDefinitionPartsAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (exportKeyword opaqueKeyword: Option Comments) (local: Option Nat)
     (nested: Nested self):
-    Parse.Gives GoodItems (() => definitionParts self modes exportKeyword opaqueKeyword local) (parts => True) :=
+    Parse.Gives GoodItems (() => definitionParts self modes exportKeyword opaqueKeyword local) (parts =>
+      parts.fst.exportKeyword = exportKeyword ∧ parts.fst.opaqueKeyword = opaqueKeyword) :=
   Parse.givesThen (givesDefKindOf modes) (kind _ =>
     Parse.givesThen givesFixedFrom (keyword _ =>
       Parse.givesThen (givesDefinitionName modes) (name nameOk =>
@@ -5065,7 +5067,7 @@ theorem givesDefinitionPartsAny ∀ (self: Goal → {Parse Item} Expr) (modes: M
                             | True => Parse.readsFatal _ _
                             | False => Parse.givesThen (givesBodyModes afterUnfolding _ local) (bodyModes _ =>
                               Parse.givesThen (givesDefinitionBody self bodyModes result _ _ nested) (body bodyOk =>
-                                Parse.givesDone byComputing))))))))))))))
+                                Parse.givesDone (Both byComputing byComputing)))))))))))))))
 
 theorem givesLocalDef ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
     (nested: Nested self):
