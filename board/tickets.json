@@ -24475,12 +24475,12 @@
     {
       "id": 4019,
       "title": "[Opus] fmt S1 parseCarries1, first half (SW-4018 ticket A): the ReadsIn spec and combinators, lifting the Out facts by readsWeaken, atoms, brackets, applications, the recursion's knot; statement in Syntax/ParseSettledStatements.sw; docs/reviews/SW-4018-parser-statements.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Opus lane, 18 Nov): Syntax/ParseCarries.sw, 96 theorems, audit clean, no open goals. Carried spec (ReadsIn), combinators, readsOut lift of the Out facts, atoms, suffixes, brackets, tuples, lists, comma lists, arguments, applications, unary, operator links, mul/add/append_expr, and the knot (bothExpressionAt / carriesExpressionAt) taking LadderCarries (expr, exprInline, logicLevel, cmpExpr, thenBody) from SW-4020. codeWords moved into ParseCarries. Interface for B in tools/fmt/NOTES.md. Checks: Syntax, Syntax.ParseWalk, Syntax.ParseSettledStatements, Fmt clean; Syntax.Tests 52/52, Fmt.Tests 95/95. No counterexample. Branch lane/SW-4019.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
