@@ -1477,3 +1477,41 @@ Ticket 18f. The design change first, then the rules' triples.
 - Equations from the lemmas' trailing flags to `Expr.trails` for a paren and a call (`bracketTrails` does it for
   brackets), and from the slice's facts (`within1`) to the hypotheses: `parenInner` writes the inner as it is, a
   chain's right operand is no block, its first opens no arms.
+
+## Slice 1 rules proofs, `printedHangs` at the declaration (SW-4034, Opus, 18 November 2026)
+
+Ticket 18g. `printedHangs` is proved (`Fmt.DeclHangProofs`): a slice 1 declaration's printed text, at any width,
+lexes to leaves whose fold never breaks, from `within1`, `shaped1`, `sound`, `lexical1`, `doc1 = Some doc` and one
+named hypothesis, `DeclHangs lexKind decl`. `DeclHangs` collects what is not yet derived from the tree facts: the
+comment facts of the tokens (`TrailsComment` of `def`, the name, `:` and `:=`; no comments above the name, `:` and
+`:=`), the name's `Plain` kind and `WordToken` spelling, the type's `ElHangs` at 4 and the value's `BodyLays` (below
+at 2, and on the `:=`'s line with its hug when the `:=` trails nothing). `atomDecl` (`def d: A := b`) meets it.
+
+### What was proved
+
+- `Fmt.HeldParenProofs` (25): a paren whose opener trails a comment. The opener's place stays on its line; the
+  inner's first break goes to `max indent (at + 2)`, and `HeldLowers` frames it so the mark is kept; `heldFits`
+  computes `CloserFits` there. `parenAnyHangs`/`parenAnyElHangs` cover both cases of the opener.
+- `CloserFold`'s `leftOf indent block` conjunct moved into `CloserSeat`'s `Broken` case, the only one that reads it
+  (false when the inner's break lands at the indentation itself). Statement rearrangement; `closerLeafHangs` asks
+  less.
+- `Fmt.ChainHangProofs` (18): `->` chains. `RunOperator` is `HangsAt` or, for an operator that operates nothing
+  after it, `GluesAt` (the glued state); `arrowRunHangs`, `arrowLeafGlues`, `arrowChainHangs`. `LinkFacts` and
+  `PairFacts` ask `RunOperator` where they asked `HangsAt` (weaker).
+- `Fmt.TrailsProofs` (6): `parenTrails` and `appTrails`, with `Coded` (some word read back is no closer) or a
+  quiet opener; `atomCoded`.
+- `Fmt.DeclHangProofs` (28): the head (`keywordHangs`, `headHangs`), the `:` and `:=` leaves to `topFrom`
+  (`colonHangs`, `assignHangs`), the type at 4 after a space or below (`headerHangs`), `bodyAfter`'s forms
+  (`bodyAfterHangs`, from `belowHangs`, `oneLineHangs`, `spaceDocHangs`, `plainChoiceHangs`, `openChoiceHangs`),
+  `defFromHangs`, `defDocHangs`, `doc1Hangs`, `printedHangs`; `withinPlainBody` derives that a slice 1 value is no
+  `match`, lambda or `calc`.
+
+### Owed
+
+- Each slice 1 expression's `ElHangs` from `within1` (an induction over atoms, parens, brackets, calls, chains and
+  prefixes, assembling `ItemsHang`, `ArgsHang`, `LinkFacts`, `PairFacts`, `HeldLowers`, `Coded`, the arrow's bare
+  token and `huggedBracket`'s opened form), to give the type's and value's facts in `DeclHangs`.
+- The tokens' facts from `sound` and `shaped1`: `TrailsComment` from `afterSound` (`commentText` to `IsComment`
+  needs a `startsWith` to `toList` lemma), no comments above `:` and `:=` (or a lemma for their leading comments),
+  and the name's `Plain` and `WordToken` from `nameWithin1`.
+- Parameter groups: slice 1 has none, so `defDocHangs` takes `params = []`; later slices need `paramsHeader`.
