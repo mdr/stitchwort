@@ -25370,7 +25370,7 @@
     {
       "id": 4086,
       "title": "[Sonnet] fmt S1 goal printedLines1: lineAll, inLineAll, laterInLine of a printed one-line declaration from the alphabet and oneLine1 (TopReadBack; after SW-4071 widens lineKind)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
