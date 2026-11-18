@@ -23332,12 +23332,12 @@
     {
       "id": 3934,
       "title": "[DeepSeek] proof_positions remembers its out-of-resources fallback for the session where erase::of_def doesn't; it feeds proofless_hash: don't cache the fallback, with a test (SW-3931 T3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~12 min (est. 20). Failing-first test proof_positions_doesnt_remember_an_out_of_resources_answer shown failing ([] vs [true]) then passing.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
