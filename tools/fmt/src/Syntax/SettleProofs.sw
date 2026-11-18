@@ -1493,3 +1493,140 @@ theorem homedTransfer ∀ (befores afters: List Leaf)
                               Bool.andIntro (Bool.andLeft closerBefore) (Bool.orLeft (Bool.andRight (Bool.andLeft rel)))
                     Bool.andIntro closerPart commaBefore
       Bool.andIntro here rest
+
+theorem relatedReverseOnto ∀ (befores afters befores2 afters2: List Leaf)
+    (rel: related befores afters = True)
+    (rel2: related befores2 afters2 = True):
+    related (befores.reverseOnto befores2) (afters.reverseOnto afters2) = True :=
+  match befores, afters with
+    | [], [] => rel2
+    | [before, ..rest], [after, ..rests] =>
+      relatedReverseOnto rest rests
+        [before, ..befores2]
+        [after, ..afters2]
+        (Bool.andRight rel)
+        (Bool.andIntro (Bool.andLeft rel) rel2)
+
+--| A leaf whose trailing comment is kept and whose own-line comments are
+--| kept or added to.
+theorem relatedKeeping ∀ (leaf: Leaf) (trivia: Trivia)
+    (trailing: trivia.trailing = leaf.trivia.trailing)
+    (leading: (leaf.trivia.leading.isEmpty || !trivia.leading.isEmpty) = True):
+    relatedLeaf leaf { leaf | trivia } = True :=
+  let leadingPart := Bool.orRight [a := !leaf.kind.isCloser] leading
+  match own: leaf.trivia.trailing with
+    | None => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
+    | Some comment => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
+
+theorem appendConsNotEmpty ∀ (xs: List a) (y: a) (ys: List a): (xs ++ [y, ..ys]).isEmpty = False := match xs with
+  | [] => byComputing
+  | [_, .._] => byComputing
+
+theorem receivedLeading ∀ (carried: Option Carried) (trivia: Trivia):
+    (trivia.leading.isEmpty || !(carried.map (carry => carry.into trivia) |> .getOrElse trivia).leading.isEmpty)
+      = True :=
+  match trivia.leading with
+    | [] => byComputing
+    | [first, ..more] =>
+      match carried with
+        | None => byComputing
+        | Some carry =>
+          rewrite appendConsNotEmpty carry.comments
+            { first | blankLines = Nat.max first.blankLines carry.blankLines }
+            more
+
+--| Rule 2 only takes comments off commas and adds own-line comments.
+theorem commasRelated ∀ (doneBefore done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia)
+    (rel: related doneBefore done = True):
+    related (doneBefore.reverseOnto rest) (commasFrom done carried rest end).leaves = True :=
+  match rest with
+    | [] => relatedReverseOnto doneBefore done [] [] rel byComputing
+    | [leaf, ..after] =>
+      let receivedTrivia := carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia
+      let received := { leaf | trivia = receivedTrivia }
+      let receivedTrailing: receivedTrivia.trailing = leaf.trivia.trailing := match carried with
+        | None => byComputing
+        | Some carry =>
+          match leaf.trivia.leading with
+            | [] => byComputing
+            | [_, .._] => byComputing
+      let keep := relatedKeeping leaf receivedTrivia receivedTrailing (receivedLeading carried leaf.trivia)
+      match commaCarries received.trivia with
+        | None => commasRelated [leaf, ..doneBefore] [received, ..done] None after end (Bool.andIntro keep rel)
+        | Some carry =>
+          match comma: leaf.kind == Comma with
+            | True =>
+              let notCloser: leaf.kind.isCloser = False := rewrite DecEq.sound comma
+              let emptied: relatedLeaf leaf { received | trivia = Trivia.empty } = True :=
+                Bool.andIntro (Bool.orLeft comma) (Bool.orLeft (rewrite notCloser))
+              commasRelated
+                [leaf, ..doneBefore]
+                [{ received | trivia = Trivia.empty }, ..done]
+                (Some carry)
+                after
+                end
+                (Bool.andIntro emptied rel)
+            | False => commasRelated [leaf, ..doneBefore] [received, ..done] None after end (Bool.andIntro keep rel)
+
+theorem relatedSelf ∀ (leaf: Leaf): relatedLeaf leaf leaf = True :=
+  relatedKeeping leaf leaf.trivia byComputing
+    (match leaf.trivia.leading with
+      | [] => byComputing
+      | [_, .._] => byComputing)
+
+theorem relatedCleared ∀ (leaf: Leaf)
+    (notCloser: leaf.kind.isCloser = False):
+    relatedLeaf leaf (leaf.withLeading []) = True :=
+  let leadingPart: (!leaf.kind.isCloser || leaf.trivia.leading.isEmpty || !([]: List Comment).isEmpty) = True :=
+    Bool.orLeft (rewrite notCloser)
+  match leaf.trivia.trailing with
+    | None => Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
+    | Some comment => Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
+
+--| Rule 3 only takes comments off `->` and the own-line comments off the
+--| token after it, which is no closer in a `plain` file.
+theorem arrowsRelated ∀ (original current: Leaf) (rest: List Leaf)
+    (rel: relatedLeaf original current = True)
+    (kind: current.token = original.token)
+    (plain: plainFrom (tokens [original, ..rest]) = True):
+    related [original, ..rest] (arrowsFrom [] current rest) = True :=
+  match rest with
+    | [] => Bool.andIntro rel byComputing
+    | [next, ..more] =>
+      match moves: current.kind == Arrow && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) with
+        | True =>
+          let moved := { current |
+            trivia = { current.trivia |
+              leading = current.trivia.leading
+                ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+                ++ next.trivia.leading,
+              trailing = None
+            }
+          }
+          let originalArrow: original.token.kind = Arrow :=
+            Eq.trans (Eq.cong (token => token.kind) kind.flipped) (DecEq.sound (Bool.andLeft moves))
+          let movedRelated: relatedLeaf original moved = True := rewrite originalArrow
+          let follows := rewrite originalArrow at Bool.andLeft plain
+          let notFollow := Bool.notTrue _ follows
+          let notCloser: next.kind.isCloser = False := Bool.orFalseRight _ _ (Bool.orFalseLeft _ _ notFollow)
+          rewrite arrowsFromOnto [moved] (next.withLeading []) more then
+            Bool.andIntro movedRelated
+              (arrowsRelated next
+                (next.withLeading [])
+                more
+                (relatedCleared next notCloser)
+                byComputing
+                (Bool.andRight (Bool.andRight plain)))
+        | False =>
+          rewrite arrowsFromOnto [current] next more then
+            Bool.andIntro rel
+              (arrowsRelated next next more (relatedSelf next) byComputing (Bool.andRight (Bool.andRight plain)))
+
+--| Rule 5 changes no comment's place.
+theorem trimRelated ∀ (leaves: List Leaf):
+    related leaves (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      let here: relatedLeaf leaf { leaf | trivia = leaf.trivia.trimmed } = True := cases
+      Bool.andIntro here (trimRelated rest)
