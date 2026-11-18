@@ -25041,12 +25041,12 @@
     {
       "id": 4061,
       "title": "[Sonnet] fmt S1 output G2: close SettleOutputProofs' open lemmas: leavesStart1 (from printedTokens1), wordsSettled1 (a calm lemma keeping comment texts beside wordsCalm), printedAgrees1 (printedTokens1 plus lexKind), homedArrowsBare (word-level arrowsBare across declarations; none ends in ->); after SW-4054 lands, derive unreturned1 from settled1 (SW-4043)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "SW-4054 merged: the lexer now strips every trailing CR from a comment, so unreturned1 should follow from the lexer (crDropped now says the tree keeps no CR); noteComment's withoutReturn is redundant and can go.\n\nOrchestrator's call: the CR-then-space case is a real idempotence bug; fix the formatter (trim spaces and CRs together, both formatters) in SW-4065, not commentText. unreturned1 stays until then.",
+      "body": "SW-4054 merged: the lexer now strips every trailing CR from a comment, so unreturned1 should follow from the lexer (crDropped now says the tree keeps no CR); noteComment's withoutReturn is redundant and can go.\n\nOrchestrator's call: the CR-then-space case is a real idempotence bug; fix the formatter (trim spaces and CRs together, both formatters) in SW-4065, not commentText. unreturned1 stays until then.\n\nLane (Sonnet): leavesStart1, printedAgrees1, wordsSettled1 (gained a within hypothesis) and homedArrowsBare (gained the matched-leaves hypothesis m) proved on lane/SW-4061; unreturned1 stays (parser-side lemma is SW-4065 / tidiedUnreturned1). check of Fmt, SettleOutputProofs, OutputFileProofs, FileLexProofs, CalmProofs clean; audit only fails on printedFinish1 and tidiedUnreturned1; test Fmt.Tests 99/99.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
