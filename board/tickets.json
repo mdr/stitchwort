@@ -23317,15 +23317,17 @@
     {
       "id": 3933,
       "title": "[Opus] Bug on main: a definition with more lambdas than its type shows behind an opaque nickname (opaque def Fun: Type := Nat -> Nat; opaque def inc: Fun unfolding Fun := m => m + 1) breaks the fast runtime (E-RUNTIME v0 read where not bound; machine.rs:556 panic with a parameter first) and JS (lib.rs:4198 index out of bounds); run --reference is right. Fix with one view of a definition's parameters for erase::of_def, proof_positions, rt def_shape, specialise and JS, read through one function (SW-3931 T1+T2; reproducer in docs/reviews/SW-3931-glued-kept-types-diff.md)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 18 Nov 2026, 09:39-10:00): one view of a definition's parameters, erase::def_telescope (its type under its own transparency set, glued, not erasing, no program running), read by erase::of_def, proof_positions, Replay::of_def, rt def_shape and specialise, js exportable. Replaces SW-3916's hidden view for erasure. Failing first: both new examples (examples/accept/opaque-nickname-lambdas*.sw) failed on run and run --js (and test, for the erased one) with the old binary; pass on every backend now. No hash snapshot moved (hash_stability::, pinned_hashes:: pass). Tests: opaque:: erasure and replay tests, run_js/run_reference examples (filtered), soundness set, extract (filtered), erased-parameter and empty-row tests.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "bf8505a91"
+      ]
     },
     {
       "id": 3934,

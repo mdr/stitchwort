@@ -38,8 +38,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use stitchwort_core::check::telescope;
 use stitchwort_core::collections::HashMap;
+use stitchwort_core::erase::def_telescope;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::force;
@@ -178,7 +178,7 @@ impl<'g> Specialiser<'g> {
         if shape.partial || shape.result_erased {
             return Ok(none);
         }
-        let tel = telescope(g, def.ty_value(), def.span())?;
+        let tel = def_telescope(g, id)?;
         let mut rows = Vec::new();
         for (level, (_, ty, _)) in tel.params.iter().enumerate().take(def.arity()) {
             if matches!(force(g, ty.clone())?, Value::Data(d, _) if self.driver_of(d).is_some()) {
@@ -241,8 +241,7 @@ impl<'g> Specialiser<'g> {
     /// The constructor each of `rows` (row parameters of `id`, by level) is
     /// specialised on in its empty-row variant.
     fn constants(&self, id: DefId, rows: &[usize]) -> Step<Vec<RowConstant>> {
-        let def = self.g.def(id);
-        let tel = telescope(self.g, def.ty_value(), def.span()).map_err(|_| Fail::Unsupported)?;
+        let tel = def_telescope(self.g, id).map_err(|_| Fail::Unsupported)?;
         let mut constants = Vec::new();
         for &level in rows {
             let (_, ty, _) = tel.params.get(level).ok_or(Fail::Unsupported)?;

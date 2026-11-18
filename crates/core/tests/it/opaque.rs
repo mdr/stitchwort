@@ -864,11 +864,13 @@ fn a_replay_reads_a_type_through_an_opaque_nickname_it_unfolds() {
 }
 
 /// Which parameters erasure drops doesn't depend on whether a program was
-/// running when it was first asked (SW-3916): for `g (n: Nat): Fun`, with
-/// the opaque `Fun := (a: Type) -> Nat`, a running program sees through
-/// `Fun` while checking doesn't, and the answer is remembered per
-/// definition. Both read the kept type as it was made, every opaque
-/// definition hidden: one parameter, kept.
+/// running when it was first asked (SW-3916), and covers every lambda of
+/// the body (SW-3933): for `g (n: Nat): Fun := n => a => 0`, with the
+/// opaque `Fun := (a: Type) -> Nat` that `g` unfolds, a running program
+/// sees through `Fun` while checking doesn't, and the answer is remembered
+/// per definition. Both read the type as the body was checked, through
+/// `Fun`: two parameters, the type erased. With `Fun` hidden there would be
+/// one, and a runtime cutting a call's mask to it would pass the type.
 #[test]
 fn erasure_of_a_definition_doesnt_depend_on_its_first_use() {
     let params = |first_use_running: bool| {
@@ -886,8 +888,9 @@ fn erasure_of_a_definition_doesnt_depend_on_its_first_use() {
         let _op = p.g.machine.budget.operation(Limits::default());
         let _running = first_use_running.then(|| p.g.machine.erasure.running());
         let erasure = stitchwort_core::erase::of_def(&p.g.ev(), g).expect("final");
-        erasure.params.to_vec()
+        let proofs = stitchwort_core::erase::proof_positions(&p.g.ev(), g).expect("final");
+        (erasure.params.to_vec(), proofs.params.to_vec())
     };
     assert_eq!(params(true), params(false));
-    assert_eq!(params(false), vec![false]);
+    assert_eq!(params(false), (vec![false, true], vec![false, false]));
 }
