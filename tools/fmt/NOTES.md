@@ -1388,6 +1388,9 @@ Ticket 18f. The design change first, then the rules' triples.
   (`filledHangs`) and lined (`linedPart`); `Chained` and its cut (`chainedSplit`); `appFromHangs` over every layout
   (spaced, filled at 4, the choice of flattened, hug and broken with its rest at 2 or 4); `argumentDocsHang`,
   `appDocsIs`, `appDocsHangs` and `appElHangs`.
+- `Fmt.ChainHangProofs` (9): a chain's runs (`runHangs`, `TailHangs`), `chainLinksForm` and `linkDocsForm` (a head at
+  the chain's seat, then runs), `chainHangs` and `binaryChainHangs`, given what each operand and operator asks
+  (`LinkFacts`, `PairFacts`).
 - `CloserEntry` asks `CloserFits` only where the closer takes a line of its own (noted or lone), the only cases
   that read it: a weaker hypothesis, so stronger theorems.
 
@@ -1413,10 +1416,15 @@ Ticket 18f. The design change first, then the rules' triples.
   `Held`), so the bracket's block is `Some s`, and `CloserFits` (a) needs the mark lowered to at most `s` by that
   break, with `marked` (the opener's line, `at`) below it. That needs the first write after `Held` exposed through
   the inner's `ElHangs`, or a carry fact in its post.
-- Chains (`chain`, `chainOf`, `chainLinks`, `chainRight`, `linkDocs`): slice 1 has no blocks or matches, so
-  `chainRight` is always a space and the operand, and `chainOf` nests the tail at 2. The plan: a `TailHangs` over
-  the `Line, operator, " ", operand` runs (closed under `++`), and a lemma that `linkDocs` is a head with the
-  chain's seat and such a tail. `->` needs its own operator step, since after it the fold is glued (no
-  `openedBy`): the operand starts mid-line, and its `openedBy` unglues the fold back to what it was.
+- Chains of `->`: `PairFacts` asks the operator to hang as an element, which `->` doesn't, since after it the fold
+  is glued rather than as after its first word; it needs its own run lemma, the operand starting mid-line and its
+  `openedBy` ungluing the fold back to what it was. Slice 1 has no blocks or matches, so `chainRight` is always a
+  space and the operand and the first operand opens no arms; `PairFacts` and `chainHangs` take those as facts.
 - The declaration level (`bodyAfter`, `callHug`, `opensBracket`, `bodyDoc`, `headDocs`, `defDoc`, `defFrom`,
-  `doc1`) and `printedHangs` through `hangsOfLays`.
+  `doc1`) and `printedHangs` through `hangsOfLays`. After `:=` the fold is `{ blocks = [], top = None, start = True }`
+  (`HangState.step`'s `ColonEq`); the body below at 2 starts a line there, so `top` becomes `Some 2`, and on the
+  `:=`'s line it starts none, so `top` stays `None` and its later lines are right of column 0. The header needs a
+  lemma for a `:=` and a `:` leaf (both reset the fold with no bracket open) and the parameter groups' own.
+- Equations from the lemmas' trailing flags to `Expr.trails` for a paren and a call (`bracketTrails` does it for
+  brackets), and from the slice's facts (`within1`) to the hypotheses: `parenInner` writes the inner as it is, a
+  chain's right operand is no block, its first opens no arms.
