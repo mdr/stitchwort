@@ -686,26 +686,27 @@ theorem tokenCode ∀ (text: Text) (start: Option Nat)
 
 -- Elements.
 
---| Where an element may start in a construct indented `indent`: mid-line, at the start of a line at the
---| indentation, or after a waiting comment only if the code before ends its line with one (`before`); no comment
---| floor in force.
-def Seated (indent: Nat) (before: Bool) (place: Place): Prop := match place with
+--| Where an element may start in a construct indented `indent`: at the start of a line at the indentation,
+--| mid-line, or after a waiting comment only if the code before ends its line with one (`before`); no comment
+--| floor in force, and mid-line nothing in force right of the line's indentation, so a comment break is right of it.
+def Seated (indent: Nat) (before: Bool) (state: HangState) (place: Place): Prop := match place with
   | AtStart at carry => at = indent ∧ carry.floor = None
   | Broken at carry => at = indent ∧ carry.floor = None
-  | Mid _ carry => carry.floor = None
-  | Held _ carry => before = True ∧ carry.floor = None
+  | Mid at carry => carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
+  | Held at carry => before = True ∧ carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
 
---| Where an element ends: after words, a trailing comment waiting or not, and no comment floor.
-def Ended (place: Place): Prop := match place with
+--| Where an element ends: after words, a trailing comment waiting or not, no comment floor, and nothing in force
+--| right of the line's indentation.
+def Ended (state: HangState) (place: Place): Prop := match place with
   | AtStart _ _ => False
   | Broken _ _ => False
-  | Mid _ carry => carry.floor = None
-  | Held _ carry => carry.floor = None
+  | Mid at carry => carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
+  | Held at carry => carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
 
---| What the fold must allow where an element starts: no block column in force right of the construct (its later
---| lines are right of its indentation), and room for its first word to start a line at `first`, if it does.
+--| What the fold must allow where an element starts: nothing in force right of the construct's indentation (its
+--| later lines are right of it), and room for its first word to start a line at `first`, if it does.
 def Seat (indent: Nat) (before: Bool) (state: HangState) (entry: Place) (first: Option Nat): Prop :=
-  Seated indent before entry ∧ (inForce state.blocks state.top <= indent) = True ∧ Room state first
+  Seated indent before state entry ∧ (inForce state.blocks state.top <= indent) = True ∧ Room state first
 
 --| At the element's entry, with the fold at `state` and a seat there.
 def Entered (indent: Nat) (before: Bool) (state: HangState) (entry: Place) (first: Option Nat): Place → Hang → Prop :=
@@ -716,21 +717,49 @@ def Entered (indent: Nat) (before: Bool) (state: HangState) (entry: Place) (firs
 def ElHangs (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before: Bool) (start: Nat → Place → Option Nat): Prop :=
   ∀ (state: HangState) (entry: Place) => HangLays kinds doc indent
     (Entered indent before state entry (start indent entry))
-    (place hang => Ended place ∧ hang = At (openedBy state (start indent entry)))
+    (place hang => Ended (openedBy state (start indent entry)) place ∧ hang = At (openedBy state (start indent entry)))
 
 theorem floorAfterToken ∀ (text: Text) (carry: Carry)
     (token: text.startsWith "--" = False):
     (floorAfter text carry).floor = None :=
   rewrite token
 
-theorem wordEnded ∀ (indent: Nat) (text: Text) (place: Place)
-    (token: text.startsWith "--" = False):
-    Ended (wordAfter indent text place) :=
-  match place with
-    | AtStart at carry => floorAfterToken text carry token
-    | Broken at carry => floorAfterToken text carry token
-    | Mid at carry => floorAfterToken text carry token
-    | Held at carry => floorAfterToken text (carry.breakTo (Nat.max indent (at + 2))) token
+theorem staleBlocks ∀ (column: Nat) (blocks: List (Option Nat)): startBlocks False column blocks = blocks :=
+  match blocks with
+    | [] => byComputing
+    | [block, ..outer] => byComputing
+
+--| After an element that starts no line, what is in force is what was.
+theorem openedNone ∀ (state: HangState):
+    inForce (openedBy state None).blocks (openedBy state None).top = inForce state.blocks state.top :=
+  rewrite Bool.andFalse state.start, staleBlocks 0 state.blocks
+
+--| After an element that starts a line at `column`, nothing is in force right of it.
+theorem openedSome ∀ (state: HangState) (column: Nat)
+    (left: (inForce state.blocks state.top <= column) = True):
+    (inForce (openedBy state (Some column)).blocks (openedBy state (Some column)).top <= column) = True :=
+  match state, left with
+    | { blocks, top, start = False, glue }, left => rewrite staleBlocks column blocks then left
+    | { blocks = [], top, start = True, glue }, _ => rewrite Nat.leRefl column
+    | { blocks = [block, ..outer], top, start = True, glue }, _ => rewrite Nat.leRefl column
+
+--| After a word written at a seat, nothing is in force right of the line's indentation.
+--|
+--| Proof idea: mid-line the fold doesn't move; at a line start, or on the comment break after a waiting comment,
+--| the word starts the line, right of what is in force, and is the most the fold can put in force (`openedSome`).
+theorem wordEnded ∀ (indent: Nat) (before: Bool) (text: Text) (state: HangState) (place: Place)
+    (token: text.startsWith "--" = False)
+    (seated: Seated indent before state place)
+    (room: Room state (wordStart indent place)):
+    Ended (openedBy state (wordStart indent place)) (wordAfter indent text place) :=
+  match place, seated, room with
+    | AtStart at carry, (_, _), (_, right) => (floorAfterToken text carry token, openedSome state at arithmetic)
+    | Broken at carry, (_, _), (_, right) => (floorAfterToken text carry token, openedSome state at arithmetic)
+    | Mid at carry, (_, left), _ => (floorAfterToken text carry token, rewrite openedNone state then left)
+    | Held at carry, (_, _, _), (_, right) => (
+      floorAfterToken text (carry.breakTo (Nat.max indent (at + 2))) token,
+      openedSome state (floored carry (Nat.max indent (at + 2))) arithmetic
+    )
 
 --| A plain token's text, written where the place says, folds as one plain token, and leaves the printer after it.
 theorem plainStep ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (before: Bool) (state: HangState) (entry: Place)
@@ -738,17 +767,23 @@ theorem plainStep ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (before: 
     (token: text.startsWith "--" = False)
     (solid: isLayout text = False):
     HangLays kinds (Doc.text text) indent (Entered indent before state entry (wordStart indent entry)) (place hang =>
-      place = wordAfter indent text entry ∧ hang = At (openedBy state (wordStart indent entry))) :=
+      place = wordAfter indent text entry
+        ∧ Ended (openedBy state (wordStart indent entry)) place
+        ∧ hang = At (openedBy state (wordStart indent entry))) :=
   hangsChunk kinds text text.length indent
     (Entered indent before state entry (wordStart indent entry))
-    (place hang => place = wordAfter indent text entry ∧ hang = At (openedBy state (wordStart indent entry)))
+    (place hang =>
+      place = wordAfter indent text entry
+        ∧ Ended (openedBy state (wordStart indent entry)) place
+        ∧ hang = At (openedBy state (wordStart indent entry)))
     solid
     (place trace (isEntry, hang, seat) =>
       match seat with
-        | (_, _, room) =>
+        | (seated, _, room) =>
           rewrite isEntry, hang then
             (
               byComputing,
+              wordEnded indent before text state entry token seated room,
               stepPlain kinds state text
                 (wordStart indent entry)
                 (tokenCode text (wordStart indent entry) token solid)
@@ -766,25 +801,24 @@ theorem plainHangs ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (before:
       (Doc.text text)
       indent
       (Entered indent before state entry (wordStart indent entry))
-      (place hang => place = wordAfter indent text entry ∧ hang = At (openedBy state (wordStart indent entry)))
-      (place hang => Ended place ∧ hang = At (openedBy state (wordStart indent entry)))
+      (place hang =>
+        place = wordAfter indent text entry
+          ∧ Ended (openedBy state (wordStart indent entry)) place
+          ∧ hang = At (openedBy state (wordStart indent entry)))
+      (place hang =>
+        Ended (openedBy state (wordStart indent entry)) place ∧ hang = At (openedBy state (wordStart indent entry)))
       (plainStep kinds text indent before state entry plain token solid)
-      (place hang (isAfter, folded) => (rewrite isAfter then wordEnded indent text entry token, folded))
+      (place hang (_, ended, folded) => (ended, folded))
 
---| After a word the printer is mid-line, with no comment floor.
-theorem wordAfterMid ∀ (indent: Nat) (text: Text) (place: Place)
-    (token: text.startsWith "--" = False):
-    ∃ (at: Nat) => ∃ (carry: Carry) => wordAfter indent text place = Mid at carry ∧ carry.floor = None :=
+--| After a word the printer is mid-line.
+theorem wordAfterMid ∀ (indent: Nat) (text: Text) (place: Place):
+    ∃ (at: Nat) => ∃ (carry: Carry) => wordAfter indent text place = Mid at carry :=
   match place with
-    | AtStart at carry => (at, floorAfter text carry, byComputing, floorAfterToken text carry token)
-    | Broken at carry => (at, floorAfter text carry, byComputing, floorAfterToken text carry token)
-    | Mid at carry => (at, floorAfter text carry, byComputing, floorAfterToken text carry token)
-    | Held at carry => (
-      floored carry (Nat.max indent (at + 2)),
-      floorAfter text (carry.breakTo (Nat.max indent (at + 2))),
-      byComputing,
-      floorAfterToken text (carry.breakTo (Nat.max indent (at + 2))) token
-    )
+    | AtStart at carry => (at, floorAfter text carry, byComputing)
+    | Broken at carry => (at, floorAfter text carry, byComputing)
+    | Mid at carry => (at, floorAfter text carry, byComputing)
+    | Held at carry =>
+      (floored carry (Nat.max indent (at + 2)), floorAfter text (carry.breakTo (Nat.max indent (at + 2))), byComputing)
 
 --| A word's trailing comment, if it has one, is one the lexer reads as a comment.
 def TrailsComment (word: Word): Prop := match word.comments.after with
@@ -812,9 +846,10 @@ theorem plainLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
   state entry =>
     let step := plainStep kinds word.text indent around.before state entry plain token solid
     let pre := Entered indent around.before state entry (wordStart indent entry)
+    let opened := openedBy state (wordStart indent entry)
     let mid: Place → Hang → Prop := place hang =>
-      place = wordAfter indent word.text entry ∧ hang = At (openedBy state (wordStart indent entry))
-    let post: Place → Hang → Prop := place hang => Ended place ∧ hang = At (openedBy state (wordStart indent entry))
+      place = wordAfter indent word.text entry ∧ Ended opened place ∧ hang = At opened
+    let post: Place → Hang → Prop := place hang => Ended opened place ∧ hang = At opened
     rewrite leafIsText word around key closer comma bare then
       hangsConcat kinds
         ([Doc.text word.text] ++ word.trailing)
@@ -828,8 +863,8 @@ theorem plainLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
               indent
               pre
               post
-              (hangsPost kinds (Doc.text word.text) indent pre mid post step (place hang (isAfter, folded) =>
-                (rewrite isAfter then wordEnded indent word.text entry token, folded)))
+              (hangsPost kinds (Doc.text word.text) indent pre mid post step (place hang (_, ended, folded) =>
+                (ended, folded)))
           | Some comment, (isComment, layout) =>
             hangsTwo kinds
               (Doc.text word.text)
@@ -839,27 +874,12 @@ theorem plainLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
               mid
               post
               step
-              (hangsSuffix kinds comment indent mid post isComment layout (place hang (isAfter, folded) =>
-                match wordAfterMid indent word.text entry token with
-                  | (at, carry, (written, floor)) => (at, carry, (rewrite isAfter then written, floor, folded)))))
-
---| From a seat, where an element's first word starts a line, if it does, is at the indentation or right of it.
-def StartsRight (start: Nat → Place → Option Nat): Prop :=
-  ∀ (indent: Nat) (before: Bool) (place: Place) (column: Nat) => Seated indent before place
-    → start indent place = Some column
-    → (column >= indent) = True
-
-theorem wordStartRight: StartsRight wordStart := indent before place column seated starts =>
-  match place, seated, starts with
-    | AtStart at carry, (atIndent, _), started =>
-      let same: at = column := Option.someInjective started
-      arithmetic
-    | Broken at carry, (atIndent, _), started =>
-      let same: at = column := Option.someInjective started
-      arithmetic
-    | Held at carry, (_, floor), started =>
-      let same: Nat.max indent (at + 2) = column := rewrite floor at started then Option.someInjective started
-      arithmetic
+              (hangsSuffix kinds comment indent mid post isComment layout (place hang (isAfter, ended, folded) =>
+                match wordAfterMid indent word.text entry with
+                  | (at, carry, written) =>
+                    let isMid: place = Mid at carry := rewrite isAfter then written
+                    match ended with
+                      | ended => (at, carry, (isMid, rewrite isMid at ended then ended, folded)))))
 
 --| With no item, type or body starting and nothing glued, an element leaves the fold as it found it.
 theorem openedQuiet ∀ (state: HangState) (start: Option Nat)
@@ -870,44 +890,67 @@ theorem openedQuiet ∀ (state: HangState) (start: Option Nat)
     | { blocks = [], top, start = False, glue = False }, _, _ => byComputing
     | { blocks = [block, ..outer], top, start = False, glue = False }, _, _ => byComputing
 
---| `doc`, a later part of an element after words, folds back to where it started: from a seat in a construct
---| indented `indent`, with nothing in force there or right of it and no item, type or body starting, it ends after
---| words with the fold unchanged.
+--| Where a line starts at the indentation, nothing is in force there or right of it.
+def Lined (indent: Nat) (state: HangState): Place → Prop
+  | AtStart _ _ => (inForce state.blocks state.top < indent) = True
+  | Broken _ _ => (inForce state.blocks state.top < indent) = True
+  | Mid _ _ => True
+  | Held _ _ => True
+
+--| `doc`, a later part of an element, folds back to where it started: from a seat in a construct indented
+--| `indent`, with nothing in force right of it, nor at it where a line starts there, and no item, type or body
+--| starting, it ends after words with the fold unchanged.
 def PartHangs (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before: Bool): Prop :=
   ∀ (state: HangState) (entry: Place) => state.start = False
     → state.glue = False
-    → (inForce state.blocks state.top < indent) = True
     → HangLays kinds doc indent
-      (place hang => place = entry ∧ hang = At state ∧ Seated indent before entry)
-      (place hang => Ended place ∧ hang = At state)
+      (place hang =>
+        place = entry
+          ∧ hang = At state
+          ∧ Seated indent before state entry
+          ∧ (inForce state.blocks state.top <= indent) = True
+          ∧ Lined indent state entry)
+      (place hang => Ended state place ∧ hang = At state)
+
+--| A seat has room for a word, but for `->`'s glue: on a comment break, the word is right of the line.
+theorem seatedRoom ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
+    (unglued: state.glue = False)
+    (seated: Seated indent before state place)
+    (lined: Lined indent state place):
+    Room state (wordStart indent place) :=
+  match place, seated, lined with
+    | AtStart at carry, (atIndent, _), below => (unglued, arithmetic)
+    | Broken at carry, (atIndent, _), below => (unglued, arithmetic)
+    | Mid at carry, _, _ => byComputing
+    | Held at carry, (_, floor, left), _ =>
+      let landed: floored carry (Nat.max indent (at + 2)) = Nat.max indent (at + 2) := rewrite floor
+      (unglued, rewrite landed then arithmetic)
 
 --| An element after words is a part.
-theorem elPart ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before: Bool) (start: Nat → Place → Option Nat)
-    (el: ElHangs kinds doc indent before start)
-    (right: StartsRight start):
+theorem elPart ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before: Bool)
+    (el: ElHangs kinds doc indent before wordStart):
     PartHangs kinds doc indent before :=
-  state entry quiet unglued clear =>
-    let seat: ∀ (place: Place) (hang: Hang) => (place = entry ∧ hang = At state ∧ Seated indent before entry)
-      → Entered indent before state entry (start indent entry) place hang :=
-      place hang (isEntry, folded, seated) =>
-        let room: Room state (start indent entry) := match starts: start indent entry with
-          | None => byComputing
-          | Some column =>
-            let deep := right indent before entry column seated starts
-            (unglued, arithmetic)
-        (isEntry, folded, seated, arithmetic, room)
-    hangsPost kinds doc indent
-      (place hang => place = entry ∧ hang = At state ∧ Seated indent before entry)
-      (place hang => Ended place ∧ hang = At (openedBy state (start indent entry)))
-      (place hang => Ended place ∧ hang = At state)
+  state entry quiet unglued =>
+    let pre: Place → Hang → Prop := place hang =>
+      place = entry
+        ∧ hang = At state
+        ∧ Seated indent before state entry
+        ∧ (inForce state.blocks state.top <= indent) = True
+        ∧ Lined indent state entry
+    let opened := openedBy state (wordStart indent entry)
+    hangsPost kinds doc indent pre
+      (place hang => Ended opened place ∧ hang = At opened)
+      (place hang => Ended state place ∧ hang = At state)
       (hangsPre kinds doc indent
-        (Entered indent before state entry (start indent entry))
-        (place hang => place = entry ∧ hang = At state ∧ Seated indent before entry)
-        (place hang => Ended place ∧ hang = At (openedBy state (start indent entry)))
+        (Entered indent before state entry (wordStart indent entry))
+        pre
+        (place hang => Ended opened place ∧ hang = At opened)
         (el state entry)
-        seat)
+        (place hang (isEntry, folded, seated, clear, lined) =>
+          (isEntry, folded, seated, clear, seatedRoom indent before state entry unglued seated lined)))
       (place hang (ended, folded) =>
-        (ended, rewrite openedQuiet state (start indent entry) quiet unglued at folded then folded))
+        let same: opened = state := openedQuiet state (wordStart indent entry) quiet unglued
+        (rewrite same at ended then ended, rewrite same at folded then folded))
 
 --| A displaced element: its contents start where it does, at the start of a line after a waiting comment, and
 --| are indented from there.
@@ -918,7 +961,8 @@ theorem displacedHangs ∀ (kinds: Text → Tok) (inner: Doc) (indent: Nat) (bef
     (el: ∀ (column: Nat) => ElHangs kinds inner column before wordStart):
     ElHangs kinds (Displaced inner) indent before wordStart :=
   state entry =>
-    let post: Place → Hang → Prop := place hang => Ended place ∧ hang = At (openedBy state (wordStart indent entry))
+    let post: Place → Hang → Prop := place hang =>
+      Ended (openedBy state (wordStart indent entry)) place ∧ hang = At (openedBy state (wordStart indent entry))
     let seat: Nat → Place → Hang → Prop := column place hang =>
       Entered column before state place (wordStart column place) place hang
         ∧ wordStart column place = wordStart indent entry
@@ -928,7 +972,7 @@ theorem displacedHangs ∀ (kinds: Text → Tok) (inner: Doc) (indent: Nat) (bef
       seat
       (column place trace next (entered, same) after =>
         el column state place place trace next entered (left later (ended, folded) =>
-          after left later (ended, rewrite same at folded then folded)))
+          after left later (rewrite same at ended then ended, rewrite same at folded then folded)))
       (place hang (isEntry, folded, (seated, clear, room)) =>
         rewrite isEntry then
           match entry, seated, room with
@@ -940,8 +984,8 @@ theorem displacedHangs ∀ (kinds: Text → Tok) (inner: Doc) (indent: Nat) (bef
               let wide: (inForce state.blocks state.top <= Nat.max indent at) = True := arithmetic
               let same: at = Nat.max indent at := arithmetic
               ((byComputing, folded, (same, floor), wide, room), byComputing)
-            | Mid at carry, floor, room => ((byComputing, folded, floor, clear, room), byComputing)
-            | Held at carry, (_, floor), room =>
+            | Mid at carry, seated, room => ((byComputing, folded, seated, clear, room), byComputing)
+            | Held at carry, (_, floor, _), room =>
               let broken := Nat.max indent (at + 2)
               let wide: (inForce state.blocks state.top <= broken) = True := arithmetic
               let landed: floored carry broken = broken := rewrite floor
