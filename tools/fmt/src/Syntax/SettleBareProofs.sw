@@ -763,3 +763,219 @@ theorem dropRelOfRev ∀ (leaves dropped: List Leaf)
     (rewrite eq, List.reverseReverse (dropF [] leaves.reverse)),
     barishFOnto leaves.reverse [] byComputing (rewrite twice then ok)
   )
+
+-- Rule 2
+
+--| `commasFrom` with the leaves done left newest first.
+def commasR (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia): Lexed :=
+  let receive := (trivia: Trivia) => carried.map (carry => carry.into trivia) |> .getOrElse trivia
+  match rest with
+    | [] => { leaves = done, end = receive end }
+    | [leaf, ..after] =>
+      let leaf := { leaf | trivia = receive leaf.trivia }
+      match commaCarries leaf.trivia with
+        | Some carry if leaf.kind == Comma => commasR [{ leaf | trivia = Trivia.empty }, ..done] (Some carry) after end
+        | _ => commasR [leaf, ..done] None after end
+
+theorem commasFromR ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
+    commasFrom done carried rest end
+      = { leaves = (commasR done carried rest end).leaves.reverse, end = (commasR done carried rest end).end } :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match cc: commaCarries
+        { leaf | trivia = (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia) }.trivia with
+        | None =>
+          commasFromR
+            [{ leaf | trivia = (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia) }, ..done]
+            None
+            after
+            end
+        | Some carry =>
+          match isComma: leaf.token.kind == Comma with
+            | True =>
+              commasFromR
+                [
+                  { { leaf | trivia = (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia) } |
+                    trivia = Trivia.empty
+                  },
+                  ..done
+                ]
+                (Some carry)
+                after
+                end
+            | False =>
+              commasFromR
+                [{ leaf | trivia = (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia) }, ..done]
+                None
+                after
+                end
+
+--| A comment still carried comes right after a comma.
+def carriedQuiet (carried: Option Carried) (done: List Leaf): Bool := match carried with
+  | None => True
+  | Some _ => !hasItem done
+
+theorem hasItemComma ∀ (leaf: Leaf) (rest: List Leaf)
+    (isComma: (leaf.token.kind == Comma) = True):
+    hasItem [leaf, ..rest] = False :=
+  let same: leaf.token.kind = Comma := DecEq.sound isComma
+  rewrite same
+
+def Commas2Drop (after: List Leaf) (end: Trivia): Prop :=
+  ∀ (done: List Leaf) (carried: Option Carried) => gapOk done after = True
+    → barishTop done = True
+    → barishF done after = True
+    → carriedQuiet carried done = True
+    → (commasR (dropRev done) carried (dropF done after) end).leaves = dropRev (commasR done carried after end).leaves
+      ∧ (commasR (dropRev done) carried (dropF done after) end).end = (commasR done carried after end).end
+      ∧ barishTop (commasR done carried after end).leaves = True
+
+theorem commasDrop ∀ (done rest: List Leaf) (carried: Option Carried) (end: Trivia)
+    (gap: gapOk done rest = True)
+    (okB: barishTop done = True)
+    (okF: barishF done rest = True)
+    (quiet: carriedQuiet carried done = True):
+    (commasR (dropRev done) carried (dropF done rest) end).leaves = dropRev (commasR done carried rest end).leaves
+      ∧ (commasR (dropRev done) carried (dropF done rest) end).end = (commasR done carried rest end).end
+      ∧ barishTop (commasR done carried rest end).leaves = True :=
+  match rest with
+    | [] => (byComputing, byComputing, okB)
+    | [leaf, ..after] =>
+      match pair: fwdPair done leaf after with
+        | False =>
+          stepNormal2 leaf done after carried end gap okB okF pair (d c g o f q => commasDrop d after c end g o f q)
+        | True =>
+          match after with
+            | [closer, ..after2] => stepPair2 leaf closer done after2 carried end pair okB okF quiet (d c g o f q =>
+              commasDrop d after2 c end g o f q)
+
+theorem gapAfterNopT ∀ (leaf: Leaf) (trivia: Trivia) (behind after: List Leaf)
+    (nop: fwdPair behind leaf after = False):
+    gapOk [{ leaf | trivia }, ..behind] after = True :=
+  match after with
+    | [] => byComputing
+    | [closer, ..after2] => rewrite nop
+
+theorem barishFNopT ∀ (leaf: Leaf) (trivia: Trivia) (behind after: List Leaf)
+    (nop: fwdPair behind leaf after = False):
+    barishF behind [leaf, ..after] = barishF [{ leaf | trivia }, ..behind] after :=
+  Eq.trans
+    (barishFNop leaf behind after nop)
+    (barishFItem [leaf, ..behind] [{ leaf | trivia }, ..behind] after byComputing)
+
+theorem stepGo ∀ (leaf: Leaf) (trivia: Trivia) (done after: List Leaf) (carried: Option Carried) (end: Trivia)
+    (gap: gapOk done [leaf, ..after] = True)
+    (okB: barishTop done = True)
+    (okF: barishF done [leaf, ..after] = True)
+    (nop: fwdPair done leaf after = False)
+    (quiet: carriedQuiet carried [{ leaf | trivia }, ..done] = True)
+    (ih: Commas2Drop after end):
+    (commasR [{ leaf | trivia }, ..dropRev done] carried (dropF [leaf, ..done] after) end).leaves
+      = dropRev (commasR [{ leaf | trivia }, ..done] carried after end).leaves
+      ∧ (commasR [{ leaf | trivia }, ..dropRev done] carried (dropF [leaf, ..done] after) end).end
+        = (commasR [{ leaf | trivia }, ..done] carried after end).end
+      ∧ barishTop (commasR [{ leaf | trivia }, ..done] carried after end).leaves = True :=
+  let top: dr leaf.token.kind done = dropRev done := drNopTop leaf done gap
+  let okLeaf: barish leaf.token done = True := barishAfterNop leaf done after gap okB
+  let gap': gapOk [{ leaf | trivia }, ..done] after = True := gapAfterNopT leaf trivia done after nop
+  let okF': barishF [{ leaf | trivia }, ..done] after = True :=
+    rewrite <- barishFNopT leaf trivia done after nop then okF
+  let claim := ih [{ leaf | trivia }, ..done] carried gap' okLeaf okF' quiet
+  let items := dropFItem [leaf, ..done] [{ leaf | trivia }, ..done] after byComputing
+  rewrite items then rewrite top at claim then claim
+
+theorem stepNormal2 ∀ (leaf: Leaf) (done after: List Leaf) (carried: Option Carried) (end: Trivia)
+    (gap: gapOk done [leaf, ..after] = True)
+    (okB: barishTop done = True)
+    (okF: barishF done [leaf, ..after] = True)
+    (nop: fwdPair done leaf after = False)
+    (ih: Commas2Drop after end):
+    (commasR (dropRev done) carried (dropF done [leaf, ..after]) end).leaves
+      = dropRev (commasR done carried [leaf, ..after] end).leaves
+      ∧ (commasR (dropRev done) carried (dropF done [leaf, ..after]) end).end
+        = (commasR done carried [leaf, ..after] end).end
+      ∧ barishTop (commasR done carried [leaf, ..after] end).leaves = True :=
+  rewrite dropFNop leaf done after nop then
+    match cc: commaCarries (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia) with
+      | None =>
+        stepGo leaf
+          (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia)
+          done
+          after
+          None
+          end
+          gap
+          okB
+          okF
+          nop
+          byComputing
+          ih
+      | Some carry =>
+        match isComma: leaf.token.kind == Comma with
+          | True =>
+            stepGo leaf Trivia.empty done after
+              (Some carry)
+              end
+              gap
+              okB
+              okF
+              nop
+              (rewrite hasItemComma { leaf | trivia = Trivia.empty } done isComma)
+              ih
+          | False =>
+            stepGo leaf
+              (carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia)
+              done
+              after
+              None
+              end
+              gap
+              okB
+              okF
+              nop
+              byComputing
+              ih
+
+theorem carriesOfBare ∀ (trivia: Trivia)
+    (leadEmpty: trivia.leading.isEmpty = True)
+    (trailNone: trivia.trailing.isNone = True):
+    commaCarries trivia = None :=
+  match trivia.leading, trivia.trailing with | [], None => byComputing
+
+theorem stepPair2 ∀ (comma closer: Leaf) (done after: List Leaf) (carried: Option Carried) (end: Trivia)
+    (pair: lastPair closer.token.kind comma done = True)
+    (okB: barishTop done = True)
+    (okF: barishF done [comma, closer, ..after] = True)
+    (quiet: carriedQuiet carried done = True)
+    (ih: Commas2Drop after end):
+    (commasR (dropRev done) carried (dropF done [comma, closer, ..after]) end).leaves
+      = dropRev (commasR done carried [comma, closer, ..after] end).leaves
+      ∧ (commasR (dropRev done) carried (dropF done [comma, closer, ..after]) end).end
+        = (commasR done carried [comma, closer, ..after] end).end
+      ∧ barishTop (commasR done carried [comma, closer, ..after] end).leaves = True :=
+  let parts := rewrite barishFPair comma closer done after pair at okF then okF
+  let leadEmpty := Bool.andLeft parts
+  let trailNone := Bool.andLeft (Bool.andRight parts)
+  let lineOk := Bool.andLeft (Bool.andRight (Bool.andRight parts))
+  let okF': barishF [closer, comma, ..done] after = True := Bool.andRight (Bool.andRight (Bool.andRight parts))
+  let okLeaf: barish closer.token [comma, ..done] = True :=
+    barishPairTop comma closer done pair leadEmpty trailNone lineOk okB
+  let top: dr closer.token.kind [comma, ..done] = dropRev done := drPairTop closer comma done pair
+  let gap': gapOk [closer, comma, ..done] after = True := gapAfterPair comma closer done after pair
+  let item: hasItem done = True := Bool.andRight (Bool.andRight pair)
+  let notComma: (closer.token.kind == Comma) = False :=
+    closerNotComma closer.token.kind (Bool.andLeft (Bool.andRight pair))
+  rewrite dropFPair comma closer done after pair then
+    match carried with
+      | Some c => rewrite item at quiet then cases
+      | None =>
+        let claim := ih [closer, comma, ..done] None gap' okLeaf okF' byComputing
+        let items := dropFItem [closer, comma, ..done] [closer, comma, ..done] after byComputing
+        rewrite carriesOfBare comma.trivia leadEmpty trailNone then
+          rewrite top at claim then
+            match cc: commaCarries closer.trivia with
+              | None => claim
+              | Some carry =>
+                match isComma: closer.token.kind == Comma with
+                  | False => claim
