@@ -893,3 +893,295 @@ theorem readsAtomBases ∀ (self: Goal → {Parse Item} Expr)
       (seen => atomBaseOn self modes seen) _
       (start fine stops => readsOut [p := () => atomMissing self modes] (outside.missings modes) start fine)
       (start item later shape fine stopped => readsAtomOf self modes nested outside start item later shape fine)
+
+-- Application.
+
+theorem carriedApp ∀ [first rest: List Item] [head: Expr] [args: List Expr]
+    (carried: Carried first head)
+    (others: ItemsCarried rest args):
+    Carried (first ++ rest) (App head args) :=
+  within => rewrite itemWordsAppend first rest, carried (Bool.andLeft within), others (Bool.andRight within)
+
+--| The rounds of a loop that each read a carried tree, or nothing and stopped.
+theorem roundsCarried ∀ [read: List Item] [values: List Expr]
+    (rounds: Parse.Rounds (Parse.Maybe Carried) read values):
+    ItemsCarried read values :=
+  match values, rounds with
+    | [], none => rewrite none then itemsCarriedNil
+    | [value, ..more], (first, rest, split, _, carried, others) =>
+      rewrite split then itemsCarriedCons carried (roundsCarried others)
+
+theorem readsArgumentBrace ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self) (brace: Bool):
+    Parse.ReadsIn GoodItems (() => argumentBrace self modes brace) Carried :=
+  match brace with
+    | True => readsOut (outside.braceArguments modes)
+    | False => nested { modes, level = LevelArgument }
+
+theorem readsArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self):
+    Parse.ReadsIn GoodItems (() => argument self modes) Carried :=
+  readsAfter0 [p := () => left()] [j := items => argumentAt self modes items] reads0Left (items =>
+    match sectionLineAt modes items with
+      | True => Parse.readsFatal _ _
+      | False =>
+        readsAfter0
+          [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
+          [j := brace => argumentBrace self modes brace]
+          (reads0Then [p := () => modes.at Upper] (reads0At modes Upper) (upper =>
+            match upper with
+              | True => reads0Then [p := () => modes.peekAt 1] (reads0PeekAt modes 1) (found => reads0Done _)
+              | False => reads0Done False))
+          (brace => readsArgumentBrace self modes nested outside brace))
+
+theorem readsArguments ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self):
+    Parse.ReadsIn GoodItems (() => arguments self modes) ItemsCarried :=
+  Parse.readsWeaken
+    (Parse.readsLoop _
+      (Parse.Maybe Carried)
+      (readsAfter0
+        [p := () => startsAtom modes]
+        [j := starts => argumentStep self modes starts]
+        (reads0StartsAtom modes)
+        (starts =>
+          match starts with
+            | True => Parse.readsThen (readsArgument self modes nested outside) (read value carried =>
+              Parse.readsDone (Some value) _ (rewrite List.appendNil read then carried))
+            | False => Parse.readsDone None _ byComputing)))
+    (read values rounds => roundsCarried rounds)
+
+theorem readsAppliedTo ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self)
+    (before: List Item) (head: Expr)
+    (carried: Carried before head):
+    Parse.ReadsIn GoodItems (() => appliedTo self modes head) (read value => Carried (before ++ read) value) :=
+  Parse.readsThen (readsArgument self modes nested outside) (r1 first firstCarried =>
+    Parse.readsThen (readsArguments self modes nested outside) (r2 more others =>
+      Parse.readsDone _ _ (rewrite List.appendNil r2 then carriedApp carried (itemsCarriedCons firstCarried others))))
+
+theorem carriedSectioned ∀ (section: Bool) [read: List Item] [applied: Expr]
+    (carried: Carried read applied):
+    Carried read (sectioned section applied) :=
+  match section with
+    | True => carriedOut read byComputing
+    | False => carried
+
+theorem readsAppEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self)
+    (section: Bool) (before: List Item) (head: Expr) (applies: Bool)
+    (carried: Carried before head):
+    Parse.ReadsIn GoodItems (() => appEnd self modes section head applies) (read value =>
+      Carried (before ++ read) value) :=
+  match applies with
+    | True =>
+      Parse.readsThen
+        [p := () => appliedTo self modes head]
+        [j := applied => sectioned section applied]
+        (readsAppliedTo self modes nested outside before head carried)
+        (read applied appliedCarried =>
+          Parse.readsDone _ _ (rewrite List.appendNil read then carriedSectioned section appliedCarried))
+    | False => Parse.readsDone _ _ (rewrite List.appendNil before then carriedSectioned section carried)
+
+theorem readsAppHead ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self)
+    (bases: BasesCarry self) (section: Bool):
+    Parse.ReadsIn GoodItems (() => appHead self modes section) Carried :=
+  Parse.readsThen
+    [p := () => atom self modes True]
+    [j := head => appCalls self modes section head]
+    (readsAtom self modes True (bases modes) (outside.below.records modes))
+    (before head carried =>
+      readsAfter0
+        [p := () => startsAtom modes]
+        [j := applies => appEnd self modes section head applies]
+        (reads0StartsAtom modes)
+        (applies => readsAppEnd self modes nested outside section before head applies carried))
+
+theorem readsApp ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideBraced self)
+    (bases: BasesCarry self):
+    Parse.ReadsIn GoodItems (() => app self modes) Carried :=
+  readsAfter0 [p := () => offset()] [j := start => appAt self modes start] reads0Offset (start =>
+    readsAfter0
+      [p := () => modes.at Dot && modes.sectionHead != Some start]
+      [j := section => appHead self modes section]
+      (reads0Then [p := () => modes.at Dot] (reads0At modes Dot) (dot => reads0Done _))
+      (section => readsAppHead self modes nested outside bases section))
+
+--| An argument read by `self`: `atom` with no application.
+theorem readsAtomArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool)
+    (outside: OutsideAtoms self)
+    (bases: BasesCarry self):
+    Parse.ReadsIn GoodItems (() => atom self modes head) Carried :=
+  readsAtom self modes head (bases modes) (outside.records modes)
+
+-- Unary.
+
+theorem minusBangCode ∀ (kind: Tok) (is: (kind == Minus || kind == Bang) = True): (kind == Comma) = False :=
+  match kind, is with
+    | Minus, is => byComputing
+    | Bang, is => byComputing
+    | other, is => (Bool.falseNotTrue is).impossible
+
+theorem readsUnaryNext ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (app: Parse.ReadsIn GoodItems (() => app self modes) Carried)
+    (start: Parse.Mark Item) (item: Item) (later items: List Item)
+    (shape: start.rest = [item, ..later])
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => unaryNext self modes item.kind items) Carried :=
+  match negative: item.kind == Minus && negativeNumeral items with
+    | True => app start fine
+    | False =>
+      match signed: item.kind == Minus || item.kind == Bang with
+        | True => readsAtBumpRead shape fine (after tail fits =>
+          Parse.readsAtThen (nested { modes, level = LevelUnary } after fits) (read operand after2 starts carried =>
+            Parse.readsAtDone after2 _ _
+              (rewrite List.appendNil read then
+                carriedPrefix item read operand (minusBangCode item.kind signed) carried)))
+        | False => app start fine
+
+theorem readsUnaryBar ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (app: Parse.ReadsIn GoodItems (() => app self modes) Carried)
+    (start: Parse.Mark Item) (item: Item) (later: List Item) (bar: Bool)
+    (shape: start.rest = [item, ..later])
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => unaryBar self modes item.kind bar) Carried :=
+  match bar with
+    | True =>
+      readsAtBumpRead [k := word => clauseLambda self modes word None ClauseMatches] shape fine (after tail fits =>
+        readsOutAfter [item] (outside.clauseLambdas modes item.leaf.word) after fits)
+    | False =>
+      readsAtAfter0
+        [p := () => left()]
+        [j := found => unaryNext self modes item.kind found]
+        reads0Left
+        fine
+        (found after same fits =>
+          readsUnaryNext self modes nested app after item later found (rewrite same then shape) fits)
+
+theorem readsUnarySome ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (app: Parse.ReadsIn GoodItems (() => app self modes) Carried)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => unarySome self modes item.kind) Carried :=
+  match isMatch: item.kind == KwMatch with
+    | True => readsAtBumpRead [k := keyword => matchExpr self modes keyword] shape fine (after tail fits =>
+      readsOutAfter [item] (outside.matches modes item.leaf.word) after fits)
+    | False =>
+      readsAtAfter0
+        [p := () => matchesBarAhead modes]
+        [j := bar => unaryBar self modes item.kind bar]
+        (reads0MatchesBarAhead modes)
+        fine
+        (bar after same fits =>
+          readsUnaryBar self modes nested outside app after item later bar (rewrite same then shape) fits)
+
+--| `unary`: a `-` or `!` and its operand, or an application; a `match` or clause lambda is outside the slice.
+theorem readsUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (app: Parse.ReadsIn GoodItems (() => app self modes) Carried):
+    Parse.ReadsIn GoodItems (() => unary self modes) Carried :=
+  readsInPeeked modes
+    (seen => unaryOn self modes seen) _
+    (start fine stops => app start fine)
+    (start item later shape fine stopped => readsUnarySome self modes nested outside app start item later shape fine)
+
+-- The recursion.
+
+--| The levels of the expression parser above `unary`, carried: the second half's (SW-4020) to prove, given `self` at
+--| every goal and what the parsers outside slice 1 give.
+type Ladder (self: Goal → {Parse Item} Expr) = {
+  full: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => expr self modes) Carried,
+  inline: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => exprInline self modes) Carried,
+  logic: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => logicLevel self modes) Carried,
+  comparison: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => cmpExpr self modes) Carried,
+  append: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => appendExpr self modes) Carried,
+  additive: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => addExpr self modes) Carried,
+  multiplicative: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => mulExpr self modes) Carried,
+  thenBody: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => thenBody self modes) Carried
+}
+
+--| The ladder carries its items for every `self` that gives what `ParseWalk` says and carries its own, given what the
+--| parsers outside slice 1 give: the hypothesis the knot takes from the second half.
+def LadderCarries: Type :=
+  ∀ (self: Goal → {Parse Item} Expr) => Nested self → NestedCarries self → Outside self → Ladder self
+
+--| `atom_base` carries its items, from `self` and what the parsers outside slice 1 give.
+theorem basesCarry ∀ (self: Goal → {Parse Item} Expr)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    BasesCarry self :=
+  readsAtomBases self carries outside.below.below.below.below.below
+
+--| One level of the expression parser carries its items: the ladder's levels from `ladder`, `unary`, an argument and
+--| an application from this file's walk.
+theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
+    (carries: NestedCarries self)
+    (outside: Outside self)
+    (ladder: Ladder self):
+    Parse.ReadsIn GoodItems (() => expressionRule self goal) Carried :=
+  let atoms := outside.below.below.below.below.below
+  let braced := outside.below.below.below.below
+  let bases := basesCarry self carries outside
+  match goal with
+    | { modes, level } =>
+      match level with
+        | LevelFull => ladder.full modes
+        | LevelInline => ladder.inline modes
+        | LevelLogic => ladder.logic modes
+        | LevelComparison => ladder.comparison modes
+        | LevelAppend => ladder.append modes
+        | LevelAdditive => ladder.additive modes
+        | LevelMultiplicative => ladder.multiplicative modes
+        | LevelUnary => readsUnary self modes carries atoms (readsApp self modes carries braced bases)
+        | LevelArgument => readsAtomArgument self modes False atoms bases
+        | LevelApp => readsApp self modes carries braced bases
+        | LevelThenBody => ladder.thenBody modes
+
+--| `self` gives what `ParseWalk` says and carries its items, at every goal: the two walks' hypothesis, held together
+--| so the recursion can be tied once for both.
+def NestedBoth (self: Goal → {Parse Item} Expr): Prop :=
+  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (read value => GoalParsed goal value ∧ Carried read value)
+
+theorem nestedOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self): Nested self := goal =>
+  Parse.readsWeaken (both goal) (read value facts => facts.left)
+
+theorem carriesOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self): NestedCarries self := goal =>
+  Parse.readsWeaken (both goal) (read value facts => facts.right)
+
+--| The recursion's knot: `expressionAt` gives what `ParseWalk` says and carries its items, at every goal, once the
+--| ladder does.
+--|
+--| Proof idea: `Parse.readsRecursiveWith` with both walks' specs at once, since the parsers outside slice 1 are proved
+--| (`outsideOf`) from `ParseWalk`'s `Nested`, which this walk's levels need too; each level is `givesExpressionRule`
+--| and `readsExpressionRule`, joined by `Parse.readsBoth`.
+theorem bothExpressionAt ∀ (ladder: LadderCarries): NestedBoth expressionAt := goal =>
+  Parse.readsRecursiveWith expressionRule
+    (inner read value => GoalParsed inner value ∧ Carried read value)
+    (self both argument =>
+      let nested := nestedOfBoth both
+      let carries := carriesOfBoth both
+      let outside := outsideOf self nested
+      Parse.readsBoth
+        (givesExpressionRule self argument nested outside)
+        (readsExpressionRule self argument carries outside (ladder self nested carries outside)))
+    goal
+
+--| `expressionAt` carries its items at every goal, once the ladder does.
+theorem carriesExpressionAt ∀ (ladder: LadderCarries): NestedCarries expressionAt :=
+  carriesOfBoth (bothExpressionAt ladder)
