@@ -1962,3 +1962,71 @@ theorem laidFromOnto ∀ (done: List Leaf) (current: Leaf) (choices: List Bool) 
                   || (leaf.trivia.trailing.isSome && (leaf.kind != Comma && passable leaf))
               rewrite passes,
                   laidFromOnto [current, ..done] (leaf.startingLine lineStart) later after (Bool.andRight within)
+
+--| What the layout leaves of a leaf: its kind, text and comments.
+type Shape = { kind: Tok, text: Text, trivia: Trivia }
+
+def shape (leaf: Leaf): Shape := { kind = leaf.token.kind, text = leaf.token.text, trivia = leaf.trivia }
+
+def shapes (leaves: List Leaf): List Shape := leaves.map shape
+
+theorem trailingAtZero ∀ (behind: List Leaf) (comment: Comment): trailingAt behind 0 comment = behind :=
+  match behind with
+    | [] => byComputing
+    | [_, .._] => byComputing
+
+--| The `steps` newest leaves of `behind` are a comment's way back to
+--| where it was: commas and closers that don't start their lines, then a
+--| leaf rule 1's walk ends on.
+def chainTo (steps: Nat) (behind: List Leaf): Bool := match steps, behind with
+  | Succ Zero, [target, ..older] => !passable target || older.isEmpty || stopsAt target older
+  | Succ (Succ more), [leaf, ..earlier] => passable leaf && !leaf.token.lineStart && chainTo (Succ more) earlier
+  | _, _ => False
+
+theorem landedHere ∀ (leaf: Leaf) (older ahead: List Leaf) (steps: Nat)
+    (within: leaf.kind.within1 = True)
+    (olderWithin: older.all (leaf => leaf.kind.within1) = True)
+    (lands: (!passable leaf || older.isEmpty || stopsAt leaf older) = True):
+    stepsBack leaf older ahead steps = steps :=
+  match older with
+    | [] => byComputing
+    | [previous, ..earlier] =>
+      let passes := skippedQuiet1 leaf [previous, ..earlier] ahead within
+      match p: passable leaf with
+        | False => rewrite passes
+        | True => rewrite passes, endsOnQuiet1 [previous, ..earlier] [leaf, ..ahead] olderWithin, lands
+
+--| A carried comment's walk back is exactly its chain.
+theorem chainSteps ∀ (current: Leaf) (behind ahead: List Leaf) (steps acc: Nat)
+    (within: current.kind.within1 = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (passes: passable current = True)
+    (notStart: current.token.lineStart = False)
+    (chain: chainTo steps behind = True):
+    stepsBack current behind ahead acc = acc + steps :=
+  match steps, behind with
+    | Succ Zero, [target, ..older] =>
+      let skips := skippedQuiet1 current [target, ..older] ahead within
+      rewrite skips, passes, notStart then
+        calc stepsBack target older [current, ..ahead] (Succ acc)
+          _ = Succ acc :=
+            landedHere target older
+              [current, ..ahead]
+              (Succ acc)
+              (Bool.andLeft behindWithin)
+              (Bool.andRight behindWithin)
+              chain
+          _ = acc + 1 := arithmetic
+    | Succ (Succ more), [leaf, ..earlier] =>
+      let skips := skippedQuiet1 current [leaf, ..earlier] ahead within
+      let later :=
+        chainSteps leaf earlier
+          [current, ..ahead]
+          (Succ more)
+          (Succ acc)
+          (Bool.andLeft behindWithin)
+          (Bool.andRight behindWithin)
+          (Bool.andLeft chain)
+          (Bool.notTrue _ (Bool.andLeft (Bool.andRight chain)))
+          (Bool.andRight (Bool.andRight chain))
+      rewrite skips, passes, notStart, later then arithmetic
