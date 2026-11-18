@@ -1853,28 +1853,49 @@ def listSpread (self: Goal → {Parse Item} Expr) (modes: Modes) (dots: Word) (e
 def recordExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := modes.expect LBrace "`{`"
   let inner := modes.inBrackets
-  if inner.at RBrace then Record open None [] False bump()
+  recordBody self inner open (inner.at RBrace)
+
+def recordBody (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (empty: Bool): {Parse Item} Expr :=
+  if empty then Record open None [] False bump() else recordLiteral self inner open (inner.at Lower) (inner.peekAt 1)
+
+def recordLiteral (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (lower: Bool) (second: Option Tok):
+    {Parse Item} Expr :=
+  let literal := lower && literalSecond second
+  let base := recordBase self inner literal
+  recordFields self inner open base
+
+def literalSecond: Option Tok → Bool
+  | Some Equals => True
+  | Some Comma => True
+  | Some RBrace => True
+  | _ => False
+
+def recordBase (self: Goal → {Parse Item} Expr) (inner: Modes) (literal: Bool): {Parse Item} Option (Expr, Word) :=
+  if literal then None
   else
-    let literal :=
-      inner.at Lower
-        && (match inner.peekAt 1 with
-          | Some Equals => True
-          | Some Comma => True
-          | Some RBrace => True
-          | _ => False)
-    let base :=
-      if literal then None
-      else
-        let record := full self inner
-        Some (record, inner.expect Pipe "`|` and the fields to update")
-    let first := recordField self inner
-    let (fields, trailingComma) :=
-      commaList (Parse.mark().left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first []
-    Record open base fields trailingComma (inner.expect RBrace "`,` or `}`")
+    let record := full self inner
+    recordPipe inner record
+
+def recordPipe (inner: Modes) (record: Expr): {Parse Item} Option (Expr, Word) :=
+  let bar := inner.expect Pipe "`|` and the fields to update"
+  Some (record, bar)
+
+def recordFields (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (base: Option (Expr, Word)):
+    {Parse Item} Expr :=
+  let first := recordField self inner
+  recordEnd inner open base
+    (commaList (Parse.mark().left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first [])
+
+def recordEnd (inner: Modes) (open: Word) (base: Option (Expr, Word)) (pair: (List Expr, Bool)): {Parse Item} Expr :=
+  match pair with | (fields, trailingComma) => Record open base fields trailingComma (inner.expect RBrace "`,` or `}`")
 
 def recordField (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let name := modes.lower "a field name"
-  if modes.at Equals then
+  recordFieldAfter self modes name (modes.at Equals)
+
+def recordFieldAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (name: Word) (equalsNext: Bool):
+    {Parse Item} Expr :=
+  if equalsNext then
     let equals := bump()
     RecordField name equals (full self modes)
   else Atom Lower name

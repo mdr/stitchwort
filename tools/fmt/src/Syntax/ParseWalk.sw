@@ -124,7 +124,6 @@ type OutsideRest (self: Goal → {Parse Item} Expr) = {
     (() => clauseLambda self modes keyword None ClauseMatches)
     Out,
   braceArguments: ∀ (modes: Modes) => Parse.Gives GoodItems (() => braceArgument self modes) Out,
-  records: ∀ (modes: Modes) => Parse.Gives GoodItems (() => recordExpr self modes) Out,
   rests: ∀ (modes: Modes) (kind: Tok) => Parse.Gives GoodItems (() => atomRest self modes kind) Out,
   memberships: ∀ (modes: Modes) (first: Option Tok) (element: Expr) => Parse.Gives GoodItems
     (() => membership self modes first element)
@@ -141,7 +140,6 @@ type OutsideRest (self: Goal → {Parse Item} Expr) = {
     → Parse.Gives GoodItems (() => exprKeyword self modes kind) Out,
   lambdas: ∀ (modes: Modes) => Parse.Gives GoodItems (() => lambda self modes None) Out,
   piExprs: ∀ (modes: Modes) (implicit: Bool) => Parse.Gives GoodItems (() => piExpr self modes implicit) Out,
-  effectResults: ∀ (allowed: Modes) => Parse.Gives GoodItems (() => effectResult self allowed) Out,
   statementOthers: ∀ (modes: Modes) (kind: Tok) => startsOtherStatement kind = True
     → Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk
 }
@@ -2581,12 +2579,237 @@ theorem givesParenOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (s
         | True => givesNamedArgument self modes RParen "`)`" nested
         | False => givesOperatorSection self modes nested
 
+theorem givesRecordFieldAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (name: Word)
+    (nested: Nested self) (equalsNext: Bool):
+    Parse.Gives GoodItems (() => recordFieldAfter self modes name equalsNext) (found => True) :=
+  match equalsNext with
+    | True =>
+      Parse.givesThen
+        [p := () => bump()]
+        [j := equals => RecordField name equals (full self modes)]
+        givesBump
+        (equals _ =>
+          Parse.givesThen
+            [p := () => self { modes, level = LevelFull }]
+            [j := value => RecordField name equals value]
+            (nested { modes, level = LevelFull })
+            (value _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesRecordField ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => recordField self modes) (found => True) :=
+  Parse.givesThen (givesLower modes "a field name") (name _ =>
+    givesAfter0
+      [p := () => modes.at Equals]
+      [j := equalsNext => recordFieldAfter self modes name equalsNext]
+      (reads0At modes Equals)
+      (equalsNext => givesRecordFieldAfter self modes name nested equalsNext))
+
+theorem givesRecordEnd ∀ (inner: Modes) (open: Word) (base: Option (Expr, Word)) (pair: (List Expr, Bool)):
+    Parse.Gives GoodItems (() => recordEnd inner open base pair) Out :=
+  match pair with
+    | (fields, trailingComma) =>
+      Parse.givesThen
+        [p := () => inner.expect RBrace "`,` or `}`"]
+        [j := close => Record open base fields trailingComma close]
+        (givesExpectAny inner RBrace "`,` or `}`")
+        (close _ => Parse.givesDone byComputing)
+
+theorem givesRecordFields ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (base: Option (Expr, Word))
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => recordFields self inner open base) Out :=
+  Parse.givesThen (givesRecordField self inner nested) (first _ =>
+    Parse.givesThen
+      [p := () => Parse.mark()]
+      [j := here =>
+        recordEnd inner open base
+          (commaList (here.left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first [])]
+      Parse.givesMark
+      (here _ =>
+        Parse.givesThen
+          [p := () =>
+            commaList (here.left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first []]
+          [j := pair => recordEnd inner open base pair]
+          (givesCommaListFrom inner
+            (count => inner.at RBrace)
+            (() => recordField self inner)
+            (found => True)
+            (count => givesAt inner RBrace)
+            (givesRecordField self inner nested)
+            (here.left + 1)
+            1
+            first
+            []
+            byComputing
+            ())
+          (pair _ => givesRecordEnd inner open base pair)))
+
+theorem givesRecordBase ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self) (literal: Bool):
+    Parse.Gives GoodItems (() => recordBase self inner literal) (found => True) :=
+  match literal with
+    | True => Parse.givesDone byComputing
+    | False =>
+      Parse.givesThen
+        [p := () => self { modes = inner, level = LevelFull }]
+        [j := record => recordPipe inner record]
+        (nested { modes = inner, level = LevelFull })
+        (record _ =>
+          Parse.givesThen
+            [p := () => inner.expect Pipe "`|` and the fields to update"]
+            [j := bar => Some (record, bar)]
+            (givesExpectAny inner Pipe "`|` and the fields to update")
+            (bar _ => Parse.givesDone byComputing))
+
+theorem givesRecordBody ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
+    (nested: Nested self) (empty: Bool):
+    Parse.Gives GoodItems (() => recordBody self inner open empty) Out :=
+  match empty with
+    | True => Parse.givesThen [p := () => bump()] [j := close => Record open None [] False close] givesBump (close _ =>
+      Parse.givesDone byComputing)
+    | False =>
+      givesAfter0
+        [p := () => inner.at Lower]
+        [j := lower => recordLiteral self inner open lower (inner.peekAt 1)]
+        (reads0At inner Lower)
+        (lower =>
+          givesAfter0
+            [p := () => inner.peekAt 1]
+            [j := second => recordLiteral self inner open lower second]
+            (reads0PeekAt inner 1)
+            (second =>
+              Parse.givesThen
+                [p := () => recordBase self inner (lower && literalSecond second)]
+                [j := base => recordFields self inner open base]
+                (givesRecordBase self inner nested (lower && literalSecond second))
+                (base _ => givesRecordFields self inner open base nested)))
+
+theorem givesRecordExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => recordExpr self modes) Out :=
+  Parse.givesThen (givesExpectAny modes LBrace "`{`") (open _ =>
+    givesAfter0
+      [p := () => modes.inBrackets.at RBrace]
+      [j := empty => recordBody self modes.inBrackets open empty]
+      (reads0At modes.inBrackets RBrace)
+      (empty => givesRecordBody self modes.inBrackets open nested empty))
+
+theorem givesExpectFixed ∀ (modes: Modes) (wanted: Tok) (what: Text):
+    Parse.Gives GoodItems (() => modes.expectFixed wanted what) (comments => True) :=
+  Parse.givesThen
+    [p := () => modes.expect wanted what]
+    [j := word => word.comments]
+    (givesExpectAny modes wanted what)
+    (found _ => Parse.givesDone byComputing)
+
+theorem givesRowAbilities ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self) (closed pipe: Bool):
+    Parse.Gives GoodItems (() => rowAbilities self modes closed pipe) (found => True) :=
+  match closed || pipe with
+    | True => Parse.givesDone byComputing
+    | False => Parse.givesThen (nested { modes, level = LevelApp }) (first _ =>
+      Parse.givesThen
+        [p := () => Parse.mark()]
+        [j := here =>
+          rowEntries
+            (commaList (here.left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first [])]
+        Parse.givesMark
+        (here _ =>
+          Parse.givesThen
+            [p := () =>
+              commaList (here.left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first []]
+            [j := pair => rowEntries pair]
+            (givesCommaListFrom modes
+              (count => False)
+              (() => self { modes, level = LevelApp })
+              (found => True)
+              (count => Parse.givesDone byComputing)
+              (givesSelfAny self nested { modes, level = LevelApp })
+              (here.left + 1)
+              1
+              first
+              []
+              byComputing
+              ())
+            (pair _ => Parse.givesDone byComputing)))
+
+theorem givesRowPart ∀ (modes: Modes) (pipe: Bool): Parse.Gives GoodItems (() => rowPart modes pipe) (found => True) :=
+  match pipe with
+    | True => Parse.givesThen givesFixedFrom (bar _ =>
+      Parse.givesThen (givesLower modes "a row variable") (name _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesRowClose ∀ (modes: Modes) (open: Comments) (abilities: List Expr) (variable: Option (Comments, Word)):
+    Parse.Gives GoodItems (() => rowClose modes open abilities variable) (row => True) :=
+  Parse.givesThen
+    [p := () => modes.expectFixed RBrace "`}`"]
+    [j := close => { open, abilities, variable, close }]
+    (givesExpectFixed modes RBrace "`}`")
+    (close _ => Parse.givesDone byComputing)
+
+theorem givesRowVariable ∀ (modes: Modes) (open: Comments) (abilities: List Expr):
+    Parse.Gives GoodItems (() => rowVariable modes open abilities) (row => True) :=
+  Parse.givesThen
+    [p := () => rowPart modes (modes.at Pipe)]
+    [j := variable => rowClose modes open abilities variable]
+    (givesAfter0 [p := () => modes.at Pipe] [j := pipe => rowPart modes pipe] (reads0At modes Pipe) (pipe =>
+      givesRowPart modes pipe))
+    (variable _ => givesRowClose modes open abilities variable)
+
+theorem givesRowStart ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Comments)
+    (nested: Nested self)
+    (lower: Bool) (second: Option Tok):
+    Parse.Gives GoodItems (() => rowStart self modes open lower second) (row => True) :=
+  match lower && isSome Colon second with
+    | True => Parse.readsFatal _ _
+    | False =>
+      Parse.givesThen
+        [p := () => rowAbilities self modes (modes.at RBrace) (modes.at Pipe)]
+        [j := abilities => rowVariable modes open abilities]
+        (givesAfter0
+          [p := () => modes.at RBrace]
+          [j := closed => rowAbilities self modes closed (modes.at Pipe)]
+          (reads0At modes RBrace)
+          (closed =>
+            givesAfter0
+              [p := () => modes.at Pipe]
+              [j := pipe => rowAbilities self modes closed pipe]
+              (reads0At modes Pipe)
+              (pipe => givesRowAbilities self modes nested closed pipe)))
+        (abilities _ => givesRowVariable modes open abilities)
+
+theorem givesRowOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => rowOf self modes) (row => True) :=
+  Parse.givesThen (givesExpectFixed modes LBrace "`{`") (open _ =>
+    givesAfter0
+      [p := () => modes.at Lower]
+      [j := lower => rowStart self modes open lower (modes.peekAt 1)]
+      (reads0At modes Lower)
+      (lower =>
+        givesAfter0
+          [p := () => modes.peekAt 1]
+          [j := second => rowStart self modes open lower second]
+          (reads0PeekAt modes 1)
+          (second => givesRowStart self modes open nested lower second)))
+
+theorem givesEffectResult ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => effectResult self allowed) Out :=
+  Parse.givesThen (givesRowOf self allowed nested) (row _ =>
+    Parse.givesThen
+      [p := () => self { modes = allowed, level = LevelFull }]
+      [j := tail => Effect row tail]
+      (nested { modes = allowed, level = LevelFull })
+      (tail _ => Parse.givesDone byComputing))
+
 --| Everything `Outside` says, from what is not yet proved and `Nested`.
 def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): Outside self := {
   matches = rest.matches,
   clauseLambdas = rest.clauseLambdas,
   braceArguments = rest.braceArguments,
-  records = rest.records,
+  records = (modes => givesRecordExpr self modes nested),
   rests = rest.rests,
   missings = (modes => givesAtomMissing self modes),
   parenOthers = (modes second third => givesParenOther self modes second third nested),
@@ -2604,7 +2827,7 @@ def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: Ou
   lambdas = rest.lambdas,
   ifKeywords = (modes => givesIfKeyword self modes nested),
   piExprs = rest.piExprs,
-  effectResults = rest.effectResults,
+  effectResults = (allowed => givesEffectResult self allowed nested),
   statementOthers = rest.statementOthers
 }
 

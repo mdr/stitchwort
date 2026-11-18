@@ -390,23 +390,39 @@ def afterCloseBrace (depth: Nat): List Item → Option (List Item)
 --| `{A, B args | e}`, `{e}` or `{}` (`row`).
 def rowOf (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Row :=
   let open := modes.expectFixed LBrace "`{`"
-  if modes.at Lower && isSome Colon (modes.peekAt 1) then
-    fatal "a record type can't be written here: `{` in a type starts an ability row"
+  rowStart self modes open (modes.at Lower) (modes.peekAt 1)
+
+def rowStart (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Comments) (lower: Bool) (second: Option Tok):
+    {Parse Item} Row :=
+  if lower && isSome Colon second then fatal "a record type can't be written here: `{` in a type starts an ability row"
   else
-    let abilities :=
-      if modes.at RBrace || modes.at Pipe then []
-      else
-        let first := self { modes, level = LevelApp }
-        let (entries, _) :=
-          commaList (Parse.mark().left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first []
-        entries
-    let variable :=
-      if modes.at Pipe then
-        let bar := fixedFrom()
-        Some (bar, modes.lower "a row variable")
-      else None
-    let close := modes.expectFixed RBrace "`}`"
-    { open, abilities, variable, close }
+    let abilities := rowAbilities self modes (modes.at RBrace) (modes.at Pipe)
+    rowVariable modes open abilities
+
+def rowAbilities (self: Goal → {Parse Item} Expr) (modes: Modes) (closed pipe: Bool): {Parse Item} List Expr :=
+  if closed || pipe then []
+  else
+    let first := self { modes, level = LevelApp }
+    rowEntries
+      (commaList (Parse.mark().left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first [])
+
+def rowEntries (pair: (List Expr, Bool)): List Expr := match pair with | (entries, _) => entries
+
+def rowVariable (modes: Modes) (open: Comments) (abilities: List Expr): {Parse Item} Row :=
+  let variable := rowPart modes (modes.at Pipe)
+  rowClose modes open abilities variable
+
+def rowPart (modes: Modes) (pipe: Bool): {Parse Item} Option (Comments, Word) :=
+  if pipe then
+    let bar := fixedFrom()
+    let name := modes.lower "a row variable"
+    Some (bar, name)
+  else None
+
+def rowClose (modes: Modes) (open: Comments) (abilities: List Expr) (variable: Option (Comments, Word)):
+    {Parse Item} Row :=
+  let close := modes.expectFixed RBrace "`}`"
+  { open, abilities, variable, close }
 
 --| `(x: A) -> B` or `[x: A] -> B` (`pi_expr`).
 def piExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Expr :=
