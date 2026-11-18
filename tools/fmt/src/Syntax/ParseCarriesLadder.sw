@@ -752,3 +752,418 @@ theorem readsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         | True =>
           readsOut [p := () => exprKeyword self modes item.kind] (outside.keywords modes item.kind keyword) start fine
         | False => readsExprOther self modes nested carries outside start fine)
+
+-- Statements.
+
+--| A line of a block that is not a plain expression: a `let` or a local definition, or an expression outside the slice
+--| (a `let` with `;`).
+def StatementOut (statement: Statement): Prop := match statement with
+  | ExprStatement value => Out value
+  | LetStatement binding => True
+  | LocalDef attributes header body => True
+
+--| A line of a block carries its items: an expression does.
+def StatementCarried (read: List Item) (statement: Statement): Prop := match statement with
+  | ExprStatement value => Carried read value
+  | LetStatement binding => True
+  | LocalDef attributes header body => True
+
+theorem statementCarriedOut ∀ (read: List Item) [statement: Statement]
+    (out: StatementOut statement):
+    StatementCarried read statement :=
+  match statement, out with
+    | ExprStatement value, out => carriedOut read out
+    | LetStatement binding, out => byComputing
+    | LocalDef attributes header body, out => byComputing
+
+--| A parser whose lines are never expressions in the slice carries its items.
+theorem readsStatementOut ∀ [p: () → {Parse Item} Statement]
+    (gives: Parse.Gives GoodItems p StatementOut):
+    Parse.ReadsIn GoodItems p StatementCarried :=
+  Parse.readsWeaken gives (read statement out => statementCarriedOut read out)
+
+--| What `ParseWalk`'s `StatementOk` facts of the lines other than expressions leave out: such a line is no expression
+--| in the slice.
+theorem givesLocalDefOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => localDef self modes attributes) StatementOut :=
+  Parse.givesThen givesColumnHere (d _ =>
+    Parse.givesThen (givesDefinitionPartsAny self modes None None (Some d) nested) (parts _ =>
+      match parts with
+        | (header, body) =>
+          match header.unfoldingClause, body with
+            | Some clause, other => Parse.readsFatal _ _
+            | None, Primitive => Parse.readsFatal _ _
+            | None, other => Parse.givesDone byComputing))
+
+theorem givesLocalAttributedOut ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes) (attributes: List Attributes)
+    (nested: Nested self) (atDef atTheorem: Bool):
+    Parse.Gives GoodItems (() => localAttributed self allowed attributes atDef atTheorem) StatementOut :=
+  match atDef || atTheorem with
+    | True => givesLocalDefOut self allowed attributes nested
+    | False => Parse.readsFatal _ _
+
+theorem givesAttributedLocalOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
+    (nested: Nested self) (items: List Item):
+    Parse.Gives GoodItems (() => attributedLocal self modes attributes items) StatementOut :=
+  givesAfter0
+    [p := () => (allowedAt modes items).at KwDef]
+    [j := atDef => localAttributed self (allowedAt modes items) attributes atDef ((allowedAt modes items).at KwTheorem)]
+    (reads0At (allowedAt modes items) KwDef)
+    (atDef =>
+      givesAfter0
+        [p := () => (allowedAt modes items).at KwTheorem]
+        [j := atTheorem => localAttributed self (allowedAt modes items) attributes atDef atTheorem]
+        (reads0At (allowedAt modes items) KwTheorem)
+        (atTheorem => givesLocalAttributedOut self (allowedAt modes items) attributes nested atDef atTheorem))
+
+theorem givesLetStatementEndOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (binding: Let) (atSemi: Bool):
+    Parse.Gives GoodItems (() => letStatementEnd self modes binding atSemi) StatementOut :=
+  match atSemi with
+    | True =>
+      Parse.givesThen
+        [p := () => letBody self modes binding]
+        [j := body => ExprStatement body]
+        (givesLetBody self modes nested binding)
+        (body out => Parse.givesDone out)
+    | False => Parse.givesDone byComputing
+
+theorem givesStatementOtherOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => statementOther self modes kind) StatementOut :=
+  match kind == KwLet with
+    | True => Parse.givesThen (givesLetStatement self modes nested) (binding _ =>
+      givesAfter0
+        [p := () => modes.at Semi]
+        [j := atSemi => letStatementEnd self modes binding atSemi]
+        (reads0At modes Semi)
+        (atSemi => givesLetStatementEndOut self modes nested binding atSemi))
+    | False =>
+      match kind == KwDef || kind == KwTheorem with
+        | True => givesLocalDefOut self modes [] nested
+        | False =>
+          match kind == At with
+            | True => Parse.givesThen (givesAttributesOf modes) (attributes _ =>
+              givesAfter0
+                [p := () => left()]
+                [j := items => attributedLocal self modes attributes items]
+                reads0Left
+                (items => givesAttributedLocalOut self modes attributes nested items))
+            | False =>
+              match kind == KwExport with
+                | True => Parse.readsFatal _ _
+                | False => Parse.readsFatal _ _
+
+theorem readsStatementValue ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => statementValue self modes) StatementCarried :=
+  Parse.readsThen
+    [p := () => exprInline self modes]
+    [j := value => ExprStatement value]
+    (readsExprInline self modes nested carries outside)
+    (r1 value carried => Parse.readsDone (ExprStatement value) _ (rewrite List.appendNil r1 then carried))
+
+theorem readsStatement ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => statement self modes) StatementCarried :=
+  readsInPeeked modes
+    (seen => statementOn self modes seen) _
+    (start fine stops => readsStatementValue self modes nested carries outside start fine)
+    (start item later shape fine stopped =>
+      match other: startsOtherStatement item.kind with
+        | True => readsStatementOut (givesStatementOtherOut self modes item.kind nested) start fine
+        | False => readsStatementValue self modes nested carries outside start fine)
+
+-- Blocks.
+
+--| What `blockLines` read, newest line first, from the lines `found` already: nothing, so `found`; or exactly one line
+--| and nothing else, carried by its items; or more than one line.
+def BlockRead (found: List Statement) (read: List Item) (result: List Statement): Prop :=
+  (read = [] ∧ result = found)
+    ∨ (∃ (line: Statement) => result = [line, ..found] ∧ StatementCarried read line)
+    ∨ found.length + 2 <= result.length
+
+--| `BlockRead` of what is read after a line, whose own items were `first`.
+def BlockLineRead (found: List Statement) (line: Statement) (first read: List Item) (result: List Statement): Prop :=
+  (read = [] ∧ result = [line, ..found] ∧ StatementCarried first line) ∨ found.length + 2 <= result.length
+
+theorem blockReadOfLine ∀ (found: List Statement) (line: Statement) (first read: List Item) (result: List Statement)
+    (after: BlockLineRead found line first read result):
+    BlockRead found (first ++ read) result :=
+  match after with
+    | Inl (empty, same, carried) => Inr (Inl (line, same, rewrite empty, List.appendNil first then carried))
+    | Inr more => Inr (Inr more)
+
+theorem readsBlockOffset ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (line: Statement) (first: List Item) (before: Nat) (next: Item) (now: Nat)
+    (lineCarried: StatementCarried first line)
+    (again: ∀ (later: List Statement) => Parse.ReadsIn GoodItems
+      (() => blockLines more self modes column many later)
+      (BlockRead later)):
+    Parse.ReadsIn GoodItems
+      (() => blockOffset more self modes column many [line, ..found] before next now)
+      (BlockLineRead found line first) :=
+  match more_: now != before
+    && many
+    && next.leaf.token.lineStart
+    && next.leaf.token.column == column
+    && !endsBlocks next.kind with
+    | True => Parse.readsWeaken (again [line, ..found]) (read result got =>
+      match got with
+        | Inl (empty, same) => Inl (empty, same, lineCarried)
+        | Inr (Inl (line2, same, carried)) => Inr (rewrite same then arithmetic)
+        | Inr (Inr length) => Inr (arithmetic [length]))
+    | False => Parse.readsDone _ _ (Inl (byComputing, byComputing, lineCarried))
+
+theorem readsBlockItems ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (line: Statement) (first: List Item) (before: Nat) (items: List Item)
+    (lineCarried: StatementCarried first line)
+    (again: ∀ (later: List Statement) => Parse.ReadsIn GoodItems
+      (() => blockLines more self modes column many later)
+      (BlockRead later)):
+    Parse.ReadsIn GoodItems
+      (() => blockItems more self modes column many [line, ..found] before items)
+      (BlockLineRead found line first) :=
+  match items with
+    | [next, ..rest] =>
+      readsAfter0
+        [p := () => offset()]
+        [j := now => blockOffset more self modes column many [line, ..found] before next now]
+        reads0Offset
+        (now => readsBlockOffset more self modes column many found line first before next now lineCarried again)
+    | [] => Parse.readsDone _ _ (Inl (byComputing, byComputing, lineCarried))
+
+theorem readsBlockDone ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (line: Statement) (first: List Item) (before: Nat)
+    (lineCarried: StatementCarried first line)
+    (again: ∀ (later: List Statement) => Parse.ReadsIn GoodItems
+      (() => blockLines more self modes column many later)
+      (BlockRead later)):
+    Parse.ReadsIn GoodItems
+      (() => blockDone more self modes column many found before line)
+      (BlockLineRead found line first) :=
+  readsAfter0
+    [p := () => left()]
+    [j := items => blockItems more self modes column many [line, ..found] before items]
+    reads0Left
+    (items => readsBlockItems more self modes column many found line first before items lineCarried again)
+
+theorem readsBlockKind ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat) (statementModes: Modes) (seen: Option Tok)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self)
+    (again: ∀ (later: List Statement) => Parse.ReadsIn GoodItems
+      (() => blockLines more self modes column many later)
+      (BlockRead later)):
+    Parse.ReadsIn GoodItems
+      (() => blockKind more self modes column many found before statementModes seen)
+      (BlockRead found) :=
+  Parse.readsThen
+    [p := () => statement self { statementModes | lines = [{ column, many, kind = lineKindOf seen }, ..modes.lines] }]
+    [j := line => blockDone more self modes column many found before line]
+    (readsStatement self
+      { statementModes | lines = [{ column, many, kind = lineKindOf seen }, ..modes.lines] }
+      nested
+      carries
+      outside)
+    (r1 line carried =>
+      Parse.readsWeaken
+        (readsBlockDone more self modes column many found line r1 before carried again)
+        (read result after => blockReadOfLine found line r1 read result after))
+
+theorem readsBlockPeek ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat) (statementModes: Modes)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self)
+    (again: ∀ (later: List Statement) => Parse.ReadsIn GoodItems
+      (() => blockLines more self modes column many later)
+      (BlockRead later)):
+    Parse.ReadsIn GoodItems
+      (() => blockPeek more self modes column many found before statementModes)
+      (BlockRead found) :=
+  readsAfter0
+    [p := () => statementModes.peek]
+    [j := seen => blockKind more self modes column many found before statementModes seen]
+    (reads0Peek statementModes)
+    (seen => readsBlockKind more self modes column many found before statementModes seen nested carries outside again)
+
+--| `blockLines` reads nothing, or exactly one line (and nothing else), or more than one.
+--|
+--| Proof idea: by the fuel. A line is read by `statement`, which carries its items (an expression) or is no expression
+--| in the slice; what follows it reads on only through `blockLines` again, whose reading adds a line to those found.
+theorem readsBlockLines ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat)
+    (many: Bool) (found: List Statement)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => blockLines fuel self modes column many found) (BlockRead found) :=
+  match fuel with
+    | Zero => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+    | Succ more =>
+      readsAfter0
+        [p := () => offset()]
+        [j := before => blockLine more self modes column many found before left()]
+        reads0Offset
+        (before =>
+          readsAfter0
+            [p := () => left()]
+            [j := items => blockLine more self modes column many found before items]
+            reads0Left
+            (items =>
+              readsBlockPeek more self modes column many found before
+                { modes | allow = nextIndex items }
+                nested
+                carries
+                outside
+                (later => readsBlockLines more self modes column many later nested carries outside)))
+
+--| A block of one line is that line's value, so it carries the line's items.
+theorem readsBlockResult ∀ (statements: List Statement) (read: List Item)
+    (got: BlockRead [] read statements):
+    Parse.ReadsIn GoodItems (() => blockResult statements) (more tree => Carried (read ++ more) tree) :=
+  match statements, got with
+    | [ExprStatement value], got =>
+      match got with
+        | Inl (empty, same) => Std.Void.impossible (arithmetic [Eq.cong (list => list.length) same])
+        | Inr (Inl (line, same, carried)) =>
+          Parse.readsDone value _
+            (rewrite List.appendNil read then
+              (rewrite <- List.consInjectiveHead (ExprStatement value) line [] [] same at carried then carried))
+        | Inr (Inr length) => Std.Void.impossible (arithmetic [length])
+    | [ExprStatement value, last, ..earlier], got =>
+      match rev: List.reverse [last, ..earlier] with
+        | [first, ..rest] => Parse.readsDone _ _ (carriedOut _ byComputing)
+        | [] => Std.Void.impossible (arithmetic [rewrite rev at List.lengthReverse [last, ..earlier]])
+    | [LetStatement binding, ..others], got => Parse.readsFatal _ _
+    | [LocalDef attributes header body, ..others], got => Parse.readsFatal _ _
+    | [], got => Parse.readsFatal _ _
+
+theorem readsBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => block self modes column many) Carried :=
+  Parse.readsThen
+    [p := () => Parse.mark()]
+    [j := here =>
+      blockResult
+        (blockLines
+          (here.left + 1)
+          self
+          (if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column })
+          column
+          many
+          [])]
+    Parse.readsMark
+    (r1 here empty =>
+      Parse.readsThen
+        [p := () =>
+          blockLines
+            (here.left + 1)
+            self
+            (if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column })
+            column
+            many
+            []]
+        [j := statements => blockResult statements]
+        (readsBlockLines
+          (here.left + 1)
+          self
+          (if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column })
+          column
+          many
+          []
+          nested
+          carries
+          outside)
+        (r2 statements got => rewrite empty then readsBlockResult statements r2 got))
+
+theorem readsExprRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item) (limit: Nat) (runs: Bool)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => exprRuns self modes item limit runs) Carried :=
+  match runs with
+    | True => readsAfter0 [p := () => left()] [j := items => modes.gapOn ranOutLine items] reads0Left (items =>
+      match blockEnd modes.lines items.head with
+        | Some ending => Parse.readsFatal _ _
+        | None => Parse.readsFatal _ _)
+    | False =>
+      match same: item.leaf.token.column == limit with
+        | True => readsBlock self modes item.leaf.token.column False nested carries outside
+        | False => readsExprInline self modes nested carries outside
+
+theorem readsExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => exprBlock self modes item) Carried :=
+  match modes.limit with
+    | None => readsBlock self modes item.leaf.token.column True nested carries outside
+    | Some limit =>
+      match wider: item.leaf.token.column > limit with
+        | True => readsBlock self modes item.leaf.token.column True nested carries outside
+        | False =>
+          readsAfter0
+            [p := () => left()]
+            [j := items => exprRuns self modes item limit (runsOutAt modes item limit items)]
+            reads0Left
+            (items => readsExprRuns self modes item limit (runsOutAt modes item limit items) nested carries outside)
+
+theorem readsExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => exprOn self modes items) Carried :=
+  match items with
+    | [item, ..rest] =>
+      match here: startsBlock modes item with
+        | True => readsExprBlock self modes item nested carries outside
+        | False => readsExprInline self modes nested carries outside
+    | [] => readsExprInline self modes nested carries outside
+
+--| `expr` carries its items: a block of one line is that line's value.
+theorem readsExprOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => expr self modes) Carried :=
+  readsAfter0 [p := () => left()] [j := items => exprOn self modes items] reads0Left (items =>
+    readsExprOn self modes items nested carries outside)
+
+theorem readsThenBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (carries: NestedCarries self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => thenBody self modes) Carried :=
+  readsAfter0 [p := () => left()] [j := items => thenBodyOn self modes items] reads0Left (items =>
+    match items with
+      | [next, ..rest] =>
+        match here: next.leaf.token.lineStart
+          && modes.allow != Some next.index
+          && !modes.endsConstruct next
+          && modes.limit == Some next.leaf.token.column with
+          | True => readsBlock self modes next.leaf.token.column True nested carries outside
+          | False => readsExprOf self modes nested carries outside
+      | [] => readsExprOf self modes nested carries outside)
+
+--| The ladder above `append_expr` carries its items, which gives the second half of `parseCarries1`'s walk: with
+--| `carriesExpressionAt`, `expressionAt` carries its items at every goal.
+def ladderOf: LadderCarries := self nested carries outside =>
+  {
+    full = (modes => readsExprOf self modes nested carries outside),
+    inline = (modes => readsExprInline self modes nested carries outside),
+    logic = (modes => readsLogicLevel self modes nested carries outside),
+    comparison = (modes => readsCmpExpr self modes nested carries outside),
+    thenBody = (modes => readsThenBody self modes nested carries outside)
+  }
+
+theorem expressionAtCarries: NestedCarries expressionAt := carriesExpressionAt ladderOf
