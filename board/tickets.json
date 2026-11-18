@@ -1,5 +1,5 @@
 {
-  "next": 4029,
+  "next": 4031,
   "tickets": [
     {
       "id": 47,
@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24324,7 +24324,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-4006): the S1 sketch's §3.4 table rows (lines ~527, ~540) say bareSettles 'searched': change to 'proved (SW-4006)'.",
+      "body": "Also (SW-4006): the S1 sketch's §3.4 table rows (lines ~527, ~540) say bareSettles 'searched': change to 'proved (SW-4006)'.\n\nAlso (SW-4016): dev/README: Fmt.Twin needs a hand-made slim copy (add a task); --stage hangs checks the input, so format first.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24436,12 +24436,12 @@
     {
       "id": 4016,
       "title": "[Opus] fmt S1 line-break proofs 18e: the rest of printedHangs on SW-4011's Fmt.HangProofs: tokens with comments above (plainStep at a line's own indentation), closers and marks (an invariant on the marks' least indentation), brackets, applications, chains, the declaration level, the bridge from Laid.lay leaves to eventsOf, then printedHangs; after SW-4015",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4015: a Blank after a break now lays (breaks after words give Broken); blankLeadHangs lays Word.leading's [BreakParent, Blank] from Broken; callers need AtStart at carry -> Broken at carry (Seated says the same of both). hangsCloserLine and hangsOneLineBelow now ask for their result at Broken.\n\nProgress (lane, 18 Nov, about 45 min): branch lane/SW-4016, 7 commits, 60 theorems + 19 defs, no open goals/axioms. Done: noted tokens as elements and parts (step 1); closers' Word.leaf in all cases, CloserLine, laterCloserNotes (step 2, with CloserFits as a hypothesis); Word.opening; the engine end hangsOfLays in new Fmt/PrintHangProofs.sw (Laid.lay over pieceFold to eventsOf; step 5 minus doc1). Owed: the marks invariant (CloserFits), so brackets; a head seat for Nest 4 / Nest 2 line starts, so applications and chains; the declaration level and doc1. Found: blank line printed before a lone closer that trails a comment after a trailed last item (both printers). Notes in tools/fmt/NOTES.md. Checks of Fmt, Fmt.HangProofs, Fmt.JoinProofs and Fmt.PrintHangProofs are clean; audits clean except one sampling warning on closerLeafIs (closerLeafIsExample shows it isn't vacuous); Fmt.Tests 94/94.\n",
+      "body": "From SW-4015: a Blank after a break now lays (breaks after words give Broken); blankLeadHangs lays Word.leading's [BreakParent, Blank] from Broken; callers need AtStart at carry -> Broken at carry (Seated says the same of both). hangsCloserLine and hangsOneLineBelow now ask for their result at Broken.\n\nProgress (lane, 18 Nov, about 45 min): branch lane/SW-4016, 7 commits, 60 theorems + 19 defs, no open goals/axioms. Done: noted tokens as elements and parts (step 1); closers' Word.leaf in all cases, CloserLine, laterCloserNotes (step 2, with CloserFits as a hypothesis); Word.opening; the engine end hangsOfLays in new Fmt/PrintHangProofs.sw (Laid.lay over pieceFold to eventsOf; step 5 minus doc1). Owed: the marks invariant (CloserFits), so brackets; a head seat for Nest 4 / Nest 2 line starts, so applications and chains; the declaration level and doc1. Found: blank line printed before a lone closer that trails a comment after a trailed last item (both printers). Notes in tools/fmt/NOTES.md. Checks of Fmt, Fmt.HangProofs, Fmt.JoinProofs and Fmt.PrintHangProofs are clean; audits clean except one sampling warning on closerLeafIs (closerLeafIsExample shows it isn't vacuous); Fmt.Tests 94/94.\n\nMerged 18 Nov, partial. 45 min (est. 75). Orchestrator's call on its design question: ElHangs gets an indentation separate from the seat, with the marks invariant in the same change (SW-4030). Bug filed SW-4029.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24593,6 +24593,34 @@
       "id": 4028,
       "title": "[Sonnet] fmt S1 operators1 (SW-4010): derive it (each infix operator spells an alphabet token that isn't a comma or closer; each prefix is -, ! or ¬) either by adding an operator-kind fact to lexical1/within1 or from the file-level alphabet via parseCarries1 (SW-4019); a |> b passes the tree facts today but |> has no Spells (pipedNotSpelled), so within1 likely needs narrowing for operators too",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4029,
+      "title": "[Sonnet] fmt bug in both formatters: a blank line is added before a closing bracket when the bracket's last item and the closer both have trailing comments (def x: T := [⏎  aaa, -- c⏎  bbb -- e⏎] -- d): CloserLine right after bracketContent's SoftLine break prints one newline too many; also, with only the closer commented, its comment moves to the last item (check whether that is intended); fix in crates/fmt and tools/fmt (D3677), failing-first tests in both (SW-4016)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4030,
+      "title": "[Opus] fmt S1 line-break proofs 18f: give ElHangs an indentation separate from the seat column (orchestrator's call, SW-4016's recommended option) so an application's broken arguments (+4) and a chain's operators (+2) can be seated, and add the marks invariant (a lower bound on keys plus marks kept or lowered) in the same change; short design note in NOTES first; then the bracket, application, chain and declaration-level triples and printedHangs via hangsOfLays; after SW-4029 for the blank-before-closer case",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
