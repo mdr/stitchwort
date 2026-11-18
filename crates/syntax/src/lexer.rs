@@ -580,10 +580,11 @@ fn lex_from(
                 while i < bytes.len() && bytes[i] != b'\n' {
                     i += 1;
                 }
-                // Every `\r` that ends the line goes, so that the printer's
-                // `\r\n` reads back as the same comment.
+                // Trailing `\r`s and spaces go together, in any order: the
+                // printer's `\r\n` must read back as the same comment, and
+                // the formatter's trim of spaces must find none left.
                 let mut end = i;
-                while end > start && bytes[end - 1] == b'\r' {
+                while end > start && matches!(bytes[end - 1], b'\r' | b' ') {
                     end -= 1;
                 }
                 last_comment = Some((start, end));
