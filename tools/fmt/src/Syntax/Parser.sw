@@ -1341,13 +1341,17 @@ def sectionLineAt (modes: Modes): List Item → Bool
 def argumentBrace (self: Goal → {Parse Item} Expr) (modes: Modes) (brace: Bool): {Parse Item} Expr :=
   if brace then braceArgument self modes else self { modes, level = LevelArgument }
 
-def startsAtom (modes: Modes): {Parse Item} Bool := match modes.peek with
-  | Some kind =>
-    opensArgument kind
-      || (kind == Dot && sectionAt left())
-      || (kind == KwCases && bareCases modes)
-      || argumentPrefix left()
+def startsAtom (modes: Modes): {Parse Item} Bool := startsAtomOn modes left()
+
+def startsAtomOn (modes: Modes) (items: List Item): Bool := match peekIn modes 0 items with
+  | Some kind => startsAtomKind modes kind items
   | None => False
+
+def startsAtomKind (modes: Modes) (kind: Tok) (items: List Item): Bool :=
+  opensArgument kind
+    || (kind == Dot && sectionAt items)
+    || (kind == KwCases && bareCasesOn modes items)
+    || argumentPrefix items
 
 def opensArgument: Tok → Bool
   | Lower => True
@@ -1369,7 +1373,9 @@ def opensArgument: Tok → Bool
   | Question => True
   | _ => False
 
-def bareCases (modes: Modes): {Parse Item} Bool := match modes.peekAt 1 with
+def bareCases (modes: Modes): {Parse Item} Bool := bareCasesOn modes left()
+
+def bareCasesOn (modes: Modes) (items: List Item): Bool := match peekIn modes 1 items with
   | Some KwThen => False
   | Some KwIn => False
   | _ => True
