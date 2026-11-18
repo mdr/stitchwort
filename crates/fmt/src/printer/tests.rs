@@ -1331,3 +1331,36 @@ fn a_comment_ending_in_two_carriage_returns_keeps_none() {
         assert!(!gate.text.contains('\r'), "{:?}", gate.text);
     }
 }
+
+/// A comment's trailing carriage returns and spaces go together, in any
+/// order, so the output reads back the same (SW-4065).
+#[test]
+fn a_comment_ending_in_carriage_returns_and_spaces_keeps_none() {
+    for text in [
+        "-- a\r \ndef d: A := b\n",
+        "-- a \r\ndef d: A := b\n",
+        "-- a\r \r\ndef d: A := b\n",
+        "def d: A := b\n-- a\r \r \n",
+        "def d: A := b -- a \r \r\n",
+    ] {
+        let gate = gate(text).expect("it parses");
+        assert_eq!(gate.check, Ok(()), "{text:?}\n=> {:?}", gate.text);
+        assert!(gate.idempotent, "not idempotent:\n{:?}", gate.text);
+        assert!(!gate.text.contains('\r'), "{:?}", gate.text);
+    }
+}
+
+/// A carriage return or a tab that something follows is kept, and the
+/// output is stable.
+#[test]
+fn a_comment_keeps_a_carriage_return_or_tab_that_text_follows() {
+    for text in [
+        "-- a\r\t\ndef d: A := b\n",
+        "-- a\rb\ndef d: A := b\n",
+        "def d: A := b -- a\rb \r\n",
+    ] {
+        let gate = gate(text).expect("it parses");
+        assert_eq!(gate.check, Ok(()), "{text:?}\n=> {:?}", gate.text);
+        assert!(gate.idempotent, "not idempotent:\n{:?}", gate.text);
+    }
+}

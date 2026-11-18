@@ -555,7 +555,7 @@ theorem containsBreak ∀ (chars: List Char)
       let differ: Text.sameChar '\n' char = False := arithmetic [notBreak]
       rewrite differ, containsBreak rest (Bool.andRight none)
 
---| Taking the `\r`s off the end of characters leaves no line break where there was none.
+--| Taking the `\r`s and spaces off the end of characters leaves no line break where there was none.
 theorem trimReturnsNone ∀ (chars: List Char)
     (none: chars.all (char => char != '\n') = True):
     (trimReturns chars).all (char => char != '\n') = True :=
@@ -564,11 +564,11 @@ theorem trimReturnsNone ∀ (chars: List Char)
     | [char, ..rest] =>
       let notBreak: ((char != '\n'): Bool) = True := Bool.andLeft none
       let restNone := trimReturnsNone rest (Bool.andRight none)
-      match cut: char == '\r' && (trimReturns rest).isEmpty with
+      match cut: (char == '\r' || char == ' ') && (trimReturns rest).isEmpty with
         | True => byComputing
         | False => Bool.andIntro notBreak restNone
 
---| A comment read from `--` to the end of its line is `rawText` once its carriage returns are taken off.
+--| A comment read from `--` to the end of its line is `rawText` once its trailing carriage returns and spaces are taken off.
 theorem commentRaw ∀ (body: List Char)
     (none: body.all (char => char != '\n') = True):
     rawText (withoutReturn (Text.fromList ['-', '-', ..body])) = True :=

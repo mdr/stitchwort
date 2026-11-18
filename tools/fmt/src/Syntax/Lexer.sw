@@ -501,15 +501,15 @@ type Assembly = {
 def Assembly.start: Assembly :=
   { leaves = [], pending = [], blankRun = 0, lineBlank = True, freshLine = True, bytes = 0, lineStart = 0 }
 
---| The characters without the `\r`s that end them: a comment line ending `\r\r\n` would otherwise keep one, which the
---| printer's `\r\n` reads back as none.
+--| The characters without the `\r`s and spaces that end them, in any order: a comment line ending `\r\r\n` or `\r \n`
+--| would otherwise keep a `\r`, which the printer's `\r\n` reads back as none.
 def trimReturns: List Char → List Char
   | [] => []
   | [char, ..rest] =>
     let kept := trimReturns rest
-    if char == '\r' && kept.isEmpty then [] else [char, ..kept]
+    if (char == '\r' || char == ' ') && kept.isEmpty then [] else [char, ..kept]
 
---| The comment's text without its trailing `\r`s.
+--| The comment's text without its trailing `\r`s and spaces.
 def withoutReturn (text: Text): Text := Text.fromList (trimReturns text.toList)
 
 --| The bytes after the last line break of a text, if it has one.
