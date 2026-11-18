@@ -25160,12 +25160,12 @@
     {
       "id": 4070,
       "title": "[Opus] fmt S1 printed spacing: state and prove the printed items' glued and afterOperand fields (signs glued to what follows, a binary operator's right operand not glued), the lemma read-back's Spelt needs from the printer beside printedTokens1/printedSpells (SW-4031 finding 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (SW-4070, Opus, 18 Nov): estimate 45 min, about 25 min used. Statement stated and checked, not proved. Decl.spacing1 (Fmt/OutputStatements.sw) gives the glue Spelt reads for each printed token: a call argument's sign Apart, with its operand Glued; `-` on a numeral Glued; `-` on a numeral's call Apart; an infix's right operand Apart. The Glued demands hold only under signQuiet (no comment between the sign and its operand). afterOperand needs no printer fact because it is the previous token's kind. holdsOn checks it on every example, and spacingMatters shows it isn't empty. Not proved: no Std.Doc fact says which printed words touch; the plan (Doc glue trace, rules, lexer bridge, Spelt discharge) is in tools/fmt/NOTES.md, \"Printed spacing\". Findings: (1) Spelt's Prefix equation negativeNumeral = (Minus && numeral1) is false for the parsed source `(- -- c\\n  1)`, which still reads back, so Spelt should only ask negativeNumeral -> numeral1; (2) a comment on an argument's sign or a head's `-` (`App f [Prefix (- -- c) x]`) passes all four tree facts and SW-4069's planned shape, yet doesn't read back, so readsBack1 needs a signQuiet tree fact. Also, at the orchestrator's request from SW-4074: readsBackLexedExample, a readsBackLine witness built from the lexer's items for `def d: A := f -x [-1]` (lexedLineIs), with real depth, glue and afterOperand values.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
