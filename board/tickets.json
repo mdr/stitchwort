@@ -25054,12 +25054,12 @@
     {
       "id": 4062,
       "title": "[Opus] fmt S1 printedStart1 and printedFinish1: a small Std.Doc change exposing end-of-print facts (a printPuts variant returning Agrees, so lineBlank out = False at Mid/Held; or a final-edge parameter on StackJoins), then printedFinish1; printedStart1 via told (defDoc.told Spot.lineStart begins Said def), an eventsOf lemma and the hang fold's Opening (SW-4053's route, ~150-250 lines)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus), 20:17-20:41 (24 min, est. 50):\n\n- Done: printedStart1 proved, by a new route. Std.Doc/Ends.sw: Atop (the printer only writes in front of its output and takes back only spaces, so a first piece that is not spaces stays first through every reading: readingAtop), Leads (a doc starts with a chunk), leadsReads, printedLeads (printedPieces starts with that word at every width), leadsConcat. Fmt: plainDefLeads, printedStart1. Commits c9bb99cec, 6c073d52a (prelude snapshot, additions only).\n- Not done: printedFinish1 (still open; printedSeam1, declsLay, fileLaid, printedFileLexes1 rely on it). The brief's routes (printTold, printPuts+Agrees, the hang fold's Opening) need Puts/Lays of the declaration's document, proved only under DeclElements/DeclQuiet (SW-4045), not from the four tree facts. Joins' end edge Ended allows Plain None (after a line break), so a StackJoins end continuation alone is not enough. Needs the dual of Leads: the value's element ends on a token whatever its layout, by induction over slice 1's expressions (several hundred lines), or a stronger post than Ended swept through JoinProofs.\n- Tests: check --std Doc/Ends.sw; audit of its 27 theorems (pass); test --std Doc/Tests 39/39; hash_stability 12 (prelude updated, rerun passes); check Fmt, Fmt.FileLexProofs (one open goal); audit Fmt.FileLexProofs: 76 pass, 5 fail (printedFinish1 and its 4 dependants); test Fmt.Tests 97/97.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
