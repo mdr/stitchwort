@@ -11,7 +11,7 @@
 --|   slice 1's driver makes of the source as it tests the alphabet.
 
 namespace Syntax.GoodItemProofs
-import Std (Bool, DecEq, Empty, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
+import Std (Bool, Char, DecEq, Empty, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (Spells)
@@ -704,3 +704,156 @@ theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedSpells1 (wordKind 
     | "where" => byComputing
     | "with" => byComputing
     | _ => cases
+
+-- The lexer's parts whose values are not in question: each succeeds only having read a start of its input.
+
+--| `parser`, run from any mark, reads a start of its input and stops at an honest mark.
+def Goes (parser: () → {Parse Char} a): Prop := Parse.Gives Parse.Invariant.any parser (value => Std.Unit)
+
+theorem goesSkip ∀ (count: Nat): Goes (() => skip count) := start fine =>
+  Parse.readsAtWeaken (readsAtSkip count start) (read u taken => Trivial)
+
+theorem goesSpan ∀ (passes: Char → Bool): Goes (() => Parse.span passes) :=
+  Parse.readsWeaken [p := () => Parse.span passes] (Parse.readsSpan passes) (read taken spanned => Trivial)
+
+--| `located value from` gives a lexeme of that value.
+theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
+    Parse.Gives Parse.Invariant.any (() => located value from) (lexeme => lexeme.value = value) :=
+  Parse.readsWithMark (to => { value, offset = from.offset, length = to.offset - from.offset }) _ (to fine =>
+    Parse.givesDone byComputing)
+
+theorem goesReadEscape ∀ (rest: List Char): Goes (() => readEscape rest) := match escapeLength rest with
+  | Ok count => Parse.givesThen (goesSkip count) (u done => Parse.givesDone Trivial)
+  | Err message => Parse.readsFatal message _
+
+theorem goesFraction: Goes (() => fractionPart()) := Parse.readsWithMark fractionFrom _ (at fine =>
+  match fractionAhead at.rest with
+    | True => Parse.givesThen (goesSkip 1) (u skipped =>
+      Parse.givesThen (goesSpan Char.isAsciiDigit) (decimals read => Parse.givesDone Trivial))
+    | False => Parse.givesDone Trivial)
+
+theorem goesExponent: Goes (() => exponentPart()) := Parse.readsWithMark exponentFrom _ (at fine =>
+  match exponentSkip at.rest with
+    | Some count => Parse.givesThen (goesSkip count) (u skipped =>
+      Parse.givesThen (goesSpan Char.isAsciiDigit) (power read => Parse.givesDone Trivial))
+    | None => Parse.givesDone Trivial)
+
+theorem goesNumberTail ∀ (afterDot: Bool): Goes (() => numberTail afterDot) := match afterDot with
+  | True => Parse.givesDone Trivial
+  | False => Parse.givesThen goesFraction (fraction read =>
+    Parse.givesThen goesExponent (exponent read => Parse.givesDone Trivial))
+
+--| A number is a `Num` or a `Float`, of no fixed spelling.
+theorem givesNumber ∀ (source: Text) (afterDot: Bool):
+    Parse.Gives Parse.Invariant.any (() => number afterDot) (lexeme => lexemeFixed source lexeme = True) :=
+  Parse.readsWithMark (numberFrom afterDot) _ (from fine =>
+    Parse.givesThen (goesSpan Char.isAsciiDigit) (digits read =>
+      Parse.givesThen (goesNumberTail afterDot) (float read =>
+        Parse.givesWeaken (givesLocated (TokenLexeme (if float then Float else Num)) from) (lexeme same =>
+          rewrite same then cases))))
+
+--| What `qualified` read: nothing, giving what was found before, or a component, giving `Some`.
+def QualifiedRead (found: Option Bool) (read: List Char) (value: Option Bool): Prop :=
+  value = found ∧ read = [] ∨ value.isSome = True
+
+theorem readsQualified ∀ (fuel: Nat) (upper: Bool) (found: Option Bool):
+    Parse.Reads (() => qualified fuel upper found) (QualifiedRead found) :=
+  match fuel with
+    | Zero => Parse.readsDone found _ (Inl (Both byComputing byComputing))
+    | Succ more => Parse.readsWithMark (at => qualifiedOn more upper found at.rest) _ (at fine =>
+      readsQualifiedOn more upper found at.rest)
+
+theorem readsQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (input: List Char):
+    Parse.Reads (() => qualifiedOn more upper found input) (QualifiedRead found) :=
+  match input with
+    | ['.', next, .._] =>
+      match guard: upper && next.isAsciiLetter with
+        | False => Parse.readsDone found _ (Inl (Both byComputing byComputing))
+        | True =>
+          let component: Option Bool := Some next.isAsciiUppercase
+          Parse.readsThen
+            [p := () => skip 1]
+            [j := u =>
+              let name := Parse.span isWordChar
+              qualified more next.isAsciiUppercase component]
+            [spec := QualifiedRead found]
+            (goesSkip 1)
+            (dot u done =>
+              Parse.readsThen
+                [p := () => Parse.span isWordChar]
+                [spec := read value => QualifiedRead found (dot ++ read) value]
+                (goesSpan isWordChar)
+                (name taken spanned =>
+                  Parse.readsWeaken (readsQualified more next.isAsciiUppercase component) (read value q =>
+                    let some: value.isSome = True := match q with
+                      | Inl (same, none) => rewrite same
+                      | Inr some => some
+                    Inr some)))
+    | _ => Parse.readsDone found _ (Inl (Both byComputing byComputing))
+
+--| `located value from`, read at `start`, is the lexeme from `from` to `start`.
+theorem readsAtLocated ∀ (value: Lexeme) (from start: Parse.Mark Char):
+    Parse.ReadsAt start (() => located value from) (read lexeme =>
+      lexeme = { value, offset = from.offset, length = start.offset - from.offset }) :=
+  readsAtMark
+    (to => { value, offset = from.offset, length = to.offset - from.offset }) _
+    start
+    (Parse.readsAtDone start _ _ byComputing)
+
+--| What a word's kind is: a name's, after a qualified name, or else what `wordKind` makes of the word characters, with
+--| nothing more read.
+def KindRead (afterDot: Bool) (first read: List Char) (kind: Tok): Prop :=
+  kind = Upper ∨ kind = Lower ∨ read = [] ∧ kind = wordKind afterDot (Text.fromList first)
+
+--| A word, from a mark in step, is spelled as its kind is: a name, or `def` only if its text is `def`
+--| (`wordKindFixed`).
+--|
+--| Proof idea: the lexeme's text is the characters the word read; when no qualified name follows, that is the `span`
+--| of word characters (`sliceRead`), whose kind `wordKind` gives; with one, the kind is a name's.
+theorem wordFine ∀ (source: Text) (afterDot: Bool) (from: Parse.Mark Char)
+    (step: InStep source.toList from):
+    Parse.ReadsAt from (() => wordFrom afterDot from) (read lexeme => lexemeFixed source lexeme = True) :=
+  readsAtThenMoved (Parse.readsAtSpan from isWordChar) (read1 first after1 starts1 moved1 spanned =>
+    let upper := first.head.map (char => char.isAsciiUppercase) |> .getOrElse False
+    readsAtThenMoved
+      [p := () =>
+        match qualified (from.left + 1) upper None with
+          | Some lastUpper => if lastUpper then Upper else Lower
+          | None => wordKind afterDot (Text.fromList first)]
+      [j := kind => located (TokenLexeme kind) from]
+      [spec := read lexeme => lexemeFixed source lexeme = True]
+      (readsAtThenMoved
+        [p := () => qualified (from.left + 1) upper None]
+        [spec := KindRead afterDot first]
+        (readsQualified (from.left + 1) upper None after1 { holds = Trivial })
+        (read2 found after2 starts2 moved2 q =>
+          match found, q with
+            | Some last, _ =>
+              match last with
+                | True =>
+                  Parse.readsAtDone after2 Upper
+                    (taken kind => KindRead afterDot first (read2 ++ taken) kind)
+                    (Inl byComputing)
+                | False =>
+                  Parse.readsAtDone after2 Lower
+                    (taken kind => KindRead afterDot first (read2 ++ taken) kind)
+                    (Inr (Inl byComputing))
+            | None, Inr isSome => (Bool.falseNotTrue isSome).impossible
+            | None, Inl (_, none) =>
+              Parse.readsAtDone after2
+                (wordKind afterDot (Text.fromList first))
+                (taken kind => KindRead afterDot first (read2 ++ taken) kind)
+                (Inr (Inr (Both (rewrite none) byComputing)))))
+      (readKind kind after3 starts3 moved3 kindRead =>
+        Parse.readsAtWeaken (readsAtLocated (TokenLexeme kind) from after3) (taken lexeme same =>
+          rewrite same then
+            match kindRead with
+              | Inl upperKind => rewrite upperKind
+              | Inr (Inl lowerKind) => rewrite lowerKind
+              | Inr (Inr (none, wordKindIs)) =>
+                let empty: readKind.length = 0 := rewrite none
+                let moved: after3.offset = from.offset + read1.length := arithmetic [moved1, moved3, empty]
+                let text: Text.fromList (from.rest.take read1.length) = Text.fromList first :=
+                  rewrite starts1, List.takeAppend read1 after1.rest, spanned.left
+                rewrite wordKindIs, sliceRead source from after3 read1 step moved, text then
+                  wordKindFixed afterDot (Text.fromList first))))
