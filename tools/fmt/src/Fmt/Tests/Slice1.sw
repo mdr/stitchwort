@@ -10,7 +10,7 @@ import Std (Bool, Result, Text)
 def formats (source expected: Text): Bool := formatWithin source == Ok expected
 
 def refuses (source: Text): Bool := match formatWithin source with
-  | Err message => message.startsWith "outside slice 1"
+  | Err message => message.startsWith "outside slice"
   | Ok _ => False
 
 test "a slice 1 file is tidied and spaced" :=
@@ -35,5 +35,5 @@ test "a call hugs its last argument, a list, when the list can't fit below" :=
 
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
   refuses "def x: Nat := if a then b else c\n"
-    && refuses "def f (n: Nat): Nat := n\n"
+    && refuses "def f (n: Nat := 1): Nat := n\n"
     && refuses "def x: Nat := (a: Nat)\n"

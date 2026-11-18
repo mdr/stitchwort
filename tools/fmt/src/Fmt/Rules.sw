@@ -21,7 +21,7 @@
 namespace Fmt
 import Std (Bool, Doc, List, Nat, Option, Text)
 import Std.Doc (..)
-import Syntax (Comments, Expr, Header, InfixKind, Note, Tok, Word)
+import Syntax (BindingKind, Comments, DefKind, Expr, Header, InfixKind, Note, Param, Pattern, Row, Tok, Word)
 
 --| What a rule needs to know of where a token or element stands.
 type Around = {
@@ -121,11 +121,50 @@ def Expr.words: Expr → List Word
   | App head arguments => head.words ++ itemsWords arguments
   | Infix _ left operator right => left.words ++ [operator, ..right.words]
   | Prefix operator operand => [operator, ..operand.words]
+  | Binding _ keyword params arrow body => optionWords keyword ++ paramsWords params ++ [arrow, ..body.words]
+  | Effect row result => rowWords row ++ result.words
   | _ => []
 
 def itemsWords: List Expr → List Word
   | [] => []
   | [item, ..rest] => item.words ++ itemsWords rest
+
+def optionWords: Option Word → List Word
+  | Some word => [word]
+  | None => []
+
+def paramsWords: List Param → List Word
+  | [] => []
+  | [NameParam word, ..rest] => [word, ..paramsWords rest]
+  | [PatternParam (PatternWord _ word), ..rest] => [word, ..paramsWords rest]
+  | [Grouped group, ..rest] => groupWords group ++ paramsWords rest
+  | [_, ..rest] => paramsWords rest
+
+--| A group's brackets, as tokens.
+def groupOpen (group: Syntax.Group): Word := fixedWord (if group.implicit then "[" else "(") group.open
+
+def groupClose (group: Syntax.Group): Word := fixedWord (if group.implicit then "]" else ")") group.close
+
+def groupColon (group: Syntax.Group): Word := fixedWord ":" (group.colon.getOrElse Comments.none)
+
+--| A parameter group's tokens: `(`, the names, `:`, the type's, `)`.
+def groupWords (group: Syntax.Group): List Word := match group with
+  | { annotation = Some annotation, .. } =>
+    [groupOpen group, ..group.names] ++ [groupColon group, ..annotation.words] ++ [groupClose group]
+  | { annotation = None, .. } => [groupOpen group, ..group.names] ++ [groupClose group]
+
+def groupsWords: List Syntax.Group → List Word
+  | [] => []
+  | [group, ..rest] => groupWords group ++ groupsWords rest
+
+--| An ability row's tokens: `{`, the abilities, `}`.
+def rowWords (row: Row): List Word := match row with
+  | { open, abilities, variable, close } =>
+    [fixedWord "{" open, ..itemsWords abilities]
+      ++ (match variable with
+        | Some (bar, name) => [fixedWord "|" bar, name]
+        | None => [])
+      ++ [fixedWord "}" close]
 
 def Expr.size (expr: Expr): Nat := expr.words.length
 
@@ -170,15 +209,133 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
           prefixGap operator operand,
           operand.el (around.next operator.trails 1)
         ])
+    | Binding BindsLambda _ params arrow body =>
+      let (flat, _) := lambdaBoth params arrow body inside
+      expr.framed around flat
+    | Binding BindsForall (Some keyword) params arrow body =>
+      expr.framed around (quantifier (existential := False) keyword params arrow body inside)
+    | Binding BindsExists (Some keyword) params arrow body =>
+      expr.framed around (quantifier (existential := True) keyword params arrow body inside)
+    | Effect row result => expr.framed around (effectDoc row result inside)
     | _ => Nothing
 
 --| A node's document with its first token's own-line comments before it,
 --| displaced when a comment puts its first line below where its
 --| construct would.
-def Expr.framed (expr: Expr) (around: Around) (doc: Doc): Doc :=
-  let first := expr.firstWord
+def Expr.framed (expr: Expr) (around: Around) (doc: Doc): Doc := framedBy expr.firstWord around doc
+
+def framedBy (first: Word) (around: Around) (doc: Doc): Doc :=
   let placed := if first.noted || around.before then Displaced doc else doc
   Doc.concat [Doc.concat (first.leading around around.at), placed]
+
+-- Binders.
+
+--| A parameter of a lambda or quantifier: a name, `_`, or a group.
+def Param.el (param: Param) (around: Around): Doc := match param with
+  | NameParam word => word.leaf around around.at
+  | PatternParam (PatternWord _ word) => word.leaf around around.at
+  | Grouped group => groupDoc group around
+  | _ => Nothing
+
+--| The docs of parameters, each standing after the one before it.
+def paramDocs (around: Around): List Param → List Doc
+  | [] => []
+  | [param, ..rest] =>
+    let words := paramsWords [param]
+    [param.el around, ..paramDocs (around.next (trailsBack words.reverse) words.length) rest]
+
+--| A parameter group (Rust's `Param` or `LambdaParam`, printed by `join`):
+--| `(x y: A)` or `[a: Type]`, nothing inside the brackets, `:` against the
+--| last name.
+def groupDoc (group: Syntax.Group) (around: Around): Doc := match group with
+  | { annotation = Some annotation, names, .. } =>
+    let open := groupOpen group
+    let close := groupClose group
+    let colon := groupColon group
+    let count := names.length
+    let lastName := names.reverse.headOr open
+    let doc := Doc.concat [
+      open.opening { around | hoisted = True } close,
+      spaced (nameDocs open.trails (around.at + 1) names),
+      colon.leaf (around.next lastName.trails (1 + count)) (around.at + 1 + count),
+      Doc.text " ",
+      annotation.el (around.next colon.trails (2 + count)),
+      close.leaf (around.next annotation.trails (2 + count + annotation.size)) around.at
+    ]
+    framedBy open around doc
+  | _ => Nothing
+
+def nameDocs (before: Bool) (at: Nat): List Word → List Doc
+  | [] => []
+  | [name, ..rest] => [name.leaf { before, hoisted = False, item = False, at } at, ..nameDocs name.trails (at + 1) rest]
+
+def paramTrails (param: Param): Bool := trailsBack (paramsWords [param]).reverse
+
+def paramNoted (param: Param): Bool := (paramsWords [param]).headOr Word.none |> .noted
+
+--| A lambda (`lambda_both`, S30), and the same lambda opened downwards for
+--| a hug or the `:=` line (S23, D3568): the body after `=>` if it fits,
+--| else below at 2. Only the first breaks its parameters, filling lines
+--| at 4 like a header's (S22), when no comment sits among them.
+def lambdaBoth (params: List Param) (arrow: Word) (body: Expr) (around: Around): (Doc, Doc) :=
+  let docs := paramDocs around params
+  let words := paramsWords params
+  let size := words.length
+  let arrowDoc := arrow.leaf (around.next (trailsBack words.reverse) size) (around.at + size)
+  let bodyDoc := body.el (around.next arrow.trails (size + 1))
+  let items := docs ++ [arrowDoc]
+  let head := spaced items
+  let commented := (params.drop 1 |> .any paramNoted) || params.any paramTrails || arrow.noted
+  let filled := if params.length < 2 || commented then head else Nest 4 (Fill items)
+  (
+    Doc.group (Doc.concat [filled, Nest 2 (Doc.concat [Line, bodyDoc])]),
+    Doc.concat [head, Nest 2 (Doc.concat [HardLine, bodyDoc])]
+  )
+
+--| `∀ binders => body` and `∃ binders => body` (`quantifier`, S28): the
+--| body after `=>` if it fits, else breaking from there, else below at 2.
+--| An `∃`'s binders never break.
+def quantifier (existential: Bool) (keyword: Word) (params: List Param) (arrow: Word) (body: Expr) (around: Around):
+    Doc :=
+  let words := paramsWords params
+  let size := words.length
+  let docs := paramDocs (around.next keyword.trails 1) params
+  let arrowDoc := arrow.leaf (around.next (trailsBack (words.reverse ++ [keyword])) (1 + size)) (around.at + 1 + size)
+  let bodyDoc := body.el (around.next arrow.trails (2 + size))
+  let joined := spaced ([keyword.leaf around around.at, ..docs] ++ [arrowDoc])
+  let head := if existential then Flatten joined else joined
+  let below := Doc.concat [head, Nest 2 (Doc.concat [HardLine, bodyDoc])]
+  if body.noted then below
+  else
+    let inline := Doc.concat [head, Doc.text " ", bodyDoc]
+    Choice [Flatten inline, inline, below]
+
+--| `{A, B} T` (Rust's `Effect` and `Row`, printed by `join`): nothing
+--| inside the row's braces (D1037), a space after each comma and before
+--| the type.
+def effectDoc (row: Row) (result: Expr) (around: Around): Doc := match row with
+  | { open, abilities, variable = None, close } =>
+    let openWord := fixedWord "{" open
+    let closeWord := fixedWord "}" close
+    let size := (rowWords row).length
+    let rowDoc :=
+      Doc.concat
+        ([openWord.opening around closeWord]
+          ++ rowItems openWord.trails (around.at + 1) abilities
+          ++ [closeWord.leaf (around.next (trailsBack ((rowWords row).reverse.drop 1)) (size - 1)) around.at])
+    Doc.concat [framedBy openWord around rowDoc, Doc.text " ", result.el (around.next closeWord.trails size)]
+  | _ => Nothing
+
+--| A row's abilities, a comma and a space between each two.
+def rowItems (before: Bool) (at: Nat): List Expr → List Doc
+  | [] => []
+  | [item] => [item.el { before, hoisted = False, item = False, at }]
+  | [item, ..rest] => [
+    item.el { before, hoisted = False, item = False, at },
+    Closing ",",
+    Doc.text " ",
+    ..rowItems item.trails (at + item.size) rest
+  ]
 
 --| `( … )` (`paren`): nothing between the brackets and what they hold.
 def parenDoc (open: Word) (inner: Expr) (close: Word) (around: Around): Doc := Doc.concat [
@@ -250,11 +407,24 @@ def optionList (option: Option Doc): List Doc := match option with
 type Applied = { doc: Doc, hug: Option Doc }
 
 --| A call's last argument and its hug, the same argument opening
---| downwards (`last_argument`): a tuple or list can hug.
+--| downwards (`last_argument`): a tuple, a list or a lambda in brackets
+--| can hug.
 def lastArgument (argument: Expr) (around: Around): (Doc, Option Doc) := match argument with
   | Tuple open items _ close => huggedBracket False open items close around
   | ListOf open items _ close => huggedBracket True open items close around
+  | Paren open (Binding BindsLambda _ params arrow body) close => huggedLambda open params arrow body close around
   | _ => (argument.el around, None)
+
+--| `(x => body)` as a last argument: the lambda as it is, and opened,
+--| its body below at 2.
+def huggedLambda (open: Word) (params: List Param) (arrow: Word) (body: Expr) (close: Word) (around: Around):
+    (Doc, Option Doc) :=
+  let lambda := Binding BindsLambda None params arrow body
+  let leading := Doc.concat (open.leading around around.at)
+  let openDoc := open.opening { around | hoisted = True } close
+  let closeDoc := close.leaf (around.next lambda.trails (1 + lambda.size)) around.at
+  let (flat, opened) := lambdaBoth params arrow body (around.next open.trails 1)
+  (Doc.concat [leading, openDoc, flat, closeDoc], Some (Doc.concat [leading, openDoc, opened, closeDoc]))
 
 def huggedBracket (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around): (Doc, Option Doc) :=
   let leading := Doc.concat (open.leading around around.at)
@@ -391,50 +561,216 @@ def linkDocs (level: Option Nat) (expr: Expr) (around: Around): List Doc := matc
 
 -- Declarations.
 
---| `def name: T := e` (`decl`, `header`, S6 to S12): the header in an
---| `IdGroup`, then the body after `:=` as `bodyAfter` chooses, or below
---| at 2 when the header broke. The declaration's first token's own-line
---| comments are the file's to print.
+--| A declaration's keyword, as written.
+def DefKind.keywordText: DefKind → Text
+  | DefPlain => "def"
+  | DefTheorem => "theorem"
+  | DefInstance => "instance"
+
+--| `def name: T := e`, `theorem name ∀ (x: A) [b: B]: P := e` (`decl`,
+--| `header`, S6 to S12): the header in an `IdGroup`, then the body after
+--| `:=` as `bodyAfter` chooses, or below at 2 when the header broke. The
+--| declaration's first token's own-line comments are the file's to print.
 def defDoc (header: Header) (colonEq: Comments) (value: Expr): Doc :=
-  let keyword := fixedWord "def" header.keyword
+  let keyword := fixedWord header.kind.keywordText header.keyword
   let colon := fixedWord ":" header.colon
   let assign := fixedWord ":=" colonEq
   let result := header.result
   let start: Around := { before = False, hoisted = True, item = False, at = 0 }
-  let nameAround := start.next keyword.trails 1
-  let colonAround := start.next header.name.trails 2
-  let resultAround := start.next colon.trails 3
-  let typeDoc := result.el resultAround
-  let head := Doc.concat [keyword.leaf start 0, Doc.text " ", header.name.leaf nameAround 1]
-  let typed := if colon.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
-  let headerDoc := Doc.concat ([head, colon.leaf colonAround 2] ++ typed)
-  let inside := keyword.trails || colon.trails || (result.words.reverse.drop 1 |> .any Word.trails)
-  let (below, choice) := bodyAfter value assign (start.next assign.trails (4 + result.size))
+  let headWords := [keyword, header.name] ++ optionWords header.forallKeyword
+  let headSize := headWords.length
+  let paramWords := groupsWords header.params
+  let colonAt := headSize + paramWords.length
+  let colonAround := start.next (trailsBack (paramWords.reverse ++ headWords.reverse)) colonAt
+  let typeDoc := result.el (start.next colon.trails (colonAt + 1))
+  let headDoc := spaced (headDocs start headWords)
+  let headerDoc := match header.params with
+    | [] =>
+      let typed := if colon.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
+      Doc.concat ([headDoc, colon.leaf colonAround colonAt] ++ typed)
+    | params =>
+      paramsHeader headDoc (start.next (trailsBack headWords.reverse) headSize) params colon colonAround typeDoc
+  let inside :=
+    (headWords.reverse.drop 1 |> .any Word.trails)
+      || header.params.any groupHoldsComment
+      || colon.trails
+      || (result.words.reverse.drop 1 |> .any Word.trails)
+  let (below, choice) := bodyAfter value assign (start.next assign.trails (colonAt + 2 + result.size))
   Doc.concat [
     IdGroup 0 headerDoc (headerDoc.forcesBreak || inside),
     Doc.text " ",
-    assign.leaf (start.next result.trails (3 + result.size)) (3 + result.size),
+    assign.leaf (start.next result.trails (colonAt + 1 + result.size)) (colonAt + 1 + result.size),
     IfBroken 0 below choice
   ]
+
+--| The head's words, the keyword first: each stands after the one before.
+def headDocs (around: Around): List Word → List Doc
+  | [] => []
+  | [word, ..rest] => [word.leaf around around.at, ..headDocs (around.next word.trails 1) rest]
+
+--| Whether a comment ends a line inside a parameter group, rather than
+--| after its last code token, where the header's lines may break anyway
+--| (`comment_inside`'s `item_ends`).
+def groupHoldsComment (group: Syntax.Group): Bool :=
+  let back := (groupWords group).reverse
+  let closers := back.takeWhile (word => isCloserText word.text)
+  (closers.any Word.trails) || (back.drop (closers.length + 1) |> .any Word.trails)
+
+--| A header with parameters (`header`, S6 to S8, D3564): on one line if it
+--| fits; else the parameters fill lines at 4, each premise on a line of
+--| its own, the type after the `:` on a line of its own at 4.
+def paramsHeader (headDoc: Doc) (around: Around) (params: List Syntax.Group) (colon: Word)
+    (colonAround: Around) (typeDoc: Doc):
+    Doc :=
+  let colonDoc := colon.leaf colonAround colonAround.at
+  let colonBelow := colon.noted
+  let docs := groupDocs around params
+  let joined := if colonBelow then docs else attachLast docs colonDoc
+  let runs := headerRuns [] [headDoc] True False (joined.zip (premisesOf [] params))
+  let colonApart := colonBelow || colonAround.before
+  let gap :=
+    if !colonApart then Line
+    else if colon.trails then HardLine
+    else Doc.text " "
+  Nest 4 (Doc.concat (Doc.joinedWith Line runs ++ (if colonBelow then [Line, colonDoc] else []) ++ [gap, typeDoc]))
+
+def groupDocs (around: Around): List Syntax.Group → List Doc
+  | [] => []
+  | [group, ..rest] =>
+    let words := groupWords group
+    [groupDoc group around, ..groupDocs (around.next (trailsBack words.reverse) words.length) rest]
+
+--| The docs with `last` written against the last of them.
+def attachLast (docs: List Doc) (last: Doc): List Doc := match docs.reverse with
+  | [] => [last]
+  | [final, ..earlier] => [Doc.concat [final, last], ..earlier].reverse
+
+--| The header's lines: runs of variables, each a balanced fill, the first
+--| starting with the head; each premise alone; a single variable between
+--| premises on the line of the premise before it (D3571). `done` and
+--| `run` are newest first.
+def headerRuns (done run: List Doc) (first previous: Bool): List (Doc, Bool) → List Doc
+  | [] => (if run.isEmpty then done else [balancedFill run.reverse first, ..done]).reverse
+  | [(doc, True), ..rest] =>
+    let flushed := if run.isEmpty then done else [balancedFill run.reverse first, ..done]
+    headerRuns [doc, ..flushed] [] (first && run.isEmpty) True rest
+  | [(doc, False), ..rest] =>
+    let nextPremise := match rest with
+      | [] => True
+      | [(_, premise), .._] => premise
+    match done with
+      | [premise, ..earlier] if run.isEmpty && previous && nextPremise =>
+        headerRuns [Fill [premise, doc], ..earlier] [] first False rest
+      | _ => headerRuns done [doc, ..run] first False rest
+
+--| A run of a header's variables as a fill, except that the last line never
+--| holds one variable alone when the line above could give it a companion
+--| (`balanced_fill`, SW-3193): that line's last variable moves down to it.
+--| `first` says the run starts with the head, on the declaration's line;
+--| the other lines start at the header's indentation, 4.
+def balancedFill (items: List Doc) (first: Bool): Doc := match items.map Doc.flatWidth |> allSome with
+  | Some [firstWidth, ..widths] =>
+    let starts := [0, ..fillStarts 1 (if first then firstWidth else 4 + firstWidth) widths]
+    let lone := items.length - 1
+    match starts.reverse with
+      | [last, above, .._] =>
+        let movedWidth := [firstWidth, ..widths].drop (lone - 1) |> .headOr 0
+        let loneWidth := widths.reverse.headOr 0
+        if last != lone || above + 1 >= last || 4 + movedWidth + 1 + loneWidth > width then Fill items
+        else Doc.concat [Fill (items.take (lone - 1)), Line, Fill (items.drop (lone - 1))]
+      | _ => Fill items
+  | _ => Fill items
+
+--| Where a greedy fill at 120 columns starts each line after the first:
+--| item `k` on, at `column`.
+def fillStarts (k column: Nat): List Nat → List Nat
+  | [] => []
+  | [next, ..rest] =>
+    if column + 1 + next > width then [k, ..fillStarts (k + 1) (4 + next) rest]
+    else fillStarts (k + 1) (column + 1 + next) rest
+
+def allSome: List (Option Nat) → Option (List Nat)
+  | [] => Some []
+  | [None, .._] => None
+  | [Some value, ..rest] => (allSome rest).map (values => [value, ..values])
+
+-- Premises (D3564).
+
+--| Which parameters are premises: the type has a relation or connective at
+--| its top, or at the end of its `→`/`∀` chain, or applies a capitalised
+--| name to an earlier parameter that is not a type (`premises`).
+def premisesOf (earlier: List Text): List Syntax.Group → List Bool
+  | [] => []
+  | [group, ..rest] =>
+    match group.annotation with
+      | Some annotation =>
+        let names := group.names.filter (name => name.text != "_") |> .map (name => name.text)
+        [propositionIn earlier annotation, ..premisesOf (if annotation.isSort then earlier else earlier ++ names) rest]
+      | None => [False, ..premisesOf earlier rest]
+
+def Expr.isSort: Expr → Bool
+  | Atom TypeU _ => True
+  | Atom PropU _ => True
+  | Universe _ _ => True
+  | _ => False
+
+--| Whether a type reads as a proposition (`is_proposition`).
+def propositionIn (earlier: List Text): Expr → Bool
+  | Infix InfixBinary _ operator _ => (operatorTok operator.text).any Tok.relation
+  | Infix InfixArrow _ _ right => propositionIn earlier right
+  | Infix InfixMembership _ _ _ => True
+  | Infix InfixIff _ _ _ => True
+  | Chain _ _ => True
+  | Binding BindsExists _ _ _ _ => True
+  | Binding BindsForall _ _ _ body => propositionIn earlier body
+  | Prefix operator _ => operatorTok operator.text == Some Bang
+  | Paren _ inner _ => propositionIn earlier inner
+  | App (Atom _ head) arguments =>
+    capitalised head.text && arguments.any (argument => argument.words.any (word => earlier.contains word.text))
+  | _ => False
+
+--| The operators whose application is a proposition.
+def Tok.relation: Tok → Bool
+  | Equals => True
+  | NotEq => True
+  | Lt => True
+  | Le => True
+  | Gt => True
+  | Ge => True
+  | AndAnd => True
+  | OrOr => True
+  | EqEq => True
+  | _ => False
+
+--| Whether a name's last part starts with a capital: `Even`, `List.Sorted`.
+def capitalised (name: Text): Bool :=
+  name.splitOn "." |> .reverse |> .headOr "" |> .toList |> .headOr ' ' |> .isAsciiUppercase
 
 --| What follows a `:=` (`body_after`, S12, S17): the doc for a header that
 --| broke (the value below at 2), and the choice for one that didn't: on the
 --| line if all of it fits; a tuple, list or hugging call below if it fits
---| on one line there (D3571); a tuple or list on the line, or a call
---| hugging its last argument; else below.
+--| on one line there (D3571); a tuple or list on the line, a call hugging
+--| its last argument, or a lambda with its body below (D3568); else below.
 def bodyAfter (value: Expr) (assign: Word) (around: Around): (Doc, Doc) :=
   let doc := value.el around
   let below := Nest 2 (Doc.concat [HardLine, doc])
   if assign.trails || value.noted then (below, below)
   else
+    let inside := { around | hoisted = True }
     let hug := match value with
-      | App head arguments => (appDocs head arguments { around | hoisted = True }).hug
+      | App head arguments => (appDocs head arguments inside).hug
       | _ => None
     let opens := match value with
       | Tuple _ _ _ _ => True
       | ListOf _ _ _ _ => True
       | _ => False
+    let lambda := match value with
+      | Binding BindsLambda _ params arrow body =>
+        let (_, opened) := lambdaBoth params arrow body inside
+        Some opened
+      | _ => None
     let oneLineBelow := if opens || hug.isSome then [OneLineBelow doc] else []
     let onLine :=
-      if opens then [Doc.concat [Doc.text " ", doc]] else optionList (hug.map (open => Doc.concat [Doc.text " ", open]))
+      if opens then [Doc.concat [Doc.text " ", doc]]
+      else optionList ((lambda.orElse hug).map (open => Doc.concat [Doc.text " ", open]))
     (below, Choice ([Flatten (Doc.concat [Doc.text " ", doc])] ++ oneLineBelow ++ onLine ++ [below]))
