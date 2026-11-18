@@ -1,5 +1,5 @@
 {
-  "next": 4078,
+  "next": 4079,
   "tickets": [
     {
       "id": 47,
@@ -25252,6 +25252,19 @@
       "id": 4077,
       "title": "[Opus] fmt S1 read-back: Spelt's prefix equation is false of a parsing source (def d: A := (- -- c⏎  1) reads back but 1 isn't glued); weaken Spelt to 'a negative numeral read means the operand is a numeral' and re-prove unaryLine (SW-4070 finding 1)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4078,
+      "title": "[Fable paper] Self-hosted fmt slice 1 stock take (Matt, 18 Nov): is there a clear, finite path to the first milestone (slice 1 fully proved: same program and idempotent), or is the work diverging? Map the remaining obligations from the top statements down, measure tickets filed vs closed, recommend scope trims if they would converge faster",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
