@@ -1075,3 +1075,223 @@ theorem atManyFromOr ∀ (p: () → {Parse Char} List (Parse.Located Lexeme))
             (Witness []
               (rewrite <- atSame, <- valueSame, back then
                 Both byComputing (Both honest (Witness [] (Both (List.appendNil found.reverse).flipped byComputing)))))
+
+-- One round of `item` at the top level: one lexeme, located where the round began, that is what it read.
+
+--| A lexeme read from `chars`, followed by `next`, as `assemble` needs it: a line break, or something that doesn't
+--| start with one; a comment's text `--` to the end of its line (once a carriage return is taken off) with a line
+--| break or the end after it; a token of the alphabet whose text agrees with its kind.
+def kindFine (chars next: List Char): Lexeme → Bool
+  | LineBreak => True
+  | Spaces => !startsBreak chars
+  | CommentLexeme => !startsBreak chars && rawText (withoutReturn (Text.fromList chars)) && endsLine next
+  | TokenLexeme kind => !startsBreak chars && (!kind.within1 || markedText (Text.fromList chars) kind)
+
+def chunkFine (chars next: List Char) (value: Lexeme): Bool := !chars.isEmpty && kindFine chars next value
+
+--| A round from `offset`, where `rest` is left, that read `read`: unless it gave a token outside the alphabet, it gave
+--| one lexeme, located at `offset` and as long as what was read, which is fine.
+def RoundFine (offset: Nat) (rest read: List Char) (lexemes: List (Parse.Located Lexeme)): Prop :=
+  lexemes.all (lexeme => lexeme.value.within) = True
+    → ∃ (value: Lexeme) => lexemes = [{ value, offset, length = read.length }]
+      ∧ chunkFine read (rest.drop read.length) value = True
+
+theorem atSingle ∀ (value: Lexeme) (from at: Parse.Mark Char):
+    Parse.ReadsAt at (() => [located value from]) (read lexemes =>
+      read = [] ∧ lexemes = [{ value, offset = from.offset, length = at.offset - from.offset }]) :=
+  atThen (atLocated value from at) (read lexeme after starts moved facts =>
+    match facts with
+      | Both none same => rewrite none, same then Parse.readsAtDone after _ _ (Both byComputing byComputing))
+
+--| A round that read `read` and then located one lexeme from where it began.
+theorem singleRound ∀ (start after: Parse.Mark Char) (read: List Char) (value: Lexeme)
+    (moved: after.offset = start.offset + read.length)
+    (fine: chunkFine read (start.rest.drop read.length) value = True):
+    RoundFine start.offset start.rest (read ++ []) [
+      { value, offset = start.offset, length = after.offset - start.offset }
+    ] :=
+  allOk =>
+    let length: after.offset - start.offset = (read ++ []).length := rewrite List.appendNil read then arithmetic [moved]
+    Witness value (Both (rewrite length) (rewrite List.appendNil read then fine))
+
+theorem lineRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (start: Parse.Mark Char) (more: List Char)
+    (here: start.rest = ['\n', ..more]):
+    Parse.ReadsAt start (() => itemOn self source TopLevel start ['\n', ..more]) (RoundFine start.offset start.rest) :=
+  atThen (atSkip 1 start) (read u after starts moved taken =>
+    Parse.readsAtWeaken (atSingle LineBreak start after) (rest lexemes facts =>
+      match facts with
+        | Both none same => rewrite none, same then singleRound start after read LineBreak moved (rewrite taken, here)))
+
+theorem spacesRound ∀ (start: Parse.Mark Char) (first: Char) (more: List Char)
+    (here: start.rest = [first, ..more])
+    (space: (first == ' ' || first == '\r') = True)
+    (notBreak: startsBreak [first] = False):
+    Parse.ReadsAt start
+      (() =>
+        let run := Parse.span (char => char == ' ' || char == '\r')
+        [located Spaces start])
+      (RoundFine start.offset start.rest) :=
+  atThen (Parse.readsAtSpan start (char => char == ' ' || char == '\r')) (read run after starts moved facts =>
+    Parse.readsAtWeaken (atSingle Spaces start after) (rest lexemes made =>
+      match made with
+        | Both none same =>
+          match facts with
+            | Both isRun runIs =>
+              let chunk: read = [first, ..more.takeWhile (char => char == ' ' || char == '\r')] :=
+                rewrite isRun, runIs, here, space
+              let fine: chunkFine read (start.rest.drop read.length) Spaces = True := match first with
+                | '\n' => (Bool.falseNotTrue notBreak.flipped).impossible
+                | _ => rewrite chunk
+              rewrite none, same then singleRound start after read Spaces moved fine))
+
+theorem notFalse ∀ (x: Bool) (h: (!x) = False): x = True := cases
+
+theorem endsLineDrop ∀ (chars: List Char): endsLine (chars.dropWhile (char => char != '\n')) = True := match chars with
+  | [] => byComputing
+  | [char, ..rest] =>
+    match other: ((char != '\n'): Bool) with
+      | True => endsLineDrop rest
+      | False =>
+        let isEq: (char.decEq '\n').holds = True := notFalse _ other
+        let isBreak: char = '\n' := (char.decEq '\n').sound isEq
+        rewrite isBreak
+
+theorem commentRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (start: Parse.Mark Char) (more: List Char)
+    (here: start.rest = ['-', '-', ..more]):
+    Parse.ReadsAt start
+      (() => itemOn self source TopLevel start ['-', '-', ..more])
+      (RoundFine start.offset start.rest) :=
+  atThen (Parse.readsAtSpan start (char => char != '\n')) (read text after starts moved facts =>
+    atThen (atMark after) (read2 at after2 starts2 moved2 facts2 =>
+      match facts2 with
+        | Both none2 same2 =>
+          atThen
+            [p := () => located CommentLexeme start]
+            [j := made => [made]]
+            (atLocated CommentLexeme start after2)
+            (read3 lexeme after3 starts3 moved3 facts3 =>
+              match facts3 with
+                | Both none3 isLexeme =>
+                  match facts with
+                    | Both isText textIs =>
+                      let body := more.takeWhile (char => char != '\n')
+                      let chunk: read = ['-', '-', ..body] := rewrite isText, textIs, here
+                      let whole: start.rest = read ++ start.rest.dropWhile (char => char != '\n') :=
+                        rewrite isText, textIs then (List.takeWhileDropWhile (char => char != '\n') start.rest).flipped
+                      let next: start.rest.drop read.length = start.rest.dropWhile (char => char != '\n') :=
+                        dropOfAppend start.rest read (start.rest.dropWhile (char => char != '\n')) whole
+                      let raw := commentRaw body (List.allTakeWhile (char => char != '\n') more)
+                      let ends := endsLineDrop start.rest
+                      let fine: chunkFine read (start.rest.drop read.length) CommentLexeme = True :=
+                        rewrite next, ends, chunk, raw
+                      let movedAll: after2.offset = start.offset + read.length :=
+                        rewrite moved2, none2, moved then arithmetic []
+                      rewrite none2, none3, isLexeme then
+                        Parse.readsAtDone after3 _ _ (singleRound start after2 read CommentLexeme movedAll fine))))
+
+--| A word or a number read from where `c` was next: a token of a kind that is not a closer or `->`, at `offset`, as
+--| long as what was read, which starts with `c`.
+def TokenAt (c: Char) (offset: Nat) (read: List Char) (lexeme: Parse.Located Lexeme): Prop :=
+  (∃ (tail: List Char) => read = [c, ..tail])
+    ∧ (∃ (kind: Tok) => plainKind kind = True ∧ lexeme = { value = TokenLexeme kind, offset, length = read.length })
+
+theorem spanHead ∀ (passes: Char → Bool) (rest: List Char) (c: Char) (more: List Char)
+    (here: rest = [c, ..more])
+    (first: passes c = True):
+    rest.takeWhile passes = [c, ..more.takeWhile passes] :=
+  rewrite here, first
+
+--| A token located from `start` after `read1`, a value read, and `read3`.
+theorem tokenAtOf ∀ (c: Char) (start after1 after3: Parse.Mark Char) (read1 read3 tail: List Char) (kind: Tok)
+    (moved1: after1.offset = start.offset + read1.length)
+    (moved3: after3.offset = after1.offset + read3.length)
+    (head: read1 = [c, ..tail])
+    (plain: plainKind kind = True):
+    TokenAt c start.offset (read1 ++ [] ++ read3 ++ []) {
+      value = TokenLexeme kind,
+      offset = start.offset,
+      length = after3.offset - start.offset
+    } :=
+  let length: after3.offset - start.offset = (read1 ++ [] ++ read3 ++ []).length :=
+    rewrite List.appendNil read3, List.lengthAppend read1 read3 then arithmetic [moved1, moved3]
+  Both (Witness (tail ++ read3) (rewrite head, List.appendNil read3)) (Witness kind (Both plain (rewrite length)))
+
+theorem givesWordKind ∀ (more: Nat) (upper: Bool) (input first: List Char):
+    Gives
+      (() =>
+        match qualifiedOn more upper None input with
+          | Some lastUpper => if lastUpper then Upper else Lower
+          | None => wordKind False (Text.fromList first))
+      (kind => plainKind kind = True) :=
+  givesThen (soundQualifiedOn more upper None input (upper2 found2 => soundQualified more upper2 found2)) (found =>
+    match found with
+      | Some lastUpper =>
+        match lastUpper with
+          | True => givesDone Upper _ byComputing
+          | False => givesDone Lower _ byComputing
+      | None => givesDone (wordKind False (Text.fromList first)) _ (wordKindPlain (Text.fromList first)))
+
+theorem wordReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
+    (here: start.rest = [c, ..more])
+    (wordChar: isWordChar c = True):
+    Parse.ReadsAt start (() => wordFrom False start) (TokenAt c start.offset) :=
+  atThen (Parse.readsAtSpan start isWordChar) (read1 first after1 starts1 moved1 facts1 =>
+    atThen (atMark after1) (read2 at after2 starts2 moved2 facts2 =>
+      match facts2 with
+        | Both none2 same2 =>
+          atThen
+            (givesWordKind start.left
+              (first.head.map (char => char.isAsciiUppercase) |> .getOrElse False)
+              at.rest
+              first
+              after2
+              { holds = Trivial })
+            (read3 kind after3 starts3 moved3 plain =>
+              atThen
+                [p := () => located (TokenLexeme kind) start]
+                [j := made => made]
+                (atLocated (TokenLexeme kind) start after3)
+                (read4 lexeme after4 starts4 moved4 facts4 =>
+                  match facts4 with
+                    | Both none4 isLexeme =>
+                      match facts1 with
+                        | Both isFirst firstIs =>
+                          let head: read1 = [c, ..more.takeWhile isWordChar] :=
+                            rewrite isFirst, firstIs then spanHead isWordChar start.rest c more here wordChar
+                          let moved3b: after3.offset = after1.offset + read3.length :=
+                            rewrite moved2, none2 at moved3 then moved3
+                          rewrite none2, none4, isLexeme then
+                            Parse.readsAtDone after4 _ _
+                              (tokenAtOf c start after1 after3 read1 read3 _ kind moved1 moved3b head plain)))))
+
+theorem numberPlain ∀ (float: Bool): plainKind (if float then Float else Num) = True := match float with
+  | True => byComputing
+  | False => byComputing
+
+theorem numberReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
+    (here: start.rest = [c, ..more])
+    (digit: c.isAsciiDigit = True):
+    Parse.ReadsAt start (() => numberFrom False start) (TokenAt c start.offset) :=
+  atThen (Parse.readsAtSpan start Char.isAsciiDigit) (read1 digits after1 starts1 moved1 facts1 =>
+    atThen (soundNumberTail False after1 { holds = Trivial }) (read2 float after2 starts2 moved2 u =>
+      atThen
+        [p := () => located (TokenLexeme (if float then Float else Num)) start]
+        [j := made => made]
+        (atLocated (TokenLexeme (if float then Float else Num)) start after2)
+        (read3 lexeme after3 starts3 moved3 facts3 =>
+          match facts3 with
+            | Both none3 isLexeme =>
+              match facts1 with
+                | Both isDigits digitsAre =>
+                  let head: read1 = [c, ..more.takeWhile Char.isAsciiDigit] :=
+                    rewrite isDigits, digitsAre then spanHead Char.isAsciiDigit start.rest c more here digit
+                  let tokenAt :=
+                    tokenAtOf c start after1 after2 read1 read2 _
+                      (if float then Float else Num)
+                      moved1
+                      moved2
+                      head
+                      (numberPlain float)
+                  rewrite none3, isLexeme then Parse.readsAtDone after3 _ _ tokenAt)))
