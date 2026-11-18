@@ -153,26 +153,9 @@ def SourceFile.calmTop (file: SourceFile): SourceFile := match file.calm.decls w
   | [] => { decls = [], end = file.calm.end.topped }
   | _ => file.calm
 
---| `printedSettle1`: rule N on the output gives the tree's words back. Each group of the settled leaves, commas
---| left out, is its declaration's words, every comment on the token the tree has it on, and a blank-line flag set
---| exactly where the rules read one; and the end's comments are the file's.
---|
---| `settled1` is what makes it true: the lexer gives a comment to the last token on its line, a closer or comma
---| where one follows the word, and rule N takes it back past them unless the closer starts its line with own-line
---| comments or after a comment, which is where a `settled1` tree lets a closer hold one.
---|
---| Proof idea: not yet known in full. The tokens are `printedTokens1`'s. The comments' lines and the blank lines
---| of a declaration's printed leaves are a new fact of the rules (the note, §4); given it, rule 1 walks each
---| comment back to its word (`walkLands`), rules 2 to 4 find nothing to move and rule 5 nothing to trim.
-theorem printedSettle1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    (groupsOf file.lexed1.settled.leaves).map codeWords = file.calmTop.decls.map Decl.words
-      ∧ file.lexed1.settled.end.comments = file.calmTop.end :=
-  ?
+-- `printedSettle1`, that rule N on the output gives the tree's words back (each group of the settled leaves, commas
+-- left out, is its declaration's words, and the end's comments are the file's), is in `Fmt.SettleOutputProofs`
+-- (SW-4043), with `printedStands1`'s conclusion and no own-line comment ending in a carriage return as hypotheses.
 
 -- Cases the statements apply to, so their hypotheses can be met; and two that show what is not true.
 
