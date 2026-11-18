@@ -1009,3 +1009,174 @@ theorem itemReadsComment ∀ (others rest: List Char)
                 [{ value = CommentLexeme, offset = state.at.offset, length = ['-', '-', ..others].length }]
                 rest
                 middle))))
+
+-- Words.
+
+theorem wordStartIsChar ∀ (first: Char) (starts: isWordStart first = True): isWordChar first = True := cases
+
+--| `located` after something read: the lexeme at where the item began.
+theorem runsFromLocatedAfter ∀ (state middle: Parse.State Char) (value: Lexeme) (read rest: List Char)
+    (atRest: middle.at.rest = rest)
+    (honest: middle.at.left = middle.at.rest.length)
+    (offset: middle.at.offset = state.at.offset + read.length):
+    Parse.RunsFrom middle (() => located value state.at) [] rest {
+      value,
+      offset = state.at.offset,
+      length = read.length
+    } :=
+  Parse.runsFromMark middle
+    (finish => ({ value, offset = state.at.offset, length = finish.offset - state.at.offset }: Parse.Located Lexeme))
+    []
+    rest
+    { value, offset = state.at.offset, length = read.length }
+    (rewrite (arithmetic [offset]: middle.at.offset - state.at.offset = read.length) then
+      Parse.runsPure { value, offset = state.at.offset, length = read.length } rest middle)
+
+--| A qualified name doesn't go on after a text that doesn't start with a `.`.
+theorem runsQualifiedNone ∀ (fuel: Nat) (upper: Bool) (rest: List Char)
+    (noDot: rest.head ≠ Some '.'):
+    Parse.Runs (() => qualified (Succ fuel) upper None) [] rest None :=
+  state =>
+    Parse.runsFromMark state (at => qualifiedOn fuel upper None at.rest) [] rest None (starts honest =>
+      rewrite starts then
+        match rest, noDot with
+          | [], noDot => Parse.runsPure None [] state starts honest
+          | [next, ..more], noDot =>
+            match next with
+              | '.' => (noDot byComputing).impossible
+              | other => Parse.runsPure None [other, ..more] state starts honest)
+
+--| `word`: a run of word characters, which isn't a qualified name, as the kind says.
+theorem runsFromWordKind ∀ (state: Parse.State Char) (first: Char) (others rest: List Char)
+    (word: others.all isWordChar = True)
+    (starts: isWordStart first = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.'):
+    Parse.RunsFrom state (() => Syntax.word False) [first, ..others] rest {
+      value = TokenLexeme (wordKind False (Text.fromList [first, ..others])),
+      offset = state.at.offset,
+      length = [first, ..others].length
+    } :=
+  let read := [first, ..others]
+  let value: Parse.Located Lexeme :=
+    { value = TokenLexeme (wordKind False (Text.fromList read)), offset = state.at.offset, length = read.length }
+  Parse.runsFromMark state
+    (wordFrom False)
+    read
+    rest
+    value
+    (Parse.runsFromBind state
+      (() => Parse.span isWordChar)
+      (taken =>
+        let firstUpper := taken.head.map (char => char.isAsciiUppercase) |> .getOrElse False
+        let kind := match qualified (state.at.left + 1) firstUpper None with
+          | Some lastUpper => if lastUpper then Upper else Lower
+          | None => wordKind False (Text.fromList taken)
+        located (TokenLexeme kind) state.at)
+      read
+      []
+      read
+      rest
+      read
+      value
+      (List.appendNil read).flipped
+      (Parse.runsSpan isWordChar read rest (Bool.andIntro (wordStartIsChar first starts) word) ends)
+      (middle atRest honest offset =>
+        Parse.runsFromBind middle
+          (() =>
+            match qualified (state.at.left + 1) (first.isAsciiUppercase) None with
+              | Some lastUpper => if lastUpper then Upper else Lower
+              | None => wordKind False (Text.fromList read))
+          (kind => located (TokenLexeme kind) state.at)
+          []
+          []
+          []
+          rest
+          (wordKind False (Text.fromList read))
+          value
+          byComputing
+          (Parse.runsBind
+            (() => qualified (state.at.left + 1) (first.isAsciiUppercase) None)
+            (found =>
+              match found with
+                | Some lastUpper => if lastUpper then Upper else Lower
+                | None => wordKind False (Text.fromList read))
+            []
+            []
+            []
+            rest
+            None
+            (wordKind False (Text.fromList read))
+            byComputing
+            (runsQualifiedNone state.at.left first.isAsciiUppercase rest noDot)
+            (Parse.runsPure (wordKind False (Text.fromList read)) rest))
+          (middle2 atRest2 honest2 offset2 =>
+            runsFromLocatedAfter state middle2
+              (TokenLexeme (wordKind False (Text.fromList read)))
+              read
+              rest
+              atRest2
+              honest2
+              (arithmetic [offset, offset2]))))
+
+theorem runsFromWord ∀ (state: Parse.State Char) (first: Char) (others rest: List Char) (kind: Tok)
+    (word: others.all isWordChar = True)
+    (starts: isWordStart first = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (kinded: wordKind False (Text.fromList [first, ..others]) = kind):
+    Parse.RunsFrom state (() => Syntax.word False) [first, ..others] rest {
+      value = TokenLexeme kind,
+      offset = state.at.offset,
+      length = [first, ..others].length
+    } :=
+  rewrite <- kinded then runsFromWordKind state first others rest word starts ends noDot
+
+theorem runsFromWordList ∀ (state: Parse.State Char) (first: Char) (others rest: List Char) (kind: Tok)
+    (word: others.all isWordChar = True)
+    (starts: isWordStart first = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (kinded: wordKind False (Text.fromList [first, ..others]) = kind):
+    Parse.RunsFrom state (() => [Syntax.word False]) [first, ..others] rest [
+      { value = TokenLexeme kind, offset = state.at.offset, length = [first, ..others].length }
+    ] :=
+  Parse.runsFromBindAt state
+    (() => Syntax.word False)
+    (x => [x])
+    [first, ..others]
+    []
+    [first, ..others]
+    rest
+    { value = TokenLexeme kind, offset = state.at.offset, length = [first, ..others].length }
+    [{ value = TokenLexeme kind, offset = state.at.offset, length = [first, ..others].length }]
+    (List.appendNil [first, ..others]).flipped
+    (runsFromWord state first others rest kind word starts ends noDot kinded)
+    (middle atRest honest offset =>
+      Parse.runsPure
+        [{ value = TokenLexeme kind, offset = state.at.offset, length = [first, ..others].length }]
+        rest
+        middle)
+
+--| A name or keyword: word characters up to one that isn't, which isn't a `.` (so it isn't qualified).
+theorem itemReadsWord ∀ (first: Char) (others rest: List Char) (kind: Tok)
+    (starts: isWordStart first = True)
+    (word: others.all isWordChar = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (kinded: wordKind False (Text.fromList [first, ..others]) = kind):
+    ItemReads [first, ..others] (TokenLexeme kind) rest :=
+  match first, starts with
+    | '\n', starts => (Bool.falseNotTrue starts).impossible
+    | '}', starts => (Bool.falseNotTrue starts).impossible
+    | '{', starts => (Bool.falseNotTrue starts).impossible
+    | ' ', starts => (Bool.falseNotTrue starts).impossible
+    | '\r', starts => (Bool.falseNotTrue starts).impossible
+    | '\t', starts => (Bool.falseNotTrue starts).impossible
+    | '-', starts => (Bool.falseNotTrue starts).impossible
+    | '"', starts => (Bool.falseNotTrue starts).impossible
+    | '\'', starts => (Bool.falseNotTrue starts).impossible
+    | '.', starts => (Bool.falseNotTrue starts).impossible
+    | other, starts => itemReadsVia [other, ..others] rest (TokenLexeme kind) (self source state =>
+      starts2 honest =>
+        rewrite starts then runsFromWordList state other others rest kind word starts ends noDot kinded starts2 honest)

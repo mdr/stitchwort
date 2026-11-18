@@ -166,8 +166,10 @@ def symbol (rest: List Char): Option (Tok, Nat) := match rest with
 
 --| A name or keyword. `afterDot` says a `.` comes just before it, where
 --| `exists` and `forall` are names (`x.exists p`).
-def word (afterDot: Bool): {Parse Char} Parse.Located Lexeme :=
-  let from := Parse.mark()
+def word (afterDot: Bool): {Parse Char} Parse.Located Lexeme := wordFrom afterDot Parse.mark()
+
+--| `word` from the mark where it starts (a function of its own so that the proofs can name it).
+def wordFrom (afterDot: Bool) (from: Parse.Mark Char): {Parse Char} Parse.Located Lexeme :=
   let first := Parse.span isWordChar
   let firstUpper := first.head.map (char => char.isAsciiUppercase) |> .getOrElse False
   let kind := match qualified (from.left + 1) firstUpper None with
@@ -180,13 +182,16 @@ def word (afterDot: Bool): {Parse Char} Parse.Located Lexeme :=
 --| component read is uppercase, if any was.
 def qualified (fuel: Nat) (upper: Bool) (found: Option Bool): {Parse Char} Option Bool := match fuel with
   | Zero => found
-  | Succ more =>
-    match Parse.mark().rest with
-      | ['.', next, .._] if upper && next.isAsciiLetter =>
-        skip 1
-        let component := Parse.span isWordChar
-        qualified more next.isAsciiUppercase (Some next.isAsciiUppercase)
-      | _ => found
+  | Succ more => qualifiedOn more upper found Parse.mark().rest
+
+--| `qualified` with `more` fuel left, where the input is `input`.
+def qualifiedOn (more: Nat) (upper: Bool) (found: Option Bool) (input: List Char): {Parse Char} Option Bool :=
+  match input with
+    | ['.', next, .._] if upper && next.isAsciiLetter =>
+      skip 1
+      let component := Parse.span isWordChar
+      qualified more next.isAsciiUppercase (Some next.isAsciiUppercase)
+    | _ => found
 
 def wordKind (afterDot: Bool) (word: Text): Tok := match word with
   | "_" => Underscore
