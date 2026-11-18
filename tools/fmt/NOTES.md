@@ -1061,3 +1061,44 @@ Slices 1 to 4a cover 16.4% of the sample's declarations; slices 1 to 3 cover 554
 - **No new columns.** A field access never breaks and puts nothing on a line of its own, so the read-back proofs need no new column fact: `.` and the field are glued to the target's last token on its line. What they need is lexical: a `.` glued on both sides reads back as a field access (the parser refuses a spaced one), and the target's last token is never a comment's (`within4a`'s `!target.trails`), so nothing comes between.
 - **Spacing.** The one gap a field access adds is `- 1.f`'s, left out above; `prefixGap` is unchanged.
 - P1 to P4 change nothing new: a field access holds no binder, row or theorem header.
+
+## Slice 5a, the program (SW-3990)
+
+Opus, 18 November 2026. The declarations around definitions, and a definition's own arms, on top of slices 1 to 4a: SW-3961's count put `test` (392), `namespace` (137), `import` (124) and a definition's arms (105) next after field access.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `namespaceDoc`: the keyword, a space, the name | `src/Fmt/Rules.sw` | `join` (no rule of its own) |
+| `importDoc`, `importItemDocs`, `ImportItem.el`: `import M (` then the items as a comma bracket, flat if it fits, else one a line at 2 and `)` alone; an item framed as a node (a comment before it displaces it); `(..)` as one item | `src/Fmt/Rules.sw` | `import`, `comma_bracket` |
+| `testDoc`: `test "name"` in an `IdGroup` (a comment after `test` breaks it), then `:=` and the body by `bodyAfter` | `src/Fmt/Rules.sw` | `decl` with a head and a body |
+| `defArmsDoc`: the header as `defDoc`'s, built inside the arms' depth (`inArm`), then `armLines` at 2, one arm a line | `src/Fmt/Rules.sw` | `decl` with `Arms` |
+| `within5a`, `Tok.within5a` (slice 4a's, `namespace`, `import`, `test`, `..`, text and character literals), `Decl.doc5a`, `Decl.printed5a`, `SourceFile.printed5a`; `formatWithin` moves here from `Slice4a.sw` and refuses with `outside slice 5a` | `src/Fmt/Slice5a.sw` | |
+| `Decl.firstComments` covers `namespace`, `import` and `test` | `src/Fmt/Slice1.sw` | `print_file_seeing` |
+| `Fmt.Twin --stage s5a`, `dev/fmt-twin s5a` | `src/Fmt/Twin.sw`, `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice5a.sw` (5) | |
+
+**The file loop.** A `namespace` here is a line, not a block: the declarations after it are the file's, at column 0, so `printedBy` needed nothing new. Blank lines between declarations are as for definitions: the first token's `blankBefore` (one blank line at most, as Rust's `blank_lines_before > 0`), with own-line comments above a declaration printed by the file, each keeping a blank line above it.
+
+**The slice's edge.** Tests name themselves with text and most compare texts, so one-line text and character literals are in the slice (a token each, `simple` and a plain list item as Rust has them). Left out: a text block (a literal spanning lines, which Rust moves with its line, `TextBlock`) and interpolated text; `instance`, attributes, `export`, `opaque`, `decreasing` and `unfolding` (as before); arms whose patterns are tuples, lists, records or `(p)` (S4's patterns). A gap Rust copies that the tree can't say: a literal glued to the token before it (`f"x"`), printed with a space; no sampled declaration has one.
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s5a --exe` with the interpreted twin (a slim copy as before, with `Slice5a.sw` and without `Syntax/LexProofs.sw`; a fresh `FMT_TWIN_CACHE`, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 to 5a | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 336 | 336 | 0 |
+| `repo --sample 300` (seed 1) | 5,527 | 2,274 | 2,274 | 0 |
+
+Slices 1 to 5a cover 41.1% of the sample's declarations; slices 1 to 4a cover 909 of the same 5,527 (16.4%). On the same runs `s1` stays 82 of 82 and 41 of 41, `s2` 230 of 230 and 420 of 420, `s3` 288 of 288 and 539 of 539, `s4a` 304 of 304 and 909 of 909. A hand file of a commented namespace line, flat, broken, `(..)` and commented imports with a blank item, tests with literals, a long body and a comment after `test`, a test with a `match`, and arms with comments, a blank line, a header with merged parameters and a theorem with a comment after its type: `--stage text` identical to `stitchwort fmt -`.
+
+What keeps the rest out [measured: the twin's `s5a` answers against `dev tree --print`'s node kinds on the same sample; a kind is foreign if no within declaration has it]: of 3,253 declarations outside, 385 have no foreign kind (a shape the slice refuses), 2,039 two or more. With one foreign kind: `PatternList` 205, `PatternAbsurd` 112, `Annotation` 77, `NamedArg` 50, `Membership` 46, `Unit` 42, `PatternTuple` 39, `Spread` 27. Any foreign kind: `Rewrite` 734, `PatternList` 719, `Record` 534, `Spread` 300, `PatternAbsurd` 294, `Unit` 236, `Membership` 235, `Binder` 223. Proofs (`rewrite`) and list patterns lead.
+
+### For the proof lanes
+
+- **The F1 tree is unchanged.**
+- **No new columns beyond slice 3's.** A definition's arms are at 2, as a `match`'s arms are from the indentation in force (0); `|` can't begin an expression, so they read back. A broken import's items are at 2 with `)` at 0, a comma bracket's shape. A namespace line and a test's head never break.
+- **Rule N's bar.** Nothing new: an import item holds own-line comments as a list item does (`item`, a blank line above kept).
+- `defArmsDoc` repeats `defDoc`'s header lines rather than changing `defDoc` while slice 1's proofs are being written against it; a shared header function would let them go.

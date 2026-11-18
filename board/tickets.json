@@ -24083,12 +24083,12 @@
     {
       "id": 3990,
       "title": "[Opus] Self-hosted fmt S5a program: the declarations that keep most sampled code out after S4a: test, namespace, import (and a definition's own arms if cheap); within5a, Fmt.Twin --stage s5a; gate identical to Rust on goldens and the repo sample (SW-3961's counts: test 392, namespace 137, import 124, definition arms 105)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected 30 min. Started 12:58, review 13:08 (Opus).\nBuilt: namespaceDoc, importDoc, testDoc, defArmsDoc (Rules.sw); within5a + formatWithin in Slice5a.sw (one-line text/char literals in the slice); Fmt.Twin --stage s5a, dev/fmt-twin s5a; 5 tests (Fmt.Tests 66/66).\nGate: goldens 336/336, repo sample 2,274/2,274 of 5,527; coverage 16.4% -> 41.1%; s1-s4a unchanged at 100%. F1 tree unchanged. Top out next: PatternList, PatternAbsurd, Annotation, NamedArg, Membership, Unit, PatternTuple, Spread (one-kind counts); Rewrite 734 by any-kind. See tools/fmt/NOTES.md, Slice 5a.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

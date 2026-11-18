@@ -29,6 +29,7 @@ STAGE is what is compared (the Rust side's dump in brackets):
     s2       (S2) the same for slices 1 and 2 together    [stitchwort dev doc]
     s3       (S3) the same for slices 1 to 3 together     [stitchwort dev doc]
     s4a      (S4a) the same for slices 1 to 4a together   [stitchwort dev doc]
+    s5a      (S5a) the same for slices 1 to 5a together   [stitchwort dev doc]
 
 The executable is called as `EXE --stage NAME FILE` and answers on standard
 output (and, for a refused file, standard error and a non-zero exit status)
@@ -91,7 +92,7 @@ STAGES = {
     "4": "passes", "passes": "passes",
     "5": "text", "6": "text", "text": "text",
     "engine": "engine",
-    "s1": "s1", "s2": "s2", "s3": "s3", "s4a": "s4a",
+    "s1": "s1", "s2": "s2", "s3": "s3", "s4a": "s4a", "s5a": "s5a",
 }
 
 # The commit that reformatted the repo with the tree printer: "the old layout"
@@ -705,7 +706,7 @@ def rust_texts(dump: Path) -> dict:
 
 def slice_stage(args, stage: str, sw: Path, exe: Path, groups: list, key: str) -> int:
     """A slice comparison: each declaration the executable says is within
-    the slice (`--stage s1` to `--stage s4a`), its text against
+    the slice (`--stage s1` to `--stage s5a`), its text against
     the text Rust's `dev doc` printed for it."""
     print(f"stage {stage}; Rust side {sw}; sources hash {key}; cache {CACHE}")
     total_within = total_matched = 0
@@ -798,7 +799,7 @@ def build_exe(args, sw: Path) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
-    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) text (5, 6), engine, s1, s2, s3 or s4a")
+    ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) text (5, 6), engine, s1, s2, s3, s4a or s5a")
     ap.add_argument("--inputs", default="", help="comma-separated input groups (see below)")
     ap.add_argument("--files", nargs="*", default=[], help="named files or folders")
     ap.add_argument("--exe", help="the executable to compare (default: build --project's --main natively)")
@@ -828,7 +829,7 @@ def main() -> int:
     try:
         stage = STAGES.get(args.stage)
         if stage is None:
-            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, expr, passes, text, engine, s1, s2, s3 or s4a")
+            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, expr, passes, text, engine, s1, s2, s3, s4a or s5a")
         sw = Path(args.sw)
         if not sw.is_file():
             raise Stop(f"{sw} doesn't exist: run `task build`")
@@ -837,7 +838,7 @@ def main() -> int:
         key = tool_hash()
         if stage == "engine":
             return engine_stage(args, sw, exe, groups, key)
-        if stage in ("s1", "s2", "s3", "s4a"):
+        if stage in ("s1", "s2", "s3", "s4a", "s5a"):
             return slice_stage(args, stage, sw, exe, groups, key)
         total_identical = total = 0
         print(f"stage {stage}; Rust side {sw}; sources hash {key}; cache {CACHE}")
