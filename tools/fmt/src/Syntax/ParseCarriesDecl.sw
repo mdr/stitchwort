@@ -300,9 +300,6 @@ theorem readsForallBump ∀ (modes: Modes):
             Parse.readsWeaken (readsForallEnd modes word paren bracket) (more found got =>
               equal => (Bool.falseNotTrue (got equal)).impossible))))
 
-theorem noneOrSome ∀ [value: a] (equal: Some value = None): False :=
-  (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible
-
 theorem readsForallPart ∀ (modes: Modes) (kind: DefKind):
     Parse.ReadsIn GoodItems (() => forallPart modes kind) (read found => found = None → read = []) :=
   readsAfter0
