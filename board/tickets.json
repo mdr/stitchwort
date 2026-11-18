@@ -23252,14 +23252,14 @@
     {
       "id": 3928,
       "title": "[DeepSeek] audit.rs witness_of: count the warned theorem's arity after unfolding its type (whnf), not syntactically, so a theorem restating a nicknamed ∀ statement isn't taken for a witness (SW-3920 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-18",
       "commits": []
     },
     {
