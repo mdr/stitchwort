@@ -2810,6 +2810,17 @@ theorem readsBackSignArgExample: Parse.run
     byComputing
     byComputing
 
+--| `-x` after an operand: `signStartsAtom`'s hypotheses can hold.
+theorem signStartsAtomExample: startsAtomKind Modes.start Minus [
+      spacedItem Minus "-" 6 False True,
+      spacedItem Lower "x" 7 True False
+    ]
+      = True :=
+  signStartsAtom Modes.start Minus
+    [spacedItem Minus "-" 6 False True, spacedItem Lower "x" 7 True False]
+    byComputing
+    byComputing
+
 --| A group closed at once: `groupLine`'s hypotheses can hold.
 theorem groupLineExample: headPlain [wordItem Lower "a" 1].reverse = True :=
   groupLine
