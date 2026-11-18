@@ -24674,7 +24674,7 @@
     {
       "id": 4034,
       "title": "[Opus] fmt S1 line-break 18g: finish printedHangs: a paren whose opener ends its line with a comment (expose the inner's first break for CloserFits), -> chains (glued state, own run lemma), the declaration level (bodyAfter, callHug, opensBracket, bodyDoc, headDocs, defDoc, defFrom, doc1, := and : leaves, parameter groups), trails equations for paren and call, deriving the rule hypotheses from within1, then printedHangs via hangsOfLays (SW-4030's Owed list in tools/fmt/NOTES.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
