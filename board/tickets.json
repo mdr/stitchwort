@@ -23821,15 +23821,30 @@
     {
       "id": 3970,
       "title": "[Sonnet] fmt S1 ticket 18a: rules and spelling proofs, first half; after 13a and 13b (sketch §2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 18 Nov 2026, about 60 min; estimate 60):\n- 18a, first half, done on `lane/SW-3970` (14 commits). `Fmt/CalmProofs.sw`: calmPrints (139 theorems). `Fmt/SpellProofs.sw`: printedSpells, printedSpellsSettled, printedSpellsText (126). `Fmt/PrintLexProofs.sw`: printedLexes, the bridge from `Pairs follows` to the lexer proofs' pieces (41). Audits clean; `Fmt.Tests` 86 of 86 (4 new, hypotheses and facts on tidied trees with comments).\n- Not done: `Joins` for each rule (so printLexes1 for a declaration), printedHangs, printedKeeping, printedSettle1. Notes and the plan for 18b are in tools/fmt/NOTES.md (\"Slice 1 rules proofs, first half\").\n- Findings: `MayFollow Bang` in LexProofs is stricter than the lexer (blocks `!isSmall x`); `Lexical1` doesn't give non-layout token text.\n- Rules.sw splits (behaviour kept, tests unchanged): parenInner, chainRight, chainOf, appFrom, matchedParts, bodyDoc, callHug, opensBracket, lambdaHug, defFrom, defDoc's body projections.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "3bae4d8b8",
+        "ac2a3d68a",
+        "2e80c7654",
+        "e6d84c9a5",
+        "3fa2b9b51",
+        "5388de331",
+        "c5bc1c637",
+        "fc2ad836f",
+        "936c0a529",
+        "eb43201e4",
+        "c06f3f0bc",
+        "d5793b2dc",
+        "b1b3638a8",
+        "3fcb55827"
+      ]
     },
     {
       "id": 3971,
