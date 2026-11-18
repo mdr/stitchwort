@@ -2707,3 +2707,184 @@ theorem declarationRuns ∀ (seen: Seen) (keyword name colon colonEq: Item)
       [] _
       (runsDeclarationDef seen keyword name colon colonEq typeRead valueRead result value isDef isLower isColon
           resultRuns isColonEq valueRuns))
+
+-- An operand that is one word, from `operatorExpr` down.
+
+--| What follows an operand, read at every level of the ladder, ends it: no call, field, argument, operator, range,
+--| pipe, comparison, `&&` or `||`, `<->`, `->` or `;`.
+type OperandEnds (modes: Modes) (rest: List Item) = {
+  noCall: unitCall rest = False,
+  noDot: dotAhead modes rest = False,
+  noArgument: startsAtomOn modes rest = False,
+  noMul: takesAhead modes (kind => kind == Star || kind == Slash || kind == Percent) rest = False,
+  noAdd: takesAhead modes (kind => kind == Plus || kind == Minus) rest = False,
+  noAppend: takesAhead modes (kind => kind == PlusPlus) rest = False,
+  noRange: rangeAhead modes rest = False,
+  noPipe: atPipeOn modes rest = False,
+  noCmp: cmpAhead modes rest = False,
+  noAndOr: andOrOn modes rest = False,
+  noIff: isSome IffArrow (peekIn modes 0 rest) = False,
+  noEnd: opEndsAhead modes (sequenceOn modes rest) rest = False
+}
+
+--| A word is no `match`, and no sign.
+theorem wordUnsigned ∀ (kind: Tok)
+    (word: isWord kind = True):
+    (kind == KwMatch) = False ∧ (kind == Minus || kind == Bang) = False :=
+  match kind, word with
+    | Lower, _ => (byComputing, byComputing)
+    | Upper, _ => (byComputing, byComputing)
+    | Num, _ => (byComputing, byComputing)
+    | Float, _ => (byComputing, byComputing)
+    | Str, _ => (byComputing, byComputing)
+    | CharLit, _ => (byComputing, byComputing)
+    | Underscore, _ => (byComputing, byComputing)
+    | Question, _ => (byComputing, byComputing)
+    | PropU, _ => (byComputing, byComputing)
+    | other, word => (Bool.falseNotTrue word).impossible
+
+--| `operatorExpr` of one word that nothing after it continues: the word's atom.
+--|
+--| Proof idea: down the ladder with no links at any level: `runsOpStartWith` with no logic and nothing at the end,
+--| `runsCmpPlain`, `runsPipedRange`, the three operator levels with no links, `runsUnaryApp`, `runsAppAtHead` and
+--| `runsAtomWord`.
+theorem runsWordOperator ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item) (rest: List Item)
+    (open: modes.stops item = False)
+    (word: isWord item.kind = True)
+    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
+    (noBar: matchesBarOn modes [item, ..rest] = False)
+    (ends: OperandEnds modes rest):
+    Parse.Runs (() => operatorExpr self modes) [item] rest (Atom item.kind item.leaf.word) :=
+  let atomValue := Atom item.kind item.leaf.word
+  let (_, _, _, _, notDot) := wordKinds item.kind word
+  let (notMatch, unsigned) := wordUnsigned item.kind word
+  let noSection: isSome Dot (peekIn modes 0 [item, ..rest]) = False :=
+    rewrite peekFirst modes item rest open then notDot
+  let atomRuns := runsAtomWord self modes True item rest open word plain ends.noCall ends.noDot
+  let appRuns := runsApp self modes [item] rest atomValue (start =>
+    runsAppAtHead self modes start [item] rest atomValue noSection atomRuns ends.noArgument)
+  let unaryRuns := runsUnaryApp self modes item [] rest atomValue open notMatch noBar unsigned appRuns
+  let mulRuns := runsMulExpr self modes [item] rest atomValue [] unaryRuns ends.noMul
+  let addRuns := runsAddExpr self modes [item] rest atomValue [] mulRuns ends.noAdd
+  let appendRuns := runsAppendExpr self modes [item] rest atomValue [] addRuns ends.noAppend
+  let pipedRuns := runsPipedRange self modes [item] rest atomValue ends.noRange ends.noPipe appendRuns
+  let cmpRuns := runsCmpPlain self modes [item] rest atomValue pipedRuns ends.noCmp
+  runsOperatorExpr self modes [item] rest atomValue (start =>
+    runsOpStartWith self modes start
+      [item]
+      []
+      []
+      rest
+      atomValue
+      atomValue
+      atomValue
+      noSection
+      cmpRuns
+      (runsLogicAfterNone self modes atomValue rest ends.noAndOr)
+      ends.noIff
+      (runsOpEndNone self modes atomValue (sequenceOn modes rest) rest ends.noEnd))
+
+--| A result type with no ability row: `full` in the modes `allowBrace` gives.
+theorem runsResultPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item) (value: Expr)
+    (noRow: rowOn (isSome LBrace (peekIn (allowBraceOn modes (read ++ rest)) 0 (read ++ rest))) (read ++ rest) = False)
+    (fullRuns: Parse.Runs
+      (() => self { modes = allowBraceOn modes (read ++ rest), level = LevelFull })
+      read
+      rest
+      value):
+    Parse.Runs (() => resultType self modes) read rest value :=
+  let allowed := allowBraceOn modes (read ++ rest)
+  runsLook
+    (() => allowBrace modes)
+    (allowed => resultAllowed self allowed)
+    allowed
+    read
+    rest
+    value
+    (Parse.runsMap (() => left()) (allowBraceOn modes) [] (read ++ rest) (read ++ rest) (runsLeftOn (read ++ rest)))
+    (runsLook
+      (() => rowAhead allowed)
+      (row => resultRow self allowed row)
+      False
+      read
+      rest
+      value
+      (runsSame
+        (() => rowAhead allowed)
+        [] _ _
+        False
+        noRow
+        (runsLook
+          (() => allowed.at LBrace)
+          (atBrace => rowOn atBrace left()) _
+          []
+          (read ++ rest) _
+          (runsAtOn allowed LBrace (read ++ rest))
+          (Parse.runsMap
+            (() => left())
+            (rowOn (isSome LBrace (peekIn allowed 0 (read ++ rest))))
+            []
+            (read ++ rest)
+            (read ++ rest)
+            (runsLeftOn (read ++ rest)))))
+      fullRuns)
+
+--| What `exprInline` looks for before an operator expression, none of it there.
+type InlinePlain (modes: Modes) (item: Item) (items: List Item) = {
+  notKeyword: startsKeywordExpr item.kind = False,
+  noLambda: lambdaAhead modes (items.length + 1) items = False,
+  noResult: lambdaResultType modes (items.length + 1) False items = False,
+  notQuantifier: (item.kind == KwExists || item.kind == KwForall) = False,
+  notIf: (item.kind == KwIf) = False,
+  noImplicit: implicitOn (items.length + 1) items (Some item.kind) = False,
+  noPi: piOn items (Some item.kind) = False
+}
+
+--| `expressionAt` of one word in the middle of a line, at the full level: the knot of `recursiveWith`, which reads the
+--| word without calling itself.
+--|
+--| Proof idea: `Parse.runsRecursiveWith` with the one read as what is good; the body is `expr`, which, the word not
+--| starting a line, is `exprInline`, then `runsWordOperator`.
+theorem runsExpressionWord ∀ (modes: Modes) (item: Item) (rest: List Item)
+    (inLine: item.leaf.token.lineStart = False)
+    (open: modes.stops item = False)
+    (word: isWord item.kind = True)
+    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
+    (noBar: matchesBarOn modes [item, ..rest] = False)
+    (inline: InlinePlain modes item [item, ..rest])
+    (ends: OperandEnds modes rest):
+    Parse.Runs (() => expressionAt { modes, level = LevelFull }) [item] rest (Atom item.kind item.leaf.word) :=
+  Parse.runsRecursiveWith expressionRule
+    (goal read later value =>
+      goal = { modes, level = LevelFull } ∧ read = [item] ∧ later = rest ∧ value = Atom item.kind item.leaf.word)
+    (self goal read later value (isGoal, isRead, isRest, isValue) nested =>
+      rewrite isGoal, isRead, isRest, isValue then
+        state =>
+          runsFromExpr self modes state
+            [item]
+            rest
+            (Atom item.kind item.leaf.word)
+            (runsExprLaterInline self modes
+              (state.at.offset > 0)
+              item
+              []
+              rest
+              (Atom item.kind item.leaf.word)
+              (rewrite inLine)
+              (runsExprInline self modes item [] rest
+                (Atom item.kind item.leaf.word)
+                open
+                inline.notKeyword
+                inline.noLambda
+                inline.noResult
+                inline.notQuantifier
+                inline.notIf
+                inline.noImplicit
+                inline.noPi
+                (runsWordOperator self modes item rest open word plain noBar ends))
+              state))
+    { modes, level = LevelFull }
+    [item]
+    rest
+    (Atom item.kind item.leaf.word)
+    (byComputing, byComputing, byComputing, byComputing)
