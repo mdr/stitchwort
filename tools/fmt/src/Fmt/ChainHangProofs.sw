@@ -50,12 +50,14 @@ theorem partAt ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: 
       (byComputing, folded, ended, arithmetic)
       (left later (done, landed) => after left later (done, landed, clear))
 
---| A run of a chain (`Line`, the operator, a space, its operand's first doc, then the operand's own runs).
+--| A run of a chain whose operator folds as a plain token (`Line`, the operator, a space, its operand's first doc,
+--| then the operand's own runs).
 --|
 --| Proof idea: the `Line` seats the operator, a plain element, where it breaks or stays (`lineArg`, `argHangs`); the
 --| space keeps where it ended (`gapKeeps`); the operand's first doc is an element after words (`partAt`), its runs
 --| keep the fold.
-theorem runHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List Doc) (before operated middle trails: Bool)
+theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
+    (rest: List Doc) (before operated middle trails: Bool)
     (operatorHangs: HangsAt kinds before operated operatorDoc)
     (firstHangs: HangsAt kinds operated middle first)
     (runs: TailHangs kinds middle trails rest):
@@ -102,15 +104,194 @@ theorem runHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List 
             (partAt kinds first indent inset state operated middle quiet unglued deeper (firstHangs inset inset))
             (runs state indent inset quiet unglued clear deeper))))
 
+-- `->`.
+
+--| An operator that folds as `->`: wherever it is laid and seated, it ends mid-line, no comment after it, with the
+--| fold glued, so the next word may not start a line.
+def GluesAt (kinds: Text → Tok) (before: Bool) (doc: Doc): Prop :=
+  ∀ (indent column: Nat) (state: HangState) (entry: Place) => HangLays kinds doc indent
+    (Entered indent column before state entry (wordStart indent entry))
+    (place hang =>
+      Ended (gluedBy state (wordStart indent entry)) False place
+        ∧ hang = Hang.At (gluedBy state (wordStart indent entry)))
+
+--| What a chain's operator asks: it folds as a plain token, or as `->` with no comment after it.
+def RunOperator (kinds: Text → Tok) (before operated: Bool) (doc: Doc): Prop :=
+  HangsAt kinds before operated doc ∨ (operated = False ∧ GluesAt kinds before doc)
+
+--| The fold glued after words, with nothing starting.
+def stuckFrom (state: HangState): HangState := { blocks = state.blocks, top = state.top, start = False, glue = True }
+
+theorem gluedQuiet ∀ (state: HangState) (start: Option Nat)
+    (quiet: state.start = False):
+    gluedBy state start = stuckFrom state :=
+  match state, quiet with
+    | { blocks = [], top, start = False, glue }, _ => byComputing
+    | { blocks = [block, ..outer], top, start = False, glue }, _ => byComputing
+
+--| A word mid-line after `->` unglues the fold: back to what it was before the operator.
+theorem stuckUnglued ∀ (state: HangState)
+    (quiet: state.start = False)
+    (unglued: state.glue = False):
+    openedBy (stuckFrom state) None = state :=
+  match state, quiet, unglued with
+    | { blocks = [], top, start = False, glue = False }, _, _ => byComputing
+    | { blocks = [block, ..outer], top, start = False, glue = False }, _, _ => byComputing
+
+--| `->` from its seat after the `Line`: the fold glued.
+theorem arrowArg ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: HangState) (before: Bool)
+    (quiet: state.start = False)
+    (clear: (inForce state.blocks state.top <= indent) = True)
+    (glues: GluesAt kinds before doc):
+    HangLays kinds doc inset (ArgSeat state inset before) (AfterWords (stuckFrom state) indent False) :=
+  place trace next (folded, seat) after =>
+    let same := gluedQuiet state (wordStart inset place) quiet
+    glues inset inset state place place trace next (byComputing, folded, seat) (left later (ended, landed) =>
+      after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
+
+--| The operand's first doc after `->` and its space: mid-line, so it starts no line, and the fold unglued again.
+theorem gluedPart ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: HangState) (trails: Bool)
+    (quiet: state.start = False)
+    (unglued: state.glue = False)
+    (deeper: (indent < inset) = True)
+    (el: ElHangs kinds doc inset inset False trails wordStart):
+    HangLays kinds doc inset (AfterWords (stuckFrom state) indent False) (AfterWords state indent trails) :=
+  place trace next (ended, folded, clear) after =>
+    let back := stuckUnglued state quiet unglued
+    match place, ended with
+      | Mid at carry, (floor, left) =>
+        el
+          (stuckFrom state)
+          (Mid at carry)
+          (Mid at carry)
+          trace
+          next
+          (byComputing, folded, ((floor, left), Nat.leRefl inset, arithmetic, byComputing))
+          (left later (done, landed) =>
+            after left later (rewrite back at done then done, rewrite back at landed then landed, clear))
+      | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
+
+--| A run of a chain of `->` (`Line`, the arrow, a space, its operand's first doc, then the operand's own runs).
+--|
+--| Proof idea: as `plainRunHangs`, the arrow leaving the fold glued (`arrowArg`); the space keeps it (`gapKeeps`),
+--| and the operand's first doc, mid-line, unglues it (`gluedPart`).
+theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List Doc) (before middle trails: Bool)
+    (glues: GluesAt kinds before operatorDoc)
+    (firstHangs: HangsAt kinds False middle first)
+    (runs: TailHangs kinds middle trails rest):
+    TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
+  state indent inset quiet unglued clear deeper =>
+    let stuck := stuckFrom state
+    hangsCons kinds Line
+      [operatorDoc, Doc.text " ", first, ..rest]
+      inset
+      (AfterWords state indent before)
+      (ArgSeat state inset before)
+      (AfterWords state indent trails)
+      (lineArg kinds inset indent state before unglued deeper)
+      (hangsCons kinds operatorDoc
+        [Doc.text " ", first, ..rest]
+        inset
+        (ArgSeat state inset before)
+        (AfterWords stuck indent False)
+        (AfterWords state indent trails)
+        (arrowArg kinds operatorDoc inset indent state before quiet clear glues)
+        (hangsCons kinds
+          (Doc.text " ")
+          [first, ..rest]
+          inset
+          (AfterWords stuck indent False)
+          (AfterWords stuck indent False)
+          (AfterWords state indent trails)
+          (place trace next (ended, folded, bounded) after =>
+            gapKeeps kinds
+              (Doc.text " ")
+              inset
+              stuck
+              False
+              ((inForce stuck.blocks stuck.top <= indent) = True)
+              (Inr byComputing)
+              place
+              trace
+              next
+              (ended, folded, bounded)
+              after)
+          (hangsCons kinds first rest inset
+            (AfterWords stuck indent False)
+            (AfterWords state indent middle)
+            (AfterWords state indent trails)
+            (gluedPart kinds first indent inset state middle quiet unglued deeper (firstHangs inset inset))
+            (runs state indent inset quiet unglued clear deeper))))
+
+--| A run of a chain: `plainRunHangs` or `arrowRunHangs`, as its operator folds.
+theorem runHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List Doc) (before operated middle trails: Bool)
+    (operatorHangs: RunOperator kinds before operated operatorDoc)
+    (firstHangs: HangsAt kinds operated middle first)
+    (runs: TailHangs kinds middle trails rest):
+    TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
+  match operatorHangs with
+    | Inl plain => plainRunHangs kinds operatorDoc first rest before operated middle trails plain firstHangs runs
+    | Inr (quiet, glues) =>
+      arrowRunHangs kinds operatorDoc first rest before middle trails glues
+        (rewrite quiet at firstHangs then firstHangs)
+        runs
+
+--| Where words ended, nothing in force is changed by the glue.
+theorem endedGlued ∀ (state: HangState) (start: Option Nat) (trails: Bool) (place: Place)
+    (ended: Ended (openedBy state start) trails place):
+    Ended (gluedBy state start) trails place :=
+  match place, ended with
+    | Mid at carry, ended => ended
+    | Held at carry, ended => ended
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+
+--| `->`, a token with no comments of its own: written where the place says, it glues the fold.
+theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat) (before: Bool)
+    (arrow: kinds word.text = Arrow)
+    (token: word.text.startsWith "--" = False)
+    (solid: isLayout word.text = False)
+    (closer: isCloserText word.text = False)
+    (comma: (word.text == ",") = False)
+    (bare: word.leading around key = [])
+    (quiet: word.comments.after = None):
+    GluesAt kinds before (word.leaf around key) :=
+  indent column state entry =>
+    let start := wordStart indent entry
+    let pre := Entered indent column before state entry start
+    let post: Place → Hang → Prop := place hang =>
+      Ended (gluedBy state start) False place ∧ hang = Hang.At (gluedBy state start)
+    let written: HangLays kinds (Doc.text word.text) indent pre post :=
+      hangsChunk kinds word.text word.text.length indent pre post solid (place trace (isEntry, folded, seat) =>
+        match seat with
+          | (seated, _, _, room) =>
+            rewrite isEntry, folded then
+              (
+                endedGlued state start False
+                  (wordAfter indent word.text entry)
+                  (wordEnded indent column before word.text state entry token seated room),
+                stepArrow kinds state word.text start (tokenCode word.text start token solid) arrow room
+              ))
+    rewrite leafIsText word around key closer comma bare then
+      match after: word.comments.after, quiet with
+        | None, _ =>
+          hangsConcat kinds
+            [Doc.text word.text]
+            indent
+            pre
+            post
+            (hangsLast kinds (Doc.text word.text) indent pre post written)
+
 --| What a chain's operand asks (`linkDocs`): a chain of the same level its operands and operators, each operator
---| hanging after the operand before it and before a space; anything else hanging as an element.
+--| folding as a plain token or as `->` after the operand before it and before a space (`RunOperator`); anything
+--| else hanging as an element.
 def LinkFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (trails: Bool):
     Prop :=
   match expr with
     | Infix InfixBinary left operator right =>
       if expr.inChain level then
         ∃ (leftTrails: Bool) => LinkFacts kinds level first left around leftTrails
-          ∧ HangsAt kinds leftTrails operator.trails
+          ∧ RunOperator kinds leftTrails operator.trails
             (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
           ∧ chainRight level right (around.next operator.trails (left.size + 1))
             = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
@@ -119,7 +300,7 @@ def LinkFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Exp
     | Infix InfixArrow left operator right =>
       if expr.inChain level then
         ∃ (leftTrails: Bool) => LinkFacts kinds level first left around leftTrails
-          ∧ HangsAt kinds leftTrails operator.trails
+          ∧ RunOperator kinds leftTrails operator.trails
             (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
           ∧ chainRight level right (around.next operator.trails (left.size + 1))
             = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
@@ -134,7 +315,7 @@ def PairFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Exp
     (around: Around) (leftTrails trails: Bool):
     Prop :=
   LinkFacts kinds level first left around leftTrails
-    ∧ HangsAt kinds leftTrails operator.trails
+    ∧ RunOperator kinds leftTrails operator.trails
       (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
     ∧ chainRight level right (around.next operator.trails (left.size + 1))
       = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
@@ -295,6 +476,39 @@ theorem binaryChainHangs ∀ (kinds: Text → Tok) (left: Expr) (operator: Word)
   let level := (Infix InfixBinary left operator right).chainLevel
   framedHangs kinds
     (Infix InfixBinary left operator right).firstWord
+    around
+    (chain level left operator right { around | hoisted = True })
+    indent
+    column
+    trails
+    bare
+    (inset seat =>
+      chainHangs kinds level left operator right { around | hoisted = True } inset seat leftTrails trails flat facts)
+
+--| A chain of `->` as an element, framed, its own-line comments written elsewhere or none.
+theorem arrowChainHangs ∀ (kinds: Text → Tok) (left: Expr) (operator: Word) (right: Expr) (around: Around)
+    (indent column: Nat) (leftTrails trails: Bool)
+    (bare: (Infix InfixArrow left operator right).firstWord.leading around around.at = [])
+    (flat: left.opensArms (Infix InfixArrow left operator right).chainLevel = False)
+    (facts: PairFacts kinds
+      (Infix InfixArrow left operator right).chainLevel
+      True
+      left
+      operator
+      right
+      { around | hoisted = True }
+      leftTrails
+      trails):
+    ElHangs kinds
+      (Expr.el (Infix InfixArrow left operator right) around)
+      indent
+      column
+      around.before
+      trails
+      wordStart :=
+  let level := (Infix InfixArrow left operator right).chainLevel
+  framedHangs kinds
+    (Infix InfixArrow left operator right).firstWord
     around
     (chain level left operator right { around | hoisted = True })
     indent

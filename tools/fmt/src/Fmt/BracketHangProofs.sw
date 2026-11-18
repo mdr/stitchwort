@@ -635,7 +635,7 @@ theorem closerStep ∀ (kinds: Text → Tok) (close: Word) (closeAround: Around)
     let shallow: leftOf indent block = True := match block, deep with
       | None, _ => byComputing
       | Some column, deep => arithmetic
-    let fold: CloserFold indent state block outer := (byComputing, byComputing, nested, bound, shallow)
+    let fold: CloserFold indent state block outer := (byComputing, byComputing, nested, bound)
     let fits: (close.noted || close.lone closeAround) = True
       → CloserFits key indent block (inForce outer top) place.carry :=
       line =>
@@ -770,6 +770,7 @@ theorem endedSits ∀ (inset indent: Nat) (outer: List (Option Nat)) (top block:
 --| line after it at the bracket's indentation.
 theorem softSits ∀ (kinds: Text → Tok) (inset indent: Nat) (outer: List (Option Nat)) (top: Option Nat) (trails: Bool)
     (close: Word) (closeAround: Around)
+    (deeper: (indent < inset) = True)
     (beforeOf: trails = True → closeAround.before = True):
     HangLays kinds SoftLine indent
       (ItemEnd inset outer top trails)
@@ -778,15 +779,18 @@ theorem softSits ∀ (kinds: Text → Tok) (inset indent: Nat) (outer: List (Opt
     (ItemEnd inset outer top trails)
     (CloserSits inset indent outer top close closeAround)
     (place trace (block, deep, ended, folded) =>
+      let shallow: leftOf indent block = True := match block, deep with
+        | None, _ => byComputing
+        | Some column, deep => arithmetic
       match place, ended with
         | Mid at carry, (floor, left) =>
           let landed: floored carry indent = indent := rewrite floor
-          ((block, False, deep, folded, (floor, left)), (block, False, deep, folded, Inr (landed, floor)))
+          ((block, False, deep, folded, (floor, left)), (block, False, deep, folded, Inr (landed, floor, shallow)))
         | Held at carry, (waits, floor, left) =>
           let landed: floored carry indent = indent := rewrite floor
           (
             (block, False, deep, folded, (beforeOf waits, floor, left)),
-            (block, False, deep, folded, Inr (landed, floor))
+            (block, False, deep, folded, Inr (landed, floor, shallow))
           ))
 
 --| What is in force after an element's first word, no comment waiting, is no further right than the line it is on:
@@ -895,7 +899,7 @@ theorem bracketContentHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
         (ItemEnd inset outer top (lastTrails open.trails items))
         (CloserSits inset indent outer top close closeAround)
         byComputing
-        (softSits kinds inset indent outer top (lastTrails open.trails items) close closeAround closeBefore)
+        (softSits kinds inset indent outer top (lastTrails open.trails items) close closeAround arithmetic closeBefore)
     rewrite bracketIs list open items close around then
       match items, each, filledKeys, brokenKeys, closeBefore with
         | [], _, _, _, closeBefore =>
