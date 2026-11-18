@@ -25357,12 +25357,12 @@
     {
       "id": 4085,
       "title": "[Sonnet] fmt S1 goal printedSpelledPlain1: the formatter's output passes spelledPlain1 (the second run's driver tests it) (SW-4079, new gap)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane note (Sonnet, 18 Nov): printedSpelledPlain1 proved in new Fmt.SpelledOutputProofs (commit 7baaa300c on lane/SW-4085); goal removed from TopStatements, which imports the theorem. Statement unchanged. ~8 min.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
