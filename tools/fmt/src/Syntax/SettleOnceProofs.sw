@@ -7,17 +7,23 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (
   alphabet1,
+  bareComma,
   dropSpacesStart,
   emptyOf,
+  endsOn,
+  homedBehind,
+  homedLeaf,
   laidOut,
   lexedTexts,
   arrowFollow,
   backOk,
   leafTexts,
   optionText,
+  passable,
   passableKind,
   plain1,
   plainFrom,
+  stopsAt,
   tokens,
   triviaTexts
 )
@@ -512,3 +518,240 @@ theorem trimmedComment ∀ (text: Text)
       let startsOk := trimStartsDashes text.toList starts
       let singleOk := trimNoNewline text.toList single
       rewrite startsOk, singleOk, back, dropSpacesStart (text.toList.reverseOnto [])
+
+-- From leaves to words: comments.
+
+--| `codeWords` of `Syntax.ParseSettledStatements`, which imports this file.
+def wordsOf (leaves: List Leaf): List Word := leaves.filter (leaf => leaf.kind != Comma) |> .map Leaf.word
+
+theorem noteTexts ∀ (comments: List Comment):
+    (comments.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })).map (note => note.text)
+      = comments.map (comment => comment.text) :=
+  match comments with
+    | [] => byComputing
+    | [comment, ..rest] => Eq.cong (tail => [comment.text, ..tail]) (noteTexts rest)
+
+theorem optionTexts ∀ (trailing: Option Comment):
+    (trailing.map (comment => comment.text)).toList = optionText trailing :=
+  match trailing with
+    | None => byComputing
+    | Some comment => byComputing
+
+--| A leaf's word holds the comment texts the leaf does.
+theorem wordTexts ∀ (leaf: Leaf): leaf.word.comments.texts = triviaTexts leaf.trivia :=
+  rewrite noteTexts leaf.trivia.leading, optionTexts leaf.trivia.trailing
+
+theorem leavesCommentTexts ∀ (leaves: List Leaf)
+    (all: (leafTexts leaves).all commentText = True):
+    leaves.all (leaf => (triviaTexts leaf.trivia).all commentText) = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      let split :=
+        rewrite textsCons leaf rest, allAppendB (triviaTexts leaf.trivia) (leafTexts rest) commentText at all then all
+      Bool.andIntro (Bool.andLeft split) (leavesCommentTexts rest (Bool.andRight split))
+
+theorem wordsCommentTexts ∀ (leaves: List Leaf)
+    (all: leaves.all (leaf => (triviaTexts leaf.trivia).all commentText) = True):
+    (wordsOf leaves).all (word => word.comments.texts.all commentText) = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      match comma: leaf.kind != Comma with
+        | False => wordsCommentTexts rest (Bool.andRight all)
+        | True =>
+          Bool.andIntro (rewrite wordTexts leaf then Bool.andLeft all) (wordsCommentTexts rest (Bool.andRight all))
+
+-- From leaves to words: closers homed.
+
+--| `Leaf.marked` of `Syntax.ParseSettledStatements`: a leaf's text says whether it is a closer and whether it is `->`
+--| as its kind does.
+def isMarked (leaf: Leaf): Bool :=
+  isCloserText leaf.token.text == leaf.token.kind.isCloser
+    && (operatorTok leaf.token.text == Some Arrow) == (leaf.token.kind == Arrow)
+
+theorem eqOfBeq ∀ (a b: Bool) (h: (a == b) = True): a = b := cases
+
+theorem wordsOfComma ∀ (leaf: Leaf) (rest: List Leaf)
+    (isComma: (leaf.token.kind == Comma) = True):
+    wordsOf [leaf, ..rest] = wordsOf rest :=
+  rewrite isComma
+
+theorem wordsOfItem ∀ (leaf: Leaf) (rest: List Leaf)
+    (notComma: (leaf.token.kind == Comma) = False):
+    wordsOf [leaf, ..rest] = [leaf.word, ..wordsOf rest] :=
+  rewrite notComma
+
+theorem wordTrails ∀ (leaf: Leaf): leaf.word.trails = leaf.trivia.trailing.isSome := match leaf.trivia.trailing with
+  | None => byComputing
+  | Some comment => byComputing
+
+theorem wordNoted ∀ (leaf: Leaf): leaf.word.noted = !leaf.trivia.leading.isEmpty := match leaf.trivia.leading with
+  | [] => byComputing
+  | [comment, ..rest] => byComputing
+
+theorem endsOnStep ∀ (leaf: Leaf) (earlier: List Leaf):
+    endsOn [leaf, ..earlier]
+      = (leaf.trivia.trailing.isSome || (!(earlier.isEmpty || !passable leaf) && endsOn earlier)) :=
+  match some: leaf.trivia.trailing.isSome with
+    | True => byComputing
+    | False =>
+      match empty: earlier.isEmpty || !passable leaf with
+        | True => byComputing
+        | False => byComputing
+
+theorem noneNotSome ∀ (option: Option Comment) (none: option.isNone = True): option.isSome = False := match option with
+  | None => byComputing
+
+theorem stopOfPassable ∀ (empty passes: Bool) (h: (!(empty || !passes)) = True): passes = True := cases
+
+theorem orFalseLeft ∀ (a b: Bool) (h: (a || b) = True) (off: a = False): b = True := cases
+
+theorem orNotTrue ∀ (a b: Bool) (h: (a || !b) = True) (on: b = True): a = True := cases
+
+theorem endsOnTrailsComma ∀ (leaf: Leaf) (earlier: List Leaf)
+    (isComma: (leaf.token.kind == Comma) = True)
+    (ends: endsOn [leaf, ..earlier] = True)
+    (bare: bareComma leaf = True)
+    (rec: endsOn earlier = True → trailsBack (wordsOf earlier) = True):
+    trailsBack (wordsOf [leaf, ..earlier]) = True :=
+  let step: (leaf.trivia.trailing.isSome || (!(earlier.isEmpty || !passable leaf) && endsOn earlier)) = True :=
+    rewrite endsOnStep leaf earlier at ends then ends
+  let kept :=
+    orNotTrue (leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone) (leaf.token.kind == Comma) bare isComma
+  let notSome: leaf.trivia.trailing.isSome = False := noneNotSome leaf.trivia.trailing (Bool.andRight kept)
+  let rest :=
+    orFalseLeft leaf.trivia.trailing.isSome (!(earlier.isEmpty || !passable leaf) && endsOn earlier) step notSome
+  rewrite wordsOfComma leaf earlier isComma then rec (Bool.andRight rest)
+
+theorem endsOnTrailsItem ∀ (leaf: Leaf) (earlier: List Leaf)
+    (notComma: (leaf.token.kind == Comma) = False)
+    (ends: endsOn [leaf, ..earlier] = True)
+    (marked: isMarked leaf = True)
+    (rec: endsOn earlier = True → trailsBack (wordsOf earlier) = True):
+    trailsBack (wordsOf [leaf, ..earlier]) = True :=
+  let step: (leaf.trivia.trailing.isSome || (!(earlier.isEmpty || !passable leaf) && endsOn earlier)) = True :=
+    rewrite endsOnStep leaf earlier at ends then ends
+  let item := wordsOfItem leaf earlier notComma
+  match some: leaf.trivia.trailing.isSome with
+    | True => rewrite item then Bool.orLeft (rewrite wordTrails leaf then some)
+    | False =>
+      let rest :=
+        orFalseLeft leaf.trivia.trailing.isSome (!(earlier.isEmpty || !passable leaf) && endsOn earlier) step some
+      let passes := stopOfPassable earlier.isEmpty (passable leaf) (Bool.andLeft rest)
+      let closer: leaf.token.kind.isCloser = True :=
+        orFalseLeft (leaf.token.kind == Comma) leaf.token.kind.isCloser passes notComma
+      let marker := eqOfBeq (isCloserText leaf.token.text) leaf.token.kind.isCloser (Bool.andLeft marked)
+      let word: isCloserText leaf.token.text = True := rewrite closer at marker then marker
+      rewrite item then Bool.orRight (Bool.andIntro word (rec (Bool.andRight rest)))
+
+--| `trailsBack` of the words of leaves, newest first: a comment ends the line wherever rule 1 would put one, since
+--| commas hold none (the leaves are settled), and the closers are the words that are closers.
+theorem endsOnTrails ∀ (older: List Leaf)
+    (ends: endsOn older = True)
+    (bare: older.all bareComma = True)
+    (marked: older.all isMarked = True):
+    trailsBack (wordsOf older) = True :=
+  match older with
+    | [leaf, ..earlier] =>
+      let rec := (more => endsOnTrails earlier more (Bool.andRight bare) (Bool.andRight marked))
+      match isComma: leaf.token.kind == Comma with
+        | True => endsOnTrailsComma leaf earlier isComma ends (Bool.andLeft bare) rec
+        | False => endsOnTrailsItem leaf earlier isComma ends (Bool.andLeft marked) rec
+
+theorem someNotNone ∀ (option: Option Comment) (some: option.isSome = True): option.isNone = False := match option with
+  | Some comment => byComputing
+
+theorem homedCore ∀ (tr cl ct lead em wem ls ends tb: Bool)
+    (there: (!tr || (!cl || em || (ls && (!lead || ends)))) = True)
+    (marker: (ct == cl) = True)
+    (empty: (!em || wem) = True)
+    (trails: (!ends || tb) = True):
+    (!(ct && tr) || wem || !lead || tb) = True :=
+  match tr with
+    | False => cases
+    | True =>
+      match cl with
+        | False => rewrite eqOfBeq ct False marker
+        | True =>
+          rewrite eqOfBeq ct True marker then
+            match em with
+              | True => rewrite empty
+              | False =>
+                match lead with
+                  | False => cases
+                  | True => cases
+
+theorem wordsEmpty ∀ (leaves: List Leaf) (empty: leaves.isEmpty = True): (wordsOf leaves).isEmpty = True :=
+  match leaves with | [] => byComputing
+
+theorem noneIsNot ∀ (option: Option Comment): option.isNone = !option.isSome := match option with
+  | None => byComputing
+  | Some comment => byComputing
+
+theorem orAndLeft ∀ (x a b: Bool) (h: (x || (a && b)) = True): (x || a) = True := cases
+
+--| A closer that keeps a trailing comment stops rule 1's walk, in the leaves, so it has own-line comments or follows
+--| code that ends with a comment, which the words say too.
+theorem homedWordsLeaf ∀ (leaf: Leaf) (earlier: List Leaf)
+    (there: homedLeaf leaf earlier = True)
+    (marked: isMarked leaf = True)
+    (bare: earlier.all bareComma = True)
+    (markedEarlier: earlier.all isMarked = True):
+    (!(isCloserText leaf.word.text && leaf.word.trails)
+      || (wordsOf earlier).isEmpty
+      || leaf.word.noted
+      || trailsBack (wordsOf earlier))
+      = True :=
+  let thereNone: (leaf.trivia.trailing.isNone || (!leaf.token.kind.isCloser || earlier.isEmpty || stopsAt leaf earlier))
+    = True :=
+    orAndLeft _ _ _ there
+  let tr: (!leaf.trivia.trailing.isSome
+    || (!leaf.token.kind.isCloser
+      || earlier.isEmpty
+      || (leaf.token.lineStart && (!leaf.trivia.leading.isEmpty || endsOn earlier))))
+    = True :=
+    rewrite noneIsNot leaf.trivia.trailing at thereNone then thereNone
+  let marker: (isCloserText leaf.token.text == leaf.token.kind.isCloser) = True := Bool.andLeft marked
+  let empty: (!earlier.isEmpty || (wordsOf earlier).isEmpty) = True := match e: earlier.isEmpty with
+    | True => rewrite wordsEmpty earlier e
+    | False => byComputing
+  let trails: (!endsOn earlier || trailsBack (wordsOf earlier)) = True := match e: endsOn earlier with
+    | True => rewrite endsOnTrails earlier e bare markedEarlier
+    | False => byComputing
+  let core :=
+    homedCore leaf.trivia.trailing.isSome leaf.token.kind.isCloser
+      (isCloserText leaf.token.text)
+      leaf.trivia.leading.isEmpty
+      earlier.isEmpty
+      (wordsOf earlier).isEmpty
+      leaf.token.lineStart
+      (endsOn earlier)
+      (trailsBack (wordsOf earlier))
+      tr
+      marker
+      empty
+      trails
+  rewrite wordTrails leaf, wordNoted leaf then core
+
+--| A closer's trailing comment is where rule 1 leaves it: homed as the leaves read it, so homed as the words read
+--| it (K1's `homed`, whose look back sees no commas).
+theorem homedWords ∀ (older: List Leaf)
+    (homed: homedBehind older = True)
+    (bare: older.all bareComma = True)
+    (marked: older.all isMarked = True):
+    homedBack (wordsOf older) = True :=
+  match older with
+    | [] => byComputing
+    | [leaf, ..earlier] =>
+      let more := homedWords earlier (Bool.andRight homed) (Bool.andRight bare) (Bool.andRight marked)
+      match isComma: leaf.token.kind == Comma with
+        | True => more
+        | False =>
+          Bool.andIntro
+            (homedWordsLeaf leaf earlier
+              (Bool.andLeft homed)
+              (Bool.andLeft marked)
+              (Bool.andRight bare)
+              (Bool.andRight marked))
+            more
