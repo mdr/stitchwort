@@ -1,5 +1,5 @@
 {
-  "next": 3960,
+  "next": 3961,
   "tickets": [
     {
       "id": 47,
@@ -23505,12 +23505,12 @@
     {
       "id": 3947,
       "title": "[Opus] Sweep erase::def_telescope's callers for matches on a parameter type without forcing it first (js boundary had one, SW-3936); boundary's out-of-resources gives E-EXPORT not E-RESOURCE",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane notes (Opus, 18 Nov 11:12-11:33):\n- Swept every caller of erase::def_telescope, check::telescope/proof_telescope, Def::ty_value and kernel::def_ty in core, elab, driver, rt, js, lsp, cli (about 80 sites). One unforced shape match left: js boundary's Map key (`Map Name Nat`, `def Name: Type := Text`, refused as not a map from Text). Fixed by forcing the key; test extract::a_map_key_through_a_nickname_crosses (fails first with E-EXPORT).\n- boundary returns a Refusal (Cannot | Resource): running out while forcing is reported as E-RESOURCE, not E-EXPORT. No failing-first test: exportable's Partial check (quote of the whole type) normalises it first and caches the unfoldings, so the work budget always runs out there (probed 1.5M-6M steps: E-RESOURCE or success, never boundary).\n- No core change; hashes unchanged (hash_stability + pinned_hashes pass).\n- Commit 882c5f036 on lane/SW-3947.\n",
+      "body": "Lane notes (Opus, 18 Nov 11:12-11:33):\n- Swept every caller of erase::def_telescope, check::telescope/proof_telescope, Def::ty_value and kernel::def_ty in core, elab, driver, rt, js, lsp, cli (about 80 sites). One unforced shape match left: js boundary's Map key (`Map Name Nat`, `def Name: Type := Text`, refused as not a map from Text). Fixed by forcing the key; test extract::a_map_key_through_a_nickname_crosses (fails first with E-EXPORT).\n- boundary returns a Refusal (Cannot | Resource): running out while forcing is reported as E-RESOURCE, not E-EXPORT. No failing-first test: exportable's Partial check (quote of the whole type) normalises it first and caches the unfoldings, so the work budget always runs out there (probed 1.5M-6M steps: E-RESOURCE or success, never boundary).\n- No core change; hashes unchanged (hash_stability + pinned_hashes pass).\n- Commit 882c5f036 on lane/SW-3947.\n\nMerged 18 Nov. Site table in the lane report: one unsafe site (js boundary Map key), fixed with failing-first test extract::a_map_key_through_a_nickname_crosses; E-RESOURCE path unreachable today (no test). No hash moved. 20 min (est. 40).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23679,6 +23679,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3960,
+      "title": "[DeepSeek] js exportable: the Partial check (E-JS-PARTIAL) reads def.ty_value, not def_telescope's view, so a Partial result behind an opaque nickname gets a vaguer E-EXPORT; read it from tel. And generic_field_boundaries' .expect on boundary can in principle panic now boundary returns a Resource refusal: pass it on instead (SW-3947 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
