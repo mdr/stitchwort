@@ -3730,6 +3730,319 @@ theorem givesArmPatterns ∀ (modes: Modes): Parse.Gives GoodItems (() => armPat
           ())
         (pair _ => Parse.givesDone byComputing)))
 
+-- The binder parsers, read for nothing but that they are read.
+
+theorem givesFullAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => full self modes) (expr => True) :=
+  givesSelfAny self nested { modes, level = LevelFull }
+
+theorem givesRefuseAttributes ∀ (attributes: List Attributes) (what: Text):
+    Parse.Gives GoodItems (() => refuseAttributes attributes what) (unit => True) :=
+  match attributes with
+    | [] => Parse.givesDone byComputing
+    | [first, ..rest] => Parse.readsFatal _ _
+
+theorem givesParamNameOn ∀ (modes: Modes) (seen: Option Tok):
+    Parse.Gives GoodItems (() => paramNameOn modes seen) (word => True) :=
+  match seen with
+    | Some Upper => givesFail modes _
+    | Some LParen => givesFail modes _
+    | Some LBrace => givesFail modes _
+    | other => givesLower modes "a parameter's name"
+
+theorem givesParamName ∀ (modes: Modes): Parse.Gives GoodItems (() => paramName modes) (word => True) :=
+  givesAfter0 [p := () => modes.peek] [j := seen => paramNameOn modes seen] (reads0Peek modes) (seen =>
+    givesParamNameOn modes seen)
+
+theorem givesParamNames ∀ (modes: Modes): Parse.Gives GoodItems (() => paramNames modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      [holds := word => True]
+      (givesAfter0
+        [p := () => modes.at Lower]
+        [j := atLower => paramNameStep modes atLower]
+        (reads0At modes Lower)
+        (atLower =>
+          match atLower with
+            | True =>
+              Parse.givesThen [p := () => paramName modes] [j := word => Some word] (givesParamName modes) (found _ =>
+                Parse.givesDone byComputing)
+            | False => Parse.givesDone byComputing)))
+    (found ok => byComputing)
+
+theorem givesLowerNames ∀ (modes: Modes): Parse.Gives GoodItems (() => lowerNames modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      [holds := word => True]
+      (givesAfter0
+        [p := () => modes.at Lower]
+        [j := atLower => lowerNameStep modes atLower]
+        (reads0At modes Lower)
+        (atLower =>
+          match atLower with
+            | True =>
+              Parse.givesThen
+                [p := () => modes.lower "a name"]
+                [j := word => Some word]
+                (givesLower modes "a name")
+                (found _ => Parse.givesDone byComputing)
+            | False => Parse.givesDone byComputing)))
+    (found ok => byComputing)
+
+theorem givesConsumedBare ∀ (started: Parse.Mark Item):
+    Parse.Gives GoodItems (() => consumedBare started) (found => True) :=
+  Parse.givesThen Parse.givesMark (here _ => Parse.givesDone byComputing)
+
+theorem givesAllowBrace ∀ (modes: Modes): Parse.Gives GoodItems (() => allowBrace modes) (found => True) :=
+  givesAfter0 [p := () => left()] [j := items => allowBraceOn modes items] reads0Left (items =>
+    Parse.givesDone byComputing)
+
+theorem givesBinderTypeOn ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
+    (nested: Nested self)
+    (seen: Option Tok) (items: List Item):
+    Parse.Gives GoodItems (() => binderTypeOn self allowed seen items) (expr => True) :=
+  match seen, items with
+    | Some LBrace, [open, ..rest] =>
+      match skipGroup [] [open, ..rest] with
+        | Some [next, ..more] =>
+          match typeStarts next.kind with
+            | True => Parse.readsFatal _ _
+            | False => givesFullAny self allowed nested
+        | other => givesFullAny self allowed nested
+    | other, others => givesFullAny self allowed nested
+
+theorem givesBinderTypeSeen ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
+    (nested: Nested self) (seen: Option Tok):
+    Parse.Gives GoodItems (() => binderTypeSeen self allowed seen) (expr => True) :=
+  givesAfter0 [p := () => left()] [j := items => binderTypeOn self allowed seen items] reads0Left (items =>
+    givesBinderTypeOn self allowed nested seen items)
+
+theorem givesBinderType ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => binderType self modes) (expr => True) :=
+  Parse.givesThen (givesAllowBrace modes) (allowed _ =>
+    givesAfter0 [p := () => allowed.peek] [j := seen => binderTypeSeen self allowed seen] (reads0Peek allowed) (seen =>
+      givesBinderTypeSeen self allowed nested seen))
+
+theorem givesHeaderDefault ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self) (implicit atColonEq: Bool):
+    Parse.Gives GoodItems (() => headerDefault self inner implicit atColonEq) (found => True) :=
+  match atColonEq with
+    | True =>
+      match implicit with
+        | True => Parse.readsFatal _ _
+        | False => Parse.givesThen givesFixedFrom (colonEq _ =>
+          Parse.givesThen (givesFullAny self inner nested) (value _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesHeaderGroupEnd ∀ (kind: GroupKind) (implicit: Bool) (open: Comments) (auto: Option Comments)
+    (named: List Word) (colon: Comments) (annotation: Expr) (default: Option (Comments, Expr)) (close: Comments)
+    (refused: Option Text) (consumed: Bool):
+    Parse.Gives GoodItems
+      (() => headerGroupEnd kind implicit open auto named colon annotation default close refused consumed)
+      (found => True) :=
+  match refused, default with
+    | Some message, Some value => Parse.readsFatal _ _
+    | Some message, None => Parse.givesDone byComputing
+    | None, other => Parse.givesDone byComputing
+
+theorem givesHeaderGroupColon ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text) (implicit: Bool) (started: Parse.Mark Item) (open: Comments)
+    (auto: Option Comments) (named: List Word) (atColon: Bool):
+    Parse.Gives GoodItems
+      (() => headerGroupColon self inner kind refused implicit started open auto named atColon)
+      (found => True) :=
+  match atColon with
+    | False => Parse.readsFatal _ _
+    | True => Parse.givesThen givesFixedFrom (colon _ =>
+      Parse.givesThen (givesBinderType self inner nested) (annotation _ =>
+        Parse.givesThen
+          [p := () => headerDefault self inner implicit (inner.at ColonEq)]
+          (givesAfter0
+            [p := () => inner.at ColonEq]
+            [j := atColonEq => headerDefault self inner implicit atColonEq]
+            (reads0At inner ColonEq)
+            (atColonEq => givesHeaderDefault self inner nested implicit atColonEq))
+          (default _ =>
+            Parse.givesThen (givesExpectFixed inner (closerOf implicit) (closeMessage implicit auto named)) (close _ =>
+              Parse.givesThen (givesConsumedBare started) (consumed _ =>
+                givesHeaderGroupEnd kind implicit open auto named colon annotation default close refused consumed)))))
+
+theorem givesHeaderGroupNamed ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text) (implicit: Bool) (started: Parse.Mark Item)
+    (open: Comments) (split: (Option Comments, List Word)):
+    Parse.Gives GoodItems (() => headerGroupNamed self inner kind refused implicit started open split) (found =>
+      True) :=
+  match split with
+    | (auto, named) =>
+      givesAfter0
+        [p := () => inner.at Colon]
+        [j := atColon => headerGroupColon self inner kind refused implicit started open auto named atColon]
+        (reads0At inner Colon)
+        (atColon => givesHeaderGroupColon self inner nested kind refused implicit started open auto named atColon)
+
+theorem givesHeaderGroupTyped ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text) (implicit: Bool) (started: Parse.Mark Item)
+    (open: Comments) (names: List Word):
+    Parse.Gives GoodItems (() => headerGroupTyped self inner kind refused implicit started open names) (found =>
+      True) :=
+  givesHeaderGroupNamed self inner nested kind refused implicit started open (autoSplit implicit names)
+
+theorem givesHeaderGroupAuto ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (open: Comments) (auto: Word):
+    Parse.Gives GoodItems (() => headerGroupAuto self inner kind open auto) (found => True) :=
+  Parse.givesThen (givesFullAny self inner nested) (annotation _ =>
+    Parse.givesThen (givesExpectFixed inner RBracket "`]` to close the parameter `[auto …]`") (close _ =>
+      Parse.givesDone byComputing))
+
+theorem givesHeaderGroupNames ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text) (implicit: Bool) (started: Parse.Mark Item) (open: Comments)
+    (names: List Word) (typeFollows: Bool):
+    Parse.Gives GoodItems
+      (() => headerGroupNames self inner kind refused implicit started open names typeFollows)
+      (found => True) :=
+  match names with
+    | [auto] =>
+      match implicit && auto.text == "auto" && typeFollows with
+        | True => givesHeaderGroupAuto self inner nested kind open auto
+        | False => givesHeaderGroupTyped self inner nested kind refused implicit started open names
+    | other => givesHeaderGroupTyped self inner nested kind refused implicit started open names
+
+theorem givesHeaderGroupParts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text) (implicit: Bool):
+    Parse.Gives GoodItems (() => headerGroupParts self modes kind refused implicit) (found => True) :=
+  Parse.givesThen Parse.givesMark (started _ =>
+    Parse.givesThen givesFixedFrom (open _ =>
+      Parse.givesThen (givesAttributesOf modes.inBrackets) (attributes _ =>
+        Parse.givesThen (givesRefuseAttributes attributes "a definition's parameter") (refusal _ =>
+          Parse.givesThen (givesParamName modes.inBrackets) (first _ =>
+            Parse.givesThen (givesParamNames modes.inBrackets) (more _ =>
+              Parse.givesThen (givesAt modes.inBrackets Colon) (atColon _ =>
+                Parse.givesThen (givesAt modes.inBrackets RBracket) (atBracket _ =>
+                  Parse.givesThen (givesOfReads0 (reads0Peek modes.inBrackets)) (peeked _ =>
+                    givesHeaderGroupNames self modes.inBrackets nested kind refused implicit started open
+                      [first, ..more]
+                      (typeFollowsOf atColon atBracket peeked))))))))))
+
+theorem givesHeaderGroupOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text) (first second: Option Tok):
+    Parse.Gives GoodItems (() => headerGroupOn self modes kind refused first second) (found => True) :=
+  match first, second with
+    | Some LParen, Some RParen =>
+      Parse.givesThen givesFixedFrom (open _ => Parse.givesThen givesFixedFrom (close _ => Parse.givesDone byComputing))
+    | Some LParen, other => givesHeaderGroupParts self modes nested kind refused False
+    | Some LBracket, other => givesHeaderGroupParts self modes nested kind refused True
+    | other, others => givesFail modes _
+
+theorem givesHeaderGroup ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (kind: GroupKind) (refused: Option Text):
+    Parse.Gives GoodItems (() => headerGroup self modes kind refused) (found => True) :=
+  givesAfter0
+    [p := () => modes.peek]
+    [j := first => headerGroupSeen self modes kind refused first]
+    (reads0Peek modes)
+    (first =>
+      givesAfter0
+        [p := () => modes.peekAt 1]
+        [j := second => headerGroupOn self modes kind refused first second]
+        (reads0PeekAt modes 1)
+        (second => givesHeaderGroupOn self modes nested kind refused first second))
+
+theorem givesHeaderParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => headerParams self modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      [holds := group => True]
+      (givesAfter0
+        [p := () => modes.at Colon]
+        [j := atColon => headerParamStep self modes atColon]
+        (reads0At modes Colon)
+        (atColon =>
+          match atColon with
+            | True => Parse.givesDone byComputing
+            | False =>
+              Parse.givesThen
+                [p := () => headerGroup self modes GroupParam None]
+                [j := group => Some group]
+                (givesHeaderGroup self modes nested GroupParam None)
+                (group _ => Parse.givesDone byComputing))))
+    (found ok => byComputing)
+
+theorem givesBinderDefault ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self) (atColonEq: Bool):
+    Parse.Gives GoodItems (() => binderDefault self inner atColonEq) (found => True) :=
+  match atColonEq with
+    | True => Parse.givesThen givesFixedFrom (colonEq _ =>
+      Parse.givesThen (givesFullAny self inner nested) (value _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesBinderGroup ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self) (defaults: Bool):
+    Parse.Gives GoodItems (() => binderGroup self modes defaults) (found => True) :=
+  Parse.givesThen (givesExpectFixed modes LParen "`(`") (open _ =>
+    Parse.givesThen (givesAttributesOf modes.inBrackets) (attributes _ =>
+      Parse.givesThen (givesLower modes.inBrackets "a name") (first _ =>
+        Parse.givesThen (givesLowerNames modes.inBrackets) (more _ =>
+          Parse.givesThen (givesExpectFixed modes.inBrackets Colon "`:`") (colon _ =>
+            Parse.givesThen (givesBinderType self modes.inBrackets nested) (annotation _ =>
+              Parse.givesThen
+                [p := () => binderDefault self modes.inBrackets (modes.inBrackets.at ColonEq)]
+                (givesAfter0
+                  [p := () => modes.inBrackets.at ColonEq]
+                  [j := atColonEq => binderDefault self modes.inBrackets atColonEq]
+                  (reads0At modes.inBrackets ColonEq)
+                  (atColonEq => givesBinderDefault self modes.inBrackets nested atColonEq))
+                (default _ =>
+                  Parse.givesThen (givesExpectFixed modes.inBrackets RParen "`)`") (close _ =>
+                    match !defaults && default.isSome with
+                      | True => Parse.readsFatal _ _
+                      | False => Parse.givesDone byComputing))))))))
+
+theorem givesImplicitNamed ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (open: Comments) (attributes: List Attributes) (split: (Option Comments, List Word)):
+    Parse.Gives GoodItems (() => implicitNamed self inner open attributes split) (found => True) :=
+  match split with
+    | (auto, names) => Parse.givesThen (givesExpectFixed inner Colon "`:`") (colon _ =>
+      Parse.givesThen (givesBinderType self inner nested) (annotation _ =>
+        Parse.givesThen (givesExpectFixed inner RBracket "`]`") (close _ => Parse.givesDone byComputing)))
+
+theorem givesImplicitBinderOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self) (nameless: Bool):
+    Parse.Gives GoodItems (() => implicitBinderOf self modes nameless) (found => True) :=
+  match nameless with
+    | True => Parse.givesThen givesFixedFrom (open _ =>
+      Parse.givesThen givesFixedFrom (auto _ =>
+        Parse.givesThen (givesFullAny self modes.inBrackets nested) (annotation _ =>
+          Parse.givesThen (givesExpectFixed modes.inBrackets RBracket "`]`") (close _ => Parse.givesDone byComputing))))
+    | False => Parse.givesThen (givesExpectFixed modes LBracket "`[`") (open _ =>
+      Parse.givesThen (givesAttributesOf modes.inBrackets) (attributes _ =>
+        Parse.givesThen (givesLower modes.inBrackets "a name") (first _ =>
+          Parse.givesThen (givesLowerNames modes.inBrackets) (rest _ =>
+            givesImplicitNamed self modes.inBrackets nested open attributes (implicitAuto first rest)))))
+
+theorem givesImplicitBinder ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => implicitBinder self modes) (found => True) :=
+  givesAfter0
+    [p := () => left()]
+    [j := items => implicitBinderOf self modes (namelessAutoAt items)]
+    reads0Left
+    (items => givesImplicitBinderOf self modes nested (namelessAutoAt items))
+
 --| Everything `Outside` says, from what is not yet proved and `Nested`.
 def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): Outside self := {
   matches = rest.matches,
@@ -3862,7 +4175,6 @@ type FrameRest (self: Goal → {Parse Item} Expr) = {
   others: ∀ (modes: Modes) (attributes: List Attributes) (seen: Option Tok) => Parse.Gives GoodItems
     (() => declarationOther modes attributes seen)
     DeclOut,
-  params: ∀ (modes: Modes) => Parse.Gives GoodItems (() => headerParams self modes) (found => True),
   arms: ∀ (modes: Modes) (d: Nat) => Parse.Gives GoodItems (() => armsBody self modes d) BodyOk
 }
 
@@ -4002,7 +4314,7 @@ def frameOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: Fram
   imports = (seen modes => givesImportStep seen modes),
   others = rest.others,
   foralls = (modes kind => givesForallPart modes kind),
-  params = rest.params,
+  params = (modes => givesHeaderParams self modes nested),
   decreasings = (modes headerModes isInstance => givesDecreasingPart self modes headerModes isInstance nested),
   unfoldings = (modes afterDecreasing isInstance => givesUnfoldingPart modes afterDecreasing isInstance),
   arms = rest.arms

@@ -137,7 +137,17 @@ def refuseAttributes (attributes: List Attributes) (what: Text): {Parse Item} ()
 --| where none may be written.
 def headerGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: GroupKind) (refused: Option Text):
     {Parse Item} Group :=
-  match modes.peek, modes.peekAt 1 with
+  headerGroupSeen self modes kind refused modes.peek
+
+def headerGroupSeen (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: GroupKind)
+    (refused: Option Text) (first: Option Tok):
+    {Parse Item} Group :=
+  headerGroupOn self modes kind refused first (modes.peekAt 1)
+
+def headerGroupOn (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: GroupKind)
+    (refused: Option Text) (first second: Option Tok):
+    {Parse Item} Group :=
+  match first, second with
     | Some LParen, Some RParen =>
       let open := fixedFrom()
       let close := fixedFrom()
@@ -164,85 +174,145 @@ def headerGroupParts (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Gr
   let started := Parse.mark()
   let open := fixedFrom()
   let inner := modes.inBrackets
-  refuseAttributes (attributesOf inner) "a definition's parameter"
+  let attributes := attributesOf inner
+  let _ := refuseAttributes attributes "a definition's parameter"
   let first := paramName inner
-  let names := [first, ..paramNames inner]
-  let typeFollows := !(inner.at Colon || inner.at RBracket || inner.peek.isNone)
+  let more := paramNames inner
+  let atColon := inner.at Colon
+  let atBracket := inner.at RBracket
+  let next := inner.peek
+  headerGroupNames self inner kind refused implicit started open [first, ..more] (typeFollowsOf atColon atBracket next)
+
+def typeFollowsOf (atColon atBracket: Bool) (next: Option Tok): Bool := !(atColon || atBracket || next.isNone)
+
+def headerGroupNames (self: Goal → {Parse Item} Expr) (inner: Modes) (kind: GroupKind) (refused: Option Text)
+    (implicit: Bool) (started: Parse.Mark Item) (open: Comments) (names: List Word) (typeFollows: Bool):
+    {Parse Item} Group :=
   match names with
-    | [auto] if implicit && auto.text == "auto" && typeFollows =>
-      let annotation := full self inner
-      let close := inner.expectFixed RBracket "`]` to close the parameter `[auto …]`"
-      {
-        kind,
-        implicit,
-        open,
-        attributes = [],
-        auto = Some auto.comments,
-        names = [],
-        colon = None,
-        annotation = Some annotation,
-        default = None,
-        close,
-        bare = False
-      }
-    | _ =>
-      let (auto, named) := match names with
-        | [word, second, ..more] if implicit && word.text == "auto" => (Some word.comments, [second, ..more])
-        | _ => (None, names)
-      let (opener, closer, closeText) := if implicit then ("[", RBracket, "]") else ("(", RParen, ")")
-      let written := "${opener}${if auto.isSome then "auto " else ""}${(named.map (name => name.text)).joinWith " "}: …"
-      if !inner.at Colon then fatal "a parameter needs a type"
-      else
-        let colon := fixedFrom()
-        let annotation := binderType self inner
-        let default :=
-          if inner.at ColonEq then
-            if implicit then fatal defaultPlaces
-            else
-              let colonEq := fixedFrom()
-              Some (colonEq, full self inner)
-          else None
-        let close := inner.expectFixed closer "`${closeText}` to close the parameter `${written}`"
-        match refused, default with
-          | Some message, Some _ => fatal message
-          | _, _ => {
-            kind,
-            implicit,
-            open,
-            attributes = [],
-            auto,
-            names = named,
-            colon = Some colon,
-            annotation = Some annotation,
-            default,
-            close,
-            bare = default.isNone && consumedBare started
-          }
+    | [auto] =>
+      if implicit && auto.text == "auto" && typeFollows then headerGroupAuto self inner kind open auto
+      else headerGroupTyped self inner kind refused implicit started open names
+    | _ => headerGroupTyped self inner kind refused implicit started open names
+
+--| `[auto P]`: the group has no names, only a type.
+def headerGroupAuto (self: Goal → {Parse Item} Expr) (inner: Modes) (kind: GroupKind) (open: Comments) (auto: Word):
+    {Parse Item} Group :=
+  let annotation := full self inner
+  let close := inner.expectFixed RBracket "`]` to close the parameter `[auto …]`"
+  {
+    kind,
+    implicit = True,
+    open,
+    attributes = [],
+    auto = Some auto.comments,
+    names = [],
+    colon = None,
+    annotation = Some annotation,
+    default = None,
+    close,
+    bare = False
+  }
+
+def headerGroupTyped (self: Goal → {Parse Item} Expr) (inner: Modes) (kind: GroupKind) (refused: Option Text)
+    (implicit: Bool) (started: Parse.Mark Item) (open: Comments) (names: List Word):
+    {Parse Item} Group :=
+  headerGroupNamed self inner kind refused implicit started open (autoSplit implicit names)
+
+--| A leading `auto` of an implicit group, apart from the names after it.
+def autoSplit (implicit: Bool) (names: List Word): (Option Comments, List Word) := match names with
+  | [word, second, ..more] =>
+    if implicit && word.text == "auto" then (Some word.comments, [second, ..more]) else (None, names)
+  | _ => (None, names)
+
+def headerGroupNamed (self: Goal → {Parse Item} Expr) (inner: Modes) (kind: GroupKind) (refused: Option Text)
+    (implicit: Bool) (started: Parse.Mark Item) (open: Comments) (split: (Option Comments, List Word)):
+    {Parse Item} Group :=
+  match split with
+    | (auto, named) => headerGroupColon self inner kind refused implicit started open auto named (inner.at Colon)
+
+def closerOf (implicit: Bool): Tok := if implicit then RBracket else RParen
+
+def closeMessage (implicit: Bool) (auto: Option Comments) (named: List Word): Text :=
+  let opener := if implicit then "[" else "("
+  let closeText := if implicit then "]" else ")"
+  let written := "${opener}${if auto.isSome then "auto " else ""}${(named.map (name => name.text)).joinWith " "}: …"
+  "`${closeText}` to close the parameter `${written}`"
+
+def headerGroupColon (self: Goal → {Parse Item} Expr) (inner: Modes) (kind: GroupKind) (refused: Option Text)
+    (implicit: Bool) (started: Parse.Mark Item) (open: Comments) (auto: Option Comments)
+    (named: List Word) (atColon: Bool):
+    {Parse Item} Group :=
+  if !atColon then fatal "a parameter needs a type"
+  else
+    let colon := fixedFrom()
+    let annotation := binderType self inner
+    let default := headerDefault self inner implicit (inner.at ColonEq)
+    let close := inner.expectFixed (closerOf implicit) (closeMessage implicit auto named)
+    let consumed := consumedBare started
+    headerGroupEnd kind implicit open auto named colon annotation default close refused consumed
+
+def headerDefault (self: Goal → {Parse Item} Expr) (inner: Modes) (implicit atColonEq: Bool):
+    {Parse Item} Option (Comments, Expr) :=
+  if atColonEq then
+    if implicit then fatal defaultPlaces
+    else
+      let colonEq := fixedFrom()
+      let value := full self inner
+      Some (colonEq, value)
+  else None
+
+def headerGroupEnd (kind: GroupKind) (implicit: Bool) (open: Comments) (auto: Option Comments) (named: List Word)
+    (colon: Comments) (annotation: Expr) (default: Option (Comments, Expr)) (close: Comments)
+    (refused: Option Text) (consumed: Bool):
+    {Parse Item} Group :=
+  match refused, default with
+    | Some message, Some _ => fatal message
+    | _, _ => {
+      kind,
+      implicit,
+      open,
+      attributes = [],
+      auto,
+      names = named,
+      colon = Some colon,
+      annotation = Some annotation,
+      default,
+      close,
+      bare = default.isNone && consumed
+    }
 
 --| Whether the items read since `started` have no comments, except above
 --| the first: the trivia the Rust merge pass checks on a group's tokens.
 def consumedBare (started: Parse.Mark Item): {Parse Item} Bool :=
-  let taken := (started.rest).take (Parse.mark().offset - started.offset)
-  match taken with
-    | [] => True
-    | [first, ..rest] => first.leaf.trivia.trailing.isNone && itemsBare rest
+  let here := Parse.mark()
+  bareTaken (started.rest.take (here.offset - started.offset))
+
+def bareTaken (taken: List Item): Bool := match taken with
+  | [] => True
+  | [first, ..rest] => first.leaf.trivia.trailing.isNone && itemsBare rest
 
 def itemsBare: List Item → Bool
   | [] => True
   | [item, ..rest] => item.leaf.trivia.leading.isEmpty && item.leaf.trivia.trailing.isNone && itemsBare rest
 
 --| A parameter's name (`param_name`).
-def paramName (modes: Modes): {Parse Item} Word := match modes.peek with
+def paramName (modes: Modes): {Parse Item} Word := paramNameOn modes modes.peek
+
+def paramNameOn (modes: Modes): Option Tok → {Parse Item} Word
   | Some Upper => modes.fail "a parameter's name"
   | Some LParen => modes.fail "a parameter's name"
   | Some LBrace => modes.fail "a parameter's name"
   | _ => modes.lower "a parameter's name"
 
-def paramNames (modes: Modes): {Parse Item} List Word :=
-  Parse.loop (() => if modes.at Lower then Some (paramName modes) else None)
+def paramNames (modes: Modes): {Parse Item} List Word := Parse.loop (() => paramNameStep modes (modes.at Lower))
 
-def lowerNames (modes: Modes): {Parse Item} List Word :=
-  Parse.loop (() => if modes.at Lower then Some (modes.lower "a name") else None)
+def paramNameStep (modes: Modes) (atLower: Bool): {Parse Item} Option Word :=
+  if atLower then Some (paramName modes) else None
+
+def lowerNames (modes: Modes): {Parse Item} List Word := Parse.loop (() => lowerNameStep modes (modes.at Lower))
+
+def lowerNameStep (modes: Modes) (atLower: Bool): {Parse Item} Option Word :=
+  if atLower then Some (modes.lower "a name") else None
 
 --| A type's, constructor's or function type's `(x y: A)` (`binder_with_default`),
 --| with a default only if `defaults`.
@@ -251,14 +321,10 @@ def binderGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (defaults: Boo
   let inner := modes.inBrackets
   let attributes := attributesOf inner
   let first := inner.lower "a name"
-  let names := [first, ..lowerNames inner]
+  let more := lowerNames inner
   let colon := inner.expectFixed Colon "`:`"
   let annotation := binderType self inner
-  let default :=
-    if inner.at ColonEq then
-      let colonEq := fixedFrom()
-      Some (colonEq, full self inner)
-    else None
+  let default := binderDefault self inner (inner.at ColonEq)
   let close := inner.expectFixed RParen "`)`"
   if !defaults && default.isSome then fatal defaultPlaces
   else
@@ -268,7 +334,7 @@ def binderGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (defaults: Boo
       open,
       attributes,
       auto = None,
-      names,
+      names = [first, ..more],
       colon = Some colon,
       annotation = Some annotation,
       default,
@@ -276,9 +342,20 @@ def binderGroup (self: Goal → {Parse Item} Expr) (modes: Modes) (defaults: Boo
       bare = False
     }
 
+def binderDefault (self: Goal → {Parse Item} Expr) (inner: Modes) (atColonEq: Bool):
+    {Parse Item} Option (Comments, Expr) :=
+  if atColonEq then
+    let colonEq := fixedFrom()
+    let value := full self inner
+    Some (colonEq, value)
+  else None
+
 --| `[x y: A]`, `[auto x: P]` or `[auto P]` (`implicit_binder_parts`).
 def implicitBinder (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Group :=
-  if namelessAutoAt left() then
+  implicitBinderOf self modes (namelessAutoAt left())
+
+def implicitBinderOf (self: Goal → {Parse Item} Expr) (modes: Modes) (nameless: Bool): {Parse Item} Group :=
+  if nameless then
     let open := fixedFrom()
     let auto := fixedFrom()
     let annotation := full self modes.inBrackets
@@ -302,25 +379,34 @@ def implicitBinder (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
     let attributes := attributesOf inner
     let first := inner.lower "a name"
     let rest := lowerNames inner
-    let (auto, names) := match rest with
-      | [_, .._] if first.text == "auto" => (Some first.comments, rest)
-      | _ => (None, [first, ..rest])
-    let colon := inner.expectFixed Colon "`:`"
-    let annotation := binderType self inner
-    let close := inner.expectFixed RBracket "`]`"
-    {
-      kind = GroupBinder,
-      implicit = True,
-      open,
-      attributes,
-      auto,
-      names,
-      colon = Some colon,
-      annotation = Some annotation,
-      default = None,
-      close,
-      bare = False
-    }
+    implicitNamed self inner open attributes (implicitAuto first rest)
+
+--| A leading `auto` of `[auto x: P]`, apart from the names after it.
+def implicitAuto (first: Word) (rest: List Word): (Option Comments, List Word) := match rest with
+  | [_, .._] => if first.text == "auto" then (Some first.comments, rest) else (None, [first, ..rest])
+  | _ => (None, [first, ..rest])
+
+def implicitNamed (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Comments)
+    (attributes: List Attributes) (split: (Option Comments, List Word)):
+    {Parse Item} Group :=
+  match split with
+    | (auto, names) =>
+      let colon := inner.expectFixed Colon "`:`"
+      let annotation := binderType self inner
+      let close := inner.expectFixed RBracket "`]`"
+      {
+        kind = GroupBinder,
+        implicit = True,
+        open,
+        attributes,
+        auto,
+        names,
+        colon = Some colon,
+        annotation = Some annotation,
+        default = None,
+        close,
+        bare = False
+      }
 
 --| A `{` starting a line at the block's own column may start the type
 --| (`allow_brace_at_block_column`).
@@ -336,10 +422,19 @@ def allowBraceOn (modes: Modes) (items: List Item): Modes := match items, modes.
 --| A binder's type (`binder_type`): an ability row there is refused.
 def binderType (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let allowed := allowBrace modes
-  match allowed.peek, left() with
+  binderTypeSeen self allowed allowed.peek
+
+def binderTypeSeen (self: Goal → {Parse Item} Expr) (allowed: Modes) (seen: Option Tok): {Parse Item} Expr :=
+  binderTypeOn self allowed seen left()
+
+def binderTypeOn (self: Goal → {Parse Item} Expr) (allowed: Modes) (seen: Option Tok) (items: List Item):
+    {Parse Item} Expr :=
+  match seen, items with
     | Some LBrace, [open, ..rest] =>
       match skipGroup [] [open, ..rest] with
-        | Some [next, .._] if typeStarts next.kind => fatal "an ability row can't be written in a parameter's type"
+        | Some [next, .._] =>
+          if typeStarts next.kind then fatal "an ability row can't be written in a parameter's type"
+          else full self allowed
         | _ => full self allowed
     | _, _ => full self allowed
 
@@ -811,7 +906,10 @@ def allowColonEqOn (modes: Modes): List Item → Modes
   | _ => modes
 
 def headerParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Group :=
-  Parse.loop (() => if !modes.at Colon then Some (headerGroup self modes GroupParam None) else None)
+  Parse.loop (() => headerParamStep self modes (modes.at Colon))
+
+def headerParamStep (self: Goal → {Parse Item} Expr) (modes: Modes) (atColon: Bool): {Parse Item} Option Group :=
+  if !atColon then Some (headerGroup self modes GroupParam None) else None
 
 def unfoldingNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word := match fuel with
   | Succ more =>
