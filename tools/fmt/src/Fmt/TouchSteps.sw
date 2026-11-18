@@ -501,7 +501,7 @@ theorem stepsClosing ∀ (text: Text) (before: Bool)
 theorem stepsSuffix ∀ (text: Text)
     (comment: isComment text = True)
     (solid: isLayout text = False):
-    Steps (LineSuffix text) (seam => seam = Along True) [] (Ends True) :=
+    Steps (LineSuffix text) (seam => seam = Along True) [] (Closed True) :=
   seam trace next holds after =>
     rewrite holds then
-      (solid, stay (Ends True) [] (Awaiting True text) trace next byComputing after (byComputing, comment))
+      (solid, stay (Closed True) [] (Awaiting True text) trace next byComputing after (byComputing, comment))
