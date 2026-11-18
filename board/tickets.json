@@ -1,5 +1,5 @@
 {
-  "next": 3958,
+  "next": 3959,
   "tickets": [
     {
       "id": 47,
@@ -23593,12 +23593,12 @@
     {
       "id": 3953,
       "title": "[Sonnet] Pre-commit hook follow-ups (SW-3952): a checkout without .pre-commit-config.yaml (an old branch's worktree) fails every commit: check prek's install options for an allow-missing-config equivalent, else make the hook skip with a warning; stitchwort fmt --check honours DELIBERATELY_UNFORMATTED for named files so the script needn't filter; extend the repo formatted test and the hook to apps/, bench/, tools/; prek hides the hook's skip warning",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\n\nLane notes (Sonnet, 18 Nov): all four items done on lane/SW-3953. prek install --allow-missing-config (shim gets --skip-on-missing-config; silent skip, no warning); fmt --check skips named deliberately unformatted files; repo test covers every tracked .sw (3 tools/fmt files formatted); hook verbose. Model result: Sonnet, worked, ~30 min (est. 35).\n",
+      "body": "\n\n\nLane notes (Sonnet, 18 Nov): all four items done on lane/SW-3953. prek install --allow-missing-config (shim gets --skip-on-missing-config; silent skip, no warning); fmt --check skips named deliberately unformatted files; repo test covers every tracked .sw (3 tools/fmt files formatted); hook verbose. Model result: Sonnet, worked, ~30 min (est. 35).\n\nModel result: sonnet, worked, 14 min (est. 35). prek install --allow-missing-config (silent skip; no warning mode). fmt --check skips named deliberate files; coverage every tracked .sw. Formatted the 3 tools/fmt files SW-3950 left unformatted.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": [
@@ -23653,6 +23653,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3958,
+      "title": "[DeepSeek] Merge the duplicate repo-formatted tests: fmt::the_repository_sources_are_formatted and fmt_repo::tracked_sw_files_are_formatted now walk the same tracked files (37 s each); keep one (SW-3953 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
