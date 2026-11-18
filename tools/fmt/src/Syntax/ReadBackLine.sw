@@ -13,8 +13,10 @@
 --| to its atom and spaced from what precedes it (`argumentGlue`); not a call's head (`-1 n`). Binary operators read
 --| as the parser's chains: `* / %` and `+ -` nest to the left, the spine flattened into links (`mulAcc`, `addAcc`), each
 --| operator ending the operand before it (`opEnds`) and spaced from the one after (`operandApart`, so `a - x` is no
---| call `a -x`). An arrow `A -> B` reads its left side as a comparison and logic links (`operatorLine`) and its right
---| side in full (`arrowLine`), so arrows nest to the right. Lines starting inside an expression are not here yet.
+--| call `a -x`). `++` nests to the right (`appendLine`), and a comparison joins two such chains once (`cmpLine`). An
+--| arrow `A -> B` reads its left side as a comparison (`operatorLine`) and its right side in full (`arrowLine`), so
+--| arrows nest to the right. `&&` and `||` (`groupLogic`'s regrouping) and lines starting inside an expression are not
+--| here yet.
 
 namespace Syntax.ReadBackLine
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void)
