@@ -1319,7 +1319,9 @@ def plainFrom: List Token → Bool
   | _ => True
 
 --| `plain` for slice 1's alphabet: as `plainFrom`, and the first token is
---| no comma or closer. Every file that parses is `plain`.
+--| no comma or closer. Almost every file that parses is `plain`: K1's case
+--| (a comma starting its line before a closer, whose comments rule N parks)
+--| parses and isn't, and the proofs under `plain1` leave it out.
 def plain1 (tokens: List Token): Bool := match tokens with
   | [] => True
   | [first, .._] => !passableKind first.kind && plainFrom tokens
