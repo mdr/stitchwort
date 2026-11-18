@@ -3,11 +3,25 @@
 --| declaration's printed pieces) after one or two line breaks, so `lexPrintedPairs` reads it as `Laid.lay` folded
 --| over them; a declaration laid from the start of a line gives its own leaves, the first holding the comments and
 --| blank lines waiting there (`layShifted`), as long as it starts with a token and ends with nothing waiting
---| (`Seamed`, the open goal `printedSeam1`).
+--| (`Seamed`, `printedSeam1`: the document leads with `def` and finishes with a token, `printedStart1` and
+--| `printedFinish1`).
 
 namespace Fmt.FileLexProofs
-import Std (Bool, Char, Doc, Eq, List, Nat, Option, Parse, Result, Text, Void, byDecision)
-import Std.Doc.Proofs (Every, Joins, Leads, Plain, Uniform, leadsConcat, printedJoins, printedLeads, printedPieces)
+import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Parse, Result, Text, Void, byDecision)
+import Std.Doc.Proofs (
+  Every,
+  Finishes,
+  Joins,
+  Leads,
+  Plain,
+  Uniform,
+  leadsConcat,
+  printedFinishes,
+  printedJoins,
+  printedLeads,
+  printedPieces,
+  spacedComments
+)
 import Syntax (..)
 import Syntax.Proofs (AllPlain, AllSpelled, Laid, PairsFollow, Piece, lexPrintedPairs, pieceSteps, piecesText)
 import Fmt (..)
@@ -22,12 +36,15 @@ import Fmt.PrintLexProofs (
   pairsFollowFold,
   pieceFold,
   pieceFoldOk,
+  addPiece,
+  pieceOf,
   piecesTextIsConcat,
   remarkSpelled
 )
+import Fmt.FinishProofs (Final, defFinishes, finalSolid)
 import Fmt.CalmProofs (plainDef, plainDefIs)
 import Fmt.JoinProofs (doc1Passes)
-import Fmt.SpellProofs (declSoundOfSettled, doc1Spells, notesSound, textsAll)
+import Fmt.SpellProofs (closesText, commentsText, declSoundOfSettled, doc1Spells, notesSound, textsAll)
 import Fmt.TreeJoinProofs (declJoins, declOperators, declPrintable, declReal, lexKind)
 import Fmt.OutputStatements (..)
 
@@ -454,15 +471,102 @@ theorem printedStart1 ∀ (decl: Decl)
                   (Witness (pieceFold lexKind more) (Eq.cong ((texts: List Text) => pieceFold lexKind texts) printed)))
         | _, never => cases
 
---| `printedFinish1`, the second half of `printedSeam1` (open): a slice 1 declaration's printed text has a last token,
---| and after it only spaces and a trailing comment on its line.
+-- The end of a declaration's pieces.
+
+--| A comment, starting with `--`, isn't spaces or a line break.
+theorem commentShape ∀ (text: Text)
+    (starts: text.startsWith "--" = True):
+    text.all (char => char == ' ') = False ∧ (text == "\n") = False :=
+  match text with
+    | MkText [first] => cases
+    | MkText [first, second, ..rest] =>
+      match dash: Text.sameChar '-' first with
+        | True =>
+          let firstDash: '-' = first := DecEq.sound (rewrite Text.sameCharEq '-' first at dash then dash)
+          rewrite <- firstDash then (byComputing, byComputing)
+
+--| An instance of `commentShape`, so it isn't vacuous: the audit's random search rarely makes a text that starts
+--| with `--`.
+theorem commentShapeExample: "-- c".all (char => char == ' ') = False ∧ ("-- c" == "\n") = False :=
+  commentShape "-- c" byComputing
+
+--| A comment's piece is a remark.
+theorem remarkPiece ∀ (kinds: Text → Tok) (text: Text)
+    (starts: text.startsWith "--" = True):
+    pieceOf kinds text = Remark text :=
+  let (notSpaces, notBreak) := commentShape text starts
+  rewrite notSpaces, notBreak, starts
+
+--| A token's piece is code.
+theorem codePiece ∀ (kinds: Text → Tok) (text: Text) (final: Final text): pieceOf kinds text = Code (kinds text) text :=
+  let solid := final.left
+  match spaces: text.all (char => char == ' ') with
+    | False =>
+      match lineBreak: text == "\n" with
+        | False => rewrite final.right
+
+--| A piece in front of pieces with code in them takes what is before the code.
+theorem addPieceCode ∀ (piece: Piece) (front: List Piece) (kind: Tok) (text: Text) (rest: List Piece):
+    addPiece piece (front ++ [Code kind text, ..rest]) = addPiece piece front ++ [Code kind text, ..rest] :=
+  match piece, front with
+    | Gap first, [Gap second, ..more] => byComputing
+    | Gap first, [] => byComputing
+    | Gap first, [Code k t, ..more] => byComputing
+    | Gap first, [Break, ..more] => byComputing
+    | Gap first, [Remark t, ..more] => byComputing
+    | Code k t, front => byComputing
+    | Break, front => byComputing
+    | Remark t, front => byComputing
+
+--| The pieces of texts with a token among them: those before it, its code, those after it.
+theorem pieceFoldCode ∀ (kinds: Text → Tok) (front: List Text) (word: Text) (rest: List Text)
+    (code: pieceOf kinds word = Code (kinds word) word):
+    pieceFold kinds (front ++ [word, ..rest])
+      = pieceFold kinds front ++ [Code (kinds word) word, ..pieceFold kinds rest] :=
+  match front with
+    | [] => rewrite code
+    | [text, ..others] =>
+      rewrite pieceFoldCode kinds others word rest code then
+        addPieceCode (pieceOf kinds text) (pieceFold kinds others) (kinds word) word (pieceFold kinds rest)
+
+--| A trailing comment after its space is a gap and a remark.
+theorem spacedFold ∀ (kinds: Text → Tok) (comment: Text) (comments: List Text)
+    (starts: comment.startsWith "--" = True):
+    pieceFold kinds (spacedComments [comment, ..comments])
+      = [Gap 1, Remark comment, ..pieceFold kinds (spacedComments comments)] :=
+  rewrite remarkPiece kinds comment starts
+
+--| Pieces that follow one another after some in front still do.
+theorem pairsDrop ∀ (front back: List Piece) (pairs: PairsFollow (front ++ back)): PairsFollow back :=
+  match front, back, pairs with
+    | [], back, pairs => pairs
+    | [piece], [], _ => byComputing
+    | [piece], [next, ..more], pairs => pairs.right
+    | [piece, second, ..rest], back, pairs => pairsDrop [second, ..rest] back pairs.right
+
+--| What follows a declaration's last token is at most one trailing comment after a space: a comment is followed
+--| only by a line break, never by the space before a second.
+theorem tailOfComments ∀ (kinds: Text → Tok) (front: List Piece) (code: Piece) (comments: List Text)
+    (each: Every commentsText comments)
+    (pairs: PairsFollow (front ++ [code, ..pieceFold kinds (spacedComments comments)])):
+    TailOk (pieceFold kinds (spacedComments comments)) :=
+  match comments, each with
+    | [], _ => byComputing
+    | [comment], (first, _) => rewrite spacedFold kinds comment [] (Bool.andLeft first)
+    | [comment, next, ..more], (first, (second, _)) =>
+      let later := pairsDrop front [code, ..pieceFold kinds (spacedComments [comment, next, ..more])] pairs
+      rewrite spacedFold kinds comment [next, ..more] (Bool.andLeft first),
+          spacedFold kinds next more (Bool.andLeft second) at later then
+        match later with
+          | (_, (_, (follows, _))) => (List.consNotNil ' ' [] follows).impossible
+
+--| `printedFinish1`, the second half of `printedSeam1`: a slice 1 declaration's printed text has a last token, and
+--| after it only a space and a trailing comment on its line.
 --|
---| Why it should hold, and what is missing: the value's element ends with a word leaf, a token and at most its
---| trailing comment, so the printer ends on that token's line. No proof says so from these four facts: `Puts` and
---| `Lays` (whose `Mid` or `Held` end place gives `lineBlank out = False`) are proved of a declaration's document
---| only under `DeclElements`, and `Joins`' end edge `Ended` allows `Plain None`, the edge after a line break.
---| What is needed is the dual of `printedStart1`'s `Leads`: the element ends with a token, whatever its layout, by
---| induction over slice 1's expressions.
+--| Proof idea: The document finishes with its value's last token in every layout (`defFinishes`), so the printed
+--| pieces are those before it, the token, and the trailing comments that wait, each after a space
+--| (`printedFinishes`); their pieces split at the token's code (`pieceFoldCode`), and a comment is followed only by
+--| a line break (`PairsFollow`, from `declPiecesOk`), so there is at most one (`tailOfComments`).
 theorem printedFinish1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -471,7 +575,52 @@ theorem printedFinish1 ∀ (decl: Decl)
     ∃ (front: List Piece) => ∃ (kind: Tok) => ∃ (text: Text) => ∃ (tail: List Piece) => decl.pieces1
       = front ++ [Code kind text, ..tail]
       ∧ TailOk tail :=
-  ?
+  let operators := declOperators decl within
+  let sound := declSoundOfSettled decl within settled (declReal decl within lexical operators)
+  let joins := declJoins decl within shaped sound lexical operators
+  let pairs := (declPiecesOk decl within shaped settled lexical).right.right.left
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header, within, joins with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          }, _, (_, _, _, _, _, valueJoins) =>
+          let doc := defDoc header colonEq value
+          let (_, marked, _) := doc1Spells (Definition [] header (Assigned colonEq value)) doc within sound byComputing
+          let finishes: Finishes Final doc :=
+            defFinishes lexKind keyword name colon result colonEq value (Bool.andRight within) valueJoins
+          match printedFinishes Final closesText commentsText doc width finishes finalSolid marked with
+            | Witness front (Witness word (Witness comments (Both final (Both quiet printed)))) =>
+              let pieces: pieceFold lexKind (printedPieces doc width)
+                = pieceFold lexKind front
+                  ++ [Code (lexKind word) word, ..pieceFold lexKind (spacedComments comments)] :=
+                rewrite printed then
+                  pieceFoldCode lexKind front word (spacedComments comments) (codePiece lexKind word final)
+              Witness
+                (pieceFold lexKind front)
+                (Witness
+                  (lexKind word)
+                  (Witness word
+                    (Witness
+                      (pieceFold lexKind (spacedComments comments))
+                      (Both pieces
+                        (tailOfComments lexKind
+                          (pieceFold lexKind front)
+                          (Code (lexKind word) word)
+                          comments
+                          quiet
+                          (rewrite pieces at pairs then pairs))))))
+        | _, never, _ => cases
 
 --| `printedSeam1`: a slice 1 declaration's printed text starts with its `def` and ends with its last token or that
 --| token's trailing comment, with no line break after.
