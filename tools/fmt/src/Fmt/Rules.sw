@@ -501,13 +501,17 @@ def rowItems (arm before: Bool) (at: Nat): List Expr → List Doc
 --| bracketed `if` keeps its `else` lines under the `if` (S19); a block opens
 --| below the bracket at 2 (S17), since its lines go at the indentation in
 --| force and after the bracket would sit left of its first.
-def parenDoc (open: Word) (inner: Expr) (close: Word) (around: Around): Doc :=
-  let innerAround := around.next open.trails 1
-  let innerDoc := match inner with
-    | Block _ _ _ => Nest 2 (Doc.concat [HardLine, inner.el innerAround])
-    | If _ _ _ _ _ _ _ => Align (inner.el innerAround)
-    | _ => inner.el innerAround
-  Doc.concat [open.opening around close, innerDoc, close.leaf (around.next inner.trails (1 + inner.size)) around.at]
+def parenDoc (open: Word) (inner: Expr) (close: Word) (around: Around): Doc := Doc.concat [
+  open.opening around close,
+  parenInner inner (around.next open.trails 1),
+  close.leaf (around.next inner.trails (1 + inner.size)) around.at
+]
+
+--| What stands between a `paren`'s brackets, `inner` standing where `innerAround` says.
+def parenInner (inner: Expr) (innerAround: Around): Doc := match inner with
+  | Block _ _ _ => Nest 2 (Doc.concat [HardLine, inner.el innerAround])
+  | If _ _ _ _ _ _ _ => Align (inner.el innerAround)
+  | _ => inner.el innerAround
 
 -- Comma brackets.
 
@@ -758,10 +762,13 @@ def chainLinks (level: Option Nat) (first: Bool) (left: Expr) (operator: Word) (
     List Doc :=
   let operatorAround := around.next left.trails left.size
   let rightAround := around.next operator.trails (left.size + 1)
-  let rightDocs := match right with
-    | Block _ _ _ => [Nest 2 (Doc.concat [HardLine, right.el rightAround])]
-    | _ => [Doc.text " ", ..linkDocs level False right rightAround]
-  linkDocs level first left around ++ [Line, operator.leaf operatorAround operatorAround.at, ..rightDocs]
+  linkDocs level first left around
+    ++ [Line, operator.leaf operatorAround operatorAround.at, ..chainRight level right rightAround]
+
+--| What follows a chain's operator: a block on a line of its own below it, else a space and the operand.
+def chainRight (level: Option Nat) (right: Expr) (rightAround: Around): List Doc := match right with
+  | Block _ _ _ => [Nest 2 (Doc.concat [HardLine, right.el rightAround])]
+  | _ => [Doc.text " ", ..linkDocs level False right rightAround]
 
 --| An operand of the chain: its docs if it is a chain of the same level,
 --| else the element. A `match` that starts the chain is inside an arm for
