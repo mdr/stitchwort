@@ -13,7 +13,8 @@ import Fmt.GlueProofs (codeTouching, codeTouchingAppend, isComment)
 import Fmt.OutputStatements (..)
 import Fmt.SpellProofs (..)
 import Fmt.TouchSteps (..)
-import Fmt.JoinProofs (leadJoins)
+import Fmt.TouchSeq (..)
+import Fmt.JoinProofs (keptShort, leadJoins)
 import Fmt.JoinProofs (
   beforeCloseIs,
   bracketTrails,
@@ -1065,47 +1066,6 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
             (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
               brokenSteps (seen ++ item.words) [second, ..more] False arm False item.trails (at + item.size) rest)))
 
---| The steps of a fill's cells after the first, each after a separator.
-def SepsSteps (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop): Prop :=
-  ∀ (seam: Seam) (trace: List Touch) (next: Seam → List Touch → Prop) => pre seam
-    → (∀ (after: Seam) (added: List Touch) => post after
-      → admitsGlue spacing (codeTouching added) = True
-      → next after (trace ++ added))
-    → SepsTouch docs seam trace next
-
-theorem sepsNil ∀ (pre post: Seam → Prop) (implies: ∀ (seam: Seam) => pre seam → post seam): SepsSteps [] pre [] post :=
-  seam trace next holds after => stay post [] seam trace next byComputing after (implies seam holds)
-
---| A cell after a separator, which touches as a `Line` does, then the cells after it.
-theorem sepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
-    (first: StepsAll [Line, doc] pre front middle)
-    (rest: SepsSteps docs middle back post):
-    SepsSteps [doc, ..docs] pre (front ++ back) post :=
-  seam trace next holds after =>
-    first seam trace (between later => SepsTouch docs between later next) holds (between added reached admits =>
-      rest between (trace ++ added) next reached (left more ended admitsMore =>
-        rewrite List.appendAssoc trace added more then
-          after left
-            (added ++ more)
-            ended
-            (rewrite codeTouchingAppend added more then
-              admitsAppend front back (codeTouching added) (codeTouching more) admits admitsMore)))
-
---| A fill: its first cell, then the others each after a separator.
-theorem stepsFill ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
-    (first: Steps doc pre front middle)
-    (rest: SepsSteps docs middle back post):
-    Steps (Fill [doc, ..docs]) pre (front ++ back) post :=
-  seam trace next holds after =>
-    first seam trace (between later => SepsTouch docs between later next) holds (between added reached admits =>
-      rest between (trace ++ added) next reached (left more ended admitsMore =>
-        rewrite List.appendAssoc trace added more then
-          after left
-            (added ++ more)
-            ended
-            (rewrite codeTouchingAppend added more then
-              admitsAppend front back (codeTouching added) (codeTouching more) admits admitsMore)))
-
 --| A filled list's cells after the first.
 theorem cellsRestSteps ∀ (seen: List Word) (items: List Expr) (arm before: Bool) (at: Nat)
     (each: EachFree items):
@@ -1389,11 +1349,224 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
             closer
             (eachFree items each within (Bool.andRight shaped) (Bool.andRight (Bool.andRight lexical)) joins)))
 
---| `appSteps` (open): a call, its head spaced `first` and each argument as `argumentsSpacing1` says (`spacing1 True`:
---| free, or apart for a sign), every argument after a space, a fill separator or a `HardLine`. Its route follows
---| `Fmt.JoinProofs.appFromPasses`: a sequence of documents each but the first starting from `Fits True Apart` (which
---| gives `Fits True Free`), split at `keep` with its spacing, through `spaced`, `Fill`, the `Choice` options (`Flatten`,
---| the hug, front and rest) and `IfBroken`; each argument from `elSteps` with `argument1` from `shaped1`.
+-- Calls.
+
+--| A call's arguments' spacings before the last, as `argumentDocs` splits their documents.
+def initSpacings: List Expr → List (List Spacing)
+  | [] => []
+  | [_] => []
+  | [argument, ..rest] => [argument.spacing1 True, ..initSpacings rest]
+
+--| A call's last argument's spacing.
+def lastSpacing: List Expr → List Spacing
+  | [] => []
+  | [argument] => argument.spacing1 True
+  | [_, ..rest] => lastSpacing rest
+
+theorem argumentsJoin ∀ (arguments: List Expr)
+    (filled: arguments ≠ []):
+    joinSpacing (initSpacings arguments ++ [lastSpacing arguments]) = argumentsSpacing1 arguments :=
+  match arguments with
+    | [] => (filled byComputing).impossible
+    | [argument] => byComputing
+    | [argument, next, ..more] => rewrite argumentsJoin [next, ..more] (List.consNotNil next more)
+
+theorem callJoin ∀ (headSpacing: List Spacing) (arguments: List Expr)
+    (filled: arguments ≠ []):
+    joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
+      = headSpacing ++ argumentsSpacing1 arguments :=
+  rewrite <- argumentsJoin arguments filled
+
+--| A call's argument starts with a sign apart from what precedes it, or with a free word.
+theorem argumentStarts ∀ (argument: Expr)
+    (isArgument: argument.argument1 = True):
+    ∃ (start: Spacing) => Loose start ∧ spacedFirst start (argument.spacing1 True) = argument.spacing1 True :=
+  match argument with
+    | Atom kind word => (Free, byComputing, byComputing)
+    | Paren open inner close => (Free, byComputing, byComputing)
+    | Tuple open items comma close => (Free, byComputing, byComputing)
+    | ListOf open items comma close => (Free, byComputing, byComputing)
+    | Prefix operator operand =>
+      match operandSpacing True operator operand with
+        | Some spacing => (Apart, byComputing, byComputing)
+        | None => (Apart, byComputing, byComputing)
+
+--| A call's argument, after a space or a line break.
+theorem argumentSteps ∀ (argument: Expr) (place: Around)
+    (within: argument.within1 = True)
+    (shaped: argument.shaped1 = True)
+    (lexical: argument.lexical1 = True)
+    (isArgument: argument.argument1 = True)
+    (joinable: Joinable lexKind argument)
+    (steps: ElSteps argument):
+    Steps (argument.el place) (Gapped True) (argument.spacing1 True) (Ends argument.trails) :=
+  let (start, loose, same) := argumentStarts argument isArgument
+  stepsFrom _ _ _ _ _
+    (stepsSpacing _ _ _ _ _ same (steps within shaped lexical joinable place start True (_ => isArgument) (Inl loose)))
+    (seam gapped => gappedFits True start seam loose gapped)
+
+--| A bracket as a call's last argument, as it stands and opened, after a space or a line break.
+theorem huggedSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (hard: Bool)
+    (opener: WordJoins open)
+    (closer: CloserJoins close)
+    (each: EachFree items):
+    Steps
+      (Doc.concat [
+        Doc.concat (open.leading around around.at),
+        Group (bracketContent list open items close { around | hoisted = True }) hard
+      ])
+      (Gapped True)
+      ([Free, ..commaSpacing1 items] ++ [Free])
+      (Ends (ListOf open items False close).trails) :=
+  stepsConcat _ _ _ _
+    (stepsTwo
+      (Doc.concat (open.leading around around.at))
+      (Group (bracketContent list open items close { around | hoisted = True }) hard)
+      (Gapped True)
+      (Fits True Free) _
+      []
+      ([Free, ..commaSpacing1 items] ++ [Free])
+      (stepsConcat _ _ _ _
+        (allFrom _ _ _ _ _ (leadingSteps open around around.at True Free opener.left (Inl byComputing)) (seam gapped =>
+          gappedFits True Free seam byComputing gapped)))
+      (stepsGroup _ hard _ _ _
+        (bracketSteps list open items close { around | hoisted = True } Free byComputing opener closer each)))
+
+--| A call's last argument, as it stands and opened, after a space or a line break.
+theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)
+    (within: argument.within1 = True)
+    (shaped: argument.shaped1 = True)
+    (lexical: argument.lexical1 = True)
+    (isArgument: argument.argument1 = True)
+    (joinable: Joinable lexKind argument)
+    (steps: ElSteps argument):
+    Steps (lastArgument argument place).fst (Gapped True) (argument.spacing1 True) (Ends argument.trails)
+      ∧ HugSteps (lastArgument argument place).snd (Gapped True) (argument.spacing1 True) (Ends argument.trails) :=
+  let plain := argumentSteps argument place within shaped lexical isArgument joinable steps
+  match argument, joinable with
+    | Tuple open items comma close, (opener, closer, joins) =>
+      let each :=
+        eachFree items (allElSteps items) within (Bool.andRight shaped) (Bool.andRight (Bool.andRight lexical)) joins
+      let content := bracketContent False open items close { place | hoisted = True }
+      (
+        huggedSteps False open items close place content.forcesBreak opener.left closer each,
+        huggedSteps False open items close place True opener.left closer each
+      )
+    | ListOf open items comma close, (opener, closer, joins) =>
+      let each := eachFree items (allElSteps items) within shaped (Bool.andRight (Bool.andRight lexical)) joins
+      let content := bracketContent True open items close { place | hoisted = True }
+      (
+        huggedSteps True open items close place content.forcesBreak opener.left closer each,
+        huggedSteps True open items close place True opener.left closer each
+      )
+    | Atom kind word, _ => (plain, byComputing)
+    | Prefix operator operand, _ => (plain, byComputing)
+    | Paren open (Atom k w) close, _ => (plain, byComputing)
+    | Paren open (Paren o i c) close, _ => (plain, byComputing)
+    | Paren open (Tuple o is m c) close, _ => (plain, byComputing)
+    | Paren open (ListOf o is m c) close, _ => (plain, byComputing)
+    | Paren open (App h xs) close, _ => (plain, byComputing)
+    | Paren open (Infix k l o r) close, _ => (plain, byComputing)
+    | Paren open (Prefix o x) close, _ => (plain, byComputing)
+
+--| A call's arguments after its function: in order, each after a space or a line break, spaced as its own
+--| `spacing1 True` says; the same without the last, ending where a comment may wait; the last's hug; and one
+--| document before the last for each argument but one.
+--|
+--| Proof idea: induction on the arguments, as `Fmt.JoinProofs.argumentsSeq`, the words seen so far growing by each
+--| argument's; each from `argumentSteps`, the last from `lastArgumentSteps`.
+theorem argumentsSteps ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Expr) (seen: List Word)
+    (pre: Seam → Prop) (doc: Doc) (spacing: List Spacing)
+    (filled: arguments ≠ [])
+    (within: allWithin1 arguments = True)
+    (shaped: allShaped1 arguments = True)
+    (lexical: allLexical1 arguments = True)
+    (isArguments: arguments.all Expr.argument1 = True)
+    (joinable: AllJoinable lexKind arguments)
+    (each: EachElSteps arguments)
+    (first: Steps doc pre spacing (Ends True)):
+    SeqFrom pre
+      (Ends (trailsBack (seen ++ itemsWords arguments).reverse))
+      doc
+      spacing
+      ((argumentDocs arm previous at arguments).fst
+        ++ [((argumentDocs arm previous at arguments).snd.getOrElse (Nothing, None)).fst])
+      (initSpacings arguments ++ [lastSpacing arguments])
+      ∧ SeqFrom pre (Ends True) doc spacing (argumentDocs arm previous at arguments).fst (initSpacings arguments)
+      ∧ HugSteps
+        ((argumentDocs arm previous at arguments).snd.getOrElse (Nothing, None)).snd
+        (Gapped True)
+        (lastSpacing arguments)
+        (Ends (trailsBack (seen ++ itemsWords arguments).reverse))
+      ∧ (argumentDocs arm previous at arguments).fst.length + 1 = arguments.length :=
+  match arguments, joinable, each with
+    | [], _, _ => (filled byComputing).impossible
+    | [argument], (joins, _), (steps, _) =>
+      let place: Around := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+      let (last, hug) :=
+        lastArgumentSteps argument place
+          (Bool.andLeft within)
+          (Bool.andLeft shaped)
+          (Bool.andLeft lexical)
+          (Bool.andLeft isArguments)
+          joins
+          steps
+      let ends: ∀ (seam: Seam) => Ends argument.trails seam
+        → Ends (trailsBack (seen ++ itemsWords [argument]).reverse) seam :=
+        seam ended => rewrite List.appendNil argument.words then itemEnds seen argument seam ended
+      (
+        (first, stepsTo _ _ _ _ _ last ends),
+        first,
+        hugTo (lastArgument argument place).snd _ _ _ _ hug ends,
+        byComputing
+      )
+    | [argument, next, ..more], (joins, rest), (steps, others) =>
+      let place: Around := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+      let element: Steps (argument.el place) (Gapped True) (argument.spacing1 True) (Ends True) :=
+        stepsTo _ _ _ _ _
+          (argumentSteps argument place
+            (Bool.andLeft within)
+            (Bool.andLeft shaped)
+            (Bool.andLeft lexical)
+            (Bool.andLeft isArguments)
+            joins
+            steps)
+          (seam ended => endsWeaker argument.trails True (_ => byComputing) seam ended)
+      let (seq, frontSeq, hugs, length) :=
+        argumentsSteps arm argument
+          (at + argument.size)
+          [next, ..more]
+          (seen ++ argument.words)
+          (Gapped True)
+          (argument.el place)
+          (argument.spacing1 True)
+          (List.consNotNil next more)
+          (Bool.andRight within)
+          (Bool.andRight shaped)
+          (Bool.andRight lexical)
+          (Bool.andRight isArguments)
+          rest
+          others
+          element
+      (
+        (first, rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at seq then seq),
+        (first, frontSeq),
+        rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at hugs then hugs,
+        arithmetic [length]
+      )
+
+theorem appFirstWord ∀ (head: Expr) (arguments: List Expr)
+    (within: (App head arguments).within1 = True)
+    (headWithin: head.within1 = True):
+    (App head arguments).firstWord = head.firstWord :=
+  rewrite firstWordLead (App head arguments) within, firstWordLead head headWithin
+
+--| A call, its head spaced `first` and each argument as `argumentsSpacing1` says (`spacing1 True`: free, or apart
+--| for a sign), every argument after a space, a fill separator or a `HardLine`.
+--|
+--| Proof idea: `appFromSteps` (`Fmt.TouchSeq`), as `Fmt.JoinProofs.appPasses`: the head from `elSteps`, then the
+--| arguments in order (`argumentsSteps`), each from `elSteps` with `argument1` from `shaped1`; the hug as the last
+--| argument opened.
 theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first: Spacing) (argument: Bool)
     (within: (App head arguments).within1 = True)
     (shaped: (App head arguments).shaped1 = True)
@@ -1407,7 +1580,89 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
       (Fits True first)
       (spacedFirst first ((App head arguments).spacing1 argument))
       (Ends (App head arguments).trails) :=
-  ?
+  let (headJoins, joins, filled) := joinable
+  let headWithin: head.within1 = True := Bool.andLeft within
+  let headShaped: head.shaped1 = True := Bool.andLeft (Bool.andRight shaped)
+  let isArguments: arguments.all Expr.argument1 = True :=
+    Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+  let argumentsShaped: allShaped1 arguments = True :=
+    Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+  let inside := { around | hoisted = True }
+  let lead := leadJoins lexKind (App head arguments) joinable
+  let sound: (App head arguments).firstWord.sound = True :=
+    rewrite firstWordLead (App head arguments) within then lead.left
+  let headLoose: Loose first ∨ head.firstWord.quietAt inside inside.at = True := match loose with
+    | Inl free => Inl free
+    | Inr quiet =>
+      let headQuiet := rewrite appFirstWord head arguments within headWithin at quiet then quiet
+      Inr (Bool.andIntro (Bool.andLeft headQuiet) byComputing)
+  let headSpacing := spacedFirst first (head.spacing1 False)
+  let headEl: Steps (head.el inside) (Fits True first) headSpacing (Ends True) :=
+    stepsTo _ _ _ _ _
+      (headSteps headWithin headShaped
+        (Bool.andLeft lexical)
+        headJoins
+        inside
+        first
+        False
+        (never => (Bool.falseNotTrue never).impossible)
+        headLoose)
+      (seam ended => endsWeaker head.trails True (_ => byComputing) seam ended)
+  let results := argumentDocs inside.inArm head (inside.at + head.size) arguments
+  let front := results.fst
+  let lastDoc := (results.snd.getOrElse (Nothing, None)).fst
+  let (seq, frontSeq, hugs, length) :=
+    argumentsSteps inside.inArm head
+      (inside.at + head.size)
+      arguments
+      head.words
+      (Fits True first)
+      (head.el inside)
+      headSpacing
+      filled
+      (Bool.andRight within)
+      argumentsShaped
+      (Bool.andRight lexical)
+      isArguments
+      joins
+      each
+      headEl
+  let short: 1 + keptFront head arguments ≤ ([head.el inside, ..front] ++ [lastDoc]).length :=
+    rewrite List.lengthAppend front [lastDoc] then arithmetic [keptShort head arguments, length]
+  let (rest, free) := spacingFree head headWithin
+  let same: joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
+    = spacedFirst first ((App head arguments).spacing1 argument) :=
+    rewrite callJoin headSpacing arguments filled, free
+  framedSteps
+    (App head arguments).firstWord
+    around
+    (appDocs head arguments inside).doc
+    (spacedFirst first ((App head arguments).spacing1 argument))
+    (Ends (App head arguments).trails)
+    first
+    sound
+    loose
+    (rewrite appDocsIs head arguments inside then
+      stepsSpacing _ _ _ _ _ same
+        (appFromSteps
+          (inside.at + 1)
+          (1 + keptFront head arguments)
+          (commentBetween head arguments)
+          (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+          (head.el inside)
+          lastDoc
+          front
+          (results.snd.getOrElse (Nothing, None)).snd
+          headSpacing
+          (lastSpacing arguments)
+          (initSpacings arguments)
+          (Fits True first)
+          (Ends (App head arguments).trails)
+          seq
+          frontSeq
+          hugs
+          (arithmetic)
+          short))
 
 -- Chains.
 
@@ -1682,3 +1937,74 @@ theorem elSteps ∀ (expr: Expr): ElSteps expr := match expr with
 theorem allElSteps ∀ (items: List Expr): EachElSteps items := match items with
   | [] => byComputing
   | [item, ..rest] => (elSteps item, allElSteps rest)
+
+-- A call's hug on a `:=` line.
+
+--| A value's hug, if it is a call that hugs: its function free, then its arguments as `argumentsSpacing1` says.
+theorem callHugSteps ∀ (value: Expr) (inside: Around)
+    (within: value.within1 = True)
+    (shaped: value.shaped1 = True)
+    (lexical: value.lexical1 = True)
+    (joinable: Joinable lexKind value):
+    HugSteps (value.callHug inside) (Fits True Free) (value.spacing1 False) (Ends value.trails) :=
+  match value, joinable with
+    | App head arguments, (headJoins, joins, filled) =>
+      let headWithin: head.within1 = True := Bool.andLeft within
+      let headShaped: head.shaped1 = True := Bool.andLeft (Bool.andRight shaped)
+      let isArguments: arguments.all Expr.argument1 = True :=
+        Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+      let argumentsShaped: allShaped1 arguments = True :=
+        Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+      let headSpacing := spacedFirst Free (head.spacing1 False)
+      let headEl: Steps (head.el inside) (Fits True Free) headSpacing (Ends True) :=
+        stepsTo _ _ _ _ _
+          (elSteps head headWithin headShaped
+            (Bool.andLeft lexical)
+            headJoins
+            inside
+            Free
+            False
+            (never => (Bool.falseNotTrue never).impossible)
+            (Inl byComputing))
+          (seam ended => endsWeaker head.trails True (_ => byComputing) seam ended)
+      let results := argumentDocs inside.inArm head (inside.at + head.size) arguments
+      let (_, frontSeq, hugs, _) :=
+        argumentsSteps inside.inArm head
+          (inside.at + head.size)
+          arguments
+          head.words
+          (Fits True Free)
+          (head.el inside)
+          headSpacing
+          filled
+          (Bool.andRight within)
+          argumentsShaped
+          (Bool.andRight lexical)
+          isArguments
+          joins
+          (allElSteps arguments)
+          headEl
+      let same: joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
+        = (App head arguments).spacing1 False :=
+        rewrite callJoin headSpacing arguments filled, freeFirst head headWithin
+      rewrite appDocsIs head arguments inside, <- same then
+        appFromHugSteps
+          (inside.at + 1)
+          (1 + keptFront head arguments)
+          (commentBetween head arguments)
+          (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+          (head.el inside)
+          (results.snd.getOrElse (Nothing, None)).fst
+          results.fst
+          (results.snd.getOrElse (Nothing, None)).snd
+          headSpacing
+          (lastSpacing arguments)
+          (initSpacings arguments) _ _
+          frontSeq
+          hugs
+    | Atom _ _, _ => byComputing
+    | Paren _ _ _, _ => byComputing
+    | Tuple _ _ _ _, _ => byComputing
+    | ListOf _ _ _ _, _ => byComputing
+    | Infix _ _ _ _, _ => byComputing
+    | Prefix _ _, _ => byComputing

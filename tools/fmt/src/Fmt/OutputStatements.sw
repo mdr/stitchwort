@@ -117,8 +117,8 @@ def spacingAdmits: List Spacing → List Item → Bool
 
 -- `printedSpacing1`, that a slice 1 declaration's printed items are spaced as `Decl.spacing1` says
 -- (`spacingAdmits decl.spacing1 (items decl.leaves1) = True`, from `within1`, `shaped1`, `settled1` and `lexical1`),
--- is stated and proved in `Fmt.SpacingProofs`, against open goals for the document's touches (`declSpacedTouches`,
--- and `Fmt.TouchProofs`' `commaSteps`, `appSteps` and `infixSteps`). `holdsOn` checks it.
+-- is proved in `Fmt.SpacingProofs`, from the document's touches (`declSpacedTouches`, and `Fmt.TouchProofs`'
+-- `elSteps`). `holdsOn` checks it.
 
 -- The file's leaves.
 
