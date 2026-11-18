@@ -20,6 +20,21 @@ import Syntax.SettleProofs (alphabet1, plain1, plainFromOf, settledKeepsTokens, 
 import Syntax.SettleBareProofs (tokensBare)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Fmt.TreeJoinProofs (spellsOfText1)
+import Syntax.LexReadsProofs (
+  RoundOk,
+  atMarkThen,
+  atThen,
+  givesChar,
+  givesDots,
+  roundOfGives,
+  roundOfYields,
+  soundMark,
+  soundSkip,
+  soundSpan,
+  textForeign,
+  yieldsFatal,
+  yieldsStop
+)
 
 -- The two tests.
 
@@ -863,16 +878,43 @@ theorem wordFine ∀ (source: Text) (afterDot: Bool) (from: Parse.Mark Char)
 --| Every lexeme of a list is spelled as its kind is.
 def lexemesFine (source: Text) (values: List (Parse.Located Lexeme)): Bool := values.all (lexemeFixed source)
 
+--| A lexeme that isn't a token.
+def Lexeme.free: Lexeme → Bool
+  | TokenLexeme _ => False
+  | _ => True
+
 --| A lexeme `located` with a value that isn't a token, as a list of one.
 theorem oneLocated ∀ (source: Text) (value: Lexeme) (from: Parse.Mark Char)
-    (notToken: ∀ (kind: Tok) => value ≠ TokenLexeme kind):
+    (free: value.free = True):
     Parse.Gives Parse.Invariant.any (() => [located value from]) (values => lexemesFine source values = True) :=
   Parse.givesThen (givesLocated value from) (lexeme same =>
     Parse.givesDone
       (Bool.andIntro
-        (match value, same with
-          | TokenLexeme kind, _ => (notToken kind byComputing).impossible
-          | Spaces, same => rewrite same
-          | LineBreak, same => rewrite same
-          | CommentLexeme, same => rewrite same)
+        (match value, same, free with
+          | TokenLexeme kind, _, free => (Bool.falseNotTrue free).impossible
+          | Spaces, same, _ => rewrite same
+          | LineBreak, same, _ => rewrite same
+          | CommentLexeme, same, _ => rewrite same)
         byComputing))
+
+--| A round that gives what it gives wherever it is read from.
+theorem roundOfGivesFine ∀ [start: Parse.Mark Char]
+    [p: () → {Parse Char} List (Parse.Located Lexeme)] [holds: List (Parse.Located Lexeme) → Prop]
+    (gives: Parse.Gives Parse.Invariant.any p holds):
+    RoundOk start p (read values => holds values) :=
+  total state value after here honest h => Inr (gives start { holds = Trivial } total state value after here honest h)
+
+--| A token, from a mark in step, spelled as its kind is when what it reads is.
+theorem tokenFixed ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Mark Char)
+    (step: InStep source.toList start)
+    (spelled: fixedSpells1 kind (Text.fromList (start.rest.take count)) = True):
+    Parse.ReadsAt start (() => [tokenOf kind count]) (read values => lexemesFine source values = True) :=
+  atThen
+    [p := () => tokenOf kind count]
+    [j := made => [made]]
+    (tokenOfText source kind count start step)
+    (read lexeme after starts moved made =>
+      match made with
+        | Both isToken text =>
+          let fixed: lexemeFixed source lexeme = True := rewrite isToken, text then spelled
+          Parse.readsAtDone after _ _ (Bool.andIntro fixed byComputing))
