@@ -24384,7 +24384,7 @@
     {
       "id": 4012,
       "title": "[Opus] fmt S1 read-back 17c: the tree-to-items relation (induction over Spells giving each node's items via ItemsAt) and the knot for a whole tree (a good relation for Parse.runsRecursiveWith over every slice 1 node; runsExpressionWord is the pattern), on SW-4004's Syntax.ReadBackRuns",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
