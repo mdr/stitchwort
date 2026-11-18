@@ -1573,7 +1573,14 @@ theorem brokenRestPasses ∀ (kinds: Text → Tok) (seen: List Word) (items: Lis
             (Ended (trailsBack (seen ++ itemsWords [item, second, ..more]).reverse))
             (commaPasses kinds (trailsBack (seen ++ item.words).reverse))
             (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
-              brokenRestPasses kinds (seen ++ item.words) [second, ..more] False arm False (at + item.size) rest)))
+              brokenRestPasses kinds
+                (seen ++ item.words)
+                [second, ..more]
+                False
+                arm
+                item.trails
+                (at + item.size)
+                rest)))
 
 theorem openTrails ∀ (open: Word) (closer: isCloserText open.text = False): trailsBack [open] = open.trails :=
   rewrite closer, Bool.orFalse open.trails
@@ -1645,48 +1652,55 @@ theorem brokenPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (
             (Ended (trailsBack ([open] ++ itemsWords [item, second, ..more]).reverse))
             (commaPasses kinds (trailsBack ([open] ++ item.words).reverse))
             (rewrite <- List.appendAssoc [open] item.words (itemsWords [second, ..more]) then
-              brokenRestPasses kinds ([open] ++ item.words) [second, ..more] False arm False (at + item.size) rest)))
+              brokenRestPasses kinds
+                ([open] ++ item.words)
+                [second, ..more]
+                False
+                arm
+                item.trails
+                (at + item.size)
+                rest)))
 
 --| A filled list's cells after the first, each after a space or a line break.
 --|
 --| Proof idea: Induction on the items, as `brokenRestPasses`, with `SepsJoin`'s separator before each cell.
-theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List Expr) (arm: Bool) (at: Nat)
+theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List Expr) (arm before: Bool) (at: Nat)
     (each: EachEl kinds items)
     (edge: Edge) (next: Edge → Prop)
     (ended: Ended (trailsBack seen.reverse) edge)
     (after: ∀ (left: Edge) => Ended (trailsBack (seen ++ itemsWords items).reverse) left → next left):
-    SepsJoin (Follows kinds) (cells False arm False at items) edge next :=
+    SepsJoin (Follows kinds) (cells False arm before at items) edge next :=
   match items, each with
     | [], _ => after edge (rewrite List.appendNil seen then ended)
     | [item], (passes, _) => passesLine kinds (trailsBack seen.reverse) edge _ ended (middle gapped =>
       passes
-        (firstAround False arm False at)
+        (firstAround False arm before at)
         middle _
         (gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text middle gapped)
         (left itemEnded => after left (itemTrails seen item left itemEnded)))
     | [item, second, ..more], (passes, rest) =>
       passesLine kinds (trailsBack seen.reverse) edge _ ended (middle gapped =>
         passesConcat kinds
-          [item.el (firstAround False arm False at), Closing ","]
+          [item.el (firstAround False arm before at), Closing ","]
           (Gapped (trailsBack seen.reverse))
           (Ended (trailsBack (seen ++ item.words).reverse))
           (passesTwo kinds
-            (item.el (firstAround False arm False at))
+            (item.el (firstAround False arm before at))
             (Closing ",")
             (Gapped (trailsBack seen.reverse))
             (Ended (trailsBack (seen ++ item.words).reverse))
             (Ended (trailsBack (seen ++ item.words).reverse))
             (passesFrom kinds
-              (item.el (firstAround False arm False at))
+              (item.el (firstAround False arm before at))
               (Ready kinds True item.lead.text)
               (Gapped (trailsBack seen.reverse))
               (Ended (trailsBack (seen ++ item.words).reverse))
               (passesTo kinds
-                (item.el (firstAround False arm False at))
+                (item.el (firstAround False arm before at))
                 (Ready kinds True item.lead.text)
                 (Ended item.trails)
                 (Ended (trailsBack (seen ++ item.words).reverse))
-                (passes (firstAround False arm False at))
+                (passes (firstAround False arm before at))
                 (edge ended =>
                   endedWeaker item.trails
                     (trailsBack (seen ++ item.words).reverse)
@@ -1702,6 +1716,7 @@ theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List E
               (seen ++ item.words)
               [second, ..more]
               arm
+              item.trails
               (at + item.size)
               rest
               left
@@ -1767,6 +1782,7 @@ theorem cellsPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (b
               ([open] ++ item.words)
               [second, ..more]
               arm
+              item.trails
               (at + item.size)
               rest
               left

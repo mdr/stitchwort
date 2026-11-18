@@ -37,3 +37,7 @@ test "a comment on `<-`, one above a `calc` step's `:=`, and a `calc` whose firs
   refuses "theorem a: P := rewrite <- -- c\n  h then rfl\n"
     && refuses "theorem b: P := calc x\n  _ = y\n    -- c\n    := h\n"
     && refuses "theorem c: P := calc f [x]\n  _ = y := h\n"
+
+test "a list of plain values with a comment inside is never filled: a trailing comment before more items breaks it, one that ends it keeps it on its line" :=
+  formats "theorem a: P := rewrite [1, -- c\n  2, 3] then rfl\ntheorem b: P := rewrite [1, 2, 3, -- c\n  ] then rfl\n"
+      "theorem a: P :=\n  rewrite [\n        1, -- c\n        2,\n        3\n      ] then\n    rfl\ntheorem b: P := rewrite [1, 2, 3] -- c\n  then rfl\n"

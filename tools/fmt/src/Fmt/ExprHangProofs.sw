@@ -472,7 +472,7 @@ theorem cellsKeys ∀ (items: List Expr) (low: Nat) (bare arm before: Bool) (at:
             low
             False
             arm
-            False
+            item.trails
             (at + item.size)
             (Bool.andRight within)
             (Bool.andRight quiet)
@@ -496,7 +496,7 @@ theorem brokenKeys ∀ (items: List Expr) (low: Nat) (bare arm first before: Boo
           False
           arm
           False
-          False
+          item.trails
           (at + item.size)
           (Bool.andRight within)
           (Bool.andRight quiet)
@@ -593,7 +593,7 @@ theorem itemsHang ∀ (items: List Expr) (inset: Nat) (bare arm: Bool) (at: Nat)
       let quietItem := quietTrails item (Bool.andLeft quiet)
       let first: ElHangs lexKind (item.el (firstAround bare arm False at)) inset inset False item.trails wordStart :=
         rewrite quietItem then hangsOf item facts (firstAround bare arm False at) inset inset
-      let later: ItemsHang lexKind inset False arm False item.trails (at + item.size) rest :=
+      let later: ItemsHang lexKind inset False arm item.trails item.trails (at + item.size) rest :=
         rewrite quietItem then
           itemsHang rest inset False arm
             (at + item.size)

@@ -627,14 +627,14 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
         [
           item.el (firstAround bare arm before at),
           Closing ",",
-          ..brokenItems False arm False False (at + item.size) rest
+          ..brokenItems False arm False item.trails (at + item.size) rest
         ]
         []
         (item.shape (!bare) False ++ [Said "," True True] ++ itemsShape True rest)
         (isSeparator first)
         (isCons
           (item.el (firstAround bare arm before at))
-          [Closing ",", ..brokenItems False arm False False (at + item.size) rest]
+          [Closing ",", ..brokenItems False arm False item.trails (at + item.size) rest]
           (item.shape (!bare) False)
           ([Said "," True True] ++ itemsShape True rest)
           (kept
@@ -646,11 +646,11 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
             head)
           (isCons
             (Closing ",")
-            (brokenItems False arm False False (at + item.size) rest)
+            (brokenItems False arm False item.trails (at + item.size) rest)
             [Said "," True True]
             (itemsShape True rest)
             isComma
-            (brokenItemsShape False arm False False
+            (brokenItemsShape False arm False item.trails
               (at + item.size)
               rest
               (item.words.reverse ++ prior)
@@ -717,7 +717,7 @@ theorem cellsShape ∀ (bare arm before: Bool) (at: Nat) (items: List Expr) (pri
               (Bool.andLeft nonCloser)
               head)
             (isLast (Closing ",") [Said "," True True] isComma)),
-        cellsShape False arm False
+        cellsShape False arm item.trails
           (at + item.size)
           rest
           (item.words.reverse ++ prior)
