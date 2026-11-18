@@ -24148,12 +24148,12 @@
     {
       "id": 3995,
       "title": "[Opus] Self-hosted fmt S4c program: records: record literals and updates ({ r | f = e }), record fields, spread (..), record patterns, membership (x ∈ s) if cheap; within4c, Fmt.Twin --stage s4c; gate identical to Rust; census after (SW-3992's top: Record 581 present, RecordField 526, Spread 347 present/114 only, Membership 81 only, PatternRecord 35 only)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 30 min. Started 13:25, done 13:38 (about 13 min).\n\nProgress (Opus lane, 18 Nov): slice 4c built on lane/SW-3995 (1b3a05b81): records, updates, C { … }, spreads, record patterns, membership; within4c, Fmt.Twin --stage s4c, dev/fmt-twin s4c.\nGate: s4c goldens 410/410, repo --sample 300 3,320/3,320; coverage 48.1% (s4b, 2,858) to 55.8% on the same 5,947. s1 to s4b all still 100%. Fmt.Tests 78/78. F1 tree unchanged. Details in tools/fmt/NOTES.md, Slice 4c.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

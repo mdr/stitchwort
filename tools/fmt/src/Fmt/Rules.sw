@@ -10,7 +10,9 @@
 --| `quantifier`; for slice 3's layout, `block`, `let_line`, `sequence`,
 --| `if_`, `alternatives` and `arm`; for slice 4a, `join` for
 --| `FieldAccess`; for slice 5a, `decl` for `test` and for a definition's
---| arms, `import` and `join` for `namespace`.
+--| arms, `import` and `join` for `namespace`; for slice 4c,
+--| `comma_bracket` with brace edges for records and record patterns, and
+--| `join` for membership, spreads and a record's fields.
 --|
 --| The Rust rules read a token's neighbours by its index in the file.
 --| Here what a rule needs of a token's surroundings travels down the tree
@@ -32,6 +34,8 @@ import Syntax (
   Comments,
   DefKind,
   Expr,
+  FieldPattern,
+  FieldsPattern,
   Guard,
   Header,
   Imported,
@@ -166,7 +170,16 @@ def Expr.words: Expr → List Word
   | FieldAccess (Some target) dot field => target.words ++ [dot, field]
   | NamedArg open name colonEq value close => [open, name, colonEq, ..value.words] ++ [close]
   | Annotation open value colon annotation close => [open, ..value.words] ++ [colon, ..annotation.words] ++ [close]
+  | Spread dots list => [dots, ..list.words]
+  | Record open base fields _ close => [open, ..baseWords base] ++ itemsWords fields ++ [close]
+  | RecordField name equals value => [name, equals, ..value.words]
+  | CtorFields ctor record => ctor.words ++ record.words
   | _ => []
+
+--| An update's record and its `|`.
+def baseWords: Option (Expr, Word) → List Word
+  | Some (record, bar) => record.words ++ [bar]
+  | None => []
 
 def scrutineesWords: List Scrutinee → List Word
   | [] => []
@@ -195,7 +208,22 @@ def Pattern.words: Pattern → List Word
   | PatternTuple open items _ close => [open, ..patternsWords items] ++ [close]
   | PatternList open items _ tail close => [open, ..patternsWords items] ++ tailWords tail ++ [close]
   | PatternAbsurd open close => [open, close]
+  | PatternRecord fields => fields.words
+  | PatternCtorFields name fields => [name, ..fields.words]
   | _ => []
+
+--| A record pattern's tokens: `{`, the fields', `..`, `}`.
+def FieldsPattern.words (fields: FieldsPattern): List Word := match fields with
+  | { open, fields, rest, close, .. } => [open, ..fieldPatternsWords fields] ++ optionWords rest ++ [close]
+
+def fieldPatternsWords: List FieldPattern → List Word
+  | [] => []
+  | [field, ..rest] => field.words ++ fieldPatternsWords rest
+
+--| `x`, or `x`, `=` and the pattern's.
+def FieldPattern.words (field: FieldPattern): List Word := match field with
+  | { name, value = Some (equals, pattern) } => [name, equals, ..pattern.words]
+  | { name, value = None } => [name]
 
 --| A list pattern's `..rest`.
 def tailWords: Option (Word, Pattern) → List Word
@@ -334,6 +362,13 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
     | NamedArg open name colonEq value close => expr.framed around (namedArgDoc open name colonEq value close inside)
     | Annotation open value colon annotation close =>
       expr.framed around (annotationDoc open value colon annotation close inside)
+    | Infix InfixMembership left operator right => expr.framed around (membershipDoc left operator right inside)
+    | Spread dots list =>
+      expr.framed around (Doc.concat [dots.leaf inside around.at, list.el (around.next dots.trails 1)])
+    | Record open base fields _ close => expr.framed around (Doc.group (recordContent open base fields close inside))
+    | RecordField name equals value => expr.framed around (recordFieldDoc name equals value inside)
+    | CtorFields ctor record =>
+      expr.framed around (Doc.concat [ctor.el inside, Doc.text " ", record.el (around.next ctor.trails ctor.size)])
     | _ => Nothing
 
 --| A node's document with its first token's own-line comments before it,
@@ -557,6 +592,7 @@ def lastArgument (argument: Expr) (around: Around): (Doc, Option Doc) := match a
   | ListOf open items _ close => huggedBracket True open items close around
   | Paren open (Binding BindsLambda _ params arrow body) close => huggedLambda open params arrow body close around
   | Paren open (Block first rest result) close => huggedBlock open first rest result close around
+  | Record open base fields _ close => huggedRecord open base fields close around
   | _ => (argument.el around, None)
 
 --| `(x => body)` as a last argument: the lambda as it is, and opened,
@@ -979,6 +1015,7 @@ def bodyAfter (value: Expr) (assign: Word) (around: Around) (semi: Bool): (Doc, 
     let opens := match value with
       | Tuple _ _ _ _ => True
       | ListOf _ _ _ _ => True
+      | Record _ _ _ _ _ => True
       | _ => False
     let lambda := match value with
       | Binding BindsLambda _ params arrow body =>
@@ -1245,6 +1282,10 @@ def Pattern.el (pattern: Pattern) (around: Around): Doc :=
         | None => None
       framedBy open around
         (Doc.group (patternBracket (tuple := False) open items (tailWords tail) tailDoc close inside))
+    | PatternRecord fields => framedBy fields.open around (Doc.group (fieldsContent fields inside))
+    | PatternCtorFields name fields =>
+      framedBy name around
+        (Doc.concat [name.leaf inside around.at, Doc.text " ", fieldsJoined fields (around.next name.trails 1)])
     | _ => Nothing
 
 def argumentPatterns (arm before: Bool) (at: Nat): List Pattern → List Doc
@@ -1376,6 +1417,128 @@ def annotationDoc (open: Word) (value: Expr) (colon: Word) (annotation: Expr) (c
     Doc.text " ",
     annotation.el (around.next colon.trails (colonAt + 1)),
     close.leaf (around.next annotation.trails (colonAt + 1 + annotation.size)) around.at
+  ]
+
+-- Slice 4c's records and membership.
+
+--| `x ∈ s` (`join`: Rust has no rule of its own for `Membership`): never
+--| breaks between its operands.
+def membershipDoc (left: Expr) (operator: Word) (right: Expr) (around: Around): Doc :=
+  let operatorAround := around.next left.trails left.size
+  Doc.concat [
+    left.el around,
+    Doc.text " ",
+    operator.leaf operatorAround operatorAround.at,
+    right.after (around.next operator.trails (left.size + 1))
+  ]
+
+--| `name = value` in a record (`join`).
+def recordFieldDoc (name equals: Word) (value: Expr) (around: Around): Doc := Doc.concat [
+  name.leaf around around.at,
+  Doc.text " ",
+  equals.leaf (around.next name.trails 1) (around.at + 1),
+  value.after (around.next equals.trails 2)
+]
+
+--| A record's parts, not yet grouped (`comma_bracket_content` with brace
+--| edges): `{ a = 1, b }` flat, else each field on a line of its own at 2
+--| and `}` alone. An update's record and its `|` stay on the `{` line.
+--| Unlike a list, a record never fills its lines.
+def recordContent (open: Word) (base: Option (Expr, Word)) (fields: List Expr) (close: Word) (around: Around): Doc :=
+  let whole := Record open base fields False close
+  let closer := close.leaf (around.next whole.trailsBeforeClose (whole.size - 1)) around.at
+  let opener := open.opening around close
+  let (prefix, before, at) := match base with
+    | Some (record, bar) =>
+      let barAround := around.next record.trails (1 + record.size)
+      (
+        Doc.concat [
+          opener,
+          Doc.text " ",
+          record.el (around.next open.trails 1),
+          Doc.text " ",
+          bar.leaf barAround barAround.at
+        ],
+        bar.trails,
+        around.at + 2 + record.size
+      )
+    | None => (opener, open.trails, around.at + 1)
+  let parts := [prefix, Nest 2 (Doc.concat (recordItems around.inArm before at fields)), Line, closer]
+  Doc.concat (if whole.holdsTrailingComment then parts ++ [BreakParent] else parts)
+
+--| A broken record's fields: each starts a line, with its comma after it.
+def recordItems (arm before: Bool) (at: Nat): List Expr → List Doc
+  | [] => []
+  | [item] => [Line, item.el (itemAround arm before at)]
+  | [item, ..rest] =>
+    [Line, item.el (itemAround arm before at), Closing ",", ..recordItems arm False (at + item.size) rest]
+
+--| A record as a call's last argument: as it is, and opened.
+def huggedRecord (open: Word) (base: Option (Expr, Word)) (fields: List Expr) (close: Word) (around: Around):
+    (Doc, Option Doc) :=
+  let leading := Doc.concat (open.leading around around.at)
+  let content := recordContent open base fields close { around | hoisted = True }
+  (Doc.concat [leading, Group content content.forcesBreak], Some (Doc.concat [leading, Group content True]))
+
+--| `x` or `x = p` in a record pattern (`join`: Rust's tree has no node
+--| for it).
+def FieldPattern.el (field: FieldPattern) (around: Around): Doc := match field with
+  | { name, value = Some (equals, pattern) } => Doc.concat [
+    name.leaf around around.at,
+    Doc.text " ",
+    equals.leaf (around.next name.trails 1) (around.at + 1),
+    Doc.text " ",
+    pattern.el (around.next equals.trails 2)
+  ]
+  | { name, value = None } => name.leaf around around.at
+
+--| A record pattern's parts, not yet grouped (`comma_bracket_content`
+--| with brace edges): flat, else each field and the `..` on a line of
+--| their own at 2 and `}` alone.
+def fieldsContent (fields: FieldsPattern) (around: Around): Doc := match fields with
+  | { open, fields = items, rest, close, .. } =>
+    let words := fields.words
+    let closer := close.leaf (around.next (trailsBack (words.reverse.drop 1)) (words.length - 1)) around.at
+    let holds := (words.filter Word.trails |> .length) > (if trailsBack words.reverse then 1 else 0)
+    let body := fieldItems around.inArm open.trails (around.at + 1) items rest
+    let parts := [open.opening around close, Nest 2 (Doc.concat body), Line, closer]
+    Doc.concat (if holds then parts ++ [BreakParent] else parts)
+
+--| A broken record pattern's fields, then its `..`.
+def fieldItems (arm before: Bool) (at: Nat) (items: List FieldPattern) (rest: Option Word): List Doc := match items with
+  | [] =>
+    match rest with
+      | Some dots => [Line, dots.leaf (itemAround arm before at) at]
+      | None => []
+  | [field, ..others] =>
+    let more := !others.isEmpty || rest.isSome
+    [Line, field.el (itemAround arm before at)]
+      ++ (if more then [Closing ","] else [])
+      ++ fieldItems arm False (at + field.words.length) others rest
+
+--| `C { x, y = p, .. }`'s braces and fields (`join`: in Rust's tree they
+--| are the constructor's children, not a bracket node), on one line. The
+--| slice has them without comments.
+def fieldsJoined (fields: FieldsPattern) (around: Around): Doc := match fields with
+  | { open, fields = items, rest, close, .. } =>
+    let words := fields.words
+    let restAt := around.at + 1 + (fieldPatternsWords items).length
+    let restDocs := match rest with
+      | Some dots => [dots.leaf (around.next False (restAt - around.at)) restAt]
+      | None => []
+    Doc.concat [
+      open.leaf around around.at,
+      Doc.text " ",
+      Doc.joined (joinedFields around.inArm (around.at + 1) items ++ restDocs) (Doc.concat [Closing ",", Doc.text " "]),
+      Doc.text " ",
+      close.leaf (around.next False (words.length - 1)) around.at
+    ]
+
+def joinedFields (arm: Bool) (at: Nat): List FieldPattern → List Doc
+  | [] => []
+  | [field, ..rest] => [
+    field.el { before = False, hoisted = False, item = False, at, inArm = arm },
+    ..joinedFields arm (at + field.words.length) rest
   ]
 
 -- Slice 5a's declarations.

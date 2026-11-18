@@ -33,8 +33,8 @@ test "named arguments and type annotations" :=
       "def a: Nat := f (n := 1) (m := g x) y\ndef b: Nat := (x: Nat) + (f y : List Nat).length\ndef c: Nat := someFunctionWithALongName (argument := aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) (other := bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb + 1)\ndef d: Nat :=\n  f (n := -- why\n    1)\ndef e: Nat := (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ccccccccccccccccccccccccccc : Nat)\n"
       "def a: Nat := f (n := 1) (m := g x) y\ndef b: Nat := (x: Nat) + (f y: List Nat).length\ndef c: Nat :=\n  someFunctionWithALongName\n    (argument := aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)\n    (other := bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb + 1)\ndef d: Nat := f (n := -- why\n  1)\ndef e: Nat :=\n  (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n      ccccccccccccccccccccccccccc: Nat)\n"
 
-test "a record pattern, `.._` and the unit are outside the slice" :=
-  refuses "def f: P → Nat\n  | { x, .. } => x\n"
+test "a negative pattern, `.._` and the unit are outside the slice" :=
+  refuses "def f: Int → Nat\n  | -1 => 0\n  | _ => 1\n"
     && refuses "def f: List Nat → Nat\n  | [x, .._] => x\n  | _ => 0\n"
     && refuses "def u: Unit := ()\n"
 
