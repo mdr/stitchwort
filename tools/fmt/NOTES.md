@@ -595,7 +595,7 @@ Sonnet, 17 November 2026.
 | The passes P1 to P4, each a `SourceFile → SourceFile` made of steps given to the traversal | `src/Fmt/Passes.sw` |
 | The traversal's steps as a record: `Steps` (`expr`, `pattern`, `header`, `decl`, `fields`, `attributes`, `ruleSet`), `Steps.keep` for the identity; the lowering's checks became `checkSteps` | `src/Syntax/Traverse.sw`, `Lowering.sw` |
 | `Group.bare`: no comment on a header group's tokens but above its opening bracket, set by the parser, which P4 reads so it needn't walk a type for comments | `Decl.sw`, `DeclParser.sw` |
-| The parked comma: `Lexed.settledBare` (the last commas out, then rule N) and `Lexed.tidied` | `Settle.sw`, `Passes.sw` |
+| The parked comma: `Lexed.settledBare` (the last commas out, then rule N), `Lexed.settledOnce` (the last commas bare, then rule N) and `Lexed.tidied` | `Settle.sw`, `Passes.sw` |
 | `Fmt.Twin --stage passes` (and `tidied`, the last tree only, for timing) | `Fmt/Twin.sw` |
 | The Rust side: `stitchwort dev passes FILE` (`passes::dump_after_each`), and `dev/fmt-twin passes` | `crates/fmt/src/passes.rs`, `crates/cli`, `dev/fmt-twin` |
 | Tests | `src/Fmt/Tests/Passes.sw` (13), `the_dump_after_each_pass_shows_the_tree_that_pass_left` |
@@ -611,7 +611,7 @@ Each pass is `file.apply steps`: the declarations traversed one by one under `Fa
 
 ### The parked comma
 
-Rule N parks a comma's comments on the next token; the Rust P2 then deletes the comma from the text and rule N runs again, which gives a different answer when the comma starts its line and has a comment above (proof plan §10, K1). `Lexed.settledBare` is the sketch's `withoutLastCommas` on the real leaves, and `Lexed.tidied` parses it for P2 on when `parksComment` finds a comma before a closer holding a comment as the lexer left it. The tree dump leaves comments out, so the harness can't see this family at all; `the parked comma` test compares `settledBare`'s token dump with rule N's on the text with the comma written as a space, for the K1 case. Where no comma parks a comment (nearly every file) P2 is the tree step on the one parse.
+Rule N parks a comma's comments on the next token; the Rust P2 then deletes the comma from the text and rule N runs again, which gives a different answer when the comma starts its line and has a comment above (proof plan §10, K1). `Lexed.settledBare` is the sketch's `withoutLastCommas` on the real leaves: Rust's comments after P2. `Lexed.tidied` parses once, from `Lexed.settledOnce`: each last comma's comments moved as `withoutLastCommas` moves them, the comma left in bare (still starting its line if it did), then rule N, which treats such a comma as if it weren't there; P2 then drops the commas on the tree (SW-3964, below). The tree dump leaves comments out, so the `passes` harness can't see this family; `the parked comma` test compares `settledBare`'s token dump with rule N's on the text with the comma written as a space, for the K1 case, and two `Tests/Slice1.sw` cases pin the formatted text.
 
 ### The gate [measured, Speedwell, load 5 to 9]
 
@@ -1261,3 +1261,18 @@ What keeps the rest out [measured, as SW-3990's count]: of 1,930 declarations ou
 - **Columns.** A broken `rewrite` puts its body at 2 from the `rewrite`'s line and later rules at 4; a broken `repeatedly` set puts its rules at 2 from that (6) and `]` at 4. `calc` steps are at 2 from the `calc`'s line, a step's broken proof at 2 from the step. A broken `↔` puts `↔` at 2. `cases then`, facts and `at h` never break between their tokens.
 - **Rule N.** A `repeatedly` set's `[` and `]` are a bracket pair as a list's. A `calc` step is an item (a blank line above it kept), framed by its `_`; a rule is framed by its first token, as the `RewriteRule` node is in Rust's tree.
 - **Edits to existing rules** are new arms only: `Expr.words`, `Expr.el`, `Expr.layoutBody`, `armDoc` and `bodyAfter`'s `lambda` match.
+
+## One parse (SW-3964, proof plan ticket 13c)
+
+`Lexed.tidied` parses once, from `Lexed.settledOnce` (`Settle.sw`): `withBareLastCommas` moves each last comma's comments as `withoutLastCommas` does (the move is `commaMoved`, shared by the two) and leaves the comma in with empty trivia, still starting its line if it did; then rule N. P2 drops the commas on the tree, so `Tidied.fourth` is `tidy` of the one parse. `parksComment` is gone. The search behind the choice is in the S1 sketch, §3.4's outcome: the sketch's way 2 with the comma off its line parses 54 in 3,000 generated files that Rust refuses; with the comma keeping its line start, refusals and trees are the old driver's on every file tried, and the text changes only where the old driver differed from Rust.
+
+**Two families fixed** (tests in `Tests/Slice1.sw`): a closer's trailing comment that rule 1 left on a commentless comma starting the closer's line, which rule 2 then put above the closer (Rust keeps it on the closer; 24 of 2,481 generated files that parse); and K1's own case, where the closer, first on its line without its comma, sat at the item's column, the bare parse failed and the driver fell back to the plain parse unseen.
+
+### The gate [measured, Speedwell]
+
+Fresh cache, copied binary, slim copy without the proofs, `--jobs 1`: `passes` 132 of 132 (goldens) and 300 of 300 (repo `--sample 300`); `s1` to `s6a` every declaration within each slice matched on both (`s6a`: 420 of 420 and 4,043 of 4,043); `text` 54 of 132 and 40 of 300, as before the change (the rest are outside slice 6a). The probe over the goldens and every fourth tracked `.sw` file (943 that lex) found no file whose trees, comments or text the change moves.
+
+### For the proof lanes
+
+- `parse1` is `parseFile lexed.settledOnce`. On a text with no comma before a closer (every output) `settledOnce` is `settled`, since `withBareLastCommas` is the identity there.
+- **`bareSettles`, searched, not proved:** rule N on `withBareLastCommas` leaves, then the last commas dropped, is `settledBare` (5,400 generated files and the corpus, no exception). It is what ties `CommentsKept`, stated on `settledBare`, to the leaves the tree comes from; under `plain1` no last comma starts its line, so the proof is rules 1 to 3 with one skipped leaf more. A `->` straight before a last comma would break it (rule 3), which `plain1` excludes.

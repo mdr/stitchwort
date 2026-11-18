@@ -513,6 +513,34 @@ walk over every parser function. Three ways on:
 Recommended: 1 for the proof lanes now, 2 as a ticket with its search
 first, decided at slice 1's checkpoint.
 
+**Outcome (SW-3964): way 2, with the comma keeping its line start.**
+`Lexed.tidied` now parses once, from `Lexed.settledOnce`: each comma
+before a closer has its comments moved as `withoutLastCommas` moves them
+and stays in bare, then rule N runs; P2 drops the commas on the tree. So
+`tidiedIsTidy` is by computing, and `parse1` should read
+`parseFile lexed.settledOnce` (on the output, which has no such comma,
+that is `parseFile lexed.settled`). The search [run: generated slice 1
+files, `tools/fmt/dev/probe.py`'s generator, three seeds]:
+
+| Check | Files | Result |
+|---|---|---|
+| Rule N on the bare-comma leaves, commas then dropped, against `settledBare` (`bareSettles`) | 5,400 (2,679 that parse) | 0 differ |
+| The comma not starting its line (the sketch's way 2): files the old driver refuses that it parses | 3,000 | 54, all refused by Rust: rule N is the same, the parser isn't |
+| The comma keeping its line start: refusals as the old driver | 3,000 | the same |
+| Its four trees against the old driver's (dumps, no comments) | 1,458 that parse | the same |
+| Its formatted text against the old driver's | 1,458 | 24 differ; Rust's on 22, the other 2 only §3.5's glued pairs; the old driver matched Rust on none |
+
+The 24 are a family the old driver missed: a comma that starts the
+closer's line with no comment of its own, after a line ending in a
+comment, gets the closer's trailing comment from rule 1 and rule 2 puts it
+above the closer, where Rust, deleting the comma, leaves it on the closer
+(`parksComment` looked only at the comma's own comments). A second: on
+K1's own case the old driver's bare parse failed (the closer, now first on
+its line, sits at the item's column) and it fell back to the plain parse
+silently. Both are tests in `Tests/Slice1.sw`. `bareSettles` is searched,
+not proved: under `plain1` no comma before a closer starts its line, so
+its proof is rule 1, 2 and 3 run with a skipped leaf more.
+
 **Family D, found here:** `withoutLastCommas` gives a line-starting
 comma's trailing comment no blank line above it (`comment.unspaced`,
 `Settle.sw:292`), where Rust, deleting the comma from the text, sees the
