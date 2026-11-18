@@ -310,12 +310,13 @@ theorem pastPlain ∀ (fuel: Nat) (items: List Item) (plain: plainAll items = Tr
 --| No implicit binder ahead, unless the items start `[auto Upper`: plain items have no `:` after the names.
 theorem implicitPlain ∀ (fuel: Nat) (item: Item) (rest: List Item)
     (plain: plainAll [item, ..rest] = True)
-    (noAuto: namelessAutoAt [item, ..rest] = False):
+    (noAuto: (item.kind == LBracket && namelessAutoAt [item, ..rest]) = False):
     implicitOn fuel [item, ..rest] (Some item.kind) = False :=
   let later: plainAll rest = True := Bool.andRight plain
-  match item.kind == LBracket with
-    | False => byComputing
-    | True => rewrite noAuto, pastPlain fuel rest later, namesPlain rest 0 (kind => kind == Colon) plainNotColon later
+  match item.kind == LBracket, noAuto with
+    | False, _ => byComputing
+    | True, noAuto =>
+      rewrite noAuto, pastPlain fuel rest later, namesPlain rest 0 (kind => kind == Colon) plainNotColon later
 
 --| No `(x: A) ->` binder ahead: plain items have no `:` after the names.
 theorem piPlain ∀ (item: Item) (rest: List Item)
@@ -334,7 +335,7 @@ theorem plainNotKeyword ∀ (kind: Tok)
 --| `exprInline`'s look-aheads before an operator expression all say no on plain items not starting `[auto Upper`.
 theorem inlinePlainOf ∀ (modes: Modes) (item: Item) (rest: List Item)
     (plain: plainAll [item, ..rest] = True)
-    (noAuto: namelessAutoAt [item, ..rest] = False):
+    (noAuto: (item.kind == LBracket && namelessAutoAt [item, ..rest]) = False):
     InlinePlain modes item [item, ..rest] :=
   let (notKeyword, notQuantifier, notIf) := plainNotKeyword item.kind (Bool.andLeft plain)
   {
@@ -393,6 +394,8 @@ theorem wordPlain ∀ (kind: Tok) (word: kind.wordWithin1 = True): isWord kind =
 
 theorem plainNotBrace ∀ (kind: Tok) (plain: plainKind kind = True): (kind == LBrace) = False := cases
 
+theorem wordNotBracket ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == LBracket) = False := cases
+
 --| The read-back of `def name: A := b` with `A` and `b` words in the middle of their line: the whole chain from the
 --| look-aheads to `declarationTree`, for the smallest declarations.
 theorem readsBackWords ∀ (seen: Seen) (keyword name colon result colonEq value: Item)
@@ -430,13 +433,13 @@ theorem readsBackWords ∀ (seen: Seen) (keyword name colon result colonEq value
       (inlinePlainOf Modes.start result
         [colonEq, value]
         (rewrite resultPlain, colonEqPlain, valuePlain)
-        (rewrite isColonEq))
+        (rewrite wordNotBracket result.kind resultWord))
       (operandEndsAt Modes.start colonEq [value] (endKind colonEq.kind (rewrite isColonEq)))
   let valueTree: Tree { modes = body, level = LevelFull } [value] [] (Atom value.kind value.leaf.word) :=
     treeWord body value [] valueInLine byComputing valueIsWord
       (andFalseRight (isSome Upper (Some value.kind)) True _ byComputing)
       (noBarOne body value)
-      (inlinePlainOf body value [] (rewrite valuePlain) byComputing)
+      (inlinePlainOf body value [] (rewrite valuePlain) (rewrite wordNotBracket value.kind valueWord))
       (operandEndsNil body)
   let noRow: rowOn (isSome LBrace (peekIn Modes.start 0 [result, colonEq, value])) [result, colonEq, value] = False :=
     rewrite plainNotBrace result.kind resultPlain
