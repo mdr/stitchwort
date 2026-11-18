@@ -24384,12 +24384,12 @@
     {
       "id": 4012,
       "title": "[Opus] fmt S1 read-back 17c: the tree-to-items relation (induction over Spells giving each node's items via ItemsAt) and the knot for a whole tree (a good relation for Parse.runsRecursiveWith over every slice 1 node; runsExpressionWord is the pattern), on SW-4004's Syntax.ReadBackRuns",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 70 min. Lane notes (Opus, 18 Nov 2026, branch lane/SW-4012, 15:48-16:14):\n- New tools/fmt/src/Syntax/ReadBackTree.sw (54 theorems, audit clean): the tree relation `Tree goal read rest value`, one Prop per rung of the parser's ladder (atoms' seven bases, app, unary, mul/add/append chains, piped, cmp, logic, end/arrow, operator, inline, block, full), children named only through `sub`; `Layer` for the three self-call levels (full, unary, argument), `TreeN depth`, `Tree` = some depth.\n- Knot: `runsTree` (Parse.runsRecursiveWith expressionRule Tree treeStep): expressionAt reads every tree the relation holds of. Result: `declarationTree` from the record `DeclarationTree` (17d's one target).\n- For 17d: `layerMono`/`treeNRaise`/`treeOfLayer` build trees bottom up; `fullWord`/`treeWord` is the one-word case; `itemsAround`/`declarationItems` cut items through ItemsAt.\n- Finding: a line-start expression needs its inline reading too (Parse.Runs is over every state; exprLater blocks only at offset > 0). 17d must supply it, or a runsRecursiveWith over RunsFrom with offsets would drop it.\n- No parser change. InlinePlain and OperandEnds became Prop records (ReadBackRuns).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
