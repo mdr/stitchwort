@@ -373,7 +373,9 @@ def Modes.failNameOn (modes: Modes) (what: Text) (items: List Item): {Parse Item
 def keywordHere (modes: Modes) (item: Item): Bool := !modes.stops item && Tok.keyword item.text |> .isSome
 
 --| An unqualified lowercase name (the Rust parser's `lower`).
-def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := match left() with
+def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := modes.lowerOn what left()
+
+def Modes.lowerOn (modes: Modes) (what: Text) (items: List Item): {Parse Item} Word := match items with
   | [item, .._] if item.kind == Lower && !modes.stops item =>
     if isQualified item then fatal "`${item.text}` is a qualified name, which can't be used here" else bump()
   | _ => modes.failName what
@@ -923,13 +925,16 @@ def arrowEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (ar
 
 def semiExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr): {Parse Item} Expr :=
   let semicolon := bump()
-  match modes.peek with
-    | None => fatal semicolonAtEnd
-    | Some RParen => fatal semicolonAtEnd
-    | Some RBracket => fatal semicolonAtEnd
-    | Some RBrace => fatal semicolonAtEnd
-    | Some Comma => fatal semicolonAtEnd
-    | _ => Infix InfixSeq value semicolon (full self modes)
+  semiAfter self modes value semicolon modes.peek
+
+def semiAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (semicolon: Word):
+    Option Tok → {Parse Item} Expr
+  | None => fatal semicolonAtEnd
+  | Some RParen => fatal semicolonAtEnd
+  | Some RBracket => fatal semicolonAtEnd
+  | Some RBrace => fatal semicolonAtEnd
+  | Some Comma => fatal semicolonAtEnd
+  | _ => Infix InfixSeq value semicolon (full self modes)
 
 def semicolonAtEnd: Text := "`;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value"
 
@@ -1565,9 +1570,22 @@ def sectionStart (modes: Modes): {Parse Item} Expr :=
 def namedArgument (self: Goal → {Parse Item} Expr) (modes: Modes) (closer: Tok) (closeText: Text): {Parse Item} Expr :=
   let open := bump()
   let inner := modes.inBrackets
-  let name := if inner.at KwDecreasing then bump() else inner.lower "a name"
+  namedHead self inner open closer closeText (inner.at KwDecreasing)
+
+def namedHead (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (closer: Tok)
+    (closeText: Text) (keyword: Bool):
+    {Parse Item} Expr :=
+  let name := if keyword then bump() else inner.lower "a name"
+  namedColon self inner open name closer closeText
+
+def namedColon (self: Goal → {Parse Item} Expr) (inner: Modes) (open name: Word) (closer: Tok) (closeText: Text):
+    {Parse Item} Expr :=
   let colonEq := bump()
   let value := full self inner
+  namedClose inner open name colonEq value closer closeText
+
+def namedClose (inner: Modes) (open name colonEq: Word) (value: Expr) (closer: Tok) (closeText: Text):
+    {Parse Item} Expr :=
   NamedArg open name colonEq value (inner.expect closer closeText)
 
 --| What starts with `(`: `()`, a named argument, an operator section, a
@@ -1628,7 +1646,11 @@ def parenClose (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
 def annotated (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
   let colon := bump()
   let annotation := full self inner
-  if inner.at Comma then fatal tupleAnnotation
+  annotatedEnd inner open first colon annotation (inner.at Comma)
+
+def annotatedEnd (inner: Modes) (open: Word) (first: Expr) (colon: Word) (annotation: Expr) (comma: Bool):
+    {Parse Item} Expr :=
+  if comma then fatal tupleAnnotation
   else
     let close := inner.expect RParen "`)`"
     Annotation open first colon annotation close
