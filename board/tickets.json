@@ -23252,12 +23252,12 @@
     {
       "id": 3928,
       "title": "[DeepSeek] audit.rs witness_of: count the warned theorem's arity after unfolding its type (whnf), not syntactically, so a theorem restating a nicknamed ∀ statement isn't taken for a witness (SW-3920 review)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (unfolded every candidate's type before the cheap tests; orchestrator reordered), 15 min (est. 15). Failing-first test shown; Fmt.Doc audit still 0 warnings. Uses def.ty_value via telescope, which forces, so it stays right under SW-3930's glued kept types.",
       "created": "2026-11-17",
       "updated": "2026-11-18",
       "commits": []
