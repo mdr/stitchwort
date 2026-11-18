@@ -628,16 +628,17 @@ def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item}
 def full (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := self { modes, level = LevelFull }
 
 --| `expr`: a line after the first starting here would be a block.
-def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := exprLater self modes (offset() > 0)
+def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := exprOn self modes left()
 
-def exprLater (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool): {Parse Item} Expr :=
-  exprOn self modes later left()
+--| Whether `expr` takes `item` as the start of a block: it starts a line after the declaration's first item, the
+--| modes don't allow it (as a block's own line), and it doesn't end the construct around. It tests the item's index
+--| (Rust's `self.pos`), which in a declaration group is the parser's offset, so that it depends on the items alone
+--| and a reading of them holds from any parser state.
+def startsBlock (modes: Modes) (item: Item): Bool :=
+  item.leaf.token.lineStart && item.index > 0 && modes.allow != Some item.index && !modes.endsConstruct item
 
-def exprOn (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool): List Item → {Parse Item} Expr
-  | [item, .._] =>
-    if item.leaf.token.lineStart && later && modes.allow != Some item.index && !modes.endsConstruct item then
-      exprBlock self modes item
-    else exprInline self modes
+def exprOn (self: Goal → {Parse Item} Expr) (modes: Modes): List Item → {Parse Item} Expr
+  | [item, .._] => if startsBlock modes item then exprBlock self modes item else exprInline self modes
   | _ => exprInline self modes
 
 def exprBlock (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item): {Parse Item} Expr :=
@@ -735,12 +736,17 @@ def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (co
     {Parse Item} List Statement :=
   match fuel with
     | Zero => found
-    | Succ more => blockLine more self modes column many found offset()
+    | Succ more => blockLine more self modes column many found offset() left()
 
 def blockLine (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
-    (found: List Statement) (before: Nat):
+    (found: List Statement) (before: Nat) (items: List Item):
     {Parse Item} List Statement :=
-  blockPeek more self modes column many found before { modes | allow = Some before }
+  blockPeek more self modes column many found before { modes | allow = nextIndex items }
+
+--| The index of the next item, which a block's line allows to start a line (Rust's `self.pos`).
+def nextIndex: List Item → Option Nat
+  | [item, .._] => Some item.index
+  | [] => None
 
 def blockPeek (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (before: Nat) (statementModes: Modes):
