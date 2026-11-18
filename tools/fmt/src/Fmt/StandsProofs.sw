@@ -2,7 +2,8 @@
 --| The lexer reads the printed events as a fold (`hearAll`), as `Laid.lay` reads the printed pieces (`laidHears`).
 
 namespace Fmt.StandsProofs
-import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
+import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
+import Std.Doc (Carry)
 import Std.Doc.Proofs (
   Closer,
   Event,
@@ -21,9 +22,13 @@ import Std.Doc.Proofs (
   laidOf,
   lineBlank,
   lineWidth,
+  printTold,
+  printedJoins,
   printedOf,
+  printedPieces,
   startsAs
 )
+import Std.Doc.Proofs (AtStart, Place, Spot)
 import Syntax (
   Comment,
   Comments,
@@ -45,6 +50,10 @@ import Syntax (
 import Syntax.Proofs (Spells)
 import Fmt (..)
 import Fmt.TreeJoinProofs (
+  declJoins,
+  declOperators,
+  declPrintable,
+  declReal,
   OperatorSpells,
   PrefixSpells,
   Quiet,
@@ -65,8 +74,21 @@ import Fmt.TriviaStatements (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.ToldDeclProofs (..)
 import Syntax.Proofs (Laid, Piece)
-import Fmt.PrintHangProofs (CommentsEnd, Tracks, endsRest, freshIsBlank, lastComment, tracks)
-import Fmt.PrintLexProofs (pieceOf)
+import Fmt.PrintHangProofs (
+  CommentsEnd,
+  Tracks,
+  endsRest,
+  freshIsBlank,
+  laidOfFold,
+  lastComment,
+  pairsEnd,
+  pieceFoldLay,
+  tracks
+)
+import Fmt.JoinProofs (doc1Passes)
+import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKindFixed)
+import Fmt.OutputStatements (..)
+import Fmt.PrintLexProofs (Follows, Printable, pieceFold, pieceOf)
 
 -- What the lexer reads of a leaf.
 
@@ -1474,3 +1496,247 @@ theorem argumentsBitsFacts ∀ (arguments: List Expr)
         (rewrite bitsWordsAppend (argument.bits False False) (argumentsBits rest), argumentWords, restWords),
         bitsFineAppend lexKind (argument.bits False False) (argumentsBits rest) argumentFine restFine
       )
+
+--| A slice 1 declaration's bits are the words `stands` reads, with bare commas, and each token one the lexer reads
+--| back.
+--|
+--| Proof idea: `def`, `:` and `:=` are their texts, the name spells `Lower`, and `exprBits` gives the type and value;
+--| the first word's comments above are hoisted as `stood` takes them off.
+theorem declBits ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (sound: decl.sound = True)
+    (lexical: decl.lexical1 = True)
+    (plain: decl.unreturned1 = True):
+    bitsWords decl.bits = decl.stood ∧ BitsFine lexKind decl.bits :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          let nameWithin := Bool.andLeft (Bool.andLeft within)
+          let spells := spellsOfText1 Lower name.text (Bool.andRight nameWithin)
+          let quiet := wordQuiet Lower byComputing
+          let (_, nameNotCloser) := spellsQuiet Lower name.text spells quiet
+          let (resultWords, resultFine) :=
+            exprBits result False
+              (Bool.andRight (Bool.andLeft within))
+              (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight sound))))
+              (Bool.andLeft (Bool.andRight lexical))
+              (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight plain))))
+          let (valueWords, valueFine) :=
+            exprBits value False
+              (Bool.andRight within)
+              (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
+              (Bool.andRight (Bool.andRight lexical))
+              (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight plain)))))
+          (
+            (rewrite bitsWordsAppend (result.bits False False) [
+                  AWord ((fixedWord ":=" colonEq).bitK False False),
+                  ..value.bits False False
+                ],
+                resultWords,
+                valueWords,
+                nameNotCloser),
+            (
+              bitFine
+                (fixedWord "def" keyword)
+                False
+                True
+                (byComputing, byComputing, byComputing, byComputing)
+                (Bool.andLeft sound)
+                (Bool.andLeft plain),
+              bitFine name False False
+                (quietKindOk Lower name.text spells quiet)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andLeft (Bool.andRight plain)),
+              bitFine
+                (fixedWord ":" colon)
+                False
+                False
+                (byComputing, byComputing, byComputing, byComputing)
+                (Bool.andLeft (Bool.andRight (Bool.andRight sound)))
+                (Bool.andLeft (Bool.andRight (Bool.andRight plain))),
+              bitsFineAppend lexKind
+                (result.bits False False)
+                [AWord ((fixedWord ":=" colonEq).bitK False False), ..value.bits False False]
+                resultFine
+                (
+                  bitFine
+                    (fixedWord ":=" colonEq)
+                    False
+                    False
+                    (byComputing, byComputing, byComputing, byComputing)
+                    (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
+                    (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight plain))))),
+                  valueFine
+                )
+            )
+          )
+        | _ => (Bool.falseNotTrue within).impossible
+
+-- The engine end.
+
+--| A reading no wider than another reads the same events.
+theorem refinesReads ∀ (told shape: List Told) (events: List Event)
+    (refines: Refines told shape)
+    (reads: ReadsAs told events):
+    ReadsAs shape events :=
+  match told, shape, refines with
+    | [], [], _ => reads
+    | [Told.Gap, ..more], [Told.Gap, ..rest], (_, tail) =>
+      match events, reads with
+        | [event, ..later], (blank, readsMore) => (blank, refinesReads more rest later tail readsMore)
+    | [Said text starts follows, ..more], [Said other first second, ..rest], (
+        (same, startsWider, followsWider),
+        tail
+      ) =>
+      match events, reads with
+        | [event, ..later], (word, allowed, readsMore) => (
+          rewrite <- same then word,
+          widerStarts starts follows first second event.start startsWider followsWider allowed,
+          refinesReads more rest later tail readsMore
+        )
+    | _, _, never => cases
+
+theorem widerStarts ∀ (starts follows first second: Bool) (start: Option Nat)
+    (startsWider: starts = True → first = True)
+    (followsWider: follows = True → second = True)
+    (allowed: startsAs starts follows start = True):
+    startsAs first second start = True :=
+  match start with
+    | Some _ => startsWider allowed
+    | None => followsWider allowed
+
+--| The lexer's leaves of a declaration's printed text are the trace's, read by `hearAll`.
+theorem leavesHeard ∀ (doc: Doc)
+    (ends: CommentsEnd (printedPieces doc width).reverse):
+    (Fmt.OutputStatements.laidOf doc).leaves.map Leaf.view
+      = (hearAll lexKind (eventsOf (printedPieces doc width).reverse)).views :=
+  let texts := printedPieces doc width
+  let laid: Fmt.OutputStatements.laidOf doc = Fmt.PrintHangProofs.laidOf lexKind texts.reverse :=
+    rewrite pieceFoldLay lexKind texts Laid.start, laidOfFold lexKind texts.reverse, List.reverseReverse texts
+  let (views, _) := laidHears lexKind texts.reverse ends
+  rewrite laid then views
+
+--| `printedStands1` for a declaration and its document, with what the statement adds: no comment ends in a
+--| carriage return (`unreturned1`), and the facts `printedHangs` takes (`DeclHangs`), from which the document lays.
+--|
+--| Proof idea: the document lays (`doc1Hangs`), so `printTold` reads its laid trace as `told`, which refines the
+--| tree's shape (`printedTold`), the reading of its bits (`declShapeBits`); the printed events tuck that trace
+--| (`Tucks`), and hearing them (`bitsHeard`) gives views that `heardStands` reads as `stands` of the bits' words,
+--| `decl.stood` (`declBits`). The lexer's leaves are those views (`leavesHeard`), as the joins end each comment's
+--| line (`pairsEnd`).
+theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (plain: decl.unreturned1 = True)
+    (facts: DeclHangs lexKind decl)
+    (shows: decl.doc1 = Some doc):
+    stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
+  let spelled := declOperators decl within
+  let real := declReal decl within lexical spelled
+  let sound := declSoundOfSettled decl within settled real
+  let joins := declJoins decl within shaped sound lexical spelled
+  let (uniform, _, words) := doc1Spells decl doc within sound shows
+  let (_, _, pairs) :=
+    printedJoins
+      (Follows lexKind)
+      (Printable lexKind)
+      doc
+      width
+      uniform
+      (doc1Passes lexKind decl doc within joins shows)
+      (rewrite words then declPrintable decl within sound lexical spelled)
+  let ends := pairsEnd lexKind (printedPieces doc width).reverse pairs
+  let lays :=
+    doc1Hangs lexKind decl doc within lexKindFixed facts shows
+      (AtStart 0 Carry.none)
+      []
+      (place laid => True)
+      (byComputing, byComputing)
+      (after later holds => byComputing)
+  let (refines, _) := printedTold decl doc within settled real joins shows
+  let (bitsStood, fine) := declBits decl within sound lexical plain
+  let (place, laid, _, reads, (stretches, (fits, _, laidIs, printedIs))) :=
+    printTold (place laid => True) doc width lays
+  let shapeReads: ReadsAs (bitsShape decl.bits) ([] ++ laidOf stretches) :=
+    rewrite <- declShapeBits decl, <- laidIs then refinesReads (doc.told Spot.lineStart) decl.shape laid refines reads
+  let (views, (viewsIs, heard)) :=
+    bitsHeard lexKind decl.bits None [] stretches Hearing.start fine fits byComputing shapeReads byComputing byComputing
+  let heardViews: (hearAll lexKind (eventsOf (printedPieces doc width).reverse)).views = views :=
+    rewrite printedIs then Eq.trans viewsIs (List.appendNil views)
+  rewrite <- bitsStood then
+    heardStands None decl.bits
+      (Fmt.OutputStatements.laidOf doc).leaves.reverse
+      (rewrite List.mapReverse (Fmt.OutputStatements.laidOf doc).leaves Leaf.view, leavesHeard doc ends, heardViews then
+        heard)
+
+--| `printedStands1`, as proved: the four tree facts, no comment ending in a carriage return, and `DeclHangs`. It is
+--| false without `unreturned1` (`returnedFalls`).
+theorem printedStands1 ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (plain: decl.unreturned1 = True)
+    (facts: DeclHangs lexKind decl):
+    decl.stands1 = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      standsOfDoc
+        (Definition [] header (Assigned colonEq value))
+        (defDoc header colonEq value)
+        within
+        shaped
+        settled
+        lexical
+        plain
+        facts
+        byComputing
+
+-- Witnesses.
+
+--| `def d: A := b -- c` with a carriage return ending the comment, as a tree built by hand may have it: the four tree
+--| facts hold, but the lexer takes the return off, so the leaf's comment is not the tree's and `stands1` fails.
+def returnedDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none (Atom Lower (fixedWord "b" { above = [], after = Some "-- c\r", blankBefore = False })))
+
+--| Without `unreturned1`, `printedStands1` is false.
+theorem returnedFalls: returnedDecl.within1 = True
+      ∧ returnedDecl.shaped1 = True
+      ∧ returnedDecl.settled1 = True
+      ∧ returnedDecl.lexical1 = True
+      ∧ returnedDecl.unreturned1 = False
+      ∧ returnedDecl.stands1 = False :=
+  (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing)
+
+--| `def d: A := b` meets every hypothesis, so `printedStands1` applies.
+theorem atomDeclStands: atomDecl.stands1 = True :=
+  printedStands1 atomDecl byComputing byComputing byComputing byComputing byComputing atomDeclHangs

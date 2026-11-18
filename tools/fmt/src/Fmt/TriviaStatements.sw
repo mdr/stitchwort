@@ -74,26 +74,9 @@ def Decl.stands1 (decl: Decl): Bool := stands None decl.stood decl.leaves1
 --| Every declaration's printed leaves have the tree's comments where `stands` says.
 def SourceFile.stood1 (file: SourceFile): Bool := file.decls.all Decl.stands1
 
---| `printedStands1`: the comments and blank lines of a declaration's printed leaves are the tree's, each where
---| `stands` says: own-line comments and blank-line flags on their word's leaf, exactly `calm`'s; a trailing comment
---| on its word's leaf or on the last of the closers and commas after it on that line; a closer whose word holds a
---| comment at the start of a line.
---|
---| `settled1` is needed for the last clause only (`unsettledFalls`): the rules give such a closer a line of its own
---| when the code before it ends with a comment, and `homedBack` says it does or the closer has comments above it.
---|
---| Proof idea: read the document's laid trace (`Lays`) as words: a comment event that starts no line is the word
---| before's, one that starts a line and a blank line are the next word's. In that order the rules write each word
---| with its own comments around it, so the reading is `decl.stood` with bare commas between items (a walk of the
---| rules, as `printedHangs`). The printed order moves each trailing comment past the closers and commas on its
---| line (`Tucks`), none of which starts a line, and `Laid.lay` reads the printed order as the same fold does.
-theorem printedStands1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    decl.stands1 = True :=
-  ?
+-- `printedStands1`, that `stands1` holds of a slice 1 declaration, is proved in `Fmt.StandsProofs`, with two
+-- hypotheses beyond the four tree facts: no comment ends in a carriage return (`unreturned1`; without it the
+-- statement is false, `returnedFalls`) and the facts `printedHangs` takes (`DeclHangs`).
 
 -- Cases the statement applies to, and what it is for.
 
