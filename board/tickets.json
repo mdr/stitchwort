@@ -23423,12 +23423,12 @@
     {
       "id": 3941,
       "title": "[DeepSeek] reference::conv has no case for a glued call (Value::Call) and would quietly answer 'different'; add a guard as reference::quote has (unreachable or debug_assert), with a test that a glued value reaching it is loud (SW-3937 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (a redundant guard in conv_spines; orchestrator removed it), ~15 min (est. 20). Failing-first should_panic test in glue.rs.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
