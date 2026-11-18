@@ -17,6 +17,7 @@ import Syntax.Proofs (MayFollow)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)
+import Fmt.CalmProofs (bracketFrom, bracketIs)
 import Syntax (Note)
 
 -- What may follow a token.
@@ -1420,3 +1421,516 @@ theorem prefixPasses ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) 
                 edge
                 ended))
           (edge ready => readyWeaker kinds operator.trails True operand.lead.text (trails => byComputing) edge ready))))
+
+-- Comma brackets.
+
+--| Each item's element passes wherever it stands.
+def EachEl (kinds: Text → Tok): List Expr → Prop
+  | [] => True
+  | [expr, ..rest] =>
+    (∀ (place: Around) => Passes kinds (expr.el place) (Ready kinds True expr.lead.text) (Ended expr.trails))
+      ∧ EachEl kinds rest
+
+theorem gappedReadyTrue ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
+    (gapped: Gapped trails edge):
+    Ready kinds True first edge :=
+  readyWeaker kinds trails True first (holds => byComputing) edge (gappedReady kinds trails first edge gapped)
+
+theorem freeReadyTrue ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
+    (free: Free kinds trails edge):
+    Ready kinds True first edge :=
+  readyWeaker kinds trails True first (holds => byComputing) edge (freeReady kinds trails first edge free)
+
+--| A comma after an item: it joins the item's line, a comment after the item still waiting.
+theorem commaPasses ∀ (kinds: Text → Tok) (trails: Bool): Passes kinds (Closing ",") (Ended trails) (Ended trails) :=
+  edge next ended after =>
+    match edge, ended with
+      | Plain None, _ => (byComputing, after (Plain (Some ",")) byComputing)
+      | Plain (Some word), token =>
+        (followsCloser kinds word "," token (Inr (Inr (Inr byComputing))), after (Plain (Some ",")) byComputing)
+      | Waiting None, waits => (
+        byComputing,
+        byComputing,
+        byComputing,
+        followsSpace kinds "," byComputing,
+        after (Waiting (Some ",")) (waits, byComputing)
+      )
+      | Waiting (Some word), (waits, token) => (
+        byComputing,
+        byComputing,
+        followsCloser kinds word "," token (Inr (Inr (Inr byComputing))),
+        followsSpace kinds "," byComputing,
+        after (Waiting (Some ",")) (waits, byComputing)
+      )
+
+--| The words so far end with a comment if the last lot does.
+theorem seenAppend ∀ (seen words: List Word)
+    (trails: trailsBack words.reverse = True):
+    trailsBack (seen ++ words).reverse = True :=
+  rewrite List.reverseAppend seen words then trailsBackAppend words.reverse seen.reverse trails
+
+theorem itemTrails ∀ (seen: List Word) (item: Expr) (edge: Edge)
+    (ended: Ended item.trails edge):
+    Ended (trailsBack (seen ++ itemsWords [item]).reverse) edge :=
+  endedWeaker item.trails
+    (trailsBack (seen ++ itemsWords [item]).reverse)
+    (trails => rewrite List.appendNil item.words then seenAppend seen item.words trails)
+    edge
+    ended
+
+--| A broken bracket's items after the first: each on a line, after a comma.
+--|
+--| Proof idea: Induction on the items; each line break leaves no token on the line, so the item may start there, and
+--| the words seen so far end with a comment exactly when the last item does (`seenAppend`).
+theorem brokenRestPasses ∀ (kinds: Text → Tok) (seen: List Word) (items: List Expr) (bare arm before: Bool) (at: Nat)
+    (each: EachEl kinds items):
+    PassesAll kinds
+      (brokenItems bare arm False before at items)
+      (Ended (trailsBack seen.reverse))
+      (Ended (trailsBack (seen ++ itemsWords items).reverse)) :=
+  match items, each with
+    | [], _ =>
+      passesNil kinds (Ended (trailsBack seen.reverse)) (Ended (trailsBack (seen ++ []).reverse)) (edge ended =>
+        rewrite List.appendNil seen then ended)
+    | [item], (passes, _) =>
+      passesTwo kinds Line
+        (item.el (firstAround bare arm before at))
+        (Ended (trailsBack seen.reverse))
+        (Gapped (trailsBack seen.reverse))
+        (Ended (trailsBack (seen ++ itemsWords [item]).reverse))
+        (passesLine kinds (trailsBack seen.reverse))
+        (passesFrom kinds
+          (item.el (firstAround bare arm before at))
+          (Ready kinds True item.lead.text)
+          (Gapped (trailsBack seen.reverse))
+          (Ended (trailsBack (seen ++ itemsWords [item]).reverse))
+          (passesTo kinds
+            (item.el (firstAround bare arm before at))
+            (Ready kinds True item.lead.text)
+            (Ended item.trails)
+            (Ended (trailsBack (seen ++ itemsWords [item]).reverse))
+            (passes (firstAround bare arm before at))
+            (edge ended => itemTrails seen item edge ended))
+          (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
+    | [item, second, ..more], (passes, rest) =>
+      passesCons kinds Line _
+        (Ended (trailsBack seen.reverse))
+        (Gapped (trailsBack seen.reverse))
+        (Ended (trailsBack (seen ++ itemsWords [item, second, ..more]).reverse))
+        (passesLine kinds (trailsBack seen.reverse))
+        (passesCons kinds
+          (item.el (firstAround bare arm before at)) _
+          (Gapped (trailsBack seen.reverse))
+          (Ended (trailsBack (seen ++ item.words).reverse))
+          (Ended (trailsBack (seen ++ itemsWords [item, second, ..more]).reverse))
+          (passesFrom kinds
+            (item.el (firstAround bare arm before at))
+            (Ready kinds True item.lead.text)
+            (Gapped (trailsBack seen.reverse))
+            (Ended (trailsBack (seen ++ item.words).reverse))
+            (passesTo kinds
+              (item.el (firstAround bare arm before at))
+              (Ready kinds True item.lead.text)
+              (Ended item.trails)
+              (Ended (trailsBack (seen ++ item.words).reverse))
+              (passes (firstAround bare arm before at))
+              (edge ended =>
+                endedWeaker item.trails
+                  (trailsBack (seen ++ item.words).reverse)
+                  (seenAppend seen item.words)
+                  edge
+                  ended))
+            (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
+          (passesCons kinds
+            (Closing ",") _
+            (Ended (trailsBack (seen ++ item.words).reverse))
+            (Ended (trailsBack (seen ++ item.words).reverse))
+            (Ended (trailsBack (seen ++ itemsWords [item, second, ..more]).reverse))
+            (commaPasses kinds (trailsBack (seen ++ item.words).reverse))
+            (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
+              brokenRestPasses kinds (seen ++ item.words) [second, ..more] False arm False (at + item.size) rest)))
+
+theorem openTrails ∀ (open: Word) (closer: isCloserText open.text = False): trailsBack [open] = open.trails :=
+  rewrite closer, Bool.orFalse open.trails
+
+--| A broken bracket's items: the first on a line of its own after the opener, the rest after commas.
+theorem brokenPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (bare arm before: Bool) (at: Nat)
+    (notCloser: isCloserText open.text = False)
+    (each: EachEl kinds items):
+    PassesAll kinds
+      (brokenItems bare arm True before at items)
+      (Free kinds open.trails)
+      (Ended (trailsBack ([open] ++ itemsWords items).reverse)) :=
+  match items, each with
+    | [], _ => passesNil kinds (Free kinds open.trails) (Ended (trailsBack ([open] ++ []).reverse)) (edge free =>
+      rewrite openTrails open notCloser then freeEnded kinds open.trails edge free)
+    | [item], (passes, _) =>
+      passesTwo kinds SoftLine
+        (item.el (firstAround bare arm before at))
+        (Free kinds open.trails)
+        (Free kinds open.trails)
+        (Ended (trailsBack ([open] ++ itemsWords [item]).reverse))
+        (passesSoft kinds (Free kinds open.trails) (Free kinds open.trails) (edge free => free) byComputing)
+        (passesFrom kinds
+          (item.el (firstAround bare arm before at))
+          (Ready kinds True item.lead.text)
+          (Free kinds open.trails)
+          (Ended (trailsBack ([open] ++ itemsWords [item]).reverse))
+          (passesTo kinds
+            (item.el (firstAround bare arm before at))
+            (Ready kinds True item.lead.text)
+            (Ended item.trails)
+            (Ended (trailsBack ([open] ++ itemsWords [item]).reverse))
+            (passes (firstAround bare arm before at))
+            (edge ended => itemTrails [open] item edge ended))
+          (edge free => freeReadyTrue kinds open.trails item.lead.text edge free))
+    | [item, second, ..more], (passes, rest) =>
+      passesCons kinds SoftLine _
+        (Free kinds open.trails)
+        (Free kinds open.trails)
+        (Ended (trailsBack ([open] ++ itemsWords [item, second, ..more]).reverse))
+        (passesSoft kinds (Free kinds open.trails) (Free kinds open.trails) (edge free => free) byComputing)
+        (passesCons kinds
+          (item.el (firstAround bare arm before at)) _
+          (Free kinds open.trails)
+          (Ended (trailsBack ([open] ++ item.words).reverse))
+          (Ended (trailsBack ([open] ++ itemsWords [item, second, ..more]).reverse))
+          (passesFrom kinds
+            (item.el (firstAround bare arm before at))
+            (Ready kinds True item.lead.text)
+            (Free kinds open.trails)
+            (Ended (trailsBack ([open] ++ item.words).reverse))
+            (passesTo kinds
+              (item.el (firstAround bare arm before at))
+              (Ready kinds True item.lead.text)
+              (Ended item.trails)
+              (Ended (trailsBack ([open] ++ item.words).reverse))
+              (passes (firstAround bare arm before at))
+              (edge ended =>
+                endedWeaker item.trails
+                  (trailsBack ([open] ++ item.words).reverse)
+                  (seenAppend [open] item.words)
+                  edge
+                  ended))
+            (edge free => freeReadyTrue kinds open.trails item.lead.text edge free))
+          (passesCons kinds
+            (Closing ",") _
+            (Ended (trailsBack ([open] ++ item.words).reverse))
+            (Ended (trailsBack ([open] ++ item.words).reverse))
+            (Ended (trailsBack ([open] ++ itemsWords [item, second, ..more]).reverse))
+            (commaPasses kinds (trailsBack ([open] ++ item.words).reverse))
+            (rewrite <- List.appendAssoc [open] item.words (itemsWords [second, ..more]) then
+              brokenRestPasses kinds ([open] ++ item.words) [second, ..more] False arm False (at + item.size) rest)))
+
+--| A filled list's cells after the first, each after a space or a line break.
+--|
+--| Proof idea: Induction on the items, as `brokenRestPasses`, with `SepsJoin`'s separator before each cell.
+theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List Expr) (arm: Bool) (at: Nat)
+    (each: EachEl kinds items)
+    (edge: Edge) (next: Edge → Prop)
+    (ended: Ended (trailsBack seen.reverse) edge)
+    (after: ∀ (left: Edge) => Ended (trailsBack (seen ++ itemsWords items).reverse) left → next left):
+    SepsJoin (Follows kinds) (cells False arm False at items) edge next :=
+  match items, each with
+    | [], _ => after edge (rewrite List.appendNil seen then ended)
+    | [item], (passes, _) => passesLine kinds (trailsBack seen.reverse) edge _ ended (middle gapped =>
+      passes
+        (firstAround False arm False at)
+        middle _
+        (gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text middle gapped)
+        (left itemEnded => after left (itemTrails seen item left itemEnded)))
+    | [item, second, ..more], (passes, rest) =>
+      passesLine kinds (trailsBack seen.reverse) edge _ ended (middle gapped =>
+        passesConcat kinds
+          [item.el (firstAround False arm False at), Closing ","]
+          (Gapped (trailsBack seen.reverse))
+          (Ended (trailsBack (seen ++ item.words).reverse))
+          (passesTwo kinds
+            (item.el (firstAround False arm False at))
+            (Closing ",")
+            (Gapped (trailsBack seen.reverse))
+            (Ended (trailsBack (seen ++ item.words).reverse))
+            (Ended (trailsBack (seen ++ item.words).reverse))
+            (passesFrom kinds
+              (item.el (firstAround False arm False at))
+              (Ready kinds True item.lead.text)
+              (Gapped (trailsBack seen.reverse))
+              (Ended (trailsBack (seen ++ item.words).reverse))
+              (passesTo kinds
+                (item.el (firstAround False arm False at))
+                (Ready kinds True item.lead.text)
+                (Ended item.trails)
+                (Ended (trailsBack (seen ++ item.words).reverse))
+                (passes (firstAround False arm False at))
+                (edge ended =>
+                  endedWeaker item.trails
+                    (trailsBack (seen ++ item.words).reverse)
+                    (seenAppend seen item.words)
+                    edge
+                    ended))
+              (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
+            (commaPasses kinds (trailsBack (seen ++ item.words).reverse)))
+          middle _
+          gapped
+          (left cellEnded =>
+            sepsCellsJoin kinds
+              (seen ++ item.words)
+              [second, ..more]
+              arm
+              (at + item.size)
+              rest
+              left
+              next
+              cellEnded
+              (last lastEnded =>
+                after last
+                  (rewrite List.appendAssoc seen item.words (itemsWords [second, ..more]) at lastEnded then
+                    lastEnded))))
+
+--| A filled list's cells: the first after the opener, each later one after a space or a line break.
+theorem cellsPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (bare arm before: Bool) (at: Nat)
+    (notCloser: isCloserText open.text = False)
+    (each: EachEl kinds items):
+    Passes kinds
+      (Fill (cells bare arm before at items))
+      (Free kinds open.trails)
+      (Ended (trailsBack ([open] ++ itemsWords items).reverse)) :=
+  edge next free after =>
+    match items, each with
+      | [], _ =>
+        after edge (rewrite List.appendNil [open], openTrails open notCloser then freeEnded kinds open.trails edge free)
+      | [item], (passes, _) =>
+        passes
+          (firstAround bare arm before at)
+          edge _
+          (freeReadyTrue kinds open.trails item.lead.text edge free)
+          (left ended => after left (itemTrails [open] item left ended))
+      | [item, second, ..more], (passes, rest) =>
+        passesConcat kinds
+          [item.el (firstAround bare arm before at), Closing ","]
+          (Free kinds open.trails)
+          (Ended (trailsBack ([open] ++ item.words).reverse))
+          (passesTwo kinds
+            (item.el (firstAround bare arm before at))
+            (Closing ",")
+            (Free kinds open.trails)
+            (Ended (trailsBack ([open] ++ item.words).reverse))
+            (Ended (trailsBack ([open] ++ item.words).reverse))
+            (passesFrom kinds
+              (item.el (firstAround bare arm before at))
+              (Ready kinds True item.lead.text)
+              (Free kinds open.trails)
+              (Ended (trailsBack ([open] ++ item.words).reverse))
+              (passesTo kinds
+                (item.el (firstAround bare arm before at))
+                (Ready kinds True item.lead.text)
+                (Ended item.trails)
+                (Ended (trailsBack ([open] ++ item.words).reverse))
+                (passes (firstAround bare arm before at))
+                (edge ended =>
+                  endedWeaker item.trails
+                    (trailsBack ([open] ++ item.words).reverse)
+                    (seenAppend [open] item.words)
+                    edge
+                    ended))
+              (edge free => freeReadyTrue kinds open.trails item.lead.text edge free))
+            (commaPasses kinds (trailsBack ([open] ++ item.words).reverse)))
+          edge _
+          free
+          (left cellEnded =>
+            sepsCellsJoin kinds
+              ([open] ++ item.words)
+              [second, ..more]
+              arm
+              (at + item.size)
+              rest
+              left
+              next
+              cellEnded
+              (last lastEnded =>
+                after last
+                  (rewrite List.appendAssoc [open] item.words (itemsWords [second, ..more]) at lastEnded then
+                    lastEnded)))
+
+--| A closer that ends a bracket: from where the code before it leaves the line, the line ends with the closer, a
+--| comment waiting only if the bracket ends with one.
+theorem closerEnds ∀ (kinds: Text → Tok) (front: List Word) (close: Word) (around: Around) (key: Nat)
+    (closer: CloserJoins close)
+    (fresh: around.hoisted = False)
+    (before: around.before = True → trailsBack front.reverse = True):
+    Passes kinds (close.leaf around key) (Ended around.before) (Ended (trailsBack (front ++ [close]).reverse)) :=
+  match closer with
+    | (sound, isCloser) =>
+      let closes := closerCloses close.text isCloser
+      let token := closesToken close.text closes
+      passesFrom kinds
+        (close.leaf around key)
+        (Ready kinds around.before close.text)
+        (Ended around.before)
+        (Ended (trailsBack (front ++ [close]).reverse))
+        (passesTo kinds
+          (close.leaf around key)
+          (Ready kinds around.before close.text)
+          (Left close.text (close.trails || (isCloserText close.text && around.before)))
+          (Ended (trailsBack (front ++ [close]).reverse))
+          (leafPasses kinds close around key sound token (closerNotComma close.text isCloser) (same => fresh))
+          (edge left =>
+            endedWeaker
+              (close.trails || (isCloserText close.text && around.before))
+              (trailsBack (front ++ [close]).reverse)
+              (flag =>
+                rewrite List.reverseSnoc front close then
+                  match own: close.trails with
+                    | True => byComputing
+                    | False => rewrite isCloser at flag then rewrite isCloser then before flag)
+              edge
+              (leftEnded close.text (close.trails || (isCloserText close.text && around.before)) token edge left)))
+        (edge ended => endedReadyCloser kinds around.before close.text closes edge ended)
+
+theorem beforeCloseIs ∀ (open: Word) (items: List Expr) (close: Word):
+    (ListOf open items False close).trailsBeforeClose = trailsBack ([open] ++ itemsWords items).reverse :=
+  rewrite List.reverseSnoc [open, ..itemsWords items] close
+
+--| A tuple's or list's parts (`bracketContent`): the opener, the items filled or broken, and the closer.
+--|
+--| Proof idea: `bracketIs` names the three layouts. In each the items leave the line as their words say
+--| (`cellsPasses`, `brokenPasses`), which is what the closer reads (`beforeCloseIs`, `closerEnds`).
+theorem bracketContentPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr)
+    (close: Word) (around: Around)
+    (opener: OpenerJoins kinds open)
+    (closer: CloserJoins close)
+    (each: EachEl kinds items):
+    Passes kinds
+      (bracketContent list open items close around)
+      (Ready kinds True open.text)
+      (Ended (ListOf open items False close).trails) :=
+  let whole := ListOf open items False close
+  let closeAround := around.next whole.trailsBeforeClose (whole.size - 1)
+  let notCloser := opener.left.right.right.right
+  let seen := trailsBack ([open] ++ itemsWords items).reverse
+  let prefixPass := openingPasses kinds open around close opener
+  let closerPass: Passes kinds (close.leaf closeAround around.at) (Ended seen) (Ended whole.trails) :=
+    passesFrom kinds
+      (close.leaf closeAround around.at)
+      (Ended closeAround.before)
+      (Ended seen)
+      (Ended whole.trails)
+      (closerEnds kinds [open, ..itemsWords items] close closeAround around.at closer byComputing (before =>
+        rewrite beforeCloseIs open items close at before then before))
+      (edge ended => rewrite beforeCloseIs open items close then ended)
+  let broken := brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items
+  let brokenPass: PassesAll kinds
+    [open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
+    (Ready kinds True open.text)
+    (Ended whole.trails) :=
+    passesCons kinds
+      (open.opening around close) _
+      (Ready kinds True open.text)
+      (Free kinds open.trails)
+      (Ended whole.trails)
+      prefixPass
+      (passesCons kinds
+        (Nest 2 (Doc.concat broken)) _
+        (Free kinds open.trails)
+        (Ended seen)
+        (Ended whole.trails)
+        (passesConcat kinds broken
+          (Free kinds open.trails)
+          (Ended seen)
+          (brokenPasses kinds open items
+            (list && items.all Expr.plainItem)
+            around.inArm
+            open.trails
+            (around.at + 1)
+            notCloser
+            each))
+        (passesTwo kinds SoftLine
+          (close.leaf closeAround around.at)
+          (Ended seen)
+          (Ended seen)
+          (Ended whole.trails)
+          (passesSoft kinds (Ended seen) (Ended seen) (edge ended => ended) byComputing)
+          closerPass))
+  rewrite bracketIs list open items close around then
+    match empty: items.isEmpty with
+      | True =>
+        passesConcat kinds
+          [open.opening around close, close.leaf closeAround around.at]
+          (Ready kinds True open.text)
+          (Ended whole.trails)
+          (passesTwo kinds
+            (open.opening around close)
+            (close.leaf closeAround around.at)
+            (Ready kinds True open.text)
+            (Free kinds open.trails)
+            (Ended whole.trails)
+            prefixPass
+            (passesFrom kinds
+              (close.leaf closeAround around.at)
+              (Ended seen)
+              (Free kinds open.trails)
+              (Ended whole.trails)
+              closerPass
+              (edge free =>
+                rewrite emptyItems items empty, List.appendNil [open], openTrails open notCloser then
+                  freeEnded kinds open.trails edge free)))
+      | False =>
+        match filled: list && !whole.holdsTrailingComment && items.all Expr.plainItem with
+          | True =>
+            let fill :=
+              Nest 2 (Fill (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items))
+            passesConcat kinds
+              [open.opening around close, fill, close.leaf closeAround around.at]
+              (Ready kinds True open.text)
+              (Ended whole.trails)
+              (passesCons kinds
+                (open.opening around close)
+                [fill, close.leaf closeAround around.at]
+                (Ready kinds True open.text)
+                (Free kinds open.trails)
+                (Ended whole.trails)
+                prefixPass
+                (passesTwo kinds fill
+                  (close.leaf closeAround around.at)
+                  (Free kinds open.trails)
+                  (Ended seen)
+                  (Ended whole.trails)
+                  (passesNest kinds 2 _
+                    (Free kinds open.trails)
+                    (Ended seen)
+                    (cellsPasses kinds open items
+                      (list && items.all Expr.plainItem)
+                      around.inArm
+                      open.trails
+                      (around.at + 1)
+                      notCloser
+                      each))
+                  closerPass))
+          | False =>
+            match holds: whole.holdsTrailingComment with
+              | True =>
+                passesConcat kinds
+                  ([open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
+                    ++ [BreakParent])
+                  (Ready kinds True open.text)
+                  (Ended whole.trails)
+                  (passesAppend kinds
+                    [open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
+                    [BreakParent]
+                    (Ready kinds True open.text)
+                    (Ended whole.trails)
+                    (Ended whole.trails)
+                    brokenPass
+                    (passesLast kinds BreakParent
+                      (Ended whole.trails)
+                      (Ended whole.trails)
+                      (passesBreakParent kinds (Ended whole.trails))))
+              | False =>
+                passesConcat kinds
+                  [open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
+                  (Ready kinds True open.text)
+                  (Ended whole.trails)
+                  brokenPass
+
+theorem emptyItems ∀ (items: List Expr) (empty: items.isEmpty = True): items = [] := match items with
+  | [] => byComputing
