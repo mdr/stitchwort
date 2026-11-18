@@ -23728,7 +23728,7 @@
     {
       "id": 3963,
       "title": "[Sonnet] fmt S1 ticket 13b: family B, a blank line before a filled list's first item isn't printed but still breaks the groups, so formatting isn't idempotent (def d: A := g [ / / f, a]); plus the withoutLastCommas blank line. Fix in both formatters; failing-first tests; keep calm in step (sketch §3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
