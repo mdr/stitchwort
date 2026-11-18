@@ -414,7 +414,16 @@
             };
           };
           default = pkgs.mkShell {
-            inherit (hooks) shellHook;
+            # git-hooks.nix sets core.hooksPath relative to the checkout when
+            # the common git dir is inside it (a main checkout or clone),
+            # which no worktree of it resolves; an absolute path serves all of
+            # them. Compare before writing: this runs on every shell entry.
+            shellHook = hooks.shellHook + ''
+              if common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+                [ "$(git config --local core.hooksPath)" = "$common/hooks" ] \
+                  || git config --local core.hooksPath "$common/hooks"
+              fi
+            '';
             packages = hooks.enabledPackages ++ [
               (toolchainFor pkgs)
               pkgs.cargo-insta # snapshot tests for example programs
