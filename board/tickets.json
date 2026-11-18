@@ -24514,12 +24514,12 @@
     {
       "id": 4022,
       "title": "[Sonnet] fmt S1 onceWordsSettled1: rule N's settledOnce gives wordsSettled1 under alphabet1, plain1, laid1, routed through bareSettles (SW-4018 ticket D; first step: withoutLastCommas keeps laidOut and plain1); Opus if the look-back invariant sticks; docs/reviews/SW-4018-parser-statements.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet, 18 Nov 2026): proved in tools/fmt/src/Syntax/SettleOnceProofs.sw (new, 83 theorems, audit 0 failed 0 warnings); ParseSettledStatements' onceWordsSettled1 now uses onceSettledProved. Statement unchanged. Route as SW-4018: withoutLastCommas keeps laid/plain (under laid+plain a last comma starts no line and holds no own-line comment, so commaMoved only parks its trailing comment on the leaf before), then settledHomed etc. on lexedB.settled, then leaf-to-word bridges (homedWords, arrowsWords, trimmedComment). Branch lane/SW-4022, commits a0b1d7c15..a295bd758. Checks: Syntax, Syntax.SettleProofs, Syntax.SettleBareProofs, Syntax.SettleOnceProofs, Syntax.ParseSettledStatements (3 other open goals only); test Syntax.Tests 52/52.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
