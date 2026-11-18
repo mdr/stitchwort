@@ -23619,15 +23619,17 @@
     {
       "id": 3955,
       "title": "[Fable paper] Self-hosted fmt S1 sketch (proof plan ticket 13): S1's predicates written out, statements per layer, counterexample search, theorem counts; probes for F9 (tree induction) and F10 (equations for definitions with abilities); beside SW-3950's program",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Brief: the plan for proving slice 1 (SW-3950's program) before proof lanes 14 to 20. Expected 60 min.\n\nProgress (Fable, 18 Nov 2026):\n- Note: docs/proposals/self-hosted-fmt-s1-sketch.md (branch lane/SW-3955).\n- Predicates written and checked in a scratch copy of tools/fmt (7 goals open, no error): `settled1`, `calm`, `hangs`, the three top statements and `printParses1`.\n- Search: 9,900 generated files, 5,611 formatted. Two rule bugs, both in Rust too: a bracket in a `def`'s type with a comment after `(` prints a `)` that doesn't parse (9 files); a blank line before a filled list's first item makes formatting not idempotent (3 files). Half the trees read back with different blank-line flags, so `printParses1` is stated up to `calm`.\n- F9: `Expr.size`, `induct`, `inductMem` are not generated for the real tree; a slice-only structural induction with a list helper is accepted and rechecks in 1.2 s.\n- F10: no equations for `addExpr`, `suffixes`, `commaListFrom`; all three unfold under `Parse.givesThen` as written. SW-3443 not needed for slice 1.\n- Decisions: keep the `Bool`, state theorems up to `calm`; the two checks stay two (a dozen alphabet-only constructs parse outside the slice).\n- Counts: 945 to 1,390 theorems (plan: 550 to 850); lanes 815 min estimated (plan: 615); three fix tickets first (13a, 13b, 13c in the note's §6).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "006bcf80f"
+      ]
     },
     {
       "id": 3956,
