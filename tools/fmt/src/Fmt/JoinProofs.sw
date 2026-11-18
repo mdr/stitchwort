@@ -1934,3 +1934,235 @@ theorem bracketContentPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word)
 
 theorem emptyItems ∀ (items: List Expr) (empty: items.isEmpty = True): items = [] := match items with
   | [] => byComputing
+
+-- Elements one after another, with a space or line break between each two.
+
+--| Documents printed in order with a separator between each two: the first from `pre`, the others after a
+--| separator; each but the last leaves the line ending with a token, the last leaves `post`.
+def PassesSeq (kinds: Text → Tok) (pre post: Edge → Prop): List Doc → Prop
+  | [] => ∀ (edge: Edge) => pre edge → post edge
+  | [doc, ..rest] => SeqFrom kinds pre post doc rest
+
+def SeqFrom (kinds: Text → Tok) (pre post: Edge → Prop) (doc: Doc): List Doc → Prop
+  | [] => Passes kinds doc pre post
+  | [next, ..more] => Passes kinds doc pre (Ended True) ∧ SeqFrom kinds (Gapped True) post next more
+
+theorem seqCons ∀ (kinds: Text → Tok) (pre post: Edge → Prop) (doc next: Doc) (more: List Doc)
+    (first: Passes kinds doc pre (Ended True))
+    (rest: PassesSeq kinds (Gapped True) post [next, ..more]):
+    PassesSeq kinds pre post [doc, next, ..more] :=
+  (first, rest)
+
+--| The documents with a space between each two (`spaced`).
+theorem joinedSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
+    (seq: PassesSeq kinds pre post docs):
+    PassesAll kinds (Doc.joinedWith (Doc.text " ") docs) pre post :=
+  match docs, seq with
+    | [], keeps => passesNil kinds pre post keeps
+    | [only], passes => passesLast kinds only pre post passes
+    | [doc, next, ..more], (first, rest) =>
+      passesCons kinds doc _ pre
+        (Ended True)
+        post
+        first
+        (passesCons kinds
+          (Doc.text " ") _
+          (Ended True)
+          (Gapped True)
+          post
+          (passesSpace kinds True)
+          (joinedSeq kinds [next, ..more] (Gapped True) post rest))
+
+theorem spacedSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
+    (seq: PassesSeq kinds pre post docs):
+    Passes kinds (spaced docs) pre post :=
+  passesConcat kinds _ pre post (joinedSeq kinds docs pre post seq)
+
+theorem sepsSeq ∀ (kinds: Text → Tok) (doc: Doc) (more: List Doc) (post: Edge → Prop)
+    (seq: SeqFrom kinds (Gapped True) post doc more)
+    (edge: Edge) (next: Edge → Prop)
+    (ended: Ended True edge) (after: ∀ (left: Edge) => post left → next left):
+    SepsJoin (Follows kinds) [doc, ..more] edge next :=
+  passesLine kinds True edge _ ended (middle gapped =>
+    match more, seq with
+      | [], passes => passesFrom kinds doc (Gapped True) (Gapped True) post passes (edge g => g) middle _ gapped after
+      | [second, ..rest], (first, others) =>
+        first middle _ gapped (left firstEnded => sepsSeq kinds second rest post others left next firstEnded after))
+
+--| A fill of documents: the first from `pre`, each later one after a space or a line break.
+theorem fillSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
+    (seq: PassesSeq kinds pre post docs):
+    Passes kinds (Fill docs) pre post :=
+  edge next holds after =>
+    match docs, seq with
+      | [], keeps => after edge (keeps edge holds)
+      | [only], passes => passes edge _ holds after
+      | [doc, second, ..more], (first, rest) =>
+        first edge _ holds (left ended => sepsSeq kinds second more post rest left next ended after)
+
+--| A sequence split in two: the first part leaves a token, the second starts after a separator.
+theorem splitSeq ∀ (kinds: Text → Tok) (front back: List Doc) (pre post: Edge → Prop)
+    (filledFront: front ≠ [])
+    (filledBack: back ≠ [])
+    (seq: PassesSeq kinds pre post (front ++ back)):
+    PassesSeq kinds pre (Ended True) front ∧ PassesSeq kinds (Gapped True) post back :=
+  match front, seq with
+    | [], _ => (filledFront byComputing).impossible
+    | [only], seq =>
+      match back, seq with
+        | [], _ => (filledBack byComputing).impossible
+        | [next, ..more], (first, rest) => (first, rest)
+    | [doc, second, ..more], (first, rest) =>
+      let (frontRest, backRest) :=
+        splitSeq kinds [second, ..more] back (Gapped True) post (List.consNotNil second more) filledBack rest
+      ((first, frontRest), backRest)
+
+--| Documents each on a line of their own.
+theorem hardSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
+    (filled: docs ≠ [])
+    (seq: PassesSeq kinds (Gapped True) post docs):
+    PassesAll kinds (docs.concatMap (doc => [HardLine, doc])) pre post :=
+  match docs, seq with
+    | [], _ => (filled byComputing).impossible
+    | [only], passes =>
+      passesTwo kinds HardLine only pre (Gapped True) post (passesHard kinds pre (Gapped True) byComputing) passes
+    | [doc, second, ..more], (first, rest) =>
+      passesCons kinds HardLine _ pre
+        (Gapped True)
+        post
+        (passesHard kinds pre (Gapped True) byComputing)
+        (passesCons kinds doc _
+          (Gapped True)
+          (Ended True)
+          post
+          first
+          (hardSeq kinds [second, ..more] (Ended True) post (List.consNotNil second more) rest))
+
+--| A choice of one or more options, each passing.
+theorem passesChoiceOf ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc) (pre post: Edge → Prop)
+    (passes: Passes kinds first pre post)
+    (each: EachPasses kinds pre post others):
+    Passes kinds (Choice [first, ..others]) pre post :=
+  edge next holds after =>
+    match others, each with
+      | [], _ => passes edge next holds after
+      | [second, ..more], (secondPasses, rest) => (
+        passes edge next holds after,
+        passesChoiceOf kinds second more pre post secondPasses rest edge next holds after
+      )
+
+theorem dropFilled ∀ (docs: List Doc) (count: Nat)
+    (short: count ≤ docs.length)
+    (differs: (count == docs.length) = False):
+    docs.drop count ≠ [] :=
+  match docs, count with
+    | [], Zero => cases
+    | [doc, ..rest], Zero => List.consNotNil doc rest
+    | [doc, ..rest], Succ more => dropFilled rest more (arithmetic [short]) differs
+
+theorem takeFilled ∀ (doc: Doc) (rest: List Doc) (count: Nat) (positive: count ≠ 0): [doc, ..rest].take count ≠ [] :=
+  match count with
+    | Zero => (positive byComputing).impossible
+    | Succ more => List.consNotNil doc (rest.take more)
+
+--| A call's layouts (`appFrom`): on one line; hugging its last argument; or the function and the arguments it keeps
+--| on its line, then each other argument on a line of its own. In each the elements come in order with a space or
+--| a line break between each two.
+--|
+--| Proof idea: The sequence of the call's elements passes (`seq`); each layout is the sequence spaced (`spacedSeq`),
+--| filled (`fillSeq`), or split where the kept elements end (`splitSeq`), the rest each after a line break
+--| (`hardSeq`); the hug passes as the last argument does.
+theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc)
+    (front: List Doc) (hug: Option Doc) (pre post: Edge → Prop)
+    (seq: PassesSeq kinds pre post ([headDoc, ..front] ++ [lastDoc]))
+    (hugPasses: ∀ (open: Doc) => hug = Some open → Passes kinds open (Gapped True) post)
+    (positive: keep ≠ 0)
+    (short: keep ≤ ([headDoc, ..front] ++ [lastDoc]).length):
+    Passes kinds (appFrom id keep between betweenFront headDoc front lastDoc hug).doc pre post :=
+  let docs := [headDoc, ..front] ++ [lastDoc]
+  match full: keep == docs.length with
+    | True =>
+      match between with
+        | True => spacedSeq kinds docs pre post seq
+        | False => passesNest kinds 4 (Fill docs) pre post (fillSeq kinds docs pre post seq)
+    | False =>
+      let (keptSeq, droppedSeq) :=
+        splitSeq kinds
+          (docs.take keep)
+          (docs.drop keep)
+          pre
+          post
+          (takeFilled headDoc (front ++ [lastDoc]) keep positive)
+          (dropFilled docs keep short full)
+          (rewrite List.appendTakeDrop docs keep then seq)
+      let (headSeq, lastSeq) :=
+        splitSeq kinds
+          [headDoc, ..front]
+          [lastDoc]
+          pre
+          post
+          (List.consNotNil headDoc front)
+          (List.consNotNil lastDoc [])
+          seq
+      let flat: Passes kinds (Flatten (spaced docs)) pre post :=
+        passesFlatten kinds (spaced docs) pre post (spacedSeq kinds docs pre post seq)
+      let rest := Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))
+      let restPasses: Passes kinds rest (Ended True) post :=
+        passesConcat kinds _
+          (Ended True)
+          post
+          (hardSeq kinds (docs.drop keep) (Ended True) post (dropFilled docs keep short full) droppedSeq)
+      let fillFront := keep > 2 && !betweenFront
+      let frontDoc := if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep)
+      let restDoc := if fillFront then IfBroken id (Nest 4 rest) (Nest 2 rest) else Nest 2 rest
+      let frontPass: Passes kinds frontDoc pre (Ended True) := match fillFront with
+        | True =>
+          passesIdGroup kinds id _ False pre
+            (Ended True)
+            (passesNest kinds 4 _ pre (Ended True) (fillSeq kinds (docs.take keep) pre (Ended True) keptSeq))
+        | False => spacedSeq kinds (docs.take keep) pre (Ended True) keptSeq
+      let restPass: Passes kinds restDoc (Ended True) post := match fillFront with
+        | True =>
+          passesIfBroken kinds id
+            (Nest 4 rest)
+            (Nest 2 rest)
+            (Ended True)
+            post
+            (passesNest kinds 4 rest (Ended True) post restPasses)
+            (passesNest kinds 2 rest (Ended True) post restPasses)
+        | False => passesNest kinds 2 rest (Ended True) post restPasses
+      let broken: Passes kinds (Doc.concat [frontDoc, restDoc]) pre post :=
+        passesConcat kinds
+          [frontDoc, restDoc]
+          pre
+          post
+          (passesTwo kinds frontDoc restDoc pre (Ended True) post frontPass restPass)
+      match hug, hugPasses with
+        | None, _ => passesChoiceOf kinds (Flatten (spaced docs)) [Doc.concat [frontDoc, restDoc]] pre post flat (
+          broken,
+          byComputing
+        )
+        | Some open, opens =>
+          let hugged: Passes kinds (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open]) pre post :=
+            passesConcat kinds _ pre post
+              (passesCons kinds
+                (Flatten (spaced [headDoc, ..front])) _
+                pre
+                (Ended True)
+                post
+                (passesFlatten kinds _ pre (Ended True) (spacedSeq kinds [headDoc, ..front] pre (Ended True) headSeq))
+                (passesTwo kinds
+                  (Doc.text " ")
+                  open
+                  (Ended True)
+                  (Gapped True)
+                  post
+                  (passesSpace kinds True)
+                  (opens open byComputing)))
+          passesChoiceOf kinds
+            (Flatten (spaced docs))
+            [Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open], Doc.concat [frontDoc, restDoc]]
+            pre
+            post
+            flat
+            (hugged, broken, byComputing)
