@@ -25383,7 +25383,7 @@
     {
       "id": 4087,
       "title": "[Opus] fmt S1 goal readsBackFile1: read-back in file form (groups, fileRefusal, parseGroups, end comments) from per-declaration read-back (TopReadBack)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
