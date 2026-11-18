@@ -105,18 +105,21 @@ checks the staged ones (D3681, SW-3952). The hooks are declared in
 - `dev/hooks/stitchwort-fmt-check` on the staged `.sw` files: `stitchwort fmt
   --check` with the release binary of this checkout, else of the main
   checkout or any folder above it (a scratch clone sits under the main
-  checkout), else a warning and no check. It looks at the folders that
-  `the_repository_sources_are_formatted` checks, and skips the paths in
-  `DELIBERATELY_UNFORMATTED` (`crates/fmt/src/lib.rs`).
+  checkout), else a warning and no check. It covers every `.sw` file, as
+  `the_repository_sources_are_formatted` does; `fmt --check` itself skips the
+  paths in `DELIBERATELY_UNFORMATTED` (`crates/fmt/src/lib.rs`), named or not.
+  The hook is `verbose` in `flake.nix`, so prek shows the skip warning (it
+  hides a passing hook's output otherwise).
 
 A refused commit lists the files; run `stitchwort fmt FILE` or `rustfmt
 --edition 2024 FILE` and commit again. To commit unformatted files on
 purpose, `git commit --no-verify`. Entering `nix develop` installs the hook
 (into the shared git dir, with an absolute `core.hooksPath`, so every
 worktree has it) and writes `.pre-commit-config.yaml` (gitignored) in the
-checkout; `task worktree:new` and `task scratch:new` do that once, since a
-checkout without the file fails every commit. In an existing worktree made
-before the hook, run `nix develop -c true` once.
+checkout. The installed shim has prek's `--allow-missing-config`, so a
+checkout without that file (a branch older than the hook, before its first
+`nix develop`) commits without the checks instead of failing; run `nix develop
+-c true` there to get them.
 
 ## Reviewing a lane
 
