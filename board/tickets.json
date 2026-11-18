@@ -24345,7 +24345,7 @@
     {
       "id": 4009,
       "title": "[Sonnet] fmt S1 parser proofs 16e: stage Outside into tiers (atoms; then braceArguments and pipeChains; then memberships and comparisonChains; then iffs) so the circular facts can use the ones below (SW-4000's blocker 3; ~72 lemma signatures retyped), discharge those five, then parseSettled1, parseCarries1, fuelEnough1; after SW-4008",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
