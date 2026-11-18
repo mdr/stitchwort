@@ -157,7 +157,6 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
           ifPairBound _ (printer, rest) (printer.newline indent, rest) (1 + stackCost rest) (arithmetic) (arithmetic)
         | HardLine => arithmetic
         | LineStart => arithmetic
-        | CommentEnd => arithmetic
         | LineStartHere =>
           ifPairBound _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
@@ -303,7 +302,6 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | SoftLine => arithmetic
   | HardLine => arithmetic
   | LineStart => arithmetic
-  | CommentEnd => arithmetic
   | LineStartHere => arithmetic
   | Blank => arithmetic
   | LineSuffix comment => arithmetic
@@ -368,7 +366,7 @@ theorem headSteps ∀ (options: List Doc) (option: Doc)
 --| as with more: it never stops for want of fuel, where it would answer
 --| "fits" without looking.
 theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc))
-    (rest: List Cmd) (left lineIndent: Nat) (suffix: Bool)
+    (rest: List Cmd) (left lineIndent: Nat) (suffix: Trailing)
     (enough: fitsNeed stack rest ≤ fuel):
     fitsFrom (fuel + extra) width modes stack rest left lineIndent suffix
       = fitsFrom fuel width modes stack rest left lineIndent suffix :=
@@ -401,28 +399,37 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
                 suffix
                 (arithmetic)
         | [(indent, mode, doc), ..stack] =>
-          let same := (at to: Nat) (waits: Bool) (fewer: fitsNeed stack rest ≤ more) =>
+          let same := (at to: Nat) (waits: Trailing) (fewer: fitsNeed stack rest ≤ more) =>
             fitsFromEnough more extra width modes stack rest at to waits fewer
           match doc with
             | Empty => rewrite same left lineIndent suffix (arithmetic)
             | Blank => rewrite same left lineIndent suffix (arithmetic)
-            | LineSuffix comment => rewrite same left lineIndent True (arithmetic)
+            | LineSuffix comment => rewrite same left lineIndent suffix.noted (arithmetic)
             | BreakParent => rewrite same left lineIndent suffix (arithmetic)
             | Chunk text textWidth =>
               match suffix with
-                | False => rewrite same (left - textWidth) lineIndent False (arithmetic)
-                | True =>
+                | Clear => rewrite same (left - textWidth) lineIndent Clear (arithmetic)
+                | Pending held flatBreak =>
                   match spaces: text.all (char => char == ' ') with
-                    | True => rewrite same left lineIndent True (arithmetic)
+                    | True => rewrite same left lineIndent (Pending (held + textWidth) flatBreak) (arithmetic)
                     | False =>
                       let broken := Nat.max indent (lineIndent + 2)
-                      rewrite same (width - broken - textWidth) broken False (arithmetic)
-            | Closing text => rewrite same (left - text.length) lineIndent suffix (arithmetic)
-            | Line => rewrite same (left - 1) lineIndent suffix (arithmetic)
-            | SoftLine => rewrite same left lineIndent suffix (arithmetic)
+                      rewrite same (width - broken - textWidth) broken Clear (arithmetic)
+            | Closing text =>
+              match suffix with
+                | Clear => rewrite same (left - text.length) lineIndent Clear (arithmetic)
+                | Pending held flatBreak =>
+                  rewrite same (left - held - text.length) lineIndent (Pending 0 flatBreak) (arithmetic)
+            | Line =>
+              match suffix with
+                | Clear => rewrite same (left - 1) lineIndent Clear (arithmetic)
+                | Pending held _ => rewrite same left lineIndent (Pending held True) (arithmetic)
+            | SoftLine =>
+              match suffix with
+                | Clear => rewrite same left lineIndent Clear (arithmetic)
+                | Pending held _ => rewrite same left lineIndent (Pending held True) (arithmetic)
             | HardLine => byComputing
             | LineStart => byComputing
-            | CommentEnd => byComputing
             | LineStartHere => byComputing
             | Nest extraIndent inner =>
               rewrite fitsFromEnough more extra width modes
@@ -672,7 +679,6 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
           ifPairWeight _ (printer, rest) (printer.newline indent, rest) (2 + stackWeight rest) (arithmetic) (arithmetic)
         | HardLine => arithmetic
         | LineStart => arithmetic
-        | CommentEnd => arithmetic
         | LineStartHere =>
           ifPairWeight _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
@@ -747,7 +753,7 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
                 []
                 (printer.width - indent - 2)
                 (indent + 2)
-                False
+                Clear
                 (arithmetic),
               later
         | _ =>
@@ -756,7 +762,7 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
                 rest
                 printer.left
                 printer.lineIndent
-                (not printer.suffixes.isEmpty)
+                printer.waiting
                 (arithmetic),
               later
     | _ => cases
@@ -774,7 +780,7 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
         rest
         (printer.left - 1)
         printer.lineIndent
-        False
+        Clear
         (arithmetic)
     | Print indent mode doc =>
       match doc with
@@ -784,7 +790,7 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
             rest
             printer.left
             printer.lineIndent
-            (not printer.suffixes.isEmpty)
+            printer.waiting
             (arithmetic)
         | NarrowGroup max inner hard =>
           rewrite fitsFromEnough total extra printer.width printer.modes
@@ -792,7 +798,7 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
             rest
             (Nat.min printer.left (max - printer.owed.getOrElse printer.column))
             printer.lineIndent
-            (not printer.suffixes.isEmpty)
+            printer.waiting
             (arithmetic)
         | IdGroup id inner hard =>
           rewrite fitsFromEnough total extra printer.width printer.modes
@@ -800,7 +806,7 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
             rest
             printer.left
             printer.lineIndent
-            (not printer.suffixes.isEmpty)
+            printer.waiting
             (arithmetic)
         | Fill items =>
           match items with
@@ -815,7 +821,7 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
                 stack
                 printer.left
                 printer.lineIndent
-                (not printer.suffixes.isEmpty)
+                printer.waiting
                 (arithmetic)
         | Choice options =>
           match mode with
@@ -846,26 +852,19 @@ theorem printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat) (mode:
   rewrite printStepsEnough printer (3 * doc.size + 3 + extraTotal) extraFuel doc indent mode then
     runTotalEnough printer (3 * doc.size + 3) extraTotal (3 * doc.size + 3) [Print indent mode doc] (arithmetic)
 
---| A `Line` reached while a trailing comment waits is a line break, in a
---| flat group too: no text follows the comment on its line. With
---| `softLineAfterComment`, the `FillSep` step and `textAfterComment`, this
---| is why every trailing comment ends its line, whatever document the
---| engine prints.
-theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (mode: Mode) (rest: List Cmd)
-    (waiting: printer.suffixes.isEmpty = False):
-    printer.printDoc total indent mode Line rest = (printer.newline indent, rest) :=
-  match mode with
-    | Flat => rewrite waiting
-    | Break => byComputing
+--| A flat `Line` reached while a trailing comment waits holds a space,
+--| written only if a closer follows: with
+--| `softLineAfterComment`, `textAfterComment` and `closePut`,
+--| this is why every trailing comment ends its line, whatever document
+--| the engine prints.
+theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (waiting: printer.suffixes.isEmpty = False):
+    printer.printDoc total indent Flat Line rest = ({ printer | heldSpaces = printer.heldSpaces + 1 }, rest) :=
+  rewrite waiting
 
---| A `SoftLine` reached while a trailing comment waits is a line break, in a
---| flat group too.
-theorem softLineAfterComment ∀ (printer: Printer) (total indent: Nat) (mode: Mode) (rest: List Cmd)
-    (waiting: printer.suffixes.isEmpty = False):
-    printer.printDoc total indent mode SoftLine rest = (printer.newline indent, rest) :=
-  match mode with
-    | Flat => rewrite waiting
-    | Break => byComputing
+--| A flat `SoftLine` is nothing, while a trailing comment waits too.
+theorem softLineAfterComment ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd):
+    printer.printDoc total indent Flat SoftLine rest = (printer, rest) :=
+  byComputing
 
 --| The next item of a broken `Fill` starts a new line while a trailing
 --| comment waits.
@@ -874,10 +873,10 @@ theorem fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Do
     printer.step total (FillSep indent item) rest = (printer.newline indent, [Print indent Break item, ..rest]) :=
   rewrite waiting
 
---| Text reached while a trailing comment waits starts a new line first (a
---| comment break), at least 2 deeper than the line it breaks; spaces there
---| are dropped. So no text ever follows a trailing comment on its line, in
---| any document.
+--| Text reached while a trailing comment waits starts a new line first
+--| (a comment break), at least 2 deeper than the line it
+--| breaks. So no text ever follows a trailing comment on its line, in any
+--| document.
 theorem textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (nonEmpty: text.isEmpty = False)
     (waiting: printer.suffixes.isEmpty = False)
@@ -885,18 +884,23 @@ theorem textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (widt
     printer.write indent text width = (printer.newline (printer.continuation indent)).put text width :=
   rewrite nonEmpty, waiting, notSpaces
 
---| Spaces written while a trailing comment waits are dropped.
+--| Spaces written while a trailing comment waits are held.
 theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (nonEmpty: text.isEmpty = False)
     (waiting: printer.suffixes.isEmpty = False)
     (spaces: text.all (char => char == ' ') = True):
-    printer.write indent text width = printer :=
+    printer.write indent text width = { printer | heldSpaces = printer.heldSpaces + text.length } :=
   rewrite nonEmpty, waiting, spaces
 
---| An instance: a space after a waiting comment is dropped.
-theorem spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
-      = { Printer.start 80 | suffixes = ["-- c"] } :=
-  spacesAfterComment { Printer.start 80 | suffixes = ["-- c"] } 0 " " 1 byComputing byComputing byComputing
+--| An instance: a space after a waiting comment is held.
+theorem spacesAfterCommentExample:
+    ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1 = { Printer.start 80 | suffixes = ["-- c"], heldSpaces = 1 } :=
+  byComputing
+
+--| An instance: `Both ( ) -- c`.
+theorem closeAfterCommentExample:
+    (print (Doc.concat [Doc.text "Both (", LineSuffix "-- c", Doc.text " ", Closing ")"]) 120 == "Both ( ) -- c") = True :=
+  byComputing
 
 --| A comment break is deeper than the line it breaks.
 theorem continuationDeeper ∀ (printer: Printer) (indent: Nat): printer.lineIndent + 2 ≤ printer.continuation indent :=

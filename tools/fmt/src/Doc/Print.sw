@@ -216,22 +216,22 @@ def Printer.fitsHere (printer: Printer) (total: Nat) (next: List (Nat, Mode, Doc
 
 --| What a measure from where the printer is knows of a trailing comment
 --| waiting there.
-def Printer.waiting (printer: Printer): Waiting :=
-  if printer.suffixes.isEmpty then Clear else Waits printer.heldSpaces False
+def Printer.waiting (printer: Printer): Trailing :=
+  if printer.suffixes.isEmpty then Clear else Pending printer.heldSpaces False
 
 --| What a measure knows of a trailing comment waiting on the line it
 --| measures.
-type Waiting =
+type Trailing =
   | Clear
   --| One waits, with `held` spaces after it, which a closer would write
   --| before itself; `flatBreak` says a flat line break came after it, so
   --| code would start a line the measure didn't plan.
-  | Waits (held: Nat) (flatBreak: Bool)
+  | Pending (held: Nat) (flatBreak: Bool)
 
 --| The measure's state once a trailing comment starts to wait.
-def Waiting.noted: Waiting → Waiting
-  | Clear => Waits 0 False
-  | Waits held _ => Waits held False
+def Trailing.noted: Trailing → Trailing
+  | Clear => Pending 0 False
+  | Pending held _ => Pending held False
 
 --| The items with a `Line` between each two.
 def Doc.joinLines: List Doc → List Doc
@@ -248,17 +248,18 @@ def Printer.payIndent (printer: Printer): Printer := match printer.owed with
   | Some 0 => { printer | owed = None, column = 0 }
   | Some indent => { printer | out = [" ".repeat indent, ..printer.out], owed = None, column = indent }
 
---| Whether a trailing comment waits on a line that has words: what
---| follows there is held back or starts the next line.
-def Printer.waits (printer: Printer): Bool := not printer.suffixes.isEmpty && not printer.atLineStart
-
 --| `text`, `width` columns wide, in a construct indented `indent`. Text
 --| after a trailing comment waiting on its line starts the next line (a
 --| comment break), and spaces there are held, written only before a
 --| closer: no code follows a comment on its line.
+--|
+--| A comment waits at a line start only in a document no rule builds (a
+--| trailing comment follows a word); there the Rust engine writes the
+--| text first and the comment after it, and this one keeps the
+--| document's order, as `readingWords` states of every document.
 def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Printer :=
   if text.isEmpty then printer
-  else if not printer.waits then printer.put text width
+  else if printer.suffixes.isEmpty then printer.put text width
   else if text.all (char => char == ' ') then { printer | heldSpaces = printer.heldSpaces + text.length }
   else (printer.newline (printer.continuation indent)).put text width
 
@@ -266,13 +267,17 @@ def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Pr
 --| trailing comment waiting there, after the spaces held since it.
 def Printer.close (printer: Printer) (text: Text): Printer :=
   if text.isEmpty then printer
-  else if not printer.waits then printer.put text text.length
+  else if printer.suffixes.isEmpty then printer.put text text.length
   else printer.writeHeld.put text text.length
 
---| The spaces held after a waiting comment, written.
-def Printer.writeHeld (printer: Printer): Printer := match printer.heldSpaces with
-  | 0 => printer
-  | held => { printer | out = [" ".repeat held, ..printer.out], column = printer.column + held, heldSpaces = 0 }
+--| The spaces held after a waiting comment, written. None are held at a
+--| line start, where they would move the next word.
+def Printer.writeHeld (printer: Printer): Printer :=
+  if printer.atLineStart then printer
+  else
+    match printer.heldSpaces with
+      | 0 => printer
+      | held => { printer | out = [" ".repeat held, ..printer.out], column = printer.column + held, heldSpaces = 0 }
 
 --| Writes `text`, `width` columns wide, on the current line, after any
 --| indentation owed. Code ends a comment floor; a comment doesn't.
@@ -372,7 +377,7 @@ def Printer.blank (printer: Printer): Printer :=
 --| measured, a broken `Fill`'s first item and a `OneLineBelow` option
 --| included.
 def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode, Doc)) (rest: List Cmd)
-    (left lineIndent: Nat) (suffix: Waiting):
+    (left lineIndent: Nat) (suffix: Trailing):
     Bool :=
   match fuel with
     | 0 => True
@@ -393,9 +398,9 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
             | Chunk text textWidth =>
               match suffix with
                 | Clear => textWidth <= left && fitsFrom more width modes stack rest (left - textWidth) lineIndent Clear
-                | Waits held flatBreak =>
+                | Pending held flatBreak =>
                   if text.all (char => char == ' ') then
-                    fitsFrom more width modes stack rest left lineIndent (Waits (held + textWidth) flatBreak)
+                    fitsFrom more width modes stack rest left lineIndent (Pending (held + textWidth) flatBreak)
                   else
                     let broken := Nat.max indent (lineIndent + 2)
                     not flatBreak
@@ -406,22 +411,22 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
               match suffix with
                 | Clear =>
                   text.length <= left && fitsFrom more width modes stack rest (left - text.length) lineIndent Clear
-                | Waits held flatBreak =>
+                | Pending held flatBreak =>
                   held + text.length <= left
                     && fitsFrom more width modes stack rest
                       (left - held - text.length)
                       lineIndent
-                      (Waits 0 flatBreak)
+                      (Pending 0 flatBreak)
             | Line =>
               not mode.isFlat
                 || (match suffix with
                   | Clear => 1 <= left && fitsFrom more width modes stack rest (left - 1) lineIndent Clear
-                  | Waits held _ => fitsFrom more width modes stack rest left lineIndent (Waits held True))
+                  | Pending held _ => fitsFrom more width modes stack rest left lineIndent (Pending held True))
             | SoftLine =>
               not mode.isFlat
                 || (match suffix with
                   | Clear => fitsFrom more width modes stack rest left lineIndent Clear
-                  | Waits held _ => fitsFrom more width modes stack rest left lineIndent (Waits held True))
+                  | Pending held _ => fitsFrom more width modes stack rest left lineIndent (Pending held True))
             | HardLine => not mode.isFlat
             | LineStart => not mode.isFlat
             | LineStartHere => not mode.isFlat
