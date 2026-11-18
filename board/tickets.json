@@ -1,5 +1,5 @@
 {
-  "next": 3949,
+  "next": 3950,
   "tickets": [
     {
       "id": 47,
@@ -23462,12 +23462,12 @@
     {
       "id": 3944,
       "title": "[Sonnet] Self-hosted fmt engine E6, ahead of E5 (orchestrator's call: S1 needs Std.Doc and TextBlock isn't in the program yet): move Fmt.Doc into std as Std.Doc with its 357 theorems; tools/fmt imports it; audit Std.Doc clean (docs/proposals/self-hosted-fmt-engine-plan.md E6; proof plan F2)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Sonnet lane, 18 Nov 2026, branch lane/SW-3944 (7af0720f3). Fmt.Doc moved to Std.Doc (crates/elab/src/std/Doc/); audit Std.Doc 357 theorems, 0 failed, 0 warnings; test --std Doc 35/35; harness on goldens 632/0/12. Std files take names in full: Doc.Proofs.X, Doc.Nothing (was Empty). The library index now applies a file imports when resolving its references (test added). Prelude snapshot: additions only.\n",
+      "body": "Sonnet lane, 18 Nov 2026, branch lane/SW-3944 (7af0720f3). Fmt.Doc moved to Std.Doc (crates/elab/src/std/Doc/); audit Std.Doc 357 theorems, 0 failed, 0 warnings; test --std Doc 35/35; harness on goldens 632/0/12. Std files take names in full: Doc.Proofs.X, Doc.Nothing (was Empty). The library index now applies a file imports when resolving its references (test added). Prelude snapshot: additions only.\n\nModel result: sonnet, worked, 14 min (est. 25). Std.Doc: 357 theorems audit clean; goldens 632/0/12. Rename Empty -> Doc.Nothing (clash with Std.Empty). library.rs: index applies a file's imports (failing-first test std_library::a_library_file_s_imported_short_name_is_an_edge_to_its_file).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23519,6 +23519,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3949,
+      "title": "[Sonnet] Std files: say in docs (std's README or workflow.md) that a std file takes no namespace line and constructor short names are global in std; consider a lint for a namespace line in a std file; note the index's flat-name resolution versus elaboration's namespaces (SW-3944 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
