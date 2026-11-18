@@ -15,8 +15,9 @@
 --| operator ending the operand before it (`opEnds`) and spaced from the one after (`operandApart`, so `a - x` is no
 --| call `a -x`). `++` nests to the right (`appendLine`), and a comparison joins two such chains once (`cmpLine`). An
 --| arrow `A -> B` reads its left side as a comparison (`operatorLine`) and its right side in full (`arrowLine`), so
---| arrows nest to the right. `&&` and `||` (`groupLogic`'s regrouping) and lines starting inside an expression are not
---| here yet.
+--| arrows nest to the right. `&&` and `||` read as `groupLogic` regroups them: the chain flattened into its first
+--| comparison and links (`orFlat`, `conjFlat`), each comparison read by `cmpLine` (`logicOperator`). Lines starting
+--| inside an expression are not here yet.
 
 namespace Syntax.ReadBackLine
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void)
@@ -99,6 +100,8 @@ def lineKind: Tok → Bool
   | Le => True
   | Gt => True
   | Ge => True
+  | AndAnd => True
+  | OrOr => True
   | Bang => True
   | Arrow => True
   | ColonEq => True
@@ -156,6 +159,8 @@ def binaryTok: Tok → Bool
   | Le => True
   | Gt => True
   | Ge => True
+  | AndAnd => True
+  | OrOr => True
   | _ => False
 
 --| The operator token an infix of this kind is spelt with: `->` for an arrow, a binary operator of this part.
@@ -204,7 +209,7 @@ def Expr.unary1: Expr → Bool
 --| comma between each two bracket items and none after the last (`comma = False`); a tuple has two items or more. A
 --| prefix is its sign and its operand, no infix, the two read as a negative numeral exactly when the operand is a
 --| numeral after `-`: the glue the printer gives, which the parser's `negativeNumeral` reads. An infix (an arrow, or a
---| binary operator of `binaryTok`) is its left side, its operator and its right side: the operator's text binds as its
+--| binary operator of `binaryTok`, `&&` and `||` among them) is its left side, its operator and its right side: the operator's text binds as its
 --| token does (`tokLevel`), the operands sit at the levels `shaped1` asks (`leftNeeds`, `rightNeeds`), and the right
 --| operand doesn't touch the operator (`operandApart`).
 def Spelt: Expr → List Item → Prop
@@ -465,6 +470,8 @@ def exprKind: Tok → Bool
   | Le => True
   | Gt => True
   | Ge => True
+  | AndAnd => True
+  | OrOr => True
   | Bang => True
   | Arrow => True
   | LParen => True
@@ -2155,6 +2162,12 @@ theorem opKind ∀ (tok: Tok) (isOp: opTok tok = True): OpKind tok := match tok,
   | Ge, _ =>
     opKindOf Ge byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
+  | AndAnd, _ =>
+    opKindOf AndAnd byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | OrOr, _ =>
+    opKindOf OrOr byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
   | _, never => (Bool.falseNotTrue never).impossible
 
 theorem opKindOf ∀ (tok: Tok)
@@ -2366,8 +2379,19 @@ theorem binaryAppend ∀ (tok: Tok)
     tokLevel tok = 12 ∨ 14 <= tokLevel tok :=
   cases
 
---| A binary operator of this part is a comparison or binds at the append level or tighter.
-theorem binaryCmp ∀ (tok: Tok) (isOp: binaryTok tok = True): tokLevel tok = 6 ∨ 12 <= tokLevel tok := cases
+--| A binary operator of this part binding at the comparison level or tighter is a comparison or binds at the append
+--| level or tighter.
+theorem binaryCmp ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (high: 6 <= tokLevel tok):
+    tokLevel tok = 6 ∨ 12 <= tokLevel tok :=
+  cases
+
+--| A binary operator of this part is `||`, `&&`, or binds at the comparison level or tighter.
+theorem binaryLogic ∀ (tok: Tok)
+    (isOp: binaryTok tok = True):
+    tokLevel tok = 4 ∨ tokLevel tok = 5 ∨ 6 <= tokLevel tok :=
+  cases
 
 theorem appendOf ∀ (tok: Tok) (isOp: binaryTok tok = True) (is12: tokLevel tok = 12): (tok == PlusPlus) = True := cases
 
@@ -2870,7 +2894,7 @@ theorem appendBase ∀ (modes: Modes)
 theorem aboveCmp ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 7 <= expr.level): 12 <= expr.level :=
   match expr, spelt, fits with
     | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), fits =>
-      match binaryCmp op.kind isOp with
+      match binaryCmp op.kind isOp (arithmetic [fits, level]) with
         | Inl is6 => Void.impossible (arithmetic [fits, level, is6])
         | Inr high => arithmetic [level, high]
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
@@ -2921,7 +2945,7 @@ theorem cmpLine ∀ (modes: Modes)
     | Infix InfixBinary left operator right, sp, fits =>
       let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
         sp
-      match binaryCmp op.kind isOp with
+      match binaryCmp op.kind isOp (arithmetic [fits, level]) with
         | Inr high =>
           cmpAlone modes quiet
             (Infix InfixBinary left operator right)
@@ -3008,20 +3032,474 @@ theorem cmpLine ∀ (modes: Modes)
 
 theorem rungCmpOf ∀ (tok: Tok) (isCmp: tok.isComparison = True): tokRung tok = 6 := cases
 
---| A spelt expression that is no arrow binds at the comparison level or tighter: no looser operator is spelt yet.
-theorem plainLevel ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 2 <= expr.level): 6 <= expr.level :=
+theorem binaryAboveArrow ∀ (tok: Tok) (isOp: binaryTok tok = True): 4 <= tokLevel tok := cases
+
+--| A spelt expression that is no arrow binds at the `||` level or tighter: no looser operator is spelt yet.
+theorem plainLevel ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 2 <= expr.level): 4 <= expr.level :=
   match expr, spelt, fits with
     | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), _ =>
-      match binaryCmp op.kind isOp with
-        | Inl is6 => arithmetic [level, is6]
-        | Inr high => arithmetic [level, high]
+      arithmetic [level, binaryAboveArrow op.kind isOp]
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ => arithmetic [unaryLevel other read spelt byComputing]
 
+--| Whether a word is `&&`: what `conjunctionOf` joins on.
+def isAnd (word: Word): Bool := word.text == "&&" || word.text == "∧"
+
+--| Whether the first link, if any, is a `&&`: where `conjunctionOf` goes on.
+def andLed: List (Word, Expr) → Bool
+  | [(word, _), .._] => isAnd word
+  | [] => False
+
+theorem conjunctionAnd ∀ (first next: Expr) (word: Word) (rest: List (Word, Expr))
+    (and: isAnd word = True):
+    conjunctionOf first [(word, next), ..rest] = conjunctionJoin first word (conjunctionOf next rest) :=
+  rewrite and
+
+theorem conjunctionStop ∀ (first: Expr) (links: List (Word, Expr))
+    (stop: andLed links = False):
+    conjunctionOf first links = (first, links) :=
+  match links, stop with
+    | [], _ => byComputing
+    | [(word, next), ..rest], stop => rewrite stop
+
+theorem groupConj ∀ (fuel: Nat) (first expr: Expr) (links: List (Word, Expr))
+    (conj: conjunctionOf first links = (expr, [])):
+    groupLogic fuel first links = expr :=
+  rewrite conj then
+    match fuel with
+      | Zero => byComputing
+      | Succ _ => byComputing
+
+theorem groupOr ∀ (fuel: Nat) (first left next: Expr) (word: Word) (links rest: List (Word, Expr))
+    (conj: conjunctionOf first links = (left, [(word, next), ..rest])):
+    groupLogic (Succ fuel) first links = Infix InfixBinary left word (groupLogic fuel next rest) :=
+  rewrite conj
+
+--| `&&` nests to the right over comparisons.
+theorem andNeeds ∀ (text: Text)
+    (is5: infixLevel InfixBinary text = 5):
+    leftNeeds InfixBinary text = 6 ∧ rightNeeds InfixBinary text = 5 ∧ (text == "&&" || text == "∧") = True :=
+  cases
+
+--| `||` nests to the right over conjunctions.
+theorem orNeeds ∀ (text: Text)
+    (is4: infixLevel InfixBinary text = 4):
+    leftNeeds InfixBinary text = 5 ∧ rightNeeds InfixBinary text = 4 ∧ (text == "&&" || text == "∧") = False :=
+  cases
+
+theorem logicTok ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (low: tokLevel tok <= 5):
+    (tok == AndAnd || tok == OrOr) = True :=
+  cases
+
+theorem linkValuesLength ∀ (links: List (Item, List Item, Expr)):
+    (Parse.stepValues (linkSteps links)).length = links.length :=
+  match links with
+    | [] => byComputing
+    | [(_, _, _), ..later] => rewrite linkValuesLength later
+
+--| A comparison operand of a logic chain: spelt, binding at the comparison level or tighter, within `depth`.
+type OperandSpelt (depth: Nat) (expr: Expr) (read: List Item): Prop = {
+  spelt: Spelt expr read,
+  fits: 6 <= expr.level,
+  free: expr.autoFree1 = True,
+  deep: expr.nest1 <= depth
+}
+
+--| The links of a logic chain spelt: each operator `&&` or `||`, its operand a comparison spelt by its read and spaced
+--| from the operator.
+def LinksSpelt (depth: Nat): List (Item, List Item, Expr) → Prop
+  | [] => True = True
+  | [(operator, read, value), ..links] =>
+    (operator.kind == AndAnd || operator.kind == OrOr) = True
+      ∧ operandApart read = True
+      ∧ OperandSpelt depth value read
+      ∧ LinksSpelt depth links
+
+--| A conjunction's read followed by the links `tail`, flattened: its first comparison and the links from there,
+--| `tail` last, which `conjunctionOf` takes back to the conjunction and `tail`.
+def ConjFlat (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr)): Prop :=
+  ∃ (first: Expr) (firstRead: List Item) (links: List (Item, List Item, Expr)) => read
+    ++ Parse.loopReads [] (linkSteps tail)
+    = firstRead ++ Parse.loopReads [] (linkSteps links)
+    ∧ OperandSpelt depth first firstRead
+    ∧ LinksSpelt depth links
+    ∧ tail.length <= links.length
+    ∧ conjunctionOf first (Parse.stepValues (linkSteps links)) = (expr, Parse.stepValues (linkSteps tail))
+
+theorem conjLeaf ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr))
+    (spelt: Spelt expr read)
+    (high: 6 <= expr.level)
+    (free: expr.autoFree1 = True)
+    (deep: expr.nest1 <= depth)
+    (tailSpelt: LinksSpelt depth tail)
+    (stop: andLed (Parse.stepValues (linkSteps tail)) = False):
+    ConjFlat depth expr read tail :=
+  (
+    expr,
+    read,
+    tail,
+    byComputing,
+    { spelt, fits = high, free, deep },
+    tailSpelt,
+    arithmetic [],
+    conjunctionStop expr (Parse.stepValues (linkSteps tail)) stop
+  )
+
+--| A spelt conjunction (`&&` nesting to the right over comparisons) followed by `tail`, which starts with no `&&`,
+--| flattens: `conjunctionOf` takes exactly its `&&`s.
+--|
+--| Proof idea: by induction on the right spine. A comparison is its own first operand (`conjLeaf`); `left && right`
+--| puts `&& first` of `right`'s flattening after `left`, and `conjunctionOf` joins `left` to what it gives for `right`.
+theorem conjFlat ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr))
+    (spelt: Spelt expr read)
+    (fits: 5 <= expr.level)
+    (free: expr.autoFree1 = True)
+    (deep: expr.nest1 <= depth)
+    (tailSpelt: LinksSpelt depth tail)
+    (stop: andLed (Parse.stepValues (linkSteps tail)) = False):
+    ConjFlat depth expr read tail :=
+  match expr, spelt, fits with
+    | Infix InfixBinary left operator right, sp, fits =>
+      let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
+        sp
+      match binaryLogic op.kind isOp with
+        | Inl is4 => Void.impossible (arithmetic [fits, level, is4])
+        | Inr (Inl is5) =>
+          let at5: infixLevel InfixBinary operator.text = 5 := arithmetic [level, is5]
+          let (leftNeed, rightNeed, andText) := andNeeds operator.text at5
+          let (first, firstRead, links, isRight, rightOperand, linksSpelt, longer, conj) :=
+            conjFlat depth right rightRead tail rightSpelt
+              (arithmetic [rightFits, rightNeed])
+              (Bool.andRight free)
+              (arithmetic [deep])
+              tailSpelt
+              stop
+          let and: isAnd op.leaf.word = True := rewrite isWord then andText
+          let firstApart: operandApart firstRead = True := calc operandApart firstRead
+            _ = operandApart (firstRead ++ Parse.loopReads [] (linkSteps links)) :=
+              (speltApart first firstRead (Parse.loopReads [] (linkSteps links)) rightOperand.spelt).flipped
+            _ = operandApart (rightRead ++ Parse.loopReads [] (linkSteps tail)) := rewrite isRight
+            _ = operandApart rightRead := speltApart right rightRead (Parse.loopReads [] (linkSteps tail)) rightSpelt
+            _ = True := apart
+          (
+            left,
+            leftRead,
+            [(op, firstRead, first), ..links],
+            (calc read ++ Parse.loopReads [] (linkSteps tail)
+              _ = (leftRead ++ [op, ..rightRead]) ++ Parse.loopReads [] (linkSteps tail) := rewrite isRead
+              _ = leftRead ++ [op, ..rightRead ++ Parse.loopReads [] (linkSteps tail)] :=
+                List.appendAssoc leftRead [op, ..rightRead] (Parse.loopReads [] (linkSteps tail))
+              _ = leftRead ++ [op, ..firstRead ++ Parse.loopReads [] (linkSteps links)] := rewrite isRight),
+            {
+              spelt = leftSpelt,
+              fits = arithmetic [leftFits, leftNeed],
+              free = Bool.andLeft free,
+              deep = arithmetic [deep]
+            },
+            (logicTok op.kind isOp (arithmetic [is5]), firstApart, rightOperand, linksSpelt),
+            arithmetic [longer],
+            (calc conjunctionOf left [(op.leaf.word, first), ..Parse.stepValues (linkSteps links)]
+              _ = conjunctionJoin left op.leaf.word (conjunctionOf first (Parse.stepValues (linkSteps links))) :=
+                conjunctionAnd left first op.leaf.word (Parse.stepValues (linkSteps links)) and
+              _ = (Infix InfixBinary left operator right, Parse.stepValues (linkSteps tail)) := rewrite conj, isWord)
+          )
+        | Inr (Inr high) =>
+          conjLeaf depth
+            (Infix InfixBinary left operator right)
+            read
+            tail
+            sp
+            (arithmetic [level, high])
+            free
+            deep
+            tailSpelt
+            stop
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ =>
+      conjLeaf depth other read tail spelt
+        (arithmetic [unaryLevel other read spelt byComputing])
+        free
+        deep
+        tailSpelt
+        stop
+
+--| A logic chain's read, flattened: its first comparison and its links, which `groupLogic` with fuel enough regroups
+--| into the chain.
+def LogicSplit (depth: Nat) (expr: Expr) (read: List Item): Prop :=
+  ∃ (first: Expr) (firstRead: List Item) (links: List (Item, List Item, Expr)) => read
+    = firstRead ++ Parse.loopReads [] (linkSteps links)
+    ∧ OperandSpelt depth first firstRead
+    ∧ LinksSpelt depth links
+    ∧ (∀ (fuel: Nat) => links.length < fuel → groupLogic fuel first (Parse.stepValues (linkSteps links)) = expr)
+
+theorem orOfConj ∀ (depth: Nat) (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read)
+    (fits: 5 <= expr.level)
+    (free: expr.autoFree1 = True)
+    (deep: expr.nest1 <= depth):
+    LogicSplit depth expr read :=
+  let (first, firstRead, links, isRead, operand, linksSpelt, _, conj) :=
+    conjFlat depth expr read [] spelt fits free deep byComputing byComputing
+  (
+    first,
+    firstRead,
+    links,
+    Eq.trans (List.appendNil read).flipped isRead,
+    operand,
+    linksSpelt,
+    fuel _ => groupConj fuel first expr (Parse.stepValues (linkSteps links)) conj
+  )
+
+--| A spelt logic chain (`||` nesting to the right over conjunctions) flattens into its first comparison and links,
+--| which `groupLogic` regroups as it was.
+--|
+--| Proof idea: by induction on the `||` spine. A conjunction is `conjFlat`'s with no links after; `left || right`
+--| flattens `right`, then `left` with `|| first` of that before its links, so `conjunctionOf` stops at the `||` and
+--| `groupLogic` puts `left` before it and regroups the rest, on one fuel less.
+theorem orFlat ∀ (depth: Nat) (expr: Expr) (read: List Item)
+    (spelt: Spelt expr read)
+    (fits: 4 <= expr.level)
+    (free: expr.autoFree1 = True)
+    (deep: expr.nest1 <= depth):
+    LogicSplit depth expr read :=
+  match expr, spelt, fits with
+    | Infix InfixBinary left operator right, sp, fits =>
+      let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
+        sp
+      match binaryLogic op.kind isOp with
+        | Inl is4 =>
+          let at4: infixLevel InfixBinary operator.text = 4 := arithmetic [level, is4]
+          let (leftNeed, rightNeed, orText) := orNeeds operator.text at4
+          let (rightFirst, rightFirstRead, rightLinks, isRight, rightOperand, rightLinksSpelt, rightGroup) :=
+            orFlat depth right rightRead rightSpelt
+              (arithmetic [rightFits, rightNeed])
+              (Bool.andRight free)
+              (arithmetic [deep])
+          let tail := [(op, rightFirstRead, rightFirst), ..rightLinks]
+          let firstApart: operandApart rightFirstRead = True := calc operandApart rightFirstRead
+            _ = operandApart (rightFirstRead ++ Parse.loopReads [] (linkSteps rightLinks)) :=
+              Eq.flipped
+                (speltApart rightFirst rightFirstRead (Parse.loopReads [] (linkSteps rightLinks)) rightOperand.spelt)
+            _ = operandApart rightRead := rewrite isRight
+            _ = True := apart
+          let tailSpelt: LinksSpelt depth tail :=
+            (logicTok op.kind isOp (arithmetic [is4]), firstApart, rightOperand, rightLinksSpelt)
+          let stop: andLed (Parse.stepValues (linkSteps tail)) = False := rewrite isWord then orText
+          let (first, firstRead, links, isLeft, operand, linksSpelt, longer, conj) :=
+            conjFlat depth left leftRead tail leftSpelt
+              (arithmetic [leftFits, leftNeed])
+              (Bool.andLeft free)
+              (arithmetic [deep])
+              tailSpelt
+              stop
+          (
+            first,
+            firstRead,
+            links,
+            (calc read
+              _ = leftRead ++ [op, ..rightRead] := isRead
+              _ = leftRead ++ [op, ..rightFirstRead ++ Parse.loopReads [] (linkSteps rightLinks)] := rewrite isRight
+              _ = leftRead ++ Parse.loopReads [] (linkSteps tail) := byComputing
+              _ = firstRead ++ Parse.loopReads [] (linkSteps links) := isLeft),
+            operand,
+            linksSpelt,
+            fuel small =>
+              match fuel, small with
+                | Zero, small => Void.impossible (arithmetic [small])
+                | Succ more, small =>
+                  rewrite groupOr more first left rightFirst op.leaf.word
+                        (Parse.stepValues (linkSteps links))
+                        (Parse.stepValues (linkSteps rightLinks))
+                        conj,
+                      rightGroup more (arithmetic [small, longer]),
+                      isWord
+          )
+        | Inr (Inl is5) =>
+          orOfConj depth (Infix InfixBinary left operator right) read sp (arithmetic [level, is5]) free deep
+        | Inr (Inr high) =>
+          orOfConj depth (Infix InfixBinary left operator right) read sp (arithmetic [level, high]) free deep
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ =>
+      orOfConj depth other read spelt (arithmetic [unaryLevel other read spelt byComputing]) free deep
+
+theorem leadNotExists ∀ (kind: Tok) (starts: leadKind kind = True): (kind == KwExists) = False := cases
+
+theorem leadNotForall ∀ (kind: Tok) (starts: leadKind kind = True): (kind == KwForall) = False := cases
+
+theorem andOrBinary ∀ (tok: Tok) (andOr: (tok == AndAnd || tok == OrOr) = True): binaryTok tok = True := cases
+
+theorem andOrRung ∀ (tok: Tok) (andOr: (tok == AndAnd || tok == OrOr) = True): tokRung tok = 5 := cases
+
+--| `cmpLine` at `depth` in `modes`, as a hypothesis: the logic chain's lemmas take it, so only `operatorLine`, which
+--| passes it, is in `cmpLine`'s recursion.
+def CmpLineAt (modes: Modes) (depth: Nat): Prop :=
+  ∀ (expr: Expr) (read rest: List Item) => expr.nest1 <= depth
+    → Spelt expr read
+    → expr.autoFree1 = True
+    → lineAll read = True
+    → lineAll rest = True
+    → openHead modes read = True
+    → laterInLine read = True
+    → EndsAt modes 6 rest
+    → 6 <= expr.level
+    → CmpReads (TreeN depth) modes read rest expr
+
+--| What follows a comparison in a logic chain ends it there: the next link's `&&` or `||`, or what ends the chain.
+theorem linksEnds ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (depth: Nat) (links: List (Item, List Item, Expr)) (rest: List Item)
+    (linksSpelt: LinksSpelt depth links)
+    (inLinks: inLineAll (Parse.loopReads [] (linkSteps links)) = True)
+    (ends: EndsAt modes 5 rest):
+    EndsAt modes 6 (Parse.loopReads [] (linkSteps links) ++ rest) :=
+  match links, linksSpelt with
+    | [], _ => endsAtUp modes 5 6 rest (arithmetic []) ends
+    | [(op, read, value), ..later], (andOr, apart, operand, _) =>
+      let after := Parse.loopReads [] (linkSteps later)
+      let open := quietStops modes op quiet (notTrueFalse _ (Bool.andLeft inLinks))
+      rewrite List.appendAssoc read after rest then
+        opEnds modes 6 op
+          (read ++ (after ++ rest))
+          InfixBinary
+          open
+          (andOrBinary op.kind andOr)
+          (rewrite speltApart value read (after ++ rest) operand.spelt then apart)
+          (rewrite andOrRung op.kind andOr then arithmetic [])
+
+--| Spelt links on one line, ended by what follows, are `LogicReads`: each comparison by `cmp`.
+theorem logicLinks ∀ (modes: Modes)
+    (quiet: Quiet modes) (depth: Nat)
+    (cmp: CmpLineAt modes depth)
+    (links: List (Item, List Item, Expr)) (rest: List Item)
+    (linksSpelt: LinksSpelt depth links)
+    (lineLinks: lineAll (Parse.loopReads [] (linkSteps links)) = True)
+    (inLinks: inLineAll (Parse.loopReads [] (linkSteps links)) = True)
+    (lineRest: lineAll rest = True)
+    (ends: EndsAt modes 5 rest):
+    LogicReads (TreeN depth) modes links rest :=
+  match links, linksSpelt with
+    | [], _ => ends.noAndOr (arithmetic [])
+    | [(op, read, value), ..later], (andOr, apart, operand, laterSpelt) =>
+      let after := Parse.loopReads [] (linkSteps later)
+      let (lineRead, lineAfter) := lineSplit read after (Bool.andRight lineLinks)
+      let (inRead, inAfter) := inLineSplit read after (Bool.andRight inLinks)
+      let (first, more, isRead, starts) := speltStarts value read operand.spelt
+      let inFirst: inLineAll [first, ..more] = True := rewrite <- isRead then inRead
+      let openFirst := quietStops modes first quiet (notTrueFalse _ (Bool.andLeft inFirst))
+      let peekRead: peekIn modes 0 (read ++ after ++ rest) = Some first.kind :=
+        rewrite isRead then peekFirst modes first (more ++ after ++ rest) openFirst
+      (
+        quietStops modes op quiet (notTrueFalse _ (Bool.andLeft inLinks)),
+        andOr,
+        (rewrite peekRead then leadNotExists first.kind starts),
+        (rewrite peekRead then leadNotForall first.kind starts),
+        cmp value read
+          (after ++ rest)
+          operand.deep
+          operand.spelt
+          operand.free
+          lineRead
+          (lineJoin after rest lineAfter lineRest)
+          (rewrite isRead then openHeadOf modes first more openFirst)
+          (laterOfIn read inRead)
+          (linksEnds modes quiet depth later rest laterSpelt inAfter ends)
+          operand.fits,
+        logicLinks modes quiet depth cmp later rest laterSpelt lineAfter inAfter lineRest ends
+      )
+
+--| A logic chain's links, read by `LogicReads` and regrouping into `expr`, are what `logicAfter` reads after the first
+--| comparison: nothing if there are none, else the chain `groupLogic` builds.
+theorem logicAfterLinks ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (depth: Nat) (links: List (Item, List Item, Expr)) (rest: List Item) (first expr: Expr)
+    (linksSpelt: LinksSpelt depth links)
+    (group: groupLogic (Succ links.length) first (Parse.stepValues (linkSteps links)) = expr)
+    (inLinks: inLineAll (Parse.loopReads [] (linkSteps links)) = True)
+    (noAndOr: andOrOn modes rest = False)
+    (logic: LogicReads (TreeN depth) modes links rest):
+    LogicAfterReads (TreeN depth) modes first (Parse.loopReads [] (linkSteps links)) rest expr :=
+  match links, linksSpelt with
+    | [], _ => Inl (byComputing, group.flipped, noAndOr)
+    | [(op, read, value), ..later], (andOr, _) =>
+      let open := quietStops modes op quiet (notTrueFalse _ (Bool.andLeft inLinks))
+      Inr (
+        [(op, read, value), ..later],
+        byComputing,
+        (rewrite linkValuesLength later then group.flipped),
+        (rewrite peekFirst modes op ((read ++ Parse.loopReads [] (linkSteps later)) ++ rest) open then andOr),
+        logic
+      )
+
+--| A spelt expression at the `||` level or tighter, on one line and followed by `read3` (nothing, or `->` and a
+--| result), is what `operatorExpr` reads: its first comparison by `cmp`, its `&&` and `||` links regrouped by
+--| `groupLogic`, no `<->`, then `read3` as `ending` says.
+--|
+--| Proof idea: `orFlat` splits the read into the first comparison's and the links'; the comparison is ended by the
+--| first link's operator or by what follows (`linksEnds`), the links are `logicLinks`', and with no links the chain is
+--| its comparison.
+theorem logicOperator ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read read3 rest: List Item) (depth: Nat) (all: List Item) (value: Expr)
+    (cmp: CmpLineAt modes depth)
+    (whole: all = read ++ read3)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineAfter: lineAll (read3 ++ rest) = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 5 (read3 ++ rest))
+    (low: 4 <= expr.level)
+    (noSection: isSome Dot (peekIn modes 0 ((read ++ read3) ++ rest)) = False)
+    (ending: EndReads (TreeN depth) modes expr (sequenceOn modes (read3 ++ rest)) read3 rest value):
+    OperatorReads (TreeN depth) modes all rest value :=
+  let (first, firstRead, links, isRead, operand, linksSpelt, group) := orFlat depth expr read spelt low free deep
+  let linksRead := Parse.loopReads [] (linkSteps links)
+  let after := read3 ++ rest
+  let (lineFirst, lineLinks) := lineSplit firstRead linksRead (rewrite <- isRead then lineRead)
+  let (item, more, isFirst, _) := speltStarts first firstRead operand.spelt
+  let laterItems: laterInLine ([item, ..more] ++ linksRead) = True := rewrite <- isFirst, <- isRead then inLater
+  let (inMore, inLinks) := inLineSplit more linksRead laterItems
+  let openItems: openHead modes ([item, ..more] ++ linksRead) = True := rewrite <- isFirst, <- isRead then openFirst
+  let isAll: all = firstRead ++ linksRead ++ read3 :=
+    rewrite whole, isRead then List.appendAssoc firstRead linksRead read3
+  (
+    firstRead,
+    linksRead,
+    read3,
+    first,
+    expr,
+    isAll,
+    (rewrite <- List.appendAssoc firstRead linksRead read3, <- isRead then noSection),
+    cmp first firstRead
+      (linksRead ++ after)
+      operand.deep
+      operand.spelt
+      operand.free
+      lineFirst
+      (lineJoin linksRead after lineLinks lineAfter)
+      (rewrite isFirst then openHeadOf modes item more (openHeadStops modes item (more ++ linksRead) openItems))
+      (rewrite isFirst then inMore)
+      (linksEnds modes quiet depth links after linksSpelt inLinks ends)
+      operand.fits,
+    logicAfterLinks modes quiet depth links after first expr linksSpelt
+      (group (Succ links.length) (arithmetic []))
+      inLinks
+      (ends.noAndOr (arithmetic []))
+      (logicLinks modes quiet depth cmp links after linksSpelt lineLinks inLinks lineAfter ends),
+    ends.noIff,
+    ending
+  )
+
 --| An expression that is no arrow, spelt on one line and followed by `read3` (nothing, or `->` and a result), is
---| what `operatorExpr` reads: a comparison (`cmpExpr`) and its logic links (`logicAfter`), no `<->`, then `read3` as
---| `ending` says.
+--| what `operatorExpr` reads: a comparison (`cmpExpr`) and its `&&` and `||` links (`logicAfter`), no `<->`, then
+--| `read3` as `ending` says. `logicOperator` does the work, given `cmpLine` at this depth for the comparisons.
 theorem operatorLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read read3 rest: List Item) (depth: Nat) (all: List Item) (value: Expr)
@@ -3038,22 +3516,23 @@ theorem operatorLine ∀ (modes: Modes)
     (noSection: isSome Dot (peekIn modes 0 ((read ++ read3) ++ rest)) = False)
     (ending: EndReads (TreeN depth) modes expr (sequenceOn modes (read3 ++ rest)) read3 rest value):
     OperatorReads (TreeN depth) modes all rest value :=
-  let after := read3 ++ rest
-  (
-    read,
-    [],
-    read3,
-    expr,
-    expr,
-    whole,
-    noSection,
-    cmpLine modes quiet expr read after depth deep spelt free lineRead lineAfter openFirst inLater
-      (endsAtUp modes 5 6 after (arithmetic []) ends)
-      (plainLevel expr read spelt fits),
-    Inl (byComputing, byComputing, ends.noAndOr (arithmetic [])),
-    ends.noIff,
+  logicOperator modes quiet expr read read3 rest depth all value
+    (operand operandRead after operandDeep operandSpelt operandFree lineOperand lineOperandAfter openOperand
+        laterOperand operandEnds operandFits =>
+      cmpLine modes quiet operand operandRead after depth operandDeep operandSpelt operandFree lineOperand
+          lineOperandAfter openOperand laterOperand operandEnds operandFits)
+    whole
+    deep
+    spelt
+    free
+    lineRead
+    lineAfter
+    openFirst
+    inLater
+    ends
+    (plainLevel expr read spelt fits)
+    noSection
     ending
-  )
 
 --| No `{` first: `allowBraceOn` leaves the modes.
 theorem allowNoBrace ∀ (modes: Modes) (item: Item) (rest: List Item)
@@ -3064,9 +3543,9 @@ theorem allowNoBrace ∀ (modes: Modes) (item: Item) (rest: List Item)
     | Some column => rewrite notBrace
 
 --| An arrow spelt on one line, nothing after it continuing it, is what `exprInline` reads: the left side as a
---| comparison and its logic links (`logicLine`), then `->` and the right side read in full.
+--| comparison and its logic links (`logicOperator`), then `->` and the right side read in full.
 --|
---| Proof idea: `OperatorReads` with the left side by `logicLine`, ended by `->` (`opEnds`); `EndReads`' arrow, its
+--| Proof idea: `OperatorReads` with the left side by `operatorLine`, ended by `->` (`opEnds`); `EndReads`' arrow, its
 --| result by `fullLine` one level down, `allowBraceOn` leaving the modes since no `{` starts it.
 theorem arrowLine ∀ (modes: Modes)
     (quiet: Quiet modes)
@@ -3169,7 +3648,7 @@ theorem arrowLine ∀ (modes: Modes)
       )
 
 --| A spelt expression that is no arrow, its first item not stopping the modes and its others not starting a line,
---| is what `exprInline` reads in quiet modes: its comparison and logic (`logicLine`), no `<->` and no end after.
+--| is what `exprInline` reads in quiet modes: its comparison and logic (`logicOperator`), no `<->` and no end after.
 theorem inlinePlainLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat)
@@ -3254,9 +3733,7 @@ theorem inlineLine ∀ (modes: Modes)
         inLater
         restOpen
         ends
-        (match binaryCmp op.kind isOp with
-          | Inl is6 => arithmetic [level, is6]
-          | Inr high => arithmetic [level, high])
+        (arithmetic [level, binaryAboveArrow op.kind isOp])
     | Infix _ _ _ _, (_, _, _, _, never, _) => (Bool.falseNotTrue never).impossible
     | other, spelt =>
       inlinePlainLine modes quiet other item more rest depth deep spelt free lineRead lineRest open inLater restOpen
@@ -5379,6 +5856,482 @@ theorem readsBackLexedOpExample: Parse.run
           byComputing,
           (lexedOpAt 15, byComputing, byComputing, byComputing, byComputing)
         )
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a && b`: one conjunction.
+theorem readsBackAndExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [wordItem ColonEq ":=" 4, ..[wordItem Lower "a" 5, wordItem AndAnd "&&" 6, wordItem Lower "b" 7]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Atom Lower (wordItem Lower "a" 5).leaf.word)
+              (wordItem AndAnd "&&" 6).leaf.word
+              (Atom Lower (wordItem Lower "b" 7).leaf.word)))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [wordItem Lower "a" 5, wordItem AndAnd "&&" 6, wordItem Lower "b" 7]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Atom Lower (wordItem Lower "a" 5).leaf.word)
+      (wordItem AndAnd "&&" 6).leaf.word
+      (Atom Lower (wordItem Lower "b" 7).leaf.word))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5],
+      wordItem AndAnd "&&" 6,
+      [wordItem Lower "b" 7],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+      (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing)
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a || b && c`: `&&` binds tighter, so the conjunction is `||`'s right operand.
+theorem readsBackOrAndExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem OrOr "||" 6,
+              wordItem Lower "b" 7,
+              wordItem AndAnd "&&" 8,
+              wordItem Lower "c" 9
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Atom Lower (wordItem Lower "a" 5).leaf.word)
+              (wordItem OrOr "||" 6).leaf.word
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "b" 7).leaf.word)
+                (wordItem AndAnd "&&" 8).leaf.word
+                (Atom Lower (wordItem Lower "c" 9).leaf.word))))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [wordItem Lower "a" 5, wordItem OrOr "||" 6, wordItem Lower "b" 7, wordItem AndAnd "&&" 8, wordItem Lower "c" 9]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Atom Lower (wordItem Lower "a" 5).leaf.word)
+      (wordItem OrOr "||" 6).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "b" 7).leaf.word)
+        (wordItem AndAnd "&&" 8).leaf.word
+        (Atom Lower (wordItem Lower "c" 9).leaf.word)))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5],
+      wordItem OrOr "||" 6,
+      [wordItem Lower "b" 7, wordItem AndAnd "&&" 8, wordItem Lower "c" 9],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+      (
+        [wordItem Lower "b" 7],
+        wordItem AndAnd "&&" 8,
+        [wordItem Lower "c" 9],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "c" 9, byComputing, byComputing, byComputing, byComputing)
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a == b && c < d || e`: comparisons conjoined, then a disjunction: `groupLogic` regroups the flat links.
+theorem readsBackLogicCmpExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem EqEq "==" 6,
+              wordItem Lower "b" 7,
+              wordItem AndAnd "&&" 8,
+              wordItem Lower "c" 9,
+              wordItem Lt "<" 10,
+              wordItem Lower "d" 11,
+              wordItem OrOr "||" 12,
+              wordItem Lower "e" 13
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Infix InfixBinary
+                (Infix InfixBinary
+                  (Atom Lower (wordItem Lower "a" 5).leaf.word)
+                  (wordItem EqEq "==" 6).leaf.word
+                  (Atom Lower (wordItem Lower "b" 7).leaf.word))
+                (wordItem AndAnd "&&" 8).leaf.word
+                (Infix InfixBinary
+                  (Atom Lower (wordItem Lower "c" 9).leaf.word)
+                  (wordItem Lt "<" 10).leaf.word
+                  (Atom Lower (wordItem Lower "d" 11).leaf.word)))
+              (wordItem OrOr "||" 12).leaf.word
+              (Atom Lower (wordItem Lower "e" 13).leaf.word)))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [
+      wordItem Lower "a" 5,
+      wordItem EqEq "==" 6,
+      wordItem Lower "b" 7,
+      wordItem AndAnd "&&" 8,
+      wordItem Lower "c" 9,
+      wordItem Lt "<" 10,
+      wordItem Lower "d" 11,
+      wordItem OrOr "||" 12,
+      wordItem Lower "e" 13
+    ]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Infix InfixBinary
+        (Infix InfixBinary
+          (Atom Lower (wordItem Lower "a" 5).leaf.word)
+          (wordItem EqEq "==" 6).leaf.word
+          (Atom Lower (wordItem Lower "b" 7).leaf.word))
+        (wordItem AndAnd "&&" 8).leaf.word
+        (Infix InfixBinary
+          (Atom Lower (wordItem Lower "c" 9).leaf.word)
+          (wordItem Lt "<" 10).leaf.word
+          (Atom Lower (wordItem Lower "d" 11).leaf.word)))
+      (wordItem OrOr "||" 12).leaf.word
+      (Atom Lower (wordItem Lower "e" 13).leaf.word))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [
+        wordItem Lower "a" 5,
+        wordItem EqEq "==" 6,
+        wordItem Lower "b" 7,
+        wordItem AndAnd "&&" 8,
+        wordItem Lower "c" 9,
+        wordItem Lt "<" 10,
+        wordItem Lower "d" 11
+      ],
+      wordItem OrOr "||" 12,
+      [wordItem Lower "e" 13],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [wordItem Lower "a" 5, wordItem EqEq "==" 6, wordItem Lower "b" 7],
+        wordItem AndAnd "&&" 8,
+        [wordItem Lower "c" 9, wordItem Lt "<" 10, wordItem Lower "d" 11],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (
+          [wordItem Lower "a" 5],
+          wordItem EqEq "==" 6,
+          [wordItem Lower "b" 7],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+          (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing)
+        ),
+        (
+          [wordItem Lower "c" 9],
+          wordItem Lt "<" 10,
+          [wordItem Lower "d" 11],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (wordItem Lower "c" 9, byComputing, byComputing, byComputing, byComputing),
+          (wordItem Lower "d" 11, byComputing, byComputing, byComputing, byComputing)
+        )
+      ),
+      (wordItem Lower "e" 13, byComputing, byComputing, byComputing, byComputing)
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := f x && y < 1 || !z`: a call, a comparison and a sign in a logic chain.
+def lexedLogicLine: List Item := lexedItems "def d: A := f x && y < 1 || !z\n"
+
+--| `lexedLogicLine`'s items, written out: `lexedLogicLineIs` says the lexer gives these.
+def lexedLogicAt (index: Nat): Item := match index with
+  | 0 => lexedItem KwDef "def" 0 False False 0 0
+  | 1 => lexedItem Lower "d" 4 False False 1 0
+  | 2 => lexedItem Colon ":" 5 True True 2 0
+  | 3 => lexedItem Upper "A" 7 False False 3 0
+  | 4 => lexedItem ColonEq ":=" 9 False True 4 0
+  | 5 => lexedItem Lower "f" 12 False False 5 0
+  | 6 => lexedItem Lower "x" 14 False True 6 0
+  | 7 => lexedItem AndAnd "&&" 16 False True 7 0
+  | 8 => lexedItem Lower "y" 19 False False 8 0
+  | 9 => lexedItem Lt "<" 21 False True 9 0
+  | 10 => lexedItem Num "1" 23 False False 10 0
+  | 11 => lexedItem OrOr "||" 25 False True 11 0
+  | 12 => lexedItem Bang "!" 28 False False 12 0
+  | _ => lexedItem Lower "z" 29 True False 13 0
+
+theorem lexedLogicLineIs: lexedLogicLine
+      = [
+        lexedLogicAt 0,
+        lexedLogicAt 1,
+        lexedLogicAt 2,
+        lexedLogicAt 3,
+        lexedLogicAt 4,
+        lexedLogicAt 5,
+        lexedLogicAt 6,
+        lexedLogicAt 7,
+        lexedLogicAt 8,
+        lexedLogicAt 9,
+        lexedLogicAt 10,
+        lexedLogicAt 11,
+        lexedLogicAt 12,
+        lexedLogicAt 13
+      ] :=
+  byComputing
+
+def lexedLogicValue: Expr :=
+  (Infix InfixBinary
+    (Infix InfixBinary
+      (App (Atom Lower (lexedLogicAt 5).leaf.word) [(Atom Lower (lexedLogicAt 6).leaf.word)])
+      (lexedLogicAt 7).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (lexedLogicAt 8).leaf.word)
+        (lexedLogicAt 9).leaf.word
+        (Atom Num (lexedLogicAt 10).leaf.word)))
+    (lexedLogicAt 11).leaf.word
+    (Prefix (lexedLogicAt 12).leaf.word (Atom Lower (lexedLogicAt 13).leaf.word)))
+
+--| `readsBackLine`'s hypotheses hold of the lexer's items for `def d: A := f x && y < 1 || !z` (`lexedLogicLineIs`):
+--| each `&&` and `||` spaced from its operand (`operandApart`), the `!` glued to `z`.
+theorem readsBackLexedLogicExample: Parse.run
+      [
+        lexedLogicAt 0,
+        lexedLogicAt 1,
+        lexedLogicAt 2,
+        ..[lexedLogicAt 3]
+          ++ [
+            lexedLogicAt 4,
+            ..[
+              lexedLogicAt 5,
+              lexedLogicAt 6,
+              lexedLogicAt 7,
+              lexedLogicAt 8,
+              lexedLogicAt 9,
+              lexedLogicAt 10,
+              lexedLogicAt 11,
+              lexedLogicAt 12,
+              lexedLogicAt 13
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader (lexedLogicAt 0) (lexedLogicAt 1) (lexedLogicAt 2) (Atom Upper (lexedLogicAt 3).leaf.word))
+          (Assigned (lexedLogicAt 4).leaf.word.comments lexedLogicValue)) :=
+  readsBackLine Seen.start
+    (lexedLogicAt 0)
+    (lexedLogicAt 1)
+    (lexedLogicAt 2)
+    (lexedLogicAt 4)
+    [lexedLogicAt 3]
+    [
+      lexedLogicAt 5,
+      lexedLogicAt 6,
+      lexedLogicAt 7,
+      lexedLogicAt 8,
+      lexedLogicAt 9,
+      lexedLogicAt 10,
+      lexedLogicAt 11,
+      lexedLogicAt 12,
+      lexedLogicAt 13
+    ]
+    (Atom Upper (lexedLogicAt 3).leaf.word)
+    lexedLogicValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (lexedLogicAt 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [lexedLogicAt 5, lexedLogicAt 6, lexedLogicAt 7, lexedLogicAt 8, lexedLogicAt 9, lexedLogicAt 10],
+      lexedLogicAt 11,
+      [lexedLogicAt 12, lexedLogicAt 13],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [lexedLogicAt 5, lexedLogicAt 6],
+        lexedLogicAt 7,
+        [lexedLogicAt 8, lexedLogicAt 9, lexedLogicAt 10],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (
+          [lexedLogicAt 5],
+          [lexedLogicAt 6],
+          [],
+          byComputing,
+          byComputing,
+          byComputing,
+          (lexedLogicAt 5, byComputing, byComputing, byComputing, byComputing),
+          (lexedLogicAt 6, byComputing, byComputing, byComputing, byComputing),
+          byComputing
+        ),
+        (
+          [lexedLogicAt 8],
+          lexedLogicAt 9,
+          [lexedLogicAt 10],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (lexedLogicAt 8, byComputing, byComputing, byComputing, byComputing),
+          (lexedLogicAt 10, byComputing, byComputing, byComputing, byComputing)
+        )
+      ),
+      (
+        lexedLogicAt 12,
+        [lexedLogicAt 13],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (lexedLogicAt 13, byComputing, byComputing, byComputing, byComputing)
       )
     )
     byComputing
