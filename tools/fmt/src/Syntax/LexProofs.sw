@@ -1,5 +1,5 @@
 namespace Syntax.Proofs
-import Std (Bool, Char, DecEq, Effect, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, Char, DecEq, Effect, Eq, List, Nat, Option, Parse, Result, Text, Void)
 import Syntax (..)
 
 --| `text` is lexed as one token of `kind`, alone at the start of a line with no comments around it.
@@ -1180,3 +1180,321 @@ theorem itemReadsWord ∀ (first: Char) (others rest: List Char) (kind: Tok)
     | other, starts => itemReadsVia [other, ..others] rest (TokenLexeme kind) (self source state =>
       starts2 honest =>
         rewrite starts then runsFromWordList state other others rest kind word starts ends noDot kinded starts2 honest)
+
+-- Numbers.
+
+theorem digitNotWordStart ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordStart char = False :=
+  let letter: char.isAsciiLetter = False := arithmetic [digit]
+  let underscore: (char == '_') = False := arithmetic [digit]
+  rewrite letter, underscore
+
+theorem fractionNone ∀ (rest: List Char) (noDot: rest.head ≠ Some '.'): fractionAhead rest = False :=
+  match rest, noDot with
+    | [], noDot => byComputing
+    | [next, ..more], noDot =>
+      match next with
+        | '.' => (noDot byComputing).impossible
+        | other => byComputing
+
+theorem exponentNone ∀ (rest: List Char) (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'): exponentSkip rest = None :=
+  match rest, noE with
+    | [], noE => byComputing
+    | [next, ..more], Both lower upper =>
+      let notLower := headNe next more 'e' lower
+      let notUpper := headNe next more 'E' upper
+      match more with
+        | [] => byComputing
+        | [second, ..later] =>
+          match later with
+            | [] => rewrite notLower, notUpper
+            | [third, ..others] => rewrite notLower, notUpper
+
+theorem runsFractionNone ∀ (rest: List Char)
+    (noDot: rest.head ≠ Some '.'):
+    Parse.Runs (() => fractionPart()) [] rest False :=
+  state =>
+    Parse.runsFromMark state fractionFrom [] rest False (starts honest =>
+      rewrite starts, fractionNone rest noDot then Parse.runsPure False rest state starts honest)
+
+theorem runsExponentNone ∀ (rest: List Char)
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    Parse.Runs (() => exponentPart()) [] rest False :=
+  state =>
+    Parse.runsFromMark state exponentFrom [] rest False (starts honest =>
+      rewrite starts, exponentNone rest noE then Parse.runsPure False rest state starts honest)
+
+--| A fraction: a `.` and the digits after it, which no digit follows.
+theorem runsFraction ∀ (first: Char) (others rest: List Char)
+    (digit: first.isAsciiDigit = True)
+    (digits: others.all Char.isAsciiDigit = True)
+    (ends: rest.takeWhile Char.isAsciiDigit = []):
+    Parse.Runs (() => fractionPart()) ['.', first, ..others] rest True :=
+  state =>
+    Parse.runsFromMark state fractionFrom ['.', first, ..others] rest True (starts honest =>
+      rewrite starts, digit then
+        Parse.runsBind
+          (() => skip 1)
+          (skipped =>
+            let decimals := Parse.span Char.isAsciiDigit
+            True)
+          ['.']
+          [first, ..others]
+          ['.', first, ..others]
+          rest
+          ()
+          True
+          byComputing
+          (runsSkip 1 ['.'] ([first, ..others] ++ rest) byComputing)
+          (Parse.runsBind
+            (() => Parse.span Char.isAsciiDigit)
+            (decimals => True)
+            [first, ..others]
+            []
+            [first, ..others]
+            rest
+            [first, ..others]
+            True
+            (List.appendNil [first, ..others]).flipped
+            (Parse.runsSpan Char.isAsciiDigit [first, ..others] rest (Bool.andIntro digit digits) ends)
+            (Parse.runsPure True rest))
+          state
+          starts
+          honest)
+
+--| What follows a number's digits when nothing does that belongs to the number.
+theorem runsTailNone ∀ (rest: List Char)
+    (noDot: rest.head ≠ Some '.')
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    Parse.Runs (() => numberTail False) [] rest False :=
+  Parse.runsBind
+    (() => fractionPart())
+    (fraction =>
+      let exponent := exponentPart()
+      fraction || exponent)
+    []
+    []
+    []
+    rest
+    False
+    False
+    byComputing
+    (runsFractionNone rest noDot)
+    (Parse.runsBind
+      (() => exponentPart())
+      (exponent => False || exponent)
+      []
+      []
+      []
+      rest
+      False
+      False
+      byComputing
+      (runsExponentNone rest noE)
+      (Parse.runsPure False rest))
+
+--| What follows a number's digits when a fraction does and then nothing.
+theorem runsTailFraction ∀ (first: Char) (others rest: List Char)
+    (digit: first.isAsciiDigit = True)
+    (digits: others.all Char.isAsciiDigit = True)
+    (ends: rest.takeWhile Char.isAsciiDigit = [])
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    Parse.Runs (() => numberTail False) ['.', first, ..others] rest True :=
+  Parse.runsBind
+    (() => fractionPart())
+    (fraction =>
+      let exponent := exponentPart()
+      fraction || exponent)
+    ['.', first, ..others]
+    []
+    ['.', first, ..others]
+    rest
+    True
+    True
+    (List.appendNil ['.', first, ..others]).flipped
+    (runsFraction first others rest digit digits ends)
+    (Parse.runsBind
+      (() => exponentPart())
+      (exponent => True || exponent)
+      []
+      []
+      []
+      rest
+      False
+      True
+      byComputing
+      (runsExponentNone rest noE)
+      (Parse.runsPure True rest))
+
+--| `number`: digits, then what `numberTail` read, with the kind that says.
+theorem runsFromNumber ∀ (state: Parse.State Char) (digits tail read rest: List Char) (float: Bool)
+    (joined: read = digits ++ tail)
+    (all: digits.all Char.isAsciiDigit = True)
+    (ends: (tail ++ rest).takeWhile Char.isAsciiDigit = [])
+    (runsTail: Parse.Runs (() => numberTail False) tail rest float):
+    Parse.RunsFrom state (() => number False) read rest {
+      value = TokenLexeme (if float then Float else Num),
+      offset = state.at.offset,
+      length = read.length
+    } :=
+  Parse.runsFromMark state
+    (numberFrom False)
+    read
+    rest
+    { value = TokenLexeme (if float then Float else Num), offset = state.at.offset, length = read.length }
+    (Parse.runsFromBind state
+      (() => Parse.span Char.isAsciiDigit)
+      (found =>
+        let float2 := numberTail False
+        located (TokenLexeme (if float2 then Float else Num)) state.at)
+      digits
+      tail
+      read
+      rest
+      digits
+      { value = TokenLexeme (if float then Float else Num), offset = state.at.offset, length = read.length }
+      joined
+      (Parse.runsSpan Char.isAsciiDigit digits (tail ++ rest) all ends)
+      (middle atRest honest offset =>
+        Parse.runsFromBind middle
+          (() => numberTail False)
+          (float2 => located (TokenLexeme (if float2 then Float else Num)) state.at)
+          tail
+          []
+          tail
+          rest
+          float
+          { value = TokenLexeme (if float then Float else Num), offset = state.at.offset, length = read.length }
+          (List.appendNil tail).flipped
+          runsTail
+          (middle2 atRest2 honest2 offset2 =>
+            runsFromLocatedAfter state middle2
+              (TokenLexeme (if float then Float else Num))
+              read
+              rest
+              atRest2
+              honest2
+              (arithmetic [offset, offset2, Eq.cong List.length joined, List.lengthAppend digits tail]))))
+
+--| Digits and nothing that goes on with a number after them.
+theorem itemReadsNum ∀ (first: Char) (others rest: List Char)
+    (digit: first.isAsciiDigit = True)
+    (digits: others.all Char.isAsciiDigit = True)
+    (ends: rest.takeWhile Char.isAsciiDigit = [])
+    (noDot: rest.head ≠ Some '.')
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    ItemReads [first, ..others] (TokenLexeme Num) rest :=
+  match first, digit with
+    | '\n', digit => (Bool.falseNotTrue digit).impossible
+    | '}', digit => (Bool.falseNotTrue digit).impossible
+    | '{', digit => (Bool.falseNotTrue digit).impossible
+    | ' ', digit => (Bool.falseNotTrue digit).impossible
+    | '\r', digit => (Bool.falseNotTrue digit).impossible
+    | '\t', digit => (Bool.falseNotTrue digit).impossible
+    | '-', digit => (Bool.falseNotTrue digit).impossible
+    | '"', digit => (Bool.falseNotTrue digit).impossible
+    | '\'', digit => (Bool.falseNotTrue digit).impossible
+    | '.', digit => (Bool.falseNotTrue digit).impossible
+    | other, digit => itemReadsVia [other, ..others] rest (TokenLexeme Num) (self source state =>
+      starts honest =>
+        let all: [other, ..others].all Char.isAsciiDigit = True := Bool.andIntro digit digits
+        let ran :=
+          runsFromNumber state
+            [other, ..others]
+            []
+            [other, ..others]
+            rest
+            False
+            (List.appendNil [other, ..others]).flipped
+            all
+            ends
+            (runsTailNone rest noDot noE)
+        rewrite digitNotWordStart other digit, digit then
+          (Parse.runsFromBindAt state
+            (() => number False)
+            (x => [x])
+            [other, ..others]
+            []
+            [other, ..others]
+            rest
+            { value = TokenLexeme Num, offset = state.at.offset, length = [other, ..others].length }
+            [{ value = TokenLexeme Num, offset = state.at.offset, length = [other, ..others].length }]
+            (List.appendNil [other, ..others]).flipped
+            ran
+            (middle atRest2 honest2 offset2 =>
+              Parse.runsPure
+                [{ value = TokenLexeme Num, offset = state.at.offset, length = [other, ..others].length }]
+                rest
+                middle)
+            starts
+            honest))
+
+--| A float: digits, a `.` and digits, with nothing after them that goes on with the number.
+theorem itemReadsFloat ∀ (first: Char) (others: List Char) (second: Char) (more rest read: List Char)
+    (split: read = [first, ..others] ++ ['.', second, ..more])
+    (digit: first.isAsciiDigit = True)
+    (digits: others.all Char.isAsciiDigit = True)
+    (decimal: second.isAsciiDigit = True)
+    (decimals: more.all Char.isAsciiDigit = True)
+    (ends: rest.takeWhile Char.isAsciiDigit = [])
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    ItemReads read (TokenLexeme Float) rest :=
+  rewrite split then
+    match first, digit with
+      | '\n', digit => (Bool.falseNotTrue digit).impossible
+      | '}', digit => (Bool.falseNotTrue digit).impossible
+      | '{', digit => (Bool.falseNotTrue digit).impossible
+      | ' ', digit => (Bool.falseNotTrue digit).impossible
+      | '\r', digit => (Bool.falseNotTrue digit).impossible
+      | '\t', digit => (Bool.falseNotTrue digit).impossible
+      | '-', digit => (Bool.falseNotTrue digit).impossible
+      | '"', digit => (Bool.falseNotTrue digit).impossible
+      | '\'', digit => (Bool.falseNotTrue digit).impossible
+      | '.', digit => (Bool.falseNotTrue digit).impossible
+      | other, digit =>
+        itemReadsVia ([other, ..others] ++ ['.', second, ..more]) rest (TokenLexeme Float) (self source state =>
+          starts honest =>
+            let all: [other, ..others].all Char.isAsciiDigit = True := Bool.andIntro digit digits
+            rewrite digitNotWordStart other digit, digit then
+              Parse.runsFromBindAt state
+                (() => number False)
+                (x => [x])
+                ([other, ..others] ++ ['.', second, ..more])
+                []
+                ([other, ..others] ++ ['.', second, ..more])
+                rest
+                {
+                  value = TokenLexeme Float,
+                  offset = state.at.offset,
+                  length = ([other, ..others] ++ ['.', second, ..more]).length
+                }
+                [
+                  {
+                    value = TokenLexeme Float,
+                    offset = state.at.offset,
+                    length = ([other, ..others] ++ ['.', second, ..more]).length
+                  }
+                ]
+                (List.appendNil ([other, ..others] ++ ['.', second, ..more])).flipped
+                (runsFromNumber state
+                  [other, ..others]
+                  ['.', second, ..more]
+                  ([other, ..others] ++ ['.', second, ..more])
+                  rest
+                  True
+                  byComputing
+                  all
+                  byComputing
+                  (runsTailFraction second more rest decimal decimals ends noE))
+                (middle atRest2 honest2 offset2 =>
+                  Parse.runsPure
+                    [
+                      {
+                        value = TokenLexeme Float,
+                        offset = state.at.offset,
+                        length = ([other, ..others] ++ ['.', second, ..more]).length
+                      }
+                    ]
+                    rest
+                    middle)
+                starts
+                honest)
