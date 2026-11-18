@@ -1,5 +1,5 @@
 {
-  "next": 3953,
+  "next": 3955,
   "tickets": [
     {
       "id": 47,
@@ -23492,12 +23492,12 @@
     {
       "id": 3946,
       "title": "[DeepSeek] Docs for lanes: a fresh worktree has no binary (cargo build --release -p stitchwort-cli, or task build for --native); how to accept one .snap.new without cargo insta; examples/README.md names the test binary per examples folder and the EXAMPLES filter, and how to write one extract example's snapshots (SW-3939, SW-3936, SW-3933 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~25 min (est. 20). Docs only; first DeepSeek run with a friction section (15-18 min, mostly EXAMPLES semantics across five test files).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23570,12 +23570,12 @@
     {
       "id": 3952,
       "title": "[Sonnet] D3681: pre-commit hook via git-hooks.nix run by prek (git-hooks.package = pkgs.prek): rustfmt and stitchwort fmt --check on staged files only, installed by the dev shell's shellHook; no clippy/tests in the hook, not wired into nix flake check; works in lane worktrees and DeepSeek scratch clones",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "D3681 (Matt, 18 Nov 2026): asked for a pre-commit setup ('Could we sort out a pre-commit hook?'), then 'Isn't there some sort of like Nix managed pre-commit alternative...' and 'git-hooks.nix run by prek ideally'.\n\n\nLane notes (Sonnet, 18 Nov 2026): hook built and proved in a scratch clone (commit refused naming bad .sw/.rs, passes when fixed, --no-verify bypasses, 0.43 s with files staged). Branch lane/SW-3952. Findings: git-hooks.nix sets a relative core.hooksPath in a main checkout, so the shellHook rewrites it absolute; a checkout without .pre-commit-config.yaml fails every commit, so worktree:new/scratch:new enter the devShell once. Orchestrator step: run `nix develop -c true` in the main checkout after merging.\n",
+      "body": "D3681 (Matt, 18 Nov 2026): asked for a pre-commit setup ('Could we sort out a pre-commit hook?'), then 'Isn't there some sort of like Nix managed pre-commit alternative...' and 'git-hooks.nix run by prek ideally'.\n\n\nLane notes (Sonnet, 18 Nov 2026): hook built and proved in a scratch clone (commit refused naming bad .sw/.rs, passes when fixed, --no-verify bypasses, 0.43 s with files staged). Branch lane/SW-3952. Findings: git-hooks.nix sets a relative core.hooksPath in a main checkout, so the shellHook rewrites it absolute; a checkout without .pre-commit-config.yaml fails every commit, so worktree:new/scratch:new enter the devShell once. Orchestrator step: run `nix develop -c true` in the main checkout after merging.\n\nModel result: sonnet, worked, 6 min (est. 35). Installed in main 18 Nov 11:08 (core.hooksPath absolute). Matt's clone needs nix develop -c true once.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": [
@@ -23589,6 +23589,32 @@
         "b6807e521",
         "be05b3bbb"
       ]
+    },
+    {
+      "id": 3953,
+      "title": "[Sonnet] Pre-commit hook follow-ups (SW-3952): a checkout without .pre-commit-config.yaml (an old branch's worktree) fails every commit: check prek's install options for an allow-missing-config equivalent, else make the hook skip with a warning; stitchwort fmt --check honours DELIBERATELY_UNFORMATTED for named files so the script needn't filter; extend the repo formatted test and the hook to apps/, bench/, tools/; prek hides the hook's skip warning",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3954,
+      "title": "[DeepSeek] EXAMPLES filter: one shared helper for the five test files that implement it differently (common::all_names, run_reference's non-empty assert, extraction ignoring it), so EXAMPLES means the same everywhere and extraction honours it (SW-3946 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
     }
   ]
 }
