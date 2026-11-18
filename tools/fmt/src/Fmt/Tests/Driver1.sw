@@ -28,3 +28,8 @@ test "slice 1's driver refuses a declaration that doesn't fit on one line" :=
 test "slice 1's driver refuses a type broken over lines" := refuses1 "def d: ( -- t\n  a) := b\n"
 
 test "slice 1's driver refuses a token outside the slice" := refuses1 "def d: A := List.map f\n"
+
+test "slice 1's driver keeps a comment after a type's or value's last word on the line, after the closers that follow it" :=
+  formats1 "def x: F (a -- c\n  ) := [b, d -- e\n  ]\n" "def x: F (a) -- c\n  :=\n  [b, d] -- e\n"
+
+test "slice 1's driver refuses a comment above a later word of the value" := refuses1 "def x: T := f a\n  -- c\n  b\n"

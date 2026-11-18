@@ -46,7 +46,10 @@ import Syntax.SettleBareProofs (settledOnceNone)
 --| that prints on one line meets `DeclElements`, the element facts `printedHangs` and `printedStands1` take.
 --| `quietElements` gives them when the type and value hold no comment (`DeclQuiet`); on one line they may still hold
 --| a trailing comment on the type's last token (the `:=` then starts the next line), one above the value's first
---| token (or after the `:=`) and one after the value's last.
+--| token (or after the `:=`) and one after the value's last. "Last" counts no closers: a comment after the last
+--| other word, with only closers after it in the type or value, prints after them on the line (`def x: F (a -- c\n)
+--| := b` prints `def x: F (a) -- c\n  :=\n  b`; test in `Fmt.Tests`), so the type's `ElHangs` and the value's
+--| `BodyLays` must allow a comment held across closers (SW-4088 report).
 theorem declElementsOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
