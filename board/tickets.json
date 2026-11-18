@@ -24332,7 +24332,7 @@
     {
       "id": 4008,
       "title": "[Sonnet] fmt S1 parser proofs 16d: walk the pattern parser (patternRule and ~25 functions; it doesn't call the expression parser) and the binder parsers (headerGroupParts, binderGroup, implicitBinder, binderType) as Gives facts (SW-4000's blockers 1 and 2), then discharge OutsideRest's lambdas, quantifiers, matches, clauseLambdas, keywords, statementOthers, piExprs and FrameRest's params, arms, others",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
