@@ -6,7 +6,7 @@
 --| - `formatIdempotent1`: formatting what it prints gives the same text.
 --|
 --| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: here
---| (`declElementsOneLine1`, `tidiedDeclsUnreturned1`, `printedSpelledPlain1`, `commaSame1` and the `calmTop` facts),
+--| (`declElementsOneLine1`, `tidiedDeclsUnreturned1`, `printedSpelledPlain1` and the `calmTop` facts),
 --| in `Fmt.TopReadBack` (read-back), and `tidiedUnreturned1` in `Fmt.SettleOutputProofs`. `stitchwort goal` lists what
 --| is left.
 --|
@@ -76,13 +76,66 @@ theorem printedSpelledPlain1 ∀ (file: SourceFile)
     spelledPlain1 file.lexed1.leaves = True :=
   ?
 
---| `commaSame1` (open; the stock take's row 10): P2 changes nothing in a slice 1 tree with no last comma. By
---| `commaMap` it is `Decl.uncomma` on each declaration, the identity on a `commaFree` expression, by induction.
+--| P2 is the identity on an expression with no last comma.
+theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
+  | Paren open inner close => rewrite uncommaSame inner free
+  | Tuple open items comma close =>
+    match comma, free with
+      | False, free => rewrite uncommasSame items free
+      | True, free => (Bool.falseNotTrue free).impossible
+  | ListOf open items comma close =>
+    match comma, free with
+      | False, free => rewrite uncommasSame items free
+      | True, free => (Bool.falseNotTrue free).impossible
+  | App head arguments => rewrite uncommaSame head (Bool.andLeft free), uncommasSame arguments (Bool.andRight free)
+  | Infix kind left operator right =>
+    rewrite uncommaSame left (Bool.andLeft free), uncommaSame right (Bool.andRight free)
+  | Prefix operator operand => rewrite uncommaSame operand free
+  | _ => cases
+
+theorem uncommasSame ∀ (items: List Expr) (free: allCommaFree items = True): mapAll1 withoutCommaExpr items = items :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] => rewrite uncommaSame first (Bool.andLeft free), uncommasSame rest (Bool.andRight free)
+
+theorem declUncommaSame ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (free: decl.commaFree = True):
+    decl.uncomma = decl :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } => rewrite uncommaSame result (Bool.andLeft free), uncommaSame value (Bool.andRight free)
+        | _ => cases
+
+theorem declsUncommaSame ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (free: decls.all Decl.commaFree = True):
+    decls.map Decl.uncomma = decls :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] =>
+      rewrite declUncommaSame decl (Bool.andLeft within) (Bool.andLeft free),
+          declsUncommaSame rest (Bool.andRight within) (Bool.andRight free)
+
+--| `commaSame1`: P2 changes nothing in a slice 1 tree with no last comma (the stock take's row 10).
 theorem commaSame1 ∀ (file: SourceFile)
     (within: file.within1 = True)
     (commaFree: file.commaFree = True):
     file.withoutTrailingCommas = file :=
-  ?
+  rewrite commaMap file within, declsUncommaSame file.decls within commaFree
 
 -- `calmTop` (open). SW-4041 makes `calm` clear the file's first flag, so `calmTop` goes and these become `calm`'s:
 -- `calmWithin`, `calmPrints` and `calmMeans` exist; `commaFree` and `oneLine1` across `calm` are glue's (SW-3973).
@@ -439,3 +492,48 @@ theorem tidiedDeclsUnreturnedOf ∀ (source out: Text) (lexed: Lexed) (parsed: S
     fourth = parsed.tidy1
   }
   tidiedDeclsUnreturned1 source lexed tidied lexes (rewrite parses)
+
+-- A source the theorems apply to (D3684).
+
+--| A source with comments above, after and at the end of declarations, a value after a comment on the `:=` (so on the
+--| next line), a tuple, a list, a call, a sign and an arrow.
+def witnessSource: Text :=
+  "-- top\ndef d: A -> B := f (a, -b) [1, 2] -- end\n\n\ndef e: C := -- after\n  g x\n-- last\n"
+
+def witnessOut: Text := "-- top\ndef d: A -> B := f (a, -b) [1, 2] -- end\n\ndef e: C := -- after\n  g x\n-- last\n"
+
+--| The top theorems' one hypothesis holds of `witnessSource`.
+theorem witnessFormats: formatWithin1 witnessSource = Ok witnessOut := byComputing
+
+theorem witnessIdempotent: formatWithin1 witnessOut = Ok witnessOut :=
+  formatIdempotent1 witnessSource witnessOut witnessFormats
+
+theorem witnessSameProgram: ∃ (before after: SourceFile) => parse1 witnessSource = Ok before
+      ∧ parse1 witnessOut = Ok after
+      ∧ after = before.tidy1.calmTop
+      ∧ after.meaning = before.meaning :=
+  formatKeepsProgram1 witnessSource witnessOut witnessFormats
+
+--| What the open goals take and give, run on a source's printed tree: the tree facts and one-line test their
+--| hypotheses ask, and each conclusion that is a test (the `calmTop` facts, the comments without returns, the output
+--| spelled plainly, and read-back in file form, compared as `OutputStatements.readsBack` does).
+def goalsHoldOn (source: Text): Bool := match tidiedOf source with
+  | None => False
+  | Some file =>
+    file.within1
+      && file.shaped1
+      && file.settled1
+      && file.lexical1
+      && file.commaFree
+      && file.oneLine1
+      && file.unreturned1
+      && file.decls.all Decl.unreturned1
+      && spelledPlain1 file.lexed1.leaves
+      && file.calmTop.within1
+      && file.calmTop.commaFree
+      && file.calmTop.oneLine1
+      && file.calmTop.printed1 == file.printed1
+      && readsBack file.lexed1.settled file
+
+--| The open goals' hypotheses and conclusions hold of `witnessSource`'s printed tree.
+theorem witnessGoals: goalsHoldOn witnessSource = True := byComputing
