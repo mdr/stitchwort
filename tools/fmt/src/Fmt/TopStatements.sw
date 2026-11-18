@@ -31,6 +31,7 @@ import Fmt.OutputFileProofs (printedAlphabet1, printedNoLast1, printedPlain1)
 import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
 import Fmt.DeclFactsProofs (DeclElements, declHangsOf, printedHangs1)
+import Fmt.OneLineStatements (edgeElements1, edgeQuietOneLine1)
 import Fmt.TreeJoinProofs (lexKind, printLexes1Tree)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.SpellProofs (declSoundOfSettled)
@@ -57,7 +58,7 @@ theorem declElementsOneLine1 ∀ (decl: Decl)
     (lexical: decl.lexical1 = True)
     (oneLine: decl.oneLine1 = True):
     DeclElements lexKind decl :=
-  ?
+  edgeElements1 decl within shaped settled lexical (edgeQuietOneLine1 decl within shaped settled lexical oneLine)
 
 --| `tidiedDeclsUnreturned1` (open; the stock take's U6): no comment of the tree the driver prints ends in a carriage
 --| return or a space, above or after any word of any declaration. `printedStands1` takes it. Its route is
