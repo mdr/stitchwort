@@ -386,6 +386,15 @@ impl Session {
         self.run_selected(cache, &|test| test.library, Runner::Reference)
     }
 
+    /// [`Session::run_library_tests`], for only the tests `keep` keeps.
+    pub fn run_library_tests_where(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+    ) -> Vec<TestResult> {
+        self.run_selected(cache, &|test| test.library && keep(test), Runner::Reference)
+    }
+
     /// The tests `selected` that `cache` has no result for, lowered together
     /// for the machine, if they can be, with those tests. One that can't be
     /// lowered with the others is left out (and runs on the reference
