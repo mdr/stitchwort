@@ -572,25 +572,57 @@ def headPlain: List Item → Bool
 
 theorem lineSection ∀ (kind: Tok) (line: lineKind kind = True): kind.isSectionOperator = False := cases
 
---| `groupInside` gives what it has collected when the group closes, newest first reversed; on these kinds none is a
---| section operator, so neither is the last item inside.
+--| No section operator comes straight before a closer: all `rightOperator` needs of a group's items.
+def beforeClosePlain: List Item → Bool
+  | [first, second, ..rest] =>
+    (!second.kind.isCloser || !first.kind.isSectionOperator) && beforeClosePlain [second, ..rest]
+  | _ => True
+
+--| The newest item collected is no section operator if the next item is a closer.
+def pairPlain: List Item → List Item → Bool
+  | [last, .._], [next, .._] => !next.kind.isCloser || !last.kind.isSectionOperator
+  | _, _ => True
+
+theorem orTrueRight ∀ (a: Bool): (a || True) = True := match a with
+  | True => byComputing
+  | False => byComputing
+
+--| One step of `groupInside` keeps the invariant: the item taken and the next are a plain pair.
+theorem beforeStep ∀ (item: Item) (found rest: List Item)
+    (before: beforeClosePlain [item, ..rest] = True):
+    pairPlain [item, ..found] rest = True ∧ beforeClosePlain rest = True :=
+  match rest, before with
+    | [], _ => (byComputing, byComputing)
+    | [second, .._], before => (Bool.andLeft before, Bool.andRight before)
+
+--| What was collected before a closer ends with no section operator.
+theorem closedPlain ∀ (found: List Item) (item: Item) (rest: List Item)
+    (plain: pairPlain found [item, ..rest] = True)
+    (closer: item.kind.isCloser = True):
+    headPlain found = True :=
+  match found, plain with
+    | [], _ => byComputing
+    | [last, .._], plain => rewrite closer at plain then plain
+
+--| `groupInside` gives what it has collected when the group closes, newest first reversed. Its last item came
+--| straight before the closing closer, so it is no section operator.
 --|
---| Proof idea: by induction on the items, as `groupInside` steps; when the group closes, the items collected are
---| `found`, whose head the invariant `headPlain` covers.
+--| Proof idea: by induction on the items, as `groupInside` steps; `pairPlain` says the newest item collected and the
+--| next are no section operator before a closer, which `beforeClosePlain` keeps (`beforeStep`); when the group
+--| closes, the newest item collected is the head of `found` (`closedPlain`).
 theorem groupLine ∀ (open: List Tok) (found items inside: List Item)
-    (plain: headPlain found = True)
-    (line: lineAll items = True)
+    (plain: pairPlain found items = True)
+    (before: beforeClosePlain items = True)
     (groups: groupInside open found items = Some inside):
     headPlain inside.reverse = True :=
-  match items, line, groups with
-    | [], _, never => (Option.noneNotSome inside never).impossible
-    | [item, ..rest], line, groups =>
-      let later: lineAll rest = True := Bool.andRight line
-      let fresh: headPlain [item, ..found] = True := rewrite lineSection item.kind (Bool.andLeft line)
+  match items, plain, before, groups with
+    | [], _, _, never => (Option.noneNotSome inside never).impossible
+    | [item, ..rest], plain, before, groups =>
+      let (fresh, later) := beforeStep item found rest before
       match item.kind.isOpener, groups with
         | True, groups => groupLine [item.kind, ..open] [item, ..found] rest inside fresh later groups
         | False, groups =>
-          match item.kind.isCloser, groups with
+          match closer: item.kind.isCloser, groups with
             | False, groups => groupLine open [item, ..found] rest inside fresh later groups
             | True, groups =>
               match open, groups with
@@ -600,21 +632,38 @@ theorem groupLine ∀ (open: List Tok) (found items inside: List Item)
                     | False, groups => groupLine [innermost, ..outer] [item, ..found] rest inside fresh later groups
                     | True, groups =>
                       match outer, groups with
-                        | [], groups => rewrite <- Option.someInjective groups, List.reverseReverse found then plain
+                        | [], groups =>
+                          rewrite <- Option.someInjective groups, List.reverseReverse found then
+                            closedPlain found item rest plain closer
                         | [next, ..more], groups =>
                           groupLine [next, ..more] [item, ..found] rest inside fresh later groups
 
---| No `(k +)` section: no item of this part is a section operator.
-theorem rightLine ∀ (first: Item) (rest: List Item) (line: lineAll rest = True): rightOperator [first, ..rest] = None :=
+--| Items of this part have no section operator at all.
+theorem lineBefore ∀ (items: List Item) (line: lineAll items = True): beforeClosePlain items = True := match items with
+  | [] => byComputing
+  | [_] => byComputing
+  | [first, second, ..rest] =>
+    rewrite lineSection first.kind (Bool.andLeft line),
+        lineBefore [second, ..rest] (Bool.andRight line),
+        orTrueRight (!second.kind.isCloser)
+
+--| No `(k +)` section: no section operator comes straight before the closer of the group.
+theorem rightPlain ∀ (first: Item) (rest: List Item)
+    (before: beforeClosePlain rest = True):
+    rightOperator [first, ..rest] = None :=
   match groups: groupInside [LParen] [] rest with
     | None => byComputing
     | Some inside =>
-      let plain := groupLine [LParen] [] rest inside byComputing line groups
+      let plain := groupLine [LParen] [] rest inside byComputing before groups
       match backwards: inside.reverse with
         | [] => byComputing
         | [last, ..more] =>
           let lastPlain: headPlain [last, ..more] = True := rewrite <- backwards then plain
           rewrite notTrueFalse last.kind.isSectionOperator lastPlain
+
+--| No `(k +)` section: no item of this part is a section operator.
+theorem rightLine ∀ (first: Item) (rest: List Item) (line: lineAll rest = True): rightOperator [first, ..rest] = None :=
+  rightPlain first rest (lineBefore rest line)
 
 theorem startFacts ∀ (kind: Tok)
     (starts: startKind kind = True):
