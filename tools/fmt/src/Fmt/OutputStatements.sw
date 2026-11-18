@@ -86,18 +86,7 @@ def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs d
 
 -- `printedAlphabet1`, that the output passes the alphabet, is proved in `Fmt.OutputFileProofs`.
 
---| `printedNoLast1`: the output has no comma directly before a closer, so `settledOnce` of it is `settled`
---| (`settledOnceNone`). It holds whatever the tree's trailing-comma flags say: the rules never print one.
---|
---| Proof idea: by `printedTokens1` the tokens are `decl.spelt`'s, where a comma stands only between two items
---| (`commaSpelt`), and an item starts with no closer.
-theorem printedNoLast1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    noLast [] file.lexed1.leaves = True :=
-  ?
+-- `printedNoLast1`, that the output has no last comma, is proved in `Fmt.OutputFileProofs`.
 
 --| `printedPlain1`: the output is `plain1`, which rule N's theorems ask and the driver tests: its first token is a
 --| `def`, what follows a `->` is an operand's first token (no comma, closer or `->`), and no comma starts a line.

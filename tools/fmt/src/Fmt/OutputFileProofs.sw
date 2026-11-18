@@ -10,6 +10,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (..)
 import Syntax.Proofs (Spells)
 import Syntax.SettleProofs (alphabet1)
+import Syntax.SettleBareProofs (fwdPair, lastPair, noLast)
 import Syntax.SettleProofs (arrowFollow, passableKind)
 import Fmt (..)
 import Fmt.SpellProofs (..)
@@ -902,6 +903,166 @@ theorem groupsWithin ∀ (empty: Bool) (decls: List Decl)
           (Bool.andRight shaped)
           (Bool.andRight settled)
           (Bool.andRight lexical)
+
+-- Where a declaration starts.
+
+def defFirst (texts: List Text): Bool := match texts with
+  | [first, .._] => first == "def"
+  | [] => False
+
+def kindFirst (leaves: List Leaf): Bool := match leaves with
+  | [first, .._] => first.token.kind == KwDef
+  | [] => False
+
+theorem declStartsDef ∀ (decl: Decl) (within: decl.within1 = True): defFirst (decl.spelt.filter notComment) = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } => byComputing
+        | _ => cases
+
+theorem leavesStartDef ∀ (leaves: List Leaf) (texts: List Text)
+    (kinded: leaves.all Leaf.kinded = True)
+    (same: tokenTexts leaves = texts)
+    (first: defFirst texts = True):
+    kindFirst leaves = True :=
+  match leaves with
+    | [] => (Bool.falseNotTrue (rewrite <- same at first then first)).impossible
+    | [leaf, ..rest] =>
+      let text: (leaf.token.text == "def") = True := rewrite <- same at first then first
+      rewrite DecEq.sound (Bool.andLeft kinded), DecEq.sound text
+
+--| A declaration's leaves start with `def`.
+theorem declStartsKw ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True):
+    kindFirst decl.leaves1 = True :=
+  let (texts, kinded) := printedTokens1 decl within shaped settled lexical
+  leavesStartDef decl.leaves1 (decl.spelt.filter notComment) kinded texts (declStartsDef decl within)
+
+theorem headedFirst ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
+    kindFirst (headed above blank leaves) = kindFirst leaves :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] => byComputing
+
+theorem headedPairs ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
+    leafPairs (headed above blank leaves) = leafPairs leaves :=
+  match leaves with
+    | [] => byComputing
+    | [first] => byComputing
+    | [first, second, ..rest] => byComputing
+
+-- Each leaf may follow the one before, across the file.
+
+--| The leaves are empty or start with `def`.
+def startsDef (leaves: List Leaf): Bool := match leaves with
+  | [first, .._] => first.token.kind == KwDef
+  | [] => True
+
+--| Pairs of leaves, with a declaration after them: its `def` may follow anything.
+theorem pairsAppend ∀ (xs ys: List Leaf)
+    (front: leafPairs xs = True)
+    (back: leafPairs ys = True)
+    (starts: startsDef ys = True):
+    leafPairs (xs ++ ys) = True :=
+  match xs with
+    | [] => back
+    | [last] =>
+      match ys with
+        | [] => byComputing
+        | [first, ..rest] => Bool.andIntro (rewrite DecEq.sound starts) back
+    | [x, y, ..more] =>
+      Bool.andIntro (Bool.andLeft front) (pairsAppend [y, ..more] ys (Bool.andRight front) back starts)
+
+theorem startsAppend ∀ (xs ys: List Leaf) (first: kindFirst xs = True): startsDef (xs ++ ys) = True := match xs with
+  | [x, ..rest] => first
+
+--| Each declaration's leaves may follow the one before, and they start with `def`.
+theorem groupsPairs ∀ (empty: Bool) (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (shaped: decls.all Decl.shaped1 = True)
+    (settled: decls.all Decl.settled1 = True)
+    (lexical: decls.all Decl.lexical1 = True):
+    leafPairs (groupsFrom empty decls).concat = True ∧ startsDef (groupsFrom empty decls).concat = True :=
+  match decls with
+    | [] => (byComputing, byComputing)
+    | [decl, ..rest] =>
+      let (leavesWithin, leavesPairs) :=
+        declLeaves decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+      let first :=
+        declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+      let (restPairs, restStarts) :=
+        groupsPairs False rest
+          (Bool.andRight within)
+          (Bool.andRight shaped)
+          (Bool.andRight settled)
+          (Bool.andRight lexical)
+      let laidFirst: kindFirst (decl.laid1 empty) = True :=
+        rewrite headedFirst
+              (laidNotes empty decl.firstComments.above)
+              (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
+              decl.leaves1 then
+          first
+      let laidPairs: leafPairs (decl.laid1 empty) = True :=
+        rewrite headedPairs
+              (laidNotes empty decl.firstComments.above)
+              (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
+              decl.leaves1 then
+          leavesPairs
+      (
+        pairsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidPairs restPairs restStarts,
+        startsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidFirst
+      )
+
+-- No last comma.
+
+theorem lastPairFalse ∀ (above: Tok) (comma: Leaf) (older: List Leaf)
+    (ok: (!above.isCloser || !(comma.token.kind == Comma)) = True):
+    lastPair above comma older = False :=
+  match c: comma.token.kind == Comma with
+    | True =>
+      match d: above.isCloser with
+        | False => byComputing
+    | False => byComputing
+
+--| Leaves that may each follow the one before have no last comma.
+theorem noLastOfPairs ∀ (leaves behind: List Leaf) (pairs: leafPairs leaves = True): noLast behind leaves = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf] => byComputing
+    | [leaf, closer, ..more] =>
+      Bool.andIntro
+        (rewrite lastPairFalse closer.token.kind leaf behind (Bool.andRight (Bool.andLeft pairs)))
+        (noLastOfPairs [closer, ..more] [leaf, ..behind] (Bool.andRight pairs))
+
+--| `printedNoLast1`: the output has no comma directly before a closer, so `settledOnce` of it is `settled`
+--| (`settledOnceNone`). It holds whatever the tree's trailing-comma flags say: the rules never print one.
+--|
+--| Proof idea: by `printedTokens1` the tokens are `decl.spelt`'s, where a comma stands only between two items
+--| (`commaSpelt`), and an item starts with no closer. That is the scan's rule for what may follow a comma
+--| (`declRuns`); a declaration's `def` follows anything, so it holds across the file.
+theorem printedNoLast1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True):
+    noLast [] file.lexed1.leaves = True :=
+  noLastOfPairs file.lexed1.leaves [] (groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical).left
 
 -- The statements.
 
