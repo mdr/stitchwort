@@ -1122,3 +1122,9 @@ theorem onceSettledProved ∀ (lexed: Lexed)
     wordTextsS
     endTextsS
     afterNone
+
+--| The hypotheses of `trimStartsDashes` and `trimmedComment` hold of a comment with spaces at its end.
+theorem trimStartsDashesWitness: Text.startsWithChars ['-', '-'] (trimChars "-- x  ".toList) = True :=
+  trimStartsDashes "-- x  ".toList byComputing
+
+theorem trimmedCommentWitness: commentText (trimEnd "-- x  ") = True := trimmedComment "-- x  " byComputing byComputing
