@@ -2121,71 +2121,50 @@ theorem runsExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ite
       let past: (item.leaf.token.column > limit) = True := right
       rewrite past then blockRuns
 
---| Whether `exprOn` takes the next item, `later` in the declaration, as the start of a block.
-def startsBlock (modes: Modes) (later: Bool) (item: Item): Bool :=
-  item.leaf.token.lineStart && later && modes.allow != Some item.index && !modes.endsConstruct item
-
-theorem runsExprLaterInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool) (item: Item)
+--| `expr` where its first item starts no block: `exprInline`.
+theorem runsExprOfInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr)
-    (inline: startsBlock modes later item = False)
+    (inline: startsBlock modes item = False)
     (inlineRuns: Parse.Runs (() => exprInline self modes) [item, ..more] rest value):
-    Parse.Runs (() => exprLater self modes later) [item, ..more] rest value :=
+    Parse.Runs (() => expr self modes) [item, ..more] rest value :=
   runsLook
     (() => left())
-    (items => exprOn self modes later items)
+    (items => exprOn self modes items)
     [item, ..more ++ rest]
     [item, ..more]
     rest
     value
     (runsLeftOn [item, ..more ++ rest])
-    (rewrite (inline: (item.leaf.token.lineStart
-          && later
-          && modes.allow != Some item.index
-          && !modes.endsConstruct item)
-          = False) then
-      inlineRuns)
+    (rewrite inline then inlineRuns)
 
-theorem runsExprLaterBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool) (item: Item)
+--| `expr` where its first item starts a block: `exprBlock`.
+theorem runsExprOfBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr)
-    (starts: startsBlock modes later item = True)
+    (starts: startsBlock modes item = True)
     (blockRuns: Parse.Runs (() => exprBlock self modes item) [item, ..more] rest value):
-    Parse.Runs (() => exprLater self modes later) [item, ..more] rest value :=
+    Parse.Runs (() => expr self modes) [item, ..more] rest value :=
   runsLook
     (() => left())
-    (items => exprOn self modes later items)
+    (items => exprOn self modes items)
     [item, ..more ++ rest]
     [item, ..more]
     rest
     value
     (runsLeftOn [item, ..more ++ rest])
-    (rewrite (starts: (item.leaf.token.lineStart
-          && later
-          && modes.allow != Some item.index
-          && !modes.endsConstruct item)
-          = True) then
-      blockRuns)
+    (rewrite starts then blockRuns)
 
---| `expr` from one state: `exprLater` with whether anything was read before it.
-theorem runsFromExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (state: Parse.State Item)
-    (read rest: List Item) (value: Expr)
-    (at: Parse.RunsFrom state (() => exprLater self modes (state.at.offset > 0)) read rest value):
-    Parse.RunsFrom state (() => expr self modes) read rest value :=
-  Parse.runsFromMark state (here => exprLater self modes (here.offset > 0)) read rest value at
-
---| A block at `column` of one line: `runsBlockOneLine` from a line that `statement` reads in any of its line modes.
+--| A block at `column` of one line: `runsBlockOneLine` from a line that `statement` reads in any of its line modes,
+--| allowing the line's first item.
 theorem runsBlockLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat)
     (read rest: List Item) (value: Expr)
-    (line: ∀ (kind: LineKind) (before: Nat) => Parse.Runs
-      (() => statement self (lineModes (blockModes modes column True) column True before kind))
+    (line: ∀ (kind: LineKind) => Parse.Runs
+      (() => statement self (lineModes (blockModes modes column True) column True (nextIndex (read ++ rest)) kind))
       read
       rest
       (ExprStatement value))
     (ends: continuesAt column rest = False):
     Parse.Runs (() => block self modes column True) read rest value :=
-  state =>
-    runsBlockOneLine self modes column True state read rest value
-      (kind middle _ => line kind state.at.offset middle)
-      ends
+  state => runsBlockOneLine self modes column True state read rest value (kind middle _ => line kind middle) ends
 
 -- The `def` frame.
 
@@ -2859,30 +2838,20 @@ theorem runsExpressionWord ∀ (modes: Modes) (item: Item) (rest: List Item)
       goal = { modes, level = LevelFull } ∧ read = [item] ∧ later = rest ∧ value = Atom item.kind item.leaf.word)
     (self goal read later value (isGoal, isRead, isRest, isValue) nested =>
       rewrite isGoal, isRead, isRest, isValue then
-        state =>
-          runsFromExpr self modes state
-            [item]
-            rest
+        runsExprOfInline self modes item [] rest
+          (Atom item.kind item.leaf.word)
+          (rewrite inLine)
+          (runsExprInline self modes item [] rest
             (Atom item.kind item.leaf.word)
-            (runsExprLaterInline self modes
-              (state.at.offset > 0)
-              item
-              []
-              rest
-              (Atom item.kind item.leaf.word)
-              (rewrite inLine)
-              (runsExprInline self modes item [] rest
-                (Atom item.kind item.leaf.word)
-                open
-                inline.notKeyword
-                inline.noLambda
-                inline.noResult
-                inline.notQuantifier
-                inline.notIf
-                inline.noImplicit
-                inline.noPi
-                (runsWordOperator self modes item rest open word plain noBar ends))
-              state))
+            open
+            inline.notKeyword
+            inline.noLambda
+            inline.noResult
+            inline.notQuantifier
+            inline.notIf
+            inline.noImplicit
+            inline.noPi
+            (runsWordOperator self modes item rest open word plain noBar ends)))
     { modes, level = LevelFull }
     [item]
     rest

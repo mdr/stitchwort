@@ -1986,16 +1986,16 @@ theorem givesBlockPeek ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes
       givesBlockKind more self modes column many found before statementModes seen nested outside bases foundOk again)
 
 theorem givesBlockLine ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
-    (found: List Statement) (before: Nat)
+    (found: List Statement) (before: Nat) (items: List Item)
     (nested: Nested self)
     (outside: Outside self)
     (bases: AtomBases self)
     (foundOk: List.All StatementOk found)
     (again: ∀ (found: List Statement) => List.All StatementOk found
       → Parse.Gives GoodItems (() => blockLines more self modes column many found) (List.All StatementOk)):
-    Parse.Gives GoodItems (() => blockLine more self modes column many found before) (List.All StatementOk) :=
+    Parse.Gives GoodItems (() => blockLine more self modes column many found before items) (List.All StatementOk) :=
   givesBlockPeek more self modes column many found before
-    { modes | allow = Some before }
+    { modes | allow = nextIndex items }
     nested
     outside
     bases
@@ -2014,11 +2014,16 @@ theorem givesBlockLines ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (mode
     | Succ more =>
       givesAfter0
         [p := () => offset()]
-        [j := before => blockLine more self modes column many found before]
+        [j := before => blockLine more self modes column many found before left()]
         reads0Offset
         (before =>
-          givesBlockLine more self modes column many found before nested outside bases foundOk (again okAgain =>
-            givesBlockLines more self modes column many again nested outside bases okAgain))
+          givesAfter0
+            [p := () => left()]
+            [j := items => blockLine more self modes column many found before items]
+            reads0Left
+            (items =>
+              givesBlockLine more self modes column many found before items nested outside bases foundOk
+                (again okAgain => givesBlockLines more self modes column many again nested outside bases okAgain)))
 
 theorem givesBlockResult ∀ (statements: List Statement)
     (ok: List.All StatementOk statements):
@@ -2106,14 +2111,14 @@ theorem givesExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
             reads0Left
             (items => givesExprRuns self modes item limit (runsOutAt modes item limit items) nested outside bases)
 
-theorem givesExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool) (items: List Item)
+theorem givesExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item)
     (nested: Nested self)
     (outside: Outside self)
     (bases: AtomBases self):
-    Parse.Gives GoodItems (() => exprOn self modes later items) (Parsed1 1) :=
+    Parse.Gives GoodItems (() => exprOn self modes items) (Parsed1 1) :=
   match items with
     | [item, ..rest] =>
-      match here: item.leaf.token.lineStart && later && modes.allow != Some item.index && !modes.endsConstruct item with
+      match here: startsBlock modes item with
         | True => givesExprBlock self modes item nested outside bases
         | False => givesExprInline self modes nested outside bases
     | [] => givesExprInline self modes nested outside bases
@@ -2123,9 +2128,8 @@ theorem givesExprOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: Outside self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => expr self modes) (Parsed1 1) :=
-  givesAfter0 [p := () => offset()] [j := now => exprLater self modes (now > 0)] reads0Offset (now =>
-    givesAfter0 [p := () => left()] [j := items => exprOn self modes (now > 0) items] reads0Left (items =>
-      givesExprOn self modes (now > 0) items nested outside bases))
+  givesAfter0 [p := () => left()] [j := items => exprOn self modes items] reads0Left (items =>
+    givesExprOn self modes items nested outside bases)
 
 theorem givesThenBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)

@@ -4,7 +4,7 @@
 --| items from the type on (`plainAll`: no `=>`, `:`, `_` or `{`, so no lambda, binder or record look-ahead fires).
 
 namespace Syntax.ReadBackEnds
-import Std (Bool, Eq, List, Nat, Option, Parse, Text, Void)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
@@ -452,80 +452,107 @@ theorem readsBackWords ∀ (seen: Seen) (keyword name colon result colonEq value
     valueTree
   }
 
-theorem wordNotLine ∀ (kind: Tok)
-    (word: kind.wordWithin1 = True):
-    (kind == Comma) = False ∧ kind.isCloser = False ∧ kind.isInfixOnly = False :=
-  cases
+theorem wordNotOther ∀ (kind: Tok) (word: kind.wordWithin1 = True): startsOtherStatement kind = False := cases
 
-theorem orTrueRight ∀ (a: Bool): (a || True) = True := match a with
-  | True => byComputing
-  | False => byComputing
-
---| A word that starts a line stops the line modes of its own block unless they allow its index.
-theorem lineStops ∀ (modes: Modes) (item: Item) (before: Nat) (kind: LineKind)
-    (word: item.kind.wordWithin1 = True)
-    (starts: item.leaf.token.lineStart = True)
-    (differs: (Some before == Some item.index) = False):
-    (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True before kind).stops item
-      = True :=
+--| A word with nothing after it reads in full in modes with no guard, `calc`, `rewrite` rule or line limit, whatever
+--| line it starts: where no block starts, inline; where one does, as a block's one line, whose modes allow the word's
+--| index, so the word doesn't stop the line it starts.
+theorem fullWordAnyLine ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
+    (noGuard: modes.guard = False)
+    (noCalc: modes.inCalc = False)
+    (noRule: modes.rewriteRule = None)
+    (noLimit: modes.limit = None)
+    (word: item.kind.wordWithin1 = True):
+    FullReads sub modes [item] [] (Atom item.kind item.leaf.word) :=
+  let (isWordKind, plainItem) := wordPlain item.kind word
   let column := item.leaf.token.column
-  let same: (column <= column) = True := arithmetic
-  let equal: (column == column) = True := arithmetic
-  let (notComma, notCloser, notInfix) := wordNotLine item.kind word
-  rewrite starts, differs, same, equal, notComma, notCloser, notInfix then orTrueRight _
+  let inlineIn: ∀ (lined: Modes) => lined.stops item = False
+    → InlineAt sub lined item [] [] (Atom item.kind item.leaf.word) :=
+    lined open =>
+      inlineWord sub lined item [] open isWordKind
+        (andFalseRight (isSome Upper (Some item.kind)) True _ byComputing)
+        (noBarOne lined item)
+        (inlinePlainOf lined item [] (rewrite plainItem) (rewrite wordNotBracket item.kind word))
+        (operandEndsNil lined)
+  let right: rightOfLimit column modes.limit = True := rewrite noLimit
+  fullOfStarts sub modes item [] [] _
+    (startsBlock modes item)
+    byComputing
+    (inline => inlineIn modes (rewrite noGuard, noCalc, noRule, noLimit))
+    (starts =>
+      (
+        right,
+        byComputing,
+        wordNotOther item.kind word,
+        kind =>
+          inlineIn
+            (lineModes (blockModes modes column True) column True (Some item.index) kind)
+            (rewrite noGuard, noCalc, noRule, DecEq.neSelf (Some item.index))
+      ))
 
---| `BlockAt` holds of no word that starts a line: it asks for the line read in every `blockLines` mode, and those
---| whose `allow` isn't the word's index stop at it. So `FullReads`, which asks for `BlockAt` where a block starts,
---| holds of no expression starting a line with a word.
-theorem blockAtNever ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
-    (more rest: List Item) (value: Expr)
-    (word: item.kind.wordWithin1 = True)
-    (starts: item.leaf.token.lineStart = True)
-    (reads: BlockAt sub modes item more rest value):
-    Void :=
-  let (_, _, _, lines) := reads
-  match index: item.index with
-    | Zero =>
-      let (open, _, _) := lines ExprLine 1
-      (Bool.falseNotTrue
-        (Eq.trans open.flipped (lineStops modes item 1 ExprLine word starts (rewrite index)))).impossible
-    | Succ earlier =>
-      let (open, _, _) := lines ExprLine 0
-      (Bool.falseNotTrue
-        (Eq.trans open.flipped (lineStops modes item 0 ExprLine word starts (rewrite index)))).impossible
-
---| So no expression that starts a line with a word, where a block starts, is a `Tree`: for instance the value of
---| `def d: A :=⏎  b`, where the body's modes allow nothing and end no construct.
-theorem treeNever ∀ (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
-    (word: item.kind.wordWithin1 = True)
-    (starts: item.leaf.token.lineStart = True)
-    (blockStarts: startsBlock modes True item = True)
-    (tree: Tree { modes, level = LevelFull } [item, ..more] rest value):
-    Void :=
-  let (depth, holds) := tree
-  match depth, holds with
-    | Zero, never => never
-    | Succ inner, layer =>
-      let (first, later, isRead, _, blockAt) := layer
-      let isFirst: item = first := List.consInjectiveHead item first more later isRead
-      blockAtNever
-        (TreeN inner)
-        modes
-        first
-        later
-        rest
+--| A one-line type and a word for the value, which may start a line of its own (`def d: A :=⏎  b`), read back:
+--| `readsBackWords` without its value on the `:=` line.
+theorem readsBackWordsAnyLine ∀ (seen: Seen) (keyword name colon result colonEq value: Item)
+    (isDef: keyword.kind = KwDef)
+    (isLower: name.kind = Lower)
+    (isColon: colon.kind = Colon)
+    (isColonEq: colonEq.kind = ColonEq)
+    (resultWord: result.kind.wordWithin1 = True)
+    (valueWord: value.kind.wordWithin1 = True)
+    (resultInLine: result.leaf.token.lineStart = False):
+    Parse.run [keyword, name, colon, ..[result] ++ [colonEq, ..[value]]] (() =>
+      let decl := declaration seen
+      decl)
+      = Ok
+        (Definition []
+          (plainHeader keyword name colon (Atom result.kind result.leaf.word))
+          (Assigned colonEq.leaf.word.comments (Atom value.kind value.leaf.word))) :=
+  let (resultIsWord, resultPlain) := wordPlain result.kind resultWord
+  let (_, valuePlain) := wordPlain value.kind valueWord
+  let colonEqPlain: plainKind colonEq.kind = True := rewrite isColonEq
+  let noBrace: isSome LBrace (peekIn Modes.start 0 [colonEq, value]) = False := rewrite isColonEq
+  let typeTree: Tree { modes = Modes.start, level = LevelFull }
+    [result]
+    [colonEq, value]
+    (Atom result.kind result.leaf.word) :=
+    treeWord Modes.start result
+      [colonEq, value]
+      resultInLine
+      byComputing
+      resultIsWord
+      (andFalseRight (isSome Upper (Some result.kind)) True _ noBrace)
+      (noBarPlain Modes.start result colonEq [value] colonEqPlain)
+      (inlinePlainOf Modes.start result
+        [colonEq, value]
+        (rewrite resultPlain, colonEqPlain, valuePlain)
+        (rewrite wordNotBracket result.kind resultWord))
+      (operandEndsAt Modes.start colonEq [value] (endKind colonEq.kind (rewrite isColonEq)))
+  let valueTree: Tree { modes = { Modes.start | recover = True }, level = LevelFull }
+    [value]
+    []
+    (Atom value.kind value.leaf.word) :=
+    treeOfLayer 0 _
+      [value]
+      [] _
+      (fullWordAnyLine
+        (TreeN 0)
+        { Modes.start | recover = True }
         value
-        (rewrite <- isFirst then word)
-        (rewrite <- isFirst then starts)
-        (blockAt (rewrite <- isFirst then blockStarts))
-
---| `DeclarationTree` (ticket 17c's target) holds of no declaration whose value is a word on a line of its own.
-theorem declarationTreeNever ∀ (keyword name colon colonEq value: Item) (typeRead: List Item) (result read: Expr)
-    (word: value.kind.wordWithin1 = True)
-    (starts: value.leaf.token.lineStart = True)
-    (reads: DeclarationTree keyword name colon colonEq typeRead [value] result read):
-    Void :=
-  treeNever { Modes.start | recover = True } value [] [] read word starts (rewrite starts) reads.valueTree
+        byComputing
+        byComputing
+        byComputing
+        byComputing
+        valueWord)
+  let noRow: rowOn (isSome LBrace (peekIn Modes.start 0 [result, colonEq, value])) [result, colonEq, value] = False :=
+    rewrite plainNotBrace result.kind resultPlain
+  declarationTree seen keyword name colon colonEq [result] [value] _ _ {
+    isDef,
+    isLower,
+    isColon,
+    isColonEq,
+    typeReads = (noRow, typeTree),
+    valueTree
+  }
 
 --| An item for the witnesses below: a token on the first line, unglued, at bracket depth 0.
 def wordItem (kind: Tok) (text: Text) (index: Nat): Item := {
@@ -576,3 +603,52 @@ theorem readsBackWordsExample: Parse.run
     byComputing
     byComputing
     byComputing
+
+--| `b` starting the second line at column 2, the declaration's sixth item.
+def ownLineItem: Item := {
+  leaf = { token = { kind = Lower, text = "b", column = 2, lineStart = True }, trivia = Trivia.empty },
+  glued = False,
+  afterOperand = False,
+  afterDot = False,
+  index = 5,
+  depth = 0,
+  lineIndent = 2
+}
+
+--| `def d: A :=⏎  b`, the value on a line of its own at column 2: `readsBackWordsAnyLine`'s hypotheses can hold
+--| for a value that starts a block (`ownLineStartsBlock`).
+theorem readsBackWordsAnyLineExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3] ++ [wordItem ColonEq ":=" 4, ..[ownLineItem]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned (wordItem ColonEq ":=" 4).leaf.word.comments (Atom Lower ownLineItem.leaf.word))) :=
+  readsBackWordsAnyLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem Upper "A" 3)
+    (wordItem ColonEq ":=" 4)
+    ownLineItem
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| The example's value does start a block: the witness takes `fullWordAnyLine`'s block branch.
+theorem ownLineStartsBlock: startsBlock { Modes.start | recover = True } ownLineItem = True := byComputing

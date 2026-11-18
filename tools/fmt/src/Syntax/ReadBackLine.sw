@@ -371,14 +371,7 @@ theorem fullOfAtom ∀ (sub: Goal → List Item → List Item → Expr → Prop)
     ends.noIff,
     Inl (byComputing, byComputing, ends.noEnd)
   )
-  let never: startsBlock modes True item = False := rewrite inLine
-  (
-    item,
-    more,
-    byComputing,
-    (open, inline, operatorReads),
-    blockStarts => (Bool.falseNotTrue (Eq.trans never.flipped blockStarts)).impossible
-  )
+  fullOfInline sub modes item more rest value inLine (open, inline, operatorReads)
 
 def inLineAll: List Item → Bool
   | [] => True

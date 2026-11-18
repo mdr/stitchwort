@@ -597,26 +597,27 @@ def InlineAt (sub: Goal → List Item → List Item → Expr → Prop) (modes: M
     ∧ OperatorReads sub modes [item, ..more] rest value
 
 --| What `exprBlock` reads from `item` on: one line at its column, right of the limit, read inline in every line
---| mode `block` may give it.
+--| mode `block` may give it, each allowing the item itself to start its line.
 def BlockAt (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
     (more rest: List Item) (value: Expr):
     Prop :=
   rightOfLimit item.leaf.token.column modes.limit = True
     ∧ continuesAt item.leaf.token.column rest = False
     ∧ startsOtherStatement item.kind = False
-    ∧ ∀ (kind: LineKind) (before: Nat) => InlineAt sub
-      (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True before kind)
+    ∧ ∀ (kind: LineKind) => InlineAt sub
+      (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True (Some item.index) kind)
       item
       more
       rest
       value
 
---| What `expr` reads: inline (as at the start of the input, where no block starts); and a block where one starts.
+--| What `expr` reads: inline where its first item starts no block (`startsBlock`), and a block of one line where it
+--| starts one.
 def FullReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
     Prop :=
   ∃ (item: Item) (more: List Item) => read = [item, ..more]
-    ∧ InlineAt sub modes item more rest value
-    ∧ (startsBlock modes True item = True → BlockAt sub modes item more rest value)
+    ∧ (startsBlock modes item = False ∧ InlineAt sub modes item more rest value
+      ∨ startsBlock modes item = True ∧ BlockAt sub modes item more rest value)
 
 -- The relation.
 
@@ -1066,9 +1067,9 @@ theorem runsBlockTree ∀ (sub: Goal → List Item → List Item → Expr → Pr
       [item, ..more]
       rest
       value
-      (kind before =>
-        let lined := lineModes (blockModes modes column True) column True before kind
-        let line := lines kind before
+      (kind =>
+        let lined := lineModes (blockModes modes column True) column True (Some item.index) kind
+        let line := lines kind
         runsStatementValue self lined item more rest value line.left notOther
           (runsInlineTree sub self bound lined item more rest value selfRuns small line))
       ends)
@@ -1077,40 +1078,25 @@ theorem andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a wit
   | True => byComputing
   | False => byComputing
 
---| A block starts only after the input's first item.
-theorem startsBlockLater ∀ (modes: Modes) (later: Bool) (item: Item)
-    (starts: startsBlock modes later item = True):
-    startsBlock modes True item = True :=
-  match later, starts with
-    | True, starts => starts
-    | False, starts =>
-      let never: startsBlock modes False item = False :=
-        andFalseMiddle item.leaf.token.lineStart (modes.allow != Some item.index && !modes.endsConstruct item)
-      (Bool.falseNotTrue (Eq.trans never.flipped starts)).impossible
-
---| What `FullReads` holds of, `expr` reads, from any state.
+--| What `FullReads` holds of, `expr` reads.
 --|
---| Proof idea: `exprLater` for either answer of `offset() > 0`: where no block starts, `runsInlineTree`; where
---| one does, the input's first item is behind (`startsBlockLater`), so `BlockAt` holds and `runsBlockTree`.
+--| Proof idea: where no block starts, `runsInlineTree`; where one does, `runsBlockTree`.
 theorem runsFullTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
     (modes: Modes) (read rest: List Item) (value: Expr)
     (selfRuns: SelfRuns sub self bound)
     (small: read.length <= bound)
     (reads: FullReads sub modes read rest value):
     Parse.Runs (() => expr self modes) read rest value :=
-  let (item, more, isRead, inlineAt, blockAt) := reads
+  let (item, more, isRead, reading) := reads
   let sized: [item, ..more].length <= bound := arithmetic [small, Eq.cong List.length isRead]
-  let later: ∀ (later: Bool) => Parse.Runs (() => exprLater self modes later) [item, ..more] rest value := later =>
-    match starts: startsBlock modes later item with
-      | False =>
-        runsExprLaterInline self modes later item more rest value starts
-          (runsInlineTree sub self bound modes item more rest value selfRuns sized inlineAt)
-      | True =>
-        runsExprLaterBlock self modes later item more rest value starts
-          (runsBlockTree sub self bound modes item more rest value selfRuns sized
-            (blockAt (startsBlockLater modes later item starts)))
   rewrite isRead then
-    state => runsFromExpr self modes state [item, ..more] rest value (later (state.at.offset > 0) state)
+    match reading with
+      | Inl (inline, inlineAt) =>
+        runsExprOfInline self modes item more rest value inline
+          (runsInlineTree sub self bound modes item more rest value selfRuns sized inlineAt)
+      | Inr (starts, blockAt) =>
+        runsExprOfBlock self modes item more rest value starts
+          (runsBlockTree sub self bound modes item more rest value selfRuns sized blockAt)
 
 --| One step of the knot: `expressionRule` reads what `Tree` holds of, given that `self` reads the shorter ones.
 --|
@@ -1579,34 +1565,42 @@ theorem inlineMono ∀ (before after: Goal → List Item → List Item → Expr 
 
 --| `FullReads` is monotone in `sub`.
 --|
---| Proof idea: the inline reading by `inlineMono`, and the block's in every line mode.
+--| Proof idea: the inline reading by `inlineMono`, or the block's in every line mode.
 theorem fullMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
     (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
       → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
     (reads: FullReads before modes read rest value):
     FullReads after modes read rest value :=
-  let (item, more, isRead, inlineAt, blockAt) := reads
-  (
-    item,
-    more,
-    isRead,
-    inlineMono before after map modes item more rest value inlineAt,
-    starts =>
-      let (right, ends, notOther, lines) := blockAt starts
-      (
-        right,
-        ends,
-        notOther,
-        kind previous =>
-          inlineMono before after map
-            (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True previous kind)
-            item
-            more
-            rest
-            value
-            (lines kind previous)
+  let (item, more, isRead, reading) := reads
+  match reading with
+    | Inl (inline, inlineAt) =>
+      (item, more, isRead, Inl (inline, inlineMono before after map modes item more rest value inlineAt))
+    | Inr (starts, (right, ends, notOther, lines)) => (
+      item,
+      more,
+      isRead,
+      Inr (
+        starts,
+        (
+          right,
+          ends,
+          notOther,
+          kind =>
+            inlineMono before after map
+              (lineModes
+                (blockModes modes item.leaf.token.column True)
+                item.leaf.token.column
+                True
+                (Some item.index)
+                kind)
+              item
+              more
+              rest
+              value
+              (lines kind)
+        )
       )
-  )
+    )
 
 --| `Layer` is monotone in `sub`: the rung for each level by its own lemma.
 theorem layerMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
@@ -1649,20 +1643,38 @@ theorem treeOfLayer ∀ (depth: Nat) (goal: Goal) (read rest: List Item) (value:
 
 -- One word: the relation holds where `runsExpressionWord` does.
 
---| A word in the middle of a line, that nothing after it continues, is what `expr` should read, with no calls to
---| `self`.
---|
---| Proof idea: every rung with no links and nothing after, as `runsWordOperator` goes down the ladder; no block
---| starts, the word being in the middle of a line.
-theorem fullWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
+--| An expression whose first item doesn't start a line starts no block: `FullReads` is its inline reading.
+theorem fullOfInline ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr)
     (inLine: item.leaf.token.lineStart = False)
+    (reads: InlineAt sub modes item more rest value):
+    FullReads sub modes [item, ..more] rest value :=
+  let never: startsBlock modes item = False := rewrite inLine
+  (item, more, byComputing, Inl (never, reads))
+
+--| `FullReads` by whether a block starts: inline where none does, a block where one does.
+theorem fullOfStarts ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr) (starts: Bool)
+    (isStarts: startsBlock modes item = starts)
+    (inline: starts = False → InlineAt sub modes item more rest value)
+    (block: starts = True → BlockAt sub modes item more rest value):
+    FullReads sub modes [item, ..more] rest value :=
+  match starts with
+    | False => (item, more, byComputing, Inl (isStarts, inline byComputing))
+    | True => (item, more, byComputing, Inr (isStarts, block byComputing))
+
+--| A word that nothing after it continues, and that the modes don't stop, is what `exprInline` should read, with no
+--| calls to `self`.
+--|
+--| Proof idea: every rung with no links and nothing after, as `runsWordOperator` goes down the ladder.
+theorem inlineWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
     (open: modes.stops item = False)
     (word: isWord item.kind = True)
     (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
     (noBar: matchesBarOn modes [item, ..rest] = False)
     (inline: InlinePlain modes item [item, ..rest])
     (ends: OperandEnds modes rest):
-    FullReads sub modes [item] rest (Atom item.kind item.leaf.word) :=
+    InlineAt sub modes item [] rest (Atom item.kind item.leaf.word) :=
   let atomValue := Atom item.kind item.leaf.word
   let (_, _, _, _, notDot) := wordKinds item.kind word
   let (notMatch, unsigned) := wordUnsigned item.kind word
@@ -1697,14 +1709,20 @@ theorem fullWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (
     ends.noIff,
     Inl (byComputing, byComputing, ends.noEnd)
   )
-  let never: startsBlock modes True item = False := rewrite inLine
-  (
-    item,
-    [],
-    byComputing,
-    (open, inline, operatorReads),
-    starts => (Bool.falseNotTrue (Eq.trans never.flipped starts)).impossible
-  )
+  (open, inline, operatorReads)
+
+--| A word in the middle of a line, that nothing after it continues, is what `expr` should read: `inlineWord`, no
+--| block starting.
+theorem fullWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
+    (inLine: item.leaf.token.lineStart = False)
+    (open: modes.stops item = False)
+    (word: isWord item.kind = True)
+    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
+    (noBar: matchesBarOn modes [item, ..rest] = False)
+    (inline: InlinePlain modes item [item, ..rest])
+    (ends: OperandEnds modes rest):
+    FullReads sub modes [item] rest (Atom item.kind item.leaf.word) :=
+  fullOfInline sub modes item [] rest _ inLine (inlineWord sub modes item rest open word plain noBar inline ends)
 
 --| The same as a tree: `runsTree` gives `runsExpressionWord` back.
 theorem treeWord ∀ (modes: Modes) (item: Item) (rest: List Item)
