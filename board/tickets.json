@@ -1,5 +1,5 @@
 {
-  "next": 3980,
+  "next": 3983,
   "tickets": [
     {
       "id": 47,
@@ -23702,12 +23702,12 @@
     {
       "id": 3961,
       "title": "[Opus] Self-hosted fmt S3 program: layout core (Block, Let, Match with arms, If with block branches, a then that ends its line) on Std.Doc, within3, Fmt.Twin --stage s3; gate: identical to Rust on every golden and repo-sample declaration within S1-S3 (proof plan S3 row; SW-3950/SW-3959 pattern)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane (Opus), 18 Nov 11:47-12:05 (expected 60 min). Built: S3 rules (block, let_line, sequence, if_, alternatives, arm, PatternCtor as app) on Std.Doc, Around.inArm for arm_depth, within3 + Tok.within3, formatWithin over S1-S3, one shared file loop (SourceFile.printedBy), Fmt.Twin --stage s3, dev/fmt-twin s3, Tests/Slice3 (7).\nGate (interpreted twin): goldens 288/288, repo sample 576/576 (9.5% of 6,072 declarations, was 7.3%); s1 82/82 + 45/45 and s2 230/230 + 444/444 unchanged. Excluded: a later block line starting with '-' (Rust copies the gap, StatementMinus) and a block as a quantifier body (Rust's output doesn't read back). F1 tree unchanged. Notes for K3b in tools/fmt/NOTES.md 'Slice 3, the program'.\n",
+      "body": "Lane (Opus), 18 Nov 11:47-12:05 (expected 60 min). Built: S3 rules (block, let_line, sequence, if_, alternatives, arm, PatternCtor as app) on Std.Doc, Around.inArm for arm_depth, within3 + Tok.within3, formatWithin over S1-S3, one shared file loop (SourceFile.printedBy), Fmt.Twin --stage s3, dev/fmt-twin s3, Tests/Slice3 (7).\nGate (interpreted twin): goldens 288/288, repo sample 576/576 (9.5% of 6,072 declarations, was 7.3%); s1 82/82 + 45/45 and s2 230/230 + 444/444 unchanged. Excluded: a later block line starting with '-' (Rust copies the gap, StatementMinus) and a block as a quantifier body (Rust's output doesn't read back). F1 tree unchanged. Notes for K3b in tools/fmt/NOTES.md 'Slice 3, the program'.\n\nMerged 18 Nov, 18 min (est. 60). Gate: goldens 288/288, sample 576/576 (9.5%). Excluded from within3: a block line starting with - after the first (Rust copies the gap), a block as forall/exists body (Rust bug, SW-3981). Filed SW-3980 (field access first), SW-3982.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23936,11 +23936,50 @@
     {
       "id": 3979,
       "title": "[Sonnet] Quick tier over its 4 GB memguard cap since Std.Doc joined std: named_arguments::named_calls_keep_every_hash peaks 2.21 GB, hash_stability::examples 0.63, prelude 0.53; Overmind's rolling check is killed mid-tier (c176cf4ad). Measure each test's peak before and after SW-3944, find why named_calls_keep_every_hash needs 2.2 GB, cut it; don't just raise the cap",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3980,
+      "title": "[Opus] Self-hosted fmt S4a program: field access (and dot calls) ahead of the rest of S4: SW-3961 found it the only thing outside S1-S3 for 478 of 5,294 sampled declarations (~doubles coverage); next by count: test 392, namespace 137, import 124, definition arms 105, list patterns 63, named arguments 51",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3981,
+      "title": "[Sonnet] fmt bug in both formatters: a block as the body of a forall/exists prints text that doesn't read back (stitchwort fmt refuses the file as a formatter bug); failing-first tests (SW-3961, D3677 bug exception)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3982,
+      "title": "[Sonnet] Self-hosted fmt cleanup: a call's hug is built twice in bodyAfter; share it as SW-3961 did for match. And a task to make the slim interpreted twin for a worktree (three lanes rebuilt the wrapper by hand), and a usage line for dev/fmt-twin's --inputs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
