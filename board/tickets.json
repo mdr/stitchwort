@@ -1,5 +1,5 @@
 {
-  "next": 4097,
+  "next": 4098,
   "tickets": [
     {
       "id": 47,
@@ -25357,12 +25357,12 @@
     {
       "id": 4085,
       "title": "[Sonnet] fmt S1 goal printedSpelledPlain1: the formatter's output passes spelledPlain1 (the second run's driver tests it) (SW-4079, new gap)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\n\nLane note (Sonnet, 18 Nov): printedSpelledPlain1 proved in new Fmt.SpelledOutputProofs (commit 7baaa300c on lane/SW-4085); goal removed from TopStatements, which imports the theorem. Statement unchanged. ~8 min.\n",
+      "body": "\n\n\nLane note (Sonnet, 18 Nov): printedSpelledPlain1 proved in new Fmt.SpelledOutputProofs (commit 7baaa300c on lane/SW-4085); goal removed from TopStatements, which imports the theorem. Statement unchanged. ~8 min.\n\nMerged 19 Nov (conflict with SW-4089 resolved by hand). Model result: sonnet, worked, 7 min (est. 30). No new hypothesis. Goals 3 -> 2.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25500,7 +25500,20 @@
     {
       "id": 4096,
       "title": "[Fable paper] fmt S1 statements for declElementsOneLine1's split (D3682): (A) oneLine1 and the four tree facts give a tree predicate (type quiet but a trailing comment on its last non-closer word; value the same plus comments above its first word), via a non-circular link from printed line starts to the tree's comments (CommentsEnd, printedSpellsSettled, lexer line starts; not standsOfDoc, which needs DeclHangs); (B) that predicate gives DeclElements through trailing-comment hang facts across held closers. Write both statements and how (B) relates to SW-4082; stub them as open goals with docs",
-      "status": "doing",
+      "status": "review",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Lane note (Fable, 23:31-23:42, est. 30 min): done. Branch lane/SW-4096, commit e2bcd5331. New file tools/fmt/src/Fmt/OneLineStatements.sw: the test Decl.edgeQuiet1 (calmed type edgeQuiet1 False True, calmed value edgeQuiet1 True True) and two open goals, (A) edgeQuietOneLine1 (four tree facts + oneLine1 give edgeQuiet1) and (B) edgeElements1 (four tree facts + edgeQuiet1 give DeclElements); declElementsOneLine1 is proved from them, statement unchanged. Six closed examples by computing (D3684); 44 sources run through the driver beside the test, every accepted one edgeQuiet1. Findings: (1) quiet1/leadQuiet1 ask blankBefore = False, but the driver tree is not calmed, so the test is on the calmed parts; (2) the value first token may keep a blank line below its comments, which leadQuiet1 refuses; (3) the rule-level hang lemmas already carry trails, so (B) is a rerun of the leadFacts induction with expr.trails, not a slice of SW-4082 (noted sub-elements), though both extend one invariant; (4) (A) step for read blank-line flags has no known non-circular fact. Decision for Matt: the driver could refuse a declaration that is not edgeQuiet1, which drops (A). Note: docs/reviews/SW-4096-one-line-elements.md. Checks: Fmt.OneLineStatements 0 errors, 2 goals open; Fmt.TopStatements 0 errors, 6 goals open.\n",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4097,
+      "title": "[Sonnet] fmt proofs tidy (SW-4085): one helper over the 23 operator literals (any predicate holding on each), replacing the opKindA-D and passA-D copies",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
