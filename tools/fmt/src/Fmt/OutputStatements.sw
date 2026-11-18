@@ -84,57 +84,14 @@ def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs d
 
 -- `printedFileLexes1`, that the file loop's text lexes to `SourceFile.lexed1`, is proved in `Fmt.FileLexProofs`.
 
---| `printedAlphabet1`: the output passes the alphabet, the driver's first test on the second run.
---|
---| Proof idea: by `printedTokens1` a token's text is a comma or a word's of the tree and its kind the lexer's for
---| that text; `lexical1` and `within1` put every word's kind in the alphabet.
-theorem printedAlphabet1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    alphabet1 file.lexed1.leaves = True :=
-  ?
+-- `printedAlphabet1`, that the output passes the alphabet, is proved in `Fmt.OutputFileProofs`.
 
---| `printedNoLast1`: the output has no comma directly before a closer, so `settledOnce` of it is `settled`
---| (`settledOnceNone`). It holds whatever the tree's trailing-comma flags say: the rules never print one.
---|
---| Proof idea: by `printedTokens1` the tokens are `decl.spelt`'s, where a comma stands only between two items
---| (`commaSpelt`), and an item starts with no closer.
-theorem printedNoLast1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    noLast [] file.lexed1.leaves = True :=
-  ?
+-- `printedNoLast1`, that the output has no last comma, is proved in `Fmt.OutputFileProofs`.
 
---| `printedPlain1`: the output is `plain1`, which rule N's theorems ask and the driver tests: its first token is a
---| `def`, what follows a `->` is an operand's first token (no comma, closer or `->`), and no comma starts a line.
---|
---| Proof idea: the token order is `printedTokens1`'s; `hangs` refuses a comma that starts its line.
-theorem printedPlain1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    plain1 (tokens file.lexed1.leaves) = True :=
-  ?
+-- `printedPlain1`, that the output is `plain1`, is proved in `Fmt.OutputFileProofs`.
 
---| `printedGroups1`: the parser's groups of the output are the declarations' leaves, one group a declaration.
---|
---| Proof idea: a group starts at a token in column 0 that is no `:=`, outside brackets or not a closer or comma;
---| each declaration starts with `def` in column 0, and by `hangs` its later leaves that start a line stand right of
---| column 0 unless they are a closer or `:=`.
-theorem printedGroups1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    groupsOf file.lexed1.leaves = groupsFrom True file.decls :=
-  ?
+-- `printedGroups1`, that the parser's groups of the output are the declarations' leaves, is proved in
+-- `Fmt.OutputFileProofs`.
 
 -- Rule N on the output.
 
