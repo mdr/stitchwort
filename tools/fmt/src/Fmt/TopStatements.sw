@@ -24,6 +24,7 @@ import Fmt.TopReadBack (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.PassProofs (..)
+import Fmt.CalmTopProofs (..)
 import Fmt.Proofs (firstThreeKeepMeaning)
 import Fmt.FileLexProofs (printedFileLexes1)
 import Fmt.OutputFileProofs (printedAlphabet1, printedNoLast1, printedPlain1)
@@ -138,38 +139,8 @@ theorem commaSame1 ∀ (file: SourceFile)
     file.withoutTrailingCommas = file :=
   rewrite commaMap file within, declsUncommaSame file.decls within commaFree
 
--- `calmTop` (open). SW-4041 makes `calm` clear the file's first flag, so `calmTop` goes and these become `calm`'s:
--- `calmWithin`, `calmPrints` and `calmMeans` exist; `commaFree` and `oneLine1` across `calm` are glue's (SW-3973).
-
---| `calmTopWithin` (open, SW-4041): `calmTop` stays within slice 1.
-theorem calmTopWithin ∀ (file: SourceFile) (within: file.within1 = True): file.calmTop.within1 = True := ?
-
---| `calmTopCommaFree` (open, SW-4041 and SW-3973): `calmTop` keeps a tree free of last commas.
-theorem calmTopCommaFree ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (commaFree: file.commaFree = True):
-    file.calmTop.commaFree = True :=
-  ?
-
---| `calmTopOneLine` (open, SW-4041 and SW-3973): `calmTop` keeps every declaration on one line: `calm` changes no
---| declaration's printed text, and the cleared flag is the file loop's, not printed by the declaration.
-theorem calmTopOneLine ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (lexical: file.lexical1 = True)
-    (oneLine: file.oneLine1 = True):
-    file.calmTop.oneLine1 = True :=
-  ?
-
---| `calmTopPrints` (open, SW-4041): `calmTop` prints the same file (`calmPrints`, and the file loop prints no blank
---| line above the first thing in the file).
-theorem calmTopPrints ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (lexical: file.lexical1 = True):
-    file.calmTop.printed1 = file.printed1 :=
-  ?
-
---| `calmTopMeans` (open, SW-4041): `calmTop` keeps `meaning` (`calmMeans`; `meaning` reads no comment).
-theorem calmTopMeans ∀ (file: SourceFile): file.calmTop.meaning = file.meaning := ?
+-- `calmTop` keeps `calm`'s facts: `calmTopWithin`, `calmTopCommaFree`, `calmTopOneLine`, `calmTopPrints` and
+-- `calmTopMeans` are in `Fmt.CalmTopProofs`.
 
 -- The driver, both ways.
 
