@@ -20,22 +20,9 @@ import Syntax.SettleProofs (alphabet1, plain1, plainFromOf, settledKeepsTokens, 
 import Syntax.SettleBareProofs (tokensBare)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Fmt.TreeJoinProofs (spellsOfText1)
-import Syntax.LexReadsProofs (
-  RoundOk,
-  atMarkThen,
-  atThen,
-  givesChar,
-  givesDots,
-  roundOfGives,
-  roundOfReads,
-  roundOfYields,
-  soundMark,
-  soundSkip,
-  soundSpan,
-  textForeign,
-  yieldsFatal,
-  yieldsStop
-)
+import Syntax.SettleOnceProofs (allAppendB)
+import Syntax.LexLaidProofs (assembleWithin)
+import Syntax.LexReadsProofs (..)
 
 -- The two tests.
 
@@ -995,3 +982,59 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
                       roundOfYields
                         [p := () => fail (if other == '@' then strayAt else unexpected other)]
                         (yieldsFatal (if other == '@' then strayAt else unexpected other) _)
+
+-- The lexer at the top level: rounds of `item`, each spelled.
+
+--| A round from `offset`, where `rest` is left: when `rest` is the source from `offset` and the round gave only
+--| tokens of the alphabet, its lexemes are spelled as their kinds are.
+def FixedAt (source: Text) (offset: Nat) (rest read: List Char) (values: List (Parse.Located Lexeme)): Prop :=
+  rest = source.toList.drop offset
+    → values.all (lexeme => lexeme.value.within) = True
+    → lexemesFine source values = True
+
+--| A round of `item` at the top level, from any mark: `itemFixed` when the mark is in step.
+theorem itemFixedAt ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (start: Parse.Mark Char):
+    RoundOk start (() => item self source TopLevel) (FixedAt source start.offset start.rest) :=
+  total state value after here honest h =>
+    let marked := Eq.trans (Parse.runFromMark state (m => (itemAt self source TopLevel m, Parse.mark()))).flipped h
+    let given: Parse.runFrom state (() => (itemOn self source TopLevel start start.rest, Parse.mark()))
+      = Ok (value, after) :=
+      rewrite here at marked then marked
+    match itemRound self source start start.rest byComputing total state value after here honest given with
+      | Inl outside => Inl outside
+      | Inr (Witness read (Both starts (Both honestAfter _))) =>
+        Inr
+          (Witness read
+            (Both starts
+              (Both honestAfter (step within =>
+                match itemFixed self source start start.rest step byComputing total state value after here honest
+                    given with
+                  | Inl outside => (Bool.trueNotFalse (Eq.trans within.flipped outside)).impossible
+                  | Inr (Witness read2 (Both starts2 (Both honest2 fixed))) => fixed))))
+
+--| Rounds each spelled, read in turn from where the source is at `offset`: those of the alphabet are spelled.
+theorem eachFixed ∀ (source: Text) (rounds: List (List (Parse.Located Lexeme))) (offset: Nat) (rest read: List Char)
+    (each: EachAt (FixedAt source) offset rest read rounds)
+    (step: rest = source.toList.drop offset)
+    (within: rounds.all (round => round.all (lexeme => lexeme.value.within)) = True):
+    rounds.all (lexemesFine source) = True :=
+  match rounds, each with
+    | [], _ => byComputing
+    | [round, ..more], Witness first (Witness later (Both _ (Both fixed eachMore))) =>
+      let next: rest.drop first.length = source.toList.drop (offset + first.length) :=
+        rewrite step, List.dropAdd offset first.length source.toList
+      Bool.andIntro
+        (fixed step (Bool.andLeft within))
+        (eachFixed source more
+          (offset + first.length)
+          (rest.drop first.length)
+          later
+          eachMore
+          next
+          (Bool.andRight within))
+
+theorem concatFine ∀ (source: Text) (rounds: List (List (Parse.Located Lexeme))):
+    lexemesFine source rounds.concat = rounds.all (lexemesFine source) :=
+  match rounds with
+    | [] => byComputing
+    | [round, ..more] => rewrite allAppendB round more.concat (lexemeFixed source), concatFine source more
