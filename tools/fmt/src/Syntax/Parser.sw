@@ -700,15 +700,17 @@ def lineHasSemicolon (limit: Nat) (first: Bool): List Item → Bool
 --| is that line's expression; of more, a `Block`.
 def block (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool): {Parse Item} Expr :=
   let inner := if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column }
-  match blockLines (Parse.mark().left + 1) self inner column many [] with
-    | [ExprStatement value] => value
-    | [ExprStatement value, last, ..earlier] =>
-      match [last, ..earlier].reverse with
-        | [first, ..rest] => Block first rest value
-        | [] => value
-    | [LetStatement _, .._] => fatal "a block must end with an expression, not `let`"
-    | [LocalDef _ _ _, .._] => fatal "a block must end with an expression, not a local `def` or `theorem`"
-    | [] => fatal "the parser read no line of a block"
+  blockResult (blockLines (Parse.mark().left + 1) self inner column many [])
+
+def blockResult (statements: List Statement): {Parse Item} Expr := match statements with
+  | [ExprStatement value] => value
+  | [ExprStatement value, last, ..earlier] =>
+    match [last, ..earlier].reverse with
+      | [first, ..rest] => Block first rest value
+      | [] => value
+  | [LetStatement _, .._] => fatal "a block must end with an expression, not `let`"
+  | [LocalDef _ _ _, .._] => fatal "a block must end with an expression, not a local `def` or `theorem`"
+  | [] => fatal "the parser read no line of a block"
 
 --| The lines of a block, newest first. Each reads at least one item, or
 --| the loop stops, so the fuel (the items left and one more) is enough.
@@ -717,16 +719,17 @@ def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (co
     {Parse Item} List Statement :=
   match fuel with
     | Zero => found
-    | Succ more =>
-      let before := offset()
-      let statementModes := { modes | allow = Some before }
-      let kind := lineKind statementModes
-      let line := statement self { statementModes | lines = [{ column, many, kind }, ..modes.lines] }
-      let done := [line, ..found]
-      if blockAgain before column many then blockLines more self modes column many done else done
+    | Succ more => blockLine more self modes column many found offset()
 
---| What a block's line is, by its first token.
-def lineKind (modes: Modes): {Parse Item} LineKind := lineKindOf modes.peek
+def blockLine (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat):
+    {Parse Item} List Statement :=
+  blockPeek more self modes column many found before { modes | allow = Some before }
+
+def blockPeek (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat) (statementModes: Modes):
+    {Parse Item} List Statement :=
+  blockKind more self modes column many found before statementModes statementModes.peek
 
 def lineKindOf: Option Tok → LineKind
   | Some KwLet => LetLine
@@ -735,15 +738,33 @@ def lineKindOf: Option Tok → LineKind
   | Some At => DefLine
   | _ => ExprLine
 
---| Whether a block goes on after a line that started at offset `before`:
---| the line read something, and the next starts a line at the block's
---| column with what doesn't end blocks.
-def blockAgain (before column: Nat) (many: Bool): {Parse Item} Bool :=
-  let at := offset()
-  match left() with
-    | [next, .._] =>
-      at != before && many && next.leaf.token.lineStart && next.leaf.token.column == column && !endsBlocks next.kind
-    | [] => False
+def blockKind (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat) (statementModes: Modes) (seen: Option Tok):
+    {Parse Item} List Statement :=
+  blockDone more self modes column many found before
+    (statement self { statementModes | lines = [{ column, many, kind = lineKindOf seen }, ..modes.lines] })
+
+def blockDone (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat) (line: Statement):
+    {Parse Item} List Statement :=
+  blockItems more self modes column many [line, ..found] before left()
+
+def blockItems (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (done: List Statement) (before: Nat):
+    List Item → {Parse Item} List Statement
+  | [next, .._] => blockOffset more self modes column many done before next offset()
+  | [] => done
+
+def blockOffset (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (done: List Statement) (before: Nat) (next: Item) (now: Nat):
+    {Parse Item} List Statement :=
+  if now != before
+    && many
+    && next.leaf.token.lineStart
+    && next.leaf.token.column == column
+    && !endsBlocks next.kind then
+    blockLines more self modes column many done
+  else done
 
 def endsBlocks: Tok → Bool
   | Pipe => True
