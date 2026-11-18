@@ -24858,7 +24858,7 @@
     {
       "id": 4048,
       "title": "[Opus] fmt S1 trivia F1: Std.Doc.Proofs Doc.told (the document's reading with a line-begun bit) and laysTold (every trace a Uniform document Lays reads as doc.told); report before starting if Lays won't give it without exact places (docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
