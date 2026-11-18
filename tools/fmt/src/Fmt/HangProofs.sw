@@ -13,7 +13,7 @@ namespace Fmt.HangProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Expr, Leaf, Tok, Word)
+import Syntax (Expr, Leaf, Note, Tok, Word)
 import Fmt (..)
 
 -- The fold over a trace.
@@ -1220,3 +1220,153 @@ theorem prefixHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) (
           (plainLeafHangs kinds operator inside around.at column plain token solid closer comma byComputing trailed))
         (prefixGapIs operator operand)
         (elPart kinds (operand.el (around.next operator.trails 1)) column operator.trails trails (operandHangs column)))
+
+-- Own-line comments.
+
+--| Own-line comments the lexer reads as comments.
+def NotesComment: List Note → Prop
+  | [] => True
+  | [note, ..rest] => IsComment note.text ∧ isLayout note.text = False ∧ NotesComment rest
+
+--| At the start of a line at `column`, whose breaks land there (`floored`), with the fold at `hang`.
+def LineAt (indent column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | AtStart at carry => now = hang ∧ at = column ∧ floored carry indent = column
+  | Broken at carry => now = hang ∧ at = column ∧ floored carry indent = column
+  | _ => False = True
+
+--| As `LineAt`, right after a line break, where a blank line may follow.
+def BrokenAt (indent column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | Broken at carry => now = hang ∧ at = column ∧ floored carry indent = column
+  | _ => False = True
+
+theorem commentStarts ∀ (text: Text) (comment: IsComment text): text.startsWith "--" = True := match comment with
+  | (others, chars, _) =>
+    let starts: Text.startsWithChars "--".toList text.toList = True := rewrite chars
+    starts
+
+--| A comment keeps the comment floor.
+theorem commentKeepsFloor ∀ (text: Text) (carry: Carry) (comment: IsComment text): floorAfter text carry = carry :=
+  rewrite commentStarts text comment
+
+--| After an own-line comment, on its line.
+def WrittenAt (indent column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | Mid at carry => now = hang ∧ floored carry indent = column
+  | _ => False = True
+
+--| An own-line comment on its line, then a line break: the fold skips the comment.
+theorem noteHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (hang: Hang)
+    (comment: IsComment text)
+    (solid: isLayout text = False):
+    HangLaysAll kinds [Doc.text text, HardLine] indent (LineAt indent column hang) (BrokenAt indent column hang) :=
+  let skips := (state: Hang) (start: Option Nat) => commentSkips kinds state { word = text, start } comment
+  hangsTwo kinds
+    (Doc.text text)
+    HardLine
+    indent
+    (LineAt indent column hang)
+    (WrittenAt indent column hang)
+    (BrokenAt indent column hang)
+    (hangsChunk kinds text text.length indent
+      (LineAt indent column hang)
+      (WrittenAt indent column hang)
+      solid
+      (place trace lined =>
+        match place, lined with
+          | AtStart at carry, (now, atColumn, landed) =>
+            rewrite commentKeepsFloor text carry comment, skips (hangOf kinds trace) (Some at) then (now, landed)
+          | Broken at carry, (now, atColumn, landed) =>
+            rewrite commentKeepsFloor text carry comment, skips (hangOf kinds trace) (Some at) then (now, landed)))
+    (hangsHardBroken kinds indent (WrittenAt indent column hang) (BrokenAt indent column hang) (place now holds =>
+      match place, holds with
+        | Mid at carry, (same, landed) => (byComputing, (same, landed, landed))
+        | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+        | Broken at carry, never => (Bool.falseNotTrue never).impossible
+        | Held at carry, never => (Bool.falseNotTrue never).impossible))
+
+theorem brokenLine ∀ (indent column: Nat) (hang: Hang) (place: Place) (now: Hang)
+    (broken: BrokenAt indent column hang place now):
+    LineAt indent column hang place now :=
+  match place, broken with
+    | Broken at carry, holds => holds
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Mid at carry, never => (Bool.falseNotTrue never).impossible
+    | Held at carry, never => (Bool.falseNotTrue never).impossible
+
+--| A blank line kept right after a line break.
+theorem blankHangs ∀ (kinds: Text → Tok) (indent column: Nat) (hang: Hang):
+    HangLays kinds Blank indent (BrokenAt indent column hang) (LineAt indent column hang) :=
+  hangsBlank kinds indent (BrokenAt indent column hang) (LineAt indent column hang) (place trace broken =>
+    match place, broken with
+      | Broken at carry, holds => rewrite blankHang kinds trace then holds
+      | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+      | Mid at carry, never => (Bool.falseNotTrue never).impossible
+      | Held at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| Own-line comments after the first, each on its line, a blank line above one kept.
+theorem laterNotesHang ∀ (kinds: Text → Tok) (notes: List Note) (indent column: Nat) (hang: Hang)
+    (comments: NotesComment notes):
+    HangLaysAll kinds (notesAbove True notes) indent (BrokenAt indent column hang) (BrokenAt indent column hang) :=
+  match notes, comments with
+    | [], _ =>
+      hangsNil kinds indent (BrokenAt indent column hang) (BrokenAt indent column hang) (place now held => held)
+    | [note, ..rest], (comment, solid, others) =>
+      let line := noteHangs kinds note.text indent column hang comment solid
+      let more := laterNotesHang kinds rest indent column hang others
+      match blank: note.blankBefore with
+        | True =>
+          hangsCons kinds Blank
+            ([Doc.text note.text, HardLine] ++ notesAbove True rest)
+            indent
+            (BrokenAt indent column hang)
+            (LineAt indent column hang)
+            (BrokenAt indent column hang)
+            (blankHangs kinds indent column hang)
+            (hangsAppend kinds
+              [Doc.text note.text, HardLine]
+              (notesAbove True rest)
+              indent
+              (LineAt indent column hang)
+              (BrokenAt indent column hang)
+              (BrokenAt indent column hang)
+              line
+              more)
+        | False =>
+          hangsAppend kinds
+            [Doc.text note.text, HardLine]
+            (notesAbove True rest)
+            indent
+            (BrokenAt indent column hang)
+            (BrokenAt indent column hang)
+            (BrokenAt indent column hang)
+            (allHangsPre kinds
+              [Doc.text note.text, HardLine]
+              indent
+              (LineAt indent column hang)
+              (BrokenAt indent column hang)
+              (BrokenAt indent column hang)
+              line
+              (brokenLine indent column hang))
+            more
+
+--| A token's own-line comments, each on its line, from the start of a line, with no blank line kept above the
+--| first: no `Blank` can follow a `LineStart` (`Doc.Proofs.StartLays` leaves `AtStart`).
+theorem notesHang ∀ (kinds: Text → Tok) (keep: Bool) (note: Note) (rest: List Note) (indent column: Nat) (hang: Hang)
+    (comments: NotesComment [note, ..rest])
+    (quiet: (note.blankBefore && keep) = False):
+    HangLaysAll kinds
+      (notesAbove keep [note, ..rest])
+      indent
+      (LineAt indent column hang)
+      (BrokenAt indent column hang) :=
+  match comments with
+    | (comment, solid, others) =>
+      rewrite quiet then
+        hangsAppend kinds
+          [Doc.text note.text, HardLine]
+          (notesAbove True rest)
+          indent
+          (LineAt indent column hang)
+          (BrokenAt indent column hang)
+          (BrokenAt indent column hang)
+          (noteHangs kinds note.text indent column hang comment solid)
+          (laterNotesHang kinds rest indent column hang others)
