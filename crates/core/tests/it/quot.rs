@@ -735,10 +735,12 @@ fn c4_sound_with_a_proof_of_another_relation_is_refused() {
         "r",
         q(Sound, vec![f.bool_ty(), f.bool_eq(), f.ff(), f.ff(), v(0)]),
     );
+    // `r`'s type is kept glued (D3680), so the message names the relation
+    // it proves, `AllTrue`, rather than what that computes to.
     refused(
         try_define(f.g(), "bad", ty, body),
         "E-TYPE-MISMATCH",
-        "expected `False = False`, but this has type `Unit`",
+        "expected `False = False`, but this has type `AllTrue False False`",
     );
 }
 
