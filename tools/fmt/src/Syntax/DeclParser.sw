@@ -290,11 +290,13 @@ def implicitBinder (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
 
 --| A `{` starting a line at the block's own column may start the type
 --| (`allow_brace_at_block_column`).
-def allowBrace (modes: Modes): {Parse Item} Modes := match left(), modes.limit with
-  | [item, .._], Some limit if item.kind == LBrace
-      && item.leaf.token.lineStart
-      && item.leaf.token.column == limit
-      && !modes.endsGuard item => { modes | allow = Some item.index }
+def allowBrace (modes: Modes): {Parse Item} Modes := allowBraceOn modes left()
+
+def allowBraceOn (modes: Modes) (items: List Item): Modes := match items, modes.limit with
+  | [item, .._], Some limit =>
+    if item.kind == LBrace && item.leaf.token.lineStart && item.leaf.token.column == limit && !modes.endsGuard item then
+      { modes | allow = Some item.index }
+    else modes
   | _, _ => modes
 
 --| A binder's type (`binder_type`): an ability row there is refused.
@@ -320,11 +322,21 @@ def typeStarts: Tok → Bool
 
 --| A result type, possibly with abilities, `{State s} Nat` (`result_type`).
 def resultType (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let allowed := allowBrace modes
-  if allowed.at LBrace && !recordBracesAhead left() then
-    let row := rowOf self allowed
-    Effect row (full self allowed)
-  else full self allowed
+  resultAllowed self (allowBrace modes)
+
+def resultAllowed (self: Goal → {Parse Item} Expr) (allowed: Modes): {Parse Item} Expr :=
+  resultRow self allowed (rowAhead allowed)
+
+def rowAhead (allowed: Modes): {Parse Item} Bool := rowOn (allowed.at LBrace) left()
+
+def rowOn (atBrace: Bool) (items: List Item): Bool := atBrace && !recordBracesAhead items
+
+def resultRow (self: Goal → {Parse Item} Expr) (allowed: Modes) (row: Bool): {Parse Item} Expr :=
+  if row then effectResult self allowed else full self allowed
+
+def effectResult (self: Goal → {Parse Item} Expr) (allowed: Modes): {Parse Item} Expr :=
+  let row := rowOf self allowed
+  Effect row (full self allowed)
 
 --| Whether the `{` the items start with is a record literal or update, not
 --| an ability row (`record_braces`).

@@ -26,13 +26,33 @@ def columnHere(): {Parse Item} Nat := left().head.map (item => item.leaf.token.c
 -- Statements.
 
 --| One line of a block (`statement`).
-def statement (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Statement := match modes.peek with
-  | Some KwLet =>
+def statement (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Statement :=
+  statementOn self modes modes.peek
+
+def statementOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok → {Parse Item} Statement
+  | Some kind => if startsOtherStatement kind then statementOther self modes kind else statementValue self modes
+  | None => statementValue self modes
+
+--| The tokens that start a line of a block other than an expression: a `let`, a local definition, an attribute, or
+--| what a block refuses.
+def startsOtherStatement: Tok → Bool
+  | KwLet => True
+  | KwDef => True
+  | KwTheorem => True
+  | At => True
+  | KwExport => True
+  | KwOpaque => True
+  | _ => False
+
+def statementValue (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Statement :=
+  ExprStatement (exprInline self modes)
+
+def statementOther (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Statement :=
+  if kind == KwLet then
     let binding := letStatement self modes
     if modes.at Semi then ExprStatement (letBody self modes binding) else LetStatement binding
-  | Some KwDef => localDef self modes []
-  | Some KwTheorem => localDef self modes []
-  | Some At =>
+  else if kind == KwDef || kind == KwTheorem then localDef self modes []
+  else if kind == At then
     let attributes := attributesOf modes
     let allowed := match left(), modes.limit with
       | [next, .._], Some column if next.leaf.token.lineStart && next.leaf.token.column == column =>
@@ -40,9 +60,8 @@ def statement (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} St
       | _, _ => modes
     if allowed.at KwDef || allowed.at KwTheorem then localDef self allowed attributes
     else fatal (misplaced "a statement that isn't a local definition")
-  | Some KwExport => fatal "local definitions can't be exported: only top-level ones are"
-  | Some KwOpaque => fatal "local definitions can't be `opaque`: only top-level ones can"
-  | _ => ExprStatement (exprInline self modes)
+  else if kind == KwExport then fatal "local definitions can't be exported: only top-level ones are"
+  else fatal "local definitions can't be `opaque`: only top-level ones can"
 
 --| `let p := e` or `let p: T := e` (`let_statement`). The value is read
 --| with `letValue` at the `let`'s bracket depth, so a `;` there ends it.
@@ -81,7 +100,9 @@ def letBody (self: Goal → {Parse Item} Expr) (modes: Modes) (binding: Let): {P
 
 --| Whether a `;` next starts a sequence `a; b` (`sequence_ahead`): unless
 --| a `let`'s value is being read and the `;` is at that `let`'s depth.
-def sequenceAhead (modes: Modes): {Parse Item} Bool := match modes.letValue, left() with
+def sequenceAhead (modes: Modes): {Parse Item} Bool := sequenceOn modes left()
+
+def sequenceOn (modes: Modes) (items: List Item): Bool := match modes.letValue, items with
   | Some depth, [next, .._] => next.depth > depth
   | _, _ => True
 

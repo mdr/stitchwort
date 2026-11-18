@@ -67,6 +67,11 @@ theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.
 -- What the parsers outside slice 1 give: SW-4000 discharges these. Each is `Out` (the tree is outside the slice) or
 -- `True` (the tree is wrapped in a node that is).
 
+--| A line of a block is good when it is an expression that is: `let`s and local definitions are outside the slice.
+def StatementOk (statement: Statement): Prop := match statement with
+  | ExprStatement value => Parsed1 1 value
+  | other => True
+
 type Outside (self: Goal → {Parse Item} Expr) = {
   matches: ∀ (modes: Modes) (keyword: Word) => Parse.Gives GoodItems (() => matchExpr self modes keyword) Out,
   clauseLambdas: ∀ (modes: Modes) (keyword: Word) => Parse.Gives GoodItems
@@ -85,7 +90,30 @@ type Outside (self: Goal → {Parse Item} Expr) = {
     Out,
   namedArguments: ∀ (modes: Modes) (closer: Tok) (closeText: Text) => Parse.Gives GoodItems
     (() => namedArgument self modes closer closeText)
-    Out
+    Out,
+  memberships: ∀ (modes: Modes) (first: Option Tok) (element: Expr) => Parse.Gives GoodItems
+    (() => membership self modes first element)
+    Out,
+  comparisonChains: ∀ (modes: Modes) (lhs: Expr) (kind: Tok) (operator: Word) (second: Expr) => Parse.Gives GoodItems
+    (() => comparisonChain self modes lhs kind operator second)
+    Out,
+  cmpIfs: ∀ (modes: Modes) (lhs: Expr) (operator: Word) => Parse.Gives GoodItems
+    (() => cmpIf self modes lhs operator)
+    Out,
+  pipeChains: ∀ (modes: Modes) (indent: Nat) (value: Expr) => Parse.Gives GoodItems
+    (() => pipeChain self modes indent value)
+    Out,
+  iffs: ∀ (modes: Modes) (logic: Expr) => Parse.Gives GoodItems (() => iff self modes logic) Out,
+  quantifiers: ∀ (modes: Modes) => Parse.Gives GoodItems (() => Syntax.quantifier self modes) Out,
+  semis: ∀ (modes: Modes) (value: Expr) => Parse.Gives GoodItems (() => semiExpr self modes value) Out,
+  keywords: ∀ (modes: Modes) (kind: Tok) => startsKeywordExpr kind = True
+    → Parse.Gives GoodItems (() => exprKeyword self modes kind) Out,
+  lambdas: ∀ (modes: Modes) => Parse.Gives GoodItems (() => lambda self modes None) Out,
+  ifKeywords: ∀ (modes: Modes) => Parse.Gives GoodItems (() => ifKeyword self modes) Out,
+  piExprs: ∀ (modes: Modes) (implicit: Bool) => Parse.Gives GoodItems (() => piExpr self modes implicit) Out,
+  effectResults: ∀ (allowed: Modes) => Parse.Gives GoodItems (() => effectResult self allowed) Out,
+  statementOthers: ∀ (modes: Modes) (kind: Tok) => startsOtherStatement kind = True
+    → Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk
 }
 
 -- Combinators.
@@ -1041,3 +1069,647 @@ theorem givesAtomBases ∀ (self: Goal → {Parse Item} Expr)
       (seen => atomBaseOn self modes seen) _
       (start fine stops => givesOutArg [p := () => atomMissing self modes] (outside.missings modes) start fine)
       (start item later shape fine stopped => readsAtomOf self modes nested outside start item later shape fine)
+
+-- The operator ladder, from `unary` down.
+
+theorem givesUnaryOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => unary self modes) (Parsed1 18) :=
+  givesUnary self modes nested outside (givesApp self modes nested outside bases)
+
+theorem givesMulOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16) :=
+  givesMulExpr self modes
+    (Parse.givesWeaken (givesUnaryOf self modes nested outside bases) (value parsed => parsedWeaken parsed byComputing))
+
+theorem givesAddOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => addExpr self modes) (Parsed1 14) :=
+  givesAddExpr self modes
+    (Parse.givesWeaken (givesMulOf self modes nested outside bases) (value parsed => parsedWeaken parsed byComputing))
+
+theorem givesAppendOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => appendExpr self modes) (Parsed1 12) :=
+  givesAppendExpr self modes
+    (Parse.givesWeaken (givesAddOf self modes nested outside bases) (value parsed => parsedWeaken parsed byComputing))
+
+theorem reads0HeadIndent: Reads0 (() => headIndent()) :=
+  reads0Then reads0Left (items => reads0Done (headIndentOn items))
+
+theorem reads0AtPipe ∀ (modes: Modes): Reads0 (() => atPipe modes) :=
+  reads0Then reads0Left (items => reads0Done (atPipeOn modes items))
+
+theorem givesRangeEnd ∀ (modes: Modes) (low: Expr) (operator: Word) (high: Expr):
+    Parse.Gives GoodItems (() => rangeEnd modes low operator high) (Parsed1 12) :=
+  givesAfter0
+    [p := () => modes.at DotDotLt || modes.at DotDotEq]
+    [j := chained => rangeChained low operator high chained]
+    (reads0Then [p := () => modes.at DotDotLt] (reads0At modes DotDotLt) (lt =>
+      match lt with
+        | True => reads0Done True
+        | False => reads0At modes DotDotEq))
+    (chained =>
+      match chained with
+        | True => Parse.readsFatal _ _
+        | False => Parse.givesDone (parsedOutside 12 _ byComputing))
+
+theorem givesRangeHigh ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rangeHigh self modes low) (Parsed1 12) :=
+  Parse.givesThen
+    [p := () => bump()]
+    [j := operator => rangeEnd modes low operator (appendExpr self modes)]
+    givesBump
+    (operator _ =>
+      Parse.givesThen
+        [p := () => appendExpr self modes]
+        [j := high => rangeEnd modes low operator high]
+        (givesAppendOf self modes nested outside bases)
+        (high _ => givesRangeEnd modes low operator high))
+
+theorem givesRangeOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (lowParsed: Parsed1 12 low) (seen: Option Tok):
+    Parse.Gives GoodItems (() => rangeOn self modes low seen) (Parsed1 12) :=
+  match seen with
+    | Some kind =>
+      match isDots: kind == DotDot with
+        | True => Parse.readsFatal _ _
+        | False =>
+          match isRange: kind == DotDotLt || kind == DotDotEq with
+            | True => givesRangeHigh self modes low nested outside bases
+            | False => Parse.givesDone lowParsed
+    | None => Parse.givesDone lowParsed
+
+theorem givesRangeOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rangeExpr self modes) (Parsed1 12) :=
+  Parse.givesThen
+    [p := () => appendExpr self modes]
+    [j := low => rangeFrom self modes low]
+    (givesAppendOf self modes nested outside bases)
+    (low lowParsed =>
+      givesAfter0 [p := () => modes.peek] [j := seen => rangeOn self modes low seen] (reads0Peek modes) (seen =>
+        givesRangeOn self modes low nested outside bases lowParsed seen))
+
+theorem givesPipedOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => pipedRange self modes) (Parsed1 12) :=
+  givesAfter0 [p := () => headIndent()] [j := indent => pipedAt self modes indent] reads0HeadIndent (indent =>
+    Parse.givesThen
+      [p := () => rangeExpr self modes]
+      [j := range => pipedAfter self modes indent range]
+      (givesRangeOf self modes nested outside bases)
+      (range rangeParsed =>
+        givesAfter0
+          [p := () => atPipe modes]
+          [j := pipe => pipedEnd self modes indent range pipe]
+          (reads0AtPipe modes)
+          (pipe =>
+            match pipe with
+              | True => givesOut 12 (outside.pipeChains modes indent range)
+              | False => Parse.givesDone rangeParsed)))
+
+-- Comparisons.
+
+theorem cmpTakesGood ∀ (kind: Tok) (text: Text)
+    (took: kind.isComparison = True):
+    kind.symbolic1 = True ∧ (Spells kind text → leftNeeds InfixBinary text = 8 ∧ infixLevel InfixBinary text = 6) :=
+  match kind, took with
+    | Equals, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | EqEq, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | Lt, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | Gt, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | NotEq, took => (
+      byComputing,
+      spelled =>
+        match spelled with
+          | Inl same => Both (rewrite same) (rewrite same)
+          | Inr same => Both (rewrite same) (rewrite same)
+    )
+    | Le, took => (
+      byComputing,
+      spelled =>
+        match spelled with
+          | Inl same => Both (rewrite same) (rewrite same)
+          | Inr same => Both (rewrite same) (rewrite same)
+    )
+    | Ge, took => (
+      byComputing,
+      spelled =>
+        match spelled with
+          | Inl same => Both (rewrite same) (rewrite same)
+          | Inr same => Both (rewrite same) (rewrite same)
+    )
+    | other, took => (Bool.falseNotTrue took).impossible
+
+--| A comparison's operator word: spelled, and at the level of the table.
+def CmpOperator (operator: Word): Prop :=
+  (operatorTok operator.text).isSome = True
+    ∧ leftNeeds InfixBinary operator.text = 8
+    ∧ infixLevel InfixBinary operator.text = 6
+
+theorem cmpOperatorOfItem ∀ (item: Item)
+    (good: GoodItem item)
+    (took: item.kind.isComparison = True):
+    CmpOperator item.leaf.word :=
+  let (symbolic, texts) := cmpTakesGood item.kind item.text took
+  let (needs, own) := texts (good (symbolicWithin item.kind symbolic))
+  (operatorOfItem item good symbolic, needs, own)
+
+theorem compareParsed ∀ (lhs second: Expr) (operator: Word)
+    (op: CmpOperator operator)
+    (lhsParsed: Parsed1 12 lhs)
+    (secondParsed: Parsed1 12 second):
+    Parsed1 6 (Infix InfixBinary lhs operator second) :=
+  let (spelled, needs, own) := op
+  infixParsedAt lhs second operator 6 12 12 lhsParsed secondParsed spelled (arithmetic [needs]) (arithmetic [own]) own
+
+theorem givesCmpChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
+    (operator: Word) (second: Expr)
+    (outside: Outside self)
+    (op: CmpOperator operator)
+    (lhsParsed: Parsed1 12 lhs)
+    (secondParsed: Parsed1 12 second) (seen: Option Tok):
+    Parse.Gives GoodItems (() => cmpChain self modes lhs kind operator second seen) (Parsed1 6) :=
+  match seen with
+    | Some next =>
+      match chained: next.isComparison || next == KwIn || next == NotIn with
+        | True => givesOut 6 (outside.comparisonChains modes lhs kind operator second)
+        | False => Parse.givesDone (compareParsed lhs second operator op lhsParsed secondParsed)
+    | None => Parse.givesDone (compareParsed lhs second operator op lhsParsed secondParsed)
+
+theorem givesCmpAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
+    (operator: Word) (conditional: Bool)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (op: CmpOperator operator)
+    (lhsParsed: Parsed1 12 lhs):
+    Parse.Gives GoodItems (() => cmpAfter self modes lhs kind operator conditional) (Parsed1 6) :=
+  match conditional with
+    | True => givesOut 6 (outside.cmpIfs modes lhs operator)
+    | False =>
+      Parse.givesThen
+        [p := () => pipedRange self modes]
+        [j := second => cmpSecond self modes lhs kind operator second]
+        (givesPipedOf self modes nested outside bases)
+        (second secondParsed =>
+          givesAfter0
+            [p := () => modes.peek]
+            [j := seen => cmpChain self modes lhs kind operator second seen]
+            (reads0Peek modes)
+            (seen => givesCmpChain self modes lhs kind operator second outside op lhsParsed secondParsed seen))
+
+theorem readsCmpCompare ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (lhsParsed: Parsed1 12 lhs)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (took: item.kind.isComparison = True)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => cmpCompare self modes lhs item.kind) (read value => Parsed1 6 value) :=
+  readsAtBumpThen
+    [k := operator => cmpAfter self modes lhs item.kind operator (modes.at KwIf)]
+    shape
+    fine
+    (after fits =>
+      givesAfter0
+        [p := () => modes.at KwIf]
+        [j := conditional => cmpAfter self modes lhs item.kind item.leaf.word conditional]
+        (reads0At modes KwIf)
+        (conditional =>
+          givesCmpAfter self modes lhs item.kind item.leaf.word conditional nested outside bases
+            (cmpOperatorOfItem item (goodHead fine shape) took)
+            lhsParsed)
+        after
+        fits)
+
+theorem givesCmpPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (lhs: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (lhsParsed: Parsed1 12 lhs):
+    Parse.Gives GoodItems (() => cmpPiped self modes first lhs) (Parsed1 6) :=
+  readsInPeeked modes
+    (seen => cmpOn self modes first lhs seen) _
+    (start fine stops => Parse.givesDone (parsedWeaken lhsParsed byComputing) start fine)
+    (start item later shape fine stopped =>
+      match isMember: item.kind == KwIn || item.kind == NotIn with
+        | True => givesOut 6 (outside.memberships modes first lhs) start fine
+        | False =>
+          match isCmp: item.kind.isComparison with
+            | True => readsCmpCompare self modes lhs nested outside bases lhsParsed start item later shape isCmp fine
+            | False => Parse.givesDone (parsedWeaken lhsParsed byComputing) start fine)
+
+theorem givesCmpOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => cmpExpr self modes) (Parsed1 6) :=
+  givesAfter0 [p := () => left()] [j := items => cmpFirst self modes (items.head.map Item.kind)] reads0Left (items =>
+    Parse.givesThen
+      [p := () => pipedRange self modes]
+      [j := lhs => cmpPiped self modes (items.head.map Item.kind) lhs]
+      (givesPipedOf self modes nested outside bases)
+      (lhs lhsParsed => givesCmpPiped self modes (items.head.map Item.kind) lhs nested outside bases lhsParsed))
+
+-- `&&` and `||`.
+
+--| The text of a logic operator: `&&`, `∧`, `||` or `∨`.
+def LogicText (text: Text): Prop := (text = "&&" ∨ text = "∧") ∨ (text = "||" ∨ text = "∨")
+
+--| An operator and its operand, as `logicLinks` reads them: a spelled logic operator, and an operand at the level of
+--| `cmp_expr`.
+def LogicLink (link: (Word, Expr)): Prop :=
+  (operatorTok link.fst.text).isSome = True ∧ LogicText link.fst.text ∧ Parsed1 6 link.snd
+
+theorem logicKind ∀ (kind: Tok) (text: Text)
+    (spells: kind.within1 = True → Spells kind text)
+    (is: (kind == AndAnd || kind == OrOr) = True):
+    (operatorTok text).isSome = True ∧ LogicText text :=
+  match kind, spells, is with
+    | AndAnd, spells, is =>
+      let spelled := spells byComputing
+      (
+        (rewrite operatorTokOfSpells AndAnd text spelled byComputing),
+        match spelled with
+          | Inl same => Inl (Inl same)
+          | Inr same => Inl (Inr same)
+      )
+    | OrOr, spells, is =>
+      let spelled := spells byComputing
+      (
+        (rewrite operatorTokOfSpells OrOr text spelled byComputing),
+        match spelled with
+          | Inl same => Inr (Inl same)
+          | Inr same => Inr (Inr same)
+      )
+    | other, spells, is => (Bool.falseNotTrue is).impossible
+
+theorem andLevels ∀ (text: Text)
+    (logic: LogicText text)
+    (tested: (text == "&&" || text == "∧") = True):
+    leftNeeds InfixBinary text = 6 ∧ infixLevel InfixBinary text = 5 :=
+  match logic with
+    | Inl (Inl same) => Both (rewrite same) (rewrite same)
+    | Inl (Inr same) => Both (rewrite same) (rewrite same)
+    | Inr (Inl same) => (Bool.falseNotTrue (rewrite same at tested)).impossible
+    | Inr (Inr same) => (Bool.falseNotTrue (rewrite same at tested)).impossible
+
+theorem orLevels ∀ (text: Text)
+    (logic: LogicText text)
+    (tested: (text == "&&" || text == "∧") = False):
+    leftNeeds InfixBinary text = 5 ∧ infixLevel InfixBinary text = 4 :=
+  match logic with
+    | Inl (Inl same) => (Bool.falseNotTrue (rewrite <- tested, same)).impossible
+    | Inl (Inr same) => (Bool.falseNotTrue (rewrite <- tested, same)).impossible
+    | Inr (Inl same) => Both (rewrite same) (rewrite same)
+    | Inr (Inr same) => Both (rewrite same) (rewrite same)
+
+--| The next link after a conjunction is an `||`.
+def OrFirst: List (Word, Expr) → Prop
+  | [(or, next), ..rest] => (or.text == "&&" || or.text == "∧") = False
+  | other => True
+
+--| What `conjunctionOf` gives: the conjunction is at the level of `&&`, the links left are all links, and the next
+--| one (if any) is an `||`.
+def ConjunctionOk (pair: (Expr, List (Word, Expr))): Prop :=
+  Parsed1 5 pair.fst ∧ List.All LogicLink pair.snd ∧ OrFirst pair.snd
+
+theorem conjunctionCons ∀ (first: Expr) (and: Word) (pair: (Expr, List (Word, Expr)))
+    (firstParsed: Parsed1 6 first)
+    (spelled: (operatorTok and.text).isSome = True)
+    (needs: leftNeeds InfixBinary and.text = 6)
+    (own: infixLevel InfixBinary and.text = 5)
+    (ok: ConjunctionOk pair):
+    ConjunctionOk (conjunctionJoin first and pair) :=
+  match pair, ok with
+    | (right, after), (rightParsed, afterOk, orFirst) => (
+      infixParsedAt first right and 5 6 5 firstParsed
+        (parsedWeaken rightParsed byComputing)
+        spelled
+        (arithmetic [needs])
+        (arithmetic [own])
+        own,
+      afterOk,
+      orFirst
+    )
+
+theorem conjunctionParsed ∀ (first: Expr) (links: List (Word, Expr))
+    (firstParsed: Parsed1 6 first)
+    (ok: List.All LogicLink links):
+    ConjunctionOk (conjunctionOf first links) :=
+  match links, ok with
+    | [], ok => (parsedWeaken firstParsed byComputing, ok, byComputing)
+    | [(and, next), ..rest], (linkOk, restOk) =>
+      match isAnd: (and.text == "&&" || and.text == "∧") with
+        | True =>
+          let (spelled, logic, nextParsed) := linkOk
+          let (needs, own) := andLevels and.text logic isAnd
+          conjunctionCons first and
+            (conjunctionOf next rest)
+            firstParsed
+            spelled
+            needs
+            own
+            (conjunctionParsed next rest nextParsed restOk)
+        | False => (parsedWeaken firstParsed byComputing, (linkOk, restOk), isAnd)
+
+theorem groupAfterZero ∀ (pair: (Expr, List (Word, Expr))) (ok: ConjunctionOk pair): Parsed1 4 (groupAfter Zero pair) :=
+  match pair, ok with
+    | (conjunction, after), (conjunctionParsed, afterOk, orFirst) => parsedWeaken conjunctionParsed byComputing
+
+theorem groupAfterSucc ∀ (more: Nat) (pair: (Expr, List (Word, Expr)))
+    (ok: ConjunctionOk pair)
+    (rest: ∀ (next: Expr) (links: List (Word, Expr)) => Parsed1 6 next
+      → List.All LogicLink links
+      → Parsed1 4 (groupLogic more next links)):
+    Parsed1 4 (groupAfter (Succ more) pair) :=
+  match pair, ok with
+    | (conjunction, after), (conjunctionParsed, afterOk, orFirst) =>
+      match after, afterOk, orFirst with
+        | [(or, next), ..links], (linkOk, linksOk), orFirst =>
+          let (spelled, logic, nextParsed) := linkOk
+          let (needs, own) := orLevels or.text logic orFirst
+          infixParsedAt conjunction
+            (groupLogic more next links)
+            or
+            4
+            5
+            4
+            conjunctionParsed
+            (rest next links nextParsed linksOk)
+            spelled
+            (arithmetic [needs])
+            (arithmetic [own])
+            own
+        | [], afterOk, orFirst => parsedWeaken conjunctionParsed byComputing
+
+theorem groupLogicParsed ∀ (fuel: Nat) (first: Expr) (links: List (Word, Expr))
+    (firstParsed: Parsed1 6 first)
+    (ok: List.All LogicLink links):
+    Parsed1 4 (groupLogic fuel first links) :=
+  match fuel with
+    | Zero => groupAfterZero (conjunctionOf first links) (conjunctionParsed first links firstParsed ok)
+    | Succ more =>
+      groupAfterSucc more
+        (conjunctionOf first links)
+        (conjunctionParsed first links firstParsed ok)
+        (following rest followingParsed restOk => groupLogicParsed more following rest followingParsed restOk)
+
+theorem reads0QuantifierAhead ∀ (modes: Modes): Reads0 (() => quantifierAhead modes) :=
+  reads0Then [p := () => modes.at KwExists] (reads0At modes KwExists) (found =>
+    match found with
+      | True => reads0Done True
+      | False => reads0At modes KwForall)
+
+theorem givesLogicOperand ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: Word) (quantified: Bool)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (spelled: (operatorTok operator.text).isSome = True)
+    (logic: LogicText operator.text):
+    Parse.Gives GoodItems (() => logicOperand self modes operator quantified) (Parse.Perhaps LogicLink) :=
+  match quantified with
+    | True =>
+      Parse.givesThen
+        [p := () => Syntax.quantifier self modes]
+        [j := operand => Some (operator, operand)]
+        (outside.quantifiers modes)
+        (operand out =>
+          Parse.givesDone [holds := Parse.Perhaps LogicLink] [x := Some (operator, operand)] (
+            spelled,
+            logic,
+            outParsed 6 out
+          ))
+    | False =>
+      Parse.givesThen
+        [p := () => cmpExpr self modes]
+        [j := operand => Some (operator, operand)]
+        (givesCmpOf self modes nested outside bases)
+        (operand parsed =>
+          Parse.givesDone [holds := Parse.Perhaps LogicLink] [x := Some (operator, operand)] (spelled, logic, parsed))
+
+theorem givesLogicOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => logicOn self modes modes.peek) (Parse.Perhaps LogicLink) :=
+  readsInPeeked modes
+    (seen => logicOn self modes seen) _
+    (start fine stops => Parse.givesDone byComputing start fine)
+    (start item later shape fine stopped =>
+      match isLogic: item.kind == AndAnd || item.kind == OrOr with
+        | True =>
+          readsAtBumpThen
+            [k := operator => logicOperand self modes operator (quantifierAhead modes)]
+            shape
+            fine
+            (after fits =>
+              let (spelled, logic) := logicKind item.kind item.text (goodHead fine shape) isLogic
+              givesAfter0
+                [p := () => quantifierAhead modes]
+                [j := quantified => logicOperand self modes item.leaf.word quantified]
+                (reads0QuantifierAhead modes)
+                (quantified =>
+                  givesLogicOperand self modes item.leaf.word quantified nested outside bases spelled logic)
+                after
+                fits)
+        | False => Parse.givesDone byComputing start fine)
+
+theorem givesLogicChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (firstParsed: Parsed1 6 first):
+    Parse.Gives GoodItems (() => logicChain self modes first) (Parsed1 4) :=
+  Parse.givesThen
+    [p := () => logicLinks self modes]
+    [j := links => groupLogic (links.length + 1) first links]
+    (Parse.givesLoop (givesLogicOn self modes nested outside bases))
+    (links ok => Parse.givesDone (groupLogicParsed (links.length + 1) first links firstParsed ok))
+
+-- `->`, sections and the rest of `expr_inline`.
+
+theorem sectionedParsedAt ∀ (floor: Nat) (section: Bool) (value: Expr)
+    (parsed: Parsed1 floor value):
+    Parsed1 floor (sectioned section value) :=
+  match section with
+    | True => parsedOutside floor _ byComputing
+    | False => parsed
+
+theorem reads0AllowBrace ∀ (modes: Modes): Reads0 (() => allowBrace modes) :=
+  reads0Then reads0Left (items => reads0Done (allowBraceOn modes items))
+
+theorem reads0RowAhead ∀ (allowed: Modes): Reads0 (() => rowAhead allowed) :=
+  reads0Then [p := () => allowed.at LBrace] (reads0At allowed LBrace) (found =>
+    reads0Then [p := () => left()] reads0Left (items => reads0Done (rowOn found items)))
+
+theorem givesResultType ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self):
+    Parse.Gives GoodItems (() => resultType self modes) (Parsed1 1) :=
+  givesAfter0
+    [p := () => allowBrace modes]
+    [j := allowed => resultAllowed self allowed]
+    (reads0AllowBrace modes)
+    (allowed =>
+      givesAfter0
+        [p := () => rowAhead allowed]
+        [j := row => resultRow self allowed row]
+        (reads0RowAhead allowed)
+        (row =>
+          match row with
+            | True => givesOut 1 (outside.effectResults allowed)
+            | False => nested { modes = allowed, level = LevelFull }))
+
+theorem arrowParsed ∀ (left right: Expr) (arrow: Word)
+    (spelled: (operatorTok arrow.text).isSome = True)
+    (leftParsed: Parsed1 4 left)
+    (rightParsed: Parsed1 1 right):
+    Parsed1 1 (Infix InfixArrow left arrow right) :=
+  within =>
+    let (leftWithin, rightWithin) := within
+    let (leftShaped, leftLexical, leftHigh) := leftParsed leftWithin
+    let (rightShaped, rightLexical, rightHigh) := rightParsed rightWithin
+    (
+      Both leftShaped (Both rightShaped (Both (arithmetic [leftHigh]) (arithmetic [rightHigh]))),
+      Both leftLexical (Both spelled rightLexical),
+      arithmetic
+    )
+
+theorem givesArrowEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (arrow: Word)
+    (nested: Nested self)
+    (outside: Outside self)
+    (spelled: (operatorTok arrow.text).isSome = True)
+    (parsed: Parsed1 4 value):
+    Parse.Gives GoodItems (() => arrowEnd self modes value arrow) (Parsed1 1) :=
+  Parse.givesThen
+    [p := () => resultType self modes]
+    [j := right => Infix InfixArrow value arrow right]
+    (givesResultType self modes nested outside)
+    (right rightParsed => Parse.givesDone (arrowParsed value right arrow spelled parsed rightParsed))
+
+theorem arrowSymbolic ∀ (kind: Tok) (is: kind = Arrow): kind.symbolic1 = True := rewrite is
+
+theorem givesOpSequence ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (sequence: Bool)
+    (nested: Nested self)
+    (outside: Outside self)
+    (parsed: Parsed1 4 value):
+    Parse.Gives GoodItems (() => opSequence self modes value sequence) (Parsed1 1) :=
+  readsInPeeked modes
+    (seen => opEnd self modes value sequence seen) _
+    (start fine stops => Parse.givesDone (parsedWeaken parsed byComputing) start fine)
+    (start item later shape fine stopped =>
+      match isArrow: item.kind == Arrow with
+        | True => readsAtBumpThen [k := arrow => arrowEnd self modes value arrow] shape fine (after fits =>
+          givesArrowEnd self modes value item.leaf.word nested outside
+            (operatorOfItem item (goodHead fine shape) (arrowSymbolic item.kind (DecEq.sound isArrow)))
+            parsed
+            after
+            fits)
+        | False =>
+          match isSemi: item.kind == Semi && sequence with
+            | True => givesOut 1 (outside.semis modes value) start fine
+            | False => Parse.givesDone (parsedWeaken parsed byComputing) start fine)
+
+theorem reads0SequenceAhead ∀ (modes: Modes): Reads0 (() => sequenceAhead modes) :=
+  reads0Then [p := () => left()] reads0Left (items => reads0Done (sequenceOn modes items))
+
+theorem givesOpIffed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (iffed: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (parsed: Parsed1 4 iffed):
+    Parse.Gives GoodItems (() => opIffed self modes section iffed) (Parsed1 1) :=
+  givesAfter0
+    [p := () => sequenceAhead modes]
+    [j := sequence => opSequence self modes (sectioned section iffed) sequence]
+    (reads0SequenceAhead modes)
+    (sequence =>
+      givesOpSequence self modes
+        (sectioned section iffed)
+        sequence
+        nested
+        outside
+        (sectionedParsedAt 4 section iffed parsed))
+
+theorem givesOpLogic ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (logic: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (parsed: Parsed1 4 logic):
+    Parse.Gives GoodItems (() => opLogic self modes section logic) (Parsed1 1) :=
+  givesAfter0
+    [p := () => modes.at IffArrow]
+    [j := ahead => opIffed self modes section (iffOf self modes logic ahead)]
+    (reads0At modes IffArrow)
+    (ahead =>
+      Parse.givesThen
+        [p := () => iffOf self modes logic ahead]
+        [j := iffed => opIffed self modes section iffed]
+        (match ahead with
+          | True => givesOut 4 (outside.iffs modes logic)
+          | False => Parse.givesDone parsed)
+        (iffed iffedParsed => givesOpIffed self modes section iffed nested outside iffedParsed))
+
+theorem givesOpCompared ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (compared: Expr)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self)
+    (parsed: Parsed1 6 compared):
+    Parse.Gives GoodItems (() => opCompared self modes section compared) (Parsed1 1) :=
+  givesAfter0
+    [p := () => left()]
+    [j := items => opLogic self modes section (logicOf self modes compared (andOrOn modes items))]
+    reads0Left
+    (items =>
+      Parse.givesThen
+        [p := () => logicOf self modes compared (andOrOn modes items)]
+        [j := logic => opLogic self modes section logic]
+        (match andOrOn modes items with
+          | True => givesLogicChain self modes compared nested outside bases parsed
+          | False => Parse.givesDone (parsedWeaken parsed byComputing))
+        (logic logicParsed => givesOpLogic self modes section logic nested outside logicParsed))
+
+theorem givesOpSection ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat) (section: Bool)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => opSection self modes start section) (Parsed1 1) :=
+  Parse.givesThen
+    [p := () => cmpExpr self (if section then { modes | sectionHead = Some start } else modes)]
+    [j := compared => opCompared self modes section compared]
+    (givesCmpOf self (if section then { modes | sectionHead = Some start } else modes) nested outside bases)
+    (compared parsed => givesOpCompared self modes section compared nested outside bases parsed)
+
+theorem givesOperatorExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => operatorExpr self modes) (Parsed1 1) :=
+  givesAfter0 [p := () => offset()] [j := start => opStart self modes start] reads0Offset (start =>
+    givesAfter0
+      [p := () => modes.at Dot]
+      [j := section => opSection self modes start section]
+      (reads0At modes Dot)
+      (section => givesOpSection self modes start section nested outside bases))
