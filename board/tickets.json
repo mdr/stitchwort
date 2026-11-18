@@ -1,5 +1,5 @@
 {
-  "next": 3990,
+  "next": 3991,
   "tickets": [
     {
       "id": 47,
@@ -23769,7 +23769,7 @@
     {
       "id": 3966,
       "title": "[Opus] fmt S1 ticket 15: rule N proofs (sketch §2, 150-230 theorems, est. 130 min; was Fable's in the plan)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23847,7 +23847,7 @@
     {
       "id": 3972,
       "title": "[Sonnet] fmt S1 ticket 19: tidy passes proofs within slice 1 (sketch §2, 40-60 theorems, est. 35 min)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -24069,6 +24069,19 @@
       "id": 3989,
       "title": "[Opus] fmt counterexample search for slices 2 and 3: a generator of S2/S3 trees (binders, blocks, let, if, match) for tools/fmt/dev/probe.py, then a run of a few thousand files on both formatters (SW-3962)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3990,
+      "title": "[Opus] Self-hosted fmt S5a program: the declarations that keep most sampled code out after S4a: test, namespace, import (and a definition's own arms if cheap); within5a, Fmt.Twin --stage s5a; gate identical to Rust on goldens and the repo sample (SW-3961's counts: test 392, namespace 137, import 124, definition arms 105)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
