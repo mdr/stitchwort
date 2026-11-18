@@ -25134,12 +25134,12 @@
     {
       "id": 4068,
       "title": "[Sonnet] fmt proofs tidy (SW-4051), first fixing main: StandsProofs commentFineOf broken by SW-4065's unreturnedSame; share one unreturned definition (noteUnreturned -> Note.unreturned); move StandsProofs' lexer group (Hearing, laidHears) to its own file so Told.Gap needs no qualifying; FileLexProofs W-REWRITE-THEN-COMPUTING fixup",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "FIRST (main broken after SW-4051 met SW-4065): StandsProofs commentFineOf (line ~1236) fails: unreturnedSame now needs no trailing CR and no trailing space. Fix by replacing noteUnreturned with SettleOutputProofs' Note.unreturned (both conditions), so printedStands1's unreturned1 means the same as printedSettle1's; adjust returnedFalls and witnesses.",
+      "body": "FIRST (main broken after SW-4051 met SW-4065): StandsProofs commentFineOf (line ~1236) fails: unreturnedSame now needs no trailing CR and no trailing space. Fix by replacing noteUnreturned with SettleOutputProofs' Note.unreturned (both conditions), so printedStands1's unreturned1 means the same as printedSettle1's; adjust returnedFalls and witnesses.\n\n\nLane notes: fixed (9ba4da71c: check Fmt Fmt.StandsProofs Fmt.SettleOutputProofs 0 [E; audit Fmt.StandsProofs 0 failed; test Fmt.Tests 99 passed); FileLexProofs warning dropped (08eae22e4); lexer group moved to Fmt.HearProofs (28481fff6, Gap unqualified; checks and audits 0 failed). Branch lane/SW-4068.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
