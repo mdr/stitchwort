@@ -25178,7 +25178,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "D3685: binary operators on one line stay on the first path; the multi-line part (17h) moves after the first end-to-end theorem.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25282,7 +25282,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "D3685 (Matt, 18 Nov 2026: 'happy to go with your recommendation'): stage the milestone. First the slice 1 driver also refuses a file when a declaration's formatted form doesn't fit on one line, with a failing-first test; the top theorems are stated and proved for that (formatWithin1 includes the one-line refusal). Multi-line read-back comes after, and the refusal is lifted then. In scope for this lane: the driver refusal, its test, and the statements.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
