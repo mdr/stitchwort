@@ -755,3 +755,82 @@ theorem homedWords ∀ (older: List Leaf)
               (Bool.andRight bare)
               (Bool.andRight marked))
             more
+
+-- From leaves to words: `->` bare.
+
+theorem arrowsBareCons ∀ (word: Word) (words: List Word)
+    (notArrow: ((operatorTok word.text != Some Arrow): Bool) = True)
+    (rest: arrowsBare words = True):
+    arrowsBare [word, ..words] = True :=
+  match words with
+    | [] => byComputing
+    | [next, ..more] => Bool.andIntro (Bool.orLeft notArrow) rest
+
+theorem followFacts ∀ (kind: Tok) (h: arrowFollow kind = False): (kind == Comma) = False ∧ (kind == Arrow) = False := (
+  Bool.orFalseLeft (kind == Comma) kind.isCloser (Bool.orFalseLeft (passableKind kind) (kind == Arrow) h),
+  Bool.orFalseRight (passableKind kind) (kind == Arrow) h
+)
+
+theorem notTrue ∀ (b: Bool) (h: (!b) = True): b = False := cases
+
+theorem notNotOr ∀ (a b: Bool) (h: (!a || !b) = True) (on: a = True): b = False := cases
+
+theorem orFalseR ∀ (a b: Bool) (h: (a || b) = True) (off: b = False): a = True := cases
+
+theorem arrowsWordsPlain ∀ (first: Leaf) (rest: List Leaf)
+    (notComma: (first.token.kind == Comma) = False)
+    (notArrow: (first.token.kind == Arrow) = False)
+    (marked: isMarked first = True)
+    (ih: arrowsBare (wordsOf rest) = True):
+    arrowsBare (wordsOf [first, ..rest]) = True :=
+  let marker := eqOfBeq (operatorTok first.token.text == Some Arrow) (first.token.kind == Arrow) (Bool.andRight marked)
+  let notOperator: (operatorTok first.token.text == Some Arrow) = False := rewrite notArrow at marker then marker
+  rewrite wordsOfItem first rest notComma then arrowsBareCons first.word (wordsOf rest) (rewrite notOperator) ih
+
+theorem arrowsWordsArrow ∀ (first next: Leaf) (more: List Leaf)
+    (notComma: (first.token.kind == Comma) = False)
+    (leafArrows: (first.trivia.trailing.isNone && (next.trivia.leading.isEmpty || next.token.kind == Arrow)) = True)
+    (plain: (!arrowFollow next.token.kind) = True)
+    (ih: arrowsBare (wordsOf [next, ..more]) = True):
+    arrowsBare (wordsOf [first, next, ..more]) = True :=
+  let follow: arrowFollow next.token.kind = False := notTrue _ plain
+  let (nextComma, nextNotArrow) := followFacts next.token.kind follow
+  let own := Bool.andLeft leafArrows
+  let noOwn: next.trivia.leading.isEmpty = True := orFalseR _ _ (Bool.andRight leafArrows) nextNotArrow
+  let noTrail: first.trivia.trailing.isSome = False := noneNotSome first.trivia.trailing own
+  let rest := rewrite wordsOfItem next more nextComma at ih then ih
+  rewrite wordsOfItem first [next, ..more] notComma, wordsOfItem next more nextComma then
+    Bool.andIntro
+      (Bool.orRight (Bool.andIntro (rewrite wordTrails first, noTrail) (rewrite wordNoted next, noOwn)))
+      rest
+
+theorem arrowsWordsSingle ∀ (leaf: Leaf): arrowsBare (wordsOf [leaf]) = True :=
+  match isComma: leaf.token.kind == Comma with
+    | True => byComputing
+    | False => byComputing
+
+--| `->` keeps no comment after it as the leaves say it, so as the words say it: no comma follows a `->` (`plain`),
+--| so the token after it is the word after it.
+theorem arrowsWords ∀ (leaves: List Leaf)
+    (arrows: Syntax.SettleProofs.arrowsBare leaves = True)
+    (plain: plainFrom (tokens leaves) = True)
+    (marked: leaves.all isMarked = True):
+    arrowsBare (wordsOf leaves) = True :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] =>
+      match rest with
+        | [] => arrowsWordsSingle first
+        | [next, ..more] =>
+          let ih :=
+            arrowsWords
+              [next, ..more]
+              (Bool.andRight arrows)
+              (plainTail first [next, ..more] plain)
+              (Bool.andRight marked)
+          match isComma: first.token.kind == Comma with
+            | True => ih
+            | False =>
+              match isArrow: first.token.kind == Arrow with
+                | False => arrowsWordsPlain first [next, ..more] isComma isArrow (Bool.andLeft marked) ih
+                | True => arrowsWordsArrow first next more isComma (Bool.andLeft arrows) (Bool.andLeft plain) ih
