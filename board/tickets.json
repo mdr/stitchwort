@@ -24752,15 +24752,20 @@
     {
       "id": 4040,
       "title": "[Sonnet] fmt S1 output C: prove printedAlphabet1, printedNoLast1, printedPlain1, printedGroups1 (after SW-4038; docs/reviews/SW-4025-output-statements.md ticket C)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 18 Nov): lane/SW-4040. All four proved as stated, in the new tools/fmt/src/Fmt/OutputFileProofs.sw (statements moved out of OutputStatements, pointers left): printedAlphabet1, printedNoLast1, printedPlain1, printedGroups1. Method: one scan (Scan.run) of a declaration's printed texts, carried along the tree by exprRuns/declRuns (alphabet, what may follow what, no closer without an open bracket), then to the leaves by printedTokens1 (leafScan, leafDepth); plain1 also needs hangs (no comma starts a line: hangsFlat); groups need column 0 => starts its line (laid invariant foldOk on declPiecesOk), hangs (hangsCol) and balanced brackets (declDepth), then the splitter over each declaration (groupsSplit). No statement changed. check Fmt, Fmt.OutputStatements, Fmt.TokenProofs, Fmt.FileLexProofs, Fmt.TriviaStatements, Fmt.OutputFileProofs; audit Fmt.OutputFileProofs 99 theorems, 0 failed, 0 warnings; test Fmt.Tests 95 passed. Open goals still in the tree: printedSettle1 (SW-4043), printedSeam1 (SW-4039); the new file rests on FileLexProofs.declPiecesOk only (proved). About 29 min.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "afb99cd75",
+        "cdcbe0f35",
+        "ef13facd7",
+        "5bbb876ff"
+      ]
     },
     {
       "id": 4041,
@@ -24926,7 +24931,7 @@
     {
       "id": 4053,
       "title": "[Sonnet] fmt S1 printedSeam1: a declaration's printed pieces start with its def token and leave nothing waiting at the end (no trailing line break, spaces or own-line comment); carry 'first event is def at column 0' and 'ends mid-line after the last word' through the defDoc trace proofs (SW-4039; Fmt/FileLexProofs.sw)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
