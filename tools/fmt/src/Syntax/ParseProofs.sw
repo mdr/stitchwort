@@ -310,3 +310,173 @@ theorem givesAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           (rightLinkOf (kind => kind == PlusPlus) 12 appendTakesGood)
           addGives))
       (links linksParsed => Parse.givesDone (rightNestedParsed 12 first links firstParsed linksParsed)))
+
+-- Combinators for a parser that looks at the next item and reads it.
+
+--| `bump` then `k` of its word, from a mark whose next item is `item`: `k` of that item's word is read from after it,
+--| where every item left is still good.
+theorem readsAtBumpThen ∀ [start: Parse.Mark Item] [item: Item] [later: List Item]
+    [k: Word → {Parse Item} b] [holds: b → Prop]
+    (shape: start.rest = [item, ..later])
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (rest: ∀ (after: Parse.Mark Item) => Parse.Fits Item GoodItems after.rest
+      → Parse.ReadsAt after (() => k item.leaf.word) (read value => holds value)):
+    Parse.ReadsAt start (() => k (bump())) (read value => holds value) :=
+  Parse.readsAtThen (readsAtBump shape) (read word after starts (Both single same) =>
+    rewrite same then rest after (Parse.Fits.after fine starts))
+
+--| A parser that looks at what `modes.peek` sees: `k` of it, read from every mark where the item left is `item`
+--| (not stopping the parse) or `modes.peek` is `None`.
+theorem readsInPeeked ∀ (modes: Modes) (k: Option Tok → {Parse Item} a) (spec: List Item → a → Prop)
+    (nothing: ∀ (start: Parse.Mark Item) => Parse.Fits Item GoodItems start.rest
+      → (start.rest = []
+        ∨ ∃ (item: Item) => ∃ (later: List Item) => start.rest = [item, ..later] ∧ modes.stops item = True)
+      → Parse.ReadsAt start (() => k None) spec)
+    (something: ∀ (start: Parse.Mark Item) (item: Item) (later: List Item) => start.rest = [item, ..later]
+      → Parse.Fits Item GoodItems start.rest
+      → modes.stops item = False
+      → Parse.ReadsAt start (() => k (Some item.kind)) spec):
+    Parse.ReadsIn GoodItems (() => k modes.peek) spec :=
+  Parse.readsInMark (here => k (peekIn modes 0 here.rest)) spec (start fine =>
+    match start with
+      | { rest = [], offset, left } => nothing { rest = [], offset, left } fine (Inl byComputing)
+      | { rest = [item, ..later], offset, left } =>
+        match stopped: modes.stops item with
+          | True =>
+            nothing
+              { rest = [item, ..later], offset, left }
+              fine
+              (Inr (Witness item (Witness later (Both byComputing stopped))))
+          | False => something { rest = [item, ..later], offset, left } item later byComputing fine stopped)
+
+-- Look-aheads: parsers that only look, and read nothing.
+
+--| A parser that reads nothing, from every mark where the items left are good.
+def Reads0 (p: () → {Parse Item} a): Prop :=
+  ∀ (start: Parse.Mark Item) => Parse.Fits Item GoodItems start.rest → Parse.ReadsAt start p (read value => read = [])
+
+theorem reads0Done ∀ (x: a): Reads0 (() => x) := start fine => Parse.readsAtDone start x _ byComputing
+
+--| What a mark shows, read by a pure function: nothing is read.
+theorem reads0Mark ∀ (f: Parse.Mark Item → a): Reads0 (() => f (Parse.mark())) := start fine =>
+  Parse.readsInMark (here => f here) _ (here fine1 => Parse.readsAtDone _ (f here) _ byComputing) start fine
+
+theorem reads0Then ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} b]
+    (first: Reads0 p)
+    (rest: ∀ (value: a) => Reads0 (() => j value)):
+    Reads0 (() => j (p())) :=
+  start fine =>
+    Parse.readsAtThen (first start fine) (read value after starts empty =>
+      Parse.readsAtWeaken (rest value after (Parse.Fits.after fine starts)) (taken result nothing =>
+        rewrite empty then nothing))
+
+theorem reads0Left: Reads0 (() => left()) := reads0Mark (here => here.rest)
+
+theorem reads0If ∀ (c: Bool) [yes no: () → {Parse Item} a]
+    (whenYes: Reads0 yes)
+    (whenNo: Reads0 no):
+    Reads0 (() => if c then yes() else no()) :=
+  match c with
+    | True => whenYes
+    | False => whenNo
+
+theorem reads0Peek ∀ (modes: Modes): Reads0 (() => modes.peek) := reads0Mark (here => peekIn modes 0 here.rest)
+
+theorem reads0PeekAt ∀ (modes: Modes) (ahead: Nat): Reads0 (() => modes.peekAt ahead) :=
+  reads0Mark (here => peekIn modes ahead here.rest)
+
+theorem reads0At ∀ (modes: Modes) (wanted: Tok): Reads0 (() => modes.at wanted) :=
+  reads0Then (reads0Peek modes) (found => reads0Done _)
+
+theorem reads0BareCases ∀ (modes: Modes): Reads0 (() => bareCases modes) := reads0Then (reads0PeekAt modes 1) (found =>
+  match found with
+    | Some KwThen => reads0Done False
+    | Some KwIn => reads0Done False
+    | other => reads0Done True)
+
+theorem reads0StartsAtom ∀ (modes: Modes): Reads0 (() => startsAtom modes) := reads0Then (reads0Peek modes) (found =>
+  match found with
+    | Some kind =>
+      match opensArgument kind with
+        | True => reads0Done True
+        | False =>
+          reads0Then
+            (reads0If (kind == Dot) (reads0Then reads0Left (items => reads0Done (sectionAt items))) (reads0Done False))
+            (dotSection =>
+              match dotSection with
+                | True => reads0Done True
+                | False => reads0Then (reads0If (kind == KwCases) (reads0BareCases modes) (reads0Done False)) (bare =>
+                  match bare with
+                    | True => reads0Done True
+                    | False => reads0Then reads0Left (items => reads0Done (argumentPrefix items))))
+    | None => reads0Done False)
+
+-- Atoms and what follows them.
+
+--| An expression outside slice 1 is parsed at every floor.
+theorem parsedOutside ∀ (floor: Nat) (expr: Expr) (outside: expr.within1 = False): Parsed1 floor expr := within =>
+  (Bool.falseNotTrue (rewrite outside at within)).impossible
+
+theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
+  Parse.givesThen
+    [first := found => True]
+    (Parse.readsWeaken (Parse.readsNext (item => True)) (read found facts => byComputing))
+    (found done =>
+      match found with
+        | Some item => Parse.givesDone byComputing
+        | None => Parse.readsFatal "the parser read past the end of its input" _)
+
+theorem givesLeft: Parse.Gives GoodItems (() => left()) (found => True) :=
+  Parse.readsInMark (here => here.rest) _ (start fine => Parse.readsAtDone _ start.rest _ byComputing)
+
+theorem givesSuffixCalled ∀ (floor: Nat) (target: Expr) (callable paren: Bool)
+    (parsed: Parsed1 floor target):
+    Parse.Gives GoodItems (() => suffixCalled target callable paren) (Parsed1 floor) :=
+  Parse.givesThen givesLeft (seen found =>
+    match unitCall seen with
+      | False => Parse.givesDone parsed
+      | True =>
+        match callable || (paren && callableParen target) with
+          | False => Parse.givesDone parsed
+          | True => Parse.givesThen givesBump (open _ =>
+            Parse.givesThen givesBump (close _ =>
+              Parse.givesDone (parsedOutside floor (App target [Unit open close]) (Bool.andFalse target.within1)))))
+
+--| `suffixes` after the call: a field access starts another round on a tree outside the slice, and nothing else changes
+--| the tree.
+theorem givesSuffixesOn ∀ (floor more: Nat) (modes: Modes) (called: Expr) (paren: Bool) (items: List Item)
+    (parsed: Parsed1 floor called)
+    (next: ∀ (target: Expr) (callable: Bool) => Parsed1 floor target
+      → Parse.Gives GoodItems (() => suffixes more modes target callable paren) (Parsed1 floor)):
+    Parse.Gives GoodItems (() => suffixesOn more modes called paren items) (Parsed1 floor) :=
+  match items with
+    | [dot, field, ..later] =>
+      match dot.kind == Dot && !modes.stops dot && !sectionAt [dot, field, ..later] with
+        | False => Parse.givesDone parsed
+        | True =>
+          match !((field.kind == Lower || field.kind == Upper) && !isQualified field && !modes.stops field) with
+            | True => Parse.readsFatal _ _
+            | False =>
+              match !dot.glued || !field.glued with
+                | True => Parse.readsFatal _ _
+                | False => Parse.givesThen givesBump (dotLeaf _ =>
+                  Parse.givesThen givesBump (name _ =>
+                    next (FieldAccess (Some called) dotLeaf name) True (parsedOutside floor _ byComputing)))
+    | [dot] =>
+      match dot.kind == Dot && !modes.stops dot with
+        | True => Parse.readsFatal _ _
+        | False => Parse.givesDone parsed
+    | other => Parse.givesDone parsed
+
+--| `suffixes` keeps a parsed tree: a call or a field access makes one outside the slice.
+--|
+--| Proof idea: by induction on the fuel; each round is `suffixCalled`, then `suffixesOn` with the round after it.
+theorem givesSuffixes ∀ (floor fuel: Nat) (modes: Modes) (target: Expr) (callable paren: Bool)
+    (parsed: Parsed1 floor target):
+    Parse.Gives GoodItems (() => suffixes fuel modes target callable paren) (Parsed1 floor) :=
+  match fuel with
+    | Zero => Parse.givesDone parsed
+    | Succ more => Parse.givesThen (givesSuffixCalled floor target callable paren parsed) (called calledParsed =>
+      Parse.givesThen givesLeft (seen _ =>
+        givesSuffixesOn floor more modes called paren seen calledParsed (later again againParsed =>
+          givesSuffixes floor more modes later again paren againParsed)))

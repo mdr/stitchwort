@@ -1144,23 +1144,34 @@ def atom (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool): {Parse 
 
 def suffixes (fuel: Nat) (modes: Modes) (target: Expr) (callable paren: Bool): {Parse Item} Expr := match fuel with
   | Zero => target
-  | Succ more =>
-    let called :=
-      if unitCall left() && (callable || paren && callableParen target) then
-        let open := bump()
-        App target [Unit open bump()]
-      else target
-    let items := left()
-    match items with
-      | [dot, field, .._] if dot.kind == Dot && !modes.stops dot && !sectionAt items =>
-        if !((field.kind == Lower || field.kind == Upper) && !isQualified field && !modes.stops field) then
-          fatal "expected a field name after `.`"
-        else if !dot.glued || !field.glued then fatal "field access is written without spaces around the `.`"
-        else
-          let dotLeaf := bump()
-          suffixes more modes (FieldAccess (Some called) dotLeaf bump()) True paren
-      | [dot] if dot.kind == Dot && !modes.stops dot => fatal "expected a field name after `.`"
-      | _ => called
+  | Succ more => suffixesAfterCall more modes (suffixCalled target callable paren) paren
+
+--| `f()`, if the next two items are a glued `()` and `target` can be called.
+def suffixCalled (target: Expr) (callable paren: Bool): {Parse Item} Expr := suffixCalledOn target callable paren left()
+
+def suffixCalledOn (target: Expr) (callable paren: Bool) (items: List Item): {Parse Item} Expr :=
+  if unitCall items && (callable || paren && callableParen target) then
+    let open := bump()
+    let close := bump()
+    App target [Unit open close]
+  else target
+
+--| A field access after `called`, and what follows it.
+def suffixesAfterCall (more: Nat) (modes: Modes) (called: Expr) (paren: Bool): {Parse Item} Expr :=
+  suffixesOn more modes called paren left()
+
+def suffixesOn (more: Nat) (modes: Modes) (called: Expr) (paren: Bool) (items: List Item): {Parse Item} Expr :=
+  match items with
+    | [dot, field, .._] if dot.kind == Dot && !modes.stops dot && !sectionAt items =>
+      if !((field.kind == Lower || field.kind == Upper) && !isQualified field && !modes.stops field) then
+        fatal "expected a field name after `.`"
+      else if !dot.glued || !field.glued then fatal "field access is written without spaces around the `.`"
+      else
+        let dotLeaf := bump()
+        let name := bump()
+        suffixes more modes (FieldAccess (Some called) dotLeaf name) True paren
+    | [dot] if dot.kind == Dot && !modes.stops dot => fatal "expected a field name after `.`"
+    | _ => called
 
 --| Whether `(e)()` calls `e`: a name or a field access, in brackets.
 def callableParen: Expr → Bool
