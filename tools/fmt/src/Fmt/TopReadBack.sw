@@ -78,11 +78,8 @@ def PrintedGroup (decl read: Decl) (group: List Leaf): Prop :=
 --| What it needs: the tokens are the rules' spelling, comma between items and kinds the lexer's (`printedTokens1`);
 --| the group's words are `read`'s (the hypothesis); and the glue facts each item carries (`glued`, `afterOperand`),
 --| which come from the printed spacing: SW-4075 (std's `touches`), SW-4076 (`printedSpacing1`, then `Spelt` of a
---| printed expression), with `Spelt`'s one-way prefix clause (SW-4077). `Spelt` and `lineKind` take every binary
---| operator of slice 1, `&&` and `||` included (`logicLine`).
---|
---| False as stated: a call's head may be `-` on a numeral (`def d: A := -1 n`), which `Spelt` doesn't spell
---| (`Fmt.PrefixHeadSplit.printedSplitFails`). `Spelt` must take such heads, or the slice leave them out, first.
+--| printed expression), with `Spelt`'s one-way prefix clause and its negative numeral heads (SW-4077). `Spelt` and
+--| `lineKind` take every binary operator of slice 1, `&&` and `||` included (`logicLine`).
 theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
     (printed: PrintedGroup decl read group):
     ∃ (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr) => GroupSplit group read
