@@ -1,5 +1,5 @@
 {
-  "next": 3992,
+  "next": 3993,
   "tickets": [
     {
       "id": 47,
@@ -24097,6 +24097,19 @@
       "id": 3991,
       "title": "[Sonnet] Self-hosted fmt: defArmsDoc repeats defDoc's header half; share one header function, after the slice 1 rules proofs (18a/18b) land (SW-3990)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3992,
+      "title": "[Opus] Self-hosted fmt S4b program: patterns: list patterns [x, ..xs], absurd patterns, tuple patterns, (p), in match arms and a definition's arms; plus unit () and named arguments (f (n := 1)) if they come cheaply; within4b, Fmt.Twin --stage s4b; gate identical to Rust; rerun SW-3990's census (top outside after S5a: PatternList 205, PatternAbsurd 112, Annotation 77, NamedArg 50, Membership 46, Unit 42, PatternTuple 39)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
