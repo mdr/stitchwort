@@ -64,8 +64,9 @@ theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.
   | Prefix operator operand, argument => arithmetic
   | other, argument => (Bool.falseNotTrue argument).impossible
 
--- What the parsers outside slice 1 give: SW-4000 discharges these. Each is `Out` (the tree is outside the slice) or
--- `True` (the tree is wrapped in a node that is).
+-- What the parsers outside slice 1 give. Each is `Out` (the tree is outside the slice) or `True` (the tree is wrapped in
+-- a node that is). `outsideOf` and `frameOf` prove most of them; `OutsideRest` and `FrameRest` are what is still
+-- assumed (SW-4000's follow-up).
 
 --| A line of a block is good when it is an expression that is: `let`s and local definitions are outside the slice.
 def StatementOk (statement: Statement): Prop := match statement with
@@ -3047,7 +3048,7 @@ def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: Ou
   statementOthers = rest.statementOthers
 }
 
---| What the parsers outside slice 1 give, for every `self` that gives what `GoalParsed` says: SW-4000 proves it.
+--| What the parsers outside slice 1 give, for every `self` that gives what `GoalParsed` says, but for the facts `outsideOf` proves.
 def OutsideGives: Type := ∀ (self: Goal → {Parse Item} Expr) => Nested self → OutsideRest self
 
 --| `expressionAt`, which starts the recursion from a declaration's level, gives what `GoalParsed` says at every goal.
@@ -3128,7 +3129,7 @@ theorem givesDefinitionName ∀ (modes: Modes): Parse.Gives GoodItems (() => def
 
 --| What the frame of a declaration reads that is outside slice 1: attributes, the declarations that aren't plain
 --- definitions, the parts of a header that a plain definition has none of (`∀`, parameters, `decreasing`,
---| `unfolding`), and a definition's arms. SW-4000 proves these.
+--| `unfolding`), and a definition's arms. `frameOf` proves some of these; `FrameRest` is what is left.
 type Frame (self: Goal → {Parse Item} Expr) = {
   attributes: ∀ (modes: Modes) => Parse.Gives GoodItems (() => attributesOf modes) (found => True),
   namespaces: ∀ (seen: Seen) (modes: Modes) => Parse.Gives GoodItems (() => namespaceStep seen modes) DeclOut,
@@ -3870,8 +3871,8 @@ theorem declsShapedLexical ∀ (decls: List Decl)
 
 --| Every declaration of a file of slice 1 that the parser gives is shaped (`Shaped1`, `Decl.shaped1`).
 --|
---| It assumes what the parsers outside slice 1 give (`OutsideGives`, `Frame`), which SW-4000 proves, and that every
---| item of every declaration's group is good (the lexer's spelling, `GoodItem`).
+--| It assumes what the parsers outside slice 1 give that is not yet proved (`OutsideGives`, which is `OutsideRest`, and
+--| `FrameRest`), and that every item of every declaration's group is good (the lexer's spelling, `GoodItem`).
 theorem parseShaped1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
