@@ -593,3 +593,199 @@ theorem chainedSnoc ∀ (step: Bool → Bool → Doc → Prop) (before middle tr
     | [], same => rewrite same then (trails, holds, byComputing)
     | [doc, ..rest], (between, first, more) =>
       (between, first, chainedSnoc step between middle trails rest last more holds)
+
+-- A call's arguments.
+
+--| Where a call's argument stands, after the element before it.
+def argAround (arm: Bool) (previous: Expr) (at: Nat): Around :=
+  { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+
+--| An element that hangs wherever it is laid, seated at its indentation.
+def Hangs (kinds: Text → Tok) (before trails: Bool) (doc: Doc): Prop :=
+  ∀ (inset: Nat) => ElHangs kinds doc inset inset before trails wordStart
+
+--| A call's last argument.
+def lastArg (argument: Expr): List Expr → Expr
+  | [] => argument
+  | [next, ..rest] => lastArg next rest
+
+--| What a call's arguments ask, each after the one before (`previous`, the function at first): each hangs as an
+--| element, and the last's hug, if it has one, as well.
+def ArgsHang (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat): List Expr → Prop
+  | [] => True
+  | [argument] =>
+    Hangs kinds previous.trails argument.trails (lastArgument argument (argAround arm previous at)).fst
+      ∧ (∀ (opened: Doc) => (lastArgument argument (argAround arm previous at)).snd = Some opened
+        → Hangs kinds previous.trails argument.trails opened)
+  | [argument, ..rest] =>
+    Hangs kinds previous.trails argument.trails (argument.el (argAround arm previous at))
+      ∧ ArgsHang kinds arm argument (at + argument.size) rest
+
+--| A call's argument documents (`argumentDocs`) hang in turn, from where the function ended.
+--|
+--| Proof idea: by the arguments, as `argumentDocs` builds its documents; the last gives the last document and its
+--| hug.
+theorem argumentDocsHang ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr) (rest: List Expr)
+    (facts: ArgsHang kinds arm previous at [argument, ..rest]):
+    ∃ (fronted: Bool) => Chained
+      (before middle doc => Hangs kinds before middle doc)
+      previous.trails
+      fronted
+      (argumentDocs arm previous at [argument, ..rest]).fst
+      ∧ Hangs kinds fronted
+        (lastArg argument rest).trails
+        ((argumentDocs arm previous at [argument, ..rest]).snd.getOrElse (Nothing, None)).fst
+      ∧ (∀ (opened: Doc) => ((argumentDocs arm previous at [argument, ..rest]).snd.getOrElse (Nothing, None)).snd
+        = Some opened
+        → Hangs kinds fronted (lastArg argument rest).trails opened) :=
+  match rest, facts with
+    | [], (last, hug) => (previous.trails, byComputing, last, hug)
+    | [following, ..more], (first, others) =>
+      let (fronted, chain, last, hug) := argumentDocsHang kinds arm argument (at + argument.size) following more others
+      (fronted, (argument.trails, first, chain), last, hug)
+
+--| `appDocs` as `appFrom` takes it, the count of elements kept on the call's line written `k + 1`.
+theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
+    appDocs head arguments around
+      = appFrom
+        (around.at + 1)
+        (keptFront head arguments + 1)
+        (commentBetween head arguments)
+        (commentBetween head (arguments.take (keptFront head arguments)))
+        (head.el around)
+        (argumentDocs around.inArm head (around.at + head.size) arguments).fst
+        ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).fst
+        ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).snd :=
+  rewrite Nat.addComm 1 (keptFront head arguments)
+
+--| A call's parts (`appDocs`) as one element, the fold after them as after its function's first word.
+--|
+--| Proof idea: `appDocsIs` and `appFromHangs`; what each layout asks of the elements comes from each argument
+--| hanging wherever it is laid (`argumentDocsHang`): spaced, it is a part (`elPart`); on a line of its own, it starts
+--| after no waiting comment (`elUnheld`); and the chain cuts where the kept elements end (`chainedSplit`).
+theorem appDocsHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List Expr) (around: Around) (indent column: Nat)
+    (headHangs: ∀ (inset: Nat) => ElHangs kinds (head.el around) inset column False head.trails wordStart)
+    (facts: ArgsHang kinds around.inArm head (around.at + head.size) [argument, ..rest]):
+    ElHangs kinds
+      (appDocs head [argument, ..rest] around).doc
+      indent
+      column
+      False
+      (lastArg argument rest).trails
+      wordStart :=
+  let arguments := [argument, ..rest]
+  let docs := argumentDocs around.inArm head (around.at + head.size) arguments
+  let front := docs.fst
+  let lastDoc := (docs.snd.getOrElse (Nothing, None)).fst
+  let hug := (docs.snd.getOrElse (Nothing, None)).snd
+  let k := keptFront head arguments
+  let trails := (lastArg argument rest).trails
+  let (fronted, chain, last, hugs) :=
+    argumentDocsHang kinds around.inArm head (around.at + head.size) argument rest facts
+  let all :=
+    chainedSnoc (before middle doc => Hangs kinds before middle doc) head.trails fronted trails front lastDoc chain last
+  let spacedAll: SpacedParts kinds indent head.trails trails (front ++ [lastDoc]) :=
+    chainedWeaker
+      (before middle doc => Hangs kinds before middle doc)
+      (before middle doc => PartHangs kinds doc indent before middle)
+      head.trails
+      trails
+      (front ++ [lastDoc])
+      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
+      all
+  let filledAll: FilledArgs kinds (indent + 4) head.trails trails (front ++ [lastDoc]) :=
+    chainedWeaker
+      (before middle doc => Hangs kinds before middle doc)
+      (before middle doc => ElHangs kinds doc (indent + 4) (indent + 4) before middle wordStart)
+      head.trails
+      trails
+      (front ++ [lastDoc])
+      (before middle doc hangs => hangs (indent + 4))
+      all
+  let (kept, keptChain, restChain) :=
+    chainedSplit (before middle doc => Hangs kinds before middle doc) head.trails trails (front ++ [lastDoc]) k all
+  let lined: ∀ (more: Nat) => LinedArgs kinds (indent + more) kept trails ((front ++ [lastDoc]).drop k) := more =>
+    chainedWeaker
+      (before middle doc => Hangs kinds before middle doc)
+      (before middle doc => ElHangs kinds doc (indent + more) (indent + more) False middle wordStart)
+      kept
+      trails
+      ((front ++ [lastDoc]).drop k)
+      (before middle doc hangs =>
+        elUnheld kinds doc (indent + more) (indent + more) before middle wordStart (hangs (indent + more)))
+      restChain
+  let keptSpaced: SpacedParts kinds indent head.trails kept ((front ++ [lastDoc]).take k) :=
+    chainedWeaker
+      (before middle doc => Hangs kinds before middle doc)
+      (before middle doc => PartHangs kinds doc indent before middle)
+      head.trails
+      kept
+      ((front ++ [lastDoc]).take k)
+      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
+      keptChain
+  let keptFilled: FilledArgs kinds (indent + 4) head.trails kept ((front ++ [lastDoc]).take k) :=
+    chainedWeaker
+      (before middle doc => Hangs kinds before middle doc)
+      (before middle doc => ElHangs kinds doc (indent + 4) (indent + 4) before middle wordStart)
+      head.trails
+      kept
+      ((front ++ [lastDoc]).take k)
+      (before middle doc hangs => hangs (indent + 4))
+      keptChain
+  let frontSpaced: SpacedParts kinds indent head.trails fronted front :=
+    chainedWeaker
+      (before middle doc => Hangs kinds before middle doc)
+      (before middle doc => PartHangs kinds doc indent before middle)
+      head.trails
+      fronted
+      front
+      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
+      chain
+  let hugged: ∀ (opened: Doc) => hug = Some opened → PartHangs kinds opened indent fronted trails := opened same =>
+    elPart kinds opened indent fronted trails (hugs opened same indent)
+  rewrite appDocsIs head arguments around then
+    appFromHangs kinds
+      (around.at + 1)
+      k
+      (commentBetween head arguments)
+      (commentBetween head (arguments.take k))
+      (head.el around)
+      front
+      lastDoc
+      hug
+      indent
+      column
+      head.trails
+      trails
+      headHangs
+      (spacedAll, filledAll, (kept, keptSpaced, keptFilled, lined 2, lined 4), (fronted, frontSpaced, hugged))
+
+--| A call (`App`) as an element, framed, the call's own-line comments written elsewhere or none.
+theorem appElHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List Expr) (around: Around) (indent column: Nat)
+    (bare: (App head [argument, ..rest]).firstWord.leading around around.at = [])
+    (headHangs: ∀ (inset seat: Nat) => ElHangs kinds
+      (head.el { around | hoisted = True })
+      inset
+      seat
+      False
+      head.trails
+      wordStart)
+    (facts: ArgsHang kinds around.inArm head (around.at + head.size) [argument, ..rest]):
+    ElHangs kinds
+      (Expr.el (App head [argument, ..rest]) around)
+      indent
+      column
+      around.before
+      (lastArg argument rest).trails
+      wordStart :=
+  let inside := { around | hoisted = True }
+  framedHangs kinds
+    (App head [argument, ..rest]).firstWord
+    around
+    (appDocs head [argument, ..rest] inside).doc
+    indent
+    column
+    (lastArg argument rest).trails
+    bare
+    (inset seat =>
+      appDocsHangs kinds head argument rest inside inset seat (headInset => headHangs headInset seat) facts)
