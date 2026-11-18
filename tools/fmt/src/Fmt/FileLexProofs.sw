@@ -457,10 +457,12 @@ theorem printedStart1 ∀ (decl: Decl)
 --| `printedFinish1`, the second half of `printedSeam1` (open): a slice 1 declaration's printed text has a last token,
 --| and after it only spaces and a trailing comment on its line.
 --|
---| Why it should hold, and what is missing: the printer ends on a line (`Agrees` at a `Mid` or `Held` place says
---| `lineBlank out = False`), and no comment stands alone as the last word (`Joins` with the final edge `Ended`).
---| Neither is exposed by `printPuts`/`printedJoins`: `Puts` hands only the place and trace to its `spec`, and
---| `StackJoins` ends in `True`, not in a condition on the last edge.
+--| Why it should hold, and what is missing: the value's element ends with a word leaf, a token and at most its
+--| trailing comment, so the printer ends on that token's line. No proof says so from these four facts: `Puts` and
+--| `Lays` (whose `Mid` or `Held` end place gives `lineBlank out = False`) are proved of a declaration's document
+--| only under `DeclElements`, and `Joins`' end edge `Ended` allows `Plain None`, the edge after a line break.
+--| What is needed is the dual of `printedStart1`'s `Leads`: the element ends with a token, whatever its layout, by
+--| induction over slice 1's expressions.
 theorem printedFinish1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
