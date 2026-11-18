@@ -24,8 +24,38 @@ import Std.Doc.Proofs (
   printedOf,
   startsAs
 )
-import Syntax (Comment, Comments, Leaf, Note, Tok, Token, Trivia, Word, withTrailing, withoutReturn)
-import Fmt (isCloserText)
+import Syntax (
+  Comment,
+  Comments,
+  Decl,
+  DefBody,
+  DefKind,
+  Expr,
+  Header,
+  InfixKind,
+  Leaf,
+  Note,
+  Tok,
+  Token,
+  Trivia,
+  Word,
+  withTrailing,
+  withoutReturn
+)
+import Syntax.Proofs (Spells)
+import Fmt (..)
+import Fmt.TreeJoinProofs (
+  OperatorSpells,
+  PrefixSpells,
+  Quiet,
+  lexKind,
+  operatorSpellsOf,
+  prefixSpellsOf,
+  spellsOfText1,
+  spellsQuiet,
+  wordQuiet
+)
+import Fmt.SettleOutputProofs (unreturnedSame)
 import Fmt.TriviaStatements (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.ToldDeclProofs (..)
@@ -403,11 +433,11 @@ theorem heardStands ∀ (owed: Option Text) (bits: List Bit) (leaves: List Leaf)
 def CommentFine (text: Text): Prop := text.startsWith "--" = True ∧ withoutReturn text = text
 
 def NotesFine: List Note → Prop
-  | [] => Unit
+  | [] => True
   | [note, ..rest] => CommentFine note.text ∧ NotesFine rest
 
 def AfterFine: Option Text → Prop
-  | None => Unit
+  | None => True
   | Some text => CommentFine text
 
 --| A word the lexer reads back as itself: a token of a kind that is a comma or closer exactly when its text is, and its
@@ -422,7 +452,7 @@ def WordFine (kinds: Text → Tok) (word: Word): Prop :=
     ∧ AfterFine word.comments.after
 
 def BitsFine (kinds: Text → Tok): List Bit → Prop
-  | [] => Unit
+  | [] => True
   | [AComma, ..rest] => kinds "," = Comma ∧ BitsFine kinds rest
   | [AWord word, ..rest] => WordFine kinds word ∧ BitsFine kinds rest
 
@@ -959,3 +989,139 @@ theorem bitsHeard ∀ (kinds: Text → Tok) (bits: List Bit): HeardFrom kinds bi
                                         (opens, Inr (byComputing, rewrite commentWord at heardRest then heardRest))
                                       ))
                                   )
+
+-- The tree's bits.
+
+--| A token as a declaration's reading has it: with no comments above it where its frame wrote them (`hoisted`), else
+--| as `calm` keeps it.
+def Word.bitK (word: Word) (item hoisted: Bool): Word :=
+  if hoisted then { word | comments = { above = [], after = word.comments.after, blankBefore = False } }
+  else word.kept item (isCloserText word.text)
+
+--| An expression's tokens and the bare commas between a bracket's items, as `Expr.shape` reads them.
+def Expr.bits: Expr → Bool → Bool → List Bit
+  | Atom _ word, item, hoisted => [AWord (word.bitK item hoisted)]
+  | Paren open inner close, item, hoisted =>
+    [AWord (open.bitK item hoisted), ..inner.bits False False] ++ [AWord (close.bitK False False)]
+  | Tuple open items _ close, item, hoisted =>
+    [AWord (open.bitK item hoisted), ..itemsBits True items] ++ [AWord (close.bitK False False)]
+  | ListOf open items _ close, item, hoisted =>
+    [AWord (open.bitK item hoisted), ..itemsBits (!items.all Expr.plainItem) items] ++ [AWord (close.bitK False False)]
+  | App head arguments, item, hoisted => head.bits item hoisted ++ argumentsBits arguments
+  | Infix _ left operator right, item, hoisted =>
+    left.bits item hoisted ++ [AWord (operator.bitK False False), ..right.bits False False]
+  | Prefix operator operand, item, hoisted => [AWord (operator.bitK item hoisted), ..operand.bits False False]
+  | _, _, _ => []
+
+def itemsBits (first: Bool): List Expr → List Bit
+  | [] => []
+  | [item] => item.bits first False
+  | [item, ..rest] => item.bits first False ++ [AComma] ++ itemsBits True rest
+
+def argumentsBits: List Expr → List Bit
+  | [] => []
+  | [argument, ..rest] => argument.bits False False ++ argumentsBits rest
+
+def Decl.bits: Decl → List Bit
+  | Definition _ header (Assigned colonEq value) => [
+    AWord ((fixedWord "def" header.keyword).bitK False True),
+    AWord (header.name.bitK False False),
+    AWord ((fixedWord ":" header.colon).bitK False False),
+    ..(header.result.bits False False ++ [AWord ((fixedWord ":=" colonEq).bitK False False), ..value.bits False False])
+  ]
+  | _ => []
+
+theorem bitsShapeAppend ∀ (front back: List Bit): bitsShape (front ++ back) = bitsShape front ++ bitsShape back :=
+  match front with
+    | [] => byComputing
+    | [bit, ..rest] => rewrite bitsShapeAppend rest back, List.appendAssoc bit.shape (bitsShape rest) (bitsShape back)
+
+theorem bitsWordsAppend ∀ (front back: List Bit): bitsWords (front ++ back) = bitsWords front ++ bitsWords back :=
+  match front with
+    | [] => byComputing
+    | [AWord word, ..rest] => rewrite bitsWordsAppend rest back
+    | [AComma, ..rest] => bitsWordsAppend rest back
+
+theorem bitsFineAppend ∀ (kinds: Text → Tok) (front back: List Bit)
+    (frontFine: BitsFine kinds front)
+    (backFine: BitsFine kinds back):
+    BitsFine kinds (front ++ back) :=
+  match front, frontFine with
+    | [], _ => backFine
+    | [AWord word, ..rest], (fine, restFine) => (fine, bitsFineAppend kinds rest back restFine backFine)
+    | [AComma, ..rest], (fine, restFine) => (fine, bitsFineAppend kinds rest back restFine backFine)
+
+theorem bitShapeOne ∀ (word: Word): bitsShape [AWord word] = word.shapeW := List.appendNil word.shapeW
+
+--| What an expression tells is its bits' reading.
+--|
+--| Proof idea: by induction on the expression, as `Expr.shape` and `Expr.bits` are written alike, joining with
+--| `bitsShapeAppend`.
+theorem shapeBits ∀ (expr: Expr) (item hoisted: Bool): expr.shape item hoisted = bitsShape (expr.bits item hoisted) :=
+  match expr with
+    | Atom kind word => (bitShapeOne (word.bitK item hoisted)).flipped
+    | Paren open inner close =>
+      rewrite bitsShapeAppend [AWord (open.bitK item hoisted), ..inner.bits False False] [
+            AWord (close.bitK False False)
+          ],
+          bitShapeOne (close.bitK False False),
+          <- shapeBits inner False False,
+          List.appendAssoc (open.bitK item hoisted).shapeW (inner.shape False False) (close.bitK False False).shapeW
+    | Tuple open items comma close =>
+      rewrite bitsShapeAppend [AWord (open.bitK item hoisted), ..itemsBits True items] [AWord (close.bitK False False)],
+          bitShapeOne (close.bitK False False),
+          <- itemsShapeBits True items,
+          List.appendAssoc (open.bitK item hoisted).shapeW (itemsShape True items) (close.bitK False False).shapeW
+    | ListOf open items comma close =>
+      rewrite bitsShapeAppend [AWord (open.bitK item hoisted), ..itemsBits (!items.all Expr.plainItem) items] [
+            AWord (close.bitK False False)
+          ],
+          bitShapeOne (close.bitK False False),
+          <- itemsShapeBits (!items.all Expr.plainItem) items,
+          List.appendAssoc
+            (open.bitK item hoisted).shapeW
+            (itemsShape (!items.all Expr.plainItem) items)
+            (close.bitK False False).shapeW
+    | App head arguments =>
+      rewrite bitsShapeAppend (head.bits item hoisted) (argumentsBits arguments),
+          <- shapeBits head item hoisted,
+          <- argumentsShapeBits arguments
+    | Infix kind left operator right =>
+      rewrite bitsShapeAppend (left.bits item hoisted) [AWord (operator.bitK False False), ..right.bits False False],
+          <- shapeBits left item hoisted,
+          <- shapeBits right False False
+    | Prefix operator operand => rewrite <- shapeBits operand False False
+    | Binding _ _ _ _ _ => byComputing
+    | Effect _ _ => byComputing
+    | If _ _ _ _ _ _ _ => byComputing
+    | Match _ _ _ _ => byComputing
+    | Block _ _ _ => byComputing
+    | LetIn _ _ _ => byComputing
+    | _ => byComputing
+
+theorem itemsShapeBits ∀ (first: Bool) (items: List Expr): itemsShape first items = bitsShape (itemsBits first items) :=
+  match items with
+    | [] => byComputing
+    | [item] => shapeBits item first False
+    | [item, next, ..more] =>
+      rewrite bitsShapeAppend (item.bits first False) ([AComma] ++ itemsBits True [next, ..more]),
+          <- shapeBits item first False,
+          <- itemsShapeBits True [next, ..more]
+
+theorem argumentsShapeBits ∀ (arguments: List Expr): argumentsShape arguments = bitsShape (argumentsBits arguments) :=
+  match arguments with
+    | [] => byComputing
+    | [argument, ..rest] =>
+      rewrite bitsShapeAppend (argument.bits False False) (argumentsBits rest),
+          <- shapeBits argument False False,
+          <- argumentsShapeBits rest
+
+theorem declShapeBits ∀ (decl: Decl): decl.shape = bitsShape decl.bits := match decl with
+  | Definition attributes header (Assigned colonEq value) =>
+    rewrite bitsShapeAppend (header.result.bits False False) [
+          AWord ((fixedWord ":=" colonEq).bitK False False),
+          ..value.bits False False
+        ],
+        <- shapeBits header.result False False,
+        <- shapeBits value False False
+  | _ => byComputing
