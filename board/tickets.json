@@ -24770,7 +24770,7 @@
     {
       "id": 4041,
       "title": "[Sonnet] fmt S1 output D: SourceFile.calm clears the file's first blank-line flag; re-prove calmTwice, calmWithin, calmMeans, calmPrints; calmTop goes (docs/reviews/SW-4025-output-statements.md ticket D)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
