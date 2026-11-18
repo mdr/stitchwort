@@ -401,6 +401,7 @@
                 enable = true;
                 entry = "${toolchainFor pkgs}/bin/rustfmt --check --edition 2024";
                 files = "\\.rs$";
+                pass_filenames = true; # the built-in rustfmt hook sets false, for cargo fmt
                 language = "system";
               };
               stitchwort-fmt = {
