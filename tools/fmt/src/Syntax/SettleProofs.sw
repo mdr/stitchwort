@@ -412,3 +412,80 @@ theorem barsQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
     (within: leaf.kind.within1 = True):
     barBelow leaf behind ahead = False :=
   rewrite barBelow.eq.alt2 leaf behind ahead (previous tail head tail2 isBehind isAhead => notPipe1 leaf within)
+
+-- Rule 5: a comment's text, trimmed, has no space at its end.
+
+theorem dropSpacesStart ∀ (chars: List Char):
+    Text.startsWithChars [' '] (chars.dropWhile (char => char == ' ')) = False :=
+  match chars with
+    | [] => byComputing
+    | [char, ..rest] =>
+      match space: char == ' ' with
+        | True => dropSpacesStart rest
+        | False =>
+          let other: Text.sameChar ' ' char = False := calc Text.sameChar ' ' char
+            _ = Nat.equal (Char.toNat char) (Char.toNat ' ') := Nat.equalComm (Char.toNat ' ') (Char.toNat char)
+            _ = False := space
+          rewrite other
+
+--| Trimming twice is trimming once.
+theorem trimEndTwice ∀ (text: Text): trimEnd (trimEnd text) = trimEnd text := match spaced: text.endsWith " " with
+  | False =>
+    let unspaced: Text.startsWithChars [' '] (text.toList.reverseOnto []) = False := spaced
+    rewrite unspaced
+  | True =>
+    let kept := (text.toList.reverseOnto []).dropWhile (char => char == ' ')
+    let back: (kept.reverseOnto []).reverseOnto [] = kept := List.reverseReverse kept
+    rewrite back, dropSpacesStart (text.toList.reverseOnto [])
+
+def optionText: Option Comment → List Text
+  | Some comment => [comment.text]
+  | None => []
+
+--| A token's comment texts, own-line ones first.
+def triviaTexts (trivia: Trivia): List Text :=
+  trivia.leading.map (comment => comment.text) ++ optionText trivia.trailing
+
+def leavesTexts (leaves: List Leaf) (end: Trivia): List Text := match leaves with
+  | [] => triviaTexts end
+  | [leaf, ..rest] => triviaTexts leaf.trivia ++ leavesTexts rest end
+
+--| The comment texts of a lexed file, in order.
+def lexedTexts (lexed: Lexed): List Text := leavesTexts lexed.leaves lexed.end
+
+theorem commentsTrimmed ∀ (comments: List Comment):
+    ((comments.map Comment.trimmed).map (comment => comment.text)).map trimEnd
+      = (comments.map Comment.trimmed).map (comment => comment.text) :=
+  match comments with
+    | [] => byComputing
+    | [comment, ..rest] => rewrite trimEndTwice comment.text, commentsTrimmed rest
+
+theorem triviaTrimmed ∀ (trivia: Trivia): (triviaTexts trivia.trimmed).map trimEnd = triviaTexts trivia.trimmed :=
+  let leading := (trivia.leading.map Comment.trimmed).map (comment => comment.text)
+  let trailing: (optionText (trivia.trailing.map Comment.trimmed)).map trimEnd
+    = optionText (trivia.trailing.map Comment.trimmed) :=
+    match trivia.trailing with
+      | None => byComputing
+      | Some comment => rewrite trimEndTwice comment.text
+  calc (triviaTexts trivia.trimmed).map trimEnd
+    _ = leading.map trimEnd ++ (optionText (trivia.trailing.map Comment.trimmed)).map trimEnd :=
+      List.mapAppend leading (optionText (trivia.trailing.map Comment.trimmed)) trimEnd
+    _ = triviaTexts trivia.trimmed := rewrite commentsTrimmed trivia.leading, trailing
+
+theorem leavesTrimmed ∀ (leaves: List Leaf) (end: Trivia):
+    (leavesTexts (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) end.trimmed).map trimEnd
+      = leavesTexts (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) end.trimmed :=
+  match leaves with
+    | [] => triviaTrimmed end
+    | [leaf, ..rest] =>
+      let others := leavesTexts (rest.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) end.trimmed
+      calc (triviaTexts leaf.trivia.trimmed ++ others).map trimEnd
+        _ = (triviaTexts leaf.trivia.trimmed).map trimEnd ++ others.map trimEnd :=
+          List.mapAppend (triviaTexts leaf.trivia.trimmed) others trimEnd
+        _ = triviaTexts leaf.trivia.trimmed ++ others := rewrite triviaTrimmed leaf.trivia, leavesTrimmed rest end
+
+--| After rule N no comment's text ends in a space.
+theorem settledTrimmed ∀ (lexed: Lexed): (lexedTexts lexed.settled).map trimEnd = lexedTexts lexed.settled :=
+  let homed := homeFrom [] None lexed.leaves
+  let commas := commasFrom [] None homed lexed.end
+  leavesTrimmed (letsFrom [] (arrows commas.leaves)) commas.end
