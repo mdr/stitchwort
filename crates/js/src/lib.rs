@@ -286,12 +286,12 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
             })
             .map_or_else(|| format!("arg{i}"), str::to_string);
         let boundary = boundary(g, ty, 0, &mut HashSet::default())
-            .map_err(|why| refuse(format!("parameter `{js_name}`: {why}")))?;
+            .map_err(|why| why.refuse(|why| refuse(format!("parameter `{js_name}`: {why}"))))?;
         params.push((js_name, boundary));
         param_positions.push(i);
     }
     let result = boundary(g, &tel.result, 0, &mut HashSet::default())
-        .map_err(|why| refuse(format!("its result: {why}")))?;
+        .map_err(|why| why.refuse(|why| refuse(format!("its result: {why}"))))?;
     Ok(ExportSig {
         id,
         name: export_name.to_string(),
@@ -302,6 +302,45 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
     })
 }
 
+/// Why a type doesn't cross the boundary: it can't (why, said of the type),
+/// or reading it ran out of resources, which says nothing about the type.
+#[derive(Debug)]
+enum Refusal {
+    Cannot(String),
+    Resource(Diagnostic),
+}
+
+impl From<String> for Refusal {
+    fn from(why: String) -> Refusal {
+        Refusal::Cannot(why)
+    }
+}
+
+impl From<ResourceError> for Refusal {
+    fn from(e: ResourceError) -> Refusal {
+        Refusal::Resource(Diagnostic::from(e))
+    }
+}
+
+impl Refusal {
+    /// The error to report: `refuse(why)` for a type that can't cross, the
+    /// resource error as it is.
+    fn refuse(self, refuse: impl FnOnce(String) -> Diagnostic) -> Diagnostic {
+        match self {
+            Refusal::Cannot(why) => refuse(why),
+            Refusal::Resource(d) => d,
+        }
+    }
+
+    /// The reason in context: `within(why)` for one that can't cross.
+    fn within(self, within: impl FnOnce(String) -> String) -> Refusal {
+        match self {
+            Refusal::Cannot(why) => Refusal::Cannot(within(why)),
+            resource => resource,
+        }
+    }
+}
+
 /// How `ty` crosses the boundary. In a data type's fields' types, its first
 /// `params` variables are the type's parameters.
 fn boundary(
@@ -309,7 +348,7 @@ fn boundary(
     ty: &Value,
     params: usize,
     visiting: &mut HashSet<DataId>,
-) -> Result<Boundary, String> {
+) -> Result<Boundary, Refusal> {
     let cannot = |ty: &Value| {
         format!(
             "`{}` can't cross the JS boundary yet",
@@ -318,7 +357,7 @@ fn boundary(
     };
     // A definition's parameters are read glued (`def_telescope`): a type
     // written as a synonym (`Row` for `Vec Bool 5`) is a call until forced.
-    let ty = &force(g, ty.clone()).map_err(|e| Diagnostic::from(e).message)?;
+    let ty = &force(g, ty.clone())?;
     match ty {
         Value::Neutral(Head::Var(level, _), elims) if elims.is_empty() && *level < params => {
             Ok(Boundary::Param(*level))
@@ -367,37 +406,39 @@ fn boundary(
                 // a `js.unboxed` record over `Text` in its derived order,
                 // which compares the one field by `Text`'s (D1068).
                 (Some(Builtin::Map), [key, value, order]) => {
-                    let key = match key {
+                    // An argument is read glued too: `Map Name V` with
+                    // `def Name: Type := Text`.
+                    let key = match &force(g, key.clone())? {
                         Value::Data(t, a) if a.is_empty() && text_data(g) == Some(*t) => {
                             if !is_text_order(g, order) {
-                                return Err(format!(
+                                return Err(Refusal::Cannot(format!(
                                     "`{}` can't cross the JS boundary: a map crosses only in \
                                      `Text`'s own order (`Text.instOrd`), which its keys are \
                                      sorted by",
                                     pretty::value(g, &[], ty)
-                                ));
+                                )));
                             }
                             Boundary::Text
                         }
                         Value::Data(k, a) if a.is_empty() && unboxed_over_text(g, *k) => {
                             if !is_derived_order(g, *k, order) {
                                 let key_name = g.data(*k).name();
-                                return Err(format!(
+                                return Err(Refusal::Cannot(format!(
                                     "`{}` can't cross the JS boundary: a map from `{key_name}` \
                                      crosses only in `{key_name}`'s derived order, which is \
                                      `Text`'s, and this map has another",
                                     pretty::value(g, &[], ty)
-                                ));
+                                )));
                             }
                             check_codec(g, *k, visiting)?;
                             Boundary::Data(*k, Vec::new())
                         }
                         _ => {
-                            return Err(format!(
+                            return Err(Refusal::Cannot(format!(
                                 "`{}` can't cross the JS boundary: only maps from `Text`, or from \
                                  a `js.unboxed` record over `Text`, cross, as plain objects",
                                 pretty::value(g, &[], ty)
-                            ));
+                            )));
                         }
                     };
                     let value = boundary(g, value, params, visiting)?;
@@ -420,11 +461,11 @@ fn boundary(
                 // Decoding would have to check the indices (a `Vec a n`'s
                 // length, a `Grid`'s rows): refused wherever it appears in the
                 // serialized form (docs/proposals/indexed-families.md §6.8, D147).
-                _ if !data.indices().is_empty() => Err(format!(
+                _ if !data.indices().is_empty() => Err(Refusal::Cannot(format!(
                     "`{}` is an indexed family, which can't cross the JS boundary yet: \
                      decoding would have to check its indices",
                     data.name()
-                )),
+                ))),
                 _ if data.sort() != Sort::Prop => {
                     let args = args
                         .iter()
@@ -433,11 +474,13 @@ fn boundary(
                     check_codec(g, *d, visiting)?;
                     Ok(Boundary::Data(*d, args))
                 }
-                _ => Err(cannot(ty)),
+                _ => Err(Refusal::Cannot(cannot(ty))),
             }
         }
-        Value::Pi(..) => Err("functions can't cross the JS boundary yet".into()),
-        other => Err(cannot(other)),
+        Value::Pi(..) => Err(Refusal::Cannot(
+            "functions can't cross the JS boundary yet".into(),
+        )),
+        other => Err(Refusal::Cannot(cannot(other))),
     }
 }
 
@@ -489,16 +532,16 @@ fn is_derived_order(g: &View<'_>, d: DataId, order: &Value) -> bool {
 /// fields all cross the boundary, whatever data the parameters stand for.
 /// A type with parameters is described once, and its fields' types are
 /// filled in with its arguments as a value is decoded or encoded.
-fn check_codec(g: &View<'_>, d: DataId, visiting: &mut HashSet<DataId>) -> Result<(), String> {
+fn check_codec(g: &View<'_>, d: DataId, visiting: &mut HashSet<DataId>) -> Result<(), Refusal> {
     if !visiting.insert(d) {
         return Ok(());
     }
     let data = g.data(d);
     if MODULE_NAMES.contains(&short_name(data.name())) {
-        return Err(format!(
+        return Err(Refusal::Cannot(format!(
             "`{}` is the name of something else the generated module exports",
             data.name()
-        ));
+        )));
     }
     let mut env = Vec::new();
     for (x, ty) in data.params() {
@@ -506,10 +549,10 @@ fn check_codec(g: &View<'_>, d: DataId, visiting: &mut HashSet<DataId>) -> Resul
             eval(g, &env, ty).expect(OUTSIDE_LIMITS),
             Value::Sort(Sort::Type(_))
         ) {
-            return Err(format!(
+            return Err(Refusal::Cannot(format!(
                 "`{}`'s parameter `{x}` isn't a type, which can't cross the JS boundary yet",
                 data.name()
-            ));
+            )));
         }
         env.push(Value::var(env.len()));
     }
@@ -530,7 +573,7 @@ fn check_codec(g: &View<'_>, d: DataId, visiting: &mut HashSet<DataId>) -> Resul
                     .iter()
                     .any(|v| v.ctor == c && v.field == i);
             if !checked {
-                return Err(if data.record() && proof {
+                return Err(Refusal::Cannot(if data.record() && proof {
                     format!(
                         "`{}`'s proof field `{field}` has no runtime check",
                         data.name()
@@ -545,12 +588,13 @@ fn check_codec(g: &View<'_>, d: DataId, visiting: &mut HashSet<DataId>) -> Resul
                         "`{}` has a proof or type field, which can't be checked at the boundary yet",
                         data.name()
                     )
-                });
+                }));
             }
         }
         for (field, field_ty) in fields {
-            let b = boundary(g, &field_ty, data.params().len(), visiting)
-                .map_err(|why| format!("`{}`'s field `{field}`: {why}", data.name()))?;
+            let b = boundary(g, &field_ty, data.params().len(), visiting).map_err(|why| {
+                why.within(|why| format!("`{}`'s field `{field}`: {why}", data.name()))
+            })?;
             if repr(g, d).unboxed {
                 unboxed_field_crosses(g, d, &field, &b)?;
             }
