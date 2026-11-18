@@ -1340,3 +1340,276 @@ theorem buildDrop ∀ (behind rest: List Leaf)
                   hFst,
                   hSnd then
                 rewrite top at claim then claim
+
+-- Under `plain1` no last comma starts its line, so making them bare moves
+-- no token.
+
+theorem tokenEta ∀ (token: Token): { token | lineStart = token.lineStart } = token := match token with
+  | { kind, text, column, lineStart } => byComputing
+
+theorem startsFalse ∀ (comma closer: Leaf)
+    (nostart: comma.token.lineStart = False):
+    { closer.token | lineStart = (comma.token.lineStart || closer.token.lineStart) } = closer.token :=
+  rewrite nostart then tokenEta closer.token
+
+theorem commaMovedTokens ∀ (comma closer: Leaf) (behind: List Leaf)
+    (nostart: comma.token.lineStart = False):
+    (commaMoved comma closer behind).fst.token = closer.token
+      ∧ tokens (commaMoved comma closer behind).snd = tokens behind :=
+  match trailing: comma.trivia.trailing with
+    | None => (startsFalse comma closer nostart, byComputing)
+    | Some comment =>
+      match behind with
+        | [] => (startsFalse comma closer nostart, byComputing)
+        | [prev, ..tail] => rewrite nostart then (tokenEta closer.token, byComputing)
+
+theorem plainNoStart ∀ (comma closer: Leaf) (after: List Leaf)
+    (isComma: (comma.token.kind == Comma) = True)
+    (isCloser: closer.token.kind.isCloser = True)
+    (plain: plainFrom (tokens [comma, closer, ..after]) = True):
+    comma.token.lineStart = False :=
+  let second := Bool.andLeft (Bool.andRight plain)
+  match ls: comma.token.lineStart with
+    | False => byComputing
+    | True => rewrite isComma, isCloser at second then cases
+
+theorem plainTail ∀ (x: Leaf) (xs: List Leaf)
+    (plain: plainFrom (tokens [x, ..xs]) = True):
+    plainFrom (tokens xs) = True :=
+  match xs with
+    | [] => byComputing
+    | [y, ..ys] => Bool.andRight (Bool.andRight plain)
+
+theorem withBareRTokens ∀ (behind rest: List Leaf)
+    (plain: plainFrom (tokens rest) = True):
+    tokens (withBareR behind rest) = tokens (rest.reverseOnto behind) :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match pair: fwdPair behind leaf after with
+        | False =>
+          rewrite withBareRNop leaf behind after pair then
+            withBareRTokens [leaf, ..behind] after (plainTail leaf after plain)
+        | True =>
+          match after with
+            | [closer, ..after2] =>
+              let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
+              let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
+              let (fstTok, sndToks) :=
+                commaMovedTokens leaf closer behind (plainNoStart leaf closer after2 isComma isCloser plain)
+              let claim :=
+                withBareRTokens
+                  [
+                    (commaMoved leaf closer behind).fst,
+                    { leaf | trivia = Trivia.empty },
+                    ..(commaMoved leaf closer behind).snd
+                  ]
+                  after2
+                  (plainTail closer after2 (plainTail leaf [closer, ..after2] plain))
+              rewrite withBareRPair leaf closer behind after2 pair,
+                  tokensReverseOnto after2 [closer, leaf, ..behind] then
+                rewrite tokensReverseOnto after2 [
+                      (commaMoved leaf closer behind).fst,
+                      { leaf | trivia = Trivia.empty },
+                      ..(commaMoved leaf closer behind).snd
+                    ],
+                    fstTok,
+                    sndToks at claim then
+                  claim
+
+-- The passes
+
+theorem dropFAll ∀ (p: Leaf → Bool) (behind rest: List Leaf)
+    (all: rest.all p = True):
+    (dropF behind rest).all p = True :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match after with
+        | [] => Bool.andIntro (Bool.andLeft all) byComputing
+        | [closer, ..after2] =>
+          match pair: lastPair closer.token.kind leaf behind with
+            | True =>
+              Bool.andIntro
+                (Bool.andLeft (Bool.andRight all))
+                (dropFAll p [closer, leaf, ..behind] after2 (Bool.andRight (Bool.andRight all)))
+            | False =>
+              Bool.andIntro (Bool.andLeft all) (dropFAll p [leaf, ..behind] [closer, ..after2] (Bool.andRight all))
+
+theorem rule1Drop ∀ (leaves dropped: List Leaf)
+    (rel: DropRel dropped leaves)
+    (within: leaves.all (leaf => leaf.kind.within1) = True):
+    DropRel (homeFrom [] None dropped) (homeFrom [] None leaves) :=
+  let (same, bare) := rel
+  let withinDropped: dropped.all (leaf => leaf.kind.within1) = True :=
+    rewrite same then dropFAll (leaf => leaf.kind.within1) [] leaves within
+  let (result, barished) := home1Drop [] leaves byComputing byComputing bare
+  let result': home1 [] dropped = dropRev (home1 [] leaves) := rewrite same then result
+  rewrite homeFromHome1 [] leaves byComputing within, homeFromHome1 [] dropped byComputing withinDropped then
+    dropRelOfRev (home1 [] leaves) (home1 [] dropped) result'.flipped barished
+
+theorem rule2Drop ∀ (leaves dropped: List Leaf) (end: Trivia)
+    (rel: DropRel dropped leaves):
+    DropRel (commasFrom [] None dropped end).leaves (commasFrom [] None leaves end).leaves
+      ∧ (commasFrom [] None dropped end).end = (commasFrom [] None leaves end).end :=
+  let (same, bare) := rel
+  let (leavesEq, endEq, barished) := commasDrop [] leaves None end byComputing byComputing bare byComputing
+  rewrite same, commasFromR [] None leaves end, commasFromR [] None (dropF [] leaves) end then
+    (
+      dropRelOfRev
+        (commasR [] None leaves end).leaves
+        (commasR [] None (dropF [] leaves) end).leaves
+        leavesEq.flipped
+        barished,
+      endEq
+    )
+
+theorem rule3Drop ∀ (leaves dropped: List Leaf)
+    (rel: DropRel dropped leaves)
+    (plain: plainFrom (tokens leaves) = True):
+    DropRel (arrows dropped) (arrows leaves) :=
+  let (same, bare) := rel
+  match leaves with
+    | [] => rewrite same then (byComputing, byComputing)
+    | [first, ..rest] =>
+      let nop: fwdPair [] first rest = False := match rest with
+        | [] => byComputing
+        | [next, ..more] => rewrite Bool.andFalse, Bool.andFalse
+      let (result, barished) :=
+        arrowsDrop [] first rest
+          (gapAfterNop first [] rest nop)
+          byComputing
+          (rewrite <- barishFNop first [] rest nop then bare)
+          plain
+      rewrite same,
+          dropFNop first [] rest nop,
+          arrowsFromR [] first (dropF [first] rest),
+          arrowsFromR [] first rest then
+        dropRelOfRev (arrowsR [] first rest) (arrowsR [] first (dropF [first] rest)) result.flipped barished
+
+--| Rule 5's step on one leaf.
+def trim (leaf: Leaf): Leaf := { leaf | trivia = leaf.trivia.trimmed }
+
+theorem dropFTrim ∀ (b b' rest: List Leaf)
+    (same: hasItem b' = hasItem b):
+    dropF b' (rest.map trim) = (dropF b rest).map trim :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match after with
+        | [] => byComputing
+        | [closer, ..after2] =>
+          match pair: lastPair closer.token.kind leaf b with
+            | True =>
+              let pair': lastPair closer.token.kind leaf b' = True := rewrite same then pair
+              rewrite pair' then
+                Eq.cong
+                  (tail => [trim closer, ..tail])
+                  (dropFTrim [closer, leaf, ..b] [trim closer, trim leaf, ..b'] after2 byComputing)
+            | False =>
+              let pair': lastPair closer.token.kind leaf b' = False := rewrite same then pair
+              rewrite pair' then
+                Eq.cong
+                  (tail => [trim leaf, ..tail])
+                  (dropFTrim [leaf, ..b] [trim leaf, ..b'] [closer, ..after2] byComputing)
+
+--| Rule N on leaves with last commas, with the last commas then dropped, is
+--| rule N on the leaves dropped, for leaves rule 1 to 3 treat alike.
+theorem passesDrop ∀ (leaves dropped: List Leaf) (end: Trivia)
+    (rel: DropRel dropped leaves)
+    (within: alphabet1 leaves = True)
+    (plain: plainFrom (tokens leaves) = True):
+    dropF [] ((letsFrom [] (arrows (commasFrom [] None (homeFrom [] None leaves) end).leaves)).map trim)
+      = (letsFrom [] (arrows (commasFrom [] None (homeFrom [] None dropped) end).leaves)).map trim
+      ∧ (commasFrom [] None (homeFrom [] None dropped) end).end
+        = (commasFrom [] None (homeFrom [] None leaves) end).end :=
+  let r1 := rule1Drop leaves dropped rel (alphabet1Leaves leaves within)
+  let (r2, endEq) := rule2Drop (homeFrom [] None leaves) (homeFrom [] None dropped) end r1
+  let cB := (commasFrom [] None (homeFrom [] None leaves) end).leaves
+  let cA := (commasFrom [] None (homeFrom [] None dropped) end).leaves
+  let tokCommas: tokens cB = tokens leaves :=
+    Eq.trans (commasFromTokens [] None (homeFrom [] None leaves) end) (homeFromTokens [] None leaves)
+  let r3 := rule3Drop cB cA r2 (rewrite tokCommas then plain)
+  let (arrowsEq, arrowsBare) := r3
+  let tokArrows: tokens (arrows cB) = tokens leaves := Eq.trans (arrowsTokens cB) tokCommas
+  let withinArrows: alphabet1 (arrows cB) = True := rewrite tokArrows then within
+  let withinArrowsB: (arrows cB).all (leaf => leaf.kind.within1) = True := alphabet1Leaves (arrows cB) withinArrows
+  let withinArrowsA: (arrows cA).all (leaf => leaf.kind.within1) = True :=
+    rewrite arrowsEq then dropFAll (leaf => leaf.kind.within1) [] (arrows cB) withinArrowsB
+  let letsB: letsFrom [] (arrows cB) = arrows cB := letsQuiet1 [] (arrows cB) byComputing withinArrowsB
+  let letsA: letsFrom [] (arrows cA) = arrows cA := letsQuiet1 [] (arrows cA) byComputing withinArrowsA
+  (rewrite letsB, letsA, arrowsEq then dropFTrim [] [] (arrows cB) byComputing, endEq)
+
+theorem relBare ∀ (leaves: List Leaf): DropRel (withoutLastCommas [] leaves) (withBareLastCommas [] leaves) :=
+  let (eq, bare) := buildDrop [] leaves byComputing byComputing
+  rewrite withoutFromR [] leaves, withBareFromR [] leaves then
+    dropRelOfRev (withBareR [] leaves) (withoutR [] leaves) eq.flipped bare
+
+theorem tokensBare ∀ (leaves: List Leaf)
+    (plain: plainFrom (tokens leaves) = True):
+    tokens (withBareLastCommas [] leaves) = tokens leaves :=
+  calc tokens (withBareLastCommas [] leaves)
+    _ = tokens ((withBareR [] leaves).reverseOnto []) := rewrite withBareFromR [] leaves
+    _ = (tokens (withBareR [] leaves)).reverseOnto [] := tokensReverseOnto (withBareR [] leaves) []
+    _ = (tokens (leaves.reverseOnto [])).reverseOnto [] := rewrite withBareRTokens [] leaves plain
+    _ = ((tokens leaves).reverseOnto []).reverseOnto [] := rewrite tokensReverseOnto leaves []
+    _ = tokens leaves := List.reverseReverse (tokens leaves)
+
+--| Rule N on the leaves with their last commas made bare, then the last
+--| commas dropped, is rule N on the leaves without them (`bareSettles`,
+--| S1 sketch §3.4): the leaves the formatter parses, less the commas the P2
+--| pass deletes, hold the comments `settledBare` holds.
+--|
+--| The statement holds for the first parse (`settledOnce`) read from leaves
+--| with the last commas, so under `plain1` (no `->` before a comma, closer
+--| or `->`; no comma that starts its line before a comma or closer; no comma
+--| or closer first) and slice 1's alphabet. No layout is assumed.
+--|
+--| Proof idea: the bare last commas change nothing rule 1 to 3 do to the
+--| leaves around them: rule 1's walk passes one leaf more and never stops on
+--| the comma (if it starts its line so does its closer, which stops first), so
+--| the comment lands on the same leaf; rule 2 carries nothing from a bare
+--| comma; rule 3 skips it, since no `->` comes before it. So each pass on
+--| the leaves with commas, then dropped, is the pass on the leaves without
+--| them (`rule1Drop`, `rule2Drop`, `rule3Drop`); rules 4 and 5 act leaf by leaf.
+theorem bareSettles ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True)
+    (plain: plain1 (tokens lexed.leaves) = True):
+    dropF [] lexed.settledOnce.leaves = lexed.settledBare.leaves ∧ lexed.settledOnce.end = lexed.settledBare.end :=
+  let plainF := plainFromOf (tokens lexed.leaves) plain
+  let tokB := tokensBare lexed.leaves plainF
+  let (leavesEq, endEq) :=
+    passesDrop
+      (withBareLastCommas [] lexed.leaves)
+      (withoutLastCommas [] lexed.leaves)
+      lexed.end
+      (relBare lexed.leaves)
+      (rewrite tokB then within)
+      (rewrite tokB then plainF)
+  (leavesEq, rewrite endEq)
+
+-- Without a last comma, the leaves are rule N's own.
+
+--| No leaf from `rest` on is a last comma, `behind` the leaves before.
+def noLast (behind rest: List Leaf): Bool := match rest with
+  | [] => True
+  | [leaf, ..after] => !fwdPair behind leaf after && noLast [leaf, ..behind] after
+
+theorem withBareRNone ∀ (behind rest: List Leaf)
+    (none: noLast behind rest = True):
+    withBareR behind rest = rest.reverseOnto behind :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match pair: fwdPair behind leaf after with
+        | False => rewrite withBareRNop leaf behind after pair then withBareRNone [leaf, ..behind] after none
+
+--| With no comma directly before a closer after an item, making the last
+--| commas bare changes nothing, so the leaves rule N settles are `settled`'s:
+--| on every text the formatter prints, `parse1` parses what `parse` does.
+theorem settledOnceNone ∀ (lexed: Lexed) (none: noLast [] lexed.leaves = True): lexed.settledOnce = lexed.settled :=
+  let bare: withBareLastCommas [] lexed.leaves = lexed.leaves :=
+    Eq.trans
+      (withBareFromR [] lexed.leaves)
+      (rewrite withBareRNone [] lexed.leaves none then List.reverseReverse lexed.leaves)
+  rewrite bare
