@@ -6,13 +6,14 @@
 namespace Fmt.TouchProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
-import Std.Doc.Proofs (Along, Awaiting, Begun, Seam, SepsTouch, Touch, isLayout)
+import Std.Doc.Proofs (Along, Awaiting, Begun, Seam, SepsTouch, Touch, TouchesAll, isLayout, touchesWeaker)
 import Syntax (Comments, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
 import Fmt.GlueProofs (codeTouching, codeTouchingAppend, isComment)
 import Fmt.OutputStatements (..)
 import Fmt.SpellProofs (..)
 import Fmt.TouchSteps (..)
+import Fmt.JoinProofs (leadJoins)
 import Fmt.JoinProofs (
   beforeCloseIs,
   bracketTrails,
@@ -1406,23 +1407,252 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
       (Ends (App head arguments).trails) :=
   ?
 
---| `infixSteps` (open): an infix chain, its left operand spaced `first`, each operator free and each right operand
---| apart, after the operator's `Line`. Its route is through `chain`'s links (`chainLinks`, `chainRight`, `linkDocs`).
-theorem infixSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (around: Around)
+-- Chains.
+
+--| A chain's first link and the rest, the rest nested.
+theorem headTailSteps ∀ (head: Doc) (tail: List Doc) (indent: Nat) (pre: Seam → Prop)
+    (spacing: List Spacing) (post: Seam → Prop)
+    (all: StepsAll [head, ..tail] pre spacing post):
+    Steps (Doc.concat [head, Nest indent (Doc.concat tail)]) pre spacing post :=
+  stepsConcat [head, Nest indent (Doc.concat tail)] pre spacing post (seam trace next holds after =>
+    touchesWeaker head seam trace _ _
+      (between later touches => concatTouches tail between later next touches)
+      (all seam trace next holds after))
+
+theorem chainOfSteps ∀ (arms: Bool) (links: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+    (all: StepsAll links pre spacing post)
+    (filled: links ≠ []):
+    Steps (chainOf arms links) pre spacing post :=
+  match links, all with
+    | [], _ => (filled byComputing).impossible
+    | [head, ..tail], all =>
+      let joined := Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)]
+      stepsGroup joined joined.forcesBreak pre spacing post
+        (headTailSteps head tail (if arms then 0 else 2) pre spacing post all)
+
+--| A chain ends with a comment where its right operand does.
+theorem rightEnds ∀ (left: Expr) (operator: Word) (right: Expr) (seam: Seam)
+    (ended: Ends right.trails seam):
+    Ends (trailsBack (left.words ++ [operator, ..right.words]).reverse) seam :=
+  endsWeaker right.trails
+    (trailsBack (left.words ++ [operator, ..right.words]).reverse)
+    (trails =>
+      seenAppend left.words
+        [operator, ..right.words]
+        (rewrite List.reverseCons operator right.words then trailsBackAppend right.words.reverse [operator] trails))
+    seam
+    ended
+
+--| What follows a chain's operator: a space, then the right operand apart.
+theorem chainRightSteps ∀ (level: Option Nat) (right: Expr) (place: Around) (trails: Bool) (post: Seam → Prop)
+    (within: right.within1 = True)
+    (shaped: right.shaped1 = True)
+    (lexical: right.lexical1 = True)
+    (joinable: Joinable lexKind right) (ends: ∀ (seam: Seam) => Ends right.trails seam → post seam):
+    StepsAll (chainRight level right place) (Ends trails) (spacedFirst Apart (right.spacing1 False)) post :=
+  let rest := linkSteps level False right place Apart within shaped lexical joinable (Inl byComputing)
+  match right with
+    | Block _ _ _ => cases
+    | _ =>
+      stepsCons
+        (Doc.text " ") _
+        (Ends trails)
+        (Fits True Apart)
+        post
+        []
+        (spacedFirst Apart (right.spacing1 False))
+        (stepsTo _ _ _ _ _ (stepsSpace trails) (seam gapped =>
+          fitsWeaker trails True (_ => byComputing) Apart seam (gappedFits trails Apart seam byComputing gapped)))
+        (allTo _ _ _ _ _ rest ends)
+
+--| A chain's links: its first operand's, then each operator after a line break and its operand after a space.
+theorem chainLinksSteps ∀ (level: Option Nat) (first: Bool) (left: Expr) (operator: Word) (right: Expr)
+    (around: Around) (start: Spacing)
+    (leftWithin: left.within1 = True)
+    (rightWithin: right.within1 = True)
+    (leftShaped: left.shaped1 = True)
+    (rightShaped: right.shaped1 = True)
+    (leftLexical: left.lexical1 = True)
+    (rightLexical: right.lexical1 = True)
+    (leftJoins: Joinable lexKind left)
+    (operatorJoins: WordJoins operator)
+    (rightJoins: Joinable lexKind right)
+    (loose: Loose start ∨ left.firstWord.quietAt around around.at = True):
+    StepsAll
+      (chainLinks level first left operator right around)
+      (Fits True start)
+      (spacedFirst start (left.spacing1 False) ++ [Free, ..spacedFirst Apart (right.spacing1 False)])
+      (Ends (trailsBack (left.words ++ [operator, ..right.words]).reverse)) :=
+  let operatorAround := around.next left.trails left.size
+  let rightAround := around.next operator.trails (left.size + 1)
+  stepsAppend
+    (linkDocs level first left around)
+    [Line, operator.leaf operatorAround operatorAround.at, ..chainRight level right rightAround] _
+    (Ends left.trails) _
+    (spacedFirst start (left.spacing1 False))
+    [Free, ..spacedFirst Apart (right.spacing1 False)]
+    (linkSteps level first left around start leftWithin leftShaped leftLexical leftJoins loose)
+    (stepsCons Line _ _
+      (Fits True Free) _
+      []
+      [Free, ..spacedFirst Apart (right.spacing1 False)]
+      (stepsTo _ _ _ _ _ (stepsLine left.trails) (seam gapped =>
+        fitsWeaker left.trails True (_ => byComputing) Free seam (gappedFits left.trails Free seam byComputing gapped)))
+      (stepsCons
+        (operator.leaf operatorAround operatorAround.at) _ _
+        (Ends operator.trails) _
+        [Free]
+        (spacedFirst Apart (right.spacing1 False))
+        (stepsTo _ _ _ _ _
+          (wordLeafSteps operator operatorAround operatorAround.at Free operatorJoins (Inl byComputing))
+          (seam closed => closedEnds operator.trails seam closed))
+        (chainRightSteps level right rightAround operator.trails _ rightWithin rightShaped rightLexical rightJoins
+          (seam ended => rightEnds left operator right seam ended))))
+
+theorem infixFirstWord ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
+    (within: (Infix kind left operator right).within1 = True)
+    (leftWithin: left.within1 = True):
+    (Infix kind left operator right).firstWord = left.firstWord :=
+  rewrite firstWordLead (Infix kind left operator right) within, firstWordLead left leftWithin
+
+--| A chain's operand of the same level in its links, as a chain's links; another operand as its element.
+theorem chainedSteps ∀ (level: Option Nat) (first: Bool) (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
+    (around: Around) (start: Spacing)
+    (within: (Infix kind left operator right).within1 = True)
+    (shaped: (Infix kind left operator right).shaped1 = True)
+    (lexical: (Infix kind left operator right).lexical1 = True)
+    (joinable: Joinable lexKind (Infix kind left operator right))
+    (loose: Loose start ∨ (Infix kind left operator right).firstWord.quietAt around around.at = True)
+    (leftWithin: left.within1 = True)
+    (rightWithin: right.within1 = True):
+    StepsAll
+      (chainLinks level first left operator right around)
+      (Fits True start)
+      (spacedFirst start ((Infix kind left operator right).spacing1 False))
+      (Ends (Infix kind left operator right).trails) :=
+  let (leftJoins, operatorJoins, rightJoins) := joinable
+  let (rest, free) := spacingFree left leftWithin
+  allSpacing _ _ _ _ _
+    (rewrite free)
+    (chainLinksSteps level first left operator right around start leftWithin rightWithin
+      (Bool.andLeft shaped)
+      (Bool.andLeft (Bool.andRight shaped))
+      (Bool.andLeft lexical)
+      (Bool.andRight (Bool.andRight lexical))
+      leftJoins
+      operatorJoins
+      rightJoins
+      (rewrite <- infixFirstWord kind left operator right within leftWithin then loose))
+
+--| An operand of a chain: its links if it is a chain of the same level, else its element.
+theorem linkSteps ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (start: Spacing)
+    (within: expr.within1 = True)
+    (shaped: expr.shaped1 = True)
+    (lexical: expr.lexical1 = True)
+    (joinable: Joinable lexKind expr)
+    (loose: Loose start ∨ expr.firstWord.quietAt around around.at = True):
+    StepsAll
+      (linkDocs level first expr around)
+      (Fits True start)
+      (spacedFirst start (expr.spacing1 False))
+      (Ends expr.trails) :=
+  let element: StepsAll
+    [expr.el around]
+    (Fits True start)
+    (spacedFirst start (expr.spacing1 False))
+    (Ends expr.trails) :=
+    stepsLast
+      (expr.el around) _ _ _
+      (elSteps expr within shaped lexical joinable around start False
+        (never => (Bool.falseNotTrue never).impossible)
+        loose)
+  match expr with
+    | Infix InfixBinary left operator right =>
+      match chained: (Infix InfixBinary left operator right).inChain level with
+        | True =>
+          chainedSteps level first InfixBinary left operator right around start within shaped lexical joinable loose
+            (Bool.andLeft within)
+            (Bool.andLeft (Bool.andRight within))
+        | False => element
+    | Infix InfixArrow left operator right =>
+      match chained: (Infix InfixArrow left operator right).inChain level with
+        | True =>
+          chainedSteps level first InfixArrow left operator right around start within shaped lexical joinable loose
+            (Bool.andLeft within)
+            (Bool.andLeft (Bool.andRight within))
+        | False => element
+    | Match _ _ _ _ => cases
+    | _ => element
+
+--| A chain's element, its first word's own-line comments before it.
+theorem chainElSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (around: Around)
     (first: Spacing) (argument: Bool)
     (within: (Infix kind left operator right).within1 = True)
     (shaped: (Infix kind left operator right).shaped1 = True)
     (lexical: (Infix kind left operator right).lexical1 = True)
     (joinable: Joinable lexKind (Infix kind left operator right))
     (loose: Loose first ∨ (Infix kind left operator right).firstWord.quietAt around around.at = True)
-    (leftSteps: ElSteps left)
-    (rightSteps: ElSteps right):
+    (leftWithin: left.within1 = True)
+    (rightWithin: right.within1 = True):
+    Steps
+      (framedBy
+        (Infix kind left operator right).firstWord
+        around
+        (chain (Infix kind left operator right).chainLevel left operator right { around | hoisted = True }))
+      (Fits True first)
+      (spacedFirst first ((Infix kind left operator right).spacing1 argument))
+      (Ends (Infix kind left operator right).trails) :=
+  let inside := { around | hoisted = True }
+  let lead := leadJoins lexKind (Infix kind left operator right) joinable
+  let sound: (Infix kind left operator right).firstWord.sound = True :=
+    rewrite firstWordLead (Infix kind left operator right) within then lead.left
+  let level := (Infix kind left operator right).chainLevel
+  let links := chainLinks level True left operator right inside
+  let filled: links ≠ [] := List.appendNotNilRight (linkDocs level True left inside) _ (List.consNotNil Line _)
+  let insideLoose: Loose first ∨ (Infix kind left operator right).firstWord.quietAt inside inside.at = True :=
+    match loose with
+      | Inl free => Inl free
+      | Inr quiet => Inr (Bool.andIntro (Bool.andLeft quiet) byComputing)
+  framedSteps
+    (Infix kind left operator right).firstWord
+    around
+    (chain level left operator right inside) _ _
+    first
+    sound
+    loose
+    (chainOfSteps
+      (left.opensArms level)
+      links _ _ _
+      (chainedSteps level True kind left operator right inside first within shaped lexical joinable insideLoose
+          leftWithin rightWithin)
+      filled)
+
+--| An infix chain: its first operand spaced `first`, each operator free after a line break and each right operand
+--| apart, after a space.
+--|
+--| Proof idea: `chainOf` groups the links (`chainOfSteps`), which `chainedSteps` gives by induction through
+--| `linkSteps`, each operand not of the chain's level by `elSteps`.
+theorem infixSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (around: Around)
+    (first: Spacing) (argument: Bool)
+    (within: (Infix kind left operator right).within1 = True)
+    (shaped: (Infix kind left operator right).shaped1 = True)
+    (lexical: (Infix kind left operator right).lexical1 = True)
+    (joinable: Joinable lexKind (Infix kind left operator right))
+    (loose: Loose first ∨ (Infix kind left operator right).firstWord.quietAt around around.at = True):
     Steps
       ((Infix kind left operator right).el around)
       (Fits True first)
       (spacedFirst first ((Infix kind left operator right).spacing1 argument))
       (Ends (Infix kind left operator right).trails) :=
-  ?
+  match kind with
+    | InfixBinary =>
+      chainElSteps InfixBinary left operator right around first argument within shaped lexical joinable loose
+        (Bool.andLeft within)
+        (Bool.andLeft (Bool.andRight within))
+    | InfixArrow =>
+      chainElSteps InfixArrow left operator right around first argument within shaped lexical joinable loose
+        (Bool.andLeft within)
+        (Bool.andLeft (Bool.andRight within))
 
 -- Every element.
 
@@ -1443,8 +1673,6 @@ theorem elSteps ∀ (expr: Expr): ElSteps expr := match expr with
       (allElSteps arguments)
   | Infix kind left operator right => within shaped lexical joinable around first argument isArgument loose =>
     infixSteps kind left operator right around first argument within shaped lexical joinable loose
-      (elSteps left)
-      (elSteps right)
   | Prefix operator operand => within shaped lexical joinable around first argument isArgument loose =>
     prefixSteps operator operand around first argument within shaped lexical joinable isArgument loose (elSteps operand)
   | _ => within => cases
