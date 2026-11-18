@@ -727,40 +727,72 @@ def declarationBodyOn (modes: Modes) (attributes: List Attributes): Option Tok �
 def declarationOther (modes: Modes) (attributes: List Attributes): Option Tok → {Parse Item} Decl
   | Some KwType => dataDecl modes attributes
   | Some KwInterface => dataDecl modes attributes
-  | Some KwInstance => definition modes attributes None None
+  | Some KwInstance => instanceDecl modes attributes
   | Some KwAbility => abilityDecl modes
   | Some KwTest => testDecl modes
   | Some KwExport =>
     let exported := fixedFrom()
-    if modes.at KwOpaque then
-      let opaqued := fixedFrom()
-      afterOpaque modes
-      definition modes attributes (Some exported) (Some opaqued)
-    else if modes.at KwDef || modes.at KwTheorem then definition modes attributes (Some exported) None
-    else modes.fail "`def`, `theorem` or `opaque` after `export`"
+    exportAfter modes attributes exported (modes.at KwOpaque)
   | Some KwOpaque =>
     let opaqued := fixedFrom()
     afterOpaque modes
     definition modes attributes None (Some opaqued)
-  | Some Lower =>
-    if wordAhead modes "rules" && isSome Lower (modes.peekAt 1) then ruleSetDecl modes else fatal missingKeyword
+  | Some Lower => ruleSetOrMissing modes (wordAhead modes "rules" && isSome Lower (modes.peekAt 1))
   | Some Upper => fatal missingKeyword
   | _ => modes.fail "a declaration"
+
+def exportAfter (modes: Modes) (attributes: List Attributes) (exported: Comments): Bool → {Parse Item} Decl
+  | True =>
+    let opaqued := fixedFrom()
+    afterOpaque modes
+    definition modes attributes (Some exported) (Some opaqued)
+  | False => exportPlain modes attributes exported (modes.at KwDef || modes.at KwTheorem)
+
+def exportPlain (modes: Modes) (attributes: List Attributes) (exported: Comments): Bool → {Parse Item} Decl
+  | True => definition modes attributes (Some exported) None
+  | False => modes.fail "`def`, `theorem` or `opaque` after `export`"
+
+def ruleSetOrMissing (modes: Modes): Bool → {Parse Item} Decl
+  | True => ruleSetDecl modes
+  | False => fatal missingKeyword
+
+--| `instance …`: a definition whose header read `instance`. The kind is read from the next token, as `declarationOther`'s
+--| `seen` was, so the check only guards against the two disagreeing.
+def instanceDecl (modes: Modes) (attributes: List Attributes): {Parse Item} Decl :=
+  instanceOf attributes (definitionParts expressionAt modes None None None)
+
+def instanceOf (attributes: List Attributes) (parts: (Header, DefBody)): {Parse Item} Decl := match parts with
+  | (header, body) =>
+    if header.kind == DefInstance then Definition attributes header body else fatal "an `instance` declaration"
 
 --| `rules name := [r1, <- r2]` (`rule_set`).
 def ruleSetDecl (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  let name := if modes.at Upper then modes.upperQualified "a name" else modes.lowerQualified "a name"
-  if modes.at Equals then fatal defEquals
-  else
+  let name := ruleSetName modes (modes.at Upper)
+  ruleSetAfterName modes keyword name (modes.at Equals)
+
+def ruleSetName (modes: Modes): Bool → {Parse Item} Word
+  | True => modes.upperQualified "a name"
+  | False => modes.lowerQualified "a name"
+
+def ruleSetAfterName (modes: Modes) (keyword: Comments) (name: Word): Bool → {Parse Item} Decl
+  | True => fatal defEquals
+  | False =>
     let colonEq := modes.expectFixed ColonEq "`:=`"
-    if !modes.at LBracket then modes.fail "the set's rules, in brackets: `[r1, <- r2]`"
-    else RuleSetDecl keyword name colonEq (ruleSet expressionAt modes)
+    ruleSetOpen modes keyword name colonEq (modes.at LBracket)
+
+def ruleSetOpen (modes: Modes) (keyword: Comments) (name: Word) (colonEq: Comments): Bool → {Parse Item} Decl
+  | True =>
+    let rules := ruleSet expressionAt modes
+    RuleSetDecl keyword name colonEq rules
+  | False => modes.fail "the set's rules, in brackets: `[r1, <- r2]`"
 
 def missingKeyword: Text :=
   "expected a declaration: `def`, `theorem`, `type`, `ability`, `interface`, `instance` or `test`"
 
-def afterOpaque (modes: Modes): {Parse Item} () := match modes.peek with
+def afterOpaque (modes: Modes): {Parse Item} () := afterOpaqueOn modes modes.peek
+
+def afterOpaqueOn (modes: Modes): Option Tok → {Parse Item} ()
   | Some KwDef => ()
   | Some KwTheorem => fatal "a theorem can't be `opaque`"
   | Some KwInstance => fatal "an instance can't be `opaque`"
@@ -770,11 +802,19 @@ def afterOpaque (modes: Modes): {Parse Item} () := match modes.peek with
 --| `test "name" := e`
 def testDecl (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  let name := if modes.at Str then bump() else modes.fail "the test's name, in quotes"
-  if modes.at Equals then fatal defEquals
-  else
+  let name := testName modes (modes.at Str)
+  testAfterName modes keyword name (modes.at Equals)
+
+def testName (modes: Modes): Bool → {Parse Item} Word
+  | True => bump()
+  | False => modes.fail "the test's name, in quotes"
+
+def testAfterName (modes: Modes) (keyword: Comments) (name: Word): Bool → {Parse Item} Decl
+  | True => fatal defEquals
+  | False =>
     let colonEq := modes.expectFixed ColonEq "`:=`"
-    Test keyword name colonEq (expressionAt { modes, level = LevelFull })
+    let body := expressionAt { modes, level = LevelFull }
+    Test keyword name colonEq body
 
 def defEquals: Text := "a definition's body follows `:=`; `=` is equality"
 
@@ -1019,77 +1059,130 @@ def definitionArm (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item
 
 --| `type T …` or `interface I …` (`data`).
 def dataDecl (modes: Modes) (attributes: List Attributes): {Parse Item} Decl :=
-  let isInterface := modes.at KwInterface
+  dataDeclOn modes attributes (modes.at KwInterface)
+
+def dataDeclOn (modes: Modes) (attributes: List Attributes) (isInterface: Bool): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  let name :=
-    if isInterface then modes.upperQualified "an interface name (starting with an uppercase letter)"
-    else modes.upperQualified "a data type name (starting with an uppercase letter)"
+  let name := dataName modes isInterface
   let word := if isInterface then "interface" else "type"
   let params := dataParams modes word name
-  let indices :=
-    if modes.at Colon then
-      let colon := fixedFrom()
-      let (steps, last) := dataIndices (Parse.mark().left + 1) modes []
-      Some { colon, steps, last }
-    else None
+  let indices := dataIndicesPart modes (modes.at Colon)
   let indexed := indices.map (found => !found.steps.isEmpty) |> .getOrElse False
-  if isInterface then
-    if indexed then fatal "an interface can't have indices"
-    else
-      let equals := modes.expectFixed Equals "`=` and the interface's fields, `{ … }`"
-      if !modes.at LBrace then modes.fail "`{` and the interface's fields"
-      else Data attributes True keyword name params indices (RecordBody equals (bracedFields modes))
-  else if !modes.at Equals then Data attributes False keyword name params indices Abstract
+  if isInterface then interfaceDecl modes attributes keyword name params indices indexed
+  else typeDecl modes attributes keyword name params indices indexed
+
+def dataName (modes: Modes) (isInterface: Bool): {Parse Item} Word :=
+  if isInterface then modes.upperQualified "an interface name (starting with an uppercase letter)"
+  else modes.upperQualified "a data type name (starting with an uppercase letter)"
+
+def dataIndicesPart (modes: Modes): Bool → {Parse Item} Option Indices
+  | True =>
+    let colon := fixedFrom()
+    let here := Parse.mark()
+    let (steps, last) := dataIndices (here.left + 1) modes []
+    Some { colon, steps, last }
+  | False => None
+
+def interfaceDecl (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word) (params: List Group)
+    (indices: Option Indices) (indexed: Bool):
+    {Parse Item} Decl :=
+  if indexed then fatal "an interface can't have indices"
+  else
+    let equals := modes.expectFixed Equals "`=` and the interface's fields, `{ … }`"
+    interfaceFields modes attributes keyword name params indices equals (modes.at LBrace)
+
+def interfaceFields (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word) (params: List Group)
+    (indices: Option Indices) (equals: Comments) (braced: Bool):
+    {Parse Item} Decl :=
+  if !braced then modes.fail "`{` and the interface's fields"
+  else
+    let fields := bracedFields modes
+    Data attributes True keyword name params indices (RecordBody equals fields)
+
+def typeDecl (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word) (params: List Group)
+    (indices: Option Indices) (indexed: Bool):
+    {Parse Item} Decl :=
+  typeBody modes attributes keyword name params indices indexed (modes.at Equals)
+
+def typeBody (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word) (params: List Group)
+    (indices: Option Indices) (indexed equalsNext: Bool):
+    {Parse Item} Decl :=
+  if !equalsNext then Data attributes False keyword name params indices Abstract
   else
     let equals := fixedFrom()
-    if !(modes.at LBrace || modes.at Pipe) then
-      if indexed then fatal "a type synonym can't have indices: `->` after the colon is only for a data type's indices"
-      else Data attributes False keyword name params indices (Synonym equals (typeSynonym modes name))
-    else if modes.at LBrace then
-      match abilityRowInBraces left() with
-        | Some row =>
-          fatal
-            "an ability row like `{${row}}` can't be given a name with `type` yet; write the row where it's used, such as `() -> {${row}} Nat`"
-        | None => Data attributes False keyword name params indices (RecordBody equals (bracedFields modes))
-    else
-      let constructors := constructorsOf modes
-      Data attributes False keyword name params indices (Sum equals constructors)
+    typeAfterEquals modes attributes keyword name params indices indexed equals (modes.at LBrace) (modes.at Pipe)
 
-def dataParams (modes: Modes) (word: Text) (name: Word): {Parse Item} List Group := Parse.loop (() =>
-  if modes.at LParen then
+def typeAfterEquals (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word) (params: List Group)
+    (indices: Option Indices) (indexed: Bool) (equals: Comments) (brace pipe: Bool):
+    {Parse Item} Decl :=
+  if !(brace || pipe) then
+    if indexed then fatal "a type synonym can't have indices: `->` after the colon is only for a data type's indices"
+    else
+      let synonym := typeSynonym modes name
+      Data attributes False keyword name params indices (Synonym equals synonym)
+  else if brace then typeBraced modes attributes keyword name params indices equals (abilityRowInBraces left())
+  else
+    let constructors := constructorsOf modes
+    Data attributes False keyword name params indices (Sum equals constructors)
+
+def typeBraced (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word) (params: List Group)
+    (indices: Option Indices) (equals: Comments):
+    Option Text → {Parse Item} Decl
+  | Some row =>
+    fatal
+      "an ability row like `{${row}}` can't be given a name with `type` yet; write the row where it's used, such as `() -> {${row}} Nat`"
+  | None =>
+    let fields := bracedFields modes
+    Data attributes False keyword name params indices (RecordBody equals fields)
+
+def dataParams (modes: Modes) (word: Text) (name: Word): {Parse Item} List Group :=
+  Parse.loop (() => dataParamStep modes word (modes.at LParen))
+
+def dataParamStep (modes: Modes) (word: Text): Bool → {Parse Item} Option Group
+  | True =>
     let binder := binderGroup expressionAt modes False
     refuseAttributes binder.attributes "a data type's parameter"
     Some binder
-  else if modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left() then
+  | False => dataParamBracket modes word (modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left())
+
+def dataParamBracket (modes: Modes) (word: Text): Bool → {Parse Item} Option Group
+  | True =>
     let binder := implicitBinder expressionAt modes
     refuseAttributes binder.attributes "a data type's parameter"
     if binder.auto.isNone then fatal "a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`"
     else if binder.names.isEmpty then
       fatal "a type's `auto` parameter needs a name, so it can be given by name: `[auto ord: Ord k]`"
     else Some binder
-  else
-    match left() with
-      | [param, .._] if param.kind == Lower && !isQualified param && !modes.stops param =>
-        fatal "a ${word}'s parameter `${param.text}` needs its type, in brackets"
-      | _ => None)
+  | False => dataParamLeft modes word left()
+
+def dataParamLeft (modes: Modes) (word: Text): List Item → {Parse Item} Option Group
+  | [param, .._] if param.kind == Lower && !isQualified param && !modes.stops param =>
+    fatal "a ${word}'s parameter `${param.text}` needs its type, in brackets"
+  | _ => None
 
 --| The indices after a data type's `:`, each with its arrow, and the last
 --| type.
 def dataIndices (fuel: Nat) (modes: Modes) (found: List (Index, Word)): {Parse Item} (List (Index, Word), Expr) :=
   match fuel with
     | Zero => (found.reverse, fatal "the parser ran out of fuel in a data type's indices")
-    | Succ more =>
-      if isSome LParen modes.peek && piBinderAhead left() then
-        let binder := binderGroup expressionAt modes False
-        refuseAttributes binder.attributes "a data type's index"
-        let arrow := modes.expect Arrow "`->`"
-        dataIndices more modes [(IndexBinder binder, arrow), ..found]
-      else
-        let index := expressionAt { modes, level = LevelApp }
-        if modes.at Arrow then
-          let arrow := bump()
-          dataIndices more modes [(IndexType index, arrow), ..found]
-        else (found.reverse, index)
+    | Succ more => dataIndexAt more modes found (isSome LParen modes.peek && piBinderAhead left())
+
+def dataIndexAt (more: Nat) (modes: Modes) (found: List (Index, Word)): Bool → {Parse Item} (List (Index, Word), Expr)
+  | True =>
+    let binder := binderGroup expressionAt modes False
+    refuseAttributes binder.attributes "a data type's index"
+    let arrow := modes.expect Arrow "`->`"
+    dataIndices more modes [(IndexBinder binder, arrow), ..found]
+  | False =>
+    let index := expressionAt { modes, level = LevelApp }
+    dataIndexNext more modes found index (modes.at Arrow)
+
+def dataIndexNext (more: Nat) (modes: Modes) (found: List (Index, Word)) (index: Expr):
+    Bool → {Parse Item} (List (Index, Word), Expr)
+  | True =>
+    let arrow := bump()
+    dataIndices more modes [(IndexType index, arrow), ..found]
+  | False => (found.reverse, index)
 
 --| After `type S =`: the type, and checks for a sum or a constructor
 --| written without its `|` (`type_synonym`).
@@ -1125,45 +1218,67 @@ def rowNames (found: List Text): List Item → Text
 def bracedFields (modes: Modes): {Parse Item} Fields :=
   let open := modes.expectFixed LBrace "`{`"
   let inner := modes.inBrackets
-  let (fields, trailingComma) := if inner.at RBrace then ([], False) else fieldsFrom (Parse.mark().left + 1) inner []
-  { open, fields, trailingComma, close = inner.expectFixed RBrace "`,` or `}`" }
+  let (fields, trailingComma) := bracedFieldsIn inner (inner.at RBrace)
+  let close := inner.expectFixed RBrace "`,` or `}`"
+  { open, fields, trailingComma, close }
+
+def bracedFieldsIn (inner: Modes): Bool → {Parse Item} (List Field, Bool)
+  | True => ([], False)
+  | False =>
+    let here := Parse.mark()
+    fieldsFrom (here.left + 1) inner []
 
 def fieldsFrom (fuel: Nat) (modes: Modes) (found: List Field): {Parse Item} (List Field, Bool) := match fuel with
   | Zero => (found.reverse, False)
-  | Succ more =>
-    if modes.at RBrace then (found.reverse, True)
-    else
-      let attributes := attributesOf modes
-      let name := modes.lower "a field name"
-      let colon := modes.expectFixed Colon "`:`"
-      let annotation := expressionAt { modes, level = LevelFull }
-      let default :=
-        if modes.at ColonEq then
-          let colonEq := fixedFrom()
-          Some (colonEq, expressionAt { modes, level = LevelFull })
-        else None
-      let done := [{ attributes, name, colon, annotation, default }, ..found]
-      if modes.at Comma then
-        let _ := bump()
-        fieldsFrom more modes done
-      else (done.reverse, False)
+  | Succ more => fieldsAt more modes found (modes.at RBrace)
 
-def constructorsOf (modes: Modes): {Parse Item} List Constructor :=
-  if modes.at Pipe then
-    Parse.loop (() =>
-      if modes.at Pipe then
-        let bar := fixedFrom()
-        let attributes := attributesOf modes
-        let name := modes.upper "a constructor name (starting with an uppercase letter)"
-        let fields := constructorParts (Parse.mark().left + 1) modes name False False []
-        let result :=
-          if modes.at Colon then
-            let colon := fixedFrom()
-            Some (colon, expressionAt { modes, level = LevelApp })
-          else None
-        Some { bar, attributes, name, fields, result }
-      else None)
-  else modes.fail "`|` and a constructor, or `{` and a record's fields"
+def fieldsAt (more: Nat) (modes: Modes) (found: List Field): Bool → {Parse Item} (List Field, Bool)
+  | True => (found.reverse, True)
+  | False =>
+    let attributes := attributesOf modes
+    let name := modes.lower "a field name"
+    let colon := modes.expectFixed Colon "`:`"
+    let annotation := expressionAt { modes, level = LevelFull }
+    let default := fieldDefault modes (modes.at ColonEq)
+    let done := [{ attributes, name, colon, annotation, default }, ..found]
+    fieldsNext more modes done (modes.at Comma)
+
+def fieldDefault (modes: Modes): Bool → {Parse Item} Option (Comments, Expr)
+  | True =>
+    let colonEq := fixedFrom()
+    let value := expressionAt { modes, level = LevelFull }
+    Some (colonEq, value)
+  | False => None
+
+def fieldsNext (more: Nat) (modes: Modes) (done: List Field): Bool → {Parse Item} (List Field, Bool)
+  | True =>
+    let _ := bump()
+    fieldsFrom more modes done
+  | False => (done.reverse, False)
+
+def constructorsOf (modes: Modes): {Parse Item} List Constructor := constructorsAt modes (modes.at Pipe)
+
+def constructorsAt (modes: Modes): Bool → {Parse Item} List Constructor
+  | True => Parse.loop (() => constructorStep modes (modes.at Pipe))
+  | False => modes.fail "`|` and a constructor, or `{` and a record's fields"
+
+def constructorStep (modes: Modes): Bool → {Parse Item} Option Constructor
+  | True =>
+    let bar := fixedFrom()
+    let attributes := attributesOf modes
+    let name := modes.upper "a constructor name (starting with an uppercase letter)"
+    let here := Parse.mark()
+    let fields := constructorParts (here.left + 1) modes name False False []
+    let result := constructorResult modes (modes.at Colon)
+    Some { bar, attributes, name, fields, result }
+  | False => None
+
+def constructorResult (modes: Modes): Bool → {Parse Item} Option (Comments, Expr)
+  | True =>
+    let colon := fixedFrom()
+    let result := expressionAt { modes, level = LevelApp }
+    Some (colon, result)
+  | False => None
 
 --| A constructor's fields: in brackets or in braces, not both, and its
 --| implicit ones.
@@ -1171,25 +1286,40 @@ def constructorParts (fuel: Nat) (modes: Modes) (name: Word) (bracketed braced: 
     {Parse Item} List ConstructorPart :=
   match fuel with
     | Zero => found.reverse
-    | Succ more =>
-      if modes.at LBrace && !braced then
-        if bracketed then
-          fatal
-            "`${name.text}` has fields in brackets already; declare all of its explicit fields in brackets or all in braces"
-        else
-          let fields := bracedFields modes
-          if fields.fields.isEmpty then fatal "`${name.text}` declares no fields in its braces"
-          else constructorParts more modes name bracketed True [PartFields fields, ..found]
-      else if modes.at LParen then
-        if braced then
-          fatal
-            "`${name.text}` has its fields in braces already; declare all of its explicit fields in braces or all in brackets"
-        else constructorParts more modes name True braced [PartGroup (binderGroup expressionAt modes True), ..found]
-      else if modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left() then
-        let binder := implicitBinder expressionAt modes
-        if binder.auto.isSome then fatal "a constructor's implicit fields can't be `auto`"
-        else constructorParts more modes name bracketed braced [PartGroup binder, ..found]
-      else found.reverse
+    | Succ more => constructorBraced more modes name bracketed braced found (modes.at LBrace && !braced)
+
+def constructorBraced (more: Nat) (modes: Modes) (name: Word) (bracketed braced: Bool) (found: List ConstructorPart):
+    Bool → {Parse Item} List ConstructorPart
+  | True =>
+    if bracketed then
+      fatal
+        "`${name.text}` has fields in brackets already; declare all of its explicit fields in brackets or all in braces"
+    else
+      let fields := bracedFields modes
+      if fields.fields.isEmpty then fatal "`${name.text}` declares no fields in its braces"
+      else constructorParts more modes name bracketed True [PartFields fields, ..found]
+  | False => constructorParen more modes name bracketed braced found (modes.at LParen)
+
+def constructorParen (more: Nat) (modes: Modes) (name: Word) (bracketed braced: Bool) (found: List ConstructorPart):
+    Bool → {Parse Item} List ConstructorPart
+  | True =>
+    if braced then
+      fatal
+        "`${name.text}` has its fields in braces already; declare all of its explicit fields in braces or all in brackets"
+    else
+      let binder := binderGroup expressionAt modes True
+      constructorParts more modes name True braced [PartGroup binder, ..found]
+  | False =>
+    constructorBracket more modes name bracketed braced found
+      (modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left())
+
+def constructorBracket (more: Nat) (modes: Modes) (name: Word) (bracketed braced: Bool) (found: List ConstructorPart):
+    Bool → {Parse Item} List ConstructorPart
+  | True =>
+    let binder := implicitBinder expressionAt modes
+    if binder.auto.isSome then fatal "a constructor's implicit fields can't be `auto`"
+    else constructorParts more modes name bracketed braced [PartGroup binder, ..found]
+  | False => found.reverse
 
 --| `ability Name (params) where`, then one operation a line (`ability`).
 def abilityDecl (modes: Modes): {Parse Item} Decl :=
@@ -1197,22 +1327,29 @@ def abilityDecl (modes: Modes): {Parse Item} Decl :=
   let name := modes.upperQualified "an ability name (starting with an uppercase letter)"
   let params := abilityParams modes
   let whereKeyword := modes.expectFixed KwWhere "`where`"
-  match modes.peek, left() with
-    | Some _, [first, .._] =>
-      let column := first.leaf.token.column
-      Ability keyword name params whereKeyword (operations { modes | limit = Some column } column)
-    | _, _ => modes.fail "the ability's operations"
+  abilityOn modes keyword name params whereKeyword modes.peek left()
 
-def abilityParams (modes: Modes): {Parse Item} List Group := Parse.loop (() =>
-  if modes.at LParen then
+def abilityOn (modes: Modes) (keyword: Comments) (name: Word) (params: List Group) (whereKeyword: Comments):
+    Option Tok → List Item → {Parse Item} Decl
+  | Some _, [first, .._] =>
+    let column := first.leaf.token.column
+    let found := operations { modes | limit = Some column } column
+    Ability keyword name params whereKeyword found
+  | _, _ => modes.fail "the ability's operations"
+
+def abilityParams (modes: Modes): {Parse Item} List Group := Parse.loop (() => abilityParamStep modes (modes.at LParen))
+
+def abilityParamStep (modes: Modes): Bool → {Parse Item} Option Group
+  | True =>
     let binder := binderGroup expressionAt modes False
     refuseAttributes binder.attributes "an ability's parameter"
     Some binder
-  else None)
+  | False => None
 
 --| One operation, with the `allow` that keeps its first token.
 def operation (modes: Modes): {Parse Item} Operation :=
-  let opModes := { modes | allow = Some offset() }
+  let here := offset()
+  let opModes := { modes | allow = Some here }
   let name := opModes.lower "an operation name"
   let colon := opModes.expectFixed Colon "`:`"
   let annotation := expressionAt { modes = opModes, level = LevelInline }
@@ -1220,11 +1357,12 @@ def operation (modes: Modes): {Parse Item} Operation :=
 
 def operations (modes: Modes) (column: Nat): {Parse Item} List Operation :=
   let first := operation modes
-  let rest := Parse.loop (() =>
-    match left() with
-      | [next, .._] if next.leaf.token.lineStart && next.leaf.token.column == column => Some (operation modes)
-      | _ => None)
+  let rest := Parse.loop (() => operationNext modes column left())
   [first, ..rest]
+
+def operationNext (modes: Modes) (column: Nat): List Item → {Parse Item} Option Operation
+  | [next, .._] if next.leaf.token.lineStart && next.leaf.token.column == column => Some (operation modes)
+  | _ => None
 
 -- The file.
 
