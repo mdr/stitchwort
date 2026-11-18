@@ -653,6 +653,161 @@ theorem Text.startsWithCharsAppend ∀ (t p: List Char): Text.startsWithChars p 
 theorem Text.startsWithAppend ∀ (p t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)
 
+--| Whatever the characters are, they start with no characters.
+theorem Text.startsWithCharsEmpty ∀ (chars: List Char): Text.startsWithChars [] chars = True := byComputing
+
+--| Characters that start with `needle` still do once more characters follow them.
+--| Induction on `needle`: each step takes the same first character off both lists.
+theorem Text.startsWithCharsAppendRight ∀ (needle xs ys: List Char)
+    (h: Text.startsWithChars needle xs = True):
+    Text.startsWithChars needle (List.append xs ys) = True :=
+  match needle, xs with
+    | [], xs => byComputing
+    | [p, ..ps], [] => (Bool.falseNotTrue h).impossible
+    | [p, ..ps], [c, ..cs] =>
+      match same: Text.sameChar p c with
+        | True =>
+          Eq.trans
+            (Eq.cong (b => if b then Text.startsWithChars ps (List.append cs ys) else False) same)
+            (Text.startsWithCharsAppendRight ps cs ys
+              (Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps cs else False) same).flipped h))
+        | False =>
+          (Bool.falseNotTrue
+            (Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps cs else False) same).flipped h)).impossible
+
+--| Characters that start with `needle` contain it.
+theorem Text.containsCharsOfStarts ∀ (needle chars: List Char)
+    (h: Text.startsWithChars needle chars = True):
+    Text.containsChars needle chars = True :=
+  match chars with
+    | [] => h
+    | [c, ..cs] => Eq.trans (Eq.cong (b => if b then True else Text.containsChars needle cs) h) byComputing
+
+--| Every list of characters contains the empty `needle`.
+theorem Text.containsCharsEmpty ∀ (chars: List Char): Text.containsChars [] chars = True :=
+  Text.containsCharsOfStarts [] chars (Text.startsWithCharsEmpty chars)
+
+--| Characters contain themselves.
+theorem Text.containsCharsSelf ∀ (chars: List Char): Text.containsChars chars chars = True :=
+  Text.containsCharsOfStarts chars chars
+    (Eq.trans
+      (Eq.cong (Text.startsWithChars chars) (List.appendNil chars)).flipped
+      (Text.startsWithCharsAppend [] chars))
+
+--| What the tail of the characters contains, the characters contain.
+theorem Text.containsCharsCons ∀ (needle: List Char) (c: Char) (cs: List Char)
+    (h: Text.containsChars needle cs = True):
+    Text.containsChars needle [c, ..cs] = True :=
+  match same: Text.startsWithChars needle [c, ..cs] with
+    | True => Text.containsCharsOfStarts needle [c, ..cs] same
+    | False => Eq.trans (Eq.cong (b => if b then True else Text.containsChars needle cs) same) h
+
+--| Characters put after characters that contain `needle` still contain it.
+--| Induction on the front part: its first character either starts an occurrence
+--| (which stays one with more characters after it) or is skipped.
+theorem Text.containsCharsAppendLeft ∀ (needle xs ys: List Char)
+    (h: Text.containsChars needle xs = True):
+    Text.containsChars needle (List.append xs ys) = True :=
+  match xs with
+    | [] =>
+      match needle with
+        | [] => Text.containsCharsEmpty ys
+        | [p, ..ps] => (Bool.falseNotTrue h).impossible
+    | [c, ..cs] =>
+      match same: Text.startsWithChars needle [c, ..cs] with
+        | True =>
+          Text.containsCharsOfStarts needle
+            (List.append [c, ..cs] ys)
+            (Text.startsWithCharsAppendRight needle [c, ..cs] ys same)
+        | False =>
+          Text.containsCharsCons needle c
+            (List.append cs ys)
+            (Text.containsCharsAppendLeft needle cs ys
+              (Eq.trans (Eq.cong (b => if b then True else Text.containsChars needle cs) same).flipped h))
+
+--| Characters put before characters that contain `needle` still contain it.
+theorem Text.containsCharsAppendRight ∀ (needle xs ys: List Char)
+    (h: Text.containsChars needle ys = True):
+    Text.containsChars needle (List.append xs ys) = True :=
+  match xs with
+    | [] => h
+    | [c, ..cs] => Text.containsCharsCons needle c (List.append cs ys) (Text.containsCharsAppendRight needle cs ys h)
+
+--| Every text contains itself.
+theorem Text.containsSelf ∀ (text: Text): Text.contains text text = True := Text.containsCharsSelf (Text.toList text)
+
+--| Every text contains the empty text.
+theorem Text.containsEmpty ∀ (text: Text): Text.contains text "" = True := Text.containsCharsEmpty (Text.toList text)
+
+--| What `front` contains, `front` followed by `back` contains.
+theorem Text.containsAppendLeft ∀ (front back needle: Text)
+    (h: Text.contains front needle = True):
+    Text.contains (Text.append front back) needle = True :=
+  Text.containsCharsAppendLeft (Text.toList needle) (Text.toList front) (Text.toList back) h
+
+--| What `back` contains, `front` followed by `back` contains.
+theorem Text.containsAppendRight ∀ (front back needle: Text)
+    (h: Text.contains back needle = True):
+    Text.contains (Text.append front back) needle = True :=
+  Text.containsCharsAppendRight (Text.toList needle) (Text.toList front) (Text.toList back) h
+
+--| A text with `needle` in the middle contains it.
+theorem Text.containsAppendMiddle ∀ (front needle back: Text):
+    Text.contains (Text.append front (Text.append needle back)) needle = True :=
+  Text.containsAppendRight front
+    (Text.append needle back)
+    needle
+    (Text.containsAppendLeft needle back needle (Text.containsSelf needle))
+
+--| The characters `Text.joinWith` makes from `field` and the `texts` after it,
+--| with `separator` between each two, contain `needle` when `field` does or
+--| one of the texts is `needle`.
+theorem Text.containsJoinTextChars ∀ (needle: Text) (separator field: List Char) (texts: List Text)
+    (found: (Text.containsChars (Text.toList needle) field = True) ∨ (needle ∈ texts)):
+    Text.containsChars (Text.toList needle) (Text.joinTextChars separator field (Text.charListsOf texts)) = True :=
+  match texts, found with
+    | [], Inl h => h
+    | [], Inr m => m.impossible
+    | [next, ..later], Inl h => Text.containsCharsAppendLeft (Text.toList needle) field _ h
+    | [next, ..later], Inr (Inl same) =>
+      Text.containsCharsAppendRight
+        (Text.toList needle)
+        field _
+        (Text.containsCharsAppendRight
+          (Text.toList needle)
+          separator _
+          (Text.containsJoinTextChars needle separator
+            (Text.toList next)
+            later
+            (Inl (rewrite same then Text.containsCharsSelf (Text.toList needle)))))
+    | [next, ..later], Inr (Inr m) =>
+      Text.containsCharsAppendRight
+        (Text.toList needle)
+        field _
+        (Text.containsCharsAppendRight
+          (Text.toList needle)
+          separator _
+          (Text.containsJoinTextChars needle separator (Text.toList next) later (Inr m)))
+
+--| A text joined from parts contains each part, whatever the separator:
+--| `Text.joinWith ["a", "b"] ", "` contains `"a"` and `"b"`.
+theorem Text.containsJoinWith ∀ (texts: List Text) (separator part: Text)
+    (h: part ∈ texts):
+    Text.contains (Text.joinWith texts separator) part = True :=
+  match texts, h with
+    | [], h => h.impossible
+    | [first, ..rest], Inl same =>
+      Text.containsJoinTextChars part
+        (Text.toList separator)
+        (Text.toList first)
+        rest
+        (Inl (rewrite same then Text.containsCharsSelf (Text.toList part)))
+    | [first, ..rest], Inr m => Text.containsJoinTextChars part (Text.toList separator) (Text.toList first) rest (Inr m)
+
+test "contains of a join" :=
+  Text.contains (Text.joinWith ["ab", "cd", "e"] ", ") "cd"
+    ∧ Text.contains (Text.append "x" (Text.append "yz" "w")) "yz"
+
 theorem Text.takeDropChars ∀ (n: Nat) (cs: List Char): List.append (List.take cs n) (List.drop cs n) = cs :=
   match n, cs with
     | Zero, cs => byComputing
