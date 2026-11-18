@@ -25422,7 +25422,7 @@
     {
       "id": 4090,
       "title": "[Opus] fmt S1 read-back 17g-ii: && and || on one line through groupLogic, widening Spelt/lineKind/readsBackLineWithin in place (flips TopReadBack's binaryNotLine); plan in SW-4071's report: build the comparison part and the logic part separately, then a generic non-mutual lemma assembles the reading, so the large ∃ is never taken apart in the mutual block (E-RESOURCE)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
