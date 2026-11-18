@@ -3,9 +3,9 @@
 --| `Fmt.GlueProofs.printedGlued` takes those to the lexer's items.
 
 namespace Fmt.SpacingProofs
-import Std (Bool, Doc, Eq, List, Nat, Option, Text)
+import Std (Bool, Doc, Eq, List, Nat, Option, Text, byDecision)
 import Std.Doc.Proofs (Begun, Seam, Touch, Touches, printTouches, printedJoins, printedPieces, touchesOf)
-import Syntax (Decl, DefBody, Item, items)
+import Syntax (Comments, Decl, DefBody, DefKind, Expr, Item, Tok, items)
 import Syntax.Proofs (Laid)
 import Fmt (..)
 import Fmt.GlueProofs (codeTouching, printedGlued)
@@ -88,3 +88,32 @@ theorem printedSpacingOfTouches ∀ (decl: Decl)
     | None =>
       match decl, within, shows with
         | Definition [] header (Assigned colonEq value), _, never => cases
+
+--| `def d: A := f -x`.
+def signDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none
+      (App (Atom Lower (fixedWord "f" Comments.none)) [
+        Prefix (fixedWord "-" Comments.none) (Atom Lower (fixedWord "x" Comments.none))
+      ]))
+
+theorem signSpacedTouches: SpacedTouches signDecl (signDecl.doc1.getOrElse Nothing) := byDecision
+
+--| `printedSpacingOfTouches` applies: `f -x`'s sign apart from `f` and glued to `x`.
+theorem printedSpacingExample: spacingAdmits signDecl.spacing1 (items signDecl.leaves1) = True :=
+  printedSpacingOfTouches signDecl byComputing byComputing byComputing byComputing (doc shows =>
+    let same: signDecl.doc1.getOrElse Nothing = doc := Eq.cong (found => found.getOrElse Nothing) shows
+    rewrite <- same then signSpacedTouches)
