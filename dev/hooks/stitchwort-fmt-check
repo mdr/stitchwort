@@ -9,21 +9,26 @@
 # so the lists can't drift). `stitchwort fmt` skips those only in a folder
 # walk, not when named, hence the filtering here.
 #
-# Runs the release CLI of this checkout, or of the main checkout when this one
-# hasn't built it; with neither, warns and lets the commit through.
+# Runs the release CLI of this checkout, else of the main checkout (a
+# worktree's common git dir is its .git), else of any folder above this one (a
+# scratch clone lives under the main checkout's .claude/worktrees/); with none,
+# warns and lets the commit through.
 set -eu
 
 root=$(git rev-parse --show-toplevel)
 common=$(git rev-parse --path-format=absolute --git-common-dir)
 bin=
-for dir in "$root" "$(dirname "$common")"; do
-  if [ -x "$dir/target/release/stitchwort" ]; then
-    bin="$dir/target/release/stitchwort"
-    break
-  fi
+dir=$root
+for next in "$(dirname "$common")" "$root"; do
+  dir=$next
+  while [ -n "$dir" ] && [ -z "$bin" ]; do
+    [ -x "$dir/target/release/stitchwort" ] && bin="$dir/target/release/stitchwort"
+    [ "$dir" = / ] && break
+    dir=$(dirname "$dir")
+  done
 done
 if [ -z "$bin" ]; then
-  echo "stitchwort-fmt: no target/release/stitchwort in this checkout or the main one; skipping the .sw format check" >&2
+  echo "stitchwort-fmt: no target/release/stitchwort in this checkout, the main one or a folder above; skipping the .sw format check" >&2
   exit 0
 fi
 
