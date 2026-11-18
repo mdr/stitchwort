@@ -1,5 +1,5 @@
 {
-  "next": 3996,
+  "next": 3997,
   "tickets": [
     {
       "id": 47,
@@ -23728,12 +23728,12 @@
     {
       "id": 3963,
       "title": "[Sonnet] fmt S1 ticket 13b: family B, a blank line before a filled list's first item isn't printed but still breaks the groups, so formatting isn't idempotent (def d: A := g [ / / f, a]); plus the withoutLastCommas blank line. Fix in both formatters; failing-first tests; keep calm in step (sketch §3)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (Sonnet lane): families B and D fixed in both formatters, tuple patterns mirrored (SW-3992); gates s1-s5a and s4b 100%; PassProofs audit clean (calmItems/pickItems). See tools/fmt/NOTES.md.\n",
+      "body": "\n\nProgress (Sonnet lane): families B and D fixed in both formatters, tuple patterns mirrored (SW-3992); gates s1-s5a and s4b 100%; PassProofs audit clean (calmItems/pickItems). See tools/fmt/NOTES.md.\n\nMerged 18 Nov. Model result: sonnet, worked, 26 min (est. 30). Rust failing-first shown for B; D case 1 Rust was already right; D case 2 and tuple-pattern tests written after their fixes (not shown failing). Side effect, both formatters: a plain list broken by a trailing comment also loses a blank before its first item. Search: A 0, B 0. Filed SW-3996. Proving-guide tip: don't put an if over a list in cases, pull the Bool out as a parameter (for SW-3984).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24010,7 +24010,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24149,6 +24149,19 @@
       "id": 3995,
       "title": "[Opus] Self-hosted fmt S4c program: records: record literals and updates ({ r | f = e }), record fields, spread (..), record patterns, membership (x ∈ s) if cheap; within4c, Fmt.Twin --stage s4c; gate identical to Rust; census after (SW-3992's top: Record 581 present, RecordField 526, Spread 347 present/114 only, Membership 81 only, PatternRecord 35 only)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3996,
+      "title": "[Sonnet] fmt in both formatters: a closer after own-line comments, with a trailing comment of its own ([ / a -- t / ] -- t2), still differs from Rust's... check which side is wrong (SW-3963's search, ~4 files a seed); failing-first tests",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
