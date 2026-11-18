@@ -1401,3 +1401,79 @@ recursion), and `carriesExpressionAt (ladder: LadderCarries): NestedCarries expr
   line's; the logic chain's regrouping (`groupLogic`, `conjunctionOf`) must keep the words in order; the `def` frame's
   `def`, `:` and `:=` need `good` for their texts (`Decl.words` writes them back), and `(items group).map Item.leaf =
   group` for the file.
+## Slice 1 rules proofs, `printedHangs`: seats and marks (SW-4030, Opus, 18 November 2026)
+
+Ticket 18f. The design change first, then the rules' triples.
+
+### The design
+
+- **A seat column apart from the indentation.** `ElHangs kinds doc indent column before trails start`: `indent` is
+  the indentation the element's document is laid at (its line breaks land there or deeper), `column` the column a
+  seat at a line start is at. `Seated column` stays exact (`at = column`, no comment floor deeper), as before, so
+  a token with comments above it still lands where `leadColumn` says; those lemmas take `column = indent`. `Seat`
+  adds `column ≤ indent`. An application's head is the one element seated left of its indentation: `appDocs`' `Nest
+  4 (Fill …)` lays it at the call's indentation + 4 while it starts where the call does. A chain's operators, and a
+  call's arguments after a break, are seated where their line breaks land (`indent + 2`, `indent + 4`), so they
+  are ordinary seats at a deeper indentation.
+- **The marks invariant, kept out of `ElHangs`.** Marks matter only at a bracket's own closer, so rather than
+  threading a carry relation through every element lemma, a frame lemma over `Lays` says that a document whose
+  `Mark` and `CloserLine` keys are all at least `low` keeps every open mark with a key below `low`: found by its
+  key, at the same `marked`, its `least` kept or lowered (`MarksKept`). The rules give the key floor: an element
+  standing where `around.at` says uses keys from `around.at` up, and a bracket's contents start at its opener's
+  `at + 1`. `CloserFits` then follows at the closer: (a) what is in force outside the bracket is at most the
+  opener's line, which is the mark's `marked`, and at most the indentation; (b) for parentheses, whose inner may
+  start a line at the indentation itself (after the opener's trailing comment), the line break there lowers the
+  mark to that column, so the closer lands at the opener's line, left of it.
+
+### What was proved
+
+- `Fmt.MarkProofs` (17 theorems): `MarksKept`, the frame lemma `framed` and its helpers.
+- `Fmt.BracketHangProofs` (46): the items of a filled or broken bracket (`fillCellsHang`, `brokenItemsHang`), the
+  marked opener (`markedOpeningHangs`, `bracketOpening`), the closer with `CloserFits` from the opener's mark
+  (`closerStep`, `closerFitsOf`), `bracketContentHangs` in all three layouts, `commaBracketHangs`, `listHangs`,
+  `tupleHangs`, `parenHangs` and `parenElHangs` (opener ending no line with a comment), `huggedBracketIs` and
+  `groupedBracketHangs`, `lastTuple` and `lastList`.
+- `Fmt.AppHangProofs` (28): `spacedHangs`; arguments from their seats (`argHangs`, `lineArg`, `hardArg`), filled
+  (`filledHangs`) and lined (`linedPart`); `Chained` and its cut (`chainedSplit`); `appFromHangs` over every layout
+  (spaced, filled at 4, the choice of flattened, hug and broken with its rest at 2 or 4); `argumentDocsHang`,
+  `appDocsIs`, `appDocsHangs` and `appElHangs`.
+- `Fmt.ChainHangProofs` (9): a chain's runs (`runHangs`, `TailHangs`), `chainLinksForm` and `linkDocsForm` (a head at
+  the chain's seat, then runs), `chainHangs` and `binaryChainHangs`, given what each operand and operator asks
+  (`LinkFacts`, `PairFacts`).
+- `CloserEntry` asks `CloserFits` only where the closer takes a line of its own (noted or lone), the only cases
+  that read it: a weaker hypothesis, so stronger theorems.
+
+### Findings
+
+- `Lays` ignores groups, so it lays a broken bracket's `Line` after an item with a trailing comment flat, at the
+  comment's `Held`. `brokenItems` passes `before = False` to every item after the first, so in that layout a node
+  item would be written at the comment break without being displaced. The printer never prints it (the comment's
+  `BreakParent` breaks the group), but the proofs must cover it: `ItemsHang` takes each item's `ElHangs` with the
+  seat's `before` as the previous item's trails. Passing the previous item's trails as `before` in `brokenItems`
+  would print the same and let the items' facts be uniform (CalmProofs and SpellProofs mention `brokenItems False
+  arm False False`).
+- `huggedBracket`'s opened form is not framed, so a bracket hugged after an argument that ends with a comment
+  starts at the comment's `Held` with no displacement. `appDocsHangs` asks the hug to hang after the arguments
+  before it (`ArgsHang`), which a bracket meets only when the argument before it ends with no comment.
+- An element's trailing flag in these lemmas is what its parts say (`close.trails || trailsBeforeClose` for a
+  bracket, `close.trails || inner.trails` for a paren, the last argument's for a call); `bracketTrails` and
+  `tupleTrails` equate the bracket's with `Expr.trails`; the paren's and the call's equations are still owed.
+
+### Owed
+
+- A paren whose opener ends its line with a comment: the inner starts a line at `s ≥ at + 2` (`wordStart` at
+  `Held`), so the bracket's block is `Some s`, and `CloserFits` (a) needs the mark lowered to at most `s` by that
+  break, with `marked` (the opener's line, `at`) below it. That needs the first write after `Held` exposed through
+  the inner's `ElHangs`, or a carry fact in its post.
+- Chains of `->`: `PairFacts` asks the operator to hang as an element, which `->` doesn't, since after it the fold
+  is glued rather than as after its first word; it needs its own run lemma, the operand starting mid-line and its
+  `openedBy` ungluing the fold back to what it was. Slice 1 has no blocks or matches, so `chainRight` is always a
+  space and the operand and the first operand opens no arms; `PairFacts` and `chainHangs` take those as facts.
+- The declaration level (`bodyAfter`, `callHug`, `opensBracket`, `bodyDoc`, `headDocs`, `defDoc`, `defFrom`,
+  `doc1`) and `printedHangs` through `hangsOfLays`. After `:=` the fold is `{ blocks = [], top = None, start = True }`
+  (`HangState.step`'s `ColonEq`); the body below at 2 starts a line there, so `top` becomes `Some 2`, and on the
+  `:=`'s line it starts none, so `top` stays `None` and its later lines are right of column 0. The header needs a
+  lemma for a `:=` and a `:` leaf (both reset the fold with no bracket open) and the parameter groups' own.
+- Equations from the lemmas' trailing flags to `Expr.trails` for a paren and a call (`bracketTrails` does it for
+  brackets), and from the slice's facts (`within1`) to the hypotheses: `parenInner` writes the inner as it is, a
+  chain's right operand is no block, its first opens no arms.
