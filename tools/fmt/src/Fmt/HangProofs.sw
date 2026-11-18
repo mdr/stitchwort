@@ -13,7 +13,7 @@ namespace Fmt.HangProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Expr, Leaf, Note, Tok, Word)
+import Syntax (Comments, Expr, Leaf, Note, Tok, Word)
 import Fmt (..)
 
 -- The fold over a trace.
@@ -2221,6 +2221,16 @@ theorem closerLeafIs ∀ (word: Word) (around: Around) (key: Nat)
           ++ [Closing word.text]
           ++ word.trailing) :=
   rewrite closer
+
+--| `closerLeafIs`' hypothesis holds of a closer.
+theorem closerLeafIsExample ∀ (comments: Comments) (around: Around) (key: Nat):
+    { text = ")", comments }.leaf around key
+      = Doc.concat
+        ({ text = ")", comments }.leading around key
+          ++ (if { text = ")", comments }.lone around then [CloserLine key] else [])
+          ++ [Closing ")"]
+          ++ { text = ")", comments }.trailing) :=
+  closerLeafIs { text = ")", comments } around key byComputing
 
 theorem noTrailing ∀ (word: Word) (quiet: word.trails = False): word.trailing = [] :=
   match after: word.comments.after, quiet with
