@@ -12,7 +12,6 @@
 namespace Syntax.ReadBackTree
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text, Void)
 import Syntax (..)
-import Fmt (..)
 import Syntax.ReadBackProofs (..)
 import Syntax.ReadBackRuns (..)
 
@@ -1096,3 +1095,489 @@ theorem runsTree ∀ (goal: Goal) (read rest: List Item) (value: Expr)
     (tree: Tree goal read rest value):
     Parse.Runs (() => expressionAt goal) read rest value :=
   Parse.runsRecursiveWith expressionRule Tree treeStep goal read rest value tree
+
+-- A declaration read whole.
+
+--| What a declaration `def name: type := value` needs read back (ticket 17d's target): the frame's four kinds,
+--| the type as `resultType` reads it, and the value in full in the body's modes, each a tree the relation holds
+--| of, the look-aheads inside.
+type DeclarationTree (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr): Prop = {
+  isDef: keyword.kind = KwDef,
+  isLower: name.kind = Lower,
+  isColon: colon.kind = Colon,
+  isColonEq: colonEq.kind = ColonEq,
+  typeReads: ResultReads Tree Modes.start typeRead [colonEq, ..valueRead] result,
+  valueTree: Tree { modes = { Modes.start | recover = True }, level = LevelFull } valueRead [] value
+}
+
+--| Ticket 17c's result: a declaration whose type and value are trees the relation holds of parses, as `parseGroups`
+--| runs it, to the definition of that type and value.
+theorem declarationTree ∀ (seen: Seen) (keyword name colon colonEq: Item)
+    (typeRead valueRead: List Item) (result value: Expr)
+    (reads: DeclarationTree keyword name colon colonEq typeRead valueRead result value):
+    Parse.run [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] (() =>
+      let decl := declaration seen
+      decl)
+      = Ok (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)) :=
+  let (noRow, typeTree) := reads.typeReads
+  declarationRuns seen keyword name colon colonEq typeRead valueRead result value reads.isDef reads.isLower
+      reads.isColon
+      (runsResultPlain expressionAt Modes.start typeRead
+        [colonEq, ..valueRead]
+        result
+        noRow
+        (runsTree _ typeRead [colonEq, ..valueRead] result typeTree))
+      reads.isColonEq
+      (runsTree _ valueRead [] value reads.valueTree)
+
+-- Building trees: each rung is monotone in `sub`, so children of different depths meet at the deepest.
+
+theorem commaMono ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (before after: List Item → List Item → Expr → Prop)
+    (count: Nat) (steps: List (Item, List Item, Expr))
+    (rest: List Item) (map: ∀ (read later: List Item) (value: Expr) => before read later value → after read later value)
+    (reads: CommaReads modes ends before count steps rest):
+    CommaReads modes ends after count steps rest :=
+  match steps, reads with
+    | [], ended => ended
+    | [(comma, read, value), ..later], (open, isComma, ended, holds, more) => (
+      open,
+      isComma,
+      ended,
+      map read (commaReads later ++ rest) value holds,
+      commaMono modes ends before after (count + 1) later rest map more
+    )
+
+theorem baseMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
+    (reads: BaseReads before modes item more rest value):
+    BaseReads after modes item more rest value :=
+  let inner: Goal := { modes = modes.inBrackets, level = LevelFull }
+  let elements: ∀ (read later: List Item) (element: Expr) => ListElement before modes.inBrackets read later element
+    → ListElement after modes.inBrackets read later element :=
+    read later element (noSpread, holds) => (noSpread, map inner read later element holds)
+  match reads with
+    | Inl word => Inl word
+    | Inr (Inl (innerRead, close, first, isMore, isValue, isOpen, plain, innerReads, closes, isClose)) =>
+      Inr
+        (Inl (
+          innerRead,
+          close,
+          first,
+          isMore,
+          isValue,
+          isOpen,
+          plain,
+          map inner innerRead [close, ..rest] first innerReads,
+          closes,
+          isClose
+        ))
+    | Inr
+        (Inr
+          (Inl
+            (read1, comma, read2, steps, close, first, second, isMore, isValue, isOpen, plain, firstReads, commaOpen,
+              isComma, secondReads, others, closes, isClose))) =>
+      Inr
+        (Inr
+          (Inl (
+            read1,
+            comma,
+            read2,
+            steps,
+            close,
+            first,
+            second,
+            isMore,
+            isValue,
+            isOpen,
+            plain,
+            map inner read1 _ first firstReads,
+            commaOpen,
+            isComma,
+            map inner read2 _ second secondReads,
+            commaMono modes.inBrackets
+              (tupleEnds modes.inBrackets)
+              (before inner)
+              (after inner)
+              2
+              steps
+              [close, ..rest]
+              (map inner)
+              others,
+            closes,
+            isClose
+          )))
+    | Inr (Inr (Inr (Inl empty))) => Inr (Inr (Inr (Inl empty)))
+    | Inr
+        (Inr
+          (Inr
+            (Inr
+              (Inl
+                (read1, steps, close, first, isMore, isValue, isOpen, plain, notEmpty, firstReads, others, closes,
+                  isClose))))) =>
+      Inr
+        (Inr
+          (Inr
+            (Inr
+              (Inl (
+                read1,
+                steps,
+                close,
+                first,
+                isMore,
+                isValue,
+                isOpen,
+                plain,
+                notEmpty,
+                elements read1 _ first firstReads,
+                commaMono modes.inBrackets
+                  (count => modes.inBrackets.at RBracket)
+                  (ListElement before modes.inBrackets)
+                  (ListElement after modes.inBrackets)
+                  1
+                  steps
+                  [close, ..rest]
+                  elements
+                  others,
+                closes,
+                isClose
+              )))))
+    | Inr (Inr (Inr (Inr (Inr (Inl number))))) => Inr (Inr (Inr (Inr (Inr (Inl number)))))
+    | Inr (Inr (Inr (Inr (Inr (Inr (operand, isValue, signed, operandReads)))))) =>
+      Inr
+        (Inr
+          (Inr
+            (Inr
+              (Inr
+                (Inr (
+                  operand,
+                  isValue,
+                  signed,
+                  map { modes, level = LevelArgument } more rest operand operandReads
+                ))))))
+
+theorem atomMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (head: Bool) (read rest: List Item) (value: Expr)
+    (reads: AtomReads before modes head read rest value):
+    AtomReads after modes head read rest value :=
+  let (item, more, isRead, open, ends, base) := reads
+  (item, more, isRead, open, ends, baseMono before after map modes item more rest value base)
+
+theorem argsMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (steps: List (List Item, Expr)) (rest: List Item)
+    (reads: ArgsReads before modes steps rest):
+    ArgsReads after modes steps rest :=
+  match steps, reads with
+    | [], ends => ends
+    | [(read, value), ..later], (nonEmpty, starts, (noLine, noBrace, holds), more) => (
+      nonEmpty,
+      starts,
+      (noLine, noBrace, map { modes, level = LevelArgument } read _ value holds),
+      argsMono before after map modes later rest more
+    )
+
+theorem appMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: AppReads before modes read rest value):
+    AppReads after modes read rest value :=
+  match reads with
+    | Inl (noSection, atomReads, ends) =>
+      Inl (noSection, atomMono before after map modes True read rest value atomReads, ends)
+    | Inr
+        (
+          headRead,
+          read1,
+          steps,
+          head,
+          first,
+          isRead,
+          isValue,
+          noSection,
+          headReads,
+          starts,
+          (noLine, noBrace, firstHolds),
+          more
+        ) => Inr (
+      headRead,
+      read1,
+      steps,
+      head,
+      first,
+      isRead,
+      isValue,
+      noSection,
+      atomMono before after map modes True headRead _ head headReads,
+      starts,
+      (noLine, noBrace, map { modes, level = LevelArgument } read1 _ first firstHolds),
+      argsMono before after map modes steps rest more
+    )
+
+theorem unaryMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: UnaryReads before modes read rest value):
+    UnaryReads after modes read rest value :=
+  match reads with
+    | Inl (sign, more, operand, isRead, isValue, open, signed, noBar, notNumeral, operandReads) => Inl (
+      sign,
+      more,
+      operand,
+      isRead,
+      isValue,
+      open,
+      signed,
+      noBar,
+      notNumeral,
+      map { modes, level = LevelUnary } more rest operand operandReads
+    )
+    | Inr (item, more, isRead, open, notMatch, noBar, route, appReads) =>
+      Inr (item, more, isRead, open, notMatch, noBar, route, appMono before after map modes read rest value appReads)
+
+theorem linkMono ∀ (modes: Modes) (takes: Tok → Bool) (before after: List Item → List Item → Expr → Prop)
+    (links: List (Item, List Item, Expr))
+    (rest: List Item) (map: ∀ (read later: List Item) (value: Expr) => before read later value → after read later value)
+    (reads: LinkReads modes takes before links rest):
+    LinkReads modes takes after links rest :=
+  match links, reads with
+    | [], ends => ends
+    | [(operator, read, value), ..later], (open, took, holds, more) =>
+      (open, took, map read _ value holds, linkMono modes takes before after later rest map more)
+
+theorem chainMono ∀ (modes: Modes) (takes: Tok → Bool) (nested: Expr → List (Word, Expr) → Expr)
+    (before after: List Item → List Item → Expr → Prop) (read rest: List Item)
+    (value: Expr) (map: ∀ (read later: List Item) (value: Expr) => before read later value → after read later value)
+    (reads: ChainReads modes takes nested before before read rest value):
+    ChainReads modes takes nested after after read rest value :=
+  let (headRead, head, links, isRead, isValue, headReads, linkReads) := reads
+  (
+    headRead,
+    head,
+    links,
+    isRead,
+    isValue,
+    map headRead _ head headReads,
+    linkMono modes takes before after links rest map linkReads
+  )
+
+theorem mulMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: MulReads before modes read rest value):
+    MulReads after modes read rest value :=
+  chainMono modes
+    (kind => kind == Star || kind == Slash || kind == Percent)
+    leftNested
+    (UnaryReads before modes)
+    (UnaryReads after modes)
+    read
+    rest
+    value
+    (unaryMono before after map modes)
+    reads
+
+theorem addMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: AddReads before modes read rest value):
+    AddReads after modes read rest value :=
+  chainMono modes
+    (kind => kind == Plus || kind == Minus)
+    leftNested
+    (MulReads before modes)
+    (MulReads after modes)
+    read
+    rest
+    value
+    (mulMono before after map modes)
+    reads
+
+theorem appendMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: AppendReads before modes read rest value):
+    AppendReads after modes read rest value :=
+  chainMono modes
+    (kind => kind == PlusPlus)
+    rightNested
+    (AddReads before modes)
+    (AddReads after modes)
+    read
+    rest
+    value
+    (addMono before after map modes)
+    reads
+
+theorem pipedMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: PipedReads before modes read rest value):
+    PipedReads after modes read rest value :=
+  let (noRange, noPipe, appendReads) := reads
+  (noRange, noPipe, appendMono before after map modes read rest value appendReads)
+
+theorem cmpMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: CmpReads before modes read rest value):
+    CmpReads after modes read rest value :=
+  match reads with
+    | Inl (pipedReads, noCmp) => Inl (pipedMono before after map modes read rest value pipedReads, noCmp)
+    | Inr
+        (read1, operator, read2, lhs, second, isRead, isValue, firstReads, open, notIn, compares, noIf, secondReads,
+          noChain) => Inr (
+      read1,
+      operator,
+      read2,
+      lhs,
+      second,
+      isRead,
+      isValue,
+      pipedMono before after map modes read1 _ lhs firstReads,
+      open,
+      notIn,
+      compares,
+      noIf,
+      pipedMono before after map modes read2 rest second secondReads,
+      noChain
+    )
+
+theorem logicMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (links: List (Item, List Item, Expr)) (rest: List Item)
+    (reads: LogicReads before modes links rest):
+    LogicReads after modes links rest :=
+  match links, reads with
+    | [], ends => ends
+    | [(operator, read, value), ..later], (open, andOr, noExists, noForall, holds, more) => (
+      open,
+      andOr,
+      noExists,
+      noForall,
+      cmpMono before after map modes read _ value holds,
+      logicMono before after map modes later rest more
+    )
+
+theorem logicAfterMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (compared: Expr) (read rest: List Item) (value: Expr)
+    (reads: LogicAfterReads before modes compared read rest value):
+    LogicAfterReads after modes compared read rest value :=
+  match reads with
+    | Inl none => Inl none
+    | Inr (links, isRead, isValue, ahead, linkReads) =>
+      Inr (links, isRead, isValue, ahead, logicMono before after map modes links rest linkReads)
+
+theorem endMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (logic: Expr) (sequence: Bool) (read rest: List Item) (value: Expr)
+    (reads: EndReads before modes logic sequence read rest value):
+    EndReads after modes logic sequence read rest value :=
+  match reads with
+    | Inl none => Inl none
+    | Inr (arrow, more, result, isRead, isValue, open, isArrow, (noRow, resultHolds)) => Inr (
+      arrow,
+      more,
+      result,
+      isRead,
+      isValue,
+      open,
+      isArrow,
+      (noRow, map { modes = allowBraceOn modes (more ++ rest), level = LevelFull } more rest result resultHolds)
+    )
+
+theorem operatorMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: OperatorReads before modes read rest value):
+    OperatorReads after modes read rest value :=
+  let (read1, read2, read3, compared, logic, isRead, noSection, cmpReads, logicReads, noIff, endReads) := reads
+  (
+    read1,
+    read2,
+    read3,
+    compared,
+    logic,
+    isRead,
+    noSection,
+    cmpMono before after map modes read1 _ compared cmpReads,
+    logicAfterMono before after map modes compared read2 _ logic logicReads,
+    noIff,
+    endMono before after map modes logic _ read3 rest value endReads
+  )
+
+theorem inlineMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
+    (reads: InlineAt before modes item more rest value):
+    InlineAt after modes item more rest value :=
+  let (open, inline, operatorReads) := reads
+  (open, inline, operatorMono before after map modes [item, ..more] rest value operatorReads)
+
+theorem fullMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (modes: Modes) (read rest: List Item) (value: Expr)
+    (reads: FullReads before modes read rest value):
+    FullReads after modes read rest value :=
+  let (item, more, isRead, inlineAt, blockAt) := reads
+  (
+    item,
+    more,
+    isRead,
+    inlineMono before after map modes item more rest value inlineAt,
+    starts =>
+      let (right, ends, notOther, lines) := blockAt starts
+      (
+        right,
+        ends,
+        notOther,
+        kind previous =>
+          inlineMono before after map
+            (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True previous kind)
+            item
+            more
+            rest
+            value
+            (lines kind previous)
+      )
+  )
+
+theorem layerMono ∀ (before after: Goal → List Item → List Item → Expr → Prop)
+    (map: ∀ (goal: Goal) (read rest: List Item) (value: Expr) => before goal read rest value
+      → after goal read rest value) (goal: Goal) (read rest: List Item) (value: Expr)
+    (layer: Layer before goal read rest value):
+    Layer after goal read rest value :=
+  match goal, layer with
+    | { modes, level }, layer =>
+      match level, layer with
+        | LevelFull, layer => fullMono before after map modes read rest value layer
+        | LevelUnary, layer => unaryMono before after map modes read rest value layer
+        | LevelArgument, layer => atomMono before after map modes False read rest value layer
+        | other, layer => Void.impossible layer
+
+--| A tree nested `low` deep is nested at most any deeper.
+theorem treeNRaise ∀ (low high: Nat) (goal: Goal) (read rest: List Item) (value: Expr)
+    (le: low <= high)
+    (holds: TreeN low goal read rest value):
+    TreeN high goal read rest value :=
+  match low, high, holds with
+    | Zero, _, never => Void.impossible never
+    | Succ below, Succ above, layer =>
+      layerMono
+        (TreeN below)
+        (TreeN above)
+        (innerGoal innerRead innerRest innerValue inner =>
+          treeNRaise below above innerGoal innerRead innerRest innerValue (arithmetic [le]) inner)
+        goal
+        read
+        rest
+        value
+        layer
+
+--| A rung whose children are trees nested at most `depth` deep is a tree.
+theorem treeOfLayer ∀ (depth: Nat) (goal: Goal) (read rest: List Item) (value: Expr)
+    (layer: Layer (TreeN depth) goal read rest value):
+    Tree goal read rest value :=
+  (Succ depth, layer)
