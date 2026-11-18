@@ -25160,7 +25160,7 @@
     {
       "id": 4070,
       "title": "[Opus] fmt S1 printed spacing: state and prove the printed items' glued and afterOperand fields (signs glued to what follows, a binary operator's right operand not glued), the lemma read-back's Spelt needs from the printer beside printedTokens1/printedSpells (SW-4031 finding 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
