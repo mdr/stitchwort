@@ -922,3 +922,156 @@ theorem textForeign ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme
                   | _ => yieldsFatal blockOpeningLine Foreign)))
       | _ => yieldsThen (ran (() => skip 1)) (u =>
         piecesForeign (from.left + 1) self source place False 0 True from None [] byComputing))
+
+-- Rounds that read honestly, or give a token outside the alphabet.
+
+--| From `start`, a success of `parser` either gives a token outside the alphabet or read as `spec` says.
+def RoundOk (start: Parse.Mark Char)
+    (parser: () → {Parse Char} List (Parse.Located Lexeme)) (spec: List Char → List (Parse.Located Lexeme) → Prop):
+    Prop :=
+  ∀ (total: Nat) (state: Parse.State Char) (value: List (Parse.Located Lexeme)) (after: Parse.Mark Char) => state.at
+    = start
+    → Parse.Honest total start
+    → Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
+    → Foreign value
+      ∨ (∃ (read: List Char) => start.rest = read ++ after.rest ∧ Parse.Honest total after ∧ spec read value)
+
+theorem roundOfReads ∀ [start: Parse.Mark Char]
+    [p: () → {Parse Char} List (Parse.Located Lexeme)] [spec: List Char → List (Parse.Located Lexeme) → Prop]
+    (reads: Parse.ReadsAt start p spec):
+    RoundOk start p spec :=
+  total state value after here honest h => Inr (reads total state value after here honest h)
+
+theorem roundOfYields ∀ [start: Parse.Mark Char]
+    [p: () → {Parse Char} List (Parse.Located Lexeme)] [spec: List Char → List (Parse.Located Lexeme) → Prop]
+    (foreign: Yields p Foreign):
+    RoundOk start p spec :=
+  total state value after here honest h => Inl (foreign state value after h)
+
+--| Some round gave a token outside the alphabet.
+def ForeignRounds (rounds: List (List (Parse.Located Lexeme))): Prop :=
+  rounds.all (round => round.all (lexeme => lexeme.value.within)) = False
+
+--| `manyFrom` gives the values found before it, then more.
+theorem manyKeeps ∀ (p: () → {Parse t} a) (fuel: Nat) (found: List a) (state: Parse.State t)
+    (value: List a) (after: Parse.Mark t)
+    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
+    ∃ (more: List a) => value = found.reverse ++ more :=
+  match fuel with
+    | Zero =>
+      let same := Result.okInjective h
+      let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+      Witness [] (rewrite <- valueSame then (List.appendNil found.reverse).flipped)
+    | Succ more =>
+      match Parse.runFromOptionalFromOk2 p state.at state
+        (found2 => Parse.manyRound more p found state.at found2)
+        (x => (x, Parse.mark()))
+        (value, after)
+        h with
+        | Inl (Witness v (Witness middle (Both ran rest))) =>
+          match Parse.runFromIfOk
+            (middle.at.offset > state.at.offset)
+            (() => Parse.manyFrom more p [v, ..found] middle.at)
+            (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
+            middle
+            value
+            after
+            rest with
+            | Inl (Both isTrue yesRun) =>
+              match manyKeeps p more [v, ..found] middle value after yesRun with
+                | Witness later same =>
+                  Witness
+                    [v, ..later]
+                    (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] later)
+            | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
+        | Inr (Witness middle (Both back rest)) =>
+          let same := Result.okInjective rest
+          let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+          Witness [] (rewrite <- valueSame then (List.appendNil found.reverse).flipped)
+
+theorem foreignKept ∀ (v: List (Parse.Located Lexeme)) (found more: List (List (Parse.Located Lexeme)))
+    (outside: Foreign v):
+    ForeignRounds ([v, ..found].reverse ++ more) :=
+  let cut: ([v, ..found].reverse ++ more).all (round => round.all (lexeme => lexeme.value.within))
+    = (([v, ..found].reverseOnto []).all (round => round.all (lexeme => lexeme.value.within))
+      && more.all (round => round.all (lexeme => lexeme.value.within))) :=
+    allAppendB ([v, ..found].reverseOnto []) more (round => round.all (lexeme => lexeme.value.within))
+  let outsideV: v.all (lexeme => lexeme.value.within) = False := outside
+  rewrite cut, allReverseOnto [v, ..found] [] (round => round.all (lexeme => lexeme.value.within)), outsideV
+
+--| `atManyFrom` for rounds that may give a token outside the alphabet: then the rounds do.
+--|
+--| Proof idea: as `atManyFrom`; a round outside the alphabet is kept in the values the rest gives (`manyKeeps`),
+--| whatever the rest read.
+theorem atManyFromOr ∀ (p: () → {Parse Char} List (Parse.Located Lexeme))
+    (spec: Nat → List Char → List Char → List (Parse.Located Lexeme) → Prop)
+    (reads: ∀ (start: Parse.Mark Char) => RoundOk start p (spec start.offset start.rest))
+    (fuel: Nat) (found: List (List (Parse.Located Lexeme))) (total: Nat) (state: Parse.State Char)
+    (value: List (List (Parse.Located Lexeme))) (after: Parse.Mark Char)
+    (honest: Parse.Honest total state.at)
+    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
+    ForeignRounds value
+      ∨ (∃ (read: List Char) => state.at.rest = read ++ after.rest
+        ∧ Parse.Honest total after
+        ∧ ManyAt spec found state.at.offset state.at.rest read value) :=
+  match fuel with
+    | Zero =>
+      let same := Result.okInjective h
+      let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+      let atSame: state.at = after := Pair.mkInjectiveSnd same
+      Inr
+        (Witness []
+          (rewrite <- atSame, <- valueSame then
+            Both byComputing (Both honest (Witness [] (Both (List.appendNil found.reverse).flipped byComputing)))))
+    | Succ more =>
+      match Parse.runFromOptionalFromOk2 p state.at state
+        (found2 => Parse.manyRound more p found state.at found2)
+        (x => (x, Parse.mark()))
+        (value, after)
+        h with
+        | Inl (Witness v (Witness middle (Both ran rest))) =>
+          match Parse.runFromIfOk
+            (middle.at.offset > state.at.offset)
+            (() => Parse.manyFrom more p [v, ..found] middle.at)
+            (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
+            middle
+            value
+            after
+            rest with
+            | Inl (Both isTrue yesRun) =>
+              match reads state.at total state v middle.at byComputing honest ran with
+                | Inl outside =>
+                  match manyKeeps p more [v, ..found] middle value after yesRun with
+                    | Witness later same => Inl (rewrite same then foreignKept v found later outside)
+                | Inr (Witness read1 (Both starts1 (Both honest1 holds1))) =>
+                  match atManyFromOr p spec reads more [v, ..found] total middle value after honest1 yesRun with
+                    | Inl outside => Inl outside
+                    | Inr (Witness read2 (Both starts2 (Both honest2 (Witness more2 (Both same each2))))) =>
+                      let moved: middle.at.offset = state.at.offset + read1.length :=
+                        Parse.honestMoved honest honest1 starts1
+                      let left: state.at.rest.drop read1.length = middle.at.rest :=
+                        dropOfAppend state.at.rest read1 middle.at.rest starts1
+                      Inr
+                        (Witness
+                          (read1 ++ read2)
+                          (Both
+                            (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest)
+                            (Both honest2
+                              (Witness
+                                [v, ..more2]
+                                (Both
+                                  (rewrite same,
+                                      List.reverseCons v found,
+                                      List.appendAssoc (List.reverse found) [v] more2)
+                                  (Witness read1
+                                    (Witness read2
+                                      (Both byComputing (Both holds1 (rewrite <- moved, left then each2))))))))))
+            | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
+        | Inr (Witness middle (Both back rest)) =>
+          let same := Result.okInjective rest
+          let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+          let atSame: middle.at = after := Pair.mkInjectiveSnd same
+          Inr
+            (Witness []
+              (rewrite <- atSame, <- valueSame, back then
+                Both byComputing (Both honest (Witness [] (Both (List.appendNil found.reverse).flipped byComputing)))))
