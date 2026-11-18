@@ -334,7 +334,18 @@ theorem settledCommasBare ∀ (lexed: Lexed): lexed.settled.leaves.all bareComma
 -- nothing.
 
 --| Every leaf's token is in slice 1's alphabet.
-def alphabet1 (leaves: List Leaf): Bool := leaves.all (leaf => leaf.kind.within1)
+def alphabet1 (leaves: List Leaf): Bool := (tokens leaves).all (token => token.kind.within1)
+
+theorem alphabet1Leaves ∀ (leaves: List Leaf)
+    (within: alphabet1 leaves = True):
+    leaves.all (leaf => leaf.kind.within1) = True :=
+  rewrite List.allMapBool leaves (token => token.kind.within1) (leaf => leaf.token) at within then within
+
+--| Rule N keeps slice 1's alphabet, since it keeps the tokens.
+theorem settledAlphabet1 ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True):
+    alphabet1 lexed.settled.leaves = True :=
+  rewrite settledKeepsTokens lexed then within
 
 theorem within1NotLet ∀ (kind: Tok) (within: kind.within1 = True): (kind == KwLet) = False :=
   let checked := Finite.check (kind => !kind.within1 || !(kind == KwLet)) byComputing kind
@@ -489,3 +500,142 @@ theorem settledTrimmed ∀ (lexed: Lexed): (lexedTexts lexed.settled).map trimEn
   let homed := homeFrom [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   leavesTrimmed (letsFrom [] (arrows commas.leaves)) commas.end
+
+-- Rule 3: no `->` keeps a comment after it.
+
+--| No `->` that a token follows has a trailing comment, and the token after
+--| it has no own-line comments unless it is another `->` (which takes them
+--| from the token after it in turn; no file that parses has `-> ->`).
+def arrowsBare: List Leaf → Bool
+  | [first, next, ..rest] =>
+    (!(first.kind == Arrow) || (first.trivia.trailing.isNone && (next.trivia.leading.isEmpty || next.kind == Arrow)))
+      && arrowsBare [next, ..rest]
+  | _ => True
+
+--| What `arrowsFrom` leaves before its current leaf is the leaves done, in
+--| order.
+theorem arrowsFromOnto ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf):
+    arrowsFrom done current rest = done.reverseOnto (arrowsFrom [] current rest) :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] =>
+      match current.kind == Arrow && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) with
+        | True =>
+          let moved := { current |
+            trivia = { current.trivia |
+              leading = current.trivia.leading
+                ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+                ++ next.trivia.leading,
+              trailing = None
+            }
+          }
+          rewrite arrowsFromOnto [moved, ..done] (next.withLeading []) more,
+              arrowsFromOnto [moved] (next.withLeading []) more
+        | False => rewrite arrowsFromOnto [current, ..done] next more, arrowsFromOnto [current] next more
+
+theorem emptyOf ∀ (xs: List a) (empty: xs.isEmpty = True): xs = [] := match xs with | [] => byComputing
+
+theorem optionNone ∀ (option: Option a) (none: option.isSome = False): option.isNone = True := match option with
+  | None => byComputing
+
+theorem headBare ∀ (next head: Leaf)
+    (empty: next.trivia.leading = [])
+    (kind: head.kind = next.kind)
+    (same: (next.kind == Arrow) = True ∨ head = next):
+    (head.trivia.leading.isEmpty || head.kind == Arrow) = True :=
+  match same with
+    | Inl isArrow => Bool.orRight (rewrite kind then isArrow)
+    | Inr isNext => rewrite isNext, empty
+
+--| Rule 3's result is `arrowsBare`, and starts with its first leaf, which
+--| changed only if it is an `->`.
+--|
+--| Proof idea: by induction on the leaves; the leaf after the current one
+--| starts the rest's result unchanged unless it is an `->`, so when the
+--| current leaf is an `->` the comments rule 3 took from that leaf are the
+--| only ones it could have had.
+theorem arrowsFromBare1 ∀ (current: Leaf) (rest: List Leaf):
+    ∃ (head: Leaf) (tail: List Leaf) => arrowsFrom [] current rest = [head, ..tail]
+      ∧ head.kind = current.kind
+      ∧ ((current.kind == Arrow) = True ∨ head = current)
+      ∧ arrowsBare [head, ..tail] = True :=
+  match rest with
+    | [] => (current, [], byComputing, byComputing, Inr byComputing, byComputing)
+    | [next, ..more] =>
+      let moved := { current |
+        trivia = { current.trivia |
+          leading = current.trivia.leading
+            ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+            ++ next.trivia.leading,
+          trailing = None
+        }
+      }
+      match isArrow: current.kind == Arrow with
+        | False =>
+          let (head, tail, gives, _, _, bare) := arrowsFromBare1 next more
+          let result: arrowsFrom [] current [next, ..more] = [current, head, ..tail] :=
+            rewrite arrowsFromOnto [current] next more, gives
+          (current, [head, ..tail], result, byComputing, Inr byComputing, rewrite isArrow then bare)
+        | True =>
+          match moves: !next.trivia.leading.isEmpty || current.trivia.trailing.isSome with
+            | True =>
+              let (head, tail, gives, kind, same, bare) := arrowsFromBare1 (next.withLeading []) more
+              let movedBare: arrowsBare [moved, head, ..tail] = True :=
+                rewrite isArrow, headBare (next.withLeading []) head byComputing kind same then bare
+              (
+                moved,
+                [head, ..tail],
+                (rewrite arrowsFromOnto [moved] (next.withLeading []) more, gives),
+                byComputing,
+                Inl byComputing,
+                movedBare
+              )
+            | False =>
+              let (head, tail, gives, kind, same, bare) := arrowsFromBare1 next more
+              let empty := emptyOf next.trivia.leading (Bool.notFalse _ (Bool.orFalseLeft _ _ moves))
+              let untrailed := optionNone current.trivia.trailing (Bool.orFalseRight _ _ moves)
+              let currentBare: arrowsBare [current, head, ..tail] = True :=
+                rewrite isArrow, untrailed, headBare next head empty kind same then bare
+              (
+                current,
+                [head, ..tail],
+                (rewrite arrowsFromOnto [current] next more, gives),
+                byComputing,
+                Inr byComputing,
+                currentBare
+              )
+
+theorem arrowsArrowsBare ∀ (leaves: List Leaf): arrowsBare (arrows leaves) = True := match leaves with
+  | [] => byComputing
+  | [first, ..rest] =>
+    let (head, tail, gives, _, _, bare) := arrowsFromBare1 first rest
+    rewrite gives then bare
+
+theorem trimmedArrowsBare ∀ (leaves: List Leaf)
+    (bare: arrowsBare leaves = True):
+    arrowsBare (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) = True :=
+  match leaves with
+    | [] => byComputing
+    | [only] => byComputing
+    | [first, second, ..rest] =>
+      let later := trimmedArrowsBare [second, ..rest] (Bool.andRight bare)
+      match first.trivia.trailing, second.trivia.leading with
+        | None, [] => rewrite later, Bool.andTrue then Bool.andLeft bare
+        | None, [_, .._] => rewrite later, Bool.andTrue then Bool.andLeft bare
+        | Some _, [] => rewrite later, Bool.andTrue then Bool.andLeft bare
+        | Some _, [_, .._] => rewrite later, Bool.andTrue then Bool.andLeft bare
+
+--| After rule N no `->` holds a trailing comment, and the token after it
+--| no own-line comments, unless that token is another `->`.
+theorem settledArrowsBare1 ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True):
+    arrowsBare lexed.settled.leaves = True :=
+  let homed := homeFrom [] None lexed.leaves
+  let commas := commasFrom [] None homed lexed.end
+  let arrowed := arrows commas.leaves
+  let arrowedWithin: alphabet1 arrowed = True := calc alphabet1 arrowed
+    _ = alphabet1 lexed.leaves :=
+      rewrite arrowsTokens commas.leaves, commasFromTokens [] None homed lexed.end, homeFromTokens [] None lexed.leaves
+    _ = True := within
+  let quiet: letsFrom [] arrowed = arrowed := letsQuiet1 [] arrowed byComputing (alphabet1Leaves arrowed arrowedWithin)
+  trimmedArrowsBare (letsFrom [] arrowed) (rewrite quiet then arrowsArrowsBare commas.leaves)
