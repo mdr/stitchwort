@@ -23925,12 +23925,12 @@
     {
       "id": 3978,
       "title": "[DeepSeek] Not-in-scope hint for a bare print got worse since Std.Doc (SW-3944): it now says 'the library has IO.print or Std.Doc.print' and drops the 'try: add import Std.IO (print)' line (snapshot reject__io-bare-print). Rank candidates by whether their type fits the call (print \"x\" fits IO.print, not Doc.print) and keep the try line when one fits; failing-first is the existing snapshot",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~45 min (est. 25). Fit by written explicit arity, conservative (only when all arities known and exactly one fits). New example reject/unknown-name-bare-two-fit.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
