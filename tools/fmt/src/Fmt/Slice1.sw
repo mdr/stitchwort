@@ -12,7 +12,7 @@
 namespace Fmt
 import Std (Bool, Doc, List, Nat, Option, Result, Text)
 import Std.Doc (..)
-import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Lexed, Note, SourceFile, Tok, Word, lex)
+import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 
 -- The slice.
 
@@ -103,7 +103,8 @@ def Tok.within1: Tok → Bool
 --| The width lines are fitted to (D1014).
 def width: Nat := 120
 
---| A declaration's document, or `None` outside slice 1.
+--| A definition's document (slices 1 and 2), or `None` for another
+--| declaration.
 def Decl.doc1: Decl → Option Doc
   | Definition [] header (Assigned colonEq value) => Some (defDoc header colonEq value)
   | _ => None
@@ -145,18 +146,3 @@ def printDecls (output: Output): List Decl → Output
     let first := decl.firstComments
     let noted := output.notes first.above
     printDecls (noted.item first.blankBefore (decl.printed1.getOrElse "")) rest
-
---| The source formatted, if it is within slice 1: lexed, refused if a
---| token is outside the alphabet, then parsed, tidied and printed as
---| `format` does.
-def formatWithin (source: Text): Result Text Text := match lex source with
-  | Err message => Err message
-  | Ok lexed =>
-    match lexed.leaves.find (leaf => !leaf.token.kind.within1) with
-      | Some leaf => Err "outside slice 1: `${leaf.token.text}`"
-      | None =>
-        match lexed.tidied with
-          | Err message => Err message
-          | Ok tidied =>
-            if tidied.fourth.within1 then Ok tidied.fourth.printed1
-            else Err "outside slice 1: a construct slice 1 doesn't have"

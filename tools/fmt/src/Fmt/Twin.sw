@@ -30,14 +30,16 @@
 --|   printed in 120 columns and compared with Rust's text; the answer is a
 --|   line a declaration (`Fmt.DocDump.answer`). `dev/fmt-twin engine` writes
 --|   the dumps and reads the answers.
---| - `text` (slice 1, SW-3950): the file formatted (`formatWithin`), for a
---|   file within slice 1; any other is answered with status 3 and `outside
---|   slice 1`, or the refusal as in `refusal`.
+--| - `text` (slices 1 and 2, SW-3950, SW-3959): the file formatted
+--|   (`formatWithin`), for a file within the slices; any other is answered
+--|   with status 3 and `outside slice 2`, or the refusal as in `refusal`.
 --| - `s1` (slice 1, SW-3950): a line a declaration, `decl N within` and a
 --|   line `text ESCAPED` with the declaration formatted, as `stitchwort dev
 --|   doc`'s `text` line has Rust's, or `decl N outside`; or the refusal as
 --|   in `refusal`. `dev/fmt-twin s1` compares the declarations within the
 --|   slice with Rust's.
+--| - `s2` (slices 1 and 2, SW-3959): as `s1`, for the declarations within
+--|   slices 1 and 2; `dev/fmt-twin s2` compares them with Rust's.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -63,7 +65,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1 or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1, s2 or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -132,25 +134,29 @@ def stageAnswer (stage source: Text): Answer := match stage with
     match formatWithin source with
       | Ok out => { out, status = 0, message = "" }
       | Err message =>
-        if message.startsWith "outside slice 1" then { out = "", status = 3, message }
+        if message.startsWith "outside slice" then { out = "", status = 3, message }
         else { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
-  | "s1" =>
-    match lex source with
-      | Ok lexed =>
-        match lexed.tidied with
-          | Ok tidied => { out = declarationsWithin1 1 tidied.fourth.decls, status = 0, message = "" }
-          | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
-      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+  | "s1" => sliceAnswer Decl.printed1 source
+  | "s2" => sliceAnswer Decl.printed2 source
   | _ => { out = source, status = 0, message = "" }
 
---| Each declaration's answer for `s1`, numbered from `number`.
-def declarationsWithin1 (number: Nat): List Decl → Text
+--| A slice stage's answer: each declaration's line, printed by `printed`
+--| when it is within the slice.
+def sliceAnswer (printed: Decl → Option Text) (source: Text): Answer := match lex source with
+  | Ok lexed =>
+    match lexed.tidied with
+      | Ok tidied => { out = declarationsWithin printed 1 tidied.fourth.decls, status = 0, message = "" }
+      | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+  | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+
+--| Each declaration's answer for a slice stage, numbered from `number`.
+def declarationsWithin (printed: Decl → Option Text) (number: Nat): List Decl → Text
   | [] => ""
   | [decl, ..rest] =>
-    let answer := match decl.printed1 with
+    let answer := match printed decl with
       | Some text => "decl ${number} within\ntext ${Fmt.DocDump.escape text}\n"
       | None => "decl ${number} outside\n"
-    answer ++ declarationsWithin1 (number + 1) rest
+    answer ++ declarationsWithin printed (number + 1) rest
 
 def meaningAnswer (lexed: Lexed): Answer := match parseFile lexed.settled with
   | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
