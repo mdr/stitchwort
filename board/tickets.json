@@ -24579,12 +24579,12 @@
     {
       "id": 4027,
       "title": "[Sonnet] fmt S1 shaped1 tightening (SW-4013): Expr.shaped1 admits def d: A := [auto Ord] (parsed as an implicit binder, an error) and a == b == c (doesn't parse: a comparison's right operand needs level 8+); narrow shaped1 so both are out, keep parseShaped1 proved, check the s1 gate",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note: commit 9e0b1d0f2 on lane/SW-4027 (SW-4027 and SW-4028 together): within1 leaves out the name auto and narrows infix/prefix operator texts to the alphabet; shaped1 asks a comparison's right operand for level 8; operators1 derived from within1, dropped from printLexes1Tree/Settled. Gates s1 80/80, s6a 420/420. Model result: Sonnet, worked, ~45 min (est. 35).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24592,12 +24592,12 @@
     {
       "id": 4028,
       "title": "[Sonnet] fmt S1 operators1 (SW-4010): derive it (each infix operator spells an alphabet token that isn't a comma or closer; each prefix is -, ! or ¬) either by adding an operator-kind fact to lexical1/within1 or from the file-level alphabet via parseCarries1 (SW-4019); a |> b passes the tree facts today but |> has no Spells (pipedNotSpelled), so within1 likely needs narrowing for operators too",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note: commit 9e0b1d0f2 on lane/SW-4027 (SW-4027 and SW-4028 together): within1 leaves out the name auto and narrows infix/prefix operator texts to the alphabet; shaped1 asks a comparison's right operand for level 8; operators1 derived from within1, dropped from printLexes1Tree/Settled. Gates s1 80/80, s6a 420/420. Model result: Sonnet, worked, ~45 min (est. 35).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
