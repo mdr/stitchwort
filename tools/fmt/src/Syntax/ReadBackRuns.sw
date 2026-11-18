@@ -17,6 +17,21 @@ theorem runsLook ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (v: a) (read
     Parse.Runs (() => j (p())) read rest value :=
   Parse.runsBind p j [] read read rest v value byComputing looks next
 
+--| `runsLook` at the end of the input.
+theorem runsLookEnd ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (v: a) (read: List t) (value: b)
+    (looks: Parse.Runs p [] read v)
+    (next: Parse.Runs (() => j v) read [] value):
+    Parse.Runs (() => j (p())) read [] value :=
+  runsLook p j v read [] value (rewrite List.appendNil read then looks) next
+
+--| `runsBind` at the end of the input: `p` reads `first` before `next`, which `j` reads to the end.
+theorem runsBindEnd ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (first next read: List t) (v: a) (value: b)
+    (joined: read = first ++ next)
+    (runsFirst: Parse.Runs p first next v)
+    (runsNext: Parse.Runs (() => j v) next [] value):
+    Parse.Runs (() => j (p())) read [] value :=
+  Parse.runsBind p j first next read [] v value joined (rewrite List.appendNil next then runsFirst) runsNext
+
 --| A parser's run gives whatever its value equals.
 theorem runsSame ∀ (p: () → {Parse t} a) (read rest: List t) (v w: a)
     (same: v = w)
@@ -2241,3 +2256,454 @@ theorem runsDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         [] _
         (runsLeftOn [])
         (Parse.runsPure (Assigned colonEq.leaf.word.comments value) [])))
+
+--| What `modes.at wanted` sees at an item the modes don't stop at.
+theorem runsAtFirst ∀ (modes: Modes) (wanted: Tok) (item: Item) (rest: List Item)
+    (open: modes.stops item = False):
+    Parse.Runs (() => modes.at wanted) [] [item, ..rest] (item.kind == wanted) :=
+  runsSame
+    (() => modes.at wanted)
+    [] _ _ _
+    (rewrite peekFirst modes item rest open)
+    (runsAtOn modes wanted [item, ..rest])
+
+theorem runsDefKind ∀ (modes: Modes) (keyword: Item) (rest: List Item)
+    (open: modes.stops keyword = False)
+    (isDef: keyword.kind = KwDef):
+    Parse.Runs (() => defKindOf modes) [] [keyword, ..rest] DefPlain :=
+  runsSame
+    (() => defKindOf modes)
+    [] _ _ _
+    (rewrite isDef)
+    (Parse.runsMap
+      (() => modes.peek)
+      defKindOn
+      []
+      [keyword, ..rest]
+      (Some keyword.kind)
+      (runsSame (() => modes.peek) [] _ _ _ (peekFirst modes keyword rest open) (runsPeekOn modes [keyword, ..rest])))
+
+theorem runsDefinitionName ∀ (modes: Modes) (name: Item) (rest: List Item)
+    (open: modes.stops name = False)
+    (isLower: name.kind = Lower):
+    Parse.Runs (() => definitionName modes) [name] rest name.leaf.word :=
+  runsLook
+    (() => modes.at Upper)
+    (upper => definitionNameAfter modes upper)
+    False
+    [name]
+    rest _
+    (runsSame (() => modes.at Upper) [] _ _ _ (rewrite isLower) (runsAtFirst modes Upper name rest open))
+    (runsLook
+      (() => modes.peek)
+      (seen => modes.lowerQualifiedOn "a name" seen)
+      (Some name.kind)
+      [name]
+      rest _
+      (runsSame (() => modes.peek) [] _ _ _ (peekFirst modes name rest open) (runsPeekOn modes [name, ..rest]))
+      (rewrite isLower then runsBump name rest))
+
+theorem runsForallNone ∀ (modes: Modes) (kind: DefKind) (next: Item) (rest: List Item)
+    (open: modes.stops next = False)
+    (notForall: (next.kind == KwForall) = False):
+    Parse.Runs (() => forallPart modes kind) [] [next, ..rest] None :=
+  runsLook
+    (() => modes.at KwForall)
+    (found => forallAt modes kind found)
+    False
+    []
+    [next, ..rest]
+    None
+    (runsSame _ [] _ _ _ notForall (runsAtFirst modes KwForall next rest open))
+    (Parse.runsPure None [next, ..rest])
+
+--| No parameters: `headerParams` sees the `:` at once.
+theorem runsHeaderParamsNone ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (colon: Item) (rest: List Item)
+    (open: modes.stops colon = False)
+    (isColon: colon.kind = Colon):
+    Parse.Runs (() => headerParams self modes) [] [colon, ..rest] [] :=
+  Parse.runsLoop _ [] []
+    [colon, ..rest]
+    (runsLook
+      (() => modes.at Colon)
+      (found => if !found then Some (headerGroup self modes GroupParam None) else None)
+      True
+      []
+      [colon, ..rest]
+      None
+      (runsSame (() => modes.at Colon) [] _ _ _ (rewrite isColon) (runsAtFirst modes Colon colon rest open))
+      (Parse.runsPure None [colon, ..rest]))
+
+theorem runsDecreasingNone ∀ (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (next: Item) (rest: List Item)
+    (open: modes.stops next = False)
+    (notDecreasing: (next.kind == KwDecreasing) = False):
+    Parse.Runs (() => decreasingPart self modes headerModes False) [] [next, ..rest] None :=
+  runsLook
+    (() => modes.at KwDecreasing)
+    (found => decreasingAt self headerModes False found)
+    False
+    []
+    [next, ..rest]
+    None
+    (runsSame _ [] _ _ _ notDecreasing (runsAtFirst modes KwDecreasing next rest open))
+    (Parse.runsPure None [next, ..rest])
+
+theorem runsUnfoldingNone ∀ (modes afterDecreasing: Modes) (next: Item) (rest: List Item)
+    (open: afterDecreasing.stops next = False)
+    (notUnfolding: (next.kind == KwUnfolding) = False):
+    Parse.Runs (() => unfoldingPart modes afterDecreasing False) [] [next, ..rest] None :=
+  runsLook
+    (() => afterDecreasing.at KwUnfolding)
+    (found => unfoldingAt afterDecreasing False found)
+    False
+    []
+    [next, ..rest]
+    None
+    (runsSame _ [] _ _ _ notUnfolding (runsAtFirst afterDecreasing KwUnfolding next rest open))
+    (Parse.runsPure None [next, ..rest])
+
+theorem runsConflictNone ∀ (modes: Modes) (rest: List Item):
+    Parse.Runs (() => clauseConflict modes None) [] rest False :=
+  runsLook
+    (() => modes.at KwDecreasing)
+    (found => conflictOn found None)
+    (isSome KwDecreasing (peekIn modes 0 rest))
+    []
+    rest
+    False
+    (runsAtOn modes KwDecreasing rest)
+    (runsSame _ [] _ _ _ (Bool.andFalse _) (Parse.runsPure _ rest))
+
+--| A top-level body at `:=` recovers from errors (`recovers`).
+theorem runsBodyModes ∀ (modes: Modes) (colonEq: Item) (rest: List Item)
+    (open: modes.stops colonEq = False)
+    (isColonEq: colonEq.kind = ColonEq):
+    Parse.Runs (() => bodyModesOf modes False None) [] [colonEq, ..rest] { modes | recover = True } :=
+  runsLook
+    (() => modes.at ColonEq)
+    (found => recoverMode modes False (found || modes.at Pipe))
+    True
+    []
+    [colonEq, ..rest] _
+    (runsSame (() => modes.at ColonEq) [] _ _ _ (rewrite isColonEq) (runsAtFirst modes ColonEq colonEq rest open))
+    (Parse.runsPure { modes | recover = True } [colonEq, ..rest])
+
+--| The header slice 1 has: `def`, a lower-case name, no `∀` or parameters, `:` and the type, no `decreasing` or
+--| `unfolding`.
+def plainHeader (keyword name colon: Item) (result: Expr): Header := {
+  exportKeyword = None,
+  opaqueKeyword = None,
+  kind = DefPlain,
+  keyword = keyword.leaf.word.comments,
+  name = name.leaf.word,
+  forallKeyword = None,
+  params = [],
+  colon = colon.leaf.word.comments,
+  result,
+  decreasingClause = None,
+  unfoldingClause = None
+}
+
+--| `definitionParts` of a top-level `def name: type := value`, the declaration's items to their end.
+--|
+--| Proof idea: step by step through `definitionParts`' lets: the kind and the keyword, the name, no `∀` or parameters
+--| (the `:` is next), the colon, the type, then at `:=` no `decreasing`, `unfolding` or clash, and a body that recovers.
+theorem runsDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword name colon colonEq: Item)
+    (typeRead valueRead: List Item) (result value: Expr)
+    (keywordOpen: modes.stops keyword = False)
+    (isDef: keyword.kind = KwDef)
+    (nameOpen: modes.stops name = False)
+    (isLower: name.kind = Lower)
+    (colonOpen: modes.stops colon = False)
+    (colonSealed: modes.sealed.stops colon = False)
+    (isColon: colon.kind = Colon)
+    (resultRuns: Parse.Runs (() => resultType self modes) typeRead [colonEq, ..valueRead] result)
+    (colonEqOpen: modes.stops colonEq = False)
+    (colonEqBody: { modes | recover = True }.stops colonEq = False)
+    (isColonEq: colonEq.kind = ColonEq)
+    (valueRuns: Parse.Runs (() => self { modes = { modes | recover = True }, level = LevelFull }) valueRead [] value):
+    Parse.Runs
+      (() => definitionParts self modes None None None)
+      [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]]
+      []
+      (plainHeader keyword name colon result, Assigned colonEq.leaf.word.comments value) :=
+  let tail := typeRead ++ [colonEq, ..valueRead]
+  let atColonEq := [colonEq, ..valueRead]
+  let notDecreasing: (colonEq.kind == KwDecreasing) = False := rewrite isColonEq
+  let notUnfolding: (colonEq.kind == KwUnfolding) = False := rewrite isColonEq
+  runsBindEnd
+    (() => defKindOf modes) _
+    []
+    [keyword, name, colon, ..tail]
+    [keyword, name, colon, ..tail]
+    DefPlain
+    (plainHeader keyword name colon result, Assigned colonEq.leaf.word.comments value)
+    byComputing
+    (runsDefKind modes keyword [name, colon, ..tail] keywordOpen isDef)
+    (runsBindEnd
+      (() => fixedFrom()) _
+      [keyword]
+      [name, colon, ..tail]
+      [keyword, name, colon, ..tail] _ _
+      byComputing
+      (runsFixedFrom keyword [name, colon, ..tail])
+      (runsBindEnd
+        (() => definitionName modes) _
+        [name]
+        [colon, ..tail]
+        [name, colon, ..tail] _ _
+        byComputing
+        (runsDefinitionName modes name [colon, ..tail] nameOpen isLower)
+        (runsBindEnd
+          (() => forallPart modes DefPlain) _
+          []
+          [colon, ..tail]
+          [colon, ..tail]
+          None _
+          byComputing
+          (runsForallNone modes DefPlain colon tail colonOpen (rewrite isColon))
+          (runsBindEnd
+            (() => headerParams self modes.sealed) _
+            []
+            [colon, ..tail]
+            [colon, ..tail]
+            [] _
+            byComputing
+            (runsHeaderParamsNone self modes.sealed colon tail colonSealed isColon)
+            (runsBindEnd
+              (() => fixedFrom()) _
+              [colon]
+              tail
+              [colon, ..tail] _ _
+              byComputing
+              (runsFixedFrom colon tail)
+              (runsBindEnd
+                (() => resultType self modes) _
+                typeRead
+                atColonEq
+                tail
+                result _
+                byComputing
+                resultRuns
+                (runsBindEnd
+                  (() => decreasingPart self modes modes False) _
+                  []
+                  atColonEq
+                  atColonEq
+                  None _
+                  byComputing
+                  (runsDecreasingNone self modes modes colonEq valueRead colonEqOpen notDecreasing)
+                  (runsBindEnd
+                    (() => afterDecreasingOf modes None) _
+                    []
+                    atColonEq
+                    atColonEq
+                    modes _
+                    byComputing
+                    (Parse.runsPure modes atColonEq)
+                    (runsBindEnd
+                      (() => unfoldingPart modes modes False) _
+                      []
+                      atColonEq
+                      atColonEq
+                      None _
+                      byComputing
+                      (runsUnfoldingNone modes modes colonEq valueRead colonEqOpen notUnfolding)
+                      (runsBindEnd
+                        (() => afterUnfoldingOf modes None) _
+                        []
+                        atColonEq
+                        atColonEq
+                        modes _
+                        byComputing
+                        (Parse.runsPure modes atColonEq)
+                        (runsBindEnd
+                          (() => clauseConflict modes None) _
+                          []
+                          atColonEq
+                          atColonEq
+                          False _
+                          byComputing
+                          (runsConflictNone modes atColonEq)
+                          (runsBindEnd
+                            (() => bodyModesOf modes False None) _
+                            []
+                            atColonEq
+                            atColonEq
+                            { modes | recover = True } _
+                            byComputing
+                            (runsBodyModes modes colonEq valueRead colonEqOpen isColonEq)
+                            (Parse.runsMap
+                              (() => definitionBody self { modes | recover = True } result False 0)
+                              (body => (plainHeader keyword name colon result, body))
+                              atColonEq
+                              []
+                              (Assigned colonEq.leaf.word.comments value)
+                              (runsDefinitionBody self
+                                { modes | recover = True }
+                                result
+                                colonEq
+                                valueRead
+                                value
+                                colonEqBody
+                                isColonEq
+                                valueRuns))))))))))))))
+
+--| A declaration's modes stop at nothing: no limit, guard, `calc` or `rewrite` is in force.
+theorem startOpen ∀ (item: Item): Modes.start.stops item = False := byComputing
+
+theorem recoverOpen ∀ (item: Item): { Modes.start | recover = True }.stops item = False := byComputing
+
+theorem sealedOpen ∀ (item: Item): Modes.start.sealed.stops item = False := byComputing
+
+--| No attributes: `attributesOf` sees no `@`.
+theorem runsAttributesNone ∀ (modes: Modes) (item: Item) (rest: List Item)
+    (open: modes.stops item = False)
+    (notAt: (item.kind == At) = False):
+    Parse.Runs (() => attributesOf modes) [] [item, ..rest] [] :=
+  Parse.runsLoop _ [] []
+    [item, ..rest]
+    (runsLook
+      (() => modes.at At)
+      (found => attributeGroupAt modes found)
+      False
+      []
+      [item, ..rest]
+      None
+      (runsSame (() => modes.at At) [] _ _ _ notAt (runsAtFirst modes At item rest open))
+      (Parse.runsPure None [item, ..rest]))
+
+--| The frame (sketch §2, ticket 17): a declaration group `def name: type := value`, from `def` to its last item, is read
+--| by `declaration` as the definition of the type and value that `expressionAt` reads.
+--|
+--| Proof idea: no attributes, nothing to refuse, `declarationKind` and `declarationBody` see `def`, then
+--| `runsDefinitionParts`; nothing is left for `declarationEnd`.
+theorem runsDeclarationDef ∀ (seen: Seen) (keyword name colon colonEq: Item)
+    (typeRead valueRead: List Item) (result value: Expr)
+    (isDef: keyword.kind = KwDef)
+    (isLower: name.kind = Lower)
+    (isColon: colon.kind = Colon)
+    (resultRuns: Parse.Runs (() => resultType expressionAt Modes.start) typeRead [colonEq, ..valueRead] result)
+    (isColonEq: colonEq.kind = ColonEq)
+    (valueRuns: Parse.Runs
+      (() => expressionAt { modes = { Modes.start | recover = True }, level = LevelFull })
+      valueRead
+      []
+      value):
+    Parse.Runs
+      (() => declaration seen)
+      [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]]
+      []
+      (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)) :=
+  let modes := Modes.start
+  let whole := [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]]
+  let decl := Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)
+  let notAt: (keyword.kind == At) = False := rewrite isDef
+  let notNamespace: (keyword.kind == KwNamespace) = False := rewrite isDef
+  let notImport: (keyword.kind == KwImport) = False := rewrite isDef
+  let peeked: Parse.Runs (() => modes.peek) [] whole (Some keyword.kind) :=
+    runsSame
+      (() => modes.peek)
+      [] _ _ _
+      (peekFirst modes keyword [name, colon, ..typeRead ++ [colonEq, ..valueRead]] (startOpen keyword))
+      (runsPeekOn modes whole)
+  runsBindEnd
+    (() => attributesOf modes)
+    (attributes => declarationAttributes seen modes attributes)
+    []
+    whole
+    whole
+    []
+    decl
+    byComputing
+    (runsAttributesNone modes keyword _ (startOpen keyword) notAt)
+    (runsLookEnd
+      (() => modes.peek)
+      (next => declarationRefusal seen modes [] next)
+      (Some keyword.kind)
+      whole
+      decl
+      peeked
+      (runsLookEnd
+        (() => modes.peek)
+        (next => declarationFinish modes (declarationKind seen modes [] next))
+        (Some keyword.kind)
+        whole
+        decl
+        peeked
+        (rewrite notNamespace, notImport then
+          runsBindEnd
+            (() => declarationBody modes [])
+            (found => declarationFinish modes found)
+            whole
+            []
+            whole
+            decl
+            decl
+            (List.appendNil whole).flipped
+            (runsLookEnd
+              (() => modes.peek)
+              (next => declarationBodyOn modes [] next)
+              (Some keyword.kind)
+              whole
+              decl
+              peeked
+              (rewrite isDef then
+                Parse.runsMap
+                  (() => definitionParts expressionAt modes None None None)
+                  (definitionOf [])
+                  whole
+                  []
+                  (plainHeader keyword name colon result, Assigned colonEq.leaf.word.comments value)
+                  (runsDefinitionParts expressionAt modes keyword name colon colonEq typeRead valueRead result value
+                    (startOpen keyword)
+                    isDef
+                    (startOpen name)
+                    isLower
+                    (startOpen colon)
+                    (sealedOpen colon)
+                    isColon
+                    resultRuns
+                    (startOpen colonEq)
+                    (recoverOpen colonEq)
+                    isColonEq
+                    valueRuns)))
+            (runsLook
+              (() => left())
+              (items => declarationEnd modes decl items)
+              []
+              []
+              []
+              decl
+              (runsLeftOn [])
+              (Parse.runsPure decl [])))))
+
+--| A group read whole: `parseGroups`' `Parse.run` of it gives the definition.
+theorem declarationRuns ∀ (seen: Seen) (keyword name colon colonEq: Item)
+    (typeRead valueRead: List Item) (result value: Expr)
+    (isDef: keyword.kind = KwDef)
+    (isLower: name.kind = Lower)
+    (isColon: colon.kind = Colon)
+    (resultRuns: Parse.Runs (() => resultType expressionAt Modes.start) typeRead [colonEq, ..valueRead] result)
+    (isColonEq: colonEq.kind = ColonEq)
+    (valueRuns: Parse.Runs
+      (() => expressionAt { modes = { Modes.start | recover = True }, level = LevelFull })
+      valueRead
+      []
+      value):
+    Parse.run [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] (() =>
+      let decl := declaration seen
+      decl)
+      = Ok (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)) :=
+  Parse.runsRun
+    (() =>
+      let decl := declaration seen
+      decl)
+    [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] _
+    (Parse.runsMap
+      (() => declaration seen)
+      (decl => decl)
+      [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]]
+      [] _
+      (runsDeclarationDef seen keyword name colon colonEq typeRead valueRead result value isDef isLower isColon
+          resultRuns isColonEq valueRuns))
