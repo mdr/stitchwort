@@ -24228,7 +24228,7 @@
     {
       "id": 4000,
       "title": "[Sonnet] fmt S1 ticket 16c: parser proofs, the walks of parsers outside slice 1 (recordExpr, interpolated, facts, matchExpr, clauseLambda, lambda, ifExpr, piExpr, handleExpr, calcExpr, rewriteExpr, casesExpr, pattern parsers) as Parse.Gives, needed even to show a result is outside the slice; then parseSettled1, parseCarries1, fuelEnough1 (SW-3967's split)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
