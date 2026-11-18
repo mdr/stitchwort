@@ -51,7 +51,11 @@ done
 # --check lists the files that would change on stdout.
 status=0
 listed=$("$bin" fmt --check "${files[@]}") || status=$?
-if [ -n "$listed" ] || [ $status -gt 1 ]; then
+if [ $status -gt 1 ]; then
+  echo "stitchwort-fmt: \`stitchwort fmt --check\` failed (a file that doesn't parse?)" >&2
+  exit 1
+fi
+if [ -n "$listed" ]; then
   echo "stitchwort-fmt: not formatted (run \`stitchwort fmt\` on them):" >&2
   echo "${listed//$root\//}" >&2
   exit 1
