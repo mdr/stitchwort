@@ -3201,3 +3201,65 @@ theorem printLexes1 ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc) (width: Na
       } :=
   let (uniform, _, words) := doc1Spells decl doc within sound shows
   printedLexes doc width kinds uniform (doc1Passes kinds decl doc within joins shows) (rewrite words then printable)
+
+-- A declaration the theorem applies to, so its hypotheses can be met.
+
+--| The kinds of `exampleDecl`'s tokens (`def d: A := g [a, b]`).
+def exampleKinds (text: Text): Tok :=
+  if text == "def" then KwDef
+  else if text == ":" then Colon
+  else if text == ":=" then ColonEq
+  else if text == "[" then LBracket
+  else if text == "]" then RBracket
+  else if text == "," then Comma
+  else if text == "A" then Upper
+  else Lower
+
+theorem exampleWordJoins ∀ (text: Text)
+    (sound: (fixedWord text Comments.none).sound = True)
+    (token: Token text)
+    (comma: (text == ",") = False)
+    (closer: isCloserText text = False):
+    WordJoins (fixedWord text Comments.none) :=
+  (sound, token, comma, closer)
+
+theorem exampleDeclJoins: DeclJoins exampleKinds exampleDecl :=
+  let word := (text: Text) => fixedWord text Comments.none
+  (
+    exampleWordJoins "def" byComputing byComputing byComputing byComputing,
+    exampleWordJoins "d" byComputing byComputing byComputing byComputing,
+    exampleWordJoins ":" byComputing byComputing byComputing byComputing,
+    exampleWordJoins "A" byComputing byComputing byComputing byComputing,
+    exampleWordJoins ":=" byComputing byComputing byComputing byComputing,
+    (
+      exampleWordJoins "g" byComputing byComputing byComputing byComputing,
+      (
+        (
+          (exampleWordJoins "[" byComputing byComputing byComputing byComputing, next => (byComputing, byComputing)),
+          (byComputing, byComputing),
+          (
+            exampleWordJoins "a" byComputing byComputing byComputing byComputing,
+            exampleWordJoins "b" byComputing byComputing byComputing byComputing,
+            byComputing
+          )
+        ),
+        byComputing
+      ),
+      List.consNotNil (ListOf (word "[") [Atom Lower (word "a"), Atom Lower (word "b")] False (word "]")) []
+    )
+  )
+
+theorem exampleDeclPrintable: Every (Printable exampleKinds) exampleDecl.spelt := (
+  Inr (Inr (byComputing, byComputing, byComputing)),
+  Inr (Inr (('d', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (byComputing, byComputing, byComputing)),
+  Inr (Inr (('A', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (byComputing, byComputing, byComputing)),
+  Inr (Inr (('g', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (byComputing, byComputing, byComputing)),
+  Inr (Inr (('a', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (byComputing, byComputing, byComputing)),
+  Inr (Inr (('b', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (byComputing, byComputing, byComputing)),
+  byComputing
+)
