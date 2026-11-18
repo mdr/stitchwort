@@ -23847,15 +23847,17 @@
     {
       "id": 3972,
       "title": "[Sonnet] fmt S1 ticket 19: tidy passes proofs within slice 1 (sketch §2, 40-60 theorems, est. 35 min)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Sonnet lane, 18 Nov 2026. Proofs in tools/fmt/src/Fmt/PassProofs.sw (namespace Fmt.PassProofs, 78 theorems, audit 0 failed 0 warnings); predicates settled1, calm, shaped1, lexical1 written out in tools/fmt/src/Fmt/Predicates1.sw (none existed). Check, audit and test Fmt.Tests pass. Not done: P2 keeps whole-file Shaped1/Lexical1 only as the provisional definitions written here (parser lane owns them).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "b37dcc91a"
+      ]
     },
     {
       "id": 3973,
