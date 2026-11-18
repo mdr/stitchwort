@@ -9,8 +9,9 @@
 --| one line, whose modes allow its first item (`fullAnyLine`). A call reads its head, then each argument at the
 --| depth below (`appLine`). No list may start with `auto` on a type's name (`Expr.autoFree1`), which reads as an
 --| implicit binder. A prefix `-` or `!` reads its operand at the unary level (`unaryLine`), and `-` glued to a numeral
---| reads as one atom, as `Spelt` says the parser sees it. A sign as a call's argument (`f -x`) or head (`-1 n`),
---| infix operators and lines starting inside an expression are not here yet.
+--| reads as one atom, as `Spelt` says the parser sees it. A sign may start a call's argument (`f -x !b -1`), glued
+--| to its atom and spaced from what precedes it (`argumentGlue`); not a call's head (`-1 n`). Infix operators and
+--| lines starting inside an expression are not here yet.
 
 namespace Syntax.ReadBackLine
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void)
@@ -180,7 +181,7 @@ def Spelt: Expr → List Item → Prop
     ∃ (headRead argRead: List Item) (steps: List (List Item, Expr)) => read
       = headRead ++ (argRead ++ Parse.loopReads [] steps)
       ∧ head.atomic1 = True
-      ∧ argument.atomic1 = True
+      ∧ argumentFits argument argRead = True
       ∧ Spelt head headRead
       ∧ Spelt argument argRead
       ∧ SpeltArgs more steps
@@ -192,14 +193,29 @@ def Spelt: Expr → List Item → Prop
       ∧ Spelt operand more
   | _, _ => Void
 
---| A call's arguments after the first, as `arguments`' rounds: each an atom or a bracket, spelt by its read.
+--| A call's arguments after the first, as `arguments`' rounds: each an atom, a bracket or a sign on one, spelt by its
+--| read.
 def SpeltArgs: List Expr → List (List Item, Expr) → Prop
   | [], steps => steps = []
   | [argument, ..more], steps =>
     ∃ (read: List Item) (later: List (List Item, Expr)) => steps = [(read, argument), ..later]
-      ∧ argument.atomic1 = True
+      ∧ argumentFits argument read = True
       ∧ Spelt argument read
       ∧ SpeltArgs more later
+
+--| A call's argument in this part: an atom or a bracket, or a sign on one.
+def Expr.signArg1: Expr → Bool
+  | Prefix _ operand => operand.atomic1
+  | other => other.atomic1
+
+--| A sign starting an argument is glued to what follows it and not to what precedes it, which ends an operand: the
+--| spacing `argumentPrefix` asks of `f -x`.
+def argumentGlue: List Item → Bool
+  | [first, next, .._] => !signKind first.kind || (first.afterOperand && (!first.glued && next.glued))
+  | _ => True
+
+--| An argument of this part, its sign (if any) spaced as an argument's.
+def argumentFits (argument: Expr) (read: List Item): Bool := argument.signArg1 && argumentGlue read
 
 --| A call of `auto` on a type's name, `auto Ord …`: first in a list, `[auto Ord]` reads as an implicit binder
 --| (`namelessAutoAt`), not as a list.
@@ -426,6 +442,8 @@ theorem signNotParen ∀ (kind: Tok) (signed: signKind kind = True): (kind == LP
 theorem signNotBracket ∀ (kind: Tok) (signed: signKind kind = True): (kind == LBracket) = False := cases
 
 theorem signNotLower ∀ (kind: Tok) (signed: signKind kind = True): (kind == Lower) = False := cases
+
+theorem signNotUpper ∀ (kind: Tok) (signed: signKind kind = True): (kind == Upper) = False := cases
 
 --| After `(`, a sign then an expression's first kind is no `()`, named argument or section: `-` is no section
 --| operator unless `)` follows, and `!` is no operator.
@@ -776,7 +794,8 @@ theorem noAutoCall ∀ (head: Expr) (arguments: List Expr) (item: Item) (read la
             | ListOf _ [_, .._] _ _, (third, _, _, _, isArgument, _, isOpen, _), _ =>
               rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (rewrite isOpen)
             | App _ _, _, never => (Bool.falseNotTrue never).impossible
-            | Prefix _ _, _, never => (Bool.falseNotTrue never).impossible
+            | Prefix _ _, (third, _, isArgument, isSign, _), _ =>
+              rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (signNotUpper third.kind isSign)
             | _, never, _ => Void.impossible never
         | Paren _ _ _, (second, inside, last, isHead, isOpen, _), _ =>
           rewrite isRead, isHead then autoSecond item second (((inside ++ [last]) ++ tail) ++ later) (rewrite isOpen)
@@ -954,13 +973,176 @@ theorem endsBeforeSpelt ∀ (modes: Modes) (head: Bool) (kind: Tok) (expr: Expr)
     noDot = rewrite notDot
   }
 
---| An atom spelt on one line, at the argument level: what `arguments` reads for each argument.
+theorem startOpensAtom ∀ (kind: Tok) (starts: startKind kind = True): kind.opensAtom = True := cases
+
+theorem signCases ∀ (kind: Tok) (signed: signKind kind = True): kind = Minus ∨ kind = Bang := match kind, signed with
+  | Minus, _ => Inl byComputing
+  | Bang, _ => Inr byComputing
+  | other, never => (Bool.falseNotTrue never).impossible
+
+--| An argument of this part that is no prefix is an atom or a bracket.
+theorem signArgAtomic ∀ (expr: Expr)
+    (fits: expr.signArg1 = True)
+    (unsigned: expr.signed1 = False):
+    expr.atomic1 = True :=
+  match expr, fits, unsigned with
+    | Prefix _ _, _, never => (Bool.falseNotTrue never.flipped).impossible
+    | Atom _ _, fits, _ => fits
+    | Paren _ _ _, fits, _ => fits
+    | Tuple _ _ _ _, fits, _ => fits
+    | ListOf _ _ _ _, fits, _ => fits
+    | other, never, _ => (Bool.falseNotTrue never).impossible
+
+--| A sign spaced as an argument's, in its line and before an atom, negates an argument.
+theorem argumentPrefixOf ∀ (sign next: Item) (later: List Item)
+    (signed: signKind sign.kind = True)
+    (glue: argumentGlue [sign, next, ..later] = True)
+    (inLine: sign.leaf.token.lineStart = False)
+    (opens: next.kind.opensAtom = True):
+    argumentPrefix [sign, next, ..later] = True :=
+  let spaced: (sign.afterOperand && (!sign.glued && next.glued)) = True := rewrite signed at glue then glue
+  let (afterOperand, glues) := andBoth _ _ spaced
+  let (unglued, nextGlued) := andBoth _ _ glues
+  rewrite signOr sign.kind signed, afterOperand, notTrueFalse _ unglued, inLine, nextGlued, opens
+
+--| A sign before an argument starts an atom.
+theorem signStartsAtom ∀ (modes: Modes) (kind: Tok) (items: List Item)
+    (signed: signKind kind = True)
+    (prefix: argumentPrefix items = True):
+    startsAtomKind modes kind items = True :=
+  match kind, signed with
+    | Minus, _ => rewrite prefix
+    | Bang, _ => rewrite prefix
+    | other, never => (Bool.falseNotTrue never).impossible
+
+--| A spelt argument of this part, in its line, starts an atom.
+theorem argStarts ∀ (modes: Modes) (argument: Expr) (first: Item) (more later: List Item)
+    (spelt: Spelt argument [first, ..more])
+    (fits: argumentFits argument [first, ..more] = True)
+    (open: modes.stops first = False)
+    (inLine: inLineAll [first, ..more] = True):
+    startsAtomOn modes [first, ..more ++ later] = True :=
+  match signed: argument.signed1 with
+    | False =>
+      let (start, inside, isRead, starts) := speltPlainStarts argument [first, ..more] spelt signed
+      rewrite peekFirst modes first (more ++ later) open,
+          firstKind first start more inside isRead,
+          startOpens start.kind starts
+    | True =>
+      match argument, spelt, fits, signed with
+        | Prefix _ operand, (sign, inner, isRead, isSign, _, _, operandSpelt), fits, _ =>
+          let isSign1: first = sign := List.consInjectiveHead first sign more inner isRead
+          let isInner: more = inner := Eq.cong (.drop 1) isRead
+          let (next, others, isOperand, nextStarts) :=
+            speltPlainStarts operand inner operandSpelt (atomicUnsigned operand (Bool.andLeft fits))
+          let glueInner: argumentGlue [sign, ..inner] = True :=
+            Eq.trans (Eq.cong (taken => argumentGlue taken) isRead).flipped (Bool.andRight fits)
+          let glueNext: argumentGlue [sign, next, ..others] = True :=
+            Eq.trans (Eq.cong (taken => argumentGlue [sign, ..taken]) isOperand).flipped glueInner
+          let glue: argumentGlue [sign, next, ..others ++ later] = True := glueNext
+          let inSign: sign.leaf.token.lineStart = False := rewrite <- isSign1 then notTrueFalse _ (Bool.andLeft inLine)
+          rewrite isSign1,
+              isInner,
+              isOperand,
+              peekFirst modes sign ([next, ..others] ++ later) (rewrite <- isSign1 then open) then
+            signStartsAtom modes sign.kind
+              [sign, next, ..others ++ later]
+              isSign
+              (argumentPrefixOf sign next (others ++ later) isSign glue inSign (startOpensAtom next.kind nextStarts))
+        | other, _, _, never => (Bool.falseNotTrue never).impossible
+
+--| A sign on an atom, spelt on one line, at the argument level: the sign glued to the atom, read as a negative numeral
+--| (`NumberBase`) where it is `-` on a numeral, and as a sign on an argument (`SignBase`) otherwise.
+--|
+--| Proof idea: the spacing `argumentGlue` gives is `argumentPrefix`'s; `Spelt` says whether `negativeNumeral` holds,
+--| and the operand is an atom or a bracket, read by `atomLine` one level down.
+theorem signArgLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (operator: Word) (operand: Expr) (read later: List Item) (depth: Nat)
+    (deep: (Prefix operator operand).nest1 <= depth)
+    (spelt: Spelt (Prefix operator operand) read)
+    (atomic: operand.atomic1 = True)
+    (glue: argumentGlue read = True)
+    (free: operand.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineLater: lineAll later = True)
+    (inLine: inLineAll read = True)
+    (after: ∀ (kind: Tok) => AtomEnds modes False kind later):
+    AtomReads (TreeN depth) modes False read later (Prefix operator operand) :=
+  let (sign, more, isRead, isSign, isWord, numeral, operandSpelt) := spelt
+  let inItems: inLineAll [sign, ..more] = True := rewrite <- isRead then inLine
+  let inSign: sign.leaf.token.lineStart = False := notTrueFalse _ (Bool.andLeft inItems)
+  let openSign := quietStops modes sign quiet inSign
+  let inMore: inLineAll more = True := Bool.andRight inItems
+  let (next, others, isMore, nextStarts) := speltPlainStarts operand more operandSpelt (atomicUnsigned operand atomic)
+  let inNext: inLineAll [next, ..others] = True := rewrite <- isMore then inMore
+  let openNext := quietStops modes next quiet (notTrueFalse _ (Bool.andLeft inNext))
+  let lineItems: lineAll [sign, ..more] = True := rewrite <- isRead then lineRead
+  let lineMore: lineAll more = True := Bool.andRight lineItems
+  let glueMore: argumentGlue [sign, ..more] = True :=
+    Eq.trans (Eq.cong (taken => argumentGlue taken) isRead).flipped glue
+  let glueNext: argumentGlue [sign, next, ..others] = True :=
+    Eq.trans (Eq.cong (taken => argumentGlue [sign, ..taken]) isMore).flipped glueMore
+  let glueAll: argumentGlue [sign, next, ..others ++ later] = True := glueNext
+  let prefix := argumentPrefixOf sign next (others ++ later) isSign glueAll inSign (startOpensAtom next.kind nextStarts)
+  let atMore: argumentPrefix [sign, ..more ++ later] = True := rewrite isMore then prefix
+  let numeralAfter: negativeNumeral [sign, ..more ++ later] = negativeNumeral [sign, ..more] := rewrite isMore
+  let openMore: openHead modes more = True := rewrite isMore then openHeadOf modes next others openNext
+  let laterMore: laterInLine more = True := rewrite isMore then Bool.andRight inNext
+  match depth, deep with
+    | Zero, deep => Void.impossible (arithmetic [deep])
+    | Succ below, deep =>
+      let base: BaseReads (TreeN (Succ below)) modes sign more later (Prefix operator operand) :=
+        match glued: (sign.kind == Minus && operand.numeral1) with
+          | False =>
+            let signs: (sign.kind = Minus
+              ∧ negativeNumeral [sign, ..more ++ later] = False
+              ∧ argumentMinus [sign, ..more ++ later] = True)
+              ∨ (sign.kind = Bang ∧ argumentBang [sign, ..more ++ later] = True) :=
+              match signCases sign.kind isSign with
+                | Inl isMinus =>
+                  Inl (isMinus, (rewrite numeralAfter then Eq.trans numeral glued), (rewrite isMinus, atMore))
+                | Inr isBang => Inr (isBang, (rewrite isBang, atMore))
+            Inr
+              (Inr
+                (Inr
+                  (Inr
+                    (Inr
+                      (Inr (
+                        operand,
+                        (rewrite isWord),
+                        signs,
+                        atomLine modes quiet False operand more later below
+                          (arithmetic [deep])
+                          operandSpelt
+                          atomic
+                          free
+                          lineMore
+                          lineLater
+                          openMore
+                          laterMore
+                          after
+                      ))))))
+          | True =>
+            match operand, operandSpelt, numeral, glued with
+              | Atom kind word, (number, isNumber, isKind, isNumberWord, _), numeral, glued =>
+                let isMinus: sign.kind = Minus := minusOf sign.kind (Bool.andLeft glued)
+                let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then Eq.trans numeral glued
+                let negNumber: negativeNumeral [sign, number, ..later] = True := atNumber
+                Inr
+                  (Inr
+                    (Inr
+                      (Inr (Inr (Inl (number, isNumber, (rewrite isWord, isKind, isNumberWord), isMinus, negNumber))))))
+              | other, _, _, never => (Bool.falseNotTrue (Bool.andRight never)).impossible
+      (sign, more, isRead, openSign, after sign.kind, base)
+
+--| An argument spelt on one line: what `arguments` reads for each argument.
 theorem argumentLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (argument: Expr) (read later: List Item) (below: Nat)
     (deep: argument.nest1 <= below)
     (spelt: Spelt argument read)
-    (atomic: argument.atomic1 = True)
+    (fits: argumentFits argument read = True)
     (free: argument.autoFree1 = True)
     (lineRead: lineAll read = True)
     (lineLater: lineAll later = True)
@@ -973,11 +1155,32 @@ theorem argumentLine ∀ (modes: Modes)
   let open: modes.stops first = False := quietStops modes first quiet (notTrueFalse _ (Bool.andLeft inItems))
   let openRead: openHead modes read = True := rewrite isRead then openHeadOf modes first more open
   let laterRead: laterInLine read = True := rewrite isRead then Bool.andRight inItems
+  let atom: AtomReads (TreeN below) modes False read later argument := match signed: argument.signed1 with
+    | False =>
+      atomLine modes quiet False argument read later below deep spelt
+        (signArgAtomic argument (Bool.andLeft fits) signed)
+        free
+        lineRead
+        lineLater
+        openRead
+        laterRead
+        after
+    | True =>
+      match argument, spelt, fits, free, deep, signed with
+        | Prefix operator operand, spelt, fits, free, deep, _ =>
+          signArgLine modes quiet operator operand read later below deep spelt
+            (Bool.andLeft fits)
+            (Bool.andRight fits)
+            free
+            lineRead
+            lineLater
+            inLine
+            after
+        | other, _, _, _, _, never => (Bool.falseNotTrue never).impossible
   (
     (rewrite isRead, notDot),
     andRightFalse _ _ (peekNoBrace modes 1 (read ++ later) (lineJoin read later lineRead lineLater)),
-    atomLine modes quiet False argument read later below deep spelt atomic free lineRead lineLater openRead laterRead
-        after
+    atom
   )
 
 --| What follows an argument: the next argument, or what follows the call.
@@ -1022,29 +1225,33 @@ theorem argsLine ∀ (modes: Modes)
     ArgsReads (TreeN (Succ below)) modes steps rest :=
   match exprs, spelt, free with
     | [], isEmpty, _ => rewrite isEmpty then (endsOperandOf modes rest ends).noArgument
-    | [argument, ..more], (read, later, isSteps, atomic, argSpelt, moreSpelt), free =>
+    | [argument, ..more], (read, later, isSteps, fits, argSpelt, moreSpelt), free =>
       let lineHere: lineAll (read ++ Parse.loopReads [] later) = True :=
         Eq.trans (Eq.cong (taken => lineAll (Parse.loopReads [] taken)) isSteps).flipped lineSteps
       let inHere: inLineAll (read ++ Parse.loopReads [] later) = True :=
         Eq.trans (Eq.cong (taken => inLineAll (Parse.loopReads [] taken)) isSteps).flipped inSteps
       let (lineRead, lineLater) := lineSplit read (Parse.loopReads [] later) lineHere
       let (inRead, inLater) := inLineSplit read (Parse.loopReads [] later) inHere
-      let (first, inside, isRead, starts) := speltPlainStarts argument read argSpelt (atomicUnsigned argument atomic)
+      let (first, inside, isRead, _) := speltStarts argument read argSpelt
       let inItems: inLineAll [first, ..inside] = True := rewrite <- isRead then inRead
       let open: modes.stops first = False := quietStops modes first quiet (notTrueFalse _ (Bool.andLeft inItems))
       let lineAfter: lineAll (Parse.loopReads [] later ++ rest) = True := lineJoin _ rest lineLater lineRest
       rewrite isSteps then
         (
           isEmpty => Bool.falseNotTrue (Eq.cong List.isEmpty (Eq.trans isRead.flipped isEmpty)),
-          (rewrite isRead,
-              peekFirst modes first (inside ++ (Parse.loopReads [] later ++ rest)) open,
-              startOpens first.kind starts),
+          (rewrite isRead then
+            argStarts modes argument first inside
+              (Parse.loopReads [] later ++ rest)
+              (rewrite <- isRead then argSpelt)
+              (rewrite <- isRead then fits)
+              open
+              inItems),
           argumentLine modes quiet argument read
             (Parse.loopReads [] later ++ rest)
             below
             (arithmetic [deep])
             argSpelt
-            atomic
+            fits
             (Bool.andLeft free)
             lineRead
             lineAfter
@@ -1078,7 +1285,7 @@ theorem appLine ∀ (modes: Modes)
     (restOpen: openHead modes rest = True)
     (ends: endsHere rest = True):
     AppReads (TreeN depth) modes read rest (App head [argument, ..more]) :=
-  let (headRead, argRead, steps, isRead, headAtomic, argAtomic, headSpelt, argSpelt, argsSpelt) := spelt
+  let (headRead, argRead, steps, isRead, headAtomic, argFits, headSpelt, argSpelt, argsSpelt) := spelt
   let tail := argRead ++ Parse.loopReads [] steps
   let (first, inside, isHead, starts) := speltStarts head headRead headSpelt
   let joined: read = [first, ..inside ++ tail] := calc read
@@ -1093,8 +1300,7 @@ theorem appLine ∀ (modes: Modes)
   let openRead: openHead modes [first, ..inside ++ tail] = True := rewrite <- joined then openFirst
   let open1 := openHeadStops modes first (inside ++ tail) openRead
   let notDot := leadNotDot first.kind starts
-  let (argFirst, argMore, isArg, argStarts) :=
-    speltPlainStarts argument argRead argSpelt (atomicUnsigned argument argAtomic)
+  let (argFirst, argMore, isArg, _) := speltStarts argument argRead argSpelt
   let argItems: inLineAll [argFirst, ..argMore] = True := rewrite <- isArg then inArg
   let argOpen := quietStops modes argFirst quiet (notTrueFalse _ (Bool.andLeft argItems))
   let lineAfterArg: lineAll (Parse.loopReads [] steps ++ rest) = True := lineJoin _ rest lineSteps lineRest
@@ -1132,15 +1338,19 @@ theorem appLine ∀ (modes: Modes)
               argAt
               argOpen
               (Eq.trans (Eq.cong lineAll argJoin) lineAfterHead)),
-      (rewrite isArg,
-          peekFirst modes argFirst ((argMore ++ Parse.loopReads [] steps) ++ rest) argOpen,
-          startOpens argFirst.kind argStarts),
+      (rewrite <- argJoin then
+        argStarts modes argument argFirst argMore
+          (Parse.loopReads [] steps ++ rest)
+          argAt
+          (rewrite <- isArg then argFits)
+          argOpen
+          argItems),
       argumentLine modes quiet argument argRead
         (Parse.loopReads [] steps ++ rest)
         below
         (arithmetic [deep])
         argSpelt
-        argAtomic
+        argFits
         (Bool.andLeft (Bool.andRight free))
         lineArg
         lineAfterArg
@@ -2347,6 +2557,130 @@ theorem readsBackSignExample: Parse.run
           byComputing,
           byComputing,
           (gluedOne, byComputing, byComputing, byComputing, byComputing)
+        )
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| An item for the witnesses with its spacing: glued to the token before, which ends an operand or not.
+def spacedItem (kind: Tok) (text: Text) (index: Nat) (glued afterOperand: Bool): Item :=
+  { wordItem kind text index | glued, afterOperand }
+
+def signArgItems: List Item := [
+  spacedItem Minus "-" 6 False True,
+  spacedItem Lower "x" 7 True False,
+  spacedItem Bang "!" 8 False True,
+  spacedItem Lower "y" 9 True False,
+  spacedItem Minus "-" 10 False True,
+  spacedItem Num "1" 11 True False
+]
+
+def signArgValue: Expr := App (Atom Lower (wordItem Lower "f" 5).leaf.word) [
+  Prefix (spacedItem Minus "-" 6 False True).leaf.word (Atom Lower (spacedItem Lower "x" 7 True False).leaf.word),
+  Prefix (spacedItem Bang "!" 8 False True).leaf.word (Atom Lower (spacedItem Lower "y" 9 True False).leaf.word),
+  Prefix (spacedItem Minus "-" 10 False True).leaf.word (Atom Num (spacedItem Num "1" 11 True False).leaf.word)
+]
+
+--| `def d: A := f -x !y -1`: signs as arguments, the last a negative numeral.
+theorem readsBackSignArgExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3] ++ [wordItem ColonEq ":=" 4, wordItem Lower "f" 5, ..signArgItems]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned (wordItem ColonEq ":=" 4).leaf.word.comments signArgValue)) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [wordItem Lower "f" 5, ..signArgItems]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    signArgValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "f" 5],
+      [spacedItem Minus "-" 6 False True, spacedItem Lower "x" 7 True False],
+      [
+        (
+          [spacedItem Bang "!" 8 False True, spacedItem Lower "y" 9 True False],
+          Prefix (spacedItem Bang "!" 8 False True).leaf.word (Atom Lower (spacedItem Lower "y" 9 True False).leaf.word)
+        ),
+        (
+          [spacedItem Minus "-" 10 False True, spacedItem Num "1" 11 True False],
+          Prefix (spacedItem Minus "-" 10 False True).leaf.word (Atom Num (spacedItem Num "1" 11 True False).leaf.word)
+        )
+      ],
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "f" 5, byComputing, byComputing, byComputing, byComputing),
+      (
+        spacedItem Minus "-" 6 False True,
+        [spacedItem Lower "x" 7 True False],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (spacedItem Lower "x" 7 True False, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (
+        [spacedItem Bang "!" 8 False True, spacedItem Lower "y" 9 True False],
+        [
+          (
+            [spacedItem Minus "-" 10 False True, spacedItem Num "1" 11 True False],
+            Prefix
+              (spacedItem Minus "-" 10 False True).leaf.word
+              (Atom Num (spacedItem Num "1" 11 True False).leaf.word)
+          )
+        ],
+        byComputing,
+        byComputing,
+        (
+          spacedItem Bang "!" 8 False True,
+          [spacedItem Lower "y" 9 True False],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (spacedItem Lower "y" 9 True False, byComputing, byComputing, byComputing, byComputing)
+        ),
+        (
+          [spacedItem Minus "-" 10 False True, spacedItem Num "1" 11 True False],
+          [],
+          byComputing,
+          byComputing,
+          (
+            spacedItem Minus "-" 10 False True,
+            [spacedItem Num "1" 11 True False],
+            byComputing,
+            byComputing,
+            byComputing,
+            byComputing,
+            (spacedItem Num "1" 11 True False, byComputing, byComputing, byComputing, byComputing)
+          ),
+          byComputing
         )
       )
     )
