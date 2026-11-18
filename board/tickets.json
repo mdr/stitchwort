@@ -1,5 +1,5 @@
 {
-  "next": 3999,
+  "next": 4000,
   "tickets": [
     {
       "id": 47,
@@ -23821,7 +23821,7 @@
     {
       "id": 3970,
       "title": "[Sonnet] fmt S1 ticket 18a: rules and spelling proofs, first half; after 13a and 13b (sketch §2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -24188,6 +24188,19 @@
       "id": 3998,
       "title": "[Opus] fmt S1 rule N: settledAnyLayout (K1's re-layout), from SW-3966's groundwork in Syntax.SettleProofs (relayFrom, laidFromOnto, chainSteps): the invariant through rule 1 over re-laid leaves; and the general settledArrowsBare (any lexed, trailing comments only); rename SettleProofs.arrowsBare to leavesArrowsBare (clashes with Fmt.arrowsBare). Est. 60-90 min",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3999,
+      "title": "[Opus] Self-hosted fmt S6a program: rewrite (the rewrite ... then chains and their rules), the construct in the most sampled declarations (798 contain it after S4c); plus Iff and Omega if cheap; within6a, Fmt.Twin --stage s6a; gate identical to Rust; census after",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
