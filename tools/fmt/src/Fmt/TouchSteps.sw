@@ -410,6 +410,19 @@ theorem stepsDisplaced ∀ (inner: Doc) (pre: Seam → Prop) (spacing: List Spac
           rewrite List.appendAssoc trace ending added then
             after left (ending ++ added) reached (rewrite codeTouchingAppend ending added, silent then admits))
 
+--| A document one line below: the waiting comment, then the document from a line start.
+theorem stepsOneLineBelow ∀ (inner: Doc) (pre start: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+    (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: start Begun)
+    (steps: Steps inner start spacing post):
+    Steps (OneLineBelow inner) pre spacing post :=
+  seam trace next holds after =>
+    steps Begun (trace ++ seam.ending) next fresh (left added reached admits =>
+      rewrite List.appendAssoc trace seam.ending added then
+        after left
+          (seam.ending ++ added)
+          reached
+          (rewrite codeTouchingAppend seam.ending added, endingQuiet seam (quiet seam holds) then admits))
+
 --| A `Line` after an element: a space or a line break, after which nothing touches.
 theorem stepsLine ∀ (trails: Bool): Steps Line (Ends trails) [] (Gapped trails) := seam trace next holds after =>
   match seam, holds with

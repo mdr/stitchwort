@@ -322,25 +322,7 @@ theorem appFromSteps ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc la
           byComputing
         )
         | Some open, opens =>
-          let hugged: Steps
-            (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open])
-            pre
-            (joinSpacing all)
-            post :=
-            stepsSpacing _ pre _ _ post
-              (hugSpacing headSpacing lastSpacing spacings)
-              (stepsConcat _ pre _ post
-                (stepsCons
-                  (Flatten (spaced [headDoc, ..front])) _
-                  pre
-                  (Ends True)
-                  post
-                  (joinSpacing [headSpacing, ..spacings])
-                  ([] ++ lastSpacing)
-                  (stepsFlatten _ pre _
-                    (Ends True)
-                    (spacedSteps [headDoc, ..front] [headSpacing, ..spacings] pre (Ends True) frontSeq))
-                  (stepsTwo (Doc.text " ") open (Ends True) (Gapped True) post [] lastSpacing (stepsSpace True) opens)))
+          let hugged := appHugSteps headDoc open front headSpacing lastSpacing spacings pre post frontSeq opens
           stepsChoice
             (Flatten (spaced docs))
             [Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open], Doc.concat [frontDoc, restDoc]]
@@ -355,3 +337,76 @@ theorem hugTo ∀ (hug: Option Doc) (pre: Seam → Prop) (spacing: List Spacing)
   match hug, steps with
     | None, _ => byComputing
     | Some open, opens => stepsTo open pre spacing post later opens implies
+
+theorem hugFrom ∀ (hug: Option Doc) (pre weaker: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+    (steps: HugSteps hug pre spacing post) (implies: ∀ (seam: Seam) => weaker seam → pre seam):
+    HugSteps hug weaker spacing post :=
+  match hug, steps with
+    | None, _ => byComputing
+    | Some open, opens => stepsFrom open pre weaker spacing post opens implies
+
+--| A call's hug: the function and the arguments before the last flattened, a space, and the last opened.
+theorem appHugSteps ∀ (headDoc open: Doc) (front: List Doc) (headSpacing lastSpacing: List Spacing)
+    (spacings: List (List Spacing)) (pre post: Seam → Prop)
+    (frontSeq: SeqFrom pre (Ends True) headDoc headSpacing front spacings)
+    (opens: Steps open (Gapped True) lastSpacing post):
+    Steps
+      (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open])
+      pre
+      (joinSpacing ([headSpacing, ..spacings] ++ [lastSpacing]))
+      post :=
+  stepsSpacing _ pre _ _ post
+    (hugSpacing headSpacing lastSpacing spacings)
+    (stepsConcat _ pre _ post
+      (stepsCons
+        (Flatten (spaced [headDoc, ..front])) _
+        pre
+        (Ends True)
+        post
+        (joinSpacing [headSpacing, ..spacings])
+        ([] ++ lastSpacing)
+        (stepsFlatten _ pre _
+          (Ends True)
+          (spacedSteps [headDoc, ..front] [headSpacing, ..spacings] pre (Ends True) frontSeq))
+        (stepsTwo (Doc.text " ") open (Ends True) (Gapped True) post [] lastSpacing (stepsSpace True) opens)))
+
+--| `appFrom`'s hug, for a `:=` line.
+theorem appFromHugSteps ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc) (front: List Doc)
+    (hug: Option Doc) (headSpacing lastSpacing: List Spacing) (spacings: List (List Spacing)) (pre post: Seam → Prop)
+    (frontSeq: SeqFrom pre (Ends True) headDoc headSpacing front spacings)
+    (hugSteps: HugSteps hug (Gapped True) lastSpacing post):
+    HugSteps
+      (appFrom id keep between betweenFront headDoc front lastDoc hug).hug
+      pre
+      (joinSpacing ([headSpacing, ..spacings] ++ [lastSpacing]))
+      post :=
+  let docs := [headDoc, ..front] ++ [lastDoc]
+  match full: keep == docs.length with
+    | True => byComputing
+    | False =>
+      match hug, hugSteps with
+        | None, _ => byComputing
+        | Some open, opens => appHugSteps headDoc open front headSpacing lastSpacing spacings pre post frontSeq opens
+
+--| Each document of both lists steps alike.
+theorem eachAppend ∀ (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop) (front back: List Doc)
+    (first: EachSteps pre spacing post front)
+    (second: EachSteps pre spacing post back):
+    EachSteps pre spacing post (front ++ back) :=
+  match front, first with
+    | [], _ => second
+    | [doc, ..rest], (steps, others) => (steps, eachAppend pre spacing post rest back others second)
+
+--| A hug after a space, if there is one.
+theorem spacedHugSteps ∀ (hug: Option Doc) (spacing: List Spacing) (post: Seam → Prop)
+    (steps: HugSteps hug (Gapped True) spacing post):
+    EachSteps (Ends True) spacing post (optionList (hug.map (open => Doc.concat [Doc.text " ", open]))) :=
+  match hug, steps with
+    | None, _ => byComputing
+    | Some open, opens => (
+      stepsConcat _
+        (Ends True) _
+        post
+        (stepsTwo (Doc.text " ") open (Ends True) (Gapped True) post [] spacing (stepsSpace True) opens),
+      byComputing
+    )

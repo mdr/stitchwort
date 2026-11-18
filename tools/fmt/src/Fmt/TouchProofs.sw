@@ -1937,3 +1937,74 @@ theorem elSteps ∀ (expr: Expr): ElSteps expr := match expr with
 theorem allElSteps ∀ (items: List Expr): EachElSteps items := match items with
   | [] => byComputing
   | [item, ..rest] => (elSteps item, allElSteps rest)
+
+-- A call's hug on a `:=` line.
+
+--| A value's hug, if it is a call that hugs: its function free, then its arguments as `argumentsSpacing1` says.
+theorem callHugSteps ∀ (value: Expr) (inside: Around)
+    (within: value.within1 = True)
+    (shaped: value.shaped1 = True)
+    (lexical: value.lexical1 = True)
+    (joinable: Joinable lexKind value):
+    HugSteps (value.callHug inside) (Fits True Free) (value.spacing1 False) (Ends value.trails) :=
+  match value, joinable with
+    | App head arguments, (headJoins, joins, filled) =>
+      let headWithin: head.within1 = True := Bool.andLeft within
+      let headShaped: head.shaped1 = True := Bool.andLeft (Bool.andRight shaped)
+      let isArguments: arguments.all Expr.argument1 = True :=
+        Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+      let argumentsShaped: allShaped1 arguments = True :=
+        Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+      let headSpacing := spacedFirst Free (head.spacing1 False)
+      let headEl: Steps (head.el inside) (Fits True Free) headSpacing (Ends True) :=
+        stepsTo _ _ _ _ _
+          (elSteps head headWithin headShaped
+            (Bool.andLeft lexical)
+            headJoins
+            inside
+            Free
+            False
+            (never => (Bool.falseNotTrue never).impossible)
+            (Inl byComputing))
+          (seam ended => endsWeaker head.trails True (_ => byComputing) seam ended)
+      let results := argumentDocs inside.inArm head (inside.at + head.size) arguments
+      let (_, frontSeq, hugs, _) :=
+        argumentsSteps inside.inArm head
+          (inside.at + head.size)
+          arguments
+          head.words
+          (Fits True Free)
+          (head.el inside)
+          headSpacing
+          filled
+          (Bool.andRight within)
+          argumentsShaped
+          (Bool.andRight lexical)
+          isArguments
+          joins
+          (allElSteps arguments)
+          headEl
+      let same: joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
+        = (App head arguments).spacing1 False :=
+        rewrite callJoin headSpacing arguments filled, freeFirst head headWithin
+      rewrite appDocsIs head arguments inside, <- same then
+        appFromHugSteps
+          (inside.at + 1)
+          (1 + keptFront head arguments)
+          (commentBetween head arguments)
+          (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+          (head.el inside)
+          (results.snd.getOrElse (Nothing, None)).fst
+          results.fst
+          (results.snd.getOrElse (Nothing, None)).snd
+          headSpacing
+          (lastSpacing arguments)
+          (initSpacings arguments) _ _
+          frontSeq
+          hugs
+    | Atom _ _, _ => byComputing
+    | Paren _ _ _, _ => byComputing
+    | Tuple _ _ _ _, _ => byComputing
+    | ListOf _ _ _ _, _ => byComputing
+    | Infix _ _ _ _, _ => byComputing
+    | Prefix _ _, _ => byComputing
