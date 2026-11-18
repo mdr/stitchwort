@@ -1247,21 +1247,7 @@ fn conv_spines(
                     base: b2,
                 },
             ) => conv_in(g, level, m1, m2, mode)? && conv_in(g, level, b1, b2, mode)?,
-            _ => {
-                // A difference in shape answers "different", but a glued
-                // call in either elimination is a bug, not a difference.
-                for e in [pair.0, pair.1] {
-                    match e {
-                        Elim::App(v, _) => no_glued_call(v),
-                        Elim::J { motive, base } => {
-                            no_glued_call(motive);
-                            no_glued_call(base);
-                        }
-                        Elim::Proj(..) => {}
-                    }
-                }
-                false
-            }
+            _ => false,
         };
         if !same {
             return Ok(false);
