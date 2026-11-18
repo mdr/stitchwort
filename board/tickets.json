@@ -25173,7 +25173,7 @@
     {
       "id": 4071,
       "title": "[Opus] fmt S1 read-back 17g: binary operators on one line (* / %, + -, ++ chains flattening the spine, comparisons, && and || through groupLogic, arrows with operators on the left), over the tightened shaped1; then multi-line declarations (17h)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
