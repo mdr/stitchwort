@@ -1,5 +1,5 @@
 {
-  "next": 3950,
+  "next": 3951,
   "tickets": [
     {
       "id": 47,
@@ -23532,6 +23532,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3950,
+      "title": "[Opus] Self-hosted fmt S1 program (proof plan ticket 12): continued lines in the parser, the Def frame, traversal and P2, rules and spacing for S1's eight constructs on Std.Doc, within1, the alphabet, formatWithin, Fmt.Twin --stage text with the S1 filter; gate: --stage text identical on every golden declaration within S1, then the repo's (docs/proposals/self-hosted-fmt-proof-plan.md S1, ticket 12; engine plan 'Then the rules')",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
