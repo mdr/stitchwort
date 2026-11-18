@@ -232,11 +232,54 @@ def Expr.autoFree1: Expr → Bool
   | ListOf _ [one, ..others] _ _ => !one.autoCall1 && one.autoFree1 && autoFreeAll others
   | App head arguments => head.autoFree1 && autoFreeAll arguments
   | Prefix _ operand => operand.autoFree1
+  | Infix _ left _ right => left.autoFree1 && right.autoFree1
   | _ => True
 
 def autoFreeAll: List Expr → Bool
   | [] => True
   | [expr, ..rest] => expr.autoFree1 && autoFreeAll rest
+
+theorem lowerOf ∀ (kind: Tok) (lower: (kind == Lower) = True): kind = Lower := cases
+
+--| No slice 1 call is an `auto` call: `within1` refuses the name `auto` (SW-4027).
+theorem autoCallWithin1 ∀ (expr: Expr) (within: expr.within1 = True): expr.autoCall1 = False := match expr, within with
+  | App (Atom headKind word) [Atom argumentKind _, .._], within =>
+    let headWithin: (Atom headKind word).within1 = True := Bool.andLeft within
+    match lower: headKind == Lower with
+      | False => byComputing
+      | True =>
+        let isLower := lowerOf headKind lower
+        let headSpells: textSpells1 headKind word.text = True := Bool.andRight headWithin
+        let spells: textSpells1 Lower word.text = True :=
+          Eq.trans (Eq.cong (kind => textSpells1 kind word.text) isLower).flipped headSpells
+        rewrite notTrueFalse _ (Bool.andRight spells)
+  | other, _ => byComputing
+
+--| No list in a slice 1 expression starts with an `auto` call: `readsBackLine`'s `typeFree` and `valueFree` from the
+--| tree.
+theorem autoFreeWithin1 ∀ (expr: Expr) (within: expr.within1 = True): expr.autoFree1 = True := match expr, within with
+  | Atom _ _, _ => byComputing
+  | Paren _ inner _, within => autoFreeWithin1 inner within
+  | Tuple _ items _ _, within => autoFreeAllWithin1 items within
+  | ListOf _ [] _ _, _ => byComputing
+  | ListOf _ [one, ..others] _ _, within =>
+    rewrite autoCallWithin1 one (Bool.andLeft within),
+        autoFreeWithin1 one (Bool.andLeft within),
+        autoFreeAllWithin1 others (Bool.andRight within)
+  | App head arguments, within =>
+    rewrite autoFreeWithin1 head (Bool.andLeft within), autoFreeAllWithin1 arguments (Bool.andRight within)
+  | Prefix _ operand, within => autoFreeWithin1 operand (Bool.andLeft within)
+  | Infix InfixBinary left _ right, within =>
+    rewrite autoFreeWithin1 left (Bool.andLeft within), autoFreeWithin1 right (Bool.andLeft (Bool.andRight within))
+  | Infix InfixArrow left _ right, within =>
+    rewrite autoFreeWithin1 left (Bool.andLeft within), autoFreeWithin1 right (Bool.andLeft (Bool.andRight within))
+  | other, never => (Bool.falseNotTrue never).impossible
+
+theorem autoFreeAllWithin1 ∀ (exprs: List Expr) (within: allWithin1 exprs = True): autoFreeAll exprs = True :=
+  match exprs, within with
+    | [], _ => byComputing
+    | [expr, ..rest], within =>
+      rewrite autoFreeWithin1 expr (Bool.andLeft within), autoFreeAllWithin1 rest (Bool.andRight within)
 
 --| The bracket items after the first (or first two), as `CommaReads`' steps: a comma, then an item's reading.
 def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
@@ -2179,6 +2222,30 @@ theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     typeReads = (noRow, typeTree),
     valueTree
   }
+
+--| `readsBackLine` for slice 1 trees: `within1` refuses the name `auto`, so no list reads as an implicit binder.
+theorem readsBackLineWithin ∀ (seen: Seen) (keyword name colon colonEq: Item)
+    (typeRead valueRead: List Item) (result value: Expr)
+    (isDef: keyword.kind = KwDef)
+    (isLower: name.kind = Lower)
+    (isColon: colon.kind = Colon)
+    (isColonEq: colonEq.kind = ColonEq)
+    (typeSpelt: Spelt result typeRead)
+    (valueSpelt: Spelt value valueRead)
+    (typeLine: lineAll typeRead = True)
+    (valueLine: lineAll valueRead = True)
+    (typeInLine: inLineAll typeRead = True)
+    (valueLater: laterInLine valueRead = True)
+    (typeWithin: result.within1 = True)
+    (valueWithin: value.within1 = True):
+    Parse.run [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] (() =>
+      let decl := declaration seen
+      decl)
+      = Ok (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)) :=
+  readsBackLine seen keyword name colon colonEq typeRead valueRead result value isDef isLower isColon isColonEq
+      typeSpelt valueSpelt typeLine valueLine typeInLine valueLater
+      (autoFreeWithin1 result typeWithin)
+      (autoFreeWithin1 value valueWithin)
 
 --| `(a, [b])`, as `wordItem`s from index 5: the value of `readsBackLineExample`.
 def exampleItems: List Item := [
