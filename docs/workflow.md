@@ -93,6 +93,31 @@ when it's unclear.
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
 
+## Pre-commit hook
+
+Unformatted `.sw` and `.rs` files that reach `main` turn Overmind's rolling
+check red (`fmt::the_repository_sources_are_formatted`), so `git commit`
+checks the staged ones (D3681, SW-3952). The hooks are declared in
+`flake.nix` with git-hooks.nix and run by prek; there are two, nothing else
+(no clippy, no tests, and the hook is not in `nix flake check`):
+
+- `rustfmt --check` on the staged `.rs` files (the dev shell's toolchain);
+- `dev/hooks/stitchwort-fmt-check` on the staged `.sw` files: `stitchwort fmt
+  --check` with the release binary of this checkout, else of the main
+  checkout or any folder above it (a scratch clone sits under the main
+  checkout), else a warning and no check. It looks at the folders that
+  `the_repository_sources_are_formatted` checks, and skips the paths in
+  `DELIBERATELY_UNFORMATTED` (`crates/fmt/src/lib.rs`).
+
+A refused commit lists the files; run `stitchwort fmt FILE` or `rustfmt
+--edition 2024 FILE` and commit again. To commit unformatted files on
+purpose, `git commit --no-verify`. Entering `nix develop` installs the hook
+(into the shared git dir, with an absolute `core.hooksPath`, so every
+worktree has it) and writes `.pre-commit-config.yaml` (gitignored) in the
+checkout; `task worktree:new` and `task scratch:new` do that once, since a
+checkout without the file fails every commit. In an existing worktree made
+before the hook, run `nix develop -c true` once.
+
 ## Reviewing a lane
 
 These tiers are current practice (Matt, 16 Nov 2026: "these aren't set in

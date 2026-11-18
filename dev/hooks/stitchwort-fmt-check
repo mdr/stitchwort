@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Pre-commit hook (flake.nix, `git-hooks`): fails if a staged `.sw` file isn't
+# formatted, listing it. Takes the staged file names as arguments, from prek.
+#
+# Checks what `the_repository_sources_are_formatted`
+# (crates/cli/tests/tools/fmt.rs) checks, so a commit this lets through can't
+# turn that test red: the same folders, minus the paths the repository keeps as
+# written (`DELIBERATELY_UNFORMATTED` in crates/fmt/src/lib.rs, read from there
+# so the lists can't drift). `stitchwort fmt` skips those only in a folder
+# walk, not when named, hence the filtering here.
+#
+# Runs the release CLI of this checkout, else of the main checkout (a
+# worktree's common git dir is its .git), else of any folder above this one (a
+# scratch clone lives under the main checkout's .claude/worktrees/); with none,
+# warns and lets the commit through.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+bin=
+dir=$root
+for next in "$(dirname "$common")" "$root"; do
+  dir=$next
+  while [ -n "$dir" ] && [ -z "$bin" ]; do
+    [ -x "$dir/target/release/stitchwort" ] && bin="$dir/target/release/stitchwort"
+    [ "$dir" = / ] && break
+    dir=$(dirname "$dir")
+  done
+done
+if [ -z "$bin" ]; then
+  echo "stitchwort-fmt: no target/release/stitchwort in this checkout, the main one or a folder above; skipping the .sw format check" >&2
+  exit 0
+fi
+
+checked='^(examples/(accept|extract|goals)/|examples/projects/(accept|goals)/|games/|aoc/|crates/elab/src/std/)'
+skipped=$(awk '/DELIBERATELY_UNFORMATTED/ { on = 1 } on && /^\];/ { exit } on' "$root/crates/fmt/src/lib.rs" |
+  sed -n 's/^ *"\(.*\)",.*/\1/p')
+
+files=()
+for file in "$@"; do
+  [[ $file =~ $checked ]] || continue
+  [ -f "$root/$file" ] || continue
+  skip=0
+  while IFS= read -r prefix; do
+    [ -n "$prefix" ] && [[ $file == "$prefix"* ]] && skip=1
+  done <<<"$skipped"
+  [ $skip = 1 ] || files+=("$root/$file")
+done
+[ ${#files[@]} -gt 0 ] || exit 0
+
+# --check lists the files that would change on stdout.
+status=0
+listed=$("$bin" fmt --check "${files[@]}") || status=$?
+if [ $status -gt 1 ]; then
+  echo "stitchwort-fmt: \`stitchwort fmt --check\` failed (a file that doesn't parse?)" >&2
+  exit 1
+fi
+if [ -n "$listed" ]; then
+  echo "stitchwort-fmt: not formatted (run \`stitchwort fmt\` on them):" >&2
+  echo "${listed//$root\//}" >&2
+  exit 1
+fi

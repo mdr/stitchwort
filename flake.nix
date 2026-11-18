@@ -8,6 +8,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     crane.url = "github:ipetkov/crane";
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -15,6 +19,7 @@
       nixpkgs,
       rust-overlay,
       crane,
+      git-hooks,
       ...
     }:
     let
@@ -381,8 +386,45 @@
       devShells = forAllSystems (
         pkgs:
         let
+          # The pre-commit hook (D3681, SW-3952): formatting only, run by prek.
+          # Entering the shell installs it (`shellHook`, below) and writes the
+          # gitignored `.pre-commit-config.yaml`. Deliberately not in `checks`:
+          # `nix flake check` doesn't run it.
+          hooks = git-hooks.lib.${pkgs.stdenv.hostPlatform.system}.run {
+            src = ./.;
+            package = pkgs.prek;
+            hooks = {
+              # The dev shell's rustfmt, on the staged files alone: `cargo fmt`
+              # takes 3 s over the workspace, this 0.1 s. Every crate is
+              # edition 2024 (the workspace's); there's no rustfmt.toml.
+              rustfmt = {
+                enable = true;
+                entry = "${toolchainFor pkgs}/bin/rustfmt --check --edition 2024";
+                files = "\\.rs$";
+                pass_filenames = true; # the built-in rustfmt hook sets false, for cargo fmt
+                language = "system";
+              };
+              stitchwort-fmt = {
+                enable = true;
+                name = "stitchwort fmt";
+                entry = "${./dev/hooks/stitchwort-fmt-check}";
+                files = "\\.sw$";
+                language = "system";
+              };
+            };
+          };
           default = pkgs.mkShell {
-            packages = [
+            # git-hooks.nix sets core.hooksPath relative to the checkout when
+            # the common git dir is inside it (a main checkout or clone),
+            # which no worktree of it resolves; an absolute path serves all of
+            # them. Compare before writing: this runs on every shell entry.
+            shellHook = hooks.shellHook + ''
+              if common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+                [ "$(git config --local core.hooksPath)" = "$common/hooks" ] \
+                  || git config --local core.hooksPath "$common/hooks"
+              fi
+            '';
+            packages = hooks.enabledPackages ++ [
               (toolchainFor pkgs)
               pkgs.cargo-insta # snapshot tests for example programs
               pkgs.cargo-watch
