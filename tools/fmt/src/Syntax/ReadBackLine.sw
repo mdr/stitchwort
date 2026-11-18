@@ -89,6 +89,14 @@ def lineKind: Tok → Bool
   | Slash => True
   | Percent => True
   | Plus => True
+  | PlusPlus => True
+  | Equals => True
+  | EqEq => True
+  | NotEq => True
+  | Lt => True
+  | Le => True
+  | Gt => True
+  | Ge => True
   | Bang => True
   | Arrow => True
   | ColonEq => True
@@ -138,6 +146,14 @@ def binaryTok: Tok → Bool
   | Percent => True
   | Plus => True
   | Minus => True
+  | PlusPlus => True
+  | Equals => True
+  | EqEq => True
+  | NotEq => True
+  | Lt => True
+  | Le => True
+  | Gt => True
+  | Ge => True
   | _ => False
 
 --| The operator token an infix of this kind is spelt with: `->` for an arrow, a binary operator of this part.
@@ -439,6 +455,14 @@ def exprKind: Tok → Bool
   | Slash => True
   | Percent => True
   | Plus => True
+  | PlusPlus => True
+  | Equals => True
+  | EqEq => True
+  | NotEq => True
+  | Lt => True
+  | Le => True
+  | Gt => True
+  | Ge => True
   | Bang => True
   | Arrow => True
   | LParen => True
@@ -2105,6 +2129,30 @@ theorem opKind ∀ (tok: Tok) (isOp: opTok tok = True): OpKind tok := match tok,
   | Minus, _ =>
     opKindOf Minus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
+  | PlusPlus, _ =>
+    opKindOf PlusPlus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Equals, _ =>
+    opKindOf Equals byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | EqEq, _ =>
+    opKindOf EqEq byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | NotEq, _ =>
+    opKindOf NotEq byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Lt, _ =>
+    opKindOf Lt byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Le, _ =>
+    opKindOf Le byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Gt, _ =>
+    opKindOf Gt byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
+  | Ge, _ =>
+    opKindOf Ge byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing
   | _, never => (Bool.falseNotTrue never).impossible
 
 theorem opKindOf ∀ (tok: Tok)
@@ -2302,15 +2350,44 @@ theorem addOf ∀ (tok: Tok)
     (tok == Plus || tok == Minus) = True :=
   cases
 
---| The binary operators of this part bind at the additive or the multiplicative level.
-theorem binaryLevels ∀ (tok: Tok) (isOp: binaryTok tok = True): tokLevel tok = 14 ∨ tokLevel tok = 16 :=
-  match tok, isOp with
-    | Plus, _ => Inl byComputing
-    | Minus, _ => Inl byComputing
-    | Star, _ => Inr byComputing
-    | Slash, _ => Inr byComputing
-    | Percent, _ => Inr byComputing
-    | _, never => (Bool.falseNotTrue never).impossible
+--| A binary operator of this part binding at the additive level or tighter is additive or multiplicative.
+theorem binaryLow ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (high: 14 <= tokLevel tok):
+    tokLevel tok = 14 ∨ tokLevel tok = 16 :=
+  cases
+
+--| A binary operator of this part binding at the append level or tighter is `++` or tighter still.
+theorem binaryAppend ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (high: 12 <= tokLevel tok):
+    tokLevel tok = 12 ∨ 14 <= tokLevel tok :=
+  cases
+
+--| A binary operator of this part is a comparison or binds at the append level or tighter.
+theorem binaryCmp ∀ (tok: Tok) (isOp: binaryTok tok = True): tokLevel tok = 6 ∨ 12 <= tokLevel tok := cases
+
+theorem appendOf ∀ (tok: Tok) (isOp: binaryTok tok = True) (is12: tokLevel tok = 12): (tok == PlusPlus) = True := cases
+
+theorem cmpOf ∀ (tok: Tok)
+    (isOp: binaryTok tok = True)
+    (is6: tokLevel tok = 6):
+    tok.isComparison = True ∧ (tok == KwIn || tok == NotIn) = False :=
+  cases
+
+theorem leadNotIf ∀ (kind: Tok) (starts: leadKind kind = True): (kind == KwIf) = False := cases
+
+--| `++` nests to the right.
+theorem appendNeeds ∀ (text: Text)
+    (is12: infixLevel InfixBinary text = 12):
+    leftNeeds InfixBinary text = 14 ∧ rightNeeds InfixBinary text = 12 :=
+  cases
+
+--| A comparison doesn't chain: both operands above it.
+theorem cmpNeeds ∀ (text: Text)
+    (is6: infixLevel InfixBinary text = 6):
+    leftNeeds InfixBinary text = 8 ∧ rightNeeds InfixBinary text = 8 :=
+  cases
 
 --| `*`, `/` and `%` nest to the left, their right operand one rung up.
 theorem mulNeeds ∀ (text: Text)
@@ -2495,7 +2572,7 @@ theorem addAcc ∀ (modes: Modes)
     | Infix InfixBinary left operator right, sp, fits =>
       let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
         sp
-      match binaryLevels op.kind isOp with
+      match binaryLow op.kind isOp (arithmetic [fits, level]) with
         | Inr is16 =>
           addBase modes quiet
             (Infix InfixBinary left operator right)
@@ -2641,16 +2718,301 @@ theorem addLine ∀ (modes: Modes)
     (ends.noAdd (arithmetic []))
     fits
 
---| A spelt expression that is no arrow binds at the additive level or tighter: no looser operator is spelt yet.
-theorem plainLevel ∀ (expr: Expr) (read: List Item)
+--| What `rightNested` chains are made of: a first operand, an operator, and a chain read after it.
+theorem rightCons ∀ (modes: Modes) (takes: Tok → Bool) (operand: List Item → List Item → Expr → Prop)
+    (headRead: List Item) (op: Item) (rightRead rest: List Item) (head right: Expr) (all: List Item) (value: Expr)
+    (whole: all = headRead ++ [op, ..rightRead])
+    (isValue: value = Infix InfixBinary head op.leaf.word right)
+    (headReads: operand headRead ([op, ..rightRead] ++ rest) head)
+    (open: modes.stops op = False)
+    (took: takes op.kind = True)
+    (rightReads: ChainReads modes takes rightNested operand operand rightRead rest right):
+    ChainReads modes takes rightNested operand operand all rest value :=
+  let (read1, first, links, isRight, isRightValue, firstReads, linked) := rightReads
+  (
+    headRead,
+    head,
+    [(op, read1, first), ..links],
+    (rewrite whole, isRight),
+    (rewrite isValue, isRightValue),
+    (rewrite isRight at headReads then headReads),
+    (open, took, firstReads, linked)
+  )
+
+--| An expression binding at the `++` level or tighter, spelt on one line and ended there, is what `appendExpr` reads:
+--| `++` nests to the right, so the chain is the left operand, `++` and the chain on the right.
+theorem appendLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
     (spelt: Spelt expr read)
-    (fits: 2 <= expr.level):
-    14 <= expr.level :=
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineRest: lineAll rest = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 12 rest)
+    (fits: 12 <= expr.level):
+    AppendReads (TreeN depth) modes read rest expr :=
+  match expr, spelt, fits with
+    | Infix InfixBinary left operator right, sp, fits =>
+      let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
+        sp
+      match binaryAppend op.kind isOp (arithmetic [fits, level]) with
+        | Inr high =>
+          appendBase modes quiet
+            (Infix InfixBinary left operator right)
+            read
+            rest
+            depth
+            deep
+            sp
+            free
+            lineRead
+            lineRest
+            openFirst
+            inLater
+            ends
+            (arithmetic [level, high])
+        | Inl is12 =>
+          let parts :=
+            infixParts modes quiet left right leftRead op rightRead leftSpelt rightSpelt
+              (rewrite <- isRead then lineRead)
+              (rewrite <- isRead then openFirst)
+              (rewrite <- isRead then inLater)
+          let at12: infixLevel InfixBinary operator.text = 12 := arithmetic [level, is12]
+          let (leftNeed, rightNeed) := appendNeeds operator.text at12
+          let isAppend := appendOf op.kind isOp is12
+          let rightReads: AppendReads (TreeN depth) modes rightRead rest right :=
+            appendLine modes quiet right rightRead rest depth
+              (arithmetic [deep])
+              rightSpelt
+              (Bool.andRight free)
+              (Bool.andRight parts.lineOpRight)
+              lineRest
+              parts.openRight
+              (laterOfIn rightRead parts.inRight)
+              ends
+              (arithmetic [rightFits, rightNeed])
+          let leftReads: AddReads (TreeN depth) modes leftRead ([op, ..rightRead] ++ rest) left :=
+            addLine modes quiet left leftRead
+              ([op, ..rightRead] ++ rest)
+              depth
+              (arithmetic [deep])
+              leftSpelt
+              (Bool.andLeft free)
+              parts.lineLeft
+              (lineJoin [op, ..rightRead] rest parts.lineOpRight lineRest)
+              parts.openLeft
+              parts.laterLeft
+              (opEnds modes 14 op
+                (rightRead ++ rest)
+                InfixBinary
+                parts.openOp
+                isOp
+                (rewrite speltApart right rightRead rest rightSpelt then apart)
+                (arithmetic [rungAppendOf op.kind isAppend]))
+              (arithmetic [leftFits, leftNeed])
+          rightCons modes
+            (kind => kind == PlusPlus)
+            (AddReads (TreeN depth) modes)
+            leftRead
+            op
+            rightRead
+            rest
+            left
+            right
+            read
+            (Infix InfixBinary left operator right)
+            isRead
+            (rewrite isWord)
+            leftReads
+            parts.openOp
+            isAppend
+            rightReads
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ =>
+      appendBase modes quiet other read rest depth deep spelt free lineRead lineRest openFirst inLater ends
+        (arithmetic [unaryLevel other read spelt byComputing])
+
+theorem rungAppendOf ∀ (tok: Tok) (isAppend: (tok == PlusPlus) = True): tokRung tok = 12 := cases
+
+--| An append chain with no `++`: its additive reading.
+theorem appendBase ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineRest: lineAll rest = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 12 rest)
+    (high: 14 <= expr.level):
+    AppendReads (TreeN depth) modes read rest expr :=
+  (
+    read,
+    expr,
+    [],
+    (List.appendNil read).flipped,
+    byComputing,
+    addLine modes quiet expr read rest depth deep spelt free lineRead lineRest openFirst inLater
+      (endsAtUp modes 12 14 rest (arithmetic []) ends)
+      high,
+    ends.noAppend (arithmetic [])
+  )
+
+--| A spelt expression binding above the comparisons binds at the `++` level or tighter.
+theorem aboveCmp ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 7 <= expr.level): 12 <= expr.level :=
+  match expr, spelt, fits with
+    | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), fits =>
+      match binaryCmp op.kind isOp with
+        | Inl is6 => Void.impossible (arithmetic [fits, level, is6])
+        | Inr high => arithmetic [level, high]
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ => arithmetic [unaryLevel other read spelt byComputing]
+
+--| A comparison's operand alone: its append chain, no range, pipe or comparison after.
+theorem cmpAlone ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineRest: lineAll rest = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 6 rest)
+    (high: 12 <= expr.level):
+    CmpReads (TreeN depth) modes read rest expr :=
+  Inl (
+    (
+      ends.noRange,
+      ends.noPipe,
+      appendLine modes quiet expr read rest depth deep spelt free lineRead lineRest openFirst inLater
+        (endsAtUp modes 6 12 rest (arithmetic []) ends)
+        high
+    ),
+    ends.noCmp (arithmetic [])
+  )
+
+--| An expression binding at the comparison level or tighter, spelt on one line and ended there, is what `cmpExpr`
+--| reads: its operand alone, or one comparison of two.
+theorem cmpLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (expr: Expr) (read rest: List Item) (depth: Nat)
+    (deep: expr.nest1 <= depth)
+    (spelt: Spelt expr read)
+    (free: expr.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineRest: lineAll rest = True)
+    (openFirst: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (ends: EndsAt modes 6 rest)
+    (fits: 6 <= expr.level):
+    CmpReads (TreeN depth) modes read rest expr :=
+  match expr, spelt, fits with
+    | Infix InfixBinary left operator right, sp, fits =>
+      let (leftRead, op, rightRead, isRead, isOp, isWord, level, leftFits, rightFits, apart, leftSpelt, rightSpelt) :=
+        sp
+      match binaryCmp op.kind isOp with
+        | Inr high =>
+          cmpAlone modes quiet
+            (Infix InfixBinary left operator right)
+            read
+            rest
+            depth
+            deep
+            sp
+            free
+            lineRead
+            lineRest
+            openFirst
+            inLater
+            ends
+            (arithmetic [level, high])
+        | Inl is6 =>
+          let parts :=
+            infixParts modes quiet left right leftRead op rightRead leftSpelt rightSpelt
+              (rewrite <- isRead then lineRead)
+              (rewrite <- isRead then openFirst)
+              (rewrite <- isRead then inLater)
+          let at6: infixLevel InfixBinary operator.text = 6 := arithmetic [level, is6]
+          let (leftNeed, rightNeed) := cmpNeeds operator.text at6
+          let (isCmp, notIn) := cmpOf op.kind isOp is6
+          let leftEnds: EndsAt modes 12 [op, ..rightRead ++ rest] :=
+            opEnds modes 12 op
+              (rightRead ++ rest)
+              InfixBinary
+              parts.openOp
+              isOp
+              (rewrite speltApart right rightRead rest rightSpelt then apart)
+              (arithmetic [rungCmpOf op.kind isCmp])
+          let leftReads: AppendReads (TreeN depth) modes leftRead ([op, ..rightRead] ++ rest) left :=
+            appendLine modes quiet left leftRead
+              ([op, ..rightRead] ++ rest)
+              depth
+              (arithmetic [deep])
+              leftSpelt
+              (Bool.andLeft free)
+              parts.lineLeft
+              (lineJoin [op, ..rightRead] rest parts.lineOpRight lineRest)
+              parts.openLeft
+              parts.laterLeft
+              leftEnds
+              (aboveCmp left leftRead leftSpelt (arithmetic [leftFits, leftNeed]))
+          let rightReads: AppendReads (TreeN depth) modes rightRead rest right :=
+            appendLine modes quiet right rightRead rest depth
+              (arithmetic [deep])
+              rightSpelt
+              (Bool.andRight free)
+              (Bool.andRight parts.lineOpRight)
+              lineRest
+              parts.openRight
+              (laterOfIn rightRead parts.inRight)
+              (endsAtUp modes 6 12 rest (arithmetic []) ends)
+              (aboveCmp right rightRead rightSpelt (arithmetic [rightFits, rightNeed]))
+          let (rightFirst, rightMore, isRight, rightStarts) := speltStarts right rightRead rightSpelt
+          let inRightItems: inLineAll [rightFirst, ..rightMore] = True := rewrite <- isRight then parts.inRight
+          let openRightFirst := quietStops modes rightFirst quiet (notTrueFalse _ (Bool.andLeft inRightItems))
+          let noIf: isSome KwIf (peekIn modes 0 (rightRead ++ rest)) = False :=
+            rewrite isRight, peekFirst modes rightFirst (rightMore ++ rest) openRightFirst then
+              leadNotIf rightFirst.kind rightStarts
+          Inr (
+            leftRead,
+            op,
+            rightRead,
+            left,
+            right,
+            isRead,
+            (rewrite isWord),
+            (leftEnds.noRange, leftEnds.noPipe, leftReads),
+            parts.openOp,
+            notIn,
+            isCmp,
+            noIf,
+            (ends.noRange, ends.noPipe, rightReads),
+            ends.noCmp (arithmetic [])
+          )
+    | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
+    | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
+    | other, spelt, _ =>
+      cmpAlone modes quiet other read rest depth deep spelt free lineRead lineRest openFirst inLater ends
+        (arithmetic [unaryLevel other read spelt byComputing])
+
+theorem rungCmpOf ∀ (tok: Tok) (isCmp: tok.isComparison = True): tokRung tok = 6 := cases
+
+--| A spelt expression that is no arrow binds at the comparison level or tighter: no looser operator is spelt yet.
+theorem plainLevel ∀ (expr: Expr) (read: List Item) (spelt: Spelt expr read) (fits: 2 <= expr.level): 6 <= expr.level :=
   match expr, spelt, fits with
     | Infix InfixBinary _ operator _, (_, op, _, _, isOp, _, level, _), _ =>
-      match binaryLevels op.kind isOp with
-        | Inl is14 => arithmetic [level, is14]
-        | Inr is16 => arithmetic [level, is16]
+      match binaryCmp op.kind isOp with
+        | Inl is6 => arithmetic [level, is6]
+        | Inr high => arithmetic [level, high]
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ => arithmetic [unaryLevel other read spelt byComputing]
@@ -2675,13 +3037,6 @@ theorem operatorLine ∀ (modes: Modes)
     (ending: EndReads (TreeN depth) modes expr (sequenceOn modes (read3 ++ rest)) read3 rest value):
     OperatorReads (TreeN depth) modes all rest value :=
   let after := read3 ++ rest
-  let addReads :=
-    addLine modes quiet expr read after depth deep spelt free lineRead lineAfter openFirst inLater
-      (endsAtUp modes 5 14 after (arithmetic []) ends)
-      (plainLevel expr read spelt fits)
-  let noLinks: read = read ++ Parse.loopReads [] (linkSteps []) := (List.appendNil read).flipped
-  let appendReads: AppendReads (TreeN depth) modes read after expr :=
-    (read, expr, [], noLinks, byComputing, addReads, ends.noAppend (arithmetic []))
   (
     read,
     [],
@@ -2690,7 +3045,9 @@ theorem operatorLine ∀ (modes: Modes)
     expr,
     whole,
     noSection,
-    Inl ((ends.noRange, ends.noPipe, appendReads), ends.noCmp (arithmetic [])),
+    cmpLine modes quiet expr read after depth deep spelt free lineRead lineAfter openFirst inLater
+      (endsAtUp modes 5 6 after (arithmetic []) ends)
+      (plainLevel expr read spelt fits),
     Inl (byComputing, byComputing, ends.noAndOr (arithmetic [])),
     ends.noIff,
     ending
@@ -2895,9 +3252,9 @@ theorem inlineLine ∀ (modes: Modes)
         inLater
         restOpen
         ends
-        (match binaryLevels op.kind isOp with
-          | Inl is14 => arithmetic [level, is14]
-          | Inr is16 => arithmetic [level, is16])
+        (match binaryCmp op.kind isOp with
+          | Inl is6 => arithmetic [level, is6]
+          | Inr high => arithmetic [level, high])
     | Infix _ _ _ _, (_, _, _, _, never, _) => (Bool.falseNotTrue never).impossible
     | other, spelt =>
       inlinePlainLine modes quiet other item more rest depth deep spelt free lineRead lineRest open inLater restOpen
