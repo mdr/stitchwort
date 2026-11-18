@@ -895,3 +895,43 @@ Plus a hand file of comment cases (a comment after an opener, before a closer, a
 - `within1` is on the tidied tree too; P1, P3 and P4 change nothing within slice 1 (no theorem, no row, no binder), which the passes' lemma lane can state as such.
 - `Expr.words` (tokens in order) carries `trails`, `holdsTrailingComment`, `size`, `firstWord`: the rules' read-back of Rust's index lookups. They are list functions, so lemmas about them are list lemmas (F6).
 - Checks of `formatWithin` stop at the first token outside the alphabet, then at a tree outside `within1` (an alphabet-only file can still parse to `(a: T)` or a parameter group); the parser-stays-in-the-slice lemma (§1.1, item 4) is what would let the second check go.
+
+## Slice 2, the program (SW-3959)
+
+Opus, 18 November 2026. Slice 2 (binders) on top of slice 1, as SW-3950 built slice 1.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `defDoc` widened: the head (`def`/`theorem`, the name, a theorem's `∀`), parameter groups by `paramsHeader` (runs of variables as balanced fills, each premise alone, a variable between premises on the premise's line, the `:` against the last group, or starting a line after own-line comments), `groupHoldsComment` for the header's forced break | `src/Fmt/Rules.sw` | `decl`, `header`, `balanced_fill` |
+| `premisesOf`, `propositionIn`, `capitalised` | `src/Fmt/Rules.sw` | `premises`, `is_proposition` |
+| `groupDoc` (a `Param` or `LambdaParam` group), `Param.el`, `lambdaBoth`, `quantifier`, `effectDoc` with `rowItems` | `src/Fmt/Rules.sw` | `join` of those nodes, `lambda_both`, `lambda_head`, `quantifier` |
+| A lambda in brackets as a call's last argument hugs (`huggedLambda`); a lambda after `:=` may stay on the line, its body below (D3568) | `lastArgument`, `bodyAfter` | `last_argument`, `body_after` |
+| `within2`, `Tok.within2`, `Decl.printed2`, `SourceFile.printed2`; `formatWithin` now covers both slices and refuses with `outside slice 2` | `src/Fmt/Slice2.sw` | |
+| `Fmt.Twin --stage s2`; `s1` and `s2` share `sliceAnswer` | `src/Fmt/Twin.sw` | |
+| `dev/fmt-twin s2` (`slice_stage` takes the stage) | `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice2.sw` (6) | |
+
+The slice is the plan's row with two choices made: `Type` and `Prop` are words of the slice (most parameter groups need them, and they print as any word); and an ability row is within only before a header's result type, since Rust's spacing gives a row's braces no spaces only after `:` or `→` (`Role::Row`), and elsewhere `{ IO }`. Groups have names, `:` and a type, and no attributes, `auto` or default. `PatternWord` is in the slice as a binder parameter (`PatternParam (PatternWord …)`), but the parser never builds one there (a name or `_` is a `NameParam`), so it is vacuous.
+
+Keys as in slice 1: every `IdGroup` and `Mark` is keyed by a token count from the declaration's start; the header's tokens count from the keyword, then the `∀`, the groups (`groupsWords`), the `:`, the type. Every rule is structurally recursive: `huggedLambda` takes the lambda's parts, not a rebuilt `Binding`, so that it recurses only into subterms.
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s2 --exe` with the interpreted twin (a slim copy as SW-3950's, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 and 2 | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 230 | 230 | 0 |
+| `repo --sample 300` (seed 1) | 6,072 | 444 | 444 | 0 |
+
+Slices 1 and 2 cover 7.3% of the sample's declarations (slice 1 alone: 45, 0.7%). The sample is drawn from the tracked files, so it moves with the tree: SW-3950's had 5,798 declarations, and this lane's first run, before its own files were committed, 6,061 (453 within, all matched). `dev/fmt-twin s1` stays 82 of 82 and 45 of 45. A hand file of headers (long, with premises, with comments after a group and before the `:`), lambdas (hugged, after `:=`, with a comment after `=>`, with filled parameters), long `∀` and `∃` and rows: `--stage text` identical to `stitchwort fmt -`.
+
+**Gaps Rust copies and the tree can't tell.** Rust keeps the source's gap in `)(` (spacing.rs's `kept`), so `∀ (a: A)(b: B) => P` and `(a: A)(b: B) => a` print as written, glued; and it copies the gap after a row's `}` when there was none (`{IO}Nat`). The rules write a space in both. A header's groups are separated by the fill's line breaks, so `def f (a: A)(b: B)` gets its space in both. No sampled declaration has either.
+
+### For the proof lanes
+
+- The F1 tree is unchanged.
+- P1, P3 and P4 are live in slice 2: `theorem t (n: Nat)` gets its `∀` and `(n: Nat) (m: Nat)` merges in a theorem's header (the first test shows both); `within2` is on the tidied tree, as `within1`.
+- `printDecls2` repeats `printDecls` with `printed2`; a slice-indexed file loop would let later slices share it.
