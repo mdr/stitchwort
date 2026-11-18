@@ -9,8 +9,9 @@ import Syntax (..)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
-import Fmt.FileLexProofs (laidNotesFalse)
-import Fmt.OutputFileProofs (printedAlphabet1, printedGroups1, printedPlain1)
+import Fmt.FileLexProofs (laidNotesFalse, printedFileLexes1)
+import Fmt.OutputFileProofs (declStartsKw, printedAlphabet1, printedGroups1, printedPlain1)
+import Syntax.ParseSettledStatements (..)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (
   barsQuiet1,
@@ -649,7 +650,25 @@ theorem leavesStart1 ∀ (file: SourceFile)
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True):
     file.decls.all (decl => notCommaFirst decl.leaves1) = True :=
-  ?
+  startsEach file.decls within shaped (Bool.andLeft settled) lexical
+
+theorem startsEach ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (shaped: decls.all Decl.shaped1 = True)
+    (settled: decls.all Decl.settled1 = True)
+    (lexical: decls.all Decl.lexical1 = True):
+    decls.all (decl => notCommaFirst decl.leaves1) = True :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] =>
+      let first :=
+        declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+      let head: notCommaFirst decl.leaves1 = True := match leaves: decl.leaves1 with
+        | [leaf, .._] =>
+          let isDef: leaf.token.kind = KwDef := DecEq.sound first
+          rewrite isDef
+      Bool.andIntro head
+        (startsEach rest (Bool.andRight within) (Bool.andRight shaped) (Bool.andRight settled) (Bool.andRight lexical))
 
 --| The leaves of declarations after the first stand against their calm words.
 theorem standsRest ∀ (decls: List Decl)
@@ -692,7 +711,19 @@ theorem printedAgrees1 ∀ (file: SourceFile)
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True):
     file.lexed1.leaves.all Leaf.agrees = True :=
-  ?
+  let laid :=
+    lexLaid1 file.printed1 file.lexed1
+      (printedFileLexes1 file within shaped settled lexical)
+      (printedAlphabet1 file within shaped settled lexical)
+  agreesOfMarked file.lexed1.leaves (Bool.andLeft (Bool.andRight laid))
+
+--| A leaf whose text says whether it is a closer, as its kind does, has the kind a closer's text has.
+theorem agreesOfMarked ∀ (leaves: List Leaf) (marked: leaves.all Leaf.marked = True): leaves.all Leaf.agrees = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      let same: isCloserText leaf.token.text = leaf.kind.isCloser := DecEq.sound (Bool.andLeft (Bool.andLeft marked))
+      Bool.andIntro (rewrite same then DecEq.refl leaf.kind.isCloser) (agreesOfMarked rest (Bool.andRight marked))
 
 --| After rule 1 no `->` holds a comment and none comes before an own-line comment.
 theorem homedArrowsBare ∀ (file: SourceFile)
@@ -779,10 +810,12 @@ theorem noteBack ∀ (note: Note)
   match note with
     | { text = written, blankBefore } =>
       let unspaced: written.endsWith " " = False := Bool.notTrue _ (Bool.andRight (Bool.andRight text))
-      rewrite unreturnedSame written plain, unspaced then
-        match blankBefore with
-          | True => byComputing
-          | False => byComputing
+      let kept: trimReturns written.toList = written.toList := trimReturnsSame written.toList (Bool.notTrue _ plain)
+      let unspacedKept: Text.startsWithChars [' '] (written.toList.reverseOnto []) = False := unspaced
+      rewrite kept, unspacedKept then
+        match written, blankBefore with
+          | MkText chars, True => byComputing
+          | MkText chars, False => byComputing
 
 theorem notesBack ∀ (notes: List Note)
     (plain: notes.all Note.unreturned = True)
@@ -804,13 +837,43 @@ theorem notesTexts ∀ (notes: List Note) (rest: List Text)
     | [] => byComputing
     | [note, ..more] => Bool.andIntro (Bool.andLeft texts) (notesTexts more rest (Bool.andRight texts))
 
+theorem reverseOntoFilled ∀ (xs acc: List Char) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
+  match xs with
+    | [] => filled
+    | [x, ..rest] => reverseOntoFilled rest [x, ..acc] byComputing
+
+theorem startsHead ∀ (ys zs: List Char)
+    (filled: ys.isEmpty = False):
+    Text.startsWithChars ['\r'] (ys ++ zs) = Text.startsWithChars ['\r'] ys :=
+  match ys with | [y, ..more] => byComputing
+
+--| Characters that don't end in a carriage return keep all of them when the ones ending them are taken off.
+theorem trimReturnsSame ∀ (chars: List Char)
+    (plain: Text.startsWithChars ['\r'] chars.reverse = False):
+    trimReturns chars = chars :=
+  match chars with
+    | [] => byComputing
+    | [char, ..rest] =>
+      match rest with
+        | [] =>
+          match cut: char == '\r' with
+            | True =>
+              let same := DecEq.sound cut
+              Void.impossible (Bool.trueNotFalse (rewrite same at plain then plain))
+            | False => byComputing
+        | [next, ..more] =>
+          let filled: (List.reverse [next, ..more]).isEmpty = False := reverseOntoFilled more [next] byComputing
+          let tail: Text.startsWithChars ['\r'] (List.reverse [next, ..more]) = False :=
+            rewrite <- startsHead (List.reverse [next, ..more]) [char] filled then
+              rewrite List.reverseCons char [next, ..more] at plain then plain
+          let same := trimReturnsSame [next, ..more] tail
+          match cut: char == '\r' with
+            | True => rewrite same
+            | False => rewrite same
+
 --| A text that doesn't end in a carriage return keeps it all when the lexer takes one off.
 theorem unreturnedSame ∀ (text: Text) (plain: (!text.endsWith "\r") = True): withoutReturn text = text :=
-  match chars: text.toList.reverse with
-    | [] => byComputing
-    | [last, ..earlier] =>
-      match same: Text.sameChar '\r' last with
-        | False => byComputing
+  match text with | MkText chars => rewrite trimReturnsSame chars (Bool.notTrue _ plain)
 
 --| Trimming leaves whose comments are words' comment texts changes nothing.
 --| A comment whose text rule 5 leaves alone.
@@ -957,10 +1020,21 @@ theorem printedSettle1 ∀ (file: SourceFile)
 
 -- Cases.
 
---| Every hypothesis of `printedSettle1` but `unreturned1` holds of a source's tidied tree, and its conclusion fails.
+--| The comments with a carriage return at the end of each own-line comment: what no source's tree has (the lexer
+--| strips them, `crDropped`), and a tree can be given by hand.
+def Comments.returned (comments: Comments): Comments :=
+  { comments | above = comments.above.map (note => { note | text = note.text ++ "\r" }) }
+
+def Decl.returned: Decl → Decl
+  | Definition attributes header body => Definition attributes { header | keyword = header.keyword.returned } body
+  | other => other
+
+--| Every hypothesis of `printedSettle1` but `unreturned1` holds of a source's tidied tree with a carriage return put on
+--| each own-line comment, and its conclusion fails.
 def returnFails (source: Text): Bool := match tidiedOf source with
   | None => False
-  | Some file =>
+  | Some tidied =>
+    let file: SourceFile := { decls = tidied.decls.map Decl.returned, end = tidied.end.returned }
     file.within1
       && file.shaped1
       && file.settled1
@@ -970,10 +1044,10 @@ def returnFails (source: Text): Bool := match tidiedOf source with
       && !file.unreturned1
       && !wordsBack file
 
---| `unreturned1` is needed: `-- a\r\r\n` keeps one `\r` in the tree's comment (the lexer strips only the last), the
---| file loop prints it, and the lexer reads the printed line back without it. Above a declaration and at the end.
-theorem returnLost: (returnFails "-- a\r\r\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\r\r\n") = True :=
-  byComputing
+--| `unreturned1` can't be dropped: a hand-built tree whose own-line comment ends in `\r` meets the other hypotheses
+--| (`commentText` allows it), the file loop prints it, and the lexer reads the printed line back without it. Above a
+--| declaration and at the end. Trees the parser gives have none (`crDropped`).
+theorem returnLost: (returnFails "-- a\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\n") = True := byComputing
 
 -- Standing, joined.
 
