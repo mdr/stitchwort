@@ -25204,7 +25204,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-4074: 15 theorems take frame; GroupCarries ignores its frame; also add parseShapedSource and parseLexicalSource (from the source, as SW-4017's two). frameRest lives in ParseWalkOthers, which imports all four users, so something must move. After SW-4069 (ParseWalk).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25212,12 +25212,12 @@
     {
       "id": 4074,
       "title": "[Fable paper] fmt parser proofs: audit every Gives/Frame assumption in Syntax for the SW-4017 pattern (an assumption quantified over a parser-read value detached from position, making the frame uninhabitable and its theorems vacuous); list each assumption, whether it is inhabited, and how it is discharged",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane note (Fable, 18 Nov): done, docs/reviews/SW-4074-parser-assumptions.md on lane/SW-4074. 66 named assumptions and 907 hypothesis binders checked: every record (Outside tiers, Frame, FrameRest, Ladder) and Prop (Nested, NestedCarries, AtomBases, ...) is built by a closed definition, so none is false or vacuous; no Fmt theorem takes a parser fact. Follow-ups: (1) 15 theorems still take frame: FrameRest, and parseShaped1/parseLexical1 have no from-the-source form; (2) read-back's witnesses use hand-built items, not the lexer's; (3) BlockAt has the SW-4017 shape over LineKind but is inhabited. No decision for Matt.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
