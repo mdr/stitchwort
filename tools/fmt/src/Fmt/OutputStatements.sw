@@ -55,9 +55,10 @@ theorem printedTokens1 ∀ (decl: Decl)
 
 -- The file's leaves.
 
---| An own-line comment the file loop printed, as the lexer reads it back: at column 0, after one blank line or none.
+--| An own-line comment the file loop printed, as the lexer reads it back: at column 0, after one blank line or none,
+--| without a carriage return at its end (`crDropped`).
 def noteComment (note: Note): Comment :=
-  { text = note.text, column = 0, blankLines = if note.blankBefore then 1 else 0 }
+  { text = withoutReturn note.text, column = 0, blankLines = if note.blankBefore then 1 else 0 }
 
 --| A run of own-line comments as the file loop lays them; `empty`: nothing is printed before them, so the first has
 --| no blank line above it whatever its flag says (`Output.item`).
