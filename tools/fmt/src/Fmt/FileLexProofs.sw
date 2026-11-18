@@ -293,7 +293,7 @@ theorem gapFrom ∀ (empty blank: Bool) (laid: Laid) (leaves: List Leaf) (pendin
     (before: Before empty laid leaves pending):
     (gapPieces empty blank).foldLeft laid Laid.lay = lineStart leaves pending (if blank && !empty then 1 else 0) :=
   match empty, before with
-    | True, before => rewrite before, Bool.andFalse blank then byComputing
+    | True, before => rewrite before, Bool.andFalse blank
     | False, (sameLeaves, samePending, noBlank, notBlank) =>
       match laid with
         | { leaves = made, pending = waiting, blankRun, lineBlank, freshLine, column } =>
