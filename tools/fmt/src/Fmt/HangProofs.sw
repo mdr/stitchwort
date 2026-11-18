@@ -554,3 +554,132 @@ theorem hangsSuffix ∀ (kinds: Text → Tok) (comment: Text) (indent: Nat) (pre
           rewrite hangSnoc kinds trace { word = comment, start = None } then
             commentSkips kinds (hangOf kinds trace) { word = comment, start = None } isComment
         (isComment, solid, rewrite isMid then after (Held at carry) _ (rewrite skipped then reached))
+
+-- Steps of the fold.
+
+--| A token kind the fold takes as it takes a name: no bracket, comma, `:`, `:=` or `->`.
+def Plain (kind: Tok): Prop :=
+  kind.isCloser = False
+    ∧ kind.isOpener = False
+    ∧ (kind == Comma) = False
+    ∧ (kind == ColonEq) = False
+    ∧ (kind == Colon) = False
+    ∧ (kind == Arrow) = False
+
+--| A word may start its line at `start`, if it does: not after `->`, and right of the block column in force.
+def Room (state: HangState) (start: Option Nat): Prop := match start with
+  | None => True
+  | Some column => state.glue = False ∧ (column > inForce state.blocks state.top) = True
+
+--| The fold after one plain token, or an element whose brackets are closed again, whose first token starts its
+--| line at `start`, if it does: that column is the block's if the token starts an item, the type or the body.
+def openedBy (state: HangState) (start: Option Nat): HangState :=
+  state.past (start.getOrElse 0) (state.start && start.isSome) False False
+
+theorem stepPlain ∀ (kinds: Text → Tok) (state: HangState) (word: Text) (start: Option Nat)
+    (code: codeEvent { word, start } = True)
+    (plain: Plain (kinds word))
+    (room: Room state start):
+    hangStep kinds (At state) { word, start } = At (openedBy state start) :=
+  match plain with
+    | (closer, opener, comma, assign, colon, arrow) =>
+      match start, room with
+        | None, _ =>
+          rewrite code, Bool.andFalse state.glue, closer, comma, assign, colon, opener, arrow, Bool.andFalse state.start
+        | Some column, (unglued, right) =>
+          rewrite code, unglued, closer, comma, assign, right, colon, opener, arrow, Bool.andTrue state.start
+
+--| An opening bracket: as a plain token, then a block of its own whose first item starts next.
+def openingBy (state: HangState) (start: Option Nat): HangState :=
+  state.past (start.getOrElse 0) (state.start && start.isSome) True False
+
+theorem stepOpener ∀ (kinds: Text → Tok) (state: HangState) (word: Text) (start: Option Nat)
+    (code: codeEvent { word, start } = True)
+    (opener: (kinds word).isOpener = True)
+    (closer: (kinds word).isCloser = False)
+    (comma: (kinds word == Comma) = False)
+    (assign: (kinds word == ColonEq) = False)
+    (colon: (kinds word == Colon) = False)
+    (arrow: (kinds word == Arrow) = False)
+    (room: Room state start):
+    hangStep kinds (At state) { word, start } = At (openingBy state start) :=
+  match start, room with
+    | None, _ =>
+      rewrite code, Bool.andFalse state.glue, closer, comma, assign, colon, opener, arrow, Bool.andFalse state.start
+    | Some column, (unglued, right) =>
+      rewrite code, unglued, closer, comma, assign, right, colon, opener, arrow, Bool.andTrue state.start
+
+--| `->`: as a plain token, and the next token must not start a line.
+def gluedBy (state: HangState) (start: Option Nat): HangState :=
+  state.past (start.getOrElse 0) (state.start && start.isSome) False True
+
+theorem stepArrow ∀ (kinds: Text → Tok) (state: HangState) (word: Text) (start: Option Nat)
+    (code: codeEvent { word, start } = True)
+    (arrow: kinds word = Arrow)
+    (room: Room state start):
+    hangStep kinds (At state) { word, start } = At (gluedBy state start) :=
+  match start, room with
+    | None, _ => rewrite code, Bool.andFalse state.glue, arrow, Bool.andFalse state.start
+    | Some column, (unglued, right) => rewrite code, unglued, arrow, right, Bool.andTrue state.start
+
+--| A closer that starts its line at `start`, if it does, may: not after `->`, and left of the column its bracket's
+--| current item started a line at.
+def CloserRoom (state: HangState) (block start: Option Nat): Prop := match start with
+  | None => True
+  | Some column => state.glue = False ∧ leftOf column block = True
+
+--| The fold after a closer: its bracket's block is gone.
+def closedFrom (state: HangState) (outer: List (Option Nat)): HangState :=
+  { blocks = outer, top = state.top, start = False, glue = False }
+
+theorem stepCloser ∀ (kinds: Text → Tok) (state: HangState) (block: Option Nat) (outer: List (Option Nat))
+    (word: Text) (start: Option Nat)
+    (code: codeEvent { word, start } = True)
+    (closer: (kinds word).isCloser = True)
+    (open: state.blocks = [block, ..outer])
+    (room: CloserRoom state block start):
+    hangStep kinds (At state) { word, start } = At (closedFrom state outer) :=
+  match start, room with
+    | None, _ => rewrite code, Bool.andFalse state.glue, closer, open
+    | Some column, (unglued, left) => rewrite code, unglued, closer, open, left
+
+--| The fold after a comma: the bracket's next item starts.
+def commaFrom (state: HangState) (outer: List (Option Nat)): HangState :=
+  { blocks = [None, ..outer], top = state.top, start = True, glue = False }
+
+theorem stepComma ∀ (kinds: Text → Tok) (state: HangState) (block: Option Nat) (outer: List (Option Nat)) (word: Text)
+    (code: codeEvent { word, start = None } = True)
+    (comma: kinds word = Comma)
+    (open: state.blocks = [block, ..outer]):
+    hangStep kinds (At state) { word, start = None } = At (commaFrom state outer) :=
+  rewrite code, Bool.andFalse state.glue, comma, open
+
+--| The fold after the header's `:` or `:=`: the type or the body starts.
+def topFrom: HangState := { blocks = [], top = None, start = True, glue = False }
+
+theorem stepColon ∀ (kinds: Text → Tok) (state: HangState) (word: Text) (start: Option Nat)
+    (code: codeEvent { word, start } = True)
+    (colon: kinds word = Colon)
+    (top: state.blocks = [])
+    (room: Room state start):
+    hangStep kinds (At state) { word, start } = At topFrom :=
+  match start, room with
+    | None, _ => rewrite code, Bool.andFalse state.glue, colon, top
+    | Some column, (unglued, right) => rewrite code, unglued, colon, right, top
+
+theorem stepAssign ∀ (kinds: Text → Tok) (state: HangState) (word: Text) (start: Option Nat)
+    (code: codeEvent { word, start } = True)
+    (assign: kinds word = ColonEq)
+    (top: state.blocks = [])
+    (unglued: start.isSome = True → state.glue = False):
+    hangStep kinds (At state) { word, start } = At topFrom :=
+  match start with
+    | None => rewrite code, Bool.andFalse state.glue, assign, top
+    | Some column => rewrite code, unglued byComputing, assign, top
+
+--| A token's text is code: not a comment and not a line break.
+theorem tokenCode ∀ (text: Text) (start: Option Nat)
+    (token: text.startsWith "--" = False)
+    (solid: isLayout text = False):
+    codeEvent { word = text, start } = True :=
+  rewrite token, solidLine text solid
