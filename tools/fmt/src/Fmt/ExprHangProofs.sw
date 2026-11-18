@@ -430,7 +430,7 @@ theorem opensNoArms ∀ (expr: Expr) (level: Option Nat) (within: expr.within1 =
 -- Brackets' marks.
 
 --| Every quiet slice 1 expression's document has its `Mark` and `CloserLine` keys at least `low`; it has none, as
---| only comments make them. Named here, and taken by the induction.
+--| only comments make them. Named here and taken by the induction, which `Fmt.QuietKeyProofs.quietKeys` proves.
 def QuietKeys: Prop :=
   ∀ (expr: Expr) (around: Around) (low: Nat) => expr.within1 = True
     → expr.quiet1 = True
