@@ -1,7 +1,7 @@
 --| What the lexer's `item` reads (SW-4023): the soundness half of `Syntax.Proofs`'s `ItemReads`, for the lexemes of
---| any source. From each mark, `item` at the top level reads one lexeme located where it began (`roundFine`), unless
---| it read a token outside slice 1's alphabet; so `lexemes` of any source cuts it into lexemes that are each what
---| they say (`lexemesRead`).
+--| any source. From each mark, `item` at the top level reads one lexeme located where it began (`itemRound`,
+--| `RoundFine`), unless it gave a token outside slice 1's alphabet; so `lexemes` of a source, when all of the
+--| alphabet, cuts it into lexemes that are each what they say (`lexemesRounds`).
 --|
 --| `Parse.ReadsAt` says what a parser read, but not where its marks are; a located lexeme's offset is that of a mark,
 --| so the lemmas here chain with `atThen`, which also gives the offset each step stopped at.
