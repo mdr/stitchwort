@@ -23782,12 +23782,12 @@
     {
       "id": 3967,
       "title": "[Sonnet] fmt S1 ticket 16a: parser proofs, first half (sketch §2; uses F9's hand induction and Parse.givesThen per F10)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "SW-3972 wrote provisional Shaped1/Lexical1 (SourceFile.shaped1, lexical1 in tools/fmt/src/Fmt/Predicates1.sw; shaped1 weak on an infix's right operand): tighten them here.",
+      "body": "SW-3972 wrote provisional Shaped1/Lexical1 (SourceFile.shaped1, lexical1 in tools/fmt/src/Fmt/Predicates1.sw; shaped1 weak on an infix's right operand): tighten them here.\n\nProgress (lane, 18 Nov 2026), branch lane/SW-3967, tools/fmt/src/Syntax/ParseProofs.sw (namespace Syntax.ParseProofs, 48 theorems, audit clean):\n- Parsed1 (floor) e := within1 e -> shaped1 e, lexical1 e, floor <= level e; one walk for both predicates. Proved: infix/leftNested/rightNested, operator links, mulExpr, addExpr, appendExpr (given unary), suffixes (call/field), atom, expect, look-aheads that read nothing, negativeNumeral/argumentPrefix facts.\n- Shaped1 tightened: a call's head may be a prefix (`-1 n` parses to App (Prefix - 1) [n]).\n- Not done (16b): unary, app, arguments, atomBase, paren/tuple/list (commaList), cmp/logic/operatorExpr/exprInline/expr, block, the `def` frame, parseShaped1/parseLexical1 statements, parseSettled1/parseCarries1/fuelEnough1.\nTests: Syntax.Tests 52 pass, Fmt.Tests 76 pass, audit Syntax.ParseProofs 48/0 failed, audit Fmt.PassProofs 90+27 / 0 failed.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
