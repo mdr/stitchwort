@@ -24739,7 +24739,7 @@
     {
       "id": 4039,
       "title": "[Opus] fmt S1 output B: prove printedFileLexes1 (lex file.printed1 = Ok file.lexed1, exact: the seam between declarations; a declaration's text ends with a token or its comment) (docs/reviews/SW-4025-output-statements.md ticket B)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
