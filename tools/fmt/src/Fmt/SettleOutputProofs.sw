@@ -9,6 +9,7 @@ import Syntax (..)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
+import Fmt.FileLexProofs (laidNotesFalse)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (
   barsQuiet1,
@@ -640,10 +641,81 @@ theorem groupsBack ∀ (file: SourceFile)
 
 --| The end's comments read back as the tree's.
 theorem endBack ∀ (file: SourceFile)
+    (within: file.within1 = True)
     (settled: file.settled1 = True)
     (unreturned: file.unreturned1 = True):
     file.lexed1.end.trimmed.comments = file.calmTop.end :=
-  ?
+  match file with
+    | { decls, end = { above, after, blankBefore } } =>
+      let texts := notesTexts above after.toList (Bool.andLeft (Bool.andRight settled))
+      let plain := Bool.andRight unreturned
+      match after with
+        | None =>
+          match decls with
+            | [] =>
+              match above with
+                | [] => byComputing
+                | [first, ..rest] =>
+                  let firstSame := noteBack first (Bool.andLeft plain) (Bool.andLeft texts)
+                  let restSame := notesBack rest (Bool.andRight plain) (Bool.andRight texts)
+                  match first with
+                    | { text, blankBefore = firstBlank } =>
+                      let textSame: trimEnd (withoutReturn text) = text := Eq.cong (note => note.text) firstSame
+                      rewrite textSame, restSame
+            | [first, ..rest] =>
+              match first with
+                | Namespace _ _ => rewrite laidNotesFalse above, notesBack above plain texts
+                | Import _ _ _ _ _ => rewrite laidNotesFalse above, notesBack above plain texts
+                | Definition attributes header (Assigned colonEq value) =>
+                  rewrite laidNotesFalse above, notesBack above plain texts
+                | Definition attributes header Primitive => rewrite laidNotesFalse above, notesBack above plain texts
+                | Definition attributes header (Arms arms) => rewrite laidNotesFalse above, notesBack above plain texts
+                | Data _ _ _ _ _ _ _ => rewrite laidNotesFalse above, notesBack above plain texts
+                | Ability _ _ _ _ _ => rewrite laidNotesFalse above, notesBack above plain texts
+                | Test _ _ _ _ => rewrite laidNotesFalse above, notesBack above plain texts
+                | RuleSetDecl _ _ _ _ => rewrite laidNotesFalse above, notesBack above plain texts
+        | Some other => Void.impossible (Bool.falseNotTrue (Bool.andRight (Bool.andRight settled)))
+
+--| A note the file loop prints reads back as it is.
+theorem noteBack ∀ (note: Note)
+    (plain: note.unreturned = True)
+    (text: commentText note.text = True):
+    { text = (noteComment note).trimmed.text, blankBefore = (noteComment note).trimmed.blankLines > 0 } = note :=
+  match note with
+    | { text = written, blankBefore } =>
+      let unspaced: written.endsWith " " = False := Bool.notTrue _ (Bool.andRight (Bool.andRight text))
+      rewrite unreturnedSame written plain, unspaced then
+        match blankBefore with
+          | True => byComputing
+          | False => byComputing
+
+theorem notesBack ∀ (notes: List Note)
+    (plain: notes.all Note.unreturned = True)
+    (texts: notes.all (note => commentText note.text) = True):
+    ((notes.map noteComment).map Comment.trimmed).map (comment =>
+      { text = comment.text, blankBefore = comment.blankLines > 0 })
+      = notes :=
+  match notes with
+    | [] => byComputing
+    | [note, ..rest] =>
+      rewrite noteBack note (Bool.andLeft plain) (Bool.andLeft texts),
+          notesBack rest (Bool.andRight plain) (Bool.andRight texts)
+
+--| The comment texts of notes and what follows them.
+theorem notesTexts ∀ (notes: List Note) (rest: List Text)
+    (texts: (notes.map (note => note.text) ++ rest).all commentText = True):
+    notes.all (note => commentText note.text) = True :=
+  match notes with
+    | [] => byComputing
+    | [note, ..more] => Bool.andIntro (Bool.andLeft texts) (notesTexts more rest (Bool.andRight texts))
+
+--| A text that doesn't end in a carriage return keeps it all when the lexer takes one off.
+theorem unreturnedSame ∀ (text: Text) (plain: (!text.endsWith "\r") = True): withoutReturn text = text :=
+  match chars: text.toList.reverse with
+    | [] => byComputing
+    | [last, ..earlier] =>
+      match same: Text.sameChar '\r' last with
+        | False => byComputing
 
 --| Trimming leaves whose comments are words' comment texts changes nothing.
 --| A comment whose text rule 5 leaves alone.
@@ -785,7 +857,7 @@ theorem printedSettle1 ∀ (file: SourceFile)
   let endSame: file.lexed1.settled.end = file.lexed1.end.trimmed := rewrite commasSame
   (
     rewrite leavesSame then groupsBack file within shaped settled lexical hung stood unreturned m,
-    rewrite endSame then endBack file settled unreturned
+    rewrite endSame then endBack file within settled unreturned
   )
 
 -- Cases.
