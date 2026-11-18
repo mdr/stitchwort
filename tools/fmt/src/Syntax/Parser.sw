@@ -827,7 +827,11 @@ def matchPiped (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
   let indent := headIndent()
   let keyword := bump()
   let matched := matchExpr self modes keyword
-  if atPipe modes then pipeChain self modes indent matched else matched
+  matchedPiped self modes indent matched (atPipe modes)
+
+def matchedPiped (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (matched: Expr) (piped: Bool):
+    {Parse Item} Expr :=
+  if piped then pipeChain self modes indent matched else matched
 
 def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   exprLambda self modes (lambdaHere modes)
@@ -996,36 +1000,62 @@ def iff (self: Goal → {Parse Item} Expr) (modes: Modes) (left: Expr): {Parse I
 
 def quantifierAhead (modes: Modes): {Parse Item} Bool := modes.at KwExists || modes.at KwForall
 
-def quantifier (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match left() with
-  | [item, .._] if item.kind == KwForall => forallExpr self modes
-  | _ =>
-    let keyword := bump()
-    if lambdaAhead modes (Parse.mark().left + 1) left() then lambda self modes (Some keyword)
-    else modes.fail "a parameter and `=>` after `exists`"
+def quantifier (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := quantifierOn self modes left()
+
+def quantifierOn (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Expr :=
+  match items with
+    | [item, .._] => if item.kind == KwForall then forallExpr self modes else existsExpr self modes
+    | _ => existsExpr self modes
+
+def existsExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  let keyword := bump()
+  let here := Parse.mark()
+  let items := left()
+  existsLambda self modes keyword (lambdaAhead modes (here.left + 1) items)
+
+def existsLambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (ahead: Bool): {Parse Item} Expr :=
+  if ahead then lambda self modes (Some keyword) else modes.fail "a parameter and `=>` after `exists`"
 
 --| `∀ (x: A) [b: B] n => P`: names and typed groups, but no patterns.
 def forallExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let keyword := bump()
   let params := forallParams self modes
   if params.isEmpty then modes.fail "a parameter after `${keyword.text}`"
-  else if modes.at FatArrow then
+  else forallArrow self modes keyword params (modes.at FatArrow)
+
+def forallArrow (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (params: List Param) (atArrow: Bool):
+    {Parse Item} Expr :=
+  if atArrow then
     let arrow := bump()
     Binding BindsForall (Some keyword) params arrow (full self modes)
   else modes.fail "`=>` after the parameters of `${keyword.text}`"
 
-def forallParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param := Parse.loop (() =>
-  let items := left()
+def forallParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param :=
+  Parse.loop (() => forallStep self modes left())
+
+def forallStep (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Option Param :=
   match items with
-    | [item, .._] if !modes.stops item =>
-      match item.kind with
-        | Lower if !isQualified item => Some (NameParam bump())
-        | Underscore => Some (NameParam bump())
-        | LParen if annotatedParamAhead items =>
-          Some (Grouped (headerGroup self modes GroupLambda (Some forallDefault)))
-        | LBracket if implicitGroupAt items || namelessAutoAt items =>
-          Some (Grouped (headerGroup self modes GroupLambda (Some forallDefault)))
-        | _ => None
-    | _ => None)
+    | [item, .._] => if modes.stops item then None else forallParam self modes items item
+    | _ => None
+
+def forallParam (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item) (item: Item):
+    {Parse Item} Option Param :=
+  match item.kind with
+    | Lower =>
+      if isQualified item then None
+      else
+        let name := bump()
+        Some (NameParam name)
+    | Underscore =>
+      let name := bump()
+      Some (NameParam name)
+    | LParen => if annotatedParamAhead items then forallGroup self modes else None
+    | LBracket => if implicitGroupAt items || namelessAutoAt items then forallGroup self modes else None
+    | _ => None
+
+def forallGroup (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Param :=
+  let group := headerGroup self modes GroupLambda (Some forallDefault)
+  Some (Grouped group)
 
 --| A lambda's parameters, `=>` and body; with a keyword, an `∃`'s.
 def lambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Option Word): {Parse Item} Expr :=
@@ -1035,29 +1065,52 @@ def lambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Option Wo
     let arrow := modes.expect FatArrow "`=>`"
     Binding (if keyword.isSome then BindsExists else BindsLambda) keyword params arrow (full self modes)
 
-def lambdaParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param := Parse.loop (() =>
-  let items := left()
+def lambdaParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Param :=
+  Parse.loop (() => lambdaStep self modes left())
+
+def lambdaStep (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Option Param :=
   match items with
-    | [item, .._] if !modes.stops item =>
-      match item.kind with
-        | Lower => Some (NameParam (modes.lower "a name"))
-        | Underscore => Some (NameParam bump())
-        | LParen =>
-          if annotatedParamAhead items then Some (Grouped (headerGroup self modes GroupLambda (Some defaultPlaces)))
-          else if annotatedPatternAhead (Parse.mark().left + 1) items then
-            let open := bump()
-            let inner := modes.inBrackets
-            let pattern := patternOf inner
-            let colon := inner.expect Colon "`:`"
-            let annotation := binderType self inner
-            let close := inner.expect RParen "`)`"
-            Some (TypedPattern open pattern colon annotation close)
-          else Some (PatternParam (patternOf modes))
-        | LBracket if implicitGroupAt items || namelessAutoAt items =>
-          Some (Grouped (headerGroup self modes GroupLambda (Some defaultPlaces)))
-        | LBrace => Some (PatternParam (patternOf modes))
-        | _ => None
-    | _ => None)
+    | [item, .._] => if modes.stops item then None else lambdaParam self modes items item.kind
+    | _ => None
+
+def lambdaParam (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item) (kind: Tok):
+    {Parse Item} Option Param :=
+  match kind with
+    | Lower =>
+      let name := modes.lower "a name"
+      Some (NameParam name)
+    | Underscore =>
+      let name := bump()
+      Some (NameParam name)
+    | LParen => lambdaParen self modes items
+    | LBracket => if implicitGroupAt items || namelessAutoAt items then lambdaGroup self modes else None
+    | LBrace =>
+      let pattern := patternOf modes
+      Some (PatternParam pattern)
+    | _ => None
+
+def lambdaGroup (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Param :=
+  let group := headerGroup self modes GroupLambda (Some defaultPlaces)
+  Some (Grouped group)
+
+def lambdaParen (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Option Param :=
+  if annotatedParamAhead items then lambdaGroup self modes
+  else
+    let here := Parse.mark()
+    lambdaPattern self modes (annotatedPatternAhead (here.left + 1) items)
+
+def lambdaPattern (self: Goal → {Parse Item} Expr) (modes: Modes) (typed: Bool): {Parse Item} Option Param :=
+  if typed then
+    let open := bump()
+    let inner := modes.inBrackets
+    let pattern := patternOf inner
+    let colon := inner.expect Colon "`:`"
+    let annotation := binderType self inner
+    let close := inner.expect RParen "`)`"
+    Some (TypedPattern open pattern colon annotation close)
+  else
+    let pattern := patternOf modes
+    Some (PatternParam pattern)
 
 def ifExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyword: Word): {Parse Item} Expr :=
   let binder := namedBinder modes
@@ -1978,9 +2031,11 @@ def matchesBarOn (modes: Modes) (items: List Item): Bool :=
 
 --| `match induct` and `match reify`: the word, then not what a scrutinee
 --| named `induct` would have after it.
-def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool :=
-  wordAhead modes word
-    && (match modes.peekAt 1 with
+def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool := specialOf (wordAhead modes word) (modes.peekAt 1)
+
+def specialOf (word: Bool) (second: Option Tok): Bool :=
+  word
+    && (match second with
       | Some KwWith => False
       | Some Comma => False
       | Some Colon => False
@@ -1988,16 +2043,29 @@ def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool :=
       | _ => True)
 
 def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word): {Parse Item} Expr :=
-  if specialAhead modes "induct" then
-    let induct := fixedFrom()
-    inductExpr self modes keyword.comments induct
-  else if specialAhead modes "reify" then
-    let reify := fixedFrom()
-    reifyExpr self modes keyword.comments reify
-  else if modes.at Pipe then clauseLambda self modes keyword None ClausePlain
-  else if wordAhead modes "some" && isSome Pipe (modes.peekAt 1) then
-    let some := bump()
-    clauseLambda self modes keyword (Some some) ClauseSome
+  matchSpecial self modes keyword (specialAhead modes "induct")
+
+def matchSpecial (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (induct: Bool): {Parse Item} Expr :=
+  if induct then
+    let word := fixedFrom()
+    inductExpr self modes keyword.comments word
+  else matchReify self modes keyword (specialAhead modes "reify")
+
+def matchReify (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (reify: Bool): {Parse Item} Expr :=
+  if reify then
+    let word := fixedFrom()
+    reifyExpr self modes keyword.comments word
+  else matchPipe self modes keyword (modes.at Pipe)
+
+def matchPipe (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (piped: Bool): {Parse Item} Expr :=
+  if piped then clauseLambda self modes keyword None ClausePlain
+  else matchSome self modes keyword (wordAhead modes "some") (modes.peekAt 1)
+
+def matchSome (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (some: Bool) (second: Option Tok):
+    {Parse Item} Expr :=
+  if some && isSome Pipe second then
+    let word := bump()
+    clauseLambda self modes keyword (Some word) ClauseSome
   else
     let first := scrutinee self modes
     let (scrutinees, _) :=
@@ -2008,35 +2076,52 @@ def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word):
 
 def scrutinee (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Scrutinee :=
   let name := namedBinder modes
-  { name, value = self { modes = modes.sealed, level = LevelInline } }
+  let value := self { modes = modes.sealed, level = LevelInline }
+  { name, value }
 
 def plural (count: Nat) (noun: Text): Text := if count == 1 then "${count} ${noun}" else "${count} ${noun}s"
 
 def matchArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat)
     (column: Option Nat) (found: List Arm):
     {Parse Item} List Arm :=
-  let (lined, column) := armColumn column
-  let ahead := modes.at Pipe && lined
+  matchArmsLined fuel self modes scrutinees found (armColumn column)
+
+def matchArmsLined (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat)
+    (found: List Arm) (columned: (Bool, Option Nat)):
+    {Parse Item} List Arm :=
+  match columned with | (lined, column) => matchArmsAhead fuel self modes scrutinees column found lined (modes.at Pipe)
+
+def matchArmsAhead (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat) (column: Option Nat)
+    (found: List Arm) (lined atPipe: Bool):
+    {Parse Item} List Arm :=
   match fuel with
-    | Succ more if ahead =>
-      let bar := bump()
-      let patterns := armPatterns modes
-      if patterns.length != scrutinees then
-        fatal
-          "this alternative has ${plural patterns.length "pattern"}, but the `match` has ${plural scrutinees "scrutinee"}"
-      else
-        let guard := guardOf self modes
-        let body := armBody self modes (anyAbsurd patterns) "`=>`"
-        matchArms more self modes scrutinees column [{ bar, patterns, guard, body }, ..found]
-    | _ => found.reverse
+    | Succ more => if atPipe && lined then matchArm more self modes scrutinees column found else found.reverse
+    | Zero => found.reverse
+
+def matchArm (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (scrutinees: Nat)
+    (column: Option Nat) (found: List Arm):
+    {Parse Item} List Arm :=
+  let bar := bump()
+  let patterns := armPatterns modes
+  if patterns.length != scrutinees then
+    fatal
+      "this alternative has ${plural patterns.length "pattern"}, but the `match` has ${plural scrutinees "scrutinee"}"
+  else
+    let guard := guardOf self modes
+    let body := armBody self modes (anyAbsurd patterns) "`=>`"
+    matchArms more self modes scrutinees column [{ bar, patterns, guard, body }, ..found]
 
 --| Whether an arm's `|` starting a line lines up with the first arm that
 --| did, and the column they line up at.
-def armColumn (column: Option Nat): {Parse Item} (Bool, Option Nat) := match left() with
-  | [item, .._] if item.leaf.token.lineStart =>
-    match column with
-      | None => (True, Some item.leaf.token.column)
-      | Some first => (first == item.leaf.token.column, column)
+def armColumn (column: Option Nat): {Parse Item} (Bool, Option Nat) := armColumnOn column left()
+
+def armColumnOn (column: Option Nat) (items: List Item): (Bool, Option Nat) := match items with
+  | [item, .._] =>
+    if item.leaf.token.lineStart then
+      match column with
+        | None => (True, Some item.leaf.token.column)
+        | Some first => (first == item.leaf.token.column, column)
+    else (True, column)
   | _ => (True, column)
 
 def armPatterns (modes: Modes): {Parse Item} List Pattern :=
@@ -2047,13 +2132,21 @@ def armPatterns (modes: Modes): {Parse Item} List Pattern :=
 --| `=> e`, or nothing after an absurd pattern with no `=>`.
 def armBody (self: Goal → {Parse Item} Expr) (modes: Modes) (absurd: Bool) (what: Text):
     {Parse Item} Option (Word, Expr) :=
-  if absurd && !modes.at FatArrow then None
+  armBodyOf self modes absurd what (modes.at FatArrow)
+
+def armBodyOf (self: Goal → {Parse Item} Expr) (modes: Modes) (absurd: Bool) (what: Text) (atArrow: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  if absurd && !atArrow then None
   else
     let arrow := modes.expect FatArrow what
-    Some (arrow, full self modes)
+    let value := full self modes
+    Some (arrow, value)
 
 def guardOf (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option Guard :=
-  if modes.at KwIf then
+  guardAt self modes (modes.at KwIf)
+
+def guardAt (self: Goal → {Parse Item} Expr) (modes: Modes) (atIf: Bool): {Parse Item} Option Guard :=
+  if atIf then
     let keyword := bump()
     let binder := namedBinder modes
     let condition := full self { modes | guard = True, lines = [] }
@@ -2068,24 +2161,50 @@ def clauseLambda (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Wor
 def clauseArms (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind)
     (count column: Option Nat) (found: List Arm):
     {Parse Item} List Arm :=
-  let (lined, column) := armColumn column
-  let ahead := modes.at Pipe && lined
+  clauseArmsLined fuel self modes kind count found (armColumn column)
+
+def clauseArmsLined (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind) (count: Option Nat)
+    (found: List Arm) (columned: (Bool, Option Nat)):
+    {Parse Item} List Arm :=
+  match columned with | (lined, column) => clauseArmsAhead fuel self modes kind count column found lined (modes.at Pipe)
+
+def clauseArmsAhead (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind)
+    (count column: Option Nat) (found: List Arm) (lined atPipe: Bool):
+    {Parse Item} List Arm :=
   match fuel with
-    | Succ more if ahead =>
-      let bar := bump()
-      let patterns := armPatterns modes
-      match count with
-        | Some first if first != patterns.length =>
-          fatal "this alternative has ${plural patterns.length "pattern"}, but the first has ${first}"
-        | _ =>
-          let guard := guardOf self modes
-          let absurd := anyAbsurd patterns
-          let body := match kind with
-            | ClauseMatches => if modes.at FatArrow then armBody self modes False "`=>`" else None
-            | ClausePlain => armBody self modes absurd "`=>`"
-            | ClauseSome => armBody self modes False "`=>`"
-          clauseArms more self modes kind (Some patterns.length) column [{ bar, patterns, guard, body }, ..found]
-    | _ => found.reverse
+    | Succ more => if atPipe && lined then clauseArm more self modes kind count column found else found.reverse
+    | Zero => found.reverse
+
+def clauseArm (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind)
+    (count column: Option Nat) (found: List Arm):
+    {Parse Item} List Arm :=
+  let bar := bump()
+  let patterns := armPatterns modes
+  match count with
+    | Some first =>
+      if first != patterns.length then
+        fatal "this alternative has ${plural patterns.length "pattern"}, but the first has ${first}"
+      else clauseArmBody more self modes kind column found bar patterns
+    | None => clauseArmBody more self modes kind column found bar patterns
+
+def clauseArmBody (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind) (column: Option Nat)
+    (found: List Arm) (bar: Word) (patterns: List Pattern):
+    {Parse Item} List Arm :=
+  let guard := guardOf self modes
+  let absurd := anyAbsurd patterns
+  let body := clauseBody self modes kind absurd
+  clauseArms more self modes kind (Some patterns.length) column [{ bar, patterns, guard, body }, ..found]
+
+def clauseBody (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: ClauseKind) (absurd: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  match kind with
+    | ClauseMatches => clauseMatchesBody self modes (modes.at FatArrow)
+    | ClausePlain => armBody self modes absurd "`=>`"
+    | ClauseSome => armBody self modes False "`=>`"
+
+def clauseMatchesBody (self: Goal → {Parse Item} Expr) (modes: Modes) (atArrow: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  if atArrow then armBody self modes False "`=>`" else None
 
 -- Patterns.
 
@@ -2103,11 +2222,13 @@ def patternRule (pself: PatternGoal → {Parse Item} Pattern) (goal: PatternGoal
     | PatternTupleComponent => tupleComponent pself modes
     | PatternListComponent => listComponent pself modes
     | PatternAltOne => altPatternOne pself modes
-    | PatternFieldValue =>
-      if ctorAhead modes then
-        let ctor := bump()
-        ctorArgs pself modes ctor (kind => kind == Comma || kind == RBrace)
-      else plainPattern pself modes
+    | PatternFieldValue => fieldValuePattern pself modes (ctorAhead modes)
+
+def fieldValuePattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (isCtor: Bool): {Parse Item} Pattern :=
+  if isCtor then
+    let ctor := bump()
+    ctorArgs pself modes ctor (kind => kind == Comma || kind == RBrace)
+  else plainPattern pself modes
 
 def Pattern.hasAbsurd: Pattern → Bool
   | PatternAbsurd _ _ => True
@@ -2126,91 +2247,143 @@ def anyLinkAbsurd: List (Word, Pattern) → Bool
   | [] => False
   | [(bar, item), ..rest] => item.hasAbsurd || anyLinkAbsurd rest
 
-def ctorAhead (modes: Modes): {Parse Item} Bool := modes.at Upper || wordAhead modes "Quot.mk"
+def ctorAhead (modes: Modes): {Parse Item} Bool := ctorAheadOf (modes.at Upper) (wordAhead modes "Quot.mk")
+
+def ctorAheadOf (upper quot: Bool): Bool := upper || quot
 
 def plainPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
-  match modes.peek with
+  plainPatternOn pself modes modes.peek
+
+def plainPatternOn (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (seen: Option Tok):
+    {Parse Item} Pattern :=
+  match seen with
     | Some Upper => PatternWord Upper bump()
-    | Some Lower => PatternWord Lower (if wordAhead modes "Quot.mk" then bump() else modes.lower "a pattern")
+    | Some Lower => PatternWord Lower (quotOrLower modes (wordAhead modes "Quot.mk"))
     | Some Underscore => PatternWord Underscore bump()
     | Some Num => PatternWord Num bump()
     | Some CharLit => PatternWord CharLit bump()
     | Some Str => PatternWord Str bump()
     | Some StrStart => fatal "a text pattern can't interpolate"
     | Some LBrace => PatternRecord (fieldsPattern pself modes)
-    | Some LBracket =>
-      match modes.peekAt 1, modes.peekAt 2 with
-        | Some Lower, Some ColonEq =>
-          let open := bump()
-          let inner := modes.inBrackets
-          let name := inner.lower "a field name"
-          let colonEq := bump()
-          let value := pself { modes = inner, level = PatternPlain }
-          PatternNamed open name colonEq value (inner.expect RBracket "`]`")
-        | _, _ => listPattern pself modes
-    | Some LParen =>
-      match modes.peekAt 1 with
-        | Some RParen =>
-          let open := bump()
-          PatternAbsurd open bump()
-        | Some Minus =>
-          let open := bump()
-          let inner := modes.inBrackets
-          let first := tupleItem pself inner
-          parenPatternEnd pself inner open first
-        | _ =>
-          let open := bump()
-          let inner := modes.inBrackets
-          let component :=
-            if ctorAhead inner then
-              let name := bump()
-              ctorArgs pself inner name (kind => kind == RParen || kind == Comma || kind == Pipe || kind == PlusPlus)
-            else pself { modes = inner, level = PatternPlain }
-          let appended := patternAppend pself inner component PatternTupleComponent
-          let first := alternatives pself inner appended PatternTupleComponent
-          parenPatternEnd pself inner open first
+    | Some LBracket => bracketPattern pself modes (modes.peekAt 1)
+    | Some LParen => parenPattern pself modes (modes.peekAt 1)
     | _ => modes.failName "a pattern or `=`"
+
+def quotOrLower (modes: Modes) (quot: Bool): {Parse Item} Word := if quot then bump() else modes.lower "a pattern"
+
+def bracketPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (second: Option Tok):
+    {Parse Item} Pattern :=
+  bracketPatternOn pself modes second (modes.peekAt 2)
+
+def bracketPatternOn (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (second third: Option Tok):
+    {Parse Item} Pattern :=
+  match second, third with
+    | Some Lower, Some ColonEq => namedPattern pself modes
+    | _, _ => listPattern pself modes
+
+def namedPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
+  let open := bump()
+  let inner := modes.inBrackets
+  let name := inner.lower "a field name"
+  let colonEq := bump()
+  let value := pself { modes = inner, level = PatternPlain }
+  PatternNamed open name colonEq value (inner.expect RBracket "`]`")
+
+def parenPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (second: Option Tok):
+    {Parse Item} Pattern :=
+  match second with
+    | Some RParen =>
+      let open := bump()
+      PatternAbsurd open bump()
+    | Some Minus => parenMinusPattern pself modes
+    | _ => parenOpenPattern pself modes
+
+def parenMinusPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
+  let open := bump()
+  let inner := modes.inBrackets
+  let first := tupleItem pself inner
+  parenPatternEnd pself inner open first
+
+def parenOpenPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
+  let open := bump()
+  let inner := modes.inBrackets
+  let component := parenComponent pself inner (ctorAhead inner)
+  let appended := patternAppend pself inner component PatternTupleComponent
+  let first := alternatives pself inner appended PatternTupleComponent
+  parenPatternEnd pself inner open first
+
+def parenComponent (pself: PatternGoal → {Parse Item} Pattern) (inner: Modes) (isCtor: Bool): {Parse Item} Pattern :=
+  if isCtor then
+    let name := bump()
+    ctorArgs pself inner name (kind => kind == RParen || kind == Comma || kind == Pipe || kind == PlusPlus)
+  else pself { modes = inner, level = PatternPlain }
 
 --| After a bracketed pattern's first part: a tuple's other items, or `)`.
 def parenPatternEnd (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (open: Word) (first: Pattern):
     {Parse Item} Pattern :=
-  if modes.at Comma then
-    let (items, trailingComma) :=
-      commaList
-        (Parse.mark().left + 1)
-        modes
-        (count => modes.at RParen && count >= 2)
-        (() => tupleItem pself modes)
-        first
-        []
-    PatternTuple open items trailingComma (modes.expect RParen "`)`")
+  parenPatternOf pself modes open first (modes.at Comma)
+
+def parenPatternOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (open: Word)
+    (first: Pattern) (comma: Bool):
+    {Parse Item} Pattern :=
+  if comma then
+    let here := Parse.mark()
+    let pair :=
+      commaList (here.left + 1) modes (count => modes.at RParen && count >= 2) (() => tupleItem pself modes) first []
+    tuplePatternEnd modes open pair
   else PatternParen open first (modes.expect RParen "`)`")
+
+def tuplePatternEnd (modes: Modes) (open: Word) (pair: (List Pattern, Bool)): {Parse Item} Pattern := match pair with
+  | (items, trailingComma) => PatternTuple open items trailingComma (modes.expect RParen "`)`")
 
 def listPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
   let open := bump()
   let inner := modes.inBrackets
-  let (items, trailingComma, tail) := listPatternItems (Parse.mark().left + 1) pself inner []
-  let comma := inner.at Comma
-  match tail with
-    | Some _ if comma => fatal "a `..` tail must be the last item of a list pattern"
-    | Some _ =>
+  let here := Parse.mark()
+  listPatternEnd inner open (listPatternItems (here.left + 1) pself inner [])
+
+def listPatternEnd (inner: Modes) (open: Word) (read: (List Pattern, Bool, Option (Word, Pattern))):
+    {Parse Item} Pattern :=
+  match read with
+    | (items, trailingComma, tail) => listPatternClose inner open items trailingComma tail (inner.at Comma)
+
+def listPatternClose (inner: Modes) (open: Word) (items: List Pattern) (trailingComma: Bool)
+    (tail: Option (Word, Pattern)) (comma: Bool):
+    {Parse Item} Pattern :=
+  match tail, comma with
+    | Some _, True => fatal "a `..` tail must be the last item of a list pattern"
+    | Some _, False =>
       PatternList open items trailingComma tail (inner.expect RBracket "`]`: a `..` tail must be the last item")
-    | None => PatternList open items trailingComma tail (inner.expect RBracket "`,` or `]`")
+    | None, _ => PatternList open items trailingComma tail (inner.expect RBracket "`,` or `]`")
 
 def listPatternItems (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (found: List Pattern):
     {Parse Item} (List Pattern, Bool, Option (Word, Pattern)) :=
   match fuel with
     | Zero => (found.reverse, False, None)
-    | Succ more =>
-      if modes.at RBracket then (found.reverse, !found.isEmpty, None)
-      else if modes.at DotDot then
-        let dots := bump()
-        (found.reverse, False, Some (dots, pself { modes, level = PatternPlain }))
-      else
-        let item := listItemPattern pself modes
-        match modes.eat Comma with
-          | Some _ => listPatternItems more pself modes [item, ..found]
-          | None => ([item, ..found].reverse, False, None)
+    | Succ more => listPatternStep more pself modes found (modes.at RBracket)
+
+def listPatternStep (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
+    (found: List Pattern) (closed: Bool):
+    {Parse Item} (List Pattern, Bool, Option (Word, Pattern)) :=
+  if closed then (found.reverse, !found.isEmpty, None) else listPatternDots more pself modes found (modes.at DotDot)
+
+def listPatternDots (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
+    (found: List Pattern) (dots: Bool):
+    {Parse Item} (List Pattern, Bool, Option (Word, Pattern)) :=
+  if dots then
+    let dotsWord := bump()
+    let tail := pself { modes, level = PatternPlain }
+    (found.reverse, False, Some (dotsWord, tail))
+  else
+    let item := listItemPattern pself modes
+    listPatternNext more pself modes found item (modes.eat Comma)
+
+def listPatternNext (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (found: List Pattern)
+    (item: Pattern) (comma: Option Word):
+    {Parse Item} (List Pattern, Bool, Option (Word, Pattern)) :=
+  match comma with
+    | Some _ => listPatternItems more pself modes [item, ..found]
+    | None => ([item, ..found].reverse, False, None)
 
 --| Called after a `[` or `,`, so the call of `pself` follows a read.
 def listItemPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
@@ -2223,7 +2396,10 @@ def tupleItem (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Par
   alternatives pself modes first PatternTupleComponent
 
 def listComponent (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
-  if ctorAhead modes then
+  listComponentOf pself modes (ctorAhead modes)
+
+def listComponentOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (isCtor: Bool): {Parse Item} Pattern :=
+  if isCtor then
     let name := bump()
     let ctor :=
       ctorArgs pself modes name (kind => kind == Comma || kind == RBracket || kind == Pipe || kind == PlusPlus)
@@ -2231,23 +2407,38 @@ def listComponent (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): 
   else tupleComponent pself modes
 
 def tupleComponent (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
-  if ctorAhead modes then
+  tupleComponentOf pself modes (ctorAhead modes)
+
+def tupleComponentOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (isCtor: Bool): {Parse Item} Pattern :=
+  if isCtor then
     let name := bump()
     let ctor := ctorArgs pself modes name (kind => kind == Comma || kind == RParen || kind == Pipe || kind == PlusPlus)
     patternAppend pself modes ctor PatternTupleComponent
-  else if !modes.at Minus then
+  else tupleSigned pself modes (modes.at Minus)
+
+def tupleSigned (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (minus: Bool): {Parse Item} Pattern :=
+  if !minus then
     let plain := plainPattern pself modes
     patternAppend pself modes plain PatternTupleComponent
-  else
-    let minus := bump()
-    if modes.at Num then PatternNegative minus bump() else modes.fail "a number"
+  else negativePattern modes
+
+--| `-` and the number after it.
+def negativePattern (modes: Modes): {Parse Item} Pattern :=
+  let minus := bump()
+  negativeDigits modes minus (modes.at Num)
+
+def negativeDigits (modes: Modes) (minus: Word) (number: Bool): {Parse Item} Pattern :=
+  if number then PatternNegative minus bump() else modes.fail "a number"
 
 def altPattern (modes: Modes): {Parse Item} Pattern :=
   let first := pattern { modes, level = PatternAltOne }
   alternatives pattern modes first PatternAltOne
 
 def altPatternOne (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} Pattern :=
-  if ctorAhead modes then
+  altPatternOneOf pself modes (ctorAhead modes)
+
+def altPatternOneOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (isCtor: Bool): {Parse Item} Pattern :=
+  if isCtor then
     let name := bump()
     let ctor := ctorArgs pself modes name endsAltArguments
     patternAppend pself modes ctor PatternAltOne
@@ -2268,33 +2459,65 @@ def endsAltArguments: Tok → Bool
 --| A constructor's arguments, up to a token `stops` accepts (or the end).
 def ctorArgs (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (stops: Tok → Bool):
     {Parse Item} Pattern :=
-  if modes.at LBrace then
+  ctorArgsOf pself modes name stops (modes.at LBrace)
+
+def ctorArgsOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word)
+    (stops: Tok → Bool) (braced: Bool):
+    {Parse Item} Pattern :=
+  if braced then
     let fields := fieldsPattern pself modes
-    match modes.peek with
-      | Some kind if !stops kind => fatal "braces after `${name.text}` in a pattern take no further arguments"
-      | _ => PatternCtorFields name fields
+    ctorFieldsEnd name fields stops modes.peek
   else
-    match ctorArgList (Parse.mark().left + 1) pself modes name stops [] with
-      | [] => PatternWord (if name.text == "Quot.mk" then Lower else Upper) name
-      | arguments => PatternCtor name arguments
+    let here := Parse.mark()
+    ctorListEnd name (ctorArgList (here.left + 1) pself modes name stops [])
+
+def ctorFieldsEnd (name: Word) (fields: FieldsPattern) (stops: Tok → Bool) (seen: Option Tok): {Parse Item} Pattern :=
+  match seen with
+    | Some kind =>
+      if stops kind then PatternCtorFields name fields
+      else fatal "braces after `${name.text}` in a pattern take no further arguments"
+    | None => PatternCtorFields name fields
+
+def ctorListEnd (name: Word) (arguments: List Pattern): {Parse Item} Pattern := match arguments with
+  | [] => PatternWord (if name.text == "Quot.mk" then Lower else Upper) name
+  | _ => PatternCtor name arguments
 
 def ctorArgList (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word)
     (stops: Tok → Bool) (found: List Pattern):
     {Parse Item} List Pattern :=
-  match fuel, modes.peek with
-    | Succ more, Some kind if !stops kind =>
-      let argument :=
-        if kind == LBrace then
-          if lastIsUpper name found then
-            fatal
-              "a record pattern after a constructor in an argument of `${name.text}` is written in brackets: `({ … })`"
-          else PatternRecord (fieldsPattern pself modes)
-        else if argumentMinus left() then
-          let minus := bump()
-          if modes.at Num then PatternNegative minus bump() else modes.fail "a number"
-        else pself { modes, level = PatternPlain }
-      ctorArgList more pself modes name stops [argument, ..found]
+  ctorArgListOn fuel pself modes name stops found modes.peek
+
+def ctorArgListOn (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word)
+    (stops: Tok → Bool) (found: List Pattern) (seen: Option Tok):
+    {Parse Item} List Pattern :=
+  match fuel, seen with
+    | Succ more, Some kind =>
+      if stops kind then found.reverse else ctorArgBrace more pself modes name stops found (kind == LBrace)
     | _, _ => found.reverse
+
+def ctorArgBrace (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (stops: Tok → Bool)
+    (found: List Pattern) (brace: Bool):
+    {Parse Item} List Pattern :=
+  if brace then
+    let argument := ctorRecordArgument pself modes name found
+    ctorArgList more pself modes name stops [argument, ..found]
+  else ctorArgMinus more pself modes name stops found (argumentMinus left())
+
+def ctorRecordArgument (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (found: List Pattern):
+    {Parse Item} Pattern :=
+  if lastIsUpper name found then
+    fatal "a record pattern after a constructor in an argument of `${name.text}` is written in brackets: `({ … })`"
+  else PatternRecord (fieldsPattern pself modes)
+
+def ctorArgMinus (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (stops: Tok → Bool)
+    (found: List Pattern) (minus: Bool):
+    {Parse Item} List Pattern :=
+  if minus then
+    let argument := negativePattern modes
+    ctorArgList more pself modes name stops [argument, ..found]
+  else
+    let argument := pself { modes, level = PatternPlain }
+    ctorArgList more pself modes name stops [argument, ..found]
 
 --| Whether the token before is an uppercase name (`found` is newest first).
 def lastIsUpper (name: Word) (found: List Pattern): Bool := match found with
@@ -2305,53 +2528,102 @@ def lastIsUpper (name: Word) (found: List Pattern): Bool := match found with
 def fieldsPattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes): {Parse Item} FieldsPattern :=
   let open := modes.expect LBrace "`{`"
   let inner := modes.inBrackets
-  let (fields, trailingComma, rest) := fieldPatterns (Parse.mark().left + 1) pself inner []
-  { open, fields, trailingComma, rest, close = inner.expect RBrace "`,` or `}`" }
+  let here := Parse.mark()
+  fieldsPatternEnd inner open (fieldPatterns (here.left + 1) pself inner [])
+
+def fieldsPatternEnd (inner: Modes) (open: Word) (read: (List FieldPattern, Bool, Option Word)):
+    {Parse Item} FieldsPattern :=
+  match read with
+    | (fields, trailingComma, rest) =>
+      let close := inner.expect RBrace "`,` or `}`"
+      { open, fields, trailingComma, rest, close }
 
 def fieldPatterns (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (found: List FieldPattern):
     {Parse Item} (List FieldPattern, Bool, Option Word) :=
   match fuel with
     | Zero => (found.reverse, False, None)
-    | Succ more =>
-      if modes.at DotDot then (found.reverse, False, Some bump())
-      else if modes.at RBrace then (found.reverse, !found.isEmpty, None)
-      else
-        let name := modes.lower "a field name, or `..`"
-        let value := match modes.eat Equals with
-          | Some equals => Some (equals, pself { modes, level = PatternFieldValue })
-          | None => None
-        let field := { name, value }
-        match modes.eat Comma with
-          | Some _ => fieldPatterns more pself modes [field, ..found]
-          | None => ([field, ..found].reverse, False, None)
+    | Succ more => fieldPatternStep more pself modes found (modes.at DotDot)
+
+def fieldPatternStep (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
+    (found: List FieldPattern) (dots: Bool):
+    {Parse Item} (List FieldPattern, Bool, Option Word) :=
+  if dots then
+    let rest := bump()
+    (found.reverse, False, Some rest)
+  else fieldPatternClose more pself modes found (modes.at RBrace)
+
+def fieldPatternClose (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
+    (found: List FieldPattern) (closed: Bool):
+    {Parse Item} (List FieldPattern, Bool, Option Word) :=
+  if closed then (found.reverse, !found.isEmpty, None)
+  else
+    let name := modes.lower "a field name, or `..`"
+    let value := fieldPatternValue pself modes (modes.eat Equals)
+    let field := { name, value }
+    fieldPatternNext more pself modes found field (modes.eat Comma)
+
+def fieldPatternValue (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (equals: Option Word):
+    {Parse Item} Option (Word, Pattern) :=
+  match equals with
+    | Some word =>
+      let value := pself { modes, level = PatternFieldValue }
+      Some (word, value)
+    | None => None
+
+def fieldPatternNext (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (found: List FieldPattern)
+    (field: FieldPattern) (comma: Option Word):
+    {Parse Item} (List FieldPattern, Bool, Option Word) :=
+  match comma with
+    | Some _ => fieldPatterns more pself modes [field, ..found]
+    | None => ([field, ..found].reverse, False, None)
 
 --| `"--" ++ rest`: only a text literal may stand before the `++`.
 def patternAppend (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (start: Pattern) (next: PatternLevel):
     {Parse Item} Pattern :=
-  if !modes.at PlusPlus then start
-  else
-    match start with
-      | PatternWord kind _ if kind == Str =>
-        let operator := bump()
-        PatternAppend start operator (pself { modes, level = next })
-      | _ => fatal "a text pattern can only take a fixed start"
+  patternAppendOf pself modes start next (modes.at PlusPlus)
+
+def patternAppendOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (start: Pattern)
+    (next: PatternLevel) (plus: Bool):
+    {Parse Item} Pattern :=
+  if !plus then start
+  else if isTextPattern start then
+    let operator := bump()
+    PatternAppend start operator (pself { modes, level = next })
+  else fatal "a text pattern can only take a fixed start"
+
+def isTextPattern: Pattern → Bool
+  | PatternWord kind _ => kind == Str
+  | _ => False
 
 --| `p | q`, with the `|` on the same line.
 def alternatives (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (first: Pattern) (next: PatternLevel):
     {Parse Item} Pattern :=
-  match alternativeLinks (Parse.mark().left + 1) pself modes next [] with
-    | [] => first
-    | links => PatternOr first links
+  let here := Parse.mark()
+  alternativesEnd first (alternativeLinks (here.left + 1) pself modes next [])
+
+def alternativesEnd (first: Pattern) (links: List (Word, Pattern)): Pattern := match links with
+  | [] => first
+  | _ => PatternOr first links
 
 def alternativeLinks (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (next: PatternLevel) (found: List (Word, Pattern)):
     {Parse Item} List (Word, Pattern) :=
-  match fuel, left() with
-    | Succ more, [bar, .._] if bar.kind == Pipe && !bar.leaf.token.lineStart && !modes.stops bar =>
-      let barLeaf := bump()
-      let alternative := pself { modes, level = next }
-      alternativeLinks more pself modes next [(barLeaf, alternative), ..found]
+  alternativeLinksOn fuel pself modes next found left()
+
+def alternativeLinksOn (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (next: PatternLevel)
+    (found: List (Word, Pattern)) (items: List Item):
+    {Parse Item} List (Word, Pattern) :=
+  match fuel, items with
+    | Succ more, [bar, .._] =>
+      if linkHere modes bar then
+        let barLeaf := bump()
+        let alternative := pself { modes, level = next }
+        alternativeLinks more pself modes next [(barLeaf, alternative), ..found]
+      else found.reverse
     | _, _ => found.reverse
+
+--| An alternative's `|` stays on its line and isn't one that ends the pattern.
+def linkHere (modes: Modes) (bar: Item): Bool := bar.kind == Pipe && !bar.leaf.token.lineStart && !modes.stops bar
 
 -- Running it.
 
