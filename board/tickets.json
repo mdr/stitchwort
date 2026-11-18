@@ -23593,15 +23593,18 @@
     {
       "id": 3953,
       "title": "[Sonnet] Pre-commit hook follow-ups (SW-3952): a checkout without .pre-commit-config.yaml (an old branch's worktree) fails every commit: check prek's install options for an allow-missing-config equivalent, else make the hook skip with a warning; stitchwort fmt --check honours DELIBERATELY_UNFORMATTED for named files so the script needn't filter; extend the repo formatted test and the hook to apps/, bench/, tools/; prek hides the hook's skip warning",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\n\nLane notes (Sonnet, 18 Nov): all four items done on lane/SW-3953. prek install --allow-missing-config (shim gets --skip-on-missing-config; silent skip, no warning); fmt --check skips named deliberately unformatted files; repo test covers every tracked .sw (3 tools/fmt files formatted); hook verbose. Model result: Sonnet, worked, ~30 min (est. 35).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "3a4e941c2",
+        "ec7f9247e"
+      ]
     },
     {
       "id": 3954,

@@ -68,8 +68,7 @@ def Group.explicit (group: Group): Bool := group.kind == GroupParam && !group.im
 
 def withForall (header: Header): Header := match header with
   | { kind = DefTheorem, forallKeyword = None, params, .. } =>
-    if params.any Group.explicit then
-      { header | forallKeyword = Some { text = "∀", comments = Comments.none } }
+    if params.any Group.explicit then { header | forallKeyword = Some { text = "∀", comments = Comments.none } }
     else header
   | _ => header
 

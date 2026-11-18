@@ -35,7 +35,14 @@ type Word = { text: Text, comments: Comments }
 --| A leaf's text and comments; its layout is left behind.
 def Leaf.word (leaf: Leaf): Word :=
   let above := leaf.trivia.leading.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })
-  { text = leaf.token.text, comments = { above, after = leaf.trivia.trailing.map (comment => comment.text), blankBefore = leaf.trivia.blankLines > 0 } }
+  {
+    text = leaf.token.text,
+    comments = {
+      above,
+      after = leaf.trivia.trailing.map (comment => comment.text),
+      blankBefore = leaf.trivia.blankLines > 0
+    }
+  }
 
 --| The "left, operator, right" kinds.
 type InfixKind =

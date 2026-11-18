@@ -34,7 +34,11 @@ test "a trailing comma is a flag, the other commas implied" :=
 
 test "a word keeps its text and comments, not its layout" := match parsed "f\n\n  -- note\n  x -- after" with
   | Ok (App _ [Atom _ word]) =>
-    word == { text = "x", comments = { above = [{ text = "-- note", blankBefore = True }], after = Some "-- after", blankBefore = False } }
+    word
+      == {
+        text = "x",
+        comments = { above = [{ text = "-- note", blankBefore = True }], after = Some "-- after", blankBefore = False }
+      }
   | _ => False
 
 --| `fuelEnough` on chains 200 deep: each call of `self` or `pself` follows

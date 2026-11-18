@@ -53,8 +53,10 @@ impl std::error::Error for Error {}
 /// Paths (prefixes, or whole files) the formatter leaves alone, relative to
 /// the repository root: the Stitchwort repository deliberately keeps these
 /// as written, and their exact text and error positions are tested (D1019).
-/// `stitchwort fmt DIR` skips them, and `crates/cli/tests/tools/fmt_repo.rs`
-/// uses the same list, so the two can't drift apart.
+/// `stitchwort fmt DIR` skips them, and so does `stitchwort fmt --check FILE`
+/// (a plain `fmt FILE` formats what it's told to);
+/// `crates/cli/tests/tools/fmt_repo.rs` uses the same list, so the two can't
+/// drift apart.
 pub const DELIBERATELY_UNFORMATTED: [&str; 11] = [
     // D1019: files that exist to be rejected.
     "examples/reject/",

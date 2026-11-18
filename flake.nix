@@ -410,6 +410,9 @@
                 entry = "${./dev/hooks/stitchwort-fmt-check}";
                 files = "\\.sw$";
                 language = "system";
+                # prek hides a passing hook's output, which would hide the
+                # "no binary, skipped" warning too.
+                verbose = true;
               };
             };
           };
@@ -422,6 +425,13 @@
               if common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
                 [ "$(git config --local core.hooksPath)" = "$common/hooks" ] \
                   || git config --local core.hooksPath "$common/hooks"
+              fi
+              # The shim lives in the shared git dir, so it also fires in
+              # checkouts with no config yet (an older branch, before `nix
+              # develop`): without this they fail every commit with "config
+              # file not found". git-hooks.nix has no option for the flag.
+              if [ -n "''${common:-}" ] && ! grep -q -- --skip-on-missing-config "$common/hooks/pre-commit" 2>/dev/null; then
+                prek install --force --allow-missing-config -c .pre-commit-config.yaml
               fi
             '';
             packages = hooks.enabledPackages ++ [

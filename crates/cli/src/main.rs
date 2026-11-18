@@ -4535,6 +4535,11 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
                         paths.push(path);
                     }
                 }
+            } else if check && deliberately_unformatted(file) {
+                // Named, but --check only reports: a caller (the pre-commit
+                // hook) passes whatever is staged. Formatting a named file
+                // in place is still done, since the user asked for that.
+                skipped += 1;
             } else {
                 paths.push(file.clone());
             }

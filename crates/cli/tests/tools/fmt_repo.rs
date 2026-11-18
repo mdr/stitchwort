@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 #[path = "../../../fmt/tests/it/support/repo_files.rs"]
-mod repo_files;
+pub(crate) mod repo_files;
 
 /// Paths (prefixes, or whole files) the formatter leaves alone.
 const EXCLUDED: [&str; 11] = stitchwort_fmt::DELIBERATELY_UNFORMATTED;
