@@ -1875,3 +1875,90 @@ theorem settledIdempotent ∀ (lexed: Lexed)
     _ = { leaves = settled.leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = settled.end.trimmed } :=
       reached
     _ = lexed.settled := rewrite leavesTrimmedTwice (letsFrom [] (arrows commas.leaves)), triviaTrimmedTwice commas.end
+
+-- Rule N's result, written out again in any layout that starts a line at
+-- each closer holding a comment, settles to itself (spike K1's
+-- `settledAnyLayout`). The layouts are K1's `laidFrom` with `keeping`.
+
+--| Whether the leaf is one rule 1 may leave a trailing comment on only
+--| under its limits: a closer or a record update's `|` (K1).
+def holder (leaf: Leaf) (behind ahead: List Leaf): Bool := leaf.kind != Comma && skipped leaf behind ahead
+
+--| K1's `laidFrom`: the leaves as the lexer would read them from a text
+--| with the same tokens and comments, a line break before each leaf whose
+--| choice is `True` and wherever a comment forces one. A trailing comment
+--| ends its line, so the lexer finds it on the last of the closers, commas
+--| and bars that follow its token on that line. With `keeping`, every
+--| `holder` with a trailing comment starts its line too.
+def laidFrom (keeping: Bool) (behind: List Leaf) (choices: List Bool) (rest: List Leaf): List Leaf := match rest with
+  | [] => behind.reverse
+  | [leaf, ..after] =>
+    let choice := choices.head.getOrElse False
+    let later := choices.drop 1
+    match behind with
+      | [] => laidFrom keeping [leaf.startingLine True] later after
+      | [previous, ..earlier] =>
+        let quiet := leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone
+        let kept := keeping && leaf.trivia.trailing.isSome && holder leaf behind after
+        match previous.trivia.trailing with
+          | Some comment if quiet && !choice && skipped leaf behind after =>
+            let carried := { leaf.startingLine False | trivia = { leaf.trivia | trailing = Some comment } }
+            laidFrom keeping [carried, previous.withTrailing None, ..earlier] later after
+          | trailing =>
+            let lineStart := trailing.isSome || !leaf.trivia.leading.isEmpty || choice || kept
+            laidFrom keeping [leaf.startingLine lineStart, ..behind] later after
+
+--| The leaves written out again with K1's keeping layout.
+def relaid (lexed: Lexed) (choices: List Bool): Lexed := { lexed | leaves = laidFrom True [] choices lexed.leaves }
+
+--| `laidFrom True` under slice 1's alphabet, read forwards: `current` is
+--| the leaf being laid, which may yet pass its trailing comment on.
+def relayFrom (current: Leaf) (choices: List Bool) (rest: List Leaf): List Leaf := match rest with
+  | [] => [current]
+  | [leaf, ..after] =>
+    let choice := choices.head.getOrElse False
+    let later := choices.drop 1
+    let quiet := leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone
+    let kept := leaf.trivia.trailing.isSome && (leaf.kind != Comma && passable leaf)
+    match current.trivia.trailing with
+      | Some comment if quiet && !choice && passable leaf =>
+        let carried := { leaf.startingLine False | trivia = { leaf.trivia | trailing = Some comment } }
+        [current.withTrailing None, ..relayFrom carried later after]
+      | trailing =>
+        let lineStart := trailing.isSome || !leaf.trivia.leading.isEmpty || choice || kept
+        [current, ..relayFrom (leaf.startingLine lineStart) later after]
+
+theorem laidFromOnto ∀ (done: List Leaf) (current: Leaf) (choices: List Bool) (rest: List Leaf)
+    (within: rest.all (leaf => leaf.kind.within1) = True):
+    laidFrom True [current, ..done] choices rest = done.reverseOnto (relayFrom current choices rest) :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      let leafWithin := Bool.andLeft within
+      let passes := skippedQuiet1 leaf [current, ..done] after leafWithin
+      let quiet := leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone
+      let choice := choices.head.getOrElse False
+      let later := choices.drop 1
+      match current.trivia.trailing with
+        | None =>
+          let lineStart :=
+            False
+              || !leaf.trivia.leading.isEmpty
+              || choice
+              || (leaf.trivia.trailing.isSome && (leaf.kind != Comma && passable leaf))
+          rewrite passes,
+              laidFromOnto [current, ..done] (leaf.startingLine lineStart) later after (Bool.andRight within)
+        | Some comment =>
+          match quiet && !choice && passable leaf with
+            | True =>
+              let carried := { leaf.startingLine False | trivia = { leaf.trivia | trailing = Some comment } }
+              rewrite passes,
+                  laidFromOnto [current.withTrailing None, ..done] carried later after (Bool.andRight within)
+            | False =>
+              let lineStart :=
+                True
+                  || !leaf.trivia.leading.isEmpty
+                  || choice
+                  || (leaf.trivia.trailing.isSome && (leaf.kind != Comma && passable leaf))
+              rewrite passes,
+                  laidFromOnto [current, ..done] (leaf.startingLine lineStart) later after (Bool.andRight within)
