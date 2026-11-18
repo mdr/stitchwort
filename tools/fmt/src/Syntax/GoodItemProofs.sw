@@ -176,11 +176,11 @@ def lexemeFixed (source: Text) (lexeme: Parse.Located Lexeme): Bool := match lex
 
 --| The lexemes of any source that lexes are spelled as their kinds are.
 --|
---| Not yet proved (SW-4024's report has the plan): a walk of `lexemesIn`, every token lexeme a `located` from the mark
---| it starts at, so its text is the characters read from there (`symbol`'s, `unicodeFixed`'s, or a word's, which is
---| `def` only when `wordKind` says `KwDef`). It needs `Parse` facts that keep a mark in step with the source
---| (`start.rest = source.toList.drop start.offset`): `Parse.ReadsIn`'s invariant is of the input left, and its spec
---| can't name where a run started, so it can't tie a lexeme's offset to the source.
+--| Not yet proved: the walk of `lexemesIn`, below this file's reading lemmas. Done: reading in step with the source
+--| (`Lexes`, with bind, mark, many and `recursiveWith`), `tokenOfText` (a token's text is what it read), and the kinds
+--| of fixed spelling (`symbolFixed`, `unicodeFixed`, `wordFine`, `givesNumber`). Left: `itemOn`'s arms, with `dots`,
+--| `charLiteral` and `textLiteral` (`pieces`, `segment`, `closeBlock`) as `Goes`-style lemmas whose tokens are of no
+--| fixed spelling, and the run of `lexemes` from the start mark.
 theorem lexemesFixed ∀ (source: Text) (found: List (Parse.Located Lexeme))
     (lexes: lexemes source = Ok found):
     found.all (lexemeFixed source) = True :=
@@ -857,3 +857,22 @@ theorem wordFine ∀ (source: Text) (afterDot: Bool) (from: Parse.Mark Char)
                   rewrite starts1, List.takeAppend read1 after1.rest, spanned.left
                 rewrite wordKindIs, sliceRead source from after3 read1 step moved, text then
                   wordKindFixed afterDot (Text.fromList first))))
+
+-- The walk of `item`.
+
+--| Every lexeme of a list is spelled as its kind is.
+def lexemesFine (source: Text) (values: List (Parse.Located Lexeme)): Bool := values.all (lexemeFixed source)
+
+--| A lexeme `located` with a value that isn't a token, as a list of one.
+theorem oneLocated ∀ (source: Text) (value: Lexeme) (from: Parse.Mark Char)
+    (notToken: ∀ (kind: Tok) => value ≠ TokenLexeme kind):
+    Parse.Gives Parse.Invariant.any (() => [located value from]) (values => lexemesFine source values = True) :=
+  Parse.givesThen (givesLocated value from) (lexeme same =>
+    Parse.givesDone
+      (Bool.andIntro
+        (match value, same with
+          | TokenLexeme kind, _ => (notToken kind byComputing).impossible
+          | Spaces, same => rewrite same
+          | LineBreak, same => rewrite same
+          | CommentLexeme, same => rewrite same)
+        byComputing))
