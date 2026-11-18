@@ -1283,21 +1283,22 @@ impl<'a> Rules<'a> {
         // lines: filled, its blank line would write nothing mid-line but
         // still break the groups around it (SW-3963). `plain` also needs no
         // trailing comment, which `calm` can't see through; this doesn't.
-        let all_plain = node.kind() == NodeKind::List
+        let all_plain = (node.kind() == NodeKind::List || pattern_names)
             && items.iter().all(|(item, _)| {
                 matches!(item.as_slice(), [el @ Element::Leaf(_)]
                 if !self.has_leading(*el)
-                    && matches!(
-                        self.tok(*el),
+                    && match self.tok(*el) {
+                        Some(Tok::Lower(_)) => true,
+                        Some(Tok::Underscore) => pattern_names,
                         Some(
-                            Tok::Lower(_)
-                                | Tok::Num(_)
-                                | Tok::Float(_)
-                                | Tok::Char(_)
-                                | Tok::Str(_)
-                                | Tok::Upper(_)
-                        )
-                    ))
+                            Tok::Num(_)
+                            | Tok::Float(_)
+                            | Tok::Char(_)
+                            | Tok::Str(_)
+                            | Tok::Upper(_),
+                        ) => !pattern_names,
+                        _ => false,
+                    })
             });
         if plain {
             let mut cells = Vec::new();

@@ -1020,6 +1020,15 @@ fn a_blank_line_before_a_filled_lists_first_cell_is_dropped() {
     check("def d: A := g [\n\n  f, a]\n", "def d: A := g [f, a]\n");
 }
 
+/// The same for a filled tuple pattern (SW-3992 filled them).
+#[test]
+fn a_blank_line_before_a_filled_tuple_patterns_first_cell_is_dropped() {
+    check(
+        "def sum (pair: (Nat, Nat)): Nat := match pair with\n  | (\n\n    a, b) => a + b\n",
+        "def sum (pair: (Nat, Nat)): Nat := match pair with | (a, b) => a + b\n",
+    );
+}
+
 /// A last comma that starts its line, after a blank line, hands its
 /// trailing comment to the closer's own-line comments with that blank line
 /// (SW-3963: the Stitchwort formatter dropped it).
