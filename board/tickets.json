@@ -25264,12 +25264,12 @@
     {
       "id": 4078,
       "title": "[Fable paper] Self-hosted fmt slice 1 stock take (Matt, 18 Nov): is there a clear, finite path to the first milestone (slice 1 fully proved: same program and idempotent), or is the work diverging? Map the remaining obligations from the top statements down, measure tickets filed vs closed, recommend scope trims if they would converge faster",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (SW-4078, Fable paper, 18 Nov): estimate 40 min, well under it used. Note: docs/reviews/SW-4078-slice1-stock-take.md, commit 733403e86 on lane/SW-4078. Verdict: a finite path and no meander, but not yet clear: one open goal in tools/fmt (tidiedUnreturned1); 67 milestone tickets filed, 56 closed, open count flat at 11-14 since 16:00; about 25 lanes left (20-35), nearly half unticketed (multi-line read-back, line breaks with comments inside the type/value, signQuiet and Decl.unreturned1 of a parsed tree, read-back's line facts). Critical path 8-11 lanes in a row through read-back. Recommends: glue skeleton now with the gaps as open goals (orchestrator's call); stage the milestone as one-line declarations first (D question for Matt); trim comments between a sign and its operand (Matt, small); cut SW-4044 to its file form, move SW-4073's source-level half into SW-3973; hold 14 off-path tickets until SW-4003.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
