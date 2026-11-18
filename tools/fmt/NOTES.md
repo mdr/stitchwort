@@ -1020,3 +1020,44 @@ The lexer was split into named parts for the proofs, with the same behaviour (`S
 **The fix, both formatters.** That line is a `CloserLine` keyed by the bracket's opener, as for a closer after own-line comments (S40, SW-3605): it goes back to the opener's line's indentation when a line inside is at or left of the indentation in force, and stays put otherwise. The opener gets its `Mark` whenever the closer may take a line of its own: own-line comments before it, a comment after it, or (Rust only, outside the slices) a glued `.field`. `def d: ( -- t7⏎    a -- t9⏎  ) -- t10⏎  := b` now prints `)` at 0 and `:=` at 2 in both. No golden file moved; the slice gates are unchanged (s1, s2, s3 100% on the goldens and the 300-file sample).
 
 **The search** is in `dev/` (`README.md` says how to build the interpreted twin and run it). Rerun on slice 1, seeds 8 and 9, 1,500 files each [run]: 1,758 formatted, 0 idempotence, tree, comment or long-line failures, `hangs.py` clean (family A was 9 of 5,611 before). SW-3955's nine family A files format to text that parses in both formatters, and identically but for one, whose difference is family D's. The generator is slice 1's only; slices 2 and 3 would need a generator of binders, blocks and `if`s.
+
+## Slice 4a, the program (SW-3980)
+
+Opus, 18 November 2026. Field access, the first part of the plan's S4 row, on top of slices 1 to 3: SW-3961 found it the only construct outside S1–S3 for 478 of 5,294 sampled declarations.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `FieldAccess (Some target) dot field` in `Expr.words` and `Expr.el` (the target, `.`, the field, nothing between them) | `src/Fmt/Rules.sw` | `join` (Rust has no rule of its own for `FieldAccess`); `spacing.rs` keeps the source's gap at a `.`, which the parser requires to be none |
+| `Expr.simple` for a field of a simple expression (`a.b.c` stays on a broken call's line) | `src/Fmt/Rules.sw` | `simple`'s `FieldAccess` arm |
+| `within4a` (on `Expr`, `Header`, `Decl`, `SourceFile`), the alphabet `Tok.within4a` (slice 3's and `.`), `Decl.printed4a`, `SourceFile.printed4a`; `formatWithin` moves here from `Slice3.sw`, covers slices 1 to 4a and refuses with `outside slice 4a` | `src/Fmt/Slice4a.sw` | |
+| `Fmt.Twin --stage s4a`, `dev/fmt-twin s4a` | `src/Fmt/Twin.sw`, `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice4a.sw` (3); slice 1's refusal test now uses a method section, since `r.field` is within | |
+
+**The slice's edge.** Rust prints a field access with the generic `join`, so it never breaks, however long the `.a.b.c` chain: there is no chain rule for fields. A dot call `xs.map f` is an `App` whose function is a `FieldAccess`, printed by `app` as any call, so it comes free. Headers are widened too (a theorem's statement often reads `xs.length = …`): `Header.within4a` is `within2` with field access in the parameter types and the result type. Left out:
+
+- **A method section `.f`** (`FieldAccess None` inside a `Section`): S4's sections; it brings `section`'s rule that `.f` can't start a line.
+- **`f()`**: `Unit`, S4's.
+- **A field after a bracket whose contents end their line with a comment**, `(x -- c⏎).f`: Rust keeps that closer on a line of its own, keyed to a `Mark` on the opener (`glued_field`, SW-3962). The tree can say it (the target `trails`), but the closer's leaf doesn't know a `.` follows; `within4a` asks the target not to trail. No golden or sampled declaration has it.
+- **`- 1.abs`**: after a `-` before a numeral followed by `.`, Rust copies the source's gap (`- 1.abs` is not `-1.abs`, D1474), and the tree is the same either way. `within4a` leaves out a `-` whose operand starts with a numeral and a `.`. `-1.abs` written glued parses as a field of `Prefix - 1` and is within.
+
+Keys as before: the `.` and the field each count one token, so a field access's tokens are its target's, then two.
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s4a --exe` with the interpreted twin (a slim copy as before, with `Slice4a.sw` and without `Syntax/LexProofs.sw`; a fresh `FMT_TWIN_CACHE`, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 to 4a | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 304 | 304 | 0 |
+| `repo --sample 300` (seed 1) | 5,854 | 963 | 963 | 0 |
+
+Slices 1 to 4a cover 16.4% of the sample's declarations; slices 1 to 3 cover 554 of the same 5,854 (9.5%), so field access adds 409 (the sample moved with the tracked files again: SW-3961's had 6,072). The goldens gain only 16, since they exercise layout rather than fields. On the same runs `s1` stays 82 of 82 and 39 of 39, `s2` 230 of 230 and 426 of 426, `s3` 288 of 288 and 554 of 554. Hand files of chains, dot calls with hugged lambdas, fields in a theorem's statement, `a.b` kept on a broken call's line, a field after a trailing comment, and `-1.abs` against `- 1.abs`: identical to `stitchwort fmt -` (the last two kinds refused as outside).
+
+### For the proof lanes
+
+- **The F1 tree is unchanged.**
+- **No new columns.** A field access never breaks and puts nothing on a line of its own, so the read-back proofs need no new column fact: `.` and the field are glued to the target's last token on its line. What they need is lexical: a `.` glued on both sides reads back as a field access (the parser refuses a spaced one), and the target's last token is never a comment's (`within4a`'s `!target.trails`), so nothing comes between.
+- **Spacing.** The one gap a field access adds is `- 1.f`'s, left out above; `prefixGap` is unchanged.
+- P1 to P4 change nothing new: a field access holds no binder, row or theorem header.
