@@ -9,11 +9,12 @@
 --| 2. The lexemes' reading: what `lexemes` gives of any source is fine, unless a token outside the alphabet was read.
 
 namespace Syntax.LexLaidProofs
-import Std (Bool, Char, List, Nat, Option, Parse, Text)
+import Std (Bool, Char, List, Nat, Option, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (
   alphabet1,
+  alphabet1Leaves,
   laidOut,
   leafTexts,
   leavesTextsSplit,
@@ -32,15 +33,9 @@ import Syntax.SettleOnceProofs (
   pendB,
   textsReverseOnto
 )
+import Syntax.LexReadsProofs (..)
 
 -- What the lexemes must be.
-
---| A comment's text as the lexer reads it: `--` to the end of its line (`rawComment`).
-def rawText (text: Text): Bool := text.startsWith "--" && !text.contains "\n"
-
---| A token's text says whether it is a closer and whether it is `->`, as its kind does (`Leaf.marked`).
-def markedText (text: Text) (kind: Tok): Bool :=
-  isCloserText text == kind.isCloser && (operatorTok text == Some Arrow) == (kind == Arrow)
 
 --| The part of the source a lexeme says it was read from.
 def lexemeText (source: Text) (lexeme: Parse.Located Lexeme): Text :=
@@ -53,11 +48,6 @@ def Lexeme.isBreak: Lexeme → Bool
 def Lexeme.isComment: Lexeme → Bool
   | CommentLexeme => True
   | _ => False
-
---| A token of slice 1's alphabet, or a lexeme that isn't a token.
-def Lexeme.within: Lexeme → Bool
-  | TokenLexeme kind => kind.within1
-  | _ => True
 
 --| A lexeme read from `text` as `assemble` needs it: a comment `--` to the end of its line once a carriage return is
 --| taken off, a token of the alphabet with a text that agrees with its kind.
@@ -330,3 +320,144 @@ theorem assembleWithin ∀ (source: Text) (lexemes: List (Parse.Located Lexeme))
   let forward: done.leaves.all (leaf => leaf.kind.within1) = True :=
     Bool.andLeft (rewrite allReverseOnto done.leaves [] (leaf => leaf.kind.within1) at leaves then leaves)
   rewrite foldWithin source lexemes Assembly.start at forward then forward
+
+-- The lexemes' reading: rounds of `item` that are fine make fine lexemes.
+
+theorem startsBreakHead ∀ (char: Char) (one other: List Char):
+    startsBreak [char, ..one] = startsBreak [char, ..other] :=
+  match char with
+    | '\n' => byComputing
+    | _ => byComputing
+
+theorem kindLexemeFine ∀ (chars next: List Char) (value: Lexeme)
+    (fine: kindFine chars next value = True):
+    lexemeFine (Text.fromList chars) value = True :=
+  match value with
+    | Spaces => byComputing
+    | LineBreak => byComputing
+    | CommentLexeme => Bool.andLeft (Bool.andRight fine)
+    | TokenLexeme kind => Bool.andRight fine
+
+--| A round's lexeme after a comment, whose line ends where the rounds begin, is a line break: what it read starts with
+--| one, and only a line break's text does.
+theorem nextBreak ∀ (next read tail: List Char) (offset: Nat) (rounds: List (List (Parse.Located Lexeme)))
+    (cover: next = read ++ tail)
+    (each: EachAt RoundFine offset next read rounds)
+    (within: rounds.concat.all (lexeme => lexeme.value.within) = True)
+    (ends: endsLine next = True):
+    breakNext rounds.concat = True :=
+  match rounds, each with
+    | [], each => byComputing
+    | [round, ..more], Witness first (Witness later (Both split (Both fine rest))) =>
+      let both: (round.all (lexeme => lexeme.value.within) && more.concat.all (lexeme => lexeme.value.within)) = True :=
+        rewrite allAppendB round more.concat (lexeme => lexeme.value.within) at within then within
+      match fine (Bool.andLeft both) with
+        | Witness value (Both isRound chunk) =>
+          match first with
+            | [char, ..chars] =>
+              let nextIs: next = [char, ..chars ++ later ++ tail] :=
+                rewrite cover, split, List.appendAssoc chars later tail
+              let breaks: startsBreak [char, ..chars ++ later ++ tail] = True := rewrite nextIs at ends then ends
+              let headBreaks: startsBreak [char, ..chars] = True :=
+                rewrite startsBreakHead char chars (chars ++ later ++ tail) then breaks
+              match value with
+                | LineBreak => rewrite isRound
+                | Spaces =>
+                  let notBreak: (!startsBreak [char, ..chars]) = True := Bool.andRight chunk
+                  (Bool.falseNotTrue (rewrite headBreaks at notBreak then notBreak)).impossible
+                | CommentLexeme =>
+                  let notBreak: (!startsBreak [char, ..chars]) = True := Bool.andLeft chunk
+                  (Bool.falseNotTrue (rewrite headBreaks at notBreak then notBreak)).impossible
+                | TokenLexeme kind =>
+                  let notBreak: (!startsBreak [char, ..chars]) = True := Bool.andLeft chunk
+                  (Bool.falseNotTrue (rewrite headBreaks at notBreak then notBreak)).impossible
+
+--| Fine rounds read in turn from `rest`, the source after `before`, make fine lexemes.
+--|
+--| Proof idea: by the rounds. Each round's one lexeme is located at `before`'s length and as long as what it read, so
+--| its text is what it read (`Text.sliceMiddle`); a comment's line ends where the next round begins, so its lexeme is a
+--| line break (`nextBreak`); the next rounds go on after what was read.
+theorem roundsFine ∀ (source: Text) (before rest read tail: List Char) (rounds: List (List (Parse.Located Lexeme)))
+    (made: source.toList = before ++ rest)
+    (cover: rest = read ++ tail)
+    (each: EachAt RoundFine before.length rest read rounds)
+    (within: rounds.concat.all (lexeme => lexeme.value.within) = True):
+    lexemesFine source rounds.concat = True :=
+  match rounds, each with
+    | [], each => byComputing
+    | [round, ..more], Witness first (Witness later (Both split (Both fine rest1))) =>
+      let both: (round.all (lexeme => lexeme.value.within) && more.concat.all (lexeme => lexeme.value.within)) = True :=
+        rewrite allAppendB round more.concat (lexeme => lexeme.value.within) at within then within
+      match fine (Bool.andLeft both) with
+        | Witness value (Both isRound chunk) =>
+          let restIs: rest = first ++ (later ++ tail) := rewrite cover, split then List.appendAssoc first later tail
+          let nextIs: rest.drop first.length = later ++ tail := dropOfAppend rest first (later ++ tail) restIs
+          let text: source.slice before.length (before.length + first.length) = Text.fromList first :=
+            Text.sliceMiddle source before first (later ++ tail) (rewrite made, restIs)
+          let kind: kindFine first (rest.drop first.length) value = True := Bool.andRight chunk
+          let lexeme: lexemeFine (Text.fromList first) value = True :=
+            kindLexemeFine first (rest.drop first.length) value kind
+          let made2: source.toList = (before ++ first) ++ rest.drop first.length :=
+            rewrite made, nextIs, restIs then (List.appendAssoc before first (later ++ tail)).flipped
+          let rest2: EachAt RoundFine (before ++ first).length (rest.drop first.length) later more :=
+            rewrite List.lengthAppend before first then rest1
+          let laterFine :=
+            roundsFine source
+              (before ++ first)
+              (rest.drop first.length)
+              later
+              tail
+              more
+              made2
+              nextIs
+              rest2
+              (Bool.andRight both)
+          let afterComment: (!value.isComment || breakNext more.concat) = True := match value with
+            | CommentLexeme =>
+              let ends: endsLine (rest.drop first.length) = True := Bool.andRight (Bool.andRight kind)
+              rewrite nextBreak (rest.drop first.length) later tail _ more nextIs rest1 (Bool.andRight both) ends
+            | Spaces => byComputing
+            | LineBreak => byComputing
+            | TokenLexeme other => byComputing
+          rewrite isRound then Bool.andIntro (rewrite text then lexeme) (Bool.andIntro afterComment laterFine)
+
+theorem allMarked ∀ (leaves: List Leaf)
+    (within: leaves.all (leaf => leaf.kind.within1) = True)
+    (marked: leaves.all (leaf => !leaf.kind.within1 || isMarked leaf) = True):
+    leaves.all isMarked = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..more] =>
+      let inside: leaf.kind.within1 = True := Bool.andLeft within
+      let first: (!leaf.kind.within1 || isMarked leaf) = True := Bool.andLeft marked
+      let leafMarked: isMarked leaf = True := rewrite inside at first then first
+      Bool.andIntro leafMarked (allMarked more (Bool.andRight within) (Bool.andRight marked))
+
+--| What `lex` gives of a source in the alphabet is laid out, its tokens' texts agree with their kinds, its comments
+--| run from `--` to the end of a line, and nothing trails the end: `lexLaid1`, in this file's names.
+--|
+--| Proof idea: the lexemes are all of the alphabet (`assembleWithin`), so they are fine rounds of `item`
+--| (`lexemesRounds`) and fine lexemes (`roundsFine`), which `assemble` lays out (`assembleLaid`); in the alphabet,
+--| every token is one whose text must agree with its kind (`allMarked`).
+theorem lexLaidProved ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed)
+    (within: alphabet1 lexed.leaves = True):
+    laidOut False lexed.leaves
+      ∧ lexed.leaves.all isMarked
+      ∧ (lexedTexts lexed).all rawText
+      ∧ lexed.end.trailing.isNone :=
+  match r: lexemes source with
+    | Ok found =>
+      let same: assemble source found = lexed := Result.okInjective lexes
+      let within2: alphabet1 (assemble source found).leaves = True := rewrite same then within
+      let lexWithin := assembleWithin source found within2
+      match lexemesRounds source found r lexWithin with
+        | Witness rounds (Witness read (Witness tail (Both foundIs (Both cover each)))) =>
+          let roundsWithin: rounds.concat.all (lexeme => lexeme.value.within) = True :=
+            rewrite <- foundIs then lexWithin
+          let fine: lexemesFine source found = True :=
+            rewrite foundIs then roundsFine source [] source.toList read tail rounds byComputing cover each roundsWithin
+          match assembleLaid source found fine with
+            | Both laid (Both marked (Both texts ends)) =>
+              let leavesWithin := alphabet1Leaves (assemble source found).leaves within2
+              rewrite <- same then Both laid (Both (allMarked _ leavesWithin marked) (Both texts ends))
