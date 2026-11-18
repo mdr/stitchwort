@@ -42,12 +42,12 @@ def Char.toAsciiUpper (char: Char): Char :=
       | None => char)
   else char
 
---| The text with ASCII letters made upper case: `"héllo".upper` is `"HéLLO"`.
+--| The text with ASCII letters made upper case: `"héllo".toAsciiUpper` is `"HéLLO"`.
 --| Only `a` to `z` change, so it is not Unicode case conversion.
-def Text.upper (text: Text): Text := MkText (text.toList.map Char.toAsciiUpper)
+def Text.toAsciiUpper (text: Text): Text := MkText (text.toList.map Char.toAsciiUpper)
 
-test "Text.upper" :=
-  Text.upper "héllo, World 9" == "HéLLO, WORLD 9" ∧ Text.upper "" == "" ∧ Text.upper "ABC" == "ABC" ∧ "ab".upper == "AB"
+test "Text.toAsciiUpper" :=
+  Text.toAsciiUpper "héllo, World 9" == "HéLLO, WORLD 9" ∧ Text.toAsciiUpper "" == "" ∧ Text.toAsciiUpper "ABC" == "ABC" ∧ "ab".toAsciiUpper == "AB"
 
 test "Text.any and Text.all" :=
   Text.any "abc" (== 'b') ∧ ¬(Text.any "abc" (== 'z')) ∧ Text.all "aaa" (== 'a') ∧ ¬(Text.all "aba" (== 'a'))
