@@ -23741,7 +23741,7 @@
     {
       "id": 3964,
       "title": "[Opus] fmt S1 ticket 13c: one-parse driver: Lexed.tidied parses twice when a comma before a closer holds a comment, so 'same program' needs two parser runs; restructure to parse once, K1's search first (sketch §3). Before ticket 20",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
