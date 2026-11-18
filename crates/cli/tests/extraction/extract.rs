@@ -174,6 +174,27 @@ fn a_precondition_behind_an_opaque_nickname_is_checked() {
     assert_eq!(positions, [2], "{name}: one check, of `ok`");
 }
 
+/// An export whose result is `Partial` only through an opaque nickname it
+/// unfolds is refused as partial, not as the vaguer "can't cross" (SW-3960:
+/// the check read the definition's type without the telescope's own view).
+#[test]
+fn a_partial_result_behind_an_opaque_nickname_is_refused_as_partial() {
+    let source = "\
+opaque def Runs: Type := Nat → {Partial} Nat
+
+export opaque def spend: Runs unfolding Runs := n => n + 1
+";
+    let mut session = new_session();
+    let diagnostics = match session.load("partial-nickname.sw", source) {
+        Ok(_) => panic!("a partial result can't be exported"),
+        Err(diagnostics) => diagnostics,
+    };
+    assert_eq!(
+        diagnostics.iter().map(|d| d.code).collect::<Vec<_>>(),
+        ["E-JS-PARTIAL"]
+    );
+}
+
 /// A map's key type written through a nickname is the type it names: an
 /// argument of a type read glued is a call until forced (SW-3947).
 #[test]
@@ -654,7 +675,7 @@ fn random_value(g: &View<'_>, b: &Boundary, rng: &mut Rng, depth: usize) -> Valu
             Value::Ctor(named("Text"), 0, vec![chars].into())
         }
         Boundary::Data(d, args) => {
-            let ctors = field_boundaries(g, *d, args);
+            let ctors = field_boundaries(g, *d, args).expect("the fields cross the boundary");
             // Near the depth limit, prefer constructors without recursive fields.
             let recursive = |f: &Boundary| matches!(f, Boundary::Data(e, _) if e == d);
             let candidates: Vec<usize> = (0..ctors.len())
@@ -829,8 +850,9 @@ fn proofs_hold(g: &View<'_>, b: &Boundary, value: &Value) -> bool {
                 .iter()
                 .zip(&data.ctors()[*c].field_erased)
                 .filter(|(_, erased)| !**erased);
+            let all = field_boundaries(g, *d, args).expect("the fields cross the boundary");
             checked
-                && field_boundaries(g, *d, args)[*c]
+                && all[*c]
                     .iter()
                     .zip(runtime)
                     .all(|((_, fb), (v, _))| proofs_hold(g, fb, v))

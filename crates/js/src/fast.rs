@@ -20,9 +20,8 @@ use stitchwort_core::DataId;
 use stitchwort_core::registry::Builtin;
 
 use super::{
-    Boundary, Gen, external_keys, external_optional, field_boundaries, field_key_at,
-    generic_field_boundaries, info_name, js_string_literal, member, optional_property, repr,
-    runtime_fields, ts_key,
+    Boundary, Gen, external_keys, external_optional, field_key_at, info_name, js_string_literal,
+    member, optional_property, repr, runtime_fields, ts_key,
 };
 
 /// The functions and type constants generated so far.
@@ -229,18 +228,19 @@ impl Gen<'_> {
     /// The boundary type of `js.unboxed` record `d`'s one field with a
     /// property (it has no parameters).
     fn unboxed_field(&self, d: DataId) -> Boundary {
-        generic_field_boundaries(self.g, d)
-            .into_iter()
+        self.generic_fields(d)
+            .iter()
             .flatten()
             .next()
             .expect("an unboxed record has one field with a property")
             .1
+            .clone()
     }
 
     /// Whether constructor `c` of `d` is flat, as the runtime's `flatOf` says
     /// (by the type's own fields, not any arguments): all its fields shallow.
     fn flat_ctor(&self, d: DataId, c: usize) -> bool {
-        generic_field_boundaries(self.g, d)[c]
+        self.generic_fields(d)[c]
             .iter()
             .all(|(_, b)| self.shallow(b))
     }
@@ -426,7 +426,7 @@ impl Gen<'_> {
     fn field_codecs(&self, d: DataId, args: &[Boundary]) -> Vec<Vec<FieldCodec>> {
         let g = self.g;
         let repr = repr(g, d);
-        field_boundaries(g, d, args)
+        self.field_boundaries(d, args)
             .into_iter()
             .enumerate()
             .map(|(c, fields)| {

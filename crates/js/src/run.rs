@@ -125,7 +125,9 @@ pub fn generate_program_with(
     let _op = g.machine.budget.operation(Limits::stack_only(limits.stack));
     erasable(g)?;
     let counters = options.effect_counters;
-    let mut codegen = Gen::new(g, options)?;
+    // The program doesn't cross a boundary, so no data type has fields to
+    // read (`run --js` generates no wrappers or codecs).
+    let mut codegen = Gen::new(g, options, Default::default())?;
     codegen.run_delay = true;
     if codegen.text.is_none() {
         return Err(internal(

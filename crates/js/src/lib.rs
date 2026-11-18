@@ -207,21 +207,6 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
         Diagnostic::error("E-EXPORT", format!("`{}` can't be exported", def.name()))
             .with_label(def.span(), why)
     };
-    // A partial function, or one taking or returning one: generated code
-    // has no way to run a `Delay` (docs/proposals/partial.md §7.6, §10.6).
-    if let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay)
-        && quote(g, 0, def.ty_value())?
-            .subterms()
-            .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
-    {
-        return Err(Diagnostic::error(
-            "E-JS-PARTIAL",
-            format!("`{}` can't be exported", def.name()),
-        )
-        .with_label(def.span(), "its type mentions `Partial`")
-        .with_note("partial functions can't be exported to JavaScript yet: only the runtime (`stitchwort run`, the playground) runs them")
-        .with_note("export the total parts instead: the functions a partial loop calls"));
-    }
     // An export is imported in JS by its short name: `Geometry.area` as
     // `area` (docs/proposals/namespaces.md §7.3).
     let export_name = short_name(def.name());
@@ -239,6 +224,26 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
         ));
     }
     let tel = def_telescope(g, id)?;
+    // A partial function, or one taking or returning one: generated code
+    // has no way to run a `Delay` (docs/proposals/partial.md §7.6, §10.6).
+    // The telescope's own view sees one written behind an opaque nickname
+    // the definition unfolds.
+    if let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay) {
+        for ty in tel.params.iter().map(|(_, ty, _)| ty).chain([&tel.result]) {
+            if quote(g, 0, ty)?
+                .subterms()
+                .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
+            {
+                return Err(Diagnostic::error(
+                    "E-JS-PARTIAL",
+                    format!("`{}` can't be exported", def.name()),
+                )
+                .with_label(def.span(), "its type mentions `Partial`")
+                .with_note("partial functions can't be exported to JavaScript yet: only the runtime (`stitchwort run`, the playground) runs them")
+                .with_note("export the total parts instead: the functions a partial loop calls"));
+            }
+        }
+    }
     if tel.result_erased {
         return Err(refuse(
             "it's a proof or a type, so it has no runtime value".into(),
@@ -670,8 +675,8 @@ pub fn field_boundaries(
     g: &View<'_>,
     d: DataId,
     args: &[Boundary],
-) -> Vec<Vec<(String, Boundary)>> {
-    generic_field_boundaries(g, d)
+) -> Result<Vec<Vec<(String, Boundary)>>, Diagnostic> {
+    Ok(export_field_boundaries(g, d)?
         .into_iter()
         .map(|fields| {
             fields
@@ -679,11 +684,29 @@ pub fn field_boundaries(
                 .map(|(name, b)| (name, b.instantiate(args)))
                 .collect()
         })
-        .collect()
+        .collect())
+}
+
+/// [`generic_field_boundaries`] for a caller that reports a [`Diagnostic`]: a
+/// type that can't cross is E-EXPORT, a resource refusal is itself.
+fn export_field_boundaries(
+    g: &View<'_>,
+    d: DataId,
+) -> Result<Vec<Vec<(String, Boundary)>>, Diagnostic> {
+    let data = g.data(d);
+    generic_field_boundaries(g, d).map_err(|why| {
+        why.refuse(|why| {
+            Diagnostic::error("E-EXPORT", format!("`{}` can't be exported", data.name()))
+                .with_label(data.span(), why)
+        })
+    })
 }
 
 /// [`field_boundaries`] with the parameters left as [`Boundary::Param`].
-fn generic_field_boundaries(g: &View<'_>, d: DataId) -> Vec<Vec<(String, Boundary)>> {
+fn generic_field_boundaries(
+    g: &View<'_>,
+    d: DataId,
+) -> Result<Vec<Vec<(String, Boundary)>>, Refusal> {
     let params = g.data(d).params().len();
     data_fields(g, d)
         .into_iter()
@@ -691,11 +714,12 @@ fn generic_field_boundaries(g: &View<'_>, d: DataId) -> Vec<Vec<(String, Boundar
             fields
                 .into_iter()
                 .map(|(name, ty)| {
-                    let b = boundary(g, &ty, params, &mut HashSet::default())
-                        .expect("checked by exportable");
-                    (name, b)
+                    let b = boundary(g, &ty, params, &mut HashSet::default()).map_err(|why| {
+                        why.within(|why| format!("`{}`'s field `{name}`: {why}", g.data(d).name()))
+                    })?;
+                    Ok((name, b))
                 })
-                .collect()
+                .collect::<Result<Vec<_>, Refusal>>()
         })
         .collect()
 }
@@ -773,7 +797,7 @@ fn check_names(g: &View<'_>, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagn
     let mut boundary_datas = Vec::new();
     for sig in exports {
         for b in sig.params.iter().map(|(_, b)| b).chain([&sig.result]) {
-            collect_datas(g, b, &mut boundary_datas);
+            collect_datas(g, b, &mut boundary_datas)?;
         }
     }
     // Each type's names at the boundary (docs/proposals/attributes.md §4.6):
@@ -789,14 +813,18 @@ fn check_names(g: &View<'_>, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagn
         if let Some(clash) = js_repr::clashes(&repr, data.record()).first() {
             let mut diagnostic = Diagnostic::error("E-JS-NAME-CLASH", clash.message(data, &repr))
                 .with_label(data.span(), "this type crosses the JS boundary");
-            let reaches = |sig: &&ExportSig| {
+            let mut reaching = None;
+            for sig in exports {
                 let mut datas = Vec::new();
                 for b in sig.params.iter().map(|(_, b)| b).chain([&sig.result]) {
-                    collect_datas(g, b, &mut datas);
+                    collect_datas(g, b, &mut datas)?;
                 }
-                datas.contains(&d)
-            };
-            if let Some(sig) = exports.iter().find(reaches) {
+                if datas.contains(&d) {
+                    reaching = Some(sig);
+                    break;
+                }
+            }
+            if let Some(sig) = reaching {
                 diagnostic = diagnostic.with_label(
                     g.def(sig.id).span(),
                     format!("`{}` is exported, and reaches it", g.def(sig.id).name()),
@@ -873,9 +901,42 @@ pub fn generate_exports(
 
     let boundary_datas = check_names(g, &exports)?;
     let inputs = input_datas(g, &boundary_datas)?;
+    // Read once here, where a resource refusal can still be reported: the
+    // generator below reads them repeatedly, from places that only build
+    // strings (SW-3960).
+    let fields: HashMap<DataId, Vec<Vec<(String, Boundary)>>> = boundary_datas
+        .iter()
+        .map(|&d| export_field_boundaries(g, d).map(|fields| (d, fields)))
+        .collect::<Result<_, _>>()?;
 
+    // A map that crosses is built and read with the library's own `Map`
+    // functions, so they're generated, with the `Text` order they're given.
+    let maps_cross = exports
+        .iter()
+        .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
+        .any(Boundary::has_map)
+        || fields
+            .values()
+            .any(|fields| fields.iter().flatten().any(|(_, b)| b.has_map()));
+    let map_defs: Vec<DefId> = if maps_cross {
+        [
+            Builtin::MapFromList,
+            Builtin::MapToList,
+            Builtin::TextInstOrd,
+        ]
+        .into_iter()
+        .map(|b| {
+            g.env
+                .registry()
+                .loaded_def(b)
+                .expect("a map crosses only with the library's `Map` loaded")
+        })
+        .collect()
+    } else {
+        Vec::new()
+    };
     erasable(g)?;
-    let codegen = Gen::new(g, options)?;
+    let codegen = Gen::new(g, options, fields)?;
     // Only what the exports use, in declaration order. That's dependency
     // order: the kernel admits each group only once what it uses is final,
     // so a definition refers only to earlier ones and to members of its own
@@ -898,35 +959,6 @@ pub fn generate_exports(
                 .flat_map(|table| table.iter().flatten().flatten())
                 .map(|default| default.helper)
         }));
-    // A map that crosses is built and read with the library's own `Map`
-    // functions, so they're generated, with the `Text` order they're given.
-    let maps_cross = exports
-        .iter()
-        .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
-        .any(Boundary::has_map)
-        || boundary_datas.iter().any(|d| {
-            generic_field_boundaries(g, *d)
-                .iter()
-                .flatten()
-                .any(|(_, b)| b.has_map())
-        });
-    let map_defs: Vec<DefId> = if maps_cross {
-        [
-            Builtin::MapFromList,
-            Builtin::MapToList,
-            Builtin::TextInstOrd,
-        ]
-        .into_iter()
-        .map(|b| {
-            g.env
-                .registry()
-                .loaded_def(b)
-                .expect("a map crosses only with the library's `Map` loaded")
-        })
-        .collect()
-    } else {
-        Vec::new()
-    };
     let checks = checks.chain(map_defs.iter().copied());
     let wanted = codegen.set_reach(exports.iter().map(|sig| sig.id).chain(checks), &[], true)?;
     let mut js = String::from(RUNTIME);
@@ -952,12 +984,10 @@ pub fn generate_exports(
             .iter()
             .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
             .any(at_boundary)
-            || boundary_datas.iter().any(|d| {
-                generic_field_boundaries(g, *d)
-                    .iter()
-                    .flatten()
-                    .any(|(_, b)| at_boundary(b))
-            })
+            || codegen
+                .fields
+                .values()
+                .any(|fields| fields.iter().flatten().any(|(_, b)| at_boundary(b)))
     };
     let safe_nat_crosses = crosses(Boundary::SafeNat);
     let safe_int_crosses = crosses(Boundary::SafeInt);
@@ -1083,12 +1113,10 @@ pub fn generate_exports(
         .iter()
         .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
         .any(|b| names_option(g, b))
-        || boundary_datas.iter().any(|d| {
-            generic_field_boundaries(g, *d)
-                .iter()
-                .flatten()
-                .any(|(_, b)| names_option(g, b))
-        });
+        || codegen
+            .fields
+            .values()
+            .any(|fields| fields.iter().flatten().any(|(_, b)| names_option(g, b)));
     for &d in &boundary_datas {
         if g.env.registry().is_data(Builtin::Option, d) && !tagged_option {
             continue;
@@ -1179,17 +1207,13 @@ fn input_datas(g: &View<'_>, boundary_datas: &[DataId]) -> Result<HashSet<DataId
         }
     }
     loop {
-        let more: Vec<DataId> = boundary_datas
-            .iter()
-            .copied()
-            .filter(|d| {
-                !inputs.contains(d)
-                    && generic_field_boundaries(g, *d)
-                        .iter()
-                        .flatten()
-                        .any(|(_, b)| mentions(b, &inputs))
-            })
-            .collect();
+        let mut more = Vec::new();
+        for &d in boundary_datas.iter().filter(|d| !inputs.contains(d)) {
+            let fields = export_field_boundaries(g, d)?;
+            if fields.iter().flatten().any(|(_, b)| mentions(b, &inputs)) {
+                more.push(d);
+            }
+        }
         if more.is_empty() {
             break;
         }
@@ -1225,7 +1249,15 @@ fn input_datas(g: &View<'_>, boundary_datas: &[DataId]) -> Result<HashSet<DataId
     Ok(inputs)
 }
 
-fn collect_datas(g: &View<'_>, b: &Boundary, out: &mut Vec<DataId>) {
+fn collect_datas(g: &View<'_>, b: &Boundary, out: &mut Vec<DataId>) -> Result<(), Diagnostic> {
+    fn fields(g: &View<'_>, d: DataId, out: &mut Vec<DataId>) -> Result<(), Diagnostic> {
+        for fields in export_field_boundaries(g, d)? {
+            for (_, b) in fields {
+                collect_datas(g, &b, out)?;
+            }
+        }
+        Ok(())
+    }
     match b {
         Boundary::Nat
         | Boundary::Int
@@ -1236,39 +1268,32 @@ fn collect_datas(g: &View<'_>, b: &Boundary, out: &mut Vec<DataId>) {
         | Boundary::Text
         | Boundary::Char
         | Boundary::Param(_) => {}
-        Boundary::List(elem) | Boundary::Array(elem) => collect_datas(g, elem, out),
+        Boundary::List(elem) | Boundary::Array(elem) => collect_datas(g, elem, out)?,
         Boundary::Map(_, key, elem) => {
-            collect_datas(g, key, out);
-            collect_datas(g, elem, out);
+            collect_datas(g, key, out)?;
+            collect_datas(g, elem, out)?;
         }
         Boundary::Option(d, _) => {
             // The runtime needs `Option`'s description (for the tags of a
             // nested one) whenever an `Option` crosses.
             if !out.contains(d) {
                 out.push(*d);
-                for fields in generic_field_boundaries(g, *d) {
-                    for (_, b) in fields {
-                        collect_datas(g, &b, out);
-                    }
-                }
+                fields(g, *d, out)?;
             }
-            collect_datas(g, &b.payload(), out);
+            collect_datas(g, &b.payload(), out)?;
         }
         Boundary::Data(d, args) => {
             for arg in args {
-                collect_datas(g, arg, out);
+                collect_datas(g, arg, out)?;
             }
             if out.contains(d) {
-                return;
+                return Ok(());
             }
             out.push(*d);
-            for fields in generic_field_boundaries(g, *d) {
-                for (_, b) in fields {
-                    collect_datas(g, &b, out);
-                }
-            }
+            fields(g, *d, out)?;
         }
     }
+    Ok(())
 }
 
 const RUNTIME: &str = r#"// Generated by stitchwort. Do not edit.
@@ -2179,6 +2204,11 @@ struct Gen<'g> {
     array_natives: HashMap<DefId, ArrayNative>,
     /// Per definition, computed on first use ([`Gen::try_info`]).
     infos: Vec<OnceCell<DefInfo>>,
+    /// Each data type at the boundary's fields' boundaries, with the type's
+    /// parameters as [`Boundary::Param`]. Read here, where only strings can be
+    /// built, but computed once before, where a resource refusal can be
+    /// reported (SW-3960).
+    fields: HashMap<DataId, Vec<Vec<(String, Boundary)>>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
     if_then_else: Option<DefId>,
     /// `Decidable.elim`, which `if h: p then a else b` becomes.
@@ -2375,7 +2405,11 @@ impl SelfCall {
 }
 
 impl<'g> Gen<'g> {
-    fn new(g: &'g View<'g>, options: Options) -> Result<Self, Diagnostic> {
+    fn new(
+        g: &'g View<'g>,
+        options: Options,
+        fields: HashMap<DataId, Vec<Vec<(String, Boundary)>>>,
+    ) -> Result<Self, Diagnostic> {
         let Representation {
             nat,
             text,
@@ -2409,6 +2443,7 @@ impl<'g> Gen<'g> {
             array,
             array_natives,
             infos: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
+            fields,
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
             elim_dec: g.env.registry().def(Builtin::ElimDec),
             bool_not: g.env.registry().def(Builtin::BoolNot),
@@ -2436,6 +2471,27 @@ impl<'g> Gen<'g> {
             aliases: RefCell::default(),
             forwarders: RefCell::default(),
         })
+    }
+
+    /// Data type `d`'s fields' boundaries, with its parameters left as
+    /// [`Boundary::Param`], as they were computed before generation.
+    fn generic_fields(&self, d: DataId) -> &[Vec<(String, Boundary)>] {
+        self.fields
+            .get(&d)
+            .expect("every data type at the boundary has its fields")
+    }
+
+    /// [`field_boundaries`] for the given arguments, from the computed map.
+    fn field_boundaries(&self, d: DataId, args: &[Boundary]) -> Vec<Vec<(String, Boundary)>> {
+        self.generic_fields(d)
+            .iter()
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|(name, b)| (name.clone(), b.instantiate(args)))
+                    .collect()
+            })
+            .collect()
     }
 
     /// What the program uses: the definitions `roots` and the terms
@@ -5228,12 +5284,7 @@ impl<'g> Gen<'g> {
         let data = self.g.data(d);
         let repr = repr(self.g, d);
         let mut out = format!("define({}, [\n", info_name(data.path()));
-        for (c, (ctor, fields)) in data
-            .ctors()
-            .iter()
-            .zip(generic_field_boundaries(self.g, d))
-            .enumerate()
-        {
+        for (c, (ctor, fields)) in data.ctors().iter().zip(self.generic_fields(d)).enumerate() {
             let mut entries = Vec::new();
             for ((((_, b), external), i), flag) in fields
                 .iter()
@@ -5486,8 +5537,9 @@ impl<'g> Gen<'g> {
         if repr.unboxed {
             // `js.unboxed`: a plain alias of its field's type (D1066). Its
             // fields are one with a key, and proofs.
-            let field = generic_field_boundaries(self.g, d)
-                .into_iter()
+            let field = self
+                .generic_fields(d)
+                .iter()
                 .flatten()
                 .next()
                 .expect("an unboxed record has one field with a property");
@@ -5496,8 +5548,9 @@ impl<'g> Gen<'g> {
                 self.ts_type(&field.1, false, &params, inputs)
             );
         }
-        let variants: Vec<String> = generic_field_boundaries(self.g, d)
-            .into_iter()
+        let variants: Vec<String> = self
+            .generic_fields(d)
+            .iter()
             .enumerate()
             .map(|(c, fields)| {
                 let mut parts = Vec::new();
@@ -6614,7 +6667,8 @@ pub fn boundary_literal(g: &View<'_>, b: &Boundary, value: &Value) -> Result<Str
             if repr.string_enum {
                 return Ok(js_string_literal(&repr.ctors[*c].tag));
             }
-            let boundaries = &field_boundaries(g, *d, args)[*c];
+            let all = field_boundaries(g, *d, args).map_err(|e| e.message)?;
+            let boundaries = &all[*c];
             if repr.unboxed {
                 // `js.unboxed`: its one field with a property, as itself.
                 let (field, (_, b)) = fields
