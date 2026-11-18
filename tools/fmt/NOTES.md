@@ -853,3 +853,45 @@ P1 to P3's proofs needed four changes: the binder-type lemmas are stated through
 - **`joins` gained a second half** (the orchestrator's call): `joins = rustJoins ∧ meaningJoins`. `rustJoins` is the Rust pass's test as before, with `kind`s compared (SW-3908). `meaningJoins` asks that `meaning` read the two groups alike but for their names (`Group.meaningForm`, the group walked with `meaning`'s steps, blanked and unwrapped, compared with `Group`'s derived `==`), and that it split each of them and their merge (`Group.meaningSplits`: one group a name, so self-naming is asked of the walked type). The two tests read different trees: the dump compares raw tokens and can't be tied to the walked type in general (it leaves out an atom's `Tok`), and the walked comparison alone would merge `(x: Nat -- a) (y: Nat -- b)`, dropping a comment `meaning` can't see. Together P4 merges a subset of what Rust merges.
 - **The proof**: `mergePieces` (two groups `meaning` reads alike, each split and split merged: the merge's pieces are theirs, by the names' lists), `joinedPieces` (what `joins` gives: `(a == b) = True` read as `a = b`), then induction along a header's groups (`mergeFromKeeps`) and a binder's parameters (`mergeParamsFromKeeps`, `mergeParamsKeeps`), and `applyKeeps`. `mergeHeader` and `mergeBinding` became pure, as P1 to P3's steps did in 4b.
 - **Checked**, with the interpreted `Fmt.Twin` (`stitchwort run Fmt.Twin.main`; the native build peaks at 2.4 GB): `dev/fmt-twin passes` goldens 132 of 132, repo `--sample 300` 300 of 300 identical; `--stage meaning` `kept` on 132 goldens and 224 repo files.
+
+## Slice 1, the program (SW-3950)
+
+Opus, 18 November 2026. Proof plan ticket 12.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| The rules for `def name: T := e` and slice 1's eight constructs on `Std.Doc`: `defDoc` (header in an `IdGroup`, body by `bodyAfter`), `appDocs` with `lastArgument`/`huggedBracket` and the filled front, `chain` (flattening same-level `Binary`/`Arrow` by structural recursion, `chainLinks`/`linkDocs`), `parenDoc`, `commaBracket`/`bracketContent`, `Prefix` in `Expr.el`; `Word.leaf`, `opening`, `leading`, `trailing`, `Expr.framed` for comments | `src/Fmt/Rules.sw` | `printer/rules.rs` |
+| The one gap with a choice in slice 1, after a prefix operator; `operatorTok` | `src/Fmt/Spacing.sw` | `spacing.rs` |
+| `within1` (on `Expr`, `Header`, `Decl`, `SourceFile`), the alphabet `Tok.within1`, the file loop `SourceFile.printed1`, `formatWithin` | `src/Fmt/Slice1.sw` | `printer/mod.rs`'s `print_file_seeing` |
+| `Comments.blankBefore`: a blank line just before the token, below its own-line comments | `Syntax/Expr.sw`, `DeclParser.sw` | `Trivia::blank_lines_before` |
+| `Fmt.Twin --stage text` (a file within slice 1 formatted, else status 3 `outside slice 1`) and `--stage s1` (a line a declaration, `within` with its text, or `outside`) | `src/Fmt/Twin.sw` | |
+| `dev/fmt-twin s1`: each declaration `--stage s1` says is within, against the `text` line of Rust's cached `dev doc` dump | `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice1.sw` (6) | |
+
+Continued lines, the `Def` frame, the traversal and P2 were already in (stages 2a, 2b, 4a): `formatWithin` runs `Lexed.tidied`, all four passes, which are the identity on slice 1 but for P2.
+
+How the Rust rules' index-based reads became tree-shaped: an `Around` travels down with what a rule needs of a token's surroundings (the code before ends its line with a comment; the first token's comments are hoisted; it starts a comma-bracket item; the tokens before it in the declaration). Rust's `fresh_id` and `Mark(i)` keys are that token count: a call's `IdGroup` is keyed by its first token, which no other call in the declaration starts with, and the declaration's by 0. A stale key would matter, since `fitsFrom` reads recorded modes without recording. Every rule is structurally recursive (the first version dispatched through `Expr.node expr`, which the termination checker rightly refused).
+
+Spacing: in slice 1 every gap Rust copies from the source is fixed by the tree, since the parser read the gap to build it (an argument minus is a `Prefix` argument, `- 2 n` a `Prefix` of an application). Two pairs remain where Rust copies and the tree can't say: `)(` and a glued `f[x]`-like pair between call elements; the rules write a space. No sampled declaration has either.
+
+### The gate [measured, Speedwell, load about 15]
+
+`dev/fmt-twin s1 --exe` with the interpreted twin (below):
+
+| Input | Declarations | Within slice 1 | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 82 | 82 | 0 |
+| `repo --sample 300` (seed 1, E3's and E4's sample) | 5,798 | 37 | 37 | 0 |
+
+Plus a hand file of comment cases (a comment after an opener, before a closer, above an argument, a blank line before a list item, trailing comments in a broken list, a displaced bracket after `:= -- c`) and long chains, tuples and hugs: `--stage text` identical to `stitchwort fmt -`. Slice 1 is narrow: 0.6% of the repo sample's declarations.
+
+**The native build doesn't fit in 2 GB.** A copy of `tools/fmt` without the proof files and tests (`Syntax`, `Blank`, `Meaning`, `Passes`, the slice 1 files, `DocDump`, `Twin`) peaked at 2.06 GB and was stopped. The harness ran `stitchwort run --project SLIM Fmt.Twin.main` from a wrapper script as `--exe` (850 MB, 2 s for one file, 31 s for the 300-file batch).
+
+### For the proof lanes (13 to 20)
+
+- **F1 lacked blank lines.** The layout-free tree had no blank line before a token, which the printer keeps between declarations, after own-line comments and before a broken list's items. `Comments.blankBefore` (a `Bool`, as `Note.blankBefore`) adds it; `Comments.none` clears it, so `meaning` doesn't see it. Sketch §1's "no count of blank lines" holds; a flag was needed.
+- `within1` is on the tidied tree too; P1, P3 and P4 change nothing within slice 1 (no theorem, no row, no binder), which the passes' lemma lane can state as such.
+- `Expr.words` (tokens in order) carries `trails`, `holdsTrailingComment`, `size`, `firstWord`: the rules' read-back of Rust's index lookups. They are list functions, so lemmas about them are list lemmas (F6).
+- Checks of `formatWithin` stop at the first token outside the alphabet, then at a tree outside `within1` (an alphabet-only file can still parse to `(a: T)` or a parameter group); the parser-stays-in-the-slice lemma (§1.1, item 4) is what would let the second check go.
