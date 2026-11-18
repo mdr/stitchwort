@@ -831,3 +831,132 @@ theorem settledTextsAfterHome ∀ (lexed: Lexed):
     _ = (leafTexts commas.leaves ++ triviaTexts commas.end).map trimEnd :=
       rewrite letsFromTexts [] arrowed, arrowsTexts commas.leaves
     _ = (leafTexts homed ++ triviaTexts lexed.end).map trimEnd := rewrite commasFromTexts [] None homed lexed.end
+
+-- Rule 1 keeps the comments in order, for leaves as the lexer gives them
+-- under slice 1's alphabet. A trailing comment moves back past commas and
+-- closers; the walk must pass no comment and land on a leaf with no
+-- trailing comment of its own.
+
+--| Leaves as the lexer lays them out: a leaf with own-line comments
+--| starts its line, and so does the leaf after a trailing comment.
+--| `pending`: the leaf before had a trailing comment.
+def laidOut (pending: Bool) (leaves: List Leaf): Bool := match leaves with
+  | [] => True
+  | [leaf, ..rest] =>
+    (leaf.trivia.leading.isEmpty || leaf.token.lineStart)
+      && (!pending || leaf.token.lineStart)
+      && laidOut leaf.trivia.trailing.isSome rest
+
+--| A comma or closer: under slice 1's alphabet, what rule 1 walks past.
+def passable (leaf: Leaf): Bool := leaf.kind == Comma || leaf.kind.isCloser
+
+--| Rule 1's walk back from `current` (`stepsBack`'s steps) passes no
+--| comment: each leaf it passes has no own-line comments, and the leaf
+--| before it no trailing comment.
+def walkClean (current: Leaf) (behind ahead: List Leaf): Bool := match behind with
+  | [] => True
+  | [previous, ..earlier] =>
+    if !skipped current behind ahead then True
+    else if current.token.lineStart
+      && (!current.trivia.leading.isEmpty || endsWithComment behind [current, ..ahead]) then
+      True
+    else
+      current.trivia.leading.isEmpty && previous.trivia.trailing.isNone && walkClean previous earlier [current, ..ahead]
+
+--| The `steps` newest leaves of `behind` (`steps` at least 1) hold no
+--| comment a moved comment would pass or replace: the newest `steps - 1`
+--| are commas or closers with no comments, and the one after has no
+--| trailing comment.
+def quietFor (steps: Nat) (behind: List Leaf): Bool := match steps, behind with
+  | Succ Zero, [target, .._] => target.trivia.trailing.isNone
+  | Succ (Succ more), [leaf, ..earlier] =>
+    leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone && passable leaf && quietFor (Succ more) earlier
+  | _, _ => False
+
+--| Where a clean walk ends: it passes no leaf, or `current` has no
+--| own-line comments, is a comma or closer, and the leaves it passes are
+--| quiet.
+--|
+--| Proof idea: by induction on `behind`, following `stepsBack` and
+--| `walkClean`, which test the same conditions.
+theorem walkSteps ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
+    (clean: walkClean current behind ahead = True)
+    (within: current.kind.within1 = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
+    ∃ (passed: Nat) => stepsBack current behind ahead steps = steps + passed
+      ∧ (passed = 0 ∨ (current.trivia.leading.isEmpty ∧ passable current ∧ quietFor passed behind)) :=
+  match behind with
+    | [] => (0, arithmetic, Inl byComputing)
+    | [previous, ..earlier] =>
+      match skips: skipped current [previous, ..earlier] ahead with
+        | False => (0, arithmetic, Inl byComputing)
+        | True =>
+          match stops: current.token.lineStart
+            && (!current.trivia.leading.isEmpty || endsWithComment [previous, ..earlier] [current, ..ahead]) with
+            | True => (0, arithmetic, Inl byComputing)
+            | False =>
+              let leadEmpty := Bool.andLeft clean
+              let previousUntrailed := Bool.andLeft (Bool.andRight clean)
+              let previousClean := Bool.andRight (Bool.andRight clean)
+              let currentPassable: passable current = True :=
+                Eq.trans (skippedQuiet1 current [previous, ..earlier] ahead within).flipped skips
+              let (passed, walked, quiet) :=
+                walkSteps previous earlier
+                  [current, ..ahead]
+                  (Succ steps)
+                  previousClean
+                  (Bool.andLeft behindWithin)
+                  (Bool.andRight behindWithin)
+              let quietHere: quietFor (Succ passed) [previous, ..earlier] = True := match passed, quiet with
+                | Zero, _ => previousUntrailed
+                | Succ more, Inl zero => cases
+                | Succ more, Inr (previousLead, previousPassable, quietEarlier) =>
+                  Bool.andIntro previousLead
+                    (Bool.andIntro previousUntrailed (Bool.andIntro previousPassable quietEarlier))
+              (Succ passed, rewrite walked then arithmetic, Inr (leadEmpty, currentPassable, quietHere))
+
+--| A comment moved back over quiet leaves comes after all their comments.
+theorem movedTexts ∀ (behind: List Leaf) (steps: Nat) (comment: Comment)
+    (quiet: quietFor steps behind = True):
+    leafTexts ((trailingAt behind steps comment).reverseOnto [])
+      = leafTexts (behind.reverseOnto []) ++ [comment.text] :=
+  match steps, behind with
+    | Succ Zero, [target, ..earlier] =>
+      match target.trivia.trailing with
+        | None =>
+          rewrite leafTextsReverseOnto earlier [target.withTrailing (Some comment)],
+              leafTextsReverseOnto earlier [target] then
+            rewrite repeatedly [List.appendAssoc]
+    | Succ (Succ more), [leaf, ..earlier] =>
+      match leaf.trivia.leading, leaf.trivia.trailing with
+        | [], None =>
+          rewrite leafTextsReverseOnto (trailingAt earlier (Succ more) comment) [leaf],
+              leafTextsReverseOnto earlier [leaf],
+              movedTexts earlier (Succ more) comment (Bool.andRight quiet) then
+            rewrite repeatedly [List.appendAssoc, List.appendNil]
+
+--| After a comment moves back, the line still ends with it, seen from the
+--| comma or closer it left.
+theorem movedEnds ∀ (x: Leaf) (behind ahead: List Leaf) (steps: Nat) (comment: Comment)
+    (untrailed: x.trivia.trailing.isNone = True)
+    (xPassable: passable x = True)
+    (xWithin: x.kind.within1 = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (quiet: quietFor steps behind = True):
+    endsWithComment [x, ..trailingAt behind steps comment] ahead = True :=
+  match x.trivia.trailing with
+    | None =>
+      match steps, behind with
+        | Succ Zero, [target, ..earlier] =>
+          rewrite skippedQuiet1 x [target.withTrailing (Some comment), ..earlier] ahead xWithin, xPassable
+        | Succ (Succ more), [leaf, ..earlier] =>
+          rewrite skippedQuiet1 x [leaf, ..trailingAt earlier (Succ more) comment] ahead xWithin, xPassable then
+            movedEnds leaf earlier
+              [x, ..ahead]
+              (Succ more)
+              comment
+              (Bool.andLeft (Bool.andRight quiet))
+              (Bool.andLeft (Bool.andRight (Bool.andRight quiet)))
+              (Bool.andLeft behindWithin)
+              (Bool.andRight behindWithin)
+              (Bool.andRight (Bool.andRight (Bool.andRight quiet)))
