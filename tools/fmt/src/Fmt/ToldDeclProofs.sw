@@ -5,7 +5,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
-import Fmt.CalmProofs (bracketFrom, bracketIs, plainDef, plainDefIs)
+import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
 import Fmt.SpellProofs (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.TrailsProofs (Coded, trailsBackCoded)
@@ -1779,3 +1779,439 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
                 (Bool.andRight (Bool.andRight nonCloser))
                 homed))
         | _ => cases
+
+-- The body after `:=`.
+
+theorem unnotedToldAbove ∀ (word: Word) (item closer: Bool)
+    (unnoted: word.noted = False)
+    (low: item = False):
+    (word.kept item closer).comments.toldAbove = [] :=
+  match word with
+    | { text, comments = { above = [], after, blankBefore } } =>
+      match blankBefore with
+        | True => rewrite low
+        | False => rewrite low
+
+--| An expression with no own-line comments above it tells the same where an enclosing element wrote them.
+theorem shapeUnnoted ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (unnoted: expr.noted = False):
+    expr.shape False False = expr.shape False True :=
+  rewrite shapeLead expr False within,
+      unnotedToldAbove expr.lead
+        (False)
+        (isCloserText expr.lead.text)
+        (rewrite <- firstWordLead expr within then unnoted)
+        byComputing
+
+theorem allIsAppend ∀ (front back: List Doc) (shape: List Told)
+    (first: AllIs front shape)
+    (second: AllIs back shape):
+    AllIs (front ++ back) shape :=
+  match front with
+    | [] => second
+    | [doc, ..rest] => (first.left, allIsAppend rest back shape first.right second)
+
+theorem allIsOption ∀ (option: Option Doc) (shape: List Told)
+    (is: ∀ (doc: Doc) => option = Some doc → Is doc shape):
+    AllIs (optionList option) shape :=
+  match option, is with
+    | None, _ => byComputing
+    | Some doc, is => (is doc byComputing, byComputing)
+
+theorem callHugShape ∀ (value: Expr) (inside: Around) (prior: List Word)
+    (within: value.within1 = True)
+    (sound: value.sound = True)
+    (nonCloser: value.nonCloser = True)
+    (homed: homedBack (value.words.reverse ++ prior) = True):
+    ∀ (hugged: Doc) => value.callHug inside = Some hugged → Is hugged (value.shape inside.item inside.hoisted) :=
+  match value with
+    | App head arguments =>
+      (hugged same =>
+        (appDocsShape head arguments inside prior
+              (Bool.andLeft within)
+              (Bool.andLeft sound)
+              (Bool.andLeft nonCloser)
+              (around prior w s n h => elShape head around prior w s n h)
+              (Bool.andRight within)
+              (Bool.andRight sound)
+              (Bool.andRight nonCloser)
+              (allElShape arguments (Bool.andRight within) (Bool.andRight sound) (Bool.andRight nonCloser))
+              homed).right hugged same)
+    | _ => (hugged same => cases)
+
+--| A hug after a space tells what the hug does.
+theorem spacedHugShape ∀ (hug: Option Doc) (shape: List Told)
+    (each: ∀ (hugged: Doc) => hug = Some hugged → Is hugged shape):
+    ∀ (doc: Doc) => hug.map (open => Doc.concat [Doc.text " ", open]) = Some doc → Is doc shape :=
+  match hug, each with
+    | None, _ => (doc same => cases)
+    | Some opened, each =>
+      (doc same =>
+        rewrite <- Option.someInjective same then
+          isConcat _ _
+            (isCons (Doc.text " ") [opened] [] shape isSpace (isLast opened shape (each opened byComputing))))
+
+--| A body after `:=` tells the value in both its forms.
+--|
+--| Proof idea: The value's element (`elShape`); below it is a nest, the choice's options (flat, one line below, the hug
+--| on the line, below) each tell the same; the hug leaves out the value's own-line comments, which it has none of.
+theorem bodyAfterShape ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool) (prior: List Word)
+    (within: value.within1 = True)
+    (sound: value.sound = True)
+    (nonCloser: value.nonCloser = True)
+    (homed: homedBack (value.words.reverse ++ prior) = True)
+    (low: around.hoisted = False)
+    (plain: around.item = False):
+    Is (bodyAfter value assign around semi).fst (value.shape False False)
+      ∧ Is (bodyAfter value assign around semi).snd (value.shape False False) :=
+  let docIs: Is (value.el around) (value.shape False False) :=
+    isSame _ _ _ (elShape value around prior within sound nonCloser homed) (rewrite low, plain)
+  let belowIs: Is (Nest 2 (Doc.concat [HardLine, value.el around])) (value.shape False False) :=
+    isNest 2 _ _
+      (isConcat _ _ (isCons HardLine [value.el around] [] (value.shape False False) isHardLine (isLast _ _ docIs)))
+  let inside: Around := { around | hoisted = True }
+  rewrite matchedNone value inside within,
+      valueElPlain value around semi within,
+      lambdaHugNone value semi inside (value.el around) within then
+    match same: assign.trails || value.noted || value.isBlock with
+      | True => (belowIs, belowIs)
+      | False =>
+        let unnoted: value.noted = False :=
+          Bool.orFalseLeft value.noted value.isBlock
+            (Bool.orFalseRight assign.trails (value.noted || value.isBlock) same)
+        let hugIs: ∀ (hugged: Doc) => value.callHug inside = Some hugged → Is hugged (value.shape False False) :=
+          (hugged is =>
+            isSame _ _ _
+              (callHugShape value inside prior within sound nonCloser homed hugged is)
+              (rewrite plain then (shapeUnnoted value within unnoted).flipped))
+        let flat: Is (Flatten (Doc.concat [Doc.text " ", value.el around])) (value.shape False False) :=
+          isFlatten _ _
+            (isConcat _ _
+              (isCons (Doc.text " ") [value.el around] [] (value.shape False False) isSpace (isLast _ _ docIs)))
+        (
+          belowIs,
+          isChoice (Flatten (Doc.concat [Doc.text " ", value.el around])) _ (value.shape False False) (
+            flat,
+            allIsAppend
+              (if value.opensBracket || (value.callHug inside).isSome then [OneLineBelow (value.el around)] else [])
+              ((if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
+                else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
+                ++ [Nest 2 (Doc.concat [HardLine, value.el around])])
+              (value.shape False False)
+              (match value.opensBracket || (value.callHug inside).isSome with
+                | True => (isOneLineBelow _ _ docIs, byComputing)
+                | False => byComputing)
+              (allIsAppend
+                (if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
+                 else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
+                [Nest 2 (Doc.concat [HardLine, value.el around])]
+                (value.shape False False)
+                (match value.opensBracket with
+                  | True => (
+                    isConcat _ _
+                      (isCons (Doc.text " ") [value.el around] [] (value.shape False False) isSpace (isLast _ _ docIs)),
+                    byComputing
+                  )
+                  | False => allIsOption _ _ (spacedHugShape _ _ hugIs))
+                (belowIs, byComputing))
+          )
+        )
+
+-- Declarations.
+
+--| What a definition's document tells: the tokens in order, as `decl.stood` has them but for the blank lines and
+--| own-line comments of its `def`, which the file prints, with a bare comma between a bracket's items.
+def Decl.shape: Decl → List Told
+  | Definition _ header (Assigned colonEq value) =>
+    (fixedWord "def" header.keyword).shapeK False True
+      ++ header.name.shapeK False False
+      ++ (fixedWord ":" header.colon).shapeK False False
+      ++ header.result.shape False False
+      ++ (fixedWord ":=" colonEq).shapeK False False
+      ++ value.shape False False
+  | _ => []
+
+--| The tokens a declaration prints that are no closers: its name and what its type and value hold.
+def Decl.nonCloser: Decl → Bool
+  | Definition _ header (Assigned _ value) =>
+    !isCloserText header.name.text && header.result.nonCloser && value.nonCloser
+  | _ => False
+
+--| A definition's document tells its header, its `:=` and its body.
+--|
+--| Proof idea: A concat of the header in an `IdGroup`, a space, the `:=` and the body's `IfBroken`.
+theorem defFromShape ∀ (headerDoc assignDoc below choice: Doc)
+    (breaks: Bool) (headerShape assignShape bodyShape: List Told)
+    (header: Is headerDoc headerShape)
+    (assigns: Is assignDoc assignShape)
+    (belowIs: Is below bodyShape)
+    (choiceIs: Is choice bodyShape):
+    Is (defFrom headerDoc breaks assignDoc below choice) (headerShape ++ assignShape ++ bodyShape) :=
+  isConcat _ _
+    (isCons
+      (IdGroup 0 headerDoc breaks)
+      [Doc.text " ", assignDoc, IfBroken 0 below choice]
+      headerShape
+      (assignShape ++ bodyShape)
+      (isIdGroup 0 headerDoc breaks headerShape header)
+      (isCons
+        (Doc.text " ")
+        [assignDoc, IfBroken 0 below choice]
+        []
+        (assignShape ++ bodyShape)
+        isSpace
+        (isCons assignDoc
+          [IfBroken 0 below choice]
+          assignShape
+          bodyShape
+          assigns
+          (isLast (IfBroken 0 below choice) bodyShape (isIfBroken 0 below choice bodyShape belowIs choiceIs)))))
+
+theorem typedShape ∀ (trails: Bool) (typeDoc: Doc) (shape: List Told)
+    (is: Is typeDoc shape):
+    IsAll (if trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]) shape :=
+  match trails with
+    | True => isLast _ _ (isNest 4 _ _ (isConcat _ _ (isCons HardLine [typeDoc] [] shape isHardLine (isLast _ _ is))))
+    | False => isCons (Doc.text " ") [Nest 4 typeDoc] [] shape isSpace (isLast _ _ (isNest 4 _ _ is))
+
+theorem declHomed ∀ (keyword name colonWord: Word) (result: Expr) (assign: Word) (value: Expr)
+    (homed: homedBack (([keyword, name, colonWord] ++ result.words ++ [assign] ++ value.words).reverse) = True):
+    homedBack (result.words.reverse ++ [colonWord, name, keyword]) = True
+      ∧ homedBack (value.words.reverse ++ ([assign] ++ (result.words.reverse ++ [colonWord, name, keyword]))) = True :=
+  let split: ([keyword, name, colonWord] ++ result.words ++ [assign] ++ value.words).reverse
+    = value.words.reverse ++ ([assign] ++ (result.words.reverse ++ [colonWord, name, keyword])) :=
+    rewrite List.reverseAppend [keyword, name, colonWord] (result.words ++ [assign] ++ value.words),
+        List.reverseAppend result.words ([assign] ++ value.words),
+        List.reverseAppend [assign] value.words,
+        List.appendAssoc (value.words.reverse ++ [assign]) result.words.reverse [colonWord, name, keyword],
+        List.appendAssoc value.words.reverse [assign] (result.words.reverse ++ [colonWord, name, keyword])
+  let whole := rewrite split at homed then homed
+  (
+    homedSuffix
+      (value.words.reverse ++ [assign])
+      (result.words.reverse ++ [colonWord, name, keyword])
+      (rewrite List.appendAssoc value.words.reverse [assign] (result.words.reverse ++ [colonWord, name, keyword]) then
+        whole),
+    whole
+  )
+
+theorem assocSix ∀ (a b c d e f: List Told): (a ++ b ++ c ++ d) ++ e ++ f = a ++ b ++ c ++ d ++ e ++ f :=
+  rewrite List.appendAssoc a (b ++ c ++ d) (e ++ f), List.appendAssoc b (c ++ d) (e ++ f), List.appendAssoc c d (e ++ f)
+
+theorem assocHeader ∀ (a b c d: List Told): ((a ++ b) ++ c) ++ d = a ++ b ++ c ++ d :=
+  rewrite List.appendAssoc (a ++ b) c d, List.appendAssoc a b (c ++ d)
+
+--| A definition with no parameters tells its tokens in order.
+--|
+--| Proof idea: `defFromShape` with the header (the head words spaced, the colon, the type: `typedShape`), the `:=`'s
+--| leaf and `bodyAfterShape`; every word is homed by `homedBack` of the declaration's words read back, split by
+--| `declHomed`.
+theorem plainDefShape ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
+    (colonEq: Comments) (value: Expr)
+    (resultWithin: result.within1 = True)
+    (valueWithin: value.within1 = True)
+    (keywordSound: (fixedWord "def" keyword).sound = True)
+    (nameSound: name.sound = True)
+    (colonSound: (fixedWord ":" colon).sound = True)
+    (resultSound: result.sound = True)
+    (assignSound: (fixedWord ":=" colonEq).sound = True)
+    (valueSound: value.sound = True)
+    (nameOpens: isCloserText name.text = False)
+    (resultNonCloser: result.nonCloser = True)
+    (valueNonCloser: value.nonCloser = True)
+    (homed: homedBack
+      ([fixedWord "def" keyword, name, fixedWord ":" colon]
+        ++ result.words
+        ++ [fixedWord ":=" colonEq]
+        ++ value.words).reverse
+      = True):
+    Is
+      (plainDef keyword name colon result colonEq value)
+      ((fixedWord "def" keyword).shapeK False True
+        ++ name.shapeK False False
+        ++ (fixedWord ":" colon).shapeK False False
+        ++ result.shape False False
+        ++ (fixedWord ":=" colonEq).shapeK False False
+        ++ value.shape False False) :=
+  let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
+  let colonWord := fixedWord ":" colon
+  let assign := fixedWord ":=" colonEq
+  let (resultHomed, valueHomed) := declHomed (fixedWord "def" keyword) name colonWord result assign value homed
+  let typeIs :=
+    elShape result
+      (start.next colonWord.trails 3)
+      [colonWord, name, fixedWord "def" keyword]
+      resultWithin
+      resultSound
+      resultNonCloser
+      resultHomed
+  let bodyIs :=
+    bodyAfterShape value assign
+      (start.next assign.trails (4 + result.size))
+      False
+      ([assign] ++ (result.words.reverse ++ [colonWord, name, fixedWord "def" keyword]))
+      valueWithin
+      valueSound
+      valueNonCloser
+      valueHomed
+      byComputing
+      byComputing
+  let headIs: Is
+    (spaced (headDocs start [fixedWord "def" keyword, name]))
+    ((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False) :=
+    isSame
+      (spaced (headDocs start [fixedWord "def" keyword, name]))
+      ((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False ++ [])
+      ((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False)
+      (isSpaced
+        (headDocs start [fixedWord "def" keyword, name])
+        [(fixedWord "def" keyword).shapeK False True, name.shapeK False False]
+        (
+          spot =>
+            rewrite <- printedShape (fixedWord "def" keyword) start then
+              leafShape (fixedWord "def" keyword) start 0 spot keywordSound (homesOpen _ start byComputing),
+          (
+            spot =>
+              rewrite <- printedShape name (start.next (fixedWord "def" keyword).trails 1) then
+                leafShape name
+                  (start.next (fixedWord "def" keyword).trails 1)
+                  1
+                  spot
+                  nameSound
+                  (homesOpen name (start.next (fixedWord "def" keyword).trails 1) nameOpens),
+            byComputing
+          )
+        ))
+      (rewrite List.appendNil (name.shapeK False False))
+  let colonIs: Is
+    (colonWord.leaf (start.next (trailsBack [name, fixedWord "def" keyword]) 2) 2)
+    (colonWord.shapeK False False) :=
+    spot =>
+      rewrite <- printedShape colonWord (start.next (trailsBack [name, fixedWord "def" keyword]) 2) then
+        leafShape colonWord
+          (start.next (trailsBack [name, fixedWord "def" keyword]) 2)
+          2
+          spot
+          colonSound
+          (homesOpen colonWord (start.next (trailsBack [name, fixedWord "def" keyword]) 2) byComputing)
+  let assignIs: Is
+    (assign.leaf (start.next result.trails (3 + result.size)) (3 + result.size))
+    (assign.shapeK False False) :=
+    spot =>
+      rewrite <- printedShape assign (start.next result.trails (3 + result.size)) then
+        leafShape assign
+          (start.next result.trails (3 + result.size))
+          (3 + result.size)
+          spot
+          assignSound
+          (homesOpen assign (start.next result.trails (3 + result.size)) byComputing)
+  let headDoc := spaced (headDocs start [fixedWord "def" keyword, name])
+  let colonLeaf := colonWord.leaf (start.next (trailsBack [name, fixedWord "def" keyword]) 2) 2
+  let typed :=
+    if colonWord.trails then [Nest 4 (Doc.concat [HardLine, result.el (start.next colonWord.trails 3)])]
+    else [Doc.text " ", Nest 4 (result.el (start.next colonWord.trails 3))]
+  let breaks :=
+    (Doc.concat ([headDoc, colonLeaf] ++ typed)).forcesBreak
+      || ([fixedWord "def" keyword, name].reverse.drop 1 |> .any Word.trails)
+      || colonWord.trails
+      || (result.words.reverse.drop 1 |> .any Word.trails)
+      || (value.layoutBody && (lastCode [fixedWord "def" keyword, name]).trails)
+  isSame
+    (plainDef keyword name colon result colonEq value) _ _
+    (defFromShape _ _ _ _ breaks _ _ _
+      (isConcat
+        ([headDoc, colonLeaf] ++ typed) _
+        (isAllSame
+          ([headDoc, colonLeaf] ++ typed)
+          ((((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False) ++ colonWord.shapeK False False)
+            ++ result.shape False False)
+          ((fixedWord "def" keyword).shapeK False True
+            ++ name.shapeK False False
+            ++ colonWord.shapeK False False
+            ++ result.shape False False)
+          (isAppend
+            [headDoc, colonLeaf]
+            typed
+            (((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False) ++ colonWord.shapeK False False)
+            (result.shape False False)
+            (isCons headDoc
+              [colonLeaf]
+              ((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False)
+              (colonWord.shapeK False False)
+              headIs
+              (isLast colonLeaf _ colonIs))
+            (typedShape colonWord.trails _ _ typeIs))
+          (assocHeader
+            ((fixedWord "def" keyword).shapeK False True)
+            (name.shapeK False False)
+            (colonWord.shapeK False False)
+            (result.shape False False))))
+      assignIs
+      bodyIs.left
+      bodyIs.right)
+    (assocSix
+      ((fixedWord "def" keyword).shapeK False True)
+      (name.shapeK False False)
+      (colonWord.shapeK False False)
+      (result.shape False False)
+      (assign.shapeK False False)
+      (value.shape False False))
+
+theorem isEq ∀ (doc doc': Doc) (shape: List Told) (same: doc = doc') (is: Is doc' shape): Is doc shape :=
+  rewrite same then is
+
+--| The document a slice 1 declaration has tells its shape.
+--|
+--| Proof idea: `plainDefIs` and `plainDefShape`, with the tokens' soundness taken from the declaration's, and the
+--| tokens' homes from `homedBack` of the declaration's words read back.
+theorem doc1Shape ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (sound: decl.sound = True)
+    (nonCloser: decl.nonCloser = True)
+    (homed: homedBack decl.words.reverse = True)
+    (shows: decl.doc1 = Some doc):
+    Is doc decl.shape :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          rewrite <- Option.someInjective shows then
+            isEq _ _ _
+              (plainDefIs keyword name colon result colonEq value)
+              (plainDefShape keyword name colon result colonEq value
+                (Bool.andRight (Bool.andLeft within))
+                (Bool.andRight within)
+                (Bool.andLeft sound)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andLeft (Bool.andRight (Bool.andRight sound)))
+                (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight sound))))
+                (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
+                (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
+                (Bool.notTrue _ (Bool.andLeft nonCloser))
+                (Bool.andLeft (Bool.andRight nonCloser))
+                (Bool.andRight (Bool.andRight nonCloser))
+                homed)
+        | _ => cases
+
+--| `printedTold`'s first half: the printer's document for a declaration tells the declaration's shape from a line start.
+theorem doc1Told ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (sound: decl.sound = True)
+    (nonCloser: decl.nonCloser = True)
+    (homed: homedBack decl.words.reverse = True)
+    (shows: decl.doc1 = Some doc):
+    Refines (doc.told Spot.lineStart) decl.shape :=
+  doc1Shape decl doc within sound nonCloser homed shows Spot.lineStart
