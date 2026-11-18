@@ -25134,7 +25134,7 @@
     {
       "id": 4068,
       "title": "[Sonnet] fmt proofs tidy (SW-4051), first fixing main: StandsProofs commentFineOf broken by SW-4065's unreturnedSame; share one unreturned definition (noteUnreturned -> Note.unreturned); move StandsProofs' lexer group (Hearing, laidHears) to its own file so Told.Gap needs no qualifying; FileLexProofs W-REWRITE-THEN-COMPUTING fixup",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
