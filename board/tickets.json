@@ -25526,7 +25526,7 @@
     {
       "id": 4098,
       "title": "[Opus] fmt S1 goal (A) edgeQuietOneLine1 (Fmt.OneLineStatements): a one-line declaration is edge-quiet, by SW-4096's non-circular route (printedSpellsSettled, CommentsEnd, onLine1); step 5 (read blank-line flags) has no known route: report it as stuck rather than loop",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
