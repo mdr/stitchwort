@@ -1630,3 +1630,87 @@ theorem trimRelated ∀ (leaves: List Leaf):
     | [leaf, ..rest] =>
       let here: relatedLeaf leaf { leaf | trivia = leaf.trivia.trimmed } = True := cases
       Bool.andIntro here (trimRelated rest)
+
+theorem tokensReversed ∀ (xs ys: List Leaf)
+    (same: tokens xs = tokens ys):
+    tokens (xs.reverseOnto []) = tokens (ys.reverseOnto []) :=
+  rewrite tokensReverseOnto xs [], tokensReverseOnto ys [], same
+
+theorem backOkOf ∀ (leaves: List Leaf) (original: List Token)
+    (same: tokens leaves = original)
+    (plain: plain1 original = True):
+    backOk (tokens (leaves.reverseOnto [])) = True :=
+  rewrite tokensReverseOnto leaves [], same then plainReversed original plain
+
+theorem plainFromOf ∀ (original: List Token) (plain: plain1 original = True): plainFrom original = True :=
+  match original with
+    | [] => byComputing
+    | [_, .._] => Bool.andRight plain
+
+theorem arrowsRelatedAll ∀ (leaves: List Leaf)
+    (plain: plainFrom (tokens leaves) = True):
+    related leaves (arrows leaves) = True :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] => arrowsRelated first first rest (relatedSelf first) byComputing plain
+
+--| Rule N's result is homed: every closer that keeps a trailing comment
+--| starts its line, and has own-line comments or follows code ending with
+--| a comment, looking back past commas and closers; every comma that keeps
+--| one starts its line. For `plain` leaves laid out as the lexer lays
+--| them out, under slice 1's alphabet (K1's `settledHomed`).
+--|
+--| Proof idea: rule 1's result is homed (`homeFromHomed`), and rules 2,
+--| 3 and 5 only take trailing comments off commas and `->`, which in a
+--| `plain` file no closer's line ends with, and keep closers' own-line
+--| comments (`homedTransfer`); rule 4 does nothing.
+theorem settledHomed ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True)
+    (laid: laidOut False lexed.leaves = True)
+    (plain: plain1 (tokens lexed.leaves) = True):
+    homedBehind (lexed.settled.leaves.reverseOnto []) = True :=
+  let homed := homeFrom [] None lexed.leaves
+  let commas := commasFrom [] None homed lexed.end
+  let arrowed := arrows commas.leaves
+  let trimmed := arrowed.map (leaf => { leaf | trivia = leaf.trivia.trimmed })
+  let leavesWithin := alphabet1Leaves lexed.leaves within
+  let homedTokens: tokens homed = tokens lexed.leaves := homeFromTokens [] None lexed.leaves
+  let commasTokens: tokens commas.leaves = tokens lexed.leaves :=
+    Eq.trans (commasFromTokens [] None homed lexed.end) homedTokens
+  let arrowedTokens: tokens arrowed = tokens lexed.leaves := Eq.trans (arrowsTokens commas.leaves) commasTokens
+  let trimmedTokens1: tokens trimmed = tokens lexed.leaves := Eq.trans (trimmedTokens arrowed) arrowedTokens
+  let homedFirst: homedBehind (homed.reverseOnto []) = True :=
+    homeFromHomed [] lexed.leaves False
+      (next ahead nextLaid nextPending => byComputing)
+      laid
+      byComputing
+      leavesWithin
+      byComputing
+  let homedCommas: homedBehind (commas.leaves.reverseOnto []) = True :=
+    homedTransfer
+      (homed.reverseOnto [])
+      (commas.leaves.reverseOnto [])
+      (tokensReversed homed commas.leaves (Eq.trans homedTokens commasTokens.flipped))
+      (relatedReverseOnto homed commas.leaves [] [] (commasRelated [] [] None homed lexed.end byComputing) byComputing)
+      (backOkOf homed (tokens lexed.leaves) homedTokens plain)
+      homedFirst
+  let homedArrows: homedBehind (arrowed.reverseOnto []) = True :=
+    homedTransfer
+      (commas.leaves.reverseOnto [])
+      (arrowed.reverseOnto [])
+      (tokensReversed commas.leaves arrowed (Eq.trans commasTokens arrowedTokens.flipped))
+      (relatedReverseOnto commas.leaves arrowed [] []
+        (arrowsRelatedAll commas.leaves (rewrite commasTokens then plainFromOf (tokens lexed.leaves) plain))
+        byComputing)
+      (backOkOf commas.leaves (tokens lexed.leaves) commasTokens plain)
+      homedCommas
+  let arrowedWithin := withinOfTokens arrowed lexed.leaves (Eq.trans arrowedTokens byComputing) leavesWithin
+  let quiet: letsFrom [] arrowed = arrowed := letsQuiet1 [] arrowed byComputing arrowedWithin
+  rewrite quiet then
+    homedTransfer
+      (arrowed.reverseOnto [])
+      (trimmed.reverseOnto [])
+      (tokensReversed arrowed trimmed (Eq.trans arrowedTokens trimmedTokens1.flipped))
+      (relatedReverseOnto arrowed trimmed [] [] (trimRelated arrowed) byComputing)
+      (backOkOf arrowed (tokens lexed.leaves) arrowedTokens plain)
+      homedArrows
