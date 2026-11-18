@@ -25251,7 +25251,7 @@
     {
       "id": 4077,
       "title": "[Opus] fmt S1 read-back: Spelt's prefix equation is false of a parsing source (def d: A := (- -- c⏎  1) reads back but 1 isn't glued); weaken Spelt to 'a negative numeral read means the operand is a numeral' and re-prove unaryLine (SW-4070 finding 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
