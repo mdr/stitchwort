@@ -24858,12 +24858,12 @@
     {
       "id": 4048,
       "title": "[Opus] fmt S1 trivia F1: Std.Doc.Proofs Doc.told (the document's reading with a line-begun bit) and laysTold (every trace a Uniform document Lays reads as doc.told); report before starting if Lays won't give it without exact places (docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "18 Nov 19:20 (Opus lane): stopped before Doc.told, as the brief's stop rule says. Lays doesn't follow modes, so a Blank after a Line/SoftLine/fill separator has a laid trace with the blank line and one without (std's blankAfterLineExample); the rules write one for a comment-free item with a kept blank line (Word.leading, [BreakParent, Blank]). No told can read both, so laysTold with exact blank flags is false there. Details and three ways on: docs/reviews/SW-4042-trivia-statement.md section 8 (commit 363a72303 on lane/SW-4048). No std change.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
