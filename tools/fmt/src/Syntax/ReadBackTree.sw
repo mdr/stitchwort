@@ -1581,3 +1581,97 @@ theorem treeOfLayer ∀ (depth: Nat) (goal: Goal) (read rest: List Item) (value:
     (layer: Layer (TreeN depth) goal read rest value):
     Tree goal read rest value :=
   (Succ depth, layer)
+
+-- One word: the relation holds where `runsExpressionWord` does.
+
+--| A word in the middle of a line, that nothing after it continues, is what `expr` should read, with no calls to
+--| `self`.
+theorem fullWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
+    (inLine: item.leaf.token.lineStart = False)
+    (open: modes.stops item = False)
+    (word: isWord item.kind = True)
+    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
+    (noBar: matchesBarOn modes [item, ..rest] = False)
+    (inline: InlinePlain modes item [item, ..rest])
+    (ends: OperandEnds modes rest):
+    FullReads sub modes [item] rest (Atom item.kind item.leaf.word) :=
+  let atomValue := Atom item.kind item.leaf.word
+  let (_, _, _, _, notDot) := wordKinds item.kind word
+  let (notMatch, unsigned) := wordUnsigned item.kind word
+  let noSection: isSome Dot (peekIn modes 0 [item, ..rest]) = False :=
+    rewrite peekFirst modes item rest open then notDot
+  let atomReads: AtomReads sub modes True [item] rest atomValue := (
+    item,
+    [],
+    byComputing,
+    open,
+    { plain, noCall = ends.noCall, noDot = ends.noDot },
+    Inl (byComputing, byComputing, word)
+  )
+  let unaryReads: UnaryReads sub modes [item] rest atomValue :=
+    Inr (item, [], byComputing, open, notMatch, noBar, Inl unsigned, Inl (noSection, atomReads, ends.noArgument))
+  let mulReads: MulReads sub modes [item] rest atomValue :=
+    ([item], atomValue, [], byComputing, byComputing, unaryReads, ends.noMul)
+  let addReads: AddReads sub modes [item] rest atomValue :=
+    ([item], atomValue, [], byComputing, byComputing, mulReads, ends.noAdd)
+  let appendReads: AppendReads sub modes [item] rest atomValue :=
+    ([item], atomValue, [], byComputing, byComputing, addReads, ends.noAppend)
+  let operatorReads: OperatorReads sub modes [item] rest atomValue := (
+    [item],
+    [],
+    [],
+    atomValue,
+    atomValue,
+    byComputing,
+    noSection,
+    Inl ((ends.noRange, ends.noPipe, appendReads), ends.noCmp),
+    Inl (byComputing, byComputing, ends.noAndOr),
+    ends.noIff,
+    Inl (byComputing, byComputing, ends.noEnd)
+  )
+  let never: startsBlock modes True item = False := rewrite inLine
+  (
+    item,
+    [],
+    byComputing,
+    (open, inline, operatorReads),
+    starts => (Bool.falseNotTrue (Eq.trans never.flipped starts)).impossible
+  )
+
+--| The same as a tree: `runsTree` gives `runsExpressionWord` back.
+theorem treeWord ∀ (modes: Modes) (item: Item) (rest: List Item)
+    (inLine: item.leaf.token.lineStart = False)
+    (open: modes.stops item = False)
+    (word: isWord item.kind = True)
+    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
+    (noBar: matchesBarOn modes [item, ..rest] = False)
+    (inline: InlinePlain modes item [item, ..rest])
+    (ends: OperandEnds modes rest):
+    Tree { modes, level = LevelFull } [item] rest (Atom item.kind item.leaf.word) :=
+  treeOfLayer 0
+    { modes, level = LevelFull }
+    [item]
+    rest
+    (Atom item.kind item.leaf.word)
+    (fullWord (TreeN 0) modes item rest inLine open word plain noBar inline ends)
+
+-- Items through `ItemsAt`.
+
+--| A node's leaves between others: its items are read from the place its first leaf is at, and what follows it from
+--| the place past it. Each rung's reads are the items of a node's leaves cut this way.
+theorem itemsAround ∀ (place: ItemsAt) (before inner after: List Leaf):
+    place.items (before ++ inner ++ after)
+      = place.items before ++ (place.past before).items inner ++ ((place.past before).past inner).items after :=
+  rewrite itemsAppend place before (inner ++ after), itemsAppend (place.past before) inner after
+
+--| A declaration `def name: type := value`'s items: the type's are read from the place after the `:`, the value's
+--| from the place after the `:=`; `typeRead` and `valueRead` of `DeclarationTree`.
+theorem declarationItems ∀ (keyword name colon colonEq: Leaf) (typeLeaves valueLeaves: List Leaf):
+    let typeAt := ItemsAt.start.past [keyword, name, colon]
+    let colonEqAt := typeAt.past typeLeaves
+    items [keyword, name, colon, ..typeLeaves ++ [colonEq, ..valueLeaves]]
+      = ItemsAt.start.items [keyword, name, colon]
+        ++ (typeAt.items typeLeaves ++ (colonEqAt.items [colonEq] ++ (colonEqAt.step colonEq).items valueLeaves)) :=
+  rewrite itemsStart [keyword, name, colon, ..typeLeaves ++ [colonEq, ..valueLeaves]],
+      itemsAppend ItemsAt.start [keyword, name, colon] (typeLeaves ++ [colonEq, ..valueLeaves]),
+      itemsAppend (ItemsAt.start.past [keyword, name, colon]) typeLeaves [colonEq, ..valueLeaves]
