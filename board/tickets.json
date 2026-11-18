@@ -24726,7 +24726,7 @@
     {
       "id": 4038,
       "title": "[Sonnet] fmt S1 output A: prove printedTokens1 (per declaration: tokenTexts decl.leaves1 = decl.spelt.filter notComment, kinds the lexer's); Decl.real from lexical1 (docs/reviews/SW-4025-output-statements.md ticket A)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
