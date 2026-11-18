@@ -24905,12 +24905,12 @@
     {
       "id": 4051,
       "title": "[Opus] fmt S1 trivia F4: the engine end: the tuck over Tucks stretches, Laid.lay against the printed events, assembly as printedHangs does it; printedStands1 takes DeclHangs until SW-4045 lands (after SW-4048; docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4056: printTold carries laysTold to the printed words at any width; use it directly.\n\nFrom SW-4050: printedTold in Fmt/ToldDeclProofs.sw gives Refines (doc.told Spot.lineStart) decl.shape and dropCommas decl.shape = wordsShape decl.stood; F4 reads the tuck (flags of closers and commas after a waiting comment) from the engine; the def's own-line comments are outside the shape; build DeclJoins with declJoins; printedStands1's shaped/lexical aren't needed by printedTold. Ready.\n\nLane (Opus, 18 Nov 20:35-21:30, est. 50 min): printedStands1 proved in Fmt/StandsProofs.sw (62 theorems, audit clean), the open goal gone from TriviaStatements (pointer left). Statement change: two added hypotheses, decl.unreturned1 (no comment ends in \\r; false without it, returnedFalls) and DeclHangs lexKind decl (the most general of DeclHangs/DeclElements/DeclQuiet; orchestrator's call to name). Branch lane/SW-4051, 10 commits. Moved to review.\n",
+      "body": "From SW-4056: printTold carries laysTold to the printed words at any width; use it directly.\n\nFrom SW-4050: printedTold in Fmt/ToldDeclProofs.sw gives Refines (doc.told Spot.lineStart) decl.shape and dropCommas decl.shape = wordsShape decl.stood; F4 reads the tuck (flags of closers and commas after a waiting comment) from the engine; the def's own-line comments are outside the shape; build DeclJoins with declJoins; printedStands1's shaped/lexical aren't needed by printedTold. Ready.\n\nLane (Opus, 18 Nov 20:35-21:30, est. 50 min): printedStands1 proved in Fmt/StandsProofs.sw (62 theorems, audit clean), the open goal gone from TriviaStatements (pointer left). Statement change: two added hypotheses, decl.unreturned1 (no comment ends in \\r; false without it, returnedFalls) and DeclHangs lexKind decl (the most general of DeclHangs/DeclElements/DeclQuiet; orchestrator's call to name). Branch lane/SW-4051, 10 commits. Moved to review.\n\nMerged 18 Nov. 55 min (est. 50). Statement gained unreturned1 (counterexample returnedFalls) and DeclHangs (orchestrator's call); both noted for Fable's SW-4003.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
