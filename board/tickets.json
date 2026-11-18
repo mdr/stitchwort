@@ -23700,12 +23700,12 @@
     {
       "id": 3961,
       "title": "[Opus] Self-hosted fmt S3 program: layout core (Block, Let, Match with arms, If with block branches, a then that ends its line) on Std.Doc, within3, Fmt.Twin --stage s3; gate: identical to Rust on every golden and repo-sample declaration within S1-S3 (proof plan S3 row; SW-3950/SW-3959 pattern)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane (Opus), 18 Nov 11:47-12:05 (expected 60 min). Built: S3 rules (block, let_line, sequence, if_, alternatives, arm, PatternCtor as app) on Std.Doc, Around.inArm for arm_depth, within3 + Tok.within3, formatWithin over S1-S3, one shared file loop (SourceFile.printedBy), Fmt.Twin --stage s3, dev/fmt-twin s3, Tests/Slice3 (7).\nGate (interpreted twin): goldens 288/288, repo sample 576/576 (9.5% of 6,072 declarations, was 7.3%); s1 82/82 + 45/45 and s2 230/230 + 444/444 unchanged. Excluded: a later block line starting with '-' (Rust copies the gap, StatementMinus) and a block as a quantifier body (Rust's output doesn't read back). F1 tree unchanged. Notes for K3b in tools/fmt/NOTES.md 'Slice 3, the program'.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
