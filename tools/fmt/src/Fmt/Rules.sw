@@ -9,7 +9,8 @@
 --| for slice 2's binders, `header` with `premises`, `lambda_both` and
 --| `quantifier`; for slice 3's layout, `block`, `let_line`, `sequence`,
 --| `if_`, `alternatives` and `arm`; for slice 4a, `join` for
---| `FieldAccess`.
+--| `FieldAccess`; for slice 5a, `decl` for `test` and for a definition's
+--| arms, `import` and `join` for `namespace`.
 --|
 --| The Rust rules read a token's neighbours by its index in the file.
 --| Here what a rule needs of a token's surroundings travels down the tree
@@ -19,8 +20,8 @@
 --| before it in the declaration, which gives each `IdGroup` and each
 --| `Mark` a key of its own as the Rust token index does.
 --|
---| A node outside the slices prints as nothing: the caller asks `within3`
---| (or an earlier slice's test) first (`Fmt.Slice4a`).
+--| A node outside the slices prints as nothing: the caller asks `within5a`
+--| (or an earlier slice's test) first (`Fmt.Slice5a`).
 
 namespace Fmt
 import Std (Bool, Doc, List, Nat, Option, Text)
@@ -33,6 +34,8 @@ import Syntax (
   Expr,
   Guard,
   Header,
+  Imported,
+  ImportItem,
   InfixKind,
   Let,
   Note,
@@ -1212,3 +1215,133 @@ def mergeUnderscores (current: Doc): List (Doc, Pattern) → List Doc
   | [] => [current]
   | [(doc, PatternWord Underscore _), ..rest] => mergeUnderscores (Doc.concat [current, Doc.text " ", doc]) rest
   | [(doc, _), ..rest] => [current, ..mergeUnderscores doc rest]
+
+-- Slice 5a's declarations.
+
+--| Where a declaration's first token stands: its own-line comments are
+--| the file's to print (`file_comments`).
+def declStart (arm: Bool): Around := { before = False, hoisted = True, item = False, at = 0, inArm = arm }
+
+--| `namespace Name` (`join`: the node has no rule of its own).
+def namespaceDoc (keyword: Comments) (name: Word): Doc :=
+  let keywordWord := fixedWord "namespace" keyword
+  let start := declStart False
+  Doc.concat [keywordWord.leaf start 0, Doc.text " ", name.leaf (start.next keywordWord.trails 1) 1]
+
+--| `test "name" := e` (`decl` with a head and a body only): the head in an
+--| `IdGroup`, which a comment after `test` breaks, then the body after
+--| `:=` as `bodyAfter` chooses.
+def testDoc (keyword: Comments) (name: Word) (colonEq: Comments) (value: Expr): Doc :=
+  let keywordWord := fixedWord "test" keyword
+  let assign := fixedWord ":=" colonEq
+  let start := declStart False
+  let headDoc := spaced (headDocs start [keywordWord, name])
+  let (below, choice) := bodyAfter value assign (start.next assign.trails 3) False
+  Doc.concat [
+    IdGroup 0 headDoc (headDoc.forcesBreak || keywordWord.trails),
+    Doc.text " ",
+    assign.leaf (start.next name.trails 2) 2,
+    IfBroken 0 below choice
+  ]
+
+--| `import M (a, b as c)` or `import M (..)` (`import`, `comma_bracket`):
+--| flat if it fits, else one item a line at 2, the `)` on its own line.
+--| Each item is a node in Rust's tree, so a comment before it displaces
+--| it.
+def importDoc (keyword: Comments) (path: Word) (open: Comments) (imported: Imported) (close: Comments): Doc :=
+  let keywordWord := fixedWord "import" keyword
+  let openWord := fixedWord "(" open
+  let closeWord := fixedWord ")" close
+  let start := declStart False
+  let inner := importedWords imported
+  let all := [keywordWord, path, openWord, ..inner] ++ [closeWord]
+  let holds := (all.filter Word.trails |> .length) > (if trailsBack all.reverse then 1 else 0)
+  let prefix := Doc.concat [
+    keywordWord.leaf start 0,
+    Doc.text " ",
+    path.leaf (start.next keywordWord.trails 1) 1,
+    Doc.text " ",
+    openWord.opening (start.next path.trails 2) closeWord
+  ]
+  let items := match imported with
+    | ImportAll dots => [SoftLine, (fixedWord ".." dots).leaf (itemAround False openWord.trails 3) 3]
+    | ImportItems list => importItemDocs True openWord.trails 3 list
+  let closer := closeWord.leaf (start.next (trailsBack [openWord, ..inner].reverse) (3 + inner.length)) 2
+  let parts := [prefix, Nest 2 (Doc.concat items), SoftLine, closer]
+  Doc.group (Doc.concat (if holds then parts ++ [BreakParent] else parts))
+
+--| The tokens between an import's brackets, commas left out.
+def importedWords: Imported → List Word
+  | ImportAll dots => [fixedWord ".." dots]
+  | ImportItems items => importItemsWords items
+
+def importItemsWords: List ImportItem → List Word
+  | [] => []
+  | [item, ..rest] => item.words ++ importItemsWords rest
+
+def ImportItem.words (item: ImportItem): List Word := match item.alias with
+  | Some (asComments, alias) => [item.name, fixedWord "as" asComments, alias]
+  | None => [item.name]
+
+--| A broken import's items, as `brokenItems`: each starts a line, with its
+--| comma after it.
+def importItemDocs (first before: Bool) (at: Nat): List ImportItem → List Doc
+  | [] => []
+  | [item] => [if first then SoftLine else Line, item.el (itemAround False before at)]
+  | [item, ..rest] =>
+    let words := item.words
+    [
+      if first then SoftLine else Line,
+      item.el (itemAround False before at),
+      Closing ",",
+      ..importItemDocs False (trailsBack words.reverse) (at + words.length) rest
+    ]
+
+--| `name` or `name as alias`, framed as a node.
+def ImportItem.el (item: ImportItem) (around: Around): Doc :=
+  let inside := { around | hoisted = True }
+  let named := item.name.leaf inside around.at
+  let doc := match item.alias with
+    | Some (asComments, alias) =>
+      let asWord := fixedWord "as" asComments
+      Doc.concat [
+        named,
+        Doc.text " ",
+        asWord.leaf (around.next item.name.trails 1) (around.at + 1),
+        Doc.text " ",
+        alias.leaf (around.next asWord.trails 2) (around.at + 2)
+      ]
+    | None => named
+  framedBy item.name around doc
+
+--| `def f: A → B` and its arms (`decl` with `Arms`): the header as
+--| `defDoc`'s, inside the arms' depth (`arm_depth`), then each arm on a
+--| line of its own at 2.
+def defArmsDoc (header: Header) (arms: List Arm): Doc :=
+  let keyword := fixedWord header.kind.keywordText header.keyword
+  let colon := fixedWord ":" header.colon
+  let result := header.result
+  let start := declStart True
+  let headWords := [keyword, header.name] ++ optionWords header.forallKeyword
+  let headSize := headWords.length
+  let paramWords := groupsWords header.params
+  let colonAt := headSize + paramWords.length
+  let colonAround := start.next (trailsBack (paramWords.reverse ++ headWords.reverse)) colonAt
+  let typeDoc := result.el (start.next colon.trails (colonAt + 1))
+  let headDoc := spaced (headDocs start headWords)
+  let headerDoc := match header.params with
+    | [] =>
+      let typed := if colon.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
+      Doc.concat ([headDoc, colon.leaf colonAround colonAt] ++ typed)
+    | params =>
+      paramsHeader headDoc (start.next (trailsBack headWords.reverse) headSize) params colon colonAround typeDoc
+  let inside :=
+    (headWords.reverse.drop 1 |> .any Word.trails)
+      || header.params.any groupHoldsComment
+      || colon.trails
+      || (result.words.reverse.drop 1 |> .any Word.trails)
+  let headerWords := headWords ++ paramWords ++ [colon] ++ result.words
+  Doc.concat [
+    IdGroup 0 headerDoc (headerDoc.forcesBreak || inside),
+    Nest 2 (Doc.concat (armLines True (trailsBack headerWords.reverse) (colonAt + 1 + result.size) arms))
+  ]

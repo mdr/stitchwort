@@ -115,6 +115,9 @@ def Decl.printed1 (decl: Decl): Option Text := if decl.within1 then decl.doc1.ma
 --| The comments a declaration's first token holds, which the file prints.
 def Decl.firstComments: Decl → Comments
   | Definition _ header _ => header.keyword
+  | Namespace keyword _ => keyword
+  | Import keyword _ _ _ _ => keyword
+  | Test keyword _ _ _ => keyword
   | _ => { above = [], after = None, blankBefore = False }
 
 --| The file's text so far, newest piece first, and whether it is empty.
