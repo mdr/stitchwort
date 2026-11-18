@@ -1,5 +1,5 @@
 namespace Syntax.Proofs
-import Std (Bool, Char, Effect, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, Char, DecEq, Effect, List, Nat, Option, Parse, Result, Text, Void)
 import Syntax (..)
 
 --| `text` is lexed as one token of `kind`, alone at the start of a line with no comments around it.
@@ -98,14 +98,6 @@ theorem runsFromTokenList ∀ (state: Parse.State Char) (kind: Tok) (count: Nat)
         Parse.runsPure [{ value = TokenLexeme kind, offset = state.at.offset, length = count }] rest middle)
       starts
       honest
-
-theorem runsItemParen ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
-    (state: Parse.State Char) (rest: List Char):
-    Parse.RunsFrom state (() => item self source TopLevel) ['('] rest [
-      { value = TokenLexeme LParen, offset = state.at.offset, length = 1 }
-    ] :=
-  Parse.runsFromMark state (from => itemOn self source TopLevel from from.rest) ['('] rest _ (starts honest =>
-    rewrite starts then runsFromTokenList state LParen 1 ['('] rest byComputing starts honest)
 
 --| `optional p` where `p` succeeds from this state: as `Parse.runsOptional`, for a `p` whose value depends on where
 --| it starts.
@@ -696,3 +688,324 @@ theorem lexCovers ∀ (source: Text) (steps: List (List Char, Lexeme))
   Witness
     (Parse.locatedSteps 0 steps)
     (Both (lexemesOfSteps source steps reads rounds) (Parse.locatedStepsCover source steps reads))
+
+--| At the end of the input `item` stops, which is what ends the lexemes.
+theorem declinesItemEnd ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text):
+    Parse.Declines (() => item self source TopLevel) [] :=
+  state starts honest => rewrite starts
+
+theorem symbolColon ∀ (next: Char) (more: List Char)
+    (notEq: (next == '=') = False):
+    symbol [':', next, ..more] = Some (Colon, 1) :=
+  match next, notEq with
+    | '=', notEq => (Bool.falseNotTrue notEq.flipped).impossible
+    | other, notEq => byComputing
+
+--| What `item` does on `read` followed by `rest`, said of `itemOn` at the mark where it starts.
+theorem itemReadsVia ∀ (read rest: List Char) (lexeme: Lexeme)
+    (via: ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (state: Parse.State
+        Char) => Parse.RunsFrom state (() => itemOn self source TopLevel state.at (read ++ rest)) read rest [
+      { value = lexeme, offset = state.at.offset, length = read.length }
+    ]):
+    ItemReads read lexeme rest :=
+  self source state =>
+    Parse.runsFromMark state (from => itemOn self source TopLevel from from.rest) read rest _ (starts honest =>
+      rewrite starts then via self source state starts honest)
+
+-- Fixed spellings: each token's `item`, and what may follow it.
+
+theorem itemReadsLParen ∀ (rest: List Char): ItemReads ['('] (TokenLexeme LParen) rest :=
+  itemReadsVia ['('] rest (TokenLexeme LParen) (self source state =>
+    runsFromTokenList state LParen 1 ['('] rest byComputing)
+
+theorem itemReadsRParen ∀ (rest: List Char): ItemReads [')'] (TokenLexeme RParen) rest :=
+  itemReadsVia [')'] rest (TokenLexeme RParen) (self source state =>
+    runsFromTokenList state RParen 1 [')'] rest byComputing)
+
+theorem itemReadsLBracket ∀ (rest: List Char): ItemReads ['['] (TokenLexeme LBracket) rest :=
+  itemReadsVia ['['] rest (TokenLexeme LBracket) (self source state =>
+    runsFromTokenList state LBracket 1 ['['] rest byComputing)
+
+theorem itemReadsRBracket ∀ (rest: List Char): ItemReads [']'] (TokenLexeme RBracket) rest :=
+  itemReadsVia [']'] rest (TokenLexeme RBracket) (self source state =>
+    runsFromTokenList state RBracket 1 [']'] rest byComputing)
+
+theorem itemReadsComma ∀ (rest: List Char): ItemReads [','] (TokenLexeme Comma) rest :=
+  itemReadsVia [','] rest (TokenLexeme Comma) (self source state =>
+    runsFromTokenList state Comma 1 [','] rest byComputing)
+theorem itemReadsColon ∀ (rest: List Char) (follow: rest.head ≠ Some '='): ItemReads [':'] (TokenLexeme Colon) rest :=
+  match rest, follow with
+    | [], follow => itemReadsVia [':'] rest (TokenLexeme Colon) (self source state =>
+      runsFromTokenList state Colon 1 [':'] rest byComputing)
+    | [next, ..more], follow =>
+      match next with
+        | '=' => (follow byComputing).impossible
+        | other => itemReadsVia [':'] rest (TokenLexeme Colon) (self source state =>
+          runsFromTokenList state Colon 1 [':'] rest byComputing)
+
+theorem itemReadsColonEq ∀ (rest: List Char): ItemReads [':', '='] (TokenLexeme ColonEq) rest :=
+  itemReadsVia [':', '='] rest (TokenLexeme ColonEq) (self source state =>
+    runsFromTokenList state ColonEq 2 [':', '='] rest byComputing)
+theorem itemReadsEquals ∀ (rest: List Char)
+    (follow: rest.head ≠ Some '=' ∧ rest.head ≠ Some '>'):
+    ItemReads ['='] (TokenLexeme Equals) rest :=
+  match rest, follow with
+    | [], (Both first second) => itemReadsVia ['='] rest (TokenLexeme Equals) (self source state =>
+      runsFromTokenList state Equals 1 ['='] rest byComputing)
+    | [next, ..more], (Both first second) =>
+      match next with
+        | '=' => (first byComputing).impossible
+        | '>' => (second byComputing).impossible
+        | other => itemReadsVia ['='] rest (TokenLexeme Equals) (self source state =>
+          runsFromTokenList state Equals 1 ['='] rest byComputing)
+
+theorem itemReadsEqEq ∀ (rest: List Char): ItemReads ['=', '='] (TokenLexeme EqEq) rest :=
+  itemReadsVia ['=', '='] rest (TokenLexeme EqEq) (self source state =>
+    runsFromTokenList state EqEq 2 ['=', '='] rest byComputing)
+
+theorem itemReadsArrow ∀ (rest: List Char): ItemReads ['-', '>'] (TokenLexeme Arrow) rest :=
+  itemReadsVia ['-', '>'] rest (TokenLexeme Arrow) (self source state =>
+    runsFromTokenList state Arrow 2 ['-', '>'] rest byComputing)
+
+theorem itemReadsOrOr ∀ (rest: List Char): ItemReads ['|', '|'] (TokenLexeme OrOr) rest :=
+  itemReadsVia ['|', '|'] rest (TokenLexeme OrOr) (self source state =>
+    runsFromTokenList state OrOr 2 ['|', '|'] rest byComputing)
+
+theorem itemReadsAndAnd ∀ (rest: List Char): ItemReads ['&', '&'] (TokenLexeme AndAnd) rest :=
+  itemReadsVia ['&', '&'] rest (TokenLexeme AndAnd) (self source state =>
+    runsFromTokenList state AndAnd 2 ['&', '&'] rest byComputing)
+theorem itemReadsPlus ∀ (rest: List Char) (follow: rest.head ≠ Some '+'): ItemReads ['+'] (TokenLexeme Plus) rest :=
+  match rest, follow with
+    | [], follow => itemReadsVia ['+'] rest (TokenLexeme Plus) (self source state =>
+      runsFromTokenList state Plus 1 ['+'] rest byComputing)
+    | [next, ..more], follow =>
+      match next with
+        | '+' => (follow byComputing).impossible
+        | other => itemReadsVia ['+'] rest (TokenLexeme Plus) (self source state =>
+          runsFromTokenList state Plus 1 ['+'] rest byComputing)
+
+theorem itemReadsPlusPlus ∀ (rest: List Char): ItemReads ['+', '+'] (TokenLexeme PlusPlus) rest :=
+  itemReadsVia ['+', '+'] rest (TokenLexeme PlusPlus) (self source state =>
+    runsFromTokenList state PlusPlus 2 ['+', '+'] rest byComputing)
+theorem itemReadsMinus ∀ (rest: List Char)
+    (follow: rest.head ≠ Some '-' ∧ rest.head ≠ Some '>'):
+    ItemReads ['-'] (TokenLexeme Minus) rest :=
+  match rest, follow with
+    | [], (Both first second) => itemReadsVia ['-'] rest (TokenLexeme Minus) (self source state =>
+      runsFromTokenList state Minus 1 ['-'] rest byComputing)
+    | [next, ..more], (Both first second) =>
+      match next with
+        | '-' => (first byComputing).impossible
+        | '>' => (second byComputing).impossible
+        | other => itemReadsVia ['-'] rest (TokenLexeme Minus) (self source state =>
+          runsFromTokenList state Minus 1 ['-'] rest byComputing)
+
+theorem itemReadsStar ∀ (rest: List Char): ItemReads ['*'] (TokenLexeme Star) rest :=
+  itemReadsVia ['*'] rest (TokenLexeme Star) (self source state =>
+    runsFromTokenList state Star 1 ['*'] rest byComputing)
+
+theorem itemReadsSlash ∀ (rest: List Char): ItemReads ['/'] (TokenLexeme Slash) rest :=
+  itemReadsVia ['/'] rest (TokenLexeme Slash) (self source state =>
+    runsFromTokenList state Slash 1 ['/'] rest byComputing)
+
+theorem itemReadsPercent ∀ (rest: List Char): ItemReads ['%'] (TokenLexeme Percent) rest :=
+  itemReadsVia ['%'] rest (TokenLexeme Percent) (self source state =>
+    runsFromTokenList state Percent 1 ['%'] rest byComputing)
+
+theorem itemReadsNotEq ∀ (rest: List Char): ItemReads ['!', '='] (TokenLexeme NotEq) rest :=
+  itemReadsVia ['!', '='] rest (TokenLexeme NotEq) (self source state =>
+    runsFromTokenList state NotEq 2 ['!', '='] rest byComputing)
+theorem itemReadsLt ∀ (rest: List Char)
+    (follow: rest.head ≠ Some '=' ∧ rest.head ≠ Some '-'):
+    ItemReads ['<'] (TokenLexeme Lt) rest :=
+  match rest, follow with
+    | [], (Both first second) => itemReadsVia ['<'] rest (TokenLexeme Lt) (self source state =>
+      runsFromTokenList state Lt 1 ['<'] rest byComputing)
+    | [next, ..more], (Both first second) =>
+      match next with
+        | '=' => (first byComputing).impossible
+        | '-' => (second byComputing).impossible
+        | other => itemReadsVia ['<'] rest (TokenLexeme Lt) (self source state =>
+          runsFromTokenList state Lt 1 ['<'] rest byComputing)
+
+theorem itemReadsLe ∀ (rest: List Char): ItemReads ['<', '='] (TokenLexeme Le) rest :=
+  itemReadsVia ['<', '='] rest (TokenLexeme Le) (self source state =>
+    runsFromTokenList state Le 2 ['<', '='] rest byComputing)
+theorem itemReadsGt ∀ (rest: List Char) (follow: rest.head ≠ Some '='): ItemReads ['>'] (TokenLexeme Gt) rest :=
+  match rest, follow with
+    | [], follow => itemReadsVia ['>'] rest (TokenLexeme Gt) (self source state =>
+      runsFromTokenList state Gt 1 ['>'] rest byComputing)
+    | [next, ..more], follow =>
+      match next with
+        | '=' => (follow byComputing).impossible
+        | other => itemReadsVia ['>'] rest (TokenLexeme Gt) (self source state =>
+          runsFromTokenList state Gt 1 ['>'] rest byComputing)
+
+theorem itemReadsGe ∀ (rest: List Char): ItemReads ['>', '='] (TokenLexeme Ge) rest :=
+  itemReadsVia ['>', '='] rest (TokenLexeme Ge) (self source state =>
+    runsFromTokenList state Ge 2 ['>', '='] rest byComputing)
+theorem itemReadsBang ∀ (rest: List Char)
+    (follow: rest.head ≠ Some '=' ∧ rest.head ≠ Some 'i'):
+    ItemReads ['!'] (TokenLexeme Bang) rest :=
+  match rest, follow with
+    | [], (Both first second) => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
+      runsFromTokenList state Bang 1 ['!'] rest byComputing)
+    | [next, ..more], (Both first second) =>
+      match next with
+        | '=' => (first byComputing).impossible
+        | 'i' => (second byComputing).impossible
+        | other => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
+          runsFromTokenList state Bang 1 ['!'] rest byComputing)
+
+theorem itemReadsArrowUnicode ∀ (rest: List Char): ItemReads ['→'] (TokenLexeme Arrow) rest :=
+  itemReadsVia ['→'] rest (TokenLexeme Arrow) (self source state =>
+    runsFromTokenList state Arrow 1 ['→'] rest byComputing)
+
+theorem itemReadsAndAndUnicode ∀ (rest: List Char): ItemReads ['∧'] (TokenLexeme AndAnd) rest :=
+  itemReadsVia ['∧'] rest (TokenLexeme AndAnd) (self source state =>
+    runsFromTokenList state AndAnd 1 ['∧'] rest byComputing)
+
+theorem itemReadsOrOrUnicode ∀ (rest: List Char): ItemReads ['∨'] (TokenLexeme OrOr) rest :=
+  itemReadsVia ['∨'] rest (TokenLexeme OrOr) (self source state =>
+    runsFromTokenList state OrOr 1 ['∨'] rest byComputing)
+
+theorem itemReadsBangUnicode ∀ (rest: List Char): ItemReads ['¬'] (TokenLexeme Bang) rest :=
+  itemReadsVia ['¬'] rest (TokenLexeme Bang) (self source state =>
+    runsFromTokenList state Bang 1 ['¬'] rest byComputing)
+
+theorem itemReadsLeUnicode ∀ (rest: List Char): ItemReads ['≤'] (TokenLexeme Le) rest :=
+  itemReadsVia ['≤'] rest (TokenLexeme Le) (self source state => runsFromTokenList state Le 1 ['≤'] rest byComputing)
+
+theorem itemReadsGeUnicode ∀ (rest: List Char): ItemReads ['≥'] (TokenLexeme Ge) rest :=
+  itemReadsVia ['≥'] rest (TokenLexeme Ge) (self source state => runsFromTokenList state Ge 1 ['≥'] rest byComputing)
+
+theorem itemReadsNotEqUnicode ∀ (rest: List Char): ItemReads ['≠'] (TokenLexeme NotEq) rest :=
+  itemReadsVia ['≠'] rest (TokenLexeme NotEq) (self source state =>
+    runsFromTokenList state NotEq 1 ['≠'] rest byComputing)
+
+--| A lexeme made as `item` makes the spaces, line breaks and comments: something read, then the lexeme located from
+--| where the item began.
+theorem runsFromThenLocated ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (read rest: List Char)
+    (v: a) (value: Lexeme)
+    (runs: Parse.Runs p read rest v):
+    Parse.RunsFrom state
+      (() =>
+        let done := p()
+        [located value state.at])
+      read
+      rest
+      [{ value, offset = state.at.offset, length = read.length }] :=
+  Parse.runsFromBind state p
+    (done => [located value state.at])
+    read
+    []
+    read
+    rest
+    v
+    [{ value, offset = state.at.offset, length = read.length }]
+    (List.appendNil read).flipped
+    runs
+    (middle atRest honest offset =>
+      Parse.runsFromMark middle
+        (finish =>
+          [({ value, offset = state.at.offset, length = finish.offset - state.at.offset }: Parse.Located Lexeme)])
+        []
+        rest
+        [{ value, offset = state.at.offset, length = read.length }]
+        (rewrite (arithmetic [offset]: middle.at.offset - state.at.offset = read.length) then
+          Parse.runsPure [{ value, offset = state.at.offset, length = read.length }] rest middle))
+
+-- Spaces, line breaks and comments.
+
+theorem itemReadsBreak ∀ (rest: List Char): ItemReads ['\n'] LineBreak rest :=
+  itemReadsVia ['\n'] rest LineBreak (self source state =>
+    runsFromThenLocated state (() => skip 1) ['\n'] rest () LineBreak (runsSkip 1 ['\n'] rest byComputing))
+
+theorem spacesPass ∀ (count: Nat): (List.replicate count ' ').all (char => char == ' ' || char == '\r') = True :=
+  match count with
+    | Zero => byComputing
+    | Succ more => spacesPass more
+
+--| The first character of a text that doesn't start with `char` isn't `char`.
+theorem headNe ∀ (next: Char) (more: List Char) (char: Char)
+    (different: [next, ..more].head ≠ Some char):
+    (next == char) = False :=
+  let ne: next ≠ char := same => different (rewrite same)
+  DecEq.falseOfNe ne
+
+theorem spacesStop ∀ (rest: List Char)
+    (follow: rest.head ≠ Some ' ' ∧ rest.head ≠ Some '\r'):
+    rest.takeWhile (char => char == ' ' || char == '\r') = [] :=
+  match rest, follow with
+    | [], follow => byComputing
+    | [next, ..more], Both space carriage => rewrite headNe next more ' ' space, headNe next more '\r' carriage
+
+--| A run of spaces up to a character that isn't a space or a carriage return.
+theorem itemReadsSpaces ∀ (count: Nat) (rest: List Char)
+    (positive: count ≠ 0)
+    (follow: rest.head ≠ Some ' ' ∧ rest.head ≠ Some '\r'):
+    ItemReads (List.replicate count ' ') Spaces rest :=
+  match count, positive with
+    | Zero, positive => (positive byComputing).impossible
+    | Succ more, positive => itemReadsVia (List.replicate (Succ more) ' ') rest Spaces (self source state =>
+      runsFromThenLocated state
+        (() => Parse.span (char => char == ' ' || char == '\r'))
+        (List.replicate (Succ more) ' ')
+        rest
+        (List.replicate (Succ more) ' ')
+        Spaces
+        (Parse.runsSpan
+          (char => char == ' ' || char == '\r')
+          (List.replicate (Succ more) ' ')
+          rest
+          (spacesPass (Succ more))
+          (spacesStop rest follow)))
+
+--| A comment, from its `--` to the end of the line, in `item` at the top level.
+theorem itemReadsComment ∀ (others rest: List Char)
+    (oneLine: others.all (char => char != '\n') = True)
+    (ends: rest.takeWhile (char => char != '\n') = []):
+    ItemReads ['-', '-', ..others] CommentLexeme rest :=
+  itemReadsVia ['-', '-', ..others] rest CommentLexeme (self source state =>
+    Parse.runsFromBind state
+      (() => Parse.span (char => char != '\n'))
+      (text =>
+        match TopLevel, Parse.mark().rest with
+          | Inside True _, ['\n', .._] => fail commentTakesBrace
+          | Inside True _, [] => fail unclosedInterpolation
+          | _, _ => [located CommentLexeme state.at])
+      ['-', '-', ..others]
+      []
+      ['-', '-', ..others]
+      rest
+      ['-', '-', ..others]
+      [{ value = CommentLexeme, offset = state.at.offset, length = ['-', '-', ..others].length }]
+      (List.appendNil ['-', '-', ..others]).flipped
+      (Parse.runsSpan (char => char != '\n') ['-', '-', ..others] rest oneLine ends)
+      (middle atRest honest offset =>
+        Parse.runsFromMark middle
+          (finish =>
+            match TopLevel, finish.rest with
+              | Inside True _, ['\n', .._] => fail commentTakesBrace
+              | Inside True _, [] => fail unclosedInterpolation
+              | _, _ => [located CommentLexeme state.at])
+          []
+          rest
+          [{ value = CommentLexeme, offset = state.at.offset, length = ['-', '-', ..others].length }]
+          (Parse.runsFromMark middle
+            (to =>
+              [
+                ({
+                  value = CommentLexeme,
+                  offset = state.at.offset,
+                  length = to.offset - state.at.offset
+                }: Parse.Located Lexeme)
+              ])
+            []
+            rest
+            [{ value = CommentLexeme, offset = state.at.offset, length = ['-', '-', ..others].length }]
+            (rewrite (arithmetic [offset]: middle.at.offset - state.at.offset = ['-', '-', ..others].length) then
+              Parse.runsPure
+                [{ value = CommentLexeme, offset = state.at.offset, length = ['-', '-', ..others].length }]
+                rest
+                middle))))
