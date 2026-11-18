@@ -9,7 +9,7 @@ namespace Fmt.OutputFileProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (..)
 import Syntax.Proofs (Spells)
-import Syntax.SettleProofs (alphabet1)
+import Syntax.SettleProofs (alphabet1, plain1, plainFrom, tokens)
 import Syntax.SettleBareProofs (fwdPair, lastPair, noLast)
 import Syntax.SettleProofs (arrowFollow, passableKind)
 import Fmt (..)
@@ -1064,6 +1064,109 @@ theorem printedNoLast1 ∀ (file: SourceFile)
     noLast [] file.lexed1.leaves = True :=
   noLastOfPairs file.lexed1.leaves [] (groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical).left
 
+-- No comma starts a line.
+
+--| No comma starts its line.
+def commaFlat (leaves: List Leaf): Bool := leaves.all (leaf => !(leaf.token.kind == Comma && leaf.token.lineStart))
+
+--| `hangs` refuses a comma that starts its line.
+theorem stepCommaNone ∀ (state: HangState) (leaf: Leaf)
+    (isComma: (leaf.token.kind == Comma) = True)
+    (starts: leaf.token.lineStart = True):
+    state.step leaf = None :=
+  rewrite DecEq.sound isComma, starts then
+    match state.glue with
+      | True => byComputing
+      | False =>
+        match state.blocks with
+          | [] => byComputing
+          | [block, ..outer] => rewrite starts
+
+theorem hangsStep ∀ (state: HangState) (leaf: Leaf) (rest: List Leaf)
+    (hung: hangsFrom state [leaf, ..rest] = True):
+    ∃ (next: HangState) => state.step leaf = Some next ∧ hangsFrom next rest = True :=
+  match step: state.step leaf with | Some next => Witness next (step, hung)
+
+theorem stepFlat ∀ (state: HangState) (leaf: Leaf) (next: HangState)
+    (step: state.step leaf = Some next):
+    (!(leaf.token.kind == Comma && leaf.token.lineStart)) = True :=
+  match flat: leaf.token.kind == Comma && leaf.token.lineStart with
+    | True =>
+      (Option.noneNotSome next
+        (Eq.trans (stepCommaNone state leaf (Bool.andLeft flat) (Bool.andRight flat)).flipped step)).impossible
+    | False => byComputing
+
+theorem hangsFromFlat ∀ (leaves: List Leaf) (state: HangState)
+    (hung: hangsFrom state leaves = True):
+    commaFlat leaves = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      match hangsStep state leaf rest hung with
+        | Witness next (step, more) => Bool.andIntro (stepFlat state leaf next step) (hangsFromFlat rest next more)
+
+theorem hangsFlat ∀ (leaves: List Leaf) (hung: hangs leaves = True): commaFlat leaves = True := match leaves with
+  | [] => byComputing
+  | [first, ..rest] =>
+    Bool.andIntro
+      (rewrite DecEq.sound (Bool.andLeft hung))
+      (hangsFromFlat rest HangState.initial (Bool.andRight (Bool.andRight hung)))
+
+theorem orSwap ∀ (x y: Bool) (or: (x || y) = True): (y || x) = True := match x with
+  | True => rewrite orTrue y
+  | False => rewrite or
+
+--| Leaves that may each follow the one before, no comma starting a line, are `plain` from the second token on.
+theorem plainOfPairs ∀ (leaves: List Leaf)
+    (pairs: leafPairs leaves = True)
+    (flat: commaFlat leaves = True):
+    plainFrom (tokens leaves) = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf] => byComputing
+    | [first, second, ..rest] =>
+      Bool.andIntro
+        (orSwap _ _ (Bool.andLeft (Bool.andLeft pairs)))
+        (Bool.andIntro
+          (rewrite Bool.andLeft flat)
+          (plainOfPairs [second, ..rest] (Bool.andRight pairs) (Bool.andRight flat)))
+
+theorem plainOfLeaves ∀ (leaves: List Leaf)
+    (pairs: leafPairs leaves = True)
+    (flat: commaFlat leaves = True)
+    (starts: startsDef leaves = True):
+    plain1 (tokens leaves) = True :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] => Bool.andIntro (rewrite DecEq.sound starts) (plainOfPairs [first, ..rest] pairs flat)
+
+theorem commaFlatAppend ∀ (xs ys: List Leaf): commaFlat (xs ++ ys) = (commaFlat xs && commaFlat ys) := match xs with
+  | [] => byComputing
+  | [first, ..rest] =>
+    match !(first.token.kind == Comma && first.token.lineStart) with
+      | True => commaFlatAppend rest ys
+      | False => byComputing
+
+theorem headedFlat ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
+    commaFlat (headed above blank leaves) = commaFlat leaves :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] => byComputing
+
+theorem groupsFlat ∀ (empty: Bool) (decls: List Decl)
+    (hung: decls.all (decl => hangs decl.leaves1) = True):
+    commaFlat (groupsFrom empty decls).concat = True :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] =>
+      rewrite commaFlatAppend (decl.laid1 empty) (groupsFrom False rest).concat,
+          headedFlat
+            (laidNotes empty decl.firstComments.above)
+            (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
+            decl.leaves1,
+          hangsFlat decl.leaves1 (Bool.andLeft hung) then
+        groupsFlat False rest (Bool.andRight hung)
+
 -- The statements.
 
 --| `printedAlphabet1`: the output passes the alphabet, the driver's first test on the second run.
@@ -1080,3 +1183,18 @@ theorem printedAlphabet1 ∀ (file: SourceFile)
   Eq.trans
     (List.allMapBool file.lexed1.leaves (token => token.kind.within1) (leaf => leaf.token))
     (groupsWithin True file.decls within shaped (Bool.andLeft settled) lexical)
+
+--| `printedPlain1`: the output is `plain1`, which rule N's theorems ask and the driver tests: its first token is a
+--| `def`, what follows a `->` is an operand's first token (no comma, closer or `->`), and no comma starts a line.
+--|
+--| Proof idea: the token order is `printedTokens1`'s; the scan's rule for what may follow `->` is `plainFrom`'s, a
+--| declaration's `def` follows anything, and `hangs` refuses a comma that starts its line.
+theorem printedPlain1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (hung: file.hung1 = True):
+    plain1 (tokens file.lexed1.leaves) = True :=
+  let (pairs, starts) := groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical
+  plainOfLeaves file.lexed1.leaves pairs (groupsFlat True file.decls hung) starts

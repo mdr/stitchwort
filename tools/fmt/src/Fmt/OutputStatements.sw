@@ -88,18 +88,7 @@ def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs d
 
 -- `printedNoLast1`, that the output has no last comma, is proved in `Fmt.OutputFileProofs`.
 
---| `printedPlain1`: the output is `plain1`, which rule N's theorems ask and the driver tests: its first token is a
---| `def`, what follows a `->` is an operand's first token (no comma, closer or `->`), and no comma starts a line.
---|
---| Proof idea: the token order is `printedTokens1`'s; `hangs` refuses a comma that starts its line.
-theorem printedPlain1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    plain1 (tokens file.lexed1.leaves) = True :=
-  ?
+-- `printedPlain1`, that the output is `plain1`, is proved in `Fmt.OutputFileProofs`.
 
 --| `printedGroups1`: the parser's groups of the output are the declarations' leaves, one group a declaration.
 --|
