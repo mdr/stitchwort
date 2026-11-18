@@ -1351,3 +1351,27 @@ Ticket 18e, in `Fmt/HangProofs.sw` (rules) and the new `Fmt/PrintHangProofs.sw` 
 - Brackets: `parenDoc`/`parenInner`, `commaBracket`/`bracketContent`/`cells`/`brokenItems`, `huggedBracket`/`lastArgument` (the marks invariant above).
 - Applications and chains: `argumentDocs`/`appDocs`/`appFrom`/`spaced`, `chain`/`chainOf`/`chainLinks`/`chainRight`/`linkDocs` (the seat above).
 - The declaration level: `bodyAfter`/`callHug`/`opensBracket`/`bodyDoc`, `headDocs`, `defDoc`/`defFrom`, `doc1`; then `printedHangs` is `hangsOfLays` applied to `doc1`'s triple.
+
+## Slice 1 rules proofs, `printedHangs`: seats and marks (SW-4030, Opus, 18 November 2026)
+
+Ticket 18f. The design change first, then the rules' triples.
+
+### The design
+
+- **A seat column apart from the indentation.** `ElHangs kinds doc indent column before trails start`: `indent` is
+  the indentation the element's document is laid at (its line breaks land there or deeper), `column` the column a
+  seat at a line start is at. `Seated column` stays exact (`at = column`, no comment floor deeper), as before, so
+  a token with comments above it still lands where `leadColumn` says; those lemmas take `column = indent`. `Seat`
+  adds `column ≤ indent`. An application's head is the one element seated left of its indentation: `appDocs`' `Nest
+  4 (Fill …)` lays it at the call's indentation + 4 while it starts where the call does. A chain's operators, and a
+  call's arguments after a break, are seated where their line breaks land (`indent + 2`, `indent + 4`), so they
+  are ordinary seats at a deeper indentation.
+- **The marks invariant, kept out of `ElHangs`.** Marks matter only at a bracket's own closer, so rather than
+  threading a carry relation through every element lemma, a frame lemma over `Lays` says that a document whose
+  `Mark` and `CloserLine` keys are all at least `low` keeps every open mark with a key below `low`: found by its
+  key, at the same `marked`, its `least` kept or lowered (`MarksKept`). The rules give the key floor: an element
+  standing where `around.at` says uses keys from `around.at` up, and a bracket's contents start at its opener's
+  `at + 1`. `CloserFits` then follows at the closer: (a) what is in force outside the bracket is at most the
+  opener's line, which is the mark's `marked`, and at most the indentation; (b) for parentheses, whose inner may
+  start a line at the indentation itself (after the opener's trailing comment), the line break there lowers the
+  mark to that column, so the closer lands at the opener's line, left of it.
