@@ -593,12 +593,15 @@ def bracketContent (list: Bool) (open: Word) (items: List Expr) (close: Word) (a
 --| with a comment: what its last item ends with.
 def Expr.trailsBeforeClose (expr: Expr): Bool := trailsBack (expr.words.reverse.drop 1)
 
---| A filled list's cells: each item with its comma.
+--| A filled list's cells: each item with its comma. Each later cell stands after the item before it, as `brokenItems`
+--| do (a filled list holds no comment before more code, so that item's trails are False).
 def cells (bare arm before: Bool) (at: Nat): List Expr → List Doc
   | [] => []
   | [item] => [item.el (firstAround bare arm before at)]
-  | [item, ..rest] =>
-    [Doc.concat [item.el (firstAround bare arm before at), Closing ","], ..cells False arm False (at + item.size) rest]
+  | [item, ..rest] => [
+    Doc.concat [item.el (firstAround bare arm before at), Closing ","],
+    ..cells False arm item.trails (at + item.size) rest
+  ]
 
 --| A broken bracket's items: each starts a line, with its comma after it.
 def brokenItems (bare arm first before: Bool) (at: Nat): List Expr → List Doc
@@ -608,7 +611,7 @@ def brokenItems (bare arm first before: Bool) (at: Nat): List Expr → List Doc
     if first then SoftLine else Line,
     item.el (firstAround bare arm before at),
     Closing ",",
-    ..brokenItems False arm False False (at + item.size) rest
+    ..brokenItems False arm False item.trails (at + item.size) rest
   ]
 
 -- Calls.

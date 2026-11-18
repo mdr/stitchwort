@@ -144,7 +144,15 @@ theorem cellsQuiet ∀ (items: List Expr) (low: Nat) (bare arm before: Bool) (at
     | [item, next, ..more] =>
       let one := quietKeys item (firstAround bare arm before at) low (Bool.andLeft within) (Bool.andLeft quiet)
       rewrite keysConcat low [item.el (firstAround bare arm before at), Closing ","] (rewrite one),
-          cellsQuiet [next, ..more] low False arm False (at + item.size) (Bool.andRight within) (Bool.andRight quiet)
+          cellsQuiet
+            [next, ..more]
+            low
+            False
+            arm
+            item.trails
+            (at + item.size)
+            (Bool.andRight within)
+            (Bool.andRight quiet)
 
 --| A quiet bracket's items, one a line, keep their keys (`brokenKeys`, with the induction's own step).
 theorem brokenQuiet ∀ (items: List Expr) (low: Nat) (bare arm first before: Bool) (at: Nat)
@@ -166,7 +174,7 @@ theorem brokenQuiet ∀ (items: List Expr) (low: Nat) (bare arm first before: Bo
           False
           arm
           False
-          False
+          item.trails
           (at + item.size)
           (Bool.andRight within)
           (Bool.andRight quiet)

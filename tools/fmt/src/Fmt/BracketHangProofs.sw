@@ -203,7 +203,7 @@ def ItemsHang (kinds: Text → Tok) (inset: Nat) (bare arm before seat: Bool) (a
   | [] => True
   | [item, ..rest] =>
     ElHangs kinds (item.el (firstAround bare arm before at)) inset inset seat item.trails wordStart
-      ∧ ItemsHang kinds inset False arm False item.trails (at + item.size) rest
+      ∧ ItemsHang kinds inset False arm item.trails item.trails (at + item.size) rest
 
 --| Whether the last item ends with a trailing comment: the opener if there is none.
 def lastTrails (seat: Bool): List Expr → Bool
@@ -236,14 +236,14 @@ theorem brokenItemsHang ∀ (kinds: Text → Tok) (bare arm first before seat: B
     | [next, ..more], (el, others) =>
       hangsCons kinds
         (if first then SoftLine else Line)
-        [doc, Closing ",", ..brokenItems False arm False False (at + item.size) [next, ..more]]
+        [doc, Closing ",", ..brokenItems False arm False item.trails (at + item.size) [next, ..more]]
         inset
         (ItemGap outer top seat)
         (ItemSeat inset outer top seat)
         (ItemEnd inset outer top (lastTrails item.trails [next, ..more]))
         (sepSeats kinds first inset outer top seat bound)
         (hangsCons kinds doc
-          [Closing ",", ..brokenItems False arm False False (at + item.size) [next, ..more]]
+          [Closing ",", ..brokenItems False arm False item.trails (at + item.size) [next, ..more]]
           inset
           (ItemSeat inset outer top seat)
           (ItemEnd inset outer top item.trails)
@@ -251,13 +251,13 @@ theorem brokenItemsHang ∀ (kinds: Text → Tok) (bare arm first before seat: B
           (itemHangs kinds doc inset outer top seat item.trails el)
           (hangsCons kinds
             (Closing ",")
-            (brokenItems False arm False False (at + item.size) [next, ..more])
+            (brokenItems False arm False item.trails (at + item.size) [next, ..more])
             inset
             (ItemEnd inset outer top item.trails)
             (ItemGap outer top item.trails)
             (ItemEnd inset outer top (lastTrails item.trails [next, ..more]))
             (commaHangs kinds inset outer top item.trails comma bound)
-            (brokenItemsHang kinds False arm False False item.trails
+            (brokenItemsHang kinds False arm False item.trails item.trails
               (at + item.size)
               inset
               outer
@@ -309,7 +309,7 @@ theorem sepsCellsHang ∀ (kinds: Text → Tok) (arm seat: Bool) (at inset: Nat)
     (top: Option Nat) (item: Expr) (rest: List Expr)
     (comma: kinds "," = Comma)
     (bound: (inForce outer top < inset) = True)
-    (each: ItemsHang kinds inset False arm False seat at [item, ..rest])
+    (each: ItemsHang kinds inset False arm seat seat at [item, ..rest])
     (place: Place) (trace: List Event) (next: Place → List Event → Prop)
     (holds: ItemGap outer top seat place (hangOf kinds trace))
     (after: ∀ (left: Place) (later: List Event) => ItemEnd inset outer top
@@ -317,8 +317,8 @@ theorem sepsCellsHang ∀ (kinds: Text → Tok) (arm seat: Bool) (at inset: Nat)
       left
       (hangOf kinds later)
       → next left later):
-    SepsLay (cells False arm False at [item, ..rest]) inset place trace next :=
-  let doc := item.el (firstAround False arm False at)
+    SepsLay (cells False arm seat at [item, ..rest]) inset place trace next :=
+  let doc := item.el (firstAround False arm seat at)
   let seated := lineSeats kinds inset outer top seat bound
   match rest, each with
     | [], (el, _) =>
@@ -331,11 +331,12 @@ theorem sepsCellsHang ∀ (kinds: Text → Tok) (arm seat: Bool) (at inset: Nat)
       seated place trace
         (middle between =>
           Lays (Doc.concat [doc, Closing ","]) inset middle between (left later =>
-            SepsLay (cells False arm False (at + item.size) [following, ..more]) inset left later next))
+            SepsLay (cells False arm item.trails (at + item.size) [following, ..more]) inset left later next))
         holds
         (middle between ready =>
           cellCommaHangs kinds doc inset outer top seat item.trails comma bound el middle between
-            (left later => SepsLay (cells False arm False (at + item.size) [following, ..more]) inset left later next)
+            (left later =>
+              SepsLay (cells False arm item.trails (at + item.size) [following, ..more]) inset left later next)
             ready
             (left later gap =>
               sepsCellsHang kinds arm item.trails
@@ -377,7 +378,8 @@ theorem fillCellsHang ∀ (kinds: Text → Tok) (bare arm before seat: Bool) (at
           after
       | [following, ..more], (el, others) =>
         cellCommaHangs kinds doc inset outer top seat item.trails comma bound el place trace
-          (left later => SepsLay (cells False arm False (at + item.size) [following, ..more]) inset left later next)
+          (left later =>
+            SepsLay (cells False arm item.trails (at + item.size) [following, ..more]) inset left later next)
           ready
           (left later gap =>
             sepsCellsHang kinds arm item.trails

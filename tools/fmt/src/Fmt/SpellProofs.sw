@@ -924,7 +924,7 @@ theorem cellsSpells ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
       spellsAllSame _ _ _
         (spellsCons
           (Doc.concat [item.el (firstAround bare arm before at), Closing ","])
-          (cells False arm False (at + item.size) rest)
+          (cells False arm item.trails (at + item.size) rest)
           (item.spelt False ++ [","])
           (commaSpelt rest)
           (spellsConcat _ _
@@ -935,7 +935,7 @@ theorem cellsSpells ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
               [","]
               (first (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
               (spellsLast (Closing ",") [","] spellsComma)))
-          (cellsSpells False arm False (at + item.size) rest (Bool.andRight within) (Bool.andRight sound) others))
+          (cellsSpells False arm item.trails (at + item.size) rest (Bool.andRight within) (Bool.andRight sound) others))
         (List.appendAssoc (item.spelt False) [","] (commaSpelt rest))
 
 --| A broken bracket's lines spell its items, a comma after each but the last.
@@ -965,7 +965,7 @@ theorem brokenItemsSpells ∀ (bare arm first before: Bool) (at: Nat) (items: Li
         [
           item.el (firstAround bare arm before at),
           Closing ",",
-          ..brokenItems False arm False False (at + item.size) rest
+          ..brokenItems False arm False item.trails (at + item.size) rest
         ]
         []
         (commaSpelt [item, ..rest])
@@ -973,17 +973,17 @@ theorem brokenItemsSpells ∀ (bare arm first before: Bool) (at: Nat) (items: Li
         (spellsAllSame _ _ _
           (spellsCons
             (item.el (firstAround bare arm before at))
-            [Closing ",", ..brokenItems False arm False False (at + item.size) rest]
+            [Closing ",", ..brokenItems False arm False item.trails (at + item.size) rest]
             (item.spelt False)
             ([","] ++ commaSpelt rest)
             (kept (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
             (spellsCons
               (Closing ",")
-              (brokenItems False arm False False (at + item.size) rest)
+              (brokenItems False arm False item.trails (at + item.size) rest)
               [","]
               (commaSpelt rest)
               spellsComma
-              (brokenItemsSpells False arm False False
+              (brokenItemsSpells False arm False item.trails
                 (at + item.size)
                 rest
                 (Bool.andRight within)

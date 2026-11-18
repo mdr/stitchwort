@@ -831,14 +831,16 @@ theorem cellsKept ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
       consCong
         (Doc.concat [(item.calm (!bare)).el (firstAround bare arm before at), Closing ","])
         (Doc.concat [item.el (firstAround bare arm before at), Closing ","])
-        (cells False arm False (at + (item.calm (!bare)).size) (calmAll True rest))
-        (cells False arm False (at + item.size) rest)
+        (cells False arm (item.calm (!bare)).trails (at + (item.calm (!bare)).size) (calmAll True rest))
+        (cells False arm item.trails (at + item.size) rest)
         (concatCong
           [(item.calm (!bare)).el (firstAround bare arm before at), Closing ","]
           [item.el (firstAround bare arm before at), Closing ","]
           (list2 _ _ _ _ (first (firstAround bare arm before at)) byComputing))
-        (rewrite calmAllList rest, sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
-          cellsKept False arm False (at + item.size) (rest) others (allGoodTail item rest good))
+        (rewrite calmAllList rest,
+            sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)),
+            trailsCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
+          cellsKept False arm item.trails (at + item.size) (rest) others (allGoodTail item rest good))
 
 --| A broken bracket's lines are the same for the calm items.
 --|
@@ -857,12 +859,12 @@ theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List
         [
           (item.calm (!bare)).el (firstAround bare arm before at),
           Closing ",",
-          ..brokenItems False arm False False (at + (item.calm (!bare)).size) (calmAll True rest)
+          ..brokenItems False arm False (item.calm (!bare)).trails (at + (item.calm (!bare)).size) (calmAll True rest)
         ]
         [
           item.el (firstAround bare arm before at),
           Closing ",",
-          ..brokenItems False arm False False (at + item.size) rest
+          ..brokenItems False arm False item.trails (at + item.size) rest
         ]
         byComputing
         (consCong _ _ _ _
@@ -870,11 +872,13 @@ theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List
           (consCong
             (Closing ",")
             (Closing ",")
-            (brokenItems False arm False False (at + (item.calm (!bare)).size) (calmAll True rest))
-            (brokenItems False arm False False (at + item.size) rest)
+            (brokenItems False arm False (item.calm (!bare)).trails (at + (item.calm (!bare)).size) (calmAll True rest))
+            (brokenItems False arm False item.trails (at + item.size) rest)
             byComputing
-            (rewrite calmAllList rest, sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
-              brokenItemsKept False arm False False (at + item.size) rest others (allGoodTail item rest good))))
+            (rewrite calmAllList rest,
+                sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)),
+                trailsCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
+              brokenItemsKept False arm False item.trails (at + item.size) rest others (allGoodTail item rest good))))
 
 --| `bracketContent` with what it reads of the items worked out beforehand: whether there are none, whether all are
 --| plain values, whether a comment is held inside, the opener and closer, and the lines the items make filled or
