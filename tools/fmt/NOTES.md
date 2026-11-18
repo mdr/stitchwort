@@ -1754,3 +1754,49 @@ it), using the tree's `Joinable` facts for the token being no layout and no comm
 At most one trailing comment comes from `PairsFollow`, not from the tree's `before` flags (a closer after a comment
 with a comment of its own takes its own line, S39): that rule is what makes `PairsFollow` hold, so the proof doesn't
 repeat it.
+## Slice 1 trivia proofs, F4: the engine end and `printedStands1` (SW-4051, Opus, 18 November 2026)
+
+`Fmt/StandsProofs.sw` (namespace `Fmt.StandsProofs`, 62 theorems, `audit` clean). `printedStands1` is proved there and
+no longer an open goal in `Fmt.TriviaStatements`, which keeps a pointer.
+
+### The statement, as proved
+
+```
+theorem printedStands1 ∀ (decl: Decl)
+    (within: decl.within1 = True) (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True) (lexical: decl.lexical1 = True)
+    (plain: decl.unreturned1 = True)
+    (facts: DeclHangs lexKind decl):
+    decl.stands1 = True
+```
+
+Two hypotheses beyond the four tree facts:
+
+- `unreturned1`: no comment of the declaration ends in a carriage return. Without it the statement is false
+  (`returnedFalls`: `def d: A := b -- c\r`, built by hand, meets the four facts but the lexer's `withoutReturn` takes
+  the return off, so the leaf's comment is not the tree's). The parser never builds such a tree; SW-4061's
+  `SourceFile.unreturned1` is the file-level cousin, for the file loop's comments only.
+- `DeclHangs lexKind decl`: what `printedHangs` takes, from which `doc1Hangs` gives the document's `Lays`, which
+  `printTold` needs. Chosen as the most general of the three (`DeclQuiet` → `DeclElements` → `DeclHangs`, by
+  `quietElements` and `declHangsOf`); the orchestrator may prefer `DeclQuiet` for a statement with no element facts.
+
+### How it is proved
+
+- The lexer as a fold over printed events (`Hearing`, `hearAll`); `laidHears`: `Laid.lay` over the printed pieces
+  gives the same leaves, pending comments and blank flags (`Hears`), given `CommentsEnd`.
+- `Heard owed bits views` mirrors `stands`; `heardStands` turns it into `stands owed (bitsWords bits) leaves = True`.
+- `Bit` (a word, or a bare comma): `Expr.bits`/`Decl.bits` are written as `Expr.shape`, so `shapeBits` and
+  `declShapeBits` hold with no hypotheses; `exprBits`/`declBits` give `bitsWords decl.bits = decl.stood` and
+  `BitsFine lexKind` (each token reads back as its kind, no comment, no comma) from `within1`, `sound`, `lexical1`,
+  `unreturned1`.
+- The tuck: `bitsHeard` walks the bits against `Tucks`'s stretches (`HeardFrom`, quantified over the hearing so far):
+  a waiting trailing comment is printed after the closers and commas that follow it, and the hearing hands it to the
+  last of them, as `stands` says. `keptFront` splits the stretches at a word's own events.
+- `refinesReads`: `Refines told shape` and `ReadsAs told events` give `ReadsAs shape events`.
+- `standsOfDoc` assembles: `doc1Hangs` → `printTold` → `printedTold`'s refinement → `bitsHeard` → `heardStands`, with
+  the leaves from `leavesHeard` (`pieceFoldLay`, `laidOfFold`) and `CommentsEnd` from `pairsEnd`.
+
+### Not done
+
+- A witness that `printedStands1` applies to a declaration with comments: `atomDeclStands` has none, since a
+  `DeclHangs` proof for a commented declaration is long by hand.
