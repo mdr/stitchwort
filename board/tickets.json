@@ -1,5 +1,5 @@
 {
-  "next": 3931,
+  "next": 3932,
   "tickets": [
     {
       "id": 47,
@@ -23284,6 +23284,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "D3680 (Matt, 18 Nov 2026): 'Okay, let's agree to D3680.' Build glued kept types with SW-3911's R1-R5; merge only if by-computing kernel time ≤1.5x and whole-AoC peak memory ≤ +10% (orchestrator's conditions, stated to Matt with the recommendation). SW-3916 and SW-3917 ride along.",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3931,
+      "title": "[Fable paper] Review SW-3930's diff (D3680 glued kept types, SW-3916, SW-3917) before merge: kernel soundness of the implemented change, the Refl case, erasure's hidden view, R1/R2 coverage",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
