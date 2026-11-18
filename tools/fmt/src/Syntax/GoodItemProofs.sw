@@ -27,6 +27,7 @@ import Syntax.LexReadsProofs (
   givesChar,
   givesDots,
   roundOfGives,
+  roundOfReads,
   roundOfYields,
   soundMark,
   soundSkip,
@@ -918,3 +919,79 @@ theorem tokenFixed ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Mar
         | Both isToken text =>
           let fixed: lexemeFixed source lexeme = True := rewrite isToken, text then spelled
           Parse.readsAtDone after _ _ (Bool.andIntro fixed byComputing))
+
+--| `symbol`'s token, read from where the input is, is spelled as its kind is.
+theorem symbolSpelled ∀ (start: Parse.Mark Char) (input: List Char) (kind: Tok) (count: Nat)
+    (here: start.rest = input)
+    (e: symbol input = Some (kind, count)):
+    fixedSpells1 kind (Text.fromList (start.rest.take count)) = True :=
+  let fixed: symbolFixed1 input = True := symbolFixed input
+  rewrite here then (rewrite e at fixed then fixed)
+
+--| One round of `item` at the top level, from a mark in step with the source: unless it gave a token outside the
+--| alphabet, every lexeme it gave is spelled as its kind is. By the same match as `itemOn`'s, so each arm computes.
+theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (start: Parse.Mark Char) (input: List Char)
+    (step: InStep source.toList start)
+    (here: start.rest = input):
+    RoundOk start (() => itemOn self source TopLevel start input) (read values => lexemesFine source values = True) :=
+  match input with
+    | [] => roundOfYields (yieldsStop _)
+    | ['\n', ..more] =>
+      roundOfGivesFine (Parse.readsThen (soundSkip 1) (read u h => oneLocated source LineBreak start byComputing))
+    | ['}', ..more] => roundOfReads (tokenFixed source RBrace 1 start step byComputing)
+    | ['{', ..more] => roundOfReads (tokenFixed source LBrace 1 start step byComputing)
+    | [' ', ..more] =>
+      roundOfGivesFine (Parse.readsThen (soundSpan _) (read run h => oneLocated source Spaces start byComputing))
+    | ['\r', ..more] =>
+      roundOfGivesFine (Parse.readsThen (soundSpan _) (read run h => oneLocated source Spaces start byComputing))
+    | ['\t', ..more] => roundOfYields (yieldsFatal tabs _)
+    | ['-', ..more] =>
+      match more with
+        | ['-', ..rest] =>
+          roundOfGivesFine
+            (Parse.readsThen (soundSpan _) (read text h =>
+              Parse.readsThen soundMark (read2 at h2 => oneLocated source CommentLexeme start byComputing)))
+        | [] => roundOfReads (tokenFixed source Minus 1 start step (rewrite here))
+        | [next, ..rest] =>
+          match s: symbol ['-', next, ..rest] with
+            | Some (kind, count) =>
+              roundOfReads
+                (tokenFixed source kind count start step (symbolSpelled start ['-', next, ..rest] kind count here s))
+            | None => roundOfYields [p := () => fail (unexpected '-')] (yieldsFatal (unexpected '-') _)
+    | ['"', ..more] => roundOfYields (textForeign self source TopLevel)
+    | ['\'', ..more] => roundOfGives givesChar
+    | ['.', ..more] => roundOfGives givesDots
+    | [other, ..more] =>
+      match w: isWordStart other with
+        | True =>
+          roundOfReads
+            (atThen
+              [p := () => word False]
+              [j := made => [made]]
+              (atMarkThen [j := from => wordFrom False from] (wordFine source False start step))
+              (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
+        | False =>
+          match d: other.isAsciiDigit with
+            | True =>
+              roundOfGivesFine
+                (Parse.givesThen (givesNumber source False) (lexeme fine =>
+                  Parse.givesDone (Bool.andIntro fine byComputing)))
+            | False =>
+              match u: other.toNat >= 128 with
+                | True =>
+                  match a: Tok.unicodeAlias other with
+                    | Some kind =>
+                      roundOfReads (tokenFixed source kind 1 start step (rewrite here then unicodeFixed other kind a))
+                    | None => roundOfYields [p := () => fail (unexpected other)] (yieldsFatal (unexpected other) _)
+                | False =>
+                  match s: symbol [other, ..more] with
+                    | Some (kind, count) =>
+                      roundOfReads
+                        [p := () => [tokenOf kind count]]
+                        (tokenFixed source kind count start step
+                          (symbolSpelled start [other, ..more] kind count here s))
+                    | None =>
+                      roundOfYields
+                        [p := () => fail (if other == '@' then strayAt else unexpected other)]
+                        (yieldsFatal (if other == '@' then strayAt else unexpected other) _)
