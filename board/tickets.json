@@ -23345,7 +23345,7 @@
     {
       "id": 3935,
       "title": "[Sonnet] docs/core.md after D3680: say retype_def checks a signature unglued (or glue it, measuring, SW-3931 T4), and that a parameter visible only through an opaque nickname isn't erased, in core.md and erase.rs, once SW-3933 settles the view (SW-3931 doc fixes, T5)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23360,12 +23360,12 @@
     {
       "id": 3936,
       "title": "[DeepSeek] Export validators (kernel add_validator, elab add_validators) still read the hidden view of a definition's parameters; move them to erase::def_telescope like every other reader, so an export with a proof parameter behind an opaque nickname gets its runtime check instead of E-EXPORT; with a test (SW-3933 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nLane (Opus, 18 Nov 2026, 10:24-10:50): kernel add_validator and elab add_validators read erase::def_telescope; the decision is found and checked under the definition's transparency set, glued. js boundary forces a type first (a glued synonym parameter was refused with a generic message since SW-3933: reject/export-indexed-synonym's snapshot failed on main). Failing first: examples/extract/opaque-nickname-precondition.sw gave E-EXPORT \"proof parameter `ok` has no runtime check\" with the old binary; now checks, extracts, and the wrapper refuses share 10 0. Kernel now also accepts: a validator at a parameter visible only through an opaque nickname the export unfolds, and a decision that type-checks only under the export's transparency set. No hash moved. Tests: new extract test, kernel validator tests, opaque::, export examples (filtered), soundness set, hash_stability::, pinned_hashes::.\n",
+      "body": "\n\nLane (Opus, 18 Nov 2026, 10:24-10:50): kernel add_validator and elab add_validators read erase::def_telescope; the decision is found and checked under the definition's transparency set, glued. js boundary forces a type first (a glued synonym parameter was refused with a generic message since SW-3933: reject/export-indexed-synonym's snapshot failed on main). Failing first: examples/extract/opaque-nickname-precondition.sw gave E-EXPORT \"proof parameter `ok` has no runtime check\" with the old binary; now checks, extracts, and the wrapper refuses share 10 0. Kernel now also accepts: a validator at a parameter visible only through an opaque nickname the export unfolds, and a decision that type-checks only under the export's transparency set. No hash moved. Tests: new extract test, kernel validator tests, opaque::, export examples (filtered), soundness set, hash_stability::, pinned_hashes::.\n\nMerged 18 Nov with SW-3935. Fable SW-3948: merge as is. Failing-first: examples/extract/opaque-nickname-precondition.sw gave E-EXPORT before. Also fixed js boundary (forces first) regression from SW-3933. 26 min (est. 30).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": [
@@ -23479,12 +23479,12 @@
     {
       "id": 3945,
       "title": "[Sonnet] Std.Args: factor help's let-bound column and lines into Args.helpColumn/helpLines so helpListsOption stops restating them (SW-3939 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Notes: added Args.helpColumn and Args.helpLines, help uses them, helpListsOption proof now binds them (statement unchanged). Std Args tests, audit, hash snapshot done. Model result: Sonnet, worked, 15 min (est. 20).",
+      "body": "Notes: added Args.helpColumn and Args.helpLines, help uses them, helpListsOption proof now binds them (statement unchanged). Std Args tests, audit, hash snapshot done. Model result: Sonnet, worked, 15 min (est. 20).\n\nModel result: sonnet, worked, 5 min (est. 20). Merge conflicted on the prelude snapshot with the orchestrator's Text fix; regenerated on the merged tree, only help and its dependents moved.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
