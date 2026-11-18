@@ -51,6 +51,10 @@ vars:
     for d in aoc/.stitchwort games/rogue/.stitchwort; do
       if [ -d '{{.ROOT_DIR}}'/"$d" ]; then /bin/cp -c -R '{{.ROOT_DIR}}'/"$d" "$wt/$d"; fi
     done
+    # Entering the devShell once writes the checkout's .pre-commit-config.yaml
+    # (gitignored); without it the pre-commit hook, installed in the shared
+    # git dir, fails every commit here (D3681, SW-3952).
+    (cd "$wt" && nix develop -c true >/dev/null 2>&1) || echo "warning: couldn't set up the pre-commit hook in $wt: run nix develop there" >&2
   # The release CLI the AoC and `.sw` tasks run (on Linux the devShell sets
   # CARGO_BUILD_TARGET, the musl target, which cargo puts in its own folder).
   SW: '{{.ROOT_DIR}}/target/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'

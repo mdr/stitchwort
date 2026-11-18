@@ -321,7 +321,11 @@ of work to fit it:
   failing without the fix. If a test already caught the bug, name that test
   in the report instead (D3608, Matt, 15 Nov 2026: "Yes, yes.").
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
-  plus `cargo fmt` and clippy.
+  plus `cargo fmt` and clippy. A pre-commit hook (D3681) refuses a commit
+  with an unformatted staged `.sw` or `.rs` file, naming it; format it and
+  commit again. `git commit --no-verify` bypasses it, only deliberately
+  (the hook is installed by `nix develop`; see "Pre-commit hook" in
+  `docs/workflow.md`).
 
 ## Test budget (Matt, 2 Nov 2026)
 
