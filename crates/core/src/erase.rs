@@ -273,9 +273,16 @@ pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
     let tel = in_own_view(g, def, || {
         check::proof_telescope(g, &check::def_type(g, def)?, def.span)
     });
-    // Out of resources: nothing is a proof, which only makes more
-    // differences count.
-    let (params, result) = tel.unwrap_or_default();
+    let Ok((params, result)) = tel else {
+        // Out of resources: nothing is a proof, which only makes more
+        // differences count. Not remembered, as [`of_def`] doesn't remember
+        // its fallback: a later call with more budget gets the real answer,
+        // so a proofless hash can't depend on what ran first.
+        return Some(Rc::new(ProofPositions {
+            params: Box::new([]),
+            result: false,
+        }));
+    };
     let positions = Rc::new(ProofPositions {
         params: params.into(),
         result,

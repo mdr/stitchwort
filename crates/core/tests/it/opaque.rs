@@ -894,3 +894,57 @@ fn erasure_of_a_definition_doesnt_depend_on_its_first_use() {
     assert_eq!(params(true), params(false));
     assert_eq!(params(false), (vec![false, true], vec![false, false]));
 }
+
+/// SW-3934: `proof_positions` doesn't remember an answer it reached by
+/// running out of steps. Reading a definition's type computes what the type
+/// says, so a tiny budget can leave "nothing is a proof", which only makes
+/// more differences count; a later call with a normal budget still gets the
+/// real answer. Remembering the fallback would make a proofless hash depend
+/// on which call came first.
+#[test]
+fn proof_positions_doesnt_remember_an_out_of_resources_answer() {
+    let mut p = Prelude::new();
+    // `P (n: Nat): Prop := case n of Zero => 0 = 0; Succ _ => 0 = 0`: a
+    // proposition whatever `n` is, whose body can only be read once `n` is a
+    // value.
+    let proposition = eq(Some(p.nat_ty()), p.num(0), p.num(0));
+    let p_body = lam(
+        "n",
+        case(
+            0,
+            p.nat,
+            vec![(vec![], proposition.clone()), (vec!["k"], proposition)],
+        ),
+    );
+    let p_ty = pi("n", p.nat_ty(), prop());
+    let family = submit(&mut p.g, "P", OPAQUE, p_ty, p_body).unwrap();
+    // `needsSteps: (h: P (500 + 500)) -> Nat`, written through `P` the
+    // definition unfolds, so its type is evaluated when its telescope is read:
+    // that computes `500 + 500`, which takes many steps.
+    let big = p.plus(p.num(500), p.num(500));
+    let ty_term = pi("h", app(Term::Def(family), [big]), p.nat_ty());
+    let how = How {
+        opaque: true,
+        theorem: false,
+        unfolding: &[family],
+    };
+    let zero = p.num(0);
+    let needs_steps = submit(&mut p.g, "needsSteps", how, ty_term, lam("h", zero)).unwrap();
+    // Out of steps, the fallback is returned and not stored.
+    {
+        let _op = p.g.machine.budget.operation(Limits {
+            work: 10,
+            ..Limits::default()
+        });
+        let first = stitchwort_core::erase::proof_positions(&p.g.ev(), needs_steps).expect("final");
+        assert!(
+            first.params.is_empty(),
+            "the telescope ran out of steps, so nothing is a proof"
+        );
+    }
+    // With the budget of a normal check, `h`'s type is seen to be a
+    // proposition.
+    let _op = p.g.machine.budget.operation(Limits::default());
+    let second = stitchwort_core::erase::proof_positions(&p.g.ev(), needs_steps).expect("final");
+    assert_eq!(second.params, [true].into());
+}
