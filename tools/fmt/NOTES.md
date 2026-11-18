@@ -1352,3 +1352,52 @@ Ticket 18e, in `Fmt/HangProofs.sw` (rules) and the new `Fmt/PrintHangProofs.sw` 
 - Brackets: `parenDoc`/`parenInner`, `commaBracket`/`bracketContent`/`cells`/`brokenItems`, `huggedBracket`/`lastArgument` (the marks invariant above).
 - Applications and chains: `argumentDocs`/`appDocs`/`appFrom`/`spaced`, `chain`/`chainOf`/`chainLinks`/`chainRight`/`linkDocs` (the seat above).
 - The declaration level: `bodyAfter`/`callHug`/`opensBracket`/`bodyDoc`, `headDocs`, `defDoc`/`defFrom`, `doc1`; then `printedHangs` is `hangsOfLays` applied to `doc1`'s triple.
+
+## `parseCarries1`, first half (SW-4019, Opus, 18 November 2026)
+
+`Syntax/ParseCarries.sw` (namespace `Syntax.ParseCarries`, 96 theorems, audit clean, no open goals) walks the
+expression parser a second time, as `ParseWalk` does, for what `parseCarries1` needs: a tree in the slice has the
+words of the items read for it, commas left out. `codeWords` moved here from `ParseSettledStatements`, which imports it.
+
+### The spec and combinators
+
+- `Carried read expr`: `expr.within1 = True → expr.words = itemWords read`, with `itemWords read = codeWords (read.map
+  Item.leaf)`. A `Parse.ReadsIn GoodItems p Carried` per parser function; `NestedCarries self` at every goal.
+- Words of items: `itemWordsAppend`, `itemWordsCode` / `itemWordsCons` (an item whose `(kind == Comma) = False`),
+  `itemWordsComma`, `itemWordsAfterComma`; `codeAs` turns a kind known by `=` into its code fact.
+- Lifting `ParseWalk`'s `Out` facts: `readsOut (outside.records modes)`, and `readsOutAfter before` where the spec
+  is about `before ++ read` (after an opener, say). `readsNever` turns any `givesFail`-style fact into one at any spec
+  (`readsFail`, `readsFailName`).
+- Chaining: std's `Parse.readsThen` / `readsAtThen` / `readsDone`; `readsAfter0` (a look-ahead, then `j`);
+  `readsAtBumpRead` (bump a known item, spec at `[item] ++ read`); `readsExpect` (`OneOf wanted`, and `oneOfWords`).
+- Trees: `SameOrOut target` (kept, reading nothing, or outside the slice) with `sameOrOutThen` and `carriedSame`, for
+  what follows an atom; `ItemsCarried` / `ListCarried` for comma lists and arguments; `carriedParen`, `carriedTuple`,
+  `carriedList`, `carriedApp`, `carriedPrefix`, `carriedInfix`.
+- Operator links: `LinkCarried`, `readsOperatorStep` (a round of `operatorLinks`), `carriedLeftNested`,
+  `carriedRightNested`, `readsLeftChain`.
+
+### What is proved
+
+Atoms (words, `-`/`!` prefixes, negative numbers, `atomBase` by kind), what follows an atom (`suffixes`,
+`atomRecord`, `atomAfter`, `atom`), parentheses and tuples, lists, comma lists, arguments and applications, `unary`,
+`mul_expr`, `add_expr`, `append_expr`, and the knot: `bothExpressionAt` ties `ParseWalk`'s `GoalParsed` and
+`Carried` in one `Parse.readsRecursiveWith` (the outside parsers' facts need `Nested`, so the two walks share the
+recursion), and `carriesExpressionAt (ladder: LadderCarries): NestedCarries expressionAt`.
+
+### For the second half (SW-4020)
+
+- **Discharge `LadderCarries`**: for every `self` with `Nested self`, `NestedCarries self` and `Outside self`, a
+  `Ladder self`: `expr`, `exprInline`, `logicLevel`, `cmpExpr` and `thenBody` carry their items. Then
+  `carriesExpressionAt ladderOf` gives `expressionAt` at every goal, for the `def` frame and the file.
+- **A level is proved as `readsMulExpr` and `readsAppendExpr` are**: `Parse.readsThen` down the function, each
+  parser of the slice by its `reads…` lemma, each outside it by `readsOut` of its `Outside` field, folds by a
+  `carried…` lemma; mirror `ParseWalk`'s `gives…` proof of the same function, replacing `Parse.givesThen` by
+  `Parse.readsThen` (whose continuation also takes what was read) and `givesAfter0` by `readsAfter0`.
+- **Two `Outside` fields are not `Out`** and can't be lifted: `pipeChains` (`result = value ∨ Out result`, which
+  doesn't say that nothing was read when `result = value`) and `statementOthers` (`StatementOk`). `pipeChain` needs
+  its own `Parse.ReadsIn … (SameOrOut value)` proof (it reads nothing unless a `|>` is ahead, and then gives an
+  `InfixPipe`); a block's statements need theirs where `statementOther` can give an `ExprStatement`.
+- **Things to check on the way**: `blockResult` gives a one-line block's value itself, so a block's spec is that
+  line's; the logic chain's regrouping (`groupLogic`, `conjunctionOf`) must keep the words in order; the `def` frame's
+  `def`, `:` and `:=` need `good` for their texts (`Decl.words` writes them back), and `(items group).map Item.leaf =
+  group` for the file.
