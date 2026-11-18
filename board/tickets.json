@@ -25173,12 +25173,12 @@
     {
       "id": 4071,
       "title": "[Opus] fmt S1 read-back 17g: binary operators on one line (* / %, + -, ++ chains flattening the spine, comparisons, && and || through groupLogic, arrows with operators on the left), over the tightened shaped1; then multi-line declarations (17h)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3685: binary operators on one line stay on the first path; the multi-line part (17h) moves after the first end-to-end theorem.",
+      "body": "D3685: binary operators on one line stay on the first path; the multi-line part (17h) moves after the first end-to-end theorem.\n\nLane (Opus, 18 Nov, 22:19 to 22:55, est. 50 min): `* / %`, `+ -`, `++` and comparisons read back on one line, and so do arrows with operators on the left (lane/SW-4071: a85daf8a0, d06cf5fd3, 2be9cc27e, 4e224e42b). Spelt, lineKind and readsBackLineWithin were widened in place: one Infix case with the level, leftNeeds/rightNeeds and operandApart fields, and no new hypotheses on readsBackLine. Six witnesses, one of them from the lexer's own items. `&&`/`||` through groupLogic are not done (Spelt does not admit them): follow-up. Audit: 0 failed. Syntax.Tests 52/52, Fmt.Tests 112/112.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
