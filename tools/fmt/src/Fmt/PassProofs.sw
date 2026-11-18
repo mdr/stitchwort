@@ -100,7 +100,7 @@ theorem declMap ∀ (p: Pure) (decl: Decl) (within: decl.within1 = True): decl.w
           result,
           decreasingClause = None,
           unfoldingClause = None
-        } => rewrite walkMap p result (Bool.andLeft within), walkMap p value (Bool.andRight within)
+        } => rewrite walkMap p result (Bool.andRight (Bool.andLeft within)), walkMap p value (Bool.andRight within)
       | _ => cases
 
 --| The steps leave slice 1's nodes as they are.
@@ -127,7 +127,7 @@ theorem declSame ∀ (p: Pure) (fixes: Fixes1 p) (decl: Decl) (within: decl.with
             decreasingClause = None,
             unfoldingClause = None
           } =>
-          rewrite mapSame p.expr fixes.expr result (Bool.andLeft within),
+          rewrite mapSame p.expr fixes.expr result (Bool.andRight (Bool.andLeft within)),
               mapSame p.expr fixes.expr value (Bool.andRight within),
               fixes.header
                 {
@@ -229,7 +229,7 @@ theorem bindersHeaderSame ∀ (header: Header) (within: header.within1 = True): 
         result,
         decreasingClause = None,
         unfoldingClause = None
-      } => rewrite spineSame result within
+      } => rewrite spineSame result (Bool.andRight within)
 
 theorem bindersDeclSame ∀ (decl: Decl) (within: decl.within1 = True): dropDeclBindersPure decl = decl := match decl with
   | Definition [] header (Assigned colonEq value) => rewrite bindersHeaderSame header (Bool.andLeft within)
@@ -350,7 +350,9 @@ theorem declUncommaWithin ∀ (decl: Decl) (within: decl.within1 = True): decl.u
           unfoldingClause = None
         } =>
         Bool.andIntro
-          (mapWithin withoutCommaExpr commaExprWithin result (Bool.andLeft within))
+          (Bool.andIntro
+            (Bool.andLeft (Bool.andLeft within))
+            (mapWithin withoutCommaExpr commaExprWithin result (Bool.andRight (Bool.andLeft within))))
           (mapWithin withoutCommaExpr commaExprWithin value (Bool.andRight within))
       | _ => cases
 
@@ -719,6 +721,7 @@ theorem pickWithin ∀ (items: List Expr) (plain: Bool): allWithin1 (pickItems p
     | False => calmAllWithin items True
 
 theorem headerWithinResult ∀ (header: Header) (name: Word) (colon: Comments) (result: Expr)
+    (sameName: name.lexesAs Lower = header.name.lexesAs Lower)
     (same: result.within1 = header.result.within1):
     { header | name, colon, result }.within1 = header.within1 :=
   match header with
@@ -734,13 +737,17 @@ theorem headerWithinResult ∀ (header: Header) (name: Word) (colon: Comments) (
         result = oldResult,
         decreasingClause,
         unfoldingClause
-      } => cases
+      } =>
+      match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause with
+        | None, None, DefPlain, None, [], None, None => rewrite sameName, same
+        | other, others, kinds, foralls, parameters, decreasings, unfoldings => byComputing
 
 theorem headerCalmWithin ∀ (header: Header): header.calm.within1 = header.within1 :=
   headerWithinResult header
     (header.name.kept False False)
     (header.colon.kept False False)
     (header.result.calm False)
+    (Word.keptLexesAs header.name False False Lower)
     (exprCalmWithin header.result False)
 
 theorem declCalmWithin ∀ (decl: Decl): decl.calm.within1 = decl.within1 := match decl with

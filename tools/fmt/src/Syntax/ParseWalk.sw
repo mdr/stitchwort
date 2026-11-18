@@ -64,8 +64,9 @@ theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.
   | Prefix operator operand, argument => arithmetic
   | other, argument => (Bool.falseNotTrue argument).impossible
 
--- What the parsers outside slice 1 give: SW-4000 discharges these. Each is `Out` (the tree is outside the slice) or
--- `True` (the tree is wrapped in a node that is).
+-- What the parsers outside slice 1 give. Each is `Out` (the tree is outside the slice) or `True` (the tree is wrapped in
+-- a node that is). `outsideOf` and `frameOf` prove most of them; `OutsideRest` and `FrameRest` are what is still
+-- assumed (SW-4000's follow-up).
 
 --| A line of a block is good when it is an expression that is: `let`s and local definitions are outside the slice.
 def StatementOk (statement: Statement): Prop := match statement with
@@ -112,6 +113,33 @@ type Outside (self: Goal → {Parse Item} Expr) = {
   ifKeywords: ∀ (modes: Modes) => Parse.Gives GoodItems (() => ifKeyword self modes) Out,
   piExprs: ∀ (modes: Modes) (implicit: Bool) => Parse.Gives GoodItems (() => piExpr self modes implicit) Out,
   effectResults: ∀ (allowed: Modes) => Parse.Gives GoodItems (() => effectResult self allowed) Out,
+  statementOthers: ∀ (modes: Modes) (kind: Tok) => startsOtherStatement kind = True
+    → Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk
+}
+
+--| The parsers outside slice 1 that SW-4000 has not yet proved give what `Outside` says of them; the rest of
+--| `Outside` is proved below (`outsideOf`).
+type OutsideRest (self: Goal → {Parse Item} Expr) = {
+  matches: ∀ (modes: Modes) (keyword: Word) => Parse.Gives GoodItems (() => matchExpr self modes keyword) Out,
+  clauseLambdas: ∀ (modes: Modes) (keyword: Word) => Parse.Gives GoodItems
+    (() => clauseLambda self modes keyword None ClauseMatches)
+    Out,
+  braceArguments: ∀ (modes: Modes) => Parse.Gives GoodItems (() => braceArgument self modes) Out,
+  memberships: ∀ (modes: Modes) (first: Option Tok) (element: Expr) => Parse.Gives GoodItems
+    (() => membership self modes first element)
+    Out,
+  comparisonChains: ∀ (modes: Modes) (lhs: Expr) (kind: Tok) (operator: Word) (second: Expr) => Parse.Gives GoodItems
+    (() => comparisonChain self modes lhs kind operator second)
+    Out,
+  pipeChains: ∀ (modes: Modes) (indent: Nat) (value: Expr) => Parse.Gives GoodItems
+    (() => pipeChain self modes indent value)
+    (result => result = value ∨ Out result),
+  iffs: ∀ (modes: Modes) (logic: Expr) => Parse.Gives GoodItems (() => iff self modes logic) Out,
+  quantifiers: ∀ (modes: Modes) => Parse.Gives GoodItems (() => Syntax.quantifier self modes) Out,
+  keywords: ∀ (modes: Modes) (kind: Tok) => startsKeywordExpr kind = True
+    → Parse.Gives GoodItems (() => exprKeyword self modes kind) Out,
+  lambdas: ∀ (modes: Modes) => Parse.Gives GoodItems (() => lambda self modes None) Out,
+  piExprs: ∀ (modes: Modes) (implicit: Bool) => Parse.Gives GoodItems (() => piExpr self modes implicit) Out,
   statementOthers: ∀ (modes: Modes) (kind: Tok) => startsOtherStatement kind = True
     → Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk
 }
@@ -2151,14 +2179,883 @@ theorem givesExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
         | LevelApp => givesApp self modes nested outside bases
         | LevelThenBody => givesThenBody self modes nested outside bases
 
---| What the parsers outside slice 1 give, for every `self` that gives what `GoalParsed` says: SW-4000 proves it.
-def OutsideGives: Type := ∀ (self: Goal → {Parse Item} Expr) => Nested self → Outside self
+-- The parsers outside slice 1, proved.
+
+theorem givesSemiAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (semicolon: Word)
+    (nested: Nested self) (seen: Option Tok):
+    Parse.Gives GoodItems (() => semiAfter self modes value semicolon seen) Out :=
+  match seen with
+    | None => Parse.readsFatal _ _
+    | Some RParen => Parse.readsFatal _ _
+    | Some RBracket => Parse.readsFatal _ _
+    | Some RBrace => Parse.readsFatal _ _
+    | Some Comma => Parse.readsFatal _ _
+    | Some other =>
+      Parse.givesThen
+        [p := () => self { modes, level = LevelFull }]
+        [j := tail => Infix InfixSeq value semicolon tail]
+        (nested { modes, level = LevelFull })
+        (tail parsed => Parse.givesDone byComputing)
+
+theorem givesSemi ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => semiExpr self modes value) Out :=
+  Parse.givesThen
+    [p := () => bump()]
+    [j := semicolon => semiAfter self modes value semicolon modes.peek]
+    givesBump
+    (semicolon _ =>
+      givesAfter0
+        [p := () => modes.peek]
+        [j := seen => semiAfter self modes value semicolon seen]
+        (reads0Peek modes)
+        (seen => givesSemiAfter self modes value semicolon nested seen))
+
+--| `expect` gives the word of a token of any kind it was asked for.
+theorem givesExpectAny ∀ (modes: Modes) (wanted: Tok) (what: Text):
+    Parse.Gives GoodItems (() => modes.expect wanted what) (word => True) :=
+  readsInPeeked modes
+    (seen => modes.expectOn wanted what seen) _
+    (start fine stops => givesFail modes what start fine)
+    (start item later shape fine stopped =>
+      match took: isSome wanted (Some item.kind) with
+        | False => givesFail modes what start fine
+        | True => Parse.readsAtWeaken (readsAtBump shape) (read word (single, same) => byComputing))
+
+theorem givesAnnotatedEnd ∀ (inner: Modes) (open: Word) (first: Expr) (colon: Word) (annotation: Expr) (comma: Bool):
+    Parse.Gives GoodItems (() => annotatedEnd inner open first colon annotation comma) Out :=
+  match comma with
+    | True => Parse.readsFatal _ _
+    | False =>
+      Parse.givesThen
+        [p := () => inner.expect RParen "`)`"]
+        [j := close => Annotation open first colon annotation close]
+        (givesExpectAny inner RParen "`)`")
+        (close _ => Parse.givesDone byComputing)
+
+theorem givesAnnotated ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => annotated self inner open first) Out :=
+  Parse.givesThen
+    [p := () => bump()]
+    [j := colon => annotatedEnd inner open first colon (full self inner) (inner.at Comma)]
+    givesBump
+    (colon _ =>
+      Parse.givesThen
+        [p := () => self { modes = inner, level = LevelFull }]
+        [j := annotation => annotatedEnd inner open first colon annotation (inner.at Comma)]
+        (nested { modes = inner, level = LevelFull })
+        (annotation _ =>
+          givesAfter0
+            [p := () => inner.at Comma]
+            [j := comma => annotatedEnd inner open first colon annotation comma]
+            (reads0At inner Comma)
+            (comma => givesAnnotatedEnd inner open first colon annotation comma)))
+
+theorem givesLower ∀ (modes: Modes) (what: Text): Parse.Gives GoodItems (() => modes.lower what) (word => True) :=
+  givesAfter0 [p := () => left()] [j := items => modes.lowerOn what items] reads0Left (items =>
+    match items with
+      | [item, ..rest] =>
+        match named: item.kind == Lower && !modes.stops item with
+          | True =>
+            match qualified: isQualified item with
+              | True => Parse.readsFatal _ _
+              | False => givesBump
+          | False => givesFailName modes what
+      | [] => givesFailName modes what)
+
+theorem givesNamedClose ∀ (inner: Modes) (open name colonEq: Word) (value: Expr) (closer: Tok) (closeText: Text):
+    Parse.Gives GoodItems (() => namedClose inner open name colonEq value closer closeText) Out :=
+  Parse.givesThen
+    [p := () => inner.expect closer closeText]
+    [j := close => NamedArg open name colonEq value close]
+    (givesExpectAny inner closer closeText)
+    (close _ => Parse.givesDone byComputing)
+
+theorem givesNamedColon ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open name: Word)
+    (closer: Tok) (closeText: Text)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => namedColon self inner open name closer closeText) Out :=
+  Parse.givesThen
+    [p := () => bump()]
+    [j := colonEq => namedClose inner open name colonEq (full self inner) closer closeText]
+    givesBump
+    (colonEq _ =>
+      Parse.givesThen
+        [p := () => self { modes = inner, level = LevelFull }]
+        [j := value => namedClose inner open name colonEq value closer closeText]
+        (nested { modes = inner, level = LevelFull })
+        (value _ => givesNamedClose inner open name colonEq value closer closeText))
+
+theorem givesNamedHead ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (closer: Tok) (closeText: Text)
+    (nested: Nested self) (clause: Bool):
+    Parse.Gives GoodItems (() => namedHead self inner open closer closeText clause) Out :=
+  match clause with
+    | True =>
+      Parse.givesThen
+        [p := () => bump()]
+        [j := name => namedColon self inner open name closer closeText]
+        givesBump
+        (name _ => givesNamedColon self inner open name closer closeText nested)
+    | False =>
+      Parse.givesThen
+        [p := () => inner.lower "a name"]
+        [j := name => namedColon self inner open name closer closeText]
+        (givesLower inner "a name")
+        (name _ => givesNamedColon self inner open name closer closeText nested)
+
+theorem givesNamedArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (closer: Tok) (closeText: Text)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => namedArgument self modes closer closeText) Out :=
+  Parse.givesThen
+    [p := () => bump()]
+    [j := open => namedHead self modes.inBrackets open closer closeText (modes.inBrackets.at KwDecreasing)]
+    givesBump
+    (open _ =>
+      givesAfter0
+        [p := () => modes.inBrackets.at KwDecreasing]
+        [j := clause => namedHead self modes.inBrackets open closer closeText clause]
+        (reads0At modes.inBrackets KwDecreasing)
+        (clause => givesNamedHead self modes.inBrackets open closer closeText nested clause))
+
+--| A gap is an error, which gives anything.
+theorem givesGap ∀ (modes: Modes) (message: Text) [holds: a → Prop]:
+    Parse.Gives GoodItems (() => modes.gap message) holds :=
+  givesAfter0 [p := () => left()] [j := items => modes.gapOn message items] reads0Left (items =>
+    match blockEnd modes.lines items.head with
+      | Some ending => Parse.readsFatal _ _
+      | None => Parse.readsFatal _ _)
+
+theorem reads0RanOutAtLine ∀ (modes: Modes): Reads0 (() => ranOutAtLine modes) :=
+  reads0Then [p := () => modes.peek] (reads0Peek modes) (seen =>
+    reads0Then [p := () => left()] reads0Left (items => reads0Done (ranOutOn modes seen items)))
+
+theorem givesAtomGap ∀ (modes: Modes) (ran: Bool): Parse.Gives GoodItems (() => atomGap modes ran) Out := match ran with
+  | True => givesGap modes ranOutLine
+  | False =>
+    Parse.givesThen
+      [p := () => modes.unexpected "an expression"]
+      [j := message => modes.gap message]
+      (givesUnexpected modes "an expression")
+      (message _ => givesGap modes message)
+
+theorem givesAtomNamed ∀ (modes: Modes) (second: Option Tok):
+    Parse.Gives GoodItems (() => atomNamed modes second) Out :=
+  match isSome FatArrow second with
+    | True => givesFailName modes "an expression"
+    | False => givesFail modes "an expression"
+
+theorem givesAtomMissing ∀ (self: Goal → {Parse Item} Expr) (modes: Modes):
+    Parse.Gives GoodItems (() => atomMissing self modes) Out :=
+  givesAfter0 [p := () => modes.peek] [j := seen => atomMissingAt modes seen] (reads0Peek modes) (seen =>
+    match modes.recover && seen.isNone with
+      | True =>
+        givesAfter0 [p := () => ranOutAtLine modes] [j := ran => atomGap modes ran] (reads0RanOutAtLine modes) (ran =>
+          givesAtomGap modes ran)
+      | False =>
+        givesAfter0
+          [p := () => modes.peekAt 1]
+          [j := second => atomNamed modes second]
+          (reads0PeekAt modes 1)
+          (second => givesAtomNamed modes second))
+
+theorem givesNamedBinder ∀ (modes: Modes): Parse.Gives GoodItems (() => namedBinder modes) (found => True) :=
+  givesAfter0
+    [p := () => modes.at Lower]
+    [j := lower => namedBinderOn modes lower (modes.peekAt 1)]
+    (reads0At modes Lower)
+    (lower =>
+      givesAfter0
+        [p := () => modes.peekAt 1]
+        [j := second => namedBinderOn modes lower second]
+        (reads0PeekAt modes 1)
+        (second =>
+          match lower && isSome Colon second with
+            | True => Parse.givesThen (givesLower modes "a name") (name _ =>
+              Parse.givesThen givesBump (colon _ => Parse.givesDone byComputing))
+            | False => Parse.givesDone byComputing))
+
+theorem givesExpectKeyword ∀ (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat):
+    Parse.Gives GoodItems (() => modes.expectKeyword wanted what indent) (word => True) :=
+  givesAfter0
+    [p := () => modes.peek]
+    [j := seen => modes.expectKeywordOn wanted what indent seen left()]
+    (reads0Peek modes)
+    (seen =>
+      givesAfter0
+        [p := () => left()]
+        [j := items => modes.expectKeywordOn wanted what indent seen items]
+        reads0Left
+        (items =>
+          match seen, items with
+            | None, [item, ..rest] =>
+              match line: item.kind == wanted && item.leaf.token.lineStart && item.leaf.token.column >= indent with
+                | True => givesBump
+                | False => givesExpectAny modes wanted what
+            | None, [] => givesExpectAny modes wanted what
+            | Some kind, others => givesExpectAny modes wanted what))
+
+theorem givesIf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (keyword: Word)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => ifExpr self modes indent keyword) Out :=
+  Parse.givesThen (givesNamedBinder modes) (binder _ =>
+    Parse.givesThen (nested { modes = modes.sealed, level = LevelFull }) (condition _ =>
+      Parse.givesThen (givesExpectKeyword modes KwThen "`then`" indent) (thenKeyword _ =>
+        Parse.givesThen (nested { modes = modes.sealed, level = LevelFull }) (whenTrue _ =>
+          Parse.givesThen (givesExpectKeyword modes KwElse "`else`" indent) (elseKeyword _ =>
+            Parse.givesThen (nested { modes, level = LevelFull }) (tail _ => Parse.givesDone byComputing))))))
+
+theorem givesIfKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => ifKeyword self modes) Out :=
+  givesAfter0 reads0HeadIndent (indent =>
+    Parse.givesThen givesBump (keyword _ => givesIf self modes indent keyword nested))
+
+--| What `self` gives at some goal, nothing is known of.
+theorem givesSelfAny ∀ (self: Goal → {Parse Item} Expr)
+    (nested: Nested self) (goal: Goal):
+    Parse.Gives GoodItems (() => self goal) (expr => True) :=
+  Parse.givesWeaken (nested goal) (found parsed => byComputing)
+
+theorem givesSectionOperand ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (operatorKind: Tok)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => sectionOperand self inner operatorKind) (expr => True) :=
+  match operatorKind with
+    | Plus => givesSelfAny self nested { modes = inner, level = LevelMultiplicative }
+    | Star => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | Slash => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | Percent => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | AndAnd => givesSelfAny self nested { modes = inner, level = LevelComparison }
+    | OrOr => Parse.givesThen (givesSelfAny self nested { modes = inner, level = LevelComparison }) (first _ =>
+      Parse.givesThen
+        [p := () =>
+          operatorLinks inner (kind => kind == AndAnd) (() => self { modes = inner, level = LevelComparison })]
+        [j := links => rightNested first links]
+        (Parse.givesWeaken
+          [weaker := links => True]
+          (Parse.givesLoop
+            (givesOperatorStep inner
+              (kind => kind == AndAnd)
+              (() => self { modes = inner, level = LevelComparison })
+              6
+              (link => True)
+              (chosen value good took parsed => byComputing)
+              (nested { modes = inner, level = LevelComparison })))
+          (links ok => byComputing))
+        (links _ => Parse.givesDone byComputing))
+    | IffArrow => givesSelfAny self nested { modes = inner, level = LevelLogic }
+    | other => givesSelfAny self nested { modes = inner, level = LevelAppend }
+
+theorem givesOperatorClose ∀ (open operator: Word) (operand: Option Expr):
+    Parse.Gives GoodItems (() => operatorClose open operator operand) Out :=
+  Parse.givesThen
+    [p := () => bump()]
+    [j := close => OperatorSection open None operator operand close]
+    givesBump
+    (close _ => Parse.givesDone byComputing)
+
+theorem givesOperatorEnd ∀ (inner: Modes) (open operator: Word) (operand: Expr) (closed: Bool):
+    Parse.Gives GoodItems (() => operatorEnd inner open operator operand closed) Out :=
+  match closed with
+    | True => givesOperatorClose open operator (Some operand)
+    | False => givesFail inner "`)` after the operand of a section"
+
+theorem givesOperatorHead ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
+    (operatorKind: Tok) (operator: Word)
+    (nested: Nested self) (closed: Bool):
+    Parse.Gives GoodItems (() => operatorHead self inner open operatorKind operator closed) Out :=
+  match closed with
+    | True => givesOperatorClose open operator None
+    | False => Parse.givesThen (givesSectionOperand self inner operatorKind nested) (operand _ =>
+      givesAfter0
+        [p := () => inner.at RParen]
+        [j := closed => operatorEnd inner open operator operand closed]
+        (reads0At inner RParen)
+        (closed => givesOperatorEnd inner open operator operand closed))
+
+theorem givesOperatorFirst ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (items: List Item)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => operatorFirst self inner open items) Out :=
+  Parse.givesThen givesBump (operator _ =>
+    givesAfter0
+      [p := () => inner.at RParen]
+      [j := closed => operatorHead self inner open _ operator closed]
+      (reads0At inner RParen)
+      (closed => givesOperatorHead self inner open _ operator nested closed))
+
+theorem givesOperatorSection ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => operatorSection self modes) Out :=
+  Parse.givesThen givesBump (open _ =>
+    givesAfter0 [p := () => left()] [j := items => operatorFirst self modes.inBrackets open items] reads0Left (items =>
+      givesOperatorFirst self modes.inBrackets open items nested))
+
+theorem givesRightOperand ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (operatorKind: Tok)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => rightOperand self inner operatorKind) (found => True) :=
+  match operatorKind with
+    | Plus => givesSelfAny self nested { modes = inner, level = LevelMultiplicative }
+    | Star => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | Slash => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | Percent => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | PlusPlus => givesSelfAny self nested { modes = inner, level = LevelAdditive }
+    | AndAnd => givesSelfAny self nested { modes = inner, level = LevelComparison }
+    | OrOr => givesSelfAny self nested { modes = inner, level = LevelComparison }
+    | IffArrow => givesSelfAny self nested { modes = inner, level = LevelComparison }
+    | other => givesSelfAny self nested { modes = inner, level = LevelAppend }
+
+theorem givesRightClose ∀ (inner: Modes) (open: Word) (operand: Expr) (operator: Word):
+    Parse.Gives GoodItems (() => rightClose inner open operand operator) Out :=
+  Parse.givesThen
+    [p := () => inner.expect RParen "`)`"]
+    [j := close => OperatorSection open (Some operand) operator None close]
+    (givesExpectAny inner RParen "`)`")
+    (close _ => Parse.givesDone byComputing)
+
+theorem givesRightEnd ∀ (inner: Modes) (open: Word) (inside start: Nat) (operand: Expr) (here: Nat):
+    Parse.Gives GoodItems (() => rightEnd inner open inside start operand here) Out :=
+  match here != start + inside - 1 with
+    | True => givesFail inner "`)` after the operator of a section"
+    | False => Parse.givesThen givesBump (operator _ => givesRightClose inner open operand operator)
+
+theorem givesRightKind ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
+    (inside start: Nat) (items: List Item)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => rightKind self inner open inside start items) Out :=
+  Parse.givesThen
+    [p := () =>
+      rightOperand self inner
+        (match items.drop (inside - 1) with
+          | [item, .._] => item.kind
+          | [] => Plus)]
+    [j := operand => rightEnd inner open inside start operand offset()]
+    (givesRightOperand self inner _ nested)
+    (operand _ =>
+      givesAfter0
+        [p := () => offset()]
+        [j := here => rightEnd inner open inside start operand here]
+        reads0Offset
+        (here => givesRightEnd inner open inside start operand here))
+
+theorem givesRightSection ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => rightSection self modes inside) Out :=
+  Parse.givesThen givesBump (open _ =>
+    givesAfter0
+      [p := () => offset()]
+      [j := start => rightKind self modes.inBrackets open inside start left()]
+      reads0Offset
+      (start =>
+        givesAfter0
+          [p := () => left()]
+          [j := items => rightKind self modes.inBrackets open inside start items]
+          reads0Left
+          (items => givesRightKind self modes.inBrackets open inside start items nested)))
+
+theorem givesCmpIf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (operator: Word)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => cmpIf self modes lhs operator) Out :=
+  givesAfter0 reads0HeadIndent (indent =>
+    Parse.givesThen
+      [p := () => bump()]
+      [j := keyword => Infix InfixBinary lhs operator (ifExpr self modes indent keyword)]
+      givesBump
+      (keyword _ =>
+        Parse.givesThen
+          [p := () => ifExpr self modes indent keyword]
+          [j := tail => Infix InfixBinary lhs operator tail]
+          (givesIf self modes indent keyword nested)
+          (tail out => Parse.givesDone (Bool.andFalseRight lhs.within1 tail.within1 out))))
+
+theorem givesParenOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => parenOther self modes second third) Out :=
+  match isSome RParen second with
+    | True => Parse.givesThen [p := () => bump()] [j := open => Unit open bump()] givesBump (open _ =>
+      Parse.givesThen [p := () => bump()] [j := close => Unit open close] givesBump (close _ =>
+        Parse.givesDone byComputing))
+    | False =>
+      match isSome Lower second && isSome ColonEq third with
+        | True => givesNamedArgument self modes RParen "`)`" nested
+        | False => givesOperatorSection self modes nested
+
+theorem givesRecordFieldAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (name: Word)
+    (nested: Nested self) (equalsNext: Bool):
+    Parse.Gives GoodItems (() => recordFieldAfter self modes name equalsNext) (found => True) :=
+  match equalsNext with
+    | True =>
+      Parse.givesThen
+        [p := () => bump()]
+        [j := equals => RecordField name equals (full self modes)]
+        givesBump
+        (equals _ =>
+          Parse.givesThen
+            [p := () => self { modes, level = LevelFull }]
+            [j := value => RecordField name equals value]
+            (nested { modes, level = LevelFull })
+            (value _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesRecordField ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => recordField self modes) (found => True) :=
+  Parse.givesThen (givesLower modes "a field name") (name _ =>
+    givesAfter0
+      [p := () => modes.at Equals]
+      [j := equalsNext => recordFieldAfter self modes name equalsNext]
+      (reads0At modes Equals)
+      (equalsNext => givesRecordFieldAfter self modes name nested equalsNext))
+
+theorem givesRecordEnd ∀ (inner: Modes) (open: Word) (base: Option (Expr, Word)) (pair: (List Expr, Bool)):
+    Parse.Gives GoodItems (() => recordEnd inner open base pair) Out :=
+  match pair with
+    | (fields, trailingComma) =>
+      Parse.givesThen
+        [p := () => inner.expect RBrace "`,` or `}`"]
+        [j := close => Record open base fields trailingComma close]
+        (givesExpectAny inner RBrace "`,` or `}`")
+        (close _ => Parse.givesDone byComputing)
+
+theorem givesRecordFields ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (base: Option (Expr, Word))
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => recordFields self inner open base) Out :=
+  Parse.givesThen (givesRecordField self inner nested) (first _ =>
+    Parse.givesThen
+      [p := () => Parse.mark()]
+      [j := here =>
+        recordEnd inner open base
+          (commaList (here.left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first [])]
+      Parse.givesMark
+      (here _ =>
+        Parse.givesThen
+          [p := () =>
+            commaList (here.left + 1) inner (count => inner.at RBrace) (() => recordField self inner) first []]
+          [j := pair => recordEnd inner open base pair]
+          (givesCommaListFrom inner
+            (count => inner.at RBrace)
+            (() => recordField self inner)
+            (found => True)
+            (count => givesAt inner RBrace)
+            (givesRecordField self inner nested)
+            (here.left + 1)
+            1
+            first
+            []
+            byComputing
+            ())
+          (pair _ => givesRecordEnd inner open base pair)))
+
+theorem givesRecordBase ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self) (literal: Bool):
+    Parse.Gives GoodItems (() => recordBase self inner literal) (found => True) :=
+  match literal with
+    | True => Parse.givesDone byComputing
+    | False =>
+      Parse.givesThen
+        [p := () => self { modes = inner, level = LevelFull }]
+        [j := record => recordPipe inner record]
+        (nested { modes = inner, level = LevelFull })
+        (record _ =>
+          Parse.givesThen
+            [p := () => inner.expect Pipe "`|` and the fields to update"]
+            [j := bar => Some (record, bar)]
+            (givesExpectAny inner Pipe "`|` and the fields to update")
+            (bar _ => Parse.givesDone byComputing))
+
+theorem givesRecordBody ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
+    (nested: Nested self) (empty: Bool):
+    Parse.Gives GoodItems (() => recordBody self inner open empty) Out :=
+  match empty with
+    | True => Parse.givesThen [p := () => bump()] [j := close => Record open None [] False close] givesBump (close _ =>
+      Parse.givesDone byComputing)
+    | False =>
+      givesAfter0
+        [p := () => inner.at Lower]
+        [j := lower => recordLiteral self inner open lower (inner.peekAt 1)]
+        (reads0At inner Lower)
+        (lower =>
+          givesAfter0
+            [p := () => inner.peekAt 1]
+            [j := second => recordLiteral self inner open lower second]
+            (reads0PeekAt inner 1)
+            (second =>
+              Parse.givesThen
+                [p := () => recordBase self inner (lower && literalSecond second)]
+                [j := base => recordFields self inner open base]
+                (givesRecordBase self inner nested (lower && literalSecond second))
+                (base _ => givesRecordFields self inner open base nested)))
+
+theorem givesRecordExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => recordExpr self modes) Out :=
+  Parse.givesThen (givesExpectAny modes LBrace "`{`") (open _ =>
+    givesAfter0
+      [p := () => modes.inBrackets.at RBrace]
+      [j := empty => recordBody self modes.inBrackets open empty]
+      (reads0At modes.inBrackets RBrace)
+      (empty => givesRecordBody self modes.inBrackets open nested empty))
+
+theorem givesExpectFixed ∀ (modes: Modes) (wanted: Tok) (what: Text):
+    Parse.Gives GoodItems (() => modes.expectFixed wanted what) (comments => True) :=
+  Parse.givesThen
+    [p := () => modes.expect wanted what]
+    [j := word => word.comments]
+    (givesExpectAny modes wanted what)
+    (found _ => Parse.givesDone byComputing)
+
+theorem givesRowAbilities ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self) (closed pipe: Bool):
+    Parse.Gives GoodItems (() => rowAbilities self modes closed pipe) (found => True) :=
+  match closed || pipe with
+    | True => Parse.givesDone byComputing
+    | False => Parse.givesThen (nested { modes, level = LevelApp }) (first _ =>
+      Parse.givesThen
+        [p := () => Parse.mark()]
+        [j := here =>
+          rowEntries
+            (commaList (here.left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first [])]
+        Parse.givesMark
+        (here _ =>
+          Parse.givesThen
+            [p := () =>
+              commaList (here.left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first []]
+            [j := pair => rowEntries pair]
+            (givesCommaListFrom modes
+              (count => False)
+              (() => self { modes, level = LevelApp })
+              (found => True)
+              (count => Parse.givesDone byComputing)
+              (givesSelfAny self nested { modes, level = LevelApp })
+              (here.left + 1)
+              1
+              first
+              []
+              byComputing
+              ())
+            (pair _ => Parse.givesDone byComputing)))
+
+theorem givesRowPart ∀ (modes: Modes) (pipe: Bool): Parse.Gives GoodItems (() => rowPart modes pipe) (found => True) :=
+  match pipe with
+    | True => Parse.givesThen givesFixedFrom (bar _ =>
+      Parse.givesThen (givesLower modes "a row variable") (name _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesRowClose ∀ (modes: Modes) (open: Comments) (abilities: List Expr) (variable: Option (Comments, Word)):
+    Parse.Gives GoodItems (() => rowClose modes open abilities variable) (row => True) :=
+  Parse.givesThen
+    [p := () => modes.expectFixed RBrace "`}`"]
+    [j := close => { open, abilities, variable, close }]
+    (givesExpectFixed modes RBrace "`}`")
+    (close _ => Parse.givesDone byComputing)
+
+theorem givesRowVariable ∀ (modes: Modes) (open: Comments) (abilities: List Expr):
+    Parse.Gives GoodItems (() => rowVariable modes open abilities) (row => True) :=
+  Parse.givesThen
+    [p := () => rowPart modes (modes.at Pipe)]
+    [j := variable => rowClose modes open abilities variable]
+    (givesAfter0 [p := () => modes.at Pipe] [j := pipe => rowPart modes pipe] (reads0At modes Pipe) (pipe =>
+      givesRowPart modes pipe))
+    (variable _ => givesRowClose modes open abilities variable)
+
+theorem givesRowStart ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Comments)
+    (nested: Nested self)
+    (lower: Bool) (second: Option Tok):
+    Parse.Gives GoodItems (() => rowStart self modes open lower second) (row => True) :=
+  match lower && isSome Colon second with
+    | True => Parse.readsFatal _ _
+    | False =>
+      Parse.givesThen
+        [p := () => rowAbilities self modes (modes.at RBrace) (modes.at Pipe)]
+        [j := abilities => rowVariable modes open abilities]
+        (givesAfter0
+          [p := () => modes.at RBrace]
+          [j := closed => rowAbilities self modes closed (modes.at Pipe)]
+          (reads0At modes RBrace)
+          (closed =>
+            givesAfter0
+              [p := () => modes.at Pipe]
+              [j := pipe => rowAbilities self modes closed pipe]
+              (reads0At modes Pipe)
+              (pipe => givesRowAbilities self modes nested closed pipe)))
+        (abilities _ => givesRowVariable modes open abilities)
+
+theorem givesRowOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => rowOf self modes) (row => True) :=
+  Parse.givesThen (givesExpectFixed modes LBrace "`{`") (open _ =>
+    givesAfter0
+      [p := () => modes.at Lower]
+      [j := lower => rowStart self modes open lower (modes.peekAt 1)]
+      (reads0At modes Lower)
+      (lower =>
+        givesAfter0
+          [p := () => modes.peekAt 1]
+          [j := second => rowStart self modes open lower second]
+          (reads0PeekAt modes 1)
+          (second => givesRowStart self modes open nested lower second)))
+
+theorem givesEffectResult ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => effectResult self allowed) Out :=
+  Parse.givesThen (givesRowOf self allowed nested) (row _ =>
+    Parse.givesThen
+      [p := () => self { modes = allowed, level = LevelFull }]
+      [j := tail => Effect row tail]
+      (nested { modes = allowed, level = LevelFull })
+      (tail _ => Parse.givesDone byComputing))
+
+-- A list, read for nothing but that it is read.
+
+theorem givesListItemsEndAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (pair: (List Expr, Bool)):
+    Parse.Gives GoodItems (() => listItemsEnd self inner open pair) (found => True) :=
+  match pair with
+    | (items, trailingComma) =>
+      Parse.givesThen
+        [p := () => inner.expect RBracket "`,` or `]`"]
+        [j := close => ListOf open items trailingComma close]
+        (givesExpectAny inner RBracket "`,` or `]`")
+        (close _ => Parse.givesDone byComputing)
+
+theorem givesListItemAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => listItem self inner) (found => True) :=
+  Parse.givesWeaken (givesListItem self inner nested) (found parsed => byComputing)
+
+theorem givesListItemsFromAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => listItemsFrom self inner open first) (found => True) :=
+  Parse.givesThen
+    [p := () => Parse.mark()]
+    [j := here =>
+      listItemsEnd self inner open
+        (commaList (here.left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first [])]
+    Parse.givesMark
+    (here _ =>
+      Parse.givesThen
+        [p := () => commaList (here.left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first []]
+        [j := pair => listItemsEnd self inner open pair]
+        (givesCommaListFrom inner
+          (count => inner.at RBracket)
+          (() => listItem self inner)
+          (found => True)
+          (count => givesAt inner RBracket)
+          (givesListItemAny self inner nested)
+          (here.left + 1)
+          1
+          first
+          []
+          byComputing
+          ())
+        (pair _ => givesListItemsEndAny self inner open pair))
+
+theorem givesListItemsAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => listItems self inner open) (found => True) :=
+  Parse.givesThen
+    [p := () => listItem self inner]
+    [j := first => listItemsFrom self inner open first]
+    (givesListItemAny self inner nested)
+    (first _ => givesListItemsFromAny self inner open first nested)
+
+theorem givesListAfterAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
+    (nested: Nested self) (seen: Option Tok):
+    Parse.Gives GoodItems (() => listAfter self inner open seen) (found => True) :=
+  match seen with
+    | None => givesListItemsAny self inner open nested
+    | Some kind =>
+      match isClose: kind == RBracket with
+        | True => Parse.givesThen [p := () => bump()] [j := close => ListOf open [] False close] givesBump (close _ =>
+          Parse.givesDone byComputing)
+        | False => givesListItemsAny self inner open nested
+
+theorem givesListExprAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => listExpr self modes) (found => True) :=
+  Parse.givesThen givesBump (open _ =>
+    givesAfter0
+      [p := () => modes.inBrackets.peek]
+      [j := seen => listAfter self modes.inBrackets open seen]
+      (reads0Peek modes.inBrackets)
+      (seen => givesListAfterAny self modes.inBrackets open nested seen))
+
+-- The rest of what an atom can be.
+
+theorem givesFactsEnd ∀ (kind: FactsKind) (keyword: Word) (list: Expr):
+    Parse.Gives GoodItems (() => factsEnd kind keyword list) Out :=
+  match hasSpread list with
+    | True => Parse.readsFatal _ _
+    | False => Parse.givesDone byComputing
+
+theorem givesFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (token: Tok) (kind: FactsKind)
+    (nested: Nested self)
+    (plain: token.wordWithin1 = False):
+    Parse.Gives GoodItems (() => facts self modes token kind) Out :=
+  Parse.givesThen givesBump (keyword _ =>
+    givesAfter0
+      [p := () => modes.at LBracket]
+      [j := bracket => factsAfter self modes token kind keyword bracket]
+      (reads0At modes LBracket)
+      (bracket =>
+        match bracket with
+          | True => Parse.givesThen (givesListExprAny self modes nested) (list _ => givesFactsEnd kind keyword list)
+          | False => Parse.givesDone plain))
+
+theorem givesIncludeAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => includeAtom modes) Out :=
+  Parse.givesThen givesBump (keyword _ =>
+    givesAfter0 [p := () => modes.at Str] [j := path => includeAfter modes keyword path] (reads0At modes Str) (path =>
+      match path with
+        | True => Parse.givesThen [p := () => bump()] [j := word => Include keyword word] givesBump (taken _ =>
+          Parse.givesDone byComputing)
+        | False => givesFail modes _))
+
+theorem givesCasesAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => casesAtom modes) Out :=
+  givesAfter0 [p := () => bareCases modes] [j := bare => casesAfter modes bare] (reads0BareCases modes) (bare =>
+    match bare with
+      | True => Parse.givesThen givesBump (keyword _ => Parse.givesDone byComputing)
+      | False => givesFail modes _)
+
+theorem givesUniverseAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => universeAtom modes) Out :=
+  Parse.givesThen givesBump (keyword _ =>
+    givesAfter0 [p := () => left()] [j := items => universeAfter modes keyword items] reads0Left (items =>
+      match items with
+        | [level, ..rest] =>
+          match named: level.kind == Num && !modes.stops level with
+            | True =>
+              match big: (level.text.toNat |> .getOrElse 0) > 65535 with
+                | True => Parse.readsFatal _ _
+                | False =>
+                  Parse.givesThen [p := () => bump()] [j := number => Universe keyword number] givesBump (digits _ =>
+                    Parse.givesDone byComputing)
+            | False => Parse.givesDone byComputing
+        | [] => Parse.givesDone byComputing))
+
+theorem givesSectionStart ∀ (modes: Modes): Parse.Gives GoodItems (() => sectionStart modes) Out :=
+  Parse.givesThen givesBump (dot _ =>
+    givesAfter0 [p := () => left()] [j := items => sectionAfter modes dot items] reads0Left (items =>
+      match items with
+        | [name, ..rest] =>
+          match named: name.kind == Lower && name.glued && !isQualified name && !modes.stops name with
+            | True =>
+              Parse.givesThen [p := () => bump()] [j := field => FieldAccess None dot field] givesBump (field _ =>
+                Parse.givesDone byComputing)
+            | False => Parse.readsFatal _ _
+        | [] => Parse.readsFatal _ _))
+
+theorem givesInterpolationOpen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => interpolationOpen self modes) (Parse.Perhaps (found => True)) :=
+  Parse.givesThen (givesExpectAny modes InterpOpen "`\${`") (open _ =>
+    Parse.givesThen (nested { modes, level = LevelFull }) (value _ =>
+      Parse.givesThen (givesExpectAny modes InterpClose "`}`") (close _ => Parse.givesDone byComputing)))
+
+theorem givesInterpolationOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self) (seen: Option Tok):
+    Parse.Gives GoodItems (() => interpolationOn self modes seen) (Parse.Perhaps (found => True)) :=
+  match isSome StrMid seen with
+    | True => Parse.givesThen [p := () => bump()] [j := word => Some (TextPiece word)] givesBump (taken _ =>
+      Parse.givesDone byComputing)
+    | False =>
+      match isSome InterpOpen seen with
+        | True => givesInterpolationOpen self modes nested
+        | False =>
+          match isSome StrEnd seen with
+            | True => Parse.givesDone byComputing
+            | False => givesFail modes _
+
+theorem givesInterpolationEnd ∀ (modes: Modes) (ended: Bool):
+    Parse.Gives GoodItems (() => interpolationEnd modes ended) (word => True) :=
+  match ended with
+    | True => givesBump
+    | False => givesFail modes _
+
+theorem givesInterpolations ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => interpolations self modes) (pieces => True) :=
+  Parse.givesThen
+    [p := () => Parse.loop (() => interpolationStep self modes)]
+    [j := pieces => interpolationLast modes pieces (modes.at StrEnd)]
+    (Parse.givesWeaken
+      [weaker := gathered => True]
+      (Parse.givesLoop
+        (givesAfter0 [p := () => modes.peek] [j := seen => interpolationOn self modes seen] (reads0Peek modes) (seen =>
+          givesInterpolationOn self modes nested seen)))
+      (found ok => byComputing))
+    (gathered _ =>
+      givesAfter0
+        [p := () => modes.at StrEnd]
+        [j := ended => interpolationLast modes gathered ended]
+        (reads0At modes StrEnd)
+        (ended => Parse.givesThen (givesInterpolationEnd modes ended) (last _ => Parse.givesDone byComputing)))
+
+theorem givesInterpolated ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => interpolated self modes) Out :=
+  Parse.givesThen givesBump (start _ =>
+    Parse.givesThen (givesInterpolations self modes nested) (found _ => Parse.givesDone byComputing))
+
+theorem givesAtomRest ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => atomRest self modes kind) Out :=
+  match kind == StrStart with
+    | True => givesInterpolated self modes nested
+    | False =>
+      match kind == KwInclude with
+        | True => givesIncludeAtom modes
+        | False =>
+          match kind == KwArithmetic with
+            | True => givesFacts self modes KwArithmetic FactsOmega nested byComputing
+            | False =>
+              match kind == KwAlgebra with
+                | True => givesFacts self modes KwAlgebra FactsRing nested byComputing
+                | False =>
+                  match kind == KwCases with
+                    | True => givesCasesAtom modes
+                    | False =>
+                      match kind == TypeU with
+                        | True => givesUniverseAtom modes
+                        | False =>
+                          match kind == LBrace with
+                            | True => givesRecordExpr self modes nested
+                            | False =>
+                              match kind == Dot with
+                                | True => givesSectionStart modes
+                                | False => givesAtomMissing self modes
+
+--| Everything `Outside` says, from what is not yet proved and `Nested`.
+def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): Outside self := {
+  matches = rest.matches,
+  clauseLambdas = rest.clauseLambdas,
+  braceArguments = rest.braceArguments,
+  records = (modes => givesRecordExpr self modes nested),
+  rests = (modes kind => givesAtomRest self modes kind nested),
+  missings = (modes => givesAtomMissing self modes),
+  parenOthers = (modes second third => givesParenOther self modes second third nested),
+  rightSections = (modes inside => givesRightSection self modes inside nested),
+  annotations = (inner open first => givesAnnotated self inner open first nested),
+  namedArguments = (modes closer closeText => givesNamedArgument self modes closer closeText nested),
+  memberships = rest.memberships,
+  comparisonChains = rest.comparisonChains,
+  cmpIfs = (modes lhs operator => givesCmpIf self modes lhs operator nested),
+  pipeChains = rest.pipeChains,
+  iffs = rest.iffs,
+  quantifiers = rest.quantifiers,
+  semis = (modes value => givesSemi self modes value nested),
+  keywords = rest.keywords,
+  lambdas = rest.lambdas,
+  ifKeywords = (modes => givesIfKeyword self modes nested),
+  piExprs = rest.piExprs,
+  effectResults = (allowed => givesEffectResult self allowed nested),
+  statementOthers = rest.statementOthers
+}
+
+--| What the parsers outside slice 1 give, for every `self` that gives what `GoalParsed` says, but for the facts `outsideOf` proves.
+def OutsideGives: Type := ∀ (self: Goal → {Parse Item} Expr) => Nested self → OutsideRest self
 
 --| `expressionAt`, which starts the recursion from a declaration's level, gives what `GoalParsed` says at every goal.
 theorem givesExpressionAt ∀ (outside: OutsideGives): Nested expressionAt := goal =>
   Parse.givesRecursiveWith expressionRule
     (inner expr => GoalParsed inner expr)
-    (self nested argument => givesExpressionRule self argument nested (outside self nested))
+    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested (outside self nested)))
     goal
 
 --| A whole expression read by `expression`, from good items: at the level of `expr`.
@@ -2166,7 +3063,7 @@ theorem givesExpression ∀ (modes: Modes) (outside: OutsideGives):
     Parse.Gives GoodItems (() => expression modes) (Parsed1 1) :=
   Parse.givesRecursiveWith expressionRule
     (inner expr => GoalParsed inner expr)
-    (self nested argument => givesExpressionRule self argument nested (outside self nested))
+    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested (outside self nested)))
     { modes, level = LevelFull }
 
 -- The `def` frame.
@@ -2232,7 +3129,7 @@ theorem givesDefinitionName ∀ (modes: Modes): Parse.Gives GoodItems (() => def
 
 --| What the frame of a declaration reads that is outside slice 1: attributes, the declarations that aren't plain
 --- definitions, the parts of a header that a plain definition has none of (`∀`, parameters, `decreasing`,
---| `unfolding`), and a definition's arms. SW-4000 proves these.
+--| `unfolding`), and a definition's arms. `frameOf` proves some of these; `FrameRest` is what is left.
 type Frame (self: Goal → {Parse Item} Expr) = {
   attributes: ∀ (modes: Modes) => Parse.Gives GoodItems (() => attributesOf modes) (found => True),
   namespaces: ∀ (seen: Seen) (modes: Modes) => Parse.Gives GoodItems (() => namespaceStep seen modes) DeclOut,
@@ -2250,6 +3147,354 @@ type Frame (self: Goal → {Parse Item} Expr) = {
     (found => True),
   arms: ∀ (modes: Modes) (d: Nat) => Parse.Gives GoodItems (() => armsBody self modes d) BodyOk
 }
+
+--| The part of `Frame` SW-4000 has not yet proved (`frameOf` gives the rest).
+type FrameRest (self: Goal → {Parse Item} Expr) = {
+  others: ∀ (modes: Modes) (attributes: List Attributes) (seen: Option Tok) => Parse.Gives GoodItems
+    (() => declarationOther modes attributes seen)
+    DeclOut,
+  params: ∀ (modes: Modes) => Parse.Gives GoodItems (() => headerParams self modes) (found => True),
+  arms: ∀ (modes: Modes) (d: Nat) => Parse.Gives GoodItems (() => armsBody self modes d) BodyOk
+}
+
+theorem givesForallEnd ∀ (modes: Modes) (word: Word) (paren bracket: Bool):
+    Parse.Gives GoodItems (() => forallEnd modes word paren bracket) (found => True) :=
+  match paren || bracket with
+    | True => Parse.givesDone byComputing
+    | False => givesFail modes _
+
+theorem givesForallBump ∀ (modes: Modes): Parse.Gives GoodItems (() => forallBump modes) (found => True) :=
+  Parse.givesThen givesBump (taken _ =>
+    givesAfter0
+      [p := () => modes.at LParen]
+      [j := paren => forallEnd modes taken paren (modes.at LBracket)]
+      (reads0At modes LParen)
+      (paren =>
+        givesAfter0
+          [p := () => modes.at LBracket]
+          [j := bracket => forallEnd modes taken paren bracket]
+          (reads0At modes LBracket)
+          (bracket => givesForallEnd modes taken paren bracket)))
+
+theorem givesForallPart ∀ (modes: Modes) (kind: DefKind):
+    Parse.Gives GoodItems (() => forallPart modes kind) (found => True) :=
+  givesAfter0
+    [p := () => modes.at KwForall]
+    [j := found => forallAt modes kind found]
+    (reads0At modes KwForall)
+    (found =>
+      match found with
+        | True =>
+          match kind != DefTheorem with
+            | True => Parse.readsFatal _ _
+            | False => givesForallBump modes
+        | False => Parse.givesDone byComputing)
+
+theorem givesDecreasingClauseOf ∀ (self: Goal → {Parse Item} Expr) (headerModes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => decreasingClauseOf self headerModes) (found => True) :=
+  Parse.givesThen givesFixedFrom (keyword _ =>
+    Parse.givesThen (nested { modes = headerModes, level = LevelFull }) (tail _ => Parse.givesDone byComputing))
+
+theorem givesDecreasingPart ∀ (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => decreasingPart self modes headerModes isInstance) (found => True) :=
+  givesAfter0
+    [p := () => modes.at KwDecreasing]
+    [j := found => decreasingAt self headerModes isInstance found]
+    (reads0At modes KwDecreasing)
+    (found =>
+      match found with
+        | True =>
+          match isInstance with
+            | True => Parse.readsFatal _ _
+            | False => givesDecreasingClauseOf self headerModes nested
+        | False => Parse.givesDone byComputing)
+
+theorem givesUnfoldingName ∀ (modes: Modes) (upper: Bool):
+    Parse.Gives GoodItems (() => unfoldingName modes upper) (found => True) :=
+  match upper with
+    | True => Parse.givesWeaken (givesUpperQualified modes _) (found ok => byComputing)
+    | False => Parse.givesWeaken (givesLowerQualified modes _) (found ok => byComputing)
+
+theorem givesUnfoldingNext ∀ (more: Nat) (modes: Modes) (found: List Word) (name: Word) (comma: Bool):
+    Parse.Gives GoodItems (() => unfoldingNext more modes found name comma) (names => True) :=
+  match comma with
+    | True => Parse.givesThen givesBump (gone _ => givesUnfoldingNames more modes [name, ..found])
+    | False => Parse.givesDone byComputing
+
+theorem givesUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found: List Word):
+    Parse.Gives GoodItems (() => unfoldingNames fuel modes found) (names => True) :=
+  match fuel with
+    | Zero => Parse.givesDone byComputing
+    | Succ more =>
+      Parse.givesThen
+        [p := () => unfoldingName modes (modes.at Upper)]
+        [j := name => unfoldingNext more modes found name (modes.at Comma)]
+        (givesAfter0
+          [p := () => modes.at Upper]
+          [j := upper => unfoldingName modes upper]
+          (reads0At modes Upper)
+          (upper => givesUnfoldingName modes upper))
+        (name _ =>
+          givesAfter0
+            [p := () => modes.at Comma]
+            [j := comma => unfoldingNext more modes found name comma]
+            (reads0At modes Comma)
+            (comma => givesUnfoldingNext more modes found name comma))
+
+theorem givesUnfoldingClauseOf ∀ (afterDecreasing: Modes):
+    Parse.Gives GoodItems (() => unfoldingClauseOf afterDecreasing) (found => True) :=
+  Parse.givesThen givesFixedFrom (keyword _ =>
+    Parse.givesThen Parse.givesMark (here _ =>
+      Parse.givesThen (givesUnfoldingNames (here.left + 1) afterDecreasing []) (names _ =>
+        Parse.givesDone byComputing)))
+
+theorem givesUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool):
+    Parse.Gives GoodItems (() => unfoldingPart modes afterDecreasing isInstance) (found => True) :=
+  givesAfter0
+    [p := () => afterDecreasing.at KwUnfolding]
+    [j := found => unfoldingAt afterDecreasing isInstance found]
+    (reads0At afterDecreasing KwUnfolding)
+    (found =>
+      match found with
+        | True =>
+          match isInstance with
+            | True => Parse.readsFatal _ _
+            | False => givesUnfoldingClauseOf afterDecreasing
+        | False => Parse.givesDone byComputing)
+
+theorem givesNamespaceAfter ∀ (modes: Modes) (keyword: Comments) (seen: Option Tok):
+    Parse.Gives GoodItems (() => namespaceAfter modes keyword seen) DeclOut :=
+  match seen with
+    | Some Upper => Parse.givesThen [p := () => bump()] [j := name => Namespace keyword name] givesBump (name _ =>
+      Parse.givesDone byComputing)
+    | Some Lower => Parse.readsFatal _ _
+    | other => givesFail modes _
+
+theorem givesNamespaceStep ∀ (seen: Seen) (modes: Modes):
+    Parse.Gives GoodItems (() => namespaceStep seen modes) DeclOut :=
+  match seen.hasNamespace with
+    | True => Parse.readsFatal _ _
+    | False =>
+      match seen.hasImports || seen.hasDecls with
+        | True => Parse.readsFatal _ _
+        | False => Parse.givesThen givesFixedFrom (keyword _ =>
+          givesAfter0
+            [p := () => modes.peek]
+            [j := seen => namespaceAfter modes keyword seen]
+            (reads0Peek modes)
+            (seen => givesNamespaceAfter modes keyword seen))
+
+--| Everything `Frame` says, from what is not yet proved and `Nested`.
+def frameOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: FrameRest self): Frame self := {
+  attributes = (modes => givesAttributesOf modes),
+  namespaces = (seen modes => givesNamespaceStep seen modes),
+  imports = (seen modes => givesImportStep seen modes),
+  others = rest.others,
+  foralls = (modes kind => givesForallPart modes kind),
+  params = rest.params,
+  decreasings = (modes headerModes isInstance => givesDecreasingPart self modes headerModes isInstance nested),
+  unfoldings = (modes afterDecreasing isInstance => givesUnfoldingPart modes afterDecreasing isInstance),
+  arms = rest.arms
+}
+
+theorem reads0WordAhead ∀ (modes: Modes) (word: Text): Reads0 (() => wordAhead modes word) :=
+  reads0Then [p := () => left()] reads0Left (items => reads0Done (wordOn modes word items))
+
+theorem givesImportAliasWord ∀ (modes: Modes) (name: Word) (asWord: Comments) (items: List Item):
+    Parse.Gives GoodItems (() => importAliasWord modes name asWord items) (found => True) :=
+  match items with
+    | [alias, ..rest] =>
+      match named: (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias with
+        | True =>
+          match startsUpper name.text != startsUpper alias.text with
+            | True => Parse.readsFatal _ _
+            | False => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
+        | False => givesFail modes _
+    | [] => givesFail modes _
+
+theorem givesImportAlias ∀ (modes: Modes) (name: Word):
+    Parse.Gives GoodItems (() => importAlias modes name) (found => True) :=
+  givesAfter0
+    [p := () => wordAhead modes "as"]
+    [j := asNext => importAliasOn modes name asNext]
+    (reads0WordAhead modes "as")
+    (asNext =>
+      match asNext with
+        | True => Parse.givesThen givesFixedFrom (asWord _ =>
+          givesAfter0 [p := () => left()] [j := items => importAliasWord modes name asWord items] reads0Left (items =>
+            givesImportAliasWord modes name asWord items))
+        | False => Parse.givesDone byComputing)
+
+theorem givesImportStop ∀ (modes: Modes) (path: Word) (found: List ImportItem) (dots: Bool):
+    Parse.Gives GoodItems (() => importStop modes path found dots) (names => True) :=
+  match dots && !found.isEmpty with
+    | True => Parse.readsFatal _ _
+    | False => givesFail modes _
+
+theorem givesImportItems ∀ (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem):
+    Parse.Gives GoodItems (() => importItems fuel modes path found) (names => True) :=
+  givesAfter0 [p := () => left()] [j := items => importItemsOn fuel modes path found items] reads0Left (items =>
+    match fuel, items with
+      | Succ more, [item, ..rest] =>
+        match named: (item.kind == Lower || item.kind == Upper) && !isQualified item && !modes.stops item with
+          | True => Parse.givesThen givesBump (name _ =>
+            Parse.givesThen (givesImportAlias modes name) (alias _ =>
+              givesAfter0
+                [p := () => modes.at Comma]
+                [j := comma => importTail more modes path [{ name, alias }, ..found] comma]
+                (reads0At modes Comma)
+                (comma =>
+                  match comma with
+                    | True =>
+                      Parse.givesThen givesBump (gone _ => givesImportItems more modes path [{ name, alias }, ..found])
+                    | False => Parse.givesDone byComputing)))
+          | False =>
+            givesAfter0
+              [p := () => modes.at DotDot]
+              [j := dots => importStop modes path found dots]
+              (reads0At modes DotDot)
+              (dots => givesImportStop modes path found dots)
+      | other, others =>
+        givesAfter0
+          [p := () => modes.at DotDot]
+          [j := dots => importStop modes path found dots]
+          (reads0At modes DotDot)
+          (dots => givesImportStop modes path found dots))
+
+theorem givesImportedOf ∀ (modes: Modes) (path: Word) (dots: Bool):
+    Parse.Gives GoodItems (() => importedOf modes path dots) (found => True) :=
+  match dots with
+    | True => Parse.givesThen givesFixedFrom (written _ =>
+      givesAfter0
+        [p := () => modes.at RParen]
+        [j := closed => importAllEnd path written closed]
+        (reads0At modes RParen)
+        (closed =>
+          match closed with
+            | True => Parse.givesDone byComputing
+            | False => Parse.readsFatal _ _))
+    | False => Parse.givesThen Parse.givesMark (here _ =>
+      Parse.givesThen (givesImportItems (here.left + 1) modes path []) (imported _ => Parse.givesDone byComputing))
+
+theorem givesImportClose ∀ (modes: Modes) (keyword: Comments) (path: Word) (open: Comments) (imported: Imported):
+    Parse.Gives GoodItems (() => importClose modes keyword path open imported) DeclOut :=
+  Parse.givesThen (givesExpectFixed modes RParen "`)`") (close _ => Parse.givesDone byComputing)
+
+theorem givesImportOpen ∀ (modes: Modes) (keyword: Comments) (path: Word):
+    Parse.Gives GoodItems (() => importOpen modes keyword path) DeclOut :=
+  Parse.givesThen (givesExpectFixed modes LParen "`(` and the names to import") (open _ =>
+    Parse.givesThen
+      [p := () => importedOf modes path (modes.at DotDot)]
+      [j := imported => importClose modes keyword path open imported]
+      (givesAfter0
+        [p := () => modes.at DotDot]
+        [j := dots => importedOf modes path dots]
+        (reads0At modes DotDot)
+        (dots => givesImportedOf modes path dots))
+      (imported _ => givesImportClose modes keyword path open imported))
+
+theorem givesImportLine ∀ (modes: Modes): Parse.Gives GoodItems (() => importLine modes) DeclOut :=
+  Parse.givesThen givesFixedFrom (keyword _ =>
+    Parse.givesThen
+      [p := () => importPath modes (modes.at Upper)]
+      [j := path => importAfter modes keyword path (wordAhead modes "as")]
+      (givesAfter0 [p := () => modes.at Upper] [j := upper => importPath modes upper] (reads0At modes Upper) (upper =>
+        match upper with
+          | True => givesBump
+          | False => givesFail modes _))
+      (path _ =>
+        givesAfter0
+          [p := () => wordAhead modes "as"]
+          [j := asNext => importAfter modes keyword path asNext]
+          (reads0WordAhead modes "as")
+          (asNext =>
+            match asNext with
+              | True => Parse.readsFatal _ _
+              | False => givesImportOpen modes keyword path)))
+
+theorem givesImportStep ∀ (seen: Seen) (modes: Modes): Parse.Gives GoodItems (() => importStep seen modes) DeclOut :=
+  match seen.hasDecls with
+    | True => Parse.readsFatal _ _
+    | False => givesImportLine modes
+
+theorem givesLowerQualifiedAny ∀ (modes: Modes) (what: Text):
+    Parse.Gives GoodItems (() => modes.lowerQualified what) (word => True) :=
+  Parse.givesWeaken (givesLowerQualified modes what) (found ok => byComputing)
+
+theorem givesAttributePart ∀ (modes: Modes) (dot: Bool):
+    Parse.Gives GoodItems (() => attributePart modes dot) (Parse.Perhaps (found => True)) :=
+  match dot with
+    | True => Parse.givesThen givesFixedFrom (written _ =>
+      Parse.givesThen (givesLowerQualifiedAny modes "the rest of the attribute's name") (part _ =>
+        Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesAttributeParts ∀ (modes: Modes): Parse.Gives GoodItems (() => attributeParts modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      (givesAfter0 [p := () => modes.at Dot] [j := dot => attributePart modes dot] (reads0At modes Dot) (dot =>
+        givesAttributePart modes dot)))
+    (found ok => byComputing)
+
+theorem givesAttributeArgument ∀ (modes: Modes):
+    Parse.Gives GoodItems (() => attributeArgument modes) (found => True) :=
+  givesAfter0 [p := () => modes.peek] [j := seen => attributeArgumentOn modes seen] (reads0Peek modes) (seen =>
+    match isSome Str seen with
+      | True => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
+      | False =>
+        match isSome StrStart seen with
+          | True => Parse.readsFatal _ _
+          | False => Parse.givesDone byComputing)
+
+theorem givesAttributeItems ∀ (fuel: Nat) (modes: Modes) (found: List Attribute):
+    Parse.Gives GoodItems (() => attributeItems fuel modes found) (pair => True) :=
+  match fuel with
+    | Zero => Parse.givesDone byComputing
+    | Succ more =>
+      givesAfter0
+        [p := () => modes.at RBracket]
+        [j := closed => attributeItemsAt more modes found closed]
+        (reads0At modes RBracket)
+        (closed =>
+          match closed && !found.isEmpty with
+            | True => Parse.givesDone byComputing
+            | False =>
+              Parse.givesThen (givesLowerQualifiedAny modes "an attribute's name, such as `js.name`") (name _ =>
+                Parse.givesThen (givesAttributeParts modes) (parts _ =>
+                  Parse.givesThen (givesAttributeArgument modes) (written _ =>
+                    givesAfter0
+                      [p := () => modes.at Comma]
+                      [j := comma => attributeNext more modes [{ name, parts, argument = written }, ..found] comma]
+                      (reads0At modes Comma)
+                      (comma =>
+                        match comma with
+                          | True => Parse.givesThen givesBump (gone _ =>
+                            givesAttributeItems more modes [{ name, parts, argument = written }, ..found])
+                          | False => Parse.givesDone byComputing)))))
+
+theorem givesAttributeGroup ∀ (modes: Modes):
+    Parse.Gives GoodItems (() => attributeGroup modes) (Parse.Perhaps (found => True)) :=
+  Parse.givesThen givesFixedFrom (at _ =>
+    Parse.givesThen (givesExpectFixed modes LBracket "`[`") (open _ =>
+      Parse.givesThen Parse.givesMark (here _ =>
+        Parse.givesThen (givesAttributeItems (here.left + 1) modes []) (pair _ =>
+          match pair with
+            | (items, trailingComma) =>
+              Parse.givesThen (givesExpectFixed modes RBracket "`,` or `]` after the attribute") (close _ =>
+                Parse.givesDone byComputing)))))
+
+theorem givesAttributesOf ∀ (modes: Modes): Parse.Gives GoodItems (() => attributesOf modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      (givesAfter0 [p := () => modes.at At] [j := found => attributeGroupAt modes found] (reads0At modes At) (found =>
+        match found with
+          | True => givesAttributeGroup modes
+          | False => Parse.givesDone byComputing)))
+    (found ok => byComputing)
 
 theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -2380,20 +3625,31 @@ theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
 
 -- Declarations.
 
---| `Decl.lexical1`, but a definition's name may be an upper-case name too (`def Foo: Nat := 1` is in slice 1,
---| `Header.within1` not asking for a lower-case name).
-def Decl.lexicalLoose1: Decl → Bool
-  | Definition _ header (Assigned _ value) =>
-    (header.name.lexesAs Lower || header.name.lexesAs Upper) && header.result.lexical1 && value.lexical1
-  | _ => False
-
-def SourceFile.lexicalLoose1 (file: SourceFile): Bool := file.decls.all Decl.lexicalLoose1
-
 --| What a declaration the parser gives is, when it is within slice 1.
-def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧ decl.lexicalLoose1 = True
+def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧ decl.lexical1 = True
 
 theorem declOut ∀ [decl: Decl] (out: DeclOut decl): DeclOk decl := within =>
   (Bool.falseNotTrue (rewrite out at within)).impossible
+
+theorem headerNameLower ∀ (header: Header) (within: header.within1 = True): header.name.lexesAs Lower = True :=
+  match header with
+    | {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params,
+        colon,
+        result,
+        decreasingClause,
+        unfoldingClause
+      } =>
+      match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
+        | None, None, DefPlain, None, [], None, None, within => Bool.andLeft within
+        | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
+          (Bool.falseNotTrue within).impossible
 
 theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
   match header with
@@ -2411,7 +3667,7 @@ theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True):
         unfoldingClause
       } =>
       match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
-        | None, None, DefPlain, None, [], None, None, within => within
+        | None, None, DefPlain, None, [], None, None, within => Bool.andRight within
         | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
           (Bool.falseNotTrue within).impossible
 
@@ -2424,7 +3680,7 @@ theorem definitionOk ∀ (attributes: List Attributes) (header: Header) (body: D
         let (headerWithin, valueWithin) := within
         let (resultShaped, resultLexical, resultHigh) := resultParsed (headerResultWithin header headerWithin)
         let (valueShaped, valueLexical, valueHigh) := valueParsed valueWithin
-        (Both resultShaped valueShaped, Both nameOk (Both resultLexical valueLexical))
+        (Both resultShaped valueShaped, Both (headerNameLower header headerWithin) (Both resultLexical valueLexical))
 
 theorem givesDefinition ∀ (modes: Modes) (attributes: List Attributes) (exportKeyword opaqueKeyword: Option Comments)
     (nested: Nested expressionAt) (outside: Outside expressionAt) (frame: Frame expressionAt):
@@ -2547,7 +3803,7 @@ theorem groupRanOk ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List 
     | Ok decl, ranOk, parses =>
       groupLoweredOk seen rest found decls decl decl.loweringError (ranOk decl byComputing) foundOk again parses
 
-theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (seen: Seen)
+theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (seen: Seen)
     (groups: List (List Leaf)) (found decls: List Decl)
     (good: List.All (group => List.All GoodItem (items group)) groups)
     (foundOk: List.All DeclOk found)
@@ -2568,7 +3824,9 @@ theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (s
             (items group)
             (() => declaration seen)
             DeclOk
-            (givesDeclaration seen nested (outside expressionAt nested) frame)
+            (givesDeclaration seen nested
+              (outsideOf expressionAt nested (outside expressionAt nested))
+              (frameOf expressionAt nested frame))
             { holds = groupGood }
             decl
             ran)
@@ -2587,7 +3845,7 @@ theorem fileEndOk ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
     | Err message, good, parses => (Result.errNotOk parses).impossible
 
 --| The declarations of a file that parses from good items are each as `DeclOk` says.
-theorem parseFileOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
+theorem parseFileOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file):
     List.All DeclOk file.decls :=
@@ -2600,74 +3858,33 @@ theorem parseFileOk ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lex
         (decls ran => parseGroupsOk outside frame Seen.start (groupsOf lexed.leaves) [] decls good () ran)
         parses
 
-theorem declsShapedLoose ∀ (decls: List Decl)
+theorem declsShapedLexical ∀ (decls: List Decl)
     (ok: List.All DeclOk decls)
     (within: decls.all Decl.within1 = True):
-    decls.all Decl.shaped1 = True ∧ decls.all Decl.lexicalLoose1 = True :=
+    decls.all Decl.shaped1 = True ∧ decls.all Decl.lexical1 = True :=
   match decls, ok, within with
     | [], ok, within => (byComputing, byComputing)
     | [decl, ..rest], (declOk, restOk), (Both declWithin restWithin) =>
       let (declShaped, declLexical) := declOk declWithin
-      let (restShaped, restLexical) := declsShapedLoose rest restOk restWithin
+      let (restShaped, restLexical) := declsShapedLexical rest restOk restWithin
       (Both declShaped restShaped, Both declLexical restLexical)
 
 --| Every declaration of a file of slice 1 that the parser gives is shaped (`Shaped1`, `Decl.shaped1`).
 --|
---| It assumes what the parsers outside slice 1 give (`OutsideGives`, `Frame`), which SW-4000 proves, and that every
---| item of every declaration's group is good (the lexer's spelling, `GoodItem`).
-theorem parseShaped1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
+--| It assumes what the parsers outside slice 1 give that is not yet proved (`OutsideGives`, which is `OutsideRest`, and
+--| `FrameRest`), and that every item of every declaration's group is good (the lexer's spelling, `GoodItem`).
+theorem parseShaped1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.shaped1 = True :=
-  (declsShapedLoose file.decls (parseFileOk outside frame lexed file good parses) within).left
+  (declsShapedLexical file.decls (parseFileOk outside frame lexed file good parses) within).left
 
---| Every declaration's words lex as their kinds, but for a name: `def Foo: Nat := 1` is in slice 1 with an
---| upper-case name, which `Decl.lexical1` doesn't allow.
-theorem parseLexicalLoose1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
+--| Every word of the file lexes as one token of its kind (a definition's name as a lower-case name, which
+--| `Header.within1` asks for).
+theorem parseLexical1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
-    file.lexicalLoose1 = True :=
-  (declsShapedLoose file.decls (parseFileOk outside frame lexed file good parses) within).right
-
---| A definition's name lexes as a lower-case name.
-def Decl.lowerNamed1: Decl → Bool
-  | Definition _ header _ => header.name.lexesAs Lower
-  | _ => True
-
-def SourceFile.lowerNamed1 (file: SourceFile): Bool := file.decls.all Decl.lowerNamed1
-
-theorem lexicalOfLoose ∀ (decl: Decl)
-    (loose: decl.lexicalLoose1 = True)
-    (lower: decl.lowerNamed1 = True):
-    decl.lexical1 = True :=
-  match decl, loose, lower with
-    | Definition attributes header (Assigned colonEq value), (Both named (Both result value1)), lower =>
-      Both lower (Both result value1)
-    | Definition attributes header Primitive, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Definition attributes header (Arms arms), loose, lower => (Bool.falseNotTrue loose).impossible
-    | Namespace keyword name, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Import keyword path open imported close, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Data attributes isInterface keyword name params indices body, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Ability keyword name params whereKeyword operations, loose, lower => (Bool.falseNotTrue loose).impossible
-    | Test keyword name colonEq body, loose, lower => (Bool.falseNotTrue loose).impossible
-    | RuleSetDecl keyword name colonEq set, loose, lower => (Bool.falseNotTrue loose).impossible
-
-theorem declsLexical ∀ (decls: List Decl)
-    (loose: decls.all Decl.lexicalLoose1 = True)
-    (lower: decls.all Decl.lowerNamed1 = True):
-    decls.all Decl.lexical1 = True :=
-  match decls, loose, lower with
-    | [], loose, lower => byComputing
-    | [decl, ..rest], (Both declLoose restLoose), (Both declLower restLower) =>
-      Both (lexicalOfLoose decl declLoose declLower) (declsLexical rest restLoose restLower)
-
---| Every word of the file lexes as one token of its kind, for a file whose definitions are named in lower case.
-theorem parseLexical1 ∀ (outside: OutsideGives) (frame: Frame expressionAt) (lexed: Lexed) (file: SourceFile)
-    (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
-    (parses: parseFile lexed = Ok file)
-    (within: file.within1 = True)
-    (lower: file.lowerNamed1 = True):
     file.lexical1 = True :=
-  declsLexical file.decls (parseLexicalLoose1 outside frame lexed file good parses within) lower
+  (declsShapedLexical file.decls (parseFileOk outside frame lexed file good parses) within).right

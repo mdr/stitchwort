@@ -42,20 +42,21 @@ def Tok.wordWithin1: Tok → Bool
   | Float => True
   | _ => False
 
---| `def name: T`: no attributes, `export`, `opaque`, parameters,
+--| `def name: T`, with a lower-case name: no attributes, `export`, `opaque`, parameters,
 --| `decreasing` or `unfolding`.
 def Header.within1 (header: Header): Bool := match header with
   | {
       exportKeyword = None,
       opaqueKeyword = None,
       kind = DefPlain,
+      name,
       forallKeyword = None,
       params = [],
       result,
       decreasingClause = None,
       unfoldingClause = None,
       ..
-    } => result.within1
+    } => name.lexesAs Lower && result.within1
   | _ => False
 
 def Decl.within1: Decl → Bool
