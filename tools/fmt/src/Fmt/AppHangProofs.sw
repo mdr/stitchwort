@@ -348,3 +348,219 @@ theorem linedPart ∀ (kinds: Text → Tok) (docs: List Doc) (more indent: Nat) 
       next
       (rewrite isEntry then ended, folded, clear)
       (left later (done, landed, _) => after left later (done, landed))
+
+-- A call's layouts.
+
+--| A choice among options that each hang hangs; with one option at least, nothing is asked of where it starts.
+theorem hangsOptions ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc) (indent: Nat) (pre post: Place → Hang → Prop)
+    (one: HangLays kinds first indent pre post)
+    (each: EachHangs kinds indent pre post others):
+    HangLays kinds (Choice [first, ..others]) indent pre post :=
+  place trace next holds after =>
+    match others, each with
+      | [], _ => one place trace next holds after
+      | [second, ..more], (two, rest) => (
+        one place trace next holds after,
+        hangsOptions kinds second more indent pre post two rest place trace next holds after
+      )
+
+theorem elFlatten ∀ (kinds: Text → Tok) (doc: Doc) (indent column: Nat) (before trails: Bool)
+    (el: ElHangs kinds doc indent column before trails wordStart):
+    ElHangs kinds (Flatten doc) indent column before trails wordStart :=
+  state entry =>
+    hangsFlatten kinds doc indent
+      (Entered indent column before state entry (wordStart indent entry))
+      (place hang =>
+        Ended (openedBy state (wordStart indent entry)) trails place
+          ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
+      (el state entry)
+
+theorem elChoice ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc) (indent column: Nat) (before trails: Bool)
+    (one: ElHangs kinds first indent column before trails wordStart)
+    (each: ∀ (state: HangState) (entry: Place) => EachHangs kinds indent
+      (Entered indent column before state entry (wordStart indent entry))
+      (place hang =>
+        Ended (openedBy state (wordStart indent entry)) trails place
+          ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
+      others):
+    ElHangs kinds (Choice [first, ..others]) indent column before trails wordStart :=
+  state entry =>
+    hangsOptions kinds first others indent
+      (Entered indent column before state entry (wordStart indent entry))
+      (place hang =>
+        Ended (openedBy state (wordStart indent entry)) trails place
+          ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
+      (one state entry)
+      (each state entry)
+
+--| What a call's layouts ask of its elements (`appFrom`), the function first, the arguments `args`, `k` of them kept
+--| on the function's line when the call breaks: spaced on one line, or filling lines at 4; the kept ones likewise
+--| and the rest on lines of their own at 2 or 4; and the hug's opened argument after the others spaced, if it has
+--| one.
+def AppArgs (kinds: Text → Tok) (indent: Nat) (middle trails: Bool) (args: List Doc) (k: Nat)
+    (front: List Doc) (hug: Option Doc):
+    Prop :=
+  SpacedParts kinds indent middle trails args
+    ∧ FilledArgs kinds (indent + 4) middle trails args
+    ∧ (∃ (kept: Bool) => SpacedParts kinds indent middle kept (args.take k)
+      ∧ FilledArgs kinds (indent + 4) middle kept (args.take k)
+      ∧ LinedArgs kinds (indent + 2) kept trails (args.drop k)
+      ∧ LinedArgs kinds (indent + 4) kept trails (args.drop k))
+    ∧ (∃ (fronted: Bool) => SpacedParts kinds indent middle fronted front
+      ∧ (∀ (opened: Doc) => hug = Some opened → PartHangs kinds opened indent fronted trails))
+
+--| `appFrom`'s broken layout, `k` arguments kept on the function's line.
+def brokenApp (id k: Nat) (fillFront: Bool) (headDoc: Doc) (args: List Doc): Doc :=
+  let rest := Doc.concat (args.drop k |> .concatMap (doc => [HardLine, doc]))
+  Doc.concat [
+    if fillFront then IdGroup id (Nest 4 (Fill [headDoc, ..args.take k])) False else spaced [headDoc, ..args.take k],
+    if fillFront then IfBroken id (Nest 4 rest) (Nest 2 rest) else Nest 2 rest
+  ]
+
+--| A call broken (`appFrom`'s last option): the function and the kept arguments, spaced or filling lines at 4, then
+--| the rest on lines of their own at 2, or at 4 if the kept ones filled lines and broke.
+theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (headDoc: Doc) (args: List Doc)
+    (indent column: Nat) (middle kept trails: Bool)
+    (head: ∀ (inset: Nat) => ElHangs kinds headDoc inset column False middle wordStart)
+    (keptSpaced: SpacedParts kinds indent middle kept (args.take k))
+    (keptFilled: FilledArgs kinds (indent + 4) middle kept (args.take k))
+    (restAt2: LinedArgs kinds (indent + 2) kept trails (args.drop k))
+    (restAt4: LinedArgs kinds (indent + 4) kept trails (args.drop k)):
+    ElHangs kinds (brokenApp id k fillFront headDoc args) indent column False trails wordStart :=
+  let rest := args.drop k |> .concatMap (doc => [HardLine, doc])
+  let at2: PartHangs kinds (Nest 2 (Doc.concat rest)) indent kept trails :=
+    linedPart kinds (args.drop k) 2 indent kept trails byComputing restAt2
+  match fillFront with
+    | True =>
+      let at4: PartHangs kinds (Nest 4 (Doc.concat rest)) indent kept trails :=
+        linedPart kinds (args.drop k) 4 indent kept trails byComputing restAt4
+      elThen kinds
+        (IdGroup id (Nest 4 (Fill [headDoc, ..args.take k])) False)
+        (IfBroken id (Nest 4 (Doc.concat rest)) (Nest 2 (Doc.concat rest)))
+        indent
+        column
+        kept
+        trails
+        (state entry =>
+          hangsIdGroup kinds id
+            (Nest 4 (Fill [headDoc, ..args.take k]))
+            False
+            indent
+            (Entered indent column False state entry (wordStart indent entry))
+            (place hang =>
+              Ended (openedBy state (wordStart indent entry)) kept place
+                ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
+            (filledHangs kinds headDoc
+              (args.take k)
+              4
+              indent
+              column
+              middle
+              kept
+              byComputing
+              (head (indent + 4))
+              keptFilled
+              state
+              entry))
+        (state entry quiet unglued =>
+          hangsIfBroken kinds id
+            (Nest 4 (Doc.concat rest))
+            (Nest 2 (Doc.concat rest))
+            indent
+            (place hang =>
+              place = entry
+                ∧ hang = Hang.At state
+                ∧ Ended state kept entry
+                ∧ (inForce state.blocks state.top <= indent) = True)
+            (place hang => Ended state trails place ∧ hang = Hang.At state)
+            (at4 state entry quiet unglued)
+            (at2 state entry quiet unglued))
+    | False =>
+      elThen kinds
+        (spaced [headDoc, ..args.take k])
+        (Nest 2 (Doc.concat rest))
+        indent
+        column
+        kept
+        trails
+        (spacedHangs kinds headDoc (args.take k) indent column middle kept (head indent) keptSpaced)
+        at2
+
+--| A call (`appFrom`) as one element: whichever layout the printer takes, the fold after it as after its first
+--| word.
+--|
+--| Proof idea: `appFrom`'s cases. All its elements on its line are spaced (`spacedHangs`) or fill lines at 4
+--| (`filledHangs`); otherwise it is a choice (`elChoice`) of those flattened, the hug after the others spaced
+--| (`elGapThen`), and the call broken (`brokenAppHangs`).
+theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront: Bool) (headDoc: Doc) (front: List Doc)
+    (lastDoc: Doc) (hug: Option Doc) (indent column: Nat) (middle trails: Bool)
+    (head: ∀ (inset: Nat) => ElHangs kinds headDoc inset column False middle wordStart)
+    (facts: AppArgs kinds indent middle trails (front ++ [lastDoc]) k front hug):
+    ElHangs kinds
+      (appFrom id (k + 1) between betweenFront headDoc front lastDoc hug).doc
+      indent
+      column
+      False
+      trails
+      wordStart :=
+  let args := front ++ [lastDoc]
+  let (spacedAll, filledAll, (kept, keptSpaced, keptFilled, restAt2, restAt4), (fronted, frontSpaced, hugged)) := facts
+  let all := spaced [headDoc, ..args]
+  let allHangs: ElHangs kinds all indent column False trails wordStart :=
+    spacedHangs kinds headDoc args indent column middle trails (head indent) spacedAll
+  let pre: HangState → Place → Place → Hang → Prop := state entry =>
+    Entered indent column False state entry (wordStart indent entry)
+  let post: HangState → Place → Place → Hang → Prop := state entry place hang =>
+    Ended (openedBy state (wordStart indent entry)) trails place
+      ∧ hang = Hang.At (openedBy state (wordStart indent entry))
+  let fillFront := k + 1 > 2 && !betweenFront
+  let broken :=
+    brokenAppHangs kinds id k fillFront headDoc args indent column middle kept trails head keptSpaced keptFilled restAt2
+        restAt4
+  match whole: k + 1 == args.length + 1 with
+    | True =>
+      match between with
+        | True => allHangs
+        | False =>
+          filledHangs kinds headDoc args 4 indent column middle trails byComputing (head (indent + 4)) filledAll
+    | False =>
+      match hug, hugged with
+        | None, _ =>
+          elChoice kinds
+            (Flatten all)
+            [brokenApp id k fillFront headDoc args]
+            indent
+            column
+            False
+            trails
+            (elFlatten kinds all indent column False trails allHangs)
+            (state entry => (broken state entry, byComputing))
+        | Some opened, hugged =>
+          let hugDoc := Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened]
+          let hugHangs: ElHangs kinds hugDoc indent column False trails wordStart :=
+            elGapThen kinds
+              (Flatten (spaced [headDoc, ..front]))
+              (Doc.text " ")
+              opened
+              indent
+              column
+              fronted
+              trails
+              (elFlatten kinds
+                (spaced [headDoc, ..front])
+                indent
+                column
+                False
+                fronted
+                (spacedHangs kinds headDoc front indent column middle fronted (head indent) frontSpaced))
+              (Inr byComputing)
+              (hugged opened byComputing)
+          elChoice kinds
+            (Flatten all)
+            [hugDoc, brokenApp id k fillFront headDoc args]
+            indent
+            column
+            False
+            trails
+            (elFlatten kinds all indent column False trails allHangs)
+            (state entry => (hugHangs state entry, broken state entry, byComputing))
