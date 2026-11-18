@@ -24791,12 +24791,12 @@
     {
       "id": 4043,
       "title": "[Opus] fmt S1 output G: printedSettle1 from E's trivia statement as a hypothesis (after SW-4042; docs/reviews/SW-4025-output-statements.md ticket G)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4042: G sketch in docs/reviews/SW-4042-trivia-statement.md (one Opus lane, 45 min, takes SourceFile.stood1 as a hypothesis, can run beside F): standsAppend, homeStands (the one induction; new lemma endsOn behind = trailsBack of the words done), rules 2-5 idle, groups via SettleSplitProofs. Can start now.",
+      "body": "\nFrom SW-4042: G sketch in docs/reviews/SW-4042-trivia-statement.md (one Opus lane, 45 min, takes SourceFile.stood1 as a hypothesis, can run beside F): standsAppend, homeStands (the one induction; new lemma endsOn behind = trailsBack of the words done), rules 2-5 idle, groups via SettleSplitProofs. Can start now.\n\n18 Nov 19:16-20:00 (Opus, lane/SW-4043, 8 commits): Fmt.SettleOutputProofs (55 theorems). printedSettle1 moved there from OutputStatements (pointer left), proved with stood1 and a NEW hypothesis unreturned1: the statement is false without it (returnLost: \"-- a\\r\\r\\ndef d: A := b\\n\" has every other hypothesis incl. stood1, conclusion fails; the lexer strips one \\r, the tree keeps the other). Also printedStands1 is false on \"def d: A := b -- a\\r\\r\\n\" (within/shaped/settled/lexical/hung hold, stood1 fails) - ticket F needs the same fix. Proved: homeStands (the induction), endsOnMatched, owingPlaced, landing, standsAppend/Headed/Decl/File, trimIdle, endBack, splitTokens, piecesWords, groupsBack. Open in the file: leavesStart1 (first printed leaf no comma, from printedTokens1), wordsSettled1 (calmTop words homed + comment texts), printedAgrees1 (closer kind iff closer text), homedArrowsBare (leaf arrowsBare after rule 1). Also relies on open printedAlphabet1, printedPlain1, printedGroups1. Audit: 70 pass, 8 fail only on open goals, no vacuity warnings. Tests: check of the five namespaces clean, Fmt.Tests 95/95.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24871,15 +24871,18 @@
     {
       "id": 4049,
       "title": "[Sonnet] fmt S1 trivia F2: words (Word.leading, Word.leaf, Word.opening, closerNotes), atoms, parens, prefix; flags as Comments.kept (after SW-4048's Doc.told definition; docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4056: Doc.told and laysTold/printTold are in crates/elab/src/std/Doc/Told.sw; start by stating each rule word's told against Spot.afterSep or Spot.lineStart; a kept blank line now reads Gap exactly (toldBlankAfterStart). Ready to start.",
+      "body": "From SW-4056: Doc.told and laysTold/printTold are in crates/elab/src/std/Doc/Told.sw; start by stating each rule word's told against Spot.afterSep or Spot.lineStart; a kept blank line now reads Gap exactly (toldBlankAfterStart). Ready to start.\n\nSW-4049 (Sonnet, lane/SW-4049, commits b49868d8d, 8bda3b243): tools/fmt/src/Fmt/ToldWordProofs.sw, 57 theorems, audit clean (0 warnings), check Fmt 0 errors, Fmt.Tests 95/95. Lemma shape in tools/fmt/NOTES.md (\"Slice 1 trivia proofs, F2\"). Word.leaf/opening/atom/frame/paren/prefix told as `Word.printed` (calm word) with exact entries; no MaybeGap/Lost. Owed to F3: items, calls, chains, defDoc; link calm word to Word.printed per rule.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "8bda3b243",
+        "b49868d8d"
+      ]
     },
     {
       "id": 4050,
