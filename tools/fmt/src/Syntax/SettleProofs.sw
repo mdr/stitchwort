@@ -639,3 +639,108 @@ theorem settledArrowsBare1 ∀ (lexed: Lexed)
     _ = True := within
   let quiet: letsFrom [] arrowed = arrowed := letsQuiet1 [] arrowed byComputing (alphabet1Leaves arrowed arrowedWithin)
   trimmedArrowsBare (letsFrom [] arrowed) (rewrite quiet then arrowsArrowsBare commas.leaves)
+
+-- Comments kept in order. Rules 2 to 5 keep them for any leaves; rule 1
+-- needs leaves as the lexer gives them.
+
+--| The leaves' comment texts, in order.
+def leafTexts: List Leaf → List Text
+  | [] => []
+  | [leaf, ..rest] => triviaTexts leaf.trivia ++ leafTexts rest
+
+theorem leavesTextsSplit ∀ (leaves: List Leaf) (end: Trivia):
+    leavesTexts leaves end = leafTexts leaves ++ triviaTexts end :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] =>
+      rewrite leavesTextsSplit rest end then
+        (List.appendAssoc (triviaTexts leaf.trivia) (leafTexts rest) (triviaTexts end)).flipped
+
+theorem leafTextsReverseOnto ∀ (xs acc: List Leaf):
+    leafTexts (xs.reverseOnto acc) = leafTexts (xs.reverseOnto []) ++ leafTexts acc :=
+  match xs with
+    | [] => byComputing
+    | [x, ..rest] =>
+      calc leafTexts (rest.reverseOnto [x, ..acc])
+        _ = leafTexts (rest.reverseOnto []) ++ (triviaTexts x.trivia ++ leafTexts acc) :=
+          leafTextsReverseOnto rest [x, ..acc]
+        _ = (leafTexts (rest.reverseOnto []) ++ triviaTexts x.trivia) ++ leafTexts acc :=
+          (List.appendAssoc (leafTexts (rest.reverseOnto [])) (triviaTexts x.trivia) (leafTexts acc)).flipped
+        _ = leafTexts (rest.reverseOnto [x]) ++ leafTexts acc :=
+          rewrite leafTextsReverseOnto rest [x], List.appendNil (triviaTexts x.trivia)
+
+--| One step of a pass that keeps each leaf's comments: the leaf, with the
+--| same comment texts, goes on the settled leaves.
+theorem consTexts ∀ (x leaf: Leaf) (settled behind after: List Leaf)
+    (same: triviaTexts x.trivia = triviaTexts leaf.trivia)
+    (sameBehind: leafTexts (settled.reverseOnto []) = leafTexts (behind.reverseOnto [])):
+    leafTexts ([x, ..settled].reverseOnto after) = leafTexts (behind.reverseOnto [leaf, ..after]) :=
+  calc leafTexts (settled.reverseOnto [x, ..after])
+    _ = leafTexts (settled.reverseOnto []) ++ (triviaTexts x.trivia ++ leafTexts after) :=
+      leafTextsReverseOnto settled [x, ..after]
+    _ = leafTexts (behind.reverseOnto []) ++ (triviaTexts leaf.trivia ++ leafTexts after) := rewrite same, sameBehind
+    _ = leafTexts (behind.reverseOnto [leaf, ..after]) := (leafTextsReverseOnto behind [leaf, ..after]).flipped
+
+--| Rule 4 keeps the comments in order.
+theorem letsFromTexts ∀ (behind rest: List Leaf):
+    leafTexts (letsFrom behind rest) = leafTexts (behind.reverseOnto rest) :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match leaf.trivia.trailing with
+        | None =>
+          Eq.trans
+            (letsFromTexts [leaf, ..behind] after)
+            (consTexts leaf leaf behind behind after byComputing byComputing)
+        | Some comment =>
+          match leaf.kind == ColonEq && letBefore behind 0 && semicolonAfter after 0 with
+            | True =>
+              let moved := { leaf |
+                trivia = { leaf.trivia | leading = leaf.trivia.leading ++ [comment.unspaced], trailing = None }
+              }
+              let same: triviaTexts moved.trivia = triviaTexts leaf.trivia :=
+                rewrite List.mapAppend leaf.trivia.leading [comment.unspaced] (comment => comment.text), List.appendNil
+              Eq.trans
+                (letsFromTexts [moved, ..behind] after)
+                (consTexts moved leaf behind behind after same byComputing)
+            | False =>
+              Eq.trans
+                (letsFromTexts [leaf, ..behind] after)
+                (consTexts leaf leaf behind behind after byComputing byComputing)
+
+theorem arrowMovesTexts ∀ (current next: Leaf) (rest: List Text):
+    triviaTexts { current.trivia |
+      leading = current.trivia.leading
+        ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+        ++ next.trivia.leading,
+      trailing = None
+    }
+      ++ (triviaTexts (next.withLeading []).trivia ++ rest)
+      = triviaTexts current.trivia ++ (triviaTexts next.trivia ++ rest) :=
+  match current.trivia.trailing with
+    | None => rewrite repeatedly [List.mapAppend, List.appendAssoc, List.appendNil]
+    | Some comment => rewrite repeatedly [List.mapAppend, List.appendAssoc]
+
+--| Rule 3 keeps the comments in order.
+theorem arrowsFromTexts ∀ (current: Leaf) (rest: List Leaf):
+    leafTexts (arrowsFrom [] current rest) = leafTexts [current, ..rest] :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] =>
+      match current.kind == Arrow && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) with
+        | True =>
+          let moved := { current |
+            trivia = { current.trivia |
+              leading = current.trivia.leading
+                ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+                ++ next.trivia.leading,
+              trailing = None
+            }
+          }
+          rewrite arrowsFromOnto [moved] (next.withLeading []) more, arrowsFromTexts (next.withLeading []) more then
+            arrowMovesTexts current next (leafTexts more)
+        | False => rewrite arrowsFromOnto [current] next more, arrowsFromTexts next more
+
+theorem arrowsTexts ∀ (leaves: List Leaf): leafTexts (arrows leaves) = leafTexts leaves := match leaves with
+  | [] => byComputing
+  | [first, ..rest] => arrowsFromTexts first rest
