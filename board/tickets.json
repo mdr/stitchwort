@@ -24887,7 +24887,7 @@
     {
       "id": 4050,
       "title": "[Sonnet] fmt S1 trivia F3: brackets, calls, chains, defDoc, doc1: doc.told is decl.stood with bare commas and trailing closers marked as starting a line (after SW-4049; docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
