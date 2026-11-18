@@ -1370,3 +1370,89 @@ theorem parenElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close
           closeTrailed plain
           (innerHangs inset)
           keys)
+
+-- A call's last argument.
+
+--| A tuple or list as a call's last argument (`huggedBracket`), with no own-line comments before it: its parts in a
+--| group, which the hug breaks.
+theorem huggedBracketIs ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+    (bare: open.leading around around.at = []):
+    huggedBracket list open items close around
+      = (
+        Group
+          (bracketContent list open items close { around | hoisted = True })
+          (bracketContent list open items close { around | hoisted = True }).forcesBreak,
+        Some (Group (bracketContent list open items close { around | hoisted = True }) True)
+      ) :=
+  rewrite bare
+
+--| A tuple's or list's parts in a group, broken or not, as one element: as `huggedBracket` writes them.
+theorem groupedBracketHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (hard: Bool) (indent column: Nat)
+    (opener: OpenerToken kinds open.text)
+    (openTrailed: TrailsComment open)
+    (closer: CloserToken kinds close.text)
+    (closeComments: NotesComment close.comments.above)
+    (closeTrailed: TrailsComment close)
+    (comma: kinds "," = Comma)
+    (each: ItemsHang kinds
+      (indent + 2)
+      (list && items.all Expr.plainItem)
+      around.inArm
+      open.trails
+      open.trails
+      (around.at + 1)
+      items)
+    (filledKeys: allKeysFrom
+      (around.at + 1)
+      (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
+      = True)
+    (brokenKeys: allKeysFrom
+      (around.at + 1)
+      (brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
+      = True)
+    (closeBefore: lastTrails open.trails items = True → (ListOf open items False close).trailsBeforeClose = True):
+    ElHangs kinds
+      (Group (bracketContent list open items close { around | hoisted = True }) hard)
+      indent
+      column
+      False
+      (close.trails || (ListOf open items False close).trailsBeforeClose)
+      wordStart :=
+  state entry =>
+    hangsGroup kinds
+      (bracketContent list open items close { around | hoisted = True })
+      hard
+      indent
+      (Entered indent column False state entry (wordStart indent entry))
+      (place hang =>
+        Ended
+          (openedBy state (wordStart indent entry))
+          (close.trails || (ListOf open items False close).trailsBeforeClose)
+          place
+          ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
+      (bracketContentHangs kinds list open items close
+        { around | hoisted = True }
+        indent
+        column
+        opener
+        byComputing
+        openTrailed
+        closer
+        closeComments
+        closeTrailed
+        comma
+        each
+        filledKeys
+        brokenKeys
+        closeBefore
+        state
+        entry)
+
+theorem lastTuple ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word) (around: Around):
+    lastArgument (Tuple open items trailing close) around = huggedBracket False open items close around :=
+  byComputing
+
+theorem lastList ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word) (around: Around):
+    lastArgument (ListOf open items trailing close) around = huggedBracket True open items close around :=
+  byComputing
