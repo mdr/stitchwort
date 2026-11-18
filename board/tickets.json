@@ -24579,7 +24579,7 @@
     {
       "id": 4027,
       "title": "[Sonnet] fmt S1 shaped1 tightening (SW-4013): Expr.shaped1 admits def d: A := [auto Ord] (parsed as an implicit binder, an error) and a == b == c (doesn't parse: a comparison's right operand needs level 8+); narrow shaped1 so both are out, keep parseShaped1 proved, check the s1 gate",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -24592,7 +24592,7 @@
     {
       "id": 4028,
       "title": "[Sonnet] fmt S1 operators1 (SW-4010): derive it (each infix operator spells an alphabet token that isn't a comma or closer; each prefix is -, ! or ¬) either by adding an operator-kind fact to lexical1/within1 or from the file-level alphabet via parseCarries1 (SW-4019); a |> b passes the tree facts today but |> has no Spells (pipedNotSpelled), so within1 likely needs narrowing for operators too",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
