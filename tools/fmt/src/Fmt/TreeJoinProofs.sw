@@ -1,13 +1,14 @@
 --| `printLexes1` from the tree's facts (docs/proposals/self-hosted-fmt-s1-sketch.md §1.5, ticket 18c): `printLexes1`
 --| (`Fmt.JoinProofs`) takes `DeclJoins` and `Every Printable`, which are facts about the declaration's tokens' spellings
 --| and what may follow them; this file derives both from the tree's facts (`within1`, `sound`, `lexical1`, `shaped1`)
---| and `operators1`, with `kinds` the lexer's kind of each text (`lexKind`).
+--| alone, with `kinds` the lexer's kind of each text (`lexKind`).
 --|
 --| A name or numeral's spelling comes from `within1` (`textSpells1`, `spellsOfText1`): `lexesAs` alone is too weak,
 --| since a qualified name (`List.map`) lexes as one `Lower` token and a numeral with an exponent (`1e3`) as one `Float`,
 --| and neither is a text `Spells` that kind (`qualifiedLexes`, `exponentLexes`), so `within1` leaves them out. An
---| operator's token is what the tree doesn't say (`pipedTreeFacts`: `|>` has every other tree fact), so `operators1`
---| says each infix operator is a token of the alphabet and each prefix operator `-`, `!` or `¬`.
+--| operator's token is narrowed the same way: `within1` lets an infix operator through only if some token of the
+--| alphabet is spelled with its text, and a prefix only if it is `-`, `!` or `¬` (`withinOperators`, giving
+--| `operators1`), so `|>` is out (`pipedOut`, `pipedNotSpelled`).
 
 namespace Fmt.TreeJoinProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Result, Text, Void, byDecision)
@@ -375,7 +376,7 @@ theorem fractionSpells ∀ (chars: List Char)
 --| A name or numeral `within1` lets through is a text its kind is spelled with.
 theorem spellsOfText1 ∀ (kind: Tok) (text: Text) (spells: textSpells1 kind text = True): Spells kind text :=
   match kind, spells with
-    | Lower, spells => nameSpells Lower text text.toList (byComputing) spells
+    | Lower, spells => nameSpells Lower text text.toList (byComputing) (Bool.andLeft spells)
     | Upper, spells => nameSpells Upper text text.toList byComputing spells
     | Num, spells => digitsSpells text text.toList byComputing spells
     | Float, spells =>
@@ -409,6 +410,152 @@ def AllOperators1: List Expr → Prop
 def Decl.operators1: Decl → Prop
   | Definition _ header (Assigned _ value) => header.result.operators1 ∧ value.operators1
   | _ => False
+
+--| An infix operator `within1` lets through is a text some token of the alphabet is spelled with.
+--|
+--| Proof idea: `operatorText1` is four chains of tests of the text against each spelling; the first chain that holds
+--| (`operatorSpellsA` and the rest) has a test that names the token, and a chain running out contradicts the hypothesis.
+theorem operatorSpellsA ∀ (text: Text) (listed: operatorTextA1 text = True): OperatorSpells text :=
+  match a0: text == "->" with
+    | True => Witness Arrow (Both (Inl (DecEq.sound a0)) byDecision)
+    | False =>
+      match a1: text == "→" with
+        | True => Witness Arrow (Both (Inr (DecEq.sound a1)) byDecision)
+        | False =>
+          match a2: text == "||" with
+            | True => Witness OrOr (Both (Inl (DecEq.sound a2)) byDecision)
+            | False =>
+              match a3: text == "∨" with
+                | True => Witness OrOr (Both (Inr (DecEq.sound a3)) byDecision)
+                | False =>
+                  match a4: text == "&&" with
+                    | True => Witness AndAnd (Both (Inl (DecEq.sound a4)) byDecision)
+                    | False =>
+                      match a5: text == "∧" with
+                        | True => Witness AndAnd (Both (Inr (DecEq.sound a5)) byDecision)
+
+theorem operatorSpellsB ∀ (text: Text) (listed: operatorTextB1 text = True): OperatorSpells text :=
+  match a0: text == "+" with
+    | True => Witness Plus (Both (DecEq.sound a0) byDecision)
+    | False =>
+      match a1: text == "++" with
+        | True => Witness PlusPlus (Both (DecEq.sound a1) byDecision)
+        | False =>
+          match a2: text == "-" with
+            | True => Witness Minus (Both (DecEq.sound a2) byDecision)
+            | False =>
+              match a3: text == "*" with
+                | True => Witness Star (Both (DecEq.sound a3) byDecision)
+                | False =>
+                  match a4: text == "/" with
+                    | True => Witness Slash (Both (DecEq.sound a4) byDecision)
+                    | False =>
+                      match a5: text == "%" with
+                        | True => Witness Percent (Both (DecEq.sound a5) byDecision)
+
+theorem operatorSpellsC ∀ (text: Text) (listed: operatorTextC1 text = True): OperatorSpells text :=
+  match a0: text == "!=" with
+    | True => Witness NotEq (Both (Inl (DecEq.sound a0)) byDecision)
+    | False =>
+      match a1: text == "≠" with
+        | True => Witness NotEq (Both (Inr (DecEq.sound a1)) byDecision)
+        | False =>
+          match a2: text == "<" with
+            | True => Witness Lt (Both (DecEq.sound a2) byDecision)
+            | False =>
+              match a3: text == "<=" with
+                | True => Witness Le (Both (Inl (DecEq.sound a3)) byDecision)
+                | False =>
+                  match a4: text == "≤" with
+                    | True => Witness Le (Both (Inr (DecEq.sound a4)) byDecision)
+
+theorem operatorSpellsD ∀ (text: Text) (listed: operatorTextD1 text = True): OperatorSpells text :=
+  match a0: text == ">" with
+    | True => Witness Gt (Both (DecEq.sound a0) byDecision)
+    | False =>
+      match a1: text == ">=" with
+        | True => Witness Ge (Both (Inl (DecEq.sound a1)) byDecision)
+        | False =>
+          match a2: text == "≥" with
+            | True => Witness Ge (Both (Inr (DecEq.sound a2)) byDecision)
+            | False =>
+              match a3: text == "==" with
+                | True => Witness EqEq (Both (DecEq.sound a3) byDecision)
+                | False =>
+                  match a4: text == "=" with
+                    | True => Witness Equals (Both (DecEq.sound a4) byDecision)
+
+theorem operatorSpellsOf ∀ (text: Text) (listed: operatorText1 text = True): OperatorSpells text :=
+  match first: operatorTextA1 text with
+    | True => operatorSpellsA text first
+    | False =>
+      match second: operatorTextB1 text with
+        | True => operatorSpellsB text second
+        | False =>
+          match third: operatorTextC1 text with
+            | True => operatorSpellsC text third
+            | False => operatorSpellsD text listed
+
+--| A prefix operator `within1` lets through is `-`, `!` or `¬`.
+theorem prefixSpellsOf ∀ (text: Text) (listed: prefixText1 text = True): PrefixSpells text :=
+  match minus: text == "-" with
+    | True => Inl (DecEq.sound minus)
+    | False =>
+      match bang: text == "!" with
+        | True => Inr (Inl (DecEq.sound bang))
+        | False =>
+          match not: text == "¬" with
+            | True => Inr (Inr (DecEq.sound not))
+
+--| What `within1` says of an expression's operators is `operators1`: the slice's alphabet spells each.
+--|
+--| Proof idea: Induction on the expression; an operator is `operatorSpellsOf` or `prefixSpellsOf`.
+theorem withinOperators ∀ (expr: Expr) (within: expr.within1 = True): expr.operators1 := match expr, within with
+  | Atom kind word, within => byComputing
+  | Paren open inner close, within => withinOperators inner within
+  | Tuple open items comma close, within => allWithinOperators items within
+  | ListOf open items comma close, within => allWithinOperators items within
+  | App head arguments, within =>
+    (withinOperators head (Bool.andLeft within), allWithinOperators arguments (Bool.andRight within))
+  | Infix kind left operator right, within =>
+    match kind with
+      | InfixBinary => (
+        withinOperators left (Bool.andLeft within),
+        operatorSpellsOf operator.text (Bool.andRight (Bool.andRight within)),
+        withinOperators right (Bool.andLeft (Bool.andRight within))
+      )
+      | InfixArrow => (
+        withinOperators left (Bool.andLeft within),
+        operatorSpellsOf operator.text (Bool.andRight (Bool.andRight within)),
+        withinOperators right (Bool.andLeft (Bool.andRight within))
+      )
+      | _ => cases
+  | Prefix operator operand, within =>
+    (prefixSpellsOf operator.text (Bool.andRight within), withinOperators operand (Bool.andLeft within))
+
+theorem allWithinOperators ∀ (items: List Expr) (within: allWithin1 items = True): AllOperators1 items :=
+  match items with
+    | [] => byComputing
+    | [item, ..rest] => (withinOperators item (Bool.andLeft within), allWithinOperators rest (Bool.andRight within))
+
+theorem declOperators ∀ (decl: Decl) (within: decl.within1 = True): decl.operators1 := match decl with
+  | Definition [] header (Assigned colonEq value) =>
+    match header with
+      | {
+          exportKeyword = None,
+          opaqueKeyword = None,
+          kind = DefPlain,
+          keyword,
+          name,
+          forallKeyword = None,
+          params = [],
+          colon,
+          result,
+          decreasingClause = None,
+          unfoldingClause = None
+        } =>
+        (withinOperators result (Bool.andRight (Bool.andLeft within)), withinOperators value (Bool.andRight within))
+      | _ => cases
 
 theorem wordQuiet ∀ (kind: Tok) (word: kind.wordWithin1 = True): Quiet kind := match kind, word with
   | Lower, word => byDecision
@@ -474,8 +621,8 @@ theorem infixWithin ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: 
     (within: (Infix kind left operator right).within1 = True):
     left.within1 = True ∧ right.within1 = True :=
   match kind with
-    | InfixBinary => (Bool.andLeft within, Bool.andRight within)
-    | InfixArrow => (Bool.andLeft within, Bool.andRight within)
+    | InfixBinary => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
+    | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
 
 --| `printLexes1`'s facts about the tokens of an expression, from the tree's.
 --|
@@ -554,10 +701,17 @@ theorem joinable ∀ (expr: Expr)
           | Inl same => spellsJoins operator Minus operatorSound same minusQuiet
           | Inr (Inl same) => spellsJoins operator Bang operatorSound (Inl same) bangQuiet
           | Inr (Inr same) => spellsJoins operator Bang operatorSound (Inr same) bangQuiet,
-        joinable operand within (Bool.andLeft shaped) (Bool.andRight sound) (Bool.andRight lexical) operandSpelled,
+        joinable operand
+          (Bool.andLeft within)
+          (Bool.andLeft shaped)
+          (Bool.andRight sound)
+          (Bool.andRight lexical)
+          operandSpelled,
         empty =>
-          prefixFollows operator operand within prefix
-            (leadsOf operand within (Bool.andRight lexical) operandSpelled)
+          prefixFollows operator operand
+            (Bool.andLeft within)
+            prefix
+            (leadsOf operand (Bool.andLeft within) (Bool.andRight lexical) operandSpelled)
             empty
       )
 
@@ -769,7 +923,7 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
           | Inl same => wordPrintable operator Minus hoisted (Bool.andLeft sound) same
           | Inr (Inl same) => wordPrintable operator Bang hoisted (Bool.andLeft sound) (Inl same)
           | Inr (Inr same) => wordPrintable operator Bang hoisted (Bool.andLeft sound) (Inr same))
-        (exprPrintable operand False within (Bool.andRight sound) (Bool.andRight lexical) operandSpelled)
+        (exprPrintable operand False (Bool.andLeft within) (Bool.andRight sound) (Bool.andRight lexical) operandSpelled)
 
 -- A declaration.
 
@@ -898,14 +1052,15 @@ theorem declPrintable ∀ (decl: Decl)
 
 --| `printLexes1Tree`: the text the rules print for a slice 1 declaration, at any width, lexes to the leaves of the
 --| printed pieces' layout, from the declaration's tree facts: that it is within slice 1, sound, shaped as the parser
---| gives it, its leaves lex as their kinds and spell as `operators1` says. `kinds` is the lexer's kind of each text.
+--| gives it, and its leaves lex as their kinds. `kinds` is the lexer's kind of each text.
 --|
---| Proof idea: `printLexes1`, with its two hypotheses derived: `declJoins` and `declPrintable`.
+--| Proof idea: `printLexes1`, with its two hypotheses derived: `declJoins` and `declPrintable`, from `declOperators`
+--| (`within1` says each operator is one the alphabet spells).
 theorem printLexes1Tree ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.operators1)
+    (lexical: decl.lexical1 = True)
     (shows: decl.doc1 = Some doc):
     lex (Doc.print doc width)
       = Ok {
@@ -917,12 +1072,12 @@ theorem printLexes1Tree ∀ (decl: Decl) (doc: Doc) (width: Nat)
         }
       } :=
   printLexes1 lexKind decl doc width within sound
-    (declJoins decl within shaped sound lexical spelled)
-    (declPrintable decl within sound lexical spelled)
+    (declJoins decl within shaped sound lexical (declOperators decl within))
+    (declPrintable decl within sound lexical (declOperators decl within))
     shows
 
 -- Examples: the tree's facts of `exampleDecl` give `printLexes1`'s; a declaration with a qualified name is out of
--- the slice; one with an operator outside the alphabet has every tree fact but `operators1`.
+-- the slice; one with `|>`, which the alphabet lacks, is out too.
 
 theorem exampleOperators: exampleDecl.operators1 :=
   (byComputing, byComputing, (byComputing, byComputing, byComputing), byComputing)
@@ -958,7 +1113,7 @@ theorem qualifiedNotSpelled: Spells Lower "List.map" → Void := spells =>
 theorem exampleDeclJoinsTree: DeclJoins lexKind exampleDecl :=
   declJoins exampleDecl byComputing byComputing byComputing byComputing exampleOperators
 
---| `def d: A := a |> b`: the operator `|>` is no token of slice 1's alphabet, but it is one of `operatorTok`'s.
+--| `def d: A := a |> b`: the operator `|>` is no token of slice 1's alphabet, though it is one of `operatorTok`'s.
 def pipedDecl: Decl :=
   Definition []
     {
@@ -980,16 +1135,69 @@ def pipedDecl: Decl :=
         (fixedWord "|>" Comments.none)
         (Atom Lower (fixedWord "b" Comments.none))))
 
-theorem pipedTreeFacts: pipedDecl.within1 = True
-      ∧ pipedDecl.shaped1 = True
-      ∧ pipedDecl.sound = True
-      ∧ pipedDecl.lexical1 = True :=
-  (byComputing, byComputing, byComputing, byComputing)
+--| The narrowing: `within1` leaves `|>` out, though the declaration has every other tree fact.
+theorem pipedOut: pipedDecl.within1 = False := byComputing
+
+theorem pipedTreeFacts: pipedDecl.shaped1 = True ∧ pipedDecl.sound = True ∧ pipedDecl.lexical1 = True :=
+  (byComputing, byComputing, byComputing)
+
+--| `def d: A := [auto Ord]`: the parser reads the list as an implicit binder, which is an error.
+def autoDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none
+      (ListOf
+        (fixedWord "[" Comments.none)
+        [App (Atom Lower (fixedWord "auto" Comments.none)) [Atom Upper (fixedWord "Ord" Comments.none)]]
+        False
+        (fixedWord "]" Comments.none)))
+
+--| The narrowing: `within1` leaves the name `auto` out, so a list that starts with it is out at any depth.
+theorem autoOut: autoDecl.within1 = False := byComputing
+
+--| `def d: A := a == b == c`: a comparison's right operand needs level 8, and `b == c` is at 6, so it doesn't parse.
+def chainedDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none
+      (Infix InfixBinary
+        (Atom Lower (fixedWord "a" Comments.none))
+        (fixedWord "==" Comments.none)
+        (Infix InfixBinary
+          (Atom Lower (fixedWord "b" Comments.none))
+          (fixedWord "==" Comments.none)
+          (Atom Lower (fixedWord "c" Comments.none)))))
+
+--| The narrowing: `shaped1` asks a comparison's right operand for level 8 (`rightNeeds`), so the chain is out.
+theorem chainedNotShaped: chainedDecl.within1 = True ∧ chainedDecl.shaped1 = False := (byComputing, byComputing)
 
 theorem pipeNotSpelled ∀ (spells: Spells (lexKind "|>") "|>"): Void := cases
 
---| No token of slice 1's alphabet is spelled `|>`, so `pipedDecl` has no `operators1`: the tree alone doesn't say its
---| operators are in the alphabet.
+--| No token of slice 1's alphabet is spelled `|>`: why `within1` leaves it out.
 theorem pipedNotSpelled: OperatorSpells "|>" → Void := (Witness kind (Both spells quiet)) =>
   pipeNotSpelled (rewrite <- lexKindOfSpells kind "|>" spells at spells then spells)
 
@@ -1131,7 +1339,7 @@ theorem exprReal ∀ (expr: Expr)
           | Inl same => wordReal operator Minus same
           | Inr (Inl same) => wordReal operator Bang (Inl same)
           | Inr (Inr same) => wordReal operator Bang (Inr same))
-        (exprReal operand within (Bool.andRight lexical) operandSpelled)
+        (exprReal operand (Bool.andLeft within) (Bool.andRight lexical) operandSpelled)
 
 theorem itemsReal ∀ (items: List Expr)
     (within: allWithin1 items = True)
@@ -1194,7 +1402,7 @@ theorem printLexes1Settled ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.operators1)
+    (lexical: decl.lexical1 = True)
     (shows: decl.doc1 = Some doc):
     lex (Doc.print doc width)
       = Ok {
@@ -1206,7 +1414,6 @@ theorem printLexes1Settled ∀ (decl: Decl) (doc: Doc) (width: Nat)
         }
       } :=
   printLexes1Tree decl doc width within shaped
-    (declSoundOfSettled decl within settled (declReal decl within lexical spelled))
+    (declSoundOfSettled decl within settled (declReal decl within lexical (declOperators decl within)))
     lexical
-    spelled
     shows

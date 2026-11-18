@@ -22,20 +22,32 @@ theorem parsedWeaken ∀ [floor lower: Nat] [expr: Expr]
     let (shaped, lexical, high) := parsed within
     (shaped, lexical, arithmetic [high, below])
 
+--| A binary operator's right operand is at the level `rightNeeds` asks, given the floor its parser reads it at: the
+--| operator's own level, and for a comparison (`leftNeeds` is 8) the 8 its operand needs.
+theorem rightNeedsLe ∀ (text: Text) (rightFloor: Nat)
+    (allows: infixLevel InfixBinary text <= rightFloor)
+    (compares: leftNeeds InfixBinary text = 8 → 8 <= rightFloor):
+    rightNeeds InfixBinary text <= rightFloor :=
+  match isCompare: leftNeeds InfixBinary text == 8 with
+    | True => arithmetic [compares (DecEq.sound isCompare)]
+    | False => arithmetic [allows]
+
 --| A binary operator's tree is parsed when its operands are, at levels the operator's table allows.
 theorem infixParsed ∀ (left right: Expr) (operator: Word) (leftFloor rightFloor: Nat)
     (leftParsed: Parsed1 leftFloor left)
     (rightParsed: Parsed1 rightFloor right)
     (spelled: (operatorTok operator.text).isSome = True)
     (needs: leftNeeds InfixBinary operator.text <= leftFloor)
-    (allows: infixLevel InfixBinary operator.text <= rightFloor):
+    (allows: infixLevel InfixBinary operator.text <= rightFloor)
+    (compares: leftNeeds InfixBinary operator.text = 8 → 8 <= rightFloor):
     Parsed1 (infixLevel InfixBinary operator.text) (Infix InfixBinary left operator right) :=
   within =>
-    let (leftWithin, rightWithin) := within
+    let (leftWithin, rightWithin, operatorWithin) := within
     let (leftShaped, leftLexical, leftHigh) := leftParsed leftWithin
     let (rightShaped, rightLexical, rightHigh) := rightParsed rightWithin
     let needed: leftNeeds InfixBinary operator.text <= left.level := arithmetic [needs, leftHigh]
-    let allowed: infixLevel InfixBinary operator.text <= right.level := arithmetic [allows, rightHigh]
+    let allowed: rightNeeds InfixBinary operator.text <= right.level :=
+      arithmetic [rightNeedsLe operator.text rightFloor allows compares, rightHigh]
     let own: infixLevel InfixBinary operator.text <= infixLevel InfixBinary operator.text := arithmetic
     (Both leftShaped (Both rightShaped (Both needed allowed)), Both leftLexical (Both spelled rightLexical), own)
 
@@ -46,9 +58,11 @@ theorem infixParsedAt ∀ (left right: Expr) (operator: Word) (level leftFloor r
     (spelled: (operatorTok operator.text).isSome = True)
     (needs: leftNeeds InfixBinary operator.text <= leftFloor)
     (allows: infixLevel InfixBinary operator.text <= rightFloor)
+    (compares: leftNeeds InfixBinary operator.text = 8 → 8 <= rightFloor)
     (own: infixLevel InfixBinary operator.text = level):
     Parsed1 level (Infix InfixBinary left operator right) :=
-  rewrite <- own then infixParsed left right operator leftFloor rightFloor leftParsed rightParsed spelled needs allows
+  rewrite <- own then
+    infixParsed left right operator leftFloor rightFloor leftParsed rightParsed spelled needs allows compares
 
 --| An operator at `level` that nests to the left, with its operand: `leftNested`'s links.
 def LeftLink (level: Nat) (link: (Word, Expr)): Prop :=
@@ -74,6 +88,7 @@ theorem leftNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Expr
         (infixParsedAt first next operator level level level firstParsed nextParsed spelled
           (arithmetic [needs])
           (arithmetic [own])
+          (same => arithmetic [needs, same])
           own)
         restParsed
 
@@ -85,7 +100,9 @@ def RightLink (level: Nat) (link: (Word, Expr)): Prop :=
     ∧ Parsed1 (level + 2) link.snd
 
 --| Folding links to the right keeps a tree parsed: its operands are at the next level up, the nested rest at this one.
+--| `high` keeps the level above a comparison's own (a comparison's right operand is read at 8).
 theorem rightNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Expr))
+    (high: 7 <= level)
     (firstParsed: Parsed1 (level + 2) first)
     (linksParsed: List.All (RightLink level) links):
     Parsed1 level (rightNested first links) :=
@@ -99,10 +116,11 @@ theorem rightNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Exp
         (level + 2)
         level
         firstParsed
-        (rightNestedParsed level next rest nextParsed restParsed)
+        (rightNestedParsed level next rest high nextParsed restParsed)
         spelled
         (arithmetic [needs])
         (arithmetic [own])
+        (same => arithmetic [needs, same, high])
         own
 
 -- The items.
@@ -309,7 +327,7 @@ theorem givesAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           (RightLink 12)
           (rightLinkOf (kind => kind == PlusPlus) 12 appendTakesGood)
           addGives))
-      (links linksParsed => Parse.givesDone (rightNestedParsed 12 first links firstParsed linksParsed)))
+      (links linksParsed => Parse.givesDone (rightNestedParsed 12 first links byComputing firstParsed linksParsed)))
 
 -- Combinators for a parser that looks at the next item and reads it.
 
