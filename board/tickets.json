@@ -23741,12 +23741,12 @@
     {
       "id": 3964,
       "title": "[Opus] fmt S1 ticket 13c: one-parse driver: Lexed.tidied parses twice when a comma before a closer holds a comment, so 'same program' needs two parser runs; restructure to parse once, K1's search first (sketch §3). Before ticket 20",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Estimate 45 min (lane started 14:45; review at 15:17, ~32 min).\nDone (lane/SW-3964, 2839d303c): K1's search chose way 2 with the bare comma keeping its line start (off its line, the parser accepts 54/3,000 generated files Rust refuses). Lexed.tidied parses once from Lexed.settledOnce (withBareLastCommas, then rule N); P2 drops the commas on the tree; parksComment removed; commaMoved shared with withoutLastCommas. Fixes two families vs Rust (tests in Tests/Slice1.sw, failing first). Gate: passes and s1-s6a 100% on goldens and --sample 300, text as before. Fmt.Tests 94/94, Syntax.Tests 52/52; audits SettleProofs (2 known vacuity warnings, same on old code), PassProofs, CalmProofs, SpellProofs clean. bareSettles searched (5,400 generated + corpus, 0 exceptions), not proved: follow-up.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24228,12 +24228,12 @@
     {
       "id": 4000,
       "title": "[Sonnet] fmt S1 ticket 16c: parser proofs, the walks of parsers outside slice 1 (recordExpr, interpolated, facts, matchExpr, clauseLambda, lambda, ifExpr, piExpr, handleExpr, calcExpr, rewriteExpr, casesExpr, pattern parsers) as Parse.Gives, needed even to show a result is outside the slice; then parseSettled1, parseCarries1, fuelEnough1 (SW-3967's split)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-3968: discharge the records OutsideGives (∀ self, Nested self → Outside self: matchExpr, clauseLambda, braceArgument, recordExpr, atomRest, atomMissing, parenOther, rightSection, annotated, namedArgument, membership, comparisonChain, cmpIf, pipeChain, iff, quantifier, semiExpr, exprKeyword, lambda, ifKeyword, piExpr, effectResult, statementOther) and Frame expressionAt (attributesOf, namespaceStep, importStep, declarationOther, forallPart, headerParams, decreasingPart, unfoldingPart, armsBody), all in Syntax/ParseWalk.sw. Note pipeChain can return its input (a |> left of indent): its fact is result = value ∨ Out result. Also (orchestrator's call): make Header.within1 require a lower-case name, so parseLexical1 drops its lowerNamed1 hypothesis; recheck the slice gates.",
+      "body": "From SW-3968: discharge the records OutsideGives (∀ self, Nested self → Outside self: matchExpr, clauseLambda, braceArgument, recordExpr, atomRest, atomMissing, parenOther, rightSection, annotated, namedArgument, membership, comparisonChain, cmpIf, pipeChain, iff, quantifier, semiExpr, exprKeyword, lambda, ifKeyword, piExpr, effectResult, statementOther) and Frame expressionAt (attributesOf, namespaceStep, importStep, declarationOther, forallPart, headerParams, decreasingPart, unfoldingPart, armsBody), all in Syntax/ParseWalk.sw. Note pipeChain can return its input (a |> left of indent): its fact is result = value ∨ Out result. Also (orchestrator's call): make Header.within1 require a lower-case name, so parseLexical1 drops its lowerNamed1 hypothesis; recheck the slice gates.\n\nLane notes (Sonnet, 18 Nov 2026), branch lane/SW-4000 (10 commits, 305b4080f..ee3a6c401):\n- Header.within1 now needs `name.lexesAs Lower`; Word.lexesAs goes through textLexesAs (comments are no part of the lexing); lexicalLoose1 and lowerNamed1 gone; parseLexical1 has no lowerNamed1 hypothesis. Gate: fmt-twin s1 goldens, 82 declarations within the slice, 82 matched, 0 mismatched; fmt-twin tree goldens 132 of 132 identical.\n- Outside: 11 of 23 facts proved (semis, annotations, namedArguments, missings, ifKeywords, rightSections, parenOthers, cmpIfs, records, effectResults, rests). OutsideGives is now Nested self -> OutsideRest self; `outsideOf` builds Outside from it.\n- Frame: 6 of 9 proved (attributes, namespaces, imports, foralls, decreasings, unfoldings). parseGroupsOk, parseFileOk, parseShaped1, parseLexical1 take FrameRest; `frameOf` builds Frame.\n- Still assumed: matches, clauseLambdas, braceArguments, memberships, comparisonChains, pipeChains, iffs, quantifiers, keywords, lambdas, piExprs, statementOthers; Frame: others, params, arms.\n- Why those stay: (a) the pattern parser (patternRule and 25 functions) is not walked: needed by lambdas, quantifiers, matches, clauseLambdas, keywords (let/match) and statementOthers; (b) headerGroup/binderGroup/implicitBinder are not walked: needed by params, piExprs, lambdas, quantifiers; (c) braceArguments, memberships, comparisonChains, pipeChains and iffs need the walks of atoms and cmp, which take the whole Outside record: circular unless Outside is staged (the lemmas retyped to a sub-record per tier: atoms, then braceArguments, pipeChains, memberships and comparisonChains, then iffs; 72 lemma signatures).\n- parseSettled1, parseCarries1, fuelEnough1: not started.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
