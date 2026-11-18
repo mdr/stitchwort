@@ -125,11 +125,16 @@ def notesAbove (keep: Bool): List Note → List Doc
     (if note.blankBefore && keep then [Blank] else []) ++ [Doc.text note.text, HardLine] ++ notesAbove True rest
 
 --| Own-line comments and kept blank lines before a token (`leading`).
---| `key` is its bracket pair's, for a closer.
+--| `key` is its bracket pair's, for a closer. An item's blank line with
+--| no comments above breaks the separator before it (`BreakParent`), so
+--| its `LineStart` writes nothing; it is there for `Lays`, which doesn't
+--| follow modes and would otherwise lay the separator as a space too,
+--| with no blank line (`Doc.Proofs.blankAfterLineExample`).
 def Word.leading (word: Word) (around: Around) (key: Nat): List Doc :=
   let comments := word.comments
   if around.hoisted then []
-  else if comments.above.isEmpty then (if around.item && comments.blankBefore then [BreakParent, Blank] else [])
+  else if comments.above.isEmpty then
+    (if around.item && comments.blankBefore then [BreakParent, LineStart, Blank] else [])
   else if isCloserText word.text then
     [BreakParent, Nest 2 (Doc.concat [LineStartHere, ..closerNotes comments.above]), CloserLine key]
   else
