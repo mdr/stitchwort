@@ -23479,12 +23479,12 @@
     {
       "id": 3945,
       "title": "[Sonnet] Std.Args: factor help's let-bound column and lines into Args.helpColumn/helpLines so helpListsOption stops restating them (SW-3939 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Notes: added Args.helpColumn and Args.helpLines, help uses them, helpListsOption proof now binds them (statement unchanged). Std Args tests, audit, hash snapshot done. Model result: Sonnet, worked, 15 min (est. 20).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
