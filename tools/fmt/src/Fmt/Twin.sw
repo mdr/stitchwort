@@ -30,9 +30,9 @@
 --|   printed in 120 columns and compared with Rust's text; the answer is a
 --|   line a declaration (`Fmt.DocDump.answer`). `dev/fmt-twin engine` writes
 --|   the dumps and reads the answers.
---| - `text` (slices 1 and 2, SW-3950, SW-3959): the file formatted
+--| - `text` (slices 1 to 3, SW-3950, SW-3959, SW-3961): the file formatted
 --|   (`formatWithin`), for a file within the slices; any other is answered
---|   with status 3 and `outside slice 2`, or the refusal as in `refusal`.
+--|   with status 3 and `outside slice 3`, or the refusal as in `refusal`.
 --| - `s1` (slice 1, SW-3950): a line a declaration, `decl N within` and a
 --|   line `text ESCAPED` with the declaration formatted, as `stitchwort dev
 --|   doc`'s `text` line has Rust's, or `decl N outside`; or the refusal as
@@ -40,6 +40,7 @@
 --|   slice with Rust's.
 --| - `s2` (slices 1 and 2, SW-3959): as `s1`, for the declarations within
 --|   slices 1 and 2; `dev/fmt-twin s2` compares them with Rust's.
+--| - `s3` (slices 1 to 3, SW-3961): the same for slices 1 to 3.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -65,7 +66,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1, s2 or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1, s2, s3 or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -138,6 +139,7 @@ def stageAnswer (stage source: Text): Answer := match stage with
         else { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
   | "s1" => sliceAnswer Decl.printed1 source
   | "s2" => sliceAnswer Decl.printed2 source
+  | "s3" => sliceAnswer Decl.printed3 source
   | _ => { out = source, status = 0, message = "" }
 
 --| A slice stage's answer: each declaration's line, printed by `printed`

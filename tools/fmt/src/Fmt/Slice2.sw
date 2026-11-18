@@ -6,11 +6,10 @@
 --| `Prop` as words, which most parameter groups need.
 --|
 --| As in slice 1 (`Fmt.Slice1`), the slice is a test on the real tree,
---| `within2`, and a token alphabet, `Tok.within2`, which `formatWithin`
---| checks before parsing.
+--| `within2`, and a token alphabet, `Tok.within2`.
 
 namespace Fmt
-import Std (Bool, Doc, List, Nat, Option, Result, Text)
+import Std (Bool, Doc, List, Nat, Option, Text)
 import Syntax (
   BindingKind,
   Decl,
@@ -24,8 +23,7 @@ import Syntax (
   Pattern,
   Row,
   SourceFile,
-  Tok,
-  lex
+  Tok
 )
 
 -- The slice.
@@ -115,30 +113,4 @@ def Tok.within2 (kind: Tok): Bool := match kind with
 --| A declaration printed in 120 columns, if it is within slices 1 and 2.
 def Decl.printed2 (decl: Decl): Option Text := if decl.within2 then decl.doc1.map (doc => Doc.print doc width) else None
 
---| The file loop of `SourceFile.printed1`, for slices 1 and 2.
-def SourceFile.printed2 (file: SourceFile): Text :=
-  let body := printDecls2 { pieces = [], empty = True } file.decls
-  let done := body.notes file.end.above
-  if done.empty then "" else Text.concat ["\n", ..done.pieces].reverse
-
-def printDecls2 (output: Output): List Decl → Output
-  | [] => output
-  | [decl, ..rest] =>
-    let first := decl.firstComments
-    let noted := output.notes first.above
-    printDecls2 (noted.item first.blankBefore (decl.printed2.getOrElse "")) rest
-
---| The source formatted, if it is within slices 1 and 2: lexed, refused if
---| a token is outside the alphabet, then parsed, tidied and printed as
---| `format` does.
-def formatWithin (source: Text): Result Text Text := match lex source with
-  | Err message => Err message
-  | Ok lexed =>
-    match lexed.leaves.find (leaf => !leaf.token.kind.within2) with
-      | Some leaf => Err "outside slice 2: `${leaf.token.text}`"
-      | None =>
-        match lexed.tidied with
-          | Err message => Err message
-          | Ok tidied =>
-            if tidied.fourth.within2 then Ok tidied.fourth.printed2
-            else Err "outside slice 2: a construct slices 1 and 2 don't have"
+def SourceFile.printed2 (file: SourceFile): Text := file.printedBy Decl.printed2

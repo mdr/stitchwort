@@ -935,3 +935,55 @@ Slices 1 and 2 cover 7.3% of the sample's declarations (slice 1 alone: 45, 0.7%)
 - The F1 tree is unchanged.
 - P1, P3 and P4 are live in slice 2: `theorem t (n: Nat)` gets its `∀` and `(n: Nat) (m: Nat)` merges in a theorem's header (the first test shows both); `within2` is on the tidied tree, as `within1`.
 - `printDecls2` repeats `printDecls` with `printed2`; a slice-indexed file loop would let later slices share it.
+
+## Slice 3, the program (SW-3961)
+
+Opus, 18 November 2026. Slice 3 (the layout core) on top of slices 1 and 2.
+
+### What is here
+
+| Piece | Where | Rust counterpart |
+|---|---|---|
+| `blockDoc` (each line at the block's column, a blank line above a later line kept), `Statement.el` | `src/Fmt/Rules.sw` | `block` |
+| `letDoc`: the line up to `:=` in an `IdGroup` keyed by the `let`'s token count + 1, the value by `bodyAfter`; an expression `let`'s value on the `:=` line unless a comment or block puts it below | `src/Fmt/Rules.sw` | `let_line` with `expr_let` |
+| `letInDoc`: `let x := e; body` in an `Align`, a `Line` after the `;` | `src/Fmt/Rules.sw` | `sequence` for `LetExpr` |
+| `ifDoc`, `ifClauses`: one clause a line, each a group, `else if` flattened unless a comment puts the `if` below its `else`, a `BreakParent` for three or more clauses | `src/Fmt/Rules.sw` | `if_` |
+| `matchParts` (the doc and the `:=` hug), `armLines`, `Arm.el`, `armDoc`, `guardDocs`, `Pattern.el` (a constructor pattern as a call of plain arguments, `_` joined to the item before it) | `src/Fmt/Rules.sw` | `alternatives`, `arm`, `app` for `PatternCtor`, `fill_items` |
+| `Around.inArm` (`arm_depth > 0`): set for an arm's contents and for a `match` an operator chain starts with | `src/Fmt/Rules.sw` | `arm_depth` |
+| Where a block may stand: `Expr.after` (`join`'s block rule), `parenDoc`, `huggedBlock`, `chainLinks`'s right operand, `bodyAfter` (always below); `parenDoc` aligns a bracketed `if`; `lambdaBoth`'s `semi`; `defDoc`'s `layoutBody` comment rule | `src/Fmt/Rules.sw` | `join`, `paren`, `last_argument`, `chain`, `body_after`, `lambda_both`, `decl` |
+| `within3`, `Tok.within3`, `Decl.printed3`, `SourceFile.printed3`; `formatWithin` now covers slices 1 to 3 and refuses with `outside slice 3` | `src/Fmt/Slice3.sw` | |
+| One file loop for every slice: `SourceFile.printedBy printed` and `printDecls printed`; `printDecls2` is gone | `src/Fmt/Slice1.sw` | `print_file_seeing` |
+| `Fmt.Twin --stage s3`, `dev/fmt-twin s3` | `src/Fmt/Twin.sw`, `dev/fmt-twin` | |
+| Tests | `src/Fmt/Tests/Slice3.sw` (7) | |
+
+The slice: blocks of `let` lines and expression lines (no local `def`); `let p := e` and `let p: T := e`; `let x := e; body`; `if` without a binder (`if h: c`); `match` without named scrutinees (`h: e`), every arm with a body; patterns that are a name, `_`, a numeral, or a constructor applied to those; guards without a binder. Tuple, list and record patterns are slice 4's pattern family.
+
+Two exclusions where Rust's output isn't the tree's to give:
+
+- **A later block line starting with `-`.** Rust copies the source's gap after it (`StatementMinus`: `-y` right after a line ending in an operand reads as an argument), so `- z` and `-z` print as written. Two golden declarations (`negative-arguments`, declaration 9, before and after) have it; `within3` leaves such a block out.
+- **A block as a quantifier's body.** Rust prints `∀ x => let y := x⏎  y = y` with the block after `=>` and its later lines left of its first, which doesn't read back (`stitchwort fmt` refuses the file as a formatter bug). `within3` asks a quantifier's body to be inline.
+
+And one the rules handle only at the top: an expression `let`'s value that is a lambda keeps its body after `=>` (a body starting a line would be a block, which the `;` would end); Rust does that for any lambda ending just before the `;`, which the tree can't see from inside the value. `keepsLine` leaves out a value with a lambda at its end below the top.
+
+Keys: the declaration's `IdGroup` is 0; a call's front and a `let` line's are their first token's count + 1 (no call starts with `let`); `Mark`s are an opener's count.
+
+### The gate [measured, Speedwell]
+
+`dev/fmt-twin s3 --exe` with the interpreted twin (a slim copy as before, `--jobs 1`):
+
+| Input | Declarations | Within slices 1 to 3 | Matched | Mismatched |
+|---|---|---|---|---|
+| `goldens` (132 files) | 644 | 288 | 288 | 0 |
+| `repo --sample 300` (seed 1) | 6,072 | 576 | 576 | 0 |
+
+Slices 1 to 3 cover 9.5% of the sample's declarations (1 and 2: 444, 7.3%). `dev/fmt-twin s1` stays 82 of 82 and 45 of 45, `s2` 230 of 230 and 444 of 444. Hand files of blocks with blank lines and comments, `let` with a comment after `:=`, `if` with comments after the condition, before a branch and after `else`, `else` and a comment then `if`, a `match` with guards, a blank line between arms, a comment after the last parameter before a `match` body, a `match` after an operator, as an argument in brackets and as a `let` value, nested `match`es, a block in brackets and as a lambda's body, an `if` holding a `match`: `--stage text` identical to `stitchwort fmt -`.
+
+What keeps the rest of the sample out [measured with `dev tree --print`, my own 300-file sample, by node kind; text literals not counted]: of 5,294 declarations, the one kind outside slices 1 to 3 is `FieldAccess` for 478, `Test` 392, `Namespace` 137, `Import` 124, a definition's `Arms` 105, `PatternList` 63, `NamedArg` 51, `Unit` 32. Field access alone would roughly double the coverage.
+
+### For the proof lanes
+
+- **The F1 tree is unchanged.**
+- **Columns the read-back proofs need (K3b).** Every rule that puts a block somewhere starts it on a line of its own at +2 from the indentation in force (`Expr.after`, `parenDoc`, `huggedBlock`, `chainLinks`, `bodyAfter`'s below), or after a `Line` at +2 in a group the block forces broken (an `if` branch, a lambda's body), so a block's first line and its later lines (`HardLine`, no `Nest` of its own) start at the same column, which is right of the enclosing limit. Arms are at +2 from the indentation in force, not from the `match` keyword (a `match` hugging `:=` has its keyword at column 14 and its arms at 2); they read back because `|` can't begin an expression, as a continued line. A `match` inside an arm, or opening an operator chain, puts even a single arm on its own line (`inArm`): on the `with` line, the next outer arm would read as its own. `else` and `then` lines are at the `if`'s indentation in force, which inside brackets is the `if`'s column (`Align`); after `:=` or `=>` and as a block's line a broken `if` starts its line (`bodyAfter` gives it only flat or below), so the two agree; after an operator it doesn't, and its `else` lines, left of the `if`, read back as continued lines (`else` can't begin an expression). An expression `let`'s body is at the `let`'s column (`Align`), after a line ending in `;`.
+- **Rule N's bar.** The arms' `|` hold own-line comments as any token does (printed above the arm at the arms' column, a blank line above kept, `item`); no new comment placement.
+- P1 to P4 change nothing new in slice 3: no theorem headers or rows inside blocks beyond slice 2's.
+- `bodyAfter` builds a `match` value once and takes its hug from the same parts; a call's hug is still built twice, as before.

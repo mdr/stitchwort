@@ -34,6 +34,4 @@ test "a call hugs its last argument, a list, when the list can't fit below" :=
       "def hug: List Nat := f [\n  aaaaaaaaaaaaaaaaaaaaa,\n  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,\n  cccccccccccccccccccccccccccc,\n  dddddddddddddddddddddd,\n  eeeeeeeeeeeeeeeee + 1\n]\n"
 
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
-  refuses "def x: Nat := if a then b else c\n"
-    && refuses "def f (n: Nat := 1): Nat := n\n"
-    && refuses "def x: Nat := (a: Nat)\n"
+  refuses "def x: Nat := r.field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Nat := (a: Nat)\n"
