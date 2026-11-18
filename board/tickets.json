@@ -25093,7 +25093,7 @@
     {
       "id": 4065,
       "title": "[Sonnet] fmt bug: a comment ending in CR then spaces ('-- a\\r \\ndef d: A := b\\n') still formats differently on a second run: the lexer strips trailing CRs, rule 5 then trims the space and leaves '-- a\\r'. Fix in both formatters so trailing whitespace and CRs are trimmed together (to a fixpoint); failing-first tests in both, as SW-4054; then the parser-side 'no comment ends in CR' lemma for SW-3973 (SW-4061's returnSurvives)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
