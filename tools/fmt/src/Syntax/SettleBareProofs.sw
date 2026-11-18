@@ -979,3 +979,158 @@ theorem stepPair2 ∀ (comma closer: Leaf) (done after: List Leaf) (carried: Opt
               | Some carry =>
                 match isComma: closer.token.kind == Comma with
                   | False => claim
+
+-- Rule 3
+
+--| `arrowsFrom` with the leaves done and the current one left newest first.
+def arrowsR (done: List Leaf) (current: Leaf) (rest: List Leaf): List Leaf := match rest with
+  | [] => [current, ..done]
+  | [next, ..more] =>
+    if current.kind == Arrow && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) then
+      let own := current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse []
+      let current := { current |
+        trivia = { current.trivia | leading = current.trivia.leading ++ own ++ next.trivia.leading, trailing = None }
+      }
+      arrowsR [current, ..done] (next.withLeading []) more
+    else arrowsR [current, ..done] next more
+
+theorem arrowsFromR ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf):
+    arrowsFrom done current rest = (arrowsR done current rest).reverse :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] =>
+      match arrow: current.token.kind == Arrow && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) with
+        | True =>
+          arrowsFromR
+            [
+              { current |
+                trivia = { current.trivia |
+                  leading = current.trivia.leading
+                    ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+                    ++ next.trivia.leading,
+                  trailing = None
+                }
+              },
+              ..done
+            ]
+            (next.withLeading [])
+            more
+        | False => arrowsFromR [current, ..done] next more
+
+theorem gapOkItem ∀ (x: Leaf) (older older' rest: List Leaf)
+    (same: hasItem older = hasItem older'):
+    gapOk [x, ..older] rest = gapOk [x, ..older'] rest :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => rewrite same
+
+def ArrowsDrop (more: List Leaf): Prop :=
+  ∀ (done: List Leaf) (current: Leaf) => gapOk [current, ..done] more = True
+    → barishTop [current, ..done] = True
+    → barishF [current, ..done] more = True
+    → plainFrom (tokens [current, ..more]) = True
+    → arrowsR (dr current.token.kind done) current (dropF [current, ..done] more) = dropRev (arrowsR done current more)
+      ∧ barishTop (arrowsR done current more) = True
+
+--| One step of rule 3 at a leaf and the next, which is no last comma, with
+--| the leaves they become.
+theorem arrowGo ∀ (cur nxt: Leaf) (curT nxtT: Trivia) (done more: List Leaf)
+    (gap: gapOk [cur, ..done] [nxt, ..more] = True)
+    (okB: barishTop [cur, ..done] = True)
+    (okF: barishF [cur, ..done] [nxt, ..more] = True)
+    (nop: fwdPair [cur, ..done] nxt more = False)
+    (plain: plainFrom (tokens [nxt, ..more]) = True)
+    (ih: ArrowsDrop more):
+    arrowsR [{ cur | trivia = curT }, ..dr cur.token.kind done] { nxt | trivia = nxtT } (dropF [nxt, cur, ..done] more)
+      = dropRev (arrowsR [{ cur | trivia = curT }, ..done] { nxt | trivia = nxtT } more)
+      ∧ barishTop (arrowsR [{ cur | trivia = curT }, ..done] { nxt | trivia = nxtT } more) = True :=
+  let gapX: gapOk [{ cur | trivia = curT }, ..done] [{ nxt | trivia = nxtT }, ..more] = True := gap
+  let top := drNopTop { nxt | trivia = nxtT } [{ cur | trivia = curT }, ..done] gapX
+  let gap2: gapOk [{ nxt | trivia = nxtT }, { cur | trivia = curT }, ..done] more = True :=
+    Eq.trans
+      (gapOkItem { nxt | trivia = nxtT } [{ cur | trivia = curT }, ..done] [cur, ..done] more byComputing)
+      (gapAfterNopT nxt nxtT [cur, ..done] more nop)
+  let okBc: barishTop [{ cur | trivia = curT }, ..done] = True := okB
+  let okB2: barishTop [{ nxt | trivia = nxtT }, { cur | trivia = curT }, ..done] = True :=
+    barishAfterNop { nxt | trivia = nxtT } [{ cur | trivia = curT }, ..done] more gapX okBc
+  let okF1: barishF [{ nxt | trivia = nxtT }, cur, ..done] more = True :=
+    rewrite <- barishFNopT nxt nxtT [cur, ..done] more nop then okF
+  let okF2: barishF [{ nxt | trivia = nxtT }, { cur | trivia = curT }, ..done] more = True :=
+    rewrite <- barishFItem
+          [{ nxt | trivia = nxtT }, cur, ..done]
+          [{ nxt | trivia = nxtT }, { cur | trivia = curT }, ..done]
+          more
+          byComputing then
+      okF1
+  let claim := ih [{ cur | trivia = curT }, ..done] { nxt | trivia = nxtT } gap2 okB2 okF2 plain
+  let items := dropFItem [nxt, cur, ..done] [{ nxt | trivia = nxtT }, { cur | trivia = curT }, ..done] more byComputing
+  rewrite items then rewrite top at claim then claim
+
+theorem arrowsDrop ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
+    (gap: gapOk [current, ..done] rest = True)
+    (okB: barishTop [current, ..done] = True)
+    (okF: barishF [current, ..done] rest = True)
+    (plain: plainFrom (tokens [current, ..rest]) = True):
+    arrowsR (dr current.token.kind done) current (dropF [current, ..done] rest) = dropRev (arrowsR done current rest)
+      ∧ barishTop (arrowsR done current rest) = True :=
+  match rest with
+    | [] => (byComputing, okB)
+    | [next, ..more] =>
+      match pair: fwdPair [current, ..done] next more with
+        | False =>
+          rewrite dropFNop next [current, ..done] more pair then
+            match arrow: current.token.kind == Arrow
+              && (!next.trivia.leading.isEmpty || current.trivia.trailing.isSome) with
+              | True =>
+                arrowGo current next
+                  { current.trivia |
+                    leading = current.trivia.leading
+                      ++ (current.trivia.trailing.map (comment => [comment.unspaced]) |> .getOrElse [])
+                      ++ next.trivia.leading,
+                    trailing = None
+                  }
+                  { next.trivia | leading = [] }
+                  done
+                  more
+                  gap
+                  okB
+                  okF
+                  pair
+                  (Bool.andRight (Bool.andRight plain))
+                  (d c g o f p => arrowsDrop d c more g o f p)
+              | False =>
+                arrowGo current next current.trivia next.trivia done more gap okB okF pair
+                  (Bool.andRight (Bool.andRight plain))
+                  (d c g o f p => arrowsDrop d c more g o f p)
+        | True =>
+          match more with
+            | [closer, ..more2] =>
+              let parts := rewrite barishFPair next closer [current, ..done] more2 pair at okF then okF
+              let leadEmpty := Bool.andLeft parts
+              let trailNone := Bool.andLeft (Bool.andRight parts)
+              let lineOk := Bool.andLeft (Bool.andRight (Bool.andRight parts))
+              let okF': barishF [closer, next, current, ..done] more2 = True :=
+                Bool.andRight (Bool.andRight (Bool.andRight parts))
+              let okLeaf: barish closer.token [next, current, ..done] = True :=
+                barishPairTop next closer [current, ..done] pair leadEmpty trailNone lineOk okB
+              let top: dr closer.token.kind [next, current, ..done] = dropRev [current, ..done] :=
+                drPairTop closer next [current, ..done] pair
+              let gap': gapOk [closer, next, current, ..done] more2 = True :=
+                gapAfterPair next closer [current, ..done] more2 pair
+              let isComma: (next.token.kind == Comma) = True := Bool.andLeft pair
+              let first := Bool.andLeft plain
+              let notArrow: (current.token.kind == Arrow) = False := match isArrow: current.token.kind == Arrow with
+                | False => byComputing
+                | True => rewrite isComma at first then cases
+              let nextNotArrow: (next.token.kind == Arrow) = False := rewrite DecEq.sound isComma
+              let claim :=
+                arrowsDrop
+                  [next, current, ..done]
+                  closer
+                  more2
+                  gap'
+                  okLeaf
+                  okF'
+                  (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight plain))))
+              rewrite dropFPair next closer [current, ..done] more2 pair, notArrow, nextNotArrow then
+                rewrite top at claim then claim
