@@ -45,7 +45,7 @@ def Leaf.kinded (leaf: Leaf): Bool := leaf.token.kind == lexKind leaf.token.text
 -- The file's leaves.
 
 --| An own-line comment the file loop printed, as the lexer reads it back: at column 0, after one blank line or none,
---| without a carriage return at its end (`Fmt.FileLexProofs.crDropped`).
+--| without a carriage return at its end (the lexer strips them all, `Fmt.FileLexProofs.crDropped`).
 def noteComment (note: Note): Comment :=
   { text = withoutReturn note.text, column = 0, blankLines = if note.blankBefore then 1 else 0 }
 

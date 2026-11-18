@@ -818,19 +818,14 @@ theorem printedFileLexes1 ∀ (file: SourceFile)
 
 -- Cases the theorems apply to.
 
---| Whether a source's tidied tree has an own-line comment ending in a carriage return, and the output lexes to
---| `lexed1` all the same.
+--| Whether a source's tidied tree has an own-line comment ending in a carriage return.
 def returnKept (source: Text): Bool := match tidiedOf source with
   | None => False
-  | Some file =>
-    file.decls.any (decl => decl.firstComments.above.any (note => note.text.endsWith "\r"))
-      && match lex file.printed1 with
-        | Ok lexed => sameLexed lexed file.lexed1
-        | Err _ => False
+  | Some file => file.decls.any (decl => decl.firstComments.above.any (note => note.text.endsWith "\r"))
 
---| A comment line ending `\r\r\n` keeps one `\r` in the tree, as the lexer strips only the last; the printed `\r\n`
---| reads back without it, which `noteComment` says.
-theorem crDropped: returnKept "-- a\r\r\ndef d: A := b\n" = True := byComputing
+--| A comment line ending `\r\r\n` keeps no `\r` in the tree (SW-4054): the lexer strips them all, so the printed
+--| `\r\n` reads back as the same comment.
+theorem crDropped: returnKept "-- a\r\r\ndef d: A := b\n" = False := byComputing
 
 --| `printedSeam1`'s conclusion, of each declaration in a source's tidied tree.
 def seamedOn (source: Text): Bool := match tidiedOf source with
