@@ -16,6 +16,13 @@ theorem runsLook ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (v: a) (read
     Parse.Runs (() => j (p())) read rest value :=
   Parse.runsBind p j [] read read rest v value byComputing looks next
 
+--| A parser's run gives whatever its value equals.
+theorem runsSame ∀ (p: () → {Parse t} a) (read rest: List t) (v w: a)
+    (same: v = w)
+    (runs: Parse.Runs p read rest v):
+    Parse.Runs p read rest w :=
+  rewrite <- same then runs
+
 --| A value that is `y` from this state reads nothing.
 theorem runsFromPure ∀ (state: Parse.State t) (x y: a) (rest: List t)
     (same: x = y):
@@ -1271,3 +1278,348 @@ theorem runsAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (re
       rest
       (rightNested head (Parse.stepValues (linkSteps links))) :=
   runsRightChain modes _ (() => addExpr self modes) (() => addExpr self modes) read rest head links firstRuns runs
+
+-- Prefixes and applications at the unary level.
+
+theorem runsMatchesBar ∀ (modes: Modes) (items: List Item):
+    Parse.Runs (() => matchesBarAhead modes) [] items (matchesBarOn modes items) :=
+  Parse.runsMap (() => left()) (matchesBarOn modes) [] items items (runsLeftOn items)
+
+--| `app`, from `appAt` at every offset it may start at.
+theorem runsApp ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item) (value: Expr)
+    (at: ∀ (start: Nat) => Parse.Runs (() => appAt self modes start) read rest value):
+    Parse.Runs (() => app self modes) read rest value :=
+  state starts honest =>
+    Parse.runsFromMark state
+      (here => appAt self modes here.offset)
+      read
+      rest
+      value
+      (at state.at.offset state)
+      starts
+      honest
+
+--| `unary` on what isn't a `match`, a `matches` lambda or a sign: an application.
+theorem runsUnaryApp ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item) (more rest: List Item) (value: Expr)
+    (open: modes.stops item = False)
+    (notMatch: (item.kind == KwMatch) = False)
+    (noBar: matchesBarOn modes [item, ..more ++ rest] = False)
+    (unsigned: (item.kind == Minus || item.kind == Bang) = False)
+    (appRuns: Parse.Runs (() => app self modes) [item, ..more] rest value):
+    Parse.Runs (() => unary self modes) [item, ..more] rest value :=
+  let notMinus: (item.kind == Minus) = False := Bool.orFalseLeft _ _ unsigned
+  let notBang: (item.kind == Bang) = False := Bool.orFalseRight _ _ unsigned
+  runsLook
+    (() => modes.peek)
+    (seen => unaryOn self modes seen)
+    (Some item.kind)
+    [item, ..more]
+    rest
+    value
+    (rewrite <- peekFirst modes item (more ++ rest) open then runsPeekOn modes [item, ..more ++ rest])
+    (rewrite notMatch then
+      runsLook
+        (() => matchesBarAhead modes)
+        (bar => unaryBar self modes item.kind bar)
+        False
+        [item, ..more]
+        rest
+        value
+        (runsSame _ [] _ _ False noBar (runsMatchesBar modes [item, ..more ++ rest]))
+        (runsLook
+          (() => left())
+          (items => unaryNext self modes item.kind items)
+          [item, ..more ++ rest]
+          [item, ..more]
+          rest
+          value
+          (runsLeftOn [item, ..more ++ rest])
+          (rewrite notMinus, notBang then appRuns)))
+
+--| `unary` on `-1`, a glued numeral: an application whose head is the numeral.
+theorem runsUnaryNumeral ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr)
+    (open: modes.stops item = False)
+    (minus: (item.kind == Minus) = True)
+    (noBar: matchesBarOn modes [item, ..more ++ rest] = False)
+    (numeral: negativeNumeral [item, ..more ++ rest] = True)
+    (appRuns: Parse.Runs (() => app self modes) [item, ..more] rest value):
+    Parse.Runs (() => unary self modes) [item, ..more] rest value :=
+  let notMatch: (item.kind == KwMatch) = False := rewrite DecEq.sound minus
+  runsLook
+    (() => modes.peek)
+    (seen => unaryOn self modes seen)
+    (Some item.kind)
+    [item, ..more]
+    rest
+    value
+    (rewrite <- peekFirst modes item (more ++ rest) open then runsPeekOn modes [item, ..more ++ rest])
+    (rewrite notMatch then
+      runsLook
+        (() => matchesBarAhead modes)
+        (bar => unaryBar self modes item.kind bar)
+        False
+        [item, ..more]
+        rest
+        value
+        (runsSame _ [] _ _ False noBar (runsMatchesBar modes [item, ..more ++ rest]))
+        (runsLook
+          (() => left())
+          (items => unaryNext self modes item.kind items)
+          [item, ..more ++ rest]
+          [item, ..more]
+          rest
+          value
+          (runsLeftOn [item, ..more ++ rest])
+          (rewrite minus, numeral then appRuns)))
+
+--| `unary` on a sign that isn't a glued numeral's: the sign, then `self` at the unary level.
+theorem runsUnaryPrefix ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (sign: Item)
+    (read rest: List Item) (operand: Expr)
+    (open: modes.stops sign = False)
+    (signed: (sign.kind == Minus || sign.kind == Bang) = True)
+    (notMatch: (sign.kind == KwMatch) = False)
+    (noBar: matchesBarOn modes [sign, ..read ++ rest] = False)
+    (notNumeral: (sign.kind == Minus && negativeNumeral [sign, ..read ++ rest]) = False)
+    (operandRuns: Parse.Runs (() => self { modes, level = LevelUnary }) read rest operand):
+    Parse.Runs (() => unary self modes) [sign, ..read] rest (Prefix sign.leaf.word operand) :=
+  runsLook
+    (() => modes.peek)
+    (seen => unaryOn self modes seen)
+    (Some sign.kind)
+    [sign, ..read]
+    rest _
+    (rewrite <- peekFirst modes sign (read ++ rest) open then runsPeekOn modes [sign, ..read ++ rest])
+    (rewrite notMatch then
+      runsLook
+        (() => matchesBarAhead modes)
+        (bar => unaryBar self modes sign.kind bar)
+        False
+        [sign, ..read]
+        rest _
+        (runsSame _ [] _ _ False noBar (runsMatchesBar modes [sign, ..read ++ rest]))
+        (runsLook
+          (() => left())
+          (items => unaryNext self modes sign.kind items)
+          [sign, ..read ++ rest]
+          [sign, ..read]
+          rest _
+          (runsLeftOn [sign, ..read ++ rest])
+          (rewrite notNumeral, signed then
+            Parse.runsBind
+              (() => bump()) _
+              [sign]
+              read
+              [sign, ..read]
+              rest
+              sign.leaf.word _
+              byComputing
+              (runsBump sign (read ++ rest))
+              (Parse.runsMap
+                (() => self { modes, level = LevelUnary })
+                (Prefix sign.leaf.word)
+                read
+                rest
+                operand
+                operandRuns))))
+
+-- Ranges, pipes and comparisons.
+
+--| A range's operator, which `rangeOn` reads or refuses, comes next.
+def rangeAhead (modes: Modes) (items: List Item): Bool := match peekIn modes 0 items with
+  | Some kind => kind == DotDot || kind == DotDotLt || kind == DotDotEq
+  | None => False
+
+--| `pipedRange` of an `appendExpr` that no range or pipe follows.
+theorem runsPipedRange ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item) (value: Expr)
+    (noRange: rangeAhead modes rest = False)
+    (noPipe: atPipeOn modes rest = False)
+    (appendRuns: Parse.Runs (() => appendExpr self modes) read rest value):
+    Parse.Runs (() => pipedRange self modes) read rest value :=
+  let rangeRuns: Parse.Runs (() => rangeExpr self modes) read rest value :=
+    Parse.runsBind
+      (() => appendExpr self modes)
+      (low => rangeFrom self modes low)
+      read
+      []
+      read
+      rest
+      value
+      value
+      (List.appendNil read).flipped
+      appendRuns
+      (runsLook
+        (() => modes.peek)
+        (seen => rangeOn self modes value seen)
+        (peekIn modes 0 rest)
+        []
+        rest
+        value
+        (runsPeekOn modes rest)
+        (match peekIn modes 0 rest, noRange with
+          | Some kind, noRange =>
+            let notDots: (kind == DotDot) = False := Bool.orFalseLeft _ _ noRange
+            let notHigh: (kind == DotDotLt || kind == DotDotEq) = False := Bool.orFalseRight _ _ noRange
+            rewrite notDots, notHigh then Parse.runsPure value rest
+          | None, noRange => Parse.runsPure value rest))
+  runsLook
+    (() => headIndent())
+    (indent => pipedAt self modes indent)
+    (headIndentOn (read ++ rest))
+    read
+    rest
+    value
+    (Parse.runsMap (() => left()) headIndentOn [] (read ++ rest) (read ++ rest) (runsLeftOn (read ++ rest)))
+    (Parse.runsBind
+      (() => rangeExpr self modes)
+      (range => pipedAfter self modes (headIndentOn (read ++ rest)) range)
+      read
+      []
+      read
+      rest
+      value
+      value
+      (List.appendNil read).flipped
+      rangeRuns
+      (runsLook
+        (() => atPipe modes)
+        (pipe => pipedEnd self modes (headIndentOn (read ++ rest)) value pipe)
+        False
+        []
+        rest
+        value
+        (runsSame _ [] rest _ False noPipe
+          (Parse.runsMap (() => left()) (atPipeOn modes) [] rest rest (runsLeftOn rest)))
+        (Parse.runsPure value rest)))
+
+--| A comparison's operator, or a membership's, comes next.
+def cmpAhead (modes: Modes) (items: List Item): Bool := match peekIn modes 0 items with
+  | Some kind => kind == KwIn || kind == NotIn || kind.isComparison
+  | None => False
+
+--| `cmpExpr` with no comparison: its operand.
+theorem runsCmpPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read rest: List Item) (value: Expr)
+    (pipedRuns: Parse.Runs (() => pipedRange self modes) read rest value)
+    (noCmp: cmpAhead modes rest = False):
+    Parse.Runs (() => cmpExpr self modes) read rest value :=
+  runsLook
+    (() => left())
+    (items => cmpFirst self modes (items.head.map Item.kind))
+    (read ++ rest)
+    read
+    rest
+    value
+    (runsLeftOn (read ++ rest))
+    (Parse.runsBind
+      (() => pipedRange self modes)
+      (lhs => cmpPiped self modes ((read ++ rest).head.map Item.kind) lhs)
+      read
+      []
+      read
+      rest
+      value
+      value
+      (List.appendNil read).flipped
+      pipedRuns
+      (runsLook
+        (() => modes.peek)
+        (seen => cmpOn self modes ((read ++ rest).head.map Item.kind) value seen)
+        (peekIn modes 0 rest)
+        []
+        rest
+        value
+        (runsPeekOn modes rest)
+        (match peekIn modes 0 rest, noCmp with
+          | Some kind, noCmp =>
+            let others: (kind == NotIn || kind.isComparison) = False := Bool.orFalseRight _ _ noCmp
+            let notIn: (kind == KwIn || kind == NotIn) = False :=
+              Bool.orFalseIntro _ _ (Bool.orFalseLeft _ _ noCmp) (Bool.orFalseLeft _ _ others)
+            let notCmp: kind.isComparison = False := Bool.orFalseRight _ _ others
+            rewrite notIn, notCmp then Parse.runsPure value rest
+          | None, noCmp => Parse.runsPure value rest)))
+
+--| `cmpExpr` with one comparison, not chained and not followed by `if`.
+--|
+--| Proof idea: `cmpOn` sees the operator, `cmpCompare` reads it and, with no `if` next, `cmpSecond` reads the second
+--| operand; `cmpChain` sees no other comparison after it.
+theorem runsCmpCompare ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (read1 read2 rest: List Item)
+    (lhs second: Expr) (operator: Item)
+    (pipedFirst: Parse.Runs (() => pipedRange self modes) read1 ([operator, ..read2] ++ rest) lhs)
+    (open: modes.stops operator = False)
+    (notIn: (operator.kind == KwIn || operator.kind == NotIn) = False)
+    (compares: operator.kind.isComparison = True)
+    (noIf: isSome KwIf (peekIn modes 0 (read2 ++ rest)) = False)
+    (pipedSecond: Parse.Runs (() => pipedRange self modes) read2 rest second)
+    (noChain: cmpAhead modes rest = False):
+    Parse.Runs
+      (() => cmpExpr self modes)
+      (read1 ++ [operator, ..read2])
+      rest
+      (Infix InfixBinary lhs operator.leaf.word second) :=
+  let whole := (read1 ++ [operator, ..read2]) ++ rest
+  runsLook
+    (() => left())
+    (items => cmpFirst self modes (items.head.map Item.kind))
+    whole
+    (read1 ++ [operator, ..read2])
+    rest _
+    (runsLeftOn whole)
+    (Parse.runsBind
+      (() => pipedRange self modes)
+      (lhs => cmpPiped self modes (whole.head.map Item.kind) lhs)
+      read1
+      [operator, ..read2]
+      (read1 ++ [operator, ..read2])
+      rest
+      lhs _
+      byComputing
+      pipedFirst
+      (runsLook
+        (() => modes.peek)
+        (seen => cmpOn self modes (whole.head.map Item.kind) lhs seen)
+        (Some operator.kind)
+        [operator, ..read2]
+        rest _
+        (rewrite <- peekFirst modes operator (read2 ++ rest) open then runsPeekOn modes [operator, ..read2 ++ rest])
+        (rewrite notIn, compares then
+          Parse.runsBind
+            (() => bump()) _
+            [operator]
+            read2
+            [operator, ..read2]
+            rest
+            operator.leaf.word _
+            byComputing
+            (runsBump operator (read2 ++ rest))
+            (runsLook
+              (() => modes.at KwIf)
+              (conditional => cmpAfter self modes lhs operator.kind operator.leaf.word conditional)
+              False
+              read2
+              rest _
+              (runsSame _ [] _ _ False noIf (runsAtOn modes KwIf (read2 ++ rest)))
+              (Parse.runsBind
+                (() => pipedRange self modes)
+                (second => cmpSecond self modes lhs operator.kind operator.leaf.word second)
+                read2
+                []
+                read2
+                rest
+                second _
+                (List.appendNil read2).flipped
+                pipedSecond
+                (runsLook
+                  (() => modes.peek)
+                  (seen => cmpChain self modes lhs operator.kind operator.leaf.word second seen)
+                  (peekIn modes 0 rest)
+                  []
+                  rest _
+                  (runsPeekOn modes rest)
+                  (match peekIn modes 0 rest, noChain with
+                    | Some next, noChain =>
+                      let others: (next == NotIn || next.isComparison) = False := Bool.orFalseRight _ _ noChain
+                      let notIn2: (next == KwIn || next == NotIn) = False :=
+                        Bool.orFalseIntro _ _ (Bool.orFalseLeft _ _ noChain) (Bool.orFalseLeft _ _ others)
+                      let notCmp: next.isComparison = False := Bool.orFalseRight _ _ others
+                      rewrite notCmp, notIn2 then Parse.runsPure (Infix InfixBinary lhs operator.leaf.word second) rest
+                    | None, noChain => Parse.runsPure (Infix InfixBinary lhs operator.leaf.word second) rest)))))))
