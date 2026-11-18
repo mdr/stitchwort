@@ -1,5 +1,5 @@
 {
-  "next": 4081,
+  "next": 4084,
   "tickets": [
     {
       "id": 47,
@@ -25000,12 +25000,12 @@
     {
       "id": 4058,
       "title": "[Opus] fmt S1 hangs, noted starts: ElHangs's start per element (leadStart for an element with comments above its first token, which starts its own line at leadColumn from any entry) through every rule-level hang lemma; use notedLeafHangs; drops quiet1's no-comment-above part (def x:⏎  -- c⏎  T := a) (SW-4045 finding 2; refactor across the hang files)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note (Opus, 18 Nov 2026, 21:51-22:20): branch lane/SW-4058, commits 417775a42, ee30e9deb. DeclQuiet now allows own-line comments above the type's and the value's first token (header.result.leadQuiet1 ∧ value.leadQuiet1); printedHangs1Quiet and printedHangs1 keep names and conclusions (quietElements also takes sound). startFor noted (leadStart/wordStart) carried through DeclHangs, DeclElements, BodyLays and the decl-level consumers; notedFramedHangs/linedDisplaced (HangProofs), leadFacts (ExprHangProofs, exprFacts now its quiet case), leadElHangs/notedNodeHangs/leadBody (DeclFactsProofs). Witnesses typeNotedDecl, valueNotedDecl; Slice1 test. Open: comments above later tokens (args, items, operands, closers) and trailing comments inside the type/value (NOTES, SW-4058 section). Audits 0 failed (pre-existing sampling warnings only); test Fmt.Tests 101/101.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25256,7 +25256,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "D3686 dropped (Matt, 18 Nov 2026: the formatter must handle a comment between a sign and its operand; no trim). Do this lane; its sibling is SW-4081.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25290,6 +25290,45 @@
     {
       "id": 4080,
       "title": "[Sonnet] fmt read-back tidy (SW-4069): ReadBackLine's signArg1 now equals shaped1's argument1 and numeral1 equals numberAtom1; take both from shaped1 directly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4081,
+      "title": "[Opus] fmt S1 item invariant: glued items carry no comments between them (no trailing comment on the item before, none above the glued item), proved through the lexer and rule N; then shaped1's argument1/head1 refuse a comment on a glued sign and SW-4070's two trees (App f [Prefix (- -- c) x], App (Prefix (- -- c) 1) [n]) become witnesses (SW-4069 note; D3686 dropped)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4082,
+      "title": "[Opus] fmt S1 hangs, noted sub-elements: carry startFor through AppHangProofs (Hangs, ArgSeat), BracketHangProofs (ItemsHang: each item's own start; rule out a noted item's first-comment blank line at a plain line start) and ChainHangProofs (LinkFacts), so DeclQuiet allows comments above any token inside the type and value (SW-4058's open part)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4083,
+      "title": "[Sonnet] fmt proofs tidy (SW-4058): Word.quiet1/Word.lead1 and their word-list lemmas (allAppend/leadAppend, allReverse, allDrop, quietAllLead) take the predicate as a parameter",
       "status": "backlog",
       "agent": "",
       "where": "",
