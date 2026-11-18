@@ -1548,11 +1548,12 @@ theorem matchedNone ∀ (value: Expr) (inside: Around) (within: value.within1 = 
     | Match _ _ _ _ => cases
     | _ => byComputing
 
-theorem lambdaHugNone ∀ (value: Expr) (semi: Bool) (inside: Around)
+theorem lambdaHugNone ∀ (value: Expr) (semi: Bool) (inside: Around) (doc: Doc)
     (within: value.within1 = True):
-    value.lambdaHug semi inside = None :=
+    value.lambdaHug semi inside doc = None :=
   match value with
     | Binding _ _ _ _ _ => cases
+    | Calc _ _ _ => cases
     | _ => byComputing
 
 theorem valueElPlain ∀ (value: Expr) (around: Around) (semi: Bool)
@@ -1611,11 +1612,12 @@ theorem matchedCalm ∀ (value: Expr) (item: Bool) (inside: Around)
     | Match _ _ _ _ => cases
     | _ => byComputing
 
-theorem lambdaHugCalm ∀ (value: Expr) (item semi: Bool) (inside: Around)
+theorem lambdaHugCalm ∀ (value: Expr) (item semi: Bool) (inside: Around) (doc: Doc)
     (within: value.within1 = True):
-    (value.calm item).lambdaHug semi inside = None :=
+    (value.calm item).lambdaHug semi inside doc = None :=
   match value with
     | Binding _ _ _ _ _ => cases
+    | Calc _ _ _ => cases
     | _ => byComputing
 
 theorem valueElKept ∀ (value: Expr) (around: Around) (semi: Bool)
@@ -1638,8 +1640,8 @@ theorem bodyAfterKept ∀ (value: Expr) (assign assign': Word) (around: Around) 
       isBlockCalm value around.item within,
       callHugKept value { around | hoisted = True } good,
       opensCalm value around.item within,
-      lambdaHugCalm value around.item semi { around | hoisted = True } within,
-      lambdaHugNone value semi { around | hoisted = True } within
+      lambdaHugCalm value around.item semi { around | hoisted = True } (valueEl value around semi) within,
+      lambdaHugNone value semi { around | hoisted = True } (valueEl value around semi) within
 
 -- Declarations.
 

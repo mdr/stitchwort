@@ -12,7 +12,9 @@
 --| `FieldAccess`; for slice 5a, `decl` for `test` and for a definition's
 --| arms, `import` and `join` for `namespace`; for slice 4c,
 --| `comma_bracket` with brace edges for records and record patterns, and
---| `join` for membership, spreads and a record's fields.
+--| `join` for membership, spreads and a record's fields; for slice 6a,
+--| `rewrite`, `comma_bracket` for `repeatedly`'s rules, `calc` and
+--| `calc_step`, `chain` for `↔`, and `join` for facts and `cases then`.
 --|
 --| The Rust rules read a token's neighbours by its index in the file.
 --| Here what a rule needs of a token's surroundings travels down the tree
@@ -45,7 +47,11 @@ import Syntax (
   Note,
   Param,
   Pattern,
+  CalcStep,
+  RewriteRule,
   Row,
+  RuleSet,
+  Rules,
   Scrutinee,
   Statement,
   Tok,
@@ -174,6 +180,11 @@ def Expr.words: Expr → List Word
   | Record open base fields _ close => [open, ..baseWords base] ++ itemsWords fields ++ [close]
   | RecordField name equals value => [name, equals, ..value.words]
   | CtorFields ctor record => ctor.words ++ record.words
+  | Rewrite keyword rules target body =>
+    [fixedWord "rewrite" keyword, ..rules.words] ++ afterWords "at" target ++ afterWords "then" body
+  | Facts _ keyword facts => [keyword, ..facts.words]
+  | Cases keyword thenKeyword body => [fixedWord "cases" keyword, fixedWord "then" thenKeyword, ..body.words]
+  | Calc keyword first steps => [fixedWord "calc" keyword, ..first.words] ++ stepsWords steps
   | _ => []
 
 --| An update's record and its `|`.
@@ -369,6 +380,22 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
     | RecordField name equals value => expr.framed around (recordFieldDoc name equals value inside)
     | CtorFields ctor record =>
       expr.framed around (Doc.concat [ctor.el inside, Doc.text " ", record.el (around.next ctor.trails ctor.size)])
+    | Infix InfixIff left operator right => expr.framed around (chain None left operator right inside)
+    | Rewrite keyword rules target body => expr.framed around (rewriteDoc keyword rules target body inside)
+    | Facts _ keyword facts =>
+      expr.framed around
+        (Doc.concat [keyword.leaf inside around.at, Doc.text " ", facts.el (around.next keyword.trails 1)])
+    | Calc keyword first steps => expr.framed around (calcDoc keyword first steps inside)
+    | Cases keyword thenKeyword body =>
+      let casesWord := fixedWord "cases" keyword
+      let thenWord := fixedWord "then" thenKeyword
+      expr.framed around
+        (Doc.concat [
+          casesWord.leaf inside around.at,
+          Doc.text " ",
+          thenWord.leaf (around.next casesWord.trails 1) (around.at + 1),
+          body.after (around.next thenWord.trails 2)
+        ])
     | _ => Nothing
 
 --| A node's document with its first token's own-line comments before it,
@@ -857,6 +884,7 @@ def Expr.layoutBody: Expr → Bool
   | Match _ _ _ _ => True
   | If _ _ _ _ _ _ _ => True
   | Block _ _ _ => True
+  | Calc _ _ _ => True
   | _ => False
 
 --| The last token that is no closer (`last_code`).
@@ -1035,7 +1063,7 @@ def bodyAfter (value: Expr) (assign: Word) (around: Around) (semi: Bool): (Doc, 
   else
     let hug := value.callHug inside
     let opens := value.opensBracket
-    let lambda := value.lambdaHug semi inside
+    let lambda := value.lambdaHug semi inside doc
     let matchHug := matched.map (parts => parts.hug)
     let oneLineBelow := if opens || hug.isSome then [OneLineBelow doc] else []
     let onLine :=
@@ -1065,11 +1093,13 @@ def Expr.opensBracket: Expr → Bool
   | Record _ _ _ _ _ => True
   | _ => False
 
---| A lambda's opened form, with its body below.
-def Expr.lambdaHug (value: Expr) (semi: Bool) (inside: Around): Option Doc := match value with
+--| A lambda's opened form, with its body below; a `calc` joins the line when `calc` and its first expression fit
+--| there, as a comma bracket does, but never goes one line below (`doc` is the value's document).
+def Expr.lambdaHug (value: Expr) (semi: Bool) (inside: Around) (doc: Doc): Option Doc := match value with
   | Binding BindsLambda _ params arrow body =>
     let (_, opened) := lambdaBoth params arrow body semi inside
     Some opened
+  | Calc _ _ _ => Some doc
   | _ => None
 
 -- Layout: blocks, `let`, `if` and `match` (slice 3).
@@ -1260,6 +1290,7 @@ def armDoc (arm: Arm) (around: Around): Doc := match arm with
     let valueAround := around.next arrow.trails (arrowAt + 1)
     match value with
       | Match _ _ _ _ => Doc.concat [head, Nest 2 (Doc.concat [HardLine, value.el valueAround])]
+      | Calc _ _ _ => Doc.concat [head, Nest 2 (Doc.concat [HardLine, value.el valueAround])]
       | _ =>
         let (_, choice) := bodyAfter value arrow valueAround False
         Doc.concat [head, choice]
@@ -1713,3 +1744,198 @@ def defArmsDoc (header: Header) (arms: List Arm): Doc :=
     IdGroup 0 headerDoc (headerDoc.forcesBreak || inside),
     Nest 2 (Doc.concat (armLines True (trailsBack headerWords.reverse) (colonAt + 1 + result.size) arms))
   ]
+
+-- Proof steps: `rewrite` (slice 6a).
+
+--| A fixed token and the expression after it, if they are there.
+def afterWords (text: Text): Option (Comments, Expr) → List Word
+  | Some (comments, value) => [fixedWord text comments, ..value.words]
+  | None => []
+
+--| A rule's tokens: `<` and `-` when it is reversed, then the rule's.
+def RewriteRule.words (rule: RewriteRule): List Word := match rule with
+  | { reverse = Some (less, minus), rule = value } => [fixedWord "<" less, fixedWord "-" minus, ..value.words]
+  | { reverse = None, rule = value } => value.words
+
+def rulesWords: List RewriteRule → List Word
+  | [] => []
+  | [rule, ..rest] => rule.words ++ rulesWords rest
+
+--| The rules' tokens: the list's, or `repeatedly` and the set's.
+def Rules.words: Rules → List Word
+  | RuleList rules => rulesWords rules
+  | Repeatedly word set => [fixedWord "repeatedly" word, ..set.words]
+
+def RuleSet.words (set: RuleSet): List Word := match set with
+  | { open, rules, close, .. } => [fixedWord "[" open, ..rulesWords rules] ++ [fixedWord "]" close]
+
+--| `rewrite rules then body` (`rewrite`, S36, D3668): on one line if it
+--| fits; otherwise the body below at 2, and if the rules don't fit on the
+--| `rewrite` line, one rule a line at 4 with `then` at the end of the
+--| last. Without `then`, several rules lay out as they do before one, and
+--| a single rule (with its `at`) is joined by spaces. The `at` and its
+--| target stay with the last rule; `repeatedly` and its set are one item.
+def rewriteDoc (keyword: Comments) (rules: Rules) (target body: Option (Comments, Expr)) (around: Around): Doc :=
+  let word := fixedWord "rewrite" keyword
+  let keywordDoc := word.leaf around around.at
+  let rulesAround := around.next word.trails 1
+  let ruled := match rules with
+    | RuleList list => ruleDocs target rulesAround list
+    | Repeatedly repeatedly set =>
+      let repeatedlyWord := fixedWord "repeatedly" repeatedly
+      let setWords := set.words
+      [
+        repeatedlyWord.leaf rulesAround rulesAround.at,
+        Doc.text " ",
+        ruleSetDoc set (rulesAround.next repeatedlyWord.trails 1),
+        ..targetDocs target (rulesAround.next (trailsBack setWords.reverse) (1 + setWords.length))
+      ]
+  let several := match rules with
+    | RuleList [_, _, .._] => True
+    | _ => False
+  let ruledWords := [word, ..rules.words] ++ afterWords "at" target
+  match body with
+    | None =>
+      if several then Doc.group (Doc.concat [keywordDoc, Doc.text " ", Nest 4 (Doc.concat ruled)])
+      else Doc.concat [keywordDoc, Doc.text " ", ..ruled]
+    | Some (thenComments, value) =>
+      let thenWord := fixedWord "then" thenComments
+      let offset := ruledWords.length
+      let thenAround := around.next (trailsBack ruledWords.reverse) offset
+      let head :=
+        Doc.group
+          (Doc.concat [
+            keywordDoc,
+            Doc.text " ",
+            Nest 4 (Doc.concat ruled),
+            Doc.text " ",
+            thenWord.leaf thenAround thenAround.at
+          ])
+      Doc.group (Doc.concat [head, Nest 2 (Doc.concat [Line, value.el (around.next thenWord.trails (offset + 1))])])
+
+--| `at` and its target after the last rule, if there; `around` is where
+--| the `at` stands.
+def targetDocs (target: Option (Comments, Expr)) (around: Around): List Doc := match target with
+  | Some (atComments, value) =>
+    let atWord := fixedWord "at" atComments
+    [Doc.text " ", atWord.leaf around around.at, Doc.text " ", value.el (around.next atWord.trails 1)]
+  | None => []
+
+--| The rules, each with its comma and a `Line` after it, the last followed
+--| by `at` and its target.
+def ruleDocs (target: Option (Comments, Expr)) (around: Around): List RewriteRule → List Doc
+  | [] => []
+  | [last] =>
+    let words := last.words
+    [last.el around, ..targetDocs target (around.next (trailsBack words.reverse) words.length)]
+  | [rule, ..rest] =>
+    let words := rule.words
+    [rule.el around, Closing ",", Line, ..ruleDocs target (around.next (trailsBack words.reverse) words.length) rest]
+
+--| `[r1, <- r2]` after `repeatedly` (`comma_bracket` for `RewriteRules`):
+--| flat if it fits, else each rule on a line at 2 and `]` alone; never
+--| filled.
+def ruleSetDoc (set: RuleSet) (around: Around): Doc := match set with
+  | { open, rules, close, .. } =>
+    let openWord := fixedWord "[" open
+    let closeWord := fixedWord "]" close
+    let words := set.words
+    let holds := (words.filter Word.trails |> .length) > (if trailsBack words.reverse then 1 else 0)
+    let closer := closeWord.leaf (around.next (trailsBack (words.reverse.drop 1)) (words.length - 1)) around.at
+    let parts := [
+      openWord.opening around closeWord,
+      Nest 2 (Doc.concat (brokenRules around.inArm True openWord.trails (around.at + 1) rules)),
+      SoftLine,
+      closer
+    ]
+    Doc.group (Doc.concat (if holds then parts ++ [BreakParent] else parts))
+
+--| A broken set's rules, as `brokenItems`: each starts a line, with its
+--| comma after it.
+def brokenRules (arm first before: Bool) (at: Nat): List RewriteRule → List Doc
+  | [] => []
+  | [rule] => [if first then SoftLine else Line, rule.el (itemAround arm before at)]
+  | [rule, ..rest] =>
+    let words := rule.words
+    [
+      if first then SoftLine else Line,
+      rule.el (itemAround arm before at),
+      Closing ",",
+      ..brokenRules arm False (trailsBack words.reverse) (at + words.length) rest
+    ]
+
+--| A rule as the node it is in Rust's tree (`RewriteRule`, printed by
+--| `join`): `<-` glued, a space, the rule.
+def RewriteRule.el (rule: RewriteRule) (around: Around): Doc :=
+  let inside := { around | hoisted = True }
+  match rule with
+    | { reverse = Some (less, minus), rule = value } =>
+      let lessWord := fixedWord "<" less
+      let minusWord := fixedWord "-" minus
+      framedBy lessWord around
+        (Doc.concat [
+          lessWord.leaf inside around.at,
+          minusWord.leaf (around.next lessWord.trails 1) (around.at + 1),
+          Doc.text " ",
+          value.el (around.next minusWord.trails 2)
+        ])
+    | { reverse = None, rule = value } => framedBy value.firstWord around (value.el inside)
+
+--| `calc e0` and its steps, one a line at 2 (`calc`, S35); a blank line
+--| above a step is kept. The first expression doesn't hug (`no_hug`): what
+--| it opened downwards would share the steps' column, so the slice keeps
+--| out a first expression that could (`hugsNowhere`).
+def calcDoc (keyword: Comments) (first: Expr) (steps: List CalcStep) (around: Around): Doc :=
+  let calcWord := fixedWord "calc" keyword
+  Doc.concat [
+    calcWord.leaf around around.at,
+    Doc.text " ",
+    first.el (around.next calcWord.trails 1),
+    Nest 2 (Doc.concat (stepLines first.trails (around.at + 1 + first.size) around.inArm steps))
+  ]
+
+def stepLines (before: Bool) (at: Nat) (arm: Bool): List CalcStep → List Doc
+  | [] => []
+  | [step, ..rest] =>
+    let words := step.words
+    [
+      HardLine,
+      step.el { before, hoisted = False, item = True, at, inArm = arm },
+      ..stepLines (trailsBack words.reverse) (at + words.length) arm rest
+    ]
+
+def CalcStep.words (step: CalcStep): List Word := match step with
+  | { underscore, relation, operand, proof } =>
+    [fixedWord "_" underscore, relation, ..operand.words] ++ afterWords ":=" proof
+
+def stepsWords: List CalcStep → List Word
+  | [] => []
+  | [step, ..rest] => step.words ++ stepsWords rest
+
+--| `_ R e := proof` (`calc_step`, S35): on one line if it fits, otherwise
+--| the proof below at 2 as after a declaration's `:=`; `_ R e` itself
+--| breaks at 2. A step is a node in Rust's tree, framed by its `_`.
+def CalcStep.el (step: CalcStep) (around: Around): Doc := match step with
+  | { underscore, relation, operand, proof } =>
+    let underscoreWord := fixedWord "_" underscore
+    let inside := { around | hoisted = True }
+    let relationDoc := Doc.concat [
+      underscoreWord.leaf inside around.at,
+      Doc.text " ",
+      relation.leaf (around.next underscoreWord.trails 1) (around.at + 1),
+      Doc.text " ",
+      operand.el (around.next relation.trails 2)
+    ]
+    let doc := match proof with
+      | None => relationDoc
+      | Some (colonEq, value) =>
+        let assign := fixedWord ":=" colonEq
+        let assignAt := 2 + operand.size
+        let (_, choice) := bodyAfter value assign (around.next assign.trails (assignAt + 1)) False
+        Doc.concat [
+          Nest 2 relationDoc,
+          Doc.text " ",
+          assign.leaf (around.next operand.trails assignAt) (around.at + assignAt),
+          choice
+        ]
+    framedBy underscoreWord around doc

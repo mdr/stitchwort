@@ -1775,7 +1775,7 @@ theorem bodyAfterSpells ∀ (value: Expr) (assign: Word) (around: Around) (semi:
   let inside: Around := { around | hoisted = True }
   rewrite matchedNone value inside within,
       valueElPlain value around semi within,
-      lambdaHugNone value semi inside within then
+      lambdaHugNone value semi inside (value.el around) within then
     match plain: assign.trails || value.noted || value.isBlock with
       | True => (belowSpells, belowSpells)
       | False =>

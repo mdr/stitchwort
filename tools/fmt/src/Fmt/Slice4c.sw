@@ -13,11 +13,10 @@
 --| fields after a dotted or applied constructor.
 --|
 --| As in the earlier slices, the slice is a test on the real tree,
---| `within4c`, and a token alphabet, `Tok.within4c`, which `formatWithin`
---| checks before parsing.
+--| `within4c`, and a token alphabet, `Tok.within4c`.
 
 namespace Fmt
-import Std (Bool, Doc, List, Nat, Option, Result, Text)
+import Std (Bool, Doc, List, Nat, Option, Text)
 import Syntax (
   Arm,
   BindingKind,
@@ -38,8 +37,7 @@ import Syntax (
   Statement,
   Tok,
   Word,
-  anyAbsurd,
-  lex
+  anyAbsurd
 )
 
 -- The slice.
@@ -243,18 +241,3 @@ def Decl.printed4c (decl: Decl): Option Text :=
   if decl.within4c then decl.doc5a.map (doc => Doc.print doc width) else None
 
 def SourceFile.printed4c (file: SourceFile): Text := file.printedBy Decl.printed4c
-
---| The source formatted, if it is within slices 1 to 5a, 4b and 4c: lexed,
---| refused if a token is outside the alphabet, then parsed, tidied and
---| printed as `format` does.
-def formatWithin (source: Text): Result Text Text := match lex source with
-  | Err message => Err message
-  | Ok lexed =>
-    match lexed.leaves.find (leaf => !leaf.token.kind.within4c) with
-      | Some leaf => Err "outside slice 4c: `${leaf.token.text}`"
-      | None =>
-        match lexed.tidied with
-          | Err message => Err message
-          | Ok tidied =>
-            if tidied.fourth.within4c then Ok tidied.fourth.printed4c
-            else Err "outside slice 4c: a construct slices 1 to 5a, 4b and 4c don't have"

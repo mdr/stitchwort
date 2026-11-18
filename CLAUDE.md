@@ -178,6 +178,15 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 - **Escalating:** a lane that finds its work too hard stops and says so
   (what it tried, where it's stuck); the orchestrator may then rerun it on
   Opus, from the lane's branch (D2365).
+- **Proof work (D3682, Matt, 18 Nov 2026):** the kernel checks every
+  proof, so the silent, costly mistake is a wrong or weakened statement,
+  not a bad proof. Routine proofs (walks over the code, case splits,
+  "this pass keeps X") go to Sonnet; proofs with a hard invariant, or
+  whose statement may need adjusting, to Opus; deciding what to prove
+  (slice sketches, the checkpoint review after each slice's proofs,
+  reviews of statements weakened or given new conditions) to Fable. An
+  Opus proof lane that reports itself stuck (not merely slow) is rerun on
+  Fable from its branch.
 - **DeepSeek via OpenCode:** the default for well-bounded tasks up to medium
   difficulty, from a goal-level brief (the goal, a repro, the limits):
   diagnostics, small features, elaborator changes with a clear goal, and

@@ -425,7 +425,7 @@ theorem levelUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).level = ex
 theorem atomicUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).atomic1 = expr.atomic1 := cases
 
 theorem argumentUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).argument1 = expr.argument1 := match expr with
-  | Prefix operator operand => rewrite atomicUncomma operand
+  | Prefix operator operand => rewrite argumentUncomma operand
   | _ => cases
 
 theorem shapedUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).shaped1 = expr.shaped1 := match expr with
@@ -434,7 +434,7 @@ theorem shapedUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).shaped1 =
   | Tuple open items comma close => rewrite mapsLength withoutCommaExpr items, shapesUncomma items
   | ListOf open items comma close => rewrite shapesUncomma items
   | App head arguments =>
-    rewrite atomicUncomma head,
+    rewrite argumentUncomma head,
         shapedUncomma head,
         mapsEmpty withoutCommaExpr arguments,
         mapsAll Expr.argument1 argumentUncomma arguments,
