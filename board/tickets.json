@@ -1,5 +1,5 @@
 {
-  "next": 3944,
+  "next": 3945,
   "tickets": [
     {
       "id": 47,
@@ -23450,6 +23450,19 @@
       "id": 3943,
       "title": "[DeepSeek] Move the engine-only harness driver script (scratchpad mkslim.sh from SW-3932/SW-3940) into dev/ as a task taking the worktree as an argument, and say in its doc that stitchwort build --native needs task build first; folds into SW-3938",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3944,
+      "title": "[Sonnet] Self-hosted fmt engine E6, ahead of E5 (orchestrator's call: S1 needs Std.Doc and TextBlock isn't in the program yet): move Fmt.Doc into std as Std.Doc with its 357 theorems; tools/fmt imports it; audit Std.Doc clean (docs/proposals/self-hosted-fmt-engine-plan.md E6; proof plan F2)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
