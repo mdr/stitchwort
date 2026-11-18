@@ -134,15 +134,18 @@ def Output.notes (output: Output): List Note → Output
   | [note, ..rest] => (output.item note.blankBefore note.text).notes rest
 
 --| The file loop (`print_file_seeing`): each declaration's own-line
---| comments, then the declaration, then the comments at the end.
-def SourceFile.printed1 (file: SourceFile): Text :=
-  let body := printDecls { pieces = [], empty = True } file.decls
+--| comments, then the declaration as `printed` gives it, then the comments
+--| at the end. Each slice passes its own `printed`.
+def SourceFile.printedBy (file: SourceFile) (printed: Decl → Option Text): Text :=
+  let body := printDecls printed { pieces = [], empty = True } file.decls
   let done := body.notes file.end.above
   if done.empty then "" else Text.concat ["\n", ..done.pieces].reverse
 
-def printDecls (output: Output): List Decl → Output
+def printDecls (printed: Decl → Option Text) (output: Output): List Decl → Output
   | [] => output
   | [decl, ..rest] =>
     let first := decl.firstComments
     let noted := output.notes first.above
-    printDecls (noted.item first.blankBefore (decl.printed1.getOrElse "")) rest
+    printDecls printed (noted.item first.blankBefore ((printed decl).getOrElse "")) rest
+
+def SourceFile.printed1 (file: SourceFile): Text := file.printedBy Decl.printed1
