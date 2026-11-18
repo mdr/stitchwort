@@ -25409,12 +25409,12 @@
     {
       "id": 4089,
       "title": "[Sonnet] fmt S1 goals tidiedDeclsUnreturned1 and tidiedUnreturned1: no comment in a tidied parse ends in CR or space (lexer trims both since SW-4065; parseFile and the passes keep comment texts)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet, 18 Nov): both goals proved, on branch lane/SW-4089 (2 commits). As stated they were out of reach: tidiedDeclsUnreturned1 is false for a source such as \"namespace A\\n\" (Decl.unreturned1 is False of a Namespace; lex and tidied accept it), and the parser's comment provenance is proved only within slice 1. Both now take Formats1's hypotheses (lexes, leavesWithin1, parses, within) and speak of parsed.tidy1; moved next to tidyComma1 in Fmt.TopStatements; witnessUnreturned runs them on witnessSource. New: Syntax.LexUnreturnedProofs (lexUnreturned, any source), Syntax.OnceUnreturnedProofs (onceTextsPlain), Fmt.UnreturnedProofs (declUnreturned, parsedUnreturned, commaUnreturned). Audit of the three namespaces: 27 passed; Syntax.Tests 52, Fmt.Tests 118 pass.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
