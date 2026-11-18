@@ -1282,6 +1282,31 @@ Ticket 17c, in `Syntax/ReadBackTree.sw`, on SW-4004's `Syntax.ReadBackRuns`.
 - `InlinePlain` and `OperandEnds` (SW-4004) are now `Prop` records, so rungs can conjoin them.
 - **Calls read back on one line** (SW-4026, `appLine`): a head atom and atomic arguments, each argument at the depth below the call. A list whose first element is `auto Name …` reads as an implicit binder, so the read-back assumes none (`Expr.autoFree1`; `typeFree` and `valueFree` on `readsBackLine`) until `shaped1` excludes it (SW-4027). `-` and `!` need `lineKind` to admit `Minus` and `Bang`, and `Minus` is a section operator, so `groupLine` must then look at the last item before `)` rather than at every item.
 
+## Read-back, signs and arrows (SW-4031, Opus, 18 November 2026)
+
+Ticket 17f, in `Syntax/ReadBackLine.sw`. What reads back on one line now, and what the rest of `readsBack1` needs.
+
+- **Signs.** `Spelt` has a `Prefix` case: the sign (`signKind`: `Minus`, `Bang`), its operand (no infix at the top, `Expr.unary1`), and `negativeNumeral [sign, ..more] = (sign.kind == Minus && operand.numeral1)`: the glue the parser reads, so `-1` is one atom (`NumberBase`) exactly where the tree has `-` on a numeral. `unaryLine` reads any spelt expression at the unary level (a sign, its operand one level down; `-1` as an atom; anything else by `appAny`). `speltStarts` gives `leadKind` (an atom's first kind or a sign), `speltPlainStarts` the atom kinds for expressions that don't start with a sign (`signed1`). `lineKind` and `exprKind` admit `Minus`, `Bang` and `Arrow`. `Minus` is no section operator (`Tok.isSectionOperator` excludes it; `Bang` is no operator at all), so signs needed nothing of `groupLine`; it was still reworked (below), for the binary operators.
+- **Signs as arguments** (`f -x !b -1`): an argument is an atom, a bracket, or a sign on one (`Expr.signArg1`), spaced as `argumentPrefix` asks (`argumentGlue`: the sign not glued to what precedes it, which ends an operand, and glued to its atom); `signArgLine` reads it as `SignBase`, or `NumberBase` for `-1`. A sign on a sign can't be an argument (`f -!x` doesn't parse: `!` is no `opensAtom`), nor a call's head but `-1` (`!x y` reads as `!(x y)`). Heads stay atoms: `-1 n` is not here.
+- **Arrows** (`A -> B -> C`): `Spelt` has `Infix InfixArrow` with a left side that has no infix; `arrowLine` reads the left side by `unaryLine` (ended by `->`, `arrowUnaryEnds`), lifts it through the chains with no links, then `EndReads`' arrow with the right side by `fullLine` (`allowBraceOn` leaves the modes: no `{` starts a spelt expression). `inlineLine` picks `arrowLine` or `inlineUnary`.
+- **`groupLine`** carries `pairPlain` under `beforeClosePlain`: only the item straight before the group's closer must be no section operator, which is all `rightOperator` reads. `rightPlain` takes `beforeClosePlain`; `rightLine` still gets it from `lineAll` (`lineBefore`), which stops working once `lineKind` admits a section operator (`+`): then it must come from `Spelt` (an operator is always followed by an operand).
+- **`UnaryEnds`**: `unaryLine`, `appAny`, `appLine`, `argsLine` and `argEnds` ask only what ends a unary reading, so an operand followed by an operator uses the same lemmas (`arrowUnaryEnds` is the first such).
+- **`typeFree`/`valueFree` from the tree**: `autoCallWithin1` (`within1` refuses the name `auto`, SW-4027) and `autoFreeWithin1`; `readsBackLineWithin` is `readsBackLine` with both discharged. `autoCall1` looks down an infix's left spine, since `[auto Ord -> x]` reads as a binder too.
+
+**`shaped1` is too weak for read-back** [computed, `stitchwort eval` on hand-built trees, each `within1` and `shaped1`]:
+
+| Tree | Prints | Reads back as |
+|---|---|---|
+| `Infix - a (Infix - b c)` | `def d: A := a - b - c` | `(a - b) - c` |
+| `App (Prefix ! x) [y]` | `def d: A := !x y` | `!(x y)` |
+| `App f [Prefix - (Prefix - x)]` | `def d: A := f - -x` | `f - (-x)` |
+
+`rightNeeds` lets a left-nesting operator's right operand sit at the operator's own level, `argument1` lets a head be any prefix and an argument's prefix nest. The parser never builds these, so the end theorem is not false; but `readsBack1` can't take `shaped1` as its shape fact. It needs the parser's own shape: a left-nesting chain's right operand one level up, a head an atom or `-` on a numeral, an argument's sign on an atom or bracket. Either `shaped1` is tightened (and `parseShaped1` re-proved) or `readsBack1` takes a stricter fact proved of the parse.
+
+**Glue is a printer fact nobody has stated.** `Spelt` now says how signs are glued (`negativeNumeral`, `argumentGlue`), and a binary `-` will need its right operand not glued (or `a -b` reads as a call). `printedTokens1` gives texts and kinds, `printedSpells` words; neither gives the items' `glued` or `afterOperand`. Step 4 needs a lemma on the printed items' spacing (`prefixGap` and the spaces around operators and between arguments).
+
+**What's left of `readsBack1`**: the binary operators (`* / %`, `+ -`, `++` as chains, comparisons, `&&`/`||` through `groupLogic`, and an arrow's left side at the logic level), each rung reading a chain by flattening the tree's spine, with the ends of each operand being the next operator (`UnaryEnds` and the chain rungs' `takesAhead`); multi-line declarations (step 3); and step 4's discharge: `Spelt` from `printedTokens1` and `printedSpells` plus the glue lemma, `lineAll`/`inLineAll`/`laterInLine` from the hang facts.
+
 ## One parse (SW-3964, proof plan ticket 13c)
 
 `Lexed.tidied` parses once, from `Lexed.settledOnce` (`Settle.sw`): `withBareLastCommas` moves each last comma's comments as `withoutLastCommas` does (the move is `commaMoved`, shared by the two) and leaves the comma in with empty trivia, still starting its line if it did; then rule N. P2 drops the commas on the tree, so `Tidied.fourth` is `tidy` of the one parse. `parksComment` is gone. The search behind the choice is in the S1 sketch, §3.4's outcome: the sketch's way 2 with the comma off its line parses 54 in 3,000 generated files that Rust refuses; with the comma keeping its line start, refusals and trees are the old driver's on every file tried, and the text changes only where the old driver differed from Rust.
