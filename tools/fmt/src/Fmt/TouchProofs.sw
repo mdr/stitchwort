@@ -1389,9 +1389,11 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
             closer
             (eachFree items each within (Bool.andRight shaped) (Bool.andRight (Bool.andRight lexical)) joins)))
 
---| `appSteps` (open): a call, its head spaced `first` and each argument apart from what comes before it, a sign on
---| one glued to its operand (`argument1`). Its route is through `appFrom`'s options (`stepsChoice`, `IdGroup`,
---| `IfBroken`) and the hugged last argument, every argument after a `Line` or a space.
+--| `appSteps` (open): a call, its head spaced `first` and each argument as `argumentsSpacing1` says (`spacing1 True`:
+--| free, or apart for a sign), every argument after a space, a fill separator or a `HardLine`. Its route follows
+--| `Fmt.JoinProofs.appFromPasses`: a sequence of documents each but the first starting from `Fits True Apart` (which
+--| gives `Fits True Free`), split at `keep` with its spacing, through `spaced`, `Fill`, the `Choice` options (`Flatten`,
+--| the hug, front and rest) and `IfBroken`; each argument from `elSteps` with `argument1` from `shaped1`.
 theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first: Spacing) (argument: Bool)
     (within: (App head arguments).within1 = True)
     (shaped: (App head arguments).shaped1 = True)
