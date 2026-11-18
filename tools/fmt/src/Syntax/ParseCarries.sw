@@ -169,6 +169,9 @@ theorem readsSuffixCalled ∀ (target: Expr) (callable paren: Bool):
             Parse.readsThen givesBump (r2 close _ => Parse.readsDone _ _ (Inr (Bool.andFalse target.within1)))))
 
 --| `suffixes` after the call: a field access starts another round on a tree outside the slice, and nothing else is read.
+--|
+--| Proof idea: a field access bumps two items and gives a `FieldAccess`, outside the slice, as is everything after it;
+--| every other case reads nothing and keeps the tree.
 theorem readsSuffixesOn ∀ (more: Nat) (modes: Modes) (called: Expr) (paren: Bool) (items: List Item)
     (next: ∀ (target: Expr) (callable: Bool) => Out target
       → Parse.ReadsIn GoodItems (() => suffixes more modes target callable paren) (read value => Out value)):
@@ -423,6 +426,10 @@ theorem listCarriedStep ∀ [prior: List Expr] [value: Expr] [comma: Item]
   )
 
 --| The items of a comma list after the first: each comma is read and gives no word, and each item is carried.
+--|
+--| Proof idea: by induction on the fuel, peeking as `commaListOn` does: a comma is bumped (no word), then `ends` reads
+--| nothing and either the list stops or another tree is carried and the rest follows (`listCarriedStep`); anything else
+--| stops with no more trees.
 theorem readsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} Expr)
     (endsReads: ∀ (count: Nat) => Reads0 (() => ends count))
     (nextReads: Parse.ReadsIn GoodItems next Carried)
@@ -520,6 +527,10 @@ theorem readsTupleEnds ∀ (inner: Modes) (count: Nat): Reads0 (() => tupleEnds 
   reads0Then [p := () => inner.at RParen] (reads0At inner RParen) (found => reads0Done _)
 
 --| A tuple's tail, from the comma after its first tree: the comma, the second tree, the rest of the list and `)`.
+--|
+--| Proof idea: the comma is bumped and gives no word, the second tree and the rest of the list are carried
+--| (`readsCommaListFrom`), and `)` is one item; the items read are regrouped by `List.appendAssoc` to the shape
+--| `carriedTuple` takes.
 theorem readsTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item) (inside: List Item) (first: Expr)
     (nested: NestedCarries self)
     (code: (open.kind == Comma) = False)
@@ -591,6 +602,8 @@ theorem readsOutAfter ∀ (before: List Item) [p: () → {Parse Item} Expr]
     Parse.ReadsIn GoodItems p (read value => Carried (before ++ read) value) :=
   Parse.readsWeaken gives (read value out => carriedOut _ out)
 
+--| Proof idea: by what follows the first tree: a comma starts a tuple (`readsTupleRest`), a colon an annotation
+--| (outside the slice), and anything else, or nothing, is `)`.
 theorem readsBracketedFirst ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
     (inside: List Item) (first: Expr)
     (nested: NestedCarries self)
@@ -669,6 +682,8 @@ theorem readsParenOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | False => readsAtAfterLeft [j := items => parenRest self modes items] fine (after same fits =>
       readsParenRest self modes nested outside start.rest after item later (rewrite same then shape) isParen fits)
 
+--| Proof idea: the two look-aheads read nothing, so the items left are still the `(` and what follows it; then
+--| `readsParenOn`.
 theorem readsParenAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedCarries self)
     (outside: OutsideAtoms self)
@@ -696,6 +711,8 @@ theorem readsParenAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 -- Lists.
 
+--| Proof idea: a spread (`..`) gives a `Spread`, outside the slice whatever it read; any other item is `self` at the
+--| full level.
 theorem readsListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedCarries self):
     Parse.ReadsIn GoodItems (() => listItem self modes) Carried :=
@@ -740,6 +757,8 @@ theorem readsListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) 
       (rewrite List.appendNil rc then
         carriedList open inside rc items trailing close code carried (oneOfWords one byComputing)))
 
+--| Proof idea: the mark reads nothing; the comma list after the first item gives more trees carried by what it read
+--| (`ListCarried`), and `]` is one item, so `carriedList` applies to the first tree and the rest together.
 theorem readsListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
     (inside: List Item) (first: Expr)
     (nested: NestedCarries self)
@@ -838,6 +857,8 @@ theorem readsBracketAt ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         fine
     | False => readsListExpr self modes nested start item later shape isBracket fine
 
+--| Proof idea: the two look-aheads read nothing, so the items left are still the `[` and what follows it; then
+--| `readsBracketAt`.
 theorem readsBracketAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedCarries self)
     (outside: OutsideAtoms self)
@@ -865,6 +886,8 @@ theorem readsBracketAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 -- The atom's base, by the kind of its first item.
 
+--| Proof idea: one case per branch of `atomOf`, each by the kind of the item peeked at: `-`, `!`, `(`, `[`, a word, and
+--| the rest outside the slice.
 theorem readsAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedCarries self)
     (outside: OutsideAtoms self)
@@ -1176,6 +1199,9 @@ theorem carriedRightNested ∀ [first: List Item] [head: Expr] (links: List (Wor
       rewrite split, single, same then carriedInfix operator code carried below
 
 --| One round of `operatorLinks`: the next item, if `takes` accepts it, and its operand; or nothing.
+--|
+--| Proof idea: from the mark, the item left decides the `match` and its guard; an operator `takes` accepts is bumped,
+--| then the operand is carried, so the link is that item and what the operand read.
 theorem readsOperatorStep ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr)
     (code: ∀ (kind: Tok) => takes kind = True → (kind == Comma) = False)
     (operandReads: Parse.ReadsIn GoodItems operand Carried):
@@ -1309,6 +1335,9 @@ theorem basesCarry ∀ (self: Goal → {Parse Item} Expr)
 
 --| One level of the expression parser carries its items: the levels above `append_expr` from `ladder`, the others
 --| from this file's walk.
+--|
+--| Proof idea: one case per level: the ladder above `append_expr` from `ladder`; `append_expr`, `add_expr` and
+--| `mul_expr` over `unary`, which is over `app`, from this file.
 theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
     (carries: NestedCarries self)
     (outside: Outside self)
