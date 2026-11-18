@@ -363,3 +363,533 @@ theorem readsNegativeAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
       same.flipped
       isMinus
       fits)
+
+-- Comma lists.
+
+--| Trees in the slice, all of them, have the words of the items read for them.
+def ItemsCarried (read: List Item) (items: List Expr): Prop :=
+  allWithin1 items = True → itemsWords items = itemWords read
+
+--| What a comma list gave after the trees it already had, `prior`: more trees, carried by what it read (its commas
+--| giving no words).
+def ListCarried (prior: List Expr) (read: List Item) (pair: (List Expr, Bool)): Prop :=
+  ∃ (more: List Expr) => pair.fst = prior ++ more ∧ ItemsCarried read more
+
+theorem itemsCarriedNil: ItemsCarried [] [] := within => byComputing
+
+theorem itemsCarriedComma ∀ (comma: Item) (isComma: comma.kind = Comma): ItemsCarried [comma] [] := within =>
+  rewrite itemWordsComma comma isComma
+
+theorem itemsCarriedCons ∀ [first rest: List Item] [value: Expr] [more: List Expr]
+    (carried: Carried first value)
+    (others: ItemsCarried rest more):
+    ItemsCarried (first ++ rest) [value, ..more] :=
+  within => rewrite itemWordsAppend first rest, carried (Bool.andLeft within), others (Bool.andRight within)
+
+theorem itemWordsAfterComma ∀ (comma: Item) (rest: List Item)
+    (isComma: comma.kind = Comma):
+    itemWords [comma, ..rest] = itemWords rest :=
+  rewrite itemWordsAppend [comma] rest, itemWordsComma comma isComma
+
+--| A comma, then a tree and the rest of the list.
+theorem listCarriedStep ∀ [prior: List Expr] [value: Expr] [comma: Item]
+    [first rest: List Item] [pair: (List Expr, Bool)]
+    (isComma: comma.kind = Comma)
+    (carried: Carried first value)
+    (listed: ListCarried (prior ++ [value]) rest pair):
+    ListCarried prior [comma, ..first ++ rest] pair :=
+  let (more, split, items) := listed
+  (
+    [value, ..more],
+    rewrite split then List.appendAssoc prior [value] more,
+    within => rewrite itemWordsAfterComma comma (first ++ rest) isComma then itemsCarriedCons carried items within
+  )
+
+--| The items of a comma list after the first: each comma is read and gives no word, and each item is carried.
+theorem readsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} Expr)
+    (endsReads: ∀ (count: Nat) => Reads0 (() => ends count))
+    (nextReads: Parse.ReadsIn GoodItems next Carried)
+    (fuel count: Nat) (current: Expr) (found: List Expr):
+    Parse.ReadsIn GoodItems
+      (() => commaListFrom fuel modes ends next count current found)
+      (ListCarried [current, ..found].reverse) :=
+  readsInPeeked modes
+    (seen => commaListOn fuel modes ends next count current found seen) _
+    (start fine stops =>
+      match fuel with
+        | Zero => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, itemsCarriedNil)
+        | Succ more => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, itemsCarriedNil))
+    (start item later shape fine stopped =>
+      match fuel with
+        | Zero => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, itemsCarriedNil)
+        | Succ more =>
+          match isComma: item.kind == Comma with
+            | False => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, itemsCarriedNil)
+            | True =>
+              readsAtBumpRead
+                [k := comma => commaListAfter more modes ends next count [current, ..found] (ends count)]
+                shape
+                fine
+                (after tail fits =>
+                  Parse.readsAtThen (endsReads count after fits) (r1 stop after2 starts1 empty =>
+                    match stop with
+                      | True => Parse.readsAtDone after2 _ _ (
+                        [],
+                        (List.appendNil _).flipped,
+                        (rewrite empty then itemsCarriedComma item (DecEq.sound isComma))
+                      )
+                      | False =>
+                        let fits2 := Parse.Fits.after fits starts1
+                        Parse.readsAtThen (nextReads after2 fits2) (r2 value after3 starts2 carried =>
+                          Parse.readsAtWeaken
+                            (readsCommaListFrom modes ends next endsReads nextReads more
+                              (count + 1)
+                              value
+                              [current, ..found]
+                              after3
+                              (Parse.Fits.after fits2 starts2))
+                            (r3 pair listed =>
+                              rewrite empty then
+                                listCarriedStep
+                                  (DecEq.sound isComma)
+                                  carried
+                                  (rewrite <- List.reverseCons value [current, ..found] then listed))))))
+
+-- Brackets.
+
+theorem carriedParen ∀ (open: Item) (inside rest: List Item) (inner: Expr) (close: Word)
+    (code: (open.kind == Comma) = False)
+    (carried: Carried inside inner)
+    (closeWords: itemWords rest = [close]):
+    Carried [open, ..inside ++ rest] (Paren open.leaf.word inner close) :=
+  within => rewrite itemWordsCons open (inside ++ rest) code, itemWordsAppend inside rest, carried within, closeWords
+
+theorem carriedTuple ∀ (open: Item) (inside rest: List Item) (items: List Expr) (trailing: Bool) (close: Word)
+    (code: (open.kind == Comma) = False)
+    (carried: ItemsCarried inside items)
+    (closeWords: itemWords rest = [close]):
+    Carried [open, ..inside ++ rest] (Tuple open.leaf.word items trailing close) :=
+  within => rewrite itemWordsCons open (inside ++ rest) code, itemWordsAppend inside rest, carried within, closeWords
+
+theorem carriedList ∀ (open: Item) (inside rest: List Item) (items: List Expr) (trailing: Bool) (close: Word)
+    (code: (open.kind == Comma) = False)
+    (carried: ItemsCarried inside items)
+    (closeWords: itemWords rest = [close]):
+    Carried [open, ..inside ++ rest] (ListOf open.leaf.word items trailing close) :=
+  within => rewrite itemWordsCons open (inside ++ rest) code, itemWordsAppend inside rest, carried within, closeWords
+
+--| `)` after the first tree in brackets.
+theorem readsParenClose ∀ (inner: Modes) (open: Item) (inside: List Item) (first: Expr)
+    (code: (open.kind == Comma) = False)
+    (carried: Carried inside first):
+    Parse.ReadsIn GoodItems (() => parenClose inner open.leaf.word first) (read value =>
+      Carried [open, ..inside ++ read] value) :=
+  Parse.readsThen (readsExpect inner RParen "`)`") (rc close one =>
+    Parse.readsDone _ _
+      (rewrite List.appendNil rc then
+        carriedParen open inside rc first close code carried (oneOfWords one byComputing)))
+
+theorem readsTupleClose ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => tupleClose modes) (OneOf RParen) :=
+  readsAfter0
+    [p := () => modes.at Colon]
+    [j := annotated => tupleCloseAfter modes annotated]
+    (reads0At modes Colon)
+    (annotated =>
+      match annotated with
+        | True => Parse.readsFatal _ _
+        | False => readsExpect modes RParen _)
+
+theorem readsTupleEnds ∀ (inner: Modes) (count: Nat): Reads0 (() => tupleEnds inner count) :=
+  reads0Then [p := () => inner.at RParen] (reads0At inner RParen) (found => reads0Done _)
+
+--| A tuple's tail, from the comma after its first tree: the comma, the second tree, the rest of the list and `)`.
+theorem readsTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item) (inside: List Item) (first: Expr)
+    (nested: NestedCarries self)
+    (code: (open.kind == Comma) = False)
+    (carried: Carried inside first)
+    (start: Parse.Mark Item) (comma: Item) (later: List Item)
+    (shape: start.rest = [comma, ..later])
+    (isComma: comma.kind = Comma)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => tupleRest self inner open.leaf.word first) (read value =>
+      Carried [open, ..inside ++ read] value) :=
+  readsAtAfter0
+    [p := () => Parse.mark().left]
+    [j := fuel => tupleFuel self inner open.leaf.word first fuel]
+    (reads0Mark (here => here.left))
+    fine
+    (fuel after same fits =>
+      readsAtBumpRead
+        [k := word => tupleSecond self inner open.leaf.word first fuel (full self inner)]
+        (rewrite same then shape)
+        fits
+        (after2 tail fits2 =>
+          Parse.readsAtThen
+            (nested { modes = inner, level = LevelFull } after2 fits2)
+            (r2 second after3 starts2 carried2 =>
+              let fits3 := Parse.Fits.after fits2 starts2
+              Parse.readsAtThen
+                (readsCommaListFrom inner
+                  (tupleEnds inner)
+                  (() => full self inner)
+                  (readsTupleEnds inner)
+                  (nested { modes = inner, level = LevelFull })
+                  fuel
+                  2
+                  second
+                  [first]
+                  after3
+                  fits3)
+                (r3 pair after4 starts3 listed =>
+                  match pair with
+                    | (items, trailing) =>
+                      Parse.readsAtThen
+                        (readsTupleClose inner after4 (Parse.Fits.after fits3 starts3))
+                        (rc close after5 starts4 one =>
+                          let (more, split, others) := listed
+                          let tail: ItemsCarried [comma, ..r2 ++ r3] [second, ..more] := within =>
+                            rewrite itemWordsAfterComma comma (r2 ++ r3) isComma then
+                              itemsCarriedCons carried2 others within
+                          let all: ItemsCarried (inside ++ [comma, ..r2 ++ r3]) items :=
+                            rewrite split then itemsCarriedCons carried tail
+                          let whole :=
+                            carriedTuple open
+                              (inside ++ [comma, ..r2 ++ r3])
+                              rc
+                              items
+                              trailing
+                              close
+                              code
+                              all
+                              (oneOfWords one byComputing)
+                          Parse.readsAtDone after5 _ _
+                            (rewrite List.appendNil rc then
+                              rewrite List.appendAssoc inside [comma, ..r2 ++ r3] rc,
+                                  List.appendAssoc r2 r3 rc at whole then
+                                whole))))))
+
+--| `readsOut` at a spec about more than what this parser read: a tree outside the slice still says nothing.
+theorem readsOutAfter ∀ (before: List Item) [p: () → {Parse Item} Expr]
+    (gives: Parse.Gives GoodItems p Out):
+    Parse.ReadsIn GoodItems p (read value => Carried (before ++ read) value) :=
+  Parse.readsWeaken gives (read value out => carriedOut _ out)
+
+theorem readsBracketedFirst ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
+    (inside: List Item) (first: Expr)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (code: (open.kind == Comma) = False)
+    (carried: Carried inside first):
+    Parse.ReadsIn GoodItems (() => bracketedFirst self inner open.leaf.word first) (read value =>
+      Carried [open, ..inside ++ read] value) :=
+  readsInPeeked inner
+    (seen => bracketedAfter self inner open.leaf.word first seen) _
+    (start fine stops => readsParenClose inner open inside first code carried start fine)
+    (start item later shape fine stopped =>
+      match isComma: item.kind == Comma with
+        | True =>
+          readsTupleRest self inner open inside first nested code carried start item later shape
+            (DecEq.sound isComma)
+            fine
+        | False =>
+          match isColon: item.kind == Colon with
+            | True =>
+              readsOutAfter
+                [open, ..inside]
+                [p := () => annotated self inner open.leaf.word first]
+                (outside.annotations inner open.leaf.word first)
+                start
+                fine
+            | False => readsParenClose inner open inside first code carried start fine)
+
+theorem readsBracketedTail ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Item)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (code: (open.kind == Comma) = False):
+    Parse.ReadsIn GoodItems (() => bracketedTail self modes open.leaf.word) (read value =>
+      Carried [open, ..read] value) :=
+  Parse.readsThen
+    [p := () => full self modes.inBrackets]
+    [j := first => bracketedFirst self modes.inBrackets open.leaf.word first]
+    (nested { modes = modes.inBrackets, level = LevelFull })
+    (inside first carried => readsBracketedFirst self modes.inBrackets open inside first nested outside code carried)
+
+theorem readsBracketed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isParen: item.kind = LParen)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => bracketed self modes) Carried :=
+  readsAtBumpRead [k := open => bracketedTail self modes open] shape fine (after tail fits =>
+    readsBracketedTail self modes item nested outside (codeAs isParen byComputing) after fits)
+
+theorem readsParenRest ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (items: List Item) (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isParen: item.kind = LParen)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => parenRest self modes items) Carried :=
+  match rightOperator items with
+    | Some inside =>
+      readsOut [p := () => rightSection self modes inside] (outside.rightSections modes inside) start fine
+    | None => readsBracketed self modes nested outside start item later shape isParen fine
+
+theorem readsParenOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (second third: Option Tok) (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isParen: item.kind = LParen)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => parenOn self modes second third) Carried :=
+  match parenOutside second third with
+    | True =>
+      readsOut [p := () => parenOther self modes second third] (outside.parenOthers modes second third) start fine
+    | False => readsAtAfterLeft [j := items => parenRest self modes items] fine (after same fits =>
+      readsParenRest self modes nested outside start.rest after item later (rewrite same then shape) isParen fits)
+
+theorem readsParenAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isParen: item.kind = LParen)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => parenAtom self modes) Carried :=
+  readsAtAfter0
+    [p := () => modes.peekAt 1]
+    [j := second => parenSecond self modes second]
+    (reads0PeekAt modes 1)
+    fine
+    (second after same fits =>
+      readsAtAfter0
+        [p := () => modes.peekAt 2]
+        [j := third => parenOn self modes second third]
+        (reads0PeekAt modes 2)
+        fits
+        (third after2 same2 fits2 =>
+          readsParenOn self modes nested outside second third after2 item later
+            (rewrite same2, same then shape)
+            isParen
+            fits2))
+
+-- Lists.
+
+theorem readsListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self):
+    Parse.ReadsIn GoodItems (() => listItem self modes) Carried :=
+  readsAfter0
+    [p := () => modes.at DotDot]
+    [j := spread => listItemAfter self modes spread]
+    (reads0At modes DotDot)
+    (spread =>
+      match spread with
+        | True =>
+          Parse.readsThen
+            [p := () => bump()]
+            [j := dots => listSpread self modes dots (modes.at Comma || modes.at RBracket)]
+            givesBump
+            (r1 dots _ =>
+              readsAfter0
+                [p := () => modes.at Comma || modes.at RBracket]
+                [j := empty => listSpread self modes dots empty]
+                (reads0Then [p := () => modes.at Comma] (reads0At modes Comma) (comma =>
+                  match comma with
+                    | True => reads0Done True
+                    | False => reads0At modes RBracket))
+                (empty =>
+                  match empty with
+                    | True => Parse.readsFatal _ _
+                    | False =>
+                      Parse.readsThen
+                        [p := () => full self modes]
+                        [j := value => Spread dots value]
+                        (nested { modes, level = LevelFull })
+                        (r2 value _ => Parse.readsDone _ _ (carriedOut _ byComputing))))
+        | False => nested { modes, level = LevelFull })
+
+theorem readsListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item) (inside: List Item)
+    (items: List Expr) (trailing: Bool)
+    (code: (open.kind == Comma) = False)
+    (carried: ItemsCarried inside items):
+    Parse.ReadsIn GoodItems (() => listItemsEnd self inner open.leaf.word (items, trailing)) (read value =>
+      Carried [open, ..inside ++ read] value) :=
+  Parse.readsThen (readsExpect inner RBracket "`,` or `]`") (rc close one =>
+    Parse.readsDone _ _
+      (rewrite List.appendNil rc then
+        carriedList open inside rc items trailing close code carried (oneOfWords one byComputing)))
+
+theorem readsListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
+    (inside: List Item) (first: Expr)
+    (nested: NestedCarries self)
+    (code: (open.kind == Comma) = False)
+    (carried: Carried inside first):
+    Parse.ReadsIn GoodItems (() => listItemsFrom self inner open.leaf.word first) (read value =>
+      Carried [open, ..inside ++ read] value) :=
+  Parse.readsThen
+    [p := () => Parse.mark()]
+    [j := here =>
+      listItemsEnd self inner open.leaf.word
+        (commaList (here.left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first [])]
+    Parse.readsMark
+    (r0 here empty =>
+      Parse.readsThen
+        [p := () => commaList (here.left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first []]
+        [j := pair => listItemsEnd self inner open.leaf.word pair]
+        (readsCommaListFrom inner
+          (count => inner.at RBracket)
+          (() => listItem self inner)
+          (count => reads0At inner RBracket)
+          (readsListItem self inner nested)
+          (here.left + 1)
+          1
+          first
+          [])
+        (r1 pair listed =>
+          match pair with
+            | (items, trailing) =>
+              let (more, split, others) := listed
+              Parse.readsWeaken
+                (readsListItemsEnd self inner open
+                  (inside ++ r1)
+                  items
+                  trailing
+                  code
+                  (rewrite split then itemsCarriedCons carried others))
+                (rc value whole => rewrite empty then (rewrite List.appendAssoc inside r1 rc at whole then whole))))
+
+theorem readsListItems ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
+    (nested: NestedCarries self)
+    (code: (open.kind == Comma) = False):
+    Parse.ReadsIn GoodItems (() => listItems self inner open.leaf.word) (read value => Carried [open, ..read] value) :=
+  Parse.readsThen
+    [p := () => listItem self inner]
+    [j := first => listItemsFrom self inner open.leaf.word first]
+    (readsListItem self inner nested)
+    (inside first carried => readsListItemsFrom self inner open inside first nested code carried)
+
+theorem readsListPeek ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
+    (nested: NestedCarries self)
+    (code: (open.kind == Comma) = False):
+    Parse.ReadsIn GoodItems (() => listPeek self inner open.leaf.word) (read value => Carried [open, ..read] value) :=
+  readsInPeeked inner
+    (seen => listAfter self inner open.leaf.word seen) _
+    (start fine stops => readsListItems self inner open nested code start fine)
+    (start item later shape fine stopped =>
+      match isClose: item.kind == RBracket with
+        | True => readsAtBumpRead [k := close => ListOf open.leaf.word [] False close] shape fine (after tail fits =>
+          Parse.readsAtDone after
+            (ListOf open.leaf.word [] False item.leaf.word) _
+            (carriedList open []
+              [item]
+              []
+              False
+              item.leaf.word
+              code
+              itemsCarriedNil
+              (itemWordsCode item (codeAs (DecEq.sound isClose) byComputing))))
+        | False => readsListItems self inner open nested code start fine)
+
+theorem readsListExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isBracket: item.kind = LBracket)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => listExpr self modes) Carried :=
+  readsAtBumpRead [k := open => listTail self modes open] shape fine (after tail fits =>
+    readsListPeek self modes.inBrackets item nested (codeAs isBracket byComputing) after fits)
+
+theorem readsBracketAt ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (second third: Option Tok) (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isBracket: item.kind = LBracket)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => bracketAt self modes second third) Carried :=
+  match named: (isSome Lower second || isSome KwDecreasing second) && isSome ColonEq third with
+    | True =>
+      readsOut
+        [p := () => namedArgument self modes RBracket "`]`"]
+        (outside.namedArguments modes RBracket "`]`")
+        start
+        fine
+    | False => readsListExpr self modes nested start item later shape isBracket fine
+
+theorem readsBracketAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (isBracket: item.kind = LBracket)
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => bracketAtom self modes) Carried :=
+  readsAtAfter0
+    [p := () => modes.peekAt 1]
+    [j := second => bracketSecond self modes second]
+    (reads0PeekAt modes 1)
+    fine
+    (second after same fits =>
+      readsAtAfter0
+        [p := () => modes.peekAt 2]
+        [j := third => bracketAt self modes second third]
+        (reads0PeekAt modes 2)
+        fits
+        (third after2 same2 fits2 =>
+          readsBracketAt self modes nested outside second third after2 item later
+            (rewrite same2, same then shape)
+            isBracket
+            fits2))
+
+-- The atom's base, by the kind of its first item.
+
+theorem readsAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self)
+    (start: Parse.Mark Item) (item: Item) (later: List Item)
+    (shape: start.rest = [item, ..later])
+    (fine: Parse.Fits Item GoodItems start.rest):
+    Parse.ReadsAt start (() => atomOf self modes item.kind) Carried :=
+  match isMinus: item.kind == Minus with
+    | True => readsNegativeAtom self modes nested start item later shape (DecEq.sound isMinus) fine
+    | False =>
+      match isBang: item.kind == Bang with
+        | True => readsAtAfterLeft [j := items => prefixBangOn self modes items] fine (after same fits =>
+          readsPrefixAtom self modes nested
+            (argumentBang start.rest)
+            after
+            item
+            later
+            (rewrite same then shape)
+            (codeAs (DecEq.sound isBang) byComputing)
+            fits)
+        | False =>
+          match isParen: item.kind == LParen with
+            | True => readsParenAtom self modes nested outside start item later shape (DecEq.sound isParen) fine
+            | False =>
+              match isBracket: item.kind == LBracket with
+                | True => readsBracketAtom self modes nested outside start item later shape (DecEq.sound isBracket) fine
+                | False =>
+                  match word: isWord item.kind with
+                    | True => readsWordAtom start item later shape fine
+                    | False =>
+                      readsOut [p := () => atomRest self modes item.kind] (outside.rests modes item.kind) start fine
+
+--| `atom_base` carries its items, at every mode.
+def BasesCarry (self: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => atomBase self modes) Carried
+
+theorem readsAtomBases ∀ (self: Goal → {Parse Item} Expr)
+    (nested: NestedCarries self)
+    (outside: OutsideAtoms self):
+    BasesCarry self :=
+  modes =>
+    readsInPeeked modes
+      (seen => atomBaseOn self modes seen) _
+      (start fine stops => readsOut [p := () => atomMissing self modes] (outside.missings modes) start fine)
+      (start item later shape fine stopped => readsAtomOf self modes nested outside start item later shape fine)
