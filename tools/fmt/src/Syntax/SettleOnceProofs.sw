@@ -2,11 +2,12 @@
 --| (SW-4022, `onceWordsSettled1`).
 
 namespace Syntax.SettleOnceProofs
-import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
+import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (
   alphabet1,
+  dropSpacesStart,
   emptyOf,
   laidOut,
   lexedTexts,
@@ -425,3 +426,89 @@ theorem textsWithout ∀ (q: Text → Bool) (behind rest: List Leaf)
                             q then
                         Bool.andIntro (Bool.andLeft split2) parkedAll)
                       (Bool.andRight split2)
+
+-- A comment trimmed of the spaces at its end is still a comment, and the lexer's test of one holds.
+
+--| A comment's characters without those at their end that are spaces (`trimEnd`).
+def trimChars (chars: List Char): List Char := (chars.reverse.dropWhile (char => char == ' ')).reverse
+
+theorem dropWhileBefore ∀ (p: Char → Bool) (xs: List Char) (stop: Char) (more: List Char)
+    (stops: p stop = False):
+    (xs ++ [stop, ..more]).dropWhile p = xs.dropWhile p ++ [stop, ..more] :=
+  match xs with
+    | [] => rewrite stops
+    | [x, ..rest] =>
+      match p x with
+        | True => dropWhileBefore p rest stop more stops
+        | False => byComputing
+
+theorem trimCharsSecond ∀ (first second: Char) (rest: List Char)
+    (stops: (second == ' ') = False):
+    trimChars [first, second, ..rest] = [first, second, ..trimChars rest] :=
+  let reversed: [first, second, ..rest].reverse = rest.reverse ++ [second, first] := calc [
+    first,
+    second,
+    ..rest
+  ].reverse
+    _ = [second, ..rest].reverse ++ [first] := List.reverseCons first [second, ..rest]
+    _ = (rest.reverse ++ [second]) ++ [first] := rewrite List.reverseCons second rest
+    _ = rest.reverse ++ [second, first] := List.appendAssoc rest.reverse [second] [first]
+  calc trimChars [first, second, ..rest]
+    _ = ((rest.reverse ++ [second, first]).dropWhile (char => char == ' ')).reverse := rewrite reversed
+    _ = (rest.reverse.dropWhile (char => char == ' ') ++ [second, first]).reverse :=
+      rewrite dropWhileBefore (char => char == ' ') rest.reverse second [first] stops
+    _ = [first, second, ..trimChars rest] :=
+      rewrite List.reverseAppend (rest.reverse.dropWhile (char => char == ' ')) [second, first]
+
+theorem trimStartsDashes ∀ (chars: List Char)
+    (h: Text.startsWithChars ['-', '-'] chars = True):
+    Text.startsWithChars ['-', '-'] (trimChars chars) = True :=
+  match chars with
+    | [only] => cases
+    | [first, second, ..rest] =>
+      match same1: Text.sameChar '-' first with
+        | True =>
+          match same2: Text.sameChar '-' second with
+            | True =>
+              let equal: Char.toNat '-' = Char.toNat second := Nat.equalSound (Char.toNat '-') (Char.toNat second) same2
+              let stops: (second == ' ') = False := rewrite <- equal
+              rewrite trimCharsSecond first second rest stops
+
+theorem trimSplit ∀ (chars: List Char):
+    trimChars chars ++ (chars.reverse.takeWhile (char => char == ' ')).reverse = chars :=
+  calc trimChars chars ++ (chars.reverse.takeWhile (char => char == ' ')).reverse
+    _ = ((chars.reverse.takeWhile (char => char == ' ')) ++ chars.reverse.dropWhile (char => char == ' ')).reverse :=
+      (List.reverseAppend
+        (chars.reverse.takeWhile (char => char == ' '))
+        (chars.reverse.dropWhile (char => char == ' '))).flipped
+    _ = chars.reverse.reverse := rewrite List.takeWhileDropWhile (char => char == ' ') chars.reverse
+    _ = chars := List.reverseReverse chars
+
+theorem trimNoNewline ∀ (chars: List Char)
+    (h: Text.containsChars ['\n'] chars = False):
+    Text.containsChars ['\n'] (trimChars chars) = False :=
+  match found: Text.containsChars ['\n'] (trimChars chars) with
+    | False => byComputing
+    | True =>
+      let big :=
+        Text.containsCharsAppendLeft
+          ['\n']
+          (trimChars chars)
+          (chars.reverse.takeWhile (char => char == ' ')).reverse
+          found
+      rewrite trimSplit chars at big then rewrite h at big then cases
+
+--| A comment as the lexer reads it (`--`, no line break) is one the formatter's `commentText` accepts once its
+--| trailing spaces are trimmed.
+theorem trimmedComment ∀ (text: Text)
+    (starts: text.startsWith "--" = True)
+    (single: text.contains "\n" = False):
+    commentText (trimEnd text) = True :=
+  match spaced: text.endsWith " " with
+    | False => rewrite starts, single
+    | True =>
+      let kept := (text.toList.reverseOnto []).dropWhile (char => char == ' ')
+      let back: (kept.reverseOnto []).reverseOnto [] = kept := List.reverseReverse kept
+      let startsOk := trimStartsDashes text.toList starts
+      let singleOk := trimNoNewline text.toList single
+      rewrite startsOk, singleOk, back, dropSpacesStart (text.toList.reverseOnto [])
