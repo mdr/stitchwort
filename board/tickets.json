@@ -24778,7 +24778,7 @@
     {
       "id": 4042,
       "title": "[Fable paper] fmt S1 output E: state the printed trivia fact (where printed comments and blank lines stand, the third walk of the rules; note section 4) as a test and an open goal; split the proof (F) into lanes (after SW-4034; docs/reviews/SW-4025-output-statements.md ticket E)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -24817,7 +24817,7 @@
     {
       "id": 4045,
       "title": "[Opus] fmt S1 line-break 18h: derive DeclHangs from the tree facts, so printedHangs needs only within1/shaped1/sound/lexical1: each slice 1 expression's ElHangs from within1 by induction (assembling ItemsHang, ArgsHang, LinkFacts, PairFacts, HeldLowers, Coded, the bare arrow token, huggedBracket's opened form); TrailsComment from sound (commentText to IsComment); no comments above : and := (from shaped1/sound or a leaf lemma); the name's Plain/WordToken from nameWithin1 (SW-4034's Owed list in tools/fmt/NOTES.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
