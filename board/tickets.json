@@ -23462,12 +23462,12 @@
     {
       "id": 3944,
       "title": "[Sonnet] Self-hosted fmt engine E6, ahead of E5 (orchestrator's call: S1 needs Std.Doc and TextBlock isn't in the program yet): move Fmt.Doc into std as Std.Doc with its 357 theorems; tools/fmt imports it; audit Std.Doc clean (docs/proposals/self-hosted-fmt-engine-plan.md E6; proof plan F2)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Sonnet lane, 18 Nov 2026, branch lane/SW-3944 (7af0720f3). Fmt.Doc moved to Std.Doc (crates/elab/src/std/Doc/); audit Std.Doc 357 theorems, 0 failed, 0 warnings; test --std Doc 35/35; harness on goldens 632/0/12. Std files take names in full: Doc.Proofs.X, Doc.Nothing (was Empty). The library index now applies a file imports when resolving its references (test added). Prelude snapshot: additions only.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
