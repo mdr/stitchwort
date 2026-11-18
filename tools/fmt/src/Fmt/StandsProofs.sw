@@ -3,13 +3,33 @@
 
 namespace Fmt.StandsProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
-import Std.Doc.Proofs (Event, Gap, Said, Told, eventsOf, isLayout, lineBlank, lineWidth)
+import Std.Doc.Proofs (
+  Closer,
+  Event,
+  Gap,
+  IsComment,
+  Kept,
+  ReadsAs,
+  Said,
+  Stretch,
+  Told,
+  Tucked,
+  closesText,
+  commentStarts,
+  eventsOf,
+  isLayout,
+  laidOf,
+  lineBlank,
+  lineWidth,
+  printedOf,
+  startsAs
+)
 import Syntax (Comment, Comments, Leaf, Note, Tok, Token, Trivia, Word, withTrailing, withoutReturn)
 import Fmt (isCloserText)
 import Fmt.TriviaStatements (..)
 import Fmt.ToldDeclProofs (..)
 import Syntax.Proofs (Laid, Piece)
-import Fmt.PrintHangProofs (CommentsEnd, Tracks, endsRest, freshIsBlank, laidOf, lastComment, tracks)
+import Fmt.PrintHangProofs (CommentsEnd, Tracks, endsRest, freshIsBlank, lastComment, tracks)
 import Fmt.PrintLexProofs (pieceOf)
 
 -- What the lexer reads of a leaf.
@@ -64,12 +84,13 @@ def Hearing.hear (heard: Hearing) (kinds: Text → Tok) (event: Event): Hearing 
       blank = False
     }
 
-def hearAll (kinds: Text → Tok) (events: List Event): Hearing :=
-  events.foldLeft Hearing.start (heard event => heard.hear kinds event)
+def hearOn (kinds: Text → Tok) (heard: Hearing) (event: Event): Hearing := heard.hear kinds event
+
+def hearAll (kinds: Text → Tok) (events: List Event): Hearing := events.foldLeft Hearing.start (hearOn kinds)
 
 theorem hearSnoc ∀ (kinds: Text → Tok) (events: List Event) (event: Event):
     hearAll kinds (events ++ [event]) = (hearAll kinds events).hear kinds event :=
-  List.foldLeftAppend events Hearing.start [event] (heard event => heard.hear kinds event)
+  List.foldLeftAppend events Hearing.start [event] (hearOn kinds)
 
 -- `Laid.lay` against the events.
 
@@ -98,13 +119,15 @@ theorem startIsSome ∀ (texts: List Text):
 --| Spaces change nothing the lexer reads.
 theorem hearsSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
     (spaces: text.all (char => char == ' ') = True)
-    (before: Hears kinds (laidOf kinds earlier) earlier):
-    Hears kinds (laidOf kinds [text, ..earlier]) [text, ..earlier] :=
+    (before: Hears kinds (Fmt.PrintHangProofs.laidOf kinds earlier) earlier):
+    Hears kinds (Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]) [text, ..earlier] :=
   let notBreak: (text == "\n") = False := Fmt.PrintHangProofs.spacesNotBreak text spaces
   let events: eventsOf [text, ..earlier] = eventsOf earlier := rewrite spaces, notBreak
   let blank: lineBlank [text, ..earlier] = lineBlank earlier := rewrite spaces
-  let wider: laidOf kinds [text, ..earlier]
-    = { laidOf kinds earlier | column = (laidOf kinds earlier).column + text.length } :=
+  let wider: Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]
+    = { Fmt.PrintHangProofs.laidOf kinds earlier |
+      column = (Fmt.PrintHangProofs.laidOf kinds earlier).column + text.length
+    } :=
     rewrite spaces
   rewrite events, blank, wider then before
 
@@ -112,11 +135,11 @@ theorem hearsSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
 theorem hearsBreak ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
     (spaces: text.all (char => char == ' ') = False)
     (broken: (text == "\n") = True)
-    (before: Hears kinds (laidOf kinds earlier) earlier):
-    Hears kinds (laidOf kinds [text, ..earlier]) [text, ..earlier] :=
+    (before: Hears kinds (Fmt.PrintHangProofs.laidOf kinds earlier) earlier):
+    Hears kinds (Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]) [text, ..earlier] :=
   let (views, above, blankRun, lineSame, _) := before
-  let laid := laidOf kinds earlier
-  let fresh: laidOf kinds [text, ..earlier] = laid.lay Break := rewrite spaces, broken
+  let laid := Fmt.PrintHangProofs.laidOf kinds earlier
+  let fresh: Fmt.PrintHangProofs.laidOf kinds [text, ..earlier] = laid.lay Break := rewrite spaces, broken
   let blank: lineBlank [text, ..earlier] = True := rewrite spaces, broken
   let events: eventsOf [text, ..earlier]
     = (if lineBlank earlier then eventsOf earlier ++ [Event.blankLine] else eventsOf earlier) :=
@@ -137,13 +160,14 @@ theorem hearsRemark ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
     (broken: (text == "\n") = False)
     (comment: text.startsWith "--" = True)
     (ends: CommentsEnd [text, ..earlier])
-    (before: Hears kinds (laidOf kinds earlier) earlier):
-    Hears kinds (laidOf kinds [text, ..earlier]) [text, ..earlier] :=
+    (before: Hears kinds (Fmt.PrintHangProofs.laidOf kinds earlier) earlier):
+    Hears kinds (Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]) [text, ..earlier] :=
   let (views, above, blankRun, lineSame, staleBlank) := before
   let (blankBefore, freshBefore, _) := tracks kinds earlier (endsRest text earlier ends)
-  let laid := laidOf kinds earlier
+  let laid := Fmt.PrintHangProofs.laidOf kinds earlier
   let event: Event := { word = text, start = if lineBlank earlier then Some (lineWidth earlier) else None }
-  let noted: laidOf kinds [text, ..earlier] = laid.lay (Remark text) := rewrite spaces, broken, comment
+  let noted: Fmt.PrintHangProofs.laidOf kinds [text, ..earlier] = laid.lay (Remark text) :=
+    rewrite spaces, broken, comment
   let events: eventsOf [text, ..earlier] = eventsOf earlier ++ [event] := rewrite spaces, broken
   let blank: lineBlank [text, ..earlier] = False := rewrite spaces, broken
   let sameLine: laid.freshLine = lineBlank earlier :=
@@ -172,13 +196,14 @@ theorem hearsCode ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
     (broken: (text == "\n") = False)
     (comment: text.startsWith "--" = False)
     (ends: CommentsEnd [text, ..earlier])
-    (before: Hears kinds (laidOf kinds earlier) earlier):
-    Hears kinds (laidOf kinds [text, ..earlier]) [text, ..earlier] :=
+    (before: Hears kinds (Fmt.PrintHangProofs.laidOf kinds earlier) earlier):
+    Hears kinds (Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]) [text, ..earlier] :=
   let (views, above, blankRun, lineSame, _) := before
   let (blankBefore, freshBefore, _) := tracks kinds earlier (endsRest text earlier ends)
-  let laid := laidOf kinds earlier
+  let laid := Fmt.PrintHangProofs.laidOf kinds earlier
   let event: Event := { word = text, start = if lineBlank earlier then Some (lineWidth earlier) else None }
-  let token: laidOf kinds [text, ..earlier] = laid.lay (Code (kinds text) text) := rewrite spaces, broken, comment
+  let token: Fmt.PrintHangProofs.laidOf kinds [text, ..earlier] = laid.lay (Code (kinds text) text) :=
+    rewrite spaces, broken, comment
   let events: eventsOf [text, ..earlier] = eventsOf earlier ++ [event] := rewrite spaces, broken
   let blank: lineBlank [text, ..earlier] = False := rewrite spaces, broken
   let sameLine: laid.freshLine = lineBlank earlier :=
@@ -199,11 +224,11 @@ theorem hearsCode ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
 --| agreement (`hearsSpaces`, `hearsBreak`, `hearsRemark`, `hearsCode`), with `tracks`' facts for where a line starts.
 theorem laidHears ∀ (kinds: Text → Tok) (texts: List Text)
     (ends: CommentsEnd texts):
-    Hears kinds (laidOf kinds texts) texts :=
+    Hears kinds (Fmt.PrintHangProofs.laidOf kinds texts) texts :=
   match texts, ends with
     | [], _ => (byComputing, byComputing, byComputing, byComputing, never => (Bool.trueNotFalse never).impossible)
     | [text, ..earlier], ends =>
-      let goal: Prop := Hears kinds (laidOf kinds [text, ..earlier]) [text, ..earlier]
+      let goal: Prop := Hears kinds (Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]) [text, ..earlier]
       let before := laidHears kinds earlier (endsRest text earlier ends)
       Bool.inspect
         (text.all (char => char == ' '))
@@ -370,3 +395,90 @@ theorem heardStands ∀ (owed: Option Text) (bits: List Bit) (leaves: List Leaf)
                     | (comment, trailing, same) =>
                       rewrite trailing, same, DecEq.refl trail then heardStands None rest more heardRest
                 | Inr (none, heardRest) => rewrite noTrail leaf none then heardStands (Some trail) rest more heardRest
+
+-- The tuck: the printed events of a reading of the bits, as the lexer hears them.
+
+--| A comment as the rules print it and the lexer reads it back: `--` first, no carriage return to take off.
+def CommentFine (text: Text): Prop := text.startsWith "--" = True ∧ withoutReturn text = text
+
+def NotesFine: List Note → Prop
+  | [] => Unit
+  | [note, ..rest] => CommentFine note.text ∧ NotesFine rest
+
+def AfterFine: Option Text → Prop
+  | None => Unit
+  | Some text => CommentFine text
+
+--| A word the lexer reads back as itself: a token of a kind that is a comma or closer exactly when its text is, and its
+--| comments.
+def WordFine (kinds: Text → Tok) (word: Word): Prop :=
+  (kinds word.text == Comma) = False
+    ∧ (kinds word.text).isCloser = isCloserText word.text
+    ∧ word.text.startsWith "--" = False
+    ∧ (word.text == "\n") = False
+    ∧ (word.text == ",") = False
+    ∧ NotesFine word.comments.above
+    ∧ AfterFine word.comments.after
+
+def BitsFine (kinds: Text → Tok): List Bit → Prop
+  | [] => Unit
+  | [AComma, ..rest] => kinds "," = Comma ∧ BitsFine kinds rest
+  | [AWord word, ..rest] => WordFine kinds word ∧ BitsFine kinds rest
+
+--| A trailing comment that waits while the closers `pending` are printed on its line, or none.
+def Waiting: Option Event → List Event → Prop
+  | None, pending => pending = []
+  | Some comment, pending => pending ≠ [] ∧ List.All Closer pending ∧ comment.start = None ∧ CommentFine comment.word
+
+--| The events still to print: the waiting comment's closers and then it, then the stretches'.
+def nowPrinted: Option Event → List Event → List Stretch → List Event
+  | None, _, stretches => printedOf stretches
+  | Some comment, pending, stretches => pending ++ [comment] ++ printedOf stretches
+
+--| An entry whose event can't start a tucked stretch: a blank line, a word, or a comment that starts its line.
+def Unmoved (told: Told): Bool := match told with
+  | Told.Gap => True
+  | Said text _ follows => !follows || !text.startsWith "--"
+  | _ => False
+
+theorem blankNotComment ∀ (event: Event) (blank: event = Event.blankLine) (comment: IsComment event.word): Void :=
+  Bool.falseNotTrue (rewrite blank at comment then commentStarts "\n" comment)
+
+theorem codeNotComment ∀ (text: Text) (code: text.startsWith "--" = False) (comment: IsComment text): Void :=
+  let starts := commentStarts text comment
+  Bool.falseNotTrue (rewrite code at starts then starts)
+
+--| Entries no tucked stretch can start are each kept as they stand.
+--|
+--| Proof idea: by induction on the entries; a tucked stretch starts with a comment that starts no line, which a blank
+--| line, a word or an own-line comment's event is not.
+theorem keptFront ∀ (told more: List Told) (stretches: List Stretch)
+    (unmoved: told.all Unmoved = True)
+    (fits: List.All Stretch.Fits stretches)
+    (reads: ReadsAs (told ++ more) (laidOf stretches)):
+    ∃ (front: List Event) => ∃ (rest: List Stretch) => printedOf stretches = front ++ printedOf rest
+      ∧ ReadsAs told front
+      ∧ ReadsAs more (laidOf rest)
+      ∧ List.All Stretch.Fits rest :=
+  match told, unmoved with
+    | [], _ => ([], stretches, byComputing, byComputing, reads, fits)
+    | [entry, ..others], unmoved =>
+      let othersUnmoved: others.all Unmoved = True := Bool.andRight unmoved
+      match stretches, fits, entry, unmoved, reads with
+        | [], _, Told.Gap, _, never => cases
+        | [], _, Said _ _ _, _, never => cases
+        | [Kept event, ..later], (_, fitsLater), Told.Gap, _, (blank, readsLater) =>
+          match keptFront others more later othersUnmoved fitsLater readsLater with
+            | (front, rest, printed, readsFront, readsMore, fitsRest) =>
+              ([event, ..front], rest, (rewrite printed), (blank, readsFront), readsMore, fitsRest)
+        | [Kept event, ..later], (_, fitsLater), Said text starts follows, _, (word, start, readsLater) =>
+          match keptFront others more later othersUnmoved fitsLater readsLater with
+            | (front, rest, printed, readsFront, readsMore, fitsRest) =>
+              ([event, ..front], rest, (rewrite printed), (word, start, readsFront), readsMore, fitsRest)
+        | [Tucked comment closers, ..later], ((_, isComment, _), _), Told.Gap, _, (blank, _) =>
+          (blankNotComment comment blank isComment).impossible
+        | [Tucked comment closers, ..later], ((unstarted, isComment, _), _), Said text starts follows, moves, (word,
+            start, _) =>
+          let follows: follows = True := rewrite unstarted at start then start
+          let code: text.startsWith "--" = False := rewrite follows at moves then Bool.notTrue _ (Bool.andLeft moves)
+          (codeNotComment text code (rewrite word at isComment then isComment)).impossible
