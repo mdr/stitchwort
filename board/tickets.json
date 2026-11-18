@@ -24280,7 +24280,7 @@
     {
       "id": 4004,
       "title": "[Opus] fmt S1 ticket 17b: readsBack1, the tree-by-tree read-back: a RunsFrom per parser function (~35, atoms up to the def frame), on SW-3968's named steps, from SW-3969's blockOneLine and Item facts; plan in tools/fmt/NOTES.md (SW-3969 section)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
