@@ -1,5 +1,5 @@
 {
-  "next": 3995,
+  "next": 3996,
   "tickets": [
     {
       "id": 47,
@@ -24136,6 +24136,19 @@
       "id": 3994,
       "title": "[Sonnet] fmt census: sort the 642 sampled declarations every construct of which is in slice 4b but still refused (SW-3992 guesses: lambda parameter patterns, .._, blocked shapes), with tools/fmt/dev's census script; report counts by cause for the next slices",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3995,
+      "title": "[Opus] Self-hosted fmt S4c program: records: record literals and updates ({ r | f = e }), record fields, spread (..), record patterns, membership (x ∈ s) if cheap; within4c, Fmt.Twin --stage s4c; gate identical to Rust; census after (SW-3992's top: Record 581 present, RecordField 526, Spread 347 present/114 only, Membership 81 only, PatternRecord 35 only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
