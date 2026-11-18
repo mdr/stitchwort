@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24384,12 +24384,12 @@
     {
       "id": 4012,
       "title": "[Opus] fmt S1 read-back 17c: the tree-to-items relation (induction over Spells giving each node's items via ItemsAt) and the knot for a whole tree (a good relation for Parse.runsRecursiveWith over every slice 1 node; runsExpressionWord is the pattern), on SW-4004's Syntax.ReadBackRuns",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Expected: 70 min. Lane notes (Opus, 18 Nov 2026, branch lane/SW-4012, 15:48-16:14):\n- New tools/fmt/src/Syntax/ReadBackTree.sw (54 theorems, audit clean): the tree relation `Tree goal read rest value`, one Prop per rung of the parser's ladder (atoms' seven bases, app, unary, mul/add/append chains, piped, cmp, logic, end/arrow, operator, inline, block, full), children named only through `sub`; `Layer` for the three self-call levels (full, unary, argument), `TreeN depth`, `Tree` = some depth.\n- Knot: `runsTree` (Parse.runsRecursiveWith expressionRule Tree treeStep): expressionAt reads every tree the relation holds of. Result: `declarationTree` from the record `DeclarationTree` (17d's one target).\n- For 17d: `layerMono`/`treeNRaise`/`treeOfLayer` build trees bottom up; `fullWord`/`treeWord` is the one-word case; `itemsAround`/`declarationItems` cut items through ItemsAt.\n- Finding: a line-start expression needs its inline reading too (Parse.Runs is over every state; exprLater blocks only at offset > 0). 17d must supply it, or a runsRecursiveWith over RunsFrom with offsets would drop it.\n- No parser change. InlinePlain and OperandEnds became Prop records (ReadBackRuns).\n",
+      "body": "Expected: 70 min. Lane notes (Opus, 18 Nov 2026, branch lane/SW-4012, 15:48-16:14):\n- New tools/fmt/src/Syntax/ReadBackTree.sw (54 theorems, audit clean): the tree relation `Tree goal read rest value`, one Prop per rung of the parser's ladder (atoms' seven bases, app, unary, mul/add/append chains, piped, cmp, logic, end/arrow, operator, inline, block, full), children named only through `sub`; `Layer` for the three self-call levels (full, unary, argument), `TreeN depth`, `Tree` = some depth.\n- Knot: `runsTree` (Parse.runsRecursiveWith expressionRule Tree treeStep): expressionAt reads every tree the relation holds of. Result: `declarationTree` from the record `DeclarationTree` (17d's one target).\n- For 17d: `layerMono`/`treeNRaise`/`treeOfLayer` build trees bottom up; `fullWord`/`treeWord` is the one-word case; `itemsAround`/`declarationItems` cut items through ItemsAt.\n- Finding: a line-start expression needs its inline reading too (Parse.Runs is over every state; exprLater blocks only at offset > 0). 17d must supply it, or a runsRecursiveWith over RunsFrom with offsets would drop it.\n- No parser change. InlinePlain and OperandEnds became Prop records (ReadBackRuns).\n\nMerged 18 Nov. 24 min (est. 70). Statements checked by the orchestrator: runsTree and declarationTree say what their docs claim; InlinePlain/OperandEnds became Prop records, same meaning.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24402,7 +24402,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-4012: the target is the DeclarationTree record in Syntax/ReadBackTree.sw (isDef, isLower, isColon, isColonEq, typeReads: ResultReads ..., valueTree: Tree ...); build it from Spells, hangs and the glue facts, discharging the look-ahead fields (ParenPlain, AtomEnds, InlinePlain, OperandEnds; comma-list end tests as Runs facts), with layerMono, treeNRaise, treeOfLayer. Extra obligation: an expression starting a line needs its inline reading too (Runs holds from every state; a block is read only after the first item). Orchestrator's call: the lane chooses between providing that reading and proving runsRecursiveWith from a fixed state with offsets, by which is less work, and says why. Then readsBack1 (same calm).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
