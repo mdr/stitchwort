@@ -289,8 +289,12 @@ def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
     atLineStart = False,
     newlinesAtEnd = 0,
     started = True,
-    commentFloor = if text.startsWith "--" then paid.commentFloor else None
+    commentFloor = floorAfter text paid.commentFloor
   }
+
+--| The comment floor after `text` is written: a comment keeps it, code
+--| ends it.
+def floorAfter (text: Text) (floor: Option Nat): Option Nat := if text.startsWith "--" then floor else None
 
 --| The indentation of a comment break in a construct indented `indent`:
 --| deeper than the line being broken, so what follows continues it.
