@@ -1155,12 +1155,17 @@ theorem walkLands ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
                   (Bool.andRight behindWithin)
               (Succ passed, rewrite passes, walked then arithmetic, lands)
 
---| Every closer with a trailing comment, newest first, is one rule 1 stops
---| on, given the leaves before it.
+--| A closer with a trailing comment is one rule 1 stops on, given the
+--| leaves before it, newest first; a comma with one starts its line.
+def homedLeaf (leaf: Leaf) (older: List Leaf): Bool :=
+  leaf.trivia.trailing.isNone
+    || ((!leaf.kind.isCloser || older.isEmpty || stopsAt leaf older)
+      && (!(leaf.kind == Comma) || older.isEmpty || leaf.token.lineStart))
+
+--| `homedLeaf` of every leaf, newest first.
 def homedBehind: List Leaf → Bool
   | [] => True
-  | [leaf, ..older] =>
-    (leaf.trivia.trailing.isNone || !leaf.kind.isCloser || older.isEmpty || stopsAt leaf older) && homedBehind older
+  | [leaf, ..older] => homedLeaf leaf older && homedBehind older
 
 theorem closerLands ∀ (leaf: Leaf) (rest: Bool)
     (lands: (!passable leaf || rest) = True):
@@ -1168,6 +1173,38 @@ theorem closerLands ∀ (leaf: Leaf) (rest: Bool)
   match closer: leaf.kind.isCloser with
     | False => byComputing
     | True => rewrite Bool.orTrue at lands then lands
+
+theorem commaLands ∀ (leaf: Leaf) (older: List Leaf)
+    (lands: (!passable leaf || older.isEmpty || stopsAt leaf older) = True):
+    (!(leaf.kind == Comma) || older.isEmpty || leaf.token.lineStart) = True :=
+  match comma: leaf.kind == Comma with
+    | False => byComputing
+    | True =>
+      match older.isEmpty with
+        | True => byComputing
+        | False => Bool.andLeft lands
+
+--| Where a walk may end, a comment is homed.
+theorem landsHomed ∀ (leaf: Leaf) (older: List Leaf)
+    (lands: (!passable leaf || older.isEmpty || stopsAt leaf older) = True):
+    homedLeaf leaf older = True :=
+  Bool.orRight
+    (Bool.andIntro (closerLands leaf (older.isEmpty || stopsAt leaf older) lands) (commaLands leaf older lands))
+
+--| A comment rule 1 can't move is homed: on a comma that starts its line
+--| or a leaf that is neither comma nor closer.
+theorem fixedHomed ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (within: leaf.kind.within1 = True)
+    (fixed: movable leaf behind ahead = False):
+    homedLeaf leaf behind = True :=
+  let fixed1 := rewrite movableQuiet1 leaf behind ahead within at fixed then fixed
+  let notCloser: leaf.kind.isCloser = False := Bool.orFalseRight _ _ fixed1
+  let commaStarts := Bool.orFalseLeft _ _ fixed1
+  let commaPart: (!(leaf.kind == Comma) || behind.isEmpty || leaf.token.lineStart) = True :=
+    match comma: leaf.kind == Comma with
+      | False => byComputing
+      | True => Bool.orRight (Bool.notFalse _ commaStarts)
+  Bool.orRight (Bool.andIntro (rewrite notCloser) commaPart)
 
 --| A comment moved back over quiet leaves to where the walk ends keeps the
 --| leaves homed.
@@ -1178,7 +1215,7 @@ theorem trailingAtHomed ∀ (behind: List Leaf) (steps: Nat) (comment: Comment) 
     homedBehind (trailingAt behind steps comment) = True :=
   match steps, behind with
     | Succ Zero, [target, ..earlier] =>
-      Bool.andIntro (closerLands target (earlier.isEmpty || stopsAt target earlier) lands) (Bool.andRight homed)
+      Bool.andIntro (landsHomed (target.withTrailing (Some comment)) earlier lands) (Bool.andRight homed)
     | Succ (Succ more), [leaf, ..earlier] =>
       Bool.andIntro
         (Bool.orLeft (Bool.andLeft (Bool.andRight quiet)))
@@ -1222,10 +1259,7 @@ theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
         | Some comment =>
           let trailed := cleanTrailed leaf behind (ahead => byComputing)
           match fixed: movable leaf behind after with
-            | False =>
-              let notCloser: leaf.kind.isCloser = False :=
-                Bool.orFalseRight _ _ (rewrite movableQuiet1 leaf behind after within at fixed then fixed)
-              kept True trailed afterLaid (Bool.andIntro (Bool.orLeft (rewrite notCloser)) homed)
+            | False => kept True trailed afterLaid (Bool.andIntro (fixedHomed leaf behind after within fixed) homed)
             | True =>
               let (passed, walked, quiet) :=
                 walkSteps leaf behind after 0 (clean leaf after leafLaid leafPending) within behindWithin
@@ -1236,8 +1270,7 @@ theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
                 match passed, quiet with
                   | Zero, _ =>
                     rewrite barsQuiet1 leaf behind after within then
-                      kept True trailed afterLaid
-                        (Bool.andIntro (closerLands leaf (behind.isEmpty || stopsAt leaf behind) landsHere) homed)
+                      kept True trailed afterLaid (Bool.andIntro (landsHomed leaf behind landsHere) homed)
                   | Succ more, Inl zero => cases
                   | Succ more, Inr (leadEmpty, leafPassable, quietBehind) =>
                     let moved := leaf.withTrailing None
