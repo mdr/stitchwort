@@ -1851,7 +1851,12 @@ fn a_closed_statement_proved_by_a_general_lemma_is_never_computed() {
     let one = p.num(1);
     let closed = eq(None, mix_of(one.clone()), mix_of(one.clone()));
     assert_eq!(
-        define_small(&mut p, "closed", closed.clone(), app(Term::Def(same), [one])),
+        define_small(
+            &mut p,
+            "closed",
+            closed.clone(),
+            app(Term::Def(same), [one])
+        ),
         Ok(())
     );
     assert_eq!(

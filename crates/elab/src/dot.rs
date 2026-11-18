@@ -2012,9 +2012,7 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         match cx.e.named(&name.text) {
             // A kept type is glued: forced, so a type written through a
             // nickname shows its parameters.
-            Some((Global::Def(id), _))
-                if !matches!(force(&g, g.def(*id).ty_value().clone())?, Value::Pi(_, i, _, _) if i.is_implicit()) =>
-            {
+            Some((Global::Def(id), _)) if !matches!(force(&g, g.def(*id).ty_value().clone())?, Value::Pi(_, i, _, _) if i.is_implicit()) => {
                 Ty::Term(Rc::new(g.def(*id).ty().clone()), Vec::new())
             }
             _ => return Ok(None),
