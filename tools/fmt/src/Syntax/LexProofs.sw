@@ -1,6 +1,7 @@
 namespace Syntax.Proofs
 import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Parse, Result, Text, Void)
 import Syntax (..)
+import Fmt (..)
 
 --| `text` is lexed as one token of `kind`, alone at the start of a line with no comments around it.
 def LexesAs (text: Text) (kind: Tok): Prop :=
@@ -1912,3 +1913,193 @@ theorem lexesAsNum ∀ (text: Text) (spells: Spells Num text): LexesAs text Num 
 
 theorem lexesAsFloat ∀ (text: Text) (spells: Spells Float text): LexesAs text Float :=
   lexesAsSpells Float text spells (mayFollowEnd Float text)
+
+-- The operator table against the lexer.
+
+--| The kinds of slice 1's alphabet that are punctuation or operators: all but names, numbers and `def`.
+def Tok.symbolic1: Tok → Bool
+  | Lower => False
+  | Upper => False
+  | Num => False
+  | Float => False
+  | KwDef => False
+  | kind => kind.within1
+
+--| `operatorTok`, which the rules use to tell which operator a word is, gives the kind the lexer gives, for each
+--| spelling of it.
+theorem operatorTokOfSpells ∀ (kind: Tok) (text: Text)
+    (spells: Spells kind text)
+    (symbolic: kind.symbolic1 = True):
+    operatorTok text = Some kind :=
+  match kind, spells, symbolic with
+    | LParen, same, symbolic => rewrite same
+    | RParen, same, symbolic => rewrite same
+    | LBracket, same, symbolic => rewrite same
+    | RBracket, same, symbolic => rewrite same
+    | Comma, same, symbolic => rewrite same
+    | Colon, same, symbolic => rewrite same
+    | ColonEq, same, symbolic => rewrite same
+    | Equals, same, symbolic => rewrite same
+    | EqEq, same, symbolic => rewrite same
+    | Arrow, Inl same, symbolic => rewrite same
+    | Arrow, Inr same, symbolic => rewrite same
+    | OrOr, Inl same, symbolic => rewrite same
+    | OrOr, Inr same, symbolic => rewrite same
+    | AndAnd, Inl same, symbolic => rewrite same
+    | AndAnd, Inr same, symbolic => rewrite same
+    | Plus, same, symbolic => rewrite same
+    | PlusPlus, same, symbolic => rewrite same
+    | Minus, same, symbolic => rewrite same
+    | Star, same, symbolic => rewrite same
+    | Slash, same, symbolic => rewrite same
+    | Percent, same, symbolic => rewrite same
+    | NotEq, Inl same, symbolic => rewrite same
+    | NotEq, Inr same, symbolic => rewrite same
+    | Lt, same, symbolic => rewrite same
+    | Le, Inl same, symbolic => rewrite same
+    | Le, Inr same, symbolic => rewrite same
+    | Gt, same, symbolic => rewrite same
+    | Ge, Inl same, symbolic => rewrite same
+    | Ge, Inr same, symbolic => rewrite same
+    | Bang, Inl same, symbolic => rewrite same
+    | Bang, Inr same, symbolic => rewrite same
+    | other, spells, symbolic => (Bool.falseNotTrue symbolic).impossible
+
+--| `operatorTokLexes`: a word's text that `operatorTok` reads as an operator is read by the lexer as that token:
+--| the table and the lexer agree on every spelling of slice 1's operators and brackets.
+theorem operatorTokLexes ∀ (kind: Tok) (text: Text)
+    (spells: Spells kind text)
+    (symbolic: kind.symbolic1 = True):
+    operatorTok text = Some kind ∧ LexesAs text kind :=
+  Both (operatorTokOfSpells kind text spells symbolic) (lexesAsSpells kind text spells (mayFollowEnd kind text))
+
+-- Examples: the hypotheses of `lexPieces` hold of a real piece list, which the lexer reads as predicted.
+
+def examplePieces: List Piece := [
+  Remark "-- top",
+  Break,
+  Break,
+  Code KwDef "def",
+  Gap 1,
+  Code Lower "x",
+  Code Colon ":",
+  Gap 1,
+  Code Upper "Nat",
+  Gap 1,
+  Code ColonEq ":=",
+  Gap 1,
+  Code Float "1.5",
+  Gap 1,
+  Code Arrow "→",
+  Gap 1,
+  Code Bang "¬",
+  Remark "-- end",
+  Break,
+  Gap 2,
+  Code Lower "y",
+  Break
+]
+
+theorem examplePlain: AllPlain examplePieces := byDecision
+
+theorem exampleLexable: Lexable examplePieces [] :=
+  Both
+    (Witness [' ', 't', 'o', 'p'] (Both byComputing byComputing))
+    (Both byDecision
+      (Both byComputing
+        (Both byDecision
+          (Both byComputing
+            (Both byDecision
+              (Both byComputing
+                (Both byDecision
+                  (Both byComputing
+                    (Both byDecision
+                      (Both
+                        (Witness 'x' (Witness [] (Both byComputing (Both byComputing (Both byComputing byComputing)))))
+                        (Both byDecision
+                          (Both byComputing
+                            (Both byDecision
+                              (Both byComputing
+                                (Both byDecision
+                                  (Both
+                                    (Witness 'N'
+                                      (Witness
+                                        ['a', 't']
+                                        (Both byComputing (Both byComputing (Both byComputing byComputing)))))
+                                    (Both byDecision
+                                      (Both byComputing
+                                        (Both byDecision
+                                          (Both byComputing
+                                            (Both byDecision
+                                              (Both byComputing
+                                                (Both byDecision
+                                                  (Both
+                                                    (Witness '1'
+                                                      (Witness []
+                                                        (Witness '5'
+                                                          (Witness []
+                                                            (Both byComputing
+                                                              (Both byComputing
+                                                                (Both byComputing (Both byComputing byComputing))))))))
+                                                    (Both byDecision
+                                                      (Both byComputing
+                                                        (Both byDecision
+                                                          (Both
+                                                            (Inr byComputing)
+                                                            (Both byDecision
+                                                              (Both byComputing
+                                                                (Both byDecision
+                                                                  (Both
+                                                                    (Inr byComputing)
+                                                                    (Both
+                                                                      (same => cases)
+                                                                      (Both
+                                                                        (Witness
+                                                                          [' ', 'e', 'n', 'd']
+                                                                          (Both byComputing byComputing))
+                                                                        (Both byDecision
+                                                                          (Both byComputing
+                                                                            (Both byDecision
+                                                                              (Both byComputing
+                                                                                (Both byDecision
+                                                                                  (Both
+                                                                                    (Witness 'y'
+                                                                                      (Witness []
+                                                                                        (Both byComputing
+                                                                                          (Both byComputing
+                                                                                            (Both byComputing
+                                                                                                byComputing)))))
+                                                                                    (Both byDecision
+                                                                                      (Both byComputing
+                                                                                        (Both byDecision
+                                                                                            byComputing)))))))))))))))))))))))))))))))))))))))))))
+
+--| The lexer's answer on the example text, from `lexPieces`.
+theorem exampleLexes: lex (piecesText examplePieces)
+      = Ok {
+        leaves = (examplePieces.foldLeft Laid.start Laid.lay).leaves.reverse,
+        end = {
+          leading = (examplePieces.foldLeft Laid.start Laid.lay).pending.reverse,
+          blankLines = (examplePieces.foldLeft Laid.start Laid.lay).blankRun,
+          trailing = None
+        }
+      } :=
+  lexPieces examplePieces examplePlain exampleLexable
+
+--| The same, by computing the lexer, which checks that the layout `Laid` describes is what the lexer does: `def`
+--| starts the line after two blank ones with the comment above it, `y` is at column 2, the unicode arrow is three
+--| bytes wide.
+theorem exampleLayout: (lex (piecesText examplePieces)).map (lexed =>
+      lexed.leaves.map (leaf => (leaf.token.kind, leaf.token.column, leaf.token.lineStart)))
+      = Ok [
+        (KwDef, 0, True),
+        (Lower, 4, False),
+        (Colon, 5, False),
+        (Upper, 7, False),
+        (ColonEq, 11, False),
+        (Float, 14, False),
+        (Arrow, 18, False),
+        (Bang, 22, False),
+        (Lower, 2, True)
+      ] :=
+  byComputing
