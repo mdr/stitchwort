@@ -23795,12 +23795,12 @@
     {
       "id": 3968,
       "title": "[Sonnet] fmt S1 ticket 16b: parser proofs, second half (sketch §2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Rescoped by SW-3967 (orchestrator): 16b = the rest of the ladder (unary, app, arguments, cmpExpr, logicChain, operatorExpr, exprInline, expr), atomBase and brackets (parenAtom, bracketed, commaList, listExpr, tuple length >= 2), block/blockLines/statement, the def frame (DeclParser.sw), tying the walk with Parse.givesRecursiveWith + SelfGives, then stating and proving parseShaped1 and parseLexical1. Out-of-slice walks and parseSettled1/Carries1/fuelEnough1 moved to SW-4000. GoodItems (every item a slice-1 token with a Spells spelling) is assumed: discharge it in glue as lexGood.",
+      "body": "\nRescoped by SW-3967 (orchestrator): 16b = the rest of the ladder (unary, app, arguments, cmpExpr, logicChain, operatorExpr, exprInline, expr), atomBase and brackets (parenAtom, bracketed, commaList, listExpr, tuple length >= 2), block/blockLines/statement, the def frame (DeclParser.sw), tying the walk with Parse.givesRecursiveWith + SelfGives, then stating and proving parseShaped1 and parseLexical1. Out-of-slice walks and parseSettled1/Carries1/fuelEnough1 moved to SW-4000. GoodItems (every item a slice-1 token with a Spells spelling) is assumed: discharge it in glue as lexGood.\n\nLane notes (Sonnet, 18 Nov 2026, about 50 min of agent time, est. 60): branch lane/SW-3968. New file tools/fmt/src/Syntax/ParseWalk.sw (namespace Syntax.ParseWalk, 195 theorems, audit 0 failed, 2 vacuity warnings that are search artefacts). Walked: unary, app/arguments, atomBase and its arms, parenAtom, bracketed, tuples (two items or more, via commaListFrom), lists, cmpExpr, ranges, logicChain (groupLogic, conjunctionOf), operatorExpr (arrow, sections), exprInline, expr, block/blockLines/statement, thenBody, resultType, the def frame (definitionParts, definitionBody, declaration), parseGroups/parseFile; tied with Parse.givesRecursiveWith; parseShaped1, parseLexicalLoose1, parseLexical1 proved. Assumed (for SW-4000): `OutsideGives` (type Outside, the out-of-slice rules of the recursion) and `Frame expressionAt` (the frame's out-of-slice parts), both records of named Gives facts in ParseWalk.sw. Parser.sw, DeclParser.sw and Statements.sw were split into named steps (behaviour-keeping). Finding: `def Foo: Nat := 1` is within1 but not Decl.lexical1 (the name lexes as Upper); parseLexical1 therefore takes a lower-case-name hypothesis, and parseLexicalLoose1 holds without it. Tests: check Syntax Fmt, Syntax.ParseWalk, Syntax.ParseProofs; audit ParseWalk, ParseProofs, Fmt.PassProofs; test Syntax.Tests (52), Fmt.Tests (82).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
