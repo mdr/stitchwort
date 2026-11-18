@@ -25461,12 +25461,12 @@
     {
       "id": 4093,
       "title": "[Opus] fmt S1 spacing goals appSteps then declSpacedTouches: calls' spacing via JoinProofs.appFromPasses (spaced, filled front, HardLine rest, three Choice options, the hug), then the definition through defFrom and bodyAfter; route notes on each goal and in NOTES 'Steps 2 to 4' (SW-4076)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus, 18 Nov 2026, branch lane/SW-4093):\n- appSteps proved (Fmt.TouchProofs) through the new Fmt.TouchSeq: SeqSteps (documents with a spacing list each), spaced/Fill/HardLine runs/split at keep, appFromSteps for every appFrom layout incl. the hug; argumentsSteps over argumentDocs; a tuple/list last argument as huggedBracket (lastArgumentSteps).\n- declSpacedTouches proved (Fmt.SpacingProofs): plainDefSteps as JoinProofs.plainDefPasses, bodySteps for both bodyAfter forms (OneLineBelow via new TouchSteps.stepsOneLineBelow, the call hug via callHugSteps), spacedOfSteps.\n- printedSpacing1 audits with no open goal. No statement changes. 32 new theorems; 3 fill lemmas moved TouchProofs -> TouchSeq.\n- Tests: check of TouchSeq/TouchProofs/SpacingProofs clean; audit Fmt.TouchSeq Fmt.TouchProofs Fmt.SpacingProofs (115 theorems, 0 failed, 3 old vacuity warnings) and Fmt.TouchSteps + printedSpacing1 (0 failed); test Fmt.Tests 118/118.\n- ~17 min (est. 50).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
