@@ -24871,7 +24871,7 @@
     {
       "id": 4049,
       "title": "[Sonnet] fmt S1 trivia F2: words (Word.leading, Word.leaf, Word.opening, closerNotes), atoms, parens, prefix; flags as Comments.kept (after SW-4048's Doc.told definition; docs/reviews/SW-4042-trivia-statement.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
