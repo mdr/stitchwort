@@ -12,8 +12,11 @@ import Fmt.TriviaStatements (..)
 import Fmt.FileLexProofs (laidNotesFalse, printedFileLexes1)
 import Fmt.OutputFileProofs (declStartsKw, printedAlphabet1, printedGroups1, printedPlain1)
 import Syntax.ParseSettledStatements (..)
+import Fmt.CalmProofs (..)
 import Syntax.ParseCarries (codeWords)
+import Syntax.SettleOnceProofs (isMarked, markedTokens)
 import Syntax.SettleProofs (
+  alphabet1,
   barsQuiet1,
   chainSteps,
   chainTo,
@@ -39,7 +42,18 @@ import Syntax.SettleProofs (
   plainFromOf,
   tokensReverseOnto
 )
-import Syntax.SettleSplitProofs (codeWordsAppend, groupsConcat)
+import Syntax.SettleSplitProofs (
+  codeWordsAppend,
+  arrowsBareSuffix,
+  declsWordsOpen,
+  endsOpen,
+  endsOpenReverse,
+  groupsConcat,
+  notTrueW,
+  startsOpen,
+  startsOpenConcat,
+  trailsBackAppend
+)
 
 -- What rule 1 has passed.
 
@@ -697,12 +711,442 @@ theorem standsRest ∀ (decls: List Decl)
           byComputing)
         (standsRest rest (Bool.andRight within) (Bool.andRight stood) (Bool.andRight plain) (Bool.andRight starts))
 
+theorem emptySame ∀ (more others: List Word) (alike: AllAlike more others): more.isEmpty = others.isEmpty :=
+  match more, others, alike with
+    | [], [], _ => byComputing
+    | [m, ..ms], [o, ..os], _ => byComputing
+
+--| The look back, own-line comments and closers a word has don't change under `calm`: homed words stay homed.
+theorem homedBackAlike ∀ (before after: List Word) (alike: AllAlike before after): homedBack before = homedBack after :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [first, ..more], [second, ..others], (same, rest) =>
+      rewrite alikeTrails first second same,
+          alikeCloser first second same,
+          alikeNoted first second same,
+          trailsBackAlike more others rest,
+          homedBackAlike more others rest,
+          emptySame more others rest
+
+--| Alike words keep the comment texts `commentText` allows.
+theorem textsAlike ∀ (before after: List Word)
+    (alike: AllAlike before after)
+    (texts: before.all (word => word.comments.texts.all commentText) = True):
+    after.all (word => word.comments.texts.all commentText) = True :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [first, ..more], [second, ..others], (same, rest) =>
+      Bool.andIntro
+        (rewrite <- alikeTexts first second same then Bool.andLeft texts)
+        (textsAlike more others rest (Bool.andRight texts))
+
+--| A newest-first list homed in two parts is homed whole, if the older part starts the look back at an open word.
+theorem homedBackAppend ∀ (xs ys: List Word)
+    (ends: endsOpen xs = True)
+    (front: homedBack xs = True)
+    (back: homedBack ys = True):
+    homedBack (xs ++ ys) = True :=
+  match xs with
+    | [word] =>
+      let open := notTrueW (isCloserText word.text) ends
+      Bool.andIntro (rewrite open) back
+    | [word, next, ..rest] =>
+      let ih := homedBackAppend [next, ..rest] ys ends (Bool.andRight front) back
+      let first := Bool.andLeft front
+      let kept := trailsBackAppend [next, ..rest] ys ends
+      Bool.andIntro (rewrite kept then first) ih
+
+--| The words of declarations, each homed and none starting with a closer, are homed joined, read newest first.
+theorem homedConcat ∀ (pieces: List (List Word))
+    (open: pieces.all startsOpen = True)
+    (homed: pieces.all (piece => homedBack piece.reverse) = True):
+    homedBack pieces.concat.reverse = True :=
+  match pieces with
+    | [] => byComputing
+    | [piece, ..more] =>
+      let rest := homedConcat more (Bool.andRight open) (Bool.andRight homed)
+      let opens := startsOpenConcat more (Bool.andRight open)
+      rewrite List.reverseAppend piece more.concat then
+        match joined: more.concat with
+          | [] => Bool.andLeft homed
+          | [word, ..others] =>
+            homedBackAppend
+              (List.reverse [word, ..others])
+              piece.reverse
+              (endsOpenReverse word others (notTrueW (isCloserText word.text) opens))
+              rest
+              (Bool.andLeft homed)
+
+theorem allJoin ∀ (xs ys: List Word) (p: Word → Bool)
+    (front: xs.all p = True)
+    (back: ys.all p = True):
+    (xs ++ ys).all p = True :=
+  match xs with
+    | [] => back
+    | [x, ..rest] => Bool.andIntro (Bool.andLeft front) (allJoin rest ys p (Bool.andRight front) back)
+
+theorem allConcat ∀ (pieces: List (List Word)) (p: Word → Bool)
+    (all: pieces.all (piece => piece.all p) = True):
+    pieces.concat.all p = True :=
+  match pieces with
+    | [] => byComputing
+    | [piece, ..more] => allJoin piece more.concat p (Bool.andLeft all) (allConcat more p (Bool.andRight all))
+
+--| A declaration's words and its calm words, the `def` given other comments alike its own, are alike.
+theorem declWordsAlike ∀ (header: Header) (colonEq: Comments) (value: Expr) (keyword: Comments)
+    (within: (Definition [] header (Assigned colonEq value)).within1 = True)
+    (kept: (fixedWord "def" header.keyword).alike (fixedWord "def" keyword)):
+    AllAlike
+      (Definition [] header (Assigned colonEq value)).words
+      (Definition [] { header.calm | keyword } (Assigned (colonEq.kept False False) (value.calm False))).words :=
+  match header with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword = original,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      } =>
+      allAlikeAppend
+        [fixedWord "def" original, name, fixedWord ":" colon]
+        [fixedWord "def" keyword, name.kept False False, fixedWord ":" (colon.kept False False)]
+        (result.words ++ [fixedWord ":=" colonEq] ++ value.words)
+        ((result.calm False).words ++ [fixedWord ":=" (colonEq.kept False False)] ++ (value.calm False).words)
+        (kept, (keptAlike name False False, (keptAlike (fixedWord ":" colon) False False, byComputing)))
+        (allAlikeAppend result.words
+          (result.calm False).words
+          ([fixedWord ":=" colonEq] ++ value.words)
+          ([fixedWord ":=" (colonEq.kept False False)] ++ (value.calm False).words)
+          (wordsCalm result False (Bool.andRight (Bool.andLeft within)))
+          (keptAlike (fixedWord ":=" colonEq) False False, wordsCalm value False (Bool.andRight within)))
+
+theorem toppedAlike ∀ (keyword: Comments): (fixedWord "def" keyword).alike (fixedWord "def" keyword.topped) :=
+  match keyword.above with
+    | [] => (byComputing, byComputing, byComputing, byComputing)
+    | [first, ..more] => (byComputing, byComputing, byComputing, byComputing)
+
+theorem restSettled ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (settled: decls.all Decl.settled1 = True):
+    ((decls.map Decl.calm).map Decl.words).all (piece => homedBack piece.reverse) = True
+      ∧ ((decls.map Decl.calm).map Decl.words).all (piece => piece.all (word => word.comments.texts.all commentText))
+        = True :=
+  match decls with
+    | [] => (byComputing, byComputing)
+    | [Definition [] header (Assigned colonEq value), ..rest] =>
+      let alike: AllAlike
+        (Definition [] header (Assigned colonEq value)).words
+        (Definition [] header (Assigned colonEq value)).calm.words :=
+        declWordsAlike header colonEq value header.keyword
+          (Bool.andLeft within)
+          (alikeRefl (fixedWord "def" header.keyword))
+      let own := Bool.andLeft settled
+      let (restHomed, restTexts) := restSettled rest (Bool.andRight within) (Bool.andRight settled)
+      let same :=
+        homedBackAlike _ _
+          (allAlikeReverse
+            (Definition [] header (Assigned colonEq value)).words
+            (Definition [] header (Assigned colonEq value)).calm.words
+            alike)
+      (
+        Bool.andIntro (rewrite <- same then Bool.andLeft own) restHomed,
+        Bool.andIntro
+          (textsAlike
+            (Definition [] header (Assigned colonEq value)).words
+            (Definition [] header (Assigned colonEq value)).calm.words
+            alike
+            (Bool.andRight (Bool.andRight own)))
+          restTexts
+      )
+
 --| The output tree's words are settled as the tree's are: `calm` and `calmTop` change only blank-line flags.
+--|
+--| Proof idea: each declaration's words are alike its calm words (`declWordsAlike`, from `wordsCalm`; the first `def`
+--| has its flag cleared, `toppedAlike`), and alike words keep what `homedBack` and the comment texts read
+--| (`homedBackAlike`, `textsAlike`); no declaration starts with a closer, so the joined words are homed
+--| (`homedConcat`).
 theorem wordsSettled1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
     (settled: file.settled1 = True):
     homedBack (file.words1.reverseOnto []) = True
       ∧ file.words1.all (word => word.comments.texts.all commentText) = True :=
-  ?
+  match file with
+    | { decls, end } =>
+      let withinDecls: decls.all Decl.within1 = True := within
+      match decls with
+        | [] => (byComputing, byComputing)
+        | [Definition [] header (Assigned colonEq value), ..rest] =>
+          let keyword := header.keyword
+          let firstDecl :=
+            Definition []
+              { header.calm | keyword = keyword.topped }
+              (Assigned (colonEq.kept False False) (value.calm False))
+          let alike: AllAlike (Definition [] header (Assigned colonEq value)).words firstDecl.words :=
+            declWordsAlike header colonEq value keyword.topped (Bool.andLeft withinDecls) (toppedAlike keyword)
+          let own := Bool.andLeft (Bool.andLeft settled)
+          let (restHomed, restTexts) :=
+            restSettled rest (Bool.andRight withinDecls) (Bool.andRight (Bool.andLeft settled))
+          let same :=
+            homedBackAlike _ _
+              (allAlikeReverse (Definition [] header (Assigned colonEq value)).words firstDecl.words alike)
+          let pieces :=
+            (SourceFile.calmTop { decls = [Definition [] header (Assigned colonEq value), ..rest], end }).decls.map
+                Decl.words
+          (
+            homedConcat pieces (declsWordsOpen _) (Bool.andIntro (rewrite <- same then Bool.andLeft own) restHomed),
+            allConcat pieces
+              (word => word.comments.texts.all commentText)
+              (Bool.andIntro
+                (textsAlike
+                  (Definition [] header (Assigned colonEq value)).words
+                  firstDecl.words
+                  alike
+                  (Bool.andRight (Bool.andRight own)))
+                restTexts)
+          )
+
+def arrowText (word: Word): Bool := operatorTok word.text == Some Arrow
+
+--| The words end in a word that isn't `->`: no `->` ends a declaration.
+def endsQuiet: List Word → Bool
+  | [] => False
+  | [word] => !arrowText word
+  | [_, ..rest] => endsQuiet rest
+
+def quietOrEmpty (words: List Word): Bool := words.isEmpty || endsQuiet words
+
+theorem endsQuietJoin ∀ (xs ys: List Word) (quiet: endsQuiet ys = True): endsQuiet (xs ++ ys) = True := match xs with
+  | [] => quiet
+  | [x] =>
+    match ys with
+      | [y, ..more] => quiet
+  | [x, next, ..rest] => endsQuietJoin [next, ..rest] ys quiet
+
+theorem endsQuietAppend ∀ (xs ys: List Word)
+    (front: endsQuiet xs = True)
+    (back: quietOrEmpty ys = True):
+    endsQuiet (xs ++ ys) = True :=
+  match ys with
+    | [] => rewrite List.appendNil xs then front
+    | [y, ..more] => endsQuietJoin xs [y, ..more] back
+
+theorem endsQuietCons ∀ (word: Word) (rest: List Word)
+    (quiet: endsQuiet rest = True):
+    endsQuiet [word, ..rest] = True :=
+  match rest with | [next, ..more] => quiet
+
+theorem wordWithin ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.within1 = True := match kind with
+  | Lower => byComputing
+  | Upper => byComputing
+  | Num => byComputing
+  | Float => byComputing
+
+theorem wordNotArrow ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == Arrow) = False := match kind with
+  | Lower => byComputing
+  | Upper => byComputing
+  | Num => byComputing
+  | Float => byComputing
+
+theorem markedArrow ∀ (leaf: Leaf) (kind: Tok) (text: Text)
+    (sameText: leaf.token.text = text)
+    (sameKind: leaf.token.kind = kind)
+    (marked: leaf.marked = True)
+    (notArrow: (kind == Arrow) = False):
+    (operatorTok text == Some Arrow) = False :=
+  match leaf with
+    | { token = { kind = k, text = t, column, lineStart }, trivia } =>
+      let arrows := Bool.andRight marked
+      rewrite sameText, sameKind at arrows then
+        match isArrow: operatorTok text == Some Arrow with
+          | False => byComputing
+          | True => Void.impossible (Bool.falseNotTrue (rewrite notArrow at arrows then arrows))
+
+--| A name or numeral lexed as one token isn't `->`.
+theorem atomNotArrow ∀ (kind: Tok) (text: Text)
+    (word: kind.wordWithin1 = True)
+    (lexes: textLexesAs text kind = True):
+    (operatorTok text == Some Arrow) = False :=
+  match ran: lex text with
+    | Ok lexed =>
+      match leaves: lexed.leaves with
+        | [leaf] =>
+          let sameText: leaf.token.text = text := DecEq.sound (Bool.andLeft lexes)
+          let sameKind: leaf.token.kind = kind := DecEq.sound (Bool.andRight lexes)
+          let within: alphabet1 lexed.leaves = True :=
+            rewrite leaves then Bool.andIntro (rewrite sameKind then wordWithin kind word) byComputing
+          let laid := lexLaid1 text lexed ran within
+          let all: lexed.leaves.all Leaf.marked = True := Bool.andLeft (Bool.andRight laid)
+          markedArrow leaf kind text sameText sameKind
+            (Bool.andLeft (rewrite leaves at all then all))
+            (wordNotArrow kind word)
+
+theorem closeQuiet ∀ (close: Word) (text: Text)
+    (same: close.text = text)
+    (plain: (operatorTok text == Some Arrow) = False):
+    endsQuiet [close] = True :=
+  rewrite same, plain
+
+theorem exprEndsQuiet ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True):
+    endsQuiet expr.words = True :=
+  match expr with
+    | Atom kind word =>
+      let notArrow := atomNotArrow kind word.text (Bool.andLeft within) lexical
+      rewrite notArrow
+    | Paren open inner close =>
+      endsQuietJoin
+        [open, ..inner.words]
+        [close]
+        (closeQuiet close ")" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
+    | Tuple open items _ close =>
+      endsQuietJoin
+        [open, ..itemsWords items]
+        [close]
+        (closeQuiet close ")" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
+    | ListOf open items _ close =>
+      endsQuietJoin
+        [open, ..itemsWords items]
+        [close]
+        (closeQuiet close "]" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
+    | App head arguments =>
+      endsQuietAppend head.words
+        (itemsWords arguments)
+        (exprEndsQuiet head (Bool.andLeft within) (Bool.andLeft lexical))
+        (itemsQuiet arguments (Bool.andRight within) (Bool.andRight lexical))
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          endsQuietJoin left.words
+            [operator, ..right.words]
+            (endsQuietCons operator right.words
+              (exprEndsQuiet right (Bool.andLeft (Bool.andRight within)) (Bool.andRight (Bool.andRight lexical))))
+        | InfixArrow =>
+          endsQuietJoin left.words
+            [operator, ..right.words]
+            (endsQuietCons operator right.words
+              (exprEndsQuiet right (Bool.andLeft (Bool.andRight within)) (Bool.andRight (Bool.andRight lexical))))
+        | _ => cases
+    | Prefix operator operand =>
+      endsQuietCons operator operand.words (exprEndsQuiet operand (Bool.andLeft within) (Bool.andRight lexical))
+
+theorem itemsQuiet ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True):
+    quietOrEmpty (itemsWords items) = True :=
+  match items with
+    | [] => byComputing
+    | [item, ..rest] =>
+      Bool.orRight
+        (endsQuietAppend item.words
+          (itemsWords rest)
+          (exprEndsQuiet item (Bool.andLeft within) (Bool.andLeft lexical))
+          (itemsQuiet rest (Bool.andRight within) (Bool.andRight lexical)))
+
+--| Alike words end alike.
+theorem endsQuietAlike ∀ (before after: List Word) (alike: AllAlike before after): endsQuiet before = endsQuiet after :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [word], [other], (same, _) => rewrite (Eq.cong (text => operatorTok text == Some Arrow) same.left)
+    | [word], [other, further, ..more], _ => cases
+    | [word, next, ..rest], [other], _ => cases
+    | [word, next, ..rest], [other, further, ..more], (same, tail) =>
+      endsQuietAlike [next, ..rest] [further, ..more] tail
+
+theorem arrowsBareAlike ∀ (before after: List Word)
+    (alike: AllAlike before after):
+    arrowsBare before = arrowsBare after :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [word], [other], _ => byComputing
+    | [word], [other, further, ..more], _ => cases
+    | [word, next, ..rest], [other], _ => cases
+    | [word, next, ..rest], [other, further, ..more], (same, tail) =>
+      let (nextSame, _) := tail
+      rewrite same.left,
+          alikeTrails word other same,
+          alikeNoted next further nextSame,
+          arrowsBareAlike [next, ..rest] [further, ..more] tail
+
+def headQuiet: List Word → Bool
+  | [] => True
+  | [word, ..rest] => !arrowText word
+
+theorem pairQuiet ∀ (word next: Word)
+    (quiet: (!arrowText word) = True):
+    (operatorTok word.text != Some Arrow || (!word.trails && !next.noted)) = True :=
+  let plain: arrowText word = False := Bool.notTrue _ quiet
+  Bool.orLeft quiet
+
+--| `->` stays bare across a seam, if the first part doesn't end in one.
+theorem arrowsJoin ∀ (xs ys: List Word)
+    (front: arrowsBare xs = True)
+    (back: arrowsBare ys = True)
+    (quiet: quietOrEmpty xs = True):
+    arrowsBare (xs ++ ys) = True :=
+  match xs with
+    | [] => back
+    | [x] =>
+      match ys with
+        | [] => byComputing
+        | [y, ..more] => Bool.andIntro (pairQuiet x y quiet) back
+    | [x, next, ..rest] =>
+      Bool.andIntro (Bool.andLeft front) (arrowsJoin [next, ..rest] ys (Bool.andRight front) back quiet)
+
+theorem headQuietSnoc ∀ (zs: List Word) (word: Word)
+    (filled: zs.isEmpty = False):
+    headQuiet (zs ++ [word]) = headQuiet zs :=
+  match zs with | [z, ..more] => byComputing
+
+theorem wordsFilled ∀ (xs acc: List Word) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
+  match xs with
+    | [] => filled
+    | [x, ..rest] => wordsFilled rest [x, ..acc] byComputing
+
+theorem headQuietReverse ∀ (words: List Word) (quiet: endsQuiet words = True): headQuiet words.reverse = True :=
+  match words with
+    | [word] => quiet
+    | [word, next, ..rest] =>
+      let filled: (List.reverse [next, ..rest]).isEmpty = False := wordsFilled rest [next] byComputing
+      rewrite List.reverseCons word [next, ..rest], headQuietSnoc (List.reverse [next, ..rest]) word filled then
+        headQuietReverse [next, ..rest] quiet
+
+theorem arrowsConcat ∀ (pieces: List (List Word))
+    (bare: pieces.all arrowsBare = True)
+    (quiet: pieces.all endsQuiet = True):
+    arrowsBare pieces.concat = True :=
+  match pieces with
+    | [] => byComputing
+    | [piece, ..more] =>
+      arrowsJoin piece more.concat
+        (Bool.andLeft bare)
+        (arrowsConcat more (Bool.andRight bare) (Bool.andRight quiet))
+        (Bool.orRight (Bool.andLeft quiet))
+
+theorem quietConcat ∀ (pieces: List (List Word))
+    (quiet: pieces.all endsQuiet = True):
+    quietOrEmpty pieces.concat = True :=
+  match pieces with
+    | [] => byComputing
+    | [piece, ..more] =>
+      Bool.orRight (endsQuietAppend piece more.concat (Bool.andLeft quiet) (quietConcat more (Bool.andRight quiet)))
+
+theorem declEndsQuiet ∀ (header: Header) (colonEq: Comments) (value: Expr)
+    (within: value.within1 = True)
+    (lexical: value.lexical1 = True):
+    endsQuiet (Definition [] header (Assigned colonEq value)).words = True :=
+  endsQuietJoin
+    [fixedWord "def" header.keyword, header.name, fixedWord ":" header.colon]
+    (header.result.words ++ [fixedWord ":=" colonEq, ..value.words])
+    (endsQuietJoin header.result.words
+      [fixedWord ":=" colonEq, ..value.words]
+      (endsQuietCons (fixedWord ":=" colonEq) value.words (exprEndsQuiet value within lexical)))
 
 --| A printed leaf has a closer's kind exactly when it has a closer's text.
 theorem printedAgrees1 ∀ (file: SourceFile)
@@ -725,18 +1169,262 @@ theorem agreesOfMarked ∀ (leaves: List Leaf) (marked: leaves.all Leaf.marked =
       let same: isCloserText leaf.token.text = leaf.kind.isCloser := DecEq.sound (Bool.andLeft (Bool.andLeft marked))
       Bool.andIntro (rewrite same then DecEq.refl leaf.kind.isCloser) (agreesOfMarked rest (Bool.andRight marked))
 
+--| Each declaration's words, calmed, keep `->` bare and end in no `->`, since the tree's do.
+theorem restArrows ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (lexical: decls.all Decl.lexical1 = True)
+    (settled: decls.all Decl.settled1 = True):
+    ((decls.map Decl.calm).map Decl.words).all arrowsBare = True
+      ∧ ((decls.map Decl.calm).map Decl.words).all endsQuiet = True :=
+  match decls with
+    | [] => (byComputing, byComputing)
+    | [Definition [] header (Assigned colonEq value), ..rest] =>
+      let alike: AllAlike
+        (Definition [] header (Assigned colonEq value)).words
+        (Definition [] header (Assigned colonEq value)).calm.words :=
+        declWordsAlike header colonEq value header.keyword
+          (Bool.andLeft within)
+          (alikeRefl (fixedWord "def" header.keyword))
+      let own := Bool.andLeft settled
+      let (restBare, restQuiet) :=
+        restArrows rest (Bool.andRight within) (Bool.andRight lexical) (Bool.andRight settled)
+      let ends :=
+        declEndsQuiet header colonEq value
+          (Bool.andRight (Bool.andLeft within))
+          (Bool.andRight (Bool.andRight (Bool.andLeft lexical)))
+      (
+        Bool.andIntro
+          (rewrite <- arrowsBareAlike
+                (Definition [] header (Assigned colonEq value)).words
+                (Definition [] header (Assigned colonEq value)).calm.words
+                alike then
+            Bool.andLeft (Bool.andRight own))
+          restBare,
+        Bool.andIntro
+          (rewrite <- endsQuietAlike
+                (Definition [] header (Assigned colonEq value)).words
+                (Definition [] header (Assigned colonEq value)).calm.words
+                alike then
+            ends)
+          restQuiet
+      )
+
+theorem wordsArrows ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (lexical: file.lexical1 = True)
+    (settled: file.settled1 = True):
+    arrowsBare file.words1 = True ∧ headQuiet file.words1.reverse = True :=
+  match file with
+    | { decls, end } =>
+      let withinDecls: decls.all Decl.within1 = True := within
+      let lexicalDecls: decls.all Decl.lexical1 = True := lexical
+      match decls with
+        | [] => (byComputing, byComputing)
+        | [Definition [] header (Assigned colonEq value), ..rest] =>
+          let keyword := header.keyword
+          let firstDecl :=
+            Definition []
+              { header.calm | keyword = keyword.topped }
+              (Assigned (colonEq.kept False False) (value.calm False))
+          let alike: AllAlike (Definition [] header (Assigned colonEq value)).words firstDecl.words :=
+            declWordsAlike header colonEq value keyword.topped (Bool.andLeft withinDecls) (toppedAlike keyword)
+          let own := Bool.andLeft (Bool.andLeft settled)
+          let (restBare, restQuiet) :=
+            restArrows rest
+              (Bool.andRight withinDecls)
+              (Bool.andRight lexicalDecls)
+              (Bool.andRight (Bool.andLeft settled))
+          let ends :=
+            declEndsQuiet header colonEq value
+              (Bool.andRight (Bool.andLeft withinDecls))
+              (Bool.andRight (Bool.andRight (Bool.andLeft lexicalDecls)))
+          let pieces :=
+            (SourceFile.calmTop { decls = [Definition [] header (Assigned colonEq value), ..rest], end }).decls.map
+                Decl.words
+          let bareFirst: arrowsBare firstDecl.words = True :=
+            rewrite <- arrowsBareAlike (Definition [] header (Assigned colonEq value)).words firstDecl.words alike then
+              Bool.andLeft (Bool.andRight own)
+          let bare := Bool.andIntro bareFirst restBare
+          let quietFirst: endsQuiet firstDecl.words = True :=
+            rewrite <- endsQuietAlike (Definition [] header (Assigned colonEq value)).words firstDecl.words alike then
+              ends
+          let quiet := Bool.andIntro quietFirst restQuiet
+          (
+            arrowsConcat pieces bare quiet,
+            headQuietReverse pieces.concat
+              (endsQuietAppend firstDecl.words
+                ((rest.map Decl.calm).map Decl.words).concat
+                (Bool.andLeft quiet)
+                (quietConcat ((rest.map Decl.calm).map Decl.words) restQuiet))
+          )
+
+--| The newest leaf placed so far that follows what's been placed: bare or leading comments agree with the word.
+def leadMatch (acc: List Leaf) (after: List Word): Bool := match acc with
+  | [] => True
+  | [next, .._] =>
+    if next.kind == Comma then next.trivia.leading.isEmpty
+    else
+      match after with
+        | [] => False
+        | [word, .._] => next.trivia.leading.isEmpty == !word.noted
+
+def tailQuiet (done after: List Word): Bool := match after with
+  | [] => headQuiet done
+  | _ => True
+
+--| What `arrowsBare` reads of a leaf and the one after it.
+def arrowPair (leaf: Leaf) (acc: List Leaf): Bool := match acc with
+  | [] => True
+  | [next, .._] =>
+    !(leaf.kind == Arrow) || (leaf.trivia.trailing.isNone && (next.trivia.leading.isEmpty || next.kind == Arrow))
+
+theorem pairPush ∀ (leaf: Leaf) (acc: List Leaf)
+    (pair: arrowPair leaf acc = True)
+    (bare: Syntax.SettleProofs.arrowsBare acc = True):
+    Syntax.SettleProofs.arrowsBare [leaf, ..acc] = True :=
+  match acc with
+    | [] => byComputing
+    | [next, ..more] => Bool.andIntro pair bare
+
+theorem leadingEmptySame ∀ (leaf: Leaf) (word: Word)
+    (fits: leaf.fits word = True):
+    leaf.trivia.leading.isEmpty = word.comments.above.isEmpty :=
+  let (_, aboveSame, _, _, _) := fitsParts leaf word fits
+  match leaf.trivia.leading with
+    | [] => rewrite <- aboveSame
+    | [first, ..more] => rewrite <- aboveSame
+
+theorem notOfTrue ∀ (x: Bool) (h: x = True): (!x) = False := rewrite h
+
+theorem orRightOf ∀ (a b: Bool) (off: a = False) (h: (a || b) = True): b = True := rewrite off at h then h
+
+theorem listReverseJoin ∀ (word: Word) (older after: List Word):
+    [word, ..older].reverse ++ after = older.reverse ++ [word, ..after] :=
+  rewrite List.reverseCons word older, List.appendAssoc older.reverse [word] after
+
+--| Rule 1's result, built from the newest leaves back, keeps `->` bare: each leaf placed passes what it owes
+--| `arrowsBare` from its word's, whose neighbour is the word placed before.
+theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
+    (m: matched behind done = True)
+    (marked: behind.all Leaf.marked = True)
+    (words: arrowsBare (done.reverse ++ after) = True)
+    (quiet: tailQuiet done after = True)
+    (lead: leadMatch acc after = True)
+    (bare: Syntax.SettleProofs.arrowsBare acc = True):
+    Syntax.SettleProofs.arrowsBare (behind.reverseOnto acc) = True :=
+  match behind with
+    | [] => bare
+    | [leaf, ..earlier] =>
+      match comma: leaf.kind == Comma with
+        | True =>
+          let kept := Bool.andLeft (Bool.andRight m)
+          let pair: arrowPair leaf acc = True := match acc with
+            | [] => byComputing
+            | [next, ..more] => Bool.orLeft (rewrite DecEq.sound comma)
+          let leading: leaf.trivia.leading.isEmpty = True := Bool.andRight kept
+          arrowsOnto earlier
+            [leaf, ..acc]
+            done
+            after
+            (Bool.andRight (Bool.andRight m))
+            (Bool.andRight marked)
+            words
+            quiet
+            (rewrite comma then leading)
+            (pairPush leaf acc pair bare)
+        | False =>
+          match done with
+            | [word, ..older] =>
+              let fits := Bool.andLeft m
+              let (textSame, _, _, trailSame, _) := fitsParts leaf word fits
+              let emptySame := leadingEmptySame leaf word fits
+              let joined: arrowsBare (older.reverse ++ [word, ..after]) = True :=
+                rewrite listReverseJoin word older after at words then words
+              let newLead: leadMatch [leaf, ..acc] [word, ..after] = True :=
+                rewrite comma, emptySame then
+                  match word.comments.above.isEmpty with
+                    | True => byComputing
+                    | False => byComputing
+              let pair: arrowPair leaf acc = True := match isArrow: leaf.kind == Arrow with
+                | False =>
+                  match acc with
+                    | [] => byComputing
+                    | [following, .._] => Bool.orLeft byComputing
+                | True =>
+                  let arrowPart := Bool.andRight (Bool.andLeft marked)
+                  let opArrow: (operatorTok leaf.token.text == Some Arrow) = True := DecEq.sound arrowPart
+                  let arrowW: arrowText word = True := rewrite textSame at opArrow then opArrow
+                  match after with
+                    | [] => Void.impossible (Bool.falseNotTrue (rewrite arrowW at quiet then quiet))
+                    | [next, ..more] =>
+                      let suffix := arrowsBareSuffix older.reverse [word, next, ..more] joined
+                      let first := Bool.andLeft suffix
+                      let na: ((operatorTok word.text != Some Arrow): Bool) = False := notOfTrue (arrowText word) arrowW
+                      let rest: (!word.trails && !next.noted) = True := orRightOf _ _ na first
+                      let trailsNot: (!word.trails) = True := Bool.andLeft rest
+                      let nextNot: (!next.noted) = True := Bool.andRight rest
+                      let untrailed: leaf.trivia.trailing.isNone = True := match tr: leaf.trivia.trailing with
+                        | None => byComputing
+                        | Some comment =>
+                          let held: word.comments.after = Some comment.text := trailSame.flipped
+                          Void.impossible (Bool.falseNotTrue (rewrite held at trailsNot then trailsNot))
+                      match acc with
+                        | [] => byComputing
+                        | [following, ..others] =>
+                          let leading: following.trivia.leading.isEmpty = True :=
+                            match gap: following.kind == Comma with
+                              | True => lead
+                              | False => rewrite DecEq.sound lead then nextNot
+                          Bool.orRight (Bool.andIntro untrailed (Bool.orLeft leading))
+              arrowsOnto earlier
+                [leaf, ..acc]
+                older
+                [word, ..after]
+                (Bool.andRight m)
+                (Bool.andRight marked)
+                joined
+                byComputing
+                newLead
+                (pairPush leaf acc pair bare)
+
 --| After rule 1 no `->` holds a comment and none comes before an own-line comment.
+--|
+--| Proof idea: rule 1's result is the leaves matched to the words (`m`), so `arrowsBare` of the leaves follows from
+--| `arrowsBare` of the words (`arrowsOnto`): an `->` leaf is an `->` word (the lexer marks its kind by its text), whose
+--| neighbour is the next word, or a bare comma. The words keep `->` bare (the tree's are `settled1`, `calm` keeps what
+--| it reads) and no declaration ends in `->` (`exprEndsQuiet`), so `->` is bare across declarations too.
 theorem homedArrowsBare ∀ (file: SourceFile)
     (within: file.within1 = True)
     (shaped: file.shaped1 = True)
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True)
     (hung: file.hung1 = True)
-    (stood: file.stood1 = True)
-    (unreturned: file.unreturned1 = True):
+    (m: matched (homeFrom [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
     Syntax.SettleProofs.arrowsBare (homeFrom [] None file.lexed1.leaves) = True :=
-  ?
-
+  let leaves := file.lexed1.leaves
+  let homed := homeFrom [] None leaves
+  let laid :=
+    lexLaid1 file.printed1 file.lexed1
+      (printedFileLexes1 file within shaped settled lexical)
+      (printedAlphabet1 file within shaped settled lexical)
+  let marked: leaves.all isMarked = True := Bool.andLeft (Bool.andRight laid)
+  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens [] None leaves) byComputing
+  let markedHomed: homed.all isMarked = True :=
+    Eq.trans (markedTokens homed) (rewrite tokensSame then Eq.trans (Eq.flipped (markedTokens leaves)) marked)
+  let (bare, quiet) := wordsArrows file within lexical settled
+  let reversed: arrowsBare ((file.words1.reverseOnto []).reverse ++ []) = True :=
+    rewrite List.appendNil (file.words1.reverseOnto []).reverse, List.reverseReverse file.words1 then bare
+  let done :=
+    arrowsOnto homed.reverse []
+      (file.words1.reverseOnto [])
+      []
+      m
+      (allReverseOnto isMarked homed [] markedHomed byComputing)
+      reversed
+      quiet
+      byComputing
+      byComputing
+  rewrite <- List.reverseReverse homed then done
 --| The parser's groups of rule 1's result are the declarations, each with its words.
 theorem groupsBack ∀ (file: SourceFile)
     (within: file.within1 = True)
@@ -1001,7 +1689,7 @@ theorem printedSettle1 ∀ (file: SourceFile)
       ∧ file.lexed1.settled.end.comments = file.calmTop.end :=
   let leaves := file.lexed1.leaves
   let homed := homeFrom [] None leaves
-  let (homedWords, texts) := wordsSettled1 file settled
+  let (homedWords, texts) := wordsSettled1 file within settled
   let plain := printedPlain1 file within shaped settled lexical hung
   let leavesWithin := alphabet1Leaves leaves (printedAlphabet1 file within shaped settled lexical)
   let m: matched homed.reverse (file.words1.reverseOnto []) = True :=
@@ -1021,7 +1709,7 @@ theorem printedSettle1 ∀ (file: SourceFile)
   let commasSame: commasFrom [] None homed file.lexed1.end = { leaves = homed, end = file.lexed1.end } :=
     commasIdle [] homed file.lexed1.end bare
   let arrowsSame: arrows homed = homed :=
-    arrowsIdleAll homed (homedArrowsBare file within shaped settled lexical hung stood unreturned) plainHomed
+    arrowsIdleAll homed (homedArrowsBare file within shaped settled lexical hung m) plainHomed
   let letsSame: letsFrom [] homed = homed := letsQuiet1 [] homed byComputing homedWithin
   let trimSame: homed.map (leaf => { leaf | trivia = leaf.trivia.trimmed }) = homed :=
     let wordsTexts := allReverseOnto (word => word.comments.texts.all commentText) file.words1 [] texts byComputing
