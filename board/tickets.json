@@ -1,5 +1,5 @@
 {
-  "next": 3983,
+  "next": 3986,
   "tickets": [
     {
       "id": 47,
@@ -23754,12 +23754,12 @@
     {
       "id": 3965,
       "title": "[Sonnet] fmt S1 ticket 14: lexer proofs for slice 1 (sketch §2, 90-130 theorems, est. 75 min)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Progress (Sonnet lane, 18 Nov 2026): 150 theorems in tools/fmt/src/Syntax/LexProofs.sw (namespace Syntax.Proofs), audit clean (250 passed), Syntax.Tests 52 and Fmt.Tests 50 pass. Branch lane/SW-3965, commits 4a288e231..f7a7878be. Proved: item reads per lexeme (24 fixed spellings, 7 Unicode, spaces, break, comment, names, Num, Float), lexWord1 for all kinds via Spells/MayFollow, the many/recursiveWith spine (lexemesOfSteps, lexCovers for sources read lexeme by lexeme), layout of pieces (lexPrinted, lexPieces, lexPrintedPairs), one lexesAs per kind, operatorTokLexes. Not proved: lexCovers for every source; operatorTok text = Some kind implying Spells. Lexer.sw was split into named parts (itemAt/itemOn, wordFrom, qualifiedOn, numberFrom, numberTail, fractionPart, exponentPart, fractionAhead, exponentSkip), same behaviour. Notes in tools/fmt/NOTES.md. Model result: Sonnet, worked, about 40 min (est. 75).\n",
+      "body": "Progress (Sonnet lane, 18 Nov 2026): 150 theorems in tools/fmt/src/Syntax/LexProofs.sw (namespace Syntax.Proofs), audit clean (250 passed), Syntax.Tests 52 and Fmt.Tests 50 pass. Branch lane/SW-3965, commits 4a288e231..f7a7878be. Proved: item reads per lexeme (24 fixed spellings, 7 Unicode, spaces, break, comment, names, Num, Float), lexWord1 for all kinds via Spells/MayFollow, the many/recursiveWith spine (lexemesOfSteps, lexCovers for sources read lexeme by lexeme), layout of pieces (lexPrinted, lexPieces, lexPrintedPairs), one lexesAs per kind, operatorTokLexes. Not proved: lexCovers for every source; operatorTok text = Some kind implying Spells. Lexer.sw was split into named parts (itemAt/itemOn, wordFrom, qualifiedOn, numberFrom, numberTail, fractionPart, exponentPart, fractionAhead, exponentSkip), same behaviour. Notes in tools/fmt/NOTES.md. Model result: Sonnet, worked, about 40 min (est. 75).\n\nMerged 18 Nov (NOTES.md conflict with SW-3961 resolved by hand: both sections kept). Model result: sonnet, worked, 31 min (est. 75). Statements checked by the orchestrator: lexWord1, lexCovers (narrowed: sources read lexeme by lexeme, hypotheses reads+rounds), lexPrinted (over Piece/Laid, own PairsFollow), operatorTokLexes (forward direction), lexesAsSpells, lexableOfPairs: each says what its doc claims. No axioms. Filed SW-3983 SW-3984 SW-3985.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": [
@@ -23977,6 +23977,45 @@
     {
       "id": 3982,
       "title": "[Sonnet] Self-hosted fmt cleanup: a call's hug is built twice in bodyAfter; share it as SW-3961 did for match. And a task to make the slim interpreted twin for a worktree (three lanes rebuilt the wrapper by hand), and a usage line for dev/fmt-twin's --inputs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3983,
+      "title": "[Sonnet] Std Parse/List/Text lemmas from SW-3965's lexer proofs: Parse.runsFromOptional, a runsManyFrom for state-dependent values (runsItemsFrom), Parse.runsFromThenLocated, Bool List.all lemmas (allJoin, allImplies), Text.utf8Length of fromList (utf8OfList, utf8Sum, utf8OfAscii); move with full API docs, keep tools/fmt using them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3984,
+      "title": "[Sonnet] Proving guide: proving a Parse program's reads: Parse.RunsFrom vs Parse.Runs, the runsFromMark + fOn split (a let matching Parse.mark().rest blocks it), literal-arm order matching the code for one-line per-kind proofs (SW-3965 findings); and fix the S1 sketch's std-theorem column where Pairs/printedJoins are the toy's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3985,
+      "title": "[Sonnet] fmt S1 lexer leftovers: operatorTok text = Some kind implies Spells kind text (35-arm split mirroring symbol); note in the proof plan's K row that lexCovers holds for sources read lexeme by lexeme (SW-3965)",
       "status": "backlog",
       "agent": "",
       "where": "",
