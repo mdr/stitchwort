@@ -3,8 +3,9 @@
 
 namespace Fmt.Tests
 import Fmt (..)
-import Std (Bool, List, Result, Text)
-import Syntax (Comments, Expr, InfixKind, SourceFile, Tok, Word, lex, parseFile)
+import Fmt.OutputStatements (..)
+import Std (Bool, List, Option, Result, Text)
+import Syntax (Comments, Expr, InfixKind, Note, SourceFile, Tok, Word, lex, parseFile)
 
 --| A source parses, from the leaves `parse1` reads, to a file within slice 1 that is `shaped1`.
 def parsesShaped (source: Text): Bool := match lex source with
@@ -60,3 +61,37 @@ test "shaped1 refuses an argument that is a sign on a sign, which prints as `f -
   refused (App (name "f") [sign "-" (sign "-" (name "x"))])
 
 test "shaped1 accepts an argument that is a sign on an atom, `f -x`" := accepted (App (name "f") [sign "-" (name "x")])
+
+-- Comments on a glued sign (SW-4081): `signsQuiet1`.
+
+--| A source parses, from the leaves `parse1` reads, to a file within slice 1 whose signs are quiet.
+def parsesSignsQuiet (source: Text): Bool := match lex source with
+  | Err _ => False
+  | Ok lexed =>
+    match parseFile lexed.settledOnce with
+      | Err _ => False
+      | Ok file => file.within1 && file.signsQuiet1
+
+--| `-` with a comment after it.
+def noisyMinus: Word := fixedWord "-" { Comments.none | after = Some "-- c" }
+
+--| Within slice 1 and `shaped1`, but refused by `signsQuiet1`: the trees read back as others.
+def noisy (expr: Expr): Bool := expr.within1 && expr.shaped1 && !expr.signsQuiet1
+
+test "signsQuiet1 holds of the parse of glued signs, and of comments on signs that aren't glued" :=
+  parsesSignsQuiet "def x: Nat := f -x !b -1 (- -- c\n  1) (! -- b\n  y) - -- d\n  2 + -4 n\n"
+
+test "signsQuiet1 refuses a comment on an argument's sign, which prints as `f - -- c` then `x`, read as `f - x`" :=
+  noisy (App (name "f") [Prefix noisyMinus (name "x")])
+
+test "signsQuiet1 refuses a comment on a head's `-`, which prints as `- -- c` then `1 n`, read as `-(1 n)`" :=
+  noisy (App (Prefix noisyMinus (number "1")) [name "n"])
+
+test "signsQuiet1 refuses a comment above an argument's operand" :=
+  noisy
+    (App (name "f") [
+      sign "-" (Atom Lower (fixedWord "x" { Comments.none | above = [{ text = "-- o", blankBefore = False }] }))
+    ])
+
+test "signsQuiet1 accepts the same comment on a sign at the unary level, which the parser builds" :=
+  (Prefix noisyMinus (name "x")).signsQuiet1
