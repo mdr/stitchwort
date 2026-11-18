@@ -39,19 +39,8 @@ def tokenTexts (leaves: List Leaf): List Text := leaves.map (leaf => leaf.token.
 --| The leaf's kind is the one the lexer gives its text alone.
 def Leaf.kinded (leaf: Leaf): Bool := leaf.token.kind == lexKind leaf.token.text
 
---| `printedTokens1`: a declaration's printed tokens, commas and all, are the texts the rules spell for it without
---| the comments, each of the lexer's kind for its text. It is `printedSpells`' second half taken from the printed
---| texts to the leaves, which is where read-back and the facts below need it.
---|
---| Proof idea: `laidOf` makes one leaf for each `Code` piece, in order, and a text is a `Code` piece exactly when it
---| is no layout and no comment (`pieceOf`); `printedSpellsSettled` says those texts are `decl.spelt`'s.
-theorem printedTokens1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    tokenTexts decl.leaves1 = decl.spelt.filter notComment ∧ decl.leaves1.all Leaf.kinded = True :=
-  ?
+-- `printedTokens1`, that a declaration's printed tokens are the texts the rules spell for it without the comments, each of
+-- the lexer's kind, is proved in `Fmt.TokenProofs`.
 
 -- The file's leaves.
 
