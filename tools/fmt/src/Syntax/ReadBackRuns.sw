@@ -248,6 +248,41 @@ theorem runsAtomBaseWord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     (rewrite <- peekFirst modes item rest open then runsPeekOn modes [item, ..rest])
     (runsAtomOfWord self modes item rest word)
 
+--| `atom` of what `atomOf` reads from its first item, with nothing after it that `atom` would read on.
+theorem runsAtomFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (item: Item)
+    (more rest: List Item) (base: Expr)
+    (open: modes.stops item = False)
+    (based: Parse.Runs (() => atomOf self modes item.kind) [item, ..more] rest base)
+    (noSection: (item.kind == Dot) = False)
+    (plain: (isSome Upper (Some item.kind) && head && isSome LBrace (peekIn modes 0 rest)) = False)
+    (noCall: unitCall rest = False)
+    (noDot: dotAhead modes rest = False):
+    Parse.Runs (() => atom self modes head) [item, ..more] rest base :=
+  runsLook
+    (() => modes.peek) _
+    (Some item.kind)
+    [item, ..more]
+    rest _
+    (rewrite <- peekFirst modes item (more ++ rest) open then runsPeekOn modes [item, ..more ++ rest])
+    (Parse.runsBind
+      (() => atomBase self modes) _
+      [item, ..more]
+      []
+      [item, ..more]
+      rest
+      base
+      base
+      (List.appendNil [item, ..more]).flipped
+      (runsLook
+        (() => modes.peek)
+        (seen => atomBaseOn self modes seen)
+        (Some item.kind)
+        [item, ..more]
+        rest _
+        (rewrite <- peekFirst modes item (more ++ rest) open then runsPeekOn modes [item, ..more ++ rest])
+        based)
+      (runsAtomAfterPlain self modes head item.kind base rest noSection plain noCall noDot))
+
 --| `atom` of a word, with nothing after it that `atom` would read on: it reads the word.
 theorem runsAtomWord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (item: Item) (rest: List Item)
     (open: modes.stops item = False)
@@ -257,20 +292,426 @@ theorem runsAtomWord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head
     (noDot: dotAhead modes rest = False):
     Parse.Runs (() => atom self modes head) [item] rest (Atom item.kind item.leaf.word) :=
   let (_, _, _, _, noSection) := wordKinds item.kind word
+  runsAtomFrom self modes head item [] rest _ open
+    (runsAtomOfWord self modes item rest word)
+    noSection
+    plain
+    noCall
+    noDot
+
+-- Prefixes on an argument.
+
+--| `prefixAtom` that negates: the sign, then an argument.
+theorem runsPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (sign: Item)
+    (read rest: List Item) (operand: Expr)
+    (argument: Parse.Runs (() => self { modes, level = LevelArgument }) read rest operand):
+    Parse.Runs (() => prefixAtom self modes True) [sign, ..read] rest (Prefix sign.leaf.word operand) :=
+  Parse.runsBind
+    (() => bump()) _
+    [sign]
+    read
+    [sign, ..read]
+    rest
+    sign.leaf.word _
+    byComputing
+    (runsBump sign (read ++ rest))
+    (Parse.runsMap (() => self { modes, level = LevelArgument }) (Prefix sign.leaf.word) read rest operand argument)
+
+--| `-` on an argument that isn't a glued numeral.
+theorem runsNegativeAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (sign: Item)
+    (read rest: List Item) (operand: Expr)
+    (notNumeral: negativeNumeral [sign, ..read ++ rest] = False)
+    (negates: argumentMinus [sign, ..read ++ rest] = True)
+    (argument: Parse.Runs (() => self { modes, level = LevelArgument }) read rest operand):
+    Parse.Runs (() => negativeAtom self modes) [sign, ..read] rest (Prefix sign.leaf.word operand) :=
   runsLook
-    (() => modes.peek) _
+    (() => left())
+    (items => negativeAtomOn self modes items)
+    [sign, ..read ++ rest]
+    [sign, ..read]
+    rest _
+    (runsLeftOn [sign, ..read ++ rest])
+    (rewrite notNumeral, negates then runsPrefixAtom self modes sign read rest operand argument)
+
+--| `-1`, a glued numeral: read as one atom.
+theorem runsNegativeNumber ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (minus number: Item) (rest: List Item)
+    (numeral: negativeNumeral [minus, number, ..rest] = True):
+    Parse.Runs
+      (() => negativeAtom self modes)
+      [minus, number]
+      rest
+      (Prefix minus.leaf.word (Atom number.kind number.leaf.word)) :=
+  runsLook
+    (() => left())
+    (items => negativeAtomOn self modes items)
+    [minus, number, ..rest]
+    [minus, number]
+    rest _
+    (runsLeftOn [minus, number, ..rest])
+    (rewrite numeral then
+      Parse.runsBind
+        (() => bump()) _
+        [minus]
+        [number]
+        [minus, number]
+        rest
+        minus.leaf.word _
+        byComputing
+        (runsBump minus [number, ..rest])
+        (runsLook
+          (() => left())
+          (items => numberAfter minus.leaf.word items)
+          [number, ..rest]
+          [number]
+          rest _
+          (runsLeftOn [number, ..rest])
+          (Parse.runsMap
+            (() => bump())
+            (word => Prefix minus.leaf.word (Atom number.kind word))
+            [number]
+            rest
+            number.leaf.word
+            (runsBump number rest))))
+
+--| `!` on an argument.
+theorem runsPrefixBang ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (sign: Item)
+    (read rest: List Item) (operand: Expr)
+    (negates: argumentBang [sign, ..read ++ rest] = True)
+    (argument: Parse.Runs (() => self { modes, level = LevelArgument }) read rest operand):
+    Parse.Runs (() => prefixBang self modes) [sign, ..read] rest (Prefix sign.leaf.word operand) :=
+  runsLook
+    (() => left())
+    (items => prefixBangOn self modes items)
+    [sign, ..read ++ rest]
+    [sign, ..read]
+    rest _
+    (runsLeftOn [sign, ..read ++ rest])
+    (rewrite negates then runsPrefixAtom self modes sign read rest operand argument)
+
+-- Brackets.
+
+--| `expect` where the next item is the one wanted: it reads it.
+theorem runsExpect ∀ (modes: Modes) (wanted: Tok) (what: Text) (item: Item) (rest: List Item)
+    (open: modes.stops item = False)
+    (is: (item.kind == wanted) = True):
+    Parse.Runs (() => modes.expect wanted what) [item] rest item.leaf.word :=
+  runsLook
+    (() => modes.peek)
+    (seen => modes.expectOn wanted what seen)
     (Some item.kind)
     [item]
     rest _
     (rewrite <- peekFirst modes item rest open then runsPeekOn modes [item, ..rest])
-    (Parse.runsBind
-      (() => atomBase self modes) _
-      [item]
-      []
-      [item]
+    (rewrite is then runsBump item rest)
+
+--| `(e)`: the opener, an expression in brackets, and its `)`.
+theorem runsBracketed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (open close: Item)
+    (read rest: List Item) (first: Expr)
+    (inner: Parse.Runs (() => full self modes.inBrackets) read [close, ..rest] first)
+    (closes: modes.inBrackets.stops close = False)
+    (isClose: close.kind = RParen):
+    Parse.Runs
+      (() => bracketed self modes)
+      ([open, ..read] ++ [close])
       rest
-      (Atom item.kind item.leaf.word)
-      (Atom item.kind item.leaf.word)
+      (Paren open.leaf.word first close.leaf.word) :=
+  Parse.runsBind
+    (() => bump()) _
+    [open]
+    (read ++ [close])
+    ([open, ..read] ++ [close])
+    rest
+    open.leaf.word _
+    byComputing
+    (runsBump open ((read ++ [close]) ++ rest))
+    (Parse.runsBind
+      (() => full self modes.inBrackets) _
+      read
+      [close]
+      (read ++ [close])
+      rest
+      first _
       byComputing
-      (runsAtomBaseWord self modes item rest open word)
-      (runsAtomAfterPlain self modes head item.kind (Atom item.kind item.leaf.word) rest noSection plain noCall noDot))
+      inner
+      (runsLook
+        (() => modes.inBrackets.peek) _
+        (Some close.kind)
+        [close]
+        rest _
+        (rewrite <- peekFirst modes.inBrackets close rest closes then runsPeekOn modes.inBrackets [close, ..rest])
+        (rewrite isClose then
+          Parse.runsMap
+            (() => modes.inBrackets.expect RParen "`)`")
+            (Paren open.leaf.word first)
+            [close]
+            rest
+            close.leaf.word
+            (runsExpect modes.inBrackets RParen "`)`" close rest closes (rewrite isClose)))))
+
+-- Comma lists.
+
+--| What the rest of a comma list reads: each step's comma, then the items its element reads.
+def commaReads: List (Item, List Item, a) → List Item
+  | [] => []
+  | [(comma, read, _), ..steps] => [comma, ..read] ++ commaReads steps
+
+--| The elements a comma list gives, `current` the newest read and `found` the earlier ones, newest first.
+def commaDone (current: a) (found: List a): List (Item, List Item, a) → List a
+  | [] => [current, ..found].reverse
+  | [(_, _, value), ..steps] => commaDone value [current, ..found] steps
+
+--| The steps of a comma list after its first element: each is a comma the modes don't stop at, `ends` saying go on,
+--| and an element that `next` reads; after the last, no comma follows (no trailing comma).
+def CommaRuns (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat):
+    List (Item, List Item, a) → List Item → Prop
+  | [], rest => isSome Comma (peekIn modes 0 rest) = False
+  | [(comma, read, value), ..steps], rest =>
+    modes.stops comma = False
+      ∧ comma.kind = Comma
+      ∧ Parse.Runs (() => ends count) [] (read ++ commaReads steps ++ rest) False
+      ∧ Parse.Runs next read (commaReads steps ++ rest) value
+      ∧ CommaRuns modes ends next (count + 1) steps rest
+
+theorem runsCommaListOnEnd ∀ (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a)
+    (count: Nat) (current: a) (found: List a) (seen: Option Tok) (rest: List Item)
+    (noComma: isSome Comma seen = False):
+    Parse.Runs (() => commaListOn fuel modes ends next count current found seen) [] rest (
+      [current, ..found].reverse,
+      False
+    ) :=
+  match fuel, seen, noComma with
+    | Succ more, Some kind, noComma =>
+      let no: (kind == Comma) = False := noComma
+      rewrite no then Parse.runsPure ([current, ..found].reverse, False) rest
+    | Succ more, None, noComma => Parse.runsPure ([current, ..found].reverse, False) rest
+    | Zero, _, noComma => Parse.runsPure ([current, ..found].reverse, False) rest
+
+--| `commaListFrom` over a comma list without a trailing comma, with fuel for each comma: it reads the list and gives
+--| its elements.
+--|
+--| Proof idea: by induction on the steps; a step peeks its comma, reads it, asks `ends` (which says go on), reads the
+--| element and goes round with the element as the newest.
+theorem runsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a)
+    (steps: List (Item, List Item, a)) (rest: List Item) (fuel count: Nat) (current: a) (found: List a)
+    (enough: steps.length < fuel)
+    (runs: CommaRuns modes ends next count steps rest):
+    Parse.Runs (() => commaListFrom fuel modes ends next count current found) (commaReads steps) rest (
+      commaDone current found steps,
+      False
+    ) :=
+  match steps, fuel, enough, runs with
+    | [], fuel, enough, closing =>
+      runsLook
+        (() => modes.peek)
+        (seen => commaListOn fuel modes ends next count current found seen)
+        (peekIn modes 0 rest)
+        []
+        rest _
+        (runsPeekOn modes rest)
+        (runsCommaListOnEnd fuel modes ends next count current found (peekIn modes 0 rest) rest closing)
+    | [(comma, read, value), ..later], Succ more, enough, (open, isComma, goesOn, element, others) =>
+      let inside :=
+        runsCommaListFrom modes ends next later rest more
+          (count + 1)
+          value
+          [current, ..found]
+          (arithmetic [enough])
+          others
+      runsLook
+        (() => modes.peek)
+        (seen => commaListOn (Succ more) modes ends next count current found seen)
+        (Some comma.kind)
+        ([comma, ..read] ++ commaReads later)
+        rest _
+        (rewrite <- peekFirst modes comma ((read ++ commaReads later) ++ rest) open then
+          runsPeekOn modes [comma, ..(read ++ commaReads later) ++ rest])
+        (rewrite isComma then
+          Parse.runsBind
+            (() => bump()) _
+            [comma]
+            (read ++ commaReads later)
+            ([comma, ..read] ++ commaReads later)
+            rest
+            comma.leaf.word _
+            byComputing
+            (runsBump comma ((read ++ commaReads later) ++ rest))
+            (Parse.runsBind
+              (() => ends count)
+              (stop => commaListAfter more modes ends next count [current, ..found] stop)
+              []
+              (read ++ commaReads later)
+              (read ++ commaReads later)
+              rest
+              False _
+              byComputing
+              (rewrite <- List.appendAssoc read (commaReads later) rest at goesOn then goesOn)
+              (Parse.runsBind next
+                (v => commaListFrom more modes ends next (count + 1) v [current, ..found])
+                read
+                (commaReads later)
+                (read ++ commaReads later)
+                rest
+                value _
+                byComputing
+                element
+                inside)))
+
+theorem commaReadsLength ∀ (steps: List (Item, List Item, a)): steps.length <= (commaReads steps).length :=
+  match steps with
+    | [] => arithmetic
+    | [(comma, read, value), ..later] => arithmetic [List.lengthAppend read (commaReads later), commaReadsLength later]
+
+--| The items left after a tuple's first element outnumber the steps after its second: `tupleFuel`'s fuel is enough.
+theorem tupleFuelEnough ∀ (comma close: Item) (read2 rest: List Item) (steps: List (Item, List Item, Expr)):
+    steps.length < (([comma, ..read2] ++ (commaReads steps ++ [close])) ++ rest).length :=
+  let long := commaReadsLength steps
+  arithmetic [
+    List.lengthAppend [comma, ..read2] (commaReads steps ++ [close]),
+    List.lengthAppend ([comma, ..read2] ++ (commaReads steps ++ [close])) rest,
+    List.lengthAppend (commaReads steps) [close],
+    long
+  ]
+
+--| The `)` after a tuple's elements.
+theorem runsTupleClose ∀ (inner: Modes) (close: Item) (rest: List Item)
+    (closes: inner.stops close = False)
+    (isClose: close.kind = RParen):
+    Parse.Runs (() => tupleClose inner) [close] rest close.leaf.word :=
+  runsLook
+    (() => inner.at Colon)
+    (annotated => tupleCloseAfter inner annotated)
+    False
+    [close]
+    rest _
+    (rewrite <- (rewrite peekFirst inner close rest closes, isClose: isSome Colon (peekIn inner 0 [close, ..rest])
+          = False) then
+      runsAtOn inner Colon [close, ..rest])
+    (runsExpect inner RParen "`)`" close rest closes (rewrite isClose))
+
+--| `(a, b, …)`: a tuple, its first two elements read by `bracketed` and `tupleFuel`, the rest by `commaListFrom`.
+--|
+--| Proof idea: `bracketed` reads the opener and the first element and, seeing a comma, goes to `tupleFuel`, whose fuel
+--| (the items left) `tupleFuelEnough` bounds; then the comma, the second element, `runsCommaListFrom` for the others
+--| and `runsTupleClose`.
+theorem runsTuple ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (open comma close: Item)
+    (read1 read2 rest: List Item) (first second: Expr) (steps: List (Item, List Item, Expr))
+    (firstRuns: Parse.Runs
+      (() => full self modes.inBrackets)
+      read1
+      (([comma, ..read2] ++ (commaReads steps ++ [close])) ++ rest)
+      first)
+    (commaOpen: modes.inBrackets.stops comma = False)
+    (isComma: comma.kind = Comma)
+    (secondRuns: Parse.Runs (() => full self modes.inBrackets) read2 ((commaReads steps ++ [close]) ++ rest) second)
+    (others: CommaRuns modes.inBrackets (tupleEnds modes.inBrackets) (() => full self modes.inBrackets) 2 steps [
+      close,
+      ..rest
+    ])
+    (closes: modes.inBrackets.stops close = False)
+    (isClose: close.kind = RParen):
+    Parse.Runs
+      (() => bracketed self modes)
+      ([open, ..read1] ++ ([comma, ..read2] ++ (commaReads steps ++ [close])))
+      rest
+      (Tuple open.leaf.word (commaDone second [first] steps) False close.leaf.word) :=
+  let inner := modes.inBrackets
+  let after := [comma, ..read2] ++ (commaReads steps ++ [close])
+  Parse.runsBind
+    (() => bump()) _
+    [open]
+    (read1 ++ after)
+    ([open, ..read1] ++ after)
+    rest
+    open.leaf.word _
+    byComputing
+    (runsBump open ((read1 ++ after) ++ rest))
+    (Parse.runsBind
+      (() => full self inner)
+      (first => bracketedFirst self inner open.leaf.word first)
+      read1
+      after
+      (read1 ++ after)
+      rest
+      first _
+      byComputing
+      firstRuns
+      (runsLook
+        (() => inner.peek)
+        (seen => bracketedAfter self inner open.leaf.word first seen)
+        (Some comma.kind)
+        after
+        rest _
+        (rewrite <- peekFirst inner comma ((read2 ++ (commaReads steps ++ [close])) ++ rest) commaOpen then
+          runsPeekOn inner (after ++ rest))
+        (rewrite isComma then
+          state starts honest =>
+            let enough: steps.length < state.at.left :=
+              rewrite honest, starts then tupleFuelEnough comma close read2 rest steps
+            Parse.runsFromMark state
+              (here => tupleFuel self inner open.leaf.word first here.left)
+              after
+              rest _
+              (Parse.runsBind
+                (() => bump())
+                (comma => tupleSecond self inner open.leaf.word first state.at.left (full self inner))
+                [comma]
+                (read2 ++ (commaReads steps ++ [close]))
+                after
+                rest
+                comma.leaf.word _
+                byComputing
+                (runsBump comma ((read2 ++ (commaReads steps ++ [close])) ++ rest))
+                (Parse.runsBind
+                  (() => full self inner)
+                  (second => tupleSecond self inner open.leaf.word first state.at.left second)
+                  read2
+                  (commaReads steps ++ [close])
+                  (read2 ++ (commaReads steps ++ [close]))
+                  rest
+                  second _
+                  byComputing
+                  secondRuns
+                  (Parse.runsBind
+                    (() => commaListFrom state.at.left inner (tupleEnds inner) (() => full self inner) 2 second [first])
+                    (pair => tupleEnd inner open.leaf.word pair)
+                    (commaReads steps)
+                    [close]
+                    (commaReads steps ++ [close])
+                    rest
+                    (commaDone second [first] steps, False) _
+                    byComputing
+                    (runsCommaListFrom inner
+                      (tupleEnds inner)
+                      (() => full self inner)
+                      steps
+                      [close, ..rest]
+                      state.at.left
+                      2
+                      second
+                      [first]
+                      enough
+                      others)
+                    (Parse.runsMap
+                      (() => tupleClose inner)
+                      (Tuple open.leaf.word (commaDone second [first] steps) False)
+                      [close]
+                      rest
+                      close.leaf.word
+                      (runsTupleClose inner close rest closes isClose))))
+                state)
+              starts
+              honest)))
+
+--| `tupleEnds` before an element: no `)` comes next, so the list goes on.
+theorem runsTupleEndsGo ∀ (inner: Modes) (count: Nat) (items: List Item)
+    (noClose: isSome RParen (peekIn inner 0 items) = False):
+    Parse.Runs (() => tupleEnds inner count) [] items False :=
+  runsLook
+    (() => inner.at RParen)
+    (closed => closed && count >= 2)
+    False
+    []
+    items
+    False
+    (rewrite <- noClose then runsAtOn inner RParen items)
+    (Parse.runsPure False items)
