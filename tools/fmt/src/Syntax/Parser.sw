@@ -1735,14 +1735,26 @@ def commaListAfter (more: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) 
 --| `(+ 1)`, `(&&)`: the operator first.
 def operatorSection (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
-  let operatorKind := left().head.map Item.kind |> .getOrElse Plus
+  operatorFirst self modes.inBrackets open left()
+
+def operatorFirst (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (items: List Item): {Parse Item} Expr :=
+  let operatorKind := items.head.map Item.kind |> .getOrElse Plus
   let operator := bump()
-  if inner.at RParen then OperatorSection open None operator None bump()
+  operatorHead self inner open operatorKind operator (inner.at RParen)
+
+def operatorHead (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (operatorKind: Tok)
+    (operator: Word) (closed: Bool):
+    {Parse Item} Expr :=
+  if closed then operatorClose open operator None
   else
     let operand := sectionOperand self inner operatorKind
-    if inner.at RParen then OperatorSection open None operator (Some operand) bump()
-    else inner.fail "`)` after the operand of a section"
+    operatorEnd inner open operator operand (inner.at RParen)
+
+def operatorEnd (inner: Modes) (open operator: Word) (operand: Expr) (closed: Bool): {Parse Item} Expr :=
+  if closed then operatorClose open operator (Some operand) else inner.fail "`)` after the operand of a section"
+
+def operatorClose (open operator: Word) (operand: Option Expr): {Parse Item} Expr :=
+  OperatorSection open None operator operand bump()
 
 --| A left section's operand: what binds tighter than its operator.
 def sectionOperand (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: Tok): {Parse Item} Expr :=
@@ -1762,12 +1774,19 @@ def sectionOperand (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: 
 --| items after the `(`.
 def rightSection (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
   let start := offset()
-  let operatorKind := match left().drop (inside - 1) with
+  rightKind self modes.inBrackets open inside start left()
+
+def rightKind (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (inside start: Nat) (items: List Item):
+    {Parse Item} Expr :=
+  let operatorKind := match items.drop (inside - 1) with
     | [item, .._] => item.kind
     | [] => Plus
-  let operand := match operatorKind with
+  let operand := rightOperand self inner operatorKind
+  rightEnd inner open inside start operand offset()
+
+def rightOperand (self: Goal → {Parse Item} Expr) (inner: Modes) (operatorKind: Tok): {Parse Item} Expr :=
+  match operatorKind with
     | Plus => self { modes = inner, level = LevelMultiplicative }
     | Star => self { modes = inner, level = LevelUnary }
     | Slash => self { modes = inner, level = LevelUnary }
@@ -1777,10 +1796,15 @@ def rightSection (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat)
     | OrOr => self { modes = inner, level = LevelComparison }
     | IffArrow => self { modes = inner, level = LevelComparison }
     | _ => self { modes = inner, level = LevelAppend }
-  if offset() != start + inside - 1 then inner.fail "`)` after the operator of a section"
+
+def rightEnd (inner: Modes) (open: Word) (inside start: Nat) (operand: Expr) (here: Nat): {Parse Item} Expr :=
+  if here != start + inside - 1 then inner.fail "`)` after the operator of a section"
   else
     let operator := bump()
-    OperatorSection open (Some operand) operator None (inner.expect RParen "`)`")
+    rightClose inner open operand operator
+
+def rightClose (inner: Modes) (open: Word) (operand: Expr) (operator: Word): {Parse Item} Expr :=
+  OperatorSection open (Some operand) operator None (inner.expect RParen "`)`")
 
 def listExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
