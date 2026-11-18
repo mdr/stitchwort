@@ -1734,3 +1734,23 @@ At most one trailing comment is not `Finishes`' business: `PairsFollow` (from `d
 followed only by a line break, so `" ", c2` can't follow `c1`. For slice 1 the induction (`elFinishes` in
 `FileLexProofs`) shows each element ends with its last token (a leaf's `piece`, its trailing comment silent after
 it), using the tree's `Joinable` facts for the token being no layout and no comment.
+
+### What was proved
+
+- `Std.Doc` (`Doc/Ends.sw`), 29 theorems: `Silent`, `Finishes` (not `Ends`, a name `FileLexProofs` already uses for
+  layouts) and their list and work-list forms; `stepFront` (a step only changes the front of the work list),
+  `cmdFinishes`, `silentStep`, `readingFinishes`, `readingQuiet` (`stepQuiet` over a reading), `flushTopped`,
+  `printedFinishes`; and the building lemmas `finishesConcat`, `finishesAppend`, `finishesLastAppend`,
+  `joinedFinishes`, `finishesOfLast`.
+- `Fmt.FinishProofs` (new file), 31 theorems: `elFinishes` by induction over slice 1's expressions (mutual with
+  `appFinishes`, `argumentsFinish`, `lastArgumentFinishes`, `chainLinksFinish`, `linkDocsFinish`), `bodyFinishes`
+  over `bodyAfter`'s options, `defFinishes`. The last word is `Final`: no layout and no comment, from `Joinable`'s
+  `WordJoins`/`CloserJoins`.
+- `Fmt.FileLexProofs`: `printedFinish1` closed (statement unchanged), with `pieceFoldCode`, `spacedFold`,
+  `tailOfComments` (`PairsFollow` rules out a second trailing comment) and `commentShape` (with an example, so the
+  audit's search isn't vacuous). `printedSeam1`, `declsLay`, `fileLaid` and `printedFileLexes1` now have no open goal
+  under them: `audit Fmt.FileLexProofs` 56 theorems, all pass.
+
+At most one trailing comment comes from `PairsFollow`, not from the tree's `before` flags (a closer after a comment
+with a comment of its own takes its own line, S39): that rule is what makes `PairsFollow` hold, so the proof doesn't
+repeat it.
