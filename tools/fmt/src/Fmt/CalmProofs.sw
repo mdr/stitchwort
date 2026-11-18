@@ -19,6 +19,7 @@ def Word.alike (before after: Word): Prop :=
   before.text = after.text
     ∧ before.comments.after = after.comments.after
     ∧ before.comments.above.isEmpty = after.comments.above.isEmpty
+    ∧ before.comments.above.map (note => note.text) = after.comments.above.map (note => note.text)
 
 def AllAlike: List Word → List Word → Prop
   | [], [] => True
@@ -26,20 +27,24 @@ def AllAlike: List Word → List Word → Prop
   | _, _ => False
 
 theorem keptAlike ∀ (word: Word) (item closer: Bool): word.alike (word.kept item closer) := match word with
-  | { text, comments = { above = [], after, blankBefore } } => (byComputing, byComputing, byComputing)
-  | { text, comments = { above = [first, ..rest], after, blankBefore } } => (byComputing, byComputing, byComputing)
+  | { text, comments = { above = [], after, blankBefore } } => (byComputing, byComputing, byComputing, byComputing)
+  | { text, comments = { above = [first, ..rest], after, blankBefore } } =>
+    (byComputing, byComputing, byComputing, byComputing)
 
 theorem alikeTrails ∀ (before after: Word) (alike: before.alike after): before.trails = after.trails := match alike with
-  | (_, same, _) => Eq.cong (comment => comment.isSome) same
+  | (_, same, _, _) => Eq.cong (comment => comment.isSome) same
 
 theorem alikeNoted ∀ (before after: Word) (alike: before.alike after): before.noted = after.noted := match alike with
-  | (_, _, same) => Eq.cong (empty => !empty) same
+  | (_, _, same, _) => Eq.cong (empty => !empty) same
 
 theorem alikeCloser ∀ (before after: Word) (alike: before.alike after):
     isCloserText before.text = isCloserText after.text :=
-  match alike with | (same, _, _) => Eq.cong (text => isCloserText text) same
+  match alike with | (same, _, _, _) => Eq.cong (text => isCloserText text) same
 
-theorem alikeRefl ∀ (word: Word): word.alike word := (byComputing, byComputing, byComputing)
+theorem alikeRefl ∀ (word: Word): word.alike word := (byComputing, byComputing, byComputing, byComputing)
+
+theorem alikeTexts ∀ (before after: Word) (alike: before.alike after): before.comments.texts = after.comments.texts :=
+  match alike with | (_, same, _, texts) => rewrite same, texts
 
 theorem allAlikeRefl ∀ (words: List Word): AllAlike words words := match words with
   | [] => byComputing

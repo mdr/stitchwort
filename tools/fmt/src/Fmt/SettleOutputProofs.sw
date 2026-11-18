@@ -12,6 +12,7 @@ import Fmt.TriviaStatements (..)
 import Fmt.FileLexProofs (laidNotesFalse, printedFileLexes1)
 import Fmt.OutputFileProofs (declStartsKw, printedAlphabet1, printedGroups1, printedPlain1)
 import Syntax.ParseSettledStatements (..)
+import Fmt.CalmProofs (..)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (
   barsQuiet1,
@@ -39,7 +40,17 @@ import Syntax.SettleProofs (
   plainFromOf,
   tokensReverseOnto
 )
-import Syntax.SettleSplitProofs (codeWordsAppend, groupsConcat)
+import Syntax.SettleSplitProofs (
+  codeWordsAppend,
+  declsWordsOpen,
+  endsOpen,
+  endsOpenReverse,
+  groupsConcat,
+  notTrueW,
+  startsOpen,
+  startsOpenConcat,
+  trailsBackAppend
+)
 
 -- What rule 1 has passed.
 
@@ -697,12 +708,205 @@ theorem standsRest ∀ (decls: List Decl)
           byComputing)
         (standsRest rest (Bool.andRight within) (Bool.andRight stood) (Bool.andRight plain) (Bool.andRight starts))
 
+theorem emptySame ∀ (more others: List Word) (alike: AllAlike more others): more.isEmpty = others.isEmpty :=
+  match more, others, alike with
+    | [], [], _ => byComputing
+    | [m, ..ms], [o, ..os], _ => byComputing
+
+--| The look back, own-line comments and closers a word has don't change under `calm`: homed words stay homed.
+theorem homedBackAlike ∀ (before after: List Word) (alike: AllAlike before after): homedBack before = homedBack after :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [first, ..more], [second, ..others], (same, rest) =>
+      rewrite alikeTrails first second same,
+          alikeCloser first second same,
+          alikeNoted first second same,
+          trailsBackAlike more others rest,
+          homedBackAlike more others rest,
+          emptySame more others rest
+
+--| Alike words keep the comment texts `commentText` allows.
+theorem textsAlike ∀ (before after: List Word)
+    (alike: AllAlike before after)
+    (texts: before.all (word => word.comments.texts.all commentText) = True):
+    after.all (word => word.comments.texts.all commentText) = True :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [first, ..more], [second, ..others], (same, rest) =>
+      Bool.andIntro
+        (rewrite <- alikeTexts first second same then Bool.andLeft texts)
+        (textsAlike more others rest (Bool.andRight texts))
+
+--| A newest-first list homed in two parts is homed whole, if the older part starts the look back at an open word.
+theorem homedBackAppend ∀ (xs ys: List Word)
+    (ends: endsOpen xs = True)
+    (front: homedBack xs = True)
+    (back: homedBack ys = True):
+    homedBack (xs ++ ys) = True :=
+  match xs with
+    | [word] =>
+      let open := notTrueW (isCloserText word.text) ends
+      Bool.andIntro (rewrite open) back
+    | [word, next, ..rest] =>
+      let ih := homedBackAppend [next, ..rest] ys ends (Bool.andRight front) back
+      let first := Bool.andLeft front
+      let kept := trailsBackAppend [next, ..rest] ys ends
+      Bool.andIntro (rewrite kept then first) ih
+
+--| The words of declarations, each homed and none starting with a closer, are homed joined, read newest first.
+theorem homedConcat ∀ (pieces: List (List Word))
+    (open: pieces.all startsOpen = True)
+    (homed: pieces.all (piece => homedBack piece.reverse) = True):
+    homedBack pieces.concat.reverse = True :=
+  match pieces with
+    | [] => byComputing
+    | [piece, ..more] =>
+      let rest := homedConcat more (Bool.andRight open) (Bool.andRight homed)
+      let opens := startsOpenConcat more (Bool.andRight open)
+      rewrite List.reverseAppend piece more.concat then
+        match joined: more.concat with
+          | [] => Bool.andLeft homed
+          | [word, ..others] =>
+            homedBackAppend
+              (List.reverse [word, ..others])
+              piece.reverse
+              (endsOpenReverse word others (notTrueW (isCloserText word.text) opens))
+              rest
+              (Bool.andLeft homed)
+
+theorem allJoin ∀ (xs ys: List Word) (p: Word → Bool)
+    (front: xs.all p = True)
+    (back: ys.all p = True):
+    (xs ++ ys).all p = True :=
+  match xs with
+    | [] => back
+    | [x, ..rest] => Bool.andIntro (Bool.andLeft front) (allJoin rest ys p (Bool.andRight front) back)
+
+theorem allConcat ∀ (pieces: List (List Word)) (p: Word → Bool)
+    (all: pieces.all (piece => piece.all p) = True):
+    pieces.concat.all p = True :=
+  match pieces with
+    | [] => byComputing
+    | [piece, ..more] => allJoin piece more.concat p (Bool.andLeft all) (allConcat more p (Bool.andRight all))
+
+--| A declaration's words and its calm words, the `def` given other comments alike its own, are alike.
+theorem declWordsAlike ∀ (header: Header) (colonEq: Comments) (value: Expr) (keyword: Comments)
+    (within: (Definition [] header (Assigned colonEq value)).within1 = True)
+    (kept: (fixedWord "def" header.keyword).alike (fixedWord "def" keyword)):
+    AllAlike
+      (Definition [] header (Assigned colonEq value)).words
+      (Definition [] { header.calm | keyword } (Assigned (colonEq.kept False False) (value.calm False))).words :=
+  match header with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword = original,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      } =>
+      allAlikeAppend
+        [fixedWord "def" original, name, fixedWord ":" colon]
+        [fixedWord "def" keyword, name.kept False False, fixedWord ":" (colon.kept False False)]
+        (result.words ++ [fixedWord ":=" colonEq] ++ value.words)
+        ((result.calm False).words ++ [fixedWord ":=" (colonEq.kept False False)] ++ (value.calm False).words)
+        (kept, (keptAlike name False False, (keptAlike (fixedWord ":" colon) False False, byComputing)))
+        (allAlikeAppend result.words
+          (result.calm False).words
+          ([fixedWord ":=" colonEq] ++ value.words)
+          ([fixedWord ":=" (colonEq.kept False False)] ++ (value.calm False).words)
+          (wordsCalm result False (Bool.andRight (Bool.andLeft within)))
+          (keptAlike (fixedWord ":=" colonEq) False False, wordsCalm value False (Bool.andRight within)))
+
+theorem toppedAlike ∀ (keyword: Comments): (fixedWord "def" keyword).alike (fixedWord "def" keyword.topped) :=
+  match keyword.above with
+    | [] => (byComputing, byComputing, byComputing, byComputing)
+    | [first, ..more] => (byComputing, byComputing, byComputing, byComputing)
+
+theorem restSettled ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (settled: decls.all Decl.settled1 = True):
+    ((decls.map Decl.calm).map Decl.words).all (piece => homedBack piece.reverse) = True
+      ∧ ((decls.map Decl.calm).map Decl.words).all (piece => piece.all (word => word.comments.texts.all commentText))
+        = True :=
+  match decls with
+    | [] => (byComputing, byComputing)
+    | [Definition [] header (Assigned colonEq value), ..rest] =>
+      let alike: AllAlike
+        (Definition [] header (Assigned colonEq value)).words
+        (Definition [] header (Assigned colonEq value)).calm.words :=
+        declWordsAlike header colonEq value header.keyword
+          (Bool.andLeft within)
+          (alikeRefl (fixedWord "def" header.keyword))
+      let own := Bool.andLeft settled
+      let (restHomed, restTexts) := restSettled rest (Bool.andRight within) (Bool.andRight settled)
+      let same :=
+        homedBackAlike _ _
+          (allAlikeReverse
+            (Definition [] header (Assigned colonEq value)).words
+            (Definition [] header (Assigned colonEq value)).calm.words
+            alike)
+      (
+        Bool.andIntro (rewrite <- same then Bool.andLeft own) restHomed,
+        Bool.andIntro
+          (textsAlike
+            (Definition [] header (Assigned colonEq value)).words
+            (Definition [] header (Assigned colonEq value)).calm.words
+            alike
+            (Bool.andRight (Bool.andRight own)))
+          restTexts
+      )
+
 --| The output tree's words are settled as the tree's are: `calm` and `calmTop` change only blank-line flags.
+--|
+--| Proof idea: each declaration's words are alike its calm words (`declWordsAlike`, from `wordsCalm`; the first `def`
+--| has its flag cleared, `toppedAlike`), and alike words keep what `homedBack` and the comment texts read
+--| (`homedBackAlike`, `textsAlike`); no declaration starts with a closer, so the joined words are homed
+--| (`homedConcat`).
 theorem wordsSettled1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
     (settled: file.settled1 = True):
     homedBack (file.words1.reverseOnto []) = True
       ∧ file.words1.all (word => word.comments.texts.all commentText) = True :=
-  ?
+  match file with
+    | { decls, end } =>
+      let withinDecls: decls.all Decl.within1 = True := within
+      match decls with
+        | [] => (byComputing, byComputing)
+        | [Definition [] header (Assigned colonEq value), ..rest] =>
+          let keyword := header.keyword
+          let firstDecl :=
+            Definition []
+              { header.calm | keyword = keyword.topped }
+              (Assigned (colonEq.kept False False) (value.calm False))
+          let alike: AllAlike (Definition [] header (Assigned colonEq value)).words firstDecl.words :=
+            declWordsAlike header colonEq value keyword.topped (Bool.andLeft withinDecls) (toppedAlike keyword)
+          let own := Bool.andLeft (Bool.andLeft settled)
+          let (restHomed, restTexts) :=
+            restSettled rest (Bool.andRight withinDecls) (Bool.andRight (Bool.andLeft settled))
+          let same :=
+            homedBackAlike _ _
+              (allAlikeReverse (Definition [] header (Assigned colonEq value)).words firstDecl.words alike)
+          let pieces :=
+            (SourceFile.calmTop { decls = [Definition [] header (Assigned colonEq value), ..rest], end }).decls.map
+                Decl.words
+          (
+            homedConcat pieces (declsWordsOpen _) (Bool.andIntro (rewrite <- same then Bool.andLeft own) restHomed),
+            allConcat pieces
+              (word => word.comments.texts.all commentText)
+              (Bool.andIntro
+                (textsAlike
+                  (Definition [] header (Assigned colonEq value)).words
+                  firstDecl.words
+                  alike
+                  (Bool.andRight (Bool.andRight own)))
+                restTexts)
+          )
 
 --| A printed leaf has a closer's kind exactly when it has a closer's text.
 theorem printedAgrees1 ∀ (file: SourceFile)
@@ -983,7 +1187,7 @@ theorem printedSettle1 ∀ (file: SourceFile)
       ∧ file.lexed1.settled.end.comments = file.calmTop.end :=
   let leaves := file.lexed1.leaves
   let homed := homeFrom [] None leaves
-  let (homedWords, texts) := wordsSettled1 file settled
+  let (homedWords, texts) := wordsSettled1 file within settled
   let plain := printedPlain1 file within shaped settled lexical hung
   let leavesWithin := alphabet1Leaves leaves (printedAlphabet1 file within shaped settled lexical)
   let m: matched homed.reverse (file.words1.reverseOnto []) = True :=
