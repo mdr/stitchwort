@@ -10,9 +10,9 @@ namespace Fmt.SpellProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
+import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
-import Fmt.CalmProofs (bracketFrom, bracketIs)
+import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
 
 --| A closer the rules write: a closing bracket or a comma.
 def closesText (text: Text): Prop := isCloserText text = True ∨ text = ","
@@ -1601,3 +1601,325 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
           (Bool.andLeft sound)
           (Bool.andRight within)
           (Bool.andRight sound)).left
+
+theorem spellsSuffixExample: Spells (LineSuffix "-- a") ["-- a"] := spellsSuffix "-- a" byComputing byComputing
+
+theorem commentNotLayoutExample: isLayout "-- a" = False := commentNotLayout "-- a" byComputing
+
+-- The body after `:=`.
+
+theorem spellsEachAppend ∀ (texts: List Text) (front back: List Doc)
+    (first: SpellsEach texts front)
+    (second: SpellsEach texts back):
+    SpellsEach texts (front ++ back) :=
+  match front, first with
+    | [], _ => second
+    | [doc, ..rest], (spells, others) => (spells, (spellsEachAppend texts rest back others second))
+
+theorem optionListSpells ∀ (option: Option Doc) (texts: List Text)
+    (spells: ∀ (doc: Doc) => option = Some doc → Spells doc texts):
+    SpellsEach texts (optionList option) :=
+  match option, spells with
+    | None, _ => byComputing
+    | Some doc, spells => (spells doc byComputing, byComputing)
+
+theorem unnotedNotes ∀ (word: Word) (unnoted: word.noted = False): word.notesAt False = [] := match word with
+  | { text, comments = { above = [], after, blankBefore } } => byComputing
+
+--| Own-line comments above the first token that has none: the same either way.
+theorem speltUnnoted ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (unnoted: expr.noted = False):
+    expr.spelt False = expr.spelt True :=
+  rewrite speltLead expr False within, unnotedNotes expr.lead (rewrite <- firstWordLead expr within then unnoted)
+
+theorem callHugSpells ∀ (value: Expr) (inside: Around)
+    (within: value.within1 = True)
+    (sound: value.sound = True):
+    ∀ (open: Doc) => value.callHug inside = Some open → Spells open (value.spelt inside.hoisted) :=
+  match value with
+    | App head arguments =>
+      (open same =>
+        (appDocsSpells head arguments inside
+              (Bool.andLeft within)
+              (Bool.andLeft sound)
+              (Bool.andRight within)
+              (Bool.andRight sound)).right open same)
+    | _ => (open same => cases)
+
+theorem spellsTexts ∀ (doc: Doc) (texts texts': List Text)
+    (spells: Spells doc texts)
+    (same: texts = texts'):
+    Spells doc texts' :=
+  rewrite <- same then spells
+
+theorem spacedHugSpells ∀ (hug: Option Doc) (texts: List Text)
+    (each: ∀ (open: Doc) => hug = Some open → Spells open texts):
+    ∀ (doc: Doc) => hug.map (open => Doc.concat [Doc.text " ", open]) = Some doc → Spells doc texts :=
+  match hug, each with
+    | None, _ => (doc same => cases)
+    | Some opened, each =>
+      (doc same =>
+        rewrite <- Option.someInjective same then
+          spellsConcat _ _
+            (spellsCons
+              (Doc.text " ")
+              [opened]
+              []
+              texts
+              spellsSpace
+              (spellsLast opened texts (each opened byComputing))))
+
+theorem bodyAfterSpells ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
+    (within: value.within1 = True)
+    (sound: value.sound = True)
+    (low: around.hoisted = False):
+    Spells (bodyAfter value assign around semi).fst (value.spelt False)
+      ∧ Spells (bodyAfter value assign around semi).snd (value.spelt False) :=
+  let docSpells: Spells (value.el around) (value.spelt False) :=
+    spellsTexts _ _ _ (elSpells value around within sound) (rewrite low)
+  let belowSpells: Spells (Nest 2 (Doc.concat [HardLine, value.el around])) (value.spelt False) :=
+    spellsNest 2 _ _
+      (spellsConcat _ _
+        (spellsCons HardLine [value.el around] [] (value.spelt False) spellsHardLine (spellsLast _ _ docSpells)))
+  let inside: Around := { around | hoisted = True }
+  rewrite matchedNone value inside within,
+      valueElPlain value around semi within,
+      lambdaHugNone value semi inside within then
+    match plain: assign.trails || value.noted || value.isBlock with
+      | True => (belowSpells, belowSpells)
+      | False =>
+        let unnoted: value.noted = False :=
+          Bool.orFalseLeft value.noted value.isBlock
+            (Bool.orFalseRight assign.trails (value.noted || value.isBlock) plain)
+        let hugSpells: ∀ (open: Doc) => value.callHug inside = Some open → Spells open (value.spelt False) :=
+          (open same =>
+            spellsTexts _ _ _
+              (callHugSpells value inside within sound open same)
+              (speltUnnoted value within unnoted).flipped)
+        let flat: Spells (Flatten (Doc.concat [Doc.text " ", value.el around])) (value.spelt False) :=
+          spellsFlatten _ _
+            (spellsConcat _ _
+              (spellsCons
+                (Doc.text " ")
+                [value.el around]
+                []
+                (value.spelt False)
+                spellsSpace
+                (spellsLast _ _ docSpells)))
+        (
+          belowSpells,
+          spellsChoice (value.spelt False) _ _ (
+            flat,
+            spellsEachAppend
+              (value.spelt False)
+              (if value.opensBracket || (value.callHug inside).isSome then [OneLineBelow (value.el around)] else [])
+              ((if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
+                else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
+                ++ [Nest 2 (Doc.concat [HardLine, value.el around])])
+              (match value.opensBracket || (value.callHug inside).isSome with
+                | True => ((spellsOneLineBelow _ _ docSpells), byComputing)
+                | False => byComputing)
+              (spellsEachAppend
+                (value.spelt False)
+                (if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
+                 else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
+                [Nest 2 (Doc.concat [HardLine, value.el around])]
+                (match value.opensBracket with
+                  | True => (
+                    (spellsConcat _ _
+                      (spellsCons
+                        (Doc.text " ")
+                        [value.el around]
+                        []
+                        (value.spelt False)
+                        spellsSpace
+                        (spellsLast _ _ docSpells))),
+                    byComputing
+                  )
+                  | False => optionListSpells _ _ (spacedHugSpells _ _ hugSpells))
+                (belowSpells, byComputing))
+          )
+        )
+
+-- Declarations.
+
+theorem defFromSpells ∀ (headerDoc assignDoc below choice: Doc)
+    (breaks: Bool) (headerTexts assignTexts bodyTexts: List Text)
+    (header: Spells headerDoc headerTexts)
+    (assigns: Spells assignDoc assignTexts)
+    (belowSpells: Spells below bodyTexts)
+    (choiceSpells: Spells choice bodyTexts):
+    Spells (defFrom headerDoc breaks assignDoc below choice) (headerTexts ++ assignTexts ++ bodyTexts) :=
+  spellsConcat _ _
+    (spellsCons
+      (IdGroup 0 headerDoc breaks)
+      [Doc.text " ", assignDoc, IfBroken 0 below choice]
+      headerTexts
+      (assignTexts ++ bodyTexts)
+      (spellsIdGroup 0 headerDoc breaks headerTexts header)
+      (spellsCons
+        (Doc.text " ")
+        [assignDoc, IfBroken 0 below choice]
+        []
+        (assignTexts ++ bodyTexts)
+        spellsSpace
+        (spellsCons assignDoc
+          [IfBroken 0 below choice]
+          assignTexts
+          bodyTexts
+          assigns
+          (spellsLast
+            (IfBroken 0 below choice)
+            bodyTexts
+            (spellsIfBroken 0 below choice bodyTexts belowSpells choiceSpells)))))
+
+--| A definition's tokens in order, as the rules write them: the keyword's own-line comments are the file's.
+def Decl.spelt: Decl → List Text
+  | Definition _ header (Assigned colonEq value) =>
+    (((fixedWord "def" header.keyword).spelledAt True ++ header.name.spelledAt False)
+      ++ (fixedWord ":" header.colon).spelledAt False
+      ++ header.result.spelt False)
+      ++ (fixedWord ":=" colonEq).spelledAt False
+      ++ value.spelt False
+  | _ => []
+
+def Decl.sound: Decl → Bool
+  | Definition _ header (Assigned colonEq value) =>
+    (fixedWord "def" header.keyword).sound
+      && header.name.sound
+      && (fixedWord ":" header.colon).sound
+      && header.result.sound
+      && (fixedWord ":=" colonEq).sound
+      && value.sound
+  | _ => False
+
+theorem typedSpells ∀ (trails: Bool) (typeDoc: Doc) (texts: List Text)
+    (spells: Spells typeDoc texts):
+    SpellsAll (if trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]) texts :=
+  match trails with
+    | True =>
+      spellsLast _ _
+        (spellsNest 4 _ _
+          (spellsConcat _ _ (spellsCons HardLine [typeDoc] [] texts spellsHardLine (spellsLast _ _ spells))))
+    | False =>
+      spellsCons (Doc.text " ") [Nest 4 typeDoc] [] texts spellsSpace (spellsLast _ _ (spellsNest 4 _ _ spells))
+
+theorem plainDefSpells ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
+    (colonEq: Comments) (value: Expr)
+    (resultWithin: result.within1 = True)
+    (valueWithin: value.within1 = True)
+    (keywordSound: (fixedWord "def" keyword).sound = True)
+    (nameSound: name.sound = True)
+    (colonSound: (fixedWord ":" colon).sound = True)
+    (resultSound: result.sound = True)
+    (assignSound: (fixedWord ":=" colonEq).sound = True)
+    (valueSound: value.sound = True):
+    Spells
+      (plainDef keyword name colon result colonEq value)
+      ((((fixedWord "def" keyword).spelledAt True ++ name.spelledAt False)
+        ++ (fixedWord ":" colon).spelledAt False
+        ++ result.spelt False)
+        ++ (fixedWord ":=" colonEq).spelledAt False
+        ++ value.spelt False) :=
+  let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
+  let colonWord := fixedWord ":" colon
+  let assign := fixedWord ":=" colonEq
+  let typeSpells := elSpells result (start.next colonWord.trails 3) resultWithin resultSound
+  let bodySpells :=
+    bodyAfterSpells value assign (start.next assign.trails (4 + result.size)) False valueWithin valueSound byComputing
+  let headSpells: Spells
+    (spaced (headDocs start [fixedWord "def" keyword, name]))
+    ((fixedWord "def" keyword).spelledAt True ++ name.spelledAt False) :=
+    spellsSpaced _ _
+      (spellsCons _ _ _ _
+        (leafSpells (fixedWord "def" keyword) start 0 keywordSound)
+        (spellsLast _ _ (leafSpells name (start.next (fixedWord "def" keyword).trails 1) 1 nameSound)))
+  defFromSpells _ _ _ _ _ _ _ _
+    (spellsConcat _ _
+      (spellsAllSame _ _ _
+        (spellsAppend _ _ _ _
+          (spellsCons _ _ _ _ headSpells
+            (spellsLast _ _
+              (leafSpells colonWord (start.next (trailsBack [name, fixedWord "def" keyword]) 2) 2 colonSound)))
+          (typedSpells colonWord.trails _ _ typeSpells))
+        (List.appendAssoc _ _ _)))
+    (leafSpells assign (start.next result.trails (3 + result.size)) (3 + result.size) assignSound)
+    bodySpells.left
+    bodySpells.right
+
+--| The document a slice 1 declaration has spells the declaration's tokens.
+theorem doc1Spells ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (sound: decl.sound = True)
+    (shows: decl.doc1 = Some doc):
+    Spells doc decl.spelt :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          rewrite <- Option.someInjective shows then
+            spellsEq _ _ _
+              (plainDefIs keyword name colon result colonEq value)
+              (plainDefSpells keyword name colon result colonEq value
+                (Bool.andLeft within)
+                (Bool.andRight within)
+                (Bool.andLeft sound)
+                (Bool.andLeft (Bool.andRight sound))
+                (Bool.andLeft (Bool.andRight (Bool.andRight sound)))
+                (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight sound))))
+                (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
+                (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound))))))
+        | _ => cases
+
+-- What the printer writes.
+
+--| A word that isn't a closer or comma.
+def notCloser (text: Text): Bool := !(isCloserText text || text == ",")
+
+--| A word that isn't a comment.
+def notComment (text: Text): Bool := !text.startsWith "--"
+
+theorem closersApart ∀ (text: Text) (closes: closesText text): notCloser text = False := match closes with
+  | Inl same => rewrite same
+  | Inr same => rewrite same
+
+theorem commentsApart ∀ (text: Text) (comment: commentsText text): notComment text = False :=
+  rewrite Bool.andLeft comment
+
+theorem closersApartExample: notCloser ")" = False := closersApart ")" (Inl byComputing)
+
+theorem commentsApartExample: notComment "-- a" = False := commentsApart "-- a" byComputing
+
+--| `printedSpells`: at any width, the text the rules print for a declaration spells the declaration: its words,
+--| less the closers and commas, are the tokens and comments of the tree in order; and its words, less the
+--| comments, are the tokens, closers and commas in order. The two together say what `Std.Doc`'s `printedWords`
+--| allows of a document with closers and trailing comments, which may change places on a line (`Closing` is
+--| written before the comment waiting there).
+--|
+--| Proof idea: `doc1Spells` gives the document's words (each option of each choice the same, closers and comments
+--| of the rules' kinds), and `printedWords` says the printer writes them in order but for a closer and a comment
+--| changing places.
+theorem printedSpells ∀ (decl: Decl) (doc: Doc) (width: Nat)
+    (within: decl.within1 = True)
+    (sound: decl.sound = True)
+    (shows: decl.doc1 = Some doc):
+    (wordsOf (printedPieces doc width)).filter notCloser = decl.spelt.filter notCloser
+      ∧ (wordsOf (printedPieces doc width)).filter notComment = decl.spelt.filter notComment :=
+  let (uniform, marked, words) := doc1Spells decl doc within sound shows
+  (
+    rewrite <- words then printedWords notCloser closesText commentsText doc width uniform marked (Inl closersApart),
+    rewrite <- words then printedWords notComment closesText commentsText doc width uniform marked (Inr commentsApart)
+  )
