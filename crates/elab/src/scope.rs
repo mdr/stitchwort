@@ -1852,9 +1852,15 @@ impl Elaborator {
     /// Why `name` doesn't name one declaration: it's ambiguous, followed by
     /// something its declaration doesn't have, or unknown.
     pub(crate) fn not_found(&self, name: &ast::Name) -> Diagnostic {
-        match self.resolve_exact(name) {
+        self.not_found_in_call(name, None)
+    }
+
+    /// [`Self::not_found`], with how many arguments the call around `name`
+    /// writes when every one is positional ([`Self::unknown`]).
+    fn not_found_in_call(&self, name: &ast::Name, argc: Option<usize>) -> Diagnostic {
+        match self.resolve_exact_in_call(name, argc) {
             Err(d) => d,
-            Ok(_) => self.unknown(name),
+            Ok(_) => self.unknown(name, argc),
         }
     }
 
@@ -1863,9 +1869,15 @@ impl Elaborator {
     /// (imports included) when one is within the distance [`near_miss`]
     /// allows (docs/proposals/helpful-errors.md §5 rank 6). Only
     /// names already in scope are suggested; when the name needs an import,
-    /// the import note says so instead.
-    pub(crate) fn not_found_with(&self, name: &ast::Name, locals: &[String]) -> Diagnostic {
-        let d = self.not_found(name);
+    /// the import note says so instead. `argc` is the call's positional
+    /// argument count, when the name is a call's head.
+    pub(crate) fn not_found_with(
+        &self,
+        name: &ast::Name,
+        locals: &[String],
+        argc: Option<usize>,
+    ) -> Diagnostic {
+        let d = self.not_found_in_call(name, argc);
         // A note already says something better about this name (where the
         // library has it, how to import it, another language's word): a
         // spelling guess would be noise on top.
@@ -1901,6 +1913,16 @@ impl Elaborator {
     /// The meaning of `name`, which must name a declaration exactly: an
     /// error if it's unknown, ambiguous, or followed by field accesses.
     pub(crate) fn resolve_exact(&self, name: &ast::Name) -> Result<(Global, Span, String)> {
+        self.resolve_exact_in_call(name, None)
+    }
+
+    /// [`Self::resolve_exact`], with the call's positional argument count
+    /// when `name` is an application's head, for the unknown-name hint.
+    fn resolve_exact_in_call(
+        &self,
+        name: &ast::Name,
+        argc: Option<usize>,
+    ) -> Result<(Global, Span, String)> {
         match self.resolve(&name.text) {
             Resolved::Found {
                 global,
@@ -1918,7 +1940,7 @@ impl Elaborator {
                 format!("`{}` has no `{}`", display(key), rest.join(".")),
             )),
             Resolved::Ambiguous(keys, level) => Err(self.ambiguous(name, &keys, level)),
-            Resolved::Missing => Err(self.unknown(name)),
+            Resolved::Missing => Err(self.unknown(name, argc)),
         }
     }
 
@@ -2128,8 +2150,10 @@ impl Elaborator {
     }
 
     /// `E-UNKNOWN-NAME`, with the library's declarations of that short name
-    /// as suggestions.
-    pub(crate) fn unknown(&self, name: &ast::Name) -> Diagnostic {
+    /// as suggestions. `argc` is how many arguments the call around a bare
+    /// name writes, when every one is positional: enough to tell apart
+    /// library names of different arities (SW-3978).
+    pub(crate) fn unknown(&self, name: &ast::Name, argc: Option<usize>) -> Diagnostic {
         if let Resolved::Found { global, key, .. } = self.resolve_any(&name.text)
             && !self.unit.loading_prelude
             && self.is_internal(global)
@@ -2377,6 +2401,29 @@ impl Elaborator {
                 })
                 .collect();
             keys.sort_by_key(|k| self.written_in_full(k));
+            // A call's arguments tell apart the library names of different
+            // arities (`print "hi"` fits `IO.print`, not `Std.Doc.print`,
+            // which wants a document and a width): keep only the ones that
+            // can take the arguments written. Only when every candidate's
+            // written arity is known and exactly one matches, so a list is
+            // never narrowed on a guess (SW-3978).
+            if let Some(argc) = argc
+                && keys.len() > 1
+                && let Some(index) = self.library_index()
+            {
+                let mut fits: Vec<&String> = Vec::new();
+                let mut unknown = false;
+                for key in &keys {
+                    match index.explicit_arity(key) {
+                        Some(arity) if arity == argc => fits.push(key),
+                        Some(_) => {}
+                        None => unknown = true,
+                    }
+                }
+                if !unknown && fits.len() == 1 {
+                    keys = fits;
+                }
+            }
             let found: Vec<String> = keys.iter().map(|k| self.written_in_full(k)).collect();
             if let Some(first_key) = keys.first() {
                 // The import path names the namespace in full: `written`
