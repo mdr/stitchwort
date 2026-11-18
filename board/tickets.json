@@ -23635,12 +23635,12 @@
     {
       "id": 3956,
       "title": "[DeepSeek] Fmt.Tests: 'nodes Doc lacks are unsupported' in the DocDump tests still expects Mark and CloserLine unsupported; since E4 (SW-3940) only TextBlock is; update the test (SW-3950 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~25 min (est. 20, shared with SW-3958). Test now checks Mark/CloserLine are compared and TextBlock unsupported.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23661,12 +23661,12 @@
     {
       "id": 3958,
       "title": "[DeepSeek] Merge the duplicate repo-formatted tests: fmt::the_repository_sources_are_formatted and fmt_repo::tracked_sw_files_are_formatted now walk the same tracked files (37 s each); keep one (SW-3953 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~25 min (est. 20, shared with SW-3956). Kept fmt::the_repository_sources_are_formatted, moved the DELIBERATELY_UNFORMATTED filter into it (needed in the Nix source copy), deleted fmt_repo.rs.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
