@@ -309,3 +309,390 @@ theorem lexemesOfSteps ∀ (source: Text) (steps: List (List Char, Lexeme))
         (middle atRest honest3 offset =>
           rewrite concatRounds 0 steps then Parse.runsPure (Parse.locatedSteps 0 steps) [] middle))
   rewrite Parse.runsFromRun (() => lexemesIn source TopLevel) source.toList (Parse.locatedSteps 0 steps) runs
+
+-- Layout: what `Assembly.add` does for each kind of lexeme.
+
+--| The bytes of UTF-8 a run of characters takes.
+def utf8Chars: List Char → Nat
+  | [] => 0
+  | [char, ..more] => (Char.utf8 char).length + utf8Chars more
+
+theorem utf8Sum ∀ (chars: List Char) (acc: Nat):
+    (chars.map (char => (Char.utf8 char).length)).foldLeft acc Nat.add = acc + utf8Chars chars :=
+  match chars with
+    | [] => byComputing
+    | [char, ..more] => rewrite utf8Sum more (acc + (Char.utf8 char).length) then arithmetic
+
+theorem utf8OfList ∀ (chars: List Char): (Text.fromList chars).utf8Length = utf8Chars chars := utf8Sum chars 0
+
+--| An ASCII character is a byte.
+theorem utf8OfAscii ∀ (char: Char) (ascii: char.toNat < 128): (Char.utf8 char).length = 1 :=
+  let leq: Nat.leq char.toNat 127 = True := arithmetic [ascii]
+  rewrite leq
+
+--| A run of ASCII characters takes a byte each.
+theorem utf8OfAsciiRun ∀ (chars: List Char)
+    (ascii: chars.all (char => char.toNat < 128) = True):
+    utf8Chars chars = chars.length :=
+  match chars, ascii with
+    | [], ascii => byComputing
+    | [first, ..more], ascii =>
+      let small: ((first.toNat <= 127): Bool) = True := Bool.andLeft ascii
+      let later: more.all (char => char.toNat <= 127) = True := Bool.andRight ascii
+      rewrite utf8OfAscii first (arithmetic [small]), utf8OfAsciiRun more later
+
+theorem afterLastBreakNone ∀ (chars: List Char) (acc: Option Nat)
+    (none: acc = None)
+    (noBreak: chars.all (char => char != '\n') = True):
+    chars.foldLeft acc (after char =>
+      if char == '\n' then Some 0 else after.map (bytes => bytes + (Char.utf8 char).length))
+      = None :=
+  match chars, noBreak with
+    | [], noBreak => none
+    | [char, ..more], noBreak =>
+      let later: more.all (char => char != '\n') = True := Bool.andRight noBreak
+      match same: char == '\n' with
+        | False => afterLastBreakNone more (acc.map (bytes => bytes + (Char.utf8 char).length)) (rewrite none) later
+
+theorem widthOfRun ∀ (read: List Char):
+    (if read.all (char => char.toNat < 128) then read.length
+     else (read.map (char => (Char.utf8 char).length)).foldLeft 0 Nat.add)
+      = utf8Chars read :=
+  match same: read.all (char => char.toNat < 128) with
+    | True => (utf8OfAsciiRun read same).flipped
+    | False => utf8Sum read 0
+
+theorem breakOfRun ∀ (read: List Char)
+    (noBreak: read.all (char => char != '\n') = True):
+    afterLastBreak (Text.fromList read) = None :=
+  afterLastBreakNone read None byComputing noBreak
+
+--| A token: its layout is where the line is, and it takes the comments and blank lines that waited for it.
+theorem addToken ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char) (kind: Tok)
+    (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
+    (noBreak: read.all (char => char != '\n') = True):
+    assembly.add source { value = TokenLexeme kind, offset, length = read.length }
+      = {
+        leaves = [
+          {
+            token = {
+              kind,
+              text = Text.fromList read,
+              column = assembly.bytes - assembly.lineStart,
+              lineStart = assembly.freshLine
+            },
+            trivia = { leading = assembly.pending.reverse, blankLines = assembly.blankRun, trailing = None }
+          },
+          ..assembly.leaves
+        ],
+        pending = [],
+        blankRun = 0,
+        lineBlank = False,
+        freshLine = False,
+        bytes = assembly.bytes + utf8Chars read,
+        lineStart = assembly.lineStart
+      } :=
+  rewrite cut, afterLastBreakNone read None byComputing noBreak, widthOfRun read
+
+theorem addSpaces ∀ (assembly: Assembly) (source: Text) (offset length: Nat):
+    assembly.add source { value = Spaces, offset, length } = { assembly | bytes = assembly.bytes + length } :=
+  byComputing
+
+--| A line break ends the line, which was blank if nothing but spaces was on it.
+theorem addBreak ∀ (assembly: Assembly) (source: Text) (offset: Nat):
+    assembly.add source { value = LineBreak, offset, length = 1 }
+      = { assembly |
+        blankRun = if assembly.lineBlank then assembly.blankRun + 1 else assembly.blankRun,
+        lineBlank = True,
+        freshLine = True,
+        bytes = assembly.bytes + 1,
+        lineStart = assembly.bytes + 1
+      } :=
+  byComputing
+
+--| A comment on a line of its own waits for the next token.
+theorem addOwnComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
+    (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
+    (fresh: assembly.freshLine = True):
+    assembly.add source { value = CommentLexeme, offset, length = read.length }
+      = { assembly |
+        pending = [
+          {
+            text = withoutReturn (Text.fromList read),
+            column = assembly.bytes - assembly.lineStart,
+            blankLines = assembly.blankRun
+          },
+          ..assembly.pending
+        ],
+        blankRun = 0,
+        lineBlank = False,
+        bytes = assembly.bytes + utf8Chars read
+      } :=
+  rewrite cut, fresh, utf8Sum read 0
+
+--| A comment after a token on its line is that token's.
+theorem addTrailingComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
+    (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
+    (taken: assembly.freshLine = False):
+    assembly.add source { value = CommentLexeme, offset, length = read.length }
+      = { assembly |
+        leaves = withTrailing assembly.leaves {
+          text = withoutReturn (Text.fromList read),
+          column = assembly.bytes - assembly.lineStart,
+          blankLines = 0
+        },
+        bytes = assembly.bytes + utf8Chars read
+      } :=
+  rewrite cut, taken, utf8Sum read 0
+
+theorem cutOfMade ∀ (source: Text) (before middle after: List Char)
+    (made: source.toList = before ++ (middle ++ after)):
+    (source.toList.drop before.length).take (before.length + middle.length - before.length) = middle :=
+  let dropped: source.toList.drop before.length = middle ++ after :=
+    rewrite made then List.dropAppend before (middle ++ after)
+  let count: before.length + middle.length - before.length = middle.length := arithmetic
+  rewrite dropped, count then List.takeAppend middle after
+
+-- Pieces: what a printer writes, and the leaves they make.
+
+--| A piece of printed text: a token's spelling, spaces, a line break or a comment.
+type Piece =
+  | Code (kind: Tok) (text: Text)
+  | Gap (count: Nat)
+  | Break
+  | Remark (text: Text)
+
+def Piece.chars: Piece → List Char
+  | Code _ text => text.toList
+  | Gap count => List.replicate count ' '
+  | Break => ['\n']
+  | Remark text => text.toList
+
+def Piece.lexeme: Piece → Lexeme
+  | Code kind _ => TokenLexeme kind
+  | Gap _ => Spaces
+  | Break => LineBreak
+  | Remark _ => CommentLexeme
+
+--| What each piece reads, and which lexeme it is.
+def pieceSteps: List Piece → List (List Char, Lexeme)
+  | [] => []
+  | [piece, ..more] => [(piece.chars, piece.lexeme), ..pieceSteps more]
+
+--| A piece is the sort the lexer reads as one lexeme with the layout below: tokens and comments have no line break
+--| and something in them, spaces are spaces, a break is `\n`.
+def Piece.Plain: Piece → Prop
+  | Code _ text => text.toList ≠ [] ∧ text.toList.all (char => char != '\n') = True
+  | Gap count => count ≠ 0
+  | Break => True
+  | Remark text => text.toList ≠ [] ∧ text.toList.all (char => char != '\n') = True
+
+def AllPlain: List Piece → Prop
+  | [] => True
+  | [piece, ..more] => piece.Plain ∧ AllPlain more
+
+--| The layout so far, as the printer's author thinks of it: leaves made (newest first), comments waiting (newest
+--| first), blank lines before them, whether the line has had only blanks, whether no token has started it, and
+--| the column in bytes.
+type Laid = {
+  leaves: List Leaf,
+  pending: List Comment,
+  blankRun: Nat,
+  lineBlank: Bool,
+  freshLine: Bool,
+  column: Nat
+}
+
+def Laid.start: Laid := { leaves = [], pending = [], blankRun = 0, lineBlank = True, freshLine = True, column = 0 }
+
+def Laid.lay (laid: Laid): Piece → Laid
+  | Code kind text => {
+    leaves = [
+      {
+        token = { kind, text, column = laid.column, lineStart = laid.freshLine },
+        trivia = { leading = laid.pending.reverse, blankLines = laid.blankRun, trailing = None }
+      },
+      ..laid.leaves
+    ],
+    pending = [],
+    blankRun = 0,
+    lineBlank = False,
+    freshLine = False,
+    column = laid.column + text.utf8Length
+  }
+  | Gap count => { laid | column = laid.column + count }
+  | Break => { laid |
+    blankRun = if laid.lineBlank then laid.blankRun + 1 else laid.blankRun,
+    lineBlank = True,
+    freshLine = True,
+    column = 0
+  }
+  | Remark text =>
+    let comment: Comment := { text = withoutReturn text, column = laid.column, blankLines = laid.blankRun }
+    if laid.freshLine then
+      { laid |
+        pending = [comment, ..laid.pending],
+        blankRun = 0,
+        lineBlank = False,
+        column = laid.column + text.utf8Length
+      }
+    else
+      { laid | leaves = withTrailing laid.leaves { comment | blankLines = 0 }, column = laid.column + text.utf8Length }
+
+--| An assembly in the layout `laid`, whose line began at byte `lineStart`.
+def Assembly.of (laid: Laid) (lineStart: Nat): Assembly := {
+  leaves = laid.leaves,
+  pending = laid.pending,
+  blankRun = laid.blankRun,
+  lineBlank = laid.lineBlank,
+  freshLine = laid.freshLine,
+  bytes = lineStart + laid.column,
+  lineStart
+}
+
+--| Where the line starts after a piece.
+def nextLine (laid: Laid) (lineStart: Nat): Piece → Nat
+  | Break => lineStart + laid.column + 1
+  | _ => lineStart
+
+theorem utf8OfText ∀ (text: Text): text.utf8Length = utf8Chars text.toList :=
+  rewrite <- Text.fromToList text then utf8OfList text.toList
+
+theorem addCode ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat) (kind: Tok) (text: Text)
+    (cut: (source.toList.drop offset).take (offset + text.toList.length - offset) = text.toList)
+    (noBreak: text.toList.all (char => char != '\n') = True):
+    (Assembly.of laid lineStart).add source { value = TokenLexeme kind, offset, length = text.toList.length }
+      = Assembly.of (laid.lay (Code kind text)) lineStart :=
+  rewrite addToken (Assembly.of laid lineStart) source offset text.toList kind cut noBreak,
+      Text.fromToList text,
+      utf8OfText text,
+      (arithmetic: lineStart + laid.column - lineStart = laid.column),
+      (arithmetic: lineStart + laid.column + utf8Chars text.toList = lineStart + (laid.column + utf8Chars text.toList))
+
+theorem addGap ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset count: Nat):
+    (Assembly.of laid lineStart).add source { value = Spaces, offset, length = (List.replicate count ' ').length }
+      = Assembly.of (laid.lay (Gap count)) lineStart :=
+  rewrite addSpaces (Assembly.of laid lineStart) source offset (List.replicate count ' ').length,
+      List.lengthReplicate ' ' count,
+      (arithmetic: lineStart + laid.column + count = lineStart + (laid.column + count))
+
+theorem addLineBreak ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat):
+    (Assembly.of laid lineStart).add source { value = LineBreak, offset, length = 1 }
+      = Assembly.of (laid.lay Break) (nextLine laid lineStart Break) :=
+  rewrite addBreak (Assembly.of laid lineStart) source offset,
+      (arithmetic: lineStart + laid.column + 1 + 0 = lineStart + laid.column + 1)
+
+theorem addComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
+    (cut: (source.toList.drop offset).take (offset + read.length - offset) = read):
+    assembly.add source { value = CommentLexeme, offset, length = read.length }
+      = if assembly.freshLine then
+        { assembly |
+          pending = [
+            {
+              text = withoutReturn (Text.fromList read),
+              column = assembly.bytes - assembly.lineStart,
+              blankLines = assembly.blankRun
+            },
+            ..assembly.pending
+          ],
+          blankRun = 0,
+          lineBlank = False,
+          bytes = assembly.bytes + utf8Chars read
+        }
+      else
+        { assembly |
+          leaves = withTrailing assembly.leaves {
+            text = withoutReturn (Text.fromList read),
+            column = assembly.bytes - assembly.lineStart,
+            blankLines = 0
+          },
+          bytes = assembly.bytes + utf8Chars read
+        } :=
+  rewrite cut, utf8Sum read 0
+
+theorem addRemark ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat) (text: Text)
+    (cut: (source.toList.drop offset).take (offset + text.toList.length - offset) = text.toList):
+    (Assembly.of laid lineStart).add source { value = CommentLexeme, offset, length = text.toList.length }
+      = Assembly.of (laid.lay (Remark text)) lineStart :=
+  rewrite addComment (Assembly.of laid lineStart) source offset text.toList cut,
+      utf8OfText text,
+      Text.fromToList text,
+      (arithmetic: lineStart + laid.column - lineStart = laid.column),
+      (arithmetic: lineStart + laid.column + utf8Chars text.toList
+        = lineStart + (laid.column + utf8Chars text.toList)) then
+    match same: laid.freshLine with
+      | True => byComputing
+      | False => byComputing
+
+--| `Assembly.add` of a piece's lexeme makes the next layout.
+theorem addPiece ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat) (piece: Piece)
+    (cut: (source.toList.drop offset).take (offset + piece.chars.length - offset) = piece.chars) (plain: piece.Plain):
+    (Assembly.of laid lineStart).add source { value = piece.lexeme, offset, length = piece.chars.length }
+      = Assembly.of (laid.lay piece) (nextLine laid lineStart piece) :=
+  match piece, plain with
+    | Code kind text, Both nonEmpty noBreak => addCode laid lineStart source offset kind text cut noBreak
+    | Gap count, plain => addGap laid lineStart source offset count
+    | Break, plain => addLineBreak laid lineStart source offset
+    | Remark text, Both nonEmpty noBreak => addRemark laid lineStart source offset text cut
+
+--| The fold `assemble` makes over the lexemes of pieces, from layout `laid`: the layout the pieces make.
+theorem foldPieces ∀ (source: Text) (pieces: List Piece) (before after: List Char) (laid: Laid) (lineStart: Nat)
+    (made: source.toList = before ++ (Parse.joinReads (pieceSteps pieces) ++ after))
+    (plain: AllPlain pieces):
+    ∃ (end: Nat) => (Parse.locatedSteps before.length (pieceSteps pieces)).foldLeft
+      (Assembly.of laid lineStart)
+      (assembly lexeme => assembly.add source lexeme)
+      = Assembly.of (pieces.foldLeft laid Laid.lay) end :=
+  match pieces, plain with
+    | [], plain => Witness lineStart byComputing
+    | [piece, ..more], Both pieceOk moreOk =>
+      let split: source.toList = before ++ (piece.chars ++ (Parse.joinReads (pieceSteps more) ++ after)) :=
+        rewrite List.appendAssoc piece.chars (Parse.joinReads (pieceSteps more)) after at made then made
+      let regrouped: source.toList = (before ++ piece.chars) ++ (Parse.joinReads (pieceSteps more) ++ after) :=
+        rewrite List.appendAssoc before piece.chars (Parse.joinReads (pieceSteps more) ++ after) then split
+      let step :=
+        addPiece laid lineStart source before.length piece
+          (cutOfMade source before piece.chars (Parse.joinReads (pieceSteps more) ++ after) split)
+          pieceOk
+      match foldPieces source more
+        (before ++ piece.chars)
+        after
+        (laid.lay piece)
+        (nextLine laid lineStart piece)
+        regrouped
+        moreOk with
+        | Witness end ran =>
+          Witness end (rewrite step then rewrite List.lengthAppend before piece.chars at ran then ran)
+
+--| `lexPrinted`: pieces that the lexer reads lexeme by lexeme (each `ItemReads`, with what follows it) lex to the leaves
+--| of the layout they make: each token with its column in bytes, whether it starts its line, and the comments and
+--| blank lines above it; the comments and blank lines after the last token end the file.
+theorem lexPrinted ∀ (source: Text) (pieces: List Piece)
+    (reads: source.toList = Parse.joinReads (pieceSteps pieces))
+    (rounds: ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) => ItemRounds self source
+      (pieceSteps pieces)
+      [])
+    (plain: AllPlain pieces):
+    lex source
+      = Ok {
+        leaves = (pieces.foldLeft Laid.start Laid.lay).leaves.reverse,
+        end = {
+          leading = (pieces.foldLeft Laid.start Laid.lay).pending.reverse,
+          blankLines = (pieces.foldLeft Laid.start Laid.lay).blankRun,
+          trailing = None
+        }
+      } :=
+  let made: source.toList = [] ++ (Parse.joinReads (pieceSteps pieces) ++ []) :=
+    rewrite List.appendNil (Parse.joinReads (pieceSteps pieces)) then reads
+  match foldPieces source pieces [] [] Laid.start 0 made plain with
+    | Witness end ran => rewrite lexemesOfSteps source (pieceSteps pieces) reads rounds, ran
+
+--| `lexCovers`: lexemes read lexeme by lexeme cut the source into pieces that joined are the source.
+theorem lexCovers ∀ (source: Text) (steps: List (List Char, Lexeme))
+    (reads: source.toList = Parse.joinReads steps)
+    (rounds: ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) => ItemRounds self source steps []):
+    ∃ (found: List (Parse.Located Lexeme)) => lexemes source = Ok found
+      ∧ Text.concat (found.map (lexeme => source.slice lexeme.offset (lexeme.offset + lexeme.length))) = source :=
+  Witness
+    (Parse.locatedSteps 0 steps)
+    (Both (lexemesOfSteps source steps reads rounds) (Parse.locatedStepsCover source steps reads))
