@@ -24109,12 +24109,12 @@
     {
       "id": 3992,
       "title": "[Opus] Self-hosted fmt S4b program: patterns: list patterns [x, ..xs], absurd patterns, tuple patterns, (p), in match arms and a definition's arms; plus unit () and named arguments (f (n := 1)) if they come cheaply; within4b, Fmt.Twin --stage s4b; gate identical to Rust; rerun SW-3990's census (top outside after S5a: PatternList 205, PatternAbsurd 112, Annotation 77, NamedArg 50, Membership 46, Unit 42, PatternTuple 39)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (lane, 18 Nov 13:10-13:25, est. 30 min): built slice 4b on lane/SW-3992 (5fff068be): list, tuple, (p) and absurd patterns, absurd arms, constructors of those, named arguments and annotations; within4b, Fmt.Twin --stage s4b, dev/fmt-twin s4b. Gate: goldens 352/352, repo sample 2,741/2,741 identical to Rust; coverage 40.2% -> 46.6% of the same 5,888 declarations (SW-3990's 41.1% was of a 5,527-declaration sample). s1-s5a stay 100%. Left out: unit () (Rust copies the f () gap), record patterns, .._ . Census top alone: Unit 133, Spread 114, Membership 81, PatternRecord 35. Notes in tools/fmt/NOTES.md, Slice 4b.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
