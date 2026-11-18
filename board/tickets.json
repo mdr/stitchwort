@@ -1,5 +1,5 @@
 {
-  "next": 3951,
+  "next": 3952,
   "tickets": [
     {
       "id": 47,
@@ -23514,12 +23514,12 @@
     {
       "id": 3948,
       "title": "[Fable paper] Review SW-3936's kernel change before merge: add_validator reads erase::def_telescope and checks the decision under the definition's transparency set, glued; retype_def's signature now checked glued",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Fable: merge as is (docs/reviews/SW-3948-export-validators-view.md, on lane/SW-3936). Four probes on the lane binary.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23545,6 +23545,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3951,
+      "title": "[DeepSeek] Kernel add_validator: refuse (E-MALFORMED) a validator for a parameter that isn't a proof, and a second validator for one parameter, as add_field_validator does; elaborator reads Def::transparent instead of rebuilding the set; core.md 'a parameter's validator' wording (SW-3948 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
