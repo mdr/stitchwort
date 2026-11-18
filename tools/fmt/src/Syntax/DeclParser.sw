@@ -500,44 +500,88 @@ def namespaceAfter (modes: Modes) (keyword: Comments): Option Tok → {Parse Ite
 
 def importLine (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
-  let path := if modes.at Upper then bump() else modes.fail "a namespace, such as `List`"
-  if wordAhead modes "as" then
-    fatal "`import M as A` isn't Stitchwort: a namespace is imported as an item of the namespace above it"
-  else
-    let open := modes.expectFixed LParen "`(` and the names to import"
-    let imported :=
-      if modes.at DotDot then
-        let dots := fixedFrom()
-        if modes.at RParen then ImportAll dots else fatal (mixedImport path)
-      else ImportItems (importItems (Parse.mark().left + 1) modes path [])
-    Import keyword path open imported (modes.expectFixed RParen "`)`")
+  let path := importPath modes (modes.at Upper)
+  importAfter modes keyword path (wordAhead modes "as")
+
+def importPath (modes: Modes) (upper: Bool): {Parse Item} Word :=
+  if upper then bump() else modes.fail "a namespace, such as `List`"
+
+def importAfter (modes: Modes) (keyword: Comments) (path: Word) (asNext: Bool): {Parse Item} Decl :=
+  if asNext then fatal "`import M as A` isn't Stitchwort: a namespace is imported as an item of the namespace above it"
+  else importOpen modes keyword path
+
+def importOpen (modes: Modes) (keyword: Comments) (path: Word): {Parse Item} Decl :=
+  let open := modes.expectFixed LParen "`(` and the names to import"
+  let imported := importedOf modes path (modes.at DotDot)
+  importClose modes keyword path open imported
+
+def importedOf (modes: Modes) (path: Word) (dots: Bool): {Parse Item} Imported :=
+  if dots then
+    let written := fixedFrom()
+    importAllEnd path written (modes.at RParen)
+  else importNames modes path
+
+def importAllEnd (path: Word) (dots: Comments) (closed: Bool): {Parse Item} Imported :=
+  if closed then ImportAll dots else fatal (mixedImport path)
+
+def importNames (modes: Modes) (path: Word): {Parse Item} Imported :=
+  let here := Parse.mark()
+  let items := importItems (here.left + 1) modes path []
+  ImportItems items
+
+def importClose (modes: Modes) (keyword: Comments) (path: Word) (open: Comments) (imported: Imported):
+    {Parse Item} Decl :=
+  let close := modes.expectFixed RParen "`)`"
+  Import keyword path open imported close
 
 def mixedImport (path: Word): Text :=
   "`..` imports everything from a namespace, so it goes on its own: `import ${path.text} (..)`"
 
 def importItems (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem): {Parse Item} List ImportItem :=
-  match fuel, left() with
+  importItemsOn fuel modes path found left()
+
+def importItemsOn (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem) (items: List Item):
+    {Parse Item} List ImportItem :=
+  match fuel, items with
     | Succ more, [item, .._] if (item.kind == Lower || item.kind == Upper) && !isQualified item && !modes.stops item =>
-      let name := bump()
-      let alias := importAlias modes name
-      let done := [{ name, alias }, ..found]
-      if modes.at Comma then
-        let _ := bump()
-        importItems more modes path done
-      else done.reverse
-    | _, _ => if modes.at DotDot && !found.isEmpty then fatal (mixedImport path) else modes.fail "a name to import"
+      importNamed more modes path found
+    | _, _ => importStop modes path found (modes.at DotDot)
+
+def importStop (modes: Modes) (path: Word) (found: List ImportItem) (dots: Bool): {Parse Item} List ImportItem :=
+  if dots && !found.isEmpty then fatal (mixedImport path) else modes.fail "a name to import"
+
+def importNamed (more: Nat) (modes: Modes) (path: Word) (found: List ImportItem): {Parse Item} List ImportItem :=
+  let name := bump()
+  let alias := importAlias modes name
+  importTail more modes path [{ name, alias }, ..found] (modes.at Comma)
+
+def importTail (more: Nat) (modes: Modes) (path: Word) (done: List ImportItem) (comma: Bool):
+    {Parse Item} List ImportItem :=
+  if comma then
+    let _ := bump()
+    importItems more modes path done
+  else done.reverse
 
 def importAlias (modes: Modes) (name: Word): {Parse Item} Option (Comments, Word) :=
-  if wordAhead modes "as" then
+  importAliasOn modes name (wordAhead modes "as")
+
+def importAliasOn (modes: Modes) (name: Word) (asNext: Bool): {Parse Item} Option (Comments, Word) :=
+  if asNext then
     let asWord := fixedFrom()
-    match left() with
-      | [alias, .._] if (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias =>
-        if startsUpper name.text != startsUpper alias.text then
-          let case := if startsUpper name.text then "a capital letter" else "a lower-case letter"
-          fatal "`${name.text}` starts with ${case}, so its new name must too"
-        else Some (asWord, bump())
-      | _ => modes.fail "the name to use instead, as in `x as y`"
+    importAliasWord modes name asWord left()
   else None
+
+def importAliasWord (modes: Modes) (name: Word) (asWord: Comments) (items: List Item):
+    {Parse Item} Option (Comments, Word) :=
+  match items with
+    | [alias, .._] if (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias =>
+      if startsUpper name.text != startsUpper alias.text then
+        let case := if startsUpper name.text then "a capital letter" else "a lower-case letter"
+        fatal "`${name.text}` starts with ${case}, so its new name must too"
+      else
+        let word := bump()
+        Some (asWord, word)
+    | _ => modes.fail "the name to use instead, as in `x as y`"
 
 def startsUpper (text: Text): Bool := match text.toList with
   | [first, .._] => first.isAsciiUppercase
