@@ -7,10 +7,10 @@
 --| before any space or line break, whatever the width
 --| (`printedLeads`).
 --|
---| At the other end, a document that ends with a word (`Ends`: its last
+--| At the other end, a document that ends with a word (`Finishes`: its last
 --| chunk or closer, then only marks and trailing comments) prints that
 --| word last, followed only by its trailing comments, each after a space
---| (`printedEnds`): every step leaves the end of the work list in place,
+--| (`printedFinishes`): every step leaves the end of the work list in place,
 --| and nothing silent writes.
 
 import Doc (..)
@@ -544,45 +544,45 @@ def Doc.Proofs.AllSilent: List Doc → Prop
 
 --| `doc` ends with a word `last` holds of: whatever the layout, the last
 --| thing it writes is a chunk or closer, and after it only `Silent` docs.
-def Doc.Proofs.Ends (last: Text → Prop): Doc → Prop
+def Doc.Proofs.Finishes (last: Text → Prop): Doc → Prop
   | Chunk text _ => last text
   | Closing text => last text
-  | Nest _ inner => Ends last inner
-  | Align inner => Ends last inner
-  | AlignInset inner => Ends last inner
-  | Displaced inner => Ends last inner
-  | Group inner _ => Ends last inner
-  | NarrowGroup _ inner _ => Ends last inner
-  | IdGroup _ inner _ => Ends last inner
-  | IfBroken _ broken flat => Ends last broken ∧ Ends last flat
-  | Flatten inner => Ends last inner
-  | OneLineBelow inner => Ends last inner
-  | Concat docs => EndsAll last docs
-  | Fill items => EndsLast last items
-  | Choice options => EndsEach last options
+  | Nest _ inner => Finishes last inner
+  | Align inner => Finishes last inner
+  | AlignInset inner => Finishes last inner
+  | Displaced inner => Finishes last inner
+  | Group inner _ => Finishes last inner
+  | NarrowGroup _ inner _ => Finishes last inner
+  | IdGroup _ inner _ => Finishes last inner
+  | IfBroken _ broken flat => Finishes last broken ∧ Finishes last flat
+  | Flatten inner => Finishes last inner
+  | OneLineBelow inner => Finishes last inner
+  | Concat docs => FinishesAll last docs
+  | Fill items => FinishesLast last items
+  | Choice options => FinishesEach last options
   | _ => False
 
 --| Some doc ends with a word, and every doc after it is `Silent`.
-def Doc.Proofs.EndsAll (last: Text → Prop): List Doc → Prop
+def Doc.Proofs.FinishesAll (last: Text → Prop): List Doc → Prop
   | [] => False
-  | [doc, ..docs] => EndsAll last docs ∨ (Ends last doc ∧ AllSilent docs)
+  | [doc, ..docs] => FinishesAll last docs ∨ (Finishes last doc ∧ AllSilent docs)
 
 --| The last doc ends with a word.
-def Doc.Proofs.EndsLast (last: Text → Prop): List Doc → Prop
+def Doc.Proofs.FinishesLast (last: Text → Prop): List Doc → Prop
   | [] => False
-  | [item] => Ends last item
-  | [_, ..items] => EndsLast last items
+  | [item] => Finishes last item
+  | [_, ..items] => FinishesLast last items
 
 --| There is a doc, and each ends with a word.
-def Doc.Proofs.EndsEach (last: Text → Prop): List Doc → Prop
+def Doc.Proofs.FinishesEach (last: Text → Prop): List Doc → Prop
   | [] => False
-  | [option] => Ends last option
-  | [option, ..others] => Ends last option ∧ EndsEach last others
+  | [option] => Finishes last option
+  | [option, ..others] => Finishes last option ∧ FinishesEach last others
 
 --| A command's doc ends with a word.
-def Doc.Proofs.CmdEnds (last: Text → Prop): Cmd → Prop
-  | Print _ _ doc => Ends last doc
-  | FillSep _ item => Ends last item
+def Doc.Proofs.CmdFinishes (last: Text → Prop): Cmd → Prop
+  | Print _ _ doc => Finishes last doc
+  | FillSep _ item => Finishes last item
 
 --| A command's doc is `Silent` (a fill separator never is: it writes a
 --| space or breaks the line).
@@ -597,9 +597,9 @@ def Doc.Proofs.StackSilent: List Cmd → Prop
 
 --| Some command on the work list ends with a word, and every command
 --| after it is silent.
-def Doc.Proofs.StackEnds (last: Text → Prop): List Cmd → Prop
+def Doc.Proofs.StackFinishes (last: Text → Prop): List Cmd → Prop
   | [] => False
-  | [cmd, ..rest] => StackEnds last rest ∨ (CmdEnds last cmd ∧ StackSilent rest)
+  | [cmd, ..rest] => StackFinishes last rest ∨ (CmdFinishes last cmd ∧ StackSilent rest)
 
 --| The printer's last piece is a word `last` holds of, on the line it
 --| started.
@@ -609,16 +609,16 @@ def Doc.Proofs.Topped (last: Text → Prop) (printer: Printer): Prop :=
 --| A reading is on its way to end with a word: the work list still ends
 --| with one, or the printer has written it and only silent commands are
 --| left.
-def Doc.Proofs.EndsAhead (last: Text → Prop) (printer: Printer) (stack: List Cmd): Prop :=
-  StackEnds last stack ∨ (Topped last printer ∧ StackSilent stack)
+def Doc.Proofs.Finishing (last: Text → Prop) (printer: Printer) (stack: List Cmd): Prop :=
+  StackFinishes last stack ∨ (Topped last printer ∧ StackSilent stack)
 
 --| A work list that ends with a word still does with commands in front.
-theorem Doc.Proofs.stackEndsAppend ∀ (last: Text → Prop) (front back: List Cmd)
-    (ends: StackEnds last back):
-    StackEnds last (front ++ back) :=
+theorem Doc.Proofs.stackFinishesAppend ∀ (last: Text → Prop) (front back: List Cmd)
+    (ends: StackFinishes last back):
+    StackFinishes last (front ++ back) :=
   match front with
     | [] => ends
-    | [cmd, ..rest] => Inl (stackEndsAppend last rest back ends)
+    | [cmd, ..rest] => Inl (stackFinishesAppend last rest back ends)
 
 --| Printing silent docs before a silent work list is a silent work list.
 theorem Doc.Proofs.printsSilent ∀ (indent: Nat) (mode: Mode) (docs: List Doc) (rest: List Cmd)
@@ -631,62 +631,62 @@ theorem Doc.Proofs.printsSilent ∀ (indent: Nat) (mode: Mode) (docs: List Doc) 
 
 --| Printing docs that end with a word, before a silent work list, is a
 --| work list that ends with one.
-theorem Doc.Proofs.printsEnds ∀ (last: Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc) (rest: List Cmd)
-    (ends: EndsAll last docs)
+theorem Doc.Proofs.printsFinish ∀ (last: Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc) (rest: List Cmd)
+    (ends: FinishesAll last docs)
     (silent: StackSilent rest):
-    StackEnds last (docs.map (Print indent mode) ++ rest) :=
+    StackFinishes last (docs.map (Print indent mode) ++ rest) :=
   match docs, ends with
     | [], never => cases
-    | [doc, ..others], Inl later => Inl (printsEnds last indent mode others rest later silent)
+    | [doc, ..others], Inl later => Inl (printsFinish last indent mode others rest later silent)
     | [doc, ..others], Inr (Both first quiet) => Inr (first, (printsSilent indent mode others rest quiet silent))
 
 --| The separators before items whose last ends with a word, before a
 --| silent work list, are a work list that ends with one.
-theorem Doc.Proofs.fillSepsEnds ∀ (last: Text → Prop) (indent: Nat) (items: List Doc) (rest: List Cmd)
-    (ends: EndsLast last items)
+theorem Doc.Proofs.fillSepsFinish ∀ (last: Text → Prop) (indent: Nat) (items: List Doc) (rest: List Cmd)
+    (ends: FinishesLast last items)
     (silent: StackSilent rest):
-    StackEnds last (items.map (FillSep indent) ++ rest) :=
+    StackFinishes last (items.map (FillSep indent) ++ rest) :=
   match items, ends with
     | [], never => cases
     | [only], ends => Inr (ends, silent)
-    | [item, next, ..more], ends => Inl (fillSepsEnds last indent [next, ..more] rest ends silent)
+    | [item, next, ..more], ends => Inl (fillSepsFinish last indent [next, ..more] rest ends silent)
 
 --| Putting a `Line` between items whose last ends with a word leaves docs
 --| that end with one.
-theorem Doc.Proofs.joinLinesEnds ∀ (last: Text → Prop) (items: List Doc)
-    (ends: EndsLast last items):
-    EndsAll last (Doc.joinLines items) :=
+theorem Doc.Proofs.joinLinesFinish ∀ (last: Text → Prop) (items: List Doc)
+    (ends: FinishesLast last items):
+    FinishesAll last (Doc.joinLines items) :=
   match items, ends with
     | [], never => cases
     | [only], ends => Inr (ends, byComputing)
-    | [item, next, ..more], ends => Inl (Inl (joinLinesEnds last [next, ..more] ends))
+    | [item, next, ..more], ends => Inl (Inl (joinLinesFinish last [next, ..more] ends))
 
 --| The option a broken `Choice` takes ends with a word if each does.
-theorem Doc.Proofs.optionEnds ∀ (last: Text → Prop) (chosen: Doc) (options: List Doc)
+theorem Doc.Proofs.optionFinishes ∀ (last: Text → Prop) (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options)
-    (ends: EndsEach last options):
-    Ends last chosen :=
+    (ends: FinishesEach last options):
+    Finishes last chosen :=
   match options, isOption, ends with
     | [], _, never => cases
     | [only], picked, ends => rewrite picked then ends
     | [option, next, ..more], Inl picked, Both first _ => rewrite picked then first
-    | [option, next, ..more], Inr later, Both _ others => optionEnds last chosen [next, ..more] later others
+    | [option, next, ..more], Inr later, Both _ others => optionFinishes last chosen [next, ..more] later others
 
 --| The option a flat `Choice` takes, its first, ends with a word if each
 --| does.
-theorem Doc.Proofs.headOrEnds ∀ (last: Text → Prop) (options: List Doc)
-    (ends: EndsEach last options):
-    Ends last (options.headOr Doc.Nothing) :=
+theorem Doc.Proofs.headOrFinishes ∀ (last: Text → Prop) (options: List Doc)
+    (ends: FinishesEach last options):
+    Finishes last (options.headOr Doc.Nothing) :=
   match options, ends with
     | [], never => cases
     | [only], ends => ends
     | [option, next, ..more], Both first _ => first
 
 --| The branch an `IfBroken` takes ends with a word if both do.
-theorem Doc.Proofs.pickEnds ∀ (last: Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
-    (brokenEnds: Ends last broken)
-    (flatEnds: Ends last flat):
-    Ends last (pickBranch modes id broken flat) :=
+theorem Doc.Proofs.pickFinishes ∀ (last: Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
+    (brokenEnds: Finishes last broken)
+    (flatEnds: Finishes last flat):
+    Finishes last (pickBranch modes id broken flat) :=
   match pickEither modes id broken flat with
     | Inl isBroken => rewrite isBroken then brokenEnds
     | Inr isFlat => rewrite isFlat then flatEnds
@@ -796,13 +796,13 @@ theorem Doc.Proofs.closeTopped ∀ (last: Text → Prop) (printer: Printer) (tex
 
 --| A step on a command that ends with a word keeps the reading on its way
 --| to end with one.
-theorem Doc.Proofs.cmdEnds ∀ (last: Text → Prop) (printer: Printer) (cmd: Cmd)
+theorem Doc.Proofs.cmdFinishes ∀ (last: Text → Prop) (printer: Printer) (cmd: Cmd)
     (rest: List Cmd) (result: (Printer, List Cmd))
     (steps: StepsTo printer cmd rest result)
     (solid: ∀ (text: Text) => last text → isLayout text = False)
-    (ends: CmdEnds last cmd)
+    (ends: CmdFinishes last cmd)
     (silent: StackSilent rest):
-    EndsAhead last result.fst result.snd :=
+    Finishing last result.fst result.snd :=
   match cmd, steps, ends with
     | FillSep indent item, Inl (Both _ flat), ends => rewrite flat then Inl (Inr (ends, silent))
     | FillSep indent item, Inr broken, ends => rewrite broken then Inl (Inr (ends, silent))
@@ -825,23 +825,23 @@ theorem Doc.Proofs.cmdEnds ∀ (last: Text → Prop) (printer: Printer) (cmd: Cm
         | IdGroup id inner hard, Inl (Both _ flat), ends => rewrite flat then Inl (Inr (ends, silent))
         | IdGroup id inner hard, Inr (Both _ broken), ends => rewrite broken then Inl (Inr (ends, silent))
         | IfBroken id broken flat, steps, Both brokenEnds flatEnds =>
-          rewrite steps then Inl (Inr ((pickEnds last printer.modes id broken flat brokenEnds flatEnds), silent))
-        | Concat docs, steps, ends => rewrite steps then Inl (printsEnds last indent mode docs rest ends silent)
+          rewrite steps then Inl (Inr ((pickFinishes last printer.modes id broken flat brokenEnds flatEnds), silent))
+        | Concat docs, steps, ends => rewrite steps then Inl (printsFinish last indent mode docs rest ends silent)
         | Fill [first, ..others], Inl (Both _ flat), ends =>
           rewrite flat then
             Inl
-              (printsEnds last indent Flat
+              (printsFinish last indent Flat
                 (Doc.joinLines [first, ..others])
                 rest
-                (joinLinesEnds last [first, ..others] ends)
+                (joinLinesFinish last [first, ..others] ends)
                 silent)
         | Fill [only], Inr (Both _ (Witness firstMode broken)), ends => rewrite broken then Inl (Inr (ends, silent))
         | Fill [first, next, ..more], Inr (Both _ (Witness firstMode broken)), ends =>
-          rewrite broken then Inl (Inl (fillSepsEnds last indent [next, ..more] rest ends silent))
+          rewrite broken then Inl (Inl (fillSepsFinish last indent [next, ..more] rest ends silent))
         | Choice options, Inl (Both _ flat), ends =>
-          rewrite flat then Inl (Inr ((headOrEnds last options ends), silent))
+          rewrite flat then Inl (Inr ((headOrFinishes last options ends), silent))
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), ends =>
-          rewrite broken then Inl (Inr ((optionEnds last chosen options isOption ends), silent))
+          rewrite broken then Inl (Inr ((optionFinishes last chosen options isOption ends), silent))
         | _, _, never => cases
 
 --| A step on a silent command, once the word is written, keeps it the
@@ -852,7 +852,7 @@ theorem Doc.Proofs.silentStep ∀ (last: Text → Prop) (printer: Printer) (cmd:
     (topped: Topped last printer)
     (quiet: CmdSilent cmd)
     (silent: StackSilent rest):
-    EndsAhead last result.fst result.snd :=
+    Finishing last result.fst result.snd :=
   match cmd, steps, quiet with
     | Print indent mode doc, steps, quiet =>
       match doc, steps, quiet with
@@ -866,25 +866,26 @@ theorem Doc.Proofs.silentStep ∀ (last: Text → Prop) (printer: Printer) (cmd:
     | FillSep indent item, _, never => cases
 
 --| Every step keeps a reading on its way to end with a word.
-theorem Doc.Proofs.stepEnds ∀ (last: Text → Prop) (printer: Printer) (cmd: Cmd)
+theorem Doc.Proofs.stepFinishes ∀ (last: Text → Prop) (printer: Printer) (cmd: Cmd)
     (rest: List Cmd) (result: (Printer, List Cmd))
     (steps: StepsTo printer cmd rest result)
     (solid: ∀ (text: Text) => last text → isLayout text = False)
-    (ahead: EndsAhead last printer [cmd, ..rest]):
-    EndsAhead last result.fst result.snd :=
+    (ahead: Finishing last printer [cmd, ..rest]):
+    Finishing last result.fst result.snd :=
   match ahead with
     | Inl (Inl later) =>
       match stepFront printer cmd rest result steps with
-        | (front, same) => Inl (rewrite same then stackEndsAppend last front rest later)
-    | Inl (Inr (Both ends silent)) => cmdEnds last printer cmd rest result steps solid ends silent
+        | (front, same) => Inl (rewrite same then stackFinishesAppend last front rest later)
+    | Inl (Inr (Both ends silent)) => cmdFinishes last printer cmd rest result steps solid ends silent
     | Inr (Both topped (Both quiet silent)) => silentStep last printer cmd rest result steps topped quiet silent
 
 --| A reading on its way to end with a word, with the steps to finish,
 --| leaves that word the last piece, on the line it started.
-theorem Doc.Proofs.readingEnds ∀ (last: Text → Prop) (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer)
+theorem Doc.Proofs.readingFinishes ∀ (last: Text → Prop) (printer: Printer) (fuel: Nat)
+    (stack: List Cmd) (final: Printer)
     (reads: Doc.Proofs.Reads printer fuel stack final)
     (solid: ∀ (text: Text) => last text → isLayout text = False)
-    (ahead: EndsAhead last printer stack)
+    (ahead: Finishing last printer stack)
     (enough: stackCost stack ≤ fuel):
     Topped last final :=
   match fuel, stack, reads, ahead with
@@ -896,8 +897,8 @@ theorem Doc.Proofs.readingEnds ∀ (last: Text → Prop) (printer: Printer) (fue
       Void.impossible (arithmetic)
     | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), ahead =>
       let lighter := readingLighter printer cmd rest (next, later) steps
-      readingEnds last next more later final laterReads solid
-        (stepEnds last printer cmd rest (next, later) steps solid ahead)
+      readingFinishes last next more later final laterReads solid
+        (stepFinishes last printer cmd rest (next, later) steps solid ahead)
         (arithmetic)
 
 --| Through a reading of a marked work list, the comments that wait are
@@ -952,12 +953,12 @@ theorem Doc.Proofs.flushTopped ∀ (printer: Printer)
 --| Proof idea: the reading takes the work list apart until the command
 --| that ends is first, every step leaving what follows it in place
 --| (`stepFront`); that command writes the word or hands the ending to
---| its parts (`cmdEnds`), and the silent commands after it write nothing
+--| its parts (`cmdFinishes`), and the silent commands after it write nothing
 --| (`silentStep`). The comments waiting at the end are the document's
 --| (`readingQuiet`), and flushing writes each after a space
 --| (`flushTopped`).
-theorem Doc.Proofs.printedEnds ∀ (last closer suffix: Text → Prop) (doc: Doc) (width: Nat)
-    (ends: Ends last doc)
+theorem Doc.Proofs.printedFinishes ∀ (last closer suffix: Text → Prop) (doc: Doc) (width: Nat)
+    (ends: Finishes last doc)
     (solid: ∀ (text: Text) => last text → isLayout text = False)
     (marked: Marked closer suffix doc):
     ∃ (front: List Text) => ∃ (word: Text) => ∃ (comments: List Text) => last word
@@ -968,7 +969,7 @@ theorem Doc.Proofs.printedEnds ∀ (last closer suffix: Text → Prop) (doc: Doc
   let reads := runIsReading (Printer.start width) fuel fuel [Print 0 Break doc]
   let bound := stepsUnderSize doc
   let topped: Topped last ran :=
-    readingEnds last
+    readingFinishes last
       (Printer.start width)
       fuel
       [Print 0 Break doc]
@@ -1007,3 +1008,101 @@ theorem Doc.Proofs.printedEnds ∀ (last closer suffix: Text → Prop) (doc: Doc
         )
       )
     )
+
+-- Building documents that finish with a word.
+
+--| A document that finishes with a word isn't empty.
+theorem Doc.Proofs.finishesFilled ∀ (last: Text → Prop) (doc: Doc) (ends: Finishes last doc): doc.isEmpty = False :=
+  match doc, ends with
+    | Doc.Nothing, never => cases
+    | Chunk _ _, _ => byComputing
+    | Closing _, _ => byComputing
+    | Nest _ _, _ => byComputing
+    | Align _, _ => byComputing
+    | AlignInset _, _ => byComputing
+    | Displaced _, _ => byComputing
+    | Group _ _, _ => byComputing
+    | NarrowGroup _ _ _, _ => byComputing
+    | IdGroup _ _ _, _ => byComputing
+    | IfBroken _ _ _, _ => byComputing
+    | Flatten _, _ => byComputing
+    | OneLineBelow _, _ => byComputing
+    | Concat _, _ => byComputing
+    | Fill _, _ => byComputing
+    | Choice _, _ => byComputing
+
+--| Leaving out the empty docs keeps silent docs silent.
+theorem Doc.Proofs.silentKept ∀ (docs: List Doc)
+    (quiet: AllSilent docs):
+    AllSilent (docs.filter (doc => not doc.isEmpty)) :=
+  match docs, quiet with
+    | [], _ => byComputing
+    | [doc, ..others], Both first more =>
+      match empty: doc.isEmpty with
+        | True => silentKept others more
+        | False => (first, (silentKept others more))
+
+--| Leaving out the empty docs keeps docs that finish with a word
+--| finishing with it.
+theorem Doc.Proofs.finishesKept ∀ (last: Text → Prop) (docs: List Doc)
+    (ends: FinishesAll last docs):
+    FinishesAll last (docs.filter (doc => not doc.isEmpty)) :=
+  match docs, ends with
+    | [], never => cases
+    | [doc, ..others], Inl later =>
+      match empty: doc.isEmpty with
+        | True => finishesKept last others later
+        | False => Inl (finishesKept last others later)
+    | [doc, ..others], Inr (Both first quiet) =>
+      rewrite finishesFilled last doc first then Inr (first, (silentKept others quiet))
+
+--| The docs put together, the empty ones left out, finish with the word
+--| they finish with.
+theorem Doc.Proofs.finishesConcat ∀ (last: Text → Prop) (docs: List Doc)
+    (ends: FinishesAll last docs):
+    Finishes last (Doc.concat docs) :=
+  let kept := finishesKept last docs ends
+  match found: docs.filter (doc => not doc.isEmpty) with
+    | [only] =>
+      match kept with
+        | Inl never => cases
+        | Inr (Both first _) => first
+    | [first, second, ..rest] => kept
+
+--| Docs that finish with a word still do with docs in front.
+theorem Doc.Proofs.finishesAppend ∀ (last: Text → Prop) (front back: List Doc)
+    (ends: FinishesAll last back):
+    FinishesAll last (front ++ back) :=
+  match front with
+    | [] => ends
+    | [doc, ..rest] => Inl (finishesAppend last rest back ends)
+
+--| Docs whose last finishes with a word finish with it.
+theorem Doc.Proofs.finishesOfLast ∀ (last: Text → Prop) (docs: List Doc)
+    (ends: FinishesLast last docs):
+    FinishesAll last docs :=
+  match docs, ends with
+    | [], never => cases
+    | [only], ends => Inr (ends, byComputing)
+    | [doc, next, ..more], ends => Inl (finishesOfLast last [next, ..more] ends)
+
+--| Docs whose last finishes with a word, a separator between each two,
+--| finish with it.
+theorem Doc.Proofs.joinedFinishes ∀ (last: Text → Prop) (separator: Doc) (docs: List Doc)
+    (ends: FinishesLast last docs):
+    FinishesLast last (Doc.joinedWith separator docs) :=
+  match docs, ends with
+    | [], never => cases
+    | [only], ends => ends
+    | [doc, next], ends => ends
+    | [doc, next, after, ..more], ends => joinedFinishes last separator [next, after, ..more] ends
+
+--| Docs whose last finishes with a word still do with docs in front.
+theorem Doc.Proofs.finishesLastAppend ∀ (last: Text → Prop) (front back: List Doc)
+    (ends: FinishesLast last back):
+    FinishesLast last (front ++ back) :=
+  match front, back, ends with
+    | _, [], never => cases
+    | [], back, ends => ends
+    | [doc], [next, ..more], ends => ends
+    | [doc, second, ..rest], back, ends => finishesLastAppend last [second, ..rest] back ends
