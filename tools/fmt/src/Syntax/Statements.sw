@@ -306,70 +306,104 @@ def caseNamesOn (fuel: Nat) (modes: Modes) (found: List Word) (seen: Option Tok)
 
 --| `calc e0` and its steps (`calc_expr`, `calc_body`): one a line, lined
 --| up, right of the line `calc` is on and of the enclosing block.
-def calcExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let indent := headIndent()
+def calcExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := calcIndented self modes headIndent()
+
+def calcIndented (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat): {Parse Item} Expr :=
   let keyword := fixedFrom()
   let inner := { modes | inCalc = True }
   let first := calcOperand self inner.sealed
-  match inner.peek with
-    | Some kind if kind.isComparison =>
-      fatal "`calc` starts with one expression; each relation goes on a line of its own"
-    | _ =>
-      let (steps, ascending, descending) := calcSteps (Parse.mark().left + 1) self inner indent None [] False False
-      if steps.isEmpty then inner.fail "a step `_ = e` on the next line, indented past `calc`"
-      else if ascending && descending then
-        fatal "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`"
-      else Calc keyword first steps
+  calcAfter self inner indent keyword first inner.peek
+
+def calcAfter (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr):
+    Option Tok → {Parse Item} Expr
+  | Some kind =>
+    if kind.isComparison then fatal "`calc` starts with one expression; each relation goes on a line of its own"
+    else calcBody self inner indent keyword first
+  | None => calcBody self inner indent keyword first
+
+def calcBody (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr):
+    {Parse Item} Expr :=
+  let (steps, ascending, descending) := calcSteps (Parse.mark().left + 1) self inner indent None [] False False
+  calcEnd inner keyword first steps ascending descending
+
+def calcEnd (inner: Modes) (keyword: Comments) (first: Expr) (steps: List CalcStep) (ascending descending: Bool):
+    {Parse Item} Expr :=
+  if steps.isEmpty then inner.fail "a step `_ = e` on the next line, indented past `calc`"
+  else if ascending && descending then
+    fatal "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`"
+  else Calc keyword first steps
 
 --| A `calc`'s operand: above the relations (`calc_operand`).
 def calcOperand (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let indent := headIndent()
-  let range := rangeExpr self modes
-  let piped := if atPipe modes then pipeChain self modes indent range else range
-  if andOrAhead modes then logicChain self modes piped else piped
+  let piped := pipedRange self modes
+  logicAfter self modes piped
 
 --| The steps, and whether any goes up (`<`, `<=`) or down (`>`, `>=`).
 def calcSteps (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (column: Option Nat)
     (found: List CalcStep) (ascending descending: Bool):
     {Parse Item} (List CalcStep, Bool, Bool) :=
-  let next := match left() with
-    | [item, .._] =>
-      let token := item.leaf.token
-      if item.kind == Underscore
-        && token.lineStart
-        && token.column > indent
-        && modes.limit.map (limit => token.column > limit) |> .getOrElse True then
-        Some token.column
-      else None
-    | [] => None
+  calcStep fuel self modes indent column found ascending descending (calcNextOn modes indent left())
+
+--| The column of the next line when it is a step: a `_` starting a line past the `calc` and the enclosing block.
+def calcNextOn (modes: Modes) (indent: Nat): List Item → Option Nat
+  | [item, .._] =>
+    let token := item.leaf.token
+    if item.kind == Underscore
+      && token.lineStart
+      && token.column > indent
+      && modes.limit.map (limit => token.column > limit) |> .getOrElse True then
+      Some token.column
+    else None
+  | [] => None
+
+def calcStep (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (column: Option Nat)
+    (found: List CalcStep) (ascending descending: Bool) (next: Option Nat):
+    {Parse Item} (List CalcStep, Bool, Bool) :=
   match fuel, next with
     | Succ more, Some at =>
       match column with
         | Some first if first != at => fatal "this step isn't lined up with the steps above it"
-        | _ =>
-          let underscore := fixedFrom()
-          let (up, down) := match modes.peek with
-            | Some Equals => (False, False)
-            | Some Le => (True, False)
-            | Some Lt => (True, False)
-            | Some Ge => (False, True)
-            | Some Gt => (False, True)
-            | Some NotEq => fatal calcRelations
-            | Some EqEq => fatal calcRelations
-            | _ => modes.fail "`=`, `<=`, `<`, `>=` or `>` after `_`"
-          let relation := bump()
-          let operand := calcOperand self modes
-          let proof :=
-            if modes.at ColonEq then
-              let colonEq := fixedFrom()
-              Some (colonEq, full self modes)
-            else None
-          calcSteps more self modes indent
-            (Some at)
-            [{ underscore, relation, operand, proof }, ..found]
-            (ascending || up)
-            (descending || down)
+        | _ => calcLine more self modes indent at found ascending descending
     | _, _ => (found.reverse, ascending, descending)
+
+--| One step, `_ = e`, and the steps after it.
+def calcLine (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent at: Nat)
+    (found: List CalcStep) (ascending descending: Bool):
+    {Parse Item} (List CalcStep, Bool, Bool) :=
+  let underscore := fixedFrom()
+  let (up, down) := stepSign modes modes.peek
+  calcRelation more self modes indent at found (ascending || up) (descending || down) underscore
+
+def calcRelation (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent at: Nat) (found: List CalcStep)
+    (ascending descending: Bool) (underscore: Comments):
+    {Parse Item} (List CalcStep, Bool, Bool) :=
+  let relation := bump()
+  let operand := calcOperand self modes
+  calcRecord more self modes indent at found ascending descending underscore relation operand (modes.at ColonEq)
+
+def calcRecord (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (indent at: Nat) (found: List CalcStep)
+    (ascending descending: Bool) (underscore: Comments) (relation: Word) (operand: Expr) (colonEq: Bool):
+    {Parse Item} (List CalcStep, Bool, Bool) :=
+  let proof := calcProof self modes colonEq
+  calcSteps more self modes indent (Some at) [{ underscore, relation, operand, proof }, ..found] ascending descending
+
+--| Whether a relation goes up (`<`, `<=`) or down (`>`, `>=`).
+def stepSign (modes: Modes): Option Tok → {Parse Item} (Bool, Bool)
+  | Some Equals => (False, False)
+  | Some Le => (True, False)
+  | Some Lt => (True, False)
+  | Some Ge => (False, True)
+  | Some Gt => (False, True)
+  | Some NotEq => fatal calcRelations
+  | Some EqEq => fatal calcRelations
+  | _ => modes.fail "`=`, `<=`, `<`, `>=` or `>` after `_`"
+
+def calcProof (self: Goal → {Parse Item} Expr) (modes: Modes) (colonEq: Bool): {Parse Item} Option (Comments, Expr) :=
+  if colonEq then
+    let colonEqKeyword := fixedFrom()
+    let proof := full self modes
+    Some (colonEqKeyword, proof)
+  else None
 
 def calcRelations: Text := "a `calc` step is `=`, `<=`, `<`, `>=` or `>`: other relations can't be chained"
 
@@ -379,33 +413,61 @@ def calcRelations: Text := "a `calc` step is `=`, `<=`, `<`, `>=` or `>`: other 
 def rewriteExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let column := columnHere()
   let keyword := fixedFrom()
-  let outer := { modes | rewriteRule = None, rewriteAt = False }
-  let rules :=
-    if wordAhead outer "repeatedly" && isSome LBracket (outer.peekAt 1) then
-      let word := fixedFrom()
-      Repeatedly word (ruleSet self outer)
-    else RuleList (rewriteRules (Parse.mark().left + 1) self outer [])
+  rewriteAfter self { modes | rewriteRule = None, rewriteAt = False } column keyword
+
+def rewriteAfter (self: Goal → {Parse Item} Expr) (outer: Modes) (column: Nat) (keyword: Comments): {Parse Item} Expr :=
+  rewriteWith self outer column keyword (repeatedlyAhead outer)
+
+def rewriteWith (self: Goal → {Parse Item} Expr) (outer: Modes) (column: Nat) (keyword: Comments) (repeatedly: Bool):
+    {Parse Item} Expr :=
+  let rules := rewriteRulesOf self outer repeatedly
   let target := rewriteTarget self outer
   rewriteThen self outer column keyword rules target
 
+--| `repeatedly [`: the rules are a set of rules in brackets.
+def repeatedlyAhead (outer: Modes): {Parse Item} Bool := repeatedlyOn outer (wordAhead outer "repeatedly")
+
+def repeatedlyOn (outer: Modes) (word: Bool): {Parse Item} Bool :=
+  if word then isSome LBracket (outer.peekAt 1) else False
+
+def rewriteRulesOf (self: Goal → {Parse Item} Expr) (outer: Modes) (repeatedly: Bool): {Parse Item} Rules :=
+  if repeatedly then
+    let word := fixedFrom()
+    Repeatedly word (ruleSet self outer)
+  else RuleList (rewriteRules (Parse.mark().left + 1) self outer [])
+
 --| `<-`, written as `<` and `-` with nothing between.
-def reverseAhead (modes: Modes): {Parse Item} Bool := match left() with
-  | [_, minus, .._] => modes.at Lt && isSome Minus (modes.peekAt 1) && minus.glued
+def reverseAhead (modes: Modes): {Parse Item} Bool := reverseOn modes (modes.at Lt) left()
+
+def reverseOn (modes: Modes) (less: Bool): List Item → {Parse Item} Bool
+  | [_, minus, .._] => if less then reverseMinus minus.glued (modes.peekAt 1) else False
   | _ => False
 
-def reverseOf (modes: Modes): {Parse Item} Option (Comments, Comments) :=
-  if reverseAhead modes then
+def reverseMinus (glued: Bool) (second: Option Tok): Bool := isSome Minus second && glued
+
+def reverseOf (modes: Modes): {Parse Item} Option (Comments, Comments) := reverseIf (reverseAhead modes)
+
+def reverseIf (reverse: Bool): {Parse Item} Option (Comments, Comments) :=
+  if reverse then
     let less := fixedFrom()
-    Some (less, fixedFrom())
+    let second := fixedFrom()
+    Some (less, second)
   else None
 
 --| Rules separated by commas, each read up to its end (`then`, `in`, `at`).
 def rewriteRules (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule):
     {Parse Item} List RewriteRule :=
+  rewriteMore fuel self modes (rewriteRule self modes found) (modes.at Comma)
+
+def rewriteRule (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule):
+    {Parse Item} List RewriteRule :=
   let reverse := reverseOf modes
-  let rule := appendExpr self { modes | rewriteRule = Some here(), rewriteAt = True }
-  let done := [{ reverse, rule }, ..found]
-  let comma := modes.at Comma
+  let start := here()
+  let rule := appendExpr self { modes | rewriteRule = Some start, rewriteAt = True }
+  [{ reverse, rule }, ..found]
+
+def rewriteMore (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (done: List RewriteRule) (comma: Bool):
+    {Parse Item} List RewriteRule :=
   match fuel with
     | Succ more if comma =>
       let _ := bump()
@@ -416,34 +478,57 @@ def rewriteRules (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (
 --| with a comma.
 def ruleSet (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} RuleSet :=
   let open := fixedFrom()
-  if modes.at RBracket then fatal "`rewrite repeatedly` needs at least one rule between its brackets"
+  ruleSetAfter self modes open (modes.at RBracket)
+
+def ruleSetAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Comments) (empty: Bool): {Parse Item} RuleSet :=
+  if empty then fatal "`rewrite repeatedly` needs at least one rule between its brackets"
   else
     let inner := modes.inBrackets
     let (rules, trailingComma) := setRules (Parse.mark().left + 1) self inner []
-    { open, rules, trailingComma, close = inner.expectFixed RBracket "`,` or `]`" }
+    let close := inner.expectFixed RBracket "`,` or `]`"
+    { open, rules, trailingComma, close }
 
 def setRules (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule):
     {Parse Item} (List RewriteRule, Bool) :=
+  setMore fuel self modes (setRule self modes found) (modes.at Comma)
+
+def setRule (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule): {Parse Item} List RewriteRule :=
   let reverse := reverseOf modes
   let rule := full self modes
-  let done := [{ reverse, rule }, ..found]
-  let comma := modes.at Comma
+  [{ reverse, rule }, ..found]
+
+def setMore (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (done: List RewriteRule) (comma: Bool):
+    {Parse Item} (List RewriteRule, Bool) :=
   match fuel with
     | Succ more if comma =>
       let _ := bump()
-      if modes.at RBracket then (done.reverse, True) else setRules more self modes done
+      setRulesAfter more self modes done (modes.at RBracket)
     | _ => (done.reverse, False)
+
+def setRulesAfter (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (done: List RewriteRule) (closed: Bool):
+    {Parse Item} (List RewriteRule, Bool) :=
+  if closed then (done.reverse, True) else setRules fuel self modes done
 
 --| `at h` after the rules, if there.
 def rewriteTarget (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option (Comments, Expr) :=
-  if wordAhead modes "at" then
+  rewriteTargetIf self modes (wordAhead modes "at")
+
+def rewriteTargetIf (self: Goal → {Parse Item} Expr) (modes: Modes) (atAhead: Bool):
+    {Parse Item} Option (Comments, Expr) :=
+  if atAhead then
     let at := fixedFrom()
-    match modes.peek with
-      | None => fatal atWithoutTarget
-      | Some KwThen => fatal atWithoutTarget
-      | Some KwIn => fatal atWithoutTarget
-      | _ => Some (at, appendExpr self { modes | rewriteRule = Some here(), rewriteAt = False })
+    targetAfter self modes at modes.peek
   else None
+
+def targetAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (at: Comments):
+    Option Tok → {Parse Item} Option (Comments, Expr)
+  | Some kind => if kind == KwThen || kind == KwIn then fatal atWithoutTarget else targetOf self modes at
+  | None => fatal atWithoutTarget
+
+def targetOf (self: Goal → {Parse Item} Expr) (modes: Modes) (at: Comments): {Parse Item} Option (Comments, Expr) :=
+  let start := here()
+  let target := appendExpr self { modes | rewriteRule = Some start, rewriteAt = False }
+  Some (at, target)
 
 def atWithoutTarget: Text := "`at` after a `rewrite` rule names the hypothesis to rewrite, but no hypothesis follows it"
 
@@ -454,14 +539,33 @@ def oldIn (construct: Text): Text := "write `then`, not `in`, after `${construct
 def rewriteThen (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments)
     (rules: Rules) (target: Option (Comments, Expr)):
     {Parse Item} Expr :=
-  if modes.at KwIn || ownLineAt KwIn column then fatal (oldIn "rewrite")
-  else if modes.at KwThen || ownLineAt KwThen column then
+  rewriteOldIn self modes column keyword rules target (startsAt modes KwIn column)
+
+def rewriteOldIn (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments) (rules: Rules)
+    (target: Option (Comments, Expr)) (old: Bool):
+    {Parse Item} Expr :=
+  if old then fatal (oldIn "rewrite")
+  else rewriteBody self modes column keyword rules target (startsAt modes KwThen column)
+
+def rewriteBody (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments) (rules: Rules)
+    (target: Option (Comments, Expr)) (hasThen: Bool):
+    {Parse Item} Expr :=
+  if hasThen then
     let thenKeyword := fixedFrom()
-    Rewrite keyword rules target (Some (thenKeyword, self { modes, level = LevelThenBody }))
+    let body := self { modes, level = LevelThenBody }
+    Rewrite keyword rules target (Some (thenKeyword, body))
   else Rewrite keyword rules target None
 
+--| Whether the next item is `wanted`, or one starts a line of its own at `column` or right of it.
+def startsAt (modes: Modes) (wanted: Tok) (column: Nat): {Parse Item} Bool := startsOn (modes.at wanted) wanted column
+
+def startsOn (here: Bool) (wanted: Tok) (column: Nat): {Parse Item} Bool :=
+  if here then True else ownLineAt wanted column
+
 --| Whether a `wanted` next starts a line at `column` or right of it.
-def ownLineAt (wanted: Tok) (column: Nat): {Parse Item} Bool := match left() with
+def ownLineAt (wanted: Tok) (column: Nat): {Parse Item} Bool := ownLineOn wanted column left()
+
+def ownLineOn (wanted: Tok) (column: Nat): List Item → Bool
   | [next, .._] => next.kind == wanted && next.leaf.token.lineStart && next.leaf.token.column >= column
   | [] => False
 

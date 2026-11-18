@@ -65,8 +65,7 @@ theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.
   | other, argument => (Bool.falseNotTrue argument).impossible
 
 -- What the parsers outside slice 1 give. Each is `Out` (the tree is outside the slice) or `True` (the tree is wrapped in
--- a node that is). `outsideOf` and `frameOf` prove most of them; `OutsideRest` and `FrameRest` are what is still
--- assumed (SW-4000's follow-up).
+-- a node that is). `outsideOf` and `frameOf` prove them; `FrameRest` is what is still assumed (SW-4000's follow-up).
 
 --| A line of a block is good when it is an expression that is: `let`s and local definitions are outside the slice.
 def StatementOk (statement: Statement): Prop := match statement with
@@ -141,13 +140,6 @@ type Outside (self: Goal → {Parse Item} Expr) = {
   piExprs: ∀ (modes: Modes) (implicit: Bool) => Parse.Gives GoodItems (() => piExpr self modes implicit) Out,
   statementOthers: ∀ (modes: Modes) (kind: Tok) => startsOtherStatement kind = True
     → Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk
-}
-
---| The parsers outside slice 1 that SW-4000 has not yet proved give what `Outside` says of them; the rest of
---| `Outside` is proved below (`outsideOf`).
-type OutsideRest (self: Goal → {Parse Item} Expr) = {
-  calcs: ∀ (modes: Modes) => Parse.Gives GoodItems (() => calcExpr self modes) Out,
-  rewrites: ∀ (modes: Modes) => Parse.Gives GoodItems (() => rewriteExpr self modes) Out
 }
 
 -- Combinators.
@@ -5016,8 +5008,8 @@ theorem givesMatchPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 theorem givesExprKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
     (nested: Nested self)
-    (piped: OutsidePiped self)
-    (rest: OutsideRest self):
+    (compared: OutsideCompared self)
+    (bases: AtomBases self):
     Parse.Gives GoodItems (() => exprKeyword self modes kind) Out :=
   match kind == KwHandle with
     | True => givesHandleExpr self modes nested
@@ -5026,14 +5018,14 @@ theorem givesExprKeyword ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
         | True => givesLetExpr self modes nested
         | False =>
           match kind == KwCalc with
-            | True => rest.calcs modes
+            | True => givesCalcExpr self modes nested compared bases
             | False =>
               match kind == KwRewrite with
-                | True => rest.rewrites modes
+                | True => givesRewriteExpr self modes nested compared.below.below bases
                 | False =>
                   match kind == KwCases with
                     | True => givesCasesExpr self modes nested
-                    | False => givesMatchPiped self modes nested piped.pipeChains
+                    | False => givesMatchPiped self modes nested compared.below.pipeChains
 
 -- Statements other than expressions.
 
@@ -5333,6 +5325,367 @@ theorem givesIff ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (logic: E
                   | True => Parse.readsFatal _ _
                   | False => Parse.givesDone byComputing))))
 
+-- `calc` and `rewrite`, from the compared tier's walks.
+
+theorem givesCalcOperand ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => calcOperand self modes) (found => True) :=
+  Parse.givesThen (givesPipedOf self modes nested outside.below bases) (piped parsed =>
+    Parse.givesWeaken
+      (givesLogicAfter self modes piped nested outside bases (parsedWeaken parsed byComputing))
+      (value _ => byComputing))
+
+theorem givesStepSign ∀ (modes: Modes): Parse.Gives GoodItems (() => stepSign modes modes.peek) (signs => True) :=
+  readsInPeeked modes
+    (seen => stepSign modes seen) _
+    (start fine stops => givesFail modes _ start fine)
+    (start item later shape fine stopped =>
+      match item.kind with
+        | Equals => Parse.givesDone byComputing start fine
+        | Le => Parse.givesDone byComputing start fine
+        | Lt => Parse.givesDone byComputing start fine
+        | Ge => Parse.givesDone byComputing start fine
+        | Gt => Parse.givesDone byComputing start fine
+        | NotEq => Parse.readsFatal _ _ start fine
+        | EqEq => Parse.readsFatal _ _ start fine
+        | other => givesFail modes _ start fine)
+
+theorem givesCalcProof ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (colonEq: Bool)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => calcProof self modes colonEq) (found => True) :=
+  match colonEq with
+    | True => Parse.givesThen givesFixedFrom (colonEqKeyword _ =>
+      Parse.givesThen (givesFullAny self modes nested) (proof _ => Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesCalcLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent more at: Nat)
+    (found: List CalcStep) (ascending descending: Bool)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self)
+    (steps: ∀ (column: Option Nat) (found: List CalcStep) (ascending descending: Bool) => Parse.Gives GoodItems
+      (() => calcSteps more self modes indent column found ascending descending)
+      (result => True)):
+    Parse.Gives GoodItems (() => calcLine more self modes indent at found ascending descending) (result => True) :=
+  Parse.givesThen givesFixedFrom (underscore _ =>
+    Parse.givesThen (givesStepSign modes) (signs _ =>
+      match signs with
+        | (up, down) => Parse.givesThen givesBump (relation _ =>
+          Parse.givesThen (givesCalcOperand self modes nested outside bases) (operand _ =>
+            givesAfter0
+              [p := () => modes.at ColonEq]
+              [j := colonEq =>
+                calcRecord more self modes indent at found
+                  (ascending || up)
+                  (descending || down)
+                  underscore
+                  relation
+                  operand
+                  colonEq]
+              (reads0At modes ColonEq)
+              (colonEq =>
+                Parse.givesThen (givesCalcProof self modes colonEq nested) (proof _ =>
+                  steps
+                    (Some at)
+                    [{ underscore, relation, operand, proof }, ..found]
+                    (ascending || up)
+                    (descending || down)))))))
+
+theorem givesCalcSteps ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (column: Option Nat)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self)
+    (fuel: Nat) (found: List CalcStep) (ascending descending: Bool):
+    Parse.Gives GoodItems (() => calcSteps fuel self modes indent column found ascending descending) (result => True) :=
+  match fuel with
+    | Zero =>
+      givesAfter0
+        [p := () => left()]
+        [j := items =>
+          calcStep Zero self modes indent column found ascending descending (calcNextOn modes indent items)]
+        reads0Left
+        (items => Parse.givesDone byComputing)
+    | Succ more =>
+      givesAfter0
+        [p := () => left()]
+        [j := items =>
+          calcStep (Succ more) self modes indent column found ascending descending (calcNextOn modes indent items)]
+        reads0Left
+        (items =>
+          match calcNextOn modes indent items with
+            | None => Parse.givesDone byComputing
+            | Some at =>
+              match column with
+                | Some first =>
+                  match first != at with
+                    | True => Parse.readsFatal _ _
+                    | False =>
+                      givesCalcLine self modes indent more at found ascending descending nested outside bases
+                        (column found ascending descending =>
+                          givesCalcSteps self modes indent column nested outside bases more found ascending descending)
+                | None =>
+                  givesCalcLine self modes indent more at found ascending descending nested outside bases
+                    (column found ascending descending =>
+                      givesCalcSteps self modes indent column nested outside bases more found ascending descending))
+
+theorem givesCalcBody ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => calcBody self inner indent keyword first) Out :=
+  Parse.givesThen Parse.givesMark (here _ =>
+    Parse.givesThen
+      (givesCalcSteps self inner indent None nested outside bases (here.left + 1) [] False False)
+      (result _ =>
+        match result with
+          | (steps, ascending, descending) =>
+            match steps.isEmpty with
+              | True => givesFail inner _
+              | False =>
+                match ascending && descending with
+                  | True => Parse.readsFatal _ _
+                  | False => Parse.givesDone byComputing))
+
+theorem givesCalcAfter ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => calcAfter self inner indent keyword first inner.peek) Out :=
+  readsInPeeked inner
+    (seen => calcAfter self inner indent keyword first seen) _
+    (start fine stops => givesCalcBody self inner indent keyword first nested outside bases start fine)
+    (start item later shape fine stopped =>
+      match item.kind.isComparison with
+        | True => Parse.readsFatal _ _ start fine
+        | False => givesCalcBody self inner indent keyword first nested outside bases start fine)
+
+theorem givesCalcExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => calcExpr self modes) Out :=
+  givesAfter0 [p := () => headIndent()] [j := indent => calcIndented self modes indent] reads0HeadIndent (indent =>
+    Parse.givesThen givesFixedFrom (keyword _ =>
+      Parse.givesThen (givesCalcOperand self ({ modes | inCalc = True }).sealed nested outside bases) (first _ =>
+        givesCalcAfter self { modes | inCalc = True } indent keyword first nested outside bases)))
+
+theorem reads0OwnLineAt ∀ (wanted: Tok) (column: Nat): Reads0 (() => ownLineAt wanted column) :=
+  reads0Then reads0Left (items => reads0Done (ownLineOn wanted column items))
+
+theorem reads0StartsAt ∀ (modes: Modes) (wanted: Tok) (column: Nat): Reads0 (() => startsAt modes wanted column) :=
+  reads0Then [p := () => modes.at wanted] (reads0At modes wanted) (here =>
+    match here with
+      | True => reads0Done True
+      | False => reads0OwnLineAt wanted column)
+
+theorem reads0RepeatedlyAhead ∀ (outer: Modes): Reads0 (() => repeatedlyAhead outer) :=
+  reads0Then [p := () => wordAhead outer "repeatedly"] (reads0WordAhead outer "repeatedly") (word =>
+    match word with
+      | True => reads0Then (reads0PeekAt outer 1) (seen => reads0Done (isSome LBracket seen))
+      | False => reads0Done False)
+
+theorem reads0ReverseAhead ∀ (modes: Modes): Reads0 (() => reverseAhead modes) :=
+  reads0Then [p := () => modes.at Lt] (reads0At modes Lt) (less =>
+    reads0Then [p := () => left()] reads0Left (items =>
+      match items with
+        | [first, minus, ..rest] =>
+          match less with
+            | True => reads0Then (reads0PeekAt modes 1) (second => reads0Done (reverseMinus minus.glued second))
+            | False => reads0Done False
+        | other => reads0Done False))
+
+theorem givesReverseOf ∀ (modes: Modes): Parse.Gives GoodItems (() => reverseOf modes) (found => True) :=
+  givesAfter0 [p := () => reverseAhead modes] [j := reverse => reverseIf reverse] (reads0ReverseAhead modes) (reverse =>
+    match reverse with
+      | True => Parse.givesThen givesFixedFrom (less _ =>
+        Parse.givesThen givesFixedFrom (second _ => Parse.givesDone byComputing))
+      | False => Parse.givesDone byComputing)
+
+theorem givesRewriteRule ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rewriteRule self modes found) (done => True) :=
+  Parse.givesThen (givesReverseOf modes) (reverse _ =>
+    Parse.givesThen givesHere (start _ =>
+      Parse.givesThen
+        (givesAppendOf self { modes | rewriteRule = Some start, rewriteAt = True } nested outside bases)
+        (rule _ => Parse.givesDone byComputing)))
+
+theorem givesRewriteRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self)
+    (fuel: Nat) (found: List RewriteRule):
+    Parse.Gives GoodItems (() => rewriteRules fuel self modes found) (rules => True) :=
+  Parse.givesThen (givesRewriteRule self modes found nested outside bases) (done _ =>
+    givesAfter0
+      [p := () => modes.at Comma]
+      [j := comma => rewriteMore fuel self modes done comma]
+      (reads0At modes Comma)
+      (comma =>
+        match fuel with
+          | Zero => Parse.givesDone byComputing
+          | Succ more =>
+            match comma with
+              | True =>
+                Parse.givesThen givesBump (gone _ => givesRewriteRules self modes nested outside bases more done)
+              | False => Parse.givesDone byComputing))
+
+theorem givesSetRule ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => setRule self modes found) (done => True) :=
+  Parse.givesThen (givesReverseOf modes) (reverse _ =>
+    Parse.givesThen (givesFullAny self modes nested) (rule _ => Parse.givesDone byComputing))
+
+theorem givesSetRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (fuel: Nat) (found: List RewriteRule):
+    Parse.Gives GoodItems (() => setRules fuel self modes found) (result => True) :=
+  Parse.givesThen (givesSetRule self modes found nested) (done _ =>
+    givesAfter0
+      [p := () => modes.at Comma]
+      [j := comma => setMore fuel self modes done comma]
+      (reads0At modes Comma)
+      (comma =>
+        match fuel with
+          | Zero => Parse.givesDone byComputing
+          | Succ more =>
+            match comma with
+              | True => Parse.givesThen givesBump (gone _ =>
+                givesAfter0
+                  [p := () => modes.at RBracket]
+                  [j := closed => setRulesAfter more self modes done closed]
+                  (reads0At modes RBracket)
+                  (closed =>
+                    match closed with
+                      | True => Parse.givesDone byComputing
+                      | False => givesSetRules self modes nested more done))
+              | False => Parse.givesDone byComputing))
+
+theorem givesRuleSet ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => ruleSet self modes) (set => True) :=
+  Parse.givesThen givesFixedFrom (open _ =>
+    givesAfter0
+      [p := () => modes.at RBracket]
+      [j := empty => ruleSetAfter self modes open empty]
+      (reads0At modes RBracket)
+      (empty =>
+        match empty with
+          | True => Parse.readsFatal _ _
+          | False => Parse.givesThen Parse.givesMark (here _ =>
+            Parse.givesThen (givesSetRules self modes.inBrackets nested (here.left + 1) []) (result _ =>
+              match result with
+                | (rules, trailingComma) =>
+                  Parse.givesThen (givesExpectFixed modes.inBrackets RBracket "`,` or `]`") (close _ =>
+                    Parse.givesDone byComputing)))))
+
+theorem givesTargetOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (at: Comments)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => targetOf self modes at) (target => True) :=
+  Parse.givesThen givesHere (start _ =>
+    Parse.givesThen
+      (givesAppendOf self { modes | rewriteRule = Some start, rewriteAt = False } nested outside bases)
+      (target _ => Parse.givesDone byComputing))
+
+theorem givesTargetAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (at: Comments)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => targetAfter self modes at modes.peek) (target => True) :=
+  readsInPeeked modes
+    (seen => targetAfter self modes at seen) _
+    (start fine stops => Parse.readsFatal _ _ start fine)
+    (start item later shape fine stopped =>
+      match item.kind == KwThen || item.kind == KwIn with
+        | True => Parse.readsFatal _ _ start fine
+        | False => givesTargetOf self modes at nested outside bases start fine)
+
+theorem givesRewriteTarget ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rewriteTarget self modes) (target => True) :=
+  givesAfter0
+    [p := () => wordAhead modes "at"]
+    [j := atAhead => rewriteTargetIf self modes atAhead]
+    (reads0WordAhead modes "at")
+    (atAhead =>
+      match atAhead with
+        | True => Parse.givesThen givesFixedFrom (at _ => givesTargetAfter self modes at nested outside bases)
+        | False => Parse.givesDone byComputing)
+
+theorem givesRewriteBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments)
+    (rules: Rules) (target: Option (Comments, Expr))
+    (nested: Nested self) (hasThen: Bool):
+    Parse.Gives GoodItems (() => rewriteBody self modes column keyword rules target hasThen) Out :=
+  match hasThen with
+    | True => Parse.givesThen givesFixedFrom (thenKeyword _ =>
+      Parse.givesThen (givesSelfAny self nested { modes, level = LevelThenBody }) (body _ =>
+        Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesRewriteThen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments)
+    (rules: Rules) (target: Option (Comments, Expr))
+    (nested: Nested self):
+    Parse.Gives GoodItems (() => rewriteThen self modes column keyword rules target) Out :=
+  givesAfter0
+    [p := () => startsAt modes KwIn column]
+    [j := old => rewriteOldIn self modes column keyword rules target old]
+    (reads0StartsAt modes KwIn column)
+    (old =>
+      match old with
+        | True => Parse.readsFatal _ _
+        | False =>
+          givesAfter0
+            [p := () => startsAt modes KwThen column]
+            [j := hasThen => rewriteBody self modes column keyword rules target hasThen]
+            (reads0StartsAt modes KwThen column)
+            (hasThen => givesRewriteBody self modes column keyword rules target nested hasThen))
+
+theorem givesRewriteRulesOf ∀ (self: Goal → {Parse Item} Expr) (outer: Modes) (repeatedly: Bool)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rewriteRulesOf self outer repeatedly) (rules => True) :=
+  match repeatedly with
+    | True => Parse.givesThen givesFixedFrom (opening _ =>
+      Parse.givesThen (givesRuleSet self outer nested) (set _ => Parse.givesDone byComputing))
+    | False => Parse.givesThen Parse.givesMark (here _ =>
+      Parse.givesThen (givesRewriteRules self outer nested outside bases (here.left + 1) []) (rules _ =>
+        Parse.givesDone byComputing))
+
+theorem givesRewriteAfter ∀ (self: Goal → {Parse Item} Expr) (outer: Modes) (column: Nat) (keyword: Comments)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rewriteAfter self outer column keyword) Out :=
+  givesAfter0
+    [p := () => repeatedlyAhead outer]
+    [j := repeatedly => rewriteWith self outer column keyword repeatedly]
+    (reads0RepeatedlyAhead outer)
+    (repeatedly =>
+      Parse.givesThen (givesRewriteRulesOf self outer repeatedly nested outside bases) (rules _ =>
+        Parse.givesThen
+          [p := () => rewriteTarget self outer]
+          [j := target => rewriteThen self outer column keyword rules target]
+          (givesRewriteTarget self outer nested outside bases)
+          (target _ => givesRewriteThen self outer column keyword rules target nested)))
+
+theorem givesRewriteExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (outside: OutsideBraced self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => rewriteExpr self modes) Out :=
+  Parse.givesThen givesColumnHere (column _ =>
+    Parse.givesThen givesFixedFrom (keyword _ =>
+      givesRewriteAfter self { modes | rewriteRule = None, rewriteAt = False } column keyword nested outside bases))
+
 --| Each tier of `Outside` from `Nested` and what is not yet proved: a tier's facts are proved with the walks of the
 --| tiers below it.
 def outsideAtomsOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsideAtoms self := {
@@ -5385,31 +5738,30 @@ def outsideIffedOf (self: Goal → {Parse Item} Expr) (nested: Nested self): Out
 }
 
 --| Everything `Outside` says, from what is not yet proved and `Nested`.
-def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): Outside self := {
+def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self): Outside self := {
   below = outsideIffedOf self nested,
   piExprs = (modes implicit => givesPiExpr self modes implicit nested),
   ifKeywords = (modes => givesIfKeyword self modes nested),
   lambdas = (modes => givesLambda self modes None nested),
-  keywords = (modes kind starts => givesExprKeyword self modes kind nested (outsidePipedOf self nested) rest),
+  keywords = (modes kind starts =>
+    givesExprKeyword self modes kind nested
+      (outsideComparedOf self nested)
+      (givesAtomBases self nested (outsideAtomsOf self nested))),
   statementOthers = (modes kind starts => givesStatementOther self modes kind nested)
 }
 
---| What the parsers outside slice 1 give, for every `self` that gives what `GoalParsed` says, but for the facts `outsideOf` proves.
-def OutsideGives: Type := ∀ (self: Goal → {Parse Item} Expr) => Nested self → OutsideRest self
-
 --| `expressionAt`, which starts the recursion from a declaration's level, gives what `GoalParsed` says at every goal.
-theorem givesExpressionAt ∀ (outside: OutsideGives): Nested expressionAt := goal =>
+theorem givesExpressionAt: Nested expressionAt := goal =>
   Parse.givesRecursiveWith expressionRule
     (inner expr => GoalParsed inner expr)
-    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested (outside self nested)))
+    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested))
     goal
 
 --| A whole expression read by `expression`, from good items: at the level of `expr`.
-theorem givesExpression ∀ (modes: Modes) (outside: OutsideGives):
-    Parse.Gives GoodItems (() => expression modes) (Parsed1 1) :=
+theorem givesExpression ∀ (modes: Modes): Parse.Gives GoodItems (() => expression modes) (Parsed1 1) :=
   Parse.givesRecursiveWith expressionRule
     (inner expr => GoalParsed inner expr)
-    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested (outside self nested)))
+    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested))
     { modes, level = LevelFull }
 
 -- The `def` frame.
@@ -6125,8 +6477,7 @@ theorem groupRanOk ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List 
     | Ok decl, ranOk, parses =>
       groupLoweredOk seen rest found decls decl decl.loweringError (ranOk decl byComputing) foundOk again parses
 
-theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (seen: Seen)
-    (groups: List (List Leaf)) (found decls: List Decl)
+theorem parseGroupsOk ∀ (frame: FrameRest expressionAt) (seen: Seen) (groups: List (List Leaf)) (found decls: List Decl)
     (good: List.All (group => List.All GoodItem (items group)) groups)
     (foundOk: List.All DeclOk found)
     (parses: parseGroups seen groups found = Ok decls):
@@ -6136,7 +6487,7 @@ theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt
       let same: found.reverse = decls := Result.okInjective parses
       rewrite <- same then List.allReverse DeclOk found foundOk
     | [group, ..rest], (groupGood, restGood), parses =>
-      let nested: Nested expressionAt := givesExpressionAt outside
+      let nested: Nested expressionAt := givesExpressionAt
       groupRanOk seen rest found decls
         (Parse.run (items group) (() =>
           let decl := declaration seen
@@ -6146,14 +6497,12 @@ theorem parseGroupsOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt
             (items group)
             (() => declaration seen)
             DeclOk
-            (givesDeclaration seen nested
-              (outsideOf expressionAt nested (outside expressionAt nested))
-              (frameOf expressionAt nested frame))
+            (givesDeclaration seen nested (outsideOf expressionAt nested) (frameOf expressionAt nested frame))
             { holds = groupGood }
             decl
             ran)
         foundOk
-        (following more moreOk again => parseGroupsOk outside frame following rest more decls restGood moreOk again)
+        (following more moreOk again => parseGroupsOk frame following rest more decls restGood moreOk again)
         parses
 
 theorem fileEndOk ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
@@ -6167,7 +6516,7 @@ theorem fileEndOk ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
     | Err message, good, parses => (Result.errNotOk parses).impossible
 
 --| The declarations of a file that parses from good items are each as `DeclOk` says.
-theorem parseFileOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
+theorem parseFileOk ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file):
     List.All DeclOk file.decls :=
@@ -6177,7 +6526,7 @@ theorem parseFileOk ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) 
       fileEndOk lexed
         (parseGroups Seen.start (groupsOf lexed.leaves) [])
         file
-        (decls ran => parseGroupsOk outside frame Seen.start (groupsOf lexed.leaves) [] decls good () ran)
+        (decls ran => parseGroupsOk frame Seen.start (groupsOf lexed.leaves) [] decls good () ran)
         parses
 
 theorem declsShapedLexical ∀ (decls: List Decl)
@@ -6193,20 +6542,19 @@ theorem declsShapedLexical ∀ (decls: List Decl)
 
 --| Every declaration of a file of slice 1 that the parser gives is shaped (`Shaped1`, `Decl.shaped1`).
 --|
---| It assumes what the parsers outside slice 1 give that is not yet proved (`OutsideGives`, which is `OutsideRest`, and
---| `FrameRest`), and that every item of every declaration's group is good (the lexer's spelling, `GoodItem`).
-theorem parseShaped1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
+--| It assumes what the frame parsers give that is not yet proved (`FrameRest`), and that every item of every declaration's group is good (the lexer's spelling, `GoodItem`).
+theorem parseShaped1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.shaped1 = True :=
-  (declsShapedLexical file.decls (parseFileOk outside frame lexed file good parses) within).left
+  (declsShapedLexical file.decls (parseFileOk frame lexed file good parses) within).left
 
 --| Every word of the file lexes as one token of its kind (a definition's name as a lower-case name, which
 --| `Header.within1` asks for).
-theorem parseLexical1 ∀ (outside: OutsideGives) (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
+theorem parseLexical1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.lexical1 = True :=
-  (declsShapedLexical file.decls (parseFileOk outside frame lexed file good parses) within).right
+  (declsShapedLexical file.decls (parseFileOk frame lexed file good parses) within).right
