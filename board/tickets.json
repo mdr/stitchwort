@@ -24397,7 +24397,7 @@
     {
       "id": 4013,
       "title": "[Opus] fmt S1 read-back 17d: discharge ReadBackRuns' look-ahead hypotheses (OperandEnds, InlinePlain, takesAhead, cmpAhead, ...) from hangs and the glue facts (glued, afterOperand, depth), then assemble readsBack1 (the parsed tree has the same calm); after SW-4012",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
