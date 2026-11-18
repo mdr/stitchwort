@@ -24397,12 +24397,12 @@
     {
       "id": 4013,
       "title": "[Opus] fmt S1 read-back 17d: discharge ReadBackRuns' look-ahead hypotheses (OperandEnds, InlinePlain, takesAhead, cmpAhead, ...) from hangs and the glue facts (glued, afterOperand, depth), then assemble readsBack1 (the parsed tree has the same calm); after SW-4012",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4012: the target is the DeclarationTree record in Syntax/ReadBackTree.sw (isDef, isLower, isColon, isColonEq, typeReads: ResultReads ..., valueTree: Tree ...); build it from Spells, hangs and the glue facts, discharging the look-ahead fields (ParenPlain, AtomEnds, InlinePlain, OperandEnds; comma-list end tests as Runs facts), with layerMono, treeNRaise, treeOfLayer. Extra obligation: an expression starting a line needs its inline reading too (Runs holds from every state; a block is read only after the first item). Orchestrator's call: the lane chooses between providing that reading and proving runsRecursiveWith from a fixed state with offsets, by which is less work, and says why. Then readsBack1 (same calm).",
+      "body": "From SW-4012: the target is the DeclarationTree record in Syntax/ReadBackTree.sw (isDef, isLower, isColon, isColonEq, typeReads: ResultReads ..., valueTree: Tree ...); build it from Spells, hangs and the glue facts, discharging the look-ahead fields (ParenPlain, AtomEnds, InlinePlain, OperandEnds; comma-list end tests as Runs facts), with layerMono, treeNRaise, treeOfLayer. Extra obligation: an expression starting a line needs its inline reading too (Runs holds from every state; a block is read only after the first item). Orchestrator's call: the lane chooses between providing that reading and proving runsRecursiveWith from a fixed state with offsets, by which is less work, and says why. Then readsBack1 (same calm).\n\nLane notes (Opus, 18 Nov, 16:13-16:55; 4 commits on lane/SW-4013: 6e491916b, 1607f3a73, dad20ae19, 54353e96d):\n- Proved: readsBackLine (Syntax.ReadBackLine): a one-line `def name: A := b`, A and b being words, parentheses, tuples and lists spelt by the items and none starting a line, parses to that Definition through declarationTree. Look-aheads discharged in Syntax.ReadBackEnds (readsBackWords for two words). Witnesses: readsBackWordsExample, readsBackLineExample (def d: A := (a, [b])). Audits clean.\n- Blocker (statement false): declarationTreeNever: no expression starting a line with a word is a Tree, because BlockAt asks for an InlineAt from lineModes ... before for EVERY before, and a line-start word stops for every before != its index. So DeclarationTree fails for `def d: A :=\\n  b`. Neither offered expression-first option fixes this; recommended: parser change (expr tests item.index > 0, blockLine allows from the next item's index, as Rust's self.pos), then FullReads = inline-or-block with before = item.index. Decision needed.\n- shaped1 counterexamples (parseShaped1 owes): `def d: A := [auto Ord]` parses as an implicit binder; `a == b == c` is shaped1 but doesn't parse.\n- Left: calls (WIP patch in lane scratch), `-`/`!`, operators, multi-line declarations (after the blocker), readsBack1 over calm.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24462,12 +24462,12 @@
     {
       "id": 4018,
       "title": "[Fable paper] fmt S1: state parseSettled1, parseCarries1 and fuelEnough1 (sketch §2 names them; Decl.settled1/SourceFile.settled1 exist but nothing states them for the parser): what each must say for glue (SW-3973) to close keeps-meaning and idempotence, checked against the merged parser, rule N and read-back theorems; write the statements as .sw with open goals in a scratch branch, plus a short note for the proof lane (D3682: deciding what to prove is Fable's)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Fable paper, 18 Nov 2026), branch lane/SW-4018, commit b8c7c0f17: note docs/reviews/SW-4018-parser-statements.md; statements tools/fmt/src/Syntax/ParseSettledStatements.sw (namespace Syntax.ParseSettledStatements; check ok, 4 goals open, 5 examples by computing).\n- parseCarries1 needed (the parser's one new fact: each declaration's words are its group's leaves less commas). parseSettled1 a corollary of it plus onceWordsSettled1 (rule N's result read as words; new) and lexLaid1 (lexer soundness for a source; new). fuelEnough1 not needed (read-back proves the output parses; for the source parse1 is the meaning).\n- No lane discharges: GoodItem for the source (and it is false of qualified names and exponent numbers, which are in the slice); laidOut for the source; plain1 of the source (K1 parses and isn't plain); rule N doing nothing to the output (printedKeeping/printedSettle1); the output at file level (lexes, alphabet, noLast). Also: no slice 1 driver; pass theorems need within1 of the parse.\n- Proposed tickets A-G and decisions D-A (qualified names in slice 1?) and D-B (plain1: hypothesis or driver refusal) are in the note, sections 6 and 7.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
