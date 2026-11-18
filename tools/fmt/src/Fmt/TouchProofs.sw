@@ -960,8 +960,10 @@ def EachElSteps: List Expr → Prop
   | [item, ..rest] => ElSteps item ∧ EachElSteps rest
 
 --| `commaSteps` (open): a tuple or list, `( a, b )` or `[ a, b ]`, filled or broken, each item and comma free after
---| the opener spaced `first`. Its route is `parenSteps`', over `cells` (a `Fill` separator touches as a `Line`
---| does) and `brokenItems`, with the closer standing where `trailsBeforeClose` says a comment waits.
+--| the opener spaced `first`. Its route follows `Fmt.JoinProofs.bracketContentPasses`: `parenSteps`' opener and
+--| closer, the broken items (`brokenItems`: a `SoftLine` or `Line`, then `elFree`, then `stepsClosing ","`) and the
+--| filled ones (`cells`: a `Fill` separator is a `Line`'s `SepTouches`), carrying the last item's `trails` to the
+--| closer, which stands where `trailsBeforeClose` says a comment waits (`bracketTrails`, `beforeCloseIs`).
 theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool) (close: Word) (around: Around)
     (first: Spacing) (argument: Bool)
     (within: (if list then ListOf open items comma close else Tuple open items comma close).within1 = True)
