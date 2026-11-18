@@ -1,5 +1,5 @@
 {
-  "next": 3942,
+  "next": 3944,
   "tickets": [
     {
       "id": 47,
@@ -23410,12 +23410,12 @@
     {
       "id": 3940,
       "title": "[Opus] Self-hosted fmt engine E4: ids and columns in Fmt.Doc proofs and program as engine.rs: IfBroken, NarrowGroup, Align, AlignInset, Mark/CloserLine through Readings, Words, Places; Mark+CloserLine's 6 unsupported goldens compared and matching (docs/proposals/self-hosted-fmt-engine-plan.md §3.3, E4 row; tools/fmt/NOTES.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 10:23, done 10:36, 18 Nov 2026 (Opus; estimated 45 min).\n\n- Mark/CloserLine in Fmt.Doc as engine.rs prints and measures them. The printer's commentFloor became `carry: Carry` (floor + open marks); every newline lowers the marks; CloserLine closes its mark and the floor, then breaks at `Carry.closerAt`. DocDump reads both.\n- Proofs: Place's second field is the Carry, so the marks ride along without a new field. Mark and CloserLine through Readings (printer's own step), Proofs (budget), Words, Joins, Places, Lays. None restricted, no open goal. Restated: newlineBroken, newlineAgrees, newlineStays, lineStartBreaks, floorAgrees, agreesFloor, floorHolds, floorWords; printPuts/printLays start at `AtStart 0 Carry.none`. New: carryAgrees, withCarryMid, withCarryCarry, markStays, closerStays, carryTracks.\n- IdGroup/IfBroken, NarrowGroup, Align, AlignInset were already closed by E2; nothing left there. Align's spec quantifies over every column (no column in Place); noted in NOTES as a possible weakness for the rules layer.\n- audit Fmt.Doc: 357 theorems, 0 failed, 0 warnings.\n- Harness: goldens 632/0/12 (TextBlock only; were 626/0/18); 300-file sample 5,676 matched, 0 mismatched, 31 TextBlock, 85 oversized.\n- Tests: Fmt.Doc.Tests 35/35, 2 new (closer marks).\n- No Rust bug found.\n",
+      "body": "Started 10:23, done 10:36, 18 Nov 2026 (Opus; estimated 45 min).\n\n- Mark/CloserLine in Fmt.Doc as engine.rs prints and measures them. The printer's commentFloor became `carry: Carry` (floor + open marks); every newline lowers the marks; CloserLine closes its mark and the floor, then breaks at `Carry.closerAt`. DocDump reads both.\n- Proofs: Place's second field is the Carry, so the marks ride along without a new field. Mark and CloserLine through Readings (printer's own step), Proofs (budget), Words, Joins, Places, Lays. None restricted, no open goal. Restated: newlineBroken, newlineAgrees, newlineStays, lineStartBreaks, floorAgrees, agreesFloor, floorHolds, floorWords; printPuts/printLays start at `AtStart 0 Carry.none`. New: carryAgrees, withCarryMid, withCarryCarry, markStays, closerStays, carryTracks.\n- IdGroup/IfBroken, NarrowGroup, Align, AlignInset were already closed by E2; nothing left there. Align's spec quantifies over every column (no column in Place); noted in NOTES as a possible weakness for the rules layer.\n- audit Fmt.Doc: 357 theorems, 0 failed, 0 warnings.\n- Harness: goldens 632/0/12 (TextBlock only; were 626/0/18); 300-file sample 5,676 matched, 0 mismatched, 31 TextBlock, 85 oversized.\n- Tests: Fmt.Doc.Tests 35/35, 2 new (closer marks).\n- No Rust bug found.\n\nMerged 18 Nov. Goldens 632/0/12 (were 626/0/18); sample 5,676/0/31. audit 357 clean; axioms printPuts none. Restated theorems take a Carry (floor + open marks) where they took a floor: re-typing, meaning kept (orchestrator checked the list). 13 min (est. 45).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23428,6 +23428,32 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3942,
+      "title": "[Opus] Fmt.Doc: AlignHolds needs contents to work at every column (a place doesn't record the column); when slice S3 starts, check whether the rules can prove read-back with it, else put the column in Carry as the marks were (SW-3940 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3943,
+      "title": "[DeepSeek] Move the engine-only harness driver script (scratchpad mkslim.sh from SW-3932/SW-3940) into dev/ as a task taking the worktree as an argument, and say in its doc that stitchwort build --native needs task build first; folds into SW-3938",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
