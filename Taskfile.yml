@@ -1065,11 +1065,11 @@ tasks:
 
   load:
     silent: true
-    desc: 'The 5-minute load and whether a new build lane may start (D3554: hold while it is above 12)'
+    desc: 'The 5-minute load and whether a new build lane may start (hold while it is above 15: D3554, raised from 12 by Matt, 18 Nov 2026)'
     cmds:
       - |
         l=$(uptime | awk -F'load averages?: ' '{split($2,a,/[, ]+/); print a[2]}')
-        if awk -v l="$l" 'BEGIN{exit !(l > 12)}'; then echo "5-min load $l: hold new lanes"; else echo "5-min load $l: lanes may start"; fi
+        if awk -v l="$l" 'BEGIN{exit !(l > 15)}'; then echo "5-min load $l: hold new lanes"; else echo "5-min load $l: lanes may start"; fi
 
   scratch:new:
     silent: true
