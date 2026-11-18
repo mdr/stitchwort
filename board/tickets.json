@@ -24726,12 +24726,12 @@
     {
       "id": 4038,
       "title": "[Sonnet] fmt S1 output A: prove printedTokens1 (per declaration: tokenTexts decl.leaves1 = decl.spelt.filter notComment, kinds the lexer's); Decl.real from lexical1 (docs/reviews/SW-4025-output-statements.md ticket A)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note: printedTokens1 and Decl.real (declRealOfLexical, from the existing declReal) proved in Fmt/TokenProofs.sw (branch lane/SW-4038, c94d9bbd9); OutputStatements keeps a pointer. 16 theorems, audit clean, statement unchanged.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
