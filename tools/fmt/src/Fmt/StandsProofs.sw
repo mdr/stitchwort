@@ -48,7 +48,11 @@ import Fmt.TreeJoinProofs (
   OperatorSpells,
   PrefixSpells,
   Quiet,
+  infixWithin,
   lexKind,
+  lexKindOfSpells,
+  lowerQuiet,
+  spellsNotComment,
   operatorSpellsOf,
   prefixSpellsOf,
   spellsOfText1,
@@ -56,6 +60,7 @@ import Fmt.TreeJoinProofs (
   wordQuiet
 )
 import Fmt.SettleOutputProofs (unreturnedSame)
+import Fmt.SpellProofs (..)
 import Fmt.TriviaStatements (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.ToldDeclProofs (..)
@@ -1125,3 +1130,347 @@ theorem declShapeBits ∀ (decl: Decl): decl.shape = bitsShape decl.bits := matc
         <- shapeBits header.result False False,
         <- shapeBits value False False
   | _ => byComputing
+
+-- The bits' tokens and comments, from the tree's facts.
+
+--| No comment ends in a carriage return, which the lexer takes off.
+def noteUnreturned (note: Note): Bool := !note.text.endsWith "\r"
+
+def afterUnreturned: Option Text → Bool
+  | None => True
+  | Some text => !text.endsWith "\r"
+
+def Word.unreturned (word: Word): Bool := word.comments.above.all noteUnreturned && afterUnreturned word.comments.after
+
+def Expr.unreturned1: Expr → Bool
+  | Atom _ word => word.unreturned
+  | Paren open inner close => open.unreturned && inner.unreturned1 && close.unreturned
+  | Tuple open items _ close => open.unreturned && allUnreturned1 items && close.unreturned
+  | ListOf open items _ close => open.unreturned && allUnreturned1 items && close.unreturned
+  | App head arguments => head.unreturned1 && allUnreturned1 arguments
+  | Infix _ left operator right => left.unreturned1 && operator.unreturned && right.unreturned1
+  | Prefix operator operand => operator.unreturned && operand.unreturned1
+  | _ => False
+
+def allUnreturned1: List Expr → Bool
+  | [] => True
+  | [expr, ..rest] => expr.unreturned1 && allUnreturned1 rest
+
+--| No comment of the declaration ends in a carriage return.
+def Decl.unreturned1: Decl → Bool
+  | Definition _ header (Assigned colonEq value) =>
+    (fixedWord "def" header.keyword).unreturned
+      && header.name.unreturned
+      && (fixedWord ":" header.colon).unreturned
+      && header.result.unreturned1
+      && (fixedWord ":=" colonEq).unreturned
+      && value.unreturned1
+  | _ => False
+
+--| A token's text the lexer reads as one token of a kind that is a comma or closer exactly when the text is, and no
+--| comment.
+def KindOk (text: Text): Prop :=
+  (lexKind text == Comma) = False
+    ∧ (lexKind text).isCloser = isCloserText text
+    ∧ text.startsWith "--" = False
+    ∧ (text == ",") = False
+
+theorem quietCloser ∀ (kind: Tok) (quiet: Quiet kind): kind.isCloser = False :=
+  let (_, paren, square, brace) := quiet
+  match closer: kind.isCloser with
+    | False => byComputing
+    | True =>
+      match kind, closer with
+        | RParen, _ => (paren byComputing).impossible
+        | RBracket, _ => (square byComputing).impossible
+        | RBrace, _ => (brace byComputing).impossible
+        | _, never => cases
+
+theorem quietKindOk ∀ (kind: Tok) (text: Text) (spells: Spells kind text) (quiet: Quiet kind): KindOk text :=
+  let (notComma, notCloser) := spellsQuiet kind text spells quiet
+  let (comma, _, _, _) := quiet
+  let same: lexKind text = kind := lexKindOfSpells kind text spells
+  (
+    (rewrite same then
+      match isComma: kind == Comma with
+        | True => (comma (DecEq.sound isComma).flipped).impossible
+        | False => byComputing),
+    (rewrite same, notCloser then quietCloser kind quiet),
+    spellsNotComment kind text spells,
+    notComma
+  )
+
+theorem notBreakOfSound ∀ (text: Text) (real: (!isLayout text) = True): (text == "\n") = False :=
+  match broken: text == "\n" with
+    | False => byComputing
+    | True =>
+      match spaces: text.all (char => char == ' ') with
+        | False => (Bool.falseNotTrue real).impossible
+
+theorem commentFineOf ∀ (text: Text)
+    (sound: commentText text = True)
+    (plain: (!text.endsWith "\r") = True):
+    CommentFine text :=
+  (Bool.andLeft sound, unreturnedSame text plain)
+
+theorem notesFineOf ∀ (notes: List Note)
+    (sound: notesSound notes = True)
+    (plain: notes.all noteUnreturned = True):
+    NotesFine notes :=
+  match notes with
+    | [] => byComputing
+    | [note, ..rest] => (
+      commentFineOf note.text (Bool.andLeft sound) (Bool.andLeft plain),
+      notesFineOf rest (Bool.andRight sound) (Bool.andRight plain)
+    )
+
+theorem afterFineOf ∀ (after: Option Text)
+    (sound: afterSound after = True)
+    (plain: afterUnreturned after = True):
+    AfterFine after :=
+  match after with
+    | None => byComputing
+    | Some text => commentFineOf text sound plain
+
+--| A token of the tree, as its reading has it, is one the lexer reads back.
+theorem bitFine ∀ (word: Word) (item hoisted: Bool)
+    (ok: KindOk word.text)
+    (sound: word.sound = True)
+    (plain: word.unreturned = True):
+    WordFine lexKind (word.bitK item hoisted) :=
+  let (notComma, closer, code, textNotComma) := ok
+  let unbroken := notBreakOfSound word.text (Bool.andLeft sound)
+  let after := afterFineOf word.comments.after (Bool.andRight (Bool.andRight sound)) (Bool.andRight plain)
+  let notes := notesFineOf word.comments.above (Bool.andLeft (Bool.andRight sound)) (Bool.andLeft plain)
+  match hoisted with
+    | True => (notComma, closer, code, unbroken, textNotComma, byComputing, after)
+    | False =>
+      match word, notes with
+        | { text, comments = { above = [], after = trail, blankBefore } }, _ =>
+          (notComma, closer, code, unbroken, textNotComma, byComputing, after)
+        | { text, comments = { above = [first, ..rest], after = trail, blankBefore } }, notes =>
+          (notComma, closer, code, unbroken, textNotComma, notes, after)
+
+theorem prefixKindOk ∀ (text: Text) (spelled: PrefixSpells text): KindOk text ∧ isCloserText text = False :=
+  match spelled with
+    | Inl same => rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
+    | Inr (Inl same) => rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
+    | Inr (Inr same) => rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
+
+--| A slice 1 expression's bits are its calm words, with bare commas, and each token one the lexer reads back.
+--|
+--| Proof idea: by induction on the expression, as `joinable`: a name or numeral spells a quiet kind, a bracket is its
+--| text, an operator spells a quiet kind or is `-`, `!` or `¬`; `calm` keeps each token as its bit does.
+theorem exprBits ∀ (expr: Expr) (item: Bool)
+    (within: expr.within1 = True)
+    (sound: expr.sound = True)
+    (lexical: expr.lexical1 = True)
+    (plain: expr.unreturned1 = True):
+    bitsWords (expr.bits item False) = (expr.calm item).words ∧ BitsFine lexKind (expr.bits item False) :=
+  match expr with
+    | Atom kind word =>
+      let spells := spellsOfText1 kind word.text (Bool.andRight within)
+      let quiet := wordQuiet kind (Bool.andLeft within)
+      let (_, notCloser) := spellsQuiet kind word.text spells quiet
+      (
+        (rewrite notCloser),
+        (bitFine word item False (quietKindOk kind word.text spells quiet) sound plain, byComputing)
+      )
+    | Paren open inner close =>
+      let openText: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
+      let closeText: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+      let (innerWords, innerFine) :=
+        exprBits inner False within
+          (Bool.andLeft (Bool.andRight sound))
+          (Bool.andRight (Bool.andRight lexical))
+          (Bool.andLeft (Bool.andRight plain))
+      let openOk: KindOk open.text := rewrite openText then (byComputing, byComputing, byComputing, byComputing)
+      let closeOk: KindOk close.text := rewrite closeText then (byComputing, byComputing, byComputing, byComputing)
+      (
+        (rewrite bitsWordsAppend [AWord (open.bitK item False), ..inner.bits False False] [
+              AWord (close.bitK False False)
+            ],
+            openText,
+            closeText,
+            innerWords),
+        bitsFineAppend lexKind
+          [AWord (open.bitK item False), ..inner.bits False False]
+          [AWord (close.bitK False False)]
+          (bitFine open item False openOk (Bool.andLeft sound) (Bool.andLeft plain), innerFine)
+          (
+            bitFine close False False closeOk
+              (Bool.andRight (Bool.andRight sound))
+              (Bool.andRight (Bool.andRight plain)),
+            byComputing
+          )
+      )
+    | Tuple open items comma close =>
+      let openText: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
+      let closeText: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+      let (itemsWordsSame, itemsFine) :=
+        itemsBitsFacts True items within
+          (Bool.andLeft (Bool.andRight sound))
+          (Bool.andRight (Bool.andRight lexical))
+          (Bool.andLeft (Bool.andRight plain))
+      let openOk: KindOk open.text := rewrite openText then (byComputing, byComputing, byComputing, byComputing)
+      let closeOk: KindOk close.text := rewrite closeText then (byComputing, byComputing, byComputing, byComputing)
+      (
+        (rewrite bitsWordsAppend [AWord (open.bitK item False), ..itemsBits True items] [
+              AWord (close.bitK False False)
+            ],
+            openText,
+            closeText,
+            itemsWordsSame,
+            calmAllFrom items),
+        bitsFineAppend lexKind
+          [AWord (open.bitK item False), ..itemsBits True items]
+          [AWord (close.bitK False False)]
+          (bitFine open item False openOk (Bool.andLeft sound) (Bool.andLeft plain), itemsFine)
+          (
+            bitFine close False False closeOk
+              (Bool.andRight (Bool.andRight sound))
+              (Bool.andRight (Bool.andRight plain)),
+            byComputing
+          )
+      )
+    | ListOf open items comma close =>
+      let openText: open.text = "[" := DecEq.sound (Bool.andLeft lexical)
+      let closeText: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+      let (itemsWordsSame, itemsFine) :=
+        itemsBitsFacts
+          (!items.all Expr.plainItem)
+          items
+          within
+          (Bool.andLeft (Bool.andRight sound))
+          (Bool.andRight (Bool.andRight lexical))
+          (Bool.andLeft (Bool.andRight plain))
+      let openOk: KindOk open.text := rewrite openText then (byComputing, byComputing, byComputing, byComputing)
+      let closeOk: KindOk close.text := rewrite closeText then (byComputing, byComputing, byComputing, byComputing)
+      (
+        (rewrite bitsWordsAppend [AWord (open.bitK item False), ..itemsBits (!items.all Expr.plainItem) items] [
+              AWord (close.bitK False False)
+            ],
+            openText,
+            closeText,
+            itemsWordsSame,
+            calmItemsFrom items),
+        bitsFineAppend lexKind
+          [AWord (open.bitK item False), ..itemsBits (!items.all Expr.plainItem) items]
+          [AWord (close.bitK False False)]
+          (bitFine open item False openOk (Bool.andLeft sound) (Bool.andLeft plain), itemsFine)
+          (
+            bitFine close False False closeOk
+              (Bool.andRight (Bool.andRight sound))
+              (Bool.andRight (Bool.andRight plain)),
+            byComputing
+          )
+      )
+    | App head arguments =>
+      let (headWords, headFine) :=
+        exprBits head item (Bool.andLeft within) (Bool.andLeft sound) (Bool.andLeft lexical) (Bool.andLeft plain)
+      let (argumentsWords, argumentsFine) :=
+        argumentsBitsFacts arguments
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight lexical)
+          (Bool.andRight plain)
+      (
+        (rewrite bitsWordsAppend (head.bits item False) (argumentsBits arguments), headWords, argumentsWords),
+        bitsFineAppend lexKind (head.bits item False) (argumentsBits arguments) headFine argumentsFine
+      )
+    | Infix kind left operator right =>
+      let (leftWithin, rightWithin) := infixWithin kind left operator right within
+      let listed: operatorText1 operator.text = True := match kind with
+        | InfixBinary => Bool.andRight (Bool.andRight within)
+        | InfixArrow => Bool.andRight (Bool.andRight within)
+        | _ => (Bool.falseNotTrue within).impossible
+      let (operatorKind, spells, quiet) := operatorSpellsOf operator.text listed
+      let (_, notCloser) := spellsQuiet operatorKind operator.text spells quiet
+      let (leftWords, leftFine) :=
+        exprBits left item leftWithin (Bool.andLeft sound) (Bool.andLeft lexical) (Bool.andLeft plain)
+      let (rightWords, rightFine) :=
+        exprBits right False rightWithin
+          (Bool.andRight (Bool.andRight sound))
+          (Bool.andRight (Bool.andRight lexical))
+          (Bool.andRight (Bool.andRight plain))
+      (
+        (rewrite bitsWordsAppend (left.bits item False) [AWord (operator.bitK False False), ..right.bits False False],
+            leftWords,
+            rightWords,
+            notCloser),
+        bitsFineAppend lexKind
+          (left.bits item False)
+          [AWord (operator.bitK False False), ..right.bits False False]
+          leftFine
+          (
+            bitFine operator False False
+              (quietKindOk operatorKind operator.text spells quiet)
+              (Bool.andLeft (Bool.andRight sound))
+              (Bool.andLeft (Bool.andRight plain)),
+            rightFine
+          )
+      )
+    | Prefix operator operand =>
+      let spelled: PrefixSpells operator.text := prefixSpellsOf operator.text (Bool.andRight within)
+      let (operandWords, operandFine) :=
+        exprBits operand False (Bool.andLeft within) (Bool.andRight sound) (Bool.andRight lexical) (Bool.andRight plain)
+      let (ok, notCloser) := prefixKindOk operator.text spelled
+      (
+        (rewrite notCloser, operandWords),
+        (bitFine operator item False ok (Bool.andLeft sound) (Bool.andLeft plain), operandFine)
+      )
+
+theorem itemsBitsFacts ∀ (first: Bool) (items: List Expr)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (lexical: allLexical1 items = True)
+    (plain: allUnreturned1 items = True):
+    bitsWords (itemsBits first items) = itemsWords (calmFrom first items) ∧ BitsFine lexKind (itemsBits first items) :=
+  match items with
+    | [] => (byComputing, byComputing)
+    | [item] =>
+      let (itemWords, itemFine) :=
+        exprBits item first (Bool.andLeft within) (Bool.andLeft sound) (Bool.andLeft lexical) (Bool.andLeft plain)
+      ((rewrite itemWords, List.appendNil (item.calm first).words), itemFine)
+    | [item, next, ..more] =>
+      let (itemWords, itemFine) :=
+        exprBits item first (Bool.andLeft within) (Bool.andLeft sound) (Bool.andLeft lexical) (Bool.andLeft plain)
+      let (restWords, restFine) :=
+        itemsBitsFacts True
+          [next, ..more]
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight lexical)
+          (Bool.andRight plain)
+      (
+        (rewrite bitsWordsAppend (item.bits first False) ([AComma] ++ itemsBits True [next, ..more]),
+            itemWords,
+            restWords),
+        bitsFineAppend lexKind (item.bits first False) ([AComma] ++ itemsBits True [next, ..more]) itemFine (
+          byComputing,
+          restFine
+        )
+      )
+
+theorem argumentsBitsFacts ∀ (arguments: List Expr)
+    (within: allWithin1 arguments = True)
+    (sound: allSound arguments = True)
+    (lexical: allLexical1 arguments = True)
+    (plain: allUnreturned1 arguments = True):
+    bitsWords (argumentsBits arguments) = itemsWords (calmAll False arguments)
+      ∧ BitsFine lexKind (argumentsBits arguments) :=
+  match arguments with
+    | [] => (byComputing, byComputing)
+    | [argument, ..rest] =>
+      let (argumentWords, argumentFine) :=
+        exprBits argument False (Bool.andLeft within) (Bool.andLeft sound) (Bool.andLeft lexical) (Bool.andLeft plain)
+      let (restWords, restFine) :=
+        argumentsBitsFacts rest
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight lexical)
+          (Bool.andRight plain)
+      (
+        (rewrite bitsWordsAppend (argument.bits False False) (argumentsBits rest), argumentWords, restWords),
+        bitsFineAppend lexKind (argument.bits False False) (argumentsBits rest) argumentFine restFine
+      )
