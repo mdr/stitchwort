@@ -389,8 +389,20 @@ def segment (block: Bool): {Parse Char} Option Text := match Parse.mark().rest, 
 --| its `}`.
 def item (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (place: Place):
     {Parse Char} List (Parse.Located Lexeme) :=
-  let from := Parse.mark()
-  match from.rest with
+  itemAt self source place Parse.mark()
+
+--| `item` from the mark where it starts (a function of its own so that the
+--| proofs can name it).
+def itemAt (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (place: Place) (from: Parse.Mark Char):
+    {Parse Char} List (Parse.Located Lexeme) :=
+  itemOn self source place from from.rest
+
+--| `item` from the mark `from`, whose input is `input`.
+def itemOn (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (place: Place)
+    (from: Parse.Mark Char) (input: List Char):
+    {Parse Char} List (Parse.Located Lexeme) :=
+  match input with
     | [] =>
       match place with
         | TopLevel => stop()
@@ -430,7 +442,7 @@ def item (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Tex
         | Some kind => [tokenOf kind 1]
         | None => fail (unexpected next)
     | [next, .._] =>
-      match symbol from.rest with
+      match symbol input with
         | Some (kind, count) => [tokenOf kind count]
         | None => fail (if next == '@' then strayAt else unexpected next)
 
