@@ -55,10 +55,61 @@ type Printer = {
   --| Spaces after a waiting trailing comment, written only if a closer
   --| follows on its line; code there starts the next line instead.
   heldSpaces: Nat,
+  --| The comment floor and the open marks.
+  carry: Carry
+}
+
+--| A `Mark` whose `CloserLine` hasn't come: the indentation of the line
+--| it is on, and the least indentation of the lines printed since (none
+--| before the next line break).
+type OpenMark = { key: Nat, marked: Nat, least: Option Nat }
+
+--| What the printer carries from line to line.
+type Carry = {
   --| After a comment break before an own-line comment: the least
   --| indentation of the lines up to the next code.
-  commentFloor: Option Nat
+  floor: Option Nat,
+  --| The open marks, the latest first.
+  marks: List OpenMark
 }
+
+--| No comment floor and no open marks.
+def Carry.none: Carry := { floor = None, marks = [] }
+
+--| The open marks after a line indented `at`.
+def lowerMarks (at: Nat): List OpenMark → List OpenMark
+  | [] => []
+  | [mark, ..marks] => [{ mark | least = Some (lowest mark.least at) }, ..lowerMarks at marks]
+
+--| `at`, or the least so far if that is less.
+def lowest (least: Option Nat) (at: Nat): Nat := match least with
+  | None => at
+  | Some least => Nat.min least at
+
+--| What is carried to a line broken at `indent`: the line is at the
+--| floor if that is deeper, and every open mark has seen it.
+def Carry.breakTo (carry: Carry) (indent: Nat): Carry :=
+  { carry | marks = lowerMarks (floored carry indent) carry.marks }
+
+--| What is carried to the line a comment break at `broken` starts: the
+--| break's indentation is the floor until the next code.
+def Carry.startFloor (carry: Carry) (broken: Nat): Carry := { carry.breakTo broken | floor = Some broken }
+
+--| A `Mark` with this key, on a line indented `at`.
+def Carry.mark (carry: Carry) (key at: Nat): Carry :=
+  { carry | marks = [{ key, marked = at, least = None }, ..carry.marks] }
+
+--| Where a `CloserLine` with this key in a construct indented `indent`
+--| starts its line: at `indent`, unless a line since its mark is at or
+--| left of that; then at the marked line's indentation, if less.
+def Carry.closerAt (carry: Carry) (key indent: Nat): Nat := match carry.marks.find (mark => mark.key == key) with
+  | Some { marked, least = Some least, .. } => if least <= indent then Nat.min marked indent else indent
+  | _ => indent
+
+--| The carry before a `CloserLine`'s line break: its mark closed, and no
+--| comment floor.
+def Carry.close (carry: Carry) (key: Nat): Carry :=
+  { floor = None, marks = carry.marks.filter (mark => mark.key != key) }
 
 --| `doc` printed in `width` columns.
 def print (doc: Doc) (width: Nat): Text :=
@@ -79,7 +130,7 @@ def Printer.start (width: Nat): Printer := {
   started = False,
   modes = [],
   heldSpaces = 0,
-  commentFloor = None
+  carry = Carry.none
 }
 
 --| Runs the work list for at most `fuel` steps; `total` is the budget given to
@@ -125,6 +176,10 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
       if printer.atLineStart then ({ printer | owed = Some indent, lineIndent = indent }, rest)
       else (printer.newline indent, rest)
     | Blank => (printer.blank, rest)
+    | Mark key => ({ printer | carry = printer.carry.mark key printer.lineIndent }, rest)
+    | CloserLine key =>
+      let column := printer.carry.closerAt key indent
+      ({ printer | carry = printer.carry.close key }.newline column, rest)
     | Nest more inner => (printer, [Print (indent + more) mode inner, ..rest])
     | Align inner => (printer, [Print (printer.alignAt indent) mode inner, ..rest])
     | AlignInset inner => (printer, [Print (printer.alignAt (indent + 2)) mode inner, ..rest])
@@ -289,12 +344,12 @@ def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
     atLineStart = False,
     newlinesAtEnd = 0,
     started = True,
-    commentFloor = floorAfter text paid.commentFloor
+    carry = floorAfter text paid.carry
   }
 
---| The comment floor after `text` is written: a comment keeps it, code
+--| The carry after `text` is written: a comment keeps the comment floor, code
 --| ends it.
-def floorAfter (text: Text) (floor: Option Nat): Option Nat := if text.startsWith "--" then floor else None
+def floorAfter (text: Text) (carry: Carry): Carry := if text.startsWith "--" then carry else { carry | floor = None }
 
 --| The indentation of a comment break in a construct indented `indent`:
 --| deeper than the line being broken, so what follows continues it.
@@ -309,7 +364,8 @@ def Printer.commentBreak (printer: Printer) (indent: Nat): Printer :=
 --| deep (the comment floor).
 def Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
   if printer.atLineStart then printer
-  else { printer.newline (printer.continuation indent) | commentFloor = Some (printer.continuation indent) }
+  else
+    { printer.newline (printer.continuation indent) | carry = printer.carry.startFloor (printer.continuation indent) }
 
 --| Writes the trailing comments that wait, each after a space, ending their
 --| line.
@@ -324,10 +380,11 @@ def Printer.flushOne (printer: Printer) (comment: Text): Printer :=
 
 --| Ends the line: drops the spaces at its end, writes the waiting comments and
 --| a line break, and owes `indent` columns on the next, or the comment
---| floor's if deeper. Spaces held are dropped.
+--| floor's if deeper. Spaces held are dropped, and the open marks see
+--| the new line.
 def Printer.newline (printer: Printer) (indent: Nat): Printer :=
   let flushed := { printer | out = trimSpaces printer.out }.flushSuffixes
-  let at := floored printer.commentFloor indent
+  let at := floored printer.carry indent
   { flushed |
     out = ["\n", ..flushed.out],
     column = 0,
@@ -336,11 +393,12 @@ def Printer.newline (printer: Printer) (indent: Nat): Printer :=
     lineIndent = at,
     newlinesAtEnd = flushed.newlinesAtEnd + 1,
     started = True,
-    heldSpaces = 0
+    heldSpaces = 0,
+    carry = printer.carry.breakTo indent
   }
 
 --| `indent`, or the comment floor if there is one and it is deeper.
-def floored (floor: Option Nat) (indent: Nat): Nat := match floor with
+def floored (carry: Carry) (indent: Nat): Nat := match carry.floor with
   | None => indent
   | Some least => Nat.max indent least
 
@@ -397,6 +455,7 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
           match doc with
             | Empty => fitsFrom more width modes stack rest left lineIndent suffix
             | Blank => fitsFrom more width modes stack rest left lineIndent suffix
+            | Mark _ => fitsFrom more width modes stack rest left lineIndent suffix
             | LineSuffix _ => fitsFrom more width modes stack rest left lineIndent suffix.noted
             | BreakParent => not mode.isFlat && fitsFrom more width modes stack rest left lineIndent suffix
             | Chunk text textWidth =>
@@ -431,6 +490,7 @@ def fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, Mode
             | HardLine => not mode.isFlat
             | LineStart => not mode.isFlat
             | LineStartHere => not mode.isFlat
+            | CloserLine _ => not mode.isFlat
             | Nest extra inner =>
               fitsFrom more width modes [(indent + extra, mode, inner), ..stack] rest left lineIndent suffix
             | Align inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix

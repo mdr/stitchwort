@@ -157,6 +157,8 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
           ifPairBound _ (printer, rest) (printer.newline indent, rest) (1 + stackCost rest) (arithmetic) (arithmetic)
         | HardLine => arithmetic
         | LineStart => arithmetic
+        | Mark key => arithmetic
+        | CloserLine key => arithmetic
         | LineStartHere =>
           ifPairBound _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
@@ -303,6 +305,8 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | HardLine => arithmetic
   | LineStart => arithmetic
   | LineStartHere => arithmetic
+  | Mark key => arithmetic
+  | CloserLine key => arithmetic
   | Blank => arithmetic
   | LineSuffix comment => arithmetic
 
@@ -404,6 +408,7 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
           match doc with
             | Empty => rewrite same left lineIndent suffix (arithmetic)
             | Blank => rewrite same left lineIndent suffix (arithmetic)
+            | Mark key => rewrite same left lineIndent suffix (arithmetic)
             | LineSuffix comment => rewrite same left lineIndent suffix.noted (arithmetic)
             | BreakParent => rewrite same left lineIndent suffix (arithmetic)
             | Chunk text textWidth =>
@@ -431,6 +436,7 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
             | HardLine => byComputing
             | LineStart => byComputing
             | LineStartHere => byComputing
+            | CloserLine key => byComputing
             | Nest extraIndent inner =>
               rewrite fitsFromEnough more extra width modes
                 [(indent + extraIndent, mode, inner), ..stack]
@@ -679,6 +685,8 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
           ifPairWeight _ (printer, rest) (printer.newline indent, rest) (2 + stackWeight rest) (arithmetic) (arithmetic)
         | HardLine => arithmetic
         | LineStart => arithmetic
+        | Mark key => arithmetic
+        | CloserLine key => arithmetic
         | LineStartHere =>
           ifPairWeight _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)

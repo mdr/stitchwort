@@ -800,6 +800,16 @@ Proofs: every theorem keeps its meaning, none is restricted, and no goal is open
 
 Harness [measured, Speedwell]: goldens, 644 declarations: 626 matched, 0 mismatched, 18 unsupported (were 614, 12, 18). Repo, a 300-file sample, 5,773 declarations: 5,619 matched, 0 mismatched, 32 unsupported (`TextBlock`), 122 oversized. The native `Fmt.Twin` build peaks over 2 GB, so the counts come from a driver with only the engine stage (`Doc`, `Print`, `DocDump`).
 
+## Engine stage E4 (SW-3940): closer marks
+
+`Doc` has `Mark key` (notes the indentation of the line it is on) and `CloserLine key` (a line break for a closer that comments put on a line of its own: at the indentation in force, unless a line since the mark is at or left of that, then at the marked line's if less), as engine.rs prints and measures them: `CloserLine` forces a break and measures as `HardLine`, `Mark` as nothing. The printer's `commentFloor` became `carry: Carry`, the floor and the open marks (`OpenMark`: key, marked indentation, least indentation since, `None` before the next line break). Every `newline` lowers the open marks to the line it starts (`Carry.breakTo`); `CloserLine` closes its mark and the floor (`Carry.close`) before breaking at `Carry.closerAt`.
+
+The rest of E4 was in place: E2 brought `IdGroup`/`IfBroken`, `NarrowGroup`, `Align` and `AlignInset` through every layer with no open goal. `Align`'s `AlignHolds` asks the contents at every column after words, since a place doesn't track the column; the plan's §3.2 had `Place` carry it. That spec is closed and sound, but the rules layer may find it too weak (a read-back at column 0 is not one it can prove); if so, the column goes into `Carry` the way the marks did.
+
+Proofs: no theorem is restricted and no goal is open. `Place`'s second field is the `Carry` (it was the floor), so the marks ride along every place without a new field, and `Agrees` asks the printer's `carry` to be it. Line breaks in `Puts`/`Lays` go to `carry.breakTo indent`; a comment break before an own-line comment to `carry.startFloor broken`. `Mark` is `place.withCarry (place.carry.mark key place.indent)` in `Puts`, `Lays` and `Joins` (an edge it leaves as is); `CloserLine` is `CloserPuts`: after words, a line start at `place.carry.closerAt key indent` with the mark closed, and in `Joins` a line break. Restated to the new printer: `newlineBroken`, `newlineAgrees`, `newlineStays` (the marks see the new line), `lineStartBreaks` (the carry with its new floor), `floorAgrees`, `agreesFloor`, `floorHolds`, `floorWords` (a carry, not a floor), and `printPuts`/`printLays` start from `AtStart 0 Carry.none`. New lemmas: `carryAgrees`, `withCarryMid`, `withCarryCarry`, `markStays`, `closerStays` (Places), `carryTracks` (Lays). `audit Fmt.Doc`: 357 theorems, 0 failed, 0 warnings.
+
+Harness [measured, Speedwell]: goldens, 644 declarations: 632 matched, 0 mismatched, 12 unsupported (all `TextBlock`; were 626, 0, 18). Repo, the same 300-file sample (seed 1), 5,792 declarations: 5,676 matched, 0 mismatched, 31 unsupported (`TextBlock`), 85 oversized. The engine-only driver (E3's `mkslim.sh`) builds in 320 MB.
+
 ## A comment-free `meaning` (SW-3884)
 
 Opus, 17 November 2026.

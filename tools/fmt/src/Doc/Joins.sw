@@ -122,6 +122,8 @@ def Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge 
   | HardLine => next (Plain None)
   | LineStart => StartJoins edge next
   | LineStartHere => StartJoins edge next
+  | Mark _ => next edge
+  | CloserLine _ => next (Plain None)
   | Nest _ inner => Joins follows inner edge next
   | Align inner => Joins follows inner edge next
   | AlignInset inner => Joins follows inner edge next
@@ -250,6 +252,8 @@ theorem joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge
     | HardLine, joins => implies _ joins
     | LineStart, joins => startWeaker edge strong weak implies joins
     | LineStartHere, joins => startWeaker edge strong weak implies joins
+    | Mark key, joins => implies edge joins
+    | CloserLine key, joins => implies _ joins
     | Nest more inner, joins => joinsWeaker follows inner edge strong weak implies joins
     | Align inner, joins => joinsWeaker follows inner edge strong weak implies joins
     | AlignInset inner, joins => joinsWeaker follows inner edge strong weak implies joins
@@ -719,7 +723,7 @@ theorem newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (i
     | (_, none) =>
       let parts: SoundParts follows
         ["\n", ..({ printer | out = trimSpaces printer.out }).flushSuffixes.out]
-        (Some (floored printer.commentFloor indent))
+        (Some (floored printer.carry indent))
         True
         ({ printer | out = trimSpaces printer.out }).flushSuffixes.suffixes :=
         rewrite none then
@@ -1002,10 +1006,10 @@ theorem commentBreakHolds ∀ (follows: Text → Text → Prop) (next: Edge → 
     | False =>
       newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins)
 
---| The comment floor is no part of what the printer has written.
-theorem floorHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (floor: Option Nat)
+--| The comment floor and the marks are no part of what the printer has written.
+theorem floorHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (carry: Carry)
     (holds: Holds follows next printer):
-    Holds follows next { printer | commentFloor = floor } :=
+    Holds follows next { printer | carry = carry } :=
   holds
 
 --| A line start leaves a sound printer sound, with the edge the document's rule
@@ -1019,7 +1023,7 @@ theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Pro
     | False =>
       floorHolds follows next
         (printer.newline (printer.continuation indent))
-        (Some (printer.continuation indent))
+        (printer.carry.startFloor (printer.continuation indent))
         (newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins))
 
 --| A `Displaced` element leaves a sound printer sound: a comment waiting
@@ -1190,6 +1194,21 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 (softBreak (edge => StackJoins follows rest edge) printer.edge joins))
         | HardLine, steps, joins =>
           rewrite steps then newlineHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
+        | Mark key, steps, joins =>
+          rewrite steps then
+            floorHolds follows
+              (edge => StackJoins follows rest edge)
+              printer
+              (printer.carry.mark key printer.lineIndent)
+              (sound, joins)
+        | CloserLine key, steps, joins =>
+          rewrite steps then
+            newlineHolds follows
+              (edge => StackJoins follows rest edge)
+              { printer | carry = printer.carry.close key }
+              (printer.carry.closerAt key indent)
+              sound
+              joins
         | LineStart, steps, joins =>
           rewrite steps then lineStartHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
         | LineStartHere, steps, joins =>
