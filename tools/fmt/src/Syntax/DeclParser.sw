@@ -986,7 +986,7 @@ def parseGroups (seen: Seen) (groups: List (List Leaf)) (found: List Decl): Resu
 --| Trivia's comments, without layout.
 def Trivia.comments (trivia: Trivia): Comments :=
   let above := trivia.leading.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })
-  { above, after = trivia.trailing.map (comment => comment.text) }
+  { above, after = trivia.trailing.map (comment => comment.text), blankBefore = trivia.blankLines > 0 }
 
 --| The diagnostic code the Rust side gives a message, for `fmt`'s first
 --| line: `E-PARSE` but for the few messages with codes of their own.

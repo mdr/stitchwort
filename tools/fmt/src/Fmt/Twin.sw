@@ -30,6 +30,14 @@
 --|   printed in 120 columns and compared with Rust's text; the answer is a
 --|   line a declaration (`Fmt.DocDump.answer`). `dev/fmt-twin engine` writes
 --|   the dumps and reads the answers.
+--| - `text` (slice 1, SW-3950): the file formatted (`formatWithin`), for a
+--|   file within slice 1; any other is answered with status 3 and `outside
+--|   slice 1`, or the refusal as in `refusal`.
+--| - `s1` (slice 1, SW-3950): a line a declaration, `decl N within` and a
+--|   line `text ESCAPED` with the declaration formatted, as `stitchwort dev
+--|   doc`'s `text` line has Rust's, or `decl N outside`; or the refusal as
+--|   in `refusal`. `dev/fmt-twin s1` compares the declarations within the
+--|   slice with Rust's.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -40,7 +48,7 @@
 namespace Fmt.Twin
 import Std (Args, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
 import Fmt (..)
-import Syntax (Expr, Lexed, SourceFile, codeOf, lex, parseExpression, parseFile)
+import Syntax (Decl, Expr, Lexed, SourceFile, codeOf, lex, parseExpression, parseFile)
 
 --| What the command line asks for: the stage whose answer to print, the file
 --| to read, or a LIST of files to answer for in one run.
@@ -55,7 +63,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1 or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -120,7 +128,29 @@ def stageAnswer (stage source: Text): Answer := match stage with
     match Fmt.DocDump.answer source with
       | Ok out => { out, status = 0, message = "" }
       | Err message => { out = "", status = 1, message = "error: ${message}" }
+  | "text" =>
+    match formatWithin source with
+      | Ok out => { out, status = 0, message = "" }
+      | Err message =>
+        if message.startsWith "outside slice 1" then { out = "", status = 3, message }
+        else { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+  | "s1" =>
+    match lex source with
+      | Ok lexed =>
+        match lexed.tidied with
+          | Ok tidied => { out = declarationsWithin1 1 tidied.fourth.decls, status = 0, message = "" }
+          | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
+
+--| Each declaration's answer for `s1`, numbered from `number`.
+def declarationsWithin1 (number: Nat): List Decl → Text
+  | [] => ""
+  | [decl, ..rest] =>
+    let answer := match decl.printed1 with
+      | Some text => "decl ${number} within\ntext ${Fmt.DocDump.escape text}\n"
+      | None => "decl ${number} outside\n"
+    answer ++ declarationsWithin1 (number + 1) rest
 
 def meaningAnswer (lexed: Lexed): Answer := match parseFile lexed.settled with
   | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }

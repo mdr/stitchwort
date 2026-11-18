@@ -23,8 +23,11 @@ import Std (Bool, List, Nat, Option, Text)
 type Note = { text: Text, blankBefore: Bool }
 
 --| The comments a token holds once rule N has run: the own-line comments
---| above it, in order, and the trailing comment after it on its line.
-type Comments = { above: List Note, after: Option Text }
+--| above it, in order, and the trailing comment after it on its line; and
+--| whether a blank line comes just before it (below its own-line comments,
+--| if any), which the printer keeps between declarations, after comments
+--| and before a broken list's items.
+type Comments = { above: List Note, after: Option Text, blankBefore: Bool }
 
 --| A token in the tree: its text as written and its comments.
 type Word = { text: Text, comments: Comments }
@@ -32,7 +35,7 @@ type Word = { text: Text, comments: Comments }
 --| A leaf's text and comments; its layout is left behind.
 def Leaf.word (leaf: Leaf): Word :=
   let above := leaf.trivia.leading.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })
-  { text = leaf.token.text, comments = { above, after = leaf.trivia.trailing.map (comment => comment.text) } }
+  { text = leaf.token.text, comments = { above, after = leaf.trivia.trailing.map (comment => comment.text), blankBefore = leaf.trivia.blankLines > 0 } }
 
 --| The "left, operator, right" kinds.
 type InfixKind =

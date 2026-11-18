@@ -17,7 +17,7 @@ namespace Fmt
 import Std (Bool, List, Option)
 import Syntax (..)
 
-def Comments.none: Comments := { above = [], after = None }
+def Comments.none: Comments := { above = [], after = None, blankBefore = False }
 
 def Word.blank (word: Word): Word := { word | comments = Comments.none }
 

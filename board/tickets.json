@@ -23544,12 +23544,12 @@
     {
       "id": 3950,
       "title": "[Opus] Self-hosted fmt S1 program (proof plan ticket 12): continued lines in the parser, the Def frame, traversal and P2, rules and spacing for S1's eight constructs on Std.Doc, within1, the alphabet, formatWithin, Fmt.Twin --stage text with the S1 filter; gate: --stage text identical on every golden declaration within S1, then the repo's (docs/proposals/self-hosted-fmt-proof-plan.md S1, ticket 12; engine plan 'Then the rules')",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 50 min (plan 90). Started 10:52, done about 11:12.\n\nProgress (Opus, 18 Nov):\n- Rules for S1 on Std.Doc (`tools/fmt/src/Fmt/Rules.sw`, `Spacing.sw`), `within1`, the alphabet, the file loop and `formatWithin` (`Slice1.sw`), `Fmt.Twin --stage text` and `--stage s1`, `dev/fmt-twin s1`, 6 tests (`Fmt/Tests/Slice1.sw`). Continued lines, the Def frame, traversal and P2 were already in from 2a/2b/4a.\n- F1 gap filled: `Comments.blankBefore` (blank line before a token), needed for blank lines between declarations, after comments and before list items.\n- Gate: goldens 82 of 82 declarations within S1 matched (644 in all); repo --sample 300: 37 of 37 matched (5,798 in all). Hand comment cases identical to `fmt -`.\n- Native Fmt.Twin build (slim, no proofs) peaks 2.06 GB: gate run with the interpreted twin via a wrapper `--exe`.\n- Pre-existing failing test, not this lane's: Fmt.Tests \"nodes Doc lacks are unsupported\" (DocDump; Mark/CloserLine are supported since E4).\n- Details in tools/fmt/NOTES.md, \"Slice 1, the program\".\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
