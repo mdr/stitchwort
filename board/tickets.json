@@ -24633,7 +24633,7 @@
     {
       "id": 4031,
       "title": "[Opus] fmt S1 read-back 17f: - and ! (lineKind admits Minus and Bang; groupLine's no-section-operator proof looks only at the last item before ); a separate sign kind in speltStarts), operators, multi-line declarations, then readsBack1 over calm, discharging lineAll/inLineAll/laterInLine from printedHangs and Spelt from printedSpells (SW-4026's notes in tools/fmt/NOTES.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
