@@ -11,7 +11,7 @@
 --|   slice 1's driver makes of the source as it tests the alphabet.
 
 namespace Syntax.GoodItemProofs
-import Std (Bool, DecEq, Empty, Eq, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, DecEq, Empty, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (Spells)
@@ -501,3 +501,206 @@ theorem lexesRecursiveWith ∀ [chars: List Char] (body: (b → {Parse Char} a) 
     Lexes chars (() => Parse.recursiveWith body argument) holds :=
   lexesMark (at => Parse.recursiveWithFuel (at.left + 1) body argument) (start step =>
     lexesRecursiveWithFuel body holds lexesBody (start.left + 1) argument start step)
+
+-- Reading from one mark, where the offsets are needed.
+
+--| [`Parse.readsAtThen`], with the mark the rest starts at moved on by what was read.
+theorem readsAtThenMoved ∀ [start: Parse.Mark Char] [p: () → {Parse Char} a] [j: a → {Parse Char} b]
+    [first: List Char → a → Prop] [spec: List Char → b → Prop]
+    (readsFirst: Parse.ReadsAt start p first)
+    (rest: ∀ (read: List Char) (v: a) (after: Parse.Mark Char) => start.rest = read ++ after.rest
+      → after.offset = start.offset + read.length
+      → first read v
+      → Parse.ReadsAt after (() => j v) (taken w => spec (read ++ taken) w)):
+    Parse.ReadsAt start (() => j (p())) spec :=
+  total state value after here honest h =>
+    match Parse.runFromThenOk2 p state j _ _ h with
+      | Witness v (Witness middle (Both ran restRun)) =>
+        match readsFirst total state v middle.at here honest ran with
+          | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
+            match rest firstRead v middle.at starts1
+              (Parse.honestMoved honest honest1 starts1)
+              holds1
+              total
+              middle
+              value
+              after
+              byComputing
+              honest1
+              restRun with
+              | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
+                Witness
+                  (firstRead ++ nextRead)
+                  (Both
+                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
+                    (Both honest2 holds2))
+
+--| `k (Parse.mark())` from `start` is `k start`.
+theorem readsAtMark ∀ (k: Parse.Mark Char → {Parse Char} a) (spec: List Char → a → Prop) (start: Parse.Mark Char)
+    (each: Parse.ReadsAt start (() => k start) spec):
+    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
+  total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each total state value after here honest (rewrite <- here then ran)
+
+--| `next` of anything reads the first character left, if there is one.
+theorem readsAtNextAny ∀ (start: Parse.Mark Char):
+    Parse.ReadsAt start (() => Parse.next (char => True)) (read v => read = start.rest.take 1) :=
+  total state value after here honest h =>
+    let honestAt: Parse.Honest total state.at := rewrite here then honest
+    rewrite <- here then
+      match e: state.at.rest with
+        | [] =>
+          let same := Result.okInjective h
+          let atSame: state.at = after := Pair.mkInjectiveSnd same
+          Witness [] (rewrite <- atSame, e then Both byComputing (Both honestAt byComputing))
+        | [char, ..more] =>
+          let same := Result.okInjective h
+          let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
+          let counted: state.at.left = more.length + 1 := honestAt.left
+          Witness
+            [char]
+            (rewrite <- atSame then
+              Both byComputing (Both (Both (arithmetic [counted]) (arithmetic [counted, honestAt.right])) byComputing))
+
+--| `skip count` reads the first `count` characters left, or all of them if there are fewer.
+theorem readsAtSkip ∀ (count: Nat) (start: Parse.Mark Char):
+    Parse.ReadsAt start (() => skip count) (read u => read = start.rest.take count) :=
+  match count with
+    | Zero => Parse.readsAtDone start () _ byComputing
+    | Succ more => readsAtThenMoved (readsAtNextAny start) (read v after starts moved took =>
+      Parse.readsAtWeaken (readsAtSkip more after) (taken u rest =>
+        match e: start.rest with
+          | [] =>
+            let none: read = [] := took
+            let emptyAfter: after.rest = [] := rewrite <- (rewrite none at starts then starts)
+            rewrite none, rest, emptyAfter then List.takeNil more
+          | [char, ..others] =>
+            let one: read = [char] := took
+            let tail: after.rest = others :=
+              (List.consInjective char others after.rest (rewrite one at starts then starts)).flipped
+            rewrite one, rest, tail))
+
+--| Taking as many as a take gave takes the same.
+theorem takeOwnLength ∀ (chars: List Char) (count: Nat): chars.take (chars.take count).length = chars.take count :=
+  match chars, count with
+    | [], count => rewrite List.takeNil count
+    | [char, ..rest], Zero => byComputing
+    | [char, ..rest], Succ more => rewrite takeOwnLength rest more
+
+--| A lexeme from a mark in step, to where reading `read` took it, is `read` in the source.
+theorem sliceRead ∀ (source: Text) (start after: Parse.Mark Char) (read: List Char)
+    (step: InStep source.toList start)
+    (moved: after.offset = start.offset + read.length):
+    source.slice start.offset (start.offset + (after.offset - start.offset))
+      = Text.fromList (start.rest.take read.length) :=
+  let length: start.offset + (after.offset - start.offset) - start.offset = read.length := arithmetic [moved]
+  calc source.slice start.offset (start.offset + (after.offset - start.offset))
+    _ = Text.fromList
+        ((source.toList.drop start.offset).take (start.offset + (after.offset - start.offset) - start.offset)) :=
+      byComputing
+    _ = Text.fromList (start.rest.take read.length) := rewrite length, <- step
+
+--| `tokenOf kind count`, from a mark in step with the source, gives a lexeme of `kind` whose text in the source is
+--| the first `count` characters left.
+theorem tokenOfText ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Mark Char)
+    (step: InStep source.toList start):
+    Parse.ReadsAt start (() => tokenOf kind count) (read lexeme =>
+      lexeme.value = TokenLexeme kind
+        ∧ source.slice lexeme.offset (lexeme.offset + lexeme.length) = Text.fromList (start.rest.take count)) :=
+  readsAtMark
+    (from =>
+      let skipped := skip count
+      located (TokenLexeme kind) from) _
+    start
+    (readsAtThenMoved (readsAtSkip count start) (read u after starts moved taken =>
+      readsAtMark
+        (to => { value = TokenLexeme kind, offset = start.offset, length = to.offset - start.offset }) _
+        after
+        (Parse.readsAtDone after _ _
+          (Both byComputing
+            (rewrite sliceRead source start after read step moved, taken, takeOwnLength start.rest count)))))
+
+--| `symbol`'s choice, tested: a token of fixed spelling is its text.
+def symbolFixed1 (input: List Char): Bool := match symbol input with
+  | Some (kind, count) => fixedSpells1 kind (Text.fromList (input.take count))
+  | None => True
+
+--| `symbol`'s choice is spelled as its kind is: by the same match as `symbol`'s, so each arm computes.
+theorem symbolFixed ∀ (input: List Char): symbolFixed1 input = True := match input with
+  | ['(', .._] => byComputing
+  | [')', .._] => byComputing
+  | ['[', .._] => byComputing
+  | [']', .._] => byComputing
+  | ['{', .._] => byComputing
+  | ['}', .._] => byComputing
+  | [',', .._] => byComputing
+  | [';', .._] => byComputing
+  | [':', '=', .._] => byComputing
+  | [':', .._] => byComputing
+  | ['=', '=', .._] => byComputing
+  | ['=', '>', .._] => byComputing
+  | ['=', .._] => byComputing
+  | ['|', '|', .._] => byComputing
+  | ['|', '>', .._] => byComputing
+  | ['|', .._] => byComputing
+  | ['&', '&', .._] => byComputing
+  | ['+', '+', .._] => byComputing
+  | ['+', .._] => byComputing
+  | ['-', '>', .._] => byComputing
+  | ['-', .._] => byComputing
+  | ['*', .._] => byComputing
+  | ['/', .._] => byComputing
+  | ['%', .._] => byComputing
+  | ['!', '=', .._] => byComputing
+  | ['!', 'i', 'n', next, .._] if !isWordChar next => cases
+  | ['!', 'i', 'n'] => byComputing
+  | ['!', .._] => cases
+  | ['<', '-', '>', .._] => byComputing
+  | ['<', '=', .._] => byComputing
+  | ['<', .._] => byComputing
+  | ['>', '=', .._] => byComputing
+  | ['>', .._] => byComputing
+  | ['?', .._] => byComputing
+  | ['@', '[', .._] => byComputing
+  | [_, .._] => byComputing
+  | [] => byComputing
+
+--| A word is `def` when the lexer says so: by the same match as `wordKind`'s and `Tok.keyword`'s, so each arm computes.
+theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedSpells1 (wordKind afterDot word) word = True :=
+  match word with
+    | "_" => byComputing
+    | "Type" => byComputing
+    | "Prop" => byComputing
+    | "ability" => byComputing
+    | "algebra" => byComputing
+    | "arithmetic" => byComputing
+    | "calc" => byComputing
+    | "cases" => byComputing
+    | "decreasing" => byComputing
+    | "def" => byComputing
+    | "else" => byComputing
+    | "exists" => cases
+    | "export" => byComputing
+    | "forall" => cases
+    | "handle" => byComputing
+    | "if" => byComputing
+    | "import" => byComputing
+    | "in" => byComputing
+    | "include" => byComputing
+    | "instance" => byComputing
+    | "interface" => byComputing
+    | "let" => byComputing
+    | "match" => byComputing
+    | "namespace" => byComputing
+    | "opaque" => byComputing
+    | "return" => byComputing
+    | "rewrite" => byComputing
+    | "test" => byComputing
+    | "then" => byComputing
+    | "theorem" => byComputing
+    | "type" => byComputing
+    | "unfolding" => byComputing
+    | "where" => byComputing
+    | "with" => byComputing
+    | _ => cases
