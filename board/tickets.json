@@ -24527,12 +24527,12 @@
     {
       "id": 4023,
       "title": "[Opus] fmt S1 lexLaid1: the lexer gives laid1 (laidOut, token text agreeing with its kind on closers and ->, comments -- to end of line, no trailing comment at the end) for any source in the alphabet (SW-4018 ticket E); fold in SW-3985's lexLaidOut; docs/reviews/SW-4018-parser-statements.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Opus lane, 18 Nov 2026, branch lane/SW-4023):\n- lexLaid1 proved exactly as stated, open goal removed (ParseSettledStatements: only lexLaid1 and one import line changed). Audit: lexLaid1 passes; the two failures there are parseCarries1/parseSettled1's open goals on this branch's base.\n- New files: Syntax.LexReadsProofs (112 theorems: offset-aware Reads toolkit, many over rounds that may give a token outside the alphabet, char facts by mirrored matches over symbol/keyword/alias, text literals give a foreign token, itemRound, lexemesRounds) and Syntax.LexLaidProofs (23: assemble's fold lays out fine lexemes, roundsFine glue, lexLaidProved). Audits of both clean (130 and 35 passed, 0 warnings, witnesses added).\n- No lexer splits (Lexer.sw untouched), so no twin run.\n- SW-3985's lexLaidOut: covered for sources in slice 1's alphabet (lexLaidProved's first part); not for sources outside it. Its other parts (operatorTok/Spells, MayFollow Bang, Decl.real) are not touched.\n- Tests: check Syntax, Syntax.Proofs, Syntax.ParseSettledStatements, both new namespaces; test Syntax.Tests 52/52.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
