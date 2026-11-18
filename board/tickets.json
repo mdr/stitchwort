@@ -25422,12 +25422,12 @@
     {
       "id": 4090,
       "title": "[Opus] fmt S1 read-back 17g-ii: && and || on one line through groupLogic, widening Spelt/lineKind/readsBackLineWithin in place (flips TopReadBack's binaryNotLine); plan in SW-4071's report: build the comparison part and the logic part separately, then a generic non-mutual lemma assembles the reading, so the large ∃ is never taken apart in the mutual block (E-RESOURCE)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane (Opus, 18 Nov, 22:57 to 23:18, est. 50 min): && and || read back on one line through groupLogic (lane/SW-4090: 2d388881d, 009afb5c6, 11a489235). binaryTok/lineKind/exprKind admit AndAnd and OrOr, so Spelt and readsBackLineWithin are widened in place with no statement change. orFlat/conjFlat flatten the tree on Spelt alone; logicLinks and logicOperator assemble the reading outside cmpLine's recursion, taking cmpLine as a hypothesis (CmpLineAt), so no E-RESOURCE. Four witnesses incl. one from the lexer's items; TopReadBack's binaryNotLine is now the positive logicLine. No new hypothesis on any end statement (D3684 n/a). Audit ReadBackLine: 0 failed; Syntax.Tests 52/52, Fmt.Tests 118/118.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
