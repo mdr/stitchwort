@@ -143,6 +143,9 @@ theorem itemsWordsPick ∀ (plain: Bool) (items: List Expr)
     | True => itemsWordsLead items within
     | False => itemsWordsAll items True within
 
+--| `calm` keeps every token's text, own-line comments (as present or not) and trailing comment.
+--|
+--| Proof idea: Induction on the expression; each constructor's words are its tokens and its parts' words, which `allAlikeAppend` joins from the parts' (`keptAlike` for a token `calm` touches).
 theorem wordsCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     AllAlike expr.words (expr.calm item).words :=
@@ -200,8 +203,12 @@ theorem wordsCalm ∀ (expr: Expr) (item: Bool)
 
 -- What the rules read of a token's flags.
 
---| `calm` keeps what `Word.leading` reads: for a token that starts an item (`item`) or isn't a closer, the flags it
---| reads, and for a closer none.
+--| `calm` keeps what `Word.leading` reads of a token: for a token that starts an item or isn't a closer, the flags
+--| it reads, and for a closer, none.
+--|
+--| Proof idea: Cases on whether the token is hoisted, has own-line comments, and is a closer; in each the document
+--| `leading` builds is the same function of the flags, which `kept` changes only where `leading` ignores them (a
+--| closer's, a flag above no item), so the four or eight Boolean cases each compute.
 theorem leadingKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: Bool)
     (same: around.item = item)
     (closes: (!closer || isCloserText word.text) = True):
@@ -232,6 +239,9 @@ theorem leadingKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: B
                   | False, False, True => byComputing
                   | False, False, False => byComputing
 
+--| A token's leaf is the same for its calm word.
+--|
+--| Proof idea: Cases on whether the token has own-line comments; `leadingKept` is the only part `calm` changes.
 theorem leafKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: Bool)
     (same: around.item = item)
     (closes: (!closer || isCloserText word.text) = True):
@@ -870,6 +880,12 @@ theorem bracketFromCong ∀ (list empty empty' plain plain' holds holds': Bool)
       = bracketFrom list empty' plain' holds' prefix' closer' filled' broken' :=
   rewrite sameEmpty, samePlain, sameHolds, samePrefix, sameCloser, sameFilled, sameBroken
 
+--| The rules' comma bracket is the same for the calm items and calm brackets.
+--|
+--| Proof idea: `bracketFrom` is `bracketContent` from what it reads of the items (empty, plain, a held comment, the
+--| opener and closer, the filled and broken lines); each is the same before and after (`pickEmpty`, `pickPlain`,
+--| `holdsAlike`, `openingKept`, the closer's `leafKept`, `cellsKept` and `brokenItemsKept`), so the two calls are
+--| equal by `bracketFromCong`.
 theorem bracketKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (item: Bool)
     (same: around.item = item)
     (good: allGood items = True)
@@ -1157,6 +1173,10 @@ theorem chainRightKept ∀ (level: Option Nat) (right: Expr) (around: Around)
     | Block _ _ _ => cases
     | _ => rewrite link
 
+--| A chain's lines are the same for the calm operands and operator.
+--|
+--| Proof idea: The first operand's lines are `linkDocsKept`'s; the operator's leaf is `leafKept` at the place the
+--| left operand's size and trailing comment give (`sizeCalm`, `trailsCalm`); the right operand by `chainRightKept`.
 theorem chainLinksKept ∀ (level: Option Nat) (first: Bool) (left: Expr) (operator: Word) (right: Expr) (around: Around)
     (leftGood: left.good = True)
     (rightGood: right.good = True):
@@ -1236,6 +1256,12 @@ theorem linkDocsKept ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
     | Match _ _ _ _ => cases
     | _ => Eq.cong (doc => [doc]) (elCalm expr around good)
 
+--| The rules print an expression and its calm expression the same wherever it stands.
+--|
+--| Proof idea: Induction on the expression, with each rule's lemma taking the hypothesis for its parts (`ElKept`):
+--| a token by `leafKept`; a bracket by `parenKept` or `bracketKept`; a call by `appKept`; a chain by `chainKept`
+--| and `linkDocsKept`; a prefix by `prefixKept`. Each node's first token's comments are framed the same
+--| (`framedCalm`).
 theorem elCalm ∀ (expr: Expr) (around: Around)
     (good: expr.good = True):
     (expr.calm around.item).el around = expr.el around :=
@@ -1388,6 +1414,10 @@ theorem allElKept ∀ (items: List Expr) (good: allGood items = True): AllElKept
   | [first, ..rest] =>
     ((below => elCalm first below (allGoodHead first rest good)), (allElKept rest (allGoodTail first rest good)))
 
+--| A call's last argument and its hug are the same for the calm argument.
+--|
+--| Proof idea: Cases on the argument as `lastArgument` has them: a tuple or list hugs (`huggedKept`); a bracketed
+--| lambda or block can't be in the slice; any other is its element (`elCalm`).
 theorem lastArgumentKept ∀ (argument: Expr) (around: Around)
     (good: argument.good = True):
     lastArgument (argument.calm around.item) around = lastArgument argument around :=
@@ -1410,6 +1440,10 @@ theorem lastArgumentKept ∀ (argument: Expr) (around: Around)
     | Record _ _ _ _ _ => cases
     | _ => Eq.cong (doc => (doc, None)) (elCalm argument around good)
 
+--| The documents of a call's arguments are the same for the calm arguments.
+--|
+--| Proof idea: Induction on the arguments; each is its element (`elCalm`) after the one before (same trailing
+--| comment, `trailsCalm`), and the last is `lastArgumentKept`.
 theorem argumentDocsKept ∀ (arm: Bool) (previous previous': Expr) (at: Nat) (arguments: List Expr)
     (sameTrails: previous'.trails = previous.trails)
     (good: allGood arguments = True):
@@ -1674,6 +1708,10 @@ theorem breaksCong ∀ (headerDoc headerDoc': Doc) (inside inside': Bool)
     (headerDoc.forcesBreak || inside) = (headerDoc'.forcesBreak || inside') :=
   rewrite sameHeader, sameInside
 
+--| Whether a header holds a comment, as `defDoc` asks, is the same for the calm header and body.
+--|
+--| Proof idea: The words of the type are alike (`anyTrailsAlike` on their reverse, dropped by one), and no value in
+--| the slice lays out its body (`layoutBodyFalse`, `layoutBodyCalm`).
 theorem plainInsideKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (result value: Expr)
     (resultGood: result.good = True)
     (valueGood: value.good = True):
@@ -1697,6 +1735,11 @@ theorem plainInsideKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (
       layoutBodyCalm value False (goodWithin value valueGood),
       layoutBodyFalse value (goodWithin value valueGood)
 
+--| The rules' definition is the same for the calm header and body.
+--|
+--| Proof idea: `defFrom` takes the header, whether it breaks, the `:=` and the body's two forms; each is the same
+--| (the name's and `:=`'s `leafKept`, the type's `elCalm`, the held-comment test by `plainInsideKept`, the body by
+--| `bodyAfterKept`) and `defFromCong` joins them.
 theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
     (colonEq: Comments) (value: Expr)
     (resultGood: result.good = True)
@@ -1851,6 +1894,8 @@ theorem withinCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): 
 
 theorem parenCloser ∀ (text: Text) (is: (text == ")") = True): isCloserText text = True := rewrite is
 
+theorem closerOkExample: (!True || isCloserText ")") = True := closerOk (fixedWord ")" Comments.none) byComputing
+
 theorem bracketCloser ∀ (text: Text) (is: (text == "]") = True): isCloserText text = True := match text == ")" with
   | True => byComputing
   | False => rewrite is
@@ -1965,3 +2010,5 @@ theorem calmPrints ∀ (file: SourceFile)
     (lexical: file.lexical1 = True):
     file.calm.printed1 = file.printed1 :=
   rewrite printDeclsCalm { pieces = [], empty = True } file.decls within lexical
+
+theorem bracketCloserExample: isCloserText "]" = True := bracketCloser "]" byComputing
