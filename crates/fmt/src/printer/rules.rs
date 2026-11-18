@@ -61,8 +61,9 @@ pub(crate) struct Rules<'a> {
     /// which join one line only within [`TYPE_WIDTH`].
     narrow_fields: BTreeSet<usize>,
     next_id: u32,
-    /// For each closing bracket with own-line comments before it, its
-    /// opening bracket ([`Doc::CloserLine`]); for each such opening
+    /// For each closing bracket that may take a line of its own (own-line
+    /// comments before it, a comment after it, or a `.field` after it),
+    /// its opening bracket ([`Doc::CloserLine`]); for each such opening
     /// bracket, itself.
     commented_pair: Vec<Option<usize>>,
     /// The first node whose shape no rule expects, and what was expected.
@@ -117,6 +118,13 @@ fn closer(tok: &Tok) -> bool {
     matches!(tok, Tok::RParen | Tok::RBracket | Tok::RBrace)
 }
 
+/// Whether a `.field` touches the closer at `i`: `(x -- c\n).field`.
+fn glued_field(tokens: &[Token], i: usize) -> bool {
+    tokens
+        .get(i + 1)
+        .is_some_and(|next| next.tok == Tok::Dot && next.span.start == tokens[i].span.end)
+}
+
 fn opener(tok: &Tok) -> bool {
     matches!(tok, Tok::LParen | Tok::LBracket | Tok::LBrace)
 }
@@ -156,7 +164,9 @@ impl<'a> Rules<'a> {
                 open.push(i);
             } else if closer(&token.tok)
                 && let Some(o) = open.pop()
-                && !trivia[i].leading.is_empty()
+                && (!trivia[i].leading.is_empty()
+                    || trivia[i].trailing.is_some()
+                    || glued_field(tokens, i))
             {
                 commented_pair[i] = Some(o);
                 commented_pair[o] = Some(o);
@@ -355,17 +365,17 @@ impl<'a> Rules<'a> {
         // line (N keeps a closer's own trailing comment only when the code
         // before it ends its line with one), or code that can't start a
         // line: the `.field` of `(x -- c\n).field`. The closer keeps the line
-        // of its own it had.
+        // of its own it had, left of the lines inside its brackets as after
+        // own-line comments (S40): at the indentation in force, which a
+        // declaration's type shares with its contents, it would read as
+        // their block's next line (SW-3962).
         if i > 0
             && closer(&self.tokens[i].tok)
             && self.trivia[i].leading.is_empty()
             && self.ends_line_with_comment_before(i)
-            && (self.trivia[i].trailing.is_some()
-                || self.tokens.get(i + 1).is_some_and(|next| {
-                    next.tok == Tok::Dot && next.span.start == self.tokens[i].span.end
-                }))
+            && (self.trivia[i].trailing.is_some() || glued_field(self.tokens, i))
         {
-            parts.push(Doc::HardLine);
+            parts.push(self.commented_pair[i].map_or(Doc::HardLine, Doc::CloserLine));
         }
         if opener(&self.tokens[i].tok) && self.commented_pair[i] == Some(i) {
             parts.push(Doc::Mark(i));

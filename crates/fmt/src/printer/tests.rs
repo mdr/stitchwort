@@ -1000,6 +1000,18 @@ fn a_closer_after_comments_goes_left_of_the_lines_inside_its_brackets() {
     );
 }
 
+/// A closer that a comment after the code before it and one of its own
+/// put on a line of its own goes left of the lines inside its brackets
+/// too: in a declaration's type the contents and the closer would both be
+/// at 4, and the closer would read as the next line of a block (SW-3962).
+#[test]
+fn a_closer_after_a_trailing_comment_goes_left_of_the_lines_inside_its_brackets() {
+    check(
+        "def d: ( -- t7\n    a -- t9\n  ) -- t10\n  := b\n",
+        "def d: ( -- t7\n    a -- t9\n) -- t10\n  :=\n  b\n",
+    );
+}
+
 /// A lambda right before a `;` keeps its body after `=>`: below, the body
 /// would be a block, which the `;` would end as a sequence of its own
 /// (SW-3605, SW-3587: here after a comment broke the parameters).
