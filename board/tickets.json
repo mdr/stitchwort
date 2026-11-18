@@ -1,5 +1,5 @@
 {
-  "next": 3939,
+  "next": 3940,
   "tickets": [
     {
       "id": 47,
@@ -16135,12 +16135,12 @@
     {
       "id": 3391,
       "title": "[Sonnet] SW-3381 findings: stitchwort test --std NAMESPACE (std tests per namespace, for lanes); Text.upper; a match as the last statement of a let block needing deeper indentation (better message or accept); Std.Args 'help lists every option' theorem once Text.contains/joinWith lemmas exist",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Lane notes (Sonnet), branch lane/SW-3367 (combined with SW-3367): done here: Parse.operators (levels with associativity, tested against a chainLeft tower: same results and messages), Parse.manyToEnd + Parse.locatedToEnd (lexer loop without a handler per round: 1.49 s to 0.97 s native on 930 KB; same as the toy's hand loop). Toy parse (lex and parse) 1.84 s with hand-written climbing vs 1.97 s with Parse.operators (+7%). NOT done from this ticket: stitchwort test --std NAMESPACE, Text.upper, the match-in-let indentation message, Std.Args theorem (the brief covered only the Parse items). Moved to review.\n\nNot built: wrongly closed with SW-3367 on 15 Nov (the Parse work was SW-3392). Reopened (SW-3414 finding).\n\nLane notes (Sonnet, lane/SW-3391, 18 Nov): done: (1) `stitchwort test --std TARGET` (a library file or folder; runs that file's tests only; test in crates/cli/tests/tools/std_dir.rs; docs/testing.md); (2) `Text.upper` (+ `Char.toAsciiUpper`, ASCII only; there was no Text.lower to follow) in std/Text/Text.sw, prelude snapshot additions; (3) a `match` whose arms sit at the block column: reproduced, error now adds a note to indent them (examples/reject/match-arms-at-block-column.sw, accept/match-arms-indented-in-let-block.sw, docs/syntax.md); (4) skipped: no Text.contains / joinWith lemmas exist yet. Moved to review.\n",
+      "body": "Lane notes (Sonnet), branch lane/SW-3367 (combined with SW-3367): done here: Parse.operators (levels with associativity, tested against a chainLeft tower: same results and messages), Parse.manyToEnd + Parse.locatedToEnd (lexer loop without a handler per round: 1.49 s to 0.97 s native on 930 KB; same as the toy's hand loop). Toy parse (lex and parse) 1.84 s with hand-written climbing vs 1.97 s with Parse.operators (+7%). NOT done from this ticket: stitchwort test --std NAMESPACE, Text.upper, the match-in-let indentation message, Std.Args theorem (the brief covered only the Parse items). Moved to review.\n\nNot built: wrongly closed with SW-3367 on 15 Nov (the Parse work was SW-3392). Reopened (SW-3414 finding).\n\nLane notes (Sonnet, lane/SW-3391, 18 Nov): done: (1) `stitchwort test --std TARGET` (a library file or folder; runs that file's tests only; test in crates/cli/tests/tools/std_dir.rs; docs/testing.md); (2) `Text.upper` (+ `Char.toAsciiUpper`, ASCII only; there was no Text.lower to follow) in std/Text/Text.sw, prelude snapshot additions; (3) a `match` whose arms sit at the block column: reproduced, error now adds a note to indent them (examples/reject/match-arms-at-block-column.sw, accept/match-arms-indented-in-let-block.sw, docs/syntax.md); (4) skipped: no Text.contains / joinWith lemmas exist yet. Moved to review.\n\nModel result: sonnet, needed fixes (named the ASCII-only function Text.upper; orchestrator renamed it Text.toAsciiUpper, its call), 14 min (est. 40). Std.Args theorem skipped: no Text.contains/joinWith lemmas yet.",
       "created": "2026-11-15",
       "updated": "2026-11-18",
       "commits": []
@@ -23389,6 +23389,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3939,
+      "title": "[Sonnet] Text.contains and Text.joinWith lemmas, then the Std.Args theorem 'help lists every option' (left from SW-3391); and Text.toAsciiLower beside Text.toAsciiUpper",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
