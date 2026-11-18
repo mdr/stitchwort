@@ -2581,8 +2581,24 @@ fn admit_group(g: &Ev, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
         // is then never computed. The type is glued too: `Def::ty_value`
         // was made glued (`kept_type`), and `def_type` evaluates it again,
         // glued, under a non-empty transparency set.
-        let was = g.machine.glue.replace(true);
-        let result = def_type(g, def)
+        //
+        // Except for a body that is `Refl` alone (`byComputing`), which
+        // forces both sides of the equation whatever the mode: its type is
+        // evaluated again, unglued, which computes them faster than forcing
+        // the glued calls would (each glued call it forces keeps a call
+        // and its unfolding, about 1.5x the kernel's time on a closed
+        // statement proved by computing, SW-3930). The kept value was never
+        // forced, so nothing is computed twice, and both are evaluations of
+        // the one checked term, so what's accepted is the same.
+        let refl = matches!(body.strip_loc(), Term::Refl);
+        let was = g.machine.glue.replace(!refl);
+        let ty = if refl {
+            eval(g, &[], &def.ty)
+        } else {
+            def_type(g, def)
+        };
+        g.machine.glue.set(true);
+        let result = ty
             .map_err(Diagnostic::from)
             .and_then(|ty| check(&mut cx, body, &ty));
         g.machine.glue.set(was);
