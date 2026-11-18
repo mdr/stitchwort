@@ -1,5 +1,5 @@
 {
-  "next": 3952,
+  "next": 3953,
   "tickets": [
     {
       "id": 47,
@@ -23559,6 +23559,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3952,
+      "title": "[Sonnet] D3681: pre-commit hook via git-hooks.nix run by prek (git-hooks.package = pkgs.prek): rustfmt and stitchwort fmt --check on staged files only, installed by the dev shell's shellHook; no clippy/tests in the hook, not wired into nix flake check; works in lane worktrees and DeepSeek scratch clones",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "D3681 (Matt, 18 Nov 2026): asked for a pre-commit setup ('Could we sort out a pre-commit hook?'), then 'Isn't there some sort of like Nix managed pre-commit alternative...' and 'git-hooks.nix run by prek ideally'.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
