@@ -676,14 +676,29 @@ def appDocs (head: Expr) (arguments: List Expr) (around: Around): Applied :=
   let headDoc := head.el around
   let (front, last) := argumentDocs around.inArm head (around.at + head.size) arguments
   let (lastDoc, hug) := last.getOrElse (Nothing, None)
+  let keep := 1 + keptFront head arguments
+  appFrom
+    (around.at + 1)
+    keep
+    (commentBetween head arguments)
+    (commentBetween head (arguments.take (keep - 1)))
+    headDoc
+    front
+    lastDoc
+    hug
+
+--| `appDocs` from what it reads of the call's elements: `keep` of them stay on its line when it breaks, a comment
+--| sits between the elements (`between`) or between those kept (`betweenFront`), and the documents of the function,
+--| the arguments before the last, the last, and the last's hug. `id` keys the filled front's `IdGroup`.
+def appFrom (id keep: Nat) (between betweenFront: Bool) (headDoc: Doc) (front: List Doc)
+    (lastDoc: Doc) (hug: Option Doc):
+    Applied :=
   let docs := [headDoc, ..front] ++ [lastDoc]
   let all := spaced docs
-  let keep := 1 + keptFront head arguments
-  if keep == docs.length then { doc = if commentBetween head arguments then all else Nest 4 (Fill docs), hug = None }
+  if keep == docs.length then { doc = if between then all else Nest 4 (Fill docs), hug = None }
   else
     let hugged := hug.map (open => Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open])
-    let fillFront := keep > 2 && !commentBetween head (arguments.take (keep - 1))
-    let id := around.at + 1
+    let fillFront := keep > 2 && !betweenFront
     let kept := docs.take keep
     let frontDoc := if fillFront then IdGroup id (Nest 4 (Fill kept)) False else spaced kept
     let rest := Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))
@@ -742,10 +757,13 @@ def Expr.inChain (expr: Expr) (level: Option Nat): Bool := match expr with
 --| lines of their own (SW-3680), and its operators stay at the chain's
 --| column, where they can't read as part of the last arm.
 def chain (level: Option Nat) (left: Expr) (operator: Word) (right: Expr) (around: Around): Doc :=
-  let arms := left.opensArms level
-  match chainLinks level True left operator right around with
-    | [head, ..tail] => Doc.group (Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)])
-    | [] => Nothing
+  chainOf (left.opensArms level) (chainLinks level True left operator right around)
+
+--| A chain's docs, the first operand's and then the lines: grouped, the lines indented 2 unless the chain's
+--| operators stay at its column (`arms`).
+def chainOf (arms: Bool) (links: List Doc): Doc := match links with
+  | [head, ..tail] => Doc.group (Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)])
+  | [] => Nothing
 
 --| Whether the chain's first operand is a `match`.
 def Expr.opensArms (expr: Expr) (level: Option Nat): Bool := match expr with
