@@ -396,9 +396,7 @@ theorem hangsCloserLine ∀ (kinds: Text → Tok) (key indent: Nat) (pre post: P
     (moves: ∀ (place: Place) (hang: Hang) => pre place hang
       → place.midLine = True
         ∧ post
-          (AtStart
-            (place.carry.closerAt key indent)
-            ((place.carry.close key).breakTo (place.carry.closerAt key indent)))
+          (Broken (place.carry.closerAt key indent) ((place.carry.close key).breakTo (place.carry.closerAt key indent)))
           hang):
     HangLays kinds (CloserLine key) indent pre post :=
   place trace next holds after =>
@@ -422,7 +420,7 @@ theorem hangsOneLineBelow ∀ (kinds: Text → Tok) (inner: Doc) (indent: Nat) (
     (lays: HangLays kinds inner (indent + 2) below post)
     (moves: ∀ (place: Place) (hang: Hang) => pre place hang
       → place.midLine = True
-        ∧ below (AtStart (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2))) hang):
+        ∧ below (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2))) hang):
     HangLays kinds (OneLineBelow inner) indent pre post :=
   place trace next holds after =>
     match moves place (hangOf kinds trace) holds with | (mid, started) => (mid, lays _ trace next started after)
@@ -1246,15 +1244,6 @@ def BrokenAt (indent column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop 
   | Broken at carry => now = hang ∧ at = column ∧ floored carry indent = column
   | _ => False = True
 
-theorem commentStarts ∀ (text: Text) (comment: IsComment text): text.startsWith "--" = True := match comment with
-  | (others, chars, _) =>
-    let starts: Text.startsWithChars "--".toList text.toList = True := rewrite chars
-    starts
-
---| A comment keeps the comment floor.
-theorem commentKeepsFloor ∀ (text: Text) (carry: Carry) (comment: IsComment text): floorAfter text carry = carry :=
-  rewrite commentStarts text comment
-
 --| After an own-line comment, on its line.
 def WrittenAt (indent column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
   | Mid at carry => now = hang ∧ floored carry indent = column
@@ -1280,9 +1269,11 @@ theorem noteHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (h
       (place trace lined =>
         match place, lined with
           | AtStart at carry, (now, atColumn, landed) =>
-            rewrite commentKeepsFloor text carry comment, skips (hangOf kinds trace) (Some at) then (now, landed)
+            rewrite commentKeepsFloor text carry (commentStarts text comment), skips (hangOf kinds trace) (Some at) then
+              (now, landed)
           | Broken at carry, (now, atColumn, landed) =>
-            rewrite commentKeepsFloor text carry comment, skips (hangOf kinds trace) (Some at) then (now, landed)))
+            rewrite commentKeepsFloor text carry (commentStarts text comment), skips (hangOf kinds trace) (Some at) then
+              (now, landed)))
     (hangsHardBroken kinds indent (WrittenAt indent column hang) (BrokenAt indent column hang) (place now holds =>
       match place, holds with
         | Mid at carry, (same, landed) => (byComputing, (same, landed, landed))
@@ -1356,7 +1347,7 @@ theorem laterNotesHang ∀ (kinds: Text → Tok) (notes: List Note) (indent colu
             more
 
 --| A token's own-line comments, each on its line, from the start of a line, with no blank line kept above the
---| first: no `Blank` can follow a `LineStart` (`Doc.Proofs.StartLays` leaves `AtStart`).
+--| first: at a line start that needn't follow a line break, a `Blank` may print nothing (`Doc.Proofs.BlankLays`).
 theorem notesHang ∀ (kinds: Text → Tok) (keep: Bool) (note: Note) (rest: List Note) (indent column: Nat) (hang: Hang)
     (comments: NotesComment [note, ..rest])
     (quiet: (note.blankBefore && keep) = False):
@@ -1377,6 +1368,34 @@ theorem notesHang ∀ (kinds: Text → Tok) (keep: Bool) (note: Note) (rest: Lis
           (BrokenAt indent column hang)
           (noteHangs kinds note.text indent column hang comment solid)
           (laterNotesHang kinds rest indent column hang others)
+
+--| A token's own-line comments, each on its line, right after a line break, a blank line above the first kept or
+--| not.
+theorem notesHangBroken ∀ (kinds: Text → Tok) (keep: Bool) (note: Note) (rest: List Note)
+    (indent column: Nat) (hang: Hang)
+    (comments: NotesComment [note, ..rest]):
+    HangLaysAll kinds
+      (notesAbove keep [note, ..rest])
+      indent
+      (BrokenAt indent column hang)
+      (BrokenAt indent column hang) :=
+  match keep with
+    | True => laterNotesHang kinds [note, ..rest] indent column hang comments
+    | False =>
+      allHangsPre kinds
+        (notesAbove False [note, ..rest])
+        indent
+        (LineAt indent column hang)
+        (BrokenAt indent column hang)
+        (BrokenAt indent column hang)
+        (notesHang kinds False note rest indent column hang comments
+          (Bool.andFalseRight note.blankBefore False byComputing))
+        (brokenLine indent column hang)
+
+--| Whether the place is a line start that needn't follow a line break, where a `Blank` may print nothing.
+def plainStart: Place → Bool
+  | AtStart _ _ => True
+  | _ => False
 
 --| Where a token with own-line comments above it starts its line: at the line's start if it is at one, else on the
 --| comment break `LineStart` makes.
@@ -1410,6 +1429,93 @@ theorem startHangs ∀ (kinds: Text → Tok) (indent: Nat) (before: Bool) (state
             let landed: floored carry broken = broken := rewrite floor
             (folded, landed, Nat.maxRight indent broken arithmetic))
 
+--| A `LineStart` from a seat that isn't a plain line start: right after the line break it makes, or the one before.
+theorem startHangsBroken ∀ (kinds: Text → Tok) (indent: Nat) (before: Bool) (state: HangState) (entry: Place)
+    (fresh: plainStart entry = False):
+    HangLays kinds LineStart indent
+      (place hang => place = entry ∧ hang = At state ∧ Seated indent before state entry)
+      (BrokenAt indent (leadColumn indent entry) (At state)) :=
+  hangsStart kinds indent
+    (place hang => place = entry ∧ hang = At state ∧ Seated indent before state entry)
+    (BrokenAt indent (leadColumn indent entry) (At state))
+    (place trace (isEntry, folded, seated) =>
+      rewrite isEntry then
+        match entry, fresh, seated with
+          | AtStart at carry, never, _ => (Bool.falseNotTrue never.flipped).impossible
+          | Broken at carry, _, (atIndent, landed) => (folded, byComputing, rewrite atIndent then landed)
+          | Mid at carry, _, (floor, _) =>
+            let broken := Nat.max indent (at + 2)
+            let landed: floored carry broken = broken := rewrite floor
+            (folded, landed, Nat.maxRight indent broken arithmetic)
+          | Held at carry, _, (_, floor, _) =>
+            let broken := Nat.max indent (at + 2)
+            let landed: floored carry broken = broken := rewrite floor
+            (folded, landed, Nat.maxRight indent broken arithmetic))
+
+--| A `LineStart` from a seat, then a token's own-line comments, each on its line: a blank line above the first is
+--| kept except at a plain line start.
+theorem startNotesHang ∀ (kinds: Text → Tok) (keep: Bool) (indent: Nat) (before: Bool) (state: HangState) (entry: Place)
+    (note: Note) (rest: List Note)
+    (comments: NotesComment [note, ..rest])
+    (quiet: (plainStart entry && note.blankBefore && keep) = False):
+    HangLaysAll kinds
+      [LineStart, ..notesAbove keep [note, ..rest]]
+      indent
+      (place hang => place = entry ∧ hang = At state ∧ Seated indent before state entry)
+      (BrokenAt indent (leadColumn indent entry) (At state)) :=
+  let pre: Place → Hang → Prop := place hang => place = entry ∧ hang = At state ∧ Seated indent before state entry
+  let column := leadColumn indent entry
+  match plain: plainStart entry with
+    | True =>
+      hangsCons kinds LineStart
+        (notesAbove keep [note, ..rest])
+        indent
+        pre
+        (LineAt indent column (At state))
+        (BrokenAt indent column (At state))
+        (startHangs kinds indent before state entry)
+        (notesHang kinds keep note rest indent column (At state) comments quiet)
+    | False =>
+      hangsCons kinds LineStart
+        (notesAbove keep [note, ..rest])
+        indent
+        pre
+        (BrokenAt indent column (At state))
+        (BrokenAt indent column (At state))
+        (startHangsBroken kinds indent before state entry plain)
+        (notesHangBroken kinds keep note rest indent column (At state) comments)
+
+--| A token with no comments above it, seated right after a line break: the blank line kept above an item is left,
+--| and the token's line starts where it did.
+theorem blankLeadHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
+    (state: HangState) (at: Nat) (carry: Carry)
+    (hoisted: around.hoisted = False)
+    (bare: word.comments.above = []):
+    HangLaysAll kinds
+      (word.leading around key)
+      indent
+      (place hang => place = Broken at carry ∧ hang = At state ∧ Seated indent before state (Broken at carry))
+      (place hang => hang = At state ∧ Seated indent before state place ∧ place.midLine = False) :=
+  let pre: Place → Hang → Prop := place hang =>
+    place = Broken at carry ∧ hang = At state ∧ Seated indent before state (Broken at carry)
+  let post: Place → Hang → Prop := place hang =>
+    hang = At state ∧ Seated indent before state place ∧ place.midLine = False
+  rewrite hoisted, bare then
+    match blank: around.item && word.comments.blankBefore with
+      | True =>
+        hangsCons kinds BreakParent
+          [Blank]
+          indent
+          pre
+          pre
+          post
+          (hangsBreakParent kinds indent pre)
+          (hangsLast kinds Blank indent pre post
+            (hangsBlank kinds indent pre post (place trace (isEntry, folded, seated) =>
+              rewrite isEntry, blankHang kinds trace then (folded, seated, byComputing))))
+      | False => hangsNil kinds indent pre post (place hang (isEntry, folded, seated) =>
+        rewrite isEntry then (folded, seated, byComputing))
+
 --| A token's own-line comments and the blank line kept above it, from a seat: to the start of the token's line.
 theorem leadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
     (state: HangState) (entry: Place) (note: Note) (rest: List Note)
@@ -1417,7 +1523,7 @@ theorem leadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (ke
     (noted: word.comments.above = [note, ..rest])
     (closer: isCloserText word.text = False)
     (comments: NotesComment [note, ..rest])
-    (quiet: (note.blankBefore && around.item) = False):
+    (quiet: (plainStart entry && note.blankBefore && around.item) = False):
     HangLaysAll kinds
       (word.leading around key)
       indent
@@ -1435,14 +1541,7 @@ theorem leadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (ke
       pre
       broken
       (hangsBreakParent kinds indent pre)
-      (hangsCons kinds LineStart
-        (notesAbove around.item [note, ..rest])
-        indent
-        pre
-        lined
-        broken
-        (startHangs kinds indent before state entry)
-        (notesHang kinds around.item note rest indent column (At state) comments quiet))
+      (startNotesHang kinds around.item indent before state entry note rest comments quiet)
   rewrite hoisted, noted, closer then
     match blank: word.comments.blankBefore with
       | True =>
