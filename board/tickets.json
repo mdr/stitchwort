@@ -24566,12 +24566,12 @@
     {
       "id": 4026,
       "title": "[Opus] fmt S1 read-back 17e: change expr to test item.index > 0 and blockLine to set allow from the next item's index (as Rust's self.pos), not the parser offset; same behaviour wherever item indices equal offsets (declaration groups), gates s1-s6a and tree twin must stay identical; restate FullReads as one-line or block with before = item.index, then multi-line declarations, calls (WIP patch in scratchpad keep/sw4013-calls-wip.patch: Spelt App, ArgumentReads, ArgsReads), - and !, operators, and readsBack1 over calm (SW-4013; orchestrator's call: yes to the parser change)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Opus lane, 18 Nov 2026):\n- df3f01c68: the parser change. `expr` uses `startsBlock modes item` (`item.index > 0`) and `blockLine` allows `nextIndex items`. Gates: tree twin 132/132 on goldens; s6a 420/420 on goldens; repo sample (300 files) 3960/3960. `FullReads` is now the inline reading or the block's (`BlockAt` for any line kind, allowing `item.index`). The ParseWalk, ReadBackProofs, ReadBackRuns, ReadBackTree and ReadBackEnds proofs follow.\n- 214d535d0: a declaration's value may start its own line (`fullAnyLine`, witness `readsBackOwnLineExample`).\n- 9c797749b: calls on one line read back (`Spelt` App, `appLine`, `appAny`, `argsLine`; witness `readsBackCallExample`). New named hypotheses `typeFree`/`valueFree` (`Expr.autoFree1`), for SW-4027 to discharge.\n- Not done: multi-line declarations, `-`/`!` (needs `lineKind` widened; `Minus` is a section operator, see NOTES), operators, `readsBack1`.\n- Checks and audits pass on the read-back namespaces; Syntax.Tests 52/52, Fmt.Tests 94/94.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
