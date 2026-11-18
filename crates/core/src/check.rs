@@ -2850,7 +2850,11 @@ pub fn retype_def(g: &mut Kernel, id: DefId, ty: &Term) -> Result<()> {
             ));
         }
         admissible(&cx, [ty], None)?;
-        let (ty, sort) = check_type(&mut cx, ty)?;
+        // Glued, as `declare_def` checks a signature (SW-1779).
+        let was = g.machine.glue.replace(true);
+        let checked = check_type(&mut cx, ty);
+        g.machine.glue.set(was);
+        let (ty, sort) = checked?;
         let def = &g.env.defs()[id.0];
         if def.theorem && sort != Sort::Prop {
             return Err(not_a_prop(&mut cx, &def.name, &ty, span)?);
@@ -4691,7 +4695,12 @@ fn occurs(term: &Term, group: &[DataId]) -> Option<DataId> {
 
 /// Checks and adds a validator for proof parameter `param` of an exported
 /// definition: `decision` must have type `decidable P`, where `P` is the
-/// parameter's type, in the context of the parameters before it.
+/// parameter's type, in the context of the parameters before it. The
+/// parameters are read as every runtime reads them
+/// ([`crate::erase::def_telescope`]: through the opaque definitions the
+/// definition unfolds), so `param` counts the arguments the extracted code
+/// is passed, and the decision is checked under the definition's
+/// transparency set, as its body is.
 ///
 /// `decidable` must be shaped like the prelude's `Decidable`: a record with
 /// one `Prop` parameter `p` whose first field is a `Bool` and whose second
@@ -4705,7 +4714,6 @@ pub fn add_validator(
     decision: &Term,
 ) -> Result<()> {
     in_kernel_modes(g, |g| {
-        let _set = g.machine.transparent.set(Rc::default());
         let Some(def) = g.env.defs().get(id.0) else {
             return Err(Diagnostic::error(
                 "E-MALFORMED",
@@ -4713,7 +4721,12 @@ pub fn add_validator(
             ));
         };
         let span = def.span;
-        let tel = telescope(&g.ev(), &def.ty_value, span)?;
+        let tel = crate::erase::def_telescope(&g.ev(), id)?;
+        let _set = g.machine.transparent.set(def.transparent.clone());
+        // Glued, as `set_run_body` checks a run body against the same type
+        // (`in_kernel_modes` puts the caller's mode back): gluing changes
+        // when something is computed, not what's accepted.
+        g.machine.glue.set(true);
         let ev = g.ev();
         let mut cx = Ctx::new(&ev, span);
         if def.state != State::Final {

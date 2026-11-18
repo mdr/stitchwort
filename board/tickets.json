@@ -23345,28 +23345,32 @@
     {
       "id": 3935,
       "title": "[Sonnet] docs/core.md after D3680: say retype_def checks a signature unglued (or glue it, measuring, SW-3931 T4), and that a parameter visible only through an opaque nickname isn't erased, in core.md and erase.rs, once SW-3933 settles the view (SW-3931 doc fixes, T5)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nLane (Opus, 18 Nov 2026, with SW-3936): retype_def's check_type now glued, as declare_def's. Kernel time on the D3680 reproducer (g3601, check --no-cache, STITCHWORT_TIMINGS, 3 runs): 350.5/351.3/349.2 ms before, 346.7/352.7/332.4 ms after: unchanged, as retype_def only runs for a row-polymorphic function signature (partial-stage-3 §2.2), never there. core.md \"Glued calls\" now lists exactly which kernel checks glue (declare_def, retype_def, assume; admit_group except a Refl body; set_run_body; add_validator); the Refl sentence says \"under the definition's transparency set\". erase.rs and core.md's erasure view were already right after SW-3933.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "26cd1c836"
+      ]
     },
     {
       "id": 3936,
       "title": "[DeepSeek] Export validators (kernel add_validator, elab add_validators) still read the hidden view of a definition's parameters; move them to erase::def_telescope like every other reader, so an export with a proof parameter behind an opaque nickname gets its runtime check instead of E-EXPORT; with a test (SW-3933 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nLane (Opus, 18 Nov 2026, 10:24-10:50): kernel add_validator and elab add_validators read erase::def_telescope; the decision is found and checked under the definition's transparency set, glued. js boundary forces a type first (a glued synonym parameter was refused with a generic message since SW-3933: reject/export-indexed-synonym's snapshot failed on main). Failing first: examples/extract/opaque-nickname-precondition.sw gave E-EXPORT \"proof parameter `ok` has no runtime check\" with the old binary; now checks, extracts, and the wrapper refuses share 10 0. Kernel now also accepts: a validator at a parameter visible only through an opaque nickname the export unfolds, and a decision that type-checks only under the export's transparency set. No hash moved. Tests: new extract test, kernel validator tests, opaque::, export examples (filtered), soundness set, hash_stability::, pinned_hashes::.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "26cd1c836"
+      ]
     },
     {
       "id": 3937,

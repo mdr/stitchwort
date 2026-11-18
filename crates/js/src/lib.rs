@@ -22,7 +22,7 @@ use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{Head, eval, expand_step, quot_mk_rep, quote};
+use stitchwort_core::value::{Head, eval, expand_step, force, quot_mk_rep, quote};
 use stitchwort_core::{
     BigUint, DataId, DefId, Icit, Limits, QuotForm, ResourceError, Sort, Term, Value, pretty,
 };
@@ -316,6 +316,9 @@ fn boundary(
             pretty::value(g, &[], ty)
         )
     };
+    // A definition's parameters are read glued (`def_telescope`): a type
+    // written as a synonym (`Row` for `Vec Bool 5`) is a call until forced.
+    let ty = &force(g, ty.clone()).map_err(|e| Diagnostic::from(e).message)?;
     match ty {
         Value::Neutral(Head::Var(level, _), elims) if elims.is_empty() && *level < params => {
             Ok(Boundary::Param(*level))
