@@ -23397,12 +23397,12 @@
     {
       "id": 3939,
       "title": "[Sonnet] Text.contains and Text.joinWith lemmas, then the Std.Args theorem 'help lists every option' (left from SW-3391); and Text.toAsciiLower beside Text.toAsciiUpper",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Lane notes (Sonnet, lane/SW-3939, 18 Nov): done all three: Text.toAsciiLower/Char.toAsciiLower; Text contains lemmas (containsSelf, containsEmpty, containsAppendLeft/Right/Middle, padRightContains, containsJoinWith, containsJoinWithPart, char-list versions); Args.helpListsOption (every option's --name is in the help text; no change to the program). Prelude snapshot: additions only (28 lines). Moved to review.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

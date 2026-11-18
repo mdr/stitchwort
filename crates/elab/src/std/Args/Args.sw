@@ -399,6 +399,87 @@ def Args.help (program: Args.Program) (spec: Args.Spec a): Text :=
       ++ Args.helpRow column "-h, --help" "Show this help."
   lines.joinWith "\n"
 
+--| The start of an option's help line names it: the syntax contains `--` and the
+--| option's name.
+theorem Args.syntaxContainsLong ∀ (info: Args.Info)
+    (option: info.isOption = True):
+    Text.contains info.syntax "--${info.long}" = True :=
+  match info with
+    | { long = long, kind = kind, metavar = metavar, help = help, default = default } =>
+      match kind with
+        | Flag => Text.containsSelf "--${long}"
+        | Single required =>
+          Text.containsAppendLeft "--${long}" " ${metavar}" "--${long}" (Text.containsSelf "--${long}")
+        | Many => Text.containsAppendLeft "--${long}" " ${metavar}" "--${long}" (Text.containsSelf "--${long}")
+        | Positionals atLeast => (Bool.falseNotTrue option).impossible
+
+--| Some line of a help entry contains what its left text contains: the entry's
+--| first line starts with that text, padded to the column.
+theorem Args.helpRowContains ∀ (column: Nat) (left description needle: Text)
+    (h: Text.contains left needle = True):
+    ∃ (line: Text) => line ∈ Args.helpRow column left description ∧ Text.contains line needle = True :=
+  match Args.wrap (if column + 4 + 20 < 80 then 80 - (column + 4) else 20) description with
+    | [] => Witness "  ${left}" (Both (Inl byComputing) (Text.containsAppendRight "  " left needle h))
+    | [first, ..rest] =>
+      Witness
+        "  ${left.padRight column ' '}  ${first}"
+        (Both
+          (Inl byComputing)
+          (Text.containsAppendRight "  "
+            (Text.append (left.padRight column ' ') (Text.append "  " first))
+            needle
+            (Text.containsAppendLeft
+              (left.padRight column ' ')
+              (Text.append "  " first)
+              needle
+              (Text.padRightContains left column ' ' needle h))))
+
+--| The help lists every option: for each option of the spec, the help text
+--| contains `--` and its name.
+--|
+--| Proof idea: the option's help entry ([`Args.helpRowContains`]) has a line
+--| that contains its syntax, which contains `--` and the name
+--| ([`Args.syntaxContainsLong`]). That entry is among the rows of the options,
+--| so the line is one of the lines the help joins, and a joined text contains
+--| what one of its parts contains ([`Text.containsJoinWithPart`]).
+theorem Args.helpListsOption ∀ (program: Args.Program) (spec: Args.Spec a) (info: Args.Info)
+    (declared: info ∈ spec.items)
+    (option: info.isOption = True):
+    Text.contains (Args.help program spec) "--${info.long}" = True :=
+  let column :=
+    (((spec.items.filter (info => !info.isOption) ++ spec.items.filter .isOption).map .syntax
+              ++ ["-h, --help"]).maximumOf .length).getOrElse 0
+  let row := (items: List Args.Info) => items.flatMap (item => Args.helpRow column item.syntax item.description)
+  let positionals := spec.items.filter (info => !info.isOption)
+  let options := spec.items.filter .isOption
+  let lines :=
+    ["usage: ${Args.usage program spec}"]
+      ++ (if program.about.isEmpty then [] else [program.about])
+      ++ [""]
+      ++ (if positionals.isEmpty then [] else ["arguments:"] ++ row positionals)
+      ++ ["options:"]
+      ++ row options
+      ++ Args.helpRow column "-h, --help" "Show this help."
+  match Args.helpRowContains column info.syntax info.description
+    "--${info.long}"
+    (Args.syntaxContainsLong info option) with
+    | Witness line (Both entry holds) =>
+      Text.containsJoinWithPart lines "\n" line
+        "--${info.long}"
+        (Inr
+          (List.memAppendRight line _ _
+            (Inr
+              (List.memAppendRight line _ _
+                (Inr
+                  (List.memAppendLeft line _ _
+                    (List.memFlatMapIntro
+                      (item => Args.helpRow column item.syntax item.description)
+                      info
+                      line _
+                      (List.memFilterIntro spec.items .isOption declared option)
+                      entry)))))))
+        holds
+
 --| The message for a mistake in a command line, without the program's name.
 def Args.Error.describe: (error: Args.Error) → Text
   | Args.Error.Unknown name (Some suggestion) => "unknown option ${name} (did you mean ${suggestion}?)"
