@@ -872,8 +872,10 @@ theorem itemReadsGt ∀ (rest: List Char) (follow: rest.head ≠ Some '='): Item
 theorem itemReadsGe ∀ (rest: List Char): ItemReads ['>', '='] (TokenLexeme Ge) rest :=
   itemReadsVia ['>', '='] rest (TokenLexeme Ge) (self source state =>
     runsFromTokenList state Ge 2 ['>', '='] rest byComputing)
+--| A `!` before anything but `=` or the word `in` is read alone: the lexer reads `!=` and `!in` (with no more of a
+--| name after it) as longer tokens.
 theorem itemReadsBang ∀ (rest: List Char)
-    (follow: rest.head ≠ Some '=' ∧ rest.head ≠ Some 'i'):
+    (follow: rest.head ≠ Some '=' ∧ rest.takeWhile isWordChar ≠ ['i', 'n']):
     ItemReads ['!'] (TokenLexeme Bang) rest :=
   match rest, follow with
     | [], (Both first second) => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
@@ -881,7 +883,22 @@ theorem itemReadsBang ∀ (rest: List Char)
     | [next, ..more], (Both first second) =>
       match next with
         | '=' => (first byComputing).impossible
-        | 'i' => (second byComputing).impossible
+        | 'i' =>
+          match more with
+            | [] => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
+              runsFromTokenList state Bang 1 ['!'] rest byComputing)
+            | [after, ..later] =>
+              match after with
+                | 'n' =>
+                  match later with
+                    | [] => (second byComputing).impossible
+                    | [third, ..rest3] =>
+                      match word: isWordChar third with
+                        | True => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
+                          runsFromTokenList state Bang 1 ['!'] rest byComputing)
+                        | False => (second byComputing).impossible
+                | other => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
+                  runsFromTokenList state Bang 1 ['!'] rest byComputing)
         | other => itemReadsVia ['!'] rest (TokenLexeme Bang) (self source state =>
           runsFromTokenList state Bang 1 ['!'] rest byComputing)
 
@@ -1609,7 +1626,6 @@ def Spells: Tok → Text → Prop
 
 --| What the text after a token may start with, so that the lexer reads the token and no more: not a character that
 --| goes on a name or a number, nor one that makes a longer operator (`:` and `=`, `<` and `-`), nor a `.`.
---| Stricter than the lexer where that is simpler (a `!` is never followed by `i`).
 def MayFollow (kind: Tok) (text: Text) (rest: List Char): Prop := match kind with
   | Colon => rest.head ≠ Some '='
   | Equals => rest.head ≠ Some '=' ∧ rest.head ≠ Some '>'
@@ -1617,7 +1633,7 @@ def MayFollow (kind: Tok) (text: Text) (rest: List Char): Prop := match kind wit
   | Minus => rest.head ≠ Some '-' ∧ rest.head ≠ Some '>'
   | Lt => rest.head ≠ Some '=' ∧ rest.head ≠ Some '-'
   | Gt => rest.head ≠ Some '='
-  | Bang => text = "!" → rest.head ≠ Some '=' ∧ rest.head ≠ Some 'i'
+  | Bang => text = "!" → rest.head ≠ Some '=' ∧ rest.takeWhile isWordChar ≠ ['i', 'n']
   | KwDef => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
   | Lower => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
   | Upper => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
@@ -1882,6 +1898,9 @@ theorem lexesAsSpells ∀ (kind: Tok) (text: Text)
       (Both (spellsPlain kind text spells) byComputing)
       (Both spells (Both follows byComputing))
   rewrite piecesTextOne kind text at ran then ran
+
+--| A `!` before a name that starts `in` is read alone, as in `!inRange`.
+theorem bangBeforeName: MayFollow Bang "!" "inRange".toList := same => Both byDecision byDecision
 
 --| Nothing follows the last token of a text, so nothing keeps it from being read whole.
 theorem mayFollowEnd ∀ (kind: Tok) (text: Text): MayFollow kind text [] := match kind with
@@ -2187,12 +2206,154 @@ theorem takeWhileSameHead ∀ (passes: Char → Bool) (before after: List Char)
         match passes first with
           | False => byComputing
 
---| What a token needs of the text after it depends on that text's first character only.
+--| Two texts start alike for what may follow a token: the same first character, and the second starts with the
+--| word `in` only if the first does (a `!` before `in` is read as `!in`).
+def StartsAlike (before after: List Char): Prop :=
+  before.head = after.head ∧ (after.takeWhile isWordChar = ['i', 'n'] → before.takeWhile isWordChar = ['i', 'n'])
+
+theorem alikeSame ∀ (chars: List Char): StartsAlike chars chars := Both byComputing (run => run)
+
+theorem alikeOfEq ∀ (before after: List Char) (same: before = after): StartsAlike before after :=
+  rewrite same then alikeSame after
+
+theorem takeWhileHeadFails ∀ (passes: Char → Bool) (chars: List Char) (first: Char)
+    (head: chars.head = Some first)
+    (fails: passes first = False):
+    chars.takeWhile passes = [] :=
+  match chars, head with
+    | [], head => cases
+    | [other, ..more], head => rewrite Option.someInjective head, fails
+
+--| Texts with the same first character, a space, start alike.
+theorem alikeOfSpace ∀ (before after: List Char)
+    (same: before.head = after.head)
+    (space: after.head = Some ' '):
+    StartsAlike before after :=
+  Both same (run =>
+    let stops := takeWhileHeadFails isWordChar after ' ' space byComputing
+    let never: [] = ['i', 'n'] := Eq.trans stops.flipped run
+    cases)
+
+theorem takeWhileNilPrefix ∀ (passes: Char → Bool) (front back: List Char)
+    (stops: (front ++ back).takeWhile passes = []):
+    front.takeWhile passes = [] :=
+  match front with
+    | [] => byComputing
+    | [first, ..more] =>
+      match pass: passes first with
+        | False => byComputing
+
+--| Where the name characters at the start of `front ++ back` are `in`, those of `front` are, or `front` is `i` and
+--| those of `back` are `n`.
 --|
---| Proof idea: Each condition of `MayFollow` is about the head or about `takeWhile` stopping at it (`takeWhileSameHead`).
-theorem followsSameHead ∀ (piece: Piece) (before after: List Char)
-    (same: before.head = after.head) (follows: piece.Follows before):
+--| Proof idea: Cases on the first two characters of `front` and whether they are name characters.
+theorem inOfAppend ∀ (front back: List Char)
+    (filled: front ≠ [])
+    (run: (front ++ back).takeWhile isWordChar = ['i', 'n']):
+    front.takeWhile isWordChar = ['i', 'n'] ∨ (front = ['i'] ∧ back.takeWhile isWordChar = ['n']) :=
+  match front with
+    | [] => (filled byComputing).impossible
+    | [first, ..more] =>
+      match firstWord: isWordChar first with
+        | True =>
+          let isI: first = 'i' := List.consInjectiveHead first 'i' _ ['n'] run
+          let tail: (more ++ back).takeWhile isWordChar = ['n'] :=
+            List.consInjective first _ ['n'] (rewrite isI at run then rewrite isI then run)
+          match more with
+            | [] => Inr (Both (rewrite isI) tail)
+            | [second, ..later] =>
+              match secondWord: isWordChar second with
+                | True =>
+                  let isN: second = 'n' := List.consInjectiveHead second 'n' _ [] tail
+                  let rest: (later ++ back).takeWhile isWordChar = [] :=
+                    List.consInjective second _ [] (rewrite isN at tail then rewrite isN then tail)
+                  Inl (rewrite isI, isN, takeWhileNilPrefix isWordChar later back rest)
+
+theorem notI ∀ (char: Char) (others: List Char) (differs: char ≠ 'i') (same: [char, ..others] = ['i']): Void :=
+  differs (List.consInjectiveHead char 'i' others [] same)
+
+theorem notJustI ∀ (piece: Piece) (rest: List Char) (spells: piece.Spells) (follows: piece.Follows rest)
+    (single: piece.chars = ['i'])
+    (run: rest.takeWhile isWordChar = ['n']):
+    Void :=
+  match piece, spells, follows with
+    | Gap count, _, _ =>
+      match count with
+        | Zero => cases
+        | Succ more => cases
+    | Break, _, _ => cases
+    | Remark text, Witness others (Both split _), _ =>
+      let never: ['-', '-', ..others] = ['i'] := Eq.trans split.flipped single
+      cases
+    | Code LParen text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code RParen text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code LBracket text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code RBracket text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Comma text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Colon text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code ColonEq text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Equals text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code EqEq text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Arrow text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Arrow text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code OrOr text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code OrOr text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code AndAnd text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code AndAnd text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Plus text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code PlusPlus text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Minus text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Star text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Slash text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Percent text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code NotEq text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code NotEq text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Lt text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Le text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Le text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Gt text, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Ge text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Ge text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Bang text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Bang text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code KwDef text, _, Both ends _ =>
+      let never: [] = ['n'] := Eq.trans ends.flipped run
+      cases
+    | Code Lower text, _, Both ends _ =>
+      let never: [] = ['n'] := Eq.trans ends.flipped run
+      cases
+    | Code Upper text, _, Both ends _ =>
+      let never: [] = ['n'] := Eq.trans ends.flipped run
+      cases
+    | Code Num text, Witness first (Witness others (Both split (Both digit _))), _ =>
+      let isI: first = 'i' := List.consInjectiveHead first 'i' others [] (Eq.trans split.flipped single)
+      rewrite isI at digit then cases
+    | Code Float text, Witness first (Witness others (Witness second (Witness more (Both split (Both digit _))))), _ =>
+      let joined: [first, ..others ++ ['.', second, ..more]] = ['i'] := Eq.trans split.flipped single
+      let isI: first = 'i' := List.consInjectiveHead first 'i' _ [] joined
+      rewrite isI at digit then cases
+
+--| A piece's characters, and the same with what may follow the piece after them, start alike.
+--|
+--| Proof idea: The first character is the piece's. If the name characters at the start of the whole are `in`, they
+--| are the piece's unless the piece is `i` and what follows starts `n`, which no piece allows (`notJustI`).
+theorem alikeAppend ∀ (piece: Piece) (rest: List Char) (plain: piece.Plain)
+    (spells: piece.Spells) (follows: piece.Follows rest):
+    StartsAlike piece.chars (piece.chars ++ rest) :=
+  let joined := headOfJoin piece.chars [] rest (nonEmptyChars piece plain)
+  Both (rewrite List.appendNil piece.chars at joined then joined.flipped) (run =>
+    match inOfAppend piece.chars rest (nonEmptyChars piece plain) run with
+      | Inl front => front
+      | Inr (Both single after) => (notJustI piece rest spells follows single after).impossible)
+
+--| What a token needs of the text after it depends only on how that text starts (`StartsAlike`).
+--|
+--| Proof idea: Each condition of `MayFollow` is about the head or about `takeWhile` stopping at it (`takeWhileSameHead`);
+--| a `!`'s is about the word `in`, which `StartsAlike` carries.
+theorem followsAlike ∀ (piece: Piece) (before after: List Char)
+    (alike: StartsAlike before after) (follows: piece.Follows before):
     piece.Follows after :=
+  let same := alike.left
   match piece, follows with
     | Code Colon text, follows => rewrite <- same then follows
     | Code Equals text, follows => rewrite <- same then follows
@@ -2200,7 +2361,9 @@ theorem followsSameHead ∀ (piece: Piece) (before after: List Char)
     | Code Minus text, follows => rewrite <- same then follows
     | Code Lt text, follows => rewrite <- same then follows
     | Code Gt text, follows => rewrite <- same then follows
-    | Code Bang text, follows => same2 => rewrite <- same then follows same2
+    | Code Bang text, follows => bang =>
+      match follows bang with
+        | Both noEq notIn => Both (rewrite <- same then noEq) (word => notIn (alike.right word))
     | Code KwDef text, Both stops noDot =>
       Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
     | Code Lower text, Both stops noDot =>
@@ -2245,13 +2408,14 @@ theorem lexableOfPairs ∀ (pieces: List Piece)
     | [], plain, spelled, pairs => byComputing
     | [piece], Both pieceOk moreOk, Both spells moreSpelled, follows => Both spells (Both follows byComputing)
     | [piece, next, ..more], Both pieceOk (Both nextOk moreOk), Both spells later, Both follows laterPairs =>
+      let tail := lexableOfPairs [next, ..more] (Both nextOk moreOk) later laterPairs
+      let nextFollows: next.Follows (Parse.joinReads (pieceSteps more)) :=
+        rewrite List.appendNil (Parse.joinReads (pieceSteps more)) at tail then tail.right.left
+      let alike: StartsAlike next.chars (Parse.joinReads (pieceSteps [next, ..more]) ++ []) :=
+        rewrite List.appendNil (Parse.joinReads (pieceSteps [next, ..more])) then
+          alikeAppend next (Parse.joinReads (pieceSteps more)) nextOk later.left nextFollows
       Both spells
-        (Both
-          (followsSameHead piece next.chars
-            (Parse.joinReads (pieceSteps [next, ..more]) ++ [])
-            (headOfJoin next.chars (Parse.joinReads (pieceSteps more)) [] (nonEmptyChars next nextOk)).flipped
-            follows)
-          (lexableOfPairs [next, ..more] (Both nextOk moreOk) later laterPairs))
+        (Both (followsAlike piece next.chars (Parse.joinReads (pieceSteps [next, ..more]) ++ []) alike follows) tail)
 
 --| `lexPrinted`, as the printer's proofs will use it: pieces that are spelled as the lexer reads them, each of which
 --| may be followed by the next, lex to the leaves of their layout.

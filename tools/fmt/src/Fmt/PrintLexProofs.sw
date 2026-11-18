@@ -412,9 +412,33 @@ theorem gapHead ∀ (kinds: Text → Tok) (text: Text)
     (gapOr text).toList.head = (pieceOf kinds text).chars.head :=
   rewrite gapHeadText text filled, pieceChars kinds text
 
+--| Spaces start with a space.
+theorem spacesHead ∀ (text: Text)
+    (filled: text.isEmpty = False)
+    (spaces: text.all (char => char == ' ') = True):
+    text.toList.head = Some ' ' :=
+  let same := gapHeadText text filled
+  let gap: (gapOr text).toList.head = Some ' ' := rewrite spaces
+  Eq.trans same.flipped gap
+
+--| What the printer asks of the next text, as one space for spaces, and the piece that text is start alike.
+theorem gapAlike ∀ (kinds: Text → Tok) (text: Text)
+    (filled: text.isEmpty = False):
+    StartsAlike (gapOr text).toList (pieceOf kinds text).chars :=
+  match spaces: text.all (char => char == ' ') with
+    | True =>
+      alikeOfSpace
+        (gapOr text).toList
+        (pieceOf kinds text).chars
+        (gapHead kinds text filled)
+        (rewrite pieceChars kinds text then spacesHead text filled spaces)
+    | False =>
+      let plain: (gapOr text).toList = text.toList := rewrite spaces
+      alikeOfEq (gapOr text).toList (pieceOf kinds text).chars (Eq.trans plain (pieceChars kinds text).flipped)
+
 --| A piece that isn't spaces, standing before the next piece by `Pair`, follows it.
 --|
---| Proof idea: Cases on how the first is classified: a line break follows anything; a comment may only be followed by a line break (`follows` is false for it); a token is followed by a line break (`mayFollowBreak`) or what `follows` allows, which reads the same as the next piece (`followsSameHead`, `gapHead`).
+--| Proof idea: Cases on how the first is classified: a line break follows anything; a comment may only be followed by a line break (`follows` is false for it); a token is followed by a line break (`mayFollowBreak`) or what `follows` allows, which starts as the next piece does (`followsAlike`, `gapAlike`).
 theorem followsOfPair ∀ (kinds: Text → Tok) (before after: Text)
     (beforeGood: Good kinds before)
     (afterGood: Good kinds after)
@@ -441,11 +465,11 @@ theorem followsOfPair ∀ (kinds: Text → Tok) (before after: Text)
                 | Inr (Inl breakAfter) => rewrite notSpaces, breakAfter then mayFollowBreak (kinds before) before []
                 | Inr (Inr (notComment, may)) =>
                   rewrite notSpaces then
-                    followsSameHead
+                    followsAlike
                       (Code (kinds before) before)
                       (gapOr after).toList
                       (pieceOf kinds after).chars
-                      (gapHead kinds after afterGood.left)
+                      (gapAlike kinds after afterGood.left)
                       may
 
 --| Neighbouring texts, in order, that aren't spaces read to follow one another as pieces.
@@ -524,6 +548,30 @@ theorem pieceOfSpaces ∀ (kinds: Text → Tok) (text: Text)
     pieceOf kinds text = Gap text.length :=
   rewrite spaces
 
+--| The piece a text reads as and the first piece of the output from it start alike: the same piece, or spaces.
+theorem foldAlike ∀ (kinds: Text → Tok) (text: Text) (rest: List Text) (piece: Piece) (more: List Piece)
+    (good: AllGood kinds [text, ..rest])
+    (made: pieceFold kinds [text, ..rest] = [piece, ..more]):
+    StartsAlike (pieceOf kinds text).chars piece.chars :=
+  let same: (pieceOf kinds text).chars.head = piece.chars.head :=
+    Eq.trans
+      (Eq.cong (chars => chars.head) (pieceChars kinds text))
+      (foldHead kinds text rest piece more good made).flipped
+  match spaces: text.all (char => char == ' ') with
+    | True =>
+      let pieceHead: (pieceOf kinds text).chars.head = Some ' ' :=
+        Eq.trans (Eq.cong (chars => chars.head) (pieceChars kinds text)) (spacesHead text good.left.left spaces)
+      alikeOfSpace (pieceOf kinds text).chars piece.chars same (Eq.trans same.flipped pieceHead)
+    | False =>
+      let first: pieceOf kinds text = piece :=
+        List.consInjectiveHead
+          (pieceOf kinds text)
+          piece
+          (pieceFold kinds rest)
+          more
+          (Eq.trans (foldNotSpaces kinds text rest spaces).flipped made)
+      alikeOfEq (pieceOf kinds text).chars piece.chars (Eq.cong (later => later.chars) first)
+
 --| The pieces of an output whose neighbours follow one another follow one another.
 --|
 --| Proof idea: Induction on the texts: spaces after spaces are one lot of spaces (`gapCount`), spaces before anything else follow it (`gapFollowsPiece`), any other piece follows by `Adj`acency, with the next piece's first character the next text's (`foldHead`).
@@ -566,13 +614,11 @@ theorem pairsFollowFold ∀ (kinds: Text → Tok) (texts: List Text)
               (foldNotSpaces kinds first [second, ..rest] spaces)
               (Eq.cong (later => [pieceOf kinds first, ..later]) made))
             (
-              followsSameHead
+              followsAlike
                 (pieceOf kinds first)
                 (pieceOf kinds second).chars
                 piece.chars
-                (Eq.trans
-                  (Eq.cong (chars => chars.head) (pieceChars kinds second))
-                  (foldHead kinds second rest piece more (secondGood, restGood) made).flipped)
+                (foldAlike kinds second rest piece more (secondGood, restGood) made)
                 (adjacent spaces),
               ihMade
             )
