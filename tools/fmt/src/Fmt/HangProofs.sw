@@ -1527,15 +1527,23 @@ theorem blankLeadHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
     match blank: around.item && word.comments.blankBefore with
       | True =>
         hangsCons kinds BreakParent
-          [Blank]
+          [LineStart, Blank]
           indent
           pre
           pre
           post
           (hangsBreakParent kinds indent pre)
-          (hangsLast kinds Blank indent pre post
-            (hangsBlank kinds indent pre post (place trace (isEntry, folded, seated) =>
-              rewrite isEntry, blankHang kinds trace then (folded, seated, byComputing))))
+          (hangsCons kinds LineStart
+            [Blank]
+            indent
+            pre
+            pre
+            post
+            (hangsStart kinds indent pre pre (place trace (isEntry, folded, seated) =>
+              rewrite isEntry then (byComputing, folded, seated)))
+            (hangsLast kinds Blank indent pre post
+              (hangsBlank kinds indent pre post (place trace (isEntry, folded, seated) =>
+                rewrite isEntry, blankHang kinds trace then (folded, seated, byComputing)))))
       | False => hangsNil kinds indent pre post (place hang (isEntry, folded, seated) =>
         rewrite isEntry then (folded, seated, byComputing))
 

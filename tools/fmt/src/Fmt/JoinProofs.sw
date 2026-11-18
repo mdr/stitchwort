@@ -641,11 +641,33 @@ theorem blankListPasses ∀ (kinds: Text → Tok) (blank: Bool) (pre: Edge → P
     | True => passesLast kinds Blank pre pre (passesBlank kinds pre)
     | False => passesNil kinds pre pre (edge holds => holds)
 
-theorem blankLeadPasses ∀ (kinds: Text → Tok) (blank: Bool) (pre: Edge → Prop):
-    PassesAll kinds (if blank then [BreakParent, Blank] else []) pre pre :=
+--| An item's kept blank line with no comments above: the line it starts may still have a comment waiting.
+theorem blankLeadPasses ∀ (kinds: Text → Tok) (blank before: Bool) (first: Text):
+    PassesAll kinds
+      (if blank then [BreakParent, LineStart, Blank] else [])
+      (Ready kinds before first)
+      (Ready kinds before first) :=
   match blank with
-    | True => passesTwo kinds BreakParent Blank pre pre pre (passesBreakParent kinds pre) (passesBlank kinds pre)
-    | False => passesNil kinds pre pre (edge holds => holds)
+    | True =>
+      passesCons kinds BreakParent
+        [LineStart, Blank]
+        (Ready kinds before first)
+        (Ready kinds before first)
+        (Ready kinds before first)
+        (passesBreakParent kinds (Ready kinds before first))
+        (allTo kinds
+          [LineStart, Blank]
+          (Ready kinds before first)
+          (Gapped before)
+          (Ready kinds before first)
+          (passesTwo kinds LineStart Blank
+            (Ready kinds before first)
+            (Gapped before)
+            (Gapped before)
+            (startPasses kinds before first)
+            (passesBlank kinds (Gapped before)))
+          (edge gapped => gappedReady kinds before first edge gapped))
+    | False => passesNil kinds (Ready kinds before first) (Ready kinds before first) (edge holds => holds)
 
 theorem notesAbovePasses ∀ (kinds: Text → Tok) (before keep: Bool) (notes: List Note)
     (sound: notesSound notes = True):
@@ -774,12 +796,12 @@ theorem frontPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
                 | True, Some comment =>
                   rewrite notHoisted then
                     passesAppend kinds
-                      (if around.item && blankBefore then [BreakParent, Blank] else [])
+                      (if around.item && blankBefore then [BreakParent, LineStart, Blank] else [])
                       [CloserLine key]
                       (Ready kinds True text)
                       (Ready kinds True text)
                       (Ready kinds False text)
-                      (blankLeadPasses kinds (around.item && blankBefore) (Ready kinds True text))
+                      (blankLeadPasses kinds (around.item && blankBefore) True text)
                       (passesLast kinds
                         (CloserLine key)
                         (Ready kinds True text)
@@ -787,12 +809,12 @@ theorem frontPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
                         (passesCloserLine kinds key (Ready kinds True text) (Ready kinds False text) byComputing))
                 | True, None =>
                   rewrite notHoisted,
-                      List.appendNil (if around.item && blankBefore then [BreakParent, Blank] else []) then
-                    blankLeadPasses kinds (around.item && blankBefore) (Ready kinds True text)
+                      List.appendNil (if around.item && blankBefore then [BreakParent, LineStart, Blank] else []) then
+                    blankLeadPasses kinds (around.item && blankBefore) True text
                 | False, after =>
                   rewrite notHoisted,
-                      List.appendNil (if around.item && blankBefore then [BreakParent, Blank] else []) then
-                    blankLeadPasses kinds (around.item && blankBefore) (Ready kinds False text)
+                      List.appendNil (if around.item && blankBefore then [BreakParent, LineStart, Blank] else []) then
+                    blankLeadPasses kinds (around.item && blankBefore) False text
             | [first, ..rest] =>
               rewrite notHoisted then
                 passesCons kinds BreakParent
@@ -833,8 +855,9 @@ theorem frontPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
               | False =>
                 match above with
                   | [] =>
-                    rewrite List.appendNil (if around.item && blankBefore then [BreakParent, Blank] else []) then
-                      blankLeadPasses kinds (around.item && blankBefore) (Ready kinds around.before text)
+                    rewrite List.appendNil
+                          (if around.item && blankBefore then [BreakParent, LineStart, Blank] else []) then
+                      blankLeadPasses kinds (around.item && blankBefore) around.before text
                   | [first, ..rest] =>
                     rewrite List.appendNil
                           ([BreakParent, LineStart, ..notesAbove around.item [first, ..rest]]

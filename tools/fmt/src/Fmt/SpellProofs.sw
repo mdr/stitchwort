@@ -352,7 +352,13 @@ theorem leadingSpells ∀ (word: Word) (around: Around) (key: Nat)
     | { text, comments = { above, after, blankBefore } }, True => spellsNil
     | { text, comments = { above = [], after, blankBefore } }, False =>
       match around.item && blankBefore with
-        | True => spellsCons BreakParent [Blank] [] [] spellsBreakParent (spellsLast Blank [] spellsBlank)
+        | True =>
+          spellsCons BreakParent
+            [LineStart, Blank]
+            []
+            []
+            spellsBreakParent
+            (spellsCons LineStart [Blank] [] [] spellsLineStart (spellsLast Blank [] spellsBlank))
         | False => spellsNil
     | { text, comments = { above = [first, ..rest], after, blankBefore } }, False =>
       match isCloserText text with
