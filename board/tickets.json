@@ -1,5 +1,5 @@
 {
-  "next": 4003,
+  "next": 4004,
   "tickets": [
     {
       "id": 47,
@@ -24239,6 +24239,19 @@
     {
       "id": 4002,
       "title": "[Sonnet] fmt census of the 861 sampled declarations refused on shape though every construct is inside slice 6a: sort by cause (SW-3992/3995/3999 all saw this group grow); needs the census --show option (SW-3988)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4003,
+      "title": "[Fable paper] Self-hosted fmt slice 1 checkpoint review (D3682): once glue (SW-3973) lands, check that the theorems as proved still add up to 'keeps meaning and is idempotent within slice 1', given every condition lanes added (alphabet1, laidOut, plain1, GoodItems, calm, the one-parse driver), and that each condition is discharged somewhere",
       "status": "backlog",
       "agent": "",
       "where": "",
