@@ -24324,7 +24324,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-4006): the S1 sketch's §3.4 table rows (lines ~527, ~540) say bareSettles 'searched': change to 'proved (SW-4006)'.\n\nAlso (SW-4016): dev/README: Fmt.Twin needs a hand-made slim copy (add a task); --stage hangs checks the input, so format first.",
+      "body": "Also (SW-4006): the S1 sketch's §3.4 table rows (lines ~527, ~540) say bareSettles 'searched': change to 'proved (SW-4006)'.\n\nAlso (SW-4016): dev/README: Fmt.Twin needs a hand-made slim copy (add a task); --stage hangs checks the input, so format first.\n\nAlso (SW-4029): fmt:twin runs from the repo root (briefs said tools/fmt); check one tools/fmt namespace by name, not by file path; a documented way to compare a check against main without touching the main checkout.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24605,14 +24605,14 @@
     {
       "id": 4029,
       "title": "[Sonnet] fmt bug in both formatters: a blank line is added before a closing bracket when the bracket's last item and the closer both have trailing comments (def x: T := [⏎  aaa, -- c⏎  bbb -- e⏎] -- d): CloserLine right after bracketContent's SoftLine break prints one newline too many; also, with only the closer commented, its comment moves to the last item (check whether that is intended); fix in crates/fmt and tools/fmt (D3677), failing-first tests in both (SW-4016)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "parser-proofs",
-      "body": "Lane note (Sonnet, 18 Nov): stopped before fixing. Cause: Rust engine.rs Doc::CloserLine and Std.Doc Print.sw printDoc CloserLine both call newline unconditionally, so after a SoftLine/Line break (already at line start, comment flushed) they emit an empty line. Affects tuples, records, applications, lists (8+ rule sites), so the fix belongs in both printers (at_line_start: move the line to the closer column instead of newline, like LineStartHere). Std.Doc change needs SW-4015 proof re-check (Places/Lays/Words/Joins CloserLine cases): needs go-ahead. Related case (only closer commented moves comment to last item) is intended: rule N, goldens comment-on-the-last-item and comment-after-a-closer-on-its-own-line.\n\nOrchestrator, 18 Nov: Sonnet diagnosed and stopped (fix belongs in both printers' CloserLine: engine.rs and Std.Doc Print.sw; 4 min). Orchestrator's call: fix in both printers, moved to Opus (layout engine proofs ripple). Related case (a closer's lone trailing comment moving to the last item) is intended: goldens comment-on-the-last-item and comment-after-a-closer-on-its-own-line, rule N, S39. Model result: sonnet, escalated (std printer change), 4 min.\n\nLane note (Opus, 18 Nov, 22 min): fixed in both printers (f54e1054c on lane/SW-4029). CloserLine at a line start with no comment waiting moves the line to the closer's column (mark closed, floor ended, marks lowered) instead of breaking again; otherwise breaks as before. Std.Doc proofs: Place.closerLine, CloserPuts := next (place.closerLine key indent) trace (midLine condition dropped); Joins unchanged. Fmt.HangProofs: hangsCloserLine hypothesis generalised; CloserSeat now allows a lone closer right after a break. Tests failing first: golden brackets-closer-comments-no-blank, Std.Doc engine test, Fmt.Tests slice 1; one slice 1 test that pinned the blank line updated. Prelude hashes moved in Std.Doc only, no pins. Twin s6a/passes goldens and s6a repo sample 300: all matched. No tracked .sw file outside Std.Doc changes format.\n",
+      "body": "Lane note (Sonnet, 18 Nov): stopped before fixing. Cause: Rust engine.rs Doc::CloserLine and Std.Doc Print.sw printDoc CloserLine both call newline unconditionally, so after a SoftLine/Line break (already at line start, comment flushed) they emit an empty line. Affects tuples, records, applications, lists (8+ rule sites), so the fix belongs in both printers (at_line_start: move the line to the closer column instead of newline, like LineStartHere). Std.Doc change needs SW-4015 proof re-check (Places/Lays/Words/Joins CloserLine cases): needs go-ahead. Related case (only closer commented moves comment to last item) is intended: rule N, goldens comment-on-the-last-item and comment-after-a-closer-on-its-own-line.\n\nOrchestrator, 18 Nov: Sonnet diagnosed and stopped (fix belongs in both printers' CloserLine: engine.rs and Std.Doc Print.sw; 4 min). Orchestrator's call: fix in both printers, moved to Opus (layout engine proofs ripple). Related case (a closer's lone trailing comment moving to the last item) is intended: goldens comment-on-the-last-item and comment-after-a-closer-on-its-own-line, rule N, S39. Model result: sonnet, escalated (std printer change), 4 min.\n\nLane note (Opus, 18 Nov, 22 min): fixed in both printers (f54e1054c on lane/SW-4029). CloserLine at a line start with no comment waiting moves the line to the closer's column (mark closed, floor ended, marks lowered) instead of breaking again; otherwise breaks as before. Std.Doc proofs: Place.closerLine, CloserPuts := next (place.closerLine key indent) trace (midLine condition dropped); Joins unchanged. Fmt.HangProofs: hangsCloserLine hypothesis generalised; CloserSeat now allows a lone closer right after a break. Tests failing first: golden brackets-closer-comments-no-blank, Std.Doc engine test, Fmt.Tests slice 1; one slice 1 test that pinned the blank line updated. Prelude hashes moved in Std.Doc only, no pins. Twin s6a/passes goldens and s6a repo sample 300: all matched. No tracked .sw file outside Std.Doc changes format.\n\nMerged 18 Nov. Opus 22 min (est. 60) after Sonnet's 4-min diagnosis. Statements checked by the orchestrator: CloserPuts and CloserSeat now describe the fixed printer; hangsCloserLine asks less. No tracked file reformatted; hashes moved for Std.Doc only, no pins.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24625,7 +24625,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-4029: CloserSeat now admits a lone closer after a break, so the bracket triples can take the SoftLine then closer.leaf path (unprovable before the fix).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
