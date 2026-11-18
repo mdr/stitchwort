@@ -2,7 +2,7 @@
 --| the output's leaves, settled, parse to `calmTop` of the printed tree.
 --|
 --| The seam is one declaration's group: `readsBackDecl1` is proved from read-back's one-line theorem
---| (`readsBackLineWithin`) and two open goals about the printer's items (`printedSplit1`, `printedLines1`). The file
+--| (`readsBackLineWithin`) and an open goal about the printer's items (`printedSplit1`). The file
 --| form, `readsBackFile1`, takes it as a hypothesis and is proved, with the file-level lemmas of `Fmt.ReadBackFile`.
 
 namespace Fmt.TopReadBack
@@ -15,7 +15,8 @@ import Fmt.PassProofs (..)
 import Syntax.SettleProofs (tokens)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ReadBackRuns (plainHeader)
-import Syntax.ReadBackLine (Spelt, inLineAll, laterInLine, lineAll, readsBackLineWithin)
+import Syntax.ReadBackLine (Spelt, inLineAll, laterInLine, lineAll, readsBackLineWithin, speltExpr)
+import Fmt.PrintedLines (exprLine, groupLeafTokens, laterOfValue, leafTokens, leafTokensAppend, typeLines)
 import Fmt.CalmProofs (headerCalmWithin, withinCalm)
 import Fmt.OutputFileProofs (printedGroups1)
 import Fmt.ReadBackFile (declLowers, groupReads, groupsFromTokens, groupsTokens, refusalNone)
@@ -85,18 +86,37 @@ theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
         keyword name colon colonEq typeRead valueRead result value :=
   ?
 
---| `printedLines1` (open, the stock take's U3 under one-line declarations): the items of a printed one-line
+--| `printedLines1` (the stock take's U3 under one-line declarations): the items of a printed one-line
 --| declaration are of the kinds read-back reads on a line, and start lines only where `oneLine1` lets them.
 --|
 --| What it needs: `lineAll` from slice 1's alphabet (every printed kind is one), and the rest from `oneLine1` read
 --| through `items` (an item's line start is its token's) and `Spelt` (the type's items hold no `:=`). `lineKind`
 --| admits every operator `Spelt` spells (`logicLine`).
+--|
+--| Proof idea: `speltExpr` gives the type's and value's items an expression's kinds, which `lineKind` admits. The
+--| group's tokens are `oneLine1`'s (`tokens group = tokens decl.leaves1`) and its items' leaves are the group
+--| (`groupLeafTokens`), so `onLine1` reads over the split items: `typeLines` walks the type (no `:=` in it, by its
+--| kinds) to the `:=`, leaving the value's `valueOnLine1`.
 theorem printedLines1 ∀ (decl read: Decl) (group: List Leaf) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (printed: PrintedGroup decl read group)
     (split: GroupSplit group read keyword name colon colonEq typeRead valueRead result value):
     LinesRead typeRead valueRead :=
-  ?
+  let (within, shaped, settled, lexical, commaFree, oneLine, sameTokens, words, calmed) := printed
+  let (isItems, isRead, isDef, isLower, isColon, isColonEq, typeSpelt, valueSpelt, typeWithin, valueWithin) := split
+  let typeExpr := speltExpr result typeRead typeSpelt
+  let valueExpr := speltExpr value valueRead valueSpelt
+  let onLine: onLine1 (tokens decl.leaves1) = True := oneLine
+  let itemTokens: leafTokens (items group) = leafTokens [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] :=
+    rewrite isItems
+  let lines: typeOnLine1 (leafTokens typeRead ++ [colonEq.leaf.token, ..leafTokens valueRead]) = True :=
+    rewrite <- sameTokens,
+        <- groupLeafTokens group,
+        itemTokens,
+        leafTokensAppend typeRead [colonEq, ..valueRead] at onLine then
+      onLine
+  let (typeIn, valueLines) := typeLines typeRead valueRead colonEq typeExpr isColonEq lines
+  (exprLine typeRead typeExpr, exprLine valueRead valueExpr, typeIn, laterOfValue valueRead valueLines)
 
 --| A printed one-line declaration's group reads back to `read`: `readsBackLineWithin` on the items `printedSplit1`
 --| gives, with `printedLines1`'s line facts.
