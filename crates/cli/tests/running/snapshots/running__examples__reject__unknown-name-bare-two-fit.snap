@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `abs`
+   ╭─[ reject/unknown-name-bare-two-fit.sw:5:19 ]
+   │
+ 5 │ def main(): () := abs 42
+   │                   ─┬─  
+   │                    ╰─── not in scope
+   │ 
+   │ Note: the library has `Std.Float.abs` or `Std.Int.abs`: write it in full, or `import Std.Float (abs)`
+───╯

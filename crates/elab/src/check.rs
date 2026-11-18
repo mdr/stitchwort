@@ -2372,6 +2372,14 @@ pub(crate) fn arg_of(arg: &Expr) -> Arg<'_> {
     }
 }
 
+/// How many arguments a call writes, when every one is positional: what the
+/// unknown-name hint compares a library name's arity against (SW-3978).
+/// `None` for a call with no arguments written, and for one with a named
+/// argument, where the count says nothing about the parameters it fills.
+pub(crate) fn call_argument_count(args: &[Arg<'_>]) -> Option<usize> {
+    (!args.is_empty() && args.iter().all(|a| matches!(a, Arg::Explicit(_)))).then_some(args.len())
+}
+
 /// Where an argument is written, for a label that points at it.
 fn argument_span(arg: &Arg) -> Option<Span> {
     match arg {
@@ -3113,7 +3121,9 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     }
     cx.e.note_name(name);
     match cx.e.named(&name.text) {
-        None => Err(cx.e.not_found_with(name, &cx.scope_names())),
+        None => Err(cx
+            .e
+            .not_found_with(name, &cx.scope_names(), call_argument_count(args))),
         Some((Global::Def(id), _)) => {
             let head = (Term::Def(*id), crate::kernel::def_ty(&cx.g(), *id)?);
             apply_named_head(cx, head, args, fill, name.span).map_err(|e| {

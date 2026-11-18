@@ -400,6 +400,40 @@ impl LibraryIndex {
         self.owner.iter().map(|(k, f)| (k.as_str(), *f))
     }
 
+    /// How many explicit arguments `key`'s declaration takes, as its written
+    /// type says: what tells apart library names that share a short name
+    /// when a bare unknown name is called (`print "hi"` fits `IO.print`, not
+    /// `Std.Doc.print`, which wants a document and a width; SW-3978).
+    ///
+    /// `None` when the index has no type for the name (a constructor, say):
+    /// a name whose arity isn't known is never ruled out. The count is the
+    /// type's leading arrows and explicit binders, so a type written through
+    /// a name (`def f: Alias`) reads as taking none.
+    pub fn explicit_arity(&self, key: &str) -> Option<usize> {
+        let file = &self.files[self.owner(key)?];
+        let span = (file.names.iter()).find(|n| n.key == key)?.span;
+        let mut ty = written_type(file, span)?;
+        let mut arity = 0;
+        loop {
+            match ty {
+                Expr::Arrow(_, cod) => {
+                    arity += 1;
+                    ty = cod;
+                }
+                Expr::Pi {
+                    implicit: false,
+                    cod,
+                    ..
+                } => {
+                    arity += 1;
+                    ty = cod;
+                }
+                Expr::Pi { cod, .. } => ty = cod,
+                _ => return Some(arity),
+            }
+        }
+    }
+
     /// Whether `key` is a name generated for a data type's field (or for one
     /// of those), which a bare unknown name shouldn't suggest (SW-3445).
     pub fn is_accessor(&self, key: &str) -> bool {
@@ -850,6 +884,24 @@ fn declares(file: &IndexedFile, scratch: &Elaborator, key: &str) -> bool {
                 .and_then(|main| scratch.declaration_key(&main).ok())
                 .is_some_and(|k| k == key)
     })
+}
+
+/// The type `span` is written with, when `span` names a definition or an
+/// ability's operation: the type beside a name in the library source, for
+/// [`LibraryIndex::explicit_arity`].
+fn written_type(file: &IndexedFile, span: Span) -> Option<&Expr> {
+    for decl in &file.module.decls {
+        match decl {
+            Decl::Signature { name, ty, .. } if name.span == span => return Some(ty),
+            Decl::Ability { ops, .. } => {
+                if let Some((_, ty)) = ops.iter().find(|(name, _)| name.span == span) {
+                    return Some(ty);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Whether a library file is loaded.
@@ -1638,4 +1690,24 @@ impl Elaborator {
 fn internal(message: String) -> Diagnostic {
     Diagnostic::error("E-INTERNAL", format!("internal error: {message}"))
         .with_note("this is a bug in the compiler's standard library, not in your program")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The arity a library name is written with tells apart the two `print`s
+    /// a bare `print` could mean: `IO.print` takes the text, `Std.Doc.print`
+    /// a document and a width (SW-3978).
+    #[test]
+    fn arity_reads_the_written_type() {
+        let index = LibraryIndex::standard(stitchwort_syntax::DEFAULT_STACK)
+            .expect("the standard library's index");
+        assert_eq!(index.explicit_arity("Std.IO.print"), Some(1));
+        assert_eq!(index.explicit_arity("Std.Doc.print"), Some(2));
+        assert_eq!(index.explicit_arity("Std.Float.abs"), Some(1));
+        assert_eq!(index.explicit_arity("Std.Int.abs"), Some(1));
+        // A constructor has no written type in the name index.
+        assert_eq!(index.explicit_arity("Std.List.Nil"), None);
+    }
 }
