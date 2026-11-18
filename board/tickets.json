@@ -1,5 +1,5 @@
 {
-  "next": 3959,
+  "next": 3960,
   "tickets": [
     {
       "id": 47,
@@ -23666,6 +23666,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3959,
+      "title": "[Opus] Self-hosted fmt S2 program: binders (def/theorem headers with parameter groups, a theorem's ∀, Lambda, ∀/∃ with NameParam and TypedParam, effect rows, PatternWord) on Std.Doc, within2, Fmt.Twin --stage s2; gate: identical to Rust on every golden and repo-sample declaration within S1+S2 (proof plan S2 row; SW-3950's pattern)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
