@@ -25409,7 +25409,7 @@
     {
       "id": 4089,
       "title": "[Sonnet] fmt S1 goals tidiedDeclsUnreturned1 and tidiedUnreturned1: no comment in a tidied parse ends in CR or space (lexer trims both since SW-4065; parseFile and the passes keep comment texts)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
