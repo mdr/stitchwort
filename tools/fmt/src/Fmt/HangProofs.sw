@@ -2492,3 +2492,148 @@ theorem closerLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) 
       notedCloserHangs kinds word around key indent state block outer note rest token fold hoisted noted
         (rewrite noted at comments then comments)
         trailed)
+
+-- Openers.
+
+--| An opening bracket's token: an opener the lexer reads as one, not a comment or layout.
+def OpenerToken (kinds: Text → Tok) (text: Text): Prop :=
+  (kinds text).isOpener = True
+    ∧ (kinds text).isCloser = False
+    ∧ (kinds text == Comma) = False
+    ∧ (kinds text == ColonEq) = False
+    ∧ (kinds text == Colon) = False
+    ∧ (kinds text == Arrow) = False
+    ∧ text.startsWith "--" = False
+    ∧ isLayout text = False
+    ∧ isCloserText text = False
+    ∧ (text == ",") = False
+
+--| A `Mark` leaves a seat a seat, the first word starting where it would.
+theorem markSeated ∀ (indent key: Nat) (before: Bool) (state: HangState) (place: Place)
+    (seated: Seated indent before state place):
+    Seated indent before state (place.withCarry (place.carry.mark key place.indent))
+      ∧ wordStart indent (place.withCarry (place.carry.mark key place.indent)) = wordStart indent place :=
+  match place, seated with
+    | AtStart at carry, seated => (seated, byComputing)
+    | Broken at carry, seated => (seated, byComputing)
+    | Mid at carry, seated => (seated, byComputing)
+    | Held at carry, seated => (seated, byComputing)
+
+--| An opener leaves in force what a plain token there would: its own block has no column yet.
+theorem openingEnded ∀ (state: HangState) (start: Option Nat) (flag: Bool) (place: Place)
+    (ended: Ended (openedBy state start) flag place):
+    Ended (openingBy state start) flag place :=
+  match place, ended with
+    | Mid at carry, ended => ended
+    | Held at carry, ended => ended
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+
+--| An opener's text, at a seat whose first word starts at `start`: one opener there.
+theorem openerStep ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (state: HangState) (start: Option Nat)
+    (token: OpenerToken kinds text):
+    HangLays kinds
+      (Doc.text text)
+      indent
+      (place hang =>
+        hang = At state
+          ∧ Seated indent False state place
+          ∧ Room state (wordStart indent place)
+          ∧ wordStart indent place = start)
+      (place hang => Ended (openingBy state start) False place ∧ hang = At (openingBy state start)) :=
+  let (opener, closer, comma, assign, colon, arrow, notComment, solid, _, _) := token
+  hangsChunk kinds text text.length indent
+    (place hang =>
+      hang = At state
+        ∧ Seated indent False state place
+        ∧ Room state (wordStart indent place)
+        ∧ wordStart indent place = start)
+    (place hang => Ended (openingBy state start) False place ∧ hang = At (openingBy state start))
+    solid
+    (place trace (folded, seated, room, same) =>
+      let ended := wordEnded indent False text state place notComment seated room
+      let stepped :=
+        stepOpener kinds state text
+          (wordStart indent place)
+          (tokenCode text (wordStart indent place) notComment solid)
+          opener
+          closer
+          comma
+          assign
+          colon
+          arrow
+          room
+      rewrite folded then (openingEnded state start False _ (rewrite same at ended then ended), rewrite stepped, same))
+
+--| An opening bracket, its own-line comments written by its node: its mark if its closer may take a line of its own,
+--| the bracket, its trailing comment; it opens a block of its own.
+theorem openingHangs ∀ (kinds: Text → Tok) (word closer: Word) (around: Around) (indent: Nat)
+    (state: HangState) (entry: Place)
+    (token: OpenerToken kinds word.text)
+    (hoisted: around.hoisted = True)
+    (trailed: TrailsComment word):
+    HangLays kinds
+      (word.opening around closer)
+      indent
+      (Entered indent False state entry (wordStart indent entry))
+      (place hang =>
+        Ended (openingBy state (wordStart indent entry)) word.trails place
+          ∧ hang = At (openingBy state (wordStart indent entry))) :=
+  let (_, _, _, _, _, _, _, _, notCloser, notComma) := token
+  let start := wordStart indent entry
+  let opened := openingBy state start
+  let ready: Place → Hang → Prop := place hang =>
+    hang = At state
+      ∧ Seated indent False state place
+      ∧ Room state (wordStart indent place)
+      ∧ wordStart indent place = start
+  let written: Place → Hang → Prop := place hang => Ended opened False place ∧ hang = At opened
+  let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = At opened
+  let rest: HangLaysAll kinds [Doc.text word.text, ..word.trailing] indent ready post :=
+    hangsCons kinds
+      (Doc.text word.text)
+      word.trailing
+      indent
+      ready
+      written
+      post
+      (openerStep kinds word.text indent state start token)
+      (trailingHangs kinds word indent opened trailed)
+  rewrite hoisted, notCloser, notComma then
+    match marks: closer.noted || closer.trails with
+      | True =>
+        hangsConcat kinds
+          [Mark around.at, Doc.text word.text, ..word.trailing]
+          indent
+          (Entered indent False state entry start)
+          post
+          (hangsCons kinds
+            (Mark around.at)
+            [Doc.text word.text, ..word.trailing]
+            indent
+            (Entered indent False state entry start)
+            ready
+            post
+            (hangsMark kinds around.at indent (Entered indent False state entry start) ready (place hang (
+              isEntry,
+              folded,
+              (seated, _, room)
+            ) =>
+              let (stays, same) := markSeated indent around.at False state place (rewrite isEntry then seated)
+              (folded, stays, rewrite same, isEntry then room, rewrite same, isEntry)))
+            rest)
+      | False =>
+        hangsConcat kinds
+          [Doc.text word.text, ..word.trailing]
+          indent
+          (Entered indent False state entry start)
+          post
+          (allHangsPre kinds
+            [Doc.text word.text, ..word.trailing]
+            indent
+            ready
+            (Entered indent False state entry start)
+            post
+            rest
+            (place hang (isEntry, folded, (seated, _, room)) =>
+              (folded, rewrite isEntry then seated, rewrite isEntry then room, rewrite isEntry)))
