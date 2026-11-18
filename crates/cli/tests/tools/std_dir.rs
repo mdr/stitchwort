@@ -37,3 +37,29 @@ fn a_missing_std_dir_is_a_clean_error() {
     assert!(!stderr.contains("panicked"), "stderr:\n{stderr}");
     assert!(!stderr.contains("RUST_BACKTRACE"), "stderr:\n{stderr}");
 }
+
+/// `test --std Nat/Iterate.sw` runs the tests declared in that file and no
+/// others, and a target that names no library file fails.
+#[test]
+fn test_std_runs_one_library_namespace_s_tests() {
+    let run = |args: &[&str]| {
+        let mut all = vec!["test", "--std"];
+        all.extend_from_slice(args);
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(all)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort")
+    };
+    let output = run(&["Nat/Iterate.sw"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "stdout:\n{stdout}");
+    assert!(stdout.contains("Nat.iterate dot"), "stdout:\n{stdout}");
+    assert!(stdout.contains("2 test(s): 2 passed"), "stdout:\n{stdout}");
+    assert!(!stdout.contains("divSuccStep"), "stdout:\n{stdout}");
+
+    let output = run(&["Nope"]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "stderr:\n{stderr}");
+    assert!(stderr.contains("E-STD-TARGET"), "stderr:\n{stderr}");
+}

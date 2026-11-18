@@ -463,6 +463,19 @@ enum Command {
         /// "column", "message", "failure"?}]}`
         #[arg(long)]
         json: bool,
+        /// The target is a standard library file or folder, not a
+        /// project's: `Nat/Arith.sw`, `Nat` or `Std.Nat.Arith`. Runs the
+        /// `test`s declared in those files only (not those of the files
+        /// they need), on the reference evaluator, after checking them in
+        /// full without the check cache, so it takes seconds to a minute.
+        /// From the library `--std-dir` names (or the usual one). Takes
+        /// `--only` and `--json`
+        #[arg(
+            long,
+            requires = "target",
+            conflicts_with_all = ["project", "reference", "native", "verify_cache"]
+        )]
+        std: bool,
     },
     /// Type-check a file, then run its `main`; or run a function of the
     /// project by its full name (`Day05.main`). Reads standard input and
@@ -1112,6 +1125,19 @@ fn run(cli: Cli) -> ExitCode {
         },
         Command::Test {
             target,
+            only,
+            json,
+            std: true,
+            ..
+        } => test_std(
+            target.as_deref().unwrap_or_default(),
+            &TestOutput {
+                only: only.as_deref(),
+                json,
+            },
+        ),
+        Command::Test {
+            target,
             cache,
             project,
             reference,
@@ -1120,6 +1146,7 @@ fn run(cli: Cli) -> ExitCode {
             verify_cache,
             only,
             json,
+            std: false,
         } => test(
             target.as_deref(),
             &cache,
@@ -2568,6 +2595,40 @@ fn test(
             }
         }
     }
+}
+
+/// `test --std`: the tests declared in the library files `target` names,
+/// not those of the files they need. The library is checked in full
+/// without the check cache (it skips a file's tests), which the tests of
+/// library files need.
+#[inline(never)]
+fn test_std(target: &str, output: &TestOutput) -> ExitCode {
+    let mut session = new_session(false);
+    session.elab.options.library_tests = true;
+    let files = match session.elab.check_library_targets(&[target.to_string()]) {
+        Ok(files) => files,
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            discard(session);
+            return ExitCode::FAILURE;
+        }
+    };
+    let named: BTreeSet<String> = files.iter().map(|f| format!("std/{f}")).collect();
+    let keep = |test: &stitchwort_elab::TestDecl| {
+        output.only.is_none_or(|n| n == test.name)
+            && named.contains(session.sources.get(test.span.file).name.as_str())
+    };
+    let results = session.run_library_tests_where(&Cache::disabled(), keep);
+    let code = output.print(&session, &results, true, true, 0);
+    discard(session);
+    if results.is_empty() {
+        match output.only {
+            Some(name) => eprintln!("warning: no test is called '{name}'"),
+            None => eprintln!("warning: no tests in '{target}'"),
+        }
+        return ExitCode::FAILURE;
+    }
+    code
 }
 
 /// Whether a load that failed still checked some tests, which then run

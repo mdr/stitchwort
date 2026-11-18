@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `|` and an alternative, but the line starting with `|` (in column 3) is at or left of the enclosing block's column (3), so it starts a new statement
+   ╭─[ reject/match-arms-at-block-column.sw:8:3 ]
+   │
+ 8 │   | 0 => 1
+   │   ┬  
+   │   ╰── expected `|` and an alternative, but the line starting with `|` (in column 3) is at or left of the enclosing block's column (3), so it starts a new statement
+   │ 
+   │ Note: the alternatives of a `match` that ends a block (after `let` or another statement) go further right than the block's column: indent them
+───╯
