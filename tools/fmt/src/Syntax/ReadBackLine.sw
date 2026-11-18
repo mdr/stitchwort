@@ -3543,9 +3543,9 @@ theorem allowNoBrace ∀ (modes: Modes) (item: Item) (rest: List Item)
     | Some column => rewrite notBrace
 
 --| An arrow spelt on one line, nothing after it continuing it, is what `exprInline` reads: the left side as a
---| comparison and its logic links (`logicLine`), then `->` and the right side read in full.
+--| comparison and its logic links (`logicOperator`), then `->` and the right side read in full.
 --|
---| Proof idea: `OperatorReads` with the left side by `logicLine`, ended by `->` (`opEnds`); `EndReads`' arrow, its
+--| Proof idea: `OperatorReads` with the left side by `operatorLine`, ended by `->` (`opEnds`); `EndReads`' arrow, its
 --| result by `fullLine` one level down, `allowBraceOn` leaving the modes since no `{` starts it.
 theorem arrowLine ∀ (modes: Modes)
     (quiet: Quiet modes)
@@ -3648,7 +3648,7 @@ theorem arrowLine ∀ (modes: Modes)
       )
 
 --| A spelt expression that is no arrow, its first item not stopping the modes and its others not starting a line,
---| is what `exprInline` reads in quiet modes: its comparison and logic (`logicLine`), no `<->` and no end after.
+--| is what `exprInline` reads in quiet modes: its comparison and logic (`logicOperator`), no `<->` and no end after.
 theorem inlinePlainLine ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat)
@@ -5856,6 +5856,482 @@ theorem readsBackLexedOpExample: Parse.run
           byComputing,
           (lexedOpAt 15, byComputing, byComputing, byComputing, byComputing)
         )
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a && b`: one conjunction.
+theorem readsBackAndExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [wordItem ColonEq ":=" 4, ..[wordItem Lower "a" 5, wordItem AndAnd "&&" 6, wordItem Lower "b" 7]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Atom Lower (wordItem Lower "a" 5).leaf.word)
+              (wordItem AndAnd "&&" 6).leaf.word
+              (Atom Lower (wordItem Lower "b" 7).leaf.word)))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [wordItem Lower "a" 5, wordItem AndAnd "&&" 6, wordItem Lower "b" 7]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Atom Lower (wordItem Lower "a" 5).leaf.word)
+      (wordItem AndAnd "&&" 6).leaf.word
+      (Atom Lower (wordItem Lower "b" 7).leaf.word))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5],
+      wordItem AndAnd "&&" 6,
+      [wordItem Lower "b" 7],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+      (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing)
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a || b && c`: `&&` binds tighter, so the conjunction is `||`'s right operand.
+theorem readsBackOrAndExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem OrOr "||" 6,
+              wordItem Lower "b" 7,
+              wordItem AndAnd "&&" 8,
+              wordItem Lower "c" 9
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Atom Lower (wordItem Lower "a" 5).leaf.word)
+              (wordItem OrOr "||" 6).leaf.word
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "b" 7).leaf.word)
+                (wordItem AndAnd "&&" 8).leaf.word
+                (Atom Lower (wordItem Lower "c" 9).leaf.word))))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [wordItem Lower "a" 5, wordItem OrOr "||" 6, wordItem Lower "b" 7, wordItem AndAnd "&&" 8, wordItem Lower "c" 9]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Atom Lower (wordItem Lower "a" 5).leaf.word)
+      (wordItem OrOr "||" 6).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "b" 7).leaf.word)
+        (wordItem AndAnd "&&" 8).leaf.word
+        (Atom Lower (wordItem Lower "c" 9).leaf.word)))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5],
+      wordItem OrOr "||" 6,
+      [wordItem Lower "b" 7, wordItem AndAnd "&&" 8, wordItem Lower "c" 9],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+      (
+        [wordItem Lower "b" 7],
+        wordItem AndAnd "&&" 8,
+        [wordItem Lower "c" 9],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "c" 9, byComputing, byComputing, byComputing, byComputing)
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a == b && c < d || e`: comparisons conjoined, then a disjunction: `groupLogic` regroups the flat links.
+theorem readsBackLogicCmpExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem EqEq "==" 6,
+              wordItem Lower "b" 7,
+              wordItem AndAnd "&&" 8,
+              wordItem Lower "c" 9,
+              wordItem Lt "<" 10,
+              wordItem Lower "d" 11,
+              wordItem OrOr "||" 12,
+              wordItem Lower "e" 13
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Infix InfixBinary
+                (Infix InfixBinary
+                  (Atom Lower (wordItem Lower "a" 5).leaf.word)
+                  (wordItem EqEq "==" 6).leaf.word
+                  (Atom Lower (wordItem Lower "b" 7).leaf.word))
+                (wordItem AndAnd "&&" 8).leaf.word
+                (Infix InfixBinary
+                  (Atom Lower (wordItem Lower "c" 9).leaf.word)
+                  (wordItem Lt "<" 10).leaf.word
+                  (Atom Lower (wordItem Lower "d" 11).leaf.word)))
+              (wordItem OrOr "||" 12).leaf.word
+              (Atom Lower (wordItem Lower "e" 13).leaf.word)))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [
+      wordItem Lower "a" 5,
+      wordItem EqEq "==" 6,
+      wordItem Lower "b" 7,
+      wordItem AndAnd "&&" 8,
+      wordItem Lower "c" 9,
+      wordItem Lt "<" 10,
+      wordItem Lower "d" 11,
+      wordItem OrOr "||" 12,
+      wordItem Lower "e" 13
+    ]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Infix InfixBinary
+        (Infix InfixBinary
+          (Atom Lower (wordItem Lower "a" 5).leaf.word)
+          (wordItem EqEq "==" 6).leaf.word
+          (Atom Lower (wordItem Lower "b" 7).leaf.word))
+        (wordItem AndAnd "&&" 8).leaf.word
+        (Infix InfixBinary
+          (Atom Lower (wordItem Lower "c" 9).leaf.word)
+          (wordItem Lt "<" 10).leaf.word
+          (Atom Lower (wordItem Lower "d" 11).leaf.word)))
+      (wordItem OrOr "||" 12).leaf.word
+      (Atom Lower (wordItem Lower "e" 13).leaf.word))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [
+        wordItem Lower "a" 5,
+        wordItem EqEq "==" 6,
+        wordItem Lower "b" 7,
+        wordItem AndAnd "&&" 8,
+        wordItem Lower "c" 9,
+        wordItem Lt "<" 10,
+        wordItem Lower "d" 11
+      ],
+      wordItem OrOr "||" 12,
+      [wordItem Lower "e" 13],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [wordItem Lower "a" 5, wordItem EqEq "==" 6, wordItem Lower "b" 7],
+        wordItem AndAnd "&&" 8,
+        [wordItem Lower "c" 9, wordItem Lt "<" 10, wordItem Lower "d" 11],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (
+          [wordItem Lower "a" 5],
+          wordItem EqEq "==" 6,
+          [wordItem Lower "b" 7],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+          (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing)
+        ),
+        (
+          [wordItem Lower "c" 9],
+          wordItem Lt "<" 10,
+          [wordItem Lower "d" 11],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (wordItem Lower "c" 9, byComputing, byComputing, byComputing, byComputing),
+          (wordItem Lower "d" 11, byComputing, byComputing, byComputing, byComputing)
+        )
+      ),
+      (wordItem Lower "e" 13, byComputing, byComputing, byComputing, byComputing)
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := f x && y < 1 || !z`: a call, a comparison and a sign in a logic chain.
+def lexedLogicLine: List Item := lexedItems "def d: A := f x && y < 1 || !z\n"
+
+--| `lexedLogicLine`'s items, written out: `lexedLogicLineIs` says the lexer gives these.
+def lexedLogicAt (index: Nat): Item := match index with
+  | 0 => lexedItem KwDef "def" 0 False False 0 0
+  | 1 => lexedItem Lower "d" 4 False False 1 0
+  | 2 => lexedItem Colon ":" 5 True True 2 0
+  | 3 => lexedItem Upper "A" 7 False False 3 0
+  | 4 => lexedItem ColonEq ":=" 9 False True 4 0
+  | 5 => lexedItem Lower "f" 12 False False 5 0
+  | 6 => lexedItem Lower "x" 14 False True 6 0
+  | 7 => lexedItem AndAnd "&&" 16 False True 7 0
+  | 8 => lexedItem Lower "y" 19 False False 8 0
+  | 9 => lexedItem Lt "<" 21 False True 9 0
+  | 10 => lexedItem Num "1" 23 False False 10 0
+  | 11 => lexedItem OrOr "||" 25 False True 11 0
+  | 12 => lexedItem Bang "!" 28 False False 12 0
+  | _ => lexedItem Lower "z" 29 True False 13 0
+
+theorem lexedLogicLineIs: lexedLogicLine
+      = [
+        lexedLogicAt 0,
+        lexedLogicAt 1,
+        lexedLogicAt 2,
+        lexedLogicAt 3,
+        lexedLogicAt 4,
+        lexedLogicAt 5,
+        lexedLogicAt 6,
+        lexedLogicAt 7,
+        lexedLogicAt 8,
+        lexedLogicAt 9,
+        lexedLogicAt 10,
+        lexedLogicAt 11,
+        lexedLogicAt 12,
+        lexedLogicAt 13
+      ] :=
+  byComputing
+
+def lexedLogicValue: Expr :=
+  (Infix InfixBinary
+    (Infix InfixBinary
+      (App (Atom Lower (lexedLogicAt 5).leaf.word) [(Atom Lower (lexedLogicAt 6).leaf.word)])
+      (lexedLogicAt 7).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (lexedLogicAt 8).leaf.word)
+        (lexedLogicAt 9).leaf.word
+        (Atom Num (lexedLogicAt 10).leaf.word)))
+    (lexedLogicAt 11).leaf.word
+    (Prefix (lexedLogicAt 12).leaf.word (Atom Lower (lexedLogicAt 13).leaf.word)))
+
+--| `readsBackLine`'s hypotheses hold of the lexer's items for `def d: A := f x && y < 1 || !z` (`lexedLogicLineIs`):
+--| each `&&` and `||` spaced from its operand (`operandApart`), the `!` glued to `z`.
+theorem readsBackLexedLogicExample: Parse.run
+      [
+        lexedLogicAt 0,
+        lexedLogicAt 1,
+        lexedLogicAt 2,
+        ..[lexedLogicAt 3]
+          ++ [
+            lexedLogicAt 4,
+            ..[
+              lexedLogicAt 5,
+              lexedLogicAt 6,
+              lexedLogicAt 7,
+              lexedLogicAt 8,
+              lexedLogicAt 9,
+              lexedLogicAt 10,
+              lexedLogicAt 11,
+              lexedLogicAt 12,
+              lexedLogicAt 13
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader (lexedLogicAt 0) (lexedLogicAt 1) (lexedLogicAt 2) (Atom Upper (lexedLogicAt 3).leaf.word))
+          (Assigned (lexedLogicAt 4).leaf.word.comments lexedLogicValue)) :=
+  readsBackLine Seen.start
+    (lexedLogicAt 0)
+    (lexedLogicAt 1)
+    (lexedLogicAt 2)
+    (lexedLogicAt 4)
+    [lexedLogicAt 3]
+    [
+      lexedLogicAt 5,
+      lexedLogicAt 6,
+      lexedLogicAt 7,
+      lexedLogicAt 8,
+      lexedLogicAt 9,
+      lexedLogicAt 10,
+      lexedLogicAt 11,
+      lexedLogicAt 12,
+      lexedLogicAt 13
+    ]
+    (Atom Upper (lexedLogicAt 3).leaf.word)
+    lexedLogicValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (lexedLogicAt 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [lexedLogicAt 5, lexedLogicAt 6, lexedLogicAt 7, lexedLogicAt 8, lexedLogicAt 9, lexedLogicAt 10],
+      lexedLogicAt 11,
+      [lexedLogicAt 12, lexedLogicAt 13],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [lexedLogicAt 5, lexedLogicAt 6],
+        lexedLogicAt 7,
+        [lexedLogicAt 8, lexedLogicAt 9, lexedLogicAt 10],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (
+          [lexedLogicAt 5],
+          [lexedLogicAt 6],
+          [],
+          byComputing,
+          byComputing,
+          byComputing,
+          (lexedLogicAt 5, byComputing, byComputing, byComputing, byComputing),
+          (lexedLogicAt 6, byComputing, byComputing, byComputing, byComputing),
+          byComputing
+        ),
+        (
+          [lexedLogicAt 8],
+          lexedLogicAt 9,
+          [lexedLogicAt 10],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (lexedLogicAt 8, byComputing, byComputing, byComputing, byComputing),
+          (lexedLogicAt 10, byComputing, byComputing, byComputing, byComputing)
+        )
+      ),
+      (
+        lexedLogicAt 12,
+        [lexedLogicAt 13],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (lexedLogicAt 13, byComputing, byComputing, byComputing, byComputing)
       )
     )
     byComputing

@@ -1940,3 +1940,10 @@ outside slice 1 by construction (not a `Definition`), or, for `export` and `opaq
 - `DeclParser`'s data, ability, test, rules, export and opaque parsers are split into named steps, one effectful
   condition each (`dataIndexAt`, `constructorBraced`, `exportAfter` ...), as the other walks need; behaviour is unchanged.
 - `FrameRest` and the theorems that take it keep their statements; `frameRest` is what to pass.
+
+## Read-back, `&&` and `||` on one line (SW-4090, Opus, 18 November 2026)
+
+Ticket 17g-ii, in `Syntax/ReadBackLine.sw`, after SW-4071's other binary operators. `binaryTok`, `lineKind` and `exprKind` admit `AndAnd` and `OrOr`, so `Spelt`'s one `Infix` case takes them with no new case, and `readsBackLineWithin` reads them with its statement unchanged.
+
+- **Flattening.** The parser reads a comparison, then flat `&&`/`||` links (`logicLinks`), and `groupLogic` regroups them: `&&` within each disjunct, `||` between, both to the right. `orFlat` walks the `||` spine, `conjFlat` each conjunction's `&&` spine with the links after it as an accumulator (`ConjFlat`), so `conjunctionOf` provably takes exactly the `&&` run (`conjunctionAnd`, `conjunctionStop`) and `groupLogic` with any fuel above the link count gives the tree back (`LogicSplit`). Both are on `Spelt` alone, not on reads.
+- **Outside the recursion.** `logicLinks` (each link's comparison) and `logicOperator` (all of `OperatorReads`) take `cmpLine` as a hypothesis (`CmpLineAt`); only `operatorLine` is in the recursion, passing `cmpLine` at its depth as a lambda. So no large `∃` is taken apart inside the mutual block, which is what ran out of resources in SW-4071. `operatorLine` now reads every level from `||` up this way (a comparison is a chain with no links).

@@ -74,11 +74,8 @@ def PrintedGroup (decl read: Decl) (group: List Leaf): Prop :=
 --| What it needs: the tokens are the rules' spelling, comma between items and kinds the lexer's (`printedTokens1`);
 --| the group's words are `read`'s (the hypothesis); and the glue facts each item carries (`glued`, `afterOperand`),
 --| which come from the printed spacing: SW-4075 (std's `touches`), SW-4076 (`printedSpacing1`, then `Spelt` of a
---| printed expression), with SW-4077's weaker prefix equation.
---|
---| **False today for a declaration with `&&` or `||`** (`a && b`), which the driver accepts: SW-4071 widened
---| `Spelt`, `lineKind` and `readsBackLineWithin` for the other binary operators, but not the logical ones
---| (`binaryNotLine`). The statement holds unchanged once `&&` and `||` are widened in place too.
+--| printed expression), with SW-4077's weaker prefix equation. `Spelt` and `lineKind` take every binary operator of
+--| slice 1, `&&` and `||` included (`logicLine`).
 theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
     (printed: PrintedGroup decl read group):
     ∃ (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr) => GroupSplit group read
@@ -89,8 +86,8 @@ theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
 --| declaration are of the kinds read-back reads on a line, and start lines only where `oneLine1` lets them.
 --|
 --| What it needs: `lineAll` from slice 1's alphabet (every printed kind is one), and the rest from `oneLine1` read
---| through `items` (an item's line start is its token's) and `Spelt` (the type's items hold no `:=`). True today of
---| binary operators only because `Spelt` has none; SW-4071 must widen `lineKind` with `Spelt`.
+--| through `items` (an item's line start is its token's) and `Spelt` (the type's items hold no `:=`). `lineKind`
+--| admits every operator `Spelt` spells (`logicLine`).
 theorem printedLines1 ∀ (decl read: Decl) (group: List Leaf) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (printed: PrintedGroup decl read group)
@@ -142,9 +139,10 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     parseFile lexed = Ok file.calmTop :=
   ?
 
---| `readsBackLineWithin` reads no logical operator yet: `&&` is no kind it reads on a line.
-theorem binaryNotLine: (match lex "a && b" with
+--| `readsBackLineWithin` reads the logical operators on a line: `&&` and `||` are kinds it reads
+--| (`Syntax.ReadBackLine.readsBackLexedLogicExample` reads such a line whole).
+theorem logicLine: (match lex "a && b || c" with
       | Ok lexed => lineAll (items lexed.leaves)
-      | Err _ => True)
-      = False :=
+      | Err _ => False)
+      = True :=
   byComputing
