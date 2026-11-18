@@ -14,6 +14,7 @@ import Syntax (Expr, Tok, Word)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.MarkProofs (..)
+import Fmt.CalmProofs (bracketIs)
 
 -- The fold inside a bracket.
 
@@ -547,14 +548,21 @@ theorem markedOpeningHangs ∀ (kinds: Text → Tok) (word closer: Word) (around
 def bracketState (outer: List (Option Nat)) (top block: Option Nat) (start: Bool): HangState :=
   { blocks = [block, ..outer], top, start, glue = False }
 
---| A closer that may take a line of its own has its opener's mark: found by the bracket's key, on the opener's line.
+--| Where a bracket's closer may be written: its block innermost, at `inset` or right of it, and a seat for it.
+def CloserSits (inset indent: Nat) (outer: List (Option Nat)) (top: Option Nat) (close: Word) (closeAround: Around):
+    Place → Hang → Prop :=
+  place hang =>
+    ∃ (block: Option Nat) => ∃ (start: Bool) => deepFrom inset block = True
+      ∧ hang = Hang.At (bracketState outer top block start)
+      ∧ CloserSeat indent closeAround.before (close.lone closeAround) (bracketState outer top block start) place
+
+--| As `CloserSits`, and a closer that may take a line of its own has its opener's mark: found by the bracket's key,
+--| on the opener's line.
 def CloserReady (inset indent key: Nat) (entry: Place) (outer: List (Option Nat)) (top: Option Nat)
     (close: Word) (closeAround: Around):
     Place → Hang → Prop :=
   place hang =>
-    (∃ (block: Option Nat) => ∃ (start: Bool) => deepFrom inset block = True
-      ∧ hang = Hang.At (bracketState outer top block start)
-      ∧ CloserSeat indent closeAround.before (close.lone closeAround) (bracketState outer top block start) place)
+    CloserSits inset indent outer top close closeAround place hang
       ∧ Marked (close.noted || close.trails) (key + 1) (markedCarry key entry) place.carry
 
 theorem leftOfLower ∀ (low high: Nat) (block: Option Nat)
@@ -659,3 +667,376 @@ theorem closerStep ∀ (kinds: Text → Tok) (close: Word) (closeAround: Around)
         place trace next
         (folded, seat, fits)
         after
+
+theorem allHangsMarked ∀ (kinds: Text → Tok) (docs: List Doc) (indent low: Nat) (origin: Carry)
+    (flag: Bool) (pre post: Place → Hang → Prop)
+    (keys: allKeysFrom low docs = True)
+    (lays: HangLaysAll kinds docs indent pre post):
+    HangLaysAll kinds docs indent (place hang => pre place hang ∧ Marked flag low origin place.carry) (place hang =>
+      post place hang ∧ Marked flag low origin place.carry) :=
+  match flag with
+    | True =>
+      allHangsPost kinds docs indent
+        (place hang => pre place hang ∧ Marked True low origin place.carry)
+        (place hang => post place hang ∧ MarksKept low origin place.carry)
+        (place hang => post place hang ∧ Marked True low origin place.carry)
+        (allHangsPre kinds docs indent
+          (place hang => pre place hang ∧ MarksKept low origin place.carry)
+          (place hang => pre place hang ∧ Marked True low origin place.carry)
+          (place hang => post place hang ∧ MarksKept low origin place.carry)
+          (allHangsKept kinds docs indent low origin pre post keys lays)
+          (place hang (holds, kept) => (holds, kept byComputing)))
+        (place hang (reached, kept) => (reached, _ => kept))
+    | False =>
+      allHangsPost kinds docs indent
+        (place hang => pre place hang ∧ Marked False low origin place.carry)
+        post
+        (place hang => post place hang ∧ Marked False low origin place.carry)
+        (allHangsPre kinds docs indent pre
+          (place hang => pre place hang ∧ Marked False low origin place.carry)
+          post
+          lays
+          (place hang (holds, _) => holds))
+        (place hang reached => (reached, never => (Bool.falseNotTrue never).impossible))
+
+-- The bracket.
+
+--| The opener: where the bracket's first item may follow, the opener's mark kept where the closer may need it.
+theorem bracketOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around) (indent column: Nat)
+    (state: HangState) (entry: Place)
+    (token: OpenerToken kinds open.text)
+    (hoisted: around.hoisted = True)
+    (trailed: TrailsComment open):
+    HangLays kinds
+      (open.opening around close)
+      indent
+      (Entered indent column False state entry (wordStart indent entry))
+      (place hang =>
+        ItemGap
+          (openedBy state (wordStart indent entry)).blocks
+          (openedBy state (wordStart indent entry)).top
+          open.trails
+          place
+          hang
+          ∧ Marked (close.noted || close.trails) (around.at + 1) (markedCarry around.at entry) place.carry) :=
+  let start := wordStart indent entry
+  let pre := Entered indent column False state entry start
+  let opened := openingBy state start
+  let goal: Prop := HangLays kinds (open.opening around close) indent pre (place hang =>
+    ItemGap (openedBy state start).blocks (openedBy state start).top open.trails place hang
+      ∧ Marked (close.noted || close.trails) (around.at + 1) (markedCarry around.at entry) place.carry)
+  Bool.inspect
+    (close.noted || close.trails)
+    (_ => goal)
+    (marks =>
+      hangsPost kinds
+        (open.opening around close)
+        indent
+        pre
+        (place hang =>
+          (Ended opened open.trails place ∧ hang = Hang.At opened)
+            ∧ MarksKept (around.at + 1) (markedCarry around.at entry) place.carry)
+        (place hang =>
+          ItemGap (openedBy state start).blocks (openedBy state start).top open.trails place hang
+            ∧ Marked (close.noted || close.trails) (around.at + 1) (markedCarry around.at entry) place.carry)
+        (markedOpeningHangs kinds open close around indent column state entry token hoisted trailed marks)
+        (place hang (gap, kept) => (gap, _ => kept)))
+    (marks =>
+      hangsPost kinds
+        (open.opening around close)
+        indent
+        pre
+        (place hang => Ended opened open.trails place ∧ hang = Hang.At opened)
+        (place hang =>
+          ItemGap (openedBy state start).blocks (openedBy state start).top open.trails place hang
+            ∧ Marked (close.noted || close.trails) (around.at + 1) (markedCarry around.at entry) place.carry)
+        (openingHangs kinds open close around indent column state entry token hoisted trailed)
+        (place hang gap => (gap, never => (Bool.falseNotTrue (Eq.trans marks.flipped never)).impossible)))
+
+--| Where an item or the opener ended, the closer may sit, a comment waiting only if the code before it ends with
+--| one.
+theorem endedSits ∀ (inset indent: Nat) (outer: List (Option Nat)) (top block: Option Nat) (start trails: Bool)
+    (close: Word) (closeAround: Around) (place: Place) (hang: Hang)
+    (beforeOf: trails = True → closeAround.before = True)
+    (deep: deepFrom inset block = True)
+    (ended: Ended (bracketState outer top block start) trails place)
+    (folded: hang = Hang.At (bracketState outer top block start)):
+    CloserSits inset indent outer top close closeAround place hang :=
+  match place, ended with
+    | Mid at carry, (floor, left) => (block, start, deep, folded, (floor, left))
+    | Held at carry, (waits, floor, left) => (block, start, deep, folded, (beforeOf waits, floor, left))
+
+--| The `SoftLine` before a broken bracket's closer: the closer sits where the last item ended, or at the start of the
+--| line after it at the bracket's indentation.
+theorem softSits ∀ (kinds: Text → Tok) (inset indent: Nat) (outer: List (Option Nat)) (top: Option Nat) (trails: Bool)
+    (close: Word) (closeAround: Around)
+    (beforeOf: trails = True → closeAround.before = True):
+    HangLays kinds SoftLine indent
+      (ItemEnd inset outer top trails)
+      (CloserSits inset indent outer top close closeAround) :=
+  hangsSoft kinds indent
+    (ItemEnd inset outer top trails)
+    (CloserSits inset indent outer top close closeAround)
+    (place trace (block, deep, ended, folded) =>
+      match place, ended with
+        | Mid at carry, (floor, left) =>
+          let landed: floored carry indent = indent := rewrite floor
+          ((block, False, deep, folded, (floor, left)), (block, False, deep, folded, Inr (landed, floor)))
+        | Held at carry, (waits, floor, left) =>
+          let landed: floored carry indent = indent := rewrite floor
+          (
+            (block, False, deep, folded, (beforeOf waits, floor, left)),
+            (block, False, deep, folded, Inr (landed, floor))
+          ))
+
+--| What is in force after an element's first word, no comment waiting, is no further right than the line it is on:
+--| the line's column, which a `Mark` there records.
+theorem openerLine ∀ (indent column: Nat) (state: HangState) (entry: Place)
+    (seat: Seat indent column False state entry (wordStart indent entry)):
+    (inForce (openedBy state (wordStart indent entry)).blocks (openedBy state (wordStart indent entry)).top
+      <= entry.indent)
+      = True :=
+  match entry, seat with
+    | AtStart at carry, (_, _, _, (_, right)) => openedSome state at arithmetic
+    | Broken at carry, (_, _, _, (_, right)) => openedSome state at arithmetic
+    | Mid at carry, ((_, left), _, _, _) => rewrite openedNone state then left
+    | Held at carry, ((never, _, _), _, _, _) => (Bool.falseNotTrue never).impossible
+
+--| A tuple's or list's parts (`bracketContent`) as one element: the fold after it as after its opener alone.
+--|
+--| Proof idea: `bracketIs` names the three layouts. The opener leaves the fold with the bracket's block open
+--| (`bracketOpening`); the items keep it (`fillCellsHang`, `brokenItemsHang`), and the closer closes it
+--| (`closerStep`), from where the opener or the last item ended, or the line break before it (`softSits`). Its
+--| `CloserFits` comes from the opener's mark, which the items keep, their keys being past the opener's
+--| (`hangsMarked`).
+theorem bracketContentHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (indent column: Nat)
+    (opener: OpenerToken kinds open.text)
+    (hoisted: around.hoisted = True)
+    (openTrailed: TrailsComment open)
+    (closer: CloserToken kinds close.text)
+    (closeComments: NotesComment close.comments.above)
+    (closeTrailed: TrailsComment close)
+    (comma: kinds "," = Comma)
+    (each: ItemsHang kinds
+      (indent + 2)
+      (list && items.all Expr.plainItem)
+      around.inArm
+      open.trails
+      open.trails
+      (around.at + 1)
+      items)
+    (filledKeys: allKeysFrom
+      (around.at + 1)
+      (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
+      = True)
+    (brokenKeys: allKeysFrom
+      (around.at + 1)
+      (brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
+      = True)
+    (closeBefore: lastTrails open.trails items = True → (ListOf open items False close).trailsBeforeClose = True):
+    ElHangs kinds
+      (bracketContent list open items close around)
+      indent
+      column
+      False
+      (close.trails || (ListOf open items False close).trailsBeforeClose)
+      wordStart :=
+  state entry place trace next entered after =>
+    let (_, _, (seated, below, clear, room)) := entered
+    let start := wordStart indent entry
+    let opened := openedBy state start
+    let outer := opened.blocks
+    let top := opened.top
+    let inset := indent + 2
+    let low := around.at + 1
+    let origin := markedCarry around.at entry
+    let flag := close.noted || close.trails
+    let whole := ListOf open items False close
+    let closeAround := around.next whole.trailsBeforeClose (whole.size - 1)
+    let closerDoc := close.leaf closeAround around.at
+    let prefix := open.opening around close
+    let bare := list && items.all Expr.plainItem
+    let trails := close.trails || whole.trailsBeforeClose
+    let bound: (inForce outer top <= indent) = True := openedBound indent column state entry seated below clear room
+    let inner: (inForce outer top < inset) = True := arithmetic
+    let atOpener := openerLine indent column state entry (seated, below, clear, room)
+    let pre := Entered indent column False state entry start
+    let openDone: Place → Hang → Prop := place hang =>
+      ItemGap outer top open.trails place hang ∧ Marked flag low origin place.carry
+    let contentsDone: Place → Hang → Prop := place hang =>
+      ItemEnd inset outer top (lastTrails open.trails items) place hang ∧ Marked flag low origin place.carry
+    let ready := CloserReady inset indent around.at entry outer top close closeAround
+    let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = Hang.At opened
+    let opening: HangLays kinds prefix indent pre openDone :=
+      bracketOpening kinds open close around indent column state entry opener hoisted openTrailed
+    let closing: HangLays kinds closerDoc indent ready post :=
+      closerStep kinds close closeAround around.at indent inset entry outer top closer byComputing byComputing
+          closeComments closeTrailed arithmetic bound atOpener
+    let endReady: ∀ (place: Place) (hang: Hang) => contentsDone place hang → ready place hang := place hang (
+      (block, deep, ended, folded),
+      marked
+    ) =>
+      (
+        endedSits inset indent outer top block False
+          (lastTrails open.trails items)
+          close
+          closeAround
+          place
+          hang
+          closeBefore
+          deep
+          ended
+          folded,
+        marked
+      )
+    let soft: HangLays kinds SoftLine indent contentsDone ready :=
+      hangsMarked kinds SoftLine indent low origin flag
+        (ItemEnd inset outer top (lastTrails open.trails items))
+        (CloserSits inset indent outer top close closeAround)
+        byComputing
+        (softSits kinds inset indent outer top (lastTrails open.trails items) close closeAround closeBefore)
+    rewrite bracketIs list open items close around then
+      match items, each, filledKeys, brokenKeys, closeBefore with
+        | [], _, _, _, closeBefore =>
+          let gapReady: ∀ (place: Place) (hang: Hang) => openDone place hang → ready place hang := place hang (
+            (ended, folded),
+            marked
+          ) =>
+            (
+              endedSits inset indent outer top None True open.trails close closeAround place hang closeBefore
+                  byComputing ended folded,
+              marked
+            )
+          hangsConcat kinds
+            [prefix, closerDoc]
+            indent
+            pre
+            post
+            (hangsTwo kinds prefix closerDoc indent pre openDone post opening
+              (hangsPre kinds closerDoc indent ready openDone post closing gapReady))
+            place
+            trace
+            next
+            entered
+            after
+        | [item, ..rest], each, filledKeys, brokenKeys, closeBefore =>
+          let cellDocs := cells bare around.inArm open.trails low [item, ..rest]
+          let brokenDocs := brokenItems bare around.inArm True open.trails low [item, ..rest]
+          let filled: HangLays kinds (Nest 2 (Fill cellDocs)) indent openDone contentsDone :=
+            hangsNest kinds 2 indent
+              (Fill cellDocs)
+              openDone
+              contentsDone
+              (hangsMarked kinds
+                (Fill cellDocs)
+                inset
+                low
+                origin
+                flag
+                (ItemGap outer top open.trails)
+                (ItemEnd inset outer top (lastTrails open.trails [item, ..rest]))
+                filledKeys
+                (fillCellsHang kinds bare around.inArm open.trails open.trails low inset outer top item rest comma inner
+                    each))
+          let broken: HangLays kinds (Nest 2 (Doc.concat brokenDocs)) indent openDone contentsDone :=
+            hangsNest kinds 2 indent
+              (Doc.concat brokenDocs)
+              openDone
+              contentsDone
+              (hangsConcat kinds brokenDocs inset openDone contentsDone
+                (allHangsMarked kinds brokenDocs inset low origin flag
+                  (ItemGap outer top open.trails)
+                  (ItemEnd inset outer top (lastTrails open.trails [item, ..rest]))
+                  brokenKeys
+                  (brokenItemsHang kinds bare around.inArm True open.trails open.trails low inset outer top item rest
+                      comma inner each)))
+          match fill: list
+            && !(ListOf open [item, ..rest] False close).holdsTrailingComment
+            && [item, ..rest].all Expr.plainItem with
+            | True =>
+              hangsConcat kinds
+                [prefix, Nest 2 (Fill cellDocs), closerDoc]
+                indent
+                pre
+                post
+                (hangsCons kinds prefix
+                  [Nest 2 (Fill cellDocs), closerDoc]
+                  indent
+                  pre
+                  openDone
+                  post
+                  opening
+                  (hangsTwo kinds
+                    (Nest 2 (Fill cellDocs))
+                    closerDoc
+                    indent
+                    openDone
+                    contentsDone
+                    post
+                    filled
+                    (hangsPre kinds closerDoc indent ready contentsDone post closing endReady)))
+                place
+                trace
+                next
+                entered
+                after
+            | False =>
+              let tail: HangLaysAll kinds [Nest 2 (Doc.concat brokenDocs), SoftLine] indent openDone ready :=
+                hangsTwo kinds (Nest 2 (Doc.concat brokenDocs)) SoftLine indent openDone contentsDone ready broken soft
+              match holds: (ListOf open [item, ..rest] False close).holdsTrailingComment with
+                | True =>
+                  hangsConcat kinds
+                    [prefix, Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc, BreakParent]
+                    indent
+                    pre
+                    post
+                    (hangsCons kinds prefix
+                      [Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc, BreakParent]
+                      indent
+                      pre
+                      openDone
+                      post
+                      opening
+                      (hangsAppend kinds
+                        [Nest 2 (Doc.concat brokenDocs), SoftLine]
+                        [closerDoc, BreakParent]
+                        indent
+                        openDone
+                        ready
+                        post
+                        tail
+                        (hangsTwo kinds closerDoc BreakParent indent ready post post closing
+                          (hangsBreakParent kinds indent post))))
+                    place
+                    trace
+                    next
+                    entered
+                    after
+                | False =>
+                  hangsConcat kinds
+                    [prefix, Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc]
+                    indent
+                    pre
+                    post
+                    (hangsCons kinds prefix
+                      [Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc]
+                      indent
+                      pre
+                      openDone
+                      post
+                      opening
+                      (hangsAppend kinds
+                        [Nest 2 (Doc.concat brokenDocs), SoftLine]
+                        [closerDoc]
+                        indent
+                        openDone
+                        ready
+                        post
+                        tail
+                        (hangsLast kinds closerDoc indent ready post closing)))
+                    place
+                    trace
+                    next
+                    entered
+                    after
