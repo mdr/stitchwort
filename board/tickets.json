@@ -24987,7 +24987,7 @@
     {
       "id": 4057,
       "title": "[Sonnet] fmt S1 hangs, noted header leaves: colonHangs/assignHangs and the name in a noted form built from leadingHangs, so comments above the name, : and := hang (def x⏎  -- c⏎  : T := a); drops that part of DeclQuiet (SW-4045 finding 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
