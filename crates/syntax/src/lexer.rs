@@ -580,11 +580,12 @@ fn lex_from(
                 while i < bytes.len() && bytes[i] != b'\n' {
                     i += 1;
                 }
-                let end = if bytes[start..i].ends_with(b"\r") {
-                    i - 1
-                } else {
-                    i
-                };
+                // Every `\r` that ends the line goes, so that the printer's
+                // `\r\n` reads back as the same comment.
+                let mut end = i;
+                while end > start && bytes[end - 1] == b'\r' {
+                    end -= 1;
+                }
                 last_comment = Some((start, end));
                 if fresh_line && bytes[start..end].starts_with(b"--|") {
                     bars.push(Span::new(file, start as u32, end as u32));

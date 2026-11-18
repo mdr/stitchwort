@@ -60,3 +60,15 @@ test "a comma that starts the closer's line, with a comment above it, leaves the
 
 test "a closer's comment stays on it when a last comma with no comment starts the closer's line" :=
   formats "def x: T := g ([\n    1 -- a\n  , ] -- b\n  )\n" "def x: T :=\n  g\n    ([\n      1 -- a\n    ]) -- b\n"
+
+def settles (source: Text): Bool := match formatWithin source with
+  | Ok once => formatWithin once == Ok once
+  | Err _ => False
+
+test "a comment line ending in two carriage returns keeps none and formats the same twice" :=
+  settles "-- a\r\r\ndef d: A := b\n"
+    && settles "def d: A := b\n-- a\r\r\n"
+    && settles "def d: A := b -- a\r\r\n"
+    && formats "-- a\r\r\ndef d: A := b\n" "-- a\ndef d: A := b\n"
+
+test "a carriage return inside a comment, not at its end, is kept" := settles "def d: A := b -- a\rb\r\n"

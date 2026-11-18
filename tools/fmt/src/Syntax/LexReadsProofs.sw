@@ -555,44 +555,27 @@ theorem containsBreak ∀ (chars: List Char)
       let differ: Text.sameChar '\n' char = False := arithmetic [notBreak]
       rewrite differ, containsBreak rest (Bool.andRight none)
 
-theorem charsDiffer ∀ (h: '\r' = '-'): Void := Bool.trueNotFalse (Eq.cong (char => char == '\r') h)
-
---| What is left of a comment once its carriage return is taken off still starts `--`.
-theorem returnPrefix ∀ (chars body: List Char)
-    (made: chars ++ ['\r'] = ['-', '-', ..body])
-    (none: body.all (char => char != '\n') = True):
-    ∃ (inner: List Char) => chars = ['-', '-', ..inner] ∧ inner.all (char => char != '\n') = True :=
+--| Taking the `\r`s off the end of characters leaves no line break where there was none.
+theorem trimReturnsNone ∀ (chars: List Char)
+    (none: chars.all (char => char != '\n') = True):
+    (trimReturns chars).all (char => char != '\n') = True :=
   match chars with
-    | [] => (charsDiffer (List.consInjectiveHead '\r' '-' [] ['-', ..body] made)).impossible
-    | [first] =>
-      let tail: ['\r'] = ['-', ..body] := Eq.cong (xs => xs.drop 1) made
-      (charsDiffer (List.consInjectiveHead '\r' '-' [] body tail)).impossible
-    | [first, second, ..inner] =>
-      let firstSame: first = '-' := List.consInjectiveHead first '-' ([second, ..inner] ++ ['\r']) ['-', ..body] made
-      let made1: [second, ..inner] ++ ['\r'] = ['-', ..body] := Eq.cong (xs => xs.drop 1) made
-      let secondSame: second = '-' := List.consInjectiveHead second '-' (inner ++ ['\r']) body made1
-      let made2: inner ++ ['\r'] = body := Eq.cong (xs => xs.drop 1) made1
-      let noneJoined: (inner ++ ['\r']).all (char => char != '\n') = True := rewrite made2 then none
-      let innerNone: inner.all (char => char != '\n') = True :=
-        Bool.andLeft (rewrite allAppendB inner ['\r'] (char => char != '\n') at noneJoined then noneJoined)
-      Witness inner (Both (rewrite firstSame, secondSame) innerNone)
+    | [] => byComputing
+    | [char, ..rest] =>
+      let notBreak: ((char != '\n'): Bool) = True := Bool.andLeft none
+      let restNone := trimReturnsNone rest (Bool.andRight none)
+      match cut: char == '\r' && (trimReturns rest).isEmpty with
+        | True => byComputing
+        | False => Bool.andIntro notBreak restNone
 
---| A comment read from `--` to the end of its line is `rawText` once its carriage return is taken off.
+--| A comment read from `--` to the end of its line is `rawText` once its carriage returns are taken off.
 theorem commentRaw ∀ (body: List Char)
     (none: body.all (char => char != '\n') = True):
     rawText (withoutReturn (Text.fromList ['-', '-', ..body])) = True :=
-  match e: (Text.fromList ['-', '-', ..body]).stripSuffix "\r" with
-    | None => rewrite containsBreak body none
-    | Some rest =>
-      let whole := (Text.stripSuffixSome (Text.fromList ['-', '-', ..body]) "\r" rest).forward e
-      let chars: rest.toList ++ ['\r'] = ['-', '-', ..body] := (Eq.cong Text.toList whole).flipped
-      match returnPrefix rest.toList body chars none with
-        | Witness inner (Both shape innerNone) =>
-          let text: rest = Text.fromList ['-', '-', ..inner] :=
-            rewrite <- shape then
-              (match rest with
-                | MkText cs => byComputing)
-          rewrite text, containsBreak inner innerNone
+  let inner := trimReturnsNone body none
+  let shape: withoutReturn (Text.fromList ['-', '-', ..body]) = Text.fromList ['-', '-', ..trimReturns body] :=
+    byComputing
+  rewrite shape, containsBreak (trimReturns body) inner
 
 -- Every part of the lexer reads honestly: what it read is a start of the input, and it stopped at an honest mark.
 
