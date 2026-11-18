@@ -8,6 +8,7 @@ import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (runExpr, runExprs, runHeader, seq1, seq1k, seq2, seq2k, seq3j, seq3k)
 import Fmt.OutputStatements (..)
+import Fmt.OutputFileProofs (declStartsKw, kindFirst)
 import Syntax.SettleProofs (tokens)
 
 -- The splitter reads only tokens.
@@ -178,3 +179,213 @@ theorem groupsFromTokens ∀ (empty: Bool) (decls: List Decl):
             (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
             decl.leaves1,
           groupsFromTokens False rest
+
+-- A slice 1 declaration passes the lowering's checks.
+
+--| The lowering's traversal finishes on a slice 1 expression and changes nothing: slice 1 has no block, `match`,
+--| clause lambda or pattern, the only nodes the checks refuse.
+theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr checkSteps expr = Ok expr := match expr with
+  | Atom kind word => byComputing
+  | Paren open inner close =>
+    rewrite seq1k
+      (() => inner.traverse checkSteps)
+      (v1 => Paren open v1 close)
+      checkSteps.expr
+      inner
+      (exprChecks inner within)
+  | Tuple open items trailingComma close =>
+    rewrite seq1k
+      (() => traverseExprs checkSteps items)
+      (v1 => Tuple open v1 trailingComma close)
+      checkSteps.expr
+      items
+      (exprsChecks items within)
+  | ListOf open items trailingComma close =>
+    rewrite seq1k
+      (() => traverseExprs checkSteps items)
+      (v1 => ListOf open v1 trailingComma close)
+      checkSteps.expr
+      items
+      (exprsChecks items within)
+  | App head arguments =>
+    rewrite seq2k
+      (() => head.traverse checkSteps)
+      (() => traverseExprs checkSteps arguments)
+      (v1 v2 => App v1 v2)
+      checkSteps.expr
+      head
+      arguments
+      (exprChecks head (Bool.andLeft within))
+      (exprsChecks arguments (Bool.andRight within))
+  | Infix kind left operator right =>
+    let sides: left.within1 = True ∧ right.within1 = True := match kind with
+      | InfixBinary => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
+      | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
+      | _ => cases
+    rewrite seq2k
+      (() => left.traverse checkSteps)
+      (() => right.traverse checkSteps)
+      (v1 v2 => Infix kind v1 operator v2)
+      checkSteps.expr
+      left
+      right
+      (exprChecks left sides.left)
+      (exprChecks right sides.right)
+  | Prefix operator operand =>
+    rewrite seq1k
+      (() => operand.traverse checkSteps)
+      (v1 => Prefix operator v1)
+      checkSteps.expr
+      operand
+      (exprChecks operand (Bool.andLeft within))
+
+theorem exprsChecks ∀ (items: List Expr) (within: allWithin1 items = True): runExprs checkSteps items = Ok items :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      seq2
+        (() => first.traverse checkSteps)
+        (() => traverseExprs checkSteps rest)
+        (v1 v2 => [v1, ..v2])
+        first
+        rest
+        (exprChecks first (Bool.andLeft within))
+        (exprsChecks rest (Bool.andRight within))
+
+--| A slice 1 type has no implicit binder on its spine.
+theorem spineNone ∀ (expr: Expr) (within: expr.within1 = True): spineRepeat [] expr = None := match expr with
+  | Infix InfixArrow left operator right => spineNone right (Bool.andLeft (Bool.andRight within))
+  | Infix InfixBinary left operator right => byComputing
+  | Atom kind word => byComputing
+  | Paren open inner close => byComputing
+  | Tuple open items trailingComma close => byComputing
+  | ListOf open items trailingComma close => byComputing
+  | App head arguments => byComputing
+  | Prefix operator operand => byComputing
+
+--| A slice 1 declaration passes the lowering's checks.
+theorem declLowers ∀ (decl: Decl) (within: decl.within1 = True): decl.loweringError = None := match decl with
+  | Definition [] header (Assigned colonEq value) =>
+    match header with
+      | {
+          exportKeyword = None,
+          opaqueKeyword = None,
+          kind = DefPlain,
+          keyword,
+          name,
+          forallKeyword = None,
+          params = [],
+          colon,
+          result,
+          decreasingClause = None,
+          unfoldingClause = None
+        } =>
+        let resultWithin: result.within1 = True := Bool.andRight (Bool.andLeft within)
+        let valueWithin: value.within1 = True := Bool.andRight within
+        let built: Header := {
+          exportKeyword = None,
+          opaqueKeyword = None,
+          kind = DefPlain,
+          keyword,
+          name,
+          forallKeyword = None,
+          params = [],
+          colon,
+          result,
+          decreasingClause = None,
+          unfoldingClause = None
+        }
+        let headerRuns: runHeader checkSteps built = Ok built :=
+          rewrite seq3j
+            (() => traverseGroups checkSteps [])
+            (() => result.traverse checkSteps)
+            (() => traverseAfter checkSteps None)
+            (v1 v2 v3 =>
+              {
+                exportKeyword = None,
+                opaqueKeyword = None,
+                kind = DefPlain,
+                keyword,
+                name,
+                forallKeyword = None,
+                params = v1,
+                colon,
+                result = v2,
+                decreasingClause = v3,
+                unfoldingClause = None
+              })
+            checkSteps.header
+            []
+            result
+            None
+            byComputing
+            (exprChecks result resultWithin)
+            byComputing
+        let bodyRuns: Fail.toResult (() => traverseDefBody checkSteps (Assigned colonEq value))
+          = Ok (Assigned colonEq value) :=
+          seq1 (() => value.traverse checkSteps) (v1 => Assigned colonEq v1) value (exprChecks value valueWithin)
+        rewrite spineNone result resultWithin,
+            seq3k
+              (() => traverseAttributes checkSteps [])
+              (() => traverseHeader checkSteps built)
+              (() => traverseDefBody checkSteps (Assigned colonEq value))
+              (v1 v2 v3 => Definition v1 v2 v3)
+              checkSteps.decl
+              []
+              built
+              (Assigned colonEq value)
+              byComputing
+              headerRuns
+              bodyRuns
+      | _ => cases
+
+-- The file's first token, and its groups one at a time.
+
+theorem refusalOf ∀ (leaf: Leaf) (rest: List Leaf)
+    (zero: (leaf.token.column == 0) = True)
+    (keyword: (leaf.token.kind == KwDef) = True):
+    fileRefusal [leaf, ..rest] = None :=
+  rewrite DecEq.sound zero, DecEq.sound keyword
+
+--| Leaves with the printed file's tokens pass `fileRefusal`: the file is empty, or its first token is a declaration's
+--| `def`, in column 0.
+theorem refusalNone ∀ (leaves: List Leaf) (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (shaped: decls.all Decl.shaped1 = True)
+    (settled: decls.all Decl.settled1 = True)
+    (lexical: decls.all Decl.lexical1 = True)
+    (hung: decls.all (decl => hangs decl.leaves1) = True)
+    (same: tokens leaves = tokens (groupsFrom True decls).concat):
+    fileRefusal leaves = None :=
+  match decls with
+    | [] =>
+      match leaves with
+        | [] => byComputing
+    | [decl, ..others] =>
+      let starts :=
+        declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+      let decHung: hangs decl.leaves1 = True := Bool.andLeft hung
+      match shows: decl.leaves1 with
+        | [first, ..tail] =>
+          match leaves with
+            | [leaf, ..rest] =>
+              let sameFirst: leaf.token = first.token :=
+                Eq.cong
+                  (texts =>
+                    match texts with
+                      | [] => leaf.token
+                      | [text, .._] => text)
+                  same
+              refusalOf leaf rest
+                (rewrite sameFirst then Bool.andLeft (Bool.andRight decHung))
+                (rewrite sameFirst then Bool.andLeft decHung)
+
+--| A group that parses to a declaration passing the lowering's checks moves `parseGroups` on to the next group.
+theorem groupReads ∀ (seen: Seen) (group: List Leaf) (rest: List (List Leaf)) (found: List Decl) (read: Decl)
+    (ran: Parse.run (items group) (() =>
+      let decl := declaration seen
+      decl)
+      = Ok read)
+    (lowers: read.loweringError = None):
+    parseGroups seen [group, ..rest] found = parseGroups (seen.after read) rest [read, ..found] :=
+  rewrite ran, lowers
