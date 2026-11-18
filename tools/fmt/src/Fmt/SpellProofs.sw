@@ -260,6 +260,9 @@ theorem spellsBlankList ∀ (blank: Bool): SpellsAll (if blank then [Blank] else
   | True => spellsLast Blank [] spellsBlank
   | False => spellsNil
 
+--| The own-line comments after a closer's first spell their texts.
+--|
+--| Proof idea: Induction on the notes; each is a line break, a kept blank line and its text.
 theorem laterCloserNotesSpells ∀ (notes: List Note)
     (sound: notesSound notes = True):
     SpellsAll (laterCloserNotes notes) (notes.map (note => note.text)) :=
@@ -300,6 +303,9 @@ theorem closerNotesSpells ∀ (notes: List Note)
         (spellsText note.text (commentNotLayout note.text (Bool.andLeft sound)))
         (laterCloserNotesSpells rest (Bool.andRight sound))
 
+--| Own-line comments above a token spell their texts.
+--|
+--| Proof idea: Induction on the notes; each is an optional blank line, its text and a line break.
 theorem notesAboveSpells ∀ (keep: Bool) (notes: List Note)
     (sound: notesSound notes = True):
     SpellsAll (notesAbove keep notes) (notes.map (note => note.text)) :=
@@ -336,6 +342,9 @@ theorem spellsAllSame ∀ (docs: List Doc) (texts texts': List Text)
 --| The own-line comments' texts, unless an enclosing element wrote them.
 def Word.notesAt (word: Word) (hoisted: Bool): List Text := if hoisted then [] else word.notes
 
+--| What a token writes before it spells its own-line comments, unless an enclosing element wrote them.
+--|
+--| Proof idea: Cases on whether the token is hoisted, has own-line comments and is a closer; each branch is a list of layout documents around `closerNotes` or `notesAbove`.
 theorem leadingSpells ∀ (word: Word) (around: Around) (key: Nat)
     (sound: word.sound = True):
     SpellsAll (word.leading around key) (word.notesAt around.hoisted) :=
@@ -418,6 +427,9 @@ theorem spellsCloserLineList ∀ (key: Nat) (own: Bool): SpellsAll (if own then 
     | True => spellsLast (CloserLine key) [] (spellsCloserLine key)
     | False => spellsNil
 
+--| A token's leaf spells its own-line comments (unless hoisted), its text and its trailing comment.
+--|
+--| Proof idea: The concat of its leading documents, an optional `CloserLine`, its piece (`pieceSpells`) and its trailing comment (`trailingSpells`).
 theorem leafSpells ∀ (word: Word) (around: Around) (key: Nat)
     (sound: word.sound = True):
     Spells (word.leaf around key) (word.spelledAt around.hoisted) :=
@@ -480,6 +492,9 @@ def argumentsSpelt: List Expr → List Text
   | [] => []
   | [argument, ..rest] => argument.spelt False ++ argumentsSpelt rest
 
+--| An expression of the slice has a first token.
+--|
+--| Proof idea: Induction on the expression.
 theorem wordsLead ∀ (expr: Expr)
     (within: expr.within1 = True):
     ∃ (rest: List Word) => expr.words = [expr.lead, ..rest] :=
@@ -513,6 +528,8 @@ theorem spelledAtLead ∀ (word: Word) (hoisted: Bool):
     | False => byComputing
 
 --| Leaving the first token's own-line comments out takes them from the front.
+--|
+--| Proof idea: Induction down the first operands, with `spelledAtLead` at the token.
 theorem speltLead ∀ (expr: Expr) (hoisted: Bool)
     (within: expr.within1 = True):
     expr.spelt hoisted = expr.lead.notesAt hoisted ++ expr.spelt True :=
@@ -553,6 +570,9 @@ theorem spellsMarkList ∀ (key: Nat) (own: Bool): SpellsAll (if own then [Mark 
   | True => spellsLast (Mark key) [] (spellsMark key)
   | False => spellsNil
 
+--| A bracket's opener spells as a token does; its `Mark` has no words.
+--|
+--| Proof idea: As `leafSpells`, with the mark where the closer may take a line of its own.
 theorem openingSpells ∀ (word: Word) (around: Around) (closer: Word)
     (sound: word.sound = True):
     Spells (word.opening around closer) (word.spelledAt around.hoisted) :=
@@ -578,6 +598,8 @@ theorem openingSpells ∀ (word: Word) (around: Around) (closer: Word)
           (trailingSpells word sound))))
 
 --| A node with its first token's own-line comments before it.
+--|
+--| Proof idea: The concat of the comments (`leadingSpells`) and the node, displaced or not.
 theorem framedSpells ∀ (first: Word) (around: Around) (doc: Doc) (texts: List Text)
     (sound: first.sound = True)
     (inner: Spells doc texts):
@@ -623,6 +645,9 @@ def AllElSpells: List Expr → Prop
 
 -- Layout between documents.
 
+--| Documents with layout between them spell what the documents do.
+--|
+--| Proof idea: Induction on the documents.
 theorem spellsJoinedWith ∀ (separator: Doc) (docs: List Doc) (texts: List Text)
     (layout: Spells separator [])
     (each: SpellsAll docs texts):
@@ -658,6 +683,9 @@ theorem parenInnerSpells ∀ (inner: Expr) (around: Around)
     | If _ _ _ _ _ _ _ => cases
     | _ => each
 
+--| A bracket spells its opener, its inner expression and its closer.
+--|
+--| Proof idea: The concat of `openingSpells`, the inner (the hypothesis) and `leafSpells`.
 theorem parenSpells ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
     (within: inner.within1 = True)
     (openSound: open.sound = True)
@@ -711,6 +739,9 @@ theorem spellsPrefixGap ∀ (operator: Word) (operand: Expr): Spells (prefixGap 
     | True => spellsSpace
     | False => spellsNothing
 
+--| A prefix operator spells the operator and its operand.
+--|
+--| Proof idea: The concat of the operator's leaf, the gap (layout) and the operand's element.
 theorem prefixSpells ∀ (operator: Word) (operand: Expr) (around: Around)
     (operatorSound: operator.sound = True)
     (each: Spells (operand.el (around.next operator.trails 1)) (operand.spelt False)):
@@ -738,6 +769,9 @@ theorem prefixSpells ∀ (operator: Word) (operand: Expr) (around: Around)
 
 -- Chains and elements.
 
+--| A chain's lines, grouped, spell what the lines do.
+--|
+--| Proof idea: Cases on the lines; the first, then the rest in a nest.
 theorem chainOfSpells ∀ (arms: Bool) (links: List Doc) (texts: List Text)
     (each: SpellsAll links texts):
     Spells (chainOf arms links) texts :=
@@ -773,6 +807,9 @@ theorem chainRightSpells ∀ (level: Option Nat) (right: Expr) (around: Around)
     | _ =>
       spellsCons (Doc.text " ") (linkDocs level False right around) [] (right.spelt around.hoisted) spellsSpace link
 
+--| A chain's lines spell the first operand, the operator and the last operand.
+--|
+--| Proof idea: The first operand's lines (`linkDocsSpells`), a `Line`, the operator's leaf and what follows it (`chainRightSpells`).
 theorem chainLinksSpells ∀ (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
     (right: Expr) (around: Around)
     (leftWithin: left.within1 = True)
@@ -812,6 +849,9 @@ theorem chainLinksSpells ∀ (level: Option Nat) (first: Bool) (left: Expr) (ope
           rightWithin
           (linkDocsSpells level False right (around.next operator.trails (left.size + 1)) rightWithin rightSound))))
 
+--| A chain operand's documents spell what the operand spells.
+--|
+--| Proof idea: A chain of the level is its links, any other operand its element, as in `linkDocsKept`.
 theorem linkDocsSpells ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Around)
     (within: expr.within1 = True)
     (sound: expr.sound = True):
@@ -859,6 +899,9 @@ theorem spellsSeparator ∀ (first: Bool): Spells (if first then SoftLine else L
   | True => spellsSoftLine
   | False => spellsLine
 
+--| A filled list's cells spell its items, a comma after each but the last.
+--|
+--| Proof idea: Induction on the items.
 theorem cellsSpells ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
@@ -889,6 +932,9 @@ theorem cellsSpells ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
           (cellsSpells False arm False (at + item.size) rest (Bool.andRight within) (Bool.andRight sound) others))
         (List.appendAssoc (item.spelt False) [","] (commaSpelt rest))
 
+--| A broken bracket's lines spell its items, a comma after each but the last.
+--|
+--| Proof idea: Induction on the items, a separator before each.
 theorem brokenItemsSpells ∀ (bare arm first before: Bool) (at: Nat) (items: List Expr)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
@@ -945,6 +991,9 @@ theorem spellsEq ∀ (doc doc': Doc) (texts: List Text)
     Spells doc texts :=
   rewrite same then spells
 
+--| A comma bracket's document spells its opener, its items and its closer.
+--|
+--| Proof idea: Cases on whether the items are empty, fill their lines, and hold a comment; each document is a concat of the opener, the items' lines and the closer.
 theorem bracketFromSpells ∀ (list empty plain holds: Bool) (prefix closer: Doc)
     (filled broken: List Doc) (opens items closes: List Text)
     (prefixSpells: Spells prefix opens)
@@ -1020,6 +1069,9 @@ theorem bracketFromSpells ∀ (list empty plain holds: Bool) (prefix closer: Doc
 theorem commaSpeltEmpty ∀ (items: List Expr) (empty: items.isEmpty = True): commaSpelt items = [] :=
   match items, empty with | [], _ => byComputing
 
+--| A tuple or list spells its opener, its items with commas and its closer.
+--|
+--| Proof idea: `bracketIs` (`bracketContent` is `bracketFrom`), then `bracketFromSpells` with the opener, closer, cells and lines each spelling.
 theorem bracketContentSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
@@ -1106,6 +1158,9 @@ theorem wordsTakeDrop ∀ (docs: List Doc) (count: Nat):
       rewrite List.appendAssoc first.words (wordsAll (rest.take less)) (wordsAll (rest.drop less)),
           wordsTakeDrop rest less
 
+--| The elements of a call that go below, each after a line break, spell what they do.
+--|
+--| Proof idea: Induction on the documents.
 theorem ownConcatMap ∀ (docs: List Doc)
     (own: Own docs):
     SpellsAll (docs.concatMap (doc => [HardLine, doc])) (wordsAll docs) :=
@@ -1126,6 +1181,8 @@ theorem ownConcatMap ∀ (docs: List Doc)
 
 --| A call that breaks keeps some elements on its line and the rest each on a line of its own: the words are the
 --| elements'.
+--|
+--| Proof idea: The words of the first `keep` and the rest are the words of all (`wordsTakeDrop`); the front in a group or spaced, the rest in a nest, under `IfBroken` or not.
 theorem frontRestSpells ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (texts: List Text)
     (spells: SpellsAll docs texts):
     Spells
@@ -1188,6 +1245,9 @@ theorem frontRestSpells ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (t
 def AppSpells (applied: Applied) (texts: List Text): Prop :=
   Spells applied.doc texts ∧ (∀ (open: Doc) => applied.hug = Some open → Spells open texts)
 
+--| A call's document and its hug spell the function and its arguments.
+--|
+--| Proof idea: Cases on whether every element stays on its line; else each option of the choice (flat, hugged if the last argument hugs, the front and the rest) spells the same words (`spellsChoice`).
 theorem appFromSpells ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc) (front: List Doc)
     (hug: Option Doc) (headTexts frontTexts lastTexts: List Text)
     (headSpells: Spells headDoc headTexts)
@@ -1302,6 +1362,9 @@ theorem hugTexts ∀ (open: Word) (hoisted: Bool) (items close: List Text):
     open.spelledAt hoisted ++ items ++ close = open.notesAt hoisted ++ (open.spelledAt True ++ items ++ close) :=
   rewrite spelledAtLead open hoisted, List.appendAssoc (open.notesAt hoisted) (open.spelledAt True) (items ++ close)
 
+--| A hugged bracket and its hug spell the opener, its items and its closer.
+--|
+--| Proof idea: The opener's own-line comments, then the bracket's content in a group (`bracketContentSpells`); `hugTexts` moves the comments back to the front.
 theorem huggedSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
@@ -1348,6 +1411,9 @@ def LastOption: Option (Doc, Option Doc) → List Text → Prop
 def ArgsSpells (made: (List Doc, Option (Doc, Option Doc))) (front last: List Text): Prop :=
   SpellsAll made.fst front ∧ LastOption made.snd last
 
+--| A call's last argument and its hug spell the argument.
+--|
+--| Proof idea: Cases on the argument as `lastArgument` has them: a tuple or list hugs, any other is its element.
 theorem lastArgumentSpells ∀ (argument: Expr) (around: Around)
     (within: argument.within1 = True)
     (sound: argument.sound = True):
@@ -1388,6 +1454,9 @@ theorem argumentDocsConsTest ∀ (arm: Bool) (previous argument next: Expr) (at:
       ) :=
   byComputing
 
+--| A call's arguments spell their texts, split into the documents before the last and the last.
+--|
+--| Proof idea: Induction on the arguments; each stands after the one before.
 theorem argumentDocsSpells ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Expr)
     (within: allWithin1 arguments = True)
     (sound: allSound arguments = True):
@@ -1453,6 +1522,9 @@ theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
         ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).snd :=
   byComputing
 
+--| A call spells its function and its arguments.
+--|
+--| Proof idea: `appDocsIs` (the facts `appDocs` reads, as projections) and `appFromSpells`.
 theorem appDocsSpells ∀ (head: Expr) (arguments: List Expr) (around: Around)
     (headWithin: head.within1 = True)
     (headSound: head.sound = True)
@@ -1480,6 +1552,9 @@ theorem appDocsSpells ∀ (head: Expr) (arguments: List Expr) (around: Around)
       picked.left
       picked.right
 
+--| The rules print an expression spelling its tokens, wherever it stands.
+--|
+--| Proof idea: Induction on the expression, as `elCalm`: a token by `leafSpells`, a node by its rule's lemma inside `framedExprSpells`.
 theorem elSpells ∀ (expr: Expr) (around: Around)
     (within: expr.within1 = True)
     (sound: expr.sound = True):
@@ -1662,6 +1737,9 @@ theorem spellsTexts ∀ (doc: Doc) (texts texts': List Text)
     Spells doc texts' :=
   rewrite <- same then spells
 
+--| A hug after a space spells what the hug does.
+--|
+--| Proof idea: Cases on the hug.
 theorem spacedHugSpells ∀ (hug: Option Doc) (texts: List Text)
     (each: ∀ (open: Doc) => hug = Some open → Spells open texts):
     ∀ (doc: Doc) => hug.map (open => Doc.concat [Doc.text " ", open]) = Some doc → Spells doc texts :=
@@ -1679,6 +1757,9 @@ theorem spacedHugSpells ∀ (hug: Option Doc) (texts: List Text)
               spellsSpace
               (spellsLast opened texts (each opened byComputing))))
 
+--| A body after `:=` spells the value in both its forms.
+--|
+--| Proof idea: The value's element (`elSpells`); below it is a nest, the choice's options (flat, one line below, the hug on the line, below) each spell the same.
 theorem bodyAfterSpells ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
     (within: value.within1 = True)
     (sound: value.sound = True)
@@ -1753,6 +1834,9 @@ theorem bodyAfterSpells ∀ (value: Expr) (assign: Word) (around: Around) (semi:
 
 -- Declarations.
 
+--| A definition's document spells its header, its `:=` and its body.
+--|
+--| Proof idea: A concat of the header in an `IdGroup`, a space, the `:=` and the body's `IfBroken`.
 theorem defFromSpells ∀ (headerDoc assignDoc below choice: Doc)
     (breaks: Bool) (headerTexts assignTexts bodyTexts: List Text)
     (header: Spells headerDoc headerTexts)
@@ -1814,6 +1898,9 @@ theorem typedSpells ∀ (trails: Bool) (typeDoc: Doc) (texts: List Text)
     | False =>
       spellsCons (Doc.text " ") [Nest 4 typeDoc] [] texts spellsSpace (spellsLast _ _ (spellsNest 4 _ _ spells))
 
+--| A definition with no parameters spells its tokens in order.
+--|
+--| Proof idea: `defFromSpells` with the header (the head words spaced, the colon, the type: `typedSpells`), the `:=`'s leaf and `bodyAfterSpells`.
 theorem plainDefSpells ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
     (colonEq: Comments) (value: Expr)
     (resultWithin: result.within1 = True)
@@ -1858,6 +1945,8 @@ theorem plainDefSpells ∀ (keyword: Comments) (name: Word) (colon: Comments) (r
     bodySpells.right
 
 --| The document a slice 1 declaration has spells the declaration's tokens.
+--|
+--| Proof idea: `plainDefIs` and `plainDefSpells`, with the tokens' soundness taken from the declaration's.
 theorem doc1Spells ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
     (sound: decl.sound = True)
@@ -2003,6 +2092,8 @@ theorem soundOfAllItems ∀ (items: List Expr)
         (soundOfAllItems rest (Bool.andRight within) restOk)
 
 --| The tokens of a slice 1 expression are all sound if its sound structurally.
+--|
+--| Proof idea: Induction on the expression, splitting the list at each node.
 theorem soundOfAll ∀ (expr: Expr)
     (within: expr.within1 = True)
     (all: expr.words.all Word.sound = True):
@@ -2061,6 +2152,9 @@ theorem allMapBool ∀ (xs: List Word) (p q: Word → Bool)
 --| Every token of a declaration has text that isn't layout.
 def Decl.real (decl: Decl): Bool := decl.words.all (word => !isLayout word.text)
 
+--| A declaration is sound if it is settled and no token's text is layout.
+--|
+--| Proof idea: Every token is commented-and-real (`allAndBool`), hence sound (`commentedSound`); split the list into the keyword, the name, the colon, the type, the `:=` and the value.
 theorem declSoundOfSettled ∀ (decl: Decl)
     (within: decl.within1 = True)
     (settled: decl.settled1 = True)

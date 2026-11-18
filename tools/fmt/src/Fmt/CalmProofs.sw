@@ -260,6 +260,8 @@ theorem leafKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: Bool
         closes
 
 --| A bracket's opener against its closer's comments: the closer is the same for it.
+--|
+--| Proof idea: Cases on whether the opener and the closer have own-line comments (the closer's only decides its `Mark`); `leadingKept` for the opener.
 theorem openingKept ∀ (open close: Word) (around: Around) (item: Bool)
     (same: around.item = item):
     (open.kept item False).opening around (close.kept False True) = open.opening around close :=
@@ -314,6 +316,8 @@ theorem openingKept ∀ (open close: Word) (around: Around) (item: Bool)
         byComputing
 
 --| An expression's words begin with its first token, which its calm expression's begin with, calmed.
+--|
+--| Proof idea: Induction on the expression; a node's first word is its first child's, so each arm takes it from the child's and appends the rest.
 theorem wordsFirst ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     ∃ (first: Word) (rest later: List Word) => expr.words = [first, ..rest]
@@ -441,6 +445,9 @@ theorem calmLeadPlain ∀ (items: List Expr)
     | [first, ..rest] =>
       rewrite plainItemCalm first False (Bool.andLeft within), calmAllPlain rest True (Bool.andRight within)
 
+--| `calm` keeps whether an argument may stay on its call's line.
+--|
+--| Proof idea: Cases on the expression; a tuple or list stays empty or not (`calmAllEmpty`, `calmItemsEmpty`), a prefix's operand keeps its constructor.
 theorem simpleCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).simple = expr.simple :=
   match expr with
     | Atom kind word => byComputing
@@ -517,6 +524,9 @@ theorem inChainCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
         | _ => cases
     | Prefix operator operand => byComputing
 
+--| `calm` keeps whether a chain's first operand is a `match`.
+--|
+--| Proof idea: Induction down the left operands, with `inChainCalm` for each link.
 theorem opensArmsCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
     (within: expr.within1 = True):
     (expr.calm item).opensArms level = expr.opensArms level :=
@@ -541,6 +551,9 @@ theorem opensArmsCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
 theorem nextNoItem ∀ (around: Around) (before: Bool) (skipped: Nat): (around.next before skipped).item = False :=
   byComputing
 
+--| A node's first token's own-line comments print the same for the calm token.
+--|
+--| Proof idea: Cases on whether it has own-line comments, then `leadingKept`.
 theorem framedByKept ∀ (first: Word) (around: Around) (doc: Doc) (item: Bool)
     (same: around.item = item):
     framedBy (first.kept item False) around doc = framedBy first around doc :=
@@ -609,6 +622,9 @@ theorem nextEq ∀ (around: Around) (before before': Bool) (skipped skipped': Na
     around.next before skipped = around.next before' skipped' :=
   rewrite sameBefore, sameSkipped
 
+--| A bracket's document is the same for the calm inner expression and brackets.
+--|
+--| Proof idea: `Doc.concat` of its three parts: the opener (`openingKept`), the inner (`parenInnerKept`, from the induction hypothesis) and the closer (`leafKept`, at the place the inner's size and trailing comment give, equal by `sizeCalm` and `trailsCalm`); `concatCong` joins them.
 theorem parenKept ∀ (open: Word) (inner: Expr) (close: Word) (around: Around) (item: Bool)
     (same: around.item = item)
     (inside: inner.good = True)
@@ -647,6 +663,9 @@ theorem parenKept ∀ (open: Word) (inner: Expr) (close: Word) (around: Around) 
 
 -- Prefix operators.
 
+--| `calm` keeps whether an expression is an application of a numeral.
+--|
+--| Proof idea: Cases on the expression and on a head's kind.
 theorem numeralCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).numeralApplication = expr.numeralApplication :=
@@ -685,6 +704,9 @@ theorem prefixGapCalm ∀ (operator: Word) (operand: Expr) (item: Bool)
     prefixGap (operator.kept item False) (operand.calm False) = prefixGap operator operand :=
   rewrite firstCalm operand False within, numeralCalm operand False within
 
+--| A prefix operator's document is the same for the calm operator and operand.
+--|
+--| Proof idea: Its three parts, the operator's leaf (`leafKept`), the gap (`prefixGapCalm`: the first word's text and the numeral test are kept) and the operand's element.
 theorem prefixKept ∀ (operator: Word) (operand: Expr) (around: Around) (item: Bool)
     (same: around.item = item)
     (within: operand.within1 = True)
@@ -791,6 +813,8 @@ theorem bracketAlike ∀ (open open' close close': Word) (items items': List Exp
     ((closes, byComputing))
 
 --| The filled cells and the broken lines of a bracket, as the items' elements make them.
+--|
+--| Proof idea: Induction on the items; each cell is its item's element (the hypothesis) and a comma, and the later cells stand after the item's size (`sizeCalm`).
 theorem cellsKept ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
     (each: AllElKept items)
     (good: allGood items = True):
@@ -811,6 +835,9 @@ theorem cellsKept ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
         (rewrite calmAllList rest, sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
           cellsKept False arm False (at + item.size) (rest) others (allGoodTail item rest good))
 
+--| A broken bracket's lines are the same for the calm items.
+--|
+--| Proof idea: As `cellsKept`, with a separator before each item.
 theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List Expr)
     (each: AllElKept items)
     (good: allGood items = True):
@@ -998,6 +1025,9 @@ theorem huggedFromCong ∀ (leading leading': List Doc) (content content': Doc)
       ) :=
   rewrite sameLeading, sameContent
 
+--| A hugged bracket's two documents are the same for the calm items and bracket.
+--|
+--| Proof idea: Both are the opener's own-line comments and the bracket's content in a group; `leadingKept` and `bracketKept`.
 theorem huggedKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (item: Bool)
     (same: around.item = item)
     (good: allGood items = True)
@@ -1029,6 +1059,9 @@ theorem takeCalm ∀ (items: List Expr) (item: Bool) (count: Nat):
     | [first, ..rest], Zero => byComputing
     | [first, ..rest], Succ less => Eq.cong (later => [first.calm item, ..later]) (takeCalm rest item less)
 
+--| `calm` keeps how many of a call's elements stay on its line.
+--|
+--| Proof idea: Induction on the arguments; each is simple or not (`simpleCalm`) and follows a comment or not (`trailsCalm`).
 theorem keptFrontKept ∀ (previous previous': Expr) (arguments: List Expr)
     (sameTrails: previous'.trails = previous.trails)
     (within: allWithin1 arguments = True):
@@ -1232,6 +1265,9 @@ theorem chainKept ∀ (level: Option Nat) (left: Expr) (operator: Word) (right: 
   rewrite chainLinksKept level True left operator right around leftGood rightGood,
       opensArmsCalm left around.item level (goodWithin left leftGood)
 
+--| A chain operand's documents are the same for the calm operand.
+--|
+--| Proof idea: A chain of the level is its links (`chainLinksKept`), any other operand its element (`elCalm`); `inChainCalm` says which.
 theorem linkDocsKept ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Around)
     (good: expr.good = True):
     linkDocs level first (expr.calm around.item) around = linkDocs level first expr around :=
@@ -1479,6 +1515,9 @@ theorem takeWithin ∀ (items: List Expr) (count: Nat)
     | [first, ..rest], Zero => byComputing
     | [first, ..rest], Succ less => Bool.andIntro (Bool.andLeft within) (takeWithin rest less (Bool.andRight within))
 
+--| A call's document is the same for the calm head and arguments.
+--|
+--| Proof idea: Each fact `appDocs` reads is the same: the head's element, the arguments' documents (`argumentDocsKept`), how many stay on the line and where comments sit (`keptFrontKept`, `commentBetweenKept`, `takeCalm`).
 theorem appKept ∀ (head: Expr) (arguments: List Expr) (around: Around)
     (headGood: head.good = True)
     (argumentsGood: allGood arguments = True):
@@ -1665,6 +1704,9 @@ def plainDef (keyword: Comments) (name: Word) (colon: Comments) (result: Expr) (
     body.fst
     body.snd
 
+--| `defDoc` of a header with no parameters is `plainDef`.
+--|
+--| Proof idea: By computing.
 theorem plainDefIs ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
     (colonEq: Comments) (value: Expr):
     defDoc
@@ -1820,6 +1862,9 @@ theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (res
     (Eq.cong (pair => pair.fst) bodyEq)
     (Eq.cong (pair => pair.snd) bodyEq)
 
+--| A definition's document is the same for the calm header and body.
+--|
+--| Proof idea: `plainDefIs` on both sides and `plainDefKept` between.
 theorem defDocKept ∀ (header: Header) (colonEq: Comments) (value: Expr)
     (within: header.within1 = True)
     (resultGood: header.result.good = True)
@@ -1872,6 +1917,9 @@ theorem withinLeadCalm ∀ (items: List Expr) (within: allWithin1 items = True):
     | [first, ..rest] =>
       Bool.andIntro (withinCalm first False (Bool.andLeft within)) (withinAllCalm rest True (Bool.andRight within))
 
+--| `calm` keeps a tree in the slice.
+--|
+--| Proof idea: Induction on the expression, with the list lemmas for tuples and lists.
 theorem withinCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).within1 = True :=
   match expr with
     | Atom kind word => within
@@ -1906,6 +1954,9 @@ theorem allLexicalClosed ∀ (items: List Expr) (lexical: allLexical1 items = Tr
     | [first, ..rest] =>
       Bool.andIntro (lexicalClosed first (Bool.andLeft lexical)) (allLexicalClosed rest (Bool.andRight lexical))
 
+--| A tree whose words lex has closers for its brackets' last words.
+--|
+--| Proof idea: Induction on the expression; a bracket's `lexical1` says its closer's text is `)` or `]`.
 theorem lexicalClosed ∀ (expr: Expr) (lexical: expr.lexical1 = True): expr.closed = True := match expr with
   | Atom kind word => byComputing
   | Paren open inner close =>
