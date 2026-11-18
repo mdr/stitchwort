@@ -116,7 +116,7 @@ def SourceFile.calm (file: SourceFile): SourceFile :=
 
 -- Shaped and lexical.
 
---| An atom or a bracket: what a call's head or an operand may be.
+--| An atom or a bracket: what a call's argument may be, and what a sign on an argument may sit on.
 def Expr.atomic1: Expr → Bool
   | Atom _ _ => True
   | Paren _ _ _ => True
@@ -124,29 +124,47 @@ def Expr.atomic1: Expr → Bool
   | ListOf _ _ _ _ => True
   | _ => False
 
---| An argument, or a call's head: an atom, a bracket, or a prefix on one. A prefix can be a head too, since `-1 n`
---| reads `1` as the negative numeral, `App (Prefix - 1) [n]`; the operand of an argument's `-` or `!` is itself read as an argument.
+--| A numeral, which a `-` glued to it reads as one atom with.
+def Expr.numberAtom1: Expr → Bool
+  | Atom Num _ => True
+  | Atom Float _ => True
+  | _ => False
+
+--| A call's head: an atom or a bracket, or `-` on a numeral (`-1 n` reads `-1` as one atom, `App (Prefix - 1) [n]`).
+--| Any other sign takes the whole call: `-x y` and `!x y` read as `-(x y)` and `!(x y)`.
+def Expr.head1: Expr → Bool
+  | Prefix operator operand => operator.text == "-" && operand.numberAtom1
+  | other => other.atomic1
+
+--| A call's argument: an atom or a bracket, or a sign on one (`f -x !b`). A sign on a sign is no argument: `f - -x`
+--| reads as `f - (-x)`, since only an atom or a bracket may follow an argument's sign.
 def Expr.argument1: Expr → Bool
-  | Prefix _ operand => operand.argument1
+  | Prefix _ operand => operand.atomic1
   | other => other.atomic1
 
 --| The least level an expression needs to stand bare as the right operand of an infix operator: the operator's own
---| level, except for a comparison, which doesn't chain (`a == b == c` doesn't parse), so its operand needs level 8, the
---| level `leftNeeds` asks of its left operand.
+--| level where it nests to the right (`++`, `&&`, `||`, `->`), the next level up where it nests to the left (`+`, `*`:
+--| `a - (b - c)` needs its brackets, as `a - b - c` reads as `(a - b) - c`), and for a comparison, which doesn't chain
+--| (`a == b == c` doesn't parse), level 8, the level `leftNeeds` asks of its left operand. An operator nests to the
+--| left exactly where `leftNeeds` is its own level.
 def rightNeeds (kind: InfixKind) (operator: Text): Nat := match kind with
-  | InfixBinary => if leftNeeds kind operator == 8 then 8 else infixLevel kind operator
+  | InfixBinary =>
+    if leftNeeds kind operator == 8 then 8
+    else if leftNeeds kind operator == infixLevel kind operator then infixLevel kind operator + 2
+    else infixLevel kind operator
   | other => infixLevel kind operator
 
---| The tree is one the parser can give: an application's head and arguments are atoms, brackets or prefixes on them
---| (so a head is no application); operands of an infix sit at their ladder levels (`ParseProofs` proves the levels);
---| a tuple has two items or more.
+--| The tree is one the parser can give: a call's head is an atom, a bracket or a negative numeral, and its arguments
+--| atoms, brackets or signs on them (so a head is no application); operands of an infix sit at their ladder levels
+--| (`ParseProofs` proves the levels), the right operand of a chain that nests to the left one level up; a tuple has
+--| two items or more.
 def Expr.shaped1: Expr → Bool
   | Atom kind _ => kind.wordWithin1
   | Paren _ inner _ => inner.shaped1
   | Tuple _ items _ _ => items.length >= 2 && allShaped1 items
   | ListOf _ items _ _ => allShaped1 items
   | App head arguments =>
-    head.argument1 && head.shaped1 && !arguments.isEmpty && arguments.all Expr.argument1 && allShaped1 arguments
+    head.head1 && head.shaped1 && !arguments.isEmpty && arguments.all Expr.argument1 && allShaped1 arguments
   | Infix kind left operator right =>
     left.shaped1
       && right.shaped1
