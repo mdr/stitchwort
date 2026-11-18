@@ -25251,12 +25251,12 @@
     {
       "id": 4077,
       "title": "[Opus] fmt S1 read-back: Spelt's prefix equation is false of a parsing source (def d: A := (- -- c⏎  1) reads back but 1 isn't glued); weaken Spelt to 'a negative numeral read means the operand is a numeral' and re-prove unaryLine (SW-4070 finding 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3686 dropped (Matt, 18 Nov 2026: the formatter must handle a comment between a sign and its operand; no trim). Do this lane; its sibling is SW-4081.",
+      "body": "D3686 dropped (Matt, 18 Nov 2026: the formatter must handle a comment between a sign and its operand; no trim). Do this lane; its sibling is SW-4081.\n\nLane notes (Opus, 18 Nov 2026, branch lane/SW-4077):\n- Part 1 done: Spelt's Prefix clause is now negativeNumeral [sign, ..more] = True -> operand.numeral1 = True. unaryLine and signArgLine split on negativeNumeral (new negativeMinus). Witnesses from the lexer's items for def d: A := (- -- c\\n  1): commentMinusApart (old equation false), commentSpeltExample, readsBackCommentExample (parse by computing). readsBackLineWithin unchanged in name and shape.\n- Part 2: printedSplit1 is FALSE as stated. def d: A := -1 n meets every PrintedGroup fact (head1 admits - on a numeral as a call head), prints as written, reads back, but Spelt's App asks head.atomic1. Proved: Fmt.PrefixHeadSplit.printedSplitFails. Left open, doc flagged. Decision needed: Spelt/appLine take a negative-numeral head (rec), or the slice drops such heads.\n- Tests: check ReadBackLine, TopReadBack, PrintedLines, PrefixHeadSplit clean; audit ReadBackLine 0 failed (6 warnings, old 5 + negativeMinus vacuity, example added); audit PrefixHeadSplit + TopReadBack: only the existing printedSplit1 goal; Syntax.Tests 52/52, Fmt.Tests 118/118.\n- ~20 min (est. 60).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
