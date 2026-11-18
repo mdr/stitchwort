@@ -36,6 +36,10 @@ test "a call hugs its last argument, a list, when the list can't fit below" :=
 test "a closer after a trailing comment goes left of the lines inside its brackets" :=
   formats "def d: ( -- t7\n    a -- t9\n  ) -- t10\n  := b\n" "def d: ( -- t7\n    a -- t9\n) -- t10\n  :=\n  b\n"
 
+test "a closer with a comment, after a last item with one, follows it with no empty line" :=
+  formats "def x: T := [\n  aaa, -- c\n  bbb -- e\n] -- d\ndef y: T := {\n  a = aaa, -- c\n  b = bbb -- e\n} -- d\n"
+      "def x: T := [\n  aaa, -- c\n  bbb -- e\n] -- d\ndef y: T := {\n  a = aaa, -- c\n  b = bbb -- e\n} -- d\n"
+
 test "a blank line before a filled list's first cell is dropped, not left to break its groups" :=
   formats "def d: A := g [\n\n  f, a]\n" "def d: A := g [f, a]\n"
 
@@ -55,4 +59,4 @@ test "a comma that starts the closer's line, with a comment above it, leaves the
       "def x: T :=\n  g\n    ([1\n      -- above\n    ] -- b\n    ) -- c\n"
 
 test "a closer's comment stays on it when a last comma with no comment starts the closer's line" :=
-  formats "def x: T := g ([\n    1 -- a\n  , ] -- b\n  )\n" "def x: T :=\n  g\n    ([\n      1 -- a\n\n    ]) -- b\n"
+  formats "def x: T := g ([\n    1 -- a\n  , ] -- b\n  )\n" "def x: T :=\n  g\n    ([\n      1 -- a\n    ]) -- b\n"

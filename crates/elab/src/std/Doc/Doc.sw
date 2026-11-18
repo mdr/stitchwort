@@ -99,7 +99,9 @@ type Doc =
   --| its own: at the indentation in force, unless a line printed since
   --| the `Mark` with the same key is at or left of that, which would make
   --| the bracket a line of the block that line starts; then at the marked
-  --| line's indentation, if that is less. It ends the comment floor.
+  --| line's indentation, if that is less. It ends the comment floor. At
+  --| the start of a line with no trailing comment waiting (a break before
+  --| it ended the line already) it moves that line there instead.
   | CloserLine (key: Nat)
   --| Forces every group around it to break.
   | BreakParent

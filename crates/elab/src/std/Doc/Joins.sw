@@ -1060,6 +1060,30 @@ theorem Doc.Proofs.hereHolds ∀ (follows: Text → Text → Prop) (next: Edge �
     Holds follows next { printer | owed = Some indent, lineIndent = indent } :=
   match sound with | (pairs, _, freshOk, waits) => (((pairs, (Inr start), freshOk, waits)), after)
 
+--| A closer's line leaves a sound printer sound, on a fresh line: after
+--| a line break, or at a line start with no comment waiting, which only
+--| moves.
+theorem Doc.Proofs.closerLineHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop)
+    (printer: Printer) (key indent: Nat)
+    (sound: Sound follows printer) (after: next (Plain None)):
+    Holds follows next (printer.closerLine key indent) :=
+  let broken :=
+    newlineHolds follows next
+      { printer | carry = printer.carry.close key }
+      (printer.carry.closerAt key indent)
+      sound
+      after
+  match start: printer.atLineStart with
+    | True =>
+      match waiting: printer.suffixes.isEmpty with
+        | True =>
+          match sound with
+            | (pairs, _, freshOk, waits) =>
+              let touch := freshTouch printer.out (freshWhen printer.atLineStart printer.out start freshOk)
+              (((pairs, (Inr start), freshOk, waits)), (rewrite touch then after))
+        | False => broken
+    | False => broken
+
 --| A line break keeps the waiting comments writable.
 theorem Doc.Proofs.breakWaits ∀ (follows: Text → Text → Prop) (suffixes out: List Text)
     (waits: WaitsParts follows suffixes out):
@@ -1222,12 +1246,7 @@ theorem Doc.Proofs.stepJoins ∀ (follows: Text → Text → Prop) (printer: Pri
               (sound, joins)
         | CloserLine key, steps, joins =>
           rewrite steps then
-            newlineHolds follows
-              (edge => StackJoins follows rest edge)
-              { printer | carry = printer.carry.close key }
-              (printer.carry.closerAt key indent)
-              sound
-              joins
+            closerLineHolds follows (edge => StackJoins follows rest edge) printer key indent sound joins
         | LineStart, steps, joins =>
           rewrite steps then lineStartHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
         | LineStartHere, steps, joins =>
