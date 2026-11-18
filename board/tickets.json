@@ -1,5 +1,5 @@
 {
-  "next": 3945,
+  "next": 3948,
   "tickets": [
     {
       "id": 47,
@@ -23397,12 +23397,12 @@
     {
       "id": 3939,
       "title": "[Sonnet] Text.contains and Text.joinWith lemmas, then the Std.Args theorem 'help lists every option' (left from SW-3391); and Text.toAsciiLower beside Text.toAsciiUpper",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Lane notes (Sonnet, lane/SW-3939, 18 Nov): done all three: Text.toAsciiLower/Char.toAsciiLower; Text contains lemmas (containsSelf, containsEmpty, containsAppendLeft/Right/Middle, padRightContains, containsJoinWith, containsJoinWithPart, char-list versions); Args.helpListsOption (every option's --name is in the help text; no change to the program). Prelude snapshot: additions only (28 lines). Moved to review.\n",
+      "body": "Lane notes (Sonnet, lane/SW-3939, 18 Nov): done all three: Text.toAsciiLower/Char.toAsciiLower; Text contains lemmas (containsSelf, containsEmpty, containsAppendLeft/Right/Middle, padRightContains, containsJoinWith, containsJoinWithPart, char-list versions); Args.helpListsOption (every option's --name is in the help text; no change to the program). Prelude snapshot: additions only (28 lines). Moved to review.\n\nModel result: sonnet, worked, 20 min (est. 40). Statements checked by orchestrator (containsJoinWith, helpListsOption say what their names and docs claim).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23467,6 +23467,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3945,
+      "title": "[Sonnet] Std.Args: factor help's let-bound column and lines into Args.helpColumn/helpLines so helpListsOption stops restating them (SW-3939 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3946,
+      "title": "[DeepSeek] Docs for lanes: a fresh worktree has no binary (cargo build --release -p stitchwort-cli, or task build for --native); how to accept one .snap.new without cargo insta; examples/README.md names the test binary per examples folder and the EXAMPLES filter, and how to write one extract example's snapshots (SW-3939, SW-3936, SW-3933 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3947,
+      "title": "[Opus] Sweep erase::def_telescope's callers for matches on a parameter type without forcing it first (js boundary had one, SW-3936); boundary's out-of-resources gives E-EXPORT not E-RESOURCE",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
