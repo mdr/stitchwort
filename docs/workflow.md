@@ -508,9 +508,16 @@ lane missed it and a batch failed:
   SW-1440). For a std change, "commit the regenerated prelude snapshot
   (additions only)" (SW-1494).
 - **Changes std core** (Int, Nat, Text, Char, Bool definitions or lemmas):
-  "run `task test:one -- -E 'test(/bound_to_the_prelude/)'`
-  (about 20 s); if it fails, check the computation is unchanged and repin
-  the hash in `crates/rt/src/natives.rs`". Natives bind by content hash, so
+  "run `task test:one -- -E '(package(stitchwort-cli) & binary(extraction) & test(/bound_to_the_prelude/)) | (package(stitchwort-driver) & binary(projects) & test(compact_text_is_bound_to_the_prelude))'`
+  (about 20 s; the three extract tests are
+  `extract::text_natives_are_bound_to_the_prelude`,
+  `extract::int_is_bound_to_the_prelude` and
+  `extract::nat_and_text_are_bound_to_the_prelude` in the `extraction` binary of
+  `stitchwort-cli`, and `compact_text::compact_text_is_bound_to_the_prelude` is
+  in the `projects` binary of `stitchwort-driver`; naming the binaries stops
+  `dev/test-scope` building the whole workspace); if it fails, check the
+  computation is unchanged and repin the hash in
+  `crates/rt/src/natives.rs`". Natives bind by content hash, so
   editing a definition or anything it depends on unbinds one with no build
   error: on 6 Nov 2026 SW-1558 made an `Int` lemma's arguments implicit and
   `DecEqInt` silently stopped binding (SW-1582 repinned it; SW-1586 is the
