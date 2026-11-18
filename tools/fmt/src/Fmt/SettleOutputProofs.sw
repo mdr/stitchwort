@@ -24,7 +24,16 @@ import Syntax.SettleProofs (
   trailingAtTokens,
   withinOfTokens,
   emptyOf,
-  bareComma
+  bareComma,
+  alphabet1Leaves,
+  allReverseOnto,
+  arrowsIdleAll,
+  commasIdle,
+  homeFromTokens,
+  letsQuiet1,
+  plain1,
+  plainFrom,
+  plainFromOf
 )
 
 -- What rule 1 has passed.
@@ -562,3 +571,239 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
                           rewrite landedHere leaf behind after 0 leafWithin behindWithin landsHere,
                               barsQuiet1 leaf behind after leafWithin then
                             kept
+
+-- The file.
+
+--| A comment line the file loop prints reads back as it is: its text doesn't end in a carriage return, which the
+--| lexer takes off (`crDropped`).
+def Note.unreturned (note: Note): Bool := !note.text.endsWith "\r"
+
+--| No own-line comment the file loop prints ends in a carriage return: those above each declaration and at the end.
+def SourceFile.unreturned1 (file: SourceFile): Bool :=
+  file.decls.all (decl => decl.firstComments.above.all Note.unreturned) && file.end.above.all Note.unreturned
+
+--| The words the output's tree has, all declarations' in a row.
+def SourceFile.words1 (file: SourceFile): List Word := (file.calmTop.decls.map Decl.words).concat
+
+--| The file's leaves stand against its words: each declaration's (`stood1`), the `def` holding the comments the file
+--| loop prints above it.
+theorem standsFile ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (stood: file.stood1 = True)
+    (unreturned: file.unreturned1 = True):
+    stands None file.words1 file.lexed1.leaves = True :=
+  ?
+
+--| The output tree's words are settled as the tree's are: `calm` and `calmTop` change only blank-line flags.
+theorem wordsSettled1 ∀ (file: SourceFile)
+    (settled: file.settled1 = True):
+    homedBack (file.words1.reverseOnto []) = True
+      ∧ file.words1.all (word => word.comments.texts.all commentText) = True :=
+  ?
+
+--| A printed leaf has a closer's kind exactly when it has a closer's text.
+theorem printedAgrees1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True):
+    file.lexed1.leaves.all Leaf.agrees = True :=
+  ?
+
+--| After rule 1 no `->` holds a comment and none comes before an own-line comment.
+theorem homedArrowsBare ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (hung: file.hung1 = True)
+    (stood: file.stood1 = True)
+    (unreturned: file.unreturned1 = True):
+    Syntax.SettleProofs.arrowsBare (homeFrom [] None file.lexed1.leaves) = True :=
+  ?
+
+--| The parser's groups of rule 1's result are the declarations, each with its words.
+theorem groupsBack ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (hung: file.hung1 = True)
+    (stood: file.stood1 = True)
+    (unreturned: file.unreturned1 = True)
+    (m: matched (homeFrom [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
+    (groupsOf (homeFrom [] None file.lexed1.leaves)).map codeWords = file.calmTop.decls.map Decl.words :=
+  ?
+
+--| The end's comments read back as the tree's.
+theorem endBack ∀ (file: SourceFile)
+    (settled: file.settled1 = True)
+    (unreturned: file.unreturned1 = True):
+    file.lexed1.end.trimmed.comments = file.calmTop.end :=
+  ?
+
+--| Trimming leaves whose comments are words' comment texts changes nothing.
+--| A comment whose text rule 5 leaves alone.
+def Comment.clean (comment: Comment): Bool := commentText comment.text
+
+--| Every comment on the leaf is `clean`.
+def Leaf.clean (leaf: Leaf): Bool :=
+  leaf.trivia.leading.all Comment.clean
+    && (match leaf.trivia.trailing with
+      | None => True
+      | Some comment => comment.clean)
+
+theorem commentClean ∀ (comment: Comment) (clean: comment.clean = True): comment.trimmed = comment := match comment with
+  | { text, column, blankLines } =>
+    let unspaced: text.endsWith " " = False := Bool.notTrue _ (Bool.andRight (Bool.andRight clean))
+    rewrite unspaced
+
+theorem commentsClean ∀ (comments: List Comment)
+    (clean: comments.all Comment.clean = True):
+    comments.map Comment.trimmed = comments :=
+  match comments with
+    | [] => byComputing
+    | [comment, ..rest] => rewrite commentClean comment (Bool.andLeft clean), commentsClean rest (Bool.andRight clean)
+
+theorem leafClean ∀ (leaf: Leaf) (clean: leaf.clean = True): { leaf | trivia = leaf.trivia.trimmed } = leaf :=
+  match leaf with
+    | { token, trivia = { leading, blankLines, trailing } } =>
+      let leadingSame := commentsClean leading (Bool.andLeft clean)
+      match trailing with
+        | None => rewrite leadingSame
+        | Some comment => rewrite leadingSame, commentClean comment (Bool.andRight clean)
+
+theorem trimIdle ∀ (leaves: List Leaf)
+    (clean: leaves.all Leaf.clean = True):
+    leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }) = leaves :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, ..rest] => rewrite leafClean leaf (Bool.andLeft clean), trimIdle rest (Bool.andRight clean)
+
+--| A leaf's own-line comments' texts, read as its word's, are clean when the word's are.
+theorem leadingClean ∀ (comments: List Comment) (rest: List Text)
+    (texts: (comments.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })
+      |> .map (note => note.text)
+      |> (notes => notes ++ rest)
+      |> .all commentText)
+      = True):
+    comments.all Comment.clean = True ∧ rest.all commentText = True :=
+  match comments with
+    | [] => (byComputing, texts)
+    | [comment, ..more] =>
+      let (moreClean, restClean) := leadingClean more rest (Bool.andRight texts)
+      (Bool.andIntro (Bool.andLeft texts) moreClean, restClean)
+
+theorem wordClean ∀ (leaf: Leaf) (texts: leaf.word.comments.texts.all commentText = True): leaf.clean = True :=
+  let (leading, trailing) :=
+    leadingClean leaf.trivia.leading (leaf.trivia.trailing.map (comment => comment.text)).toList texts
+  match leaf.trivia.trailing with
+    | None => Bool.andIntro leading byComputing
+    | Some comment => Bool.andIntro leading (Bool.andLeft trailing)
+
+--| Matched leaves are clean when their words' comments are.
+theorem matchedClean ∀ (behind: List Leaf) (done: List Word)
+    (m: matched behind done = True)
+    (texts: done.all (word => word.comments.texts.all commentText) = True):
+    behind.all Leaf.clean = True :=
+  match behind with
+    | [] => byComputing
+    | [leaf, ..earlier] =>
+      match comma: leaf.kind == Comma with
+        | True =>
+          let bare := Bool.andLeft (Bool.andRight m)
+          match leaf.trivia.trailing, leaf.trivia.leading with
+            | None, [] => Bool.andIntro byComputing (matchedClean earlier done (Bool.andRight m) texts)
+        | False =>
+          match done with
+            | [word, ..older] =>
+              let wordTexts: leaf.word.comments.texts.all commentText = True :=
+                rewrite fitsWord leaf word (Bool.andLeft m) then Bool.andLeft texts
+              Bool.andIntro
+                (wordClean leaf wordTexts)
+                (matchedClean earlier older (Bool.andRight m) (Bool.andRight texts))
+
+theorem leadOf ∀ (leaves: List Leaf) (plain: plain1 (tokens leaves) = True): notCommaFirst leaves = True :=
+  match leaves with
+    | [] => byComputing
+    | [leaf, .._] =>
+      match comma: leaf.kind == Comma with
+        | False => byComputing
+
+--| `printedSettle1` (`Fmt.OutputStatements`), with `stood1` (`printedStands1`'s conclusion, ticket F) and
+--| `unreturned1` as hypotheses. `unreturned1` is needed: an own-line comment ending in a carriage return, which
+--| `settled1` allows, is printed with it and read back without it (`returnLost`).
+--|
+--| Proof idea: the leaves stand against the output tree's words (`standsFile`), so rule 1 gives each leaf its word
+--| and leaves the commas bare (`homeStands`); rules 2 to 4 then find nothing to move (`commasIdle`, `arrowsIdleAll`,
+--| `letsQuiet1`), the comments are trimmed already (`trimIdle`), and the parser's groups are the declarations
+--| (`groupsBack`).
+theorem printedSettle1 ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (shaped: file.shaped1 = True)
+    (settled: file.settled1 = True)
+    (lexical: file.lexical1 = True)
+    (hung: file.hung1 = True)
+    (stood: file.stood1 = True)
+    (unreturned: file.unreturned1 = True):
+    (groupsOf file.lexed1.settled.leaves).map codeWords = file.calmTop.decls.map Decl.words
+      ∧ file.lexed1.settled.end.comments = file.calmTop.end :=
+  let leaves := file.lexed1.leaves
+  let homed := homeFrom [] None leaves
+  let (homedWords, texts) := wordsSettled1 file settled
+  let plain := printedPlain1 file within shaped settled lexical hung
+  let leavesWithin := alphabet1Leaves leaves (printedAlphabet1 file within shaped settled lexical)
+  let m: matched homed.reverse (file.words1.reverseOnto []) = True :=
+    homeStands None [] leaves [] file.words1
+      (standsFile file within shaped settled lexical stood unreturned)
+      byComputing
+      (Bool.orRight (leadOf leaves plain))
+      homedWords
+      byComputing
+      leavesWithin
+      (printedAgrees1 file within shaped settled lexical)
+  let bare: homed.all bareComma = True :=
+    rewrite <- List.reverseReverse homed then allReverseOnto bareComma homed.reverse [] (matchedBare _ _ m) byComputing
+  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens [] None leaves) byComputing
+  let plainHomed: plainFrom (tokens homed) = True := rewrite tokensSame then plainFromOf (tokens leaves) plain
+  let homedWithin := withinOfTokens homed leaves tokensSame leavesWithin
+  let commasSame: commasFrom [] None homed file.lexed1.end = { leaves = homed, end = file.lexed1.end } :=
+    commasIdle [] homed file.lexed1.end bare
+  let arrowsSame: arrows homed = homed :=
+    arrowsIdleAll homed (homedArrowsBare file within shaped settled lexical hung stood unreturned) plainHomed
+  let letsSame: letsFrom [] homed = homed := letsQuiet1 [] homed byComputing homedWithin
+  let trimSame: homed.map (leaf => { leaf | trivia = leaf.trivia.trimmed }) = homed :=
+    let wordsTexts := allReverseOnto (word => word.comments.texts.all commentText) file.words1 [] texts byComputing
+    let clean: homed.all Leaf.clean = True :=
+      rewrite <- List.reverseReverse homed then
+        allReverseOnto Leaf.clean homed.reverse [] (matchedClean _ _ m wordsTexts) byComputing
+    trimIdle homed clean
+  let leavesSame: file.lexed1.settled.leaves = homed := rewrite commasSame, arrowsSame, letsSame, trimSame
+  let endSame: file.lexed1.settled.end = file.lexed1.end.trimmed := rewrite commasSame
+  (
+    rewrite leavesSame then groupsBack file within shaped settled lexical hung stood unreturned m,
+    rewrite endSame then endBack file settled unreturned
+  )
+
+-- Cases.
+
+--| Every hypothesis of `printedSettle1` but `unreturned1` holds of a source's tidied tree, and its conclusion fails.
+def returnFails (source: Text): Bool := match tidiedOf source with
+  | None => False
+  | Some file =>
+    file.within1
+      && file.shaped1
+      && file.settled1
+      && file.lexical1
+      && file.hung1
+      && file.stood1
+      && !file.unreturned1
+      && !wordsBack file
+
+--| `unreturned1` is needed: `-- a\r\r\n` keeps one `\r` in the tree's comment (the lexer strips only the last), the
+--| file loop prints it, and the lexer reads the printed line back without it. Above a declaration and at the end.
+theorem returnLost: (returnFails "-- a\r\r\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\r\r\n") = True :=
+  byComputing
