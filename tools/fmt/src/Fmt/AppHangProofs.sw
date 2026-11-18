@@ -8,12 +8,16 @@ import Syntax (Expr, Tok, Word)
 import Fmt (..)
 import Fmt.HangProofs (..)
 
+--| Docs in turn, each starting with a comment waiting only if the one before ended with one (`before`, at first),
+--| `step` holding of each, and the last ending with one waiting only if `trails`.
+def Chained (step: Bool → Bool → Doc → Prop) (before trails: Bool): List Doc → Prop
+  | [] => before = trails
+  | [doc, ..rest] => ∃ (middle: Bool) => step before middle doc ∧ Chained step middle trails rest
+
 --| Elements after the first, each after a space: each starts where the one before ended, a comment waiting only if
 --| that one's code ends with one (`before`), and the last ends with a comment waiting only if `trails`.
-def SpacedParts (kinds: Text → Tok) (indent: Nat) (before trails: Bool): List Doc → Prop
-  | [] => before = trails
-  | [doc, ..rest] =>
-    ∃ (middle: Bool) => PartHangs kinds doc indent before middle ∧ SpacedParts kinds indent middle trails rest
+def SpacedParts (kinds: Text → Tok) (indent: Nat) (before trails: Bool) (docs: List Doc): Prop :=
+  Chained (before middle doc => PartHangs kinds doc indent before middle) before trails docs
 
 --| Where an element ended after words: the fold as after them, nothing in force right of the indentation.
 def AfterWords (state: HangState) (indent: Nat) (trails: Bool): Place → Hang → Prop := place hang =>
@@ -211,10 +215,8 @@ theorem hardArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState)
         (byComputing, rewrite folded then startArgSeat inset state False carry unglued floor bound))
 
 --| Arguments each on a line of its own, laid at `inset`.
-def LinedArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool): List Doc → Prop
-  | [] => before = trails
-  | [doc, ..rest] =>
-    ∃ (middle: Bool) => ElHangs kinds doc inset inset False middle wordStart ∧ LinedArgs kinds inset middle trails rest
+def LinedArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool) (docs: List Doc): Prop :=
+  Chained (before middle doc => ElHangs kinds doc inset inset False middle wordStart) before trails docs
 
 --| Arguments each on a line of its own (a broken call's `rest`), laid deeper than the call: the fold kept.
 theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat) (state: HangState) (before trails: Bool)
@@ -252,11 +254,8 @@ theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat)
 
 --| Arguments filling lines, laid at `inset`: each after a separator, after a waiting comment only if the one before
 --| ended with one.
-def FilledArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool): List Doc → Prop
-  | [] => before = trails
-  | [doc, ..rest] =>
-    ∃ (middle: Bool) => ElHangs kinds doc inset inset before middle wordStart
-      ∧ FilledArgs kinds inset middle trails rest
+def FilledArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool) (docs: List Doc): Prop :=
+  Chained (before middle doc => ElHangs kinds doc inset inset before middle wordStart) before trails docs
 
 theorem sepsArgs ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat) (state: HangState) (before trails: Bool)
     (quiet: state.start = False)
@@ -564,3 +563,33 @@ theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront
             trails
             (elFlatten kinds all indent column False trails allHangs)
             (state entry => (hugHangs state entry, broken state entry, byComputing))
+
+-- Chains of elements.
+
+theorem chainedWeaker ∀ (step weaker: Bool → Bool → Doc → Prop) (before trails: Bool)
+    (docs: List Doc) (implies: ∀ (before middle: Bool) (doc: Doc) => step before middle doc → weaker before middle doc)
+    (chained: Chained step before trails docs):
+    Chained weaker before trails docs :=
+  match docs, chained with
+    | [], same => same
+    | [doc, ..rest], (middle, holds, more) =>
+      (middle, implies before middle doc holds, chainedWeaker step weaker middle trails rest implies more)
+
+--| A chain cut anywhere: the part before the cut ends where the part after starts.
+theorem chainedSplit ∀ (step: Bool → Bool → Doc → Prop) (before trails: Bool) (docs: List Doc) (k: Nat)
+    (chained: Chained step before trails docs):
+    ∃ (kept: Bool) => Chained step before kept (docs.take k) ∧ Chained step kept trails (docs.drop k) :=
+  match k, docs, chained with
+    | Zero, docs, chained => (before, byComputing, chained)
+    | Succ k, [], same => (before, byComputing, same)
+    | Succ k, [doc, ..rest], (middle, holds, more) =>
+      let (kept, front, back) := chainedSplit step middle trails rest k more
+      (kept, (middle, holds, front), back)
+
+theorem chainedSnoc ∀ (step: Bool → Bool → Doc → Prop) (before middle trails: Bool) (docs: List Doc) (last: Doc)
+    (chained: Chained step before middle docs) (holds: step middle trails last):
+    Chained step before trails (docs ++ [last]) :=
+  match docs, chained with
+    | [], same => rewrite same then (trails, holds, byComputing)
+    | [doc, ..rest], (between, first, more) =>
+      (between, first, chainedSnoc step between middle trails rest last more holds)
