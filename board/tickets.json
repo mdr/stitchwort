@@ -23849,12 +23849,12 @@
     {
       "id": 3971,
       "title": "[Opus] fmt S1 ticket 18b: rules and spelling proofs, second half; after 17 settles hangs (sketch §2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-3970 (18a): left for 18b: Joins (Follows kinds) doc edge next for the ~25 rule functions (toy's JoinProofs/RuleJoinProofs pattern; slice 1 adds Choice, IfBroken, IdGroup, Displaced, CloserLine), Printable for tree words from Lexical1, the tree-side leaf statement ticket 17 reads, then printLexes1; plus printedHangs, printedKeeping, printedSettle1. New rule arms go inside SW-3970's named split functions (bodyDoc, appFrom, defFrom, lambdaHug, ...).\n\nFrom SW-3969: hangs gained two clauses (no line starts right after ->; a line-starting : is right of column 0); 18b's printedHangs must prove them of the printer (arrowsBare and the chain rule already keep the operand on the operator's line).",
+      "body": "From SW-3970 (18a): left for 18b: Joins (Follows kinds) doc edge next for the ~25 rule functions (toy's JoinProofs/RuleJoinProofs pattern; slice 1 adds Choice, IfBroken, IdGroup, Displaced, CloserLine), Printable for tree words from Lexical1, the tree-side leaf statement ticket 17 reads, then printLexes1; plus printedHangs, printedKeeping, printedSettle1. New rule arms go inside SW-3970's named split functions (bodyDoc, appFrom, defFrom, lambdaHug, ...).\n\nFrom SW-3969: hangs gained two clauses (no line starts right after ->; a line-starting : is right of column 0); 18b's printedHangs must prove them of the printer (arrowsBare and the chain rule already keep the operand on the operator's line).\n\nProgress (lane, Opus, 18 Nov 14:53-15:40): printLexes1 proved, branch lane/SW-3971, new namespace Fmt.JoinProofs (162 theorems). Every slice 1 element joins (elPasses, by induction, like elSpells); doc1Passes for the declaration; printLexes1 from DeclJoins (the tree-side leaf statement: each token is sound, not a comment, comma or closer where it stands, and openers and glued prefix operators may be followed by what follows them; a call has an argument) and Every Printable over decl.spelt. exampleDeclJoins and exampleDeclPrintable meet both for `def d: A := g [a, b]`. MayFollow Bang now matches the lexer (`!` may be followed by `in…` unless the word is exactly `in`), with StartsAlike replacing the first-character transfer. Rules.sw unchanged. Left: DeclJoins and Printable derived from lexical1/sound (lexer inversion), printedHangs (needs the Lays/Puts column framework, toy's EventProofs is about 3,000 lines), printedKeeping, printedSettle1.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
