@@ -1,5 +1,5 @@
 {
-  "next": 3955,
+  "next": 3956,
   "tickets": [
     {
       "id": 47,
@@ -23505,7 +23505,7 @@
     {
       "id": 3947,
       "title": "[Opus] Sweep erase::def_telescope's callers for matches on a parameter type without forcing it first (js boundary had one, SW-3936); boundary's out-of-resources gives E-EXPORT not E-RESOURCE",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23593,7 +23593,7 @@
     {
       "id": 3953,
       "title": "[Sonnet] Pre-commit hook follow-ups (SW-3952): a checkout without .pre-commit-config.yaml (an old branch's worktree) fails every commit: check prek's install options for an allow-missing-config equivalent, else make the hook skip with a warning; stitchwort fmt --check honours DELIBERATELY_UNFORMATTED for named files so the script needn't filter; extend the repo formatted test and the hook to apps/, bench/, tools/; prek hides the hook's skip warning",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23611,6 +23611,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3955,
+      "title": "[Fable paper] Self-hosted fmt S1 sketch (proof plan ticket 13): S1's predicates written out, statements per layer, counterexample search, theorem counts; probes for F9 (tree induction) and F10 (equations for definitions with abilities); beside SW-3950's program",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
