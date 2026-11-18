@@ -25277,12 +25277,12 @@
     {
       "id": 4079,
       "title": "[Opus] fmt S1 glue part 1 (SW-4078 rec 1): define formatWithin1, state both top theorems (same program up to calm, idempotence) and prove them from what exists, leaving the gaps as named open goals (read-back in file form, hung1 of a parsed tree, tidiedUnreturned1, parseShapedSource/parseLexicalSource from SW-4073), so stitchwort goal lists what is left",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3685 (Matt, 18 Nov 2026: 'happy to go with your recommendation'): stage the milestone. First the slice 1 driver also refuses a file when a declaration's formatted form doesn't fit on one line, with a failing-first test; the top theorems are stated and proved for that (formatWithin1 includes the one-line refusal). Multi-line read-back comes after, and the refusal is lifted then. In scope for this lane: the driver refusal, its test, and the statements.",
+      "body": "D3685 (Matt, 18 Nov 2026: 'happy to go with your recommendation'): stage the milestone. First the slice 1 driver also refuses a file when a declaration's formatted form doesn't fit on one line, with a failing-first test; the top theorems are stated and proved for that (formatWithin1 includes the one-line refusal). Multi-line read-back comes after, and the refusal is lifted then. In scope for this lane: the driver refusal, its test, and the statements.\n\nLane notes (Opus, 22:15-22:45, est. 60 min): branch lane/SW-4079, commits 9cf3d3fb9, 8330416ec, c81c3bf97, 3bbda8c93. Fmt.Driver1: formatWithin1 with the one-line refusal (Decl.oneLine1: no line start inside the type or after the value's first token; tests in Fmt/Tests/Driver1.sw, failing first). Fmt.TopStatements: formatKeepsProgram1 (parse1 out = calmTop of the tidied tree, same meaning) and formatIdempotent1, proved against 12 open goals (stitchwort goal); commaSame1 proved; witness witnessSource (D3684). Fmt.TopReadBack: readsBackDecl1 proved from readsBackLineWithin + open printedSplit1/printedLines1; readsBackFile1 open. New gaps not in the stock take: printedSpelledPlain1; printedSplit1 false today for binary operators (needs SW-4071 to widen Spelt/lineKind in place). parseShapedSource/parseLexicalSource not needed as lemmas (inlined, closed). Twin s6a goldens 430/430 (the twin doesn't use formatWithin1). Fmt.Tests 116/116, Syntax.Tests 52/52.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
