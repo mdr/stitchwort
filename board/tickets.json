@@ -24358,7 +24358,7 @@
     {
       "id": 4010,
       "title": "[Sonnet] fmt S1 rules proofs 18c: derive DeclJoins and Every Printable from lexical1, sound and within1 with kinds = the lexer's kind of each text (lexer inversion: textLexesAs text kind = True gives Spells kind text and not-a-comment), plus Joinable (App ...)'s arguments ≠ [] from the parser (SW-3968's appliedTo), so printLexes1 takes only tree facts (SW-3971)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -24462,7 +24462,7 @@
     {
       "id": 4018,
       "title": "[Fable paper] fmt S1: state parseSettled1, parseCarries1 and fuelEnough1 (sketch §2 names them; Decl.settled1/SourceFile.settled1 exist but nothing states them for the parser): what each must say for glue (SW-3973) to close keeps-meaning and idempotence, checked against the merged parser, rule N and read-back theorems; write the statements as .sw with open goals in a scratch branch, plus a short note for the proof lane (D3682: deciding what to prove is Fable's)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
