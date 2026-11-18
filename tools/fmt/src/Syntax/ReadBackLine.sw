@@ -4672,3 +4672,716 @@ theorem readsBackLexedExample: Parse.run
     byComputing
     byComputing
     byComputing
+--| `def d: A := a - b - c`: `-` nests to the left, and spaced from its operand is no sign.
+theorem readsBackMinusExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem Minus "-" 6,
+              wordItem Lower "b" 7,
+              wordItem Minus "-" 8,
+              wordItem Lower "c" 9
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "a" 5).leaf.word)
+                (wordItem Minus "-" 6).leaf.word
+                (Atom Lower (wordItem Lower "b" 7).leaf.word))
+              (wordItem Minus "-" 8).leaf.word
+              (Atom Lower (wordItem Lower "c" 9).leaf.word)))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [wordItem Lower "a" 5, wordItem Minus "-" 6, wordItem Lower "b" 7, wordItem Minus "-" 8, wordItem Lower "c" 9]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "a" 5).leaf.word)
+        (wordItem Minus "-" 6).leaf.word
+        (Atom Lower (wordItem Lower "b" 7).leaf.word))
+      (wordItem Minus "-" 8).leaf.word
+      (Atom Lower (wordItem Lower "c" 9).leaf.word))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5, wordItem Minus "-" 6, wordItem Lower "b" 7],
+      wordItem Minus "-" 8,
+      [wordItem Lower "c" 9],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [wordItem Lower "a" 5],
+        wordItem Minus "-" 6,
+        [wordItem Lower "b" 7],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (wordItem Lower "c" 9, byComputing, byComputing, byComputing, byComputing)
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a * b + c * d`: `*` binds tighter than `+`.
+theorem readsBackMulAddExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem Star "*" 6,
+              wordItem Lower "b" 7,
+              wordItem Plus "+" 8,
+              wordItem Lower "c" 9,
+              wordItem Star "*" 10,
+              wordItem Lower "d" 11
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "a" 5).leaf.word)
+                (wordItem Star "*" 6).leaf.word
+                (Atom Lower (wordItem Lower "b" 7).leaf.word))
+              (wordItem Plus "+" 8).leaf.word
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "c" 9).leaf.word)
+                (wordItem Star "*" 10).leaf.word
+                (Atom Lower (wordItem Lower "d" 11).leaf.word))))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [
+      wordItem Lower "a" 5,
+      wordItem Star "*" 6,
+      wordItem Lower "b" 7,
+      wordItem Plus "+" 8,
+      wordItem Lower "c" 9,
+      wordItem Star "*" 10,
+      wordItem Lower "d" 11
+    ]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "a" 5).leaf.word)
+        (wordItem Star "*" 6).leaf.word
+        (Atom Lower (wordItem Lower "b" 7).leaf.word))
+      (wordItem Plus "+" 8).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "c" 9).leaf.word)
+        (wordItem Star "*" 10).leaf.word
+        (Atom Lower (wordItem Lower "d" 11).leaf.word)))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5, wordItem Star "*" 6, wordItem Lower "b" 7],
+      wordItem Plus "+" 8,
+      [wordItem Lower "c" 9, wordItem Star "*" 10, wordItem Lower "d" 11],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [wordItem Lower "a" 5],
+        wordItem Star "*" 6,
+        [wordItem Lower "b" 7],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "b" 7, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (
+        [wordItem Lower "c" 9],
+        wordItem Star "*" 10,
+        [wordItem Lower "d" 11],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "c" 9, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "d" 11, byComputing, byComputing, byComputing, byComputing)
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := x ++ y ++ z`: `++` nests to the right.
+theorem readsBackAppendExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "x" 5,
+              wordItem PlusPlus "++" 6,
+              wordItem Lower "y" 7,
+              wordItem PlusPlus "++" 8,
+              wordItem Lower "z" 9
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Atom Lower (wordItem Lower "x" 5).leaf.word)
+              (wordItem PlusPlus "++" 6).leaf.word
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "y" 7).leaf.word)
+                (wordItem PlusPlus "++" 8).leaf.word
+                (Atom Lower (wordItem Lower "z" 9).leaf.word))))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [
+      wordItem Lower "x" 5,
+      wordItem PlusPlus "++" 6,
+      wordItem Lower "y" 7,
+      wordItem PlusPlus "++" 8,
+      wordItem Lower "z" 9
+    ]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Atom Lower (wordItem Lower "x" 5).leaf.word)
+      (wordItem PlusPlus "++" 6).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "y" 7).leaf.word)
+        (wordItem PlusPlus "++" 8).leaf.word
+        (Atom Lower (wordItem Lower "z" 9).leaf.word)))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "x" 5],
+      wordItem PlusPlus "++" 6,
+      [wordItem Lower "y" 7, wordItem PlusPlus "++" 8, wordItem Lower "z" 9],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (wordItem Lower "x" 5, byComputing, byComputing, byComputing, byComputing),
+      (
+        [wordItem Lower "y" 7],
+        wordItem PlusPlus "++" 8,
+        [wordItem Lower "z" 9],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "y" 7, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "z" 9, byComputing, byComputing, byComputing, byComputing)
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: A := a + 1 == b * c`: a comparison of two chains.
+theorem readsBackCmpExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[wordItem Upper "A" 3]
+          ++ [
+            wordItem ColonEq ":=" 4,
+            ..[
+              wordItem Lower "a" 5,
+              wordItem Plus "+" 6,
+              wordItem Num "1" 7,
+              wordItem EqEq "==" 8,
+              wordItem Lower "b" 9,
+              wordItem Star "*" 10,
+              wordItem Lower "c" 11
+            ]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Atom Upper (wordItem Upper "A" 3).leaf.word))
+          (Assigned
+            (wordItem ColonEq ":=" 4).leaf.word.comments
+            (Infix InfixBinary
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "a" 5).leaf.word)
+                (wordItem Plus "+" 6).leaf.word
+                (Atom Num (wordItem Num "1" 7).leaf.word))
+              (wordItem EqEq "==" 8).leaf.word
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "b" 9).leaf.word)
+                (wordItem Star "*" 10).leaf.word
+                (Atom Lower (wordItem Lower "c" 11).leaf.word))))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 4)
+    [wordItem Upper "A" 3]
+    [
+      wordItem Lower "a" 5,
+      wordItem Plus "+" 6,
+      wordItem Num "1" 7,
+      wordItem EqEq "==" 8,
+      wordItem Lower "b" 9,
+      wordItem Star "*" 10,
+      wordItem Lower "c" 11
+    ]
+    (Atom Upper (wordItem Upper "A" 3).leaf.word)
+    (Infix InfixBinary
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "a" 5).leaf.word)
+        (wordItem Plus "+" 6).leaf.word
+        (Atom Num (wordItem Num "1" 7).leaf.word))
+      (wordItem EqEq "==" 8).leaf.word
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "b" 9).leaf.word)
+        (wordItem Star "*" 10).leaf.word
+        (Atom Lower (wordItem Lower "c" 11).leaf.word)))
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [wordItem Lower "a" 5, wordItem Plus "+" 6, wordItem Num "1" 7],
+      wordItem EqEq "==" 8,
+      [wordItem Lower "b" 9, wordItem Star "*" 10, wordItem Lower "c" 11],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [wordItem Lower "a" 5],
+        wordItem Plus "+" 6,
+        [wordItem Num "1" 7],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "a" 5, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Num "1" 7, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (
+        [wordItem Lower "b" 9],
+        wordItem Star "*" 10,
+        [wordItem Lower "c" 11],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "b" 9, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Lower "c" 11, byComputing, byComputing, byComputing, byComputing)
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: n - 1 -> B -> C := x`: an arrow whose left side has an operator.
+theorem readsBackArrowOperatorExample: Parse.run
+      [
+        wordItem KwDef "def" 0,
+        wordItem Lower "d" 1,
+        wordItem Colon ":" 2,
+        ..[
+          wordItem Lower "n" 3,
+          wordItem Minus "-" 4,
+          wordItem Num "1" 5,
+          wordItem Arrow "->" 6,
+          wordItem Upper "B" 7,
+          wordItem Arrow "->" 8,
+          wordItem Upper "C" 9
+        ]
+          ++ [wordItem ColonEq ":=" 10, ..[wordItem Lower "x" 11]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (wordItem KwDef "def" 0)
+            (wordItem Lower "d" 1)
+            (wordItem Colon ":" 2)
+            (Infix InfixArrow
+              (Infix InfixBinary
+                (Atom Lower (wordItem Lower "n" 3).leaf.word)
+                (wordItem Minus "-" 4).leaf.word
+                (Atom Num (wordItem Num "1" 5).leaf.word))
+              (wordItem Arrow "->" 6).leaf.word
+              (Infix InfixArrow
+                (Atom Upper (wordItem Upper "B" 7).leaf.word)
+                (wordItem Arrow "->" 8).leaf.word
+                (Atom Upper (wordItem Upper "C" 9).leaf.word))))
+          (Assigned (wordItem ColonEq ":=" 10).leaf.word.comments (Atom Lower (wordItem Lower "x" 11).leaf.word))) :=
+  readsBackLine Seen.start
+    (wordItem KwDef "def" 0)
+    (wordItem Lower "d" 1)
+    (wordItem Colon ":" 2)
+    (wordItem ColonEq ":=" 10)
+    [
+      wordItem Lower "n" 3,
+      wordItem Minus "-" 4,
+      wordItem Num "1" 5,
+      wordItem Arrow "->" 6,
+      wordItem Upper "B" 7,
+      wordItem Arrow "->" 8,
+      wordItem Upper "C" 9
+    ]
+    [wordItem Lower "x" 11]
+    (Infix InfixArrow
+      (Infix InfixBinary
+        (Atom Lower (wordItem Lower "n" 3).leaf.word)
+        (wordItem Minus "-" 4).leaf.word
+        (Atom Num (wordItem Num "1" 5).leaf.word))
+      (wordItem Arrow "->" 6).leaf.word
+      (Infix InfixArrow
+        (Atom Upper (wordItem Upper "B" 7).leaf.word)
+        (wordItem Arrow "->" 8).leaf.word
+        (Atom Upper (wordItem Upper "C" 9).leaf.word)))
+    (Atom Lower (wordItem Lower "x" 11).leaf.word)
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (
+      [wordItem Lower "n" 3, wordItem Minus "-" 4, wordItem Num "1" 5],
+      wordItem Arrow "->" 6,
+      [wordItem Upper "B" 7, wordItem Arrow "->" 8, wordItem Upper "C" 9],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [wordItem Lower "n" 3],
+        wordItem Minus "-" 4,
+        [wordItem Num "1" 5],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Lower "n" 3, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Num "1" 5, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (
+        [wordItem Upper "B" 7],
+        wordItem Arrow "->" 8,
+        [wordItem Upper "C" 9],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (wordItem Upper "B" 7, byComputing, byComputing, byComputing, byComputing),
+        (wordItem Upper "C" 9, byComputing, byComputing, byComputing, byComputing)
+      )
+    )
+    (wordItem Lower "x" 11, byComputing, byComputing, byComputing, byComputing)
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+
+--| `def d: n - 1 -> A := f x - y * -z`: operators on both sides, a call as an operand and a sign after `*`.
+def lexedOpLine: List Item := lexedItems "def d: n - 1 -> A := f x - y * -z\n"
+
+--| `lexedOpLine`'s items, written out: `lexedOpLineIs` says the lexer gives these.
+def lexedOpAt (index: Nat): Item := match index with
+  | 0 => lexedItem KwDef "def" 0 False False 0 0
+  | 1 => lexedItem Lower "d" 4 False False 1 0
+  | 2 => lexedItem Colon ":" 5 True True 2 0
+  | 3 => lexedItem Lower "n" 7 False False 3 0
+  | 4 => lexedItem Minus "-" 9 False True 4 0
+  | 5 => lexedItem Num "1" 11 False False 5 0
+  | 6 => lexedItem Arrow "->" 13 False True 6 0
+  | 7 => lexedItem Upper "A" 16 False False 7 0
+  | 8 => lexedItem ColonEq ":=" 18 False True 8 0
+  | 9 => lexedItem Lower "f" 21 False False 9 0
+  | 10 => lexedItem Lower "x" 23 False True 10 0
+  | 11 => lexedItem Minus "-" 25 False True 11 0
+  | 12 => lexedItem Lower "y" 27 False False 12 0
+  | 13 => lexedItem Star "*" 29 False True 13 0
+  | 14 => lexedItem Minus "-" 31 False False 14 0
+  | _ => lexedItem Lower "z" 32 True False 15 0
+
+theorem lexedOpLineIs: lexedOpLine
+      = [
+        lexedOpAt 0,
+        lexedOpAt 1,
+        lexedOpAt 2,
+        lexedOpAt 3,
+        lexedOpAt 4,
+        lexedOpAt 5,
+        lexedOpAt 6,
+        lexedOpAt 7,
+        lexedOpAt 8,
+        lexedOpAt 9,
+        lexedOpAt 10,
+        lexedOpAt 11,
+        lexedOpAt 12,
+        lexedOpAt 13,
+        lexedOpAt 14,
+        lexedOpAt 15
+      ] :=
+  byComputing
+
+def lexedOpType: Expr :=
+  Infix InfixArrow
+    (Infix InfixBinary (Atom Lower (lexedOpAt 3).leaf.word) (lexedOpAt 4).leaf.word (Atom Num (lexedOpAt 5).leaf.word))
+    (lexedOpAt 6).leaf.word
+    (Atom Upper (lexedOpAt 7).leaf.word)
+
+def lexedOpValue: Expr :=
+  Infix InfixBinary
+    (App (Atom Lower (lexedOpAt 9).leaf.word) [Atom Lower (lexedOpAt 10).leaf.word])
+    (lexedOpAt 11).leaf.word
+    (Infix InfixBinary
+      (Atom Lower (lexedOpAt 12).leaf.word)
+      (lexedOpAt 13).leaf.word
+      (Prefix (lexedOpAt 14).leaf.word (Atom Lower (lexedOpAt 15).leaf.word)))
+
+--| `readsBackLine`'s hypotheses hold of the lexer's items for `def d: n - 1 -> A := f x - y * -z` (`lexedOpLineIs`):
+--| each binary `-` spaced from its operand (`operandApart`), the sign after `*` glued to `z`.
+theorem readsBackLexedOpExample: Parse.run
+      [
+        lexedOpAt 0,
+        lexedOpAt 1,
+        lexedOpAt 2,
+        ..[lexedOpAt 3, lexedOpAt 4, lexedOpAt 5, lexedOpAt 6, lexedOpAt 7]
+          ++ [
+            lexedOpAt 8,
+            ..[lexedOpAt 9, lexedOpAt 10, lexedOpAt 11, lexedOpAt 12, lexedOpAt 13, lexedOpAt 14, lexedOpAt 15]
+          ]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader (lexedOpAt 0) (lexedOpAt 1) (lexedOpAt 2) lexedOpType)
+          (Assigned (lexedOpAt 8).leaf.word.comments lexedOpValue)) :=
+  readsBackLine Seen.start
+    (lexedOpAt 0)
+    (lexedOpAt 1)
+    (lexedOpAt 2)
+    (lexedOpAt 8)
+    [lexedOpAt 3, lexedOpAt 4, lexedOpAt 5, lexedOpAt 6, lexedOpAt 7]
+    [lexedOpAt 9, lexedOpAt 10, lexedOpAt 11, lexedOpAt 12, lexedOpAt 13, lexedOpAt 14, lexedOpAt 15]
+    lexedOpType
+    lexedOpValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (
+      [lexedOpAt 3, lexedOpAt 4, lexedOpAt 5],
+      lexedOpAt 6,
+      [lexedOpAt 7],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [lexedOpAt 3],
+        lexedOpAt 4,
+        [lexedOpAt 5],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (lexedOpAt 3, byComputing, byComputing, byComputing, byComputing),
+        (lexedOpAt 5, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (lexedOpAt 7, byComputing, byComputing, byComputing, byComputing)
+    )
+    (
+      [lexedOpAt 9, lexedOpAt 10],
+      lexedOpAt 11,
+      [lexedOpAt 12, lexedOpAt 13, lexedOpAt 14, lexedOpAt 15],
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        [lexedOpAt 9],
+        [lexedOpAt 10],
+        [],
+        byComputing,
+        byComputing,
+        byComputing,
+        (lexedOpAt 9, byComputing, byComputing, byComputing, byComputing),
+        (lexedOpAt 10, byComputing, byComputing, byComputing, byComputing),
+        byComputing
+      ),
+      (
+        [lexedOpAt 12],
+        lexedOpAt 13,
+        [lexedOpAt 14, lexedOpAt 15],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (lexedOpAt 12, byComputing, byComputing, byComputing, byComputing),
+        (
+          lexedOpAt 14,
+          [lexedOpAt 15],
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (lexedOpAt 15, byComputing, byComputing, byComputing, byComputing)
+        )
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
