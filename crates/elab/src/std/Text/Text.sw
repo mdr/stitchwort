@@ -47,7 +47,30 @@ def Char.toAsciiUpper (char: Char): Char :=
 def Text.toAsciiUpper (text: Text): Text := MkText (text.toList.map Char.toAsciiUpper)
 
 test "Text.toAsciiUpper" :=
-  Text.toAsciiUpper "héllo, World 9" == "HéLLO, WORLD 9" ∧ Text.toAsciiUpper "" == "" ∧ Text.toAsciiUpper "ABC" == "ABC" ∧ "ab".toAsciiUpper == "AB"
+  Text.toAsciiUpper "héllo, World 9" == "HéLLO, WORLD 9"
+    ∧ Text.toAsciiUpper "" == ""
+    ∧ Text.toAsciiUpper "ABC" == "ABC"
+    ∧ "ab".toAsciiUpper == "AB"
+
+--| The character with ASCII letters made lower case: `Char.toAsciiLower 'A'` is `'a'`,
+--| and every other character, accented letters included, is unchanged.
+def Char.toAsciiLower (char: Char): Char :=
+  if Char.isAsciiUppercase char then
+    (match Char.fromNat (Char.toNat char + 32) with
+      | Some lower => lower
+      | None => char)
+  else char
+
+--| The text with ASCII letters made lower case: `"HÉLLO".toAsciiLower` is `"hÉllo"`.
+--| Only `A` to `Z` change, so it is not Unicode case conversion.
+def Text.toAsciiLower (text: Text): Text := MkText (text.toList.map Char.toAsciiLower)
+
+test "Text.toAsciiLower" :=
+  Text.toAsciiLower "HÉLLO, World 9" == "hÉllo, world 9"
+    ∧ Text.toAsciiLower "" == ""
+    ∧ Text.toAsciiLower "abc" == "abc"
+    ∧ "AB".toAsciiLower == "ab"
+    ∧ Char.toAsciiLower 'Z' == 'z'
 
 test "Text.any and Text.all" :=
   Text.any "abc" (== 'b') ∧ ¬(Text.any "abc" (== 'z')) ∧ Text.all "aaa" (== 'a') ∧ ¬(Text.all "aba" (== 'a'))
