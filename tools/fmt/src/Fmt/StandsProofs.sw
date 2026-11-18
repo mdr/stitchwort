@@ -3,8 +3,11 @@
 
 namespace Fmt.StandsProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
-import Std.Doc.Proofs (Event, eventsOf, isLayout, lineBlank, lineWidth)
+import Std.Doc.Proofs (Event, Gap, Said, Told, eventsOf, isLayout, lineBlank, lineWidth)
 import Syntax (Comment, Comments, Leaf, Note, Tok, Token, Trivia, Word, withTrailing, withoutReturn)
+import Fmt (isCloserText)
+import Fmt.TriviaStatements (..)
+import Fmt.ToldDeclProofs (..)
 import Syntax.Proofs (Laid, Piece)
 import Fmt.PrintHangProofs (CommentsEnd, Tracks, endsRest, freshIsBlank, laidOf, lastComment, tracks)
 import Fmt.PrintLexProofs (pieceOf)
@@ -217,3 +220,153 @@ theorem laidHears ∀ (kinds: Text → Tok) (texts: List Text)
                 (_ => goal)
                 (comment => hearsRemark kinds text earlier spaces broken comment ends before)
                 (comment => hearsCode kinds text earlier spaces broken comment ends before)))
+
+-- The tree's words, with the bare commas the rules write between a bracket's items.
+
+type Bit = | AWord (word: Word) | AComma
+
+def bitsWords: List Bit → List Word
+  | [] => []
+  | [AWord word, ..rest] => [word, ..bitsWords rest]
+  | [AComma, ..rest] => bitsWords rest
+
+def Bit.shape: Bit → List Told
+  | AWord word => word.shapeW
+  | AComma => [Said "," True True]
+
+def bitsShape: List Bit → List Told
+  | [] => []
+  | [bit, ..rest] => bit.shape ++ bitsShape rest
+
+-- What the lexer reads, as `stands` takes it.
+
+--| The views are the lexer's reading of `bits`, where `owed` is the comment of a word already passed that the lexer has
+--| not met: each comma a comma with no comments above it; each word its text and own-line comments, of a kind no comma,
+--| and a closer exactly if the word is; a trailing comment on its word's view or owed past the commas and closers after
+--| it, none of which starts a line, to the first that holds it; a closer that holds a comment starting its line.
+def Heard (owed: Option Text): List Bit → List View → Prop
+  | [], [] => owed = None
+  | [AComma, ..rest], [view, ..more] =>
+    view.kind = Comma
+      ∧ view.word.comments.above = []
+      ∧ view.word.comments.blankBefore = False
+      ∧ (match owed with
+        | None => view.word.comments.after = None ∧ Heard None rest more
+        | Some text =>
+          view.starts = False
+            ∧ ((view.word.comments.after = Some text ∧ Heard None rest more)
+              ∨ (view.word.comments.after = None ∧ Heard (Some text) rest more)))
+  | [AWord word, ..rest], [view, ..more] =>
+    view.word.text = word.text
+      ∧ view.word.comments.above = word.comments.above
+      ∧ view.word.comments.blankBefore = word.comments.blankBefore
+      ∧ (view.kind == Comma) = False
+      ∧ view.kind.isCloser = isCloserText word.text
+      ∧ (match owed, word.comments.after with
+        | Some _, Some _ => False
+        | Some text, None =>
+          isCloserText word.text = True
+            ∧ view.starts = False
+            ∧ ((view.word.comments.after = Some text ∧ Heard None rest more)
+              ∨ (view.word.comments.after = None ∧ Heard (Some text) rest more))
+        | None, None => view.word.comments.after = None ∧ Heard None rest more
+        | None, Some text =>
+          (isCloserText word.text = True → view.starts = True)
+            ∧ ((view.word.comments.after = Some text ∧ Heard None rest more)
+              ∨ (view.word.comments.after = None ∧ Heard (Some text) rest more)))
+  | _, _ => False
+
+theorem noLeading ∀ (leaf: Leaf) (none: leaf.word.comments.above = []): leaf.trivia.leading.isEmpty = True :=
+  match leaf with
+    | { token, trivia = { leading, blankLines, trailing } } =>
+      match leading, none with
+        | [], _ => byComputing
+        | [comment, ..more], never => cases
+
+theorem noBlank ∀ (leaf: Leaf) (none: leaf.word.comments.blankBefore = False): (leaf.trivia.blankLines == 0) = True :=
+  match leaf with
+    | { token, trivia = { leading, blankLines, trailing } } =>
+      match blankLines, none with
+        | Zero, _ => byComputing
+        | Succ less, never => (Bool.trueNotFalse never).impossible
+
+theorem noTrail ∀ (leaf: Leaf) (none: leaf.word.comments.after = None): leaf.trivia.trailing = None := match leaf with
+  | { token, trivia = { leading, blankLines, trailing } } =>
+    match trailing, none with
+      | None, _ => byComputing
+      | Some comment, never => cases
+
+theorem someTrail ∀ (leaf: Leaf) (text: Text)
+    (some: leaf.word.comments.after = Some text):
+    ∃ (comment: Comment) => leaf.trivia.trailing = Some comment ∧ comment.text = text :=
+  match leaf with
+    | { token, trivia = { leading, blankLines, trailing } } =>
+      match trailing, some with
+        | Some comment, some => (comment, byComputing, Option.someInjective some)
+        | None, never => cases
+
+theorem tuckedNone ∀ (leaf: Leaf) (none: leaf.word.comments.after = None): tucked None leaf = Some None :=
+  rewrite noTrail leaf none
+
+theorem tuckedPass ∀ (leaf: Leaf) (text: Text)
+    (stays: leaf.token.lineStart = False)
+    (none: leaf.word.comments.after = None):
+    tucked (Some text) leaf = Some (Some text) :=
+  rewrite noTrail leaf none, stays
+
+theorem tuckedHolds ∀ (leaf: Leaf) (text: Text)
+    (stays: leaf.token.lineStart = False)
+    (holds: leaf.word.comments.after = Some text):
+    tucked (Some text) leaf = Some None :=
+  match someTrail leaf text holds with | (comment, trailing, same) => rewrite trailing, stays, same, DecEq.refl text
+
+theorem headedOf ∀ (leaf: Leaf) (word: Word)
+    (text: leaf.view.word.text = word.text)
+    (above: leaf.view.word.comments.above = word.comments.above)
+    (blank: leaf.view.word.comments.blankBefore = word.comments.blankBefore):
+    leaf.headedAs word = True :=
+  rewrite text, above, blank, DecEq.refl word.text, DecEq.refl word.comments.above, DecEq.refl word.comments.blankBefore
+
+--| Leaves the lexer reads as `Heard` says stand against the words.
+--|
+--| Proof idea: by induction on the bits, one leaf each, reading `stands`' branch from the view: a comma's, a word's
+--| with its trailing comment held, owed or passed on (`tuckedNone`, `tuckedPass`, `tuckedHolds`).
+theorem heardStands ∀ (owed: Option Text) (bits: List Bit) (leaves: List Leaf)
+    (heard: Heard owed bits (leaves.map Leaf.view)):
+    stands owed (bitsWords bits) leaves = True :=
+  match owed, bits, leaves, heard with
+    | owed, [], [], none => rewrite none
+    | owed, [AComma, ..rest], [leaf, ..more], (comma, above, blank, tail) =>
+      let isComma: (leaf.kind == Comma) = True := rewrite comma
+      rewrite isComma, noLeading leaf above, noBlank leaf blank then
+        match owed, tail with
+          | None, (after, heardRest) => rewrite tuckedNone leaf after then heardStands None rest more heardRest
+          | Some text, (stays, Inl (holds, heardRest)) =>
+            rewrite tuckedHolds leaf text stays holds then heardStands None rest more heardRest
+          | Some text, (stays, Inr (none, heardRest)) =>
+            rewrite tuckedPass leaf text stays none then heardStands (Some text) rest more heardRest
+    | owed, [AWord word, ..rest], [leaf, ..more], (text, above, blank, notComma, closer, tail) =>
+      let notCommaLeaf: (leaf.kind == Comma) = False := notComma
+      let closerLeaf: leaf.kind.isCloser = isCloserText word.text := closer
+      rewrite notCommaLeaf, headedOf leaf word text above blank then
+        match owed, after: word.comments.after, tail with
+          | Some _, Some _, never => cases
+          | Some owedText, None, (shut, stays, Inl (holds, heardRest)) =>
+            rewrite closerLeaf, shut, tuckedHolds leaf owedText stays holds then heardStands None rest more heardRest
+          | Some owedText, None, (shut, stays, Inr (none, heardRest)) =>
+            rewrite closerLeaf, shut, tuckedPass leaf owedText stays none then
+              heardStands (Some owedText) rest more heardRest
+          | None, None, (none, heardRest) => rewrite noTrail leaf none then heardStands None rest more heardRest
+          | None, Some trail, (startsIf, owing) =>
+            let opens: (!leaf.kind.isCloser || leaf.token.lineStart) = True :=
+              rewrite closerLeaf then
+                match shut: isCloserText word.text with
+                  | True => rewrite startsIf shut
+                  | False => byComputing
+            rewrite opens then
+              match owing with
+                | Inl (holds, heardRest) =>
+                  match someTrail leaf trail holds with
+                    | (comment, trailing, same) =>
+                      rewrite trailing, same, DecEq.refl trail then heardStands None rest more heardRest
+                | Inr (none, heardRest) => rewrite noTrail leaf none then heardStands (Some trail) rest more heardRest
