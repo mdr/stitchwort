@@ -434,7 +434,7 @@ def Waiting: Option Event → List Event → Prop
 --| The events still to print: the waiting comment's closers and then it, then the stretches'.
 def nowPrinted: Option Event → List Event → List Stretch → List Event
   | None, _, stretches => printedOf stretches
-  | Some comment, pending, stretches => pending ++ [comment] ++ printedOf stretches
+  | Some comment, pending, stretches => (pending ++ [comment]) ++ printedOf stretches
 
 --| An entry whose event can't start a tucked stretch: a blank line, a word, or a comment that starts its line.
 def Unmoved (told: Told): Bool := match told with
@@ -573,3 +573,76 @@ theorem hearHead ∀ (kinds: Text → Tok) (notes: List Note) (blankW: Bool) (te
         | True, [], never => cases
         | True, [gapEvent], (_, never) => cases
         | False, [], never => cases
+
+theorem closesCloser ∀ (text: Text)
+    (closes: closesText text = True)
+    (notComma: (text == ",") = False):
+    isCloserText text = True :=
+  match paren: text == ")" with
+    | True => byComputing
+    | False =>
+      match square: text == "]" with
+        | True => byComputing
+        | False => (Bool.falseNotTrue (rewrite notComma at closes then closes)).impossible
+
+theorem commentNotCloses ∀ (text: Text) (comment: text.startsWith "--" = True): closesText text = False :=
+  match paren: text == ")" with
+    | True => (Bool.falseNotTrue (rewrite DecEq.sound paren at comment then comment)).impossible
+    | False =>
+      match square: text == "]" with
+        | True => (Bool.falseNotTrue (rewrite DecEq.sound square at comment then comment)).impossible
+        | False =>
+          match comma: text == "," with
+            | True => (Bool.falseNotTrue (rewrite DecEq.sound comma at comment then comment)).impossible
+            | False => byComputing
+
+--| A word's own-line comments, blank line and token can't start a tucked stretch.
+theorem headUnmoved ∀ (notes: List Note) (blank: Bool) (text: Text) (flag: Bool)
+    (code: text.startsWith "--" = False):
+    (notesTold notes ++ ((if blank then [Told.Gap] else []) ++ [Said text True flag])).all Unmoved = True :=
+  match notes with
+    | [] =>
+      match blank, flag with
+        | True, True => rewrite code
+        | True, False => byComputing
+        | False, True => rewrite code
+        | False, False => byComputing
+    | [{ text = noteText, blankBefore = noteBlank }, ..others] =>
+      match noteBlank with
+        | True => headUnmoved others blank text flag code
+        | False => headUnmoved others blank text flag code
+
+--| A word's reading, split after its token.
+theorem shapeSplit ∀ (text: Text) (notes: List Note) (after: Option Text) (blank: Bool) (more: List Told):
+    { text, comments = { above = notes, after, blankBefore = blank } }.shapeW ++ more
+      = (notesTold notes
+        ++ ((if blank then [Told.Gap] else [])
+          ++ [Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = blank } })]))
+        ++ ({ text, comments = { above = notes, after, blankBefore = blank } }.toldTrail ++ more) :=
+  match blank with
+    | True =>
+      rewrite List.appendAssoc
+            (notesTold notes ++ [Told.Gap])
+            ([Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = True } })]
+              ++ { text, comments = { above = notes, after, blankBefore = True } }.toldTrail)
+            more,
+          List.appendAssoc
+            (notesTold notes)
+            [Told.Gap]
+            ([Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = True } })]
+              ++ ({ text, comments = { above = notes, after, blankBefore = True } }.toldTrail ++ more)),
+          List.appendAssoc
+            (notesTold notes)
+            [Told.Gap, Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = True } })]
+            ({ text, comments = { above = notes, after, blankBefore = True } }.toldTrail ++ more)
+    | False =>
+      rewrite List.appendAssoc
+            (notesTold notes ++ [])
+            ([Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = False } })]
+              ++ { text, comments = { above = notes, after, blankBefore = False } }.toldTrail)
+            more,
+          List.appendNil (notesTold notes),
+          List.appendAssoc
+            (notesTold notes)
+            [Said text True (!closerTrails { text, comments = { above = notes, after, blankBefore = False } })]
+            ({ text, comments = { above = notes, after, blankBefore = False } }.toldTrail ++ more)
