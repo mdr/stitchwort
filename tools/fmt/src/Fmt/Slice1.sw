@@ -10,9 +10,24 @@
 --| file loop is `crates/fmt/src/printer/mod.rs`'s `print_file_seeing`.
 
 namespace Fmt
-import Std (Bool, Doc, List, Nat, Option, Result, Text)
+import Std (Bool, Char, Doc, List, Nat, Option, Result, Text)
 import Std.Doc (..)
-import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
+import Syntax (
+  Comments,
+  Decl,
+  DefBody,
+  DefKind,
+  Expr,
+  Header,
+  InfixKind,
+  Note,
+  SourceFile,
+  Tok,
+  Word,
+  isWordChar,
+  isWordStart,
+  wordKind
+)
 
 -- The slice.
 
@@ -20,7 +35,7 @@ import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, 
 --| tuple, a list without spreads, an application, a binary operator, `-`
 --| or `!`, or `→`, all the way down.
 def Expr.within1: Expr → Bool
-  | Atom kind _ => kind.wordWithin1
+  | Atom kind word => kind.wordWithin1 && textSpells1 kind word.text
   | Paren _ inner _ => inner.within1
   | Tuple _ items _ _ => allWithin1 items
   | ListOf _ items _ _ => allWithin1 items
@@ -42,6 +57,42 @@ def Tok.wordWithin1: Tok → Bool
   | Float => True
   | _ => False
 
+--| A name or numeral's text is spelled as plainly as the lexer proofs need: a name of word characters (no `.`: a
+--| qualified name `List.map` is one `Lower` token the proofs' `Spells` leaves out), a numeral of digits, or digits, a
+--| `.` and digits (no exponent: `1e3` is one `Float`). `Syntax.Proofs.Spells` says the same as a proposition
+--| (`spellsOfText1`, `textOfSpells1`).
+def textSpells1 (kind: Tok) (text: Text): Bool := match kind with
+  | Lower => nameText1 Lower text.toList
+  | Upper => nameText1 Upper text.toList
+  | Num => numberText1 text.toList
+  | Float => floatText1 text.toList
+  | _ => False
+
+def nameText1 (kind: Tok) (chars: List Char): Bool := match chars with
+  | [first, ..others] => isWordStart first && others.all isWordChar && wordKind False (Text.fromList chars) == kind
+  | [] => False
+
+def numberText1 (chars: List Char): Bool := match chars with
+  | [first, ..others] => first.isAsciiDigit && others.all Char.isAsciiDigit
+  | [] => False
+
+def floatText1 (chars: List Char): Bool := match chars with
+  | [first, ..rest] => first.isAsciiDigit && fractionText1 rest
+  | [] => False
+
+--| The rest of a float's text: digits, then `.` and a digit and more digits.
+def fractionText1 (chars: List Char): Bool := match chars with
+  | [] => False
+  | [char, ..rest] =>
+    if char == '.' then
+      match rest with
+        | [second, ..more] => second.isAsciiDigit && more.all Char.isAsciiDigit
+        | [] => False
+    else char.isAsciiDigit && fractionText1 rest
+
+--| A header's name: one token of `Lower` kind, spelled plainly.
+def Word.nameWithin1 (word: Word): Bool := word.lexesAs Lower && textSpells1 Lower word.text
+
 --| `def name: T`, with a lower-case name: no attributes, `export`, `opaque`, parameters,
 --| `decreasing` or `unfolding`.
 def Header.within1 (header: Header): Bool := match header with
@@ -56,7 +107,7 @@ def Header.within1 (header: Header): Bool := match header with
       decreasingClause = None,
       unfoldingClause = None,
       ..
-    } => name.lexesAs Lower && result.within1
+    } => name.nameWithin1 && result.within1
   | _ => False
 
 def Decl.within1: Decl → Bool

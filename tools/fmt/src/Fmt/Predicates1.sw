@@ -169,6 +169,10 @@ theorem Word.lexesAsText ∀ (word other: Word)
     word.lexesAs kind = other.lexesAs kind :=
   rewrite same
 
+theorem Word.keptNameWithin1 ∀ (word: Word) (item closer: Bool):
+    (word.kept item closer).nameWithin1 = word.nameWithin1 :=
+  byComputing
+
 theorem Word.keptLexesAs ∀ (word: Word) (item closer: Bool) (kind: Tok):
     (word.kept item closer).lexesAs kind = word.lexesAs kind :=
   byComputing
