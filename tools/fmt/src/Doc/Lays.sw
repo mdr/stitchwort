@@ -36,49 +36,56 @@ def WriteLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (nex
     match place with
       | AtStart _ _ => False
       | Broken _ _ => False
-      | Mid at floor => next (Mid at floor) trace
+      | Mid at floor => next (Mid at (floorAfter text floor)) trace
       | Held at floor => next (Held at floor) trace
   else
     (text == "\n") = False
       ∧ (match place with
-        | AtStart at floor => next (Mid at floor) (trace ++ [{ word = text, start = Some at }])
-        | Broken at floor => next (Mid at floor) (trace ++ [{ word = text, start = Some at }])
-        | Mid at floor => next (Mid at floor) (trace ++ [{ word = text, start = None }])
+        | AtStart at floor => next (Mid at (floorAfter text floor)) (trace ++ [{ word = text, start = Some at }])
+        | Broken at floor => next (Mid at (floorAfter text floor)) (trace ++ [{ word = text, start = Some at }])
+        | Mid at floor => next (Mid at (floorAfter text floor)) (trace ++ [{ word = text, start = None }])
         | Held at floor =>
-          next (Mid (Nat.max indent (at + 2))) (trace ++ [{ word = text, start = Some (Nat.max indent (at + 2)) }]))
+          let broken := floored floor (Nat.max indent (at + 2))
+          next (Mid broken (floorAfter text floor)) (trace ++ [{ word = text, start = Some broken }]))
 
 --| A closer in a construct indented `indent`: a chunk where no comment
 --| waits; where one waits, a word on the comment's line, which the tree
 --| has after the comment (the printer writes it before).
 def CloseLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
-    | Held at floor => closesText text = True ∧ next (Held at floor) (trace ++ [{ word = text, start = None }])
+    | Held at floor =>
+      closesText text = True ∧ next (Held at (floorAfter text floor)) (trace ++ [{ word = text, start = None }])
     | _ => WriteLays indent text place trace next
 
 --| A `Line` or a fill's separator: a space or a line break, after words.
+--| After a waiting comment the space is held, so the place stays.
 def SepLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop := match place with
   | AtStart _ _ => False
   | Broken _ _ => False
-  | Mid at floor => next (Mid at floor) trace ∧ next (AtStart indent) trace
-  | Held _ _ => next (AtStart indent) trace
+  | Mid at floor => next (Mid at None) trace ∧ next (AtStart (floored floor indent) floor) trace
+  | Held at floor => next (Held at floor) trace ∧ next (AtStart (floored floor indent) floor) trace
 
---| A `SoftLine`: nothing or a line break, after words; a line break if a
---| comment waits.
+--| A `SoftLine`: nothing or a line break, after words.
 def SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart _ _ => False
     | Broken _ _ => False
-    | Mid at floor => next (Mid at floor) trace ∧ next (AtStart indent) trace
-    | Held _ _ => next (AtStart indent) trace
+    | Mid at floor => next (Mid at floor) trace ∧ next (AtStart (floored floor indent) floor) trace
+    | Held at floor => next (Held at floor) trace ∧ next (AtStart (floored floor indent) floor) trace
 
 --| A `LineStart`: a comment break, deeper than the line, unless a line
---| starts here.
+--| starts here; the break's indentation is the floor until the next
+--| code.
 def StartLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart at floor => next (AtStart at floor) trace
     | Broken at floor => next (AtStart at floor) trace
-    | Mid at floor => next (AtStart (Nat.max indent (at + 2))) trace
-    | Held at floor => next (AtStart (Nat.max indent (at + 2))) trace
+    | Mid at floor =>
+      let broken := Nat.max indent (at + 2)
+      next (AtStart (floored floor broken) (Some broken)) trace
+    | Held at floor =>
+      let broken := Nat.max indent (at + 2)
+      next (AtStart (floored floor broken) (Some broken)) trace
 
 --| A trailing comment: after words on its line, with no other waiting.
 def SuffixLays (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
@@ -112,10 +119,11 @@ def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | Closing text => CloseLays indent text place trace next
     | Line => SepLays indent place trace next
     | SoftLine => SoftLays indent place trace next
-    | HardLine => place.midLine = True ∧ (next (Broken indent) trace ∨ next (AtStart indent) trace)
-    | CommentEnd => place.midLine = True ∧ next (AtStart place.indent) trace
+    | HardLine =>
+      let broken := floored place.floor indent
+      place.midLine = True ∧ (next (Broken broken place.floor) trace ∨ next (AtStart broken place.floor) trace)
     | LineStart => StartLays indent place trace next
-    | LineStartHere => next (AtStart indent) trace
+    | LineStartHere => HerePuts indent place trace next
     | Nest more inner => Lays inner (indent + more) place trace next
     | Align inner => AlignHolds indent place (column => Lays inner column place trace next)
     | AlignInset inner => AlignHolds (indent + 2) place (column => Lays inner column place trace next)
@@ -125,7 +133,8 @@ def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | IdGroup _ inner _ => Lays inner indent place trace next
     | IfBroken _ broken flat => Lays broken indent place trace next ∧ Lays flat indent place trace next
     | Flatten inner => Lays inner indent place trace next
-    | OneLineBelow inner => place.midLine = True ∧ Lays inner (indent + 2) (AtStart (indent + 2)) trace next
+    | OneLineBelow inner =>
+      place.midLine = True ∧ Lays inner (indent + 2) (AtStart (floored place.floor (indent + 2)) place.floor) trace next
     | Concat docs => LaysAll docs indent place trace next
     | Fill items => FillLays items indent place trace next
     | Choice options => OptionsLay options indent place trace next
@@ -211,7 +220,7 @@ theorem sepLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (stro
     | AtStart at floor, never => never
     | Broken at floor, never => never
     | Mid at floor, Both same broken => ((implies _ _ same), (implies _ _ broken))
-    | Held at floor, broken => implies _ _ broken
+    | Held at floor, Both same broken => ((implies _ _ same), (implies _ _ broken))
 
 --| `SoftLays` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
@@ -223,7 +232,7 @@ theorem softLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (str
     | AtStart at floor, never => never
     | Broken at floor, never => never
     | Mid at floor, Both same broken => ((implies _ _ same), (implies _ _ broken))
-    | Held at floor, broken => implies _ _ broken
+    | Held at floor, Both same broken => ((implies _ _ same), (implies _ _ broken))
 
 --| `StartLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
@@ -277,9 +286,8 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | SoftLine, lays => softLaysWeaker indent place trace strong weak implies lays
     | HardLine, Both mid (Inl broken) => (mid, (Inl (implies _ _ broken)))
     | HardLine, Both mid (Inr started) => (mid, (Inr (implies _ _ started)))
-    | CommentEnd, Both mid lays => (mid, (implies _ _ lays))
     | LineStart, lays => startLaysWeaker indent place trace strong weak implies lays
-    | LineStartHere, lays => implies _ _ lays
+    | LineStartHere, lays => herePutsWeaker indent place trace strong weak implies lays
     | Nest more inner, lays => laysWeaker inner (indent + more) place trace strong weak implies lays
     | Align inner, lays =>
       match place, lays with
@@ -299,7 +307,11 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
         | Broken at floor, lays => laysWeaker inner (Nat.max indent at) (Broken at floor) trace strong weak implies lays
         | Mid at floor, lays => laysWeaker inner indent (Mid at floor) trace strong weak implies lays
         | Held at floor, lays =>
-          laysWeaker inner (Nat.max indent (at + 2)) (AtStart (Nat.max indent (at + 2))) trace strong weak implies lays
+          laysWeaker inner (Nat.max indent (at + 2)) (AtStart (floored floor (Nat.max indent (at + 2))) floor) trace
+            strong
+            weak
+            implies
+            lays
     | Group inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
     | NarrowGroup max inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
     | IdGroup id inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
@@ -309,7 +321,7 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     )
     | Flatten inner, lays => laysWeaker inner indent place trace strong weak implies lays
     | OneLineBelow inner, Both mid lays =>
-      (mid, (laysWeaker inner (indent + 2) (AtStart (indent + 2)) trace strong weak implies lays))
+      (mid, (laysWeaker inner (indent + 2) (AtStart (floored place.floor (indent + 2)) place.floor) trace strong weak implies lays))
     | Concat docs, lays => allLaysWeaker docs indent place trace strong weak implies lays
     | Fill items, lays => fillLaysWeaker items indent place trace strong weak implies lays
     | Choice options, lays => optionsLayWeaker options indent place trace strong weak implies lays
@@ -717,7 +729,7 @@ theorem writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printe
               (onward _ _ _
                 (tucksSnoc laid printed _
                   (waitsTucks laid printed tracks)
-                  (Inl (((Nat.max indent (at + 2)), byComputing))))
+                  (Inl (((floored floor (Nat.max indent (at + 2))), byComputing))))
                 lays)
             )
 
@@ -752,7 +764,8 @@ theorem sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) 
     | Broken at floor, _, never => never
     | Mid at floor, tracks, Both same broken =>
       ((onward _ _ _ tracks same), (onward _ _ _ (settlesTucks laid printed tracks) broken))
-    | Held at floor, tracks, broken => onward _ _ _ (waitsTucks laid printed tracks) broken
+    | Held at floor, tracks, Both same broken =>
+      ((onward _ _ _ tracks same), (onward _ _ _ (waitsTucks laid printed tracks) broken))
 
 --| `SoftLays` gives `SoftPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
@@ -768,7 +781,22 @@ theorem softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
     | Broken at floor, _, never => never
     | Mid at floor, tracks, Both same broken =>
       ((onward _ _ _ tracks same), (onward _ _ _ (settlesTucks laid printed tracks) broken))
-    | Held at floor, tracks, broken => onward _ _ _ (waitsTucks laid printed tracks) broken
+    | Held at floor, tracks, Both same broken =>
+      ((onward _ _ _ tracks same), (onward _ _ _ (waitsTucks laid printed tracks) broken))
+
+--| A `LineStartHere`'s puts carry over to the printer's own trace.
+theorem hereLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+    (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
+      → next after later
+      → put after written)
+    (tracks: Tracks place laid printed)
+    (lays: HerePuts indent place laid next):
+    HerePuts indent place printed put :=
+  match place, tracks, lays with
+    | AtStart at floor, tracks, lays => onward _ _ _ tracks lays
+    | Broken at floor, tracks, lays => onward _ _ _ tracks lays
+    | Mid at floor, tracks, lays => onward _ _ _ (settlesTucks laid printed tracks) lays
+    | Held at floor, tracks, lays => onward _ _ _ (waitsTucks laid printed tracks) lays
 
 --| `StartLays` gives `StartPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
@@ -839,9 +867,8 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
     | SoftLine, lays => softLaysPuts indent place laid printed next put onward tracks lays
     | HardLine, Both mid (Inl broken) => (mid, (Inl (onward _ _ _ (tracksTucks place laid printed tracks) broken)))
     | HardLine, Both mid (Inr started) => (mid, (Inr (onward _ _ _ (tracksTucks place laid printed tracks) started)))
-    | CommentEnd, Both mid lays => (mid, (onward _ _ _ (tracksTucks place laid printed tracks) lays))
     | LineStart, lays => startLaysPuts indent place laid printed next put onward tracks lays
-    | LineStartHere, lays => onward _ _ _ (tracksTucks place laid printed tracks) lays
+    | LineStartHere, lays => hereLaysPuts indent place laid printed next put onward tracks lays
     | Nest more inner, lays => laysPuts inner (indent + more) place laid printed next put onward tracks lays
     | Align inner, lays =>
       match place, tracks, lays with
@@ -869,7 +896,7 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
         | Held at floor, tracks, lays =>
           laysPuts inner
             (Nat.max indent (at + 2))
-            (AtStart (Nat.max indent (at + 2)))
+            (AtStart (floored floor (Nat.max indent (at + 2))) floor)
             laid
             printed
             next
@@ -889,7 +916,7 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
       mid,
       (laysPuts inner
         (indent + 2)
-        (AtStart (indent + 2))
+        (AtStart (floored place.floor (indent + 2)) place.floor)
         laid
         printed
         next
@@ -995,13 +1022,13 @@ theorem optionsLayPuts ∀ (options: List Doc) (indent: Nat) (place: Place) (lai
 --| each with the column it starts its line at, if it does, are that
 --| trace with each trailing comment after the closers on its line.
 theorem printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: Nat)
-    (lays: Lays doc 0 (AtStart 0) [] spec):
+    (lays: Lays doc 0 (AtStart 0 None) [] spec):
     ∃ (place: Place) => ∃ (laid: List Event) => spec place laid
       ∧ Tucks laid (eventsOf (printedPieces doc width).reverse) :=
   let put: Place → List Event → Prop := place printed => ∃ (laid: List Event) => spec place laid ∧ Tucks laid printed
-  let puts: Puts doc 0 (AtStart 0) [] put :=
+  let puts: Puts doc 0 (AtStart 0 None) [] put :=
     laysPuts doc 0
-      (AtStart 0)
+      (AtStart 0 None)
       []
       []
       spec
