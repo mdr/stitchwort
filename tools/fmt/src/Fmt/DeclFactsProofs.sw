@@ -1,19 +1,20 @@
---| `printedHangs` from fewer facts (ticket 18h): of `DeclHangs`' facts, the tokens' trailing comments come from `sound`
---| and the name's kind and spelling from `within1`, so `printedHangs1` asks, beyond the four tree facts, only what
---| `DeclElements` names: no own-line comments above the `:` and the `:=`, and the type's and the value's element facts.
+--| `printedHangs` from fewer facts (ticket 18h): of `DeclHangs`' facts, the tokens' trailing comments come from `sound`,
+--| their own-line comments (above the name, the `:` and the `:=`, which the printer keeps there) too, and the name's
+--| kind and spelling from `within1`, so `printedHangs1` asks, beyond the four tree facts, only what `DeclElements`
+--| names: the type's and the value's element facts.
 --|
---| Neither is a consequence of the tree facts. A `:` or `:=` may have comments above it in slice 1 (`def x\n  -- c\n
---| : T := a` formats as it stands), and so may the type's or the value's first token, where `ElHangs`' `wordStart`
---| is the wrong start: such a token starts a line of its own even where the element is entered mid-line (NOTES,
---| SW-4045).
+--| Those are not a consequence of the tree facts: the type's or the value's first token may have comments above it,
+--| and then `ElHangs`' `wordStart` is the wrong start: such a token starts a line of its own even where the element
+--| is entered mid-line (NOTES, SW-4045).
 --|
---| For a declaration with no own-line comments (`DeclQuiet`), `DeclElements` follows (`quietElements`, from
---| `quietExprFacts` and the call hug's `quietHug`), so `printedHangs1Quiet` asks only the four tree facts and that.
+--| For a declaration whose type and value are quiet (`DeclQuiet`, `Expr.quiet1`), `DeclElements` follows
+--| (`quietElements`, from `quietExprFacts` and the call hug's `quietHug`), so `printedHangs1Quiet` asks only the four
+--| tree facts and that.
 
 namespace Fmt.DeclFactsProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Result, Text, Void)
 import Std.Doc.Proofs (IsComment, isLayout)
-import Syntax (BindingKind, Comments, Decl, DefBody, DefKind, Expr, Header, Lexed, Tok, Word, lex)
+import Syntax (BindingKind, Comments, Decl, DefBody, DefKind, Expr, Header, Lexed, Note, Tok, Word, lex)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.AppHangProofs (..)
@@ -92,12 +93,23 @@ theorem commentIs ∀ (text: Text) (comment: commentText text = True): IsComment
   let free: Text.containsChars ['\n'] text.toList = False := Bool.notTrue _ (Bool.andLeft (Bool.andRight comment))
   (dashed text.toList starts free, commentNotLayout text comment)
 
+--| Own-line comments as rule N leaves them are ones the lexer reads as comments, and no layout.
+theorem notesOfSound ∀ (notes: List Note) (sound: notesSound notes = True): NotesComment notes := match notes with
+  | [] => byComputing
+  | [note, ..rest] =>
+    let (isComment, solid) := commentIs note.text (Bool.andLeft sound)
+    (isComment, solid, notesOfSound rest (Bool.andRight sound))
+
 --| A token whose trailing comment is as rule N leaves it trails one the lexer reads as a comment.
 theorem trailsOfSound ∀ (word: Word) (sound: word.sound = True): TrailsComment word :=
   let after: afterSound word.comments.after = True := Bool.andRight (Bool.andRight sound)
   match word, after with
     | { text, comments = { above, after = Some comment, blankBefore } }, after => commentIs comment after
     | { text, comments = { above, after = None, blankBefore } }, _ => byComputing
+
+--| A token that is sound has own-line comments the lexer reads as comments.
+theorem notesOfWord ∀ (word: Word) (sound: word.sound = True): NotesComment word.comments.above :=
+  notesOfSound word.comments.above (Bool.andLeft (Bool.andRight sound))
 
 -- The name, from `within1`.
 
@@ -115,21 +127,18 @@ theorem nameFacts ∀ (name: Word)
 
 -- The declaration.
 
---| What `printedHangs1` asks of a slice 1 declaration beyond the four tree facts: no own-line comments above the `:`
---| and the `:=`, the type's `ElHangs` at 4 and the value's `BodyLays`. Not a consequence of the tree facts: each
---| fails for some slice 1 declaration (NOTES, SW-4045).
+--| What `printedHangs1` asks of a slice 1 declaration beyond the four tree facts: the type's `ElHangs` at 4 and the
+--| value's `BodyLays`. Not a consequence of the tree facts: each fails for some slice 1 declaration (NOTES, SW-4045).
+--| Comments above the name, the `:` and the `:=` are no longer asked about: they come from `sound`.
 def DeclElements (kinds: Text → Tok): Decl → Prop
   | Definition [] header (Assigned colonEq value) =>
-    header.name.comments.above = []
-      ∧ header.colon.above = []
-      ∧ colonEq.above = []
-      ∧ (∃ (trails: Bool) => ElHangs kinds
-        (header.result.el (declStart.next header.colon.after.isSome 3))
-        4
-        4
-        header.colon.after.isSome
-        trails
-        wordStart)
+    (∃ (trails: Bool) => ElHangs kinds
+      (header.result.el (declStart.next header.colon.after.isSome 3))
+      4
+      4
+      header.colon.after.isSome
+      trails
+      wordStart)
       ∧ BodyLays kinds value (declStart.next colonEq.after.isSome (4 + header.result.size)) colonEq.after.isSome
   | _ => False
 
@@ -141,7 +150,7 @@ theorem declHangsOf ∀ (decl: Decl)
     (elements: DeclElements lexKind decl):
     DeclHangs lexKind decl :=
   match decl, elements with
-    | Definition [] header (Assigned colonEq value), (nameBare, colonBare, assignBare, typed, body) =>
+    | Definition [] header (Assigned colonEq value), (typed, body) =>
       match header with
         | {
             exportKeyword = None,
@@ -158,18 +167,19 @@ theorem declHangsOf ∀ (decl: Decl)
           } =>
           let (plain, token) := nameFacts name (Bool.andLeft (Bool.andLeft within))
           let (keywordSound, rest) := (Bool.andLeft sound, Bool.andRight sound)
-          let nameSound := Bool.andLeft rest
-          let colonSound := Bool.andLeft (Bool.andRight rest)
-          let assignSound := Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight rest)))
+          let nameSound: name.sound = True := Bool.andLeft rest
+          let colonSound: (fixedWord ":" colon).sound = True := Bool.andLeft (Bool.andRight rest)
+          let assignSound: (fixedWord ":=" colonEq).sound = True :=
+            Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight rest)))
           (
             trailsOfSound (fixedWord "def" keyword) keywordSound,
             plain,
             token,
-            nameBare,
+            notesOfWord name nameSound,
             trailsOfSound name nameSound,
-            colonBare,
+            notesOfWord (fixedWord ":" colon) colonSound,
             trailsOfSound (fixedWord ":" colon) colonSound,
-            assignBare,
+            notesOfWord (fixedWord ":=" colonEq) assignSound,
             trailsOfSound (fixedWord ":=" colonEq) assignSound,
             typed,
             body
@@ -191,7 +201,7 @@ theorem printedHangs1 ∀ (decl: Decl) (doc: Doc) (width: Nat)
 --| `def d: A := b` meets `DeclElements`, so `printedHangs1` applies.
 theorem atomDeclElements: DeclElements lexKind atomDecl :=
   let (_, _, _, _, _, _, _, _, _, typed, body) := atomDeclHangs
-  (byComputing, byComputing, byComputing, typed, body)
+  (typed, body)
 
 -- Quiet declarations.
 
@@ -354,14 +364,10 @@ theorem quietBody ∀ (value: Expr) (around: Around)
     | { before = True, hoisted, item, at, inArm }, hangs =>
       rewrite plainBodyEl value { before = True, hoisted, item, at, inArm } then ((False, hangs 2 2), never => cases)
 
---| A declaration whose element facts follow from its tree's: no own-line comments anywhere (`Expr.quiet1`).
+--| A declaration whose element facts follow from its tree's: its type and value have no own-line comments inside
+--| (`Expr.quiet1`). Comments above the name, the `:` and the `:=` are allowed.
 def DeclQuiet: Decl → Prop
-  | Definition [] header (Assigned colonEq value) =>
-    header.name.comments.above = []
-      ∧ header.colon.above = []
-      ∧ colonEq.above = []
-      ∧ header.result.quiet1 = True
-      ∧ value.quiet1 = True
+  | Definition [] header (Assigned colonEq value) => header.result.quiet1 = True ∧ value.quiet1 = True
   | _ => False
 
 --| A quiet slice 1 declaration meets `DeclElements`: its type's and value's facts from `quietExprFacts`.
@@ -371,7 +377,7 @@ theorem quietElements ∀ (decl: Decl)
     (quiet: DeclQuiet decl):
     DeclElements lexKind decl :=
   match decl, quiet with
-    | Definition [] header (Assigned colonEq value), (nameBare, colonBare, assignBare, typeQuiet, valueQuiet) =>
+    | Definition [] header (Assigned colonEq value), (typeQuiet, valueQuiet) =>
       match header with
         | {
             exportKeyword = None,
@@ -395,9 +401,6 @@ theorem quietElements ∀ (decl: Decl)
               (quietExprFacts result typeWithin typeLexical typeQuiet)
               (declStart.next colon.after.isSome 3)
           (
-            nameBare,
-            colonBare,
-            assignBare,
             (False, typed 4 4),
             quietBody value (declStart.next colonEq.after.isSome (4 + result.size)) valueWithin valueLexical valueQuiet
           )
@@ -415,4 +418,65 @@ theorem printedHangs1Quiet ∀ (decl: Decl) (doc: Doc) (width: Nat)
   printedHangs1 decl doc width within shaped sound lexical (quietElements decl within lexical quiet) shows lexed read
 
 --| `def d: A := b` is quiet.
-theorem atomDeclQuiet: DeclQuiet atomDecl := (byComputing, byComputing, byComputing, byComputing, byComputing)
+theorem atomDeclQuiet: DeclQuiet atomDecl := (byComputing, byComputing)
+
+--| An own-line comment above a token.
+def aboveComment: Comments := { above = [{ text = "-- c", blankBefore = False }], after = None, blankBefore = False }
+
+--| `def d\n  -- c\n  : A := b`: a comment above the `:`.
+def colonNotedDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = aboveComment,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none (Atom Lower (fixedWord "b" Comments.none)))
+
+--| `def d: A\n  -- c\n  := b`: a comment above the `:=`.
+def assignNotedDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned aboveComment (Atom Lower (fixedWord "b" Comments.none)))
+
+--| A comment above the `:` leaves a declaration quiet.
+theorem colonNotedDeclQuiet: DeclQuiet colonNotedDecl := (byComputing, byComputing)
+
+--| A comment above the `:=` leaves a declaration quiet.
+theorem assignNotedDeclQuiet: DeclQuiet assignNotedDecl := (byComputing, byComputing)
+
+--| `printedHangs1Quiet` applies to the declaration with a comment above its `:`: its four tree facts and `DeclQuiet`.
+theorem colonNotedMeets: colonNotedDecl.within1 = True
+      ∧ colonNotedDecl.shaped1 = True
+      ∧ colonNotedDecl.sound = True
+      ∧ colonNotedDecl.lexical1 = True
+      ∧ DeclQuiet colonNotedDecl :=
+  (byComputing, byComputing, byComputing, byComputing, colonNotedDeclQuiet)
+
+--| `printedHangs1Quiet` applies to the declaration with a comment above its `:=`.
+theorem assignNotedMeets: assignNotedDecl.within1 = True
+      ∧ assignNotedDecl.shaped1 = True
+      ∧ assignNotedDecl.sound = True
+      ∧ assignNotedDecl.lexical1 = True
+      ∧ DeclQuiet assignNotedDecl :=
+  (byComputing, byComputing, byComputing, byComputing, assignNotedDeclQuiet)
