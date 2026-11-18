@@ -3178,3 +3178,153 @@ theorem groupLineExample: headPlain [wordItem Lower "a" 1].reverse = True :=
 
 theorem firstKindExample: (wordItem Lower "a" 0).kind = (wordItem Lower "a" 0).kind :=
   firstKind (wordItem Lower "a" 0) (wordItem Lower "a" 0) [] [] byComputing
+
+-- A witness from the lexer's own items (SW-4074): depth, glue and `afterOperand` as `items` gives them.
+
+--| The items the lexer gives a source, none if it doesn't lex.
+def lexedItems (source: Text): List Item := match lex source with
+  | Ok lexed => items lexed.leaves
+  | Err _ => []
+
+--| `def d: A := f -x [-1]`, a call with a sign as an argument and a list holding a negative numeral.
+def lexedLine: List Item := lexedItems "def d: A := f -x [-1]\n"
+
+--| An item as the lexer gives it on a first line with no comments, at column `column`.
+def lexedItem (kind: Tok) (text: Text) (column: Nat) (glued afterOperand: Bool) (index depth: Nat): Item := {
+  leaf = { token = { kind, text, column, lineStart = index == 0 }, trivia = Trivia.empty },
+  glued,
+  afterOperand,
+  afterDot = False,
+  index,
+  depth,
+  lineIndent = 0
+}
+
+--| `lexedLine`'s items, written out: `lexedLineIs` says the lexer gives these.
+def lexedAt (index: Nat): Item := match index with
+  | 0 => lexedItem KwDef "def" 0 False False 0 0
+  | 1 => lexedItem Lower "d" 4 False False 1 0
+  | 2 => lexedItem Colon ":" 5 True True 2 0
+  | 3 => lexedItem Upper "A" 7 False False 3 0
+  | 4 => lexedItem ColonEq ":=" 9 False True 4 0
+  | 5 => lexedItem Lower "f" 12 False False 5 0
+  | 6 => lexedItem Minus "-" 14 False True 6 0
+  | 7 => lexedItem Lower "x" 15 True False 7 0
+  | 8 => lexedItem LBracket "[" 17 False True 8 0
+  | 9 => lexedItem Minus "-" 18 True False 9 1
+  | 10 => lexedItem Num "1" 19 True False 10 1
+  | _ => lexedItem RBracket "]" 20 True True 11 1
+
+theorem lexedLineIs: lexedLine
+      = [
+        lexedAt 0,
+        lexedAt 1,
+        lexedAt 2,
+        lexedAt 3,
+        lexedAt 4,
+        lexedAt 5,
+        lexedAt 6,
+        lexedAt 7,
+        lexedAt 8,
+        lexedAt 9,
+        lexedAt 10,
+        lexedAt 11
+      ] :=
+  byComputing
+
+--| The `[-1]` of `lexedLine`.
+def lexedList: Expr :=
+  ListOf
+    (lexedAt 8).leaf.word
+    [Prefix (lexedAt 9).leaf.word (Atom Num (lexedAt 10).leaf.word)]
+    False
+    (lexedAt 11).leaf.word
+
+def lexedValue: Expr :=
+  App (Atom Lower (lexedAt 5).leaf.word) [Prefix (lexedAt 6).leaf.word (Atom Lower (lexedAt 7).leaf.word), lexedList]
+
+--| `readsBackLine`'s hypotheses hold of the lexer's items for `def d: A := f -x [-1]` (`lexedLineIs`): the `-x`
+--| argument's glue (`argumentGlue`) and the `-1` inside the bracket (`negativeNumeral`, at depth 1) included.
+theorem readsBackLexedExample: Parse.run
+      [
+        lexedAt 0,
+        lexedAt 1,
+        lexedAt 2,
+        ..[lexedAt 3] ++ [lexedAt 4, ..[lexedAt 5, lexedAt 6, lexedAt 7, lexedAt 8, lexedAt 9, lexedAt 10, lexedAt 11]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader (lexedAt 0) (lexedAt 1) (lexedAt 2) (Atom Upper (lexedAt 3).leaf.word))
+          (Assigned (lexedAt 4).leaf.word.comments lexedValue)) :=
+  readsBackLine Seen.start
+    (lexedAt 0)
+    (lexedAt 1)
+    (lexedAt 2)
+    (lexedAt 4)
+    [lexedAt 3]
+    [lexedAt 5, lexedAt 6, lexedAt 7, lexedAt 8, lexedAt 9, lexedAt 10, lexedAt 11]
+    (Atom Upper (lexedAt 3).leaf.word)
+    lexedValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (lexedAt 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [lexedAt 5],
+      [lexedAt 6, lexedAt 7],
+      [([lexedAt 8, lexedAt 9, lexedAt 10, lexedAt 11], lexedList)],
+      byComputing,
+      byComputing,
+      byComputing,
+      (lexedAt 5, byComputing, byComputing, byComputing, byComputing),
+      (
+        lexedAt 6,
+        [lexedAt 7],
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        byComputing,
+        (lexedAt 7, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (
+        [lexedAt 8, lexedAt 9, lexedAt 10, lexedAt 11],
+        [],
+        byComputing,
+        byComputing,
+        (
+          lexedAt 8,
+          [lexedAt 9, lexedAt 10],
+          [],
+          lexedAt 11,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (
+            lexedAt 9,
+            [lexedAt 10],
+            byComputing,
+            byComputing,
+            byComputing,
+            byComputing,
+            byComputing,
+            (lexedAt 10, byComputing, byComputing, byComputing, byComputing)
+          ),
+          byComputing
+        ),
+        byComputing
+      )
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
