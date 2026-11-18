@@ -991,12 +991,21 @@ def conjunctionJoin (first: Expr) (and: Word) (conjoined: (Expr, List (Word, Exp
 --| `a <-> b`, which doesn't chain.
 def iff (self: Goal → {Parse Item} Expr) (modes: Modes) (left: Expr): {Parse Item} Expr :=
   let operator := bump()
-  let right :=
-    if quantifierAhead modes then quantifier self modes
-    else
-      let compared := cmpExpr self modes
-      if andOrAhead modes then logicChain self modes compared else compared
-  if modes.at IffArrow then fatal "`<->` doesn't chain" else Infix InfixIff left operator right
+  iffAfter self modes left operator (quantifierAhead modes)
+
+def iffAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (left: Expr) (operator: Word) (quantified: Bool):
+    {Parse Item} Expr :=
+  let right := iffRight self modes quantified
+  iffEnd left operator right (modes.at IffArrow)
+
+def iffRight (self: Goal → {Parse Item} Expr) (modes: Modes) (quantified: Bool): {Parse Item} Expr :=
+  if quantified then quantifier self modes
+  else
+    let compared := cmpExpr self modes
+    logicAfter self modes compared
+
+def iffEnd (left: Expr) (operator: Word) (right: Expr) (chained: Bool): {Parse Item} Expr :=
+  if chained then fatal "`<->` doesn't chain" else Infix InfixIff left operator right
 
 def quantifierAhead (modes: Modes): {Parse Item} Bool := modes.at KwExists || modes.at KwForall
 

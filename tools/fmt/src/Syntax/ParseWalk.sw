@@ -146,7 +146,6 @@ type Outside (self: Goal → {Parse Item} Expr) = {
 --| The parsers outside slice 1 that SW-4000 has not yet proved give what `Outside` says of them; the rest of
 --| `Outside` is proved below (`outsideOf`).
 type OutsideRest (self: Goal → {Parse Item} Expr) = {
-  iffs: ∀ (modes: Modes) (logic: Expr) => Parse.Gives GoodItems (() => iff self modes logic) Out,
   calcs: ∀ (modes: Modes) => Parse.Gives GoodItems (() => calcExpr self modes) Out,
   rewrites: ∀ (modes: Modes) => Parse.Gives GoodItems (() => rewriteExpr self modes) Out
 }
@@ -5299,6 +5298,41 @@ theorem givesComparisonChain ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
     | True => Parse.readsFatal _ _
     | False => givesChainAfter self modes lhs operator second (isDescending kind) nested outside bases
 
+theorem givesIffRight ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (quantified: Bool)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => iffRight self modes quantified) (right => True) :=
+  match quantified with
+    | True => Parse.givesWeaken (givesQuantifier self modes nested) (value _ => byComputing)
+    | False => Parse.givesThen (givesCmpOf self modes nested outside bases) (compared parsed =>
+      Parse.givesWeaken (givesLogicAfter self modes compared nested outside bases parsed) (value _ => byComputing))
+
+theorem givesIff ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (logic: Expr)
+    (nested: Nested self)
+    (outside: OutsideCompared self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => iff self modes logic) Out :=
+  Parse.givesThen givesBump (operator _ =>
+    givesAfter0
+      [p := () => quantifierAhead modes]
+      [j := quantified => iffAfter self modes logic operator quantified]
+      (reads0QuantifierAhead modes)
+      (quantified =>
+        Parse.givesThen
+          [p := () => iffRight self modes quantified]
+          [j := right => iffEnd logic operator right (modes.at IffArrow)]
+          (givesIffRight self modes quantified nested outside bases)
+          (right _ =>
+            givesAfter0
+              [p := () => modes.at IffArrow]
+              [j := chained => iffEnd logic operator right chained]
+              (reads0At modes IffArrow)
+              (chained =>
+                match chained with
+                  | True => Parse.readsFatal _ _
+                  | False => Parse.givesDone byComputing))))
+
 --| Each tier of `Outside` from `Nested` and what is not yet proved: a tier's facts are proved with the walks of the
 --| tiers below it.
 def outsideAtomsOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsideAtoms self := {
@@ -5326,35 +5360,33 @@ def outsidePipedOf (self: Goal → {Parse Item} Expr) (nested: Nested self): Out
       (givesAtomBases self nested (outsideAtomsOf self nested)))
 }
 
-def outsideComparedOf (self: Goal → {Parse Item} Expr)
-    (nested: Nested self)
-    (rest: OutsideRest self):
-    OutsideCompared self :=
-  {
-    below = outsidePipedOf self nested,
-    comparisonChains = (modes lhs kind operator second =>
-      givesComparisonChain self modes lhs kind operator second nested
-        (outsidePipedOf self nested)
-        (givesAtomBases self nested (outsideAtomsOf self nested))),
-    cmpIfs = (modes lhs operator => givesCmpIf self modes lhs operator nested),
-    memberships = (modes first element =>
-      givesMembership self modes first element nested
-        (outsidePipedOf self nested)
-        (givesAtomBases self nested (outsideAtomsOf self nested))),
-    quantifiers = (modes => givesQuantifier self modes nested)
-  }
+def outsideComparedOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsideCompared self := {
+  below = outsidePipedOf self nested,
+  comparisonChains = (modes lhs kind operator second =>
+    givesComparisonChain self modes lhs kind operator second nested
+      (outsidePipedOf self nested)
+      (givesAtomBases self nested (outsideAtomsOf self nested))),
+  cmpIfs = (modes lhs operator => givesCmpIf self modes lhs operator nested),
+  memberships = (modes first element =>
+    givesMembership self modes first element nested
+      (outsidePipedOf self nested)
+      (givesAtomBases self nested (outsideAtomsOf self nested))),
+  quantifiers = (modes => givesQuantifier self modes nested)
+}
 
-def outsideIffedOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): OutsideIffed self :=
-  {
-    below = outsideComparedOf self nested rest,
-    iffs = rest.iffs,
-    effectResults = (allowed => givesEffectResult self allowed nested),
-    semis = (modes value => givesSemi self modes value nested)
-  }
+def outsideIffedOf (self: Goal → {Parse Item} Expr) (nested: Nested self): OutsideIffed self := {
+  below = outsideComparedOf self nested,
+  iffs = (modes logic =>
+    givesIff self modes logic nested
+      (outsideComparedOf self nested)
+      (givesAtomBases self nested (outsideAtomsOf self nested))),
+  effectResults = (allowed => givesEffectResult self allowed nested),
+  semis = (modes value => givesSemi self modes value nested)
+}
 
 --| Everything `Outside` says, from what is not yet proved and `Nested`.
 def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: OutsideRest self): Outside self := {
-  below = outsideIffedOf self nested rest,
+  below = outsideIffedOf self nested,
   piExprs = (modes implicit => givesPiExpr self modes implicit nested),
   ifKeywords = (modes => givesIfKeyword self modes nested),
   lambdas = (modes => givesLambda self modes None nested),
