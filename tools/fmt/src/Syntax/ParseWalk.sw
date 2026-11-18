@@ -3149,7 +3149,6 @@ type Frame (self: Goal → {Parse Item} Expr) = {
 
 --| The part of `Frame` SW-4000 has not yet proved (`frameOf` gives the rest).
 type FrameRest (self: Goal → {Parse Item} Expr) = {
-  attributes: ∀ (modes: Modes) => Parse.Gives GoodItems (() => attributesOf modes) (found => True),
   others: ∀ (modes: Modes) (attributes: List Attributes) (seen: Option Tok) => Parse.Gives GoodItems
     (() => declarationOther modes attributes seen)
     DeclOut,
@@ -3288,7 +3287,7 @@ theorem givesNamespaceStep ∀ (seen: Seen) (modes: Modes):
 
 --| Everything `Frame` says, from what is not yet proved and `Nested`.
 def frameOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: FrameRest self): Frame self := {
-  attributes = rest.attributes,
+  attributes = (modes => givesAttributesOf modes),
   namespaces = (seen modes => givesNamespaceStep seen modes),
   imports = (seen modes => givesImportStep seen modes),
   others = rest.others,
@@ -3418,6 +3417,83 @@ theorem givesImportStep ∀ (seen: Seen) (modes: Modes): Parse.Gives GoodItems (
   match seen.hasDecls with
     | True => Parse.readsFatal _ _
     | False => givesImportLine modes
+
+theorem givesLowerQualifiedAny ∀ (modes: Modes) (what: Text):
+    Parse.Gives GoodItems (() => modes.lowerQualified what) (word => True) :=
+  Parse.givesWeaken (givesLowerQualified modes what) (found ok => byComputing)
+
+theorem givesAttributePart ∀ (modes: Modes) (dot: Bool):
+    Parse.Gives GoodItems (() => attributePart modes dot) (Parse.Perhaps (found => True)) :=
+  match dot with
+    | True => Parse.givesThen givesFixedFrom (written _ =>
+      Parse.givesThen (givesLowerQualifiedAny modes "the rest of the attribute's name") (part _ =>
+        Parse.givesDone byComputing))
+    | False => Parse.givesDone byComputing
+
+theorem givesAttributeParts ∀ (modes: Modes): Parse.Gives GoodItems (() => attributeParts modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      (givesAfter0 [p := () => modes.at Dot] [j := dot => attributePart modes dot] (reads0At modes Dot) (dot =>
+        givesAttributePart modes dot)))
+    (found ok => byComputing)
+
+theorem givesAttributeArgument ∀ (modes: Modes):
+    Parse.Gives GoodItems (() => attributeArgument modes) (found => True) :=
+  givesAfter0 [p := () => modes.peek] [j := seen => attributeArgumentOn modes seen] (reads0Peek modes) (seen =>
+    match isSome Str seen with
+      | True => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
+      | False =>
+        match isSome StrStart seen with
+          | True => Parse.readsFatal _ _
+          | False => Parse.givesDone byComputing)
+
+theorem givesAttributeItems ∀ (fuel: Nat) (modes: Modes) (found: List Attribute):
+    Parse.Gives GoodItems (() => attributeItems fuel modes found) (pair => True) :=
+  match fuel with
+    | Zero => Parse.givesDone byComputing
+    | Succ more =>
+      givesAfter0
+        [p := () => modes.at RBracket]
+        [j := closed => attributeItemsAt more modes found closed]
+        (reads0At modes RBracket)
+        (closed =>
+          match closed && !found.isEmpty with
+            | True => Parse.givesDone byComputing
+            | False =>
+              Parse.givesThen (givesLowerQualifiedAny modes "an attribute's name, such as `js.name`") (name _ =>
+                Parse.givesThen (givesAttributeParts modes) (parts _ =>
+                  Parse.givesThen (givesAttributeArgument modes) (written _ =>
+                    givesAfter0
+                      [p := () => modes.at Comma]
+                      [j := comma => attributeNext more modes [{ name, parts, argument = written }, ..found] comma]
+                      (reads0At modes Comma)
+                      (comma =>
+                        match comma with
+                          | True => Parse.givesThen givesBump (gone _ =>
+                            givesAttributeItems more modes [{ name, parts, argument = written }, ..found])
+                          | False => Parse.givesDone byComputing)))))
+
+theorem givesAttributeGroup ∀ (modes: Modes):
+    Parse.Gives GoodItems (() => attributeGroup modes) (Parse.Perhaps (found => True)) :=
+  Parse.givesThen givesFixedFrom (at _ =>
+    Parse.givesThen (givesExpectFixed modes LBracket "`[`") (open _ =>
+      Parse.givesThen Parse.givesMark (here _ =>
+        Parse.givesThen (givesAttributeItems (here.left + 1) modes []) (pair _ =>
+          match pair with
+            | (items, trailingComma) =>
+              Parse.givesThen (givesExpectFixed modes RBracket "`,` or `]` after the attribute") (close _ =>
+                Parse.givesDone byComputing)))))
+
+theorem givesAttributesOf ∀ (modes: Modes): Parse.Gives GoodItems (() => attributesOf modes) (found => True) :=
+  Parse.givesWeaken
+    [weaker := found => True]
+    (Parse.givesLoop
+      (givesAfter0 [p := () => modes.at At] [j := found => attributeGroupAt modes found] (reads0At modes At) (found =>
+        match found with
+          | True => givesAttributeGroup modes
+          | False => Parse.givesDone byComputing)))
+    (found ok => byComputing)
 
 theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):

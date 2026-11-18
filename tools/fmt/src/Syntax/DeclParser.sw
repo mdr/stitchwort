@@ -44,40 +44,68 @@ def misplaced (what: Text): Text := "attributes can't be used on ${what}"
 --| The attribute groups next, `@[a, b "x"] @[c]`.
 def attributesOf (modes: Modes): {Parse Item} List Attributes := attributeGroups modes
 
-def attributeGroups (modes: Modes): {Parse Item} List Attributes := Parse.loop (() =>
-  if modes.at At then
-    let at := fixedFrom()
-    let open := modes.expectFixed LBracket "`[`"
-    let (items, trailingComma) := attributeItems (Parse.mark().left + 1) modes []
-    let close := modes.expectFixed RBracket "`,` or `]` after the attribute"
-    Some { at, open, items, trailingComma, close }
-  else None)
+def attributeGroups (modes: Modes): {Parse Item} List Attributes := Parse.loop (() => attributeGroupStep modes)
+
+def attributeGroupStep (modes: Modes): {Parse Item} Option Attributes := attributeGroupAt modes (modes.at At)
+
+def attributeGroupAt (modes: Modes) (found: Bool): {Parse Item} Option Attributes :=
+  if found then attributeGroup modes else None
+
+def attributeGroup (modes: Modes): {Parse Item} Option Attributes :=
+  let at := fixedFrom()
+  let open := modes.expectFixed LBracket "`[`"
+  let here := Parse.mark()
+  let pair := attributeItems (here.left + 1) modes []
+  attributeGroupEnd modes at open pair
+
+def attributeGroupEnd (modes: Modes) (at open: Comments) (pair: (List Attribute, Bool)):
+    {Parse Item} Option Attributes :=
+  match pair with
+    | (items, trailingComma) =>
+      let close := modes.expectFixed RBracket "`,` or `]` after the attribute"
+      Some { at, open, items, trailingComma, close }
 
 --| The attributes in one group, and whether a comma ended them.
 def attributeItems (fuel: Nat) (modes: Modes) (found: List Attribute): {Parse Item} (List Attribute, Bool) :=
   match fuel with
-    | Succ more =>
-      if modes.at RBracket && !found.isEmpty then (found.reverse, True)
-      else
-        let name := modes.lowerQualified "an attribute's name, such as `js.name`"
-        let parts := attributeParts modes
-        let argument :=
-          if modes.at Str then Some bump()
-          else if modes.at StrStart then fatal "an attribute's argument is a plain string, without `\${…}`"
-          else None
-        let done := [{ name, parts, argument }, ..found]
-        if modes.at Comma then
-          let _ := bump()
-          attributeItems more modes done
-        else (done.reverse, False)
+    | Succ more => attributeItemsAt more modes found (modes.at RBracket)
     | Zero => (found.reverse, False)
 
-def attributeParts (modes: Modes): {Parse Item} List (Comments, Word) := Parse.loop (() =>
-  if modes.at Dot then
-    let dot := fixedFrom()
+def attributeItemsAt (more: Nat) (modes: Modes) (found: List Attribute) (closed: Bool):
+    {Parse Item} (List Attribute, Bool) :=
+  if closed && !found.isEmpty then (found.reverse, True) else attributeItem more modes found
+
+def attributeItem (more: Nat) (modes: Modes) (found: List Attribute): {Parse Item} (List Attribute, Bool) :=
+  let name := modes.lowerQualified "an attribute's name, such as `js.name`"
+  let parts := attributeParts modes
+  let argument := attributeArgument modes
+  attributeNext more modes [{ name, parts, argument }, ..found] (modes.at Comma)
+
+def attributeArgument (modes: Modes): {Parse Item} Option Word := attributeArgumentOn modes modes.peek
+
+def attributeArgumentOn (modes: Modes) (seen: Option Tok): {Parse Item} Option Word :=
+  if isSome Str seen then
+    let word := bump()
+    Some word
+  else if isSome StrStart seen then fatal "an attribute's argument is a plain string, without `\${…}`"
+  else None
+
+def attributeNext (more: Nat) (modes: Modes) (done: List Attribute) (comma: Bool):
+    {Parse Item} (List Attribute, Bool) :=
+  if comma then
+    let _ := bump()
+    attributeItems more modes done
+  else (done.reverse, False)
+
+def attributeParts (modes: Modes): {Parse Item} List (Comments, Word) :=
+  Parse.loop (() => attributePart modes (modes.at Dot))
+
+def attributePart (modes: Modes) (dot: Bool): {Parse Item} Option (Comments, Word) :=
+  if dot then
+    let written := fixedFrom()
     let part := modes.lowerQualified "the rest of the attribute's name"
-    Some (dot, part)
-  else None)
+    Some (written, part)
+  else None
 
 --| A lowercase name, possibly qualified (`lower_q`).
 def Modes.lowerQualified (modes: Modes) (what: Text): {Parse Item} Word := modes.lowerQualifiedOn what modes.peek
