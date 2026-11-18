@@ -4174,14 +4174,53 @@ impl Elaborator {
     /// For each proof parameter of an export, a decision procedure that the
     /// extracted JS runs on its inputs (DESIGN.md §12). A proof parameter with
     /// no decision procedure can't be checked at runtime, so the export is
-    /// refused.
+    /// refused. The parameters are read as the runtimes read them, through
+    /// the opaque definitions it unfolds (`erase::def_telescope`), and the
+    /// procedures are found under its transparency set, as the kernel checks
+    /// them.
     fn add_validators(&mut self, id: DefId) -> Result<()> {
         let Some(decidable) = self.kernel.env.registry().data(Builtin::Decidable) else {
             return Ok(()); // no prelude
         };
         let def = self.kernel.def(id);
         let (name, span) = (def.name().clone(), def.span());
-        let tel = kernel::telescope(&self.ev(), def.ty_value(), span)?;
+        let tel = stitchwort_core::erase::def_telescope(&self.ev(), id)?;
+        let set = kernel::transparency_set(&self.ev(), id, &[id])?;
+        // A glued call keeps its unfolding for as long as the metavariable
+        // epoch stands; a different set may unfold it differently.
+        self.attempt.store.metas_taken_back();
+        let guard = self.kernel.machine.transparent.set(set);
+        let found = self.find_validators(&tel, &name, span);
+        drop(guard);
+        self.attempt.store.metas_taken_back();
+        self.clear_metas();
+        for (i, decision) in found? {
+            kernel::add_validator(&mut self.kernel, id, i, decidable, &decision)?;
+        }
+        // Records crossing the boundary with proof fields need decision
+        // procedures for those too (docs/proposals/records.md §11.3).
+        let crossing: Vec<Value> = tel
+            .params
+            .iter()
+            .filter(|(_, _, erased)| !erased)
+            .map(|(_, ty, _)| ty.clone())
+            .chain([tel.result.clone()])
+            .collect();
+        let mut seen = stitchwort_core::collections::HashSet::default();
+        for ty in &crossing {
+            self.record_validators(ty, &name, span, &mut seen)?;
+        }
+        Ok(())
+    }
+
+    /// A decision procedure for each proof parameter in `tel`, by position,
+    /// or `E-EXPORT` for the first that has none.
+    fn find_validators(
+        &mut self,
+        tel: &kernel::Telescope,
+        name: &str,
+        span: Span,
+    ) -> Result<Vec<(usize, Term)>> {
         let mut found = Vec::new();
         for (i, (_, ty, erased)) in tel.params.iter().enumerate() {
             if !erased || kernel::is_type_former(&self.ev(), i, ty)? {
@@ -4206,24 +4245,7 @@ impl Elaborator {
             })?;
             found.push((i, self.finish(&decision, i)?));
         }
-        self.clear_metas();
-        for (i, decision) in found {
-            kernel::add_validator(&mut self.kernel, id, i, decidable, &decision)?;
-        }
-        // Records crossing the boundary with proof fields need decision
-        // procedures for those too (docs/proposals/records.md §11.3).
-        let crossing: Vec<Value> = tel
-            .params
-            .iter()
-            .filter(|(_, _, erased)| !erased)
-            .map(|(_, ty, _)| ty.clone())
-            .chain([tel.result.clone()])
-            .collect();
-        let mut seen = stitchwort_core::collections::HashSet::default();
-        for ty in &crossing {
-            self.record_validators(ty, &name, span, &mut seen)?;
-        }
-        Ok(())
+        Ok(found)
     }
 
     /// A definition's body, before metavariable solutions are substituted.

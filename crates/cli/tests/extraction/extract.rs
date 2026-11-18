@@ -156,6 +156,24 @@ fn per_person_two_by_zero_fails_the_reference_precondition() {
     );
 }
 
+/// A precondition that only shows through an opaque nickname the export
+/// unfolds gets its runtime check, at the position the extracted code is
+/// passed it (SW-3936: the validators read the hidden view, so it had none
+/// and the export was refused).
+#[test]
+fn a_precondition_behind_an_opaque_nickname_is_checked() {
+    let examples = examples();
+    let (name, _, session) = examples.get("opaque-nickname-precondition.sw");
+    let g = &session.elab.backend();
+    let id = (0..g.env.defs().len())
+        .map(DefId)
+        .find(|id| g.def(*id).name().ends_with("share"))
+        .expect("the example exports share");
+    let sig = exportable(g, id).unwrap_or_else(|e| panic!("{name}: {}", e.message));
+    let positions: Vec<usize> = sig.checks.iter().map(|c| c.position).collect();
+    assert_eq!(positions, [2], "{name}: one check, of `ok`");
+}
+
 /// A session whose library files replay from the test std cache outside the
 /// all tier (docs/testing.md, "The test std cache"): these tests are of the
 /// extracted code, and the all tier still checks the library from source in
