@@ -403,3 +403,592 @@ theorem runsAtomTree ∀ (sub: Goal → List Item → List Item → Expr → Pro
       ends.plain
       ends.noCall
       ends.noDot
+
+-- Applications.
+
+--| An argument: no method section starting a line, no constructor's fields, then what `self` reads at the
+--| argument level.
+def ArgumentReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  sectionLineAt modes (read ++ rest) = False
+    ∧ (isSome Upper (peekIn modes 0 (read ++ rest)) && isSome LBrace (peekIn modes 1 (read ++ rest))) = False
+    ∧ sub { modes, level = LevelArgument } read rest value
+
+--| The arguments after the first, as `Parse.LoopRuns` has `arguments`' rounds: each starts an atom and is an
+--| argument; after the last, nothing starts one.
+def ArgsReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes):
+    List (List Item, Expr) → List Item → Prop
+  | [], rest => startsAtomOn modes rest = False
+  | [(read, value), ..steps], rest =>
+    read ≠ []
+      ∧ startsAtomOn modes (read ++ Parse.loopReads [] steps ++ rest) = True
+      ∧ ArgumentReads sub modes read (Parse.loopReads [] steps ++ rest) value
+      ∧ ArgsReads sub modes steps rest
+
+--| What `app` reads: a head atom, alone or with arguments.
+def AppReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  (isSome Dot (peekIn modes 0 (read ++ rest)) = False
+    ∧ AtomReads sub modes True read rest value
+    ∧ startsAtomOn modes rest = False)
+    ∨ (∃ (headRead read1: List Item) (steps: List (List Item, Expr)) (head first: Expr) => read
+      = headRead ++ (read1 ++ Parse.loopReads [] steps)
+      ∧ value = App head [first, ..Parse.stepValues steps]
+      ∧ isSome Dot (peekIn modes 0 (read ++ rest)) = False
+      ∧ AtomReads sub modes True headRead ((read1 ++ Parse.loopReads [] steps) ++ rest) head
+      ∧ startsAtomOn modes ((read1 ++ Parse.loopReads [] steps) ++ rest) = True
+      ∧ ArgumentReads sub modes read1 (Parse.loopReads [] steps ++ rest) first
+      ∧ ArgsReads sub modes steps rest)
+
+-- Unary.
+
+--| What `unary` reads: a sign and what `self` reads at the unary level; or an application, after a `-1` or after
+--| no sign.
+def UnaryReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  (∃ (sign: Item) (more: List Item) (operand: Expr) => read = [sign, ..more]
+    ∧ value = Prefix sign.leaf.word operand
+    ∧ modes.stops sign = False
+    ∧ (sign.kind == Minus || sign.kind == Bang) = True
+    ∧ matchesBarOn modes [sign, ..more ++ rest] = False
+    ∧ (sign.kind == Minus && negativeNumeral [sign, ..more ++ rest]) = False
+    ∧ sub { modes, level = LevelUnary } more rest operand)
+    ∨ (∃ (item: Item) (more: List Item) => read = [item, ..more]
+      ∧ modes.stops item = False
+      ∧ (item.kind == KwMatch) = False
+      ∧ matchesBarOn modes [item, ..more ++ rest] = False
+      ∧ ((item.kind == Minus || item.kind == Bang) = False
+        ∨ ((item.kind == Minus) = True ∧ negativeNumeral [item, ..more ++ rest] = True))
+      ∧ AppReads sub modes read rest value)
+
+-- The operator ladder.
+
+--| The links of a chain, as `LinkRuns` has them, each operand one that `operand` holds of.
+def LinkReads (modes: Modes) (takes: Tok → Bool) (operand: List Item → List Item → Expr → Prop):
+    List (Item, List Item, Expr) → List Item → Prop
+  | [], rest => takesAhead modes takes rest = False
+  | [(operator, read, value), ..links], rest =>
+    modes.stops operator = False
+      ∧ takes operator.kind = True
+      ∧ operand read (Parse.loopReads [] (linkSteps links) ++ rest) value
+      ∧ LinkReads modes takes operand links rest
+
+--| A chain: a first operand, then links; `nested` is how the parser builds it (`leftNested` or `rightNested`).
+def ChainReads (modes: Modes) (takes: Tok → Bool) (nested: Expr → List (Word, Expr) → Expr)
+    (first operand: List Item → List Item → Expr → Prop) (read rest: List Item) (value: Expr):
+    Prop :=
+  ∃ (headRead: List Item) (head: Expr) (links: List (Item, List Item, Expr)) => read
+    = headRead ++ Parse.loopReads [] (linkSteps links)
+    ∧ value = nested head (Parse.stepValues (linkSteps links))
+    ∧ first headRead (Parse.loopReads [] (linkSteps links) ++ rest) head
+    ∧ LinkReads modes takes operand links rest
+
+def MulReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  ChainReads modes
+    (kind => kind == Star || kind == Slash || kind == Percent)
+    leftNested
+    (UnaryReads sub modes)
+    (UnaryReads sub modes)
+    read
+    rest
+    value
+
+def AddReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  ChainReads modes
+    (kind => kind == Plus || kind == Minus)
+    leftNested
+    (MulReads sub modes)
+    (MulReads sub modes)
+    read
+    rest
+    value
+
+def AppendReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  ChainReads modes (kind => kind == PlusPlus) rightNested (AddReads sub modes) (AddReads sub modes) read rest value
+
+--| No range or pipe after.
+def PipedReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  rangeAhead modes rest = False ∧ atPipeOn modes rest = False ∧ AppendReads sub modes read rest value
+
+--| What `cmpExpr` reads: a piped operand, alone or compared with one more.
+def CmpReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  (PipedReads sub modes read rest value ∧ cmpAhead modes rest = False)
+    ∨ (∃ (read1: List Item) (operator: Item) (read2: List Item) (lhs second: Expr) => read
+      = read1 ++ [operator, ..read2]
+      ∧ value = Infix InfixBinary lhs operator.leaf.word second
+      ∧ PipedReads sub modes read1 ([operator, ..read2] ++ rest) lhs
+      ∧ modes.stops operator = False
+      ∧ (operator.kind == KwIn || operator.kind == NotIn) = False
+      ∧ operator.kind.isComparison = True
+      ∧ isSome KwIf (peekIn modes 0 (read2 ++ rest)) = False
+      ∧ PipedReads sub modes read2 rest second
+      ∧ cmpAhead modes rest = False)
+
+--| The `&&` and `||` links, as `LogicRuns` has them.
+def LogicReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes):
+    List (Item, List Item, Expr) → List Item → Prop
+  | [], rest => andOrOn modes rest = False
+  | [(operator, read, value), ..links], rest =>
+    modes.stops operator = False
+      ∧ (operator.kind == AndAnd || operator.kind == OrOr) = True
+      ∧ isSome KwExists (peekIn modes 0 (read ++ Parse.loopReads [] (linkSteps links) ++ rest)) = False
+      ∧ isSome KwForall (peekIn modes 0 (read ++ Parse.loopReads [] (linkSteps links) ++ rest)) = False
+      ∧ CmpReads sub modes read (Parse.loopReads [] (linkSteps links) ++ rest) value
+      ∧ LogicReads sub modes links rest
+
+--| What `logicAfter` reads after `compared`: nothing, or `&&` and `||` links.
+def LogicAfterReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (compared: Expr)
+    (read rest: List Item) (value: Expr):
+    Prop :=
+  (read = [] ∧ value = compared ∧ andOrOn modes rest = False)
+    ∨ (∃ (links: List (Item, List Item, Expr)) => read = Parse.loopReads [] (linkSteps links)
+      ∧ value
+        = groupLogic ((Parse.stepValues (linkSteps links)).length + 1) compared (Parse.stepValues (linkSteps links))
+      ∧ andOrOn modes (read ++ rest) = True
+      ∧ LogicReads sub modes links rest)
+
+--| A result type with no ability row: what `self` reads in full in the modes `allowBrace` gives.
+def ResultReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  rowOn (isSome LBrace (peekIn (allowBraceOn modes (read ++ rest)) 0 (read ++ rest))) (read ++ rest) = False
+    ∧ sub { modes = allowBraceOn modes (read ++ rest), level = LevelFull } read rest value
+
+--| What `opEnd` reads after `logic`: nothing, or `->` and a result type.
+def EndReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (logic: Expr) (sequence: Bool)
+    (read rest: List Item) (value: Expr):
+    Prop :=
+  (read = [] ∧ value = logic ∧ opEndsAhead modes sequence rest = False)
+    ∨ (∃ (arrow: Item) (more: List Item) (result: Expr) => read = [arrow, ..more]
+      ∧ value = Infix InfixArrow logic arrow.leaf.word result
+      ∧ modes.stops arrow = False
+      ∧ arrow.kind = Arrow
+      ∧ ResultReads sub modes more rest result)
+
+--| What `operatorExpr` reads: a comparison, its logic links, no `<->`, and its end.
+def OperatorReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  ∃ (read1 read2 read3: List Item) (compared logic: Expr) => read = read1 ++ read2 ++ read3
+    ∧ isSome Dot (peekIn modes 0 ((read1 ++ read2 ++ read3) ++ rest)) = False
+    ∧ CmpReads sub modes read1 (read2 ++ read3 ++ rest) compared
+    ∧ LogicAfterReads sub modes compared read2 (read3 ++ rest) logic
+    ∧ isSome IffArrow (peekIn modes 0 (read3 ++ rest)) = False
+    ∧ EndReads sub modes logic (sequenceOn modes (read3 ++ rest)) read3 rest value
+
+-- Expressions in full.
+
+--| What `exprInline` reads from `item` on.
+def InlineAt (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr):
+    Prop :=
+  modes.stops item = False
+    ∧ InlinePlain modes item [item, ..more ++ rest]
+    ∧ OperatorReads sub modes [item, ..more] rest value
+
+--| What `exprBlock` reads from `item` on: one line at its column, right of the limit, read inline in every line
+--| mode `block` may give it.
+def BlockAt (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
+    (more rest: List Item) (value: Expr):
+    Prop :=
+  rightOfLimit item.leaf.token.column modes.limit = True
+    ∧ continuesAt item.leaf.token.column rest = False
+    ∧ startsOtherStatement item.kind = False
+    ∧ ∀ (kind: LineKind) (before: Nat) => InlineAt sub
+      (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True before kind)
+      item
+      more
+      rest
+      value
+
+--| What `expr` reads: inline (as at the start of the input, where no block starts); and a block where one starts.
+def FullReads (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (read rest: List Item) (value: Expr):
+    Prop :=
+  ∃ (item: Item) (more: List Item) => read = [item, ..more]
+    ∧ InlineAt sub modes item more rest value
+    ∧ (startsBlock modes True item = True → BlockAt sub modes item more rest value)
+
+-- The relation.
+
+--| One rung for each level the parser calls itself at in slice 1, the calls inside named through `sub`.
+def Layer (sub: Goal → List Item → List Item → Expr → Prop) (goal: Goal) (read rest: List Item) (value: Expr): Prop :=
+  match goal.level with
+    | LevelFull => FullReads sub goal.modes read rest value
+    | LevelUnary => UnaryReads sub goal.modes read rest value
+    | LevelArgument => AtomReads sub goal.modes False read rest value
+    | _ => Void
+
+--| `Layer` nested at most `depth` deep.
+def TreeN: Nat → Goal → List Item → List Item → Expr → Prop
+  | Zero, _, _, _, _ => Void
+  | Succ depth, goal, read, rest, value => Layer (TreeN depth) goal read rest value
+
+--| The tree-to-items relation: `read`, followed by `rest`, is what the parser at `goal` should read as `value`.
+def Tree (goal: Goal) (read rest: List Item) (value: Expr): Prop := ∃ (depth: Nat) => TreeN depth goal read rest value
+
+-- From the rungs to runs: applications and unary.
+
+--| The later arguments' rounds, each read by `argument` through `self`.
+theorem argsRunsOf ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (steps: List (List Item, Expr)) (rest: List Item)
+    (selfRuns: SelfRuns sub self bound)
+    (small: (Parse.loopReads [] steps).length < bound)
+    (reads: ArgsReads sub modes steps rest):
+    Parse.LoopRuns (() => argumentStep self modes (startsAtom modes)) [] steps rest :=
+  match steps, small, reads with
+    | [], _, ends => runsArgumentStepNone self modes rest ends
+    | [(read, value), ..later], small, (nonEmpty, starts, (noLine, noBrace, holds), more) =>
+      let lengths := List.lengthAppend read (Parse.loopReads [] later)
+      (
+        nonEmpty,
+        runsArgumentStepSome self modes read
+          (Parse.loopReads [] later ++ rest)
+          value
+          starts
+          (runsArgument self modes read
+            (Parse.loopReads [] later ++ rest)
+            value
+            noLine
+            noBrace
+            (selfRuns
+              { modes, level = LevelArgument }
+              read
+              (Parse.loopReads [] later ++ rest)
+              value
+              holds
+              (arithmetic [small, lengths]))),
+        argsRunsOf sub self bound modes later rest selfRuns (arithmetic [small, lengths]) more
+      )
+
+--| What `AppReads` holds of, `app` reads.
+theorem runsAppTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: AppReads sub modes read rest value):
+    Parse.Runs (() => app self modes) read rest value :=
+  runsApp self modes read rest value (start =>
+    match reads with
+      | Inl (noSection, atomReads, ends) =>
+        runsAppAtHead self modes start read rest value noSection
+          (runsAtomTree sub self bound modes True read rest value selfRuns small atomReads)
+          ends
+      | Inr (headRead, read1, steps, head, first, isRead, isValue, noSection, headReads, starts, firstReads, more) =>
+        let (item, itemMore, isHead, _) := headReads
+        let (noLine, noBrace, firstHolds) := firstReads
+        let loops := Parse.loopReads [] steps
+        let sizes := (
+          Eq.cong List.length isRead,
+          List.lengthAppend headRead (read1 ++ loops),
+          List.lengthAppend read1 loops,
+          Eq.cong List.length isHead
+        )
+        let (whole, split, args, headSize) := sizes
+        rewrite isRead, isValue then
+          runsAppAtCall self modes start headRead read1 rest head first steps
+            (rewrite <- isRead then noSection)
+            (runsAtomTree sub self bound modes True headRead
+              ((read1 ++ loops) ++ rest)
+              head
+              selfRuns
+              (arithmetic [small, whole, split])
+              headReads)
+            starts
+            (runsArgument self modes read1
+              (loops ++ rest)
+              first
+              noLine
+              noBrace
+              (selfRuns
+                { modes, level = LevelArgument }
+                read1
+                (loops ++ rest)
+                first
+                firstHolds
+                (arithmetic [small, whole, split, args, headSize])))
+            (argsRunsOf sub self bound modes steps rest selfRuns
+              (arithmetic [small, whole, split, args, headSize])
+              more))
+
+--| A sign is no `match`.
+theorem signNotMatch ∀ (kind: Tok) (signed: (kind == Minus || kind == Bang) = True): (kind == KwMatch) = False :=
+  match kind, signed with
+    | Minus, _ => byComputing
+    | Bang, _ => byComputing
+    | other, signed => (Bool.falseNotTrue signed).impossible
+
+--| What `UnaryReads` holds of, `unary` reads.
+theorem runsUnaryTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: UnaryReads sub modes read rest value):
+    Parse.Runs (() => unary self modes) read rest value :=
+  match reads with
+    | Inl (sign, more, operand, isRead, isValue, open, signed, noBar, notNumeral, operandReads) =>
+      let shorter: more.length < bound := arithmetic [small, Eq.cong List.length isRead]
+      rewrite isRead, isValue then
+        runsUnaryPrefix self modes sign more rest operand open signed
+          (signNotMatch sign.kind signed)
+          noBar
+          notNumeral
+          (selfRuns { modes, level = LevelUnary } more rest operand operandReads shorter)
+    | Inr (item, more, isRead, open, notMatch, noBar, route, appReads) =>
+      let appRuns := runsAppTree sub self bound modes read rest value selfRuns small appReads
+      match route with
+        | Inl unsigned =>
+          rewrite isRead then
+            runsUnaryApp self modes item more rest value open notMatch noBar unsigned (rewrite <- isRead then appRuns)
+        | Inr (minus, numeral) =>
+          rewrite isRead then
+            runsUnaryNumeral self modes item more rest value open minus noBar numeral (rewrite <- isRead then appRuns)
+
+-- From the rungs to runs: the operator ladder.
+
+--| `LinkReads` gives `LinkRuns` where each operand `operandReads` holds of is one `operand` reads.
+theorem linkRunsOf ∀ (modes: Modes) (takes: Tok → Bool) (operandReads: List Item → List Item → Expr → Prop)
+    (operand: () → {Parse Item} Expr) (bound: Nat) (links: List (Item, List Item, Expr)) (rest: List Item)
+    (converts: ∀ (read later: List Item) (value: Expr) => operandReads read later value
+      → read.length <= bound
+      → Parse.Runs operand read later value)
+    (small: (Parse.loopReads [] (linkSteps links)).length <= bound)
+    (reads: LinkReads modes takes operandReads links rest):
+    LinkRuns modes takes operand links rest :=
+  match links, small, reads with
+    | [], _, ends => ends
+    | [(operator, read, value), ..later], small, (open, took, holds, more) =>
+      let lengths := List.lengthAppend [operator, ..read] (Parse.loopReads [] (linkSteps later))
+      (
+        open,
+        took,
+        converts read (Parse.loopReads [] (linkSteps later) ++ rest) value holds (arithmetic [small, lengths]),
+        linkRunsOf modes takes operandReads operand bound later rest converts (arithmetic [small, lengths]) more
+      )
+
+theorem runsMulTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: MulReads sub modes read rest value):
+    Parse.Runs (() => mulExpr self modes) read rest value :=
+  let (headRead, head, links, isRead, isValue, headReads, linkReads) := reads
+  let loops := Parse.loopReads [] (linkSteps links)
+  let whole := Eq.cong List.length isRead
+  let split := List.lengthAppend headRead loops
+  rewrite isRead, isValue then
+    runsMulExpr self modes headRead rest head links
+      (runsUnaryTree sub self bound modes headRead
+        (loops ++ rest)
+        head
+        selfRuns
+        (arithmetic [small, whole, split])
+        headReads)
+      (linkRunsOf modes
+        (kind => kind == Star || kind == Slash || kind == Percent)
+        (UnaryReads sub modes)
+        (() => unary self modes)
+        bound
+        links
+        rest
+        (operandRead later operand holds short =>
+          runsUnaryTree sub self bound modes operandRead later operand selfRuns short holds)
+        (arithmetic [small, whole, split])
+        linkReads)
+
+theorem runsAddTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: AddReads sub modes read rest value):
+    Parse.Runs (() => addExpr self modes) read rest value :=
+  let (headRead, head, links, isRead, isValue, headReads, linkReads) := reads
+  let loops := Parse.loopReads [] (linkSteps links)
+  let whole := Eq.cong List.length isRead
+  let split := List.lengthAppend headRead loops
+  rewrite isRead, isValue then
+    runsAddExpr self modes headRead rest head links
+      (runsMulTree sub self bound modes headRead
+        (loops ++ rest)
+        head
+        selfRuns
+        (arithmetic [small, whole, split])
+        headReads)
+      (linkRunsOf modes
+        (kind => kind == Plus || kind == Minus)
+        (MulReads sub modes)
+        (() => mulExpr self modes)
+        bound
+        links
+        rest
+        (operandRead later operand holds short =>
+          runsMulTree sub self bound modes operandRead later operand selfRuns short holds)
+        (arithmetic [small, whole, split])
+        linkReads)
+
+theorem runsAppendTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: AppendReads sub modes read rest value):
+    Parse.Runs (() => appendExpr self modes) read rest value :=
+  let (headRead, head, links, isRead, isValue, headReads, linkReads) := reads
+  let loops := Parse.loopReads [] (linkSteps links)
+  let whole := Eq.cong List.length isRead
+  let split := List.lengthAppend headRead loops
+  rewrite isRead, isValue then
+    runsAppendExpr self modes headRead rest head links
+      (runsAddTree sub self bound modes headRead
+        (loops ++ rest)
+        head
+        selfRuns
+        (arithmetic [small, whole, split])
+        headReads)
+      (linkRunsOf modes
+        (kind => kind == PlusPlus)
+        (AddReads sub modes)
+        (() => addExpr self modes)
+        bound
+        links
+        rest
+        (operandRead later operand holds short =>
+          runsAddTree sub self bound modes operandRead later operand selfRuns short holds)
+        (arithmetic [small, whole, split])
+        linkReads)
+
+theorem runsPipedTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: PipedReads sub modes read rest value):
+    Parse.Runs (() => pipedRange self modes) read rest value :=
+  let (noRange, noPipe, appendReads) := reads
+  runsPipedRange self modes read rest value noRange noPipe
+    (runsAppendTree sub self bound modes read rest value selfRuns small appendReads)
+
+theorem runsCmpTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: CmpReads sub modes read rest value):
+    Parse.Runs (() => cmpExpr self modes) read rest value :=
+  match reads with
+    | Inl (pipedReads, noCmp) =>
+      runsCmpPlain self modes read rest value
+        (runsPipedTree sub self bound modes read rest value selfRuns small pipedReads)
+        noCmp
+    | Inr
+        (read1, operator, read2, lhs, second, isRead, isValue, firstReads, open, notIn, compares, noIf, secondReads,
+          noChain) =>
+      let whole := Eq.cong List.length isRead
+      let split := List.lengthAppend read1 [operator, ..read2]
+      rewrite isRead, isValue then
+        runsCmpCompare self modes read1 read2 rest lhs second operator
+          (runsPipedTree sub self bound modes read1
+            ([operator, ..read2] ++ rest)
+            lhs
+            selfRuns
+            (arithmetic [small, whole, split])
+            firstReads)
+          open
+          notIn
+          compares
+          noIf
+          (runsPipedTree sub self bound modes read2 rest second selfRuns (arithmetic [small, whole, split]) secondReads)
+          noChain
+
+--| `LogicReads` gives `LogicRuns`.
+theorem logicRunsOf ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (links: List (Item, List Item, Expr)) (rest: List Item)
+    (selfRuns: SelfRuns sub self bound)
+    (small: (Parse.loopReads [] (linkSteps links)).length <= bound)
+    (reads: LogicReads sub modes links rest):
+    LogicRuns self modes links rest :=
+  match links, small, reads with
+    | [], _, ends => ends
+    | [(operator, read, value), ..later], small, (open, andOr, noExists, noForall, holds, more) =>
+      let lengths := List.lengthAppend [operator, ..read] (Parse.loopReads [] (linkSteps later))
+      (
+        open,
+        andOr,
+        noExists,
+        noForall,
+        runsCmpTree sub self bound modes read
+          (Parse.loopReads [] (linkSteps later) ++ rest)
+          value
+          selfRuns
+          (arithmetic [small, lengths])
+          holds,
+        logicRunsOf sub self bound modes later rest selfRuns (arithmetic [small, lengths]) more
+      )
+
+theorem runsLogicAfterTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr)
+    (bound: Nat) (modes: Modes) (compared: Expr) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: LogicAfterReads sub modes compared read rest value):
+    Parse.Runs (() => logicAfter self modes compared) read rest value :=
+  match reads with
+    | Inl (isRead, isValue, ends) => rewrite isRead, isValue then runsLogicAfterNone self modes compared rest ends
+    | Inr (links, isRead, isValue, ahead, linkReads) =>
+      rewrite isRead, isValue then
+        runsLogicAfterChain self modes compared links rest
+          (rewrite <- isRead then ahead)
+          (logicRunsOf sub self bound modes links rest selfRuns (rewrite <- isRead then small) linkReads)
+
+theorem runsEndTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr) (bound: Nat)
+    (modes: Modes) (logic: Expr) (sequence: Bool) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: EndReads sub modes logic sequence read rest value):
+    Parse.Runs (() => opEnd self modes logic sequence modes.peek) read rest value :=
+  match reads with
+    | Inl (isRead, isValue, ends) => rewrite isRead, isValue then runsOpEndNone self modes logic sequence rest ends
+    | Inr (arrow, more, result, isRead, isValue, open, isArrow, (noRow, resultHolds)) =>
+      let shorter: more.length < bound := arithmetic [small, Eq.cong List.length isRead]
+      rewrite isRead, isValue then
+        runsOpEndArrow self modes logic result sequence arrow more rest open isArrow
+          (runsResultPlain self modes more rest result noRow
+            (selfRuns
+              { modes = allowBraceOn modes (more ++ rest), level = LevelFull }
+              more
+              rest
+              result
+              resultHolds
+              shorter))
+
+theorem runsOperatorTree ∀ (sub: Goal → List Item → List Item → Expr → Prop) (self: Goal → {Parse Item} Expr)
+    (bound: Nat) (modes: Modes) (read rest: List Item) (value: Expr)
+    (selfRuns: SelfRuns sub self bound)
+    (small: read.length <= bound)
+    (reads: OperatorReads sub modes read rest value):
+    Parse.Runs (() => operatorExpr self modes) read rest value :=
+  let (read1, read2, read3, compared, logic, isRead, noSection, cmpReads, logicReads, noIff, endReads) := reads
+  let sizes := (Eq.cong List.length isRead, List.lengthAppend read1 (read2 ++ read3), List.lengthAppend read2 read3)
+  let (whole, first, later) := sizes
+  runsOperatorExpr self modes read rest value (start =>
+    rewrite isRead then
+      runsOpStartWith self modes start read1 read2 read3 rest compared logic value noSection
+        (runsCmpTree sub self bound modes read1
+          (read2 ++ read3 ++ rest)
+          compared
+          selfRuns
+          (arithmetic [small, whole, first])
+          cmpReads)
+        (runsLogicAfterTree sub self bound modes compared read2
+          (read3 ++ rest)
+          logic
+          selfRuns
+          (arithmetic [small, whole, first, later])
+          logicReads)
+        noIff
+        (runsEndTree sub self bound modes logic
+          (sequenceOn modes (read3 ++ rest))
+          read3
+          rest
+          value
+          selfRuns
+          (arithmetic [small, whole, first, later])
+          endReads))
