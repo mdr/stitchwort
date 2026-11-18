@@ -5,6 +5,9 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Fmt.JoinProofs (AllJoinable, CloserJoins, DeclJoins, Joinable, OpenerJoins, WordJoins)
+import Fmt.TreeJoinProofs (lexKind)
+import Fmt.TriviaStatements (..)
 import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
 import Fmt.SpellProofs (..)
 import Fmt.ToldWordProofs (..)
@@ -57,6 +60,10 @@ theorem orImplies ∀ (x y z: Bool)
     | True => left byComputing
     | False => right both
 
+--| Two entries that refine a shape merge into one that does.
+--|
+--| Proof idea: Cases on the shape's entry; the merged entry's flags are the two entries' `||`, which allow no more than
+--| the shape's if each does (`orImplies`).
 theorem mergeEntryRefines ∀ (one other shape: Told)
     (left: EntryRefines one shape)
     (right: EntryRefines other shape):
@@ -128,20 +135,6 @@ theorem textSpotForced ∀ (word: Word) (around: Around) (spot: Spot)
   match word.leadsLine around, word.ownsLine around with
     | True, _ => byComputing
     | False, True => byComputing
-
-theorem printedText ∀ (word: Word) (around: Around): (word.printed around).text = word.text := match around.hoisted with
-  | True => byComputing
-  | False => byComputing
-
-theorem printedTrail ∀ (word: Word) (around: Around): (word.printed around).toldTrail = word.toldTrail :=
-  match around.hoisted with
-    | True => byComputing
-    | False => byComputing
-
-theorem printedCloser ∀ (word: Word) (around: Around): closerTrails (word.printed around) = closerTrails word :=
-  match around.hoisted with
-    | True => byComputing
-    | False => byComputing
 
 theorem refinesOne ∀ (text: Text) (starts follows first second: Bool)
     (left: starts = True → first = True)
@@ -569,6 +562,7 @@ theorem codedOf ∀ (expr: Expr)
 -- Items.
 
 --| What stands among the words before an item: its own words read back, then the earlier items'.
+--| What `homedBack` says of the words before an item, and before the items after it.
 theorem itemsHomed ∀ (item: Expr) (rest: List Expr) (prior: List Word)
     (homed: homedBack ((itemsWords [item, ..rest]).reverse ++ prior) = True):
     homedBack (item.words.reverse ++ prior) = True
@@ -681,6 +675,8 @@ theorem joinCells ∀ (first: Bool) (items: List Expr): joinShapes (cellShapes f
         List.appendAssoc (item.shape first False) [Said "," True True] (itemsShape True rest)
 
 --| A filled list's cells tell its items, a bare comma after each but the last.
+--|
+--| Proof idea: Induction on the items; each cell is the item's element, and a concat with the comma but for the last.
 theorem cellsShape ∀ (bare arm before: Bool) (at: Nat) (items: List Expr) (prior: List Word)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
@@ -1188,6 +1184,9 @@ theorem concatMapAll ∀ (docs: List Doc) (shapes: List (List Told))
 
 --| A call that breaks keeps some elements on its line and the rest each on a line of its own: the shape is the
 --| elements'.
+--|
+--| Proof idea: The shapes of the first `keep` and the rest are the shapes of all (`takeDropJoin`); the front is
+--| spaced or filled, the rest nested under an `IfBroken` or not, as `frontRestSpells`.
 theorem frontRestShape ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (shapes: List (List Told))
     (each: IsEach docs shapes):
     Is
@@ -1445,6 +1444,7 @@ theorem chainRightShape ∀ (level: Option Nat) (right: Expr) (around: Around)
     | _ =>
       isCons (Doc.text " ") (linkDocs level False right around) [] (right.shape around.item around.hoisted) isSpace link
 
+--| What `homedBack` says of the words before an operator's operands, from the chain's.
 theorem infixHomed ∀ (left: Expr) (operator: Word) (right: Expr) (prior: List Word)
     (homed: homedBack ((left.words ++ [operator, ..right.words]).reverse ++ prior) = True):
     homedBack (left.words.reverse ++ prior) = True
@@ -1975,6 +1975,7 @@ theorem typedShape ∀ (trails: Bool) (typeDoc: Doc) (shape: List Told)
     | True => isLast _ _ (isNest 4 _ _ (isConcat _ _ (isCons HardLine [typeDoc] [] shape isHardLine (isLast _ _ is))))
     | False => isCons (Doc.text " ") [Nest 4 typeDoc] [] shape isSpace (isLast _ _ (isNest 4 _ _ is))
 
+--| What `homedBack` says of the words before the type and before the value, from the declaration's.
 theorem declHomed ∀ (keyword name colonWord: Word) (result: Expr) (assign: Word) (value: Expr)
     (homed: homedBack (([keyword, name, colonWord] ++ result.words ++ [assign] ++ value.words).reverse) = True):
     homedBack (result.words.reverse ++ [colonWord, name, keyword]) = True
@@ -2215,3 +2216,498 @@ theorem doc1Told ∀ (decl: Decl) (doc: Doc)
     (shows: decl.doc1 = Some doc):
     Refines (doc.told Spot.lineStart) decl.shape :=
   doc1Shape decl doc within sound nonCloser homed shows Spot.lineStart
+
+-- The shape is the stood words with bare commas.
+
+--| A comma the rules write between a bracket's items: no comments, no word of the tree's.
+def isBareComma (told: Told): Bool := match told with
+  | Said text True True => text == ","
+  | _ => False
+
+--| The reading without its bare commas.
+def dropCommas: List Told → List Told
+  | [] => []
+  | [entry, ..rest] => if isBareComma entry then dropCommas rest else [entry, ..dropCommas rest]
+
+theorem dropAppend ∀ (front back: List Told): dropCommas (front ++ back) = dropCommas front ++ dropCommas back :=
+  match front with
+    | [] => byComputing
+    | [entry, ..rest] =>
+      match isBareComma entry with
+        | True => rewrite dropAppend rest back
+        | False => rewrite dropAppend rest back
+
+--| What each word of a list tells, one after another.
+def wordsShape: List Word → List Told
+  | [] => []
+  | [word, ..rest] => word.shapeW ++ wordsShape rest
+
+theorem wordsShapeAppend ∀ (front back: List Word): wordsShape (front ++ back) = wordsShape front ++ wordsShape back :=
+  match front with
+    | [] => byComputing
+    | [word, ..rest] =>
+      rewrite wordsShapeAppend rest back, List.appendAssoc word.shapeW (wordsShape rest) (wordsShape back)
+
+--| The word with no own-line comments or blank line above it: where an enclosing element wrote them.
+def Word.hoist (word: Word): Word :=
+  { word | comments = { above = [], after = word.comments.after, blankBefore = False } }
+
+--| What a list of words tells, the first hoisted if `hoisted`.
+def wordsShapeAt (hoisted: Bool) (words: List Word): List Told := match hoisted, words with
+  | False, words => wordsShape words
+  | True, [] => []
+  | True, [word, ..rest] => word.hoist.shapeW ++ wordsShape rest
+
+theorem shapeKIs ∀ (word: Word) (item closer hoisted: Bool)
+    (same: isCloserText word.text = closer):
+    word.shapeK item hoisted = wordsShapeAt hoisted [word.kept item closer] :=
+  rewrite same then
+    match hoisted with
+      | True => rewrite List.appendNil (word.kept item closer).hoist.shapeW
+      | False => rewrite List.appendNil (word.kept item closer).shapeW
+
+theorem noteBare ∀ (note: Note): dropCommas (noteTold note) = noteTold note := match note.blankBefore with
+  | True => byComputing
+  | False => byComputing
+
+theorem notesBare ∀ (notes: List Note): dropCommas (notesTold notes) = notesTold notes := match notes with
+  | [] => byComputing
+  | [note, ..rest] => rewrite dropAppend (noteTold note) (notesTold rest), noteBare note, notesBare rest
+
+theorem aboveBare ∀ (comments: Comments): dropCommas comments.toldAbove = comments.toldAbove :=
+  rewrite dropAppend (notesTold comments.above) (if comments.blankBefore then [Gap] else []),
+      notesBare comments.above then
+    match comments.blankBefore with
+      | True => byComputing
+      | False => byComputing
+
+theorem trailBare ∀ (word: Word): dropCommas word.toldTrail = word.toldTrail := match word.comments.after with
+  | Some comment => byComputing
+  | None => byComputing
+
+theorem dropOne ∀ (text: Text) (flag: Bool)
+    (notComma: (text == ",") = False):
+    dropCommas [Said text True flag] = [Said text True flag] :=
+  match flag with
+    | True => rewrite notComma
+    | False => byComputing
+
+--| A word whose text is no comma tells no bare comma.
+theorem wordBare ∀ (word: Word) (notComma: (word.text == ",") = False): dropCommas word.shapeW = word.shapeW :=
+  rewrite dropAppend word.comments.toldAbove ([Said word.text True (!closerTrails word)] ++ word.toldTrail),
+      dropAppend [Said word.text True (!closerTrails word)] word.toldTrail,
+      aboveBare word.comments,
+      dropOne word.text (!closerTrails word) notComma,
+      trailBare word
+
+theorem shapeKBare ∀ (word: Word) (item: Bool)
+    (notComma: (word.text == ",") = False):
+    dropCommas (word.shapeK item False) = word.shapeK item False :=
+  wordBare (word.kept item (isCloserText word.text)) notComma
+
+--| A word's text is no comma where the lexer proofs read it.
+def Word.notComma (word: Word): Bool := !(word.text == ",")
+
+--| Every token is no comma, and every bracket's closer is a closer.
+def Expr.spelled: Expr → Bool
+  | Atom _ word => word.notComma
+  | Paren open inner close => open.notComma && inner.spelled && isCloserText close.text
+  | Tuple open items _ close => open.notComma && allSpelled items && isCloserText close.text
+  | ListOf open items _ close => open.notComma && allSpelled items && isCloserText close.text
+  | App head arguments => head.spelled && allSpelled arguments
+  | Infix _ left operator right => left.spelled && operator.notComma && right.spelled
+  | Prefix operator operand => operator.notComma && operand.spelled
+  | _ => False
+
+def allSpelled: List Expr → Bool
+  | [] => True
+  | [expr, ..rest] => expr.spelled && allSpelled rest
+
+theorem closerNotComma ∀ (text: Text) (closer: isCloserText text = True): (text == ",") = False :=
+  match same: text == "," with
+    | True => (Bool.falseNotTrue (rewrite DecEq.sound same at closer then closer)).impossible
+    | False => same
+
+--| The items of a bracket as `calm` has them: the first with its own flag, the rest items.
+def calmFrom (first: Bool): List Expr → List Expr
+  | [] => []
+  | [item, ..rest] => [item.calm first, ..calmAll True rest]
+
+theorem calmAllFrom ∀ (items: List Expr): calmAll True items = calmFrom True items := match items with
+  | [] => byComputing
+  | [item, ..rest] => byComputing
+
+theorem calmItemsFrom ∀ (items: List Expr): calmItems items = calmFrom (!items.all Expr.plainItem) items :=
+  match items.all Expr.plainItem with
+    | True =>
+      (match items with
+        | [] => byComputing
+        | [item, ..rest] => byComputing)
+    | False =>
+      (match items with
+        | [] => byComputing
+        | [item, ..rest] => byComputing)
+
+theorem wordsShapeOne ∀ (word: Word): wordsShape [word] = word.shapeW := List.appendNil word.shapeW
+
+--| A word of the tree, as `calm` keeps it, tells what the rules print for it.
+theorem wordStood ∀ (word: Word) (item closer: Bool)
+    (same: isCloserText word.text = closer):
+    word.shapeK item False = (word.kept item closer).shapeW :=
+  rewrite same
+
+--| A bracket's items without their bare commas are the calm items' words.
+--|
+--| Proof idea: Induction on the items; a comma between two items is dropped.
+theorem itemsStood ∀ (first: Bool) (items: List Expr)
+    (within: allWithin1 items = True)
+    (nonCloser: allNonCloser items = True)
+    (spelled: allSpelled items = True):
+    dropCommas (itemsShape first items) = wordsShape (itemsWords (calmFrom first items)) :=
+  match items with
+    | [] => byComputing
+    | [item] =>
+      rewrite shapeStood item first (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
+          List.appendNil (item.calm first).words
+    | [item, next, ..more] =>
+      rewrite dropAppend (item.shape first False) ([Said "," True True] ++ itemsShape True [next, ..more]),
+          dropAppend [Said "," True True] (itemsShape True [next, ..more]),
+          shapeStood item first (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
+          itemsStood True [next, ..more] (Bool.andRight within) (Bool.andRight nonCloser) (Bool.andRight spelled),
+          wordsShapeAppend (item.calm first).words (itemsWords (calmFrom True [next, ..more]))
+
+--| A call's arguments tell the calm arguments' words.
+theorem argumentsStood ∀ (arguments: List Expr)
+    (within: allWithin1 arguments = True)
+    (nonCloser: allNonCloser arguments = True)
+    (spelled: allSpelled arguments = True):
+    dropCommas (argumentsShape arguments) = wordsShape (itemsWords (calmAll False arguments)) :=
+  match arguments with
+    | [] => byComputing
+    | [argument, ..rest] =>
+      rewrite dropAppend (argument.shape False False) (argumentsShape rest),
+          shapeStood argument False (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
+          argumentsStood rest (Bool.andRight within) (Bool.andRight nonCloser) (Bool.andRight spelled),
+          wordsShapeAppend (argument.calm False).words (itemsWords (calmAll False rest))
+
+--| The tree's words with the blank lines the rules read, as the shape tells them, without the bare commas.
+--|
+--| Proof idea: Induction on the expression, `calm` and `Expr.words` node by node; a token's shape is `shapeKBare` (its
+--| text no comma), and `calm` keeps a closer's flags as the rules do for a closer.
+theorem shapeStood ∀ (expr: Expr) (item: Bool)
+    (within: expr.within1 = True)
+    (nonCloser: expr.nonCloser = True)
+    (spelled: expr.spelled = True):
+    dropCommas (expr.shape item False) = wordsShape (expr.calm item).words :=
+  match expr with
+    | Atom kind word =>
+      rewrite shapeKBare word item (Bool.notTrue _ spelled),
+          wordStood word item False (Bool.notTrue _ nonCloser),
+          wordsShapeOne (word.kept item False)
+    | Paren open inner close =>
+      rewrite dropAppend (open.shapeK item False) (inner.shape False False ++ close.shapeK False False),
+          dropAppend (inner.shape False False) (close.shapeK False False),
+          shapeKBare open item (Bool.notTrue _ (Bool.andLeft spelled)),
+          shapeKBare close False (closerNotComma close.text (Bool.andRight (Bool.andRight spelled))),
+          shapeStood inner False within (Bool.andRight nonCloser) (Bool.andLeft (Bool.andRight spelled)),
+          wordStood open item False (Bool.notTrue _ (Bool.andLeft nonCloser)),
+          wordStood close False True (Bool.andRight (Bool.andRight spelled)),
+          wordsShapeAppend [open.kept item False, ..(inner.calm False).words] [close.kept False True],
+          wordsShapeOne (close.kept False True),
+          List.appendAssoc
+            (open.kept item False).shapeW
+            (wordsShape (inner.calm False).words)
+            (close.kept False True).shapeW
+    | Tuple open items comma close =>
+      rewrite dropAppend (open.shapeK item False) (itemsShape True items ++ close.shapeK False False),
+          dropAppend (itemsShape True items) (close.shapeK False False),
+          shapeKBare open item (Bool.notTrue _ (Bool.andLeft spelled)),
+          shapeKBare close False (closerNotComma close.text (Bool.andRight (Bool.andRight spelled))),
+          itemsStood True items within (Bool.andRight nonCloser) (Bool.andLeft (Bool.andRight spelled)),
+          wordStood open item False (Bool.notTrue _ (Bool.andLeft nonCloser)),
+          wordStood close False True (Bool.andRight (Bool.andRight spelled)),
+          wordsShapeAppend [open.kept item False, ..itemsWords (calmAll True items)] [close.kept False True],
+          wordsShapeOne (close.kept False True),
+          calmAllFrom items,
+          List.appendAssoc
+            (open.kept item False).shapeW
+            (wordsShape (itemsWords (calmFrom True items)))
+            (close.kept False True).shapeW
+    | ListOf open items comma close =>
+      rewrite dropAppend
+            (open.shapeK item False)
+            (itemsShape (!items.all Expr.plainItem) items ++ close.shapeK False False),
+          dropAppend (itemsShape (!items.all Expr.plainItem) items) (close.shapeK False False),
+          shapeKBare open item (Bool.notTrue _ (Bool.andLeft spelled)),
+          shapeKBare close False (closerNotComma close.text (Bool.andRight (Bool.andRight spelled))),
+          itemsStood
+            (!items.all Expr.plainItem)
+            items
+            within
+            (Bool.andRight nonCloser)
+            (Bool.andLeft (Bool.andRight spelled)),
+          wordStood open item False (Bool.notTrue _ (Bool.andLeft nonCloser)),
+          wordStood close False True (Bool.andRight (Bool.andRight spelled)),
+          calmItemsFrom items,
+          wordsShapeAppend [open.kept item False, ..itemsWords (calmFrom (!items.all Expr.plainItem) items)] [
+            close.kept False True
+          ],
+          wordsShapeOne (close.kept False True),
+          List.appendAssoc
+            (open.kept item False).shapeW
+            (wordsShape (itemsWords (calmFrom (!items.all Expr.plainItem) items)))
+            (close.kept False True).shapeW
+    | App head arguments =>
+      rewrite dropAppend (head.shape item False) (argumentsShape arguments),
+          shapeStood head item (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
+          argumentsStood arguments (Bool.andRight within) (Bool.andRight nonCloser) (Bool.andRight spelled),
+          wordsShapeAppend (head.calm item).words (itemsWords (calmAll False arguments))
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          rewrite dropAppend (left.shape item False) (operator.shapeK False False ++ right.shape False False),
+              dropAppend (operator.shapeK False False) (right.shape False False),
+              shapeStood left item (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
+              shapeKBare operator False (Bool.notTrue _ (Bool.andLeft (Bool.andRight spelled))),
+              shapeStood right False
+                (Bool.andLeft (Bool.andRight within))
+                (Bool.andRight (Bool.andRight nonCloser))
+                (Bool.andRight (Bool.andRight spelled)),
+              wordStood operator False False (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser))),
+              wordsShapeAppend (left.calm item).words [operator.kept False False, ..(right.calm False).words]
+        | InfixArrow =>
+          rewrite dropAppend (left.shape item False) (operator.shapeK False False ++ right.shape False False),
+              dropAppend (operator.shapeK False False) (right.shape False False),
+              shapeStood left item (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
+              shapeKBare operator False (Bool.notTrue _ (Bool.andLeft (Bool.andRight spelled))),
+              shapeStood right False
+                (Bool.andLeft (Bool.andRight within))
+                (Bool.andRight (Bool.andRight nonCloser))
+                (Bool.andRight (Bool.andRight spelled)),
+              wordStood operator False False (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser))),
+              wordsShapeAppend (left.calm item).words [operator.kept False False, ..(right.calm False).words]
+        | _ => cases
+    | Prefix operator operand =>
+      rewrite dropAppend (operator.shapeK item False) (operand.shape False False),
+          shapeKBare operator item (Bool.notTrue _ (Bool.andLeft spelled)),
+          shapeStood operand False (Bool.andLeft within) (Bool.andRight nonCloser) (Bool.andRight spelled),
+          wordStood operator item False (Bool.notTrue _ (Bool.andLeft nonCloser))
+
+-- What the declaration's tokens are.
+
+theorem wordTexts ∀ (word: Word) (joins: WordJoins word): (!isCloserText word.text) = True ∧ word.notComma = True :=
+  let (sound, token, comma, closer) := joins
+  (Bool.notOfFalse _ closer, Bool.notOfFalse _ comma)
+
+--| The facts `Joinable` carries about the words' texts: no token is a comma or a closer, and each bracket's closer is
+--| one.
+--|
+--| Proof idea: Induction on the expression, the words' facts from `WordJoins` and `CloserJoins`.
+theorem joinableTexts ∀ (kinds: Text → Tok) (expr: Expr)
+    (joins: Joinable kinds expr):
+    expr.nonCloser = True ∧ expr.spelled = True :=
+  match expr with
+    | Atom kind word =>
+      let (closer, comma) := wordTexts word joins
+      (closer, comma)
+    | Paren open inner close =>
+      let ((openWord, _), (closeSound, closeText), innerJoins) := joins
+      let (openCloser, openComma) := wordTexts open openWord
+      let (innerCloser, innerComma) := joinableTexts kinds inner innerJoins
+      (Bool.andIntro openCloser innerCloser, Bool.andIntro openComma (Bool.andIntro innerComma closeText))
+    | Tuple open items comma close =>
+      let ((openWord, _), (closeSound, closeText), itemsJoins) := joins
+      let (openCloser, openComma) := wordTexts open openWord
+      let (itemsCloser, itemsComma) := allJoinableTexts kinds items itemsJoins
+      (Bool.andIntro openCloser itemsCloser, Bool.andIntro openComma (Bool.andIntro itemsComma closeText))
+    | ListOf open items comma close =>
+      let ((openWord, _), (closeSound, closeText), itemsJoins) := joins
+      let (openCloser, openComma) := wordTexts open openWord
+      let (itemsCloser, itemsComma) := allJoinableTexts kinds items itemsJoins
+      (Bool.andIntro openCloser itemsCloser, Bool.andIntro openComma (Bool.andIntro itemsComma closeText))
+    | App head arguments =>
+      let (headJoins, argumentsJoins, _) := joins
+      let (headCloser, headComma) := joinableTexts kinds head headJoins
+      let (argumentsCloser, argumentsComma) := allJoinableTexts kinds arguments argumentsJoins
+      (Bool.andIntro headCloser argumentsCloser, Bool.andIntro headComma argumentsComma)
+    | Infix kind left operator right =>
+      let (leftJoins, operatorJoins, rightJoins) := joins
+      let (leftCloser, leftComma) := joinableTexts kinds left leftJoins
+      let (operatorCloser, operatorComma) := wordTexts operator operatorJoins
+      let (rightCloser, rightComma) := joinableTexts kinds right rightJoins
+      (
+        Bool.andIntro leftCloser (Bool.andIntro operatorCloser rightCloser),
+        Bool.andIntro leftComma (Bool.andIntro operatorComma rightComma)
+      )
+    | Prefix operator operand =>
+      let (operatorJoins, operandJoins, _) := joins
+      let (operatorCloser, operatorComma) := wordTexts operator operatorJoins
+      let (operandCloser, operandComma) := joinableTexts kinds operand operandJoins
+      (Bool.andIntro operatorCloser operandCloser, Bool.andIntro operatorComma operandComma)
+
+theorem allJoinableTexts ∀ (kinds: Text → Tok) (items: List Expr)
+    (joins: AllJoinable kinds items):
+    allNonCloser items = True ∧ allSpelled items = True :=
+  match items with
+    | [] => (byComputing, byComputing)
+    | [first, ..rest] =>
+      let (firstJoins, restJoins) := joins
+      let (firstCloser, firstComma) := joinableTexts kinds first firstJoins
+      let (restCloser, restComma) := allJoinableTexts kinds rest restJoins
+      (Bool.andIntro firstCloser restCloser, Bool.andIntro firstComma restComma)
+
+--| The tokens a declaration prints are no commas, and its type's and value's brackets are closed.
+def Decl.spelled: Decl → Bool
+  | Definition _ header (Assigned _ value) => header.name.notComma && header.result.spelled && value.spelled
+  | _ => False
+
+theorem declTexts ∀ (decl: Decl) (joins: DeclJoins lexKind decl): decl.nonCloser = True ∧ decl.spelled = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      let (_, nameJoins, _, resultJoins, _, valueJoins) := joins
+      let (nameCloser, nameComma) := wordTexts header.name nameJoins
+      let (resultCloser, resultComma) := joinableTexts lexKind header.result resultJoins
+      let (valueCloser, valueComma) := joinableTexts lexKind value valueJoins
+      (
+        Bool.andIntro nameCloser (Bool.andIntro resultCloser valueCloser),
+        Bool.andIntro nameComma (Bool.andIntro resultComma valueComma)
+      )
+
+theorem shapeKBareHoisted ∀ (word: Word) (item: Bool)
+    (notComma: (word.text == ",") = False):
+    dropCommas (word.shapeK item True) = word.shapeK item True :=
+  wordBare word.hoist notComma
+
+--| The declaration's shape without its bare commas is its words as `decl.stood` has them.
+--|
+--| Proof idea: The shape is the tokens' in order (`dropAppend`); the keyword is the `def` the file's comments left out,
+--| the name, colon and `:=` as `calm` keeps them, the type's and the value's by `shapeStood`.
+theorem declStood ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (nonCloser: decl.nonCloser = True)
+    (spelled: decl.spelled = True):
+    dropCommas decl.shape = wordsShape decl.stood :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          rewrite dropAppend
+                ((fixedWord "def" header.keyword).shapeK False True)
+                (header.name.shapeK False False
+                  ++ (fixedWord ":" header.colon).shapeK False False
+                  ++ header.result.shape False False
+                  ++ (fixedWord ":=" colonEq).shapeK False False
+                  ++ value.shape False False),
+              dropAppend
+                (header.name.shapeK False False)
+                ((fixedWord ":" header.colon).shapeK False False
+                  ++ header.result.shape False False
+                  ++ (fixedWord ":=" colonEq).shapeK False False
+                  ++ value.shape False False),
+              dropAppend
+                ((fixedWord ":" header.colon).shapeK False False)
+                (header.result.shape False False
+                  ++ (fixedWord ":=" colonEq).shapeK False False
+                  ++ value.shape False False),
+              dropAppend
+                (header.result.shape False False)
+                ((fixedWord ":=" colonEq).shapeK False False ++ value.shape False False),
+              dropAppend ((fixedWord ":=" colonEq).shapeK False False) (value.shape False False),
+              shapeKBareHoisted (fixedWord "def" header.keyword) False byComputing,
+              shapeKBare header.name False (Bool.notTrue _ (Bool.andLeft spelled)),
+              shapeKBare (fixedWord ":" header.colon) False byComputing,
+              shapeKBare (fixedWord ":=" colonEq) False byComputing,
+              shapeStood header.result False
+                (Bool.andRight (Bool.andLeft within))
+                (Bool.andLeft (Bool.andRight nonCloser))
+                (Bool.andLeft (Bool.andRight spelled)),
+              shapeStood value False
+                (Bool.andRight within)
+                (Bool.andRight (Bool.andRight nonCloser))
+                (Bool.andRight (Bool.andRight spelled)),
+              wordStood header.name False False (Bool.notTrue _ (Bool.andLeft nonCloser)),
+              wordsShapeAppend (header.result.calm False).words [
+                fixedWord ":=" (colonEq.kept False False),
+                ..(value.calm False).words
+              ]
+        | _ => cases
+
+--| `printedTold` (F3 of SW-4042): the printer's document for a slice 1 declaration, told from a line start, tells
+--| exactly what `decl.stood` has: the words with their own-line comments, blank-line flags and trailing comments, a
+--| bare comma between a bracket's items and nowhere else, and each closer that holds a comment as ending the line it
+--| starts (it follows no words). `Refines` says no entry is a `MaybeGap` or `Lost`: every entry is a blank line or a
+--| word whose text and comments are the tree's, the layout deciding only the flags `decl.shape` leaves open.
+--|
+--| Hypotheses: the declaration is within slice 1 and `settled1` (for `homedBack`: a closer with a comment of its own
+--| and none above it follows code ending with a comment, so the rules give it a line of its own, `Word.ownsLine`), its
+--| tokens aren't layout (`decl.real`, as `printedSpellsSettled`), and `DeclJoins`, which says the words are the kinds
+--| the rules print (names, numerals, brackets, operators), none a comma or closer but the brackets' closers.
+--|
+--| Proof idea: `doc1Told` (the document tells `decl.shape`, by the rules' lemmas) and `declStood` (the shape is the
+--| stood words with bare commas).
+theorem printedTold ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (settled: decl.settled1 = True)
+    (real: decl.real = True)
+    (joins: DeclJoins lexKind decl)
+    (shows: decl.doc1 = Some doc):
+    Refines (doc.told Spot.lineStart) decl.shape ∧ dropCommas decl.shape = wordsShape decl.stood :=
+  let (nonCloser, spelled) := declTexts decl joins
+  (
+    doc1Told decl doc within (declSoundOfSettled decl within settled real) nonCloser (Bool.andLeft settled) shows,
+    declStood decl within nonCloser spelled
+  )
+
+-- Witnesses.
+
+--| `def d: A := g [a, b]`: the list's items have a bare comma between them, and without them the shape is the words'.
+theorem shapeExample: exampleDecl.shape
+      = [
+        Said "def" True True,
+        Said "d" True True,
+        Said ":" True True,
+        Said "A" True True,
+        Said ":=" True True,
+        Said "g" True True,
+        Said "[" True True,
+        Said "a" True True,
+        Said "," True True,
+        Said "b" True True,
+        Said "]" True True
+      ]
+      ∧ dropCommas exampleDecl.shape = wordsShape exampleDecl.stood :=
+  (byComputing, byComputing)
+
+--| A closer that holds a comment is told as starting its line (it follows no words), as `stands` needs; the same
+--| closer with no comment is left to the layout.
+theorem shapeCloser: ((Paren
+          (fixedWord "(" Comments.none)
+          (Atom Lower (fixedWord "a" Comments.none))
+          (fixedWord ")" { above = [], after = Some "-- c", blankBefore = False })).shape False False
+      = [Said "(" True True, Said "a" True True, Said ")" True False, Said "-- c" False True])
+      ∧ ((Paren
+            (fixedWord "(" Comments.none)
+            (Atom Lower (fixedWord "a" Comments.none))
+            (fixedWord ")" Comments.none)).shape False False
+        = [Said "(" True True, Said "a" True True, Said ")" True True]) :=
+  (byComputing, byComputing)
+
+--| `forcedOfHomes` applies: a closer that holds a comment after code that ends with one takes a line of its own.
+theorem forcedWitness: (fixedWord ")" { above = [], after = Some "-- c", blankBefore = False }).forced witnessAfterCode
+      = True :=
+  forcedOfHomes _ witnessAfterCode byComputing byComputing
+
+--| `closerNotComma` applies.
+theorem closerNotCommaWitness: (")" == ",") = False := closerNotComma ")" byComputing

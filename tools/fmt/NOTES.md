@@ -1643,3 +1643,68 @@ Words: `leafTell` and its four spots, `openingTell`, `atomTell`, `toldLeadQuiet`
 - Not done here: items of a comma bracket (`itemAround`: `item = True` is where `leadSpot` reads `Gap`), `Fill`'s
   `plainItem` words, calls, chains, the declaration; `Doc.Proofs.laysTold` and `printTold` (SW-4056) carry the reading
   from the tell to the laid trace.
+
+## Slice 1 trivia proofs, F3: what a declaration's document tells (SW-4050, Sonnet, 18 November 2026)
+
+`Fmt/ToldDeclProofs.sw` (namespace `Fmt.ToldDeclProofs`, 135 theorems, `audit` clean), after F2's `Fmt.ToldWordProofs`.
+Ticket F3 of `docs/reviews/SW-4042-trivia-statement.md`: brackets and items, calls, chains, the declaration. F4 (the
+engine's tuck, then `printedStands1`) starts from `printedTold`.
+
+### The statement
+
+```
+theorem printedTold ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True) (settled: decl.settled1 = True) (real: decl.real = True)
+    (joins: DeclJoins lexKind decl) (shows: decl.doc1 = Some doc):
+    Refines (doc.told Spot.lineStart) decl.shape ∧ dropCommas decl.shape = wordsShape decl.stood
+```
+
+- `decl.shape` is a `List Told`: for each token of the declaration in order, its own-line comments (a `Gap` above a comment
+  or a kept blank line, `Said text True False` for each comment, `Gap` for a blank line below them), the word
+  `Said text True flag`, its trailing comment `Said comment False True`; and `Said "," True True` between a bracket's
+  items. The `def`'s own-line comments are left out, as in `decl.stood`.
+- `wordsShape` is the same for a word list, and `dropCommas` removes the bare commas, so the second conjunct is "the
+  shape is `decl.stood`'s words with bare commas". Every comma entry is a `Said "," True True` the rules write after an
+  item that has a successor; no word of the tree has that text (`Expr.spelled`).
+- `Refines told shape`: same length, each blank line a blank line, each word the same text, and the told flags allow no
+  more than the shape's. So no entry is `MaybeGap` or `Lost` (exactness is part of `Refines`).
+- **The flag**: `flag = !(isCloserText word.text && word.trails)`: a closer that holds a comment is `Said text True
+  False`, so its told entry never follows words (`stands`' clause 3); every other word is `True True`, left to the
+  layout: after a `Line` or `SoftLine` the same word may start a line or follow words, so no stronger statement holds of
+  all layouts. What follows a waiting comment (a closer that slips in front of it, a comma) is the engine's tuck (F4),
+  not told here.
+- Hypotheses: `settled` gives `homedBack decl.words.reverse`; `real` and `settled` give `decl.sound` (as
+  `printedSpellsSettled`); `DeclJoins` gives that no token is a comma or closer but the brackets' closers
+  (`declTexts`). **No quiet-only hypothesis was needed** (no `DeclQuiet`): the `Choice`s and `IfBroken`s tell the same
+  shape in every option (`mergeRefines`), and `homedBack` is what the rules' `around.before` for a closer reads.
+
+### How it is proved
+
+- `Is doc shape := ∀ spot, Refines (doc.tell spot).said shape`: the reading's entries do not depend on the spot (a word
+  is one `Said`, only its flags vary), so every rule's lemma holds from any spot and the spots never have to be tracked.
+  `Is` composes (`isCons`, `isAppend`, `isConcat`, `isFill`, `isChoice`, `isIfBroken`, ...) as `Spells` does.
+- `Word.homes word around`: a closer that holds a comment is not hoisted and has comments above it or follows code ending
+  with a comment (`around.before`); `forcedOfHomes` gives `Word.forced` (a line of its own), `leafShape` and
+  `openingShape` follow from F2's `leafTell`/`openingTell`. `closeHomes` derives `homes` for a bracket's closer from
+  `homedBack ([close, ..xs] ++ prior)`: `around.before` of a closer is computed from its siblings, never inherited
+  (`trailsBackCoded`, `trailsBeforeCloseIs`), so no invariant relates `around.before` to the words before the node
+  (an item after a comma gets `before = False`, whatever the code before ends with, and only its closers matter).
+- `elShape expr around prior`: any `within1` expression's element tells `expr.shape around.item around.hoisted`, given
+  `homedBack (expr.words.reverse ++ prior)` (`prior`: the words before it, newest first); the walk is `SpellProofs`'
+  (`elSpells`) with `Is` in place of `Spells`: `framedShape` (the node's frame tells the first token's own-line comments,
+  `shapeLead`), `parenShape`, `prefixShape`, `bracketContentShape` (`bracketFromShape`, `cellsShape` for the `Fill`'s
+  `plainItem` cells, `brokenItemsShape`), `appDocsShape` (`appFromShape`, `frontRestShape`, `argumentDocsShape`,
+  `huggedBracketShape`), `chainLinksShape`/`linkDocsShape`, `bodyAfterShape`, `plainDefShape`, `doc1Shape`.
+- `declStood`/`shapeStood`: the shape without bare commas is `calm`'s words, node by node.
+
+### Counts
+
+135 theorems, 35 defs. Foundations (`Refines`, merge, append): 6; words and leaves (`leafShape`, `openingShape`,
+`homes`): 11; shapes and frames: 7; `Is` combinators: 24; homedBack/coded lemmas: 6; items and brackets: 9; calls: 19;
+chains: 6; `elShape` and its helpers: 3; the body: 7; the declaration: 9; stood and texts: 25; witnesses: 6.
+
+### Not done / for F4
+
+- The tuck: `Tucks` turning a laid reading into `stands` of the printed leaves (flags of closers and commas after a
+  waiting comment are not in `decl.shape`; F4 reads them from the engine).
+- The file loop's blank lines and the `def`'s own-line comments are outside `decl.shape`, as in `decl.stood`.
