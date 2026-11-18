@@ -1708,3 +1708,29 @@ chains: 6; `elShape` and its helpers: 3; the body: 7; the declaration: 9; stood 
 - The tuck: `Tucks` turning a laid reading into `stands` of the printed leaves (flags of closers and commas after a
   waiting comment are not in `decl.shape`; F4 reads them from the engine).
 - The file loop's blank lines and the `def`'s own-line comments are outside `decl.shape`, as in `decl.stood`.
+
+## Slice 1 `printedFinish1`: a document's last word (SW-4066, Opus, 18 November 2026)
+
+### The predicate (sketch, before the proofs)
+
+The end-side mirror of `Std.Doc`'s `Leads`, in `Doc/Ends.sw`:
+
+- `Silent doc`: writes nothing and breaks no line: `Nothing`, `BreakParent`, `Mark`, `LineSuffix` (it only leaves a
+  comment waiting), and a `Concat` of silent docs.
+- `Ends last doc`: whatever the layout, the last thing `doc` writes is a chunk or closer whose text `last` holds of,
+  and after it only silent docs. A chunk or closer by `last`; a `Concat` whose last doc that isn't silent ends; a
+  nest, align, group, flatten, displaced or one-line-below of a doc that ends; an `IfBroken` whose branches both
+  end; a `Fill` whose last item ends; a `Choice` whose options all end (and there is one).
+- On the work list: `StackEnds last stack`, some command ends and every one after it is silent. A step only changes
+  the front of the work list, so commands after the one that ends stay as they are.
+- The run lemma (`readingEnds`): from `StackEnds` (or, once the last word is written, a printer whose last piece is
+  that word, not at a line start, with only silent commands left), every reading with the budget ends with the
+  printer's last piece that word and the line not started. Nothing after it but the waiting trailing comments, each
+  written after one space when the output is flushed (`printedEnds`): the printed pieces are
+  `front ++ [word, " ", c1, " ", c2, …]`, with every `c` a trailing comment of the document (`Marked`, via
+  `stepQuiet`), so never `"\n"`.
+
+At most one trailing comment is not `Ends`' business: `PairsFollow` (from `declPiecesOk`) says a comment is
+followed only by a line break, so `" ", c2` can't follow `c1`. For slice 1 the induction (`elEnds` in
+`FileLexProofs`) shows each element ends with its last token (a leaf's `piece`, its trailing comment silent after
+it), using the tree's `Joinable` facts for the token being no layout and no comment.
