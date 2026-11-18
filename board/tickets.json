@@ -25370,12 +25370,12 @@
     {
       "id": 4086,
       "title": "[Sonnet] fmt S1 goal printedLines1: lineAll, inLineAll, laterInLine of a printed one-line declaration from the alphabet and oneLine1 (TopReadBack; after SW-4071 widens lineKind)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note (Sonnet, 18 Nov): printedLines1 proved in 0efe1f673 on lane/SW-4086 (new Fmt.PrintedLines; statement unchanged): speltExpr gives lineAll, oneLine1 read over the split items gives inLineAll and laterInLine. Checked, audited, Fmt.Tests 118 pass.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
