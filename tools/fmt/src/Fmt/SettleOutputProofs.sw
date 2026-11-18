@@ -879,3 +879,143 @@ def returnFails (source: Text): Bool := match tidiedOf source with
 --| file loop prints it, and the lexer reads the printed line back without it. Above a declaration and at the end.
 theorem returnLost: (returnFails "-- a\r\r\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\r\r\n") = True :=
   byComputing
+
+-- Standing, joined.
+
+--| `stands` joins: leaves standing against words, with nothing owed at their end, followed by more that stand.
+theorem standsAppend ∀ (owed: Option Text) (words more: List Word) (leaves rest: List Leaf)
+    (first: stands owed words leaves = True)
+    (second: stands None more rest = True):
+    stands owed (words ++ more) (leaves ++ rest) = True :=
+  match leaves with
+    | [] =>
+      match owed with
+        | None => rewrite emptyOf words (Bool.andLeft first) then second
+        | Some text => Void.impossible (Bool.falseNotTrue (Bool.andRight first))
+    | [leaf, ..after] =>
+      match comma: leaf.kind == Comma with
+        | True =>
+          match tuck: tucked owed leaf with
+            | None => Void.impossible (Bool.falseNotTrue (Bool.andRight (Bool.andRight first)))
+            | Some still =>
+              Bool.andIntro
+                (Bool.andLeft first)
+                (Bool.andIntro
+                  (Bool.andLeft (Bool.andRight first))
+                  (standsAppend still words more after rest (Bool.andRight (Bool.andRight first)) second))
+        | False =>
+          match words with
+            | [word, ..later] =>
+              let headed := Bool.andLeft first
+              let clause := Bool.andRight first
+              match owed, afterIs: word.comments.after with
+                | Some text, None =>
+                  match tuck: tucked (Some text) leaf with
+                    | None => Void.impossible (Bool.falseNotTrue (Bool.andRight clause))
+                    | Some still =>
+                      Bool.andIntro headed
+                        (Bool.andIntro
+                          (Bool.andLeft clause)
+                          (standsAppend still later more after rest (Bool.andRight clause) second))
+                | None, None =>
+                  Bool.andIntro headed
+                    (Bool.andIntro
+                      (Bool.andLeft clause)
+                      (standsAppend None later more after rest (Bool.andRight clause) second))
+                | None, Some text =>
+                  let open := Bool.andLeft clause
+                  let tuck := Bool.andRight clause
+                  match trailing: leaf.trivia.trailing with
+                    | None =>
+                      Bool.andIntro headed
+                        (Bool.andIntro open (standsAppend (Some text) later more after rest tuck second))
+                    | Some comment =>
+                      Bool.andIntro headed
+                        (Bool.andIntro open
+                          (Bool.andIntro
+                            (Bool.andLeft tuck)
+                            (standsAppend None later more after rest (Bool.andRight tuck) second)))
+
+--| A word's leaf given other own-line comments and blank lines stands as before against the word given the same,
+--| if it is headed as that word.
+theorem standsHeaded ∀ (leaf: Leaf) (leaves: List Leaf) (word: Word) (words: List Word) (above: List Comment)
+    (blank: Nat) (comments: Comments)
+    (notComma: (leaf.kind == Comma) = False)
+    (standing: stands None [word, ..words] [leaf, ..leaves] = True)
+    (sameAfter: comments.after = word.comments.after)
+    (fresh: ({ leaf | trivia = { leaf.trivia | leading = above, blankLines = blank } }).headedAs {
+      text = word.text,
+      comments
+    }
+      = True):
+    stands None [{ text = word.text, comments }, ..words] (headed above blank [leaf, ..leaves]) = True :=
+  match comma: leaf.kind == Comma with
+    | False =>
+      rewrite sameAfter then
+        match afterIs: word.comments.after with
+          | None => Bool.andIntro fresh (Bool.andRight standing)
+          | Some text =>
+            match trailing: leaf.trivia.trailing with
+              | None => Bool.andIntro fresh (Bool.andRight standing)
+              | Some comment => Bool.andIntro fresh (Bool.andRight standing)
+
+-- The file's leaves stand.
+
+--| Own-line comments as a leaf's word reads them.
+def readNotes (comments: List Comment): List Note :=
+  comments.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })
+
+theorem noteRead ∀ (note: Note)
+    (plain: note.unreturned = True):
+    { text = (noteComment note).text, blankBefore = (noteComment note).blankLines > 0 } = note :=
+  match note with
+    | { text, blankBefore } =>
+      rewrite unreturnedSame text plain then
+        match blankBefore with
+          | True => byComputing
+          | False => byComputing
+
+theorem notesRead ∀ (notes: List Note)
+    (plain: notes.all Note.unreturned = True):
+    readNotes (notes.map noteComment) = notes :=
+  match notes with
+    | [] => byComputing
+    | [note, ..rest] => rewrite noteRead note (Bool.andLeft plain), notesRead rest (Bool.andRight plain)
+
+--| A declaration's leaves in the file stand against its calm words, the `def` holding `keyword`'s comments, when the
+--| file loop's notes and blank line read back as those.
+theorem standsDecl ∀ (header: Header) (colonEq: Comments) (value: Expr) (empty: Bool) (keyword: Comments)
+    (stood: (Definition [] header (Assigned colonEq value)).stands1 = True)
+    (start: notCommaFirst (Definition [] header (Assigned colonEq value)).leaves1 = True)
+    (aboveRead: readNotes (laidNotes empty header.keyword.above) = keyword.above)
+    (blankRead: ((if header.keyword.blankBefore && !(empty && header.keyword.above.isEmpty) then 1 else 0) > 0)
+      = keyword.blankBefore)
+    (afterSame: keyword.after = header.keyword.after):
+    stands None
+      [fixedWord "def" keyword, ..((Definition [] header (Assigned colonEq value)).calm.words.drop 1)]
+      ((Definition [] header (Assigned colonEq value)).laid1 empty)
+      = True :=
+  match leaves: (Definition [] header (Assigned colonEq value)).leaves1 with
+    | [leaf, ..rest] =>
+      match comma: leaf.kind == Comma with
+        | False =>
+          let textOk: (leaf.token.text == "def") = True := Bool.andLeft (Bool.andLeft stood)
+          let blank := if header.keyword.blankBefore && !(empty && header.keyword.above.isEmpty) then 1 else 0
+          let newLeaf :=
+            { leaf | trivia = { leaf.trivia | leading = laidNotes empty header.keyword.above, blankLines = blank } }
+          let aboveOk: (newLeaf.word.comments.above == keyword.above) = True :=
+            rewrite aboveRead then DecEq.refl keyword.above
+          let blankOk: (newLeaf.word.comments.blankBefore == keyword.blankBefore) = True :=
+            rewrite blankRead then DecEq.refl keyword.blankBefore
+          let fresh: newLeaf.headedAs { text = "def", comments = keyword } = True :=
+            Bool.andIntro textOk (Bool.andIntro aboveOk blankOk)
+          standsHeaded leaf rest
+            (fixedWord "def" { above = [], after = header.keyword.after, blankBefore = False })
+            ((Definition [] header (Assigned colonEq value)).calm.words.drop 1)
+            (laidNotes empty header.keyword.above)
+            (if header.keyword.blankBefore && !(empty && header.keyword.above.isEmpty) then 1 else 0)
+            keyword
+            comma
+            stood
+            afterSame
+            fresh
