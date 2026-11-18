@@ -981,25 +981,34 @@ def isEquation: Expr → Bool
 
 --| The arms under a header (`arms`): each `|` starts a line at one
 --| column, right of `d`, the column of the definition's keyword.
-def definitionArms (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat): {Parse Item} List Arm := match left() with
-  | [first, .._] =>
-    if !first.leaf.token.lineStart then fatal "arms start on their own lines"
-    else if first.leaf.token.column <= d then fatal "arms are indented further than the definition they belong to"
-    else definitionArmsFrom self { modes | limit = Some first.leaf.token.column } d
-  | [] => modes.fail "`|`"
+def definitionArms (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat): {Parse Item} List Arm :=
+  definitionArmsOn self modes d left()
+
+def definitionArmsOn (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat) (items: List Item):
+    {Parse Item} List Arm :=
+  match items with
+    | [first, .._] =>
+      if !first.leaf.token.lineStart then fatal "arms start on their own lines"
+      else if first.leaf.token.column <= d then fatal "arms are indented further than the definition they belong to"
+      else definitionArmsFrom self { modes | limit = Some first.leaf.token.column } d
+    | [] => modes.fail "`|`"
 
 def definitionArmsFrom (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat): {Parse Item} List Arm :=
-  let column := modes.limit.getOrElse 0
-  Parse.loop (() =>
-    match left() with
-      | [] => None
-      | [next, .._] =>
-        if !next.leaf.token.lineStart then modes.fail "the end of the arm"
-        else if next.leaf.token.column <= d || next.kind == KwWhere then None
-        else if next.kind == Pipe && next.leaf.token.column == column then
-          Some (definitionArm self { modes | allow = Some offset() })
-        else if next.kind == Pipe then fatal "this `|` doesn't line up with the definition's arms"
-        else fatal "expected `|` and another arm, or the end of the definition, but found ${next.spelled}")
+  Parse.loop (() => definitionArmStep self modes d (modes.limit.getOrElse 0) left())
+
+def definitionArmStep (self: Goal → {Parse Item} Expr) (modes: Modes) (d column: Nat) (items: List Item):
+    {Parse Item} Option Arm :=
+  match items with
+    | [] => None
+    | [next, .._] =>
+      if !next.leaf.token.lineStart then modes.fail "the end of the arm"
+      else if next.leaf.token.column <= d || next.kind == KwWhere then None
+      else if next.kind == Pipe && next.leaf.token.column == column then
+        let here := offset()
+        let arm := definitionArm self { modes | allow = Some here }
+        Some arm
+      else if next.kind == Pipe then fatal "this `|` doesn't line up with the definition's arms"
+      else fatal "expected `|` and another arm, or the end of the definition, but found ${next.spelled}"
 
 def definitionArm (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Arm :=
   let bar := bump()

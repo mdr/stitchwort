@@ -827,7 +827,11 @@ def matchPiped (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
   let indent := headIndent()
   let keyword := bump()
   let matched := matchExpr self modes keyword
-  if atPipe modes then pipeChain self modes indent matched else matched
+  matchedPiped self modes indent matched (atPipe modes)
+
+def matchedPiped (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (matched: Expr) (piped: Bool):
+    {Parse Item} Expr :=
+  if piped then pipeChain self modes indent matched else matched
 
 def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   exprLambda self modes (lambdaHere modes)

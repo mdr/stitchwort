@@ -16,12 +16,16 @@ import Std (Bool, List, Nat, Option, Parse, Text)
 
 --| The index and bracket depth of the next item: where a `rewrite` rule
 --| or a `let` starts, for the ends that look back to it.
-def here(): {Parse Item} (Nat, Nat) := match left() with
+def here(): {Parse Item} (Nat, Nat) := hereOn left()
+
+def hereOn (items: List Item): {Parse Item} (Nat, Nat) := match items with
   | [item, .._] => (item.index, item.depth)
   | [] => (offset(), 0)
 
 --| The next item's column, or 0 at the end.
-def columnHere(): {Parse Item} Nat := left().head.map (item => item.leaf.token.column) |> .getOrElse 0
+def columnHere(): {Parse Item} Nat := columnOn left()
+
+def columnOn (items: List Item): Nat := items.head.map (item => item.leaf.token.column) |> .getOrElse 0
 
 -- Statements.
 
@@ -50,18 +54,35 @@ def statementValue (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
 def statementOther (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Statement :=
   if kind == KwLet then
     let binding := letStatement self modes
-    if modes.at Semi then ExprStatement (letBody self modes binding) else LetStatement binding
+    letStatementEnd self modes binding (modes.at Semi)
   else if kind == KwDef || kind == KwTheorem then localDef self modes []
   else if kind == At then
     let attributes := attributesOf modes
-    let allowed := match left(), modes.limit with
-      | [next, .._], Some column if next.leaf.token.lineStart && next.leaf.token.column == column =>
-        { modes | allow = Some next.index }
-      | _, _ => modes
-    if allowed.at KwDef || allowed.at KwTheorem then localDef self allowed attributes
-    else fatal (misplaced "a statement that isn't a local definition")
+    let items := left()
+    attributedLocal self modes attributes items
   else if kind == KwExport then fatal "local definitions can't be exported: only top-level ones are"
   else fatal "local definitions can't be `opaque`: only top-level ones can"
+
+def letStatementEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (binding: Let) (atSemi: Bool):
+    {Parse Item} Statement :=
+  if atSemi then ExprStatement (letBody self modes binding) else LetStatement binding
+
+--| A `def` or `theorem` after attributes may start a line at the block's column.
+def allowedAt (modes: Modes) (items: List Item): Modes := match items, modes.limit with
+  | [next, .._], Some column =>
+    if next.leaf.token.lineStart && next.leaf.token.column == column then { modes | allow = Some next.index } else modes
+  | _, _ => modes
+
+def attributedLocal (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes) (items: List Item):
+    {Parse Item} Statement :=
+  let allowed := allowedAt modes items
+  localAttributed self allowed attributes (allowed.at KwDef) (allowed.at KwTheorem)
+
+def localAttributed (self: Goal → {Parse Item} Expr) (allowed: Modes)
+    (attributes: List Attributes) (atDef atTheorem: Bool):
+    {Parse Item} Statement :=
+  if atDef || atTheorem then localDef self allowed attributes
+  else fatal (misplaced "a statement that isn't a local definition")
 
 --| `let p := e` or `let p: T := e` (`let_statement`). The value is read
 --| with `letValue` at the `let`'s bracket depth, so a `;` there ends it.
@@ -69,34 +90,55 @@ def letStatement (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item}
   let (_, depth) := here()
   let keyword := fixedFrom()
   let pattern := letPattern modes
-  let annotation :=
-    if modes.at Colon then
-      let colon := fixedFrom()
-      Some (colon, self { modes = modes.sealed, level = LevelInline })
-    else None
-  if modes.at Equals then fatal defEquals
+  let annotation := letAnnotation self modes (modes.at Colon)
+  letEquals self modes depth keyword pattern annotation (modes.at Equals)
+
+def letAnnotation (self: Goal → {Parse Item} Expr) (modes: Modes) (atColon: Bool):
+    {Parse Item} Option (Comments, Expr) :=
+  if atColon then
+    let colon := fixedFrom()
+    let annotation := self { modes = modes.sealed, level = LevelInline }
+    Some (colon, annotation)
+  else None
+
+def letEquals (self: Goal → {Parse Item} Expr) (modes: Modes) (depth: Nat) (keyword: Comments) (pattern: Pattern)
+    (annotation: Option (Comments, Expr)) (atEquals: Bool):
+    {Parse Item} Let :=
+  if atEquals then fatal defEquals
   else
     let colonEq := modes.expectFixed ColonEq "`:=`"
-    { keyword, pattern, annotation, colonEq, value = full self { modes | letValue = Some depth } }
+    let value := full self { modes | letValue = Some depth }
+    { keyword, pattern, annotation, colonEq, value }
 
 --| After `let`: a constructor takes its arguments without brackets, up
 --| to the `:=` or `:` (`let_pattern`).
-def letPattern (modes: Modes): {Parse Item} Pattern :=
-  if ctorAhead modes then
+def letPattern (modes: Modes): {Parse Item} Pattern := letPatternOf modes (ctorAhead modes)
+
+def letPatternOf (modes: Modes) (isCtor: Bool): {Parse Item} Pattern :=
+  if isCtor then
     let name := bump()
     ctorArgs pattern modes name (kind => kind == Equals || kind == ColonEq || kind == Colon)
   else pattern { modes, level = PatternTupleComponent }
 
 --| The `;` and body of an expression `let` (`let_body`).
 def letBody (self: Goal → {Parse Item} Expr) (modes: Modes) (binding: Let): {Parse Item} Expr :=
-  if !modes.at Semi then modes.fail "`;` after the value of `let`"
+  letBodyOf self modes binding (modes.at Semi)
+
+def letBodyOf (self: Goal → {Parse Item} Expr) (modes: Modes) (binding: Let) (atSemi: Bool): {Parse Item} Expr :=
+  if !atSemi then modes.fail "`;` after the value of `let`"
   else
     let semicolon := fixedFrom()
-    let atEnd := match left() with
-      | [next, .._] => next.kind == RParen || next.kind == RBracket || next.kind == RBrace || next.kind == Comma
-      | [] => True
-    if atEnd then fatal "`let` needs a body after `;`: `(let x := e; body)`"
-    else LetIn binding semicolon (full self modes)
+    let items := left()
+    letEnd self modes binding semicolon (letAtEnd items)
+
+def letAtEnd (items: List Item): Bool := match items with
+  | [next, .._] => next.kind == RParen || next.kind == RBracket || next.kind == RBrace || next.kind == Comma
+  | [] => True
+
+def letEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (binding: Let) (semicolon: Comments) (atEnd: Bool):
+    {Parse Item} Expr :=
+  if atEnd then fatal "`let` needs a body after `;`: `(let x := e; body)`"
+  else LetIn binding semicolon (full self modes)
 
 --| Whether a `;` next starts a sequence `a; b` (`sequence_ahead`): unless
 --| a `let`'s value is being read and the `;` is at that `let`'s depth.
@@ -426,8 +468,13 @@ def ownLineAt (wanted: Tok) (column: Nat): {Parse Item} Bool := match left() wit
 --| `cases`, or `cases then t` (`cases_expr`).
 def casesExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let keyword := bump()
-  if modes.at KwIn then fatal (oldIn "cases")
-  else if modes.at KwThen then
+  casesIn self modes keyword (modes.at KwIn)
+
+def casesIn (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (atIn: Bool): {Parse Item} Expr :=
+  if atIn then fatal (oldIn "cases") else casesThen self modes keyword (modes.at KwThen)
+
+def casesThen (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (atThen: Bool): {Parse Item} Expr :=
+  if atThen then
     let thenKeyword := fixedFrom()
     Cases keyword.comments thenKeyword (self { modes, level = LevelThenBody })
   else Atom KwCases keyword
