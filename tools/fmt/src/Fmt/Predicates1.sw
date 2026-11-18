@@ -1,8 +1,8 @@
 --| The predicates slice 1's proofs speak of (docs/proposals/
 --| self-hosted-fmt-s1-sketch.md §1.2, §1.3, §1.5), written out as tests on
 --| the real tree: what rule N leaves (`settled1`), the blank-line flags the
---| rules read (`calm`), the shapes the parser gives (`shaped1`) and the
---| tokens' spellings (`lexical1`).
+--| rules read (`calm`), the shapes the parser gives (`shaped1`), the
+--| tokens' spellings (`lexical1`) and where printed lines start (`hangs`).
 --|
 --| `shaped1` and `lexical1` are the sketch's `Shaped1` and `Lexical1`,
 --| which it only names. They are written here from its description, for
@@ -12,7 +12,7 @@
 
 namespace Fmt
 import Std (Bool, List, Nat, Option, Result, Text)
-import Syntax (Comments, Decl, DefBody, Expr, Header, Note, SourceFile, Tok, Word, lex)
+import Syntax (Comments, Decl, DefBody, Expr, Header, Leaf, Note, SourceFile, Tok, Word, lex)
 
 -- Settled (K1, rule 3, rule 5).
 
@@ -187,3 +187,81 @@ def Decl.shaped1: Decl → Bool
 def SourceFile.shaped1 (file: SourceFile): Bool := file.decls.all Decl.shaped1
 
 def SourceFile.lexical1 (file: SourceFile): Bool := file.decls.all Decl.lexical1
+
+-- Continued lines: `hangs` (K3a).
+
+--| The block column in force: the innermost open bracket whose current
+--| item started a line, else the type's or the body's, else the `def`'s 0.
+def inForce (blocks: List (Option Nat)) (top: Option Nat): Nat := match blocks with
+  | [Some column, .._] => column
+  | [None, ..rest] => inForce rest top
+  | [] => top.getOrElse 0
+
+def leftOf (column: Nat): Option Nat → Bool
+  | Some block => column < block
+  | None => True
+
+--| The bracket columns after a leaf at `column`: a leaf that starts its
+--| bracket's current item and its line gives that item its column.
+def startBlocks (fresh: Bool) (column: Nat) (blocks: List (Option Nat)): List (Option Nat) := match blocks with
+  | [_, ..outer] => if fresh then [Some column, ..outer] else blocks
+  | [] => []
+
+--| The type's or body's column after a leaf at `column`, likewise.
+def startTop (fresh: Bool) (column: Nat) (blocks: List (Option Nat)) (top: Option Nat): Option Nat :=
+  if fresh && blocks.isEmpty then Some column else top
+
+--| Whether the first leaf, if any, starts a line.
+def startsLine: List Leaf → Bool
+  | [leaf, .._] => leaf.token.lineStart
+  | [] => False
+
+--| The leaves after a declaration's `def`, as the parser's line rule
+--| needs them: a leaf that starts a line is right of the block column in
+--| force; a closer that starts a line is left of the column its bracket's
+--| current item started a line at; no comma starts a line, nor the leaf
+--| after `->`, and a `:` that starts one is right of column 0. `blocks`
+--| has, for each open bracket, innermost first, the column of its current
+--| item if that item started a line; `top` the same for the type or the
+--| body; `start`: the next leaf starts an item, the type or the body.
+--|
+--| Each clause is a place the parser looks at columns. An expression
+--| whose first token starts a line is a block at that column (`expr`),
+--| whose next line at the same column is a new statement (`blockLines`),
+--| so a later line of it must start further right, and a closer or comma
+--| that starts a line must not stand at it (the parser lets them start a
+--| line at any other column). The operand of `->` is read as a full
+--| expression (`resultType`), so starting it on a line of its own would
+--| make it a block of its own, which this predicate doesn't track. A `:`
+--| at column 0 starts a new declaration (`groupsOf`). `:=` may start a line
+--| anywhere: it ends every block (`endsBlocks`).
+def hangsFrom (blocks: List (Option Nat)) (top: Option Nat) (start: Bool): List Leaf → Bool
+  | [] => True
+  | [leaf, ..rest] =>
+    let column := leaf.token.column
+    let starts := leaf.token.lineStart
+    let kind := leaf.token.kind
+    let right := !starts || column > inForce blocks top
+    let fresh := start && starts
+    if kind.isCloser then
+      match blocks with
+        | [block, ..outer] => (!starts || leftOf column block) && hangsFrom outer top False rest
+        | [] => False
+    else if kind == Comma then
+      match blocks with
+        | [_, ..outer] => !starts && hangsFrom [None, ..outer] top True rest
+        | [] => False
+    else if kind == ColonEq && blocks.isEmpty then hangsFrom [] None True rest
+    else if kind == Colon && blocks.isEmpty then right && hangsFrom [] None True rest
+    else if kind.isOpener then
+      right && hangsFrom [None, ..startBlocks fresh column blocks] (startTop fresh column blocks top) True rest
+    else if kind == Arrow then
+      right
+        && !startsLine rest
+        && hangsFrom (startBlocks fresh column blocks) (startTop fresh column blocks top) False rest
+    else right && hangsFrom (startBlocks fresh column blocks) (startTop fresh column blocks top) False rest
+
+--| One declaration's leaves, from its `def` at column 0.
+def hangs: List Leaf → Bool
+  | [first, ..rest] => first.token.kind == KwDef && first.token.column == 0 && hangsFrom [] None False rest
+  | [] => True

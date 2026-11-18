@@ -40,7 +40,7 @@ starts by checking the project (about 25 s), then takes 850 MB to 1.5 GB.
 | Script | Arguments | What it does |
 |---|---|---|
 | `probe.py` | `--twin TWIN --out OUT --seed N --count N` (`--bin STITCHWORT`, `--rust N`, `--sketch`) | Generates the files into OUT, formats them with the twin (`OUT/x*.out.sw`), and counts the files that fail each check: idempotence, the tidied tree, comments in order, long lines, and with `--rust N` Rust's output for the first N |
-| `hangs.py` | `OUT …` | Checks K3a (section 1.4) on the outputs in Python: where each line starts against the block column in force. Family A shows here as `closer-at-block` |
+| `hangs.py` | `OUT …` | Checks K3a (section 1.4, in its final form `Fmt.hangs`, SW-3969) on the outputs in Python: where each line starts against the block column in force. Family A shows here as `closer-at-block`. `twin --stage hangs --batch LIST` evaluates `Fmt.hangs` itself on the same outputs, a line a declaration |
 | `classify.py` | `OUT` (`--bin STITCHWORT`) | Sorts the outputs that differ from `stitchwort fmt -` on the same input: glued pairs (section 3.5), layout, other |
 | `sketchall.py` | `--twin TWIN OUT …` | Runs the twin's `sketch` stage over the outputs |
 
