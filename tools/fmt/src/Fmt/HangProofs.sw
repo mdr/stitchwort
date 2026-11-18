@@ -13,7 +13,7 @@ namespace Fmt.HangProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Expr, Leaf, Note, Tok, Word)
+import Syntax (Comments, Expr, Leaf, Note, Tok, Word)
 import Fmt (..)
 
 -- The fold over a trace.
@@ -1564,3 +1564,1086 @@ theorem leadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (ke
           lined
           front
           (hangsNil kinds indent broken lined (brokenLine indent column (At state)))
+
+-- Tokens with own-line comments above them.
+
+--| A word's trailing comment, if it has one, after a word that ends an element: it waits after the word.
+theorem trailingHangs ∀ (kinds: Text → Tok) (word: Word) (indent: Nat) (state: HangState)
+    (trailed: TrailsComment word):
+    HangLaysAll kinds word.trailing indent (place hang => Ended state False place ∧ hang = At state) (place hang =>
+      Ended state word.trails place ∧ hang = At state) :=
+  let pre: Place → Hang → Prop := place hang => Ended state False place ∧ hang = At state
+  let post: Place → Hang → Prop := place hang => Ended state True place ∧ hang = At state
+  match after: word.comments.after, trailed with
+    | None, _ => hangsNil kinds indent pre pre (place hang held => held)
+    | Some comment, (isComment, layout) =>
+      hangsLast kinds
+        (LineSuffix comment)
+        indent
+        pre
+        post
+        (hangsSuffix kinds comment indent pre post isComment layout (place hang (ended, folded) =>
+          match place, ended with
+            | Mid at carry, (floor, left) => (at, carry, (byComputing, (byComputing, floor, left), folded))
+            | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
+            | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+            | Broken at carry, never => (Bool.falseNotTrue never).impossible))
+
+--| A plain token at the start of a line at `column`, right of what is in force: one plain token there.
+theorem lineWordHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (state: HangState)
+    (plain: Plain (kinds text))
+    (token: text.startsWith "--" = False)
+    (solid: isLayout text = False)
+    (room: Room state (Some column)):
+    HangLays kinds (Doc.text text) indent (LineAt indent column (At state)) (place hang =>
+      Ended (openedBy state (Some column)) False place ∧ hang = At (openedBy state (Some column))) :=
+  let post: Place → Hang → Prop := place hang =>
+    Ended (openedBy state (Some column)) False place ∧ hang = At (openedBy state (Some column))
+  let (_, right) := room
+  let bound: (inForce (openedBy state (Some column)).blocks (openedBy state (Some column)).top <= column) = True :=
+    openedSome state column arithmetic
+  let step := stepPlain kinds state text (Some column) (tokenCode text (Some column) token solid) plain room
+  hangsChunk kinds text text.length indent (LineAt indent column (At state)) post solid (place trace lined =>
+    match place, lined with
+      | AtStart at carry, (now, atColumn, _) =>
+        rewrite now, atColumn then ((floorAfterToken text carry token, bound), step)
+      | Broken at carry, (now, atColumn, _) =>
+        rewrite now, atColumn then ((floorAfterToken text carry token, bound), step)
+      | Mid at carry, never => (Bool.falseNotTrue never).impossible
+      | Held at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A token that is neither a closer nor a comma: its comments and blank line, the token's text, its trailing
+--| comment.
+theorem leafPiece ∀ (word: Word) (around: Around) (key: Nat)
+    (closer: isCloserText word.text = False)
+    (comma: (word.text == ",") = False):
+    word.leaf around key = Doc.concat (word.leading around key ++ [Doc.text word.text, ..word.trailing]) :=
+  rewrite closer, comma
+
+--| A plain token with own-line comments above it, from a seat: the comments, each on its line, then the token
+--| starting the line after them (`leadStart`), then its trailing comment, if any. At a plain line start a blank line
+--| kept above the first comment may print nothing, so there `quiet` asks for none.
+--|
+--| Proof idea: `leadingHangs` takes the seat to the start of the token's line, with the fold unchanged, and
+--| `lineWordHangs` writes the token there, right of what is in force by the seat's `Room`.
+theorem notedLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (entry: Place) (note: Note) (rest: List Note)
+    (plain: Plain (kinds word.text))
+    (token: word.text.startsWith "--" = False)
+    (solid: isLayout word.text = False)
+    (closer: isCloserText word.text = False)
+    (comma: (word.text == ",") = False)
+    (hoisted: around.hoisted = False)
+    (noted: word.comments.above = [note, ..rest])
+    (comments: NotesComment [note, ..rest])
+    (trailed: TrailsComment word)
+    (quiet: (plainStart entry && note.blankBefore && around.item) = False):
+    HangLays kinds
+      (word.leaf around key)
+      indent
+      (Entered indent around.before state entry (leadStart indent entry))
+      (place hang =>
+        Ended (openedBy state (leadStart indent entry)) word.trails place
+          ∧ hang = At (openedBy state (leadStart indent entry))) :=
+  place trace next entered after =>
+    match entered with
+      | (_, _, (_, _, room)) =>
+        let column := leadColumn indent entry
+        let opened := openedBy state (Some column)
+        let pre := Entered indent around.before state entry (leadStart indent entry)
+        let lined := LineAt indent column (At state)
+        let written: Place → Hang → Prop := place hang => Ended opened False place ∧ hang = At opened
+        let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = At opened
+        let leading :=
+          allHangsPre kinds
+            (word.leading around key)
+            indent
+            (place hang => place = entry ∧ hang = At state ∧ Seated indent around.before state entry)
+            pre
+            lined
+            (leadingHangs kinds word around key indent around.before state entry note rest hoisted noted closer comments
+                quiet)
+            (place hang (isEntry, folded, (seated, _, _)) => (isEntry, folded, seated))
+        rewrite leafPiece word around key closer comma then
+          hangsConcat kinds
+            (word.leading around key ++ [Doc.text word.text, ..word.trailing])
+            indent
+            pre
+            post
+            (hangsAppend kinds
+              (word.leading around key)
+              [Doc.text word.text, ..word.trailing]
+              indent
+              pre
+              lined
+              post
+              leading
+              (hangsCons kinds
+                (Doc.text word.text)
+                word.trailing
+                indent
+                lined
+                written
+                post
+                (lineWordHangs kinds word.text indent column state plain token solid room)
+                (trailingHangs kinds word indent opened trailed)))
+            place
+            trace
+            next
+            entered
+            after
+
+--| Where an element ended no line starts, so no blank line above a comment there can print nothing.
+theorem endedFresh ∀ (state: HangState) (trails: Bool) (place: Place)
+    (ended: Ended state trails place):
+    plainStart place = False :=
+  match place, ended with
+    | Mid at carry, _ => byComputing
+    | Held at carry, _ => byComputing
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+
+--| Where an element ended, a token with own-line comments may start: the comment break is right of the line.
+theorem endedLead ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
+    (unglued: state.glue = False)
+    (ended: Ended state before place)
+    (clear: (inForce state.blocks state.top <= indent) = True):
+    Seat indent before state place (leadStart indent place) :=
+  match place, ended with
+    | Mid at carry, (floor, left) => ((floor, left), clear, (unglued, arithmetic))
+    | Held at carry, (trails, floor, left) => ((trails, floor, left), clear, (unglued, arithmetic))
+
+--| A plain token with own-line comments above it, as a later part of an element: its comments break the line, and
+--| the fold, with no item starting, is as it was.
+theorem notedPartHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat)
+    (note: Note) (rest: List Note)
+    (plain: Plain (kinds word.text))
+    (token: word.text.startsWith "--" = False)
+    (solid: isLayout word.text = False)
+    (closer: isCloserText word.text = False)
+    (comma: (word.text == ",") = False)
+    (hoisted: around.hoisted = False)
+    (noted: word.comments.above = [note, ..rest])
+    (comments: NotesComment [note, ..rest])
+    (trailed: TrailsComment word):
+    PartHangs kinds (word.leaf around key) indent around.before word.trails :=
+  state entry quiet unglued place trace next holds after =>
+    match holds with
+      | (isEntry, folded, ended, clear) =>
+        let fresh := endedFresh state around.before entry ended
+        let opened := openedBy state (leadStart indent entry)
+        let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
+        hangsPost kinds
+          (word.leaf around key)
+          indent
+          (place hang =>
+            place = entry
+              ∧ hang = At state
+              ∧ Ended state around.before entry
+              ∧ (inForce state.blocks state.top <= indent) = True)
+          (place hang => Ended opened word.trails place ∧ hang = At opened)
+          (place hang => Ended state word.trails place ∧ hang = At state)
+          (hangsPre kinds
+            (word.leaf around key)
+            indent
+            (Entered indent around.before state entry (leadStart indent entry))
+            (place hang =>
+              place = entry
+                ∧ hang = At state
+                ∧ Ended state around.before entry
+                ∧ (inForce state.blocks state.top <= indent) = True)
+            (place hang => Ended opened word.trails place ∧ hang = At opened)
+            (notedLeafHangs kinds word around key indent state entry note rest plain token solid closer comma hoisted
+                noted comments trailed
+                (rewrite fresh))
+            (place hang (isEntry, folded, ended, clear) =>
+              (isEntry, folded, endedLead indent around.before state entry unglued ended clear)))
+          (place hang (ended, folded) => (rewrite same at ended then ended, rewrite same at folded then folded))
+          place
+          trace
+          next
+          holds
+          after
+
+-- Closers.
+
+--| A line break's lowering finds the mark it found before, its least indentation lowered to the line.
+theorem findLower ∀ (line key: Nat) (marks: List OpenMark):
+    (lowerMarks line marks).find (mark => mark.key == key)
+      = (marks.find (mark => mark.key == key)).map (mark => { mark | least = Some (lowest mark.least line) }) :=
+  match marks with
+    | [] => byComputing
+    | [mark, ..rest] =>
+      match same: mark.key == key with
+        | True => byComputing
+        | False => findLower line key rest
+
+--| A `CloserLine` lands at the construct's indentation or left of it.
+theorem closerAtMost ∀ (carry: Carry) (key indent: Nat): (carry.closerAt key indent <= indent) = True :=
+  match found: carry.marks.find (mark => mark.key == key) with
+    | None => Nat.leRefl indent
+    | Some { key = marked_key, marked, least = None } => Nat.leRefl indent
+    | Some { key = marked_key, marked, least = Some least } =>
+      match low: least <= indent with
+        | True => arithmetic
+        | False => Nat.leRefl indent
+
+--| A line deeper than the construct leaves where its `CloserLine` lands as it was: whether a line since the mark is
+--| at or left of the indentation doesn't change.
+theorem closerAtLower ∀ (carry: Carry) (key indent line: Nat)
+    (deep: indent < line):
+    { carry | marks = lowerMarks line carry.marks }.closerAt key indent = carry.closerAt key indent :=
+  rewrite findLower line key carry.marks then
+    match found: carry.marks.find (mark => mark.key == key) with
+      | None => byComputing
+      | Some { key = marked_key, marked, least = None } =>
+        let high: (line <= indent) = False := (Nat.leqReadsFalse line indent).backward arithmetic
+        rewrite high
+      | Some { key = marked_key, marked, least = Some least } =>
+        match low: least <= indent with
+          | True =>
+            let lower: (Nat.min least line <= indent) = True := arithmetic
+            rewrite lower
+          | False =>
+            let lower: (Nat.min least line <= indent) = False :=
+              (Nat.leqReadsFalse (Nat.min least line) indent).backward arithmetic
+            rewrite lower
+
+--| A line break 2 deeper than the construct, with no comment floor, leaves where its `CloserLine` lands.
+theorem breakKeepsCloser ∀ (carry: Carry) (key indent: Nat)
+    (floor: carry.floor = None):
+    (carry.breakTo (indent + 2)).closerAt key indent = carry.closerAt key indent :=
+  let landed: floored carry (indent + 2) = indent + 2 := rewrite floor
+  rewrite landed then closerAtLower carry key indent (indent + 2) arithmetic
+
+--| At the start of a line of a closer's own-line comments, 2 deeper than the construct: the fold at `hang`, no
+--| comment floor, and the closer's own line still landing at `column`.
+def NoteStart (indent key column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | AtStart at carry => now = hang ∧ at = indent + 2 ∧ carry.floor = None ∧ carry.closerAt key indent = column
+  | Broken at carry => now = hang ∧ at = indent + 2 ∧ carry.floor = None ∧ carry.closerAt key indent = column
+  | _ => False = True
+
+--| As `NoteStart`, right after a line break, where a blank line may follow.
+def NoteBroken (indent key column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | Broken at carry => now = hang ∧ at = indent + 2 ∧ carry.floor = None ∧ carry.closerAt key indent = column
+  | _ => False = True
+
+--| After one of a closer's own-line comments, on its line.
+def NoteWritten (indent key column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | Mid at carry => now = hang ∧ at = indent + 2 ∧ carry.floor = None ∧ carry.closerAt key indent = column
+  | _ => False = True
+
+theorem noteBrokenStart ∀ (indent key column: Nat) (hang: Hang) (place: Place) (now: Hang)
+    (broken: NoteBroken indent key column hang place now):
+    NoteStart indent key column hang place now :=
+  match place, broken with
+    | Broken at carry, holds => holds
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Mid at carry, never => (Bool.falseNotTrue never).impossible
+    | Held at carry, never => (Bool.falseNotTrue never).impossible
+
+--| A closer's own-line comment, at the start of its line: the fold skips it.
+theorem noteTextHangs ∀ (kinds: Text → Tok) (text: Text) (indent key column: Nat) (hang: Hang)
+    (comment: IsComment text)
+    (solid: isLayout text = False):
+    HangLays kinds
+      (Doc.text text)
+      (indent + 2)
+      (NoteStart indent key column hang)
+      (NoteWritten indent key column hang) :=
+  let skips := (state: Hang) (start: Option Nat) => commentSkips kinds state { word = text, start } comment
+  hangsChunk kinds text text.length
+    (indent + 2)
+    (NoteStart indent key column hang)
+    (NoteWritten indent key column hang)
+    solid
+    (place trace started =>
+      match place, started with
+        | AtStart at carry, (now, atNotes, floor, lands) =>
+          rewrite commentKeepsFloor text carry (commentStarts text comment), skips (hangOf kinds trace) (Some at) then
+            (now, atNotes, floor, lands)
+        | Broken at carry, (now, atNotes, floor, lands) =>
+          rewrite commentKeepsFloor text carry (commentStarts text comment), skips (hangOf kinds trace) (Some at) then
+            (now, atNotes, floor, lands)
+        | Mid at carry, never => (Bool.falseNotTrue never).impossible
+        | Held at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A line break after one of a closer's own-line comments: to the next one's line, the closer's line unmoved.
+theorem noteBreakHangs ∀ (kinds: Text → Tok) (indent key column: Nat) (hang: Hang):
+    HangLays kinds HardLine (indent + 2) (NoteWritten indent key column hang) (NoteBroken indent key column hang) :=
+  hangsHardBroken kinds
+    (indent + 2)
+    (NoteWritten indent key column hang)
+    (NoteBroken indent key column hang)
+    (place now written =>
+      match place, written with
+        | Mid at carry, (same, _, floor, lands) =>
+          let landed: floored carry (indent + 2) = indent + 2 := rewrite floor
+          (byComputing, (same, landed, floor, rewrite breakKeepsCloser carry key indent floor then lands))
+        | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+        | Broken at carry, never => (Bool.falseNotTrue never).impossible
+        | Held at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A blank line kept between a closer's own-line comments.
+theorem noteBlankHangs ∀ (kinds: Text → Tok) (indent key column: Nat) (hang: Hang):
+    HangLays kinds Blank (indent + 2) (NoteBroken indent key column hang) (NoteStart indent key column hang) :=
+  hangsBlank kinds
+    (indent + 2)
+    (NoteBroken indent key column hang)
+    (NoteStart indent key column hang)
+    (place trace broken =>
+      match place, broken with
+        | Broken at carry, holds => rewrite blankHang kinds trace then holds
+        | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+        | Mid at carry, never => (Bool.falseNotTrue never).impossible
+        | Held at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A closer's own-line comments after the first, each on its line, a blank line above one kept.
+theorem laterCloserNotesHang ∀ (kinds: Text → Tok) (notes: List Note) (indent key column: Nat) (hang: Hang)
+    (comments: NotesComment notes):
+    HangLaysAll kinds
+      (laterCloserNotes notes)
+      (indent + 2)
+      (NoteWritten indent key column hang)
+      (NoteWritten indent key column hang) :=
+  match notes, comments with
+    | [], _ =>
+      hangsNil kinds
+        (indent + 2)
+        (NoteWritten indent key column hang)
+        (NoteWritten indent key column hang)
+        (place now held => held)
+    | [note, ..rest], (comment, solid, others) =>
+      let text := noteTextHangs kinds note.text indent key column hang comment solid
+      let more := laterCloserNotesHang kinds rest indent key column hang others
+      let line := noteBreakHangs kinds indent key column hang
+      match blank: note.blankBefore with
+        | True =>
+          hangsCons kinds HardLine
+            ([Blank, Doc.text note.text] ++ laterCloserNotes rest)
+            (indent + 2)
+            (NoteWritten indent key column hang)
+            (NoteBroken indent key column hang)
+            (NoteWritten indent key column hang)
+            line
+            (hangsCons kinds Blank
+              ([Doc.text note.text] ++ laterCloserNotes rest)
+              (indent + 2)
+              (NoteBroken indent key column hang)
+              (NoteStart indent key column hang)
+              (NoteWritten indent key column hang)
+              (noteBlankHangs kinds indent key column hang)
+              (hangsCons kinds
+                (Doc.text note.text)
+                (laterCloserNotes rest)
+                (indent + 2)
+                (NoteStart indent key column hang)
+                (NoteWritten indent key column hang)
+                (NoteWritten indent key column hang)
+                text
+                more))
+        | False =>
+          hangsCons kinds HardLine
+            ([Doc.text note.text] ++ laterCloserNotes rest)
+            (indent + 2)
+            (NoteWritten indent key column hang)
+            (NoteBroken indent key column hang)
+            (NoteWritten indent key column hang)
+            line
+            (hangsCons kinds
+              (Doc.text note.text)
+              (laterCloserNotes rest)
+              (indent + 2)
+              (NoteBroken indent key column hang)
+              (NoteWritten indent key column hang)
+              (NoteWritten indent key column hang)
+              (hangsPre kinds
+                (Doc.text note.text)
+                (indent + 2)
+                (NoteStart indent key column hang)
+                (NoteBroken indent key column hang)
+                (NoteWritten indent key column hang)
+                text
+                (noteBrokenStart indent key column hang))
+              more)
+
+--| Where a bracket's closer may be written, the fold at `state`: after its contents ended (a comment waiting only if
+--| `before`), or right after the line break before it, at the indentation with no comment floor; there not if the
+--| closer takes a line of its own after a trailing comment (`lone`), whose line break would leave a blank line.
+def CloserSeat (indent: Nat) (before lone: Bool) (state: HangState) (place: Place): Prop := match place with
+  | AtStart _ _ => False
+  | Broken at carry => lone = False ∧ at = indent ∧ carry.floor = None
+  | Mid at carry => carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
+  | Held at carry => before = True ∧ carry.floor = None ∧ (inForce state.blocks state.top <= at) = True
+
+--| Where a closer's line of its own lands, the fold allows it: left of the line its bracket's current item started,
+--| if it started one, and not left of what is in force outside the bracket (`outside`).
+def CloserFits (key indent: Nat) (block: Option Nat) (outside: Nat) (carry: Carry): Prop :=
+  leftOf (carry.closerAt key indent) block = True ∧ (outside <= carry.closerAt key indent) = True
+
+--| A closer with no own-line comments takes a line of its own after code that ends its line with a comment, when it
+--| has a trailing comment of its own (`Word.leaf`'s `ownLine`).
+def Word.lone (word: Word) (around: Around): Bool := !word.noted && around.before && word.trails
+
+--| Right after a closer's line break, at `column`, with no comment floor.
+def LandsAt (column: Nat) (hang: Hang) (place: Place) (now: Hang): Prop := match place with
+  | Broken at carry => now = hang ∧ at = column ∧ carry.floor = None
+  | _ => False = True
+
+--| An element ended with a comment waiting only if `flag` has, where one waiting only if `wider` is allowed too.
+theorem endedWider ∀ (state: HangState) (flag wider: Bool) (place: Place)
+    (ended: Ended state flag place)
+    (more: flag = True → wider = True):
+    Ended state wider place :=
+  match place, ended with
+    | Mid at carry, ended => ended
+    | Held at carry, (waits, floor, left) => (more waits, floor, left)
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+
+--| A closer written where its contents ended or after the line break before it: its bracket's block is gone.
+theorem closingHangs ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (before: Bool) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat))
+    (closer: (kinds text).isCloser = True)
+    (closes: closesText text = True)
+    (token: text.startsWith "--" = False)
+    (solid: isLayout text = False)
+    (open: state.blocks = [block, ..outer])
+    (unglued: state.glue = False)
+    (nested: (inForce outer state.top <= inForce state.blocks state.top) = True)
+    (clear: (inForce outer state.top <= indent) = True)
+    (shallow: leftOf indent block = True):
+    HangLays kinds
+      (Closing text)
+      indent
+      (place hang => hang = At state ∧ CloserSeat indent before False state place)
+      (place hang => Ended (closedFrom state outer) before place ∧ hang = At (closedFrom state outer)) :=
+  let closed := closedFrom state outer
+  hangsClosing kinds text indent
+    (place hang => hang = At state ∧ CloserSeat indent before False state place)
+    (place hang => Ended closed before place ∧ hang = At closed)
+    solid
+    closes
+    (place trace (folded, seat) =>
+      rewrite folded then
+        match place, seat with
+          | Mid at carry, (floor, left) => (
+            (floorAfterToken text carry token, arithmetic),
+            stepCloser kinds state block outer text None (tokenCode text None token solid) closer open byComputing
+          )
+          | Held at carry, (waits, floor, left) => (
+            (waits, floorAfterToken text carry token, arithmetic),
+            stepCloser kinds state block outer text None (tokenCode text None token solid) closer open byComputing
+          )
+          | Broken at carry, (_, atIndent, floor) =>
+            rewrite atIndent then
+              (
+                (floorAfterToken text carry token, clear),
+                stepCloser kinds state block outer text
+                  (Some indent)
+                  (tokenCode text (Some indent) token solid)
+                  closer
+                  open
+                  (unglued, shallow)
+              )
+          | AtStart at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A closer at the start of its own line, where the fold allows it: its bracket's block is gone.
+theorem closingAtHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat))
+    (closer: (kinds text).isCloser = True)
+    (closes: closesText text = True)
+    (token: text.startsWith "--" = False)
+    (solid: isLayout text = False)
+    (open: state.blocks = [block, ..outer])
+    (unglued: state.glue = False)
+    (left: leftOf column block = True)
+    (right: (inForce outer state.top <= column) = True):
+    HangLays kinds (Closing text) indent (LandsAt column (At state)) (place hang =>
+      Ended (closedFrom state outer) False place ∧ hang = At (closedFrom state outer)) :=
+  let closed := closedFrom state outer
+  hangsClosing kinds text indent
+    (LandsAt column (At state))
+    (place hang => Ended closed False place ∧ hang = At closed)
+    solid
+    closes
+    (place trace landed =>
+      match place, landed with
+        | Broken at carry, (folded, atColumn, floor) =>
+          rewrite folded, atColumn then
+            (
+              (floorAfterToken text carry token, right),
+              stepCloser kinds state block outer text
+                (Some column)
+                (tokenCode text (Some column) token solid)
+                closer
+                open
+                (unglued, left)
+            )
+        | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+        | Mid at carry, never => (Bool.falseNotTrue never).impossible
+        | Held at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A closer's line of its own, after words: where the open marks put it.
+theorem closerLineHangs ∀ (kinds: Text → Tok) (key indent: Nat) (before: Bool) (state: HangState) (entry: Place):
+    HangLays kinds
+      (CloserLine key)
+      indent
+      (place hang => place = entry ∧ hang = At state ∧ CloserSeat indent before True state entry)
+      (LandsAt (entry.carry.closerAt key indent) (At state)) :=
+  hangsCloserLine kinds key indent
+    (place hang => place = entry ∧ hang = At state ∧ CloserSeat indent before True state entry)
+    (LandsAt (entry.carry.closerAt key indent) (At state))
+    (place hang (isEntry, folded, seat) =>
+      rewrite isEntry then
+        match entry, seat with
+          | Mid at carry, _ => (byComputing, (folded, byComputing, byComputing))
+          | Held at carry, _ => (byComputing, (folded, byComputing, byComputing))
+          | Broken at carry, (never, _, _) => (Bool.trueNotFalse never).impossible
+          | AtStart at carry, never => (Bool.falseNotTrue never).impossible)
+
+--| A closer with own-line comments: the comments at 2 deeper, each on its line, then the closer's line of its own,
+--| where the open marks put it at the closer's seat (the comments' lines are deeper than the construct, so they don't
+--| move it).
+--|
+--| Proof idea: `LineStartHere` starts the first comment's line at 2 deeper, lowering the marks to it at most;
+--| `closerAtLower` keeps where the closer lands through that and each later line; `CloserLine` then breaks there.
+theorem closerLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (entry: Place) (note: Note) (rest: List Note)
+    (hoisted: around.hoisted = False)
+    (noted: word.comments.above = [note, ..rest])
+    (closer: isCloserText word.text = True)
+    (comments: NotesComment [note, ..rest]):
+    HangLaysAll kinds
+      (word.leading around key)
+      indent
+      (place hang => place = entry ∧ hang = At state ∧ CloserSeat indent around.before False state entry)
+      (LandsAt (entry.carry.closerAt key indent) (At state)) :=
+  let column := entry.carry.closerAt key indent
+  let hang := At state
+  let pre: Place → Hang → Prop := place now =>
+    place = entry ∧ now = hang ∧ CloserSeat indent around.before False state entry
+  let (comment, solid, others) := comments
+  let notes: HangLaysAll kinds
+    (closerNotes [note, ..rest])
+    (indent + 2)
+    (NoteStart indent key column hang)
+    (NoteWritten indent key column hang) :=
+    hangsCons kinds
+      (Doc.text note.text)
+      (laterCloserNotes rest)
+      (indent + 2)
+      (NoteStart indent key column hang)
+      (NoteWritten indent key column hang)
+      (NoteWritten indent key column hang)
+      (noteTextHangs kinds note.text indent key column hang comment solid)
+      (laterCloserNotesHang kinds rest indent key column hang others)
+  let here: HangLays kinds LineStartHere (indent + 2) pre (NoteBroken indent key column hang) :=
+    hangsStartHere kinds (indent + 2) pre (NoteBroken indent key column hang) (place trace (isEntry, folded, seat) =>
+      rewrite isEntry then
+        match entry, seat with
+          | Mid at carry, (floor, _) =>
+            let landed: floored carry (indent + 2) = indent + 2 := rewrite floor
+            (folded, landed, floor, breakKeepsCloser carry key indent floor)
+          | Held at carry, (_, floor, _) =>
+            let landed: floored carry (indent + 2) = indent + 2 := rewrite floor
+            (folded, landed, floor, breakKeepsCloser carry key indent floor)
+          | Broken at carry, (_, _, floor) => (folded, byComputing, floor, byComputing))
+  let inner: HangLays kinds
+    (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]])
+    (indent + 2)
+    pre
+    (NoteWritten indent key column hang) :=
+    hangsConcat kinds
+      [LineStartHere, ..closerNotes [note, ..rest]]
+      (indent + 2)
+      pre
+      (NoteWritten indent key column hang)
+      (hangsCons kinds LineStartHere
+        (closerNotes [note, ..rest])
+        (indent + 2)
+        pre
+        (NoteBroken indent key column hang)
+        (NoteWritten indent key column hang)
+        here
+        (allHangsPre kinds
+          (closerNotes [note, ..rest])
+          (indent + 2)
+          (NoteStart indent key column hang)
+          (NoteBroken indent key column hang)
+          (NoteWritten indent key column hang)
+          notes
+          (noteBrokenStart indent key column hang)))
+  let line: HangLays kinds (CloserLine key) indent (NoteWritten indent key column hang) (LandsAt column hang) :=
+    hangsCloserLine kinds key indent (NoteWritten indent key column hang) (LandsAt column hang) (place now written =>
+      match place, written with
+        | Mid at carry, (same, _, _, lands) => (byComputing, (same, lands, byComputing))
+        | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+        | Broken at carry, never => (Bool.falseNotTrue never).impossible
+        | Held at carry, never => (Bool.falseNotTrue never).impossible)
+  rewrite hoisted, noted, closer then
+    hangsCons kinds BreakParent
+      [Nest 2 (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]]), CloserLine key]
+      indent
+      pre
+      pre
+      (LandsAt column hang)
+      (hangsBreakParent kinds indent pre)
+      (hangsTwo kinds
+        (Nest 2 (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]]))
+        (CloserLine key)
+        indent
+        pre
+        (NoteWritten indent key column hang)
+        (LandsAt column hang)
+        (hangsNest kinds 2 indent
+          (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]])
+          pre
+          (NoteWritten indent key column hang)
+          inner)
+        line)
+
+--| A proof by cases on a list of own-line comments that leaves the goal as it is written.
+theorem notesCases ∀ (goal: Prop) (notes: List Note)
+    (none: notes = [] → goal) (some: ∀ (note: Note) (rest: List Note) => notes = [note, ..rest] → goal):
+    goal :=
+  match notes with
+    | [] => none byComputing
+    | [note, ..rest] => some note rest byComputing
+
+--| A closer on its own: its own-line comments and its line of its own if any, the closer, its trailing comment.
+theorem closerLeafIs ∀ (word: Word) (around: Around) (key: Nat)
+    (closer: isCloserText word.text = True):
+    word.leaf around key
+      = Doc.concat
+        (word.leading around key
+          ++ (if word.lone around then [CloserLine key] else [])
+          ++ [Closing word.text]
+          ++ word.trailing) :=
+  rewrite closer
+
+--| `closerLeafIs`' hypothesis holds of a closer.
+theorem closerLeafIsExample ∀ (comments: Comments) (around: Around) (key: Nat):
+    { text = ")", comments }.leaf around key
+      = Doc.concat
+        ({ text = ")", comments }.leading around key
+          ++ (if { text = ")", comments }.lone around then [CloserLine key] else [])
+          ++ [Closing ")"]
+          ++ { text = ")", comments }.trailing) :=
+  closerLeafIs { text = ")", comments } around key byComputing
+
+theorem noTrailing ∀ (word: Word) (quiet: word.trails = False): word.trailing = [] :=
+  match after: word.comments.after, quiet with
+    | None, _ => byComputing
+    | Some comment, never => (Bool.trueNotFalse never).impossible
+
+--| A closer's trailing comment, if it has one, where no comment waits: after a waiting comment it has none.
+theorem trailingAfterClose ∀ (kinds: Text → Tok) (word: Word) (indent: Nat) (state: HangState) (before: Bool)
+    (trailed: TrailsComment word)
+    (quiet: (before && word.trails) = False):
+    HangLaysAll kinds word.trailing indent (place hang => Ended state before place ∧ hang = At state) (place hang =>
+      Ended state (word.trails || before) place ∧ hang = At state) :=
+  match isBefore: before, quiet with
+    | False, _ =>
+      allHangsPost kinds word.trailing indent
+        (place hang => Ended state False place ∧ hang = At state)
+        (place hang => Ended state word.trails place ∧ hang = At state)
+        (place hang => Ended state (word.trails || False) place ∧ hang = At state)
+        (trailingHangs kinds word indent state trailed)
+        (place hang (ended, folded) =>
+          (endedWider state word.trails (word.trails || False) place ended (trails => rewrite trails), folded))
+    | True, quiet =>
+      rewrite noTrailing word quiet, quiet then
+        hangsNil kinds indent
+          (place hang => Ended state True place ∧ hang = At state)
+          (place hang => Ended state True place ∧ hang = At state)
+          (place hang held => held)
+
+--| The fold facts a bracket's closer needs: its block innermost, nothing glued, what is in force outside the bracket
+--| not right of the block nor of the construct's indentation, and a line starting at the indentation left of the block.
+def CloserFold (indent: Nat) (state: HangState) (block: Option Nat) (outer: List (Option Nat)): Prop :=
+  state.blocks = [block, ..outer]
+    ∧ state.glue = False
+    ∧ (inForce outer state.top <= inForce state.blocks state.top) = True
+    ∧ (inForce outer state.top <= indent) = True
+    ∧ leftOf indent block = True
+
+--| The closer's token: a closer the lexer reads as one, not a comment or layout.
+def CloserToken (kinds: Text → Tok) (text: Text): Prop :=
+  (kinds text).isCloser = True
+    ∧ closesText text = True
+    ∧ isCloserText text = True
+    ∧ text.startsWith "--" = False
+    ∧ isLayout text = False
+
+--| Where a closer may start, and where its line of its own may land.
+def CloserEntry (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat)):
+    Place → Hang → Prop :=
+  place hang =>
+    hang = At state
+      ∧ CloserSeat indent around.before (word.lone around) state place
+      ∧ CloserFits key indent block (inForce outer state.top) place.carry
+
+--| After a closer: the bracket's block gone, a comment waiting only if the closer or the code before it trails one.
+def CloserExit (word: Word) (around: Around) (state: HangState) (outer: List (Option Nat)): Place → Hang → Prop :=
+  place hang => Ended (closedFrom state outer) (word.trails || around.before) place ∧ hang = At (closedFrom state outer)
+
+--| A closer at the start of its own line, then its trailing comment.
+theorem closerAtLineHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (indent column: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat))
+    (token: CloserToken kinds word.text)
+    (fold: CloserFold indent state block outer)
+    (trailed: TrailsComment word)
+    (left: leftOf column block = True)
+    (right: (inForce outer state.top <= column) = True):
+    HangLaysAll kinds
+      [Closing word.text, ..word.trailing]
+      indent
+      (LandsAt column (At state))
+      (CloserExit word around state outer) :=
+  let closed := closedFrom state outer
+  let (closer, closes, _, notComment, solid) := token
+  let (open, unglued, _, _, _) := fold
+  hangsCons kinds
+    (Closing word.text)
+    word.trailing
+    indent
+    (LandsAt column (At state))
+    (place hang => Ended closed False place ∧ hang = At closed)
+    (CloserExit word around state outer)
+    (closingAtHangs kinds word.text indent column state block outer closer closes notComment solid open unglued left
+        right)
+    (allHangsPost kinds word.trailing indent
+      (place hang => Ended closed False place ∧ hang = At closed)
+      (place hang => Ended closed word.trails place ∧ hang = At closed)
+      (CloserExit word around state outer)
+      (trailingHangs kinds word indent closed trailed)
+      (place hang (ended, folded) =>
+        (endedWider closed word.trails (word.trails || around.before) place ended (trails => rewrite trails), folded)))
+
+--| A closer with own-line comments.
+theorem notedCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat)) (note: Note) (rest: List Note)
+    (token: CloserToken kinds word.text)
+    (fold: CloserFold indent state block outer)
+    (hoisted: around.hoisted = False)
+    (noted: word.comments.above = [note, ..rest])
+    (comments: NotesComment [note, ..rest])
+    (trailed: TrailsComment word):
+    HangLays kinds
+      (word.leaf around key)
+      indent
+      (CloserEntry kinds word around key indent state block outer)
+      (CloserExit word around state outer) :=
+  place trace next (folded, seat, (left, right)) after =>
+    let (_, _, text, _, _) := token
+    let lone: word.lone around = False := rewrite noted
+    let unlone: CloserSeat indent around.before False state place := rewrite lone at seat then seat
+    let column := place.carry.closerAt key indent
+    let pre: Place → Hang → Prop := entry hang =>
+      entry = place ∧ hang = At state ∧ CloserSeat indent around.before False state place
+    rewrite closerLeafIs word around key text, lone then
+      hangsConcat kinds
+        (word.leading around key ++ [Closing word.text, ..word.trailing])
+        indent
+        pre
+        (CloserExit word around state outer)
+        (hangsAppend kinds
+          (word.leading around key)
+          [Closing word.text, ..word.trailing]
+          indent
+          pre
+          (LandsAt column (At state))
+          (CloserExit word around state outer)
+          (closerLeadingHangs kinds word around key indent state place note rest hoisted noted text comments)
+          (closerAtLineHangs kinds word around indent column state block outer token fold trailed left right))
+        place
+        trace
+        next
+        (byComputing, folded, unlone)
+        after
+
+theorem bareCloserLeading ∀ (word: Word) (around: Around) (key: Nat)
+    (hoisted: around.hoisted = False)
+    (bare: word.comments.above = [])
+    (single: around.item = False):
+    word.leading around key = [] :=
+  rewrite hoisted, bare, single
+
+--| A closer with no own-line comments on a line of its own, after code that ends its line with a comment.
+theorem loneCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat))
+    (token: CloserToken kinds word.text)
+    (fold: CloserFold indent state block outer)
+    (hoisted: around.hoisted = False)
+    (bare: word.comments.above = [])
+    (single: around.item = False)
+    (lone: word.lone around = True)
+    (trailed: TrailsComment word):
+    HangLays kinds
+      (word.leaf around key)
+      indent
+      (CloserEntry kinds word around key indent state block outer)
+      (CloserExit word around state outer) :=
+  place trace next (folded, seat, (left, right)) after =>
+    let (_, _, text, _, _) := token
+    let alone: CloserSeat indent around.before True state place := rewrite lone at seat then seat
+    let column := place.carry.closerAt key indent
+    let pre: Place → Hang → Prop := entry hang =>
+      entry = place ∧ hang = At state ∧ CloserSeat indent around.before True state place
+    rewrite closerLeafIs word around key text, bareCloserLeading word around key hoisted bare single, lone then
+      hangsConcat kinds
+        [CloserLine key, Closing word.text, ..word.trailing]
+        indent
+        pre
+        (CloserExit word around state outer)
+        (hangsCons kinds
+          (CloserLine key)
+          [Closing word.text, ..word.trailing]
+          indent
+          pre
+          (LandsAt column (At state))
+          (CloserExit word around state outer)
+          (closerLineHangs kinds key indent around.before state place)
+          (closerAtLineHangs kinds word around indent column state block outer token fold trailed left right))
+        place
+        trace
+        next
+        (byComputing, folded, alone)
+        after
+
+--| A closer with no own-line comments and no line of its own: where its contents ended, or after the line break
+--| before it.
+theorem plainCloserHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat))
+    (token: CloserToken kinds word.text)
+    (fold: CloserFold indent state block outer)
+    (hoisted: around.hoisted = False)
+    (bare: word.comments.above = [])
+    (single: around.item = False)
+    (lone: word.lone around = False)
+    (trailed: TrailsComment word):
+    HangLays kinds
+      (word.leaf around key)
+      indent
+      (CloserEntry kinds word around key indent state block outer)
+      (CloserExit word around state outer) :=
+  let (closer, closes, text, notComment, solid) := token
+  let (open, unglued, nested, clear, shallow) := fold
+  let closed := closedFrom state outer
+  let quiet: (around.before && word.trails) = False := rewrite bare at lone then lone
+  let pre := CloserEntry kinds word around key indent state block outer
+  let ended: Place → Hang → Prop := place hang => Ended closed around.before place ∧ hang = At closed
+  place trace next holds after =>
+    rewrite closerLeafIs word around key text, bareCloserLeading word around key hoisted bare single, lone then
+      hangsConcat kinds
+        [Closing word.text, ..word.trailing]
+        indent
+        pre
+        (CloserExit word around state outer)
+        (hangsCons kinds
+          (Closing word.text)
+          word.trailing
+          indent
+          pre
+          ended
+          (CloserExit word around state outer)
+          (hangsPre kinds
+            (Closing word.text)
+            indent
+            (place hang => hang = At state ∧ CloserSeat indent around.before False state place)
+            pre
+            ended
+            (closingHangs kinds word.text indent around.before state block outer closer closes notComment solid open
+                unglued nested clear shallow)
+            (place hang (folded, seat, _) => (folded, rewrite lone at seat then seat)))
+          (trailingAfterClose kinds word indent closed around.before trailed quiet))
+        place
+        trace
+        next
+        holds
+        after
+
+--| A bracket's closer on its own (`Word.leaf`), from where its contents ended or the line break before it: what
+--| is written before it on lines of their own leaves the fold as it was, and the closer closes its bracket.
+--|
+--| Proof idea: by cases on the closer's own-line comments and on whether it takes a line of its own after a waiting
+--| comment (`Word.lone`); `notedCloserHangs`, `loneCloserHangs` and `plainCloserHangs` each lay one case.
+theorem closerLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (state: HangState)
+    (block: Option Nat) (outer: List (Option Nat))
+    (token: CloserToken kinds word.text)
+    (fold: CloserFold indent state block outer)
+    (hoisted: around.hoisted = False)
+    (single: around.item = False)
+    (comments: NotesComment word.comments.above)
+    (trailed: TrailsComment word):
+    HangLays kinds
+      (word.leaf around key)
+      indent
+      (CloserEntry kinds word around key indent state block outer)
+      (CloserExit word around state outer) :=
+  let goal: Prop :=
+    HangLays kinds
+      (word.leaf around key)
+      indent
+      (CloserEntry kinds word around key indent state block outer)
+      (CloserExit word around state outer)
+  notesCases goal word.comments.above
+    (bare =>
+      Bool.inspect
+        (word.lone around)
+        (_ => goal)
+        (lone =>
+          loneCloserHangs kinds word around key indent state block outer token fold hoisted bare single lone trailed)
+        (lone =>
+          plainCloserHangs kinds word around key indent state block outer token fold hoisted bare single lone trailed))
+    (note rest noted =>
+      notedCloserHangs kinds word around key indent state block outer note rest token fold hoisted noted
+        (rewrite noted at comments then comments)
+        trailed)
+
+-- Openers.
+
+--| An opening bracket's token: an opener the lexer reads as one, not a comment or layout.
+def OpenerToken (kinds: Text → Tok) (text: Text): Prop :=
+  (kinds text).isOpener = True
+    ∧ (kinds text).isCloser = False
+    ∧ (kinds text == Comma) = False
+    ∧ (kinds text == ColonEq) = False
+    ∧ (kinds text == Colon) = False
+    ∧ (kinds text == Arrow) = False
+    ∧ text.startsWith "--" = False
+    ∧ isLayout text = False
+    ∧ isCloserText text = False
+    ∧ (text == ",") = False
+
+--| A `Mark` leaves a seat a seat, the first word starting where it would.
+theorem markSeated ∀ (indent key: Nat) (before: Bool) (state: HangState) (place: Place)
+    (seated: Seated indent before state place):
+    Seated indent before state (place.withCarry (place.carry.mark key place.indent))
+      ∧ wordStart indent (place.withCarry (place.carry.mark key place.indent)) = wordStart indent place :=
+  match place, seated with
+    | AtStart at carry, seated => (seated, byComputing)
+    | Broken at carry, seated => (seated, byComputing)
+    | Mid at carry, seated => (seated, byComputing)
+    | Held at carry, seated => (seated, byComputing)
+
+--| An opener leaves in force what a plain token there would: its own block has no column yet.
+theorem openingEnded ∀ (state: HangState) (start: Option Nat) (flag: Bool) (place: Place)
+    (ended: Ended (openedBy state start) flag place):
+    Ended (openingBy state start) flag place :=
+  match place, ended with
+    | Mid at carry, ended => ended
+    | Held at carry, ended => ended
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
+    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+
+--| An opener's text, at a seat whose first word starts at `start`: one opener there.
+theorem openerStep ∀ (kinds: Text → Tok) (text: Text) (indent: Nat) (state: HangState) (start: Option Nat)
+    (token: OpenerToken kinds text):
+    HangLays kinds
+      (Doc.text text)
+      indent
+      (place hang =>
+        hang = At state
+          ∧ Seated indent False state place
+          ∧ Room state (wordStart indent place)
+          ∧ wordStart indent place = start)
+      (place hang => Ended (openingBy state start) False place ∧ hang = At (openingBy state start)) :=
+  let (opener, closer, comma, assign, colon, arrow, notComment, solid, _, _) := token
+  hangsChunk kinds text text.length indent
+    (place hang =>
+      hang = At state
+        ∧ Seated indent False state place
+        ∧ Room state (wordStart indent place)
+        ∧ wordStart indent place = start)
+    (place hang => Ended (openingBy state start) False place ∧ hang = At (openingBy state start))
+    solid
+    (place trace (folded, seated, room, same) =>
+      let ended := wordEnded indent False text state place notComment seated room
+      let stepped :=
+        stepOpener kinds state text
+          (wordStart indent place)
+          (tokenCode text (wordStart indent place) notComment solid)
+          opener
+          closer
+          comma
+          assign
+          colon
+          arrow
+          room
+      rewrite folded then (openingEnded state start False _ (rewrite same at ended then ended), rewrite stepped, same))
+
+--| An opening bracket, its own-line comments written by its node: its mark if its closer may take a line of its own,
+--| the bracket, its trailing comment; it opens a block of its own.
+theorem openingHangs ∀ (kinds: Text → Tok) (word closer: Word) (around: Around) (indent: Nat)
+    (state: HangState) (entry: Place)
+    (token: OpenerToken kinds word.text)
+    (hoisted: around.hoisted = True)
+    (trailed: TrailsComment word):
+    HangLays kinds
+      (word.opening around closer)
+      indent
+      (Entered indent False state entry (wordStart indent entry))
+      (place hang =>
+        Ended (openingBy state (wordStart indent entry)) word.trails place
+          ∧ hang = At (openingBy state (wordStart indent entry))) :=
+  let (_, _, _, _, _, _, _, _, notCloser, notComma) := token
+  let start := wordStart indent entry
+  let opened := openingBy state start
+  let ready: Place → Hang → Prop := place hang =>
+    hang = At state
+      ∧ Seated indent False state place
+      ∧ Room state (wordStart indent place)
+      ∧ wordStart indent place = start
+  let written: Place → Hang → Prop := place hang => Ended opened False place ∧ hang = At opened
+  let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = At opened
+  let rest: HangLaysAll kinds [Doc.text word.text, ..word.trailing] indent ready post :=
+    hangsCons kinds
+      (Doc.text word.text)
+      word.trailing
+      indent
+      ready
+      written
+      post
+      (openerStep kinds word.text indent state start token)
+      (trailingHangs kinds word indent opened trailed)
+  rewrite hoisted, notCloser, notComma then
+    match marks: closer.noted || closer.trails with
+      | True =>
+        hangsConcat kinds
+          [Mark around.at, Doc.text word.text, ..word.trailing]
+          indent
+          (Entered indent False state entry start)
+          post
+          (hangsCons kinds
+            (Mark around.at)
+            [Doc.text word.text, ..word.trailing]
+            indent
+            (Entered indent False state entry start)
+            ready
+            post
+            (hangsMark kinds around.at indent (Entered indent False state entry start) ready (place hang (
+              isEntry,
+              folded,
+              (seated, _, room)
+            ) =>
+              let (stays, same) := markSeated indent around.at False state place (rewrite isEntry then seated)
+              (folded, stays, rewrite same, isEntry then room, rewrite same, isEntry)))
+            rest)
+      | False =>
+        hangsConcat kinds
+          [Doc.text word.text, ..word.trailing]
+          indent
+          (Entered indent False state entry start)
+          post
+          (allHangsPre kinds
+            [Doc.text word.text, ..word.trailing]
+            indent
+            ready
+            (Entered indent False state entry start)
+            post
+            rest
+            (place hang (isEntry, folded, (seated, _, room)) =>
+              (folded, rewrite isEntry then seated, rewrite isEntry then room, rewrite isEntry)))

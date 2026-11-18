@@ -1327,3 +1327,27 @@ Fold over the trace 6, triples and combinators 16, one per `Doc` constructor 23,
 - `Expr.el` over every node: `parenDoc`/`parenInner`, `commaBracket`/`bracketContent`/`cells`/`brokenItems`, `huggedBracket`/`lastArgument`; `argumentDocs`/`appDocs`/`appFrom`/`spaced`; `chain`/`chainOf`/`chainLinks`/`chainRight`/`linkDocs` (`->` glue, `arrowsBare`).
 - `bodyAfter`/`callHug`/`opensBracket`/`bodyDoc`, `headDocs`, `defDoc`/`defFrom` (the `:` and `:=` steps, the typed `Nest 4`), `doc1`.
 - The bridge from the lexer's leaves (`Laid.lay` over `pieceFold`, columns in bytes) to `eventsOf`; then `printedHangs` from `hangsPrinted`, with the tree facts as hypotheses.
+
+## Slice 1 rules proofs, `printedHangs` continued (SW-4016, Opus, 18 November 2026)
+
+Ticket 18e, in `Fmt/HangProofs.sw` (rules) and the new `Fmt/PrintHangProofs.sw` (namespace `Fmt.PrintHangProofs`, the engine end). 60 theorems (with `closerLeafIsExample`) and 19 definitions, no open goals, no axioms; no statement of SW-4011's changed, no splits in `Rules.sw`.
+
+### What is proved
+
+- **Noted tokens (7).** `lineWordHangs` is `plainStep` at a line's own column rather than the construct's; `notedLeafHangs` and `notedPartHangs` take `Word.leaf` with comments above it as an element and as a later part, given `(plainStart entry && note.blankBefore && around.item) = False`.
+- **Closers (25, with `CloserSeat`, `CloserFits`, `CloserFold`, `CloserToken`, `CloserEntry`, `CloserExit`, `Word.lone`, `LandsAt`, `NoteStart`/`NoteBroken`/`NoteWritten`).** `closerAtMost` (`closerAt ≤ indent`), `closerAtLower` and `breakKeepsCloser` (a line break deeper than the indentation keeps `closerAt`); `laterCloserNotesHang` for `laterCloserNotes`; `closerLineHangs` for `CloserLine`; `closerLeafHangs` for a closer's `Word.leaf` in all four cases (noted, lone, plain, trailed), taking the closer's seat and `CloserFits` as hypotheses.
+- **Openers (4).** `openingHangs`: `Word.opening` (the `Mark`) from `Entered` to `Ended (openingBy state s)`.
+- **The engine end (23, `PrintHangProofs`).** `hangsOfLays`: a declaration's document with a `HangLays` triple from `AtStart 0` to a fold that never broke, and `printedLexes`' hypotheses, lexes to leaves with `hangs = True`. The pieces: `tracks` (by induction over the printed texts, the last first: a token starts its line in `Laid.lay`'s layout exactly when its trace event does, and then at the same column, spaces in bytes as in characters; `stepColumn`: elsewhere `HangState.step` doesn't read the column; `stepTrivia`: it never reads trivia), `pieceFoldLay` (`pieceFold`'s merged gaps lay as the texts one at a time), `pairsEnd` (`printedJoins`' `Pairs` means no text after a comment on its line), `hangsOfFold` (the leaves' fold to `hangs`). So `printedHangs` is now exactly "a `HangLays` triple for `doc1`'s document", and what's left is all on the rules' side.
+
+### Found
+
+- **A blank line before a closer that trails a comment, after a last item that does too** (both printers). `def x: T := [\n  aaa, -- c\n  bbb -- e\n] -- d` formats with an empty line before `] -- d` (idempotent, and the output keeps `hangs`). The closer's `CloserLine` (it is `lone`) comes straight after `bracketContent`'s `SoftLine` break, and a `CloserLine` at a line start prints a newline more. `Lays` makes `CloserLine` need a mid-line place, so it is `False` there, and `CloserSeat`'s `Broken` case asks `lone = False`. Fix wanted in the rules or the printer (a `CloserLine` at a line start only moves the line), in both formatters (D3677: a shared bug). Related: when only the closer trails, its comment moves to the last item.
+- **The marks invariant (owed).** `CloserFits` at a closer's seat needs (1) the least indentation `inForce` of the blocks outside the bracket to be at most `closerAt`, so the mark found by the bracket's key must be the opener's own, and (2) for parentheses, whose block may equal the indentation, `least ≤ block` and `marked < block`. Both need key reasoning: marks made inside an element have keys from `around.at` up. Options: a key floor and a "marks kept or lowered" post in `ElHangs`, or a generic `Std.Doc` lemma strengthening `Lays` by induction on `Doc` plus a per-rule walk of the keys. `framedBy` displaces `Held` entries, so an opener is never written at `Held`; comma brackets get (2) for free (block ≥ indentation + 2). Brackets then compose from `openingHangs`, the contents and `closerLeafHangs`.
+- **Applications need a hoisted head seat (design question).** `appDocs`' `Nest 4 (Fill …)` puts a broken argument at a line start at the application's indentation + 4, but `Seated` at a line start asks `at = indent`. That condition carries `leadColumn`/`LineAt` for noted tokens (after own-line comments the `HardLine` lands at the floored indentation, not at `at`), so it can't simply be dropped; a seat variant for the head's arguments (and chains' `Nest 2` operators) is needed.
+- **No counterexample** to a `hangs` clause: comments after `->` are moved by rule N and the output hangs.
+
+### Still owed
+
+- Brackets: `parenDoc`/`parenInner`, `commaBracket`/`bracketContent`/`cells`/`brokenItems`, `huggedBracket`/`lastArgument` (the marks invariant above).
+- Applications and chains: `argumentDocs`/`appDocs`/`appFrom`/`spaced`, `chain`/`chainOf`/`chainLinks`/`chainRight`/`linkDocs` (the seat above).
+- The declaration level: `bodyAfter`/`callHug`/`opensBracket`/`bodyDoc`, `headDocs`, `defDoc`/`defFrom`, `doc1`; then `printedHangs` is `hangsOfLays` applied to `doc1`'s triple.
