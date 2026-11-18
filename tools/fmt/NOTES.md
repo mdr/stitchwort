@@ -810,6 +810,18 @@ Proofs: no theorem is restricted and no goal is open. `Place`'s second field is 
 
 Harness [measured, Speedwell]: goldens, 644 declarations: 632 matched, 0 mismatched, 12 unsupported (all `TextBlock`; were 626, 0, 18). Repo, the same 300-file sample (seed 1), 5,792 declarations: 5,676 matched, 0 mismatched, 31 unsupported (`TextBlock`), 85 oversized. The engine-only driver (E3's `mkslim.sh`) builds in 320 MB.
 
+## Engine stage E6 (SW-3944): `Fmt.Doc` is `Std.Doc`
+
+Sonnet, 18 November 2026. The engine, its 357 theorems and its 35 tests moved from `tools/fmt/src/Doc/` to `crates/elab/src/std/Doc/` (`Doc.sw`, `Measure.sw`, `Print.sw` and the proof files); `Fmt.Doc` is gone and `Fmt.DocDump` imports `Std.Doc`. The older entries above say `Fmt.Doc`; read them as `Std.Doc`.
+
+What a std file is: its names are written in full or imported, and a `namespace` line does nothing, so the type is `Std.Doc` itself (`Doc.text`, `Doc.group`), the printer's types and helpers are `Doc.print`, `Doc.Printer`, `Doc.Cmd`, `Doc.Carry`, `Doc.Mode`, and every proof and spec is `Doc.Proofs.X` (the tests' helpers `Doc.Tests.X`). A file brings the names in with `import Doc (..)` and `import Doc.Proofs (..)`.
+
+Name clashes: the constructor `Empty` clashed with the type `Std.Empty` in other library files (a constructor's short name is in scope everywhere), so it is `Doc.Nothing`. `print` is the IO operation: the engine's is written `Doc.print`. `Reads` and `Pair` clash with prelude names (`Reads`, `Std.Pair`) and are written `Doc.Proofs.Reads` and `Doc.Proofs.Pair` where used.
+
+The library loader's reference analysis ignored a file's imports, so a name imported and written short was not seen as a use of the file that declares it ("uses X, which isn't loaded"); `LibraryIndex::build` now applies each file's imports when it resolves the file's references.
+
+Checked: `audit Std.Doc` 357 theorems, 0 failed, 0 warnings; `test --std Doc` 35 of 35; the harness on the goldens 632 matched, 0 mismatched, 12 unsupported (`TextBlock`), as before.
+
 ## A comment-free `meaning` (SW-3884)
 
 Opus, 17 November 2026.

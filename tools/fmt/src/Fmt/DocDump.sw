@@ -19,8 +19,8 @@
 --| not compared.
 
 namespace Fmt.DocDump
-import Std (Bool, Char, List, Nat, Option, Result, Text)
-import Fmt.Doc (..)
+import Std (Bool, Char, Doc, List, Nat, Option, Result, Text)
+import Std.Doc (..)
 
 --| What the engine did with one declaration of the dump.
 type Outcome =
@@ -90,7 +90,7 @@ def escapeChar (char: Char): List Char :=
 def escape (text: Text): Text := Text.fromList (text.toList.concatMap escapeChar)
 
 --| The first child, or an empty document.
-def first (docs: List Doc): Doc := docs.headOr Empty
+def first (docs: List Doc): Doc := docs.headOr Nothing
 
 --| A node with the number of children in its argument, built from them.
 def counted (tag line argument: Text) (build: List Doc → Doc): (Node, Option Text) := match argument.toNat with
@@ -113,7 +113,7 @@ def parseNode (line: Text): (Node, Option Text) :=
     | Some pair => (pair.fst, pair.snd)
     | None => (line, "")
   match tag with
-    | "Nil" => (Leaf Empty, None)
+    | "Nil" => (Leaf Nothing, None)
     | "Shared" =>
       match argument.toNat with
         | Some id => (Share id, None)
@@ -149,7 +149,7 @@ def parseNode (line: Text): (Node, Option Text) :=
         | None => (Bad "IfBroken: no number in `${line}`", None)
     | "Mark" => numberedLeaf tag line argument Mark
     | "CloserLine" => numberedLeaf tag line argument CloserLine
-    | "TextBlock" => (Leaf Empty, Some tag)
+    | "TextBlock" => (Leaf Nothing, Some tag)
     | _ => (Bad "unknown node `${line}`", None)
 
 --| A finished document goes to the node waiting for it, which finishes in
@@ -217,7 +217,7 @@ def readDeclaration: (lines: List Text) → Result Declaration Text
     match header.stripPrefix "decl ", Option.flatMap (sized.stripPrefix "size ") Text.toNat, printed.stripPrefix
         "text " with
       | Some number, Some size, Some text =>
-        if size > sizeLimit then Ok { number, expected = "", size, doc = Empty, kinds = [] }
+        if size > sizeLimit then Ok { number, expected = "", size, doc = Nothing, kinds = [] }
         else
           match readLines { stack = [], shared = [], root = None, kinds = [] } nodes with
             | Err message => Err "declaration ${number}: ${message}"

@@ -259,11 +259,20 @@ impl LibraryIndex {
         let mut needs: Vec<Needs> = Vec::new();
         for (f, file) in index.files.iter().enumerate() {
             let mut n = Needs::default();
+            // The file's own imports are in scope for its references, so a
+            // name it imports and writes short still names the file that
+            // declares it.
+            let outer = scratch.scope.take_imports();
+            let mut ignored = Vec::new();
+            scratch.add_imports(&file.module.imports, false, &mut ignored);
+            scratch.add_imports(&file.module.imports, true, &mut ignored);
             for (decl, equations) in grouped(&file.module.decls) {
                 for (r, _) in decl_refs(decl, equations) {
                     scratch.note_library_use(&index, &r, &mut n);
                 }
             }
+            drop(scratch.scope.take_imports());
+            scratch.scope.restore_imports(outer);
             n.files.remove(&f);
             n.files.remove(&0);
             needs.push(n);

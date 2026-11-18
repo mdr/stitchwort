@@ -17,11 +17,11 @@ STAGE is what is compared (the Rust side's dump in brackets):
     passes   (4)  the tidied tree after each pass     [stitchwort dev passes]
     text     (5)  the formatted text                  [stitchwort fmt -]
                   (6 is the same comparison on more inputs)
-    engine   (E1) each declaration's layout document, printed by Fmt.Doc and
+    engine   (E1) each declaration's layout document, printed by Std.Doc and
                   compared with Rust's engine's text      [stitchwort dev doc]
                   (the executable is given the dump, not the source; the
                   report is counts of matched, mismatched and unsupported
-                  declarations, by the node kinds Fmt.Doc lacks)
+                  declarations, by the node kinds Std.Doc lacks)
 
 The executable is called as `EXE --stage NAME FILE` and answers on standard
 output (and, for a refused file, standard error and a non-zero exit status)
@@ -610,7 +610,7 @@ def engine_chunk(exe: Path, paths: list, timeout: float, limit: float) -> tuple:
 
 def engine_stage(args, sw: Path, exe: Path, groups: list, key: str) -> int:
     """The engine comparison: counts of declarations that matched, differed
-    and used node kinds Fmt.Doc lacks, by kind, over each group."""
+    and used node kinds Std.Doc lacks, by kind, over each group."""
     shown_max = max(args.show, 3)
     print(f"stage engine; Rust side {sw}; sources hash {key}; cache {CACHE}")
     for name, files in groups:

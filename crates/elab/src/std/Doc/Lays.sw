@@ -15,22 +15,24 @@
 --| is a `Puts` of a printed trace the laid one `Tucks` to (`laysPuts`),
 --| so the printer's theorem (`printPuts`) gives `printLays`.
 
-namespace Fmt.Doc.Proofs
-import Fmt.Doc (..)
-import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
+import Doc (..)
+import Bool (not)
+import Doc.Proofs (..)
 
 --| `--` and the rest of its line: a trailing comment's text.
-def IsComment (text: Text): Prop :=
+def Doc.Proofs.IsComment (text: Text): Prop :=
   ∃ (others: List Char) => text.toList = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True
 
 --| The texts `Closing` is for: a closing bracket or a comma.
-def closesText (text: Text): Bool := text == ")" || text == "]" || text == ","
+def Doc.Proofs.closesText (text: Text): Bool := text == ")" || text == "]" || text == ","
 
 --| A chunk in a construct indented `indent`: nothing if empty; spaces
 --| after words (never at a line start, where they would move the next
 --| word); a word where the place says, on a new line after a waiting
 --| comment.
-def WriteLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.WriteLays (indent: Nat) (text: Text) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop):
+    Prop :=
   if text.isEmpty then next place trace
   else if text.all (char => char == ' ') then
     match place with
@@ -53,7 +55,9 @@ def WriteLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (nex
 --| A closer in a construct indented `indent`: a chunk where no comment
 --| waits; where one waits, a word on the comment's line, which the tree
 --| has after the comment (the printer writes it before).
-def CloseLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.CloseLays (indent: Nat) (text: Text) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop):
+    Prop :=
   match place with
     | Held at carry =>
       closesText text = True ∧ next (Held at (floorAfter text carry)) (trace ++ [{ word = text, start = None }])
@@ -61,15 +65,16 @@ def CloseLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (nex
 
 --| A `Line` or a fill's separator: a space or a line break, after words.
 --| After a waiting comment the space is held, so the place stays.
-def SepLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop := match place with
-  | AtStart _ _ => False
-  | Broken _ _ => False
-  | Mid at carry =>
-    next (Mid at { carry | floor = None }) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
-  | Held at carry => next (Held at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+def Doc.Proofs.SepLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+  match place with
+    | AtStart _ _ => False
+    | Broken _ _ => False
+    | Mid at carry =>
+      next (Mid at { carry | floor = None }) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
+    | Held at carry => next (Held at carry) trace ∧ next (AtStart (floored carry indent) (carry.breakTo indent)) trace
 
 --| A `SoftLine`: nothing or a line break, after words.
-def SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart _ _ => False
     | Broken _ _ => False
@@ -79,7 +84,7 @@ def SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → L
 --| A `LineStart`: a comment break, deeper than the line, unless a line
 --| starts here; the break's indentation is the floor until the next
 --| code.
-def StartLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.StartLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart at carry => next (AtStart at carry) trace
     | Broken at carry => next (AtStart at carry) trace
@@ -91,7 +96,7 @@ def StartLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → 
       next (AtStart (floored carry broken) (carry.startFloor broken)) trace
 
 --| A trailing comment: after words on its line, with no other waiting.
-def SuffixLays (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.SuffixLays (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
     | AtStart _ _ => False
     | Broken _ _ => False
@@ -101,7 +106,7 @@ def SuffixLays (comment: Text) (place: Place) (trace: List Event) (next: Place �
 --| A `Blank`: a blank line right after the line break that ended a line
 --| of words; nothing after words; at no other line start, where the
 --| printer may or may not leave one.
-def BlankLays (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop := match place with
+def Doc.Proofs.BlankLays (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop := match place with
   | AtStart _ _ => False
   | Broken at carry => next (AtStart at carry) (trace ++ [Event.blankLine])
   | Mid at carry => next (Mid at carry) trace
@@ -113,9 +118,10 @@ def BlankLays (place: Place) (trace: List Event) (next: Place → List Event →
 --| `Line` or `SoftLine` comes only after words (at a line start it would
 --| leave a blank line); after a `HardLine` the document says whether a
 --| `Blank` follows (`Broken`) or not (`AtStart`).
-def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
+    Prop :=
   match doc with
-    | Empty => next place trace
+    | Doc.Nothing => next place trace
     | BreakParent => next place trace
     | Blank => BlankLays place trace next
     | Chunk text _ => WriteLays indent text place trace next
@@ -154,21 +160,25 @@ def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
 
 --| Each of the docs in turn lays out, from the place and trace the one before
 --| left.
-def LaysAll (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+def Doc.Proofs.LaysAll (docs: List Doc) (indent: Nat) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop):
+    Prop :=
   match docs with
     | [] => next place trace
     | [doc, ..rest] => Lays doc indent place trace (after later => LaysAll rest indent after later next)
 
 --| The items of a fill lay out, each after a separator that is a space or a
 --| line break.
-def FillLays (items: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
+def Doc.Proofs.FillLays (items: List Doc) (indent: Nat) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match items with
     | [] => next place trace
     | [first, ..others] => Lays first indent place trace (after later => SepsLay others indent after later next)
 
 --| The separators before the items of a fill, and the items, lay out in turn.
-def SepsLay (items: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
+def Doc.Proofs.SepsLay (items: List Doc) (indent: Nat) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match items with
     | [] => next place trace
@@ -176,7 +186,8 @@ def SepsLay (items: List Doc) (indent: Nat) (place: Place) (trace: List Event) (
       Lays item indent middle between (after later => SepsLay more indent after later next))
 
 --| Every option a choice may take lays out.
-def OptionsLay (options: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
+def Doc.Proofs.OptionsLay (options: List Doc) (indent: Nat) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match options with
     | [] => next place trace
@@ -187,7 +198,7 @@ def OptionsLay (options: List Doc) (indent: Nat) (place: Place) (trace: List Eve
 
 --| `WriteLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
-theorem writeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
+theorem Doc.Proofs.writeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: WriteLays indent text place trace strong):
@@ -211,7 +222,7 @@ theorem writeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: Li
 
 --| `CloseLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
-theorem closeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
+theorem Doc.Proofs.closeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: CloseLays indent text place trace strong):
@@ -224,7 +235,8 @@ theorem closeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: Li
 
 --| `SepLays` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
-theorem sepLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
+theorem Doc.Proofs.sepLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event)
+    (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SepLays indent place trace strong):
     SepLays indent place trace weak :=
@@ -236,7 +248,8 @@ theorem sepLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (stro
 
 --| `SoftLays` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
-theorem softLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
+theorem Doc.Proofs.softLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event)
+    (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SoftLays indent place trace strong):
     SoftLays indent place trace weak :=
@@ -248,7 +261,8 @@ theorem softLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (str
 
 --| `StartLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
-theorem startLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
+theorem Doc.Proofs.startLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event)
+    (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: StartLays indent place trace strong):
     StartLays indent place trace weak :=
@@ -260,7 +274,8 @@ theorem startLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (st
 
 --| `SuffixLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
-theorem suffixLaysWeaker ∀ (comment: Text) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
+theorem Doc.Proofs.suffixLaysWeaker ∀ (comment: Text) (place: Place) (trace: List Event)
+    (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SuffixLays comment place trace strong):
     SuffixLays comment place trace weak :=
@@ -272,7 +287,7 @@ theorem suffixLaysWeaker ∀ (comment: Text) (place: Place) (trace: List Event) 
 
 --| `BlankLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
-theorem blankLaysWeaker ∀ (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
+theorem Doc.Proofs.blankLaysWeaker ∀ (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: BlankLays place trace strong):
     BlankLays place trace weak :=
@@ -283,13 +298,13 @@ theorem blankLaysWeaker ∀ (place: Place) (trace: List Event) (strong weak: Pla
     | Held at carry, lays => implies _ _ lays
 
 --| What holds with a continuation holds with any it implies.
-theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Event)
+theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: Lays doc indent place trace strong):
     Lays doc indent place trace weak :=
   match doc, lays with
-    | Empty, lays => implies _ _ lays
+    | Doc.Nothing, lays => implies _ _ lays
     | BreakParent, lays => implies _ _ lays
     | Blank, lays => blankLaysWeaker place trace strong weak implies lays
     | Chunk text width, lays => writeLaysWeaker indent text place trace strong weak implies lays
@@ -359,7 +374,7 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
 
 --| `LaysAll` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
-theorem allLaysWeaker ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event)
+theorem Doc.Proofs.allLaysWeaker ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: LaysAll docs indent place trace strong):
@@ -375,7 +390,7 @@ theorem allLaysWeaker ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: 
 
 --| `FillLays` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
-theorem fillLaysWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace: List Event)
+theorem Doc.Proofs.fillLaysWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: FillLays items indent place trace strong):
@@ -391,7 +406,7 @@ theorem fillLaysWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace
 
 --| `SepsLay` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
-theorem sepsLayWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace: List Event)
+theorem Doc.Proofs.sepsLayWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SepsLay items indent place trace strong):
@@ -412,7 +427,7 @@ theorem sepsLayWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace:
 
 --| `OptionsLay` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
-theorem optionsLayWeaker ∀ (options: List Doc) (indent: Nat) (place: Place) (trace: List Event)
+theorem Doc.Proofs.optionsLayWeaker ∀ (options: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: OptionsLay options indent place trace strong):
@@ -427,7 +442,7 @@ theorem optionsLayWeaker ∀ (options: List Doc) (indent: Nat) (place: Place) (t
 
 --| Items with a `Line` between each two lay out if the first does and then the
 --| rest, each after a separator.
-theorem linesLay ∀ (first: Doc) (others: List Doc) (indent: Nat) (place: Place)
+theorem Doc.Proofs.linesLay ∀ (first: Doc) (others: List Doc) (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (lays: Lays first indent place trace (after later => SepsLay others indent after later next)):
     LaysAll (Doc.joinLines [first, ..others]) indent place trace next :=
@@ -449,74 +464,74 @@ theorem linesLay ∀ (first: Doc) (others: List Doc) (indent: Nat) (place: Place
 
 --| A stretch of a trace: one event, or a trailing comment that waited
 --| and the closers written on its line while it did.
-type Stretch =
+type Doc.Proofs.Stretch =
   | Kept (event: Event)
   | Tucked (comment: Event) (closers: List Event)
 
 --| The stretch as the document has it: the comment, then the closers.
-def Stretch.laid: Stretch → List Event
+def Doc.Proofs.Stretch.laid: Stretch → List Event
   | Kept event => [event]
   | Tucked comment closers => [comment, ..closers]
 
 --| The stretch as it is printed: the closers, then the comment.
-def Stretch.printed: Stretch → List Event
+def Doc.Proofs.Stretch.printed: Stretch → List Event
   | Kept event => [event]
   | Tucked comment closers => closers ++ [comment]
 
 --| A closer written on a waiting comment's line: after other words.
-def Closer (event: Event): Prop := event.start = None ∧ closesText event.word = True
+def Doc.Proofs.Closer (event: Event): Prop := event.start = None ∧ closesText event.word = True
 
 --| A tucked stretch is a trailing comment and closers on its line.
-def Stretch.Fits: Stretch → Prop
+def Doc.Proofs.Stretch.Fits: Stretch → Prop
   | Kept event => True
   | Tucked comment closers => comment.start = None ∧ IsComment comment.word ∧ List.All Closer closers
 
 --| The laid events of the stretches, in order.
-def laidOf: List Stretch → List Event
+def Doc.Proofs.laidOf: List Stretch → List Event
   | [] => []
   | [first, ..rest] => first.laid ++ laidOf rest
 
 --| The printed events of the stretches, in order.
-def printedOf: List Stretch → List Event
+def Doc.Proofs.printedOf: List Stretch → List Event
   | [] => []
   | [first, ..rest] => first.printed ++ printedOf rest
 
 --| An event that starts a line, or a blank line: what follows a
 --| trailing comment's line.
-def Stretch.Starts: Stretch → Prop
+def Doc.Proofs.Stretch.Starts: Stretch → Prop
   | Kept event => (∃ (at: Nat) => event.start = Some at) ∨ event.word = "\n"
   | Tucked _ _ => False
 
 --| After a trailing comment's stretch the next line starts: no word
 --| follows a comment on its line but the closers tucked before it.
-def LineEnded: List Stretch → Prop
+def Doc.Proofs.LineEnded: List Stretch → Prop
   | [] => True
   | [only] => True
   | [Tucked comment closers, next, ..rest] => next.Starts ∧ LineEnded [next, ..rest]
   | [Kept event, next, ..rest] => LineEnded [next, ..rest]
 
 --| Whether the stretch is a single kept event.
-def Stretch.IsKept: Stretch → Prop
+def Doc.Proofs.Stretch.IsKept: Stretch → Prop
   | Kept event => True
   | Tucked comment closers => False
 
 --| The last stretch is one event (or there is none): no comment has
 --| just been written.
-def EndsKept: List Stretch → Prop
+def Doc.Proofs.EndsKept: List Stretch → Prop
   | [] => True
   | [last] => last.IsKept
   | [first, next, ..rest] => EndsKept [next, ..rest]
 
 --| `printed` is `laid` with each trailing comment after the closers that
 --| were written on its line.
-def Tucks (laid printed: List Event): Prop :=
+def Doc.Proofs.Tucks (laid printed: List Event): Prop :=
   ∃ (stretches: List Stretch) => List.All Stretch.Fits stretches
     ∧ LineEnded stretches
     ∧ laid = laidOf stretches
     ∧ printed = printedOf stretches
 
 --| As `Tucks`, after a word on its line: no comment was written last.
-def Settles (laid printed: List Event): Prop :=
+def Doc.Proofs.Settles (laid printed: List Event): Prop :=
   ∃ (stretches: List Stretch) => List.All Stretch.Fits stretches
     ∧ LineEnded stretches
     ∧ EndsKept stretches
@@ -524,7 +539,7 @@ def Settles (laid printed: List Event): Prop :=
     ∧ printed = printedOf stretches
 
 --| As `Tucks`, where a comment still waits: the last stretch is its.
-def Waits (laid printed: List Event): Prop :=
+def Doc.Proofs.Waits (laid printed: List Event): Prop :=
   ∃ (stretches: List Stretch) => ∃ (comment: Event) => ∃ (closers: List Event) => List.All Stretch.Fits stretches
     ∧ LineEnded stretches
     ∧ EndsKept stretches
@@ -533,14 +548,14 @@ def Waits (laid printed: List Event): Prop :=
     ∧ printed = printedOf stretches ++ (closers ++ [comment])
 
 --| The two traces at a place the printer is at.
-def Tracks (place: Place) (laid printed: List Event): Prop := match place with
+def Doc.Proofs.Tracks (place: Place) (laid printed: List Event): Prop := match place with
   | Held _ _ => Waits laid printed
   | Mid _ _ => Settles laid printed
   | _ => Tucks laid printed
 
 --| A stretch that fits, added to the end of stretches that do, keeps them
 --| fitting.
-theorem fitsSnoc ∀ (stretches: List Stretch) (last: Stretch)
+theorem Doc.Proofs.fitsSnoc ∀ (stretches: List Stretch) (last: Stretch)
     (all: List.All Stretch.Fits stretches) (fits: last.Fits):
     List.All Stretch.Fits (stretches ++ [last]) :=
   match stretches, all with
@@ -548,7 +563,7 @@ theorem fitsSnoc ∀ (stretches: List Stretch) (last: Stretch)
     | [first, ..rest], (firstFits, others) => (firstFits, (fitsSnoc rest last others fits))
 
 --| A closer added to the end of closers is still all closers.
-theorem closersSnoc ∀ (closers: List Event) (last: Event)
+theorem Doc.Proofs.closersSnoc ∀ (closers: List Event) (last: Event)
     (all: List.All Closer closers)
     (closer: Closer last):
     List.All Closer (closers ++ [last]) :=
@@ -558,7 +573,7 @@ theorem closersSnoc ∀ (closers: List Event) (last: Event)
 
 --| One more stretch keeps the stretches spaced, after an event or if it
 --| starts a line.
-theorem lineEndedSnoc ∀ (stretches: List Stretch) (last: Stretch)
+theorem Doc.Proofs.lineEndedSnoc ∀ (stretches: List Stretch) (last: Stretch)
     (spaced: LineEnded stretches)
     (apart: EndsKept stretches ∨ last.Starts):
     LineEnded (stretches ++ [last]) :=
@@ -571,13 +586,13 @@ theorem lineEndedSnoc ∀ (stretches: List Stretch) (last: Stretch)
     | _, _, _ => cases
 
 --| Stretches that end with a kept event, after one is added, end kept.
-theorem endsKeptSnoc ∀ (stretches: List Stretch) (event: Event): EndsKept (stretches ++ [Kept event]) :=
+theorem Doc.Proofs.endsKeptSnoc ∀ (stretches: List Stretch) (event: Event): EndsKept (stretches ++ [Kept event]) :=
   match stretches with
     | [first, next, ..rest] => endsKeptSnoc [next, ..rest] event
     | _ => cases
 
 --| A stretch added at the end adds its laid events at the end.
-theorem laidSnoc ∀ (stretches: List Stretch) (last: Stretch):
+theorem Doc.Proofs.laidSnoc ∀ (stretches: List Stretch) (last: Stretch):
     laidOf (stretches ++ [last]) = laidOf stretches ++ last.laid :=
   match stretches with
     | [] => List.appendNil last.laid
@@ -588,7 +603,7 @@ theorem laidSnoc ∀ (stretches: List Stretch) (last: Stretch):
         _ = (first.laid ++ laidOf rest) ++ last.laid := (List.appendAssoc first.laid (laidOf rest) last.laid).flipped
 
 --| A stretch added at the end adds its printed events at the end.
-theorem printedSnoc ∀ (stretches: List Stretch) (last: Stretch):
+theorem Doc.Proofs.printedSnoc ∀ (stretches: List Stretch) (last: Stretch):
     printedOf (stretches ++ [last]) = printedOf stretches ++ last.printed :=
   match stretches with
     | [] => List.appendNil last.printed
@@ -600,12 +615,12 @@ theorem printedSnoc ∀ (stretches: List Stretch) (last: Stretch):
           (List.appendAssoc first.printed (printedOf rest) last.printed).flipped
 
 --| Stretches that settle laid into printed tuck the trailing comments.
-theorem settlesTucks ∀ (laid printed: List Event) (settles: Settles laid printed): Tucks laid printed :=
+theorem Doc.Proofs.settlesTucks ∀ (laid printed: List Event) (settles: Settles laid printed): Tucks laid printed :=
   match settles with
     | (stretches, fits, spaced, ends, sameLaid, samePrinted) => (stretches, fits, spaced, sameLaid, samePrinted)
 
 --| An event after a word on its line, after both traces.
-theorem settlesSnoc ∀ (laid printed: List Event) (event: Event)
+theorem Doc.Proofs.settlesSnoc ∀ (laid printed: List Event) (event: Event)
     (settles: Settles laid printed):
     Settles (laid ++ [event]) (printed ++ [event]) :=
   match settles with
@@ -619,7 +634,7 @@ theorem settlesSnoc ∀ (laid printed: List Event) (event: Event)
     )
 
 --| An event that starts a line, or a blank line, after both traces.
-theorem tucksSnoc ∀ (laid printed: List Event) (event: Event)
+theorem Doc.Proofs.tucksSnoc ∀ (laid printed: List Event) (event: Event)
     (tucks: Tucks laid printed)
     (starts: Stretch.Starts (Kept event)):
     Settles (laid ++ [event]) (printed ++ [event]) :=
@@ -634,17 +649,18 @@ theorem tucksSnoc ∀ (laid printed: List Event) (event: Event)
     )
 
 --| A comment that waited has been written: its stretch is done.
-theorem waitsTucks ∀ (laid printed: List Event) (waits: Waits laid printed): Tucks laid printed := match waits with
-  | (stretches, comment, closers, fits, spaced, ends, last, sameLaid, samePrinted) => (
-    (stretches ++ [Tucked comment closers]),
-    (fitsSnoc stretches (Tucked comment closers) fits last),
-    (lineEndedSnoc stretches (Tucked comment closers) spaced (Inl ends)),
-    (rewrite sameLaid then (laidSnoc stretches (Tucked comment closers)).flipped),
-    (rewrite samePrinted then (printedSnoc stretches (Tucked comment closers)).flipped)
-  )
+theorem Doc.Proofs.waitsTucks ∀ (laid printed: List Event) (waits: Waits laid printed): Tucks laid printed :=
+  match waits with
+    | (stretches, comment, closers, fits, spaced, ends, last, sameLaid, samePrinted) => (
+      (stretches ++ [Tucked comment closers]),
+      (fitsSnoc stretches (Tucked comment closers) fits last),
+      (lineEndedSnoc stretches (Tucked comment closers) spaced (Inl ends)),
+      (rewrite sameLaid then (laidSnoc stretches (Tucked comment closers)).flipped),
+      (rewrite samePrinted then (printedSnoc stretches (Tucked comment closers)).flipped)
+    )
 
 --| Traces that track each other at a place tuck the trailing comments.
-theorem tracksTucks ∀ (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.tracksTucks ∀ (place: Place) (laid printed: List Event)
     (tracks: Tracks place laid printed):
     Tucks laid printed :=
   match place, tracks with
@@ -654,7 +670,7 @@ theorem tracksTucks ∀ (place: Place) (laid printed: List Event)
     | Held at carry, waits => waitsTucks laid printed waits
 
 --| A trailing comment starts to wait: it is in both traces, last.
-theorem settlesWaits ∀ (laid printed: List Event) (comment: Text)
+theorem Doc.Proofs.settlesWaits ∀ (laid printed: List Event) (comment: Text)
     (settles: Settles laid printed)
     (isComment: IsComment comment):
     Waits (laid ++ [{ word = comment, start = None }]) (printed ++ [{ word = comment, start = None }]) :=
@@ -673,7 +689,7 @@ theorem settlesWaits ∀ (laid printed: List Event) (comment: Text)
 
 --| A closer written where a comment waits: after it in the laid trace,
 --| before it in the printed one.
-theorem waitsClose ∀ (laid printed: List Event) (text: Text)
+theorem Doc.Proofs.waitsClose ∀ (laid printed: List Event) (text: Text)
     (waits: Waits laid printed)
     (closes: closesText text = True):
     Waits (laid ++ [{ word = text, start = None }]) (tucked { word = text, start = None } printed) :=
@@ -704,7 +720,7 @@ theorem waitsClose ∀ (laid printed: List Event) (text: Text)
       )
 
 --| A closer's text (`)`, `]` or `,`) is a word, not layout.
-theorem closesWord ∀ (text: Text) (closes: closesText text = True): isLayout text = False :=
+theorem Doc.Proofs.closesWord ∀ (text: Text) (closes: closesText text = True): isLayout text = False :=
   match round: text == ")" with
     | True =>
       let same: text = ")" := DecEq.sound round
@@ -722,13 +738,13 @@ theorem closesWord ∀ (text: Text) (closes: closesText text = True): isLayout t
 
 --| An instance of `closesWord`, so it isn't vacuous. The audit's random
 --| search misses one: it rarely makes a text that is exactly `)`, `]` or `,`.
-theorem closesWordExample: isLayout ")" = False := closesWord ")" byComputing
+theorem Doc.Proofs.closesWordExample: isLayout ")" = False := closesWord ")" byComputing
 
 -- Every `Lays` is a `Puts`.
 
 --| `WriteLays` gives `WritePuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -764,7 +780,7 @@ theorem writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printe
 
 --| `CloseLays` gives `ClosePuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem closeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.closeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -783,7 +799,8 @@ theorem closeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printe
 
 --| `SepLays` gives `SepPuts`, in the printer's own trace, given how the traces
 --| track each other and that what follows carries over.
-theorem sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+theorem Doc.Proofs.sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -800,7 +817,8 @@ theorem sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) 
 
 --| `SoftLays` gives `SoftPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+theorem Doc.Proofs.softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -817,7 +835,7 @@ theorem softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
 
 --| Traces that track each other at a place do at the place with its
 --| carry replaced.
-theorem carryTracks ∀ (place: Place) (carry: Carry) (laid printed: List Event)
+theorem Doc.Proofs.carryTracks ∀ (place: Place) (carry: Carry) (laid printed: List Event)
     (tracks: Tracks place laid printed):
     Tracks (place.withCarry carry) laid printed :=
   match place, tracks with
@@ -827,7 +845,8 @@ theorem carryTracks ∀ (place: Place) (carry: Carry) (laid printed: List Event)
     | Held _ _, tracks => tracks
 
 --| A `LineStartHere`'s puts carry over to the printer's own trace.
-theorem hereLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+theorem Doc.Proofs.hereLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -842,7 +861,8 @@ theorem hereLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
 
 --| `StartLays` gives `StartPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+theorem Doc.Proofs.startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -857,7 +877,8 @@ theorem startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event
 
 --| `SuffixLays` gives `SuffixPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem suffixLaysPuts ∀ (comment: Text) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+theorem Doc.Proofs.suffixLaysPuts ∀ (comment: Text) (place: Place) (laid printed: List Event)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -873,7 +894,7 @@ theorem suffixLaysPuts ∀ (comment: Text) (place: Place) (laid printed: List Ev
 
 --| `BlankLays` gives `BlankPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem blankLaysPuts ∀ (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
+theorem Doc.Proofs.blankLaysPuts ∀ (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -891,7 +912,7 @@ theorem blankLaysPuts ∀ (place: Place) (laid printed: List Event) (next put: P
 --| other, every way the document may print leaves traces that do. By
 --| induction on the document; only a closer where a comment waits puts
 --| its word elsewhere than it lays it (`waitsClose`).
-theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -900,7 +921,7 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
     (lays: Lays doc indent place laid next):
     Puts doc indent place printed put :=
   match doc, lays with
-    | Empty, lays => onward _ _ _ tracks lays
+    | Doc.Nothing, lays => onward _ _ _ tracks lays
     | BreakParent, lays => onward _ _ _ tracks lays
     | Blank, lays => blankLaysPuts place laid printed next put onward tracks lays
     | Chunk text width, lays => writeLaysPuts indent text place laid printed next put onward tracks lays
@@ -981,7 +1002,7 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
 
 --| `LaysAll` gives `PutsAll`, in the printer's own trace, given how the traces
 --| track each other and that what follows carries over.
-theorem allLaysPuts ∀ (docs: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.allLaysPuts ∀ (docs: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -1002,7 +1023,7 @@ theorem allLaysPuts ∀ (docs: List Doc) (indent: Nat) (place: Place) (laid prin
 
 --| `FillLays` gives `FillPuts`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem fillLaysPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.fillLaysPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -1022,7 +1043,7 @@ theorem fillLaysPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid pr
 
 --| `SepsLay` gives `SepsPut`, in the printer's own trace, given how the traces
 --| track each other and that what follows carries over.
-theorem sepsLayPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.sepsLayPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -1048,7 +1069,7 @@ theorem sepsLayPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid pri
 
 --| `OptionsLay` gives `OptionsPut`, in the printer's own trace, given how the
 --| traces track each other and that what follows carries over.
-theorem optionsLayPuts ∀ (options: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
+theorem Doc.Proofs.optionsLayPuts ∀ (options: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
     (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
@@ -1069,7 +1090,7 @@ theorem optionsLayPuts ∀ (options: List Doc) (indent: Nat) (place: Place) (lai
 --| trace in the document's order, and the words of the printed pieces,
 --| each with the column it starts its line at, if it does, are that
 --| trace with each trailing comment after the closers on its line.
-theorem printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: Nat)
+theorem Doc.Proofs.printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: Nat)
     (lays: Lays doc 0 (AtStart 0 Carry.none) [] spec):
     ∃ (place: Place) => ∃ (laid: List Event) => spec place laid
       ∧ Tucks laid (eventsOf (printedPieces doc width).reverse) :=
