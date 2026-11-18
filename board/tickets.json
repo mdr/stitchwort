@@ -24501,12 +24501,12 @@
     {
       "id": 4021,
       "title": "[Sonnet] fmt S1 parseSettled1 from parseCarries1 as stated (SW-4018 ticket C); docs/reviews/SW-4018-parser-statements.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4020: parseSettled1 as stated needs groupsOf only splits (flatten = leaves), and arrowsBare, comment text and homedBack cut at each def (a declaration's first word is def, so a closer's look-back stays inside it); takes wordsSettled1 directly, so onceWordsSettled1 isn't needed here. parseCarries1 is now proved (parseCarriesOf in ParseSettledStatements).",
+      "body": "\n\nFrom SW-4020: parseSettled1 as stated needs groupsOf only splits (flatten = leaves), and arrowsBare, comment text and homedBack cut at each def (a declaration's first word is def, so a closer's look-back stays inside it); takes wordsSettled1 directly, so onceWordsSettled1 isn't needed here. parseCarries1 is now proved (parseCarriesOf in ParseSettledStatements).\n\n\nLane note: parseSettled1 proved as stated (d2b219def, lane/SW-4021). groupsOf only splits (splitFromConcat), settledPieces cuts settled words at declaration boundaries (each decl starts with def); new Syntax/SettleSplitProofs.sw (26 theorems). No statement change. Model result: Sonnet, worked, ~10 min (est. 35).\n\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
