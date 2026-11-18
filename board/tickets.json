@@ -1,5 +1,5 @@
 {
-  "next": 4037,
+  "next": 4038,
   "tickets": [
     {
       "id": 47,
@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).\n\nAlso (SW-4019): readsNever for any Parse.Invariant; readsAfter0 generalised; SameOrOut/sameOrOutThen as a kept-or-replaced ReadsIn spec.\n\nAlso (SW-4022): a Bool List.allAppend (allAppendB), allReverseOnto, andSwap.\n\nAlso (SW-4030): joinedWithIs (Doc.joinedWith as concatMap) into Std.Doc; chainedSplit generic list lemma.\n\nAlso (SW-4020): Parse readsAtMark, readsAtLoopFirst, readsAtLeft (generic over Parse).\n\nAlso (SW-4021): List concatAppend (check std first), List.allPrefix/allSuffix for Bool all.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).\n\nAlso (SW-4019): readsNever for any Parse.Invariant; readsAfter0 generalised; SameOrOut/sameOrOutThen as a kept-or-replaced ReadsIn spec.\n\nAlso (SW-4022): a Bool List.allAppend (allAppendB), allReverseOnto, andSwap.\n\nAlso (SW-4030): joinedWithIs (Doc.joinedWith as concatMap) into Std.Doc; chainedSplit generic list lemma.\n\nAlso (SW-4020): Parse readsAtMark, readsAtLoopFirst, readsAtLeft (generic over Parse).\n\nAlso (SW-4021): List concatAppend (check std first), List.allPrefix/allSuffix for Bool all.\n\nAlso (SW-4023): Parse located-lexeme lemmas atThen/atMarkThen/atManyFrom/atMany/atManyFromOr/EachAt/manyKeeps, Yields/yieldsThen; List.allConcat; List.takeWhileCons; Bool.notFalse, andFalseRight.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24038,7 +24038,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.\n\nAlso (SW-3970): MayFollow Bang is too strict (asks the next char not to be 'i'; the lexer reads !in as NotIn only when a non-word char follows), making printLexes1 unprovable for !isSmall x; and a lexer soundness lemma giving Decl.real (token text isn't layout) from lexesAs.",
+      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.\n\nAlso (SW-3970): MayFollow Bang is too strict (asks the next char not to be 'i'; the lexer reads !in as NotIn only when a non-word char follows), making printLexes1 unprovable for !isSmall x; and a lexer soundness lemma giving Decl.real (token text isn't layout) from lexesAs.\n\nFrom SW-4023: lexLaidOut is covered for sources in slice 1's alphabet (lexLaidProved's first part); the rest (operatorTok/Spells, MayFollow Bang, Decl.real, outside the alphabet) is still open.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24527,12 +24527,12 @@
     {
       "id": 4023,
       "title": "[Opus] fmt S1 lexLaid1: the lexer gives laid1 (laidOut, token text agreeing with its kind on closers and ->, comments -- to end of line, no trailing comment at the end) for any source in the alphabet (SW-4018 ticket E); fold in SW-3985's lexLaidOut; docs/reviews/SW-4018-parser-statements.md",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Progress (Opus lane, 18 Nov 2026, branch lane/SW-4023):\n- lexLaid1 proved exactly as stated, open goal removed (ParseSettledStatements: only lexLaid1 and one import line changed). Audit: lexLaid1 passes; the two failures there are parseCarries1/parseSettled1's open goals on this branch's base.\n- New files: Syntax.LexReadsProofs (112 theorems: offset-aware Reads toolkit, many over rounds that may give a token outside the alphabet, char facts by mirrored matches over symbol/keyword/alias, text literals give a foreign token, itemRound, lexemesRounds) and Syntax.LexLaidProofs (23: assemble's fold lays out fine lexemes, roundsFine glue, lexLaidProved). Audits of both clean (130 and 35 passed, 0 warnings, witnesses added).\n- No lexer splits (Lexer.sw untouched), so no twin run.\n- SW-3985's lexLaidOut: covered for sources in slice 1's alphabet (lexLaidProved's first part); not for sources outside it. Its other parts (operatorTok/Spells, MayFollow Bang, Decl.real) are not touched.\n- Tests: check Syntax, Syntax.Proofs, Syntax.ParseSettledStatements, both new namespaces; test Syntax.Tests 52/52.\n",
+      "body": "Progress (Opus lane, 18 Nov 2026, branch lane/SW-4023):\n- lexLaid1 proved exactly as stated, open goal removed (ParseSettledStatements: only lexLaid1 and one import line changed). Audit: lexLaid1 passes; the two failures there are parseCarries1/parseSettled1's open goals on this branch's base.\n- New files: Syntax.LexReadsProofs (112 theorems: offset-aware Reads toolkit, many over rounds that may give a token outside the alphabet, char facts by mirrored matches over symbol/keyword/alias, text literals give a foreign token, itemRound, lexemesRounds) and Syntax.LexLaidProofs (23: assemble's fold lays out fine lexemes, roundsFine glue, lexLaidProved). Audits of both clean (130 and 35 passed, 0 warnings, witnesses added).\n- No lexer splits (Lexer.sw untouched), so no twin run.\n- SW-3985's lexLaidOut: covered for sources in slice 1's alphabet (lexLaidProved's first part); not for sources outside it. Its other parts (operatorTok/Spells, MayFollow Bang, Decl.real) are not touched.\n- Tests: check Syntax, Syntax.Proofs, Syntax.ParseSettledStatements, both new namespaces; test Syntax.Tests 52/52.\n\nMerged 18 Nov (import lines merged by hand). 46 min (est. 45). Statement exactly Fable's.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24553,12 +24553,12 @@
     {
       "id": 4025,
       "title": "[Fable paper] fmt S1: state rule N idle on the output (printedKeeping/printedSettle1: settled leaves stay put, printed leaves homed from T.settled1, plain1 of the output) and the output at file level (the file loop's text lexes, passes the alphabet, has no last comma) (SW-4018 items 4 and 5); after SW-4016's printedHangs statement; docs/reviews/SW-4018-parser-statements.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Fable, 18 Nov): lane/SW-4025, 35851bc22. Fmt/OutputStatements.sw (7 open goals, checks; 6 computed witnesses) and docs/reviews/SW-4025-output-statements.md. printedKeeping is false as planned (rule N moves a comment after a comma or closer on the lexed output: outputNotIdle) and is replaced by printedSettle1 (the settled output's words are the tree's). read.calm = T.calm is false of a source starting with a blank line (topFlagLost): calm must clear the file's first flag (calmTop). File level: printedFileLexes1 (exact), printedAlphabet1, printedNoLast1, printedPlain1, printedGroups1, printedTokens1. Missing piece with no ticket: where printed comments and blank lines stand (note §4). Tickets A to J and one D question (same program first, idempotence after the trivia walk) in the note.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24705,6 +24705,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4037,
+      "title": "[Opus] stitchwort elaborator findings from SW-4023: importing a method name (import M (Lexeme.within)) says 'expected a name to import'; inside a namespace stop() resolved to Parse.stop rather than the Lexer's stop; after a generated match reduces, combinator lemmas' implicit p/j often can't be inferred (raw Call (L (%mark ())) against located ...). Repro each, fix or file",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
