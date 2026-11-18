@@ -24687,12 +24687,12 @@
     {
       "id": 4035,
       "title": "[Sonnet] fmt: brokenItems passes the previous item's trails as before instead of False (same output; the hang proofs' ItemsHang then simplifies); update CalmProofs/SpellProofs's brokenItems False arm uses; s6a twin unchanged (SW-4030, orchestrator's call: yes, output identical)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "SW-4045 finding 3 is this: items after one that trails a comment are entered at the comment's break without being moved down, so ItemsHang probably fails for a compound item there; after this change, extend ExprFacts beyond quiet items.\n\nOrchestrator's call: (a) cells changes too (before follows seat), so ItemsHang is uniform; rule-level lemma statements re-typed (sepsCellsHang, fillCellsHang, cellsKept, cellsSpells, cellsShape); top statements unchanged; output identical (s6a 430/430).",
+      "body": "SW-4045 finding 3 is this: items after one that trails a comment are entered at the comment's break without being moved down, so ItemsHang probably fails for a compound item there; after this change, extend ExprFacts beyond quiet items.\n\nOrchestrator's call: (a) cells changes too (before follows seat), so ItemsHang is uniform; rule-level lemma statements re-typed (sepsCellsHang, fillCellsHang, cellsKept, cellsSpells, cellsShape); top statements unchanged; output identical (s6a 430/430).\n\n\nLane note (Sonnet): orchestrator approved (a): cells also passes item.trails. Rules.sw brokenItems+cells; ItemsHang tail = False arm item.trails item.trails; lemmas in Calm/Spell/ToldDecl/Join/BracketHang/ExprHang/QuietKey re-typed. Twin s6a 430/430, Fmt.Tests 100 pass, fmt --check clean. Commit dbcbe3489. Dropping ItemsHang before arg not done (brokenItemsHang keeps before separate).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
