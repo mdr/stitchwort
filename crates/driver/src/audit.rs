@@ -451,7 +451,8 @@ impl Session {
     }
 
     /// A witness that theorem `id`'s hypotheses can hold together: a
-    /// checked theorem of no parameters whose proof is `id` applied to
+    /// checked theorem with no parameters, counting those its type has
+    /// once nicknames are unfolded, whose proof is `id` applied to
     /// arguments for every parameter and hypothesis of its statement
     /// (`closesWordExample := closesWord ")" byComputing`). Its statement
     /// has no free variables, so those arguments are closed proofs of the
@@ -459,10 +460,10 @@ impl Session {
     /// not a theorem that mentions it. Of those, the first declared.
     fn witness_of(&self, id: DefId) -> Option<String> {
         let g = &self.elab.ev();
-        let arity = pi_arity(g.def(id).ty());
+        let arity = pi_arity(g, id)?;
         (0..g.env.defs().len()).map(DefId).find_map(|w| {
             let def = g.def(w);
-            let closed = !matches!(def.ty(), Term::Pi(..));
+            let closed = pi_arity(g, w) == Some(0);
             let applies = def.body().is_some_and(|body| {
                 let (head, args) = spine(body);
                 matches!(head, Term::Def(d) if *d == id) && args >= arity
@@ -505,14 +506,16 @@ impl Session {
     }
 }
 
-/// The leading binders of a statement: its parameters and hypotheses.
-fn pi_arity(mut ty: &Term) -> usize {
-    let mut n = 0;
-    while let Term::Pi(_, _, _, cod) = ty {
-        n += 1;
-        ty = cod;
-    }
-    n
+/// The leading binders of a statement: its parameters and hypotheses. Its
+/// type is unfolded at the head, so a nickname for a forall type
+/// (`def Claim: Prop := ∀ (n: Nat) (h: n + 1 = 0) => …`) is seen through.
+/// `None` when the type can't be walked within the budget: then nothing
+/// counts as a witness, since its arity isn't known.
+fn pi_arity(g: &Ev, id: DefId) -> Option<usize> {
+    let def = g.def(id);
+    stitchwort_core::check::telescope(g, def.ty_value(), def.span())
+        .ok()
+        .map(|tel| tel.params.len())
 }
 
 /// A proof term's head and how many arguments it is applied to.
