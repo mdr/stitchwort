@@ -196,7 +196,7 @@ theorem prefixParsed ∀ (operator: Word) (operand: Expr)
     (parsed: Parsed1 18 operand):
     Parsed1 18 (Prefix operator operand) :=
   within =>
-    let (shaped, lexical, high) := parsed within
+    let (shaped, lexical, high) := parsed (Bool.andLeft within)
     (Both shaped high, Both spelled lexical, arithmetic)
 
 -- Unary.
@@ -482,7 +482,7 @@ theorem prefixArgParsed ∀ (operator: Word) (operand: Expr)
     (parsed: ArgParsed operand):
     ArgParsed (Prefix operator operand) :=
   within =>
-    let (shaped, lexical, argument) := parsed within
+    let (shaped, lexical, argument) := parsed (Bool.andLeft within)
     (Both shaped (argLevel operand argument), Both spelled lexical, argument)
 
 theorem readsPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -1272,7 +1272,11 @@ theorem compareParsed ∀ (lhs second: Expr) (operator: Word)
     (secondParsed: Parsed1 12 second):
     Parsed1 6 (Infix InfixBinary lhs operator second) :=
   let (spelled, needs, own) := op
-  infixParsedAt lhs second operator 6 12 12 lhsParsed secondParsed spelled (arithmetic [needs]) (arithmetic [own]) own
+  infixParsedAt lhs second operator 6 12 12 lhsParsed secondParsed spelled
+    (arithmetic [needs])
+    (arithmetic [own])
+    (same => arithmetic)
+    own
 
 theorem givesCmpChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
     (operator: Word) (second: Expr)
@@ -1443,6 +1447,7 @@ theorem conjunctionCons ∀ (first: Expr) (and: Word) (pair: (Expr, List (Word, 
         spelled
         (arithmetic [needs])
         (arithmetic [own])
+        (same => arithmetic [needs, same])
         own,
       afterOk,
       orFirst
@@ -1495,6 +1500,7 @@ theorem groupAfterSucc ∀ (more: Nat) (pair: (Expr, List (Word, Expr)))
             spelled
             (arithmetic [needs])
             (arithmetic [own])
+            (same => arithmetic [needs, same])
             own
         | [], afterOk, orFirst => parsedWeaken conjunctionParsed byComputing
 
@@ -1622,7 +1628,7 @@ theorem arrowParsed ∀ (left right: Expr) (arrow: Word)
     (rightParsed: Parsed1 1 right):
     Parsed1 1 (Infix InfixArrow left arrow right) :=
   within =>
-    let (leftWithin, rightWithin) := within
+    let (leftWithin, rightWithin, operatorWithin) := within
     let (leftShaped, leftLexical, leftHigh) := leftParsed leftWithin
     let (rightShaped, rightLexical, rightHigh) := rightParsed rightWithin
     (
@@ -2570,7 +2576,11 @@ theorem givesCmpIf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: E
           [p := () => ifExpr self modes indent keyword]
           [j := tail => Infix InfixBinary lhs operator tail]
           (givesIf self modes indent keyword nested)
-          (tail out => Parse.givesDone (Bool.andFalseRight lhs.within1 tail.within1 out))))
+          (tail out =>
+            Parse.givesDone
+              (Bool.andFalseRight lhs.within1
+                (tail.within1 ∧ operatorText1 operator.text)
+                (Bool.andFalseLeft tail.within1 (operatorText1 operator.text) out)))))
 
 theorem givesParenOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok)
     (nested: Nested self):

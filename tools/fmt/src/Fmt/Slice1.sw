@@ -32,18 +32,61 @@ import Syntax (
 -- The slice.
 
 --| Whether the expression is one of slice 1's: a name or numeral, `( )`, a
---| tuple, a list without spreads, an application, a binary operator, `-`
---| or `!`, or `→`, all the way down.
+--| tuple, a list without spreads, an application, a binary operator or `→` whose text is one slice 1's alphabet spells, `-`, `!` or `¬`, all the way
+--| down.
 def Expr.within1: Expr → Bool
   | Atom kind word => kind.wordWithin1 && textSpells1 kind word.text
   | Paren _ inner _ => inner.within1
   | Tuple _ items _ _ => allWithin1 items
   | ListOf _ items _ _ => allWithin1 items
   | App head arguments => head.within1 && allWithin1 arguments
-  | Infix InfixBinary left _ right => left.within1 && right.within1
-  | Infix InfixArrow left _ right => left.within1 && right.within1
-  | Prefix _ operand => operand.within1
+  | Infix InfixBinary left operator right => left.within1 && right.within1 && operatorText1 operator.text
+  | Infix InfixArrow left operator right => left.within1 && right.within1 && operatorText1 operator.text
+  | Prefix operator operand => operand.within1 && prefixText1 operator.text
   | _ => False
+
+--| The infix operators of slice 1: each text some token of its alphabet is spelled with (`Syntax.Proofs.Spells`),
+--| none a comma or closer. `|>` is out: it is no token of the alphabet. In four runs, so the proof that they spell
+--| (`operatorSpellsOf`) stays shallow.
+def operatorText1 (text: Text): Bool :=
+  operatorTextA1 text || operatorTextB1 text || operatorTextC1 text || operatorTextD1 text
+
+def operatorTextA1 (text: Text): Bool :=
+  if text == "->" then True
+  else if text == "→" then True
+  else if text == "||" then True
+  else if text == "∨" then True
+  else if text == "&&" then True
+  else if text == "∧" then True
+  else False
+
+def operatorTextB1 (text: Text): Bool :=
+  if text == "+" then True
+  else if text == "++" then True
+  else if text == "-" then True
+  else if text == "*" then True
+  else if text == "/" then True
+  else if text == "%" then True
+  else False
+
+def operatorTextC1 (text: Text): Bool :=
+  if text == "!=" then True
+  else if text == "≠" then True
+  else if text == "<" then True
+  else if text == "<=" then True
+  else if text == "≤" then True
+  else False
+
+def operatorTextD1 (text: Text): Bool :=
+  if text == ">" then True
+  else if text == ">=" then True
+  else if text == "≥" then True
+  else if text == "==" then True
+  else if text == "=" then True
+  else False
+
+--| The prefix operators of slice 1: `-`, `!` and `¬`.
+def prefixText1 (text: Text): Bool := text == "-" || text == "!" || text == "¬"
 
 def allWithin1: List Expr → Bool
   | [] => True
@@ -58,11 +101,12 @@ def Tok.wordWithin1: Tok → Bool
   | _ => False
 
 --| A name or numeral's text is spelled as plainly as the lexer proofs need: a name of word characters (no `.`: a
---| qualified name `List.map` is one `Lower` token the proofs' `Spells` leaves out), a numeral of digits, or digits, a
+--| qualified name `List.map` is one `Lower` token the proofs' `Spells` leaves out; not `auto`, which the parser reads
+--| as an implicit binder in `[auto Ord]`, so a list that starts with it is no list), a numeral of digits, or digits, a
 --| `.` and digits (no exponent: `1e3` is one `Float`). `Syntax.Proofs.Spells` says the same as a proposition
 --| (`spellsOfText1`, `textOfSpells1`).
 def textSpells1 (kind: Tok) (text: Text): Bool := match kind with
-  | Lower => nameText1 Lower text.toList
+  | Lower => nameText1 Lower text.toList && text != "auto"
   | Upper => nameText1 Upper text.toList
   | Num => numberText1 text.toList
   | Float => floatText1 text.toList

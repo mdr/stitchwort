@@ -2585,7 +2585,7 @@ theorem linkDocsPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
             | True =>
               chainLinksPasses kinds level first left operator right around
                 (Bool.andLeft within)
-                (Bool.andRight within)
+                (Bool.andLeft (Bool.andRight within))
                 leftJoins
                 operatorJoins
                 rightJoins
@@ -2595,7 +2595,7 @@ theorem linkDocsPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
             | True =>
               chainLinksPasses kinds level first left operator right around
                 (Bool.andLeft within)
-                (Bool.andRight within)
+                (Bool.andLeft (Bool.andRight within))
                 leftJoins
                 operatorJoins
                 rightJoins
@@ -2691,7 +2691,7 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
               right
               inside
               (Bool.andLeft within)
-              (Bool.andRight within)
+              (Bool.andLeft (Bool.andRight within))
               leftJoins
               operatorJoins
               rightJoins)
@@ -2710,7 +2710,7 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
               right
               inside
               (Bool.andLeft within)
-              (Bool.andRight within)
+              (Bool.andLeft (Bool.andRight within))
               leftJoins
               operatorJoins
               rightJoins)
@@ -2728,7 +2728,7 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
         within
         (joins, operandJoins, glue)
         (prefixPasses kinds operator operand around joins glue (place =>
-          elPasses kinds operand within operandJoins place))
+          elPasses kinds operand (Bool.andLeft within) operandJoins place))
 
 -- Hugs.
 

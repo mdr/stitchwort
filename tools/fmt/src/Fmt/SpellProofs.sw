@@ -864,7 +864,7 @@ theorem linkDocsSpells ∀ (level: Option Nat) (first: Bool) (expr: Expr) (aroun
             | True =>
               chainLinksSpells level first left operator right around
                 (Bool.andLeft within)
-                (Bool.andRight within)
+                (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
                 (Bool.andLeft (Bool.andRight sound))
                 (Bool.andRight (Bool.andRight sound))
@@ -878,7 +878,7 @@ theorem linkDocsSpells ∀ (level: Option Nat) (first: Bool) (expr: Expr) (aroun
             | True =>
               chainLinksSpells level first left operator right around
                 (Bool.andLeft within)
-                (Bool.andRight within)
+                (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
                 (Bool.andLeft (Bool.andRight sound))
                 (Bool.andRight (Bool.andRight sound))
@@ -1588,7 +1588,7 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
         sound
         (prefixSpells operator operand around
           (Bool.andLeft sound)
-          (elSpells operand (around.next operator.trails 1) within (Bool.andRight sound)))
+          (elSpells operand (around.next operator.trails 1) (Bool.andLeft within) (Bool.andRight sound)))
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
@@ -1612,7 +1612,7 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
                 right
                 { around | hoisted = True }
                 (Bool.andLeft within)
-                (Bool.andRight within)
+                (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
                 (Bool.andLeft (Bool.andRight sound))
                 (Bool.andRight (Bool.andRight sound))))
@@ -1637,7 +1637,7 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
                 right
                 { around | hoisted = True }
                 (Bool.andLeft within)
-                (Bool.andRight within)
+                (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
                 (Bool.andLeft (Bool.andRight sound))
                 (Bool.andRight (Bool.andRight sound))))
@@ -2127,17 +2127,17 @@ theorem soundOfAll ∀ (expr: Expr)
           let (operatorOk, rightOk) := allConsBool operator right.words Word.sound restOk
           Bool.andIntro
             (soundOfAll left (Bool.andLeft within) leftOk)
-            (Bool.andIntro operatorOk (soundOfAll right (Bool.andRight within) rightOk))
+            (Bool.andIntro operatorOk (soundOfAll right (Bool.andLeft (Bool.andRight within)) rightOk))
         | InfixArrow =>
           let (leftOk, restOk) := allSplitBool left.words [operator, ..right.words] Word.sound all
           let (operatorOk, rightOk) := allConsBool operator right.words Word.sound restOk
           Bool.andIntro
             (soundOfAll left (Bool.andLeft within) leftOk)
-            (Bool.andIntro operatorOk (soundOfAll right (Bool.andRight within) rightOk))
+            (Bool.andIntro operatorOk (soundOfAll right (Bool.andLeft (Bool.andRight within)) rightOk))
         | _ => cases
     | Prefix operator operand =>
       let (operatorOk, operandOk) := allConsBool operator operand.words Word.sound all
-      Bool.andIntro operatorOk (soundOfAll operand within operandOk)
+      Bool.andIntro operatorOk (soundOfAll operand (Bool.andLeft within) operandOk)
 
 theorem allMapBool ∀ (xs: List Word) (p q: Word → Bool)
     (all: xs.all p = True)

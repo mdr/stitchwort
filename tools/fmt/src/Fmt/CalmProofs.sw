@@ -190,16 +190,16 @@ theorem wordsCalm ∀ (expr: Expr) (item: Bool)
             [operator, ..right.words]
             [operator.kept False False, ..(right.calm False).words]
             (wordsCalm left item (Bool.andLeft within))
-            ((keptAlike operator False False, wordsCalm right False (Bool.andRight within)))
+            ((keptAlike operator False False, wordsCalm right False (Bool.andLeft (Bool.andRight within))))
         | InfixArrow =>
           allAlikeAppend left.words
             (left.calm item).words
             [operator, ..right.words]
             [operator.kept False False, ..(right.calm False).words]
             (wordsCalm left item (Bool.andLeft within))
-            ((keptAlike operator False False, wordsCalm right False (Bool.andRight within)))
+            ((keptAlike operator False False, wordsCalm right False (Bool.andLeft (Bool.andRight within))))
         | _ => cases
-    | Prefix operator operand => ((keptAlike operator item False, wordsCalm operand False within))
+    | Prefix operator operand => ((keptAlike operator item False, wordsCalm operand False (Bool.andLeft within)))
 
 -- What the rules read of a token's flags.
 
@@ -1175,7 +1175,7 @@ theorem binaryGoodLeft ∀ (left: Expr) (operator: Word) (right: Expr)
 theorem binaryGoodRight ∀ (left: Expr) (operator: Word) (right: Expr)
     (good: (Infix InfixBinary left operator right).good = True):
     right.good = True :=
-  Bool.andIntro (Bool.andRight (Bool.andLeft good)) (Bool.andRight (Bool.andRight good))
+  Bool.andIntro (Bool.andLeft (Bool.andRight (Bool.andLeft good))) (Bool.andRight (Bool.andRight good))
 
 theorem arrowGoodLeft ∀ (left: Expr) (operator: Word) (right: Expr)
     (good: (Infix InfixArrow left operator right).good = True):
@@ -1185,12 +1185,12 @@ theorem arrowGoodLeft ∀ (left: Expr) (operator: Word) (right: Expr)
 theorem arrowGoodRight ∀ (left: Expr) (operator: Word) (right: Expr)
     (good: (Infix InfixArrow left operator right).good = True):
     right.good = True :=
-  Bool.andIntro (Bool.andRight (Bool.andLeft good)) (Bool.andRight (Bool.andRight good))
+  Bool.andIntro (Bool.andLeft (Bool.andRight (Bool.andLeft good))) (Bool.andRight (Bool.andRight good))
 
 theorem prefixGood ∀ (operator: Word) (operand: Expr)
     (good: (Prefix operator operand).good = True):
     operand.good = True :=
-  good
+  Bool.andIntro (Bool.andLeft (Bool.andLeft good)) (Bool.andRight good)
 
 theorem consCong ∀ (first first': Doc) (rest rest': List Doc)
     (sameFirst: first = first')
@@ -1936,11 +1936,19 @@ theorem withinCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): 
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
-          Bool.andIntro (withinCalm left item (Bool.andLeft within)) (withinCalm right False (Bool.andRight within))
+          Bool.andIntro
+            (withinCalm left item (Bool.andLeft within))
+            (Bool.andIntro
+              (withinCalm right False (Bool.andLeft (Bool.andRight within)))
+              (Bool.andRight (Bool.andRight within)))
         | InfixArrow =>
-          Bool.andIntro (withinCalm left item (Bool.andLeft within)) (withinCalm right False (Bool.andRight within))
+          Bool.andIntro
+            (withinCalm left item (Bool.andLeft within))
+            (Bool.andIntro
+              (withinCalm right False (Bool.andLeft (Bool.andRight within)))
+              (Bool.andRight (Bool.andRight within)))
         | _ => cases
-    | Prefix operator operand => withinCalm operand False within
+    | Prefix operator operand => Bool.andIntro (withinCalm operand False (Bool.andLeft within)) (Bool.andRight within)
 
 theorem parenCloser ∀ (text: Text) (is: (text == ")") = True): isCloserText text = True := rewrite is
 

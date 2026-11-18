@@ -12,7 +12,7 @@
 
 namespace Fmt
 import Std (Bool, List, Nat, Option, Result, Text)
-import Syntax (Comments, Decl, DefBody, Expr, Header, Leaf, Note, SourceFile, Tok, Word, lex)
+import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Leaf, Note, SourceFile, Tok, Word, lex)
 
 -- Settled (K1, rule 3, rule 5).
 
@@ -130,6 +130,13 @@ def Expr.argument1: Expr → Bool
   | Prefix _ operand => operand.argument1
   | other => other.atomic1
 
+--| The least level an expression needs to stand bare as the right operand of an infix operator: the operator's own
+--| level, except for a comparison, which doesn't chain (`a == b == c` doesn't parse), so its operand needs level 8, the
+--| level `leftNeeds` asks of its left operand.
+def rightNeeds (kind: InfixKind) (operator: Text): Nat := match kind with
+  | InfixBinary => if leftNeeds kind operator == 8 then 8 else infixLevel kind operator
+  | other => infixLevel kind operator
+
 --| The tree is one the parser can give: an application's head and arguments are atoms, brackets or prefixes on them
 --| (so a head is no application); operands of an infix sit at their ladder levels (`ParseProofs` proves the levels);
 --| a tuple has two items or more.
@@ -144,7 +151,7 @@ def Expr.shaped1: Expr → Bool
     left.shaped1
       && right.shaped1
       && leftNeeds kind operator.text <= left.level
-      && infixLevel kind operator.text <= right.level
+      && rightNeeds kind operator.text <= right.level
   | Prefix _ operand => operand.shaped1 && 18 <= operand.level
   | _ => False
 

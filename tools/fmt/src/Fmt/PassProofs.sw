@@ -28,10 +28,12 @@ theorem walkMap ∀ (p: Pure) (expr: Expr) (within: expr.within1 = True): expr.w
     | App head arguments => rewrite walkMap p head (Bool.andLeft within), walksMap p arguments (Bool.andRight within)
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary => rewrite walkMap p left (Bool.andLeft within), walkMap p right (Bool.andRight within)
-        | InfixArrow => rewrite walkMap p left (Bool.andLeft within), walkMap p right (Bool.andRight within)
+        | InfixBinary =>
+          rewrite walkMap p left (Bool.andLeft within), walkMap p right (Bool.andLeft (Bool.andRight within))
+        | InfixArrow =>
+          rewrite walkMap p left (Bool.andLeft within), walkMap p right (Bool.andLeft (Bool.andRight within))
         | _ => cases
-    | Prefix operator operand => rewrite walkMap p operand within
+    | Prefix operator operand => rewrite walkMap p operand (Bool.andLeft within)
 
 theorem walksMap ∀ (p: Pure) (items: List Expr)
     (within: allWithin1 items = True):
@@ -58,14 +60,15 @@ theorem mapSame ∀ (f: Expr → Expr)
       match kind with
         | InfixBinary =>
           rewrite mapSame f fixes left (Bool.andLeft within),
-              mapSame f fixes right (Bool.andRight within),
+              mapSame f fixes right (Bool.andLeft (Bool.andRight within)),
               fixes (Infix InfixBinary left operator right) within
         | InfixArrow =>
           rewrite mapSame f fixes left (Bool.andLeft within),
-              mapSame f fixes right (Bool.andRight within),
+              mapSame f fixes right (Bool.andLeft (Bool.andRight within)),
               fixes (Infix InfixArrow left operator right) within
         | _ => cases
-    | Prefix operator operand => rewrite mapSame f fixes operand within, fixes (Prefix operator operand) within
+    | Prefix operator operand =>
+      rewrite mapSame f fixes operand (Bool.andLeft within), fixes (Prefix operator operand) within
 
 theorem mapsSame ∀ (f: Expr → Expr)
     (fixes: ∀ (z: Expr) => z.within1 = True → f z = z) (items: List Expr)
@@ -206,10 +209,12 @@ theorem spineSame ∀ (expr: Expr) (within: expr.within1 = True): spineBinders e
   | App head arguments => rewrite spineSame head (Bool.andLeft within), spinesSame arguments (Bool.andRight within)
   | Infix kind left operator right =>
     match kind with
-      | InfixBinary => rewrite spineSame left (Bool.andLeft within), spineSame right (Bool.andRight within)
-      | InfixArrow => rewrite spineSame left (Bool.andLeft within), spineSame right (Bool.andRight within)
+      | InfixBinary =>
+        rewrite spineSame left (Bool.andLeft within), spineSame right (Bool.andLeft (Bool.andRight within))
+      | InfixArrow =>
+        rewrite spineSame left (Bool.andLeft within), spineSame right (Bool.andLeft (Bool.andRight within))
       | _ => cases
-  | Prefix operator operand => rewrite spineSame operand within
+  | Prefix operator operand => rewrite spineSame operand (Bool.andLeft within)
 
 theorem spinesSame ∀ (items: List Expr) (within: allWithin1 items = True): spineAll items = items := match items with
   | [] => byComputing
@@ -312,15 +317,22 @@ theorem mapWithin ∀ (f: Expr → Expr)
             (Infix InfixBinary (left.mapIn1 f) operator (right.mapIn1 f))
             (Bool.andIntro
               (mapWithin f keeps left (Bool.andLeft within))
-              (mapWithin f keeps right (Bool.andRight within)))
+              (Bool.andIntro
+                (mapWithin f keeps right (Bool.andLeft (Bool.andRight within)))
+                (Bool.andRight (Bool.andRight within))))
         | InfixArrow =>
           keeps
             (Infix InfixArrow (left.mapIn1 f) operator (right.mapIn1 f))
             (Bool.andIntro
               (mapWithin f keeps left (Bool.andLeft within))
-              (mapWithin f keeps right (Bool.andRight within)))
+              (Bool.andIntro
+                (mapWithin f keeps right (Bool.andLeft (Bool.andRight within)))
+                (Bool.andRight (Bool.andRight within))))
         | _ => cases
-    | Prefix operator operand => keeps (Prefix operator (operand.mapIn1 f)) (mapWithin f keeps operand within)
+    | Prefix operator operand =>
+      keeps
+        (Prefix operator (operand.mapIn1 f))
+        (Bool.andIntro (mapWithin f keeps operand (Bool.andLeft within)) (Bool.andRight within))
 
 theorem mapsWithin ∀ (f: Expr → Expr)
     (keeps: ∀ (z: Expr) => z.within1 = True → (f z).within1 = True) (items: List Expr)
