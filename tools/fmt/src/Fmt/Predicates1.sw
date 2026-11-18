@@ -124,22 +124,22 @@ def Expr.atomic1: Expr → Bool
   | ListOf _ _ _ _ => True
   | _ => False
 
---| An argument: an atom, a bracket, or a prefix on one.
+--| An argument, or a call's head: an atom, a bracket, or a prefix on one. A prefix can be a head too, since `-1 n`
+--| reads `1` as the negative numeral, `App (Prefix - 1) [n]`; the operand of an argument's `-` or `!` is itself read as an argument.
 def Expr.argument1: Expr → Bool
-  | Prefix _ operand => operand.atomic1
+  | Prefix _ operand => operand.argument1
   | other => other.atomic1
 
---| The tree is one the parser can give: an application's head isn't an
---| application and its arguments are atoms, brackets or prefixes on
---| them; operands of an infix sit at their ladder levels; a tuple has two
---| items or more.
+--| The tree is one the parser can give: an application's head and arguments are atoms, brackets or prefixes on them
+--| (so a head is no application); operands of an infix sit at their ladder levels (`ParseProofs` proves the levels);
+--| a tuple has two items or more.
 def Expr.shaped1: Expr → Bool
   | Atom kind _ => kind.wordWithin1
   | Paren _ inner _ => inner.shaped1
   | Tuple _ items _ _ => items.length >= 2 && allShaped1 items
   | ListOf _ items _ _ => allShaped1 items
   | App head arguments =>
-    head.atomic1 && head.shaped1 && !arguments.isEmpty && arguments.all Expr.argument1 && allShaped1 arguments
+    head.argument1 && head.shaped1 && !arguments.isEmpty && arguments.all Expr.argument1 && allShaped1 arguments
   | Infix kind left operator right =>
     left.shaped1
       && right.shaped1
