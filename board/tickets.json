@@ -23938,12 +23938,12 @@
     {
       "id": 3979,
       "title": "[Sonnet] Quick tier over its 4 GB memguard cap since Std.Doc joined std: named_arguments::named_calls_keep_every_hash peaks 2.21 GB, hash_stability::examples 0.63, prelude 0.53; Overmind's rolling check is killed mid-tier (c176cf4ad). Measure each test's peak before and after SW-3944, find why named_calls_keep_every_hash needs 2.2 GB, cut it; don't just raise the cap",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane notes: named_calls_keep_every_hash held one eager session (about 0.3 GB) per worker, 8 workers in the quick tier. Capped at 2 workers in quick/lane, as hash_stability does (commit 3589e2cde): peak 2.20 GB to 0.64 GB, same 7 s. Parent of the SW-3944 merge peaked 1.72 GB, so SW-3944 added about 0.5 GB.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
