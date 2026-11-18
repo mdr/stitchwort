@@ -24605,7 +24605,7 @@
     {
       "id": 4029,
       "title": "[Sonnet] fmt bug in both formatters: a blank line is added before a closing bracket when the bracket's last item and the closer both have trailing comments (def x: T := [⏎  aaa, -- c⏎  bbb -- e⏎] -- d): CloserLine right after bracketContent's SoftLine break prints one newline too many; also, with only the closer commented, its comment moves to the last item (check whether that is intended); fix in crates/fmt and tools/fmt (D3677), failing-first tests in both (SW-4016)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
