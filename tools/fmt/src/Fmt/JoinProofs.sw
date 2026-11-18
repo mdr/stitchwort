@@ -18,7 +18,7 @@ import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)
 import Fmt.CalmProofs (bracketFrom, bracketIs)
-import Syntax (Note)
+import Syntax (InfixKind, Note)
 
 -- What may follow a token.
 
@@ -983,7 +983,7 @@ def Joinable (kinds: Text → Tok): Expr → Prop
   | Paren open inner close => OpenerJoins kinds open ∧ CloserJoins close ∧ Joinable kinds inner
   | Tuple open items _ close => OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
   | ListOf open items _ close => OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
-  | App head arguments => Joinable kinds head ∧ AllJoinable kinds arguments
+  | App head arguments => Joinable kinds head ∧ AllJoinable kinds arguments ∧ arguments ≠ []
   | Infix _ left operator right => Joinable kinds left ∧ WordJoins operator ∧ Joinable kinds right
   | Prefix operator operand =>
     WordJoins operator
@@ -2051,6 +2051,11 @@ theorem passesChoiceOf ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc)
         passesChoiceOf kinds second more pre post secondPasses rest edge next holds after
       )
 
+--| A call's last argument opened passes, if it opens.
+def HugPasses (kinds: Text → Tok) (hug: Option Doc) (pre post: Edge → Prop): Prop := match hug with
+  | None => True
+  | Some open => Passes kinds open pre post
+
 theorem dropFilled ∀ (docs: List Doc) (count: Nat)
     (short: count ≤ docs.length)
     (differs: (count == docs.length) = False):
@@ -2075,7 +2080,7 @@ theorem takeFilled ∀ (doc: Doc) (rest: List Doc) (count: Nat) (positive: count
 theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc)
     (front: List Doc) (hug: Option Doc) (pre post: Edge → Prop)
     (seq: PassesSeq kinds pre post ([headDoc, ..front] ++ [lastDoc]))
-    (hugPasses: ∀ (open: Doc) => hug = Some open → Passes kinds open (Gapped True) post)
+    (hugPasses: HugPasses kinds hug (Gapped True) post)
     (positive: keep ≠ 0)
     (short: keep ≤ ([headDoc, ..front] ++ [lastDoc]).length):
     Passes kinds (appFrom id keep between betweenFront headDoc front lastDoc hug).doc pre post :=
@@ -2151,14 +2156,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
                 (Ended True)
                 post
                 (passesFlatten kinds _ pre (Ended True) (spacedSeq kinds [headDoc, ..front] pre (Ended True) headSeq))
-                (passesTwo kinds
-                  (Doc.text " ")
-                  open
-                  (Ended True)
-                  (Gapped True)
-                  post
-                  (passesSpace kinds True)
-                  (opens open byComputing)))
+                (passesTwo kinds (Doc.text " ") open (Ended True) (Gapped True) post (passesSpace kinds True) opens))
           passesChoiceOf kinds
             (Flatten (spaced docs))
             [Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open], Doc.concat [frontDoc, restDoc]]
@@ -2166,3 +2164,566 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
             post
             flat
             (hugged, broken, byComputing)
+
+-- Calls.
+
+theorem snocNotNil ∀ (docs: List Doc) (last: Doc): docs ++ [last] ≠ [] := match docs with
+  | [] => List.consNotNil last []
+  | [doc, ..rest] => List.consNotNil doc (rest ++ [last])
+
+theorem seqPrepend ∀ (kinds: Text → Tok) (pre post: Edge → Prop) (doc: Doc) (docs: List Doc)
+    (first: Passes kinds doc pre (Ended True))
+    (rest: PassesSeq kinds (Gapped True) post docs)
+    (filled: docs ≠ []):
+    PassesSeq kinds pre post [doc, ..docs] :=
+  match docs, rest with
+    | [], _ => (filled byComputing).impossible
+    | [next, ..more], seq => (first, seq)
+
+theorem endedTrue ∀ (trails: Bool) (edge: Edge) (ended: Ended trails edge): Ended True edge :=
+  endedWeaker trails True (holds => byComputing) edge ended
+
+theorem keptShort ∀ (previous: Expr) (arguments: List Expr): keptFront previous arguments ≤ arguments.length :=
+  match arguments with
+    | [] => byComputing
+    | [argument, ..rest] =>
+      match kept: argument.simple && !previous.trails with
+        | True => arithmetic [keptShort argument rest]
+        | False => byComputing
+
+--| A run of documents passes inside a nest after the first.
+theorem passesHeadTail ∀ (kinds: Text → Tok) (head: Doc) (tail: List Doc) (indent: Nat) (pre post: Edge → Prop)
+    (all: PassesAll kinds [head, ..tail] pre post):
+    Passes kinds (Doc.concat [head, Nest indent (Doc.concat tail)]) pre post :=
+  let middle := (edge: Edge) => JoinsAll (Follows kinds) tail edge post
+  let tailPasses: Passes kinds (Doc.concat tail) middle post :=
+    passesConcat kinds tail middle post (edge next holds after =>
+      allWeaker (Follows kinds) tail edge post next after holds)
+  let headPasses: Passes kinds head pre middle := edge next holds after =>
+    joinsWeaker (Follows kinds) head edge middle next after (all edge post holds (left done => done))
+  passesConcat kinds
+    [head, Nest indent (Doc.concat tail)]
+    pre
+    post
+    (passesTwo kinds head
+      (Nest indent (Doc.concat tail))
+      pre
+      middle
+      post
+      headPasses
+      (passesNest kinds indent (Doc.concat tail) middle post tailPasses))
+
+--| A tuple's or list's element.
+theorem commaBracketPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr)
+    (close: Word) (around: Around)
+    (opener: OpenerJoins kinds open)
+    (closer: CloserJoins close)
+    (each: EachEl kinds items):
+    Passes kinds
+      (commaBracket list open items close around)
+      (Ready kinds True open.text)
+      (Ended (ListOf open items False close).trails) :=
+  passesGroup kinds
+    (bracketContent list open items close around)
+    (bracketContent list open items close around).forcesBreak
+    (Ready kinds True open.text)
+    (Ended (ListOf open items False close).trails)
+    (bracketContentPasses kinds list open items close around opener closer each)
+
+--| A bracket as a call's last argument, as it stands and opened.
+theorem huggedBracketPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (hard: Bool)
+    (opener: OpenerJoins kinds open)
+    (closer: CloserJoins close)
+    (each: EachEl kinds items):
+    Passes kinds
+      (Doc.concat [
+        Doc.concat (open.leading around around.at),
+        Group (bracketContent list open items close { around | hoisted = True }) hard
+      ])
+      (Ready kinds True open.text)
+      (Ended (ListOf open items False close).trails) :=
+  passesConcat kinds _
+    (Ready kinds True open.text)
+    (Ended (ListOf open items False close).trails)
+    (passesTwo kinds _ _
+      (Ready kinds True open.text)
+      (Ready kinds True open.text)
+      (Ended (ListOf open items False close).trails)
+      (passesConcat kinds _
+        (Ready kinds True open.text)
+        (Ready kinds True open.text)
+        (leadingTrue kinds open around around.at opener.left.left opener.left.right.right.right))
+      (passesGroup kinds _ hard
+        (Ready kinds True open.text)
+        (Ended (ListOf open items False close).trails)
+        (bracketContentPasses kinds list open items close { around | hoisted = True } opener closer each)))
+
+theorem hugFrom ∀ (kinds: Text → Tok) (hug: Option Doc) (pre weaker post later: Edge → Prop)
+    (passes: HugPasses kinds hug pre post)
+    (from: ∀ (edge: Edge) => weaker edge → pre edge) (to: ∀ (edge: Edge) => post edge → later edge):
+    HugPasses kinds hug weaker later :=
+  match hug, passes with
+    | None, _ => byComputing
+    | Some open, opens => passesFrom kinds open pre weaker later (passesTo kinds open pre post later opens to) from
+
+--| Each item's element passes, given the induction's facts.
+theorem allElPasses ∀ (kinds: Text → Tok) (items: List Expr)
+    (within: allWithin1 items = True)
+    (joinable: AllJoinable kinds items):
+    EachEl kinds items :=
+  match items, joinable with
+    | [], _ => byComputing
+    | [item, ..rest], (joins, others) => (
+      place => elPasses kinds item (Bool.andLeft within) joins place,
+      allElPasses kinds rest (Bool.andRight within) others
+    )
+
+--| A call's last argument, as it stands and opened.
+theorem lastArgumentPasses ∀ (kinds: Text → Tok) (argument: Expr) (around: Around)
+    (within: argument.within1 = True)
+    (joinable: Joinable kinds argument):
+    Passes kinds (lastArgument argument around).fst (Ready kinds True argument.lead.text) (Ended argument.trails)
+      ∧ HugPasses kinds
+        (lastArgument argument around).snd
+        (Ready kinds True argument.lead.text)
+        (Ended argument.trails) :=
+  match argument, joinable with
+    | Tuple open items comma close, (opener, closer, each) =>
+      let content := bracketContent False open items close { around | hoisted = True }
+      let elements := allElPasses kinds items within each
+      (
+        huggedBracketPasses kinds False open items close around content.forcesBreak opener closer elements,
+        huggedBracketPasses kinds False open items close around True opener closer elements
+      )
+    | ListOf open items comma close, (opener, closer, each) =>
+      let content := bracketContent True open items close { around | hoisted = True }
+      let elements := allElPasses kinds items within each
+      (
+        huggedBracketPasses kinds True open items close around content.forcesBreak opener closer elements,
+        huggedBracketPasses kinds True open items close around True opener closer elements
+      )
+    | Atom kind word, joins => (elPasses kinds (Atom kind word) within joins around, byComputing)
+    | App head arguments, joins => (elPasses kinds (App head arguments) within joins around, byComputing)
+    | Infix kind left operator right, joins =>
+      (elPasses kinds (Infix kind left operator right) within joins around, byComputing)
+    | Prefix operator operand, joins => (elPasses kinds (Prefix operator operand) within joins around, byComputing)
+    | Paren open (Atom k w) close, joins =>
+      (elPasses kinds (Paren open (Atom k w) close) within joins around, byComputing)
+    | Paren open (Paren o i c) close, joins =>
+      (elPasses kinds (Paren open (Paren o i c) close) within joins around, byComputing)
+    | Paren open (Tuple o is m c) close, joins =>
+      (elPasses kinds (Paren open (Tuple o is m c) close) within joins around, byComputing)
+    | Paren open (ListOf o is m c) close, joins =>
+      (elPasses kinds (Paren open (ListOf o is m c) close) within joins around, byComputing)
+    | Paren open (App h xs) close, joins =>
+      (elPasses kinds (Paren open (App h xs) close) within joins around, byComputing)
+    | Paren open (Infix k l o r) close, joins =>
+      (elPasses kinds (Paren open (Infix k l o r) close) within joins around, byComputing)
+    | Paren open (Prefix o x) close, joins =>
+      (elPasses kinds (Paren open (Prefix o x) close) within joins around, byComputing)
+
+--| A call's arguments: the documents before the last and the last, in order, each after a separator; the last's
+--| hug passes as it does; and one document before the last for each argument but one.
+--|
+--| Proof idea: Induction on the arguments (`argumentDocsConsTest`), the words seen so far growing by each argument's.
+theorem argumentsSeq ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat)
+    (arguments: List Expr) (seen: List Word)
+    (filled: arguments ≠ [])
+    (within: allWithin1 arguments = True)
+    (joinable: AllJoinable kinds arguments):
+    PassesSeq kinds
+      (Gapped True)
+      (Ended (trailsBack (seen ++ itemsWords arguments).reverse))
+      ((argumentDocs arm previous at arguments).fst
+        ++ [((argumentDocs arm previous at arguments).snd.getOrElse (Nothing, None)).fst])
+      ∧ HugPasses kinds
+        ((argumentDocs arm previous at arguments).snd.getOrElse (Nothing, None)).snd
+        (Gapped True)
+        (Ended (trailsBack (seen ++ itemsWords arguments).reverse))
+      ∧ (argumentDocs arm previous at arguments).fst.length + 1 = arguments.length :=
+  match arguments, joinable with
+    | [], _ => (filled byComputing).impossible
+    | [argument], (joins, _) =>
+      let place := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+      let (lastPass, hugPass) := lastArgumentPasses kinds argument place (Bool.andLeft within) joins
+      (
+        passesFrom kinds
+          (lastArgument argument place).fst
+          (Ready kinds True argument.lead.text)
+          (Gapped True)
+          (Ended (trailsBack (seen ++ itemsWords [argument]).reverse))
+          (passesTo kinds
+            (lastArgument argument place).fst
+            (Ready kinds True argument.lead.text)
+            (Ended argument.trails)
+            (Ended (trailsBack (seen ++ itemsWords [argument]).reverse))
+            lastPass
+            (edge ended => itemTrails seen argument edge ended))
+          (edge gapped => gappedReadyTrue kinds True argument.lead.text edge gapped),
+        hugFrom kinds
+          (lastArgument argument place).snd
+          (Ready kinds True argument.lead.text)
+          (Gapped True)
+          (Ended argument.trails)
+          (Ended (trailsBack (seen ++ itemsWords [argument]).reverse))
+          hugPass
+          (edge gapped => gappedReadyTrue kinds True argument.lead.text edge gapped)
+          (edge ended => itemTrails seen argument edge ended),
+        byComputing
+      )
+    | [argument, next, ..more], (joins, rest) =>
+      let place := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+      let later := argumentDocs arm argument (at + argument.size) [next, ..more]
+      let (seq, hugs, length) :=
+        argumentsSeq kinds arm argument
+          (at + argument.size)
+          [next, ..more]
+          (seen ++ argument.words)
+          (List.consNotNil next more)
+          (Bool.andRight within)
+          rest
+      (
+        seqPrepend kinds
+          (Gapped True)
+          (Ended (trailsBack (seen ++ itemsWords [argument, next, ..more]).reverse))
+          (argument.el place)
+          (later.fst ++ [(later.snd.getOrElse (Nothing, None)).fst])
+          (passesFrom kinds
+            (argument.el place)
+            (Ready kinds True argument.lead.text)
+            (Gapped True)
+            (Ended True)
+            (passesTo kinds
+              (argument.el place)
+              (Ready kinds True argument.lead.text)
+              (Ended argument.trails)
+              (Ended True)
+              (elPasses kinds argument (Bool.andLeft within) joins place)
+              (edge ended => endedTrue argument.trails edge ended))
+            (edge gapped => gappedReadyTrue kinds True argument.lead.text edge gapped))
+          (rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at seq then seq)
+          (snocNotNil later.fst (later.snd.getOrElse (Nothing, None)).fst),
+        rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at hugs then hugs,
+        arithmetic [length]
+      )
+
+--| A call: its function and arguments in one of `appFrom`'s layouts.
+theorem appPasses ∀ (kinds: Text → Tok) (head: Expr) (arguments: List Expr) (around: Around)
+    (headWithin: head.within1 = True)
+    (within: allWithin1 arguments = True)
+    (headJoins: Joinable kinds head)
+    (joinable: AllJoinable kinds arguments)
+    (filled: arguments ≠ []):
+    Passes kinds
+      (appDocs head arguments around).doc
+      (Ready kinds True head.lead.text)
+      (Ended (trailsBack (head.words ++ itemsWords arguments).reverse)) :=
+  let pre := Ready kinds True head.lead.text
+  let post := Ended (trailsBack (head.words ++ itemsWords arguments).reverse)
+  let results := argumentDocs around.inArm head (around.at + head.size) arguments
+  let front := results.fst
+  let lastDoc := (results.snd.getOrElse (Nothing, None)).fst
+  let (seq, hugs, length) :=
+    argumentsSeq kinds around.inArm head (around.at + head.size) arguments head.words filled within joinable
+  let short: 1 + keptFront head arguments ≤ ([head.el around, ..front] ++ [lastDoc]).length :=
+    rewrite List.lengthAppend front [lastDoc] then arithmetic [keptShort head arguments, length]
+  rewrite appDocsIs head arguments around then
+    appFromPasses kinds
+      (around.at + 1)
+      (1 + keptFront head arguments)
+      (commentBetween head arguments)
+      (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+      (head.el around)
+      lastDoc
+      front
+      (results.snd.getOrElse (Nothing, None)).snd
+      pre
+      post
+      (seqPrepend kinds pre post
+        (head.el around)
+        (front ++ [lastDoc])
+        (passesTo kinds
+          (head.el around)
+          pre
+          (Ended head.trails)
+          (Ended True)
+          (elPasses kinds head headWithin headJoins around)
+          (edge ended => endedTrue head.trails edge ended))
+        seq
+        (snocNotNil front lastDoc))
+      hugs
+      (arithmetic)
+      short
+
+-- Operator chains.
+
+theorem chainOfPasses ∀ (kinds: Text → Tok) (arms: Bool) (links: List Doc) (pre post: Edge → Prop)
+    (all: PassesAll kinds links pre post)
+    (filled: links ≠ []):
+    Passes kinds (chainOf arms links) pre post :=
+  match links, all with
+    | [], _ => (filled byComputing).impossible
+    | [head, ..tail], all =>
+      let joined := Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)]
+      passesGroup kinds joined joined.forcesBreak pre post
+        (passesHeadTail kinds head tail (if arms then 0 else 2) pre post all)
+
+theorem opTrails ∀ (left: List Word) (operator: Word) (right: List Word)
+    (trails: trailsBack right.reverse = True):
+    trailsBack (left ++ [operator, ..right]).reverse = True :=
+  seenAppend left
+    [operator, ..right]
+    (rewrite List.reverseCons operator right then trailsBackAppend right.reverse [operator] trails)
+
+--| What follows a chain's operator: a space and the operand.
+theorem chainRightPasses ∀ (kinds: Text → Tok) (level: Option Nat) (right: Expr) (place: Around)
+    (within: right.within1 = True)
+    (joinable: Joinable kinds right):
+    PassesAll kinds (chainRight level right place) (Ended True) (Ended right.trails) :=
+  let rest: PassesAll kinds (linkDocs level False right place) (Gapped True) (Ended right.trails) :=
+    allFrom kinds
+      (linkDocs level False right place)
+      (Ready kinds True right.lead.text)
+      (Gapped True)
+      (Ended right.trails)
+      (linkDocsPasses kinds level False right place within joinable)
+      (edge gapped => gappedReadyTrue kinds True right.lead.text edge gapped)
+  let spaced: PassesAll kinds [Doc.text " ", ..linkDocs level False right place] (Ended True) (Ended right.trails) :=
+    passesCons kinds (Doc.text " ") _ (Ended True) (Gapped True) (Ended right.trails) (passesSpace kinds True) rest
+  match right with
+    | Atom _ _ => spaced
+    | Paren _ _ _ => spaced
+    | Tuple _ _ _ _ => spaced
+    | ListOf _ _ _ _ => spaced
+    | App _ _ => spaced
+    | Infix _ _ _ _ => spaced
+    | Prefix _ _ => spaced
+
+--| A chain's links: the first operand's, then each operator after a separator and its operand after a space.
+theorem chainLinksPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
+    (right: Expr) (around: Around)
+    (leftWithin: left.within1 = True)
+    (rightWithin: right.within1 = True)
+    (leftJoins: Joinable kinds left)
+    (operatorJoins: WordJoins operator)
+    (rightJoins: Joinable kinds right):
+    PassesAll kinds
+      (chainLinks level first left operator right around)
+      (Ready kinds True left.lead.text)
+      (Ended (trailsBack (left.words ++ [operator, ..right.words]).reverse)) :=
+  let operatorAround := around.next left.trails left.size
+  let rightAround := around.next operator.trails (left.size + 1)
+  let leaf := operator.leaf operatorAround operatorAround.at
+  let post := Ended (trailsBack (left.words ++ [operator, ..right.words]).reverse)
+  passesAppend kinds
+    (linkDocs level first left around)
+    [Line, leaf, ..chainRight level right rightAround]
+    (Ready kinds True left.lead.text)
+    (Ended left.trails)
+    post
+    (linkDocsPasses kinds level first left around leftWithin leftJoins)
+    (passesCons kinds Line _
+      (Ended left.trails)
+      (Gapped left.trails)
+      post
+      (passesLine kinds left.trails)
+      (passesCons kinds leaf _
+        (Gapped left.trails)
+        (Ended True)
+        post
+        (passesFrom kinds leaf
+          (Ready kinds True operator.text)
+          (Gapped left.trails)
+          (Ended True)
+          (passesTo kinds leaf
+            (Ready kinds True operator.text)
+            (Left operator.text operator.trails)
+            (Ended True)
+            (wordLeafPasses kinds operator operatorAround operatorAround.at operatorJoins)
+            (edge left =>
+              endedTrue operator.trails edge
+                (leftEnded operator.text operator.trails operatorJoins.right.left edge left)))
+          (edge gapped => gappedReadyTrue kinds left.trails operator.text edge gapped))
+        (allTo kinds
+          (chainRight level right rightAround)
+          (Ended True)
+          (Ended right.trails)
+          post
+          (chainRightPasses kinds level right rightAround rightWithin rightJoins)
+          (edge ended =>
+            endedWeaker right.trails
+              (trailsBack (left.words ++ [operator, ..right.words]).reverse)
+              (opTrails left.words operator right.words)
+              edge
+              ended))))
+
+--| A chain operand's documents: the links of a chain of the same level, else the element.
+theorem linkDocsPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr) (around: Around)
+    (within: expr.within1 = True)
+    (joinable: Joinable kinds expr):
+    PassesAll kinds (linkDocs level first expr around) (Ready kinds True expr.lead.text) (Ended expr.trails) :=
+  let element: PassesAll kinds [expr.el around] (Ready kinds True expr.lead.text) (Ended expr.trails) :=
+    passesLast kinds
+      (expr.el around)
+      (Ready kinds True expr.lead.text)
+      (Ended expr.trails)
+      (elPasses kinds expr within joinable around)
+  match expr, joinable with
+    | Atom _ _, _ => element
+    | Paren _ _ _, _ => element
+    | Tuple _ _ _ _, _ => element
+    | ListOf _ _ _ _, _ => element
+    | App _ _, _ => element
+    | Prefix _ _, _ => element
+    | Infix kind left operator right, (leftJoins, operatorJoins, rightJoins) =>
+      match kind with
+        | InfixBinary =>
+          match inChain: (Infix InfixBinary left operator right).inChain level with
+            | True =>
+              chainLinksPasses kinds level first left operator right around
+                (Bool.andLeft within)
+                (Bool.andRight within)
+                leftJoins
+                operatorJoins
+                rightJoins
+            | False => element
+        | InfixArrow =>
+          match inChain: (Infix InfixArrow left operator right).inChain level with
+            | True =>
+              chainLinksPasses kinds level first left operator right around
+                (Bool.andLeft within)
+                (Bool.andRight within)
+                leftJoins
+                operatorJoins
+                rightJoins
+            | False => element
+        | _ => cases
+
+--| An operator chain's element.
+theorem chainPasses ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr) (operator: Word)
+    (right: Expr) (around: Around)
+    (leftWithin: left.within1 = True)
+    (rightWithin: right.within1 = True)
+    (leftJoins: Joinable kinds left)
+    (operatorJoins: WordJoins operator)
+    (rightJoins: Joinable kinds right):
+    Passes kinds
+      (chain level left operator right around)
+      (Ready kinds True left.lead.text)
+      (Ended (trailsBack (left.words ++ [operator, ..right.words]).reverse)) :=
+  chainOfPasses kinds
+    (left.opensArms level)
+    (chainLinks level True left operator right around)
+    (Ready kinds True left.lead.text)
+    (Ended (trailsBack (left.words ++ [operator, ..right.words]).reverse))
+    (chainLinksPasses kinds level True left operator right around leftWithin rightWithin leftJoins operatorJoins
+        rightJoins)
+    (List.appendNotNilRight (linkDocs level True left around) _ (List.consNotNil Line _))
+
+-- The induction.
+
+--| Wherever an expression stands, its element joins from where its first token may stand and leaves the line ending
+--| with a token, a comment waiting only if the expression ends with one.
+--|
+--| Proof idea: Induction on the expression, as `elSpells`: each node by its rule's lemma inside `framedExprPasses`,
+--| the parts by the induction.
+theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
+    (within: expr.within1 = True)
+    (joinable: Joinable kinds expr) (around: Around):
+    Passes kinds (expr.el around) (Ready kinds True expr.lead.text) (Ended expr.trails) :=
+  let inside := { around | hoisted = True }
+  match expr, joinable with
+    | Atom kind word, joins => atomPasses kinds kind word around joins
+    | Paren open inner close, (opener, closer, innerJoins) =>
+      framedExprPasses kinds
+        (Paren open inner close)
+        around
+        (parenDoc open inner close inside)
+        (Ended (Paren open inner close).trails)
+        within
+        (opener, closer, innerJoins)
+        (parenPasses kinds open inner close inside within opener closer (place =>
+          elPasses kinds inner within innerJoins place))
+    | Tuple open items comma close, (opener, closer, each) =>
+      framedExprPasses kinds
+        (Tuple open items comma close)
+        around
+        (commaBracket False open items close inside)
+        (Ended (Tuple open items comma close).trails)
+        within
+        (opener, closer, each)
+        (commaBracketPasses kinds False open items close inside opener closer (allElPasses kinds items within each))
+    | ListOf open items comma close, (opener, closer, each) =>
+      framedExprPasses kinds
+        (ListOf open items comma close)
+        around
+        (commaBracket True open items close inside)
+        (Ended (ListOf open items comma close).trails)
+        within
+        (opener, closer, each)
+        (commaBracketPasses kinds True open items close inside opener closer (allElPasses kinds items within each))
+    | App head arguments, (headJoins, each, filled) =>
+      framedExprPasses kinds
+        (App head arguments)
+        around
+        (appDocs head arguments inside).doc
+        (Ended (App head arguments).trails)
+        within
+        (headJoins, each, filled)
+        (appPasses kinds head arguments inside (Bool.andLeft within) (Bool.andRight within) headJoins each filled)
+    | Infix kind left operator right, (leftJoins, operatorJoins, rightJoins) =>
+      match kind with
+        | InfixBinary =>
+          framedExprPasses kinds
+            (Infix InfixBinary left operator right)
+            around
+            (chain (Infix InfixBinary left operator right).chainLevel left operator right inside)
+            (Ended (Infix InfixBinary left operator right).trails)
+            within
+            (leftJoins, operatorJoins, rightJoins)
+            (chainPasses kinds
+              (Infix InfixBinary left operator right).chainLevel
+              left
+              operator
+              right
+              inside
+              (Bool.andLeft within)
+              (Bool.andRight within)
+              leftJoins
+              operatorJoins
+              rightJoins)
+        | InfixArrow =>
+          framedExprPasses kinds
+            (Infix InfixArrow left operator right)
+            around
+            (chain (Infix InfixArrow left operator right).chainLevel left operator right inside)
+            (Ended (Infix InfixArrow left operator right).trails)
+            within
+            (leftJoins, operatorJoins, rightJoins)
+            (chainPasses kinds
+              (Infix InfixArrow left operator right).chainLevel
+              left
+              operator
+              right
+              inside
+              (Bool.andLeft within)
+              (Bool.andRight within)
+              leftJoins
+              operatorJoins
+              rightJoins)
+        | _ => cases
+    | Prefix operator operand, (joins, operandJoins, glue) =>
+      framedExprPasses kinds
+        (Prefix operator operand)
+        around
+        (Doc.concat [
+          operator.leaf inside around.at,
+          prefixGap operator operand,
+          operand.el (around.next operator.trails 1)
+        ])
+        (Ended (Prefix operator operand).trails)
+        within
+        (joins, operandJoins, glue)
+        (prefixPasses kinds operator operand around joins glue (place =>
+          elPasses kinds operand within operandJoins place))
