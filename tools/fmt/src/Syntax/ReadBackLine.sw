@@ -765,6 +765,23 @@ theorem endsAtom ∀ (modes: Modes) (head: Bool) (kind: Tok) (rest: List Item)
             endsNotBrace next.kind ends)
   { plain, noCall = operand.noCall, noDot = operand.noDot }
 
+--| What follows a unary reading ends it: no record's fields, `()` call or field access after an atom, and no argument
+--| after a call.
+type UnaryEnds (modes: Modes) (rest: List Item): Prop = {
+  atom: ∀ (head: Bool) (kind: Tok) => AtomEnds modes head kind rest,
+  noArgument: startsAtomOn modes rest = False
+}
+
+--| What ends every expression ends a unary reading.
+theorem unaryEndsOf ∀ (modes: Modes) (rest: List Item)
+    (restOpen: openHead modes rest = True)
+    (ends: endsHere rest = True):
+    UnaryEnds modes rest :=
+  {
+    atom = head kind => endsAtom modes head kind rest restOpen ends,
+    noArgument = (endsOperandOf modes rest ends).noArgument
+  }
+
 theorem endsSteps ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr)) (last: Item) (rest: List Item)
     (spelt: SpeltSteps exprs steps)
     (isEnd: endsOperand last.kind = True):
@@ -1282,11 +1299,10 @@ theorem argEnds ∀ (modes: Modes)
     (spelt: SpeltArgs exprs steps)
     (line: lineAll (Parse.loopReads [] steps ++ rest) = True)
     (inSteps: inLineAll (Parse.loopReads [] steps) = True)
-    (restOpen: openHead modes rest = True)
-    (ends: endsHere rest = True):
+    (ends: UnaryEnds modes rest):
     AtomEnds modes head kind (Parse.loopReads [] steps ++ rest) :=
   match exprs, spelt with
-    | [], isEmpty => rewrite isEmpty then endsAtom modes head kind rest restOpen ends
+    | [], isEmpty => rewrite isEmpty then ends.atom head kind
     | [argument, ..more], (read, later, isSteps, _, argSpelt, _) =>
       let (first, inside, isRead, _) := speltStarts argument read argSpelt
       let reads: Parse.loopReads [] steps = [first, ..inside ++ Parse.loopReads [] later] := rewrite isSteps, isRead
@@ -1312,11 +1328,10 @@ theorem argsLine ∀ (modes: Modes)
     (lineSteps: lineAll (Parse.loopReads [] steps) = True)
     (lineRest: lineAll rest = True)
     (inSteps: inLineAll (Parse.loopReads [] steps) = True)
-    (restOpen: openHead modes rest = True)
-    (ends: endsHere rest = True):
+    (ends: UnaryEnds modes rest):
     ArgsReads (TreeN (Succ below)) modes steps rest :=
   match exprs, spelt, free with
-    | [], isEmpty, _ => rewrite isEmpty then (endsOperandOf modes rest ends).noArgument
+    | [], isEmpty, _ => rewrite isEmpty then ends.noArgument
     | [argument, ..more], (read, later, isSteps, fits, argSpelt, moreSpelt), free =>
       let lineHere: lineAll (read ++ Parse.loopReads [] later) = True :=
         Eq.trans (Eq.cong (taken => lineAll (Parse.loopReads [] taken)) isSteps).flipped lineSteps
@@ -1348,7 +1363,7 @@ theorem argsLine ∀ (modes: Modes)
             lineRead
             lineAfter
             inRead
-            (kind => argEnds modes quiet False kind more later rest moreSpelt lineAfter inLater restOpen ends),
+            (kind => argEnds modes quiet False kind more later rest moreSpelt lineAfter inLater ends),
           argsLine modes quiet more later rest below
             (arithmetic [deep])
             moreSpelt
@@ -1356,7 +1371,6 @@ theorem argsLine ∀ (modes: Modes)
             lineLater
             lineRest
             inLater
-            restOpen
             ends
         )
 
@@ -1374,8 +1388,7 @@ theorem appLine ∀ (modes: Modes)
     (lineRest: lineAll rest = True)
     (openFirst: openHead modes read = True)
     (inLater: laterInLine read = True)
-    (restOpen: openHead modes rest = True)
-    (ends: endsHere rest = True):
+    (ends: UnaryEnds modes rest):
     AppReads (TreeN depth) modes read rest (App head [argument, ..more]) :=
   let (headRead, argRead, steps, isRead, headAtomic, argFits, headSpelt, argSpelt, argsSpelt) := spelt
   let tail := argRead ++ Parse.loopReads [] steps
@@ -1447,7 +1460,7 @@ theorem appLine ∀ (modes: Modes)
         lineArg
         lineAfterArg
         inArg
-        (kind => argEnds modes quiet False kind more steps rest argsSpelt lineAfterArg inSteps restOpen ends),
+        (kind => argEnds modes quiet False kind more steps rest argsSpelt lineAfterArg inSteps ends),
       argsLine modes quiet more steps rest below
         (arithmetic [deep])
         argsSpelt
@@ -1455,7 +1468,6 @@ theorem appLine ∀ (modes: Modes)
         lineSteps
         lineRest
         inSteps
-        restOpen
         ends
     )
 
@@ -1471,8 +1483,7 @@ theorem appAny ∀ (modes: Modes)
     (lineRest: lineAll rest = True)
     (openFirst: openHead modes read = True)
     (inLater: laterInLine read = True)
-    (restOpen: openHead modes rest = True)
-    (ends: endsHere rest = True)
+    (ends: UnaryEnds modes rest)
     (unsigned: expr.signed1 = False):
     AppReads (TreeN depth) modes read rest expr :=
   let alone: expr.atomic1 = True → AppReads (TreeN depth) modes read rest expr := atomic =>
@@ -1483,13 +1494,12 @@ theorem appAny ∀ (modes: Modes)
     Inl (
       (rewrite isRead, peekFirst modes item (more ++ rest) open1, notDot),
       atomLine modes quiet True expr read rest depth deep spelt atomic free lineRead lineRest openFirst inLater (kind =>
-        endsAtom modes True kind rest restOpen ends),
-      (endsOperandOf modes rest ends).noArgument
+        ends.atom True kind),
+      ends.noArgument
     )
   match expr, spelt with
     | App head [argument, ..more], spelt =>
-      appLine modes quiet head argument more read rest depth deep spelt free lineRead lineRest openFirst inLater
-          restOpen ends
+      appLine modes quiet head argument more read rest depth deep spelt free lineRead lineRest openFirst inLater ends
     | Atom _ _, _ => alone byComputing
     | Paren _ _ _, _ => alone byComputing
     | Tuple _ _ _ _, _ => alone byComputing
@@ -1517,8 +1527,7 @@ theorem unaryLine ∀ (modes: Modes)
     (lineRest: lineAll rest = True)
     (openFirst: openHead modes read = True)
     (inLater: laterInLine read = True)
-    (restOpen: openHead modes rest = True)
-    (ends: endsHere rest = True):
+    (ends: UnaryEnds modes rest):
     UnaryReads (TreeN depth) modes read rest expr :=
   match signed: expr.signed1 with
     | False =>
@@ -1534,7 +1543,7 @@ theorem unaryLine ∀ (modes: Modes)
         notMatch,
         noBarLine modes item (more ++ rest) (lineJoin more rest (Bool.andRight lineItems) lineRest),
         Inl unsigned,
-        appAny modes quiet expr read rest depth deep spelt free lineRead lineRest openFirst inLater restOpen ends signed
+        appAny modes quiet expr read rest depth deep spelt free lineRead lineRest openFirst inLater ends signed
       )
     | True =>
       match expr, spelt, signed, depth, deep with
@@ -1573,7 +1582,6 @@ theorem unaryLine ∀ (modes: Modes)
                 lineRest
                 openMore
                 laterMore
-                restOpen
                 ends
             )
             | True =>
@@ -1595,7 +1603,7 @@ theorem unaryLine ∀ (modes: Modes)
                       more,
                       byComputing,
                       openSign,
-                      endsAtom modes True sign.kind rest restOpen ends,
+                      ends.atom True sign.kind,
                       Inr
                         (Inr
                           (Inr
@@ -1612,11 +1620,7 @@ theorem unaryLine ∀ (modes: Modes)
                       (rewrite isMinus),
                       noBar,
                       Inr (Bool.andLeft glued, (rewrite isNumber then negNumber)),
-                      Inl (
-                        (rewrite peekFirst modes sign (more ++ rest) openSign, isMinus),
-                        atomReads,
-                        (endsOperandOf modes rest ends).noArgument
-                      )
+                      Inl ((rewrite peekFirst modes sign (more ++ rest) openSign, isMinus), atomReads, ends.noArgument)
                     )
                 | other, _, _, never => (Bool.falseNotTrue (Bool.andRight never)).impossible
         | other, _, never, _, _ => (Bool.falseNotTrue never).impossible
@@ -1649,8 +1653,7 @@ theorem inlineLine ∀ (modes: Modes)
       lineRest
       (openHeadOf modes item more open)
       inLater
-      restOpen
-      ends
+      (unaryEndsOf modes rest restOpen ends)
   let (first, inside, isRead, starts) := speltStarts expr [item, ..more] spelt
   let itemStarts: leadKind item.kind = True := rewrite firstKind item first more inside isRead then starts
   inlineOfUnary
