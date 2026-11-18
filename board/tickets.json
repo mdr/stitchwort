@@ -24475,7 +24475,7 @@
     {
       "id": 4019,
       "title": "[Opus] fmt S1 parseCarries1, first half (SW-4018 ticket A): the ReadsIn spec and combinators, lifting the Out facts by readsWeaken, atoms, brackets, applications, the recursion's knot; statement in Syntax/ParseSettledStatements.sw; docs/reviews/SW-4018-parser-statements.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
