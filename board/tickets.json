@@ -24436,7 +24436,7 @@
     {
       "id": 4016,
       "title": "[Opus] fmt S1 line-break proofs 18e: the rest of printedHangs on SW-4011's Fmt.HangProofs: tokens with comments above (plainStep at a line's own indentation), closers and marks (an invariant on the marks' least indentation), brackets, applications, chains, the declaration level, the bridge from Laid.lay leaves to eventsOf, then printedHangs; after SW-4015",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
