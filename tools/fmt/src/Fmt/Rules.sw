@@ -8,7 +8,8 @@
 --| `Prefix`, with `el`, `leaf`, `leading` and `trailing` for comments;
 --| for slice 2's binders, `header` with `premises`, `lambda_both` and
 --| `quantifier`; for slice 3's layout, `block`, `let_line`, `sequence`,
---| `if_`, `alternatives` and `arm`.
+--| `if_`, `alternatives` and `arm`; for slice 4a, `join` for
+--| `FieldAccess`.
 --|
 --| The Rust rules read a token's neighbours by its index in the file.
 --| Here what a rule needs of a token's surroundings travels down the tree
@@ -19,7 +20,7 @@
 --| `Mark` a key of its own as the Rust token index does.
 --|
 --| A node outside the slices prints as nothing: the caller asks `within3`
---| (or an earlier slice's test) first (`Fmt.Slice3`).
+--| (or an earlier slice's test) first (`Fmt.Slice4a`).
 
 namespace Fmt
 import Std (Bool, Doc, List, Nat, Option, Text)
@@ -159,6 +160,7 @@ def Expr.words: Expr → List Word
     [keyword, ..scrutineesWords scrutinees] ++ [withKeyword, ..armsWords arms]
   | Block first rest result => first.words ++ statementsWords rest ++ result.words
   | LetIn binding semicolon body => letWords binding ++ [fixedWord ";" semicolon, ..body.words]
+  | FieldAccess (Some target) dot field => target.words ++ [dot, field]
   | _ => []
 
 def scrutineesWords: List Scrutinee → List Word
@@ -307,6 +309,14 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
       expr.framed around (Doc.group (ifDoc keyword condition thenKeyword whenTrue elseKeyword whenFalse inside))
     | Match keyword scrutinees withKeyword arms =>
       expr.framed around (matchParts keyword scrutinees withKeyword arms inside).doc
+    | FieldAccess (Some target) dot field =>
+      let size := target.size
+      expr.framed around
+        (Doc.concat [
+          target.el inside,
+          dot.leaf (around.next target.trails size) (around.at + size),
+          field.leaf (around.next False (size + 1)) (around.at + size + 1)
+        ])
     | _ => Nothing
 
 --| A node's document with its first token's own-line comments before it,
@@ -552,9 +562,11 @@ def huggedBracket (list: Bool) (open: Word) (items: List Expr) (close: Word) (ar
   (Doc.concat [leading, Group content content.forcesBreak], Some (Doc.concat [leading, Group content True]))
 
 --| Whether an argument may stay on the call's line when the others go
---| below (`simple`): a token, `[]`, or a prefix operator on a token.
+--| below (`simple`): a token, `[]`, a prefix operator on a token, or a
+--| field of one of those (`x.f.g`).
 def Expr.simple: Expr → Bool
   | Atom _ _ => True
+  | FieldAccess (Some target) _ _ => target.simple
   | Tuple _ items _ _ => items.isEmpty
   | ListOf _ items _ _ => items.isEmpty
   | Prefix _ (Atom _ _) => True

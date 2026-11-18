@@ -6,27 +6,11 @@
 --| those, with a guard `if c`.
 --|
 --| As in the earlier slices, the slice is a test on the real tree,
---| `within3`, and a token alphabet, `Tok.within3`, which `formatWithin`
---| checks before parsing.
+--| `within3`, and a token alphabet, `Tok.within3`.
 
 namespace Fmt
-import Std (Bool, Doc, List, Nat, Option, Result, Text)
-import Syntax (
-  Arm,
-  BindingKind,
-  Decl,
-  DefBody,
-  Expr,
-  Guard,
-  InfixKind,
-  Let,
-  Pattern,
-  SourceFile,
-  Statement,
-  Tok,
-  Word,
-  lex
-)
+import Std (Bool, Doc, List, Nat, Option, Text)
+import Syntax (Arm, BindingKind, Decl, DefBody, Expr, Guard, InfixKind, Let, Pattern, SourceFile, Statement, Tok, Word)
 
 -- The slice.
 
@@ -175,18 +159,3 @@ def Tok.within3 (kind: Tok): Bool := match kind with
 def Decl.printed3 (decl: Decl): Option Text := if decl.within3 then decl.doc1.map (doc => Doc.print doc width) else None
 
 def SourceFile.printed3 (file: SourceFile): Text := file.printedBy Decl.printed3
-
---| The source formatted, if it is within slices 1 to 3: lexed, refused if
---| a token is outside the alphabet, then parsed, tidied and printed as
---| `format` does.
-def formatWithin (source: Text): Result Text Text := match lex source with
-  | Err message => Err message
-  | Ok lexed =>
-    match lexed.leaves.find (leaf => !leaf.token.kind.within3) with
-      | Some leaf => Err "outside slice 3: `${leaf.token.text}`"
-      | None =>
-        match lexed.tidied with
-          | Err message => Err message
-          | Ok tidied =>
-            if tidied.fourth.within3 then Ok tidied.fourth.printed3
-            else Err "outside slice 3: a construct slices 1 to 3 don't have"
