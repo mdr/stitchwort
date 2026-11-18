@@ -24939,14 +24939,14 @@
     {
       "id": 4054,
       "title": "[Sonnet] fmt bug?: a comment ending in CR inside the tree (source '-- a\\r\\r\\ndef d: A := b\\n') keeps '-- a\\r'; the first output still has the CR, so a second run may differ (idempotence) in the self-hosted and maybe the Rust formatter. Write the failing test first (both formatters), then fix (rule 5 trims CR, or commentText refuses it) (SW-4039)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Confirmed by SW-4043: source '-- a\\r\\r\\ndef d: A := b\\n' (and at file end, and trailing 'def d: A := b -- a\\r\\r\\n') formats differently the second time; breaks printedSettle1 and printedStands1. Orchestrator's call: fix the formatter (bug fix, allowed under D3677 in both), so the tree never keeps a comment ending in CR; then SettleOutputProofs' unreturned1 and the stood1 case follow from settled1.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
