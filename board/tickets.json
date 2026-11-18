@@ -1,5 +1,5 @@
 {
-  "next": 4098,
+  "next": 4101,
   "tickets": [
     {
       "id": 47,
@@ -25321,7 +25321,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "SW-4096: reword as extending (B)'s edgeFacts with startFor expr.noted, so nothing is done twice; run after SW-4099.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25500,12 +25500,12 @@
     {
       "id": 4096,
       "title": "[Fable paper] fmt S1 statements for declElementsOneLine1's split (D3682): (A) oneLine1 and the four tree facts give a tree predicate (type quiet but a trailing comment on its last non-closer word; value the same plus comments above its first word), via a non-circular link from printed line starts to the tree's comments (CommentsEnd, printedSpellsSettled, lexer line starts; not standsOfDoc, which needs DeclHangs); (B) that predicate gives DeclElements through trailing-comment hang facts across held closers. Write both statements and how (B) relates to SW-4082; stub them as open goals with docs",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane note (Fable, 23:31-23:42, est. 30 min): done. Branch lane/SW-4096, commit e2bcd5331. New file tools/fmt/src/Fmt/OneLineStatements.sw: the test Decl.edgeQuiet1 (calmed type edgeQuiet1 False True, calmed value edgeQuiet1 True True) and two open goals, (A) edgeQuietOneLine1 (four tree facts + oneLine1 give edgeQuiet1) and (B) edgeElements1 (four tree facts + edgeQuiet1 give DeclElements); declElementsOneLine1 is proved from them, statement unchanged. Six closed examples by computing (D3684); 44 sources run through the driver beside the test, every accepted one edgeQuiet1. Findings: (1) quiet1/leadQuiet1 ask blankBefore = False, but the driver tree is not calmed, so the test is on the calmed parts; (2) the value first token may keep a blank line below its comments, which leadQuiet1 refuses; (3) the rule-level hang lemmas already carry trails, so (B) is a rerun of the leadFacts induction with expr.trails, not a slice of SW-4082 (noted sub-elements), though both extend one invariant; (4) (A) step for read blank-line flags has no known non-circular fact. Decision for Matt: the driver could refuse a declaration that is not edgeQuiet1, which drops (A). Note: docs/reviews/SW-4096-one-line-elements.md. Checks: Fmt.OneLineStatements 0 errors, 2 goals open; Fmt.TopStatements 0 errors, 6 goals open.\n",
+      "body": "Lane note (Fable, 23:31-23:42, est. 30 min): done. Branch lane/SW-4096, commit e2bcd5331. New file tools/fmt/src/Fmt/OneLineStatements.sw: the test Decl.edgeQuiet1 (calmed type edgeQuiet1 False True, calmed value edgeQuiet1 True True) and two open goals, (A) edgeQuietOneLine1 (four tree facts + oneLine1 give edgeQuiet1) and (B) edgeElements1 (four tree facts + edgeQuiet1 give DeclElements); declElementsOneLine1 is proved from them, statement unchanged. Six closed examples by computing (D3684); 44 sources run through the driver beside the test, every accepted one edgeQuiet1. Findings: (1) quiet1/leadQuiet1 ask blankBefore = False, but the driver tree is not calmed, so the test is on the calmed parts; (2) the value first token may keep a blank line below its comments, which leadQuiet1 refuses; (3) the rule-level hang lemmas already carry trails, so (B) is a rerun of the leadFacts induction with expr.trails, not a slice of SW-4082 (noted sub-elements), though both extend one invariant; (4) (A) step for read blank-line flags has no known non-circular fact. Decision for Matt: the driver could refuse a declaration that is not edgeQuiet1, which drops (A). Note: docs/reviews/SW-4096-one-line-elements.md. Checks: Fmt.OneLineStatements 0 errors, 2 goals open; Fmt.TopStatements 0 errors, 6 goals open.\n\nMerged 19 Nov. 11 min (est. 30). Orchestrator checked edgeQuiet1 and the composition statement by statement. Fable's suggested driver refusal of non-edge-quiet declarations held: it trades a proof for a run-time check (Matt wants proved, not validated); brought to Matt only if step 5 proves costly. Lanes: (A) SW-4098, (B) SW-4099.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -25518,6 +25518,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4098,
+      "title": "[Opus] fmt S1 goal (A) edgeQuietOneLine1 (Fmt.OneLineStatements): a one-line declaration is edge-quiet, by SW-4096's non-circular route (printedSpellsSettled, CommentsEnd, onLine1); step 5 (read blank-line flags) has no known route: report it as stuck rather than loop",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4099,
+      "title": "[Opus] fmt S1 goal (B) edgeElements1 (Fmt.OneLineStatements): an edge-quiet declaration meets DeclElements: edgeFacts (leadFacts with expr.trails), last item/argument trails, the declaration's parts and the blank line below lead comments (SW-4096 note)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4100,
+      "title": "[Sonnet] parser: def x: T := f [\\n\\n  a -- c\\n  ] fails with 'expected an expression, but found ]' while f\\n\\n  [a -- c\\n  ] parses (SW-4096); triage, add a failing test first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
