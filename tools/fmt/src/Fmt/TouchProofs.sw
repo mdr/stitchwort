@@ -6,15 +6,29 @@
 namespace Fmt.TouchProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
-import Std.Doc.Proofs (Along, Awaiting, Begun, Seam, isLayout)
+import Std.Doc.Proofs (Along, Awaiting, Begun, Seam, SepsTouch, Touch, isLayout)
 import Syntax (Comments, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
-import Fmt.GlueProofs (isComment)
+import Fmt.GlueProofs (codeTouching, codeTouchingAppend, isComment)
 import Fmt.OutputStatements (..)
 import Fmt.SpellProofs (..)
 import Fmt.TouchSteps (..)
-import Fmt.JoinProofs (AllJoinable, CloserJoins, Joinable, OpenerJoins, Token, WordJoins, closeTrails, trailsBackAppend)
+import Fmt.JoinProofs (
+  beforeCloseIs,
+  bracketTrails,
+  openTrails,
+  seenAppend,
+  AllJoinable,
+  CloserJoins,
+  Joinable,
+  OpenerJoins,
+  Token,
+  WordJoins,
+  closeTrails,
+  trailsBackAppend
+)
 import Fmt.TreeJoinProofs (lexKind)
+import Fmt.CalmProofs (bracketFrom, bracketIs)
 
 -- Comments.
 
@@ -959,11 +973,371 @@ def EachElSteps: List Expr → Prop
   | [] => True
   | [item, ..rest] => ElSteps item ∧ EachElSteps rest
 
---| `commaSteps` (open): a tuple or list, `( a, b )` or `[ a, b ]`, filled or broken, each item and comma free after
---| the opener spaced `first`. Its route follows `Fmt.JoinProofs.bracketContentPasses`: `parenSteps`' opener and
---| closer, the broken items (`brokenItems`: a `SoftLine` or `Line`, then `elFree`, then `stepsClosing ","`) and the
---| filled ones (`cells`: a `Fill` separator is a `Line`'s `SepTouches`), carrying the last item's `trails` to the
---| closer, which stands where `trailsBeforeClose` says a comment waits (`bracketTrails`, `beforeCloseIs`).
+-- Comma brackets.
+
+--| Each item's element, wherever it stands, from where it may start free.
+def EachFree: List Expr → Prop
+  | [] => True
+  | [item, ..rest] =>
+    (∀ (place: Around) => Steps (item.el place) (Fits True Free) (item.spacing1 False) (Ends item.trails))
+      ∧ EachFree rest
+
+theorem eachFree ∀ (items: List Expr)
+    (each: EachElSteps items)
+    (within: allWithin1 items = True)
+    (shaped: allShaped1 items = True)
+    (lexical: allLexical1 items = True)
+    (joinable: AllJoinable lexKind items):
+    EachFree items :=
+  match items, each, joinable with
+    | [], _, _ => byComputing
+    | [item, ..rest], (steps, others), (joins, restJoins) => (
+      place => elFree item place steps (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft lexical) joins,
+      eachFree rest others (Bool.andRight within) (Bool.andRight shaped) (Bool.andRight lexical) restJoins
+    )
+
+--| A comma after an item: it stands on the item's line, before a comment the item ends with.
+theorem commaStep ∀ (trails: Bool): Steps (Closing ",") (Ends trails) [Free] (Ends trails) :=
+  stepsFrom _ _ _ _ _
+    (stepsTo _ _ _ _ _ (stepsClosing "," trails (byComputing, byComputing, byComputing)) (seam closed =>
+      closedEnds trails seam closed))
+    (seam ended => endsFits trails seam ended)
+
+--| A line break or space between items: the next starts free.
+theorem sepFree ∀ (first trails: Bool): Steps (if first then SoftLine else Line) (Ends trails) [] (Fits True Free) :=
+  match first with
+    | True =>
+      stepsSoft _ _
+        (seam ended => endsQuiet trails seam ended)
+        (seam ended => fitsWeaker trails True (_ => byComputing) Free seam (endsFits trails seam ended))
+        byComputing
+    | False => stepsTo _ _ _ _ _ (stepsLine trails) (seam gapped =>
+      fitsWeaker trails True (_ => byComputing) Free seam (gappedFits trails Free seam byComputing gapped))
+
+theorem itemEnds ∀ (seen: List Word) (item: Expr) (seam: Seam)
+    (ended: Ends item.trails seam):
+    Ends (trailsBack (seen ++ item.words).reverse) seam :=
+  endsWeaker item.trails (trailsBack (seen ++ item.words).reverse) (seenAppend seen item.words) seam ended
+
+--| A broken bracket's items, each on a line after the one before and its comma.
+--|
+--| Proof idea: Induction on the items, as `Fmt.JoinProofs.brokenRestPasses`: each separator leaves the next item
+--| free, and the words seen so far end with a comment exactly when the last item does (`seenAppend`).
+theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first before: Bool) (at: Nat)
+    (each: EachFree items):
+    StepsAll
+      (brokenItems bare arm first before at items)
+      (Ends (trailsBack seen.reverse))
+      (commaSpacing1 items)
+      (Ends (trailsBack (seen ++ itemsWords items).reverse)) :=
+  match items, each with
+    | [], _ => stepsNil _ _ (seam ended => rewrite List.appendNil seen then ended)
+    | [item], (steps, _) =>
+      stepsTwo
+        (if first then SoftLine else Line)
+        (item.el (firstAround bare arm before at)) _
+        (Fits True Free) _
+        []
+        (item.spacing1 False)
+        (sepFree first (trailsBack seen.reverse))
+        (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
+          rewrite List.appendNil item.words then itemEnds seen item seam ended))
+    | [item, second, ..more], (steps, rest) =>
+      stepsCons
+        (if first then SoftLine else Line) _ _
+        (Fits True Free) _
+        []
+        (item.spacing1 False ++ [Free] ++ commaSpacing1 [second, ..more])
+        (sepFree first (trailsBack seen.reverse))
+        (stepsCons
+          (item.el (firstAround bare arm before at)) _ _
+          (Ends (trailsBack (seen ++ item.words).reverse)) _
+          (item.spacing1 False)
+          ([Free] ++ commaSpacing1 [second, ..more])
+          (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended => itemEnds seen item seam ended))
+          (stepsCons
+            (Closing ",") _ _
+            (Ends (trailsBack (seen ++ item.words).reverse)) _
+            [Free]
+            (commaSpacing1 [second, ..more])
+            (commaStep (trailsBack (seen ++ item.words).reverse))
+            (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
+              brokenSteps (seen ++ item.words) [second, ..more] False arm False item.trails (at + item.size) rest)))
+
+--| The steps of a fill's cells after the first, each after a separator.
+def SepsSteps (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop): Prop :=
+  ∀ (seam: Seam) (trace: List Touch) (next: Seam → List Touch → Prop) => pre seam
+    → (∀ (after: Seam) (added: List Touch) => post after
+      → admitsGlue spacing (codeTouching added) = True
+      → next after (trace ++ added))
+    → SepsTouch docs seam trace next
+
+theorem sepsNil ∀ (pre post: Seam → Prop) (implies: ∀ (seam: Seam) => pre seam → post seam): SepsSteps [] pre [] post :=
+  seam trace next holds after => stay post [] seam trace next byComputing after (implies seam holds)
+
+--| A cell after a separator, which touches as a `Line` does, then the cells after it.
+theorem sepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
+    (first: StepsAll [Line, doc] pre front middle)
+    (rest: SepsSteps docs middle back post):
+    SepsSteps [doc, ..docs] pre (front ++ back) post :=
+  seam trace next holds after =>
+    first seam trace (between later => SepsTouch docs between later next) holds (between added reached admits =>
+      rest between (trace ++ added) next reached (left more ended admitsMore =>
+        rewrite List.appendAssoc trace added more then
+          after left
+            (added ++ more)
+            ended
+            (rewrite codeTouchingAppend added more then
+              admitsAppend front back (codeTouching added) (codeTouching more) admits admitsMore)))
+
+--| A fill: its first cell, then the others each after a separator.
+theorem stepsFill ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
+    (first: Steps doc pre front middle)
+    (rest: SepsSteps docs middle back post):
+    Steps (Fill [doc, ..docs]) pre (front ++ back) post :=
+  seam trace next holds after =>
+    first seam trace (between later => SepsTouch docs between later next) holds (between added reached admits =>
+      rest between (trace ++ added) next reached (left more ended admitsMore =>
+        rewrite List.appendAssoc trace added more then
+          after left
+            (added ++ more)
+            ended
+            (rewrite codeTouchingAppend added more then
+              admitsAppend front back (codeTouching added) (codeTouching more) admits admitsMore)))
+
+--| A filled list's cells after the first.
+theorem cellsRestSteps ∀ (seen: List Word) (items: List Expr) (arm before: Bool) (at: Nat)
+    (each: EachFree items):
+    SepsSteps
+      (cells False arm before at items)
+      (Ends (trailsBack seen.reverse))
+      (commaSpacing1 items)
+      (Ends (trailsBack (seen ++ itemsWords items).reverse)) :=
+  match items, each with
+    | [], _ => sepsNil _ _ (seam ended => rewrite List.appendNil seen then ended)
+    | [item], (steps, _) =>
+      rewrite <- List.appendNil (item.spacing1 False) then
+        sepsCons
+          (item.el (firstAround False arm before at))
+          [] _ _ _
+          (item.spacing1 False)
+          []
+          (stepsTwo Line
+            (item.el (firstAround False arm before at)) _
+            (Fits True Free) _
+            []
+            (item.spacing1 False)
+            (sepFree False (trailsBack seen.reverse))
+            (stepsTo _ _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
+              rewrite List.appendNil item.words then itemEnds seen item seam ended)))
+          (sepsNil _ _ (seam ended => ended))
+    | [item, second, ..more], (steps, rest) =>
+      rewrite <- List.appendAssoc (item.spacing1 False) [Free] (commaSpacing1 [second, ..more]) then
+        sepsCons
+          (Doc.concat [item.el (firstAround False arm before at), Closing ","]) _ _
+          (Ends (trailsBack (seen ++ item.words).reverse)) _
+          (item.spacing1 False ++ [Free])
+          (commaSpacing1 [second, ..more])
+          (stepsTwo Line
+            (Doc.concat [item.el (firstAround False arm before at), Closing ","]) _
+            (Fits True Free) _
+            []
+            (item.spacing1 False ++ [Free])
+            (sepFree False (trailsBack seen.reverse))
+            (stepsConcat _ _ _ _
+              (stepsTwo
+                (item.el (firstAround False arm before at))
+                (Closing ",") _ _ _
+                (item.spacing1 False)
+                [Free]
+                (stepsTo _ _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
+                  itemEnds seen item seam ended))
+                (commaStep (trailsBack (seen ++ item.words).reverse)))))
+          (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
+            cellsRestSteps (seen ++ item.words) [second, ..more] arm item.trails (at + item.size) rest)
+
+--| A filled list's cells: the first after the opener, the others each after a separator.
+theorem cellsSteps ∀ (open: Word) (item: Expr) (others: List Expr) (bare arm before: Bool) (at: Nat)
+    (each: EachFree [item, ..others]):
+    Steps
+      (Fill (cells bare arm before at [item, ..others]))
+      (Ends (trailsBack [open].reverse))
+      (commaSpacing1 [item, ..others])
+      (Ends (trailsBack ([open] ++ itemsWords [item, ..others]).reverse)) :=
+  let start: ∀ (seam: Seam) => Ends (trailsBack [open].reverse) seam → Fits True Free seam := seam ended =>
+    fitsWeaker
+      (trailsBack [open].reverse)
+      True
+      (_ => byComputing)
+      Free
+      seam
+      (endsFits (trailsBack [open].reverse) seam ended)
+  match others, each with
+    | [], (steps, _) =>
+      rewrite <- List.appendNil (item.spacing1 False) then
+        stepsFill
+          (item.el (firstAround bare arm before at))
+          [] _ _ _
+          (item.spacing1 False)
+          []
+          (stepsFrom _ _ _ _ _
+            (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
+              rewrite List.appendNil item.words then itemEnds [open] item seam ended))
+            start)
+          (sepsNil _ _ (seam ended => ended))
+    | [second, ..more], (steps, rest) =>
+      rewrite <- List.appendAssoc (item.spacing1 False) [Free] (commaSpacing1 [second, ..more]) then
+        stepsFill
+          (Doc.concat [item.el (firstAround bare arm before at), Closing ","]) _ _
+          (Ends (trailsBack ([open] ++ item.words).reverse)) _
+          (item.spacing1 False ++ [Free])
+          (commaSpacing1 [second, ..more])
+          (stepsFrom _ _ _ _ _
+            (stepsConcat _ _ _ _
+              (stepsTwo
+                (item.el (firstAround bare arm before at))
+                (Closing ",") _ _ _
+                (item.spacing1 False)
+                [Free]
+                (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
+                  itemEnds [open] item seam ended))
+                (commaStep (trailsBack ([open] ++ item.words).reverse))))
+            start)
+          (rewrite <- List.appendAssoc [open] item.words (itemsWords [second, ..more]) then
+            cellsRestSteps ([open] ++ item.words) [second, ..more] arm item.trails (at + item.size) rest)
+
+--| A bracket's closer, after the code seen inside it: the bracket ends with a comment where the closer or that code
+--| does.
+theorem closerEndsSeen ∀ (open close: Word) (middle: List Word) (seam: Seam)
+    (closer: isCloserText close.text = True)
+    (closed: Closed (close.trails || trailsBack ([open] ++ middle).reverse) seam):
+    Ends (trailsBack ([open, ..middle] ++ [close]).reverse) seam :=
+  rewrite bracketTrails open close middle closer then
+    (rewrite List.reverseCons open middle at closed then closedEnds _ seam closed)
+
+--| A tuple's or list's parts (`bracketContent`), the opener spaced `first` and the rest free.
+--|
+--| Proof idea: `bracketIs` names the three layouts: empty, filled (`cellsSteps`) and broken (`brokenSteps`). In each
+--| the items end with a comment as their words do, which is where the closer stands (`beforeCloseIs`).
+theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (first: Spacing)
+    (unhoisted: around.hoisted = True)
+    (opener: WordJoins open)
+    (closer: CloserJoins close)
+    (each: EachFree items):
+    Steps
+      (bracketContent list open items close around)
+      (Fits True first)
+      ([first, ..commaSpacing1 items] ++ [Free])
+      (Ends (ListOf open items False close).trails) :=
+  let (closeSound, isCloser) := closer
+  let notCloser := opener.right.right.right
+  let whole := ListOf open items False close
+  let closeAround := around.next whole.trailsBeforeClose (whole.size - 1)
+  let seen := trailsBack ([open] ++ itemsWords items).reverse
+  let prefixSteps: Steps (open.opening around close) (Fits True first) [first] (Ends (trailsBack [open].reverse)) :=
+    stepsTo _ _ _ _ _ (openingSteps open around close first opener (Inr (rewrite unhoisted))) (seam closed =>
+      rewrite openTrails open notCloser then closedEnds open.trails seam closed)
+  let closerSteps: Steps (close.leaf closeAround around.at) (Ends seen) [Free] (Ends whole.trails) :=
+    stepsFrom _ _ _ _ _
+      (stepsTo _ _ _ _ _ (closerLeafSteps close closeAround around.at closer byComputing) (seam closed =>
+        closerEndsSeen open close
+          (itemsWords items)
+          seam
+          isCloser
+          (rewrite beforeCloseIs open items close at closed then closed)))
+      (seam ended => rewrite beforeCloseIs open items close then endsFits seen seam ended)
+  let bare := list && items.all Expr.plainItem
+  let broken := brokenItems bare around.inArm True open.trails (around.at + 1) items
+  let brokenSteps': StepsAll
+    [open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
+    (Fits True first)
+    ([first] ++ (commaSpacing1 items ++ ([] ++ [Free])))
+    (Ends whole.trails) :=
+    stepsCons
+      (open.opening around close) _ _ _ _
+      [first] _
+      prefixSteps
+      (stepsCons
+        (Nest 2 (Doc.concat broken)) _ _
+        (Ends seen) _
+        (commaSpacing1 items) _
+        (stepsNest 2 _ _ _ _
+          (stepsConcat _ _ _ _ (brokenSteps [open] items bare around.inArm True open.trails (around.at + 1) each)))
+        (stepsTwo SoftLine
+          (close.leaf closeAround around.at) _
+          (Ends seen) _
+          []
+          [Free]
+          (stepsSoft _ _ (seam ended => endsQuiet seen seam ended) (seam ended => ended) byComputing)
+          closerSteps))
+  rewrite bracketIs list open items close around then
+    match items, each with
+      | [], _ =>
+        stepsConcat
+          [open.opening around close, close.leaf closeAround around.at] _ _ _
+          (stepsTwo
+            (open.opening around close)
+            (close.leaf closeAround around.at) _
+            (Ends seen) _
+            [first]
+            [Free]
+            (stepsTo _ _ _ _ _ prefixSteps (seam ended => ended))
+            closerSteps)
+      | [item, ..others], each =>
+        match filled: list && !whole.holdsTrailingComment && [item, ..others].all Expr.plainItem with
+          | True =>
+            stepsConcat
+              [
+                open.opening around close,
+                Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) [item, ..others])),
+                close.leaf closeAround around.at
+              ] _ _ _
+              (stepsCons
+                (open.opening around close)
+                [
+                  Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) [item, ..others])),
+                  close.leaf closeAround around.at
+                ] _ _ _
+                [first] _
+                prefixSteps
+                (stepsTwo
+                  (Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) [item, ..others])))
+                  (close.leaf closeAround around.at) _
+                  (Ends seen) _
+                  (commaSpacing1 [item, ..others])
+                  [Free]
+                  (stepsNest 2 _ _ _ _ (cellsSteps open item others bare around.inArm open.trails (around.at + 1) each))
+                  closerSteps))
+          | False =>
+            match holds: whole.holdsTrailingComment with
+              | True =>
+                stepsConcat
+                  ([open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
+                    ++ [BreakParent]) _ _ _
+                  (allSpacing _ _ _ _ _
+                    (List.appendNil _)
+                    (stepsAppend
+                      [
+                        open.opening around close,
+                        Nest 2 (Doc.concat broken),
+                        SoftLine,
+                        close.leaf closeAround around.at
+                      ]
+                      [BreakParent] _ _ _ _
+                      []
+                      brokenSteps'
+                      (stepsLast BreakParent _ _ [] (stepsBreakParent _))))
+              | False =>
+                stepsConcat
+                  [
+                    open.opening around close,
+                    Nest 2 (Doc.concat broken),
+                    SoftLine,
+                    close.leaf closeAround around.at
+                  ] _ _ _
+                  brokenSteps'
+
+--| A tuple or list, `(a, b)` or `[a, b]`, filled or broken: the opener spaced `first`, then each item and comma free.
 theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool) (close: Word) (around: Around)
     (first: Spacing) (argument: Bool)
     (within: (if list then ListOf open items comma close else Tuple open items comma close).within1 = True)
@@ -978,7 +1352,41 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
       (spacedFirst first
         ((if list then ListOf open items comma close else Tuple open items comma close).spacing1 argument))
       (Ends (if list then ListOf open items comma close else Tuple open items comma close).trails) :=
-  ?
+  match list with
+    | True =>
+      let (opener, closer, joins) := joinable
+      framedSteps open around
+        (commaBracket True open items close { around | hoisted = True }) _ _
+        first
+        opener.left.left
+        loose
+        (stepsGroup
+          (bracketContent True open items close { around | hoisted = True })
+          (bracketContent True open items close { around | hoisted = True }).forcesBreak _ _ _
+          (bracketSteps True open items close
+            { around | hoisted = True }
+            first
+            byComputing
+            opener.left
+            closer
+            (eachFree items each within shaped (Bool.andRight (Bool.andRight lexical)) joins)))
+    | False =>
+      let (opener, closer, joins) := joinable
+      framedSteps open around
+        (commaBracket False open items close { around | hoisted = True }) _ _
+        first
+        opener.left.left
+        loose
+        (stepsGroup
+          (bracketContent False open items close { around | hoisted = True })
+          (bracketContent False open items close { around | hoisted = True }).forcesBreak _ _ _
+          (bracketSteps False open items close
+            { around | hoisted = True }
+            first
+            byComputing
+            opener.left
+            closer
+            (eachFree items each within (Bool.andRight shaped) (Bool.andRight (Bool.andRight lexical)) joins)))
 
 --| `appSteps` (open): a call, its head spaced `first` and each argument apart from what comes before it, a sign on
 --| one glued to its operand (`argument1`). Its route is through `appFrom`'s options (`stepsChoice`, `IdGroup`,
