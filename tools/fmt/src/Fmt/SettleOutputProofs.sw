@@ -1313,3 +1313,26 @@ theorem piecesWords ∀ (pieces: List (List Leaf)) (words: List (List Word))
           split
           (Eq.cong (all => all.headOr 0) lengths)
       consCong _ _ _ _ pieceSame (piecesWords rest more restSame (Eq.cong (all => all.drop 1) lengths))
+
+-- Witnesses for the narrow hypotheses.
+
+--| `a -- c` as a word and its leaf before the lexer reaches the comment.
+def ownerLeaf: Leaf := { token = { kind = Lower, text = "a", column = 0, lineStart = True }, trivia = Trivia.empty }
+
+def ownerWord: Word := { text = "a", comments = { above = [], after = Some "-- c", blankBefore = False } }
+
+theorem owingNonEmptyExample: (![ownerWord].isEmpty) = True := owingNonEmpty "-- c" [ownerLeaf] [ownerWord] byComputing
+
+theorem landingExample: lands ownerLeaf [] = True :=
+  landing ownerLeaf ownerWord [] [] byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+
+theorem noteBackExample: {
+      text = (noteComment { text = "-- a", blankBefore = True }).trimmed.text,
+      blankBefore = (noteComment { text = "-- a", blankBefore = True }).trimmed.blankLines > 0
+    }
+      = { text = "-- a", blankBefore = True } :=
+  noteBack { text = "-- a", blankBefore = True } byComputing byComputing
+
+theorem commentCleanExample: ({ text = "-- a", column = 4, blankLines = 0 }: Comment).trimmed
+      = { text = "-- a", column = 4, blankLines = 0 } :=
+  commentClean { text = "-- a", column = 4, blankLines = 0 } byComputing

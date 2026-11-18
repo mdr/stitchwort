@@ -2,7 +2,7 @@
 --| are in docs/reviews/SW-4042-trivia-statement.md). `printedSpells` gives the printed texts in order and `hangs`
 --| the columns of the tokens that start lines; neither says which token the lexer gives a comment to, which is what
 --| rule N reads. `stands` says it, of the leaves the printed text lexes to against the tree's words, and
---| `printedSettle1` (Fmt.OutputStatements) is to follow from it.
+--| `printedSettle1` (Fmt.SettleOutputProofs) follows from it.
 
 namespace Fmt.TriviaStatements
 import Std (Bool, List, Nat, Option, Text)
