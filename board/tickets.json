@@ -1,5 +1,5 @@
 {
-  "next": 3987,
+  "next": 3988,
   "tickets": [
     {
       "id": 47,
@@ -23956,7 +23956,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Worktree made 18 Nov; agent held: 5-min load 26 at start (verifier + two lane builds). Starts when load is 15 or below.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24029,6 +24029,19 @@
     {
       "id": 3986,
       "title": "[DeepSeek] Session-per-worker sweeps: cap par_map_with's workers by tier by default (or for sweeps that build an eager session per worker), and apply to std_library.rs:1045 and cli/tests/extraction/extract.rs:226, the uncapped ones left (SW-3979); docs/testing.md: measuring a sweep's tier peak needs STITCHWORT_TEST_THREADS=8, a warm second run, and a filter example for a test in a grouped binary",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3987,
+      "title": "[Sonnet] named_calls_keep_every_hash fails on examples/accept/eqeq-proof-fields.sw (in the lane tier's sample, not the quick tier's): its rewriter names an operator's arguments twice, Nat.leq (m := (m := 3)) (n := (n := 10)), from 'Nat.leq 3 10' or '3 ≤ 10' in theorem bothProofs, which is E-PARSE. Fix the rewriter (an operator's desugared call, or a call whose arguments are already named); the failing run is the test with STITCHWORT_TIER=lane NAMED_ARGUMENTS=eqeq-proof-fields",
       "status": "backlog",
       "agent": "",
       "where": "",
