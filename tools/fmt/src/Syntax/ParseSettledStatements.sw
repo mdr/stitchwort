@@ -22,6 +22,7 @@ import Syntax.ParseCarriesDecl (groupCarries)
 import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
 import Syntax.SettleOnceProofs (onceSettledProved)
 import Syntax.SettleSplitProofs (declsSettled, declsWordsOpen, groupWordsConcat, groupsConcat, settledOf, settledPieces)
+import Syntax.LexLaidProofs (lexLaidProved)
 
 -- The words of leaves.
 
@@ -108,7 +109,8 @@ theorem lexLaid1 ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
     (within: alphabet1 lexed.leaves = True):
     lexed.laid1 = True :=
-  ?
+  match lexLaidProved source lexed lexes within with
+    | Both laid (Both marked (Both texts ends)) => Bool.andIntro laid (Bool.andIntro marked (Bool.andIntro texts ends))
 
 --| Rule N's side: the leaves the formatter parses (`settledOnce`) are settled, said of their words, for `plain`
 --| leaves of slice 1's alphabet as the lexer gives them.
