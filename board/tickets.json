@@ -24752,7 +24752,7 @@
     {
       "id": 4040,
       "title": "[Sonnet] fmt S1 output C: prove printedAlphabet1, printedNoLast1, printedPlain1, printedGroups1 (after SW-4038; docs/reviews/SW-4025-output-statements.md ticket C)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
