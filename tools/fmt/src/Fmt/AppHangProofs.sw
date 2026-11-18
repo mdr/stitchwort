@@ -249,3 +249,102 @@ theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat)
           (AfterWords state indent trails)
           (argHangs kinds doc inset indent state False middle quiet unglued clear el)
           (linedRest kinds rest inset indent state middle trails quiet unglued clear deeper more))
+
+--| Arguments filling lines, laid at `inset`: each after a separator, after a waiting comment only if the one before
+--| ended with one.
+def FilledArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool): List Doc → Prop
+  | [] => before = trails
+  | [doc, ..rest] =>
+    ∃ (middle: Bool) => ElHangs kinds doc inset inset before middle wordStart
+      ∧ FilledArgs kinds inset middle trails rest
+
+theorem sepsArgs ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat) (state: HangState) (before trails: Bool)
+    (quiet: state.start = False)
+    (unglued: state.glue = False)
+    (clear: (inForce state.blocks state.top <= indent) = True)
+    (deeper: (indent < inset) = True)
+    (args: FilledArgs kinds inset before trails docs)
+    (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+    (holds: AfterWords state indent before place (hangOf kinds trace))
+    (after: ∀ (left: Place) (later: List Event) => AfterWords state indent trails left (hangOf kinds later)
+      → next left later):
+    SepsLay docs inset place trace next :=
+  match docs, args with
+    | [], same => after place trace (rewrite same at holds then holds)
+    | [doc, ..rest], (middle, el, more) =>
+      lineArg kinds inset indent state before unglued deeper place trace
+        (seat between => Lays doc inset seat between (left later => SepsLay rest inset left later next))
+        holds
+        (seat between ready =>
+          argHangs kinds doc inset indent state before middle quiet unglued clear el seat between
+            (left later => SepsLay rest inset left later next)
+            ready
+            (left later done =>
+              sepsArgs kinds rest inset indent state middle trails quiet unglued clear deeper more left later next done
+                  after))
+
+--| Where an element laid at `indent` may start, one laid deeper from the same seat may: its first word starts the
+--| same line, if any.
+theorem enteredDeeper ∀ (indent inset column: Nat) (state: HangState) (entry place: Place) (hang: Hang)
+    (deeper: (indent <= inset) = True)
+    (entered: Entered indent column False state entry (wordStart indent entry) place hang):
+    Entered inset column False state entry (wordStart inset entry) place hang
+      ∧ wordStart inset entry = wordStart indent entry :=
+  match entry, entered with
+    | AtStart at carry, (isEntry, folded, (seated, below, clear, room)) =>
+      ((isEntry, folded, (seated, arithmetic, arithmetic, room)), byComputing)
+    | Broken at carry, (isEntry, folded, (seated, below, clear, room)) =>
+      ((isEntry, folded, (seated, arithmetic, arithmetic, room)), byComputing)
+    | Mid at carry, (isEntry, folded, (seated, below, clear, room)) =>
+      ((isEntry, folded, (seated, arithmetic, arithmetic, room)), byComputing)
+    | Held at carry, (_, _, ((never, _, _), _, _, _)) => (Bool.falseNotTrue never).impossible
+
+--| A call's elements filling lines laid at `inset`, deeper than the call (`Nest 4 (Fill …)`): the function at the
+--| call's seat, the arguments after it.
+--|
+--| Proof idea: the function, laid deeper from the call's seat (`enteredDeeper`), leaves the fold as after its first
+--| word, which starts nothing and glues nothing, with nothing in force right of the call's indentation
+--| (`openedBound`); each argument then starts after a separator and keeps it (`sepsArgs`).
+theorem filledHangs ∀ (kinds: Text → Tok) (head: Doc) (args: List Doc) (more indent column: Nat) (middle trails: Bool)
+    (positive: (0 < more) = True)
+    (headHangs: ElHangs kinds head (indent + more) column False middle wordStart)
+    (filled: FilledArgs kinds (indent + more) middle trails args):
+    ElHangs kinds (Nest more (Fill [head, ..args])) indent column False trails wordStart :=
+  state entry place trace next entered after =>
+    let inset := indent + more
+    let (_, _, (seated, below, clear, room)) := entered
+    let opened := openedBy state (wordStart indent entry)
+    let bound: (inForce opened.blocks opened.top <= indent) = True :=
+      openedBound indent column state entry seated below clear room
+    let (deep, same) := enteredDeeper indent inset column state entry place (hangOf kinds trace) arithmetic entered
+    headHangs state entry place trace (left later => SepsLay args inset left later next) deep (left later (ended,
+      folded) =>
+      sepsArgs kinds args inset indent opened middle trails
+        (openedQuietStart state (wordStart indent entry))
+        (openedUnglued state (wordStart indent entry))
+        bound
+        arithmetic
+        filled
+        left
+        later
+        next
+        (rewrite same at ended then ended, rewrite same at folded then folded, bound)
+        (left later (done, landed, _) => after left later (done, landed)))
+
+--| A broken call's arguments each on a line of its own, laid deeper than the call, as a part after its function.
+theorem linedPart ∀ (kinds: Text → Tok) (docs: List Doc) (more indent: Nat) (before trails: Bool)
+    (positive: (0 < more) = True)
+    (args: LinedArgs kinds (indent + more) before trails docs):
+    PartHangs kinds (Nest more (Doc.concat (docs.concatMap (doc => [HardLine, doc])))) indent before trails :=
+  state entry quiet unglued place trace next (isEntry, folded, ended, clear) after =>
+    hangsConcat kinds
+      (docs.concatMap (doc => [HardLine, doc]))
+      (indent + more)
+      (AfterWords state indent before)
+      (AfterWords state indent trails)
+      (linedRest kinds docs (indent + more) indent state before trails quiet unglued clear arithmetic args)
+      place
+      trace
+      next
+      (rewrite isEntry then ended, folded, clear)
+      (left later (done, landed, _) => after left later (done, landed))
