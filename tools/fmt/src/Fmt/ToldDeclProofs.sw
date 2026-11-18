@@ -5,8 +5,10 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Fmt.CalmProofs (bracketFrom, bracketIs, plainDef, plainDefIs)
 import Fmt.SpellProofs (..)
 import Fmt.ToldWordProofs (..)
+import Fmt.TrailsProofs (Coded, trailsBackCoded)
 
 -- What a reading says, as a list of entries to refine.
 
@@ -483,3 +485,410 @@ theorem isSpace: Is (Doc.text " ") [] := spot => byComputing
 theorem isComma: Is (Closing ",") [Said "," True True] := spot =>
   rewrite pieceTell "," spot byComputing then
     wordTellingRefines "," spot True (never => (Bool.trueNotFalse never).impossible)
+
+-- Where the code before a closer ends with a comment.
+
+--| Settled words, newest first, stay settled from any point on.
+theorem homedSuffix ∀ (front back: List Word) (homed: homedBack (front ++ back) = True): homedBack back = True :=
+  match front with
+    | [] => homed
+    | [word, ..rest] => homedSuffix rest back (Bool.andRight homed)
+
+theorem codedSnoc ∀ (front: List Word) (last: Word)
+    (code: isCloserText last.text = False):
+    Coded (front ++ [last]) = True :=
+  match front with
+    | [] => rewrite code
+    | [word, ..rest] =>
+      match isCloserText word.text with
+        | True => codedSnoc rest last code
+        | False => byComputing
+
+theorem closeBool ∀ (closer trails noted before: Bool)
+    (cond: (!(closer && trails) || False || noted || before) = True):
+    (!(closer && trails) || (!False && (noted || before))) = True :=
+  match closer, trails, noted, before with
+    | False, _, _, _ => byComputing
+    | True, False, _, _ => byComputing
+    | True, True, True, _ => byComputing
+    | True, True, False, True => byComputing
+
+--| A closer that holds a comment is homed when the code before it ends with one, or it has own-line comments: the
+--| rules' `before` for it is what `homedBack` reads.
+theorem closeHomes ∀ (close: Word) (xs prior: List Word) (around: Around)
+    (code: Coded xs = True)
+    (same: around.before = trailsBack xs)
+    (unhoisted: around.hoisted = False)
+    (homed: homedBack ([close, ..xs] ++ prior) = True):
+    close.homes around = True :=
+  match xs, code with
+    | [first, ..more], code =>
+      rewrite unhoisted, same then
+        closeBool
+          (isCloserText close.text)
+          close.trails
+          close.noted
+          (trailsBack [first, ..more])
+          (rewrite <- trailsBackCoded [first, ..more] prior code then Bool.andLeft homed)
+
+-- What the tree's tokens are.
+
+--| The tokens that are no brackets' closers: names and numerals, openers, operators.
+def Expr.nonCloser: Expr → Bool
+  | Atom _ word => !isCloserText word.text
+  | Paren open inner _ => !isCloserText open.text && inner.nonCloser
+  | Tuple open items _ _ => !isCloserText open.text && allNonCloser items
+  | ListOf open items _ _ => !isCloserText open.text && allNonCloser items
+  | App head arguments => head.nonCloser && allNonCloser arguments
+  | Infix _ left operator right => left.nonCloser && !isCloserText operator.text && right.nonCloser
+  | Prefix operator operand => !isCloserText operator.text && operand.nonCloser
+  | _ => False
+
+def allNonCloser: List Expr → Bool
+  | [] => True
+  | [expr, ..rest] => expr.nonCloser && allNonCloser rest
+
+theorem leadNonCloser ∀ (expr: Expr) (nonCloser: expr.nonCloser = True): isCloserText expr.lead.text = False :=
+  match expr with
+    | Atom kind word => Bool.notTrue _ nonCloser
+    | Paren open inner close => Bool.notTrue _ (Bool.andLeft nonCloser)
+    | Tuple open items comma close => Bool.notTrue _ (Bool.andLeft nonCloser)
+    | ListOf open items comma close => Bool.notTrue _ (Bool.andLeft nonCloser)
+    | App head arguments => leadNonCloser head (Bool.andLeft nonCloser)
+    | Infix kind left operator right => leadNonCloser left (Bool.andLeft nonCloser)
+    | Prefix operator operand => Bool.notTrue _ (Bool.andLeft nonCloser)
+
+--| An expression read back has a word that is no closer.
+theorem codedOf ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (nonCloser: expr.nonCloser = True):
+    Coded expr.words.reverse = True :=
+  let (rest, words) := wordsLead expr within
+  rewrite words, List.reverseCons expr.lead rest then codedSnoc rest.reverse expr.lead (leadNonCloser expr nonCloser)
+
+-- Items.
+
+--| What stands among the words before an item: its own words read back, then the earlier items'.
+theorem itemsHomed ∀ (item: Expr) (rest: List Expr) (prior: List Word)
+    (homed: homedBack ((itemsWords [item, ..rest]).reverse ++ prior) = True):
+    homedBack (item.words.reverse ++ prior) = True
+      ∧ homedBack ((itemsWords rest).reverse ++ (item.words.reverse ++ prior)) = True :=
+  let split: (itemsWords [item, ..rest]).reverse ++ prior
+    = (itemsWords rest).reverse ++ (item.words.reverse ++ prior) :=
+    rewrite List.reverseAppend item.words (itemsWords rest),
+        List.appendAssoc (itemsWords rest).reverse item.words.reverse prior
+  let whole := rewrite split at homed then homed
+  (homedSuffix (itemsWords rest).reverse (item.words.reverse ++ prior) whole, whole)
+
+--| Every item of a list tells its shape, wherever it stands.
+def ElShape (expr: Expr): Prop :=
+  ∀ (around: Around) (prior: List Word) => expr.within1 = True
+    → expr.sound = True
+    → expr.nonCloser = True
+    → homedBack (expr.words.reverse ++ prior) = True
+    → Is (expr.el around) (expr.shape around.item around.hoisted)
+
+def AllElShape: List Expr → Prop
+  | [] => True
+  | [expr, ..rest] => ElShape expr ∧ AllElShape rest
+
+theorem isSeparator ∀ (first: Bool): Is (if first then SoftLine else Line) [] := match first with
+  | True => isSoftLine
+  | False => isLine
+
+--| A broken bracket's lines tell its items, a bare comma after each but the last.
+--|
+--| Proof idea: Induction on the items, a separator before each.
+theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: List Expr) (prior: List Word)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (nonCloser: allNonCloser items = True)
+    (each: AllElShape items)
+    (homed: homedBack ((itemsWords items).reverse ++ prior) = True):
+    IsAll (brokenItems bare arm first before at items) (itemsShape (!bare) items) :=
+  match items, each with
+    | [], _ => isNil
+    | [item], (kept, _) =>
+      let (head, _) := itemsHomed item [] prior homed
+      isCons
+        (if first then SoftLine else Line)
+        [item.el (firstAround bare arm before at)]
+        []
+        (item.shape (!bare) False)
+        (isSeparator first)
+        (isLast
+          (item.el (firstAround bare arm before at))
+          (item.shape (!bare) False)
+          (kept
+            (firstAround bare arm before at)
+            prior
+            (Bool.andLeft within)
+            (Bool.andLeft sound)
+            (Bool.andLeft nonCloser)
+            head))
+    | [item, ..rest], (kept, others) =>
+      let (head, tail) := itemsHomed item rest prior homed
+      isCons
+        (if first then SoftLine else Line)
+        [
+          item.el (firstAround bare arm before at),
+          Closing ",",
+          ..brokenItems False arm False False (at + item.size) rest
+        ]
+        []
+        (item.shape (!bare) False ++ [Said "," True True] ++ itemsShape True rest)
+        (isSeparator first)
+        (isCons
+          (item.el (firstAround bare arm before at))
+          [Closing ",", ..brokenItems False arm False False (at + item.size) rest]
+          (item.shape (!bare) False)
+          ([Said "," True True] ++ itemsShape True rest)
+          (kept
+            (firstAround bare arm before at)
+            prior
+            (Bool.andLeft within)
+            (Bool.andLeft sound)
+            (Bool.andLeft nonCloser)
+            head)
+          (isCons
+            (Closing ",")
+            (brokenItems False arm False False (at + item.size) rest)
+            [Said "," True True]
+            (itemsShape True rest)
+            isComma
+            (brokenItemsShape False arm False False
+              (at + item.size)
+              rest
+              (item.words.reverse ++ prior)
+              (Bool.andRight within)
+              (Bool.andRight sound)
+              (Bool.andRight nonCloser)
+              others
+              tail)))
+
+--| What each cell of a filled list tells: an item, a bare comma after each but the last.
+def cellShapes (first: Bool): List Expr → List (List Told)
+  | [] => []
+  | [item] => [item.shape first False]
+  | [item, ..rest] => [item.shape first False ++ [Said "," True True], ..cellShapes True rest]
+
+theorem joinCells ∀ (first: Bool) (items: List Expr): joinShapes (cellShapes first items) = itemsShape first items :=
+  match items with
+    | [] => byComputing
+    | [item] => List.appendNil (item.shape first False)
+    | [item, ..rest] =>
+      rewrite joinCells True rest then
+        List.appendAssoc (item.shape first False) [Said "," True True] (itemsShape True rest)
+
+--| A filled list's cells tell its items, a bare comma after each but the last.
+theorem cellsShape ∀ (bare arm before: Bool) (at: Nat) (items: List Expr) (prior: List Word)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (nonCloser: allNonCloser items = True)
+    (each: AllElShape items)
+    (homed: homedBack ((itemsWords items).reverse ++ prior) = True):
+    IsEach (cells bare arm before at items) (cellShapes (!bare) items) :=
+  match items, each with
+    | [], _ => byComputing
+    | [item], (kept, _) =>
+      let (head, _) := itemsHomed item [] prior homed
+      (
+        kept
+          (firstAround bare arm before at)
+          prior
+          (Bool.andLeft within)
+          (Bool.andLeft sound)
+          (Bool.andLeft nonCloser)
+          head,
+        byComputing
+      )
+    | [item, ..rest], (kept, others) =>
+      let (head, tail) := itemsHomed item rest prior homed
+      (
+        isConcat
+          [item.el (firstAround bare arm before at), Closing ","]
+          (item.shape (!bare) False ++ [Said "," True True])
+          (isCons
+            (item.el (firstAround bare arm before at))
+            [Closing ","]
+            (item.shape (!bare) False)
+            [Said "," True True]
+            (kept
+              (firstAround bare arm before at)
+              prior
+              (Bool.andLeft within)
+              (Bool.andLeft sound)
+              (Bool.andLeft nonCloser)
+              head)
+            (isLast (Closing ",") [Said "," True True] isComma)),
+        cellsShape False arm False
+          (at + item.size)
+          rest
+          (item.words.reverse ++ prior)
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight nonCloser)
+          others
+          tail
+      )
+
+--| A comma bracket's document tells its opener, its items and its closer.
+--|
+--| Proof idea: `bracketFrom`'s three layouts (none, filled, broken), each a concat of the opener, the items' lines and
+--| the closer, with the items' shapes joined.
+theorem bracketFromShape ∀ (list empty plain holds: Bool) (prefix closer: Doc) (filled broken: List Doc)
+    (opens items closes: List Told) (shapes: List (List Told))
+    (prefixIs: Is prefix opens)
+    (closerIs: Is closer closes)
+    (filledIs: IsEach filled shapes)
+    (joined: joinShapes shapes = items)
+    (brokenIs: IsAll broken items)
+    (emptyItems: empty = True → items = []):
+    Is (bracketFrom list empty plain holds prefix closer filled broken) (opens ++ items ++ closes) :=
+  match empty with
+    | True =>
+      rewrite emptyItems byComputing then
+        isConcat _ _ (isCons prefix [closer] opens closes prefixIs (isLast closer closes closerIs))
+    | False =>
+      match list && !holds && plain with
+        | True =>
+          isConcat
+            [prefix, Nest 2 (Fill filled), closer] _
+            (isCons prefix
+              [Nest 2 (Fill filled), closer]
+              opens
+              (items ++ closes)
+              prefixIs
+              (isCons
+                (Nest 2 (Fill filled))
+                [closer]
+                items
+                closes
+                (isNest 2 (Fill filled) items (rewrite <- joined then isFill filled shapes filledIs))
+                (isLast closer closes closerIs)))
+        | False =>
+          match holds with
+            | True =>
+              isConcat _ _
+                (isAllSame _ _ _
+                  (isAppend
+                    [prefix, Nest 2 (Doc.concat broken), SoftLine, closer]
+                    [BreakParent]
+                    (opens ++ items ++ closes)
+                    []
+                    (isCons prefix
+                      [Nest 2 (Doc.concat broken), SoftLine, closer]
+                      opens
+                      (items ++ closes)
+                      prefixIs
+                      (isCons
+                        (Nest 2 (Doc.concat broken))
+                        [SoftLine, closer]
+                        items
+                        closes
+                        (isNest 2 (Doc.concat broken) items (isConcat broken items brokenIs))
+                        (isCons SoftLine [closer] [] closes isSoftLine (isLast closer closes closerIs))))
+                    (isLast BreakParent [] isBreakParent))
+                  (List.appendNil _))
+            | False =>
+              isConcat _ _
+                (isCons prefix
+                  [Nest 2 (Doc.concat broken), SoftLine, closer]
+                  opens
+                  (items ++ closes)
+                  prefixIs
+                  (isCons
+                    (Nest 2 (Doc.concat broken))
+                    [SoftLine, closer]
+                    items
+                    closes
+                    (isNest 2 (Doc.concat broken) items (isConcat broken items brokenIs))
+                    (isCons SoftLine [closer] [] closes isSoftLine (isLast closer closes closerIs))))
+
+theorem bracketBack ∀ (open: Word) (items: List Expr) (close: Word):
+    ([open, ..itemsWords items] ++ [close]).reverse = [close, ..((itemsWords items).reverse ++ [open])] :=
+  rewrite List.reverseSnoc [open, ..itemsWords items] close, List.reverseCons open (itemsWords items)
+
+theorem trailsBeforeCloseIs ∀ (open: Word) (items: List Expr) (close: Word):
+    (ListOf open items False close).trailsBeforeClose = trailsBack ((itemsWords items).reverse ++ [open]) :=
+  rewrite bracketBack open items close
+
+--| A tuple or list's content tells its opener, its items with bare commas, and its closer.
+--|
+--| Proof idea: `bracketIs`, then `bracketFromShape` with the opener (`openingShape`), the closer (`leafShape`, homed
+--| by `closeHomes`: what `homedBack` says of the closer is the code before it read back, which is the `before` the
+--| rule passes), the cells (`cellsShape`) and the lines (`brokenItemsShape`).
+theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (prior: List Word)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (nonCloser: allNonCloser items = True)
+    (openSound: open.sound = True)
+    (closeSound: close.sound = True)
+    (opens: isCloserText open.text = False)
+    (each: AllElShape items)
+    (homed: homedBack (([open, ..itemsWords items] ++ [close]).reverse ++ prior) = True):
+    Is
+      (bracketContent list open items close around)
+      (open.shapeK around.item around.hoisted
+        ++ itemsShape (!(list && items.all Expr.plainItem)) items
+        ++ close.shapeK False False) :=
+  let inner: homedBack ((itemsWords items).reverse ++ ([open] ++ prior)) = True :=
+    rewrite <- List.appendAssoc (itemsWords items).reverse [open] prior then
+      homedSuffix [close] _ (rewrite bracketBack open items close at homed then homed)
+  rewrite bracketIs list open items close around then
+    bracketFromShape list items.isEmpty
+      (items.all Expr.plainItem)
+      (ListOf open items False close).holdsTrailingComment
+      (open.opening around close)
+      (close.leaf
+        (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
+        around.at)
+      (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
+      (brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
+      (open.shapeK around.item around.hoisted)
+      (itemsShape (!(list && items.all Expr.plainItem)) items)
+      (close.shapeK False False)
+      (cellShapes (!(list && items.all Expr.plainItem)) items)
+      (spot => rewrite <- printedShape open around then openingShape open around close spot openSound opens)
+      (spot =>
+        leafShape close
+          (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
+          around.at
+          spot
+          closeSound
+          (closeHomes close
+            ((itemsWords items).reverse ++ [open])
+            prior
+            (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
+            (codedSnoc (itemsWords items).reverse open opens)
+            (trailsBeforeCloseIs open items close)
+            byComputing
+            (rewrite bracketBack open items close at homed then homed)))
+      (cellsShape
+        (list && items.all Expr.plainItem)
+        around.inArm
+        open.trails
+        (around.at + 1)
+        items
+        ([open] ++ prior)
+        within
+        sound
+        nonCloser
+        each
+        inner)
+      (joinCells (!(list && items.all Expr.plainItem)) items)
+      (brokenItemsShape
+        (list && items.all Expr.plainItem)
+        around.inArm
+        True
+        open.trails
+        (around.at + 1)
+        items
+        ([open] ++ prior)
+        within
+        sound
+        nonCloser
+        each
+        inner)
+      (empty => match items, empty with | [], _ => byComputing)
