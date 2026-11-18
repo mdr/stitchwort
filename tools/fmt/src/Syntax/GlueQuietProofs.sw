@@ -12,7 +12,11 @@
 namespace Syntax.GlueQuietProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Result, Text, Void)
 import Syntax (..)
-import Syntax.SettleProofs (laidOut)
+import Syntax.SettleProofs (alphabet1, laidOut)
+import Syntax.SettleSplitProofs (groupsConcat)
+import Syntax.LexLaidProofs (lexLaidProved)
+import Syntax.SettleOnceProofs (intoTrailing)
+import Syntax.SettleBareProofs (fwdPair, lastPair, withBareFromR, withBareR, withBareRNop, withBareRPair)
 
 -- The invariant.
 
@@ -380,3 +384,654 @@ theorem arrowsQuiet ∀ (leaves: List Leaf) (quiet: gluesQuiet leaves = True): g
 theorem letsQuiet ∀ (leaves: List Leaf) (quiet: gluesQuiet leaves = True): gluesQuiet (letsFrom [] leaves) = True :=
   let (out, same, loose) := letsLoose False [] leaves
   rewrite same then looseQuietAll leaves out quiet loose
+
+-- Rule 2.
+
+theorem looseReceived ∀ (leaf: Leaf) (carry: Carried): Loose True leaf { leaf | trivia = carry.into leaf.trivia } := (
+  byComputing,
+  rewrite intoTrailing carry leaf.trivia then
+    match leaf.trivia.trailing.isNone with
+      | True => byComputing
+      | False => byComputing,
+  byComputing
+)
+
+theorem looseEmptied ∀ (free: Bool) (leaf after: Leaf)
+    (token: after.token = leaf.token)
+    (untrailed: after.trivia.trailing.isNone = True)
+    (unled: after.trivia.leading.isEmpty = True):
+    Loose free leaf after :=
+  (
+    token,
+    rewrite untrailed then
+      match leaf.trivia.trailing.isNone with
+        | True => byComputing
+        | False => byComputing,
+    rewrite unled then
+      match free with
+        | True => byComputing
+        | False =>
+          match leaf.kind.opensAtom with
+            | True =>
+              match leaf.trivia.leading.isEmpty with
+                | True => byComputing
+                | False => byComputing
+            | False => byComputing
+  )
+
+theorem commasLoose ∀ (free: Bool) (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia)
+    (freed: (!carried.isSome || free) = True):
+    ∃ (out: List Leaf) => (commasFrom done carried rest end).leaves = done.reverseOnto out ∧ LooseAll free rest out :=
+  match rest with
+    | [] => ([], byComputing, Trivial)
+    | [leaf, ..after] =>
+      match carried with
+        | None =>
+          match carries: commaCarries leaf.trivia with
+            | Some carry =>
+              match comma: leaf.kind == Comma with
+                | True =>
+                  let emptied := { leaf | trivia = Trivia.empty }
+                  let (out, same, looseRest) := commasLoose True [emptied, ..done] (Some carry) after end byComputing
+                  (
+                    [emptied, ..out],
+                    same,
+                    (looseEmptied free leaf emptied byComputing byComputing byComputing, looseRest)
+                  )
+                | False =>
+                  let (out, same, looseRest) := commasLoose False [leaf, ..done] None after end byComputing
+                  ([leaf, ..out], same, (looseSelf free leaf, looseRest))
+            | None =>
+              let (out, same, looseRest) := commasLoose (leaf.kind == Comma) [leaf, ..done] None after end byComputing
+              ([leaf, ..out], same, (looseSelf free leaf, looseRest))
+        | Some carried =>
+          let isFree: free = True := rewrite <- freed
+          let received := { leaf | trivia = carried.into leaf.trivia }
+          rewrite isFree then
+            match carries: commaCarries (carried.into leaf.trivia) with
+              | Some carry =>
+                match comma: leaf.kind == Comma with
+                  | True =>
+                    let emptied := { received | trivia = Trivia.empty }
+                    let (out, same, looseRest) := commasLoose True [emptied, ..done] (Some carry) after end byComputing
+                    (
+                      [emptied, ..out],
+                      same,
+                      (looseEmptied True leaf emptied byComputing byComputing byComputing, looseRest)
+                    )
+                  | False =>
+                    let (out, same, looseRest) := commasLoose False [received, ..done] None after end byComputing
+                    ([received, ..out], same, (looseReceived leaf carried, looseRest))
+              | None =>
+                let (out, same, looseRest) :=
+                  commasLoose (leaf.kind == Comma) [received, ..done] None after end byComputing
+                ([received, ..out], same, (looseReceived leaf carried, looseRest))
+
+theorem commasQuiet ∀ (leaves: List Leaf) (end: Trivia)
+    (quiet: gluesQuiet leaves = True):
+    gluesQuiet (commasFrom [] None leaves end).leaves = True :=
+  let (out, same, loose) := commasLoose False [] None leaves end byComputing
+  rewrite same then looseQuietAll leaves out quiet loose
+
+-- Rule 1: a comment moved back lands on a leaf followed by a comma or closer.
+
+--| The pair at the seam of `behind` (newest first) and `rest`.
+def edgeQuiet (behind rest: List Leaf): Bool := match behind, rest with
+  | [newest, .._], [next, .._] => glueQuiet newest next
+  | _, _ => True
+
+theorem tailQuiet ∀ (first: Leaf) (rest: List Leaf)
+    (quiet: gluesQuietAfter first rest = True):
+    gluesQuiet rest = True :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => Bool.andRight quiet
+
+theorem headQuiet ∀ (first: Leaf) (rest: List Leaf)
+    (quiet: gluesQuietAfter first rest = True):
+    edgeQuiet [first] rest = True :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => Bool.andLeft quiet
+
+--| Leaves newest first, put back in order in front of `acc`, are quiet.
+theorem reverseQuiet ∀ (behind acc: List Leaf)
+    (back: gluesQuietBack behind = True)
+    (quiet: gluesQuiet acc = True)
+    (edge: edgeQuiet behind acc = True):
+    gluesQuiet (behind.reverseOnto acc) = True :=
+  match behind with
+    | [] => quiet
+    | [newest, ..older] =>
+      let accQuiet: gluesQuietAfter newest acc = True := match acc with
+        | [] => byComputing
+        | [next, ..more] => Bool.andIntro edge quiet
+      match older with
+        | [] => accQuiet
+        | [previous, ..earlier] =>
+          reverseQuiet [previous, ..earlier] [newest, ..acc] (Bool.andRight back) accQuiet (Bool.andLeft back)
+
+--| `glueQuiet` reads of the later leaf only its line start, kind and own-line comments.
+theorem backUntrail ∀ (leaf: Leaf) (trailing: Option Comment) (older: List Leaf):
+    gluesQuietBackAfter (leaf.withTrailing trailing) older = gluesQuietBackAfter leaf older :=
+  match older with
+    | [] => byComputing
+    | [previous, ..earlier] => byComputing
+
+theorem closerPlain ∀ (kind: Tok) (closer: kind.isCloser = True): kind.opensAtom = False := match kind, closer with
+  | RParen, _ => byComputing
+  | RBracket, _ => byComputing
+  | RBrace, _ => byComputing
+
+--| What rule 1 walks past opens no atom.
+theorem skippedPlain ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (skips: skipped leaf behind ahead = True):
+    leaf.kind.opensAtom = False :=
+  match comma: leaf.kind == Comma with
+    | True => rewrite DecEq.sound comma
+    | False =>
+      match pipe: leaf.kind == Pipe with
+        | True => rewrite DecEq.sound pipe
+        | False =>
+          let closer: leaf.kind.isCloser = True :=
+            rewrite skipped.eq.alt3 leaf behind ahead
+                  (DecEq.soundFalse leaf.kind Comma comma)
+                  (DecEq.soundFalse leaf.kind Pipe pipe) at skips then
+              skips
+          closerPlain leaf.kind closer
+
+--| A bar whose comment starts the line below is no sign.
+theorem barSign ∀ (leaf: Leaf) (behind ahead: List Leaf)
+    (below: barBelow leaf behind ahead = True):
+    leaf.kind.signLike = False :=
+  match sign: leaf.kind.signLike with
+    | False => byComputing
+    | True =>
+      let notPipe: leaf.kind ≠ Pipe := is => Bool.falseNotTrue (rewrite is at sign then sign)
+      let off: barBelow leaf behind ahead = False :=
+        barBelow.eq.alt2 leaf behind ahead (previous tail head tail2 isBehind isAhead => notPipe)
+      (Bool.trueNotFalse (Eq.trans below.flipped off)).impossible
+
+--| The leaves after the one `steps` back from `current` open no atom: `current` and the newest `steps - 1` of
+--| `behind`.
+def walkPlain (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match steps, behind with
+  | Succ Zero, _ => !current.kind.opensAtom
+  | Succ (Succ more), [previous, ..earlier] => !current.kind.opensAtom && walkPlain (Succ more) previous earlier
+  | _, _ => False
+
+theorem notOfFalse ∀ (b: Bool) (h: b = False): (!b) = True := rewrite h
+
+--| Rule 1's walk passes only leaves that open no atom.
+theorem stepsPlain ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat):
+    ∃ (passed: Nat) => stepsBack current behind ahead steps = steps + passed
+      ∧ (passed = 0 ∨ walkPlain passed current behind = True) :=
+  match behind with
+    | [] => (0, arithmetic, Inl byComputing)
+    | [previous, ..earlier] =>
+      match skips: skipped current [previous, ..earlier] ahead with
+        | False => (0, arithmetic, Inl byComputing)
+        | True =>
+          match stops: current.token.lineStart
+            && (!current.trivia.leading.isEmpty || endsWithComment [previous, ..earlier] [current, ..ahead]) with
+            | True => (0, arithmetic, Inl byComputing)
+            | False =>
+              let plain := notOfFalse _ (skippedPlain current [previous, ..earlier] ahead skips)
+              let (passed, walked, more) := stepsPlain previous earlier [current, ..ahead] (Succ steps)
+              let here: walkPlain (Succ passed) current [previous, ..earlier] = True := match passed, more with
+                | Zero, _ => plain
+                | Succ fewer, Inl zero => cases
+                | Succ fewer, Inr walk => Bool.andIntro plain walk
+              (Succ passed, rewrite walked then arithmetic, Inr here)
+
+--| A comment moved back over leaves that open no atom keeps the leaves quiet.
+theorem trailingAtQuiet ∀ (steps: Nat) (current: Leaf) (behind: List Leaf) (comment: Comment)
+    (plain: walkPlain steps current behind = True)
+    (back: gluesQuietBackAfter current behind = True):
+    gluesQuietBackAfter current (trailingAt behind steps comment) = True :=
+  match steps, behind with
+    | Succ Zero, [target, ..earlier] =>
+      let first: glueQuiet (target.withTrailing (Some comment)) current = True :=
+        rewrite Bool.notTrue current.kind.opensAtom plain then
+          quietNotOpens target.kind.signLike current.token.lineStart False current.trivia.leading.isEmpty
+      Bool.andIntro first (rewrite backUntrail target (Some comment) earlier then Bool.andRight back)
+    | Succ (Succ more), [previous, ..earlier] =>
+      Bool.andIntro
+        (Bool.andLeft back)
+        (trailingAtQuiet (Succ more) previous earlier comment (Bool.andRight plain) (Bool.andRight back))
+    | Succ Zero, [] => byComputing
+
+--| The seam of rule 1's leaves settled (newest first) and the leaves left: a sign at the head of `behind` is quiet
+--| with the next leaf, which carries no comment from a bar (`bumped`).
+def homeEdge (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): Bool := match behind, rest with
+  | [newest, .._], [next, .._] => !newest.kind.signLike || (bumped.isNone && glueQuiet newest next)
+  | _, _ => True
+
+theorem edgeNil ∀ (behind: List Leaf): edgeQuiet behind [] = True := match behind with
+  | [] => byComputing
+  | [newest, ..older] => byComputing
+
+theorem afterUnlead ∀ (leaf: Leaf) (leading: List Comment) (rest: List Leaf):
+    gluesQuietAfter (leaf.withLeading leading) rest = gluesQuietAfter leaf rest :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => byComputing
+
+theorem edgeOfAfter ∀ (leaf: Leaf) (behind after: List Leaf)
+    (nextOk: gluesQuietAfter leaf after = True):
+    homeEdge [leaf, ..behind] None after = True :=
+  match after with
+    | [] => byComputing
+    | [next, ..more] => Bool.orRight (Bool.andLeft nextOk)
+
+theorem edgeOfBar ∀ (leaf: Leaf) (behind after: List Leaf) (comment: Comment)
+    (notSign: leaf.kind.signLike = False):
+    homeEdge [leaf.withTrailing None, ..behind] (Some comment) after = True :=
+  match after with
+    | [] => byComputing
+    | [next, ..more] => Bool.orLeft (notOfFalse leaf.kind.signLike notSign)
+
+theorem edgeUntrailed ∀ (leaf: Leaf) (behind after: List Leaf)
+    (nextOk: gluesQuietAfter leaf after = True):
+    homeEdge [leaf.withTrailing None, ..behind] None after = True :=
+  match after with
+    | [] => byComputing
+    | [next, ..more] =>
+      Bool.orRight
+        (quietUntrail leaf.kind.signLike next.token.lineStart next.kind.opensAtom leaf.trivia.trailing.isNone
+            next.trivia.leading.isEmpty
+            (Bool.andLeft nextOk))
+
+theorem walkOfSteps ∀ (leaf: Leaf) (behind after: List Leaf) (fewer: Nat)
+    (moved: stepsBack leaf behind after 0 = Succ fewer):
+    walkPlain (Succ fewer) leaf behind = True :=
+  let (passed, walked, plain) := stepsPlain leaf behind after 0
+  let same: passed = Succ fewer := arithmetic [walked, moved]
+  match plain with
+    | Inl zero => (Nat.succNotZero fewer (Eq.trans same.flipped zero)).impossible
+    | Inr walk => rewrite <- same then walk
+
+--| Rule 1 keeps glued signs quiet.
+--|
+--| Proof idea: by induction on the leaves left, keeping the settled ones (newest first) quiet and quiet with the next
+--| leaf. A leaf whose comment stays is pushed as it is; a bar whose comment goes below pushes it onto the next leaf,
+--| after a bar, which is no sign; a comment moved back lands on a leaf followed by leaves that open no atom
+--| (`stepsPlain`, `trailingAtQuiet`), and the leaf it left has none.
+theorem homeQuiet ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf)
+    (back: gluesQuietBack behind = True)
+    (quiet: gluesQuiet rest = True)
+    (edge: homeEdge behind bumped rest = True):
+    gluesQuiet (homeFrom behind bumped rest) = True :=
+  match rest with
+    | [] => reverseQuiet behind [] back byComputing (edgeNil behind)
+    | [leaf0, ..after] =>
+      let afterQuiet := tailQuiet leaf0 after quiet
+      let kept := (leaf: Leaf) (pushOk: gluesQuietBackAfter leaf behind = True) (nextOk: gluesQuietAfter leaf after
+        = True) =>
+        homeQuiet [leaf, ..behind] None after pushOk afterQuiet (edgeOfAfter leaf behind after nextOk)
+      let barred := (leaf: Leaf) (comment: Comment) (pushOk: gluesQuietBackAfter leaf behind
+        = True) (notSign: leaf.kind.signLike = False) =>
+        homeQuiet
+          [leaf.withTrailing None, ..behind]
+          (Some comment.unspaced)
+          after
+          (rewrite backUntrail leaf None behind then pushOk)
+          afterQuiet
+          (edgeOfBar leaf behind after comment.unspaced notSign)
+      let moved := (leaf: Leaf) (comment: Comment) (fewer: Nat) (pushOk: gluesQuietBackAfter leaf behind
+        = True) (nextOk: gluesQuietAfter leaf after = True) (walk: stepsBack leaf behind after 0 = Succ fewer) =>
+        homeQuiet
+          [leaf.withTrailing None, ..trailingAt behind (Succ fewer) comment]
+          None
+          after
+          (rewrite backUntrail leaf None (trailingAt behind (Succ fewer) comment) then
+            trailingAtQuiet (Succ fewer) leaf behind comment (walkOfSteps leaf behind after fewer walk) pushOk)
+          afterQuiet
+          (edgeUntrailed leaf (trailingAt behind (Succ fewer) comment) after nextOk)
+      match bumped with
+        | None =>
+          let pushOk: gluesQuietBackAfter leaf0 behind = True := match behind with
+            | [] => byComputing
+            | [newest, ..older] =>
+              let pair: glueQuiet newest leaf0 = True := match sign: newest.kind.signLike with
+                | False =>
+                  quietNotSign leaf0.token.lineStart leaf0.kind.opensAtom newest.trivia.trailing.isNone
+                      leaf0.trivia.leading.isEmpty
+                | True => edge
+              Bool.andIntro pair back
+          match trailing: leaf0.trivia.trailing with
+            | None => kept leaf0 pushOk quiet
+            | Some comment =>
+              match mov: movable leaf0 behind after with
+                | False => kept leaf0 pushOk quiet
+                | True =>
+                  match walk: stepsBack leaf0 behind after 0 with
+                    | Zero =>
+                      match bar: barBelow leaf0 behind after with
+                        | True => barred leaf0 comment pushOk (barSign leaf0 behind after bar)
+                        | False => kept leaf0 pushOk quiet
+                    | Succ fewer => moved leaf0 comment fewer pushOk quiet walk
+        | Some note =>
+          let leaf := leaf0.withLeading [note, ..leaf0.trivia.leading]
+          let nextOk: gluesQuietAfter leaf after = True :=
+            rewrite afterUnlead leaf0 [note, ..leaf0.trivia.leading] after then quiet
+          let pushOk: gluesQuietBackAfter leaf behind = True := match behind with
+            | [] => byComputing
+            | [newest, ..older] =>
+              let notSign: newest.kind.signLike = False := Bool.notTrue _ (orFalseOf _ edge)
+              let pair: glueQuiet newest leaf = True :=
+                rewrite notSign then
+                  quietNotSign leaf.token.lineStart leaf.kind.opensAtom newest.trivia.trailing.isNone
+                      leaf.trivia.leading.isEmpty
+              Bool.andIntro pair back
+          match trailing: leaf.trivia.trailing with
+            | None => kept leaf pushOk nextOk
+            | Some comment =>
+              match mov: movable leaf behind after with
+                | False => kept leaf pushOk nextOk
+                | True =>
+                  match walk: stepsBack leaf behind after 0 with
+                    | Zero =>
+                      match bar: barBelow leaf behind after with
+                        | True => barred leaf comment pushOk (barSign leaf behind after bar)
+                        | False => kept leaf pushOk nextOk
+                    | Succ fewer => moved leaf comment fewer pushOk nextOk walk
+
+-- The last commas made bare: their comments go to the closer after them (no atom) and the leaf before them (before
+-- the comma, no atom).
+
+theorem edgeHead ∀ (first: Leaf) (behind rest: List Leaf)
+    (quiet: gluesQuietAfter first rest = True):
+    edgeQuiet [first, ..behind] rest = True :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => Bool.andLeft quiet
+
+theorem pushQuiet ∀ (leaf: Leaf) (behind: List Leaf)
+    (back: gluesQuietBack behind = True)
+    (edge: edgeQuiet behind [leaf] = True):
+    gluesQuietBack [leaf, ..behind] = True :=
+  match behind with
+    | [] => byComputing
+    | [newest, ..older] => Bool.andIntro edge back
+
+theorem movedKind ∀ (comma closer: Leaf) (behind: List Leaf):
+    (commaMoved comma closer behind).fst.token.kind = closer.token.kind :=
+  match behind with
+    | [] =>
+      match trailing: comma.trivia.trailing with
+        | None => byComputing
+        | Some comment => byComputing
+    | [previous, ..earlier] =>
+      match trailing: comma.trivia.trailing with
+        | None => byComputing
+        | Some comment =>
+          match starts: comma.token.lineStart with
+            | True => byComputing
+            | False => byComputing
+
+theorem movedBack ∀ (comma closer: Leaf) (behind: List Leaf)
+    (back: gluesQuietBack behind = True):
+    gluesQuietBack (commaMoved comma closer behind).snd = True :=
+  match behind with
+    | [] =>
+      match trailing: comma.trivia.trailing with
+        | None => byComputing
+        | Some comment => byComputing
+    | [previous, ..earlier] =>
+      match trailing: comma.trivia.trailing with
+        | None => back
+        | Some comment =>
+          match starts: comma.token.lineStart with
+            | True => back
+            | False => rewrite backUntrail previous (Some comment) earlier then back
+
+theorem closerNotSign ∀ (kind: Tok) (closer: kind.isCloser = True): kind.signLike = False := match kind, closer with
+  | RParen, _ => byComputing
+  | RBracket, _ => byComputing
+  | RBrace, _ => byComputing
+
+--| A bare last comma, between the leaves before it and the closer: a comma is no sign and opens no atom.
+theorem bareBack ∀ (moved comma: Leaf) (earlier: List Leaf)
+    (isComma: comma.token.kind = Comma)
+    (back: gluesQuietBack earlier = True):
+    gluesQuietBack [moved, { comma | trivia = Trivia.empty }, ..earlier] = True :=
+  let first: glueQuiet { comma | trivia = Trivia.empty } moved = True :=
+    rewrite isComma then quietNotSign moved.token.lineStart moved.kind.opensAtom True moved.trivia.leading.isEmpty
+  match earlier with
+    | [] => Bool.andIntro first byComputing
+    | [previous, ..older] =>
+      let second: glueQuiet previous { comma | trivia = Trivia.empty } = True :=
+        rewrite isComma then
+          quietNotOpens previous.kind.signLike comma.token.lineStart previous.trivia.trailing.isNone True
+      Bool.andIntro first (Bool.andIntro second back)
+
+theorem bareQuietR ∀ (behind rest: List Leaf)
+    (back: gluesQuietBack behind = True)
+    (quiet: gluesQuiet rest = True)
+    (edge: edgeQuiet behind rest = True):
+    gluesQuietBack (withBareR behind rest) = True :=
+  match rest with
+    | [] => back
+    | [leaf, ..after] =>
+      match pair: fwdPair behind leaf after with
+        | False =>
+          rewrite withBareRNop leaf behind after pair then
+            bareQuietR
+              [leaf, ..behind]
+              after
+              (pushQuiet leaf behind back
+                (match behind with
+                  | [] => byComputing
+                  | [newest, ..older] => edge))
+              (tailQuiet leaf after quiet)
+              (edgeHead leaf behind after quiet)
+        | True =>
+          match after with
+            | [closer, ..after2] =>
+              let isComma: leaf.token.kind = Comma := DecEq.sound (Bool.andLeft pair)
+              let closerKind: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
+              let movedSign: (commaMoved leaf closer behind).fst.kind.signLike = False :=
+                rewrite movedKind leaf closer behind then closerNotSign closer.token.kind closerKind
+              let after2Quiet := tailQuiet closer after2 (tailQuiet leaf [closer, ..after2] quiet)
+              let edge2: edgeQuiet
+                [
+                  (commaMoved leaf closer behind).fst,
+                  { leaf | trivia = Trivia.empty },
+                  ..(commaMoved leaf closer behind).snd
+                ]
+                after2
+                = True :=
+                match after2 with
+                  | [] => byComputing
+                  | [next, ..more] =>
+                    rewrite movedSign then
+                      quietNotSign next.token.lineStart next.kind.opensAtom
+                        (commaMoved leaf closer behind).fst.trivia.trailing.isNone
+                        next.trivia.leading.isEmpty
+              rewrite withBareRPair leaf closer behind after2 pair then
+                bareQuietR
+                  [
+                    (commaMoved leaf closer behind).fst,
+                    { leaf | trivia = Trivia.empty },
+                    ..(commaMoved leaf closer behind).snd
+                  ]
+                  after2
+                  (bareBack
+                    (commaMoved leaf closer behind).fst
+                    leaf
+                    (commaMoved leaf closer behind).snd
+                    isComma
+                    (movedBack leaf closer behind back))
+                  after2Quiet
+                  edge2
+
+theorem bareQuiet ∀ (leaves: List Leaf)
+    (quiet: gluesQuiet leaves = True):
+    gluesQuiet (withBareLastCommas [] leaves) = True :=
+  rewrite withBareFromR [] leaves then
+    reverseQuiet
+      (withBareR [] leaves)
+      []
+      (bareQuietR [] leaves byComputing quiet byComputing)
+      byComputing
+      (edgeNil (withBareR [] leaves))
+
+-- Rule N, and the leaves the parser reads.
+
+--| Rule N keeps glued signs quiet.
+theorem settledQuiet ∀ (lexed: Lexed) (quiet: gluesQuiet lexed.leaves = True): gluesQuiet lexed.settled.leaves = True :=
+  let homed := homeFrom [] None lexed.leaves
+  let homedQuiet: gluesQuiet homed = True := homeQuiet [] None lexed.leaves byComputing quiet byComputing
+  let commas := commasFrom [] None homed lexed.end
+  trimmedQuietAll
+    (letsFrom [] (arrows commas.leaves))
+    (letsQuiet (arrows commas.leaves) (arrowsQuiet commas.leaves (commasQuiet homed lexed.end homedQuiet)))
+
+--| The leaves the parser reads from a lexed source in slice 1's alphabet have glued signs quiet.
+theorem onceQuiet ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed)
+    (within: alphabet1 lexed.leaves = True):
+    gluesQuiet lexed.settledOnce.leaves = True :=
+  let (laid, _) := lexLaidProved source lexed lexes within
+  settledQuiet
+    { lexed | leaves = withBareLastCommas [] lexed.leaves }
+    (bareQuiet lexed.leaves (laidQuiet lexed.leaves False laid))
+
+-- Items.
+
+--| A sign and the item after it: if that item opens an atom and is glued to the sign, neither has a comment between
+--| them. What `argumentPrefix` and `negativeNumeral` see.
+def itemGlueQuiet (sign next: Item): Bool :=
+  quietOf sign.kind.signLike
+    !next.glued
+    next.kind.opensAtom
+    sign.leaf.trivia.trailing.isNone
+    next.leaf.trivia.leading.isEmpty
+
+def itemsQuiet: List Item → Bool
+  | [] => True
+  | [first, ..rest] => itemsQuietAfter first rest
+
+def itemsQuietAfter (previous: Item) (rest: List Item): Bool := match rest with
+  | [] => True
+  | [next, ..more] => itemGlueQuiet previous next && itemsQuietAfter next more
+
+theorem quietAnyStart ∀ (s x o t e: Bool) (quiet: quietOf s False o t e = True): quietOf s x o t e = True :=
+  match x with
+    | True => quietStarts s o t e
+    | False => quiet
+
+theorem quietGlued ∀ (s l o t e c: Bool) (quiet: quietOf s l o t e = True): quietOf s (!(!l && c)) o t e = True :=
+  match l with
+    | True => quietStarts s o t e
+    | False => quietAnyStart s (!c) o t e quiet
+
+theorem itemsAfterQuiet ∀ (previous: Item) (rest: List Leaf) (index depth lineIndent: Nat)
+    (quiet: gluesQuietAfter previous.leaf rest = True):
+    itemsQuietAfter previous (itemsAfter (Some previous.leaf.token) index depth lineIndent rest) = True :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] =>
+      let token := next.token
+      let glued := !token.lineStart && endColumn previous.leaf.token == token.column
+      let afterOperand := previous.leaf.token.kind.closesOperand
+      let afterDot := previous.leaf.token.kind == Dot
+      let indent := if token.lineStart then token.column else lineIndent
+      let after :=
+        if token.kind.isOpener then depth + 1
+        else if token.kind.isCloser then depth - 1
+        else depth
+      let item: Item := { leaf = next, glued, afterOperand, afterDot, index, depth, lineIndent = indent }
+      Bool.andIntro
+        (quietGlued previous.leaf.kind.signLike next.token.lineStart next.kind.opensAtom
+            previous.leaf.trivia.trailing.isNone next.trivia.leading.isEmpty
+            (endColumn previous.leaf.token == token.column)
+            (Bool.andLeft quiet))
+        (itemsAfterQuiet item more (index + 1) after indent (Bool.andRight quiet))
+
+--| The items of quiet leaves are quiet.
+theorem itemsQuietOf ∀ (leaves: List Leaf) (quiet: gluesQuiet leaves = True): itemsQuiet (items leaves) = True :=
+  match leaves with
+    | [] => byComputing
+    | [first, ..rest] =>
+      let token := first.token
+      let indent := if token.lineStart then token.column else 0
+      let after :=
+        if token.kind.isOpener then 0 + 1
+        else if token.kind.isCloser then 0 - 1
+        else 0
+      let item: Item := {
+        leaf = first,
+        glued = False,
+        afterOperand = False,
+        afterDot = False,
+        index = 0,
+        depth = 0,
+        lineIndent = indent
+      }
+      itemsAfterQuiet item rest 1 after indent quiet
+
+theorem appendQuietAfter ∀ (first: Leaf) (xs ys: List Leaf)
+    (quiet: gluesQuietAfter first (xs ++ ys) = True):
+    gluesQuietAfter first xs = True ∧ gluesQuiet ys = True :=
+  match xs with
+    | [] => (byComputing, tailQuiet first ys quiet)
+    | [next, ..more] =>
+      let (moreQuiet, ysQuiet) := appendQuietAfter next more ys (Bool.andRight quiet)
+      (Bool.andIntro (Bool.andLeft quiet) moreQuiet, ysQuiet)
+
+theorem appendQuiet ∀ (xs ys: List Leaf)
+    (quiet: gluesQuiet (xs ++ ys) = True):
+    gluesQuiet xs = True ∧ gluesQuiet ys = True :=
+  match xs with
+    | [] => (byComputing, quiet)
+    | [first, ..rest] => appendQuietAfter first rest ys quiet
+
+theorem groupsQuiet ∀ (groups: List (List Leaf))
+    (quiet: gluesQuiet groups.concat = True):
+    List.All (group => itemsQuiet (items group) = True) groups :=
+  match groups with
+    | [] => Trivial
+    | [group, ..more] =>
+      let (groupQuiet, moreQuiet) := appendQuiet group more.concat quiet
+      (itemsQuietOf group groupQuiet, groupsQuiet more moreQuiet)
+
+--| Every declaration's items, as `parseFile` reads them from a lexed source in slice 1's alphabet, have glued signs
+--| quiet: what the parse fact `signsQuiet1` needs of them.
+theorem settledItemsQuiet ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed)
+    (within: alphabet1 lexed.leaves = True):
+    List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.settledOnce.leaves) :=
+  groupsQuiet
+    (groupsOf lexed.settledOnce.leaves)
+    (rewrite groupsConcat lexed.settledOnce.leaves then onceQuiet source lexed lexes within)
+
+-- Witnesses.
+
+--| The items `parseFile` reads from a source, all its declarations' together, if it lexes.
+def settledItemsOf (source: Text): List Item := match lex source with
+  | Ok lexed => items lexed.settledOnce.leaves
+  | Err _ => []
+
+--| Every glued item without a comment above it and none on the item before: the invariant without its restriction
+--| to a sign and an atom's first token.
+def gluedBare: List Item → Bool
+  | [] => True
+  | [first, ..rest] => gluedBareAfter first rest
+
+def gluedBareAfter (previous: Item) (rest: List Item): Bool := match rest with
+  | [] => True
+  | [next, ..more] =>
+    (!next.glued || (previous.leaf.trivia.trailing.isNone && next.leaf.trivia.leading.isEmpty))
+      && gluedBareAfter next more
+
+--| Glued signs with comments nearby, and comments on signs that aren't glued: the items are quiet.
+theorem settledItemsQuietExample: itemsQuiet
+      (settledItemsOf "def d: A := f -x !b (-1) (- -- c\n  1) - -- d\n  2 (-\n  -- o\n  y)\n")
+      = True :=
+  byComputing
+
+--| The invariant needs its restriction: rule N moves `a, -- c`'s comment back to `a`, with the `,` still glued to it.
+theorem gluedBareFalse: gluedBare (settledItemsOf "def d: A := f (a, -- c\n  b)\n") = False := byComputing
+
+theorem gluedBareQuiet: itemsQuiet (settledItemsOf "def d: A := f (a, -- c\n  b)\n") = True := byComputing
