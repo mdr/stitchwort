@@ -176,10 +176,11 @@ def lexemeFixed (source: Text) (lexeme: Parse.Located Lexeme): Bool := match lex
 
 --| The lexemes of any source that lexes are spelled as their kinds are.
 --|
---| Not yet proved: it is a walk of `lexemesIn` (every lexeme a `located` from the mark it starts at, so its text is the
---| characters it read), which needs `Parse` facts that keep the mark in step with the source (`start.rest =
---| source.toList.drop start.offset`). `Parse.ReadsIn`'s invariant is of the input left alone, and its spec can't name
---| where the run started, so a lexeme's absolute offset can't be tied to the source with it.
+--| Not yet proved (SW-4024's report has the plan): a walk of `lexemesIn`, every token lexeme a `located` from the mark
+--| it starts at, so its text is the characters read from there (`symbol`'s, `unicodeFixed`'s, or a word's, which is
+--| `def` only when `wordKind` says `KwDef`). It needs `Parse` facts that keep a mark in step with the source
+--| (`start.rest = source.toList.drop start.offset`): `Parse.ReadsIn`'s invariant is of the input left, and its spec
+--| can't name where a run started, so it can't tie a lexeme's offset to the source.
 theorem lexemesFixed ∀ (source: Text) (found: List (Parse.Located Lexeme))
     (lexes: lexemes source = Ok found):
     found.all (lexemeFixed source) = True :=
@@ -296,3 +297,13 @@ def lexesPlain (source: Text): Bool := match lex source with
 
 theorem lexesPlainExample: lexesPlain "def d: A -> (B) := g [a, b] -- end\n\ndef e: C := -1 + f x 2.5\n" = True :=
   byComputing
+
+-- What the lexer's choices of kind say of the text, for the walk of `lexemesIn` (`lexemesFixed`).
+
+--| A Unicode character the lexer reads as a token of fixed spelling is that token's text.
+theorem unicodeFixed ∀ (char: Char) (kind: Tok)
+    (alias: Tok.unicodeAlias char = Some kind):
+    fixedSpells1 kind (Text.fromList [char]) = True :=
+  cases
+
+theorem unicodeFixedExample: fixedSpells1 Arrow (Text.fromList ['→']) = True := unicodeFixed '→' Arrow byComputing
