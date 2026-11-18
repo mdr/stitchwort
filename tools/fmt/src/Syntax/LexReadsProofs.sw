@@ -1548,3 +1548,33 @@ theorem lexemesRounds ∀ (source: Text) (found: List (Parse.Located Lexeme))
               let roundsAre: rounds = more := same
               Witness rounds
                 (Witness read (Witness after.at.rest (Both foundIs (Both starts (rewrite roundsAre then each)))))
+
+-- Witnesses: the narrow hypotheses above can all hold.
+
+theorem symbolFineExample: (!(['(', 'x'].take 1).isEmpty
+      && !startsBreak (['(', 'x'].take 1)
+      && markedText (Text.fromList (['(', 'x'].take 1)) LParen)
+      = True :=
+  symbolFine ['(', 'x'] LParen 1 byComputing
+
+theorem aliasFineExample: (!(['→'].take 1).isEmpty
+      && !startsBreak (['→'].take 1)
+      && markedText (Text.fromList (['→'].take 1)) Arrow)
+      = True :=
+  aliasFine '→' [] Arrow byComputing
+
+def pieceAt (kind: Tok) (offset length: Nat): Parse.Located Lexeme := { value = TokenLexeme kind, offset, length }
+
+theorem openForeignExample: (False
+      || !(([pieceAt InterpClose 3 1, ..[].reverse]
+        ++ [pieceAt InterpOpen 1 2, ..(if True || 1 > 0 then [pieceAt StrStart 0 1] else [])]).all
+        (lexeme => lexeme.value.within)))
+      = True :=
+  openForeign True
+    (pieceAt StrStart 0 1)
+    (pieceAt InterpOpen 1 2)
+    (pieceAt InterpClose 3 1)
+    []
+    []
+    byComputing
+    byComputing

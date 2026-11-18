@@ -461,3 +461,16 @@ theorem lexLaidProved ∀ (source: Text) (lexed: Lexed)
             | Both laid (Both marked (Both texts ends)) =>
               let leavesWithin := alphabet1Leaves (assemble source found).leaves within2
               rewrite <- same then Both laid (Both (allMarked _ leavesWithin marked) (Both texts ends))
+
+-- Witnesses: the narrow hypotheses above can all hold.
+
+def noteAt: Comment := { text = "-- note", column = 0, blankLines = 0 }
+
+theorem withTrailingTextsExample: (leafTexts (withTrailing [] noteAt)).all rawText = True :=
+  withTrailingTexts [] noteAt byComputing byComputing
+
+theorem addCommentFineExample: asmFine
+      (Assembly.start.add "-- note" { value = CommentLexeme, offset = 0, length = 7 })
+      True
+      = True :=
+  addCommentFine Assembly.start False "-- note" 0 7 byComputing byComputing
