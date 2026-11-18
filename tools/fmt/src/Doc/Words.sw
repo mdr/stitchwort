@@ -172,9 +172,8 @@ theorem commentBreakWords ∀ (printer: Printer) (indent: Nat): (printer.comment
     | True => byComputing
     | False => newlineWords printer (printer.continuation indent)
 
---| Setting the comment floor leaves the printer's words as they were.
-theorem floorWords ∀ (printer: Printer) (floor: Option Nat): { printer | commentFloor = floor }.words = printer.words :=
-  byComputing
+--| Setting the carry leaves the printer's words as they were.
+theorem floorWords ∀ (printer: Printer) (carry: Carry): { printer | carry = carry }.words = printer.words := byComputing
 
 --| A line start leaves the printer's words as they were.
 theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart indent).words = printer.words :=
@@ -183,7 +182,7 @@ theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart 
     | False =>
       let broken := printer.newline (printer.continuation indent)
       Eq.trans
-        (floorWords broken (Some (printer.continuation indent)))
+        (floorWords broken (printer.carry.startFloor (printer.continuation indent)))
         (newlineWords printer (printer.continuation indent))
 
 --| A `Displaced` element leaves the printer's words as they were.
@@ -545,6 +544,8 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
         | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords, writeLayoutWords]
         | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords]
         | HardLine, steps, _ => rewrite repeatedly [steps, wordSteps]
+        | Mark key, steps, _ => rewrite repeatedly [steps]
+        | CloserLine key, steps, _ => rewrite repeatedly [steps, newlineWords]
         | LineStart, steps, _ => rewrite repeatedly [steps, wordSteps]
         | LineStartHere, steps, _ =>
           rewrite steps then
@@ -599,6 +600,8 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
         | SoftLine, steps, _ =>
           rewrite steps then eitherUniform _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
         | HardLine, steps, _ => rewrite repeatedly [steps]
+        | Mark key, steps, _ => rewrite repeatedly [steps]
+        | CloserLine key, steps, _ => rewrite repeatedly [steps]
         | LineStart, steps, _ => rewrite repeatedly [steps]
         | LineStartHere, steps, _ =>
           rewrite steps then
@@ -679,6 +682,8 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
         | Line, steps => rewrite steps then stepLighter printer 0 (Print indent mode Line) rest
         | SoftLine, steps => rewrite steps then stepLighter printer 0 (Print indent mode SoftLine) rest
         | HardLine, steps => rewrite steps then stepLighter printer 0 (Print indent mode HardLine) rest
+        | Mark key, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Mark key)) rest
+        | CloserLine key, steps => rewrite steps then stepLighter printer 0 (Print indent mode (CloserLine key)) rest
         | LineStart, steps => rewrite steps then stepLighter printer 0 (Print indent mode LineStart) rest
         | LineStartHere, steps => rewrite steps then stepLighter printer 0 (Print indent mode LineStartHere) rest
         | Blank, steps => rewrite steps then stepLighter printer 0 (Print indent mode Blank) rest
@@ -921,6 +926,8 @@ theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: C
           rewrite steps then
             eitherMarked closer suffix _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
         | HardLine, steps, _ => rewrite repeatedly [steps]
+        | Mark key, steps, _ => rewrite repeatedly [steps]
+        | CloserLine key, steps, _ => rewrite repeatedly [steps]
         | LineStart, steps, _ => rewrite repeatedly [steps]
         | LineStartHere, steps, _ =>
           rewrite steps then
@@ -1091,6 +1098,10 @@ theorem stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cm
               waits
               (newlineQuiet suffix printer indent)
         | HardLine, steps, _ => rewrite steps then newlineQuiet suffix printer indent
+        | Mark key, steps, _ => rewrite steps then waits
+        | CloserLine key, steps, _ =>
+          rewrite steps then
+            newlineQuiet suffix { printer | carry = printer.carry.close key } (printer.carry.closerAt key indent)
         | LineStart, steps, _ => rewrite steps then lineStartQuiet suffix printer indent waits
         | LineStartHere, steps, _ =>
           rewrite steps then

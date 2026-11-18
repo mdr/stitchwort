@@ -1,6 +1,6 @@
 --| The Rust engine's own tests (`crates/fmt/src/printer/engine.rs`), ported,
---| leaving out the ones on text blocks and closer marks, which this engine
---| doesn't have.
+--| leaving out the ones on text blocks, which this engine doesn't have,
+--| and tests of its own for the closer marks, which Rust's lack.
 
 namespace Fmt.Doc.Tests
 import Fmt.Doc (..)
@@ -202,3 +202,11 @@ def narrow: Doc := Doc.concat [t "aaaa", Line, t "bbbb"] |> .narrowGroup 10
 
 test "a narrow group is flat only if its line ends within its columns" :=
   print narrow 120 == "aaaa bbbb" && print (Doc.concat [t "xx", narrow]) 120 == "xxaaaa\nbbbb"
+
+test "a closer line goes at the indentation in force when no line since its mark is left of it" :=
+  let body := Nest 2 (Doc.concat [HardLine, t "x"])
+  print (Nest 2 (Doc.concat [t "f", HardLine, Mark 0, t "(", body, CloserLine 0, t ")"])) 120 == "f\n  (\n    x\n  )"
+
+test "a closer line goes at its marked line's indentation when a line since is left of it" :=
+  let opened := Nest 2 (Doc.concat [HardLine, Mark 0, t "("])
+  print (Doc.concat [t "f", opened, HardLine, t "y", Nest 4 (CloserLine 0), t ")"]) 120 == "f\n  (\ny\n  )"

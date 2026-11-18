@@ -23410,12 +23410,12 @@
     {
       "id": 3940,
       "title": "[Opus] Self-hosted fmt engine E4: ids and columns in Fmt.Doc proofs and program as engine.rs: IfBroken, NarrowGroup, Align, AlignInset, Mark/CloserLine through Readings, Words, Places; Mark+CloserLine's 6 unsupported goldens compared and matching (docs/proposals/self-hosted-fmt-engine-plan.md §3.3, E4 row; tools/fmt/NOTES.md)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Started 10:23, done 10:36, 18 Nov 2026 (Opus; estimated 45 min).\n\n- Mark/CloserLine in Fmt.Doc as engine.rs prints and measures them. The printer's commentFloor became `carry: Carry` (floor + open marks); every newline lowers the marks; CloserLine closes its mark and the floor, then breaks at `Carry.closerAt`. DocDump reads both.\n- Proofs: Place's second field is the Carry, so the marks ride along without a new field. Mark and CloserLine through Readings (printer's own step), Proofs (budget), Words, Joins, Places, Lays. None restricted, no open goal. Restated: newlineBroken, newlineAgrees, newlineStays, lineStartBreaks, floorAgrees, agreesFloor, floorHolds, floorWords; printPuts/printLays start at `AtStart 0 Carry.none`. New: carryAgrees, withCarryMid, withCarryCarry, markStays, closerStays, carryTracks.\n- IdGroup/IfBroken, NarrowGroup, Align, AlignInset were already closed by E2; nothing left there. Align's spec quantifies over every column (no column in Place); noted in NOTES as a possible weakness for the rules layer.\n- audit Fmt.Doc: 357 theorems, 0 failed, 0 warnings.\n- Harness: goldens 632/0/12 (TextBlock only; were 626/0/18); 300-file sample 5,676 matched, 0 mismatched, 31 TextBlock, 85 oversized.\n- Tests: Fmt.Doc.Tests 35/35, 2 new (closer marks).\n- No Rust bug found.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

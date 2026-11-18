@@ -91,6 +91,16 @@ type Doc =
   --| that line moved there: own-line comments before a closing bracket, at
   --| its items' indentation.
   | LineStartHere
+  --| Notes the indentation of the line this is on, for the `CloserLine`
+  --| with the same key: before an opening bracket whose closer comments
+  --| may put on a line of its own.
+  | Mark (key: Nat)
+  --| A line break for a closing bracket that comments put on a line of
+  --| its own: at the indentation in force, unless a line printed since
+  --| the `Mark` with the same key is at or left of that, which would make
+  --| the bracket a line of the block that line starts; then at the marked
+  --| line's indentation, if that is less. It ends the comment floor.
+  | CloserLine (key: Nat)
   --| Forces every group around it to break.
   | BreakParent
 
@@ -130,6 +140,7 @@ def Doc.forcesBreak: Doc → Bool
   | HardLine => True
   | LineStart => True
   | LineStartHere => True
+  | CloserLine _ => True
   | BreakParent => True
   | OneLineBelow _ => True
   | Group _ hard => hard

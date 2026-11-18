@@ -102,6 +102,11 @@ def numbered (tag line argument: Text) (build: Nat → Doc → Doc): (Node, Opti
   | Some number => (Open 1 (docs => build number (first docs)), None)
   | None => (Bad "${tag}: no number in `${line}`", None)
 
+--| A leaf numbered by the line's argument.
+def numberedLeaf (tag line argument: Text) (build: Nat → Doc): (Node, Option Text) := match argument.toNat with
+  | Some number => (Leaf (build number), None)
+  | None => (Bad "${tag}: no number in `${line}`", None)
+
 --| The node a line stands for, and the kind of node `Doc` lacks if it is one.
 def parseNode (line: Text): (Node, Option Text) :=
   let (tag, argument) := match line.splitOnce " " with
@@ -142,8 +147,8 @@ def parseNode (line: Text): (Node, Option Text) :=
       match argument.toNat with
         | Some id => (Open 2 (docs => IfBroken id (first docs) (docs.drop 1 |> first)), None)
         | None => (Bad "IfBroken: no number in `${line}`", None)
-    | "Mark" => (Leaf Empty, Some tag)
-    | "CloserLine" => (Leaf Empty, Some tag)
+    | "Mark" => numberedLeaf tag line argument Mark
+    | "CloserLine" => numberedLeaf tag line argument CloserLine
     | "TextBlock" => (Leaf Empty, Some tag)
     | _ => (Bad "unknown node `${line}`", None)
 
