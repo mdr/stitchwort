@@ -24778,12 +24778,12 @@
     {
       "id": 4042,
       "title": "[Fable paper] fmt S1 output E: state the printed trivia fact (where printed comments and blank lines stand, the third walk of the rules; note section 4) as a test and an open goal; split the proof (F) into lanes (after SW-4034; docs/reviews/SW-4025-output-statements.md ticket E)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane note (Fable, 18 Nov): statement written and committed on lane/SW-4042 (0e24095c9). `printedStands1` in tools/fmt/src/Fmt/TriviaStatements.sw: `stands None decl.stood decl.leaves1`, 1 open goal, 5 computed witnesses; probe 699 of 699 sources stand and give printedSettle1's conclusion. Note: docs/reviews/SW-4042-trivia-statement.md (F as four lanes: F1 Opus Doc.told + laysTold, F2 and F3 Sonnet walks, F4 Opus engine end; G one Opus lane from stood1 as a hypothesis). No D question.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
