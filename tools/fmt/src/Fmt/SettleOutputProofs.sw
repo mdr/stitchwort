@@ -1755,22 +1755,6 @@ def returnFails (source: Text): Bool := match tidiedOf source with
 --| declaration and at the end. Trees the parser gives have none (`crDropped`).
 theorem returnLost: (returnFails "-- a\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\n") = True := byComputing
 
---| `tidiedUnreturned1` (open, SW-3973's parser side): the tree the formatter prints has no own-line comment ending in
---| a carriage return or a space, which is `printedSettle1`'s hypothesis `unreturned1` for trees from source.
---|
---| Why it should hold, and the route: the lexer gives each comment `withoutReturn` of its characters, which ends in
---| neither (`trimReturns`, whose last-character facts follow from its definition by induction, with `commentRaw`'s
---| `trimReturnsNone` as the model); `settledOnce` only trims (`trimEnd`, which keeps a text that doesn't end in a space)
---| and moves comments between leaves, never changing a text (`SettleOnceProofs.textsParked` and its neighbours);
---| `parseFile` turns each leaf's comments into the notes above a declaration or at the end unchanged
---| (`SettleOnceProofs.noteTexts`); and the tidy passes (`withForall` to `withMergedParameters`) keep every note. What
---| is missing is the last two: that the parser's notes, and the passes' notes, are the lexed texts and no others.
-theorem tidiedUnreturned1 ∀ (source: Text) (lexed: Lexed) (tidied: Tidied)
-    (lexes: lex source = Ok lexed)
-    (tidy: lexed.tidied = Ok tidied):
-    tidied.fourth.unreturned1 = True :=
-  ?
-
 -- Standing, joined.
 
 --| `stands` joins: leaves standing against words, with nothing owed at their end, followed by more that stand.

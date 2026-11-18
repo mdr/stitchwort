@@ -6,9 +6,8 @@
 --| - `formatIdempotent1`: formatting what it prints gives the same text.
 --|
 --| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: here
---| (`declElementsOneLine1`, `tidiedDeclsUnreturned1`, `printedSpelledPlain1` and the `calmTop` facts),
---| in `Fmt.TopReadBack` (read-back), and `tidiedUnreturned1` in `Fmt.SettleOutputProofs`. `stitchwort goal` lists what
---| is left. One of them, `printedSplit1`, is false today of a declaration with a binary operator, which read-back
+--| (`declElementsOneLine1`, `printedSpelledPlain1` and the `calmTop` facts) and in `Fmt.TopReadBack` (read-back).
+--| `stitchwort goal` lists what is left. One of them, `printedSplit1`, is false today of a declaration with a binary operator, which read-back
 --| doesn't read yet (SW-4071).
 --|
 --| What slice 1 covers: files of `def name: Type := value` with no parameters, the type and value names, numerals,
@@ -30,6 +29,7 @@ import Fmt.FileLexProofs (printedFileLexes1)
 import Fmt.OutputFileProofs (printedAlphabet1, printedNoLast1, printedPlain1)
 import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
+import Fmt.UnreturnedProofs (commaUnreturned)
 import Fmt.DeclFactsProofs (DeclElements, declHangsOf, printedHangs1)
 import Fmt.TreeJoinProofs (lexKind, printLexes1Tree)
 import Fmt.TokenProofs (declRealOfLexical)
@@ -57,16 +57,6 @@ theorem declElementsOneLine1 ∀ (decl: Decl)
     (lexical: decl.lexical1 = True)
     (oneLine: decl.oneLine1 = True):
     DeclElements lexKind decl :=
-  ?
-
---| `tidiedDeclsUnreturned1` (open; the stock take's U6): no comment of the tree the driver prints ends in a carriage
---| return or a space, above or after any word of any declaration. `printedStands1` takes it. Its route is
---| `tidiedUnreturned1`'s: the lexer strips both, rule N and the parser move comments without changing their texts,
---| and the passes keep every word's comments.
-theorem tidiedDeclsUnreturned1 ∀ (source: Text) (lexed: Lexed) (tidied: Tidied)
-    (lexes: lex source = Ok lexed)
-    (tidy: lexed.tidied = Ok tidied):
-    tidied.fourth.decls.all Decl.unreturned1 = True :=
   ?
 
 --| `printedSpelledPlain1` (open; **not in the stock take's map**): the output's names and numerals are spelled
@@ -199,6 +189,43 @@ theorem tidyIs1 ∀ (file: SourceFile)
 
 theorem tidyComma1 ∀ (file: SourceFile) (within: file.within1 = True): file.tidy1 = file.withoutTrailingCommas :=
   tidyIs1 file within
+
+--| `tidiedDeclsUnreturned1` (the stock take's U6): no comment of the tree the driver prints ends in a carriage
+--| return or a space, above or after any word of any declaration. `printedStands1` takes it. It is false of a tree
+--| outside the slice (`Decl.unreturned1` is false of a namespace line), so it takes `Formats1`'s hypotheses.
+--|
+--| Proof idea: the lexer strips both (`lexUnreturned`), rule N and the parser carry comments without changing their
+--| texts, and P2 keeps every word (`commaUnreturned`).
+theorem tidiedDeclsUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (leaves: leavesWithin1 lexed.leaves = True)
+    (parses: parseFile lexed.settledOnce = Ok parsed)
+    (within: parsed.within1 = True):
+    parsed.tidy1.decls.all Decl.unreturned1 = True :=
+  rewrite tidyComma1 parsed within then
+    (commaUnreturned source lexed parsed lexes
+      (Bool.andLeft leaves)
+      (Bool.andLeft (Bool.andRight leaves))
+      (Bool.andRight (Bool.andRight leaves))
+      parses
+      within).left
+
+--| `tidiedUnreturned1` (SW-3973's parser side): the tree the formatter prints has no own-line comment ending in a
+--| carriage return or a space, which is `printedSettle1`'s hypothesis `unreturned1`. Same route and hypotheses as
+--| `tidiedDeclsUnreturned1`.
+theorem tidiedUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (leaves: leavesWithin1 lexed.leaves = True)
+    (parses: parseFile lexed.settledOnce = Ok parsed)
+    (within: parsed.within1 = True):
+    parsed.tidy1.unreturned1 = True :=
+  rewrite tidyComma1 parsed within then
+    (commaUnreturned source lexed parsed lexes
+      (Bool.andLeft leaves)
+      (Bool.andLeft (Bool.andRight leaves))
+      (Bool.andRight (Bool.andRight leaves))
+      parses
+      within).right
 
 --| A tree within the slice with no last comma is tidy.
 theorem tidySame1 ∀ (file: SourceFile)
@@ -368,15 +395,8 @@ theorem printedOf ∀ (source out: Text) (lexed: Lexed) (parsed: SourceFile)
     Printed1 source lexed parsed :=
   let (lexes, leaves, parses, within, oneLine, _) := formats
   let facts := tidiedFacts source lexed parsed lexes leaves parses within
-  let tidied: Tidied := {
-    first = parsed.withForall,
-    second = parsed.withForall.withoutTrailingCommas,
-    third = parsed.withForall.withoutTrailingCommas.withoutSpareBrackets,
-    fourth = parsed.tidy1
-  }
-  let tidy: lexed.tidied = Ok tidied := rewrite parses
-  let unreturned := tidiedUnreturned1 source lexed tidied lexes tidy
-  let declsUnreturned := tidiedDeclsUnreturned1 source lexed tidied lexes tidy
+  let unreturned := tidiedUnreturned1 source lexed parsed lexes leaves parses within
+  let declsUnreturned := tidiedDeclsUnreturned1 source lexed parsed lexes leaves parses within
   let (lexOut, parseOut) := outputParses1 parsed.tidy1 facts oneLine declsUnreturned unreturned
   (facts, oneLine, lexOut, parseOut)
 
@@ -459,14 +479,8 @@ theorem formatIdempotent1 ∀ (source out: Text) (formats: formatWithin1 source 
 theorem tidiedDeclsUnreturnedOf ∀ (source out: Text) (lexed: Lexed) (parsed: SourceFile)
     (formats: Formats1 source out lexed parsed):
     parsed.tidy1.decls.all Decl.unreturned1 = True :=
-  let (lexes, _, parses, _, _, _) := formats
-  let tidied: Tidied := {
-    first = parsed.withForall,
-    second = parsed.withForall.withoutTrailingCommas,
-    third = parsed.withForall.withoutTrailingCommas.withoutSpareBrackets,
-    fourth = parsed.tidy1
-  }
-  tidiedDeclsUnreturned1 source lexed tidied lexes (rewrite parses)
+  let (lexes, leaves, parses, within, _, _) := formats
+  tidiedDeclsUnreturned1 source lexed parsed lexes leaves parses within
 
 -- A source the theorems apply to (D3684).
 
@@ -512,3 +526,15 @@ def goalsHoldOn (source: Text): Bool := match tidiedOf source with
 
 --| The open goals' hypotheses and conclusions hold of `witnessSource`'s printed tree.
 theorem witnessGoals: goalsHoldOn witnessSource = True := byComputing
+
+--| `tidiedUnreturned1`'s and `tidiedDeclsUnreturned1`'s hypotheses hold of `witnessSource` (its `Formats1`), and so do
+--| their conclusions.
+theorem witnessUnreturned: ∃ (lexed: Lexed) (parsed: SourceFile) => parsed.tidy1.unreturned1 = True
+      ∧ parsed.tidy1.decls.all Decl.unreturned1 = True :=
+  match formatsOf witnessSource witnessOut witnessFormats with
+    | Witness lexed (Witness parsed (lexes, leaves, parses, within, _, _)) =>
+      Witness lexed
+        (Witness parsed (
+          tidiedUnreturned1 witnessSource lexed parsed lexes leaves parses within,
+          tidiedDeclsUnreturned1 witnessSource lexed parsed lexes leaves parses within
+        ))
