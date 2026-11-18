@@ -25108,7 +25108,7 @@
     {
       "id": 4066,
       "title": "[Opus] fmt S1 printedFinish1: the end-side mirror of Std.Doc Leads (a run lemma that the last chunk written stays at the head of the output, at most one trailing comment, never a bare newline), then an induction over slice 1's expressions (framed, parenDoc, commaBracket, appDocs/appFrom, chain, prefix, bodyAfter) that the value ends on a token in any layout; sketch the predicate first (SW-4062's recommended route; doc on printedFinish1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
