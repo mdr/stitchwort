@@ -24423,7 +24423,7 @@
     {
       "id": 4015,
       "title": "[Opus] Std.Doc proofs: a Blank right after a line break can't be laid (SepLays/SoftLays give AtStart after a break, StartLays turns Broken into AtStart, BlankLays AtStart is False), though the printer prints it; make break branches give Broken and StartLays keep it, re-prove printPuts; blocks printedHangs for blank lines kept between bracket items (SW-4011); also commentKeepsFloor next to floorAfter",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
