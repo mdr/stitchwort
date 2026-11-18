@@ -16135,14 +16135,14 @@
     {
       "id": 3391,
       "title": "[Sonnet] SW-3381 findings: stitchwort test --std NAMESPACE (std tests per namespace, for lanes); Text.upper; a match as the last statement of a let block needing deeper indentation (better message or accept); Std.Args 'help lists every option' theorem once Text.contains/joinWith lemmas exist",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
       "body": "\n\nLane notes (Sonnet), branch lane/SW-3367 (combined with SW-3367): done here: Parse.operators (levels with associativity, tested against a chainLeft tower: same results and messages), Parse.manyToEnd + Parse.locatedToEnd (lexer loop without a handler per round: 1.49 s to 0.97 s native on 930 KB; same as the toy's hand loop). Toy parse (lex and parse) 1.84 s with hand-written climbing vs 1.97 s with Parse.operators (+7%). NOT done from this ticket: stitchwort test --std NAMESPACE, Text.upper, the match-in-let indentation message, Std.Args theorem (the brief covered only the Parse items). Moved to review.\n\nNot built: wrongly closed with SW-3367 on 15 Nov (the Parse work was SW-3392). Reopened (SW-3414 finding).",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-18",
       "commits": []
     },
     {
@@ -23332,7 +23332,7 @@
     {
       "id": 3934,
       "title": "[DeepSeek] proof_positions remembers its out-of-resources fallback for the session where erase::of_def doesn't; it feeds proofless_hash: don't cache the fallback, with a test (SW-3931 T3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
