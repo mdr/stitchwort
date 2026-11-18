@@ -553,10 +553,7 @@ theorem notesShows ∀ (notes: List Note) (output: Output) (pieces: List Piece)
         = pieces ++ notesPieces output.empty [note, ..rest] :=
         rewrite List.appendAssoc pieces (gap ++ [Remark note.text]) (notesPieces False rest),
             List.appendAssoc gap [Remark note.text] (notesPieces False rest)
-      (
-        rewrite <- joined, <- itemFull then restOk,
-        rewrite Bool.andFalse output.empty, restEmpty, itemFull then byComputing
-      )
+      (rewrite <- joined, <- itemFull then restOk, rewrite Bool.andFalse output.empty, restEmpty, itemFull)
 
 theorem declsShows ∀ (decls: List Decl) (output: Output) (pieces: List Piece)
     (shows: Shows output pieces)
@@ -592,10 +589,7 @@ theorem declsShows ∀ (decls: List Decl) (output: Output) (pieces: List Piece)
         rewrite List.appendAssoc (pieces ++ notes) (gap ++ decl.pieces1) (declsPieces False rest),
             List.appendAssoc pieces notes ((gap ++ decl.pieces1) ++ declsPieces False rest),
             List.appendAssoc gap decl.pieces1 (declsPieces False rest)
-      (
-        rewrite <- joined, <- itemFull then restOk,
-        rewrite Bool.andFalse output.empty, restEmpty, itemFull then byComputing
-      )
+      (rewrite <- joined, <- itemFull then restOk, rewrite Bool.andFalse output.empty, restEmpty, itemFull)
 
 --| The file's text is the text of its pieces.
 theorem fileText ∀ (file: SourceFile)
