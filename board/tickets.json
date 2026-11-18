@@ -25041,7 +25041,7 @@
     {
       "id": 4061,
       "title": "[Sonnet] fmt S1 output G2: close SettleOutputProofs' open lemmas: leavesStart1 (from printedTokens1), wordsSettled1 (a calm lemma keeping comment texts beside wordsCalm), printedAgrees1 (printedTokens1 plus lexKind), homedArrowsBare (word-level arrowsBare across declarations; none ends in ->); after SW-4054 lands, derive unreturned1 from settled1 (SW-4043)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -25054,7 +25054,7 @@
     {
       "id": 4062,
       "title": "[Opus] fmt S1 printedStart1 and printedFinish1: a small Std.Doc change exposing end-of-print facts (a printPuts variant returning Agrees, so lineBlank out = False at Mid/Held; or a final-edge parameter on StackJoins), then printedFinish1; printedStart1 via told (defDoc.told Spot.lineStart begins Said def), an eventsOf lemma and the hang fold's Opening (SW-4053's route, ~150-250 lines)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
