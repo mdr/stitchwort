@@ -13,7 +13,7 @@ namespace Fmt.HangProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Leaf, Tok, Word)
+import Syntax (Expr, Leaf, Tok, Word)
 import Fmt (..)
 
 -- The fold over a trace.
@@ -1103,3 +1103,120 @@ theorem elThen ∀ (kinds: Text → Tok) (first part: Doc) (indent: Nat) (middle
           next
           entered
           after
+
+--| What a prefix operator puts before its operand: nothing, or a space.
+def Gap (gap: Doc): Prop := gap = Doc.Nothing ∨ gap = Doc.text " "
+
+theorem prefixGapIs ∀ (operator: Word) (operand: Expr): Gap (prefixGap operator operand) :=
+  match spaced: operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication) with
+    | True => Inr byComputing
+    | False => Inl byComputing
+
+--| A gap after words keeps the place where an element ended, and the fold.
+theorem gapKeeps ∀ (kinds: Text → Tok) (gap: Doc) (indent: Nat) (state: HangState) (before: Bool) (bound: Prop)
+    (isGap: Gap gap):
+    HangLays kinds gap indent (place hang => Ended state before place ∧ hang = At state ∧ bound) (place hang =>
+      Ended state before place ∧ hang = At state ∧ bound) :=
+  place trace next holds after =>
+    match isGap with
+      | Inl isNothing => rewrite isNothing then after place trace holds
+      | Inr isSpace =>
+        rewrite isSpace then
+          match place, holds with
+            | Mid at carry, ((floor, left), folded, bound) =>
+              after (Mid at (floorAfter " " carry)) trace ((byComputing, left), folded, bound)
+            | Held at carry, holds => after (Held at carry) trace holds
+            | AtStart at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
+            | Broken at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
+
+--| An element, a gap, then a part after it.
+theorem elGapThen ∀ (kinds: Text → Tok) (first gap part: Doc) (indent: Nat) (middle trails: Bool)
+    (head: ElHangs kinds first indent False middle wordStart)
+    (isGap: Gap gap)
+    (rest: PartHangs kinds part indent middle trails):
+    ElHangs kinds (Doc.concat [first, gap, part]) indent False trails wordStart :=
+  state entry place trace next entered after =>
+    let pre := Entered indent False state entry (wordStart indent entry)
+    let opened := openedBy state (wordStart indent entry)
+    match entered with
+      | (_, _, (seated, clear, _)) =>
+        let bound := openedBound indent state entry seated clear
+        let mid: Place → Hang → Prop := place hang =>
+          Ended opened middle place ∧ hang = At opened ∧ (inForce opened.blocks opened.top <= indent) = True
+        let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = At opened
+        hangsConcat kinds
+          [first, gap, part]
+          indent
+          pre
+          post
+          (hangsCons kinds first
+            [gap, part]
+            indent
+            pre
+            mid
+            post
+            (hangsPost kinds first indent pre
+              (place hang => Ended opened middle place ∧ hang = At opened)
+              mid
+              (head state entry)
+              (place hang (ended, folded) => (ended, folded, bound)))
+            (hangsTwo kinds gap part indent mid mid post
+              (gapKeeps kinds gap indent opened middle ((inForce opened.blocks opened.top <= indent) = True) isGap)
+              (between later next (ended, folded, bound) onward =>
+                rest opened between
+                  (openedQuietStart state (wordStart indent entry))
+                  (openedUnglued state (wordStart indent entry))
+                  between
+                  later
+                  next
+                  (byComputing, folded, ended, bound)
+                  onward)))
+          place
+          trace
+          next
+          entered
+          after
+
+--| A prefix operator and its operand, the operator's own-line comments written elsewhere or none.
+theorem prefixHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) (around: Around) (indent: Nat) (trails: Bool)
+    (plain: Plain (kinds operator.text))
+    (token: operator.text.startsWith "--" = False)
+    (solid: isLayout operator.text = False)
+    (closer: isCloserText operator.text = False)
+    (comma: (operator.text == ",") = False)
+    (bare: operator.leading around around.at = [])
+    (trailed: TrailsComment operator)
+    (operandHangs: ∀ (column: Nat) => ElHangs kinds
+      (operand.el (around.next operator.trails 1))
+      column
+      operator.trails
+      trails
+      wordStart):
+    ElHangs kinds (Expr.el (Prefix operator operand) around) indent around.before trails wordStart :=
+  let inside := { around | hoisted = True }
+  framedHangs kinds operator around
+    (Doc.concat [
+      operator.leaf inside around.at,
+      prefixGap operator operand,
+      operand.el (around.next operator.trails 1)
+    ])
+    indent
+    trails
+    bare
+    (column =>
+      elGapThen kinds
+        (operator.leaf inside around.at)
+        (prefixGap operator operand)
+        (operand.el (around.next operator.trails 1))
+        column
+        operator.trails
+        trails
+        (elUnheld kinds
+          (operator.leaf inside around.at)
+          column
+          inside.before
+          operator.trails
+          wordStart
+          (plainLeafHangs kinds operator inside around.at column plain token solid closer comma byComputing trailed))
+        (prefixGapIs operator operand)
+        (elPart kinds (operand.el (around.next operator.trails 1)) column operator.trails trails (operandHangs column)))
