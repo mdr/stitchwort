@@ -33,6 +33,22 @@ test "Text.get" := Text.get "abc" 0 == Some 'a' ∧ Text.get "abc" 2 == Some 'c'
 
 test "Text.count" := Text.count "banana" (== 'a') == 3 ∧ Text.count "abc" (== 'z') == 0 ∧ Text.count "" (== 'a') == 0
 
+--| The character with ASCII letters made upper case: `Char.toAsciiUpper 'a'` is `'A'`,
+--| and every other character, accented letters included, is unchanged.
+def Char.toAsciiUpper (char: Char): Char :=
+  if Char.isAsciiLowercase char then
+    (match Char.fromNat (Char.toNat char - 32) with
+      | Some upper => upper
+      | None => char)
+  else char
+
+--| The text with ASCII letters made upper case: `"héllo".upper` is `"HéLLO"`.
+--| Only `a` to `z` change, so it is not Unicode case conversion.
+def Text.upper (text: Text): Text := MkText (text.toList.map Char.toAsciiUpper)
+
+test "Text.upper" :=
+  Text.upper "héllo, World 9" == "HéLLO, WORLD 9" ∧ Text.upper "" == "" ∧ Text.upper "ABC" == "ABC" ∧ "ab".upper == "AB"
+
 test "Text.any and Text.all" :=
   Text.any "abc" (== 'b') ∧ ¬(Text.any "abc" (== 'z')) ∧ Text.all "aaa" (== 'a') ∧ ¬(Text.all "aba" (== 'a'))
 
