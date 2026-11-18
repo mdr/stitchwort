@@ -1,5 +1,5 @@
 {
-  "next": 4003,
+  "next": 4004,
   "tickets": [
     {
       "id": 47,
@@ -23741,7 +23741,7 @@
     {
       "id": 3964,
       "title": "[Opus] fmt S1 ticket 13c: one-parse driver: Lexed.tidied parses twice when a comma before a closer holds a comment, so 'same program' needs two parser runs; restructure to parse once, K1's search first (sketch §3). Before ticket 20",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23795,12 +23795,12 @@
     {
       "id": 3968,
       "title": "[Sonnet] fmt S1 ticket 16b: parser proofs, second half (sketch §2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Rescoped by SW-3967 (orchestrator): 16b = the rest of the ladder (unary, app, arguments, cmpExpr, logicChain, operatorExpr, exprInline, expr), atomBase and brackets (parenAtom, bracketed, commaList, listExpr, tuple length >= 2), block/blockLines/statement, the def frame (DeclParser.sw), tying the walk with Parse.givesRecursiveWith + SelfGives, then stating and proving parseShaped1 and parseLexical1. Out-of-slice walks and parseSettled1/Carries1/fuelEnough1 moved to SW-4000. GoodItems (every item a slice-1 token with a Spells spelling) is assumed: discharge it in glue as lexGood.",
+      "body": "\nRescoped by SW-3967 (orchestrator): 16b = the rest of the ladder (unary, app, arguments, cmpExpr, logicChain, operatorExpr, exprInline, expr), atomBase and brackets (parenAtom, bracketed, commaList, listExpr, tuple length >= 2), block/blockLines/statement, the def frame (DeclParser.sw), tying the walk with Parse.givesRecursiveWith + SelfGives, then stating and proving parseShaped1 and parseLexical1. Out-of-slice walks and parseSettled1/Carries1/fuelEnough1 moved to SW-4000. GoodItems (every item a slice-1 token with a Spells spelling) is assumed: discharge it in glue as lexGood.\n\nLane notes (Sonnet, 18 Nov 2026, about 50 min of agent time, est. 60): branch lane/SW-3968. New file tools/fmt/src/Syntax/ParseWalk.sw (namespace Syntax.ParseWalk, 195 theorems, audit 0 failed, 2 vacuity warnings that are search artefacts). Walked: unary, app/arguments, atomBase and its arms, parenAtom, bracketed, tuples (two items or more, via commaListFrom), lists, cmpExpr, ranges, logicChain (groupLogic, conjunctionOf), operatorExpr (arrow, sections), exprInline, expr, block/blockLines/statement, thenBody, resultType, the def frame (definitionParts, definitionBody, declaration), parseGroups/parseFile; tied with Parse.givesRecursiveWith; parseShaped1, parseLexicalLoose1, parseLexical1 proved. Assumed (for SW-4000): `OutsideGives` (type Outside, the out-of-slice rules of the recursion) and `Frame expressionAt` (the frame's out-of-slice parts), both records of named Gives facts in ParseWalk.sw. Parser.sw, DeclParser.sw and Statements.sw were split into named steps (behaviour-keeping). Finding: `def Foo: Nat := 1` is within1 but not Decl.lexical1 (the name lexes as Upper); parseLexical1 therefore takes a lower-case-name hypothesis, and parseLexicalLoose1 holds without it. Tests: check Syntax Fmt, Syntax.ParseWalk, Syntax.ParseProofs; audit ParseWalk, ParseProofs, Fmt.PassProofs; test Syntax.Tests (52), Fmt.Tests (82).\n\nMerged 18 Nov. Model result: sonnet, worked, 47 min (est. 60). Statements checked by the orchestrator: parseShaped1, parseLexicalLoose1, parseLexical1 say what their docs claim; the lowerNamed1 condition is real (counterexample def Foo) and goes to SW-4000/SW-4003. 16a atom theorems generalised to any predicate (not weakened).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23821,15 +23821,30 @@
     {
       "id": 3970,
       "title": "[Sonnet] fmt S1 ticket 18a: rules and spelling proofs, first half; after 13a and 13b (sketch §2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 18 Nov 2026, about 60 min; estimate 60):\n- 18a, first half, done on `lane/SW-3970` (14 commits). `Fmt/CalmProofs.sw`: calmPrints (139 theorems). `Fmt/SpellProofs.sw`: printedSpells, printedSpellsSettled, printedSpellsText (126). `Fmt/PrintLexProofs.sw`: printedLexes, the bridge from `Pairs follows` to the lexer proofs' pieces (41). Audits clean; `Fmt.Tests` 86 of 86 (4 new, hypotheses and facts on tidied trees with comments).\n- Not done: `Joins` for each rule (so printLexes1 for a declaration), printedHangs, printedKeeping, printedSettle1. Notes and the plan for 18b are in tools/fmt/NOTES.md (\"Slice 1 rules proofs, first half\").\n- Findings: `MayFollow Bang` in LexProofs is stricter than the lexer (blocks `!isSmall x`); `Lexical1` doesn't give non-layout token text.\n- Rules.sw splits (behaviour kept, tests unchanged): parenInner, chainRight, chainOf, appFrom, matchedParts, bodyDoc, callHug, opensBracket, lambdaHug, defFrom, defDoc's body projections.\n\nMerged 18 Nov after a merge with SW-3999 (Rules.sw conflict in bodyAfter, resolved in the lane, 1 min). Model result: sonnet, worked (planned partial), 60 min (est. 60). Statements checked by the orchestrator: calmPrints, printedSpells (two filtered equalities, noted for SW-4003), printedLexes: each says what its doc claims. Break-once checks done.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "3bae4d8b8",
+        "ac2a3d68a",
+        "2e80c7654",
+        "e6d84c9a5",
+        "3fa2b9b51",
+        "5388de331",
+        "c5bc1c637",
+        "fc2ad836f",
+        "936c0a529",
+        "eb43201e4",
+        "c06f3f0bc",
+        "d5793b2dc",
+        "b1b3638a8",
+        "3fcb55827"
+      ]
     },
     {
       "id": 3971,
@@ -23839,7 +23854,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-3970 (18a): left for 18b: Joins (Follows kinds) doc edge next for the ~25 rule functions (toy's JoinProofs/RuleJoinProofs pattern; slice 1 adds Choice, IfBroken, IdGroup, Displaced, CloserLine), Printable for tree words from Lexical1, the tree-side leaf statement ticket 17 reads, then printLexes1; plus printedHangs, printedKeeping, printedSettle1. New rule arms go inside SW-3970's named split functions (bodyDoc, appFrom, defFrom, lambdaHug, ...).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23997,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24010,7 +24025,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).",
+      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24023,7 +24038,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.",
+      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.\n\nAlso (SW-3970): MayFollow Bang is too strict (asks the next char not to be 'i'; the lexer reads !in as NotIn only when a non-word char follows), making printLexes1 unprovable for !isSmall x; and a lexer soundness lemma giving Decl.real (token text isn't layout) from lexesAs.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24213,12 +24228,12 @@
     {
       "id": 4000,
       "title": "[Sonnet] fmt S1 ticket 16c: parser proofs, the walks of parsers outside slice 1 (recordExpr, interpolated, facts, matchExpr, clauseLambda, lambda, ifExpr, piExpr, handleExpr, calcExpr, rewriteExpr, casesExpr, pattern parsers) as Parse.Gives, needed even to show a result is outside the slice; then parseSettled1, parseCarries1, fuelEnough1 (SW-3967's split)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-3968: discharge the records OutsideGives (∀ self, Nested self → Outside self: matchExpr, clauseLambda, braceArgument, recordExpr, atomRest, atomMissing, parenOther, rightSection, annotated, namedArgument, membership, comparisonChain, cmpIf, pipeChain, iff, quantifier, semiExpr, exprKeyword, lambda, ifKeyword, piExpr, effectResult, statementOther) and Frame expressionAt (attributesOf, namespaceStep, importStep, declarationOther, forallPart, headerParams, decreasingPart, unfoldingPart, armsBody), all in Syntax/ParseWalk.sw. Note pipeChain can return its input (a |> left of indent): its fact is result = value ∨ Out result. Also (orchestrator's call): make Header.within1 require a lower-case name, so parseLexical1 drops its lowerNamed1 hypothesis; recheck the slice gates.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24245,6 +24260,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4003,
+      "title": "[Fable paper] Self-hosted fmt slice 1 checkpoint review (D3682): once glue (SW-3973) lands, check that the theorems as proved still add up to 'keeps meaning and is idempotent within slice 1', given every condition lanes added (alphabet1, laidOut, plain1, GoodItems, calm, the one-parse driver), and that each condition is discharged somewhere",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.\n\nCheck (SW-3968): parseLexical1 holds only under lowerNamed1 (def Foo is within1, its name lexes Upper); SW-4000 is to narrow Header.within1 to lower-case names instead. Also Parsed1 floors: Full/Inline/ThenBody floor 1, not 0.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

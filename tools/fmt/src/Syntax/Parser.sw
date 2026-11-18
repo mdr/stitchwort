@@ -363,10 +363,14 @@ def Modes.unexpectedAt (modes: Modes) (what: Text) (items: List Item): Text := m
 def Modes.fail (modes: Modes) (what: Text): {Parse Item} a := fatal (modes.unexpected what)
 
 --| `unexpected`, naming a keyword as one (`unexpected_name`).
-def Modes.failName (modes: Modes) (what: Text): {Parse Item} a := match left() with
-  | [item, .._] if !modes.stops item && Tok.keyword item.text |> .isSome =>
-    fatal "expected ${what}, but found the keyword `${item.text}`"
-  | _ => modes.fail what
+def Modes.failName (modes: Modes) (what: Text): {Parse Item} a := modes.failNameOn what left()
+
+def Modes.failNameOn (modes: Modes) (what: Text) (items: List Item): {Parse Item} a := match items with
+  | [item, .._] =>
+    if keywordHere modes item then fatal "expected ${what}, but found the keyword `${item.text}`" else modes.fail what
+  | [] => modes.fail what
+
+def keywordHere (modes: Modes) (item: Item): Bool := !modes.stops item && Tok.keyword item.text |> .isSome
 
 --| An unqualified lowercase name (the Rust parser's `lower`).
 def Modes.lower (modes: Modes) (what: Text): {Parse Item} Word := match left() with
@@ -609,9 +613,7 @@ def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item}
   match goal.level with
     | LevelFull => expr self modes
     | LevelInline => exprInline self modes
-    | LevelLogic =>
-      let compared := cmpExpr self modes
-      if andOrAhead modes then logicChain self modes compared else compared
+    | LevelLogic => logicLevel self modes
     | LevelComparison => cmpExpr self modes
     | LevelAppend => appendExpr self modes
     | LevelAdditive => addExpr self modes
@@ -624,26 +626,35 @@ def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item}
 def full (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := self { modes, level = LevelFull }
 
 --| `expr`: a line after the first starting here would be a block.
-def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let later: Bool := offset() > 0
-  match left() with
-    | [item, .._] if item.leaf.token.lineStart
-        && later
-        && modes.allow != Some item.index
-        && !modes.endsConstruct item =>
-      let column := item.leaf.token.column
-      match modes.limit with
-        | None => block self modes column True
-        | Some limit =>
-          if column > limit then block self modes column True
-          else if column == limit
-            && modes.recover
-            && startsStatement item.kind
-            && !lineHasSemicolon limit True left() then
-            modes.gap ranOutLine
-          else if column == limit then block self modes column False
-          else exprInline self modes
-    | _ => exprInline self modes
+def expr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := exprLater self modes (offset() > 0)
+
+def exprLater (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool): {Parse Item} Expr :=
+  exprOn self modes later left()
+
+def exprOn (self: Goal → {Parse Item} Expr) (modes: Modes) (later: Bool): List Item → {Parse Item} Expr
+  | [item, .._] =>
+    if item.leaf.token.lineStart && later && modes.allow != Some item.index && !modes.endsConstruct item then
+      exprBlock self modes item
+    else exprInline self modes
+  | _ => exprInline self modes
+
+def exprBlock (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item): {Parse Item} Expr :=
+  let column := item.leaf.token.column
+  match modes.limit with
+    | None => block self modes column True
+    | Some limit =>
+      if column > limit then block self modes column True
+      else exprRuns self modes item limit (runsOutAt modes item limit left())
+
+--| The line starts at the block's column, after a line that ran out (R1).
+def runsOutAt (modes: Modes) (item: Item) (limit: Nat) (items: List Item): Bool :=
+  item.leaf.token.column == limit && modes.recover && startsStatement item.kind && !lineHasSemicolon limit True items
+
+def exprRuns (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item) (limit: Nat) (runs: Bool):
+    {Parse Item} Expr :=
+  if runs then modes.gap ranOutLine
+  else if item.leaf.token.column == limit then block self modes item.leaf.token.column False
+  else exprInline self modes
 
 --| The modes for an expression that a keyword or token must follow (an
 --| `if`'s condition, a scrutinee): after a gap there, that token is missing,
@@ -658,9 +669,12 @@ def ranOutLine: Text := "expected an expression, but the line ends here"
 --| Rust parser reports `message` there and reads on; the first error is
 --| still this one, unless the blocks around end on a `let` or a local
 --| definition (`blockEnd`).
-def Modes.gap (modes: Modes) (message: Text): {Parse Item} a := match blockEnd modes.lines left().head with
-  | Some ending => fatal ending
-  | None => fatal message
+def Modes.gap (modes: Modes) (message: Text): {Parse Item} a := modes.gapOn message left()
+
+def Modes.gapOn (modes: Modes) (message: Text) (items: List Item): {Parse Item} a :=
+  match blockEnd modes.lines items.head with
+    | Some ending => fatal ending
+    | None => fatal message
 
 --| The error of the innermost block that ends at `next` on a `let` or a
 --| local definition, once the blocks that end on an expression are left.
@@ -775,65 +789,147 @@ def endsBlocks: Tok → Bool
   | _ => False
 
 --| The column of the first token on the line of the next token.
-def headIndent(): {Parse Item} Nat := left().head.map (item => item.lineIndent) |> .getOrElse 0
+def headIndent(): {Parse Item} Nat := headIndentOn left()
 
-def exprInline (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match modes.peek with
-  | Some KwHandle => handleExpr self modes
-  | Some KwLet =>
-    let binding := letStatement self modes.sealed
-    letBody self modes binding
-  | Some KwCalc => calcExpr self modes
-  | Some KwRewrite => rewriteExpr self modes
-  | Some KwCases => casesExpr self modes
-  | Some KwMatch =>
-    let indent := headIndent()
-    let keyword := bump()
-    let matched := matchExpr self modes keyword
-    if atPipe modes then pipeChain self modes indent matched else matched
-  | _ =>
-    if lambdaAhead modes (Parse.mark().left + 1) left() then lambda self modes None
-    else if lambdaResultType modes (Parse.mark().left + 1) False left() then fatal "a lambda doesn't take a result type"
-    else
-      match modes.peek with
-        | Some KwExists => quantifier self modes
-        | Some KwForall => quantifier self modes
-        | Some KwIf =>
-          let indent := headIndent()
-          let keyword := bump()
-          ifExpr self modes indent keyword
-        | _ =>
-          if implicitBinderAhead (Parse.mark().left + 1) left() && isSome LBracket modes.peek then
-            piExpr self modes True
-          else if piBinderAhead left() && isSome LParen modes.peek then piExpr self modes False
-          else operatorExpr self modes
+def headIndentOn (items: List Item): Nat := items.head.map (item => item.lineIndent) |> .getOrElse 0
 
-def andOrAhead (modes: Modes): {Parse Item} Bool := modes.at AndAnd || modes.at OrOr
+def exprInline (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := exprInlineOn self modes modes.peek
+
+def exprInlineOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok → {Parse Item} Expr
+  | Some kind => if startsKeywordExpr kind then exprKeyword self modes kind else exprOther self modes
+  | None => exprOther self modes
+
+--| The keywords that start an expression read by the layout and proof constructs (stage 2c).
+def startsKeywordExpr: Tok → Bool
+  | KwHandle => True
+  | KwLet => True
+  | KwCalc => True
+  | KwRewrite => True
+  | KwCases => True
+  | KwMatch => True
+  | _ => False
+
+def exprKeyword (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Expr :=
+  if kind == KwHandle then handleExpr self modes
+  else if kind == KwLet then letExpr self modes
+  else if kind == KwCalc then calcExpr self modes
+  else if kind == KwRewrite then rewriteExpr self modes
+  else if kind == KwCases then casesExpr self modes
+  else matchPiped self modes
+
+def letExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  let binding := letStatement self modes.sealed
+  letBody self modes binding
+
+def matchPiped (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  let indent := headIndent()
+  let keyword := bump()
+  let matched := matchExpr self modes keyword
+  if atPipe modes then pipeChain self modes indent matched else matched
+
+def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  exprLambda self modes (lambdaHere modes)
+
+def lambdaHere (modes: Modes): {Parse Item} Bool := lambdaAhead modes (Parse.mark().left + 1) left()
+
+def lambdaResultHere (modes: Modes): {Parse Item} Bool := lambdaResultType modes (Parse.mark().left + 1) False left()
+
+def exprLambda (self: Goal → {Parse Item} Expr) (modes: Modes) (lambdas: Bool): {Parse Item} Expr :=
+  if lambdas then lambda self modes None else exprResult self modes (lambdaResultHere modes)
+
+def exprResult (self: Goal → {Parse Item} Expr) (modes: Modes) (refused: Bool): {Parse Item} Expr :=
+  if refused then fatal "a lambda doesn't take a result type" else exprBinder self modes modes.peek
+
+def exprBinder (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok → {Parse Item} Expr
+  | Some kind =>
+    if kind == KwExists || kind == KwForall then quantifier self modes
+    else if kind == KwIf then ifKeyword self modes
+    else exprPlain self modes
+  | None => exprPlain self modes
+
+def ifKeyword (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  let indent := headIndent()
+  let keyword := bump()
+  ifExpr self modes indent keyword
+
+def exprPlain (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  exprImplicit self modes (implicitHere modes)
+
+def implicitHere (modes: Modes): {Parse Item} Bool := implicitOn (Parse.mark().left + 1) left() modes.peek
+
+def implicitOn (fuel: Nat) (items: List Item) (seen: Option Tok): Bool :=
+  implicitBinderAhead fuel items && isSome LBracket seen
+
+def exprImplicit (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Expr :=
+  if implicit then piExpr self modes True else exprPi self modes (piHere modes)
+
+def piHere (modes: Modes): {Parse Item} Bool := piOn left() modes.peek
+
+def piOn (items: List Item) (seen: Option Tok): Bool := piBinderAhead items && isSome LParen seen
+
+def exprPi (self: Goal → {Parse Item} Expr) (modes: Modes) (pi: Bool): {Parse Item} Expr :=
+  if pi then piExpr self modes False else operatorExpr self modes
+
+def andOrAhead (modes: Modes): {Parse Item} Bool := andOrOn modes left()
+
+def andOrOn (modes: Modes) (items: List Item): Bool :=
+  isSome AndAnd (peekIn modes 0 items) || isSome OrOr (peekIn modes 0 items)
 
 --| The rest of `expr_inline`: comparisons, `&&` and `||`, `<->`, a method
 --| section around them, then `->` or `;`.
-def operatorExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let start := offset()
-  let section := modes.at Dot
-  let inner := if section then { modes | sectionHead = Some start } else modes
-  let compared := cmpExpr self inner
-  let logic := if andOrAhead modes then logicChain self modes compared else compared
-  let iffed := if modes.at IffArrow then iff self modes logic else logic
-  let sectioned := if section then Section iffed else iffed
-  let sequence := sequenceAhead modes
-  match modes.peek with
-    | Some Arrow =>
+def operatorExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := opStart self modes offset()
+
+def opStart (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat): {Parse Item} Expr :=
+  opSection self modes start (modes.at Dot)
+
+def opSection (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat) (section: Bool): {Parse Item} Expr :=
+  opCompared self modes section (cmpExpr self (if section then { modes | sectionHead = Some start } else modes))
+
+def opCompared (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (compared: Expr): {Parse Item} Expr :=
+  opLogic self modes section (logicAfter self modes compared)
+
+def logicOf (self: Goal → {Parse Item} Expr) (modes: Modes) (compared: Expr) (ahead: Bool): {Parse Item} Expr :=
+  if ahead then logicChain self modes compared else compared
+
+def logicLevel (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  logicAfter self modes (cmpExpr self modes)
+
+def logicAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (compared: Expr): {Parse Item} Expr :=
+  logicOf self modes compared (andOrAhead modes)
+
+def opLogic (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (logic: Expr): {Parse Item} Expr :=
+  opIffed self modes section (iffOf self modes logic (modes.at IffArrow))
+
+def iffOf (self: Goal → {Parse Item} Expr) (modes: Modes) (logic: Expr) (ahead: Bool): {Parse Item} Expr :=
+  if ahead then iff self modes logic else logic
+
+def opIffed (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (iffed: Expr): {Parse Item} Expr :=
+  opSequence self modes (sectioned section iffed) (sequenceAhead modes)
+
+def opSequence (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (sequence: Bool): {Parse Item} Expr :=
+  opEnd self modes value sequence modes.peek
+
+def opEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (sequence: Bool): Option Tok → {Parse Item} Expr
+  | Some kind =>
+    if kind == Arrow then
       let arrow := bump()
-      Infix InfixArrow sectioned arrow (resultType self modes)
-    | Some Semi if sequence =>
-      let semicolon := bump()
-      match modes.peek with
-        | None => fatal semicolonAtEnd
-        | Some RParen => fatal semicolonAtEnd
-        | Some RBracket => fatal semicolonAtEnd
-        | Some RBrace => fatal semicolonAtEnd
-        | Some Comma => fatal semicolonAtEnd
-        | _ => Infix InfixSeq sectioned semicolon (full self modes)
-    | _ => sectioned
+      arrowEnd self modes value arrow
+    else if kind == Semi && sequence then semiExpr self modes value
+    else value
+  | None => value
+
+def arrowEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (arrow: Word): {Parse Item} Expr :=
+  Infix InfixArrow value arrow (resultType self modes)
+
+def semiExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr): {Parse Item} Expr :=
+  let semicolon := bump()
+  match modes.peek with
+    | None => fatal semicolonAtEnd
+    | Some RParen => fatal semicolonAtEnd
+    | Some RBracket => fatal semicolonAtEnd
+    | Some RBrace => fatal semicolonAtEnd
+    | Some Comma => fatal semicolonAtEnd
+    | _ => Infix InfixSeq value semicolon (full self modes)
 
 def semicolonAtEnd: Text := "`;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value"
 
@@ -843,26 +939,45 @@ def logicChain (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Expr): 
   let links := logicLinks self modes
   groupLogic (links.length + 1) first links
 
-def logicLinks (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List (Word, Expr) := Parse.loop (() =>
-  if andOrAhead modes then
-    let operator := bump()
-    let operand := if quantifierAhead modes then quantifier self modes else cmpExpr self modes
-    Some (operator, operand)
-  else None)
+def logicLinks (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List (Word, Expr) :=
+  Parse.loop (() => logicOn self modes modes.peek)
 
-def groupLogic (fuel: Nat) (first: Expr) (links: List (Word, Expr)): Expr :=
-  let (conjunction, after) := conjunctionOf first links
-  match fuel, after with
-    | Succ more, [(or, next), ..rest] => Infix InfixBinary conjunction or (groupLogic more next rest)
-    | _, _ => conjunction
+def logicOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok → {Parse Item} Option (Word, Expr)
+  | Some kind => if kind == AndAnd || kind == OrOr then logicLink self modes else None
+  | None => None
+
+def logicLink (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Option (Word, Expr) :=
+  let operator := bump()
+  logicOperand self modes operator (quantifierAhead modes)
+
+def logicOperand (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: Word) (quantified: Bool):
+    {Parse Item} Option (Word, Expr) :=
+  if quantified then
+    let operand := quantifier self modes
+    Some (operator, operand)
+  else
+    let operand := cmpExpr self modes
+    Some (operator, operand)
+
+def groupLogic (fuel: Nat) (first: Expr) (links: List (Word, Expr)): Expr := groupAfter fuel (conjunctionOf first links)
+
+def groupAfter (fuel: Nat) (conjoined: (Expr, List (Word, Expr))): Expr := match conjoined with
+  | (conjunction, after) => groupFrom fuel conjunction after
+
+def groupFrom (fuel: Nat) (conjunction: Expr) (after: List (Word, Expr)): Expr := match fuel, after with
+  | Succ more, [(or, next), ..rest] => Infix InfixBinary conjunction or (groupLogic more next rest)
+  | _, _ => conjunction
 
 --| The `&&`s from `first` up to the next `||`, grouped to the right, and
 --| the links from that `||` on.
 def conjunctionOf (first: Expr): List (Word, Expr) → (Expr, List (Word, Expr))
-  | [(and, next), ..rest] if and.text == "&&" || and.text == "∧" =>
-    let (right, after) := conjunctionOf next rest
-    (Infix InfixBinary first and right, after)
+  | [(and, next), ..rest] =>
+    if and.text == "&&" || and.text == "∧" then conjunctionJoin first and (conjunctionOf next rest)
+    else (first, [(and, next), ..rest])
   | links => (first, links)
+
+def conjunctionJoin (first: Expr) (and: Word) (conjoined: (Expr, List (Word, Expr))): (Expr, List (Word, Expr)) :=
+  match conjoined with | (right, after) => (Infix InfixBinary first and right, after)
 
 --| `a <-> b`, which doesn't chain.
 def iff (self: Goal → {Parse Item} Expr) (modes: Modes) (left: Expr): {Parse Item} Expr :=
@@ -963,7 +1078,9 @@ def Modes.expectKeyword (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat):
     | _, _ => modes.expect wanted what
 
 --| A `|>` next: on this line, or starting one (`at_pipe`).
-def atPipe (modes: Modes): {Parse Item} Bool := match left() with
+def atPipe (modes: Modes): {Parse Item} Bool := atPipeOn modes left()
+
+def atPipeOn (modes: Modes): List Item → Bool
   | [item, .._] => item.kind == PipeGt && (!modes.stops item || item.leaf.token.lineStart)
   | [] => False
 
@@ -996,29 +1113,61 @@ def pipesFrom (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (ind
 --| `cmp_expr`: one comparison, a chain of them, or a membership test,
 --| each operand a range and its pipeline.
 def cmpExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let first := left().head.map Item.kind
-  let lhs := pipedRange self modes
-  match modes.peek with
-    | Some KwIn => membership self modes first lhs
-    | Some NotIn => membership self modes first lhs
-    | Some kind if kind.isComparison =>
-      let operator := bump()
-      if modes.at KwIf then
-        let indent := headIndent()
-        let keyword := bump()
-        Infix InfixBinary lhs operator (ifExpr self modes indent keyword)
-      else
-        let second := pipedRange self modes
-        match modes.peek with
-          | Some next if next.isComparison || next == KwIn || next == NotIn =>
-            comparisonChain self modes lhs kind operator second
-          | _ => Infix InfixBinary lhs operator second
-    | _ => lhs
+  cmpFirst self modes (left().head.map Item.kind)
 
-def pipedRange (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+def cmpFirst (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok): {Parse Item} Expr :=
+  cmpPiped self modes first (pipedRange self modes)
+
+def cmpPiped (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (lhs: Expr): {Parse Item} Expr :=
+  cmpOn self modes first lhs modes.peek
+
+def cmpOn (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (lhs: Expr):
+    Option Tok → {Parse Item} Expr
+  | Some kind => cmpKind self modes first lhs kind
+  | None => lhs
+
+def cmpKind (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (lhs: Expr) (kind: Tok):
+    {Parse Item} Expr :=
+  if kind == KwIn || kind == NotIn then membership self modes first lhs
+  else if kind.isComparison then cmpCompare self modes lhs kind
+  else lhs
+
+def cmpCompare (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok): {Parse Item} Expr :=
+  let operator := bump()
+  cmpAfter self modes lhs kind operator (modes.at KwIf)
+
+def cmpAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
+    (operator: Word) (conditional: Bool):
+    {Parse Item} Expr :=
+  if conditional then cmpIf self modes lhs operator else cmpSecond self modes lhs kind operator (pipedRange self modes)
+
+def cmpIf (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (operator: Word): {Parse Item} Expr :=
   let indent := headIndent()
-  let range := rangeExpr self modes
-  if atPipe modes then pipeChain self modes indent range else range
+  let keyword := bump()
+  Infix InfixBinary lhs operator (ifExpr self modes indent keyword)
+
+def cmpSecond (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok) (operator: Word) (second: Expr):
+    {Parse Item} Expr :=
+  cmpChain self modes lhs kind operator second modes.peek
+
+def cmpChain (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok) (operator: Word) (second: Expr):
+    Option Tok → {Parse Item} Expr
+  | Some next =>
+    if next.isComparison || next == KwIn || next == NotIn then comparisonChain self modes lhs kind operator second
+    else Infix InfixBinary lhs operator second
+  | None => Infix InfixBinary lhs operator second
+
+def pipedRange (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := pipedAt self modes headIndent()
+
+def pipedAt (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat): {Parse Item} Expr :=
+  pipedAfter self modes indent (rangeExpr self modes)
+
+def pipedAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (range: Expr): {Parse Item} Expr :=
+  pipedEnd self modes indent range (atPipe modes)
+
+def pipedEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (range: Expr) (pipe: Bool):
+    {Parse Item} Expr :=
+  if pipe then pipeChain self modes indent range else range
 
 def membership (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (element: Expr): {Parse Item} Expr :=
   if isSome Bang first then fatal "`!` here applies to the element, not to the membership test"
@@ -1055,14 +1204,27 @@ def chainLinks (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bo
       | None => None)
 
 def rangeExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let low := appendExpr self modes
-  match modes.peek with
-    | Some DotDot => fatal "a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)"
-    | Some kind if kind == DotDotLt || kind == DotDotEq =>
-      let operator := bump()
-      let high := appendExpr self modes
-      if modes.at DotDotLt || modes.at DotDotEq then fatal "ranges don't chain" else Infix InfixRange low operator high
-    | _ => low
+  rangeFrom self modes (appendExpr self modes)
+
+def rangeFrom (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr): {Parse Item} Expr :=
+  rangeOn self modes low modes.peek
+
+def rangeOn (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr): Option Tok → {Parse Item} Expr
+  | Some kind =>
+    if kind == DotDot then fatal "a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)"
+    else if kind == DotDotLt || kind == DotDotEq then rangeHigh self modes low
+    else low
+  | None => low
+
+def rangeHigh (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr): {Parse Item} Expr :=
+  let operator := bump()
+  rangeEnd modes low operator (appendExpr self modes)
+
+def rangeEnd (modes: Modes) (low: Expr) (operator: Word) (high: Expr): {Parse Item} Expr :=
+  rangeChained low operator high (modes.at DotDotLt || modes.at DotDotEq)
+
+def rangeChained (low: Expr) (operator: Word) (high: Expr) (chained: Bool): {Parse Item} Expr :=
+  if chained then fatal "ranges don't chain" else Infix InfixRange low operator high
 
 --| `a ++ b ++ c`, grouped to the right.
 def appendExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
@@ -1097,38 +1259,74 @@ def mulExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr
   leftNested first
     (operatorLinks modes (kind => kind == Star || kind == Slash || kind == Percent) (() => unary self modes))
 
-def unary (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match modes.peek with
-  | Some KwMatch =>
-    let keyword := bump()
-    matchExpr self modes keyword
-  | Some kind =>
-    if matchesBarAhead modes then
-      let keyword := bump()
-      clauseLambda self modes keyword None ClauseMatches
-    else if kind == Minus && negativeNumeral left() then app self modes
-    else if kind == Minus || kind == Bang then
-      let operator := bump()
-      Prefix operator (self { modes, level = LevelUnary })
-    else app self modes
+def unary (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := unaryOn self modes modes.peek
+
+def unaryOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok → {Parse Item} Expr
+  | Some kind => unarySome self modes kind
   | None => app self modes
 
---| `f a b`: one `App` however many arguments.
-def app (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let start := offset()
-  let section := modes.at Dot && modes.sectionHead != Some start
-  let head := atom self modes True
-  let applied := if startsAtom modes then App head (arguments self modes) else head
-  if section then Section applied else applied
+def unarySome (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Expr :=
+  if kind == KwMatch then
+    let keyword := bump()
+    matchExpr self modes keyword
+  else unaryBar self modes kind (matchesBarAhead modes)
 
-def arguments (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Expr := Parse.loop (() =>
-  if startsAtom modes then
-    let sectionLine := match left() with
-      | [item, .._] => item.kind == Dot && item.leaf.token.lineStart && !modes.stops item
-      | [] => False
-    if sectionLine then fatal "a line can't start with a method section"
-    else if modes.at Upper && isSome LBrace (modes.peekAt 1) then Some (braceArgument self modes)
-    else Some (self { modes, level = LevelArgument })
-  else None)
+def unaryBar (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok) (bar: Bool): {Parse Item} Expr :=
+  if bar then
+    let keyword := bump()
+    clauseLambda self modes keyword None ClauseMatches
+  else unaryNext self modes kind left()
+
+def unaryNext (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok) (items: List Item): {Parse Item} Expr :=
+  if kind == Minus && negativeNumeral items then app self modes
+  else if kind == Minus || kind == Bang then
+    let operator := bump()
+    Prefix operator (self { modes, level = LevelUnary })
+  else app self modes
+
+--| `f a b`: one `App` however many arguments.
+def app (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := appAt self modes offset()
+
+def appAt (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat): {Parse Item} Expr :=
+  appHead self modes (modes.at Dot && modes.sectionHead != Some start)
+
+def appHead (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool): {Parse Item} Expr :=
+  appCalls self modes section (atom self modes True)
+
+def appCalls (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (head: Expr): {Parse Item} Expr :=
+  appEnd self modes section head (startsAtom modes)
+
+def appEnd (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (head: Expr) (applies: Bool):
+    {Parse Item} Expr :=
+  if applies then sectioned section (appliedTo self modes head) else sectioned section head
+
+def sectioned (section: Bool) (applied: Expr): Expr := if section then Section applied else applied
+
+--| The head's arguments, after a first that `startsAtom` has promised: the first is read outright, so the list is
+--| not empty by construction.
+def appliedTo (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Expr): {Parse Item} Expr :=
+  let first := argument self modes
+  let more := arguments self modes
+  App head [first, ..more]
+
+def arguments (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Expr :=
+  Parse.loop (() => argumentStep self modes (startsAtom modes))
+
+def argumentStep (self: Goal → {Parse Item} Expr) (modes: Modes) (starts: Bool): {Parse Item} Option Expr :=
+  if starts then Some (argument self modes) else None
+
+def argument (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := argumentAt self modes left()
+
+def argumentAt (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Expr :=
+  if sectionLineAt modes items then fatal "a line can't start with a method section"
+  else argumentBrace self modes (modes.at Upper && isSome LBrace (modes.peekAt 1))
+
+def sectionLineAt (modes: Modes): List Item → Bool
+  | [item, .._] => item.kind == Dot && item.leaf.token.lineStart && !modes.stops item
+  | [] => False
+
+def argumentBrace (self: Goal → {Parse Item} Expr) (modes: Modes) (brace: Bool): {Parse Item} Expr :=
+  if brace then braceArgument self modes else self { modes, level = LevelArgument }
 
 def startsAtom (modes: Modes): {Parse Item} Bool := match modes.peek with
   | Some kind =>
@@ -1230,37 +1428,78 @@ def callableInside: Expr → Bool
   | Paren _ inner _ => callableInside inner
   | _ => False
 
-def atomBase (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match modes.peek with
-  | Some Minus => negativeAtom self modes
-  | Some Bang => prefixAtom self modes (argumentBang left())
-  | Some StrStart => interpolated self modes
-  | Some KwInclude =>
+def atomBase (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := atomBaseOn self modes modes.peek
+
+def atomBaseOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok → {Parse Item} Expr
+  | Some kind => atomOf self modes kind
+  | None => atomMissing self modes
+
+--| The kinds `atomBase` reads in slice 1: a `-` or `!`, a bracket, a name or numeral; the others are `atomRest`.
+def atomOf (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Expr :=
+  if kind == Minus then negativeAtom self modes
+  else if kind == Bang then prefixBang self modes
+  else if kind == LParen then parenAtom self modes
+  else if kind == LBracket then bracketAtom self modes
+  else if isWord kind then wordAtom kind
+  else atomRest self modes kind
+
+def wordAtom (kind: Tok): {Parse Item} Expr :=
+  let word := bump()
+  Atom kind word
+
+def atomRest (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Expr :=
+  if kind == StrStart then interpolated self modes
+  else if kind == KwInclude then includeAtom modes
+  else if kind == KwArithmetic then facts self modes KwArithmetic FactsOmega
+  else if kind == KwAlgebra then facts self modes KwAlgebra FactsRing
+  else if kind == KwCases then casesAtom modes
+  else if kind == TypeU then universeAtom modes
+  else if kind == LBrace then recordExpr self modes
+  else if kind == Dot then sectionStart modes
+  else atomMissing self modes
+
+def includeAtom (modes: Modes): {Parse Item} Expr :=
+  let keyword := bump()
+  if modes.at Str then
+    let path := bump()
+    Include keyword path
+  else modes.fail "a path in quotes, as in `include \"inputs/day04.txt\"`"
+
+def casesAtom (modes: Modes): {Parse Item} Expr :=
+  if bareCases modes then
     let keyword := bump()
-    if modes.at Str then Include keyword bump() else modes.fail "a path in quotes, as in `include \"inputs/day04.txt\"`"
-  | Some KwArithmetic => facts self modes KwArithmetic FactsOmega
-  | Some KwAlgebra => facts self modes KwAlgebra FactsRing
-  | Some KwCases => if bareCases modes then Atom KwCases bump() else modes.fail "an expression"
-  | Some TypeU =>
-    let keyword := bump()
-    match left() with
-      | [level, .._] if level.kind == Num && !modes.stops level =>
-        if (level.text.toNat |> .getOrElse 0) > 65535 then fatal "universe level is too large"
-        else Universe keyword bump()
-      | _ => Atom TypeU keyword
-  | Some LParen => parenAtom self modes
-  | Some LBracket =>
-    match modes.peekAt 1, modes.peekAt 2 with
-      | Some Lower, Some ColonEq => namedArgument self modes RBracket "`]`"
-      | Some KwDecreasing, Some ColonEq => namedArgument self modes RBracket "`]`"
-      | _, _ => listExpr self modes
-  | Some LBrace => recordExpr self modes
-  | Some Dot => sectionStart modes
-  | Some kind if isWord kind => Atom kind bump()
-  | _ =>
-    if modes.recover && modes.peek.isNone then
-      modes.gap (if ranOutAtLine modes then ranOutLine else modes.unexpected "an expression")
-    else if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression"
-    else modes.fail "an expression"
+    Atom KwCases keyword
+  else modes.fail "an expression"
+
+def universeAtom (modes: Modes): {Parse Item} Expr :=
+  let keyword := bump()
+  universeAfter modes keyword left()
+
+def universeAfter (modes: Modes) (keyword: Word) (items: List Item): {Parse Item} Expr := match items with
+  | [level, .._] if level.kind == Num && !modes.stops level =>
+    if (level.text.toNat |> .getOrElse 0) > 65535 then fatal "universe level is too large"
+    else
+      let number := bump()
+      Universe keyword number
+  | _ => Atom TypeU keyword
+
+--| What `atomBase` reads at a token that starts no atom: an error.
+def atomMissing (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  if modes.recover && modes.peek.isNone then
+    modes.gap (if ranOutAtLine modes then ranOutLine else modes.unexpected "an expression")
+  else if isSome FatArrow (modes.peekAt 1) then modes.failName "an expression"
+  else modes.fail "an expression"
+
+def bracketAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  bracketSecond self modes (modes.peekAt 1)
+
+def bracketSecond (self: Goal → {Parse Item} Expr) (modes: Modes) (second: Option Tok): {Parse Item} Expr :=
+  bracketAt self modes second (modes.peekAt 2)
+
+def bracketAt (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok): {Parse Item} Expr :=
+  if (isSome Lower second || isSome KwDecreasing second) && isSome ColonEq third then
+    namedArgument self modes RBracket "`]`"
+  else listExpr self modes
 
 def isWord: Tok → Bool
   | Lower => True
@@ -1274,12 +1513,25 @@ def isWord: Tok → Bool
   | PropU => True
   | _ => False
 
-def negativeAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  if negativeNumeral left() then
-    let minus := bump()
-    let kind := left().head.map Item.kind |> .getOrElse Num
-    Prefix minus (Atom kind bump())
-  else prefixAtom self modes (argumentMinus left())
+def negativeAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := negativeAtomOn self modes left()
+
+def negativeAtomOn (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Expr :=
+  if negativeNumeral items then negativeNumber() else prefixAtom self modes (argumentMinus items)
+
+def negativeNumber(): {Parse Item} Expr :=
+  let minus := bump()
+  numberAfter minus left()
+
+def numberAfter (minus: Word) (items: List Item): {Parse Item} Expr :=
+  let number := bump()
+  Prefix minus (Atom (numberKind items) number)
+
+def numberKind (items: List Item): Tok := items.head.map Item.kind |> .getOrElse Num
+
+def prefixBang (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := prefixBangOn self modes left()
+
+def prefixBangOn (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Expr :=
+  prefixAtom self modes (argumentBang items)
 
 --| A `-` or `!` negating an argument, if `negates`.
 def prefixAtom (self: Goal → {Parse Item} Expr) (modes: Modes) (negates: Bool): {Parse Item} Expr :=
@@ -1321,43 +1573,89 @@ def namedArgument (self: Goal → {Parse Item} Expr) (modes: Modes) (closer: Tok
 --| What starts with `(`: `()`, a named argument, an operator section, a
 --| bracketed expression, a tuple or an annotation.
 def parenAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  let second := modes.peekAt 1
-  let third := modes.peekAt 2
-  match second, third with
-    | Some RParen, _ =>
-      let open := bump()
-      Unit open bump()
-    | Some Lower, Some ColonEq => namedArgument self modes RParen "`)`"
-    | Some next, _ if next.isSectionOperator || (next.isOperator && isSome RParen third) => operatorSection self modes
-    | _, _ =>
-      match rightOperator left() with
-        | Some inside => rightSection self modes inside
-        | None => bracketed self modes
+  parenSecond self modes (modes.peekAt 1)
+
+def parenSecond (self: Goal → {Parse Item} Expr) (modes: Modes) (second: Option Tok): {Parse Item} Expr :=
+  parenOn self modes second (modes.peekAt 2)
+
+def parenOn (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok): {Parse Item} Expr :=
+  if parenOutside second third then parenOther self modes second third else parenRest self modes left()
+
+--| The `(` is followed by `)`, a name and `:=`, or an operator a section can take.
+def parenOutside (second third: Option Tok): Bool :=
+  isSome RParen second
+    || (isSome Lower second && isSome ColonEq third)
+    || (match second with
+      | Some next => next.isSectionOperator || (next.isOperator && isSome RParen third)
+      | None => False)
+
+def parenOther (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok): {Parse Item} Expr :=
+  if isSome RParen second then
+    let open := bump()
+    let close := bump()
+    Unit open close
+  else if isSome Lower second && isSome ColonEq third then namedArgument self modes RParen "`)`"
+  else operatorSection self modes
+
+def parenRest (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item): {Parse Item} Expr :=
+  match rightOperator items with
+    | Some inside => rightSection self modes inside
+    | None => bracketed self modes
 
 def bracketed (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
-  let first := full self inner
-  match inner.peek with
-    | Some Comma =>
-      let (items, trailingComma) :=
-        commaList
-          (Parse.mark().left + 1)
-          inner
-          (count => inner.at RParen && count >= 2)
-          (() => full self inner)
-          first
-          []
-      Tuple open items trailingComma (tupleClose inner)
-    | Some Colon =>
-      let colon := bump()
-      let annotation := full self inner
-      if inner.at Comma then fatal tupleAnnotation
-      else Annotation open first colon annotation (inner.expect RParen "`)`")
-    | _ => Paren open first (inner.expect RParen "`)`")
+  bracketedTail self modes open
 
-def tupleClose (modes: Modes): {Parse Item} Word :=
-  if modes.at Colon then fatal tupleAnnotation else modes.expect RParen "`)`"
+def bracketedTail (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Word): {Parse Item} Expr :=
+  let inner := modes.inBrackets
+  bracketedFirst self inner open (full self inner)
+
+def bracketedFirst (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
+  bracketedAfter self inner open first inner.peek
+
+def bracketedAfter (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr):
+    Option Tok → {Parse Item} Expr
+  | Some kind =>
+    if kind == Comma then tupleRest self inner open first
+    else if kind == Colon then annotated self inner open first
+    else parenClose inner open first
+  | None => parenClose inner open first
+
+def parenClose (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
+  let close := inner.expect RParen "`)`"
+  Paren open first close
+
+def annotated (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
+  let colon := bump()
+  let annotation := full self inner
+  if inner.at Comma then fatal tupleAnnotation
+  else
+    let close := inner.expect RParen "`)`"
+    Annotation open first colon annotation close
+
+--| A tuple: the comma after its first item is read here, so that the items come to at least two (`commaListFrom`
+--| would read the same comma and the next item, as the first round of `commaList`).
+def tupleRest (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
+  tupleFuel self inner open first Parse.mark().left
+
+def tupleFuel (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr) (fuel: Nat):
+    {Parse Item} Expr :=
+  let comma := bump()
+  tupleSecond self inner open first fuel (full self inner)
+
+def tupleSecond (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr) (fuel: Nat) (second: Expr):
+    {Parse Item} Expr :=
+  tupleEnd inner open (commaListFrom fuel inner (tupleEnds inner) (() => full self inner) 2 second [first])
+
+def tupleEnds (inner: Modes) (count: Nat): {Parse Item} Bool := inner.at RParen && count >= 2
+
+def tupleEnd (inner: Modes) (open: Word) (pair: (List Expr, Bool)): {Parse Item} Expr := match pair with
+  | (items, trailingComma) => Tuple open items trailingComma (tupleClose inner)
+
+def tupleClose (modes: Modes): {Parse Item} Word := tupleCloseAfter modes (modes.at Colon)
+
+def tupleCloseAfter (modes: Modes) (annotated: Bool): {Parse Item} Word :=
+  if annotated then fatal tupleAnnotation else modes.expect RParen "`)`"
 
 def tupleAnnotation: Text := "an annotation can't be written inside a tuple without brackets"
 
@@ -1374,12 +1672,27 @@ def commaList (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next
 def commaListFrom (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
     (current: a) (found: List a):
     {Parse Item} (List a, Bool) :=
-  match fuel, modes.peek with
-    | Succ more, Some Comma =>
-      let comma := bump()
-      let done := [current, ..found]
-      if ends count then (done.reverse, True) else commaListFrom more modes ends next (count + 1) (next()) done
+  commaListOn fuel modes ends next count current found modes.peek
+
+def commaListOn (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
+    (current: a) (found: List a) (seen: Option Tok):
+    {Parse Item} (List a, Bool) :=
+  match fuel, seen with
+    | Succ more, Some kind =>
+      if kind == Comma then commaListComma more modes ends next count current found
+      else ([current, ..found].reverse, False)
     | _, _ => ([current, ..found].reverse, False)
+
+def commaListComma (more: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
+    (current: a) (found: List a):
+    {Parse Item} (List a, Bool) :=
+  let comma := bump()
+  commaListAfter more modes ends next count [current, ..found] (ends count)
+
+def commaListAfter (more: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
+    (done: List a) (stop: Bool):
+    {Parse Item} (List a, Bool) :=
+  if stop then (done.reverse, True) else commaListFrom more modes ends next (count + 1) (next()) done
 
 --| `(+ 1)`, `(&&)`: the operator first.
 def operatorSection (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
@@ -1433,20 +1746,47 @@ def rightSection (self: Goal → {Parse Item} Expr) (modes: Modes) (inside: Nat)
 
 def listExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := bump()
-  let inner := modes.inBrackets
-  if inner.at RBracket then ListOf open [] False bump()
-  else
-    let first := listItem self inner
-    let (items, trailingComma) :=
-      commaList (Parse.mark().left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first []
-    ListOf open items trailingComma (inner.expect RBracket "`,` or `]`")
+  listTail self modes open
+
+def listTail (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Word): {Parse Item} Expr :=
+  listPeek self modes.inBrackets open
+
+def listPeek (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): {Parse Item} Expr :=
+  listAfter self inner open inner.peek
+
+def listAfter (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): Option Tok → {Parse Item} Expr
+  | Some kind =>
+    if kind == RBracket then
+      let close := bump()
+      ListOf open [] False close
+    else listItems self inner open
+  | None => listItems self inner open
+
+def listItems (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word): {Parse Item} Expr :=
+  listItemsFrom self inner open (listItem self inner)
+
+def listItemsFrom (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr): {Parse Item} Expr :=
+  listItemsEnd self inner open
+    (commaList (Parse.mark().left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first [])
+
+def listItemsEnd (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (pair: (List Expr, Bool)):
+    {Parse Item} Expr :=
+  match pair with
+    | (items, trailingComma) =>
+      let close := inner.expect RBracket "`,` or `]`"
+      ListOf open items trailingComma close
 
 def listItem (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  if modes.at DotDot then
+  listItemAfter self modes (modes.at DotDot)
+
+def listItemAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (spread: Bool): {Parse Item} Expr :=
+  if spread then
     let dots := bump()
-    if modes.at Comma || modes.at RBracket then fatal "expected a list after `..`, as in `[x, ..xs]`"
-    else Spread dots (full self modes)
+    listSpread self modes dots (modes.at Comma || modes.at RBracket)
   else full self modes
+
+def listSpread (self: Goal → {Parse Item} Expr) (modes: Modes) (dots: Word) (empty: Bool): {Parse Item} Expr :=
+  if empty then fatal "expected a list after `..`, as in `[x, ..xs]`" else Spread dots (full self modes)
 
 def recordExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let open := modes.expect LBrace "`{`"
@@ -1503,14 +1843,18 @@ def interpolations (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Ite
 
 type ClauseKind = | ClausePlain | ClauseSome | ClauseMatches
 
-def wordAhead (modes: Modes) (word: Text): {Parse Item} Bool := match left() with
+def wordAhead (modes: Modes) (word: Text): {Parse Item} Bool := wordOn modes word left()
+
+def wordOn (modes: Modes) (word: Text): List Item → Bool
   | [item, .._] => item.kind == Lower && item.text == word && !modes.stops item
   | [] => False
 
-def matchesBarAhead (modes: Modes): {Parse Item} Bool :=
-  wordAhead modes "matches"
-    && isSome Pipe (modes.peekAt 1)
-    && !(isSome Lower (modes.peekAt 2) && isSome Equals (modes.peekAt 3))
+def matchesBarAhead (modes: Modes): {Parse Item} Bool := matchesBarOn modes left()
+
+def matchesBarOn (modes: Modes) (items: List Item): Bool :=
+  wordOn modes "matches" items
+    && isSome Pipe (peekIn modes 1 items)
+    && !(isSome Lower (peekIn modes 2 items) && isSome Equals (peekIn modes 3 items))
 
 --| `match induct` and `match reify`: the word, then not what a scrutinee
 --| named `induct` would have after it.
