@@ -17,3 +17,4 @@ mutants.out*
 __pycache__/
 # Lake build output (lake build, task bench:compare)
 .lake/
+.pre-commit-config.yaml

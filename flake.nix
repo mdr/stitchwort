@@ -8,6 +8,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     crane.url = "github:ipetkov/crane";
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -15,6 +19,7 @@
       nixpkgs,
       rust-overlay,
       crane,
+      git-hooks,
       ...
     }:
     let
@@ -381,8 +386,37 @@
       devShells = forAllSystems (
         pkgs:
         let
+          # The pre-commit hook (D3681, SW-3952): formatting only, run by prek.
+          # Entering the shell installs it (`shellHook`, below) and writes the
+          # gitignored `.pre-commit-config.yaml`. Deliberately not in `checks`:
+          # `nix flake check` doesn't run it.
+          hooks = git-hooks.lib.${pkgs.stdenv.hostPlatform.system}.run {
+            src = ./.;
+            package = pkgs.prek;
+            hooks = {
+              # The dev shell's rustfmt, as `cargo fmt` uses; `--check` so the
+              # hook fails rather than rewriting files behind the commit.
+              rustfmt = {
+                enable = true;
+                packageOverrides = {
+                  cargo = toolchainFor pkgs;
+                  rustfmt = toolchainFor pkgs;
+                };
+                settings.check = true;
+                settings.color = "never";
+              };
+              stitchwort-fmt = {
+                enable = true;
+                name = "stitchwort fmt";
+                entry = "${./dev/hooks/stitchwort-fmt-check}";
+                files = "\\.sw$";
+                language = "system";
+              };
+            };
+          };
           default = pkgs.mkShell {
-            packages = [
+            inherit (hooks) shellHook;
+            packages = hooks.enabledPackages ++ [
               (toolchainFor pkgs)
               pkgs.cargo-insta # snapshot tests for example programs
               pkgs.cargo-watch
