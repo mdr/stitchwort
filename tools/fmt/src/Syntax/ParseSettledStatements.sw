@@ -1,0 +1,148 @@
+--| What slice 1's proofs still have to say about the parser, stated and not yet proved (SW-4018; the reasons are in
+--| docs/reviews/SW-4018-parser-statements.md). The sketch (docs/proposals/self-hosted-fmt-s1-sketch.md §2) names
+--| `parseSettled1`, `parseCarries1` and `fuelEnough1`:
+--|
+--| - `parseCarries1` is the parser's one new fact: a declaration's words are its group's leaves, commas left out.
+--| - `parseSettled1` follows from it without another walk of the parser, given that the leaves' words are settled
+--|   (`Lexed.wordsSettled1`), which `onceWordsSettled1` gets from rule N and `lexLaid1` from the lexer.
+--| - `fuelEnough1` is not stated: no top theorem needs it (the note, §4).
+--|
+--| Each open goal is a proof ticket.
+
+namespace Syntax.ParseSettledStatements
+import Std (Bool, List, Nat, Option, Result, Text)
+import Syntax (..)
+import Fmt (..)
+import Syntax.Proofs (..)
+import Syntax.ParseProofs (..)
+import Syntax.ParseWalk (..)
+import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
+
+-- The words of leaves.
+
+--| The words the tree keeps of some leaves: every token's but a comma's, in order, each with its comments.
+def codeWords (leaves: List Leaf): List Word := leaves.filter (leaf => leaf.kind != Comma) |> .map Leaf.word
+
+--| `Decl.settled1`, of the declaration's words alone: closers homed, `->` bare, every comment as rule N leaves it.
+def settledWords (words: List Word): Bool :=
+  homedBack words.reverse && arrowsBare words && words.all (word => word.comments.texts.all commentText)
+
+--| `settled1` reads only the words.
+theorem settledIsWords ∀ (decl: Decl): decl.settled1 = settledWords decl.words := byComputing
+
+--| The leaves the parser reads are settled, said of their words: `settledWords` of the whole file's words in order
+--| (not a group at a time: a closer's comment is homed by the code before it, which rule N looks for across the
+--| whole file), and the end's comments as rule N leaves them.
+def Lexed.wordsSettled1 (lexed: Lexed): Bool :=
+  settledWords (codeWords lexed.leaves) && lexed.end.comments.texts.all commentText && lexed.end.comments.after.isNone
+
+-- The parser.
+
+--| `parseCarries1`: the parser carries every token to the tree. Each declaration's words are the words of its
+--| group's leaves, commas left out, each with the comments its leaf had; and the file's end is the lexed end. So a
+--| test on the words of the tree (`settled1`) is a test on the leaves, and no comment is lost but a comma's.
+--|
+--| The hypotheses are `parseShaped1`'s. `good` is needed for the three tokens the tree keeps only the comments of
+--| (`def`, `:`, `:=`), whose texts `Decl.words` writes back.
+theorem parseCarries1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
+    (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (parses: parseFile lexed = Ok file)
+    (within: file.within1 = True):
+    file.decls.map Decl.words = (groupsOf lexed.leaves).map codeWords ∧ file.end = lexed.end.comments :=
+  ?
+
+--| `parseSettled1`: the tree of settled leaves is settled.
+--|
+--| Proof idea: by `parseCarries1` the declarations' words are the groups' words, and the groups in order are the
+--| leaves (`groupsOf` only splits), so `settledWords` holds of all the
+--| declarations' words together; each declaration's words start with `def`, which is no closer, so a closer's
+--| look back (`trailsBack`) never leaves its declaration and `homedBack` holds of each alone; `arrowsBare` and the
+--| comments' texts hold of every part of a list they hold of.
+theorem parseSettled1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
+    (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (parses: parseFile lexed = Ok file)
+    (within: file.within1 = True)
+    (settled: lexed.wordsSettled1 = True):
+    file.settled1 = True :=
+  ?
+
+-- What the parser's leaves must be, and who gives it.
+
+--| A comment's text as the lexer reads it: `--` to the end of its line.
+def rawComment (text: Text): Bool := text.startsWith "--" && !text.contains "\n"
+
+--| A leaf's text says whether it is a closer and whether it is `->`, as its kind does. The tree tests the text
+--| (`isCloserText`, `operatorTok`) where rule N tests the kind.
+def Leaf.marked (leaf: Leaf): Bool :=
+  isCloserText leaf.token.text == leaf.kind.isCloser
+    && (operatorTok leaf.token.text == Some Arrow) == (leaf.kind == Arrow)
+
+--| Leaves as the lexer gives them, as far as rule N and `settled1` need: laid out (a token with own-line comments,
+--| or after a trailing comment, starts its line), each token's text agreeing with its kind on closers and `->`, each
+--| comment `--` to the end of a line, and no trailing comment at the file's end.
+def Lexed.laid1 (lexed: Lexed): Bool :=
+  laidOut False lexed.leaves
+    && lexed.leaves.all Leaf.marked
+    && (lexedTexts lexed).all rawComment
+    && lexed.end.trailing.isNone
+
+--| The lexer's side: what it reads from any source in slice 1's alphabet is `laid1`. It is the lexer's soundness
+--| (what a successful `lex` gave), where `Syntax.Proofs` has only its completeness for printed pieces.
+theorem lexLaid1 ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed)
+    (within: alphabet1 lexed.leaves = True):
+    lexed.laid1 = True :=
+  ?
+
+--| Rule N's side: the leaves the formatter parses (`settledOnce`) are settled, said of their words, for `plain`
+--| leaves of slice 1's alphabet as the lexer gives them.
+--|
+--| Proof idea: `bareSettles` makes `settledOnce`'s leaves, last commas dropped, `settledBare`'s, which are rule N
+--| on the leaves without last commas; those are still laid out and `plain`, so `settledHomed`, `settledArrowsBare1`,
+--| `settledCommasBare` and `settledTrimmed` apply. Dropping the other commas, all bare, changes no closer's look
+--| back (`endsOn` passes a bare comma as `trailsBack` passes nothing), `plain1` puts no comma and no `->` after a
+--| `->`, and trimming keeps a comment's `--`.
+theorem onceWordsSettled1 ∀ (lexed: Lexed)
+    (within: alphabet1 lexed.leaves = True)
+    (plain: plain1 (tokens lexed.leaves) = True)
+    (laid: lexed.laid1 = True):
+    lexed.settledOnce.wordsSettled1 = True :=
+  ?
+
+-- Cases the statements apply to, so their hypotheses can be met; and two the lexer's spelling leaves out.
+
+--| What the statements above say of one source, as a test: lexed, in the alphabet, plain and laid; parsed from
+--| `settledOnce` to a file within the slice whose words are its groups' and which is settled as its leaves are.
+def holdsOn (source: Text): Bool := match lex source with
+  | Err _ => False
+  | Ok lexed =>
+    match parseFile lexed.settledOnce with
+      | Err _ => False
+      | Ok file =>
+        alphabet1 lexed.leaves
+          && plain1 (tokens lexed.leaves)
+          && lexed.laid1
+          && file.within1
+          && file.decls.map Decl.words == (groupsOf lexed.settledOnce.leaves).map codeWords
+          && lexed.settledOnce.wordsSettled1
+          && file.settled1
+
+--| A list broken over lines with comments in every kind of place, a last comma, a `->` and a bracket closed after a
+--| comment; and a second declaration.
+theorem holdsOnExample: holdsOn
+        "-- top\ndef d: A -> (B) := g [ -- open\n    a, -- first\n    -- above\n    b,\n  ] -- close\n\ndef e: C := -1 + f x -- end\n-- last\n"
+      = True :=
+  byComputing
+
+--| A last comma that holds a comment, which `settledOnce` moves before rule N runs.
+theorem holdsOnParked: holdsOn "def d: A := (a, b, -- comma\n  )\n" = True := byComputing
+
+--| A qualified name is one `Lower` token, so it is in the alphabet, the slice and `lexical1`; but `Spells Lower`
+--| has no `.`, so `GoodItem` is false of it and `parseShaped1` and `parseLexical1` can't be used on its file.
+theorem qualifiedIsLower: textLexesAs "List.map" Lower = True := byComputing
+
+--| Likewise a number with an exponent, a `Float` that `Spells Float` leaves out.
+theorem exponentIsFloat: textLexesAs "1e3" Float = True := byComputing
+
+--| A comma that starts a line elsewhere than before a closer, which `plain1` allows.
+theorem holdsOnLineComma: holdsOn "def d: A := f (a -- item\n  , b) -- close\n" = True := byComputing
