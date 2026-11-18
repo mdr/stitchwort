@@ -68,7 +68,7 @@ import Fmt.TreeJoinProofs (
   spellsQuiet,
   wordQuiet
 )
-import Fmt.SettleOutputProofs (unreturnedSame)
+import Fmt.SettleOutputProofs (..)
 import Fmt.SpellProofs (..)
 import Fmt.TriviaStatements (..)
 import Fmt.ToldWordProofs (..)
@@ -1155,14 +1155,12 @@ theorem declShapeBits ∀ (decl: Decl): decl.shape = bitsShape decl.bits := matc
 
 -- The bits' tokens and comments, from the tree's facts.
 
---| No comment ends in a carriage return, which the lexer takes off.
-def noteUnreturned (note: Note): Bool := !note.text.endsWith "\r"
-
+--| No comment after a token ends in a carriage return or a space, which the lexer takes off.
 def afterUnreturned: Option Text → Bool
   | None => True
-  | Some text => !text.endsWith "\r"
+  | Some text => !text.endsWith "\r" && !text.endsWith " "
 
-def Word.unreturned (word: Word): Bool := word.comments.above.all noteUnreturned && afterUnreturned word.comments.after
+def Word.unreturned (word: Word): Bool := word.comments.above.all Note.unreturned && afterUnreturned word.comments.after
 
 def Expr.unreturned1: Expr → Bool
   | Atom _ word => word.unreturned
@@ -1231,13 +1229,13 @@ theorem notBreakOfSound ∀ (text: Text) (real: (!isLayout text) = True): (text 
 
 theorem commentFineOf ∀ (text: Text)
     (sound: commentText text = True)
-    (plain: (!text.endsWith "\r") = True):
+    (plain: (!text.endsWith "\r" && !text.endsWith " ") = True):
     CommentFine text :=
   (Bool.andLeft sound, unreturnedSame text plain)
 
 theorem notesFineOf ∀ (notes: List Note)
     (sound: notesSound notes = True)
-    (plain: notes.all noteUnreturned = True):
+    (plain: notes.all Note.unreturned = True):
     NotesFine notes :=
   match notes with
     | [] => byComputing
