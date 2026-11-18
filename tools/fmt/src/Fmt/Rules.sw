@@ -839,13 +839,16 @@ def defDoc (header: Header) (colonEq: Comments) (value: Expr): Doc :=
       || colon.trails
       || (result.words.reverse.drop 1 |> .any Word.trails)
       || (value.layoutBody && (lastCode lastItem).trails)
-  let (below, choice) := bodyAfter value assign (start.next assign.trails (colonAt + 2 + result.size)) False
-  Doc.concat [
-    IdGroup 0 headerDoc (headerDoc.forcesBreak || inside),
-    Doc.text " ",
-    assign.leaf (start.next result.trails (colonAt + 1 + result.size)) (colonAt + 1 + result.size),
-    IfBroken 0 below choice
-  ]
+  let body := bodyAfter value assign (start.next assign.trails (colonAt + 2 + result.size)) False
+  defFrom headerDoc
+    (headerDoc.forcesBreak || inside)
+    (assign.leaf (start.next result.trails (colonAt + 1 + result.size)) (colonAt + 1 + result.size))
+    body.fst
+    body.snd
+
+--| A definition's document from its parts: the header, whether it must break, the `:=`, and the body's two forms.
+def defFrom (headerDoc: Doc) (breaks: Bool) (assignDoc below choice: Doc): Doc :=
+  Doc.concat [IdGroup 0 headerDoc breaks, Doc.text " ", assignDoc, IfBroken 0 below choice]
 
 --| A body whose layout is measured from the header's last line: a comment
 --| after the last parameter makes the header break, since the `:` can't
@@ -1025,34 +1028,49 @@ def capitalised (name: Text): Bool :=
 --| below. A block always goes below. `semi` says a `;` follows the value.
 def bodyAfter (value: Expr) (assign: Word) (around: Around) (semi: Bool): (Doc, Doc) :=
   let inside := { around | hoisted = True }
-  let matched := match value with
-    | Match keyword scrutinees withKeyword arms => Some (matchParts keyword scrutinees withKeyword arms inside)
-    | _ => None
-  let doc := match matched with
-    | Some parts => value.framed around parts.doc
-    | None => valueEl value around semi
+  let matched := value.matchedParts inside
+  let doc := bodyDoc value matched around semi
   let below := Nest 2 (Doc.concat [HardLine, doc])
   if assign.trails || value.noted || value.isBlock then (below, below)
   else
-    let hug := match value with
-      | App head arguments => (appDocs head arguments inside).hug
-      | _ => None
-    let opens := match value with
-      | Tuple _ _ _ _ => True
-      | ListOf _ _ _ _ => True
-      | Record _ _ _ _ _ => True
-      | _ => False
-    let lambda := match value with
-      | Binding BindsLambda _ params arrow body =>
-        let (_, opened) := lambdaBoth params arrow body semi inside
-        Some opened
-      | _ => None
+    let hug := value.callHug inside
+    let opens := value.opensBracket
+    let lambda := value.lambdaHug semi inside
     let matchHug := matched.map (parts => parts.hug)
     let oneLineBelow := if opens || hug.isSome then [OneLineBelow doc] else []
     let onLine :=
       if opens then [Doc.concat [Doc.text " ", doc]]
       else optionList (((matchHug.orElse lambda).orElse hug).map (open => Doc.concat [Doc.text " ", open]))
     (below, Choice ([Flatten (Doc.concat [Doc.text " ", doc])] ++ oneLineBelow ++ onLine ++ [below]))
+
+--| The parts of a `match` value, for its first line to stay on the `:=`'s.
+def Expr.matchedParts (value: Expr) (inside: Around): Option Matched := match value with
+  | Match keyword scrutinees withKeyword arms => Some (matchParts keyword scrutinees withKeyword arms inside)
+  | _ => None
+
+--| The value's document, from its `match` parts if it is one.
+def bodyDoc (value: Expr) (matched: Option Matched) (around: Around) (semi: Bool): Doc := match matched with
+  | Some parts => value.framed around parts.doc
+  | None => valueEl value around semi
+
+--| A call's hug, which may go on the `:=`'s line.
+def Expr.callHug (value: Expr) (inside: Around): Option Doc := match value with
+  | App head arguments => (appDocs head arguments inside).hug
+  | _ => None
+
+--| A value that opens its brackets on the `:=`'s line: a tuple, list or record.
+def Expr.opensBracket: Expr → Bool
+  | Tuple _ _ _ _ => True
+  | ListOf _ _ _ _ => True
+  | Record _ _ _ _ _ => True
+  | _ => False
+
+--| A lambda's opened form, with its body below.
+def Expr.lambdaHug (value: Expr) (semi: Bool) (inside: Around): Option Doc := match value with
+  | Binding BindsLambda _ params arrow body =>
+    let (_, opened) := lambdaBoth params arrow body semi inside
+    Some opened
+  | _ => None
 
 -- Layout: blocks, `let`, `if` and `match` (slice 3).
 

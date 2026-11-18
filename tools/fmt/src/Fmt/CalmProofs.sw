@@ -9,7 +9,7 @@
 namespace Fmt.CalmProofs
 import Std (Bool, Doc, Eq, List, Nat, Option, Text)
 import Std.Doc (..)
-import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
+import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
 
 -- A word and its calm word.
@@ -909,28 +909,50 @@ theorem bracketKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
           True
           byComputing
           (closerOk close closes)
-  Eq.trans
-    (bracketIs list (open.kept item False) calmed (close.kept False True) around)
-    (Eq.trans
-      (bracketFromCong list calmed.isEmpty items.isEmpty
+  let opening' := (open.kept item False).opening around (close.kept False True)
+  let opening := open.opening around close
+  let closer' := (close.kept False True).leaf (around.next after.trailsBeforeClose (after.size - 1)) around.at
+  let closer := close.leaf (around.next before.trailsBeforeClose (before.size - 1)) around.at
+  let filled' :=
+    cells (list && calmed.all Expr.plainItem) around.inArm (open.kept item False).trails (around.at + 1) calmed
+  let filled := cells bare around.inArm open.trails (around.at + 1) items
+  let broken' :=
+    brokenItems
+      (list && calmed.all Expr.plainItem)
+      around.inArm
+      True
+      (open.kept item False).trails
+      (around.at + 1)
+      calmed
+  let broken := brokenItems bare around.inArm True open.trails (around.at + 1) items
+  calc bracketContent list (open.kept item False) calmed (close.kept False True) around
+    _ = bracketFrom list calmed.isEmpty
+        (calmed.all Expr.plainItem)
+        after.holdsTrailingComment
+        opening'
+        closer'
+        filled'
+        broken' := bracketIs list (open.kept item False) calmed (close.kept False True) around
+    _ = bracketFrom list items.isEmpty
+        (items.all Expr.plainItem)
+        before.holdsTrailingComment
+        opening
+        closer
+        filled
+        broken :=
+      bracketFromCong list calmed.isEmpty items.isEmpty
         (calmed.all Expr.plainItem)
         (items.all Expr.plainItem)
         after.holdsTrailingComment
         before.holdsTrailingComment
-        ((open.kept item False).opening around (close.kept False True))
-        (open.opening around close)
-        ((close.kept False True).leaf (around.next after.trailsBeforeClose (after.size - 1)) around.at)
-        (close.leaf (around.next before.trailsBeforeClose (before.size - 1)) around.at)
-        (cells (list && calmed.all Expr.plainItem) around.inArm (open.kept item False).trails (around.at + 1) calmed)
-        (cells bare around.inArm open.trails (around.at + 1) items)
-        (brokenItems
-          (list && calmed.all Expr.plainItem)
-          around.inArm
-          True
-          (open.kept item False).trails
-          (around.at + 1)
-          calmed)
-        (brokenItems bare around.inArm True open.trails (around.at + 1) items)
+        opening'
+        opening
+        closer'
+        closer
+        filled'
+        filled
+        broken'
+        broken
         (pickEmpty bare items)
         (pickPlain bare items (allGoodWithin items good))
         (holdsAlike before after alike).flipped
@@ -939,8 +961,8 @@ theorem bracketKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
         (rewrite pickPlain bare items (allGoodWithin items good), pickList bare items then
           cellsKept bare around.inArm open.trails (around.at + 1) items each good)
         (rewrite pickPlain bare items (allGoodWithin items good), pickList bare items then
-          brokenItemsKept bare around.inArm True open.trails (around.at + 1) items each good))
-      (bracketIs list open items close around).flipped)
+          brokenItemsKept bare around.inArm True open.trails (around.at + 1) items each good)
+    _ = bracketContent list open items close around := (bracketIs list open items close around).flipped
 
 -- Calls.
 
@@ -1445,3 +1467,501 @@ theorem appKept ∀ (head: Expr) (arguments: List Expr) (around: Around)
         (arguments.take (keptFront head arguments))
         sameTrails
         (takeWithin arguments (keptFront head arguments) within)
+
+-- The body after `:=`.
+
+theorem matchedNone ∀ (value: Expr) (inside: Around) (within: value.within1 = True): value.matchedParts inside = None :=
+  match value with
+    | Match _ _ _ _ => cases
+    | _ => byComputing
+
+theorem lambdaHugNone ∀ (value: Expr) (semi: Bool) (inside: Around)
+    (within: value.within1 = True):
+    value.lambdaHug semi inside = None :=
+  match value with
+    | Binding _ _ _ _ _ => cases
+    | _ => byComputing
+
+theorem valueElPlain ∀ (value: Expr) (around: Around) (semi: Bool)
+    (within: value.within1 = True):
+    valueEl value around semi = value.el around :=
+  match value with
+    | Binding _ _ _ _ _ => cases
+    | _ => byComputing
+
+theorem opensCalm ∀ (value: Expr) (item: Bool)
+    (within: value.within1 = True):
+    (value.calm item).opensBracket = value.opensBracket :=
+  match value with
+    | Atom kind word => byComputing
+    | Paren open inner close => byComputing
+    | Tuple open items comma close => byComputing
+    | ListOf open items comma close => byComputing
+    | App head arguments => byComputing
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary => byComputing
+        | InfixArrow => byComputing
+        | _ => cases
+    | Prefix operator operand => byComputing
+
+theorem isBlockCalm ∀ (value: Expr) (item: Bool)
+    (within: value.within1 = True):
+    (value.calm item).isBlock = value.isBlock :=
+  match value with
+    | Atom kind word => byComputing
+    | Paren open inner close => byComputing
+    | Tuple open items comma close => byComputing
+    | ListOf open items comma close => byComputing
+    | App head arguments => byComputing
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary => byComputing
+        | InfixArrow => byComputing
+        | _ => cases
+    | Prefix operator operand => byComputing
+
+theorem callHugKept ∀ (value: Expr) (inside: Around)
+    (good: value.good = True):
+    (value.calm inside.item).callHug inside = value.callHug inside :=
+  match value with
+    | App head arguments =>
+      Eq.cong
+        (applied => applied.hug)
+        (appKept head arguments inside (appGoodHead head arguments good) (appGoodArguments head arguments good))
+    | _ => byComputing
+
+theorem matchedCalm ∀ (value: Expr) (item: Bool) (inside: Around)
+    (within: value.within1 = True):
+    (value.calm item).matchedParts inside = None :=
+  match value with
+    | Match _ _ _ _ => cases
+    | _ => byComputing
+
+theorem lambdaHugCalm ∀ (value: Expr) (item semi: Bool) (inside: Around)
+    (within: value.within1 = True):
+    (value.calm item).lambdaHug semi inside = None :=
+  match value with
+    | Binding _ _ _ _ _ => cases
+    | _ => byComputing
+
+theorem valueElKept ∀ (value: Expr) (around: Around) (semi: Bool)
+    (good: value.good = True):
+    valueEl (value.calm around.item) around semi = valueEl value around semi :=
+  match value with
+    | Binding _ _ _ _ _ => cases
+    | _ => elCalm value around good
+
+theorem bodyAfterKept ∀ (value: Expr) (assign assign': Word) (around: Around) (semi: Bool)
+    (good: value.good = True)
+    (sameTrails: assign'.trails = assign.trails):
+    bodyAfter (value.calm around.item) assign' around semi = bodyAfter value assign around semi :=
+  let within := goodWithin value good
+  rewrite matchedCalm value around.item { around | hoisted = True } within,
+      matchedNone value { around | hoisted = True } within,
+      valueElKept value around semi good,
+      sameTrails,
+      notedCalm value around.item within,
+      isBlockCalm value around.item within,
+      callHugKept value { around | hoisted = True } good,
+      opensCalm value around.item within,
+      lambdaHugCalm value around.item semi { around | hoisted = True } within,
+      lambdaHugNone value semi { around | hoisted = True } within
+
+-- Declarations.
+
+theorem anyTrailsAlike ∀ (before after: List Word)
+    (alike: AllAlike before after):
+    before.any Word.trails = after.any Word.trails :=
+  match before, after, alike with
+    | [], [], _ => byComputing
+    | [first, ..more], [second, ..others], (same, rest) =>
+      rewrite alikeTrails first second same, anyTrailsAlike more others rest
+
+theorem layoutBodyFalse ∀ (value: Expr) (within: value.within1 = True): value.layoutBody = False := match value with
+  | Atom kind word => byComputing
+  | Paren open inner close => byComputing
+  | Tuple open items comma close => byComputing
+  | ListOf open items comma close => byComputing
+  | App head arguments => byComputing
+  | Infix kind left operator right =>
+    match kind with
+      | InfixBinary => byComputing
+      | InfixArrow => byComputing
+      | _ => cases
+  | Prefix operator operand => byComputing
+
+theorem layoutBodyCalm ∀ (value: Expr) (item: Bool)
+    (within: value.within1 = True):
+    (value.calm item).layoutBody = False :=
+  match value with
+    | Atom kind word => byComputing
+    | Paren open inner close => byComputing
+    | Tuple open items comma close => byComputing
+    | ListOf open items comma close => byComputing
+    | App head arguments => byComputing
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary => byComputing
+        | InfixArrow => byComputing
+        | _ => cases
+    | Prefix operator operand => byComputing
+
+--| `defDoc` of a header with no parameters, written out.
+def plainDef (keyword: Comments) (name: Word) (colon: Comments) (result: Expr) (colonEq: Comments) (value: Expr): Doc :=
+  let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
+  let keywordWord := fixedWord "def" keyword
+  let colonWord := fixedWord ":" colon
+  let assign := fixedWord ":=" colonEq
+  let headWords := [keywordWord, name]
+  let colonAround := start.next (trailsBack headWords.reverse) 2
+  let typeDoc := result.el (start.next colonWord.trails 3)
+  let headDoc := spaced (headDocs start headWords)
+  let typed := if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
+  let headerDoc := Doc.concat ([headDoc, colonWord.leaf colonAround 2] ++ typed)
+  let inside :=
+    (headWords.reverse.drop 1 |> .any Word.trails)
+      || colonWord.trails
+      || (result.words.reverse.drop 1 |> .any Word.trails)
+      || (value.layoutBody && (lastCode headWords).trails)
+  let body := bodyAfter value assign (start.next assign.trails (4 + result.size)) False
+  defFrom headerDoc
+    (headerDoc.forcesBreak || inside)
+    (assign.leaf (start.next result.trails (3 + result.size)) (3 + result.size))
+    body.fst
+    body.snd
+
+theorem plainDefIs ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
+    (colonEq: Comments) (value: Expr):
+    defDoc
+      {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      }
+      colonEq
+      value
+      = plainDef keyword name colon result colonEq value :=
+  byComputing
+
+theorem defFromCong ∀
+    (headerDoc headerDoc' assignDoc assignDoc' below below' choice choice': Doc) (breaks breaks': Bool)
+    (sameHeader: headerDoc = headerDoc')
+    (sameBreaks: breaks = breaks')
+    (sameAssign: assignDoc = assignDoc')
+    (sameBelow: below = below')
+    (sameChoice: choice = choice'):
+    defFrom headerDoc breaks assignDoc below choice = defFrom headerDoc' breaks' assignDoc' below' choice' :=
+  rewrite sameHeader, sameBreaks, sameAssign, sameBelow, sameChoice
+
+theorem leafCong ∀ (word: Word) (around around': Around) (key key': Nat)
+    (sameAround: around = around')
+    (sameKey: key = key'):
+    word.leaf around key = word.leaf around' key' :=
+  rewrite sameAround, sameKey
+
+theorem breaksCong ∀ (headerDoc headerDoc': Doc) (inside inside': Bool)
+    (sameHeader: headerDoc = headerDoc')
+    (sameInside: inside = inside'):
+    (headerDoc.forcesBreak || inside) = (headerDoc'.forcesBreak || inside') :=
+  rewrite sameHeader, sameInside
+
+theorem plainInsideKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (result value: Expr)
+    (resultGood: result.good = True)
+    (valueGood: value.good = True):
+    (([fixedWord "def" keyword, name.kept False False].reverse.drop 1 |> .any Word.trails)
+      || (fixedWord ":" (colon.kept False False)).trails
+      || ((result.calm False).words.reverse.drop 1 |> .any Word.trails)
+      || ((value.calm False).layoutBody && (lastCode [fixedWord "def" keyword, name.kept False False]).trails))
+      = (([fixedWord "def" keyword, name].reverse.drop 1 |> .any Word.trails)
+        || (fixedWord ":" colon).trails
+        || (result.words.reverse.drop 1 |> .any Word.trails)
+        || (value.layoutBody && (lastCode [fixedWord "def" keyword, name]).trails)) :=
+  rewrite (anyTrailsAlike
+        (result.words.reverse.drop 1)
+        ((result.calm False).words.reverse.drop 1)
+        (allAlikeDrop result.words.reverse
+          (result.calm False).words.reverse
+          1
+          (allAlikeReverse result.words
+            (result.calm False).words
+            (wordsCalm result False (goodWithin result resultGood))))).flipped,
+      layoutBodyCalm value False (goodWithin value valueGood),
+      layoutBodyFalse value (goodWithin value valueGood)
+
+theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
+    (colonEq: Comments) (value: Expr)
+    (resultGood: result.good = True)
+    (valueGood: value.good = True):
+    plainDef keyword
+      (name.kept False False)
+      (colon.kept False False)
+      (result.calm False)
+      (colonEq.kept False False)
+      (value.calm False)
+      = plainDef keyword name colon result colonEq value :=
+  let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
+  let within := goodWithin result resultGood
+  let colonWord := fixedWord ":" colon
+  let assign := fixedWord ":=" colonEq
+  let typeEq := elCalm result (start.next colonWord.trails 3) resultGood
+  let headEq: spaced (headDocs start [fixedWord "def" keyword, name.kept False False])
+    = spaced (headDocs start [fixedWord "def" keyword, name]) :=
+    Eq.cong
+      (docs => spaced docs)
+      (list2 _ _ _ _ byComputing
+        (leafKept name (start.next (fixedWord "def" keyword).trails 1) 1 False False byComputing byComputing))
+  let leafEq :=
+    leafKept colonWord (start.next (trailsBack [name, fixedWord "def" keyword]) 2) 2 False False byComputing byComputing
+  let typedEq :=
+    Eq.cong
+      (typed => if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typed])] else [Doc.text " ", Nest 4 typed])
+      typeEq
+  let headerEq := concatCong _ _ (appendCong _ _ _ _ (list2 _ _ _ _ headEq leafEq) typedEq)
+  let aroundEq :=
+    nextEq start
+      (fixedWord ":=" (colonEq.kept False False)).trails
+      assign.trails
+      (4 + (result.calm False).size)
+      (4 + result.size)
+      byComputing
+      (Eq.cong (size => 4 + size) (sizeCalm result False within))
+  let bodyEq :=
+    Eq.trans
+      (Eq.cong
+        (around => bodyAfter (value.calm False) (fixedWord ":=" (colonEq.kept False False)) around False)
+        aroundEq)
+      (bodyAfterKept value assign
+        (fixedWord ":=" (colonEq.kept False False))
+        (start.next assign.trails (4 + result.size))
+        False
+        valueGood
+        byComputing)
+  let assignEq: (fixedWord ":=" (colonEq.kept False False)).leaf
+    (start.next (result.calm False).trails (3 + (result.calm False).size))
+    (3 + (result.calm False).size)
+    = assign.leaf (start.next result.trails (3 + result.size)) (3 + result.size) :=
+    Eq.trans
+      (leafCong
+        (fixedWord ":=" (colonEq.kept False False))
+        (start.next (result.calm False).trails (3 + (result.calm False).size))
+        (start.next result.trails (3 + result.size))
+        (3 + (result.calm False).size)
+        (3 + result.size)
+        (nextEq start
+          (result.calm False).trails
+          result.trails
+          (3 + (result.calm False).size)
+          (3 + result.size)
+          (trailsCalm result False within)
+          (Eq.cong (size => 3 + size) (sizeCalm result False within)))
+        (Eq.cong (size => 3 + size) (sizeCalm result False within)))
+      (leafKept assign
+        (start.next result.trails (3 + result.size))
+        (3 + result.size)
+        False
+        False
+        byComputing
+        byComputing)
+  defFromCong _ _ _ _ _ _ _ _ _ _ headerEq
+    (breaksCong _ _ _ _ headerEq (plainInsideKept keyword name colon result value resultGood valueGood))
+    assignEq
+    (Eq.cong (pair => pair.fst) bodyEq)
+    (Eq.cong (pair => pair.snd) bodyEq)
+
+theorem defDocKept ∀ (header: Header) (colonEq: Comments) (value: Expr)
+    (within: header.within1 = True)
+    (resultGood: header.result.good = True)
+    (valueGood: value.good = True):
+    defDoc header.calm (colonEq.kept False False) (value.calm False) = defDoc header colonEq value :=
+  match header with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      } =>
+      calc defDoc header.calm (colonEq.kept False False) (value.calm False)
+        _ = plainDef keyword
+            (name.kept False False)
+            (colon.kept False False)
+            (result.calm False)
+            (colonEq.kept False False)
+            (value.calm False) :=
+          plainDefIs keyword
+            (name.kept False False)
+            (colon.kept False False)
+            (result.calm False)
+            (colonEq.kept False False)
+            (value.calm False)
+        _ = plainDef keyword name colon result colonEq value :=
+          plainDefKept keyword name colon result colonEq value resultGood valueGood
+        _ = defDoc header colonEq value := (plainDefIs keyword name colon result colonEq value).flipped
+
+-- Declarations and files.
+
+theorem withinAllCalm ∀ (items: List Expr) (item: Bool)
+    (within: allWithin1 items = True):
+    allWithin1 (calmAll item items) = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      Bool.andIntro (withinCalm first item (Bool.andLeft within)) (withinAllCalm rest item (Bool.andRight within))
+
+theorem withinLeadCalm ∀ (items: List Expr) (within: allWithin1 items = True): allWithin1 (calmLead items) = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      Bool.andIntro (withinCalm first False (Bool.andLeft within)) (withinAllCalm rest True (Bool.andRight within))
+
+theorem withinCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).within1 = True :=
+  match expr with
+    | Atom kind word => within
+    | Paren open inner close => withinCalm inner False within
+    | Tuple open items comma close => withinAllCalm items True within
+    | ListOf open items comma close =>
+      match items.all Expr.plainItem with
+        | True => withinLeadCalm items within
+        | False => withinAllCalm items True within
+    | App head arguments =>
+      Bool.andIntro (withinCalm head item (Bool.andLeft within)) (withinAllCalm arguments False (Bool.andRight within))
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          Bool.andIntro (withinCalm left item (Bool.andLeft within)) (withinCalm right False (Bool.andRight within))
+        | InfixArrow =>
+          Bool.andIntro (withinCalm left item (Bool.andLeft within)) (withinCalm right False (Bool.andRight within))
+        | _ => cases
+    | Prefix operator operand => withinCalm operand False within
+
+theorem parenCloser ∀ (text: Text) (is: (text == ")") = True): isCloserText text = True := rewrite is
+
+theorem bracketCloser ∀ (text: Text) (is: (text == "]") = True): isCloserText text = True := match text == ")" with
+  | True => byComputing
+  | False => rewrite is
+
+theorem allLexicalClosed ∀ (items: List Expr) (lexical: allLexical1 items = True): allClosed items = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      Bool.andIntro (lexicalClosed first (Bool.andLeft lexical)) (allLexicalClosed rest (Bool.andRight lexical))
+
+theorem lexicalClosed ∀ (expr: Expr) (lexical: expr.lexical1 = True): expr.closed = True := match expr with
+  | Atom kind word => byComputing
+  | Paren open inner close =>
+    Bool.andIntro
+      (parenCloser close.text (Bool.andLeft (Bool.andRight lexical)))
+      (lexicalClosed inner (Bool.andRight (Bool.andRight lexical)))
+  | Tuple open items comma close =>
+    Bool.andIntro
+      (parenCloser close.text (Bool.andLeft (Bool.andRight lexical)))
+      (allLexicalClosed items (Bool.andRight (Bool.andRight lexical)))
+  | ListOf open items comma close =>
+    Bool.andIntro
+      (bracketCloser close.text (Bool.andLeft (Bool.andRight lexical)))
+      (allLexicalClosed items (Bool.andRight (Bool.andRight lexical)))
+  | App head arguments =>
+    Bool.andIntro (lexicalClosed head (Bool.andLeft lexical)) (allLexicalClosed arguments (Bool.andRight lexical))
+  | Infix kind left operator right =>
+    Bool.andIntro
+      (lexicalClosed left (Bool.andLeft lexical))
+      (lexicalClosed right (Bool.andRight (Bool.andRight lexical)))
+  | Prefix operator operand => lexicalClosed operand (Bool.andRight lexical)
+
+theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
+  match header with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      } => within
+
+theorem headerCalmWithin ∀ (header: Header) (within: header.within1 = True): header.calm.within1 = True :=
+  match header with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      } => withinCalm result False within
+
+theorem declCalmWithin ∀ (decl: Decl) (within: decl.within1 = True): decl.calm.within1 = True := match decl with
+  | Definition [] header (Assigned colonEq value) =>
+    Bool.andIntro (headerCalmWithin header (Bool.andLeft within)) (withinCalm value False (Bool.andRight within))
+
+theorem declDocCalm ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (lexical: decl.lexical1 = True):
+    decl.calm.doc1 = decl.doc1 :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      Eq.cong
+        (doc => Some doc)
+        (defDocKept header colonEq value
+          (Bool.andLeft within)
+          (Bool.andIntro
+            (headerResultWithin header (Bool.andLeft within))
+            (lexicalClosed header.result (Bool.andLeft (Bool.andRight lexical))))
+          (Bool.andIntro (Bool.andRight within) (lexicalClosed value (Bool.andRight (Bool.andRight lexical)))))
+
+theorem declPrintedCalm ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (lexical: decl.lexical1 = True):
+    decl.calm.printed1 = decl.printed1 :=
+  rewrite declCalmWithin decl within, within, declDocCalm decl within lexical
+
+theorem firstCommentsCalm ∀ (decl: Decl) (within: decl.within1 = True): decl.calm.firstComments = decl.firstComments :=
+  match decl with | Definition [] header (Assigned colonEq value) => byComputing
+
+theorem printDeclsCalm ∀ (output: Output) (decls: List Decl)
+    (within: decls.all Decl.within1 = True)
+    (lexical: decls.all Decl.lexical1 = True):
+    printDecls Decl.printed1 output (decls.map Decl.calm) = printDecls Decl.printed1 output decls :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] =>
+      rewrite firstCommentsCalm decl (Bool.andLeft within),
+          declPrintedCalm decl (Bool.andLeft within) (Bool.andLeft lexical) then
+        printDeclsCalm _ rest (Bool.andRight within) (Bool.andRight lexical)
+
+--| `calmPrints`: the rules print a slice 1 file and its `calm` file the same text.
+--|
+--| Proof idea: `calm` clears only flags the rules never read, so every rule's document is the same before and after
+--| (`elCalm`: by induction on the expression, with each rule's lemma taking the induction hypothesis for its
+--| parts; `defDocKept` for the declaration), and the file loop reads the first token's comments and the end's
+--| notes, which `calm` keeps.
+theorem calmPrints ∀ (file: SourceFile)
+    (within: file.within1 = True)
+    (lexical: file.lexical1 = True):
+    file.calm.printed1 = file.printed1 :=
+  rewrite printDeclsCalm { pieces = [], empty = True } file.decls within lexical
