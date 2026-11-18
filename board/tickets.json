@@ -1,5 +1,5 @@
 {
-  "next": 4034,
+  "next": 4036,
   "tickets": [
     {
       "id": 47,
@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).\n\nAlso (SW-4019): readsNever for any Parse.Invariant; readsAfter0 generalised; SameOrOut/sameOrOutThen as a kept-or-replaced ReadsIn spec.\n\nAlso (SW-4022): a Bool List.allAppend (allAppendB), allReverseOnto, andSwap.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.\n\nAlso (SW-3968): Parse.runGives; readsAtAfter0, readsAtBumpAfter and Left variants.\n\nAlso (SW-3969): Parse.readsAtMark; andFalseRight into Std.Bool.\n\nAlso (SW-4000): Parse.givesExpectAny, Parse.givesGap (an error gives anything); a generic bind-then-peek walk lemma.\n\nAlso (SW-3971): snocNotNil (xs ++ [y] ≠ []); PassesSeq/spacedSeq/fillSeq/splitSeq over a generic follows next to Std.Doc's Joins.\n\nAlso (SW-4004): runsLookEnd, runsBindEnd, runsSame, runsLook into Std.Parse (Runs.sw); a bind-associativity lemma under Runs.\n\nAlso (SW-4012): andFalseMiddle; Parse.runsRecursiveWith over RunsFrom with offsets; ChainReads/LinkReads as a std pattern for a relation following a parser.\n\nAlso (SW-4013): andRightFalse, andBoth, notTrueFalse, orTrueRight (Bool).\n\nAlso (SW-4010): a List.takeWhile all-pass lemma (takeWhileAll); Char DecEq helpers (charNe).\n\nAlso (SW-4016): one commentNotLayout in Std.Doc.Proofs (commentLayout duplicates Fmt.SpellProofs.commentNotLayout).\n\nAlso (SW-4019): readsNever for any Parse.Invariant; readsAfter0 generalised; SameOrOut/sameOrOutThen as a kept-or-replaced ReadsIn spec.\n\nAlso (SW-4022): a Bool List.allAppend (allAppendB), allReverseOnto, andSwap.\n\nAlso (SW-4030): joinedWithIs (Doc.joinedWith as concatMap) into Std.Doc; chainedSplit generic list lemma.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24620,12 +24620,12 @@
     {
       "id": 4030,
       "title": "[Opus] fmt S1 line-break proofs 18f: give ElHangs an indentation separate from the seat column (orchestrator's call, SW-4016's recommended option) so an application's broken arguments (+4) and a chain's operators (+2) can be seated, and add the marks invariant (a lower bound on keys plus marks kept or lowered) in the same change; short design note in NOTES first; then the bracket, application, chain and declaration-level triples and printedHangs via hangsOfLays; after SW-4029 for the blank-before-closer case",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4029: CloserSeat now admits a lone closer after a break, so the bracket triples can take the SoftLine then closer.leaf path (unprovable before the fix).\n\nSW-4030 notes (Opus, 18 Nov 2026, 17:24 to 18:16, 52 min of 75 est.), branch lane/SW-4030, 17 commits:\n- Design as briefed: ElHangs indent column (Seated exact, Seat adds column ≤ indent); marks invariant as a frame lemma over Lays (Fmt.MarkProofs `framed`, MarksKept), applied at each bracket (hangsMarked). CloserEntry now asks CloserFits only where the closer takes a line of its own (weaker hypothesis).\n- Proved: brackets (Fmt.BracketHangProofs, 46: bracketContent all layouts, commaBracket, list/tuple elements, paren with opener not trailing a comment, huggedBracket, lastArgument's bracket cases); applications (Fmt.AppHangProofs, 28: spaced, argumentDocs, appFrom every layout, appDocs, App element); chains (Fmt.ChainHangProofs, 9: chainLinks/linkDocs/chain, binary chains).\n- Owed: paren whose opener trails a comment (CloserFits needs the inner's first break exposed); `->` chains (glued fold, own run lemma); declaration level (bodyAfter, defDoc, defFrom, doc1, headDocs) and printedHangs; trails equations to Expr.trails for paren and call; within1 → hypotheses.\n- Findings in tools/fmt/NOTES.md: brokenItems passes before = False after a trailing-comment item (Lays lays the Line flat at Held); huggedBracket's opened form unframed after a trailing comment.\n- Audits clean (HangProofs, PrintHangProofs: 1 pre-existing vacuity warning each); Fmt.Tests 95/95.\n",
+      "body": "From SW-4029: CloserSeat now admits a lone closer after a break, so the bracket triples can take the SoftLine then closer.leaf path (unprovable before the fix).\n\nSW-4030 notes (Opus, 18 Nov 2026, 17:24 to 18:16, 52 min of 75 est.), branch lane/SW-4030, 17 commits:\n- Design as briefed: ElHangs indent column (Seated exact, Seat adds column ≤ indent); marks invariant as a frame lemma over Lays (Fmt.MarkProofs `framed`, MarksKept), applied at each bracket (hangsMarked). CloserEntry now asks CloserFits only where the closer takes a line of its own (weaker hypothesis).\n- Proved: brackets (Fmt.BracketHangProofs, 46: bracketContent all layouts, commaBracket, list/tuple elements, paren with opener not trailing a comment, huggedBracket, lastArgument's bracket cases); applications (Fmt.AppHangProofs, 28: spaced, argumentDocs, appFrom every layout, appDocs, App element); chains (Fmt.ChainHangProofs, 9: chainLinks/linkDocs/chain, binary chains).\n- Owed: paren whose opener trails a comment (CloserFits needs the inner's first break exposed); `->` chains (glued fold, own run lemma); declaration level (bodyAfter, defDoc, defFrom, doc1, headDocs) and printedHangs; trails equations to Expr.trails for paren and call; within1 → hypotheses.\n- Findings in tools/fmt/NOTES.md: brokenItems passes before = False after a trailing-comment item (Lays lays the Line flat at Held); huggedBracket's opened form unframed after a trailing comment.\n- Audits clean (HangProofs, PrintHangProofs: 1 pre-existing vacuity warning each); Fmt.Tests 95/95.\n\nMerged 18 Nov, partial. 49 min (est. 75). Statement change checked by the orchestrator: CloserEntry's CloserFits only for own-line closers, a weaker hypothesis, so stronger theorems. Marks invariant as a frame lemma rather than inside ElHangs: fine. Owed: SW-4034; brokenItems simplification: SW-4035. huggedBracket's opened form assumed via ArgsHang: in SW-4034's scope.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24661,6 +24661,32 @@
     {
       "id": 4033,
       "title": "[Sonnet] fmt S1 tidy: move the shared definitions (codeWords, settledWords, Leaf.marked, rawComment) from ParseSettledStatements into one base file so SettleOnceProofs and ParseCarries stop keeping twins (SW-4022); also rename one of the two arrowsBare (leaves in SettleProofs, words in Fmt; SW-3998 carries it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4034,
+      "title": "[Opus] fmt S1 line-break 18g: finish printedHangs: a paren whose opener ends its line with a comment (expose the inner's first break for CloserFits), -> chains (glued state, own run lemma), the declaration level (bodyAfter, callHug, opensBracket, bodyDoc, headDocs, defDoc, defFrom, doc1, := and : leaves, parameter groups), trails equations for paren and call, deriving the rule hypotheses from within1, then printedHangs via hangsOfLays (SW-4030's Owed list in tools/fmt/NOTES.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 4035,
+      "title": "[Sonnet] fmt: brokenItems passes the previous item's trails as before instead of False (same output; the hang proofs' ItemsHang then simplifies); update CalmProofs/SpellProofs's brokenItems False arm uses; s6a twin unchanged (SW-4030, orchestrator's call: yes, output identical)",
       "status": "backlog",
       "agent": "",
       "where": "",
