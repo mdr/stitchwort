@@ -11,11 +11,15 @@ namespace Fmt.DeclHangProofs
 import Std (Bool, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
-import Syntax (Comments, DefKind, Expr, Header, Tok, Word)
+import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, Lexed, Tok, Word, lex)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.AppHangProofs (AfterWords, joinedWithIs, partStep)
 import Fmt.HeldParenProofs (quietLeading)
+import Fmt.PrintHangProofs (hangsOfLays)
+import Fmt.SpellProofs (..)
+import Fmt.JoinProofs (doc1Passes)
+import Fmt.TreeJoinProofs (declJoins, declOperators, declPrintable, lexKind)
 
 -- Where the fold is.
 
@@ -490,7 +494,7 @@ theorem oneLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
 --| The choice's forms when the value opens no bracket: on the line, its hug one line below and on the line if it
 --| has one, else below.
 theorem plainChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (hug: Option Doc) (trails: Bool)
-    (below: ∀ (before: Bool) => ElHangs kinds doc 2 2 before trails wordStart)
+    (below: ElHangs kinds doc 2 2 False trails wordStart)
     (onLine: OnLine kinds doc)
     (hugs: ∀ (open: Doc) => hug = Some open → OnLine kinds open):
     EachHangs kinds 0
@@ -502,20 +506,15 @@ theorem plainChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (hug: Option Doc) 
         ++ [Nest 2 (Doc.concat [HardLine, doc])]) :=
   let flat :=
     hangsFlatten kinds (Doc.concat [Doc.text " ", doc]) 0 (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine)
-  let low := belowHangs kinds doc False trails (below False)
+  let low := belowHangs kinds doc False trails below
   match hug, hugs with
     | None, _ => (flat, low, byComputing)
-    | Some open, hugs => (
-      flat,
-      oneLineHangs kinds doc trails (below False),
-      spaceDocHangs kinds open (hugs open byComputing),
-      low,
-      byComputing
-    )
+    | Some open, hugs =>
+      (flat, oneLineHangs kinds doc trails below, spaceDocHangs kinds open (hugs open byComputing), low, byComputing)
 
 --| The choice's forms when the value opens a bracket: on the line, one line below, on the line opened, else below.
 theorem openChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
-    (below: ∀ (before: Bool) => ElHangs kinds doc 2 2 before trails wordStart)
+    (below: ElHangs kinds doc 2 2 False trails wordStart)
     (onLine: OnLine kinds doc):
     EachHangs kinds 0 (AfterTop False) Unbroken [
       Flatten (Doc.concat [Doc.text " ", doc]),
@@ -525,23 +524,28 @@ theorem openChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
     ] :=
   (
     hangsFlatten kinds (Doc.concat [Doc.text " ", doc]) 0 (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine),
-    oneLineHangs kinds doc trails (below False),
+    oneLineHangs kinds doc trails below,
     spaceDocHangs kinds doc onLine,
-    belowHangs kinds doc False trails (below False),
+    belowHangs kinds doc False trails below,
     byComputing
   )
 
 --| The value's document, for a value that is no `match`.
 def plainBody (value: Expr) (around: Around): Doc := bodyDoc value None around False
 
---| What `bodyAfter` asks of a value that is no `match` and no lambda or `calc`: its document hangs below at 2 and
---| on the `:=`'s line, and so does its hug, if it has one.
-def BodyHangs (kinds: Text → Tok) (value: Expr) (around: Around): Prop :=
+--| How a value's document hangs after a `:=` that trails a comment if `before`: below at 2, and, when no comment
+--| waits, on the `:=`'s line, and so does its hug, if it has one.
+def BodyLays (kinds: Text → Tok) (value: Expr) (around: Around) (before: Bool): Prop :=
+  (∃ (trails: Bool) => ElHangs kinds (plainBody value around) 2 2 before trails wordStart)
+    ∧ (before = False
+      → OnLine kinds (plainBody value around)
+        ∧ (∀ (open: Doc) => value.callHug { around | hoisted = True } = Some open → OnLine kinds open))
+
+--| What `bodyAfter` asks of a value: that it is no `match`, lambda or `calc` (`withinPlainBody`), and `BodyLays`.
+def BodyHangs (kinds: Text → Tok) (value: Expr) (around: Around) (before: Bool): Prop :=
   value.matchedParts { around | hoisted = True } = None
     ∧ value.lambdaHug False { around | hoisted = True } (plainBody value around) = None
-    ∧ (∃ (trails: Bool) => ∀ (before: Bool) => ElHangs kinds (plainBody value around) 2 2 before trails wordStart)
-    ∧ OnLine kinds (plainBody value around)
-    ∧ (∀ (open: Doc) => value.callHug { around | hoisted = True } = Some open → OnLine kinds open)
+    ∧ BodyLays kinds value around before
 
 --| Both of `bodyAfter`'s forms, after the `:=`.
 --|
@@ -549,29 +553,32 @@ def BodyHangs (kinds: Text → Tok) (value: Expr) (around: Around): Prop :=
 --| or block value, has only the form below (`belowHangs`); else the choice's forms (`openChoiceHangs`,
 --| `plainChoiceHangs`), each from the `:=`'s line.
 theorem bodyAfterHangs ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (around: Around)
-    (body: BodyHangs kinds value around):
+    (body: BodyHangs kinds value around assign.trails):
     HangLays kinds (bodyAfter value assign around False).fst 0 (AfterTop assign.trails) Unbroken
       ∧ HangLays kinds (bodyAfter value assign around False).snd 0 (AfterTop assign.trails) Unbroken :=
   let inside := { around | hoisted = True }
-  let (matched, lambda, (trails, below), onLine, hugs) := body
+  let (matched, lambda, ((trails, below), quietly)) := body
   let doc := plainBody value around
-  let low := Nest 2 (Doc.concat [HardLine, doc])
-  let lowLays: ∀ (before: Bool) => HangLays kinds low 0 (AfterTop before) Unbroken := before =>
-    belowHangs kinds doc before trails (below before)
   let keeps: ∀ (place: Place) (hang: Hang) => AfterTop False place hang → Unbroken place hang := place hang (_,
     folded) =>
     rewrite folded then atUnbroken topFrom
   rewrite matched then
     match quiet: assign.trails with
-      | True => (lowLays True, lowLays True)
+      | True =>
+        let low := belowHangs kinds doc True trails below
+        (low, low)
       | False =>
         match plain: value.noted || value.isBlock with
-          | True => (lowLays False, lowLays False)
+          | True =>
+            let low := belowHangs kinds doc False trails below
+            (low, low)
           | False =>
+            let low := belowHangs kinds doc False trails below
+            let (onLine, hugs) := quietly byComputing
             rewrite lambda then
               match opens: value.opensBracket with
                 | True => (
-                  lowLays False,
+                  low,
                   hangsChoice kinds
                     [
                       Flatten (Doc.concat [Doc.text " ", doc]),
@@ -586,7 +593,7 @@ theorem bodyAfterHangs ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (a
                     keeps
                 )
                 | False => (
-                  lowLays False,
+                  low,
                   hangsChoice kinds
                     ([Flatten (Doc.concat [Doc.text " ", doc])]
                       ++ (if (value.callHug inside).isSome then [OneLineBelow doc] else [])
@@ -671,7 +678,7 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
       colon.after.isSome
       trails
       wordStart)
-    (body: BodyHangs kinds value (declStart.next colonEq.after.isSome (4 + result.size))):
+    (body: BodyHangs kinds value (declStart.next colonEq.after.isSome (4 + result.size)) colonEq.after.isSome):
     HangLays kinds
       (defDoc
         {
@@ -766,3 +773,185 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
       || (result.words.reverse.drop 1 |> .any Word.trails)
       || (value.layoutBody && (lastCode [keywordWord, name]).trails)
   lays (headerDoc.forcesBreak || inside)
+
+-- Slice 1's declarations.
+
+--| What `printedHangs` still asks of a slice 1 declaration beyond `within1`, `shaped1`, `sound` and `lexical1`: the
+--| facts `defDocHangs` takes, about its tokens' comments and its type's and value's elements.
+def DeclHangs (kinds: Text → Tok): Decl → Prop
+  | Definition [] header (Assigned colonEq value) =>
+    TrailsComment (fixedWord "def" header.keyword)
+      ∧ Fmt.HangProofs.Plain (kinds header.name.text)
+      ∧ WordToken header.name.text
+      ∧ header.name.comments.above = []
+      ∧ TrailsComment header.name
+      ∧ header.colon.above = []
+      ∧ TrailsComment (fixedWord ":" header.colon)
+      ∧ colonEq.above = []
+      ∧ TrailsComment (fixedWord ":=" colonEq)
+      ∧ (∃ (trails: Bool) => ElHangs kinds
+        (header.result.el (declStart.next header.colon.after.isSome 3))
+        4
+        4
+        header.colon.after.isSome
+        trails
+        wordStart)
+      ∧ BodyLays kinds value (declStart.next colonEq.after.isSome (4 + header.result.size)) colonEq.after.isSome
+  | _ => False
+
+theorem lexKindFixed: FixedKinds lexKind := (byComputing, byComputing, byComputing)
+
+--| A slice 1 declaration's document lays from the start of the output with the fold never broken.
+theorem doc1Hangs ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (fixed: FixedKinds kinds)
+    (facts: DeclHangs kinds decl)
+    (shows: decl.doc1 = Some doc):
+    HangLays kinds doc 0 DeclStart Unbroken :=
+  match decl, facts with
+    | Definition [] header (Assigned colonEq value), (keywordTrailed, plain, nameToken, nameBare, nameTrailed,
+        colonBare, colonTrailed, assignBare, assignTrailed, typed, body) =>
+      match header with
+        | {
+            exportKeyword,
+            opaqueKeyword,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause,
+            unfoldingClause
+          } =>
+          let around := declStart.next colonEq.after.isSome (4 + result.size)
+          let (matched, lambda) :=
+            withinPlainBody value { around | hoisted = True } False (plainBody value around) (Bool.andRight within)
+          rewrite <- Option.someInjective shows then
+            defDocHangs kinds exportKeyword opaqueKeyword keyword name colon result decreasingClause unfoldingClause
+                colonEq value fixed keywordTrailed plain nameToken nameBare nameTrailed colonBare colonTrailed
+                assignBare assignTrailed typed
+                (matched, lambda, body)
+        | _ => cases
+
+--| `printedHangs`: the text the rules print for a slice 1 declaration, at any width, lexes to leaves whose fold
+--| never breaks (`hangs`), from the tree facts `printLexes1Tree` takes and the facts `DeclHangs` names.
+--|
+--| Proof idea: `hangsOfLays`, its uniformity, joins and printable words as `printLexes1Tree` derives them
+--| (`doc1Spells`, `doc1Passes` with `declJoins`, `declPrintable`), its triple from `doc1Hangs`.
+theorem printedHangs ∀ (decl: Decl) (doc: Doc) (width: Nat)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (sound: decl.sound = True)
+    (lexical: decl.lexical1 = True)
+    (facts: DeclHangs lexKind decl)
+    (shows: decl.doc1 = Some doc) (lexed: Lexed)
+    (read: lex (Doc.print doc width) = Ok lexed):
+    hangs lexed.leaves = True :=
+  let (uniform, _, words) := doc1Spells decl doc within sound shows
+  let spelled := declOperators decl within
+  hangsOfLays lexKind doc width uniform
+    (doc1Passes lexKind decl doc within (declJoins decl within shaped sound lexical spelled) shows)
+    (rewrite words then declPrintable decl within sound lexical spelled)
+    (doc1Hangs lexKind decl doc within lexKindFixed facts shows)
+    lexed
+    read
+
+-- A declaration `DeclHangs` holds of, so `printedHangs` applies.
+
+--| `def d: A := b`.
+def atomDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none (Atom Lower (fixedWord "b" Comments.none)))
+
+--| A comment-free name or numeral hangs as an element anywhere.
+theorem bareAtomHangs ∀ (kinds: Text → Tok) (kind: Tok) (text: Text) (around: Around) (indent column: Nat)
+    (plain: Fmt.HangProofs.Plain (kinds text))
+    (token: WordToken text):
+    ElHangs kinds ((Atom kind (fixedWord text Comments.none)).el around) indent column around.before False wordStart :=
+  let (notComment, solid, closer, comma) := token
+  plainLeafHangs kinds
+    (fixedWord text Comments.none)
+    around
+    around.at
+    indent
+    column
+    plain
+    notComment
+    solid
+    closer
+    comma
+    (match around.hoisted, around.item with
+      | True, _ => byComputing
+      | False, True => byComputing
+      | False, False => byComputing)
+    byComputing
+
+theorem atomDeclHangs: DeclHangs lexKind atomDecl :=
+  let lower: Fmt.HangProofs.Plain (lexKind "b") :=
+    (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing)
+  let bodyAround := declStart.next False 5
+  (
+    byComputing,
+    (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing),
+    (byComputing, byComputing, byComputing, byComputing),
+    byComputing,
+    byComputing,
+    byComputing,
+    byComputing,
+    byComputing,
+    byComputing,
+    (
+      False,
+      bareAtomHangs lexKind Upper "A"
+        (declStart.next False 3)
+        4
+        4
+        (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing)
+        (byComputing, byComputing, byComputing, byComputing)
+    ),
+    (
+      (
+        False,
+        bareAtomHangs lexKind Lower "b" bodyAround 2 2 lower (byComputing, byComputing, byComputing, byComputing)
+      ),
+      _ =>
+        (
+          (
+            False,
+            bareAtomHangs lexKind Lower "b" bodyAround 0 0 lower (byComputing, byComputing, byComputing, byComputing)
+          ),
+          open never => cases
+        )
+    )
+  )
+
+-- From `within1`.
+
+--| A slice 1 value is no `match`, lambda or `calc`: `BodyHangs`' first two facts.
+theorem withinPlainBody ∀ (value: Expr) (inside: Around) (semi: Bool) (doc: Doc)
+    (within: value.within1 = True):
+    value.matchedParts inside = None ∧ value.lambdaHug semi inside doc = None :=
+  match value, within with
+    | Atom _ _, _ => (byComputing, byComputing)
+    | Paren _ _ _, _ => (byComputing, byComputing)
+    | Tuple _ _ _ _, _ => (byComputing, byComputing)
+    | ListOf _ _ _ _, _ => (byComputing, byComputing)
+    | App _ _, _ => (byComputing, byComputing)
+    | Infix _ _ _ _, _ => (byComputing, byComputing)
+    | Prefix _ _, _ => (byComputing, byComputing)
+    | _, never => cases
