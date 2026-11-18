@@ -23951,7 +23951,7 @@
     {
       "id": 3980,
       "title": "[Opus] Self-hosted fmt S4a program: field access (and dot calls) ahead of the rest of S4: SW-3961 found it the only thing outside S1-S3 for 478 of 5,294 sampled declarations (~doubles coverage); next by count: test 392, namespace 137, import 124, definition arms 105, list patterns 63, named arguments 51",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
