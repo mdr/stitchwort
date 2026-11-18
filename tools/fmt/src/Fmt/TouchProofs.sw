@@ -7,13 +7,14 @@ namespace Fmt.TouchProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
 import Std.Doc.Proofs (Along, Awaiting, Begun, Seam, isLayout)
-import Syntax (Comments, Expr, Note, Word)
+import Syntax (Comments, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
 import Fmt.GlueProofs (isComment)
 import Fmt.OutputStatements (..)
 import Fmt.SpellProofs (..)
 import Fmt.TouchSteps (..)
-import Fmt.JoinProofs (CloserJoins, Joinable, AllJoinable, OpenerJoins, Token, WordJoins)
+import Fmt.JoinProofs (AllJoinable, CloserJoins, Joinable, OpenerJoins, Token, WordJoins, closeTrails, trailsBackAppend)
+import Fmt.TreeJoinProofs (lexKind)
 
 -- Comments.
 
@@ -138,12 +139,12 @@ def Loose (first: Spacing): Prop := first.admits False = True
 --| breaks around `closerNotes` or `notesAbove`, ending at a line start.
 theorem leadingSteps ∀ (word: Word) (around: Around) (key: Nat) (before: Bool) (first: Spacing)
     (sound: word.sound = True)
-    (loose: Loose first ∨ word.quietAt around key = True):
+    (loose: Loose first ∨ (word.leading around key).isEmpty = True):
     StepsAll (word.leading around key) (Fits before first) [] (Fits before first) :=
   leadingFresh word around key before first sound (filled =>
     match loose with
       | Inl free => free
-      | Inr quiet => (Bool.falseNotTrue (rewrite filled at quiet then Bool.andRight quiet)).impossible)
+      | Inr empty => (Bool.falseNotTrue (rewrite filled at empty then empty)).impossible)
 
 theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool) (first: Spacing)
     (sound: word.sound = True)
@@ -277,8 +278,8 @@ theorem pieceText ∀ (text: Text)
 --| trailing comment.
 theorem wordLeafSteps ∀ (word: Word) (around: Around) (key: Nat) (first: Spacing)
     (joins: WordJoins word)
-    (loose: Loose first ∨ word.quietAt around key = True):
-    Steps (word.leaf around key) (Fits around.before first) [first] (Closed word.trails) :=
+    (loose: Loose first ∨ (word.leading around key).isEmpty = True):
+    Steps (word.leaf around key) (Fits True first) [first] (Closed word.trails) :=
   let (sound, token, comma, closer) := joins
   stepsConcat _ _ _ _
     (rewrite ownLineEmpty word.text (!word.noted && around.before && word.trails) key closer,
@@ -286,28 +287,28 @@ theorem wordLeafSteps ∀ (word: Word) (around: Around) (key: Nat) (first: Spaci
       stepsAppend
         (word.leading around key)
         ([] ++ [Doc.text word.text] ++ word.trailing)
-        (Fits around.before first)
-        (Fits around.before first)
+        (Fits True first)
+        (Fits True first)
         (Closed word.trails)
         []
         [first]
-        (leadingSteps word around key around.before first sound loose)
+        (leadingSteps word around key True first sound loose)
         (stepsCons
           (Doc.text word.text)
           word.trailing
-          (Fits around.before first)
+          (Fits True first)
           (seam => seam = Along True)
           (Closed word.trails)
           [first]
           []
-          (stepsChunk word.text word.text.length around.before first (wordCode word sound token))
+          (stepsChunk word.text word.text.length True first (wordCode word sound token))
           (trailingSteps word sound)))
 
 --| An opening bracket, as a token that is no closer, with a `Mark` before it.
 theorem openingSteps ∀ (word: Word) (around: Around) (closer: Word) (first: Spacing)
     (joins: WordJoins word)
-    (loose: Loose first ∨ word.quietAt around around.at = True):
-    Steps (word.opening around closer) (Fits around.before first) [first] (Closed word.trails) :=
+    (loose: Loose first ∨ (word.leading around around.at).isEmpty = True):
+    Steps (word.opening around closer) (Fits True first) [first] (Closed word.trails) :=
   let (sound, token, comma, notCloser) := joins
   let marked := closer.noted || closer.trails
   stepsConcat _ _ _ _
@@ -315,30 +316,30 @@ theorem openingSteps ∀ (word: Word) (around: Around) (closer: Word) (first: Sp
       stepsAppend
         (word.leading around around.at)
         ((if marked then [Mark around.at] else []) ++ [Doc.text word.text] ++ word.trailing)
-        (Fits around.before first)
-        (Fits around.before first)
+        (Fits True first)
+        (Fits True first)
         (Closed word.trails)
         []
         [first]
-        (leadingSteps word around around.at around.before first sound loose)
+        (leadingSteps word around around.at True first sound loose)
         (stepsAppend
           (if marked then [Mark around.at] else [])
           ([Doc.text word.text] ++ word.trailing)
-          (Fits around.before first)
-          (Fits around.before first)
+          (Fits True first)
+          (Fits True first)
           (Closed word.trails)
           []
           [first]
-          (markSteps marked around.at (Fits around.before first))
+          (markSteps marked around.at (Fits True first))
           (stepsCons
             (Doc.text word.text)
             word.trailing
-            (Fits around.before first)
+            (Fits True first)
             (seam => seam = Along True)
             (Closed word.trails)
             [first]
             []
-            (stepsChunk word.text word.text.length around.before first (wordCode word sound token))
+            (stepsChunk word.text word.text.length True first (wordCode word sound token))
             (trailingSteps word sound))))
 
 theorem markSteps ∀ (marked: Bool) (key: Nat) (pre: Seam → Prop):
@@ -346,3 +347,305 @@ theorem markSteps ∀ (marked: Bool) (key: Nat) (pre: Seam → Prop):
   match marked with
     | True => stepsLast (Mark key) pre pre [] (stepsMark key pre)
     | False => stepsNil pre pre (seam holds => holds)
+
+-- Closers.
+
+theorem closerCode ∀ (text: Text) (closer: isCloserText text = True): Code text := match paren: text == ")" with
+  | True => rewrite DecEq.sound paren then (byComputing, byComputing, byComputing)
+  | False =>
+    match square: text == "]" with
+      | True => rewrite DecEq.sound square then (byComputing, byComputing, byComputing)
+      | False =>
+        match brace: text == "}" with
+          | True => rewrite DecEq.sound brace then (byComputing, byComputing, byComputing)
+
+theorem pieceCloser ∀ (text: Text) (closer: isCloserText text = True): piece text = Closing text := rewrite closer
+
+theorem closedWeaker ∀ (held held': Bool)
+    (implies: held = True → held' = True) (seam: Seam)
+    (closed: Closed held seam):
+    Closed held' seam :=
+  match seam, closed with
+    | Along word, touched => touched
+    | Awaiting word comment, (waits, quiet) => (implies waits, quiet)
+
+--| A closer's own-line comments end at a line start, where no comment waits.
+theorem closerLeadingSteps ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
+    (sound: word.sound = True)
+    (closer: isCloserText word.text = True)
+    (unhoisted: around.hoisted = False):
+    StepsAll (word.leading around key) (Fits before Free) [] (Fits (if word.noted then False else before) Free) :=
+  match word, around.hoisted with
+    | { text, comments = { above = [], after, blankBefore } }, False =>
+      match around.item && blankBefore with
+        | True =>
+          stepsCons BreakParent
+            [LineStart, Blank]
+            (Fits before Free)
+            (Fits before Free)
+            (Fits before Free)
+            []
+            []
+            (stepsBreakParent _)
+            (stepsCons LineStart
+              [Blank]
+              (Fits before Free)
+              (Fits before Free)
+              (Fits before Free)
+              []
+              []
+              (stepsLineStart _ _ (seam fits => fitsQuiet before Free seam fits) byComputing)
+              (stepsLast Blank _ _ [] (stepsBlank _)))
+        | False => stepsNil _ _ (seam holds => holds)
+    | { text, comments = { above = [note, ..rest], after, blankBefore } }, False =>
+      let notes: notesSound [note, ..rest] = True := Bool.andLeft (Bool.andRight sound)
+      rewrite closer then
+        stepsCons BreakParent
+          [Nest 2 (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]]), CloserLine key]
+          (Fits before Free)
+          (Fits before Free)
+          (Fits False Free)
+          []
+          []
+          (stepsBreakParent _)
+          (stepsCons
+            (Nest 2 (Doc.concat [LineStartHere, ..closerNotes [note, ..rest]]))
+            [CloserLine key]
+            (Fits before Free)
+            (seam => seam = Along True)
+            (Fits False Free)
+            []
+            []
+            (stepsNest 2 _ _ _ _
+              (stepsConcat _ _ _ _
+                (stepsCons LineStartHere
+                  (closerNotes [note, ..rest])
+                  (Fits before Free)
+                  (seam => seam = Begun)
+                  (seam => seam = Along True)
+                  []
+                  []
+                  (stepsLineStartHere _ _ (seam fits => fitsQuiet before Free seam fits) byComputing)
+                  (closerNotesSteps note rest notes))))
+            (stepsLast (CloserLine key) _ _ [] (stepsCloserLine key _ _ (seam along => rewrite along) byComputing)))
+
+--| A closer line, where the closer takes a line of its own: after it no comment waits.
+theorem ownSteps ∀ (own: Bool) (key: Nat) (held: Bool):
+    StepsAll (if own then [CloserLine key] else []) (Fits held Free) [] (Fits (if own then False else held) Free) :=
+  match own with
+    | True =>
+      stepsLast
+        (CloserLine key) _ _
+        []
+        (stepsCloserLine key _ _ (seam fits => fitsQuiet held Free seam fits) byComputing)
+    | False => stepsNil _ _ (seam holds => holds)
+
+--| A closer and its trailing comment, from where a comment waits only if `held`; a trailing comment only where none
+--| waits.
+theorem closingTail ∀ (word: Word) (held ends: Bool)
+    (sound: word.sound = True)
+    (code: Code word.text)
+    (clear: word.trails = True → held = False)
+    (weaker: held = True → ends = True)
+    (own: word.trails = True → ends = True):
+    StepsAll ([Closing word.text] ++ word.trailing) (Fits held Free) [Free] (Closed ends) :=
+  match word, code, clear, own with
+    | { text, comments = { above, after = None, blankBefore } }, code, _, _ =>
+      stepsLast
+        (Closing text) _ _
+        [Free]
+        (stepsTo _ _ _ _ _ (stepsClosing text held code) (seam closed => closedWeaker held ends weaker seam closed))
+    | { text, comments = { above, after = Some comment, blankBefore } }, code, clear, own =>
+      let cleared: held = False := clear byComputing
+      let commented: commentText comment = True := Bool.andRight (Bool.andRight sound)
+      stepsCons
+        (Closing text)
+        [LineSuffix comment]
+        (Fits held Free)
+        (seam => seam = Along True)
+        (Closed ends)
+        [Free]
+        []
+        (stepsTo _ _ _ _ _ (stepsClosing text held code) (seam closed =>
+          closedAlong seam (rewrite cleared at closed then closed)))
+        (stepsLast
+          (LineSuffix comment) _ _
+          []
+          (stepsTo _ _ _ _ _
+            (stepsSuffix comment (Bool.andLeft commented) (commentNotLayout comment commented))
+            (seam closed => closedWeaker True ends (_ => own byComputing) seam closed)))
+
+--| Where a closer with a trailing comment comes, nothing waits: a comment before it either gives it a line of its own
+--| or its own-line comments end at a line start.
+theorem ownClear ∀ (noted before: Bool):
+    (if (True && !noted && before && True) then False
+     else if noted then False
+     else before)
+      = False :=
+  match noted, before with
+    | True, _ => byComputing
+    | False, True => byComputing
+    | False, False => byComputing
+
+theorem ownWeaker ∀ (noted before trails: Bool)
+    (held: (if (True && !noted && before && trails) then False
+            else if noted then False
+            else before)
+      = True):
+    (trails || before) = True :=
+  match noted, before, trails, held with
+    | False, True, False, _ => byComputing
+    | False, True, True, never => (Bool.falseNotTrue never).impossible
+    | True, _, _, never => (Bool.falseNotTrue never).impossible
+    | False, False, _, never => (Bool.falseNotTrue never).impossible
+
+--| A closer, from where it may stand: then the printer stands after it, or a comment waits, its own or one from
+--| before it.
+--|
+--| Proof idea: its own-line comments end at a line start (`closerLeadingSteps`), as does a line of its own
+--| (`ownSteps`); with a trailing comment of its own one of the two comes before it whenever a comment waited
+--| (`ownClear`), so it stands on its line before its comment (`closingTail`).
+theorem closerLeafSteps ∀ (word: Word) (around: Around) (key: Nat)
+    (joins: CloserJoins word)
+    (unhoisted: around.hoisted = False):
+    Steps (word.leaf around key) (Fits around.before Free) [Free] (Closed (word.trails || around.before)) :=
+  let (sound, closer) := joins
+  let own := isCloserText word.text && !word.noted && around.before && word.trails
+  let lead := if word.noted then False else around.before
+  let held := if own then False else lead
+  let clear: word.trails = True → held = False := trails =>
+    rewrite closer, trails then ownClear word.noted around.before
+  let weaker: held = True → (word.trails || around.before) = True := holds =>
+    ownWeaker word.noted around.before word.trails (rewrite closer at holds then holds)
+  let own': word.trails = True → (word.trails || around.before) = True := trails => rewrite trails
+  stepsConcat _ _ _ _
+    (rewrite pieceCloser word.text closer then
+      stepsAppend
+        (word.leading around key)
+        ((if own then [CloserLine key] else []) ++ [Closing word.text] ++ word.trailing)
+        (Fits around.before Free)
+        (Fits lead Free)
+        (Closed (word.trails || around.before))
+        []
+        [Free]
+        (closerLeadingSteps word around key around.before sound closer unhoisted)
+        (stepsAppend
+          (if own then [CloserLine key] else [])
+          ([Closing word.text] ++ word.trailing)
+          (Fits lead Free)
+          (Fits held Free)
+          (Closed (word.trails || around.before))
+          []
+          [Free]
+          (ownSteps own key lead)
+          (closingTail word held (word.trails || around.before) sound (closerCode word.text closer) clear weaker own')))
+
+-- Elements.
+
+--| A displaced element, where a comment comes before it; else the element as it is.
+theorem placedSteps ∀ (displaced: Bool) (doc: Doc) (first: Spacing) (spacing: List Spacing) (post: Seam → Prop)
+    (inner: Steps doc (Fits True first) spacing post)
+    (fresh: displaced = True → Loose first):
+    Steps (if displaced then Displaced doc else doc) (Fits True first) spacing post :=
+  match displaced, fresh with
+    | True, fresh => stepsDisplaced doc _ _ _ inner (fresh byComputing) (seam fits => fitsQuiet True first seam fits)
+    | False, _ => inner
+
+--| A node's document after its first token's own-line comments.
+theorem framedSteps ∀ (first: Word) (around: Around) (doc: Doc) (spacing: List Spacing)
+    (post: Seam → Prop) (start: Spacing)
+    (sound: first.sound = True)
+    (loose: Loose start ∨ first.quietAt around around.at = True)
+    (inner: Steps doc (Fits True start) spacing post):
+    Steps (framedBy first around doc) (Fits True start) spacing post :=
+  let leadLoose: Loose start ∨ (first.leading around around.at).isEmpty = True := match loose with
+    | Inl free => Inl free
+    | Inr quiet => Inr (Bool.andRight quiet)
+  let fresh: (first.noted || around.before) = True → Loose start := shown =>
+    match loose with
+      | Inl free => free
+      | Inr quiet => (Bool.falseNotTrue (rewrite shown at quiet then quiet)).impossible
+  stepsConcat _ _ _ _
+    (stepsTwo
+      (Doc.concat (first.leading around around.at))
+      (if first.noted || around.before then Displaced doc else doc)
+      (Fits True start)
+      (Fits True start)
+      post
+      []
+      spacing
+      (stepsConcat _ _ _ _ (leadingSteps first around around.at True start sound leadLoose))
+      (placedSteps (first.noted || around.before) doc start spacing post inner fresh))
+
+--| An expression of the slice spaces its first code word as `Free`.
+--|
+--| Proof idea: induction on the expression; a sign that is no argument is free, and every other node starts with its
+--| first part's spacing or a bracket.
+theorem spacingFree ∀ (expr: Expr)
+    (within: expr.within1 = True):
+    ∃ (rest: List Spacing) => expr.spacing1 False = [Free, ..rest] :=
+  match expr with
+    | Atom kind word => ([], byComputing)
+    | Paren open inner close => (inner.spacing1 False ++ [Free], byComputing)
+    | Tuple open items comma close => (commaSpacing1 items ++ [Free], byComputing)
+    | ListOf open items comma close => (commaSpacing1 items ++ [Free], byComputing)
+    | App head arguments =>
+      let (rest, head) := spacingFree head (Bool.andLeft within)
+      (rest ++ argumentsSpacing1 arguments, rewrite head)
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          let (rest, left) := spacingFree left (Bool.andLeft within)
+          (rest ++ [Free, ..spacedFirst Apart (right.spacing1 False)], rewrite left)
+        | InfixArrow =>
+          let (rest, left) := spacingFree left (Bool.andLeft within)
+          (rest ++ [Free, ..spacedFirst Apart (right.spacing1 False)], rewrite left)
+        | _ => cases
+    | Prefix operator operand =>
+      match operandSpacing False operator operand with
+        | Some spacing => (spacedFirst spacing (operand.spacing1 False), byComputing)
+        | None => (operand.spacing1 False, byComputing)
+
+--| Spacing an expression's first code word as `Free` leaves its spacing as it is.
+theorem freeFirst ∀ (expr: Expr)
+    (within: expr.within1 = True):
+    spacedFirst Free (expr.spacing1 False) = expr.spacing1 False :=
+  let (rest, free) := spacingFree expr within
+  rewrite free
+
+--| What the rules' lemmas say of an expression: its element, from where its first code word may stand spaced `first`,
+--| adds code words spaced as `Expr.spacing1` says with `first` for the first, and ends where a comment waits only if
+--| it ends with one. `argument`: it is a call's argument, as `argument1` shapes them.
+def ElSteps (expr: Expr): Prop :=
+  expr.within1 = True
+    → expr.lexical1 = True
+    → Joinable lexKind expr
+    → ∀ (around: Around) (first: Spacing) (argument: Bool) => (argument = True → expr.argument1 = True)
+      → (Loose first ∨ expr.firstWord.quietAt around around.at = True)
+      → Steps (expr.el around) (Fits True first) (spacedFirst first (expr.spacing1 argument)) (Ends expr.trails)
+
+--| An element that is no call's argument, its first code word free.
+theorem elFree ∀ (expr: Expr) (around: Around)
+    (steps: ElSteps expr)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True)
+    (joinable: Joinable lexKind expr):
+    Steps (expr.el around) (Fits True Free) (expr.spacing1 False) (Ends expr.trails) :=
+  rewrite <- freeFirst expr within then
+    steps within lexical joinable around Free False (never => (Bool.falseNotTrue never).impossible) (Inl byComputing)
+
+--| A name or numeral.
+theorem atomSteps ∀ (kind: Tok) (word: Word) (around: Around) (first: Spacing) (argument: Bool)
+    (joins: WordJoins word)
+    (loose: Loose first ∨ word.quietAt around around.at = True):
+    Steps
+      ((Atom kind word).el around)
+      (Fits True first)
+      (spacedFirst first ((Atom kind word).spacing1 argument))
+      (Ends (Atom kind word).trails) :=
+  let (_, _, _, closer) := joins
+  let leadLoose: Loose first ∨ (word.leading around around.at).isEmpty = True := match loose with
+    | Inl free => Inl free
+    | Inr quiet => Inr (Bool.andRight quiet)
+  stepsTo _ _ _ _ _ (wordLeafSteps word around around.at first joins leadLoose) (seam closed =>
+    endsWeaker word.trails (Atom kind word).trails (trails => rewrite trails) seam (closedEnds word.trails seam closed))
