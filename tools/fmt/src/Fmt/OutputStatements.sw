@@ -56,7 +56,7 @@ theorem printedTokens1 ∀ (decl: Decl)
 -- The file's leaves.
 
 --| An own-line comment the file loop printed, as the lexer reads it back: at column 0, after one blank line or none,
---| without a carriage return at its end (`crDropped`).
+--| without a carriage return at its end (`Fmt.FileLexProofs.crDropped`).
 def noteComment (note: Note): Comment :=
   { text = withoutReturn note.text, column = 0, blankLines = if note.blankBefore then 1 else 0 }
 
@@ -93,20 +93,7 @@ def SourceFile.lexed1 (file: SourceFile): Lexed := {
 --| Every declaration's printed leaves keep the line rule: what `printedHangs` gives of each (SW-4034).
 def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs decl.leaves1)
 
---| `printedFileLexes1`: the file loop's text lexes, to the declarations' leaves in order, each `def` holding its
---| declaration's own-line comments, and the file's last comments at the end.
---|
---| Proof idea: the text is the pieces of each declaration's document with a comment and a line break for each note
---| and one or two line breaks between items, so `lexPrinted` reads it as `Laid.lay` folded over all of them; a
---| declaration's pieces laid from the state after a line break give its own leaves (`printLexes1Settled`) with the
---| waiting comments and blank lines on the first, and a declaration's text ends with a token or its trailing comment.
-theorem printedFileLexes1 ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    lex file.printed1 = Ok file.lexed1 :=
-  ?
+-- `printedFileLexes1`, that the file loop's text lexes to `SourceFile.lexed1`, is proved in `Fmt.FileLexProofs`.
 
 --| `printedAlphabet1`: the output passes the alphabet, the driver's first test on the second run.
 --|
