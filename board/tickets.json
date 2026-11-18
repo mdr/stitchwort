@@ -24964,7 +24964,7 @@
     {
       "id": 4056,
       "title": "[Opus] fmt S1 trivia F1 route: measure option 1 of SW-4042 review section 8: in the self-hosted rules put a HardLine instead of the Line/SoftLine before an item whose first word keeps a blank line, and stop filling a list holding such an item; report whether any output changes (goldens and the s6a repo sample, twin against Rust); if identical, keep it and write Doc.told/laysTold; if not, stop with the diffs for a D question (SW-4048)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
