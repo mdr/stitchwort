@@ -24964,12 +24964,12 @@
     {
       "id": 4056,
       "title": "[Opus] fmt S1 trivia F1 route: measure option 1 of SW-4042 review section 8: in the self-hosted rules put a HardLine instead of the Line/SoftLine before an item whose first word keeps a blank line, and stop filling a list holding such an item; report whether any output changes (goldens and the s6a repo sample, twin against Rust); if identical, keep it and write Doc.told/laysTold; if not, stop with the diffs for a D question (SW-4048)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Opus lane, 18 Nov 2026, 19:18-19:46):\n- 15f60eadc: option 1 as a LineStart instead: Word.leading writes [BreakParent, LineStart, Blank] for an item's kept blank line with no comments above. The LineStart is a no-op in print (the separator before has broken), and gives Lays a definite line start. No fill change needed. Output identical: s6a twin goldens 430/430, repo sample 300 files 4183/4183, text twin goldens 56/134 (same as baseline), Fmt.Tests 95/95, direct examples (filled/long/broken lists, tuple, nested, with blank lines) 5/5 matched Rust.\n- 70e40bc0b: proofs updated: JoinProofs.blankLeadPasses (now Ready -> Ready via Gapped), SpellProofs.leadingSpells, HangProofs.blankLeadHangs. Fmt check: 0 errors, 8 goals open (as before).\n- c853bbcb4: Std/Doc/Told.sw: Spot, Told (Gap, MaybeGap, Said word starts follows, Lost), ReadsAs, Doc.tell, Doc.told, laysTold (+ allLaysTold, fillLaysTold, sepsLayTold, optionsLayTold), printTold; witnesses toldBlankAfterLine, toldBlankAfterStart, toldTuckedCloser, printToldExample. 39 theorems audited clean. Prelude snapshot: additions only. Doc/Tests 39/39; pinned_hashes passes.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
