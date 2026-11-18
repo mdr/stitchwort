@@ -23787,7 +23787,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "SW-3972 wrote provisional Shaped1/Lexical1 (SourceFile.shaped1, lexical1 in tools/fmt/src/Fmt/Predicates1.sw; shaped1 weak on an infix's right operand): tighten them here.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23847,12 +23847,12 @@
     {
       "id": 3972,
       "title": "[Sonnet] fmt S1 ticket 19: tidy passes proofs within slice 1 (sketch §2, 40-60 theorems, est. 35 min)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Sonnet lane, 18 Nov 2026. Proofs in tools/fmt/src/Fmt/PassProofs.sw (namespace Fmt.PassProofs, 78 theorems, audit 0 failed 0 warnings); predicates settled1, calm, shaped1, lexical1 written out in tools/fmt/src/Fmt/Predicates1.sw (none existed). Check, audit and test Fmt.Tests pass. Not done: P2 keeps whole-file Shaped1/Lexical1 only as the provisional definitions written here (parser lane owns them).\n",
+      "body": "Sonnet lane, 18 Nov 2026. Proofs in tools/fmt/src/Fmt/PassProofs.sw (namespace Fmt.PassProofs, 78 theorems, audit 0 failed 0 warnings); predicates settled1, calm, shaped1, lexical1 written out in tools/fmt/src/Fmt/Predicates1.sw (none existed). Check, audit and test Fmt.Tests pass. Not done: P2 keeps whole-file Shaped1/Lexical1 only as the provisional definitions written here (parser lane owns them).\n\nMerged 18 Nov. Model result: sonnet, worked, 9 min (est. 30). Statements checked by the orchestrator: walkSame1, forallSame1, commaKeepsWithin, commaBare, commaTwice (all files), calmTwice, calmMeans (all files): each says what its doc claims; no axioms. Shaped1/Lexical1 provisional (SW-3967 parser lane to tighten). Break-once check done.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": [
