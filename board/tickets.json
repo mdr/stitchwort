@@ -25357,7 +25357,7 @@
     {
       "id": 4085,
       "title": "[Sonnet] fmt S1 goal printedSpelledPlain1: the formatter's output passes spelledPlain1 (the second run's driver tests it) (SW-4079, new gap)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -25500,7 +25500,7 @@
     {
       "id": 4096,
       "title": "[Fable paper] fmt S1 statements for declElementsOneLine1's split (D3682): (A) oneLine1 and the four tree facts give a tree predicate (type quiet but a trailing comment on its last non-closer word; value the same plus comments above its first word), via a non-circular link from printed line starts to the tree's comments (CommentsEnd, printedSpellsSettled, lexer line starts; not standsOfDoc, which needs DeclHangs); (B) that predicate gives DeclElements through trailing-comment hang facts across held closers. Write both statements and how (B) relates to SW-4082; stub them as open goals with docs",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
