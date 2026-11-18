@@ -1089,3 +1089,177 @@ theorem settledKeepsComments ∀ (lexed: Lexed)
   calc lexedTexts lexed.settled
     _ = (leafTexts (homeFrom [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd := settledTextsAfterHome lexed
     _ = (leavesTexts lexed.leaves lexed.end).map trimEnd := rewrite homed, leavesTextsSplit lexed.leaves lexed.end
+
+-- Rule 1's result is homed: a closer keeps a trailing comment only where
+-- rule 1 itself would stop it, so it starts its line and has own-line
+-- comments or follows code that ends with a comment.
+
+--| `endsWithComment` under slice 1's alphabet, where a bar never comes up.
+def endsOn: List Leaf → Bool
+  | [] => False
+  | [leaf, ..earlier] =>
+    if leaf.trivia.trailing.isSome then True
+    else if earlier.isEmpty || !passable leaf then False
+    else endsOn earlier
+
+theorem endsOnQuiet1 ∀ (line ahead: List Leaf)
+    (within: line.all (leaf => leaf.kind.within1) = True):
+    endsWithComment line ahead = endsOn line :=
+  match line with
+    | [] => byComputing
+    | [leaf, ..earlier] =>
+      match leaf.trivia.trailing.isSome with
+        | True => byComputing
+        | False =>
+          rewrite skippedQuiet1 leaf earlier ahead (Bool.andLeft within),
+              endsOnQuiet1 earlier [leaf, ..ahead] (Bool.andRight within)
+
+--| Where rule 1 stops a comment on `leaf`, `older` the leaves before it,
+--| newest first.
+def stopsAt (leaf: Leaf) (older: List Leaf): Bool :=
+  leaf.token.lineStart && (!leaf.trivia.leading.isEmpty || endsOn older)
+
+--| The leaf `steps` back from `current` is where a walk may end: not a
+--| comma or closer, the first leaf, or one rule 1 stops on.
+def landsAt (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match steps, behind with
+  | Zero, _ => !passable current || behind.isEmpty || stopsAt current behind
+  | Succ more, [previous, ..earlier] => landsAt more previous earlier
+  | Succ _, [] => False
+
+--| Rule 1's walk ends on a leaf it may end on.
+theorem walkLands ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
+    (within: current.kind.within1 = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
+    ∃ (passed: Nat) => stepsBack current behind ahead steps = steps + passed ∧ landsAt passed current behind = True :=
+  match behind with
+    | [] => (0, arithmetic, Bool.orRight byComputing)
+    | [previous, ..earlier] =>
+      let passes: skipped current [previous, ..earlier] ahead = passable current :=
+        skippedQuiet1 current [previous, ..earlier] ahead within
+      let ends: endsWithComment [previous, ..earlier] [current, ..ahead] = endsOn [previous, ..earlier] :=
+        endsOnQuiet1 [previous, ..earlier] [current, ..ahead] behindWithin
+      match skips: passable current with
+        | False => (0, rewrite passes then arithmetic, rewrite skips)
+        | True =>
+          match stops: current.token.lineStart
+            && (!current.trivia.leading.isEmpty || endsWithComment [previous, ..earlier] [current, ..ahead]) with
+            | True =>
+              let stopsHere: stopsAt current [previous, ..earlier] = True := rewrite ends at stops then stops
+              (0, rewrite passes then arithmetic, rewrite skips, stopsHere)
+            | False =>
+              let (passed, walked, lands) :=
+                walkLands previous earlier
+                  [current, ..ahead]
+                  (Succ steps)
+                  (Bool.andLeft behindWithin)
+                  (Bool.andRight behindWithin)
+              (Succ passed, rewrite passes, walked then arithmetic, lands)
+
+--| Every closer with a trailing comment, newest first, is one rule 1 stops
+--| on, given the leaves before it.
+def homedBehind: List Leaf → Bool
+  | [] => True
+  | [leaf, ..older] =>
+    (leaf.trivia.trailing.isNone || !leaf.kind.isCloser || older.isEmpty || stopsAt leaf older) && homedBehind older
+
+theorem closerLands ∀ (leaf: Leaf) (rest: Bool)
+    (lands: (!passable leaf || rest) = True):
+    (!leaf.kind.isCloser || rest) = True :=
+  match closer: leaf.kind.isCloser with
+    | False => byComputing
+    | True => rewrite Bool.orTrue at lands then lands
+
+--| A comment moved back over quiet leaves to where the walk ends keeps the
+--| leaves homed.
+theorem trailingAtHomed ∀ (behind: List Leaf) (steps: Nat) (comment: Comment) (current: Leaf)
+    (homed: homedBehind behind = True)
+    (quiet: quietFor steps behind = True)
+    (lands: landsAt steps current behind = True):
+    homedBehind (trailingAt behind steps comment) = True :=
+  match steps, behind with
+    | Succ Zero, [target, ..earlier] =>
+      Bool.andIntro (closerLands target (earlier.isEmpty || stopsAt target earlier) lands) (Bool.andRight homed)
+    | Succ (Succ more), [leaf, ..earlier] =>
+      Bool.andIntro
+        (Bool.orLeft (Bool.andLeft (Bool.andRight quiet)))
+        (trailingAtHomed earlier
+          (Succ more)
+          comment
+          leaf
+          (Bool.andRight homed)
+          (Bool.andRight (Bool.andRight (Bool.andRight quiet)))
+          lands)
+
+--| Rule 1's result is homed, for leaves laid out as the lexer lays them
+--| out, under slice 1's alphabet.
+--|
+--| Proof idea: by induction on the leaves left, keeping `homedBehind` of
+--| the leaves settled: a comment rule 1 keeps or moves ends on a leaf its
+--| walk may end on (`walkLands`), the leaves it passes have none
+--| (`walkSteps`), and the leaves before the one it lands on don't change.
+theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
+    (clean: CleanFor behind pending)
+    (laid: laidOut pending rest = True)
+    (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
+    (restWithin: rest.all (leaf => leaf.kind.within1) = True)
+    (homed: homedBehind behind = True):
+    homedBehind ((homeFrom behind None rest).reverseOnto []) = True :=
+  match rest with
+    | [] => rewrite List.reverseReverse behind then homed
+    | [leaf, ..after] =>
+      let leafLaid := Bool.andLeft laid
+      let leafPending := Bool.andLeft (Bool.andRight laid)
+      let afterLaid := Bool.andRight (Bool.andRight laid)
+      let within := Bool.andLeft restWithin
+      let afterWithin := Bool.andRight restWithin
+      let withLeaf: [leaf, ..behind].all (leaf => leaf.kind.within1) = True := rewrite within then behindWithin
+      let kept := (later: Bool) (cleanLater: CleanFor [leaf, ..behind] later) (laidLater: laidOut later after
+        = True) (homedLater: homedBehind [leaf, ..behind] = True) =>
+        homeFromHomed [leaf, ..behind] after later cleanLater laidLater withLeaf afterWithin homedLater
+      match trailing: leaf.trivia.trailing with
+        | None =>
+          kept False (cleanUntrailed leaf behind pending False clean leafLaid leafPending byComputing) afterLaid homed
+        | Some comment =>
+          let trailed := cleanTrailed leaf behind (ahead => byComputing)
+          match fixed: movable leaf behind after with
+            | False =>
+              let notCloser: leaf.kind.isCloser = False :=
+                Bool.orFalseRight _ _ (rewrite movableQuiet1 leaf behind after within at fixed then fixed)
+              kept True trailed afterLaid (Bool.andIntro (Bool.orLeft (rewrite notCloser)) homed)
+            | True =>
+              let (passed, walked, quiet) :=
+                walkSteps leaf behind after 0 (clean leaf after leafLaid leafPending) within behindWithin
+              let (landed, walkedToo, lands) := walkLands leaf behind after 0 within behindWithin
+              let same: landed = passed := arithmetic [walked, walkedToo]
+              let landsHere := rewrite same at lands then lands
+              rewrite walked then
+                match passed, quiet with
+                  | Zero, _ =>
+                    rewrite barsQuiet1 leaf behind after within then
+                      kept True trailed afterLaid
+                        (Bool.andIntro (closerLands leaf (behind.isEmpty || stopsAt leaf behind) landsHere) homed)
+                  | Succ more, Inl zero => cases
+                  | Succ more, Inr (leadEmpty, leafPassable, quietBehind) =>
+                    let moved := leaf.withTrailing None
+                    let target := trailingAt behind (Succ more) comment
+                    let movedWithin: [moved, ..target].all (leaf => leaf.kind.within1) = True :=
+                      rewrite within then
+                        withinOfTokens target behind (trailingAtTokens behind (Succ more) comment) behindWithin
+                    let movedClean: CleanFor [moved, ..target] True := cleanTrailed moved target (ahead =>
+                      movedEnds moved behind ahead
+                        (Succ more)
+                        comment
+                        byComputing
+                        leafPassable
+                        within
+                        behindWithin
+                        quietBehind)
+                    homeFromHomed
+                      [moved, ..target]
+                      after
+                      True
+                      movedClean
+                      afterLaid
+                      movedWithin
+                      afterWithin
+                      (trailingAtHomed behind (Succ more) comment leaf homed quietBehind landsHere)
