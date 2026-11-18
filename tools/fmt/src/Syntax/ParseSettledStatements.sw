@@ -16,12 +16,13 @@ import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
+import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
 
 -- The words of leaves.
 
---| The words the tree keeps of some leaves: every token's but a comma's, in order, each with its comments.
-def codeWords (leaves: List Leaf): List Word := leaves.filter (leaf => leaf.kind != Comma) |> .map Leaf.word
+-- `codeWords`, the words the tree keeps of some leaves, is `ParseCarries`'s, where the walk that proves
+-- `parseCarries1` speaks of it.
 
 --| `Decl.settled1`, of the declaration's words alone: closers homed, `->` bare, every comment as rule N leaves it.
 def settledWords (words: List Word): Bool :=
