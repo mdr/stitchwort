@@ -24345,12 +24345,12 @@
     {
       "id": 4009,
       "title": "[Sonnet] fmt S1 parser proofs 16e: stage Outside into tiers (atoms; then braceArguments and pipeChains; then memberships and comparisonChains; then iffs) so the circular facts can use the ones below (SW-4000's blocker 3; ~72 lemma signatures retyped), discharge those five, then parseSettled1, parseCarries1, fuelEnough1; after SW-4008",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4008: OutsideRest now also holds calcs and rewrites (calcExpr/rewriteExpr read operands through appendExpr, rangeExpr, logicChain, so they're circular like the five); discharge them once Outside is staged. keywords is proved from calcs, rewrites and pipeChains. Tip: an effect in a let value or tuple destructure is fine; only effects in an if condition, lazy &&/||, or match guard need a split.",
+      "body": "From SW-4008: OutsideRest now also holds calcs and rewrites (calcExpr/rewriteExpr read operands through appendExpr, rangeExpr, logicChain, so they're circular like the five); discharge them once Outside is staged. keywords is proved from calcs, rewrites and pipeChains. Tip: an effect in a let value or tuple destructure is fine; only effects in an if condition, lazy &&/||, or match guard need a split.\n\nLane (Sonnet, 18 Nov 2026), branch lane/SW-4009, 4 commits: Outside staged into six tiers (OutsideAtoms, OutsideBraced, OutsidePiped, OutsideCompared, OutsideIffed, Outside; each holds `below` and the facts its own walks read); braceArguments, pipeChains, memberships, comparisonChains, iffs, calcs and rewrites all proved; OutsideRest is gone, so parseShaped1/parseLexical1 assume only FrameRest. Parser splits (tree twin 132/132): pipesFrom/pipesStep/pipesAfter/pipeFunction/pipeSection, chainOn/chainLink/chainAfter/isDescending, iffAfter/iffRight/iffEnd, calc*/rewrite*/setRules*/targetAfter/startsAt etc. in Statements.sw. Not done: parseSettled1, parseCarries1, fuelEnough1 (no statements exist yet; they need a design first).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
