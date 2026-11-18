@@ -23821,12 +23821,12 @@
     {
       "id": 3970,
       "title": "[Sonnet] fmt S1 ticket 18a: rules and spelling proofs, first half; after 13a and 13b (sketch §2)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane notes (Sonnet, 18 Nov 2026, about 60 min; estimate 60):\n- 18a, first half, done on `lane/SW-3970` (14 commits). `Fmt/CalmProofs.sw`: calmPrints (139 theorems). `Fmt/SpellProofs.sw`: printedSpells, printedSpellsSettled, printedSpellsText (126). `Fmt/PrintLexProofs.sw`: printedLexes, the bridge from `Pairs follows` to the lexer proofs' pieces (41). Audits clean; `Fmt.Tests` 86 of 86 (4 new, hypotheses and facts on tidied trees with comments).\n- Not done: `Joins` for each rule (so printLexes1 for a declaration), printedHangs, printedKeeping, printedSettle1. Notes and the plan for 18b are in tools/fmt/NOTES.md (\"Slice 1 rules proofs, first half\").\n- Findings: `MayFollow Bang` in LexProofs is stricter than the lexer (blocks `!isSmall x`); `Lexical1` doesn't give non-layout token text.\n- Rules.sw splits (behaviour kept, tests unchanged): parenInner, chainRight, chainOf, appFrom, matchedParts, bodyDoc, callHug, opensBracket, lambdaHug, defFrom, defDoc's body projections.\n",
+      "body": "Lane notes (Sonnet, 18 Nov 2026, about 60 min; estimate 60):\n- 18a, first half, done on `lane/SW-3970` (14 commits). `Fmt/CalmProofs.sw`: calmPrints (139 theorems). `Fmt/SpellProofs.sw`: printedSpells, printedSpellsSettled, printedSpellsText (126). `Fmt/PrintLexProofs.sw`: printedLexes, the bridge from `Pairs follows` to the lexer proofs' pieces (41). Audits clean; `Fmt.Tests` 86 of 86 (4 new, hypotheses and facts on tidied trees with comments).\n- Not done: `Joins` for each rule (so printLexes1 for a declaration), printedHangs, printedKeeping, printedSettle1. Notes and the plan for 18b are in tools/fmt/NOTES.md (\"Slice 1 rules proofs, first half\").\n- Findings: `MayFollow Bang` in LexProofs is stricter than the lexer (blocks `!isSmall x`); `Lexical1` doesn't give non-layout token text.\n- Rules.sw splits (behaviour kept, tests unchanged): parenInner, chainRight, chainOf, appFrom, matchedParts, bodyDoc, callHug, opensBracket, lambdaHug, defFrom, defDoc's body projections.\n\nMerged 18 Nov after a merge with SW-3999 (Rules.sw conflict in bodyAfter, resolved in the lane, 1 min). Model result: sonnet, worked (planned partial), 60 min (est. 60). Statements checked by the orchestrator: calmPrints, printedSpells (two filtered equalities, noted for SW-4003), printedLexes: each says what its doc claims. Break-once checks done.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": [
@@ -23854,7 +23854,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "From SW-3970 (18a): left for 18b: Joins (Follows kinds) doc edge next for the ~25 rule functions (toy's JoinProofs/RuleJoinProofs pattern; slice 1 adds Choice, IfBroken, IdGroup, Displaced, CloserLine), Printable for tree words from Lexical1, the tree-side leaf statement ticket 17 reads, then printLexes1; plus printedHangs, printedKeeping, printedSettle1. New rule arms go inside SW-3970's named split functions (bodyDoc, appFrom, defFrom, lambdaHug, ...).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24012,7 +24012,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.",
+      "body": "Also (SW-3966): allReverseOnto (List), trimEndTwice and dropSpacesStart (Text), appendConsNotEmpty, emptyOf, optionNone, a concat-over-reverseOnto lemma (leafTextsReverseOnto).\n\nAlso (SW-3967): Parse.readsInPeeked, readsAtBumpThen, Parse.Reads0 with reads0Mark/Then/If; Bool.andFalse-style lemmas.\n\nAlso (SW-3970): concatChars/piecesTextIsConcat to Text; Bool List.all over append/cons/map (allSplitBool etc.); Option.map inversion; Text.startsWith gives its prefix chars.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24025,7 +24025,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).",
+      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24038,7 +24038,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.",
+      "body": "Also (SW-3966): prove lexLaidOut: the lexer's leaves satisfy laidOut False (own-line comments imply the leaf starts its line; the leaf after a trailing comment starts its line); rule N's comment theorems assume it.\n\nAlso (SW-3970): MayFollow Bang is too strict (asks the next char not to be 'i'; the lexer reads !in as NotIn only when a non-word char follows), making printLexes1 unprovable for !isSmall x; and a lexer soundness lemma giving Decl.real (token text isn't layout) from lexesAs.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24272,7 +24272,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Check (SW-3970): printedSpells is two filtered equalities (without closers; without comments) because Std.Doc's printedWords lets a closer and a trailing comment swap on a line; confirm the top statement tolerates that interleaving.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
