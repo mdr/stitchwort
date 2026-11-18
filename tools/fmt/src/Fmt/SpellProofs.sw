@@ -12,7 +12,16 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
-import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
+import Fmt.CalmProofs (
+  bracketFrom,
+  bracketIs,
+  headerResultWithin,
+  lambdaHugNone,
+  matchedNone,
+  plainDef,
+  plainDefIs,
+  valueElPlain
+)
 
 --| A closer the rules write: a closing bracket or a comma.
 def closesText (text: Text): Prop := isCloserText text = True ∨ text = ","
@@ -1923,3 +1932,171 @@ theorem printedSpells ∀ (decl: Decl) (doc: Doc) (width: Nat)
     rewrite <- words then printedWords notCloser closesText commentsText doc width uniform marked (Inl closersApart),
     rewrite <- words then printedWords notComment closesText commentsText doc width uniform marked (Inr commentsApart)
   )
+
+-- From what the glue has to what the rules need.
+
+theorem allAppendBool ∀ (xs ys: List Word) (p: Word → Bool): (xs ++ ys).all p = (xs.all p && ys.all p) := match xs with
+  | [] => byComputing
+  | [first, ..rest] =>
+    match p first with
+      | True => allAppendBool rest ys p
+      | False => byComputing
+
+theorem allAndBool ∀ (xs: List Word) (p q: Word → Bool)
+    (first: xs.all p = True)
+    (second: xs.all q = True):
+    xs.all (word => p word && q word) = True :=
+  match xs with
+    | [] => byComputing
+    | [word, ..rest] =>
+      Bool.andIntro
+        (Bool.andIntro (Bool.andLeft first) (Bool.andLeft second))
+        (allAndBool rest p q (Bool.andRight first) (Bool.andRight second))
+
+--| A token's own-line comments and trailing comment are as rule N leaves them, as `settled1` says.
+def Word.commented (word: Word): Bool := word.comments.texts.all commentText
+
+theorem textsAll ∀ (above: List Note) (after: Option Text):
+    ((above.map (note => note.text) ++ after.toList).all commentText) = (notesSound above && afterSound after) :=
+  match above, after with
+    | [], None => byComputing
+    | [], Some comment =>
+      match commentText comment with
+        | True => byComputing
+        | False => byComputing
+    | [note, ..rest], after =>
+      match commentText note.text with
+        | True => textsAll rest after
+        | False => byComputing
+
+theorem commentedSound ∀ (word: Word)
+    (commented: word.commented = True)
+    (real: (!isLayout word.text) = True):
+    word.sound = True :=
+  Bool.andIntro real (rewrite <- textsAll word.comments.above word.comments.after then commented)
+
+theorem allConsBool ∀ (word: Word) (rest: List Word) (p: Word → Bool)
+    (all: [word, ..rest].all p = True):
+    p word = True ∧ rest.all p = True :=
+  match p word with | True => (byComputing, all)
+
+theorem allSplitBool ∀ (xs ys: List Word) (p: Word → Bool)
+    (all: (xs ++ ys).all p = True):
+    xs.all p = True ∧ ys.all p = True :=
+  match xs with
+    | [] => (byComputing, all)
+    | [first, ..rest] =>
+      let (headOk, tailOk) := allConsBool first (rest ++ ys) p all
+      let (restOk, backOk) := allSplitBool rest ys p tailOk
+      (Bool.andIntro headOk restOk, backOk)
+
+theorem soundOfAllItems ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (all: (itemsWords items).all Word.sound = True):
+    allSound items = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      let (firstOk, restOk) := allSplitBool first.words (itemsWords rest) Word.sound all
+      Bool.andIntro
+        (soundOfAll first (Bool.andLeft within) firstOk)
+        (soundOfAllItems rest (Bool.andRight within) restOk)
+
+--| The tokens of a slice 1 expression are all sound if its sound structurally.
+theorem soundOfAll ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (all: expr.words.all Word.sound = True):
+    expr.sound = True :=
+  match expr with
+    | Atom kind word => (allConsBool word [] Word.sound all).left
+    | Paren open inner close =>
+      let (frontOk, closeOk) := allSplitBool [open, ..inner.words] [close] Word.sound all
+      let (openOk, innerOk) := allConsBool open inner.words Word.sound frontOk
+      Bool.andIntro openOk
+        (Bool.andIntro (soundOfAll inner within innerOk) (allConsBool close [] Word.sound closeOk).left)
+    | Tuple open items comma close =>
+      let (frontOk, closeOk) := allSplitBool [open, ..itemsWords items] [close] Word.sound all
+      let (openOk, itemsOk) := allConsBool open (itemsWords items) Word.sound frontOk
+      Bool.andIntro openOk
+        (Bool.andIntro (soundOfAllItems items within itemsOk) (allConsBool close [] Word.sound closeOk).left)
+    | ListOf open items comma close =>
+      let (frontOk, closeOk) := allSplitBool [open, ..itemsWords items] [close] Word.sound all
+      let (openOk, itemsOk) := allConsBool open (itemsWords items) Word.sound frontOk
+      Bool.andIntro openOk
+        (Bool.andIntro (soundOfAllItems items within itemsOk) (allConsBool close [] Word.sound closeOk).left)
+    | App head arguments =>
+      let (headOk, argumentsOk) := allSplitBool head.words (itemsWords arguments) Word.sound all
+      Bool.andIntro
+        (soundOfAll head (Bool.andLeft within) headOk)
+        (soundOfAllItems arguments (Bool.andRight within) argumentsOk)
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          let (leftOk, restOk) := allSplitBool left.words [operator, ..right.words] Word.sound all
+          let (operatorOk, rightOk) := allConsBool operator right.words Word.sound restOk
+          Bool.andIntro
+            (soundOfAll left (Bool.andLeft within) leftOk)
+            (Bool.andIntro operatorOk (soundOfAll right (Bool.andRight within) rightOk))
+        | InfixArrow =>
+          let (leftOk, restOk) := allSplitBool left.words [operator, ..right.words] Word.sound all
+          let (operatorOk, rightOk) := allConsBool operator right.words Word.sound restOk
+          Bool.andIntro
+            (soundOfAll left (Bool.andLeft within) leftOk)
+            (Bool.andIntro operatorOk (soundOfAll right (Bool.andRight within) rightOk))
+        | _ => cases
+    | Prefix operator operand =>
+      let (operatorOk, operandOk) := allConsBool operator operand.words Word.sound all
+      Bool.andIntro operatorOk (soundOfAll operand within operandOk)
+
+theorem allMapBool ∀ (xs: List Word) (p q: Word → Bool)
+    (all: xs.all p = True)
+    (implies: ∀ (word: Word) => p word = True → q word = True):
+    xs.all q = True :=
+  match xs with
+    | [] => byComputing
+    | [first, ..rest] =>
+      let (firstOk, restOk) := allConsBool first rest p all
+      Bool.andIntro (implies first firstOk) (allMapBool rest p q restOk implies)
+
+--| Every token of a declaration has text that isn't layout.
+def Decl.real (decl: Decl): Bool := decl.words.all (word => !isLayout word.text)
+
+theorem declSoundOfSettled ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (settled: decl.settled1 = True)
+    (real: decl.real = True):
+    decl.sound = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      let commented := Bool.andRight (Bool.andRight settled)
+      let sound :=
+        allMapBool
+          (Decl.words (Definition [] header (Assigned colonEq value)))
+          (word => word.commented && !isLayout word.text)
+          Word.sound
+          (allAndBool _ Word.commented (word => !isLayout word.text) commented real)
+          (word both => commentedSound word (Bool.andLeft both) (Bool.andRight both))
+      let tail := header.result.words ++ [fixedWord ":=" colonEq, ..value.words]
+      let (keywordOk, afterKeyword) :=
+        allConsBool (fixedWord "def" header.keyword) [header.name, fixedWord ":" header.colon, ..tail] Word.sound sound
+      let (nameOk, afterName) := allConsBool header.name [fixedWord ":" header.colon, ..tail] Word.sound afterKeyword
+      let (colonOk, afterColon) := allConsBool (fixedWord ":" header.colon) tail Word.sound afterName
+      let (resultOk, afterResult) :=
+        allSplitBool header.result.words [fixedWord ":=" colonEq, ..value.words] Word.sound afterColon
+      let (assignOk, valueOk) := allConsBool (fixedWord ":=" colonEq) value.words Word.sound afterResult
+      Bool.andIntro keywordOk
+        (Bool.andIntro nameOk
+          (Bool.andIntro colonOk
+            (Bool.andIntro
+              (soundOfAll header.result (headerResultWithin header (Bool.andLeft within)) resultOk)
+              (Bool.andIntro assignOk (soundOfAll value (Bool.andRight within) valueOk)))))
+
+--| `printedSpells`, from what the passes establish: rule N's `settled1` and tokens that aren't layout.
+theorem printedSpellsSettled ∀ (decl: Decl) (doc: Doc) (width: Nat)
+    (within: decl.within1 = True)
+    (settled: decl.settled1 = True)
+    (real: decl.real = True)
+    (shows: decl.doc1 = Some doc):
+    (wordsOf (printedPieces doc width)).filter notCloser = decl.spelt.filter notCloser
+      ∧ (wordsOf (printedPieces doc width)).filter notComment = decl.spelt.filter notComment :=
+  printedSpells decl doc width within (declSoundOfSettled decl within settled real) shows
