@@ -649,3 +649,222 @@ theorem atomSteps ∀ (kind: Tok) (word: Word) (around: Around) (first: Spacing)
     | Inr quiet => Inr (Bool.andRight quiet)
   stepsTo _ _ _ _ _ (wordLeafSteps word around around.at first joins leadLoose) (seam closed =>
     endsWeaker word.trails (Atom kind word).trails (trails => rewrite trails) seam (closedEnds word.trails seam closed))
+
+-- Signs.
+
+--| No name or numeral is spelled `-`.
+theorem atomNotMinus ∀ (kind: Tok) (word: Word) (within: (Atom kind word).within1 = True): (word.text == "-") = False :=
+  match minus: word.text == "-" with
+    | False => byComputing
+    | True =>
+      let spells: textSpells1 kind word.text = True := Bool.andRight within
+      let wordKind: kind.wordWithin1 = True := Bool.andLeft within
+      let bad: textSpells1 kind "-" = True := rewrite DecEq.sound minus at spells then spells
+      match kind, wordKind, bad with
+        | Float, _, never => (Bool.falseNotTrue never).impossible
+
+--| An atom or bracket starts with no `-` and is no numeral's call: `prefixGap` writes nothing before it.
+theorem atomicTight ∀ (operand: Expr)
+    (atomic: operand.atomic1 = True)
+    (within: operand.within1 = True)
+    (lexical: operand.lexical1 = True):
+    (operand.firstWord.text == "-" || operand.numeralApplication) = False :=
+  match operand with
+    | Atom kind word => rewrite atomNotMinus kind word within
+    | Paren open inner close => rewrite DecEq.sound (Bool.andLeft lexical)
+    | Tuple open items comma close => rewrite DecEq.sound (Bool.andLeft lexical)
+    | ListOf open items comma close => rewrite DecEq.sound (Bool.andLeft lexical)
+
+theorem numeralAtomic ∀ (operand: Expr) (numeral: operand.numeral1 = True): operand.atomic1 = True := match operand with
+  | Atom kind word => byComputing
+
+theorem gapSpaced ∀ (operator: Word) (operand: Expr)
+    (spaced: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = True):
+    prefixGap operator operand = Doc.text " " :=
+  rewrite spaced
+
+theorem gapTight ∀ (operator: Word) (operand: Expr)
+    (tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = False):
+    prefixGap operator operand = Nothing :=
+  rewrite tight
+
+--| Whatever a sign writes before its operand, the operand may start there free.
+theorem gapFree ∀ (operator: Word) (operand: Expr) (trails: Bool):
+    Steps (prefixGap operator operand) (Closed trails) [] (Fits True Free) :=
+  match spaced: operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication) with
+    | True =>
+      stepsFrom _ _ _ _ _
+        (stepsTo _ _ _ _ _ (stepsSpace trails) (seam gapped =>
+          fitsWeaker trails True (_ => byComputing) Free seam (gappedFits trails Free seam byComputing gapped)))
+        (seam closed => closedEnds trails seam closed)
+    | False => stepsTo _ _ _ _ _ (stepsNothing (Closed trails)) (seam closed =>
+      fitsWeaker trails True (_ => byComputing) Free seam (endsFits trails seam (closedEnds trails seam closed)))
+
+--| `-` and a numeral's call, a space between them.
+theorem gapApart ∀ (operator: Word) (operand: Expr) (trails: Bool)
+    (spaced: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = True):
+    Steps (prefixGap operator operand) (Closed trails) [] (Fits True Apart) :=
+  rewrite gapSpaced operator operand spaced then
+    stepsFrom _ _ _ _ _
+      (stepsTo _ _ _ _ _ (stepsSpace trails) (seam gapped =>
+        fitsWeaker trails True (_ => byComputing) Apart seam (gappedFits trails Apart seam byComputing gapped)))
+      (seam closed => closedEnds trails seam closed)
+
+--| A sign with no trailing comment and nothing written after it: its operand stands glued to it.
+theorem gapGlued ∀ (operator: Word) (operand: Expr)
+    (tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = False):
+    Steps (prefixGap operator operand) (Closed False) [] (Fits True Glued) :=
+  rewrite gapTight operator operand tight then
+    stepsTo _ _ _ _ _ (stepsNothing (Closed False)) (seam closed => rewrite closedAlong seam closed)
+
+theorem signQuietAfter ∀ (operator: Word) (operand: Expr)
+    (quiet: signQuiet operator operand = True):
+    operator.trails = False :=
+  match after: operator.comments.after with | None => byComputing
+
+theorem signQuietAbove ∀ (operator: Word) (operand: Expr)
+    (quiet: signQuiet operator operand = True):
+    operand.lead.comments.above = [] :=
+  match after: operator.comments.after with
+    | None =>
+      match above: operand.lead.comments.above with
+        | [] => byComputing
+
+--| A token with no own-line comment, after no trailing comment, outside a list's items: nothing comes before it.
+theorem quietFresh ∀ (word: Word) (around: Around) (key: Nat)
+    (above: word.comments.above = [])
+    (before: around.before = False)
+    (hoisted: around.hoisted = False)
+    (item: around.item = False):
+    word.quietAt around key = True :=
+  match word, above with | { text, comments = { above = [], after, blankBefore } }, _ => rewrite before, hoisted, item
+
+theorem closedFalse ∀ (trails: Bool)
+    (none: trails = False) (seam: Seam)
+    (closed: Closed trails seam):
+    Closed False seam :=
+  closedWeaker trails False (shown => (Bool.trueNotFalse (rewrite shown at none then none)).impossible) seam closed
+
+--| A sign and its operand, from where the sign may stand spaced `first`.
+--|
+--| Proof idea: the sign is a token (`wordLeafSteps`); its operand starts where `operandSpacing` says: apart after the
+--| space `prefixGap` writes before a numeral's call, glued where nothing comes between them (no comment, by
+--| `signQuiet`, and no space: a call's argument's sign is on an atom or bracket, by `argument1`), else free.
+theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first: Spacing) (argument: Bool)
+    (within: (Prefix operator operand).within1 = True)
+    (lexical: (Prefix operator operand).lexical1 = True)
+    (joinable: Joinable lexKind (Prefix operator operand))
+    (isArgument: argument = True → (Prefix operator operand).argument1 = True)
+    (loose: Loose first ∨ operator.quietAt around around.at = True)
+    (operandSteps: ElSteps operand):
+    Steps
+      ((Prefix operator operand).el around)
+      (Fits True first)
+      (spacedFirst first ((Prefix operator operand).spacing1 argument))
+      (Ends (Prefix operator operand).trails) :=
+  let (joins, operandJoins, _) := joinable
+  let (sound, _, _, _) := joins
+  let operandWithin: operand.within1 = True := Bool.andLeft within
+  let operandLexical: operand.lexical1 = True := Bool.andRight lexical
+  let place := around.next operator.trails 1
+  let inside := { around | hoisted = True }
+  let ends: ∀ (seam: Seam) => Ends operand.trails seam → Ends (Prefix operator operand).trails seam := seam ended =>
+    endsWeaker operand.trails
+      (Prefix operator operand).trails
+      (trails =>
+        rewrite List.reverseCons operator operand.words then trailsBackAppend operand.words.reverse [operator] trails)
+      seam
+      ended
+  let leaf := wordLeafSteps operator inside around.at first joins (Inr byComputing)
+  let whole: ∀ (rest: List Spacing) (middle: Seam → Prop) (gap: Steps
+    (prefixGap operator operand)
+    (Closed operator.trails)
+    []
+    middle) (inner: Steps (operand.el place) middle rest (Ends operand.trails)) => Steps
+    ((Prefix operator operand).el around)
+    (Fits True first)
+    [first, ..rest]
+    (Ends (Prefix operator operand).trails) :=
+    rest middle gap inner =>
+      framedSteps operator around _
+        [first, ..rest] _
+        first
+        sound
+        loose
+        (stepsConcat _ _ _ _
+          (stepsCons
+            (operator.leaf inside around.at)
+            [prefixGap operator operand, operand.el place]
+            (Fits True first)
+            (Closed operator.trails)
+            (Ends (Prefix operator operand).trails)
+            [first]
+            rest
+            leaf
+            (stepsTwo
+              (prefixGap operator operand)
+              (operand.el place) _
+              middle _
+              []
+              rest
+              gap
+              (stepsTo _ _ _ _ _ inner ends))))
+  let free: Steps (operand.el place) (Fits True Free) (operand.spacing1 False) (Ends operand.trails) :=
+    elFree operand place operandSteps operandWithin operandLexical operandJoins
+  let glued: signQuiet operator operand = True
+    → Steps (operand.el place) (Fits True Glued) (spacedFirst Glued (operand.spacing1 False)) (Ends operand.trails) :=
+    quiet =>
+      let noTrail := signQuietAfter operator operand quiet
+      let fresh: operand.firstWord.quietAt place place.at = True :=
+        rewrite firstWordLead operand operandWithin then
+          quietFresh operand.lead place place.at
+            (signQuietAbove operator operand quiet)
+            (rewrite noTrail)
+            byComputing
+            byComputing
+      operandSteps operandWithin operandLexical operandJoins place Glued False
+        (never => (Bool.falseNotTrue never).impossible)
+        (Inr fresh)
+  let gluedWhole: signQuiet operator operand = True
+    → (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = False
+    → Steps
+      ((Prefix operator operand).el around)
+      (Fits True first)
+      [first, ..spacedFirst Glued (operand.spacing1 False)]
+      (Ends (Prefix operator operand).trails) :=
+    quiet tight =>
+      whole _ _
+        (stepsFrom _ _ _ _ _ (gapGlued operator operand tight) (seam closed =>
+          closedFalse operator.trails (signQuietAfter operator operand quiet) seam closed))
+        (glued quiet)
+  match app: operator.text == "-" && operand.numeralApplication with
+    | True =>
+      let spaced: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = True :=
+        Bool.andIntro (Bool.andLeft app) (Bool.orRight (Bool.andRight app))
+      stepsSpacing _ _ _ _ _ byComputing
+        (whole _ _
+          (gapApart operator operand operator.trails spaced)
+          (operandSteps operandWithin operandLexical operandJoins place Apart False
+            (never => (Bool.falseNotTrue never).impossible)
+            (Inl byComputing)))
+    | False =>
+      match quiet: signQuiet operator operand with
+        | False => stepsSpacing _ _ _ _ _ byComputing (whole _ _ (gapFree operator operand operator.trails) free)
+        | True =>
+          match argument with
+            | True =>
+              let atomic: operand.atomic1 = True := isArgument byComputing
+              let tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication))
+                = False :=
+                Bool.andFalseRight _ _ (atomicTight operand atomic operandWithin operandLexical)
+              stepsSpacing _ _ _ _ _ byComputing (gluedWhole quiet tight)
+            | False =>
+              match numeral: operator.text == "-" && operand.numeral1 with
+                | True =>
+                  let atomic := numeralAtomic operand (Bool.andRight numeral)
+                  let tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication))
+                    = False :=
+                    Bool.andFalseRight _ _ (atomicTight operand atomic operandWithin operandLexical)
+                  stepsSpacing _ _ _ _ _ byComputing (gluedWhole quiet tight)
+                | False =>
+                  stepsSpacing _ _ _ _ _ byComputing (whole _ _ (gapFree operator operand operator.trails) free)
