@@ -23754,15 +23754,17 @@
     {
       "id": 3965,
       "title": "[Sonnet] fmt S1 ticket 14: lexer proofs for slice 1 (sketch §2, 90-130 theorems, est. 75 min)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Sonnet lane, 18 Nov 2026): 150 theorems in tools/fmt/src/Syntax/LexProofs.sw (namespace Syntax.Proofs), audit clean (250 passed), Syntax.Tests 52 and Fmt.Tests 50 pass. Branch lane/SW-3965, commits 4a288e231..f7a7878be. Proved: item reads per lexeme (24 fixed spellings, 7 Unicode, spaces, break, comment, names, Num, Float), lexWord1 for all kinds via Spells/MayFollow, the many/recursiveWith spine (lexemesOfSteps, lexCovers for sources read lexeme by lexeme), layout of pieces (lexPrinted, lexPieces, lexPrintedPairs), one lexesAs per kind, operatorTokLexes. Not proved: lexCovers for every source; operatorTok text = Some kind implying Spells. Lexer.sw was split into named parts (itemAt/itemOn, wordFrom, qualifiedOn, numberFrom, numberTail, fractionPart, exponentPart, fractionAhead, exponentSkip), same behaviour. Notes in tools/fmt/NOTES.md. Model result: Sonnet, worked, about 40 min (est. 75).\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
-      "commits": []
+      "commits": [
+        "f7a7878be"
+      ]
     },
     {
       "id": 3966,
