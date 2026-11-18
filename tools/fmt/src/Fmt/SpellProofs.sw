@@ -12,6 +12,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Fmt.CalmProofs (bracketFrom, bracketIs)
 
 --| A closer the rules write: a closing bracket or a comma.
 def closesText (text: Text): Prop := isCloserText text = True ∨ text = ","
@@ -604,7 +605,8 @@ def allSound: List Expr → Bool
   | [expr, ..rest] => expr.sound && allSound rest
 
 --| Every expression of a list is `ElSpells`.
-def ElSpells (expr: Expr): Prop := ∀ (below: Around) => Spells (expr.el below) (expr.spelt below.hoisted)
+def ElSpells (expr: Expr): Prop :=
+  expr.within1 = True → expr.sound = True → ∀ (below: Around) => Spells (expr.el below) (expr.spelt below.hoisted)
 
 def AllElSpells: List Expr → Prop
   | [] => True
@@ -651,6 +653,7 @@ theorem parenSpells ∀ (open: Word) (inner: Expr) (close: Word) (around: Around
     (within: inner.within1 = True)
     (openSound: open.sound = True)
     (closeSound: close.sound = True)
+    (innerSound: inner.sound = True)
     (each: ElSpells inner):
     Spells
       (parenDoc open inner close around)
@@ -667,7 +670,7 @@ theorem parenSpells ∀ (open: Word) (inner: Expr) (close: Word) (around: Around
         [close.leaf (around.next inner.trails (1 + inner.size)) around.at]
         (inner.spelt False)
         (close.spelledAt False)
-        (parenInnerSpells inner (around.next open.trails 1) within (each (around.next open.trails 1)))
+        (parenInnerSpells inner (around.next open.trails 1) within (each within innerSound (around.next open.trails 1)))
         (spellsLast
           (close.leaf (around.next inner.trails (1 + inner.size)) around.at)
           (close.spelledAt False)
@@ -839,6 +842,635 @@ theorem linkDocsSpells ∀ (level: Option Nat) (first: Bool) (expr: Expr) (aroun
     | Match _ _ _ _ => cases
     | _ => spellsLast (expr.el around) (expr.spelt around.hoisted) (elSpells expr around within sound)
 
+-- Commas.
+
+theorem spellsComma: Spells (Closing ",") [","] := spellsClosing "," byComputing (Inr byComputing)
+
+theorem spellsSeparator ∀ (first: Bool): Spells (if first then SoftLine else Line) [] := match first with
+  | True => spellsSoftLine
+  | False => spellsLine
+
+theorem cellsSpells ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (each: AllElSpells items):
+    SpellsAll (cells bare arm before at items) (commaSpelt items) :=
+  match items, each with
+    | [], _ => spellsNil
+    | [item], (first, _) =>
+      spellsLast
+        (item.el (firstAround bare arm before at))
+        (item.spelt False)
+        (first (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
+    | [item, ..rest], (first, others) =>
+      spellsAllSame _ _ _
+        (spellsCons
+          (Doc.concat [item.el (firstAround bare arm before at), Closing ","])
+          (cells False arm False (at + item.size) rest)
+          (item.spelt False ++ [","])
+          (commaSpelt rest)
+          (spellsConcat _ _
+            (spellsCons
+              (item.el (firstAround bare arm before at))
+              [Closing ","]
+              (item.spelt False)
+              [","]
+              (first (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
+              (spellsLast (Closing ",") [","] spellsComma)))
+          (cellsSpells False arm False (at + item.size) rest (Bool.andRight within) (Bool.andRight sound) others))
+        (List.appendAssoc (item.spelt False) [","] (commaSpelt rest))
+
+theorem brokenItemsSpells ∀ (bare arm first before: Bool) (at: Nat) (items: List Expr)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (each: AllElSpells items):
+    SpellsAll (brokenItems bare arm first before at items) (commaSpelt items) :=
+  match items, each with
+    | [], _ => spellsNil
+    | [item], (kept, _) =>
+      spellsCons
+        (if first then SoftLine else Line)
+        [item.el (firstAround bare arm before at)]
+        []
+        (item.spelt False)
+        (spellsSeparator first)
+        (spellsLast
+          (item.el (firstAround bare arm before at))
+          (item.spelt False)
+          (kept (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at)))
+    | [item, ..rest], (kept, others) =>
+      spellsCons
+        (if first then SoftLine else Line)
+        [
+          item.el (firstAround bare arm before at),
+          Closing ",",
+          ..brokenItems False arm False False (at + item.size) rest
+        ]
+        []
+        (commaSpelt [item, ..rest])
+        (spellsSeparator first)
+        (spellsAllSame _ _ _
+          (spellsCons
+            (item.el (firstAround bare arm before at))
+            [Closing ",", ..brokenItems False arm False False (at + item.size) rest]
+            (item.spelt False)
+            ([","] ++ commaSpelt rest)
+            (kept (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
+            (spellsCons
+              (Closing ",")
+              (brokenItems False arm False False (at + item.size) rest)
+              [","]
+              (commaSpelt rest)
+              spellsComma
+              (brokenItemsSpells False arm False False
+                (at + item.size)
+                rest
+                (Bool.andRight within)
+                (Bool.andRight sound)
+                others)))
+          byComputing)
+
+theorem spellsEq ∀ (doc doc': Doc) (texts: List Text)
+    (same: doc = doc')
+    (spells: Spells doc' texts):
+    Spells doc texts :=
+  rewrite same then spells
+
+theorem bracketFromSpells ∀ (list empty plain holds: Bool) (prefix closer: Doc)
+    (filled broken: List Doc) (opens items closes: List Text)
+    (prefixSpells: Spells prefix opens)
+    (closerSpells: Spells closer closes)
+    (filledSpells: SpellsAll filled items)
+    (brokenSpells: SpellsAll broken items)
+    (emptyItems: empty = True → items = []):
+    Spells (bracketFrom list empty plain holds prefix closer filled broken) (opens ++ items ++ closes) :=
+  match empty with
+    | True =>
+      rewrite emptyItems byComputing then
+        spellsConcat _ _ (spellsCons prefix [closer] opens closes prefixSpells (spellsLast closer closes closerSpells))
+    | False =>
+      match list && !holds && plain with
+        | True =>
+          spellsConcat _ _
+            (spellsCons prefix
+              [Nest 2 (Fill filled), closer]
+              opens
+              (items ++ closes)
+              prefixSpells
+              (spellsCons
+                (Nest 2 (Fill filled))
+                [closer]
+                items
+                closes
+                (spellsNest 2 (Fill filled) items (spellsFill filled items filledSpells))
+                (spellsLast closer closes closerSpells)))
+        | False =>
+          match holds with
+            | True =>
+              spellsConcat _ _
+                (spellsAllSame _ _ _
+                  (spellsAppend
+                    [prefix, Nest 2 (Doc.concat broken), SoftLine, closer]
+                    [BreakParent]
+                    (opens ++ items ++ closes)
+                    []
+                    (spellsCons prefix
+                      [Nest 2 (Doc.concat broken), SoftLine, closer]
+                      opens
+                      (items ++ closes)
+                      prefixSpells
+                      (spellsCons
+                        (Nest 2 (Doc.concat broken))
+                        [SoftLine, closer]
+                        items
+                        closes
+                        (spellsNest 2 (Doc.concat broken) items (spellsConcat broken items brokenSpells))
+                        (spellsCons SoftLine
+                          [closer]
+                          []
+                          closes
+                          spellsSoftLine
+                          (spellsLast closer closes closerSpells))))
+                    (spellsLast BreakParent [] spellsBreakParent))
+                  (List.appendNil _))
+            | False =>
+              spellsConcat _ _
+                (spellsCons prefix
+                  [Nest 2 (Doc.concat broken), SoftLine, closer]
+                  opens
+                  (items ++ closes)
+                  prefixSpells
+                  (spellsCons
+                    (Nest 2 (Doc.concat broken))
+                    [SoftLine, closer]
+                    items
+                    closes
+                    (spellsNest 2 (Doc.concat broken) items (spellsConcat broken items brokenSpells))
+                    (spellsCons SoftLine [closer] [] closes spellsSoftLine (spellsLast closer closes closerSpells))))
+
+theorem commaSpeltEmpty ∀ (items: List Expr) (empty: items.isEmpty = True): commaSpelt items = [] :=
+  match items, empty with | [], _ => byComputing
+
+theorem bracketContentSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (openSound: open.sound = True)
+    (closeSound: close.sound = True)
+    (each: AllElSpells items):
+    Spells
+      (bracketContent list open items close around)
+      (open.spelledAt around.hoisted ++ commaSpelt items ++ close.spelledAt False) :=
+  spellsEq _ _ _
+    (bracketIs list open items close around)
+    (bracketFromSpells list items.isEmpty
+      (items.all Expr.plainItem)
+      (ListOf open items False close).holdsTrailingComment
+      (open.opening around close)
+      (close.leaf
+        (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
+        around.at)
+      (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
+      (brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
+      (open.spelledAt around.hoisted)
+      (commaSpelt items)
+      (close.spelledAt False)
+      (openingSpells open around close openSound)
+      (leafSpells close
+        (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
+        around.at
+        closeSound)
+      (cellsSpells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items within sound each)
+      (brokenItemsSpells
+        (list && items.all Expr.plainItem)
+        around.inArm
+        True
+        open.trails
+        (around.at + 1)
+        items
+        within
+        sound
+        each)
+      (commaSpeltEmpty items))
+
+theorem allElSpells ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True):
+    AllElSpells items :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      ((w s below => elSpells first below w s), (allElSpells rest (Bool.andRight within) (Bool.andRight sound)))
+
+-- Calls.
+
+--| The documents are each `Uniform` and `Marked`, whatever their words are.
+def Own (docs: List Doc): Prop := AllUniform docs ∧ AllMarked closesText commentsText docs
+
+theorem ownOfSpells ∀ (docs: List Doc) (texts: List Text) (spells: SpellsAll docs texts): Own docs := match spells with
+  | (uniform, marked, _) => (uniform, marked)
+
+theorem spellsOfOwn ∀ (docs: List Doc) (own: Own docs): SpellsAll docs (wordsAll docs) := match own with
+  | (uniform, marked) => (uniform, marked, byComputing)
+
+theorem ownTake ∀ (docs: List Doc) (count: Nat) (own: Own docs): Own (docs.take count) := match docs, count, own with
+  | [], Zero, _ => (byComputing, byComputing)
+  | [], Succ less, _ => (byComputing, byComputing)
+  | [first, ..rest], Zero, _ => (byComputing, byComputing)
+  | [first, ..rest], Succ less, ((firstUniform, restUniform), (firstMarked, restMarked)) =>
+    let (uniform, marked) := ownTake rest less (restUniform, restMarked)
+    ((firstUniform, uniform), (firstMarked, marked))
+
+theorem ownDrop ∀ (docs: List Doc) (count: Nat) (own: Own docs): Own (docs.drop count) := match docs, count, own with
+  | [], Zero, _ => (byComputing, byComputing)
+  | [], Succ less, _ => (byComputing, byComputing)
+  | [first, ..rest], Zero, own => own
+  | [first, ..rest], Succ less, ((firstUniform, restUniform), (firstMarked, restMarked)) =>
+    ownDrop rest less (restUniform, restMarked)
+
+theorem wordsTakeDrop ∀ (docs: List Doc) (count: Nat):
+    wordsAll (docs.take count) ++ wordsAll (docs.drop count) = wordsAll docs :=
+  match docs, count with
+    | [], Zero => byComputing
+    | [], Succ less => byComputing
+    | [first, ..rest], Zero => byComputing
+    | [first, ..rest], Succ less =>
+      rewrite List.appendAssoc first.words (wordsAll (rest.take less)) (wordsAll (rest.drop less)),
+          wordsTakeDrop rest less
+
+theorem ownConcatMap ∀ (docs: List Doc)
+    (own: Own docs):
+    SpellsAll (docs.concatMap (doc => [HardLine, doc])) (wordsAll docs) :=
+  match docs, own with
+    | [], _ => spellsNil
+    | [doc, ..rest], ((uniform, restUniform), (marked, restMarked)) =>
+      spellsCons HardLine
+        [doc, ..rest.concatMap (doc => [HardLine, doc])]
+        []
+        (wordsAll [doc, ..rest])
+        spellsHardLine
+        (spellsCons doc
+          (rest.concatMap (doc => [HardLine, doc]))
+          doc.words
+          (wordsAll rest)
+          (uniform, marked, byComputing)
+          (ownConcatMap rest (restUniform, restMarked)))
+
+--| A call that breaks keeps some elements on its line and the rest each on a line of its own: the words are the
+--| elements'.
+theorem frontRestSpells ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (texts: List Text)
+    (spells: SpellsAll docs texts):
+    Spells
+      (Doc.concat [
+        if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep),
+        if fillFront then
+          IfBroken id
+            (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+            (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+        else Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc])))
+      ])
+      texts :=
+  let own := ownOfSpells docs texts spells
+  let kept := spellsOfOwn (docs.take keep) (ownTake docs keep own)
+  let rest := spellsConcat _ _ (ownConcatMap (docs.drop keep) (ownDrop docs keep own))
+  let words: wordsAll (docs.take keep) ++ wordsAll (docs.drop keep) = texts :=
+    Eq.trans (wordsTakeDrop docs keep) (spells.right.right)
+  rewrite <- words then
+    spellsConcat _ _
+      (spellsCons
+        (if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep))
+        [
+          if fillFront then
+            IfBroken id
+              (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+              (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+          else Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc])))
+        ]
+        (wordsAll (docs.take keep))
+        (wordsAll (docs.drop keep))
+        (match fillFront with
+          | True =>
+            spellsIdGroup id
+              (Nest 4 (Fill (docs.take keep)))
+              False
+              (wordsAll (docs.take keep))
+              (spellsNest 4
+                (Fill (docs.take keep))
+                (wordsAll (docs.take keep))
+                (spellsFill (docs.take keep) (wordsAll (docs.take keep)) kept))
+          | False => spellsSpaced (docs.take keep) (wordsAll (docs.take keep)) kept)
+        (spellsLast
+          (if fillFront then
+             IfBroken id
+               (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+               (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+           else Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+          (wordsAll (docs.drop keep))
+          (match fillFront with
+            | True =>
+              spellsIfBroken id
+                (Nest 4 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+                (Nest 2 (Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))))
+                (wordsAll (docs.drop keep))
+                (spellsNest 4 _ _ rest)
+                (spellsNest 2 _ _ rest)
+            | False => spellsNest 2 _ _ rest)))
+
+--| What a call's pieces spell, and what its hug spells.
+def AppSpells (applied: Applied) (texts: List Text): Prop :=
+  Spells applied.doc texts ∧ (∀ (open: Doc) => applied.hug = Some open → Spells open texts)
+
+theorem appFromSpells ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc) (front: List Doc)
+    (hug: Option Doc) (headTexts frontTexts lastTexts: List Text)
+    (headSpells: Spells headDoc headTexts)
+    (frontSpells: SpellsAll front frontTexts)
+    (lastSpells: Spells lastDoc lastTexts)
+    (hugSpells: ∀ (open: Doc) => hug = Some open → Spells open lastTexts):
+    AppSpells (appFrom id keep between betweenFront headDoc front lastDoc hug) (headTexts ++ frontTexts ++ lastTexts) :=
+  let docsSpells: SpellsAll ([headDoc, ..front] ++ [lastDoc]) (headTexts ++ frontTexts ++ lastTexts) :=
+    spellsCons headDoc
+      (front ++ [lastDoc])
+      headTexts
+      (frontTexts ++ lastTexts)
+      headSpells
+      (spellsAppend front [lastDoc] frontTexts lastTexts frontSpells (spellsLast lastDoc lastTexts lastSpells))
+  match keep == ([headDoc, ..front] ++ [lastDoc]).length with
+    | True => (
+      (match between with
+        | True => spellsSpaced _ _ docsSpells
+        | False => spellsNest 4 _ _ (spellsFill _ _ docsSpells)),
+      (open none => cases)
+    )
+    | False =>
+      let thirdSpells :=
+        frontRestSpells id keep
+          (keep > 2 && !betweenFront)
+          ([headDoc, ..front] ++ [lastDoc])
+          (headTexts ++ frontTexts ++ lastTexts)
+          docsSpells
+      let allSpells := spellsFlatten _ _ (spellsSpaced _ _ docsSpells)
+      match hug with
+        | None => (
+          spellsChoice
+            (headTexts ++ frontTexts ++ lastTexts)
+            (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
+            [
+              Doc.concat [
+                if keep > 2 && !betweenFront then
+                  IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
+                else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
+                if keep > 2 && !betweenFront then
+                  IfBroken id
+                    (Nest 4
+                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                    (Nest 2
+                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                else
+                  Nest 2
+                    (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
+              ]
+            ]
+            (allSpells, (thirdSpells, byComputing)),
+          (open same => cases)
+        )
+        | Some opened =>
+          let huggedSpells: Spells
+            (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened])
+            (headTexts ++ frontTexts ++ lastTexts) :=
+            spellsConcat _ _
+              (spellsAllSame _ _ _
+                (spellsCons
+                  (Flatten (spaced [headDoc, ..front]))
+                  [Doc.text " ", opened]
+                  (headTexts ++ frontTexts)
+                  ([] ++ lastTexts)
+                  (spellsFlatten _ _
+                    (spellsSpaced _ _ (spellsCons headDoc front headTexts frontTexts headSpells frontSpells)))
+                  (spellsCons
+                    (Doc.text " ")
+                    [opened]
+                    []
+                    lastTexts
+                    spellsSpace
+                    (spellsLast opened lastTexts (hugSpells opened byComputing))))
+                (List.appendAssoc headTexts frontTexts lastTexts))
+          (
+            spellsChoice
+              (headTexts ++ frontTexts ++ lastTexts)
+              (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
+              [
+                Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened],
+                Doc.concat [
+                  if keep > 2 && !betweenFront then
+                    IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
+                  else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
+                  if keep > 2 && !betweenFront then
+                    IfBroken id
+                      (Nest 4
+                        (Doc.concat
+                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                      (Nest 2
+                        (Doc.concat
+                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
+                  else
+                    Nest 2
+                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
+                ]
+              ]
+              (allSpells, (huggedSpells, (thirdSpells, byComputing))),
+            (open same => rewrite <- Option.someInjective same then huggedSpells)
+          )
+
+theorem spellsGroupWith ∀ (inner: Doc) (hard: Bool) (texts: List Text)
+    (spells: Spells inner texts):
+    Spells (Group inner hard) texts :=
+  spells
+
+--| What a call's last argument and its hug spell.
+def LastSpells (last: (Doc, Option Doc)) (texts: List Text): Prop :=
+  Spells last.fst texts ∧ (∀ (open: Doc) => last.snd = Some open → Spells open texts)
+
+theorem hugTexts ∀ (open: Word) (hoisted: Bool) (items close: List Text):
+    open.spelledAt hoisted ++ items ++ close = open.notesAt hoisted ++ (open.spelledAt True ++ items ++ close) :=
+  rewrite spelledAtLead open hoisted, List.appendAssoc (open.notesAt hoisted) (open.spelledAt True) (items ++ close)
+
+theorem huggedSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+    (within: allWithin1 items = True)
+    (sound: allSound items = True)
+    (openSound: open.sound = True)
+    (closeSound: close.sound = True):
+    LastSpells
+      (huggedBracket list open items close around)
+      (open.spelledAt around.hoisted ++ commaSpelt items ++ close.spelledAt False) :=
+  let content :=
+    bracketContentSpells list open items close
+      { around | hoisted = True }
+      within
+      sound
+      openSound
+      closeSound
+      (allElSpells items within sound)
+  let leading := spellsConcat _ _ (leadingSpells open around around.at openSound)
+  (
+    rewrite hugTexts open around.hoisted (commaSpelt items) (close.spelledAt False) then
+      spellsConcat _ _
+        (spellsCons _ _ _ _ leading
+          (spellsLast
+            (Group
+              (bracketContent list open items close { around | hoisted = True })
+              (bracketContent list open items close { around | hoisted = True }).forcesBreak) _
+            (spellsGroupWith _
+              (bracketContent list open items close { around | hoisted = True }).forcesBreak _
+              content))),
+    (hugged same =>
+      rewrite <- Option.someInjective same, hugTexts open around.hoisted (commaSpelt items) (close.spelledAt False) then
+        spellsConcat _ _
+          (spellsCons _ _ _ _ leading
+            (spellsLast
+              (Group (bracketContent list open items close { around | hoisted = True }) True) _
+              (spellsGroupWith _ True _ content))))
+  )
+
+--| What an option of a call's arguments spells: nothing if there is none, else its document and its hug.
+def LastOption: Option (Doc, Option Doc) → List Text → Prop
+  | None, texts => texts = []
+  | Some last, texts => LastSpells last texts
+
+--| What `argumentDocs` makes of arguments spells them: the documents before the last, and the last.
+def ArgsSpells (made: (List Doc, Option (Doc, Option Doc))) (front last: List Text): Prop :=
+  SpellsAll made.fst front ∧ LastOption made.snd last
+
+theorem lastArgumentSpells ∀ (argument: Expr) (around: Around)
+    (within: argument.within1 = True)
+    (sound: argument.sound = True):
+    LastSpells (lastArgument argument around) (argument.spelt around.hoisted) :=
+  match argument with
+    | Tuple open items comma close =>
+      huggedSpells False open items close around within
+        (Bool.andLeft (Bool.andRight sound))
+        (Bool.andLeft sound)
+        (Bool.andRight (Bool.andRight sound))
+    | ListOf open items comma close =>
+      huggedSpells True open items close around within
+        (Bool.andLeft (Bool.andRight sound))
+        (Bool.andLeft sound)
+        (Bool.andRight (Bool.andRight sound))
+    | Paren open inner close =>
+      match inner with
+        | Binding _ _ _ _ _ => cases
+        | Block _ _ _ => cases
+        | _ => (elSpells (Paren open inner close) around within sound, (open same => cases))
+    | Record _ _ _ _ _ => cases
+    | _ => (elSpells argument around within sound, (open same => cases))
+
+theorem argsSpellsEq ∀ (made made': (List Doc, Option (Doc, Option Doc))) (front last: List Text)
+    (same: made = made')
+    (spells: ArgsSpells made' front last):
+    ArgsSpells made front last :=
+  rewrite same then spells
+
+theorem argumentDocsConsTest ∀ (arm: Bool) (previous argument next: Expr) (at: Nat) (more: List Expr):
+    argumentDocs arm previous at [argument, next, ..more]
+      = (
+        [
+          argument.el { before = previous.trails, hoisted = False, item = False, at, inArm = arm },
+          ..(argumentDocs arm argument (at + argument.size) [next, ..more]).fst
+        ],
+        (argumentDocs arm argument (at + argument.size) [next, ..more]).snd
+      ) :=
+  byComputing
+
+theorem argumentDocsSpells ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Expr)
+    (within: allWithin1 arguments = True)
+    (sound: allSound arguments = True):
+    ∃ (front last: List Text) => ArgsSpells (argumentDocs arm previous at arguments) front last
+      ∧ front ++ last = argumentsSpelt arguments :=
+  match arguments with
+    | [] => ([], [], ((spellsNil, byComputing), byComputing))
+    | [argument] => (
+      [],
+      argument.spelt False,
+      (
+        (
+          spellsNil,
+          lastArgumentSpells argument
+            { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+            (Bool.andLeft within)
+            (Bool.andLeft sound)
+        ),
+        (List.appendNil (argument.spelt False)).flipped
+      )
+    )
+    | [argument, next, ..more] =>
+      let (frontTexts, lastTexts, (docsSpells, lastSpells), texts) :=
+        argumentDocsSpells arm argument (at + argument.size) [next, ..more] (Bool.andRight within) (Bool.andRight sound)
+      (
+        argument.spelt False ++ frontTexts,
+        lastTexts,
+        (
+          (argsSpellsEq _ _ _ _ (argumentDocsConsTest arm previous argument next at more) (
+            (spellsCons
+              (argument.el { before = previous.trails, hoisted = False, item = False, at, inArm = arm })
+              (argumentDocs arm argument (at + argument.size) [next, ..more]).fst
+              (argument.spelt False)
+              frontTexts
+              (elSpells argument
+                { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
+                (Bool.andLeft within)
+                (Bool.andLeft sound))
+              docsSpells),
+            lastSpells
+          )),
+          (rewrite List.appendAssoc (argument.spelt False) frontTexts lastTexts, texts)
+        )
+      )
+
+theorem pickSpells ∀ (option: Option (Doc, Option Doc)) (texts: List Text)
+    (last: LastOption option texts):
+    LastSpells (option.getOrElse (Nothing, None)) texts :=
+  match option, last with
+    | None, same => (rewrite same then spellsNothing, (open none => cases))
+    | Some pair, spells => spells
+
+theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
+    appDocs head arguments around
+      = appFrom
+        (around.at + 1)
+        (1 + keptFront head arguments)
+        (commentBetween head arguments)
+        (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+        (head.el around)
+        (argumentDocs around.inArm head (around.at + head.size) arguments).fst
+        ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).fst
+        ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).snd :=
+  byComputing
+
+theorem appDocsSpells ∀ (head: Expr) (arguments: List Expr) (around: Around)
+    (headWithin: head.within1 = True)
+    (headSound: head.sound = True)
+    (within: allWithin1 arguments = True)
+    (sound: allSound arguments = True):
+    AppSpells (appDocs head arguments around) (head.spelt around.hoisted ++ argumentsSpelt arguments) :=
+  let (frontTexts, lastTexts, (frontSpells, lastSpells), texts) :=
+    argumentDocsSpells around.inArm head (around.at + head.size) arguments within sound
+  let picked := pickSpells (argumentDocs around.inArm head (around.at + head.size) arguments).snd lastTexts lastSpells
+  rewrite <- texts, appDocsIs head arguments around then
+    appFromSpells
+      (around.at + 1)
+      (1 + keptFront head arguments)
+      (commentBetween head arguments)
+      (commentBetween head (arguments.take (1 + keptFront head arguments - 1)))
+      (head.el around)
+      ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).fst
+      (argumentDocs around.inArm head (around.at + head.size) arguments).fst
+      ((argumentDocs around.inArm head (around.at + head.size) arguments).snd.getOrElse (Nothing, None)).snd
+      (head.spelt around.hoisted)
+      frontTexts
+      lastTexts
+      (elSpells head around headWithin headSound)
+      frontSpells
+      picked.left
+      picked.right
+
 theorem elSpells ∀ (expr: Expr) (around: Around)
     (within: expr.within1 = True)
     (sound: expr.sound = True):
@@ -857,7 +1489,8 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
           within
           (Bool.andLeft sound)
           (Bool.andRight (Bool.andRight sound))
-          (below => elSpells inner below within (Bool.andLeft (Bool.andRight sound))))
+          (Bool.andLeft (Bool.andRight sound))
+          (w s below => elSpells inner below w s))
     | Prefix operator operand =>
       framedExprSpells
         (Prefix operator operand)
@@ -925,4 +1558,46 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
                 (Bool.andLeft (Bool.andRight sound))
                 (Bool.andRight (Bool.andRight sound))))
         | _ => cases
-    | _ => ?
+    | Tuple open items comma close =>
+      framedExprSpells
+        (Tuple open items comma close)
+        around
+        (commaBracket (list := False) open items close { around | hoisted = True })
+        within
+        sound
+        (spellsGroup _ _
+          (bracketContentSpells False open items close
+            { around | hoisted = True }
+            within
+            (Bool.andLeft (Bool.andRight sound))
+            (Bool.andLeft sound)
+            (Bool.andRight (Bool.andRight sound))
+            (allElSpells items within (Bool.andLeft (Bool.andRight sound)))))
+    | ListOf open items comma close =>
+      framedExprSpells
+        (ListOf open items comma close)
+        around
+        (commaBracket (list := True) open items close { around | hoisted = True })
+        within
+        sound
+        (spellsGroup _ _
+          (bracketContentSpells True open items close
+            { around | hoisted = True }
+            within
+            (Bool.andLeft (Bool.andRight sound))
+            (Bool.andLeft sound)
+            (Bool.andRight (Bool.andRight sound))
+            (allElSpells items within (Bool.andLeft (Bool.andRight sound)))))
+    | App head arguments =>
+      framedExprSpells
+        (App head arguments)
+        around
+        (appDocs head arguments { around | hoisted = True }).doc
+        within
+        sound
+        (appDocsSpells head arguments
+          { around | hoisted = True }
+          (Bool.andLeft within)
+          (Bool.andLeft sound)
+          (Bool.andRight within)
+          (Bool.andRight sound)).left
