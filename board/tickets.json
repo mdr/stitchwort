@@ -24674,12 +24674,12 @@
     {
       "id": 4034,
       "title": "[Opus] fmt S1 line-break 18g: finish printedHangs: a paren whose opener ends its line with a comment (expose the inner's first break for CloserFits), -> chains (glued state, own run lemma), the declaration level (bodyAfter, callHug, opensBracket, bodyDoc, headDocs, defDoc, defFrom, doc1, := and : leaves, parameter groups), trails equations for paren and call, deriving the rule hypotheses from within1, then printedHangs via hangsOfLays (SW-4030's Owed list in tools/fmt/NOTES.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, 18 Nov 18:13-19:05): printedHangs proved (Fmt.DeclHangProofs) from within1, shaped1, sound, lexical1, doc1 and one named hypothesis DeclHangs lexKind decl (token comment facts, the name's kind and spelling, the type's ElHangs at 4, the value's BodyLays); witness atomDecl. Also done: paren with a trailing-comment opener (HeldParenProofs, 25), -> chains (ChainHangProofs, RunOperator), paren/call trails equations (TrailsProofs, 6), declaration level (DeclHangProofs, 28). Statement changes: CloserFold's leftOf conjunct moved to CloserSeat's Broken case; LinkFacts/PairFacts take RunOperator (weaker). Owed: each slice 1 expression's ElHangs from within1, token facts from sound, parameter groups. Checks: brief's 9 namespaces checked, 5 touched/new audited clean (HangProofs' one warning is pre-existing closerLeafIs), Fmt.Tests 95/95. Notes in tools/fmt/NOTES.md.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
