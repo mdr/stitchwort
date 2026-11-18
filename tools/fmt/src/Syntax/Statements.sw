@@ -373,9 +373,14 @@ def casesExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Ex
 --| The body after `then` (`then_body`): when the `then` ended its line
 --| and the body starts at the enclosing block's column, the lines there
 --| are the body, a block of their own; otherwise an expression.
-def thenBody (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := match left() with
-  | [next, .._] if next.leaf.token.lineStart
+def thenBody (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := thenBodyOn self modes left()
+
+def thenBodyOn (self: Goal → {Parse Item} Expr) (modes: Modes): List Item → {Parse Item} Expr
+  | [next, .._] =>
+    if next.leaf.token.lineStart
       && modes.allow != Some next.index
       && !modes.endsConstruct next
-      && modes.limit == Some next.leaf.token.column => block self modes next.leaf.token.column True
+      && modes.limit == Some next.leaf.token.column then
+      block self modes next.leaf.token.column True
+    else expr self modes
   | _ => expr self modes

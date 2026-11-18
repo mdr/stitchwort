@@ -613,9 +613,7 @@ def expressionRule (self: Goal → {Parse Item} Expr) (goal: Goal): {Parse Item}
   match goal.level with
     | LevelFull => expr self modes
     | LevelInline => exprInline self modes
-    | LevelLogic =>
-      let compared := cmpExpr self modes
-      if andOrAhead modes then logicChain self modes compared else compared
+    | LevelLogic => logicLevel self modes
     | LevelComparison => cmpExpr self modes
     | LevelAppend => appendExpr self modes
     | LevelAdditive => addExpr self modes
@@ -740,7 +738,11 @@ def blockLines (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (co
 def blockLine (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (before: Nat):
     {Parse Item} List Statement :=
-  let statementModes := { modes | allow = Some before }
+  blockPeek more self modes column many found before { modes | allow = Some before }
+
+def blockPeek (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
+    (found: List Statement) (before: Nat) (statementModes: Modes):
+    {Parse Item} List Statement :=
   blockKind more self modes column many found before statementModes statementModes.peek
 
 def lineKindOf: Option Tok → LineKind
@@ -826,11 +828,14 @@ def matchPiped (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} E
   if atPipe modes then pipeChain self modes indent matched else matched
 
 def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  exprLambda self modes (lambdaAhead modes (Parse.mark().left + 1) left())
+  exprLambda self modes (lambdaHere modes)
+
+def lambdaHere (modes: Modes): {Parse Item} Bool := lambdaAhead modes (Parse.mark().left + 1) left()
+
+def lambdaResultHere (modes: Modes): {Parse Item} Bool := lambdaResultType modes (Parse.mark().left + 1) False left()
 
 def exprLambda (self: Goal → {Parse Item} Expr) (modes: Modes) (lambdas: Bool): {Parse Item} Expr :=
-  if lambdas then lambda self modes None
-  else exprResult self modes (lambdaResultType modes (Parse.mark().left + 1) False left())
+  if lambdas then lambda self modes None else exprResult self modes (lambdaResultHere modes)
 
 def exprResult (self: Goal → {Parse Item} Expr) (modes: Modes) (refused: Bool): {Parse Item} Expr :=
   if refused then fatal "a lambda doesn't take a result type" else exprBinder self modes modes.peek
@@ -850,13 +855,17 @@ def ifKeyword (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Ex
 def exprPlain (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   exprImplicit self modes (implicitHere modes)
 
-def implicitHere (modes: Modes): {Parse Item} Bool :=
-  implicitBinderAhead (Parse.mark().left + 1) left() && isSome LBracket modes.peek
+def implicitHere (modes: Modes): {Parse Item} Bool := implicitOn (Parse.mark().left + 1) left() modes.peek
+
+def implicitOn (fuel: Nat) (items: List Item) (seen: Option Tok): Bool :=
+  implicitBinderAhead fuel items && isSome LBracket seen
 
 def exprImplicit (self: Goal → {Parse Item} Expr) (modes: Modes) (implicit: Bool): {Parse Item} Expr :=
   if implicit then piExpr self modes True else exprPi self modes (piHere modes)
 
-def piHere (modes: Modes): {Parse Item} Bool := piBinderAhead left() && isSome LParen modes.peek
+def piHere (modes: Modes): {Parse Item} Bool := piOn left() modes.peek
+
+def piOn (items: List Item) (seen: Option Tok): Bool := piBinderAhead items && isSome LParen seen
 
 def exprPi (self: Goal → {Parse Item} Expr) (modes: Modes) (pi: Bool): {Parse Item} Expr :=
   if pi then piExpr self modes False else operatorExpr self modes
@@ -877,10 +886,16 @@ def opSection (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Nat) (se
   opCompared self modes section (cmpExpr self (if section then { modes | sectionHead = Some start } else modes))
 
 def opCompared (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (compared: Expr): {Parse Item} Expr :=
-  opLogic self modes section (logicOf self modes compared (andOrAhead modes))
+  opLogic self modes section (logicAfter self modes compared)
 
 def logicOf (self: Goal → {Parse Item} Expr) (modes: Modes) (compared: Expr) (ahead: Bool): {Parse Item} Expr :=
   if ahead then logicChain self modes compared else compared
+
+def logicLevel (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  logicAfter self modes (cmpExpr self modes)
+
+def logicAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (compared: Expr): {Parse Item} Expr :=
+  logicOf self modes compared (andOrAhead modes)
 
 def opLogic (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (logic: Expr): {Parse Item} Expr :=
   opIffed self modes section (iffOf self modes logic (modes.at IffArrow))
