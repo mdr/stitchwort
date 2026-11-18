@@ -1,5 +1,5 @@
 namespace Syntax.Proofs
-import Std (Bool, Char, DecEq, Effect, Eq, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Parse, Result, Text, Void)
 import Syntax (..)
 
 --| `text` is lexed as one token of `kind`, alone at the start of a line with no comments around it.
@@ -9,10 +9,6 @@ def LexesAs (text: Text) (kind: Tok): Prop :=
       leaves = [{ token = { kind, text, column = 0, lineStart = True }, trivia = Trivia.empty }],
       end = Trivia.empty
     }
-
-theorem lexesParen: LexesAs "(" LParen := byComputing
-theorem lexesDef: LexesAs "def" KwDef := byComputing
-theorem lexesArrow: LexesAs "→" Arrow := byComputing
 
 --| `skip` reads exactly the characters it is asked for.
 theorem runsSkip ∀ (count: Nat) (read rest: List Char)
@@ -1498,3 +1494,421 @@ theorem itemReadsFloat ∀ (first: Char) (others: List Char) (second: Char) (mor
                     middle)
                 starts
                 honest)
+
+-- The interface the printer's proofs use: a token's spelling, what may follow it, and that it reads as that token.
+
+--| The texts that are a token of this kind (as the lexer spells it, `crates/syntax`'s lexer), for the slice 1
+--| alphabet: fixed spellings, with the Unicode one for seven, names, and numbers.
+def Spells: Tok → Text → Prop
+  | LParen, text => text = "("
+  | RParen, text => text = ")"
+  | LBracket, text => text = "["
+  | RBracket, text => text = "]"
+  | Comma, text => text = ","
+  | Colon, text => text = ":"
+  | ColonEq, text => text = ":="
+  | Equals, text => text = "="
+  | EqEq, text => text = "=="
+  | Arrow, text => text = "->" ∨ text = "→"
+  | OrOr, text => text = "||" ∨ text = "∨"
+  | AndAnd, text => text = "&&" ∨ text = "∧"
+  | Plus, text => text = "+"
+  | PlusPlus, text => text = "++"
+  | Minus, text => text = "-"
+  | Star, text => text = "*"
+  | Slash, text => text = "/"
+  | Percent, text => text = "%"
+  | NotEq, text => text = "!=" ∨ text = "≠"
+  | Lt, text => text = "<"
+  | Le, text => text = "<=" ∨ text = "≤"
+  | Gt, text => text = ">"
+  | Ge, text => text = ">=" ∨ text = "≥"
+  | Bang, text => text = "!" ∨ text = "¬"
+  | KwDef, text => text = "def"
+  | Lower, text =>
+    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+      ∧ isWordStart first = True
+      ∧ others.all isWordChar = True
+      ∧ wordKind False text = Lower
+  | Upper, text =>
+    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+      ∧ isWordStart first = True
+      ∧ others.all isWordChar = True
+      ∧ wordKind False text = Upper
+  | Num, text =>
+    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+      ∧ first.isAsciiDigit = True
+      ∧ others.all Char.isAsciiDigit = True
+  | Float, text =>
+    ∃ (first: Char) (others: List Char) (second: Char) (more: List Char) => text.toList
+      = [first, ..others] ++ ['.', second, ..more]
+      ∧ first.isAsciiDigit = True
+      ∧ others.all Char.isAsciiDigit = True
+      ∧ second.isAsciiDigit = True
+      ∧ more.all Char.isAsciiDigit = True
+  | _, text => False
+
+--| What the text after a token may start with, so that the lexer reads the token and no more: not a character that
+--| goes on a name or a number, nor one that makes a longer operator (`:` and `=`, `<` and `-`), nor a `.`.
+--| Stricter than the lexer where that is simpler (a `!` is never followed by `i`).
+def MayFollow (kind: Tok) (text: Text) (rest: List Char): Prop := match kind with
+  | Colon => rest.head ≠ Some '='
+  | Equals => rest.head ≠ Some '=' ∧ rest.head ≠ Some '>'
+  | Plus => rest.head ≠ Some '+'
+  | Minus => rest.head ≠ Some '-' ∧ rest.head ≠ Some '>'
+  | Lt => rest.head ≠ Some '=' ∧ rest.head ≠ Some '-'
+  | Gt => rest.head ≠ Some '='
+  | Bang => text = "!" → rest.head ≠ Some '=' ∧ rest.head ≠ Some 'i'
+  | KwDef => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
+  | Lower => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
+  | Upper => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
+  | Num => rest.takeWhile Char.isAsciiDigit = [] ∧ rest.head ≠ Some '.' ∧ (rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E')
+  | Float => rest.takeWhile Char.isAsciiDigit = [] ∧ (rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E')
+  | _ => True
+
+--| `lexWord1`: a text that spells a token of slice 1's alphabet, followed by something it may be followed by, is read
+--| by the lexer's `item` as that token, whatever follows after that.
+theorem lexWord1 ∀ (kind: Tok) (text: Text) (rest: List Char)
+    (spells: Spells kind text)
+    (follows: MayFollow kind text rest):
+    ItemReads text.toList (TokenLexeme kind) rest :=
+  match kind, spells, follows with
+    | LParen, same, follows => rewrite same then itemReadsLParen rest
+    | RParen, same, follows => rewrite same then itemReadsRParen rest
+    | LBracket, same, follows => rewrite same then itemReadsLBracket rest
+    | RBracket, same, follows => rewrite same then itemReadsRBracket rest
+    | Comma, same, follows => rewrite same then itemReadsComma rest
+    | Colon, same, follows => rewrite same then itemReadsColon rest follows
+    | ColonEq, same, follows => rewrite same then itemReadsColonEq rest
+    | Equals, same, follows => rewrite same then itemReadsEquals rest follows
+    | EqEq, same, follows => rewrite same then itemReadsEqEq rest
+    | Arrow, Inl same, follows => rewrite same then itemReadsArrow rest
+    | Arrow, Inr same, follows => rewrite same then itemReadsArrowUnicode rest
+    | OrOr, Inl same, follows => rewrite same then itemReadsOrOr rest
+    | OrOr, Inr same, follows => rewrite same then itemReadsOrOrUnicode rest
+    | AndAnd, Inl same, follows => rewrite same then itemReadsAndAnd rest
+    | AndAnd, Inr same, follows => rewrite same then itemReadsAndAndUnicode rest
+    | Plus, same, follows => rewrite same then itemReadsPlus rest follows
+    | PlusPlus, same, follows => rewrite same then itemReadsPlusPlus rest
+    | Minus, same, follows => rewrite same then itemReadsMinus rest follows
+    | Star, same, follows => rewrite same then itemReadsStar rest
+    | Slash, same, follows => rewrite same then itemReadsSlash rest
+    | Percent, same, follows => rewrite same then itemReadsPercent rest
+    | NotEq, Inl same, follows => rewrite same then itemReadsNotEq rest
+    | NotEq, Inr same, follows => rewrite same then itemReadsNotEqUnicode rest
+    | Lt, same, follows => rewrite same then itemReadsLt rest follows
+    | Le, Inl same, follows => rewrite same then itemReadsLe rest
+    | Le, Inr same, follows => rewrite same then itemReadsLeUnicode rest
+    | Gt, same, follows => rewrite same then itemReadsGt rest follows
+    | Ge, Inl same, follows => rewrite same then itemReadsGe rest
+    | Ge, Inr same, follows => rewrite same then itemReadsGeUnicode rest
+    | Bang, Inl same, follows => rewrite same then (itemReadsBang rest (follows same))
+    | Bang, Inr same, follows => rewrite same then itemReadsBangUnicode rest
+    | KwDef, same, Both ends noDot =>
+      rewrite same then itemReadsWord 'd' ['e', 'f'] rest KwDef byComputing byComputing ends noDot byComputing
+    | Lower, Witness first (Witness others (Both split (Both starts (Both word kinded)))), Both ends noDot =>
+      rewrite split then
+        itemReadsWord first others rest Lower starts word ends noDot
+          (rewrite <- split, Text.fromToList text then kinded)
+    | Upper, Witness first (Witness others (Both split (Both starts (Both word kinded)))), Both ends noDot =>
+      rewrite split then
+        itemReadsWord first others rest Upper starts word ends noDot
+          (rewrite <- split, Text.fromToList text then kinded)
+    | Num, Witness first (Witness others (Both split (Both digit digits))), Both ends (Both noDot noE) =>
+      rewrite split then itemReadsNum first others rest digit digits ends noDot noE
+    | Float, Witness first
+        (Witness others
+          (Witness second (Witness more (Both split (Both digit (Both digits (Both decimal decimals))))))), Both ends
+          noE => itemReadsFloat first others second more rest text.toList split digit digits decimal decimals ends noE
+
+-- Pieces that lex.
+
+--| A piece is spelled so that the lexer reads it as the lexeme it stands for: a token as `Spells` says, a comment as
+--| `--` and a line, spaces and a break as they are.
+def Piece.Spells: Piece → Prop
+  | Code kind text => Syntax.Proofs.Spells kind text
+  | Gap count => True
+  | Break => True
+  | Remark text =>
+    ∃ (others: List Char) => text.toList = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True
+
+--| What the text after a piece may start with: the token's `MayFollow`, no more spaces after spaces, a comment
+--| ends the line.
+def Piece.Follows (piece: Piece) (rest: List Char): Prop := match piece with
+  | Code kind text => MayFollow kind text rest
+  | Gap count => rest.head ≠ Some ' ' ∧ rest.head ≠ Some '\r'
+  | Break => True
+  | Remark text => rest.takeWhile (char => char != '\n') = []
+
+--| Each piece is spelled as the lexer reads it and what follows it may follow it.
+def Lexable: (pieces: List Piece) → (rest: List Char) → Prop
+  | [], rest => True
+  | [piece, ..more], rest =>
+    piece.Spells ∧ piece.Follows (Parse.joinReads (pieceSteps more) ++ rest) ∧ Lexable more rest
+
+theorem pieceReads ∀ (piece: Piece) (rest: List Char) (plain: piece.Plain)
+    (spells: piece.Spells) (follows: piece.Follows rest):
+    ItemReads piece.chars piece.lexeme rest :=
+  match piece, plain, spells, follows with
+    | Code kind text, Both nonEmpty noBreak, spells, follows => lexWord1 kind text rest spells follows
+    | Gap count, positive, spells, follows => itemReadsSpaces count rest positive follows
+    | Break, plain, spells, follows => itemReadsBreak rest
+    | Remark text, Both nonEmpty noBreak, Witness others (Both split oneLine), follows =>
+      rewrite split then itemReadsComment others rest oneLine follows
+
+theorem nonEmptyChars ∀ (piece: Piece) (plain: piece.Plain): piece.chars ≠ [] := match piece, plain with
+  | Code kind text, Both nonEmpty noBreak => nonEmpty
+  | Gap count, positive =>
+    match count, positive with
+      | Zero, positive => (positive byComputing).impossible
+      | Succ more, positive => same => cases
+  | Break, plain => same => cases
+  | Remark text, Both nonEmpty noBreak => nonEmpty
+
+theorem lexableRounds ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (pieces: List Piece) (rest: List Char)
+    (plain: AllPlain pieces)
+    (lexable: Lexable pieces rest)
+    (ends: rest = []):
+    ItemRounds self source (pieceSteps pieces) rest :=
+  match pieces, plain, lexable with
+    | [], plain, lexable => rewrite ends then declinesItemEnd self source
+    | [piece, ..more], Both pieceOk moreOk, Both spells (Both follows later) => (
+      nonEmptyChars piece pieceOk,
+      pieceReads piece (Parse.joinReads (pieceSteps more) ++ rest) pieceOk spells follows,
+      lexableRounds self source more rest moreOk later ends
+    )
+
+--| The text of pieces, as the printer writes it.
+def piecesText (pieces: List Piece): Text := Text.fromList (Parse.joinReads (pieceSteps pieces))
+
+--| `lexPrinted`, from what the pieces are: spelled as the lexer reads them, with nothing after the last, lex to the
+--| leaves of their layout.
+theorem lexPieces ∀ (pieces: List Piece)
+    (plain: AllPlain pieces)
+    (lexable: Lexable pieces []):
+    lex (piecesText pieces)
+      = Ok {
+        leaves = (pieces.foldLeft Laid.start Laid.lay).leaves.reverse,
+        end = {
+          leading = (pieces.foldLeft Laid.start Laid.lay).pending.reverse,
+          blankLines = (pieces.foldLeft Laid.start Laid.lay).blankRun,
+          trailing = None
+        }
+      } :=
+  lexPrinted
+    (piecesText pieces)
+    pieces
+    (Text.toFromList (Parse.joinReads (pieceSteps pieces)))
+    (self => lexableRounds self (piecesText pieces) pieces [] plain lexable byComputing)
+    plain
+
+theorem allJoin ∀ (front back: List Char) (passes: Char → Bool)
+    (inFront: front.all passes = True)
+    (inBack: back.all passes = True):
+    (front ++ back).all passes = True :=
+  match front, inFront with
+    | [], inFront => inBack
+    | [first, ..more], inFront =>
+      Bool.andIntro (Bool.andLeft inFront) (allJoin more back passes (Bool.andRight inFront) inBack)
+
+theorem wordCharNoBreak ∀ (char: Char) (word: isWordChar char = True): ((char != '\n'): Bool) = True :=
+  arithmetic [word]
+
+theorem digitNoBreak ∀ (char: Char) (digit: char.isAsciiDigit = True): ((char != '\n'): Bool) = True :=
+  arithmetic [digit]
+
+--| What holds of each character of a list holds of each of a list that has the one in each.
+theorem allImplies ∀ (chars: List Char) (passes follows: Char → Bool)
+    (implied: ∀ (char: Char) => passes char = True → follows char = True)
+    (all: chars.all passes = True):
+    chars.all follows = True :=
+  match chars, all with
+    | [], all => byComputing
+    | [first, ..more], all =>
+      Bool.andIntro (implied first (Bool.andLeft all)) (allImplies more passes follows implied (Bool.andRight all))
+
+--| A spelled token has something in it and no line break.
+theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Code kind text).Plain :=
+  match kind, spells with
+    | LParen, same => rewrite same then Both byDecision byComputing
+    | RParen, same => rewrite same then Both byDecision byComputing
+    | LBracket, same => rewrite same then Both byDecision byComputing
+    | RBracket, same => rewrite same then Both byDecision byComputing
+    | Comma, same => rewrite same then Both byDecision byComputing
+    | Colon, same => rewrite same then Both byDecision byComputing
+    | ColonEq, same => rewrite same then Both byDecision byComputing
+    | Equals, same => rewrite same then Both byDecision byComputing
+    | EqEq, same => rewrite same then Both byDecision byComputing
+    | Arrow, Inl same => rewrite same then Both byDecision byComputing
+    | Arrow, Inr same => rewrite same then Both byDecision byComputing
+    | OrOr, Inl same => rewrite same then Both byDecision byComputing
+    | OrOr, Inr same => rewrite same then Both byDecision byComputing
+    | AndAnd, Inl same => rewrite same then Both byDecision byComputing
+    | AndAnd, Inr same => rewrite same then Both byDecision byComputing
+    | Plus, same => rewrite same then Both byDecision byComputing
+    | PlusPlus, same => rewrite same then Both byDecision byComputing
+    | Minus, same => rewrite same then Both byDecision byComputing
+    | Star, same => rewrite same then Both byDecision byComputing
+    | Slash, same => rewrite same then Both byDecision byComputing
+    | Percent, same => rewrite same then Both byDecision byComputing
+    | NotEq, Inl same => rewrite same then Both byDecision byComputing
+    | NotEq, Inr same => rewrite same then Both byDecision byComputing
+    | Lt, same => rewrite same then Both byDecision byComputing
+    | Le, Inl same => rewrite same then Both byDecision byComputing
+    | Le, Inr same => rewrite same then Both byDecision byComputing
+    | Gt, same => rewrite same then Both byDecision byComputing
+    | Ge, Inl same => rewrite same then Both byDecision byComputing
+    | Ge, Inr same => rewrite same then Both byDecision byComputing
+    | Bang, Inl same => rewrite same then Both byDecision byComputing
+    | Bang, Inr same => rewrite same then Both byDecision byComputing
+    | KwDef, same => rewrite same then Both byDecision byComputing
+    | Lower, Witness first (Witness others (Both split (Both starts (Both word kinded)))) =>
+      Both
+        (rewrite split then different => cases)
+        (rewrite split then
+          Bool.andIntro
+            (wordCharNoBreak first (wordStartIsChar first starts))
+            (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word))
+    | Upper, Witness first (Witness others (Both split (Both starts (Both word kinded)))) =>
+      Both
+        (rewrite split then different => cases)
+        (rewrite split then
+          Bool.andIntro
+            (wordCharNoBreak first (wordStartIsChar first starts))
+            (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word))
+    | Num, Witness first (Witness others (Both split (Both digit digits))) =>
+      Both
+        (rewrite split then different => cases)
+        (rewrite split then
+          Bool.andIntro
+            (digitNoBreak first digit)
+            (allImplies others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
+    | Float, Witness first
+        (Witness others
+          (Witness second (Witness more (Both split (Both digit (Both digits (Both decimal decimals))))))) =>
+      Both
+        (rewrite split then different => cases)
+        (rewrite split then
+          Bool.andIntro
+            (digitNoBreak first digit)
+            (allJoin others
+              ['.', second, ..more]
+              (char => char != '\n')
+              (allImplies others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits)
+              (Bool.andIntro byComputing
+                (Bool.andIntro
+                  (digitNoBreak second decimal)
+                  (allImplies more Char.isAsciiDigit (char => char != '\n') digitNoBreak decimals)))))
+
+theorem piecesTextOne ∀ (kind: Tok) (text: Text): piecesText [Code kind text] = text :=
+  rewrite List.appendNil text.toList then Text.fromToList text
+
+--| A token alone: a text that spells it, with nothing after it that goes on with it, lexes to that one token at the
+--| start of a line with no comments around it.
+theorem lexesAsSpells ∀ (kind: Tok) (text: Text)
+    (spells: Spells kind text)
+    (follows: MayFollow kind text []):
+    LexesAs text kind :=
+  let ran :=
+    lexPieces
+      [Code kind text]
+      (Both (spellsPlain kind text spells) byComputing)
+      (Both spells (Both follows byComputing))
+  rewrite piecesTextOne kind text at ran then ran
+
+--| Nothing follows the last token of a text, so nothing keeps it from being read whole.
+theorem mayFollowEnd ∀ (kind: Tok) (text: Text): MayFollow kind text [] := match kind with
+  | Colon => byDecision
+  | Equals => Both byDecision byDecision
+  | Plus => byDecision
+  | Minus => Both byDecision byDecision
+  | Lt => Both byDecision byDecision
+  | Gt => byDecision
+  | Bang => same => Both byDecision byDecision
+  | KwDef => Both byComputing byDecision
+  | Lower => Both byComputing byDecision
+  | Upper => Both byComputing byDecision
+  | Num => Both byComputing (Both byDecision (Both byDecision byDecision))
+  | Float => Both byComputing (Both byDecision byDecision)
+  | other => byComputing
+
+-- One read-back for each token kind of slice 1's alphabet, by spelling.
+
+theorem lexesAsLParen: LexesAs "(" LParen := lexesAsSpells LParen "(" byComputing (mayFollowEnd LParen "(")
+
+theorem lexesAsRParen: LexesAs ")" RParen := lexesAsSpells RParen ")" byComputing (mayFollowEnd RParen ")")
+
+theorem lexesAsLBracket: LexesAs "[" LBracket := lexesAsSpells LBracket "[" byComputing (mayFollowEnd LBracket "[")
+
+theorem lexesAsRBracket: LexesAs "]" RBracket := lexesAsSpells RBracket "]" byComputing (mayFollowEnd RBracket "]")
+
+theorem lexesAsComma: LexesAs "," Comma := lexesAsSpells Comma "," byComputing (mayFollowEnd Comma ",")
+
+theorem lexesAsColon: LexesAs ":" Colon := lexesAsSpells Colon ":" byComputing (mayFollowEnd Colon ":")
+
+theorem lexesAsColonEq: LexesAs ":=" ColonEq := lexesAsSpells ColonEq ":=" byComputing (mayFollowEnd ColonEq ":=")
+
+theorem lexesAsEquals: LexesAs "=" Equals := lexesAsSpells Equals "=" byComputing (mayFollowEnd Equals "=")
+
+theorem lexesAsEqEq: LexesAs "==" EqEq := lexesAsSpells EqEq "==" byComputing (mayFollowEnd EqEq "==")
+
+theorem lexesAsArrow: LexesAs "->" Arrow := lexesAsSpells Arrow "->" (Inl byComputing) (mayFollowEnd Arrow "->")
+
+theorem lexesAsArrowUnicode: LexesAs "→" Arrow := lexesAsSpells Arrow "→" (Inr byComputing) (mayFollowEnd Arrow "→")
+
+theorem lexesAsOrOr: LexesAs "||" OrOr := lexesAsSpells OrOr "||" (Inl byComputing) (mayFollowEnd OrOr "||")
+
+theorem lexesAsOrOrUnicode: LexesAs "∨" OrOr := lexesAsSpells OrOr "∨" (Inr byComputing) (mayFollowEnd OrOr "∨")
+
+theorem lexesAsAndAnd: LexesAs "&&" AndAnd := lexesAsSpells AndAnd "&&" (Inl byComputing) (mayFollowEnd AndAnd "&&")
+
+theorem lexesAsAndAndUnicode: LexesAs "∧" AndAnd := lexesAsSpells AndAnd "∧" (Inr byComputing) (mayFollowEnd AndAnd "∧")
+
+theorem lexesAsPlus: LexesAs "+" Plus := lexesAsSpells Plus "+" byComputing (mayFollowEnd Plus "+")
+
+theorem lexesAsPlusPlus: LexesAs "++" PlusPlus := lexesAsSpells PlusPlus "++" byComputing (mayFollowEnd PlusPlus "++")
+
+theorem lexesAsMinus: LexesAs "-" Minus := lexesAsSpells Minus "-" byComputing (mayFollowEnd Minus "-")
+
+theorem lexesAsStar: LexesAs "*" Star := lexesAsSpells Star "*" byComputing (mayFollowEnd Star "*")
+
+theorem lexesAsSlash: LexesAs "/" Slash := lexesAsSpells Slash "/" byComputing (mayFollowEnd Slash "/")
+
+theorem lexesAsPercent: LexesAs "%" Percent := lexesAsSpells Percent "%" byComputing (mayFollowEnd Percent "%")
+
+theorem lexesAsNotEq: LexesAs "!=" NotEq := lexesAsSpells NotEq "!=" (Inl byComputing) (mayFollowEnd NotEq "!=")
+
+theorem lexesAsNotEqUnicode: LexesAs "≠" NotEq := lexesAsSpells NotEq "≠" (Inr byComputing) (mayFollowEnd NotEq "≠")
+
+theorem lexesAsLt: LexesAs "<" Lt := lexesAsSpells Lt "<" byComputing (mayFollowEnd Lt "<")
+
+theorem lexesAsLe: LexesAs "<=" Le := lexesAsSpells Le "<=" (Inl byComputing) (mayFollowEnd Le "<=")
+
+theorem lexesAsLeUnicode: LexesAs "≤" Le := lexesAsSpells Le "≤" (Inr byComputing) (mayFollowEnd Le "≤")
+
+theorem lexesAsGt: LexesAs ">" Gt := lexesAsSpells Gt ">" byComputing (mayFollowEnd Gt ">")
+
+theorem lexesAsGe: LexesAs ">=" Ge := lexesAsSpells Ge ">=" (Inl byComputing) (mayFollowEnd Ge ">=")
+
+theorem lexesAsGeUnicode: LexesAs "≥" Ge := lexesAsSpells Ge "≥" (Inr byComputing) (mayFollowEnd Ge "≥")
+
+theorem lexesAsBang: LexesAs "!" Bang := lexesAsSpells Bang "!" (Inl byComputing) (mayFollowEnd Bang "!")
+
+theorem lexesAsBangUnicode: LexesAs "¬" Bang := lexesAsSpells Bang "¬" (Inr byComputing) (mayFollowEnd Bang "¬")
+
+theorem lexesAsKwDef: LexesAs "def" KwDef := lexesAsSpells KwDef "def" byComputing (mayFollowEnd KwDef "def")
+
+--| A name that starts with a lowercase letter (or `_`), is no keyword and not `_`, `Type` or `Prop`, and goes on with
+--| word characters.
+theorem lexesAsLower ∀ (text: Text) (spells: Spells Lower text): LexesAs text Lower :=
+  lexesAsSpells Lower text spells (mayFollowEnd Lower text)
+
+theorem lexesAsUpper ∀ (text: Text) (spells: Spells Upper text): LexesAs text Upper :=
+  lexesAsSpells Upper text spells (mayFollowEnd Upper text)
+
+theorem lexesAsNum ∀ (text: Text) (spells: Spells Num text): LexesAs text Num :=
+  lexesAsSpells Num text spells (mayFollowEnd Num text)
+
+theorem lexesAsFloat ∀ (text: Text) (spells: Spells Float text): LexesAs text Float :=
+  lexesAsSpells Float text spells (mayFollowEnd Float text)
