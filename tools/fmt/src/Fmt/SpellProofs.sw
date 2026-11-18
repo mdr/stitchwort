@@ -2100,3 +2100,41 @@ theorem printedSpellsSettled ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (wordsOf (printedPieces doc width)).filter notCloser = decl.spelt.filter notCloser
       ∧ (wordsOf (printedPieces doc width)).filter notComment = decl.spelt.filter notComment :=
   printedSpells decl doc width within (declSoundOfSettled decl within settled real) shows
+
+-- A declaration the theorems apply to, so their hypotheses can be met.
+
+--| `def d: A := g [a, b]`.
+def exampleDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none
+      (App (Atom Lower (fixedWord "g" Comments.none)) [
+        ListOf
+          (fixedWord "[" Comments.none)
+          [Atom Lower (fixedWord "a" Comments.none), Atom Lower (fixedWord "b" Comments.none)]
+          False
+          (fixedWord "]" Comments.none)
+      ]))
+
+theorem printedSpellsExample ∀ (width: Nat):
+    (wordsOf (printedPieces (exampleDecl.doc1.getOrElse Nothing) width)).filter notCloser
+      = exampleDecl.spelt.filter notCloser
+      ∧ (wordsOf (printedPieces (exampleDecl.doc1.getOrElse Nothing) width)).filter notComment
+        = exampleDecl.spelt.filter notComment :=
+  printedSpells exampleDecl (exampleDecl.doc1.getOrElse Nothing) width byComputing byComputing byComputing
+
+theorem calmPrintsExample: ({ decls = [exampleDecl], end = Comments.none }: SourceFile).calm.printed1
+      = ({ decls = [exampleDecl], end = Comments.none }: SourceFile).printed1 :=
+  Fmt.CalmProofs.calmPrints { decls = [exampleDecl], end = Comments.none } byComputing byComputing
