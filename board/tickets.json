@@ -24514,7 +24514,7 @@
     {
       "id": 4022,
       "title": "[Sonnet] fmt S1 onceWordsSettled1: rule N's settledOnce gives wordsSettled1 under alphabet1, plain1, laid1, routed through bareSettles (SW-4018 ticket D; first step: withoutLastCommas keeps laidOut and plain1); Opus if the look-back invariant sticks; docs/reviews/SW-4018-parser-statements.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
