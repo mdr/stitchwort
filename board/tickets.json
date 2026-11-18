@@ -25383,12 +25383,12 @@
     {
       "id": 4087,
       "title": "[Opus] fmt S1 goal readsBackFile1: read-back in file form (groups, fileRefusal, parseGroups, end comments) from per-declaration read-back (TopReadBack)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus, 18 Nov 22:43-23:02): readsBackFile1 proved on lane/SW-4087, statement unchanged, no axioms; audit of Fmt.ReadBackFile + Fmt.TopReadBack: only the pre-existing printedSplit1/printedLines1 goals (and readsBackDecl1/declsReadBack resting on them) fail. Open goals in Fmt.TopStatements: 12 -> 11. New module Fmt.ReadBackFile: groupsTokens (splitter reads only tokens, via splitPlain), groupsFromTokens, declLowers (slice 1 passes the lowering's checks), refusalNone, groupReads; in TopReadBack: calmAtWithin, groupsReadBack, fileGroupsRead. Tests: Fmt.Tests 118/118, Syntax.Tests 52/52.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
