@@ -24306,7 +24306,7 @@
     {
       "id": 4006,
       "title": "[Sonnet] fmt S1: prove bareSettles: under alphabet1 and plain1, rule N on withBareLastCommas leaves, with the last commas then dropped, equals settledBare (SW-3964; proof idea: plain1 rules out a line-starting last comma and a -> before one, so rules 1-3 walk one extra leaf); glue's formatWithinKeepsComments needs it; also the identity parseFile lexed.settledOnce = parseFile lexed.settled on texts with no comma before a closer",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
