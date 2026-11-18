@@ -16,12 +16,8 @@ import Fmt.SpellProofs (declSoundOfSettled, doc1Spells)
 import Fmt.TreeJoinProofs (declJoins, declOperators, declPrintable, lexKind)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.OutputStatements (..)
-
---| Each glue as its spacing says, the two lists alike in length: `spacingAdmits` of the items' `glued`.
-def admitsGlue: List Spacing → List Bool → Bool
-  | [], [] => True
-  | [spacing, ..rest], [glued, ..later] => spacing.admits glued && admitsGlue rest later
-  | _, _ => False
+import Fmt.TouchSteps (admitsGlue)
+import Fmt.TouchProofs (ElSteps, elSteps)
 
 theorem spacingAdmitsGlue ∀ (spacing: List Spacing) (found: List Item):
     spacingAdmits spacing found = admitsGlue spacing (found.map (item => item.glued)) :=
@@ -89,6 +85,31 @@ theorem printedSpacingOfTouches ∀ (decl: Decl)
       match decl, within, shows with
         | Definition [] header (Assigned colonEq value), _, never => cases
 
+--| `declSpacedTouches` (open): a slice 1 definition's document touches as `Decl.spacing1` asks, given that every
+--| expression's element does (`elSteps`, whose own open goals are `commaSteps`, `appSteps` and `infixSteps`). Its
+--| route is through `defDoc`: `def` and the name apart and free, the `:` a closer-like token, the type and the
+--| value each from `elSteps` with `Free`, after a space, `Line` or `HardLine`.
+theorem declSpacedTouches ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (elements: ∀ (expr: Expr) => ElSteps expr) (doc: Doc)
+    (shows: decl.doc1 = Some doc):
+    SpacedTouches decl doc :=
+  ?
+
+--| A slice 1 declaration's printed items are spaced as `Decl.spacing1` says: each glued to the item before exactly
+--| where its spacing is `Glued`, and apart where it is `Apart` (the statement `Fmt.OutputStatements` describes).
+theorem printedSpacing1 ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True):
+    spacingAdmits decl.spacing1 (items decl.leaves1) = True :=
+  printedSpacingOfTouches decl within shaped settled lexical (doc shows =>
+    declSpacedTouches decl within shaped settled lexical elSteps doc shows)
+
 --| `def d: A := f -x`.
 def signDecl: Decl :=
   Definition []
@@ -117,3 +138,7 @@ theorem printedSpacingExample: spacingAdmits signDecl.spacing1 (items signDecl.l
   printedSpacingOfTouches signDecl byComputing byComputing byComputing byComputing (doc shows =>
     let same: signDecl.doc1.getOrElse Nothing = doc := Eq.cong (found => found.getOrElse Nothing) shows
     rewrite <- same then signSpacedTouches)
+
+--| `printedSpacing1` applies to `def d: A := f -x`.
+theorem printedSpacing1Example: spacingAdmits signDecl.spacing1 (items signDecl.leaves1) = True :=
+  printedSpacing1 signDecl byComputing byComputing byComputing byComputing
