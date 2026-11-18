@@ -24436,12 +24436,12 @@
     {
       "id": 4016,
       "title": "[Opus] fmt S1 line-break proofs 18e: the rest of printedHangs on SW-4011's Fmt.HangProofs: tokens with comments above (plainStep at a line's own indentation), closers and marks (an invariant on the marks' least indentation), brackets, applications, chains, the declaration level, the bridge from Laid.lay leaves to eventsOf, then printedHangs; after SW-4015",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4015: a Blank after a break now lays (breaks after words give Broken); blankLeadHangs lays Word.leading's [BreakParent, Blank] from Broken; callers need AtStart at carry -> Broken at carry (Seated says the same of both). hangsCloserLine and hangsOneLineBelow now ask for their result at Broken.",
+      "body": "From SW-4015: a Blank after a break now lays (breaks after words give Broken); blankLeadHangs lays Word.leading's [BreakParent, Blank] from Broken; callers need AtStart at carry -> Broken at carry (Seated says the same of both). hangsCloserLine and hangsOneLineBelow now ask for their result at Broken.\n\nProgress (lane, 18 Nov, about 45 min): branch lane/SW-4016, 7 commits, 60 theorems + 19 defs, no open goals/axioms. Done: noted tokens as elements and parts (step 1); closers' Word.leaf in all cases, CloserLine, laterCloserNotes (step 2, with CloserFits as a hypothesis); Word.opening; the engine end hangsOfLays in new Fmt/PrintHangProofs.sw (Laid.lay over pieceFold to eventsOf; step 5 minus doc1). Owed: the marks invariant (CloserFits), so brackets; a head seat for Nest 4 / Nest 2 line starts, so applications and chains; the declaration level and doc1. Found: blank line printed before a lone closer that trails a comment after a trailed last item (both printers). Notes in tools/fmt/NOTES.md. Checks of Fmt, Fmt.HangProofs, Fmt.JoinProofs and Fmt.PrintHangProofs are clean; audits clean except one sampling warning on closerLeafIs (closerLeafIsExample shows it isn't vacuous); Fmt.Tests 94/94.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
