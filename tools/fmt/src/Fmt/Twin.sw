@@ -50,6 +50,9 @@
 --|   records and membership.
 --| - `s6a` (slices 1 to 5a, 4b, 4c and 6a, SW-3999): the same with slice
 --|   6a's `rewrite`, `cases then`, facts and `↔`.
+--| - `hangs` (SW-3969): a line a declaration, `decl N hangs` or `decl N
+--|   breaks`, its leaves after rule N against `hangs`, the line rule the
+--|   read-back proofs assume (`dev/hangs.py` checks the same in Python).
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -60,7 +63,7 @@
 namespace Fmt.Twin
 import Std (Args, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
 import Fmt (..)
-import Syntax (Decl, Expr, Lexed, SourceFile, codeOf, lex, parseExpression, parseFile)
+import Syntax (Decl, Expr, Leaf, Lexed, SourceFile, codeOf, groupsOf, lex, parseExpression, parseFile)
 
 --| What the command line asks for: the stage whose answer to print, the file
 --| to read, or a LIST of files to answer for in one run.
@@ -75,7 +78,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1, s2, s3, s4a, s5a, s4b, s4c, s6a or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump, engine, s1, s2, s3, s4a, s5a, s4b, s4c, s6a, hangs or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -154,6 +157,10 @@ def stageAnswer (stage source: Text): Answer := match stage with
   | "s4b" => sliceAnswer Decl.printed4b source
   | "s4c" => sliceAnswer Decl.printed4c source
   | "s6a" => sliceAnswer Decl.printed6a source
+  | "hangs" =>
+    match lex source with
+      | Ok lexed => { out = hangsAnswer 1 (groupsOf lexed.settled.leaves), status = 0, message = "" }
+      | Err message => { out = "", status = 1, message = "error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
 
 --| A slice stage's answer: each declaration's line, printed by `printed`
@@ -164,6 +171,14 @@ def sliceAnswer (printed: Decl → Option Text) (source: Text): Answer := match 
       | Ok tidied => { out = declarationsWithin printed 1 tidied.fourth.decls, status = 0, message = "" }
       | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
   | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+
+--| Each declaration's leaves against `hangs` (K3a), numbered from `number`:
+--| `decl N hangs` or `decl N breaks`.
+def hangsAnswer (number: Nat): List (List Leaf) → Text
+  | [] => ""
+  | [group, ..rest] =>
+    let answer := if hangs group then "decl ${number} hangs\n" else "decl ${number} breaks\n"
+    answer ++ hangsAnswer (number + 1) rest
 
 --| Each declaration's answer for a slice stage, numbered from `number`.
 def declarationsWithin (printed: Decl → Option Text) (number: Nat): List Decl → Text
