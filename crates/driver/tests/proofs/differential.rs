@@ -36,6 +36,18 @@ fn try_normal(g: &stitchwort_core::Ev, level: usize, value: &Value) -> Result<St
     Ok(format!("{:?}", reference::quote(g, level, value)?))
 }
 
+/// Definition `id`'s type, evaluated by the machine with gluing off. Its
+/// kept type (`Def::ty_value`) is glued (D3680), and the reference never
+/// glues, so it can't read one back: [`compare_definitions`] compares the
+/// kept type with the reference's by the machine's `conv`, and this with
+/// the reference's normal form.
+fn unglued_type(g: &stitchwort_core::Ev, id: DefId) -> Value {
+    let was = g.machine.glue.replace(false);
+    let ty = value::eval(g, &[], g.def(id).ty()).expect("no limits");
+    g.machine.glue.set(was);
+    ty
+}
+
 /// The icits of a definition's parameters, from its body's lambdas.
 fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
     let def = g.def(id);
@@ -199,7 +211,7 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
         let Some(slow) = within_budget(&the_type, || try_normal(g, 0, &ty)) else {
             continue;
         };
-        let Some(fast) = within_budget(&the_type, || try_normal(g, 0, def.ty_value())) else {
+        let Some(fast) = within_budget(&the_type, || try_normal(g, 0, &unglued_type(g, id))) else {
             continue;
         };
         assert_eq!(fast, slow, "{the_type}");
@@ -219,7 +231,7 @@ fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
         .map(|i| {
             let def = &g.env.defs()[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
-            (def.name().to_string(), value, def.ty_value().clone())
+            (def.name().to_string(), value, unglued_type(g, DefId(i)))
         })
         .collect();
     let agree = |x: &Value, y: &Value, what: &str| {

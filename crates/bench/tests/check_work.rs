@@ -115,6 +115,13 @@ const CONSTANT: &[(&str, &str)] = &[
         "byComputing",
         "def big (u : ()) : cost = cost := byComputing",
     ),
+    // A closed statement proved by a general lemma: the kernel compares the
+    // lemma's instance with the statement call by call (D3680).
+    (
+        "a closed statement by a general lemma",
+        "type Box = { n : Nat }\n\ndef Box.same (b : Box) : b = b := byComputing\n\n\
+         def box : Box := { n = cost }\n\ndef p : box = box := box.same",
+    ),
     // A `match` looks for its scrutinee in the goal and hypotheses, but
     // needn't compute it to see it can't be there: `main`'s goal mentions no
     // `Nat` or `Result` (SW-1096). The second ran `cost` handled operations
@@ -145,10 +152,15 @@ const NEEDED: &[(&str, &str)] = &[
          ability Dep where\n  fetch : (n : Nat) -> {Dep} T n\n\n\
          def f () : {Dep} Text := fetch (cost + 1)",
     ),
+    // The result type `T box.n` is `Text` only once `box.n` is known. One
+    // that only mentions the receiver (`box = box`) is compared as calls and
+    // doesn't need its value (D3680).
     (
         "dot notation whose result type depends on the receiver",
-        "type Box = { n : Nat }\n\ndef Box.same (b : Box) : b = b := byComputing\n\n\
-         def box : Box := { n = cost }\n\ndef p : box = box := box.same",
+        "type Box = { n : Nat }\n\ndef T : Nat -> Type\n  | 0 => Nat\n  | _ => Text\n\n\
+         ability Dep where\n  fetch : (n : Nat) -> {Dep} T n\n\n\
+         def Box.fetch (b : Box) : {Dep} T b.n := fetch b.n\n\n\
+         def box : Box := { n = cost + 1 }\n\ndef f () : {Dep} Text := box.fetch",
     ),
 ];
 
