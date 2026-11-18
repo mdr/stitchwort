@@ -786,6 +786,9 @@ theorem yieldsDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Yields (() 
 theorem yieldsFatal ∀ (message: Text) (holds: a → Prop): Yields (() => (fail message: a)) holds :=
   state value after h => (Result.errNotOk h).impossible
 
+theorem yieldsStop ∀ (holds: a → Prop): Yields (() => (Empty.absurd Parse.stop(): a)) holds := state value after h =>
+  (Result.errNotOk h).impossible
+
 theorem locatedValue ∀ (value: Lexeme) (from: Parse.Mark Char) (state: Parse.State Char)
     (lexeme: Parse.Located Lexeme) (after: Parse.Mark Char)
     (h: Parse.runFrom state (() => (located value from, Parse.mark())) = Ok (lexeme, after)):
@@ -1295,3 +1298,180 @@ theorem numberReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
                       head
                       (numberPlain float)
                   rewrite none3, isLexeme then Parse.readsAtDone after3 _ _ tokenAt)))
+
+--| A parser that starts by marking where it is: as if that mark were given.
+theorem atMarkThen ∀ [start: Parse.Mark Char] [j: Parse.Mark Char → {Parse Char} b] [spec: List Char → b → Prop]
+    (reads: Parse.ReadsAt start (() => j start) spec):
+    Parse.ReadsAt start (() => j (Parse.mark())) spec :=
+  total state value after here honest h =>
+    let marked := Eq.trans (Parse.runFromMark state (m => (j m, Parse.mark()))).flipped h
+    let given: Parse.runFrom state (() => (j start, Parse.mark())) = Ok (value, after) :=
+      rewrite here at marked then marked
+    reads total state value after here honest given
+
+--| One lexeme, located where the round began and as long as what it read, which is fine.
+theorem singleAt ∀ (start: Parse.Mark Char) (read: List Char) (value: Lexeme)
+    (fine: chunkFine read (start.rest.drop read.length) value = True):
+    RoundFine start.offset start.rest (read ++ []) [{ value, offset = start.offset, length = read.length }] :=
+  allOk => Witness value (Both (rewrite List.appendNil read) (rewrite List.appendNil read then fine))
+
+--| A token read from input that starts with `c`, a word or a digit.
+theorem tokenAtFine ∀ (c: Char) (start: Parse.Mark Char) (read: List Char) (lexeme: Parse.Located Lexeme)
+    (starts: wordy c = True)
+    (made: TokenAt c start.offset read lexeme):
+    RoundFine start.offset start.rest (read ++ []) [lexeme] :=
+  match made with
+    | Both (Witness tail head) (Witness kind (Both plain isLexeme)) =>
+      let marked := wordyMarked c tail kind starts plain
+      let notBreak := wordyBreak c tail starts
+      let fine: chunkFine read (start.rest.drop read.length) (TokenLexeme kind) = True :=
+        rewrite head, notBreak, marked, Bool.orTrue (!kind.within1)
+      rewrite isLexeme then singleAt start read (TokenLexeme kind) fine
+
+theorem wordRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (start: Parse.Mark Char)
+    (c: Char) (more: List Char)
+    (here: start.rest = [c, ..more])
+    (wordChar: isWordChar c = True)
+    (starts: wordy c = True):
+    Parse.ReadsAt start (() => [word False]) (RoundFine start.offset start.rest) :=
+  atThen
+    [p := () => word False]
+    [j := made => [made]]
+    (atMarkThen [j := from => wordFrom False from] (wordReads start c more here wordChar))
+    (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
+
+theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
+    (here: start.rest = [c, ..more])
+    (digit: c.isAsciiDigit = True)
+    (starts: wordy c = True):
+    Parse.ReadsAt start (() => [number False]) (RoundFine start.offset start.rest) :=
+  atThen
+    [p := () => number False]
+    [j := made => [made]]
+    (atMarkThen [j := from => numberFrom False from] (numberReads start c more here digit))
+    (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
+
+--| `tokenOf kind count` as a round, where what it reads is a token's text that agrees with its kind.
+theorem tokenRound ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char)
+    (fine: (!(start.rest.take count).isEmpty
+      && !startsBreak (start.rest.take count)
+      && markedText (Text.fromList (start.rest.take count)) kind)
+      = True):
+    Parse.ReadsAt start (() => [tokenOf kind count]) (RoundFine start.offset start.rest) :=
+  atThen
+    [p := () => tokenOf kind count]
+    [j := made => [made]]
+    (atTokenOf kind count start)
+    (read lexeme after starts moved made =>
+      match made with
+        | Both taken isLexeme =>
+          let some: (!(start.rest.take count).isEmpty) = True := Bool.andLeft fine
+          let notBreak: (!startsBreak (start.rest.take count)) = True := Bool.andLeft (Bool.andRight fine)
+          let marked: markedText (Text.fromList (start.rest.take count)) kind = True :=
+            Bool.andRight (Bool.andRight fine)
+          let chunk: chunkFine read (start.rest.drop read.length) (TokenLexeme kind) = True :=
+            rewrite taken, some, notBreak, marked, Bool.orTrue (!kind.within1)
+          rewrite isLexeme then Parse.readsAtDone after _ _ (singleAt start read (TokenLexeme kind) chunk))
+
+theorem givesBind ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [first: a → Prop] [holds: b → Prop]
+    (gives: Gives p first)
+    (rest: ∀ (v: a) => first v → Gives (() => j v) holds):
+    Gives (() => j (p())) holds :=
+  Parse.readsThen gives (read v h => rest v h)
+
+theorem roundOfGives ∀ [start: Parse.Mark Char]
+    [p: () → {Parse Char} List (Parse.Located Lexeme)] [spec: List Char → List (Parse.Located Lexeme) → Prop]
+    (gives: Gives p Foreign):
+    RoundOk start p spec :=
+  total state value after here honest h =>
+    match gives start { holds = Trivial } total state value after here honest h with
+      | Witness read (Both starts (Both honestAfter outside)) => Inl outside
+
+theorem givesChar: Gives (() => [charLiteral()]) Foreign :=
+  givesBind givesCharLiteral (lexeme isChar => givesDone [lexeme] Foreign (foreignCons lexeme [] (rewrite isChar)))
+
+theorem symbolFine ∀ (input: List Char) (kind: Tok) (count: Nat)
+    (e: symbol input = Some (kind, count)):
+    (!(input.take count).isEmpty
+      && !startsBreak (input.take count)
+      && markedText (Text.fromList (input.take count)) kind)
+      = True :=
+  let info: symbolInfo input = True := symbolFacts input
+  let parts: (markedText (Text.fromList (input.take count)) kind
+    && !(input.take count).isEmpty
+    && !startsBreak (input.take count)
+    && punctHead input)
+    = True :=
+    rewrite e at info then info
+  Bool.andIntro
+    (Bool.andLeft (Bool.andRight parts))
+    (Bool.andIntro (Bool.andLeft (Bool.andRight (Bool.andRight parts))) (Bool.andLeft parts))
+
+theorem aliasFine ∀ (char: Char) (more: List Char) (kind: Tok)
+    (e: Tok.unicodeAlias char = Some kind):
+    (!([char, ..more].take 1).isEmpty
+      && !startsBreak ([char, ..more].take 1)
+      && markedText (Text.fromList ([char, ..more].take 1)) kind)
+      = True :=
+  let info: aliasPlain char = True := aliasFacts char
+  let parts: (markedText (Text.fromList [char]) kind && !startsBreak [char]) = True := rewrite e at info then info
+  Bool.andIntro byComputing (Bool.andIntro (Bool.andRight parts) (Bool.andLeft parts))
+
+theorem wordStartChar ∀ (char: Char) (starts: isWordStart char = True): isWordChar char = True := arithmetic [starts]
+
+theorem digitWordChar ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordChar char = True := arithmetic [digit]
+
+--| A round of `item` at the top level: it gives a token outside the alphabet, or one lexeme, located where it began,
+--| that is what it read and is fine.
+--|
+--| Proof idea: one case per literal case of `itemOn` (a line break, spaces, a comment, a text, a character, dots, and
+--| `{`, `}` and a lone `-`, which at the top level are symbols); after them, `isWordStart`, a digit, a character
+--| past ASCII and `symbol` in turn, each with what `symbol` or `Tok.unicodeAlias` gives (`symbolFacts`, `aliasFacts`).
+theorem itemRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text)
+    (start: Parse.Mark Char) (input: List Char)
+    (here: start.rest = input):
+    RoundOk start (() => itemOn self source TopLevel start input) (RoundFine start.offset start.rest) :=
+  match input with
+    | [] => roundOfYields (yieldsStop Foreign)
+    | ['\n', ..more] => roundOfReads (lineRound self source start more here)
+    | ['}', ..more] => roundOfReads (tokenRound RBrace 1 start (rewrite here))
+    | ['{', ..more] => roundOfReads (tokenRound LBrace 1 start (rewrite here))
+    | [' ', ..more] => roundOfReads (spacesRound start ' ' more here byComputing byComputing)
+    | ['\r', ..more] => roundOfReads (spacesRound start '\r' more here byComputing byComputing)
+    | ['\t', ..more] => roundOfYields (yieldsFatal tabs Foreign)
+    | ['-', ..more] =>
+      match more with
+        | ['-', ..rest] => roundOfReads (commentRound self source start rest here)
+        | [] => roundOfReads (tokenRound Minus 1 start (rewrite here))
+        | [next, ..rest] =>
+          match s: symbol ['-', next, ..rest] with
+            | Some (kind, count) =>
+              roundOfReads (tokenRound kind count start (symbolFine start.rest kind count (rewrite here then s)))
+            | None => roundOfYields [p := () => fail (unexpected '-')] (yieldsFatal (unexpected '-') Foreign)
+    | ['"', ..more] => roundOfYields (textForeign self source TopLevel)
+    | ['\'', ..more] => roundOfGives givesChar
+    | ['.', ..more] => roundOfGives givesDots
+    | [other, ..more] =>
+      match w: isWordStart other with
+        | True => roundOfReads (wordRound self source start other more here (wordStartChar other w) (rewrite w))
+        | False =>
+          match d: other.isAsciiDigit with
+            | True => roundOfReads (numberRound start other more here d (rewrite w, d))
+            | False =>
+              match u: other.toNat >= 128 with
+                | True =>
+                  match a: Tok.unicodeAlias other with
+                    | Some kind =>
+                      roundOfReads (tokenRound kind 1 start (rewrite here then aliasFine other more kind a))
+                    | None =>
+                      roundOfYields [p := () => fail (unexpected other)] (yieldsFatal (unexpected other) Foreign)
+                | False =>
+                  match s: symbol [other, ..more] with
+                    | Some (kind, count) =>
+                      roundOfReads
+                        [p := () => [tokenOf kind count]]
+                        (tokenRound kind count start (symbolFine start.rest kind count (rewrite here then s)))
+                    | None =>
+                      roundOfYields
+                        [p := () => fail (if other == '@' then strayAt else unexpected other)]
+                        (yieldsFatal (if other == '@' then strayAt else unexpected other) Foreign)
