@@ -46,4 +46,4 @@ test "a last comma on a line of its own leaves a blank line between the comments
   formats "def d: A := f [g\n  -- o2\n  ,\n  -- o3\n]\n" "def d: A := f [g\n  -- o2\n\n  -- o3\n]\n"
 
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
-  refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Nat := (a: Nat)\n"
+  refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Unit := ()\n"

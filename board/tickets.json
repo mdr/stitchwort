@@ -1,5 +1,5 @@
 {
-  "next": 3992,
+  "next": 3996,
   "tickets": [
     {
       "id": 47,
@@ -24062,7 +24062,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).",
+      "body": "Also (SW-3980): tools/fmt/dev/README.md's slim-copy recipe copies Syntax/LexProofs.sw (a proof file); its twin wrapper needs STITCHWORT_STD_DIR when the binary is copied out of the worktree.\n\nAlso (SW-3990): commit its census script (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/census-sw3990.py) as tools/fmt/dev/census.py (or a dev/fmt-twin --census option); update the dev README's slim-copy file list (Slice4a, Slice5a; leave out LexProofs.sw).\n\nAlso (SW-3992): a task fmt:slice-gate STAGES that builds the slim copy, copies the binary, sets STITCHWORT_STD_DIR and runs every stage on goldens+sample with a fresh cache; starting points /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/keep/gate-sw3992.sh, reslim-sw3992.sh. Dev README: --stage text takes a file, not stdin; dev/fmt-twin is at the repo root.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -24097,6 +24097,58 @@
       "id": 3991,
       "title": "[Sonnet] Self-hosted fmt: defArmsDoc repeats defDoc's header half; share one header function, after the slice 1 rules proofs (18a/18b) land (SW-3990)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3992,
+      "title": "[Opus] Self-hosted fmt S4b program: patterns: list patterns [x, ..xs], absurd patterns, tuple patterns, (p), in match arms and a definition's arms; plus unit () and named arguments (f (n := 1)) if they come cheaply; within4b, Fmt.Twin --stage s4b; gate identical to Rust; rerun SW-3990's census (top outside after S5a: PatternList 205, PatternAbsurd 112, Annotation 77, NamedArg 50, Membership 46, Unit 42, PatternTuple 39)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Progress (lane, 18 Nov 13:10-13:25, est. 30 min): built slice 4b on lane/SW-3992 (5fff068be): list, tuple, (p) and absurd patterns, absurd arms, constructors of those, named arguments and annotations; within4b, Fmt.Twin --stage s4b, dev/fmt-twin s4b. Gate: goldens 352/352, repo sample 2,741/2,741 identical to Rust; coverage 40.2% -> 46.6% of the same 5,888 declarations (SW-3990's 41.1% was of a 5,527-declaration sample). s1-s5a stay 100%. Left out: unit () (Rust copies the f () gap), record patterns, .._ . Census top alone: Unit 133, Spread 114, Membership 81, PatternRecord 35. Notes in tools/fmt/NOTES.md, Slice 4b.\n\nMerged 18 Nov, ~15 min (est. 30). Gate 352/352, 2,741/2,741; coverage 46.6% (5a 40.2% on the same 5,888). Census (only blocker): Unit 133, Spread 114, Membership 81, PatternRecord 35, Pipe 32, Section 27, Omega 27, Chain 21; (any) RewriteRule 769, Rewrite 768, Record 581. Filed SW-3993 SW-3994.",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3993,
+      "title": "[Opus] Self-hosted fmt: the unit () and .._ need the source's gap (Rust copies f () vs f(), .. _ vs .._): record the gap in the F1 tree, or allow () only where no name comes before it; unit is now the top single blocker (133 of 5,888 sampled declarations, SW-3992). A tree change: check against the slice 1 proofs in flight",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3994,
+      "title": "[Sonnet] fmt census: sort the 642 sampled declarations every construct of which is in slice 4b but still refused (SW-3992 guesses: lambda parameter patterns, .._, blocked shapes), with tools/fmt/dev's census script; report counts by cause for the next slices",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3995,
+      "title": "[Opus] Self-hosted fmt S4c program: records: record literals and updates ({ r | f = e }), record fields, spread (..), record patterns, membership (x ∈ s) if cheap; within4c, Fmt.Twin --stage s4c; gate identical to Rust; census after (SW-3992's top: Record 581 present, RecordField 526, Spread 347 present/114 only, Membership 81 only, PatternRecord 35 only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],

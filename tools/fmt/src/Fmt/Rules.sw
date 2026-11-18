@@ -164,6 +164,8 @@ def Expr.words: Expr → List Word
   | Block first rest result => first.words ++ statementsWords rest ++ result.words
   | LetIn binding semicolon body => letWords binding ++ [fixedWord ";" semicolon, ..body.words]
   | FieldAccess (Some target) dot field => target.words ++ [dot, field]
+  | NamedArg open name colonEq value close => [open, name, colonEq, ..value.words] ++ [close]
+  | Annotation open value colon annotation close => [open, ..value.words] ++ [colon, ..annotation.words] ++ [close]
   | _ => []
 
 def scrutineesWords: List Scrutinee → List Word
@@ -189,7 +191,16 @@ def armBodyWords: Option (Word, Expr) → List Word
 def Pattern.words: Pattern → List Word
   | PatternWord _ word => [word]
   | PatternCtor name arguments => [name, ..patternsWords arguments]
+  | PatternParen open inner close => [open, ..inner.words] ++ [close]
+  | PatternTuple open items _ close => [open, ..patternsWords items] ++ [close]
+  | PatternList open items _ tail close => [open, ..patternsWords items] ++ tailWords tail ++ [close]
+  | PatternAbsurd open close => [open, close]
   | _ => []
+
+--| A list pattern's `..rest`.
+def tailWords: Option (Word, Pattern) → List Word
+  | Some (dots, rest) => [dots, ..rest.words]
+  | None => []
 
 def patternsWords: List Pattern → List Word
   | [] => []
@@ -320,6 +331,9 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
           dot.leaf (around.next target.trails size) (around.at + size),
           field.leaf (around.next False (size + 1)) (around.at + size + 1)
         ])
+    | NamedArg open name colonEq value close => expr.framed around (namedArgDoc open name colonEq value close inside)
+    | Annotation open value colon annotation close =>
+      expr.framed around (annotationDoc open value colon annotation close inside)
     | _ => Nothing
 
 --| A node's document with its first token's own-line comments before it,
@@ -1148,6 +1162,7 @@ def Arm.el (arm: Arm) (around: Around): Doc := framedBy arm.bar around (armDoc a
 
 --| `| p, q if c => body` (`arm`, S21): the patterns continuing at 4 from
 --| the `|` if too long; the body as after `:=`, but a `match` always below.
+--| An absurd arm, with no `=>`, is its tokens on a line (`join`).
 def armDoc (arm: Arm) (around: Around): Doc := match arm with
   | { bar, patterns, guard, body = Some (arrow, value) } =>
     let patternWords := patternsWords patterns
@@ -1168,7 +1183,13 @@ def armDoc (arm: Arm) (around: Around): Doc := match arm with
       | _ =>
         let (_, choice) := bodyAfter value arrow valueAround False
         Doc.concat [head, choice]
-  | _ => Nothing
+  | { bar, patterns, guard, body = None } =>
+    let patternWords := patternsWords patterns
+    let guardAround := around.next (trailsBack ([bar, ..patternWords].reverse)) (1 + patternWords.length)
+    Doc.concat
+      ([bar.leaf around around.at]
+        ++ patternDocs around.inArm True bar.trails (around.at + 1) patterns
+        ++ guardDocs guard guardAround)
 
 --| An arm's patterns, after the `|`, a comma and a space between each two.
 def patternDocs (arm first before: Bool) (at: Nat): List Pattern → List Doc
@@ -1191,15 +1212,40 @@ def guardDocs (guard: Option Guard) (around: Around): List Doc := match guard wi
   | None => []
 
 --| A pattern: a name, `_`, a literal, or a constructor applied to those,
---| which prints as a call of plain arguments (`app`, D3569).
-def Pattern.el (pattern: Pattern) (around: Around): Doc := match pattern with
-  | PatternWord _ word => word.leaf around around.at
-  | PatternCtor name arguments =>
-    let inside := { around | hoisted = True }
-    let docs := [name.leaf inside around.at, ..argumentPatterns around.inArm name.trails (around.at + 1) arguments]
-    let commented := wordsCommented name (patternsWords arguments)
-    framedBy name around (if commented then spaced docs else Nest 4 (Fill (patternItems docs arguments)))
-  | _ => Nothing
+--| which prints as a call of plain arguments (`app`, D3569); from slice 4b,
+--| `(p)` and `()` (`join`), tuples and lists (`comma_bracket`), and a
+--| constructor applied to those (`app`).
+def Pattern.el (pattern: Pattern) (around: Around): Doc :=
+  let inside := { around | hoisted = True }
+  match pattern with
+    | PatternWord _ word => word.leaf around around.at
+    | PatternCtor name arguments =>
+      if arguments.all Pattern.simple then
+        let docs := [name.leaf inside around.at, ..argumentPatterns around.inArm name.trails (around.at + 1) arguments]
+        let commented := wordsCommented name (patternsWords arguments)
+        framedBy name around (if commented then spaced docs else Nest 4 (Fill (patternItems docs arguments)))
+      else framedBy name around (patternApp name arguments inside)
+    | PatternParen open inner close =>
+      framedBy open around
+        (Doc.concat [
+          open.opening inside close,
+          inner.el (around.next open.trails 1),
+          close.leaf (around.next (trailsBack inner.words.reverse) (1 + inner.words.length)) around.at
+        ])
+    | PatternAbsurd open close =>
+      framedBy open around (Doc.concat [open.opening inside close, close.leaf (around.next open.trails 1) around.at])
+    | PatternTuple open items _ close =>
+      framedBy open around (Doc.group (patternBracket (tuple := True) open items [] None close inside))
+    | PatternList open items _ tail close =>
+      let at := around.at + 1 + (patternsWords items).length
+      let tailDoc := match tail with
+        | Some (dots, rest) =>
+          let start := itemAround around.inArm (items.isEmpty && open.trails) at
+          Some (Doc.concat [dots.leaf start at, rest.el (start.next dots.trails 1)])
+        | None => None
+      framedBy open around
+        (Doc.group (patternBracket (tuple := False) open items (tailWords tail) tailDoc close inside))
+    | _ => Nothing
 
 def argumentPatterns (arm before: Bool) (at: Nat): List Pattern → List Doc
   | [] => []
@@ -1226,6 +1272,110 @@ def mergeUnderscores (current: Doc): List (Doc, Pattern) → List Doc
   | [] => [current]
   | [(doc, PatternWord Underscore _), ..rest] => mergeUnderscores (Doc.concat [current, Doc.text " ", doc]) rest
   | [(doc, _), ..rest] => [current, ..mergeUnderscores doc rest]
+
+-- Slice 4b's patterns.
+
+--| Whether a pattern may stay on its constructor's line when the others
+--| go below (`simple`): a token. Rust's `[]` pattern is no `List` node, so
+--| it is not simple, unlike the expression.
+def Pattern.simple: Pattern → Bool
+  | PatternWord _ _ => True
+  | _ => False
+
+--| A constructor with an argument that is no token (`app`, with no hug: no
+--| pattern can hug): on one line if it fits, else the constructor and its
+--| leading tokens on the line (filling lines at 4 when there are two or
+--| more) and each other argument on its own line, as `appDocs`.
+def patternApp (name: Word) (arguments: List Pattern) (around: Around): Doc :=
+  let docs := [name.leaf around around.at, ..argumentPatterns around.inArm name.trails (around.at + 1) arguments]
+  let keep := 1 + keptPatterns name arguments
+  let kept := docs.take keep
+  let fillFront := keep > 2 && !wordsCommented name (patternsWords (arguments.take (keep - 1)))
+  let id := around.at + 1
+  let frontDoc := if fillFront then IdGroup id (Nest 4 (Fill (patternItems kept arguments))) False else spaced kept
+  let rest := Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))
+  let restDoc := if fillFront then IfBroken id (Nest 4 rest) (Nest 2 rest) else Nest 2 rest
+  Choice [Flatten (spaced docs), Doc.concat [frontDoc, restDoc]]
+
+--| How many of a constructor's arguments stay on its line (`keep`): the
+--| tokens right after it, up to one after a comment.
+def keptPatterns (previous: Word): List Pattern → Nat
+  | [] => 0
+  | [argument, ..rest] =>
+    if argument.simple && !previous.trails then 1 + keptPatterns (argument.words.headOr Word.none) rest else 0
+
+--| A tuple or list pattern's parts, not yet grouped (`comma_bracket_content`):
+--| a tuple of only names and `_` fills its lines (D3572, proof-tuples.md
+--| §5); otherwise each item is on a line of its own at 2 when broken, a
+--| list's `..rest` the last (`tail`, its words in `rest`), the `..` and
+--| the pattern with nothing between. `[]` is its two brackets (`join`).
+def patternBracket (tuple: Bool) (open: Word) (items: List Pattern) (rest: List Word) (tail: Option Doc)
+    (close: Word) (around: Around):
+    Doc :=
+  let words := [open, ..patternsWords items] ++ rest ++ [close]
+  let closer := close.leaf (around.next (trailsBack (words.reverse.drop 1)) (words.length - 1)) around.at
+  let prefix := open.opening around close
+  let holds := (words.filter Word.trails |> .length) > (if trailsBack words.reverse then 1 else 0)
+  if items.isEmpty && tail.isNone then Doc.concat [prefix, closer]
+  else if tuple && !holds && items.all Pattern.plainName then
+    Doc.concat [prefix, Nest 2 (Fill (patternCells around.inArm open.trails (around.at + 1) items)), closer]
+  else
+    let body := brokenPatterns around.inArm True open.trails (around.at + 1) items tail
+    let parts := [prefix, Nest 2 (Doc.concat body), SoftLine, closer]
+    Doc.concat (if holds then parts ++ [BreakParent] else parts)
+
+--| A name or `_` with no comment above it: what a filled tuple pattern holds.
+def Pattern.plainName: Pattern → Bool
+  | PatternWord Lower word => !word.noted
+  | PatternWord Underscore word => !word.noted
+  | _ => False
+
+--| A filled tuple pattern's cells: each item with its comma.
+def patternCells (arm before: Bool) (at: Nat): List Pattern → List Doc
+  | [] => []
+  | [item] => [item.el (itemAround arm before at)]
+  | [item, ..rest] => [
+    Doc.concat [item.el (itemAround arm before at), Closing ","],
+    ..patternCells arm False (at + item.words.length) rest
+  ]
+
+--| A broken tuple or list pattern's items, as `brokenItems`, then a list's
+--| `..rest`.
+def brokenPatterns (arm first before: Bool) (at: Nat) (items: List Pattern) (tail: Option Doc): List Doc :=
+  match items with
+    | [] =>
+      match tail with
+        | Some doc => [if first then SoftLine else Line, doc]
+        | None => []
+    | [item, ..rest] =>
+      let more := !rest.isEmpty || tail.isSome
+      [if first then SoftLine else Line, item.el (itemAround arm before at)]
+        ++ (if more then [Closing ","] else [])
+        ++ brokenPatterns arm False False (at + item.words.length) rest tail
+
+--| `(name := value)`, a named argument (`join`: no rule of its own).
+def namedArgDoc (open name colonEq: Word) (value: Expr) (close: Word) (around: Around): Doc := Doc.concat [
+  open.opening around close,
+  name.leaf (around.next open.trails 1) (around.at + 1),
+  Doc.text " ",
+  colonEq.leaf (around.next name.trails 2) (around.at + 2),
+  Doc.text " ",
+  value.el (around.next colonEq.trails 3),
+  close.leaf (around.next value.trails (3 + value.size)) around.at
+]
+
+--| `(value: T)`, a type annotation (`join`: no rule of its own), the `:`
+--| touching the value as in a parameter (R3).
+def annotationDoc (open: Word) (value: Expr) (colon: Word) (annotation: Expr) (close: Word) (around: Around): Doc :=
+  let colonAt := 1 + value.size
+  Doc.concat [
+    open.opening around close,
+    value.el (around.next open.trails 1),
+    colon.leaf (around.next value.trails colonAt) (around.at + colonAt),
+    Doc.text " ",
+    annotation.el (around.next colon.trails (colonAt + 1)),
+    close.leaf (around.next annotation.trails (colonAt + 1 + annotation.size)) around.at
+  ]
 
 -- Slice 5a's declarations.
 
