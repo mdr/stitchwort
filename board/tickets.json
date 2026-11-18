@@ -23345,7 +23345,7 @@
     {
       "id": 3935,
       "title": "[Sonnet] docs/core.md after D3680: say retype_def checks a signature unglued (or glue it, measuring, SW-3931 T4), and that a parameter visible only through an opaque nickname isn't erased, in core.md and erase.rs, once SW-3933 settles the view (SW-3931 doc fixes, T5)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23358,7 +23358,7 @@
     {
       "id": 3936,
       "title": "[DeepSeek] Export validators (kernel add_validator, elab add_validators) still read the hidden view of a definition's parameters; move them to erase::def_telescope like every other reader, so an export with a proof parameter behind an opaque nickname gets its runtime check instead of E-EXPORT; with a test (SW-3933 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23423,7 +23423,7 @@
     {
       "id": 3941,
       "title": "[DeepSeek] reference::conv has no case for a glued call (Value::Call) and would quietly answer 'different'; add a guard as reference::quote has (unreachable or debug_assert), with a test that a glued value reaching it is loud (SW-3937 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
