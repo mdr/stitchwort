@@ -1874,6 +1874,45 @@ Two hypotheses beyond the four tree facts:
 - Witnesses: `colonNotedDecl` (`def d⏎  -- c⏎  : A := b`) and `assignNotedDecl` (`def d: A⏎  -- c⏎  := b`) meet `DeclQuiet`, `within1`, `shaped1`, `sound` and `lexical1` (`colonNotedMeets`, `assignNotedMeets`).
 - No comment above the name witness: not tried (`nameWithin1` may exclude one; `namePartHangs` covers it anyway).
 - Still owed from SW-4045: a noted element's start inside the type and the value (SW-4058), and items after a trailing comment.
+## Slice 1 rules proofs, noted starts of the type and the value (SW-4058, Opus, 18 November 2026)
+
+`DeclQuiet` no longer excludes own-line comments above the type's or the value's first token (SW-4045 finding 2,
+`def x:\n  -- c\n  T := a`): it is now `header.result.leadQuiet1 = True ∧ value.leadQuiet1 = True`, quiet but for
+comments above the first token (`Fmt.ExprHangProofs.Expr.leadQuiet1`). `printedHangs1Quiet` and `printedHangs1` keep
+their names and conclusions; `quietElements` takes `sound` too (for the comments' `NotesComment`).
+
+- **Start per element** (`Fmt.HangProofs.startFor noted`: `leadStart` if noted, else `wordStart`; they agree at a line
+  start). `DeclHangs`, `DeclElements` and `BodyLays` give the type's and the value's `ElHangs` at
+  `startFor header.result.noted` / `startFor value.noted`; `BodyLays`' on-the-line part asks `value.noted = False`
+  too, since `bodyAfter` lays a noted value only below. `startTopHangs`, `midTopHangs`, `belowTopHangs`,
+  `headerHangs`, `belowHangs` take `noted`; mid-line, a noted type starts the comment break's column
+  (`Nat.max indent (at + 2)`, right of column 0).
+- **A noted node** (`notedFramedHangs`): `framedBy` writes the comments (`leadingHangs`, to the start of the line at
+  `leadColumn`) and displaces the node there; `linedDisplaced` lays it from that line start using the node's
+  *hoisted* facts (`Doc.concat [Doc.concat [], Displaced doc]`, which `expr.el { around | hoisted = True }` is for a
+  noted first token), laid at that column. `Fmt.DeclFactsProofs.notedNodeHangs` packages it per node kind;
+  `leadElHangs` covers names and numerals (`notedLeafHangs`) and the six node kinds.
+- **The induction** (`leadFacts`, replacing `exprFacts`' body; `exprFacts` is now its quiet case): for
+  `leadQuiet1` expressions, `LeadFacts` is `ExprFacts` restricted to the places where the element writes no comments
+  above its first token (`Expr.bareAt`: hoisted, or none). The call's head and the chain's first operand share the
+  first token and are laid hoisted; everything else is quiet.
+- Witnesses: `typeNotedDecl` (`def d:\n  -- c\n  F A := b`) and `valueNotedDecl` (`def d: A :=\n  -- c\n  f b`)
+  meet the four tree facts and `DeclQuiet` (`typeNotedMeets`, `valueNotedMeets`). The printer (Rust `stitchwort fmt`
+  and `formatWithin`, test "comments above the type's or the value's first token put it on a line of its own")
+  prints `def d:\n    -- c\n    F A :=\n  b`, which hangs as the proofs say: the type starts column 4 after the
+  comment, its later lines right of it.
+
+What `DeclQuiet` still names (open, SW-4058's remainder): inside the type and the value,
+
+- **comments above a later token** (an argument, an item, a chain's operand or operator, a closer): the rule-level
+  lemmas take their sub-elements' `ElHangs` (`Hangs`, `ItemsHang`, `LinkFacts`) at `wordStart`. Arguments and chain
+  operands after the first are parts, where the start doesn't change the fold (`openedQuiet`), so `elPart` over
+  `startFor` (with `endedLead`) should carry them; items start their block (`state.start`), so `ItemsHang` needs the
+  item's own start, and a noted item at a plain line start needs its first comment's blank line ruled out
+  (`notedLeafHangs`' `quiet`). The induction would then carry `leadElHangs`' noted case for non-hoisted places.
+- **trailing comments anywhere** (`ExprFacts` trails `False`), and the items after one (SW-4045 finding 3);
+- **kept blank lines** (`Comments.blankBefore`), and calls with no argument (outside what the parser reads).
+
 ## Parser proofs 16f: `FrameRest`'s last field (SW-4017, Sonnet, 18 November 2026)
 
 `FrameRest.others`, the assumption that `declarationOther` gives a declaration outside slice 1, is proved:

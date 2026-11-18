@@ -3,18 +3,18 @@
 --| kind and spelling from `within1`, so `printedHangs1` asks, beyond the four tree facts, only what `DeclElements`
 --| names: the type's and the value's element facts.
 --|
---| Those are not a consequence of the tree facts: the type's or the value's first token may have comments above it,
---| and then `ElHangs`' `wordStart` is the wrong start: such a token starts a line of its own even where the element
---| is entered mid-line (NOTES, SW-4045).
+--| Those are not a consequence of the tree facts in general: inside the type or the value, a token after the first
+--| may have comments above it or after it (NOTES, SW-4045, SW-4058).
 --|
---| For a declaration whose type and value are quiet (`DeclQuiet`, `Expr.quiet1`), `DeclElements` follows
---| (`quietElements`, from `quietExprFacts` and the call hug's `quietHug`), so `printedHangs1Quiet` asks only the four
---| tree facts and that.
+--| For a declaration whose type and value are quiet but for own-line comments above their first token (`DeclQuiet`,
+--| `Expr.leadQuiet1`), `DeclElements` follows (`quietElements`, from `leadElHangs`, `leadBody` and the call hug's
+--| `quietHug`), so `printedHangs1Quiet` asks only the four tree facts and that. Such a first token starts a line of
+--| its own after its comments (`startFor`, `leadStart`), even where the element is entered mid-line.
 
 namespace Fmt.DeclFactsProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Result, Text, Void)
 import Std.Doc.Proofs (IsComment, isLayout)
-import Syntax (BindingKind, Comments, Decl, DefBody, DefKind, Expr, Header, Lexed, Note, Tok, Word, lex)
+import Syntax (BindingKind, Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Lexed, Note, Tok, Word, lex)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.AppHangProofs (..)
@@ -128,8 +128,8 @@ theorem nameFacts ∀ (name: Word)
 -- The declaration.
 
 --| What `printedHangs1` asks of a slice 1 declaration beyond the four tree facts: the type's `ElHangs` at 4 and the
---| value's `BodyLays`. Not a consequence of the tree facts: each fails for some slice 1 declaration (NOTES, SW-4045).
---| Comments above the name, the `:` and the `:=` are no longer asked about: they come from `sound`.
+--| value's `BodyLays`, each from its first token's start (`startFor`): after its own-line comments, if it has any.
+--| Comments above the name, the `:` and the `:=` are not asked about: they come from `sound`.
 def DeclElements (kinds: Text → Tok): Decl → Prop
   | Definition [] header (Assigned colonEq value) =>
     (∃ (trails: Bool) => ElHangs kinds
@@ -138,7 +138,7 @@ def DeclElements (kinds: Text → Tok): Decl → Prop
       4
       header.colon.after.isSome
       trails
-      wordStart)
+      (startFor header.result.noted))
       ∧ BodyLays kinds value (declStart.next colonEq.after.isSome (4 + header.result.size)) colonEq.after.isSome
   | _ => False
 
@@ -356,23 +356,288 @@ theorem quietBody ∀ (value: Expr) (around: Around)
   let hangs := hangsOf value (quietExprFacts value within lexical quiet) around
   match around, hangs with
     | { before = False, hoisted, item, at, inArm }, hangs =>
-      rewrite plainBodyEl value { before = False, hoisted, item, at, inArm } then
+      rewrite plainBodyEl value { before = False, hoisted, item, at, inArm }, quietNoted value quiet then
         (
           (False, hangs 2 2),
-          _ => ((False, hangs 0 0), quietHug value { before = False, hoisted, item, at, inArm } within lexical quiet)
+          _ _ => ((False, hangs 0 0), quietHug value { before = False, hoisted, item, at, inArm } within lexical quiet)
         )
     | { before = True, hoisted, item, at, inArm }, hangs =>
-      rewrite plainBodyEl value { before = True, hoisted, item, at, inArm } then ((False, hangs 2 2), never => cases)
+      rewrite plainBodyEl value { before = True, hoisted, item, at, inArm }, quietNoted value quiet then
+        ((False, hangs 2 2), never => cases)
 
---| A declaration whose element facts follow from its tree's: its type and value have no own-line comments inside
---| (`Expr.quiet1`). Comments above the name, the `:` and the `:=` are allowed.
+-- Comments above the type's or the value's first token.
+
+--| A sound expression's first token is sound.
+theorem leadSound ∀ (expr: Expr) (sound: expr.sound = True): expr.lead.sound = True := match expr, sound with
+  | Atom _ word, sound => sound
+  | Paren open _ _, sound => Bool.andLeft sound
+  | Tuple open _ _ _, sound => Bool.andLeft sound
+  | ListOf open _ _ _, sound => Bool.andLeft sound
+  | App head _, sound => leadSound head (Bool.andLeft sound)
+  | Infix _ left _ _, sound => leadSound left (Bool.andLeft sound)
+  | Prefix operator _, sound => Bool.andLeft sound
+
+--| A lead token trails no comment.
+theorem leadTrailed ∀ (word: Word) (lead: word.lead1 = True): TrailsComment word := match word, lead with
+  | { text, comments = { above, after = None, blankBefore = False } }, _ => byComputing
+
+--| A slice 1 expression's first token is no closer.
+theorem leadNotCloser ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True):
+    isCloserText expr.lead.text = False :=
+  match expr, within with
+    | Atom kind word, within =>
+      let (_, (_, _, closer, _)) := wordFacts kind word.text within
+      closer
+    | Paren open _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
+    | Tuple open _ _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
+    | ListOf open _ _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
+    | App head _, within => leadNotCloser head (Bool.andLeft within) (Bool.andLeft lexical)
+    | Infix InfixBinary left _ _, within => leadNotCloser left (Bool.andLeft within) (Bool.andLeft lexical)
+    | Infix InfixArrow left _ _, within => leadNotCloser left (Bool.andLeft within) (Bool.andLeft lexical)
+    | Prefix operator _, within =>
+      let (_, (_, _, closer, _)) := prefixToken operator.text (Bool.andRight within)
+      closer
+
+--| A node whose first token has own-line comments above it that it writes: from its hoisted form's facts, which
+--| displace it, it starts the line after the comments (`notedFramedHangs`). `node` is its document after the
+--| comments, the same hoisted or not.
+theorem notedNodeHangs ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around: Around) (indent: Nat)
+    (note: Note) (rest: List Note)
+    (elIs: ∀ (at: Around) => expr.el at = framedBy word at (node at))
+    (same: node { around | hoisted = True } = node around)
+    (hoisted: around.hoisted = False)
+    (noted: word.comments.above = [note, ..rest])
+    (closer: isCloserText word.text = False)
+    (comments: NotesComment [note, ..rest])
+    (quiet: (note.blankBefore && around.item) = False)
+    (hoistedHangs: ∀ (inset: Nat) => ElHangs lexKind
+      (expr.el { around | hoisted = True })
+      inset
+      inset
+      around.before
+      False
+      wordStart):
+    ElHangs lexKind (expr.el around) indent indent around.before False leadStart :=
+  let lifted := { around | hoisted = True }
+  let isNoted: word.noted = True := rewrite noted
+  let unwrapped: framedBy word lifted (node lifted) = Doc.concat [Doc.concat [], Displaced (node around)] :=
+    rewrite isNoted, same
+  rewrite elIs around then
+    notedFramedHangs lexKind word around
+      (node around)
+      indent
+      False
+      note
+      rest
+      hoisted
+      noted
+      closer
+      comments
+      quiet
+      (inset =>
+        let fact := hoistedHangs inset
+        rewrite elIs lifted, unwrapped at fact then fact)
+
+--| A slice 1 expression quiet but for own-line comments above its first token, standing where it writes them (not
+--| hoisted, not an item), hangs as an element from its seat at the indentation: its first token where `startFor`
+--| says, after the comments if it has any.
+--|
+--| Proof idea: with no comments, `leadFacts` where it is bare. With comments, a name or numeral by `notedLeafHangs`,
+--| and a node by `notedNodeHangs`, from `leadFacts` of its hoisted form, its document after the comments named for
+--| each kind of node.
+theorem leadElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True)
+    (lead: expr.leadQuiet1 = True)
+    (sound: expr.sound = True)
+    (hoisted: around.hoisted = False)
+    (item: around.item = False):
+    ElHangs lexKind (expr.el around) indent indent around.before False (startFor expr.noted) :=
+  let facts := leadFacts expr within lexical lead quietKeys
+  let sameNoted: expr.noted = expr.lead.noted := Eq.cong Word.noted (firstWordLead expr within)
+  let hoistedHangs: ∀ (inset: Nat) => ElHangs lexKind
+    (expr.el { around | hoisted = True })
+    inset
+    inset
+    around.before
+    False
+    wordStart :=
+    inset => leadHangsOf expr facts { around | hoisted = True } byComputing inset inset
+  let comments: NotesComment expr.lead.comments.above := notesOfWord expr.lead (leadSound expr sound)
+  let closer := leadNotCloser expr within lexical
+  rewrite sameNoted then
+    match above: expr.lead.comments.above with
+      | [] =>
+        let unnoted: expr.lead.noted = False := Eq.cong (notes => !notes.isEmpty) above
+        leadHangsOf expr facts around (unnotedBare expr around unnoted) indent indent
+      | [note, ..rest] =>
+        let quiet: (note.blankBefore && around.item) = False := rewrite item then Bool.andFalse note.blankBefore
+        match expr, within, lead with
+          | Atom kind word, within, lead =>
+            let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
+            let el: ElHangs lexKind (word.leaf around around.at) indent indent around.before word.trails leadStart :=
+              state entry =>
+                notedLeafHangs lexKind word around around.at indent state entry note rest plain notComment solid
+                    wordCloser comma hoisted above comments
+                    (leadTrailed word lead)
+                    (unblankedAt (plainStart entry) note.blankBefore around.item quiet)
+            elQuiet lexKind _ indent indent around.before _ leadStart el (leadNoTrail word lead)
+          | Paren open inner close, _, _ =>
+            notedNodeHangs
+              (Paren open inner close)
+              open
+              (at => parenDoc open inner close { at | hoisted = True })
+              around
+              indent
+              note
+              rest
+              (at => byComputing)
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+          | Tuple open items trailing close, _, _ =>
+            notedNodeHangs
+              (Tuple open items trailing close)
+              open
+              (at => commaBracket (list := False) open items close { at | hoisted = True })
+              around
+              indent
+              note
+              rest
+              (at => byComputing)
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+          | ListOf open items trailing close, _, _ =>
+            notedNodeHangs
+              (ListOf open items trailing close)
+              open
+              (at => commaBracket (list := True) open items close { at | hoisted = True })
+              around
+              indent
+              note
+              rest
+              (at => byComputing)
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+          | App head arguments, within, _ =>
+            let node: Around → Doc := at => (appDocs head arguments { at | hoisted = True }).doc
+            notedNodeHangs
+              (App head arguments)
+              head.lead
+              node
+              around
+              indent
+              note
+              rest
+              (at =>
+                let unfolded: (App head arguments).el at = framedBy (App head arguments).firstWord at (node at) :=
+                  byComputing
+                Eq.trans unfolded
+                  (Eq.cong (word => framedBy word at (node at)) (firstWordLead (App head arguments) within)))
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+          | Infix InfixBinary left operator right, within, _ =>
+            let expr := Infix InfixBinary left operator right
+            let node: Around → Doc := at => chain expr.chainLevel left operator right { at | hoisted = True }
+            notedNodeHangs expr left.lead node around indent note rest
+              (at =>
+                let unfolded: expr.el at = framedBy expr.firstWord at (node at) := byComputing
+                Eq.trans unfolded (Eq.cong (word => framedBy word at (node at)) (firstWordLead expr within)))
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+          | Infix InfixArrow left operator right, within, _ =>
+            let expr := Infix InfixArrow left operator right
+            let node: Around → Doc := at => chain expr.chainLevel left operator right { at | hoisted = True }
+            notedNodeHangs expr left.lead node around indent note rest
+              (at =>
+                let unfolded: expr.el at = framedBy expr.firstWord at (node at) := byComputing
+                Eq.trans unfolded (Eq.cong (word => framedBy word at (node at)) (firstWordLead expr within)))
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+          | Prefix operator operand, _, _ =>
+            notedNodeHangs
+              (Prefix operator operand)
+              operator
+              (at =>
+                Doc.concat [
+                  operator.leaf { at | hoisted = True } at.at,
+                  prefixGap operator operand,
+                  operand.el (at.next operator.trails 1)
+                ])
+              around
+              indent
+              note
+              rest
+              (at => byComputing)
+              byComputing
+              hoisted
+              above
+              closer
+              comments
+              quiet
+              hoistedHangs
+
+--| A slice 1 value quiet but for own-line comments above its first token lays as a body, below the `:=`, and on its
+--| line when it has none.
+theorem leadBody ∀ (value: Expr) (around: Around)
+    (within: value.within1 = True)
+    (lexical: value.lexical1 = True)
+    (lead: value.leadQuiet1 = True)
+    (sound: value.sound = True)
+    (hoisted: around.hoisted = False)
+    (item: around.item = False):
+    BodyLays lexKind value around around.before :=
+  (
+    (False, rewrite plainBodyEl value around then leadElHangs value around 2 within lexical lead sound hoisted item),
+    before unnoted =>
+      let quiet :=
+        leadUnnotedQuiet value lead (Eq.trans (Eq.cong Word.noted (firstWordLead value within)).flipped unnoted)
+      let (_, onLine) := quietBody value around within lexical quiet
+      onLine before unnoted
+  )
+
+--| A declaration whose element facts follow from its tree's: its type and value are quiet but for own-line comments
+--| above their first token (`Expr.leadQuiet1`): no comment after any token, none above a later token, no blank line
+--| kept above a token, and every call with an argument. Comments above the name, the `:` and the `:=` are allowed.
 def DeclQuiet: Decl → Prop
-  | Definition [] header (Assigned colonEq value) => header.result.quiet1 = True ∧ value.quiet1 = True
+  | Definition [] header (Assigned colonEq value) => header.result.leadQuiet1 = True ∧ value.leadQuiet1 = True
   | _ => False
 
---| A quiet slice 1 declaration meets `DeclElements`: its type's and value's facts from `quietExprFacts`.
+--| A quiet slice 1 declaration meets `DeclElements`: its type's and value's facts from `leadElHangs` and `leadBody`.
 theorem quietElements ∀ (decl: Decl)
     (within: decl.within1 = True)
+    (sound: decl.sound = True)
     (lexical: decl.lexical1 = True)
     (quiet: DeclQuiet decl):
     DeclElements lexKind decl :=
@@ -396,13 +661,30 @@ theorem quietElements ∀ (decl: Decl)
           let valueWithin: value.within1 = True := Bool.andRight within
           let typeLexical: result.lexical1 = True := Bool.andLeft (Bool.andRight lexical)
           let valueLexical: value.lexical1 = True := Bool.andRight (Bool.andRight lexical)
-          let typed :=
-            hangsOf result
-              (quietExprFacts result typeWithin typeLexical typeQuiet)
-              (declStart.next colon.after.isSome 3)
+          let rest := Bool.andRight (Bool.andRight (Bool.andRight sound))
+          let typeSound: result.sound = True := Bool.andLeft rest
+          let valueSound: value.sound = True := Bool.andRight (Bool.andRight rest)
           (
-            (False, typed 4 4),
-            quietBody value (declStart.next colonEq.after.isSome (4 + result.size)) valueWithin valueLexical valueQuiet
+            (
+              False,
+              leadElHangs result
+                (declStart.next colon.after.isSome 3)
+                4
+                typeWithin
+                typeLexical
+                typeQuiet
+                typeSound
+                byComputing
+                byComputing
+            ),
+            leadBody value
+              (declStart.next colonEq.after.isSome (4 + result.size))
+              valueWithin
+              valueLexical
+              valueQuiet
+              valueSound
+              byComputing
+              byComputing
           )
 
 --| `printedHangs` for a quiet slice 1 declaration: the four tree facts, `DeclQuiet`, and nothing else.
@@ -415,7 +697,11 @@ theorem printedHangs1Quiet ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (shows: decl.doc1 = Some doc) (lexed: Lexed)
     (read: lex (Doc.print doc width) = Ok lexed):
     hangs lexed.leaves = True :=
-  printedHangs1 decl doc width within shaped sound lexical (quietElements decl within lexical quiet) shows lexed read
+  printedHangs1 decl doc width within shaped sound lexical
+    (quietElements decl within sound lexical quiet)
+    shows
+    lexed
+    read
 
 --| `def d: A := b` is quiet.
 theorem atomDeclQuiet: DeclQuiet atomDecl := (byComputing, byComputing)
@@ -480,3 +766,55 @@ theorem assignNotedMeets: assignNotedDecl.within1 = True
       ∧ assignNotedDecl.lexical1 = True
       ∧ DeclQuiet assignNotedDecl :=
   (byComputing, byComputing, byComputing, byComputing, assignNotedDeclQuiet)
+
+--| `def d:\n  -- c\n  F A := b`: a comment above the type's first token.
+def typeNotedDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = App (Atom Upper (fixedWord "F" aboveComment)) [Atom Upper (fixedWord "A" Comments.none)],
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none (Atom Lower (fixedWord "b" Comments.none)))
+
+--| `def d: A :=\n  -- c\n  f b`: a comment above the value's first token.
+def valueNotedDecl: Decl :=
+  Definition []
+    {
+      exportKeyword = None,
+      opaqueKeyword = None,
+      kind = DefPlain,
+      keyword = Comments.none,
+      name = fixedWord "d" Comments.none,
+      forallKeyword = None,
+      params = [],
+      colon = Comments.none,
+      result = Atom Upper (fixedWord "A" Comments.none),
+      decreasingClause = None,
+      unfoldingClause = None
+    }
+    (Assigned Comments.none (App (Atom Lower (fixedWord "f" aboveComment)) [Atom Lower (fixedWord "b" Comments.none)]))
+
+--| `printedHangs1Quiet` applies to the declaration with a comment above its type's first token.
+theorem typeNotedMeets: typeNotedDecl.within1 = True
+      ∧ typeNotedDecl.shaped1 = True
+      ∧ typeNotedDecl.sound = True
+      ∧ typeNotedDecl.lexical1 = True
+      ∧ DeclQuiet typeNotedDecl :=
+  (byComputing, byComputing, byComputing, byComputing, (byComputing, byComputing))
+
+--| `printedHangs1Quiet` applies to the declaration with a comment above its value's first token.
+theorem valueNotedMeets: valueNotedDecl.within1 = True
+      ∧ valueNotedDecl.shaped1 = True
+      ∧ valueNotedDecl.sound = True
+      ∧ valueNotedDecl.lexical1 = True
+      ∧ DeclQuiet valueNotedDecl :=
+  (byComputing, byComputing, byComputing, byComputing, (byComputing, byComputing))

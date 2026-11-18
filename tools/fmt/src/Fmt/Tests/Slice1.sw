@@ -49,6 +49,10 @@ test "a last comma's trailing comment keeps the comma's blank line above it" :=
 test "a last comma on a line of its own leaves a blank line between the comments around it" :=
   formats "def d: A := f [g\n  -- o2\n  ,\n  -- o3\n]\n" "def d: A := f [g\n  -- o2\n\n  -- o3\n]\n"
 
+test "comments above the type's or the value's first token put it on a line of its own" :=
+  formats "def d:\n  -- c\n  F A := b\n" "def d:\n    -- c\n    F A :=\n  b\n"
+    && formats "def g: A :=\n  -- c\n  f b\n" "def g: A :=\n  -- c\n  f b\n"
+
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
   refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Unit := ()\n"
 

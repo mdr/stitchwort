@@ -1430,6 +1430,12 @@ def leadColumn (indent: Nat) (place: Place): Nat := match place with
 
 def leadStart (indent: Nat) (place: Place): Option Nat := Some (leadColumn indent place)
 
+--| Where an element's first token starts its line, if it does: `leadStart` if the element writes own-line comments
+--| above it (`noted`), else `wordStart`. The two agree at a line start.
+def startFor (noted: Bool): Nat → Place → Option Nat := match noted with
+  | True => leadStart
+  | False => wordStart
+
 --| A `LineStart` from a seat: to the start of a line at the token's column, the comment floor there.
 theorem startHangs ∀ (kinds: Text → Tok) (indent: Nat) (before: Bool) (state: HangState) (entry: Place):
     HangLays kinds LineStart indent
@@ -1795,6 +1801,161 @@ theorem notedPartHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
           next
           holds
           after
+
+-- Nodes with own-line comments above their first token.
+
+--| A blank line above the first comment is kept only before an item, so where neither holds none can print nothing.
+theorem unblankedAt ∀ (start blank item: Bool) (quiet: (blank && item) = False): (start && blank && item) = False :=
+  match start, blank with
+    | False, _ => byComputing
+    | True, False => byComputing
+    | True, True => quiet
+
+--| A token's own-line comments end at or right of the indentation.
+theorem leadDeep ∀ (indent: Nat) (before: Bool) (state: HangState) (entry: Place)
+    (seated: Seated indent before state entry):
+    (indent <= leadColumn indent entry) = True :=
+  match entry, seated with
+    | AtStart at carry, (atColumn, _) => rewrite atColumn then Nat.leRefl indent
+    | Broken at carry, (atColumn, _) => rewrite atColumn then Nat.leRefl indent
+    | Mid at carry, _ => arithmetic
+    | Held at carry, _ => arithmetic
+
+--| A line start at `column`, the comment floor no deeper than the indentation's: the floor is no deeper at `column`.
+theorem flooredDeeper ∀ (carry: Carry) (indent column: Nat)
+    (landed: floored carry indent = column)
+    (deep: (indent <= column) = True):
+    floored carry column = column :=
+  match floor: carry.floor with
+    | None => byComputing
+    | Some least => arithmetic
+
+--| Where the comments above a node's first token leave the printer, at the start of the line at `column`, the node
+--| displaced there lays as it does with its first token's comments written elsewhere, laid at that column.
+--|
+--| Proof idea: at a line start, `Displaced` lays its contents at the line's column if deeper, whatever the
+--| indentation: `column`, at or right of `indent`. The hoisted form, `Doc.concat [Doc.concat [], Displaced doc]`, lays
+--| as `Displaced doc` does, so `framed` at `column`, entered at the line start with the seat's room, gives it.
+theorem linedDisplaced ∀ (kinds: Text → Tok) (doc: Doc) (indent column: Nat) (before trails: Bool) (state: HangState)
+    (deep: (indent <= column) = True)
+    (room: Room state (Some column))
+    (framed: ∀ (inset: Nat) => ElHangs kinds
+      (Doc.concat [Doc.concat [], Displaced doc])
+      inset
+      inset
+      before
+      trails
+      wordStart):
+    HangLays kinds (Displaced doc) indent (LineAt indent column (At state)) (place hang =>
+      Ended (openedBy state (Some column)) trails place ∧ hang = At (openedBy state (Some column))) :=
+  place trace next lineAt after =>
+    match place, lineAt with
+      | AtStart at carry, (now, atColumn, landed) =>
+        let wide: Nat.max indent at = at := rewrite atColumn then arithmetic
+        let same: Nat.max at at = at := arithmetic
+        let floorAt: floored carry at = at := rewrite atColumn then flooredDeeper carry indent column landed deep
+        let laid: Lays (Doc.concat [Doc.concat [], Displaced doc]) at (AtStart at carry) trace next :=
+          framed at state
+            (AtStart at carry)
+            (AtStart at carry)
+            trace
+            next
+            (
+              byComputing,
+              now,
+              ((byComputing, floorAt), Nat.leRefl at, rewrite atColumn then arithmetic, rewrite atColumn then room)
+            )
+            (left later (ended, folded) =>
+              after left later (rewrite atColumn at ended then ended, rewrite atColumn at folded then folded))
+        let inner: Lays doc (Nat.max at at) (AtStart at carry) trace next := laid
+        let target: Lays doc (Nat.max indent at) (AtStart at carry) trace next :=
+          rewrite wide then (rewrite same at inner then inner)
+        target
+      | Broken at carry, (now, atColumn, landed) =>
+        let wide: Nat.max indent at = at := rewrite atColumn then arithmetic
+        let same: Nat.max at at = at := arithmetic
+        let floorAt: floored carry at = at := rewrite atColumn then flooredDeeper carry indent column landed deep
+        let laid: Lays (Doc.concat [Doc.concat [], Displaced doc]) at (Broken at carry) trace next :=
+          framed at state
+            (Broken at carry)
+            (Broken at carry)
+            trace
+            next
+            (
+              byComputing,
+              now,
+              ((byComputing, floorAt), Nat.leRefl at, rewrite atColumn then arithmetic, rewrite atColumn then room)
+            )
+            (left later (ended, folded) =>
+              after left later (rewrite atColumn at ended then ended, rewrite atColumn at folded then folded))
+        let inner: Lays doc (Nat.max at at) (Broken at carry) trace next := laid
+        let target: Lays doc (Nat.max indent at) (Broken at carry) trace next :=
+          rewrite wide then (rewrite same at inner then inner)
+        target
+      | Mid at carry, never => (Bool.falseNotTrue never).impossible
+      | Held at carry, never => (Bool.falseNotTrue never).impossible
+
+--| A node whose first token has own-line comments above it that the node writes: the comments from its seat, each
+--| on its line, then the node displaced to the start of the line after them, its first token there (`leadStart`).
+--| `framed` is the node with those comments written elsewhere (`hoisted`), which displaces it the same way. At a
+--| plain line start a blank line kept above the first comment may print nothing, so `quiet` asks for none before an
+--| item.
+--|
+--| Proof idea: `leadingHangs` takes the seat to the start of the token's line at `leadColumn`, the fold unchanged;
+--| `linedDisplaced` lays the node from there, with room by the seat's `Room`.
+theorem notedFramedHangs ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (indent: Nat) (trails: Bool)
+    (note: Note) (rest: List Note)
+    (hoisted: around.hoisted = False)
+    (noted: first.comments.above = [note, ..rest])
+    (closer: isCloserText first.text = False)
+    (comments: NotesComment [note, ..rest])
+    (quiet: (note.blankBefore && around.item) = False)
+    (framed: ∀ (inset: Nat) => ElHangs kinds
+      (Doc.concat [Doc.concat [], Displaced doc])
+      inset
+      inset
+      around.before
+      trails
+      wordStart):
+    ElHangs kinds (framedBy first around doc) indent indent around.before trails leadStart :=
+  state entry place trace next entered after =>
+    match entered with
+      | (_, _, (seated, _, _, room)) =>
+        let column := leadColumn indent entry
+        let opened := openedBy state (Some column)
+        let pre := Entered indent indent around.before state entry (leadStart indent entry)
+        let lined := LineAt indent column (At state)
+        let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = At opened
+        let leadingDocs := first.leading around around.at
+        let leading :=
+          hangsConcat kinds leadingDocs indent pre lined
+            (allHangsPre kinds leadingDocs indent
+              (place hang => place = entry ∧ hang = At state ∧ Seated indent around.before state entry)
+              pre
+              lined
+              (leadingHangs kinds first around around.at indent around.before state entry note rest hoisted noted closer
+                  comments
+                  (unblankedAt (plainStart entry) note.blankBefore around.item quiet))
+              (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
+        let displaced :=
+          linedDisplaced kinds doc indent column around.before trails state
+            (leadDeep indent around.before state entry seated)
+            room
+            framed
+        let isNoted: first.noted = True := rewrite noted
+        let unframed: framedBy first around doc = Doc.concat [Doc.concat leadingDocs, Displaced doc] := rewrite isNoted
+        rewrite unframed then
+          hangsConcat kinds
+            [Doc.concat leadingDocs, Displaced doc]
+            indent
+            pre
+            post
+            (hangsTwo kinds (Doc.concat leadingDocs) (Displaced doc) indent pre lined post leading displaced)
+            place
+            trace
+            next
+            entered
+            after
 
 -- Closers.
 
