@@ -1,5 +1,5 @@
 {
-  "next": 3933,
+  "next": 3936,
   "tickets": [
     {
       "id": 47,
@@ -23094,7 +23094,7 @@
     {
       "id": 3916,
       "title": "[Opus] Kernel readers determined.rs:189 and erase.rs:195/238 read Def::ty_value where def_type is meant: what the telescope sees behind an opaque nickname depends on how the type is written (and for erasure, the mode at first use); probe sketched in docs/reviews/SW-3911-glued-kept-types.md (F1)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -23107,7 +23107,7 @@
     {
       "id": 3917,
       "title": "[Opus] check.rs set_run_body checks with gluing off, unlike admit_group: deliberate or not? (SW-3911 F2)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -23278,12 +23278,12 @@
     {
       "id": 3930,
       "title": "[Opus] D3680: kernel keeps declared types glued (push_def/retype_def), with SW-3911's R1-R5: kernel flag in value.rs Modes matched in Kept::fits; force before matching in the five readers; step-count kernel test; docs/core.md and folded-calls.md; measurements (byComputing kernel time ≤1.5x, whole-AoC peak memory ≤ +10%) before merge (docs/proposals/glued-kept-types.md, docs/reviews/SW-3911-glued-kept-types.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "D3680 (Matt, 18 Nov 2026): 'Okay, let's agree to D3680.' Build glued kept types with SW-3911's R1-R5; merge only if by-computing kernel time ≤1.5x and whole-AoC peak memory ≤ +10% (orchestrator's conditions, stated to Matt with the recommendation). SW-3916 and SW-3917 ride along.\n\nProgress (Opus, lane/SW-3930, 08:52-09:30): built.\n- push_def/retype_def evaluate the kept type glued (`check.rs` `kept_type`); no A/B switch kept.\n- R1 `Modes::kernel` matched in `Kept::fits`. R2 force in auto.rs result_head, dot.rs receiver_type and annotation_type, interfaces.rs hint, library.rs helper; elaboration test `interfaces::a_decision_procedure_typed_through_a_nickname_is_found` (E-AUTO-NONE without the auto.rs force). R3 kernel test `kernel::a_closed_statement_proved_by_a_general_lemma_is_never_computed` (E-RESOURCE without the change). R4 comments, core.md \"Glued calls\" (review §6), folded-calls.md stage 4 note, proposal status. R6 done: admit_group evaluates def_type glued.\n- R5(a): reproducer kernel time for byComputing 2.9 s -> 4.46-4.52 s (1.52-1.56x) on the bare change, so the review's `Refl` case is in: a body of `Refl` alone is checked against the type evaluated unglued: 2.87-2.94 s -> 3.06-3.08 s (1.06x). General proof: kernel 6.8 s -> 0.0 s, 182.8M steps -> 1,029. Population: closed `:= byComputing` declarations (grep): std 94, AoC 37, apps 3, rogue 1; tests aren't computed at check. Five AoC namespaces with most of them: kernel 396 ms -> 338-360 ms.\n- R5(b) peak memory: command for Overmind in the lane report (not run here). Whereabouts 548 -> 558 MB, Day20.Proofs 415 -> 416 MB, Day04.Proofs 330 -> 331 MB.\n- Hashes unchanged (hash_stability::, pinned_hashes:: all pass).\n",
+      "body": "D3680 (Matt, 18 Nov 2026): 'Okay, let's agree to D3680.' Build glued kept types with SW-3911's R1-R5; merge only if by-computing kernel time ≤1.5x and whole-AoC peak memory ≤ +10% (orchestrator's conditions, stated to Matt with the recommendation). SW-3916 and SW-3917 ride along.\n\nProgress (Opus, lane/SW-3930, 08:52-09:30): built.\n- push_def/retype_def evaluate the kept type glued (`check.rs` `kept_type`); no A/B switch kept.\n- R1 `Modes::kernel` matched in `Kept::fits`. R2 force in auto.rs result_head, dot.rs receiver_type and annotation_type, interfaces.rs hint, library.rs helper; elaboration test `interfaces::a_decision_procedure_typed_through_a_nickname_is_found` (E-AUTO-NONE without the auto.rs force). R3 kernel test `kernel::a_closed_statement_proved_by_a_general_lemma_is_never_computed` (E-RESOURCE without the change). R4 comments, core.md \"Glued calls\" (review §6), folded-calls.md stage 4 note, proposal status. R6 done: admit_group evaluates def_type glued.\n- R5(a): reproducer kernel time for byComputing 2.9 s -> 4.46-4.52 s (1.52-1.56x) on the bare change, so the review's `Refl` case is in: a body of `Refl` alone is checked against the type evaluated unglued: 2.87-2.94 s -> 3.06-3.08 s (1.06x). General proof: kernel 6.8 s -> 0.0 s, 182.8M steps -> 1,029. Population: closed `:= byComputing` declarations (grep): std 94, AoC 37, apps 3, rogue 1; tests aren't computed at check. Five AoC namespaces with most of them: kernel 396 ms -> 338-360 ms.\n- R5(b) peak memory: command for Overmind in the lane report (not run here). Whereabouts 548 -> 558 MB, Day20.Proofs 415 -> 416 MB, Day04.Proofs 330 -> 331 MB.\n- Hashes unchanged (hash_stability::, pinned_hashes:: all pass).\n\nMerged 18 Nov. Measured: reproducer kernel 6.8 s/182.8M steps to 0.0 s/1,029 steps; byComputing 1.52-1.56x bare, 1.06x with the Refl case; whole-AoC (Speedwell, check --no-cache, 291 namespaces pass both) peak RSS 1,222 MB main vs 1,192 MB lane, user 74.8 s vs 71.0 s. Both D3680 conditions met. Review: docs/reviews/SW-3931-glued-kept-types-diff.md (merge as is). 37 min (est. 60).",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23291,12 +23291,12 @@
     {
       "id": 3931,
       "title": "[Fable paper] Review SW-3930's diff (D3680 glued kept types, SW-3916, SW-3917) before merge: kernel soundness of the implemented change, the Refl case, erasure's hidden view, R1/R2 coverage",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Fable: merge as is; two doc sentences and T1-T5 filed as tickets. Hit the weekly limit mid-run, resumed after the reset.",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []
@@ -23309,6 +23309,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3933,
+      "title": "[Opus] Bug on main: a definition with more lambdas than its type shows behind an opaque nickname (opaque def Fun: Type := Nat -> Nat; opaque def inc: Fun unfolding Fun := m => m + 1) breaks the fast runtime (E-RUNTIME v0 read where not bound; machine.rs:556 panic with a parameter first) and JS (lib.rs:4198 index out of bounds); run --reference is right. Fix with one view of a definition's parameters for erase::of_def, proof_positions, rt def_shape, specialise and JS, read through one function (SW-3931 T1+T2; reproducer in docs/reviews/SW-3931-glued-kept-types-diff.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3934,
+      "title": "[DeepSeek] proof_positions remembers its out-of-resources fallback for the session where erase::of_def doesn't; it feeds proofless_hash: don't cache the fallback, with a test (SW-3931 T3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-18",
+      "updated": "2026-11-18",
+      "commits": []
+    },
+    {
+      "id": 3935,
+      "title": "[Sonnet] docs/core.md after D3680: say retype_def checks a signature unglued (or glue it, measuring, SW-3931 T4), and that a parameter visible only through an opaque nickname isn't erased, in core.md and erase.rs, once SW-3933 settles the view (SW-3931 doc fixes, T5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-18",
       "updated": "2026-11-18",
