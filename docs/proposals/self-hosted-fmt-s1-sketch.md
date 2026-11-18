@@ -427,6 +427,9 @@ The same bracket in the body prints its `)` at 2 and is fine.
 - **The other fix** is in the language: let a closer or comma inside
   brackets start a line at any column, as `stopsByLine` already does.
   §7 has it as a question; slice 1 doesn't need it.
+- **Fixed (SW-3962):** both formatters put such a closer on a
+  `CloserLine` keyed by its opener, as after own-line comments, so the
+  file above prints `)` at 0. `tools/fmt/NOTES.md` has the details.
 - **If neither lands before ticket 17:** the read-back lane proves
   `hangs → reads back`, which is true, and ticket 18 can't prove
   `printedHangs` for `parenDoc` in a type. So the fix goes first.
@@ -706,7 +709,7 @@ For the orchestrator to file. None blocks 14, 15, 16a or 19.
   parse.
 - **Not done:** `Shaped1` and `Lexical1` are not written out; the
   statements below the top ones are named, not checked; the search's
-  scripts are in the scratch folder, not the repo; `check
+  scripts are in `tools/fmt/dev/` (SW-3962); `check
   --counterexamples` was not run (the search here ran the program
   itself, which K1 found the stronger test); the one-parse design (§3.4)
   was not run.

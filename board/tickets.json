@@ -23715,12 +23715,12 @@
     {
       "id": 3962,
       "title": "[Opus] fmt S1 ticket 13a: family A, a def type's bracket with a comment after its ( prints the ) at its contents' column, which parses as a new statement (def d: ( -- t7 / a -- t9 / ) -- t10 / := b). Fix in both formatters (D3677 bug exception), failing-first tests; commit SW-3955's search scripts (scratchpad sw3955/probe.py, hangs.py) under tools/fmt/dev/ and rerun them (sketch §3)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (SW-3962, Opus, 18 Nov): fixed in both formatters (commit d8c0e50cb on lane/SW-3962). Cause: S39's own-line closer was a HardLine at the indentation in force, which a def's type shares with its bracket's contents. Now a CloserLine keyed by the opener (as S40), the opener marked when its closer has a comment after it. Failing-first tests: Rust `a_closer_after_a_trailing_comment_goes_left_of_the_lines_inside_its_brackets`, Stitchwort `a closer after a trailing comment goes left of the lines inside its brackets` (Fmt.Tests). No golden moved; fmt-twin s1/s2/s3 100% (82/39, 230/426, 288/554). Search in tools/fmt/dev; seeds 8+9, 3,000 files: 0 family A, 0 idempotence failures.\n",
       "created": "2026-11-18",
       "updated": "2026-11-18",
       "commits": []

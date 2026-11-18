@@ -124,15 +124,20 @@ def Word.leading (word: Word) (around: Around) (key: Nat): List Doc :=
 --| A token on its own (`leaf`). A closer after code that ends its line
 --| with a comment, and with a comment of its own, keeps a line of its own
 --| (S39): printed before the waiting comment, it would leave two comments
---| on one line.
+--| on one line. That line is left of the lines inside its brackets, as
+--| after own-line comments: at the indentation in force, which a
+--| declaration's type shares with its contents, the closer would read as
+--| their block's next line (SW-3962).
 def Word.leaf (word: Word) (around: Around) (key: Nat): Doc :=
   let ownLine := isCloserText word.text && !word.noted && around.before && word.trails
-  Doc.concat (word.leading around key ++ (if ownLine then [HardLine] else []) ++ [piece word.text] ++ word.trailing)
+  Doc.concat
+    (word.leading around key ++ (if ownLine then [CloserLine key] else []) ++ [piece word.text] ++ word.trailing)
 
---| An opening bracket: with a `Mark` when own-line comments come before
---| its closer, which may then go back to this line's indentation.
+--| An opening bracket: with a `Mark` when its closer may take a line of
+--| its own (own-line comments before it, or a comment after it), which
+--| may then go back to this line's indentation.
 def Word.opening (word: Word) (around: Around) (closer: Word): Doc :=
-  let mark := if closer.noted then [Mark around.at] else []
+  let mark := if closer.noted || closer.trails then [Mark around.at] else []
   Doc.concat (word.leading around around.at ++ mark ++ [piece word.text] ++ word.trailing)
 
 -- What rules read of an expression's tokens.

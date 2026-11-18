@@ -1012,3 +1012,11 @@ literals, `${…}`, characters, qualified names and `.` (outside slice 1).
 The lexer was split into named parts for the proofs, with the same behaviour (`Syntax.Tests` and `Fmt.Tests` pass):
 `itemAt` and `itemOn` (the input as a parameter), `wordFrom`, `qualifiedOn`, `numberFrom`, `numberTail`,
 `fractionPart`, `exponentPart`, and the pure `fractionAhead` and `exponentSkip`.
+
+## Family A fixed, and the search kept (SW-3962, Opus, 18 November 2026)
+
+**The cause.** A closer that rule N leaves after code ending its line with a comment, and that has a comment of its own, takes a line of its own (S39, `leaf` and `Word.leaf`). That line was a `HardLine`, at the indentation in force. In a declaration's type the bracket's contents, pushed below `(` by the comment, are at that same indentation (4), so the closer started a line at its contents' column and the parser read it as their block's next line: sketch §3.1, family A. Elsewhere the contents sit 2 right of the indentation in force (a call's argument, a body), which is why only the type showed it.
+
+**The fix, both formatters.** That line is a `CloserLine` keyed by the bracket's opener, as for a closer after own-line comments (S40, SW-3605): it goes back to the opener's line's indentation when a line inside is at or left of the indentation in force, and stays put otherwise. The opener gets its `Mark` whenever the closer may take a line of its own: own-line comments before it, a comment after it, or (Rust only, outside the slices) a glued `.field`. `def d: ( -- t7⏎    a -- t9⏎  ) -- t10⏎  := b` now prints `)` at 0 and `:=` at 2 in both. No golden file moved; the slice gates are unchanged (s1, s2, s3 100% on the goldens and the 300-file sample).
+
+**The search** is in `dev/` (`README.md` says how to build the interpreted twin and run it). Rerun on slice 1, seeds 8 and 9, 1,500 files each [run]: 1,758 formatted, 0 idempotence, tree, comment or long-line failures, `hangs.py` clean (family A was 9 of 5,611 before). SW-3955's nine family A files format to text that parses in both formatters, and identically but for one, whose difference is family D's. The generator is slice 1's only; slices 2 and 3 would need a generator of binders, blocks and `if`s.
