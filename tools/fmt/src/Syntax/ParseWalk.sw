@@ -462,9 +462,11 @@ theorem wordLexesAs ∀ (word: Word) (kind: Tok) (lexes: LexesAs word.text kind)
 --| The word of a good item of the alphabet, as the atom of its kind.
 theorem atomParsed ∀ (item: Item) (good: GoodItem item): ArgParsed (Atom item.kind item.leaf.word) := within =>
   (
-    within,
+    Bool.andLeft within,
     wordLexesAs item.leaf.word item.kind
-      (lexesAsSpells item.kind item.text (good (wordWithinWithin item.kind within)) (mayFollowEnd item.kind item.text)),
+      (lexesAsSpells item.kind item.text
+        (good (wordWithinWithin item.kind (Bool.andLeft within)))
+        (mayFollowEnd item.kind item.text)),
     byComputing
   )
 
@@ -2897,7 +2899,7 @@ theorem givesFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (token:
       (bracket =>
         match bracket with
           | True => Parse.givesThen (givesListExprAny self modes nested) (list _ => givesFactsEnd kind keyword list)
-          | False => Parse.givesDone plain))
+          | False => Parse.givesDone (Bool.andFalseLeft _ _ plain)))
 
 theorem givesIncludeAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => includeAtom modes) Out :=
   Parse.givesThen givesBump (keyword _ =>
@@ -6321,7 +6323,7 @@ theorem headerNameLower ∀ (header: Header) (within: header.within1 = True): he
         unfoldingClause
       } =>
       match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
-        | None, None, DefPlain, None, [], None, None, within => Bool.andLeft within
+        | None, None, DefPlain, None, [], None, None, within => Bool.andLeft (Bool.andLeft within)
         | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
           (Bool.falseNotTrue within).impossible
 

@@ -2013,7 +2013,7 @@ theorem headerCalmWithin ∀ (header: Header) (within: header.within1 = True): h
         unfoldingClause = None
       } =>
       Bool.andIntro
-        (rewrite Word.keptLexesAs name False False Lower then Bool.andLeft within)
+        (rewrite Word.keptNameWithin1 name False False then Bool.andLeft within)
         (withinCalm result False (Bool.andRight within))
 
 theorem declCalmWithin ∀ (decl: Decl) (within: decl.within1 = True): decl.calm.within1 = True := match decl with

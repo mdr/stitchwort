@@ -721,7 +721,7 @@ theorem pickWithin ∀ (items: List Expr) (plain: Bool): allWithin1 (pickItems p
     | False => calmAllWithin items True
 
 theorem headerWithinResult ∀ (header: Header) (name: Word) (colon: Comments) (result: Expr)
-    (sameName: name.lexesAs Lower = header.name.lexesAs Lower)
+    (sameName: name.nameWithin1 = header.name.nameWithin1)
     (same: result.within1 = header.result.within1):
     { header | name, colon, result }.within1 = header.within1 :=
   match header with
@@ -747,7 +747,7 @@ theorem headerCalmWithin ∀ (header: Header): header.calm.within1 = header.with
     (header.name.kept False False)
     (header.colon.kept False False)
     (header.result.calm False)
-    (Word.keptLexesAs header.name False False Lower)
+    (Word.keptNameWithin1 header.name False False)
     (exprCalmWithin header.result False)
 
 theorem declCalmWithin ∀ (decl: Decl): decl.calm.within1 = decl.within1 := match decl with

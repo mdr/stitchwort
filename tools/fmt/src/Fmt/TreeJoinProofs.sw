@@ -1,12 +1,13 @@
 --| `printLexes1` from the tree's facts (docs/proposals/self-hosted-fmt-s1-sketch.md §1.5, ticket 18c): `printLexes1`
 --| (`Fmt.JoinProofs`) takes `DeclJoins` and `Every Printable`, which are facts about the declaration's tokens' spellings
 --| and what may follow them; this file derives both from the tree's facts (`within1`, `sound`, `lexical1`, `shaped1`)
---| and `spelled1`, with `kinds` the lexer's kind of each text (`lexKind`).
+--| and `operators1`, with `kinds` the lexer's kind of each text (`lexKind`).
 --|
---| `spelled1` is the one fact `lexical1` doesn't give. `lexical1` says each name and numeral lexes as one token of its
---| kind; but a qualified name (`List.map`) lexes as one `Lower` token and a numeral with an exponent (`1e5`) as one
---| `Float`, and neither is a text `Spells` that kind. So no lexer inversion gives `Spells` from `lexesAs`
---| (`qualifiedLexes`, `exponentLexes`), and the parser must say what its leaves spell.
+--| A name or numeral's spelling comes from `within1` (`textSpells1`, `spellsOfText1`): `lexesAs` alone is too weak,
+--| since a qualified name (`List.map`) lexes as one `Lower` token and a numeral with an exponent (`1e3`) as one `Float`,
+--| and neither is a text `Spells` that kind (`qualifiedLexes`, `exponentLexes`), so `within1` leaves them out. An
+--| operator's token is what the tree doesn't say (`pipedTreeFacts`: `|>` has every other tree fact), so `operators1`
+--| says each infix operator is a token of the alphabet and each prefix operator `-`, `!` or `¬`.
 
 namespace Fmt.TreeJoinProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Result, Text, Void, byDecision)
@@ -320,6 +321,70 @@ theorem prefixFollows ∀ (operator: Word) (operand: Expr)
         | Inr (Inr same) =>
           rewrite same then (byComputing, (isBang => (DecEq.soundFalse "¬" "!" byComputing isBang).impossible))
 
+-- A name or numeral's spelling, from `within1`.
+
+--| A name's text, as `textSpells1` reads it, is one `Spells` says.
+theorem nameSpells ∀ (kind: Tok) (text: Text) (chars: List Char)
+    (same: text.toList = chars)
+    (spells: nameText1 kind chars = True):
+    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+      ∧ isWordStart first = True
+      ∧ others.all isWordChar = True
+      ∧ wordKind False text = kind :=
+  match chars, same, spells with
+    | [first, ..others], same, spells =>
+      let named: text = Text.fromList [first, ..others] := Eq.trans (Text.fromToList text).flipped (rewrite same)
+      (
+        first,
+        others,
+        same,
+        Bool.andLeft spells,
+        Bool.andLeft (Bool.andRight spells),
+        rewrite named then DecEq.sound (Bool.andRight (Bool.andRight spells))
+      )
+
+theorem digitsSpells ∀ (text: Text) (chars: List Char)
+    (same: text.toList = chars)
+    (spells: numberText1 chars = True):
+    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+      ∧ first.isAsciiDigit = True
+      ∧ others.all Char.isAsciiDigit = True :=
+  match chars, same, spells with
+    | [first, ..others], same, spells => (first, others, same, Bool.andLeft spells, Bool.andRight spells)
+
+--| The rest of a float's text, as `fractionText1` reads it, is digits and a fraction.
+theorem fractionSpells ∀ (chars: List Char)
+    (spells: fractionText1 chars = True):
+    ∃ (others: List Char) (second: Char) (more: List Char) => chars = others ++ ['.', second, ..more]
+      ∧ others.all Char.isAsciiDigit = True
+      ∧ second.isAsciiDigit = True
+      ∧ more.all Char.isAsciiDigit = True :=
+  match chars with
+    | [char, ..rest] =>
+      match dot: char == '.' with
+        | True =>
+          match rest with
+            | [second, ..more] =>
+              let held := spells
+              ([], second, more, (rewrite DecEq.sound dot), byComputing, Bool.andLeft held, Bool.andRight held)
+        | False =>
+          let held := spells
+          let (others, second, more, split, digits, decimal, decimals) := fractionSpells rest (Bool.andRight held)
+          ([char, ..others], second, more, (rewrite split), Bool.andIntro (Bool.andLeft held) digits, decimal, decimals)
+
+--| A name or numeral `within1` lets through is a text its kind is spelled with.
+theorem spellsOfText1 ∀ (kind: Tok) (text: Text) (spells: textSpells1 kind text = True): Spells kind text :=
+  match kind, spells with
+    | Lower, spells => nameSpells Lower text text.toList (byComputing) spells
+    | Upper, spells => nameSpells Upper text text.toList byComputing spells
+    | Num, spells => digitsSpells text text.toList byComputing spells
+    | Float, spells =>
+      match text.toList, spells with
+        | [first, ..rest], spells =>
+          let (others, second, more, split, digits, decimal, decimals) := fractionSpells rest (Bool.andRight spells)
+          (first, others, second, more, (rewrite split), Bool.andLeft spells, digits, decimal, decimals)
+    | other, spells => (Bool.falseNotTrue spells).impossible
+
 -- The tree's spellings.
 
 --| An infix operator's text spells a token that is no comma or closer.
@@ -327,22 +392,22 @@ def OperatorSpells (text: Text): Prop := ∃ (kind: Tok) => Spells kind text ∧
 
 --| What the parser's leaves spell, which `lexical1` doesn't say (the header): each name and numeral is a text its
 --| kind is spelled with, each infix operator a token's and each prefix operator `-`, `!` or `¬`.
-def Expr.spelled1: Expr → Prop
-  | Atom kind word => Spells kind word.text
-  | Paren _ inner _ => inner.spelled1
-  | Tuple _ items _ _ => AllSpelled1 items
-  | ListOf _ items _ _ => AllSpelled1 items
-  | App head arguments => head.spelled1 ∧ AllSpelled1 arguments
-  | Infix _ left operator right => left.spelled1 ∧ OperatorSpells operator.text ∧ right.spelled1
-  | Prefix operator operand => PrefixSpells operator.text ∧ operand.spelled1
+def Expr.operators1: Expr → Prop
+  | Atom _ _ => True
+  | Paren _ inner _ => inner.operators1
+  | Tuple _ items _ _ => AllOperators1 items
+  | ListOf _ items _ _ => AllOperators1 items
+  | App head arguments => head.operators1 ∧ AllOperators1 arguments
+  | Infix _ left operator right => left.operators1 ∧ OperatorSpells operator.text ∧ right.operators1
+  | Prefix operator operand => PrefixSpells operator.text ∧ operand.operators1
   | _ => False
 
-def AllSpelled1: List Expr → Prop
+def AllOperators1: List Expr → Prop
   | [] => True
-  | [expr, ..rest] => expr.spelled1 ∧ AllSpelled1 rest
+  | [expr, ..rest] => expr.operators1 ∧ AllOperators1 rest
 
-def Decl.spelled1: Decl → Prop
-  | Definition _ header (Assigned _ value) => Spells Lower header.name.text ∧ header.result.spelled1 ∧ value.spelled1
+def Decl.operators1: Decl → Prop
+  | Definition _ header (Assigned _ value) => header.result.operators1 ∧ value.operators1
   | _ => False
 
 theorem wordQuiet ∀ (kind: Tok) (word: kind.wordWithin1 = True): Quiet kind := match kind, word with
@@ -363,16 +428,16 @@ theorem lowerQuiet: Quiet Lower := byDecision
 --| Proof idea: Induction down the first operands.
 theorem leadsOf ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.spelled1):
+    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
     Leads expr.lead.text :=
   match expr, spelled with
-    | Atom kind word, spells =>
+    | Atom kind word, _ =>
       match kind, within with
-        | Lower, _ => Inr (Inr (Inr (Inr (Inr (Inl spells)))))
-        | Upper, _ => Inr (Inr (Inr (Inr (Inr (Inr (Inl spells))))))
-        | Num, _ => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl spells)))))))
-        | Float, _ => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr spells)))))))
-        | other, word => (Bool.falseNotTrue word).impossible
+        | Lower, within => Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Lower word.text within))))))
+        | Upper, within => Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Upper word.text within)))))))
+        | Num, within => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Num word.text within))))))))
+        | Float, within => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (spellsOfText1 Float word.text within))))))))
+        | other, within => (Bool.falseNotTrue within).impossible
     | Paren open inner close, _ => Inl (DecEq.sound (Bool.andLeft lexical))
     | Tuple open items comma close, _ => Inl (DecEq.sound (Bool.andLeft lexical))
     | ListOf open items comma close, _ => Inr (Inl (DecEq.sound (Bool.andLeft lexical)))
@@ -421,10 +486,13 @@ theorem joinable ∀ (expr: Expr)
     (within: expr.within1 = True)
     (shaped: expr.shaped1 = True)
     (sound: expr.sound = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.spelled1):
+    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
     Joinable lexKind expr :=
   match expr, spelled with
-    | Atom kind word, spells => spellsJoins word kind sound spells (wordQuiet kind within)
+    | Atom kind word, _ =>
+      spellsJoins word kind sound
+        (spellsOfText1 kind word.text (Bool.andRight within))
+        (wordQuiet kind (Bool.andLeft within))
     | Paren open inner close, innerSpelled => (
       bracketOpener open LParen (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)) byDecision (text rest =>
         byComputing),
@@ -498,7 +566,7 @@ theorem allJoinable ∀ (items: List Expr)
     (shaped: allShaped1 items = True)
     (sound: allSound items = True)
     (lexical: allLexical1 items = True)
-    (spelled: AllSpelled1 items):
+    (spelled: AllOperators1 items):
     AllJoinable lexKind items :=
   match items, spelled with
     | [], _ => byComputing
@@ -575,7 +643,7 @@ theorem commaPrintable ∀ (items: List Expr)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
     (lexical: allLexical1 items = True)
-    (spelled: AllSpelled1 items):
+    (spelled: AllOperators1 items):
     Every (Printable lexKind) (commaSpelt items) :=
   match items, spelled with
     | [], _ => byComputing
@@ -596,7 +664,7 @@ theorem argumentsPrintable ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True)
     (sound: allSound arguments = True)
     (lexical: allLexical1 arguments = True)
-    (spelled: AllSpelled1 arguments):
+    (spelled: AllOperators1 arguments):
     Every (Printable lexKind) (argumentsSpelt arguments) :=
   match arguments, spelled with
     | [], _ => byComputing
@@ -622,10 +690,10 @@ theorem bracketPrintable ∀ (word: Word) (kind: Tok) (hoisted: Bool)
 theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
     (within: expr.within1 = True)
     (sound: expr.sound = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.spelled1):
+    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
     Every (Printable lexKind) (expr.spelt hoisted) :=
   match expr, spelled with
-    | Atom kind word, spells => wordPrintable word kind hoisted sound spells
+    | Atom kind word, _ => wordPrintable word kind hoisted sound (spellsOfText1 kind word.text (Bool.andRight within))
     | Paren open inner close, innerSpelled =>
       everyThree
         (Printable lexKind)
@@ -707,13 +775,13 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
 
 --| `DeclJoins`, from the tree's facts.
 --|
---| Proof idea: The keyword, colon and `:=` are fixed spellings, the name's spelling is `spelled1`'s; the type and the
+--| Proof idea: The keyword, colon and `:=` are fixed spellings, the name's spelling is `operators1`'s; the type and the
 --| value are `joinable`.
 theorem declJoins ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.spelled1):
+    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
     DeclJoins lexKind decl :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -731,7 +799,8 @@ theorem declJoins ∀ (decl: Decl)
             decreasingClause = None,
             unfoldingClause = None
           } =>
-          let (nameSpelled, resultSpelled, valueSpelled) := spelled
+          let (resultSpelled, valueSpelled) := spelled
+          let nameSpelled := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
           (
             spellsJoins (fixedWord "def" keyword) KwDef (Bool.andLeft sound) byComputing byDecision,
             spellsJoins name Lower (Bool.andLeft (Bool.andRight sound)) nameSpelled lowerQuiet,
@@ -766,7 +835,7 @@ theorem declJoins ∀ (decl: Decl)
 theorem declPrintable ∀ (decl: Decl)
     (within: decl.within1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.spelled1):
+    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
     Every (Printable lexKind) decl.spelt :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -784,7 +853,8 @@ theorem declPrintable ∀ (decl: Decl)
             decreasingClause = None,
             unfoldingClause = None
           } =>
-          let (nameSpelled, resultSpelled, valueSpelled) := spelled
+          let (resultSpelled, valueSpelled) := spelled
+          let nameSpelled := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
           let keywordWord := fixedWord "def" keyword
           let colonWord := fixedWord ":" colon
           let assignWord := fixedWord ":=" colonEq
@@ -828,14 +898,14 @@ theorem declPrintable ∀ (decl: Decl)
 
 --| `printLexes1Tree`: the text the rules print for a slice 1 declaration, at any width, lexes to the leaves of the
 --| printed pieces' layout, from the declaration's tree facts: that it is within slice 1, sound, shaped as the parser
---| gives it, its leaves lex as their kinds and spell as `spelled1` says. `kinds` is the lexer's kind of each text.
+--| gives it, its leaves lex as their kinds and spell as `operators1` says. `kinds` is the lexer's kind of each text.
 --|
 --| Proof idea: `printLexes1`, with its two hypotheses derived: `declJoins` and `declPrintable`.
 theorem printLexes1Tree ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.spelled1)
+    (lexical: decl.lexical1 = True) (spelled: decl.operators1)
     (shows: decl.doc1 = Some doc):
     lex (Doc.print doc width)
       = Ok {
@@ -851,22 +921,11 @@ theorem printLexes1Tree ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (declPrintable decl within sound lexical spelled)
     shows
 
--- Examples: the tree's facts of `exampleDecl` give `printLexes1`'s; and a declaration with a qualified name that
--- has every tree fact but `spelled1`, so `lexical1` can't give it.
+-- Examples: the tree's facts of `exampleDecl` give `printLexes1`'s; a declaration with a qualified name is out of
+-- the slice; one with an operator outside the alphabet has every tree fact but `operators1`.
 
-theorem exampleSpelled: exampleDecl.spelled1 := (
-  ('d', [], byComputing, byComputing, byComputing, byComputing),
-  ('A', [], byComputing, byComputing, byComputing, byComputing),
-  ('g', [], byComputing, byComputing, byComputing, byComputing),
-  ((
-    (
-      ('a', [], byComputing, byComputing, byComputing, byComputing),
-      ('b', [], byComputing, byComputing, byComputing, byComputing),
-      byComputing
-    ),
-    byComputing
-  ))
-)
+theorem exampleOperators: exampleDecl.operators1 :=
+  (byComputing, byComputing, (byComputing, byComputing, byComputing), byComputing)
 
 --| `def d: A := List.map`.
 def qualifiedDecl: Decl :=
@@ -886,11 +945,8 @@ def qualifiedDecl: Decl :=
     }
     (Assigned Comments.none (Atom Lower (fixedWord "List.map" Comments.none)))
 
-theorem qualifiedTreeFacts: qualifiedDecl.within1 = True
-      ∧ qualifiedDecl.shaped1 = True
-      ∧ qualifiedDecl.sound = True
-      ∧ qualifiedDecl.lexical1 = True :=
-  (byComputing, byComputing, byComputing, byComputing)
+--| The narrowing: `within1` leaves the qualified name out.
+theorem qualifiedOut: qualifiedDecl.within1 = False := byComputing
 
 --| No text with a `.` spells `Lower`.
 theorem qualifiedNotSpelled: Spells Lower "List.map" → Void := spells =>
@@ -899,12 +955,8 @@ theorem qualifiedNotSpelled: Spells Lower "List.map" → Void := spells =>
       let tail: others = ['i', 's', 't', '.', 'm', 'a', 'p'] := (Eq.cong (chars => chars.drop 1) split).flipped
       (Bool.falseNotTrue (rewrite tail at word then word)).impossible
 
---| So `qualifiedDecl` has the tree facts `lexical1` gives and not `spelled1`, and `Every Printable` fails for it.
-theorem qualifiedNotSpelled1: qualifiedDecl.spelled1 → Void := (nameSpelled, resultSpelled, valueSpelled) =>
-  qualifiedNotSpelled valueSpelled
-
 theorem exampleDeclJoinsTree: DeclJoins lexKind exampleDecl :=
-  declJoins exampleDecl byComputing byComputing byComputing byComputing exampleSpelled
+  declJoins exampleDecl byComputing byComputing byComputing byComputing exampleOperators
 
 --| `def d: A := a |> b`: the operator `|>` is no token of slice 1's alphabet, but it is one of `operatorTok`'s.
 def pipedDecl: Decl :=
@@ -936,7 +988,225 @@ theorem pipedTreeFacts: pipedDecl.within1 = True
 
 theorem pipeNotSpelled ∀ (spells: Spells (lexKind "|>") "|>"): Void := cases
 
---| No token of slice 1's alphabet is spelled `|>`, so `pipedDecl` has no `spelled1`: the tree alone doesn't say its
+--| No token of slice 1's alphabet is spelled `|>`, so `pipedDecl` has no `operators1`: the tree alone doesn't say its
 --| operators are in the alphabet.
 theorem pipedNotSpelled: OperatorSpells "|>" → Void := (Witness kind (Both spells quiet)) =>
   pipeNotSpelled (rewrite <- lexKindOfSpells kind "|>" spells at spells then spells)
+
+-- No token is layout.
+
+theorem startNotLayout ∀ (first: Char)
+    (starts: isWordStart first = True):
+    (first == ' ') = False ∧ (first == '\n') = False :=
+  cases
+
+theorem digitNotLayout ∀ (first: Char)
+    (digit: first.isAsciiDigit = True):
+    (first == ' ') = False ∧ (first == '\n') = False :=
+  cases
+
+theorem headNotLayout ∀ (text: Text) (first: Char) (others: List Char)
+    (split: text.toList = [first, ..others])
+    (space: (first == ' ') = False)
+    (line: (first == '\n') = False):
+    isLayout text = False :=
+  let blanks: text.all (char => char == ' ') = False := rewrite split, space
+  match isLine: text == "\n" with
+    | True =>
+      let same := DecEq.sound isLine
+      let head := List.consInjectiveHead '\n' first [] others (rewrite same at split then split)
+      (DecEq.soundFalse first '\n' line head.flipped).impossible
+    | False => rewrite blanks
+
+--| No spelling of a token is layout.
+theorem spellsNotLayout ∀ (kind: Tok) (text: Text) (spells: Spells kind text): isLayout text = False :=
+  match kind, spells with
+    | LParen, same => rewrite same
+    | RParen, same => rewrite same
+    | LBracket, same => rewrite same
+    | RBracket, same => rewrite same
+    | Comma, same => rewrite same
+    | Colon, same => rewrite same
+    | ColonEq, same => rewrite same
+    | Equals, same => rewrite same
+    | EqEq, same => rewrite same
+    | Arrow, Inl same => rewrite same
+    | Arrow, Inr same => rewrite same
+    | OrOr, Inl same => rewrite same
+    | OrOr, Inr same => rewrite same
+    | AndAnd, Inl same => rewrite same
+    | AndAnd, Inr same => rewrite same
+    | Plus, same => rewrite same
+    | PlusPlus, same => rewrite same
+    | Minus, same => rewrite same
+    | Star, same => rewrite same
+    | Slash, same => rewrite same
+    | Percent, same => rewrite same
+    | NotEq, Inl same => rewrite same
+    | NotEq, Inr same => rewrite same
+    | Lt, same => rewrite same
+    | Le, Inl same => rewrite same
+    | Le, Inr same => rewrite same
+    | Gt, same => rewrite same
+    | Ge, Inl same => rewrite same
+    | Ge, Inr same => rewrite same
+    | Bang, Inl same => rewrite same
+    | Bang, Inr same => rewrite same
+    | KwDef, same => rewrite same
+    | Lower, Witness first (Witness others (Both split (Both starts rest))) =>
+      let (space, line) := startNotLayout first starts
+      headNotLayout text first others split space line
+    | Upper, Witness first (Witness others (Both split (Both starts rest))) =>
+      let (space, line) := startNotLayout first starts
+      headNotLayout text first others split space line
+    | Num, Witness first (Witness others (Both split (Both digit rest))) =>
+      let (space, line) := digitNotLayout first digit
+      headNotLayout text first others split space line
+    | Float, Witness first (Witness others (Witness second (Witness more (Both split (Both digit rest))))) =>
+      let (space, line) := digitNotLayout first digit
+      headNotLayout text first (others ++ ['.', second, ..more]) split space line
+
+def Word.real (word: Word): Bool := !isLayout word.text
+
+theorem wordReal ∀ (word: Word) (kind: Tok) (spells: Spells kind word.text): word.real = True :=
+  rewrite spellsNotLayout kind word.text spells
+
+theorem realAppend ∀ (front back: List Word)
+    (first: front.all Word.real = True)
+    (second: back.all Word.real = True):
+    (front ++ back).all Word.real = True :=
+  rewrite allAppendBool front back Word.real then Bool.andIntro first second
+
+--| The tokens of an expression are not layout.
+--|
+--| Proof idea: Induction on the expression: a name or numeral is `spellsOfText1`, a bracket or operator a fixed
+--| spelling, and the lists join by `allAppendBool`.
+theorem exprReal ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
+    expr.words.all Word.real = True :=
+  match expr, spelled with
+    | Atom kind word, _ =>
+      Bool.andIntro (wordReal word kind (spellsOfText1 kind word.text (Bool.andRight within))) byComputing
+    | Paren open inner close, _ =>
+      realAppend
+        [open, ..inner.words]
+        [close]
+        (Bool.andIntro
+          (wordReal open LParen (DecEq.sound (Bool.andLeft lexical)))
+          (exprReal inner within (Bool.andRight (Bool.andRight lexical)) spelled))
+        (Bool.andIntro (wordReal close RParen (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))) byComputing)
+    | Tuple open items comma close, _ =>
+      realAppend
+        [open, ..itemsWords items]
+        [close]
+        (Bool.andIntro
+          (wordReal open LParen (DecEq.sound (Bool.andLeft lexical)))
+          (itemsReal items within (Bool.andRight (Bool.andRight lexical)) spelled))
+        (Bool.andIntro (wordReal close RParen (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))) byComputing)
+    | ListOf open items comma close, _ =>
+      realAppend
+        [open, ..itemsWords items]
+        [close]
+        (Bool.andIntro
+          (wordReal open LBracket (DecEq.sound (Bool.andLeft lexical)))
+          (itemsReal items within (Bool.andRight (Bool.andRight lexical)) spelled))
+        (Bool.andIntro (wordReal close RBracket (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))) byComputing)
+    | App head arguments, (headSpelled, argumentsSpelled) =>
+      realAppend head.words
+        (itemsWords arguments)
+        (exprReal head (Bool.andLeft within) (Bool.andLeft lexical) headSpelled)
+        (itemsReal arguments (Bool.andRight within) (Bool.andRight lexical) argumentsSpelled)
+    | Infix kind left operator right, (leftSpelled, (kindOfOperator, (operatorSpells, quiet)), rightSpelled) =>
+      let (leftWithin, rightWithin) := infixWithin kind left operator right within
+      realAppend left.words
+        [operator, ..right.words]
+        (exprReal left leftWithin (Bool.andLeft lexical) leftSpelled)
+        (Bool.andIntro
+          (wordReal operator kindOfOperator operatorSpells)
+          (exprReal right rightWithin (Bool.andRight (Bool.andRight lexical)) rightSpelled))
+    | Prefix operator operand, (prefix, operandSpelled) =>
+      Bool.andIntro
+        (match prefix with
+          | Inl same => wordReal operator Minus same
+          | Inr (Inl same) => wordReal operator Bang (Inl same)
+          | Inr (Inr same) => wordReal operator Bang (Inr same))
+        (exprReal operand within (Bool.andRight lexical) operandSpelled)
+
+theorem itemsReal ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True)
+    (spelled: AllOperators1 items):
+    (itemsWords items).all Word.real = True :=
+  match items, spelled with
+    | [], _ => byComputing
+    | [item, ..rest], (first, others) =>
+      realAppend item.words
+        (itemsWords rest)
+        (exprReal item (Bool.andLeft within) (Bool.andLeft lexical) first)
+        (itemsReal rest (Bool.andRight within) (Bool.andRight lexical) others)
+
+--| The tokens of a slice 1 declaration are not layout, from the tree's facts: `Decl.real`.
+theorem declReal ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
+    decl.real = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      match header with
+        | {
+            exportKeyword = None,
+            opaqueKeyword = None,
+            kind = DefPlain,
+            keyword,
+            name,
+            forallKeyword = None,
+            params = [],
+            colon,
+            result,
+            decreasingClause = None,
+            unfoldingClause = None
+          } =>
+          let (resultSpelled, valueSpelled) := spelled
+          let nameSpelled := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
+          let assignWord := fixedWord ":=" colonEq
+          realAppend
+            [fixedWord "def" keyword, name, fixedWord ":" colon]
+            (result.words ++ [assignWord, ..value.words])
+            (Bool.andIntro
+              (wordReal (fixedWord "def" keyword) KwDef byComputing)
+              (Bool.andIntro
+                (wordReal name Lower nameSpelled)
+                (Bool.andIntro (wordReal (fixedWord ":" colon) Colon byComputing) byComputing)))
+            (realAppend result.words
+              [assignWord, ..value.words]
+              (exprReal result
+                (Bool.andRight (Bool.andLeft within))
+                (Bool.andLeft (Bool.andRight lexical))
+                resultSpelled)
+              (Bool.andIntro
+                (wordReal assignWord ColonEq byComputing)
+                (exprReal value (Bool.andRight within) (Bool.andRight (Bool.andRight lexical)) valueSpelled)))
+        | _ => cases
+
+--| `printLexes1Tree` with rule N's facts in place of `sound`: `settled1` and the tokens' spellings.
+theorem printLexes1Settled ∀ (decl: Decl) (doc: Doc) (width: Nat)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True) (spelled: decl.operators1)
+    (shows: decl.doc1 = Some doc):
+    lex (Doc.print doc width)
+      = Ok {
+        leaves = ((pieceFold lexKind (printedPieces doc width)).foldLeft Laid.start Laid.lay).leaves.reverse,
+        end = {
+          leading = ((pieceFold lexKind (printedPieces doc width)).foldLeft Laid.start Laid.lay).pending.reverse,
+          blankLines = ((pieceFold lexKind (printedPieces doc width)).foldLeft Laid.start Laid.lay).blankRun,
+          trailing = None
+        }
+      } :=
+  printLexes1Tree decl doc width within shaped
+    (declSoundOfSettled decl within settled (declReal decl within lexical spelled))
+    lexical
+    spelled
+    shows
