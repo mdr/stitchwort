@@ -1,5 +1,5 @@
 {
-  "next": 4244,
+  "next": 4245,
   "tickets": [
     {
       "id": 47,
@@ -27450,6 +27450,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4203.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4244,
+      "title": "[Sonnet] Resource notes name the user's computation again: since SW-3930 (526f98b64, glued declared types) the step-limit note and progress notes name List.length instead of replicate (resources.rs:198, :692 fail); name the last non-std definition entered (or the outermost), and make both tests pass",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "Found in SW-4091's verifier; bisected by SW-4091 to 526f98b64. Est. 40 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
