@@ -1,5 +1,5 @@
 {
-  "next": 4162,
+  "next": 4166,
   "tickets": [
     {
       "id": 47,
@@ -26094,7 +26094,7 @@
     {
       "id": 4141,
       "title": "[Sonnet] fmt (SW-4132 lane 2): doesn't-read-comments lemmas: stripped, SameCode, items commutes with stripping, the 78 look-aheads, the 33 tree functions, grammar1Deaf, loweringDeaf",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4141",
       "labels": [],
@@ -26362,6 +26362,58 @@
       "labels": [],
       "epic": "std-library",
       "body": "Est. 15 min. Prelude snapshot will change (moves).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4162,
+      "title": "[Opus] fmt (SW-4132 lane 2b): loweringDeaf: a Fail-effect traversal lemma family over Expr/Pattern/Decl.traverse (steps that can fail), then traversalError on decl and decl.walk blankPure agree (SW-4141 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60-90 min. Pure pieces done in Syntax/DeafProofs.sw (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Needed by lane 8.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4163,
+      "title": "[Sonnet] std: List.consNeNil-style lemma for [] = [x, ..xs] clashes (12 uses of let clash + cases in Syntax/DeafProofs) and use it there (SW-4141 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Est. 20 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4164,
+      "title": "[Sonnet] proving guide: a paragraph on byComputing through hidden matches on a stripped vs plain argument: split the scrutinee first (SW-4141 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "Est. 10 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4165,
+      "title": "[Opus] fmt (SW-4132 lane 3): pattern lane: the alike relations, two-run wrappers (followsBump, peeked, eat, expect, lower, fail), the knot's statement and the cross-file record, atoms, brackets and comma lists as the worked pattern; a how-to header for lanes 4-7 (Syntax/FollowsBase.sw)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4165",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 35 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
