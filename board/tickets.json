@@ -1,5 +1,5 @@
 {
-  "next": 4254,
+  "next": 4255,
   "tickets": [
     {
       "id": 47,
@@ -27485,7 +27485,7 @@
     {
       "id": 4246,
       "title": "[Sonnet] Importing Std (Fail) now costs ~12M more evaluation steps (resources::comparing_a_large_let_does_not_compute_it_while_checking fails: effectful case 19.7M vs 7.9M baseline) since SW-4218 added 23 Fail.toResultSeqN/AlikeN lemmas to Fail/Fail.sw; measure which declarations cost (check --timings), move the walk families to their own std file (e.g. Fail/Walk.sw) imported by their users, or make their proofs cheap; make the test's baseline import what each case imports",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27584,6 +27584,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Matt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4254,
+      "title": "[Sonnet] Loading Std (Fail) alone costs ~6M evaluation steps over a program without it (13.9M vs 7.9M): find which of Fail.sw's tests or lemmas cost, and make them cheap or move them out of the import path (SW-4246 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "From SW-4246.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
