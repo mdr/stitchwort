@@ -1,5 +1,5 @@
 {
-  "next": 4267,
+  "next": 4269,
   "tickets": [
     {
       "id": 47,
@@ -27236,7 +27236,7 @@
     {
       "id": 4227,
       "title": "[Sonnet] fmt consolidation: 59 same-name-different-statement theorem pairs across Fmt/Syntax (SW-4209 list on its ticket): rename each to say what it states, merge allReverseOnto's identical copies and givesLocated if equal, move one-line Bool lemmas onto std's Bool.andFalseRight/orFalse*",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27502,7 +27502,7 @@
     {
       "id": 4247,
       "title": "[Opus] Self-hosted parser: accept or-patterns that bind names (D3694; tools/fmt/src/Syntax/Lowering.sw checkPattern/orPatternBinds), so fmt:twin agrees with the Rust parser again on the new examples, guide files and the two rewritten proof files; accepts more, not a narrowing; repair dependent proofs",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27699,12 +27699,12 @@
     {
       "id": 4262,
       "title": "[Opus] Functional induction C: G2, recursive call inside a non-tail match gets an induction hypothesis with the branch equation",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min.",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min.\n\nProgress (lane, 21:12): done on lane/SW-4262, cc3221b5f. G2 ih = alternative's variables + its equation as premise, read from the helper's kernel case tree; structural and decreasing (match h: equation mapped to the premise); number arms get `x = k`, number defaults no premise; catch-alls over constructors give one ih per constructor. Refused with reason: split of an indexed family; helper calling itself. Existing induct examples' hashes unchanged. Examples accept/function-induct-nontail-match.sw, reject/match-induct-nontail-indexed.sw; docs syntax.md, guide ch.10, proving guide. ~29 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27757,6 +27757,32 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-4260.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4267,
+      "title": "[DeepSeek] Prove appDocsIsOneFirst from appDocsIs (they differ only by 1 + n vs n + 1) or merge them (SW-4227 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4227.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4268,
+      "title": "[DeepSeek] Bring tools/fmt-sketch/src/Format.sw:20 and docs/proposals/self-hosted-fmt.md:334 up to date with binding or-patterns (D3694), or mark the latter historical (SW-4247 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "From SW-4247.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
