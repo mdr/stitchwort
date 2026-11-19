@@ -27065,8 +27065,8 @@
     {
       "id": 4214,
       "title": "[Sonnet] fmt consolidation L1: un-number the 77 tree properties (shaped1, lexical1, settled1, unreturned1, kinds1, …) per docs/proposals/fmt-consolidation-statements.md lane 1; Predicates1.sw → Predicates.sw, Kinds1.sw → Kinds.sw; grammar, driver, within1 and token tables stay numbered; after SW-4209",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -27327,8 +27327,8 @@
     {
       "id": 4234,
       "title": "[Sonnet] std: consolidate Bool lemmas into Bool/Bool.sw (Bool.andTrue/andFalse live in List/SortLemmas.sw), drop Doc.Proofs.andTrueLeft (duplicates Bool.andLeft); split List/Lemmas.sw (ends in a test block) into smaller files (SW-4218 findings)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
