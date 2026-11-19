@@ -81,3 +81,31 @@ paren and bracket atoms.
 Not done here: other atoms (`includeAtom`, `universeAtom`, `casesAtom`,
 `atomOf`, `atomAfter`, suffixes) go to lanes 4 and 5; list lemmas for
 `ParamsAlike` and `GroupsAlike` are added by the lane that first needs one.
+
+## From lane 4 (SW-4167, Syntax/FollowsLadder.sw)
+
+- **Boundary in Parser.sw:** lane 4 took `andOrAhead`, `operatorExpr` to
+  `iffEnd`, `atPipe` to `mulExpr`, `unary` to `argumentBrace`, and
+  `startsAtom`, `bareCases`. Lane 5 has everything before `andOrAhead`,
+  the quantifier, lambda, `if` and `namedBinder` functions between
+  `iffEnd` and `atPipe`, and everything from `atom` on.
+- **Cross-lane facts lane 4 assumes** (defs at the top of FollowsLadder,
+  stated for every `modes`): `AtomFollows` (`atom self modes True`),
+  `BraceFollows` (`braceArgument`), `MatchFollows` (`matchExpr`),
+  `ClauseLambdaFollows` (`clauseLambda … None ClauseMatches`),
+  `LambdaFollows` (`lambda self modes None`), `IfFollows` (`ifExpr`),
+  `QuantifierFollows` (`Syntax.quantifier`), all lane 5; and
+  `ResultTypeFollows` (`resultType`), lane 6. Lanes 5 and 6: state yours
+  so these follow directly, or lane 8 needs adapters.
+- `lambdaHere`, `matchesBarAhead`, `sequenceAhead` are already proved
+  there.
+- A `match` inside a parser lambda (loop steps) can't be restated in a
+  proof (a different hidden function): write `Parse.followsLoop _ _ (…)`
+  and let unification find the step.
+- `let operand := p(); if section then … else operand` doesn't reduce to
+  `p()` in the `False` case: use `Parse.followsMap (x => x) (x => x) …`.
+- `Parse.followsMap` often needs `[alike := …]` (and `p`/`q`) given by
+  hand when the result is `Some (…)`.
+- Under `import Fmt (..)`, `quantifier` and `chainLinks` are ambiguous:
+  write `Syntax.quantifier`, `Syntax.chainLinks`.
+- No std `List.All2` length lemma: lane 4 has a local `all2Length`.

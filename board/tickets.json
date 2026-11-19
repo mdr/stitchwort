@@ -1,5 +1,5 @@
 {
-  "next": 4174,
+  "next": 4175,
   "tickets": [
     {
       "id": 47,
@@ -26369,12 +26369,12 @@
     {
       "id": 4162,
       "title": "[Opus] fmt (SW-4132 lane 2b): loweringDeaf: a Fail-effect traversal lemma family over Expr/Pattern/Decl.traverse (steps that can fail), then traversalError on decl and decl.walk blankPure agree (SW-4141 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4162",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60-90 min. Pure pieces done in Syntax/DeafProofs.sw (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Needed by lane 8.",
+      "body": "Est. 60-90 min. Pure pieces done in Syntax/DeafProofs.sw (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Needed by lane 8.\n\nLane notes (Opus, 19 Nov): branch lane/SW-4162, commit 047a629ab. loweringDeaf proved as SW-4132 §3 states it (decl.loweringError = (decl.walk blankPure).loweringError), via new Fmt/TraverseFail.sw (41 `…Blanks` theorems + alike combinators, generated from Walk.sw's `…Ok` family) and checkBlanks/traversalDeaf in DeafProofs. Check + audit clean: Fmt.TraverseFail 52/52, Syntax.DeafProofs 137/137. Computed check: Fmt/Tests/LoweringDeaf.sw, 8 declarations with comments, 6 with errors (all three checks), agree. 17 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26434,7 +26434,7 @@
     {
       "id": 4167,
       "title": "[Sonnet] fmt (SW-4132 lane 4): two-run walk of Parser.sw first half: applications, unary, the operator ladder, ranges, comparisons, logic, pipes (Syntax/FollowsLadder.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4167",
       "labels": [],
@@ -26501,9 +26501,9 @@
     {
       "id": 4172,
       "title": "[Opus] fmt S1 lane K1 (SW-4166): Carried becomes Kept: Expr.kinds1 (new file), Out/DeclOut regated on grammar1, Kept/KeptAt/carriedOfKept, ParseCarries.sw converted, within1 -> grammar1 lemmas",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4172",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §2, §4 row K1. Later ParseWalk.sw editors wait for it.",
@@ -26520,6 +26520,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row K2.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4174,
+      "title": "[Sonnet] std: List.All2 length lemma (local all2Length in Syntax/FollowsLadder.sw), and the FollowsBase how-to notes from lane 4 (SW-4167 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Est. 15 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
