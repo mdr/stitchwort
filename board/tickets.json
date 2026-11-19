@@ -27162,8 +27162,8 @@
     {
       "id": 4221,
       "title": "[Sonnet] Proving guide + pattern: deciding facts over finite token kinds by computation (Finite.check), with an example replacing a per-kind lemma family in tools/fmt (SW-4205 §6 item 7)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
