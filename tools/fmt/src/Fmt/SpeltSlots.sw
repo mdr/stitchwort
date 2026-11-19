@@ -1525,3 +1525,5 @@ theorem closerExample: lexKind ")" = RParen ∨ lexKind ")" = RBracket :=
 
 theorem bracketCloserExample: lexKind "]" = RParen ∨ lexKind "]" = RBracket :=
   bracketCloser (fixedWord "]" Word.none.comments) byComputing
+
+theorem infixFactsExample: InfixFacts InfixBinary "+" := infixFacts InfixBinary "+" byComputing

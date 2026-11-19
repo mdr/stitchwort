@@ -7,7 +7,7 @@ import Std (Bool, List, Option)
 import Syntax (..)
 import Fmt (..)
 import Fmt.OutputStatements (..)
-import Fmt.TopReadBack (..)
+import Fmt.GroupFacts (..)
 
 --| `def d: A := -1 n`, as the driver tidies it (`prefixHeadTidied`).
 def prefixHeadDecl: Decl :=
