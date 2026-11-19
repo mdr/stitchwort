@@ -11,22 +11,13 @@ import Fmt.SpellProofs (..)
 import Fmt.ToldDeclProofs (..)
 import Fmt.TrailsProofs (Coded, atomCoded, parenTrails, trailsBackCoded)
 import Fmt.CalmProofs (lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
-import Fmt.LaysEls (elStep)
+import Fmt.LaysEls (allElStep, argsBracketEl, elStep)
+import Fmt.LaysApp (appHugStep)
 import Fmt.LaysWords (..)
 import Fmt.JoinProofs (DeclJoins)
 import Fmt.TreeJoinProofs (lexKind)
 
 -- Places.
-
---| A place with words on its line and no line start starts an element, wherever its comments are written.
-theorem freshStarts ∀ (kinds: Kinds) (hoisted before: Bool)
-    (fresh: Fresh kinds = True):
-    Starts hoisted before kinds = True :=
-  match kinds, fresh with
-    | { start = False, broken, mid, held = False }, _ =>
-      match hoisted with
-        | True => byComputing
-        | False => byComputing
 
 --| After a line break forced by `OneLineBelow`, an element starts wherever it is written.
 theorem startsBroken ∀ (hoisted before: Bool): Starts hoisted before { Kinds.none | broken = True } = True :=
@@ -454,7 +445,34 @@ theorem callHugStep ∀ (value: Expr) (around: Around) (open: Doc)
     (lexical: value.lexical1 = True)
     (found: value.callHug { around | hoisted = True } = Some open):
     Step open (Starts True around.before) (kinds => Ends kinds value.trails) :=
-  ?
+  match value, within with
+    | App head [argument, ..rest], within =>
+      appHugStep head
+        [argument, ..rest]
+        around
+        open
+        (List.consNotNil argument rest)
+        within
+        sound
+        nonCloser
+        spelled
+        lexical
+        (inside =>
+          elStep head inside
+            (Bool.andLeft within)
+            (Bool.andLeft sound)
+            (Bool.andLeft nonCloser)
+            (Bool.andLeft spelled)
+            (Bool.andLeft lexical))
+        (allElStep
+          [argument, ..rest]
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight nonCloser)
+          (Bool.andRight spelled)
+          (Bool.andRight lexical))
+        (argsBracketEl [argument, ..rest] (Bool.andRight within))
+        found
 
 -- The declaration.
 

@@ -256,8 +256,9 @@ theorem stepConcatIf ∀ (cond: Bool) (yes no: List Doc) (pre post: Kinds → Bo
     | False => stepDocConcat _ _ _ second
 
 --| A broken bracket's parts: the opener, the items each on a line, a soft line, the closer.
-theorem brokenParts ∀ (open: Word) (items: List Expr) (close: Word) (around: Around) (bare prior: Bool)
-    (openS: Step (open.opening around close) NoHeld (kinds => Ends kinds open.trails))
+theorem brokenParts ∀ (pre: Kinds → Bool) (open: Word) (items: List Expr) (close: Word)
+    (around: Around) (bare prior: Bool)
+    (openS: Step (open.opening around close) pre (kinds => Ends kinds open.trails))
     (els: ItemsEl items)
     (closeS: Step
       (close.leaf
@@ -274,7 +275,7 @@ theorem brokenParts ∀ (open: Word) (items: List Expr) (close: Word) (around: A
           (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
           around.at
       ]
-      NoHeld
+      pre
       (kinds => Ends kinds (ListOf open items False close).trails) :=
   stepAllCons
     (open.opening around close)
@@ -285,7 +286,7 @@ theorem brokenParts ∀ (open: Word) (items: List Expr) (close: Word) (around: A
         (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
         around.at
     ]
-    NoHeld
+    pre
     (kinds => Ends kinds open.trails)
     (kinds => Ends kinds (ListOf open items False close).trails)
     openS
@@ -325,7 +326,8 @@ theorem brokenParts ∀ (open: Word) (items: List Expr) (close: Word) (around: A
 --| Proof idea: by the three shapes the rules pick (no items; a filled list; broken items, with a `BreakParent` at the
 --| end if a comment is held): the opener (`openStep`), the items from where it ended (`stepCells` or
 --| `brokenItemsStep`), then the closer from where the last item ended (`closeStep`).
-theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+theorem bracketContentStepFrom ∀ (pre: Kinds → Bool) (list: Bool) (open: Word) (items: List Expr)
+    (close: Word) (around: Around)
     (hoisted: around.hoisted = True)
     (openSound: open.sound = True)
     (closeSound: close.sound = True)
@@ -336,7 +338,7 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
     (els: ItemsEl items)
     (stops: ∀ (argument: Expr) (rest: List Expr) => items = [argument, ..rest]
       → Coded (lastArg argument rest).words.reverse = True):
-    Step (bracketContent list open items close around) NoHeld (kinds =>
+    Step (bracketContent list open items close around) pre (kinds =>
       Ends kinds (ListOf open items False close).trails) :=
   match items with
     | [] =>
@@ -348,13 +350,13 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
               (around.next (ListOf open [] False close).trailsBeforeClose ((ListOf open [] False close).size - 1))
               around.at
           ]
-          NoHeld
+          pre
           (kinds => Ends kinds open.trails)
           (kinds => Ends kinds (ListOf open [] False close).trails)
           (stepWeaken
             (open.opening around close)
             Anything
-            NoHeld
+            pre
             (kinds => Ends kinds open.trails)
             (kinds => Ends kinds open.trails)
             (openStep open close around hoisted openSound openComma openOpen)
@@ -374,11 +376,11 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
         Eq.trans
           (bracketBeforeItems whole open argument rest close byComputing (stops argument rest byComputing))
           (itemsEndLast open.trails argument rest).flipped
-      let openS: Step (open.opening around close) NoHeld (kinds => Ends kinds open.trails) :=
+      let openS: Step (open.opening around close) pre (kinds => Ends kinds open.trails) :=
         stepWeaken
           (open.opening around close)
           Anything
-          NoHeld
+          pre
           (kinds => Ends kinds open.trails)
           (kinds => Ends kinds open.trails)
           (openStep open close around hoisted openSound openComma openOpen)
@@ -448,7 +450,7 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
                SoftLine,
                close.leaf (around.next whole.trailsBeforeClose (whole.size - 1)) around.at
              ]))
-        NoHeld
+        pre
         (kinds => Ends kinds whole.trails)
         (fill =>
           stepDocConcat _ _ _
@@ -463,7 +465,7 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
                     ])),
                 close.leaf (around.next whole.trailsBeforeClose (whole.size - 1)) around.at
               ]
-              NoHeld
+              pre
               (kinds => Ends kinds open.trails)
               (kinds => Ends kinds whole.trails)
               openS
@@ -536,7 +538,7 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
               SoftLine,
               close.leaf (around.next whole.trailsBeforeClose (whole.size - 1)) around.at
             ]
-            NoHeld
+            pre
             (kinds => Ends kinds whole.trails)
             (stepAllAppend
               [
@@ -554,10 +556,10 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
                 close.leaf (around.next whole.trailsBeforeClose (whole.size - 1)) around.at
               ]
               [BreakParent]
-              NoHeld
+              pre
               (kinds => Ends kinds whole.trails)
               (kinds => Ends kinds whole.trails)
-              (brokenParts open
+              (brokenParts pre open
                 [argument, ..rest]
                 close
                 around
@@ -570,7 +572,7 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
                 (kinds => Ends kinds whole.trails)
                 (kinds => Ends kinds whole.trails)
                 (stepBreakParent _)))
-            (brokenParts open
+            (brokenParts pre open
               [argument, ..rest]
               close
               around
@@ -579,3 +581,20 @@ theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (clo
               openS
               els
               closeS2))
+
+--| `bracketContentStepFrom` from a place with no comment waiting.
+theorem bracketContentStep ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+    (hoisted: around.hoisted = True)
+    (openSound: open.sound = True)
+    (closeSound: close.sound = True)
+    (openOpen: isCloserText open.text = False)
+    (openComma: open.notComma = True)
+    (closeShut: isCloserText close.text = True)
+    (closes: Doc.Proofs.closesText close.text = True)
+    (els: ItemsEl items)
+    (stops: ∀ (argument: Expr) (rest: List Expr) => items = [argument, ..rest]
+      → Coded (lastArg argument rest).words.reverse = True):
+    Step (bracketContent list open items close around) NoHeld (kinds =>
+      Ends kinds (ListOf open items False close).trails) :=
+  bracketContentStepFrom NoHeld list open items close around hoisted openSound closeSound openOpen openComma closeShut
+      closes els stops

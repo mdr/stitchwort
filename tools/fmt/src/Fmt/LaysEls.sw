@@ -13,6 +13,7 @@ import Fmt.AppHangProofs (lastArg)
 import Fmt.TrailsProofs (Coded, atomCoded, parenTrails, trailsBackCoded)
 import Fmt.LaysWords (..)
 import Fmt.LaysBrackets (..)
+import Fmt.LaysApp (ArgsEl, BracketEl, ItemsFacts, appStep)
 
 --| What a paren holds and its two brackets.
 --|
@@ -303,7 +304,43 @@ theorem elStep ∀ (expr: Expr) (around: Around)
               lastCoded argument rest
                 (rewrite same at within then within)
                 (rewrite same at nonCloser then Bool.andRight nonCloser))))
-    | App head arguments => ?
+    | App head arguments =>
+      match arguments with
+        | [] => ?
+        | [argument, ..rest] =>
+          framedStep
+            (App head [argument, ..rest]).firstWord
+            around
+            (appDocs head [argument, ..rest] { around | hoisted = True }).doc
+            (App head [argument, ..rest]).trails
+            (rewrite firstWordLead (App head [argument, ..rest]) within then
+              leadSound (App head [argument, ..rest]) sound)
+            (rewrite firstWordLead (App head [argument, ..rest]) within then
+              leadNonCloser (App head [argument, ..rest]) nonCloser)
+            (appStep head
+              [argument, ..rest]
+              around
+              (List.consNotNil argument rest)
+              within
+              sound
+              nonCloser
+              spelled
+              lexical
+              (inside =>
+                elStep head inside
+                  (Bool.andLeft within)
+                  (Bool.andLeft sound)
+                  (Bool.andLeft nonCloser)
+                  (Bool.andLeft spelled)
+                  (Bool.andLeft lexical))
+              (allElStep
+                [argument, ..rest]
+                (Bool.andRight within)
+                (Bool.andRight sound)
+                (Bool.andRight nonCloser)
+                (Bool.andRight spelled)
+                (Bool.andRight lexical))
+              (argsBracketEl [argument, ..rest] (Bool.andRight within)))
     | Prefix operator operand =>
       framedStep
         (Prefix operator operand).firstWord
@@ -675,3 +712,22 @@ theorem allElStep ∀ (items: List Expr)
         (Bool.andRight spelled)
         (Bool.andRight lexical)
     )
+
+--| What an argument that is a bracket needs to hug: its items' steps.
+theorem bracketEl ∀ (argument: Expr) (within: argument.within1 = True): BracketEl argument :=
+  match argument, within with
+    | Tuple open items comma close, within => within sound nonCloser spelled lexical =>
+      allElStep items within sound nonCloser spelled lexical
+    | ListOf open items comma close, within => within sound nonCloser spelled lexical =>
+      allElStep items within sound nonCloser spelled lexical
+    | Atom kind word, _ => byComputing
+    | Prefix operator operand, _ => byComputing
+    | Paren open inner close, _ => byComputing
+    | App head arguments, _ => byComputing
+    | Infix kind left operator right, _ => byComputing
+
+--| Each argument's bracket steps.
+theorem argsBracketEl ∀ (arguments: List Expr) (within: allWithin1 arguments = True): ArgsEl arguments :=
+  match arguments with
+    | [] => byComputing
+    | [argument, ..rest] => (bracketEl argument (Bool.andLeft within), argsBracketEl rest (Bool.andRight within))

@@ -166,6 +166,16 @@ theorem freshNotStart ∀ (kinds: Kinds) (fresh: Fresh kinds = True): NotStart k
 theorem freshNoHeld ∀ (kinds: Kinds) (fresh: Fresh kinds = True): NoHeld kinds = True := match kinds, fresh with
   | { start = False, broken, mid, held = False }, _ => byComputing
 
+--| A place with words on its line and no line start starts an element, wherever its comments are written.
+theorem freshStarts ∀ (kinds: Kinds) (hoisted before: Bool)
+    (fresh: Fresh kinds = True):
+    Starts hoisted before kinds = True :=
+  match kinds, fresh with
+    | { start = False, broken, mid, held = False }, _ =>
+      match hoisted with
+        | True => byComputing
+        | False => byComputing
+
 theorem anything ∀ (kinds: Kinds): Anything kinds = True := byComputing
 
 -- Own-line comments.
