@@ -15,6 +15,7 @@ import Syntax.ReadBackRuns (plainHeader)
 import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
 import Syntax.ReadBackLine (..)
+import Syntax.AutoPlaced (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungDeep (hungDeep)
 import Syntax.ReadBackHungAtomsLemmas (deepRest)
@@ -35,7 +36,7 @@ theorem fullHung ∀ (modes: Modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr read)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 True = True)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
     (placed: state.start = True ∨ state.glue = True)
@@ -136,8 +137,9 @@ theorem colonEqHung ∀ (state: HangState) (colonEq: Leaf) (rest: List Leaf)
 -- The declaration.
 
 --| The read-back of a declaration on any lines: `def name: A := b`, with `A` and `b` spelt by the items between `:`
---| and `:=` and after `:=`, and the group's leaves keeping the line rule, parses as `parseGroups` runs it to that
---| definition, the words being the items'.
+--| and `:=` and after `:=`, no list at a full expression's start in either starting with an `auto` call
+--| (`autoPlaced1`), and the group's leaves keeping the line rule, parses as `parseGroups` runs it to that definition,
+--| the words being the items'.
 --|
 --| Proof idea: `declarationTree`, with the type and the value as `fullHung` trees under the start's and the body's
 --| modes, which have no line limit. The line rule's state at the type's start is the header's (`headerHung`); the
@@ -155,8 +157,8 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
     (valueSpelt: Spelt value valueRead)
     (typeLine: lineAll typeRead = True)
     (valueLine: lineAll valueRead = True)
-    (typeWithin: result.within1 = True)
-    (valueWithin: value.within1 = True):
+    (typePlaced: result.autoPlaced1 True = True)
+    (valuePlaced: value.autoPlaced1 True = True):
     Parse.run (items group) (() =>
       let decl := declaration seen
       decl)
@@ -164,8 +166,6 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
   let startQuiet: Quiet Modes.start := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
   let body := { Modes.start | recover = True }
   let bodyQuiet: Quiet body := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
-  let typeFree := autoFreeWithin1 result typeWithin
-  let valueFree := autoFreeWithin1 value valueWithin
   let after := [colonEq, ..valueRead]
   let lineAfter: lineAll after = True := rewrite isColonEq, valueLine
   let hungItems: hangs (leavesOf [keyword, name, colon, ..typeRead ++ after]) = True :=
@@ -210,7 +210,7 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
         fullHung Modes.start startQuiet result typeRead after result.nest1 HangState.atTop
           (arithmetic [])
           typeSpelt
-          typeFree
+          typePlaced
           typeLine
           lineAfter
           (Inl byComputing)
@@ -224,7 +224,7 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
     fullHung body bodyQuiet value valueRead [] value.nest1 HangState.atTop
       (arithmetic [])
       valueSpelt
-      valueFree
+      valuePlaced
       valueLine
       byComputing
       (Inl byComputing)

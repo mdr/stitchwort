@@ -12,6 +12,7 @@ import Syntax.ReadBackRuns (..)
 import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
 import Syntax.ReadBackLine (..)
+import Syntax.AutoPlaced (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungChains (..)
 import Syntax.ReadBackHungAtomsLemmas (leadHung, speltHung, deepRest)
@@ -22,7 +23,7 @@ import Syntax.ReadBackHungInlineLemmas (..)
 def CmpHungAt (modes: Modes) (depth: Nat): Prop :=
   ∀ (expr: Expr) (read rest: List Item) (state: HangState) => expr.nest1 <= depth
     → Spelt expr read
-    → expr.autoFree1 = True
+    → expr.autoPlaced1 False = True
     → lineAll read = True
     → lineAll rest = True
     → openHead modes read = True
@@ -133,7 +134,7 @@ theorem logicOperatorHung ∀ (modes: Modes)
     (whole: all = read ++ read3)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr read)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 False = True)
     (lineRead: lineAll read = True)
     (lineAfter: lineAll (read3 ++ rest) = True)
     (openFirst: openHead modes read = True)
@@ -213,7 +214,7 @@ theorem operatorHung ∀ (modes: Modes)
     (whole: all = read ++ read3)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr read)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 False = True)
     (lineRead: lineAll read = True)
     (lineAfter: lineAll (read3 ++ rest) = True)
     (openFirst: openHead modes read = True)
@@ -253,7 +254,7 @@ theorem arrowHung ∀ (modes: Modes)
     (inner: FullHungBelow depth)
     (deep: (Infix InfixArrow left operator right).nest1 <= depth)
     (spelt: Spelt (Infix InfixArrow left operator right) [item, ..more])
-    (free: (Infix InfixArrow left operator right).autoFree1 = True)
+    (free: (Infix InfixArrow left operator right).autoPlaced1 True = True)
     (lineRead: lineAll [item, ..more] = True)
     (lineRest: lineAll rest = True)
     (open: modes.stops item = False)
@@ -348,7 +349,7 @@ theorem arrowHung ∀ (modes: Modes)
           isRead
           (arithmetic [deep])
           leftSpelt
-          (Bool.andLeft free)
+          (autoPlacedInner left (Bool.andLeft free))
           lineLeft
           lineAfterLeft
           openLeft
@@ -375,7 +376,7 @@ theorem inlinePlainHung ∀ (modes: Modes)
     (inner: FullHungBelow depth)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr [item, ..more])
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 True = True)
     (lineRead: lineAll [item, ..more] = True)
     (lineRest: lineAll rest = True)
     (open: modes.stops item = False)
@@ -403,7 +404,7 @@ theorem inlinePlainHung ∀ (modes: Modes)
       (List.appendNil [item, ..more]).flipped
       deep
       spelt
-      free
+      (autoPlacedInner expr free)
       lineRead
       lineRest
       (openHeadOf modes item more open)
@@ -433,7 +434,7 @@ theorem inlineHung ∀ (modes: Modes)
     (inner: FullHungBelow depth)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr [item, ..more])
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 True = True)
     (lineRead: lineAll [item, ..more] = True)
     (lineRest: lineAll rest = True)
     (open: modes.stops item = False)

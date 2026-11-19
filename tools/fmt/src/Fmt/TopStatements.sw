@@ -45,6 +45,8 @@ import Syntax.GoodItemProofs (settledGood, spelledPlain1)
 import Syntax.GlueQuietProofs (settledItemsQuiet)
 import Syntax.SettleProofs (alphabet1, plain1, settledKeepsTokens, sourcePlainOfPlain, tokens)
 import Syntax.SettleBareProofs (settledOnceNone)
+import Syntax.AutoPlaced (..)
+import Fmt.PlacedProofs (commaKeepsPlaced, parsedPlaced1)
 
 --| P2 is the identity on an expression with no last comma.
 theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
@@ -331,7 +333,8 @@ theorem outputParses1 ∀ (file: SourceFile)
     (facts: TreeFacts file)
     (oneLine: file.oneLine1 = True)
     (declsUnreturned: file.decls.all Decl.unreturned1 = True)
-    (unreturned: file.unreturned1 = True):
+    (unreturned: file.unreturned1 = True)
+    (placed: file.autoPlaced1 = True):
     lex file.printed1 = Ok file.lexed1 ∧ parseFile file.lexed1.settledOnce = Ok file.calmTop :=
   let (within, shaped, settled, lexical, commaFree) := facts
   let declsSettled: file.decls.all Decl.settled1 = True := Bool.andLeft settled
@@ -353,12 +356,22 @@ theorem outputParses1 ∀ (file: SourceFile)
   (
     printedFileLexes1 file within shaped settled lexical,
     rewrite once then
-      readsBackFile1 file file.lexed1.settled within shaped settled lexical commaFree hung
+      readsBackFile1 file file.lexed1.settled within shaped settled lexical commaFree hung placed
         (settledKeepsTokens file.lexed1)
         words
         ends
         declsReadBack
   )
+
+--| The tree the driver prints is placed (`Syntax.AutoPlaced`): the parser's `parsedPlaced1`, carried through P2.
+theorem tidiedPlaced1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (leaves: leavesWithin1 lexed.leaves = True)
+    (parses: parseFile lexed.settledOnce = Ok parsed)
+    (within: parsed.within1 = True):
+    parsed.tidy1.autoPlaced1 = True :=
+  rewrite tidyComma1 parsed within then
+    commaKeepsPlaced parsed within (parsedPlaced1 source lexed parsed lexes leaves parses within)
 
 --| The facts of the tree the driver prints for an accepted source.
 def Printed1 (source: Text) (lexed: Lexed) (parsed: SourceFile): Prop :=
@@ -374,7 +387,8 @@ theorem printedOf ∀ (source out: Text) (lexed: Lexed) (parsed: SourceFile)
   let facts := tidiedFacts source lexed parsed lexes leaves parses within
   let unreturned := tidiedUnreturned1 source lexed parsed lexes leaves parses within
   let declsUnreturned := tidiedDeclsUnreturned1 source lexed parsed lexes leaves parses within
-  let (lexOut, parseOut) := outputParses1 parsed.tidy1 facts oneLine declsUnreturned unreturned
+  let placed := tidiedPlaced1 source lexed parsed lexes leaves parses within
+  let (lexOut, parseOut) := outputParses1 parsed.tidy1 facts oneLine declsUnreturned unreturned placed
   (facts, oneLine, lexOut, parseOut)
 
 -- The top theorems.

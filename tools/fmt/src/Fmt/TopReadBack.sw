@@ -23,6 +23,8 @@ import Fmt.OutputFileProofs (printedGroups1)
 import Fmt.ReadBackFile (declLowers, groupReads, groupsFromTokens, groupsTokens, refusalNone)
 import Fmt.GroupFacts (..)
 import Fmt.GroupSlots (printedSplit1)
+import Fmt.PlacedProofs (declPlacedCalmAt)
+import Syntax.AutoPlaced (..)
 
 -- One declaration.
 
@@ -50,7 +52,8 @@ theorem printedLines1 ∀ (group: List Leaf) (read: Decl) (keyword name colon co
 --| `printedSplit1` gives, with `printedLines1`'s kinds, the group keeping the line rule because its tokens are the
 --| printed leaves' (`hangsTokens`).
 theorem readsBackDecl1 ∀ (seen: Seen) (decl read: Decl) (group: List Leaf)
-    (printed: PrintedGroup decl read group):
+    (printed: PrintedGroup decl read group)
+    (placed: read.autoPlaced1 = True):
     DeclReadsBack seen group read :=
   let (keyword, name, colon, colonEq, typeRead, valueRead, result, value, split) :=
     printedSplit1 decl read group printed
@@ -58,17 +61,26 @@ theorem readsBackDecl1 ∀ (seen: Seen) (decl read: Decl) (group: List Leaf)
   let (_, _, _, _, _, printedHangs, sameTokens, _, _) := printed
   let (isItems, isRead, isDef, isLower, isColon, isColonEq, typeSpelt, valueSpelt, typeWithin, valueWithin) := split
   let hung: hangs group = True := rewrite hangsTokens group decl.leaves1 sameTokens then printedHangs
+  let bothPlaced: Decl.autoPlaced1
+    (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value))
+    = True :=
+    rewrite <- isRead then placed
   rewrite isRead then
     readsBackHung seen group keyword name colon colonEq typeRead valueRead result value isItems hung isDef isLower
-        isColon isColonEq typeSpelt valueSpelt typeLine valueLine typeWithin valueWithin
+        isColon isColonEq typeSpelt valueSpelt typeLine valueLine
+        (Bool.andLeft bothPlaced)
+        (Bool.andRight bothPlaced)
 
 -- The file.
 
 --| Every printed declaration's group reads back: `readsBackDecl1`'s statement, which `readsBackFile1` takes.
 def DeclsReadBack: Prop :=
-  ∀ (seen: Seen) (decl read: Decl) (group: List Leaf) => PrintedGroup decl read group → DeclReadsBack seen group read
+  ∀ (seen: Seen) (decl read: Decl) (group: List Leaf) => PrintedGroup decl read group
+    → read.autoPlaced1 = True
+    → DeclReadsBack seen group read
 
-theorem declsReadBack: DeclsReadBack := seen decl read group printed => readsBackDecl1 seen decl read group printed
+theorem declsReadBack: DeclsReadBack := seen decl read group printed placed =>
+  readsBackDecl1 seen decl read group printed placed
 
 --| `calm`, with the file's first flag cleared or not, keeps a declaration in slice 1.
 theorem calmAtWithin ∀ (decl: Decl) (top: Bool) (within: decl.within1 = True): (decl.calmAt top).within1 = True :=
@@ -128,6 +140,7 @@ theorem groupsReadBack ∀ (seen: Seen) (decls: List Decl) (groups: List (List L
     (lexical: decls.all Decl.lexical1 = True)
     (commaFree: decls.all Decl.commaFree = True)
     (hung: decls.all (decl => hangs decl.leaves1) = True)
+    (placed: decls.all Decl.autoPlaced1 = True)
     (tokensSame: groups.map tokens = decls.map (decl => tokens decl.leaves1))
     (words: groups.map codeWords = (decls.map Decl.calm).map Decl.words) (reads: DeclsReadBack):
     parseGroups seen groups found = Ok (found.reverse ++ decls.map Decl.calm) :=
@@ -157,12 +170,17 @@ theorem groupsReadBack ∀ (seen: Seen) (decls: List Decl) (groups: List (List L
           (Bool.andRight lexical)
           (Bool.andRight commaFree)
           (Bool.andRight hung)
+          (Bool.andRight placed)
           (Eq.cong (xs => xs.drop 1) tokensSame)
           (Eq.cong (xs => xs.drop 1) words)
           reads
       rewrite groupReads seen group others found
             (decl.calmAt False)
-            (reads seen decl (decl.calmAt False) group printed)
+            (reads seen decl
+              (decl.calmAt False)
+              group
+              printed
+              (rewrite declPlacedCalmAt decl False then Bool.andLeft placed))
             (declLowers (decl.calmAt False) (calmAtWithin decl False (Bool.andLeft within))),
           next,
           List.reverseCons (decl.calmAt False) found,
@@ -177,6 +195,7 @@ theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
     (lexical: file.lexical1 = True)
     (commaFree: file.commaFree = True)
     (hung: file.hung1 = True)
+    (placed: file.autoPlaced1 = True)
     (tokensSame: groups.map tokens = file.decls.map (decl => tokens decl.leaves1))
     (words: groups.map codeWords = file.calmTop.decls.map Decl.words) (reads: DeclsReadBack):
     parseGroups Seen.start groups [] = Ok file.calmTop.decls :=
@@ -212,12 +231,17 @@ theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
               (Bool.andRight lexical)
               (Bool.andRight commaFree)
               (Bool.andRight hung)
+              (Bool.andRight placed)
               (Eq.cong (xs => xs.drop 1) tokensSame)
               (Eq.cong (xs => xs.drop 1) words)
               reads
           rewrite groupReads Seen.start group others []
                 (decl.calmAt True)
-                (reads Seen.start decl (decl.calmAt True) group printed)
+                (reads Seen.start decl
+                  (decl.calmAt True)
+                  group
+                  printed
+                  (rewrite declPlacedCalmAt decl True then Bool.andLeft placed))
                 (declLowers (decl.calmAt True) (calmAtWithin decl True (Bool.andLeft within))) then
             next
 
@@ -235,6 +259,7 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     (lexical: file.lexical1 = True)
     (commaFree: file.commaFree = True)
     (hung: file.hung1 = True)
+    (placed: file.autoPlaced1 = True)
     (tokensSame: tokens lexed.leaves = tokens file.lexed1.leaves)
     (words: (groupsOf lexed.leaves).map codeWords = file.calmTop.decls.map Decl.words)
     (ends: lexed.end.comments = file.calmTop.end) (decls: DeclsReadBack):
@@ -245,7 +270,18 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
       (rewrite printedGroups1 file within shaped settled lexical hung then groupsFromTokens True file.decls)
   let refusal := refusalNone lexed.leaves file.decls within shaped (Bool.andLeft settled) lexical hung tokensSame
   let parsed :=
-    fileGroupsRead file (groupsOf lexed.leaves) within shaped settled lexical commaFree hung groupsSame words decls
+    fileGroupsRead file
+      (groupsOf lexed.leaves)
+      within
+      shaped
+      settled
+      lexical
+      commaFree
+      hung
+      placed
+      groupsSame
+      words
+      decls
   rewrite refusal, parsed, ends
 
 --| `&&` and `||` are kinds `readsBackHung` reads (`lineAll`).

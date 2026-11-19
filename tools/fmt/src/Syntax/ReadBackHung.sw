@@ -19,6 +19,7 @@ import Syntax.ReadBackRuns (..)
 import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
 import Syntax.ReadBackLine (..)
+import Syntax.AutoPlaced (..)
 
 --| The leaves of items.
 def leavesOf (read: List Item): List Leaf := read.map (item => item.leaf)
@@ -60,7 +61,7 @@ def FullHungAt (depth: Nat): Prop :=
   ∀ (modes: Modes) (expr: Expr) (read rest: List Item) (state: HangState) => Quiet modes
     → expr.nest1 <= depth
     → Spelt expr read
-    → expr.autoFree1 = True
+    → expr.autoPlaced1 True = True
     → lineAll read = True
     → lineAll rest = True
     → (state.start = True ∨ state.glue = True)
