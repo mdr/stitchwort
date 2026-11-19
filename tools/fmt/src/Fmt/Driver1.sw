@@ -1,9 +1,9 @@
 --| Slice 1's driver, the one the top theorems (`Fmt.TopStatements`) are about: lex, refuse a source outside the
---| slice's alphabet, spelled other than plainly or not `sourcePlain1`, parse once from `settledOnce`, refuse a tree outside
---| `within1`, tidy, refuse a declaration that doesn't print on one line, print.
+--| slice's alphabet or not `sourcePlain1`, parse once from `settledOnce`, refuse a tree outside `within1`, tidy, print.
+--| `Fmt.Accepts1` proves that none of these refusals refuses a source of slice 1's grammar.
 --|
---| The one-line refusal is D3685's staging (Matt, 18 Nov 2026): the top theorems are proved first for files whose
---| declarations print on one line, and the refusal goes when read-back covers declarations over several lines.
+--| The one-line test below (`Decl.oneLine1`) is no longer a refusal: it was D3685's staging, and read-back now covers
+--| declarations over several lines. The layers' one-line lemmas still state it.
 
 namespace Fmt.Driver1
 import Std (Bool, List, Result, Text)
@@ -11,7 +11,6 @@ import Syntax (..)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
-import Syntax.GoodItemProofs (spelledPlain1)
 
 --| A source as slice 1's driver reads it: lexed, settled once (last commas bare), parsed.
 def parse1 (source: Text): Result SourceFile Text := match lex source with
@@ -50,19 +49,27 @@ def SourceFile.oneLine1 (file: SourceFile): Bool := file.decls.all Decl.oneLine1
 
 -- The driver.
 
---| The tests on the source's leaves: slice 1's alphabet, names and numerals spelled plainly, and `sourcePlain1` (no `->`
---| before a comma, closer or `->`, no comma starting a line but a last comma, before a closer and after an item).
-def leavesWithin1 (leaves: List Leaf): Bool := alphabet1 leaves && spelledPlain1 leaves && sourcePlain1 (tokens leaves)
+--| The tests on the source's leaves: slice 1's alphabet, and `sourcePlain1` (no `->` before a comma, closer or `->`, no
+--| comma starting a line but a last comma, before a closer and after an item). The lexer spells every name and numeral
+--| as slice 1 has it (`spelledOfFixedAll`), so there is no spelling test.
+def leavesWithin1 (leaves: List Leaf): Bool := alphabet1 leaves && sourcePlain1 (tokens leaves)
 
 --| The source formatted by slice 1's rules, or why not.
 def formatWithin1 (source: Text): Result Text Text := match lex source with
   | Err message => Err message
   | Ok lexed =>
-    if !leavesWithin1 lexed.leaves then Err "outside slice 1: a token slice 1 doesn't have, or spells otherwise"
+    if !leavesWithin1 lexed.leaves then Err "outside slice 1: a token slice 1 doesn't have, or one out of place"
     else
       match parseFile lexed.settledOnce with
         | Err message => Err message
         | Ok parsed =>
-          if !parsed.within1 then Err "outside slice 1: a construct slice 1 doesn't have"
-          else if !parsed.tidy1.oneLine1 then Err "outside slice 1: a declaration that doesn't print on one line"
-          else Ok parsed.tidy1.printed1
+          if !parsed.within1 then Err "outside slice 1: a construct slice 1 doesn't have" else Ok parsed.tidy1.printed1
+
+--| The driver accepts a source whose leaves pass its tests and whose settled leaves parse to a tree within the slice.
+theorem formatsFrom ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (leaves: leavesWithin1 lexed.leaves = True)
+    (parses: parseFile lexed.settledOnce = Ok parsed)
+    (within: parsed.within1 = True):
+    formatWithin1 source = Ok parsed.tidy1.printed1 :=
+  rewrite lexes, leaves, parses, within

@@ -1,6 +1,7 @@
 --| `Syntax.AutoPlaced.Expr.autoPlaced1` across the driver (SW-4128): comments don't change it (`autoPlacedDeaf`), nor
 --| do `calm` and the trailing-comma pass; and the parser's fact that it holds of the driver's tree (`parsedPlaced1`),
---| from the `Kept` walk of each declaration.
+--| from the `Kept` walk of each declaration. The same walk gives `within1` of a driver's tree in the grammar
+--| (`parsedWithin1`), for `Fmt.Accepts1`.
 
 namespace Fmt.PlacedProofs
 import Std (Bool, Eq, List, Parse, Result, Text)
@@ -13,6 +14,7 @@ import Fmt.Driver1 (leavesWithin1)
 import Fmt.GroupFacts (..)
 import Syntax.AutoPlaced (..)
 import Fmt.Kinds1 (..)
+import Fmt.Grammar1 (..)
 import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
 import Syntax.ParseProofs (GoodItem, goodItemsOf, itemsQuiet)
 import Syntax.ParseCarriesDecl (runKept)
@@ -191,7 +193,7 @@ theorem groupPlaced ∀ (seen: Seen) (group: List Leaf) (decl: Decl)
       decl
       ran
       (Decl.grammarOfWithin1 decl within)
-  kept.right.right
+  kept.right.right.left
 
 --| What `parseGroups` makes after `found`: declarations in the driver's slice are placed.
 def NewsPlaced (found decls: List Decl): Prop :=
@@ -259,7 +261,7 @@ theorem parsedPlaced1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (within: parsed.within1 = True):
     parsed.autoPlaced1 = True :=
   let alphabet: alphabet1 lexed.leaves = True := Bool.andLeft leaves
-  let plain: sourcePlain1 (tokens lexed.leaves) = True := Bool.andRight (Bool.andRight leaves)
+  let plain: sourcePlain1 (tokens lexed.leaves) = True := Bool.andRight leaves
   let good := settledGood source lexed lexes alphabet plain
   let quiet := settledItemsQuiet source lexed lexes alphabet
   match fileRefusal lexed.settledOnce.leaves, parses with
@@ -275,3 +277,95 @@ theorem parsedPlaced1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
           let all: news.all Decl.within1 = True := rewrite newsAre then within
           let placed := placedNews all
           rewrite newsAre at placed then placed
+
+-- The driver's `within1` test refuses no tree of the grammar.
+
+--| A declaration of slice 1's grammar parsed from a group of good, quiet items is in the driver's slice: the walk of one
+--| declaration's parser (`Syntax.ParseCarriesDecl.runKept`).
+theorem groupWithin ∀ (seen: Seen) (group: List Leaf) (decl: Decl)
+    (good: List.All GoodItem (items group))
+    (quiet: itemsQuiet (items group) = True)
+    (ran: Parse.run (items group) (() =>
+      let found := declaration seen
+      found)
+      = Ok decl)
+    (grammar: decl.grammar1 = True):
+    decl.within1 = True :=
+  let kept := runKept (items group) seen frameRest (goodItemsOf (items group) good quiet) decl ran grammar
+  kept.right.right.right
+
+--| What `parseGroups` makes after `found`: declarations of the grammar are in the driver's slice.
+def NewsWithin (found decls: List Decl): Prop :=
+  ∃ (news: List Decl) => decls = found.reverse ++ news ∧ (news.all Decl.grammar1 = True → news.all Decl.within1 = True)
+
+theorem groupLoweredWithin ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List Decl)
+    (decl: Decl) (lowering: Option Text)
+    (withinOf: decl.grammar1 = True → decl.within1 = True)
+    (again: ∀ (next: Seen) (more: List Decl) => parseGroups next rest more = Ok decls → NewsWithin more decls)
+    (parses: groupLowered seen rest found decl lowering = Ok decls):
+    NewsWithin found decls :=
+  match lowering, parses with
+    | Some message, parses => (Result.errNotOk parses).impossible
+    | None, parses =>
+      let (news, split, withinNews) := again (seen.after decl) [decl, ..found] parses
+      (
+        [decl, ..news],
+        rewrite split, List.reverseCons decl found, List.appendAssoc found.reverse [decl] news then byComputing,
+        grammar => Bool.andIntro (withinOf (Bool.andLeft grammar)) (withinNews (Bool.andRight grammar))
+      )
+
+theorem groupRanWithin ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List Decl) (ran: Result Decl Parse.Failure)
+    (withinOf: ∀ (decl: Decl) => ran = Ok decl → decl.grammar1 = True → decl.within1 = True)
+    (again: ∀ (next: Seen) (more: List Decl) => parseGroups next rest more = Ok decls → NewsWithin more decls)
+    (parses: groupRan seen rest found ran = Ok decls):
+    NewsWithin found decls :=
+  match ran, withinOf, parses with
+    | Err failure, withinOf, parses => (Result.errNotOk parses).impossible
+    | Ok decl, withinOf, parses =>
+      groupLoweredWithin seen rest found decls decl decl.loweringError (withinOf decl byComputing) again parses
+
+--| The declarations `parseGroups` makes from good, quiet groups are in the driver's slice, where they are in the
+--| grammar.
+theorem parseGroupsWithin ∀ (seen: Seen) (groups: List (List Leaf)) (found decls: List Decl)
+    (good: List.All (group => List.All GoodItem (items group)) groups)
+    (quiet: List.All (group => itemsQuiet (items group) = True) groups)
+    (parses: parseGroups seen groups found = Ok decls):
+    NewsWithin found decls :=
+  match groups, good, quiet, parses with
+    | [], good, quiet, parses =>
+      let same: found.reverse = decls := Result.okInjective parses
+      ([], rewrite <- same, List.appendNil found.reverse then byComputing, grammar => byComputing)
+    | [group, ..rest], (groupGood, restGood), (groupQuiet, restQuiet), parses =>
+      groupRanWithin seen rest found decls
+        (Parse.run (items group) (() =>
+          let decl := declaration seen
+          decl))
+        (decl ran grammar => groupWithin seen group decl groupGood groupQuiet ran grammar)
+        (following more again => parseGroupsWithin following rest more decls restGood restQuiet again)
+        parses
+
+--| The driver's tree, if it is in the grammar, is in the driver's slice (`within1`), so the driver's construct test
+--| refuses no tree of the grammar.
+theorem parsedWithin1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (leaves: leavesWithin1 lexed.leaves = True)
+    (parses: parseFile lexed.settledOnce = Ok parsed)
+    (grammar: parsed.grammar1 = True):
+    parsed.within1 = True :=
+  let alphabet: alphabet1 lexed.leaves = True := Bool.andLeft leaves
+  let plain: sourcePlain1 (tokens lexed.leaves) = True := Bool.andRight leaves
+  let good := settledGood source lexed lexes alphabet plain
+  let quiet := settledItemsQuiet source lexed lexes alphabet
+  match fileRefusal lexed.settledOnce.leaves, parses with
+    | Some message, parses => (Result.errNotOk parses).impossible
+    | None, parses =>
+      match ran: parseGroups Seen.start (groupsOf lexed.settledOnce.leaves) [], parses with
+        | Err message, parses => (Result.errNotOk parses).impossible
+        | Ok decls, parses =>
+          let same: { decls, end = lexed.settledOnce.end.comments } = parsed := Result.okInjective parses
+          let (news, split, withinNews) :=
+            parseGroupsWithin Seen.start (groupsOf lexed.settledOnce.leaves) [] decls good quiet ran
+          let newsAre: news = parsed.decls := rewrite <- same, split
+          let all: news.all Decl.grammar1 = True := rewrite newsAre then grammar
+          let within := withinNews all
+          rewrite newsAre at within then within

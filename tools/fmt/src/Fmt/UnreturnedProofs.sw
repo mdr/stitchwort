@@ -10,7 +10,6 @@ import Fmt (..)
 import Syntax.SettleProofs (alphabet1, lexedTexts, sourcePlain1, tokens)
 import Syntax.SettleOnceProofs (allAppendB)
 import Syntax.SettleSplitProofs (allPrefix, allSuffix, groupWordsConcat, groupsConcat)
-import Syntax.GoodItemProofs (spelledPlain1)
 import Syntax.ParseSettledStatements (lexLaid1)
 import Syntax.ParseWalkOthers (parseCarriesSourceProved)
 import Syntax.ParseCarries (codeWords)
@@ -195,7 +194,6 @@ theorem declsFirstUnreturned ∀ (decls: List Decl)
 theorem parsedUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
@@ -204,7 +202,7 @@ theorem parsedUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
   let unreturned := lexUnreturned source lexed lexes
   let laid := lexLaid1 source lexed lexes alphabet
   let (once, onceEnd) := onceTextsPlain lexed alphabet plain (Bool.andLeft laid) unreturned
-  let (words, fileEnd) := parseCarriesSourceProved source lexed parsed lexes alphabet spelled plain parses within
+  let (words, fileEnd) := parseCarriesSourceProved source lexed parsed lexes alphabet plain parses within
   let joined: (parsed.decls.map Decl.words).concat = codeWords lexed.settledOnce.leaves :=
     rewrite words then
       Eq.trans (groupWordsConcat (groupsOf lexed.settledOnce.leaves)) (rewrite groupsConcat lexed.settledOnce.leaves)
@@ -217,12 +215,11 @@ theorem parsedUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
 theorem commaUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
     parsed.withoutTrailingCommas.decls.all Decl.unreturned1 = True ∧ parsed.withoutTrailingCommas.unreturned1 = True :=
-  let (pieces, ends) := parsedUnreturned source lexed parsed lexes alphabet spelled plain parses within
+  let (pieces, ends) := parsedUnreturned source lexed parsed lexes alphabet plain parses within
   let mapped := commaMap parsed within
   let (_, endSame) := commaKeepsComments parsed within
   let commaWithin := commaKeepsWithin parsed within
