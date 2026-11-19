@@ -29,7 +29,10 @@ import Fmt (..)
 import Fmt.Driver1 (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
-import Fmt.TreeJoinProofs (lexKind)
+import Fmt.TreeJoinProofs (declJoins, declOperators, lexKind)
+import Fmt.SpellProofs (declSoundOfSettled)
+import Fmt.TokenProofs (declRealOfLexical)
+import Fmt.LaysDecl (declChecks)
 import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKindFixed)
 import Fmt.StandsProofs (..)
 import Fmt.OneLineStatements (..)
@@ -73,7 +76,9 @@ theorem doc1Checks ∀ (decl: Decl) (doc: Doc)
     (lexical: decl.lexical1 = True)
     (shows: decl.doc1 = Some doc):
     laysCheck doc = True :=
-  ?
+  let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
+  let joins := declJoins decl within shaped sound lexical (declOperators decl within)
+  declChecks decl doc within sound joins lexical shows
 
 --| Every slice 1 declaration's document lays, whatever its comments.
 theorem laysSomehow1 ∀ (decl: Decl) (doc: Doc)
