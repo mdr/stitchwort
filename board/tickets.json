@@ -26358,7 +26358,7 @@
     {
       "id": 4161,
       "title": "[Sonnet] std: move Parse.runFromAddMark next to runFromForgetMark (Runs.sw), and Option.Alike, List.all2Append, List.all2Reverse into the Option and List lemma files (SW-4140 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4161",
       "labels": [],
@@ -26384,7 +26384,7 @@
     {
       "id": 4163,
       "title": "[Sonnet] std: List.consNeNil-style lemma for [] = [x, ..xs] clashes (12 uses of let clash + cases in Syntax/DeafProofs) and use it there (SW-4141 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4161",
       "labels": [],
@@ -26533,7 +26533,7 @@
     {
       "id": 4174,
       "title": "[Sonnet] std: List.All2 length lemma (local all2Length in Syntax/FollowsLadder.sw), and the FollowsBase how-to notes from lane 4 (SW-4167 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4161",
       "labels": [],
@@ -26546,7 +26546,7 @@
     {
       "id": 4175,
       "title": "[Sonnet→Opus] fmt S1 (SW-4166 follow-up): Kept gains autoPlaced1 False at every node, KeptFull/KeptAt at full goals; close the stopped-head case readsAtExprPlainStopped and parsedPlaced1",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4175",
       "labels": [],
