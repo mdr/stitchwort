@@ -130,16 +130,38 @@ def Expr.numberAtom1: Expr → Bool
   | Atom Float _ => True
   | _ => False
 
---| A call's head: an atom or a bracket, or `-` on a numeral (`-1 n` reads `-1` as one atom, `App (Prefix - 1) [n]`).
---| Any other sign takes the whole call: `-x y` and `!x y` read as `-(x y)` and `!(x y)`.
+--| The leftmost token of an expression of the slice.
+def Expr.lead: Expr → Word
+  | Atom _ word => word
+  | Paren open _ _ => open
+  | Tuple open _ _ _ => open
+  | ListOf open _ _ _ => open
+  | App head _ => head.lead
+  | Infix _ left _ _ => left.lead
+  | Prefix operator _ => operator
+  | _ => Word.none
+
+--| No comment between a sign and its operand: none trailing the sign and none above the operand's first token. A
+--| comment there breaks the line, so nothing is glued: `(- -- c` then `1)` on the next line.
+def signQuiet (operator: Word) (operand: Expr): Bool := quietBefore operator operand.lead
+
+--| No comment after `operator` and none above `next`.
+def quietBefore (operator next: Word): Bool := match operator.comments.after, next.comments.above with
+  | None, [] => True
+  | _, _ => False
+
+--| A call's head: an atom or a bracket, or `-` on a numeral (`-1 n` reads `-1` as one atom, `App (Prefix - 1) [n]`),
+--| with no comment between them (`signQuiet`: the parser reads `-1` as one atom only when the two are glued). Any
+--| other sign takes the whole call: `-x y` and `!x y` read as `-(x y)` and `!(x y)`.
 def Expr.head1: Expr → Bool
-  | Prefix operator operand => operator.text == "-" && operand.numberAtom1
+  | Prefix operator operand => operator.text == "-" && operand.numberAtom1 && signQuiet operator operand
   | other => other.atomic1
 
---| A call's argument: an atom or a bracket, or a sign on one (`f -x !b`). A sign on a sign is no argument: `f - -x`
---| reads as `f - (-x)`, since only an atom or a bracket may follow an argument's sign.
+--| A call's argument: an atom or a bracket, or a sign on one (`f -x !b`) with no comment between them
+--| (`signQuiet`: the parser reads an argument's sign only when its operand is glued to it). A sign on a sign is no
+--| argument: `f - -x` reads as `f - (-x)`, since only an atom or a bracket may follow an argument's sign.
 def Expr.argument1: Expr → Bool
-  | Prefix _ operand => operand.atomic1
+  | Prefix operator operand => operand.atomic1 && signQuiet operator operand
   | other => other.atomic1
 
 --| The least level an expression needs to stand bare as the right operand of an infix operator: the operator's own

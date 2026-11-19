@@ -58,12 +58,6 @@ def spacedFirst (spacing: Spacing): List Spacing → List Spacing
   | [] => []
   | [_, ..rest] => [spacing, ..rest]
 
---| No comment between a sign and its operand: none trailing the sign and none above the operand's first token. A
---| comment there breaks the line, so nothing is glued: `(- -- c` then `1)` on the next line.
-def signQuiet (operator: Word) (operand: Expr): Bool := match operator.comments.after, operand.lead.comments.above with
-  | None, [] => True
-  | _, _ => False
-
 --| A prefix's operand's first token: spaced from `-` on a numeral's call (`- 2 n`, which glued would read as `(-2)
 --| n`); with no comment between them, glued to a call argument's sign (`f -x`, `argumentGlue`) and to `-` on a
 --| numeral (`-1`, one atom to the parser). The parser's `negativeNumeral` reads this.

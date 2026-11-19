@@ -38,6 +38,7 @@ import Fmt.SpellProofs (declSoundOfSettled)
 import Syntax.ParseWalk (parseLexical1, parseShaped1)
 import Syntax.ParseWalkOthers (frameRest, parseSettledSourceProved)
 import Syntax.GoodItemProofs (settledGood, spelledPlain1)
+import Syntax.GlueQuietProofs (settledItemsQuiet)
 import Syntax.SettleProofs (alphabet1, plain1, settledKeepsTokens, tokens)
 import Syntax.SettleBareProofs (settledOnceNone)
 
@@ -239,8 +240,9 @@ theorem tidiedFacts ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
   let spelled := Bool.andLeft (Bool.andRight leaves)
   let plain := Bool.andRight (Bool.andRight leaves)
   let good := settledGood source lexed lexes alphabet spelled plain
-  let shaped := parseShaped1 frameRest lexed.settledOnce parsed good parses within
-  let lexical := parseLexical1 frameRest lexed.settledOnce parsed good parses within
+  let quiet := settledItemsQuiet source lexed lexes alphabet
+  let shaped := parseShaped1 frameRest lexed.settledOnce parsed good quiet parses within
+  let lexical := parseLexical1 frameRest lexed.settledOnce parsed good quiet parses within
   let settled := parseSettledSourceProved source lexed parsed lexes alphabet spelled plain parses within
   rewrite tidyComma1 parsed within then
     (

@@ -875,7 +875,7 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
         | True =>
           match argument with
             | True =>
-              let atomic: operand.atomic1 = True := isArgument byComputing
+              let atomic: operand.atomic1 = True := Bool.andLeft (isArgument byComputing)
               let tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication))
                 = False :=
                 Bool.andFalseRight _ _ (atomicTight operand atomic operandWithin operandLexical)

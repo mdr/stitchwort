@@ -3,8 +3,8 @@
 
 namespace Fmt.Tests
 import Fmt (..)
-import Std (Bool, List, Result, Text)
-import Syntax (Comments, Expr, InfixKind, SourceFile, Tok, Word, lex, parseFile)
+import Std (Bool, List, Option, Result, Text)
+import Syntax (Comments, Expr, InfixKind, Note, SourceFile, Tok, Word, lex, parseFile)
 
 --| A source parses, from the leaves `parse1` reads, to a file within slice 1 that is `shaped1`.
 def parsesShaped (source: Text): Bool := match lex source with
@@ -60,3 +60,26 @@ test "shaped1 refuses an argument that is a sign on a sign, which prints as `f -
   refused (App (name "f") [sign "-" (sign "-" (name "x"))])
 
 test "shaped1 accepts an argument that is a sign on an atom, `f -x`" := accepted (App (name "f") [sign "-" (name "x")])
+
+-- Comments on a glued sign (SW-4081): `argument1` and `head1` ask `signQuiet`.
+
+--| `-` with a comment after it.
+def noisyMinus: Word := fixedWord "-" { Comments.none | after = Some "-- c" }
+
+test "shaped1 holds of the parse of glued signs, and of comments on signs that aren't glued" :=
+  parsesShaped "def x: Nat := f -x !b -1 (- -- c\n  1) (! -- b\n  y) - -- d\n  2 + -4 n\n"
+
+test "shaped1 refuses a comment on an argument's sign, which prints as `f - -- c` then `x`, read as `f - x`" :=
+  refused (App (name "f") [Prefix noisyMinus (name "x")])
+
+test "shaped1 refuses a comment on a head's `-`, which prints as `- -- c` then `1 n`, read as `-(1 n)`" :=
+  refused (App (Prefix noisyMinus (number "1")) [name "n"])
+
+test "shaped1 refuses a comment above an argument's operand" :=
+  refused
+    (App (name "f") [
+      sign "-" (Atom Lower (fixedWord "x" { Comments.none | above = [{ text = "-- o", blankBefore = False }] }))
+    ])
+
+test "shaped1 accepts the same comment on a sign at the unary level, which the parser builds" :=
+  accepted (binary (name "a") "+" (Prefix noisyMinus (name "x")))
