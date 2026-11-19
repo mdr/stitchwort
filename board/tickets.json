@@ -27197,12 +27197,12 @@
     {
       "id": 4224,
       "title": "[Sonnet] stitchwort fmt: wrap a long or-pattern (today joined onto one line, 150 chars in a probe), Rust and self-hosted printers alike; goldens (proof-match-likewise.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4219.",
+      "body": "From SW-4219.\n\nLane: Rust formatter rule done on lane/SW-4224 (trailing | style, not leading: grammar forbids a line-start | in an or-pattern). Golden or-patterns, TreeJoinProofs reformatted. Self-hosted printer untouched.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
