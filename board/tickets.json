@@ -25435,12 +25435,12 @@
     {
       "id": 4091,
       "title": "[Opus] tactics/kernel: a big rewrite on a goal like OperatorReads, or taking apart a large ∃ inside a mutual block, fails with E-RESOURCE (value too large to write out) (SW-4071); find why and fix, or document generalise-with-equations in the proving guide",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus, 19 Nov 2026, branch lane/SW-4091, commit 4e6e65670; 18:16-18:46, about 30 min, est. 75). Covers SW-4113 too.\n\n- Cause: a proof step that only carries a hypothesis whose calls compute to more than 2 million nodes (`big: q (grow 22 (Leaf x))`) read that hypothesis back in full: the rewrite's kernel context (quote_folded forces calls that step at once), a generalised match's occurrence test (every hypothesis unfolded; one too large abandoned the usual generalisation, and the unknowns scan's folded fallback was too large too, unlabelled, so the error pointed at the whole theorem). A tuple let on a lemma's proof of ∧ or ∃ in a proof is such a match (SW-4113's shape; SW-4091's ∃ inside a mutual block likely the same). Printing an open goal with such a hypothesis had no limit at all: 24 GB with grow 30.\n- Fix (elaborator and printer only; the kernel's read-back is unchanged): check::quote_folded falls back to the read-back as written (convertible) when the folded one is too large (Ctx::quote_folded, lift, goal snapshots); a generalised match reads each hypothesis's type as written when the unfolded one is too large (may leave it unrefined; motive checked as before), and its scan error points at the match; pretty's shown read-back is capped at 2M nodes, then as written.\n- Tests (each fails before, passes after, with the parent's code built and run): examples/accept/large-hypothesis-carried.sw (rewrite at another hypothesis, let-pair on ∧, let-pair on ∃, match on an expression: 4 E-RESOURCE at the whole theorem before), examples/accept/large-hypothesis-match.sw (the old reject example's hypothesis form), examples/goals/large-hypothesis-goal.sw (E-RESOURCE before). Snapshots: goal, 2 hash, reject rewrite-value-too-large (its note now names the too-large call, as its comment says), reject as-written-unconfirmed-slow-check (now with the call in the goal, which still runs out with the number note).\n- Ran: test:example on those plus 7 related too-large examples; resources tests (5 too-large/match ones); tools check_early (3); hash_stability for the new examples and prelude (std hashes unchanged).\n- Left: a step whose own target is too large (`rewrite same at big`) still runs out, pointing at the step; proving guide gives the transport-lemma workaround. Not checked against the original tools/fmt proofs (whole-project check is not a lane's).\n",
       "created": "2026-11-18",
       "updated": "2026-11-19",
       "commits": []
@@ -25721,12 +25721,12 @@
     {
       "id": 4113,
       "title": "[Sonnet] checker: E-RESOURCE 'value too large to write out' when a let-pair destructure generalises a match in a context mentioning decl.leaves1 (SW-4077); point the error at the destructure, or avoid unfolding while generalising; proving guide: .left/.right workaround",
-      "status": "next",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Fixed with SW-4091 (lane/SW-4091, 4e6e65670): the let-pair destructure that generalises a match no longer reads a too-large hypothesis in full; see SW-4091 notes and examples/accept/large-hypothesis-carried.sw (letPairBeside, existsBeside).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
