@@ -1,5 +1,5 @@
 {
-  "next": 4158,
+  "next": 4159,
   "tickets": [
     {
       "id": 47,
@@ -26200,9 +26200,9 @@
     {
       "id": 4149,
       "title": "[Opus] fmt S1 comments anywhere E6: binaryAny then arrowAny (after E2; LinkFacts likely redefined in ChainHangProofs) (SW-4130 plan)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4149",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 + 30 min. Folds in SW-4082 where it applies.",
@@ -26310,6 +26310,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 30 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4158,
+      "title": "[Sonnet] tools: stitchwort uses NAME (reverse dependencies across a project) or an unused-declaration report (SW-4154 friction: name-grep gave wrong answers from clashes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Est. 60 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
