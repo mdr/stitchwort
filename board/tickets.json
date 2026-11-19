@@ -25669,12 +25669,12 @@
     {
       "id": 4109,
       "title": "[Sonnet] fmt S1: thread decl.unreturned1 into closersBareOneLine1, blanksBelowOneLine1, edgeQuietOneLine1, declElementsOneLine1, declHangsOneLine (callers have it from declsAll; SW-4108) and close the two parts from closersBareUnreturned1/blanksBelowUnreturned1; then doc1Checks (every slice 1 declaration's document passes laysCheck), a walk over the rules shaped like ToldWordProofs/ToldDeclProofs (est. 2-3 lanes)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 19 Nov):\n- Part 1 done (41f226a69): unreturned1 threaded; closersBareOneLine1, blanksBelowOneLine1, edgeQuietOneLine1 moved to Fmt.OneLineLays (import cycle) and closed.\n- Part 2 walk, branch lane/SW-4109: Fmt.LaysRules (combinators, tokens), Fmt.LaysWords, Fmt.LaysEls (elStep: atoms, parens, prefix, chains, tuples, lists), Fmt.LaysBrackets. Open: App in elStep, decl level (defDoc/bodyAfter), doc1Checks assembly. Split agreed: another lane takes Fmt.LaysApp and Fmt.LaysDecl.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
