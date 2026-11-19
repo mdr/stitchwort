@@ -15,7 +15,7 @@
 --| `groupKeepsTokens1` itself is a walk of the parser beside `Syntax.ParseWalk`'s, and is open.
 
 namespace Fmt.SettleParseProofs
-import Std (Bool, Eq, List, Nat, Option, Parse, Result, Text)
+import Std (Bool, Eq, Fail, List, Nat, Option, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Grammar1 (..)
@@ -295,6 +295,168 @@ theorem settledPlaced1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     parseCarriesSourceProved source lexed settled lexes alphabet spelled plain settles (within settled settles)
   (settled, settles, alike, inGrammar, words, ends)
 
+-- Slice 1 declarations lower.
+
+--| Slice 1's grammar, like `within1`, has no block, `match`, clause lambda or pattern, the only nodes the lowering's
+--| checks refuse, so the traversal finishes and changes nothing (`ReadBackFile.exprChecks`, on the grammar).
+theorem exprChecks1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): runExpr checkSteps expr = Ok expr := match expr with
+  | Atom kind word => byComputing
+  | Paren open inner close =>
+    rewrite seq1k
+      (() => inner.traverse checkSteps)
+      (v1 => Paren open v1 close)
+      checkSteps.expr
+      inner
+      (exprChecks1 inner grammar)
+  | Tuple open items trailingComma close =>
+    rewrite seq1k
+      (() => traverseExprs checkSteps items)
+      (v1 => Tuple open v1 trailingComma close)
+      checkSteps.expr
+      items
+      (exprsChecks1 items grammar)
+  | ListOf open items trailingComma close =>
+    rewrite seq1k
+      (() => traverseExprs checkSteps items)
+      (v1 => ListOf open v1 trailingComma close)
+      checkSteps.expr
+      items
+      (exprsChecks1 items grammar)
+  | App head arguments =>
+    rewrite seq2k
+      (() => head.traverse checkSteps)
+      (() => traverseExprs checkSteps arguments)
+      (v1 v2 => App v1 v2)
+      checkSteps.expr
+      head
+      arguments
+      (exprChecks1 head (Bool.andLeft grammar))
+      (exprsChecks1 arguments (Bool.andRight grammar))
+  | Infix kind left operator right =>
+    let sides: left.grammar1 = True ∧ right.grammar1 = True := match kind with
+      | InfixBinary => (Bool.andLeft grammar, Bool.andRight grammar)
+      | InfixArrow => (Bool.andLeft grammar, Bool.andRight grammar)
+      | _ => cases
+    rewrite seq2k
+      (() => left.traverse checkSteps)
+      (() => right.traverse checkSteps)
+      (v1 v2 => Infix kind v1 operator v2)
+      checkSteps.expr
+      left
+      right
+      (exprChecks1 left sides.left)
+      (exprChecks1 right sides.right)
+  | Prefix operator operand =>
+    rewrite seq1k
+      (() => operand.traverse checkSteps)
+      (v1 => Prefix operator v1)
+      checkSteps.expr
+      operand
+      (exprChecks1 operand grammar)
+
+theorem exprsChecks1 ∀ (items: List Expr) (grammar: allGrammar1 items = True): runExprs checkSteps items = Ok items :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      seq2
+        (() => first.traverse checkSteps)
+        (() => traverseExprs checkSteps rest)
+        (v1 v2 => [v1, ..v2])
+        first
+        rest
+        (exprChecks1 first (Bool.andLeft grammar))
+        (exprsChecks1 rest (Bool.andRight grammar))
+
+--| A slice 1 type has no implicit binder on its spine.
+--| A grammar 1 type has no implicit binder on its spine.
+theorem spineNone1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): spineRepeat [] expr = None := match expr with
+  | Infix InfixArrow left operator right => spineNone1 right (Bool.andRight grammar)
+  | Infix InfixBinary left operator right => byComputing
+  | Atom kind word => byComputing
+  | Paren open inner close => byComputing
+  | Tuple open items trailingComma close => byComputing
+  | ListOf open items trailingComma close => byComputing
+  | App head arguments => byComputing
+  | Prefix operator operand => byComputing
+
+--| A slice 1 declaration passes the lowering's checks.
+--| Every declaration of slice 1's grammar passes the lowering's checks: the lowering error that
+--| `groupKeepsTokens1` says is the same on both sides is none on both.
+theorem declLowers1 ∀ (decl: Decl) (grammar: decl.grammar1 = True): decl.loweringError = None := match decl with
+  | Definition [] header (Assigned colonEq value) =>
+    match header with
+      | {
+          exportKeyword = None,
+          opaqueKeyword = None,
+          kind = DefPlain,
+          keyword,
+          name,
+          forallKeyword = None,
+          params = [],
+          colon,
+          result,
+          decreasingClause = None,
+          unfoldingClause = None
+        } =>
+        let resultGrammar: result.grammar1 = True := Bool.andRight (Bool.andLeft grammar)
+        let valueGrammar: value.grammar1 = True := Bool.andRight grammar
+        let built: Header := {
+          exportKeyword = None,
+          opaqueKeyword = None,
+          kind = DefPlain,
+          keyword,
+          name,
+          forallKeyword = None,
+          params = [],
+          colon,
+          result,
+          decreasingClause = None,
+          unfoldingClause = None
+        }
+        let headerRuns: runHeader checkSteps built = Ok built :=
+          rewrite seq3j
+            (() => traverseGroups checkSteps [])
+            (() => result.traverse checkSteps)
+            (() => traverseAfter checkSteps None)
+            (v1 v2 v3 =>
+              {
+                exportKeyword = None,
+                opaqueKeyword = None,
+                kind = DefPlain,
+                keyword,
+                name,
+                forallKeyword = None,
+                params = v1,
+                colon,
+                result = v2,
+                decreasingClause = v3,
+                unfoldingClause = None
+              })
+            checkSteps.header
+            []
+            result
+            None
+            byComputing
+            (exprChecks1 result resultGrammar)
+            byComputing
+        let bodyRuns: Fail.toResult (() => traverseDefBody checkSteps (Assigned colonEq value))
+          = Ok (Assigned colonEq value) :=
+          seq1 (() => value.traverse checkSteps) (v1 => Assigned colonEq v1) value (exprChecks1 value valueGrammar)
+        rewrite spineNone1 result resultGrammar,
+            seq3k
+              (() => traverseAttributes checkSteps [])
+              (() => traverseHeader checkSteps built)
+              (() => traverseDefBody checkSteps (Assigned colonEq value))
+              (v1 v2 v3 => Definition v1 v2 v3)
+              checkSteps.decl
+              []
+              built
+              (Assigned colonEq value)
+              byComputing
+              headerRuns
+              bodyRuns
+      | _ => cases
+
 -- Closed examples (D3684).
 
 --| What `settledParses1` says of one source, as a test: lexed, parsed to a slice 1 tree, `plain1`; and parsed after
@@ -369,6 +531,20 @@ def groupPairsKeep: List (List Leaf) → List (List Leaf) → Bool
   | _, _ => False
 
 theorem groupsKeepOnExample: groupsKeepOn
+        "-- top\ndef d: A -> -- arrow\n  B := g [ -- open\n    a, -- first\n    -- above\n    b, -- last\n  ] -- close\n\ndef e: C := (-1 + f x, y) -- end\n-- last\n"
+      = True :=
+  byComputing
+
+--| What `declLowers1` says of one source, as a test: it parses to a slice 1 tree whose every declaration has no
+--| lowering error.
+def lowersOn (source: Text): Bool := match lex source with
+  | Err _ => False
+  | Ok lexed =>
+    match parseFile lexed with
+      | Ok file => file.grammar1 && file.decls.all (decl => decl.loweringError == None)
+      | Err _ => False
+
+theorem declLowers1Example: lowersOn
         "-- top\ndef d: A -> -- arrow\n  B := g [ -- open\n    a, -- first\n    -- above\n    b, -- last\n  ] -- close\n\ndef e: C := (-1 + f x, y) -- end\n-- last\n"
       = True :=
   byComputing
