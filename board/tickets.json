@@ -25682,12 +25682,12 @@
     {
       "id": 4110,
       "title": "[Opus] fmt S1 goals closersBareOfStands and blanksBelowOfStands (Fmt.OneLineLays): from stands1 and oneLine1 to each part; reuse SW-4107's onLine1 alignment; after SW-4107 merges",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Opus, 19 Nov 2026, branch lane/SW-4110, commits 72ddd403e, 0ba6eeaaf, 3ef619b0e, ffb2507db; 01:06-01:28, about 22 min, est. 60):\n\n- Both goals proved as stated: closersBareOfStands and blanksBelowOfStands (Fmt.OneLineLays) now call closersBareStands and blanksBelowStands in the new module Fmt.StandsLine (about 780 lines). No statement changed, no new hypothesis on the goals. Fmt.OneLineParts was not touched (SW-4109 owns it).\n- Route: standsLoud: leaves that stand against words, less their commas, are the words' tokens, and each loud word's token starts its line. A loud word has comments or a blank line above it, or is a closer with a comment after it (leavesLed, headedAs, stands' closer clause). stillOfTokens: onLine1 on those tokens (headKept, typeFilter, typeSplitTokens, calmAssign: no calmed type word lexes as :=) leaves the type's words still, and the value's after the first. Then closersOfTail: a still closer is bare, and a closer is never an expression's first word. calmHead: calm with no item clears the first word's blank flag unless it has comments.\n- SW-4107's lineCov and wordsEdgeOfPairs weren't reused: they read marks, not words against leaves. Reused: speltParts, wordTokens, headerNameWithin, atomAssign, operatorAssign, prefixAssign, kindedTokens, textsTokens.\n- Checks: check Fmt.StandsLine, Fmt.OneLineLays and Fmt.TopStatements, 0 errors (TopStatements: 3 goals open: doc1Checks, closersBareOneLine1, blanksBelowOneLine1). audit Fmt.StandsLine: 42 theorems and 12 generated lemmas, 0 failed, 1 with warnings, 53 passed. The warning is on closeBare, whose hypotheses are narrow (the text lexes as a closer), not contradictory; closeBareWitness covers it. audit Fmt.OneLineLays: 14 theorems, 5 failed, 15 passed; all 5 failures rest on doc1Checks, and both goals now pass. test Fmt.Tests: 125 passed.\n- Closed example (D3684): stillPartsExamples, stillParts1 on standsLineHolds' source (true) and on a commented closer (false).\n- Stale doc: Fmt.OneLineParts' closersBareOneLine1 doc still calls closersBareOfStands open. Left alone to avoid clashing with SW-4109.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
