@@ -8,6 +8,7 @@ import Fmt.Driver1 (..)
 import Fmt.OutputStatements (..)
 import Fmt.OneLineStatements (..)
 import Fmt.StandsProofs (..)
+import Fmt.MarkProofs (keysFrom)
 
 def Word.gHomedAfter (word: Word) (before: Bool): Bool := !word.trails || word.noted || before
 
@@ -31,6 +32,37 @@ def gAllHomed: List Expr → Bool
 def Decl.gHomed: Decl → Bool
   | Definition [] header (Assigned _ value) => header.result.gHomed && value.gHomed
   | _ => False
+
+--| SW-4145's `anyKeys`, at every node of the expression standing at `at`: its document keyed from its own position
+--| (the first count, nodes that fail), and the nodes with a key at exactly their position (the second), which need
+--| the floor. Each node stands with every leading comment written and a comment waiting before it, which gives it
+--| the most keys.
+def keysAround (at: Nat): Around := { before = True, hoisted = False, item = True, at, inArm = False }
+
+def keysWalk (expr: Expr) (at: Nat): (Nat, Nat) :=
+  let doc := expr.el (keysAround at)
+  let here := (if keysFrom at doc then 0 else 1, if keysFrom (at + 1) doc then 0 else 1)
+  let inner := match expr with
+    | Paren _ inner _ => keysWalk inner (at + 1)
+    | Prefix _ operand => keysWalk operand (at + 1)
+    | Infix _ left _ right => pairAdd (keysWalk left at) (keysWalk right (at + left.size + 1))
+    | App head arguments => pairAdd (keysWalk head at) (keysWalkAll arguments (at + head.size))
+    | Tuple _ items _ _ => keysWalkAll items (at + 1)
+    | ListOf _ items _ _ => keysWalkAll items (at + 1)
+    | _ => (0, 0)
+  pairAdd here inner
+
+def keysWalkAll (exprs: List Expr) (at: Nat): (Nat, Nat) := match exprs with
+  | [] => (0, 0)
+  | [expr, ..rest] => pairAdd (keysWalk expr at) (keysWalkAll rest (at + expr.size))
+
+def pairAdd (one two: (Nat, Nat)): (Nat, Nat) := match one, two with | (a, b), (c, d) => (a + c, b + d)
+
+def declKeys (decl: Decl): Text := match decl with
+  | Definition [] header (Assigned _ value) =>
+    let (failed, tight) := pairAdd (keysWalk header.result 3) (keysWalk value (4 + header.result.size))
+    Text.concat [" keysFailed=", failed.toText, " keysTight=", tight.toText]
+  | _ => " keys=none"
 
 def flag (b: Bool): Text := if b then "T" else "F"
 
@@ -56,7 +88,8 @@ def declLine (decl: Decl): Text :=
         " one=",
         flag decl.oneLine1,
         " hangs=",
-        flag all
+        flag all,
+        declKeys decl
       ]
 
 def check (source: Text): Text := match tidiedOf source with

@@ -93,3 +93,10 @@ eight widths from 6 to 120. Copy it into `tools/fmt/src`, run `stitchwort run El
 from `tools/fmt`, and delete it. On 19 Nov 2026 (the hand cases, and `gen.py` seeds 77 to 80 in modes `noted`,
 `longnoted`, `legal` and `wild`): 2,455 declarations with the tree facts, 1,938 of them with comments inside the
 type or value, all over several lines; `hangs` held at every width and `homed1` of every one.
+
+SW-4145 added `anyKeys`' check to each line (`keysFailed`, `keysTight`): at every node of the type and the value,
+standing where `Expr.el` puts it with every comment written and one waiting before it, the node's document keys its
+marks and closer lines at or after its own position. On 19 Nov 2026 (the hand cases and `gen.py` seeds 77 to 80 in
+modes `noted`, `longnoted`, `legal` and `wild`, one chunk of 250 each): 855 declarations with the tree facts, 631 with
+comments inside; no node failed, and 147 nodes in 72 declarations have a key at exactly their position, so the floor
+can't be raised.
