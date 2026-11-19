@@ -26694,15 +26694,17 @@
     {
       "id": 4186,
       "title": "[Sonnet] stitchwort uses --unused lists only defs, not theorems (SW-4185 found it reports nothing unused over tools/fmt); include theorems (excluding tests and examples) or add --theorems; and a second pass over the Lays*/StandsProofs cluster for orphans",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4186",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Est. 25 min. SW-4158 follow-up.",
+      "body": "Est. 25 min. SW-4158 follow-up.\n\nLane notes (Sonnet): `uses --unused` already lists theorems at main e60a5791a; the regression test added (unused theorem listed, one only a test refers to not, `…Example` not) passed before any fix, so no code change. Orphans over LaysKinds, LaysRules, LaysEls, LaysApp, LaysWords, StandsProofs (13, release build, no-cache, ~6 min): Fmt.LaysApp.appFromHug (LaysApp.sw:526); Fmt.LaysRules.chainAll (962), plainEnds (107), stepConcat (68); Fmt.LaysWords.noHeldStarts (13); Fmt.StandsProofs: atomDeclStands (1541), closerStartsWitness (1551), closesCloserWitness (1547), commentFineWitness (1554), commentNotBreakWitness (1545), commentNotClosesWitness (1549), prefixKindOkWitness (1556), returnedFalls (1532). All theorems. Nothing deleted. Not covered: theorems used only by other unused ones.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "f44e22584"
+      ]
     },
     {
       "id": 4187,
