@@ -7,6 +7,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (..)
+import Fmt.Grammar1 (..)
 
 --| What a parser function gives, when it gives a tree of slice 1: it is shaped, lexical, and at least at the level
 --| `floor` of the precedence ladder. A tree outside the slice says nothing, so the constructs of later slices (a
@@ -502,7 +503,7 @@ theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
 theorem givesLeft: Parse.Gives GoodItems (() => left()) (found => True) :=
   Parse.readsInMark (here => here.rest) _ (start fine => Parse.readsAtDone _ start.rest _ byComputing)
 
-theorem givesSuffixCalled ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+theorem givesSuffixCalled ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (target: Expr) (callable paren: Bool) (parsed: holds target):
     Parse.Gives GoodItems (() => suffixCalled target callable paren) (holds) :=
   Parse.givesThen givesLeft (seen found =>
@@ -513,11 +514,11 @@ theorem givesSuffixCalled ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) 
           | False => Parse.givesDone parsed
           | True => Parse.givesThen givesBump (open _ =>
             Parse.givesThen givesBump (close _ =>
-              Parse.givesDone (outside (App target [Unit open close]) (Bool.andFalse target.within1)))))
+              Parse.givesDone (outside (App target [Unit open close]) (Bool.andFalse target.grammar1)))))
 
 --| `suffixes` after the call: a field access starts another round on a tree outside the slice, and nothing else changes
 --| the tree.
-theorem givesSuffixesOn ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+theorem givesSuffixesOn ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (more: Nat) (modes: Modes) (called: Expr) (paren: Bool) (items: List Item) (parsed: holds called)
     (next: ∀ (target: Expr) (callable: Bool) => holds target
       → Parse.Gives GoodItems (() => suffixes more modes target callable paren) (holds)):
@@ -544,7 +545,7 @@ theorem givesSuffixesOn ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) =>
 --| `suffixes` keeps a parsed tree: a call or a field access makes one outside the slice.
 --|
 --| Proof idea: by induction on the fuel; each round is `suffixCalled`, then `suffixesOn` with the round after it.
-theorem givesSuffixes ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr) (fuel: Nat)
+theorem givesSuffixes ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr) (fuel: Nat)
     (modes: Modes) (target: Expr) (callable paren: Bool) (parsed: holds target):
     Parse.Gives GoodItems (() => suffixes fuel modes target callable paren) (holds) :=
   match fuel with
@@ -562,7 +563,7 @@ theorem givesAt ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => m
 theorem givesPeek ∀ (modes: Modes): Parse.Gives GoodItems (() => modes.peek) (found => True) :=
   Parse.readsInMark (here => peekIn modes 0 here.rest) _ (start fine => Parse.readsAtDone _ _ _ byComputing)
 
-theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (self: Goal → {Parse Item} Expr) (modes: Modes) (head upper: Bool) (base: Expr)
     (callable: Bool) (parsed: holds base)
     (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
@@ -586,7 +587,7 @@ theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) =>
                     (outside (CtorFields base fields) byComputing))
             | False => Parse.givesDone parsed)
 
-theorem givesAtomAfter ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+theorem givesAtomAfter ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr) (parsed: holds base)
     (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):
     Parse.Gives GoodItems (() => atomAfter self modes head first base) (holds) :=
@@ -608,7 +609,7 @@ theorem givesAtomAfter ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => 
                 | False => Parse.givesDone resultParsed)))
 
 --| `atom`, from what `atom_base` and a record's fields give.
-theorem givesAtom ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.within1 = False → holds expr)
+theorem givesAtom ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool)
     (baseGives: Parse.Gives GoodItems (() => atomBase self modes) (holds))
     (recordGives: Parse.Gives GoodItems (() => recordExpr self modes) (fields => True)):

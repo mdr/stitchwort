@@ -10,6 +10,7 @@ import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
+import Fmt.Grammar1 (..)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
 import Syntax.GoodItemProofs (spelledPlain1)
@@ -98,7 +99,7 @@ theorem givesAfterOpaque ∀ (modes: Modes): Parse.Gives GoodItems (() => afterO
 
 theorem headerOutOfExport ∀ (header: Header) (exported: Comments)
     (kept: header.exportKeyword = Some exported):
-    header.within1 = False :=
+    header.grammar1 = False :=
   match header with
     | {
         exportKeyword,
@@ -119,7 +120,7 @@ theorem headerOutOfExport ∀ (header: Header) (exported: Comments)
 
 theorem headerOutOfOpaque ∀ (header: Header) (opaqued: Comments)
     (kept: header.opaqueKeyword = Some opaqued):
-    header.within1 = False :=
+    header.grammar1 = False :=
   match header with
     | {
         exportKeyword,
@@ -139,7 +140,7 @@ theorem headerOutOfOpaque ∀ (header: Header) (opaqued: Comments)
         | None, Some written, same => byComputing
         | Some written, other, same => byComputing
 
-theorem headerOutOfKind ∀ (header: Header) (kept: header.kind = DefInstance): header.within1 = False :=
+theorem headerOutOfKind ∀ (header: Header) (kept: header.kind = DefInstance): header.grammar1 = False :=
   match header with
     | {
         exportKeyword,
@@ -161,7 +162,7 @@ theorem headerOutOfKind ∀ (header: Header) (kept: header.kind = DefInstance): 
         | Some written, other, DefInstance, same => byComputing
 
 theorem definitionOut ∀ (attributes: List Attributes) (header: Header) (body: DefBody)
-    (out: header.within1 = False):
+    (out: header.grammar1 = False):
     DeclOut (Definition attributes header body) :=
   match attributes, body with
     | [], Assigned colonEq value => rewrite out
