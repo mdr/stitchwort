@@ -9,6 +9,24 @@ import Fmt.OutputStatements (..)
 import Fmt.OneLineStatements (..)
 import Fmt.StandsProofs (..)
 import Fmt.MarkProofs (keysFrom)
+import Syntax.SettleProofs (tokens)
+
+--| Whether a declaration's printed tokens lie on one line, its value perhaps on the next: after `def`, the name and
+--| `:`, no token of the type starts a line, and none of the value after its first. The gate only classifies by it
+--| (`one` or `multi`); the driver no longer tests it.
+def gateOnLine: List Token → Bool
+  | [_, _, _, ..rest] => gateTypeOnLine rest
+  | _ => False
+
+def gateTypeOnLine: List Token → Bool
+  | [] => True
+  | [token, ..rest] => if token.kind == ColonEq then gateValueOnLine rest else !token.lineStart && gateTypeOnLine rest
+
+def gateValueOnLine: List Token → Bool
+  | [] => True
+  | [_, ..rest] => rest.all (token => !token.lineStart)
+
+def Decl.gateOneLine (decl: Decl): Bool := gateOnLine (tokens decl.leaves1)
 
 def Word.gHomedAfter (word: Word) (before: Bool): Bool := !word.trails || word.noted || before
 
@@ -86,7 +104,7 @@ def declLine (decl: Decl): Text :=
         " edge=",
         flag decl.edgeQuiet1,
         " one=",
-        flag decl.oneLine1,
+        flag decl.gateOneLine,
         " hangs=",
         flag all,
         declKeys decl

@@ -12,6 +12,26 @@ import Fmt.TriviaStatements (..)
 import Fmt.StandsProofs (..)
 import Fmt.SettleOutputProofs (..)
 import Fmt.PassProofs (..)
+import Syntax.SettleProofs (tokens)
+
+--| Whether a declaration's printed tokens lie on one line, its value perhaps on the next: after `def`, the name and
+--| `:`, no token of the type starts a line, and none of the value after its first. The gate only classifies by it
+--| (`one` or `multi`); the driver no longer tests it.
+def gateOnLine: List Token → Bool
+  | [_, _, _, ..rest] => gateTypeOnLine rest
+  | _ => False
+
+def gateTypeOnLine: List Token → Bool
+  | [] => True
+  | [token, ..rest] => if token.kind == ColonEq then gateValueOnLine rest else !token.lineStart && gateTypeOnLine rest
+
+def gateValueOnLine: List Token → Bool
+  | [] => True
+  | [_, ..rest] => rest.all (token => !token.lineStart)
+
+def Decl.gateOneLine (decl: Decl): Bool := gateOnLine (tokens decl.leaves1)
+
+def SourceFile.gateOneLine (file: SourceFile): Bool := file.decls.all Decl.gateOneLine
 
 def flag (b: Bool): Text := if b then "T" else "F"
 
@@ -52,7 +72,7 @@ def checkA (source: Text): Text := match lex source with
             let reads := readsBack file.lexed1 file
             let again := loose file.printed1 == Some file.printed1
             Text.concat [
-              if file.oneLine1 then "one " else "multi ",
+              if file.gateOneLine then "one " else "multi ",
               flag facts,
               flag file.hung1,
               flag file.stood1,
@@ -79,7 +99,7 @@ def checkB (layout: Text): Text := match lex layout with
     let settled := lexed.settledOnce
     let groups := groupsOf settled.leaves
     let hung := groups.all hangs
-    let multi := groups.any (group => !onLine1 (group.map (leaf => leaf.token)))
+    let multi := groups.any (group => !gateOnLine (group.map (leaf => leaf.token)))
     match lex (Text.concat (groups.map (flatFrom None))) with
       | Err _ => "noflatlex"
       | Ok flatLexed =>
