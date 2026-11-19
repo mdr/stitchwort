@@ -27872,15 +27872,17 @@
     {
       "id": 4275,
       "title": "[Sonnet] Printer constructor lemmas (passesConcat, passesNest, passesGroup, passesFlatten, passesIfBroken, passesDisplaced, …) and passesNil: implicit kinds/pre/post where inferable, as SW-4230 did for the triple lemmas",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4230. Est. 30 min.",
+      "body": "From SW-4230. Est. 30 min.\n\nLane note: constructor lemmas (Concat, Nest, Group, IdGroup, Flatten, IfBroken, OneLineBelow, Displaced, ChoiceOf, HeadTail) made implicit where inferable; 013b7b143 on lane/SW-4275. 2441 lines from 2530. check clean, no goals, Fmt.Tests 441/441.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "013b7b143"
+      ]
     },
     {
       "id": 4276,
