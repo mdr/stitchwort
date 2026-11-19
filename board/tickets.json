@@ -1,5 +1,5 @@
 {
-  "next": 4177,
+  "next": 4178,
   "tickets": [
     {
       "id": 47,
@@ -25984,7 +25984,7 @@
     {
       "id": 4133,
       "title": "[Opus] fmt S1 item 7b: prove groupKeepsTokens1 (Fmt.SettleParseProofs): two groups with the same tokens parse alike up to comments, using the two-run framework",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4133",
       "labels": [],
@@ -26565,6 +26565,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. After SW-4133 (lane 8) and SW-4175. Plan: docs/reviews/SW-4166-carried-walk-plan.md (glue). Not a narrowing: the driver accepts more. Then the Fable slice-1 checkpoint.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4177,
+      "title": "[Fable, paper] Two-run checkpoint (SW-4132 lane 9): do groupKeepsTokens and the alike relations say what they should (DeclsAlike = equal after walk blankPure; Anything only on consumedBare's Bool and Comments), is anything narrowed (D3682, D3688), and does groupKeepsTokens1 follow as claimed",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4177",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 20 min. Paper. Review note docs/reviews/SW-4133-two-run-checkpoint.md.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
