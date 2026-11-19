@@ -1,5 +1,5 @@
 {
-  "next": 4269,
+  "next": 4270,
   "tickets": [
     {
       "id": 47,
@@ -27756,7 +27756,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-4260.",
+      "body": "From SW-4260.\n\nAlso (SW-4262 and its review): a decreasing definition with no top-level split (body Succ (match …)) gets no equations and no f.induct, and match induct says it \"doesn't call itself\"; record a skip reason and say it.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27783,6 +27783,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "From SW-4247.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4269,
+      "title": "[DeepSeek] stitchwort fmt: don't break inside a call in theorem … := match induct (f a b) with; break before match induct or keep the call whole (SW-4262 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-4262.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
