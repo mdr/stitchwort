@@ -17,7 +17,9 @@ fn stitchwort(cwd: &Path, args: &[&str]) -> Output {
 /// Namespaces `A` and `B` both define `x`; `A.useA` and `A.alsoA` refer to
 /// `A.x`, `B.useB` to `B.x`, and `B.lonely` to nothing. In `B`, the theorem
 /// `lonelyFact` is used by nothing, `testedFact` only by a test (through
-/// `pick`), and `lonelyExample` is a closed example.
+/// `pick`), and `lonelyExample` is a closed example. `deadPing` and
+/// `deadPong` refer only to each other, so `--unused` counts both as used
+/// while `--dead` reports both unless one is a root.
 fn project(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("stitchwort-uses-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -41,7 +43,13 @@ fn project(name: &str) -> PathBuf {
          theorem testedFact: x = 2 := byComputing\n\n\
          theorem lonelyExample: x = 2 := byComputing\n\n\
          def pick (h: x = 2): Nat := 5\n\n\
-         test \"facts\" := pick testedFact == 5\n",
+         test \"facts\" := pick testedFact == 5\n\n\
+         theorem deadPing ∀ (n: Nat): True := match n with\n  \
+         | 0 => byComputing\n  \
+         | Succ n => deadPong n\n\n\
+         theorem deadPong ∀ (n: Nat): True := match n with\n  \
+         | 0 => byComputing\n  \
+         | Succ n => deadPing n\n",
     )
     .unwrap();
     dir
@@ -91,4 +99,34 @@ fn a_short_name_in_two_namespaces_is_ambiguous_and_a_unique_one_works() {
     assert!(unused.contains("B.lonelyFact"), "{unused}");
     assert!(!unused.contains("B.testedFact"), "{unused}");
     assert!(!unused.contains("B.lonelyExample"), "{unused}");
+}
+
+#[test]
+fn dead_lists_a_pair_of_theorems_that_only_refer_to_each_other() {
+    let dir = project("dead");
+    let unused = stitchwort(&dir, &["uses", "--unused", "B"]);
+    let dead = stitchwort(&dir, &["uses", "--unused", "--dead", "B"]);
+    let rooted = stitchwort(
+        &dir,
+        &["uses", "--unused", "--dead", "B", "--root", "B.deadPing"],
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(unused.status.code(), Some(0), "{}", text(&unused.stderr));
+    assert_eq!(dead.status.code(), Some(0), "{}", text(&dead.stderr));
+    assert_eq!(rooted.status.code(), Some(0), "{}", text(&rooted.stderr));
+    let unused = text(&unused.stdout);
+    assert!(
+        !unused.contains("B.deadPing") && !unused.contains("B.deadPong"),
+        "{unused}"
+    );
+    let dead = text(&dead.stdout);
+    assert!(
+        dead.contains("B.deadPing") && dead.contains("B.deadPong"),
+        "{dead}"
+    );
+    let rooted = text(&rooted.stdout);
+    assert!(
+        !rooted.contains("B.deadPing") && !rooted.contains("B.deadPong"),
+        "{rooted}"
+    );
 }

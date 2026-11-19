@@ -135,6 +135,60 @@ impl Session {
         users
     }
 
+    /// The written definitions in the namespaces `scope` (and under them)
+    /// that no root reaches: the roots are the tests, `…Example` theorems,
+    /// declarations outside `scope`, and `roots` (the declarations named with
+    /// `--root`). Unlike [`Self::unused_in`], a declaration that only an
+    /// unreachable declaration refers to is itself unreachable.
+    pub fn dead_in(&self, namespaces: &[String], scope: &[String], roots: &[DefId]) -> Vec<User> {
+        let g = self.elab.ev();
+        let made = Generated::new(&g);
+        let in_scope = |path: &str| {
+            scope.iter().any(|s| {
+                path.strip_prefix(s.as_str())
+                    .is_some_and(|rest| rest.starts_with('.'))
+            })
+        };
+        let tests: BTreeSet<DefId> = self.elab.tests().iter().map(|t| t.def).collect();
+        let mut all = BTreeSet::new();
+        for ns in namespaces {
+            all.extend(self.elab.namespace_def_range(ns));
+        }
+        let mut pending: Vec<DefId> = roots.to_vec();
+        for &i in &all {
+            let id = DefId(i);
+            let path = g.def(id).path();
+            if tests.contains(&id) || path.ends_with("Example") || !in_scope(path) {
+                pending.push(id);
+            }
+        }
+        let mut reachable = BTreeSet::new();
+        while let Some(id) = pending.pop() {
+            if !reachable.insert(id) {
+                continue;
+            }
+            stitchwort_core::assumption::mentions(&g, Decl::Def(id), &mut |d| {
+                if let Decl::Def(used) = d {
+                    pending.push(used);
+                }
+            });
+        }
+        let mut dead: Vec<User> = all
+            .into_iter()
+            .filter(|&i| {
+                let id = DefId(i);
+                let path = g.def(id).path().to_string();
+                in_scope(&path)
+                    && !path.contains('%')
+                    && !made.contains(&g, id)
+                    && !reachable.contains(&id)
+            })
+            .map(|i| self.user_at(&g, DefId(i), g.def(DefId(i)).path().to_string()))
+            .collect();
+        dead.sort();
+        dead
+    }
+
     fn user_at(&self, g: &stitchwort_core::Ev, id: DefId, name: String) -> User {
         let span = g.def(id).span();
         let file = self.sources.get(span.file);
