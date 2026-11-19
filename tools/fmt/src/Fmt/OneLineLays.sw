@@ -14,9 +14,8 @@
 --| - `doc1Checks` (open, the one new fact): every slice 1 declaration's document passes the check. It is an
 --|   equation between computed values, one for each rule.
 --| - `stands1OfLays` (proved from it): `printedStands1` with no `DeclHangs`.
---| - `closersBareOfStands` and `blanksBelowOfStands` (open, bookkeeping): a declaration that `stands1` and prints on
---|   one line has bare closers and no blank-line flag but below comments. Their first step is proved: a leaf with
---|   comments or blank lines above it starts its line (`Fmt.LedProofs.leavesLed`).
+--| - `closersBareOfStands` and `blanksBelowOfStands` (proved in `Fmt.StandsLine`, SW-4110): a declaration that
+--|   `stands1` and prints on one line has bare closers and no blank-line flag but below comments.
 --| - `closersBareUnreturned1` and `blanksBelowUnreturned1` (proved from the three): the two parts, with one more
 --|   hypothesis than `Fmt.OneLineParts` states them with, `unreturned1`, which `stands` needs (`returnedFalls`).
 --|   Every use of the parts has it (`Fmt.TopStatements.declsAll` hands it to each declaration).
@@ -35,6 +34,7 @@ import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKin
 import Fmt.StandsProofs (..)
 import Fmt.OneLineParts (..)
 import Fmt.LaysKinds (..)
+import Fmt.StandsLine (blanksBelowStands, closersBareStands)
 
 -- The document lays.
 
@@ -128,14 +128,14 @@ theorem stands1OfLays ∀ (decl: Decl)
 
 -- From `stands` to the parts.
 
---| A declaration that `stands1` and prints on one line has bare closers (open, bookkeeping).
+--| A declaration that `stands1` and prints on one line has bare closers (proved in `Fmt.StandsLine`, SW-4110).
 --|
---| Route: `stands` pairs each word of `decl.stood` (the `def`, the name, the `:`, the calmed type's words, the `:=`,
---| the calmed value's) with a leaf that is no comma. A closer with own-line comments has a leaf with those comments
---| (`headedAs`), and a leaf with comments above it starts its line (`Fmt.LedProofs.leavesLed`). A closer with only a comment after it starts its line by
---| `stands`' own clause. `onLine1` lets a line start only at the first three leaves, at the first of kind `ColonEq`
---| (the `:=`'s: no word of the type lexes as one) and at the leaf after it, the value's first word, which is no
---| closer (`Expr.nonCloser`). Then from the words to the tree (`Expr.words` to `Expr.closersBare1`, by induction).
+--| Proof idea: `stands` pairs each word of `decl.stood` with a leaf that is no comma, and a word with own-line comments
+--| or a blank line above it, or a closer with a comment after it, has a leaf that starts its line (`headedAs`,
+--| `Fmt.LedProofs.leavesLed`, `stands`' own clause): such a word is loud (`standsLoud`). `onLine1` lets a line start
+--| only at the first three leaves, at the `:=` (no word of the type lexes as one, `calmAssign`) and at the value's
+--| first word, so the type's words are still and the value's after the first (`stillOfTokens`). A closer is never an
+--| expression's first word, and a still closer is bare (`closersOfTail`).
 theorem closersBareOfStands ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -144,14 +144,14 @@ theorem closersBareOfStands ∀ (decl: Decl)
     (stood: decl.stands1 = True)
     (oneLine: decl.oneLine1 = True):
     decl.closersBare1 = True :=
-  ?
+  closersBareStands decl within shaped settled lexical stood oneLine
 
 --| A declaration that `stands1` and prints on one line has no blank-line flag, after `calm`, but below own-line
---| comments (open, bookkeeping).
+--| comments (proved in `Fmt.StandsLine`, SW-4110).
 --|
---| Route: as `closersBareOfStands`: a word with the flag set has a leaf with `blankLines` over 0 (`headedAs`), which
---| starts its line (`leavesLed`), so it is the value's first word; `calm` keeps that word's
---| flag only below comments (`Comments.kept` with `item` false).
+--| Proof idea: as `closersBareOfStands`, the type's words are still and the value's after the first, and a still
+--| word has no blank-line flag; `calm` with no item keeps the value's first word's flag only below comments
+--| (`calmHead`).
 theorem blanksBelowOfStands ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -160,7 +160,7 @@ theorem blanksBelowOfStands ∀ (decl: Decl)
     (stood: decl.stands1 = True)
     (oneLine: decl.oneLine1 = True):
     decl.blanksBelow1 = True :=
-  ?
+  blanksBelowStands decl within shaped settled lexical stood oneLine
 
 -- The parts, for declarations with no comment ending in a carriage return.
 

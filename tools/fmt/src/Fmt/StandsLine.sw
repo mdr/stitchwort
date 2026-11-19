@@ -5,13 +5,16 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Leaf, Note, Tok, Token, Word)
 import Syntax.SettleProofs (tokens)
 import Fmt (..)
-import Fmt.TreeJoinProofs (infixListed, lexKind)
+import Fmt.TreeJoinProofs (infixListed, lexKind, lexKindOfSpells, spellsOfText1, wordQuiet)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.LedProofs (..)
 import Fmt.Driver1 (..)
 import Fmt.OneLineParts (..)
-import Fmt.SpellProofs (allAppendBool, allConsBool, allSplitBool)
+import Fmt.SpellProofs (..)
+import Fmt.TokenProofs (declRealOfLexical, printedTokens1)
+import Fmt.WordsEdge (kindPlain)
+import Fmt.CalmProofs (headerResultWithin)
 import Fmt.WordsEdgeLine (..)
 
 -- Loud words start their lines.
@@ -164,7 +167,7 @@ def Token.notAssign1 (token: Token): Bool := !(token.kind == ColonEq)
 
 theorem loudAssign ∀ (words: List Word) (tokens: List Token)
     (loud: Loud words tokens = True)
-    (kinded: tokens.all (token => token.kind == lexKind token.text) = True)
+    (kinded: tokens.all Token.kinded1 = True)
     (other: words.all Word.notAssign1 = True):
     tokens.all Token.notAssign1 = True :=
   match words, tokens, loud with
@@ -534,3 +537,237 @@ theorem pickAssign ∀ (items: List Expr)
             Bool.andIntro
               (calmAssign first False (Bool.andLeft within) (Bool.andLeft lexical))
               (itemsAssign rest True (Bool.andRight within) (Bool.andRight lexical))
+
+-- The declaration.
+
+theorem tokensSplit ∀ (front back: List Token) (check: Token → Bool)
+    (all: (front ++ back).all check = True):
+    front.all check = True ∧ back.all check = True :=
+  match front with
+    | [] => (byComputing, all)
+    | [token, ..rest] =>
+      let (restAll, backAll) := tokensSplit rest back check (Bool.andRight all)
+      (Bool.andIntro (Bool.andLeft all) restAll, backAll)
+
+theorem loudTail ∀ (words: List Word) (tokens: List Token)
+    (loud: Loud words tokens = True)
+    (line: valueOnLine1 tokens = True):
+    tailStill words = True :=
+  match words, tokens, loud with
+    | [], [], _ => byComputing
+    | [word, ..rest], [token, ..others], loud => loudQuiet rest others (Bool.andRight (Bool.andRight loud)) line
+
+theorem stoodShape ∀ (header: Header) (colonEq: Syntax.Comments) (value: Expr):
+    ∃ (first second third: Word) => (Definition [] header (Assigned colonEq value)).stood
+      = [first, second, third]
+        ++ ((header.result.calm False).words
+          ++ ([fixedWord ":=" (colonEq.kept False False)] ++ (value.calm False).words)) :=
+  (
+    { text = "def", comments = { above = [], after = header.keyword.after, blankBefore = False } },
+    header.name.kept False False,
+    fixedWord ":" (header.colon.kept False False),
+    byComputing
+  )
+
+--| A slice 1 definition's tokens begin with `def`, its name and `:`.
+theorem headTexts ∀ (header: Header) (colonEq: Syntax.Comments) (value: Expr)
+    (within: (Definition [] header (Assigned colonEq value)).within1 = True)
+    (settled: (Definition [] header (Assigned colonEq value)).settled1 = True)
+    (lexical: (Definition [] header (Assigned colonEq value)).lexical1 = True):
+    ∃ (more: List Text) => (Definition [] header (Assigned colonEq value)).spelt.filter notComment
+      = ["def", header.name.text, ":"] ++ more :=
+  let (headerWithin, _) := within
+  let nameWithin := headerNameWithin header headerWithin
+  let (_, nameToken) :=
+    kindPlain Lower header.name.text
+      (spellsOfText1 Lower header.name.text (Bool.andRight nameWithin))
+      (wordQuiet Lower byComputing)
+  let sound := declSoundOfSettled _ within settled (declRealOfLexical _ within lexical)
+  let (defSound, nameSound, colonSound, _, _, _) := sound
+  let head :=
+    ((fixedWord "def" header.keyword).spelledAt True ++ header.name.spelledAt False)
+      ++ (fixedWord ":" header.colon).spelledAt False
+  let later := header.result.spelt False ++ ((fixedWord ":=" colonEq).spelledAt False ++ value.spelt False)
+  let headTokens: head.filter notComment = ["def", header.name.text, ":"] :=
+    rewrite List.filterAppend
+          ((fixedWord "def" header.keyword).spelledAt True ++ header.name.spelledAt False)
+          ((fixedWord ":" header.colon).spelledAt False)
+          notComment,
+        List.filterAppend ((fixedWord "def" header.keyword).spelledAt True) (header.name.spelledAt False) notComment,
+        wordTokens (fixedWord "def" header.keyword) True byComputing defSound,
+        wordTokens header.name False nameToken nameSound,
+        wordTokens (fixedWord ":" header.colon) False byComputing colonSound
+  (
+    later.filter notComment,
+    calc (Definition [] header (Assigned colonEq value)).spelt.filter notComment
+      _ = (head ++ later).filter notComment :=
+        Eq.cong ((spelt: List Text) => spelt.filter notComment) (speltParts header colonEq value)
+      _ = head.filter notComment ++ later.filter notComment := List.filterAppend head later notComment
+      _ = ["def", header.name.text, ":"] ++ later.filter notComment := rewrite headTokens
+  )
+
+theorem keepOf ∀ (token: Token) (text: Text)
+    (same: token.text = text)
+    (kinded: token.kinded1 = True)
+    (kind: (lexKind text == Comma) = False):
+    token.nonComma = True :=
+  let kindEq: token.kind = lexKind text := rewrite <- same then DecEq.sound kinded
+  rewrite kindEq, kind
+
+--| Printed tokens that begin with `def`, a name and `:`, laid out as `onLine1` says, keep those three with the commas
+--| left out, and the type's tokens and the value's follow as `typeOnLine1` says.
+theorem headKept ∀ (tokens: List Token) (name: Text) (more: List Text)
+    (texts: tokens.map (token => token.text) = ["def", name, ":"] ++ more)
+    (kinded: tokens.all Token.kinded1 = True)
+    (nameKind: lexKind name = Lower)
+    (line: onLine1 tokens = True):
+    ∃ (first second third: Token) (rest: List Token) => tokens.filter Token.nonComma
+      = [first, second, third, ..rest.filter Token.nonComma]
+      ∧ typeOnLine1 rest = True
+      ∧ rest.all Token.kinded1 = True :=
+  match tokens, line with
+    | [a, b, c, ..rest], line =>
+      let aText: a.text = "def" := List.consInjectiveHead _ _ _ _ texts
+      let bText: b.text = name := List.consInjectiveHead _ _ _ _ (Eq.cong ((list: List Text) => list.drop 1) texts)
+      let cText: c.text = ":" := List.consInjectiveHead _ _ _ _ (Eq.cong ((list: List Text) => list.drop 2) texts)
+      let aKeep := keepOf a "def" aText (Bool.andLeft kinded) byComputing
+      let bKeep := keepOf b name bText (Bool.andLeft (Bool.andRight kinded)) (rewrite nameKind)
+      let cKeep := keepOf c ":" cText (Bool.andLeft (Bool.andRight (Bool.andRight kinded))) byComputing
+      (a, b, c, rest, (rewrite aKeep, bKeep, cKeep), line, Bool.andRight (Bool.andRight (Bool.andRight kinded)))
+
+--| The type's words are still, and the value's after the first.
+def Decl.stillParts1: Decl → Bool
+  | Definition [] header (Assigned _ value) =>
+    (header.result.calm False).words.all Word.still1 && tailStill (value.calm False).words
+  | _ => False
+
+--| Tokens of a slice 1 definition's spelling, laid out as `onLine1` says, against which the definition's words are
+--| `Loud`, leave the type's words still, and the value's after the first.
+--|
+--| Proof idea: the tokens begin with `def`, the name and `:`, none a comma (`headKept`); then come the type's, none a
+--| `:=` (`calmAssign`), which start no line, then the `:=`, then the value's, which start none after the first.
+theorem stillOfTokens ∀ (decl: Decl) (printed: List Token)
+    (within: decl.within1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (loud: Loud decl.stood (printed.filter Token.nonComma) = True)
+    (texts: printed.map (token => token.text) = decl.spelt.filter notComment)
+    (kinded: printed.all Token.kinded1 = True)
+    (line: onLine1 printed = True):
+    decl.stillParts1 = True :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      let (headerWithin, _) := within
+      let resultWithin := headerResultWithin header headerWithin
+      let nameWithin := headerNameWithin header headerWithin
+      let (_, resultLexical, _) := lexical
+      let (more, headIs) := headTexts header colonEq value within settled lexical
+      let nameKind: lexKind header.name.text = Lower :=
+        lexKindOfSpells Lower header.name.text (spellsOfText1 Lower header.name.text (Bool.andRight nameWithin))
+      let (a, b, c, rest, kept, typeLine, restKinded) :=
+        headKept printed header.name.text more (Eq.trans texts headIs) kinded nameKind line
+      let (h1, h2, h3, stoodIs) := stoodShape header colonEq value
+      let typeWords := (header.result.calm False).words
+      let assign := fixedWord ":=" (colonEq.kept False False)
+      let valueWords := (value.calm False).words
+      let split: Loud ([h1, h2, h3] ++ (typeWords ++ ([assign] ++ valueWords))) [a, b, c, ..rest.filter Token.nonComma]
+        = True :=
+        rewrite <- stoodIs, <- kept then loud
+      let restLoud: Loud (typeWords ++ ([assign] ++ valueWords)) (rest.filter Token.nonComma) = True :=
+        Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight split)))))
+      let (typeTokens, later, tokensIs, typeLoud, laterLoud) :=
+        loudSplit typeWords ([assign] ++ valueWords) (rest.filter Token.nonComma) restLoud
+      let filteredLine: typeOnLine1 (typeTokens ++ later) = True := rewrite <- tokensIs then typeFilter rest typeLine
+      let filteredKinded: (typeTokens ++ later).all Token.kinded1 = True :=
+        rewrite <- tokensIs then allFilter rest Token.nonComma Token.kinded1 restKinded
+      let (typeKinded, laterKinded) := tokensSplit typeTokens later Token.kinded1 filteredKinded
+      let typeOther :=
+        loudAssign typeWords typeTokens typeLoud typeKinded (calmAssign header.result False resultWithin resultLexical)
+      let (typeQuiet, laterLine) := typeSplitTokens typeTokens later typeOther filteredLine
+      match later, laterLoud, laterLine, laterKinded with
+        | [assignToken, ..valueTokens], laterLoud, laterLine, laterKinded =>
+          let assignText: assignToken.text = ":=" := DecEq.sound (Bool.andLeft laterLoud)
+          let assignKind: (assignToken.kind == ColonEq) = True :=
+            rewrite DecEq.sound (Bool.andLeft laterKinded), assignText
+          let valueLine: valueOnLine1 valueTokens = True := rewrite assignKind at laterLine then laterLine
+          Bool.andIntro
+            (loudQuiet typeWords typeTokens typeLoud typeQuiet)
+            (loudTail valueWords valueTokens (Bool.andRight (Bool.andRight laterLoud)) valueLine)
+
+--| A slice 1 definition that `stands1` and prints on one line has its type's words still, and its value's after the
+--| first.
+theorem stillOfStands ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (stood: decl.stands1 = True)
+    (oneLine: decl.oneLine1 = True):
+    decl.stillParts1 = True :=
+  let (texts, kinded) := printedTokens1 decl within shaped settled lexical
+  stillOfTokens decl
+    (tokens decl.leaves1)
+    within
+    settled
+    lexical
+    (standsLoud None decl.stood decl.leaves1 stood kinded (leavesLed decl))
+    (Eq.trans (textsTokens decl.leaves1) texts)
+    (kindedTokens decl.leaves1 kinded)
+    oneLine
+
+-- The parts.
+
+--| A declaration that `stands1` and prints on one line has bare closers (`Fmt.OneLineLays.closersBareOfStands`).
+theorem closersBareStands ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (stood: decl.stands1 = True)
+    (oneLine: decl.oneLine1 = True):
+    decl.closersBare1 = True :=
+  let parts := stillOfStands decl within shaped settled lexical stood oneLine
+  match decl, within, lexical, parts with
+    | Definition [] header (Assigned colonEq value), within, lexical, parts =>
+      let (headerWithin, valueWithin) := within
+      let (_, resultLexical, valueLexical) := lexical
+      Bool.andIntro
+        (closersOfTail header.result False
+          (headerResultWithin header headerWithin)
+          resultLexical
+          (tailOfAll _ (Bool.andLeft parts)))
+        (closersOfTail value False valueWithin valueLexical (Bool.andRight parts))
+
+--| A declaration that `stands1` and prints on one line has blank-line flags only below own-line comments
+--| (`Fmt.OneLineLays.blanksBelowOfStands`).
+theorem blanksBelowStands ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (stood: decl.stands1 = True)
+    (oneLine: decl.oneLine1 = True):
+    decl.blanksBelow1 = True :=
+  let parts := stillOfStands decl within shaped settled lexical stood oneLine
+  match decl, within, parts with
+    | Definition [] header (Assigned colonEq value), within, parts =>
+      let (_, valueWithin) := within
+      Bool.andIntro
+        (allBelow (header.result.calm False).words (Bool.andLeft parts))
+        (headTailBelow (value.calm False).words (calmHead value valueWithin) (Bool.andRight parts))
+
+-- Sources the statements apply to (D3684).
+
+--| Whether every declaration of a source's printed tree has its type's words still, and its value's after the first.
+def stillPartsOn (source: Text): Option Bool := match tidiedOf source with
+  | None => None
+  | Some file => Some (file.decls.all Decl.stillParts1)
+
+--| `stillOfStands` applies to the source of `Fmt.OneLineLays.standsLineHolds`: comments after a name, at `:=` and
+--| above the value, and a comment held after the value's last item. A closer below a comment that holds another is
+--| loud, and that declaration prints on two lines (`standsLineApart`).
+theorem stillPartsExamples: (stillPartsOn "def x: F a -- c\n  := -- d\n  -- e\n  -- f\n\n  g (b, c -- h\n  )\n"
+      == Some True
+      && stillPartsOn "def x: T := f (a -- c\n  ) -- d\n" == Some False)
+      = True :=
+  byComputing
