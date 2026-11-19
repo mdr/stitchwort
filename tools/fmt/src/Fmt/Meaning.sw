@@ -259,6 +259,17 @@ def Leaf.holder (leaf: Leaf): Option Holder :=
       blankBelow = !leaf.trivia.leading.isEmpty && leaf.trivia.blankLines > 0
     }
 
+--| The views with the first comment's blank line above it left out: the
+--| first thing printed in a file has nothing above it (D3695).
+def unheaded: List CommentView → List CommentView
+  | [] => []
+  | [first, ..rest] => [{ first | blankAbove = False }, ..rest]
+
+--| A holder with its blank line below left out if it is a closer's: a
+--| closer is never a declaration's or member's first token, so no doc
+--| reads it (D3695).
+def Holder.forDocs (holder: Holder): Holder := { holder | blankBelow = holder.blankBelow && !isCloserText holder.token }
+
 --| What formatting keeps of a file's comments, between the source's leaves
 --| and the output's, each after rule N; the source's with P2's commas
 --| taken out first (`settledBare`), which moves a comment held by a
@@ -275,14 +286,17 @@ def Leaf.holder (leaf: Leaf): Option Holder :=
 --|    above;
 --| 3. whether a blank line separates the comments above a token from it
 --|    (`Holder.blankBelow`), which decides a declaration's or member's doc.
---|    Stated for every token holding a comment above it, which is more than
---|    docs need: if the printer can't keep it inside an expression, narrow
---|    it to a declaration's or member's first token.
+--|
+--| Two blank lines are left out, as no doc depends on them (D3695, Matt,
+--| 19 Nov 2026: "if there's a blank line here or there, that's not
+--| something I'm interested in strictly specifying"): the one above the
+--| file's first comment (`unheaded`; the printer starts a file with its
+--| first comment), and the one between a closer and the comments above it
+--| (`Holder.forDocs`; the printer sets a closer straight below them).
 --|
 --| A token holding no comment may come or go (a dropped bracket, a merged
 --| group's `: T) (`, a written `∀`): P3 and P4 touch only tokens with none.
---| The theorem, once the printer exists:
---| `∀ (source output: Text) (formatted: format source = Formatted output),
---| CommentsKept (lex source) (lex output)` for the lexed texts.
+--| Slice 1's theorem is `slice1KeepsComments` (`Fmt.CommentsKeptProof`).
 def CommentsKept (source output: Lexed): Prop :=
-  source.settledBare.commentViews = output.settled.commentViews ∧ source.settledBare.holders = output.settled.holders
+  unheaded source.settledBare.commentViews = unheaded output.settled.commentViews
+    ∧ source.settledBare.holders.map Holder.forDocs = output.settled.holders.map Holder.forDocs
