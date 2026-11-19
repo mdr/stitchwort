@@ -8,16 +8,22 @@
 # written (`DELIBERATELY_UNFORMATTED` in crates/fmt/src/lib.rs), which
 # `stitchwort fmt --check` skips by itself when they are named.
 #
-# Runs the release CLI of this checkout, else of the main checkout (a
-# worktree's common git dir is its .git), else of any folder above this one (a
-# scratch clone lives under the main checkout's .claude/worktrees/); with none,
-# warns and lets the commit through (the hook is `verbose` in flake.nix, or
-# prek would hide that warning, as it hides all output of a passing hook).
+# Runs the release CLI of this worktree (or clone) if it has one, else of the
+# main checkout (a worktree's common git dir is its .git), else of any folder
+# above this one (a scratch clone lives under the main checkout's
+# .claude/worktrees/); with none, warns and lets the commit through (the hook
+# is `verbose` in flake.nix, or prek would hide that warning, as it hides all
+# output of a passing hook). A lane changing the syntax or the formatter should
+# build its own release binary first (`task build`), or this uses the main
+# checkout's older one and judges the lane's files by it.
 set -eu
 
 root=$(git rev-parse --show-toplevel)
 common=$(git rev-parse --path-format=absolute --git-common-dir)
 bin=
+if [ -x "$root/target/release/stitchwort" ]; then
+  bin="$root/target/release/stitchwort"
+fi
 dir=$root
 for next in "$(dirname "$common")" "$root"; do
   dir=$next
