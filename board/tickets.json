@@ -1,5 +1,5 @@
 {
-  "next": 4125,
+  "next": 4126,
   "tickets": [
     {
       "id": 47,
@@ -25871,6 +25871,19 @@
         "bug"
       ],
       "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4125,
+      "title": "[Sonnet] fmt S1 scope items 2-4 (D3687, SW-4120): the driver accepts qualified names, exponents and upper-case def names, as the grammar does: widen Spells/textSpells1 (dotted names, exponents) with their lexes-back facts, parseLexical1 for either def-name kind, Header.within1; spelledPlain1 leaves the driver or is proved of every lexed source; top theorems re-proved unchanged; MustAccept1's 4 such tests pass",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4125",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3687 (Matt, 19 Nov). docs/reviews/SW-4120-grammar1.md items 2, 3, 4. Model: Sonnet (D3682: routine, lexer layer stable). Est. 60 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
