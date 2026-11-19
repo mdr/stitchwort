@@ -26651,13 +26651,13 @@
     },
     {
       "id": 4183,
-      "title": "[Opus] fmt S1: prove settledParsesMoved1 (a last comma that starts its line before the closer: rule N marks the closer as starting a line, so groupKeepsTokens' same-tokens premise fails); generalise the two-run item relation to same up to a closer's line start, or another route; the last obligation for formatAccepts1",
-      "status": "next",
+      "title": "[Opus] fmt S1: rule N keeps its closer bookkeeping inside the tidying step (D3690): commaMoved stops marking the closer's lineStart; the walk treats a closer after an own-line bare comma as starting its line; settled tokens equal the lexer's; settledParsesMoved1 deleted; no output change",
+      "status": "doing",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4183",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.\n\n\nLane notes (Opus, 19 Nov, 14:58-15:02): stopped at the route decision, no code. Generalising the two-run walk is not a 60-min job: the item relation is elementwise (List.All2 SameCode), but the moved closer differs in lineStart, glued, and the lineIndent of every later item on its line; agreement of readers (startsBlock: a closer is not endsConstruct, so it differs; lineHasSemicolon, blockEnd, stopsByLine needs depth>0, headIndentOn) needs context (the comma before it, its column, the parse failing at a closer) that an elementwise relation cannot carry; ~70 deaf readers used by the walk. Routes for the orchestrator in the lane report. Not false; no source found failing.\n",
+      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.\n\n\nLane notes (Opus, 19 Nov, 14:58-15:02): stopped at the route decision, no code. Generalising the two-run walk is not a 60-min job: the item relation is elementwise (List.All2 SameCode), but the moved closer differs in lineStart, glued, and the lineIndent of every later item on its line; agreement of readers (startsBlock: a closer is not endsConstruct, so it differs; lineHasSemicolon, blockEnd, stopsByLine needs depth>0, headIndentOn) needs context (the comma before it, its column, the parse failing at a closer) that an elementwise relation cannot carry; ~70 deaf readers used by the walk. Routes for the orchestrator in the lane report. Not false; no source found failing.\n\nD3690 (Matt, 19 Nov 2026, 15:33): \"go for the best, cleanest end state ... If there's bookkeeping the tidying step needs, that's just encapsulated within the tidying step and doesn't leak into anything else.\" Route: rule N stops marking the closer; its walk treats a closer right after a bare comma that starts its line as starting the line, internally (SW-4184 route 2d). Settled tokens = the lexer's, so settledParsesKept1 covers every source; settledParsesMoved1 goes. Output must not change.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
