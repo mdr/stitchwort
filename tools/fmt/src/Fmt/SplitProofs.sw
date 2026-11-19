@@ -5,7 +5,7 @@
 
 namespace Fmt.SplitProofs
 import Std (Bool, Eq, List, Nat, Option, Text, Void)
-import Syntax (Comments, Decl, Expr, InfixKind, Leaf, Token, Word, items, itemsAfter)
+import Syntax (Comments, Decl, Expr, InfixKind, Item, Leaf, Token, Word, items, itemsAfter)
 import Syntax.SettleProofs (tokens)
 import Fmt (..)
 import Fmt.OutputStatements (..)
@@ -225,3 +225,34 @@ theorem argumentTextsOf ∀ (arguments: List Expr)
       rewrite List.filterAppend (argument.spelt False) (argumentsSpelt rest) notComment,
           codeTextsOf argument False (Bool.andLeft within) argumentClean,
           argumentTextsOf rest (Bool.andRight within) restClean
+
+-- `afterOperand`, item by item.
+
+--| Each item's `afterOperand` says whether the item before it closes an operand: how `items` sets it, which a call's
+--| argument (`argumentGlue`) and a head's `-` (`negativeNumeral`) read.
+def Chained: List Item → Bool
+  | [first, second, ..rest] => (second.afterOperand == first.kind.closesOperand) && Chained [second, ..rest]
+  | _ => True
+
+theorem boolEqSelf ∀ (b: Bool): (b == b) = True := match b with
+  | True => byComputing
+  | False => byComputing
+
+theorem itemsChained ∀ (before: Option Token) (index depth lineIndent: Nat) (leaves: List Leaf):
+    Chained (itemsAfter before index depth lineIndent leaves) = True :=
+  match leaves with
+    | [] => byComputing
+    | [_] => byComputing
+    | [leaf, next, ..rest] =>
+      rewrite itemsChained
+            (Some leaf.token)
+            (index + 1)
+            (if leaf.token.kind.isOpener then depth + 1
+             else if leaf.token.kind.isCloser then depth - 1
+             else depth)
+            (if leaf.token.lineStart then leaf.token.column else lineIndent)
+            [next, ..rest],
+          boolEqSelf leaf.token.kind.closesOperand
+
+--| A group's items are chained.
+theorem groupChained ∀ (group: List Leaf): Chained (items group) = True := itemsChained None 0 0 0 group
