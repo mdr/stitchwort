@@ -1,5 +1,5 @@
 {
-  "next": 4297,
+  "next": 4300,
   "tickets": [
     {
       "id": 47,
@@ -28127,7 +28127,7 @@
     {
       "id": 4294,
       "title": "[Opus] Review SW-4261 (G1 functional induction: refute_guard, project, %fieldN, J motives) before merge",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -28159,6 +28159,45 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "From SW-4250.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4297,
+      "title": "[DeepSeek] E-NO-INDUCT reason for a guarded arm with a literal in its pattern says 'condition wasn't tested'; say 'number or character literal' as induct.rs's doc comment does; plus nits F4-F6 (void_here's repeated else, a quote(force(eval)) helper, drop the duplicate g1-guarded-overlap.sw) (SW-4261 review F1, F4-F6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From the SW-4261 review (SW-4294).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4298,
+      "title": "[Sonnet] Functional induction: a non-tail lifted match whose call recurses on a grandchild gets no f.induct (E-TERMINATION); repro g4 in docs/reviews/SW-4261-induct-g1-review.md (F2, pre-existing)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From the SW-4261 review (SW-4294).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4299,
+      "title": "[Sonnet] Equations: an overlapped arm whose body is a non-tail lifted match gets no f.eq2 (E-REFL), so no f.induct; repro g5 in docs/reviews/SW-4261-induct-g1-review.md (F3, pre-existing)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From the SW-4261 review (SW-4294).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
