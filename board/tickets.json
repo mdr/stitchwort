@@ -26010,16 +26010,18 @@
     {
       "id": 4135,
       "title": "[Bug, Sonnet] stitchwort check panics printing diagnostics: ariadne write.rs:267 'byte index 5 is not a char boundary; it is inside →' (a missing-import error in one file with a W-UNREACHABLE warning in another); later errors lost. Repro from SW-4126's lane; failing-first test",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4135",
       "labels": [
         "bug"
       ],
-      "body": "",
+      "body": "Cause: ariadne 0.6.0 write.rs:267 passes a label group's char_span.start (characters) to get_byte_line (bytes) for every file but the report's own, so IndexType::Byte panics when non-ASCII text precedes a label in a second file. Fix: render.rs uses IndexType::Char with spans converted to characters (place; place_bytes kept for location). Test: render::tests::labels_after_non_ascii_text_in_a_second_file_render (failed before with the reported panic, passes after). Commit 5a91aba67. Model: Sonnet, ~20 min (est. 25).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "5a91aba67"
+      ]
     },
     {
       "id": 4136,
@@ -26462,12 +26464,12 @@
     {
       "id": 4169,
       "title": "[Sonnet] fmt (SW-4132 lane 6): two-run walk of DeclParser.sw: headers and groups (the bare flag, hard spot 1), types, the declarations (Syntax/FollowsDecl.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4169",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 55 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "body": "Est. 55 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.\n\nLane note (Sonnet, 19 Nov 2026): Syntax/FollowsDecl.sw done on branch lane/SW-4169 (commit 0aa433885): 286 theorems, check 0 errors, audit 0 failed (2 vacuity warnings on SameCode helpers). Every DeclParser parser function covered; bare flag via Anything on consumedBare only; closing section proves ResultTypeFollows, HeaderGroupFollows, BinderTypeFollows, PiExprFollows, ExpectFixedFollows, LowerQualifiedFollows, AttributesOfFollows, DefinitionPartsFollows. About 45 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
