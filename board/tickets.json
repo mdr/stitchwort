@@ -1,5 +1,5 @@
 {
-  "next": 4255,
+  "next": 4256,
   "tickets": [
     {
       "id": 47,
@@ -27597,6 +27597,19 @@
       "labels": [],
       "epic": "performance",
       "body": "From SW-4246.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4255,
+      "title": "[Opus] Differential oracle regression: at 3905c6d07 (passing at f691c91c4) the_evaluators_agree_on_the_prelude_and_every_example skips 104 comparisons as too big (max 60): float-playlist.sw, negative-arguments.sw (Float.Model.isqrt, sqrtBits, pow2, bitLength, addBits…; Nat.pred), random-seed.sw, omega-folded-call.sw; the only code merge in range is SW-4091 (4e6e65670); find the cause and fix, or explain",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "Reported by Overmind 19 Nov. Est. 45 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
