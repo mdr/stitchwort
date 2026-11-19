@@ -26611,12 +26611,12 @@
     {
       "id": 4180,
       "title": "[DeepSeek] fmt docs: FollowsBase.sw:39-41 and FollowsDecl.sw:56-59 say Anything is used only on Comments and consumedBare; add the three () results (refuseAttributes, afterOpaque, afterOpaqueOn); groupKeepsTokens doc: same includes column and lineStart, twin's bare not known equal (SW-4177 follow-ups 2-3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 10 min.",
+      "body": "Est. 10 min.\nModel result: DeepSeek, worked, 15 min (est. 10).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
