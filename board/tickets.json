@@ -1,5 +1,5 @@
 {
-  "next": 4259,
+  "next": 4260,
   "tickets": [
     {
       "id": 47,
@@ -27617,7 +27617,7 @@
     {
       "id": 4256,
       "title": "[Sonnet] Delete unneeded [p := …]/[j := …] spellings across the rest of tools/fmt (SW-4245's 4 files kept 53 of 434): run the delete-and-restore scripts (scratchpad sw4245-scripts: iter.py, prune.py, steps.py, stats.py) file by file, keep what checks; promote the scripts to a task",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27649,6 +27649,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4224.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4259,
+      "title": "[Sonnet] Extend tools/fmt/dev/spellings.py to [alike := …] (~94 in the Follows* files) and other spelled names ([g2/spec/weaker := …]), and to groups not at a line start; run it over tools/fmt",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4256. Est. 40 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
