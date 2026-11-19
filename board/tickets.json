@@ -1,5 +1,5 @@
 {
-  "next": 4273,
+  "next": 4274,
   "tickets": [
     {
       "id": 47,
@@ -27093,7 +27093,7 @@
     {
       "id": 4216,
       "title": "[Sonnet] fmt consolidation L3: split ParseWalk.sw (7,141 lines) into the slice's path, the outside parsers and the frame, per fmt-consolidation-statements.md lane 3; after L2",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27837,6 +27837,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From docs/reviews/SW-4262-induct-g2-review.md.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4273,
+      "title": "[Sonnet] Narrow the imports of ParseWalkOthers and ParseCarriesDecl (each still depends on nearly every ParseWalk* part after SW-4216's split), moving theorems if that lets an importer drop a part",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4216. Dependency scripts: scratchpad keep/dep.py.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
