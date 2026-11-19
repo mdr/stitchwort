@@ -15,7 +15,9 @@ fn stitchwort(cwd: &Path, args: &[&str]) -> Output {
 }
 
 /// Namespaces `A` and `B` both define `x`; `A.useA` and `A.alsoA` refer to
-/// `A.x`, `B.useB` to `B.x`, and `B.lonely` to nothing.
+/// `A.x`, `B.useB` to `B.x`, and `B.lonely` to nothing. In `B`, the theorem
+/// `lonelyFact` is used by nothing, `testedFact` only by a test (through
+/// `pick`), and `lonelyExample` is a closed example.
 fn project(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("stitchwort-uses-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -34,7 +36,12 @@ fn project(name: &str) -> PathBuf {
         "namespace B\n\n\
          def x: Nat := 2\n\n\
          def useB: Nat := x + 2\n\n\
-         def lonely: Nat := 3\n",
+         def lonely: Nat := 3\n\n\
+         theorem lonelyFact: x = 2 := byComputing\n\n\
+         theorem testedFact: x = 2 := byComputing\n\n\
+         theorem lonelyExample: x = 2 := byComputing\n\n\
+         def pick (h: x = 2): Nat := 5\n\n\
+         test \"facts\" := pick testedFact == 5\n",
     )
     .unwrap();
     dir
@@ -81,4 +88,7 @@ fn a_short_name_in_two_namespaces_is_ambiguous_and_a_unique_one_works() {
         "{unused}"
     );
     assert!(!unused.contains("B.x  "), "{unused}");
+    assert!(unused.contains("B.lonelyFact"), "{unused}");
+    assert!(!unused.contains("B.testedFact"), "{unused}");
+    assert!(!unused.contains("B.lonelyExample"), "{unused}");
 }
