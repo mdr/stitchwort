@@ -163,10 +163,11 @@
         "Per-combinator Runs and completeness lemmas (SW-1563, SW-1583, SW-1584)",
         "Completeness pilot and sweep over all 2020 days (SW-1612, SW-1624 to SW-1626, SW-1647)",
         "Parse.chainLeft with its reading lemma (SW-1567)",
-        "Toy++ T0-T3: the toy formatter with takes, typed parameters and rule N (comment placement through settle), every theorem still proved (SW-3632, SW-3666, SW-3667, SW-3675, SW-3676)"
+        "Toy++ T0-T3: the toy formatter with takes, typed parameters and rule N (comment placement through settle), every theorem still proved (SW-3632, SW-3666, SW-3667, SW-3675, SW-3676)",
+        "Self-hosted formatter slice 1, one-line milestone (D3685): formatKeepsProgram1 and formatIdempotent1 proved with no open goals, verified on main 19 Nov 2026 02:10 (overnight 18-19 Nov: SW-4077, SW-4081, SW-4085, SW-4086, SW-4089, SW-4093, SW-4096 to SW-4099, SW-4107 to SW-4110, SW-4116, SW-4117)"
       ],
       "now": [
-        "Paused 16 Nov 2026 (Matt: heavy toy work paused overnight). Where it stands: T3 merged, 1,491 theorems in the toy; Opus review of T3's changed statements owed (SW-3677); route (A) is Comments.closing, not T0's receive (orchestrator's call, SW-3677 checks it)"
+        "Slice 1 one-line milestone reached 19 Nov 2026; next steps wait on Matt (multi-line read-back, the SW-4003 checkpoint, held off-path work)"
       ],
       "next": [
         "Toy++ T4 (trailing commas and the passes, docs/proposals/toy-plus-plus.md §5) after SW-3677",
