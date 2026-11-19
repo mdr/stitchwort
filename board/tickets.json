@@ -26319,12 +26319,12 @@
     {
       "id": 4158,
       "title": "[Sonnet] tools: stitchwort uses NAME (reverse dependencies across a project) or an unused-declaration report (SW-4154 friction: name-grep gave wrong answers from clashes)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4158",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Est. 60 min.",
+      "body": "Est. 60 min.\n\nLane: `stitchwort uses NAME…` and `--unused NS…` done on lane/SW-4158 (commit 1d651da5f); 2 tests pass; docs/syntax.md section added. Loads the whole project (5 min cold on tools/fmt).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []

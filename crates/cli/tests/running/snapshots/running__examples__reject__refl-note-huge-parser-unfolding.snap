@@ -9,7 +9,7 @@ expression: output
      │                                                                                                                                                     ─────┬─────  
      │                                                                                                                                                          ╰─────── `choose b (arg => Parse.exactly 340282366920938463463374607431768211456 Parse.digit)` and `arg => Parse.exactly 35 Parse.digit` aren't equal
      │
-     ├─[ std/Parse/Parse.sw:252:23 ]
+     ├─[ std/Parse/Parse.sw:252:67 ]
      │
  252 │ ╭─▶ def Parse.satisfy (what: Text) (passes: t → Bool): {Parse t} t := match Parse.next passes with
      ┆ ┆   
