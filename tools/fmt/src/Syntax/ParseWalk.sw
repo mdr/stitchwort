@@ -9,6 +9,8 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
+import Fmt.Grammar1 (..)
+import Fmt.Kinds1 (..)
 
 -- What each level of the recursion gives.
 
@@ -82,19 +84,23 @@ def GoalParsed (goal: Goal) (expr: Expr): Prop := match goal.level with
 def Nested (self: Goal → {Parse Item} Expr): Prop :=
   ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (GoalRead goal)
 
---| A tree outside the slice is parsed at every floor, and as an argument.
-def Out (expr: Expr): Prop := expr.within1 = False
+--| A tree outside slice 1's grammar, and so outside the driver's slice (`withinFalseOfOut`): every walk's spec holds
+--| of it.
+def Out (expr: Expr): Prop := expr.grammar1 = False
 
-theorem outParsed ∀ (floor: Nat) [expr: Expr] (out: Out expr): Parsed1 floor expr := parsedOutside floor expr out
+theorem withinFalseOfOut ∀ [expr: Expr] (out: Out expr): expr.within1 = False := Expr.withinOfGrammarFalse1 expr out
+
+theorem outParsed ∀ (floor: Nat) [expr: Expr] (out: Out expr): Parsed1 floor expr :=
+  parsedOutside floor expr (withinFalseOfOut out)
 
 theorem outArg ∀ [expr: Expr] (out: Out expr): ArgParsed expr := within =>
-  (Bool.falseNotTrue (rewrite out at within)).impossible
+  (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible
 
 theorem outAtom ∀ [expr: Expr] (out: Out expr): AtomParsed expr := within =>
-  (Bool.falseNotTrue (rewrite out at within)).impossible
+  (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible
 
 theorem outHead ∀ [expr: Expr] (out: Out expr): HeadParsed expr := within =>
-  (Bool.falseNotTrue (rewrite out at within)).impossible
+  (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible
 
 theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.level := match expr, argument with
   | Atom kind word, argument => arithmetic
@@ -177,7 +183,7 @@ theorem argReadPlain ∀ [read rest later: List Item] [item: Item] [expr: Expr]
   (argReadLead found whole plain).left
 
 theorem outArgRead ∀ [read: List Item] [expr: Expr] (out: Out expr): ArgRead read expr :=
-  Inl (Both (outAtom out) (within => (Bool.falseNotTrue (rewrite out at within)).impossible))
+  Inl (Both (outAtom out) (within => (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible))
 
 --| `argReadPlain`, with the tree's first token: the first item's word.
 theorem argReadLead ∀ [read rest later: List Item] [item: Item] [expr: Expr]
@@ -201,7 +207,7 @@ theorem atomAtLead ∀ [item: Item] [read: List Item] [expr: Expr]
     (item, more, split, same))
 
 theorem atomFromOut ∀ (open: Word) [expr: Expr] (out: Out expr): AtomFrom open expr :=
-  Both (outAtom out) (within => (Bool.falseNotTrue (rewrite out at within)).impossible)
+  Both (outAtom out) (within => (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible)
 
 theorem givesOutFrom ∀ [p: () → {Parse Item} Expr] (open: Word)
     (gives: Parse.Gives GoodItems p Out):
@@ -213,7 +219,7 @@ theorem givesOutAt ∀ [p: () → {Parse Item} Expr] (item: Item)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start p (read value => AtomAt item read value) :=
   Parse.readsAtWeaken (gives start fine) (read value out =>
-    Both (outAtom out) (within => (Bool.falseNotTrue (rewrite out at within)).impossible))
+    Both (outAtom out) (within => (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible))
 
 --| `bump` the item, then read a tree that starts with its word.
 theorem readsAtBumpAt ∀ [start: Parse.Mark Item] [item: Item] [later: List Item] [k: Word → {Parse Item} Expr]
@@ -3179,11 +3185,7 @@ theorem givesCmpIf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: E
           [p := () => ifExpr self modes indent keyword]
           [j := tail => Infix InfixBinary lhs operator tail]
           (givesIf self modes indent keyword nested)
-          (tail out =>
-            Parse.givesDone
-              (Bool.andFalseRight lhs.within1
-                (tail.within1 ∧ binaryText1 operator.text)
-                (Bool.andFalseLeft tail.within1 (binaryText1 operator.text) out)))))
+          (tail out => Parse.givesDone (Bool.andFalseRight lhs.grammar1 tail.grammar1 out))))
 
 theorem givesParenOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok)
     (nested: Nested self):
@@ -3516,7 +3518,7 @@ theorem givesFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (token:
       (bracket =>
         match bracket with
           | True => Parse.givesThen (givesListExprAny self modes nested) (list _ => givesFactsEnd kind keyword list)
-          | False => Parse.givesDone (Bool.andFalseLeft _ _ plain)))
+          | False => Parse.givesDone (Tok.atomFalseOfWord1 token plain)))
 
 theorem givesIncludeAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => includeAtom modes) Out :=
   Parse.givesThen givesBump (keyword _ =>
@@ -6398,7 +6400,11 @@ def BodyOk: DefBody → Prop
 --| What a definition's header and body give: its result and value are parsed, and its name is a name.
 def PartsOk (parts: (Header, DefBody)): Prop := Parsed1 1 parts.fst.result ∧ NameOk parts.fst.name ∧ BodyOk parts.snd
 
-def DeclOut (decl: Decl): Prop := decl.within1 = False
+--| A declaration outside slice 1's grammar, and so outside the driver's slice.
+def DeclOut (decl: Decl): Prop := decl.grammar1 = False
+
+theorem withinFalseOfDeclOut ∀ [decl: Decl] (out: DeclOut decl): decl.within1 = False :=
+  Decl.withinOfGrammarFalse1 decl out
 
 theorem givesFixedFrom: Parse.Gives GoodItems (() => fixedFrom()) (comments => True) :=
   Parse.givesThen [p := () => bump()] [j := word => word.comments] givesBump (found _ => Parse.givesDone byComputing)
@@ -6925,7 +6931,7 @@ theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
 def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧ decl.lexical1 = True
 
 theorem declOut ∀ [decl: Decl] (out: DeclOut decl): DeclOk decl := within =>
-  (Bool.falseNotTrue (rewrite out at within)).impossible
+  (Bool.falseNotTrue (rewrite withinFalseOfDeclOut out at within)).impossible
 
 --| A header slice 1 lets through has a name that lexes as one token of the lower-case kind or the upper-case one.
 theorem headerNameKind ∀ (header: Header)

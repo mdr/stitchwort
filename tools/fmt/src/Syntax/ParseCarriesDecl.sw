@@ -729,7 +729,7 @@ def DeclAfter (before: List Item) (attributes: List Attributes) (read: List Item
 theorem declOutAfter ∀ (before: List Item) (attributes: List Attributes) [read: List Item] [decl: Decl]
     (out: DeclOut decl):
     DeclAfter before attributes read decl :=
-  attributesEmpty within => (Bool.falseNotTrue (rewrite out at within)).impossible
+  attributesEmpty within => (Bool.falseNotTrue (rewrite withinFalseOfDeclOut out at within)).impossible
 
 theorem readsAtDefinition ∀ (modes: Modes) (attributes: List Attributes) (before: List Item) (start: Parse.Mark Item)
     (item: Item) (later: List Item)

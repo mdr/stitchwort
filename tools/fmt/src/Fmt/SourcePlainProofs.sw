@@ -18,6 +18,7 @@ namespace Fmt.SourcePlainProofs
 import Std (Bool, DecEq, Eq, List, Option, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt.Grammar1 (..)
+import Fmt.Kinds1 (..)
 import Syntax.SettleProofs (arrowFollow, itemKind, passableKind, sourcePlain1, sourcePlainFrom, tokens)
 import Syntax.SettleSplitProofs (groupsConcat)
 
@@ -121,6 +122,79 @@ def declsShapes1: List Decl → List Shape1
   | [decl, ..rest] => decl.shapes1 ++ declsShapes1 rest
 
 def SourceFile.shapes1 (file: SourceFile): List Shape1 := declsShapes1 file.decls
+
+-- The shapes are the kinds'.
+
+theorem atomShape1 ∀ (kind: Tok) (atom: kind.atom1 = True): kind.shape1 = ShapeOther := match kind with
+  | Lower => byComputing
+  | Upper => byComputing
+  | Num => byComputing
+  | Float => byComputing
+
+theorem binaryShape1 ∀ (text: Text): (binaryKind1 text).shape1 = ShapeOther := cases
+
+theorem prefixShape1 ∀ (text: Text): (prefixKind1 text).shape1 = ShapeOther := cases
+
+--| A slice 1 tree's shapes are those of its tokens' kinds (`Fmt.Kinds1.Expr.kinds1`), so a walk of the parser that
+--| gives the kinds gives the shapes.
+theorem Expr.shapesOfKinds1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): expr.shapes1 = expr.kinds1.map Tok.shape1 :=
+  match expr with
+    | Atom kind word => rewrite atomShape1 kind grammar
+    | Paren open inner close =>
+      rewrite List.mapAppend inner.kinds1 [RParen] Tok.shape1, Expr.shapesOfKinds1 inner grammar
+    | Tuple open items trailing close => rewrite itemsShapesOfKinds1 RParen byComputing trailing items grammar
+    | ListOf open items trailing close => rewrite itemsShapesOfKinds1 RBracket byComputing trailing items grammar
+    | App head arguments =>
+      rewrite List.mapAppend head.kinds1 (argsKinds1 arguments) Tok.shape1,
+          Expr.shapesOfKinds1 head (Bool.andLeft grammar),
+          argsShapesOfKinds1 arguments (Bool.andRight grammar)
+    | Infix InfixBinary left operator right =>
+      rewrite List.mapAppend left.kinds1 [binaryKind1 operator.text, ..right.kinds1] Tok.shape1,
+          Expr.shapesOfKinds1 left (Bool.andLeft grammar),
+          Expr.shapesOfKinds1 right (Bool.andRight grammar),
+          binaryShape1 operator.text
+    | Infix InfixArrow left operator right =>
+      rewrite List.mapAppend left.kinds1 [Arrow, ..right.kinds1] Tok.shape1,
+          Expr.shapesOfKinds1 left (Bool.andLeft grammar),
+          Expr.shapesOfKinds1 right (Bool.andRight grammar)
+    | Prefix operator operand => rewrite Expr.shapesOfKinds1 operand grammar, prefixShape1 operator.text
+
+theorem itemsShapesOfKinds1 ∀ (close: Tok)
+    (closer: close.shape1 = ShapeCloser)
+    (trailing: Bool) (items: List Expr)
+    (grammar: allGrammar1 items = True):
+    itemsShapes1 trailing items = (itemsKinds1 close trailing items).map Tok.shape1 :=
+  match items with
+    | [] => rewrite closer
+    | [first, ..rest] =>
+      rewrite List.mapAppend first.kinds1 (restKinds1 close trailing rest) Tok.shape1,
+          Expr.shapesOfKinds1 first (Bool.andLeft grammar),
+          restShapesOfKinds1 close closer trailing rest (Bool.andRight grammar)
+
+theorem restShapesOfKinds1 ∀ (close: Tok)
+    (closer: close.shape1 = ShapeCloser)
+    (trailing: Bool) (rest: List Expr)
+    (grammar: allGrammar1 rest = True):
+    restShapes1 trailing rest = (restKinds1 close trailing rest).map Tok.shape1 :=
+  match rest with
+    | [] =>
+      match trailing with
+        | True => rewrite closer
+        | False => rewrite closer
+    | [next, ..more] =>
+      rewrite List.mapAppend next.kinds1 (restKinds1 close trailing more) Tok.shape1,
+          Expr.shapesOfKinds1 next (Bool.andLeft grammar),
+          restShapesOfKinds1 close closer trailing more (Bool.andRight grammar)
+
+theorem argsShapesOfKinds1 ∀ (arguments: List Expr)
+    (grammar: allGrammar1 arguments = True):
+    argsShapes1 arguments = (argsKinds1 arguments).map Tok.shape1 :=
+  match arguments with
+    | [] => byComputing
+    | [argument, ..rest] =>
+      rewrite List.mapAppend argument.kinds1 (argsKinds1 rest) Tok.shape1,
+          Expr.shapesOfKinds1 argument (Bool.andLeft grammar),
+          argsShapesOfKinds1 rest (Bool.andRight grammar)
 
 -- Runs of shapes.
 

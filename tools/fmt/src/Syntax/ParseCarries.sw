@@ -14,6 +14,7 @@ import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
+import Fmt.Grammar1 (..)
 
 -- The spec.
 
@@ -63,7 +64,7 @@ theorem itemWordsComma ∀ (item: Item) (comma: item.kind = Comma): itemWords [i
 
 --| A tree outside the slice carries any items.
 theorem carriedOut ∀ (read: List Item) [expr: Expr] (out: Out expr): Carried read expr := within =>
-  (Bool.falseNotTrue (rewrite out at within)).impossible
+  (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible
 
 --| The lift of `ParseWalk`'s facts for the parsers outside the slice: a parser whose trees are all outside the slice
 --| carries its items.
@@ -166,7 +167,7 @@ theorem readsSuffixCalled ∀ (target: Expr) (callable paren: Bool):
         match callable || (paren && callableParen target) with
           | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
           | True => Parse.readsThen givesBump (r1 open _ =>
-            Parse.readsThen givesBump (r2 close _ => Parse.readsDone _ _ (Inr (Bool.andFalse target.within1)))))
+            Parse.readsThen givesBump (r2 close _ => Parse.readsDone _ _ (Inr (Bool.andFalse target.grammar1)))))
 
 --| `suffixes` after the call: a field access starts another round on a tree outside the slice, and nothing else is read.
 --|
