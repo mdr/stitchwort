@@ -4195,7 +4195,7 @@ theorem List.consTailEq ∀ (x y: a) (xs ys: List a) (same: [x, ..xs] = [y, ..ys
   Eq.cong (list => list.drop 1) same
 
 --| Consing equal heads onto equal tails gives equal lists.
-theorem List.consCong ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] :=
+theorem List.consEqOfEq ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] :=
   rewrite head, tail
 
 --| Two joined lists that are equal, with equal first parts in length, have equal first parts and equal second parts.
@@ -4208,7 +4208,7 @@ theorem List.appendCancel ∀ (a c b d: List x) (joined: a ++ b = c ++ d) (lengt
       let headSame: p = q := Eq.cong (all => all.headOr p) joined
       let (restSame, tailSame) :=
         List.appendCancel ps qs b d (Eq.cong (all => all.drop 1) joined) (Eq.cong (n => n - 1) lengths)
-      (List.consCong p q ps qs headSame restSame, tailSame)
+      (List.consEqOfEq p q ps qs headSame restSame, tailSame)
 
 --| The head of a join with a non-empty front is the front's head.
 theorem List.headAppend ∀ (front back: List a) (filled: front ≠ []): (front ++ back).head = front.head :=

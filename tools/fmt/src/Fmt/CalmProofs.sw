@@ -801,7 +801,7 @@ theorem cellsKept ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
     | [], _ => byComputing
     | [item], (first, _) => Eq.cong (doc => [doc]) (first (firstAround bare arm before at))
     | [item, ..rest], (first, others) =>
-      List.consCong
+      List.consEqOfEq
         (Doc.concat [(item.calm (!bare)).el (firstAround bare arm before at), Closing ","])
         (Doc.concat [item.el (firstAround bare arm before at), Closing ","])
         (cells False arm (item.calm (!bare)).trails (at + (item.calm (!bare)).size) (calmAll True rest))
@@ -826,7 +826,7 @@ theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List
     | [], _ => byComputing
     | [item], (kept, _) => list2 _ _ _ _ byComputing (kept (firstAround bare arm before at))
     | [item, ..rest], (kept, others) =>
-      List.consCong
+      List.consEqOfEq
         (if first then SoftLine else Line)
         (if first then SoftLine else Line)
         [
@@ -840,9 +840,9 @@ theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List
           ..brokenItems False arm False item.trails (at + item.size) rest
         ]
         byComputing
-        (List.consCong _ _ _ _
+        (List.consEqOfEq _ _ _ _
           (kept (firstAround bare arm before at))
-          (List.consCong
+          (List.consEqOfEq
             (Closing ",")
             (Closing ",")
             (brokenItems False arm False (item.calm (!bare)).trails (at + (item.calm (!bare)).size) (calmAll True rest))
@@ -1203,11 +1203,11 @@ theorem chainLinksKept ∀ (level: Option Nat) (first: Bool) (left: Expr) (opera
     (linkDocs level first left around)
     [Line, operator.leaf leftAround leftAround.at, ..chainRight level right rightAround]
     (linkDocsKept level first left around leftGood)
-    (List.consCong Line Line
+    (List.consEqOfEq Line Line
       [(operator.kept False False).leaf calmedAround calmedAround.at, ..chainRight level (right.calm False) calmedRight]
       [operator.leaf leftAround leftAround.at, ..chainRight level right rightAround]
       byComputing
-      (List.consCong
+      (List.consEqOfEq
         ((operator.kept False False).leaf calmedAround calmedAround.at)
         (operator.leaf leftAround leftAround.at)
         (chainRight level (right.calm False) calmedRight)

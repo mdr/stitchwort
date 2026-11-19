@@ -1898,7 +1898,7 @@ theorem flushTokens ∀ (current other: List Leaf) (groups others: List (List Le
         _ = (tokens [first, ..more]).reverse := tokensReverse [first, ..more]
         _ = (tokens [second, ..later]).reverse := Eq.cong (all => all.reverse) sameCurrent
         _ = tokens [second, ..later].reverse := Eq.flipped (tokensReverse [second, ..later])
-      List.consCong _ _ _ _ reversed sameGroups
+      List.consEqOfEq _ _ _ _ reversed sameGroups
 
 -- Standing, group by group.
 
@@ -1984,7 +1984,7 @@ theorem codeLengthsTokens ∀ (xs ys: List (List Leaf))
   match xs, ys with
     | [], [] => byComputing
     | [x, ..xr], [y, ..yr] =>
-      List.consCong _ _ _ _
+      List.consEqOfEq _ _ _ _
         (codeLengthTokens x y (Eq.cong (all => all.headOr []) same))
         (codeLengthsTokens xr yr (Eq.cong (all => all.drop 1) same))
 
@@ -1994,7 +1994,7 @@ theorem standsLengths ∀ (words: List (List Word)) (groups: List (List Leaf))
   match words, groups with
     | [], [] => byComputing
     | [first, ..more], [group, ..rest] =>
-      List.consCong _ _ _ _
+      List.consEqOfEq _ _ _ _
         (standsLength None first group (Bool.andLeft each))
         (standsLengths more rest (Bool.andRight each))
 
@@ -2016,7 +2016,7 @@ theorem piecesWords ∀ (pieces: List (List Leaf)) (words: List (List Word))
           more.concat
           split
           (Eq.cong (all => all.headOr 0) lengths)
-      List.consCong _ _ _ _ pieceSame (piecesWords rest more restSame (Eq.cong (all => all.drop 1) lengths))
+      List.consEqOfEq _ _ _ _ pieceSame (piecesWords rest more restSame (Eq.cong (all => all.drop 1) lengths))
 
 -- Witnesses for the narrow hypotheses.
 
