@@ -26501,12 +26501,12 @@
     {
       "id": 4172,
       "title": "[Opus] fmt S1 lane K1 (SW-4166): Carried becomes Kept: Expr.kinds1 (new file), Out/DeclOut regated on grammar1, Kept/KeptAt/carriedOfKept, ParseCarries.sw converted, within1 -> grammar1 lemmas",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4172",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §2, §4 row K1. Later ParseWalk.sw editors wait for it.",
+      "body": "Est. 60 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §2, §4 row K1. Later ParseWalk.sw editors wait for it.\n\nK1 done, 12:37 (26 min of 60). Branch lane/SW-4172, commit cb59c7a46.\n- New Fmt/Kinds1.sw: Expr.kinds1 (commas in), binaryKind1/prefixKind1; within1 → grammar1 for Expr, Header (Word.nameGrammar1: nameWithin1 → isName1), Decl; Tok.atomFalseOfWord1.\n- SourcePlainProofs: Expr.shapesOfKinds1 (grammar1 → shapes1 = kinds1.map shape1), with its items/rest/args twins.\n- Out and DeclOut are now grammar1 = False (withinFalseOfOut, withinFalseOfDeclOut). ParseProofs' `outside` hypotheses take grammar1 = False; the headerOutOf* lemmas conclude grammar1 = False. Every consumer checks.\n- New Syntax/ParseKept.sw, not ParseCarries.sw in place: Kept, NestedKept, carriedOfKept, nestedCarriesOfKept, and the first half (atoms to readsAppendExpr), with lane L's fact as the hypothesis SpellsText1. ParseCarries keeps its Carried walk until K2 converts the ladder, because the knot can't be half Carried and half Kept.\n- Not done: KeptAt, which needs lane A's autoPlaced1.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
