@@ -25904,12 +25904,12 @@
     {
       "id": 4127,
       "title": "[Sonnet] fmt multi-line read-back H4 (SW-4121): endsAtom, unaryEndsOf, endsAtOf without restOpen",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4127",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4121-multiline-readback.md, H4 and O-list. Model: Sonnet. Est. 20 min.",
+      "body": "docs/reviews/SW-4121-multiline-readback.md, H4 and O-list. Model: Sonnet. Est. 20 min.\n\nLane note 19 Nov: restOpen dropped from endsAtom (case on modes.stops next), unaryEndsOf, endsAtOf and the chain above (arrowLine, inlinePlainLine, inlineLine, fullLine); callers fixed. Syntax.ReadBackLine, Fmt.TopReadBack, Fmt.TopStatements check; audit of Syntax.ReadBackLine 0 failed. Commit e85346d96 on lane/SW-4127.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
