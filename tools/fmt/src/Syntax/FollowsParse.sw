@@ -1,0 +1,104 @@
+--| The two-run walk's knots tied (docs/reviews/SW-4132-two-run-parse.md, lane 8): `expressionRule` and `patternRule`
+--| each follow themselves given a knot, so `expressionAt` and `pattern` follow themselves outright, and with them
+--| `declaration`. A declaration group's items with the same tokens then parse alike (`declarationKeepsTokens`), which
+--| `Fmt.SettleParseProofs.groupKeepsTokens` states for `groupRun`.
+--|
+--| The other lanes' files each take the facts of the functions they call in another file as hypotheses. They are
+--| supplied here in call order: lane 6's (`Syntax.FollowsDecl`) need only the knot, lane 7's (`Syntax.FollowsStatements`)
+--| lane 6's and the knot, and lane 5's rule lemma (`followsExpressionRule`) all of them. `patternRule`'s lemma
+--| (`patternRuleFollows`) needs nothing from another file. So the only cycle is the knot itself, which
+--| `Parse.followsRecursiveWith` ties.
+
+namespace Syntax.FollowsParse
+import Std (Bool, Eq, List, Nat, Option, Parse, Result)
+import Syntax (..)
+import Fmt (..)
+import Fmt.Walk (..)
+import Fmt.Proofs (blankPure)
+import Syntax.SettleProofs (tokens)
+import Syntax.DeafProofs (SameCode, groupItemsSameCode)
+import Syntax.FollowsBase (..)
+import Syntax.FollowsLadder (..)
+import Syntax.FollowsForms (..)
+import Syntax.FollowsStatements (..)
+import Syntax.FollowsDecl (..)
+
+-- The knots.
+
+--| `expressionRule` follows itself at a knot: lane 5's rule lemma, with every other lane's fact it takes built from
+--| the knot.
+theorem expressionRuleFollows: ExpressionRule := self selfTwin knot =>
+  let expects := followsExpectFixedAll
+  let lowers := followsLowerQualifiedAll
+  let groups := followsHeaderGroupAll knot
+  let binders := followsBinderTypeAll knot
+  let pis := followsPiExprAll knot
+  let results := followsResultTypeAll knot
+  let definitions := followsDefinitionPartsAll knot altPatternFollows
+  followsExpressionRule knot groups binders
+    (inductFollows knot expects)
+    (reifyFollows knot expects lowers)
+    pis
+    results
+    (handleFollows knot expects lowers)
+    (letStatementFollows knot expects)
+    (letBodyFollows knot)
+    (calcFollows knot expects lowers groups binders results)
+    (rewriteFollows knot expects lowers)
+    (casesFollows knot)
+    (statementFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
+    (thenBodyFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
+
+--| `expressionAt` follows itself at every goal.
+theorem expressionSelfFollows: SelfFollows expressionAt expressionAt := expressionKnot expressionRuleFollows
+
+--| `pattern` follows itself at every goal.
+theorem patternSelfFollows: PatternSelfFollows pattern pattern := goal => followsPattern patternRuleFollows goal
+
+--| A declaration follows itself, for every `Seen`.
+theorem declarationFollows ∀ (seen: Seen):
+    Parse.Follows SameCode DeclsAlike (() => declaration seen) (() => declaration seen) :=
+  followsDeclaration expressionRuleFollows altPatternFollows seen
+
+-- One group.
+
+--| What `Fmt.SettleParseProofs.groupRun` runs: `declaration`, its value bound and given back.
+theorem groupDeclarationFollows ∀ (seen: Seen):
+    Parse.Follows SameCode DeclsAlike
+      (() =>
+        let decl := declaration seen
+        decl)
+      (() =>
+        let decl := declaration seen
+        decl) :=
+  Parse.followsThen (declarationFollows seen) (decl declTwin decls => Parse.followsDone decl declTwin decls)
+
+--| The parser reads a declaration group's comments only into the tree: a group's leaves parse to a declaration, and
+--| any leaves with the same tokens parse to one equal to it once both are blanked. Stated for the parser
+--| `Fmt.SettleParseProofs.groupRun` runs, which is `groupKeepsTokens` there.
+theorem declarationKeepsTokens ∀ (seen: Seen) (group other: List Leaf) (decl: Decl)
+    (same: tokens group = tokens other)
+    (runs: Parse.run (items group) (() =>
+      let decl := declaration seen
+      decl)
+      = Ok decl):
+    ∃ (twin: Decl) => Parse.run (items other) (() =>
+      let decl := declaration seen
+      decl)
+      = Ok twin
+      ∧ twin.walk blankPure = decl.walk blankPure :=
+  let (twin, twinRuns, alike) :=
+    Parse.followsRun
+      [first := () =>
+        let decl := declaration seen
+        decl]
+      [second := () =>
+        let decl := declaration seen
+        decl]
+      (groupDeclarationFollows seen)
+      (items group)
+      (items other)
+      (groupItemsSameCode group other same)
+      decl
+      runs
+  (twin, twinRuns, Eq.flipped alike)
