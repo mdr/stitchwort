@@ -1,5 +1,5 @@
 {
-  "next": 4270,
+  "next": 4271,
   "tickets": [
     {
       "id": 47,
@@ -27554,12 +27554,12 @@
     {
       "id": 4251,
       "title": "[Sonnet] Or-pattern sweep 1/3: std (crates/elab/src/std): join repeated match arms with or-patterns or a catch-all",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.",
+      "body": "\nMatt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.\n\nLane notes (Sonnet, 19 Nov): 636 joins (all or-patterns; no catch-all collapses, see report), 907 arms removed in 66 std files; std lines 69,835 -> 68,821. Script: scratchpad sw4251/joinarms.py. Every touched file checked (check --std), 33 touched files' tests passed (test --std), hash_stability snapshot re-accepted (prelude only), native-pin tests pass with no repin. Commits cc14a319d, c74dd5a9d on lane/SW-4251.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27567,7 +27567,7 @@
     {
       "id": 4252,
       "title": "[Sonnet] Or-pattern sweep 2/3: tools/fmt proofs and program: join repeated match arms with or-patterns or a catch-all",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27580,8 +27580,8 @@
     {
       "id": 4253,
       "title": "[DeepSeek] Or-pattern sweep 3/3: aoc/ and games/rogue: join repeated match arms with or-patterns or a catch-all",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -27796,6 +27796,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-4262.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4270,
+      "title": "[Sonnet] Or-pattern joins the SW-4252 script couldn't find: cross-product cases in multi-column matches (Inl same | Inr same), and new catch-alls where all remaining constructors share a body (needs constructor lists); tools/fmt and std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4252. Script: scratchpad sw4253/join.py.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
