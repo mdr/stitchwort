@@ -26815,7 +26815,7 @@
     {
       "id": 4195,
       "title": "[Sonnet] Slice 1 checkpoint measurements (proof plan §4): theorems per layer vs the S1 sketch's counts, lane minutes and theorems per agent hour, lines per theorem and five longest proofs, share of helpers/dispatchers/bookkeeping, project check time, harness score for repo declarations within slice 1, top five frictions with tickets; written into tools/fmt/NOTES.md plus a one-screen summary for Matt",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
