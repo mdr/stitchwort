@@ -225,9 +225,7 @@ theorem lineStartFor ∀ (noted: Bool) (inset: Nat) (place: Place)
       match noted with
         | True => byComputing
         | False => byComputing
-    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
-    | Mid at carry, never => (Bool.falseNotTrue never).impossible
-    | Held at carry, never => (Bool.falseNotTrue never).impossible
+    | AtStart _ _ | Mid _ _ | Held _ _, never => (Bool.falseNotTrue never).impossible
 
 --| A `HardLine` before an argument laid deeper than the call: the start of a line at `inset`.
 theorem hardLineArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState) (before: Bool)
@@ -330,11 +328,7 @@ theorem enteredDeeper ∀ (indent inset column: Nat) (state: HangState) (entry p
     Entered inset column False state entry (wordStart inset entry) place hang
       ∧ wordStart inset entry = wordStart indent entry :=
   match entry, entered with
-    | AtStart at carry, (isEntry, folded, (seated, below, clear, room)) =>
-      ((isEntry, folded, (seated, arithmetic, arithmetic, room)), byComputing)
-    | Broken at carry, (isEntry, folded, (seated, below, clear, room)) =>
-      ((isEntry, folded, (seated, arithmetic, arithmetic, room)), byComputing)
-    | Mid at carry, (isEntry, folded, (seated, below, clear, room)) =>
+    | AtStart _ _ | Broken _ _ | Mid _ _, (isEntry, folded, (seated, _, _, room)) =>
       ((isEntry, folded, (seated, arithmetic, arithmetic, room)), byComputing)
     | Held at carry, (_, _, ((never, _, _), _, _, _)) => (Bool.falseNotTrue never).impossible
 

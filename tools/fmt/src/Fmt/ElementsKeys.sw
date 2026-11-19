@@ -226,10 +226,7 @@ theorem anyLastKeys ∀ (low: Nat) (argument: Expr) (around: Around)
     | Atom _ _, _ => (plain, open never => cases)
     | Paren open inner close, within =>
       rewrite parenLast open inner close around within then (plain, opened never => cases)
-    | App _ _, _ => (plain, open never => cases)
-    | Infix InfixBinary _ _ _, _ => (plain, open never => cases)
-    | Infix InfixArrow _ _ _, _ => (plain, open never => cases)
-    | Prefix _ _, _ => (plain, open never => cases)
+    | App _ _ | Infix InfixBinary _ _ _ | Infix InfixArrow _ _ _ | Prefix _ _, _ => (plain, open never => cases)
     | Tuple open items trailing close, within => anyHugKeys low False open items close around floor within
     | ListOf open items trailing close, within => anyHugKeys low True open items close around floor within
 
@@ -278,12 +275,8 @@ theorem anyLinkKeys ∀ (low: Nat) (level: Option Nat) (first: Bool) (expr: Expr
           (Bool.andLeft (Bool.andRight within))
           floor)
         (rewrite anyKeys (Infix InfixArrow left operator right) around low within floor)
-    | Atom _ _, within => rewrite anyKeys expr around low within floor
-    | Paren _ _ _, within => rewrite anyKeys expr around low within floor
-    | Tuple _ _ _ _, within => rewrite anyKeys expr around low within floor
-    | ListOf _ _ _ _, within => rewrite anyKeys expr around low within floor
-    | App _ _, within => rewrite anyKeys expr around low within floor
-    | Prefix _ _, within => rewrite anyKeys expr around low within floor
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, within =>
+      rewrite anyKeys expr around low within floor
 
 theorem anyPairKeys ∀ (low: Nat) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
     (right: Expr) (around: Around)

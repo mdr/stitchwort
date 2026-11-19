@@ -21,8 +21,7 @@ import Fmt.TouchProofs (spacingFree)
 def Expr.slots: Expr → List (Option Word)
   | Atom _ word => [Some word]
   | Paren open inner close => [Some open, ..inner.slots] ++ [Some close]
-  | Tuple open items _ close => [Some open, ..commaSlots items] ++ [Some close]
-  | ListOf open items _ close => [Some open, ..commaSlots items] ++ [Some close]
+  | Tuple open items _ close | ListOf open items _ close => [Some open, ..commaSlots items] ++ [Some close]
   | App head arguments => head.slots ++ argumentSlots arguments
   | Infix _ left operator right => left.slots ++ [Some operator, ..right.slots]
   | Prefix operator operand => [Some operator, ..operand.slots]
@@ -228,9 +227,7 @@ theorem chainedAfter ∀ (front: List Item) (item: Item) (rest: List Item)
 
 theorem spacedFirstLength ∀ (spacing: Spacing) (inner: List Spacing):
     (spacedFirst spacing inner).length = inner.length :=
-  match inner with
-    | [] => byComputing
-    | [_, ..rest] => byComputing
+  match inner with | [] | [_, .._] => byComputing
 
 --| An expression's spacing has a place for each of its slots.
 theorem spacingLength ∀ (expr: Expr) (argument: Bool)
@@ -242,11 +239,7 @@ theorem spacingLength ∀ (expr: Expr) (argument: Bool)
       rewrite List.lengthAppend [Free, ..inner.spacing False] [Free],
           List.lengthAppend [Some open, ..inner.slots] [Some close],
           spacingLength inner False within
-    | Tuple open items _ close, within =>
-      rewrite List.lengthAppend [Free, ..commaSpacing items] [Free],
-          List.lengthAppend [Some open, ..commaSlots items] [Some close],
-          commaSpacingLength items within
-    | ListOf open items _ close, within =>
+    | Tuple open items _ close | ListOf open items _ close, within =>
       rewrite List.lengthAppend [Free, ..commaSpacing items] [Free],
           List.lengthAppend [Some open, ..commaSlots items] [Some close],
           commaSpacingLength items within
@@ -255,13 +248,7 @@ theorem spacingLength ∀ (expr: Expr) (argument: Bool)
           List.lengthAppend head.slots (argumentSlots arguments),
           spacingLength head False (Bool.andLeft within),
           argumentsSpacingLength arguments (Bool.andRight within)
-    | Infix InfixBinary left operator right, within =>
-      rewrite List.lengthAppend (left.spacing False) [Free, ..spacedFirst Apart (right.spacing False)],
-          List.lengthAppend left.slots [Some operator, ..right.slots],
-          spacingLength left False (Bool.andLeft within),
-          spacedFirstLength Apart (right.spacing False),
-          spacingLength right False (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left operator right, within =>
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right, within =>
       rewrite List.lengthAppend (left.spacing False) [Free, ..spacedFirst Apart (right.spacing False)],
           List.lengthAppend left.slots [Some operator, ..right.slots],
           spacingLength left False (Bool.andLeft within),
@@ -272,8 +259,7 @@ theorem spacingLength ∀ (expr: Expr) (argument: Bool)
         | Some spacing =>
           rewrite spacedFirstLength spacing (operand.spacing False), spacingLength operand False (Bool.andLeft within)
         | None => rewrite spacingLength operand False (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem commaSpacingLength ∀ (items: List Expr)
     (within: allWithin1 items = True):
@@ -344,10 +330,7 @@ theorem bracketSlots ∀ (read: List Item) (open close: Word) (inside: List (Opt
 
 --| A token of a name or numeral closes an operand.
 theorem wordCloses ∀ (kind: Tok) (within: kind.wordWithin1 = True): kind.closesOperand = True := match kind, within with
-  | Lower, _ => byComputing
-  | Upper, _ => byComputing
-  | Num, _ => byComputing
-  | Float, _ => byComputing
+  | Lower | Upper | Num | Float, _ => byComputing
   | other, never => (Bool.falseNotTrue never).impossible
 
 --| The last item closes an operand.
@@ -360,9 +343,7 @@ theorem readCloserEnds ∀ (read: List Item) (open close: Word) (inside: List (O
     (closer: lexKind close.text = RParen ∨ lexKind close.text = RBracket):
     EndsClosed read :=
   let (isRead, _, _, _, _, lastKind) := bracket
-  match closer with
-    | Inl paren => ([first, ..middle], last, (rewrite isRead), (rewrite lastKind, paren))
-    | Inr bracketKind => ([first, ..middle], last, (rewrite isRead), (rewrite lastKind, bracketKind))
+  match closer with | Inl paren | Inr paren => ([first, ..middle], last, (rewrite isRead), (rewrite lastKind, paren))
 
 theorem parenLexCloser ∀ (close: Word)
     (is: (close.text == ")") = True):
@@ -495,23 +476,23 @@ theorem argumentsLast ∀ (arguments: List Expr) (read: List Item)
 -- Tokens.
 
 theorem tokLevelLow ∀ (tok: Tok): (18 <= tokLevel tok) = False := match tok with
-  | Arrow => byComputing
-  | OrOr => byComputing
-  | AndAnd => byComputing
-  | Equals => byComputing
-  | EqEq => byComputing
-  | NotEq => byComputing
-  | Lt => byComputing
-  | Le => byComputing
-  | Gt => byComputing
-  | Ge => byComputing
-  | PlusPlus => byComputing
-  | Plus => byComputing
-  | Minus => byComputing
-  | Star => byComputing
-  | Slash => byComputing
-  | Percent => byComputing
-  | other => byComputing
+  | Arrow |
+      OrOr |
+      AndAnd |
+      Equals |
+      EqEq |
+      NotEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      PlusPlus |
+      Plus |
+      Minus |
+      Star |
+      Slash |
+      Percent |
+      _ => byComputing
 
 --| An infix's operator closes no operand.
 theorem infixOpens ∀ (kind: InfixKind) (tok: Tok) (is: infixTok kind tok = True): tok.closesOperand = False :=
@@ -542,16 +523,12 @@ theorem signOpens ∀ (tok: Tok)
     (sign: signKind tok = True):
     tok.closesOperand = False ∧ (tok == Num || tok == Float) = False :=
   match tok, sign with
-    | Minus, _ => (byComputing, byComputing)
-    | Bang, _ => (byComputing, byComputing)
+    | Minus | Bang, _ => (byComputing, byComputing)
     | other, never => (Bool.falseNotTrue never).impossible
 
 --| A name or numeral is no sign.
 theorem wordNoSign ∀ (kind: Tok) (within: kind.wordWithin1 = True): signKind kind = False := match kind, within with
-  | Lower, _ => byComputing
-  | Upper, _ => byComputing
-  | Num, _ => byComputing
-  | Float, _ => byComputing
+  | Lower | Upper | Num | Float, _ => byComputing
   | other, never => (Bool.falseNotTrue never).impossible
 
 -- The first token.
@@ -559,11 +536,9 @@ theorem wordNoSign ∀ (kind: Tok) (within: kind.wordWithin1 = True): signKind k
 --| The kind of an expression's first token.
 def Expr.firstKind: Expr → Tok
   | Atom kind _ => kind
-  | Paren _ _ _ => LParen
-  | Tuple _ _ _ _ => LParen
+  | Paren _ _ _ | Tuple _ _ _ _ => LParen
   | ListOf _ _ _ _ => LBracket
-  | App head _ => head.firstKind
-  | Infix _ left _ _ => left.firstKind
+  | App head _ | Infix _ head _ _ => head.firstKind
   | Prefix operator _ => lexKind operator.text
   | _ => Lower
 
@@ -578,20 +553,16 @@ theorem slotsSome ∀ (expr: Expr)
   match expr, within with
     | Atom _ word, _ => (Some word, [], byComputing)
     | Paren open inner close, _ => (Some open, inner.slots ++ [Some close], byComputing)
-    | Tuple open items _ close, _ => (Some open, commaSlots items ++ [Some close], byComputing)
-    | ListOf open items _ close, _ => (Some open, commaSlots items ++ [Some close], byComputing)
+    | Tuple open items _ close | ListOf open items _ close, _ =>
+      (Some open, commaSlots items ++ [Some close], byComputing)
     | App head arguments, within =>
       let (slot, rest, starts) := slotsSome head (Bool.andLeft within)
       (slot, rest ++ argumentSlots arguments, rewrite starts)
-    | Infix InfixBinary left operator right, within =>
-      let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
-      (slot, rest ++ [Some operator, ..right.slots], rewrite starts)
-    | Infix InfixArrow left operator right, within =>
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right, within =>
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
       (slot, rest ++ [Some operator, ..right.slots], rewrite starts)
     | Prefix operator operand, _ => (Some operator, operand.slots, byComputing)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 --| The first of joined items is the first of the front part when that has items.
 theorem frontFirst ∀ (front back: List Item) (slots: List (Option Word)) (slot: Option Word) (rest: List (Option Word))
@@ -616,11 +587,7 @@ theorem firstKindOf ∀ (expr: Expr) (read: List Item)
     | Paren open inner close, _ =>
       let (first, middle, last, (isRead, _, firstKind, _, _, _)) := bracketSlots read open close inner.slots slots
       rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
-    | Tuple open items _ close, _ =>
-      let (first, middle, last, (isRead, _, firstKind, _, _, _)) :=
-        bracketSlots read open close (commaSlots items) slots
-      rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
-    | ListOf open items _ close, _ =>
+    | Tuple open items _ close | ListOf open items _ close, _ =>
       let (first, middle, last, (isRead, _, firstKind, _, _, _)) :=
         bracketSlots read open close (commaSlots items) slots
       rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
@@ -631,14 +598,7 @@ theorem firstKindOf ∀ (expr: Expr) (read: List Item)
       rewrite isRead then
         frontFirst headRead argsRead head.slots slot rest starts headSlots head.firstKind
           (firstKindOf head headRead (Bool.andLeft within) (Bool.andLeft lexical) headSlots)
-    | Infix InfixBinary left operator right, within =>
-      let (leftRead, rightRead, isRead, leftSlots, _) :=
-        List.all2AppendSplit SlotMatch read left.slots [Some operator, ..right.slots] slots
-      let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
-      rewrite isRead then
-        frontFirst leftRead rightRead left.slots slot rest starts leftSlots left.firstKind
-          (firstKindOf left leftRead (Bool.andLeft within) (Bool.andLeft lexical) leftSlots)
-    | Infix InfixArrow left operator right, within =>
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right, within =>
       let (leftRead, rightRead, isRead, leftSlots, _) :=
         List.all2AppendSplit SlotMatch read left.slots [Some operator, ..right.slots] slots
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
@@ -660,12 +620,8 @@ theorem numberLead ∀ (expr: Expr)
     (number: isNumber expr.firstKind = True):
     expr.numeral1 = True ∨ expr.numeralApplication = True :=
   match expr, within, number with
-    | Atom Num _, _, _ => Inl byComputing
-    | Atom Float _, _, _ => Inl byComputing
-    | Atom other _, _, never => (Bool.falseNotTrue never).impossible
-    | Paren _ _ _, _, never => (Bool.falseNotTrue never).impossible
-    | Tuple _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
-    | ListOf _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Atom Num _ | Atom Float _, _, _ => Inl byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
     | Prefix operator _, within, number =>
       let notNumber := (signOpens (lexKind operator.text) (prefixFacts operator.text (Bool.andRight within)).left).right
       (Bool.falseNotTrue (rewrite notNumber at number then number)).impossible
@@ -690,14 +646,8 @@ theorem unaryOfLevel ∀ (expr: Expr)
       let (_, level) := infixFacts InfixBinary operator.text (Bool.andRight (Bool.andRight within))
       (Bool.falseNotTrue (rewrite level, tokLevelLow (lexKind operator.text) at high then high)).impossible
     | Infix InfixArrow _ _ _, _ => (Bool.falseNotTrue high).impossible
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 --| An atom or bracket starts with no sign, and is no numeral's call.
 theorem atomicFacts ∀ (expr: Expr)
@@ -706,9 +656,7 @@ theorem atomicFacts ∀ (expr: Expr)
     signKind expr.firstKind = False ∧ expr.numeralApplication = False :=
   match expr, atomic with
     | Atom kind _, _ => (wordNoSign kind (Bool.andLeft within), byComputing)
-    | Paren _ _ _, _ => (byComputing, byComputing)
-    | Tuple _ _ _ _, _ => (byComputing, byComputing)
-    | ListOf _ _ _ _, _ => (byComputing, byComputing)
+    | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => (byComputing, byComputing)
     | other, never => (Bool.falseNotTrue never).impossible
 
 -- Pieces of the induction.
@@ -841,8 +789,7 @@ theorem atomicGlue ∀ (argument: Expr) (read: List Item)
       let firstIs: first.kind = argument.firstKind :=
         DecEq.sound (firstKindOf argument [first, next, ..rest] within lexical slots)
       rewrite firstIs, (atomicFacts argument within atomic).left
-    | [first] => byComputing
-    | [] => byComputing
+    | [_] | [] => byComputing
 
 --| A call's head is read as `headFits` asks: an atom or bracket, or `-` glued to a numeral, which the parser reads
 --| as a negative numeral since nothing before it closes an operand.
@@ -862,10 +809,7 @@ theorem headFitsOf ∀ (head: Expr) (read: List Item)
           negativeHead operator Num word read byComputing byComputing (Bool.andRight lexical) fits slots spacing lead
         | Atom Float word, _ =>
           negativeHead operator Float word read byComputing byComputing (Bool.andRight lexical) fits slots spacing lead
-    | Atom kind word => Bool.orLeft fits
-    | Paren open inner close => Bool.orLeft fits
-    | Tuple open items comma close => Bool.orLeft fits
-    | ListOf open items comma close => Bool.orLeft fits
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => Bool.orLeft fits
 
 theorem negativeHead ∀ (operator: Word) (kind: Tok) (word: Word) (read: List Item)
     (isNumber: (kind == Num || kind == Float) = True)

@@ -54,11 +54,7 @@ import Fmt.SettleParseProofs (parseKeepsTokens1, settledParses1)
 --| P2 is the identity on an expression with no last comma.
 theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn withoutCommaExpr = expr := match expr with
   | Paren open inner close => rewrite uncommaSame inner free
-  | Tuple open items comma close =>
-    match comma, free with
-      | False, free => rewrite uncommasSame items free
-      | True, free => (Bool.falseNotTrue free).impossible
-  | ListOf open items comma close =>
+  | Tuple _ items comma _ | ListOf _ items comma _ =>
     match comma, free with
       | False, free => rewrite uncommasSame items free
       | True, free => (Bool.falseNotTrue free).impossible

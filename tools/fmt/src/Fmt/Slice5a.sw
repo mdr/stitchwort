@@ -44,15 +44,13 @@ import Syntax (
 def Expr.within5a: Expr → Bool
   | Atom kind word => kind.wordWithin2 || (kind == Str || kind == CharLit) && !word.text.contains "\n"
   | Paren _ inner _ => inner.within5a
-  | Tuple _ items _ _ => allInline5a items
-  | ListOf _ items _ _ => allInline5a items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allInline5a items
   | App head arguments => head.inline5a && allInline5a arguments
-  | Infix InfixBinary left _ right => left.inline5a && right.within5a
-  | Infix InfixArrow left _ right => left.inline5a && right.within5a
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.inline5a && right.within5a
   | Prefix operator operand => operand.inline5a && !(operator.text == "-" && operand.numeralField)
   | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin5a params && body.within5a
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin5a params && body.inline5a
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin5a params && body.inline5a
+  | Binding BindsForall (Some _) params _ body | Binding BindsExists (Some _) params _ body =>
+    !params.isEmpty && paramsWithin5a params && body.inline5a
   | Block first rest result =>
     first.within5a && statementsWithin5a rest && result.inline5a && laterLinesPlain rest result
   | LetIn binding _ body => binding.within5a && keepsLine binding.value && body.within5a
@@ -104,8 +102,7 @@ def guardWithin5a: Option Guard → Bool
 --| A binder's parameters: names, `_`, and typed groups.
 def paramsWithin5a: List Param → Bool
   | [] => True
-  | [NameParam _, ..rest] => paramsWithin5a rest
-  | [PatternParam (PatternWord _ _), ..rest] => paramsWithin5a rest
+  | [NameParam _, ..rest] | [PatternParam (PatternWord _ _), ..rest] => paramsWithin5a rest
   | [Grouped group, ..rest] => groupWithin5a GroupLambda group && paramsWithin5a rest
   | [_, ..rest] => False
 
@@ -137,8 +134,7 @@ def Header.within5a (header: Header): Bool := match header with
 def Decl.within5a: Decl → Bool
   | Definition [] header (Assigned _ value) => header.within5a && value.within5a
   | Definition [] header (Arms arms) => header.within5a && !arms.isEmpty && armsWithin5a arms
-  | Namespace _ _ => True
-  | Import _ _ _ _ _ => True
+  | Namespace _ _ | Import _ _ _ _ _ => True
   | Test _ name _ body => !name.text.contains "\n" && body.within5a
   | _ => False
 
@@ -147,12 +143,7 @@ def SourceFile.within5a (file: SourceFile): Bool := file.decls.all Decl.within5a
 --| Slice 5a's tokens: slice 4a's, `namespace`, `import`, `test`, `..`
 --| (for `import M (..)`), and text and character literals.
 def Tok.within5a: Tok → Bool
-  | KwNamespace => True
-  | KwImport => True
-  | KwTest => True
-  | DotDot => True
-  | Str => True
-  | CharLit => True
+  | KwNamespace | KwImport | KwTest | DotDot | Str | CharLit => True
   | kind => kind.within4a
 
 -- Printing.

@@ -107,25 +107,23 @@ def Expr.level: Expr → Nat
   | Infix kind _ operator _ => infixLevel kind operator.text
   | Chain _ _ => 6
   | Prefix _ _ => 18
-  | App _ _ => 20
-  | CtorFields _ (Record _ (Some _) _ _ _) => 20
-  | Binding _ _ _ _ _ => 0
-  | If _ _ _ _ _ _ _ => 0
-  | Match _ _ _ _ => 0
-  | ClauseLambda _ _ _ => 0
-  | Section _ => 0
-  | Facts _ _ _ => 0
-  | FieldAccess None _ _ => 0
-  | Block _ _ _ => 0
-  | LetIn _ _ _ => 0
-  | Handle _ _ _ _ => 0
-  | Reify _ _ _ _ _ => 0
-  | Induct _ _ _ _ _ => 0
-  | Calc _ _ _ => 0
-  | Rewrite _ _ _ _ => 0
-  | Cases _ _ _ => 0
-  | FunctionType _ _ _ => 1
-  | Effect _ _ => 1
+  | App _ _ | CtorFields _ (Record _ (Some _) _ _ _) => 20
+  | Binding _ _ _ _ _ |
+      If _ _ _ _ _ _ _ |
+      Match _ _ _ _ |
+      ClauseLambda _ _ _ |
+      Section _ |
+      Facts _ _ _ |
+      FieldAccess None _ _ |
+      Block _ _ _ |
+      LetIn _ _ _ |
+      Handle _ _ _ _ |
+      Reify _ _ _ _ _ |
+      Induct _ _ _ _ _ |
+      Calc _ _ _ |
+      Rewrite _ _ _ _ |
+      Cases _ _ _ => 0
+  | FunctionType _ _ _ | Effect _ _ => 1
   | _ => 22
 
 def infixLevel (kind: InfixKind) (operator: Text): Nat := match kind with
@@ -148,8 +146,7 @@ def infixLevel (kind: InfixKind) (operator: Text): Nat := match kind with
 --| right or doesn't chain (`++`, `∧`, `∨`, `↔`), its own where it nests to
 --| the left (`+`, `*`, `|>`).
 def leftNeeds (kind: InfixKind) (operator: Text): Nat := match kind with
-  | InfixSeq => 2
-  | InfixArrow => 2
+  | InfixSeq | InfixArrow => 2
   | InfixIff => 3
   | InfixPipe => 8
   | InfixRange => 12
@@ -201,21 +198,21 @@ def headIsLower: Expr → Bool
 --| `match`, `if`, `include` and the like. A `fun`, `facts` and the atoms
 --| read fine after it.
 def startsApart: Expr → Bool
-  | Prefix _ _ => True
-  | Section _ => True
-  | FieldAccess None _ _ => True
-  | Include _ _ => True
-  | If _ _ _ _ _ _ _ => True
-  | Match _ _ _ _ => True
-  | ClauseLambda _ _ _ => True
-  | LetIn _ _ _ => True
-  | Block _ _ _ => True
-  | Handle _ _ _ _ => True
-  | Reify _ _ _ _ _ => True
-  | Induct _ _ _ _ _ => True
-  | Calc _ _ _ => True
-  | Rewrite _ _ _ _ => True
-  | Cases _ _ _ => True
+  | Prefix _ _ |
+      Section _ |
+      FieldAccess None _ _ |
+      Include _ _ |
+      If _ _ _ _ _ _ _ |
+      Match _ _ _ _ |
+      ClauseLambda _ _ _ |
+      LetIn _ _ _ |
+      Block _ _ _ |
+      Handle _ _ _ _ |
+      Reify _ _ _ _ _ |
+      Induct _ _ _ _ _ |
+      Calc _ _ _ |
+      Rewrite _ _ _ _ |
+      Cases _ _ _ => True
   | _ => False
 
 --| A bracket pair that stays: a negative numeral (`{Fail} -1` doesn't read
@@ -223,8 +220,7 @@ def startsApart: Expr → Bool
 --| refuses to apply to the element), and after a row that reads as a record
 --| (`recordRow`) whatever `startsApart`.
 def keepsBrackets (membership recordRow: Bool): Expr → Bool
-  | Prefix operator (Atom Num _) => operator.text == "-"
-  | Prefix operator (Atom Float _) => operator.text == "-"
+  | Prefix operator (Atom Num _) | Prefix operator (Atom Float _) => operator.text == "-"
   | Prefix operator _ => (membership && operator.text != "-") || recordRow
   | other => recordRow && startsApart other
 

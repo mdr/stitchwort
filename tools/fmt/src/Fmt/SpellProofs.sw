@@ -464,8 +464,8 @@ def commaSpelt: List Expr → List Text
 def Expr.spelt: Expr → Bool → List Text
   | Atom _ word, hoisted => word.spelledAt hoisted
   | Paren open inner close, hoisted => open.spelledAt hoisted ++ inner.spelt False ++ close.spelledAt False
-  | Tuple open items _ close, hoisted => open.spelledAt hoisted ++ commaSpelt items ++ close.spelledAt False
-  | ListOf open items _ close, hoisted => open.spelledAt hoisted ++ commaSpelt items ++ close.spelledAt False
+  | Tuple open items _ close | ListOf open items _ close, hoisted =>
+    open.spelledAt hoisted ++ commaSpelt items ++ close.spelledAt False
   | App head arguments, hoisted => head.spelt hoisted ++ argumentsSpelt arguments
   | Infix _ left operator right, hoisted => left.spelt hoisted ++ operator.spelledAt False ++ right.spelt False
   | Prefix operator operand, hoisted => operator.spelledAt hoisted ++ operand.spelt False
@@ -484,8 +484,7 @@ theorem wordsLead ∀ (expr: Expr)
   match expr with
     | Atom kind word => ([], byComputing)
     | Paren open inner close => (inner.words ++ [close], byComputing)
-    | Tuple open items comma close => (itemsWords items ++ [close], byComputing)
-    | ListOf open items comma close => (itemsWords items ++ [close], byComputing)
+    | Tuple _ items _ close | ListOf _ items _ close => (itemsWords items ++ [close], byComputing)
     | App head arguments =>
       let (rest, headWords) := wordsLead head (Bool.andLeft within)
       (rest ++ itemsWords arguments, rewrite headWords)
@@ -506,9 +505,7 @@ theorem firstWordLead ∀ (expr: Expr) (within: expr.within1 = True): expr.first
 
 theorem spelledAtLead ∀ (word: Word) (hoisted: Bool):
     word.spelledAt hoisted = word.notesAt hoisted ++ word.spelledAt True :=
-  match hoisted with
-    | True => byComputing
-    | False => byComputing
+  match hoisted with | True | False => byComputing
 
 --| Leaving the first token's own-line comments out takes them from the front.
 --|
@@ -521,10 +518,7 @@ theorem speltLead ∀ (expr: Expr) (hoisted: Bool)
     | Paren open inner close =>
       rewrite spelledAtLead open hoisted,
           List.appendAssoc (open.notesAt hoisted) (open.spelledAt True) (inner.spelt False ++ close.spelledAt False)
-    | Tuple open items comma close =>
-      rewrite spelledAtLead open hoisted,
-          List.appendAssoc (open.notesAt hoisted) (open.spelledAt True) (commaSpelt items ++ close.spelledAt False)
-    | ListOf open items comma close =>
+    | Tuple open items _ close | ListOf open items _ close =>
       rewrite spelledAtLead open hoisted,
           List.appendAssoc (open.notesAt hoisted) (open.spelledAt True) (commaSpelt items ++ close.spelledAt False)
     | App head arguments =>
@@ -607,8 +601,7 @@ theorem framedSpells ∀ (first: Word) (around: Around) (doc: Doc) (texts: List 
 def Expr.sound: Expr → Bool
   | Atom _ word => word.sound
   | Paren open inner close => open.sound && inner.sound && close.sound
-  | Tuple open items _ close => open.sound && allSound items && close.sound
-  | ListOf open items _ close => open.sound && allSound items && close.sound
+  | Tuple open items _ close | ListOf open items _ close => open.sound && allSound items && close.sound
   | App head arguments => head.sound && allSound arguments
   | Infix _ left operator right => left.sound && operator.sound && right.sound
   | Prefix operator operand => operator.sound && operand.sound
@@ -636,8 +629,7 @@ theorem spellsJoinedWith ∀ (separator: Doc) (docs: List Doc) (texts: List Text
     (each: SpellsAll docs texts):
     SpellsAll (Doc.joinedWith separator docs) texts :=
   match docs, each with
-    | [], each => each
-    | [only], each => each
+    | [] | [_], each => each
     | [doc, next, ..rest], ((uniform, restUniform), (marked, restMarked), words) =>
       let (nextUniform, nextMarked, nextWords) :=
         spellsJoinedWith separator [next, ..rest] (wordsAll [next, ..rest]) layout (
@@ -662,8 +654,7 @@ theorem parenInnerSpells ∀ (inner: Expr) (around: Around)
     (each: Spells (inner.el around) (inner.spelt around.hoisted)):
     Spells (parenInner inner around) (inner.spelt around.hoisted) :=
   match inner with
-    | Block _ _ _ => cases
-    | If _ _ _ _ _ _ _ => cases
+    | Block _ _ _ | If _ _ _ _ _ _ _ => cases
     | _ => each
 
 --| A bracket spells its opener, its inner expression and its closer.
@@ -698,11 +689,8 @@ theorem parenSpells ∀ (open: Word) (inner: Expr) (close: Word) (around: Around
 
 theorem leadSound ∀ (expr: Expr) (sound: expr.sound = True): expr.lead.sound = True := match expr with
   | Atom kind word => sound
-  | Paren open inner close => Bool.andLeft sound
-  | Tuple open items comma close => Bool.andLeft sound
-  | ListOf open items comma close => Bool.andLeft sound
-  | App head arguments => leadSound head (Bool.andLeft sound)
-  | Infix kind left operator right => leadSound left (Bool.andLeft sound)
+  | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => Bool.andLeft sound
+  | App head _ | Infix _ head _ _ => leadSound head (Bool.andLeft sound)
   | Prefix operator operand => Bool.andLeft sound
 
 --| A node's document, framed by its first token's own-line comments, spells what the node does.
@@ -1117,16 +1105,14 @@ theorem spellsOfOwn ∀ (docs: List Doc) (own: Own docs): SpellsAll docs (wordsA
   | (uniform, marked) => (uniform, marked, byComputing)
 
 theorem ownTake ∀ (docs: List Doc) (count: Nat) (own: Own docs): Own (docs.take count) := match docs, count, own with
-  | [], Zero, _ => (byComputing, byComputing)
-  | [], Succ less, _ => (byComputing, byComputing)
+  | [], Zero | Succ _, _ => (byComputing, byComputing)
   | [first, ..rest], Zero, _ => (byComputing, byComputing)
   | [first, ..rest], Succ less, ((firstUniform, restUniform), (firstMarked, restMarked)) =>
     let (uniform, marked) := ownTake rest less (restUniform, restMarked)
     ((firstUniform, uniform), (firstMarked, marked))
 
 theorem ownDrop ∀ (docs: List Doc) (count: Nat) (own: Own docs): Own (docs.drop count) := match docs, count, own with
-  | [], Zero, _ => (byComputing, byComputing)
-  | [], Succ less, _ => (byComputing, byComputing)
+  | [], Zero | Succ _, _ => (byComputing, byComputing)
   | [first, ..rest], Zero, own => own
   | [first, ..rest], Succ less, ((firstUniform, restUniform), (firstMarked, restMarked)) =>
     ownDrop rest less (restUniform, restMarked)
@@ -1134,8 +1120,7 @@ theorem ownDrop ∀ (docs: List Doc) (count: Nat) (own: Own docs): Own (docs.dro
 theorem wordsTakeDrop ∀ (docs: List Doc) (count: Nat):
     wordsAll (docs.take count) ++ wordsAll (docs.drop count) = wordsAll docs :=
   match docs, count with
-    | [], Zero => byComputing
-    | [], Succ less => byComputing
+    | [], Zero | Succ _ => byComputing
     | [first, ..rest], Zero => byComputing
     | [first, ..rest], Succ less =>
       rewrite List.appendAssoc first.words (wordsAll (rest.take less)) (wordsAll (rest.drop less)),
@@ -1963,8 +1948,7 @@ def notCloser (text: Text): Bool := !(isCloserText text || text == ",")
 def notComment (text: Text): Bool := !text.startsWith "--"
 
 theorem closersApart ∀ (text: Text) (closes: closesText text): notCloser text = False := match closes with
-  | Inl same => rewrite same
-  | Inr same => rewrite same
+  | Inl same | Inr same => rewrite same
 
 theorem commentsApart ∀ (text: Text) (comment: commentsText text): notComment text = False :=
   rewrite Bool.andLeft comment
@@ -2077,12 +2061,7 @@ theorem soundOfAll ∀ (expr: Expr)
       let (openOk, innerOk) := allConsBool open inner.words Word.sound frontOk
       Bool.andIntro openOk
         (Bool.andIntro (soundOfAll inner within innerOk) (allConsBool close [] Word.sound closeOk).left)
-    | Tuple open items comma close =>
-      let (frontOk, closeOk) := allSplitBool [open, ..itemsWords items] [close] Word.sound all
-      let (openOk, itemsOk) := allConsBool open (itemsWords items) Word.sound frontOk
-      Bool.andIntro openOk
-        (Bool.andIntro (soundOfAllItems items within itemsOk) (allConsBool close [] Word.sound closeOk).left)
-    | ListOf open items comma close =>
+    | Tuple open items _ close | ListOf open items _ close =>
       let (frontOk, closeOk) := allSplitBool [open, ..itemsWords items] [close] Word.sound all
       let (openOk, itemsOk) := allConsBool open (itemsWords items) Word.sound frontOk
       Bool.andIntro openOk

@@ -210,9 +210,7 @@ theorem allKeepAppend ∀ (front later back after: List Word)
 theorem consSomeForDocs ∀ (holder: Option Holder) (rest: List Holder):
     (List.consSome holder rest).map Holder.forDocs
       = List.consSome (holder.map Holder.forDocs) (rest.map Holder.forDocs) :=
-  match holder with
-    | None => byComputing
-    | Some one => byComputing
+  match holder with | None | Some _ => byComputing
 
 theorem allKeepRead ∀ (before after: List Word)
     (keep: AllKeep before after):

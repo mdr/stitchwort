@@ -37,8 +37,7 @@ def Word.quiet (word: Word): Bool := match word.comments with
 def Expr.quiet: Expr → Bool
   | Atom _ word => word.quiet
   | Paren open inner close => open.quiet && inner.quiet && close.quiet
-  | Tuple open items _ close => open.quiet && allQuiet items && close.quiet
-  | ListOf open items _ close => open.quiet && allQuiet items && close.quiet
+  | Tuple open items _ close | ListOf open items _ close => open.quiet && allQuiet items && close.quiet
   | App head arguments => !arguments.isEmpty && head.quiet && allQuiet arguments
   | Infix _ left operator right => left.quiet && operator.quiet && right.quiet
   | Prefix operator operand => operator.quiet && operand.quiet
@@ -196,37 +195,33 @@ theorem parenInnerPlain ∀ (inner: Expr) (innerAround: Around)
     (within: inner.within1 = True):
     parenInner inner innerAround = inner.el innerAround :=
   match inner, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing
 
 --| A slice 1 operand after a chain's operator is a space and its links.
 theorem chainRightPlain ∀ (level: Option Nat) (right: Expr) (rightAround: Around)
     (within: right.within1 = True):
     chainRight level right rightAround = [Doc.text " ", ..linkDocs level False right rightAround] :=
   match right, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing
 
 --| A slice 1 chain opens no arms: it has no `match`.
 theorem opensNoArms ∀ (expr: Expr) (level: Option Nat) (within: expr.within1 = True): expr.opensArms level = False :=
   match expr, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _, _ => byComputing
     | Infix InfixBinary left operator right, within =>
       rewrite opensNoArms left level (Bool.andLeft within),
           Bool.andFalse ((Infix InfixBinary left operator right).inChain level)
@@ -247,8 +242,7 @@ def Word.lead (word: Word): Bool := match word.comments with
 def Expr.leadQuiet: Expr → Bool
   | Atom _ word => word.lead
   | Paren open inner close => open.lead && inner.quiet && close.quiet
-  | Tuple open items _ close => open.lead && allQuiet items && close.quiet
-  | ListOf open items _ close => open.lead && allQuiet items && close.quiet
+  | Tuple open items _ close | ListOf open items _ close => open.lead && allQuiet items && close.quiet
   | App head arguments => !arguments.isEmpty && head.leadQuiet && allQuiet arguments
   | Infix _ left operator right => left.leadQuiet && operator.quiet && right.quiet
   | Prefix operator operand => operator.lead && operand.quiet
@@ -314,11 +308,11 @@ theorem parenLast ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
     (within: inner.within1 = True):
     lastArgument (Paren open inner close) around = ((Paren open inner close).el around, None) :=
   match inner, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing

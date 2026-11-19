@@ -21,19 +21,14 @@ import Syntax.SharedFacts (solidSpaces)
 -- The opener's line.
 
 theorem withCarryLine ∀ (place: Place) (carry: Carry): (place.withCarry carry).indent = place.indent := match place with
-  | AtStart at old => byComputing
-  | Broken at old => byComputing
-  | Mid at old => byComputing
-  | Held at old => byComputing
+  | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => byComputing
 
 --| A word written at a seat that no comment waits at stays on the seat's line.
 theorem wordAfterLine ∀ (indent column: Nat) (text: Text) (state: HangState) (place: Place)
     (seated: Seated column False state place):
     (wordAfter indent text place).indent = place.indent :=
   match place, seated with
-    | AtStart at carry, _ => byComputing
-    | Broken at carry, _ => byComputing
-    | Mid at carry, _ => byComputing
+    | AtStart _ _ | Broken _ _ | Mid _ _, _ => byComputing
     | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
 
 --| `openerStep`, the opener staying on the line `line`.
@@ -292,10 +287,7 @@ theorem heldFitsAt ∀ (key indent line outside: Nat) (carry: Carry) (markKey ma
     (atOpener: (outside <= line) = True)
     (clear: (outside <= indent) = True):
     CloserFits key indent (Some (Nat.max indent (line + 2))) outside carry :=
-  rewrite found, onLine then
-    match low: least <= indent with
-      | True => (arithmetic, arithmetic)
-      | False => (arithmetic, arithmetic)
+  rewrite found, onLine then match low: least <= indent with | True | False => (arithmetic, arithmetic)
 
 --| As `heldFitsAt`, from the marks kept: against the opener's mark at the comment's place `held`, and against the
 --| carry the comment break left.

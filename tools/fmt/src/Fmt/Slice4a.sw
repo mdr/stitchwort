@@ -44,15 +44,13 @@ import Syntax (
 def Expr.within4a: Expr → Bool
   | Atom kind _ => kind.wordWithin2
   | Paren _ inner _ => inner.within4a
-  | Tuple _ items _ _ => allInline4a items
-  | ListOf _ items _ _ => allInline4a items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allInline4a items
   | App head arguments => head.inline4a && allInline4a arguments
-  | Infix InfixBinary left _ right => left.inline4a && right.within4a
-  | Infix InfixArrow left _ right => left.inline4a && right.within4a
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.inline4a && right.within4a
   | Prefix operator operand => operand.inline4a && !(operator.text == "-" && operand.numeralField)
   | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin4a params && body.within4a
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin4a params && body.inline4a
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin4a params && body.inline4a
+  | Binding BindsForall (Some _) params _ body | Binding BindsExists (Some _) params _ body =>
+    !params.isEmpty && paramsWithin4a params && body.inline4a
   | Block first rest result =>
     first.within4a && statementsWithin4a rest && result.inline4a && laterLinesPlain rest result
   | LetIn binding _ body => binding.within4a && keepsLine binding.value && body.within4a
@@ -111,8 +109,7 @@ def guardWithin4a: Option Guard → Bool
 --| A binder's parameters: names, `_`, and typed groups.
 def paramsWithin4a: List Param → Bool
   | [] => True
-  | [NameParam _, ..rest] => paramsWithin4a rest
-  | [PatternParam (PatternWord _ _), ..rest] => paramsWithin4a rest
+  | [NameParam _, ..rest] | [PatternParam (PatternWord _ _), ..rest] => paramsWithin4a rest
   | [Grouped group, ..rest] => groupWithin4a GroupLambda group && paramsWithin4a rest
   | [_, ..rest] => False
 

@@ -53,17 +53,14 @@ def ItemEnd (inset: Nat) (outer: List (Option Nat)) (top: Option Nat) (trails: B
 
 theorem openedItem ∀ (outer: List (Option Nat)) (top start: Option Nat):
     openedBy (itemState outer top) start = itemDone outer top start :=
-  match start with
-    | None => byComputing
-    | Some column => byComputing
+  match start with | None | Some _ => byComputing
 
 --| An item seated at `inset` starts its line, if it does, at `inset` or right of it.
 theorem seatDeep ∀ (inset: Nat) (before: Bool) (state: HangState) (place: Place)
     (seated: Seated inset before state place):
     deepFrom inset (wordStart inset place) = True :=
   match place, seated with
-    | AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | AtStart _ _ | Broken _ _, (atInset, _) => rewrite atInset then Nat.leRefl inset
     | Mid at carry, _ => byComputing
     | Held at carry, (_, floor, _) =>
       let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
@@ -79,8 +76,7 @@ theorem startDeep ∀ (noted: Bool) (inset: Nat) (before: Bool) (state: HangStat
     | False, place, seated, _ => seatDeep inset before state place seated
     | True, AtStart at carry, _, never => (Bool.trueNotFalse never).impossible
     | True, Broken at carry, (atInset, _), _ => rewrite atInset then Nat.leRefl inset
-    | True, Mid at carry, _, _ => arithmetic
-    | True, Held at carry, _, _ => arithmetic
+    | True, Mid _ _ | Held _ _, _, _ => arithmetic
 
 --| An item's seat with room for its first word where `wordStart` says has room for it where `startFor` says: the two
 --| agree at a line start and after a waiting comment, and mid-line the comment break is right of the line.
@@ -331,8 +327,7 @@ theorem gapSeat ∀ (inset: Nat) (outer: List (Option Nat)) (top: Option Nat) (t
       rewrite folded then midItemSeat inset at outer top trails carry floor left bound
     | Held at carry, ((waits, floor, left), folded) =>
       rewrite folded, waits then heldItemSeat inset at outer top carry floor left bound
-    | AtStart at carry, (never, _) => (Bool.falseNotTrue never).impossible
-    | Broken at carry, (never, _) => (Bool.falseNotTrue never).impossible
+    | AtStart _ _ | Broken _ _, (never, _) => (Bool.falseNotTrue never).impossible
 
 --| A filled list's cell with its comma: the item, then the comma, after which the next item starts.
 theorem cellCommaHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (outer: List (Option Nat))
@@ -521,9 +516,7 @@ theorem markedFound ∀ (key: Nat) (entry: Place):
   rewrite Nat.equalRefl key
 
 theorem trailingKeys ∀ (low: Nat) (word: Word): allKeysFrom low word.trailing = True :=
-  match after: word.comments.after with
-    | Some comment => byComputing
-    | None => byComputing
+  match after: word.comments.after with | Some _ | None => byComputing
 
 --| An opener whose closer may take a line of its own: its mark, then the bracket and its trailing comment, the mark
 --| still open after them.
@@ -849,8 +842,7 @@ theorem openerLine ∀ (indent column: Nat) (state: HangState) (entry: Place)
       <= entry.indent)
       = True :=
   match entry, seat with
-    | AtStart at carry, (_, _, _, (_, right)) => openedSome state at arithmetic
-    | Broken at carry, (_, _, _, (_, right)) => openedSome state at arithmetic
+    | AtStart at _ | Broken at _, (_, _, _, (_, _)) => openedSome state at arithmetic
     | Mid at carry, ((_, left), _, _, _) => rewrite openedNone state then left
     | Held at carry, ((never, _, _), _, _, _) => (Bool.falseNotTrue never).impossible
 

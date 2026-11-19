@@ -37,8 +37,7 @@ import Syntax (
 def Expr.within1: Expr → Bool
   | Atom kind word => kind.wordWithin1 && textSpells1 kind word.text
   | Paren _ inner _ => inner.within1
-  | Tuple _ items _ _ => allWithin1 items
-  | ListOf _ items _ _ => allWithin1 items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allWithin1 items
   | App head arguments => head.within1 && allWithin1 arguments
   | Infix InfixBinary left operator right => left.within1 && right.within1 && binaryText1 operator.text
   | Infix InfixArrow left operator right => left.within1 && right.within1 && arrowText1 operator.text
@@ -101,10 +100,7 @@ def allWithin1: List Expr → Bool
 
 --| The token kinds a slice 1 `Atom` may have: names and numerals.
 def Tok.wordWithin1: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
+  | Lower | Upper | Num | Float => True
   | _ => False
 
 --| A name or numeral's text is spelled as the lexer proofs need: a name (word characters, or components joined by
@@ -208,35 +204,35 @@ def SourceFile.within1 (file: SourceFile): Bool := file.decls.all Decl.within1
 --| Slice 1's tokens: `def`, names, numerals, `:`, `:=`, the brackets, `,`,
 --| the binary operators, `-`, `!` and `→`.
 def Tok.within1: Tok → Bool
-  | KwDef => True
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | Colon => True
-  | ColonEq => True
-  | LParen => True
-  | RParen => True
-  | LBracket => True
-  | RBracket => True
-  | Comma => True
-  | OrOr => True
-  | AndAnd => True
-  | Equals => True
-  | EqEq => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | PlusPlus => True
-  | Plus => True
-  | Minus => True
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | Bang => True
-  | Arrow => True
+  | KwDef |
+      Lower |
+      Upper |
+      Num |
+      Float |
+      Colon |
+      ColonEq |
+      LParen |
+      RParen |
+      LBracket |
+      RBracket |
+      Comma |
+      OrOr |
+      AndAnd |
+      Equals |
+      EqEq |
+      NotEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      PlusPlus |
+      Plus |
+      Minus |
+      Star |
+      Slash |
+      Percent |
+      Bang |
+      Arrow => True
   | _ => False
 
 -- Printing.
@@ -256,9 +252,7 @@ def Decl.printed1 (decl: Decl): Option Text := if decl.within1 then decl.doc1.ma
 --| The comments a declaration's first token holds, which the file prints.
 def Decl.firstComments: Decl → Comments
   | Definition _ header _ => header.keyword
-  | Namespace keyword _ => keyword
-  | Import keyword _ _ _ _ => keyword
-  | Test keyword _ _ _ => keyword
+  | Namespace keyword _ | Import keyword _ _ _ _ | Test keyword _ _ _ => keyword
   | _ => { above = [], after = None, blankBefore = False }
 
 --| The file's text so far, newest piece first, and whether it is empty.

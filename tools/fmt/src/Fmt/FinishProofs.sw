@@ -24,9 +24,7 @@ theorem finalSolid ∀ (text: Text) (final: Final text): isLayout text = False :
 
 --| A token's text as a document finishes with it, a closer or not.
 theorem pieceFinishes ∀ (text: Text) (final: Final text): Finishes Final (piece text) :=
-  match closing: isCloserText text || text == "," with
-    | True => final
-    | False => final
+  match closing: isCloserText text || text == "," with | True | False => final
 
 --| A token's trailing comment writes nothing where it stands.
 theorem trailingSilent ∀ (word: Word): AllSilent word.trailing := match after: word.comments.after with
@@ -58,9 +56,7 @@ theorem framedFinishes ∀ (first: Word) (around: Around) (doc: Doc)
     (ends: Finishes Final doc):
     Finishes Final (framedBy first around doc) :=
   let placed: Finishes Final (if first.displaces around then Displaced doc else doc) :=
-    match displaced: first.displaces around with
-      | True => ends
-      | False => ends
+    match displaced: first.displaces around with | True | False => ends
   finishesConcat Final _ (Inl (Inr (placed, byComputing)))
 
 --| `( … )` finishes with its closer.
@@ -313,13 +309,7 @@ theorem chainRightFinishes ∀ (kinds: Text → Tok) (level: Option Nat) (right:
   let spaced: FinishesLast Final [Doc.text " ", ..linkDocs level False right place] :=
     finishesLastAppend Final [Doc.text " "] _ (linkDocsFinish kinds level False right place within joinable)
   match right with
-    | Atom _ _ => spaced
-    | Paren _ _ _ => spaced
-    | Tuple _ _ _ _ => spaced
-    | ListOf _ _ _ _ => spaced
-    | App _ _ => spaced
-    | Infix _ _ _ _ => spaced
-    | Prefix _ _ => spaced
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Infix _ _ _ _ | Prefix _ _ => spaced
 
 --| A chain's links finish with its last operand.
 theorem chainLinksFinish ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
@@ -344,12 +334,7 @@ theorem linkDocsFinish ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
     FinishesLast Final (linkDocs level first expr around) :=
   let element: FinishesLast Final [expr.el around] := elFinishes kinds expr within joinable around
   match expr, joinable with
-    | Atom _ _, _ => element
-    | Paren _ _ _, _ => element
-    | Tuple _ _ _ _, _ => element
-    | ListOf _ _ _ _, _ => element
-    | App _ _, _ => element
-    | Prefix _ _, _ => element
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _ => element
     | Infix kind left operator right, (leftJoins, operatorJoins, rightJoins) =>
       match kind with
         | InfixBinary =>
@@ -475,12 +460,7 @@ theorem callHugFinishes ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
   match value, joinable with
     | App head arguments, (headJoins, each, filled) =>
       (appFinishes kinds head arguments inside (Bool.andRight within) each filled).right
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | Infix _ _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Infix _ _ _ _ | Prefix _ _, _ => byComputing
 
 --| The hug after a space, if there is one, finishes with a word.
 theorem spacedHugsFinish ∀ (hug: Option Doc)

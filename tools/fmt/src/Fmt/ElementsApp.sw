@@ -51,12 +51,8 @@ theorem lastLed ∀ (facts: Expr → Prop)
     | Atom _ _, _ => (plain, opened never => cases)
     | Paren open inner close, within =>
       rewrite parenLast open inner close (argAround arm previous at) within then (plain, opened never => cases)
-    | App _ _, _ => (plain, opened never => cases)
-    | Infix InfixBinary _ _ _, _ => (plain, opened never => cases)
-    | Infix InfixArrow _ _ _, _ => (plain, opened never => cases)
-    | Prefix _ _, _ => (plain, opened never => cases)
-    | Tuple _ _ _ _, _ => bracket byComputing
-    | ListOf _ _ _ _, _ => bracket byComputing
+    | App _ _ | Infix InfixBinary _ _ _ | Infix InfixArrow _ _ _ | Prefix _ _, _ => (plain, opened never => cases)
+    | Tuple _ _ _ _ | ListOf _ _ _ _, _ => bracket byComputing
 
 --| A call's arguments hang as `ArgsHang` asks, each where it writes the comments above its first token (`Led`), the
 --| last as `lastArgument` writes it (`last`).

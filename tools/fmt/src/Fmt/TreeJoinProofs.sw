@@ -183,16 +183,11 @@ theorem leadsHead ∀ (text: Text)
       (Bool.falseNotTrue (rewrite same at notMinus then Eq.trans notMinus.flipped byComputing)).impossible
     | Inr (Inr (Inr (Inl same))) => ('!', [], (rewrite same), byComputing, byComputing, byComputing)
     | Inr (Inr (Inr (Inr (Inl same)))) => ('¬', [], (rewrite same), byComputing, byComputing, byComputing)
-    | Inr
-        (Inr
-          (Inr (Inr (Inr (Inl (Witness first (Witness others (Witness comps (Both split (Both starts rest)))))))))) =>
-      let (dash, greater, equals) := startBeq first starts
-      (first, others ++ qualChars comps, split, dash, greater, equals)
-    | Inr
-        (Inr
+    | Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Witness comps (Both split (Both starts _)))))))))) |
+        Inr
           (Inr
             (Inr
-              (Inr (Inr (Inl (Witness first (Witness others (Witness comps (Both split (Both starts rest))))))))))) =>
+              (Inr (Inr (Inr (Inl (Witness first (Witness others (Witness comps (Both split (Both starts _))))))))))) =>
       let (dash, greater, equals) := startBeq first starts
       (first, others ++ qualChars comps, split, dash, greater, equals)
     | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both digit rest))))))))))) =>
@@ -251,11 +246,8 @@ theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
 
 --| What follows `!`: nothing that makes it the operator `!in`.
 theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile isWordChar ≠ ['i', 'n'] := match leads with
-  | Inl same => rewrite same then byDecision
-  | Inr (Inl same) => rewrite same then byDecision
-  | Inr (Inr (Inl same)) => rewrite same then byDecision
-  | Inr (Inr (Inr (Inl same))) => rewrite same then byDecision
-  | Inr (Inr (Inr (Inr (Inl same)))) => rewrite same then byDecision
+  | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) | Inr (Inr (Inr (Inl same))) | Inr (Inr (Inr (Inr (Inl same)))) =>
+    rewrite same then byDecision
   | Inr
       (Inr
         (Inr
@@ -275,16 +267,9 @@ theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile i
                   (Witness first
                     (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded))))))))))))) =>
     nameNotIn Upper text first others comps split starts word tail kinded byDecision
-  | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both digit rest))))))))))) =>
-    same =>
-      let wordChar := digitWordChar first digit
-      let head := List.consInjectiveHead first 'i' _ ['n'] (rewrite split, wordChar at same then same)
-      DecEq.soundFalse first 'i' (digitNotI first digit) head
-  | Inr
-      (Inr
-        (Inr
-          (Inr
-            (Inr (Inr (Inr (Inr (Witness first (Witness others (Witness tail (Both split (Both digit rest)))))))))))) =>
+  | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness _ (Both split (Both digit _))))))))))) |
+      Inr
+        (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Witness first (Witness _ (Witness _ (Both split (Both digit _)))))))))))) =>
     same =>
       let wordChar := digitWordChar first digit
       let head := List.consInjectiveHead first 'i' _ ['n'] (rewrite split, wordChar at same then same)
@@ -519,8 +504,7 @@ def OperatorSpells (text: Text): Prop := ∃ (kind: Tok) => Spells kind text ∧
 def Expr.operators: Expr → Prop
   | Atom _ _ => True
   | Paren _ inner _ => inner.operators
-  | Tuple _ items _ _ => AllOperators items
-  | ListOf _ items _ _ => AllOperators items
+  | Tuple _ items _ _ | ListOf _ items _ _ => AllOperators items
   | App head arguments => head.operators ∧ AllOperators arguments
   | Infix _ left operator right => left.operators ∧ OperatorSpells operator.text ∧ right.operators
   | Prefix operator operand => PrefixSpells operator.text ∧ operand.operators
@@ -636,8 +620,7 @@ theorem prefixSpellsOf ∀ (text: Text) (listed: prefixText1 text = True): Prefi
 theorem withinOperators ∀ (expr: Expr) (within: expr.within1 = True): expr.operators := match expr, within with
   | Atom kind word, within => byComputing
   | Paren open inner close, within => withinOperators inner within
-  | Tuple open items comma close, within => allWithinOperators items within
-  | ListOf open items comma close, within => allWithinOperators items within
+  | Tuple _ items _ _ | ListOf _ items _ _, within => allWithinOperators items within
   | App head arguments, within =>
     (withinOperators head (Bool.andLeft within), allWithinOperators arguments (Bool.andRight within))
   | Infix kind left operator right, within =>
@@ -681,10 +664,7 @@ theorem declOperators ∀ (decl: Decl) (within: decl.within1 = True): decl.opera
       | _ => cases
 
 theorem wordQuiet ∀ (kind: Tok) (word: kind.wordWithin1 = True): Quiet kind := match kind, word with
-  | Lower, word => byDecision
-  | Upper, word => byDecision
-  | Num, word => byDecision
-  | Float, word => byDecision
+  | Lower | Upper | Num | Float, _ => byDecision
   | other, word => (Bool.falseNotTrue word).impossible
 
 theorem minusQuiet: Quiet Minus := byDecision
@@ -718,8 +698,7 @@ theorem leadsOf ∀ (expr: Expr)
         | Num, within => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Num word.text within))))))))
         | Float, within => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (spellsOfText1 Float word.text within))))))))
         | other, within => (Bool.falseNotTrue within).impossible
-    | Paren open inner close, _ => Inl (DecEq.sound (Bool.andLeft lexical))
-    | Tuple open items comma close, _ => Inl (DecEq.sound (Bool.andLeft lexical))
+    | Paren _ _ _ | Tuple _ _ _ _, _ => Inl (DecEq.sound (Bool.andLeft lexical))
     | ListOf open items comma close, _ => Inr (Inl (DecEq.sound (Bool.andLeft lexical)))
     | App head arguments, (headSpells, _) => leadsOf head (Bool.andLeft within) (Bool.andLeft lexical) headSpells
     | Infix kind left operator right, (leftSpells, _) =>
@@ -753,9 +732,7 @@ theorem bracketOpener ∀ (open: Word) (kind: Tok)
 theorem infixWithin ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
     (within: (Infix kind left operator right).within1 = True):
     left.within1 = True ∧ right.within1 = True :=
-  match kind with
-    | InfixBinary => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
-    | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
+  match kind with | InfixBinary | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
 
 --| An arrow's text is one of slice 1's operators.
 theorem arrowListed ∀ (text: Text) (arrow: arrowText1 text = True): operatorText1 text = True :=
@@ -1248,42 +1225,16 @@ theorem headNotLayout ∀ (text: Text) (first: Char) (others: List Char)
 --| No spelling of a token is layout.
 theorem spellsNotLayout ∀ (kind: Tok) (text: Text) (spells: Spells kind text): isLayout text = False :=
   match kind, spells with
-    | LParen, same => rewrite same
-    | RParen, same => rewrite same
-    | LBracket, same => rewrite same
-    | RBracket, same => rewrite same
-    | Comma, same => rewrite same
-    | Colon, same => rewrite same
-    | ColonEq, same => rewrite same
-    | Equals, same => rewrite same
-    | EqEq, same => rewrite same
-    | Arrow, Inl same => rewrite same
-    | Arrow, Inr same => rewrite same
-    | OrOr, Inl same => rewrite same
-    | OrOr, Inr same => rewrite same
-    | AndAnd, Inl same => rewrite same
-    | AndAnd, Inr same => rewrite same
-    | Plus, same => rewrite same
-    | PlusPlus, same => rewrite same
-    | Minus, same => rewrite same
-    | Star, same => rewrite same
-    | Slash, same => rewrite same
-    | Percent, same => rewrite same
-    | NotEq, Inl same => rewrite same
-    | NotEq, Inr same => rewrite same
+    | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq, same => rewrite same
+    | Arrow | OrOr | AndAnd, Inl same | Inr same => rewrite same
+    | Plus | PlusPlus | Minus | Star | Slash | Percent, same => rewrite same
+    | NotEq, Inl same | Inr same => rewrite same
     | Lt, same => rewrite same
-    | Le, Inl same => rewrite same
-    | Le, Inr same => rewrite same
+    | Le, Inl same | Inr same => rewrite same
     | Gt, same => rewrite same
-    | Ge, Inl same => rewrite same
-    | Ge, Inr same => rewrite same
-    | Bang, Inl same => rewrite same
-    | Bang, Inr same => rewrite same
+    | Ge | Bang, Inl same | Inr same => rewrite same
     | KwDef, same => rewrite same
-    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
-      let (space, line) := startNotLayout first starts
-      headNotLayout text first (others ++ qualChars comps) split space line
-    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
+    | Lower | Upper, Witness first (Witness others (Witness comps (Both split (Both starts _)))) =>
       let (space, line) := startNotLayout first starts
       headNotLayout text first (others ++ qualChars comps) split space line
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>

@@ -233,8 +233,7 @@ theorem seqSplit ∀ (docs: List Doc) (spacings: List (List Spacing)) (keep: Nat
           differs
           rest
       ((first, kept), dropped, filled)
-    | Succ _, [doc, next, ..more], [], never => never.impossible
-    | Succ _, [doc, next, ..more], [spacing], never => never.impossible
+    | Succ _, [_, _, .._], [] | [_], never => never.impossible
 
 -- A call's layouts.
 

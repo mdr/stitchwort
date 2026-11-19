@@ -88,12 +88,7 @@ theorem baseLinks ∀ (led: Bool) (level: Option Nat) (first: Bool) (expr: Expr)
     (el: LinkEl lexKind led around.before trails (expr.el around)):
     Links lexKind led level first expr around trails :=
   match expr, within with
-    | Atom _ _, _ => el
-    | Paren _ _ _, _ => el
-    | Tuple _ _ _ _, _ => el
-    | ListOf _ _ _ _, _ => el
-    | App _ _, _ => el
-    | Prefix _ _, _ => el
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _ => el
     | Infix InfixBinary left operator right, _ =>
       match c: (Infix InfixBinary left operator right).inChain level, chained with
         | False, _ => el
@@ -268,9 +263,7 @@ theorem lineArrowHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Na
   let step := stepArrow kinds state text (Some column) (tokenCode text (Some column) token solid) arrow room
   hangsChunk kinds text text.length indent (LineAt indent column (Hang.At state)) post solid (place trace lined =>
     match place, lined with
-      | AtStart at carry, (now, atColumn, _) =>
-        rewrite now, atColumn then ((floorAfterToken text carry token, bound), step)
-      | Broken at carry, (now, atColumn, _) =>
+      | AtStart _ carry | Broken _ carry, (now, atColumn, _) =>
         rewrite now, atColumn then ((floorAfterToken text carry token, bound), step)
       | Mid at carry, never => (Bool.falseNotTrue never).impossible
       | Held at carry, never => (Bool.falseNotTrue never).impossible)

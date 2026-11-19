@@ -321,10 +321,8 @@ theorem endedGlued ∀ (state: HangState) (start: Option Nat) (trails: Bool) (pl
     (ended: Ended (openedBy state start) trails place):
     Ended (gluedBy state start) trails place :=
   match place, ended with
-    | Mid at carry, ended => ended
-    | Held at carry, ended => ended
-    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
-    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+    | Mid _ _ | Held _ _, ended => ended
+    | AtStart _ _ | Broken _ _, never => (Bool.falseNotTrue never).impossible
 
 --| `->`, a token with no comments of its own: written where the place says, it glues the fold.
 theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat) (before: Bool)
@@ -371,16 +369,7 @@ def Links (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (e
     (around: Around) (trails: Bool):
     Prop :=
   match expr with
-    | Infix InfixBinary left operator right =>
-      if expr.inChain level then
-        ∃ (leftTrails: Bool) => ∃ (noted: Bool) => ∃ (next: Bool) => Links kinds led level first left around leftTrails
-          ∧ RunFacts kinds leftTrails operator.trails noted next
-            (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
-          ∧ chainRight level right (around.next operator.trails (left.size + 1))
-            = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
-          ∧ Links kinds next level False right (around.next operator.trails (left.size + 1)) trails
-      else LinkEl kinds led around.before trails (expr.el around)
-    | Infix InfixArrow left operator right =>
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right =>
       if expr.inChain level then
         ∃ (leftTrails: Bool) => ∃ (noted: Bool) => ∃ (next: Bool) => Links kinds led level first left around leftTrails
           ∧ RunFacts kinds leftTrails operator.trails noted next

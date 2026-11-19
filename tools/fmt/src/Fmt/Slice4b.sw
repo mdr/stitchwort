@@ -47,15 +47,13 @@ import Syntax (
 def Expr.within4b: Expr → Bool
   | Atom kind word => kind.wordWithin2 || (kind == Str || kind == CharLit) && !word.text.contains "\n"
   | Paren _ inner _ => inner.within4b
-  | Tuple _ items _ _ => allInline4b items
-  | ListOf _ items _ _ => allInline4b items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allInline4b items
   | App head arguments => head.inline4b && allInline4b arguments
-  | Infix InfixBinary left _ right => left.inline4b && right.within4b
-  | Infix InfixArrow left _ right => left.inline4b && right.within4b
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.inline4b && right.within4b
   | Prefix operator operand => operand.inline4b && !(operator.text == "-" && operand.numeralField)
   | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin4b params && body.within4b
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin4b params && body.inline4b
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin4b params && body.inline4b
+  | Binding BindsForall (Some _) params _ body | Binding BindsExists (Some _) params _ body =>
+    !params.isEmpty && paramsWithin4b params && body.inline4b
   | Block first rest result =>
     first.within4b && statementsWithin4b rest && result.inline4b && laterLinesPlain rest result
   | LetIn binding _ body => binding.within4b && keepsLine binding.value && body.within4b
@@ -128,8 +126,7 @@ def patternsWithin4b: List Pattern → Bool
 --| copies the source's gap (`f ()` against `f()`).
 def argumentsWithin4b: List Pattern → Bool
   | [] => True
-  | [PatternAbsurd _ _, .._] => False
-  | [PatternCtor _ _, .._] => False
+  | [PatternAbsurd _ _, .._] | [PatternCtor _ _, .._] => False
   | [pattern, ..rest] => pattern.within4b && argumentsWithin4b rest
 
 --| A list's `..rest`: a name or a bracket after a `..` with no comments
@@ -139,11 +136,8 @@ def tailWithin4b: Option (Word, Pattern) → Bool
   | Some (dots, rest) => !dots.noted && !dots.trails && rest.tailStart && rest.within4b
 
 def Pattern.tailStart: Pattern → Bool
-  | PatternWord Lower _ => True
-  | PatternWord Upper _ => True
-  | PatternParen _ _ _ => True
-  | PatternTuple _ _ _ _ => True
-  | PatternList _ _ _ _ _ => True
+  | PatternWord Lower _ | PatternWord Upper _ | PatternParen _ _ _ | PatternTuple _ _ _ _ | PatternList _ _ _ _ _ =>
+    True
   | _ => False
 
 def Tok.patternWord4b (kind: Tok) (word: Word): Bool :=
@@ -152,8 +146,7 @@ def Tok.patternWord4b (kind: Tok) (word: Word): Bool :=
 --| A binder's parameters: names, `_`, and typed groups.
 def paramsWithin4b: List Param → Bool
   | [] => True
-  | [NameParam _, ..rest] => paramsWithin4b rest
-  | [PatternParam (PatternWord _ _), ..rest] => paramsWithin4b rest
+  | [NameParam _, ..rest] | [PatternParam (PatternWord _ _), ..rest] => paramsWithin4b rest
   | [Grouped group, ..rest] => groupWithin4b GroupLambda group && paramsWithin4b rest
   | [_, ..rest] => False
 
@@ -185,8 +178,7 @@ def Header.within4b (header: Header): Bool := match header with
 def Decl.within4b: Decl → Bool
   | Definition [] header (Assigned _ value) => header.within4b && value.within4b
   | Definition [] header (Arms arms) => header.within4b && !arms.isEmpty && armsWithin4b arms
-  | Namespace _ _ => True
-  | Import _ _ _ _ _ => True
+  | Namespace _ _ | Import _ _ _ _ _ => True
   | Test _ name _ body => !name.text.contains "\n" && body.within4b
   | _ => False
 

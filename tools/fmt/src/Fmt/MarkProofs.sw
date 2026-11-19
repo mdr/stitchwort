@@ -18,21 +18,17 @@ import Fmt.HangProofs (findLower)
 
 --| Every `Mark` and `CloserLine` of the document has a key of at least `low`.
 def keysFrom (low: Nat): Doc → Bool
-  | Mark key => low <= key
-  | CloserLine key => low <= key
-  | Nest _ inner => keysFrom low inner
-  | Align inner => keysFrom low inner
-  | AlignInset inner => keysFrom low inner
-  | Displaced inner => keysFrom low inner
-  | Group inner _ => keysFrom low inner
-  | NarrowGroup _ inner _ => keysFrom low inner
-  | IdGroup _ inner _ => keysFrom low inner
+  | Mark key | CloserLine key => low <= key
+  | Nest _ inner |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ => keysFrom low inner
   | IfBroken _ broken flat => keysFrom low broken && keysFrom low flat
-  | Flatten inner => keysFrom low inner
-  | OneLineBelow inner => keysFrom low inner
-  | Concat docs => allKeysFrom low docs
-  | Fill items => allKeysFrom low items
-  | Choice options => allKeysFrom low options
+  | Flatten inner | OneLineBelow inner => keysFrom low inner
+  | Concat docs | Fill docs | Choice docs => allKeysFrom low docs
   | _ => True
 
 def allKeysFrom (low: Nat): List Doc → Bool
@@ -78,9 +74,7 @@ theorem keptRefl ∀ (low: Nat) (carry: Carry): MarksKept low carry carry := key
 theorem keptFloorAfter ∀ (low: Nat) (text: Text) (origin carry: Carry)
     (kept: MarksKept low origin carry):
     MarksKept low origin (floorAfter text carry) :=
-  match comment: text.startsWith "--" with
-    | True => kept
-    | False => kept
+  match comment: text.startsWith "--" with | True | False => kept
 
 --| A line break lowers every open mark to its line, and finds the same ones.
 theorem keptBreak ∀ (low indent: Nat) (origin carry: Carry)
@@ -154,11 +148,7 @@ theorem keptCloserLine ∀ (low key indent: Nat) (origin: Carry) (place: Place)
       origin
       (place.carry.close key)
       (keptClose low key origin place.carry high kept)
-  match place, kept with
-    | AtStart at carry, _ => landed
-    | Broken at carry, _ => landed
-    | Mid at carry, _ => landed
-    | Held at carry, _ => landed
+  match place, kept with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, _ => landed
 
 -- The frame.
 
@@ -175,8 +165,7 @@ theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: P
     (lays: Lays doc indent place trace (after later => MarksKept low origin after.carry → next after later)):
     Lays doc indent place trace next :=
   match doc, keys, lays with
-    | Doc.Nothing, _, lays => lays kept
-    | BreakParent, _, lays => lays kept
+    | Doc.Nothing | BreakParent, _, lays => lays kept
     | Blank, _, lays =>
       match place, kept, lays with
         | AtStart at carry, _, never => never
@@ -190,13 +179,7 @@ theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: P
         | AtStart at carry, kept, lays => writeFramed low origin indent text (AtStart at carry) trace next kept lays
         | Broken at carry, kept, lays => writeFramed low origin indent text (Broken at carry) trace next kept lays
         | Mid at carry, kept, lays => writeFramed low origin indent text (Mid at carry) trace next kept lays
-    | Line, _, lays =>
-      match place, kept, lays with
-        | AtStart at carry, _, never => never
-        | Broken at carry, _, never => never
-        | Mid at carry, kept, Both same broken => ((same kept), (broken (keptBreak low indent origin carry kept)))
-        | Held at carry, kept, Both same broken => ((same kept), (broken (keptBreak low indent origin carry kept)))
-    | SoftLine, _, lays =>
+    | Line | SoftLine, _, lays =>
       match place, kept, lays with
         | AtStart at carry, _, never => never
         | Broken at carry, _, never => never
@@ -258,9 +241,8 @@ theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: P
             inside
             (keptBreak low (Nat.max indent (at + 2)) origin carry kept)
             lays
-    | Group inner hard, inside, lays => framed low origin inner indent place trace next inside kept lays
-    | NarrowGroup max inner hard, inside, lays => framed low origin inner indent place trace next inside kept lays
-    | IdGroup id inner hard, inside, lays => framed low origin inner indent place trace next inside kept lays
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, inside, lays =>
+      framed low origin inner indent place trace next inside kept lays
     | IfBroken id broken flat, both, Both brokenLays flatLays =>
       let (brokenKeys, flatKeys) := (Bool.andReads _ _).forward both
       (

@@ -23,8 +23,7 @@ theorem walkMap ∀ (p: Pure) (expr: Expr) (within: expr.within1 = True): expr.w
   match expr with
     | Atom kind word => byComputing
     | Paren open inner close => rewrite walkMap p inner within
-    | Tuple open items comma close => rewrite walksMap p items within
-    | ListOf open items comma close => rewrite walksMap p items within
+    | Tuple _ items _ _ | ListOf _ items _ _ => rewrite walksMap p items within
     | App head arguments => rewrite walkMap p head (Bool.andLeft within), walksMap p arguments (Bool.andRight within)
     | Infix kind left operator right =>
       match kind with
@@ -202,10 +201,7 @@ theorem forallSame1 ∀ (file: SourceFile) (within: file.within1 = True): file.w
       walkSame1 forallPure forallFixes file within
 
 theorem spineSame ∀ (expr: Expr) (within: expr.within1 = True): spineBinders expr = expr := match expr with
-  | Atom kind word => byComputing
-  | Paren open inner close => byComputing
-  | Tuple open items comma close => byComputing
-  | ListOf open items comma close => byComputing
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => byComputing
   | App head arguments => rewrite spineSame head (Bool.andLeft within), spinesSame arguments (Bool.andRight within)
   | Infix kind left operator right =>
     match kind with
@@ -282,8 +278,7 @@ theorem mapsLength ∀ (f: Expr → Expr) (items: List Expr): (mapAll f items).l
   | [first, ..rest] => rewrite mapsLength f rest
 
 theorem mapsEmpty ∀ (f: Expr → Expr) (items: List Expr): (mapAll f items).isEmpty = items.isEmpty := match items with
-  | [] => byComputing
-  | [first, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem mapsAll ∀ (q: Expr → Bool)
     (same: ∀ (z: Expr) => q (z.mapIn withoutCommaExpr) = q z) (items: List Expr):
@@ -387,8 +382,7 @@ theorem commaKeepsWithin ∀ (file: SourceFile)
 theorem wordsUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).words = expr.words := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => rewrite wordsUncomma inner
-  | Tuple open items comma close => rewrite itemsWordsUncomma items
-  | ListOf open items comma close => rewrite itemsWordsUncomma items
+  | Tuple _ items _ _ | ListOf _ items _ _ => rewrite itemsWordsUncomma items
   | App head arguments => rewrite wordsUncomma head, itemsWordsUncomma arguments
   | Infix kind left operator right => rewrite wordsUncomma left, wordsUncomma right
   | Prefix operator operand => rewrite wordsUncomma operand
@@ -438,8 +432,7 @@ theorem levelUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).level = exp
 theorem atomicUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).primary = expr.primary := cases
 
 theorem leadUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).lead = expr.lead := match expr with
-  | App head arguments => leadUncomma head
-  | Infix kind left operator right => leadUncomma left
+  | App head _ | Infix _ head _ _ => leadUncomma head
   | _ => cases
 
 theorem signQuietUncomma ∀ (operator: Word) (operand: Expr):
@@ -483,8 +476,7 @@ theorem shapesUncomma ∀ (items: List Expr): allShaped (mapAll withoutCommaExpr
 theorem lexicalUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).lexical = expr.lexical := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => rewrite lexicalUncomma inner
-  | Tuple open items comma close => rewrite lexicalsUncomma items
-  | ListOf open items comma close => rewrite lexicalsUncomma items
+  | Tuple _ items _ _ | ListOf _ items _ _ => rewrite lexicalsUncomma items
   | App head arguments => rewrite lexicalUncomma head, lexicalsUncomma arguments
   | Infix kind left operator right => rewrite lexicalUncomma left, lexicalUncomma right
   | Prefix operator operand => rewrite lexicalUncomma operand
@@ -531,8 +523,7 @@ theorem commaKeepsLexical ∀ (file: SourceFile)
 --| closer.
 def Expr.commaFree: Expr → Bool
   | Paren _ inner _ => inner.commaFree
-  | Tuple _ items comma _ => !comma && allCommaFree items
-  | ListOf _ items comma _ => !comma && allCommaFree items
+  | Tuple _ items comma _ | ListOf _ items comma _ => !comma && allCommaFree items
   | App head arguments => head.commaFree && allCommaFree arguments
   | Infix _ left _ right => left.commaFree && right.commaFree
   | Prefix _ operand => operand.commaFree
@@ -551,8 +542,7 @@ def SourceFile.commaFree (file: SourceFile): Bool := file.decls.all Decl.commaFr
 theorem commaBareExpr ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).commaFree = True := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => commaBareExpr inner
-  | Tuple open items comma close => Bool.andIntro byComputing (commaBareItems items)
-  | ListOf open items comma close => Bool.andIntro byComputing (commaBareItems items)
+  | Tuple _ items _ _ | ListOf _ items _ _ => Bool.andIntro byComputing (commaBareItems items)
   | App head arguments => Bool.andIntro (commaBareExpr head) (commaBareItems arguments)
   | Infix kind left operator right => Bool.andIntro (commaBareExpr left) (commaBareExpr right)
   | Prefix operator operand => commaBareExpr operand

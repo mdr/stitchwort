@@ -368,8 +368,7 @@ theorem listAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Wor
 --| What a tuple or list carries for its hug as a call's last argument: its items' facts. Nothing for any other
 --| expression.
 def BracketFacts: Expr → Prop
-  | Tuple _ items _ _ => AllAnyFacts items
-  | ListOf _ items _ _ => AllAnyFacts items
+  | Tuple _ items _ _ | ListOf _ items _ _ => AllAnyFacts items
   | _ => True
 
 def AllBracketFacts: List Expr → Prop
@@ -432,9 +431,7 @@ theorem hugLastHangs ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
   let opener: OpenerToken lexKind open.text := match list with
     | True => rewrite isOpen then openBracket
     | False => rewrite isOpen then openParen
-  let opens: isCloserText open.text = False := match list with
-    | True => rewrite isOpen
-    | False => rewrite isOpen
+  let opens: isCloserText open.text = False := match list with | True | False => rewrite isOpen
   let closer: CloserToken lexKind close.text := match list with
     | True => rewrite isClose then closeBracket
     | False => rewrite isClose then closeParen
@@ -496,12 +493,8 @@ theorem bracketLastHangs ∀ (arm: Bool) (previous: Expr) (at: Nat) (argument: E
     (opens: argument.opensBracket = True):
     LastHangs arm previous at argument :=
   match argument, within, opens with
-    | Atom _ _, _, never => (Bool.falseNotTrue never).impossible
-    | Paren _ _ _, _, never => (Bool.falseNotTrue never).impossible
-    | App _ _, _, never => (Bool.falseNotTrue never).impossible
-    | Infix InfixBinary _ _ _, _, never => (Bool.falseNotTrue never).impossible
-    | Infix InfixArrow _ _ _, _, never => (Bool.falseNotTrue never).impossible
-    | Prefix _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Atom _ _ | Paren _ _ _ | App _ _ | Infix InfixBinary _ _ _ | Infix InfixArrow _ _ _ | Prefix _ _, _, never =>
+      (Bool.falseNotTrue never).impossible
     | Tuple open items trailing close, within, _ =>
       let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
       hugLastHangs False open items close
@@ -874,9 +867,7 @@ theorem bracketFacts ∀ (expr: Expr)
     (shaped: expr.shaped = True):
     BracketFacts expr :=
   match expr, within with
-    | Atom _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
+    | Atom _ _ | Prefix _ _ | Paren _ _ _, _ => byComputing
     | Tuple open items trailing close, within =>
       allAnyFacts items within
         (Bool.andRight (Bool.andRight lexical))
@@ -889,9 +880,7 @@ theorem bracketFacts ∀ (expr: Expr)
         (Bool.andLeft (Bool.andRight sound))
         (Bool.andLeft homed)
         shaped
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
+    | App _ _ | Infix InfixBinary _ _ _ | Infix InfixArrow _ _ _, _ => byComputing
 
 theorem allBracketFacts ∀ (items: List Expr)
     (within: allWithin1 items = True)
@@ -1160,13 +1149,13 @@ theorem anyHug ∀ (value: Expr) (around: Around)
               wordStart
               (anyHangsOf head headFacts inside byComputing 0 0)
           ((lastArg argument rest).trails, appDocsHug lexKind head argument rest inside 0 0 headHangs facts open same)
-    | Atom _ _, _ => open never => cases
-    | Paren _ _ _, _ => open never => cases
-    | Tuple _ _ _ _, _ => open never => cases
-    | ListOf _ _ _ _, _ => open never => cases
-    | Infix InfixBinary _ _ _, _ => open never => cases
-    | Infix InfixArrow _ _ _, _ => open never => cases
-    | Prefix _ _, _ => open never => cases
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => open never => cases
 
 --| A slice 1 type hangs as `DeclElements` asks, where it stands in a declaration.
 theorem anyType ∀ (result: Expr) (before: Bool) (at: Nat) (inArm: Bool)

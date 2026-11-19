@@ -57,18 +57,12 @@ theorem homedAfterOf ∀ (trails noted before: Bool)
     (homed: (!(True && trails) || False || noted || before) = True):
     (!trails || noted || before) = True :=
   match trails, noted, before with
-    | True, True, True => homed
-    | True, True, False => homed
+    | True, True, True | False => homed
     | True, False, True => homed
-    | False, True, True => homed
-    | False, True, False => homed
-    | False, False, True => homed
-    | False, False, False => homed
+    | False, True | False, True | False => homed
 
 theorem appendNonEmpty ∀ (xs: List Word) (last: Word) (ys: List Word): (xs ++ [last, ..ys]).isEmpty = False :=
-  match xs with
-    | [] => byComputing
-    | [x, ..rest] => byComputing
+  match xs with | [] | [_, .._] => byComputing
 
 --| A closer is homed after the code before it: with a comment after it, it has comments above it or the code
 --| before it, closers aside, ends its line with one.

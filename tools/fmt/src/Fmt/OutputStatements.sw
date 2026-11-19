@@ -75,8 +75,7 @@ def operandSpacing (argument: Bool) (operator: Word) (operand: Expr): Option Spa
 def Expr.spacing: Expr → Bool → List Spacing
   | Atom _ _, _ => [Free]
   | Paren _ inner _, _ => [Free, ..inner.spacing False] ++ [Free]
-  | Tuple _ items _ _, _ => [Free, ..commaSpacing items] ++ [Free]
-  | ListOf _ items _ _, _ => [Free, ..commaSpacing items] ++ [Free]
+  | Tuple _ items _ _ | ListOf _ items _ _, _ => [Free, ..commaSpacing items] ++ [Free]
   | App head arguments, _ => head.spacing False ++ argumentsSpacing arguments
   | Infix _ left _ right, _ => left.spacing False ++ [Free, ..spacedFirst Apart (right.spacing False)]
   | Prefix operator operand, argument =>

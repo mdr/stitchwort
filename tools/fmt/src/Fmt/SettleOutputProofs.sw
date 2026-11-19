@@ -817,9 +817,7 @@ theorem declWordsAlike ∀ (header: Header) (colonEq: Comments) (value: Expr) (k
           (keptAlike (fixedWord ":=" colonEq) False False, wordsCalm value False (Bool.andRight within)))
 
 theorem toppedAlike ∀ (keyword: Comments): (fixedWord "def" keyword).alike (fixedWord "def" keyword.topped) :=
-  match keyword.above with
-    | [] => (byComputing, byComputing, byComputing, byComputing)
-    | [first, ..more] => (byComputing, byComputing, byComputing, byComputing)
+  match keyword.above with | [] | [_, .._] => (byComputing, byComputing, byComputing, byComputing)
 
 theorem restSettled ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
@@ -1268,9 +1266,7 @@ theorem leadingEmptySame ∀ (leaf: Leaf) (word: Word)
     (fits: leaf.fits word = True):
     leaf.trivia.leading.isEmpty = word.comments.above.isEmpty :=
   let (_, aboveSame, _, _, _) := fitsParts leaf word fits
-  match leaf.trivia.leading with
-    | [] => rewrite <- aboveSame
-    | [first, ..more] => rewrite <- aboveSame
+  match leaf.trivia.leading with | [] | [_, .._] => rewrite <- aboveSame
 
 theorem listReverseJoin ∀ (word: Word) (older after: List Word):
     [word, ..older].reverse ++ after = older.reverse ++ [word, ..after] :=

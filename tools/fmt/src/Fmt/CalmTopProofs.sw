@@ -45,10 +45,7 @@ theorem calmTopDefinition ∀ (attributes: List Attributes) (header: Header) (bo
         decls = [(Definition attributes header body).calm.topFlag, ..rest.map Decl.calm],
         end = { end | blankBefore = False }
       } :=
-  match body with
-    | Assigned colonEq value => byComputing
-    | Primitive => byComputing
-    | Arms arms => byComputing
+  match body with | Assigned _ _ | Primitive | Arms _ => byComputing
 
 theorem headerToppedWithin ∀ (header: Header)
     (within: header.within1 = True):

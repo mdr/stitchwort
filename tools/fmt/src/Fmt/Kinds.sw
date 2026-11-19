@@ -65,10 +65,7 @@ def argsKinds: List Expr → List Tok
 
 --| An atom's kind outside the driver's slice is outside the grammar: the two lists of kinds are the same.
 theorem Tok.atomFalseOfWord1 ∀ (kind: Tok) (plain: kind.wordWithin1 = False): kind.atom1 = False := match kind with
-  | Lower => plain
-  | Upper => plain
-  | Num => plain
-  | Float => plain
+  | Lower | Upper | Num | Float => plain
   | other => byComputing
 
 --| A name `within1` lets through is one name, as the grammar asks.
@@ -96,17 +93,12 @@ theorem Word.nameGrammar1 ∀ (word: Word) (within: word.nameWithin1 = True): is
 theorem Expr.grammarOfWithin1 ∀ (expr: Expr) (within: expr.within1 = True): expr.grammar1 = True := match expr with
   | Atom kind word => Bool.andLeft within
   | Paren open inner close => Expr.grammarOfWithin1 inner within
-  | Tuple open items trailing close => allGrammarOfWithin1 items within
-  | ListOf open items trailing close => allGrammarOfWithin1 items within
+  | Tuple _ items _ _ | ListOf _ items _ _ => allGrammarOfWithin1 items within
   | App head arguments =>
     Bool.andIntro
       (Expr.grammarOfWithin1 head (Bool.andLeft within))
       (allGrammarOfWithin1 arguments (Bool.andRight within))
-  | Infix InfixBinary left operator right =>
-    Bool.andIntro
-      (Expr.grammarOfWithin1 left (Bool.andLeft within))
-      (Expr.grammarOfWithin1 right (Bool.andLeft (Bool.andRight within)))
-  | Infix InfixArrow left operator right =>
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right =>
     Bool.andIntro
       (Expr.grammarOfWithin1 left (Bool.andLeft within))
       (Expr.grammarOfWithin1 right (Bool.andLeft (Bool.andRight within)))

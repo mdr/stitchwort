@@ -77,9 +77,7 @@ theorem caseStep ∀ (starts: Bool) (state: Splitter) (current: List Leaf) (grou
       rest
       = if starts then splitPlain (next Splitter.restart) [leaf] (flushed current groups) rest
       else splitPlain (next state) [leaf, ..current] groups rest :=
-  match starts with
-    | True => after _ _ _
-    | False => after _ _ _
+  match starts with | True | False => after _ _ _
 
 --| `splitFrom` is `splitPlain`.
 theorem splitFromPlain ∀ (state: Splitter) (current: List Leaf) (groups: List (List Leaf)) (leaves: List Leaf):
@@ -165,9 +163,7 @@ theorem groupsTokens ∀ (leaves others: List Leaf)
 
 theorem headedTokens ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     tokens (headed above blank leaves) = tokens leaves :=
-  match leaves with
-    | [] => byComputing
-    | [first, ..rest] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem groupsFromTokens ∀ (empty: Bool) (decls: List Decl):
     (groupsFrom empty decls).map tokens = decls.map (decl => tokens decl.leaves) :=
@@ -255,13 +251,8 @@ theorem exprsChecks ∀ (items: List Expr) (within: allWithin1 items = True): ru
 --| A slice 1 type has no implicit binder on its spine.
 theorem spineNone ∀ (expr: Expr) (within: expr.within1 = True): spineRepeat [] expr = None := match expr with
   | Infix InfixArrow left operator right => spineNone right (Bool.andLeft (Bool.andRight within))
-  | Infix InfixBinary left operator right => byComputing
-  | Atom kind word => byComputing
-  | Paren open inner close => byComputing
-  | Tuple open items trailingComma close => byComputing
-  | ListOf open items trailingComma close => byComputing
-  | App head arguments => byComputing
-  | Prefix operator operand => byComputing
+  | Infix InfixBinary _ _ _ | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _ =>
+    byComputing
 
 --| A slice 1 declaration passes the lowering's checks.
 theorem declLowers ∀ (decl: Decl) (within: decl.within1 = True): decl.loweringError = None := match decl with

@@ -132,27 +132,19 @@ def Comments.toldAbove (comments: Comments): List Told :=
 --| With no comments above, the blank line is told only above an item.
 theorem keptNone ∀ (after: Option Text) (blankBefore item closer: Bool):
     ({ above = [], after, blankBefore }.kept item closer).toldAbove = if item && blankBefore then [Gap] else [] :=
-  match item, blankBefore with
-    | True, True => byComputing
-    | True, False => byComputing
-    | False, True => byComputing
-    | False, False => byComputing
+  match item, blankBefore with | True | False, True | False => byComputing
 
 --| With comments above a token that is no closer: the comments' blank lines and the blank line below the last as
 --| written.
 theorem keptToldAbove ∀ (first: Note) (rest: List Note) (after: Option Text) (blankBefore item: Bool):
     ({ above = [first, ..rest], after, blankBefore }.kept item False).toldAbove
       = notesTold [first, ..rest] ++ (if blankBefore then [Gap] else []) :=
-  match blankBefore with
-    | True => byComputing
-    | False => byComputing
+  match blankBefore with | True | False => byComputing
 
 --| With comments above a closer: nothing is told below the last.
 theorem keptCloser ∀ (first: Note) (rest: List Note) (after: Option Text) (blankBefore item: Bool):
     ({ above = [first, ..rest], after, blankBefore }.kept item True).toldAbove = notesTold [first, ..rest] :=
-  match blankBefore with
-    | True => List.appendNil (notesTold [first, ..rest])
-    | False => List.appendNil (notesTold [first, ..rest])
+  match blankBefore with | True | False => List.appendNil (notesTold [first, ..rest])
 
 -- What a word writes before its text.
 
@@ -245,10 +237,7 @@ theorem pieceTell ∀ (text: Text) (spot: Spot)
     (solid: isLayout text = False):
     (piece text).tell spot = wordTelling text spot :=
   match same: closing text, spot.held with
-    | True, True => rewrite wordFilled text solid, solidSpaces text solid
-    | True, False => rewrite wordFilled text solid, solidSpaces text solid
-    | False, True => rewrite wordFilled text solid, solidSpaces text solid
-    | False, False => rewrite wordFilled text solid, solidSpaces text solid
+    | True | False, True | False => rewrite wordFilled text solid, solidSpaces text solid
 
 -- A token on its own.
 
@@ -317,20 +306,14 @@ theorem leafTell ∀ (word: Word) (around: Around) (key: Nat) (spot: Spot)
         key
         (if word.leadsLine around then Spot.lineStart else spot)
         solid then
-    match word.leadsLine around, word.ownsLine around with
-      | True, True => byComputing
-      | True, False => byComputing
-      | False, True => byComputing
-      | False, False => byComputing
+    match word.leadsLine around, word.ownsLine around with | True | False, True | False => byComputing
 
 -- An opening bracket.
 
 --| A mark writes nothing.
 theorem markTell ∀ (mark: Bool) (key: Nat) (rest: List Doc) (spot: Spot):
     Doc.tellAll ((if mark then [Mark key] else []) ++ rest) spot = Doc.tellAll rest spot :=
-  match mark with
-    | True => byComputing
-    | False => byComputing
+  match mark with | True | False => byComputing
 
 --| An opening bracket tells as any word of the rules: the mark its closer may need writes nothing.
 --|
@@ -359,9 +342,7 @@ theorem openingTell ∀ (word: Word) (around: Around) (closer: Word) (spot: Spot
         (if word.leadsLine around then Spot.lineStart else spot),
       bodyTell word False around.at (if word.leadsLine around then Spot.lineStart else spot) solid,
       open then
-    match word.leadsLine around with
-      | True => byComputing
-      | False => byComputing
+    match word.leadsLine around with | True | False => byComputing
 
 -- An atom and a framed node.
 
@@ -409,7 +390,6 @@ theorem parenInnerTell ∀ (inner: Expr) (around: Around) (spot: Spot):
     | Block first rest result =>
       rewrite concatTell [HardLine, (Block first rest result).el around] spot,
           List.appendNil (((Block first rest result).el around).tell Spot.lineStart).said
-    | If _ _ _ _ _ _ _ => byComputing
     | _ => byComputing
 
 --| A prefix operator's gap tells nothing from after a word.
@@ -427,11 +407,7 @@ theorem gapTell ∀ (operator: Word) (operand: Expr) (spot: Spot)
 
 --| After a word, the printer is never at a line start.
 theorem wordTellingFresh ∀ (text: Text) (spot: Spot): (wordTelling text spot).after.fresh = False :=
-  match closing text, spot.held with
-    | True, True => byComputing
-    | True, False => byComputing
-    | False, True => byComputing
-    | False, False => byComputing
+  match closing text, spot.held with | True | False, True | False => byComputing
 
 theorem leafTellingFresh ∀ (word: Word) (around: Around) (spot: Spot):
     (word.leafTelling around spot).after.fresh = False :=
@@ -523,9 +499,7 @@ theorem prefixTell ∀ (operator: Word) (operand: Expr) (around: Around) (spot: 
 --| A word at a line start starts its line.
 theorem wordTellingLine ∀ (text: Text):
     wordTelling text Spot.lineStart = { said = [Said text True False], after = Spot.afterWords } :=
-  match closing text with
-    | True => byComputing
-    | False => byComputing
+  match closing text with | True | False => byComputing
 
 --| Whether the word's leaf starts a line whatever precedes it: it writes own-line comments or a kept blank line, or a
 --| closer takes a line of its own.
@@ -535,10 +509,8 @@ def Word.forced (word: Word) (around: Around): Bool := word.leadsLine around || 
 
 --| An entry says exactly what the events are: a blank line, or a word.
 def entryExact: Told → Bool
-  | Gap => True
-  | Said _ _ _ => True
-  | MaybeGap => False
-  | Lost => False
+  | Gap | Said _ _ _ => True
+  | MaybeGap | Lost => False
 
 --| Every entry says exactly (no `MaybeGap`, no `Lost`).
 def toldExact: List Told → Bool
@@ -554,8 +526,7 @@ theorem toldExactAppend ∀ (one other: List Told)
     | [told, ..rest] => Bool.andIntro (Bool.andLeft first) (toldExactAppend rest other (Bool.andRight first) second)
 
 theorem noteToldExact ∀ (note: Note): toldExact (noteTold note) = True := match note.blankBefore with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 theorem notesToldExact ∀ (notes: List Note): toldExact (notesTold notes) = True := match notes with
   | [] => byComputing
