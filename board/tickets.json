@@ -26094,12 +26094,12 @@
     {
       "id": 4141,
       "title": "[Sonnet] fmt (SW-4132 lane 2): doesn't-read-comments lemmas: stripped, SameCode, items commutes with stripping, the 78 look-aheads, the 33 tree functions, grammar1Deaf, loweringDeaf",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4141",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 35 min.",
+      "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 35 min.\n\nLane notes (Sonnet, 19 Nov): tools/fmt/src/Syntax/DeafProofs.sw, branch lane/SW-4141, 2 commits. Check and audit clean (132 theorems). Done: Leaf.stripped, Item.stripped, SameCode, itemsDeaf, groupItemsSameCode, 74 look-ahead lemmas (xDeaf: f items = f (items.map Item.stripped)), tree lemmas, grammar1Deaf, lowering helpers (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Not done: loweringDeaf (needs a Fail-effect traversal lemma over Decl.traverse checkSteps, about 35 constructors, a lane of its own); bareTaken/itemsBare read trivia by design (hard spot 1), no lemma.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
