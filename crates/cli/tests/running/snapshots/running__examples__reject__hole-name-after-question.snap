@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `hole`
+   ╭─[ reject/hole-name-after-question.sw:8:31 ]
+   │
+ 8 │ theorem t (n: Nat): n = n := ?hole
+   │                               ──┬─  
+   │                                 ╰─── not in scope
+   │ 
+   │ Note: holes aren't named in a proof: write `?` alone; a named hole such as `?x` is only for a search pattern in `stitchwort search`
+───╯
+[GOAL] Goal: in `t`
+   ╭─[ reject/hole-name-after-question.sw:8:30 ]
+   │
+ 8 │ theorem t (n: Nat): n = n := ?hole
+   │                              ┬  
+   │                              ╰── n: Nat
+   │                                  ⊢ (x: _) → _
+───╯
