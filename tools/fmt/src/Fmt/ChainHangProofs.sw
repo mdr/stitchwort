@@ -37,7 +37,7 @@ theorem tailAppend ∀ (kinds: Text → Tok) (before middle trails: Bool) (front
     (second: TailHangs kinds middle trails back):
     TailHangs kinds before trails (front ++ back) :=
   state indent inset quiet unglued clear deeper =>
-    hangsAppend kinds front back inset
+    hangsAppend front
       (AfterWords state indent before)
       (AfterWords state indent middle)
       (AfterWords state indent trails)
@@ -102,24 +102,21 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
     (runs: TailHangs kinds middle trails rest):
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
   state indent inset quiet unglued clear deeper =>
-    hangsCons kinds Line
+    hangsCons Line
       [operatorDoc, Doc.text " ", first, ..rest]
-      inset
       (AfterWords state indent before)
       (ArgSeat state inset before)
       (AfterWords state indent trails)
       (lineArg kinds inset indent state before unglued deeper)
-      (hangsCons kinds operatorDoc
+      (hangsCons operatorDoc
         [Doc.text " ", first, ..rest]
-        inset
         (ArgSeat state inset before)
         (AfterWords state indent operated)
         (AfterWords state indent trails)
         (argFor kinds operatorDoc inset indent state before operated noted quiet unglued clear (operatorHangs inset))
-        (hangsCons kinds
+        (hangsCons
           (Doc.text " ")
           [first, ..rest]
-          inset
           (AfterWords state indent operated)
           (AfterWords state indent operated)
           (AfterWords state indent trails)
@@ -136,7 +133,7 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
               next
               (ended, folded, bounded)
               after)
-          (hangsCons kinds first rest inset
+          (hangsCons first rest
             (AfterWords state indent operated)
             (AfterWords state indent middle)
             (AfterWords state indent trails)
@@ -243,24 +240,21 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
   state indent inset quiet unglued clear deeper =>
     let stuck := stuckFrom state
-    hangsCons kinds Line
+    hangsCons Line
       [operatorDoc, Doc.text " ", first, ..rest]
-      inset
       (AfterWords state indent before)
       (ArgSeat state inset before)
       (AfterWords state indent trails)
       (lineArg kinds inset indent state before unglued deeper)
-      (hangsCons kinds operatorDoc
+      (hangsCons operatorDoc
         [Doc.text " ", first, ..rest]
-        inset
         (ArgSeat state inset before)
         (AfterWords stuck indent False)
         (AfterWords state indent trails)
         (arrowArgFor kinds operatorDoc inset indent state before noted quiet unglued clear glues)
-        (hangsCons kinds
+        (hangsCons
           (Doc.text " ")
           [first, ..rest]
-          inset
           (AfterWords stuck indent False)
           (AfterWords stuck indent False)
           (AfterWords state indent trails)
@@ -277,7 +271,7 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
               next
               (ended, folded, bounded)
               after)
-          (hangsCons kinds first rest inset
+          (hangsCons first rest
             (AfterWords stuck indent False)
             (AfterWords state indent middle)
             (AfterWords state indent trails)
@@ -348,13 +342,7 @@ theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
               ))
     rewrite leafIsText word around key closer comma bare then
       match after: word.comments.after, quiet with
-        | None, _ =>
-          hangsConcat kinds
-            [Doc.text word.text]
-            indent
-            pre
-            post
-            (hangsLast kinds (Doc.text word.text) indent pre post written)
+        | None, _ => hangsConcat [Doc.text word.text] pre post (hangsLast (Doc.text word.text) indent pre post written)
 
 --| What a chain's operand asks (`linkDocs`): a chain of the same level its operands and operators, each operator
 --| folding as a plain token or as `->` after the operand before it and before a space, its token and the next
@@ -481,8 +469,7 @@ theorem runsPart ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (befor
     (runs: TailHangs kinds before trails docs):
     PartHangs kinds (Nest 2 (Doc.concat docs)) indent before trails :=
   state entry quiet unglued place trace next (isEntry, folded, ended, clear) after =>
-    hangsConcat kinds docs
-      (indent + 2)
+    hangsConcat docs
       (AfterWords state indent before)
       (AfterWords state indent trails)
       (runs state indent (indent + 2) quiet unglued clear arithmetic)
@@ -520,7 +507,7 @@ theorem chainHangs ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr) (o
       (runsPart kinds tail indent middle trails runs)
   rewrite flat, linksAre then
     state entry =>
-      hangsGroup kinds inner inner.forcesBreak indent
+      hangsGroup inner.forcesBreak
         (Entered indent column False state entry (wordStart indent entry))
         (place hang =>
           Ended (openedBy state (wordStart indent entry)) trails place

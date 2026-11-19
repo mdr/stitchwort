@@ -469,7 +469,7 @@ theorem hangsOfLays ∀ (kinds: Text → Tok) (doc: Doc) (width: Nat)
     (read: lex (Doc.print doc width) = Ok lexed):
     hangs lexed.leaves = True :=
   let (_, _, pairs) := printedJoins (Follows kinds) (Printable kinds) doc width uniform joins all
-  let whole := hangsPrinted kinds doc width lays
+  let whole := hangsPrinted width lays
   let leaves :=
     leavesHangOfTrace kinds (printedPieces doc width) (pairsEnd kinds (printedPieces doc width).reverse pairs) whole
   let same := Eq.trans (printedLexes doc width kinds uniform joins all).flipped read

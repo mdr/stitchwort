@@ -411,8 +411,8 @@ theorem notedFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
         let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = Hang.At opened
         let leadingDocs := first.leading around around.at
         let leading :=
-          hangsConcat kinds leadingDocs indent pre lined
-            (allHangsPre kinds leadingDocs indent
+          hangsConcat leadingDocs pre lined
+            (allHangsPre
               (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent around.before state entry)
               pre
               lined
@@ -428,12 +428,11 @@ theorem notedFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
         let isNoted: first.noted = True := rewrite noted
         let unframed: framedBy first around doc = Doc.concat [Doc.concat leadingDocs, Displaced doc] := rewrite isNoted
         rewrite unframed then
-          hangsConcat kinds
+          hangsConcat
             [Doc.concat leadingDocs, Displaced doc]
-            indent
             pre
             post
-            (hangsTwo kinds (Doc.concat leadingDocs) (Displaced doc) indent pre lined post leading displaced)
+            (hangsTwo (Doc.concat leadingDocs) pre lined post leading displaced)
             place
             trace
             next
