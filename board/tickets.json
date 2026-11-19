@@ -28023,8 +28023,8 @@
     {
       "id": 4286,
       "title": "[Sonnet] One list of slice 1's operators and std List.allMember replace 21 literal-staircase theorems and the …A/B/C/D names (survey target 4)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
