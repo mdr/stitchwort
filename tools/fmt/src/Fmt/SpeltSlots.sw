@@ -4,7 +4,7 @@
 --| `Spelt` reads (`speltSlots`).
 
 namespace Fmt.SpeltSlots
-import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text, Void)
+import Std (Bool, DecEq, Eq, Finite, List, Nat, Option, Parse, Text, Void)
 import Syntax (Expr, InfixKind, Item, Leaf, Tok, Token, Word, lex, negativeNumeral)
 import Syntax.ReadBackLine (..)
 import Syntax.ReadBackRuns (commaReads)
@@ -475,24 +475,9 @@ theorem argumentsLast ∀ (arguments: List Expr) (read: List Item)
 
 -- Tokens.
 
-theorem tokLevelLow ∀ (tok: Tok): (18 <= tokLevel tok) = False := match tok with
-  | Arrow |
-      OrOr |
-      AndAnd |
-      Equals |
-      EqEq |
-      NotEq |
-      Lt |
-      Le |
-      Gt |
-      Ge |
-      PlusPlus |
-      Plus |
-      Minus |
-      Star |
-      Slash |
-      Percent |
-      _ => byComputing
+theorem tokLevelLow ∀ (tok: Tok): (18 <= tokLevel tok) = False :=
+  let checked := Finite.check (kind => !(18 <= tokLevel kind)) byComputing tok
+  Bool.notTrue (18 <= tokLevel tok) checked
 
 --| An infix's operator closes no operand.
 theorem infixOpens ∀ (kind: InfixKind) (tok: Tok) (is: infixTok kind tok = True): tok.closesOperand = False :=
