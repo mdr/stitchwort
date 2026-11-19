@@ -557,8 +557,8 @@ def walkPlain (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match st
 theorem notOfFalse ∀ (b: Bool) (h: b = False): (!b) = True := rewrite h
 
 --| Rule 1's walk passes only leaves that open no atom.
-theorem stepsPlain ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat):
-    ∃ (passed: Nat) => stepsBack current behind ahead steps = steps + passed
+theorem stepsPlain ∀ (bareLast: Bool) (current: Leaf) (behind ahead: List Leaf) (steps: Nat):
+    ∃ (passed: Nat) => stepsBack bareLast current behind ahead steps = steps + passed
       ∧ (passed = 0 ∨ walkPlain passed current behind = True) :=
   match behind with
     | [] => (0, arithmetic, Inl byComputing)
@@ -566,12 +566,12 @@ theorem stepsPlain ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat):
       match skips: skipped current [previous, ..earlier] ahead with
         | False => (0, arithmetic, Inl byComputing)
         | True =>
-          match stops: current.token.lineStart
+          match stops: startsWalk bareLast current [previous, ..earlier]
             && (!current.trivia.leading.isEmpty || endsWithComment [previous, ..earlier] [current, ..ahead]) with
             | True => (0, arithmetic, Inl byComputing)
             | False =>
               let plain := notOfFalse _ (skippedPlain current [previous, ..earlier] ahead skips)
-              let (passed, walked, more) := stepsPlain previous earlier [current, ..ahead] (Succ steps)
+              let (passed, walked, more) := stepsPlain bareLast previous earlier [current, ..ahead] (Succ steps)
               let here: walkPlain (Succ passed) current [previous, ..earlier] = True := match passed, more with
                 | Zero, _ => plain
                 | Succ fewer, Inl zero => cases
@@ -636,10 +636,10 @@ theorem edgeUntrailed ∀ (leaf: Leaf) (behind after: List Leaf)
             next.trivia.leading.isEmpty
             (Bool.andLeft nextOk))
 
-theorem walkOfSteps ∀ (leaf: Leaf) (behind after: List Leaf) (fewer: Nat)
-    (moved: stepsBack leaf behind after 0 = Succ fewer):
+theorem walkOfSteps ∀ (bareLast: Bool) (leaf: Leaf) (behind after: List Leaf) (fewer: Nat)
+    (moved: stepsBack bareLast leaf behind after 0 = Succ fewer):
     walkPlain (Succ fewer) leaf behind = True :=
-  let (passed, walked, plain) := stepsPlain leaf behind after 0
+  let (passed, walked, plain) := stepsPlain bareLast leaf behind after 0
   let same: passed = Succ fewer := arithmetic [walked, moved]
   match plain with
     | Inl zero => (Nat.succNotZero fewer (Eq.trans same.flipped zero)).impossible
@@ -651,21 +651,21 @@ theorem walkOfSteps ∀ (leaf: Leaf) (behind after: List Leaf) (fewer: Nat)
 --| leaf. A leaf whose comment stays is pushed as it is; a bar whose comment goes below pushes it onto the next leaf,
 --| after a bar, which is no sign; a comment moved back lands on a leaf followed by leaves that open no atom
 --| (`stepsPlain`, `trailingAtQuiet`), and the leaf it left has none.
-theorem homeQuiet ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf)
+theorem homeQuiet ∀ (bareLast: Bool) (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf)
     (back: gluesQuietBack behind = True)
     (quiet: gluesQuiet rest = True)
     (edge: homeEdge behind bumped rest = True):
-    gluesQuiet (homeFrom behind bumped rest) = True :=
+    gluesQuiet (homeFrom bareLast behind bumped rest) = True :=
   match rest with
     | [] => reverseQuiet behind [] back byComputing (edgeNil behind)
     | [leaf0, ..after] =>
       let afterQuiet := tailQuiet leaf0 after quiet
       let kept := (leaf: Leaf) (pushOk: gluesQuietBackAfter leaf behind = True) (nextOk: gluesQuietAfter leaf after
         = True) =>
-        homeQuiet [leaf, ..behind] None after pushOk afterQuiet (edgeOfAfter leaf behind after nextOk)
+        homeQuiet bareLast [leaf, ..behind] None after pushOk afterQuiet (edgeOfAfter leaf behind after nextOk)
       let barred := (leaf: Leaf) (comment: Comment) (pushOk: gluesQuietBackAfter leaf behind
         = True) (notSign: leaf.kind.signLike = False) =>
-        homeQuiet
+        homeQuiet bareLast
           [leaf.withTrailing None, ..behind]
           (Some comment.unspaced)
           after
@@ -673,13 +673,14 @@ theorem homeQuiet ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List L
           afterQuiet
           (edgeOfBar leaf behind after comment.unspaced notSign)
       let moved := (leaf: Leaf) (comment: Comment) (fewer: Nat) (pushOk: gluesQuietBackAfter leaf behind
-        = True) (nextOk: gluesQuietAfter leaf after = True) (walk: stepsBack leaf behind after 0 = Succ fewer) =>
-        homeQuiet
+        = True) (nextOk: gluesQuietAfter leaf after = True) (walk: stepsBack bareLast leaf behind after 0
+        = Succ fewer) =>
+        homeQuiet bareLast
           [leaf.withTrailing None, ..trailingAt behind (Succ fewer) comment]
           None
           after
           (rewrite backUntrail leaf None (trailingAt behind (Succ fewer) comment) then
-            trailingAtQuiet (Succ fewer) leaf behind comment (walkOfSteps leaf behind after fewer walk) pushOk)
+            trailingAtQuiet (Succ fewer) leaf behind comment (walkOfSteps bareLast leaf behind after fewer walk) pushOk)
           afterQuiet
           (edgeUntrailed leaf (trailingAt behind (Succ fewer) comment) after nextOk)
       match bumped with
@@ -699,7 +700,7 @@ theorem homeQuiet ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List L
               match mov: movable leaf0 behind after with
                 | False => kept leaf0 pushOk quiet
                 | True =>
-                  match walk: stepsBack leaf0 behind after 0 with
+                  match walk: stepsBack bareLast leaf0 behind after 0 with
                     | Zero =>
                       match bar: barBelow leaf0 behind after with
                         | True => barred leaf0 comment pushOk (barSign leaf0 behind after bar)
@@ -724,7 +725,7 @@ theorem homeQuiet ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List L
               match mov: movable leaf behind after with
                 | False => kept leaf pushOk nextOk
                 | True =>
-                  match walk: stepsBack leaf behind after 0 with
+                  match walk: stepsBack bareLast leaf behind after 0 with
                     | Zero =>
                       match bar: barBelow leaf behind after with
                         | True => barred leaf comment pushOk (barSign leaf behind after bar)
@@ -874,13 +875,18 @@ theorem bareQuiet ∀ (leaves: List Leaf)
 -- Rule N, and the leaves the parser reads.
 
 --| Rule N keeps glued signs quiet.
-theorem settledQuiet ∀ (lexed: Lexed) (quiet: gluesQuiet lexed.leaves = True): gluesQuiet lexed.settled.leaves = True :=
-  let homed := homeFrom [] None lexed.leaves
-  let homedQuiet: gluesQuiet homed = True := homeQuiet [] None lexed.leaves byComputing quiet byComputing
+theorem settledWithQuiet ∀ (lexed: Lexed) (bareLast: Bool)
+    (quiet: gluesQuiet lexed.leaves = True):
+    gluesQuiet (lexed.settledWith bareLast).leaves = True :=
+  let homed := homeFrom bareLast [] None lexed.leaves
+  let homedQuiet: gluesQuiet homed = True := homeQuiet bareLast [] None lexed.leaves byComputing quiet byComputing
   let commas := commasFrom [] None homed lexed.end
   trimmedQuietAll
     (letsFrom [] (arrows commas.leaves))
     (letsQuiet (arrows commas.leaves) (arrowsQuiet commas.leaves (commasQuiet homed lexed.end homedQuiet)))
+
+theorem settledQuiet ∀ (lexed: Lexed) (quiet: gluesQuiet lexed.leaves = True): gluesQuiet lexed.settled.leaves = True :=
+  settledWithQuiet lexed False quiet
 
 --| The leaves the parser reads from a lexed source in slice 1's alphabet have glued signs quiet.
 theorem onceQuiet ∀ (source: Text) (lexed: Lexed)
@@ -888,8 +894,9 @@ theorem onceQuiet ∀ (source: Text) (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True):
     gluesQuiet lexed.settledOnce.leaves = True :=
   let (laid, _) := lexLaidProved source lexed lexes within
-  settledQuiet
+  settledWithQuiet
     { lexed | leaves = withBareLastCommas [] lexed.leaves }
+    True
     (bareQuiet lexed.leaves (laidQuiet lexed.leaves False laid))
 
 -- Items.

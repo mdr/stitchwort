@@ -35,8 +35,8 @@ theorem consTokens ∀ (x leaf: Leaf) (settled behind later after: List Leaf)
     _ = tokens (behind.reverseOnto [leaf, ..after]) := (tokensReverseOnto behind [leaf, ..after]).flipped
 
 --| Rule 1 keeps the tokens.
-theorem homeFromTokens ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf):
-    tokens (homeFrom behind bumped rest) = tokens (behind.reverseOnto rest) :=
+theorem homeFromTokens ∀ (bareLast: Bool) (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf):
+    tokens (homeFrom bareLast behind bumped rest) = tokens (behind.reverseOnto rest) :=
   match rest with
     | [] => byComputing
     | [leaf, ..after] =>
@@ -44,7 +44,7 @@ theorem homeFromTokens ∀ (behind: List Leaf) (bumped: Option Comment) (rest: L
           settled
         = tokens behind) =>
         Eq.trans
-          (homeFromTokens [x, ..settled] next after)
+          (homeFromTokens bareLast [x, ..settled] next after)
           (consTokens x leaf settled behind after after same sameBehind byComputing)
       match bumped with
         | None =>
@@ -54,7 +54,7 @@ theorem homeFromTokens ∀ (behind: List Leaf) (bumped: Option Comment) (rest: L
               match movable leaf behind after with
                 | False => step leaf behind None byComputing byComputing
                 | True =>
-                  match stepsBack leaf behind after 0 with
+                  match stepsBack bareLast leaf behind after 0 with
                     | Zero =>
                       match barBelow leaf behind after with
                         | True => step (leaf.withTrailing None) behind (Some comment.unspaced) byComputing byComputing
@@ -74,7 +74,7 @@ theorem homeFromTokens ∀ (behind: List Leaf) (bumped: Option Comment) (rest: L
               match movable lifted behind after with
                 | False => step lifted behind None byComputing byComputing
                 | True =>
-                  match stepsBack lifted behind after 0 with
+                  match stepsBack bareLast lifted behind after 0 with
                     | Zero =>
                       match barBelow lifted behind after with
                         | True => step (lifted.withTrailing None) behind (Some comment.unspaced) byComputing byComputing
@@ -178,15 +178,19 @@ theorem trimmedTokens ∀ (leaves: List Leaf):
     | [leaf, ..rest] => Eq.cong (tail => [leaf.token, ..tail]) (trimmedTokens rest)
 
 --| Rule N moves comments and nothing else: the tokens are the lexer's.
-theorem settledKeepsTokens ∀ (lexed: Lexed): tokens lexed.settled.leaves = tokens lexed.leaves :=
-  let homed := homeFrom [] None lexed.leaves
+theorem settledWithKeepsTokens ∀ (lexed: Lexed) (bareLast: Bool):
+    tokens (lexed.settledWith bareLast).leaves = tokens lexed.leaves :=
+  let homed := homeFrom bareLast [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
-  calc tokens lexed.settled.leaves
+  calc tokens (lexed.settledWith bareLast).leaves
     _ = tokens (letsFrom [] (arrows commas.leaves)) := trimmedTokens (letsFrom [] (arrows commas.leaves))
     _ = tokens (arrows commas.leaves) := letsFromTokens [] (arrows commas.leaves)
     _ = tokens commas.leaves := arrowsTokens commas.leaves
     _ = tokens homed := commasFromTokens [] None homed lexed.end
-    _ = tokens lexed.leaves := homeFromTokens [] None lexed.leaves
+    _ = tokens lexed.leaves := homeFromTokens bareLast [] None lexed.leaves
+
+theorem settledKeepsTokens ∀ (lexed: Lexed): tokens lexed.settled.leaves = tokens lexed.leaves :=
+  settledWithKeepsTokens lexed False
 
 theorem allReverseOnto ∀ (p: a → Bool) (xs acc: List a)
     (allXs: xs.all p = True)
@@ -320,7 +324,7 @@ theorem trimmedBare ∀ (leaves: List Leaf)
 --| After rule N no comma holds a comment, so the tree needs no place for
 --| one.
 theorem settledCommasBare ∀ (lexed: Lexed): lexed.settled.leaves.all bareComma = True :=
-  let homed := homeFrom [] None lexed.leaves
+  let homed := homeFrom False [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   trimmedBare
     (letsFrom [] (arrows commas.leaves))
@@ -497,7 +501,7 @@ theorem leavesTrimmed ∀ (leaves: List Leaf) (end: Trivia):
 
 --| After rule N no comment's text ends in a space.
 theorem settledTrimmed ∀ (lexed: Lexed): (lexedTexts lexed.settled).map trimEnd = lexedTexts lexed.settled :=
-  let homed := homeFrom [] None lexed.leaves
+  let homed := homeFrom False [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   leavesTrimmed (letsFrom [] (arrows commas.leaves)) commas.end
 
@@ -630,12 +634,14 @@ theorem trimmedArrowsBare ∀ (leaves: List Leaf)
 theorem settledArrowsBare1 ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True):
     arrowsBare lexed.settled.leaves = True :=
-  let homed := homeFrom [] None lexed.leaves
+  let homed := homeFrom False [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   let arrowed := arrows commas.leaves
   let arrowedWithin: alphabet1 arrowed = True := calc alphabet1 arrowed
     _ = alphabet1 lexed.leaves :=
-      rewrite arrowsTokens commas.leaves, commasFromTokens [] None homed lexed.end, homeFromTokens [] None lexed.leaves
+      rewrite arrowsTokens commas.leaves,
+          commasFromTokens [] None homed lexed.end,
+          homeFromTokens False [] None lexed.leaves
     _ = True := within
   let quiet: letsFrom [] arrowed = arrowed := letsQuiet1 [] arrowed byComputing (alphabet1Leaves arrowed arrowedWithin)
   trimmedArrowsBare (letsFrom [] arrowed) (rewrite quiet then arrowsArrowsBare commas.leaves)
@@ -820,8 +826,8 @@ theorem trimmedTexts ∀ (leaves: List Leaf) (end: Trivia):
 --| Rules 2 to 5 keep the comments in order, trimmed: rule N keeps them if
 --| rule 1 does.
 theorem settledTextsAfterHome ∀ (lexed: Lexed):
-    lexedTexts lexed.settled = (leafTexts (homeFrom [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd :=
-  let homed := homeFrom [] None lexed.leaves
+    lexedTexts lexed.settled = (leafTexts (homeFrom False [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd :=
+  let homed := homeFrom False [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   let arrowed := arrows commas.leaves
   calc lexedTexts lexed.settled
@@ -883,7 +889,7 @@ theorem walkSteps ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
     (clean: walkClean current behind ahead = True)
     (within: current.kind.within1 = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
-    ∃ (passed: Nat) => stepsBack current behind ahead steps = steps + passed
+    ∃ (passed: Nat) => stepsBack False current behind ahead steps = steps + passed
       ∧ (passed = 0 ∨ (current.trivia.leading.isEmpty ∧ passable current ∧ quietFor passed behind)) :=
   match behind with
     | [] => (0, arithmetic, Inl byComputing)
@@ -1018,7 +1024,7 @@ theorem homeFromTexts ∀ (behind rest: List Leaf) (pending: Bool)
     (laid: laidOut pending rest = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
     (restWithin: rest.all (leaf => leaf.kind.within1) = True):
-    leafTexts (homeFrom behind None rest) = leafTexts (behind.reverseOnto rest) :=
+    leafTexts (homeFrom False behind None rest) = leafTexts (behind.reverseOnto rest) :=
   match rest with
     | [] => byComputing
     | [leaf, ..after] =>
@@ -1061,7 +1067,7 @@ theorem homeFromTexts ∀ (behind rest: List Leaf) (pending: Bool)
                         behindWithin
                         quietBehind)
                     let empty := emptyOf leaf.trivia.leading leadEmpty
-                    calc leafTexts (homeFrom [moved, ..target] None after)
+                    calc leafTexts (homeFrom False [moved, ..target] None after)
                       _ = leafTexts ([moved, ..target].reverseOnto after) :=
                         homeFromTexts [moved, ..target] after True movedClean afterLaid movedWithin afterWithin
                       _ = leafTexts (target.reverseOnto []) ++ (triviaTexts moved.trivia ++ leafTexts after) :=
@@ -1080,14 +1086,15 @@ theorem settledKeepsComments ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
     (laid: laidOut False lexed.leaves = True):
     lexedTexts lexed.settled = (lexedTexts lexed).map trimEnd :=
-  let homed: leafTexts (homeFrom [] None lexed.leaves) = leafTexts lexed.leaves :=
+  let homed: leafTexts (homeFrom False [] None lexed.leaves) = leafTexts lexed.leaves :=
     homeFromTexts [] lexed.leaves False
       (next ahead nextLaid nextPending => byComputing)
       laid
       byComputing
       (alphabet1Leaves lexed.leaves within)
   calc lexedTexts lexed.settled
-    _ = (leafTexts (homeFrom [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd := settledTextsAfterHome lexed
+    _ = (leafTexts (homeFrom False [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd :=
+      settledTextsAfterHome lexed
     _ = (leavesTexts lexed.leaves lexed.end).map trimEnd := rewrite homed, leavesTextsSplit lexed.leaves lexed.end
 
 -- Rule 1's result is homed: a closer keeps a trailing comment only where
@@ -1130,7 +1137,8 @@ def landsAt (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match step
 theorem walkLands ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
     (within: current.kind.within1 = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
-    ∃ (passed: Nat) => stepsBack current behind ahead steps = steps + passed ∧ landsAt passed current behind = True :=
+    ∃ (passed: Nat) => stepsBack False current behind ahead steps = steps + passed
+      ∧ landsAt passed current behind = True :=
   match behind with
     | [] => (0, arithmetic, Bool.orRight byComputing)
     | [previous, ..earlier] =>
@@ -1240,7 +1248,7 @@ theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
     (restWithin: rest.all (leaf => leaf.kind.within1) = True)
     (homed: homedBehind behind = True):
-    homedBehind ((homeFrom behind None rest).reverseOnto []) = True :=
+    homedBehind ((homeFrom False behind None rest).reverseOnto []) = True :=
   match rest with
     | [] => rewrite List.reverseReverse behind then homed
     | [leaf, ..after] =>
@@ -1780,12 +1788,12 @@ theorem settledHomed ∀ (lexed: Lexed)
     (laid: laidOut False lexed.leaves = True)
     (plain: plain1 (tokens lexed.leaves) = True):
     homedBehind (lexed.settled.leaves.reverseOnto []) = True :=
-  let homed := homeFrom [] None lexed.leaves
+  let homed := homeFrom False [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   let arrowed := arrows commas.leaves
   let trimmed := arrowed.map (leaf => { leaf | trivia = leaf.trivia.trimmed })
   let leavesWithin := alphabet1Leaves lexed.leaves within
-  let homedTokens: tokens homed = tokens lexed.leaves := homeFromTokens [] None lexed.leaves
+  let homedTokens: tokens homed = tokens lexed.leaves := homeFromTokens False [] None lexed.leaves
   let commasTokens: tokens commas.leaves = tokens lexed.leaves :=
     Eq.trans (commasFromTokens [] None homed lexed.end) homedTokens
   let arrowedTokens: tokens arrowed = tokens lexed.leaves := Eq.trans (arrowsTokens commas.leaves) commasTokens
@@ -1841,7 +1849,7 @@ theorem stepsZero ∀ (leaf: Leaf) (behind ahead: List Leaf)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
     (closer: leaf.kind.isCloser = True)
     (stops: (behind.isEmpty || stopsAt leaf behind) = True):
-    stepsBack leaf behind ahead 0 = 0 :=
+    stepsBack False leaf behind ahead 0 = 0 :=
   match behind with
     | [] => byComputing
     | [previous, ..earlier] =>
@@ -1855,7 +1863,7 @@ theorem homeIdle ∀ (behind rest: List Leaf)
     (bare: rest.all bareComma = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
     (within: rest.all (leaf => leaf.kind.within1) = True):
-    homeFrom behind None rest = behind.reverseOnto rest :=
+    homeFrom False behind None rest = behind.reverseOnto rest :=
   match rest with
     | [] => byComputing
     | [leaf, ..after] =>
@@ -1969,7 +1977,7 @@ theorem settledIdempotent ∀ (lexed: Lexed)
   let settled := lexed.settled
   let bare := settledCommasBare lexed
   let settledWithin := alphabet1Leaves settled.leaves (settledAlphabet1 lexed within)
-  let homeSame: homeFrom [] None settled.leaves = settled.leaves :=
+  let homeSame: homeFrom False [] None settled.leaves = settled.leaves :=
     homeIdle [] settled.leaves (settledHomed lexed within laid plain) bare byComputing settledWithin
   let commasSame: commasFrom [] None settled.leaves settled.end = { leaves = settled.leaves, end = settled.end } :=
     commasIdle [] settled.leaves settled.end bare
@@ -1981,7 +1989,7 @@ theorem settledIdempotent ∀ (lexed: Lexed)
   let reached: settled.settled
     = { leaves = settled.leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = settled.end.trimmed } :=
     rewrite homeSame, commasSame, arrowsSame, letsSame
-  let commas := commasFrom [] None (homeFrom [] None lexed.leaves) lexed.end
+  let commas := commasFrom [] None (homeFrom False [] None lexed.leaves) lexed.end
   calc lexed.settled.settled
     _ = { leaves = settled.leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = settled.end.trimmed } :=
       reached
@@ -2098,7 +2106,7 @@ theorem landedHere ∀ (leaf: Leaf) (older ahead: List Leaf) (steps: Nat)
     (within: leaf.kind.within1 = True)
     (olderWithin: older.all (leaf => leaf.kind.within1) = True)
     (lands: (!passable leaf || older.isEmpty || stopsAt leaf older) = True):
-    stepsBack leaf older ahead steps = steps :=
+    stepsBack False leaf older ahead steps = steps :=
   match older with
     | [] => byComputing
     | [previous, ..earlier] =>
@@ -2114,12 +2122,12 @@ theorem chainSteps ∀ (current: Leaf) (behind ahead: List Leaf) (steps acc: Nat
     (passes: passable current = True)
     (notStart: current.token.lineStart = False)
     (chain: chainTo steps behind = True):
-    stepsBack current behind ahead acc = acc + steps :=
+    stepsBack False current behind ahead acc = acc + steps :=
   match steps, behind with
     | Succ Zero, [target, ..older] =>
       let skips := skippedQuiet1 current [target, ..older] ahead within
       rewrite skips, passes, notStart then
-        calc stepsBack target older [current, ..ahead] (Succ acc)
+        calc stepsBack False target older [current, ..ahead] (Succ acc)
           _ = Succ acc :=
             landedHere target older
               [current, ..ahead]

@@ -3,8 +3,7 @@
 --| the acceptance theorem needs: a source whose own parse is a slice 1 tree also parses after rule N, to the same
 --| tree with its comments where rule N puts them (`settledParses1`).
 --|
---| Why it should hold: rule N moves comments between leaves and never a token (`settledOnceTokens`, under
---| `plain1`), and the parser reads a leaf's comments only to copy them into the tree's words (`Leaf.word`,
+--| Why it holds: rule N moves comments between leaves and never a token (`settledOnceTokens`), and the parser reads a leaf's comments only to copy them into the tree's words (`Leaf.word`,
 --| `Trivia.comments`, and a binder's `bare`, none of which any test of the parser reads). Its every decision is
 --| taken on the tokens: kinds, texts, columns and line starts (`items`, `groupsOf`, `fileRefusal`, the parser's
 --| look-aheads). So two leaf lists with the same tokens parse alike, up to the comments in the tree.
@@ -272,7 +271,7 @@ theorem parseKeepsTokens1 ∀ (lexed other: Lexed) (file: SourceFile)
 
 -- Rule N.
 
---| `settledParses1` for any source whose tokens rule N keeps, which is all but the case `plain1` leaves out.
+--| `settledParses1` for leaves whose tokens rule N keeps.
 theorem settledParsesKept1 ∀ (lexed: Lexed) (file: SourceFile)
     (parses: parseFile lexed = Ok file)
     (grammar: file.grammar1 = True)
@@ -282,38 +281,16 @@ theorem settledParsesKept1 ∀ (lexed: Lexed) (file: SourceFile)
       ∧ settled.grammar1 = True :=
   parseKeepsTokens1 lexed lexed.settledOnce file (Eq.flipped kept) parses grammar
 
---| Rule N keeps the parse: a source whose own parse is a slice 1 tree parses after rule N (as the driver parses it)
---| to a slice 1 tree that is the same but for comments.
---|
---| `plain1` is the one condition: a last comma that starts its line, before a closer, is the case where rule N
---| moves a token's line start (`commaMoved` marks the closer as starting the line), so the tokens differ and the
---| file layer above doesn't apply. That case is SW-4131's (`settledParsesKept1` takes the token equation instead).
+--| Rule N keeps the parse: leaves whose own parse is a slice 1 tree parse after rule N (as the driver parses them)
+--| to a slice 1 tree that is the same but for comments. Rule N keeps every token (`settledOnceTokens`): a closer
+--| after a last comma that starts its line is read as starting it inside rule N's walk, not marked in its token.
 theorem settledParses1 ∀ (lexed: Lexed) (file: SourceFile)
     (parses: parseFile lexed = Ok file)
-    (grammar: file.grammar1 = True)
-    (plain: plain1 (tokens lexed.leaves) = True):
+    (grammar: file.grammar1 = True):
     ∃ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled
       ∧ settled.withoutComments = file.withoutComments
       ∧ settled.grammar1 = True :=
-  settledParsesKept1 lexed file parses grammar (settledOnceTokens lexed plain)
-
---| Rule N keeps the parse when a last comma starts its line before a closer, the case `settledParses1` leaves out:
---| rule N gives the closer a line start (`settledOnceFlat`), so the tokens differ there and `groupKeepsTokens1` does
---| not apply. Every hypothesis holds of every source of slice 1's grammar (`inGrammar1`); none narrows it.
---|
---| Open (SW-4176): true on every source checked (docs/reviews/SW-4131-own-line-comma.md §4, 14,349 sources of the
---| grammar with such a comma), and the `Fmt.Tests.MustAccept1` cases pass. The proof needs the two-run walk
---| (`Syntax.FollowsBase`) for items alike up to a closer's line start, not only for the same tokens.
-theorem settledParsesMoved1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
-    (lexes: lex source = Ok lexed)
-    (alphabet: lexed.leaves.all (leaf => leaf.token.kind.alphabet1) = True)
-    (parses: parseFile lexed = Ok file)
-    (grammar: file.grammar1 = True)
-    (moved: plain1 (tokens lexed.leaves) = False):
-    ∃ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled
-      ∧ settled.withoutComments = file.withoutComments
-      ∧ settled.grammar1 = True :=
-  ?
+  settledParsesKept1 lexed file parses grammar (settledOnceTokens lexed)
 
 --| Rule N keeps the parse of every source of slice 1's grammar: the source's own parse is a slice 1 tree, and the
 --| leaves the driver parses (after rule N) parse to a slice 1 tree that is the same but for comments.
@@ -325,9 +302,7 @@ theorem settledParsesGrammar1 ∀ (source: Text) (lexed: Lexed) (file: SourceFil
     ∃ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled
       ∧ settled.withoutComments = file.withoutComments
       ∧ settled.grammar1 = True :=
-  match plain: plain1 (tokens lexed.leaves) with
-    | True => settledParses1 lexed file parses grammar plain
-    | False => settledParsesMoved1 source lexed file lexes alphabet parses grammar plain
+  settledParses1 lexed file parses grammar
 
 --| Where the settled tree's comments are, for the driver: given the driver's leaf tests and its `within1`, each
 --| declaration's words are its group's settled leaves', each with the comments rule N gave it, and the file's end
@@ -344,7 +319,7 @@ theorem settledPlaced1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
       ∧ settled.grammar1 = True
       ∧ settled.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
       ∧ settled.end = lexed.settledOnce.end.comments :=
-  let (settled, settles, alike, inGrammar) := settledParses1 lexed file parses grammar plain
+  let (settled, settles, alike, inGrammar) := settledParses1 lexed file parses grammar
   let (words, ends) :=
     parseCarriesSourceProved source lexed settled lexes alphabet
       (sourcePlainOfPlain _ plain)
@@ -516,17 +491,13 @@ theorem declLowers1 ∀ (decl: Decl) (grammar: decl.grammar1 = True): decl.lower
 
 -- Closed examples (D3684).
 
---| What `settledParses1` says of one source, as a test: lexed, parsed to a slice 1 tree, `plain1`; and parsed after
---| rule N to a slice 1 tree with the same blanked declarations.
+--| What `settledParses1` says of one source, as a test: lexed, parsed to a slice 1 tree; and parsed after rule N to a
+--| slice 1 tree with the same blanked declarations.
 def settlesOn (source: Text): Bool := match lex source with
   | Err _ => False
   | Ok lexed =>
     match parseFile lexed, parseFile lexed.settledOnce with
-      | Ok file, Ok settled =>
-        file.grammar1
-          && plain1 (tokens lexed.leaves)
-          && settled.grammar1
-          && settled.withoutComments == file.withoutComments
+      | Ok file, Ok settled => file.grammar1 && settled.grammar1 && settled.withoutComments == file.withoutComments
       | _, _ => False
 
 --| `settledPlaced1`'s driver hypotheses on one source: the leaf tests, and `within1` of the tree after rule N.
@@ -553,9 +524,9 @@ theorem settlesOnExample: settlesOn
 --| A last comma with a comment, on its line, before a closer on the next.
 theorem settlesOnParked: settlesOn "def d: A := (a, b, -- comma\n  )\n" = True := byComputing
 
---| The case `plain1` leaves out: a last comma that starts its line. The tree after rule N is still the same up to
---| comments, but the tokens differ (the closer starts its line), so `settledParses1` doesn't cover it.
-theorem settlesOnOwnLineComma: settlesOn "def d: A := [a\n  , ]\n" = False := byComputing
+--| A last comma that starts its line, its closer on the same line: rule N reads the closer as starting the line but
+--| leaves its token alone, so the tokens are the lexer's.
+theorem settlesOnOwnLineComma: settlesOn "def d: A := [a\n  , ]\n" = True := byComputing
 
 def ownLineCommaKeeps (source: Text): Bool := match lex source with
   | Err _ => False

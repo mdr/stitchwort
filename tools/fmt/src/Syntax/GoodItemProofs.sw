@@ -27,17 +27,8 @@ import Syntax.Proofs (
   qualLast
 )
 import Syntax.ParseProofs (GoodItem)
-import Syntax.SettleProofs (
-  allFlat,
-  alphabet1,
-  flatToken,
-  plain1,
-  plainFromOf,
-  settledKeepsTokens,
-  sourcePlain1,
-  tokens
-)
-import Syntax.SettleBareProofs (tokensBare, tokensBareFlat)
+import Syntax.SettleProofs (alphabet1, settledWithKeepsTokens, sourcePlain1, tokens)
+import Syntax.SettleBareProofs (tokensBare)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Fmt.TreeJoinProofs (spellsOfText1)
 import Syntax.SettleOnceProofs (allAppendB)
@@ -286,21 +277,13 @@ theorem lexGood ∀ (source: Text) (lexed: Lexed)
   let fixed := lexFixed source lexed lexes alphabet
   goodOfTokens lexed.leaves (spelledOfFixedAll lexed.leaves fixed) fixed
 
---| Rule N, with the last commas made bare first, keeps every token's kind and text, for `plain` leaves.
-theorem settledOnceTokens ∀ (lexed: Lexed)
-    (plain: plain1 (tokens lexed.leaves) = True):
-    tokens lexed.settledOnce.leaves = tokens lexed.leaves :=
+--| Rule N, with the last commas made bare first, keeps every token: the leaves the formatter parses have the lexer's
+--| tokens.
+theorem settledOnceTokens ∀ (lexed: Lexed): tokens lexed.settledOnce.leaves = tokens lexed.leaves :=
   let bare: Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }
   calc tokens lexed.settledOnce.leaves
-    _ = tokens bare.leaves := settledKeepsTokens bare
-    _ = tokens lexed.leaves := tokensBare lexed.leaves (plainFromOf (tokens lexed.leaves) plain)
-
---| Rule N, with the last commas made bare first, keeps every token's kind and text. A last comma that starts its line
---| gives its line start to the closer after it, so line starts are forgotten.
-theorem settledOnceFlat ∀ (lexed: Lexed):
-    (tokens lexed.settledOnce.leaves).map flatToken = (tokens lexed.leaves).map flatToken :=
-  let bare: Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }
-  rewrite settledKeepsTokens bare then tokensBareFlat lexed.leaves
+    _ = tokens bare.leaves := settledWithKeepsTokens bare True
+    _ = tokens lexed.leaves := tokensBare lexed.leaves
 
 --| `GoodItem` for the leaves the formatter parses, `settledOnce` of the lexed source. Spelling reads only a token's
 --| kind and text, which the move of a last comma keeps.
@@ -309,9 +292,8 @@ theorem settledGood ∀ (source: Text) (lexed: Lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True):
     List.All (group => List.All GoodItem (items group)) (groupsOf lexed.settledOnce.leaves) :=
-  let same := settledOnceFlat lexed
   let fixed: (tokens lexed.settledOnce.leaves).all Token.fixed1 = True :=
-    rewrite allFlat Token.fixed1 (token => byComputing) _ _ same then lexFixed source lexed lexes alphabet
+    rewrite settledOnceTokens lexed then lexFixed source lexed lexes alphabet
   goodOfTokens lexed.settledOnce.leaves (spelledOfFixedAll lexed.settledOnce.leaves fixed) fixed
 
 -- Where the source's test is needed, and where it passes.

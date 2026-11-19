@@ -117,18 +117,32 @@ def endsWithComment (line ahead: List Leaf): Bool := match line with
     else if earlier.isEmpty || !skipped leaf earlier ahead then False
     else endsWithComment earlier [leaf, ..ahead]
 
+--| Whether rule 1's walk takes `current`, with `behind` (newest first) the
+--| leaves before it, to start its line. With `bareLast`, the last commas
+--| are bare ones standing for commas the P2 pass deletes from the text
+--| (`settledOnce`), so a closer right after a last comma that starts its
+--| line counts as starting it, as it would with the comma deleted.
+def startsWalk (bareLast: Bool) (current: Leaf) (behind: List Leaf): Bool := match bareLast with
+  | False => current.token.lineStart
+  | True =>
+    match behind with
+      | [previous, ..earlier] =>
+        current.token.lineStart
+          || current.kind.isCloser && previous.kind == Comma && previous.token.lineStart && hasItem earlier
+      | [] => current.token.lineStart
+
 --| How many leaves back a trailing comment on `current` moves: past
---| commas, closers and bars, stopping on one that starts its line if going
---| further would pass its own-line comments or a comment ending the line
---| before.
-def stepsBack (current: Leaf) (behind ahead: List Leaf) (steps: Nat): Nat := match behind with
+--| commas, closers and bars, stopping on one that starts its line
+--| (`startsWalk`) if going further would pass its own-line comments or a
+--| comment ending the line before.
+def stepsBack (bareLast: Bool) (current: Leaf) (behind ahead: List Leaf) (steps: Nat): Nat := match behind with
   | [] => steps
   | [previous, ..earlier] =>
     if !skipped current behind ahead then steps
-    else if current.token.lineStart
+    else if startsWalk bareLast current behind
       && (!current.trivia.leading.isEmpty || endsWithComment behind [current, ..ahead]) then
       steps
-    else stepsBack previous earlier [current, ..ahead] (steps + 1)
+    else stepsBack bareLast previous earlier [current, ..ahead] (steps + 1)
 
 --| `behind` (newest first) with the comment on the leaf `steps` back
 --| from its head, counting the head as 1.
@@ -145,19 +159,22 @@ def barBelow (leaf: Leaf) (behind ahead: List Leaf): Bool := match leaf.kind, be
   | _, _, _ => False
 
 --| Rule 1 over `rest`, with `behind` the leaves already settled, newest
---| first, and `bumped` a comment for the next leaf's own-line comments.
-def homeFrom (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): List Leaf := match rest with
-  | [] => behind.reverse
-  | [leaf, ..after] =>
-    let leaf := bumped.map (comment => leaf.withLeading [comment, ..leaf.trivia.leading]) |> .getOrElse leaf
-    match leaf.trivia.trailing with
-      | Some comment if movable leaf behind after =>
-        match stepsBack leaf behind after 0 with
-          | Zero =>
-            if barBelow leaf behind after then homeFrom [leaf.withTrailing None, ..behind] (Some comment.unspaced) after
-            else homeFrom [leaf, ..behind] None after
-          | steps => homeFrom [leaf.withTrailing None, ..trailingAt behind steps comment] None after
-      | _ => homeFrom [leaf, ..behind] None after
+--| first, and `bumped` a comment for the next leaf's own-line comments;
+--| `bareLast` as for `startsWalk`.
+def homeFrom (bareLast: Bool) (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): List Leaf :=
+  match rest with
+    | [] => behind.reverse
+    | [leaf, ..after] =>
+      let leaf := bumped.map (comment => leaf.withLeading [comment, ..leaf.trivia.leading]) |> .getOrElse leaf
+      match leaf.trivia.trailing with
+        | Some comment if movable leaf behind after =>
+          match stepsBack bareLast leaf behind after 0 with
+            | Zero =>
+              if barBelow leaf behind after then
+                homeFrom bareLast [leaf.withTrailing None, ..behind] (Some comment.unspaced) after
+              else homeFrom bareLast [leaf, ..behind] None after
+            | steps => homeFrom bareLast [leaf.withTrailing None, ..trailingAt behind steps comment] None after
+        | _ => homeFrom bareLast [leaf, ..behind] None after
 
 -- Rule 2: a comma's comments go to the token after it.
 
@@ -259,12 +276,17 @@ def trimEnd (text: Text): Text :=
 def Trivia.trimmed (trivia: Trivia): Trivia :=
   { trivia | leading = trivia.leading.map Comment.trimmed, trailing = trivia.trailing.map Comment.trimmed }
 
---| The lexer's leaves with each comment where rule N puts it.
-def Lexed.settled (lexed: Lexed): Lexed :=
-  let homed := homeFrom [] None lexed.leaves
+--| The leaves with each comment where rule N puts it, `bareLast` as for
+--| `startsWalk`.
+def Lexed.settledWith (lexed: Lexed) (bareLast: Bool): Lexed :=
+  let homed := homeFrom bareLast [] None lexed.leaves
   let commas := commasFrom [] None homed lexed.end
   let leaves := letsFrom [] (arrows commas.leaves)
   { leaves = leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = commas.end.trimmed }
+
+--| The lexer's leaves with each comment where rule N puts it, as
+--| `crates/fmt`'s `place_comments` does.
+def Lexed.settled (lexed: Lexed): Lexed := lexed.settledWith False
 
 -- The last commas, emptied before rule N (the parking comma: proof plan
 -- §10, spike K1). The Rust P2 deletes a comma before a closer from the
@@ -292,8 +314,7 @@ def hasItem: List Leaf → Bool
 --| comment ends the line before it, or, if the comma started its line,
 --| stands above the closer too, with the comma's blank line above it; a
 --| comma that started its line, with no comment, leaves a blank line before
---| the closer's first own-line comment; and the closer starts the line if
---| the comma did.
+--| the closer's first own-line comment. Tokens are untouched.
 def commaMoved (comma closer: Leaf) (behind: List Leaf): (Leaf, List Leaf) :=
   let starts := comma.token.lineStart
   let above := match comma.trivia.trailing with
@@ -302,26 +323,34 @@ def commaMoved (comma closer: Leaf) (behind: List Leaf): (Leaf, List Leaf) :=
   let kept := match comma.trivia.trailing, closer.trivia.leading with
     | None, [first, ..others] if starts => [{ first | blankLines = 1 }, ..others]
     | _, leading => leading
-  let moved := (closer.startingLine (starts || closer.token.lineStart)).withLeading (above ++ kept)
+  let moved := closer.withLeading (above ++ kept)
   match comma.trivia.trailing, behind with
     | Some comment, [previous, ..earlier] if !starts => (moved, [previous.withTrailing (Some comment), ..earlier])
     | _, _ => (moved, behind)
 
---| The leaves without each comma directly before a closer, its comments
---| moved (`commaMoved`).
+--| A last comma deleted from the text: its comments moved (`commaMoved`),
+--| and the closer after it starting the line if the comma did.
+def commaDeleted (comma closer: Leaf) (behind: List Leaf): (Leaf, List Leaf) := (
+  (commaMoved comma closer behind).fst.startingLine (comma.token.lineStart || closer.token.lineStart),
+  (commaMoved comma closer behind).snd
+)
+
+--| The leaves without each comma directly before a closer (`commaDeleted`).
 def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
   | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
-    let (moved, earlier) := commaMoved comma closer behind
+    let (moved, earlier) := commaDeleted comma closer behind
     withoutLastCommas [moved, ..earlier] after
   | [leaf, ..after] => withoutLastCommas [leaf, ..behind] after
 
 --| The leaves with each comma directly before a closer kept but bare: its
 --| comments moved as `withoutLastCommas` moves them, the comma left with
---| no comment and no blank line, still starting its line if it did. Rule N
---| then treats the comma as if it weren't there (the search in SW-3964
---| found no case where it doesn't), and the parser still reads it, so a
---| file reads as the source does, commas and all.
+--| no comment and no blank line, still starting its line if it did. Every
+--| token stays the lexer's. Rule N then treats the comma as if it weren't
+--| there (the search in SW-3964 found no case where it doesn't; its walk
+--| reads the comma's line start as the closer's, `startsWalk`), and the
+--| parser still reads it, so a file reads as the source does, commas and
+--| all.
 def withBareLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
   | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
@@ -335,4 +364,4 @@ def Lexed.settledBare (lexed: Lexed): Lexed := { lexed | leaves = withoutLastCom
 
 --| The leaves the formatter parses: rule N after the last commas are made
 --| bare.
-def Lexed.settledOnce (lexed: Lexed): Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }.settled
+def Lexed.settledOnce (lexed: Lexed): Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }.settledWith True

@@ -1,6 +1,8 @@
---| Proofs about `bareSettles` (`Syntax/Settle.sw`): rule N on the leaves with
---| bare last commas, with those commas dropped, is rule N on the leaves
---| without them (SW-4006).
+--| Rule N on the leaves with marked last commas (`withMarkedLastCommas`: bare,
+--| each closer after one starting its line if the comma did), with those
+--| commas dropped, is rule N on the leaves without them (`markedSettles`,
+--| SW-4006). `Syntax.SettleMarkProofs` carries it to the leaves the
+--| formatter parses (`bareSettles`).
 
 namespace Syntax.SettleBareProofs
 import Std (Bool, Char, DecEq, Eq, Finite, List, Nat, Option, Text, Void)
@@ -20,7 +22,7 @@ def walk1 (current: Leaf) (behind: List Leaf): Nat := match behind with
 theorem stepsBackShift ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
     (within: current.kind.within1 = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
-    stepsBack current behind ahead steps = steps + walk1 current behind :=
+    stepsBack False current behind ahead steps = steps + walk1 current behind :=
   match behind with
     | [] => byComputing
     | [previous, ..earlier] =>
@@ -66,7 +68,7 @@ def home1 (behind rest: List Leaf): List Leaf := match rest with
 theorem homeFromHome1 ∀ (behind rest: List Leaf)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
     (within: rest.all (leaf => leaf.kind.within1) = True):
-    homeFrom behind None rest = (home1 behind rest).reverse :=
+    homeFrom False behind None rest = (home1 behind rest).reverse :=
   match rest with
     | [] => byComputing
     | [leaf, ..after] =>
@@ -80,7 +82,7 @@ theorem homeFromHome1 ∀ (behind rest: List Leaf)
           match fixed: movable leaf behind after with
             | False => rewrite <- same then next
             | True =>
-              let shift: stepsBack leaf behind after 0 = walk1 leaf behind :=
+              let shift: stepsBack False leaf behind after 0 = walk1 leaf behind :=
                 rewrite stepsBackShift leaf behind after 0 leafWithin behindWithin then arithmetic
               rewrite <- same, shift then
                 match steps: walk1 leaf behind with
@@ -106,7 +108,7 @@ theorem homeFromHome1 ∀ (behind rest: List Leaf)
 def lastPair (above: Tok) (comma: Leaf) (older: List Leaf): Bool :=
   comma.token.kind == Comma && above.isCloser && hasItem older
 
---| What `withBareLastCommas` adds and rule N leaves, `behind` (newest first)
+--| What `withMarkedLastCommas` adds and rule N leaves, `behind` (newest first)
 --| after the leaf of kind `above`, without the last commas.
 def dr (above: Tok) (behind: List Leaf): List Leaf := match behind with
   | [] => []
@@ -1138,11 +1140,32 @@ def withBareR (behind rest: List Leaf): List Leaf := match rest with
     withBareR [moved, { comma | trivia = Trivia.empty }, ..earlier] after
   | [leaf, ..after] => withBareR [leaf, ..behind] after
 
+--| The last commas made bare as `withBareLastCommas` makes them, but with the
+--| closer after each taking the comma's line start, as deleting the comma
+--| from the text would leave it (`commaDeleted`). Rule N on these leaves, by
+--| `startsWalk False`, is rule N on the bare ones by `startsWalk True`, but
+--| for those line starts (`Syntax.SettleMarkProofs`); it is the form the
+--| proofs below relate to the leaves without the commas.
+def withMarkedLastCommas (behind rest: List Leaf): List Leaf := match rest with
+  | [] => behind.reverse
+  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+    let (moved, earlier) := commaDeleted comma closer behind
+    withMarkedLastCommas [moved, { comma | trivia = Trivia.empty }, ..earlier] after
+  | [leaf, ..after] => withMarkedLastCommas [leaf, ..behind] after
+
+--| `withMarkedLastCommas` with the leaves done returned newest first.
+def withMarkedR (behind rest: List Leaf): List Leaf := match rest with
+  | [] => behind
+  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+    let (moved, earlier) := commaDeleted comma closer behind
+    withMarkedR [moved, { comma | trivia = Trivia.empty }, ..earlier] after
+  | [leaf, ..after] => withMarkedR [leaf, ..behind] after
+
 --| `withoutLastCommas` with the leaves done returned newest first.
 def withoutR (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind
   | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
-    let (moved, earlier) := commaMoved comma closer behind
+    let (moved, earlier) := commaDeleted comma closer behind
     withoutR [moved, ..earlier] after
   | [leaf, ..after] => withoutR [leaf, ..behind] after
 
@@ -1159,6 +1182,25 @@ theorem withBareFromR ∀ (behind rest: List Leaf): withBareLastCommas behind re
               withBareFromR [moved, { leaf | trivia = Trivia.empty }, ..earlier] after2
             | False => withBareFromR [leaf, ..behind] [closer, ..after2]
 
+theorem withMarkedFromR ∀ (behind rest: List Leaf):
+    withMarkedLastCommas behind rest = (withMarkedR behind rest).reverse :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      match after with
+        | [] => byComputing
+        | [closer, ..after2] =>
+          match pair: leaf.kind == Comma && closer.kind.isCloser && hasItem behind with
+            | True =>
+              withMarkedFromR
+                [
+                  (commaDeleted leaf closer behind).fst,
+                  { leaf | trivia = Trivia.empty },
+                  ..(commaDeleted leaf closer behind).snd
+                ]
+                after2
+            | False => withMarkedFromR [leaf, ..behind] [closer, ..after2]
+
 theorem withoutFromR ∀ (behind rest: List Leaf): withoutLastCommas behind rest = (withoutR behind rest).reverse :=
   match rest with
     | [] => byComputing
@@ -1168,18 +1210,17 @@ theorem withoutFromR ∀ (behind rest: List Leaf): withoutLastCommas behind rest
         | [closer, ..after2] =>
           match pair: leaf.kind == Comma && closer.kind.isCloser && hasItem behind with
             | True =>
-              let (moved, earlier) := commaMoved leaf closer behind
-              withoutFromR [moved, ..earlier] after2
+              withoutFromR [(commaDeleted leaf closer behind).fst, ..(commaDeleted leaf closer behind).snd] after2
             | False => withoutFromR [leaf, ..behind] [closer, ..after2]
 
 --| Moving a last comma's comments off the leaves with the commas in, then
 --| dropping the commas, is moving them off the leaves without.
-theorem commaMovedDrop ∀ (comma closer: Leaf) (behind: List Leaf)
+theorem commaDeletedDrop ∀ (comma closer: Leaf) (behind: List Leaf)
     (pair: lastPair closer.token.kind comma behind = True):
-    (commaMoved comma closer (dropRev behind)).fst = (commaMoved comma closer behind).fst
-      ∧ (commaMoved comma closer (dropRev behind)).snd = dropRev (commaMoved comma closer behind).snd
-      ∧ hasItem (commaMoved comma closer behind).snd = hasItem behind
-      ∧ (barishTop behind = True → barishTop (commaMoved comma closer behind).snd = True) :=
+    (commaDeleted comma closer (dropRev behind)).fst = (commaDeleted comma closer behind).fst
+      ∧ (commaDeleted comma closer (dropRev behind)).snd = dropRev (commaDeleted comma closer behind).snd
+      ∧ hasItem (commaDeleted comma closer behind).snd = hasItem behind
+      ∧ (barishTop behind = True → barishTop (commaDeleted comma closer behind).snd = True) :=
   match behind with
     | [] => cases
     | [prev, ..tail] =>
@@ -1202,15 +1243,36 @@ theorem withBareRPair ∀ (comma closer: Leaf) (behind after: List Leaf)
         after :=
   match pair2: comma.token.kind == Comma && closer.token.kind.isCloser && hasItem behind with | True => byComputing
 
+theorem withMarkedRPair ∀ (comma closer: Leaf) (behind after: List Leaf)
+    (pair: lastPair closer.token.kind comma behind = True):
+    withMarkedR behind [comma, closer, ..after]
+      = withMarkedR
+        [
+          (commaDeleted comma closer behind).fst,
+          { comma | trivia = Trivia.empty },
+          ..(commaDeleted comma closer behind).snd
+        ]
+        after :=
+  match pair2: comma.token.kind == Comma && closer.token.kind.isCloser && hasItem behind with | True => byComputing
+
 theorem withoutRPair ∀ (comma closer: Leaf) (behind after: List Leaf)
     (pair: lastPair closer.token.kind comma behind = True):
     withoutR behind [comma, closer, ..after]
-      = withoutR [(commaMoved comma closer behind).fst, ..(commaMoved comma closer behind).snd] after :=
+      = withoutR [(commaDeleted comma closer behind).fst, ..(commaDeleted comma closer behind).snd] after :=
   match pair2: comma.token.kind == Comma && closer.token.kind.isCloser && hasItem behind with | True => byComputing
 
 theorem withBareRNop ∀ (leaf: Leaf) (behind after: List Leaf)
     (nop: fwdPair behind leaf after = False):
     withBareR behind [leaf, ..after] = withBareR [leaf, ..behind] after :=
+  match after with
+    | [] => byComputing
+    | [closer, ..after2] =>
+      match pair2: leaf.token.kind == Comma && closer.token.kind.isCloser && hasItem behind with
+        | False => byComputing
+
+theorem withMarkedRNop ∀ (leaf: Leaf) (behind after: List Leaf)
+    (nop: fwdPair behind leaf after = False):
+    withMarkedR behind [leaf, ..after] = withMarkedR [leaf, ..behind] after :=
   match after with
     | [] => byComputing
     | [closer, ..after2] =>
@@ -1236,9 +1298,9 @@ theorem fwdPairDrop ∀ (behind: List Leaf) (leaf: Leaf) (after: List Leaf):
     | [] => byComputing
     | [closer, ..more] => rewrite hasItemDropRev behind
 
-theorem commaMovedFst ∀ (comma closer: Leaf) (behind: List Leaf):
-    (commaMoved comma closer behind).fst.token.kind = closer.token.kind
-      ∧ (commaMoved comma closer behind).fst.token.lineStart = (comma.token.lineStart || closer.token.lineStart) :=
+theorem commaDeletedFst ∀ (comma closer: Leaf) (behind: List Leaf):
+    (commaDeleted comma closer behind).fst.token.kind = closer.token.kind
+      ∧ (commaDeleted comma closer behind).fst.token.lineStart = (comma.token.lineStart || closer.token.lineStart) :=
   match trailing: comma.trivia.trailing with
     | None => (byComputing, byComputing)
     | Some comment =>
@@ -1252,7 +1314,7 @@ theorem commaMovedFst ∀ (comma closer: Leaf) (behind: List Leaf):
 theorem buildDrop ∀ (behind rest: List Leaf)
     (gap: gapOk behind rest = True)
     (okB: barishTop behind = True):
-    withoutR (dropRev behind) rest = dropRev (withBareR behind rest) ∧ barishTop (withBareR behind rest) = True :=
+    withoutR (dropRev behind) rest = dropRev (withMarkedR behind rest) ∧ barishTop (withMarkedR behind rest) = True :=
   match rest with
     | [] => (byComputing, okB)
     | [leaf, ..after] =>
@@ -1264,42 +1326,42 @@ theorem buildDrop ∀ (behind rest: List Leaf)
               after
               (gapAfterNop leaf behind after pair)
               (barishAfterNop leaf behind after gap okB)
-          rewrite withBareRNop leaf behind after pair,
+          rewrite withMarkedRNop leaf behind after pair,
               withoutRNop leaf (dropRev behind) after (rewrite fwdPairDrop behind leaf after then pair) then
             rewrite drNopTop leaf behind gap at claim then claim
         | True =>
           match after with
             | [closer, ..after2] =>
-              let (hFst, hSnd, hItem, hBar) := commaMovedDrop leaf closer behind pair
-              let (kindEq, startEq) := commaMovedFst leaf closer behind
+              let (hFst, hSnd, hItem, hBar) := commaDeletedDrop leaf closer behind pair
+              let (kindEq, startEq) := commaDeletedFst leaf closer behind
               let pairA: lastPair closer.token.kind leaf (dropRev behind) = True :=
                 rewrite hasItemDropRev behind then pair
               let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
               let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
               let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
-              let itemE: hasItem (commaMoved leaf closer behind).snd = True := rewrite hItem then item
+              let itemE: hasItem (commaDeleted leaf closer behind).snd = True := rewrite hItem then item
               let pair2: lastPair
-                (commaMoved leaf closer behind).fst.token.kind
+                (commaDeleted leaf closer behind).fst.token.kind
                 { leaf | trivia = Trivia.empty }
-                (commaMoved leaf closer behind).snd
+                (commaDeleted leaf closer behind).snd
                 = True :=
                 rewrite kindEq, itemE then Bool.andIntro isComma (Bool.andIntro isCloser byComputing)
-              let lineOk: (!leaf.token.lineStart || (commaMoved leaf closer behind).fst.token.lineStart) = True :=
+              let lineOk: (!leaf.token.lineStart || (commaDeleted leaf closer behind).fst.token.lineStart) = True :=
                 rewrite startEq then
                   match s: leaf.token.lineStart with
                     | True => byComputing
                     | False => byComputing
-              let okE: barishTop (commaMoved leaf closer behind).snd = True := hBar okB
+              let okE: barishTop (commaDeleted leaf closer behind).snd = True := hBar okB
               let okB2: barishTop [
-                (commaMoved leaf closer behind).fst,
+                (commaDeleted leaf closer behind).fst,
                 { leaf | trivia = Trivia.empty },
-                ..(commaMoved leaf closer behind).snd
+                ..(commaDeleted leaf closer behind).snd
               ]
                 = True :=
                 barishPairTop
                   { leaf | trivia = Trivia.empty }
-                  (commaMoved leaf closer behind).fst
-                  (commaMoved leaf closer behind).snd
+                  (commaDeleted leaf closer behind).fst
+                  (commaDeleted leaf closer behind).snd
                   pair2
                   byComputing
                   byComputing
@@ -1308,63 +1370,49 @@ theorem buildDrop ∀ (behind rest: List Leaf)
               let gap2 :=
                 gapAfterPair
                   { leaf | trivia = Trivia.empty }
-                  (commaMoved leaf closer behind).fst
-                  (commaMoved leaf closer behind).snd
+                  (commaDeleted leaf closer behind).fst
+                  (commaDeleted leaf closer behind).snd
                   after2
                   pair2
               let claim :=
                 buildDrop
                   [
-                    (commaMoved leaf closer behind).fst,
+                    (commaDeleted leaf closer behind).fst,
                     { leaf | trivia = Trivia.empty },
-                    ..(commaMoved leaf closer behind).snd
+                    ..(commaDeleted leaf closer behind).snd
                   ]
                   after2
                   gap2
                   okB2
               let top :=
                 drPairTop
-                  (commaMoved leaf closer behind).fst
+                  (commaDeleted leaf closer behind).fst
                   { leaf | trivia = Trivia.empty }
-                  (commaMoved leaf closer behind).snd
+                  (commaDeleted leaf closer behind).snd
                   pair2
-              rewrite withBareRPair leaf closer behind after2 pair,
+              rewrite withMarkedRPair leaf closer behind after2 pair,
                   withoutRPair leaf closer (dropRev behind) after2 pairA,
                   hFst,
                   hSnd then
                 rewrite top at claim then claim
 
--- Under `plain1` no last comma starts its line, so making them bare moves
--- no token (`tokensBare`); in general it moves only a line start (`tokensBareFlat`).
+-- Making the last commas bare moves no token: `commaMoved` leaves the closer's token as it was.
 
 theorem tokenEta ∀ (token: Token): { token | lineStart = token.lineStart } = token := match token with
   | { kind, text, column, lineStart } => byComputing
 
-theorem startsFalse ∀ (comma closer: Leaf)
-    (nostart: comma.token.lineStart = False):
-    { closer.token | lineStart = (comma.token.lineStart || closer.token.lineStart) } = closer.token :=
-  rewrite nostart then tokenEta closer.token
-
-theorem commaMovedTokens ∀ (comma closer: Leaf) (behind: List Leaf)
-    (nostart: comma.token.lineStart = False):
+theorem commaMovedTokens ∀ (comma closer: Leaf) (behind: List Leaf):
     (commaMoved comma closer behind).fst.token = closer.token
       ∧ tokens (commaMoved comma closer behind).snd = tokens behind :=
   match trailing: comma.trivia.trailing with
-    | None => (startsFalse comma closer nostart, byComputing)
+    | None => (byComputing, byComputing)
     | Some comment =>
       match behind with
-        | [] => (startsFalse comma closer nostart, byComputing)
-        | [prev, ..tail] => rewrite nostart then (tokenEta closer.token, byComputing)
-
-theorem plainNoStart ∀ (comma closer: Leaf) (after: List Leaf)
-    (isComma: (comma.token.kind == Comma) = True)
-    (isCloser: closer.token.kind.isCloser = True)
-    (plain: plainFrom (tokens [comma, closer, ..after]) = True):
-    comma.token.lineStart = False :=
-  let second := Bool.andLeft (Bool.andRight plain)
-  match ls: comma.token.lineStart with
-    | False => byComputing
-    | True => rewrite isComma, isCloser at second then cases
+        | [] => (byComputing, byComputing)
+        | [prev, ..tail] =>
+          match starts: comma.token.lineStart with
+            | True => (byComputing, byComputing)
+            | False => (byComputing, byComputing)
 
 theorem plainTail ∀ (x: Leaf) (xs: List Leaf)
     (plain: plainFrom (tokens [x, ..xs]) = True):
@@ -1373,23 +1421,16 @@ theorem plainTail ∀ (x: Leaf) (xs: List Leaf)
     | [] => byComputing
     | [y, ..ys] => Bool.andRight (Bool.andRight plain)
 
-theorem withBareRTokens ∀ (behind rest: List Leaf)
-    (plain: plainFrom (tokens rest) = True):
-    tokens (withBareR behind rest) = tokens (rest.reverseOnto behind) :=
+theorem withBareRTokens ∀ (behind rest: List Leaf): tokens (withBareR behind rest) = tokens (rest.reverseOnto behind) :=
   match rest with
     | [] => byComputing
     | [leaf, ..after] =>
       match pair: fwdPair behind leaf after with
-        | False =>
-          rewrite withBareRNop leaf behind after pair then
-            withBareRTokens [leaf, ..behind] after (plainTail leaf after plain)
+        | False => rewrite withBareRNop leaf behind after pair then withBareRTokens [leaf, ..behind] after
         | True =>
           match after with
             | [closer, ..after2] =>
-              let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
-              let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
-              let (fstTok, sndToks) :=
-                commaMovedTokens leaf closer behind (plainNoStart leaf closer after2 isComma isCloser plain)
+              let (fstTok, sndToks) := commaMovedTokens leaf closer behind
               let claim :=
                 withBareRTokens
                   [
@@ -1398,7 +1439,6 @@ theorem withBareRTokens ∀ (behind rest: List Leaf)
                     ..(commaMoved leaf closer behind).snd
                   ]
                   after2
-                  (plainTail closer after2 (plainTail leaf [closer, ..after2] plain))
               rewrite withBareRPair leaf closer behind after2 pair,
                   tokensReverseOnto after2 [closer, leaf, ..behind] then
                 rewrite tokensReverseOnto after2 [
@@ -1432,7 +1472,7 @@ theorem dropFAll ∀ (p: Leaf → Bool) (behind rest: List Leaf)
 theorem rule1Drop ∀ (leaves dropped: List Leaf)
     (rel: DropRel dropped leaves)
     (within: leaves.all (leaf => leaf.kind.within1) = True):
-    DropRel (homeFrom [] None dropped) (homeFrom [] None leaves) :=
+    DropRel (homeFrom False [] None dropped) (homeFrom False [] None leaves) :=
   let (same, bare) := rel
   let withinDropped: dropped.all (leaf => leaf.kind.within1) = True :=
     rewrite same then dropFAll (leaf => leaf.kind.within1) [] leaves within
@@ -1512,16 +1552,16 @@ theorem passesDrop ∀ (leaves dropped: List Leaf) (end: Trivia)
     (rel: DropRel dropped leaves)
     (within: alphabet1 leaves = True)
     (plain: arrowFrom (tokens leaves) = True):
-    dropF [] ((letsFrom [] (arrows (commasFrom [] None (homeFrom [] None leaves) end).leaves)).map trim)
-      = (letsFrom [] (arrows (commasFrom [] None (homeFrom [] None dropped) end).leaves)).map trim
-      ∧ (commasFrom [] None (homeFrom [] None dropped) end).end
-        = (commasFrom [] None (homeFrom [] None leaves) end).end :=
+    dropF [] ((letsFrom [] (arrows (commasFrom [] None (homeFrom False [] None leaves) end).leaves)).map trim)
+      = (letsFrom [] (arrows (commasFrom [] None (homeFrom False [] None dropped) end).leaves)).map trim
+      ∧ (commasFrom [] None (homeFrom False [] None dropped) end).end
+        = (commasFrom [] None (homeFrom False [] None leaves) end).end :=
   let r1 := rule1Drop leaves dropped rel (alphabet1Leaves leaves within)
-  let (r2, endEq) := rule2Drop (homeFrom [] None leaves) (homeFrom [] None dropped) end r1
-  let cB := (commasFrom [] None (homeFrom [] None leaves) end).leaves
-  let cA := (commasFrom [] None (homeFrom [] None dropped) end).leaves
+  let (r2, endEq) := rule2Drop (homeFrom False [] None leaves) (homeFrom False [] None dropped) end r1
+  let cB := (commasFrom [] None (homeFrom False [] None leaves) end).leaves
+  let cA := (commasFrom [] None (homeFrom False [] None dropped) end).leaves
   let tokCommas: tokens cB = tokens leaves :=
-    Eq.trans (commasFromTokens [] None (homeFrom [] None leaves) end) (homeFromTokens [] None leaves)
+    Eq.trans (commasFromTokens [] None (homeFrom False [] None leaves) end) (homeFromTokens False [] None leaves)
   let r3 := rule3Drop cB cA r2 (rewrite tokCommas then plain)
   let (arrowsEq, arrowsBare) := r3
   let tokArrows: tokens (arrows cB) = tokens leaves := Eq.trans (arrowsTokens cB) tokCommas
@@ -1533,28 +1573,27 @@ theorem passesDrop ∀ (leaves dropped: List Leaf) (end: Trivia)
   let letsA: letsFrom [] (arrows cA) = arrows cA := letsQuiet1 [] (arrows cA) byComputing withinArrowsA
   (rewrite letsB, letsA, arrowsEq then dropFTrim [] [] (arrows cB) byComputing, endEq)
 
-theorem relBare ∀ (leaves: List Leaf): DropRel (withoutLastCommas [] leaves) (withBareLastCommas [] leaves) :=
+theorem relBare ∀ (leaves: List Leaf): DropRel (withoutLastCommas [] leaves) (withMarkedLastCommas [] leaves) :=
   let (eq, bare) := buildDrop [] leaves byComputing byComputing
-  rewrite withoutFromR [] leaves, withBareFromR [] leaves then
-    dropRelOfRev (withBareR [] leaves) (withoutR [] leaves) eq.flipped bare
+  rewrite withoutFromR [] leaves, withMarkedFromR [] leaves then
+    dropRelOfRev (withMarkedR [] leaves) (withoutR [] leaves) eq.flipped bare
 
-theorem tokensBare ∀ (leaves: List Leaf)
-    (plain: plainFrom (tokens leaves) = True):
-    tokens (withBareLastCommas [] leaves) = tokens leaves :=
-  calc tokens (withBareLastCommas [] leaves)
-    _ = tokens ((withBareR [] leaves).reverseOnto []) := rewrite withBareFromR [] leaves
-    _ = (tokens (withBareR [] leaves)).reverseOnto [] := tokensReverseOnto (withBareR [] leaves) []
-    _ = (tokens (leaves.reverseOnto [])).reverseOnto [] := rewrite withBareRTokens [] leaves plain
-    _ = ((tokens leaves).reverseOnto []).reverseOnto [] := rewrite tokensReverseOnto leaves []
-    _ = tokens leaves := List.reverseReverse (tokens leaves)
+--| Making the last commas bare keeps every token.
+theorem tokensBare ∀ (leaves: List Leaf): tokens (withBareLastCommas [] leaves) = tokens leaves := calc tokens
+  (withBareLastCommas [] leaves)
+  _ = tokens ((withBareR [] leaves).reverseOnto []) := rewrite withBareFromR [] leaves
+  _ = (tokens (withBareR [] leaves)).reverseOnto [] := tokensReverseOnto (withBareR [] leaves) []
+  _ = (tokens (leaves.reverseOnto [])).reverseOnto [] := rewrite withBareRTokens [] leaves
+  _ = ((tokens leaves).reverseOnto []).reverseOnto [] := rewrite tokensReverseOnto leaves []
+  _ = tokens leaves := List.reverseReverse (tokens leaves)
 
--- Making last commas bare moves no token, line starts aside: a comma that starts its line gives its line start to
--- the closer after it (`commaMoved`).
+-- Deleting a last comma moves no token, line starts aside: a comma that starts its line gives its line start to the
+-- closer after it (`commaDeleted`).
 
-theorem commaMovedToken ∀ (comma closer: Leaf) (behind: List Leaf):
-    (commaMoved comma closer behind).fst.token
+theorem commaDeletedToken ∀ (comma closer: Leaf) (behind: List Leaf):
+    (commaDeleted comma closer behind).fst.token
       = { closer.token | lineStart = (comma.token.lineStart || closer.token.lineStart) }
-      ∧ tokens (commaMoved comma closer behind).snd = tokens behind :=
+      ∧ tokens (commaDeleted comma closer behind).snd = tokens behind :=
   match comma.trivia.trailing with
     | None => (byComputing, byComputing)
     | Some comment =>
@@ -1565,77 +1604,77 @@ theorem commaMovedToken ∀ (comma closer: Leaf) (behind: List Leaf):
             | True => (byComputing, byComputing)
             | False => (byComputing, byComputing)
 
-theorem commaMovedKind ∀ (comma closer: Leaf) (behind: List Leaf):
-    (commaMoved comma closer behind).fst.token.kind = closer.token.kind :=
-  rewrite (commaMovedToken comma closer behind).left
+theorem commaDeletedKind ∀ (comma closer: Leaf) (behind: List Leaf):
+    (commaDeleted comma closer behind).fst.token.kind = closer.token.kind :=
+  rewrite (commaDeletedToken comma closer behind).left
 
-theorem commaMovedFlat ∀ (comma closer: Leaf) (behind: List Leaf):
-    flatToken (commaMoved comma closer behind).fst.token = flatToken closer.token :=
-  rewrite (commaMovedToken comma closer behind).left
+theorem commaDeletedFlat ∀ (comma closer: Leaf) (behind: List Leaf):
+    flatToken (commaDeleted comma closer behind).fst.token = flatToken closer.token :=
+  rewrite (commaDeletedToken comma closer behind).left
 
 theorem flatReverseOnto ∀ (xs a b: List Token)
     (same: a.map flatToken = b.map flatToken):
     (xs.reverseOnto a).map flatToken = (xs.reverseOnto b).map flatToken :=
   rewrite List.mapReverseOnto xs a flatToken, List.mapReverseOnto xs b flatToken, same
 
---| Making the last commas bare changes no token but the line start of a closer after a comma that starts its line.
-theorem withBareRFlat ∀ (behind rest: List Leaf):
-    (tokens (withBareR behind rest)).map flatToken = (tokens (rest.reverseOnto behind)).map flatToken :=
+--| Marking the last commas changes no token but the line start of a closer after a comma that starts its line.
+theorem withMarkedRFlat ∀ (behind rest: List Leaf):
+    (tokens (withMarkedR behind rest)).map flatToken = (tokens (rest.reverseOnto behind)).map flatToken :=
   match rest with
     | [] => byComputing
     | [leaf, ..after] =>
       match pair: fwdPair behind leaf after with
-        | False => rewrite withBareRNop leaf behind after pair then withBareRFlat [leaf, ..behind] after
+        | False => rewrite withMarkedRNop leaf behind after pair then withMarkedRFlat [leaf, ..behind] after
         | True =>
           match after with
             | [closer, ..after2] =>
-              let (movedToken, movedTokens) := commaMovedToken leaf closer behind
+              let (movedToken, movedTokens) := commaDeletedToken leaf closer behind
               let claim :=
-                withBareRFlat
+                withMarkedRFlat
                   [
-                    (commaMoved leaf closer behind).fst,
+                    (commaDeleted leaf closer behind).fst,
                     { leaf | trivia = Trivia.empty },
-                    ..(commaMoved leaf closer behind).snd
+                    ..(commaDeleted leaf closer behind).snd
                   ]
                   after2
               let accSame: (tokens [
-                    (commaMoved leaf closer behind).fst,
+                    (commaDeleted leaf closer behind).fst,
                     { leaf | trivia = Trivia.empty },
-                    ..(commaMoved leaf closer behind).snd
+                    ..(commaDeleted leaf closer behind).snd
                   ]).map flatToken
                 = (tokens [closer, leaf, ..behind]).map flatToken :=
-                rewrite commaMovedFlat leaf closer behind, movedTokens
-              rewrite withBareRPair leaf closer behind after2 pair,
+                rewrite commaDeletedFlat leaf closer behind, movedTokens
+              rewrite withMarkedRPair leaf closer behind after2 pair,
                   claim,
                   tokensReverseOnto after2 [
-                    (commaMoved leaf closer behind).fst,
+                    (commaDeleted leaf closer behind).fst,
                     { leaf | trivia = Trivia.empty },
-                    ..(commaMoved leaf closer behind).snd
+                    ..(commaDeleted leaf closer behind).snd
                   ],
                   tokensReverseOnto after2 [closer, leaf, ..behind] then
                 flatReverseOnto (tokens after2) _ _ accSame
 
-theorem tokensBareFlat ∀ (leaves: List Leaf):
-    (tokens (withBareLastCommas [] leaves)).map flatToken = (tokens leaves).map flatToken :=
-  calc (tokens (withBareLastCommas [] leaves)).map flatToken
-    _ = (tokens ((withBareR [] leaves).reverseOnto [])).map flatToken := rewrite withBareFromR [] leaves
-    _ = ((tokens (withBareR [] leaves)).reverseOnto []).map flatToken :=
-      rewrite tokensReverseOnto (withBareR [] leaves) []
-    _ = ((tokens (withBareR [] leaves)).map flatToken).reverseOnto [] :=
-      List.mapReverseOnto (tokens (withBareR [] leaves)) [] flatToken
-    _ = ((tokens (leaves.reverseOnto [])).map flatToken).reverseOnto [] := rewrite withBareRFlat [] leaves
+theorem tokensMarkedFlat ∀ (leaves: List Leaf):
+    (tokens (withMarkedLastCommas [] leaves)).map flatToken = (tokens leaves).map flatToken :=
+  calc (tokens (withMarkedLastCommas [] leaves)).map flatToken
+    _ = (tokens ((withMarkedR [] leaves).reverseOnto [])).map flatToken := rewrite withMarkedFromR [] leaves
+    _ = ((tokens (withMarkedR [] leaves)).reverseOnto []).map flatToken :=
+      rewrite tokensReverseOnto (withMarkedR [] leaves) []
+    _ = ((tokens (withMarkedR [] leaves)).map flatToken).reverseOnto [] :=
+      List.mapReverseOnto (tokens (withMarkedR [] leaves)) [] flatToken
+    _ = ((tokens (leaves.reverseOnto [])).map flatToken).reverseOnto [] := rewrite withMarkedRFlat [] leaves
     _ = (((tokens leaves).reverseOnto []).map flatToken).reverseOnto [] := rewrite tokensReverseOnto leaves []
     _ = (((tokens leaves).map flatToken).reverseOnto []).reverseOnto [] :=
       rewrite List.mapReverseOnto (tokens leaves) [] flatToken
     _ = (tokens leaves).map flatToken := List.reverseReverse ((tokens leaves).map flatToken)
 
---| Rule N on the leaves with their last commas made bare, then the last
---| commas dropped, is rule N on the leaves without them (`bareSettles`,
---| S1 sketch §3.4): the leaves the formatter parses, less the commas the P2
---| pass deletes, hold the comments `settledBare` holds.
+--| Rule N on the leaves with the last commas marked (`withMarkedLastCommas`).
+def Lexed.settledMarked (lexed: Lexed): Lexed := { lexed | leaves = withMarkedLastCommas [] lexed.leaves }.settled
+
+--| Rule N on the leaves with their last commas marked, then the last commas
+--| dropped, is rule N on the leaves without them (S1 sketch §3.4).
 --|
---| The statement holds for the first parse (`settledOnce`) read from leaves
---| with the last commas, so under `sourcePlain1` (no `->` before a comma, closer
+--| The statement holds for leaves with the last commas, so under `sourcePlain1` (no `->` before a comma, closer
 --| or `->`; no comma that starts its line before a comma or closer, but a last
 --| comma; no comma or closer first) and slice 1's alphabet. Only the `->` clause is used.
 --| No layout is assumed.
@@ -1647,15 +1686,15 @@ theorem tokensBareFlat ∀ (leaves: List Leaf):
 --| comma; rule 3 skips it, since no `->` comes before it (`arrowFrom`). So each pass on
 --| the leaves with commas, then dropped, is the pass on the leaves without
 --| them (`rule1Drop`, `rule2Drop`, `rule3Drop`); rules 4 and 5 act leaf by leaf.
-theorem bareSettles ∀ (lexed: Lexed)
+theorem markedSettles ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True):
-    dropF [] lexed.settledOnce.leaves = lexed.settledBare.leaves ∧ lexed.settledOnce.end = lexed.settledBare.end :=
+    dropF [] lexed.settledMarked.leaves = lexed.settledBare.leaves ∧ lexed.settledMarked.end = lexed.settledBare.end :=
   let arrowF := arrowOfSource False (tokens lexed.leaves) (sourcePlainFromOf (tokens lexed.leaves) plain)
-  let tokB := tokensBareFlat lexed.leaves
+  let tokB := tokensMarkedFlat lexed.leaves
   let (leavesEq, endEq) :=
     passesDrop
-      (withBareLastCommas [] lexed.leaves)
+      (withMarkedLastCommas [] lexed.leaves)
       (withoutLastCommas [] lexed.leaves)
       lexed.end
       (relBare lexed.leaves)
@@ -1679,6 +1718,161 @@ theorem withBareRNone ∀ (behind rest: List Leaf)
       match pair: fwdPair behind leaf after with
         | False => rewrite withBareRNop leaf behind after pair then withBareRNone [leaf, ..behind] after none
 
+-- Rule 1's walk with bare last commas (`startsWalk True`) reads a line start
+-- other than the token's own only at a closer right after a last comma that
+-- starts its line. Where there is none, it is the plain walk.
+
+--| `hasItem`, on the tokens.
+def itemT: List Token → Bool
+  | [] => False
+  | [token, .._] =>
+    match token.kind with
+      | Comma => False
+      | Pipe => False
+      | kind => !kind.isOpener
+
+theorem hasItemT ∀ (leaves: List Leaf): hasItem leaves = itemT (tokens leaves) := match leaves with
+  | [] => byComputing
+  | [leaf, ..rest] => byComputing
+
+--| No closer in `tokens` (newest first) right after a last comma that starts its line.
+def pairFreeT: List Token → Bool
+  | [] => True
+  | [token, ..older] =>
+    match older with
+      | [] => True
+      | [comma, ..more] =>
+        !(token.kind.isCloser && comma.kind == Comma && comma.lineStart && itemT more) && pairFreeT older
+
+theorem pairFreeTail ∀ (token: Token) (older: List Token)
+    (free: pairFreeT [token, ..older] = True):
+    pairFreeT older = True :=
+  match older with
+    | [] => byComputing
+    | [comma, ..more] => Bool.andRight free
+
+theorem pairFreeSuffix ∀ (xs ys: List Token) (free: pairFreeT (xs.reverseOnto ys) = True): pairFreeT ys = True :=
+  match xs with
+    | [] => free
+    | [x, ..rest] => pairFreeTail x ys (pairFreeSuffix rest [x, ..ys] free)
+
+theorem startsPairFree ∀ (current: Leaf) (behind: List Leaf)
+    (free: pairFreeT (tokens [current, ..behind]) = True):
+    startsWalk True current behind = current.token.lineStart :=
+  match behind with
+    | [] => byComputing
+    | [previous, ..earlier] =>
+      let extraF: (current.kind.isCloser && previous.kind == Comma && previous.token.lineStart && hasItem earlier)
+        = False :=
+        rewrite hasItemT earlier then Bool.notTrue _ (Bool.andLeft free)
+      let unfolded: startsWalk True current [previous, ..earlier]
+        = (current.token.lineStart
+          || (current.kind.isCloser && previous.kind == Comma && previous.token.lineStart && hasItem earlier)) :=
+        byComputing
+      Eq.trans unfolded (rewrite extraF then Bool.orFalse current.token.lineStart)
+
+theorem stepsPairFree ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
+    (free: pairFreeT (tokens [current, ..behind]) = True):
+    stepsBack True current behind ahead steps = stepsBack False current behind ahead steps :=
+  match behind with
+    | [] => byComputing
+    | [previous, ..earlier] =>
+      rewrite startsPairFree current [previous, ..earlier] free,
+          stepsPairFree previous earlier
+            [current, ..ahead]
+            (steps + 1)
+            (pairFreeTail current.token (tokens [previous, ..earlier]) free)
+
+--| Rule 1 with bare last commas is the plain rule 1 where no closer follows a last comma that starts its line.
+theorem homePairFree ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf)
+    (free: pairFreeT (tokens (rest.reverseOnto behind)) = True):
+    homeFrom True behind bumped rest = homeFrom False behind bumped rest :=
+  match rest with
+    | [] => byComputing
+    | [leaf, ..after] =>
+      let next := (x: Leaf) (settled: List Leaf) (bump: Option Comment) (same: x.token = leaf.token) (sameBehind: tokens
+          settled
+        = tokens behind) =>
+        let sameAll: tokens (after.reverseOnto [x, ..settled]) = tokens (after.reverseOnto [leaf, ..behind]) :=
+          rewrite tokensReverseOnto after [x, ..settled], tokensReverseOnto after [leaf, ..behind], same, sameBehind
+        homePairFree [x, ..settled] bump after (rewrite sameAll then free)
+      let headFree: pairFreeT (tokens [leaf, ..behind]) = True :=
+        pairFreeSuffix
+          (tokens after)
+          (tokens [leaf, ..behind])
+          (rewrite <- tokensReverseOnto after [leaf, ..behind] then free)
+      match bumped with
+        | None =>
+          match trailing: leaf.trivia.trailing with
+            | None => next leaf behind None byComputing byComputing
+            | Some comment =>
+              match movable leaf behind after with
+                | False => next leaf behind None byComputing byComputing
+                | True =>
+                  rewrite stepsPairFree leaf behind after 0 headFree then
+                    match stepsBack False leaf behind after 0 with
+                      | Zero =>
+                        match barBelow leaf behind after with
+                          | True => next (leaf.withTrailing None) behind (Some comment.unspaced) byComputing byComputing
+                          | False => next leaf behind None byComputing byComputing
+                      | Succ more =>
+                        next
+                          (leaf.withTrailing None)
+                          (trailingAt behind (Succ more) comment)
+                          None
+                          byComputing
+                          (trailingAtTokens behind (Succ more) comment)
+        | Some bump =>
+          let lifted := leaf.withLeading [bump, ..leaf.trivia.leading]
+          let liftedFree: pairFreeT (tokens [lifted, ..behind]) = True := headFree
+          match lifted.trivia.trailing with
+            | None => next lifted behind None byComputing byComputing
+            | Some comment =>
+              match movable lifted behind after with
+                | False => next lifted behind None byComputing byComputing
+                | True =>
+                  rewrite stepsPairFree lifted behind after 0 liftedFree then
+                    match stepsBack False lifted behind after 0 with
+                      | Zero =>
+                        match barBelow lifted behind after with
+                          | True =>
+                            next (lifted.withTrailing None) behind (Some comment.unspaced) byComputing byComputing
+                          | False => next lifted behind None byComputing byComputing
+                      | Succ more =>
+                        next
+                          (lifted.withTrailing None)
+                          (trailingAt behind (Succ more) comment)
+                          None
+                          byComputing
+                          (trailingAtTokens behind (Succ more) comment)
+
+--| Leaves with no last comma before their closers have no closer after one.
+theorem pairFreeOfNoLast ∀ (behind rest: List Leaf)
+    (none: noLast behind rest = True)
+    (gap: gapOk behind rest = True)
+    (free: pairFreeT (tokens behind) = True):
+    pairFreeT (tokens (rest.reverseOnto behind)) = True :=
+  match rest with
+    | [] => free
+    | [leaf, ..after] =>
+      let nop: fwdPair behind leaf after = False := Bool.notTrue _ (Bool.andLeft none)
+      let headFree: pairFreeT (tokens [leaf, ..behind]) = True := match behind with
+        | [] => byComputing
+        | [comma, ..more] =>
+          let notPair: lastPair leaf.token.kind comma more = False := Bool.notTrue _ gap
+          let extraF: (leaf.token.kind.isCloser
+            && comma.token.kind == Comma
+            && comma.token.lineStart
+            && itemT (tokens more))
+            = False :=
+            match k: leaf.token.kind.isCloser, c: comma.token.kind == Comma, l: comma.token.lineStart with
+              | False, _, _ => byComputing
+              | True, False, _ => byComputing
+              | True, True, False => byComputing
+              | True, True, True => rewrite <- hasItemT more then notPair
+          Bool.andIntro (Bool.notOfFalse _ extraF) free
+      pairFreeOfNoLast [leaf, ..behind] after (Bool.andRight none) (gapAfterNop leaf behind after nop) headFree
+
 --| With no comma directly before a closer after an item, making the last
 --| commas bare changes nothing, so the leaves rule N settles are `settled`'s:
 --| on every text the formatter prints, `parse1` parses what `parse` does.
@@ -1687,4 +1881,5 @@ theorem settledOnceNone ∀ (lexed: Lexed) (none: noLast [] lexed.leaves = True)
     Eq.trans
       (withBareFromR [] lexed.leaves)
       (rewrite withBareRNone [] lexed.leaves none then List.reverseReverse lexed.leaves)
-  rewrite bare
+  let free := pairFreeOfNoLast [] lexed.leaves none byComputing byComputing
+  rewrite bare, homePairFree [] None lexed.leaves free

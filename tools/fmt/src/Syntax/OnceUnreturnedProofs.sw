@@ -21,6 +21,7 @@ import Syntax.SettleProofs (
   triviaTexts
 )
 import Syntax.SettleBareProofs (..)
+import Syntax.SettleMarkProofs (..)
 import Syntax.SettleOnceProofs (..)
 import Syntax.LexUnreturnedProofs (plainEnd)
 
@@ -60,7 +61,7 @@ theorem wordsPlainTexts ∀ (leaves: List Leaf)
 --| The words of the leaves the formatter parses, `settledOnce`, and its end, hold only comments that end in neither a
 --| carriage return nor a space, if the lexer's leaves do and are laid out and `plain` in the alphabet.
 --|
---| Proof idea: as `onceSettledProved`. `settledOnce`'s words are those of `settledBare`, rule N on the leaves without
+--| Proof idea: as `onceSettledProved`. `settledOnce`'s words are those of `settledBare` (`bareSettles`), rule N on the leaves without
 --| their last commas; dropping those keeps the comments' texts (`textsWithout`), and rule N only moves comments and
 --| trims spaces (`settledKeepsComments`, `trimEndPlain`).
 theorem onceTextsPlain ∀ (lexed: Lexed)
@@ -101,8 +102,12 @@ theorem onceTextsPlain ∀ (lexed: Lexed)
   let textsS: (lexedTexts settled).all plainEnd = True :=
     rewrite settledKeepsComments lexedB withinB laidB then allTrimPlain (lexedTexts lexedB) textsB
   let (leavesEq, endEq) := bareSettles lexed within plain
-  let wordsEq: wordsOf lexed.settledOnce.leaves = wordsOf settled.leaves :=
-    Eq.trans (wordsOfDropF [] lexed.settledOnce.leaves).flipped (rewrite leavesEq)
+  let dropped := dropF [] lexed.settledOnce.leaves
+  let wordsEq: wordsOf lexed.settledOnce.leaves = wordsOf settled.leaves := calc wordsOf lexed.settledOnce.leaves
+    _ = wordsOf dropped := (wordsOfDropF [] lexed.settledOnce.leaves).flipped
+    _ = wordsOf (dropped.map Leaf.unstarted) := (wordsOfUnstarted dropped).flipped
+    _ = wordsOf (settled.leaves.map Leaf.unstarted) := rewrite leavesEq
+    _ = wordsOf settled.leaves := wordsOfUnstarted settled.leaves
   let textsSplit :=
     rewrite leavesTextsSplit settled.leaves settled.end,
         allAppendB (leafTexts settled.leaves) (triviaTexts settled.end) plainEnd at textsS then
