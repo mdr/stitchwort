@@ -26475,7 +26475,7 @@
     {
       "id": 4170,
       "title": "[Sonnet] fmt (SW-4132 lane 7): two-run walk of Statements.sw: blocks, let, local definitions, proof steps, handle (Syntax/FollowsStatements.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4170",
       "labels": [],
