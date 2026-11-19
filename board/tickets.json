@@ -26761,15 +26761,17 @@
     {
       "id": 4191,
       "title": "[Fable, paper] Slice 1 final checkpoint after SW-4183 (D3690): confirm formatAccepts1, formatKeepsProgram1, formatIdempotent1 are proved with no open goals and no new hypotheses since SW-4184; review SW-4183's restated bareSettles (up to line starts) covers its users; confirm rule N's startsWalk keeps the bookkeeping inside the tidying step; say whether slice 1 meets D3687",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 15 min. After SW-4183.",
+      "body": "Est. 15 min. After SW-4183.\n\n19 Nov, lane (Fable, paper): review at docs/reviews/SW-4191-slice1-final.md on lane/SW-4191. Verdict: slice 1 meets D3687, pending (1) the background check of main confirming no open goals, (2) deleting the stale doc lines Fmt/Accepts1.sw:22-23 that still say formatAccepts1 rests on settledParsesMoved1. Three top statements, Grammar1.sw, MustAccept1.sw unchanged since SW-4184; nothing accepts less; settledOnce tokens are the lexer's with no hypothesis; Lexed.settled unchanged. Fourth top statement does not block. Nothing built or run.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "060edb69c"
+      ]
     },
     {
       "id": 4192,
