@@ -26,6 +26,12 @@
 //! recursive call passes on unchanged) is taken once and isn't the
 //! motive's.
 //!
+//! **A guarded arm that a later arm partly overlaps** (G1, D3697) adds no
+//! case: the later arm's case takes the hypothesis its equation does, that
+//! wherever the guarded arm's patterns match, its condition is false
+//! (`notArm2: ∀ closer after1 => after = [closer, ..after1] → ¬(…)`), one
+//! per such guarded arm, as Lean's `f.induct` does.
+//!
 //! **A call inside a lifted `match` that isn't in tail position** (G2,
 //! docs/proposals/functional-induction.md) has its induction hypothesis
 //! under the alternative it is in: quantified over the alternative's
@@ -59,9 +65,19 @@
 //! variable for an alternative that overlaps an earlier one) is proved
 //! where the value there and `p` differ in a constructor.
 //!
+//! An overlap hypothesis is proved at each leaf of the later arm: where
+//! the values there and the earlier pattern differ in a constructor, by a
+//! hidden definition that tells them apart (`%apartN`); where the earlier
+//! arm's patterns match them, its guard was tested above and failed, and
+//! along the hypothesis's equations by `J` (its variables read off the
+//! values by hidden projections, `%fieldN`) the guard there is the one the
+//! split refuted.
+//!
 //! **Not made** (recorded with the reason, `E-NO-EQUATION` when named): a
 //! definition one of whose cases has no equation, or takes an overlap
-//! hypothesis (`notArmJ`, which the proof would have to establish); a
+//! hypothesis the proof can't establish (an earlier pattern on a number or
+//! character literal, or on an indexed family, where the values don't
+//! differ in a constructor); a
 //! recursive call whose arguments depend on a binder it is under (a lambda
 //! passed to `List.map`, §5.1), or inside a lifted `match` that isn't in
 //! tail position on an indexed family; a lifted `match` on several
@@ -942,7 +958,11 @@ impl Elaborator {
             for h in &s.hyps {
                 match h {
                     Hyp::Overlap {
-                        vars, eqs, guarded, ..
+                        row,
+                        vars,
+                        eqs,
+                        guarded,
+                        ..
                     } => {
                         let mut at = Vec::new();
                         for (lk, _) in eqs {
@@ -951,6 +971,7 @@ impl Elaborator {
                             })?);
                         }
                         hyps.push(HypProof::Refute {
+                            row: *row,
                             vars: vars.len(),
                             eqs: at,
                             guarded: *guarded,
@@ -1220,6 +1241,7 @@ impl Elaborator {
             facts: Vec::new(),
             sp: &sp,
             discs: std::mem::take(&mut splits.discs),
+            fields: HashMap::default(),
             made: &mut made,
         };
         let mut fvals = Vec::new();
@@ -1880,6 +1902,83 @@ impl Elaborator {
         )?;
         kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, tree))])?;
         discs.insert(key, id);
+        Ok(id)
+    }
+
+    /// A hidden definition `f.induct.%fieldN {params} (y: T params) (d: A):
+    /// A`: field `field` of `y` where `y` is constructor `ctor`, else `d`.
+    /// It reads a pattern's variable off a value ([`Tree::refute_guard`]).
+    fn induct_field(
+        &mut self,
+        d: &Def,
+        data: DataId,
+        ctor: usize,
+        field: usize,
+        n: usize,
+    ) -> R<DefId> {
+        let g = self.ev();
+        let decl = g.data(data);
+        if !decl.indices().is_empty() {
+            return skip("an earlier guarded arm's pattern is on an indexed family");
+        }
+        let np = decl.params().len();
+        let mut binders: Vec<Binder> = (decl.params().iter())
+            .map(|(x, ty)| Binder {
+                name: x.clone(),
+                icit: Icit::Implicit,
+                ty: ty.clone(),
+            })
+            .collect();
+        binders.push(Binder {
+            name: "y".into(),
+            icit: Icit::Explicit,
+            ty: Term::data(data, (0..np).map(|j| Term::Var(np - 1 - j)).collect()),
+        });
+        let ft = &decl.ctors()[ctor].fields[field].1;
+        let at = |to: usize| -> R<Term> {
+            remap(&g, ft, np + field, to, &|l| {
+                (l < np).then(|| Term::Var(to - 1 - l))
+            })?
+            .ok_or_else(|| {
+                Stop::Skip("a pattern's field's type depends on an earlier field".into())
+            })
+        };
+        binders.push(Binder {
+            name: "d".into(),
+            icit: Icit::Explicit,
+            ty: at(np + 1)?,
+        });
+        let ret = at(np + 2)?;
+        let branches: Vec<Branch> = (decl.ctors().iter().enumerate())
+            .map(|(c, k)| {
+                let m = k.fields.len();
+                let body = if c == ctor {
+                    Term::Var(m - 1 - field)
+                } else {
+                    Term::Var(m)
+                };
+                Branch {
+                    names: k.fields.iter().map(|(x, _)| x.clone()).collect(),
+                    body: Some(Rc::new(body)),
+                }
+            })
+            .collect();
+        let tree = Term::Case(1, data, branches.into());
+        let ty = pis(&binders, ret);
+        let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
+        let name: Name = format!("{}.induct.%field{n}", d.display).into();
+        let span = d.rows[0].span;
+        let id = kernel::declare_def(
+            &mut self.kernel,
+            &self.tables,
+            &self.unit,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, tree))])?;
         Ok(id)
     }
 
@@ -2687,6 +2786,9 @@ struct Tree<'a> {
     /// The hidden definitions that tell a constructor apart, by the
     /// constructors on the way to it (`Tree::refute`).
     discs: HashMap<String, DefId>,
+    /// The hidden projections of a constructor's field, by the constructor
+    /// and field (`Tree::refute_guard`).
+    fields: HashMap<String, DefId>,
     /// The hidden declarations made.
     made: &'a mut Vec<DefId>,
 }
@@ -2704,17 +2806,52 @@ struct RowProof {
 /// How a case's hypothesis is established at its leaf.
 #[derive(Clone)]
 enum HypProof {
-    /// An overlap hypothesis, refuted ([`Tree::refute`]): how many
-    /// variables it takes, the row variable each of its equations is about,
-    /// and whether the earlier row is guarded (its condition one more
-    /// premise).
+    /// An overlap hypothesis about row `row`, refuted ([`Tree::refute`]):
+    /// how many variables it takes, the row variable each of its equations
+    /// is about, and whether the earlier row is guarded (its condition one
+    /// more premise).
     Refute {
+        row: usize,
         vars: usize,
         eqs: Vec<usize>,
         guarded: bool,
     },
     /// What the split on row `j`'s guard gave.
     Fact(usize),
+}
+
+/// Where a pattern's variable is: the equation, and the constructors and
+/// fields on the way to it.
+type Place = (usize, Vec<(DataId, usize, usize)>);
+
+/// Where each of an overlap hypothesis's variables (levels `base` and on,
+/// in `out`) is in the pattern `p` (at `at`) of its equation `e`: the
+/// constructors and fields on the way, recorded for the first equation
+/// that has it.
+fn find_places(
+    p: &Term,
+    at: usize,
+    base: usize,
+    e: usize,
+    path: &mut Vec<(DataId, usize, usize)>,
+    out: &mut [Option<Place>],
+) {
+    match p.strip_loc() {
+        Term::Var(i) if *i < at => {
+            let l = at - 1 - i;
+            if l >= base && l - base < out.len() && out[l - base].is_none() {
+                out[l - base] = Some((e, path.clone()));
+            }
+        }
+        Term::Ctor(d, c, fields) => {
+            for (f, x) in fields.iter().enumerate() {
+                path.push((*d, *c, f));
+                find_places(x, at, base, e, path, out);
+                path.pop();
+            }
+        }
+        _ => {}
+    }
 }
 
 /// `t` as a constructor applied to fields (a number as `Zero` or `Succ`).
@@ -2770,12 +2907,14 @@ impl Tree<'_> {
     /// `vars` variables and the row variables of type `types` in its
     /// equations: an equation whose sides differ in a constructor gives
     /// `Void` by `J` with a hidden definition that tells the two apart.
+    /// About a guarded row (`guarded`, its index) whose patterns match the
+    /// leaf's values, its condition failed above: [`Self::refute_guard`].
     fn refute(
         &mut self,
         ty: &Term,
         vars: usize,
         types: &[Term],
-        guarded: bool,
+        guarded: Option<usize>,
         depth: usize,
     ) -> R<Term> {
         let g = self.g();
@@ -2798,7 +2937,9 @@ impl Tree<'_> {
         }
         // A guarded row's condition is the last premise, after the
         // equations.
-        let eqs = binders.len().saturating_sub(vars + usize::from(guarded));
+        let eqs = binders
+            .len()
+            .saturating_sub(vars + usize::from(guarded.is_some()));
         if eqs != types.len() {
             return skip("an overlap hypothesis isn't as stage 2a reads it");
         }
@@ -2813,15 +2954,14 @@ impl Tree<'_> {
             }
         }
         let Some((e, path, at)) = found else {
-            return skip(if guarded {
-                "at one of its cases, an overlap hypothesis about a guarded earlier arm is \
-                 needed where that arm's patterns match, which stage 2a's proof doesn't \
-                 establish (it does where that arm takes every value the case does)"
-            } else {
+            if let Some(j) = guarded {
+                return self.refute_guard(&binders, vars, types, j, depth);
+            }
+            return skip(
                 "at one of its cases, an overlap hypothesis's equations don't differ in a \
                  constructor (a number or a character `match` refines it), which stage 2a's \
-                 proof needs to establish it"
-            });
+                 proof needs to establish it",
+            );
         };
         // The type of the equation's sides: the row variable's.
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
@@ -2851,7 +2991,7 @@ impl Tree<'_> {
             .registry()
             .ctor(Builtin::Trivial)
             .ok_or_else(|| Stop::Skip("no `Trivial`".into()))?;
-        let premise = usize::from(guarded);
+        let premise = usize::from(guarded.is_some());
         let inner = vars + eqs + premise;
         let mut applied = Term::Def(disc);
         for a in &args {
@@ -2875,6 +3015,248 @@ impl Tree<'_> {
             .map(|i| (format!("x{i}").into(), Icit::Explicit))
             .collect();
         Ok(lams(&names, void))
+    }
+
+    /// A proof, at the leaf (`depth`), of the overlap hypothesis about
+    /// guarded row `j` where `j`'s patterns match the values here, so its
+    /// condition was tested above and failed (G1, D3697). `binders` are the
+    /// hypothesis's: its `vars` variables, its equations `x = p` (`x` a
+    /// value here, of the row variable's type in `types`) and `j`'s
+    /// condition at the variables. Along each equation by `J`, the
+    /// variables in its `p` become projections of the equation's side
+    /// (hidden definitions, [`Elaborator::induct_field`]): at `p` they
+    /// compute to the variables, at `x` to the values here, where the
+    /// condition is the one whose failure the split gave.
+    fn refute_guard(
+        &mut self,
+        binders: &[Term],
+        vars: usize,
+        types: &[Term],
+        j: usize,
+        depth: usize,
+    ) -> R<Term> {
+        let eqs = types.len();
+        let top = depth + vars + eqs + 1;
+        let under = top + 2;
+        let Some((_, fact, at)) = self.facts.iter().rev().find(|(r, ..)| *r == j).cloned() else {
+            return skip(
+                "at one of its cases, an overlap hypothesis about a guarded earlier arm is \
+                 needed where that arm's condition wasn't tested",
+            );
+        };
+        // Each variable's place: the first equation whose pattern has it,
+        // and the constructors and fields on the way; each equation's side
+        // here, and its type's arguments, under the motive's binders.
+        let mut places: Vec<Option<Place>> = vec![None; vars];
+        let mut sides = Vec::new();
+        let mut roots = Vec::new();
+        {
+            let g = self.g();
+            let env: Vec<Value> = (0..depth).map(Value::var).collect();
+            for (e, ty) in types.iter().enumerate() {
+                let at_e = depth + vars + e;
+                let Term::Eq(_, x, p) = binders[vars + e].strip_loc() else {
+                    return skip("an overlap hypothesis isn't as stage 2a reads it");
+                };
+                find_places(p, at_e, depth, e, &mut Vec::new(), &mut places);
+                let x = remap(&g, x, at_e, under, &|l| {
+                    (l < depth).then(|| Term::Var(under - 1 - l))
+                })?
+                .ok_or_else(|| {
+                    Stop::Skip("an overlap hypothesis's value depends on its variables".into())
+                })?;
+                sides.push(x);
+                let root_ty =
+                    stitchwort_core::value::quote(&g, depth, &force(&g, eval(&g, &env, ty)?)?)?;
+                let Term::Data(root, args) = root_ty.strip_loc() else {
+                    return skip("an overlap hypothesis's equation isn't about a data type");
+                };
+                if !g.data(*root).indices().is_empty() {
+                    return skip(
+                        "an overlap hypothesis on an indexed family isn't established by stage 2a",
+                    );
+                }
+                let args = (args.iter())
+                    .map(|a| Ok(a.shift(&g, under - depth, 0)?))
+                    .collect::<R<Vec<Term>>>()?;
+                roots.push(args);
+            }
+        }
+        // Each variable read off the equation's side here, and off the
+        // motive's `y`.
+        let mut from_x: Vec<Option<Term>> = vec![None; vars];
+        let mut from_y: Vec<Option<Term>> = vec![None; vars];
+        for (v, place) in places.iter().enumerate() {
+            let Some((e, path)) = place else { continue };
+            from_x[v] =
+                Some(self.project(sides[*e].clone(), &sides[*e], &roots[*e], path, under)?);
+            from_y[v] = Some(self.project(Term::Var(1), &sides[*e], &roots[*e], path, under)?);
+        }
+        let read = self.shapes[j]
+            .as_ref()
+            .ok()
+            .and_then(|s| s.guard.as_ref())
+            .ok_or_else(|| Stop::Skip("an earlier arm's condition wasn't read".into()))?;
+        let blib = self.e.branch_lib()?;
+        let g = self.g();
+        // Under `h'`, the condition at the values here: `Void` from it and
+        // the fact, in the form `NotGuard` states the fact.
+        let fact = fact.shift(&g, top + 1 - at, 0)?;
+        let h = Term::Var(0);
+        let (is_prop, cond) = read.stated();
+        let bool_clash = |x: bool| {
+            let motive = Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Eq(
+                        Some(Rc::new(blib.bool_ty())),
+                        Rc::new(Term::Var(1)),
+                        Rc::new(blib.bool_value(!x)),
+                    )),
+                )),
+            );
+            // `x = notX`, along `h': c = x` from the fact `c = notX`.
+            let swapped = Term::J(Rc::new(motive), Rc::new(fact.clone()), Rc::new(h.clone()));
+            let apart = if x {
+                blib.true_not_false
+            } else {
+                blib.false_not_true
+            };
+            Term::app(Term::Def(apart), swapped)
+        };
+        let void_here = if read.negated.is_some() {
+            Term::app(h.clone(), fact.clone())
+        } else if read.prop.is_some() {
+            Term::app(fact.clone(), h.clone())
+        } else if !is_prop {
+            bool_clash(true)
+        } else if let Some((_, x)) = blib.bool_test(cond) {
+            bool_clash(x)
+        } else {
+            Term::app(fact.clone(), h.clone())
+        };
+        let void = g
+            .env
+            .registry()
+            .data(Builtin::Void)
+            .ok_or_else(|| Stop::Skip("no `Void`".into()))?;
+        let mut proof = Term::Lam("h".into(), Icit::Explicit, Rc::new(void_here));
+        let stated = &binders[vars + eqs];
+        for e in (0..eqs).rev() {
+            let body = remap(&g, stated, top - 1, under, &|l| {
+                if l < depth || l >= depth + vars {
+                    return Some(Term::Var(under - 1 - l));
+                }
+                let v = l - depth;
+                match &places[v] {
+                    Some((e2, _)) if *e2 < e => from_x[v].clone(),
+                    Some((e2, _)) if *e2 == e => from_y[v].clone(),
+                    Some(_) => Some(Term::Var(under - 1 - l)),
+                    None => None,
+                }
+            })?
+            .ok_or_else(|| {
+                Stop::Skip(
+                    "an earlier arm's condition uses a variable its patterns don't bind".into(),
+                )
+            })?;
+            let motive = Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Pi(
+                        "_".into(),
+                        Icit::Explicit,
+                        Rc::new(body),
+                        Rc::new(Term::Data(void, Vec::new())),
+                    )),
+                )),
+            );
+            let eq = Term::Var(top - 1 - (depth + vars + e));
+            proof = Term::J(Rc::new(motive), Rc::new(proof), Rc::new(eq));
+        }
+        let names: Vec<(Name, Icit)> = (0..top - depth)
+            .map(|i| (format!("x{i}").into(), Icit::Explicit))
+            .collect();
+        Ok(lams(&names, Term::app(proof, Term::Var(0))))
+    }
+
+    /// `y` (at `at`, a value of the data type `args` are the arguments
+    /// of) projected along `path`: one hidden projection of a field per
+    /// step, whose value for another constructor is `x`'s field there.
+    fn project(
+        &mut self,
+        y: Term,
+        x: &Term,
+        args: &[Term],
+        path: &[(DataId, usize, usize)],
+        at: usize,
+    ) -> R<Term> {
+        let mut cur = y;
+        let mut x = x.clone();
+        let mut args = args.to_vec();
+        for (i, &(data, c, f)) in path.iter().enumerate() {
+            let (field, next) = {
+                let g = self.g();
+                let Some((xd, xc, fields)) = ctor_of(&g, &x) else {
+                    return skip(
+                        "a value isn't split where an earlier guarded arm's pattern has a \
+                         constructor",
+                    );
+                };
+                let decl = g.data(data);
+                if xd != data || xc != c || fields.len() <= f || args.len() != decl.params().len() {
+                    return skip("an earlier guarded arm's pattern doesn't match its value");
+                }
+                let np = args.len();
+                let ty = remap(&g, &decl.ctors()[c].fields[f].1, np + f, at, &|l| {
+                    (l < np).then(|| args[l].clone())
+                })?
+                .ok_or_else(|| {
+                    Stop::Skip("a pattern's field's type depends on an earlier field".into())
+                })?;
+                let next = if i + 1 < path.len() {
+                    let env: Vec<Value> = (0..at).map(Value::var).collect();
+                    let ty =
+                        stitchwort_core::value::quote(&g, at, &force(&g, eval(&g, &env, &ty)?)?)?;
+                    let Term::Data(_, a) = ty.strip_loc() else {
+                        return skip("a pattern's field isn't of a data type");
+                    };
+                    a.iter().map(|a| (**a).clone()).collect()
+                } else {
+                    Vec::new()
+                };
+                (fields[f].clone(), next)
+            };
+            let id = self.field(data, c, f)?;
+            cur = apps(
+                Term::Def(id),
+                (args.iter().map(|a| (a.clone(), Icit::Implicit)))
+                    .chain([(cur, Icit::Explicit), (field.clone(), Icit::Explicit)]),
+            );
+            x = field;
+            args = next;
+        }
+        Ok(cur)
+    }
+
+    /// The hidden projection of field `f` of constructor `c`
+    /// ([`Elaborator::induct_field`]).
+    fn field(&mut self, data: DataId, c: usize, f: usize) -> R<DefId> {
+        let key = format!("{data:?}.{c}.{f}");
+        if let Some(id) = self.fields.get(&key) {
+            return Ok(*id);
+        }
+        let n = self.fields.len() + 1;
+        let id = self.e.induct_field(self.d, data, c, f, n)?;
+        self.fields.insert(key, id);
+        self.made.push(id);
+        Ok(id)
     }
 
     /// The hidden definition that tells a constructor apart
@@ -3328,13 +3710,18 @@ impl Tree<'_> {
         for (h, how) in rp.hyps.iter().enumerate() {
             let at = rp.nvars + h;
             let proof = match how {
-                HypProof::Refute { vars, eqs, guarded } => {
+                HypProof::Refute {
+                    row,
+                    vars,
+                    eqs,
+                    guarded,
+                } => {
                     let ty = at_leaf(self, &rp.binders[at].2, at, &terms)?;
                     let types: Vec<Term> = eqs
                         .iter()
                         .map(|&j| at_leaf(self, &rp.binders[j].2, j, &terms))
                         .collect::<R<_>>()?;
-                    self.refute(&ty, *vars, &types, *guarded, to)?
+                    self.refute(&ty, *vars, &types, guarded.then_some(*row), to)?
                 }
                 HypProof::Fact(j) => {
                     let (_, fact, at) =
