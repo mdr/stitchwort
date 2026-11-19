@@ -1481,12 +1481,24 @@ ignores the motive's last argument.
 - **An inner call first.** `ack k (ack (Succ k) j)` gives the inner call's
   `ih` and then the outer's. A call under a binder whose arguments don't
   mention it (a thunk of `&&` or `||`) has its `ih` like any other.
+- **A call inside a `match` that isn't in tail position** (SW-4262: `c &&
+  (match step owed x with | None => False | Some still => stands still
+  rest)`) has its `ih` under the alternative it is in: quantified over the
+  alternative's variables, with its equation as a premise, `ih: (still: Nat)
+  → step owed x = Some still → motive still rest (stands still rest)`. A
+  nested pattern gives one premise per level (`o = Some value → (a: Nat) →
+  (b: List Nat) → value = [a, ..b] → …`), a number literal `x = 7`, and a
+  catch-all one `ih` for each constructor it covers (`ih1`, `ih2`, …); a
+  catch-all of numbers has no premise. A `decreasing` definition's call
+  keeps its decrease proof, which may use the `match h:`'s equation `h`
+  (`examples/accept/function-induct-nontail-match.sw`).
 - **Not generated** (`E-NO-EQUATION` with the reason, and in `doc`'s list): a
   definition with a case whose equation isn't generated (above), or with an
   overlap hypothesis that a number or character `match` refines; one that
   calls itself with an argument that depends on a binder (a function given to
-  `List.map`) or inside a lifted `match` or local definition that isn't in tail
-  position; one with a lifted `match` with a number literal above 64, or a
+  `List.map`), or inside a `match` that isn't in tail position on an indexed
+  family (`examples/reject/match-induct-nontail-indexed.sw`); one with a lifted
+  `match` with a number literal above 64, or a
   nested pattern on an indexed type, or a catch-all whose earlier alternative
   differs from it only inside a field of a type parameter's type, at a type
   with variables (`Some None`, then `_`, on `Option (Option a)`); a mutual

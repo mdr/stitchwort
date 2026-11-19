@@ -552,10 +552,16 @@ Import what you use: std's theorems live in namespaces that need an import
   the induction hypothesis `ih`. Reach for it whenever you would write a
   `match` on `f`'s scrutinees plus a guard or step lemma to say what `f`
   does in each case (`examples/accept/match-induct-std.sw`,
-  `examples/accept/match-induct.sw`). It doesn't yet split a guarded,
-  partly overlapped arm into its cases, or give an induction hypothesis
-  for a recursive call inside a non-tail `match` (functional-induction.md,
-  G1 and G2): there, fall back to the hand-built `match`.
+  `examples/accept/match-induct.sw`). A recursive call inside a `match`
+  that isn't `f`'s last step (`c && (match step owed x with | Some still
+  => f still rest | …)`) gets an `ih` under that alternative, with its
+  equation as a premise: `ih: (still: Nat) → step owed x = Some still →
+  …`; in the proof, `match hs: step owed x with` and pass `ih still
+  byComputing` (the alternative refines the premise to `Some still = Some
+  still`), `examples/accept/function-induct-nontail-match.sw`. It doesn't
+  yet split a guarded, partly overlapped arm into its cases
+  (functional-induction.md, G1): there, fall back to the hand-built
+  `match`.
 - **Arms have equations.** Every `def` with arms gets `f.eq1`, `f.eq2`, …
   (one for each arm, in the order written): the call on that arm's patterns
   equals its body. An arm an earlier arm overlaps takes a hypothesis for

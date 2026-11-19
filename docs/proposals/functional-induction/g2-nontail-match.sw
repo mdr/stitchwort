@@ -1,4 +1,5 @@
--- Expected to fail (E-NO-INDUCT): a recursive call inside a `match` under `&&` (§3.1, gap G2).
+-- Failed (E-NO-INDUCT) before SW-4262: a recursive call inside a `match` under `&&` (§3.1, gap G2).
+-- Now `stands.induct` exists; examples/accept/function-induct-nontail-match.sw proves with it.
 import Std (Bool, Eq, List, Nat, Option)
 
 def step (owed x: Nat): Option Nat := if x == 0 then None else Some (owed + x)
