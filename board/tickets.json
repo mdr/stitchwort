@@ -27513,8 +27513,8 @@
     {
       "id": 4248,
       "title": "[Sonnet] Pre-commit format hook prefers the main checkout's target/release/stitchwort over the worktree's own (its comment says the reverse): fix the order; workflow.md 'Pre-commit hook' says which binary runs (SW-4236 needed --no-verify for new syntax)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -27617,8 +27617,8 @@
     {
       "id": 4256,
       "title": "[Sonnet] Delete unneeded [p := …]/[j := …] spellings across the rest of tools/fmt (SW-4245's 4 files kept 53 of 434): run the delete-and-restore scripts (scratchpad sw4245-scripts: iter.py, prune.py, steps.py, stats.py) file by file, keep what checks; promote the scripts to a task",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
