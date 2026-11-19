@@ -26213,12 +26213,12 @@
     {
       "id": 4150,
       "title": "[Sonnet] fmt multi-line read-back H7 (SW-4121 plan): the * + ++ and comparison chains: mulAccHung, mulHung, addAccHung, addBaseHung, addHung, appendHung, appendBaseHung, cmpAloneHung, cmpHung (ReadBackHungChains.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4150",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min.",
+      "body": "Est. 60 min.\n\nNotes (lane, 19 Nov 2026): all nine proved in ReadBackHungChains.sw, 8 min; shared hungParts (line rule over an infix's parts) in ReadBackHungChainsLemmas.sw. Statements unchanged. Audit: all nine fail only on unaryHung (H6, open). Commit 87772538f on lane/SW-4150.\n\nModel result: Sonnet, worked, 10 min (est. 60 min)\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
