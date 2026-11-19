@@ -26064,7 +26064,7 @@
     {
       "id": 4139,
       "title": "[Sonnet] fmt multi-line read-back H1+H2 (SW-4121 plan): hangsTokens, hungDeep (ReadBackHungDeep.sw); hungStops, boundsPast, boundsBlock, rightOfBound (ReadBackHungBounds.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4139",
       "labels": [],
