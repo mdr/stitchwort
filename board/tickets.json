@@ -27716,7 +27716,7 @@
     {
       "id": 4263,
       "title": "[Sonnet] Functional induction D: or-patterns of match induct cases, dot-form calls, a ? hole listing every case, editor code action",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
