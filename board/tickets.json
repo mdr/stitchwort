@@ -26135,12 +26135,12 @@
     {
       "id": 4144,
       "title": "[Sonnet] fmt S1 comments anywhere E1: homedOfSettled (Fmt.ElementsProofs): a settled1 declaration is homed1 node by node (SW-4130 plan)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4144",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 30 min. Folds in SW-4082 where it applies.",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 30 min. Folds in SW-4082 where it applies.\n\nLane notes (Sonnet): homedOfSettled proved in new Fmt/ElementsHomed.sw (homed1 defs moved there from ElementsProofs); commit b2dc6ccdb on lane/SW-4144; check Fmt.ElementsProofs: 0 errors, goal gone; audit Fmt.ElementsHomed: 0 failed, 3 vacuity warnings. About 15 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
