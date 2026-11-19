@@ -22,7 +22,7 @@ import Fmt.Grammar1 (..)
 import Fmt.Walk (..)
 import Fmt.Proofs (blankPure, blankAgrees)
 import Fmt.SettleOutputProofs (groupTokens, splitTokens)
-import Syntax.SettleProofs (alphabet1, plain1, tokens)
+import Syntax.SettleProofs (alphabet1, plain1, sourcePlainOfPlain, tokens)
 import Syntax.GoodItemProofs (settledOnceTokens, spelledPlain1)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ParseWalkOthers (parseCarriesSourceProved)
@@ -292,7 +292,10 @@ theorem settledPlaced1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
       ∧ settled.end = lexed.settledOnce.end.comments :=
   let (settled, settles, alike, inGrammar) := settledParses1 lexed file parses grammar plain
   let (words, ends) :=
-    parseCarriesSourceProved source lexed settled lexes alphabet spelled plain settles (within settled settles)
+    parseCarriesSourceProved source lexed settled lexes alphabet spelled
+      (sourcePlainOfPlain _ plain)
+      settles
+      (within settled settles)
   (settled, settles, alike, inGrammar, words, ends)
 
 -- Slice 1 declarations lower.

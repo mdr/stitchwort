@@ -26058,7 +26058,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4131-own-line-comma.md. Model: Opus. Est. 45-90 min, low confidence.",
+      "body": "\ndocs/reviews/SW-4131-own-line-comma.md. Model: Opus. Est. 45-90 min, low confidence.\n\nOrchestrator 19 Nov: SW-4137 crossed SW-4129: Fmt.SettleParseProofs.settledPlaced1 still takes plain1 while the driver now tests sourcePlain1; fixed on main by weakening at the call (sourcePlainOfPlain). For formatAccepts1, settledParses1/settledPlaced1 should take sourcePlain1 (or SW-4133's whole-parser route drops it): do it here or in SW-4133.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
