@@ -1,5 +1,5 @@
 {
-  "next": 4275,
+  "next": 4276,
   "tickets": [
     {
       "id": 47,
@@ -27281,12 +27281,12 @@
     {
       "id": 4230,
       "title": "[Sonnet] Printer triple lemmas (passesCons, passesAppend, …): make kinds/pre/middle/post implicit where inferable, removing explicit arguments at every use (SW-4222 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).",
+      "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).\n\n\nLane note (Sonnet): passesCons, passesAppend, passesLast, passesTwo, passesFrom, passesTo, allFrom, allTo made implicit in Fmt/JoinProofs.sw; passesNil kept explicit. Commit 8bc3222d1 on lane/SW-4230. Whole-project check 0 errors, goal none, Fmt.Tests 441 passed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27865,6 +27865,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-4198. Est. 30 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4275,
+      "title": "[Sonnet] Printer constructor lemmas (passesConcat, passesNest, passesGroup, passesFlatten, passesIfBroken, passesDisplaced, …) and passesNil: implicit kinds/pre/post where inferable, as SW-4230 did for the triple lemmas",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4230. Est. 30 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
