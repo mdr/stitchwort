@@ -27236,8 +27236,8 @@
     {
       "id": 4227,
       "title": "[Sonnet] fmt consolidation: 59 same-name-different-statement theorem pairs across Fmt/Syntax (SW-4209 list on its ticket): rename each to say what it states, merge allReverseOnto's identical copies and givesLocated if equal, move one-line Bool lemmas onto std's Bool.andFalseRight/orFalse*",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
