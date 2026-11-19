@@ -26815,12 +26815,12 @@
     {
       "id": 4195,
       "title": "[Sonnet] Slice 1 checkpoint measurements (proof plan §4): theorems per layer vs the S1 sketch's counts, lane minutes and theorems per agent hour, lines per theorem and five longest proofs, share of helpers/dispatchers/bookkeeping, project check time, harness score for repo declarations within slice 1, top five frictions with tickets; written into tools/fmt/NOTES.md plus a one-screen summary for Matt",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 35 min.",
+      "body": "Est. 35 min.\n\n\nLane notes (Sonnet, 19 Nov): checkpoint done, about 10 min. Overall 6,031 theorems vs sketch 945-1,390 (4.3-6.4x), 87/h, 69 lane hours; stop rules fire (count over 2x, all layers over 2x, projection). Filed SW-4197..4201. Numbers: docs/reviews/SW-4195-slice1-checkpoint-numbers.md; tables: tools/fmt/NOTES.md. Model result: sonnet, worked, ~12 min (est. 35).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
