@@ -26026,13 +26026,13 @@
     {
       "id": 4136,
       "title": "[Sonnet] stitchwort goal: a namespace filter (goal NS…) so lanes can list open goals of what they touched without a 4-minute project-wide run (SW-4126, SW-4120 friction)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4136",
       "labels": [
         "cli"
       ],
-      "body": "",
+      "body": "\n\nProgress: goal NS… implemented (commit b4e03a67c on lane/SW-4136); new test and two existing goal tests pass; clippy clean.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
