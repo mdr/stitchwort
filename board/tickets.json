@@ -27850,7 +27850,7 @@
     {
       "id": 4273,
       "title": "[Sonnet] Narrow the imports of ParseWalkOthers and ParseCarriesDecl (each still depends on nearly every ParseWalk* part after SW-4216's split), moving theorems if that lets an importer drop a part",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
