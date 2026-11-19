@@ -195,8 +195,7 @@ theorem fieldPatternsWalk ∀ (fields: List FieldPattern):
       = blankFieldPatterns (walkFieldPatterns meaningPure fields) :=
   match fields with
     | [] => byComputing
-    | [{ name, value = None }, ..rest] => rewrite fieldPatternsWalk rest
-    | [{ name, value = Some (equals, pattern) }, ..rest] => rewrite fieldPatternsWalk rest
+    | [{ name, value = (None | Some (_, _)) }, ..rest] => rewrite fieldPatternsWalk rest
 
 theorem fieldsPatternWalk ∀ (fields: FieldsPattern):
     (walkFields meaningPure fields.blank).blank = (walkFields meaningPure fields).blank :=

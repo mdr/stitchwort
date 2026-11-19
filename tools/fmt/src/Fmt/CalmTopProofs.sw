@@ -55,20 +55,7 @@ theorem headerToppedWithin ∀ (header: Header)
         exportKeyword = None,
         opaqueKeyword = None,
         kind = DefPlain,
-        keyword = { above = [], after, blankBefore },
-        name,
-        forallKeyword = None,
-        params = [],
-        colon,
-        result,
-        decreasingClause = None,
-        unfoldingClause = None
-      } => within
-    | {
-        exportKeyword = None,
-        opaqueKeyword = None,
-        kind = DefPlain,
-        keyword = { above = [first, ..rest], after, blankBefore },
+        keyword = { above = ([] | [_, .._]), after, blankBefore },
         name,
         forallKeyword = None,
         params = [],
@@ -283,20 +270,7 @@ theorem printDeclsTopFlag ∀ (printed: Decl → Option Text) (attributes: List 
         exportKeyword,
         opaqueKeyword,
         kind,
-        keyword = { above = [], after, blankBefore },
-        name,
-        forallKeyword,
-        params,
-        colon,
-        result,
-        decreasingClause,
-        unfoldingClause
-      } => rewrite same
-    | {
-        exportKeyword,
-        opaqueKeyword,
-        kind,
-        keyword = { above = [first, ..more], after, blankBefore },
+        keyword = { above = ([] | [_, .._]), after, blankBefore },
         name,
         forallKeyword,
         params,

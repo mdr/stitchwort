@@ -2562,12 +2562,7 @@ theorem dataWalk ∀ (attributes: List Attributes) (isInterface: Bool) (keyword:
         (blankGroups (walkGroups blankPure params))
         (indicesKey indices)
         (dataBodyKey body) :=
-  match indices, body with
-    | None, Abstract | Synonym _ _ | RecordBody _ _ | Sum _ _ => byComputing
-    | Some { colon, steps, last }, Abstract => byComputing
-    | Some { colon, steps, last }, Synonym equals annotation => byComputing
-    | Some { colon, steps, last }, RecordBody equals fields => byComputing
-    | Some { colon, steps, last }, Sum equals constructors => byComputing
+  match indices, body with | None | Some _, Abstract | Synonym _ _ | RecordBody _ _ | Sum _ _ => byComputing
 
 theorem alikeAbstract: DataBodyAlike Abstract Abstract := byComputing
 

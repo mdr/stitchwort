@@ -248,8 +248,7 @@ def Omega.NTerm.lin: (term: Omega.NTerm) → Omega.Row
   | NLit n => MkRow (OfNat n) [] []
   | NAdd a b => Omega.Row.add (Omega.NTerm.lin a) (Omega.NTerm.lin b)
   | NSucc a => Omega.Row.add (Omega.NTerm.lin a) Omega.Row.one
-  | MulLeft k t => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
-  | MulRight t k => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
+  | MulLeft k t | MulRight t k => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
 
 --| An `Int` term's linear form.
 def Omega.ITerm.lin: (term: Omega.ITerm) → Omega.Row
@@ -258,8 +257,7 @@ def Omega.ITerm.lin: (term: Omega.ITerm) → Omega.Row
   | INegSucc t => Omega.Row.sub (MkRow (NegSucc 0) [] []) (Omega.NTerm.lin t)
   | IAdd a b => Omega.Row.add (Omega.ITerm.lin a) (Omega.ITerm.lin b)
   | INeg a => Omega.Row.scale (NegSucc 0) (Omega.ITerm.lin a)
-  | IMulLeft k t => Omega.Row.scale k (Omega.ITerm.lin t)
-  | IMulRight t k => Omega.Row.scale k (Omega.ITerm.lin t)
+  | IMulLeft k t | IMulRight t k => Omega.Row.scale k (Omega.ITerm.lin t)
   | ISubNat a b => Omega.Row.sub (Omega.NTerm.lin a) (Omega.NTerm.lin b)
 
 --| The row of `a <= b`, which is `b - a >= 0`. The convention, all through this one row: `a <= b` is `b - a >= 0`;

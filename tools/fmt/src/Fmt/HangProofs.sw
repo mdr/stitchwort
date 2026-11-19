@@ -689,8 +689,7 @@ theorem openedSome ∀ (state: HangState) (column: Nat)
     (inForce (openedBy state (Some column)).blocks (openedBy state (Some column)).top <= column) = True :=
   match state, left with
     | { blocks, top, start = False, glue }, left => rewrite staleBlocks column blocks then left
-    | { blocks = [], top, start = True, glue }, _ => rewrite Nat.leRefl column
-    | { blocks = [block, ..outer], top, start = True, glue }, _ => rewrite Nat.leRefl column
+    | { blocks = ([] | [_, .._]), top, start = True, glue }, _ => rewrite Nat.leRefl column
 
 --| After a word written at a seat, nothing is in force right of the line's indentation.
 --|
@@ -828,9 +827,7 @@ theorem openedQuiet ∀ (state: HangState) (start: Option Nat)
     (quiet: state.start = False)
     (unglued: state.glue = False):
     openedBy state start = state :=
-  match state, quiet, unglued with
-    | { blocks = [], top, start = False, glue = False }, _, _ => byComputing
-    | { blocks = [block, ..outer], top, start = False, glue = False }, _, _ => byComputing
+  match state, quiet, unglued with | { blocks = ([] | [_, .._]), top, start = False, glue = False }, _, _ => byComputing
 
 --| `doc`, a later part of an element, after words, folds back to where it started: from where an element ended
 --| (a comment waiting only if `before`), with nothing in force right of the construct's indentation and no item,

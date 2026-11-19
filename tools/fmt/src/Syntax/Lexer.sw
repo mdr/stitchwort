@@ -195,8 +195,7 @@ def qualifiedOn (more: Nat) (upper: Bool) (found: Option Bool) (input: List Char
 
 def wordKind (afterDot: Bool) (word: Text): Tok := match word with
   | "_" => Underscore
-  | "exists" if afterDot => Lower
-  | "forall" if afterDot => Lower
+  | "exists" | "forall" if afterDot => Lower
   | "Type" => TypeU
   | "Prop" => PropU
   | _ =>

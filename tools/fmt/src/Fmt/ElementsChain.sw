@@ -245,8 +245,7 @@ theorem gluedSome ∀ (state: HangState) (column: Nat)
     (inForce (gluedBy state (Some column)).blocks (gluedBy state (Some column)).top <= column) = True :=
   match state, left with
     | { blocks, top, start = False, glue }, left => rewrite staleBlocks column blocks then left
-    | { blocks = [], top, start = True, glue }, _ => rewrite Nat.leRefl column
-    | { blocks = [block, ..outer], top, start = True, glue }, _ => rewrite Nat.leRefl column
+    | { blocks = ([] | [_, .._]), top, start = True, glue }, _ => rewrite Nat.leRefl column
 
 --| `->` at the start of a line, right of what is in force: it ends mid-line with the fold glued.
 theorem lineArrowHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (state: HangState)
