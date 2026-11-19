@@ -26854,8 +26854,8 @@
     {
       "id": 4198,
       "title": "[Sonnet] proving guide: one section of proof-language behaviours lanes rediscover (SW-4195 friction 2): && and ++ associativity, != is the proposition (use == ... = False), method imports by name don't parse and (..) name clashes, rewrite rejects definition names, a match refines hypotheses so later rewrites find nothing, ?name holes rarely print goals",
-      "status": "next",
-      "agent": "Sonnet",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
