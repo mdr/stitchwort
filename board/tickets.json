@@ -27971,7 +27971,7 @@
     {
       "id": 4282,
       "title": "[Sonnet] Printer lemma families read their arguments off the premises (hangs…, steps…), as SW-4230 did for passes… (survey target 1, part A)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
