@@ -4,17 +4,21 @@
 namespace Fmt.LaysRules
 import Std (Bool, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
-import Std.Doc.Proofs (..)
+import Std.Doc.Proofs (closesText, isLayout, wordFilled)
 import Syntax (Comments, Expr, Note, Word)
 import Fmt (..)
 import Fmt.LaysKinds (..)
 import Fmt.DeclFactsProofs (commentIs)
-import Fmt.SpellProofs (afterSound, notesSound)
+import Fmt.SpellProofs (..)
 import Fmt.HangProofs (solidLine, solidSpaces)
 
 --| Where an element may start: not at the start of the output, and with a comment waiting only if the code before
 --| ends its line with one (`before`).
 def Calm (kinds: Kinds) (before: Bool): Bool := !kinds.start && (!kinds.held || before)
+
+--| Where an element may start when its first token's own-line comments are written by an enclosing element
+--| (`hoisted`): its text then starts it, wherever the printer is.
+def Starts (hoisted before: Bool) (kinds: Kinds): Bool := (hoisted || !kinds.start) && (!kinds.held || before)
 
 --| Where an element leaves the printer: words on its line, and a comment waiting only if the element ends its line
 --| with one (`trails`).
@@ -292,11 +296,19 @@ theorem leadBool ∀ (held before flag: Bool)
     | False, _, False, _, _ => byComputing
     | True, True, False, _, _ => byComputing
 
+theorem startsHeld ∀ (hoisted before: Bool) (kinds: Kinds)
+    (starts: Starts hoisted before kinds = True):
+    (!kinds.held || before) = True :=
+  match kinds, before, starts with
+    | { start, broken, mid, held = False }, _, _ => byComputing
+    | { start, broken, mid, held = True }, True, _ => byComputing
+    | { start, broken, mid, held = True }, False, _ => cases
+
 theorem calmLead ∀ (flag before: Bool) (kinds: Kinds)
-    (calm: Calm kinds before = True)
+    (ok: (!kinds.held || before) = True)
     (unnoted: flag = False):
     LeadHeld flag before kinds = True :=
-  match kinds, calm with | { start = False, broken, mid, held }, calm => leadBool held before flag calm unnoted
+  leadBool kinds.held before flag ok unnoted
 
 theorem calmNotStart ∀ (kinds: Kinds) (before: Bool) (calm: Calm kinds before = True): NotStart kinds = True :=
   match kinds, calm with | { start = False, broken, mid, held }, _ => byComputing
@@ -447,15 +459,16 @@ theorem leadingStep ∀ (text: Text) (above: List Note) (after: Option Text) (bl
     (home: isCloserText text = True → around.hoisted = False):
     StepAll
       (Word.leading ({ text, comments = { above, after, blankBefore } }) around key)
-      (kinds => Calm kinds around.before)
+      (Starts around.hoisted around.before)
       (LeadHeld (!above.isEmpty && isCloserText text) around.before) :=
   match above, around.hoisted, home with
     | above, True, home =>
       match above, isCloserText text, home with
         | _, True, home => (Bool.falseNotTrue (home byComputing).flipped).impossible
-        | [], False, _ => kinds holds => (kinds, byComputing, calmLead _ around.before kinds holds byComputing)
+        | [], False, _ => kinds holds =>
+          (kinds, byComputing, calmLead _ around.before kinds (startsHeld True around.before kinds holds) byComputing)
         | [first, ..rest], False, _ => kinds holds =>
-          (kinds, byComputing, calmLead _ around.before kinds holds byComputing)
+          (kinds, byComputing, calmLead _ around.before kinds (startsHeld True around.before kinds holds) byComputing)
     | [], False, _ =>
       match around.item && blankBefore with
         | True =>
@@ -486,7 +499,8 @@ theorem leadingStep ∀ (text: Text) (above: List Note) (after: Option Text) (bl
                 (stepAllOne Blank Fresh NoHeld stepBlank)
                 (kinds good => good)
                 (kinds good => noHeldLead _ _ kinds good)))
-        | False => kinds holds => (kinds, byComputing, calmLead _ around.before kinds holds byComputing)
+        | False => kinds holds =>
+          (kinds, byComputing, calmLead _ around.before kinds (startsHeld False around.before kinds holds) byComputing)
     | [first, ..rest], False, _ =>
       match isCloserText text with
         | True => closerLeadStep first rest key around.before sound
@@ -695,14 +709,121 @@ theorem leafStep ∀ (text: Text) (above: List Note) (after: Option Text) (blank
     (home: isCloserText text = True → around.hoisted = False):
     Step
       (Word.leaf ({ text, comments = { above, after, blankBefore } }) around key)
-      (kinds => Calm kinds around.before)
+      (Starts around.hoisted around.before)
       (kinds => Ends kinds (after.isSome || (isCloserText text && around.before))) :=
   stepDocConcat _ _ _
     (stepAllAppend
       (Word.leading ({ text, comments = { above, after, blankBefore } }) around key)
       (leafRest text (!above.isEmpty) after around.before key)
-      (kinds => Calm kinds around.before)
+      (Starts around.hoisted around.before)
       (LeadHeld (!above.isEmpty && isCloserText text) around.before)
       (kinds => Ends kinds (after.isSome || (isCloserText text && around.before)))
       (leadingStep text above after blankBefore around key notes home)
       (restStep text above after around.before key solid comma closes comment))
+
+-- Elements.
+
+--| Where a bracket's contents, or the rest of a node, start: words on the line or not, no comment waiting.
+theorem displacedStep ∀ (doc: Doc) (pre post: Kinds → Bool)
+    (inner: Step doc NoHeld post):
+    Step (Displaced doc) pre post :=
+  kinds holds => inner { kinds | broken = kinds.broken || kinds.held, held = False } byComputing
+
+theorem leadHeldNo ∀ (flag: Bool) (kinds: Kinds) (held: LeadHeld flag False kinds = True): NoHeld kinds = True :=
+  match kinds, held with | { start, broken, mid, held = False }, _ => byComputing
+
+--| A node's own-line comments before its first token, and its document after them, displaced if a comment puts its
+--| first line below where the construct would.
+--|
+--| Proof idea: the comments (`leadingStep`), then the document, from a place with no comment waiting: `Displaced`
+--| forgets the waiting comment, and when it isn't displaced none waits (`before` is false).
+theorem framedStep ∀ (first: Word) (around: Around) (doc: Doc) (trails: Bool)
+    (sound: first.sound = True)
+    (open: isCloserText first.text = False)
+    (inner: Step doc NoHeld (kinds => Ends kinds trails)):
+    Step (framedBy first around doc) (Starts around.hoisted around.before) (kinds => Ends kinds trails) :=
+  match first with
+    | { text, comments = { above, after, blankBefore } } =>
+      stepDocConcat _ _ _
+        (stepAllCons
+          (Doc.concat (Word.leading ({ text, comments = { above, after, blankBefore } }) around around.at))
+          [if !above.isEmpty || around.before then Displaced doc else doc]
+          (Starts around.hoisted around.before)
+          (LeadHeld (!above.isEmpty && isCloserText text) around.before)
+          (kinds => Ends kinds trails)
+          (stepDocConcat _ _ _
+            (leadingStep text above after blankBefore around around.at (Bool.andLeft (Bool.andRight sound)) (closed =>
+              Void.impossible (Bool.falseNotTrue (Eq.trans open.flipped closed)))))
+          (stepAllOne
+            (if !above.isEmpty || around.before then Displaced doc else doc)
+            (LeadHeld (!above.isEmpty && isCloserText text) around.before)
+            (kinds => Ends kinds trails)
+            (match found: !above.isEmpty || around.before with
+              | True => displacedStep doc _ _ inner
+              | False =>
+                stepWeaken doc NoHeld
+                  (LeadHeld (!above.isEmpty && isCloserText text) around.before)
+                  (kinds => Ends kinds trails)
+                  (kinds => Ends kinds trails)
+                  inner
+                  (kinds good =>
+                    leadHeldNo
+                      (!above.isEmpty && isCloserText text)
+                      kinds
+                      (rewrite Bool.orFalseRight _ _ found at good))
+                  (kinds good => good))))
+
+theorem markPass ∀ (flag: Bool) (at: Nat) (rest: List Doc) (kinds: Kinds):
+    laysAllKinds ((if flag then [Mark at] else []) ++ rest) kinds = laysAllKinds rest kinds :=
+  match flag with
+    | True => byComputing
+    | False => byComputing
+
+theorem markConcat ∀ (flag: Bool) (at: Nat) (rest: List Doc) (kinds: Kinds):
+    laysKinds (Doc.concat ((if flag then [Mark at] else []) ++ rest)) kinds = laysAllKinds rest kinds :=
+  Eq.trans (concatKinds _ kinds) (markPass flag at rest kinds)
+
+theorem plainRestNone ∀ (text: Text) (kinds: Kinds)
+    (solid: isLayout text = False)
+    (comma: (text == ",") = False)
+    (open: isCloserText text = False):
+    laysAllKinds ([piece text] ++ []) kinds = Some { Kinds.none | mid = True } :=
+  rewrite open, comma, textKinds text solid kinds
+
+theorem plainRestSome ∀ (text comment: Text) (kinds: Kinds)
+    (solid: isLayout text = False)
+    (comma: (text == ",") = False)
+    (open: isCloserText text = False)
+    (is: commentText comment = True):
+    laysAllKinds ([piece text] ++ [LineSuffix comment]) kinds = Some { Kinds.none | held = True } :=
+  rewrite open, comma, textKinds text solid kinds, suffixKinds comment is { Kinds.none | mid = True } byComputing
+
+--| An opening bracket, its own-line comments written by an enclosing element: its text and trailing comment.
+theorem openingStep ∀ (text: Text) (above: List Note) (after: Option Text) (blankBefore: Bool)
+    (closer: Word) (around: Around)
+    (hoisted: around.hoisted = True)
+    (solid: isLayout text = False)
+    (comment: afterSound after = True)
+    (comma: (text == ",") = False)
+    (open: isCloserText text = False):
+    Step (Word.opening ({ text, comments = { above, after, blankBefore } }) around closer) Anything (kinds =>
+      Ends kinds after.isSome) :=
+  match around, hoisted with
+    | { before, hoisted = True, item, at, inArm }, _ =>
+      match after with
+        | None => kinds holds =>
+          (
+            { Kinds.none | mid = True },
+            Eq.trans
+              (markConcat (closer.noted || closer.trails) at _ kinds)
+              (plainRestNone text kinds solid comma open),
+            byComputing
+          )
+        | Some c => kinds holds =>
+          (
+            { Kinds.none | held = True },
+            Eq.trans
+              (markConcat (closer.noted || closer.trails) at _ kinds)
+              (plainRestSome text c kinds solid comma open comment),
+            byComputing
+          )
