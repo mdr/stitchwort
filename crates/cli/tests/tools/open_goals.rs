@@ -438,6 +438,36 @@ fn goal_lists_every_open_goal_with_what_relies_on_it() {
     );
 }
 
+/// `goal NAMESPACE` checks only that namespace and what it uses, and lists
+/// the open goals in it (SW-4136): not the other namespaces' goals.
+#[test]
+fn goal_with_a_namespace_lists_only_its_open_goals() {
+    let dir = project("goal-ns", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/z.sw"),
+        "namespace Other\n\ntheorem later (n: Nat): n * 1 = n := ?\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["goal", "Other"]);
+    let stdout = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{}", text(&out.stderr));
+    assert!(stdout.starts_with("1 goal open\n"), "{stdout}");
+    assert!(stdout.contains("`Other.later`  "), "{stdout}");
+    assert!(!stdout.contains("Book."), "{stdout}");
+    let json = stitchwort(&dir, &["goal", "Book", "--json"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let json: serde_json::Value = serde_json::from_slice(&json.stdout).expect("one JSON object");
+    assert_eq!(json["open"], 2);
+    assert!(
+        (json["goals"].as_array().unwrap().iter()).all(|g| {
+            g["declaration"]
+                .as_str()
+                .is_some_and(|d| d.starts_with("Book."))
+        }),
+        "{json}"
+    );
+}
+
 /// `goal --summary` counts the open goals per namespace, in the project's
 /// order, saying which are done, and the total: a reader working through a
 /// book sees their progress chapter by chapter (SW-2897, book gap G6).

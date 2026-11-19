@@ -670,6 +670,11 @@ enum Command {
     /// answer, 2 with none there or for a bad argument, 1 if the file
     /// doesn't parse
     Goal {
+        /// Namespaces of the project: list only the open goals in them and
+        /// under them, checking just these and what they use (as `check
+        /// NAMESPACE…` does), not the whole project
+        #[arg(conflicts_with_all = ["at", "summary"])]
+        targets: Vec<String>,
         /// FILE:LINE[:COL], 1-based; without COL, the line's first
         /// character that isn't a blank
         #[arg(long, value_name = "FILE:LINE[:COL]")]
@@ -1191,6 +1196,7 @@ fn run(cli: Cli) -> ExitCode {
             cache,
         } => axioms(&target, &names, project.as_deref(), &cache),
         Command::Goal {
+            targets,
             at,
             summary,
             json,
@@ -1203,7 +1209,7 @@ fn run(cli: Cli) -> ExitCode {
             }
             (Some(at), false) => goal_at(&at, project.as_deref(), json, &cache),
             (None, true) => goal_summary(project.as_deref(), json, &cache),
-            (None, false) => goal_list(project.as_deref(), json, &cache),
+            (None, false) => goal_list(&targets, project.as_deref(), json, &cache),
         },
         Command::Search {
             query,
@@ -3551,10 +3557,27 @@ fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> E
 /// version 1; `goals`, each with `declaration`, `file`, `line`, `column`,
 /// `goal` (what must be shown), `reliedOnBy`, `blocking` and
 /// `equationLemmas` (unfinished lemmas made for a definition with a `?`).
-fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
-    let Some((session, reliance, _)) = load_project_goals(project, cache) else {
+fn goal_list(
+    targets: &[String],
+    project: Option<&Path>,
+    json: bool,
+    cache: &CacheArgs,
+) -> ExitCode {
+    let target = if targets.is_empty() {
+        Target::Everything
+    } else {
+        Target::Namespaces(targets.to_vec())
+    };
+    let Some((session, mut reliance, _)) = load_project_goals(project, &target, cache) else {
         return ExitCode::FAILURE;
     };
+    if !targets.is_empty() {
+        reliance.goals.retain(|g| {
+            targets.iter().any(|t| {
+                (g.place.declaration.strip_prefix(t.as_str())).is_some_and(|r| r.starts_with('.'))
+            })
+        });
+    }
     if json {
         let goals: Vec<_> = reliance
             .goals
@@ -3643,17 +3666,13 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
 /// `goal`'s listings. `None` (reported) if the project can't be loaded.
 fn load_project_goals(
     project: Option<&Path>,
+    target: &Target,
     cache: &CacheArgs,
 ) -> Option<(Session, stitchwort_driver::reliance::Reliance, Vec<String>)> {
     let project = locate_project(project, "list goals of", "goal --at hello.sw:3")?;
     let mut session = new_session(false);
     use_cache(&mut session, cache, &project.dir);
-    let loaded = session.load_project_for(
-        &project.files,
-        &project.name,
-        &Target::Everything,
-        Load::Diagnostics,
-    );
+    let loaded = session.load_project_for(&project.files, &project.name, target, Load::Diagnostics);
     let order = match loaded {
         Ok(loaded) => loaded.checked,
         Err(diagnostics) => {
@@ -3671,7 +3690,8 @@ fn load_project_goals(
 /// their progress chapter by chapter. With `--json`: `namespaces` (`name`,
 /// `open`) and `open`.
 fn goal_summary(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
-    let Some((session, reliance, order)) = load_project_goals(project, cache) else {
+    let Some((session, reliance, order)) = load_project_goals(project, &Target::Everything, cache)
+    else {
         return ExitCode::FAILURE;
     };
     let mut counts: Vec<(&str, usize)> = order.iter().map(|ns| (ns.as_str(), 0)).collect();
