@@ -27669,15 +27669,17 @@
     {
       "id": 4260,
       "title": "[Sonnet] Functional induction A: fix B1 (match induct on a std function says it doesn't call itself unless f.induct is named elsewhere in the file; repro docs/proposals/functional-induction/b1-std-on-demand.sw) and add a match induct entry to docs/proving-guide.md; correct SW-4222 §6.2's premise",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 20 min.",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 20 min.\n\n\nProgress (lane, 19 Nov): B1 fixed in module.rs need scan (3749fe79e); example match-induct-std.sw + hash snapshot; proving guide entry; SW-4222 review corrected. Tests: examples sweeps (match-induct), hashes.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "3749fe79e"
+      ]
     },
     {
       "id": 4261,
