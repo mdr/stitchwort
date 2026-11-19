@@ -332,7 +332,7 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
     (behindWithin: behind.all kindWithin = True)
     (within: rest.all kindWithin = True)
     (agree: rest.all Leaf.agrees = True):
-    matched (homeFrom behind None rest).reverse (words.reverseOnto done) = True :=
+    matched (homeFrom False behind None rest).reverse (words.reverseOnto done) = True :=
   match rest with
     | [] =>
       match owed with
@@ -396,7 +396,7 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
                   match named: comment.text == text with
                     | True =>
                       let (steps, chain, placed) := owingPlaced text behind done comment state (DecEq.sound named)
-                      let walked: stepsBack leaf behind after 0 = Succ steps :=
+                      let walked: stepsBack False leaf behind after 0 = Succ steps :=
                         Eq.trans
                           (chainSteps leaf behind after
                             (Succ steps)
@@ -473,7 +473,7 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
                             | True =>
                               let (steps, chain, placed) :=
                                 owingPlaced text behind done comment state (DecEq.sound named)
-                              let walked: stepsBack leaf behind after 0 = Succ steps :=
+                              let walked: stepsBack False leaf behind after 0 = Succ steps :=
                                 Eq.trans
                                   (chainSteps leaf behind after
                                     (Succ steps)
@@ -1394,16 +1394,16 @@ theorem homedArrowsBare ∀ (file: SourceFile)
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True)
     (hung: file.hung1 = True)
-    (m: matched (homeFrom [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
-    Syntax.SettleProofs.arrowsBare (homeFrom [] None file.lexed1.leaves) = True :=
+    (m: matched (homeFrom False [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
+    Syntax.SettleProofs.arrowsBare (homeFrom False [] None file.lexed1.leaves) = True :=
   let leaves := file.lexed1.leaves
-  let homed := homeFrom [] None leaves
+  let homed := homeFrom False [] None leaves
   let laid :=
     lexLaid1 file.printed1 file.lexed1
       (printedFileLexes1 file within shaped settled lexical)
       (printedAlphabet1 file within shaped settled lexical)
   let marked: leaves.all isMarked = True := Bool.andLeft (Bool.andRight laid)
-  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens [] None leaves) byComputing
+  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens False [] None leaves) byComputing
   let markedHomed: homed.all isMarked = True :=
     Eq.trans (markedTokens homed) (rewrite tokensSame then Eq.trans (Eq.flipped (markedTokens leaves)) marked)
   let (bare, quiet) := wordsArrows file within lexical settled
@@ -1429,11 +1429,11 @@ theorem groupsBack ∀ (file: SourceFile)
     (hung: file.hung1 = True)
     (stood: file.stood1 = True)
     (unreturned: file.unreturned1 = True)
-    (m: matched (homeFrom [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
-    (groupsOf (homeFrom [] None file.lexed1.leaves)).map codeWords = file.calmTop.decls.map Decl.words :=
+    (m: matched (homeFrom False [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
+    (groupsOf (homeFrom False [] None file.lexed1.leaves)).map codeWords = file.calmTop.decls.map Decl.words :=
   let leaves := file.lexed1.leaves
-  let homed := homeFrom [] None leaves
-  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens [] None leaves) byComputing
+  let homed := homeFrom False [] None leaves
+  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens False [] None leaves) byComputing
   let groupsSame: groupTokens (groupsOf homed) = groupTokens (groupsFrom True file.decls) :=
     Eq.trans
       (splitTokens Splitter.start [] [] [] [] homed leaves tokensSame byComputing byComputing)
@@ -1683,7 +1683,7 @@ theorem printedSettle1 ∀ (file: SourceFile)
     (groupsOf file.lexed1.settled.leaves).map codeWords = file.calmTop.decls.map Decl.words
       ∧ file.lexed1.settled.end.comments = file.calmTop.end :=
   let leaves := file.lexed1.leaves
-  let homed := homeFrom [] None leaves
+  let homed := homeFrom False [] None leaves
   let (homedWords, texts) := wordsSettled1 file within settled
   let plain := printedPlain1 file within shaped settled lexical hung
   let leavesWithin := alphabet1Leaves leaves (printedAlphabet1 file within shaped settled lexical)
@@ -1698,7 +1698,7 @@ theorem printedSettle1 ∀ (file: SourceFile)
       (printedAgrees1 file within shaped settled lexical)
   let bare: homed.all bareComma = True :=
     rewrite <- List.reverseReverse homed then allReverseOnto bareComma homed.reverse [] (matchedBare _ _ m) byComputing
-  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens [] None leaves) byComputing
+  let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens False [] None leaves) byComputing
   let plainHomed: plainFrom (tokens homed) = True := rewrite tokensSame then plainFromOf (tokens leaves) plain
   let homedWithin := withinOfTokens homed leaves tokensSame leavesWithin
   let commasSame: commasFrom [] None homed file.lexed1.end = { leaves = homed, end = file.lexed1.end } :=
