@@ -26776,8 +26776,8 @@
     {
       "id": 4192,
       "title": "[Sonnet] fmt: prove markedSettles directly on settledOnce via startsWalk and delete the proof-side settledMarked/withMarkedLastCommas copy (~6 duplicated withMarkedR* lemmas) (SW-4183 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
