@@ -35,6 +35,7 @@ import Fmt.StandsProofs (..)
 import Fmt.OutputStatements (tidiedOf)
 import Fmt.OneLineStatements (..)
 import Fmt.Driver1 (..)
+import Fmt.ElementsKeys (LedAt, anyKeys, ledItemHangs)
 
 -- The invariant.
 
@@ -540,6 +541,22 @@ theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
               comments
               quiet
               hoistedHangs
+
+--| An expression with `AnyFacts` and own-line comments above its first token, standing where it writes them (not
+--| hoisted; an item or not), hangs from its seat at any entry but a plain line start under a kept blank line, its
+--| first token on the line after the comments (`ledItemHangs`, its hoisted form plain).
+theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
+    (note: Note) (rest: List Note)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True)
+    (sound: expr.sound = True)
+    (facts: AnyFacts expr)
+    (hoisted: around.hoisted = False)
+    (noted: expr.lead.comments.above = [note, ..rest])
+    (quiet: (plainStart entry && note.blankBefore && around.item) = False):
+    LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
+  ledItemHangs expr around indent state entry note rest within lexical sound hoisted noted quiet (inset =>
+    anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
 
 --| `ledHangs` for every slice 1 expression with the tree facts.
 theorem anyElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
