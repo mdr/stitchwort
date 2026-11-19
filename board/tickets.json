@@ -27340,8 +27340,8 @@
     {
       "id": 4235,
       "title": "[Sonnet] Proving guide: a std lemma named …Cong must have a matching function (validate_cong); how to derive a file's namespace for check NS (SW-4218 friction)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
