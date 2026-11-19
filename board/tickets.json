@@ -25904,12 +25904,12 @@
     {
       "id": 4127,
       "title": "[Sonnet] fmt multi-line read-back H4 (SW-4121): endsAtom, unaryEndsOf, endsAtOf without restOpen",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4127",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4121-multiline-readback.md, H4 and O-list. Model: Sonnet. Est. 20 min.\n\nLane note 19 Nov: restOpen dropped from endsAtom (case on modes.stops next), unaryEndsOf, endsAtOf and the chain above (arrowLine, inlinePlainLine, inlineLine, fullLine); callers fixed. Syntax.ReadBackLine, Fmt.TopReadBack, Fmt.TopStatements check; audit of Syntax.ReadBackLine 0 failed. Commit e85346d96 on lane/SW-4127.\n",
+      "body": "\ndocs/reviews/SW-4121-multiline-readback.md, H4 and O-list. Model: Sonnet. Est. 20 min.\n\nLane note 19 Nov: restOpen dropped from endsAtom (case on modes.stops next), unaryEndsOf, endsAtOf and the chain above (arrowLine, inlinePlainLine, inlineLine, fullLine); callers fixed. Syntax.ReadBackLine, Fmt.TopReadBack, Fmt.TopStatements check; audit of Syntax.ReadBackLine 0 failed. Commit e85346d96 on lane/SW-4127.\n\n\nMerged 19 Nov. Model result: Sonnet, worked, 8 min (est. 20). Hypotheses removed only (no new conditions).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -25930,9 +25930,9 @@
     {
       "id": 4129,
       "title": "[Opus] fmt S1 item 7 (SW-4120): prove rule N keeps the parse (parseFile of the settled leaves gives the tree of parseFile of the lexer's leaves, up to comment placement), linking inGrammar1 to the driver's parse",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4129",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4120-grammar1.md item 7. Model: Opus. Est. 60-90 min; may need a Fable sketch first.",
