@@ -16,8 +16,8 @@ use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 use crate::value::{
-    Value, proof_field, proof_param, quote_as_written_shown, quote_shown, quote_unfolded_shown,
-    same_term,
+    Value, proof_field, proof_param, quote_as_written_shown, quote_shown_at_most,
+    quote_unfolded_shown, same_term,
 };
 
 /// A declaration a printed name stands for.
@@ -180,10 +180,26 @@ fn def_display(name: &str) -> String {
 /// shown as `…`.
 const MESSAGE_LIMIT: usize = 240;
 
+/// The most nodes a value printed for a message or a goal is read back
+/// with ([`shown`]): the read-back size limit's default.
+const SHOWN_NODES: u64 = 2_000_000;
+
+/// `value` read back for printing, calls shown as written
+/// ([`crate::value::quote_shown`]), or, if a call that steps at once computes a value
+/// larger than [`SHOWN_NODES`] (`grow 30 (Leaf x)` in a hypothesis), every
+/// call as written ([`quote_as_written_shown`]): printing a goal never
+/// writes out a huge value (SW-4091; it once took 24 GB on one hypothesis).
+fn shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    match quote_shown_at_most(g, level, value, SHOWN_NODES)? {
+        Some(t) => Ok(t),
+        None => quote_as_written_shown(g, level, value),
+    }
+}
+
 /// Prints `value` for an error message: like [`value`], but a result longer
 /// than [`MESSAGE_LIMIT`] characters has its inner parts replaced by `…`,
 /// keeping the outermost layers. Calls are shown as written
-/// (`List.length xs`), not as what they compute to ([`quote_shown`];
+/// (`List.length xs`), not as what they compute to ([`crate::value::quote_shown`];
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
@@ -225,7 +241,7 @@ pub fn value_for_message_hidden_in(
 }
 
 fn value_hidden(g: &Ev, scope: Option<&dyn NameScope>, names: &[Name], value: &Value) -> String {
-    let Ok(t) = quote_shown(g, names.len(), value) else {
+    let Ok(t) = shown(g, names.len(), value) else {
         return "…".into();
     };
     let mut ns = names.to_vec();
@@ -548,7 +564,7 @@ pub fn term_for_goal_in(
 /// `Prop`, or a function type into it: the variable is a predicate, and
 /// applied to arguments it is a proposition.
 pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
-    let Ok(mut t) = quote_shown(g, level, ty) else {
+    let Ok(mut t) = shown(g, level, ty) else {
         return false;
     };
     loop {
@@ -577,7 +593,7 @@ fn value_within(
     prec: Prec,
     goal: Option<&[bool]>,
 ) -> String {
-    let Ok(t) = quote_shown(g, names.len(), value) else {
+    let Ok(t) = shown(g, names.len(), value) else {
         return "…".into();
     };
     term_within(g, scope, names, &t, limit, prec, goal)

@@ -733,6 +733,20 @@ Each was run on the example named; the output is quoted, shortened.
   `W-REWRITE-UNCONFIRMED` or `W-MATCH-UNCONFIRMED` (below). Where it
   isn't shown, it is still `E-RESOURCE`: state the lemma for any `limit`
   and instantiate it (AoC 2020 day 11's `settledExactly`).
+  A hypothesis that is only carried along no longer runs out either: a
+  `rewrite` at another hypothesis, a tuple `let` on a lemma's proof, or a
+  `match` on an expression reads every hypothesis back, and one whose calls
+  compute to something too large to write out (`big: q (grow 30 (Leaf x))`)
+  is read with its calls as written instead, and an open goal shows it that
+  way (`examples/accept/large-hypothesis-carried.sw`, SW-4091). A
+  `match` that can't see an occurrence of what it matches on inside such a
+  call leaves that hypothesis unrefined. What still runs out is a step whose
+  own target is that large, such as `rewrite same at big` itself: the error
+  points at the step. Then prove the step once with the large part as a
+  function's argument and apply it, so that the value is never written
+  out: with `transport (p: Nat → Prop) (x z: Nat) (e: x = z) (h: p x): p z
+  := rewrite e at h then h`, the step is
+  `transport (n => q (grow 30 (Leaf n))) x z same big`.
 - **`E-TYPE-MISMATCH` with a computed type**: the expected type is shown as
   it computes, which can look unlike what you wrote: `lcg seed < 2147483648`
   is expected as `… % 2147483648 ≤ 2147483647`, and `Nat.modLt _ _` with

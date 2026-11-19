@@ -2094,7 +2094,7 @@ impl Elaborator {
     fn goal_snapshot_of(&self, p: &Pending) -> Option<GoalSnapshot> {
         let g = &self.ev();
         let level = p.names.len();
-        let quote = |v: &Value| stitchwort_core::value::quote_folded(g, level, v).ok();
+        let quote = |v: &Value| crate::check::quote_folded(g, level, v).ok();
         let mut vars: Vec<SnapVar> = Vec::new();
         for e in &p.context {
             vars.push(SnapVar {

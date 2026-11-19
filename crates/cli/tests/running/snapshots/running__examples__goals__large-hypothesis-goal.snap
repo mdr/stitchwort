@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shown`
+    ╭─[ goals/large-hypothesis-goal.sw:13:109 ]
+    │
+ 13 │ theorem shown ∀ (x: Nat) (q: Tree → Prop) (big: q (grow 22 (Leaf x))): x + 0 = x := match x + 0 with | n => ?
+    │                                                                                                             ┬  
+    │                                                                                                             ╰── x: Nat
+    │                                                                                                                 q: Tree → Prop
+    │                                                                                                                 big✝: q (grow 22 (Leaf x))
+    │                                                                                                                 n: Nat
+    │                                                                                                                 big: q (grow 22 (Leaf n))
+    │                                                                                                                 ⊢ n = n
+────╯

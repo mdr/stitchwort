@@ -7,6 +7,7 @@ use std::rc::Rc;
 use crate::goals::StepForm;
 use crate::kernel;
 use crate::state::AppExpected;
+use stitchwort_core::budget::ResourceError;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
@@ -754,13 +755,10 @@ impl<'e> Ctx<'e> {
 
     /// [`Ctx::quote`] with calls written as calls, not their unfoldings
     /// (`value::quote_folded`): for terms the elaboration produces, such as
-    /// annotations and helper types.
+    /// annotations and helper types. A value too large to write out that
+    /// way is written as written instead ([`quote_folded`]).
     pub fn quote_folded(&self, value: &Value) -> Result<Term> {
-        Ok(stitchwort_core::value::quote_folded(
-            &self.g(),
-            self.level(),
-            value,
-        )?)
+        Ok(quote_folded(&self.g(), self.level(), value)?)
     }
 
     /// `Ok(false)` if `a` and `b` can't be made equal; an error if it ran out
@@ -10530,5 +10528,52 @@ mod tests {
             elaborate("(x => x: [a: Type] → a → a)").as_deref(),
             Ok("[a: Type] → a → a")
         );
+    }
+}
+
+/// The most nodes [`quote_folded`] writes out before writing calls as
+/// written instead: the read-back size limit's default, which also bounds a
+/// read-back outside any operation (printing an open goal), where no limit
+/// applies.
+const FOLDED_NODES: u64 = 2_000_000;
+
+/// `value::quote_folded`, or, where a call that steps at once computes a
+/// value too large to write out (`grow 30 (Leaf x)` in a hypothesis that
+/// is only along for the ride), every call written as the call
+/// (`value::quote_as_written`): a convertible term, so a `rewrite`, a
+/// `match` or an open goal that merely carries such a hypothesis doesn't
+/// run out, or fill the memory (SW-4091). Only a value too large that way
+/// too is an error, the first one. The elaborator's only: the kernel reads
+/// back as it always has.
+pub(crate) fn quote_folded(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<Term, ResourceError> {
+    use stitchwort_core::value::{quote_as_written, quote_folded_at_most};
+    let budget = &g.machine.budget;
+    // What a later report names as being unfolded, kept as it was if the
+    // fallback succeeds.
+    let ran_out_in = budget.take_ran_out_in();
+    budget.set_ran_out_in(ran_out_in);
+    let error = match quote_folded_at_most(g, level, value, FOLDED_NODES) {
+        Ok(Some(term)) => return Ok(term),
+        Ok(None) => None,
+        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => Some(e),
+        Err(e) => return Err(e),
+    };
+    let noted = budget.take_too_large();
+    let noted_in = budget.take_ran_out_in();
+    match quote_as_written(g, level, value) {
+        Ok(term) => {
+            budget.set_ran_out_in(ran_out_in);
+            Ok(term)
+        }
+        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
+            budget.set_too_large(noted);
+            budget.set_ran_out_in(noted_in);
+            Err(error.unwrap_or(e))
+        }
+        Err(e) => Err(e),
     }
 }
