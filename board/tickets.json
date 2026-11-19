@@ -26841,12 +26841,12 @@
     {
       "id": 4197,
       "title": "[Sonnet] fmt proofs: a fast loop for one theorem in a big file (checks of 2 to 5 minutes; SW-4195 friction 1): measure what a check of Fmt.LaysEls or Syntax.ReadBackHung* spends its time on (imports re-checked? cache granularity?), and put 'check --only THEOREM' and the findings in the proving guide",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4195's slice 1 checkpoint, friction 1: about 20 checks of 2-5 min each in single lanes (SW-4061), 45-160 s per cycle (SW-4098), no fast dev loop (SW-4090). Existing related: SW-4091 and SW-4113 (E-RESOURCE), SW-4032 (timeout exits 0). Profile first, then change only a measured hotspot.",
+      "body": "From SW-4195's slice 1 checkpoint, friction 1: about 20 checks of 2-5 min each in single lanes (SW-4061), 45-160 s per cycle (SW-4098), no fast dev loop (SW-4090). Existing related: SW-4091 and SW-4113 (E-RESOURCE), SW-4032 (timeout exits 0). Profile first, then change only a measured hotspot.\n\n\nSW-4197 note (Sonnet lane): `check --only NAMESPACE.theorem` already existed (SW-1193-era, 95398669a) and is the fast loop: 14-15 s full vs 1.8-5 s for one theorem in ReadBackHungApp; per-namespace cache; documented in proving-guide step 5, eff184500 on lane/SW-4197. No code change.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
