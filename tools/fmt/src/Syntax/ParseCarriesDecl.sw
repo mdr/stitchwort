@@ -12,6 +12,7 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseKept (..)
+import Syntax.AutoPlaced (..)
 import Syntax.ParseCarries (
   Carried,
   NestedCarries,
@@ -564,10 +565,13 @@ def DeclKinds (read: List Item) (decl: Decl): Prop := match decl with
       ∧ value.kinds1 = itemKinds rValue
   | other => True
 
---| A definition of slice 1's grammar has the words of the items its header and body read, and their kinds.
+--| A definition of slice 1's grammar has the words of the items its header and body read, and their kinds, and is
+--| placed (`Syntax.AutoPlaced.Decl.autoPlaced1`).
 def PartsKept (read: List Item) (parts: (Header, DefBody)): Prop :=
   (Definition [] parts.fst parts.snd).grammar1 = True
-    → (Definition [] parts.fst parts.snd).words = itemWords read ∧ DeclKinds read (Definition [] parts.fst parts.snd)
+    → (Definition [] parts.fst parts.snd).words = itemWords read
+      ∧ DeclKinds read (Definition [] parts.fst parts.snd)
+      ∧ (Definition [] parts.fst parts.snd).autoPlaced1 = True
 
 --| What a header's `:` read: one item, which is a `:` if the header has no parameters.
 def ColonRead (params: List Group) (read: List Item) (colon: Comments): Prop :=
@@ -729,7 +733,10 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                                     isColonEq,
                                                                     resultKinds,
                                                                     valueKinds
-                                                                  )
+                                                                  ),
+                                                                  Bool.andIntro
+                                                                    (resultKept.right resultGrammar)
+                                                                    (valueKept.right valueGrammar)
                                                                 )
                                                             | kinds, other, others, clauses, unfoldings, Primitive, grammar =>
                                                               (Bool.falseNotTrue grammar).impossible
@@ -772,9 +779,9 @@ theorem readsAttributesOf ∀ (modes: Modes):
         let atNone := rewrite equal at rounds
         atNone byComputing)
 
---| A declaration of slice 1's grammar has the words of the items read for it, and their kinds.
+--| A declaration of slice 1's grammar has the words of the items read for it, and their kinds, and is placed.
 def DeclKept (read: List Item) (decl: Decl): Prop :=
-  decl.grammar1 = True → decl.words = itemWords read ∧ DeclKinds read decl
+  decl.grammar1 = True → decl.words = itemWords read ∧ DeclKinds read decl ∧ decl.autoPlaced1 = True
 
 --| After attributes were read (`before`): no attributes means `before` is empty.
 def DeclAfter (before: List Item) (attributes: List Attributes) (read: List Item) (decl: Decl): Prop :=

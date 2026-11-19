@@ -4,13 +4,14 @@
 --| parsers outside slice 1 are lifted from `ParseWalk`'s `Out` facts (`readsOut`).
 
 namespace Syntax.ParseCarriesLadder
-import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseKept (..)
+import Syntax.FollowsBase (Never, neverFail, neverFailName, neverGap, neverThen)
 import Syntax.ParseCarries (SameOrOut, codeAs, itemWordsAppend, itemWordsCons, readsAfter0, readsAtBumpRead)
 import Fmt.Kinds1 (..)
 import Fmt.Grammar1 (..)
@@ -785,11 +786,188 @@ theorem readsAtExprPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
                         namelessAutoOfImplicit (start.left + 1) first later _ isOpen peeked implicitFalse)
                 )))
 
---| `exprPlain` from a mark whose next item is stopped or missing: what it reads is outside the slice or placed.
---|
---| Open (SW-4175): at a stopped item every look-ahead sees nothing, so the parse reads an atom's `missing` error
---| and nothing after it; a tree of the grammar can't come of it, but that is a walk of the whole ladder with the
---| stop in hand, which `Kept` (blind to the modes) can't carry.
+-- At a stopped item.
+
+--| No run meets it: the parser fails from that mark.
+def Stuck (read: List Item) (value: a): Prop := Void
+
+--| A parser that fails from a mark reads as anything there.
+theorem readsAtOfStuck ∀ [start: Parse.Mark Item] [p: () → {Parse Item} a] [spec: List Item → a → Prop]
+    (stuck: Parse.ReadsAt start p Stuck):
+    Parse.ReadsAt start p spec :=
+  Parse.readsAtWeaken stuck (read value no => no.impossible)
+
+--| A parser that never succeeds fails from every mark.
+theorem readsAtOfNever ∀ (start: Parse.Mark Item) [p: () → {Parse Item} a]
+    (never: Never p):
+    Parse.ReadsAt start p Stuck :=
+  total state value after here honest h => (never state value after h).impossible
+
+--| `p`, failing from the mark, then anything.
+theorem readsAtStuckThen ∀ [start: Parse.Mark Item] [p: () → {Parse Item} a] [j: a → {Parse Item} b]
+    (first: Parse.ReadsAt start p Stuck):
+    Parse.ReadsAt start (() => j (p())) Stuck :=
+  Parse.readsAtThen first (read value after starts no => no.impossible)
+
+--| `k` of a look at the next item, at a mark where every look sees nothing: `k None`, from a mark with the same items.
+theorem readsAtPeekNone ∀ (start: Parse.Mark Item) (modes: Modes) [k: Option Tok → {Parse Item} a]
+    (quiet: peekIn modes 0 start.rest = None)
+    (each: ∀ (after: Parse.Mark Item) => after.rest = start.rest → Parse.ReadsAt after (() => k None) Stuck):
+    Parse.ReadsAt start (() => k modes.peek) Stuck :=
+  Parse.readsAtThen [p := () => modes.peek] [j := k] (readsAtPeekValue start modes) (read seen after starts (empty,
+    same) =>
+    let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
+    rewrite same, quiet then Parse.readsAtWeaken (each after tail) (taken value no => no.impossible))
+
+--| Every look sees nothing at a stopped item, or at the end.
+theorem peekQuiet ∀ (modes: Modes) (rest: List Item)
+    (stops: rest = [] ∨ ∃ (item: Item) => ∃ (later: List Item) => rest = [item, ..later] ∧ modes.stops item = True):
+    peekIn modes 0 rest = None :=
+  match stops with
+    | Inl empty => rewrite empty
+    | Inr (item, later, shape, stopped) => rewrite shape, stopped
+
+theorem neverAtomGap ∀ (modes: Modes) (ran: Bool): Never [a := Expr] (() => atomGap modes ran) := match ran with
+  | True => neverGap modes ranOutLine
+  | False => neverThen (message => neverGap modes message)
+
+theorem neverAtomNamed ∀ (modes: Modes) (second: Option Tok): Never [a := Expr] (() => atomNamed modes second) :=
+  match fat: isSome FatArrow second with
+    | True => neverFailName modes "an expression"
+    | False => neverFail modes "an expression"
+
+--| An atom's error where nothing is seen fails, recovering or not.
+theorem neverAtomMissingNone ∀ (modes: Modes): Never [a := Expr] (() => atomMissingAt modes None) :=
+  match recover: modes.recover with
+    | True => neverThen [p := () => ranOutAtLine modes] [j := ran => atomGap modes ran] (ran => neverAtomGap modes ran)
+    | False => neverThen [p := () => modes.peekAt 1] [j := second => atomNamed modes second] (second =>
+      neverAtomNamed modes second)
+
+theorem readsAtAtomBaseStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => atomBase self modes) Stuck :=
+  readsAtPeekNone start modes [k := seen => atomBaseOn self modes seen] quiet (after same =>
+    readsAtPeekNone after modes [k := seen => atomMissingAt modes seen] (rewrite same then quiet) (later same2 =>
+      readsAtOfNever later (neverAtomMissingNone modes)))
+
+theorem readsAtAtomStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => atom self modes head) Stuck :=
+  readsAtAfter0
+    [p := () => modes.peek]
+    [j := first => atomAfter self modes head first (atomBase self modes)]
+    (reads0Peek modes)
+    fine
+    (first after same fits =>
+      readsAtStuckThen
+        [p := () => atomBase self modes]
+        [j := base => atomAfter self modes head first base]
+        (readsAtAtomBaseStuck self modes after (rewrite same then quiet)))
+
+theorem readsAtAppStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => app self modes) Stuck :=
+  readsAtAfter0 [p := () => offset()] [j := at => appAt self modes at] reads0Offset fine (at after same fits =>
+    readsAtPeekNone after modes
+      [k := seen => appHead self modes (isSome Dot seen && modes.sectionHead != Some at)]
+      (rewrite same then quiet)
+      (later same2 =>
+        readsAtStuckThen
+          [p := () => atom self modes True]
+          [j := head => appCalls self modes False head]
+          (readsAtAtomStuck self modes True later (rewrite same2 then fits) (rewrite same2, same then quiet))))
+
+theorem readsAtUnaryStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => unary self modes) Stuck :=
+  readsAtPeekNone start modes [k := seen => unaryOn self modes seen] quiet (after same =>
+    readsAtAppStuck self modes after (rewrite same then fine) (rewrite same then quiet))
+
+theorem readsAtMulStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => mulExpr self modes) Stuck :=
+  readsAtStuckThen
+    [p := () => unary self modes]
+    [j := first =>
+      leftNested first
+        (operatorLinks modes (kind => kind == Star || kind == Slash || kind == Percent) (() => unary self modes))]
+    (readsAtUnaryStuck self modes start fine quiet)
+
+theorem readsAtAddStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => addExpr self modes) Stuck :=
+  readsAtStuckThen
+    [p := () => mulExpr self modes]
+    [j := first =>
+      leftNested first (operatorLinks modes (kind => kind == Plus || kind == Minus) (() => mulExpr self modes))]
+    (readsAtMulStuck self modes start fine quiet)
+
+theorem readsAtAppendStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => appendExpr self modes) Stuck :=
+  readsAtStuckThen
+    [p := () => addExpr self modes]
+    [j := first => rightNested first (operatorLinks modes (kind => kind == PlusPlus) (() => addExpr self modes))]
+    (readsAtAddStuck self modes start fine quiet)
+
+theorem readsAtPipedRangeStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => pipedRange self modes) Stuck :=
+  readsAtAfter0
+    [p := () => headIndent()]
+    [j := indent => pipedAt self modes indent]
+    reads0HeadIndent
+    fine
+    (indentAt after same fits =>
+      readsAtStuckThen
+        [p := () => rangeExpr self modes]
+        [j := range => pipedAfter self modes indentAt range]
+        (readsAtStuckThen
+          [p := () => appendExpr self modes]
+          [j := low => rangeFrom self modes low]
+          (readsAtAppendStuck self modes after fits (rewrite same then quiet))))
+
+theorem readsAtCmpStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => cmpExpr self modes) Stuck :=
+  readsAtAfter0
+    [p := () => left()]
+    [j := items => cmpFirst self modes (items.head.map Item.kind)]
+    reads0Left
+    fine
+    (seen after same fits =>
+      readsAtStuckThen
+        [p := () => pipedRange self modes]
+        [j := lhs => cmpPiped self modes (seen.head.map Item.kind) lhs]
+        (readsAtPipedRangeStuck self modes after fits (rewrite same then quiet)))
+
+--| The operator ladder fails at a stopped item: every level's first look sees nothing, down to the atom, whose error
+--| is fatal.
+theorem readsAtOperatorStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (quiet: peekIn modes 0 start.rest = None):
+    Parse.ReadsAt start (() => operatorExpr self modes) Stuck :=
+  readsAtAfter0 [p := () => offset()] [j := at => opStart self modes at] reads0Offset fine (at after same fits =>
+    readsAtPeekNone after modes
+      [k := seen => opSection self modes at (isSome Dot seen)]
+      (rewrite same then quiet)
+      (later same2 =>
+        readsAtStuckThen
+          [p := () => cmpExpr self modes]
+          [j := compared => opCompared self modes False compared]
+          (readsAtCmpStuck self modes later (rewrite same2 then fits) (rewrite same2, same then quiet))))
+
+--| `exprPlain` from a mark whose next item is stopped or missing reads a pi type or implicit binder, outside the
+--| slice, or fails: every look there sees nothing, so the operator ladder reaches an atom's fatal error
+--| (`readsAtOperatorStuck`).
 theorem readsAtExprPlainStopped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
@@ -798,7 +976,26 @@ theorem readsAtExprPlainStopped ∀ (self: Goal → {Parse Item} Expr) (modes: M
     (stops: start.rest = []
       ∨ ∃ (item: Item) => ∃ (later: List Item) => start.rest = [item, ..later] ∧ modes.stops item = True):
     Parse.ReadsAt start (() => exprPlain self modes) KeptFull :=
-  ?
+  let quiet := peekQuiet modes start.rest stops
+  readsAtAfter0
+    [p := () => implicitHere modes]
+    [j := implicit => exprImplicit self modes implicit]
+    (start2 fine2 => Parse.readsAtWeaken (readsAtImplicitHere start2 modes) (read found (empty, _) => empty))
+    fine
+    (implicit after same fits =>
+      match implicit with
+        | True => readsOutFull (outside.piExprs modes True) after fits
+        | False =>
+          readsAtAfter0
+            [p := () => piHere modes]
+            [j := pi => exprPi self modes pi]
+            (reads0PiHere modes)
+            fits
+            (pi after2 same2 fits2 =>
+              match pi with
+                | True => readsOutFull (outside.piExprs modes False) after2 fits2
+                | False =>
+                  readsAtOfStuck (readsAtOperatorStuck self modes after2 fits2 (rewrite same2, same then quiet))))
 
 theorem readsExprBinder ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)

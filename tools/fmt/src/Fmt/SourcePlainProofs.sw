@@ -752,7 +752,7 @@ theorem declShapesOfKinds1 ∀ (decl: Decl) (read: List Item)
 --| of one declaration's parser (`Syntax.ParseCarriesDecl.runKept`) gives the kinds of its items.
 theorem groupShapesProved: GroupShapes1 := seen group decl good quiet ran grammar =>
   let kept := runKept (items group) seen frameRest (goodItemsOf (items group) good quiet) decl ran grammar
-  rewrite <- itemShapesOfGroup group then declShapesOfKinds1 decl (items group) grammar kept.right
+  rewrite <- itemShapesOfGroup group then declShapesOfKinds1 decl (items group) grammar kept.right.left
 
 theorem tokenAlphabet1 ∀ (kind: Tok): (!kind.alphabet1 || kind.within1) = True := cases
 
