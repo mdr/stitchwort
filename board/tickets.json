@@ -1,5 +1,5 @@
 {
-  "next": 4245,
+  "next": 4246,
   "tickets": [
     {
       "id": 47,
@@ -26919,7 +26919,7 @@
     {
       "id": 4203,
       "title": "[Opus] slice1Formats: add that comments are kept (CommentsKept, Fmt/Meaning.sw:288, has no theorem) before slice 2's passes delete tokens (SW-4196 finding 2)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27379,7 +27379,7 @@
     {
       "id": 4238,
       "title": "[Fable, paper] Review and settle the walk step design (docs/proposals/proof-walk-step.md, SW-4231) against prior art: Lean mvcgen/vcgen and Std.Do, Iris wp_ tactics, Dafny/F*/Why3 VC generation, Isabelle's monad VCG; decide registration, how far it unfolds, failure messages, cache invalidation (§3.2), and the pilot's success bars; end state for Matt",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27459,12 +27459,25 @@
     {
       "id": 4244,
       "title": "[Sonnet] Resource notes name the user's computation again: since SW-3930 (526f98b64, glued declared types) the step-limit note and progress notes name List.length instead of replicate (resources.rs:198, :692 fail); name the last non-std definition entered (or the outermost), and make both tests pass",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "Found in SW-4091's verifier; bisected by SW-4091 to 526f98b64. Est. 40 min.\n\nLane: Budget keeps the last non-std definition entered (Def.std, from its Std. path), falling back to the last entered. Commit c2c475f9e on lane/SW-4244. Both resources tests pass, plus the two other 'names the declaration' tests and the budget unit tests.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4245,
+      "title": "[Sonnet] Walk step W0 baseline (docs/reviews/SW-4238-walk-step-review.md §4): delete the [p := …]/[j := …] spellings in the comma-list walks and un-cut the comma list by hand in tools/fmt; measure lines and check time; answers SW-4220",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Est. 30 min. From SW-4238; first lane of the walk step if Matt approves D3696; useful on its own.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
