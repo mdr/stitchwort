@@ -21,6 +21,7 @@ import Syntax.Proofs (
   NameKind,
   QualTail,
   Spells,
+  letterWordChar,
   qualChars,
   qualFound,
   qualFoundSome,
@@ -34,6 +35,7 @@ import Fmt.TreeJoinProofs (spellsOfText1)
 import Syntax.SettleOnceProofs (allAppendB)
 import Syntax.LexLaidProofs (assembleWithin)
 import Syntax.LexReadsProofs (..)
+import Syntax.SharedFacts (wordStartChar)
 
 -- The two tests.
 
@@ -373,24 +375,6 @@ theorem readsAtNextAny ∀ (start: Parse.Mark Char):
             (rewrite <- atSame then
               Both byComputing (Both (Both (arithmetic [counted]) (arithmetic [counted, honestAt.right])) byComputing))
 
---| `skip count` reads the first `count` characters left, or all of them if there are fewer.
-theorem readsAtSkip ∀ (count: Nat) (start: Parse.Mark Char):
-    Parse.ReadsAt start (() => skip count) (read u => read = start.rest.take count) :=
-  match count with
-    | Zero => Parse.readsAtDone start () _ byComputing
-    | Succ more => readsAtThenMoved (readsAtNextAny start) (read v after starts moved took =>
-      Parse.readsAtWeaken (readsAtSkip more after) (taken u rest =>
-        match e: start.rest with
-          | [] =>
-            let none: read = [] := took
-            let emptyAfter: after.rest = [] := rewrite <- (rewrite none at starts then starts)
-            rewrite none, rest, emptyAfter then List.takeNil more
-          | [char, ..others] =>
-            let one: read = [char] := took
-            let tail: after.rest = others :=
-              (List.consInjective char others after.rest (rewrite one at starts then starts)).flipped
-            rewrite one, rest, tail))
-
 --| Taking as many as a take gave takes the same.
 theorem takeOwnLength ∀ (chars: List Char) (count: Nat): chars.take (chars.take count).length = chars.take count :=
   match chars, count with
@@ -423,7 +407,7 @@ theorem tokenOfText ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Ma
       let skipped := skip count
       located (TokenLexeme kind) from) _
     start
-    (readsAtThenMoved (readsAtSkip count start) (read u after starts moved taken =>
+    (readsAtThenMoved (atSkip count start) (read u after starts moved taken =>
       Parse.readsAtMark
         (to => { value = TokenLexeme kind, offset = start.offset, length = to.offset - start.offset }) _
         after
@@ -551,9 +535,6 @@ theorem wordWithinCases ∀ (kind: Tok):
     | Float => Inr (Inr (Inr (Inr byComputing)))
     | _ => Inl byComputing
 
-theorem arithmeticLetter ∀ (char: Char) (letter: char.isAsciiLetter = True): isWordChar char = True :=
-  arithmetic [letter]
-
 --| What `qualified` read: nothing, giving what was found before; or a `.` and what follows it, which `qualScan1`
 --| scans to what it gave.
 def QualScanned (upper: Bool) (found: Option Bool) (read: List Char) (value: Option Bool): Prop :=
@@ -586,7 +567,7 @@ theorem readsAtQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (s
               let name := Parse.span isWordChar
               qualified more next.isAsciiUppercase (Some next.isAsciiUppercase)]
             [spec := QualScanned upper found]
-            (readsAtSkip 1 start)
+            (atSkip 1 start)
             (read1 u after1 starts1 moved1 took1 =>
               readsAtThenMoved
                 [p := () => Parse.span isWordChar]
@@ -607,7 +588,7 @@ theorem readsAtQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (s
                           after1.rest
                           (rewrite r1, here at starts1 then starts1)).flipped
                       let r2: read2 = [next, ..rest.takeWhile isWordChar] :=
-                        rewrite spanned2.left, spanned2.right, rest1, arithmeticLetter next letter
+                        rewrite spanned2.left, spanned2.right, rest1, letterWordChar next letter
                       let allWord: (rest.takeWhile isWordChar).all isWordChar = True :=
                         List.allTakeWhile isWordChar rest
                       let scan: qualScan1 upper upper (read1 ++ (read2 ++ taken))
@@ -865,7 +846,7 @@ theorem readsAtFraction ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => fract
               let decimals := Parse.span Char.isAsciiDigit
               True]
             [spec := FractionRead]
-            (readsAtSkip 1 at)
+            (atSkip 1 at)
             (read1 u after1 starts1 moved1 took1 =>
               readsAtThenMoved
                 [p := () => Parse.span Char.isAsciiDigit]
@@ -904,7 +885,7 @@ theorem readsAtExponent ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => expon
           let power := Parse.span Char.isAsciiDigit
           True]
         [spec := ExponentRead]
-        (readsAtSkip count at)
+        (atSkip count at)
         (read1 u after1 starts1 moved1 took1 =>
           readsAtThenMoved
             [p := () => Parse.span Char.isAsciiDigit]

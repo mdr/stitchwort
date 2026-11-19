@@ -20,12 +20,13 @@ import Fmt.HangProofs (..)
 import Fmt.MarkProofs (allKeysFrom, keysFrom)
 import Fmt.AppHangProofs (appDocsIs, argAround)
 import Fmt.ExprHangProofs (..)
-import Fmt.QuietKeyProofs (ArgKeys, allKeysAppend, allKeysIf, appFromKeys, chainOfKeys, keysIf, pieceKeys, trailingKeys)
+import Fmt.QuietKeyProofs (ArgKeys, allKeysAppend, allKeysIf, appFromKeys, chainOfKeys, keysIf, pieceKeys)
 import Fmt.EdgeKeyProofs (notesAboveKeys)
 import Fmt.EdgeHangProofs (atomTrailsIs)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.DeclFactsProofs (leadNotCloser, notesOfWord, trailsOfSound)
+import Fmt.BracketHangProofs (trailingKeys)
 
 -- Keys.
 

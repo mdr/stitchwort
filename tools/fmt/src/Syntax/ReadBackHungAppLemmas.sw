@@ -38,7 +38,7 @@ theorem argumentPrefixHung ∀ (sign next: Item) (later: List Item)
   let (unglued, nextGlued) := andBoth _ _ glues
   match starts: sign.leaf.token.lineStart with
     | True => rewrite signOr sign.kind signed, afterOperand, nextGlued, opens
-    | False => rewrite signOr sign.kind signed, afterOperand, notTrueFalse _ unglued, nextGlued, opens
+    | False => rewrite signOr sign.kind signed, afterOperand, Bool.notTrue _ unglued, nextGlued, opens
 
 --| A spelt argument of this part, its first item not stopping the reading, starts an atom.
 theorem argStartsHung ∀ (modes: Modes) (argument: Expr) (first: Item) (more later: List Item)

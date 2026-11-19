@@ -45,7 +45,7 @@ theorem expressionRuleFollows: ExpressionRule := self selfTwin knot =>
     (letBodyFollows knot)
     (calcFollows knot expects lowers groups binders results)
     (rewriteFollows knot expects lowers)
-    (casesFollows knot)
+    (followsCasesExpr knot)
     (statementFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
     (thenBodyFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
 

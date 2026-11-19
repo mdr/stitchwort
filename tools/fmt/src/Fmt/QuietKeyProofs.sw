@@ -81,10 +81,6 @@ theorem allKeysIf ∀ (low: Nat) (cond: Bool) (yes no: List Doc)
 
 -- Tokens.
 
-theorem trailingKeys ∀ (low: Nat) (word: Word): allKeysFrom low word.trailing = True := match word.comments.after with
-  | Some _ => byComputing
-  | None => byComputing
-
 theorem pieceKeys ∀ (low: Nat) (text: Text): keysFrom low (piece text) = True :=
   keysIf low _ (Closing text) (Doc.text text) byComputing byComputing
 

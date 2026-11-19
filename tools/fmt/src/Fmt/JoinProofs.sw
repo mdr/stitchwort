@@ -13,7 +13,7 @@ import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void, byDecisio
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Expr, Tok, Word, isWordChar)
-import Syntax.Proofs (Laid, MayFollow)
+import Syntax.Proofs (Laid, MayFollow, takeWhileHeadFails)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)
@@ -21,6 +21,7 @@ import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plain
 import Fmt.PrintLexProofs (Printable, pieceFold, printedLexes)
 import Syntax (Comments, Decl, DefBody, DefKind, Header, lex)
 import Syntax (InfixKind, Note)
+import Syntax.SharedFacts (solidSpaces)
 
 -- What may follow a token.
 
@@ -39,14 +40,6 @@ def Stops (char: Char): Prop :=
     ∧ char ≠ 'e'
     ∧ char ≠ 'E'
 
-theorem takeWhileStops ∀ (passes: Char → Bool) (rest: List Char) (first: Char)
-    (head: rest.head = Some first)
-    (fails: passes first = False):
-    rest.takeWhile passes = [] :=
-  match rest, head with
-    | [], head => (Option.someNotNone first head.flipped).impossible
-    | [other, ..more], head => rewrite Option.someInjective head, fails
-
 theorem headDiffers ∀ (rest: List Char) (first other: Char)
     (head: rest.head = Some first)
     (differs: first ≠ other):
@@ -63,8 +56,8 @@ theorem mayFollowStops ∀ (kind: Tok) (text: Text) (rest: List Char) (first: Ch
     MayFollow kind text rest :=
   match stops with
     | (word, digit, notEquals, notGreater, notPlus, notMinus, notDot, notE, notBigE) =>
-      let noWord := takeWhileStops isWordChar rest first head word
-      let noDigit := takeWhileStops Char.isAsciiDigit rest first head digit
+      let noWord := takeWhileHeadFails isWordChar rest first head word
+      let noDigit := takeWhileHeadFails Char.isAsciiDigit rest first head digit
       match kind with
         | Colon => headDiffers rest first '=' head notEquals
         | Equals => (headDiffers rest first '=' head notEquals, headDiffers rest first '>' head notGreater)
@@ -472,9 +465,6 @@ theorem passesSpace ∀ (kinds: Text → Tok) (trails: Bool): Passes kinds (Doc.
       | Waiting (Some word), waits => after (Waiting (Some word)) waits
 
 -- Texts, closers and comments.
-
-theorem solidSpaces ∀ (text: Text) (solid: isLayout text = False): text.all (char => char == ' ') = False :=
-  match spaces: text.all (char => char == ' ') with | False => byComputing
 
 theorem solidTouch ∀ (text: Text) (solid: isLayout text = False): textTouch text = Some text := rewrite solid
 

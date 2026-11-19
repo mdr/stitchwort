@@ -11,6 +11,7 @@ import Std (Bool, Char, Effect, Empty, Eq, List, Nat, Option, Pair, Parse, Resul
 import Syntax (..)
 import Fmt (..)
 import Syntax.SettleOnceProofs (allAppendB, allReverseOnto)
+import Syntax.SharedFacts (andFalseRight, wordStartChar)
 
 -- Reading from one mark, with where each step stopped.
 
@@ -665,10 +666,6 @@ theorem yieldsLocated ∀ [j: Parse.Located Lexeme → {Parse Char} b] [holds: b
       | Witness lexeme (Witness middle (Both ranFirst restRun)) =>
         rest lexeme (locatedValue value from state lexeme middle.at ranFirst) middle result after restRun
 
-theorem andFalseRight ∀ (x: Bool): (x && False) = False := match x with
-  | True => byComputing
-  | False => byComputing
-
 --| A text literal's pieces end with its last piece, which is `Str` or `StrEnd`, after the ones found.
 theorem endForeign ∀ (first: Bool) (piece: Parse.Located Lexeme) (found: List (Parse.Located Lexeme))
     (marked: (first || !(found.all (lexeme => lexeme.value.within))) = True)
@@ -1273,8 +1270,6 @@ theorem aliasFine ∀ (char: Char) (more: List Char) (kind: Tok)
   let info: aliasPlain char = True := aliasFacts char
   let parts: (markedText (Text.fromList [char]) kind && !startsBreak [char]) = True := rewrite e at info then info
   Bool.andIntro byComputing (Bool.andIntro (Bool.andRight parts) (Bool.andLeft parts))
-
-theorem wordStartChar ∀ (char: Char) (starts: isWordStart char = True): isWordChar char = True := arithmetic [starts]
 
 --| A round of `item` at the top level: it gives a token outside the alphabet, or one lexeme, located where it began,
 --| that is what it read and is fine.

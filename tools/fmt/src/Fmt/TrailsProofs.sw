@@ -74,3 +74,13 @@ theorem appTrails ∀ (head argument: Expr) (rest: List Expr)
       back,
       List.appendAssoc (lastArg argument rest).words.reverse front head.words.reverse,
       trailsBackCoded (lastArg argument rest).words.reverse (front ++ head.words.reverse) code
+
+theorem codedSnoc ∀ (front: List Word) (last: Word)
+    (code: isCloserText last.text = False):
+    Coded (front ++ [last]) = True :=
+  match front with
+    | [] => rewrite code
+    | [word, ..rest] =>
+      match isCloserText word.text with
+        | True => codedSnoc rest last code
+        | False => byComputing

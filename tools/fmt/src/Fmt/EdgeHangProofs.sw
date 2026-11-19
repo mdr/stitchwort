@@ -21,22 +21,12 @@ import Fmt.BracketHangProofs (
 import Fmt.ExprHangProofs (..)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (arrowListed, lexKind)
-import Fmt.TrailsProofs (Coded, appTrails, itemsBack, parenTrails, trailsBackCoded)
+import Fmt.TrailsProofs (Coded, appTrails, codedSnoc, itemsBack, parenTrails, trailsBackCoded)
 import Fmt.DeclFactsProofs (leadNotCloser, notesOfWord, trailsOfSound)
 import Fmt.OneLineStatements (..)
 import Fmt.EdgeKeyProofs (..)
 
 -- What an edge-quiet expression trails.
-
-theorem codedSnocLead ∀ (front: List Word) (last: Word)
-    (code: isCloserText last.text = False):
-    Coded (front ++ [last]) = True :=
-  match front with
-    | [] => rewrite code
-    | [word, ..rest] =>
-      match isCloserText word.text with
-        | True => codedSnocLead rest last code
-        | False => byComputing
 
 --| A slice 1 expression read back has a token that is no closer: its first.
 theorem codedLex ∀ (expr: Expr)
@@ -45,7 +35,7 @@ theorem codedLex ∀ (expr: Expr)
     Coded expr.words.reverse = True :=
   let (rest, words) := wordsLead expr within
   rewrite words, List.reverseCons expr.lead rest then
-    codedSnocLead rest.reverse expr.lead (leadNotCloser expr within lexical)
+    codedSnoc rest.reverse expr.lead (leadNotCloser expr within lexical)
 
 theorem atomTrailsIs ∀ (kind: Syntax.Tok) (word: Word): (Atom kind word).trails = word.trails :=
   rewrite Bool.andFalse (isCloserText word.text), Bool.orFalse word.trails

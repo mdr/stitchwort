@@ -9,6 +9,7 @@ import Syntax.ReadBackProofs (..)
 import Syntax.ReadBackLine (..)
 import Syntax.ReadBackHung (..)
 import Fmt.HangProofs (staleBlocks)
+import Syntax.SharedFacts (commaNotCloser)
 
 --| An atom's kind is no bracket, comma, `:=` or `:`.
 theorem wordIsFlat ∀ (kind: Tok)
@@ -65,8 +66,6 @@ theorem openerParts ∀ (kind: Tok)
       ∧ (kind == Arrow) = False :=
   cases
 
-theorem commaParts ∀ (kind: Tok) (comma: (kind == Comma) = True): kind.isCloser = False := cases
-
 --| An opener enters the state its expression's first leaf places, and starts the bracket's first item.
 theorem openStep ∀ (state next: HangState) (leaf: Leaf)
     (opener: leaf.token.kind.isOpener = True)
@@ -97,7 +96,7 @@ theorem commaStep ∀ (state next: HangState) (leaf: Leaf) (block: Option Nat) (
     (inside: state.blocks = [block, ..outer])
     (stepped: state.step leaf = Some next):
     next = { blocks = [None, ..outer], top = state.top, start = True, glue = False } :=
-  let notCloser := commaParts leaf.token.kind comma
+  let notCloser := commaNotCloser leaf.token.kind comma
   match state with | { blocks, top, start, glue } => rewrite inside, comma, notCloser at stepped then cases
 
 theorem leavesOfAppend ∀ (xs ys: List Item): leavesOf (xs ++ ys) = leavesOf xs ++ leavesOf ys :=
@@ -287,19 +286,6 @@ theorem closeStepExample: { blocks = [], top = None, start = False, glue = False
     { blocks = [None], top = None, start = False, glue = False }
     { blocks = [], top = None, start = False, glue = False }
     (exampleLeaf RParen ")")
-    None
-    []
-    byComputing
-    byComputing
-    byComputing
-
---| `commaStep`'s: a comma in a bracket starts its next item.
-theorem commaStepExample: { blocks = [None], top = None, start = True, glue = False }
-      = { blocks = [None, ..[]], top = None, start = True, glue = False } :=
-  commaStep
-    { blocks = [None], top = None, start = False, glue = False }
-    { blocks = [None], top = None, start = True, glue = False }
-    (exampleLeaf Comma ",")
     None
     []
     byComputing

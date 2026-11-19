@@ -13,6 +13,7 @@ import Fmt.OutputStatements (..)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.SplitProofs (Chained)
 import Fmt.PassProofs (..)
+import Fmt.TouchProofs (spacingFree)
 
 -- Slots.
 
@@ -306,31 +307,6 @@ theorem argumentsSpacingLength ∀ (arguments: List Expr)
           List.lengthAppend argument.slots1 (argumentSlots1 rest),
           spacingLength argument True (Bool.andLeft within),
           argumentsSpacingLength rest (Bool.andRight within)
-
---| An expression's spacing, outside a call's arguments, starts free.
-theorem spacingFree ∀ (expr: Expr)
-    (within: expr.within1 = True):
-    ∃ (rest: List Spacing) => expr.spacing1 False = [Free, ..rest] :=
-  match expr, within with
-    | Atom _ _, _ => ([], byComputing)
-    | Paren _ inner _, _ => (inner.spacing1 False ++ [Free], byComputing)
-    | Tuple _ items _ _, _ => (commaSpacing1 items ++ [Free], byComputing)
-    | ListOf _ items _ _, _ => (commaSpacing1 items ++ [Free], byComputing)
-    | App head arguments, within =>
-      let (rest, starts) := spacingFree head (Bool.andLeft within)
-      (rest ++ argumentsSpacing1 arguments, rewrite starts)
-    | Infix InfixBinary left operator right, within =>
-      let (rest, starts) := spacingFree left (Bool.andLeft within)
-      (rest ++ [Free, ..spacedFirst Apart (right.spacing1 False)], rewrite starts)
-    | Infix InfixArrow left operator right, within =>
-      let (rest, starts) := spacingFree left (Bool.andLeft within)
-      (rest ++ [Free, ..spacedFirst Apart (right.spacing1 False)], rewrite starts)
-    | Prefix operator operand, within =>
-      match operandSpacing False operator operand with
-        | Some spacing => (spacedFirst spacing (operand.spacing1 False), byComputing)
-        | None => (operand.spacing1 False, byComputing)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
 
 --| Spacing whose first place is set over a free one admits what the free one does, and the first item fits the
 --| set place.

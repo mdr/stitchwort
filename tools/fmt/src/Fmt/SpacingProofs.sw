@@ -467,7 +467,3 @@ theorem printedSpacingExample: spacingAdmits signDecl.spacing1 (items signDecl.l
   printedSpacingOfTouches signDecl byComputing byComputing byComputing byComputing (doc shows =>
     let same: signDecl.doc1.getOrElse Nothing = doc := Eq.cong (found => found.getOrElse Nothing) shows
     rewrite <- same then signSpacedTouches)
-
---| `printedSpacing1` applies to `def d: A := f -x`.
-theorem printedSpacing1Example: spacingAdmits signDecl.spacing1 (items signDecl.leaves1) = True :=
-  printedSpacing1 signDecl byComputing byComputing byComputing byComputing

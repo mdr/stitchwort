@@ -14,7 +14,7 @@ import Fmt.OutputStatements (..)
 import Fmt.SpellProofs (..)
 import Fmt.TouchSteps (..)
 import Fmt.TouchSeq (..)
-import Fmt.JoinProofs (keptShort, leadJoins)
+import Fmt.JoinProofs (keptShort, leadJoins, ownEmpty)
 import Fmt.JoinProofs (
   beforeCloseIs,
   bracketTrails,
@@ -278,12 +278,6 @@ theorem trailingSteps ∀ (word: Word)
         []
         (stepsSuffix comment (Bool.andLeft commented) (commentNotLayout comment commented))
 
---| No closer line before a token that is no closer.
-theorem ownLineEmpty ∀ (text: Text) (rest: Bool) (key: Nat)
-    (closer: isCloserText text = False):
-    (if isCloserText text && rest then [CloserLine key] else []) = [] :=
-  rewrite closer
-
 theorem pieceText ∀ (text: Text)
     (closer: isCloserText text = False)
     (comma: (text == ",") = False):
@@ -298,7 +292,7 @@ theorem wordLeafSteps ∀ (word: Word) (around: Around) (key: Nat) (first: Spaci
     Steps (word.leaf around key) (Fits True first) [first] (Closed word.trails) :=
   let (sound, token, comma, closer) := joins
   stepsConcat _ _ _ _
-    (rewrite ownLineEmpty word.text (!word.noted && around.before && word.trails) key closer,
+    (rewrite ownEmpty word.text (!word.noted && around.before && word.trails) key closer,
         pieceText word.text closer comma then
       stepsAppend
         (word.leading around key)

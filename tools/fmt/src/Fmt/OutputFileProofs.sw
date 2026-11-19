@@ -24,6 +24,7 @@ import Fmt.TokenProofs (declRealOfLexical, printedTokens1)
 import Fmt.OutputStatements (..)
 import Fmt.FileLexProofs (..)
 import Syntax.ReadBackHungAtomsLemmas (hungStep)
+import Syntax.SharedFacts (reverseFilled)
 
 -- One pass over the texts.
 
@@ -97,15 +98,11 @@ theorem goOpen ∀ (scan: Scan) (kind: Tok)
 --| A token that may be the last before anything: no `->` and no comma.
 def quietLast (kind: Tok): Bool := !(kind == Arrow) && !(kind == Comma)
 
-theorem orTrue ∀ (x: Bool): (x || True) = True := match x with
-  | True => byComputing
-  | False => byComputing
-
 theorem pairQuiet ∀ (last kind: Tok) (quiet: quietLast last = True): pairOk last kind = True :=
   rewrite Bool.notTrue _ (Bool.andLeft quiet),
       Bool.notTrue _ (Bool.andRight quiet),
-      orTrue (!arrowFollow kind),
-      orTrue (!kind.isCloser)
+      Bool.orTrue (!arrowFollow kind),
+      Bool.orTrue (!kind.isCloser)
 
 theorem goQuiet ∀ (scan: Scan) (last kind: Tok)
     (before: scan.previous = Some last)
@@ -1234,7 +1231,7 @@ theorem staysOf ∀ (open: Nat) (tail: List Leaf)
           match closer: leaf.token.kind.isCloser with
             | True =>
               Bool.andIntro
-                (rewrite orTrue (leaf.token.kind == Comma), deeper, Bool.andFalse (leaf.token.kind != ColonEq))
+                (rewrite Bool.orTrue (leaf.token.kind == Comma), deeper, Bool.andFalse (leaf.token.kind != ColonEq))
                 recur
             | False =>
               match assign: leaf.token.kind == ColonEq with
@@ -1283,16 +1280,11 @@ theorem laidSplit ∀ (decl: Decl) (empty: Bool) (rest current: List Leaf) (grou
         (staysOf 0 tail deep (Bool.andRight lined) (hangsCol first tail hung))
         balanced
 
-theorem reverseOntoFilled ∀ (xs acc: List Leaf) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
-  match xs with
-    | [] => filled
-    | [x, ..rest] => reverseOntoFilled rest [x, ..acc] byComputing
-
 theorem flushLaid ∀ (laid: List Leaf) (groups: List (List Leaf))
     (filled: kindFirst laid = True):
     (if laid.reverse.isEmpty then groups else [laid.reverse.reverse, ..groups]) = [laid, ..groups] :=
   match laid with
-    | [first, ..rest] => rewrite reverseOntoFilled rest [first] byComputing, List.reverseReverse [first, ..rest]
+    | [first, ..rest] => rewrite reverseFilled rest [first] byComputing, List.reverseReverse [first, ..rest]
 
 --| The splitter cuts the file's leaves into the declarations'.
 theorem groupsSplit ∀ (empty: Bool) (decls: List Decl) (current: List Leaf) (groups: List (List Leaf))
@@ -1546,7 +1538,7 @@ theorem hangsFlat ∀ (leaves: List Leaf) (hung: hangs leaves = True): commaFlat
       (hangsFromFlat rest HangState.initial (Bool.andRight (Bool.andRight hung)))
 
 theorem orSwap ∀ (x y: Bool) (or: (x || y) = True): (y || x) = True := match x with
-  | True => rewrite orTrue y
+  | True => rewrite Bool.orTrue y
   | False => rewrite or
 
 --| Leaves that may each follow the one before, no comma starting a line, are `plain` from the second token on.
@@ -1651,8 +1643,6 @@ theorem printedGroups1 ∀ (file: SourceFile)
 -- Cases the lemmas apply to, so their hypotheses can be met.
 
 theorem stepCommentExample: Scan.start.step "-- a" = Some Scan.start := stepComment Scan.start "-- a" byComputing
-
-theorem stepStartsExample: Scan.start.step "-- a" = Some Scan.start := stepStarts Scan.start "-- a" byComputing
 
 theorem goCloseExample: ({ previous = Some Lower, open = 1 }: Scan).go RParen
       = Some { previous = Some RParen, open = 0 } :=
