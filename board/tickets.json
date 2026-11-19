@@ -27472,8 +27472,8 @@
     {
       "id": 4245,
       "title": "[Sonnet] Walk step W0 baseline (docs/reviews/SW-4238-walk-step-review.md §4): delete the [p := …]/[j := …] spellings in the comma-list walks and un-cut the comma list by hand in tools/fmt; measure lines and check time; answers SW-4220",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
