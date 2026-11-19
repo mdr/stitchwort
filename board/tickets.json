@@ -26449,7 +26449,7 @@
     {
       "id": 4168,
       "title": "[Sonnet] fmt (SW-4132 lane 5): two-run walk of Parser.sw second half: keyword expressions, lambdas, quantifiers, if, match, patterns, records, the rest (Syntax/FollowsForms.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4168",
       "labels": [],
@@ -26475,9 +26475,9 @@
     {
       "id": 4170,
       "title": "[Sonnet] fmt (SW-4132 lane 7): two-run walk of Statements.sw: blocks, let, local definitions, proof steps, handle (Syntax/FollowsStatements.sw)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4170",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 25 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
