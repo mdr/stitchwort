@@ -27093,12 +27093,12 @@
     {
       "id": 4216,
       "title": "[Sonnet] fmt consolidation L3: split ParseWalk.sw (7,141 lines) into the slice's path, the outside parsers and the frame, per fmt-consolidation-statements.md lane 3; after L2",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3692 consolidation. Est. 45-60 min.",
+      "body": "D3692 consolidation. Est. 45-60 min.\n\nLane: ParseWalk.sw split into ten files (commit 92d250011 on lane/SW-4216): ParseWalk (levels, Outside types, atoms, brackets, lists; 1288 lines), ParseWalkLadder (1098), Outside (682), Patterns (544), Binders (482), Match (469), Calc (334), Frame (346), Statements (478), Decls (249). Pure move; a few shared decls (givesFixedFrom, qualified-name/attribute parsers, NameOk, BodyOk, givesHere) moved earlier to break file cycles. Edit loop (proof edit in givesLogicLevel, warm check): 13 s before, 5 s after. Whole-project check 0 errors, no goals, Fmt.Tests 441 passed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
