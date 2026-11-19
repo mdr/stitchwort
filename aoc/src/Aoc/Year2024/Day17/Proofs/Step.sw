@@ -9,15 +9,7 @@ import Std (Bool, Eq, Exists, List, Nat, Option)
 --| The program's combo operands stand for what the puzzle's do.
 theorem comboAgrees ∀ (registers: Registers) (operand: Nat):
     Option.map (Combo.decode operand) registers.value = comboValue registers operand :=
-  match operand with
-    | 0 => byComputing
-    | 1 => byComputing
-    | 2 => byComputing
-    | 3 => byComputing
-    | 4 => byComputing
-    | 5 => byComputing
-    | 6 => byComputing
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ operand)))))) => byComputing
+  match operand with | 0 | 1 | 2 | 3 | 4 | 5 | 6 | Succ (Succ (Succ (Succ (Succ (Succ (Succ _)))))) => byComputing
 
 --| `Nat.xor` is the puzzle's bitwise XOR.
 theorem xorBitwise ∀ (x y: Nat): BitwiseXor x y (x.xor y) := i =>
@@ -66,8 +58,7 @@ theorem executesDecode ∀ (operand: Nat) (machine: Machine) (opcode: Nat):
         (combo => byComputing)
     | 3 =>
       match zero: machine.registers.a == 0 with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | 4 =>
       Witness
         (machine.registers.b.xor machine.registers.c)

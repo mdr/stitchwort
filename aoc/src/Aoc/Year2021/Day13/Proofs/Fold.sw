@@ -9,21 +9,17 @@ import Std (Eq, Exists, List, Nat)
 
 --| A dot clear of the fold lands where `foldDot` puts it...
 theorem landsFoldDot ∀ (fold: Fold) (dot: Point) (clear: Clear fold dot): Lands fold dot (foldDot fold dot) :=
-  match fold with
-    | AlongY line => cases
-    | AlongX line => cases
+  match fold with | AlongY _ | AlongX _ => cases
 
 --| ...and nowhere else.
 theorem landsOnly ∀ (fold: Fold) (dot spot: Point) (lands: Lands fold dot spot): spot = foldDot fold dot :=
   match fold with
     | AlongY line =>
       match lands with
-        | Both sameX (Inl (Both lt sameY)) => Point.ext spot (foldDot (AlongY line) dot) cases cases
-        | Both sameX (Inr (Both gt sum)) => Point.ext spot (foldDot (AlongY line) dot) cases cases
+        | Both _ (Inl (Both _ _)) | Both _ (Inr (Both _ _)) => Point.ext spot (foldDot (AlongY line) dot) cases cases
     | AlongX line =>
       match lands with
-        | Both sameY (Inl (Both lt sameX)) => Point.ext spot (foldDot (AlongX line) dot) cases cases
-        | Both sameY (Inr (Both gt sum)) => Point.ext spot (foldDot (AlongX line) dot) cases cases
+        | Both _ (Inl (Both _ _)) | Both _ (Inr (Both _ _)) => Point.ext spot (foldDot (AlongX line) dot) cases cases
 
 --| A list holds a set of dots when its members are exactly the set's dots.
 def Holds (dots: List Point) (marked: Point → Prop): Prop := ∀ (spot: Point) => spot ∈ dots ↔ marked spot

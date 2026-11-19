@@ -52,9 +52,7 @@ theorem part2Sound ∀ (debugger: Debugger) (a: Nat)
     | Finished output =>
       Both facts.left
         (rewrite And.right facts at outcomeHalts { debugger.registers | a } debugger.program output finished)
-    | Faulted =>
-      Void.impossible (Option.noneNotSome a (rewrite Eq.flipped facts.right, lowestNil debugger.outputFor at found))
-    | OutOfFuel =>
+    | Faulted | OutOfFuel =>
       Void.impossible (Option.noneNotSome a (rewrite Eq.flipped facts.right, lowestNil debugger.outputFor at found))
 
 --| Part 2, for a program whose output has the loop shape: the value found

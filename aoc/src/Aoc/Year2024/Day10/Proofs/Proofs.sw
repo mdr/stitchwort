@@ -113,8 +113,7 @@ theorem countTrailEnds ∀ (map: TopographicMap) (steps: Nat) (from: Position):
   match steps with
     | Zero =>
       match nine: map.heightAt from == Some 9 with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | Succ steps =>
       rewrite List.countSumBy (pathsOf map (Succ steps)) (climbs map from),
           List.sumByFlatMap map.positions (path => Bool.toNat (climbs map from path)) (position =>

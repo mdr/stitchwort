@@ -36,8 +36,7 @@ theorem atLeastFirst ∀ (first: Nat) (rest: List Nat)
 
 theorem gapSound: ∀ (ids: List Nat) => List.Sorted Nat.leq ids
       → ∀ (seat: Nat) => gap ids = Some seat → ¬(seat ∈ ids) ∧ (seat + 1) ∈ ids ∧ (seat - 1) ∈ ids
-  | [], sorted, seat, found => (Option.noneNotSome seat found).impossible
-  | [only], sorted, seat, found => (Option.noneNotSome seat found).impossible
+  | [] | [_], _, seat, found => (Option.noneNotSome seat found).impossible
   | [low, high, ..rest], Both ordered sortedRest, seat, found =>
     match apart: high == low + 2 with
       | True =>
@@ -46,8 +45,7 @@ theorem gapSound: ∀ (ids: List Nat) => List.Sorted Nat.leq ids
         Both
           (member =>
             match member with
-              | Inl same => arithmetic
-              | Inr (Inl same) => arithmetic
+              | Inl _ | Inr (Inl _) => arithmetic
               | Inr (Inr later) => arithmetic [atLeastFirst high rest sortedRest seat (Inr later)])
           (Both (Inr (Inl (arithmetic))) (Inl (arithmetic)))
       | False =>

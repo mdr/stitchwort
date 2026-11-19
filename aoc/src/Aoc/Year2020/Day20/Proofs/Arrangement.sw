@@ -12,8 +12,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
 
 --| Each tile's left edge is the right edge of the tile before it.
 def RowFits: (row: List Tile) → Prop
-  | [] => Unit
-  | [only] => Unit
+  | [] | [_] => Unit
   | [first, second, ..rest] => second.image.left = first.image.right ∧ RowFits [second, ..rest]
 
 --| Each row's first tile's top edge is the bottom edge of the first tile

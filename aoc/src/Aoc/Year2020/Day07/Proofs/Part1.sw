@@ -13,8 +13,7 @@ theorem holdersInIndex ∀ (rules: Rules) (colour: Colour):
       = ((rules.all.flatMap .holdings).filter (pair => Map.Spec.sameKey colour pair.inside)).map .holder :=
   rewrite Map.getGroupBy .inside colour (rules.all.flatMap .holdings) then
     match List.filter (rules.all.flatMap .holdings) (pair => Map.Spec.sameKey colour pair.inside) with
-      | [] => byComputing
-      | [first, ..rest] => byComputing
+      | [] | [_, .._] => byComputing
 
 --| Every holder is the colour of a rule.
 theorem holderListed ∀ (rules: List Rule) (colour holder: Colour)

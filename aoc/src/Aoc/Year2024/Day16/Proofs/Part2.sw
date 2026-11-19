@@ -24,8 +24,7 @@ theorem beforeHolds ∀ (maze: Maze):
       → ∀ (previous: Reindeer) (weight: Nat) => (previous, weight) ∈ maze.before reindeer → maze.holds previous = True
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
-      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn then holds
-      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn then holds
+      | Inr (Inl turn) | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn then holds
       | Inr (Inr (Inr none)) => none.impossible
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with

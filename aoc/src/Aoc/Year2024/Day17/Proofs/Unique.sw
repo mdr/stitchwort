@@ -19,9 +19,7 @@ theorem comboUnique ∀ (registers: Registers) (operand: Nat) (first second: Ste
     (isFirst: WithCombo registers operand first (value => first = target value))
     (isSecond: WithCombo registers operand second (value => second = target value)):
     first = second :=
-  match found: comboValue registers operand with
-    | Some value => Eq.trans isFirst isSecond.flipped
-    | None => Eq.trans isFirst isSecond.flipped
+  match found: comboValue registers operand with | Some _ | None => Eq.trans isFirst isSecond.flipped
 
 theorem executesUnique ∀ (operand: Nat) (machine: Machine) (first second: Step) (opcode: Nat)
     (isFirst: Executes opcode operand machine first)
@@ -34,13 +32,10 @@ theorem executesUnique ∀ (operand: Nat) (machine: Machine) (first second: Step
     | 2, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 3, isFirst, isSecond =>
       match zero: machine.registers.a == 0 with
-        | True => Eq.trans isFirst isSecond.flipped
-        | False => Eq.trans isFirst isSecond.flipped
+        | True | False => Eq.trans isFirst isSecond.flipped
     | 4, Witness one (Both isOne firstIs), Witness other (Both isOther secondIs) =>
       rewrite firstIs, secondIs, xorUnique machine.registers.b machine.registers.c one other isOne isOther
-    | 5, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
-    | 6, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
-    | 7, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
+    | 5 | 6 | 7, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))), isFirst, isSecond =>
       Eq.trans isFirst isSecond.flipped
 

@@ -23,8 +23,7 @@ def pixelSymbol: Pixel → Char
   | Calm => '.'
 
 theorem spaceNotPixel ∀ (char: Char) (isSpace: Parse.isSpace char = True): pixelChar char = False := match isSpace with
-  | Inl space => rewrite space.read
-  | Inr tab => rewrite tab.read
+  | Inl space | Inr space => rewrite space.read
 
 --| A word that starts with a different character is not a start of the input.
 theorem stripDifferent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)
@@ -60,9 +59,7 @@ theorem allPixels ∀ (pixels: List Pixel): (pixels.map pixelSymbol).all pixelCh
 theorem pixelWritten ∀ (read: List Char) (shape: Pixel)
     (written: PixelWritten read shape):
     read = [pixelSymbol shape] :=
-  match written with
-    | Inl (Both single same) => rewrite same, single
-    | Inr (Both single same) => rewrite same, single
+  match written with | Inl (Both single same) | Inr (Both single same) => rewrite same, single
 
 theorem eachPixels ∀ (pixels: List Pixel) (read: List Char)
     (h: Parse.Each PixelWritten read pixels):

@@ -22,9 +22,7 @@ theorem safeAgrees ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (positio
 theorem canEnterSafe ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (position: Position):
     canEnter (MemorySpace.after size bytes fallen).enter position = isSafe size (bytes.take fallen) position :=
   rewrite <- safeAgrees size bytes fallen position then
-    match safe: (MemorySpace.after size bytes fallen).isSafe position with
-      | True => byComputing
-      | False => byComputing
+    match safe: (MemorySpace.after size bytes fallen).isSafe position with | True | False => byComputing
 
 --| Entering a position costs one step...
 theorem enterUnit ∀ (memory: MemorySpace) (position: Position) (cost: Nat)

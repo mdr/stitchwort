@@ -19,10 +19,7 @@ def arrow: Direction → Key
 
 --| Each arrow moves its way.
 theorem arrowMoves ∀ (direction: Direction): commandOf (arrow direction) = Some (Move direction) := match direction with
-  | North => byComputing
-  | South => byComputing
-  | West => byComputing
-  | East => byComputing
+  | North | South | West | East => byComputing
 
 --| The bytes a terminal sends for an arrow decode to that arrow, whatever follows.
 theorem arrowDecodes ∀ (rest: List Nat) (direction: Direction):

@@ -45,8 +45,7 @@ theorem passesDampenedAfterCorrect ∀ (ok: Nat → Nat → Bool) (before level:
 theorem passesDampenedCorrect ∀ (ok: Nat → Nat → Bool) (levels: List Nat):
     passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels) :=
   match levels with
-    | [] => byComputing
-    | [level] => byComputing
+    | [] | [_] => byComputing
     | [level, next, ..rest] =>
       match step: ok level next with
         | True => rewrite passesDampenedAfterCorrect ok level next rest step, step then cases

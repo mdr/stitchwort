@@ -25,9 +25,7 @@ theorem leftIsRight ∀ (quarters: Nat)
     Nat.iterate quarters quarterLeft location = Nat.iterate ((4 - quarters) % 4) quarterRight location :=
   match quarters with
     | 0 => byComputing
-    | 1 => Coords.ext _ _ (arithmetic) (arithmetic)
-    | 2 => Coords.ext _ _ (arithmetic) (arithmetic)
-    | 3 => Coords.ext _ _ (arithmetic) (arithmetic)
+    | 1 | 2 | 3 => Coords.ext _ _ (arithmetic) (arithmetic)
     | Succ (Succ (Succ (Succ more))) => Void.impossible arithmetic
 
 --| The spec's turn, as the program counts it: quarter turns clockwise.
@@ -50,10 +48,7 @@ theorem turnedQuarters ∀ (quarters: Nat) (location: Location):
 
 --| The spec's step is the library's step along the heading.
 theorem unitStep ∀ (heading: Heading): unit heading = heading.toCoords := match heading with
-  | North => Coords.ext _ _ (arithmetic) (arithmetic)
-  | South => Coords.ext _ _ (arithmetic) (arithmetic)
-  | East => Coords.ext _ _ (arithmetic) (arithmetic)
-  | West => Coords.ext _ _ (arithmetic) (arithmetic)
+  | North | South | East | West => Coords.ext _ _ (arithmetic) (arithmetic)
 
 --| Turning a heading is turning its step.
 theorem headingTurned ∀ (quarters: Nat) (heading: Heading):

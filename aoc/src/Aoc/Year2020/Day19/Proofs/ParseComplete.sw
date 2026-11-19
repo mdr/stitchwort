@@ -27,9 +27,7 @@ theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: 
 def seqChar (char: Char): Bool := Parse.isDigit char ∨ char == ' '
 
 theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
-  match isSpace with
-    | Inl space => rewrite space.read
-    | Inr tab => rewrite tab.read
+  match isSpace with | Inl space | Inr space => rewrite space.read
 
 theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char)
     (written: NumberWritten read number)

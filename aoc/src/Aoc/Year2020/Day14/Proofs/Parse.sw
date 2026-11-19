@@ -10,8 +10,7 @@ import Std (Bool, Char, Fail, List, Parse, Result, Text, Void)
 theorem readsMaskBit: Parse.Reads maskBit MaskBitWritten :=
   Parse.readsWeaken (Parse.readsPickBy maskBits MaskBit.symbol) (read bit (Both member same) =>
     match bit with
-      | Off => same
-      | On => same
+      | Off | On => same
       | X => same)
 
 theorem readsInstruction: Parse.Reads instruction InstructionWritten :=

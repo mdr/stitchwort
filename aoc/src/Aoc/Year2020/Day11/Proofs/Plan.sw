@@ -66,9 +66,7 @@ theorem occupiedSeat ∀ (start layout: Layout)
         match here with
           | Occupied => Exists.elim (startSeat start layout same near Occupied e byComputing) (before both =>
             rewrite And.left both then And.right both)
-          | Empty =>
-            Void.impossible (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied then occupied))
-          | Floor =>
+          | Empty | Floor =>
             Void.impossible (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied then occupied))
 
 --| A seat's planned view is what the rule looks at on the start, seats

@@ -64,9 +64,7 @@ theorem runsColour ∀ (read: List Char) (colourIs: Colour)
 
 theorem bagStops ∀ (count: Nat) (rest: List Char):
     ((if count == 1 then " bag" else " bags").toList ++ rest).takeWhile Char.isAsciiLowercase = [] :=
-  match count == 1 with
-    | True => byComputing
-    | False => byComputing
+  match count == 1 with | True | False => byComputing
 
 theorem runsContent ∀ (read: List Char) (item: Content)
     (written: ContentWritten read item) (rest: List Char):

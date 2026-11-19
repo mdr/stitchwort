@@ -34,15 +34,7 @@ theorem halfBits ∀ (a b: Nat) (carry: Bool)
     (small: a < 2)
     (alsoSmall: b < 2):
     (a + b + carry.toNat) / 2 = (carryOut (a == 1) (b == 1) carry).toNat :=
-  match a, b, carry with
-    | Zero, Zero, False => byComputing
-    | Zero, Zero, True => byComputing
-    | Zero, Succ Zero, False => byComputing
-    | Zero, Succ Zero, True => byComputing
-    | Succ Zero, Zero, False => byComputing
-    | Succ Zero, Zero, True => byComputing
-    | Succ Zero, Succ Zero, False => byComputing
-    | Succ Zero, Succ Zero, True => byComputing
+  match a, b, carry with | Zero | Succ Zero, Zero | Succ Zero, False | True => byComputing
 
 --| Halving a sum of two numbers and a carry: the halves, and the carry out
 --| of the lowest bits.

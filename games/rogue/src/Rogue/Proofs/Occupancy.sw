@@ -78,9 +78,7 @@ theorem clearFilter ∀ (position: Position) (keep: Monster → Bool) (monsters:
 
 theorem woundStays ∀ (target: Position) (damage: Nat) (monster: Monster):
     (wound target damage monster).position = monster.position :=
-  match hit: monster.position == target with
-    | True => byComputing
-    | False => byComputing
+  match hit: monster.position == target with | True | False => byComputing
 
 --| The monsters' turn keeps them off the player's cell: those that attack
 --| stay where they are, and those that move pick a free cell, or stay.
@@ -129,9 +127,7 @@ theorem monstersTurnClear ∀ (dice: Dice) (state: State)
         state.monsters
         byComputing
         clear
-    | Won => clear
-    | Died => clear
-    | GaveUp => clear
+    | Won | Died | GaveUp => clear
 
 theorem playerMovesClear ∀ (dice: Dice) (state: State) (direction: Direction)
     (clear: Clear state.player state.monsters):
@@ -182,9 +178,7 @@ theorem resolveClear ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => descendClear dice state clear
             | False => clear
-    | Won => clear
-    | Died => clear
-    | GaveUp => clear
+    | Won | Died | GaveUp => clear
 
 --| No monster stands on the player's cell after a turn, whatever the seed.
 theorem stepClear ∀ (seed: Nat) (state: State) (command: Command)

@@ -110,9 +110,7 @@ theorem monstersTurnOnFloor ∀ (dice: Dice) (state: State)
         state.monsters
         Trivial
         onFloor
-    | Won => onFloor
-    | Died => onFloor
-    | GaveUp => onFloor
+    | Won | Died | GaveUp => onFloor
 
 theorem playerMovesOnFloor ∀ (dice: Dice) (state: State) (direction: Direction)
     (onFloor: OnFloor state.level state.monsters):
@@ -163,9 +161,7 @@ theorem resolveOnFloor ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => descendOnFloor dice state onFloor
             | False => onFloor
-    | Won => onFloor
-    | Died => onFloor
-    | GaveUp => onFloor
+    | Won | Died | GaveUp => onFloor
 
 --| No monster stands in a wall after a turn, whatever the seed.
 theorem stepOnFloor ∀ (seed: Nat) (state: State) (command: Command)

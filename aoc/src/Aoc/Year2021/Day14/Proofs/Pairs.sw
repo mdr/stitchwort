@@ -19,9 +19,7 @@ def expand (rules: List Rule) (pair: ElementPair): List ElementPair := match ins
 theorem pairsAcross ∀ (rules: List Rule) (a b: Char) (tail: List Char):
     pairsOf [a, ..List.append (between rules a b) [b, ..tail]]
       = List.append (expand rules { first = a, second = b }) (pairsOf [b, ..tail]) :=
-  match e: insertionFor rules { first = a, second = b } with
-    | Some c => byComputing
-    | None => byComputing
+  match e: insertionFor rules { first = a, second = b } with | Some _ | None => byComputing
 
 theorem pairsStepCons ∀ (rules: List Rule) (a b: Char) (rest: List Char):
     pairsOf (step rules [a, b, ..rest])
@@ -33,6 +31,5 @@ theorem pairsStepCons ∀ (rules: List Rule) (a b: Char) (rest: List Char):
 theorem pairsStep ∀ (rules: List Rule) (polymer: List Char):
     pairsOf (step rules polymer) = List.flatMap (pairsOf polymer) (expand rules) :=
   match polymer with
-    | [] => byComputing
-    | [a] => byComputing
+    | [] | [_] => byComputing
     | [a, b, ..rest] => rewrite pairsStepCons rules a b rest, pairsStep rules [b, ..rest]

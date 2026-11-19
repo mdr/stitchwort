@@ -271,8 +271,7 @@ theorem bestOptimal ∀ (k: Nat): BestBelow k := match k with
       | [y, ..s] => arithmetic
   | Succ k => bank s h hk =>
     match bank, s with
-      | [], [] => arithmetic
-      | [d, ..rest], [] => arithmetic
+      | [] | [_, .._], [] => arithmetic
       | [d, ..rest], [y, ..s] => bestOptimalStep k d rest y s (bestOptimal k) h arithmetic
 
 theorem bestOptimalStep ∀ (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank)

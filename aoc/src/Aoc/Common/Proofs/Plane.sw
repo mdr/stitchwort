@@ -166,25 +166,17 @@ theorem coordsTurnedHeading ∀ [auto frame: Frame f] (heading: Heading) (quarte
 --| The step the opposite way is the opposite step.
 theorem headingOppositeCoords ∀ [auto frame: Frame f] (heading: Heading):
     (heading.opposite.toCoords: Coords f) = heading.toCoords.negate :=
-  match heading with
-    | North => coordsExt _ _ (arithmetic) (arithmetic)
-    | East => coordsExt _ _ (arithmetic) (arithmetic)
-    | South => coordsExt _ _ (arithmetic) (arithmetic)
-    | West => coordsExt _ _ (arithmetic) (arithmetic)
+  match heading with | North | East | South | West => coordsExt _ _ (arithmetic) (arithmetic)
 
 --| A step along a heading then a step along the opposite one returns.
 theorem coordsStepOpposite ∀ [auto frame: Frame f] (coords: Coords f) (heading: Heading):
     (coords.step heading).step heading.opposite = coords :=
   coordsExt _ _
     (match heading with
-      | North => arithmetic
-      | East => arithmetic
-      | South => arithmetic
+      | North | East | South => arithmetic
       | West => arithmetic)
     (match heading with
-      | North => arithmetic
-      | East => arithmetic
-      | South => arithmetic
+      | North | East | South => arithmetic
       | West => arithmetic)
 
 theorem coordsMovedZero ∀ [auto frame: Frame f] (coords: Coords f) (heading: Heading):

@@ -13,9 +13,7 @@ import Std (List, Nat)
 --| A design is possible exactly when there are ways to make it.
 theorem possibleWays ∀ (patterns: List Pattern) (design: Design):
     (ways patterns design > 0) = possible patterns design :=
-  match arrangements patterns design with
-    | [] => byComputing
-    | [first, ..rest] => byComputing
+  match arrangements patterns design with | [] | [_, .._] => byComputing
 
 theorem part1Correct ∀ (onsen: Onsen): solvePart1 onsen = part1 onsen :=
   List.countCongMem _ (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns) (design member =>

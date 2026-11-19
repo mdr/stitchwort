@@ -48,8 +48,7 @@ theorem fileBlocksFreeLast ∀ (blocks: List Block) (id: Nat)
         | Some laterId =>
           rewrite fileBlocksFreeLast rest laterId later, Option.someInjective found then
             match block with
-              | FileBlock here => byComputing
-              | Free => byComputing
+              | FileBlock _ | Free => byComputing
         | None =>
           match block with
             | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found
@@ -61,14 +60,9 @@ theorem anyFileBlock ∀ (blocks: List Block): blocks.any (block => block.isFile
     | [block, ..rest] =>
       rewrite anyFileBlock rest then
         match later: lastFile rest with
-          | Some id =>
+          | Some _ | None =>
             match block with
-              | FileBlock here => byComputing
-              | Free => byComputing
-          | None =>
-            match block with
-              | FileBlock here => byComputing
-              | Free => byComputing
+              | FileBlock _ | Free => byComputing
 
 --| More blocks to move than `fillFront` uses change nothing.
 theorem fillFrontAppend ∀ (blocks: List Block) (moving extra: List Nat) (count: Nat)
@@ -144,8 +138,7 @@ theorem stepsFill ∀ (moves: Nat) (blocks: List Block)
   match blocks with
     | [] =>
       match moves with
-        | Zero => byComputing
-        | Succ fewer => byComputing
+        | Zero | Succ _ => byComputing
     | [FileBlock id, ..rest] =>
       rewrite stepsPastFile id rest moves, compactFile id rest then
         Eq.cong (Cons (FileBlock id)) (stepsFill moves rest (arithmetic))

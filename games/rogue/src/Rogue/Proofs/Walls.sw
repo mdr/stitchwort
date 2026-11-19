@@ -52,9 +52,7 @@ theorem resolveOutOfWalls ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => descendOutOfWalls dice state
             | False => inside
-    | Won => inside
-    | Died => inside
-    | GaveUp => inside
+    | Won | Died | GaveUp => inside
 
 --| The player is never inside a wall after a turn, whatever the seed.
 theorem stepOutOfWalls ∀ (seed: Nat) (state: State) (command: Command)

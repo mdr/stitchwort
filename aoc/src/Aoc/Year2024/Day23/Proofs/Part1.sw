@@ -131,10 +131,7 @@ theorem threeListed ∀ (set: Set Computer)
   let distinct: List.Distinct set.toList := Map.keysDistinct set.items
   let sized: set.toList.length = 3 := rewrite <- Set.sizeToList set then three
   match keys: set.toList with
-    | [] => Void.impossible (arithmetic [sized])
-    | [first] => Void.impossible (arithmetic [sized])
-    | [first, second] => Void.impossible (arithmetic [sized])
-    | [first, second, third, fourth, ..rest] => Void.impossible (arithmetic [sized])
+    | [] | [_] | [_, _] | [_, _, _, _, .._] => Void.impossible (arithmetic [sized])
     | [first, second, third] =>
       let (Both firstOut (Both secondOut unused)) := distinct
       found first second third

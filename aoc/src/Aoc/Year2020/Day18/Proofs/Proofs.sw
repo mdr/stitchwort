@@ -11,8 +11,7 @@ import Std (Eq, Fail, List, Nat, Parse, Result, Text)
 
 theorem valueSpec ∀ (expression: Expression): expression.value = Spec.value expression := match expression with
   | Number value => byComputing
-  | Operation Plus left right => rewrite valueSpec left, valueSpec right
-  | Operation Times left right => rewrite valueSpec left, valueSpec right
+  | Operation Plus left right | Operation Times left right => rewrite valueSpec left, valueSpec right
   | Parenthesised inner => valueSpec inner
 
 theorem sumSpec ∀ (homework: Homework): homework.sum = (homework.expressions.map Spec.value).sum :=

@@ -100,8 +100,7 @@ theorem part1Correct ∀ (lines: List (List Token)): Part1Answer lines (solvePar
     rewrite List.sumByCons rest line corruptionScore then NextLine (lineErrorScore line) (part1Correct rest)
 
 def bracketOf: Token → Bracket
-  | Opener bracket => bracket
-  | Closer bracket => bracket
+  | Opener bracket | Closer bracket => bracket
 
 --| A line has one syntax error score.
 theorem errorScoreUnique ∀ (line: List Token) (a b: Nat): ErrorScore line a → ErrorScore line b → a = b

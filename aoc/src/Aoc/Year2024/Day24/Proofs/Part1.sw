@@ -20,10 +20,7 @@ theorem initialSound ∀ (device: Device): Sound device (Map.fromList device.ini
 --| The program's gates are the puzzle's.
 theorem applyIsGateOutput ∀ (operation: Operation) (left right: Bool):
     operation.apply left right = gateOutput operation left right :=
-  match operation with
-    | And => cases
-    | Or => cases
-    | Xor => cases
+  match operation with | And | Or | Xor => cases
 
 --| A gate that fires outputs what its wire carries.
 theorem fireSound ∀ (device: Device) (values: Values)

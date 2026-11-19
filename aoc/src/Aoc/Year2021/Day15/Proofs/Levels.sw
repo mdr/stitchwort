@@ -14,9 +14,7 @@ import Std (Bool, DecEq, Eq, Exists, Fin, List, Map, Nat, Option, Void)
 --| The spec's level is the digit at the position.
 theorem levelAtCell ∀ (cave: Cave) (position: Position):
     levelAt cave position = (cellAt cave.grid.rows position).map Fin.toNat :=
-  match cave.grid.rows.get position.row with
-    | None => byComputing
-    | Some row => byComputing
+  match cave.grid.rows.get position.row with | None | Some _ => byComputing
 
 --| The program's level is the digit at the position, or 0 off the cave.
 theorem levelsAt ∀ (cave: Cave) (position: Position):

@@ -11,12 +11,10 @@ import Aoc.Year2020.Day03 (..)
 import Std (Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
 theorem ofCharSymbol ∀ (square: Square): Square.ofChar (symbol square) = square := match square with
-  | Open => byComputing
-  | Tree => byComputing
+  | Open | Tree => byComputing
 
 theorem isSquareSymbol ∀ (square: Square): isSquare (symbol square) = True := match square with
-  | Open => byComputing
-  | Tree => byComputing
+  | Open | Tree => byComputing
 
 theorem runsSquare ∀ (kind: Square) (rest: List Char)
     (allowed: isSquare (symbol kind) = True):

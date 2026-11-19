@@ -13,8 +13,7 @@ import Std (Fail, List, NonEmptyList, Parse, Result, Text)
 theorem readsSeat: Parse.Reads seat (read seat => read = [symbol seat]) :=
   Parse.readsWeaken (Parse.readsPickBy [Floor, Empty, Occupied] Seat.symbol) (read seat (Both member same) =>
     match seat with
-      | Floor => same
-      | Empty => same
+      | Floor | Empty => same
       | Occupied => same)
 
 --| Every line a grid of seats is read from is its row written out.

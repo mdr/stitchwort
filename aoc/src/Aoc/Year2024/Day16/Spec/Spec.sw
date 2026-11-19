@@ -19,8 +19,7 @@ type Move = | Forward | Clockwise | Counterclockwise
 
 def Move.points: Move → Nat
   | Forward => 1
-  | Clockwise => 1000
-  | Counterclockwise => 1000
+  | Clockwise | Counterclockwise => 1000
 
 --| Where a move leaves the reindeer; `None` for a move into a wall.
 def move (maze: Maze) (reindeer: Reindeer): Move → Option Reindeer

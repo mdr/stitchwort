@@ -49,8 +49,7 @@ theorem columns ∀ (report: List Bits):
     (report.map Bits.bits).transpose
       = (List.range 0 (width report)).map (i => report.filterMap (number => Bits.get number i)) :=
   let first: List.length (List.headOr (List.map report Bits.bits) []) = width report := match report with
-    | [] => byComputing
-    | [number, ..others] => byComputing
+    | [] | [_, .._] => byComputing
   calc List.transpose (List.map report Bits.bits)
     _ = List.map (List.range 0 (List.length (List.headOr (List.map report Bits.bits) []))) (i =>
         List.filterMap (List.map report Bits.bits) (row => List.get row i)) := List.transposeColumns _
@@ -192,8 +191,7 @@ theorem ratingAfterPrefix ∀ (choose: List Bool → Bool) (criterion: List Bits
       = Option.map (rating choose k rests) (rest => Bits.append prefix rest) :=
   match k, rests with
     | k, [rest] => byComputing
-    | Zero, [] => byComputing
-    | Zero, [first, second, ..others] => byComputing
+    | Zero, [] | [_, _, .._] => byComputing
     | Succ k, [] => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
     | Succ k, [first, second, ..others] =>
       ratingStep choose criterion agree k prefix [first, second, ..others] (ratingAfterPrefix choose criterion agree k)

@@ -42,9 +42,7 @@ theorem keepsStep ∀ (next slots: List (Slot a)) (candidates: List (List a))
 
 theorem settledCons ∀ [auto eq: DecEq a] (slot: Slot a) (slots: List (Slot a)):
     chosen [slot, ..slots] = chosen [slot] ++ chosen slots :=
-  match pick: slot.choice with
-    | Some item => byComputing
-    | None => byComputing
+  match pick: slot.choice with | Some _ | None => byComputing
 
 --| A position that `settle` passes over.
 theorem passSteps ∀ [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots next: List (Slot a))

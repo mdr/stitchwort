@@ -186,9 +186,7 @@ def Fits (merged: List Range): List Range → Prop
   | [] => Unit
   | [x, .._] => LoAtMost x.from merged
 
-theorem fitsNil ∀ (xs: List Range): Fits [] xs := match xs with
-  | [] => Trivial
-  | [x, ..xs] => Trivial
+theorem fitsNil ∀ (xs: List Range): Fits [] xs := match xs with | [] | [_, .._] => Trivial
 
 theorem fitsStep ∀ (acc: List Range) (x: Range) (xs: List Range)
     (ok: LoAtMost x.from acc)

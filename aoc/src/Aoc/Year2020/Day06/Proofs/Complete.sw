@@ -59,9 +59,7 @@ theorem runsPerson ∀ (read: List Char) (who: Person)
               lettersRead)
 
 theorem spaceNotQuestion ∀ (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
-  match isSpace with
-    | Inl space => rewrite space.read
-    | Inr tab => rewrite tab.read
+  match isSpace with | Inl space | Inr space => rewrite space.read
 
 theorem declinesPerson ∀ (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
   Parse.declinesBind

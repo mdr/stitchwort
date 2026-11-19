@@ -35,8 +35,7 @@ theorem keepLe ∀ (a: Cell) (w: Nat): Cell.count (keep a w) ≤ Cell.count a :=
   | Floor => byComputing
   | Roll =>
     match Nat.leq 5 w with
-      | True => byComputing
-      | False => byComputing
+      | True | False => byComputing
 
 --| What a round leaves of a cell with `n` rolls around it: floor if it was
 --| an accessible roll.
@@ -120,8 +119,7 @@ theorem rowBIs ∀ (rows: Vec (Vec Cell w) h) (r: Nat): RowIs (rowsCells rows) r
       | Succ j => Vec.getOrReplicate Floor w j
   | Succ r => j =>
     match j with
-      | Zero => byComputing
-      | Succ j => byComputing
+      | Zero | Succ _ => byComputing
 
 --| Past the last row or column, everything is floor.
 theorem rowsCellsBelow ∀ (rows: Vec (Vec Cell w) h) (r c: Nat) (hr: h ≤ r): rowsCells rows r c = Floor :=
@@ -162,8 +160,7 @@ theorem nearSplit ∀ (v r x: Nat):
     v.keepIf (near r x) = v.keepIf (r.equal (Succ x)) + v.keepIf (r.equal x) + v.keepIf ((Succ r).equal x) :=
   match r, x with
     | Zero, Zero => arithmetic
-    | Zero, Succ Zero => byComputing
-    | Zero, Succ (Succ k) => byComputing
+    | Zero, Succ Zero | Succ (Succ _) => byComputing
     | Succ Zero, Zero => arithmetic
     | Succ (Succ k), Zero => byComputing
     | Succ r, Succ x => nearSplit v r x
@@ -196,9 +193,7 @@ theorem nearSum ∀ (g: Nat → Nat) (n: Nat)
     _ = shift g r + g r + g (Succ r) :=
       rewrite pickBelow g n hz r, List.sumRangePick g n r (hz r), List.sumRangePick g n (Succ r) (hz (Succ r))
 
-theorem isRollCount ∀ (a: Cell): Bool.toNat (a == Roll) = a.count := match a with
-  | Roll => byComputing
-  | Floor => byComputing
+theorem isRollCount ∀ (a: Cell): Bool.toNat (a == Roll) = a.count := match a with | Roll | Floor => byComputing
 
 --| Splitting off the position itself.
 theorem splitSelf ∀ (n1 n2 e: Bool) [x: Bool]
@@ -213,8 +208,7 @@ theorem splitSelf ∀ (n1 n2 e: Bool) [x: Bool]
     | False, n2, False => byComputing
 
 theorem andKeep ∀ (a b: Bool) [x: Bool]: Bool.toNat ((a ∧ b) ∧ x) = (x.toNat.keepIf b).keepIf a := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
+  | True, True | False => byComputing
   | False, b => byComputing
 
 theorem nearSelf ∀ (r: Nat): (r.absDiff r ≤ 1) = True := rewrite Nat.absDiffSelf r
@@ -255,14 +249,10 @@ def rowSum (cells: Cells) (r c: Nat): Nat :=
   (bord cells r c).count + (bord cells r (Succ c)).count + (bord cells r (Succ (Succ c))).count
 
 theorem bordRowShift ∀ (cells: Cells) (x j: Nat): shift (y => (cells x y).count) j = (bord cells (Succ x) j).count :=
-  match j with
-    | Zero => byComputing
-    | Succ y => byComputing
+  match j with | Zero | Succ _ => byComputing
 
 theorem rowSumShift ∀ (cells: Cells) (c r: Nat): shift (x => rowSum cells (Succ x) c) r = rowSum cells r c :=
-  match r with
-    | Zero => byComputing
-    | Succ x => byComputing
+  match r with | Zero | Succ _ => byComputing
 
 theorem bordBelow ∀ (grid: Grid) (cells: Cells)
     (below: ∀ (r c: Nat) => grid.height ≤ r → cells r c = Floor) (x: Nat)

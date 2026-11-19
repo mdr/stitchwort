@@ -59,9 +59,7 @@ theorem stepCorrect ∀ (cavern: Cavern) (flashed: Position → Bool)
 --| A cell is 0 after the step exactly when it flashed.
 theorem zeroAfter ∀ (flashed: Flashed) (at: Position) (level: Nat):
     ((if flashed.has at then 0 else flashed.energy at level) == 0) = flashed.has at :=
-  match flashed.has at with
-    | True => byComputing
-    | False => byComputing
+  match flashed.has at with | True | False => byComputing
 
 --| The 0s after the step are the flashers.
 theorem stepCells ∀ (cavern: Cavern):

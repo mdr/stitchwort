@@ -29,9 +29,7 @@ theorem bindsWeaken ∀ (strengthOf: Operator → Nat) (strength: Nat) (expressi
     | Parenthesised inner => Trivial
 
 theorem spacedWritten ∀ (operator: Operator): (operator.spaced).toList = [' ', Spec.symbol operator, ' '] :=
-  match operator with
-    | Plus => byComputing
-    | Times => byComputing
+  match operator with | Plus | Times => byComputing
 
 theorem readsOperator ∀ (operators: List Operator):
     Parse.Reads (() => operator operators) (read found => found ∈ operators ∧ read = [' ', Spec.symbol found, ' ']) :=

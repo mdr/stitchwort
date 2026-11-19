@@ -108,15 +108,7 @@ theorem oneTimer ∀ (x: Nat)
       + Bool.toNat (x == 8)
       = 1 :=
   match x with
-    | 0 => byComputing
-    | 1 => byComputing
-    | 2 => byComputing
-    | 3 => byComputing
-    | 4 => byComputing
-    | 5 => byComputing
-    | 6 => byComputing
-    | 7 => byComputing
-    | 8 => byComputing
+    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => byComputing
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ above)))))))) => arithmetic
 
 --| The counts add up to the number of fish.

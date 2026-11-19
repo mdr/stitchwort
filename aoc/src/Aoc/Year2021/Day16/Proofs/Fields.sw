@@ -103,11 +103,4 @@ theorem operatorTypeOfTypeId ∀ (operatorType: OperatorType): operatorTypeOf (t
 theorem operatorTypeOfSome ∀ (n: Nat) (operatorType: OperatorType)
     (read: operatorTypeOf n = Some operatorType):
     n = typeId operatorType :=
-  match n with
-    | 0 => rewrite <- Option.someInjective read
-    | 1 => rewrite <- Option.someInjective read
-    | 2 => rewrite <- Option.someInjective read
-    | 3 => rewrite <- Option.someInjective read
-    | 5 => rewrite <- Option.someInjective read
-    | 6 => rewrite <- Option.someInjective read
-    | 7 => rewrite <- Option.someInjective read
+  match n with | 0 | 1 | 2 | 3 | 5 | 6 | 7 => rewrite <- Option.someInjective read

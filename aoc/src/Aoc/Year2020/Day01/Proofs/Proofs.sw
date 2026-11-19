@@ -68,8 +68,7 @@ theorem findPairAfterComplete ∀ (target: Nat) (seen: Set Nat) (before: List Na
     (sum: a + b = target):
     findPairAfter target seen rest ≠ None :=
   match rest, ahead with
-    | [], Inl (Both aIn bIn) => isNone => bIn
-    | [], Inr inPairs => isNone => inPairs
+    | [], Inl (Both _ bIn) | Inr bIn => isNone => bIn
     | [x, ..rest], ahead => isNone =>
       match c: (x <= target && Set.contains seen (target - x)) with
         | False =>
@@ -242,10 +241,7 @@ theorem part2Complete ∀ (entries: List Nat) (answer: Nat)
           match triple: findTriple 2020 entries with
             | None =>
               findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c then kept.right.read) triple
-        | [], tooShort => Void.impossible (arithmetic [tooShort])
-        | [x], tooShort => Void.impossible (arithmetic [tooShort])
-        | [x, y], tooShort => Void.impossible (arithmetic [tooShort])
-        | [x, y, z, w, ..rest], tooLong => Void.impossible (arithmetic [tooLong])
+        | [] | [_] | [_, _] | [_, _, _, _, .._], tooShort => Void.impossible (arithmetic [tooShort])
 
 --| So part 2 is the puzzle's answer, when there is exactly one.
 theorem part2Correct ∀ (entries: List Nat) (answer: Nat)

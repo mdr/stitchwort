@@ -40,9 +40,7 @@ theorem beginTracks ∀ (room first: Nat) (fits: first < room): Tracks (Game.beg
 
 theorem mapShift ∀ (turn: Nat) (found: Option Nat):
     (found.map (turns => turns + 1)).map (back => (turn + 1) - back) = found.map (back => turn - back) :=
-  match found with
-    | None => byComputing
-    | Some back => byComputing
+  match found with | None | Some _ => byComputing
 
 theorem sayTracks ∀ (game: Game) (spoken: List Nat)
     (tracks: Tracks game spoken) (number: Nat)
@@ -77,8 +75,7 @@ theorem replyTracks ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spo
             let atMost := turnsBackAtMost game.last older back found
             rewrite seen game.last lastFits, found then
               match zero: (game.turn - back) == 0 with
-                | True => arithmetic
-                | False => arithmetic
+                | True | False => arithmetic
 
 --| A reply is less than the turn it answers.
 theorem replyBelow ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply < game.turn :=

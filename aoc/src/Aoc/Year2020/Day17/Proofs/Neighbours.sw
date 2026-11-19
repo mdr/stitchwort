@@ -37,8 +37,7 @@ theorem windowAnd ∀ (x y: Int) (rest: Bool):
 
 theorem countWithin1 ∀ (xs ys: List Int): (within1 xs).count (== ys) = Bool.toNat (Spec.within1 xs ys) :=
   match xs, ys with
-    | [], [] => byComputing
-    | [], [y, ..ys] => byComputing
+    | [], [] | [_, .._] => byComputing
     | [x, ..xs], [] =>
       rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== []) [x - 1, x, x + 1],
           countPrefixedNil (x - 1) (within1 xs),

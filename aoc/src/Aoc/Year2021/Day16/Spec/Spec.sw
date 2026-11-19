@@ -120,9 +120,7 @@ def packetsInAll: List Packet → List Packet
   | [packet, ..rest] => packetsIn packet ++ packetsInAll rest
 
 def versionOf: Packet → Nat
-  | Literal version _ => version
-  | Operator version _ _ _ => version
-  | Comparator version _ _ _ _ => version
+  | Literal version _ | Operator version _ _ _ | Comparator version _ _ _ _ => version
 
 --| Part 1: the versions of all the packets, added up.
 def versionTotal (packet: Packet): Nat := (packetsIn packet).sumBy versionOf

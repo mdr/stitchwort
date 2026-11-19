@@ -245,9 +245,7 @@ theorem atOfWithin ∀ (grid: Grid a) (rectangle: grid.Rectangle) (position: Pos
 theorem lookupAt ∀ (grid: Grid a) (position: Position): grid.lookup position = grid.at position :=
   rewrite List.getOrGet (grid.rows.map List.toArray) position.row Array.empty,
       List.getMap grid.rows List.toArray position.row then
-    match List.get grid.rows position.row with
-      | None => byComputing
-      | Some line => byComputing
+    match List.get grid.rows position.row with | None | Some _ => byComputing
 
 --| The fast lookup with a fallback is `at`, or the fallback off the grid.
 theorem lookupOrAt ∀ (grid: Grid a) (fallback: a) (position: Position):

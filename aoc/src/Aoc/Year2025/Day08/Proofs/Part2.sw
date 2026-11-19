@@ -243,8 +243,7 @@ theorem lastJoinFinds ∀ (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (d
     (before: ¬(OneCircuit points.length (done.append (ps.take k)))):
     c.lastJoin (ps.map (connectionKey points)) = Some ((ps.getOr k (0, 0)).fst, (ps.getOr k (0, 0)).snd) :=
   match ps, k with
-    | [], Zero => (before after).impossible
-    | [], Succ k => (before after).impossible
+    | [], Zero | Succ _ => (before after).impossible
     | [(f, s), ..ps], k =>
       let n := points.length
       match r: boxesBelow n (f, s) with
@@ -311,9 +310,7 @@ theorem part2Correct ∀ (points: List Point) (k: Nat)
 
 --| With fewer than two boxes, they start in one circuit and there is no answer.
 theorem part2NoBoxesToJoin ∀ (points: List Point) (h: points.length ≤ 1): solvePart2 (Boxes.of points) = None :=
-  match points with
-    | [] => byComputing
-    | [p] => byComputing
+  match points with | [] | [_] => byComputing
 
 -- Some connection is the last needed -----------------------------------------
 

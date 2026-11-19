@@ -158,9 +158,7 @@ theorem runsField ∀ (read: List Char) (f: Field)
           (runsFieldPieces f.key f.value nonEmpty values rest (Parse.takeWhileOfCannotStart isValueChar rest stops))
 
 theorem spaceNotValue ∀ (char: Char) (isSpace: Parse.isSpace char = True): isValueChar char = False :=
-  match isSpace with
-    | Inl space => rewrite space.read
-    | Inr tab => rewrite tab.read
+  match isSpace with | Inl space | Inr space => rewrite space.read
 
 --| A key's first letter is a value character, so a word starting with it is absent where a space or line break is.
 theorem wordAbsent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)

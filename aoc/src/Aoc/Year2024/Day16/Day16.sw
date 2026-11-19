@@ -134,8 +134,7 @@ theorem Maze.stepsHold ∀ (maze: Maze) (moved: List Reindeer)
     match List.memAppend (next, weight) _ _ edge with
       | Inl stepped => Exists.elim (List.memMapElim (other => (other, 1)) (next, weight) moved stepped) (other both =>
         rewrite <- Eq.cong Pair.fst both.right then movedHold other both.left)
-      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn then holds
-      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn then holds
+      | Inr (Inl turn) | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn then holds
       | Inr (Inr (Inr none)) => none.impossible
 
 --| The moves out of a way of standing on an open tile, with their costs, or

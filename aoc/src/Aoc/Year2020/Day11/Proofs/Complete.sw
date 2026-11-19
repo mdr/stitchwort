@@ -15,9 +15,7 @@ import Std (Bool, DecEq, Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void
 def isSeatChar (char: Char): Bool := char == '.' ∨ char == 'L' ∨ char == '#'
 
 theorem isSeatCharSymbol ∀ (kind: Seat): isSeatChar (symbol kind) = True := match kind with
-  | Floor => byComputing
-  | Empty => byComputing
-  | Occupied => byComputing
+  | Floor | Empty | Occupied => byComputing
 
 theorem runsSeat ∀ (kind: Seat) (rest: List Char)
     (allowed: isSeatChar (symbol kind) = True):
