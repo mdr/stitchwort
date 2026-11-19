@@ -326,7 +326,7 @@ test "a character no token starts with" :=
 
 Errors are in the source's terms. A failure in the lexer reads as it does for `Parse.all`. A failure in the token parser names the line and column of the token it stopped at, what it expected, and the token as it was written (`got '*'`), or "got the end of the input" when it ran out; `Parse.tokens` works these out from each token's `offset` and `length`, so a token needs no `Show`. To keep the failure itself and map it your own way, run `Parse.run tokens parser`: its `offset` counts tokens.
 
-The rest of the library (`findAll`, `grid`, `Parse.token` (spaces around a parser), `Parse.ensure`, and the `Parse.Reads` lemmas for proving what a parser accepts) is described by `stitchwort doc` (for instance `stitchwort doc Parse.findAll`), the [parser library note](../proposals/parser-combinators.md) and `examples/accept/parse-basics.sw`.
+The rest of the library (`findAll`, `grid`, `Parse.token` (spaces around a parser), `Parse.ensure`, the `Parse.Reads` lemmas for proving what a parser accepts, and the `Parse.Follows` lemmas for proving that two runs on related inputs, such as a source and the same source without its comments, give related results, for a parser that never backs up) is described by `stitchwort doc` (for instance `stitchwort doc Parse.findAll`), the [parser library note](../proposals/parser-combinators.md) and `examples/accept/parse-basics.sw`.
 
 ## `IO` and `main`
 

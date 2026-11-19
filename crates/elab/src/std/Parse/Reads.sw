@@ -18,7 +18,9 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 --| `Reads` is the soundness half: it says nothing about when a parser
 --| succeeds, only what a success means, which is what a program's theorems
 --| need of its input. The completeness half, that a parser does succeed on
---| good input, is `Parse.Runs` (Parse/Runs.sw). Verified parsers state both:
+--| good input, is `Parse.Runs` (Parse/Runs.sw); and what two runs on related
+--| inputs give, for a parser that never backs up, is `Parse.Follows`
+--| (Parse/Follows.sw). Verified parsers state both:
 --| TRX's big-step semantics of PEGs (Koprowski and Binsztok, 2010) is proved
 --| sound and complete, and so are the refinement specs of Baanen and Swierstra
 --| ("Combining predicate transformer semantics for effects", 2020), where
