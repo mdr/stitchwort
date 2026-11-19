@@ -43,7 +43,7 @@ import Syntax.ParseWalk (parseLexical1, parseShaped1)
 import Syntax.ParseWalkOthers (frameRest, parseSettledSourceProved)
 import Syntax.GoodItemProofs (settledGood, spelledPlain1)
 import Syntax.GlueQuietProofs (settledItemsQuiet)
-import Syntax.SettleProofs (alphabet1, plain1, settledKeepsTokens, tokens)
+import Syntax.SettleProofs (alphabet1, plain1, settledKeepsTokens, sourcePlainOfPlain, tokens)
 import Syntax.SettleBareProofs (settledOnceNone)
 
 --| P2 is the identity on an expression with no last comma.
@@ -386,7 +386,7 @@ theorem printedOf ∀ (source out: Text) (lexed: Lexed) (parsed: SourceFile)
 --| `calmTop` is `calm` (each word's blank-line flag kept only where the rules print a blank line) with the file's first
 --| flag cleared; it changes comments' flags only, so `meaning`, which reads no comment, is kept. Slice 1 excludes
 --| everything `formatWithin1` refuses: a token outside the slice's alphabet, a name or numeral not spelled plainly, a
---| source that isn't `plain1`, one that doesn't lex or parse, a tree outside `within1`, and (D3685, for now) a
+--| source that isn't `sourcePlain1`, one that doesn't lex or parse, a tree outside `within1`, and (D3685, for now) a
 --| declaration that doesn't print on one line.
 --|
 --| Proof idea: `formatsOf` inverts the driver; `tidiedFacts` gives the printed tree's facts from the parser's
@@ -419,7 +419,7 @@ theorem formatKeepsProgram1 ∀ (source out: Text)
 --| Slice 1 excludes what `formatKeepsProgram1` says; on an accepted source the theorem has no other condition.
 --|
 --| Proof idea: the second run lexes `out` to the printed tree's leaves, which pass the alphabet
---| (`printedAlphabet1`), are spelled plainly (`printedSpelledPlain1`) and are `plain1` (`printedPlain1`), and parse
+--| (`printedAlphabet1`), are spelled plainly (`printedSpelledPlain1`) and are `plain1` (`printedPlain1`, so `sourcePlain1`), and parse
 --| to `calmTop` of the printed tree (`printedOf`); that tree is within the slice and has no last comma, so tidying
 --| changes nothing (`tidySame1`); it prints on one line, and prints `out` (`calmTopPrints`).
 theorem formatIdempotent1 ∀ (source out: Text) (formats: formatWithin1 source = Ok out): formatWithin1 out = Ok out :=
@@ -444,7 +444,7 @@ theorem formatIdempotent1 ∀ (source out: Text) (formats: formatWithin1 source 
       (printedAlphabet1 file within shaped settled lexical)
       (Bool.andIntro
         (printedSpelledPlain1 file within shaped settled lexical)
-        (printedPlain1 file within shaped settled lexical hung))
+        (sourcePlainOfPlain _ (printedPlain1 file within shaped settled lexical hung)))
   let topWithin := calmTopWithin file within
   let same := tidySame1 file.calmTop topWithin (calmTopCommaFree file within commaFree)
   let topOneLine: file.calmTop.tidy1.oneLine1 = True := rewrite same then calmTopOneLine file within lexical oneLine

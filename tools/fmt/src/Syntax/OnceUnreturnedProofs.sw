@@ -13,8 +13,9 @@ import Syntax.SettleProofs (
   leavesTextsSplit,
   lexedTexts,
   plain1,
-  plainFromOf,
   settledKeepsComments,
+  sourcePlain1,
+  sourcePlainFromOf,
   tokens,
   tokensReverseOnto,
   triviaTexts
@@ -64,34 +65,34 @@ theorem wordsPlainTexts ∀ (leaves: List Leaf)
 --| trims spaces (`settledKeepsComments`, `trimEndPlain`).
 theorem onceTextsPlain ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (laid: laidOut False lexed.leaves = True)
     (unreturned: (lexedTexts lexed).all plainEnd = True):
     (wordsOf lexed.settledOnce.leaves).all (word => word.comments.texts.all plainEnd) = True
       ∧ lexed.settledOnce.end.comments.texts.all plainEnd = True :=
   let leaves := lexed.leaves
-  let plainF := plainFromOf (tokens leaves) plain
+  let plainF := sourcePlainFromOf (tokens leaves) plain
   let out := withoutR [] leaves
   let swapped: withoutLastCommas [] leaves = out.reverseOnto [] := withoutFromR [] leaves
   let lexedB: Lexed := { lexed | leaves = withoutLastCommas [] lexed.leaves }
   let laidB: laidOut False lexedB.leaves = True :=
-    rewrite swapped then laidOnto out [] (laidWithout [] leaves byComputing laid plainF) byComputing
+    rewrite swapped then laidOnto out [] (laidWithout [] leaves byComputing laid) byComputing
   let plainB: plain1 (tokens lexedB.leaves) = True :=
-    rewrite swapped then plainOfJoin out (plainWithout [] leaves plain plainF)
-  let tokensB: ∀ (q: Token → Bool) (kept: (tokens leaves).all q = True) => (tokens lexedB.leaves).all q = True :=
-    q kept =>
+    rewrite swapped then plainOfJoin out (plainWithout [] leaves (joinStart leaves plain) plainF)
+  let tokensB: ∀ (q: Token → Bool) (blind: ∀ (token: Token) (start: Bool) => q { token | lineStart = start }
+    = q token) (kept: (tokens leaves).all q = True) => (tokens lexedB.leaves).all q = True :=
+    q blind kept =>
       rewrite swapped, tokensReverseOnto out [], allReverseOnto (tokens out) [] q then
-        Bool.andIntro (allTokensWithout q [] leaves plainF byComputing kept) byComputing
-  let withinB: alphabet1 lexedB.leaves = True := tokensB (token => token.kind.within1) within
+        Bool.andIntro (allTokensWithout q blind [] leaves byComputing kept) byComputing
+  let withinB: alphabet1 lexedB.leaves = True :=
+    tokensB (token => token.kind.within1) (token start => byComputing) within
   let split :=
     rewrite leavesTextsSplit leaves lexed.end,
         allAppendB (leafTexts leaves) (triviaTexts lexed.end) plainEnd at unreturned then
       unreturned
   let leavesB: (leafTexts lexedB.leaves).all plainEnd = True :=
     rewrite swapped, textsReverseOnto plainEnd out [] then
-      Bool.andIntro
-        (textsWithout plainEnd [] leaves byComputing laid plainF byComputing (Bool.andLeft split))
-        byComputing
+      Bool.andIntro (textsWithout plainEnd [] leaves byComputing laid byComputing (Bool.andLeft split)) byComputing
   let textsB: (lexedTexts lexedB).all plainEnd = True :=
     rewrite leavesTextsSplit lexedB.leaves lexedB.end,
         allAppendB (leafTexts lexedB.leaves) (triviaTexts lexedB.end) plainEnd then

@@ -11,7 +11,7 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseCarries (codeWords)
-import Syntax.SettleProofs (alphabet1, plain1, tokens)
+import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
 import Syntax.GoodItemProofs (spelledPlain1)
 import Syntax.ParseSettledStatements (parseCarriesSource, parseSettledSource)
 
@@ -770,7 +770,7 @@ theorem parseCarriesSourceProved ∀ (source: Text) (lexed: Lexed) (file: Source
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
@@ -781,7 +781,7 @@ theorem parseSettledSourceProved ∀ (source: Text) (lexed: Lexed) (file: Source
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.settled1 = True :=

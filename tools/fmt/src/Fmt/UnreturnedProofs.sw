@@ -7,7 +7,7 @@ namespace Fmt.UnreturnedProofs
 import Std (Bool, Eq, List, Nat, Option, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
-import Syntax.SettleProofs (alphabet1, lexedTexts, plain1, tokens)
+import Syntax.SettleProofs (alphabet1, lexedTexts, sourcePlain1, tokens)
 import Syntax.SettleOnceProofs (allAppendB)
 import Syntax.SettleSplitProofs (allPrefix, allSuffix, groupWordsConcat, groupsConcat)
 import Syntax.GoodItemProofs (spelledPlain1)
@@ -196,7 +196,7 @@ theorem parsedUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
     (parsed.decls.map Decl.words).all (piece => piece.all Word.unreturned) = True
@@ -218,7 +218,7 @@ theorem commaUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
     parsed.withoutTrailingCommas.decls.all Decl.unreturned1 = True ∧ parsed.withoutTrailingCommas.unreturned1 = True :=

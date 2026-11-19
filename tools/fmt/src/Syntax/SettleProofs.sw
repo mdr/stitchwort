@@ -1649,6 +1649,115 @@ theorem plainFromOf ∀ (original: List Token) (plain: plain1 original = True): 
     | [] => byComputing
     | [_, .._] => Bool.andRight plain
 
+-- The source's test: `plain1` with a last comma allowed to start its line (SW-4131).
+
+--| A token with its line start forgotten: what rule N's bare last commas keep (they only ever change a closer's line
+--| start).
+def flatToken (token: Token): Token := { token | lineStart = False }
+
+--| Whether a comma may follow a leaf of this kind as a last one: `hasItem`'s test of the leaf before it.
+def itemKind (kind: Tok): Bool := match kind with
+  | Comma => False
+  | Pipe => False
+  | other => !other.isOpener
+
+--| `plainFrom`, with a comma that starts its line allowed before a closer when it is a last comma: the closer comes
+--| right after it and an item is before it. `item` says whether one is before the first token (`hasItem`), which
+--| decides whether the driver treats such a comma as a last one at all.
+def sourcePlainFrom (item: Bool): List Token → Bool
+  | [first, second, ..rest] =>
+    (!(first.kind == Arrow) || !arrowFollow second.kind)
+      && (!(first.kind == Comma && first.lineStart) || !passableKind second.kind || (second.kind.isCloser && item))
+      && sourcePlainFrom (itemKind first.kind) [second, ..rest]
+  | _ => True
+
+--| `plain1` for a source file: as `plainFrom`, a last comma may start its line. Its other clauses are `plain1`'s: the
+--| first token is no comma or closer, and no `->` comes before a comma, closer or `->`.
+def sourcePlain1 (tokens: List Token): Bool := match tokens with
+  | [] => True
+  | [first, .._] => !passableKind first.kind && sourcePlainFrom False tokens
+
+--| The clause about `->` alone, which is all rule 3's proofs need.
+def arrowFrom: List Token → Bool
+  | [first, second, ..rest] => (!(first.kind == Arrow) || !arrowFollow second.kind) && arrowFrom [second, ..rest]
+  | _ => True
+
+theorem orWeaken ∀ (a b c: Bool) (h: (a || b) = True): (a || b || c) = True := cases
+
+theorem sourceOfPlain ∀ (item: Bool) (toks: List Token)
+    (plain: plainFrom toks = True):
+    sourcePlainFrom item toks = True :=
+  match toks with
+    | [] => byComputing
+    | [first, ..rest] =>
+      match rest with
+        | [] => byComputing
+        | [second, ..more] =>
+          Bool.andIntro
+            (Bool.andLeft plain)
+            (Bool.andIntro
+              (orWeaken _ _ _ (Bool.andLeft (Bool.andRight plain)))
+              (sourceOfPlain (itemKind first.kind) [second, ..more] (Bool.andRight (Bool.andRight plain))))
+
+--| `plain1` is `sourcePlain1`: the driver accepts every source it did before.
+theorem sourcePlainOfPlain ∀ (toks: List Token) (plain: plain1 toks = True): sourcePlain1 toks = True := match toks with
+  | [] => byComputing
+  | [first, ..rest] => Bool.andIntro (Bool.andLeft plain) (sourceOfPlain False [first, ..rest] (Bool.andRight plain))
+
+theorem sourcePlainFromOf ∀ (toks: List Token) (plain: sourcePlain1 toks = True): sourcePlainFrom False toks = True :=
+  match toks with
+    | [] => byComputing
+    | [_, .._] => Bool.andRight plain
+
+theorem arrowOfSource ∀ (item: Bool) (toks: List Token)
+    (plain: sourcePlainFrom item toks = True):
+    arrowFrom toks = True :=
+  match toks with
+    | [] => byComputing
+    | [first, ..rest] =>
+      match rest with
+        | [] => byComputing
+        | [second, ..more] =>
+          Bool.andIntro
+            (Bool.andLeft plain)
+            (arrowOfSource (itemKind first.kind) [second, ..more] (Bool.andRight (Bool.andRight plain)))
+
+theorem flatKind ∀ (token: Token): (flatToken token).kind = token.kind := match token with
+  | { kind, text, column, lineStart } => byComputing
+
+--| Tokens equal once line starts are forgotten have the same `->` clauses.
+theorem arrowFromFlat ∀ (xs ys: List Token) (same: xs.map flatToken = ys.map flatToken): arrowFrom xs = arrowFrom ys :=
+  match xs, ys, same with
+    | [], [], _ => byComputing
+    | [x, ..xr], [y, ..yr], same =>
+      let head: flatToken x = flatToken y := List.consInjectiveHead _ _ _ _ same
+      let tail: xr.map flatToken = yr.map flatToken := Eq.cong (.drop 1) same
+      let kind: x.kind = y.kind := rewrite <- flatKind x, <- flatKind y then Eq.cong (token => token.kind) head
+      match xr, yr, tail with
+        | [], [], _ => byComputing
+        | [x2, ..xr2], [y2, ..yr2], tail2 =>
+          let head2: flatToken x2 = flatToken y2 := List.consInjectiveHead _ _ _ _ tail2
+          let kind2: x2.kind = y2.kind :=
+            rewrite <- flatKind x2, <- flatKind y2 then Eq.cong (token => token.kind) head2
+          rewrite kind, kind2, arrowFromFlat [x2, ..xr2] [y2, ..yr2] tail2
+    | [], [y, ..yr], never => (List.nilNotCons (flatToken y) (yr.map flatToken) never).impossible
+    | [x, ..xr], [], never => (List.nilNotCons (flatToken x) (xr.map flatToken) never.flipped).impossible
+
+--| A test that reads no line start holds of tokens equal once line starts are forgotten.
+theorem allFlat ∀ (p: Token → Bool)
+    (blind: ∀ (token: Token) => p (flatToken token) = p token) (xs ys: List Token)
+    (same: xs.map flatToken = ys.map flatToken):
+    xs.all p = ys.all p :=
+  match xs, ys, same with
+    | [], [], _ => byComputing
+    | [x, ..xr], [y, ..yr], same =>
+      let head: flatToken x = flatToken y := List.consInjectiveHead _ _ _ _ same
+      let tail: xr.map flatToken = yr.map flatToken := Eq.cong (.drop 1) same
+      let px: p x = p y := rewrite <- blind x, <- blind y then Eq.cong p head
+      rewrite px, allFlat p blind xr yr tail
+    | [], [y, ..yr], never => (List.nilNotCons (flatToken y) (yr.map flatToken) never).impossible
+    | [x, ..xr], [], never => (List.nilNotCons (flatToken x) (xr.map flatToken) never.flipped).impossible
+
 theorem arrowsRelatedAll ∀ (leaves: List Leaf)
     (plain: plainFrom (tokens leaves) = True):
     related leaves (arrows leaves) = True :=
