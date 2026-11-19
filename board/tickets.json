@@ -27617,12 +27617,12 @@
     {
       "id": 4256,
       "title": "[Sonnet] Delete unneeded [p := …]/[j := …] spellings across the rest of tools/fmt (SW-4245's 4 files kept 53 of 434): run the delete-and-restore scripts (scratchpad sw4245-scripts: iter.py, prune.py, steps.py, stats.py) file by file, keep what checks; promote the scripts to a task",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4245. Est. 60 min.",
+      "body": "From SW-4245. Est. 60 min.\n\n\nLane note (Sonnet): 205 of 268 spelled steps deleted across 11 files, 63 kept; lines saved about 930 after fmt; dev/spellings.py + task fmt:unspell added (commit on lane/SW-4256). Check of all touched namespaces and dependents clean; Fmt.Tests 439 passed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
