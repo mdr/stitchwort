@@ -2456,3 +2456,318 @@ theorem followsImportItems ∀ (fuel: Nat) (modes: Modes) (path pathTwin: Word) 
             others
             same
         | Zero => followsImportStopAt modes path pathTwin found twins founds)
+
+theorem followsImportNames ∀ (modes: Modes) (path pathTwin: Word):
+    Parse.Follows SameCode ImportedAlike (() => importNames modes path) (() => importNames modes pathTwin) :=
+  followsFuel
+    [alike := ImportedAlike]
+    (fuel => (let items := importItems fuel modes path []; ImportItems items))
+    (fuel => (let items := importItems fuel modes pathTwin []; ImportItems items))
+    (fuel =>
+      Parse.followsMap
+        [alike := ImportedAlike]
+        [p := () => importItems fuel modes path []]
+        [q := () => importItems fuel modes pathTwin []]
+        (items => ImportItems items)
+        (items => ImportItems items)
+        (items twins alike => alikeImportItems items twins alike)
+        (followsImportItems fuel modes path pathTwin [] [] Trivial))
+
+theorem followsImportAllEnd ∀ (path pathTwin: Word) (dots dotsTwin: Comments) (closed: Bool):
+    Parse.Follows SameCode ImportedAlike (() => importAllEnd path dots closed) (() => importAllEnd pathTwin dotsTwin closed) :=
+  match closed with
+    | True => Parse.followsDone _ _ (alikeImportAll dots dotsTwin)
+    | False => followsFatalAny _ (() => Syntax.fatal (mixedImport pathTwin))
+
+theorem followsImportedOf ∀ (modes: Modes) (path pathTwin: Word) (dots: Bool):
+    Parse.Follows SameCode ImportedAlike (() => importedOf modes path dots) (() => importedOf modes pathTwin dots) :=
+  match dots with
+    | True =>
+      Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
+        followsThenEq
+          [j := closed => importAllEnd path written closed]
+          [k := closed => importAllEnd pathTwin writtenTwin closed]
+          (followsAt modes RParen)
+          (closed => followsImportAllEnd path pathTwin written writtenTwin closed))
+    | False => followsImportNames modes path pathTwin
+
+theorem followsImportClose ∀ (modes: Modes) (keyword keywordTwin: Comments) (path pathTwin: Word)
+    (paths: WordsAlike path pathTwin) (open openTwin: Comments) (imported importedTwin: Imported)
+    (importeds: ImportedAlike imported importedTwin):
+    Parse.Follows SameCode DeclsAlike (() => importClose modes keyword path open imported) (() =>
+      importClose modes keywordTwin pathTwin openTwin importedTwin) :=
+  Parse.followsThen (followsExpectFixed modes RParen "`)`") (close closeTwin closes =>
+    Parse.followsDone _ _
+      (alikeImport keyword keywordTwin path pathTwin paths open openTwin imported importedTwin importeds close closeTwin))
+
+theorem followsImportOpen ∀ (modes: Modes) (keyword keywordTwin: Comments) (path pathTwin: Word)
+    (paths: WordsAlike path pathTwin):
+    Parse.Follows SameCode DeclsAlike (() => importOpen modes keyword path) (() =>
+      importOpen modes keywordTwin pathTwin) :=
+  Parse.followsThen (followsExpectFixed modes LParen "`(` and the names to import") (open openTwin opens =>
+    followsThenEq
+      [j := dots => (let imported := importedOf modes path dots; importClose modes keyword path open imported)]
+      [k := dots => (let imported := importedOf modes pathTwin dots; importClose modes keywordTwin pathTwin openTwin imported)]
+      (followsAt modes DotDot)
+      (dots =>
+        Parse.followsThen (followsImportedOf modes path pathTwin dots) (imported importedTwin importeds =>
+          followsImportClose modes keyword keywordTwin path pathTwin paths open openTwin imported importedTwin importeds)))
+
+theorem followsImportAfter ∀ (modes: Modes) (keyword keywordTwin: Comments) (path pathTwin: Word)
+    (paths: WordsAlike path pathTwin) (asNext: Bool):
+    Parse.Follows SameCode DeclsAlike (() => importAfter modes keyword path asNext) (() =>
+      importAfter modes keywordTwin pathTwin asNext) :=
+  match asNext with
+    | True =>
+      followsFatalAny _ (() =>
+        Syntax.fatal "`import M as A` isn't Stitchwort: a namespace is imported as an item of the namespace above it")
+    | False => followsImportOpen modes keyword keywordTwin path pathTwin paths
+
+theorem followsImportPath ∀ (modes: Modes) (upper: Bool):
+    Parse.Follows SameCode WordsAlike (() => importPath modes upper) (() => importPath modes upper) :=
+  match upper with
+    | True => followsBump
+    | False => followsFail modes "a namespace, such as `List`" (() => modes.fail "a namespace, such as `List`")
+
+theorem followsImportLine ∀ (modes: Modes):
+    Parse.Follows SameCode DeclsAlike (() => importLine modes) (() => importLine modes) :=
+  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+    followsThenEq
+      [j := upper => (let path := importPath modes upper; importAfter modes keyword path (wordAhead modes "as"))]
+      [k := upper => (let path := importPath modes upper; importAfter modes keywordTwin path (wordAhead modes "as"))]
+      (followsAt modes Upper)
+      (upper =>
+        Parse.followsThen (followsImportPath modes upper) (path pathTwin paths =>
+          followsThenEq
+            [j := asNext => importAfter modes keyword path asNext]
+            [k := asNext => importAfter modes keywordTwin pathTwin asNext]
+            (followsWordAhead modes "as")
+            (asNext => followsImportAfter modes keyword keywordTwin path pathTwin paths asNext))))
+
+-- Fields and constructors of data declarations.
+
+def ExpressionRule: Prop :=
+  ∀ (self selfTwin: Goal → {Parse Item} Expr) => SelfFollows self selfTwin
+    → SelfFollows (expressionRule self) (expressionRule selfTwin)
+
+theorem expressionKnot ∀ (rule: ExpressionRule): SelfFollows expressionAt expressionAt :=
+  goal => followsExpressionAt rule goal
+
+theorem fieldListEmpty ∀ (fields: List Field): (blankFieldList (walkFieldList blankPure fields)).isEmpty = fields.isEmpty :=
+  match fields with
+    | [] => byComputing
+    | [x, ..xs] => byComputing
+
+theorem fieldsWalkFields ∀ (fields: Fields):
+    (fields.walk blankPure).fields = blankFieldList (walkFieldList blankPure fields.fields) :=
+  match fields with | { open, fields, trailingComma, close } => byComputing
+
+theorem fieldsEmpty ∀ (fields twin: Fields) (alike: FieldsAlike fields twin): fields.fields.isEmpty = twin.fields.isEmpty :=
+  let same: blankFieldList (walkFieldList blankPure fields.fields) = blankFieldList (walkFieldList blankPure twin.fields) :=
+    calc blankFieldList (walkFieldList blankPure fields.fields)
+      _ = (fields.walk blankPure).fields := Eq.flipped (fieldsWalkFields fields)
+      _ = (twin.walk blankPure).fields := Eq.cong (found => found.fields) alike
+      _ = blankFieldList (walkFieldList blankPure twin.fields) := fieldsWalkFields twin
+  calc fields.fields.isEmpty
+    _ = (blankFieldList (walkFieldList blankPure fields.fields)).isEmpty := Eq.flipped (fieldListEmpty fields.fields)
+    _ = (blankFieldList (walkFieldList blankPure twin.fields)).isEmpty := rewrite same
+    _ = twin.fields.isEmpty := fieldListEmpty twin.fields
+
+theorem followsFieldDefault ∀ (rule: ExpressionRule) (modes: Modes) (atColonEq: Bool):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike)) (() => fieldDefault modes atColonEq) (() =>
+      fieldDefault modes atColonEq) :=
+  match atColonEq with
+    | True =>
+      Parse.followsThen followsFixedFrom (colonEq colonEqTwin colonEqs =>
+        Parse.followsMap
+          [alike := Option.Alike (PairAlike Anything ExprsAlike)]
+          [p := () => expressionAt { modes, level = LevelFull }]
+          [q := () => expressionAt { modes, level = LevelFull }]
+          (value => Some (colonEq, value))
+          (value => Some (colonEqTwin, value))
+          (value valueTwin values => (colonEqs, values))
+          (followsExpressionAt rule { modes, level = LevelFull }))
+    | False => Parse.followsDone None None Trivial
+
+def FieldsFromFollow (modes: Modes) (fuel: Nat): Prop :=
+  ∀ (found twins: List Field) => List.All2 FieldAlike found twins
+    → Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same)
+      (() => fieldsFrom fuel modes found)
+      (() => fieldsFrom fuel modes twins)
+
+theorem followsFieldsNext ∀ (more: Nat) (modes: Modes) (again: FieldsFromFollow modes more) (done twins: List Field)
+    (dones: List.All2 FieldAlike done twins) (comma: Bool):
+    Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same) (() => fieldsNext more modes done comma) (() =>
+      fieldsNext more modes twins comma) :=
+  match comma with
+    | True => Parse.followsThen followsBump (skipped skippedTwin skips => again done twins dones)
+    | False => Parse.followsDone _ _ (List.all2Reverse done twins dones, byComputing)
+
+theorem followsFieldsAt ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes) (again: FieldsFromFollow modes more)
+    (found twins: List Field) (founds: List.All2 FieldAlike found twins) (closed: Bool):
+    Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same) (() => fieldsAt more modes found closed) (() =>
+      fieldsAt more modes twins closed) :=
+  match closed with
+    | True => Parse.followsDone _ _ (List.all2Reverse found twins founds, byComputing)
+    | False =>
+      Parse.followsThen (followsAttributesOf modes) (attributes attributesTwin attributeses =>
+        Parse.followsThen (followsLower modes "a field name") (name nameTwin names =>
+          Parse.followsThen (followsExpectFixed modes Colon "`:`") (colon colonTwin colons =>
+            Parse.followsThen (followsExpressionAt rule { modes, level = LevelFull }) (annotation annotationTwin annotations =>
+              followsThenEq
+                [j := atEquals =>
+                  (let default := fieldDefault modes atEquals;
+                   let done := [{ attributes, name, colon, annotation, default }, ..found];
+                   fieldsNext more modes done (modes.at Comma))]
+                [k := atEquals =>
+                  (let default := fieldDefault modes atEquals;
+                   let done := [{ attributes = attributesTwin, name = nameTwin, colon = colonTwin, annotation = annotationTwin, default }, ..twins];
+                   fieldsNext more modes done (modes.at Comma))]
+                (followsAt modes ColonEq)
+                (atEquals =>
+                  Parse.followsThen (followsFieldDefault rule modes atEquals) (default defaultTwin defaults =>
+                    followsThenEq
+                      [j := comma =>
+                        fieldsNext more modes [{ attributes, name, colon, annotation, default }, ..found] comma]
+                      [k := comma =>
+                        fieldsNext more modes
+                          [{ attributes = attributesTwin, name = nameTwin, colon = colonTwin, annotation = annotationTwin, default = defaultTwin }, ..twins]
+                          comma]
+                      (followsAt modes Comma)
+                      (comma =>
+                        followsFieldsNext more modes again
+                          [{ attributes, name, colon, annotation, default }, ..found]
+                          [{ attributes = attributesTwin, name = nameTwin, colon = colonTwin, annotation = annotationTwin, default = defaultTwin }, ..twins]
+                          (Both (alikeField attributes attributesTwin attributeses name nameTwin names colon colonTwin annotation annotationTwin annotations default defaultTwin defaults) founds)
+                          comma)))))))
+
+theorem followsFieldsFrom ∀ (rule: ExpressionRule) (fuel: Nat) (modes: Modes) (found twins: List Field)
+    (founds: List.All2 FieldAlike found twins):
+    Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same) (() => fieldsFrom fuel modes found) (() =>
+      fieldsFrom fuel modes twins) :=
+  match fuel with
+    | Succ more =>
+      followsThenEq
+        [j := closed => fieldsAt more modes found closed]
+        [k := closed => fieldsAt more modes twins closed]
+        (followsAt modes RBrace)
+        (closed =>
+          followsFieldsAt rule more modes
+            (again twinsAgain agains => followsFieldsFrom rule more modes again twinsAgain agains)
+            found
+            twins
+            founds
+            closed)
+    | Zero => Parse.followsDone _ _ (List.all2Reverse found twins founds, byComputing)
+
+theorem followsBracedFieldsIn ∀ (rule: ExpressionRule) (inner: Modes) (closed: Bool):
+    Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same) (() => bracedFieldsIn inner closed) (() =>
+      bracedFieldsIn inner closed) :=
+  match closed with
+    | True => Parse.followsDone ([], False) ([], False) (Trivial, byComputing)
+    | False =>
+      followsFuel
+        [alike := PairAlike (List.All2 FieldAlike) Same]
+        (fuel => fieldsFrom fuel inner [])
+        (fuel => fieldsFrom fuel inner [])
+        (fuel => followsFieldsFrom rule fuel inner [] [] Trivial)
+
+theorem followsBracedFields ∀ (rule: ExpressionRule) (modes: Modes):
+    Parse.Follows SameCode FieldsAlike (() => bracedFields modes) (() => bracedFields modes) :=
+  Parse.followsThen (followsExpectFixed modes LBrace "`{`") (open openTwin opens =>
+    followsThenEq
+      [j := closed =>
+        (let (fields, trailingComma) := bracedFieldsIn modes.inBrackets closed;
+         let close := modes.inBrackets.expectFixed RBrace "`,` or `}`";
+         ({ open, fields, trailingComma, close }: Fields))]
+      [k := closed =>
+        (let (fields, trailingComma) := bracedFieldsIn modes.inBrackets closed;
+         let close := modes.inBrackets.expectFixed RBrace "`,` or `}`";
+         ({ open = openTwin, fields, trailingComma, close }: Fields))]
+      (followsAt modes.inBrackets RBrace)
+      (closed =>
+        Parse.followsThen (followsBracedFieldsIn rule modes.inBrackets closed) (pair pairTwin pairs =>
+          match pair, pairTwin with
+            | (fields, trailing), (twins, trailingTwin) =>
+              Parse.followsMap
+                [alike := FieldsAlike]
+                (close => { open, fields, trailingComma = trailing, close })
+                (close => { open = openTwin, fields = twins, trailingComma = trailingTwin, close })
+                (close closeTwin closes =>
+                  alikeFields open openTwin fields twins pairs.left trailing trailingTwin pairs.right close closeTwin)
+                (followsExpectFixed modes.inBrackets RBrace "`,` or `}`"))))
+
+-- Facts read off alike groups.
+
+theorem groupWalkAuto ∀ (group: Group): (group.walk blankPure).blank.auto = blankComments group.auto :=
+  match group with
+    | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } => byComputing
+
+theorem groupWalkNames ∀ (group: Group): (group.walk blankPure).blank.names = blankWords group.names :=
+  match group with
+    | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } => byComputing
+
+theorem blankCommentsSome ∀ (found: Option Comments): (blankComments found).isSome = found.isSome :=
+  match found with
+    | Some x => byComputing
+    | None => byComputing
+
+theorem blankWordsEmpty ∀ (words: List Word): (blankWords words).isEmpty = words.isEmpty :=
+  match words with
+    | [] => byComputing
+    | [x, ..xs] => byComputing
+
+theorem groupAutoSome ∀ (group twin: Group) (alike: GroupsAlike group twin): group.auto.isSome = twin.auto.isSome :=
+  let same: blankComments group.auto = blankComments twin.auto :=
+    calc blankComments group.auto
+      _ = (group.walk blankPure).blank.auto := Eq.flipped (groupWalkAuto group)
+      _ = (twin.walk blankPure).blank.auto := Eq.cong (found => found.auto) alike
+      _ = blankComments twin.auto := groupWalkAuto twin
+  calc group.auto.isSome
+    _ = (blankComments group.auto).isSome := Eq.flipped (blankCommentsSome group.auto)
+    _ = (blankComments twin.auto).isSome := rewrite same
+    _ = twin.auto.isSome := blankCommentsSome twin.auto
+
+theorem groupNamesEmpty ∀ (group twin: Group) (alike: GroupsAlike group twin): group.names.isEmpty = twin.names.isEmpty :=
+  let same: blankWords group.names = blankWords twin.names :=
+    calc blankWords group.names
+      _ = (group.walk blankPure).blank.names := Eq.flipped (groupWalkNames group)
+      _ = (twin.walk blankPure).blank.names := Eq.cong (found => found.names) alike
+      _ = blankWords twin.names := groupWalkNames twin
+  calc group.names.isEmpty
+    _ = (blankWords group.names).isEmpty := Eq.flipped (blankWordsEmpty group.names)
+    _ = (blankWords twin.names).isEmpty := rewrite same
+    _ = twin.names.isEmpty := blankWordsEmpty twin.names
+
+-- Look-aheads that read the count of items left.
+
+theorem followsBracketAhead ∀ (modes: Modes):
+    Parse.Follows SameCode Same
+      (() => modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left())
+      (() => modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left()) :=
+  followsThenEq
+    [j := here => here && implicitBinderAhead (Parse.mark().left + 1) left()]
+    [k := here => here && implicitBinderAhead (Parse.mark().left + 1) left()]
+    (followsAt modes LBracket)
+    (here =>
+      match here with
+        | True =>
+          followsFuel
+            [alike := Same]
+            (fuel => implicitBinderAhead fuel left())
+            (fuel => implicitBinderAhead fuel left())
+            (fuel => followsLook (implicitBinderAhead fuel) (implicitBinderAheadDeaf fuel))
+        | False => Parse.followsDone False False byComputing)
+
+theorem followsParenAhead ∀ (modes: Modes):
+    Parse.Follows SameCode Same
+      (() => isSome LParen modes.peek && piBinderAhead left())
+      (() => isSome LParen modes.peek && piBinderAhead left()) :=
+  followsThenEq
+    [j := seen => isSome LParen seen && piBinderAhead left()]
+    [k := seen => isSome LParen seen && piBinderAhead left()]
+    (followsPeek modes)
+    (seen =>
+      match isSome LParen seen with
+        | True => followsLook piBinderAhead piBinderAheadDeaf
+        | False => Parse.followsDone False False byComputing)
