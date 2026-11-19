@@ -1,5 +1,5 @@
 {
-  "next": 4281,
+  "next": 4282,
   "tickets": [
     {
       "id": 47,
@@ -27947,6 +27947,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4263; design notes on its ticket.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4281,
+      "title": "[Fable] Survey (paper): rank the next consolidation targets in the slice-1 formatter proof after 19 Nov's sweeps; one ticket per target with estimate and model",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3698 (Matt, 19 Nov 2026: 'I'm happy with that'). Est. 40 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
