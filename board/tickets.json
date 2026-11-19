@@ -27249,7 +27249,7 @@
     {
       "id": 4228,
       "title": "[Fable, paper] Prior art for one proof over several match cases (D3694): how Lean 4, Rocq (Ltac, ssreflect, Equations), Agda, Idris 2, Isabelle/Isar, F*, Dafny, Coq-family and ML/Haskell languages handle or-patterns binding names (same vs per-alternative types) and repeated case proofs; recommend Stitchwort's design",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
