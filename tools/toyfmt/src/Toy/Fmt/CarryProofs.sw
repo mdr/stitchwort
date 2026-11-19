@@ -473,11 +473,3 @@ theorem lastlyTidy ∀ [p: () → {Parse Tok} a] [f: a → b] [first: a → List
                 _ = before (first v) := same v
                 _ = before (allCarried read) := Eq.cong before (carried past))
           )))
-
---| A parser that looks at where it is, from one mark.
-theorem readsAtMark ∀ (k: Parse.Mark Tok → {Parse Tok} a) (spec: List Tok → a → Prop) (start: Parse.Mark Tok)
-    (each: Parse.ReadsAt start (() => k start) spec):
-    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
-  total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each total state value after here honest (rewrite <- here then ran)

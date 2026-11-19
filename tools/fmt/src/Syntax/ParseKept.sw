@@ -309,14 +309,6 @@ theorem namelessAutoOfImplicit ∀ (fuel: Nat) (item: Item) (later: List Item) (
         _ = True := Eq.trans on isTrue
       (Bool.falseNotTrue wrong).impossible
 
---| A look at the mark, from a mark: `k` of it is `k start`.
-theorem readsAtMark ∀ (start: Parse.Mark Item) (k: Parse.Mark Item → {Parse Item} a) (spec: List Item → a → Prop)
-    (each: Parse.ReadsAt start (() => k start) spec):
-    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
-  total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each total state value after here honest (rewrite <- here then ran)
-
 --| What a run read is a start of the input from its mark: the rest is what it left.
 theorem readsAtRest ∀ [start: Parse.Mark Item] [p: () → {Parse Item} a] [spec: List Item → a → Prop]
     (reads: Parse.ReadsAt start p spec):
@@ -332,7 +324,7 @@ theorem readsAtPeekValue ∀ (start: Parse.Mark Item) (modes: Modes):
   Parse.readsAtThen
     [p := () => left()]
     [j := items => peekIn modes 0 items]
-    (readsAtLeft start)
+    (Parse.readsAtLeft start)
     (read items after starts (empty, same) =>
       Parse.readsAtDone after (peekIn modes 0 items) _ (rewrite empty, same then (byComputing, byComputing)))
 
@@ -340,12 +332,13 @@ theorem readsAtPeekValue ∀ (start: Parse.Mark Item) (modes: Modes):
 theorem readsAtImplicitHere ∀ (start: Parse.Mark Item) (modes: Modes):
     Parse.ReadsAt start (() => implicitHere modes) (read found =>
       read = [] ∧ found = implicitOn (start.left + 1) start.rest (peekIn modes 0 start.rest)) :=
-  readsAtMark start
+  Parse.readsAtMark
     (here => implicitOn (here.left + 1) left() modes.peek) _
+    start
     (Parse.readsAtThen
       [p := () => left()]
       [j := items => implicitOn (start.left + 1) items modes.peek]
-      (readsAtLeft start)
+      (Parse.readsAtLeft start)
       (read items after starts (empty, same) =>
         let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
         Parse.readsAtThen

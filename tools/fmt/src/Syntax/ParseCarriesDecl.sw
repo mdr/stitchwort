@@ -34,11 +34,6 @@ import Syntax.ParseCarriesFile (GroupCarries, itemWordsOfGroup, itemsLeaves)
 
 -- Reading where the parser is.
 
---| `left()` reads nothing and gives the items left.
-theorem readsAtLeft ∀ (start: Parse.Mark Item):
-    Parse.ReadsAt start (() => left()) (read found => read = [] ∧ found = start.rest) :=
-  readsAtMark start (here => here.rest) _ (Parse.readsAtDone start start.rest _ (byComputing, byComputing))
-
 --| What `modes.at wanted` gives, from a mark: whether the next item that doesn't end what is being read is `wanted`.
 theorem readsAtAtValue ∀ (start: Parse.Mark Item) (modes: Modes) (wanted: Tok):
     Parse.ReadsAt start (() => modes.at wanted) (read found =>
@@ -46,7 +41,7 @@ theorem readsAtAtValue ∀ (start: Parse.Mark Item) (modes: Modes) (wanted: Tok)
   Parse.readsAtThen
     [p := () => left()]
     [j := items => isSome wanted (peekIn modes 0 items)]
-    (readsAtLeft start)
+    (Parse.readsAtLeft start)
     (read items after starts (empty, same) =>
       Parse.readsAtDone after
         (isSome wanted (peekIn modes 0 items)) _
@@ -175,8 +170,9 @@ theorem readsAtParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => headerParams self modes) (read params =>
       params = [] → read = [] ∧ NextIs Colon start.rest) :=
-  readsAtMark start
+  Parse.readsAtMark
     (here => Parse.loopFrom (here.left + 1) (() => headerParamStep self modes (modes.at Colon)) [] here) _
+    start
     (Parse.readsAtWeaken
       (readsAtLoopFirst
         (() => headerParamStep self modes (modes.at Colon))
@@ -208,7 +204,7 @@ theorem readsAtDefKind ∀ (start: Parse.Mark Item) (modes: Modes) (item: Item) 
   Parse.readsAtThen
     [p := () => left()]
     [j := items => defKindOn (peekIn modes 0 items)]
-    (readsAtLeft start)
+    (Parse.readsAtLeft start)
     (read items after starts (empty, same) =>
       Parse.readsAtDone after
         (defKindOn (peekIn modes 0 items)) _
@@ -873,7 +869,7 @@ theorem readsAtDeclaration ∀ (seen: Seen) (start: Parse.Mark Item) (nested: Ne
                   Parse.readsAtThen
                     [p := () => left()]
                     [j := items => declarationEnd Modes.start decl items]
-                    (readsAtLeft after3)
+                    (Parse.readsAtLeft after3)
                     (r4 items after4 starts4 (empty4, itemsEq) =>
                       let fine4 := Parse.Fits.after fine3 starts4
                       match items, itemsEq with

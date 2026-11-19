@@ -809,6 +809,22 @@ theorem Parse.readsAtDone ∀ (start: Parse.Mark t) (x: a) (spec: List t → a �
     Parse.ReadsAt start (() => x) spec :=
   Parse.readsDone [inv := Parse.Invariant.any] x spec holds start { holds = Trivial }
 
+--| A look at the mark, from a mark: `k (Parse.mark())` reads what `k start` reads.
+--| Lets a proof about a parser that inspects its position, such as `mark()` passed to
+--| a continuation, be done at the known mark `start`.
+theorem Parse.readsAtMark ∀ (k: Parse.Mark t → {Parse t} a) (spec: List t → a → Prop) (start: Parse.Mark t)
+    (each: Parse.ReadsAt start (() => k start) spec):
+    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
+  total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each total state value after here honest (rewrite <- here then ran)
+
+--| Reading the items left, `Parse.mark().rest`, from a mark: it reads nothing and gives
+--| the rest of the input at `start`.
+theorem Parse.readsAtLeft ∀ (start: Parse.Mark t):
+    Parse.ReadsAt start (() => Parse.mark().rest) (read value => read = [] ∧ value = start.rest) :=
+  Parse.readsAtMark (here => here.rest) _ start (Parse.readsAtDone start start.rest _ (byComputing, byComputing))
+
 --| [`Parse.readsWeaken`] from one mark.
 theorem Parse.readsAtWeaken ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
     (reads: Parse.ReadsAt start p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
