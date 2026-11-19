@@ -110,6 +110,16 @@ does not do significant work itself:
   overnight compute results get rows too.
 - Opus reviews, and long lane reports worth keeping, go in the repo as
   `docs/reviews/SW-N-topic.md`, linked from the ticket (D2530).
+- A proved tool's scope is Matt's (D3688, Matt, 19 Nov 2026). A change
+  that makes a proved tool accept less (a new refusal in a driver, a
+  narrower grammar or alphabet check) or adds a condition to a top
+  theorem stops for his decision before it merges, with the cases it
+  would refuse; expect "no" ("we're not looking to prove a weaker
+  theorem"). Review checks every proof lane for this. Scope is a slice's
+  whole grammar, all possible programs, never argued from how rare a case
+  is in the repo (D3687). The slice 1 formatter went wrong this way on
+  18 Nov: five narrowings merged as the orchestrator's call, and the
+  one-line stage was reported as the milestone.
 
 ## Talking to Matt
 
@@ -321,6 +331,11 @@ of work to fit it:
   `pixels.withIndex.filterMap (match some | (column, Rough) => [row,
   column])`, a test of a pattern is `matches | …`, and a lambda straight
   into a `match` is `match | …` (Matt, 6 Nov 2026).
+- Never make a proved tool accept less to get a proof through, and never
+  edit an acceptance theorem or a must-accept test file (such as
+  `tools/fmt/src/Fmt/Tests/MustAccept1.sw`). If a statement is false
+  without a narrowing or a new condition on a top theorem, stop and
+  report it (D3688).
 - Report what belongs elsewhere: a generic lemma proved in `aoc/` or
   `games/rogue` belongs in std (Matt, 7 Nov 2026: "a really rich standard
   library with a lot of proven facts"), and the same few lines in two AoC
