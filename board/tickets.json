@@ -1,5 +1,5 @@
 {
-  "next": 4231,
+  "next": 4232,
   "tickets": [
     {
       "id": 47,
@@ -27281,6 +27281,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4231,
+      "title": "[Opus, paper] Design note: a walk step for proofs about effectful code (SW-4222 §6.1): follows a body in evaluation order, applies registered lemmas for calls, steps through inner if/match; part (a) reads p and j off the body (subsumes SW-4220), part (b) splits a definition's inner match (overlaps SW-4047)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Est. 45 min. From SW-4222. Orchestrator's call: a note is cheap and reversible; building waits for Matt.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
