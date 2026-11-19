@@ -27236,15 +27236,17 @@
     {
       "id": 4227,
       "title": "[Sonnet] fmt consolidation: 59 same-name-different-statement theorem pairs across Fmt/Syntax (SW-4209 list on its ticket): rename each to say what it states, merge allReverseOnto's identical copies and givesLocated if equal, move one-line Bool lemmas onto std's Bool.andFalseRight/orFalse*",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 45 min. SW-4209 findings; scripts in scratchpad sw4209.",
+      "body": "Est. 45 min. SW-4209 findings; scripts in scratchpad sw4209.\n\nLane notes (Sonnet, 19 Nov): commit 4ed2f0531 on lane/SW-4227. Renamed (old -> new, in the second-named namespace): addPieceCode->addPieceCodeTexts (TokenProofs), afterAppend->afterAppendPlain, appDocsIs->appDocsIsOneFirst (SpellProofs), bracketBack->bracketReverse, bracketHomed->bracketReverseHomed (ToldDeclProofs), bracketCloser/parenCloser/bracketCloserExample->bracketLexCloser/parenLexCloser/bracketLexCloserExample, closerEnds->readCloserEnds (SpeltSlots), closeBracket->closerEntered, commaStep->commaShapeStep/closingCommaSteps/hangCommaStep, declCalmWithin/headerCalmWithin->...Eq (PassProofs), groupWalk->groupInsideReverse, hangsAppend->hangsFromAppend, holdsOnExample->holdsOnSettledExample, isNoneOfSome->isNoneOfAlikeSome, itemsLeaves->placeItemsLeaves, keptNoted->keptToldAbove, leadPlain->arrowLeadPassable, opKindOf->opKindOfPlainKind, openStep->openShapeStep/hangOpenStep, operatorPlain/Example/prefixPlain->operatorNotComment/...Example/prefixNotComment, pairQuiet->arrowQuietPair, prefixSpells->prefixKindSpells, ParseKept's 17 reads* -> readsKept*, readsCmpCompare->readsCarriedCmpCompare, stepPlain->leafStepPlain, stepToken->stepSameToken, stepsBlank->blankCalcStepsAlike, stepsCons->blankIndexStepsCons, stepsLast->headPlainCommaReads, withTrailingTexts->withTrailingRaw, wordClean->leafCleanOfTexts, wordCode->wordWithinNotComma, wordTexts->wordJoinsPlain. Deleted: Syntax.GoodItemProofs.givesLocated (same as LexReadsProofs's), and local copies of std's Bool.orRight, Bool.andFalseRight, Doc.Proofs.withCarryCarry/gapNoBreak/wordFilled. Same-statement list (dup2) is now empty. check 0 errors, goal none open, Fmt.Tests 439 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "4ed2f0531"
+      ]
     },
     {
       "id": 4228,
@@ -27500,12 +27502,12 @@
     {
       "id": 4247,
       "title": "[Opus] Self-hosted parser: accept or-patterns that bind names (D3694; tools/fmt/src/Syntax/Lowering.sw checkPattern/orPatternBinds), so fmt:twin agrees with the Rust parser again on the new examples, guide files and the two rewritten proof files; accepts more, not a narrowing; repair dependent proofs",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4236.",
+      "body": "From SW-4236.\n\nProgress (lane, 19 Nov): done on lane/SW-4247 (a73e28e62). checkPattern refuses only a name bound in some alternatives but not all, with the Rust message; DeafProofs repaired (new boundNames/shown deafness lemmas; binds lemmas removed). No top statement touched. fmt:twin refusal 10/10 identical on examples/*/or-pattern*.sw + ParseWalk.sw + TreeJoinProofs.sw; tools/fmt check 0 errors, no goals; Fmt.Tests 441/441, Syntax.Tests 52/52. ~80 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
