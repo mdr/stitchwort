@@ -229,8 +229,11 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
     // The telescope's own view sees one written behind an opaque nickname
     // the definition unfolds.
     if let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay) {
-        for ty in tel.params.iter().map(|(_, ty, _)| ty).chain([&tel.result]) {
-            if quote(g, 0, ty)?
+        // Parameter `i`'s type is read under the `i` before it, the result's
+        // under them all.
+        let types = tel.params.iter().map(|(_, ty, _)| ty).chain([&tel.result]);
+        for (depth, ty) in types.enumerate() {
+            if quote(g, depth, ty)?
                 .subterms()
                 .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
             {

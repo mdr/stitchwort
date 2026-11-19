@@ -175,10 +175,23 @@ fn untimed(mut session: Session) -> Session {
     session
 }
 
+/// Checks one example. A panic while checking it is re-raised with the
+/// example's name: a sweep's panic otherwise names only the line that
+/// panicked, not which of hundreds of files led there.
 fn check(example: &Example) -> (SourceMap, Result<(), Vec<Diagnostic>>) {
-    let mut session = untimed(Session::for_stack(STACK));
-    let result = session.load(&example.name, &example.text).map(|_| ());
-    (session.sources, result)
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut session = untimed(Session::for_stack(STACK));
+        let result = session.load(&example.name, &example.text).map(|_| ());
+        (session.sources, result)
+    }))
+    .unwrap_or_else(|payload| {
+        let message = payload
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| payload.downcast_ref::<&str>().copied())
+            .unwrap_or("(a panic with no message)");
+        panic!("{} panicked while being checked: {message}", example.name)
+    })
 }
 
 /// The command line's text output for one run: a generic note is printed in
