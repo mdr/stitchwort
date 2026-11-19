@@ -27785,7 +27785,7 @@
     {
       "id": 4268,
       "title": "[DeepSeek] Bring tools/fmt-sketch/src/Format.sw:20 and docs/proposals/self-hosted-fmt.md:334 up to date with binding or-patterns (D3694), or mark the latter historical (SW-4247 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27824,7 +27824,7 @@
     {
       "id": 4271,
       "title": "[DeepSeek] docs/syntax.md Or-patterns: effect-operation patterns (Parse.stop u, q) can't be or-pattern alternatives; docs/workflow.md: how to check one std file (check --std --std-dir . FILE) and how core/*.sw is covered (SW-4251 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27930,7 +27930,7 @@
     {
       "id": 4279,
       "title": "[DeepSeek] docs/syntax.md Or-patterns: an or-pattern inside a record field or constructor argument needs parentheses (blocks = ([] | [_, .._])) (SW-4270 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
