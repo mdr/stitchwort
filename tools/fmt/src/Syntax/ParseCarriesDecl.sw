@@ -131,7 +131,7 @@ theorem readsAtLoopFirst ∀ (step: () → {Parse Item} Option a) (spec first: L
 theorem givesParamStep ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => headerParamStep self modes (modes.at Colon)) (Parse.Perhaps (group => True)) :=
-  givesAfter0 (reads0At modes Colon) (atColon =>
+  Parse.givesAfter0 (reads0At modes Colon) (atColon =>
     match atColon with
       | True => Parse.givesDone byComputing
       | False =>
@@ -331,23 +331,24 @@ theorem readsUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool)
 theorem reads0AfterDecreasing ∀ (modes: Modes) (clause: Option (Comments, Expr)):
     Reads0 (() => afterDecreasingOf modes clause) :=
   match clause.isSome with
-    | True => reads0Then [p := () => left()] [j := items => allowColonEqOn modes items] reads0Left (items =>
-      reads0Done (allowColonEqOn modes items))
-    | False => reads0Done modes
+    | True => Parse.reads0Then [p := () => left()] [j := items => allowColonEqOn modes items] reads0Left (items =>
+      Parse.reads0Done (allowColonEqOn modes items))
+    | False => Parse.reads0Done modes
 
 theorem reads0AfterUnfolding ∀ (afterDecreasing: Modes) (clause: Option (Comments, List Word)):
     Reads0 (() => afterUnfoldingOf afterDecreasing clause) :=
   match clause.isSome with
-    | True => reads0Then [p := () => left()] [j := items => allowColonEqOn afterDecreasing items] reads0Left (items =>
-      reads0Done (allowColonEqOn afterDecreasing items))
-    | False => reads0Done afterDecreasing
+    | True =>
+      Parse.reads0Then [p := () => left()] [j := items => allowColonEqOn afterDecreasing items] reads0Left (items =>
+        Parse.reads0Done (allowColonEqOn afterDecreasing items))
+    | False => Parse.reads0Done afterDecreasing
 
 theorem reads0BodyModes ∀ (afterUnfolding: Modes) (isInstance: Bool) (local: Option Nat):
     Reads0 (() => bodyModesOf afterUnfolding isInstance local) :=
   match local with
-    | Some column => reads0Done afterUnfolding
-    | None => reads0Then (reads0Recovers afterUnfolding) (recovering =>
-      reads0Done (recoverMode afterUnfolding isInstance recovering))
+    | Some column => Parse.reads0Done afterUnfolding
+    | None => Parse.reads0Then (reads0Recovers afterUnfolding) (recovering =>
+      Parse.reads0Done (recoverMode afterUnfolding isInstance recovering))
 
 -- The body.
 
@@ -381,7 +382,7 @@ theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     Parse.readsAtThen
       (carries { modes, level = LevelFull } after1 (Parse.Fits.after fine starts1))
       (r2 value after2 starts2 carried =>
-        readsAtAfter0
+        Parse.readsAtAfter0
           (reads0At modes Pipe)
           (Parse.Fits.after (Parse.Fits.after fine starts1) starts2)
           (arms after3 same3 fits3 =>
@@ -400,7 +401,7 @@ theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
 theorem readsArmsBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat)
     (nested: Nested self):
     Parse.ReadsIn GoodItems (() => armsBody self modes d) BodyKept :=
-  Parse.readsThen (givesAfter0 reads0Left (items => givesDefinitionArmsOn self modes nested d items)) (r arms _ =>
+  Parse.readsThen (Parse.givesAfter0 reads0Left (items => givesDefinitionArmsOn self modes nested d items)) (r arms _ =>
     Parse.readsDone (Arms arms) _ byComputing)
 
 theorem readsDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (d: Nat)
@@ -620,7 +621,7 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                     (reads0AfterUnfolding afterDecreasing unfoldingClause after10 fine10)
                                     (r11 afterUnfolding after11 starts11 e11 =>
                                       let fine11 := Parse.Fits.after fine10 starts11
-                                      readsAtAfter0
+                                      Parse.readsAtAfter0
                                         (reads0ClauseConflict afterUnfolding unfoldingClause)
                                         fine11
                                         (conflict after12 same12 fine12 =>
@@ -835,7 +836,7 @@ theorem readsAtDeclaration ∀ (seen: Seen) (start: Parse.Mark Item) (nested: Ne
     Parse.ReadsAt start (() => declaration seen) (read decl => read = start.rest ∧ DeclKept read decl) :=
   Parse.readsAtThen (readsAttributesOf Modes.start start fine) (r1 attributes after1 starts1 attributesFact =>
     let fine1 := Parse.Fits.after fine starts1
-    readsAtAfter0 (reads0Peek Modes.start) fine1 (peeked after2 same2 fine2 =>
+    Parse.readsAtAfter0 (reads0Peek Modes.start) fine1 (peeked after2 same2 fine2 =>
       match attributesRefused attributes peeked with
         | Some message => Parse.readsFatal _ _ after2 fine2
         | None =>

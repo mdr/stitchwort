@@ -436,39 +436,23 @@ theorem readsInPeeked ∀ (modes: Modes) (k: Option Tok → {Parse Item} a) (spe
 -- Look-aheads: parsers that only look, and read nothing.
 
 --| A parser that reads nothing, from every mark where the items left are good.
-def Reads0 (p: () → {Parse Item} a): Prop :=
-  ∀ (start: Parse.Mark Item) => Parse.Fits Item GoodItems start.rest → Parse.ReadsAt start p (read value => read = [])
+def Reads0 (p: () → {Parse Item} a): Prop := Parse.Reads0 GoodItems p
 
-theorem reads0Done ∀ (x: a): Reads0 (() => x) := start fine => Parse.readsAtDone start x _ byComputing
+theorem reads0Left: Reads0 (() => left()) := Parse.reads0Mark (here => here.rest)
 
---| What a mark shows, read by a pure function: nothing is read.
-theorem reads0Mark ∀ (f: Parse.Mark Item → a): Reads0 (() => f (Parse.mark())) := start fine =>
-  Parse.readsInMark (here => f here) _ (here fine1 => Parse.readsAtDone _ (f here) _ byComputing) start fine
-
-theorem reads0Then ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} b]
-    (first: Reads0 p)
-    (rest: ∀ (value: a) => Reads0 (() => j value)):
-    Reads0 (() => j (p())) :=
-  start fine =>
-    Parse.readsAtThen (first start fine) (read value after starts empty =>
-      Parse.readsAtWeaken (rest value after (Parse.Fits.after fine starts)) (taken result nothing =>
-        rewrite empty then nothing))
-
-theorem reads0Left: Reads0 (() => left()) := reads0Mark (here => here.rest)
-
-theorem reads0Peek ∀ (modes: Modes): Reads0 (() => modes.peek) := reads0Mark (here => peekIn modes 0 here.rest)
+theorem reads0Peek ∀ (modes: Modes): Reads0 (() => modes.peek) := Parse.reads0Mark (here => peekIn modes 0 here.rest)
 
 theorem reads0PeekAt ∀ (modes: Modes) (ahead: Nat): Reads0 (() => modes.peekAt ahead) :=
-  reads0Mark (here => peekIn modes ahead here.rest)
+  Parse.reads0Mark (here => peekIn modes ahead here.rest)
 
 theorem reads0At ∀ (modes: Modes) (wanted: Tok): Reads0 (() => modes.at wanted) :=
-  reads0Then (reads0Peek modes) (found => reads0Done _)
+  Parse.reads0Then (reads0Peek modes) (found => Parse.reads0Done _)
 
 theorem reads0BareCases ∀ (modes: Modes): Reads0 (() => bareCases modes) :=
-  reads0Then reads0Left (items => reads0Done (bareCasesOn modes items))
+  Parse.reads0Then reads0Left (items => Parse.reads0Done (bareCasesOn modes items))
 
 theorem reads0StartsAtom ∀ (modes: Modes): Reads0 (() => startsAtom modes) :=
-  reads0Then reads0Left (items => reads0Done (startsAtomOn modes items))
+  Parse.reads0Then reads0Left (items => Parse.reads0Done (startsAtomOn modes items))
 
 -- Atoms and what follows them.
 

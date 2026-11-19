@@ -21,13 +21,14 @@ def PatternNested (pself: PatternGoal → {Parse Item} Pattern): Prop :=
   ∀ (goal: PatternGoal) => Parse.Gives GoodItems (() => pself goal) (pat => True)
 
 theorem reads0WordAhead ∀ (modes: Modes) (word: Text): Reads0 (() => wordAhead modes word) :=
-  reads0Then reads0Left (items => reads0Done (wordOn modes word items))
+  Parse.reads0Then reads0Left (items => Parse.reads0Done (wordOn modes word items))
 
 theorem reads0CtorAhead ∀ (modes: Modes): Reads0 (() => ctorAhead modes) :=
-  reads0Then (reads0At modes Upper) (upper => reads0Then (reads0WordAhead modes "Quot.mk") (quot => reads0Done _))
+  Parse.reads0Then (reads0At modes Upper) (upper =>
+    Parse.reads0Then (reads0WordAhead modes "Quot.mk") (quot => Parse.reads0Done _))
 
 theorem givesEat ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => modes.eat wanted) (found => True) :=
-  givesAfter0 (reads0At modes wanted) (at =>
+  Parse.givesAfter0 (reads0At modes wanted) (at =>
     match at with
       | True => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
       | False => Parse.givesDone byComputing)
@@ -40,7 +41,7 @@ theorem givesNegativeDigits ∀ (modes: Modes) (minus: Word) (number: Bool):
 
 theorem givesNegativePattern ∀ (modes: Modes): Parse.Gives GoodItems (() => negativePattern modes) (pat => True) :=
   Parse.givesThen givesBump (minus _ =>
-    givesAfter0 (reads0At modes Num) (number => givesNegativeDigits modes minus number))
+    Parse.givesAfter0 (reads0At modes Num) (number => givesNegativeDigits modes minus number))
 
 theorem givesPatternAppendOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (start: Pattern) (next: PatternLevel)
@@ -58,7 +59,7 @@ theorem givesPatternAppend ∀ (pself: PatternGoal → {Parse Item} Pattern) (mo
     (start: Pattern) (next: PatternLevel)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => patternAppend pself modes start next) (pat => True) :=
-  givesAfter0 (reads0At modes PlusPlus) (plus => givesPatternAppendOf pself modes start next nested plus)
+  Parse.givesAfter0 (reads0At modes PlusPlus) (plus => givesPatternAppendOf pself modes start next nested plus)
 
 theorem givesAlternativeLinksOn ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (next: PatternLevel) (found: List (Word, Pattern))
@@ -78,7 +79,7 @@ theorem givesAlternativeLinks ∀ (fuel: Nat) (pself: PatternGoal → {Parse Ite
     (next: PatternLevel) (found: List (Word, Pattern))
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => alternativeLinks fuel pself modes next found) (links => True) :=
-  givesAfter0 reads0Left (items => givesAlternativeLinksOn fuel pself modes next found nested items)
+  Parse.givesAfter0 reads0Left (items => givesAlternativeLinksOn fuel pself modes next found nested items)
 
 theorem givesAlternatives ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (first: Pattern) (next: PatternLevel)
@@ -105,7 +106,7 @@ theorem givesFieldPatterns ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} 
   match fuel with
     | Zero => Parse.givesDone byComputing
     | Succ more =>
-      givesAfter0 (reads0At modes DotDot) (dots => givesFieldPatternStep more pself modes found nested dots)
+      Parse.givesAfter0 (reads0At modes DotDot) (dots => givesFieldPatternStep more pself modes found nested dots)
 
 theorem givesFieldPatternStep ∀ (more: Nat) (pself: PatternGoal → {Parse Item} Pattern)
     (modes: Modes) (found: List FieldPattern)
@@ -114,7 +115,7 @@ theorem givesFieldPatternStep ∀ (more: Nat) (pself: PatternGoal → {Parse Ite
   match dots with
     | True => Parse.givesThen givesBump (rest _ => Parse.givesDone byComputing)
     | False =>
-      givesAfter0 (reads0At modes RBrace) (closed => givesFieldPatternClose more pself modes found nested closed)
+      Parse.givesAfter0 (reads0At modes RBrace) (closed => givesFieldPatternClose more pself modes found nested closed)
 
 theorem givesFieldPatternClose ∀ (more: Nat) (pself: PatternGoal → {Parse Item} Pattern)
     (modes: Modes) (found: List FieldPattern)
@@ -166,7 +167,7 @@ theorem givesCtorArgList ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} Pa
     (stops: Tok → Bool) (found: List Pattern)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => ctorArgList fuel pself modes name stops found) (list => True) :=
-  givesAfter0 (reads0Peek modes) (seen => givesCtorArgListOn fuel pself modes name stops found nested seen)
+  Parse.givesAfter0 (reads0Peek modes) (seen => givesCtorArgListOn fuel pself modes name stops found nested seen)
 
 theorem givesCtorArgListOn ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word)
     (stops: Tok → Bool) (found: List Pattern)
@@ -188,7 +189,7 @@ theorem givesCtorArgBrace ∀ (more: Nat) (pself: PatternGoal → {Parse Item} P
     | True => Parse.givesThen (givesCtorRecordArgument pself modes name found nested) (entry _ =>
       givesCtorArgList more pself modes name stops [entry, ..found] nested)
     | False =>
-      givesAfter0
+      Parse.givesAfter0
         [p := () => left()]
         [j := items => ctorArgMinus more pself modes name stops found (argumentMinus items)]
         reads0Left
@@ -222,7 +223,7 @@ theorem givesCtorArgsOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes
     Parse.Gives GoodItems (() => ctorArgsOf pself modes name stops braced) (pat => True) :=
   match braced with
     | True => Parse.givesThen (givesFieldsPattern pself modes nested) (fields _ =>
-      givesAfter0 (reads0Peek modes) (seen => givesCtorFieldsEnd name fields stops seen))
+      Parse.givesAfter0 (reads0Peek modes) (seen => givesCtorFieldsEnd name fields stops seen))
     | False => Parse.givesThen Parse.givesMark (here _ =>
       Parse.givesThen (givesCtorArgList (here.left + 1) pself modes name stops [] nested) (list _ =>
         givesCtorListEnd name list))
@@ -230,7 +231,7 @@ theorem givesCtorArgsOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes
 theorem givesCtorArgs ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (stops: Tok → Bool)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => ctorArgs pself modes name stops) (pat => True) :=
-  givesAfter0 (reads0At modes LBrace) (braced => givesCtorArgsOf pself modes name stops nested braced)
+  Parse.givesAfter0 (reads0At modes LBrace) (braced => givesCtorArgsOf pself modes name stops nested braced)
 
 -- The levels.
 
@@ -264,12 +265,12 @@ theorem givesTupleComponentOf ∀ (pself: PatternGoal → {Parse Item} Pattern) 
           (kind => kind == Comma || kind == RParen || kind == Pipe || kind == PlusPlus)
           nested)
         (ctor _ => givesPatternAppend pself modes ctor PatternTupleComponent nested))
-    | False => givesAfter0 (reads0At modes Minus) (minus => givesTupleSigned pself modes nested minus)
+    | False => Parse.givesAfter0 (reads0At modes Minus) (minus => givesTupleSigned pself modes nested minus)
 
 theorem givesTupleComponent ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => tupleComponent pself modes) (pat => True) :=
-  givesAfter0 (reads0CtorAhead modes) (isCtor => givesTupleComponentOf pself modes nested isCtor)
+  Parse.givesAfter0 (reads0CtorAhead modes) (isCtor => givesTupleComponentOf pself modes nested isCtor)
 
 theorem givesListComponentOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself) (isCtor: Bool):
@@ -286,7 +287,7 @@ theorem givesListComponentOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (
 theorem givesListComponent ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => listComponent pself modes) (pat => True) :=
-  givesAfter0 (reads0CtorAhead modes) (isCtor => givesListComponentOf pself modes nested isCtor)
+  Parse.givesAfter0 (reads0CtorAhead modes) (isCtor => givesListComponentOf pself modes nested isCtor)
 
 theorem givesAltPatternOneOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself) (isCtor: Bool):
@@ -300,7 +301,7 @@ theorem givesAltPatternOneOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (
 theorem givesAltPatternOne ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => altPatternOne pself modes) (pat => True) :=
-  givesAfter0 (reads0CtorAhead modes) (isCtor => givesAltPatternOneOf pself modes nested isCtor)
+  Parse.givesAfter0 (reads0CtorAhead modes) (isCtor => givesAltPatternOneOf pself modes nested isCtor)
 
 -- Lists and tuples.
 
@@ -329,7 +330,8 @@ theorem givesListPatternStep ∀ (more: Nat) (pself: PatternGoal → {Parse Item
     Parse.Gives GoodItems (() => listPatternStep more pself modes found closed) (read => True) :=
   match closed with
     | True => Parse.givesDone byComputing
-    | False => givesAfter0 (reads0At modes DotDot) (dots => givesListPatternDots more pself modes found nested dots)
+    | False =>
+      Parse.givesAfter0 (reads0At modes DotDot) (dots => givesListPatternDots more pself modes found nested dots)
 
 theorem givesListPatternItems ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern)
     (modes: Modes) (found: List Pattern)
@@ -338,7 +340,7 @@ theorem givesListPatternItems ∀ (fuel: Nat) (pself: PatternGoal → {Parse Ite
   match fuel with
     | Zero => Parse.givesDone byComputing
     | Succ more =>
-      givesAfter0 (reads0At modes RBracket) (closed => givesListPatternStep more pself modes found nested closed)
+      Parse.givesAfter0 (reads0At modes RBracket) (closed => givesListPatternStep more pself modes found nested closed)
 
 theorem givesListPatternClose ∀ (inner: Modes) (open: Word) (items: List Pattern) (trailingComma: Bool)
     (tail: Option (Word, Pattern)) (comma: Bool):
@@ -354,8 +356,8 @@ theorem givesListPatternClose ∀ (inner: Modes) (open: Word) (items: List Patte
 theorem givesListPatternEnd ∀ (inner: Modes) (open: Word) (read: (List Pattern, Bool, Option (Word, Pattern))):
     Parse.Gives GoodItems (() => listPatternEnd inner open read) (pat => True) :=
   match read with
-    | (items, trailingComma, tail) =>
-      givesAfter0 (reads0At inner Comma) (comma => givesListPatternClose inner open items trailingComma tail comma)
+    | (items, trailingComma, tail) => Parse.givesAfter0 (reads0At inner Comma) (comma =>
+      givesListPatternClose inner open items trailingComma tail comma)
 
 theorem givesListPattern ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
@@ -395,7 +397,7 @@ theorem givesParenPatternOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (m
 theorem givesParenPatternEnd ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (open: Word) (first: Pattern)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => parenPatternEnd pself modes open first) (pat => True) :=
-  givesAfter0 (reads0At modes Comma) (comma => givesParenPatternOf pself modes open first nested comma)
+  Parse.givesAfter0 (reads0At modes Comma) (comma => givesParenPatternOf pself modes open first nested comma)
 
 -- Brackets, parentheses and the plain pattern.
 
@@ -418,7 +420,7 @@ theorem givesBracketPatternOn ∀ (pself: PatternGoal → {Parse Item} Pattern) 
 theorem givesBracketPattern ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself) (second: Option Tok):
     Parse.Gives GoodItems (() => bracketPattern pself modes second) (pat => True) :=
-  givesAfter0 (reads0PeekAt modes 2) (third => givesBracketPatternOn pself modes nested second third)
+  Parse.givesAfter0 (reads0PeekAt modes 2) (third => givesBracketPatternOn pself modes nested second third)
 
 theorem givesParenComponent ∀ (pself: PatternGoal → {Parse Item} Pattern) (inner: Modes)
     (nested: PatternNested pself) (isCtor: Bool):
@@ -442,7 +444,7 @@ theorem givesParenOpenPattern ∀ (pself: PatternGoal → {Parse Item} Pattern) 
     Parse.Gives GoodItems (() => parenOpenPattern pself modes) (pat => True) :=
   Parse.givesThen givesBump (open _ =>
     Parse.givesThen
-      (givesAfter0 (reads0CtorAhead modes.inBrackets) (isCtor =>
+      (Parse.givesAfter0 (reads0CtorAhead modes.inBrackets) (isCtor =>
         givesParenComponent pself modes.inBrackets nested isCtor))
       (component _ =>
         Parse.givesThen
@@ -475,22 +477,24 @@ theorem givesPlainPatternOn ∀ (pself: PatternGoal → {Parse Item} Pattern) (m
   match seen with
     | Some Upper => givesBumpedWord Upper
     | Some Lower =>
-      Parse.givesThen (givesAfter0 (reads0WordAhead modes "Quot.mk") (quot => givesQuotOrLower modes quot)) (bumped _ =>
-        Parse.givesDone byComputing)
+      Parse.givesThen
+        (Parse.givesAfter0 (reads0WordAhead modes "Quot.mk") (quot => givesQuotOrLower modes quot))
+        (bumped _ => Parse.givesDone byComputing)
     | Some Underscore => givesBumpedWord Underscore
     | Some Num => givesBumpedWord Num
     | Some CharLit => givesBumpedWord CharLit
     | Some Str => givesBumpedWord Str
     | Some StrStart => Parse.readsFatal _ _
     | Some LBrace => Parse.givesThen (givesFieldsPattern pself modes nested) (fields _ => Parse.givesDone byComputing)
-    | Some LBracket => givesAfter0 (reads0PeekAt modes 1) (second => givesBracketPattern pself modes nested second)
-    | Some LParen => givesAfter0 (reads0PeekAt modes 1) (second => givesParenPattern pself modes nested second)
+    | Some LBracket =>
+      Parse.givesAfter0 (reads0PeekAt modes 1) (second => givesBracketPattern pself modes nested second)
+    | Some LParen => Parse.givesAfter0 (reads0PeekAt modes 1) (second => givesParenPattern pself modes nested second)
     | other => givesFailName modes "a pattern or `=`"
 
 theorem givesPlainPattern ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => Syntax.plainPattern pself modes) (pat => True) :=
-  givesAfter0 (reads0Peek modes) (seen => givesPlainPatternOn pself modes nested seen)
+  Parse.givesAfter0 (reads0Peek modes) (seen => givesPlainPatternOn pself modes nested seen)
 
 theorem givesFieldValuePattern ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself) (isCtor: Bool):
@@ -512,7 +516,7 @@ theorem givesPatternRule ∀ (pself: PatternGoal → {Parse Item} Pattern)
         | PatternListComponent => givesListComponent pself modes nested
         | PatternAltOne => givesAltPatternOne pself modes nested
         | PatternFieldValue =>
-          givesAfter0 (reads0CtorAhead modes) (isCtor => givesFieldValuePattern pself modes nested isCtor)
+          Parse.givesAfter0 (reads0CtorAhead modes) (isCtor => givesFieldValuePattern pself modes nested isCtor)
 
 --| The pattern parser reads patterns, from good items.
 theorem givesPattern ∀ (goal: PatternGoal): Parse.Gives GoodItems (() => pattern goal) (pat => True) :=

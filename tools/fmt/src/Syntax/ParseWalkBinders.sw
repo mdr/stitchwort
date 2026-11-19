@@ -34,13 +34,13 @@ theorem givesParamNameOn ∀ (modes: Modes) (seen: Option Tok):
     | other => givesLower modes "a parameter's name"
 
 theorem givesParamName ∀ (modes: Modes): Parse.Gives GoodItems (() => paramName modes) (word => True) :=
-  givesAfter0 (reads0Peek modes) (seen => givesParamNameOn modes seen)
+  Parse.givesAfter0 (reads0Peek modes) (seen => givesParamNameOn modes seen)
 
 theorem givesParamNames ∀ (modes: Modes): Parse.Gives GoodItems (() => paramNames modes) (found => True) :=
   Parse.givesWeaken
     (Parse.givesLoop
       [holds := word => True]
-      (givesAfter0 (reads0At modes Lower) (atLower =>
+      (Parse.givesAfter0 (reads0At modes Lower) (atLower =>
         match atLower with
           | True => Parse.givesThen (givesParamName modes) (found _ => Parse.givesDone byComputing)
           | False => Parse.givesDone byComputing)))
@@ -50,7 +50,7 @@ theorem givesLowerNames ∀ (modes: Modes): Parse.Gives GoodItems (() => lowerNa
   Parse.givesWeaken
     (Parse.givesLoop
       [holds := word => True]
-      (givesAfter0 (reads0At modes Lower) (atLower =>
+      (Parse.givesAfter0 (reads0At modes Lower) (atLower =>
         match atLower with
           | True => Parse.givesThen (givesLower modes "a name") (found _ => Parse.givesDone byComputing)
           | False => Parse.givesDone byComputing)))
@@ -61,7 +61,7 @@ theorem givesConsumedBare ∀ (started: Parse.Mark Item):
   Parse.givesThen Parse.givesMark (here _ => Parse.givesDone byComputing)
 
 theorem givesAllowBrace ∀ (modes: Modes): Parse.Gives GoodItems (() => allowBrace modes) (found => True) :=
-  givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
 
 theorem givesBinderTypeOn ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
     (nested: Nested self)
@@ -80,13 +80,13 @@ theorem givesBinderTypeOn ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes
 theorem givesBinderTypeSeen ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
     (nested: Nested self) (seen: Option Tok):
     Parse.Gives GoodItems (() => binderTypeSeen self allowed seen) (expr => True) :=
-  givesAfter0 reads0Left (items => givesBinderTypeOn self allowed nested seen items)
+  Parse.givesAfter0 reads0Left (items => givesBinderTypeOn self allowed nested seen items)
 
 theorem givesBinderType ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => binderType self modes) (expr => True) :=
   Parse.givesThen (givesAllowBrace modes) (allowed _ =>
-    givesAfter0 (reads0Peek allowed) (seen => givesBinderTypeSeen self allowed nested seen))
+    Parse.givesAfter0 (reads0Peek allowed) (seen => givesBinderTypeSeen self allowed nested seen))
 
 theorem givesHeaderDefault ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
     (nested: Nested self) (implicit atColonEq: Bool):
@@ -122,7 +122,8 @@ theorem givesHeaderGroupColon ∀ (self: Goal → {Parse Item} Expr) (inner: Mod
     | True => Parse.givesThen givesFixedFrom (colon _ =>
       Parse.givesThen (givesBinderType self inner nested) (annotation _ =>
         Parse.givesThen
-          (givesAfter0 (reads0At inner ColonEq) (atColonEq => givesHeaderDefault self inner nested implicit atColonEq))
+          (Parse.givesAfter0 (reads0At inner ColonEq) (atColonEq =>
+            givesHeaderDefault self inner nested implicit atColonEq))
           (default _ =>
             Parse.givesThen (givesExpectFixed inner (closerOf implicit) (closeMessage implicit auto named)) (close _ =>
               Parse.givesThen (givesConsumedBare started) (consumed _ =>
@@ -135,7 +136,7 @@ theorem givesHeaderGroupNamed ∀ (self: Goal → {Parse Item} Expr) (inner: Mod
     Parse.Gives GoodItems (() => headerGroupNamed self inner kind refused implicit started open split) (found =>
       True) :=
   match split with
-    | (auto, named) => givesAfter0 (reads0At inner Colon) (atColon =>
+    | (auto, named) => Parse.givesAfter0 (reads0At inner Colon) (atColon =>
       givesHeaderGroupColon self inner nested kind refused implicit started open auto named atColon)
 
 theorem givesHeaderGroupTyped ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
@@ -200,8 +201,8 @@ theorem givesHeaderGroup ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (kind: GroupKind) (refused: Option Text):
     Parse.Gives GoodItems (() => headerGroup self modes kind refused) (found => True) :=
-  givesAfter0 (reads0Peek modes) (first =>
-    givesAfter0 (reads0PeekAt modes 1) (second => givesHeaderGroupOn self modes nested kind refused first second))
+  Parse.givesAfter0 (reads0Peek modes) (first =>
+    Parse.givesAfter0 (reads0PeekAt modes 1) (second => givesHeaderGroupOn self modes nested kind refused first second))
 
 theorem givesHeaderParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -209,7 +210,7 @@ theorem givesHeaderParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
   Parse.givesWeaken
     (Parse.givesLoop
       [holds := group => True]
-      (givesAfter0 (reads0At modes Colon) (atColon =>
+      (Parse.givesAfter0 (reads0At modes Colon) (atColon =>
         match atColon with
           | True => Parse.givesDone byComputing
           | False => Parse.givesThen (givesHeaderGroup self modes nested GroupParam None) (group _ =>
@@ -234,7 +235,7 @@ theorem givesBinderGroup ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           Parse.givesThen (givesExpectFixed modes.inBrackets Colon "`:`") (colon _ =>
             Parse.givesThen (givesBinderType self modes.inBrackets nested) (annotation _ =>
               Parse.givesThen
-                (givesAfter0 (reads0At modes.inBrackets ColonEq) (atColonEq =>
+                (Parse.givesAfter0 (reads0At modes.inBrackets ColonEq) (atColonEq =>
                   givesBinderDefault self modes.inBrackets nested atColonEq))
                 (default _ =>
                   Parse.givesThen (givesExpectFixed modes.inBrackets RParen "`)`") (close _ =>
@@ -268,7 +269,7 @@ theorem givesImplicitBinderOf ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
 theorem givesImplicitBinder ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => implicitBinder self modes) (found => True) :=
-  givesAfter0
+  Parse.givesAfter0
     [p := () => left()]
     [j := items => implicitBinderOf self modes (namelessAutoAt items)]
     reads0Left
@@ -339,7 +340,7 @@ theorem givesLambdaParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
   Parse.givesWeaken
     (Parse.givesLoop
       [holds := param => True]
-      (givesAfter0 reads0Left (items =>
+      (Parse.givesAfter0 reads0Left (items =>
         Parse.givesWeaken (givesLambdaStep self modes nested items) (found ok =>
           match found with
             | Some param => byComputing
@@ -397,7 +398,7 @@ theorem givesForallParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
   Parse.givesWeaken
     (Parse.givesLoop
       [holds := param => True]
-      (givesAfter0 reads0Left (items =>
+      (Parse.givesAfter0 reads0Left (items =>
         Parse.givesWeaken (givesForallStep self modes nested items) (found ok =>
           match found with
             | Some param => byComputing
@@ -420,8 +421,8 @@ theorem givesForallExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.givesThen (givesForallParams self modes nested) (params _ =>
       match params.isEmpty with
         | True => givesFail modes _
-        | False =>
-          givesAfter0 (reads0At modes FatArrow) (atArrow => givesForallArrow self modes nested keyword params atArrow)))
+        | False => Parse.givesAfter0 (reads0At modes FatArrow) (atArrow =>
+          givesForallArrow self modes nested keyword params atArrow)))
 
 theorem givesExistsLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -436,7 +437,7 @@ theorem givesExistsExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => existsExpr self modes) Out :=
   Parse.givesThen givesBump (keyword _ =>
     Parse.givesThen Parse.givesMark (here _ =>
-      givesAfter0
+      Parse.givesAfter0
         [p := () => left()]
         [j := items => existsLambda self modes keyword (lambdaAhead modes (here.left + 1) items)]
         reads0Left
@@ -455,13 +456,13 @@ theorem givesQuantifierOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesQuantifier ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => Syntax.quantifier self modes) Out :=
-  givesAfter0 reads0Left (items => givesQuantifierOn self modes nested items)
+  Parse.givesAfter0 reads0Left (items => givesQuantifierOn self modes nested items)
 
 theorem givesResultTypeAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => resultType self modes) (expr => True) :=
-  givesAfter0 (reads0AllowBrace modes) (allowed =>
-    givesAfter0 (reads0RowAhead allowed) (row =>
+  Parse.givesAfter0 (reads0AllowBrace modes) (allowed =>
+    Parse.givesAfter0 (reads0RowAhead allowed) (row =>
       match row with
         | True => Parse.givesWeaken (givesEffectResult self allowed nested) (found out => byComputing)
         | False => givesFullAny self allowed nested))

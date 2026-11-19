@@ -701,7 +701,7 @@ theorem readsTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => tupleRest self inner open.leaf.word first) (read value =>
       Kept [open, ..inside ++ read] value) :=
-  readsAtAfter0 (reads0Mark (here => here.left)) fine (fuel after same fits =>
+  Parse.readsAtAfter0 (Parse.reads0Mark (here => here.left)) fine (fuel after same fits =>
     readsAtBumpRead (rewrite same then shape) fits (after2 tail fits2 =>
       Parse.readsAtThen (nested { modes = inner, level = LevelFull } after2 fits2) (r2 second after3 starts2 kept2 =>
         let fits3 := Parse.Fits.after fits2 starts2
@@ -812,8 +812,8 @@ theorem readsKeptParenAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (isParen: item.kind = LParen)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => parenAtom self modes) Kept :=
-  readsAtAfter0 (reads0PeekAt modes 1) fine (second after same fits =>
-    readsAtAfter0 (reads0PeekAt modes 2) fits (third after2 same2 fits2 =>
+  Parse.readsAtAfter0 (reads0PeekAt modes 1) fine (second after same fits =>
+    Parse.readsAtAfter0 (reads0PeekAt modes 2) fits (third after2 same2 fits2 =>
       readsKeptParenOn self modes nested outside second third after2 item later
         (rewrite same2, same then shape)
         isParen
@@ -830,9 +830,9 @@ theorem readsListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     match spread with
       | True => Parse.readsThen givesBump (r1 dots _ =>
         readsAfter0
-          (reads0Then (reads0At modes Comma) (comma =>
+          (Parse.reads0Then (reads0At modes Comma) (comma =>
             match comma with
-              | True => reads0Done True
+              | True => Parse.reads0Done True
               | False => reads0At modes RBracket))
           (empty =>
             match empty with
@@ -949,8 +949,8 @@ theorem readsKeptBracketAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
     (isBracket: item.kind = LBracket)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => bracketAtom self modes) Kept :=
-  readsAtAfter0 (reads0PeekAt modes 1) fine (second after same fits =>
-    readsAtAfter0 (reads0PeekAt modes 2) fits (third after2 same2 fits2 =>
+  Parse.readsAtAfter0 (reads0PeekAt modes 1) fine (second after same fits =>
+    Parse.readsAtAfter0 (reads0PeekAt modes 2) fits (third after2 same2 fits2 =>
       readsKeptBracketAt self modes nested outside second third after2 item later
         (rewrite same2, same then shape)
         isBracket
@@ -1073,10 +1073,10 @@ theorem readsArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         readsAfter0
           [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
           [j := brace => argumentBrace self modes brace]
-          (reads0Then (reads0At modes Upper) (upper =>
+          (Parse.reads0Then (reads0At modes Upper) (upper =>
             match upper with
-              | True => reads0Then (reads0PeekAt modes 1) (found => reads0Done _)
-              | False => reads0Done False))
+              | True => Parse.reads0Then (reads0PeekAt modes 1) (found => Parse.reads0Done _)
+              | False => Parse.reads0Done False))
           (brace => readsArgumentBrace self modes nested outside brace))
 
 theorem readsArguments ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -1137,7 +1137,7 @@ theorem readsApp ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (bases: BasesKept self):
     Parse.ReadsIn GoodItems (() => app self modes) Kept :=
   readsAfter0 reads0Offset (start =>
-    readsAfter0 (reads0Then (reads0At modes Dot) (dot => reads0Done _)) (section =>
+    readsAfter0 (Parse.reads0Then (reads0At modes Dot) (dot => Parse.reads0Done _)) (section =>
       readsAppHead self modes nested outside bases section))
 
 --| An argument read by `self`: `atom` with no application.
@@ -1178,7 +1178,7 @@ theorem readsKeptUnaryBar ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
   match bar with
     | True => readsAtBumpRead shape fine (after tail fits =>
       readsOutAfter [item] (outside.clauseLambdas modes item.leaf.word) after fits)
-    | False => readsAtAfter0 reads0Left fine (found after same fits =>
+    | False => Parse.readsAtAfter0 reads0Left fine (found after same fits =>
       readsKeptUnaryNext self modes nested app after item later found (rewrite same then shape) fits)
 
 theorem readsUnarySome ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -1193,7 +1193,7 @@ theorem readsUnarySome ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | True => readsAtBumpRead shape fine (after tail fits =>
       readsOutAfter [item] (outside.matches modes item.leaf.word) after fits)
     | False =>
-      readsAtAfter0
+      Parse.readsAtAfter0
         [p := () => matchesBarAhead modes]
         [j := bar => unaryBar self modes item.kind bar]
         (reads0MatchesBarAhead modes)

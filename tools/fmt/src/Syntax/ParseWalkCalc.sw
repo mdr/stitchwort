@@ -19,10 +19,10 @@ theorem givesHereOn ∀ (items: List Item): Parse.Gives GoodItems (() => hereOn 
   | [] => Parse.givesThen (givesOfReads0 reads0Offset) (here _ => Parse.givesDone byComputing)
 
 theorem givesHere: Parse.Gives GoodItems (() => here()) (found => True) :=
-  givesAfter0 reads0Left (items => givesHereOn items)
+  Parse.givesAfter0 reads0Left (items => givesHereOn items)
 
 theorem givesColumnHere: Parse.Gives GoodItems (() => columnHere()) (found => True) :=
-  givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
 
 -- `calc` and `rewrite`, from the compared tier's walks.
 
@@ -68,7 +68,7 @@ theorem givesCalcLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ind
       match signs with
         | (up, down) => Parse.givesThen givesBump (relation _ =>
           Parse.givesThen (givesCalcOperand self modes nested outside bases) (operand _ =>
-            givesAfter0 (reads0At modes ColonEq) (colonEq =>
+            Parse.givesAfter0 (reads0At modes ColonEq) (colonEq =>
               Parse.givesThen (givesCalcProof self modes colonEq nested) (proof _ =>
                 steps
                   (Some at)
@@ -84,14 +84,14 @@ theorem givesCalcSteps ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
     Parse.Gives GoodItems (() => calcSteps fuel self modes indent column found ascending descending) (result => True) :=
   match fuel with
     | Zero =>
-      givesAfter0
+      Parse.givesAfter0
         [p := () => left()]
         [j := items =>
           calcStep Zero self modes indent column found ascending descending (calcNextOn modes indent items)]
         reads0Left
         (items => Parse.givesDone byComputing)
     | Succ more =>
-      givesAfter0
+      Parse.givesAfter0
         [p := () => left()]
         [j := items =>
           calcStep (Succ more) self modes indent column found ascending descending (calcNextOn modes indent items)]
@@ -149,38 +149,39 @@ theorem givesCalcExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideCompared self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => calcExpr self modes) Out :=
-  givesAfter0 reads0HeadIndent (indent =>
+  Parse.givesAfter0 reads0HeadIndent (indent =>
     Parse.givesThen givesFixedFrom (keyword _ =>
       Parse.givesThen (givesCalcOperand self ({ modes | inCalc = True }).sealed nested outside bases) (first _ =>
         givesCalcAfter self { modes | inCalc = True } indent keyword first nested outside bases)))
 
 theorem reads0OwnLineAt ∀ (wanted: Tok) (column: Nat): Reads0 (() => ownLineAt wanted column) :=
-  reads0Then reads0Left (items => reads0Done (ownLineOn wanted column items))
+  Parse.reads0Then reads0Left (items => Parse.reads0Done (ownLineOn wanted column items))
 
 theorem reads0StartsAt ∀ (modes: Modes) (wanted: Tok) (column: Nat): Reads0 (() => startsAt modes wanted column) :=
-  reads0Then (reads0At modes wanted) (here =>
+  Parse.reads0Then (reads0At modes wanted) (here =>
     match here with
-      | True => reads0Done True
+      | True => Parse.reads0Done True
       | False => reads0OwnLineAt wanted column)
 
 theorem reads0RepeatedlyAhead ∀ (outer: Modes): Reads0 (() => repeatedlyAhead outer) :=
-  reads0Then (reads0WordAhead outer "repeatedly") (word =>
+  Parse.reads0Then (reads0WordAhead outer "repeatedly") (word =>
     match word with
-      | True => reads0Then (reads0PeekAt outer 1) (seen => reads0Done (isSome LBracket seen))
-      | False => reads0Done False)
+      | True => Parse.reads0Then (reads0PeekAt outer 1) (seen => Parse.reads0Done (isSome LBracket seen))
+      | False => Parse.reads0Done False)
 
 theorem reads0ReverseAhead ∀ (modes: Modes): Reads0 (() => reverseAhead modes) :=
-  reads0Then (reads0At modes Lt) (less =>
-    reads0Then reads0Left (items =>
+  Parse.reads0Then (reads0At modes Lt) (less =>
+    Parse.reads0Then reads0Left (items =>
       match items with
         | [first, minus, ..rest] =>
           match less with
-            | True => reads0Then (reads0PeekAt modes 1) (second => reads0Done (reverseMinus minus.glued second))
-            | False => reads0Done False
-        | other => reads0Done False))
+            | True =>
+              Parse.reads0Then (reads0PeekAt modes 1) (second => Parse.reads0Done (reverseMinus minus.glued second))
+            | False => Parse.reads0Done False
+        | other => Parse.reads0Done False))
 
 theorem givesReverseOf ∀ (modes: Modes): Parse.Gives GoodItems (() => reverseOf modes) (found => True) :=
-  givesAfter0 (reads0ReverseAhead modes) (reverse =>
+  Parse.givesAfter0 (reads0ReverseAhead modes) (reverse =>
     match reverse with
       | True => Parse.givesThen givesFixedFrom (less _ =>
         Parse.givesThen givesFixedFrom (second _ => Parse.givesDone byComputing))
@@ -204,7 +205,7 @@ theorem givesRewriteRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (fuel: Nat) (found: List RewriteRule):
     Parse.Gives GoodItems (() => rewriteRules fuel self modes found) (rules => True) :=
   Parse.givesThen (givesRewriteRule self modes found nested outside bases) (done _ =>
-    givesAfter0 (reads0At modes Comma) (comma =>
+    Parse.givesAfter0 (reads0At modes Comma) (comma =>
       match fuel with
         | Zero => Parse.givesDone byComputing
         | Succ more =>
@@ -223,13 +224,13 @@ theorem givesSetRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (fuel: Nat) (found: List RewriteRule):
     Parse.Gives GoodItems (() => setRules fuel self modes found) (result => True) :=
   Parse.givesThen (givesSetRule self modes found nested) (done _ =>
-    givesAfter0 (reads0At modes Comma) (comma =>
+    Parse.givesAfter0 (reads0At modes Comma) (comma =>
       match fuel with
         | Zero => Parse.givesDone byComputing
         | Succ more =>
           match comma with
             | True => Parse.givesThen givesBump (gone _ =>
-              givesAfter0 (reads0At modes RBracket) (closed =>
+              Parse.givesAfter0 (reads0At modes RBracket) (closed =>
                 match closed with
                   | True => Parse.givesDone byComputing
                   | False => givesSetRules self modes nested more done))
@@ -239,7 +240,7 @@ theorem givesRuleSet ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => ruleSet self modes) (set => True) :=
   Parse.givesThen givesFixedFrom (open _ =>
-    givesAfter0 (reads0At modes RBracket) (empty =>
+    Parse.givesAfter0 (reads0At modes RBracket) (empty =>
       match empty with
         | True => Parse.readsFatal _ _
         | False => Parse.givesThen Parse.givesMark (here _ =>
@@ -277,7 +278,7 @@ theorem givesRewriteTarget ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => rewriteTarget self modes) (target => True) :=
-  givesAfter0 (reads0WordAhead modes "at") (atAhead =>
+  Parse.givesAfter0 (reads0WordAhead modes "at") (atAhead =>
     match atAhead with
       | True => Parse.givesThen givesFixedFrom (at _ => givesTargetAfter self modes at nested outside bases)
       | False => Parse.givesDone byComputing)
@@ -296,10 +297,10 @@ theorem givesRewriteThen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     (rules: Rules) (target: Option (Comments, Expr))
     (nested: Nested self):
     Parse.Gives GoodItems (() => rewriteThen self modes column keyword rules target) Out :=
-  givesAfter0 (reads0StartsAt modes KwIn column) (old =>
+  Parse.givesAfter0 (reads0StartsAt modes KwIn column) (old =>
     match old with
       | True => Parse.readsFatal _ _
-      | False => givesAfter0 (reads0StartsAt modes KwThen column) (hasThen =>
+      | False => Parse.givesAfter0 (reads0StartsAt modes KwThen column) (hasThen =>
         givesRewriteBody self modes column keyword rules target nested hasThen))
 
 theorem givesRewriteRulesOf ∀ (self: Goal → {Parse Item} Expr) (outer: Modes) (repeatedly: Bool)
@@ -319,7 +320,7 @@ theorem givesRewriteAfter ∀ (self: Goal → {Parse Item} Expr) (outer: Modes) 
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => rewriteAfter self outer column keyword) Out :=
-  givesAfter0 (reads0RepeatedlyAhead outer) (repeatedly =>
+  Parse.givesAfter0 (reads0RepeatedlyAhead outer) (repeatedly =>
     Parse.givesThen (givesRewriteRulesOf self outer repeatedly nested outside bases) (rules _ =>
       Parse.givesThen (givesRewriteTarget self outer nested outside bases) (target _ =>
         givesRewriteThen self outer column keyword rules target nested)))

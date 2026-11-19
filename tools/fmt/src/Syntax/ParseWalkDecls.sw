@@ -69,7 +69,7 @@ theorem givesDefinition ∀ (modes: Modes) (attributes: List Attributes) (export
 theorem givesDeclarationBody ∀ (modes: Modes) (attributes: List Attributes) (nested: Nested expressionAt)
     (outside: Outside expressionAt) (frame: Frame expressionAt):
     Parse.Gives GoodItems (() => declarationBody modes attributes) DeclOk :=
-  givesAfter0 (reads0Peek modes) (seen =>
+  Parse.givesAfter0 (reads0Peek modes) (seen =>
     match seen with
       | Some kind =>
         match isDef: kind == KwDef || kind == KwTheorem with
@@ -80,7 +80,7 @@ theorem givesDeclarationBody ∀ (modes: Modes) (attributes: List Attributes) (n
 theorem givesDeclarationKind ∀ (seen: Seen) (modes: Modes) (attributes: List Attributes) (nested: Nested expressionAt)
     (outside: Outside expressionAt) (frame: Frame expressionAt):
     Parse.Gives GoodItems (() => declarationKind seen modes attributes modes.peek) DeclOk :=
-  givesAfter0 (reads0Peek modes) (next =>
+  Parse.givesAfter0 (reads0Peek modes) (next =>
     match next with
       | Some kind =>
         match isNamespace: kind == KwNamespace with
@@ -94,7 +94,7 @@ theorem givesDeclarationKind ∀ (seen: Seen) (modes: Modes) (attributes: List A
 theorem givesDeclarationFinish ∀ (modes: Modes) (decl: Decl)
     (ok: DeclOk decl):
     Parse.Gives GoodItems (() => declarationFinish modes decl) DeclOk :=
-  givesAfter0 reads0Left (items =>
+  Parse.givesAfter0 reads0Left (items =>
     match items.isEmpty with
       | True => Parse.givesDone ok
       | False => givesFail modes _)
@@ -103,7 +103,7 @@ theorem givesDeclaration ∀ (seen: Seen) (nested: Nested expressionAt)
     (outside: Outside expressionAt) (frame: Frame expressionAt):
     Parse.Gives GoodItems (() => declaration seen) DeclOk :=
   Parse.givesThen (frame.attributes Modes.start) (attributes _ =>
-    givesAfter0 (reads0Peek Modes.start) (next =>
+    Parse.givesAfter0 (reads0Peek Modes.start) (next =>
       match attributesRefused attributes next with
         | Some message => Parse.readsFatal _ _
         | None => Parse.givesThen (givesDeclarationKind seen Modes.start attributes nested outside frame) (decl ok =>
