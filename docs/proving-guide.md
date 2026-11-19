@@ -632,6 +632,96 @@ for in a proof.
   (`crates/elab/src/std/Parse/ReadsChars.sw`), where the `Parse.stop u, r`
   and `Parse.fatal message, r` clauses both end `(Result.errNotOk h).impossible`.
 
+### Behaviours lanes rediscover
+
+Each of these cost a lane time more than once (SW-4198; all checked on a
+scratch file on 19 Nov 2026).
+
+- **`&&` and `++` group to the right.** `a && b && c` is `a && (b && c)` and
+  `xs ++ ys ++ zs` is `xs ++ (ys ++ zs)`: `byComputing` proves both as they
+  stand. `Bool.andAssoc` and `List.appendAssoc` have the *left*-nested form
+  on their left side, so a bare chain has nothing for `rewrite` to find
+  (`E-REWRITE-NOTHING`, "found no `(a && b) && c`"; the note says the goal
+  already holds). They fire where the goal spells the brackets, and
+  `rewrite <-` goes the other way, as in
+  `rewrite <- Bool.andAssoc a b c at h` on `h: (a && (b && c)) = True`.
+  Bracket a `Bool` side of an `=` (`((a && b) && c) = …`): `&&` binds looser
+  than `=`, so `(a && b) && (c && d) = e` reads as `(a && b) && ((c && d) =
+  e)`. How a chain's parts are taken apart is above (`Bool.andRight`).
+
+  ```
+  theorem regroup (xs ys zs ws: List Nat):
+      (xs ++ ys) ++ (zs ++ ws) = xs ++ (ys ++ (zs ++ ws)) :=
+    rewrite List.appendAssoc xs ys (zs ++ ws)
+  ```
+- **`!=` is a proposition.** In a statement or hypothesis `a != b` is `¬ (a
+  = b)`, so `(h: a != b)` is fine (and the same as `a ≠ b`), but `(a != b) =
+  True` is `E-NOT-A-TYPE` ("in a statement, `!=` is the proposition, not a
+  `Bool`"; the note says to ascribe `((a != b): Bool)` for the test). To say
+  a *test* is false, write `(a == b) = False`, and turn it into `a ≠ b` with
+  `DecEq.soundFalse a b h` (`import Std (DecEq)`; §3, "A decision is a
+  record"). `a ≠ b` doesn't give `(a == b) = False` by `byComputing`: the
+  equality test is stuck on `a` and `b`.
+- **Importing.** Import a name from its namespace: `import Std.List (map)`
+  (`import Std.List (map as listMap)` renames).
+  There is no way to write the method's qualified name as the item:
+  `import Std (List.map)` is `E-PARSE` ("expected a name to import") and so
+  is `import List.map` ("expected a namespace"). Where you only need a call,
+  `xs.map f` needs no import, and `List.map xs f` needs `import Std (List)`. Two `(..)` imports that both bring a name make each *use* of it
+  `E-AMBIGUOUS` (`import Std.List (..)` and `import Std.Option (..)`, then
+  `map`: "`map` could mean `List.map` or `Option.map`"); the note's fix is
+  to import the one you want by name, which wins over any `(..)`. Parameter
+  order is the data first: `map xs f`.
+- **`rewrite` takes an equation, not a definition's name.** `rewrite double
+  then …` with `def double (n: Nat): Nat` is `E-REWRITE-RULE` ("this has
+  type `Nat → Nat`, which isn't an equation"). To unfold: `byComputing`
+  when the call's arguments let it compute (a plain `double n` does, `n + n`
+  being its body); `f.unfold x` for a `decreasing` definition (`rewrite
+  half.unfold n then …`; the goal then shows the step as `half.%step …`); an
+  arm's equation `f.eq2` where the call is stuck on a variable (§3, "Arms
+  have equations").
+- **A `match` refines the hypotheses too.** After `match c: isBig n with`,
+  a hypothesis `found: pick n = Some m` has `isBig n` replaced in each arm,
+  so `rewrite c at found` there is `E-REWRITE-NOTHING` and the error says
+  the `match` replaced it. Use `found` as it is. (The example's `True` arm
+  gets `W-UNREACHABLE`, since `found` is already `None = Some m` there; that
+  is a warning, not a failure.) §4, `E-REWRITE-NOTHING`, has the example file.
+
+  ```
+  theorem asIs (n: Nat) (m: Nat) (found: pick n = Some m): n = m :=
+    match c: isBig n with
+      | True => Void.impossible (Option.noneNotSome m found)
+      | False => Option.someInjective found   -- not `(rewrite c at found)`
+  ```
+- **A `?` prints its goal only when the checker reaches it, and only `?`
+  does.** There are no named holes in a proof: `?hole` is `?` applied to a
+  name `hole` (`E-UNKNOWN-NAME` for it, and a goal `(x: _) → _`). A bare `?`
+  prints `[GOAL]` with the names in scope and the goal, in a theorem's
+  body, a `match` arm (even with an error in a sibling arm), a `rewrite … then
+  ?`, an argument (`Nat.leTrans a b c h1 ?`) or after `cases then`. It
+  prints no goal when an error comes earlier on the path to it (`let x :=
+  oops` then `?`, or `rewrite zzz then ?` with an unknown rule), when its
+  declaration doesn't parse (a bad `calc` line), or when it has no
+  type to be checked against (`let x := ?` says "the type here isn't known
+  yet"). To see a goal reliably, use `stitchwort goal --at FILE:LINE[:COL]`
+  (docs/syntax.md, "The goal at a point"): it needs no `?` and still answers
+  past an earlier error, and on a `rewrite` rule or a `calc` line it gives
+  the goal before and after (`before ⊢ …`, `after ⊢ …`). Without a project,
+  pass the file: `stitchwort goal --at scratch.sw:4:19`.
+- **A proof block goes by indentation, not braces.** A sequence of `let`s
+  and a closing term is written on indented lines, with no `{ … }`. A
+  brace after `:=` is a record literal or update: `:= {` then `byComputing`
+  is `E-NOT-A-RECORD` ("this record literal needs a record", the goal type
+  `a = a` isn't one), and with a `let` inside it is `E-PARSE` ("expected
+  `|` and the fields to update, but found `}`"), which points at the closing
+  brace, far from the cause. Delete the braces and indent the lines.
+
+  ```
+  theorem block (a b: Nat): a + b = a + b :=
+    let same := a + b
+    byComputing
+  ```
+
 ## 4. Common errors and what they usually mean
 
 Each was run on the example named; the output is quoted, shortened.
