@@ -229,29 +229,17 @@ theorem laidWithout ∀ (behind rest: List Leaf)
     (back: laidBack behind = True)
     (fwd: laidOut (pendB behind) rest = True):
     laidBack (withoutR behind rest) = True :=
-  match rest with
-    | [] => back
-    | [leaf, ..after] =>
-      match pair: fwdPair behind leaf after with
-        | False =>
-          let (b, f) := laidNop leaf behind after back fwd
-          rewrite withoutRNop leaf behind after pair then laidWithout [leaf, ..behind] after b f
-        | True =>
-          match after with
-            | [closer, ..after2] =>
-              let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
-              match behind with
-                | [previous, ..tail] =>
-                  let (b, f) := laidMoved leaf closer previous tail after2 back fwd
-                  rewrite withoutRPair leaf closer [previous, ..tail] after2 pair then
-                    laidWithout
-                      [
-                        (commaDeleted leaf closer [previous, ..tail]).fst,
-                        ..(commaDeleted leaf closer [previous, ..tail]).snd
-                      ]
-                      after2
-                      b
-                      f
+  match induct (withoutR behind rest) with
+    | eq1 _ => back
+    | eq2 behind comma closer after guard ih =>
+      match behind with
+        | [previous, ..tail] =>
+          let (b, f) := laidMoved comma closer previous tail after back fwd
+          ih b f
+        | [] => cases
+    | eq3 behind leaf after _ ih =>
+      let (b, f) := laidNop leaf behind after back fwd
+      ih b f
 
 -- Plain, read newest first.
 
@@ -376,46 +364,32 @@ theorem plainWithout ∀ (behind rest: List Leaf)
     (join: sourceJoin behind rest = True)
     (plain: sourcePlainFrom (hasItem behind) (tokens rest) = True):
     sourceJoin (withoutR behind rest) [] = True :=
-  match rest with
-    | [] => join
-    | [leaf, ..after] =>
-      match pair: fwdPair behind leaf after with
-        | False =>
-          rewrite withoutRNop leaf behind after pair then
-            plainWithout
-              [leaf, ..behind]
+  match induct (withoutR behind rest) with
+    | eq1 _ => join
+    | eq2 behind comma closer after guard ih =>
+      match behind with
+        | [previous, ..tail] =>
+          let (isComma, isCloser, item) := guard
+          let kind := commaDeletedKind comma closer [previous, ..tail]
+          let tailPlain :=
+            sourceTail
+              (itemKind comma.token.kind)
+              closer
               after
-              (sourceNop leaf behind after join plain pair)
-              (sourceTail (hasItem behind) leaf after plain)
-        | True =>
-          match after with
-            | [closer, ..after2] =>
-              let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
-              let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
-              let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
-              match behind with
-                | [previous, ..tail] =>
-                  let kind := commaDeletedKind leaf closer [previous, ..tail]
-                  let tailPlain :=
-                    sourceTail
-                      (itemKind leaf.token.kind)
-                      closer
-                      after2
-                      (sourceTail (hasItem [previous, ..tail]) leaf [closer, ..after2] plain)
-                  rewrite withoutRPair leaf closer [previous, ..tail] after2 pair then
-                    plainWithout
-                      [
-                        (commaDeleted leaf closer [previous, ..tail]).fst,
-                        ..(commaDeleted leaf closer [previous, ..tail]).snd
-                      ]
-                      after2
-                      (sourcePair leaf closer previous tail after2 isComma isCloser item join plain)
-                      (rewrite itemOfKind
-                            (commaDeleted leaf closer [previous, ..tail]).fst
-                            closer
-                            (commaDeleted leaf closer [previous, ..tail]).snd
-                            kind then
-                        tailPlain)
+              (sourceTail (hasItem [previous, ..tail]) comma [closer, ..after] plain)
+          ih
+            (sourcePair comma closer previous tail after isComma isCloser item join plain)
+            (rewrite itemOfKind
+                  (commaDeleted comma closer [previous, ..tail]).fst
+                  closer
+                  (commaDeleted comma closer [previous, ..tail]).snd
+                  kind then
+              tailPlain)
+        | [] => cases
+    | eq3 behind leaf after notArm2 ih =>
+      ih
+        (sourceNop leaf behind after join plain (fwdPairOfNotArm leaf behind after notArm2))
+        (sourceTail (hasItem behind) leaf after plain)
 
 -- What the leaves hold stays what they hold.
 
@@ -426,30 +400,15 @@ theorem allTokensWithout ∀ (q: Token → Bool)
     (kept: (tokens behind).all q = True)
     (coming: (tokens rest).all q = True):
     (tokens (withoutR behind rest)).all q = True :=
-  match rest with
-    | [] => kept
-    | [leaf, ..after] =>
-      match pair: fwdPair behind leaf after with
-        | False =>
-          rewrite withoutRNop leaf behind after pair then
-            allTokensWithout q blind
-              [leaf, ..behind]
-              after
-              (Bool.andIntro (Bool.andLeft coming) kept)
-              (Bool.andRight coming)
-        | True =>
-          match after with
-            | [closer, ..after2] =>
-              let (tok, sndToks) := commaDeletedToken leaf closer behind
-              let qfst: q (commaDeleted leaf closer behind).fst.token = True :=
-                rewrite tok, blind closer.token (leaf.token.lineStart || closer.token.lineStart) then
-                  Bool.andLeft (Bool.andRight coming)
-              rewrite withoutRPair leaf closer behind after2 pair then
-                allTokensWithout q blind
-                  [(commaDeleted leaf closer behind).fst, ..(commaDeleted leaf closer behind).snd]
-                  after2
-                  (rewrite sndToks then Bool.andIntro qfst kept)
-                  (Bool.andRight (Bool.andRight coming))
+  match induct (withoutR behind rest) with
+    | eq1 _ => kept
+    | eq2 behind comma closer after guard ih =>
+      let (tok, sndToks) := commaDeletedToken comma closer behind
+      let qfst: q (commaDeleted comma closer behind).fst.token = True :=
+        rewrite tok, blind closer.token (comma.token.lineStart || closer.token.lineStart) then
+          Bool.andLeft (Bool.andRight coming)
+      ih (rewrite sndToks then Bool.andIntro qfst kept) (Bool.andRight (Bool.andRight coming))
+    | eq3 behind leaf after _ ih => ih (Bool.andIntro (Bool.andLeft coming) kept) (Bool.andRight coming)
 
 theorem textsCons ∀ (leaf: Leaf) (rest: List Leaf):
     leafTexts [leaf, ..rest] = triviaTexts leaf.trivia ++ leafTexts rest :=
@@ -686,43 +645,24 @@ theorem textsWithout ∀ (q: Text → Bool) (behind rest: List Leaf)
     (kept: (leafTexts behind).all q = True)
     (coming: (leafTexts rest).all q = True):
     (leafTexts (withoutR behind rest)).all q = True :=
-  match rest with
-    | [] => kept
-    | [leaf, ..after] =>
-      match pair: fwdPair behind leaf after with
-        | False =>
-          let (b, f) := laidNop leaf behind after back fwd
-          let split :=
-            rewrite textsCons leaf after, List.allAppendAnd (triviaTexts leaf.trivia) (leafTexts after) q at coming then
-              coming
-          rewrite withoutRNop leaf behind after pair then
-            textsWithout q
-              [leaf, ..behind]
-              after
-              b
-              f
-              (rewrite textsCons leaf behind, List.allAppendAnd (triviaTexts leaf.trivia) (leafTexts behind) q then
-                Bool.andIntro (Bool.andLeft split) kept)
-              (Bool.andRight split)
-        | True =>
-          match after with
-            | [closer, ..after2] =>
-              let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
-              match behind with
-                | [previous, ..tail] =>
-                  let (b, f) := laidMoved leaf closer previous tail after2 back fwd
-                  let (keptNew, comingNew) := textsMoved q leaf closer previous tail after2 back fwd kept coming
-                  rewrite withoutRPair leaf closer [previous, ..tail] after2 pair then
-                    textsWithout q
-                      [
-                        (commaDeleted leaf closer [previous, ..tail]).fst,
-                        ..(commaDeleted leaf closer [previous, ..tail]).snd
-                      ]
-                      after2
-                      b
-                      f
-                      keptNew
-                      comingNew
+  match induct (withoutR behind rest) with
+    | eq1 _ => kept
+    | eq2 behind comma closer after guard ih =>
+      match behind with
+        | [previous, ..tail] =>
+          let (b, f) := laidMoved comma closer previous tail after back fwd
+          let (keptNew, comingNew) := textsMoved q comma closer previous tail after back fwd kept coming
+          ih b f keptNew comingNew
+        | [] => cases
+    | eq3 behind leaf after _ ih =>
+      let (b, f) := laidNop leaf behind after back fwd
+      let split :=
+        rewrite textsCons leaf after, List.allAppendAnd (triviaTexts leaf.trivia) (leafTexts after) q at coming then
+          coming
+      ih b f
+        (rewrite textsCons leaf behind, List.allAppendAnd (triviaTexts leaf.trivia) (leafTexts behind) q then
+          Bool.andIntro (Bool.andLeft split) kept)
+        (Bool.andRight split)
 
 -- A comment trimmed of the spaces at its end is still a comment, and the lexer's test of one holds.
 

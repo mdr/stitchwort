@@ -17,7 +17,7 @@ import Syntax.SettleProofs (alphabet1, laidOut)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Syntax.LexLaidProofs (lexLaidProved)
 import Syntax.SettleOnceProofs (intoTrailing)
-import Syntax.SettleBareProofs (fwdPair, lastPair, withBareFromR, withBareR, withBareRNop, withBareRPair)
+import Syntax.SettleBareProofs (fwdPair, lastPair, withBareFromR, withBareR)
 
 -- The invariant.
 
@@ -759,60 +759,46 @@ theorem bareQuietR ∀ (behind rest: List Leaf)
     (quiet: gluesQuiet rest = True)
     (edge: edgeQuiet behind rest = True):
     gluesQuietBack (withBareR behind rest) = True :=
-  match rest with
-    | [] => back
-    | [leaf, ..after] =>
-      match pair: fwdPair behind leaf after with
-        | False =>
-          rewrite withBareRNop leaf behind after pair then
-            bareQuietR
-              [leaf, ..behind]
-              after
-              (pushQuiet leaf behind back
-                (match behind with
-                  | [] => byComputing
-                  | [newest, ..older] => edge))
-              (tailQuiet leaf after quiet)
-              (edgeHead leaf behind after quiet)
-        | True =>
-          match after with
-            | [closer, ..after2] =>
-              let isComma: leaf.token.kind = Comma := DecEq.sound (Bool.andLeft pair)
-              let closerKind: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
-              let movedSign: (commaMoved leaf closer behind).fst.kind.signLike = False :=
-                rewrite movedKind leaf closer behind then closerNotSign closer.token.kind closerKind
-              let after2Quiet := tailQuiet closer after2 (tailQuiet leaf [closer, ..after2] quiet)
-              let edge2: edgeQuiet
-                [
-                  (commaMoved leaf closer behind).fst,
-                  { leaf | trivia = Trivia.empty },
-                  ..(commaMoved leaf closer behind).snd
-                ]
-                after2
-                = True :=
-                match after2 with
-                  | [] => byComputing
-                  | [next, ..more] =>
-                    rewrite movedSign then
-                      quietNotSign next.token.lineStart next.kind.opensAtom
-                        (commaMoved leaf closer behind).fst.trivia.trailing.isNone
-                        next.trivia.leading.isEmpty
-              rewrite withBareRPair leaf closer behind after2 pair then
-                bareQuietR
-                  [
-                    (commaMoved leaf closer behind).fst,
-                    { leaf | trivia = Trivia.empty },
-                    ..(commaMoved leaf closer behind).snd
-                  ]
-                  after2
-                  (bareBack
-                    (commaMoved leaf closer behind).fst
-                    leaf
-                    (commaMoved leaf closer behind).snd
-                    isComma
-                    (movedBack leaf closer behind back))
-                  after2Quiet
-                  edge2
+  match induct (withBareR behind rest) with
+    | eq1 _ => back
+    | eq2 behind comma closer after guard ih =>
+      let (isCommaGuard, closerGuard, _) := guard
+      let isComma: comma.token.kind = Comma := DecEq.sound isCommaGuard
+      let movedSign: (commaMoved comma closer behind).fst.kind.signLike = False :=
+        rewrite movedKind comma closer behind then closerNotSign closer.token.kind closerGuard
+      let afterQuiet := tailQuiet closer after (tailQuiet comma [closer, ..after] quiet)
+      let edge2: edgeQuiet
+        [
+          (commaMoved comma closer behind).fst,
+          { comma | trivia = Trivia.empty },
+          ..(commaMoved comma closer behind).snd
+        ]
+        after
+        = True :=
+        match after with
+          | [] => byComputing
+          | [next, ..more] =>
+            rewrite movedSign then
+              quietNotSign next.token.lineStart next.kind.opensAtom
+                (commaMoved comma closer behind).fst.trivia.trailing.isNone
+                next.trivia.leading.isEmpty
+      ih
+        (bareBack
+          (commaMoved comma closer behind).fst
+          comma
+          (commaMoved comma closer behind).snd
+          isComma
+          (movedBack comma closer behind back))
+        afterQuiet
+        edge2
+    | eq3 behind leaf after _ ih =>
+      ih
+        (pushQuiet leaf behind back
+          (match behind with
+            | [] => byComputing
+            | [newest, ..older] => edge))
+        (tailQuiet leaf after quiet)
+        (edgeHead leaf behind after quiet)
 
 theorem bareQuiet ∀ (leaves: List Leaf)
     (quiet: gluesQuiet leaves = True):
