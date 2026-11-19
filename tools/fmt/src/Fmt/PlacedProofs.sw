@@ -1,9 +1,9 @@
 --| `Syntax.AutoPlaced.Expr.autoPlaced1` across the driver (SW-4128): comments don't change it (`autoPlacedDeaf`), nor
 --| do `calm` and the trailing-comma pass; and the parser's fact that it holds of the driver's tree (`parsedPlaced1`),
---| open until the `Kept` walk carries it.
+--| from the `Kept` walk of each declaration.
 
 namespace Fmt.PlacedProofs
-import Std (Bool, Eq, List, Result, Text)
+import Std (Bool, Eq, List, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
@@ -12,6 +12,13 @@ import Fmt.PassProofs (..)
 import Fmt.Driver1 (leavesWithin1)
 import Fmt.GroupFacts (..)
 import Syntax.AutoPlaced (..)
+import Fmt.Kinds1 (..)
+import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
+import Syntax.ParseProofs (GoodItem, goodItemsOf, itemsQuiet)
+import Syntax.ParseCarriesDecl (runKept)
+import Syntax.ParseWalkOthers (frameRest)
+import Syntax.GoodItemProofs (settledGood)
+import Syntax.GlueQuietProofs (settledItemsQuiet)
 
 -- Comments.
 
@@ -164,20 +171,107 @@ theorem commaKeepsPlaced ∀ (file: SourceFile)
 
 -- The parser.
 
+--| A declaration in the driver's slice parsed from a group of good, quiet items is placed: the walk of one
+--| declaration's parser (`Syntax.ParseCarriesDecl.runKept`).
+theorem groupPlaced ∀ (seen: Seen) (group: List Leaf) (decl: Decl)
+    (good: List.All GoodItem (items group))
+    (quiet: itemsQuiet (items group) = True)
+    (ran: Parse.run (items group) (() =>
+      let found := declaration seen
+      found)
+      = Ok decl)
+    (within: decl.within1 = True):
+    decl.autoPlaced1 = True :=
+  let kept :=
+    runKept
+      (items group)
+      seen
+      frameRest
+      (goodItemsOf (items group) good quiet)
+      decl
+      ran
+      (Decl.grammarOfWithin1 decl within)
+  kept.right.right
+
+--| What `parseGroups` makes after `found`: declarations in the driver's slice are placed.
+def NewsPlaced (found decls: List Decl): Prop :=
+  ∃ (news: List Decl) => decls = found.reverse ++ news
+    ∧ (news.all Decl.within1 = True → news.all Decl.autoPlaced1 = True)
+
+theorem groupLoweredPlaced ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List Decl)
+    (decl: Decl) (lowering: Option Text)
+    (placedOf: decl.within1 = True → decl.autoPlaced1 = True)
+    (again: ∀ (next: Seen) (more: List Decl) => parseGroups next rest more = Ok decls → NewsPlaced more decls)
+    (parses: groupLowered seen rest found decl lowering = Ok decls):
+    NewsPlaced found decls :=
+  match lowering, parses with
+    | Some message, parses => (Result.errNotOk parses).impossible
+    | None, parses =>
+      let (news, split, placedNews) := again (seen.after decl) [decl, ..found] parses
+      (
+        [decl, ..news],
+        rewrite split, List.reverseCons decl found, List.appendAssoc found.reverse [decl] news then byComputing,
+        within => Bool.andIntro (placedOf (Bool.andLeft within)) (placedNews (Bool.andRight within))
+      )
+
+theorem groupRanPlaced ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List Decl) (ran: Result Decl Parse.Failure)
+    (placedOf: ∀ (decl: Decl) => ran = Ok decl → decl.within1 = True → decl.autoPlaced1 = True)
+    (again: ∀ (next: Seen) (more: List Decl) => parseGroups next rest more = Ok decls → NewsPlaced more decls)
+    (parses: groupRan seen rest found ran = Ok decls):
+    NewsPlaced found decls :=
+  match ran, placedOf, parses with
+    | Err failure, placedOf, parses => (Result.errNotOk parses).impossible
+    | Ok decl, placedOf, parses =>
+      groupLoweredPlaced seen rest found decls decl decl.loweringError (placedOf decl byComputing) again parses
+
+--| The declarations `parseGroups` makes from good, quiet groups are placed, where they are in the driver's slice.
+theorem parseGroupsPlaced ∀ (seen: Seen) (groups: List (List Leaf)) (found decls: List Decl)
+    (good: List.All (group => List.All GoodItem (items group)) groups)
+    (quiet: List.All (group => itemsQuiet (items group) = True) groups)
+    (parses: parseGroups seen groups found = Ok decls):
+    NewsPlaced found decls :=
+  match groups, good, quiet, parses with
+    | [], good, quiet, parses =>
+      let same: found.reverse = decls := Result.okInjective parses
+      ([], rewrite <- same, List.appendNil found.reverse then byComputing, within => byComputing)
+    | [group, ..rest], (groupGood, restGood), (groupQuiet, restQuiet), parses =>
+      groupRanPlaced seen rest found decls
+        (Parse.run (items group) (() =>
+          let decl := declaration seen
+          decl))
+        (decl ran within => groupPlaced seen group decl groupGood groupQuiet ran within)
+        (following more again => parseGroupsPlaced following rest more decls restGood restQuiet again)
+        parses
+
 --| The driver's tree is placed: no list that starts a full expression (a declaration's type or value, a paren's inside,
 --| a tuple's or a list's item, an arrow's right side) starts with an `auto` call, since there the parser reads
 --| `[auto Ord …` as an implicit binder (`exprPlain`'s `implicitOn`), which is no tree of slice 1.
 --|
---| Open (SW-4128). Computed on 1,686 grammar1 parses (the multi-line gate's corpora at scale 0, the must-accept
---| sources, and the same with every list made to start with `auto Ord` or `auto`): none fails. It closes in two
---| steps: the `Kept` walk (`Syntax.ParseKept`) carries `autoPlaced1 False` at every goal and `KeptAt`'s
---| `autoPlaced1 True` at full goals, from `exprPlain`'s `implicitOn = False` (`Syntax.ParseKept.keptPlacedUp`), in the
---| walk follow-up lane; then the acceptance-glue lane (SW-4120 item 8) takes it to the driver's settled leaves, with
---| `autoPlacedDeaf` across the two runs.
+--| Proof idea: the `Kept` walk (`Syntax.ParseKept`) carries placement: `Kept` has `autoPlaced1 False`, and at a full
+--| goal `KeptFull` has `autoPlaced1 True`, from `exprPlain`'s `implicitOn = False` where the item at the start isn't
+--| stopped, and from the operator ladder failing where it is (`Syntax.ParseCarriesLadder.readsAtExprPlainStopped`).
+--| Each declaration of the file is one group's run (`parseGroupsPlaced`), whose items `settledOnce` keeps good and quiet
+--| (`settledGood`, `settledItemsQuiet`).
 theorem parsedPlaced1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (leaves: leavesWithin1 lexed.leaves = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
     parsed.autoPlaced1 = True :=
-  ?
+  let alphabet: alphabet1 lexed.leaves = True := Bool.andLeft leaves
+  let plain: sourcePlain1 (tokens lexed.leaves) = True := Bool.andRight (Bool.andRight leaves)
+  let good := settledGood source lexed lexes alphabet plain
+  let quiet := settledItemsQuiet source lexed lexes alphabet
+  match fileRefusal lexed.settledOnce.leaves, parses with
+    | Some message, parses => (Result.errNotOk parses).impossible
+    | None, parses =>
+      match ran: parseGroups Seen.start (groupsOf lexed.settledOnce.leaves) [], parses with
+        | Err message, parses => (Result.errNotOk parses).impossible
+        | Ok decls, parses =>
+          let same: { decls, end = lexed.settledOnce.end.comments } = parsed := Result.okInjective parses
+          let (news, split, placedNews) :=
+            parseGroupsPlaced Seen.start (groupsOf lexed.settledOnce.leaves) [] decls good quiet ran
+          let newsAre: news = parsed.decls := rewrite <- same, split
+          let all: news.all Decl.within1 = True := rewrite newsAre then within
+          let placed := placedNews all
+          rewrite newsAre at placed then placed
