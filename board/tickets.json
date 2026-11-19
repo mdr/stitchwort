@@ -27171,12 +27171,12 @@
     {
       "id": 4222,
       "title": "[Fable] Comparative study: proving slice 1's kinds of theorems in Lean 4 and Rocq versus Stitchwort, by porting a small representative sample (not a full port): what each system's automation, libraries and proof style would save or cost; features worth adopting in Stitchwort",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 90 min. Matt, 19 Nov 2026: 'a comparative analysis with a competitor like Lean or Rocq. How easy would it be to prove these theorems in Lean or Rocq compared to Stitchwort? Do they have any advantages that we might want to consider taking on board ... how would we do this comparison without ... burning a lot of time on a full port'",
+      "body": "Est. 90 min. Matt, 19 Nov 2026: 'a comparative analysis with a competitor like Lean or Rocq. How easy would it be to prove these theorems in Lean or Rocq compared to Stitchwort? Do they have any advantages that we might want to consider taking on board ... how would we do this comparison without ... burning a lot of time on a full port'\n\nLane notes (Fable, 19 Nov): 21 slice 1 theorems of seven kinds ported to Lean 4.35 (core + Std) and Rocq 9.1 (Stdlib) on cut-down definitions; both check with no sorry, Admitted or axioms. Proof text 302 lines in Stitchwort, 159 in Lean, 125 in Rocq; theorems 30, 23, 26; parser functions 10, 5, 5. The gap is in the parser walks (a tool walks the body with registered lemmas and splits inner matches), functional induction (rule N) and a closer for leftovers; dispatchers, two-run and printer triples are level. Note: docs/reviews/SW-4222-lean-rocq-comparison.md; samples: docs/reviews/SW-4222-samples/. One decision for Matt: a design note for a walk proof step before slice 2's parser lanes (rec: yes). About 15 min by the clock (est. 90).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
