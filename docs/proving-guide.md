@@ -395,6 +395,7 @@ Import what you use: std's theorems live in namespaces that need an import
 | Rewrite with several equations until none fits, then close | `rewrite repeatedly [rules]` |
 | A chain of `=`, `<=`, `<` steps | `calc` |
 | Induction | recursion in the theorem (structural, or `decreasing`) |
+| Induction that follows a function's own cases | `match induct (f args) with` |
 | Induction over a nested type (`List T` inside `T`) | `T.induct`, `T.inductMem`, `T.size` |
 
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.
@@ -524,6 +525,37 @@ Import what you use: std's theorems live in namespaces that need an import
   proof]`. `f.unfold x` is a `decreasing` definition's own equation, for
   `rewrite f.unfold x then …`; on unknown arguments `f x` doesn't unfold by
   itself.
+- **`match induct (f args) with`: induction along a function.** When a
+  proof about `f` recurses the way `f` does, start with `match induct` on
+  the call instead of re-splitting `f`'s scrutinees by hand: `f`'s
+  generated principle `f.induct` has one case per branch of `f`, and the
+  goal is the one the call unfolds to. Each alternative is named for its
+  case (`eq1`, `eq2`, and `eq2IfTrue`/`eq2IfFalse` where the arm's body is
+  an `if`), and binds the case's variables, then its hypotheses (the
+  guards and conditions), then its induction hypotheses, in order; `_`
+  ignores one. All cases are required, in any order. It works on std's
+  functions too, with no `f.induct` named elsewhere in the file.
+  `stitchwort doc f` lists `f.induct` and its cases. For
+  `List.dropWhile xs p` (a `def` on `xs` with an `if p x` in its second
+  arm):
+
+  ```
+  theorem dropWhileLength ∀ (p: Nat → Bool) (xs: List Nat):
+      List.length (List.dropWhile xs p) ≤ List.length xs :=
+    match induct (List.dropWhile xs p) with
+      | eq1 _ => arithmetic
+      | eq2IfTrue p x xs h ih => arithmetic
+      | eq2IfFalse p x xs h => arithmetic
+  ```
+
+  The first case binds `p`, the second `p x xs`, the condition `h`, and
+  the induction hypothesis `ih`. Reach for it whenever you would write a
+  `match` on `f`'s scrutinees plus a guard or step lemma to say what `f`
+  does in each case (`examples/accept/match-induct-std.sw`,
+  `examples/accept/match-induct.sw`). It doesn't yet split a guarded,
+  partly overlapped arm into its cases, or give an induction hypothesis
+  for a recursive call inside a non-tail `match` (functional-induction.md,
+  G1 and G2): there, fall back to the hand-built `match`.
 - **Arms have equations.** Every `def` with arms gets `f.eq1`, `f.eq2`, …
   (one for each arm, in the order written): the call on that arm's patterns
   equals its body. An arm an earlier arm overlaps takes a hypothesis for

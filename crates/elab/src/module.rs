@@ -4384,6 +4384,20 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 then(&mut stack, steps);
             }
             Expr::Induct { call, alts, .. } => {
+                // `match induct (f x)` uses `f.induct`, which the library
+                // makes on demand, as it does when the file writes
+                // `f.induct` out.
+                let mut head = &**call;
+                loop {
+                    match head {
+                        Expr::App(f, _) | Expr::Bracketed(f, _) => head = f,
+                        Expr::Var(owner) => {
+                            out.push(Ref::Dot(owner, "induct".to_string(), None));
+                            break;
+                        }
+                        _ => break,
+                    }
+                }
                 let mut steps = vec![Work::Expr(call)];
                 for alt in alts {
                     steps.extend(alt.binders.iter().map(|b| Work::Bind(&b.text)));

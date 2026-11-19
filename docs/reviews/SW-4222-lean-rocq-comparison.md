@@ -227,6 +227,8 @@ fail [measured].
   Rocq's `Function … {measure …}` with `functional induction` does the
   same [read: refman, "Functional induction", which also says "For new
   code and new projects, we recommend Equations"].
+- (Correction, SW-4260: Stitchwort has `f.induct` and `match induct`
+  already; this sample didn't use them. See 6.2.)
 - The two "what the function does here" lemmas, and the guard that a
   `match` arm does not refine (SW-4047), have no counterpart.
 - Termination: Lean proved the two-ahead recursion decreasing on its
@@ -402,6 +404,14 @@ like work.
 - **Evidence.** 3.4. Also the pattern is everywhere in rule N and the
   passes: SW-4205 counts "a `match` arm doesn't refine a guard" among
   the frictions that cost about two hours.
+- **Correction (SW-4260).** Stitchwort already has this: `f.induct` and
+  `match induct (f args) with` exist (SW-1057, SW-1058), and the sample
+  did not use them. The gap is what
+  [functional-induction.md](../proposals/functional-induction.md) lists as
+  G1 and G2 (guarded, partly overlapped arms; recursive calls under a
+  non-tail `match`) and that nothing taught the feature (B1 on std
+  functions is fixed, and the proving guide now has an entry). Read the
+  cost below as those lanes, not a new generator.
 - **What it is.** For each recursive `def f`, a generated `f.induct`:
   one case per branch of `f`, each with the branch's conditions (guards
   included) as hypotheses, the recursive calls' induction hypotheses,
