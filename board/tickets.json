@@ -27697,8 +27697,8 @@
     {
       "id": 4262,
       "title": "[Opus] Functional induction C: G2, recursive call inside a non-tail match gets an induction hypothesis with the branch equation",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
