@@ -1,0 +1,32 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `le`
+   ╭─[ goals/match-induct-list-cases.sw:9:106 ]
+   │
+ 9 │ theorem le ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with ?
+   │                                                                                                          ┬  
+   │                                                                                                          ╰── k: Nat
+   │                                                                                                              x: Nat
+   │                                                                                                              xs: List Nat
+   │                                                                                                              h1: (k <= x) = False
+   │                                                                                                              ih: countAbove k xs ≤ xs.length
+   │                                                                                                              ⊢ countAbove k xs ≤ [x, ..xs].length
+   │                                                                                                                computes to countAbove k xs ≤ Succ xs.length
+   │ 
+   │ Note 1: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+   │ 
+   │ Note 2: this arm is checked once for each of its 3 alternatives; the goal above is the one in `eq2IfFalse x xs h1 ih`, and the others are:
+   │           in `eq1`:
+   │             k: Nat
+   │             xs: List Nat
+   │             ⊢ True = True
+   │           in `eq2IfTrue x xs h1 ih`:
+   │             k: Nat
+   │             x: Nat
+   │             xs: List Nat
+   │             h1: k ≤ x
+   │             ih: countAbove k xs ≤ xs.length
+   │             ⊢ countAbove k xs ≤ xs.length
+───╯

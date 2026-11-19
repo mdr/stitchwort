@@ -152,11 +152,13 @@ impl<'f> Lower<'f> {
     pub(super) fn induct(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Induct;
         let call = required(after_word(node, "induct"), kind, "its call")?;
-        let alts = node
+        let mut alts = Vec::new();
+        let arms = node
             .child_nodes()
-            .filter(|child| child.kind() == NodeKind::InductArm)
-            .map(|arm| self.induct_alt(arm))
-            .collect::<Lowering<Vec<_>>>()?;
+            .filter(|child| child.kind() == NodeKind::InductArm);
+        for (index, arm) in arms.enumerate() {
+            alts.extend(self.induct_alts(arm, index)?);
+        }
         Ok(Expr::Induct {
             call: Box::new(self.expr(call)?),
             alts,
@@ -164,22 +166,36 @@ impl<'f> Lower<'f> {
         })
     }
 
-    /// `| eqK x _ ih => body`
-    fn induct_alt(&self, node: Node<'f>) -> Lowering<InductAlt> {
+    /// `| eqK x _ ih => body`, or `| eq1 x | eq3 y => body`: one alternative
+    /// for each case, all with the body.
+    fn induct_alts(&self, node: Node<'f>, arm: usize) -> Lowering<Vec<InductAlt>> {
         let kind = NodeKind::InductArm;
-        let mut leaves = node.own_leaves().skip(1);
-        let case = required(leaves.next().and_then(name), kind, "its case")?;
-        let binders = leaves
-            .take_while(|leaf| leaf.tok() != &Tok::FatArrow)
-            .map(|leaf| required(binder_name(leaf), kind, "a binder"))
-            .collect::<Lowering<Vec<_>>>()?;
+        let mut heads: Vec<(Name, Vec<Name>)> = Vec::new();
+        let mut leaves = node.own_leaves().peekable();
+        while leaves.next_if(|leaf| leaf.tok() == &Tok::Pipe).is_some() {
+            let case = required(leaves.next().and_then(name), kind, "its case")?;
+            let mut binders = Vec::new();
+            while let Some(leaf) = leaves.next_if(|l| !matches!(l.tok(), Tok::FatArrow | Tok::Pipe))
+            {
+                binders.push(required(binder_name(leaf), kind, "a binder")?);
+            }
+            heads.push((case, binders));
+        }
         let body = required(node.after(&Tok::FatArrow), kind, "its body")?;
-        Ok(InductAlt {
-            case,
-            binders,
-            body: self.expr(body)?,
-            span: whole(node)?,
-        })
+        let body = self.expr(body)?;
+        let span = whole(node)?;
+        let of = heads.len();
+        Ok(heads
+            .into_iter()
+            .map(|(case, binders)| InductAlt {
+                case,
+                binders,
+                body: body.clone(),
+                span,
+                arm,
+                of,
+            })
+            .collect())
     }
 }
 

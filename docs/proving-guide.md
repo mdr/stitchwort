@@ -548,7 +548,12 @@ Import what you use: std's theorems live in namespaces that need an import
   case (`eq1`, `eq2`, and `eq2IfTrue`/`eq2IfFalse` where the arm's body is
   an `if`), and binds the case's variables, then its hypotheses (the
   guards and conditions), then its induction hypotheses, in order; `_`
-  ignores one. All cases are required, in any order. It works on std's
+  ignores one. All cases are required, in any order. Cases with one proof
+  share an arm, `| eq2IfTrue p x xs h ih | eq2IfFalse p x xs h ih => …`,
+  checked once per case like any or-pattern (every case binds the same
+  names; `_` for one it lacks). The call may be by dot, `match induct
+  xs.f a with`. Start from `match induct (f args) with ?`, which lists
+  each case with its binders and goal. It works on std's
   functions too, with no `f.induct` named elsewhere in the file.
   `stitchwort doc f` lists `f.induct` and its cases. For
   `List.dropWhile xs p` (a `def` on `xs` with an `if p x` in its second

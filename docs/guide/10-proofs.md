@@ -464,6 +464,27 @@ theorem skipsSmall ∀ (k x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbo
   countAbove.eq2.ifFalse k x xs h
 ```
 
+Alternatives that share a proof are written as an or-pattern of cases, `| eq2IfTrue y ys h ih | eq2IfFalse y ys h ih => …`: the body is checked once for each case, with that case's own variables and hypotheses (`h` is a different fact in each), so every case binds the same names, with `_` for the ones a case has no use for. An error in the body says which case it was in. The call can be written by dot, `match induct pile.total with`, as `Pile.total pile`:
+
+<!-- snippet: proofs.sw#induct-cases -->
+```stitchwort
+theorem countAboveLeShared ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+  | eq1 => arithmetic
+  | eq2IfTrue y ys h ih | eq2IfFalse y ys h ih => arithmetic
+
+type Pile = | Empty | More (weight: Nat) (rest: Pile)
+
+def Pile.total: Pile → Nat
+  | Empty => 0
+  | More weight rest => weight + Pile.total rest
+
+theorem totalAtLeastZero ∀ (pile: Pile): pile.total ≥ 0 := match induct pile.total with
+  | eq1 => arithmetic
+  | eq2 weight rest ih => arithmetic
+```
+
+`match induct (f args) with ?` (nothing after the `?`) lists every case of `f` with its variables, hypotheses and goal, to start from; copy the case names and binder names it shows into alternatives.
+
 Leaving an alternative as `?` shows what that branch has to prove, and what it can use:
 
 <!-- snippet: errors/induct.sw -->

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-OR-PATTERN-BINDS] Error: `h` is bound in `eq2IfTrue _ _ h _` but not in `eq1`
+    ╭─[ reject/match-induct-or-case-binds.sw:10:11 ]
+    │
+ 10 │   | eq1 | eq2IfTrue _ _ h _ | eq2IfFalse _ _ _ _ => arithmetic
+    │     ─┬─   ────┬────  
+    │      ╰─────────────── this alternative doesn't bind it
+    │               │      
+    │               ╰────── `h` is bound here
+    │ 
+    │ Note: every alternative of an arm binds the same names; use `_` in the alternatives that don't use one
+────╯

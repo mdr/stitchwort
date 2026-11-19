@@ -26,6 +26,32 @@ fn match_induct_names_a_case_and_its_binders() {
 }
 
 #[test]
+fn match_induct_arm_with_several_cases_is_one_alternative_each() {
+    let text = "match induct (f k xs) with\n  | eq1 | eq2 x _ | eq3 y => b\n  | eq4 => c\n";
+    let e = expression(text).unwrap();
+    let Expr::Induct { alts, .. } = &e else {
+        panic!("expected a `match induct`");
+    };
+    let shown: Vec<(&str, usize, usize)> = alts
+        .iter()
+        .map(|a| (a.case.text.as_str(), a.arm, a.of))
+        .collect();
+    assert_eq!(
+        shown,
+        [("eq1", 0, 3), ("eq2", 0, 3), ("eq3", 0, 3), ("eq4", 1, 1)]
+    );
+}
+
+#[test]
+fn match_induct_hole_has_no_alternatives() {
+    let e = expression("match induct (f k xs) with ?").unwrap();
+    let Expr::Induct { alts, .. } = &e else {
+        panic!("expected a `match induct`");
+    };
+    assert!(alts.is_empty());
+}
+
+#[test]
 fn handler_and_reify_return_clauses_accept_a_wildcard() {
     let e = rhs(
         "def f (t : () -> {Fail} a) : P := match reify t with\n  | return _ => byComputing\n  | Fail.stop msg, k => k\n",

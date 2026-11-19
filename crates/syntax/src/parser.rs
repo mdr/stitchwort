@@ -2663,8 +2663,8 @@ impl<'t> Parser<'t> {
             )
     }
 
-    /// `match induct (f args) with | eqK x y ih => … | …`, after `match` and
-    /// `induct` (docs/proposals/function-equations.md §5.3).
+    /// `match induct (f args) with | eqK x y ih => … | …`, or `with ?` to list
+    /// the cases, after `match` and `induct` (docs/proposals/function-equations.md §5.3).
     fn induct_expr(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
@@ -2675,6 +2675,12 @@ impl<'t> Parser<'t> {
             .into());
         }
         self.expect(Tok::KwWith, "`with`")?;
+        // `?`: the cases are listed, none written yet.
+        if self.peek() == Some(&Tok::Question) {
+            self.bump();
+            self.node(start, NodeKind::Induct);
+            return Ok(());
+        }
         let mut alts = 0;
         // Alternatives on their own lines line up, as a match's do.
         let mut column = None;
@@ -2688,17 +2694,23 @@ impl<'t> Parser<'t> {
                 }
             }
             let arm = self.mark();
-            self.bump();
-            self.lower("the name of a case of `f.induct`")?;
+            // `| eq1 x | eq3 y => body`: cases that share a proof.
             loop {
-                match self.peek() {
-                    Some(Tok::Lower(_)) => {
-                        self.lower("a name")?;
+                self.bump();
+                self.lower("the name of a case of `f.induct`")?;
+                loop {
+                    match self.peek() {
+                        Some(Tok::Lower(_)) => {
+                            self.lower("a name")?;
+                        }
+                        Some(Tok::Underscore) => {
+                            self.bump();
+                        }
+                        _ => break,
                     }
-                    Some(Tok::Underscore) => {
-                        self.bump();
-                    }
-                    _ => break,
+                }
+                if self.peek() != Some(&Tok::Pipe) {
+                    break;
                 }
             }
             self.expect_fat_arrow("`=>`")?;
