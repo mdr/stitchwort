@@ -3178,6 +3178,13 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
 /// [`infer_app_with`] of a head that isn't a name.
 #[inline(never)]
 fn infer_unnamed_head_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
+    // `?hole` reads as the hole `?` applied to `hole`, so the error is
+    // about an unknown name at `hole`; note that a proof's hole has no
+    // name of its own (SW-4274).
+    let goal = match head {
+        Expr::Goal(span) => Some(*span),
+        _ => None,
+    };
     let head = match head {
         // A numeral given arguments is never a function, whatever its
         // type turns out to be: decided by its syntax, as a `Nat`, not
@@ -3189,7 +3196,22 @@ fn infer_unnamed_head_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Te
         ),
         _ => infer(cx, head)?,
     };
-    apply_args(cx, head, args)
+    match apply_args(cx, head, args) {
+        Err(e)
+            if e.code == "E-UNKNOWN-NAME"
+                && goal.is_some_and(|span| {
+                    args.iter().any(|arg| {
+                        matches!(arg, Arg::Explicit(Expr::Var(name)) if name.span.start == span.end)
+                    })
+                }) =>
+        {
+            Err(e.with_note(
+                "holes aren't named in a proof: write `?` alone; a named hole such as `?x` is \
+                 only for a search pattern in `stitchwort search`",
+            ))
+        }
+        result => result,
+    }
 }
 
 /// [`infer_app_with`] of a name that isn't a variable, before it's looked

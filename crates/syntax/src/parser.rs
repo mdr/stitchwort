@@ -1448,9 +1448,15 @@ impl<'t> Parser<'t> {
                     Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => {
                         let item = self.mark();
                         self.bump();
+                        if self.peek() == Some(&Tok::Dot) {
+                            return Err(self.import_qualified(path, text, self.pos).into());
+                        }
                         self.import_alias(text)?;
                         self.node(item, NodeKind::ImportItem);
                         items += 1;
+                    }
+                    Some(Tok::Lower(text) | Tok::Upper(text)) => {
+                        return Err(self.import_qualified(path, text, self.pos + 1).into());
                     }
                     Some(Tok::DotDot) if items > 0 => {
                         return Err(mixed(self.here(), path).into());
@@ -1464,6 +1470,32 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::RParen, "`)`")?;
         Ok(())
+    }
+
+    /// `import A (B.c)` writes an item's namespace inside the brackets:
+    /// the form that works puts it in the import's path, `import A.B (c)`.
+    /// `first` is the item as written, and `from` is the token after it
+    /// (a `.` when the source spaced the parts out).
+    fn import_qualified(&self, path: &str, first: &str, mut from: usize) -> Diagnostic {
+        let mut written = first.to_string();
+        while self.tokens.get(from).is_some_and(|t| t.tok == Tok::Dot) {
+            let Some(Tok::Lower(part) | Tok::Upper(part)) =
+                self.tokens.get(from + 1).map(|t| &t.tok)
+            else {
+                break;
+            };
+            written.push('.');
+            written.push_str(part);
+            from += 2;
+        }
+        let (namespace, item) = match written.rsplit_once('.') {
+            Some((namespace, item)) => (namespace.to_string(), item.to_string()),
+            None => (String::new(), written.clone()),
+        };
+        self.unexpected("a name to import").with_note(format!(
+            "an item of a namespace is imported with the namespace in the path before the \
+             brackets: `import {path}.{namespace} ({item})`"
+        ))
     }
 
     /// After an import's item `name`: `as y`, the name it has in this file.
@@ -4656,6 +4688,13 @@ impl<'t> Parser<'t> {
                 self.peek_at(1),
                 Some(Tok::Equals | Tok::Comma | Tok::RBrace)
             );
+        // A `{` with its contents on the following lines is how a proof
+        // block from another language is written: point that out rather
+        // than only saying that a record update needs a `|`.
+        let block = self
+            .tokens
+            .get(start as usize + 1)
+            .is_some_and(|token| token.line_start);
         if !literal {
             self.expr()?;
             // The `{` at the end of a line: the contents ran out before the
@@ -4665,7 +4704,17 @@ impl<'t> Parser<'t> {
                 self.node(start, NodeKind::Error);
                 return Ok(());
             }
-            self.expect(Tok::Pipe, "`|` and the fields to update")?;
+            if self.peek() != Some(&Tok::Pipe) {
+                let mut diagnostic = self.unexpected("`|` and the fields to update");
+                if block {
+                    diagnostic = diagnostic.with_note(
+                        "braces make a record or a record update; a proof block is written by \
+                         indentation, with each `let …` on its own line before the term",
+                    );
+                }
+                return Err(diagnostic.into());
+            }
+            self.bump();
         }
         let mut fields = 0;
         loop {

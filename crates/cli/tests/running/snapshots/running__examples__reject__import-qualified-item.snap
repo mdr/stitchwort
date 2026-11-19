@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a name to import, but found `List.map`
+   ╭─[ reject/import-qualified-item.sw:6:13 ]
+   │
+ 6 │ import Std (List.map)
+   │             ────┬───  
+   │                 ╰───── expected a name to import, but found `List.map`
+   │ 
+   │ Note: an item of a namespace is imported with the namespace in the path before the brackets: `import Std.List (map)`
+───╯
