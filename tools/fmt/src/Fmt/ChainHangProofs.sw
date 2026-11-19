@@ -8,7 +8,7 @@ import Std.Doc.Proofs (..)
 import Syntax (Expr, InfixKind, Tok, Word)
 import Fmt (..)
 import Fmt.HangProofs (..)
-import Fmt.AppHangProofs (AfterWords, ArgSeat, argHangs, lineArg, partStep)
+import Fmt.AppHangProofs (AfterWords, ArgSeat, argHangs, lineArg, partHangsFor, partStep)
 
 --| An element that hangs wherever it is laid and wherever it is seated.
 def HangsAt (kinds: Text → Tok) (before trails: Bool) (doc: Doc): Prop :=
@@ -75,44 +75,6 @@ theorem argFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: 
         (left later (ended, landed) =>
           after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
 
---| Where an element ended, one whose first token has own-line comments may start: its first word on the comment break
---| the `LineStart` before the comments makes, right of the line, so with room for it but for `->`'s glue.
-theorem endedLeadSeat ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
-    (unglued: state.glue = False)
-    (ended: Ended state before place)
-    (clear: (inForce state.blocks state.top <= indent) = True):
-    Seat indent indent before state place (leadStart indent place) :=
-  match place, ended with
-    | Mid at carry, (floor, left) => ((floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
-    | Held at carry, (trails, floor, left) => ((trails, floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
-
---| `elPart`, the element's first token where `startFor` says.
-theorem partFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before trails noted: Bool)
-    (el: ElHangs kinds doc indent indent before trails (startFor noted)):
-    PartHangs kinds doc indent before trails :=
-  match noted with
-    | False => elPart kinds doc indent before trails el
-    | True => state entry quiet unglued =>
-      let pre: Place → Hang → Prop := place hang =>
-        place = entry
-          ∧ hang = Hang.At state
-          ∧ Ended state before entry
-          ∧ (inForce state.blocks state.top <= indent) = True
-      let opened := openedBy state (leadStart indent entry)
-      hangsPost kinds doc indent pre
-        (place hang => Ended opened trails place ∧ hang = Hang.At opened)
-        (place hang => Ended state trails place ∧ hang = Hang.At state)
-        (hangsPre kinds doc indent
-          (Entered indent indent before state entry (leadStart indent entry))
-          pre
-          (place hang => Ended opened trails place ∧ hang = Hang.At opened)
-          (el state entry)
-          (place hang (isEntry, folded, ended, clear) =>
-            (isEntry, folded, endedLeadSeat indent before state entry unglued ended clear)))
-        (place hang (ended, folded) =>
-          let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
-          (rewrite same at ended then ended, rewrite same at folded then folded))
-
 --| An element after words, laid at `inset`, no deeper bound asked than the chain's, its first token where `startFor`
 --| says.
 theorem partAtFor ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: HangState) (before trails noted: Bool)
@@ -122,7 +84,7 @@ theorem partAtFor ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (stat
     (el: ElHangs kinds doc inset inset before trails (startFor noted)):
     HangLays kinds doc inset (AfterWords state indent before) (AfterWords state indent trails) :=
   place trace next (ended, folded, clear) after =>
-    partFor kinds doc inset before trails noted el state place quiet unglued place trace next
+    partHangsFor kinds doc inset before trails noted el state place quiet unglued place trace next
       (byComputing, folded, ended, arithmetic)
       (left later (done, landed) => after left later (done, landed, clear))
 

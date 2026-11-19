@@ -20,7 +20,7 @@ import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, 
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.ChainHangProofs (HangsAt, Links, arrowChainHangs, binaryChainHangs)
-import Fmt.ElementsChain (LedEl, arrowPair, binaryPair, operandLinks, orOfRight)
+import Fmt.ElementsChain (LedEl, arrowPair, binaryPair, operandLinks, orOfRight, unledLeading)
 import Fmt.ExprHangProofs (opensNoArms, prefixToken, wordFacts)
 import Fmt.SpellProofs (..)
 import Fmt.CalmProofs (headerResultWithin)
@@ -29,7 +29,7 @@ import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.DeclHangProofs (BodyLays, OnLine, atomDecl, declStart, plainBody)
 import Fmt.DeclFactsProofs (DeclElements, HugOnLine, appDocsHug, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
 import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, infixTrails, lastLexical, lastWithin, prefixTrails, trailsSwap)
-import Fmt.AppHangProofs (ArgsHang, HangsFor, appElHangs, argAround, lastArg)
+import Fmt.AppHangProofs (ArgsHang, HangsFor, appElHangs, argAround, lastArg, partHangsFor)
 import Fmt.TrailsProofs (appTrails)
 import Fmt.EdgeDeclProofs (edgeNotedNodeHangs)
 import Fmt.ElementsHomed (..)
@@ -77,21 +77,6 @@ theorem anyHangsOf ∀ (expr: Expr)
   let (hangs, _) := facts
   hangs around plain
 
---| A token whose first line writes nothing before it has no leading documents.
-theorem unledLeading ∀ (word: Word) (around: Around) (key: Nat)
-    (plain: (!word.leadsLine around) = True):
-    word.leading around key = [] :=
-  match word, around with
-    | { text, comments = { above, after, blankBefore } }, { before, hoisted, item, at, inArm } =>
-      match hoisted, above with
-        | True, _ => byComputing
-        | False, [] =>
-          match item, blankBefore, plain with
-            | False, _, _ => byComputing
-            | True, False, _ => byComputing
-            | True, True, never => (Bool.falseNotTrue never).impossible
-        | False, [note, ..rest] => (Bool.falseNotTrue plain).impossible
-
 --| An element not an item, its first token with no comments above, writes nothing before it.
 theorem unnotedPlain ∀ (expr: Expr) (around: Around)
     (unnoted: expr.lead.noted = False)
@@ -122,47 +107,6 @@ theorem atomAny ∀ (kind: Tok) (word: Word)
           (unledLeading word around around.at bare)
           (trailsOfSound word sound)
   (hangs, level first around bare => hangs around bare)
-
--- A later part whose first token has comments above it.
-
---| Where an element ended, one whose first token has own-line comments may start: its first word on the comment break
---| the `LineStart` before the comments makes, right of the line, so with room for it but for `->`'s glue.
-theorem endedLedSeat ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
-    (unglued: state.glue = False)
-    (ended: Ended state before place)
-    (clear: (inForce state.blocks state.top <= indent) = True):
-    Seat indent indent before state place (leadStart indent place) :=
-  match place, ended with
-    | Mid at carry, (floor, left) => ((floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
-    | Held at carry, (trails, floor, left) => ((trails, floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
-
---| An element after words is a part, its first token where `startFor` says: `elPart`, and the same from
---| `endedLedSeat` for an element whose first token has comments above it.
-theorem elPartFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before trails noted: Bool)
-    (el: ElHangs kinds doc indent indent before trails (startFor noted)):
-    PartHangs kinds doc indent before trails :=
-  match noted with
-    | False => elPart kinds doc indent before trails el
-    | True => state entry quiet unglued =>
-      let pre: Place → Hang → Prop := place hang =>
-        place = entry
-          ∧ hang = Hang.At state
-          ∧ Ended state before entry
-          ∧ (inForce state.blocks state.top <= indent) = True
-      let opened := openedBy state (leadStart indent entry)
-      hangsPost kinds doc indent pre
-        (place hang => Ended opened trails place ∧ hang = Hang.At opened)
-        (place hang => Ended state trails place ∧ hang = Hang.At state)
-        (hangsPre kinds doc indent
-          (Entered indent indent before state entry (leadStart indent entry))
-          pre
-          (place hang => Ended opened trails place ∧ hang = Hang.At opened)
-          (el state entry)
-          (place hang (isEntry, folded, ended, clear) =>
-            (isEntry, folded, endedLedSeat indent before state entry unglued ended clear)))
-        (place hang (ended, folded) =>
-          let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
-          (rewrite same at ended then ended, rewrite same at folded then folded))
 
 --| `prefixHangs`, the operand's first token where `startFor` says: after its own-line comments, if it has any.
 theorem prefixLedHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) (around: Around)
@@ -212,7 +156,7 @@ theorem prefixLedHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr
           (plainLeafHangs kinds operator inside around.at inset seat plain token solid closer comma byComputing
               trailed))
         (prefixGapIs operator operand)
-        (elPartFor kinds
+        (partHangsFor kinds
           (operand.el (around.next operator.trails 1))
           inset
           operator.trails
