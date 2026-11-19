@@ -827,3 +827,225 @@ theorem openingStep ∀ (text: Text) (above: List Note) (after: Option Text) (bl
               (plainRestSome text c kinds solid comma open comment),
             byComputing
           )
+
+-- Separators and sequences.
+
+theorem endsStarts ∀ (kinds: Kinds) (trails: Bool) (ends: Ends kinds trails = True): Starts False trails kinds = True :=
+  match kinds, trails, ends with
+    | { start = False, broken = False, mid, held = False }, _, _ => byComputing
+    | { start = False, broken = False, mid, held = True }, True, _ => byComputing
+
+theorem stepLine ∀ (trails: Bool): Step Line (kinds => Ends kinds trails) (Starts False trails) := kinds holds =>
+  match kinds, holds with
+    | { start = False, broken = False, mid, held }, _ =>
+      ({ start = False, broken = mid || held, mid, held }, byComputing, endsStarts kinds trails holds)
+
+theorem stepSoftLine ∀ (trails: Bool): Step SoftLine (kinds => Ends kinds trails) (Starts False trails) :=
+  kinds holds =>
+    match kinds, holds with
+      | { start = False, broken = False, mid, held }, _ =>
+        ({ start = False, broken = mid || held, mid, held }, byComputing, endsStarts kinds trails holds)
+
+theorem stepSpace ∀ (trails: Bool): Step (Doc.text " ") (kinds => Ends kinds trails) (kinds => Ends kinds trails) :=
+  kinds holds =>
+    match kinds, holds with
+      | { start = False, broken = False, mid, held }, holds =>
+        ({ start = False, broken = False, mid, held }, byComputing, holds)
+
+--| A forced line break and what follows it: a place with no comment waiting that is no line start.
+theorem stepHardLineEnds ∀ (trails: Bool): Step HardLine (kinds => Ends kinds trails) Fresh :=
+  stepWeaken HardLine
+    (kinds => kinds.midLine)
+    (kinds => Ends kinds trails)
+    Fresh
+    Fresh
+    stepHardLine
+    (kinds good => match kinds, good with | { start = False, broken = False, mid, held }, _ => byComputing)
+    (kinds good => good)
+
+theorem endsUnion ∀ (one other: Kinds) (trails: Bool)
+    (first: Ends one trails = True)
+    (second: Ends other trails = True):
+    Ends (Kinds.union one other) trails = True :=
+  match one, other, trails, first, second with
+    | { start = False, broken = False, mid, held = False }, {
+        start = False,
+        broken = False,
+        mid = otherMid,
+        held = False
+      }, _, _, _ => byComputing
+    | { start = False, broken = False, mid, held = False }, {
+        start = False,
+        broken = False,
+        mid = otherMid,
+        held = True
+      }, True, _, _ => byComputing
+    | { start = False, broken = False, mid, held = True }, {
+        start = False,
+        broken = False,
+        mid = otherMid,
+        held = False
+      }, True, _, _ => byComputing
+    | { start = False, broken = False, mid, held = True }, {
+        start = False,
+        broken = False,
+        mid = otherMid,
+        held = True
+      }, True, _, _ => byComputing
+
+theorem ifBrokenKinds ∀ (id: Nat) (broken flat: Doc) (kinds one other: Kinds)
+    (first: laysKinds broken kinds = Some one)
+    (second: laysKinds flat kinds = Some other):
+    laysKinds (IfBroken id broken flat) kinds = Some (Kinds.union one other) :=
+  match laysKinds broken kinds, laysKinds flat kinds, first, second with
+    | Some x, Some y, first, second => rewrite Option.someInjective first, Option.someInjective second
+
+--| Two ways to lay a document, both ending as the element does.
+theorem stepIfBroken ∀ (id: Nat) (broken flat: Doc) (pre: Kinds → Bool) (trails: Bool)
+    (first: Step broken pre (kinds => Ends kinds trails))
+    (second: Step flat pre (kinds => Ends kinds trails)):
+    Step (IfBroken id broken flat) pre (kinds => Ends kinds trails) :=
+  kinds holds =>
+    let (one, foundOne, goodOne) := first kinds holds
+    let (other, foundOther, goodOther) := second kinds holds
+    (
+      Kinds.union one other,
+      ifBrokenKinds id broken flat kinds one other foundOne foundOther,
+      endsUnion one other trails goodOne goodOther
+    )
+
+--| Each option is laid the same way, ending as the element does.
+def Options: List Doc → (Kinds → Bool) → Bool → Prop
+  | [], _, _ => True
+  | [option, ..rest], pre, trails => Step option pre (kinds => Ends kinds trails) ∧ Options rest pre trails
+
+theorem optionsKindsCons ∀ (option next: Doc) (others: List Doc) (kinds one other: Kinds)
+    (first: laysKinds option kinds = Some one)
+    (second: laysOptionsKinds [next, ..others] kinds = Some other):
+    laysOptionsKinds [option, next, ..others] kinds = Some (Kinds.union one other) :=
+  match laysKinds option kinds, laysOptionsKinds [next, ..others] kinds, first, second with
+    | Some x, Some y, first, second => rewrite Option.someInjective first, Option.someInjective second
+
+theorem stepChoice ∀ (first: Doc) (more: List Doc) (pre: Kinds → Bool) (trails: Bool)
+    (options: Options [first, ..more] pre trails):
+    Step (Choice [first, ..more]) pre (kinds => Ends kinds trails) :=
+  match more with
+    | [] => kinds holds =>
+      let (after, found, good) := options.left kinds holds
+      (after, found, good)
+    | [next, ..others] => kinds holds =>
+      let (one, foundOne, goodOne) := options.left kinds holds
+      let (other, foundOther, goodOther) := stepChoice next others pre trails options.right kinds holds
+      (
+        Kinds.union one other,
+        optionsKindsCons first next others kinds one other foundOne foundOther,
+        endsUnion one other trails goodOne goodOther
+      )
+
+--| Documents one after another, each from where the one before ended: the first from a place that ends with a comment
+--| waiting only if `before`, then each from the previous one's.
+def Chain: List Doc → Bool → Bool → Prop
+  | [], before, trails => before = trails
+  | [doc, ..rest], before, trails =>
+    ∃ (middle: Bool) => Step doc (Starts False before) (kinds => Ends kinds middle) ∧ Chain rest middle trails
+
+theorem chainAll ∀ (docs: List Doc) (before trails: Bool)
+    (chain: Chain docs before trails):
+    StepAll docs (kinds => Ends kinds before) (kinds => Ends kinds trails) :=
+  match docs with
+    | [] => kinds holds => (kinds, byComputing, rewrite <- chain then holds)
+    | [doc, ..rest] =>
+      let (middle, step, more) := chain
+      stepAllCons doc rest
+        (kinds => Ends kinds before)
+        (kinds => Ends kinds middle)
+        (kinds => Ends kinds trails)
+        (stepWeaken doc
+          (Starts False before)
+          (kinds => Ends kinds before)
+          (kinds => Ends kinds middle)
+          (kinds => Ends kinds middle)
+          step
+          (kinds good => endsStarts kinds before good)
+          (kinds good => good))
+        (chainAll rest middle trails more)
+
+--| What follows the first of `Doc.joinedWith`'s documents: a separator before each of the others.
+def sepBefore (separator: Doc): List Doc → List Doc
+  | [] => []
+  | [doc, ..rest] => [separator, doc, ..sepBefore separator rest]
+
+theorem joinedWithCons ∀ (separator doc: Doc) (rest: List Doc):
+    Doc.joinedWith separator [doc, ..rest] = [doc, ..sepBefore separator rest] :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => rewrite joinedWithCons separator next more
+
+--| A separator that leaves words on the line, between documents.
+theorem chainSeparated ∀ (separator: Doc) (docs: List Doc) (before trails: Bool)
+    (apart: ∀ (trails: Bool) => Step separator (kinds => Ends kinds trails) (Starts False trails))
+    (chain: Chain docs before trails):
+    StepAll (sepBefore separator docs) (kinds => Ends kinds before) (kinds => Ends kinds trails) :=
+  match docs with
+    | [] => kinds holds => (kinds, byComputing, rewrite <- chain then holds)
+    | [doc, ..rest] =>
+      let (middle, step, more) := chain
+      stepAllCons separator
+        [doc, ..sepBefore separator rest]
+        (kinds => Ends kinds before)
+        (Starts False before)
+        (kinds => Ends kinds trails)
+        (apart before)
+        (stepAllCons doc
+          (sepBefore separator rest)
+          (Starts False before)
+          (kinds => Ends kinds middle)
+          (kinds => Ends kinds trails)
+          step
+          (stepAllWeaken
+            (sepBefore separator rest)
+            (kinds => Ends kinds middle)
+            (kinds => Ends kinds middle)
+            (kinds => Ends kinds trails)
+            (kinds => Ends kinds trails)
+            (chainSeparated separator rest middle trails apart more)
+            (kinds good => good)
+            (kinds good => good)))
+
+theorem sepsKindsCons ∀ (doc: Doc) (rest: List Doc) (kinds after final: Kinds)
+    (mid: kinds.midLine = True)
+    (found: laysKinds doc { kinds | broken = kinds.mid || kinds.held } = Some after)
+    (more: laysSepsKinds rest after = Some final):
+    laysSepsKinds [doc, ..rest] kinds = Some final :=
+  rewrite mid, found, more
+
+--| A fill's later items, each after a line break or a space, from where the first ended.
+theorem fillSeps ∀ (docs: List Doc) (before trails: Bool)
+    (chain: Chain docs before trails) (kinds: Kinds)
+    (ends: Ends kinds before = True):
+    ∃ (final: Kinds) => laysSepsKinds docs kinds = Some final ∧ Ends final trails = True :=
+  match docs with
+    | [] => (kinds, byComputing, rewrite <- chain then ends)
+    | [doc, ..rest] =>
+      let (middle, step, more) := chain
+      match kinds, ends with
+        | { start = False, broken = False, mid, held }, ends =>
+          let (after, found, good) :=
+            step { start = False, broken = mid || held, mid, held } (endsStarts kinds before ends)
+          let (final, foundRest, goodRest) := fillSeps rest middle trails more after good
+          (final, sepsKindsCons doc rest kinds after final byComputing found foundRest, goodRest)
+
+theorem fillKinds ∀ (first: Doc) (others: List Doc) (kinds after final: Kinds)
+    (found: laysKinds first kinds = Some after)
+    (more: laysSepsKinds others after = Some final):
+    laysKinds (Fill [first, ..others]) kinds = Some final :=
+  rewrite found, more
+
+theorem stepFill ∀ (first: Doc) (others: List Doc) (pre: Kinds → Bool) (middle trails: Bool)
+    (head: Step first pre (kinds => Ends kinds middle))
+    (chain: Chain others middle trails):
+    Step (Fill [first, ..others]) pre (kinds => Ends kinds trails) :=
+  kinds holds =>
+    let (after, found, good) := head kinds holds
+    let (final, foundRest, goodRest) := fillSeps others middle trails chain after good
+    (final, fillKinds first others kinds after final found foundRest, goodRest)
