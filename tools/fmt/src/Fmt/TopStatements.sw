@@ -5,8 +5,9 @@
 --|   `meaning`.
 --| - `formatIdempotent1`: formatting what it prints gives the same text.
 --|
---| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: here
---| (`declElementsOneLine1`) and in `Fmt.TopReadBack` (read-back). `stitchwort goal` lists what is left.
+--| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: the element
+--| facts (`Fmt.ElementsProofs`, under `declElements1`) and read-back (`Fmt.TopReadBack`). `stitchwort goal` lists
+--| what is left.
 --|
 --| The third top theorem, `formatAccepts1` (`Fmt.Accepts1`, open), says which sources the driver must accept:
 --| all of slice 1's grammar (`Fmt.Grammar1`).
@@ -34,8 +35,7 @@ import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
 import Fmt.UnreturnedProofs (commaUnreturned)
 import Fmt.DeclFactsProofs (DeclElements, declHangsOf, printedHangs1)
-import Fmt.OneLineLays (edgeQuietOneLine1)
-import Fmt.EdgeDeclProofs (edgeElements1)
+import Fmt.ElementsProofs (declElements1)
 import Fmt.TreeJoinProofs (lexKind, printLexes1Tree)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.SpellProofs (declSoundOfSettled)
@@ -45,27 +45,6 @@ import Syntax.GoodItemProofs (settledGood, spelledPlain1)
 import Syntax.GlueQuietProofs (settledItemsQuiet)
 import Syntax.SettleProofs (alphabet1, plain1, settledKeepsTokens, tokens)
 import Syntax.SettleBareProofs (settledOnceNone)
-
--- Open goals beyond read-back.
-
---| `declElementsOneLine1` (open; the stock take's U5 and SW-4058, for one-line declarations): a slice 1 declaration
---| that prints on one line meets `DeclElements`, the element facts `printedHangs` and `printedStands1` take.
---| `quietElements` gives them when the type and value hold no comment (`DeclQuiet`); on one line they may still hold
---| a trailing comment on the type's last token (the `:=` then starts the next line), one above the value's first
---| token (or after the `:=`) and one after the value's last. "Last" counts no closers: a comment after the last
---| other word, with only closers after it in the type or value, prints after them on the line (`def x: F (a -- c\n)
---| := b` prints `def x: F (a) -- c\n  :=\n  b`; test in `Fmt.Tests`), so the type's `ElHangs` and the value's
---| `BodyLays` must allow a comment held across closers (SW-4088 report).
-theorem declElementsOneLine1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (unreturned: decl.unreturned1 = True)
-    (oneLine: decl.oneLine1 = True):
-    DeclElements lexKind decl :=
-  edgeElements1 decl within shaped settled lexical
-    (edgeQuietOneLine1 decl within shaped settled lexical unreturned oneLine)
 
 --| P2 is the identity on an expression with no last comma.
 theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
@@ -270,7 +249,7 @@ theorem declHangsOneLine ∀ (decl: Decl)
     (oneLine: decl.oneLine1 = True):
     hangs decl.leaves1 = True ∧ (decl.unreturned1 = True → decl.stands1 = True) :=
   let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
-  let elements := declElementsOneLine1 decl within shaped settled lexical unreturned oneLine
+  let elements := declElements1 decl within shaped settled lexical unreturned
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       let doc := defDoc header colonEq value
