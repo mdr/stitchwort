@@ -27545,15 +27545,17 @@
     {
       "id": 4250,
       "title": "[Sonnet] Language server for or-patterns that bind: hover, go-to-definition and rename for a name bound in several alternatives (proof-match-likewise.md Design 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4236.",
+      "body": "From SW-4236.\n\n\nLane note (Sonnet): done on lane/SW-4250, commit a73465fae. Hover, definition, references and rename for names bound in several or-alternatives; 4 tests. Model result: Sonnet, worked, ~15 min (est. 40).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "a73465fae"
+      ]
     },
     {
       "id": 4251,
