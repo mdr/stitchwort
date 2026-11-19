@@ -1,5 +1,5 @@
 {
-  "next": 4279,
+  "next": 4280,
   "tickets": [
     {
       "id": 47,
@@ -27807,7 +27807,7 @@
     {
       "id": 4270,
       "title": "[Sonnet] Or-pattern joins the SW-4252 script couldn't find: cross-product cases in multi-column matches (Inl same | Inr same), and new catch-alls where all remaining constructors share a body (needs constructor lists); tools/fmt and std",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27919,6 +27919,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Matt asked 19 Nov whether Fable had weighed D3697. Est. 20 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4279,
+      "title": "[DeepSeek] docs/syntax.md Or-patterns: an or-pattern inside a record field or constructor argument needs parentheses (blocks = ([] | [_, .._])) (SW-4270 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "From SW-4270.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
