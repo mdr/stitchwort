@@ -8053,8 +8053,8 @@
     {
       "id": 2153,
       "title": "[Sonnet] Type mismatches show the expected type as written, with a note giving its unfolding (check_inner forces it, check.rs:4172-4173, and the forced form reaches mismatch)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "goals"
@@ -8062,7 +8062,7 @@
       "epic": "diagnostics",
       "body": "From docs/proposals/goal-printing-gaps.md. Lane C; replaces SW-2102; covers every mismatch in check_value. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
