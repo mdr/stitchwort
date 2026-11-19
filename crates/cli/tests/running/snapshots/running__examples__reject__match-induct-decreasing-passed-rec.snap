@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-INDUCT] Error: `match induct` needs `hf.induct`, and `hf` has none
+    ╭─[ reject/match-induct-decreasing-passed-rec.sw:24:61 ]
+    │
+ 24 │ theorem hfAtLeastZero ∀ (n: Nat): hf n ≥ 0 := match induct (hf n) with
+    │                                                             ──┬─  
+    │                                                               ╰─── this call
+    │ 
+    │ Note 1: why: a recursive call's arguments depend on a binder it is under (a function passed to another, as to `List.map`): it would need an induction hypothesis for every value of it, which stage 2a doesn't state (§5.1)
+    │ 
+    │ Note 2: `f.induct` is generated for a recursive definition where it can be stated and proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as the definition does, with its equations for the steps
+────╯

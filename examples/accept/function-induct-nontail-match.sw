@@ -57,3 +57,22 @@ theorem popsIsLength ∀ (xs: List Nat): pops xs = xs.length := match induct (po
   | eqIfFalse xs h ih =>
     match xs with
       | [y, ..r] => rewrite ih r byComputing
+
+-- A decrease proof that holds only because the `match` refined `xs`
+-- (`rest.length < [_, ..rest].length`, by `arithmetic`) is carried back
+-- along the premise `xs = [head, ..rest]` to the call's own condition.
+def counted (xs: List Nat): Nat
+    decreasing xs.length
+:=
+  if xs.length == 0 then 0
+  else
+    Succ
+      (match xs with
+        | [] => 0
+        | [_, ..rest] => counted rest [decreasing := arithmetic])
+
+theorem countedIsLength ∀ (xs: List Nat): counted xs = xs.length := match induct (counted xs) with
+  | eqIfTrue xs h => rewrite Nat.equalSound _ _ h
+  | eqIfFalse xs h ih =>
+    match xs with
+      | [y, ..r] => rewrite ih y r byComputing

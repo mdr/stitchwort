@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-INDUCT] Error: `match induct` needs `m.induct`, and `m` has none
+    ╭─[ reject/match-induct-nontail-cycle.sw:18:66 ]
+    │
+ 18 │ theorem mAtLeastZero ∀ (xs: List Nat): m xs ≥ 0 := match induct (m xs) with
+    │                                                                  ──┬─  
+    │                                                                    ╰─── this call
+    │ 
+    │ Note 1: why: it calls itself inside `m.ev`, a lifted `match` or local definition that isn't in tail position, which calls itself through `m.od`: its induction hypothesis can't be stated (§5.1)
+    │ 
+    │ Note 2: `f.induct` is generated for a recursive definition where it can be stated and proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as the definition does, with its equations for the steps
+────╯

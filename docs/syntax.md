@@ -1490,8 +1490,12 @@ ignores the motive's last argument.
   (b: List Nat) → value = [a, ..b] → …`), a number literal `x = 7`, and a
   catch-all one `ih` for each constructor it covers (`ih1`, `ih2`, …); a
   catch-all of numbers has no premise. A `decreasing` definition's call
-  keeps its decrease proof, which may use the `match h:`'s equation `h`
-  (`examples/accept/function-induct-nontail-match.sw`).
+  keeps its decrease proof, carried along the premises, so the proof may
+  use the `match h:`'s equation `h` or rely on the `match` having refined
+  its variable (`[_, ..rest] => f rest [decreasing := arithmetic]`)
+  (`examples/accept/function-induct-nontail-match.sw`). Local definitions
+  that call each other aren't followed
+  (`examples/reject/match-induct-nontail-cycle.sw`).
 - **Not generated** (`E-NO-EQUATION` with the reason, and in `doc`'s list): a
   definition with a case whose equation isn't generated (above), or with an
   overlap hypothesis that a number or character `match` refines; one that
