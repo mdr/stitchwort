@@ -26369,7 +26369,7 @@
     {
       "id": 4162,
       "title": "[Opus] fmt (SW-4132 lane 2b): loweringDeaf: a Fail-effect traversal lemma family over Expr/Pattern/Decl.traverse (steps that can fail), then traversalError on decl and decl.walk blankPure agree (SW-4141 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4162",
       "labels": [],
@@ -26488,9 +26488,9 @@
     {
       "id": 4171,
       "title": "[Sonnet] fmt S1 lane L (SW-4166): lexer words: textSpells1 takes auto; every name/numeral token lex gives is textSpells1; Spells -> textSpells1; lexGood without spelled; quiet raw groups from lexLaidProved",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4171",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row L (compute first; widen Spells/textSpells1, never the grammar).",
