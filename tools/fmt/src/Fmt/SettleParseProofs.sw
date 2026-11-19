@@ -40,6 +40,9 @@ def groupRun (seen: Seen) (group: List Leaf): Result Decl Parse.Failure := Parse
 --| The parser reads one declaration group's comments only into the tree: a group that parses parses as well with
 --| the same tokens and any comments, to the same declaration with its comments blanked. For any declaration, not
 --| only slice 1's: it is the two-run walk of the whole parser (`Syntax.FollowsParse.declarationKeepsTokens`).
+--| The hypothesis `same` includes each token's column and `lineStart`, so a change that moves a token to another
+--| line is outside it. The twin's `Group.bare` flag is not known equal to the first run's, since the parser reads
+--| comments to set it.
 theorem groupKeepsTokens ∀ (seen: Seen) (group other: List Leaf) (decl: Decl)
     (same: tokens group = tokens other)
     (runs: groupRun seen group = Ok decl):

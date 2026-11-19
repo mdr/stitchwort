@@ -43,8 +43,9 @@
 --| when they are equal once walked with `blankPure` and, for those the walk doesn't blank itself, blanked
 --| (`GroupsAlike`). Lists are `List.All2` of the element's relation, pairs `PairAlike`. `Bool`, `Nat`, `Tok`,
 --| `Option Tok` and `Modes` are `Same`. `Comments` are `Anything`, and so is `consumedBare`'s `Bool`: the one value the
---| parser computes from comments (§4, hard spot 1), which only `Group.bare` keeps and blanking sets to `True`. No
---| other `Bool` may be related by `Anything`.
+--| parser computes from comments (§4, hard spot 1), which only `Group.bare` keeps and blanking sets to `True`. So are
+--| the `()` results of `refuseAttributes`, `afterOpaque` and `afterOpaqueOn`, which compute nothing. No other `Bool`
+--| may be related by `Anything`.
 --|
 --| Calls between lanes. The files call each other (`statement` calls `exprInline`; `exprKeyword` calls
 --| `letStatement`), so one record of every cross-file fact could never be built. Instead each lemma takes, as a
