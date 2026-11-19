@@ -26559,9 +26559,9 @@
     {
       "id": 4176,
       "title": "[Opus] fmt S1 glue: drop oneLine1 and spelledPlain1 from formatWithin1 (Driver1), close parsedPlaced1 if still open, and prove formatAccepts1 over all of Grammar1 (D3687); MustAccept1's 144 pass",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4176",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. After SW-4133 (lane 8) and SW-4175. Plan: docs/reviews/SW-4166-carried-walk-plan.md (glue). Not a narrowing: the driver accepts more. Then the Fable slice-1 checkpoint.",
