@@ -1,5 +1,5 @@
 {
-  "next": 4140,
+  "next": 4142,
   "tickets": [
     {
       "id": 47,
@@ -25969,7 +25969,7 @@
     {
       "id": 4132,
       "title": "[Fable paper] Std.Parse: a framework for comparing two runs of a parser on related inputs (mark, next, fatal, sequencing, loop, recursiveWith), sketched for SW-4129's open groupKeepsTokens1 (the declaration parser reads comments only into the tree); statements, where they live (std), and the lane plan",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4132",
       "labels": [],
@@ -25997,7 +25997,7 @@
     {
       "id": 4134,
       "title": "[Sonnet] fmt S1: loweringError = None for every slice 1 declaration, a lemma on its own (takes a conjunct out of groupKeepsTokens1)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4134",
       "labels": [],
@@ -26064,12 +26064,40 @@
     {
       "id": 4139,
       "title": "[Sonnet] fmt multi-line read-back H1+H2 (SW-4121 plan): hangsTokens, hungDeep (ReadBackHungDeep.sw); hungStops, boundsPast, boundsBlock, rightOfBound (ReadBackHungBounds.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4139",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 55 min.",
+      "body": "Est. 55 min.\n\nProgress (Sonnet lane): H1 and H2 proved in 8475d1e55 on lane/SW-4139; check Syntax.ReadBackHungDeep/Bounds clean, audit 23 passed, 0 warnings. No statement changed. Syntax.ReadBackHungTop still has one pre-existing E-TYPE-MISMATCH (line 240, isLower vs Lower or Upper), not mine.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": [
+        "8475d1e55"
+      ]
+    },
+    {
+      "id": 4140,
+      "title": "[Sonnet] std Parse/Follows.sw (SW-4132 lane 1): Parse.Follows and Mark.Alike from the prototype, ~14 lemmas (done, mark, next, fatal, then, loop, recursiveWith, withMark, run, never, weaken, map...), full API docs with the no-backtracking limit, prelude snapshot, guide mention beside Parse.Reads",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 25 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4141,
+      "title": "[Sonnet] fmt (SW-4132 lane 2): doesn't-read-comments lemmas: stripped, SameCode, items commutes with stripping, the 78 look-aheads, the 33 tree functions, grammar1Deaf, loweringDeaf",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 35 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
