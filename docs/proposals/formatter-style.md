@@ -531,9 +531,18 @@ After: `  | Zero => omega`.
 **S22. Patterns** are printed flat; a pattern too long for its line breaks
 like the expression of the same shape (a list, record or tuple pattern is a
 comma bracket). Its continuation lines sit at +4 from the `|`, as a header's
-parameters do, so they never line up with the arm's body at +2. An or-pattern (`| 'k' | 'w' =>`) never breaks: a `|` that
-starts a line starts the next arm, so its alternatives must share a line
-(docs/syntax.md, "Or-patterns"). Settled: forced by the grammar.
+parameters do, so they never line up with the arm's body at +2. An or-pattern (`| 'k' | 'w' =>`) that fits stays on one line.
+One that doesn't breaks after each `|`, one alternative a line, the
+alternatives continuing at +4 from the arm's `|`: a `|` that starts a line
+starts the next arm (docs/syntax.md, "Or-patterns"), so the bar ends its
+line instead of starting the next. Nested or-patterns break only if they
+overflow themselves (SW-4224):
+
+```text
+  | 100000 |
+      200000 |
+      300000 => True
+```
 
 ### 2.9 Application, named arguments and the hug
 
