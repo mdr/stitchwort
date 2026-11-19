@@ -26200,12 +26200,12 @@
     {
       "id": 4149,
       "title": "[Opus] fmt S1 comments anywhere E6: binaryAny then arrowAny (after E2; LinkFacts likely redefined in ChainHangProofs) (SW-4130 plan)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4149",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 + 30 min. Folds in SW-4082 where it applies.",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 + 30 min. Folds in SW-4082 where it applies.\n\nLane notes (Opus, 19 Nov 2026, 10:41 to 11:17, branch lane/SW-4149, commit 9243dd79a; est. 90 min):\n- binaryAny and arrowAny proved. Open in ElementsProofs: tupleAny, listAny, appAny, anyHug.\n- Counterexample (dev/multiline-gate/ChainGate.sw, hand + gen seeds 77-80): 866 decls, 5,240 chain nodes; 186 operators (140 decls) and 147 right operands (116 decls) have comments above; every one fails hangs after `->`, so old LinkFacts' HangsAt was false for them. Noted operators (`a\\n-- c\\n+ b`, also `->`) were a second gap besides the right operand.\n- ChainHangProofs: Links (led), LinkFacts = Links False; LinkEl; RunFacts (operator's `noted`, operand's `next`, existential in the chain case) with GluesFor/LedGlues; plainRunHangs/arrowRunHangs/linkDocsForm/chainLinksForm generalised; partAt -> partAtFor. Edge/Expr: 4 sites each pass False, False, runFactsOf (no statement change).\n- AnyFacts' second half: also a chain of the level asked where it writes its comments, not an item (led = inChain && leadsLine). Non-chain kinds reduce to the old form: atomAny/prefixAny/parenAny unchanged. E4/appAny proofs of the second half stay `level first around bare => hangs around bare`.\n- New Fmt.ElementsChain: operandLinks, binaryPair, arrowPair, notedArrowGlues, lineArrowHangs. No narrowing, no new condition.\n- check ElementsProofs: 0 errors, goals tupleAny listAny appAny anyHug; check TopStatements: 0 errors (formatAccepts1 goal pre-existing); audit ElementsChain 20/20, ChainHangProofs 38/38.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
