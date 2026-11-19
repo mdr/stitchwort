@@ -8,19 +8,10 @@ import Syntax (..)
 import Syntax.SettleProofs (leafTexts, leavesTextsSplit, lexedTexts, optionText, triviaTexts)
 import Syntax.SettleOnceProofs (allAppendB, textsParked, textsReverseOnto)
 import Syntax.LexLaidProofs (textsReversed)
+import Syntax.SharedFacts (reverseFilled, startsHeadChar)
 
 --| A comment's text that ends in neither a carriage return nor a space.
 def plainEnd (text: Text): Bool := !text.endsWith "\r" && !text.endsWith " "
-
-theorem startsHeadChar ∀ (mark: Char) (ys zs: List Char)
-    (filled: ys.isEmpty = False):
-    Text.startsWithChars [mark] (ys ++ zs) = Text.startsWithChars [mark] ys :=
-  match ys with | [y, ..more] => byComputing
-
-theorem reverseFilled ∀ (xs acc: List Char) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
-  match xs with
-    | [] => filled
-    | [x, ..rest] => reverseFilled rest [x, ..acc] byComputing
 
 --| A kept tail that ends in neither mark leaves the characters, with one more in front, so too: the front character
 --| is the end only when nothing is kept, and then it is no mark.

@@ -11,6 +11,7 @@ import Std (Bool, Doc, Eq, List, Nat, Option, Text)
 import Std.Doc (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Syntax.SharedFacts (consCong)
 
 -- A word and its calm word.
 
@@ -1155,12 +1156,6 @@ theorem prefixGood ∀ (operator: Word) (operand: Expr)
     (good: (Prefix operator operand).good = True):
     operand.good = True :=
   Bool.andIntro (Bool.andLeft (Bool.andLeft good)) (Bool.andRight good)
-
-theorem consCong ∀ (first first': Doc) (rest rest': List Doc)
-    (sameFirst: first = first')
-    (sameRest: rest = rest'):
-    [first, ..rest] = [first', ..rest'] :=
-  rewrite sameFirst, sameRest
 
 theorem chainRightKept ∀ (level: Option Nat) (right: Expr) (around: Around)
     (good: right.good = True)

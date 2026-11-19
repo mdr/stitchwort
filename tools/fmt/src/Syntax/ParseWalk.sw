@@ -1658,19 +1658,12 @@ theorem givesUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 -- The operator ladder, from `unary` down.
 
-theorem givesUnaryOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (nested: Nested self)
-    (outside: OutsideBraced self)
-    (bases: AtomBases self):
-    Parse.Gives GoodItems (() => unary self modes) (Parsed1 18) :=
-  givesUnary self modes nested outside bases
-
 theorem givesMulOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16) :=
-  givesMulExpr self modes (givesUnaryOf self modes nested outside bases)
+  givesMulExpr self modes (givesUnary self modes nested outside bases)
 
 theorem givesAddOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -2744,7 +2737,7 @@ theorem givesExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
         | LevelAppend => givesAppendOf self modes nested outside.below.below.below.below bases
         | LevelAdditive => givesAddOf self modes nested outside.below.below.below.below bases
         | LevelMultiplicative => givesMulOf self modes nested outside.below.below.below.below bases
-        | LevelUnary => givesUnaryOf self modes nested outside.below.below.below.below bases
+        | LevelUnary => givesUnary self modes nested outside.below.below.below.below bases
         | LevelArgument => readsArgumentAtom self modes outside.below.below.below.below.below bases
         | LevelApp => givesAppAny self modes nested outside.below.below.below.below bases
         | LevelThenBody => givesThenBody self modes nested outside bases

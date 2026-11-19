@@ -9,6 +9,7 @@ import Std (Bool, Char, DecEq, Eq, Finite, List, Nat, Option, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (..)
+import Syntax.SharedFacts (commaNotCloser)
 
 --| Rule 1's walk back from `current` under slice 1's alphabet: how many
 --| leaves a trailing comment moves (`stepsBack` without its running count).
@@ -688,8 +689,6 @@ theorem dropRevOnto ∀ (rest acc: List Leaf)
               let claim := dropRevOnto after2 [closer, leaf, ..acc] (gapAfterPair leaf closer acc after2 pair)
               rewrite dropFPair leaf closer acc after2 pair then
                 rewrite drPairTop closer leaf acc pair at claim then claim
-
-theorem commaNotCloser ∀ (kind: Tok) (comma: (kind == Comma) = True): kind.isCloser = False := cases
 
 theorem barishSuffix ∀ (y: Leaf) (ys: List Leaf) (ok: barishTop [y, ..ys] = True): barishTop ys = True := match ys with
   | [] => byComputing

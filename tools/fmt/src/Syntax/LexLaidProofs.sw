@@ -30,6 +30,7 @@ import Syntax.SettleOnceProofs (
   laidBack,
   laidOnto,
   laidParkedBack,
+  notOrFalse,
   pendB,
   textsReverseOnto
 )
@@ -88,8 +89,6 @@ def asmDone (asm: Assembly): Bool :=
     && asm.leaves.all (leaf => !leaf.kind.within1 || isMarked leaf)
     && (leafTexts asm.leaves).all rawText
     && asm.pending.all (comment => rawText comment.text)
-
-theorem notOrFalse ∀ (x: Bool) (h: (!x || False) = True): x = False := cases
 
 theorem reverseOntoEmpty ∀ (xs acc: List a): (xs.reverseOnto acc).isEmpty = (xs.isEmpty && acc.isEmpty) := match xs with
   | [] => byComputing

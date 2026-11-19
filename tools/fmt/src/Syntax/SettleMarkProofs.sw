@@ -10,6 +10,7 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (..)
 import Syntax.SettleBareProofs (..)
+import Syntax.SharedFacts (commaNotCloser)
 
 -- Line starts as rule 1's walk with bare last commas reads them.
 

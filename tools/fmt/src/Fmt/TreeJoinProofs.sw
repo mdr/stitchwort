@@ -256,7 +256,7 @@ theorem wordNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
     text.toList.takeWhile isWordChar ≠ ['i', 'n'] :=
   same =>
     let whole: text.toList.takeWhile isWordChar = text.toList :=
-      rewrite split, Syntax.Proofs.wordStartIsChar first starts, takeWhileAll isWordChar others word
+      rewrite split, Syntax.SharedFacts.wordStartChar first starts, takeWhileAll isWordChar others word
     let named: text = "in" := Eq.trans (Text.fromToList text).flipped (rewrite (Eq.trans whole.flipped same))
     notIn (rewrite named at kinded then kinded)
 
@@ -286,7 +286,7 @@ theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
           takeWhileJoin isWordChar
             [first, ..others]
             (qualChars [(letter, letters), ..more])
-            (Bool.andIntro (Syntax.Proofs.wordStartIsChar first starts) word)
+            (Bool.andIntro (Syntax.SharedFacts.wordStartChar first starts) word)
             byComputing
       let head := List.consInjectiveHead first 'i' others ['n'] (Eq.trans whole.flipped same)
       let notUpper: first.isAsciiUppercase = False := rewrite head

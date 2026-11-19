@@ -16,6 +16,7 @@ import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.MarkProofs (..)
 import Fmt.BracketHangProofs (..)
+import Syntax.SharedFacts (solidSpaces)
 
 -- The opener's line.
 
@@ -666,14 +667,6 @@ theorem parenHeldHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clo
 
 -- What the brackets may hold, after the waiting comment.
 
---| A token that is no item and is written by its node has no own-line comments before it to write.
-theorem bareLeading ∀ (word: Word) (around: Around) (key: Nat)
-    (hoisted: around.hoisted = False)
-    (bare: word.comments.above = [])
-    (single: around.item = False):
-    word.leading around key = [] :=
-  rewrite hoisted, bare, single
-
 --| A token with no own-line comments, after a waiting comment: written first, so `HeldLowers` holds of it.
 theorem atomLowers ∀ (kind: Tok) (word: Word) (around: Around) (indent low: Nat)
     (solid: isLayout word.text = False)
@@ -683,4 +676,5 @@ theorem atomLowers ∀ (kind: Tok) (word: Word) (around: Around) (indent low: Na
     (bare: word.comments.above = [])
     (single: around.item = False):
     HeldLowers ((Atom kind word).el around) indent low :=
-  leafLowers word around around.at indent low solid closer comma (bareLeading word around around.at hoisted bare single)
+  leafLowers word around around.at indent low solid closer comma
+    (bareCloserLeading word around around.at hoisted bare single)

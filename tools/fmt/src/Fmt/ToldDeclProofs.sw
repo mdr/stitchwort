@@ -5,13 +5,14 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
-import Fmt.JoinProofs (AllJoinable, CloserJoins, DeclJoins, Joinable, OpenerJoins, WordJoins)
+import Fmt.JoinProofs (AllJoinable, CloserJoins, DeclJoins, Joinable, OpenerJoins, WordJoins, closerNotComma)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.TriviaStatements (..)
 import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
 import Fmt.SpellProofs (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.TrailsProofs (Coded, trailsBackCoded)
+import Syntax.SharedFacts (homedBackSuffix)
 
 -- What a reading says, as a list of entries to refine.
 
@@ -472,12 +473,6 @@ theorem isComma: Is (Closing ",") [Said "," True True] := spot =>
 
 -- Where the code before a closer ends with a comment.
 
---| Settled words, newest first, stay settled from any point on.
-theorem homedSuffix ∀ (front back: List Word) (homed: homedBack (front ++ back) = True): homedBack back = True :=
-  match front with
-    | [] => homed
-    | [word, ..rest] => homedSuffix rest back (Bool.andRight homed)
-
 theorem codedSnoc ∀ (front: List Word) (last: Word)
     (code: isCloserText last.text = False):
     Coded (front ++ [last]) = True :=
@@ -563,7 +558,7 @@ theorem itemsHomed ∀ (item: Expr) (rest: List Expr) (prior: List Word)
     rewrite List.reverseAppend item.words (itemsWords rest),
         List.appendAssoc (itemsWords rest).reverse item.words.reverse prior
   let whole := rewrite split at homed then homed
-  (homedSuffix (itemsWords rest).reverse (item.words.reverse ++ prior) whole, whole)
+  (homedBackSuffix (itemsWords rest).reverse (item.words.reverse ++ prior) whole, whole)
 
 --| Every item of a list tells its shape, wherever it stands.
 def ElShape (expr: Expr): Prop :=
@@ -822,7 +817,7 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
         ++ close.shapeK False False) :=
   let inner: homedBack ((itemsWords items).reverse ++ ([open] ++ prior)) = True :=
     rewrite <- List.appendAssoc (itemsWords items).reverse [open] prior then
-      homedSuffix [close] _ (rewrite bracketBack open items close at homed then homed)
+      homedBackSuffix [close] _ (rewrite bracketBack open items close at homed then homed)
   rewrite bracketIs list open items close around then
     bracketFromShape list items.isEmpty
       (items.all Expr.plainItem)
@@ -1391,7 +1386,7 @@ theorem appDocsShape ∀ (head: Expr) (arguments: List Expr) (around: Around) (p
       last
       front
       (eachHead around prior headWithin headSound headNonCloser
-        (homedSuffix (itemsWords arguments).reverse (head.words.reverse ++ prior) whole))
+        (homedBackSuffix (itemsWords arguments).reverse (head.words.reverse ++ prior) whole))
       frontIs
       picked.left
       picked.right
@@ -1436,7 +1431,7 @@ theorem infixHomed ∀ (left: Expr) (operator: Word) (right: Expr) (prior: List 
         List.appendAssoc right.words.reverse [operator] (left.words.reverse ++ prior)
   let whole := rewrite split at homed then homed
   (
-    homedSuffix
+    homedBackSuffix
       (right.words.reverse ++ [operator])
       (left.words.reverse ++ prior)
       (rewrite List.appendAssoc right.words.reverse [operator] (left.words.reverse ++ prior) then whole),
@@ -1571,7 +1566,7 @@ theorem bracketHomed ∀ (open: Word) (middle: List Word) (close: Word) (prior: 
     (homed: homedBack (([open, ..middle] ++ [close]).reverse ++ prior) = True):
     homedBack (middle.reverse ++ ([open] ++ prior)) = True :=
   rewrite <- List.appendAssoc middle.reverse [open] prior then
-    homedSuffix [close] _ (rewrite bracketBackWords open middle close at homed then homed)
+    homedBackSuffix [close] _ (rewrite bracketBackWords open middle close at homed then homed)
 
 --| The rules print an expression telling its shape, wherever it stands.
 --|
@@ -1968,7 +1963,7 @@ theorem declHomed ∀ (keyword name colonWord: Word) (result: Expr) (assign: Wor
         List.appendAssoc value.words.reverse [assign] (result.words.reverse ++ [colonWord, name, keyword])
   let whole := rewrite split at homed then homed
   (
-    homedSuffix
+    homedBackSuffix
       (value.words.reverse ++ [assign])
       (result.words.reverse ++ [colonWord, name, keyword])
       (rewrite List.appendAssoc value.words.reverse [assign] (result.words.reverse ++ [colonWord, name, keyword]) then
@@ -2287,11 +2282,6 @@ def Expr.spelled: Expr → Bool
 def allSpelled: List Expr → Bool
   | [] => True
   | [expr, ..rest] => expr.spelled && allSpelled rest
-
-theorem closerNotComma ∀ (text: Text) (closer: isCloserText text = True): (text == ",") = False :=
-  match same: text == "," with
-    | True => (Bool.falseNotTrue (rewrite DecEq.sound same at closer then closer)).impossible
-    | False => same
 
 --| The items of a bracket as `calm` has them: the first with its own flag, the rest items.
 def calmFrom (first: Bool): List Expr → List Expr

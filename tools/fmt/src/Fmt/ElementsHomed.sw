@@ -15,6 +15,7 @@ import Fmt.TrailsProofs (Coded, trailsBackCoded)
 import Fmt.EdgeHangProofs (codedSnocLead)
 import Fmt.SpellProofs (firstWordLead, wordsLead)
 import Fmt.CalmProofs (headerResultWithin)
+import Syntax.SharedFacts (arrowsBarePrefix, arrowsBareSuffix, homedBackSuffix)
 
 -- What `settled1` gives the layout.
 
@@ -47,17 +48,12 @@ def Decl.homed1: Decl → Bool
 
 -- Words read back.
 
---| What lies before a run of words, newest first, is homed when the whole is.
-theorem homedSuffix ∀ (xs ys: List Word) (homed: homedBack (xs ++ ys) = True): homedBack ys = True := match xs with
-  | [] => homed
-  | [x, ..rest] => homedSuffix rest ys (Bool.andRight homed)
-
 --| Two runs, then what lies before them: each is homed after what comes before it.
 theorem homedBehind ∀ (xs ys rest: List Word)
     (homed: homedBack ((xs ++ ys) ++ rest) = True):
     homedBack (ys ++ rest) = True ∧ homedBack (xs ++ (ys ++ rest)) = True :=
   let regrouped: homedBack (xs ++ (ys ++ rest)) = True := rewrite (List.appendAssoc xs ys rest).flipped then homed
-  (homedSuffix xs (ys ++ rest) regrouped, regrouped)
+  (homedBackSuffix xs (ys ++ rest) regrouped, regrouped)
 
 theorem homedAfterOf ∀ (trails noted before: Bool)
     (homed: (!(True && trails) || False || noted || before) = True):
@@ -109,16 +105,6 @@ theorem arrowsTail ∀ (x: Word) (zs: List Word) (arrows: arrowsBare [x, ..zs] =
     | [] => byComputing
     | [z, ..more] => Bool.andRight arrows
 
-theorem arrowsSuffix ∀ (xs ys: List Word) (arrows: arrowsBare (xs ++ ys) = True): arrowsBare ys = True := match xs with
-  | [] => arrows
-  | [x, ..rest] => arrowsSuffix rest ys (arrowsTail x (rest ++ ys) arrows)
-
-theorem arrowsPrefix ∀ (xs ys: List Word) (arrows: arrowsBare (xs ++ ys) = True): arrowsBare xs = True := match xs with
-  | [] => byComputing
-  | [x] => byComputing
-  | [x, next, ..more] =>
-    Bool.andIntro (Bool.andLeft arrows) (arrowsPrefix [next, ..more] ys (arrowsTail x [next, ..(more ++ ys)] arrows))
-
 -- The runs of an expression's words.
 
 --| Two runs joined: the later one's words come first when read back.
@@ -163,7 +149,7 @@ theorem bracketHomed ∀ (open close: Word) (inside rest: List Word)
 theorem arrowsInside ∀ (open close: Word) (inside: List Word)
     (arrows: arrowsBare ([open, ..inside] ++ [close]) = True):
     arrowsBare inside = True :=
-  arrowsTail open inside (arrowsPrefix [open, ..inside] [close] arrows)
+  arrowsTail open inside (arrowsBarePrefix [open, ..inside] [close] arrows)
 
 -- The induction.
 
@@ -223,13 +209,13 @@ theorem homedAt ∀ (expr: Expr)
           (Bool.andLeft lexical)
           rest
           headBack
-          (arrowsPrefix head.words (itemsWords arguments) arrows))
+          (arrowsBarePrefix head.words (itemsWords arguments) arrows))
         (allHomedAt arguments
           (Bool.andRight within)
           (Bool.andRight lexical)
           (head.words.reverse ++ rest)
           argumentsBack
-          (arrowsSuffix head.words (itemsWords arguments) arrows))
+          (arrowsBareSuffix head.words (itemsWords arguments) arrows))
     | Infix InfixBinary left operator right, within =>
       let (leftBack, rightBack) := joinBack left.words [operator, ..right.words] rest homed
       let leftHomed :=
@@ -238,8 +224,8 @@ theorem homedAt ∀ (expr: Expr)
           (Bool.andLeft lexical)
           rest
           leftBack
-          (arrowsPrefix left.words [operator, ..right.words] arrows)
-      let rightArrows := arrowsTail operator right.words (arrowsSuffix left.words [operator, ..right.words] arrows)
+          (arrowsBarePrefix left.words [operator, ..right.words] arrows)
+      let rightArrows := arrowsTail operator right.words (arrowsBareSuffix left.words [operator, ..right.words] arrows)
       Bool.andIntro leftHomed
         (homedAt right
           (Bool.andLeft (Bool.andRight within))
@@ -256,8 +242,8 @@ theorem homedAt ∀ (expr: Expr)
           (Bool.andLeft lexical)
           rest
           leftBack
-          (arrowsPrefix left.words [operator, ..right.words] arrows)
-      let tailArrows := arrowsSuffix left.words [operator, ..right.words] arrows
+          (arrowsBarePrefix left.words [operator, ..right.words] arrows)
+      let tailArrows := arrowsBareSuffix left.words [operator, ..right.words] arrows
       let rightHomed :=
         homedAt right rightWithin
           (Bool.andRight (Bool.andRight lexical))
@@ -288,13 +274,13 @@ theorem allHomedAt ∀ (items: List Expr)
           (Bool.andLeft lexical)
           rest
           itemBack
-          (arrowsPrefix item.words (itemsWords more) arrows))
+          (arrowsBarePrefix item.words (itemsWords more) arrows))
         (allHomedAt more
           (Bool.andRight within)
           (Bool.andRight lexical)
           (item.words.reverse ++ rest)
           moreBack
-          (arrowsSuffix item.words (itemsWords more) arrows))
+          (arrowsBareSuffix item.words (itemsWords more) arrows))
 
 theorem notedLead ∀ (expr: Expr) (within: expr.within1 = True): expr.noted = expr.lead.noted :=
   let unfolded: expr.noted = expr.firstWord.noted := byComputing
@@ -330,14 +316,14 @@ theorem homedOfSettled ∀ (decl: Decl)
       let (_, tailBack) := joinBack head (header.result.words ++ [colonEqWord, ..value.words]) [] homedOnto
       let (resultBack, valueBack) :=
         joinBack header.result.words [colonEqWord, ..value.words] (head.reverse ++ []) tailBack
-      let tailArrows := arrowsSuffix head (header.result.words ++ [colonEqWord, ..value.words]) arrows
+      let tailArrows := arrowsBareSuffix head (header.result.words ++ [colonEqWord, ..value.words]) arrows
       Bool.andIntro
         (homedAt header.result resultWithin resultLexical
           (head.reverse ++ [])
           resultBack
-          (arrowsPrefix header.result.words [colonEqWord, ..value.words] tailArrows))
+          (arrowsBarePrefix header.result.words [colonEqWord, ..value.words] tailArrows))
         (homedAt value valueWithin valueLexical
           ([colonEqWord] ++ (header.result.words.reverse ++ (head.reverse ++ [])))
           (consBack colonEqWord value.words _ valueBack)
           (arrowsTail colonEqWord value.words
-            (arrowsSuffix header.result.words [colonEqWord, ..value.words] tailArrows)))
+            (arrowsBareSuffix header.result.words [colonEqWord, ..value.words] tailArrows)))

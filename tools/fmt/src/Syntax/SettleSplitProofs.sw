@@ -6,6 +6,7 @@ import Std (Bool, Eq, List)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ParseCarries (codeWords)
+import Syntax.SharedFacts (arrowsBarePrefix, arrowsBareSuffix, homedBackSuffix)
 
 --| The words end (the oldest word, last of a newest-first list) in a word that is no closer, so no look back
 --| (`trailsBack`) reaches past them.
@@ -19,8 +20,6 @@ def startsOpen: List Word → Bool
   | [] => True
   | [word, .._] => !isCloserText word.text
 
-theorem notTrueW ∀ (b: Bool) (h: (!b) = True): b = False := cases
-
 theorem trailsBackOpen ∀ (word: Word) (rest: List Word)
     (open: isCloserText word.text = False):
     trailsBack [word, ..rest] = word.trails :=
@@ -32,7 +31,7 @@ theorem trailsBackOpen ∀ (word: Word) (rest: List Word)
 theorem trailsBackAppend ∀ (xs ys: List Word) (ends: endsOpen xs = True): trailsBack (xs ++ ys) = trailsBack xs :=
   match xs with
     | [word] =>
-      let open := notTrueW (isCloserText word.text) ends
+      let open := Bool.notTrue (isCloserText word.text) ends
       Eq.trans (trailsBackOpen word ys open) (Eq.flipped (trailsBackOpen word [] open))
     | [word, next, ..rest] =>
       let ih := trailsBackAppend [next, ..rest] ys ends
@@ -40,10 +39,6 @@ theorem trailsBackAppend ∀ (xs ys: List Word) (ends: endsOpen xs = True): trai
         _ = (word.trails || (isCloserText word.text && trailsBack ([next, ..rest] ++ ys))) := byComputing
         _ = (word.trails || (isCloserText word.text && trailsBack [next, ..rest])) := rewrite ih
         _ = trailsBack [word, next, ..rest] := byComputing
-
-theorem homedBackSuffix ∀ (xs ys: List Word) (homed: homedBack (xs ++ ys) = True): homedBack ys = True := match xs with
-  | [] => homed
-  | [word, ..rest] => homedBackSuffix rest ys (Bool.andRight homed)
 
 theorem homedBackOne ∀ (word: Word) (open: isCloserText word.text = False): homedBack [word] = True := rewrite open
 
@@ -54,30 +49,12 @@ theorem homedBackPrefix ∀ (xs ys: List Word)
     (homed: homedBack (xs ++ ys) = True):
     homedBack xs = True :=
   match xs with
-    | [word] => homedBackOne word (notTrueW (isCloserText word.text) ends)
+    | [word] => homedBackOne word (Bool.notTrue (isCloserText word.text) ends)
     | [word, next, ..rest] =>
       let ih := homedBackPrefix [next, ..rest] ys ends (Bool.andRight homed)
       let first := Bool.andLeft homed
       let back := trailsBackAppend [next, ..rest] ys ends
       Bool.andIntro (rewrite back at first then first) ih
-
---| `->` bare in a joined list is bare in its first part: the part's last word has nothing after it to read.
-theorem arrowsBarePrefix ∀ (xs ys: List Word) (bare: arrowsBare (xs ++ ys) = True): arrowsBare xs = True :=
-  match xs with
-    | [] => byComputing
-    | [word] => byComputing
-    | [word, next, ..rest] =>
-      Bool.andIntro (Bool.andLeft bare) (arrowsBarePrefix [next, ..rest] ys (Bool.andRight bare))
-
---| ... and in its second part.
-theorem arrowsBareSuffix ∀ (xs ys: List Word) (bare: arrowsBare (xs ++ ys) = True): arrowsBare ys = True :=
-  match xs with
-    | [] => bare
-    | [word] =>
-      match ys with
-        | [] => byComputing
-        | [next, ..more] => Bool.andRight bare
-    | [word, next, ..rest] => arrowsBareSuffix [next, ..rest] ys (Bool.andRight bare)
 
 --| Comments' texts: a test of every word of a joined list is a test of each part.
 theorem allPrefix ∀ (xs ys: List Word) (p: Word → Bool) (h: List.all (xs ++ ys) p = True): List.all xs p = True :=
@@ -123,7 +100,7 @@ theorem settledSplit ∀ (older newer: List Word)
       let comments := Bool.andRight (Bool.andRight settled)
       let homed: homedBack (List.reverse newer ++ List.reverse older) = True :=
         rewrite List.reverseAppend older newer at homedWhole then homedWhole
-      let ends := endsOpenReverse word rest (notTrueW (isCloserText word.text) open)
+      let ends := endsOpenReverse word rest (Bool.notTrue (isCloserText word.text) open)
       (
         Bool.andIntro
           (homedBackSuffix (List.reverse newer) (List.reverse older) homed)

@@ -658,7 +658,7 @@ theorem openStepsHung ∀ (modes: Modes)
       let deepLast: deepAll [last, ..rest] = True := rewrite isEmpty at deepItems then deepItems
       rewrite isEmpty then
         openHeadOf modes last rest
-          (deepStops modes last quiet (deepHead last rest deepLast) (rewrite closer then orTrueRight _))
+          (deepStops modes last quiet (deepHead last rest deepLast) (rewrite closer then Bool.orTrue _))
     | [_, .._], (comma, read, later, isSteps, isComma, _, _) =>
       let deepFirst: deepAll [comma, ..((read ++ commaReads later) ++ [last]) ++ rest] = True :=
         rewrite isSteps at deepItems then deepItems

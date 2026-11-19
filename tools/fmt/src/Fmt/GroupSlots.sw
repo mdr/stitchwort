@@ -7,7 +7,7 @@
 namespace Fmt.GroupSlots
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (..)
-import Syntax.ParseCarries (codeWords, itemWords)
+import Syntax.ParseCarries (codeWords, itemWords, wordCode)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TreeJoinProofs (
@@ -34,16 +34,9 @@ import Syntax.SettleProofs (tokens)
 import Syntax.ReadBackLine (Spelt)
 import Syntax.ReadBackRuns (plainHeader)
 import Syntax.ReadBackLine (infixTok, signKind)
+import Syntax.SharedFacts (allJoin)
 
 -- Lists.
-
-theorem allJoin ∀ (xs ys: List a) (p: a → Bool)
-    (first: xs.all p = True)
-    (second: ys.all p = True):
-    (xs ++ ys).all p = True :=
-  match xs with
-    | [] => second
-    | [x, ..rest] => Bool.andIntro (Bool.andLeft first) (allJoin rest ys p (Bool.andRight first) second)
 
 -- Clean words: a token's text is no comment.
 
@@ -92,7 +85,7 @@ theorem wordsClean ∀ (expr: Expr)
           (Bool.andLeft commented))
         byComputing
     | Paren open inner close, within =>
-      let (front, back) := wordsAppendAll [open, ..inner.words] [close] Fmt.SpellProofs.Word.commented commented
+      let (front, back) := allSplitBool [open, ..inner.words] [close] Fmt.SpellProofs.Word.commented commented
       let (openCommented, innerCommented) := allCons open inner.words Fmt.SpellProofs.Word.commented front
       allJoin
         [open, ..inner.words]
@@ -107,7 +100,7 @@ theorem wordsClean ∀ (expr: Expr)
             (Bool.andLeft back))
           byComputing)
     | Tuple open items comma close, within =>
-      let (front, back) := wordsAppendAll [open, ..itemsWords items] [close] Fmt.SpellProofs.Word.commented commented
+      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Fmt.SpellProofs.Word.commented commented
       let (openCommented, itemsCommented) := allCons open (itemsWords items) Fmt.SpellProofs.Word.commented front
       allJoin
         [open, ..itemsWords items]
@@ -122,7 +115,7 @@ theorem wordsClean ∀ (expr: Expr)
             (Bool.andLeft back))
           byComputing)
     | ListOf open items comma close, within =>
-      let (front, back) := wordsAppendAll [open, ..itemsWords items] [close] Fmt.SpellProofs.Word.commented commented
+      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Fmt.SpellProofs.Word.commented commented
       let (openCommented, itemsCommented) := allCons open (itemsWords items) Fmt.SpellProofs.Word.commented front
       allJoin
         [open, ..itemsWords items]
@@ -138,7 +131,7 @@ theorem wordsClean ∀ (expr: Expr)
           byComputing)
     | App head arguments, within =>
       let (headCommented, argumentsCommented) :=
-        wordsAppendAll head.words (itemsWords arguments) Fmt.SpellProofs.Word.commented commented
+        allSplitBool head.words (itemsWords arguments) Fmt.SpellProofs.Word.commented commented
       allJoin head.words
         (itemsWords arguments)
         Word.clean1
@@ -172,7 +165,7 @@ theorem infixClean ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
     (commented: (Infix kind left operator right).words.all Fmt.SpellProofs.Word.commented = True):
     (Infix kind left operator right).words.all Word.clean1 = True :=
   let (leftCommented, restCommented) :=
-    wordsAppendAll left.words [operator, ..right.words] Fmt.SpellProofs.Word.commented commented
+    allSplitBool left.words [operator, ..right.words] Fmt.SpellProofs.Word.commented commented
   let (operatorCommented, rightCommented) := allCons operator right.words Fmt.SpellProofs.Word.commented restCommented
   allJoin left.words
     [operator, ..right.words]
@@ -191,7 +184,7 @@ theorem itemsClean ∀ (items: List Expr)
     | [] => byComputing
     | [item, ..rest] =>
       let (itemCommented, restCommented) :=
-        wordsAppendAll item.words (itemsWords rest) Fmt.SpellProofs.Word.commented commented
+        allSplitBool item.words (itemsWords rest) Fmt.SpellProofs.Word.commented commented
       allJoin item.words
         (itemsWords rest)
         Word.clean1
@@ -370,12 +363,6 @@ def slotCode: Option Word → Bool
   | Some word => !(lexKind word.text == Comma)
   | None => True
 
-theorem wordNotComma ∀ (kind: Tok) (within: kind.wordWithin1 = True): (kind == Comma) = False := match kind, within with
-  | Lower, _ => byComputing
-  | Upper, _ => byComputing
-  | Num, _ => byComputing
-  | Float, _ => byComputing
-
 theorem infixNotComma ∀ (kind: InfixKind) (tok: Tok) (is: infixTok kind tok = True): (tok == Comma) = False :=
   match kind, is with
     | InfixArrow, is => rewrite DecEq.sound is
@@ -414,7 +401,7 @@ theorem slotsCode ∀ (expr: Expr)
     expr.slots1.all slotCode = True :=
   match expr, within with
     | Atom kind word, within =>
-      Bool.andIntro (rewrite lexKindOfLexes word.text kind lexical, wordNotComma kind (Bool.andLeft within)) byComputing
+      Bool.andIntro (rewrite lexKindOfLexes word.text kind lexical, wordCode kind (Bool.andLeft within)) byComputing
     | Paren open inner close, within =>
       allJoin
         [Some open, ..inner.slots1]
@@ -565,13 +552,6 @@ def plainDecl (keyword: Comments) (name: Word) (colon colonEq: Comments) (result
 --| What `speltSlots` asks of an expression's tree.
 def SlotTree (expr: Expr): Prop :=
   expr.within1 = True ∧ expr.shaped1 = True ∧ expr.lexical1 = True ∧ expr.commaFree = True
-
-theorem leadAfterFront ∀ (front back: List Item) (argument: Bool)
-    (lead: leadAfter (front ++ back) argument = True):
-    leadAfter front argument = True :=
-  match front with
-    | [] => byComputing
-    | [first, .._] => lead
 
 theorem plainHeaderOf ∀ (keyword name colon: Item) (result: Expr):
     plainHeader keyword name colon result
@@ -733,7 +713,7 @@ theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (col
       let (_, valueChained) := chainedSplit [colonEqItem] valueRead tailChained
       let typeLeadAll := chainedAfter [keywordItem, nameItem] colonItem (typeRead ++ [colonEqItem, ..valueRead]) chained
       let typeLead: leadAfter typeRead False = True :=
-        rewrite isColon at typeLeadAll then leadAfterFront typeRead [colonEqItem, ..valueRead] False typeLeadAll
+        rewrite isColon at typeLeadAll then leadFront typeRead [colonEqItem, ..valueRead] False typeLeadAll
       let valueLeadAll := chainedAfter ([keywordItem, nameItem, colonItem] ++ typeRead) colonEqItem valueRead chained
       let valueLead: leadAfter valueRead False = True := rewrite isColonEq at valueLeadAll then valueLeadAll
       let noRole: False = True → result.argument1 = True := never => (Bool.falseNotTrue never).impossible
@@ -835,7 +815,7 @@ theorem declCodeTexts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comme
       Fmt.SpellProofs.Word.commented
       afterName
   let (resultCommented, afterResult) :=
-    wordsAppendAll result.words ([fixedWord ":=" colonEq] ++ value.words) Fmt.SpellProofs.Word.commented afterColon
+    allSplitBool result.words ([fixedWord ":=" colonEq] ++ value.words) Fmt.SpellProofs.Word.commented afterColon
   let (colonEqCommented, valueCommented) :=
     allCons (fixedWord ":=" colonEq) value.words Fmt.SpellProofs.Word.commented afterResult
   let nameClean: name.clean1 = True :=

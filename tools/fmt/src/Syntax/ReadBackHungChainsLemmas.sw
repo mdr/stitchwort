@@ -82,7 +82,7 @@ theorem hungParts ∀ (modes: Modes)
     {
       lineLeft,
       lineOpRight,
-      openLeft = rewrite isLeft then openHeadOf modes f fmore (notTrueFalse _ openF),
+      openLeft = rewrite isLeft then openHeadOf modes f fmore (Bool.notTrue _ openF),
       boundLeft = rewrite isLeft then boundF,
       openOp,
       openRight = rewrite isRight then openHeadOf modes r rmore openRightFirst,

@@ -12,6 +12,7 @@ import Syntax.ReadBackTree (andFalseMiddle)
 import Syntax.ReadBackEnds (wordItem)
 import Syntax.ReadBackLine (Quiet, leadKind)
 import Syntax.ReadBackHung (..)
+import Syntax.SharedFacts (andFalseRight)
 
 --| A step that gives nothing is no step.
 theorem noneNotStep ∀ (state next: HangState) (leaf: Leaf)
@@ -37,11 +38,6 @@ theorem stepRight ∀ (state next: HangState) (leaf: Leaf)
             | True => byComputing
             | False => byComputing)
         step).impossible
-
---| A false last conjunct falsifies the chain.
-theorem andFalseAny ∀ (a: Bool): (a && False) = False := match a with
-  | True => byComputing
-  | False => byComputing
 
 --| A false fourth conjunct falsifies the chain.
 theorem andFalseExempt ∀ (a c: Bool): (a && True && c && False) = False := cases
@@ -85,7 +81,7 @@ theorem hungStops ∀ (modes: Modes) (state next: HangState) (item: Item)
                 let (notComma, notCloser) := orFalseParts _ _ exempt
                 let right := stepRight state next item.leaf stepped starts notCloser notComma inside
                 let above: column < item.leaf.token.column := arithmetic
-                rewrite Nat.leqFalseOfLess column _ above then andFalseAny _
+                rewrite Nat.leqFalseOfLess column _ above then andFalseRight _
 
 --| The bound depends on the state only through the column in force.
 theorem boundsCong ∀ (modes: Modes) (now before: HangState)

@@ -765,7 +765,7 @@ theorem readsAtExprPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
             rewrite empty then full)
         | False, valueIs =>
           Parse.readsAtWeaken
-            (readsAtRest (readsExprImplicit self modes False nested carries outside after fits))
+            (readsAtPrefix (readsExprImplicit self modes False nested carries outside after fits))
             (taken value (kept, rest, split) =>
               rewrite empty then
                 (
@@ -818,14 +818,6 @@ theorem readsAtPeekNone ∀ (start: Parse.Mark Item) (modes: Modes) [k: Option T
     same) =>
     let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
     rewrite same, quiet then Parse.readsAtWeaken (each after tail) (taken value no => no.impossible))
-
---| Every look sees nothing at a stopped item, or at the end.
-theorem peekQuiet ∀ (modes: Modes) (rest: List Item)
-    (stops: rest = [] ∨ ∃ (item: Item) => ∃ (later: List Item) => rest = [item, ..later] ∧ modes.stops item = True):
-    peekIn modes 0 rest = None :=
-  match stops with
-    | Inl empty => rewrite empty
-    | Inr (item, later, shape, stopped) => rewrite shape, stopped
 
 theorem neverAtomGap ∀ (modes: Modes) (ran: Bool): Never [a := Expr] (() => atomGap modes ran) := match ran with
   | True => neverGap modes ranOutLine
@@ -976,7 +968,7 @@ theorem readsAtExprPlainStopped ∀ (self: Goal → {Parse Item} Expr) (modes: M
     (stops: start.rest = []
       ∨ ∃ (item: Item) => ∃ (later: List Item) => start.rest = [item, ..later] ∧ modes.stops item = True):
     Parse.ReadsAt start (() => exprPlain self modes) KeptFull :=
-  let quiet := peekQuiet modes start.rest stops
+  let quiet := peekNone modes start.rest stops
   readsAtAfter0
     [p := () => implicitHere modes]
     [j := implicit => exprImplicit self modes implicit]

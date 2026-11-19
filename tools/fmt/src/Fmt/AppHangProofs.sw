@@ -672,19 +672,8 @@ theorem betweenParts ∀ (noted trails rest: Bool)
     Bool.orFalseRight trails rest (Bool.orFalseRight noted (trails || rest) quiet)
   )
 
---| Where an element ended, one whose first token has own-line comments may start: its first word on the comment break
---| the `LineStart` before the comments makes, right of the line, so with room for it but for `->`'s glue.
-theorem endedLeadSeat ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
-    (unglued: state.glue = False)
-    (ended: Ended state before place)
-    (clear: (inForce state.blocks state.top <= indent) = True):
-    Seat indent indent before state place (leadStart indent place) :=
-  match place, ended with
-    | Mid at carry, (floor, left) => ((floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
-    | Held at carry, (trails, floor, left) => ((trails, floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
-
 --| An element after words is a part, its first token where `startFor` says: `elPart`, and the same from
---| `endedLeadSeat` for an element whose first token has comments above it.
+--| `endedLead` for an element whose first token has comments above it.
 theorem partHangsFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before trails noted: Bool)
     (el: ElHangs kinds doc indent indent before trails (startFor noted)):
     PartHangs kinds doc indent before trails :=
@@ -706,7 +695,7 @@ theorem partHangsFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before 
           (place hang => Ended opened trails place ∧ hang = Hang.At opened)
           (el state entry)
           (place hang (isEntry, folded, ended, clear) =>
-            (isEntry, folded, endedLeadSeat indent before state entry unglued ended clear)))
+            (isEntry, folded, endedLead indent before state entry unglued ended clear)))
         (place hang (ended, folded) =>
           let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
           (rewrite same at ended then ended, rewrite same at folded then folded))

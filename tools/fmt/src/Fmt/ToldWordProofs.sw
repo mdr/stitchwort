@@ -5,8 +5,8 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Expr, Note, Tok, Word)
 import Fmt (..)
-import Fmt.HangProofs (solidSpaces)
 import Fmt.SpellProofs (..)
+import Syntax.SharedFacts (solidSpaces)
 
 --| Telling twice, then once more, in either grouping.
 theorem tellingAssoc ∀ (one two three: Telling): (one.andThen two).andThen three = one.andThen (two.andThen three) :=

@@ -15,6 +15,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Expr, Leaf, Note, Tok, Word)
 import Fmt (..)
+import Syntax.SharedFacts (solidSpaces)
 
 -- The fold over a trace.
 
@@ -433,9 +434,6 @@ def wordAfter (indent: Nat) (text: Text) (place: Place): Place := match place wi
   | Mid at carry => Mid at (floorAfter text carry)
   | Held at carry =>
     Mid (floored carry (Nat.max indent (at + 2))) (floorAfter text (carry.breakTo (Nat.max indent (at + 2))))
-
-theorem solidSpaces ∀ (text: Text) (solid: isLayout text = False): text.all (char => char == ' ') = False :=
-  match spaces: text.all (char => char == ' ') with | False => byComputing
 
 theorem solidLine ∀ (text: Text) (solid: isLayout text = False): (text == "\n") = False :=
   Bool.orFalseRight (text.all (char => char == ' ')) (text == "\n") solid
