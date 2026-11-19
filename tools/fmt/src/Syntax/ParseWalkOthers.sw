@@ -13,7 +13,6 @@ import Syntax.ParseWalk (..)
 import Fmt.Grammar1 (..)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
-import Syntax.GoodItemProofs (spelledPlain1)
 import Syntax.ParseSettledStatements (parseCarriesSource, parseSettledSource)
 
 -- Declarations that are never within slice 1.
@@ -770,20 +769,18 @@ def frameRest: FrameRest expressionAt := { others = givesDeclarationOther }
 theorem parseCarriesSourceProved ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
       ∧ file.end = lexed.settledOnce.end.comments :=
-  parseCarriesSource frameRest source lexed file lexes alphabet spelled plain parses within
+  parseCarriesSource frameRest source lexed file lexes alphabet plain parses within
 
 theorem parseSettledSourceProved ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.settled1 = True :=
-  parseSettledSource frameRest source lexed file lexes alphabet spelled plain parses within
+  parseSettledSource frameRest source lexed file lexes alphabet plain parses within

@@ -22,7 +22,7 @@ import Syntax.ParseCarriesDecl (groupCarries)
 import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, sourcePlain1, tokens)
 import Syntax.SettleOnceProofs (onceSettledProved)
 import Syntax.SettleSplitProofs (declsSettled, declsWordsOpen, groupWordsConcat, groupsConcat, settledOf, settledPieces)
-import Syntax.GoodItemProofs (settledGood, spelledPlain1)
+import Syntax.GoodItemProofs (settledGood)
 import Syntax.GlueQuietProofs (settledItemsQuiet)
 import Syntax.LexLaidProofs (lexLaidProved)
 
@@ -178,13 +178,11 @@ theorem holdsOnLineComma: holdsOn "def d: A := f (a -- item\n  , b) -- close\n" 
 -- The parser's statements from the source, `good` discharged.
 
 --| `parseCarries1` for the leaves the formatter parses (`settledOnce` of what `lex` gave), from the source: `good` is
---| `settledGood`, which needs the source's names and numerals spelled as slice 1 has them (`spelledPlain1`, a test
---| slice 1's driver makes beside the alphabet's: `auto` is in the alphabet and fails it) and `sourcePlain1`, under
---| which rule N keeps every token's kind and text.
+--| `settledGood`, which needs `sourcePlain1`, under which rule N keeps every token's kind and text; the lexer spells
+--| every name and numeral as slice 1 has it (`lexFixed`).
 theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
@@ -196,12 +194,11 @@ theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     parses
     within
 
---| `parseSettled1` from the source: the tree the formatter parses from a source of slice 1's alphabet, plain and
---| spelled plainly, is settled. Its leaves are settled by `onceWordsSettled1`, with `lexLaid1`.
+--| `parseSettled1` from the source: the tree the formatter parses from a source of slice 1's alphabet and plain is
+--| settled. Its leaves are settled by `onceWordsSettled1`, with `lexLaid1`.
 theorem parseSettledSource ∀ (frame: FrameRest expressionAt) (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):

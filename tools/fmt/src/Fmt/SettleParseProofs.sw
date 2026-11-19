@@ -24,7 +24,7 @@ import Fmt.Walk (..)
 import Fmt.Proofs (blankPure, blankAgrees)
 import Fmt.SettleOutputProofs (groupTokens, splitTokens)
 import Syntax.SettleProofs (alphabet1, plain1, sourcePlainOfPlain, tokens)
-import Syntax.GoodItemProofs (settledOnceTokens, spelledPlain1)
+import Syntax.GoodItemProofs (settledOnceTokens)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ParseWalkOthers (parseCarriesSourceProved)
 import Syntax.DeafProofs (grammar1Deaf, loweringDeaf)
@@ -294,13 +294,44 @@ theorem settledParses1 ∀ (lexed: Lexed) (file: SourceFile)
       ∧ settled.grammar1 = True :=
   settledParsesKept1 lexed file parses grammar (settledOnceTokens lexed plain)
 
+--| Rule N keeps the parse when a last comma starts its line before a closer, the case `settledParses1` leaves out:
+--| rule N gives the closer a line start (`settledOnceFlat`), so the tokens differ there and `groupKeepsTokens1` does
+--| not apply. Every hypothesis holds of every source of slice 1's grammar (`inGrammar1`); none narrows it.
+--|
+--| Open (SW-4176): true on every source checked (docs/reviews/SW-4131-own-line-comma.md §4, 14,349 sources of the
+--| grammar with such a comma), and the `Fmt.Tests.MustAccept1` cases pass. The proof needs the two-run walk
+--| (`Syntax.FollowsBase`) for items alike up to a closer's line start, not only for the same tokens.
+theorem settledParsesMoved1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (alphabet: lexed.leaves.all (leaf => leaf.token.kind.alphabet1) = True)
+    (parses: parseFile lexed = Ok file)
+    (grammar: file.grammar1 = True)
+    (moved: plain1 (tokens lexed.leaves) = False):
+    ∃ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled
+      ∧ settled.withoutComments = file.withoutComments
+      ∧ settled.grammar1 = True :=
+  ?
+
+--| Rule N keeps the parse of every source of slice 1's grammar: the source's own parse is a slice 1 tree, and the
+--| leaves the driver parses (after rule N) parse to a slice 1 tree that is the same but for comments.
+theorem settledParsesGrammar1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
+    (lexes: lex source = Ok lexed)
+    (alphabet: lexed.leaves.all (leaf => leaf.token.kind.alphabet1) = True)
+    (parses: parseFile lexed = Ok file)
+    (grammar: file.grammar1 = True):
+    ∃ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled
+      ∧ settled.withoutComments = file.withoutComments
+      ∧ settled.grammar1 = True :=
+  match plain: plain1 (tokens lexed.leaves) with
+    | True => settledParses1 lexed file parses grammar plain
+    | False => settledParsesMoved1 source lexed file lexes alphabet parses grammar plain
+
 --| Where the settled tree's comments are, for the driver: given the driver's leaf tests and its `within1`, each
 --| declaration's words are its group's settled leaves', each with the comments rule N gave it, and the file's end
 --| is the settled end (`parseCarriesSourceProved`).
 theorem settledPlaced1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
-    (spelled: spelledPlain1 lexed.leaves = True)
     (plain: plain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed = Ok file)
     (grammar: file.grammar1 = True)
@@ -312,7 +343,7 @@ theorem settledPlaced1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
       ∧ settled.end = lexed.settledOnce.end.comments :=
   let (settled, settles, alike, inGrammar) := settledParses1 lexed file parses grammar plain
   let (words, ends) :=
-    parseCarriesSourceProved source lexed settled lexes alphabet spelled
+    parseCarriesSourceProved source lexed settled lexes alphabet
       (sourcePlainOfPlain _ plain)
       settles
       (within settled settles)
@@ -500,7 +531,6 @@ def placedOn (source: Text): Bool := match lex source with
   | Err _ => False
   | Ok lexed =>
     alphabet1 lexed.leaves
-      && spelledPlain1 lexed.leaves
       && plain1 (tokens lexed.leaves)
       && match parseFile lexed.settledOnce with
         | Ok settled => settled.within1

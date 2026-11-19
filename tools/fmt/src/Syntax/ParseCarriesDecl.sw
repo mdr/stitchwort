@@ -31,6 +31,8 @@ import Fmt.Kinds1 (..)
 import Fmt.Grammar1 (..)
 import Syntax.ParseCarriesLadder (..)
 import Syntax.ParseCarriesFile (GroupCarries, itemWordsOfGroup, itemsLeaves)
+import Syntax.GoodItemProofs (lexFixed)
+import Syntax.SettleProofs (alphabet1, tokens)
 
 -- Reading where the parser is.
 
@@ -549,6 +551,53 @@ theorem wordsOfParts ∀ (defItem nameItem colonItem bodyItem: Item) (rResult rV
       resultCarried,
       valueCarried
 
+-- A definition's name.
+
+--| A text the grammar takes as a name (`isName1`) lexes as one name token, of one case or the other.
+theorem nameLexesAs1 ∀ (text: Text)
+    (name: isName1 text = True):
+    textLexesAs text Lower = True ∨ textLexesAs text Upper = True :=
+  match lex text, name with
+    | Err message, name => (Bool.falseNotTrue name).impossible
+    | Ok found, name =>
+      match found.leaves, name with
+        | [], name => (Bool.falseNotTrue name).impossible
+        | [leaf], name =>
+          match leaf.token.kind, name with
+            | Lower, name => Inl (Bool.andIntro (Bool.andLeft name) byComputing)
+            | Upper, name => Inr (Bool.andIntro (Bool.andLeft name) byComputing)
+            | other, name => (Bool.falseNotTrue (Bool.andRight name)).impossible
+        | [leaf, second, ..more], name => (Bool.falseNotTrue name).impossible
+
+--| A text that lexes as one name or numeral is spelled as slice 1 has it: the lexer spells every one it gives so
+--| (`lexFixed`).
+theorem textLexesSpells1 ∀ (text: Text) (kind: Tok)
+    (lexes: textLexesAs text kind = True)
+    (word: kind.wordWithin1 = True):
+    textSpells1 kind text = True :=
+  match lexed: lex text, lexes with
+    | Err message, lexes => (Bool.falseNotTrue lexes).impossible
+    | Ok found, lexes =>
+      match leaves: found.leaves, lexes with
+        | [], lexes => (Bool.falseNotTrue lexes).impossible
+        | [leaf], lexes =>
+          let same: leaf.token.text = text := DecEq.sound (Bool.andLeft lexes)
+          let kindIs: leaf.token.kind = kind := DecEq.sound (Bool.andRight lexes)
+          let leafWithin: leaf.token.kind.within1 = True := rewrite kindIs then wordWithinWithin kind word
+          let alphabet: alphabet1 found.leaves = True := rewrite leaves then Bool.andIntro leafWithin byComputing
+          let fixed := lexFixed text found lexed alphabet
+          let leafFixed := Bool.andLeft (rewrite leaves at fixed then fixed)
+          let spells: (!leaf.token.kind.wordWithin1 || textSpells1 leaf.token.kind leaf.token.text) = True :=
+            Bool.andRight leafFixed
+          rewrite kindIs, same, word at spells then spells
+        | [leaf, second, ..more], lexes => (Bool.falseNotTrue lexes).impossible
+
+--| A definition's name the grammar takes is one the driver's slice takes: the converse of `Word.nameGrammar1`.
+theorem Word.nameWithinOfGrammar1 ∀ (word: Word) (name: isName1 word.text = True): word.nameWithin1 = True :=
+  match nameLexesAs1 word.text name with
+    | Inl lower => Bool.orLeft (Bool.andIntro lower (textLexesSpells1 word.text Lower lower byComputing))
+    | Inr upper => Bool.orRight (Bool.andIntro upper (textLexesSpells1 word.text Upper upper byComputing))
+
 -- A plain definition's header and body.
 
 --| The token kinds of a plain definition's items: the `def`, a name, the `:`, the type's items, the `:=` and the
@@ -565,13 +614,14 @@ def DeclKinds (read: List Item) (decl: Decl): Prop := match decl with
       ∧ value.kinds1 = itemKinds rValue
   | other => True
 
---| A definition of slice 1's grammar has the words of the items its header and body read, and their kinds, and is
---| placed (`Syntax.AutoPlaced.Decl.autoPlaced1`).
+--| A definition of slice 1's grammar has the words of the items its header and body read, and their kinds, is placed
+--| (`Syntax.AutoPlaced.Decl.autoPlaced1`), and is in the driver's slice.
 def PartsKept (read: List Item) (parts: (Header, DefBody)): Prop :=
   (Definition [] parts.fst parts.snd).grammar1 = True
     → (Definition [] parts.fst parts.snd).words = itemWords read
       ∧ DeclKinds read (Definition [] parts.fst parts.snd)
       ∧ (Definition [] parts.fst parts.snd).autoPlaced1 = True
+      ∧ (Definition [] parts.fst parts.snd).within1 = True
 
 --| What a header's `:` read: one item, which is a `:` if the header has no parameters.
 def ColonRead (params: List Group) (read: List Item) (colon: Comments): Prop :=
@@ -688,6 +738,9 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                                 resultKept.left resultGrammar
                                                               let (valueWords, valueKinds, valueWithin, _) :=
                                                                 valueKept.left valueGrammar
+                                                              let nameWithin: name.nameWithin1 = True :=
+                                                                Word.nameWithinOfGrammar1 name
+                                                                  (Bool.andLeft headerGrammar)
                                                               rewrite List.appendNil r14,
                                                                   e1,
                                                                   single2,
@@ -736,7 +789,10 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                                   ),
                                                                   Bool.andIntro
                                                                     (resultKept.right resultGrammar)
-                                                                    (valueKept.right valueGrammar)
+                                                                    (valueKept.right valueGrammar),
+                                                                  Bool.andIntro
+                                                                    (Bool.andIntro nameWithin resultWithin)
+                                                                    valueWithin
                                                                 )
                                                             | kinds, other, others, clauses, unfoldings, Primitive, grammar =>
                                                               (Bool.falseNotTrue grammar).impossible
@@ -779,9 +835,11 @@ theorem readsAttributesOf ∀ (modes: Modes):
         let atNone := rewrite equal at rounds
         atNone byComputing)
 
---| A declaration of slice 1's grammar has the words of the items read for it, and their kinds, and is placed.
+--| A declaration of slice 1's grammar has the words of the items read for it, and their kinds, is placed, and is in
+--| the driver's slice.
 def DeclKept (read: List Item) (decl: Decl): Prop :=
-  decl.grammar1 = True → decl.words = itemWords read ∧ DeclKinds read decl ∧ decl.autoPlaced1 = True
+  decl.grammar1 = True
+    → decl.words = itemWords read ∧ DeclKinds read decl ∧ decl.autoPlaced1 = True ∧ decl.within1 = True
 
 --| After attributes were read (`before`): no attributes means `before` is empty.
 def DeclAfter (before: List Item) (attributes: List Attributes) (read: List Item) (decl: Decl): Prop :=
