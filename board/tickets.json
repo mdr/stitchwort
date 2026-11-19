@@ -27472,12 +27472,12 @@
     {
       "id": 4245,
       "title": "[Sonnet] Walk step W0 baseline (docs/reviews/SW-4238-walk-step-review.md §4): delete the [p := …]/[j := …] spellings in the comma-list walks and un-cut the comma list by hand in tools/fmt; measure lines and check time; answers SW-4220",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Est. 30 min. From SW-4238; first lane of the walk step if Matt approves D3696; useful on its own.",
+      "body": "Est. 30 min. From SW-4238; first lane of the walk step if Matt approves D3696; useful on its own.\n\nW0 (Sonnet lane, 19 Nov): deleted spelled steps by bulk delete then restore-on-error: 381 of 434 steps in ParseWalk/FollowsBase/FollowsDecl/ParseKept (ParseWalk 284/303, FollowsDecl 64/93, FollowsBase 5/7, ParseKept 28/31). Comma-list walks all check bare. Check time unchanged. Commit c0895f3eb on lane/SW-4245. Moved to review.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
