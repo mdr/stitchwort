@@ -1392,8 +1392,8 @@ theorem elCalm ∀ (expr: Expr) (around: Around)
               operator
               right
               { around | hoisted = True }
-              (binaryGoodLeft left operator right good)
-              (binaryGoodRight left operator right good))
+              (arrowGoodLeft left operator right good)
+              (arrowGoodRight left operator right good))
         | _ => cases
     | Tuple open items comma close =>
       framedCalm

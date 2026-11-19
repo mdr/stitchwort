@@ -480,10 +480,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
               )
     | Infix kind left operator right, (leftSpelled, (kindOfOperator, (operatorSpells, quiet)), rightSpelled) =>
       let (leftWithin, rightWithin) := infixWithin kind left operator right within
-      let listed: operatorText1 operator.text = True := match kind with
-        | InfixBinary => Bool.andRight (Bool.andRight within)
-        | InfixArrow => Bool.andRight (Bool.andRight within)
-        | _ => cases
+      let listed: operatorText1 operator.text = True := infixListed kind left operator right within
       let flat := opKindOf operator.text listed
       let leftRuns := exprRuns left hoisted leftWithin (Bool.andLeft sound) (Bool.andLeft lexical) leftSpelled
       let rightRuns :=

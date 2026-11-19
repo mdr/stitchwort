@@ -57,6 +57,7 @@ import Fmt.TreeJoinProofs (
   OperatorSpells,
   PrefixSpells,
   Quiet,
+  infixListed,
   infixWithin,
   lexKind,
   lexKindOfSpells,
@@ -1187,10 +1188,7 @@ theorem exprBits ∀ (expr: Expr) (item: Bool)
       )
     | Infix kind left operator right =>
       let (leftWithin, rightWithin) := infixWithin kind left operator right within
-      let listed: operatorText1 operator.text = True := match kind with
-        | InfixBinary => Bool.andRight (Bool.andRight within)
-        | InfixArrow => Bool.andRight (Bool.andRight within)
-        | _ => (Bool.falseNotTrue within).impossible
+      let listed: operatorText1 operator.text = True := infixListed kind left operator right within
       let (operatorKind, spells, quiet) := operatorSpellsOf operator.text listed
       let (_, notCloser) := spellsQuiet operatorKind operator.text spells quiet
       let (leftWords, leftFine) :=

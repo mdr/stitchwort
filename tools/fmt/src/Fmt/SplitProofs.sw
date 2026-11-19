@@ -422,7 +422,9 @@ theorem numberAtomCalm ∀ (expr: Expr) (item: Bool)
 
 theorem headCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).head1 = expr.head1 :=
   match expr, within with
-    | Prefix _ operand, within => rewrite numberAtomCalm operand False (Bool.andLeft within)
+    | Prefix operator operand, within =>
+      rewrite numberAtomCalm operand False (Bool.andLeft within),
+          signQuietCalm operator operand item (Bool.andLeft within)
     | Atom _ _, _ => byComputing
     | Paren _ _ _, _ => byComputing
     | Tuple _ _ _ _, _ => byComputing
@@ -437,7 +439,8 @@ theorem argumentCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).argument1 = expr.argument1 :=
   match expr, within with
-    | Prefix _ operand, within => rewrite atomicCalm operand False (Bool.andLeft within)
+    | Prefix operator operand, within =>
+      rewrite atomicCalm operand False (Bool.andLeft within), signQuietCalm operator operand item (Bool.andLeft within)
     | Atom _ _, _ => byComputing
     | Paren _ _ _, _ => byComputing
     | Tuple _ _ _ _, _ => byComputing

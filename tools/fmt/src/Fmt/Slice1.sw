@@ -40,8 +40,8 @@ def Expr.within1: Expr → Bool
   | Tuple _ items _ _ => allWithin1 items
   | ListOf _ items _ _ => allWithin1 items
   | App head arguments => head.within1 && allWithin1 arguments
-  | Infix InfixBinary left operator right => left.within1 && right.within1 && operatorText1 operator.text
-  | Infix InfixArrow left operator right => left.within1 && right.within1 && operatorText1 operator.text
+  | Infix InfixBinary left operator right => left.within1 && right.within1 && binaryText1 operator.text
+  | Infix InfixArrow left operator right => left.within1 && right.within1 && arrowText1 operator.text
   | Prefix operator operand => operand.within1 && prefixText1 operator.text
   | _ => False
 
@@ -84,6 +84,13 @@ def operatorTextD1 (text: Text): Bool :=
   else if text == "==" then True
   else if text == "=" then True
   else False
+
+--| An arrow's text, `->` or `→`: the operator of an `InfixArrow`, and of no `InfixBinary`, so the kind of infix the
+--| tree says is the one the parser reads its token as.
+def arrowText1 (text: Text): Bool := text == "->" || text == "→"
+
+--| A binary operator's text: one of slice 1's that is not an arrow.
+def binaryText1 (text: Text): Bool := operatorText1 text && !arrowText1 text
 
 --| The prefix operators of slice 1: `-`, `!` and `¬`.
 def prefixText1 (text: Text): Bool := text == "-" || text == "!" || text == "¬"

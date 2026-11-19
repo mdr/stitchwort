@@ -3182,8 +3182,8 @@ theorem givesCmpIf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: E
           (tail out =>
             Parse.givesDone
               (Bool.andFalseRight lhs.within1
-                (tail.within1 ∧ operatorText1 operator.text)
-                (Bool.andFalseLeft tail.within1 (operatorText1 operator.text) out)))))
+                (tail.within1 ∧ binaryText1 operator.text)
+                (Bool.andFalseLeft tail.within1 (binaryText1 operator.text) out)))))
 
 theorem givesParenOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: Option Tok)
     (nested: Nested self):

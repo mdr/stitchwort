@@ -50,6 +50,7 @@ import Fmt.BracketHangProofs (
 import Fmt.DeclHangProofs (WordToken, bareAtomHangs)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (
+  arrowListed,
   lexKind,
   lexKindOfSpells,
   spellsNotComment,
@@ -1164,7 +1165,7 @@ theorem leadFacts ∀ (expr: Expr)
           (Bool.andRight (Bool.andRight lexical))
           (quietLead right rightQuiet)
           keys
-      let listed := Bool.andRight (Bool.andRight within)
+      let listed := Bool.andLeft (Bool.andRight (Bool.andRight within))
       let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => left.bareAt around = True
         → PairFacts lexKind level first left word right around False False :=
         level first around bare =>
@@ -1205,7 +1206,7 @@ theorem leadFacts ∀ (expr: Expr)
           (Bool.andRight (Bool.andRight lexical))
           (quietLead right rightQuiet)
           keys
-      let listed := Bool.andRight (Bool.andRight within)
+      let listed := arrowListed operator.text (Bool.andRight (Bool.andRight within))
       let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => left.bareAt around = True
         → PairFacts lexKind level first left word right around False False :=
         level first around bare =>
