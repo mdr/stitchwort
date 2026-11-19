@@ -27078,7 +27078,7 @@
     {
       "id": 4215,
       "title": "[Sonnet] fmt consolidation L2: InSlice, one definition the four parse specs (Parsed, ArgParsed, AtomParsed, HeadParsed) instantiate, per fmt-consolidation-statements.md lane 2; after L1",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27093,8 +27093,8 @@
     {
       "id": 4216,
       "title": "[Sonnet] fmt consolidation L3: split ParseWalk.sw (7,141 lines) into the slice's path, the outside parsers and the frame, per fmt-consolidation-statements.md lane 3; after L2",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
