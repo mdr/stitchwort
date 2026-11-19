@@ -8,6 +8,9 @@
 --| Both are proved from the layers' theorems, with every piece not yet proved stated as an open goal: here
 --| (`declElementsOneLine1`) and in `Fmt.TopReadBack` (read-back). `stitchwort goal` lists what is left.
 --|
+--| The third top theorem, `formatAccepts1` (`Fmt.Accepts1`, open), says which sources the driver must accept:
+--| all of slice 1's grammar (`Fmt.Grammar1`).
+--|
 --| What slice 1 covers: files of `def name: Type := value` with no parameters, the type and value names, numerals,
 --| brackets, tuples, lists, calls, `-`, `!`, `¬`, binary operators and `->`, with comments and blank lines; the
 --| driver refuses anything else, and (D3685, for now) a declaration that doesn't print on one line.
@@ -17,6 +20,7 @@ import Std (Bool, Eq, List, Nat, Option, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Driver1 (..)
+import Fmt.Accepts1 (formatAccepts1)
 import Fmt.TopReadBack (..)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
