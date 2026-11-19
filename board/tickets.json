@@ -27656,12 +27656,12 @@
     {
       "id": 4259,
       "title": "[Sonnet] Extend tools/fmt/dev/spellings.py to [alike := …] (~94 in the Follows* files) and other spelled names ([g2/spec/weaker := …]), and to groups not at a line start; run it over tools/fmt",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4256. Est. 40 min.",
+      "body": "From SW-4256. Est. 40 min.\n\nLane notes: spellings.py now handles mid-line groups and --names; ran over 14 tools/fmt files (Syntax/Follows*, Parse*, GoodItemProofs, LexReadsProofs, Fmt/TraverseFail). Net -280 lines in src. Checked 34 namespaces (touched + direct dependents) and Fmt.Tests (439 pass).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
