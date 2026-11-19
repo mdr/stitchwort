@@ -108,9 +108,7 @@ def Path.extension (path: Path): Option Text := match path.name with
   | None => None
   | Some name =>
     match name.split '.' with
-      | [] => None
-      | [whole] => None
-      | ["", rest] => None
+      | [] | [_] | ["", _] => None
       | pieces =>
         match pieces.last with
           | Some "" => None

@@ -353,8 +353,7 @@ theorem Map.Tree.doubleLWithin ∀ (ord: Ord k) (lo hi: Option k) (l: Map.Tree k
     (wr: Map.Tree.Within ord (Some key) hi r):
     Map.Tree.Within ord lo hi (Map.Tree.doubleL l key value r) :=
   match r, wr with
-    | Tip, wr => Both (Both ab be) (Both wl wr)
-    | Bin s Tip rk rv rr, wr => Both (Both ab be) (Both wl wr)
+    | Tip | Bin _ Tip _ _ _, wr => Both (Both ab be) (Both wl wr)
     | Bin _ (Bin _ rll rlk rlv rlr) rk rv rr, Both
         (Both krk brk)
         (Both (Both (Both krlk rlkrk) (Both wrll wrlr)) wrr) =>
@@ -380,8 +379,7 @@ theorem Map.Tree.doubleRWithin ∀ (ord: Ord k) (lo hi: Option k) (key: k) (valu
     (wl: Map.Tree.Within ord lo (Some key) l):
     Map.Tree.Within ord lo hi (Map.Tree.doubleR key value r l) :=
   match l, wl with
-    | Tip, wl => Both (Both ab be) (Both wl wr)
-    | Bin s ll lk lv Tip, wl => Both (Both ab be) (Both wl wr)
+    | Tip | Bin _ _ _ _ Tip, wl => Both (Both ab be) (Both wl wr)
     | Bin _ ll lk lv (Bin _ lrl lrk lrv lrr), Both
         (Both alk lkk)
         (Both wll (Both (Both lklrk lrkk) (Both wlrl wlrr))) =>
@@ -729,9 +727,7 @@ theorem Map.Tree.removeSized ∀ [auto ord: Ord k] (key: k) (t: Map.Tree k v)
         | Greater => Map.Tree.balanceSized l kk vv (Map.Tree.remove key r) sl (Map.Tree.removeSized key r sr)
 
 theorem Map.Tree.sizeMap ∀ (f: v → w) (t: Map.Tree k v): Map.Tree.size (Map.Tree.map f t) = Map.Tree.size t :=
-  match t with
-    | Tip => byComputing
-    | Bin s l kk vv r => byComputing
+  match t with | Tip | Bin _ _ _ _ _ => byComputing
 
 theorem Map.Tree.mapSized ∀ (f: v → w) (t: Map.Tree k v) (st: Map.Tree.Sized t): Map.Tree.Sized (Map.Tree.map f t) :=
   match t, st with
@@ -743,9 +739,7 @@ theorem Map.Tree.mapSized ∀ (f: v → w) (t: Map.Tree k v) (st: Map.Tree.Sized
 
 theorem Map.Tree.sizeMapWithKey ∀ (f: k → v → w) (t: Map.Tree k v):
     Map.Tree.size (Map.Tree.mapWithKey f t) = Map.Tree.size t :=
-  match t with
-    | Tip => byComputing
-    | Bin s l kk vv r => byComputing
+  match t with | Tip | Bin _ _ _ _ _ => byComputing
 
 theorem Map.Tree.mapWithKeySized ∀ (f: k → v → w) (t: Map.Tree k v)
     (st: Map.Tree.Sized t):
@@ -773,9 +767,7 @@ def Map.Tree.orElse: (first: Option v) → (second: Option v) → Option v
   | Some x, m => Some x
   | None, m => m
 
-theorem Map.Tree.orElseNone ∀ (m: Option v): Map.Tree.orElse m None = m := match m with
-  | Some x => byComputing
-  | None => byComputing
+theorem Map.Tree.orElseNone ∀ (m: Option v): Map.Tree.orElse m None = m := match m with | Some _ | None => byComputing
 
 --| No key at or below the lower bound is in the tree.
 theorem Map.Tree.getAbsentLow ∀ [auto ord: Ord k] (key lo: k) (hi: Option k) (t: Map.Tree k v)
@@ -834,16 +826,10 @@ theorem Map.Tree.rebuildOnto ∀ (s: Map.Tree.Shape) (l: Map.Tree k v) (key: k) 
     Map.Tree.toListOnto (Map.Tree.rebuild s l key value r) acc = Map.Tree.toListOnto (Map.Tree.bin l key value r) acc :=
   match s, l, r with
     | Keep, l, r => byComputing
-    | SingleL, l, Tip => byComputing
-    | SingleL, l, Bin _ rl rk rv rr => byComputing
-    | DoubleL, l, Tip => byComputing
-    | DoubleL, l, Bin _ Tip rk rv rr => byComputing
-    | DoubleL, l, Bin _ (Bin _ rll rlk rlv rlr) rk rv rr => byComputing
-    | SingleR, Tip, r => byComputing
-    | SingleR, Bin _ ll lk lv lr, r => byComputing
-    | DoubleR, Tip, r => byComputing
-    | DoubleR, Bin _ ll lk lv Tip, r => byComputing
-    | DoubleR, Bin _ ll lk lv (Bin _ lrl lrk lrv lrr), r => byComputing
+    | SingleL, _, Tip | Bin _ _ _ _ _ => byComputing
+    | DoubleL, _, Tip | Bin _ Tip _ _ _ | Bin _ (Bin _ _ _ _ _) _ _ _ => byComputing
+    | SingleR, Tip | Bin _ _ _ _ _, _ => byComputing
+    | DoubleR, Tip | Bin _ _ _ _ Tip | Bin _ _ _ _ (Bin _ _ _ _ _), _ => byComputing
 
 --| `get` on a rebalanced node is `get` on the node.
 theorem Map.Tree.getBalance ∀ [auto ord: Ord k] (key: k) (lo hi: Option k) (l: Map.Tree k v) (kk: k)
@@ -926,8 +912,7 @@ theorem Map.Tree.getInsertWithOther ∀ [auto ord: Ord k] (f: v → v → v) (ke
                 wr then
             match c: Ord.compare other kk with
               | Less => Map.Tree.getInsertWithOther f key value other ne lo (Some kk) l ab e wl
-              | Equal => byComputing
-              | Greater => byComputing
+              | Equal | Greater => byComputing
         | Equal =>
           match c: Ord.compare other kk with
             | Less => byComputing
@@ -941,8 +926,7 @@ theorem Map.Tree.getInsertWithOther ∀ [auto ord: Ord k] (f: v → v → v) (ke
                 wl
                 (Map.Tree.insertWithWithin f key value (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr) then
             match c: Ord.compare other kk with
-              | Less => byComputing
-              | Equal => byComputing
+              | Less | Equal => byComputing
               | Greater =>
                 Map.Tree.getInsertWithOther f key value other ne
                   (Some kk)
@@ -953,9 +937,7 @@ theorem Map.Tree.getInsertWithOther ∀ [auto ord: Ord k] (f: v → v → v) (ke
                   wr
 
 theorem Map.Tree.combineFirst ∀ (value: v) (old: Option v): Map.Tree.combine (new o => new) value old = value :=
-  match old with
-    | None => byComputing
-    | Some x => byComputing
+  match old with | None | Some _ => byComputing
 
 -- Raw maps
 

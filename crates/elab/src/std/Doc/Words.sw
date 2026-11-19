@@ -81,8 +81,7 @@ theorem Doc.Proofs.trimWords ∀ (out: List Text): wordsOf (trimSpaces out).reve
 theorem Doc.Proofs.payIndentWritten ∀ (printer: Printer):
     printer.payIndent.written = printer.written ∧ printer.payIndent.suffixes = printer.suffixes :=
   match owed: printer.owed with
-    | None => (byComputing, byComputing)
-    | Some Zero => (byComputing, byComputing)
+    | None | Some Zero => (byComputing, byComputing)
     | Some (Succ less) =>
       ((layoutSnoc (" ".repeat (Succ less)) printer.out (spacesIsLayout _ (indentSpaces (Succ less)))), byComputing)
 
@@ -278,21 +277,18 @@ theorem Doc.Proofs.wordFilled ∀ (text: Text) (word: isLayout text = False): te
 --| `IfBroken`'s its broken branch's; in a `Uniform` document every option,
 --| and both branches, have the same.
 def Doc.words: Doc → List Text
-  | Chunk text _ => wordsOf [text]
-  | Closing text => wordsOf [text]
-  | LineSuffix comment => wordsOf [comment]
-  | Nest _ inner => inner.words
-  | Align inner => inner.words
-  | AlignInset inner => inner.words
-  | Displaced inner => inner.words
-  | Group inner _ => inner.words
-  | NarrowGroup _ inner _ => inner.words
-  | IdGroup _ inner _ => inner.words
-  | IfBroken _ broken _ => broken.words
-  | Flatten inner => inner.words
-  | OneLineBelow inner => inner.words
-  | Concat docs => wordsAll docs
-  | Fill items => wordsAll items
+  | Chunk text _ | Closing text | LineSuffix text => wordsOf [text]
+  | Nest _ inner |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ |
+      IfBroken _ inner _ |
+      Flatten inner |
+      OneLineBelow inner => inner.words
+  | Concat docs | Fill docs => wordsAll docs
   | Choice options => wordsFirst options
   | _ => []
 
@@ -308,18 +304,16 @@ def Doc.Proofs.wordsFirst: List Doc → List Text
 
 --| Every option of every choice in the document has the same words.
 def Doc.Proofs.Uniform: Doc → Prop
-  | Nest _ inner => Uniform inner
-  | Align inner => Uniform inner
-  | AlignInset inner => Uniform inner
-  | Displaced inner => Uniform inner
-  | Group inner _ => Uniform inner
-  | NarrowGroup _ inner _ => Uniform inner
-  | IdGroup _ inner _ => Uniform inner
+  | Nest _ inner |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ => Uniform inner
   | IfBroken _ broken flat => Uniform broken ∧ Uniform flat ∧ flat.words = broken.words
-  | Flatten inner => Uniform inner
-  | OneLineBelow inner => Uniform inner
-  | Concat docs => AllUniform docs
-  | Fill items => AllUniform items
+  | Flatten inner | OneLineBelow inner => Uniform inner
+  | Concat docs | Fill docs => AllUniform docs
   | Choice options => AllUniform options ∧ SameWords (wordsFirst options) options
   | _ => True
 
@@ -335,8 +329,7 @@ def Doc.Proofs.SameWords (words: List Text): List Doc → Prop
 
 --| The words a command writes.
 def Doc.Cmd.words: Cmd → List Text
-  | Print _ _ doc => doc.words
-  | FillSep _ item => item.words
+  | Print _ _ doc | FillSep _ doc => doc.words
 
 --| The words the work list has still to write.
 def Doc.Proofs.stackWords: List Cmd → List Text
@@ -345,8 +338,7 @@ def Doc.Proofs.stackWords: List Cmd → List Text
 
 --| A command's doc is `Uniform`.
 def Doc.Proofs.CmdUniform: Cmd → Prop
-  | Print _ _ doc => Uniform doc
-  | FillSep _ item => Uniform item
+  | Print _ _ doc | FillSep _ doc => Uniform doc
 
 --| Every command on the work list is `CmdUniform`.
 def Doc.Proofs.StackUniform: List Cmd → Prop
@@ -559,8 +551,7 @@ theorem Doc.Proofs.stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) 
     | FillSep indent item, Inr broken, _ => rewrite repeatedly [broken, wordSteps]
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
-        | Doc.Nothing, steps, _ => rewrite repeatedly [steps]
-        | BreakParent, steps, _ => rewrite repeatedly [steps]
+        | Doc.Nothing | BreakParent, steps, _ => rewrite repeatedly [steps]
         | Chunk text width, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
         | Closing text, steps, _ => rewrite repeatedly [steps, closeWords, List.appendAssoc]
         | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords, writeLayoutWords]
@@ -577,19 +568,12 @@ theorem Doc.Proofs.stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) 
               byComputing
               (rewrite repeatedly [newlineWords])
         | Blank, steps, _ => rewrite repeatedly [steps, wordSteps]
-        | Nest more inner, steps, _ => rewrite repeatedly [steps]
-        | Align inner, steps, _ => rewrite repeatedly [steps]
-        | AlignInset inner, steps, _ => rewrite repeatedly [steps]
+        | Nest _ _ | Align _ | AlignInset _, steps, _ => rewrite repeatedly [steps]
         | Displaced inner, steps, _ => rewrite repeatedly [steps, displaceWords]
-        | OneLineBelow inner, steps, _ => rewrite repeatedly [steps]
-        | Flatten inner, steps, _ => rewrite repeatedly [steps]
+        | OneLineBelow _ | Flatten _, steps, _ => rewrite repeatedly [steps]
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
-        | Group inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
-        | NarrowGroup max inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
-        | Group inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
-        | NarrowGroup max inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
-        | IdGroup id inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat, recordWords]
-        | IdGroup id inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken, recordWords]
+        | Group _ _ | NarrowGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), _ => rewrite repeatedly [flat]
+        | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), _ => rewrite repeatedly [flat, recordWords]
         | IfBroken id broken flat, steps, Both _ (Both _ same) =>
           rewrite repeatedly [steps, pickWords printer.modes id broken flat same]
         | Concat docs, steps, _ => rewrite repeatedly [steps, wordSteps]
@@ -608,23 +592,16 @@ theorem Doc.Proofs.stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd
     (restUniform: StackUniform rest):
     StackUniform result.snd :=
   match cmd, steps, uniform with
-    | FillSep indent item, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-    | FillSep indent item, Inr broken, uniform => rewrite broken then (uniform, restUniform)
+    | FillSep _ _, Inl (Both _ flat) | Inr flat, uniform => rewrite flat then (uniform, restUniform)
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
-        | Doc.Nothing, steps, _ => rewrite repeatedly [steps]
-        | BreakParent, steps, _ => rewrite repeatedly [steps]
-        | Chunk text width, steps, _ => rewrite repeatedly [steps]
-        | Closing text, steps, _ => rewrite repeatedly [steps]
+        | Doc.Nothing | BreakParent | Chunk _ _ | Closing _, steps, _ => rewrite repeatedly [steps]
         | Line, steps, _ =>
           rewrite steps then
             eitherUniform _ (printer.write indent " " 1, rest) (printer.newline indent, rest) restUniform restUniform
         | SoftLine, steps, _ =>
           rewrite steps then eitherUniform _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
-        | HardLine, steps, _ => rewrite repeatedly [steps]
-        | Mark key, steps, _ => rewrite repeatedly [steps]
-        | CloserLine key, steps, _ => rewrite repeatedly [steps]
-        | LineStart, steps, _ => rewrite repeatedly [steps]
+        | HardLine | Mark _ | CloserLine _ | LineStart, steps, _ => rewrite repeatedly [steps]
         | LineStartHere, steps, _ =>
           rewrite steps then
             eitherUniform _
@@ -633,19 +610,12 @@ theorem Doc.Proofs.stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd
               restUniform
               restUniform
         | Blank, steps, _ => rewrite repeatedly [steps]
-        | Nest more inner, steps, uniform => rewrite steps then (uniform, restUniform)
-        | Align inner, steps, uniform => rewrite steps then (uniform, restUniform)
-        | AlignInset inner, steps, uniform => rewrite steps then (uniform, restUniform)
-        | Displaced inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Nest _ _ | Align _ | AlignInset _ | Displaced _, steps, uniform => rewrite steps then (uniform, restUniform)
         | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
         | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
-        | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-        | NarrowGroup max inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-        | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
-        | NarrowGroup max inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
-        | IdGroup id inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-        | IdGroup id inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), uniform =>
+          rewrite flat then (uniform, restUniform)
         | IfBroken id broken flat, steps, Both brokenUniform (Both flatUniform _) =>
           rewrite steps then ((pickUniform printer.modes id broken flat brokenUniform flatUniform), restUniform)
         | Concat docs, steps, uniform =>
@@ -679,8 +649,7 @@ theorem Doc.Proofs.optionSteps ∀ (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options):
     chosen.steps ≤ stepsOf options + 1 :=
   match options, isOption with
-    | [], picked => rewrite picked then arithmetic
-    | [last], picked => rewrite picked then arithmetic
+    | [] | [_], picked => rewrite picked then arithmetic
     | [option, next, ..others], Inl picked => rewrite picked then arithmetic
     | [option, next, ..others], Inr later =>
       let bound := optionSteps chosen [next, ..others] later
@@ -692,8 +661,7 @@ theorem Doc.Proofs.readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List 
     (steps: StepsTo printer cmd rest result):
     stackCost result.snd < cmd.cost + stackCost rest :=
   match cmd, steps with
-    | FillSep indent item, Inl (Both _ flat) => rewrite flat then arithmetic
-    | FillSep indent item, Inr broken => rewrite broken then arithmetic
+    | FillSep _ _, Inl (Both _ flat) | Inr flat => rewrite flat then arithmetic
     | Print indent mode doc, steps =>
       match doc, steps with
         | Doc.Nothing, steps => rewrite steps then stepLighter printer 0 (Print indent mode Doc.Nothing) rest
@@ -720,12 +688,8 @@ theorem Doc.Proofs.readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List 
         | LineSuffix comment, steps =>
           rewrite steps then stepLighter printer 0 (Print indent mode (LineSuffix comment)) rest
         | Concat docs, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Concat docs)) rest
-        | Group inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
-        | NarrowGroup max inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
-        | Group inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
-        | NarrowGroup max inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
-        | IdGroup id inner hard, Inl (Both _ flat) => rewrite flat then arithmetic
-        | IdGroup id inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat) =>
+          rewrite flat then arithmetic
         | IfBroken id broken flat, steps =>
           rewrite steps then stepLighter printer 0 (Print indent mode (IfBroken id broken flat)) rest
         | Fill [], steps => rewrite steps then arithmetic
@@ -818,19 +782,16 @@ theorem Doc.Proofs.readingEvery ∀ (holds: Text → Prop) (printer: Printer) (f
 def Doc.Proofs.Marked (closer suffix: Text → Prop): Doc → Prop
   | Closing text => closer text
   | LineSuffix comment => suffix comment
-  | Nest _ inner => Marked closer suffix inner
-  | Align inner => Marked closer suffix inner
-  | AlignInset inner => Marked closer suffix inner
-  | Displaced inner => Marked closer suffix inner
-  | Group inner _ => Marked closer suffix inner
-  | NarrowGroup _ inner _ => Marked closer suffix inner
-  | IdGroup _ inner _ => Marked closer suffix inner
+  | Nest _ inner |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ => Marked closer suffix inner
   | IfBroken _ broken flat => Marked closer suffix broken ∧ Marked closer suffix flat
-  | Flatten inner => Marked closer suffix inner
-  | OneLineBelow inner => Marked closer suffix inner
-  | Concat docs => AllMarked closer suffix docs
-  | Fill items => AllMarked closer suffix items
-  | Choice options => AllMarked closer suffix options
+  | Flatten inner | OneLineBelow inner => Marked closer suffix inner
+  | Concat docs | Fill docs | Choice docs => AllMarked closer suffix docs
   | _ => True
 
 --| Every doc is `Marked` with the closer and suffix tests.
@@ -840,8 +801,7 @@ def Doc.Proofs.AllMarked (closer suffix: Text → Prop): List Doc → Prop
 
 --| A command's doc is `Marked` with the closer and suffix tests.
 def Doc.Proofs.CmdMarked (closer suffix: Text → Prop): Cmd → Prop
-  | Print _ _ doc => Marked closer suffix doc
-  | FillSep _ item => Marked closer suffix item
+  | Print _ _ doc | FillSep _ doc => Marked closer suffix doc
 
 --| Every command on the work list is `CmdMarked`.
 def Doc.Proofs.StackMarked (closer suffix: Text → Prop): List Cmd → Prop
@@ -929,14 +889,10 @@ theorem Doc.Proofs.stepMarked ∀ (closer suffix: Text → Prop) (printer: Print
     (restUniform: StackMarked closer suffix rest):
     StackMarked closer suffix result.snd :=
   match cmd, steps, uniform with
-    | FillSep indent item, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-    | FillSep indent item, Inr broken, uniform => rewrite broken then (uniform, restUniform)
+    | FillSep _ _, Inl (Both _ flat) | Inr flat, uniform => rewrite flat then (uniform, restUniform)
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
-        | Doc.Nothing, steps, _ => rewrite repeatedly [steps]
-        | BreakParent, steps, _ => rewrite repeatedly [steps]
-        | Chunk text width, steps, _ => rewrite repeatedly [steps]
-        | Closing text, steps, _ => rewrite repeatedly [steps]
+        | Doc.Nothing | BreakParent | Chunk _ _ | Closing _, steps, _ => rewrite repeatedly [steps]
         | Line, steps, _ =>
           rewrite steps then
             eitherMarked closer suffix _
@@ -947,10 +903,7 @@ theorem Doc.Proofs.stepMarked ∀ (closer suffix: Text → Prop) (printer: Print
         | SoftLine, steps, _ =>
           rewrite steps then
             eitherMarked closer suffix _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
-        | HardLine, steps, _ => rewrite repeatedly [steps]
-        | Mark key, steps, _ => rewrite repeatedly [steps]
-        | CloserLine key, steps, _ => rewrite repeatedly [steps]
-        | LineStart, steps, _ => rewrite repeatedly [steps]
+        | HardLine | Mark _ | CloserLine _ | LineStart, steps, _ => rewrite repeatedly [steps]
         | LineStartHere, steps, _ =>
           rewrite steps then
             eitherMarked closer suffix _
@@ -959,19 +912,12 @@ theorem Doc.Proofs.stepMarked ∀ (closer suffix: Text → Prop) (printer: Print
               restUniform
               restUniform
         | Blank, steps, _ => rewrite repeatedly [steps]
-        | Nest more inner, steps, uniform => rewrite steps then (uniform, restUniform)
-        | Align inner, steps, uniform => rewrite steps then (uniform, restUniform)
-        | AlignInset inner, steps, uniform => rewrite steps then (uniform, restUniform)
-        | Displaced inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Nest _ _ | Align _ | AlignInset _ | Displaced _, steps, uniform => rewrite steps then (uniform, restUniform)
         | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
         | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
-        | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-        | NarrowGroup max inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-        | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
-        | NarrowGroup max inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
-        | IdGroup id inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
-        | IdGroup id inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), uniform =>
+          rewrite flat then (uniform, restUniform)
         | IfBroken id broken flat, steps, Both brokenMarked flatMarked =>
           rewrite steps then
             ((pickMarked closer suffix printer.modes id broken flat brokenMarked flatMarked), restUniform)
@@ -1087,9 +1033,7 @@ theorem Doc.Proofs.displaceQuiet ∀ (suffix: Text → Prop) (printer: Printer) 
 theorem Doc.Proofs.blankQuiet ∀ (suffix: Text → Prop) (printer: Printer)
     (waits: Every suffix printer.suffixes):
     Every suffix printer.blank.suffixes :=
-  match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
-    | True => waits
-    | False => waits
+  match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with | True | False => waits
 
 --| A step that goes one way or the other leaves every waiting comment
 --| satisfying the test if each way does.
@@ -1114,8 +1058,7 @@ theorem Doc.Proofs.stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printe
     | FillSep indent item, Inr broken, _ => rewrite broken then newlineQuiet suffix printer indent
     | Print indent mode doc, steps, marked =>
       match doc, steps, marked with
-        | Doc.Nothing, steps, _ => rewrite steps then waits
-        | BreakParent, steps, _ => rewrite steps then waits
+        | Doc.Nothing | BreakParent, steps, _ => rewrite steps then waits
         | Chunk text width, steps, _ => rewrite steps then writeQuiet suffix printer indent text width waits
         | Closing text, steps, _ => rewrite steps then closeQuiet suffix printer text waits
         | Line, steps, _ =>
@@ -1144,27 +1087,16 @@ theorem Doc.Proofs.stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printe
               waits
               (newlineQuiet suffix printer indent)
         | Blank, steps, _ => rewrite steps then blankQuiet suffix printer waits
-        | Nest more inner, steps, _ => rewrite steps then waits
-        | Align inner, steps, _ => rewrite steps then waits
-        | AlignInset inner, steps, _ => rewrite steps then waits
+        | Nest _ _ | Align _ | AlignInset _, steps, _ => rewrite steps then waits
         | Displaced inner, steps, _ => rewrite steps then displaceQuiet suffix printer indent waits
-        | OneLineBelow inner, steps, _ => rewrite steps then waits
-        | Flatten inner, steps, _ => rewrite steps then waits
+        | OneLineBelow _ | Flatten _, steps, _ => rewrite steps then waits
         | LineSuffix comment, steps, isSuffix =>
           rewrite steps then everyAppend suffix printer.suffixes [comment] waits ((isSuffix, byComputing))
-        | Group inner hard, Inl (Both _ flat), _ => rewrite flat then waits
-        | NarrowGroup max inner hard, Inl (Both _ flat), _ => rewrite flat then waits
-        | Group inner hard, Inr (Both _ broken), _ => rewrite broken then waits
-        | NarrowGroup max inner hard, Inr (Both _ broken), _ => rewrite broken then waits
-        | IdGroup id inner hard, Inl (Both _ flat), _ => rewrite flat then waits
-        | IdGroup id inner hard, Inr (Both _ broken), _ => rewrite broken then waits
-        | IfBroken id broken flat, steps, _ => rewrite steps then waits
-        | Concat docs, steps, _ => rewrite steps then waits
-        | Fill [], steps, _ => rewrite steps then waits
-        | Fill [first, ..others], Inl (Both _ flat), _ => rewrite flat then waits
-        | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), _ => rewrite broken then waits
-        | Choice options, Inl (Both _ flat), _ => rewrite flat then waits
-        | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), _ => rewrite broken then waits
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), _ =>
+          rewrite flat then waits
+        | IfBroken _ _ _ | Concat _ | Fill [], steps, _ => rewrite steps then waits
+        | Fill [_, .._], Inl (Both _ flat) | Inr (Both _ (Witness _ flat)), _ => rewrite flat then waits
+        | Choice _, Inl (Both _ flat) | Inr (Both _ (Witness _ (Both _ flat))), _ => rewrite flat then waits
 
 -- The order of the words.
 
@@ -1251,8 +1183,7 @@ theorem Doc.Proofs.readingWords ∀ (keep: Text → Bool) (closer suffix: Text �
     (enough: stackCost stack ≤ fuel):
     final.words.filter keep = (printer.words ++ stackWords stack).filter keep :=
   match fuel, stack, reads, uniform, marked with
-    | Zero, [], reads, _, _ => rewrite repeatedly [reads, List.appendNil]
-    | Succ more, [], reads, _, _ => rewrite repeatedly [reads, List.appendNil]
+    | Zero | Succ _, [], reads, _, _ => rewrite repeatedly [reads, List.appendNil]
     | Zero, [cmd, ..rest], _, _, _ =>
       let positive := costPositive cmd
       Void.impossible (arithmetic)

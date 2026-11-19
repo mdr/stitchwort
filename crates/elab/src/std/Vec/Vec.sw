@@ -380,8 +380,7 @@ theorem Vec.getOrPast ∀ (v: Vec a n) (i: Nat) (d: a) (h: n ≤ i): Vec.getOr v
 
 --| `headOr` is index 0.
 theorem Vec.headOrGetOr ∀ (v: Vec a n) (d: a): Vec.headOr v d = Vec.getOr v 0 d := match v with
-  | VNil => byComputing
-  | VCons x xs => byComputing
+  | VNil | VCons _ _ => byComputing
 
 --| Copies of x, read with x as the default, are x everywhere.
 theorem Vec.getOrReplicate ∀ (x: a) (n i: Nat): Vec.getOr (Vec.replicate n x) i x = x := match n, i with
@@ -453,8 +452,7 @@ theorem Vec.countLe ∀ (v: Vec a n) (p: a → Bool): Vec.count v p ≤ n := mat
   | VCons x xs =>
     rewrite Vec.countToList (VCons x xs) p, List.countCons (Vec.toList xs) x p, <- Vec.countToList xs p then
       match p x with
-        | True => arithmetic [Vec.countLe xs p]
-        | False => arithmetic [Vec.countLe xs p]
+        | True | False => arithmetic [Vec.countLe xs p]
 
 --| Vectors that agree at every index are equal (one default for both).
 theorem Vec.extGetOr ∀ (u: Vec a n) (d: a) (v: Vec a n) (h: ∀ (i: Nat) => Vec.getOr u i d = Vec.getOr v i d): u = v :=

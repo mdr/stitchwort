@@ -82,8 +82,7 @@ theorem List.getOrScanAdd ∀ (row: List Nat) (start c: Nat)
     (h: c ≤ List.length row):
     List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0) :=
   match row, c with
-    | [], Zero => (Nat.addZero start).flipped
-    | [x, ..xs], Zero => (Nat.addZero start).flipped
+    | [] | [_, .._], Zero => (Nat.addZero start).flipped
     | [x, ..xs], Succ c =>
       rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr [x, ..xs] i 0) c then
         arithmetic

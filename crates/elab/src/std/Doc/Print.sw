@@ -164,8 +164,7 @@ def Doc.Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd)
 def Doc.Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: Doc) (rest: List Cmd):
     (Printer, List Cmd) :=
   match doc with
-    | Doc.Nothing => (printer, rest)
-    | BreakParent => (printer, rest)
+    | Doc.Nothing | BreakParent => (printer, rest)
     | Chunk text width => (printer.write indent text width, rest)
     | Closing text => (printer.close text, rest)
     -- A flat `Line` after a waiting trailing comment is a held space:
@@ -478,9 +477,7 @@ def Doc.fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, 
             | _ => True
         | [(indent, mode, doc), ..stack] =>
           match doc with
-            | Doc.Nothing => fitsFrom more width modes stack rest left lineIndent suffix
-            | Blank => fitsFrom more width modes stack rest left lineIndent suffix
-            | Mark _ => fitsFrom more width modes stack rest left lineIndent suffix
+            | Doc.Nothing | Blank | Mark _ => fitsFrom more width modes stack rest left lineIndent suffix
             | LineSuffix _ => fitsFrom more width modes stack rest left lineIndent suffix.noted
             | BreakParent => not mode.isFlat && fitsFrom more width modes stack rest left lineIndent suffix
             | Chunk text textWidth =>
@@ -512,35 +509,13 @@ def Doc.fitsFrom (fuel width: Nat) (modes: List (Nat, Mode)) (stack: List (Nat, 
                 || (match suffix with
                   | Clear => fitsFrom more width modes stack rest left lineIndent Clear
                   | Pending held _ => fitsFrom more width modes stack rest left lineIndent (Pending held True))
-            | HardLine => not mode.isFlat
-            | LineStart => not mode.isFlat
-            | LineStartHere => not mode.isFlat
-            | CloserLine _ => not mode.isFlat
+            | HardLine | LineStart | LineStartHere | CloserLine _ => not mode.isFlat
             | Nest extra inner =>
               fitsFrom more width modes [(indent + extra, mode, inner), ..stack] rest left lineIndent suffix
-            | Align inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
-            | AlignInset inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
-            | Displaced inner => fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
+            | Align inner | AlignInset inner | Displaced inner =>
+              fitsFrom more width modes [(indent, mode, inner), ..stack] rest left lineIndent suffix
             | Flatten inner => fitsFrom more width modes [(indent, Flat, inner), ..stack] rest left lineIndent suffix
-            | Group inner hard =>
-              if hard && mode.isFlat then False
-              else
-                fitsFrom more width modes
-                  [(indent, if hard then Break else mode, inner), ..stack]
-                  rest
-                  left
-                  lineIndent
-                  suffix
-            | NarrowGroup _ inner hard =>
-              if hard && mode.isFlat then False
-              else
-                fitsFrom more width modes
-                  [(indent, if hard then Break else mode, inner), ..stack]
-                  rest
-                  left
-                  lineIndent
-                  suffix
-            | IdGroup _ inner hard =>
+            | Group inner hard | NarrowGroup _ inner hard | IdGroup _ inner hard =>
               if hard && mode.isFlat then False
               else
                 fitsFrom more width modes

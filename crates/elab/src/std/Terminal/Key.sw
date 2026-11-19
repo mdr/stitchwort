@@ -176,36 +176,22 @@ def Key.allWithin: (limit: Nat) → (bytes: List Nat) → List Key
   | Succ limit, bytes =>
     match Key.next bytes with
       | Got key rest => [key, ..Key.allWithin limit rest]
-      | Incomplete => []
-      | NoBytes => []
+      | Incomplete | NoBytes => []
 
 --| The round trip a terminal makes: the bytes it sends for a named key, then
 --| anything at all, decode to that key and the rest. Not for `Escape`, whose
 --| byte also starts the other sequences ([`Key.nextEscape`] says when it holds),
 --| or for the keys with a character, `Printable` and `Ctrl`.
 def Key.isNamed: (key: Key) → Bool
-  | Printable char => False
-  | Escape => False
-  | Ctrl letter => False
+  | Printable _ | Escape | Ctrl _ => False
   | _ => True
 
 theorem Key.nextBytes ∀ (rest: List Nat) (key: Key)
     (h: Key.isNamed key = True):
     Key.next (List.append (Key.bytes key) rest) = Got key rest :=
   match key with
-    | Enter => byComputing
-    | Tab => byComputing
-    | Backspace => byComputing
-    | Delete => byComputing
-    | Up => byComputing
-    | Down => byComputing
-    | Left => byComputing
-    | Right => byComputing
-    | Home => byComputing
-    | End => byComputing
-    | PageUp => byComputing
-    | PageDown => byComputing
-    | Unknown => byComputing
+    | Enter | Tab | Backspace | Delete | Up | Down | Left | Right | Home | End | PageUp | PageDown | Unknown =>
+      byComputing
 
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
 --| the end of the bytes is `Incomplete` (the handler decides).

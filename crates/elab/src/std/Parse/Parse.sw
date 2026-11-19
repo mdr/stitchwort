@@ -804,16 +804,13 @@ theorem Parse.runFromNext ∀ (state: Parse.State t) (passes: t → Bool) (k: Op
     | [] => byComputing
     | [char, ..after] =>
       match holds: passes char with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
 
 --| `literal`: the handler's step, as `Parse.State.literal` gives it.
 theorem Parse.runFromLiteral ∀ (state: Parse.State t) (literal: Parse.Literal t) (k: Bool → {Parse t} a):
     Parse.runFrom state (() => k (Parse.literal literal))
       = Parse.runFrom (state.literal literal).snd (() => k (state.literal literal).fst) :=
-  match stripped: List.stripPrefixBy state.at.rest literal.items literal.same with
-    | None => byComputing
-    | Some after => byComputing
+  match stripped: List.stripPrefixBy state.at.rest literal.items literal.same with | None | Some _ => byComputing
 
 theorem Parse.runFromSpan ∀ (state: Parse.State t) (passes: t → Bool) (k: List t → {Parse t} a):
     Parse.runFrom state (() => k (Parse.span passes))

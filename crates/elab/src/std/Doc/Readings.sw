@@ -33,10 +33,7 @@ def Doc.Proofs.StepsTo (printer: Printer) (cmd: Cmd) (rest: List Cmd) (next: (Pr
         ∨ next = (printer.newline indent, [Print indent Break item, ..rest])
     | Print indent mode doc =>
       match doc with
-        | Group inner hard =>
-          ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
-            ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
-        | NarrowGroup _ inner hard =>
+        | Group inner hard | NarrowGroup _ inner hard =>
           ((mode.isFlat = True ∨ hard = False) ∧ next = (printer, [Print indent Flat inner, ..rest]))
             ∨ (mode.isFlat = False ∧ next = (printer, [Print indent Break inner, ..rest]))
         | IdGroup id inner hard =>

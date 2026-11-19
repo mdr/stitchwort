@@ -57,14 +57,10 @@ theorem Nat.mulAssoc ∀ (a b c: Nat): (a * b) * c = a * (b * c) := match a with
 
 -- Addition laws, after Lean's core: case analysis on the constructors plus
 -- lemmas about `Int.subNatNat`.
-theorem Int.subNatNatZeroRight ∀ (m: Nat): Int.subNatNat m 0 = OfNat m := match m with
-  | Zero => byComputing
-  | Succ m => byComputing
+theorem Int.subNatNatZeroRight ∀ (m: Nat): Int.subNatNat m 0 = OfNat m := match m with | Zero | Succ _ => byComputing
 
 theorem Int.subNatNatFromSucc ∀ (m n t: Nat): Int.subNatNatFrom (Succ m) (Succ n) t = Int.subNatNatFrom m n t :=
-  match t with
-    | Zero => byComputing
-    | Succ t => byComputing
+  match t with | Zero | Succ _ => byComputing
 
 theorem Int.subNatNatSucc ∀ (m n: Nat): Int.subNatNat (Succ m) (Succ n) = Int.subNatNat m n :=
   Int.subNatNatFromSucc m n (n - m)
@@ -73,9 +69,7 @@ theorem Int.addZero ∀ (a: Int): Int.add a (OfNat 0) = a := match a with
   | OfNat m => Eq.cong OfNat (Nat.addZero m)
   | NegSucc m => byComputing
 
-theorem Int.zeroAdd ∀ (a: Int): Int.add (OfNat 0) a = a := match a with
-  | OfNat m => byComputing
-  | NegSucc m => byComputing
+theorem Int.zeroAdd ∀ (a: Int): Int.add (OfNat 0) a = a := match a with | OfNat _ | NegSucc _ => byComputing
 
 theorem Int.addComm ∀ (a b: Int): Int.add a b = Int.add b a := match a, b with
   | OfNat m, OfNat n => Eq.cong OfNat (Nat.addComm m n)
@@ -156,8 +150,7 @@ def Bool.xor: (x: Bool) → (y: Bool) → Bool
 theorem Bool.xorAssoc ∀ (a b c: Bool): Bool.xor (Bool.xor a b) c = Bool.xor a (Bool.xor b c) := match a, b, c with
   | False, b, c => byComputing
   | True, False, c => byComputing
-  | True, True, False => byComputing
-  | True, True, True => byComputing
+  | True, True, False | True => byComputing
 
 --| Whether the integer is below zero.
 def Int.isNeg: (x: Int) → Bool
@@ -173,18 +166,13 @@ def Int.signed: (negative: Bool) → (n: Nat) → Int
 --| `b`'s, negated when exactly one of them is negative.
 theorem Int.mulSigned ∀ (a b: Int):
     Int.mul a b = Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b) :=
-  match a, b with
-    | OfNat m, OfNat n => byComputing
-    | OfNat m, NegSucc n => byComputing
-    | NegSucc m, OfNat n => byComputing
-    | NegSucc m, NegSucc n => byComputing
+  match a, b with | OfNat _ | NegSucc _, OfNat _ | NegSucc _ => byComputing
 
 theorem Int.signedMulLeft ∀ (s: Bool) (k: Nat) (c: Int):
     Int.mul (Int.signed s k) c = Int.signed (Bool.xor s (Int.isNeg c)) (k * Int.natAbs c) :=
   match s, k, c with
     | False, k, c => Int.mulSigned (OfNat k) c
-    | True, Zero, OfNat n => byComputing
-    | True, Zero, NegSucc n => byComputing
+    | True, Zero, OfNat _ | NegSucc _ => byComputing
     | True, Succ j, c => Int.mulSigned (NegSucc j) c
 
 theorem Int.signedMulRight ∀ (a: Int) (s: Bool) (k: Nat):

@@ -10,8 +10,7 @@ theorem Map.lookupLastBelow ∀ (k s: Nat) (xs: List a) (h: k < s): Map.lookupLa
       rewrite Map.lookupLastBelow k (Succ s) xs (arithmetic) then
         match c: Nat.compare k s with
           | Equal => arithmetic [Nat.compareEqual k s c]
-          | Less => byComputing
-          | Greater => byComputing
+          | Less | Greater => byComputing
 
 --| Position s + i of the elements numbered from s is element i.
 theorem Map.lookupLastWithIndex ∀ (d: a) (s i: Nat) (xs: List a):
@@ -29,8 +28,7 @@ theorem Map.lookupLastWithIndex ∀ (d: a) (s i: Nat) (xs: List a):
           | None =>
             match c: Nat.compare (Succ (s + i)) s with
               | Equal => arithmetic [Nat.compareEqual (Succ (s + i)) s c]
-              | Less => ih
-              | Greater => ih
+              | Less | Greater => ih
 
 --| Looking up a position in `Map.byPosition xs` is `List.getOr` on `xs`,
 --| inside the list and past its end.
@@ -52,8 +50,7 @@ theorem Map.lookupLastWithIndexGet ∀ (s i: Nat) (xs: List a):
           | None =>
             match c: Nat.compare (Succ (s + i)) s with
               | Equal => arithmetic [Nat.compareEqual (Succ (s + i)) s c]
-              | Less => rewrite <- r then Map.lookupLastWithIndexGet (Succ s) i xs
-              | Greater => rewrite <- r then Map.lookupLastWithIndexGet (Succ s) i xs
+              | Less | Greater => rewrite <- r then Map.lookupLastWithIndexGet (Succ s) i xs
 
 --| Looking up a position in `Map.byPosition xs` is `List.get` on `xs`, inside
 --| the list and past its end. The `getOr` version is [`Map.getOrByPosition`].

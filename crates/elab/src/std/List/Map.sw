@@ -30,9 +30,7 @@ test "List.sumByOne" := List.sumBy ["a", "b", "c"] (x => 1) == 3
 
 theorem List.scanLeftCons ∀ (xs: List a) (z: b) (f: b → a → b):
     List.scanLeft xs z f = [z, ..List.drop (List.scanLeft xs z f) 1] :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] => byComputing
+  match xs with | [] | [_, .._] => byComputing
 
 theorem List.scanLeftAppend ∀ (xs: List a) (z: b) (ys: List a) (f: b → a → b):
     List.drop (List.scanLeft (List.append xs ys) z f) 1
@@ -178,13 +176,11 @@ theorem List.filterMapAppend ∀ (xs ys: List a) (f: a → Option b):
         | Some y => rewrite List.filterMapAppend xs ys f
 
 theorem List.initMap ∀ (xs: List a) (f: a → b): List.init (List.map xs f) = List.map (List.init xs) f := match xs with
-  | [] => byComputing
-  | [x] => byComputing
+  | [] | [_] => byComputing
   | [x, y, ..ys] => rewrite List.initMap [y, ..ys] f
 
 theorem List.lastMap ∀ (xs: List a) (f: a → b): List.last (List.map xs f) = Option.map (List.last xs) f := match xs with
-  | [] => byComputing
-  | [x] => byComputing
+  | [] | [_] => byComputing
   | [x, y, ..ys] => List.lastMap [y, ..ys] f
 theorem List.mapRangeFromShift ∀ (f: Nat → b) (n s: Nat):
     List.map (List.rangeFrom n (Succ s)) f = List.map (List.rangeFrom n s) (i => f (Succ i)) :=
@@ -393,9 +389,7 @@ theorem List.allAnd ∀ (xs: List a) (p q: a → Bool): List.all xs (x => p x �
 
 theorem Option.flatMapMap ∀ (m: Option a) (g: b → Option c) (f: a → b):
     Option.flatMap (Option.map m f) g = Option.flatMap m (x => g (f x)) :=
-  match m with
-    | None => byComputing
-    | Some x => byComputing
+  match m with | None | Some _ => byComputing
 
 theorem List.lengthZipWith3 ∀ (f: a → b → c → e) (xs: List a) (ys: List b) (zs: List c)
     (h1: List.length ys = List.length xs)
@@ -435,33 +429,26 @@ theorem List.lengthZipWith4Le ∀ (f: a → b → c → d → e) (xs: List a) (y
 
 --| Zipping with an empty list in a later place gives nothing.
 theorem List.zipWith3NilSecond ∀ (zs: List c) (f: a → b → c → d) (xs: List a): List.zipWith3 xs [] zs f = [] :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] => byComputing
+  match xs with | [] | [_, .._] => byComputing
 
 theorem List.zipWith3NilThird ∀ (f: a → b → c → d) (xs: List a) (ys: List b): List.zipWith3 xs ys [] f = [] :=
   match xs, ys with
     | [], ys => byComputing
-    | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] => byComputing
+    | [_, .._], [] | [_, .._] => byComputing
 
 theorem List.zipWith4NilSecond ∀ (zs: List c) (ws: List d) (f: a → b → c → d → e) (xs: List a):
     List.zipWith4 xs [] zs ws f = [] :=
-  match xs with
-    | [] => byComputing
-    | [x, ..xs] => byComputing
+  match xs with | [] | [_, .._] => byComputing
 
 theorem List.zipWith4NilThird ∀ (ws: List d) (f: a → b → c → d → e) (xs: List a) (ys: List b):
     List.zipWith4 xs ys [] ws f = [] :=
   match xs, ys with
     | [], ys => byComputing
-    | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] => byComputing
+    | [_, .._], [] | [_, .._] => byComputing
 
 theorem List.zipWith4NilFourth ∀ (f: a → b → c → d → e) (xs: List a) (ys: List b) (zs: List c):
     List.zipWith4 xs ys zs [] f = [] :=
   match xs, ys, zs with
     | [], ys, zs => byComputing
     | [x, ..xs], [], zs => byComputing
-    | [x, ..xs], [y, ..ys], [] => byComputing
-    | [x, ..xs], [y, ..ys], [z, ..zs] => byComputing
+    | [_, .._], [_, .._], [] | [_, .._] => byComputing

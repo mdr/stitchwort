@@ -111,8 +111,7 @@ def Effect.swapReply: [l r: Type]
       → (o: Plus l r)
       → (reply: PlusRes rres lres (swapOp o))
       → PlusRes lres rres o
-  | L o, x => x
-  | R o, x => x
+  | L _ | R _, x => x
 
 --| Reordering: the mapping from `{l, r}` to `{r, l}`.
 def Effect.sigSwap: [l r: Type]

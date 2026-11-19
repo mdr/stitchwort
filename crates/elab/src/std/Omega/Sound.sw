@@ -177,8 +177,7 @@ theorem Omega.leRowHolds ∀ (env: Omega.Env) (a b: Omega.NTerm)
 
 --| `-1 - n` is `NegSucc n`.
 theorem Omega.negSuccOfNat ∀ (n: Nat): Int.add (NegSucc 0) (Int.neg (OfNat n)) = NegSucc n := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+  | Zero | Succ _ => byComputing
 
 --| The linear form of an `Int` term means the term.
 theorem Omega.ilinEval ∀ (env: Omega.Env) (t: Omega.ITerm):
@@ -224,9 +223,7 @@ theorem Omega.ilinEval ∀ (env: Omega.Env) (t: Omega.ITerm):
 
 -- `Int`'s order, by cases on the constructors down to `Nat`'s.
 
-theorem Omega.intLeqRefl ∀ (a: Int): Int.leq a a = True := match a with
-  | OfNat m => Nat.leRefl m
-  | NegSucc m => Nat.leRefl m
+theorem Omega.intLeqRefl ∀ (a: Int): Int.leq a a = True := match a with | OfNat m | NegSucc m => Nat.leRefl m
 
 theorem Omega.intLeqOfEq ∀ [a b: Int] (e: a = b): Int.leq a b = True :=
   J (y p => Int.leq a y = True) (Omega.intLeqRefl a) e
@@ -242,16 +239,14 @@ theorem Omega.natLeqAddOne ∀ (m n: Nat) (h: m < n): m + 1 ≤ n := J (y p => N
 theorem Omega.intLeqOfLess ∀ (a b: Int) (h: Int.less a b = True): Int.leq (Int.add a (OfNat 1)) b = True :=
   match a, b with
     | OfNat m, OfNat n => Omega.natLeqAddOne m n h
-    | NegSucc Zero, OfNat n => byComputing
-    | NegSucc (Succ m), OfNat n => byComputing
+    | NegSucc Zero | NegSucc (Succ _), OfNat _ => byComputing
     | NegSucc (Succ m), NegSucc n => h
 
 --| `Not (a <= b)` is `b + 1 <= a`.
 theorem Omega.intLeqOfNotLeq ∀ (a b: Int) (h: Int.leq a b = False): Int.leq (Int.add b (OfNat 1)) a = True :=
   match a, b with
     | OfNat m, OfNat n => Omega.natLeqAddOne n m h.read
-    | OfNat m, NegSucc Zero => byComputing
-    | OfNat m, NegSucc (Succ n) => byComputing
+    | OfNat _, NegSucc Zero | NegSucc (Succ _) => byComputing
     | NegSucc m, NegSucc (Succ n) => h.read
 
 --| `Not (a < b)` is `b <= a`.

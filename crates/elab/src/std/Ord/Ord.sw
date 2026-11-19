@@ -62,8 +62,7 @@ theorem Ord.minLeLeft ∀ [auto ord: Ord a] (x y: a): Ord.min x y <= x := match 
   | Greater =>
     let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
     ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans flipped.flipped greater))
-  | Less => Ord.leRefl x
-  | Equal => Ord.leRefl x
+  | Less | Equal => Ord.leRefl x
 
 theorem Ord.minLeRight ∀ [auto ord: Ord a] (x y: a): Ord.min x y <= y := match order: Ord.compare x y with
   | Greater => Ord.leRefl y
@@ -73,8 +72,7 @@ theorem Ord.minLeRight ∀ [auto ord: Ord a] (x y: a): Ord.min x y <= y := match
 theorem Ord.minEither ∀ [auto ord: Ord a] (x y: a): (Ord.min x y = x) ∨ (Ord.min x y = y) :=
   match order: Ord.compare x y with
     | Greater => Inr byComputing
-    | Less => Inl byComputing
-    | Equal => Inl byComputing
+    | Less | Equal => Inl byComputing
 
 --| The larger of a value and itself is that value.
 theorem Ord.maxSelf ∀ [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord.compareSelf x
@@ -82,8 +80,7 @@ theorem Ord.maxSelf ∀ [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord
 --| The larger of two values is at least each, and is one of them.
 theorem Ord.leMaxLeft ∀ [auto ord: Ord a] (x y: a): x <= Ord.max x y := match order: Ord.compare x y with
   | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans order.flipped greater))
-  | Greater => Ord.leRefl x
-  | Equal => Ord.leRefl x
+  | Greater | Equal => Ord.leRefl x
 
 theorem Ord.leMaxRight ∀ [auto ord: Ord a] (x y: a): y <= Ord.max x y := match order: Ord.compare x y with
   | Less => Ord.leRefl y
@@ -95,8 +92,7 @@ theorem Ord.leMaxRight ∀ [auto ord: Ord a] (x y: a): y <= Ord.max x y := match
 theorem Ord.maxEither ∀ [auto ord: Ord a] (x y: a): (Ord.max x y = x) ∨ (Ord.max x y = y) :=
   match order: Ord.compare x y with
     | Less => Inr byComputing
-    | Greater => Inl byComputing
-    | Equal => Inl byComputing
+    | Greater | Equal => Inl byComputing
 
 --| Values at most each other are equal.
 theorem Ord.leAntisymm ∀ [auto ord: Ord a] (x y: a) (h1: x <= y) (h2: y <= x): x = y :=

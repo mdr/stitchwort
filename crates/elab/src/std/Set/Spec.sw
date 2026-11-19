@@ -27,9 +27,7 @@ def Set.present: (option: Option ()) → Bool
 
 theorem Set.containsPresent ∀ [auto ord: Ord k] (key: k) (m: Map k ()):
     Map.contains m key = Set.present (Map.get m key) :=
-  match c: Map.get m key with
-    | None => byComputing
-    | Some u => byComputing
+  match c: Map.get m key with | None | Some _ => byComputing
 
 theorem Set.presentInjective ∀ (x y: Option ()) (h: Set.present x = Set.present y): x = y := match x, y with
   | None, None => byComputing
@@ -53,52 +51,34 @@ theorem Set.ext ∀ [auto ord: Ord k] (s t: Set k) (h: ∀ (key: k) => Set.conta
 
 theorem Map.containsKeySet ∀ [auto ord: Ord k] (m: Map k v) (key: k):
     Set.contains (Map.keySet m) key = Map.contains m key :=
-  rewrite Map.getMap m key (value => ()) then
-    match c: Map.get m key with
-      | None => byComputing
-      | Some value => byComputing
+  rewrite Map.getMap m key (value => ()) then match c: Map.get m key with | None | Some _ => byComputing
 
 theorem Map.getFromKeys ∀ [auto ord: Ord k] (ks: Set k) (f: k → v) (key: k):
     Map.get (Map.fromKeys ks f) key = (if Set.contains ks key then Some (f key) else None) :=
   rewrite Map.getMapWithKey ks.items key (key2 u => f key2) then
-    match c: Map.get ks.items key with
-      | None => byComputing
-      | Some u => byComputing
+    match c: Map.get ks.items key with | None | Some _ => byComputing
 
 theorem Map.getRemoveAll ∀ [auto ord: Ord k] (m: Map k v) (ks: Set k) (key: k):
     Map.get (Map.removeAll m ks) key = (if Set.contains ks key then None else Map.get m key) :=
   rewrite Map.getFilter m key (key2 value => ¬(Set.contains ks key2)) then
     match c: Set.contains ks key with
-      | True =>
+      | True | False =>
         match d: Map.get m key with
-          | None => byComputing
-          | Some value => byComputing
-      | False =>
-        match d: Map.get m key with
-          | None => byComputing
-          | Some value => byComputing
+          | None | Some _ => byComputing
 
 theorem Map.getKeepOnly ∀ [auto ord: Ord k] (m: Map k v) (ks: Set k) (key: k):
     Map.get (Map.keepOnly m ks) key = (if Set.contains ks key then Map.get m key else None) :=
   rewrite Map.getFilter m key (key2 value => Set.contains ks key2) then
     match c: Set.contains ks key with
-      | True =>
+      | True | False =>
         match d: Map.get m key with
-          | None => byComputing
-          | Some value => byComputing
-      | False =>
-        match d: Map.get m key with
-          | None => byComputing
-          | Some value => byComputing
+          | None | Some _ => byComputing
 
 -- The smallest and largest keys, and what `contains` says about each
 -- operation
 
 theorem Set.minToList ∀ (s: Set k [ord := o]): Set.min s = List.head (Set.toList s) :=
-  rewrite Map.minToList s.items then
-    match c: Map.toList s.items with
-      | [] => byComputing
-      | [e, ..rest] => byComputing
+  rewrite Map.minToList s.items then match c: Map.toList s.items with | [] | [_, .._] => byComputing
 
 theorem Set.maxToList ∀ (s: Set k [ord := o]): Set.max s = List.last (Set.toList s) :=
   rewrite Map.maxToList s.items then Set.lastMapFst (Map.toList s.items)
@@ -147,10 +127,7 @@ theorem Set.minOfContains ∀ [auto ord: Ord k] (s: Set k) (key: k)
 --| `popMin` is `min` and `remove` together.
 theorem Set.popMinSpec ∀ [auto ord: Ord k] (s: Set k):
     Set.popMin s = Option.map (Set.min s) (key => (key, Set.remove s key)) :=
-  rewrite Map.popMinSpec s.items then
-    match Map.min s.items with
-      | None => byComputing
-      | Some entry => byComputing
+  rewrite Map.popMinSpec s.items then match Map.min s.items with | None | Some _ => byComputing
 
 --| What `popMin` finds: the smallest key, and the set without it.
 theorem Set.popMinSome ∀ [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k)
@@ -208,8 +185,7 @@ theorem Set.containsOfRemove ∀ [auto ord: Ord k] (s: Set k) (key other: k)
 
 theorem Set.lastMapFst ∀ (xs: List (k, ())): Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst) :=
   match xs with
-    | [] => byComputing
-    | [e] => byComputing
+    | [] | [_] => byComputing
     | [e, f, ..rest] => Set.lastMapFst [f, ..rest]
 
 --| What `below` finds: a member below `key`, and no member between the two.
@@ -258,10 +234,7 @@ theorem Set.containsRemoveOther ∀ [auto ord: Ord k] (s: Set k) (key other: k)
 
 theorem Set.containsUnion ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Set.contains (Set.union a b) key = (Set.contains a key ∨ Set.contains b key) :=
-  rewrite Map.getUnion a.items key b.items then
-    match c: Map.get a.items key with
-      | None => byComputing
-      | Some u => byComputing
+  rewrite Map.getUnion a.items key b.items then match c: Map.get a.items key with | None | Some _ => byComputing
 
 theorem Set.containsFilter ∀ [auto ord: Ord k] (s: Set k) (key: k) (p: k → Bool):
     Set.contains (Set.filter s p) key = (Set.contains s key ∧ p key) :=
@@ -270,8 +243,7 @@ theorem Set.containsFilter ∀ [auto ord: Ord k] (s: Set k) (key: k) (p: k → B
       | None => byComputing
       | Some u =>
         match d: p key with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
 
 theorem Set.containsIntersect ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Set.contains (Set.intersect a b) key = (Set.contains a key ∧ Set.contains b key) :=
@@ -280,8 +252,7 @@ theorem Set.containsIntersect ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set 
       | None => byComputing
       | Some u =>
         match d: Map.get b.items key with
-          | None => byComputing
-          | Some u2 => byComputing
+          | None | Some _ => byComputing
 
 theorem Set.containsDifference ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Set.contains (Set.difference a b) key = (Set.contains a key ∧ ¬(Set.contains b key)) :=
@@ -290,8 +261,7 @@ theorem Set.containsDifference ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set
       | None => byComputing
       | Some u =>
         match d: Map.contains b.items key with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
 
 theorem Set.containsInsertOther ∀ [auto ord: Ord k] (s: Set k) (key other: k)
     (ne: other ≠ key):
@@ -333,16 +303,14 @@ theorem Set.containsFoldInsert ∀ [auto ord: Ord k] (s: Set k) (key: k) (xs: Li
   match xs with
     | [] =>
       match c: Set.contains s key with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | [x, ..rest] =>
       rewrite Set.containsFoldInsert (Set.insert s x) key rest then
         match e: Ord.compare key x with
           | Equal =>
             rewrite ord.equal key x e, Set.containsInsert x s then
               match c: Set.contains s x with
-                | True => byComputing
-                | False => byComputing
+                | True | False => byComputing
           | Less =>
             rewrite Set.containsInsertOther s x key
               (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
@@ -373,8 +341,7 @@ theorem Set.containsFromListIff ∀ [auto ord: Ord k] (xs: List k) (key: k):
 theorem Set.foldAll ∀ (q: k → Bool) (z: Bool) (xs: List (k, ())):
     Map.Spec.foldLeft (acc key unit => acc ∧ q key) z xs = (z ∧ List.all xs (e => q e.fst)) :=
   match z, xs with
-    | True, [] => byComputing
-    | False, [] => byComputing
+    | True | False, [] => byComputing
     | z, [(kk, u), ..rest] => rewrite Set.foldAll q (z ∧ q kk) rest
 
 theorem Set.allEntriesElim ∀ (q: k → Bool) (key: k) (xs: List (k, ()))
@@ -767,9 +734,7 @@ theorem Set.differenceInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
           Set.containsDifference a key (Set.insert b key),
           Set.containsInsert key b,
           Set.containsRemove (Set.difference a b) key then
-        match c: Set.contains a key with
-          | True => byComputing
-          | False => byComputing
+        match c: Set.contains a key with | True | False => byComputing
     else
       rewrite Set.containsDifference a other (Set.insert b key),
           Set.containsInsertOther b key other same,

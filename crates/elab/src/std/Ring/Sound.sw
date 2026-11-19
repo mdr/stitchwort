@@ -120,8 +120,7 @@ theorem Ring.evalCons ∀ (env: Ring.Env) (c: Int) (vs: List Nat) (p: List Ring.
         (Eq.trans
           (Eq.cong (t => Int.add t (Ring.Poly.eval env p)) (Int.zeroMul (Ring.prod env vs)))
           (Int.zeroAdd (Ring.Poly.eval env p)))
-    | OfNat (Succ n) => byComputing
-    | NegSucc n => byComputing
+    | OfNat (Succ _) | NegSucc _ => byComputing
 
 theorem Ring.evalInsert ∀ (env: Ring.Env) (c: Int) (vs: List Nat) (p: List Ring.Mono):
     Ring.Poly.eval env (Ring.insert c vs p) = Int.add (Int.mul c (Ring.prod env vs)) (Ring.Poly.eval env p) :=

@@ -945,9 +945,7 @@ theorem Parse.runsNewline ∀ (lineBreak rest: List Char)
 theorem Parse.lineBreakNotSpace ∀ (lineBreak rest: List Char)
     (isBreak: Parse.LineBreak lineBreak):
     (lineBreak ++ rest).takeWhile Parse.isSpace = [] :=
-  match isBreak with
-    | Inl same => rewrite same
-    | Inr same => rewrite same
+  match isBreak with | Inl same | Inr same => rewrite same
 
 --| `blankLine` on a line break, spaces and tabs, and a line break.
 theorem Parse.runsBlankLine ∀ (first blanks last rest: List Char)

@@ -489,16 +489,7 @@ theorem Nat.digitsRoundTrip: Nat.fromDigits (Nat.digits 9876543210).toList = 987
 --| Digit characters read back as their digits.
 theorem Char.digitValueChar ∀ (d: Nat) (h: Nat.leq d 9 = True): Char.digitValue (Nat.digitChar d) = Some d :=
   match d with
-    | 0 => byComputing
-    | 1 => byComputing
-    | 2 => byComputing
-    | 3 => byComputing
-    | 4 => byComputing
-    | 5 => byComputing
-    | 6 => byComputing
-    | 7 => byComputing
-    | 8 => byComputing
-    | 9 => byComputing
+    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 => byComputing
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ d))))))))) => cases
 
 theorem Char.digitsOntoValues ∀ (f n: Nat) (acc: List Char)

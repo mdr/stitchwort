@@ -13,13 +13,13 @@ import Doc.Proofs (..)
 --| The steps the printer can still take on `doc`, at most: a step on a
 --| node replaces it by its parts, which weigh less.
 def Doc.steps: Doc → Nat
-  | Nest _ inner => 1 + inner.steps
-  | Align inner => 1 + inner.steps
-  | AlignInset inner => 1 + inner.steps
-  | Displaced inner => 1 + inner.steps
-  | Group inner _ => 1 + inner.steps
-  | NarrowGroup _ inner _ => 1 + inner.steps
-  | IdGroup _ inner _ => 1 + inner.steps
+  | Nest _ inner |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ => 1 + inner.steps
   | IfBroken _ broken flat => 1 + broken.steps + flat.steps
   | Flatten inner => 1 + inner.steps
   | OneLineBelow inner => 2 + inner.steps
@@ -45,20 +45,20 @@ def Doc.Proofs.stackCost: List Cmd → Nat
 
 --| Every doc takes at least one step.
 theorem Doc.Proofs.stepsPositive ∀ (doc: Doc): 1 ≤ doc.steps := match doc with
-  | Nest more inner => arithmetic
-  | Align inner => arithmetic
-  | AlignInset inner => arithmetic
-  | Displaced inner => arithmetic
-  | Group inner hard => arithmetic
-  | NarrowGroup max inner hard => arithmetic
-  | IdGroup id inner hard => arithmetic
-  | IfBroken id broken flat => arithmetic
-  | Flatten inner => arithmetic
-  | OneLineBelow inner => arithmetic
-  | Concat docs => arithmetic
-  | Fill items => arithmetic
-  | Choice options => arithmetic
-  | _ => arithmetic
+  | Nest _ _ |
+      Align _ |
+      AlignInset _ |
+      Displaced _ |
+      Group _ _ |
+      NarrowGroup _ _ _ |
+      IdGroup _ _ _ |
+      IfBroken _ _ _ |
+      Flatten _ |
+      OneLineBelow _ |
+      Concat _ |
+      Fill _ |
+      Choice _ |
+      _ => arithmetic
 
 --| The cost of two work lists put together is the sum of their costs.
 theorem Doc.Proofs.stackCostAppend ∀ (front back: List Cmd):
@@ -84,8 +84,7 @@ theorem Doc.Proofs.costFillSeps ∀ (indent: Nat) (items: List Doc):
 --| Putting a `Line` between the items adds at most one step each.
 theorem Doc.Proofs.joinLinesSteps ∀ (items: List Doc): stepsOf (Doc.joinLines items) ≤ stepsOf items + items.length :=
   match items with
-    | [] => arithmetic
-    | [only] => arithmetic
+    | [] | [_] => arithmetic
     | [item, next, ..rest] =>
       let tail := joinLinesSteps [next, ..rest]
       arithmetic
@@ -93,9 +92,7 @@ theorem Doc.Proofs.joinLinesSteps ∀ (items: List Doc): stepsOf (Doc.joinLines 
 --| The first option of a choice takes no more steps than all the options and
 --| one.
 theorem Doc.Proofs.headOrSteps ∀ (options: List Doc): (options.headOr Doc.Nothing).steps ≤ stepsOf options + 1 :=
-  match options with
-    | [] => arithmetic
-    | [option, ..rest] => arithmetic
+  match options with | [] | [_, .._] => arithmetic
 
 --| A bound on both branches of an `if` bounds the `if`, in steps.
 theorem Doc.Proofs.ifStepsBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
@@ -115,8 +112,7 @@ theorem Doc.Proofs.pickSteps ∀ (modes: List (Nat, Mode)) (id: Nat) (broken fla
 theorem Doc.Proofs.chooseSteps ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
     (printer.choose total indent rest options).steps ≤ stepsOf options + 1 :=
   match options with
-    | [] => arithmetic
-    | [last] => arithmetic
+    | [] | [_] => arithmetic
     | [option, next, ..others] =>
       let later := chooseSteps printer total indent rest [next, ..others]
       ifStepsBound _ option (printer.choose total indent rest [next, ..others]) _ (arithmetic) (arithmetic [later])
@@ -143,10 +139,7 @@ theorem Doc.Proofs.stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (r
         (arithmetic)
     | Print indent mode doc =>
       match doc with
-        | Doc.Nothing => arithmetic
-        | BreakParent => arithmetic
-        | Chunk text width => arithmetic
-        | Closing text => arithmetic
+        | Doc.Nothing | BreakParent | Chunk _ _ | Closing _ => arithmetic
         | Line =>
           ifPairBound _
             (printer.write indent " " 1, rest)
@@ -156,10 +149,7 @@ theorem Doc.Proofs.stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (r
             (arithmetic)
         | SoftLine =>
           ifPairBound _ (printer, rest) (printer.newline indent, rest) (1 + stackCost rest) (arithmetic) (arithmetic)
-        | HardLine => arithmetic
-        | LineStart => arithmetic
-        | Mark key => arithmetic
-        | CloserLine key => arithmetic
+        | HardLine | LineStart | Mark _ | CloserLine _ => arithmetic
         | LineStartHere =>
           ifPairBound _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
@@ -167,17 +157,17 @@ theorem Doc.Proofs.stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (r
             (1 + stackCost rest)
             (arithmetic)
             (arithmetic)
-        | Blank => arithmetic
-        | LineSuffix comment => arithmetic
-        | Nest more inner => arithmetic
-        | Align inner => arithmetic
-        | AlignInset inner => arithmetic
-        | Displaced inner => arithmetic
-        | OneLineBelow inner => arithmetic
-        | Flatten inner => arithmetic
-        | Group inner hard => arithmetic
-        | NarrowGroup max inner hard => arithmetic
-        | IdGroup id inner hard => arithmetic
+        | Blank |
+            LineSuffix _ |
+            Nest _ _ |
+            Align _ |
+            AlignInset _ |
+            Displaced _ |
+            OneLineBelow _ |
+            Flatten _ |
+            Group _ _ |
+            NarrowGroup _ _ _ |
+            IdGroup _ _ _ => arithmetic
         | IfBroken id broken flat =>
           let bound := pickSteps printer.modes id broken flat
           arithmetic
@@ -218,8 +208,7 @@ theorem Doc.Proofs.runFuelEnough ∀ (printer: Printer) (total fuel extra: Nat) 
   match fuel, stack with
     | Zero, [] =>
       match extra with
-        | Zero => byComputing
-        | Succ more => byComputing
+        | Zero | Succ _ => byComputing
     | Succ more, [] => byComputing
     | Zero, [cmd, ..rest] =>
       let positive := costPositive cmd
@@ -231,20 +220,20 @@ theorem Doc.Proofs.runFuelEnough ∀ (printer: Printer) (total fuel extra: Nat) 
 
 --| Every doc has at least one node.
 theorem Doc.Proofs.sizePositive ∀ (doc: Doc): 1 ≤ doc.size := match doc with
-  | Nest more inner => arithmetic
-  | Align inner => arithmetic
-  | AlignInset inner => arithmetic
-  | Displaced inner => arithmetic
-  | Group inner hard => arithmetic
-  | NarrowGroup max inner hard => arithmetic
-  | IdGroup id inner hard => arithmetic
-  | IfBroken id broken flat => arithmetic
-  | Flatten inner => arithmetic
-  | OneLineBelow inner => arithmetic
-  | Concat docs => arithmetic
-  | Fill items => arithmetic
-  | Choice options => arithmetic
-  | _ => arithmetic
+  | Nest _ _ |
+      Align _ |
+      AlignInset _ |
+      Displaced _ |
+      Group _ _ |
+      NarrowGroup _ _ _ |
+      IdGroup _ _ _ |
+      IfBroken _ _ _ |
+      Flatten _ |
+      OneLineBelow _ |
+      Concat _ |
+      Fill _ |
+      Choice _ |
+      _ => arithmetic
 
 --| A list of docs has no more docs than nodes.
 theorem Doc.Proofs.lengthUnderSizes ∀ (docs: List Doc): docs.length ≤ Doc.sizes docs := match docs with
@@ -256,35 +245,20 @@ theorem Doc.Proofs.lengthUnderSizes ∀ (docs: List Doc): docs.length ≤ Doc.si
 
 --| A doc takes at most two steps for each of its nodes.
 theorem Doc.Proofs.stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc with
-  | Nest more inner =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | Group inner hard =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | NarrowGroup max inner hard =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | IdGroup id inner hard =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | Align inner =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | AlignInset inner =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | Displaced inner =>
+  | Nest _ inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ |
+      Align inner |
+      AlignInset inner |
+      Displaced inner =>
     let inside := stepsUnderSize inner
     arithmetic
   | IfBroken id broken flat =>
     let one := stepsUnderSize broken
     let other := stepsUnderSize flat
     arithmetic
-  | Flatten inner =>
-    let inside := stepsUnderSize inner
-    arithmetic
-  | OneLineBelow inner =>
+  | Flatten inner | OneLineBelow inner =>
     let inside := stepsUnderSize inner
     arithmetic
   | Concat docs =>
@@ -297,19 +271,19 @@ theorem Doc.Proofs.stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := 
   | Choice options =>
     let inside := stepsOfUnderSizes options
     arithmetic
-  | Doc.Nothing => arithmetic
-  | BreakParent => arithmetic
-  | Chunk text width => arithmetic
-  | Closing text => arithmetic
-  | Line => arithmetic
-  | SoftLine => arithmetic
-  | HardLine => arithmetic
-  | LineStart => arithmetic
-  | LineStartHere => arithmetic
-  | Mark key => arithmetic
-  | CloserLine key => arithmetic
-  | Blank => arithmetic
-  | LineSuffix comment => arithmetic
+  | Doc.Nothing |
+      BreakParent |
+      Chunk _ _ |
+      Closing _ |
+      Line |
+      SoftLine |
+      HardLine |
+      LineStart |
+      LineStartHere |
+      Mark _ |
+      CloserLine _ |
+      Blank |
+      LineSuffix _ => arithmetic
 
 --| A list of docs takes at most two steps for each of its nodes.
 theorem Doc.Proofs.stepsOfUnderSizes ∀ (docs: List Doc): stepsOf docs ≤ 2 * Doc.sizes docs := match docs with
@@ -378,14 +352,9 @@ theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat,
   match fuel with
     | Zero =>
       match stack, rest with
-        | [], [] =>
+        | [], [] | [FillSep _ _, .._] =>
           match extra with
-            | Zero => byComputing
-            | Succ more => byComputing
-        | [], [FillSep indent item, ..others] =>
-          match extra with
-            | Zero => byComputing
-            | Succ more => byComputing
+            | Zero | Succ _ => byComputing
         | [(indent, mode, doc), ..stack], _ =>
           let positive := stepsPositive doc
           Void.impossible (arithmetic)
@@ -393,8 +362,7 @@ theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat,
       match stack with
         | [] =>
           match rest with
-            | [] => byComputing
-            | [FillSep indent item, ..others] => byComputing
+            | [] | [FillSep _ _, .._] => byComputing
             | [Print indent mode doc, ..others] =>
               rewrite fitsFromEnough more extra width modes
                 [(indent, mode, doc)]
@@ -407,9 +375,7 @@ theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat,
           let same := (at to: Nat) (waits: Trailing) (fewer: fitsNeed stack rest ≤ more) =>
             fitsFromEnough more extra width modes stack rest at to waits fewer
           match doc with
-            | Doc.Nothing => rewrite same left lineIndent suffix (arithmetic)
-            | Blank => rewrite same left lineIndent suffix (arithmetic)
-            | Mark key => rewrite same left lineIndent suffix (arithmetic)
+            | Doc.Nothing | Blank | Mark _ => rewrite same left lineIndent suffix (arithmetic)
             | LineSuffix comment => rewrite same left lineIndent suffix.noted (arithmetic)
             | BreakParent => rewrite same left lineIndent suffix (arithmetic)
             | Chunk text textWidth =>
@@ -434,10 +400,7 @@ theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat,
               match suffix with
                 | Clear => rewrite same left lineIndent Clear (arithmetic)
                 | Pending held _ => rewrite same left lineIndent (Pending held True) (arithmetic)
-            | HardLine => byComputing
-            | LineStart => byComputing
-            | LineStartHere => byComputing
-            | CloserLine key => byComputing
+            | HardLine | LineStart | LineStartHere | CloserLine _ => byComputing
             | Nest extraIndent inner =>
               rewrite fitsFromEnough more extra width modes
                 [(indent + extraIndent, mode, inner), ..stack]
@@ -454,7 +417,7 @@ theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat,
                 lineIndent
                 suffix
                 (arithmetic)
-            | Group inner hard =>
+            | Group inner hard | NarrowGroup _ inner hard =>
               let measured := if hard then Break else mode
               rewrite fitsFromEnough more extra width modes
                 [(indent, measured, inner), ..stack]
@@ -463,32 +426,7 @@ theorem Doc.Proofs.fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat,
                 lineIndent
                 suffix
                 (arithmetic)
-            | NarrowGroup max inner hard =>
-              let measured := if hard then Break else mode
-              rewrite fitsFromEnough more extra width modes
-                [(indent, measured, inner), ..stack]
-                rest
-                left
-                lineIndent
-                suffix
-                (arithmetic)
-            | Align inner =>
-              rewrite fitsFromEnough more extra width modes
-                [(indent, mode, inner), ..stack]
-                rest
-                left
-                lineIndent
-                suffix
-                (arithmetic)
-            | AlignInset inner =>
-              rewrite fitsFromEnough more extra width modes
-                [(indent, mode, inner), ..stack]
-                rest
-                left
-                lineIndent
-                suffix
-                (arithmetic)
-            | Displaced inner =>
+            | Align inner | AlignInset inner | Displaced inner =>
               rewrite fitsFromEnough more extra width modes
                 [(indent, mode, inner), ..stack]
                 rest
@@ -613,17 +551,14 @@ theorem Doc.Proofs.weightFillSeps ∀ (indent: Nat) (items: List Doc):
 theorem Doc.Proofs.joinLinesSizes ∀ (items: List Doc):
     Doc.sizes (Doc.joinLines items) ≤ Doc.sizes items + items.length :=
   match items with
-    | [] => arithmetic
-    | [only] => arithmetic
+    | [] | [_] => arithmetic
     | [item, next, ..rest] =>
       let tail := joinLinesSizes [next, ..rest]
       arithmetic
 
 --| The first option of a choice has no more nodes than all the options and one.
 theorem Doc.Proofs.headOrSize ∀ (options: List Doc): (options.headOr Doc.Nothing).size ≤ Doc.sizes options + 1 :=
-  match options with
-    | [] => arithmetic
-    | [option, ..rest] => arithmetic
+  match options with | [] | [_, .._] => arithmetic
 
 --| A bound on both branches of an `if` bounds the `if`, in nodes.
 theorem Doc.Proofs.ifBothBound ∀ (condition: Bool) (yes no: Doc) (bound: Nat)
@@ -645,8 +580,7 @@ theorem Doc.Proofs.chooseWeight ∀ (printer: Printer) (total indent: Nat) (rest
     (printer.choose total indent rest options).steps + (printer.choose total indent rest options).size
       ≤ stepsOf options + Doc.sizes options + 2 :=
   match options with
-    | [] => arithmetic
-    | [last] => arithmetic
+    | [] | [_] => arithmetic
     | [option, next, ..others] =>
       let later := chooseWeight printer total indent rest [next, ..others]
       ifBothBound _ option (printer.choose total indent rest [next, ..others]) _ (arithmetic) (arithmetic [later])
@@ -673,10 +607,7 @@ theorem Doc.Proofs.stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (re
         (arithmetic)
     | Print indent mode doc =>
       match doc with
-        | Doc.Nothing => arithmetic
-        | BreakParent => arithmetic
-        | Chunk text width => arithmetic
-        | Closing text => arithmetic
+        | Doc.Nothing | BreakParent | Chunk _ _ | Closing _ => arithmetic
         | Line =>
           ifPairWeight _
             (printer.write indent " " 1, rest)
@@ -686,10 +617,7 @@ theorem Doc.Proofs.stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (re
             (arithmetic)
         | SoftLine =>
           ifPairWeight _ (printer, rest) (printer.newline indent, rest) (2 + stackWeight rest) (arithmetic) (arithmetic)
-        | HardLine => arithmetic
-        | LineStart => arithmetic
-        | Mark key => arithmetic
-        | CloserLine key => arithmetic
+        | HardLine | LineStart | Mark _ | CloserLine _ => arithmetic
         | LineStartHere =>
           ifPairWeight _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
@@ -697,17 +625,17 @@ theorem Doc.Proofs.stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (re
             (2 + stackWeight rest)
             (arithmetic)
             (arithmetic)
-        | Blank => arithmetic
-        | LineSuffix comment => arithmetic
-        | Nest more inner => arithmetic
-        | Align inner => arithmetic
-        | AlignInset inner => arithmetic
-        | Displaced inner => arithmetic
-        | OneLineBelow inner => arithmetic
-        | Flatten inner => arithmetic
-        | Group inner hard => arithmetic
-        | NarrowGroup max inner hard => arithmetic
-        | IdGroup id inner hard => arithmetic
+        | Blank |
+            LineSuffix _ |
+            Nest _ _ |
+            Align _ |
+            AlignInset _ |
+            Displaced _ |
+            OneLineBelow _ |
+            Flatten _ |
+            Group _ _ |
+            NarrowGroup _ _ _ |
+            IdGroup _ _ _ => arithmetic
         | IfBroken id broken flat =>
           let bound := pickWeight printer.modes id broken flat
           arithmetic
@@ -742,8 +670,7 @@ theorem Doc.Proofs.stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (re
 
 --| What `fits` can read into a work list is within its weight.
 theorem Doc.Proofs.restNeedUnder ∀ (rest: List Cmd): restNeed rest ≤ stackWeight rest := match rest with
-  | [] => arithmetic
-  | [FillSep indent item, ..others] => arithmetic
+  | [] | [FillSep _ _, .._] => arithmetic
   | [Print indent mode doc, ..others] =>
     let positive := sizePositive doc
     let tail := restNeedUnder others

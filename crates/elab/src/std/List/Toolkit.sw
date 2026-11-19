@@ -134,8 +134,7 @@ def List.zipWith4: (xs: List a) → (ys: List b) → (zs: List c) → (ws: List 
 --| Each element paired with the next: `[1, 2, 3].zipWithNext` is
 --| `[(1, 2), (2, 3)]`, empty for fewer than two elements.
 def List.zipWithNext: (xs: List a) → List (Pair a a)
-  | [] => []
-  | [x] => []
+  | [] | [_] => []
   | [x, next, ..rest] => [MkPair x next, ..List.zipWithNext [next, ..rest]]
 
 --| Whether `holds` is true of each element and the next:
@@ -143,8 +142,7 @@ def List.zipWithNext: (xs: List a) → List (Pair a a)
 --| `List.Sorted le xs` says the same as a `Prop` ([`List.sortedOfChain`]).
 @[tailrec]
 def List.chain: (xs: List a) → (holds: a → a → Bool) → Bool
-  | [], holds => True
-  | [x], holds => True
+  | [] | [_], _ => True
   | [x, next, ..rest], holds => holds x next ∧ List.chain [next, ..rest] holds
 
 --| Tests that agree on every pair give the same answer.
@@ -152,8 +150,7 @@ theorem List.chainCong ∀ (xs: List a) (holds1 holds2: a → a → Bool)
     (eh: ∀ (x y: a) => holds1 x y = holds2 x y):
     List.chain xs holds1 = List.chain xs holds2 :=
   match xs with
-    | [] => byComputing
-    | [x] => byComputing
+    | [] | [_] => byComputing
     | [x, next, ..rest] => rewrite eh x next, List.chainCong [next, ..rest] holds1 holds2 eh
 
 test "List.zipWithNext" :=
@@ -300,8 +297,7 @@ def List.head: (xs: List a) → Option a
 --| All but the last element (`Nil` for an empty list or a one-element list),
 --| O(n); for all but the first `n`, use [`List.drop`].
 def List.init: (xs: List a) → List a
-  | [] => []
-  | [x] => []
+  | [] | [_] => []
   | [x, y, ..ys] => [x, ..List.init [y, ..ys]]
 
 --| Membership, given a decision for equality (as `List.decEq` takes).

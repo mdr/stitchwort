@@ -107,8 +107,7 @@ theorem Char.isAsciiDigitDigitValue ∀ (char: Char): char.isAsciiDigit = char.d
   match low: Nat.leq 48 char.toNat with
     | True =>
       match high: Nat.leq char.toNat 57 with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | False => byComputing
 
 --| The number the ASCII digits spell, after the digits already read (`acc`); `None` at a non-digit.

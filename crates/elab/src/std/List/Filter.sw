@@ -420,16 +420,10 @@ theorem List.occurrencesFilter ∀ (xs: List a) (keep p: a → Bool):
     | [] => byComputing
     | [x, ..xs] =>
       match e: keep x with
-        | True =>
+        | True | False =>
           rewrite List.occurrencesFilter xs keep p then
             match p x with
-              | True => byComputing
-              | False => byComputing
-        | False =>
-          rewrite List.occurrencesFilter xs keep p then
-            match p x with
-              | True => byComputing
-              | False => byComputing
+              | True | False => byComputing
 
 --| The first k numbers of a longer run.
 theorem List.takeRangeFrom ∀ (k n s: Nat) (h: k ≤ n): List.take (List.rangeFrom n s) k = List.rangeFrom k s :=
@@ -680,8 +674,7 @@ theorem List.lastMemExample: 3 ∈ [1, 2, 3] := List.lastMem [1, 2, 3] 3 byCompu
 
 --| The last element of a list with `x` added at the end is `x`.
 theorem List.lastSnoc ∀ (x: a) (xs: List a): List.last (List.append xs [x]) = Some x := match xs with
-  | [] => byComputing
-  | [y] => byComputing
+  | [] | [_] => byComputing
   | [y, z, ..zs] => List.lastSnoc x [z, ..zs]
 
 --| `filterMap` keeps `y` when an element maps to `Some y`.
@@ -791,8 +784,7 @@ theorem List.lengthFilterMapLe ∀ (f: a → Option b) (xs: List a): (xs.filterM
   | [x, ..rest] =>
     let shorter := List.lengthFilterMapLe f rest
     match f x with
-      | None => arithmetic
-      | Some y => arithmetic
+      | None | Some _ => arithmetic
 
 --| A `filterMap` to `Bool`s is as long as the number of elements that give
 --| `Some True` plus the number that give `Some False`: every value it keeps is

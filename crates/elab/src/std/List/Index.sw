@@ -185,14 +185,12 @@ theorem List.mapGetOr ∀ (xs: List a) (d: a): List.map (List.range 0 (List.leng
 --| `headOr` is index 0; `getOr` of a `map` and of a `zipWith3`; a sum over a
 --| list as a sum over its indices.
 theorem List.headOrGetOr ∀ (xs: List a) (d: a): List.headOr xs d = List.getOr xs 0 d := match xs with
-  | [] => byComputing
-  | [x, ..xs] => byComputing
+  | [] | [_, .._] => byComputing
 
 --| `headOr` is `head` with a fallback for `None`:
 --| `xs.headOr d = xs.head.getOrElse d`.
 theorem List.headOrHead ∀ (xs: List a) (d: a): List.headOr xs d = Option.getOrElse (List.head xs) d := match xs with
-  | [] => byComputing
-  | [x, ..xs] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem List.getOrZipWith3 ∀ (f: a → b → c → e) (d1: a) (d2: b) (d3: c) (d: e)
     (hd: f d1 d2 d3 = d):
@@ -312,8 +310,7 @@ theorem List.getOrScanLeft ∀ (f: b → a → b) (d: b) (xs: List a) (z: b) (k:
     (h: k ≤ List.length xs):
     List.getOr (List.scanLeft xs z f) k d = List.foldLeft (List.take xs k) z f :=
   match xs, k with
-    | [], Zero => byComputing
-    | [x, ..xs], Zero => byComputing
+    | [] | [_, .._], Zero => byComputing
     | [x, ..xs], Succ k => List.getOrScanLeft f d xs (f z x) k h
 
 --| Element k of `zipWith xs (scanLeft xs z f) g` is `g` of element k and the

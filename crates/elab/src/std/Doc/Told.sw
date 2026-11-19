@@ -30,8 +30,7 @@ type Doc.Proofs.Spot = { fresh: Bool, mid: Bool, held: Bool }
 
 --| Whether the printer may be at `place`.
 def Doc.Proofs.Spot.admits (spot: Spot) (place: Place): Bool := match place with
-  | AtStart _ _ => spot.fresh
-  | Broken _ _ => spot.fresh
+  | AtStart _ _ | Broken _ _ => spot.fresh
   | Mid _ _ => spot.mid
   | Held _ _ => spot.held
 
@@ -156,25 +155,17 @@ def Doc.Proofs.blankTell (spot: Spot): Telling :=
 
 --| What `doc` says of its events, laid from where `spot` allows.
 def Doc.tell (doc: Doc) (spot: Spot): Telling := match doc with
-  | Doc.Nothing => Telling.quiet spot
-  | BreakParent => Telling.quiet spot
+  | Doc.Nothing | BreakParent => Telling.quiet spot
   | Blank => blankTell spot
   | Chunk text _ => chunkTell text spot
   | Closing text => closeTell text spot
-  | Line => Telling.quiet spot.afterSep
-  | SoftLine => Telling.quiet spot.afterSep
-  | HardLine => Telling.quiet Spot.lineStart
-  | LineStart => Telling.quiet Spot.lineStart
-  | LineStartHere => Telling.quiet Spot.lineStart
+  | Line | SoftLine => Telling.quiet spot.afterSep
+  | HardLine | LineStart | LineStartHere => Telling.quiet Spot.lineStart
   | Mark _ => Telling.quiet spot
   | CloserLine _ => Telling.quiet Spot.lineStart
-  | Nest _ inner => inner.tell spot
-  | Align inner => inner.tell spot
-  | AlignInset inner => inner.tell spot
+  | Nest _ inner | Align inner | AlignInset inner => inner.tell spot
   | Displaced inner => inner.tell spot.displaced
-  | Group inner _ => inner.tell spot
-  | NarrowGroup _ inner _ => inner.tell spot
-  | IdGroup _ inner _ => inner.tell spot
+  | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _ => inner.tell spot
   | IfBroken _ broken flat => (broken.tell spot).merge (flat.tell spot)
   | Flatten inner => inner.tell spot
   | OneLineBelow inner => inner.tell Spot.lineStart
@@ -271,37 +262,25 @@ theorem Doc.Proofs.heardThen ∀ (one other: Telling) (trace middle later: List 
 --| Either spot allows what one does.
 theorem Doc.Proofs.admitsUnionLeft ∀ (one other: Spot) (place: Place) (admits: one.admits place):
     (one.union other).admits place :=
-  match place with
-    | AtStart _ _ => Bool.orLeft admits
-    | Broken _ _ => Bool.orLeft admits
-    | Mid _ _ => Bool.orLeft admits
-    | Held _ _ => Bool.orLeft admits
+  match place with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => Bool.orLeft admits
 
 --| Either spot allows what the other does.
 theorem Doc.Proofs.admitsUnionRight ∀ (one other: Spot) (place: Place) (admits: other.admits place):
     (one.union other).admits place :=
-  match place with
-    | AtStart _ _ => Bool.orRight admits
-    | Broken _ _ => Bool.orRight admits
-    | Mid _ _ => Bool.orRight admits
-    | Held _ _ => Bool.orRight admits
+  match place with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => Bool.orRight admits
 
 --| A word's line start allowed by one entry is allowed by the two merged.
 theorem Doc.Proofs.startsAsLeft ∀ (starts follows otherStarts otherFollows: Bool)
     (start: Option Nat) (allowed: startsAs starts follows start):
     startsAs (starts || otherStarts) (follows || otherFollows) start :=
-  match start with
-    | Some _ => Bool.orLeft allowed
-    | None => Bool.orLeft allowed
+  match start with | Some _ | None => Bool.orLeft allowed
 
 --| A word's line start allowed by the other entry is allowed by the two
 --| merged.
 theorem Doc.Proofs.startsAsRight ∀ (starts follows otherStarts otherFollows: Bool)
     (start: Option Nat) (allowed: startsAs otherStarts otherFollows start):
     startsAs (starts || otherStarts) (follows || otherFollows) start :=
-  match start with
-    | Some _ => Bool.orRight allowed
-    | None => Bool.orRight allowed
+  match start with | Some _ | None => Bool.orRight allowed
 
 --| What one layout's events read as, the merged telling reads them as too.
 --|
@@ -322,9 +301,7 @@ theorem Doc.Proofs.mergeReadsLeft ∀ (one other: List Told) (events: List Event
           match events, reads with
             | [], never => (Bool.falseNotTrue never).impossible
             | [event, ..later], (gap, others) => (gap, mergeReadsLeft rest more later others)
-        | MaybeGap => byComputing
-        | Said _ _ _ => byComputing
-        | Lost => byComputing
+        | MaybeGap | Said _ _ _ | Lost => byComputing
     | [MaybeGap, ..rest], [second, ..more] =>
       match second with
         | Gap => byComputing
@@ -333,12 +310,10 @@ theorem Doc.Proofs.mergeReadsLeft ∀ (one other: List Told) (events: List Event
             | [], others => mergeReadsLeft rest more [] others
             | [event, ..later], Inl others => Inl (mergeReadsLeft rest more [event, ..later] others)
             | [event, ..later], Inr (gap, others) => Inr (gap, mergeReadsLeft rest more later others)
-        | Said _ _ _ => byComputing
-        | Lost => byComputing
+        | Said _ _ _ | Lost => byComputing
     | [Said word starts follows, ..rest], [second, ..more] =>
       match second with
-        | Gap => byComputing
-        | MaybeGap => byComputing
+        | Gap | MaybeGap => byComputing
         | Said other otherStarts otherFollows =>
           match same: word == other with
             | True =>
@@ -371,9 +346,7 @@ theorem Doc.Proofs.mergeReadsRight ∀ (one other: List Told) (events: List Even
           match events, reads with
             | [], never => (Bool.falseNotTrue never).impossible
             | [event, ..later], (gap, others) => (gap, mergeReadsRight rest more later others)
-        | MaybeGap => byComputing
-        | Said _ _ _ => byComputing
-        | Lost => byComputing
+        | MaybeGap | Said _ _ _ | Lost => byComputing
     | [MaybeGap, ..rest], [second, ..more] =>
       match second with
         | Gap => byComputing
@@ -382,12 +355,10 @@ theorem Doc.Proofs.mergeReadsRight ∀ (one other: List Told) (events: List Even
             | [], others => mergeReadsRight rest more [] others
             | [event, ..later], Inl others => Inl (mergeReadsRight rest more [event, ..later] others)
             | [event, ..later], Inr (gap, others) => Inr (gap, mergeReadsRight rest more later others)
-        | Said _ _ _ => byComputing
-        | Lost => byComputing
+        | Said _ _ _ | Lost => byComputing
     | [Said word starts follows, ..rest], [second, ..more] =>
       match second with
-        | Gap => byComputing
-        | MaybeGap => byComputing
+        | Gap | MaybeGap => byComputing
         | Said other otherStarts otherFollows =>
           match same: word == other with
             | True =>
@@ -423,11 +394,7 @@ theorem Doc.Proofs.heardMergeRight ∀ (one other: Telling) (trace: List Event) 
 
 --| Nothing said by any layout, whatever was laid.
 theorem Doc.Proofs.heardLost ∀ (trace new: List Event) (place: Place): Heard Telling.lost trace place (trace ++ new) :=
-  match place with
-    | AtStart _ _ => (byComputing, (new, byComputing, byComputing))
-    | Broken _ _ => (byComputing, (new, byComputing, byComputing))
-    | Mid _ _ => (byComputing, (new, byComputing, byComputing))
-    | Held _ _ => (byComputing, (new, byComputing, byComputing))
+  match place with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => (byComputing, (new, byComputing, byComputing))
 
 --| One word laid, as said.
 theorem Doc.Proofs.heardWord ∀ (text: Text) (starts follows: Bool) (after: Spot) (trace: List Event) (start: Option Nat)
@@ -443,8 +410,7 @@ theorem Doc.Proofs.sepTold ∀ (indent: Nat) (spot: Spot) (place: Place) (trace:
     SepLays indent place trace (after later =>
       next after later ∧ Heard (Telling.quiet spot.afterSep) trace after later) :=
   match place, lays with
-    | AtStart _ _, never => never
-    | Broken _ _, never => never
+    | AtStart _ _ | Broken _ _, never => never
     | Mid at carry, (same, broken) => (
       (same, heardQuiet spot.afterSep (Mid at { carry | floor = None }) trace admits),
       (
@@ -467,8 +433,7 @@ theorem Doc.Proofs.softTold ∀ (indent: Nat) (spot: Spot) (place: Place) (trace
     SoftLays indent place trace (after later =>
       next after later ∧ Heard (Telling.quiet spot.afterSep) trace after later) :=
   match place, lays with
-    | AtStart _ _, never => never
-    | Broken _ _, never => never
+    | AtStart _ _ | Broken _ _, never => never
     | Mid at carry, (same, broken) => (
       (same, heardQuiet spot.afterSep (Mid at carry) trace admits),
       (
@@ -498,10 +463,7 @@ theorem Doc.Proofs.blankReadsGap ∀ (spot: Spot)
 theorem Doc.Proofs.blankReadsNone ∀ (spot: Spot)
     (words: (spot.mid || spot.held) = True):
     ReadsAs (blankTell spot).said [] :=
-  rewrite words then
-    match fresh: spot.fresh with
-      | True => byComputing
-      | False => byComputing
+  rewrite words then match fresh: spot.fresh with | True | False => byComputing
 
 --| A `Blank`: a blank line at a line start, nothing after words.
 theorem Doc.Proofs.blankTold ∀ (spot: Spot) (place: Place) (trace: List Event)
@@ -531,8 +493,7 @@ theorem Doc.Proofs.chunkTold ∀ (indent: Nat) (text: Text) (spot: Spot) (place:
       match spaces: text.all (char => char == ' '), lays with
         | True, lays =>
           match place, lays with
-            | AtStart _ _, never => never
-            | Broken _ _, never => never
+            | AtStart _ _ | Broken _ _, never => never
             | Mid at carry, lays =>
               (lays, heardQuiet { spot | fresh = False } (Mid at (floorAfter text carry)) trace admits)
             | Held at carry, lays => (lays, heardQuiet { spot | fresh = False } (Held at carry) trace admits)
@@ -594,10 +555,7 @@ theorem Doc.Proofs.chunkTold ∀ (indent: Nat) (text: Text) (spot: Spot) (place:
 --| Nothing said, nothing laid.
 theorem Doc.Proofs.heardLostHere ∀ (trace: List Event) (place: Place): Heard Telling.lost trace place trace :=
   match place with
-    | AtStart _ _ => (byComputing, ([], (List.appendNil trace).flipped, byComputing))
-    | Broken _ _ => (byComputing, ([], (List.appendNil trace).flipped, byComputing))
-    | Mid _ _ => (byComputing, ([], (List.appendNil trace).flipped, byComputing))
-    | Held _ _ => (byComputing, ([], (List.appendNil trace).flipped, byComputing))
+    | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => (byComputing, ([], (List.appendNil trace).flipped, byComputing))
 
 --| A closer where a comment waits: on the comment's line.
 theorem Doc.Proofs.heldCloseHeard ∀ (text: Text) (spot: Spot) (trace: List Event) (at: Nat) (carry: Carry)
@@ -630,17 +588,14 @@ theorem Doc.Proofs.heldCloseFresh ∀ (indent: Nat) (text: Text) (spot: Spot) (t
     WriteLays indent text (if broken then Broken at carry else AtStart at carry) trace (after later =>
       next after later ∧ Heard (heldCloseTell text spot) trace after later) :=
   let place := if broken then Broken at carry else AtStart at carry
-  let started: place.midLine = False := match broken with
-    | True => byComputing
-    | False => byComputing
+  let started: place.midLine = False := match broken with | True | False => byComputing
   match empty: text.isEmpty, lays with
     | True, lays => (lays, heardLostHere trace place)
     | False, lays =>
       match spaces: text.all (char => char == ' '), lays with
         | True, never =>
           match broken, never with
-            | True, never => never
-            | False, never => never
+            | True | False, never => never
         | False, (single, lays) => (
           single,
           (match broken, lays with
@@ -736,29 +691,19 @@ theorem Doc.Proofs.suffixTold ∀ (comment: Text) (place: Place) (trace: List Ev
     SuffixLays comment place trace (after later =>
       next after later ∧ Heard { said = [Said comment False True], after = Spot.afterComment } trace after later) :=
   match place, lays with
-    | AtStart _ _, never => never
-    | Broken _ _, never => never
-    | Held _ _, never => never
+    | AtStart _ _ | Broken _ _ | Held _ _, never => never
     | Mid at carry, lays =>
       (lays, heardWord comment False True Spot.afterComment trace None (Held at carry) byComputing byComputing)
 
 --| A mark changes no place's kind.
 theorem Doc.Proofs.admitsWithCarry ∀ (spot: Spot) (place: Place) (carry: Carry) (admits: spot.admits place):
     spot.admits (place.withCarry carry) :=
-  match place with
-    | AtStart _ _ => admits
-    | Broken _ _ => admits
-    | Mid _ _ => admits
-    | Held _ _ => admits
+  match place with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => admits
 
 --| A closer's own line starts a line.
 theorem Doc.Proofs.closerLineStarts ∀ (place: Place) (key indent: Nat):
     Spot.lineStart.admits (place.closerLine key indent) :=
-  match place with
-    | AtStart _ _ => byComputing
-    | Broken _ _ => byComputing
-    | Mid _ _ => byComputing
-    | Held _ _ => byComputing
+  match place with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => byComputing
 
 --| Every trace a document lays reads as `told` says, from where `spot`
 --| allows, and leaves the printer where its telling allows: the
@@ -775,8 +720,7 @@ theorem Doc.Proofs.laysTold ∀ (doc: Doc) (indent: Nat) (spot: Spot) (place: Pl
     (lays: Lays doc indent place trace next):
     Lays doc indent place trace (after later => next after later ∧ Heard (doc.tell spot) trace after later) :=
   match doc, lays with
-    | Doc.Nothing, lays => (lays, heardQuiet spot place trace admits)
-    | BreakParent, lays => (lays, heardQuiet spot place trace admits)
+    | Doc.Nothing | BreakParent, lays => (lays, heardQuiet spot place trace admits)
     | Blank, lays => blankTold spot place trace next admits lays
     | Chunk text width, lays => chunkTold indent text spot place trace next admits lays
     | Closing text, lays => closeTold indent text spot place trace next admits lays
@@ -800,19 +744,14 @@ theorem Doc.Proofs.laysTold ∀ (doc: Doc) (indent: Nat) (spot: Spot) (place: Pl
       match place, lays with
         | AtStart at carry, lays => (lays, heardQuiet Spot.lineStart (AtStart at carry) trace byComputing)
         | Broken at carry, lays => (lays, heardQuiet Spot.lineStart (Broken at carry) trace byComputing)
-        | Mid at carry, lays =>
-          let broken := Nat.max indent (at + 2)
-          (lays, heardQuiet Spot.lineStart (Broken (floored carry broken) (carry.startFloor broken)) trace byComputing)
-        | Held at carry, lays =>
+        | Mid at carry | Held at carry, lays =>
           let broken := Nat.max indent (at + 2)
           (lays, heardQuiet Spot.lineStart (Broken (floored carry broken) (carry.startFloor broken)) trace byComputing)
     | LineStartHere, lays =>
       match place, lays with
         | AtStart _ carry, lays => (lays, heardQuiet Spot.lineStart (AtStart indent carry) trace byComputing)
         | Broken _ carry, lays => (lays, heardQuiet Spot.lineStart (Broken indent carry) trace byComputing)
-        | Mid _ carry, lays =>
-          (lays, heardQuiet Spot.lineStart (Broken (floored carry indent) (carry.breakTo indent)) trace byComputing)
-        | Held _ carry, lays =>
+        | Mid _ carry | Held _ carry, lays =>
           (lays, heardQuiet Spot.lineStart (Broken (floored carry indent) (carry.breakTo indent)) trace byComputing)
     | Mark key, lays => (
       lays,
@@ -852,9 +791,8 @@ theorem Doc.Proofs.laysTold ∀ (doc: Doc) (indent: Nat) (spot: Spot) (place: Pl
             next
             (Bool.orRight admits)
             lays
-    | Group inner hard, lays => laysTold inner indent spot place trace next admits lays
-    | NarrowGroup max inner hard, lays => laysTold inner indent spot place trace next admits lays
-    | IdGroup id inner hard, lays => laysTold inner indent spot place trace next admits lays
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, lays =>
+      laysTold inner indent spot place trace next admits lays
     | IfBroken id broken flat, (brokenLays, flatLays) => (
       laysWeaker broken indent place trace
         (after later => next after later ∧ Heard (broken.tell spot) trace after later)

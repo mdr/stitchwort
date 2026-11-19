@@ -43,15 +43,14 @@ def Doc.Proofs.WriteLays (indent: Nat) (text: Text) (place: Place)
   if text.isEmpty then next place trace
   else if text.all (char => char == ' ') then
     match place with
-      | AtStart _ _ => False
-      | Broken _ _ => False
+      | AtStart _ _ | Broken _ _ => False
       | Mid at carry => next (Mid at (floorAfter text carry)) trace
       | Held at carry => next (Held at carry) trace
   else
     (text == "\n") = False
       ∧ (match place with
-        | AtStart at carry => next (Mid at (floorAfter text carry)) (trace ++ [{ word = text, start = Some at }])
-        | Broken at carry => next (Mid at (floorAfter text carry)) (trace ++ [{ word = text, start = Some at }])
+        | AtStart at carry | Broken at carry =>
+          next (Mid at (floorAfter text carry)) (trace ++ [{ word = text, start = Some at }])
         | Mid at carry => next (Mid at (floorAfter text carry)) (trace ++ [{ word = text, start = None }])
         | Held at carry =>
           let broken := floored carry (Nat.max indent (at + 2))
@@ -74,8 +73,7 @@ def Doc.Proofs.CloseLays (indent: Nat) (text: Text) (place: Place)
 --| After a waiting comment the space is held, so the place stays.
 def Doc.Proofs.SepLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
-    | AtStart _ _ => False
-    | Broken _ _ => False
+    | AtStart _ _ | Broken _ _ => False
     | Mid at carry =>
       next (Mid at { carry | floor = None }) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
     | Held at carry => next (Held at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
@@ -83,8 +81,7 @@ def Doc.Proofs.SepLays (indent: Nat) (place: Place) (trace: List Event) (next: P
 --| A `SoftLine`: nothing or a line break, after words.
 def Doc.Proofs.SoftLays (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
-    | AtStart _ _ => False
-    | Broken _ _ => False
+    | AtStart _ _ | Broken _ _ => False
     | Mid at carry => next (Mid at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
     | Held at carry => next (Held at carry) trace ∧ next (Broken (floored carry indent) (carry.breakTo indent)) trace
 
@@ -95,18 +92,14 @@ def Doc.Proofs.StartLays (indent: Nat) (place: Place) (trace: List Event) (next:
   match place with
     | AtStart at carry => next (AtStart at carry) trace
     | Broken at carry => next (Broken at carry) trace
-    | Mid at carry =>
-      let broken := Nat.max indent (at + 2)
-      next (Broken (floored carry broken) (carry.startFloor broken)) trace
-    | Held at carry =>
+    | Mid at carry | Held at carry =>
       let broken := Nat.max indent (at + 2)
       next (Broken (floored carry broken) (carry.startFloor broken)) trace
 
 --| A trailing comment: after words on its line, with no other waiting.
 def Doc.Proofs.SuffixLays (comment: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match place with
-    | AtStart _ _ => False
-    | Broken _ _ => False
+    | AtStart _ _ | Broken _ _ => False
     | Mid at carry => next (Held at carry) (trace ++ [{ word = comment, start = None }])
     | Held _ _ => False
 
@@ -130,8 +123,7 @@ def Doc.Proofs.BlankLays (place: Place) (trace: List Event) (next: Place → Lis
 def Doc.Proofs.Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match doc with
-    | Doc.Nothing => next place trace
-    | BreakParent => next place trace
+    | Doc.Nothing | BreakParent => next place trace
     | Blank => BlankLays place trace next
     | Chunk text _ => WriteLays indent text place trace next
     | Closing text => CloseLays indent text place trace next
@@ -150,9 +142,7 @@ def Doc.Proofs.Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) 
     | Align inner => AlignHolds indent place (column => Lays inner column place trace next)
     | AlignInset inner => AlignHolds (indent + 2) place (column => Lays inner column place trace next)
     | Displaced inner => DisplacedHolds indent place (column start => Lays inner column start trace next)
-    | Group inner _ => Lays inner indent place trace next
-    | NarrowGroup _ inner _ => Lays inner indent place trace next
-    | IdGroup _ inner _ => Lays inner indent place trace next
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _ => Lays inner indent place trace next
     | IfBroken _ broken flat => Lays broken indent place trace next ∧ Lays flat indent place trace next
     | Flatten inner => Lays inner indent place trace next
     | OneLineBelow inner =>
@@ -218,16 +208,11 @@ theorem Doc.Proofs.writeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place)
       match spaces: text.all (char => char == ' '), lays with
         | True, lays =>
           match place, lays with
-            | AtStart at carry, never => never
-            | Broken at carry, never => never
-            | Mid at carry, lays => implies _ _ lays
-            | Held at carry, lays => implies _ _ lays
+            | AtStart _ _ | Broken _ _, never => never
+            | Mid _ _ | Held _ _, lays => implies _ _ lays
         | False, Both oneLine lays =>
           match place, lays with
-            | AtStart at carry, lays => (oneLine, (implies _ _ lays))
-            | Broken at carry, lays => (oneLine, (implies _ _ lays))
-            | Mid at carry, lays => (oneLine, (implies _ _ lays))
-            | Held at carry, lays => (oneLine, (implies _ _ lays))
+            | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, lays => (oneLine, (implies _ _ lays))
 
 --| `CloseLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
@@ -250,10 +235,8 @@ theorem Doc.Proofs.sepLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List E
     (lays: SepLays indent place trace strong):
     SepLays indent place trace weak :=
   match place, lays with
-    | AtStart at carry, never => never
-    | Broken at carry, never => never
-    | Mid at carry, Both same broken => ((implies _ _ same), (implies _ _ broken))
-    | Held at carry, Both same broken => ((implies _ _ same), (implies _ _ broken))
+    | AtStart _ _ | Broken _ _, never => never
+    | Mid _ _ | Held _ _, Both same broken => ((implies _ _ same), (implies _ _ broken))
 
 --| `SoftLays` holds with a weaker requirement on what follows, if it holds with
 --| a stronger one.
@@ -263,10 +246,8 @@ theorem Doc.Proofs.softLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List 
     (lays: SoftLays indent place trace strong):
     SoftLays indent place trace weak :=
   match place, lays with
-    | AtStart at carry, never => never
-    | Broken at carry, never => never
-    | Mid at carry, Both same broken => ((implies _ _ same), (implies _ _ broken))
-    | Held at carry, Both same broken => ((implies _ _ same), (implies _ _ broken))
+    | AtStart _ _ | Broken _ _, never => never
+    | Mid _ _ | Held _ _, Both same broken => ((implies _ _ same), (implies _ _ broken))
 
 --| `StartLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
@@ -275,11 +256,7 @@ theorem Doc.Proofs.startLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: StartLays indent place trace strong):
     StartLays indent place trace weak :=
-  match place, lays with
-    | AtStart at carry, lays => implies _ _ lays
-    | Broken at carry, lays => implies _ _ lays
-    | Mid at carry, lays => implies _ _ lays
-    | Held at carry, lays => implies _ _ lays
+  match place, lays with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, lays => implies _ _ lays
 
 --| `SuffixLays` holds with a weaker requirement on what follows, if it holds
 --| with a stronger one.
@@ -289,8 +266,7 @@ theorem Doc.Proofs.suffixLaysWeaker ∀ (comment: Text) (place: Place) (trace: L
     (lays: SuffixLays comment place trace strong):
     SuffixLays comment place trace weak :=
   match place, lays with
-    | AtStart at carry, never => never
-    | Broken at carry, never => never
+    | AtStart _ _ | Broken _ _, never => never
     | Mid at carry, lays => implies _ _ lays
     | Held at carry, never => never
 
@@ -302,9 +278,7 @@ theorem Doc.Proofs.blankLaysWeaker ∀ (place: Place) (trace: List Event) (stron
     BlankLays place trace weak :=
   match place, lays with
     | AtStart at carry, never => never
-    | Broken at carry, lays => implies _ _ lays
-    | Mid at carry, lays => implies _ _ lays
-    | Held at carry, lays => implies _ _ lays
+    | Broken _ _ | Mid _ _ | Held _ _, lays => implies _ _ lays
 
 --| What holds with a continuation holds with any it implies.
 theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Event)
@@ -313,8 +287,7 @@ theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
     (lays: Lays doc indent place trace strong):
     Lays doc indent place trace weak :=
   match doc, lays with
-    | Doc.Nothing, lays => implies _ _ lays
-    | BreakParent, lays => implies _ _ lays
+    | Doc.Nothing | BreakParent, lays => implies _ _ lays
     | Blank, lays => blankLaysWeaker place trace strong weak implies lays
     | Chunk text width, lays => writeLaysWeaker indent text place trace strong weak implies lays
     | Closing text, lays => closeLaysWeaker indent text place trace strong weak implies lays
@@ -324,8 +297,7 @@ theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
     | HardLine, Both mid (Inr started) => (mid, (Inr (implies _ _ started)))
     | LineStart, lays => startLaysWeaker indent place trace strong weak implies lays
     | LineStartHere, lays => herePutsWeaker indent place trace strong weak implies lays
-    | Mark key, lays => implies _ _ lays
-    | CloserLine key, lays => implies _ _ lays
+    | Mark _ | CloserLine _, lays => implies _ _ lays
     | Nest more inner, lays => laysWeaker inner (indent + more) place trace strong weak implies lays
     | Align inner, lays =>
       match place, lays with
@@ -356,9 +328,8 @@ theorem Doc.Proofs.laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace
             weak
             implies
             lays
-    | Group inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
-    | NarrowGroup max inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
-    | IdGroup id inner hard, lays => laysWeaker inner indent place trace strong weak implies lays
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, lays =>
+      laysWeaker inner indent place trace strong weak implies lays
     | IfBroken id broken flat, Both brokenLays flatLays => (
       (laysWeaker broken indent place trace strong weak implies brokenLays),
       (laysWeaker flat indent place trace strong weak implies flatLays)
@@ -514,8 +485,7 @@ def Doc.Proofs.Stretch.Starts: Stretch → Prop
 --| After a trailing comment's stretch the next line starts: no word
 --| follows a comment on its line but the closers tucked before it.
 def Doc.Proofs.LineEnded: List Stretch → Prop
-  | [] => True
-  | [only] => True
+  | [] | [_] => True
   | [Tucked comment closers, next, ..rest] => next.Starts ∧ LineEnded [next, ..rest]
   | [Kept event, next, ..rest] => LineEnded [next, ..rest]
 
@@ -673,8 +643,7 @@ theorem Doc.Proofs.tracksTucks ∀ (place: Place) (laid printed: List Event)
     (tracks: Tracks place laid printed):
     Tucks laid printed :=
   match place, tracks with
-    | AtStart at carry, tucks => tucks
-    | Broken at carry, tucks => tucks
+    | AtStart _ _ | Broken _ _, tucks => tucks
     | Mid at carry, settles => settlesTucks laid printed settles
     | Held at carry, waits => waitsTucks laid printed waits
 
@@ -684,11 +653,7 @@ theorem Doc.Proofs.closerTracks ∀ (place: Place) (key indent: Nat) (laid print
     (tracks: Tracks place laid printed):
     Tracks (place.closerLine key indent) laid printed :=
   let tucks := tracksTucks place laid printed tracks
-  match place with
-    | AtStart _ _ => tucks
-    | Broken _ _ => tucks
-    | Mid _ _ => tucks
-    | Held _ _ => tucks
+  match place with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _ => tucks
 
 --| A trailing comment starts to wait: it is in both traces, last.
 theorem Doc.Proofs.settlesWaits ∀ (laid printed: List Event) (comment: Text)
@@ -779,15 +744,11 @@ theorem Doc.Proofs.writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (
       match spaces: text.all (char => char == ' '), lays with
         | True, lays =>
           match place, tracks, lays with
-            | AtStart at carry, _, never => never
-            | Broken at carry, _, never => never
-            | Mid at carry, tracks, lays => onward _ _ _ tracks lays
-            | Held at carry, tracks, lays => onward _ _ _ tracks lays
+            | AtStart _ _ | Broken _ _, _, never => never
+            | Mid _ _ | Held _ _, tracks, lays => onward _ _ _ tracks lays
         | False, Both oneLine lays =>
           match place, tracks, lays with
-            | AtStart at carry, tracks, lays =>
-              (oneLine, (onward _ _ _ (tucksSnoc laid printed _ tracks (Inl ((at, byComputing)))) lays))
-            | Broken at carry, tracks, lays =>
+            | AtStart at _ | Broken at _, tracks, lays =>
               (oneLine, (onward _ _ _ (tucksSnoc laid printed _ tracks (Inl ((at, byComputing)))) lays))
             | Mid at carry, tracks, lays => (oneLine, (onward _ _ _ (settlesSnoc laid printed _ tracks) lays))
             | Held at carry, tracks, lays => (
@@ -829,8 +790,7 @@ theorem Doc.Proofs.sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: L
     (lays: SepLays indent place laid next):
     SepPuts indent place printed put :=
   match place, tracks, lays with
-    | AtStart at carry, _, never => never
-    | Broken at carry, _, never => never
+    | AtStart _ _ | Broken _ _, _, never => never
     | Mid at carry, tracks, Both same broken =>
       ((onward _ _ _ tracks same), (onward _ _ _ (settlesTucks laid printed tracks) broken))
     | Held at carry, tracks, Both same broken =>
@@ -847,8 +807,7 @@ theorem Doc.Proofs.softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: 
     (lays: SoftLays indent place laid next):
     SoftPuts indent place printed put :=
   match place, tracks, lays with
-    | AtStart at carry, _, never => never
-    | Broken at carry, _, never => never
+    | AtStart _ _ | Broken _ _, _, never => never
     | Mid at carry, tracks, Both same broken =>
       ((onward _ _ _ tracks same), (onward _ _ _ (settlesTucks laid printed tracks) broken))
     | Held at carry, tracks, Both same broken =>
@@ -859,11 +818,7 @@ theorem Doc.Proofs.softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: 
 theorem Doc.Proofs.carryTracks ∀ (place: Place) (carry: Carry) (laid printed: List Event)
     (tracks: Tracks place laid printed):
     Tracks (place.withCarry carry) laid printed :=
-  match place, tracks with
-    | AtStart _ _, tracks => tracks
-    | Broken _ _, tracks => tracks
-    | Mid _ _, tracks => tracks
-    | Held _ _, tracks => tracks
+  match place, tracks with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, tracks => tracks
 
 --| A `LineStartHere`'s puts carry over to the printer's own trace.
 theorem Doc.Proofs.hereLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
@@ -875,8 +830,7 @@ theorem Doc.Proofs.hereLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: 
     (lays: HerePuts indent place laid next):
     HerePuts indent place printed put :=
   match place, tracks, lays with
-    | AtStart at carry, tracks, lays => onward _ _ _ tracks lays
-    | Broken at carry, tracks, lays => onward _ _ _ tracks lays
+    | AtStart _ _ | Broken _ _, tracks, lays => onward _ _ _ tracks lays
     | Mid at carry, tracks, lays => onward _ _ _ (settlesTucks laid printed tracks) lays
     | Held at carry, tracks, lays => onward _ _ _ (waitsTucks laid printed tracks) lays
 
@@ -891,8 +845,7 @@ theorem Doc.Proofs.startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed:
     (lays: StartLays indent place laid next):
     StartPuts indent place printed put :=
   match place, tracks, lays with
-    | AtStart at carry, tracks, lays => onward _ _ _ tracks lays
-    | Broken at carry, tracks, lays => onward _ _ _ tracks lays
+    | AtStart _ _ | Broken _ _, tracks, lays => onward _ _ _ tracks lays
     | Mid at carry, tracks, lays => onward _ _ _ (settlesTucks laid printed tracks) lays
     | Held at carry, tracks, lays => onward _ _ _ (waitsTucks laid printed tracks) lays
 
@@ -908,8 +861,7 @@ theorem Doc.Proofs.suffixLaysPuts ∀ (comment: Text) (place: Place) (laid print
     (lays: SuffixLays comment place laid next):
     SuffixPuts comment place printed put :=
   match place, tracks, lays with
-    | AtStart at carry, _, never => never
-    | Broken at carry, _, never => never
+    | AtStart _ _ | Broken _ _, _, never => never
     | Mid at carry, tracks, lays => onward _ _ _ (settlesWaits laid printed comment tracks isComment) lays
     | Held at carry, _, never => never
 
@@ -926,8 +878,7 @@ theorem Doc.Proofs.blankLaysPuts ∀ (place: Place) (laid printed: List Event) (
     | AtStart at carry, _, never => never
     | Broken at carry, tracks, lays =>
       onward _ _ _ (settlesTucks _ _ (tucksSnoc laid printed Event.blankLine tracks (Inr byComputing))) lays
-    | Mid at carry, tracks, lays => onward _ _ _ tracks lays
-    | Held at carry, tracks, lays => onward _ _ _ tracks lays
+    | Mid _ _ | Held _ _, tracks, lays => onward _ _ _ tracks lays
 
 --| What a document lays, the printer puts: from traces that track each
 --| other, every way the document may print leaves traces that do. By
@@ -942,8 +893,7 @@ theorem Doc.Proofs.laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid pr
     (lays: Lays doc indent place laid next):
     Puts doc indent place printed put :=
   match doc, lays with
-    | Doc.Nothing, lays => onward _ _ _ tracks lays
-    | BreakParent, lays => onward _ _ _ tracks lays
+    | Doc.Nothing | BreakParent, lays => onward _ _ _ tracks lays
     | Blank, lays => blankLaysPuts place laid printed next put onward tracks lays
     | Chunk text width, lays => writeLaysPuts indent text place laid printed next put onward tracks lays
     | Closing text, lays => closeLaysPuts indent text place laid printed next put onward tracks lays
@@ -994,9 +944,8 @@ theorem Doc.Proofs.laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid pr
             onward
             (waitsTucks laid printed tracks)
             lays
-    | Group inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
-    | NarrowGroup max inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
-    | IdGroup id inner hard, lays => laysPuts inner indent place laid printed next put onward tracks lays
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, lays =>
+      laysPuts inner indent place laid printed next put onward tracks lays
     | IfBroken id broken flat, Both brokenLays flatLays => (
       (laysPuts broken indent place laid printed next put onward tracks brokenLays),
       (laysPuts flat indent place laid printed next put onward tracks flatLays)
