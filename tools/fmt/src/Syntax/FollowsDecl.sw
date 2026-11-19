@@ -55,8 +55,9 @@
 --|
 --| The `bare` flag (hard spot 1). `consumedBare`'s `Bool` is the one value read from comments; `followsConsumedBare`
 --| relates it by `Anything`, `followsHeaderGroupEnd` takes the two runs' `consumed` flags unrelated, and `alikeGroup`
---| takes `bare` and `bareTwin` unrelated, because `Group.blank` sets `bare = True`. No other `Bool` is related by
---| `Anything`.
+--| takes `bare` and `bareTwin` unrelated, because `Group.blank` sets `bare = True`. `Anything` also relates the `()`
+--| results of `refuseAttributes`, `afterOpaque` and `afterOpaqueOn`, which compute nothing. No other `Bool` is related
+--| by `Anything`.
 --|
 --| Relations (this file's own): `AttributeAlike`, `AttributeGroupAlike` (one group of attributes; lane 7's
 --| `AttributesAlike` is the list), `RowsAlike`, `HeaderAlike`, `DefBodyAlike`, `ImportItemAlike`, `ImportedAlike`,
