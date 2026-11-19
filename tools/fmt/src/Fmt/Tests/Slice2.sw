@@ -28,6 +28,9 @@ test "a lambda after `:=` keeps its line, its body below" :=
       "def k: Nat → Nat := y => someOtherFunctionName y argumentOne argumentTwo argumentThree argumentFour argumentFive argument\n"
       "def k: Nat → Nat := y =>\n  someOtherFunctionName y argumentOne argumentTwo argumentThree argumentFour argumentFive argument\n"
 
+test "a lambda keeps the `fun` keyword the source wrote" :=
+  formats "def f: Nat → Nat := fun x => x\n" "def f: Nat → Nat := fun x => x\n"
+
 test "an `∃` too long for its line breaks its body, never its binders" :=
   formats
       "def p: Prop := ∃ (aaaaaaaaaaaaaaa: Nat) (bbbbbbbbbbbbbbbbbbbbb: Nat) => someLongFunctionName aaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccc\n"

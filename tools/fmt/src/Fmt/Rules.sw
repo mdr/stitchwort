@@ -353,9 +353,15 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
           prefixGap operator operand,
           operand.el (around.next operator.trails 1)
         ])
-    | Binding BindsLambda _ params arrow body =>
-      let (flat, _) := lambdaBoth params arrow body False inside
-      expr.framed around flat
+    | Binding BindsLambda keyword params arrow body =>
+      let start := match keyword with
+        | Some word => around.next word.trails 1
+        | None => inside
+      let (flat, _) := lambdaBoth params arrow body False start
+      let keywordDoc := match keyword with
+        | Some word => [word.leaf around around.at, Doc.text " "]
+        | None => []
+      expr.framed around (Doc.concat (keywordDoc ++ [flat]))
     | Binding BindsForall (Some keyword) params arrow body =>
       expr.framed around (quantifier (existential := False) keyword params arrow body inside)
     | Binding BindsExists (Some keyword) params arrow body =>
