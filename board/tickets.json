@@ -1,5 +1,5 @@
 {
-  "next": 4126,
+  "next": 4128,
   "tickets": [
     {
       "id": 47,
@@ -25825,7 +25825,7 @@
     {
       "id": 4121,
       "title": "[Fable paper] fmt S1 scope part C (D3687): sketch the statement of multi-line read-back (a declaration printed over several lines, comments anywhere inside, parses back to the same tree), check it by computation on generated sources, list the lemmas and their order for Opus/Sonnet lanes",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4121",
       "labels": [],
@@ -25884,6 +25884,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "D3687 (Matt, 19 Nov). docs/reviews/SW-4120-grammar1.md items 2, 3, 4. Model: Sonnet (D3682: routine, lexer layer stable). Est. 60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4126,
+      "title": "[Opus] fmt multi-line read-back H0 (D3687, SW-4121): skeleton: readsBackHung and every lemma of the SW-4121 plan stated as open goals in new Syntax/ReadBackHung*.sw files, readsBackHung composed from them, PrintedGroup's oneLine1 clause becomes hangs, readsBackDecl1 re-proved from readsBackHung, three computed witnesses; bring SW-4121's generator and check functions into tools/fmt/dev as a rerunnable gate",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4126",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4121-multiline-readback.md. Model: Opus. Est. 60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4127,
+      "title": "[Sonnet] fmt multi-line read-back H4 (SW-4121): endsAtom, unaryEndsOf, endsAtOf without restOpen",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4127",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4121-multiline-readback.md, H4 and O-list. Model: Sonnet. Est. 20 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
