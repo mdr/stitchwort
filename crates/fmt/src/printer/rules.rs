@@ -527,6 +527,7 @@ impl<'a> Rules<'a> {
             Interpolated => self.interpolated(node),
             Interpolation => self.interpolation(node),
             PatternCtor => self.app(node),
+            PatternOr => self.pattern_or(node),
             Lambda => self.lambda(node),
             If => self.if_(node),
             Match | Handle | Reify | Induct | ClauseLambda => self.alternatives(node),
@@ -544,6 +545,25 @@ impl<'a> Rules<'a> {
                 self.join(&children)
             }
         }
+    }
+
+    /// `p | q | …` (S22): on one line if it fits; otherwise each `|` ends
+    /// its line and the next alternative continues at 2 more. A `|` that
+    /// starts a line would start the next arm (the parser's `or_bar_ahead`).
+    fn pattern_or(&mut self, node: Node<'_>) -> Doc {
+        let children: Vec<Element> = node.children().collect();
+        let mut parts = Vec::new();
+        for (k, &el) in children.iter().enumerate() {
+            if k > 0 {
+                if self.is_tok(children[k - 1], &Tok::Pipe) {
+                    parts.push(Doc::Line);
+                } else {
+                    parts.push(self.space_el(children[k - 1], el));
+                }
+            }
+            parts.push(self.el(el));
+        }
+        Doc::group(Doc::nest(2, Doc::concat(parts)))
     }
 
     /// `( … )`. A bracketed `if` keeps its `else` lines under the `if`, not

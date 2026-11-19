@@ -86,8 +86,24 @@ theorem headNotDash ∀ (text: Text) (first: Char) (others: List Char)
 --| Proof idea: Each fixed spelling by computing; a name or numeral starts with a character that is no `-`.
 theorem spellsNotComment ∀ (kind: Tok) (text: Text) (spells: Spells kind text): text.startsWith "--" = False :=
   match kind, spells with
-    | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq | Plus | PlusPlus | Minus | Star | Slash | Percent | Lt | Gt | KwDef, same =>
-      rewrite same
+    | LParen |
+        RParen |
+        LBracket |
+        RBracket |
+        Comma |
+        Colon |
+        ColonEq |
+        Equals |
+        EqEq |
+        Plus |
+        PlusPlus |
+        Minus |
+        Star |
+        Slash |
+        Percent |
+        Lt |
+        Gt |
+        KwDef, same => rewrite same
     | Arrow | OrOr | AndAnd | NotEq | Le | Ge | Bang, Inl same | Inr same => rewrite same
     | Lower | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
       headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
