@@ -27186,12 +27186,12 @@
     {
       "id": 4223,
       "title": "[Sonnet] Teach one proof for several cases (docs/proposals/proof-match-likewise.md, no decision needed): guide and proving-guide section on a catch-all after a split and on or-patterns in proofs; an or-pattern arm's error names the failing alternative",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4219.",
+      "body": "From SW-4219.\n\n\nLane (Sonnet, 19 Nov): proving-guide.md section \"One proof for several cases\"; syntax.md effect-operation limit; guide 10-proofs.md already covers or-pattern proofs with a checked example (no change). Error naming the alternative: SW-4236 already does it (\"this error is in the alternative `Inr same`, where `same: word = \"lets\"`\").\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
