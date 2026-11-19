@@ -8,7 +8,7 @@
 
 namespace Fmt.WordsEdge
 import Std (Bool, DecEq, Eq, List, Option, Text)
-import Syntax (Decl, DefBody, Expr, InfixKind, Note, Tok, Word)
+import Syntax (Comments, Decl, DefBody, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (
@@ -23,6 +23,7 @@ import Fmt.TreeJoinProofs (
   wordQuiet
 )
 import Fmt.NoteMarks (..)
+import Fmt.CalmProofs (calmAllEmpty, calmItemsEmpty, keptNoted, keptTrails)
 
 -- The part.
 
@@ -731,3 +732,74 @@ theorem argumentsEdgeOfMarks ∀ (arguments: List Expr) (end pending: Bool)
           (Bool.andRight lexical)
           (Bool.andRight sound)
           restEdges)
+
+-- `calm` changes no comment.
+
+theorem wordEdgeKept ∀ (word: Word) (item closer lead end: Bool):
+    (word.kept item closer).wordEdge1 lead end = word.wordEdge1 lead end :=
+  rewrite keptNoted word item closer, keptTrails word item closer
+
+theorem wordsEdgeCalm ∀ (expr: Expr) (item lead end: Bool)
+    (within: expr.within1 = True):
+    (expr.calm item).wordsEdge1 lead end = expr.wordsEdge1 lead end :=
+  match expr with
+    | Atom kind word => wordEdgeKept word item False lead end
+    | Paren open inner close =>
+      rewrite wordEdgeKept open item False lead False, wordsEdgeCalm inner False False end within
+    | Tuple open items comma close =>
+      rewrite wordEdgeKept open item False lead False, lastEdgeCalmAll end True items within
+    | ListOf open items comma close =>
+      rewrite calmItemsEmpty items,
+          wordEdgeKept open item False lead (end && items.isEmpty),
+          lastEdgePick end (items.all Expr.plainItem) items within
+    | App head arguments =>
+      rewrite calmAllEmpty arguments False,
+          wordsEdgeCalm head item lead False (Bool.andLeft within),
+          lastEdgeCalmAll end False arguments (Bool.andRight within)
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          let (leftWithin, rightWithin, _) := within
+          rewrite wordsEdgeCalm left item lead False leftWithin,
+              wordEdgeKept operator False False False False,
+              wordsEdgeCalm right False False end rightWithin
+        | InfixArrow =>
+          let (leftWithin, rightWithin, _) := within
+          rewrite wordsEdgeCalm left item lead False leftWithin,
+              wordEdgeKept operator False False False False,
+              wordsEdgeCalm right False False end rightWithin
+        | _ => cases
+    | Prefix operator operand =>
+      rewrite wordEdgeKept operator item False lead False, wordsEdgeCalm operand False False end (Bool.andLeft within)
+
+theorem lastEdgeCalmAll ∀ (end item: Bool) (items: List Expr)
+    (within: allWithin1 items = True):
+    lastWordsEdge1 end (calmAll item items) = lastWordsEdge1 end items :=
+  match items with
+    | [] => byComputing
+    | [last] => wordsEdgeCalm last item False end (Bool.andLeft within)
+    | [first, next, ..more] =>
+      rewrite wordsEdgeCalm first item False False (Bool.andLeft within),
+          lastEdgeCalmAll end item [next, ..more] (Bool.andRight within)
+
+theorem lastEdgePick ∀ (end plain: Bool) (items: List Expr)
+    (within: allWithin1 items = True):
+    lastWordsEdge1 end (pickItems plain items) = lastWordsEdge1 end items :=
+  match plain with
+    | False => lastEdgeCalmAll end True items within
+    | True =>
+      match items with
+        | [] => byComputing
+        | [last] => wordsEdgeCalm last False False end (Bool.andLeft within)
+        | [first, next, ..more] =>
+          rewrite wordsEdgeCalm first False False False (Bool.andLeft within),
+              lastEdgeCalmAll end True [next, ..more] (Bool.andRight within)
+
+-- Closed examples of the token lemmas.
+
+theorem operatorPlainExample: notCloser "+" = True ∧ notComment "+" = True := operatorPlain "+" byComputing
+
+theorem prefixPlainExample: notCloser "!" = True ∧ notComment "!" = True := prefixPlain "!" byComputing
+
+theorem textCloserExample: notCloser (fixedWord ")" Comments.none).text = False :=
+  textCloser (fixedWord ")" Comments.none) ")" byComputing byComputing

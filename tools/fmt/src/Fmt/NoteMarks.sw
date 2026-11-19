@@ -326,3 +326,45 @@ theorem notesAppend ∀ (front back: List Text)
     | [text, ..rest] =>
       match note: notComment text with
         | False => notesAppend rest back frontNotes backNotes
+
+theorem appendCancelFront ∀ (front back front' back': List Bool)
+    (length: front.length = front'.length)
+    (same: front ++ back = front' ++ back'):
+    front = front' :=
+  match front, front', length, same with
+    | [], [], _, same => byComputing
+    | [], [_, .._], never, _ => cases
+    | [_, .._], [], never, _ => cases
+    | [x, ..xs], [y, ..ys], length, same =>
+      let head: x = y := List.consInjectiveHead _ _ _ _ same
+      rewrite head,
+          appendCancelFront xs back ys back'
+            (Nat.succInjective length)
+            (Eq.cong ((list: List Bool) => list.drop 1) same)
+
+theorem notesNoTokens ∀ (texts: List Text) (notes: allNotes texts = True): texts.filter notComment = [] :=
+  match texts with
+    | [] => byComputing
+    | [text, ..rest] =>
+      match note: notComment text with
+        | False => notesNoTokens rest notes
+
+theorem allTexts ∀ (front back: List Text) (p: Text → Bool)
+    (frontAll: front.all p = True)
+    (backAll: back.all p = True):
+    (front ++ back).all p = True :=
+  match front with
+    | [] => backAll
+    | [text, ..rest] => Bool.andIntro (Bool.andLeft frontAll) (allTexts rest back p (Bool.andRight frontAll) backAll)
+
+theorem spreadValue ∀ (pairs: List (Text, Bool))
+    (quiet: anyMarked (pairs.drop 1) = False):
+    tailQuiet (spread False pairs) = True :=
+  match pairs with
+    | [] => byComputing
+    | [(text, mark), ..rest] =>
+      match notCloser text with
+        | True => spreadQuiet rest quiet
+        | False => spreadTailQuiet (False || mark) rest quiet
+
+theorem noteNotCloserExample: notCloser "-- c" = True := noteNotCloser "-- c" byComputing
