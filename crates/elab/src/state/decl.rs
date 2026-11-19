@@ -114,6 +114,11 @@ pub(crate) struct Decl {
     /// the first before it was forced (a call such as `Parse.Runs p …`, not
     /// its unfolding), for `check::settle_from_expected`.
     pub(crate) app_expected: RefCell<Option<AppExpected>>,
+    /// The type [`check_value`](crate::check::check_value) is checking
+    /// against, as written, when that is a call of a definition (`Grid`):
+    /// [`Ctx::mismatch`] shows it instead of the unfolding the arms compare
+    /// with, if the two print alike.
+    pub(crate) written_expected: RefCell<Option<Value>>,
     /// The calls `check::settle_from_expected` gave type arguments from
     /// their expected type, in the body attempt being elaborated, also in
     /// parts of it later undone (which can only cost a retry not needed).
@@ -357,6 +362,7 @@ impl Decl {
             type_names,
             conjunction,
             app_expected,
+            written_expected,
             settled,
             settling,
             decreasing,
@@ -411,6 +417,7 @@ impl Decl {
             ("type_names", type_names.borrow().is_empty()),
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
+            ("written_expected", written_expected.borrow().is_none()),
             ("settled", settled.borrow().is_empty()),
             ("settling", !settling.get()),
             ("decreasing", decreasing.borrow().is_none()),
