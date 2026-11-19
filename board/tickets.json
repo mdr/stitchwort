@@ -1,5 +1,5 @@
 {
-  "next": 4183,
+  "next": 4184,
   "tickets": [
     {
       "id": 47,
@@ -26319,7 +26319,7 @@
     {
       "id": 4158,
       "title": "[Sonnet] tools: stitchwort uses NAME (reverse dependencies across a project) or an unused-declaration report (SW-4154 friction: name-grep gave wrong answers from clashes)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4158",
       "labels": [],
@@ -26559,7 +26559,7 @@
     {
       "id": 4176,
       "title": "[Opus] fmt S1 glue: drop oneLine1 and spelledPlain1 from formatWithin1 (Driver1), close parsedPlaced1 if still open, and prove formatAccepts1 over all of Grammar1 (D3687); MustAccept1's 144 pass",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4176",
       "labels": [],
@@ -26624,12 +26624,12 @@
     {
       "id": 4181,
       "title": "[DeepSeek] fmt: rename lambda parameters in Syntax/Follows*.sw that shadow Syntax functions (items, word, skipped, pattern, operation, argument), clearing the W-LAMBDA-SHADOW warnings that flood every check (SW-4133 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 15 min. Mechanical; names only; no statement changes.",
+      "body": "Est. 15 min. Mechanical; names only; no statement changes.\nModel result: DeepSeek, worked, 25 min (est. 15).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26643,6 +26643,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Est. 30 min. Seen 19 Nov 14:53 running stitchwort-cli binary(running) rejected_examples_fail_for_the_expected_reason on main 884441d2b; Overmind passes it at 6dcd79b95.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4183,
+      "title": "[Opus] fmt S1: prove settledParsesMoved1 (a last comma that starts its line before the closer: rule N marks the closer as starting a line, so groupKeepsTokens' same-tokens premise fails); generalise the two-run item relation to same up to a closer's line start, or another route; the last obligation for formatAccepts1",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4183",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
