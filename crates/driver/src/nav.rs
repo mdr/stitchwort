@@ -143,6 +143,8 @@ pub struct Ref {
     /// field, the variable) have one range. A rename edits one of them to
     /// `{ label = name }` or `{ name = who }`.
     pub pun: bool,
+    /// A local variable's binding: see `NavRef::binding`.
+    pub binding: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -606,6 +608,7 @@ pub fn index_data_of(
             name_range,
             alias,
             pun: r.pun,
+            binding: r.binding,
         });
     }
     // A link in a doc is a reference to the declaration it names.
@@ -635,6 +638,7 @@ pub fn index_data_of(
             name_range,
             alias: last != tail,
             pun: false,
+            binding: false,
         });
     }
     if linked {

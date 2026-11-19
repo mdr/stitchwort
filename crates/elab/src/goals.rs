@@ -200,6 +200,10 @@ pub(crate) struct Goals {
     /// The or-pattern alternatives that chose the leaf being checked, as
     /// written, if it has any.
     pub(crate) alternative: Option<Rc<str>>,
+    /// The names those alternatives bind, with where each is written: a
+    /// use in the body has its type there too, so hover shows each
+    /// alternative's own ([`Elaborator::note_local`]).
+    pub(crate) alternative_binders: Vec<(String, stitchwort_syntax::Span)>,
     /// The expressions the `match`es being checked match on
     /// ([`crate::arm_display::note_scrutinees`]).
     pub(crate) scrutinees: Vec<crate::arm_display::Scrutinee>,

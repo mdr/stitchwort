@@ -2080,3 +2080,107 @@ fn hover_on_a_rule_set_shows_its_members() {
         );
     });
 }
+
+#[test]
+fn hover_on_an_or_pattern_name_shows_its_type_in_each_alternative() {
+    big_stack(|| {
+        let mut s = Session::open(common::OR_BINDING);
+        assert!(s.diagnostics.is_empty(), "{:?}", s.diagnostics);
+        let hover = |s: &mut Session, at: Value| {
+            let found = s.request(
+                "textDocument/hover",
+                json!({"textDocument": {"uri": URI}, "position": at}),
+            );
+            found["contents"]["value"]
+                .as_str()
+                .unwrap_or("")
+                .to_string()
+        };
+        // The same type in both alternatives: one line.
+        let agree = hover(
+            &mut s,
+            common::position_in(common::OR_BINDING, "size + 1", 0, 1),
+        );
+        assert!(
+            agree.contains("Nat") && agree.contains("local `size`"),
+            "{agree}"
+        );
+        assert!(!agree.contains("alternative"), "{agree}");
+        // Three alternatives, one type.
+        let three = hover(
+            &mut s,
+            common::position_in(common::OR_BINDING, "n + 1", 0, 0),
+        );
+        assert!(
+            three.contains("Nat") && !three.contains("alternative"),
+            "{three}"
+        );
+        // In the proof: a type in each alternative, naming it.
+        let proof = hover(
+            &mut s,
+            common::position_in(common::OR_BINDING, "rewrite same", 0, 8),
+        );
+        assert!(proof.contains("Inl same"), "{proof}");
+        assert!(proof.contains("Inr same"), "{proof}");
+        assert!(proof.contains("text = \"&&\""), "{proof}");
+        // The second alternative's type is the other equation.
+        assert_eq!(proof.matches("same: text = ").count(), 2, "{proof}");
+        assert!(proof.find("Inl same") < proof.find("Inr same"), "{proof}");
+    });
+}
+
+#[test]
+fn go_to_definition_on_an_or_pattern_name_goes_to_its_first_binding_and_lists_all() {
+    big_stack(|| {
+        let mut s = Session::open(common::OR_BINDING);
+        for (use_of, name, bindings) in common::or_names() {
+            let used = common::use_at(use_of, name);
+            let at = json!({"line": used.0, "character": used.1 + (name.len() / 2) as u64});
+            let found = s.request(
+                "textDocument/definition",
+                json!({"textDocument": {"uri": URI}, "position": at}),
+            );
+            let list = found
+                .as_array()
+                .unwrap_or_else(|| panic!("{use_of}: {found}"));
+            let got: Vec<(u64, u64)> = list
+                .iter()
+                .map(|l| {
+                    let start = &l["range"]["start"];
+                    (
+                        start["line"].as_u64().unwrap(),
+                        start["character"].as_u64().unwrap(),
+                    )
+                })
+                .collect();
+            // In order: the first alternative's binding comes first.
+            assert_eq!(got, bindings, "{use_of}: {found}");
+        }
+    });
+}
+
+#[test]
+fn find_references_of_an_or_pattern_name_lists_every_binding_and_use() {
+    big_stack(|| {
+        let mut s = Session::open(common::OR_BINDING);
+        for (use_of, name, bindings) in common::or_names() {
+            let uses = { vec![common::use_at(use_of, name)] };
+            let mut wanted: Vec<(u64, u64)> = bindings.iter().chain(&uses).copied().collect();
+            wanted.sort();
+            // Asked from the use, and from each binding.
+            for at in uses.iter().chain(&bindings) {
+                let found = s.request(
+                    "textDocument/references",
+                    json!({"textDocument": {"uri": URI},
+                           "position": {"line": at.0, "character": at.1},
+                           "context": {"includeDeclaration": true}}),
+                );
+                assert_eq!(
+                    common::locations(&found),
+                    wanted,
+                    "{name} from {at:?}: {found}"
+                );
+            }
+        }
+    });
+}
