@@ -20,13 +20,36 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use stitchwort_core::budget::{Budget, PROGRESS_FIRST, Progress, with_commas};
 use stitchwort_core::globals::Def;
 use stitchwort_core::term::Name;
 
 static SINK: OnceLock<fn(&str)> = OnceLock::new();
+
+/// The declaration being checked (a component's full names), for a host
+/// that has to say where a check was when it stopped: a signal handler
+/// (`stitchwort check`, SW-4032). One global shared by checking threads, so
+/// when several check at once it is one of them. `None` between
+/// declarations.
+static CURRENT: Mutex<Option<String>> = Mutex::new(None);
+
+/// The declaration being checked, as [`begin`] set it: one of the
+/// declarations being checked when several threads check at once. `None` if
+/// none is (or the check has just finished one, or hasn't started one).
+pub fn current() -> Option<String> {
+    CURRENT
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+}
+
+fn set_current(label: Option<String>) {
+    *CURRENT
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = label;
+}
 
 /// Sends "still checking" notes to `sink`, for the whole program. The first
 /// sink installed stays.
@@ -82,6 +105,7 @@ pub(crate) fn begin(
     let names = NAMES.with(Rc::clone);
     refresh(&mut names.borrow_mut(), defs);
     let label = label();
+    set_current(Some(label.clone()));
     let note = move |steps: u64, entered: Option<usize>| {
         let names = names.borrow();
         let name = entered.and_then(|i| names.get(i)).map(|n| &**n);
@@ -93,6 +117,7 @@ pub(crate) fn begin(
 /// Stops reporting on the check [`begin`] started, putting back the report
 /// on the check it was part of, if any.
 pub(crate) fn end(budget: &Budget, previous: Option<Option<Progress>>) {
+    set_current(None);
     if let Some(previous) = previous {
         budget.restore_progress(previous);
     }

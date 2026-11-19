@@ -1113,6 +1113,13 @@ fn main() -> ExitCode {
         eprintln!("error: {e}");
         return ExitCode::from(2);
     }
+    // A check may be ended from outside (`timeout`, Ctrl-C): say so and
+    // exit with the status for "did not finish", rather than nothing at all
+    // (SW-4032). Before any other thread starts, as `catch_signals` is.
+    #[cfg(unix)]
+    if matches!(&cli.command, Command::Check { .. }) {
+        catch_check_signals();
+    }
     // A program run natively may switch the terminal to keys mode: the
     // signals that would end it are caught first, before any thread starts,
     // so that the terminal is put back (docs/proposals/terminal-io.md §5).
@@ -1670,6 +1677,73 @@ fn exit(ok: bool) -> ExitCode {
     }
 }
 
+/// The exit status of a `check` that stopped before it finished: out of a
+/// resource, or ended by a signal (SW-4032).
+const STOPPED_EARLY: u8 = 3;
+
+/// The first diagnostic saying a resource limit stopped the check before it
+/// finished: evaluation steps, time, depth, or size. Other errors, including
+/// an internal budget that gave up (`cases`, `rewrite repeatedly`, an
+/// instance search), are ordinary failures of a check that finished.
+fn stopped_early(diagnostics: &[Diagnostic]) -> Option<&Diagnostic> {
+    diagnostics
+        .iter()
+        .find(|d| d.severity == Severity::Error && d.code == "E-RESOURCE")
+}
+
+/// Says in one line that `check` stopped before finishing, and why; `at` is
+/// the declaration being checked, if known.
+fn report_stopped_early(why: &str, at: Option<&str>) {
+    match at {
+        Some(at) => eprintln!("check stopped early: {why}, while checking {at}"),
+        None => eprintln!("check stopped early: {why}"),
+    }
+}
+
+/// [`report_stopped_early`] for a resource error: its message is why, and
+/// its notes name the declaration (SW-843).
+fn report_stopped_early_diagnostic(diagnostic: &Diagnostic) {
+    let at = diagnostic
+        .notes
+        .iter()
+        .find_map(|note| note.strip_prefix("it happened while checking "));
+    report_stopped_early(&diagnostic.message, at);
+}
+
+/// For `check` only: catch the signal an outer `timeout` sends (and Ctrl-C,
+/// `SIGHUP`, `SIGQUIT`), say on standard error that the check stopped
+/// early, and exit 3 instead of ending with no report (SW-4032).
+#[cfg(unix)]
+fn catch_check_signals() {
+    use nix::sys::signal::{SigSet, Signal};
+    let mut set = SigSet::empty();
+    for signal in [
+        Signal::SIGINT,
+        Signal::SIGTERM,
+        Signal::SIGHUP,
+        Signal::SIGQUIT,
+    ] {
+        set.add(signal);
+    }
+    if set.thread_block().is_err() {
+        return;
+    }
+    let started = std::thread::Builder::new()
+        .name("check-signals".into())
+        .spawn(move || {
+            let Ok(signal) = set.wait() else { return };
+            report_stopped_early(
+                &format!("stopped by {}", signal.as_str()),
+                stitchwort_elab::progress::current().as_deref(),
+            );
+            std::process::exit(i32::from(STOPPED_EARLY));
+        });
+    if started.is_err() {
+        // Without the thread nothing would see the signals: unblock them.
+        let _ = set.thread_unblock();
+    }
+}
+
 // ---- Goals -------------------------------------------------------------
 
 /// How many open goals (`?`) are among `reported`.
@@ -2084,8 +2158,18 @@ fn check_std(targets: &[String], warnings: bool, cache: &CacheArgs) -> ExitCode 
         }
         Err(diagnostics) => {
             report(&session.sources, &diagnostics);
+            let stopped = if let Some(diagnostic) = stopped_early(&diagnostics) {
+                report_stopped_early_diagnostic(diagnostic);
+                true
+            } else {
+                false
+            };
             discard(session);
-            ExitCode::FAILURE
+            if stopped {
+                ExitCode::from(STOPPED_EARLY)
+            } else {
+                ExitCode::FAILURE
+            }
         }
     }
 }
@@ -2153,6 +2237,7 @@ fn check(
     }
     if files > 0 {
         let mut ok = true;
+        let mut stopped = false;
         for path in targets {
             // Each file gets its own session.
             let mut session = new_session(index.is_some());
@@ -2170,6 +2255,10 @@ fn check(
             );
             let goals = goals_open(&reported);
             report_goals(&session, &reported);
+            if let Some(diagnostic) = stopped_early(&reported) {
+                report_stopped_early_diagnostic(diagnostic);
+                stopped = true;
+            }
             ok &= loaded && goals == 0;
             if loaded && goals == 0 {
                 eprintln!("checked {path}");
@@ -2185,7 +2274,11 @@ fn check(
             }
             discard(session);
         }
-        return exit(ok);
+        return if stopped {
+            ExitCode::from(STOPPED_EARLY)
+        } else {
+            exit(ok)
+        };
     }
     let Some(project) = locate_project(project, "check", "check hello.sw") else {
         return ExitCode::FAILURE;
@@ -2227,6 +2320,12 @@ fn check(
     );
     let goals = goals_open(&reported);
     report_goals(&session, &reported);
+    let stopped = if let Some(diagnostic) = stopped_early(&reported) {
+        report_stopped_early_diagnostic(diagnostic);
+        true
+    } else {
+        false
+    };
     let mut ok = checked.is_some() && goals == 0;
     if let (true, Some((count, theorems))) = (ok, checked) {
         let plural = if count == 1 { "" } else { "s" };
@@ -2266,7 +2365,11 @@ fn check(
         ok = write_expansions(&session, &project.dir) && ok;
     }
     discard(session);
-    exit(ok)
+    if stopped {
+        ExitCode::from(STOPPED_EARLY)
+    } else {
+        exit(ok)
+    }
 }
 
 /// `check --counterexamples` (D1159, docs/proposals/counterexample-search.md

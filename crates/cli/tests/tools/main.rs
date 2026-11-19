@@ -4,6 +4,7 @@ mod audit;
 mod auto_membership_speed;
 mod axioms;
 mod broken_pipe;
+mod check_early;
 mod dev_doc;
 mod doc;
 mod doc_equations;
