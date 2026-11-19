@@ -27065,12 +27065,12 @@
     {
       "id": 4214,
       "title": "[Sonnet] fmt consolidation L1: un-number the 77 tree properties (shaped1, lexical1, settled1, unreturned1, kinds1, …) per docs/proposals/fmt-consolidation-statements.md lane 1; Predicates1.sw → Predicates.sw, Kinds1.sw → Kinds.sw; grammar, driver, within1 and token tables stay numbered; after SW-4209",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3692 consolidation. Est. 45-60 min.",
+      "body": "D3692 consolidation. Est. 45-60 min.\n\nLane notes (Sonnet, 19 Nov): 92 tree properties and functions un-numbered (the note's table lists 92, not 77); Predicates1.sw -> Predicates.sw, Kinds1.sw -> Kinds.sw (namespace Fmt.Kinds). Exceptions: Expr.atomic1 -> primary, head1 -> callHead, argument1 -> callArgument, Shape1 -> PlainShape. No clashes found. Rules in Predicates.sw header and NOTES.md. Main merged twice (SW-4236/4203, SW-4245); rename map reapplied to CommentsKeptProof. Checks: whole tools/fmt check 0 errors (127 ns, before last merge), ParseKept/FollowsDecl/ParseWalk rechecked after merge, Fmt.Tests 439 passed. Rename map: scratchpad sw4214/map.txt.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27197,8 +27197,8 @@
     {
       "id": 4224,
       "title": "[Sonnet] stitchwort fmt: wrap a long or-pattern (today joined onto one line, 150 chars in a probe), Rust and self-hosted printers alike; goldens (proof-match-likewise.md)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
