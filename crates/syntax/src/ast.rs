@@ -957,12 +957,147 @@ pub enum Pattern {
         /// like any other pattern ([`Pattern::as_record`]).
         record: std::sync::OnceLock<Box<Pattern>>,
     },
-    /// `p | q | …`: matches if any alternative does. The alternatives bind
-    /// no variables; an arm with one is checked as one arm per alternative.
+    /// `p | q | …`: matches if any alternative does. Every alternative binds
+    /// the same names, which may have a different type in each: an arm with
+    /// one is checked as one arm per alternative, with that alternative's
+    /// bindings (D3694).
     Or(Vec<Pattern>, Span),
 }
 
 impl Pattern {
+    /// The pattern as source text, for messages: brackets only where a
+    /// constructor's argument needs them, a list as `[a, ..rest]`.
+    pub fn shown(&self) -> String {
+        let mut out = String::new();
+        self.show_into(&mut out, false);
+        out
+    }
+
+    /// [`Self::shown`], into `out`; `argument` if it is a constructor's
+    /// argument, which brackets an application or an or-pattern.
+    fn show_into(&self, out: &mut String, argument: bool) {
+        use std::fmt::Write;
+        let fields = |out: &mut String, fields: &[(Name, Pattern)], rest: bool| {
+            let mut parts: Vec<String> = (fields.iter())
+                .map(|(name, p)| match p {
+                    Pattern::Var(x) if x.text == name.text => name.text.clone(),
+                    p => format!("{} = {}", name.text, p.shown()),
+                })
+                .collect();
+            if rest {
+                parts.push("..".into());
+            }
+            let _ = write!(out, "{{ {} }}", parts.join(", "));
+        };
+        match self {
+            Pattern::Var(x) | Pattern::TextRest(x) => out.push_str(&x.text),
+            Pattern::Wildcard(_) => out.push('_'),
+            Pattern::Absurd(_) => out.push_str("()"),
+            Pattern::Num(n, _) => {
+                let _ = write!(out, "{n}");
+            }
+            Pattern::NegNum(n, _) => {
+                let _ = write!(out, "(-{n})");
+            }
+            Pattern::Char(c, _) => {
+                let _ = write!(out, "{c:?}");
+            }
+            Pattern::Text(text, _) => {
+                let _ = write!(out, "{text:?}");
+            }
+            Pattern::Prefix { text, rest, .. } => {
+                let _ = write!(out, "{text:?} ++ ");
+                rest.show_into(out, false);
+            }
+            Pattern::Ctor(name, args, _) => {
+                let bracket = argument && !args.is_empty();
+                if bracket {
+                    out.push('(');
+                }
+                out.push_str(&name.text);
+                for arg in args {
+                    out.push(' ');
+                    arg.show_into(out, true);
+                }
+                if bracket {
+                    out.push(')');
+                }
+            }
+            Pattern::Tuple(a, b, _) => {
+                out.push('(');
+                a.show_into(out, false);
+                out.push_str(", ");
+                b.show_into(out, false);
+                out.push(')');
+            }
+            Pattern::Nil(_) => out.push_str("[]"),
+            Pattern::Cons(..) => {
+                out.push('[');
+                let mut p = self;
+                let mut first = true;
+                loop {
+                    match p {
+                        Pattern::Cons(head, tail, _) => {
+                            if !first {
+                                out.push_str(", ");
+                            }
+                            first = false;
+                            head.show_into(out, false);
+                            p = tail;
+                        }
+                        Pattern::Nil(_) => break,
+                        rest => {
+                            if !first {
+                                out.push_str(", ");
+                            }
+                            out.push_str("..");
+                            rest.show_into(out, true);
+                            break;
+                        }
+                    }
+                }
+                out.push(']');
+            }
+            Pattern::Named(name, p, _) => {
+                let _ = write!(out, "[{} := ", name.text);
+                p.show_into(out, false);
+                out.push(']');
+            }
+            Pattern::Record {
+                fields: f, rest, ..
+            } => fields(out, f, *rest),
+            Pattern::CtorFields {
+                ctor,
+                fields: f,
+                rest,
+                ..
+            } => {
+                if argument {
+                    out.push('(');
+                }
+                let _ = write!(out, "{} ", ctor.text);
+                fields(out, f, *rest);
+                if argument {
+                    out.push(')');
+                }
+            }
+            Pattern::Or(alternatives, _) => {
+                if argument {
+                    out.push('(');
+                }
+                for (i, alternative) in alternatives.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(" | ");
+                    }
+                    alternative.show_into(out, false);
+                }
+                if argument {
+                    out.push(')');
+                }
+            }
+        }
+    }
+
     /// `"--" ++ rest`.
     pub fn prefix(text: String, text_span: Span, rest: Pattern, span: Span) -> Pattern {
         Pattern::Prefix {

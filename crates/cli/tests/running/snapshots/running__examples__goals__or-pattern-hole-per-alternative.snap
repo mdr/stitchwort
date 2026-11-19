@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shortText`
+   ╭─[ goals/or-pattern-hole-per-alternative.sw:6:28 ]
+   │
+ 6 │   | Inl same | Inr same => ?
+   │                            ┬  
+   │                            ╰── text: Text
+   │                                same: text = "bb"
+   │                                ⊢ text.length = 1
+   │ 
+   │ Note: this arm is checked once for each of its 2 alternatives; the goal above is the one in `Inr same`, and the others are:
+   │         in `Inl same`:
+   │           text: Text
+   │           same: text = "a"
+   │           ⊢ text.length = 1
+───╯

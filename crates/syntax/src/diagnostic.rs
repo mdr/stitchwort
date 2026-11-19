@@ -62,6 +62,24 @@ pub struct Detail {
     /// The notes that explain a concept in the same words whatever the
     /// error's specifics (see [`Diagnostic::with_generic_note`]), by text.
     pub generic_notes: Vec<String>,
+    /// For an error in the body of an arm with or-pattern alternatives:
+    /// which alternatives it is in, so that the same error in several is
+    /// reported once.
+    pub alternative: Option<AlternativeError>,
+}
+
+/// [`Detail::alternative`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AlternativeError {
+    /// The arm's right-hand side, which every alternative shares.
+    pub arm: Span,
+    /// The alternatives the error is in, each as written (`Inr same`).
+    pub shown: Vec<String>,
+    /// How many times the arm is checked: once per alternative, and per
+    /// case a split below it makes.
+    pub cases: usize,
+    /// The note that names them, among the diagnostic's notes.
+    pub note: String,
 }
 
 /// [`Detail::build`]: the term's span and the expected test fact, as

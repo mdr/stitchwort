@@ -1,13 +1,15 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-OR-PATTERN-BINDS] Error: an or-pattern can't bind names
-   ╭─[ reject/or-pattern-binds.sw:6:12 ]
+[E-OR-PATTERN-BINDS] Error: `same` is bound in `Inl (Inl same)` but not in `Inr _`
+   ╭─[ reject/or-pattern-binds.sw:7:16 ]
    │
- 6 │     | Some x | None => 0
-   │            ┬  
-   │            ╰── `x` is bound here
+ 7 │     | Inl (Inl same) | Inr _ => rewrite same
+   │                ──┬─    ──┬──  
+   │                  ╰──────────── `same` is bound here
+   │                          │    
+   │                          ╰──── this alternative doesn't bind `same`
    │ 
-   │ Note: write `_` for a part that isn't used, or match each alternative in an arm of its own
+   │ Note: the arm's body is checked once for each alternative, so every alternative binds the same names; write `_` for a part that isn't used, or match this alternative in an arm of its own
 ───╯

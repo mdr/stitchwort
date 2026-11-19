@@ -628,7 +628,7 @@ fn expand_or_patterns<'a>(rows: &[Row<'a>]) -> Vec<Row<'a>> {
         for alternative in alternatives.into_iter().rev() {
             let mut one = row.clone();
             one.span = alternative.span();
-            one.alternatives.push(alternative.span());
+            one.alternatives.push(alternative.clone());
             one.pats[j] = alternative;
             pending.push(one);
         }
@@ -692,8 +692,9 @@ struct Row<'a> {
     /// `None` for an equation with an absurd pattern `()`.
     rhs: Option<&'a Expr>,
     span: Span,
-    /// The spans of the or-pattern alternatives the row was expanded to.
-    alternatives: Vec<Span>,
+    /// The or-pattern alternatives the row was expanded to, outermost
+    /// first.
+    alternatives: Vec<Pat<'a>>,
     /// `if c` after the arm's patterns: the arm applies only when it holds,
     /// and otherwise the rows below it are tried.
     guard: Option<&'a ast::Guard>,
@@ -715,8 +716,8 @@ enum Tree<'a> {
         written: Vec<&'a str>,
         rhs: Option<&'a Expr>,
         span: Span,
-        /// The spans of the or-pattern alternatives that chose the arm.
-        alternatives: Vec<Span>,
+        /// The or-pattern alternatives that chose the arm, outermost first.
+        alternatives: Vec<Pat<'a>>,
         /// The spans of the rows after the arm's that could match here too:
         /// without the arm, one of them would take the case, so
         /// `W-UNREACHABLE` can promise the arm can be deleted only along
@@ -3437,10 +3438,17 @@ impl Elaborator {
         let mut out = vec![d];
         for b in branches {
             let at = b.labels.first().map(|l| l.span);
-            if b.code != goals::UNFINISHED
-                && !out.iter().any(|o| o.labels.first().map(|l| l.span) == at)
+            if b.code == goals::UNFINISHED {
+                continue;
+            }
+            match out
+                .iter_mut()
+                .find(|o| o.labels.first().map(|l| l.span) == at)
             {
-                out.push(b);
+                Some(o) => {
+                    same_in_another_alternative(o, &b);
+                }
+                None => out.push(b),
             }
         }
         out
@@ -3742,6 +3750,14 @@ impl Elaborator {
                     let mut seen: Vec<Span> = Vec::new();
                     for d in self.attempt.branch_errors.take() {
                         let at = d.labels.first().map(|l| l.span);
+                        // The same error in another alternative of an
+                        // or-pattern's arm is one error, in both.
+                        if out
+                            .iter_mut()
+                            .any(|(_, o)| same_in_another_alternative(o, &d))
+                        {
+                            continue;
+                        }
                         let repeated = at.is_some_and(|at| seen.contains(&at))
                             || out.iter().any(|(_, o)| {
                                 o.code == d.code
@@ -6310,7 +6326,11 @@ fn check_leaf_in(
         };
         families::note_arm_case(cx, *span, !alternatives.is_empty(), why, later);
     }
-    cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
+    let alternative_spans: Vec<Span> = alternatives.iter().map(|p| p.span()).collect();
+    cx.e.decl
+        .leaf_log
+        .borrow_mut()
+        .record(*span, &alternative_spans);
     let Some(rhs) = rhs else {
         return Err(error(
             "E-ARITY",
@@ -6361,6 +6381,12 @@ fn check_leaf_in(
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
     let shown_arm = arm_display::enter_arm(cx, unsplit, *cases, facts);
+    let shown_alternative: Option<Rc<str>> =
+        (!alternatives.is_empty()).then(|| shown_alternatives(alternatives).into());
+    let saved_alternative = std::mem::replace(
+        &mut cx.e.goals.borrow_mut().alternative,
+        shown_alternative.clone(),
+    );
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
@@ -6374,12 +6400,16 @@ fn check_leaf_in(
         // The case note can't say which alternative of an or-pattern the
         // error is in, so the alternatives that chose this leaf are marked.
         if e.notes.len() > had_note {
-            for span in alternatives {
+            for span in &alternative_spans {
                 e = e.with_label(*span, "the error is in the case this alternative matches");
             }
         }
+        if let Some(shown) = &shown_alternative {
+            e = in_alternative(cx, e, shown, alternatives, aliases, rhs.span(), *cases);
+        }
         e
     });
+    cx.e.goals.borrow_mut().alternative = saved_alternative;
     arm_display::leave_arm(cx, shown_arm);
     cx.reset(mark);
     cx.names = saved_names;
@@ -6390,6 +6420,175 @@ fn check_leaf_in(
         probe::record_arm(cx, rhs, body);
     }
     result.map(|body| around_lets(text_lets, body))
+}
+
+/// The or-pattern alternatives that chose a leaf, as written, with an
+/// or-pattern nested in an alternative shown as the alternative chosen
+/// there: `` `Inl (Inr same)` ``, or `` `OrOr` and `Inr same` `` for one in
+/// each of two columns.
+fn shown_alternatives(alternatives: &[Pat]) -> String {
+    let within = |inner: Span, outer: Span| {
+        inner != outer && outer.start <= inner.start && inner.end <= outer.end
+    };
+    let shown: Vec<String> = (alternatives.iter().enumerate())
+        .filter(|(i, p)| {
+            !alternatives[..*i]
+                .iter()
+                .any(|o| within(p.span(), o.span()))
+        })
+        .map(|(_, p)| format!("`{}`", chosen_in(p, alternatives).shown()))
+        .collect();
+    match shown.as_slice() {
+        [rest @ .., last] if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => shown.concat(),
+    }
+}
+
+/// `pattern` with each or-pattern in it that one of `chosen` is an
+/// alternative of replaced by that alternative.
+fn chosen_in(pattern: &Pattern, chosen: &[Pat]) -> Pattern {
+    let one = |p: &Pattern| Box::new(chosen_in(p, chosen));
+    let fields = |fields: &[(ast::Name, Pattern)]| -> Vec<(ast::Name, Pattern)> {
+        (fields.iter())
+            .map(|(x, p)| (x.clone(), chosen_in(p, chosen)))
+            .collect()
+    };
+    match pattern {
+        Pattern::Or(alternatives, _) => {
+            match (alternatives.iter()).find(|a| chosen.iter().any(|c| c.span() == a.span())) {
+                Some(a) => chosen_in(a, chosen),
+                None => pattern.clone(),
+            }
+        }
+        Pattern::Ctor(name, args, span) => Pattern::Ctor(
+            name.clone(),
+            args.iter().map(|p| chosen_in(p, chosen)).collect(),
+            *span,
+        ),
+        Pattern::Tuple(a, b, span) => Pattern::Tuple(one(a), one(b), *span),
+        Pattern::Cons(a, b, span) => Pattern::Cons(one(a), one(b), *span),
+        Pattern::Named(x, p, span) => Pattern::Named(x.clone(), one(p), *span),
+        Pattern::Record {
+            fields: f,
+            rest,
+            span,
+        } => Pattern::Record {
+            fields: fields(f),
+            rest: *rest,
+            span: *span,
+        },
+        Pattern::CtorFields {
+            ctor,
+            fields: f,
+            rest,
+            span,
+            ..
+        } => Pattern::ctor_fields(ctor.clone(), fields(f), *rest, *span),
+        Pattern::Prefix {
+            text,
+            text_span,
+            rest,
+            span,
+            ..
+        } => Pattern::prefix(text.clone(), *text_span, chosen_in(rest, chosen), *span),
+        _ => pattern.clone(),
+    }
+}
+
+/// `error`, from the body of an arm with or-pattern alternatives, with a
+/// note naming the alternatives that chose the leaf and the types the
+/// names they bind have there: the body is checked once per alternative,
+/// and a name may have a different type in each (D3694). The innermost
+/// arm's note is kept.
+fn in_alternative(
+    cx: &Ctx,
+    mut error: Diagnostic,
+    shown: &str,
+    alternatives: &[Pat],
+    aliases: &[(&str, usize)],
+    arm: Span,
+    cases: usize,
+) -> Diagnostic {
+    if error.code == goals::UNFINISHED
+        || error.code == "E-RESOURCE"
+        || error
+            .detail
+            .as_ref()
+            .is_some_and(|d| d.alternative.is_some())
+    {
+        return error;
+    }
+    let mut names: Vec<&str> = Vec::new();
+    for alternative in alternatives {
+        for name in written_names(std::slice::from_ref(&**alternative)) {
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+    let typed: Vec<String> = (names.iter())
+        .filter_map(|name| {
+            let &(_, level) = aliases.iter().rev().find(|(x, _)| x == name)?;
+            let ty = cx.types.get(level)?;
+            Some(format!("`{name}: {}`", cx.show(ty)))
+        })
+        .collect();
+    let plural = if shown.contains("` and `") { "s" } else { "" };
+    let mut note = format!("this error is in the alternative{plural} {shown}");
+    if !typed.is_empty() {
+        note.push_str(&format!(", where {}", typed.join(" and ")));
+    }
+    error.notes.push(note.clone());
+    error.detail_mut().alternative = Some(stitchwort_syntax::AlternativeError {
+        arm,
+        shown: vec![shown.to_string()],
+        cases,
+        note,
+    });
+    error
+}
+
+/// `error` with `again`, the same error in another alternative of the same
+/// arm, folded in: its note names both, or says the error is in every one.
+/// False, leaving `error` as it was, if `again` says something else (its
+/// code, message or main label differ) or isn't from another alternative of
+/// the same arm.
+fn same_in_another_alternative(error: &mut Diagnostic, again: &Diagnostic) -> bool {
+    if error.code != again.code
+        || error.message != again.message
+        || error.labels.first() != again.labels.first()
+    {
+        return false;
+    }
+    let (Some(first), Some(other)) = (
+        error.detail.as_mut().and_then(|d| d.alternative.as_mut()),
+        again.detail.as_ref().and_then(|d| d.alternative.as_ref()),
+    ) else {
+        return false;
+    };
+    if first.arm != other.arm {
+        return false;
+    }
+    for shown in &other.shown {
+        if !first.shown.contains(shown) {
+            first.shown.push(shown.clone());
+        }
+    }
+    let note = match first.shown.as_slice() {
+        all if all.len() == first.cases => {
+            format!("this error is in each of the {} alternatives", all.len())
+        }
+        [rest @ .., last] if !rest.is_empty() => format!(
+            "this error is in the alternatives {} and {last}",
+            rest.join(", ")
+        ),
+        _ => return true,
+    };
+    let old = std::mem::replace(&mut first.note, note.clone());
+    if let Some(n) = error.notes.iter_mut().find(|n| **n == old) {
+        *n = note;
+    }
+    true
 }
 
 /// Binds each name of a leaf's [`Row::texts`] to the text of the characters

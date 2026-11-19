@@ -1,0 +1,48 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "text",
+          "type": "Text"
+        },
+        {
+          "name": "same",
+          "type": "text = \"bb\""
+        }
+      ],
+      "lemma": "theorem shortTextGoal1 (text: Text) (same: text = \"bb\"): text.length = 1 := ?",
+      "target": "text.length = 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "text: Text\nsame: text = \"bb\"\n⊢ text.length = 1",
+        "range": [
+          5,
+          27,
+          5,
+          28
+        ]
+      }
+    ],
+    "message": "in `shortText`",
+    "notes": [
+      "this arm is checked once for each of its 2 alternatives; the goal above is the one in `Inr same`, and the others are:\n  in `Inl same`:\n    text: Text\n    same: text = \"a\"\n    ⊢ text.length = 1"
+    ],
+    "range": [
+      5,
+      27,
+      5,
+      28
+    ],
+    "severity": "goal"
+  }
+]

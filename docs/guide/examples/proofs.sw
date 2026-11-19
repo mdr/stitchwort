@@ -382,3 +382,8 @@ theorem otherWord ∀ (word: Text): keyword word = None ∨ word = "def" ∨ wor
   | "theorem" => Inr (Inr byComputing)
   | other => Inl (keyword.eq3 other byDecision byDecision)
 -- end catch-all-facts
+
+-- begin or-pattern-proof
+theorem keywordLength ∀ (word: Text) (known: word = "def" ∨ word = "let"): word.length = 3 := match known with
+  | Inl same | Inr same => rewrite same
+-- end or-pattern-proof

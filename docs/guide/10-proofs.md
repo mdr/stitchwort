@@ -627,6 +627,18 @@ theorem otherWord ∀ (word: Text): keyword word = None ∨ word = "def" ∨ wor
 
 An arm above with a condition (`| "def" if loud =>`) gives no line, since the catch-all is reached when the condition fails; and the facts are not hypotheses you can name, so a proof that needs one as a value asks for it with `byDecision` or an `[auto]` parameter, where it is wanted.
 
+### One proof for several cases
+
+When several cases have the same proof, write it once. A catch-all after the arms that differ is checked in each case it covers, with the goal and the names refined for that case. An or-pattern does the same for the cases it lists, and its alternatives may bind names, as long as each binds the same ones. The arm is checked as if its proof were written under each alternative, so a name may have a different type in each: below, `same` is `word = "def"` in one alternative and `word = "let"` in the other, and `rewrite same` works for both.
+
+<!-- snippet: proofs.sw#or-pattern-proof -->
+```stitchwort
+theorem keywordLength ∀ (word: Text) (known: word = "def" ∨ word = "let"): word.length = 3 := match known with
+  | Inl same | Inr same => rewrite same
+```
+
+Alternatives nest, `| Inl (Inl same | Inr same) =>`, and with an or-pattern in each of two columns the proof is checked for every pair. An error names the alternative it is in and the types of the names there ("this error is in the alternative `Inr same`, where `same: word = "lets"`"), and a `?` in the arm shows each alternative's goal.
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:

@@ -86,41 +86,10 @@ theorem headNotDash ∀ (text: Text) (first: Char) (others: List Char)
 --| Proof idea: Each fixed spelling by computing; a name or numeral starts with a character that is no `-`.
 theorem spellsNotComment ∀ (kind: Tok) (text: Text) (spells: Spells kind text): text.startsWith "--" = False :=
   match kind, spells with
-    | LParen, same => rewrite same
-    | RParen, same => rewrite same
-    | LBracket, same => rewrite same
-    | RBracket, same => rewrite same
-    | Comma, same => rewrite same
-    | Colon, same => rewrite same
-    | ColonEq, same => rewrite same
-    | Equals, same => rewrite same
-    | EqEq, same => rewrite same
-    | Arrow, Inl same => rewrite same
-    | Arrow, Inr same => rewrite same
-    | OrOr, Inl same => rewrite same
-    | OrOr, Inr same => rewrite same
-    | AndAnd, Inl same => rewrite same
-    | AndAnd, Inr same => rewrite same
-    | Plus, same => rewrite same
-    | PlusPlus, same => rewrite same
-    | Minus, same => rewrite same
-    | Star, same => rewrite same
-    | Slash, same => rewrite same
-    | Percent, same => rewrite same
-    | NotEq, Inl same => rewrite same
-    | NotEq, Inr same => rewrite same
-    | Lt, same => rewrite same
-    | Le, Inl same => rewrite same
-    | Le, Inr same => rewrite same
-    | Gt, same => rewrite same
-    | Ge, Inl same => rewrite same
-    | Ge, Inr same => rewrite same
-    | Bang, Inl same => rewrite same
-    | Bang, Inr same => rewrite same
-    | KwDef, same => rewrite same
-    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
-      headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
-    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
+    | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq | Plus | PlusPlus | Minus | Star | Slash | Percent | Lt | Gt | KwDef, same =>
+      rewrite same
+    | Arrow | OrOr | AndAnd | NotEq | Le | Ge | Bang, Inl same | Inr same => rewrite same
+    | Lower | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
       headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
       headNotDash text first others split (digitNotDash first digit)

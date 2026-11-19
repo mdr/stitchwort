@@ -125,6 +125,14 @@ def keyMove (key: Char): Option Text := match key with
   | _ => None
 
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
+
+type Payment = | Cash (amount: Nat) | Card (amount: Nat) | Voucher
+
+def Payment.paid: Payment → Nat
+  | Cash amount | Card amount => amount
+  | Voucher => 0
+
+test "binding or-patterns" := [Cash 5, Card 7, Voucher].map .paid == [5, 7, 0]
 -- end or-patterns
 
 -- begin text-patterns

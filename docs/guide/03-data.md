@@ -268,7 +268,7 @@ def simplify: Expr → Expr
 test "nested patterns" := simplify (Add (Num 0) (Neg (Neg (Num 5)))) == Num 5
 ```
 
-Several patterns that give the same result are written in one arm with `|`. The alternatives can't bind variables (`_` is fine); for those, write arms of their own:
+Several patterns that give the same result are written in one arm with `|`. The alternatives may bind names, as long as every alternative binds the same ones (`| Cash amount | Voucher` is an error: `amount` would have no value for a `Voucher`):
 
 <!-- snippet: data.sw#or-patterns -->
 ```stitchwort
@@ -284,7 +284,17 @@ def keyMove (key: Char): Option Text := match key with
   | _ => None
 
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
+
+type Payment = | Cash (amount: Nat) | Card (amount: Nat) | Voucher
+
+def Payment.paid: Payment → Nat
+  | Cash amount | Card amount => amount
+  | Voucher => 0
+
+test "binding or-patterns" := [Cash 5, Card 7, Voucher].map .paid == [5, 7, 0]
 ```
+
+An arm with several alternatives is checked as if its body were written under each one. So a name may have a different type in each alternative, and the body must make sense for all of them: with `| Num n | Word n => n.toText`, `n` may be a `Nat` in one and a `Text` in the other, and `toText` is chosen for each alternative on its own: `Nat.toText` in one, `Text.toText` in the other. An error in the body says which alternative it is in and what the names are there ("this error is in the alternative `Word n`, where `n: Text`"), or that it is in each of them.
 
 A text in quotes matches exactly that text, so a table of words reads as a table. On a `List Char` the same literal matches the list of its characters, which is what a hand-written lexer looks at; which one it means comes from the type of what is matched, as a number pattern's does. `"--" ++ rest` matches a text that starts with `--` and names the rest: `rest` is a `Text` when a text is matched, and the list of the remaining characters on a `List Char`. Only the start can be fixed: `name ++ ".sw"` and `"hello ${name}"` aren't patterns (`E-TEXT-PATTERN`), so to test how a text ends, use a condition (`| t if t.endsWith ".sw" =>`, below):
 

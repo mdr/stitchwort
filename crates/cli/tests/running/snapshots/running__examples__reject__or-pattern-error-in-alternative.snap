@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/or-pattern-error-in-alternative.sw:7:90 ]
+   │
+ 7 │ def total (payment: Payment): Nat := match payment with | Cash amount | Cheque amount => amount + 1
+   │                                                                                          ───┬──  
+   │                                                                                             ╰──── expected `Nat`, but this has type `Text`
+   │ 
+   │ Note 1: this arithmetic is on `Nat` because `Nat` is expected here
+   │ 
+   │ Note 2: this error is in the alternative `Cheque amount`, where `amount: Text`
+───╯

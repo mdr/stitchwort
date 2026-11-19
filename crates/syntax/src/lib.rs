@@ -17,8 +17,8 @@ pub mod stack;
 pub mod tree;
 
 pub use diagnostic::{
-    BuildSite, COMPUTES_TO_LIMIT, Counterexample, Detail, Diagnostic, GoalData, Hypothesis, Label,
-    MissingCases, Severity, SuggestedImport, cut_computed,
+    AlternativeError, BuildSite, COMPUTES_TO_LIMIT, Counterexample, Detail, Diagnostic, GoalData,
+    Hypothesis, Label, MissingCases, Severity, SuggestedImport, cut_computed,
 };
 /// The token stream, for tools that edit source text at token spans.
 pub use lexer::{

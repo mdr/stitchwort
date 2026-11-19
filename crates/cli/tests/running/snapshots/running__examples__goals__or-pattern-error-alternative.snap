@@ -11,7 +11,9 @@ expression: output
    │                                  │   
    │                                  ╰─── expected `p "" (Some True)`, but this has type `p "" None`
    │ 
-   │ Note: this arm is checked in 12 cases, and this error is in the case where `s` is `""`
+   │ Note 1: this arm is checked in 12 cases, and this error is in the case where `s` is `""`
+   │ 
+   │ Note 2: this error is in the alternative `Some True`
 ───╯
 [GOAL] Goal: in `alternatives`
    ╭─[ goals/or-pattern-error-alternative.sw:8:27 ]
