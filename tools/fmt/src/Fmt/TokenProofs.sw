@@ -8,7 +8,6 @@ import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc.Proofs (isLayout, printedPieces, wordsOf)
 import Syntax (..)
 import Syntax.Proofs (Laid, Piece)
-import Syntax.SettleProofs (allReverseOnto)
 import Fmt (..)
 import Fmt.PrintLexProofs (addPiece, pieceFold, pieceOf)
 import Fmt.SpellProofs (..)
@@ -212,7 +211,7 @@ theorem printedTokens1 ∀ (decl: Decl)
           _ = codeTexts pieces := leavesTexts pieces
           _ = (wordsOf (printedPieces doc width)).filter notComment := codeOfWords lexKind (printedPieces doc width)
           _ = decl.spelt.filter notComment := spelled,
-        allReverseOnto Leaf.kinded
+        List.allReverseOntoTrue Leaf.kinded
           (pieces.foldLeft Laid.start Laid.lay).leaves
           []
           (foldKinded pieces Laid.start byComputing (pieceFoldKinded (printedPieces doc width)))

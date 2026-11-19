@@ -34,8 +34,8 @@ theorem argumentPrefixHung ∀ (sign next: Item) (later: List Item)
     (opens: next.kind.opensAtom = True):
     argumentPrefix [sign, next, ..later] = True :=
   let spaced: (sign.afterOperand && (!sign.glued && next.glued)) = True := rewrite signed at glue then glue
-  let (afterOperand, glues) := andBoth _ _ spaced
-  let (unglued, nextGlued) := andBoth _ _ glues
+  let (afterOperand, glues) := Bool.andElim _ _ spaced
+  let (unglued, nextGlued) := Bool.andElim _ _ glues
   match starts: sign.leaf.token.lineStart with
     | True => rewrite signOr sign.kind signed, afterOperand, nextGlued, opens
     | False => rewrite signOr sign.kind signed, afterOperand, Bool.notTrue _ unglued, nextGlued, opens

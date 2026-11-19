@@ -23,17 +23,7 @@ import Syntax.SettleProofs (
   tokens,
   triviaTexts
 )
-import Syntax.SettleOnceProofs (
-  allAppendB,
-  allReverseOnto,
-  isMarked,
-  laidBack,
-  laidOnto,
-  laidParkedBack,
-  notOrFalse,
-  pendB,
-  textsReverseOnto
-)
+import Syntax.SettleOnceProofs (isMarked, laidBack, laidOnto, laidParkedBack, pendB, textsReverseOnto)
 import Syntax.LexReadsProofs (..)
 
 -- What the lexemes must be.
@@ -90,15 +80,11 @@ def asmDone (asm: Assembly): Bool :=
     && (leafTexts asm.leaves).all rawText
     && asm.pending.all (comment => rawText comment.text)
 
-theorem reverseOntoEmpty ∀ (xs acc: List a): (xs.reverseOnto acc).isEmpty = (xs.isEmpty && acc.isEmpty) := match xs with
-  | [] => byComputing
-  | [x, ..rest] => rewrite reverseOntoEmpty rest [x, ..acc] then cases
-
 --| The comments' texts of reversed comments, all fine as the comments are.
 theorem textsReversed ∀ (comments: List Comment) (q: Text → Bool):
     (comments.reverse.map (comment => comment.text)).all q = comments.all (comment => q comment.text) :=
   rewrite List.allMapBool comments.reverse q (comment => comment.text),
-      allReverseOnto comments [] (comment => q comment.text) then
+      List.allReverseOntoAnd comments [] (comment => q comment.text) then
     cases
 
 theorem withTrailingLaid ∀ (leaves: List Leaf) (comment: Comment):
@@ -124,16 +110,17 @@ theorem withTrailingTexts ∀ (leaves: List Leaf) (comment: Comment)
       let leading := last.trivia.leading.map (comment => comment.text)
       let oldSplit: (leafTexts [last, ..earlier]).all rawText
         = ((leading ++ optionText last.trivia.trailing).all rawText && (leafTexts earlier).all rawText) :=
-        allAppendB (leading ++ optionText last.trivia.trailing) (leafTexts earlier) rawText
+        List.allAppendAnd (leading ++ optionText last.trivia.trailing) (leafTexts earlier) rawText
       let oldParts := rewrite oldSplit at old then old
       let lastOld := Bool.andLeft oldParts
       let leadOk :=
-        Bool.andLeft (rewrite allAppendB leading (optionText last.trivia.trailing) rawText at lastOld then lastOld)
+        Bool.andLeft
+          (rewrite List.allAppendAnd leading (optionText last.trivia.trailing) rawText at lastOld then lastOld)
       calc (leafTexts (withTrailing [last, ..earlier] comment)).all rawText
         _ = ((leading ++ [comment.text]).all rawText && (leafTexts earlier).all rawText) :=
-          allAppendB (leading ++ [comment.text]) (leafTexts earlier) rawText
+          List.allAppendAnd (leading ++ [comment.text]) (leafTexts earlier) rawText
         _ = ((leading.all rawText && [comment.text].all rawText) && (leafTexts earlier).all rawText) :=
-          rewrite allAppendB leading [comment.text] rawText
+          rewrite List.allAppendAnd leading [comment.text] rawText
         _ = True := rewrite leadOk, raw, Bool.andRight oldParts
 
 --| One lexeme added keeps the assembly fine, when the lexeme is and a comment's line break comes next.
@@ -150,7 +137,7 @@ theorem addFine ∀ (asm: Assembly) (last: Bool) (source: Text) (lexeme: Parse.L
   match lexeme with
     | { value, offset, length } =>
       match value with
-        | Spaces => rewrite notOrFalse last gap at fine then fine
+        | Spaces => rewrite Bool.notOrFalse last gap at fine then fine
         | LineBreak =>
           Bool.andIntro
             (Bool.andLeft fine)
@@ -159,7 +146,7 @@ theorem addFine ∀ (asm: Assembly) (last: Bool) (source: Text) (lexeme: Parse.L
               (Bool.andIntro (Bool.orTrue (!pendB asm.leaves)) (Bool.andRight (Bool.andRight (Bool.andRight fine)))))
         | CommentLexeme => addCommentFine asm last source offset length fine ok
         | TokenLexeme kind =>
-          addTokenFine asm source kind offset length (rewrite notOrFalse last gap at fine then fine) ok
+          addTokenFine asm source kind offset length (rewrite Bool.notOrFalse last gap at fine then fine) ok
 
 theorem addCommentFine ∀ (asm: Assembly) (last: Bool) (source: Text) (offset length: Nat)
     (fine: asmFine asm last = True)
@@ -213,7 +200,7 @@ theorem addTokenFine ∀ (asm: Assembly) (source: Text) (kind: Tok) (offset leng
   let pendingOk: (!pendB asm.leaves || asm.freshLine) = True :=
     rewrite Bool.orFalse asm.freshLine at pendingFact then pendingFact
   let leadOk: (asm.pending.reverse.isEmpty || asm.freshLine) = True :=
-    rewrite reverseOntoEmpty asm.pending [] then (rewrite Bool.andTrue asm.pending.isEmpty then waiting)
+    rewrite List.isEmptyReverseOnto asm.pending [] then (rewrite Bool.andTrue asm.pending.isEmpty then waiting)
   let textsOld := Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight fine))))
   let pendingRaw := Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight fine))))
   let leadRaw: (asm.pending.reverse.map (comment => comment.text) ++ []).all rawText = True :=
@@ -221,7 +208,7 @@ theorem addTokenFine ∀ (asm: Assembly) (source: Text) (kind: Tok) (offset leng
       pendingRaw
   let textsNew: ((asm.pending.reverse.map (comment => comment.text) ++ []) ++ leafTexts asm.leaves).all rawText
     = True :=
-    rewrite allAppendB (asm.pending.reverse.map (comment => comment.text) ++ []) (leafTexts asm.leaves) rawText,
+    rewrite List.allAppendAnd (asm.pending.reverse.map (comment => comment.text) ++ []) (leafTexts asm.leaves) rawText,
         leadRaw then
       textsOld
   Bool.andIntro
@@ -263,7 +250,7 @@ theorem assembleLaid ∀ (source: Text) (lexemes: List (Parse.Located Lexeme))
       _ = (leafTexts done.leaves.reverse ++ triviaTexts (assemble source lexemes).end).all rawText :=
         rewrite leavesTextsSplit done.leaves.reverse (assemble source lexemes).end
       _ = ((leafTexts done.leaves.reverse).all rawText && (triviaTexts (assemble source lexemes).end).all rawText) :=
-        allAppendB (leafTexts done.leaves.reverse) (triviaTexts (assemble source lexemes).end) rawText
+        List.allAppendAnd (leafTexts done.leaves.reverse) (triviaTexts (assemble source lexemes).end) rawText
       _ = True :=
         rewrite textsReverseOnto rawText done.leaves [],
             List.appendNil (done.pending.reverse.map (comment => comment.text)),
@@ -273,15 +260,13 @@ theorem assembleLaid ∀ (source: Text) (lexemes: List (Parse.Located Lexeme))
             (Bool.andRight (Bool.andRight (Bool.andRight ok)))
   (
     laidOnto done.leaves [] (Bool.andLeft ok) byComputing,
-    rewrite allReverseOnto done.leaves [] (leaf => !leaf.kind.within1 || isMarked leaf) then
+    rewrite List.allReverseOntoAnd done.leaves [] (leaf => !leaf.kind.within1 || isMarked leaf) then
       Bool.andIntro (Bool.andLeft (Bool.andRight ok)) byComputing,
     texts,
     byComputing
   )
 
 -- The tokens `assemble` makes.
-
-theorem andShuffle ∀ (a b c: Bool): ((a && b) && c) = (b && (a && c)) := cases
 
 --| A lexeme added makes a leaf of the alphabet if it is a token of it, and keeps the leaves' kinds.
 theorem addWithin ∀ (asm: Assembly) (source: Text) (lexeme: Parse.Located Lexeme):
@@ -305,7 +290,7 @@ theorem foldWithin ∀ (source: Text) (lexemes: List (Parse.Located Lexeme)) (as
     | [] => rewrite Bool.andTrue (asm.leaves.all (leaf => leaf.kind.within1))
     | [lexeme, ..rest] =>
       rewrite foldWithin source rest (asm.add source lexeme), addWithin asm source lexeme then
-        andShuffle lexeme.value.within
+        Bool.andShuffle lexeme.value.within
           (asm.leaves.all (leaf => leaf.kind.within1))
           (rest.all (lexeme => lexeme.value.within))
 
@@ -317,7 +302,7 @@ theorem assembleWithin ∀ (source: Text) (lexemes: List (Parse.Located Lexeme))
   let leaves: done.leaves.reverse.all (leaf => leaf.kind.within1) = True :=
     rewrite List.allMapBool done.leaves.reverse (token => token.kind.within1) (leaf => leaf.token) at within then within
   let forward: done.leaves.all (leaf => leaf.kind.within1) = True :=
-    Bool.andLeft (rewrite allReverseOnto done.leaves [] (leaf => leaf.kind.within1) at leaves then leaves)
+    Bool.andLeft (rewrite List.allReverseOntoAnd done.leaves [] (leaf => leaf.kind.within1) at leaves then leaves)
   rewrite foldWithin source lexemes Assembly.start at forward then forward
 
 -- The lexemes' reading: rounds of `item` that are fine make fine lexemes.
@@ -349,7 +334,7 @@ theorem nextBreak ∀ (next read tail: List Char) (offset: Nat) (rounds: List (L
     | [], each => byComputing
     | [round, ..more], Witness first (Witness later (Both split (Both fine rest))) =>
       let both: (round.all (lexeme => lexeme.value.within) && more.concat.all (lexeme => lexeme.value.within)) = True :=
-        rewrite allAppendB round more.concat (lexeme => lexeme.value.within) at within then within
+        rewrite List.allAppendAnd round more.concat (lexeme => lexeme.value.within) at within then within
       match fine (Bool.andLeft both) with
         | Witness value (Both isRound chunk) =>
           match first with
@@ -386,11 +371,11 @@ theorem roundsFine ∀ (source: Text) (before rest read tail: List Char) (rounds
     | [], each => byComputing
     | [round, ..more], Witness first (Witness later (Both split (Both fine rest1))) =>
       let both: (round.all (lexeme => lexeme.value.within) && more.concat.all (lexeme => lexeme.value.within)) = True :=
-        rewrite allAppendB round more.concat (lexeme => lexeme.value.within) at within then within
+        rewrite List.allAppendAnd round more.concat (lexeme => lexeme.value.within) at within then within
       match fine (Bool.andLeft both) with
         | Witness value (Both isRound chunk) =>
           let restIs: rest = first ++ (later ++ tail) := rewrite cover, split then List.appendAssoc first later tail
-          let nextIs: rest.drop first.length = later ++ tail := dropOfAppend rest first (later ++ tail) restIs
+          let nextIs: rest.drop first.length = later ++ tail := List.dropAppendOf rest first (later ++ tail) restIs
           let text: source.slice before.length (before.length + first.length) = Text.fromList first :=
             Text.sliceMiddle source before first (later ++ tail) (rewrite made, restIs)
           let kind: kindFine first (rest.drop first.length) value = True := Bool.andRight chunk

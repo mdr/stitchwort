@@ -76,8 +76,6 @@ theorem isNoneOfSome ∀ (option: Option Comment) (none: option.isSome = False):
 
 -- The lexer's leaves.
 
-theorem orFalseOf ∀ (b: Bool) (h: (b || False) = True): b = True := match b with | True => byComputing
-
 --| A leaf laid out after `previous` is quiet after it: one with own-line comments, or after a trailing comment,
 --| starts its line.
 theorem laidQuietAfter ∀ (previous: Leaf) (rest: List Leaf)
@@ -94,8 +92,8 @@ theorem laidQuietAfter ∀ (previous: Leaf) (rest: List Leaf)
           quietStarts previous.kind.signLike next.kind.opensAtom previous.trivia.trailing.isNone
               next.trivia.leading.isEmpty
         | False =>
-          let unled: next.trivia.leading.isEmpty = True := orFalseOf _ ledOk
-          let untrailed: previous.trivia.trailing.isSome = False := Bool.notTrue _ (orFalseOf _ afterOk)
+          let unled: next.trivia.leading.isEmpty = True := Bool.orFalseTrue _ ledOk
+          let untrailed: previous.trivia.trailing.isSome = False := Bool.notTrue _ (Bool.orFalseTrue _ afterOk)
           rewrite isNoneOfSome previous.trivia.trailing untrailed, unled then
             quietBoth previous.kind.signLike False next.kind.opensAtom
       Bool.andIntro pair (laidQuietAfter next more moreLaid)
@@ -540,8 +538,6 @@ def walkPlain (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match st
   | Succ (Succ more), [previous, ..earlier] => !current.kind.opensAtom && walkPlain (Succ more) previous earlier
   | _, _ => False
 
-theorem notOfFalse ∀ (b: Bool) (h: b = False): (!b) = True := rewrite h
-
 --| Rule 1's walk passes only leaves that open no atom.
 theorem stepsPlain ∀ (bareLast: Bool) (current: Leaf) (behind ahead: List Leaf) (steps: Nat):
     ∃ (passed: Nat) => stepsBack bareLast current behind ahead steps = steps + passed
@@ -556,7 +552,7 @@ theorem stepsPlain ∀ (bareLast: Bool) (current: Leaf) (behind ahead: List Leaf
             && (!current.trivia.leading.isEmpty || endsWithComment [previous, ..earlier] [current, ..ahead]) with
             | True => (0, arithmetic, Inl byComputing)
             | False =>
-              let plain := notOfFalse _ (skippedPlain current [previous, ..earlier] ahead skips)
+              let plain := Bool.notOfFalse _ (skippedPlain current [previous, ..earlier] ahead skips)
               let (passed, walked, more) := stepsPlain bareLast previous earlier [current, ..ahead] (Succ steps)
               let here: walkPlain (Succ passed) current [previous, ..earlier] = True := match passed, more with
                 | Zero, _ => plain
@@ -609,7 +605,7 @@ theorem edgeOfBar ∀ (leaf: Leaf) (behind after: List Leaf) (comment: Comment)
     homeEdge [leaf.withTrailing None, ..behind] (Some comment) after = True :=
   match after with
     | [] => byComputing
-    | [next, ..more] => Bool.orLeft (notOfFalse leaf.kind.signLike notSign)
+    | [next, ..more] => Bool.orLeft (Bool.notOfFalse leaf.kind.signLike notSign)
 
 theorem edgeUntrailed ∀ (leaf: Leaf) (behind after: List Leaf)
     (nextOk: gluesQuietAfter leaf after = True):
@@ -699,7 +695,7 @@ theorem homeQuiet ∀ (bareLast: Bool) (behind: List Leaf) (bumped: Option Comme
           let pushOk: gluesQuietBackAfter leaf behind = True := match behind with
             | [] => byComputing
             | [newest, ..older] =>
-              let notSign: newest.kind.signLike = False := Bool.notTrue _ (orFalseOf _ edge)
+              let notSign: newest.kind.signLike = False := Bool.notTrue _ (Bool.orFalseTrue _ edge)
               let pair: glueQuiet newest leaf = True :=
                 rewrite notSign then
                   quietNotSign leaf.token.lineStart leaf.kind.opensAtom newest.trivia.trailing.isNone

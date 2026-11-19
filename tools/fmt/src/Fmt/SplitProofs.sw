@@ -76,24 +76,12 @@ def argumentTexts1: List Expr → List Text
   | [] => []
   | [argument, ..rest] => argument.codeTexts1 ++ argumentTexts1 rest
 
-theorem textsAllAppend ∀ (xs ys: List Text) (p: Text → Bool): (xs ++ ys).all p = (xs.all p && ys.all p) := match xs with
-  | [] => byComputing
-  | [first, ..rest] =>
-    match p first with
-      | True => textsAllAppend rest ys p
-      | False => byComputing
-
-theorem allCons ∀ (x: a) (xs: List a) (p: a → Bool) (all: [x, ..xs].all p = True): p x = True ∧ xs.all p = True :=
-  match holds: p x, all with
-    | True, all => (byComputing, all)
-    | False, never => (Bool.falseNotTrue never).impossible
-
 --| Comments filtered out leave nothing.
 theorem commentsDropped ∀ (texts: List Text) (all: texts.all commentText = True): texts.filter notComment = [] :=
   match texts, all with
     | [], _ => byComputing
     | [text, ..rest], all =>
-      let (isComment, others) := allCons text rest commentText all
+      let (isComment, others) := List.allConsElim text rest commentText all
       rewrite commentsApart text isComment, commentsDropped rest others
 
 --| A clean token's spelling, comments filtered out, is its text.
@@ -104,7 +92,10 @@ theorem wordDropsComments ∀ (word: Word) (hoisted: Bool)
   let both: ((word.comments.above.map (note => note.text)).all commentText
     && word.comments.after.toList.all commentText)
     = True :=
-    rewrite <- textsAllAppend (word.comments.above.map (note => note.text)) word.comments.after.toList commentText then
+    rewrite <- List.allAppendAnd
+          (word.comments.above.map (note => note.text))
+          word.comments.after.toList
+          commentText then
       comments
   let aboveDrop := commentsDropped (word.comments.above.map (note => note.text)) (Bool.andLeft both)
   let afterDrop := commentsDropped word.comments.after.toList (Bool.andRight both)
@@ -130,31 +121,31 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
     (clean: expr.words.all Word.clean1 = True):
     (expr.spelt hoisted).filter notComment = expr.codeTexts1 :=
   match expr, within with
-    | Atom _ word, _ => wordDropsComments word hoisted (allCons word [] Word.clean1 clean).left
+    | Atom _ word, _ => wordDropsComments word hoisted (List.allConsElim word [] Word.clean1 clean).left
     | Paren open inner close, within =>
       let (front, back) := allSplitBool [open, ..inner.words] [close] Word.clean1 clean
-      let (openClean, innerClean) := allCons open inner.words Word.clean1 front
+      let (openClean, innerClean) := List.allConsElim open inner.words Word.clean1 front
       rewrite List.filterAppend (open.spelledAt hoisted) (inner.spelt False ++ close.spelledAt False) notComment,
           List.filterAppend (inner.spelt False) (close.spelledAt False) notComment,
           wordDropsComments open hoisted openClean,
           codeTextsOf inner False within innerClean,
-          wordDropsComments close False (allCons close [] Word.clean1 back).left
+          wordDropsComments close False (List.allConsElim close [] Word.clean1 back).left
     | Tuple open items _ close, within =>
       let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean1 clean
-      let (openClean, itemsClean) := allCons open (itemsWords items) Word.clean1 front
+      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean1 front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
           List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
           wordDropsComments open hoisted openClean,
           commaTextsOf items within itemsClean,
-          wordDropsComments close False (allCons close [] Word.clean1 back).left
+          wordDropsComments close False (List.allConsElim close [] Word.clean1 back).left
     | ListOf open items _ close, within =>
       let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean1 clean
-      let (openClean, itemsClean) := allCons open (itemsWords items) Word.clean1 front
+      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean1 front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
           List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
           wordDropsComments open hoisted openClean,
           commaTextsOf items within itemsClean,
-          wordDropsComments close False (allCons close [] Word.clean1 back).left
+          wordDropsComments close False (List.allConsElim close [] Word.clean1 back).left
     | App head arguments, within =>
       let (headClean, argumentsClean) := allSplitBool head.words (itemsWords arguments) Word.clean1 clean
       rewrite List.filterAppend (head.spelt hoisted) (argumentsSpelt arguments) notComment,
@@ -171,7 +162,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
         (Bool.andLeft (Bool.andRight within))
         clean
     | Prefix operator operand, within =>
-      let (operatorClean, operandClean) := allCons operator operand.words Word.clean1 clean
+      let (operatorClean, operandClean) := List.allConsElim operator operand.words Word.clean1 clean
       rewrite List.filterAppend (operator.spelledAt hoisted) (operand.spelt False) notComment,
           wordDropsComments operator hoisted operatorClean,
           codeTextsOf operand False (Bool.andLeft within) operandClean
@@ -184,7 +175,7 @@ theorem infixTextsOf ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right:
     (clean: (Infix kind left operator right).words.all Word.clean1 = True):
     ((Infix kind left operator right).spelt hoisted).filter notComment = (Infix kind left operator right).codeTexts1 :=
   let (leftClean, restClean) := allSplitBool left.words [operator, ..right.words] Word.clean1 clean
-  let (operatorClean, rightClean) := allCons operator right.words Word.clean1 restClean
+  let (operatorClean, rightClean) := List.allConsElim operator right.words Word.clean1 restClean
   rewrite List.filterAppend (left.spelt hoisted) (operator.spelledAt False ++ right.spelt False) notComment,
       List.filterAppend (operator.spelledAt False) (right.spelt False) notComment,
       codeTextsOf left hoisted leftWithin leftClean,

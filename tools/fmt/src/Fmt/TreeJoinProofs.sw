@@ -183,13 +183,6 @@ def Leads (text: Text): Prop :=
     ∨ Spells Num text
     ∨ Spells Float text
 
-theorem takeWhileAll ∀ (passes: Char → Bool) (chars: List Char)
-    (all: chars.all passes = True):
-    chars.takeWhile passes = chars :=
-  match chars with
-    | [] => byComputing
-    | [char, ..rest] => rewrite Bool.andLeft all, takeWhileAll passes rest (Bool.andRight all)
-
 theorem startBeq ∀ (first: Char)
     (starts: isWordStart first = True):
     (first == '-') = False ∧ (first == '>') = False ∧ (first == '=') = False :=
@@ -256,17 +249,9 @@ theorem wordNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
     text.toList.takeWhile isWordChar ≠ ['i', 'n'] :=
   same =>
     let whole: text.toList.takeWhile isWordChar = text.toList :=
-      rewrite split, Syntax.SharedFacts.wordStartChar first starts, takeWhileAll isWordChar others word
+      rewrite split, Syntax.SharedFacts.wordStartChar first starts, List.takeWhileOfAll isWordChar others word
     let named: text = "in" := Eq.trans (Text.fromToList text).flipped (rewrite (Eq.trans whole.flipped same))
     notIn (rewrite named at kinded then kinded)
-
-theorem takeWhileJoin ∀ (passes: Char → Bool) (front back: List Char)
-    (all: front.all passes = True)
-    (stops: back.takeWhile passes = []):
-    (front ++ back).takeWhile passes = front :=
-  match front, all with
-    | [], all => stops
-    | [char, ..more], all => rewrite Bool.andLeft all, takeWhileJoin passes more back (Bool.andRight all) stops
 
 --| A name, plain or qualified, isn't `in` where it starts.
 theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char) (comps: List (Pair Char (List Char)))
@@ -283,7 +268,7 @@ theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
     | [(letter, letters), ..more], split, Both isUpper rest, kinded => same =>
       let whole: text.toList.takeWhile isWordChar = [first, ..others] :=
         rewrite split then
-          takeWhileJoin isWordChar
+          List.takeWhileAppendThenStops isWordChar
             [first, ..others]
             (qualChars [(letter, letters), ..more])
             (Bool.andIntro (Syntax.SharedFacts.wordStartChar first starts) word)

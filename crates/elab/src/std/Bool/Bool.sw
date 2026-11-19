@@ -113,3 +113,62 @@ theorem Bool.notOfTrue ∀ (a: Bool) (h: a = True): (¬a) = False := match a wit
 theorem Bool.toNatLeOne ∀ (b: Bool): Bool.toNat b ≤ 1 := match b with
   | True => byComputing
   | False => byComputing
+
+--| `&&` chained is `False` when its last operand is.
+theorem Bool.andAndFalse ∀ (a b c: Bool) (no: c = False): (a && b && c) = False := match a, b with
+  | True, True => no
+  | True, False => byComputing
+  | False, _ => byComputing
+
+--| Both sides of a `&&` that is `True` are `True`, as one conjunction.
+theorem Bool.andElim ∀ (a b: Bool) (both: (a && b) = True): a = True ∧ b = True :=
+  (Bool.andLeft both, Bool.andRight both)
+
+--| A `||` that is `False` is `False` on both sides, as one conjunction.
+theorem Bool.orFalseElim ∀ (a b: Bool) (h: (a || b) = False): a = False ∧ b = False := cases
+
+--| `&&` commutes past its left operand: `a && (b && c) = b && (a && c)`.
+theorem Bool.andLeftComm ∀ (a b c: Bool): (a && (b && c)) = (b && (a && c)) := cases
+
+--| `(a && b) && c = b && (a && c)`: the left grouping reassociated with the first two swapped.
+theorem Bool.andShuffle ∀ (a b c: Bool): ((a && b) && c) = (b && (a && c)) := cases
+
+--| A `||` that is `True` stays `True` with its sides swapped.
+theorem Bool.orSwapTrue ∀ (x y: Bool) (or: (x || y) = True): (y || x) = True := match x with
+  | True => rewrite Bool.orTrue y
+  | False => rewrite or
+
+--| A `||` that is `True` with a `False` left side has a `True` right side.
+theorem Bool.orOfLeftFalse ∀ (a b: Bool) (h: (a || b) = True) (off: a = False): b = True := cases
+
+--| A `||` that is `True` with a `False` right side has a `True` left side.
+theorem Bool.orOfRightFalse ∀ (x s: Bool) (h: (x || s) = True) (off: s = False): x = True := cases
+
+--| `b || False` is `True` only when `b` is.
+theorem Bool.orFalseTrue ∀ (b: Bool) (h: (b || False) = True): b = True := match b with | True => byComputing
+
+--| Two `Bool`s that compare `==` are equal.
+theorem Bool.eqOfBeq ∀ (a b: Bool) (h: (a == b) = True): a = b := cases
+
+--| A `||` that is `True` stays `True` with a further operand on the right.
+theorem Bool.orExtend ∀ (a b c: Bool) (h: (a || b) = True): (a || b || c) = True := cases
+
+--| `x || (a && b)` being `True` makes `x || a` `True`.
+theorem Bool.orAndLeft ∀ (x a b: Bool) (h: (x || (a && b)) = True): (x || a) = True := cases
+
+--| `a || !b` being `True` with `b` `True` makes `a` `True`.
+theorem Bool.orOfNotTrue ∀ (a b: Bool) (h: (a || !b) = True) (on: b = True): a = True := cases
+
+--| `!x || False` being `True` makes `x` `False`.
+theorem Bool.notOrFalse ∀ (x: Bool) (h: (!x || False) = True): x = False := cases
+
+--| A chained `&&` is `False` when its first two operands already make `False`.
+theorem Bool.andFalseLeftOf ∀ (a b c: Bool) (no: (a && b) = False): (a && b && c) = False := match a, b, no with
+  | True, True, no => (Bool.falseNotTrue no.flipped).impossible
+  | True, False, no => byComputing
+  | False, _, no => byComputing
+
+--| A chained `&&` is `False` when its middle operand is.
+theorem Bool.andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a with
+  | True => byComputing
+  | False => byComputing

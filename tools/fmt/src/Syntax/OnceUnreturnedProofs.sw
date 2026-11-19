@@ -44,7 +44,8 @@ theorem leavesPlainTexts ∀ (leaves: List Leaf)
     | [] => byComputing
     | [leaf, ..rest] =>
       let split :=
-        rewrite textsCons leaf rest, allAppendB (triviaTexts leaf.trivia) (leafTexts rest) plainEnd at all then all
+        rewrite textsCons leaf rest, List.allAppendAnd (triviaTexts leaf.trivia) (leafTexts rest) plainEnd at all then
+          all
       Bool.andIntro (Bool.andLeft split) (leavesPlainTexts rest (Bool.andRight split))
 
 theorem wordsPlainTexts ∀ (leaves: List Leaf)
@@ -83,20 +84,20 @@ theorem onceTextsPlain ∀ (lexed: Lexed)
   let tokensB: ∀ (q: Token → Bool) (blind: ∀ (token: Token) (start: Bool) => q { token | lineStart = start }
     = q token) (kept: (tokens leaves).all q = True) => (tokens lexedB.leaves).all q = True :=
     q blind kept =>
-      rewrite swapped, tokensReverseOnto out [], allReverseOnto (tokens out) [] q then
+      rewrite swapped, tokensReverseOnto out [], List.allReverseOntoAnd (tokens out) [] q then
         Bool.andIntro (allTokensWithout q blind [] leaves byComputing kept) byComputing
   let withinB: alphabet1 lexedB.leaves = True :=
     tokensB (token => token.kind.within1) (token start => byComputing) within
   let split :=
     rewrite leavesTextsSplit leaves lexed.end,
-        allAppendB (leafTexts leaves) (triviaTexts lexed.end) plainEnd at unreturned then
+        List.allAppendAnd (leafTexts leaves) (triviaTexts lexed.end) plainEnd at unreturned then
       unreturned
   let leavesB: (leafTexts lexedB.leaves).all plainEnd = True :=
     rewrite swapped, textsReverseOnto plainEnd out [] then
       Bool.andIntro (textsWithout plainEnd [] leaves byComputing laid byComputing (Bool.andLeft split)) byComputing
   let textsB: (lexedTexts lexedB).all plainEnd = True :=
     rewrite leavesTextsSplit lexedB.leaves lexedB.end,
-        allAppendB (leafTexts lexedB.leaves) (triviaTexts lexedB.end) plainEnd then
+        List.allAppendAnd (leafTexts lexedB.leaves) (triviaTexts lexedB.end) plainEnd then
       Bool.andIntro leavesB (Bool.andRight split)
   let settled := lexedB.settled
   let textsS: (lexedTexts settled).all plainEnd = True :=
@@ -110,7 +111,7 @@ theorem onceTextsPlain ∀ (lexed: Lexed)
     _ = wordsOf settled.leaves := wordsOfUnstarted settled.leaves
   let textsSplit :=
     rewrite leavesTextsSplit settled.leaves settled.end,
-        allAppendB (leafTexts settled.leaves) (triviaTexts settled.end) plainEnd at textsS then
+        List.allAppendAnd (leafTexts settled.leaves) (triviaTexts settled.end) plainEnd at textsS then
       textsS
   let wordTextsS := wordsPlainTexts settled.leaves (leavesPlainTexts settled.leaves (Bool.andLeft textsSplit))
   let endTextsS: lexedB.settled.end.comments.texts.all plainEnd = True :=

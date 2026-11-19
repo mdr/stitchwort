@@ -89,11 +89,6 @@ theorem runsBump ∀ (item: Item) (rest: List Item): Parse.Runs (() => bump()) [
     (Parse.runsNext (item => True) item rest byComputing)
     (Parse.runsPure item.leaf.word rest)
 
-theorem andFalseLeft ∀ (a b c: Bool) (no: (a && b) = False): (a && b && c) = False := match a, b, no with
-  | True, True, no => (Bool.falseNotTrue no.flipped).impossible
-  | True, False, no => byComputing
-  | False, _, no => byComputing
-
 -- Atoms: a word, with nothing after it that `suffixes` reads.
 
 --| A `.` that `suffixesOn` would take for a field access comes next.
@@ -120,7 +115,7 @@ theorem runsSuffixesOnEnd ∀ (more: Nat) (modes: Modes) (called: Expr) (paren: 
   match rest, noDot with
     | [dot, field, ..later], noDot =>
       let stops: (dot.kind == Dot && !modes.stops dot && !sectionAt [dot, field, ..later]) = False :=
-        andFalseLeft _ _ _ noDot
+        Bool.andFalseLeftOf _ _ _ noDot
       rewrite stops then Parse.runsPure called [dot, field, ..later]
     | [dot], noDot =>
       let stops: (dot.kind == Dot && !modes.stops dot) = False := noDot

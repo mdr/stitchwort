@@ -20,11 +20,6 @@ def continuesAt (column: Nat): List Item → Bool
 def lineModes (modes: Modes) (column: Nat) (many: Bool) (allow: Option Nat) (kind: LineKind): Modes :=
   { { modes | allow } | lines = [{ column, many, kind }, ..modes.lines] }
 
-theorem andFalseRight ∀ (a b c: Bool) (no: c = False): (a && b && c) = False := match a, b with
-  | True, True => no
-  | True, False => byComputing
-  | False, _ => byComputing
-
 --| The modes `block` reads its lines with.
 def blockModes (modes: Modes) (column: Nat) (many: Bool): Modes :=
   if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column }
@@ -109,7 +104,7 @@ theorem runsBlockLinesOneLine ∀ (more: Nat) (self: Goal → {Parse Item} Expr)
                               byComputing
                               (runsOffset middle4 [next, ..later])
                               (middle5 _ _ _ =>
-                                let no := andFalseRight (middle4.at.offset != state.at.offset) many _ ends
+                                let no := Bool.andAndFalse (middle4.at.offset != state.at.offset) many _ ends
                                 match again: (middle4.at.offset != state.at.offset)
                                   && many
                                   && next.leaf.token.lineStart

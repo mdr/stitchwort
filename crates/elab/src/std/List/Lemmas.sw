@@ -4189,3 +4189,261 @@ theorem List.distinctOfCounts ∀ [auto eq: DecEq a] (xs: List a)
 test "List.zipWith lemmas" :=
   List.zipWith ([1, 2] ++ [3]) ([10, 20] ++ [30, 40]) (x y => x + y) == [11, 22, 33]
     ∧ List.length (List.zipWith [1, 2, 3] [4, 5] (x y => x + y)) == 2
+
+--| Equal non-empty lists have equal tails; [`List.consInjectiveHead`] gives the heads.
+theorem List.consTailEq ∀ (x y: a) (xs ys: List a) (same: [x, ..xs] = [y, ..ys]): xs = ys :=
+  Eq.cong (list => list.drop 1) same
+
+--| Consing equal heads onto equal tails gives equal lists.
+theorem List.consCong ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] :=
+  rewrite head, tail
+
+--| Two joined lists that are equal, with equal first parts in length, have equal first parts and equal second parts.
+theorem List.appendCancel ∀ (a c b d: List x) (joined: a ++ b = c ++ d) (lengths: a.length = c.length): a = c ∧ b = d :=
+  match a, c with
+    | [], [] => (byComputing, joined)
+    | [], [q, ..qs] => Void.impossible (Nat.zeroNotSucc qs.length lengths)
+    | [p, ..ps], [] => Void.impossible (Nat.succNotZero ps.length lengths)
+    | [p, ..ps], [q, ..qs] =>
+      let headSame: p = q := Eq.cong (all => all.headOr p) joined
+      let (restSame, tailSame) :=
+        List.appendCancel ps qs b d (Eq.cong (all => all.drop 1) joined) (Eq.cong (n => n - 1) lengths)
+      (List.consCong p q ps qs headSame restSame, tailSame)
+
+--| The head of a join with a non-empty front is the front's head.
+theorem List.headAppend ∀ (front back: List a) (filled: front ≠ []): (front ++ back).head = front.head :=
+  match front, filled with
+    | [], never => (never byComputing).impossible
+    | [first, ..rest], _ => byComputing
+
+--| The head of a three-part join with a non-empty front is the front's head.
+theorem List.headAppendMiddle ∀ (front middle back: List a)
+    (nonEmpty: front ≠ []):
+    ((front ++ middle) ++ back).head = front.head :=
+  match front, nonEmpty with
+    | [], nonEmpty => (nonEmpty byComputing).impossible
+    | [first, ..more], nonEmpty => byComputing
+
+--| `reverseOnto` a non-empty accumulator is non-empty.
+theorem List.reverseOntoNonEmpty ∀ (xs acc: List a)
+    (filled: acc.isEmpty = False):
+    (xs.reverseOnto acc).isEmpty = False :=
+  match xs with
+    | [] => filled
+    | [x, ..rest] => List.reverseOntoNonEmpty rest [x, ..acc] byComputing
+
+--| `reverseOnto` is empty exactly when both the list and the accumulator are.
+theorem List.isEmptyReverseOnto ∀ (xs acc: List a): (xs.reverseOnto acc).isEmpty = (xs.isEmpty && acc.isEmpty) :=
+  match xs with
+    | [] => byComputing
+    | [x, ..rest] => rewrite List.isEmptyReverseOnto rest [x, ..acc] then cases
+
+--| A test over a join holds of both parts: `all` over `++` is the `&&` of the two `all`s.
+theorem List.allAppendAnd ∀ (xs ys: List a) (p: a → Bool): (xs ++ ys).all p = (xs.all p && ys.all p) := match xs with
+  | [] => byComputing
+  | [x, ..rest] =>
+    match p x with
+      | True => List.allAppendAnd rest ys p
+      | False => byComputing
+
+--| A test that holds of both of two lists holds of their join.
+theorem List.allAppendTrue ∀ (xs ys: List a) (p: a → Bool)
+    (first: xs.all p = True)
+    (second: ys.all p = True):
+    (xs ++ ys).all p = True :=
+  match xs with
+    | [] => second
+    | [x, ..rest] => Bool.andIntro (Bool.andLeft first) (List.allAppendTrue rest ys p (Bool.andRight first) second)
+
+--| A test that holds of a list and of an accumulator holds of the list reversed onto the accumulator.
+theorem List.allReverseOntoTrue ∀ (p: a → Bool) (xs acc: List a)
+    (all: xs.all p = True)
+    (allAcc: acc.all p = True):
+    (xs.reverseOnto acc).all p = True :=
+  match xs with
+    | [] => allAcc
+    | [x, ..more] =>
+      List.allReverseOntoTrue p more [x, ..acc] (Bool.andRight all) (Bool.andIntro (Bool.andLeft all) allAcc)
+
+--| `all` over a list reversed onto an accumulator is the `&&` of the `all`s of the two.
+theorem List.allReverseOntoAnd ∀ (xs acc: List a) (p: a → Bool): (xs.reverseOnto acc).all p = (xs.all p && acc.all p) :=
+  match xs with
+    | [] => byComputing
+    | [x, ..rest] =>
+      calc (rest.reverseOnto [x, ..acc]).all p
+        _ = (rest.all p && [x, ..acc].all p) := List.allReverseOntoAnd rest [x, ..acc] p
+        _ = ([x, ..rest].all p && acc.all p) := cases
+
+--| A test that holds of a list holds of its reverse.
+theorem List.allReverseTrue ∀ (p: a → Bool) (xs: List a) (all: xs.all p = True): xs.reverse.all p = True :=
+  List.allReverseOntoTrue p xs [] all byComputing
+
+--| A test that holds of a join holds of its second part.
+theorem List.allAppendRightTrue ∀ (p: a → Bool) (xs ys: List a) (all: (xs ++ ys).all p = True): ys.all p = True :=
+  match xs with
+    | [] => all
+    | [x, ..more] => List.allAppendRightTrue p more ys (Bool.andRight all)
+
+--| A test that holds of a non-empty list holds of its head and of its tail.
+theorem List.allConsElim ∀ (x: a) (xs: List a) (p: a → Bool)
+    (all: [x, ..xs].all p = True):
+    p x = True ∧ xs.all p = True :=
+  match holds: p x, all with
+    | True, all => (byComputing, all)
+    | False, never => (Bool.falseNotTrue never).impossible
+
+--| A list that `isEmpty` is `[]`.
+theorem List.eqNilOfIsEmpty ∀ (xs: List a) (empty: xs.isEmpty = True): xs = [] := match xs with | [] => byComputing
+
+--| A list with an element after the front is not empty.
+theorem List.isEmptyAppendCons ∀ (xs: List a) (y: a) (ys: List a): (xs ++ [y, ..ys]).isEmpty = False := match xs with
+  | [] => byComputing
+  | [_, .._] => byComputing
+
+--| Dropping the length of the first part off a join leaves the second part.
+theorem List.dropAppendOf ∀ (whole read later: List t)
+    (starts: whole = read ++ later):
+    whole.drop read.length = later :=
+  rewrite starts then List.dropAppend read later
+
+--| `takeWhile` keeps the whole of a list whose elements all pass.
+theorem List.takeWhileOfAll ∀ (passes: a → Bool) (chars: List a)
+    (all: chars.all passes = True):
+    chars.takeWhile passes = chars :=
+  match chars with
+    | [] => byComputing
+    | [char, ..rest] => rewrite Bool.andLeft all, List.takeWhileOfAll passes rest (Bool.andRight all)
+
+--| `takeWhile` over a join of a list that all passes and one that stops at once keeps the first part.
+theorem List.takeWhileAppendThenStops ∀ (passes: a → Bool) (front back: List a)
+    (all: front.all passes = True)
+    (stops: back.takeWhile passes = []):
+    (front ++ back).takeWhile passes = front :=
+  match front, all with
+    | [], all => stops
+    | [char, ..more], all =>
+      rewrite Bool.andLeft all, List.takeWhileAppendThenStops passes more back (Bool.andRight all) stops
+
+--| Lists with the same head stop `takeWhile` together at once.
+theorem List.takeWhileSameHead ∀ (passes: a → Bool) (before after: List a)
+    (same: before.head = after.head)
+    (stops: before.takeWhile passes = []):
+    after.takeWhile passes = [] :=
+  match before, after, same with
+    | [], [], same => stops
+    | [first, ..more], [other, ..others], same =>
+      rewrite <- Option.someInjective same then
+        match passes first with
+          | False => byComputing
+
+--| `takeWhile` takes nothing from a list whose head fails the test.
+theorem List.takeWhileHeadFails ∀ (passes: a → Bool) (chars: List a) (first: a)
+    (head: chars.head = Some first)
+    (fails: passes first = False):
+    chars.takeWhile passes = [] :=
+  match chars, head with
+    | [], head => cases
+    | [other, ..more], head => rewrite Option.someInjective head, fails
+
+--| If `takeWhile` takes nothing from a join, it takes nothing from its front.
+theorem List.takeWhileNilPrefix ∀ (passes: a → Bool) (front back: List a)
+    (stops: (front ++ back).takeWhile passes = []):
+    front.takeWhile passes = [] :=
+  match front with
+    | [] => byComputing
+    | [first, ..more] =>
+      match pass: passes first with
+        | False => byComputing
+
+--| `takeWhile` of a list whose head passes keeps the head and goes on with the tail.
+theorem List.takeWhileConsOf ∀ (passes: a → Bool) (rest: List a) (c: a) (more: List a)
+    (here: rest = [c, ..more])
+    (first: passes c = True):
+    rest.takeWhile passes = [c, ..more.takeWhile passes] :=
+  rewrite here, first
+
+--| `dropWhile` over a join where the second part starts with an element that fails drops only from the first part.
+theorem List.dropWhileAppendStop ∀ (p: a → Bool) (xs: List a) (stop: a) (more: List a)
+    (stops: p stop = False):
+    (xs ++ [stop, ..more]).dropWhile p = xs.dropWhile p ++ [stop, ..more] :=
+  match xs with
+    | [] => rewrite stops
+    | [x, ..rest] =>
+      match p x with
+        | True => List.dropWhileAppendStop p rest stop more stops
+        | False => byComputing
+
+--| A reversed cons appended to a list is the reversed tail followed by the head and the list.
+theorem List.reverseConsAppend ∀ (first: a) (rest after: List a):
+    [first, ..rest].reverse ++ after = rest.reverse ++ [first, ..after] :=
+  rewrite List.reverseCons first rest then List.appendAssoc rest.reverse [first] after
+
+--| Lists related element by element are empty together.
+theorem List.all2IsEmpty ∀ [r: a → b → Prop] (xs: List a) (ys: List b)
+    (alike: List.All2 r xs ys):
+    xs.isEmpty = ys.isEmpty :=
+  match xs, ys with
+    | [], [] => byComputing
+    | [x, ..xs], [y, ..ys] => byComputing
+
+--| What holds of every element of a list of lists' concatenation holds of every element of every list.
+theorem List.allOfConcat ∀ (p: a → Prop) (lists: List (List a))
+    (all: List.All p lists.concat):
+    List.All (part => List.All p part) lists :=
+  match lists with
+    | [] => Trivial
+    | [first, ..rest] =>
+      let split: List.All p (first ++ rest.concat) := all
+      (
+        List.allAppendLeft p first rest.concat split,
+        List.allOfConcat p rest (List.allAppendRight p first rest.concat split)
+      )
+
+--| A property of a head and of a list holds of the whole list reversed, which is at least as long as the tail.
+theorem List.allConsReverse ∀ (holds: a → Prop) (current: a) (found: List a) (currentHolds: holds current)
+    (foundHolds: List.All holds found):
+    List.All holds [current, ..found].reverse ∧ found.length + 1 <= [current, ..found].reverse.length :=
+  (
+    List.allReverse holds [current, ..found] (currentHolds, foundHolds),
+    arithmetic [List.lengthReverse [current, ..found]]
+  )
+
+--| A test that implies another test on every element makes the second hold of whatever the first holds of.
+theorem List.allImpliesBool ∀ (chars: List a) (passes follows: a → Bool)
+    (implied: ∀ (char: a) => passes char = True → follows char = True)
+    (all: chars.all passes = True):
+    chars.all follows = True :=
+  match chars, all with
+    | [], all => byComputing
+    | [first, ..more], all =>
+      Bool.andIntro
+        (implied first (Bool.andLeft all))
+        (List.allImpliesBool more passes follows implied (Bool.andRight all))
+
+--| A list with an element added at the end is not empty.
+theorem List.snocNotNil ∀ (docs: List a) (last: a): docs ++ [last] ≠ [] := match docs with
+  | [] => List.consNotNil last []
+  | [doc, ..rest] => List.consNotNil doc (rest ++ [last])
+
+--| Dropping fewer than all the elements leaves some.
+theorem List.dropNotNil ∀ (docs: List a) (count: Nat)
+    (short: count ≤ docs.length)
+    (differs: (count == docs.length) = False):
+    docs.drop count ≠ [] :=
+  match docs, count with
+    | [], Zero => cases
+    | [doc, ..rest], Zero => List.consNotNil doc rest
+    | [doc, ..rest], Succ more => List.dropNotNil rest more (arithmetic [short]) differs
+
+--| Taking a positive number of elements from a non-empty list leaves some.
+theorem List.takeConsNotNil ∀ (doc: a) (rest: List a) (count: Nat)
+    (positive: count ≠ 0):
+    [doc, ..rest].take count ≠ [] :=
+  match count with
+    | Zero => (positive byComputing).impossible
+    | Succ more => List.consNotNil doc (rest.take more)
+
+--| A join with two elements at the start of its second part has at least two elements.
+theorem List.twoLeLengthAppend ∀ (front: List a) (first second: a) (more: List a):
+    2 ≤ (front ++ [first, second, ..more]).length :=
+  rewrite List.lengthAppend front [first, second, ..more] then arithmetic

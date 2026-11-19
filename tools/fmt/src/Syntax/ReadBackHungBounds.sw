@@ -8,11 +8,9 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
 import Syntax.ReadBackRuns (..)
-import Syntax.ReadBackTree (andFalseMiddle)
 import Syntax.ReadBackEnds (wordItem)
 import Syntax.ReadBackLine (Quiet, leadKind)
 import Syntax.ReadBackHung (..)
-import Syntax.SharedFacts (andFalseRight)
 
 --| A step that gives nothing is no step.
 theorem noneNotStep ∀ (state next: HangState) (leaf: Leaf)
@@ -42,9 +40,6 @@ theorem stepRight ∀ (state next: HangState) (leaf: Leaf)
 --| A false fourth conjunct falsifies the chain.
 theorem andFalseExempt ∀ (a c: Bool): (a && True && c && False) = False := cases
 
---| A false `||` is false on both sides.
-theorem orFalseParts ∀ (a b: Bool) (h: (a || b) = False): a = False ∧ b = False := cases
-
 --| `deepAll` of one item: a comma or closer has a bracket open.
 theorem depthExempt ∀ (item: Item)
     (deep: deepAll [item] = True)
@@ -67,7 +62,7 @@ theorem hungStops ∀ (modes: Modes) (state next: HangState) (item: Item)
       rewrite quiet.noGuard, quiet.noCalc, quiet.noRule then
         match starts: item.leaf.token.lineStart with
           | False =>
-            andFalseMiddle
+            Bool.andFalseMiddle
               (modes.allow != Some item.index)
               (item.leaf.token.column <= column
                 && !((item.kind == Comma || item.kind.isCloser) && item.depth > 0)
@@ -78,10 +73,10 @@ theorem hungStops ∀ (modes: Modes) (state next: HangState) (item: Item)
                 let positive := depthExempt item deep exempt
                 rewrite positive then andFalseExempt _ _
               | False =>
-                let (notComma, notCloser) := orFalseParts _ _ exempt
+                let (notComma, notCloser) := Bool.orFalseElim _ _ exempt
                 let right := stepRight state next item.leaf stepped starts notCloser notComma inside
                 let above: column < item.leaf.token.column := arithmetic
-                rewrite Nat.leqFalseOfLess column _ above then andFalseRight _
+                rewrite Nat.leqFalseOfLess column _ above then Bool.andFalse _
 
 --| The bound depends on the state only through the column in force.
 theorem boundsCong ∀ (modes: Modes) (now before: HangState)
@@ -101,9 +96,9 @@ theorem stepPlain ∀ (state next: HangState) (leaf: Leaf)
       || leaf.token.kind == Colon)
       = False):
     inForce next.blocks next.top = inForce (state.entered leaf).blocks (state.entered leaf).top :=
-  let (notComma, others) := orFalseParts _ _ plain
-  let (notCloser, others2) := orFalseParts _ _ others
-  let (notAssign, notColon) := orFalseParts _ _ others2
+  let (notComma, others) := Bool.orFalseElim _ _ plain
+  let (notCloser, others2) := Bool.orFalseElim _ _ others
+  let (notAssign, notColon) := Bool.orFalseElim _ _ others2
   match glue: state.glue && leaf.token.lineStart with
     | False =>
       match closer: leaf.token.kind.isCloser with

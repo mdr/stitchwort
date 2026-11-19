@@ -909,3 +909,7 @@ test "splitOnce" :=
     ∧ "ab".splitOnce "" == None
     ∧ "aab".splitOnce "ab" == Some ("a", "")
     ∧ "aaa".splitOnce "aa" == Some ("", "a")
+
+--| Equal `Text`s compare `==`.
+theorem Text.beqOfEq ∀ (text expected: Text) (same: text = expected): (text == expected) = True :=
+  rewrite same then DecEq.refl expected

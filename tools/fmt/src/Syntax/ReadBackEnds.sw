@@ -270,7 +270,7 @@ theorem resultPlain ∀ (modes: Modes) (fuel: Nat) (bracketedLast: Bool) (items:
       let later: plainAll rest = True := Bool.andRight plain
       let noColon: (bracketedLast && item.kind == Colon && resultArrowAhead modes more rest) = False :=
         rewrite plainNotColon item.kind (Bool.andLeft plain) then
-          andFalseMiddle bracketedLast (resultArrowAhead modes more rest)
+          Bool.andFalseMiddle bracketedLast (resultArrowAhead modes more rest)
       let grouped: afterBracket modes more [item, ..rest] = False := match skips: skipGroup [] [item, ..rest] with
         | None => byComputing
         | Some after => resultPlain modes more True after (skipPlain [] [item, ..rest] after plain skips)
@@ -368,7 +368,7 @@ theorem noBarOne ∀ (modes: Modes) (item: Item): matchesBarOn modes [item] = Fa
     | True => byComputing
     | False => byComputing
   rewrite noPipe then
-    andFalseMiddle
+    Bool.andFalseMiddle
       (wordOn modes "matches" [item])
       (!(isSome Lower (peekIn modes 2 [item]) && isSome Equals (peekIn modes 3 [item])))
 
@@ -385,7 +385,7 @@ theorem noBarPlain ∀ (modes: Modes) (item next: Item) (rest: List Item)
         | Inl none => rewrite none
         | Inr some => rewrite some then plainNotPipe next.kind plain
   rewrite noPipe then
-    andFalseMiddle
+    Bool.andFalseMiddle
       (wordOn modes "matches" items)
       (!(isSome Lower (peekIn modes 2 items) && isSome Equals (peekIn modes 3 items)))
 

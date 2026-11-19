@@ -6,9 +6,9 @@ namespace Syntax.LexUnreturnedProofs
 import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Parse, Result, Text)
 import Syntax (..)
 import Syntax.SettleProofs (leafTexts, leavesTextsSplit, lexedTexts, optionText, triviaTexts)
-import Syntax.SettleOnceProofs (allAppendB, textsParked, textsReverseOnto)
+import Syntax.SettleOnceProofs (textsParked, textsReverseOnto)
 import Syntax.LexLaidProofs (textsReversed)
-import Syntax.SharedFacts (reverseFilled, startsHeadChar)
+import Syntax.SharedFacts (startsHeadChar)
 
 --| A comment's text that ends in neither a carriage return nor a space.
 def plainEnd (text: Text): Bool := !text.endsWith "\r" && !text.endsWith " "
@@ -37,7 +37,7 @@ theorem keepEnds ∀ (char: Char) (kept: List Char)
                   let differSp: Text.sameChar ' ' char = False := arithmetic [isSp]
                   ((rewrite differCr), (rewrite differSp))
         | [next, ..more] =>
-          let filled: (List.reverse [next, ..more]).isEmpty = False := reverseFilled more [next] byComputing
+          let filled: (List.reverse [next, ..more]).isEmpty = False := List.reverseOntoNonEmpty more [next] byComputing
           let goalCr: Text.startsWithChars ['\r'] (List.reverse [char, next, ..more]) = False :=
             rewrite List.reverseCons char [next, ..more],
                 startsHeadChar '\r' (List.reverse [next, ..more]) [char] filled then
@@ -103,7 +103,7 @@ theorem addPlain ∀ (asm: Assembly) (source: Text) (lexeme: Parse.Located Lexem
           let lead: (asm.pending.reverse.map (comment => comment.text) ++ []).all plainEnd = True :=
             rewrite List.appendNil (asm.pending.reverse.map (comment => comment.text)) then waiting
           Bool.andIntro
-            (rewrite allAppendB
+            (rewrite List.allAppendAnd
                   (asm.pending.reverse.map (comment => comment.text) ++ [])
                   (leafTexts asm.leaves)
                   plainEnd then
@@ -126,7 +126,7 @@ theorem assemblePlain ∀ (source: Text) (lexemes: List (Parse.Located Lexeme)):
     _ = (leafTexts done.leaves.reverse ++ triviaTexts (assemble source lexemes).end).all plainEnd :=
       rewrite leavesTextsSplit done.leaves.reverse (assemble source lexemes).end
     _ = ((leafTexts done.leaves.reverse).all plainEnd && (triviaTexts (assemble source lexemes).end).all plainEnd) :=
-      allAppendB (leafTexts done.leaves.reverse) (triviaTexts (assemble source lexemes).end) plainEnd
+      List.allAppendAnd (leafTexts done.leaves.reverse) (triviaTexts (assemble source lexemes).end) plainEnd
     _ = True :=
       rewrite textsReverseOnto plainEnd done.leaves [],
           List.appendNil (done.pending.reverse.map (comment => comment.text)),

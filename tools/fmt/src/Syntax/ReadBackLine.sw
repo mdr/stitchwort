@@ -824,8 +824,6 @@ theorem lineAppend ∀ (first rest: List Item): lineAll (first ++ rest) = (lineA
           | True => byComputing
           | False => byComputing
 
-theorem andBoth ∀ (a b: Bool) (both: (a && b) = True): a = True ∧ b = True := (Bool.andLeft both, Bool.andRight both)
-
 theorem linePlainKind ∀ (kind: Tok) (line: lineKind kind = True): plainKind kind = True := cases
 
 theorem linePlain ∀ (items: List Item) (line: lineAll items = True): plainAll items = True := match items with
@@ -851,9 +849,9 @@ theorem endsAtom ∀ (modes: Modes) (head: Bool) (kind: Tok) (rest: List Item)
     AtomEnds modes head kind rest :=
   let operand := endsOperandOf modes rest ends
   let plain: (isSome Upper (Some kind) && head && isSome LBrace (peekIn modes 0 rest)) = False := match rest with
-    | [] => andFalseRight (isSome Upper (Some kind)) head _ byComputing
+    | [] => Bool.andAndFalse (isSome Upper (Some kind)) head _ byComputing
     | [next, ..later] =>
-      andFalseRight
+      Bool.andAndFalse
         (isSome Upper (Some kind))
         head _
         (match modes.stops next with
@@ -980,7 +978,7 @@ theorem noAutoFirst ∀ (expr: Expr) (item: Item) (read later: List Item)
       rewrite isRead then
         match later, upper with
           | [], _ => byComputing
-          | [third, .._], upper => andFalseRight _ _ _ (Bool.notTrue _ upper)
+          | [third, .._], upper => Bool.andAndFalse _ _ _ (Bool.notTrue _ upper)
     | Paren _ _ _, (second, _, _, isRead, isOpen, _), _ => rewrite isRead then autoSecond item second _ (rewrite isOpen)
     | Tuple _ [_, _, .._] _ _, (second, _, _, _, _, _, isRead, _, isOpen, _), _ =>
       rewrite isRead then autoSecond item second _ (rewrite isOpen)
@@ -1018,17 +1016,17 @@ theorem noAutoCall ∀ (head: Expr) (arguments: List Expr) (item: Item) (read la
             | Atom argumentKind _, (third, isArgument, isThird, _), _ =>
               rewrite isRead, isHead, isArgument, isKind, isThird, textIs then notAuto
             | Paren _ _ _, (third, _, _, isArgument, isOpen, _), _ =>
-              rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (rewrite isOpen)
+              rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (rewrite isOpen)
             | Tuple _ [_, _, .._] _ _, (third, _, _, _, _, _, isArgument, _, isOpen, _), _ =>
-              rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (rewrite isOpen)
+              rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (rewrite isOpen)
             | ListOf _ [] _ _, (third, _, isArgument, _, isOpen, _), _ =>
-              rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (rewrite isOpen)
+              rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (rewrite isOpen)
             | ListOf _ [_, .._] _ _, (third, _, _, _, isArgument, _, isOpen, _), _ =>
-              rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (rewrite isOpen)
+              rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (rewrite isOpen)
             | App _ _, _, never => (Bool.falseNotTrue never).impossible
             | Infix _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
             | Prefix _ _, (third, _, isArgument, isSign, _), _ =>
-              rewrite isRead, isHead, isArgument then andFalseRight _ _ _ (signNotUpper third.kind isSign)
+              rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (signNotUpper third.kind isSign)
             | _, never, _ => Void.impossible never
         | Paren _ _ _, (second, inside, last, isHead, isOpen, _), _ =>
           rewrite isRead, isHead then autoSecond item second (((inside ++ [last]) ++ tail) ++ later) (rewrite isOpen)
@@ -1080,7 +1078,7 @@ theorem lineJoin ∀ (first rest: List Item)
 theorem lineSplit ∀ (first rest: List Item)
     (line: lineAll (first ++ rest) = True):
     lineAll first = True ∧ lineAll rest = True :=
-  andBoth _ _ (rewrite <- lineAppend first rest then line)
+  Bool.andElim _ _ (rewrite <- lineAppend first rest then line)
 
 -- Calls.
 
@@ -1135,12 +1133,12 @@ theorem speltNoUnit ∀ (expr: Expr) (first: Item) (more later: List Item)
       let (second, others, isInside, starts) := speltStarts inner inside innerSpelt
       let (notClose, _, _) := startNotClose second.kind starts
       let isMore: more = inside ++ [last] := Eq.cong (.drop 1) isRead
-      rewrite isMore, isInside, notClose then andFalseMiddle (first.kind == LParen) (first.glued && second.glued)
+      rewrite isMore, isInside, notClose then Bool.andFalseMiddle (first.kind == LParen) (first.glued && second.glued)
     | Tuple _ [one, _, .._] _ _, (open, read1, separator, read2, commas, last, isRead, _, _, _, _, _, _, oneSpelt, _) =>
       let (second, others, isRead1, starts) := speltStarts one read1 oneSpelt
       let (notClose, _, _) := startNotClose second.kind starts
       let isMore: more = read1 ++ ([separator, ..read2] ++ (commaReads commas ++ [last])) := Eq.cong (.drop 1) isRead
-      rewrite isMore, isRead1, notClose then andFalseMiddle (first.kind == LParen) (first.glued && second.glued)
+      rewrite isMore, isRead1, notClose then Bool.andFalseMiddle (first.kind == LParen) (first.glued && second.glued)
     | ListOf _ [] _ _, (open, last, isRead, _, isOpen, _) =>
       let isMore: more = [last] := Eq.cong (.drop 1) isRead
       rewrite isMore, firstKind first open more [last] isRead, isOpen
@@ -1183,7 +1181,7 @@ theorem endsBeforeSpelt ∀ (modes: Modes) (head: Bool) (kind: Tok) (expr: Expr)
   let (start, inside, isRead, starts) := speltStarts expr [first, ..more] spelt
   let notDot := leadNotDot first.kind (rewrite firstKind first start more inside isRead then starts)
   {
-    plain = andFalseRight (isSome Upper (Some kind)) head _ (peekNoBrace modes 0 _ line),
+    plain = Bool.andAndFalse (isSome Upper (Some kind)) head _ (peekNoBrace modes 0 _ line),
     noCall = speltNoUnit expr first more later spelt,
     noDot = rewrite notDot
   }
@@ -1463,7 +1461,7 @@ theorem opEnds ∀ (modes: Modes) (level: Nat) (op: Item) (after: List Item) (ki
     unary = {
       atom = head atomKind =>
         {
-          plain = andFalseRight _ head _ (rewrite peek then facts.notBrace),
+          plain = Bool.andAndFalse _ head _ (rewrite peek then facts.notBrace),
           noCall = unitNotParen op after facts.notOpen,
           noDot = rewrite facts.notDot
         },

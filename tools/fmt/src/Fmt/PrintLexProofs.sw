@@ -370,11 +370,6 @@ theorem foldNonEmpty ∀ (kinds: Text → Tok) (text: Text) (rest: List Text):
     | Break, later => (Break, later, byComputing)
     | Remark note, later => (Remark note, later, byComputing)
 
-theorem headOfAppend ∀ (front back: List Char) (filled: front ≠ []): (front ++ back).head = front.head :=
-  match front, filled with
-    | [], never => (never byComputing).impossible
-    | [first, ..rest], _ => byComputing
-
 --| The first piece of the output starts with what its first text does.
 --|
 --| Proof idea: The characters of the pieces are the texts' (`pieceFoldChars`); the first piece is not empty.
@@ -393,9 +388,9 @@ theorem foldHead ∀ (kinds: Text → Tok) (text: Text) (rest: List Text) (piece
     | MkText [first, ..others], _ => same => cases
   calc piece.chars.head
     _ = (piece.chars ++ Parse.joinReads (pieceSteps more)).head :=
-      (headOfAppend piece.chars (Parse.joinReads (pieceSteps more)) (nonEmptyChars piece plainFirst)).flipped
+      (List.headAppend piece.chars (Parse.joinReads (pieceSteps more)) (nonEmptyChars piece plainFirst)).flipped
     _ = (text.toList ++ charsOf rest).head := Eq.cong (chars => chars.head) joined
-    _ = text.toList.head := headOfAppend text.toList (charsOf rest) textFilled
+    _ = text.toList.head := List.headAppend text.toList (charsOf rest) textFilled
 
 --| What the gap before the text, or the text itself, starts with: one space for spaces.
 --|

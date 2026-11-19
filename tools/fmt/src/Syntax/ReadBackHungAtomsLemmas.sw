@@ -64,7 +64,7 @@ theorem deepStops ∀ (modes: Modes) (item: Item)
       rewrite quiet.noGuard, quiet.noCalc, quiet.noRule then
         match starts: item.leaf.token.lineStart with
           | False =>
-            andFalseMiddle
+            Bool.andFalseMiddle
               (modes.allow != Some item.index)
               (item.leaf.token.column <= column
                 && !((item.kind == Comma || item.kind.isCloser) && item.depth > 0)
@@ -113,9 +113,9 @@ theorem boundsEntered ∀ (modes: Modes) (state next: HangState) (leaf: Leaf)
       || leaf.token.kind == Colon)
       = False):
     bounds modes (state.entered leaf) = True :=
-  let (notComma, others) := orFalseParts _ _ plain
-  let (notCloser, others2) := orFalseParts _ _ others
-  let (notAssign, _) := orFalseParts _ _ others2
+  let (notComma, others) := Bool.orFalseElim _ _ plain
+  let (notCloser, others2) := Bool.orFalseElim _ _ others
+  let (notAssign, _) := Bool.orFalseElim _ _ others2
   match fresh: state.start && leaf.token.lineStart with
     | False => boundsCong modes (state.entered leaf) state (enteredSame state leaf fresh) bound
     | True =>
