@@ -1,5 +1,5 @@
 --| Slice 1's driver, the one the top theorems (`Fmt.TopStatements`) are about: lex, refuse a source outside the
---| slice's alphabet, spelled other than plainly or not `plain1`, parse once from `settledOnce`, refuse a tree outside
+--| slice's alphabet, spelled other than plainly or not `sourcePlain1`, parse once from `settledOnce`, refuse a tree outside
 --| `within1`, tidy, refuse a declaration that doesn't print on one line, print.
 --|
 --| The one-line refusal is D3685's staging (Matt, 18 Nov 2026): the top theorems are proved first for files whose
@@ -10,7 +10,7 @@ import Std (Bool, List, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Fmt.OutputStatements (..)
-import Syntax.SettleProofs (alphabet1, plain1, tokens)
+import Syntax.SettleProofs (alphabet1, sourcePlain1, tokens)
 import Syntax.GoodItemProofs (spelledPlain1)
 
 --| A source as slice 1's driver reads it: lexed, settled once (last commas bare), parsed.
@@ -50,9 +50,9 @@ def SourceFile.oneLine1 (file: SourceFile): Bool := file.decls.all Decl.oneLine1
 
 -- The driver.
 
---| The tests on the source's leaves: slice 1's alphabet, names and numerals spelled plainly, and `plain1` (no `->`
---| before a comma, closer or `->`, no comma starting a line but before a closer).
-def leavesWithin1 (leaves: List Leaf): Bool := alphabet1 leaves && spelledPlain1 leaves && plain1 (tokens leaves)
+--| The tests on the source's leaves: slice 1's alphabet, names and numerals spelled plainly, and `sourcePlain1` (no `->`
+--| before a comma, closer or `->`, no comma starting a line but a last comma, before a closer and after an item).
+def leavesWithin1 (leaves: List Leaf): Bool := alphabet1 leaves && spelledPlain1 leaves && sourcePlain1 (tokens leaves)
 
 --| The source formatted by slice 1's rules, or why not.
 def formatWithin1 (source: Text): Result Text Text := match lex source with

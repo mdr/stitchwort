@@ -17,8 +17,17 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (Spells)
 import Syntax.ParseProofs (GoodItem)
-import Syntax.SettleProofs (alphabet1, plain1, plainFromOf, settledKeepsTokens, tokens)
-import Syntax.SettleBareProofs (tokensBare)
+import Syntax.SettleProofs (
+  allFlat,
+  alphabet1,
+  flatToken,
+  plain1,
+  plainFromOf,
+  settledKeepsTokens,
+  sourcePlain1,
+  tokens
+)
+import Syntax.SettleBareProofs (tokensBare, tokensBareFlat)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Fmt.TreeJoinProofs (spellsOfText1)
 import Syntax.SettleOnceProofs (allAppendB)
@@ -256,17 +265,25 @@ theorem settledOnceTokens ∀ (lexed: Lexed)
     _ = tokens bare.leaves := settledKeepsTokens bare
     _ = tokens lexed.leaves := tokensBare lexed.leaves (plainFromOf (tokens lexed.leaves) plain)
 
---| `GoodItem` for the leaves the formatter parses, `settledOnce` of the lexed source.
+--| Rule N, with the last commas made bare first, keeps every token's kind and text. A last comma that starts its line
+--| gives its line start to the closer after it, so line starts are forgotten.
+theorem settledOnceFlat ∀ (lexed: Lexed):
+    (tokens lexed.settledOnce.leaves).map flatToken = (tokens lexed.leaves).map flatToken :=
+  let bare: Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }
+  rewrite settledKeepsTokens bare then tokensBareFlat lexed.leaves
+
+--| `GoodItem` for the leaves the formatter parses, `settledOnce` of the lexed source. Spelling reads only a token's
+--| kind and text, which the move of a last comma keeps.
 theorem settledGood ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True):
+    (plain: sourcePlain1 (tokens lexed.leaves) = True):
     List.All (group => List.All GoodItem (items group)) (groupsOf lexed.settledOnce.leaves) :=
-  let same := settledOnceTokens lexed plain
+  let same := settledOnceFlat lexed
   goodOfTokens lexed.settledOnce.leaves
-    (rewrite same then spelled)
-    (rewrite same then lexFixed source lexed lexes alphabet)
+    (rewrite allFlat Token.spelledPlain1 (token => byComputing) _ _ same then spelled)
+    (rewrite allFlat Token.fixed1 (token => byComputing) _ _ same then lexFixed source lexed lexes alphabet)
 
 -- Where the source's test is needed, and where it passes.
 

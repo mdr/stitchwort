@@ -19,7 +19,7 @@ import Syntax.ParseWalk (..)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ParseCarriesFile (parseCarriesOf)
 import Syntax.ParseCarriesDecl (groupCarries)
-import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
+import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, sourcePlain1, tokens)
 import Syntax.SettleOnceProofs (onceSettledProved)
 import Syntax.SettleSplitProofs (declsSettled, declsWordsOpen, groupWordsConcat, groupsConcat, settledOf, settledPieces)
 import Syntax.GoodItemProofs (settledGood, spelledPlain1)
@@ -122,11 +122,11 @@ theorem lexLaid1 ∀ (source: Text) (lexed: Lexed)
 --| Proof idea: `bareSettles` makes `settledOnce`'s leaves, last commas dropped, `settledBare`'s, which are rule N
 --| on the leaves without last commas; those are still laid out and `plain`, so `settledHomed`, `settledArrowsBare1`,
 --| `settledCommasBare` and `settledTrimmed` apply. Dropping the other commas, all bare, changes no closer's look
---| back (`endsOn` passes a bare comma as `trailsBack` passes nothing), `plain1` puts no comma and no `->` after a
+--| back (`endsOn` passes a bare comma as `trailsBack` passes nothing), `sourcePlain1` puts no comma and no `->` after a
 --| `->`, and trimming keeps a comment's `--`.
 theorem onceWordsSettled1 ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (laid: lexed.laid1 = True):
     lexed.settledOnce.wordsSettled1 = True :=
   onceSettledProved lexed within plain
@@ -146,7 +146,7 @@ def holdsOn (source: Text): Bool := match lex source with
       | Err _ => False
       | Ok file =>
         alphabet1 lexed.leaves
-          && plain1 (tokens lexed.leaves)
+          && sourcePlain1 (tokens lexed.leaves)
           && lexed.laid1
           && file.within1
           && file.decls.map Decl.words == (groupsOf lexed.settledOnce.leaves).map codeWords
@@ -169,6 +169,9 @@ theorem qualifiedIsLower: textLexesAs "List.map" Lower = True := byComputing
 --| Likewise a number with an exponent, a `Float` that `Spells Float` has.
 theorem exponentIsFloat: textLexesAs "1e3" Float = True := byComputing
 
+--| A last comma that starts its line, which `sourcePlain1` allows (`plain1` doesn't).
+theorem holdsOnOwnLineComma: holdsOn "def d: A := [1, 2\n  ,]\n" = True := byComputing
+
 --| A comma that starts a line elsewhere than before a closer, which `plain1` allows.
 theorem holdsOnLineComma: holdsOn "def d: A := f (a -- item\n  , b) -- close\n" = True := byComputing
 
@@ -176,13 +179,13 @@ theorem holdsOnLineComma: holdsOn "def d: A := f (a -- item\n  , b) -- close\n" 
 
 --| `parseCarries1` for the leaves the formatter parses (`settledOnce` of what `lex` gave), from the source: `good` is
 --| `settledGood`, which needs the source's names and numerals spelled as slice 1 has them (`spelledPlain1`, a test
---| slice 1's driver makes beside the alphabet's: `auto` is in the alphabet and fails it) and `plain1`, under
---| which rule N keeps the tokens.
+--| slice 1's driver makes beside the alphabet's: `auto` is in the alphabet and fails it) and `sourcePlain1`, under
+--| which rule N keeps every token's kind and text.
 theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
@@ -199,7 +202,7 @@ theorem parseSettledSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (spelled: spelledPlain1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
+    (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
     file.settled1 = True :=
