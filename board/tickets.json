@@ -27262,12 +27262,12 @@
     {
       "id": 4229,
       "title": "[Opus] Generated functional induction: f.induct following a function's own cases and recursive calls (Lean's functional induction), so proofs about f need no hand-built match with guard workarounds; SW-4222 sample: allTokensWithout 29 → ~15 lines; overlaps SW-4047",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).",
+      "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).\n\n19 Nov 20:30 (Opus paper lane, lane/SW-4229, a5810d144): docs/proposals/functional-induction.md. Finding: f.induct / match induct already exist (SW-1057/1058) but 0 of 9,687 fmt+std theorems use them; ~150 proofs re-split a function by hand (115 fmt, 41 std with named splits), 56 conditional step lemmas in fmt. Causes: not in the proving guide; G1 guarded arm partly overlapped by a later arm (withoutR family, >=9 defs) gets no f.induct; G2 call inside a non-tail match; B1 bug: match induct on a std function says \"doesn't call itself\" unless f.induct is named elsewhere in the file (repro docs/proposals/functional-induction/b1-std-on-demand.sw). Proposes re-scope to lanes A-E (~3 h agent time); one D question (re-scope + two-case shape for G1). Ticket to review.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
