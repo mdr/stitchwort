@@ -1,5 +1,5 @@
 {
-  "next": 4142,
+  "next": 4143,
   "tickets": [
     {
       "id": 47,
@@ -26098,6 +26098,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 35 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4142,
+      "title": "[Sonnet] fmt multi-line read-back H3 (SW-4121 plan): speltHangs, the frame lemma (ReadBackHungFrame.sw); Opus if stuck",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4142",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
