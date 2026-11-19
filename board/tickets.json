@@ -27052,12 +27052,12 @@
     {
       "id": 4213,
       "title": "[Sonnet] stitchwort check --timings: per-declaration elaboration and kernel time, slowest first (proving guide §6 says check has none; SW-4197 had to time --only by hand); with a test and docs",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Est. 40 min. D3692 tool friction.",
+      "body": "Est. 40 min. D3692 tool friction.\n\n\nLane notes: check --timings[=all|N] added on the existing STITCHWORT_TIMINGS machinery (elab timings.rs): total column, (cached) rows for plan-skipped namespaces, docs. Commit e7ac83337 on lane/SW-4213. Tests: 3 timings tests pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
