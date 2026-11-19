@@ -3,8 +3,8 @@
 --|
 --| - `edgeQuietOneLine1` (open, the link): a slice 1 declaration that prints on one line is `edgeQuiet1`. It reads the
 --|   printed line starts back to the tree's comments.
---| - `edgeElements1` (open, the hangs): an `edgeQuiet1` slice 1 declaration meets `DeclElements`. It says nothing of
---|   the printed text.
+--| - `edgeElements1` (proved in `Fmt.EdgeDeclProofs`, the hangs): an `edgeQuiet1` slice 1 declaration meets
+--|   `DeclElements`. It says nothing of the printed text.
 --|
 --| `edgeQuiet1`: the only comments in the type and the value are at their edges. One may follow the last word that
 --| is no closer (the printer writes it after the closers that follow, so it ends the line), and the value's first
@@ -79,23 +79,6 @@ theorem edgeQuietOneLine1 ∀ (decl: Decl)
     (lexical: decl.lexical1 = True)
     (oneLine: decl.oneLine1 = True):
     decl.edgeQuiet1 = True :=
-  ?
-
---| The hangs (open, SW-4096's B): an `edgeQuiet1` slice 1 declaration meets `DeclElements`, however it is laid out.
---|
---| Proof idea: `leadFacts`' induction (`Fmt.ExprHangProofs`) again, its invariant trailing what the expression does
---| (`HangsAt lexKind around.before expr.trails`, `LinkFacts … expr.trails`) in place of `False`. The rules' lemmas
---| (`parenElHangs`, `listHangs`, `tupleHangs`, `prefixHangs`, `appElHangs`, the chains') already carry a part's
---| trailing comment past the closers after it; what is new is the last item's and last argument's facts
---| (`itemsHang`, `argsHang`, `hugFacts`), the keys of a document with a `LineSuffix` (`quietKeys`), and
---| `leadElHangs`, `leadBody` and `quietBody` trailing. The calmed parts' documents are the tree's (`elCalm`).
-theorem edgeElements1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (edge: decl.edgeQuiet1 = True):
-    DeclElements lexKind decl :=
   ?
 
 -- Sources the two statements apply to (D3684).
