@@ -135,6 +135,10 @@ theorem parenOpens ∀ (text: Text) (is: text = "("): isCloserText text = False 
 
 theorem bracketOpens ∀ (text: Text) (is: text = "["): isCloserText text = False := rewrite is
 
+theorem parenOpensExample: isCloserText "(" = False := parenOpens "(" byComputing
+
+theorem bracketOpensExample: isCloserText "[" = False := bracketOpens "[" byComputing
+
 -- Brackets.
 
 theorem edgeCellsKeys ∀ (items: List Expr) (low: Nat) (bare arm before: Bool) (at: Nat) (end: Bool)
