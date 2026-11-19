@@ -26133,9 +26133,9 @@
     {
       "id": 4144,
       "title": "[Sonnet] fmt S1 comments anywhere E1: homedOfSettled (Fmt.ElementsProofs): a settled1 declaration is homed1 node by node (SW-4130 plan)",
-      "status": "doing",
-      "agent": "Claude",
-      "where": ".claude/worktrees/SW-4144",
+      "status": "next",
+      "agent": "",
+      "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 30 min. Folds in SW-4082 where it applies.",
