@@ -2728,6 +2728,13 @@ theorem groupAutoSome ∀ (group twin: Group) (alike: GroupsAlike group twin): g
     _ = (blankComments twin.auto).isSome := rewrite same
     _ = twin.auto.isSome := blankCommentsSome twin.auto
 
+theorem isNoneOfSome ∀ (found twin: Option Comments) (same: found.isSome = twin.isSome): found.isNone = twin.isNone :=
+  match found, twin with
+    | Some x, Some y => byComputing
+    | None, None => byComputing
+    | Some x, None => cases
+    | None, Some y => cases
+
 theorem groupNamesEmpty ∀ (group twin: Group) (alike: GroupsAlike group twin): group.names.isEmpty = twin.names.isEmpty :=
   let same: blankWords group.names = blankWords twin.names :=
     calc blankWords group.names
@@ -2950,3 +2957,256 @@ theorem followsConstructorsOf ∀ (rule: ExpressionRule) (modes: Modes):
     [k := atBar => constructorsAt modes atBar]
     (followsAt modes Pipe)
     (atBar => followsConstructorsAt rule modes atBar)
+
+-- Data parameters and indices.
+
+theorem followsDataParamLeft ∀ (modes: Modes) (word: Text) (items others: List Item) (same: List.All2 SameCode items others):
+    Parse.Follows SameCode (Option.Alike GroupsAlike) (() => dataParamLeft modes word items) (() =>
+      dataParamLeft modes word others) :=
+  match items, others with
+    | [param, ..rest], [paramTwin, ..restTwin] =>
+      let kinds: param.kind = paramTwin.kind := deafItem Item.kind itemKindDeaf param paramTwin same.left
+      let quals: isQualified param = isQualified paramTwin := deafItem isQualified isQualifiedDeaf param paramTwin same.left
+      let stops: modes.stops param = modes.stops paramTwin := stopsSame modes param paramTwin same.left
+      let guards: (param.kind == Lower && !isQualified param && !modes.stops param)
+        = (paramTwin.kind == Lower && !isQualified paramTwin && !modes.stops paramTwin) := rewrite stops, quals, kinds
+      match first: param.kind == Lower && !isQualified param && !modes.stops param,
+          second: paramTwin.kind == Lower && !isQualified paramTwin && !modes.stops paramTwin with
+        | True, True =>
+          followsFatalAny _ (() =>
+            Syntax.fatal "a ${word}'s parameter `${paramTwin.text}` needs its type, in brackets")
+        | False, False => Parse.followsDone None None Trivial
+    | [], [] => Parse.followsDone None None Trivial
+
+theorem followsDataParamBracket ∀ (rule: ExpressionRule) (modes: Modes) (word: Text) (bracket: Bool):
+    Parse.Follows SameCode (Option.Alike GroupsAlike) (() => dataParamBracket modes word bracket) (() =>
+      dataParamBracket modes word bracket) :=
+  match bracket with
+    | True =>
+      Parse.followsThen (followsImplicitBinder (expressionKnot rule) modes) (binder binderTwin binders =>
+        Parse.followsThen
+          (followsRefuseEmpty binder.attributes binderTwin.attributes (groupAttributesEmpty binder binderTwin binders)
+            "a data type's parameter")
+          (refusal refusalTwin refusals =>
+            let autos: binder.auto.isNone = binderTwin.auto.isNone :=
+              isNoneOfSome binder.auto binderTwin.auto (groupAutoSome binder binderTwin binders)
+            let names: binder.names.isEmpty = binderTwin.names.isEmpty := groupNamesEmpty binder binderTwin binders
+            rewrite autos, names then
+              match binderTwin.auto.isNone with
+                | True =>
+                  followsFatalAny _ (() =>
+                    Syntax.fatal "a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`")
+                | False =>
+                  match binderTwin.names.isEmpty with
+                    | True =>
+                      followsFatalAny _ (() =>
+                        Syntax.fatal
+                          "a type's `auto` parameter needs a name, so it can be given by name: `[auto ord: Ord k]`")
+                    | False => Parse.followsDone (Some binder) (Some binderTwin) binders))
+    | False =>
+      followsOn
+        (items => dataParamLeft modes word items)
+        (items => dataParamLeft modes word items)
+        (items others same => followsDataParamLeft modes word items others same)
+
+theorem followsDataParamStep ∀ (rule: ExpressionRule) (modes: Modes) (word: Text) (atParen: Bool):
+    Parse.Follows SameCode (Option.Alike GroupsAlike) (() => dataParamStep modes word atParen) (() =>
+      dataParamStep modes word atParen) :=
+  match atParen with
+    | True =>
+      Parse.followsThen (followsBinderGroup (expressionKnot rule) modes False) (binder binderTwin binders =>
+        Parse.followsThen
+          (followsRefuseEmpty binder.attributes binderTwin.attributes (groupAttributesEmpty binder binderTwin binders)
+            "a data type's parameter")
+          (refusal refusalTwin refusals => Parse.followsDone (Some binder) (Some binderTwin) binders))
+    | False =>
+      followsThenEq
+        [j := bracket => dataParamBracket modes word bracket]
+        [k := bracket => dataParamBracket modes word bracket]
+        (followsBracketAhead modes)
+        (bracket => followsDataParamBracket rule modes word bracket)
+
+theorem followsDataParams ∀ (rule: ExpressionRule) (modes: Modes) (word: Text) (name nameTwin: Word):
+    Parse.Follows SameCode (List.All2 GroupsAlike) (() => dataParams modes word name) (() => dataParams modes word nameTwin) :=
+  Parse.followsLoop _ _
+    (followsThenEq
+      [j := atParen => dataParamStep modes word atParen]
+      [k := atParen => dataParamStep modes word atParen]
+      (followsAt modes LParen)
+      (atParen => followsDataParamStep rule modes word atParen))
+
+def IndicesFollow (modes: Modes) (fuel: Nat): Prop :=
+  ∀ (found twins: List (Index, Word)) => List.All2 StepAlike found twins
+    → Parse.Follows SameCode (PairAlike (List.All2 StepAlike) ExprsAlike)
+      (() => dataIndices fuel modes found)
+      (() => dataIndices fuel modes twins)
+
+theorem followsDataIndexNext ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes) (again: IndicesFollow modes more)
+    (found twins: List (Index, Word)) (founds: List.All2 StepAlike found twins) (index indexTwin: Expr)
+    (indexes: ExprsAlike index indexTwin) (atArrow: Bool):
+    Parse.Follows SameCode (PairAlike (List.All2 StepAlike) ExprsAlike)
+      (() => dataIndexNext more modes found index atArrow)
+      (() => dataIndexNext more modes twins indexTwin atArrow) :=
+  match atArrow with
+    | True =>
+      Parse.followsThen followsBump (arrow arrowTwin arrows =>
+        again [(IndexType index, arrow), ..found] [(IndexType indexTwin, arrowTwin), ..twins]
+          (Both (alikeStepType index indexTwin indexes arrow arrowTwin arrows) founds))
+    | False =>
+      Parse.followsDone _ _ (List.all2Reverse found twins founds, indexes)
+
+theorem followsDataIndexAt ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes) (again: IndicesFollow modes more)
+    (found twins: List (Index, Word)) (founds: List.All2 StepAlike found twins) (paren: Bool):
+    Parse.Follows SameCode (PairAlike (List.All2 StepAlike) ExprsAlike)
+      (() => dataIndexAt more modes found paren)
+      (() => dataIndexAt more modes twins paren) :=
+  match paren with
+    | True =>
+      Parse.followsThen (followsBinderGroup (expressionKnot rule) modes False) (binder binderTwin binders =>
+        Parse.followsThen
+          (followsRefuseEmpty binder.attributes binderTwin.attributes (groupAttributesEmpty binder binderTwin binders)
+            "a data type's index")
+          (refusal refusalTwin refusals =>
+            Parse.followsThen (followsExpect modes Arrow "`->`") (arrow arrowTwin arrows =>
+              again [(IndexBinder binder, arrow), ..found] [(IndexBinder binderTwin, arrowTwin), ..twins]
+                (Both (alikeStepBinder binder binderTwin binders arrow arrowTwin arrows) founds))))
+    | False =>
+      Parse.followsThen (followsExpressionAt rule { modes, level = LevelApp }) (index indexTwin indexes =>
+        followsThenEq
+          [j := atArrow => dataIndexNext more modes found index atArrow]
+          [k := atArrow => dataIndexNext more modes twins indexTwin atArrow]
+          (followsAt modes Arrow)
+          (atArrow => followsDataIndexNext rule more modes again found twins founds index indexTwin indexes atArrow))
+
+theorem followsDataIndices ∀ (rule: ExpressionRule) (fuel: Nat) (modes: Modes) (found twins: List (Index, Word))
+    (founds: List.All2 StepAlike found twins):
+    Parse.Follows SameCode (PairAlike (List.All2 StepAlike) ExprsAlike)
+      (() => dataIndices fuel modes found)
+      (() => dataIndices fuel modes twins) :=
+  match fuel with
+    | Zero =>
+      followsFatalAny _ (() => Syntax.fatal "the parser ran out of fuel in a data type's indices")
+    | Succ more =>
+      followsThenEq
+        [j := paren => dataIndexAt more modes found paren]
+        [k := paren => dataIndexAt more modes twins paren]
+        (followsParenAhead modes)
+        (paren =>
+          followsDataIndexAt rule more modes
+            (again twinsAgain agains => followsDataIndices rule more modes again twinsAgain agains)
+            found
+            twins
+            founds
+            paren)
+
+-- Types and data declarations.
+
+theorem annotatedAlike ∀ (expr twin: Expr) (alike: ExprsAlike expr twin): annotatedArgument expr = annotatedArgument twin :=
+  calc annotatedArgument expr
+    _ = annotatedArgument (expr.walk blankPure) := annotatedArgumentDeaf expr
+    _ = annotatedArgument (twin.walk blankPure) := rewrite alike
+    _ = annotatedArgument twin := Eq.flipped (annotatedArgumentDeaf twin)
+
+theorem followsTypeSynonym ∀ (rule: ExpressionRule) (modes: Modes) (name nameTwin: Word):
+    Parse.Follows SameCode ExprsAlike (() => typeSynonym modes name) (() => typeSynonym modes nameTwin) :=
+  Parse.followsThen (followsExpressionAt rule { modes, level = LevelFull }) (synonym synonymTwin synonyms =>
+    followsThenEq
+      [j := atPipe =>
+        (if atPipe then Syntax.fatal (ambiguousSynonym name "a sum type without its leading `|`")
+         else if annotatedArgument synonym then
+           Syntax.fatal (ambiguousSynonym name "a constructor with named fields, without its leading `|`")
+         else synonym)]
+      [k := atPipe =>
+        (if atPipe then Syntax.fatal (ambiguousSynonym nameTwin "a sum type without its leading `|`")
+         else if annotatedArgument synonymTwin then
+           Syntax.fatal (ambiguousSynonym nameTwin "a constructor with named fields, without its leading `|`")
+         else synonymTwin)]
+      (followsAt modes Pipe)
+      (atPipe =>
+        match atPipe with
+          | True =>
+            followsFatalAny _ (() => Syntax.fatal (ambiguousSynonym nameTwin "a sum type without its leading `|`"))
+          | False =>
+            rewrite annotatedAlike synonym synonymTwin synonyms then
+              match annotatedArgument synonymTwin with
+                | True =>
+                  followsFatalAny _ (() =>
+                    Syntax.fatal (ambiguousSynonym nameTwin "a constructor with named fields, without its leading `|`"))
+                | False => Parse.followsDone synonym synonymTwin synonyms))
+
+theorem followsTypeBraced ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (keyword keywordTwin: Comments)
+    (name nameTwin: Word) (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
+    (paramses: List.All2 GroupsAlike params paramsTwin) (indices indicesTwin: Option Indices)
+    (indiceses: IndicesAlike indices indicesTwin) (equals equalsTwin: Comments) (row: Option Text):
+    Parse.Follows SameCode DeclsAlike
+      (() => typeBraced modes attributes keyword name params indices equals row)
+      (() => typeBraced modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin equalsTwin row) :=
+  match row with
+    | Some found =>
+      followsFatalAny _ (() =>
+        Syntax.fatal
+          "an ability row like `{${found}}` can't be given a name with `type` yet; write the row where it's used, such as `() -> {${found}} Nat`")
+    | None =>
+      Parse.followsMap
+        [alike := DeclsAlike]
+        (fields => Data attributes False keyword name params indices (RecordBody equals fields))
+        (fields => Data attributesTwin False keywordTwin nameTwin paramsTwin indicesTwin (RecordBody equalsTwin fields))
+        (fields fieldsTwin fieldses =>
+          alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params
+            paramsTwin paramses indices indicesTwin indiceses (RecordBody equals fields) (RecordBody equalsTwin fieldsTwin)
+            (alikeRecordBody equals equalsTwin fields fieldsTwin fieldses))
+        (followsBracedFields rule modes)
+
+theorem stepsEmpty ∀ (steps: List (Index, Word)): (blankIndexSteps (walkIndices blankPure steps)).isEmpty = steps.isEmpty :=
+  match steps with
+    | [] => byComputing
+    | [(IndexBinder binder, arrow), ..rest] => byComputing
+    | [(IndexType annotation, arrow), ..rest] => byComputing
+
+theorem indexedKey ∀ (indices: Option Indices):
+    (indices.map (found => !found.steps.isEmpty) |> .getOrElse False)
+      = ((indicesKey indices).map (found => !found.steps.isEmpty) |> .getOrElse False) :=
+  match indices with
+    | None => byComputing
+    | Some { colon, steps, last } => rewrite stepsEmpty steps
+
+theorem indexedAlike ∀ (indices indicesTwin: Option Indices) (indiceses: IndicesAlike indices indicesTwin):
+    (indices.map (found => !found.steps.isEmpty) |> .getOrElse False)
+      = (indicesTwin.map (found => !found.steps.isEmpty) |> .getOrElse False) :=
+  calc (indices.map (found => !found.steps.isEmpty) |> .getOrElse False)
+    _ = ((indicesKey indices).map (found => !found.steps.isEmpty) |> .getOrElse False) := indexedKey indices
+    _ = ((indicesKey indicesTwin).map (found => !found.steps.isEmpty) |> .getOrElse False) := rewrite indiceses
+    _ = (indicesTwin.map (found => !found.steps.isEmpty) |> .getOrElse False) := Eq.flipped (indexedKey indicesTwin)
+
+theorem followsTypeAfterEquals ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (keyword keywordTwin: Comments)
+    (name nameTwin: Word) (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
+    (paramses: List.All2 GroupsAlike params paramsTwin) (indices indicesTwin: Option Indices)
+    (indiceses: IndicesAlike indices indicesTwin) (indexed: Bool) (equals equalsTwin: Comments) (brace pipe: Bool):
+    Parse.Follows SameCode DeclsAlike
+      (() => typeAfterEquals modes attributes keyword name params indices indexed equals brace pipe)
+      (() => typeAfterEquals modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsTwin brace pipe) :=
+  match !(brace || pipe) with
+    | True =>
+      match indexed with
+        | True =>
+          followsFatalAny _ (() =>
+            Syntax.fatal "a type synonym can't have indices: `->` after the colon is only for a data type's indices")
+        | False =>
+          Parse.followsThen (followsTypeSynonym rule modes name nameTwin) (synonym synonymTwin synonyms =>
+            Parse.followsDone _ _ (alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses (Synonym equals synonym) (Synonym equalsTwin synonymTwin) (alikeSynonym equals equalsTwin synonym synonymTwin synonyms)))
+    | False =>
+      match brace with
+        | True =>
+          followsOn
+            (items => typeBraced modes attributes keyword name params indices equals (abilityRowInBraces items))
+            (items => typeBraced modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin equalsTwin (abilityRowInBraces items))
+            (items others same =>
+              rewrite deafOfStripped abilityRowInBraces abilityRowInBracesDeaf items others same then
+                followsTypeBraced rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin
+                  names params paramsTwin paramses indices indicesTwin indiceses equals equalsTwin
+                  (abilityRowInBraces others))
+        | False =>
+          Parse.followsThen (followsConstructorsOf rule modes) (constructors constructorsTwin constructorses =>
+            Parse.followsDone _ _ (alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses (Sum equals constructors) (Sum equalsTwin constructorsTwin) (alikeSum equals equalsTwin constructors constructorsTwin constructorses)))
