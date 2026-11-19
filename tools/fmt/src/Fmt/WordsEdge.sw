@@ -19,6 +19,7 @@ import Fmt.TreeJoinProofs (
   lexKindOfSpells,
   operatorSpellsOf,
   spellsNotComment,
+  infixListed,
   spellsOfText1,
   wordQuiet
 )
@@ -492,8 +493,13 @@ theorem wordsEdgeOfMarks ∀ (expr: Expr) (lead end pending: Bool)
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
-          let (leftWithin, rightWithin, listed) := within
-          infixEdge left operator right lead end pending _ _ _ leftWithin rightWithin listed shaped lexical sound edges
+          let (leftWithin, rightWithin, _) := within
+          infixEdge left operator right lead end pending _ _ _ leftWithin rightWithin
+            (infixListed InfixBinary left operator right within)
+            shaped
+            lexical
+            sound
+            edges
             (leftEdges =>
               wordsEdgeOfMarks left lead False pending leftWithin
                 (Bool.andLeft shaped)
@@ -507,8 +513,13 @@ theorem wordsEdgeOfMarks ∀ (expr: Expr) (lead end pending: Bool)
                 (Bool.andRight (Bool.andRight sound))
                 rightEdges)
         | InfixArrow =>
-          let (leftWithin, rightWithin, listed) := within
-          infixEdge left operator right lead end pending _ _ _ leftWithin rightWithin listed shaped lexical sound edges
+          let (leftWithin, rightWithin, _) := within
+          infixEdge left operator right lead end pending _ _ _ leftWithin rightWithin
+            (infixListed InfixArrow left operator right within)
+            shaped
+            lexical
+            sound
+            edges
             (leftEdges =>
               wordsEdgeOfMarks left lead False pending leftWithin
                 (Bool.andLeft shaped)

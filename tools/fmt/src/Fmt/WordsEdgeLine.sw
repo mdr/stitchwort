@@ -15,6 +15,7 @@ import Fmt (..)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (
   OperatorSpells,
+  infixListed,
   declOperators,
   declReal,
   lexKind,
@@ -299,11 +300,17 @@ theorem exprAssign ∀ (expr: Expr)
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
-          let (leftWithin, rightWithin, listed) := within
-          infixAssign left operator right leftWithin rightWithin listed lexical sound
+          let (leftWithin, rightWithin, _) := within
+          infixAssign left operator right leftWithin rightWithin
+            (infixListed InfixBinary left operator right within)
+            lexical
+            sound
         | InfixArrow =>
-          let (leftWithin, rightWithin, listed) := within
-          infixAssign left operator right leftWithin rightWithin listed lexical sound
+          let (leftWithin, rightWithin, _) := within
+          infixAssign left operator right leftWithin rightWithin
+            (infixListed InfixArrow left operator right within)
+            lexical
+            sound
         | _ => cases
     | Prefix operator operand =>
       let (operandWithin, listed) := within
