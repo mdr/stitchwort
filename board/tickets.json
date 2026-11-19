@@ -26081,12 +26081,12 @@
     {
       "id": 4140,
       "title": "[Sonnet] std Parse/Follows.sw (SW-4132 lane 1): Parse.Follows and Mark.Alike from the prototype, ~14 lemmas (done, mark, next, fatal, then, loop, recursiveWith, withMark, run, never, weaken, map...), full API docs with the no-backtracking limit, prelude snapshot, guide mention beside Parse.Reads",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4140",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 25 min.",
+      "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 25 min.\n\nProgress (Sonnet lane): crates/elab/src/std/Parse/Follows.sw written and checked (check --std, audit of 21 theorems); prelude snapshot updated (40 added lines); guide line beside Parse.Reads; commit e0a3c775e on lane/SW-4140. Not done: followsSpan, followsLiteral, followsNote.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
