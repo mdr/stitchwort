@@ -26161,7 +26161,7 @@
     {
       "id": 4146,
       "title": "[Opus] fmt S1 comments anywhere E3: parenAny (after E2) (SW-4130 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4146",
       "labels": [],
@@ -26278,9 +26278,9 @@
     {
       "id": 4155,
       "title": "[Opus] fmt S1 rules: displace an item whose first token keeps a blank line (framedBy, Rules.sw:412: first.noted || (around.item && first.comments.blankBefore) || around.before), so blankItemHangs needs no BlankLined (SW-4153 finding)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4155",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. Orchestrator's call (D3447-style: printed output unchanged, no narrowing): output must be byte-identical: check by printing the gate corpora and every slice 1 declaration in the repo before/after. Rust rule (crates/fmt rules.rs:399) is NOT changed (D3677 freeze). Touches SpellProofs, FinishProofs, HangProofs:1039, JoinProofs, HeldParenProofs, TouchProofs; after SW-4146 (parenAny). Then drop BlankLined from blankItemHangs. See SW-4153 report.",
