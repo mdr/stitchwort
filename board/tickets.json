@@ -27379,15 +27379,17 @@
     {
       "id": 4238,
       "title": "[Fable, paper] Review and settle the walk step design (docs/proposals/proof-walk-step.md, SW-4231) against prior art: Lean mvcgen/vcgen and Std.Do, Iris wp_ tactics, Dafny/F*/Why3 VC generation, Isabelle's monad VCG; decide registration, how far it unfolds, failure messages, cache invalidation (§3.2), and the pilot's success bars; end state for Matt",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Est. 60 min. Matt, 19 Nov 2026: 'I'm open for us doing some like Fable level investigation into this type of tactic that we might be able to include into Stitchwort.'",
+      "body": "Est. 60 min. Matt, 19 Nov 2026: 'I'm open for us doing some like Fable level investigation into this type of tactic that we might be able to include into Stitchwort.'\n\nLane notes (Fable, 19 Nov, 18:51 to 19:08, about 17 min against est. 60): review written, docs/reviews/SW-4238-walk-step-review.md, with probes in docs/reviews/SW-4238-probes/ (commit ad2582585 on lane/SW-4238); the proposal has a banner pointing at it. Verdict: build, with seven changes, after a 30-min baseline lane (W0). Main finding: on single-file copies of the comma list, today's elaborator infers p and j (one-run, the Reads0 bridge, two-run) and steps through an inline match, so the proposal's parts (a) and (b) merge into one lane and the bars are measured against cleaned-up text; not checked on the real fmt files (paper lane). Lanes: W0 baseline (new, Sonnet 30), W1 the one-run walk (SW-4239 widened, Opus 120), W2 review (20), W3 two-run (SW-4240 repurposed, Opus 60), W4 pilot (Sonnet 60), W5 editor (Sonnet 30), W6 check time on need. One decision for Matt in the review's section 6 (replaces the proposal's D3695). Six findings for tickets in section 7.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "ad2582585"
+      ]
     },
     {
       "id": 4239,
@@ -27457,12 +27459,12 @@
     {
       "id": 4244,
       "title": "[Sonnet] Resource notes name the user's computation again: since SW-3930 (526f98b64, glued declared types) the step-limit note and progress notes name List.length instead of replicate (resources.rs:198, :692 fail); name the last non-std definition entered (or the outermost), and make both tests pass",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Found in SW-4091's verifier; bisected by SW-4091 to 526f98b64. Est. 40 min.",
+      "body": "Found in SW-4091's verifier; bisected by SW-4091 to 526f98b64. Est. 40 min.\n\nLane: Budget keeps the last non-std definition entered (Def.std, from its Std. path), falling back to the last entered. Commit c2c475f9e on lane/SW-4244. Both resources tests pass, plus the two other 'names the declaration' tests and the budget unit tests.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
