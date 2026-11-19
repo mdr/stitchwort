@@ -1635,22 +1635,7 @@ theorem treeNRaise ∀ (low high: Nat) (goal: Goal) (read rest: List Item) (valu
         value
         layer
 
---| A rung whose children are trees nested at most `depth` deep is a tree.
-theorem treeOfLayer ∀ (depth: Nat) (goal: Goal) (read rest: List Item) (value: Expr)
-    (layer: Layer (TreeN depth) goal read rest value):
-    Tree goal read rest value :=
-  (Succ depth, layer)
-
--- One word: the relation holds where `runsExpressionWord` does.
-
---| An expression whose first item doesn't start a line starts no block: `FullReads` is its inline reading.
-theorem fullOfInline ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
-    (more rest: List Item) (value: Expr)
-    (inLine: item.leaf.token.lineStart = False)
-    (reads: InlineAt sub modes item more rest value):
-    FullReads sub modes [item, ..more] rest value :=
-  let never: startsBlock modes item = False := rewrite inLine
-  (item, more, byComputing, Inl (never, reads))
+-- A full expression by whether a block starts.
 
 --| `FullReads` by whether a block starts: inline where none does, a block where one does.
 theorem fullOfStarts ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item)
@@ -1662,84 +1647,6 @@ theorem fullOfStarts ∀ (sub: Goal → List Item → List Item → Expr → Pro
   match starts with
     | False => (item, more, byComputing, Inl (isStarts, inline byComputing))
     | True => (item, more, byComputing, Inr (isStarts, block byComputing))
-
---| A word that nothing after it continues, and that the modes don't stop, is what `exprInline` should read, with no
---| calls to `self`.
---|
---| Proof idea: every rung with no links and nothing after, as `runsWordOperator` goes down the ladder.
-theorem inlineWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
-    (open: modes.stops item = False)
-    (word: isWord item.kind = True)
-    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
-    (noBar: matchesBarOn modes [item, ..rest] = False)
-    (inline: InlinePlain modes item [item, ..rest])
-    (ends: OperandEnds modes rest):
-    InlineAt sub modes item [] rest (Atom item.kind item.leaf.word) :=
-  let atomValue := Atom item.kind item.leaf.word
-  let (_, _, _, _, notDot) := wordKinds item.kind word
-  let (notMatch, unsigned) := wordUnsigned item.kind word
-  let noSection: isSome Dot (peekIn modes 0 [item, ..rest]) = False :=
-    rewrite peekFirst modes item rest open then notDot
-  let atomReads: AtomReads sub modes True [item] rest atomValue := (
-    item,
-    [],
-    byComputing,
-    open,
-    { plain, noCall = ends.noCall, noDot = ends.noDot },
-    Inl (byComputing, byComputing, word)
-  )
-  let unaryReads: UnaryReads sub modes [item] rest atomValue :=
-    Inr (item, [], byComputing, open, notMatch, noBar, Inl unsigned, Inl (noSection, atomReads, ends.noArgument))
-  let mulReads: MulReads sub modes [item] rest atomValue :=
-    ([item], atomValue, [], byComputing, byComputing, unaryReads, ends.noMul)
-  let addReads: AddReads sub modes [item] rest atomValue :=
-    ([item], atomValue, [], byComputing, byComputing, mulReads, ends.noAdd)
-  let appendReads: AppendReads sub modes [item] rest atomValue :=
-    ([item], atomValue, [], byComputing, byComputing, addReads, ends.noAppend)
-  let operatorReads: OperatorReads sub modes [item] rest atomValue := (
-    [item],
-    [],
-    [],
-    atomValue,
-    atomValue,
-    byComputing,
-    noSection,
-    Inl ((ends.noRange, ends.noPipe, appendReads), ends.noCmp),
-    Inl (byComputing, byComputing, ends.noAndOr),
-    ends.noIff,
-    Inl (byComputing, byComputing, ends.noEnd)
-  )
-  (open, inline, operatorReads)
-
---| A word in the middle of a line, that nothing after it continues, is what `expr` should read: `inlineWord`, no
---| block starting.
-theorem fullWord ∀ (sub: Goal → List Item → List Item → Expr → Prop) (modes: Modes) (item: Item) (rest: List Item)
-    (inLine: item.leaf.token.lineStart = False)
-    (open: modes.stops item = False)
-    (word: isWord item.kind = True)
-    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
-    (noBar: matchesBarOn modes [item, ..rest] = False)
-    (inline: InlinePlain modes item [item, ..rest])
-    (ends: OperandEnds modes rest):
-    FullReads sub modes [item] rest (Atom item.kind item.leaf.word) :=
-  fullOfInline sub modes item [] rest _ inLine (inlineWord sub modes item rest open word plain noBar inline ends)
-
---| The same as a tree: `runsTree` gives `runsExpressionWord` back.
-theorem treeWord ∀ (modes: Modes) (item: Item) (rest: List Item)
-    (inLine: item.leaf.token.lineStart = False)
-    (open: modes.stops item = False)
-    (word: isWord item.kind = True)
-    (plain: (isSome Upper (Some item.kind) && True && isSome LBrace (peekIn modes 0 rest)) = False)
-    (noBar: matchesBarOn modes [item, ..rest] = False)
-    (inline: InlinePlain modes item [item, ..rest])
-    (ends: OperandEnds modes rest):
-    Tree { modes, level = LevelFull } [item] rest (Atom item.kind item.leaf.word) :=
-  treeOfLayer 0
-    { modes, level = LevelFull }
-    [item]
-    rest
-    (Atom item.kind item.leaf.word)
-    (fullWord (TreeN 0) modes item rest inLine open word plain noBar inline ends)
 
 -- Items through `ItemsAt`.
 

@@ -1,12 +1,12 @@
 --| Slice 1's read-back over any number of lines (SW-4121): the definitions the hung family shares. A declaration's
 --| items parse back to the tree they spell when their leaves keep the line rule `Fmt.hangs`; the lemmas carry the line
---| rule's state (`HangState`) where the one-line family (`Syntax.ReadBackLine`) carried "starts no line".
+--| rule's state (`HangState`); what they share with the parser's spelling is in `Syntax.ReadBackLine`.
 --|
 --| The family is split by layer so that its lemmas can be proved side by side: the state lemmas
 --| (`Syntax.ReadBackHungDeep`, `ReadBackHungBounds`, `ReadBackHungFrame`), then the rungs from atoms up
 --| (`ReadBackHungAtoms`, `ReadBackHungApp`, `ReadBackHungChains`, `ReadBackHungInline`), the full expression
---| (`ReadBackHungFull`), and the declaration (`ReadBackHungTop`, `readsBackHung`). The one-line family recurses
---| through brackets from `atomLine` back to `fullLine`; here that recursion is cut by a hypothesis, `FullHungBelow`:
+--| (`ReadBackHungFull`), and the declaration (`ReadBackHungTop`, `readsBackHung`). The reading recurses through
+--| brackets from atoms back to full expressions; that recursion is cut by a hypothesis, `FullHungBelow`:
 --| each rung at `depth` takes `fullHung` at every smaller depth, and `ReadBackHungTop` ties the knot by induction on
 --| the depth.
 

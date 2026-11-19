@@ -1,6 +1,6 @@
---| The binary chains on any lines (H7 of SW-4121's plan): `mulAcc`, `mulLine`, `addAcc`, `addBase`, `addLine`,
---| `appendLine`, `appendBase`, `cmpAlone` and `cmpLine` with the line rule's state in place of "starts no line",
---| as in `Syntax.ReadBackHungAtoms`. The accumulators' line rule runs over the operand and the links after it.
+--| The binary chains on any lines (H7 of SW-4121's plan): `* / %`, `+ -`, `++` and a comparison, read from the line
+--| rule's state, as in `Syntax.ReadBackHungAtoms`. The accumulators' line rule runs over the operand and the links
+--| after it.
 
 namespace Syntax.ReadBackHungChains
 import Std (Bool, List, Nat, Option, Parse, Void)

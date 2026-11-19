@@ -237,7 +237,7 @@ theorem freshContinues ∀ (state next: HangState) (leaf after: Leaf)
           let (outside, atTop) := freshTop { blocks = [], top, start, glue } leaf starts lineStart byComputing
           stepAtTop _ next after leaf.token.column outside atTop stepped
 
---| `peekTwo` on any lines: the item after a bracket's first two doesn't stop a reading the state before the second
+--| The item after a bracket's first two doesn't stop a reading the state before the second
 --| bounds.
 theorem peekTwoHung ∀ (modes: Modes)
     (quiet: Quiet modes)
@@ -266,7 +266,7 @@ theorem peekTwoHung ∀ (modes: Modes)
           (exprNotColonEq third.kind (Bool.andLeft kinds))
       (third.kind, (rewrite open1, open2, open3), Bool.andLeft kinds)
 
---| `speltOutside` on any lines: the items a bracket's first item starts with don't stop a reading the state before
+--| The items a bracket's first item starts with don't stop a reading the state before
 --| it bounds.
 theorem speltOutsideHung ∀ (modes: Modes)
     (quiet: Quiet modes)

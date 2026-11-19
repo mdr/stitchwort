@@ -1,7 +1,6 @@
 --| Slice 1's read-back over any number of lines (SW-4121): a declaration whose items keep the line rule `Fmt.hangs`
---| parses back to the definition they spell (`readsBackHung`). It is `readsBackLineWithin` with its two "starts no
---| line" conditions replaced by `hangs` of the group, and the items said to be the group's own (`isItems`): the
---| parser's line test reads each item's bracket depth.
+--| parses back to the definition they spell (`readsBackHung`). The items are the group's own (`isItems`): the parser's
+--| line test reads each item's bracket depth.
 --|
 --| `fullHung` is proved here from `fullHungStep` by induction on the depth; the rungs' lemmas are in
 --| `Syntax.ReadBackHungAtoms` to `Syntax.ReadBackHungFull`.
@@ -18,6 +17,7 @@ import Syntax.ReadBackEnds (..)
 import Syntax.ReadBackLine (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungDeep (hungDeep)
+import Syntax.ReadBackHungAtomsLemmas (deepRest)
 import Syntax.ReadBackHungFrame (speltHangs)
 import Syntax.ReadBackHungFull (fullHungStep)
 
@@ -133,11 +133,6 @@ theorem colonEqHung ∀ (state: HangState) (colonEq: Leaf) (rest: List Leaf)
         Option.someInjective (Eq.trans stepped.flipped (colonEqStep state colonEq isColonEq outside unglued))
       rewrite <- isTop then hung
 
-theorem deepRight ∀ (first rest: List Item) (deep: deepAll (first ++ rest) = True): deepAll rest = True :=
-  match first with
-    | [] => deep
-    | [item, ..more] => deepRight more rest (Bool.andRight deep)
-
 -- The declaration.
 
 --| The read-back of a declaration on any lines: `def name: A := b`, with `A` and `b` spelt by the items between `:`
@@ -185,7 +180,7 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
     rewrite <- isItems then hungDeep group hung
   let deepType: deepAll (typeRead ++ after) = True := Bool.andRight (Bool.andRight (Bool.andRight deepGroup))
   let deepValue: deepAll (valueRead ++ []) = True :=
-    rewrite List.appendNil valueRead then Bool.andRight (deepRight typeRead after deepType)
+    rewrite List.appendNil valueRead then Bool.andRight (deepRest typeRead after deepType)
   let (first, more, isType, starts) := speltStarts result typeRead typeSpelt
   let typeLeaves: hangsAfter (HangState.atTop.after (leavesOf typeRead)) (leavesOf after) = True :=
     rewrite <- hangsAppend HangState.atTop (leavesOf typeRead) (leavesOf after),
