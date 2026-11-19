@@ -178,7 +178,7 @@ fn the_json_contract() {
     );
     let first = &theorems["shown"][0];
     assert_eq!(first["name"], "Std.List.filterMapSome");
-    assert_eq!(first["file"], "std/List/Lemmas.sw");
+    assert_eq!(first["file"], "std/List/Map.sw");
     assert_eq!(first["group"], "rewrite");
     // The JSON keeps the whole type.
     assert!(

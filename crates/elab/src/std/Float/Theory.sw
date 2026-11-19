@@ -1619,24 +1619,6 @@ theorem Float.Theory.roundRatioUnitsBits ∀ (bits: Nat)
 
 -- Addition on bit patterns
 
-theorem Float.Theory.boolCases ∀ (b: Bool): (b = True) ∨ (b = False) := match b with
-  | True => Inl byComputing
-  | False => Inr byComputing
-
-theorem Float.Theory.andFalseRight ∀ (b: Bool): (b ∧ False) = False := match b with
-  | True => byComputing
-  | False => byComputing
-
-theorem Float.Theory.andTrueRight ∀ (b: Bool): (b ∧ True) = b := match b with
-  | True => byComputing
-  | False => byComputing
-
-theorem Float.Theory.andSwap ∀ (a b: Bool): (a ∧ b) = (b ∧ a) := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
-  | False, True => byComputing
-  | False, False => byComputing
-
 theorem Float.Theory.ifTrue ∀ (c: Bool) (x y: Nat) (h: c = True): (if c then x else y) = x := rewrite h
 
 theorem Float.Theory.ifFalse ∀ (c: Bool) (x y: Nat) (h: c = False): (if c then x else y) = y := rewrite h
@@ -1711,8 +1693,6 @@ theorem Float.Theory.addRestFin ∀ (a b: Nat)
       (if Float.Model.isInfinite b then b else Float.Theory.addFin a b)
       ha)
     (Float.Theory.ifFalse (Float.Model.isInfinite b) b (Float.Theory.addFin a b) hb)
-
-theorem Float.Theory.orFalse ∀ (x y: Bool) (hx: x = False) (hy: y = False): (x ∨ y) = False := rewrite hx, hy
 
 --| A valid pattern that is neither the NaN nor infinite is finite.
 theorem Float.Theory.finiteOf ∀ (a: Nat)
@@ -1977,12 +1957,6 @@ theorem Float.Theory.intLessAddPos ∀ (k: Nat) (pk: 0 < k) (x: Int): Int.less x
       match h: Succ n - k with
         | Zero => byComputing
         | Succ j => (arithmetic [h, pk]: Nat.leq (Succ j) n = True)
-
-theorem Float.Theory.orLeftFalse ∀ (x y: Bool) (h: (x ∨ y) = False): x = False := match x with | False => byComputing
-
-theorem Float.Theory.orRightFalse ∀ (x y: Bool) (h: (x ∨ y) = False): y = False := match y with
-  | True => cases
-  | False => byComputing
 
 --| The result of `addBits` is a valid pattern.
 theorem Float.Theory.addBitsValid ∀ (a b: Nat)
@@ -2571,10 +2545,6 @@ theorem Float.Theory.roundRatioShift ∀ (sb: Bool) (k: Nat) (z: Bool):
         (Eq.trans
           (Nat.mulOne (k * Float.Model.pow2 1074))
           (Eq.cong (t => t * Float.Model.pow2 1074) (Nat.mulOne k)).flipped))
-
-theorem Float.Theory.xorFalse ∀ (b: Bool): Bool.xor b False = b := match b with
-  | True => byComputing
-  | False => byComputing
 
 --| `mulBits` with neither argument the NaN nor infinite: the units' product, rounded.
 theorem Float.Theory.mulFiniteBits ∀ (a b: Nat)
@@ -5388,23 +5358,6 @@ theorem Float.Theory.addAtMost ∀ (x c hi: Float)
       h
       zs)
 
-theorem Float.Theory.andFalseUp ∀ (a b c: Bool) (f: a = False → b = False) (k: (a ∧ c) = False): (b ∧ c) = False :=
-  match a, b with
-    | _, False => byComputing
-    | False, True => Void.impossible (Bool.trueNotFalse (f byComputing))
-    | True, True => k
-
-theorem Float.Theory.xorFalseUp ∀ (a b c: Bool)
-    (hc: c = False)
-    (f: a = False → b = False)
-    (k: Bool.xor a c = False):
-    Bool.xor b c = False :=
-  match a, b with
-    | False, False => k
-    | False, True => Void.impossible (Bool.trueNotFalse (f byComputing))
-    | True, True => k
-    | True, False => hc
-
 theorem Float.Theory.intMulLeRight ∀ (a b c: Int)
     (h: Int.leq a b = True)
     (hc: Int.leq (OfNat 0) c = True):
@@ -6129,12 +6082,6 @@ theorem Float.finiteBetween ∀ (lo x hi: Float)
         (arithmetic [m, k, kb, rh.right]: Float.Model.magnitude x.bits < 9218868437227405312))
 
 test "Float.finiteBetween" := Float.isFinite (0.5 * 0.7) ∧ ¬Float.isFinite Float.infinity
-
-theorem Float.Theory.xorComm ∀ (a b: Bool): Bool.xor a b = Bool.xor b a := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
-  | False, True => byComputing
-  | False, False => byComputing
 
 --| `*` commutes on finite doubles.
 theorem Float.mulCommFinite ∀ (x c: Float) (fx: Float.isFinite x = True) (fc: Float.isFinite c = True): x * c = c * x :=

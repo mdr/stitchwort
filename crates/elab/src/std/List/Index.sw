@@ -75,7 +75,7 @@ theorem List.getLtGet ∀ (xs: List a) (i: Nat)
     | [x, ..xs], Succ i => List.getLtGet xs i ok
 
 --| `getOr` is `List.get` with the fallback for `None` (`List.get`'s lemmas
---| are in Lemmas.sw).
+--| are in Zip.sw).
 theorem List.getOrGet ∀ (xs: List a) (k: Nat) (d: a): List.getOr xs k d = Option.getOrElse (List.get xs k) d :=
   match xs, k with
     | [], k => byComputing
