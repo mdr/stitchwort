@@ -1,5 +1,5 @@
 {
-  "next": 4209,
+  "next": 4211,
   "tickets": [
     {
       "id": 47,
@@ -26841,8 +26841,8 @@
     {
       "id": 4197,
       "title": "[Sonnet] fmt proofs: a fast loop for one theorem in a big file (checks of 2 to 5 minutes; SW-4195 friction 1): measure what a check of Fmt.LaysEls or Syntax.ReadBackHung* spends its time on (imports re-checked? cache granularity?), and put 'check --only THEOREM' and the findings in the proving guide",
-      "status": "backlog",
-      "agent": "Sonnet",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -26993,6 +26993,32 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From lane friction.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4209,
+      "title": "[Sonnet] fmt consolidation C3: duplicate theorems: 104 theorem names occur more than once across tools/fmt namespaces (commaStep, closerNotComma four times; SW-4205 §5 item 3); compare statements, keep one per statement (in the most general home), repoint users, delete the rest",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4210,
+      "title": "[Fable, paper] fmt consolidation C5+C7: statement note for un-numbering slice 1's tree predicates (shaped1, settled1, lexical1, unreturned1 → one definition per predicate growing an arm per slice, slice entering only as a withinN hypothesis) and for converting slice 1's per-function shape walk to the uniform form the two-run framework uses (SW-4205 §4 A, §5 items 5 and 7): exact statements, what each existing lemma becomes, the lane cuts, estimates, and how main stays proved throughout",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 45 min. Paper. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
