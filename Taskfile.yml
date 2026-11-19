@@ -797,6 +797,17 @@ tasks:
     cmds:
       - '{{.SW}} fmt {{.CLI_ARGS}}'
 
+  fmt:unspell:
+    desc: 'Delete the unneeded [p := …] spelled arguments in a tools/fmt .sw file, keeping those that check (task fmt:unspell -- FILE)'
+    summary: |
+      tools/fmt/dev/spellings.py: deletes every spelled argument of the
+      file's proof steps, checks the file's namespace, puts back the steps
+      the errors point at, then tries dropping each put-back one. Long: run
+      it in the background. Format the file afterwards (task fmt:sw).
+    deps: [build]
+    cmds:
+      - nice -n 15 python3 tools/fmt/dev/spellings.py --sw '{{.SW}}' {{.CLI_ARGS}}
+
   lint:
     desc: rustfmt --check and clippy, as the gate runs them
     cmds:

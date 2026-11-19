@@ -127,19 +127,11 @@ theorem readsAtLoopFirst ∀ (step: () → {Parse Item} Option a) (spec first: L
 theorem givesParamStep ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => headerParamStep self modes (modes.at Colon)) (Parse.Perhaps (group => True)) :=
-  givesAfter0
-    [p := () => modes.at Colon]
-    [j := atColon => headerParamStep self modes atColon]
-    (reads0At modes Colon)
-    (atColon =>
-      match atColon with
-        | True => Parse.givesDone byComputing
-        | False =>
-          Parse.givesThen
-            [p := () => headerGroup self modes GroupParam None]
-            [j := group => Some group]
-            (givesHeaderGroup self modes nested GroupParam None)
-            (group _ => Parse.givesDone byComputing))
+  givesAfter0 (reads0At modes Colon) (atColon =>
+    match atColon with
+      | True => Parse.givesDone byComputing
+      | False =>
+        Parse.givesThen (givesHeaderGroup self modes nested GroupParam None) (group _ => Parse.givesDone byComputing))
 
 --| A parameter round stops at a `:`, reading nothing.
 theorem readsAtParamStep ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -147,22 +139,16 @@ theorem readsAtParamStep ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => headerParamStep self modes (modes.at Colon)) (read result =>
       result = None → read = [] ∧ NextIs Colon start.rest) :=
-  Parse.readsAtThen
-    [p := () => modes.at Colon]
-    [j := atColon => headerParamStep self modes atColon]
-    (readsAtAtValue start modes Colon)
-    (read atColon after starts (empty, valueEq) =>
-      match atColon with
-        | True => Parse.readsAtDone after None _ (equal =>
-          (rewrite List.appendNil read then empty, nextIsOfPeek modes Colon start.rest (rewrite <- valueEq)))
-        | False =>
-          Parse.readsAtThen
-            [p := () => headerGroup self modes GroupParam None]
-            [j := group => Some group]
-            (givesHeaderGroup self modes nested GroupParam None after (Parse.Fits.after fine starts))
-            (taken group afterGroup startsGroup holds =>
-              Parse.readsAtDone afterGroup (Some group) _ (equal =>
-                (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible)))
+  Parse.readsAtThen (readsAtAtValue start modes Colon) (read atColon after starts (empty, valueEq) =>
+    match atColon with
+      | True => Parse.readsAtDone after None _ (equal =>
+        (rewrite List.appendNil read then empty, nextIsOfPeek modes Colon start.rest (rewrite <- valueEq)))
+      | False =>
+        Parse.readsAtThen
+          (givesHeaderGroup self modes nested GroupParam None after (Parse.Fits.after fine starts))
+          (taken group afterGroup startsGroup holds =>
+            Parse.readsAtDone afterGroup (Some group) _ (equal =>
+              (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible)))
 
 --| `headerParams` gives `[]` only at a `:`, having read nothing.
 theorem readsAtParams ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -216,12 +202,8 @@ theorem readsAtFixed ∀ (start: Parse.Mark Item) (item: Item) (later: List Item
     (shape: start.rest = [item, ..later])
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => fixedFrom()) (read comments => read = [item] ∧ comments = item.leaf.word.comments) :=
-  Parse.readsAtThen
-    [p := () => bump()]
-    [j := word => word.comments]
-    (readsAtBump shape)
-    (read word after starts (single, same) =>
-      Parse.readsAtDone after word.comments _ (rewrite single, same then (byComputing, byComputing)))
+  Parse.readsAtThen (readsAtBump shape) (read word after starts (single, same) =>
+    Parse.readsAtDone after word.comments _ (rewrite single, same then (byComputing, byComputing)))
 
 --| `bump()` reads one item and gives its word, from anywhere.
 theorem readsBumpAny: Parse.ReadsIn GoodItems (() => bump()) (read word =>
@@ -279,14 +261,10 @@ theorem readsUpperQualified ∀ (modes: Modes) (what: Text):
           (item, single, same, rewrite DecEq.sound took)))
 
 theorem readsDefinitionName ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => definitionName modes) NameRead :=
-  readsAfter0
-    [p := () => modes.at Upper]
-    [j := upper => definitionNameAfter modes upper]
-    (reads0At modes Upper)
-    (upper =>
-      match upper with
-        | True => readsUpperQualified modes "a name"
-        | False => readsLowerQualified modes "a name")
+  readsAfter0 (reads0At modes Upper) (upper =>
+    match upper with
+      | True => readsUpperQualified modes "a name"
+      | False => readsLowerQualified modes "a name")
 
 -- The parts of a header that are absent in slice 1 read nothing.
 
@@ -300,78 +278,50 @@ theorem readsForallEnd ∀ (modes: Modes) (word: Word) (paren bracket: Bool):
 theorem readsForallBump ∀ (modes: Modes):
     Parse.ReadsIn GoodItems (() => forallBump modes) (read found => found = None → read = []) :=
   Parse.readsThen givesBump (r word _ =>
-    readsAfter0
-      [p := () => modes.at LParen]
-      [j := paren => forallEnd modes word paren (modes.at LBracket)]
-      (reads0At modes LParen)
-      (paren =>
-        readsAfter0
-          [p := () => modes.at LBracket]
-          [j := bracket => forallEnd modes word paren bracket]
-          (reads0At modes LBracket)
-          (bracket =>
-            Parse.readsWeaken (readsForallEnd modes word paren bracket) (more found got =>
-              equal => (Bool.falseNotTrue (got equal)).impossible))))
+    readsAfter0 (reads0At modes LParen) (paren =>
+      readsAfter0 (reads0At modes LBracket) (bracket =>
+        Parse.readsWeaken (readsForallEnd modes word paren bracket) (more found got =>
+          equal => (Bool.falseNotTrue (got equal)).impossible))))
 
 theorem readsForallPart ∀ (modes: Modes) (kind: DefKind):
     Parse.ReadsIn GoodItems (() => forallPart modes kind) (read found => found = None → read = []) :=
-  readsAfter0
-    [p := () => modes.at KwForall]
-    [j := found => forallAt modes kind found]
-    (reads0At modes KwForall)
-    (found =>
-      match found with
-        | True =>
-          match kind != DefTheorem with
-            | True => Parse.readsFatal _ _
-            | False => readsForallBump modes
-        | False => Parse.readsDone _ _ (equal => byComputing))
+  readsAfter0 (reads0At modes KwForall) (found =>
+    match found with
+      | True =>
+        match kind != DefTheorem with
+          | True => Parse.readsFatal _ _
+          | False => readsForallBump modes
+      | False => Parse.readsDone _ _ (equal => byComputing))
 
 theorem readsDecreasingPart ∀ (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool)
     (nested: Nested self):
     Parse.ReadsIn GoodItems (() => decreasingPart self modes headerModes isInstance) (read found =>
       found = None → read = []) :=
-  readsAfter0
-    [p := () => modes.at KwDecreasing]
-    [j := found => decreasingAt self headerModes isInstance found]
-    (reads0At modes KwDecreasing)
-    (found =>
-      match found with
-        | True =>
-          match isInstance with
-            | True => Parse.readsFatal _ _
-            | False => Parse.readsThen givesFixedFrom (r1 keyword _ =>
-              Parse.readsThen
-                [p := () => self { modes = headerModes, level = LevelFull }]
-                [j := tail => Some (keyword, tail)]
-                (nested { modes = headerModes, level = LevelFull })
-                (r2 tail _ =>
-                  Parse.readsDone _ _ (equal =>
-                    (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible)))
-        | False => Parse.readsDone _ _ (equal => byComputing))
+  readsAfter0 (reads0At modes KwDecreasing) (found =>
+    match found with
+      | True =>
+        match isInstance with
+          | True => Parse.readsFatal _ _
+          | False => Parse.readsThen givesFixedFrom (r1 keyword _ =>
+            Parse.readsThen (nested { modes = headerModes, level = LevelFull }) (r2 tail _ =>
+              Parse.readsDone _ _ (equal =>
+                (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible)))
+      | False => Parse.readsDone _ _ (equal => byComputing))
 
 theorem readsUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool):
     Parse.ReadsIn GoodItems (() => unfoldingPart modes afterDecreasing isInstance) (read found =>
       found = None → read = []) :=
-  readsAfter0
-    [p := () => afterDecreasing.at KwUnfolding]
-    [j := found => unfoldingAt afterDecreasing isInstance found]
-    (reads0At afterDecreasing KwUnfolding)
-    (found =>
-      match found with
-        | True =>
-          match isInstance with
-            | True => Parse.readsFatal _ _
-            | False => Parse.readsThen givesFixedFrom (r1 keyword _ =>
-              Parse.readsThen Parse.readsMark (r2 here _ =>
-                Parse.readsThen
-                  [p := () => unfoldingNames (here.left + 1) afterDecreasing []]
-                  [j := names => Some (keyword, names)]
-                  (givesUnfoldingNames (here.left + 1) afterDecreasing [])
-                  (r3 names _ =>
-                    Parse.readsDone _ _ (equal =>
-                      (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible))))
-        | False => Parse.readsDone _ _ (equal => byComputing))
+  readsAfter0 (reads0At afterDecreasing KwUnfolding) (found =>
+    match found with
+      | True =>
+        match isInstance with
+          | True => Parse.readsFatal _ _
+          | False => Parse.readsThen givesFixedFrom (r1 keyword _ =>
+            Parse.readsThen Parse.readsMark (r2 here _ =>
+              Parse.readsThen (givesUnfoldingNames (here.left + 1) afterDecreasing []) (r3 names _ =>
+                Parse.readsDone _ _ (equal =>
+                  (Bool.falseNotTrue (Eq.cong (option => option.isSome) equal).flipped).impossible))))
+      | False => Parse.readsDone _ _ (equal => byComputing))
 
 -- What the clauses leave for the body: modes, found by reading nothing.
 
@@ -393,12 +343,8 @@ theorem reads0BodyModes ∀ (afterUnfolding: Modes) (isInstance: Bool) (local: O
     Reads0 (() => bodyModesOf afterUnfolding isInstance local) :=
   match local with
     | Some column => reads0Done afterUnfolding
-    | None =>
-      reads0Then
-        [p := () => recovers afterUnfolding]
-        [j := recovering => recoverMode afterUnfolding isInstance recovering]
-        (reads0Recovers afterUnfolding)
-        (recovering => reads0Done (recoverMode afterUnfolding isInstance recovering))
+    | None => reads0Then (reads0Recovers afterUnfolding) (recovering =>
+      reads0Done (recoverMode afterUnfolding isInstance recovering))
 
 -- The body.
 
@@ -428,40 +374,30 @@ theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (isColonEq: item.kind = ColonEq)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => assignedBody self modes) BodyKept :=
-  Parse.readsAtThen
-    [p := () => fixedFrom()]
-    [j := colonEq => assignedValue modes colonEq (self { modes, level = LevelFull })]
-    (readsAtFixed start item later shape fine)
-    (r1 colonEq after1 starts1 (single, same) =>
-      Parse.readsAtThen
-        [p := () => self { modes, level = LevelFull }]
-        [j := value => assignedValue modes colonEq value]
-        (carries { modes, level = LevelFull } after1 (Parse.Fits.after fine starts1))
-        (r2 value after2 starts2 carried =>
-          readsAtAfter0
-            [p := () => modes.at Pipe]
-            [j := arms => assignedEnd colonEq value arms]
-            (reads0At modes Pipe)
-            (Parse.Fits.after (Parse.Fits.after fine starts1) starts2)
-            (arms after3 same3 fits3 =>
-              match arms with
-                | True => Parse.readsFatal _ _ after3 fits3
-                | False => Parse.readsAtDone after3 (Assigned colonEq value) _ (
-                  item,
-                  r2 ++ [],
-                  (rewrite single),
-                  isColonEq,
-                  textOfGood item ColonEq (goodHead fine shape) isColonEq byComputing,
-                  same,
-                  (rewrite List.appendNil r2 then carried)
-                ))))
+  Parse.readsAtThen (readsAtFixed start item later shape fine) (r1 colonEq after1 starts1 (single, same) =>
+    Parse.readsAtThen
+      (carries { modes, level = LevelFull } after1 (Parse.Fits.after fine starts1))
+      (r2 value after2 starts2 carried =>
+        readsAtAfter0
+          (reads0At modes Pipe)
+          (Parse.Fits.after (Parse.Fits.after fine starts1) starts2)
+          (arms after3 same3 fits3 =>
+            match arms with
+              | True => Parse.readsFatal _ _ after3 fits3
+              | False => Parse.readsAtDone after3 (Assigned colonEq value) _ (
+                item,
+                r2 ++ [],
+                (rewrite single),
+                isColonEq,
+                textOfGood item ColonEq (goodHead fine shape) isColonEq byComputing,
+                same,
+                (rewrite List.appendNil r2 then carried)
+              ))))
 
 theorem readsArmsBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat)
     (nested: Nested self):
     Parse.ReadsIn GoodItems (() => armsBody self modes d) BodyKept :=
   Parse.readsThen
-    [p := () => definitionArms self modes d]
-    [j := arms => Arms arms]
     (givesAfter0 [p := () => left()] [j := items => definitionArmsOn self modes d items] reads0Left (items =>
       givesDefinitionArmsOn self modes nested d items))
     (r arms _ => Parse.readsDone (Arms arms) _ byComputing)
@@ -491,15 +427,11 @@ theorem readsDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (nested: Nested self)
     (carries: NestedKept self):
     Parse.ReadsIn GoodItems (() => definitionBody self modes result isInstance d) BodyKept :=
-  Parse.readsThen
-    [p := () => definitionBodyOn self modes result d modes.peek]
-    [j := body => definitionChecked isInstance body]
-    (readsDefinitionBodyOn self modes result d nested carries)
-    (r1 body carried =>
-      readsAfter0 [p := () => left()] [j := items => definitionWhere isInstance body items] reads0Left (items =>
-        match definitionRefusal isInstance body items with
-          | Some message => Parse.readsFatal _ _
-          | None => Parse.readsDone body _ (rewrite List.appendNil r1 then carried)))
+  Parse.readsThen (readsDefinitionBodyOn self modes result d nested carries) (r1 body carried =>
+    readsAfter0 [p := () => left()] [j := items => definitionWhere isInstance body items] reads0Left (items =>
+      match definitionRefusal isInstance body items with
+        | Some message => Parse.readsFatal _ _
+        | None => Parse.readsDone body _ (rewrite List.appendNil r1 then carried)))
 
 -- A definition's words.
 
@@ -688,7 +620,6 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                     (r11 afterUnfolding after11 starts11 e11 =>
                                       let fine11 := Parse.Fits.after fine10 starts11
                                       readsAtAfter0
-                                        [p := () => clauseConflict afterUnfolding unfoldingClause]
                                         (reads0ClauseConflict afterUnfolding unfoldingClause)
                                         fine11
                                         (conflict after12 same12 fine12 =>
@@ -901,39 +832,24 @@ theorem readsAtDeclaration ∀ (seen: Seen) (start: Parse.Mark Item) (nested: Ne
     (carries: NestedKept expressionAt) (outside: Outside expressionAt) (frame: FrameRest expressionAt)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => declaration seen) (read decl => read = start.rest ∧ DeclKept read decl) :=
-  Parse.readsAtThen
-    [p := () => attributesOf Modes.start]
-    [j := attributes => declarationAttributes seen Modes.start attributes]
-    (readsAttributesOf Modes.start start fine)
-    (r1 attributes after1 starts1 attributesFact =>
-      let fine1 := Parse.Fits.after fine starts1
-      readsAtAfter0
-        [p := () => Modes.start.peek]
-        [j := next => declarationRefusal seen Modes.start attributes next]
-        (reads0Peek Modes.start)
-        fine1
-        (peeked after2 same2 fine2 =>
-          match attributesRefused attributes peeked with
-            | Some message => Parse.readsFatal _ _ after2 fine2
-            | None =>
-              Parse.readsAtThen
-                [p := () => declarationKind seen Modes.start attributes Modes.start.peek]
-                [j := decl => declarationFinish Modes.start decl]
-                (readsDeclarationKind seen Modes.start attributes r1 nested carries outside frame after2 fine2)
-                (r3 decl after3 starts3 kindFact =>
-                  let fine3 := Parse.Fits.after fine2 starts3
-                  Parse.readsAtThen
-                    [p := () => left()]
-                    [j := items => declarationEnd Modes.start decl items]
-                    (Parse.readsAtLeft after3)
-                    (r4 items after4 starts4 (empty4, itemsEq) =>
-                      let fine4 := Parse.Fits.after fine3 starts4
-                      match items, itemsEq with
-                        | [], itemsEq => Parse.readsAtDone after4 decl _ (
-                          (rewrite starts1, <- same2, starts3, <- itemsEq, empty4),
-                          (rewrite empty4, List.appendNil r3 then kindFact attributesFact)
-                        )
-                        | [head, ..more], itemsEq => readsFail Modes.start _ after4 fine4))))
+  Parse.readsAtThen (readsAttributesOf Modes.start start fine) (r1 attributes after1 starts1 attributesFact =>
+    let fine1 := Parse.Fits.after fine starts1
+    readsAtAfter0 (reads0Peek Modes.start) fine1 (peeked after2 same2 fine2 =>
+      match attributesRefused attributes peeked with
+        | Some message => Parse.readsFatal _ _ after2 fine2
+        | None =>
+          Parse.readsAtThen
+            (readsDeclarationKind seen Modes.start attributes r1 nested carries outside frame after2 fine2)
+            (r3 decl after3 starts3 kindFact =>
+              let fine3 := Parse.Fits.after fine2 starts3
+              Parse.readsAtThen (Parse.readsAtLeft after3) (r4 items after4 starts4 (empty4, itemsEq) =>
+                let fine4 := Parse.Fits.after fine3 starts4
+                match items, itemsEq with
+                  | [], itemsEq => Parse.readsAtDone after4 decl _ (
+                    (rewrite starts1, <- same2, starts3, <- itemsEq, empty4),
+                    (rewrite empty4, List.appendNil r3 then kindFact attributesFact)
+                  )
+                  | [head, ..more], itemsEq => readsFail Modes.start _ after4 fine4))))
 
 --| A declaration parsed from good items carries the items it was parsed from.
 theorem runKept ∀ (input: List Item) (seen: Seen) (frame: FrameRest expressionAt)

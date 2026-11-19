@@ -193,12 +193,8 @@ theorem readsAtomRecord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (h
         | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
         | True => Parse.readsThen [first := read found => read = []] (reads0At modes LBrace) (r1 found empty =>
           match found with
-            | True =>
-              Parse.readsThen
-                [p := () => recordExpr self modes]
-                [j := fields => (CtorFields base fields, False)]
-                records
-                (r2 fields _ => Parse.readsDone (CtorFields base fields, False) _ (Inr byComputing))
+            | True => Parse.readsThen records (r2 fields _ =>
+              Parse.readsDone (CtorFields base fields, False) _ (Inr byComputing))
             | False => Parse.readsDone _ _ (Inl (rewrite empty then byComputing, byComputing)))
 
 theorem readsAtomAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr)
@@ -244,14 +240,10 @@ theorem itemWordsAfterComma ∀ (comma: Item) (rest: List Item)
 -- Brackets.
 
 theorem readsTupleClose ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => tupleClose modes) (OneOf RParen) :=
-  readsAfter0
-    [p := () => modes.at Colon]
-    [j := annotated => tupleCloseAfter modes annotated]
-    (reads0At modes Colon)
-    (annotated =>
-      match annotated with
-        | True => Parse.readsFatal _ _
-        | False => readsExpect modes RParen _)
+  readsAfter0 (reads0At modes Colon) (annotated =>
+    match annotated with
+      | True => Parse.readsFatal _ _
+      | False => readsExpect modes RParen _)
 
 theorem readsTupleEnds ∀ (inner: Modes) (count: Nat): Reads0 (() => tupleEnds inner count) :=
   reads0Then [p := () => inner.at RParen] (reads0At inner RParen) (found => reads0Done _)

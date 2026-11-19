@@ -217,7 +217,6 @@ theorem ruleSetBlanks ∀ (on: Steps)
     | { open, rules, trailingComma, close } =>
       Fail.toResultAlike1Let
         [g2 := v1 => { open = Comments.none, rules = v1, trailingComma, close = Comments.none }]
-        [k := on.ruleSet]
         (ruleListBlanks on deaf rules)
         (v1 => deaf.ruleSet ({ open, rules = v1, trailingComma, close }))
 
@@ -523,7 +522,6 @@ theorem headerBlanks ∀ (on: Steps)
             decreasingClause = v3,
             unfoldingClause = blankUnfolding unfoldingClause
           }]
-        [k := on.header]
         (groupsBlanks on deaf params)
         (exprBlanks on deaf result)
         (afterBlanks on deaf decreasingClause)
@@ -579,7 +577,6 @@ theorem fieldsBlanks ∀ (on: Steps)
     | { open, fields, trailingComma, close } =>
       Fail.toResultAlike1Let
         [g2 := v1 => { open = Comments.none, fields = v1, trailingComma, close = Comments.none }]
-        [k := on.fields]
         (fieldListBlanks on deaf fields)
         (v1 => deaf.fields ({ open, fields = v1, trailingComma, close }))
 

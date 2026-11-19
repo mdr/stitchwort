@@ -567,16 +567,11 @@ theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) =>
         | False => Parse.givesDone parsed
         | True => Parse.givesThen (givesAt modes LBrace) (found _ =>
           match found with
-            | True =>
-              Parse.givesThen
-                [p := () => recordExpr self modes]
-                [j := fields => (CtorFields base fields, False)]
-                recordGives
-                (fields _ =>
-                  Parse.givesDone
-                    [x := (CtorFields base fields, False)]
-                    [holds := pair => holds pair.fst]
-                    (outside (CtorFields base fields) byComputing))
+            | True => Parse.givesThen recordGives (fields _ =>
+              Parse.givesDone
+                [x := (CtorFields base fields, False)]
+                [holds := pair => holds pair.fst]
+                (outside (CtorFields base fields) byComputing))
             | False => Parse.givesDone parsed)
 
 theorem givesAtomAfter ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
