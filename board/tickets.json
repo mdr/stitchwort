@@ -1,5 +1,5 @@
 {
-  "next": 4256,
+  "next": 4258,
   "tickets": [
     {
       "id": 47,
@@ -27472,7 +27472,7 @@
     {
       "id": 4245,
       "title": "[Sonnet] Walk step W0 baseline (docs/reviews/SW-4238-walk-step-review.md §4): delete the [p := …]/[j := …] spellings in the comma-list walks and un-cut the comma list by hand in tools/fmt; measure lines and check time; answers SW-4220",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27604,12 +27604,38 @@
     {
       "id": 4255,
       "title": "[Opus] Differential oracle regression: at 3905c6d07 (passing at f691c91c4) the_evaluators_agree_on_the_prelude_and_every_example skips 104 comparisons as too big (max 60): float-playlist.sw, negative-arguments.sw (Float.Model.isqrt, sqrtBits, pow2, bitLength, addBits…; Nat.pred), random-seed.sw, omega-folded-call.sw; the only code merge in range is SW-4091 (4e6e65670); find the cause and fix, or explain",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Reported by Overmind 19 Nov. Est. 45 min.",
+      "body": "Reported by Overmind 19 Nov. Est. 45 min.\n\nLane (Opus, 19 Nov, ~10 min): not SW-4091's code. Its two new accept examples (large-hypothesis-carried/-match) shifted the every-fourth broad sample onto negative-arguments, random-seed, omega-folded-call and extract/floats. Sliced runs skip the same at f691c91c4 and main (float-playlist 28, negative-arguments 23, omega-folded-call 1, random-seed 6). Every example importing Float repeats the same 23 Float.Model skips, so the count tracked how many Float importers the sample took. Fix (lane/SW-4255, d0589c801): skips involving only std's definitions are counted once across the sweep (under `std`); MAX_SKIPPED stays 60 on the distinct count; differential-skips.txt lists them. Main's broad sample (float-playlist, negative-arguments, ord-proofs, float-times) would have counted 97 from those four alone; now 28. Full broad run not done (lane budget): verifier/Overmind to confirm the whole count.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4256,
+      "title": "[Sonnet] Delete unneeded [p := …]/[j := …] spellings across the rest of tools/fmt (SW-4245's 4 files kept 53 of 434): run the delete-and-restore scripts (scratchpad sw4245-scripts: iter.py, prune.py, steps.py, stats.py) file by file, keep what checks; promote the scripts to a task",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4245. Est. 60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4257,
+      "title": "[Opus] Inference for followsThen/givesAfter0's p in the two cases SW-4245 found it fails: a Reads0 bridge handed a Reads0 term (16 steps), and a Follows step whose parser is a compound if/foldComp (31 steps); extends SW-3561 (SW-4220)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4245.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
