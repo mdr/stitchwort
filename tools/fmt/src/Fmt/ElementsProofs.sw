@@ -19,15 +19,16 @@ import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, Tok, Word)
 import Fmt (..)
 import Fmt.HangProofs (..)
-import Fmt.ChainHangProofs (HangsAt, LinkFacts)
-import Fmt.ExprHangProofs (prefixToken, wordFacts)
+import Fmt.ChainHangProofs (HangsAt, Links, arrowChainHangs, binaryChainHangs)
+import Fmt.ElementsChain (LedEl, arrowPair, binaryPair, operandLinks, orOfRight)
+import Fmt.ExprHangProofs (opensNoArms, prefixToken, wordFacts)
 import Fmt.SpellProofs (..)
 import Fmt.CalmProofs (headerResultWithin)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.DeclHangProofs (BodyLays, OnLine, atomDecl, declStart, plainBody)
 import Fmt.DeclFactsProofs (DeclElements, HugOnLine, appDocsHug, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
-import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, lastLexical, lastWithin, prefixTrails, trailsSwap)
+import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, infixTrails, lastLexical, lastWithin, prefixTrails, trailsSwap)
 import Fmt.AppHangProofs (ArgsHang, appElHangs, lastArg)
 import Fmt.TrailsProofs (appTrails)
 import Fmt.EdgeDeclProofs (edgeNotedNodeHangs)
@@ -50,11 +51,15 @@ import Fmt.ElementsApp (LastHangs, Led, argsLed, lastLed)
 --| element, or it has none, and no blank line kept above it as an item (`Word.leadsLine`).
 def Expr.plainAt (expr: Expr) (around: Around): Bool := !expr.lead.leadsLine around
 
---| What the induction carries: `EdgeFacts`, at the places where the first token writes nothing before itself.
+--| What the induction carries: `EdgeFacts`, at the places where the first token writes nothing before itself; and a
+--| chain of the level asked, not an item, as an operand (`Links`) whether it writes own-line comments above its first
+--| token or not (`led`), as the right operand of a chain of its level may.
 def AnyFacts (expr: Expr): Prop :=
   (∀ (around: Around) => expr.plainAt around = True → HangsAt lexKind around.before expr.trails (expr.el around))
-    ∧ (∀ (level: Option Nat) (first: Bool) (around: Around) => expr.plainAt around = True
-      → LinkFacts lexKind level first expr around expr.trails)
+    ∧ (∀ (level: Option Nat) (first: Bool) (around: Around) => ((expr.inChain level && !around.item)
+      || expr.plainAt around)
+      = True
+      → Links lexKind (expr.inChain level && expr.lead.leadsLine around) level first expr around expr.trails)
 
 def AllAnyFacts: List Expr → Prop
   | [] => True
@@ -394,7 +399,12 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
                 argumentFacts)
       (hangs, level first around plain => hangs around plain)
 
---| A binary operator's chain (open): comments above and after any operand and after the operator.
+--| A binary operator's chain (proved): comments above and after any operand and the operator. An operator or right
+--| operand with own-line comments above it starts the line after them.
+--|
+--| Proof idea: as an element, `binaryChainHangs` from the chain's `PairLinks` where it writes nothing before its first
+--| token (`binaryPair`); as an operand of a chain of its level, the same pair where it stands, its first operand `led`
+--| as it writes its comments (`operandLinks`, from the operands' facts and `ledHangs`).
 theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
     (within: (Infix InfixBinary left operator right).within1 = True)
     (lexical: (Infix InfixBinary left operator right).lexical1 = True)
@@ -403,9 +413,64 @@ theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
     (leftFacts: AnyFacts left)
     (rightFacts: AnyFacts right):
     AnyFacts (Infix InfixBinary left operator right) :=
-  ?
+  let leftWithin: left.within1 = True := Bool.andLeft within
+  let rightWithin: right.within1 = True := Bool.andLeft (Bool.andRight within)
+  let rightLexical: right.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let (_, leftLinks) := leftFacts
+  let (_, rightLinks) := rightFacts
+  let leftLed: LedEl left := at inset hoisted item =>
+    ledHangs left at inset leftWithin (Bool.andLeft lexical) (Bool.andLeft sound) leftFacts hoisted item
+  let rightLed: LedEl right := at inset hoisted item =>
+    ledHangs right at inset rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightFacts hoisted item
+  let trailsIs := infixTrails InfixBinary left operator right (codedLex right rightWithin rightLexical)
+  let hangs: ∀ (around: Around) => (Infix InfixBinary left operator right).plainAt around = True
+    → HangsAt lexKind around.before
+      (Infix InfixBinary left operator right).trails
+      ((Infix InfixBinary left operator right).el around) :=
+    around bare indent column =>
+      let lifted := { around | hoisted = True }
+      let level := (Infix InfixBinary left operator right).chainLevel
+      let leftLinked: Links lexKind False level True left lifted left.trails :=
+        operandLinks left level True lifted leftWithin leftLinks leftLed (orOfRight _ _ byComputing)
+      rewrite trailsIs then
+        binaryChainHangs lexKind left operator right around indent column left.trails right.trails
+          (rewrite firstWordLead (Infix InfixBinary left operator right) within then
+            unledLeading (Infix InfixBinary left operator right).lead around around.at bare)
+          (opensNoArms left level leftWithin)
+          (binaryPair False level True left operator right lifted within sound leftLinked rightLinks rightLed)
+  (
+    hangs,
+    level first around cond =>
+      match c: (Infix InfixBinary left operator right).inChain level with
+        | False =>
+          let plain: (Infix InfixBinary left operator right).plainAt around = True := cond
+          hangs around plain
+        | True =>
+          let single: (!around.item || !left.lead.leadsLine around) = True := cond
+          let leftLinked := operandLinks left level first around leftWithin leftLinks leftLed single
+          rewrite trailsIs then
+            (
+              left.trails,
+              binaryPair
+                (left.lead.leadsLine around)
+                level
+                first
+                left
+                operator
+                right
+                around
+                within
+                sound
+                leftLinked
+                rightLinks
+                rightLed
+            )
+  )
 
---| An arrow's chain (open): as a binary chain, but `homed1` leaves no comment after `->` or above its right operand.
+--| An arrow's chain (proved): as a binary chain, but `homed1` leaves no comment after `->` or above its right operand;
+--| `->` may have comments above it, and then starts the line after them, glued to its operand.
+--|
+--| Proof idea: `binaryAny`'s, with `arrowChainHangs` and `arrowPair`.
 theorem arrowAny ∀ (left: Expr) (operator: Word) (right: Expr)
     (within: (Infix InfixArrow left operator right).within1 = True)
     (lexical: (Infix InfixArrow left operator right).lexical1 = True)
@@ -414,7 +479,65 @@ theorem arrowAny ∀ (left: Expr) (operator: Word) (right: Expr)
     (leftFacts: AnyFacts left)
     (rightFacts: AnyFacts right):
     AnyFacts (Infix InfixArrow left operator right) :=
-  ?
+  let leftWithin: left.within1 = True := Bool.andLeft within
+  let rightWithin: right.within1 = True := Bool.andLeft (Bool.andRight within)
+  let rightLexical: right.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let unled: operator.trails = False :=
+    Bool.notTrue operator.trails (Bool.andLeft (Bool.andRight (Bool.andRight homed)))
+  let unnoted: right.noted = False := Bool.notTrue right.noted (Bool.andRight (Bool.andRight (Bool.andRight homed)))
+  let (_, leftLinks) := leftFacts
+  let (_, rightLinks) := rightFacts
+  let leftLed: LedEl left := at inset hoisted item =>
+    ledHangs left at inset leftWithin (Bool.andLeft lexical) (Bool.andLeft sound) leftFacts hoisted item
+  let rightLed: LedEl right := at inset hoisted item =>
+    ledHangs right at inset rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightFacts hoisted item
+  let trailsIs := infixTrails InfixArrow left operator right (codedLex right rightWithin rightLexical)
+  let hangs: ∀ (around: Around) => (Infix InfixArrow left operator right).plainAt around = True
+    → HangsAt lexKind around.before
+      (Infix InfixArrow left operator right).trails
+      ((Infix InfixArrow left operator right).el around) :=
+    around bare indent column =>
+      let lifted := { around | hoisted = True }
+      let level := (Infix InfixArrow left operator right).chainLevel
+      let leftLinked: Links lexKind False level True left lifted left.trails :=
+        operandLinks left level True lifted leftWithin leftLinks leftLed (orOfRight _ _ byComputing)
+      rewrite trailsIs then
+        arrowChainHangs lexKind left operator right around indent column left.trails right.trails
+          (rewrite firstWordLead (Infix InfixArrow left operator right) within then
+            unledLeading (Infix InfixArrow left operator right).lead around around.at bare)
+          (opensNoArms left level leftWithin)
+          (arrowPair False level True left operator right lifted within sound unled unnoted leftLinked rightLinks
+              rightLed)
+  (
+    hangs,
+    level first around cond =>
+      match c: (Infix InfixArrow left operator right).inChain level with
+        | False =>
+          let plain: (Infix InfixArrow left operator right).plainAt around = True := cond
+          hangs around plain
+        | True =>
+          let single: (!around.item || !left.lead.leadsLine around) = True := cond
+          let leftLinked := operandLinks left level first around leftWithin leftLinks leftLed single
+          rewrite trailsIs then
+            (
+              left.trails,
+              arrowPair
+                (left.lead.leadsLine around)
+                level
+                first
+                left
+                operator
+                right
+                around
+                within
+                sound
+                unled
+                unnoted
+                leftLinked
+                rightLinks
+                rightLed
+            )
+  )
 
 -- The induction.
 

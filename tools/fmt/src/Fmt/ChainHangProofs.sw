@@ -14,6 +14,12 @@ import Fmt.AppHangProofs (AfterWords, ArgSeat, argHangs, lineArg, partStep)
 def HangsAt (kinds: Text → Tok) (before trails: Bool) (doc: Doc): Prop :=
   ∀ (indent column: Nat) => ElHangs kinds doc indent column before trails wordStart
 
+--| A chain's operand where the chain lays it: `HangsAt`, or, with own-line comments above its first token that it
+--| writes (`led`), from a seat at its indentation, its first token starting the line after them (`leadStart`).
+def LinkEl (kinds: Text → Tok) (led before trails: Bool) (doc: Doc): Prop := match led with
+  | False => HangsAt kinds before trails doc
+  | True => ∀ (inset: Nat) => ElHangs kinds doc inset inset before trails leadStart
+
 --| A chain's runs after its first operand, laid deeper than the chain: the fold kept.
 def TailHangs (kinds: Text → Tok) (before trails: Bool) (docs: List Doc): Prop :=
   ∀ (state: HangState) (indent inset: Nat) => state.start = False
@@ -38,28 +44,98 @@ theorem tailAppend ∀ (kinds: Text → Tok) (before middle trails: Bool) (front
       (first state indent inset quiet unglued clear deeper)
       (second state indent inset quiet unglued clear deeper)
 
---| An element after words, laid at `inset`, no deeper bound asked than the chain's.
-theorem partAt ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: HangState) (before trails: Bool)
+-- Operators and operands with comments above their first token.
+
+--| Where a word may start its line from its seat, one with own-line comments above it may start the line after them:
+--| the two agree at a line start, and mid-line or after a waiting comment the comment break is right of the line.
+theorem ledSeatOf ∀ (inset: Nat) (before: Bool) (state: HangState) (place: Place)
+    (unglued: state.glue = False)
+    (seat: Seat inset inset before state place (wordStart inset place)):
+    Seat inset inset before state place (leadStart inset place) :=
+  match place, seat with
+    | AtStart at carry, seat => seat
+    | Broken at carry, seat => seat
+    | Mid at carry, ((floor, left), shallow, clear, _) => ((floor, left), shallow, clear, (unglued, arithmetic))
+    | Held at carry, ((waits, floor, left), shallow, clear, _) =>
+      ((waits, floor, left), shallow, clear, (unglued, arithmetic))
+
+--| `argHangs`, the argument's first token where `startFor` says.
+theorem argFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: HangState) (before trails noted: Bool)
+    (quiet: state.start = False)
+    (unglued: state.glue = False)
+    (clear: (inForce state.blocks state.top <= indent) = True)
+    (el: ElHangs kinds doc inset inset before trails (startFor noted)):
+    HangLays kinds doc inset (ArgSeat state inset before) (AfterWords state indent trails) :=
+  match noted with
+    | False => argHangs kinds doc inset indent state before trails quiet unglued clear el
+    | True => place trace next (folded, seat) after =>
+      let same := openedQuiet state (leadStart inset place) quiet unglued
+      el state place place trace next
+        (byComputing, folded, ledSeatOf inset before state place unglued seat)
+        (left later (ended, landed) =>
+          after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
+
+--| Where an element ended, one whose first token has own-line comments may start: its first word on the comment break
+--| the `LineStart` before the comments makes, right of the line, so with room for it but for `->`'s glue.
+theorem endedLeadSeat ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
+    (unglued: state.glue = False)
+    (ended: Ended state before place)
+    (clear: (inForce state.blocks state.top <= indent) = True):
+    Seat indent indent before state place (leadStart indent place) :=
+  match place, ended with
+    | Mid at carry, (floor, left) => ((floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
+    | Held at carry, (trails, floor, left) => ((trails, floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
+
+--| `elPart`, the element's first token where `startFor` says.
+theorem partFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before trails noted: Bool)
+    (el: ElHangs kinds doc indent indent before trails (startFor noted)):
+    PartHangs kinds doc indent before trails :=
+  match noted with
+    | False => elPart kinds doc indent before trails el
+    | True => state entry quiet unglued =>
+      let pre: Place → Hang → Prop := place hang =>
+        place = entry
+          ∧ hang = Hang.At state
+          ∧ Ended state before entry
+          ∧ (inForce state.blocks state.top <= indent) = True
+      let opened := openedBy state (leadStart indent entry)
+      hangsPost kinds doc indent pre
+        (place hang => Ended opened trails place ∧ hang = Hang.At opened)
+        (place hang => Ended state trails place ∧ hang = Hang.At state)
+        (hangsPre kinds doc indent
+          (Entered indent indent before state entry (leadStart indent entry))
+          pre
+          (place hang => Ended opened trails place ∧ hang = Hang.At opened)
+          (el state entry)
+          (place hang (isEntry, folded, ended, clear) =>
+            (isEntry, folded, endedLeadSeat indent before state entry unglued ended clear)))
+        (place hang (ended, folded) =>
+          let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
+          (rewrite same at ended then ended, rewrite same at folded then folded))
+
+--| An element after words, laid at `inset`, no deeper bound asked than the chain's, its first token where `startFor`
+--| says.
+theorem partAtFor ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: HangState) (before trails noted: Bool)
     (quiet: state.start = False)
     (unglued: state.glue = False)
     (deeper: (indent < inset) = True)
-    (el: ElHangs kinds doc inset inset before trails wordStart):
+    (el: ElHangs kinds doc inset inset before trails (startFor noted)):
     HangLays kinds doc inset (AfterWords state indent before) (AfterWords state indent trails) :=
   place trace next (ended, folded, clear) after =>
-    elPart kinds doc inset before trails el state place quiet unglued place trace next
+    partFor kinds doc inset before trails noted el state place quiet unglued place trace next
       (byComputing, folded, ended, arithmetic)
       (left later (done, landed) => after left later (done, landed, clear))
 
 --| A run of a chain whose operator folds as a plain token (`Line`, the operator, a space, its operand's first doc,
---| then the operand's own runs).
+--| then the operand's own runs), the operator's and the operand's first tokens where `startFor` says.
 --|
---| Proof idea: the `Line` seats the operator, a plain element, where it breaks or stays (`lineArg`, `argHangs`); the
---| space keeps where it ended (`gapKeeps`); the operand's first doc is an element after words (`partAt`), its runs
+--| Proof idea: the `Line` seats the operator, a plain element, where it breaks or stays (`lineArg`, `argFor`); the
+--| space keeps where it ended (`gapKeeps`); the operand's first doc is an element after words (`partAtFor`), its runs
 --| keep the fold.
 theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
-    (rest: List Doc) (before operated middle trails: Bool)
-    (operatorHangs: HangsAt kinds before operated operatorDoc)
-    (firstHangs: HangsAt kinds operated middle first)
+    (rest: List Doc) (before operated middle trails noted next: Bool)
+    (operatorHangs: ∀ (inset: Nat) => ElHangs kinds operatorDoc inset inset before operated (startFor noted))
+    (firstHangs: ∀ (inset: Nat) => ElHangs kinds first inset inset operated middle (startFor next))
     (runs: TailHangs kinds middle trails rest):
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
   state indent inset quiet unglued clear deeper =>
@@ -76,7 +152,7 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
         (ArgSeat state inset before)
         (AfterWords state indent operated)
         (AfterWords state indent trails)
-        (argHangs kinds operatorDoc inset indent state before operated quiet unglued clear (operatorHangs inset inset))
+        (argFor kinds operatorDoc inset indent state before operated noted quiet unglued clear (operatorHangs inset))
         (hangsCons kinds
           (Doc.text " ")
           [first, ..rest]
@@ -101,7 +177,7 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
             (AfterWords state indent operated)
             (AfterWords state indent middle)
             (AfterWords state indent trails)
-            (partAt kinds first indent inset state operated middle quiet unglued deeper (firstHangs inset inset))
+            (partAtFor kinds first indent inset state operated middle next quiet unglued deeper (firstHangs inset))
             (runs state indent inset quiet unglued clear deeper))))
 
 -- `->`.
@@ -149,6 +225,36 @@ theorem arrowArg ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state
     glues inset inset state place place trace next (byComputing, folded, seat) (left later (ended, landed) =>
       after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
 
+--| `->` with own-line comments above it: from its seat, its token starting the line after them (`leadStart`), it ends
+--| mid-line with the fold glued, as `GluesAt`.
+def LedGlues (kinds: Text → Tok) (before: Bool) (doc: Doc): Prop :=
+  ∀ (inset: Nat) (state: HangState) (entry: Place) => HangLays kinds doc inset
+    (Entered inset inset before state entry (leadStart inset entry))
+    (place hang =>
+      Ended (gluedBy state (leadStart inset entry)) False place
+        ∧ hang = Hang.At (gluedBy state (leadStart inset entry)))
+
+--| `GluesAt`, or `LedGlues` for `->` with own-line comments above it (`noted`).
+def GluesFor (kinds: Text → Tok) (noted before: Bool) (doc: Doc): Prop := match noted with
+  | False => GluesAt kinds before doc
+  | True => LedGlues kinds before doc
+
+--| `arrowArg`, the arrow where `GluesFor` says.
+theorem arrowArgFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: HangState) (before noted: Bool)
+    (quiet: state.start = False)
+    (unglued: state.glue = False)
+    (clear: (inForce state.blocks state.top <= indent) = True)
+    (glues: GluesFor kinds noted before doc):
+    HangLays kinds doc inset (ArgSeat state inset before) (AfterWords (stuckFrom state) indent False) :=
+  match noted with
+    | False => arrowArg kinds doc inset indent state before quiet clear glues
+    | True => place trace next (folded, seat) after =>
+      let same := gluedQuiet state (leadStart inset place) quiet
+      glues inset state place place trace next
+        (byComputing, folded, ledSeatOf inset before state place unglued seat)
+        (left later (ended, landed) =>
+          after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
+
 --| The operand's first doc after `->` and its space: mid-line, so it starts no line, and the fold unglued again.
 theorem gluedPart ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: HangState) (trails: Bool)
     (quiet: state.start = False)
@@ -175,8 +281,8 @@ theorem gluedPart ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (stat
 --|
 --| Proof idea: as `plainRunHangs`, the arrow leaving the fold glued (`arrowArg`); the space keeps it (`gapKeeps`),
 --| and the operand's first doc, mid-line, unglues it (`gluedPart`).
-theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List Doc) (before middle trails: Bool)
-    (glues: GluesAt kinds before operatorDoc)
+theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List Doc) (before middle trails noted: Bool)
+    (glues: GluesFor kinds noted before operatorDoc)
     (firstHangs: HangsAt kinds False middle first)
     (runs: TailHangs kinds middle trails rest):
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
@@ -195,7 +301,7 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
         (ArgSeat state inset before)
         (AfterWords stuck indent False)
         (AfterWords state indent trails)
-        (arrowArg kinds operatorDoc inset indent state before quiet clear glues)
+        (arrowArgFor kinds operatorDoc inset indent state before noted quiet unglued clear glues)
         (hangsCons kinds
           (Doc.text " ")
           [first, ..rest]
@@ -223,18 +329,41 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
             (gluedPart kinds first indent inset state middle quiet unglued deeper (firstHangs inset inset))
             (runs state indent inset quiet unglued clear deeper))))
 
+--| What a chain's operator asks, with the operand after it: it folds as a plain token, or as `->` with no comment
+--| after it (`GluesFor`), its token where `startFor` says (`noted`: comments above it). An operand with comments above
+--| its first token (`next`) starts the line after them, so it follows no `->`.
+def RunFacts (kinds: Text → Tok) (before operated noted next: Bool) (doc: Doc): Prop := match next with
+  | False =>
+    (∀ (inset: Nat) => ElHangs kinds doc inset inset before operated (startFor noted))
+      ∨ (operated = False ∧ GluesFor kinds noted before doc)
+  | True => ∀ (inset: Nat) => ElHangs kinds doc inset inset before operated (startFor noted)
+
+--| An operator with no comments above it, before an operand with none: `RunOperator`.
+theorem runFactsOf ∀ (kinds: Text → Tok) (before operated: Bool) (doc: Doc)
+    (run: RunOperator kinds before operated doc):
+    RunFacts kinds before operated False False doc :=
+  match run with
+    | Inl plain => Inl (inset => plain inset inset)
+    | Inr glued => Inr glued
+
 --| A run of a chain: `plainRunHangs` or `arrowRunHangs`, as its operator folds.
-theorem runHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: List Doc) (before operated middle trails: Bool)
-    (operatorHangs: RunOperator kinds before operated operatorDoc)
-    (firstHangs: HangsAt kinds operated middle first)
+theorem runHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
+    (rest: List Doc) (before operated noted next middle trails: Bool)
+    (operatorHangs: RunFacts kinds before operated noted next operatorDoc)
+    (firstHangs: LinkEl kinds next operated middle first)
     (runs: TailHangs kinds middle trails rest):
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
-  match operatorHangs with
-    | Inl plain => plainRunHangs kinds operatorDoc first rest before operated middle trails plain firstHangs runs
-    | Inr (quiet, glues) =>
-      arrowRunHangs kinds operatorDoc first rest before middle trails glues
+  match next, operatorHangs with
+    | False, Inl plain =>
+      plainRunHangs kinds operatorDoc first rest before operated middle trails noted False plain
+        (inset => firstHangs inset inset)
+        runs
+    | False, Inr (quiet, glues) =>
+      arrowRunHangs kinds operatorDoc first rest before middle trails noted glues
         (rewrite quiet at firstHangs then firstHangs)
         runs
+    | True, plain =>
+      plainRunHangs kinds operatorDoc first rest before operated middle trails noted True plain firstHangs runs
 
 --| Where words ended, nothing in force is changed by the glue.
 theorem endedGlued ∀ (state: HangState) (start: Option Nat) (trails: Bool) (place: Place)
@@ -283,68 +412,82 @@ theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
             (hangsLast kinds (Doc.text word.text) indent pre post written)
 
 --| What a chain's operand asks (`linkDocs`): a chain of the same level its operands and operators, each operator
---| folding as a plain token or as `->` after the operand before it and before a space (`RunOperator`); anything
---| else hanging as an element.
-def LinkFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (trails: Bool):
+--| folding as a plain token or as `->` after the operand before it and before a space, its token and the next
+--| operand's first where `startFor` says (`RunFacts`); anything else hanging as an element (`LinkEl`). `led`: the
+--| operand writes own-line comments above its first token, so it starts the line after them; an operand after an
+--| operator may (`next`), the chain's first operand doesn't.
+def Links (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (expr: Expr)
+    (around: Around) (trails: Bool):
     Prop :=
   match expr with
     | Infix InfixBinary left operator right =>
       if expr.inChain level then
-        ∃ (leftTrails: Bool) => LinkFacts kinds level first left around leftTrails
-          ∧ RunOperator kinds leftTrails operator.trails
+        ∃ (leftTrails: Bool) => ∃ (noted: Bool) => ∃ (next: Bool) => Links kinds led level first left around leftTrails
+          ∧ RunFacts kinds leftTrails operator.trails noted next
             (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
           ∧ chainRight level right (around.next operator.trails (left.size + 1))
             = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
-          ∧ LinkFacts kinds level False right (around.next operator.trails (left.size + 1)) trails
-      else HangsAt kinds around.before trails (expr.el around)
+          ∧ Links kinds next level False right (around.next operator.trails (left.size + 1)) trails
+      else LinkEl kinds led around.before trails (expr.el around)
     | Infix InfixArrow left operator right =>
       if expr.inChain level then
-        ∃ (leftTrails: Bool) => LinkFacts kinds level first left around leftTrails
-          ∧ RunOperator kinds leftTrails operator.trails
+        ∃ (leftTrails: Bool) => ∃ (noted: Bool) => ∃ (next: Bool) => Links kinds led level first left around leftTrails
+          ∧ RunFacts kinds leftTrails operator.trails noted next
             (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
           ∧ chainRight level right (around.next operator.trails (left.size + 1))
             = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
-          ∧ LinkFacts kinds level False right (around.next operator.trails (left.size + 1)) trails
-      else HangsAt kinds around.before trails (expr.el around)
+          ∧ Links kinds next level False right (around.next operator.trails (left.size + 1)) trails
+      else LinkEl kinds led around.before trails (expr.el around)
     | Match _ _ _ _ =>
-      HangsAt kinds around.before trails (expr.el (if first then { around | inArm = True } else around))
-    | _ => HangsAt kinds around.before trails (expr.el around)
+      LinkEl kinds led around.before trails (expr.el (if first then { around | inArm = True } else around))
+    | _ => LinkEl kinds led around.before trails (expr.el around)
 
---| What a chain of two operands and their operator asks (`chainLinks`'s facts).
-def PairFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word) (right: Expr)
-    (around: Around) (leftTrails trails: Bool):
+--| `Links` for an operand that writes no comments above its first token.
+def LinkFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (trails: Bool):
     Prop :=
-  LinkFacts kinds level first left around leftTrails
-    ∧ RunOperator kinds leftTrails operator.trails
+  Links kinds False level first expr around trails
+
+--| What a chain of two operands and their operator asks (`chainLinks`'s facts), the first operand `led` or not.
+def PairLinks (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
+    (right: Expr) (around: Around) (leftTrails trails: Bool):
+    Prop :=
+  ∃ (noted: Bool) => ∃ (next: Bool) => Links kinds led level first left around leftTrails
+    ∧ RunFacts kinds leftTrails operator.trails noted next
       (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
     ∧ chainRight level right (around.next operator.trails (left.size + 1))
       = [Doc.text " ", ..linkDocs level False right (around.next operator.trails (left.size + 1))]
-    ∧ LinkFacts kinds level False right (around.next operator.trails (left.size + 1)) trails
+    ∧ Links kinds next level False right (around.next operator.trails (left.size + 1)) trails
+
+--| `PairLinks` for a chain that writes no comments above its first token.
+def PairFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word) (right: Expr)
+    (around: Around) (leftTrails trails: Bool):
+    Prop :=
+  PairLinks kinds False level first left operator right around leftTrails trails
 
 --| Two operands and their operator (`chainLinks`): a head at the chain's seat, then runs.
-theorem chainLinksForm ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
+theorem chainLinksForm ∀ (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
     (right: Expr) (around: Around) (leftTrails trails: Bool)
-    (leftFacts: ∀ (trails: Bool) => LinkFacts kinds level first left around trails
+    (leftFacts: ∀ (trails: Bool) => Links kinds led level first left around trails
       → ∃ (head: Doc) => ∃ (tail: List Doc) => ∃ (middle: Bool) => linkDocs level first left around = [head, ..tail]
-        ∧ HangsAt kinds around.before middle head
+        ∧ LinkEl kinds led around.before middle head
         ∧ TailHangs kinds middle trails tail)
-    (rightFacts: ∀ (trails: Bool) => LinkFacts kinds level False right
+    (rightFacts: ∀ (next trails: Bool) => Links kinds next level False right
       (around.next operator.trails (left.size + 1))
       trails
       → ∃ (head: Doc) => ∃ (tail: List Doc) => ∃ (middle: Bool) => linkDocs level False right
         (around.next operator.trails (left.size + 1))
         = [head, ..tail]
-        ∧ HangsAt kinds operator.trails middle head
+        ∧ LinkEl kinds next operator.trails middle head
         ∧ TailHangs kinds middle trails tail)
-    (facts: PairFacts kinds level first left operator right around leftTrails trails):
+    (facts: PairLinks kinds led level first left operator right around leftTrails trails):
     ∃ (head: Doc) => ∃ (tail: List Doc) => ∃ (middle: Bool) => chainLinks level first left operator right around
       = [head, ..tail]
-      ∧ HangsAt kinds around.before middle head
+      ∧ LinkEl kinds led around.before middle head
       ∧ TailHangs kinds middle trails tail :=
-  let (leftLinks, operatorHangs, rightIs, rightLinks) := facts
+  let (noted, next, leftLinks, operatorHangs, rightIs, rightLinks) := facts
   let operatorDoc := operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at
   let (head, leftTail, middle, leftIs, headHangs, leftRuns) := leftFacts leftTrails leftLinks
-  let (rightHead, rightTail, rightMiddle, rightLinksIs, rightHeadHangs, rightRuns) := rightFacts trails rightLinks
+  let (rightHead, rightTail, rightMiddle, rightLinksIs, rightHeadHangs, rightRuns) := rightFacts next trails rightLinks
   let linksAre: chainLinks level first left operator right around
     = [head, ..leftTail ++ [Line, operatorDoc, Doc.text " ", rightHead, ..rightTail]] :=
     rewrite leftIs, rightIs, rightLinksIs
@@ -357,38 +500,38 @@ theorem chainLinksForm ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
     tailAppend kinds middle leftTrails trails leftTail
       [Line, operatorDoc, Doc.text " ", rightHead, ..rightTail]
       leftRuns
-      (runHangs kinds operatorDoc rightHead rightTail leftTrails operator.trails rightMiddle trails operatorHangs
-          rightHeadHangs rightRuns)
+      (runHangs kinds operatorDoc rightHead rightTail leftTrails operator.trails noted next rightMiddle trails
+          operatorHangs rightHeadHangs rightRuns)
   )
 
 --| A chain's operand (`linkDocs`): a head at the chain's seat, then runs.
 --|
 --| Proof idea: by the operand; a chain of the same level splits as `chainLinksForm` says, its operands by the
 --| induction; anything else is its element alone, with no runs.
-theorem linkDocsForm ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr)
+theorem linkDocsForm ∀ (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (expr: Expr)
     (around: Around) (trails: Bool)
-    (facts: LinkFacts kinds level first expr around trails):
+    (facts: Links kinds led level first expr around trails):
     ∃ (head: Doc) => ∃ (tail: List Doc) => ∃ (middle: Bool) => linkDocs level first expr around = [head, ..tail]
-      ∧ HangsAt kinds around.before middle head
+      ∧ LinkEl kinds led around.before middle head
       ∧ TailHangs kinds middle trails tail :=
   match expr, facts with
     | Infix InfixBinary left operator right, facts =>
       match chained: (Infix InfixBinary left operator right).inChain level, facts with
         | True, (leftTrails, pair) =>
-          chainLinksForm kinds level first left operator right around leftTrails trails
-            (leftTrails => linkDocsForm kinds level first left around leftTrails)
-            (rightTrails =>
-              linkDocsForm kinds level False right (around.next operator.trails (left.size + 1)) rightTrails)
+          chainLinksForm kinds led level first left operator right around leftTrails trails
+            (leftTrails => linkDocsForm kinds led level first left around leftTrails)
+            (next rightTrails =>
+              linkDocsForm kinds next level False right (around.next operator.trails (left.size + 1)) rightTrails)
             pair
         | False, hangs =>
           (Expr.el (Infix InfixBinary left operator right) around, [], trails, byComputing, hangs, tailNil kinds trails)
     | Infix InfixArrow left operator right, facts =>
       match chained: (Infix InfixArrow left operator right).inChain level, facts with
         | True, (leftTrails, pair) =>
-          chainLinksForm kinds level first left operator right around leftTrails trails
-            (leftTrails => linkDocsForm kinds level first left around leftTrails)
-            (rightTrails =>
-              linkDocsForm kinds level False right (around.next operator.trails (left.size + 1)) rightTrails)
+          chainLinksForm kinds led level first left operator right around leftTrails trails
+            (leftTrails => linkDocsForm kinds led level first left around leftTrails)
+            (next rightTrails =>
+              linkDocsForm kinds next level False right (around.next operator.trails (left.size + 1)) rightTrails)
             pair
         | False, hangs =>
           (Expr.el (Infix InfixArrow left operator right) around, [], trails, byComputing, hangs, tailNil kinds trails)
@@ -429,9 +572,10 @@ theorem chainHangs ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr) (o
     (facts: PairFacts kinds level True left operator right around leftTrails trails):
     ElHangs kinds (chain level left operator right around) indent column False trails wordStart :=
   let (head, tail, middle, linksAre, headHangs, runs) :=
-    chainLinksForm kinds level True left operator right around leftTrails trails
-      (leftTrails => linkDocsForm kinds level True left around leftTrails)
-      (rightTrails => linkDocsForm kinds level False right (around.next operator.trails (left.size + 1)) rightTrails)
+    chainLinksForm kinds False level True left operator right around leftTrails trails
+      (leftTrails => linkDocsForm kinds False level True left around leftTrails)
+      (next rightTrails =>
+        linkDocsForm kinds next level False right (around.next operator.trails (left.size + 1)) rightTrails)
       facts
   let inner := Doc.concat [head, Nest 2 (Doc.concat tail)]
   let lays: ElHangs kinds inner indent column False trails wordStart :=
