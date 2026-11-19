@@ -1414,21 +1414,26 @@ theorem leavesHeard ∀ (doc: Doc)
   let (views, _) := laidHears lexKind texts.reverse ends
   rewrite laid then views
 
+--| Whether a document lays at all, from the start of an unindented line: `Std.Doc`'s `Lays` with nothing asked of
+--| where the words land. It is all `standsOfLays` needs of the columns: `printTold` reads line starts and blank lines
+--| from any laying.
+def LaysSomehow (doc: Doc): Prop := Std.Doc.Proofs.Lays doc 0 (AtStart 0 Carry.none) [] (place laid => True)
+
 --| `printedStands1` for a declaration and its document, with what the statement adds: no comment ends in a
---| carriage return (`unreturned1`), and the facts `printedHangs` takes (`DeclHangs`), from which the document lays.
+--| carriage return (`unreturned1`), and that the document lays at all (`LaysSomehow`): no fact about columns.
 --|
---| Proof idea: the document lays (`doc1Hangs`), so `printTold` reads its laid trace as `told`, which refines the
+--| Proof idea: the document lays, so `printTold` reads its laid trace as `told`, which refines the
 --| tree's shape (`printedTold`), the reading of its bits (`declShapeBits`); the printed events tuck that trace
 --| (`Tucks`), and hearing them (`bitsHeard`) gives views that `heardStands` reads as `stands` of the bits' words,
 --| `decl.stood` (`declBits`). The lexer's leaves are those views (`leavesHeard`), as the joins end each comment's
 --| line (`pairsEnd`).
-theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
+theorem standsOfLays ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True)
     (plain: decl.unreturned1 = True)
-    (facts: DeclHangs lexKind decl)
+    (lays: LaysSomehow doc)
     (shows: decl.doc1 = Some doc):
     stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
   let spelled := declOperators decl within
@@ -1446,13 +1451,6 @@ theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
       (doc1Passes lexKind decl doc within joins shows)
       (rewrite words then declPrintable decl within sound lexical spelled)
   let ends := pairsEnd lexKind (printedPieces doc width).reverse pairs
-  let lays :=
-    doc1Hangs lexKind decl doc within lexKindFixed facts shows
-      (AtStart 0 Carry.none)
-      []
-      (place laid => True)
-      (byComputing, byComputing)
-      (after later holds => byComputing)
   let (refines, _) := printedTold decl doc within settled real joins shows
   let (bitsStood, fine) := declBits decl within sound lexical plain
   let (place, laid, _, reads, (stretches, (fits, _, laidIs, printedIs))) :=
@@ -1468,6 +1466,25 @@ theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
       (Fmt.OutputStatements.laidOf doc).leaves.reverse
       (rewrite List.mapReverse (Fmt.OutputStatements.laidOf doc).leaves Leaf.view, leavesHeard doc ends, heardViews then
         heard)
+
+--| `standsOfLays` from the facts `printedHangs` takes (`DeclHangs`), from which the document lays (`doc1Hangs`).
+theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (plain: decl.unreturned1 = True)
+    (facts: DeclHangs lexKind decl)
+    (shows: decl.doc1 = Some doc):
+    stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
+  standsOfLays decl doc within shaped settled lexical plain
+    (doc1Hangs lexKind decl doc within lexKindFixed facts shows
+      (AtStart 0 Carry.none)
+      []
+      (place laid => True)
+      (byComputing, byComputing)
+      (after later holds => byComputing))
+    shows
 
 --| `printedStands1`, as proved: the four tree facts, no comment ending in a carriage return, and `DeclHangs`. It is
 --| false without `unreturned1` (`returnedFalls`).
