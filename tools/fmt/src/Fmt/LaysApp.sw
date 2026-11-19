@@ -22,6 +22,7 @@ def ItemsFacts (items: List Expr): Prop :=
     → allNonCloser items = True
     → allSpelled items = True
     → allLexical1 items = True
+    → allShaped1 items = True
     → ItemsEl items
 
 --| What an argument that is a bracket needs to hug: its items' steps.
@@ -206,6 +207,7 @@ theorem lastArgStep ∀ (argument: Expr) (place: Around)
     (nonCloser: argument.nonCloser = True)
     (spelled: argument.spelled = True)
     (lexical: argument.lexical1 = True)
+    (shaped: argument.shaped1 = True)
     (each: ∀ (around: Around) => Step (argument.el around) (Starts around.hoisted around.before) (kinds =>
       Ends kinds argument.trails))
     (inner: BracketEl argument):
@@ -220,6 +222,7 @@ theorem lastArgStep ∀ (argument: Expr) (place: Around)
           (Bool.andRight nonCloser)
           (Bool.andLeft (Bool.andRight spelled))
           (Bool.andRight (Bool.andRight lexical))
+          (Bool.andRight shaped)
       let stops: ∀ (first: Expr) (rest: List Expr) => items = [first, ..rest]
         → Coded (lastArg first rest).words.reverse = True :=
         first rest same =>
@@ -256,6 +259,7 @@ theorem lastArgStep ∀ (argument: Expr) (place: Around)
           (Bool.andRight nonCloser)
           (Bool.andLeft (Bool.andRight spelled))
           (Bool.andRight (Bool.andRight lexical))
+          shaped
       let stops: ∀ (first: Expr) (rest: List Expr) => items = [first, ..rest]
         → Coded (lastArg first rest).words.reverse = True :=
         first rest same =>
@@ -309,6 +313,7 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
     (nonCloser: allNonCloser arguments = True)
     (spelled: allSpelled arguments = True)
     (lexical: allLexical1 arguments = True)
+    (shaped: allShaped1 arguments = True)
     (els: ItemsEl arguments)
     (brackets: ArgsEl arguments):
     ∃ (middle: Bool) => Chained (argumentDocs arm previous at arguments).fst previous.trails middle
@@ -329,6 +334,7 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
           (Bool.andLeft nonCloser)
           (Bool.andLeft spelled)
           (Bool.andLeft lexical)
+          (Bool.andLeft shaped)
           els.left
           brackets.left
       (previous.trails, byComputing, last, hug)
@@ -344,6 +350,7 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
           (Bool.andRight nonCloser)
           (Bool.andRight spelled)
           (Bool.andRight lexical)
+          (Bool.andRight shaped)
           els.right
           brackets.right
       (middle, (argument.trails, els.left place, chain), last, hug)
@@ -482,6 +489,7 @@ theorem appStep ∀ (head: Expr) (arguments: List Expr) (around: Around)
     (nonCloser: (App head arguments).nonCloser = True)
     (spelled: (App head arguments).spelled = True)
     (lexical: (App head arguments).lexical1 = True)
+    (shaped: (App head arguments).shaped1 = True)
     (headEach: ∀ (around: Around) => Step (head.el around) (Starts around.hoisted around.before) (kinds =>
       Ends kinds head.trails))
     (els: ItemsEl arguments)
@@ -502,6 +510,7 @@ theorem appStep ∀ (head: Expr) (arguments: List Expr) (around: Around)
           (Bool.andRight nonCloser)
           (Bool.andRight spelled)
           (Bool.andRight lexical)
+          (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
           els
           brackets
       let headStep: Step (head.el inside) NoHeld (kinds => Ends kinds head.trails) :=
@@ -564,6 +573,7 @@ theorem appHugStep ∀ (head: Expr) (arguments: List Expr) (around: Around) (ope
     (nonCloser: (App head arguments).nonCloser = True)
     (spelled: (App head arguments).spelled = True)
     (lexical: (App head arguments).lexical1 = True)
+    (shaped: (App head arguments).shaped1 = True)
     (headEach: ∀ (around: Around) => Step (head.el around) (Starts around.hoisted around.before) (kinds =>
       Ends kinds head.trails))
     (els: ItemsEl arguments)
@@ -583,6 +593,7 @@ theorem appHugStep ∀ (head: Expr) (arguments: List Expr) (around: Around) (ope
           (Bool.andRight nonCloser)
           (Bool.andRight spelled)
           (Bool.andRight lexical)
+          (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
           els
           brackets
       let same: itemsEnd head.trails [argument, ..rest] = (App head [argument, ..rest]).trails :=
