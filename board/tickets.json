@@ -26906,8 +26906,8 @@
     {
       "id": 4202,
       "title": "[Sonnet, bug] Rust fmt P3 not idempotent after an ability row: def f: {Fail} ((x: (A)) => x) := g formats to {Fail} (x: (A)) => x then {Fail} (x: A) => x; also groups merged only on the second run (SW-4196 finding 1); fix with a golden test both runs",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -26932,8 +26932,8 @@
     {
       "id": 4204,
       "title": "[DeepSeek] fmt self-hosted: Rules.sw:356 lambda rule drops a fun keyword (matched with _); paramsWithin2's PatternWord arm is dead; fmt-passes.md line: P3 strips binder types only along a header's type, so (x: (A)) (y: A) => in a value is neither stripped nor merged (SW-4196 findings 3, 4, 7)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
