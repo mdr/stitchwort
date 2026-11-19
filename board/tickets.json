@@ -1,5 +1,5 @@
 {
-  "next": 4274,
+  "next": 4275,
   "tickets": [
     {
       "id": 47,
@@ -27852,6 +27852,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4216. Dependency scripts: scratchpad keep/dep.py.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4274,
+      "title": "[DeepSeek] Four error-message hints from SW-4198's probes: { let …; term } E-PARSE points at the closing brace (add: braces are a record update, proof blocks are indented); import Std (List.map) note giving import Std.List (map); ?name parsed as ? applied to name (hint: holes aren't named, use ?); rewrite f.unfold shows f.%step … (print something a reader can follow)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4198. Est. 30 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
