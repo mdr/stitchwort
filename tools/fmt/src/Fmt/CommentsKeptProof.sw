@@ -344,7 +344,7 @@ theorem wordsCalmKeep ∀ (expr: Expr) (item: Bool)
 --| A declaration's words, calmed, keep every comment and holder but a closer's blank line below.
 theorem declCalmKeep ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True):
+    (lexical: decl.lexical = True):
     AllKeep decl.words decl.calm.words :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -374,7 +374,7 @@ theorem declCalmKeep ∀ (decl: Decl)
 
 theorem declsCalmKeep ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (lexical: decls.all Decl.lexical = True):
     AllKeep (decls.map Decl.words).concat ((decls.map Decl.calm).map Decl.words).concat :=
   match decls with
     | [] => byComputing
@@ -436,7 +436,7 @@ def fileHolders (file: SourceFile): List Holder := wordsHolders (file.decls.map 
 
 theorem calmKeeps ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (lexical: file.lexical1 = True):
+    (lexical: file.lexical = True):
     fileViews file.calm = fileViews file ∧ fileHolders file.calm = fileHolders file :=
   let (views, holders) :=
     allKeepRead
@@ -451,7 +451,7 @@ theorem calmKeeps ∀ (file: SourceFile)
 --| the end if there is none, which changes only the first comment's blank line above (`toppedWords`).
 theorem calmTopKeeps ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (lexical: file.lexical1 = True):
+    (lexical: file.lexical = True):
     fileViews file.calmTop = fileViews file ∧ fileHolders file.calmTop = fileHolders file :=
   match file with
     | { decls, end } =>
@@ -540,39 +540,39 @@ theorem sourceComments ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
 --| (`printedSettle1`).
 theorem outputComments ∀ (file: SourceFile)
     (facts: TreeFacts file)
-    (declsUnreturned: file.decls.all Decl.unreturned1 = True)
-    (unreturned: file.unreturned1 = True):
-    unheaded file.lexed1.settled.commentViews = fileViews file.calmTop
-      ∧ file.lexed1.settled.holders.map Holder.forDocs = fileHolders file.calmTop :=
+    (declsUnreturned: file.decls.all Decl.unreturned = True)
+    (unreturned: file.unreturned = True):
+    unheaded file.lexed.settled.commentViews = fileViews file.calmTop
+      ∧ file.lexed.settled.holders.map Holder.forDocs = fileHolders file.calmTop :=
   let (within, shaped, settled, lexical, commaFree) := facts
-  let declsSettled: file.decls.all Decl.settled1 = True := Bool.andLeft settled
-  let hung: file.hung1 = True :=
+  let declsSettled: file.decls.all Decl.settled = True := Bool.andLeft settled
+  let hung: file.hung = True :=
     declsAll file.decls
-      (decl => hangs decl.leaves1)
+      (decl => hangs decl.leaves)
       within
       shaped
       declsSettled
       lexical
       declsUnreturned
       (decl w s t l u => (declHangs1 decl w s t l u).left)
-  let stood: file.stood1 = True :=
-    declsAll file.decls Decl.stands1 within shaped declsSettled lexical declsUnreturned (decl w s t l u =>
+  let stood: file.stood = True :=
+    declsAll file.decls Decl.stands within shaped declsSettled lexical declsUnreturned (decl w s t l u =>
       (declHangs1 decl w s t l u).right u)
   let (words, ends) := printedSettle1 file within shaped settled lexical hung stood unreturned
-  let settledLeaves := file.lexed1.settled.leaves
+  let settledLeaves := file.lexed.settled.leaves
   let joined: wordsOf settledLeaves = (file.calmTop.decls.map Decl.words).concat := calc wordsOf settledLeaves
     _ = codeWords (groupsOf settledLeaves).concat := rewrite groupsConcat settledLeaves
     _ = ((groupsOf settledLeaves).map codeWords).concat := (groupWordsConcat (groupsOf settledLeaves)).flipped
     _ = (file.calmTop.decls.map Decl.words).concat := rewrite words
-  let (views, holders) := lexedWords file.lexed1.settled (settledCommasBare file.lexed1)
-  let viewsHere: unheaded file.lexed1.settled.commentViews = fileViews file.calmTop := calc unheaded
-      file.lexed1.settled.commentViews
-    _ = unheaded (wordsViews (wordsOf settledLeaves) ++ file.lexed1.settled.end.comments.views) := rewrite views
+  let (views, holders) := lexedWords file.lexed.settled (settledCommasBare file.lexed)
+  let viewsHere: unheaded file.lexed.settled.commentViews = fileViews file.calmTop := calc unheaded
+      file.lexed.settled.commentViews
+    _ = unheaded (wordsViews (wordsOf settledLeaves) ++ file.lexed.settled.end.comments.views) := rewrite views
     _ = unheaded (wordsViews (file.calmTop.decls.map Decl.words).concat ++ file.calmTop.end.views) :=
       rewrite joined, ends
     _ = fileViews file.calmTop := byComputing
-  let holdersHere: file.lexed1.settled.holders.map Holder.forDocs = fileHolders file.calmTop :=
-    calc file.lexed1.settled.holders.map Holder.forDocs
+  let holdersHere: file.lexed.settled.holders.map Holder.forDocs = fileHolders file.calmTop :=
+    calc file.lexed.settled.holders.map Holder.forDocs
       _ = wordsHolders (wordsOf settledLeaves) := holders
       _ = wordsHolders (file.calmTop.decls.map Decl.words).concat := rewrite joined
       _ = fileHolders file.calmTop := byComputing
@@ -598,23 +598,23 @@ theorem formatKeepsComments1 ∀ (source out: Text) (lexed lexedOut: Lexed)
   let file := parsed.tidy1
   let sameIn: lexedD = lexed := Result.okInjective (Eq.trans lexesD.flipped lexes)
   let printedLexes: lex file.printed1 = Ok lexedOut := rewrite outIs at lexesOut then lexesOut
-  let sameOut: file.lexed1 = lexedOut := Result.okInjective (Eq.trans lexOut.flipped printedLexes)
+  let sameOut: file.lexed = lexedOut := Result.okInjective (Eq.trans lexOut.flipped printedLexes)
   let (sourceViews, sourceHolders) := sourceComments source lexedD parsed lexesD leaves parses within
   let unreturned := tidiedUnreturned1 source lexedD parsed lexesD leaves parses within
   let declsUnreturned := tidiedDeclsUnreturned1 source lexedD parsed lexesD leaves parses within
   let (outViews, outHolders) := outputComments file facts declsUnreturned unreturned
   let (fileWithin, _, _, fileLexical, _) := facts
   let (topViews, topHolders) := calmTopKeeps file fileWithin fileLexical
-  let viewsKept: unheaded lexedD.settledBare.commentViews = unheaded file.lexed1.settled.commentViews := calc unheaded
+  let viewsKept: unheaded lexedD.settledBare.commentViews = unheaded file.lexed.settled.commentViews := calc unheaded
       lexedD.settledBare.commentViews
     _ = fileViews file := sourceViews
     _ = fileViews file.calmTop := topViews.flipped
-    _ = unheaded file.lexed1.settled.commentViews := outViews.flipped
-  let holdersKept: lexedD.settledBare.holders.map Holder.forDocs = file.lexed1.settled.holders.map Holder.forDocs :=
+    _ = unheaded file.lexed.settled.commentViews := outViews.flipped
+  let holdersKept: lexedD.settledBare.holders.map Holder.forDocs = file.lexed.settled.holders.map Holder.forDocs :=
     calc lexedD.settledBare.holders.map Holder.forDocs
       _ = fileHolders file := sourceHolders
       _ = fileHolders file.calmTop := topHolders.flipped
-      _ = file.lexed1.settled.holders.map Holder.forDocs := outHolders.flipped
+      _ = file.lexed.settled.holders.map Holder.forDocs := outHolders.flipped
   rewrite <- sameIn, <- sameOut then (viewsKept, holdersKept)
 
 --| **Slice 1 keeps comments (D3695).** For every source in slice 1's grammar, the formatter succeeds, giving `out`;
@@ -630,15 +630,15 @@ theorem slice1KeepsComments ∀ (source: Text)
   let (lexed, parsed, accepted) := formatsOf source out formats
   let (lexes, _, _, _, outIs) := accepted
   let (_, lexOut, _) := printedOf source out lexed parsed accepted
-  let lexesOut: lex out = Ok parsed.tidy1.lexed1 := rewrite outIs then lexOut
+  let lexesOut: lex out = Ok parsed.tidy1.lexed := rewrite outIs then lexOut
   (
     out,
     lexed,
-    parsed.tidy1.lexed1,
+    parsed.tidy1.lexed,
     formats,
     lexes,
     lexesOut,
-    formatKeepsComments1 source out lexed parsed.tidy1.lexed1 formats lexes lexesOut
+    formatKeepsComments1 source out lexed parsed.tidy1.lexed formats lexes lexesOut
   )
 
 --| `slice1KeepsComments`' hypothesis holds of `witnessSource`, with comments above, after and at the end of
