@@ -1,5 +1,5 @@
 {
-  "next": 4193,
+  "next": 4195,
   "tickets": [
     {
       "id": 47,
@@ -26761,7 +26761,7 @@
     {
       "id": 4191,
       "title": "[Fable, paper] Slice 1 final checkpoint after SW-4183 (D3690): confirm formatAccepts1, formatKeepsProgram1, formatIdempotent1 are proved with no open goals and no new hypotheses since SW-4184; review SW-4183's restated bareSettles (up to line starts) covers its users; confirm rule N's startsWalk keeps the bookkeeping inside the tidying step; say whether slice 1 meets D3687",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -26782,6 +26782,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 30 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4193,
+      "title": "[Sonnet] fmt tidy after slice 1: delete dead settledPlaced1 (SettleParseProofs.sw:310, plain1, no caller); drop settledParsesGrammar1's unused source/lexes/alphabet arguments if nothing needs them; fix tools/fmt/NOTES.md:1399-1400 (bareSettles now proved, up to line starts) and SettleParseProofs.sw:6's long doc line; with SW-4189's 13 orphans and SW-4192's marked copy if convenient (SW-4191 findings)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 20 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4194,
+      "title": "[Opus] fmt: a fourth top statement saying D3687 in one sentence about the language's own parser (every source the language parses to a tree in Grammar1 is formatted, and the output parses to the same program), proved from the existing three (SW-4184 §3 item 2; SW-4191 says it doesn't block slice 1)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 30 min. Statement checked by the orchestrator statement by statement before merge.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
