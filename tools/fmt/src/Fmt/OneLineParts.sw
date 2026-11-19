@@ -1,8 +1,8 @@
 --| `edgeQuietOneLine1` (SW-4096's half A) in three parts (SW-4098), split by what each needs of the printed text:
 --|
---| - `wordsEdgeOneLine1` (open): comments on tokens that are no closers lie only at the edges. The words' order
---|   (`printedSpellsSettled`) and the line break after each comment (`CommentsEnd`) put a line start where
---|   `onLine1` allows none.
+--| - `wordsEdgeOneLine1` (proved in `Fmt.WordsEdgeLine`, SW-4107; the part is `Fmt.WordsEdge`'s): comments on
+--|   tokens that are no closers lie only at the edges. The words' order (`printedSpellsSettled`) and the line break
+--|   after each comment put a line start where `onLine1` allows none.
 --| - `closersBareOneLine1` (open): closers hold no comments. The words' order doesn't place a closer against the
 --|   comments around it (`def x: T := f (a -- c⏎) -- d` would read `f (a) -- c⏎-- d` by the order alone), so
 --|   this needs the document's line breaks (the `CloserLine` before such a closer).
@@ -25,36 +25,16 @@ import Fmt.OutputStatements (tidiedOf)
 import Fmt.ExprHangProofs (..)
 import Fmt.SpellProofs (allConsBool, allSplitBool)
 import Fmt.OneLineStatements (..)
+import Fmt.WordsEdge (..)
+import Fmt.WordsEdgeLine (wordsEdgeOneLine)
 
 -- The parts.
-
---| A token's comments as `edge1` allows them: own-line comments only if it leads, a trailing one only if it ends.
-def Word.wordEdge1 (word: Word) (lead end: Bool): Bool := (lead || !word.noted) && (end || !word.trails)
 
 --| A token with no comments.
 def Word.bare1 (word: Word): Bool := !word.noted && !word.trails
 
 --| A token whose blank-line flag, if set, is below own-line comments.
 def Word.blankBelow1 (word: Word): Bool := word.noted || !word.comments.blankBefore
-
---| `edgeQuiet1`'s tests of comments on the tokens that are no closers: closers and blank-line flags are not looked
---| at.
-def Expr.wordsEdge1 (expr: Expr) (lead end: Bool): Bool := match expr with
-  | Atom _ word => word.wordEdge1 lead end
-  | Paren open inner _ => open.wordEdge1 lead False && inner.wordsEdge1 False end
-  | Tuple open items _ _ => open.wordEdge1 lead False && lastWordsEdge1 end items
-  | ListOf open items _ _ => open.wordEdge1 lead (end && items.isEmpty) && lastWordsEdge1 end items
-  | App head arguments => !arguments.isEmpty && head.wordsEdge1 lead False && lastWordsEdge1 end arguments
-  | Infix _ left operator right =>
-    left.wordsEdge1 lead False && operator.wordEdge1 False False && right.wordsEdge1 False end
-  | Prefix operator operand => operator.wordEdge1 lead False && operand.wordsEdge1 False end
-  | _ => False
-
---| Items or arguments, the last of which may end with a comment (`end`).
-def lastWordsEdge1 (end: Bool) (items: List Expr): Bool := match items with
-  | [] => True
-  | [last] => last.wordsEdge1 False end
-  | [expr, ..rest] => expr.wordsEdge1 False False && lastWordsEdge1 end rest
 
 --| Every closer has no comments.
 def Expr.closersBare1: Expr → Bool
@@ -69,12 +49,6 @@ def Expr.closersBare1: Expr → Bool
 def allClosersBare1: List Expr → Bool
   | [] => True
   | [expr, ..rest] => expr.closersBare1 && allClosersBare1 rest
-
---| The calmed type's and value's comments on tokens that are no closers lie at their edges, as in `edgeQuiet1`.
-def Decl.wordsEdge1: Decl → Bool
-  | Definition [] header (Assigned _ value) =>
-    (header.result.calm False).wordsEdge1 False True && (value.calm False).wordsEdge1 True True
-  | _ => False
 
 --| The type's and value's closers have no comments.
 def Decl.closersBare1: Decl → Bool
@@ -284,16 +258,13 @@ theorem edgeQuietOfParts ∀ (decl: Decl)
 
 -- The parts on one line.
 
---| A one-line declaration's comments on tokens that are no closers lie at the edges (open, SW-4096's route, steps 1
---| to 4).
+--| A one-line declaration's comments on tokens that are no closers lie at the edges (SW-4096's route, steps 1 to 4;
+--| proved in `Fmt.WordsEdgeLine`, SW-4107).
 --|
---| Proof idea, by contraposition on the printed pieces: `printedSpellsSettled` says the printed words less the
---| closers and commas are `decl.spelt`'s, in order, and less the comments its tokens; `CommentsEnd` (`printedJoins`,
---| `pairsEnd`) that a line break follows each comment, so the next token printed starts its line (`laidHears`: the
---| leaves' views are the events', and `Hearing.hear` gives a token `starts` after a break). A comment in `decl.spelt`
---| on a token that is no closer lies, among the printed words, between that token and the next token that is no
---| closer or comma; so the next token printed after it lies between them, closers and commas included, and starts its
---| line. `onLine1` allows that only at the `:=` and at the value's first token, which leaves `wordEdge1`'s cases.
+--| Proof idea: a printed comment is followed by a line break (`Chrono`), so the next token printed starts its line
+--| (`declCovered`); `onLine1` allows that only at the `:=` and at the value's first token. `printedSpellsSettled` says
+--| the printed words less the closers and commas are `decl.spelt`'s, so over the tokens that are no closers the
+--| comments fall in the same gaps (`spreadMarked`), which leaves `wordEdge1`'s cases (`wordsEdgeOfMarks`).
 theorem wordsEdgeOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -301,7 +272,7 @@ theorem wordsEdgeOneLine1 ∀ (decl: Decl)
     (lexical: decl.lexical1 = True)
     (oneLine: decl.oneLine1 = True):
     decl.wordsEdge1 = True :=
-  ?
+  wordsEdgeOneLine decl within shaped settled lexical oneLine
 
 --| A one-line declaration's closers hold no comments (open; route in `Fmt.OneLineLays`).
 --|
