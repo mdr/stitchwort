@@ -27513,12 +27513,12 @@
     {
       "id": 4248,
       "title": "[Sonnet] Pre-commit format hook prefers the main checkout's target/release/stitchwort over the worktree's own (its comment says the reverse): fix the order; workflow.md 'Pre-commit hook' says which binary runs (SW-4236 needed --no-verify for new syntax)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4236.",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 20).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
