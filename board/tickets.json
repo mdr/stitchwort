@@ -25851,15 +25851,17 @@
     {
       "id": 4123,
       "title": "[Sonnet] fmt S1 driver: one refusal message per cause (alphabet, spelling, plain1, construct, one-line), naming the token or construct; fix stale 'open' in TopStatements header and declElementsOneLine1 doc (SW-4119, SW-4120)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4185",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nDone in SW-4185 lane (164d3cb16): messages per cause in Fmt/Driver1.sw; tests in Fmt/Tests/Driver1.sw.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "164d3cb16"
+      ]
     },
     {
       "id": 4124,
@@ -26676,15 +26678,17 @@
     {
       "id": 4185,
       "title": "[Sonnet] fmt: remove dead slice-1 one-line and spelling machinery after SW-4176 (Decl.oneLine1 users, OneLineLays, StandsLine, printedSpelledPlain1, lexesPlain, spelledPlain1 if unused) — delete only what stitchwort uses shows nothing on the proof path refers to",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4185",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min. SW-4176 follow-up.",
+      "body": "Est. 30 min. SW-4176 follow-up.\n\nLane (Sonnet, commit 164d3cb16 on lane/SW-4185, done with SW-4123): deleted 211 definitions/theorems (7 files) for the one-line, spelling and stands-line routes; refusal messages now name cause and token/declaration. check 0 errors, 1 open goal; Fmt.Tests 424 pass; audit Fmt.Driver1 Fmt.TopStatements passes. Left: Lays*/StandsProofs cluster (check-by-doc machinery) possibly now orphaned but name collisions hid it.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "164d3cb16"
+      ]
     }
   ]
 }
