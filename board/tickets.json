@@ -27186,7 +27186,7 @@
     {
       "id": 4223,
       "title": "[Sonnet] Teach one proof for several cases (docs/proposals/proof-match-likewise.md, no decision needed): guide and proving-guide section on a catch-all after a split and on or-patterns in proofs; an or-pattern arm's error names the failing alternative",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
