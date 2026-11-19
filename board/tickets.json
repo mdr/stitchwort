@@ -26945,7 +26945,7 @@
     {
       "id": 4205,
       "title": "[Fable, paper] Slice 1 retrospective and strategy (D3691, Matt 19 Nov): how slice 1's proofs went and their friction; how far the full formatter is, realistically; a smarter strategy for formatter correctness; consolidating and simplifying the slice 1 proof now; Stitchwort changes that would make proving easier; what it means for slices 2-7",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
