@@ -1,5 +1,5 @@
 {
-  "next": 4266,
+  "next": 4267,
   "tickets": [
     {
       "id": 47,
@@ -27669,7 +27669,7 @@
     {
       "id": 4260,
       "title": "[Sonnet] Functional induction A: fix B1 (match induct on a std function says it doesn't call itself unless f.induct is named elsewhere in the file; repro docs/proposals/functional-induction/b1-std-on-demand.sw) and add a match induct entry to docs/proving-guide.md; correct SW-4222 §6.2's premise",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27742,6 +27742,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-4255 and Overmind's 19 Nov cycle: 28 std skips, mostly Float.Model around isqrt/sqrtBits.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4266,
+      "title": "[DeepSeek] E-NO-INDUCT note: say 'doesn't call itself' only when the function really isn't recursive; otherwise name the gap (guarded overlap, non-tail call) (SW-4260 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4260.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
