@@ -777,3 +777,81 @@ fn prints_a_deep_chain_of_operators_and_applications() {
     });
     assert_eq!(show(&p, &names, &term), text);
 }
+
+/// After record eta a value rebuilt from the fields of an unknown record
+/// holds `Proj`s, and still prints as the update that made it (SW-2152).
+#[test]
+fn prints_a_record_of_projections_as_an_update() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let pos = stitchwort_core::check::declare_data_group_as(
+        &mut p.g,
+        vec![],
+        Sort::Type(0),
+        vec![("Pos".into(), "Pos".into(), span(), true)],
+    )
+    .expect("Pos")[0];
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        pos,
+        vec![ctor("MkPos", vec![("row", nat.clone()), ("column", nat)])],
+    )
+    .expect("Pos");
+    let field = |i| Term::Proj(pos, i, Rc::new(v(0)));
+    let rebuilt = |row: Term, column: Term| Term::ctor(pos, 0, vec![row, column]);
+    assert_eq!(
+        show(&p, &["pos"], &rebuilt(field(0), p.num(7))),
+        "{ pos | column = 7 }"
+    );
+    // A field taken from the wrong place is not a field of `pos`.
+    assert_eq!(
+        show(&p, &["pos"], &rebuilt(field(1), p.num(7))),
+        "{ row = pos.column, column = 7 }"
+    );
+}
+
+/// `Float.keyOf` unfolded with the bits read as `Proj`s, as after record eta,
+/// is still the comparison of two floats: `x < y` (SW-2152).
+#[test]
+fn prints_float_order_keys_of_projected_bits_as_a_comparison() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let float = stitchwort_core::check::declare_data_group_as(
+        &mut p.g,
+        vec![],
+        Sort::Type(0),
+        vec![("Std.Float".into(), "Std.Float".into(), span(), true)],
+    )
+    .expect("Float")[0];
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        float,
+        vec![ctor("Float.mk", vec![("bits", nat.clone())])],
+    )
+    .expect("Float");
+    let binary = |p: &mut Prelude, name: &str| {
+        let ty = arrow(nat.clone(), arrow(nat.clone(), nat.clone()));
+        let id = define(&mut p.g, name, ty, lam("x", lam("y", v(1)))).unwrap();
+        registry::bind_def(&mut p.g, id);
+        id
+    };
+    let leq = binary(&mut p, "Nat.leq");
+    let less = binary(&mut p, "Int.less");
+    let key_of = binary(&mut p, "Std.Float.keyOf");
+    let bits = |x: Term| Term::Proj(float, 0, Rc::new(x));
+    let sign = || Term::Nat(Rc::new((1u64 << 63).into()));
+    let key = |x: Term| {
+        app(
+            Term::Def(key_of),
+            [bits(x.clone()), app(Term::Def(leq), [sign(), bits(x)])],
+        )
+    };
+    assert_eq!(
+        show(
+            &p,
+            &["x", "y"],
+            &app(Term::Def(less), [key(v(1)), key(v(0))])
+        ),
+        "x < y"
+    );
+}

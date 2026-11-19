@@ -2316,6 +2316,16 @@ impl<'g> Printer<'g> {
                     return None;
                 };
                 let of_bits = |t: &'t Term| match explicit_spine(t) {
+                    // After record eta, `x.bits` is a `Proj` of `Float`'s one field.
+                    (Term::Proj(d, i, x), _)
+                        if self.g.data(*d).path.as_ref() == "Std.Float"
+                            && self.g.data(*d).ctors[0]
+                                .fields
+                                .get(*i)
+                                .is_some_and(|(f, _)| &**f == "bits") =>
+                    {
+                        Some(&**x)
+                    }
                     (Term::Def(p), xs) if self.projection_field(*p).as_deref() == Some("bits") => {
                         match xs[..] {
                             [x] => Some(x),
@@ -2841,7 +2851,13 @@ impl<'g> Printer<'g> {
         let taken_from: Vec<Option<String>> = fields
             .iter()
             .zip(args)
-            .map(|((field, _), arg)| {
+            .enumerate()
+            .map(|(index, ((field, _), arg))| {
+                // After record eta a field of an unknown record is a `Proj`.
+                if let Term::Proj(e, i, record) = arg.strip_loc() {
+                    return (*e == d && *i == index)
+                        .then(|| self.print(names, record, Prec::Arrow));
+                }
                 let (head, explicit) = explicit_spine(arg);
                 let Term::Def(id) = head else {
                     return None;
