@@ -143,9 +143,7 @@ theorem NonEmptyList.appendListToList ∀ (xs: NonEmptyList a) (ys: List a):
 
 theorem NonEmptyList.prependListToList ∀ (prefix: List a) (xs: NonEmptyList a):
     (NonEmptyList.prependList prefix xs).toList = List.append prefix xs.toList :=
-  match prefix with
-    | [] => byComputing
-    | [y, ..rest] => byComputing
+  match prefix with | [] | [_, .._] => byComputing
 
 theorem NonEmptyList.sortByToList ∀ (xs: NonEmptyList a) (cmp: a → a → Ordering):
     (xs.sortBy cmp).toList = List.sortBy xs.toList cmp :=

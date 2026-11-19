@@ -843,8 +843,7 @@ theorem Map.lookupLastConsOther ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest:
     | None =>
       match e: Ord.compare key kk with
         | Equal => Void.impossible (apart (ord.equal key kk e))
-        | Less => byComputing
-        | Greater => byComputing
+        | Less | Greater => byComputing
 
 --| A first pair for `key` is the last one when the rest has none.
 theorem Map.lookupLastConsSame ∀ [auto ord: Ord k] (key: k) (vv: v) (rest: List (k, v))
@@ -1000,8 +999,7 @@ theorem Map.containsFilter ∀ [auto ord: Ord k] (m: Map k v) (key: k) (p: k →
     match Map.get m key with
       | Some value =>
         match p key value with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
       | None => byComputing
 
 --| What a fold over sorted entries leaves at `key`, for a step that changes
@@ -1049,10 +1047,7 @@ theorem Map.getUnionWith ∀ [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v
 
 --| Merging that keeps the first value is `orElse`.
 theorem Map.Spec.mergeFirst ∀ (a b: Option v): Option.merge a b (x y => x) = Option.orElse a b := match a, b with
-  | Some x, Some y => byComputing
-  | Some x, None => byComputing
-  | None, Some y => byComputing
-  | None, None => byComputing
+  | Some _ | None, Some _ | None => byComputing
 
 --| Inserting into a raw map, then taking its class, is inserting into the class.
 theorem Map.ofRawFoldInsert ∀ [auto ord: Ord k] (xs: List (k, v)) (r: Map.Raw k v):
@@ -1123,8 +1118,7 @@ theorem Map.getOrCountStep ∀ [auto ord: Ord k] (m: Map k Nat) (key x: k):
     | Equal =>
       rewrite ord.equal key x e, Map.getInsertWith m x 1 Nat.add then
         match c: Map.get m x with
-          | None => byComputing
-          | Some n => byComputing
+          | None | Some _ => byComputing
     | Less =>
       rewrite Map.getInsertWithOther m x 1 key
         (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
@@ -1165,8 +1159,7 @@ theorem Map.countsFoldPositive [auto ord: Ord k]:
           | Equal =>
             let inserted := rewrite ord.equal key x e, Map.getInsertWith m x 1 Nat.add at g
             match c: Map.get m x with
-              | None => rewrite <- Option.someInjective inserted
-              | Some old => rewrite <- Option.someInjective inserted
+              | None | Some _ => rewrite <- Option.someInjective inserted
           | Less =>
             h n
               (rewrite Map.getInsertWithOther m x 1 key
@@ -1252,8 +1245,7 @@ theorem Map.getGroupBy ∀ [auto ord: Ord k] (key: a → k) (kk: k) (xs: List a)
                 Map.getInsertWith (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) NonEmptyList.append,
                 Map.getGroupBy key (key x) rest then
               match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
-                | [] => byComputing
-                | [y, ..ys] => byComputing
+                | [] | [_, .._] => byComputing
           | Less =>
             rewrite Map.getInsertWithOther
                   (Map.groupBy rest key)
@@ -1293,8 +1285,7 @@ theorem Map.getGroupMap ∀ [auto ord: Ord k] (key: a → k) (value: a → v) (k
                   NonEmptyList.append,
                 Map.getGroupMap key value (key x) rest then
               match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
-                | [] => byComputing
-                | [y, ..ys] => byComputing
+                | [] | [_, .._] => byComputing
           | Less =>
             rewrite Map.getInsertWithOther
                   (Map.groupMap rest key value)
@@ -1314,9 +1305,7 @@ theorem Map.getGroupMap ∀ [auto ord: Ord k] (key: a → k) (value: a → v) (k
                   NonEmptyList.append then
               Map.getGroupMap key value kk rest
 
-theorem Map.orElseNone ∀ (o: Option a): Option.orElse o None = o := match o with
-  | None => byComputing
-  | Some x => byComputing
+theorem Map.orElseNone ∀ (o: Option a): Option.orElse o None = o := match o with | None | Some _ => byComputing
 
 --| `indexBy` from a starting map: what the map has, else the first element
 --| whose key is `kk`.
@@ -1345,8 +1334,7 @@ theorem Map.getIndexByFrom ∀ [auto ord: Ord k] (key: a → k) (kk: k) (xs: Lis
                   (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey (key x) (key y))))
                   (Map.getInsertWith m (key x) x (newer older => older))
               _ = Option.orElse (Map.get m (key x)) (Some x) := match c: Map.get m (key x) with
-                | None => byComputing
-                | Some o => byComputing
+                | None | Some _ => byComputing
         | Less =>
           Eq.trans
             (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
@@ -1406,9 +1394,7 @@ theorem Map.getIndexByMem ∀ [auto ord: Ord k] (xs: List a) (key: a → k)
 theorem Map.containsIndexBy ∀ [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k):
     Map.contains (Map.indexBy xs key) kk = List.any xs (x => key x == kk) :=
   rewrite Map.getIndexByEq xs kk key, List.anyFind (x => key x == kk) xs then
-    match c: List.find xs (x => key x == kk) with
-      | Some y => byComputing
-      | None => byComputing
+    match c: List.find xs (x => key x == kk) with | Some _ | None => byComputing
 
 theorem Map.memKeysIndexBy ∀ [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k):
     List.Mem kk (Map.keys (Map.indexBy xs key)) ↔ List.Mem kk (List.map xs key) :=
@@ -1513,14 +1499,9 @@ theorem Map.getRange ∀ [auto ord: Ord k] (m: Map k v) (lo hi key: k):
       = (if ¬(Map.Spec.isLess key lo) ∧ Map.Spec.isLess key hi then Map.get m key else None) :=
   rewrite Map.getFilter m key (key2 value => ¬(Map.Spec.isLess key2 lo) ∧ Map.Spec.isLess key2 hi) then
     match c: ¬(Map.Spec.isLess key lo) ∧ Map.Spec.isLess key hi with
-      | True =>
+      | True | False =>
         match d: Map.get m key with
-          | None => byComputing
-          | Some value => byComputing
-      | False =>
-        match d: Map.get m key with
-          | None => byComputing
-          | Some value => byComputing
+          | None | Some _ => byComputing
 
 --| `mapKeys`: the last entry, in key order, whose new key is `key`.
 theorem Map.getMapKeys ∀ [auto ord: Ord j] (f: k → j) (key: j)

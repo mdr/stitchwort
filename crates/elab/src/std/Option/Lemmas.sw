@@ -4,53 +4,42 @@
 --| Two maps are one map of the composite.
 theorem Option.mapMap ∀ (f: a → b) (g: b → c) (x: Option a):
     Option.map (Option.map x f) g = Option.map x (y => g (f y)) :=
-  match x with
-    | None => byComputing
-    | Some y => byComputing
+  match x with | None | Some _ => byComputing
 
 --| Mapping with the identity changes nothing.
-theorem Option.mapId ∀ (x: Option a): Option.map x (y => y) = x := match x with
-  | None => byComputing
-  | Some y => byComputing
+theorem Option.mapId ∀ (x: Option a): Option.map x (y => y) = x := match x with | None | Some _ => byComputing
 
 --| `Some` is injective: equal `Some`s hold equal values.
 theorem Option.someInjective ∀ [x y: a] (h: Some x = Some y): x = y := Eq.cong (.getOrElse x) h
 
 --| `map2` with `None` second is `None`.
 theorem Option.map2None ∀ (f: a → b → c) (x: Option a): Option.map2 f x None = None := match x with
-  | None => byComputing
-  | Some x => byComputing
+  | None | Some _ => byComputing
 
 theorem Option.map3None2 ∀ (f: a → b → c → d) (z: Option c) (x: Option a): Option.map3 f x None z = None := match x with
-  | None => byComputing
-  | Some x => byComputing
+  | None | Some _ => byComputing
 
 theorem Option.map3None3 ∀ (f: a → b → c → d) (x: Option a) (y: Option b): Option.map3 f x y None = None :=
   match x, y with
     | None, y => byComputing
-    | Some x, None => byComputing
-    | Some x, Some y => byComputing
+    | Some _, None | Some _ => byComputing
 
 theorem Option.map4None2 ∀ (f: a → b → c → d → e) (z: Option c) (w: Option d) (x: Option a):
     Option.map4 f x None z w = None :=
-  match x with
-    | None => byComputing
-    | Some x => byComputing
+  match x with | None | Some _ => byComputing
 
 theorem Option.map4None3 ∀ (f: a → b → c → d → e) (w: Option d) (x: Option a) (y: Option b):
     Option.map4 f x y None w = None :=
   match x, y with
     | None, y => byComputing
-    | Some x, None => byComputing
-    | Some x, Some y => byComputing
+    | Some _, None | Some _ => byComputing
 
 theorem Option.map4None4 ∀ (f: a → b → c → d → e) (x: Option a) (y: Option b) (z: Option c):
     Option.map4 f x y z None = None :=
   match x, y, z with
     | None, y, z => byComputing
     | Some x, None, z => byComputing
-    | Some x, Some y, None => byComputing
-    | Some x, Some y, Some z => byComputing
+    | Some _, Some _, None | Some _ => byComputing
 
 --| `map2` is a `flatMap` then a `map`.
 theorem Option.map2FlatMap ∀ (f: a → b → c) (y: Option b) (x: Option a):
@@ -59,24 +48,21 @@ theorem Option.map2FlatMap ∀ (f: a → b → c) (y: Option b) (x: Option a):
     | None => byComputing
     | Some x =>
       match y with
-        | None => byComputing
-        | Some v => byComputing
+        | None | Some _ => byComputing
 
 --| A `map` after `map2`, `map3` or `map4` is one of the composite.
 theorem Option.mapMap2 ∀ (f: a → b → c) (g: c → r) (x: Option a) (y: Option b):
     Option.map (Option.map2 f x y) g = Option.map2 (u v => g (f u v)) x y :=
   match x, y with
     | None, y => byComputing
-    | Some x, None => byComputing
-    | Some x, Some y => byComputing
+    | Some _, None | Some _ => byComputing
 
 theorem Option.mapMap3 ∀ (f: a → b → c → d) (g: d → r) (x: Option a) (y: Option b) (z: Option c):
     Option.map (Option.map3 f x y z) g = Option.map3 (u v w => g (f u v w)) x y z :=
   match x, y, z with
     | None, y, z => byComputing
     | Some x, None, z => byComputing
-    | Some x, Some y, None => byComputing
-    | Some x, Some y, Some z => byComputing
+    | Some _, Some _, None | Some _ => byComputing
 
 theorem Option.mapMap4 ∀ (f: a → b → c → d → e) (g: e → r) (x: Option a) (y: Option b) (z: Option c) (w: Option d):
     Option.map (Option.map4 f x y z w) g = Option.map4 (u v s t => g (f u v s t)) x y z w :=
@@ -84,8 +70,7 @@ theorem Option.mapMap4 ∀ (f: a → b → c → d → e) (g: e → r) (x: Optio
     | None, y, z, w => byComputing
     | Some x, None, z, w => byComputing
     | Some x, Some y, None, w => byComputing
-    | Some x, Some y, Some z, None => byComputing
-    | Some x, Some y, Some z, Some w => byComputing
+    | Some _, Some _, Some _, None | Some _ => byComputing
 
 --| With defaults for missing values, `map2` is `f` of the values or defaults,
 --| when a default in either place makes `f` give the default result.
@@ -146,9 +131,7 @@ theorem Option.orElseEqSome ∀ (y: Option a) (v: a) (x: Option a)
     | Some w => Inl h
     | None => Inr (Both byComputing h)
 
-theorem Option.orElseNone ∀ (x: Option a): Option.orElse x None = x := match x with
-  | Some w => byComputing
-  | None => byComputing
+theorem Option.orElseNone ∀ (x: Option a): Option.orElse x None = x := match x with | Some _ | None => byComputing
 
 theorem Option.orElseSome ∀ (v: a) (y: Option a): Option.orElse (Some v) y = Some v := byComputing
 
@@ -203,9 +186,7 @@ theorem Option.filterEqNone ∀ (x: Option a) (p: a → Bool)
         | False => Inr (Witness u (Both byComputing e))
 
 --| `orElse` of an option with itself is the option.
-theorem Option.orElseSelf ∀ (x: Option a): Option.orElse x x = x := match x with
-  | Some w => byComputing
-  | None => byComputing
+theorem Option.orElseSelf ∀ (x: Option a): Option.orElse x x = x := match x with | Some _ | None => byComputing
 
 --| If `alignWith` is `Some v`, `v` came from one of the three arms: the left
 --| value alone, the right alone, or both.

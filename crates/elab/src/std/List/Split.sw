@@ -154,9 +154,7 @@ theorem List.splitByGroups ∀ (xs: List a) (p: a → Bool): List.Groups p (List
 theorem List.closeGroupConcat ∀ (cur: List a) (done: List (NonEmptyList a)):
     List.flatMap (List.closeGroup cur done) NonEmptyList.toList
       = List.append cur (List.flatMap done NonEmptyList.toList) :=
-  match cur with
-    | [] => byComputing
-    | [y, ..ys] => byComputing
+  match cur with | [] | [_, .._] => byComputing
 
 theorem List.splitStepKeeps ∀ (p: a → Bool) (x: a) (xs: List a):
     ∀ (b: Bool) => p x = b

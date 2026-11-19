@@ -91,8 +91,7 @@ def Float.Model.locate (r d: Nat): Float.Model.Location :=
 --| Whether the value at `loc` past `q` rounds up to `q + 1`: past halfway,
 --| or halfway with `q` odd (ties to even).
 def Float.Model.roundsUp (q: Nat): (loc: Float.Model.Location) → Bool
-  | Exact => False
-  | BelowHalf => False
+  | Exact | BelowHalf => False
   | Half => Nat.equal (q - Nat.divFuel q q 2 * 2) 1
   | AboveHalf => True
 

@@ -9,9 +9,7 @@ theorem List.dropAppend ∀ (start rest: List a): List.drop (List.append start r
     | [x, ..xs] => List.dropAppend xs rest
 
 --| Nothing is left of the empty list, however much is dropped.
-theorem List.dropNil ∀ (n: Nat): List.drop ([]: List a) n = [] := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+theorem List.dropNil ∀ (n: Nat): List.drop ([]: List a) n = [] := match n with | Zero | Succ _ => byComputing
 
 --| Dropping `n + m` is dropping `n`, then `m`.
 theorem List.dropAdd ∀ (n m: Nat) (xs: List a): List.drop xs (n + m) = List.drop (List.drop xs n) m := match n, xs with
@@ -35,17 +33,14 @@ theorem List.dropLength ∀ (xs: List a): List.drop xs (List.length xs) = [] := 
 --| The empty list has nothing to take, whatever the count. Like
 --| [`List.dropNil`] for `drop`; the proof takes the count apart because
 --| `take` matches the count before the list.
-theorem List.takeNil ∀ (n: Nat): List.take ([]: List a) n = [] := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+theorem List.takeNil ∀ (n: Nat): List.take ([]: List a) n = [] := match n with | Zero | Succ _ => byComputing
 
 --| A prefix is no longer than the list it came from, whether or not the
 --| count reached the end. [`List.lengthTake`] gives the exact length when
 --| the count is within the list, and [`List.takeAll`] gives the whole list
 --| when it is past the end.
 theorem List.lengthTakeLe ∀ (xs: List a) (n: Nat): List.length (List.take xs n) ≤ List.length xs := match xs, n with
-  | [], Zero => arithmetic
-  | [], Succ n => arithmetic
+  | [], Zero | Succ _ => arithmetic
   | [x, ..xs], Zero => arithmetic
   | [x, ..xs], Succ n => List.lengthTakeLe xs n
 
@@ -102,8 +97,7 @@ theorem List.sumDropTakeLe ∀ (xs: List Nat) (d n: Nat):
     List.sum (List.take (List.drop xs d) n) ≤ List.sum (List.take xs (d + n)) :=
   match xs, d, n with
     | xs, Zero, n => arithmetic
-    | [], Succ d, Zero => byComputing
-    | [], Succ d, Succ n => byComputing
+    | [], Succ _, Zero | Succ _ => byComputing
     | [x, ..xs], Succ d, n =>
       let ih: List.sumBy (List.take (List.drop xs d) n) (y => y) ≤ List.sumBy (List.take xs (d + n)) (y => y) :=
         rewrite List.sumIsSumBy (List.take (List.drop xs d) n), List.sumIsSumBy (List.take xs (d + n)) then
@@ -234,5 +228,4 @@ theorem List.stripPrefixStartsWith ∀ [auto eq: DecEq a] (xs prefix: List a):
 
 --| `isEmpty` is `== []`.
 theorem List.isEmptyEqNil ∀ [auto eq: DecEq a] (xs: List a): List.isEmpty xs = (xs == []) := match xs with
-  | [] => byComputing
-  | [x, ..xs] => byComputing
+  | [] | [_, .._] => byComputing

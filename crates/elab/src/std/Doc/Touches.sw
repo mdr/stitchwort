@@ -113,25 +113,15 @@ def Doc.Proofs.SuffixTouches (comment: Text) (seam: Seam) (trace: List Touch) (n
 --| printed, and the next word touches nothing.
 def Doc.Proofs.Touches (doc: Doc) (seam: Seam) (trace: List Touch) (next: Seam → List Touch → Prop): Prop :=
   match doc with
-    | Doc.Nothing => next seam trace
-    | BreakParent => next seam trace
-    | Blank => next seam trace
-    | Mark _ => next seam trace
+    | Doc.Nothing | BreakParent | Blank | Mark _ => next seam trace
     | Chunk text _ => WriteTouches seam text trace next
     | Closing text => CloseTouches seam text trace next
     | Line => SepTouches seam trace next
     | SoftLine => next seam trace ∧ next Begun (trace ++ seam.ending)
-    | HardLine => next Begun (trace ++ seam.ending)
-    | LineStart => next Begun (trace ++ seam.ending)
-    | LineStartHere => next Begun (trace ++ seam.ending)
-    | CloserLine _ => next Begun (trace ++ seam.ending)
-    | Nest _ inner => Touches inner seam trace next
-    | Align inner => Touches inner seam trace next
-    | AlignInset inner => Touches inner seam trace next
+    | HardLine | LineStart | LineStartHere | CloserLine _ => next Begun (trace ++ seam.ending)
+    | Nest _ inner | Align inner | AlignInset inner => Touches inner seam trace next
     | Displaced inner => DisplacedTouches seam trace (start written => Touches inner start written next)
-    | Group inner _ => Touches inner seam trace next
-    | NarrowGroup _ inner _ => Touches inner seam trace next
-    | IdGroup _ inner _ => Touches inner seam trace next
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _ => Touches inner seam trace next
     | IfBroken _ broken flat => Touches broken seam trace next ∧ Touches flat seam trace next
     | Flatten inner => Touches inner seam trace next
     | OneLineBelow inner => Touches inner Begun (trace ++ seam.ending) next
@@ -188,12 +178,10 @@ theorem Doc.Proofs.writeTouchesWeaker ∀ (seam: Seam) (text: Text) (trace: List
     | True, touches => implies _ _ touches
     | False, touches =>
       match seam, touches with
-        | Begun, touches => implies _ _ touches
-        | Along word, touches => implies _ _ touches
+        | Begun | Along _, touches => implies _ _ touches
         | Awaiting word comment, touches =>
           match spaces: text.all (char => char == ' '), touches with
-            | True, touches => implies _ _ touches
-            | False, touches => implies _ _ touches
+            | True | False, touches => implies _ _ touches
 
 --| `CloseTouches` holds with a weaker continuation.
 theorem Doc.Proofs.closeTouchesWeaker ∀ (seam: Seam) (text: Text) (trace: List Touch)
@@ -206,8 +194,7 @@ theorem Doc.Proofs.closeTouchesWeaker ∀ (seam: Seam) (text: Text) (trace: List
     | Along word, touches => writeTouchesWeaker (Along word) text trace strong weak implies touches
     | Awaiting word comment, touches =>
       match empty: text.isEmpty, touches with
-        | True, touches => implies _ _ touches
-        | False, touches => implies _ _ touches
+        | True | False, touches => implies _ _ touches
 
 --| `SepTouches` holds with a weaker continuation.
 theorem Doc.Proofs.sepTouchesWeaker ∀ (seam: Seam) (trace: List Touch) (strong weak: Seam → List Touch → Prop)
@@ -215,9 +202,7 @@ theorem Doc.Proofs.sepTouchesWeaker ∀ (seam: Seam) (trace: List Touch) (strong
     (touches: SepTouches seam trace strong):
     SepTouches seam trace weak :=
   match seam, touches with
-    | Begun, Both flat broken => ((implies _ _ flat), (implies _ _ broken))
-    | Along word, Both flat broken => ((implies _ _ flat), (implies _ _ broken))
-    | Awaiting word comment, Both flat broken => ((implies _ _ flat), (implies _ _ broken))
+    | Begun | Along _ | Awaiting _ _, Both flat broken => ((implies _ _ flat), (implies _ _ broken))
 
 --| `Touches` holds with a weaker continuation, if it holds with a
 --| stronger one.
@@ -226,30 +211,22 @@ theorem Doc.Proofs.touchesWeaker ∀ (doc: Doc) (seam: Seam) (trace: List Touch)
     (touches: Touches doc seam trace strong):
     Touches doc seam trace weak :=
   match doc, touches with
-    | Doc.Nothing, touches => implies _ _ touches
-    | BreakParent, touches => implies _ _ touches
-    | Blank, touches => implies _ _ touches
-    | Mark key, touches => implies _ _ touches
+    | Doc.Nothing | BreakParent | Blank | Mark _, touches => implies _ _ touches
     | Chunk text width, touches => writeTouchesWeaker seam text trace strong weak implies touches
     | Closing text, touches => closeTouchesWeaker seam text trace strong weak implies touches
     | Line, touches => sepTouchesWeaker seam trace strong weak implies touches
     | SoftLine, Both flat broken => ((implies _ _ flat), (implies _ _ broken))
-    | HardLine, touches => implies _ _ touches
-    | LineStart, touches => implies _ _ touches
-    | LineStartHere, touches => implies _ _ touches
-    | CloserLine key, touches => implies _ _ touches
-    | Nest more inner, touches => touchesWeaker inner seam trace strong weak implies touches
-    | Align inner, touches => touchesWeaker inner seam trace strong weak implies touches
-    | AlignInset inner, touches => touchesWeaker inner seam trace strong weak implies touches
+    | HardLine | LineStart | LineStartHere | CloserLine _, touches => implies _ _ touches
+    | Nest _ inner | Align inner | AlignInset inner, touches =>
+      touchesWeaker inner seam trace strong weak implies touches
     | Displaced inner, touches =>
       match seam, touches with
         | Begun, touches => touchesWeaker inner Begun trace strong weak implies touches
         | Along word, touches => touchesWeaker inner (Along word) trace strong weak implies touches
         | Awaiting word comment, touches =>
           touchesWeaker inner Begun (trace ++ [{ word = comment, touching = False }]) strong weak implies touches
-    | Group inner hard, touches => touchesWeaker inner seam trace strong weak implies touches
-    | NarrowGroup max inner hard, touches => touchesWeaker inner seam trace strong weak implies touches
-    | IdGroup id inner hard, touches => touchesWeaker inner seam trace strong weak implies touches
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, touches =>
+      touchesWeaker inner seam trace strong weak implies touches
     | IfBroken id broken flat, Both brokenTouches flatTouches => (
       (touchesWeaker broken seam trace strong weak implies brokenTouches),
       (touchesWeaker flat seam trace strong weak implies flatTouches)
@@ -262,8 +239,7 @@ theorem Doc.Proofs.touchesWeaker ∀ (doc: Doc) (seam: Seam) (trace: List Touch)
     | LineSuffix comment, touches =>
       match seam, touches with
         | Along word, Both word touches => (word, (implies _ _ touches))
-        | Begun, never => never
-        | Awaiting word comment, never => never
+        | Begun | Awaiting _ _, never => never
 
 --| `TouchesAll` holds with a weaker continuation.
 theorem Doc.Proofs.allTouchesWeaker ∀ (docs: List Doc) (seam: Seam) (trace: List Touch)
@@ -394,8 +370,7 @@ theorem Doc.Proofs.optionTouches ∀ (chosen: Doc) (options: List Doc) (seam: Se
     (touches: OptionsTouch options seam trace next):
     Touches chosen seam trace next :=
   match options, isOption, touches with
-    | [], picked, touches => rewrite picked then touches
-    | [last], picked, touches => rewrite picked then touches
+    | [] | [_], picked, touches => rewrite picked then touches
     | [option, second, ..others], Inl picked, Both first _ => rewrite picked then first
     | [option, second, ..others], Inr later, Both _ rest =>
       optionTouches chosen [second, ..others] seam trace next later rest
@@ -405,8 +380,7 @@ theorem Doc.Proofs.headOrTouches ∀ (options: List Doc) (seam: Seam) (trace: Li
     (touches: OptionsTouch options seam trace next):
     Touches (options.headOr Doc.Nothing) seam trace next :=
   match options, touches with
-    | [], touches => touches
-    | [last], touches => touches
+    | [] | [_], touches => touches
     | [option, second, ..others], Both first _ => first
 
 --| The branch an `IfBroken` takes touches if both do.
@@ -477,15 +451,13 @@ theorem Doc.Proofs.touchesTrim ∀ (out: List Text): touchesOf (trimSpaces out) 
 --| Paying the indentation owed adds no word.
 theorem Doc.Proofs.payTouches ∀ (printer: Printer): touchesOf printer.payIndent.out = touchesOf printer.out :=
   match owed: printer.owed with
-    | None => byComputing
-    | Some Zero => byComputing
+    | None | Some Zero => byComputing
     | Some (Succ less) => touchesSpaces (" ".repeat (Succ less)) printer.out (indentSpaces (Succ less))
 
 --| At a line start, text put on the line touches nothing.
 theorem Doc.Proofs.payFresh ∀ (printer: Printer) (fresh: Fresh printer.out): endsInWord printer.payIndent.out = False :=
   match owed: printer.owed with
-    | None => freshEnds printer.out fresh
-    | Some Zero => freshEnds printer.out fresh
+    | None | Some Zero => freshEnds printer.out fresh
     | Some (Succ less) => rewrite spacesIsLayout (" ".repeat (Succ less)) (indentSpaces (Succ less))
 
 --| With nothing owed, text put on the line touches the line's last piece
@@ -499,10 +471,7 @@ theorem Doc.Proofs.payNone ∀ (printer: Printer)
 
 --| Paying the indentation owed holds no spaces.
 theorem Doc.Proofs.payHeld ∀ (printer: Printer): printer.payIndent.heldSpaces = printer.heldSpaces :=
-  match owed: printer.owed with
-    | None => byComputing
-    | Some Zero => byComputing
-    | Some (Succ less) => byComputing
+  match owed: printer.owed with | None | Some Zero | Some (Succ _) => byComputing
 
 --| With nothing waiting, after pieces on the line, the seam is `Along`.
 theorem Doc.Proofs.seamAlong ∀ (printer: Printer)
@@ -566,8 +535,7 @@ theorem Doc.Proofs.seamEnding ∀ (printer: Printer): printer.seam.ending = prin
   match same: printer.suffixes with
     | [] =>
       match start: printer.atLineStart with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | [comment, ..more] => byComputing
 
 --| Writing the comment that waits adds it, touching nothing: it is
@@ -740,8 +708,7 @@ theorem Doc.Proofs.closeWritesClear ∀ (printer: Printer) (text: Text)
   match same: printer.suffixes, clear, touches with
     | [], _, touches =>
       match start: printer.atLineStart, touches with
-        | True, touches => touches
-        | False, touches => touches
+        | True | False, touches => touches
 
 --| A closer on the line of a waiting comment, after the spaces held.
 theorem Doc.Proofs.closeWaitingSeams ∀ (next: Seam → List Touch → Prop) (printer: Printer) (text: Text)
@@ -777,18 +744,14 @@ theorem Doc.Proofs.closeWaitingSeams ∀ (next: Seam → List Touch → Prop) (p
 theorem Doc.Proofs.sepWrites ∀ (seam: Seam) (trace: List Touch) (next: Seam → List Touch → Prop)
     (touches: SepTouches seam trace next):
     WriteTouches seam " " trace next :=
-  match seam, touches with
-    | Begun, Both flat _ => flat
-    | Along word, Both flat _ => flat
-    | Awaiting word comment, Both flat _ => flat
+  match seam, touches with | Begun | Along _ | Awaiting _ _, Both flat _ => flat
 
 --| A separator that breaks ends the line.
 theorem Doc.Proofs.sepBreaks ∀ (seam: Seam) (trace: List Touch) (next: Seam → List Touch → Prop)
     (touches: SepTouches seam trace next):
     next Begun (trace ++ seam.ending) :=
   match seam, touches with
-    | Begun, Both _ broken => rewrite List.appendNil trace then broken
-    | Along word, Both _ broken => rewrite List.appendNil trace then broken
+    | Begun | Along _, Both _ broken => rewrite List.appendNil trace then broken
     | Awaiting word comment, Both _ broken => broken
 
 --| A step that goes one way or the other holds if each way does.
@@ -932,8 +895,7 @@ theorem Doc.Proofs.displacedClear ∀ (printer: Printer) (trace: List Touch) (ne
   match same: printer.suffixes, clear, touches with
     | [], _, touches =>
       match start: printer.atLineStart, touches with
-        | True, touches => touches
-        | False, touches => touches
+        | True | False, touches => touches
 
 --| With a comment waiting, a `Displaced` element starts a line.
 theorem Doc.Proofs.displacedWaiting ∀ (printer: Printer) (trace: List Touch) (next: Seam → List Touch → Prop)
@@ -1014,8 +976,7 @@ theorem Doc.Proofs.stepTouches ∀ (spec: Seam → List Touch → Prop) (printer
             touches)
     | Print indent mode doc, steps, touches =>
       match doc, steps, touches with
-        | Doc.Nothing, steps, touches => rewrite steps then (sound, touches)
-        | BreakParent, steps, touches => rewrite steps then (sound, touches)
+        | Doc.Nothing | BreakParent, steps, touches => rewrite steps then (sound, touches)
         | Chunk text width, steps, touches =>
           rewrite steps then
             writeSeams (seam trace => StackTouches spec rest seam trace) printer indent text width sound touches
@@ -1073,9 +1034,7 @@ theorem Doc.Proofs.stepTouches ∀ (spec: Seam → List Touch → Prop) (printer
                 newlineSeams (seam trace => StackTouches spec rest seam trace) printer indent sound touches
         | Blank, steps, touches =>
           rewrite steps then blankSeams (seam trace => StackTouches spec rest seam trace) printer sound touches
-        | Nest more inner, steps, touches => rewrite steps then (sound, touches)
-        | Align inner, steps, touches => rewrite steps then (sound, touches)
-        | AlignInset inner, steps, touches => rewrite steps then (sound, touches)
+        | Nest _ _ | Align _ | AlignInset _, steps, touches => rewrite steps then (sound, touches)
         | Displaced inner, steps, touches =>
           rewrite steps then
             displaceSeams
@@ -1084,16 +1043,11 @@ theorem Doc.Proofs.stepTouches ∀ (spec: Seam → List Touch → Prop) (printer
               indent
               sound
               touches
-        | OneLineBelow inner, steps, touches => rewrite steps then (sound, touches)
-        | Flatten inner, steps, touches => rewrite steps then (sound, touches)
+        | OneLineBelow _ | Flatten _, steps, touches => rewrite steps then (sound, touches)
         | LineSuffix comment, steps, touches =>
           rewrite steps then suffixSeams (seam trace => StackTouches spec rest seam trace) printer comment sound touches
-        | Group inner hard, Inl (Both _ flat), touches => rewrite flat then (sound, touches)
-        | NarrowGroup max inner hard, Inl (Both _ flat), touches => rewrite flat then (sound, touches)
-        | Group inner hard, Inr (Both _ broken), touches => rewrite broken then (sound, touches)
-        | NarrowGroup max inner hard, Inr (Both _ broken), touches => rewrite broken then (sound, touches)
-        | IdGroup id inner hard, Inl (Both _ flat), touches => rewrite flat then (sound, touches)
-        | IdGroup id inner hard, Inr (Both _ broken), touches => rewrite broken then (sound, touches)
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), touches =>
+          rewrite flat then (sound, touches)
         | IfBroken id broken flat, steps, touches =>
           rewrite steps then
             (
@@ -1157,8 +1111,7 @@ theorem Doc.Proofs.readingTouches ∀ (spec: Seam → List Touch → Prop) (prin
     (enough: stackCost stack ≤ fuel):
     SeamHolds spec final :=
   match fuel, stack, reads, touches with
-    | Zero, [], reads, touches => rewrite reads then (sound, touches)
-    | Succ more, [], reads, touches => rewrite reads then (sound, touches)
+    | Zero | Succ _, [], reads, touches => rewrite reads then (sound, touches)
     | Zero, [cmd, ..rest], _, _ =>
       let positive := costPositive cmd
       Void.impossible (arithmetic)

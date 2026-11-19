@@ -54,8 +54,7 @@ theorem Doc.Proofs.payAtop ∀ (word: Text) (printer: Printer)
     (atop: Atop word printer.out):
     Atop word printer.payIndent.out :=
   match owed: printer.owed with
-    | None => atop
-    | Some Zero => atop
+    | None | Some Zero => atop
     | Some (Succ less) => atopCons word (" ".repeat (Succ less)) printer.out atop
 
 --| Text put on the line keeps the first piece first.
@@ -207,8 +206,7 @@ theorem Doc.Proofs.stepAtop ∀ (word: Text) (printer: Printer) (cmd: Cmd) (rest
     | FillSep indent item, Inr broken => rewrite broken then newlineAtop word printer indent solid atop
     | Print indent mode doc, steps =>
       match doc, steps with
-        | Doc.Nothing, steps => rewrite steps then atop
-        | BreakParent, steps => rewrite steps then atop
+        | Doc.Nothing | BreakParent, steps => rewrite steps then atop
         | Chunk text width, steps => rewrite steps then writeAtop word printer indent text width solid atop
         | Closing text, steps => rewrite steps then closeAtop word printer text atop
         | Line, steps =>
@@ -237,26 +235,13 @@ theorem Doc.Proofs.stepAtop ∀ (word: Text) (printer: Printer) (cmd: Cmd) (rest
               atop
               (newlineAtop word printer indent solid atop)
         | Blank, steps => rewrite steps then blankAtop word printer atop
-        | Nest more inner, steps => rewrite steps then atop
-        | Align inner, steps => rewrite steps then atop
-        | AlignInset inner, steps => rewrite steps then atop
+        | Nest _ _ | Align _ | AlignInset _, steps => rewrite steps then atop
         | Displaced inner, steps => rewrite steps then displaceAtop word printer indent solid atop
-        | OneLineBelow inner, steps => rewrite steps then atop
-        | Flatten inner, steps => rewrite steps then atop
-        | LineSuffix comment, steps => rewrite steps then atop
-        | Group inner hard, Inl (Both _ flat) => rewrite flat then atop
-        | NarrowGroup max inner hard, Inl (Both _ flat) => rewrite flat then atop
-        | Group inner hard, Inr (Both _ broken) => rewrite broken then atop
-        | NarrowGroup max inner hard, Inr (Both _ broken) => rewrite broken then atop
-        | IdGroup id inner hard, Inl (Both _ flat) => rewrite flat then atop
-        | IdGroup id inner hard, Inr (Both _ broken) => rewrite broken then atop
-        | IfBroken id broken flat, steps => rewrite steps then atop
-        | Concat docs, steps => rewrite steps then atop
-        | Fill [], steps => rewrite steps then atop
-        | Fill [first, ..others], Inl (Both _ flat) => rewrite flat then atop
-        | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)) => rewrite broken then atop
-        | Choice options, Inl (Both _ flat) => rewrite flat then atop
-        | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))) => rewrite broken then atop
+        | OneLineBelow _ | Flatten _ | LineSuffix _, steps => rewrite steps then atop
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat) => rewrite flat then atop
+        | IfBroken _ _ _ | Concat _ | Fill [], steps => rewrite steps then atop
+        | Fill [_, .._], Inl (Both _ flat) | Inr (Both _ (Witness _ flat)) => rewrite flat then atop
+        | Choice _, Inl (Both _ flat) | Inr (Both _ (Witness _ (Both _ flat))) => rewrite flat then atop
 
 --| Through every reading, a first piece that isn't spaces stays first.
 theorem Doc.Proofs.readingAtop ∀ (word: Text) (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer)
@@ -265,8 +250,7 @@ theorem Doc.Proofs.readingAtop ∀ (word: Text) (printer: Printer) (fuel: Nat) (
     (atop: Atop word printer.out):
     Atop word final.out :=
   match fuel, stack, reads with
-    | Zero, [], reads => rewrite reads then atop
-    | Succ more, [], reads => rewrite reads then atop
+    | Zero | Succ _, [], reads => rewrite reads then atop
     | Zero, [cmd, ..rest], reads => rewrite reads then atop
     | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)) =>
       readingAtop word next more later final laterReads solid
@@ -278,12 +262,8 @@ theorem Doc.Proofs.readingAtop ∀ (word: Text) (printer: Printer) (fuel: Nat) (
 --| layout, the printer writes it.
 def Doc.Proofs.Leads (word: Text): Doc → Prop
   | Chunk text _ => text = word
-  | Concat [first, .._] => Leads word first
-  | Nest _ inner => Leads word inner
-  | Group inner _ => Leads word inner
-  | NarrowGroup _ inner _ => Leads word inner
-  | IdGroup _ inner _ => Leads word inner
-  | Flatten inner => Leads word inner
+  | Concat [first, .._] | Nest _ first | Group first _ | NarrowGroup _ first _ | IdGroup _ first _ | Flatten first =>
+    Leads word first
   | _ => False
 
 --| From an empty output with no comment waiting and no indentation owed,
@@ -385,32 +365,7 @@ theorem Doc.Proofs.leadsReads ∀ (word: Text) (doc: Doc) (printer: Printer) (in
             filled
             solid
             (arithmetic)
-        | Group inner hard, leads, steps =>
-          let bound: 1 + inner.steps ≤ Succ more := enough
-          match steps with
-            | Inl (Both _ flat) =>
-              let moved := pairPrinter next printer later [Print indent Flat inner, ..rest] flat
-              let stack := pairStack next printer later [Print indent Flat inner, ..rest] flat
-              leadsReads word inner printer indent more Flat rest final leads
-                (rewrite moved, stack at laterReads then laterReads)
-                blank
-                clear
-                owed
-                filled
-                solid
-                (arithmetic)
-            | Inr (Both _ broken) =>
-              let moved := pairPrinter next printer later [Print indent Break inner, ..rest] broken
-              let stack := pairStack next printer later [Print indent Break inner, ..rest] broken
-              leadsReads word inner printer indent more Break rest final leads
-                (rewrite moved, stack at laterReads then laterReads)
-                blank
-                clear
-                owed
-                filled
-                solid
-                (arithmetic)
-        | NarrowGroup max inner hard, leads, steps =>
+        | Group inner _ | NarrowGroup _ inner _, leads, steps =>
           let bound: 1 + inner.steps ≤ Succ more := enough
           match steps with
             | Inl (Both _ flat) =>
@@ -506,13 +461,7 @@ theorem Doc.Proofs.printedLeads ∀ (word: Text) (doc: Doc) (width: Nat)
 --| A document that leads with a word isn't empty.
 theorem Doc.Proofs.leadsFilled ∀ (word: Text) (doc: Doc) (leads: Leads word doc): doc.isEmpty = False :=
   match doc, leads with
-    | Chunk text width, _ => byComputing
-    | Concat docs, _ => byComputing
-    | Nest deeper inner, _ => byComputing
-    | Group inner hard, _ => byComputing
-    | NarrowGroup max inner hard, _ => byComputing
-    | IdGroup id inner hard, _ => byComputing
-    | Flatten inner, _ => byComputing
+    | Chunk _ _ | Concat _ | Nest _ _ | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _ | Flatten _, _ => byComputing
 
 --| The docs put together, the empty ones left out, lead with what the
 --| first leads with.
@@ -520,9 +469,7 @@ theorem Doc.Proofs.leadsConcat ∀ (word: Text) (first: Doc) (docs: List Doc)
     (leads: Leads word first):
     Leads word (Doc.concat [first, ..docs]) :=
   rewrite leadsFilled word first leads then
-    match kept: docs.filter (doc => not doc.isEmpty) with
-      | [] => leads
-      | [next, ..others] => leads
+    match kept: docs.filter (doc => not doc.isEmpty) with | [] | [_, .._] => leads
 
 -- A document's last word.
 
@@ -530,10 +477,7 @@ theorem Doc.Proofs.leadsConcat ∀ (word: Text) (first: Doc) (docs: List Doc)
 --| a forced break, nothing, or a trailing comment, which only waits for
 --| the end of the line.
 def Doc.Proofs.Silent: Doc → Prop
-  | Doc.Nothing => True
-  | BreakParent => True
-  | Mark _ => True
-  | LineSuffix _ => True
+  | Doc.Nothing | BreakParent | Mark _ | LineSuffix _ => True
   | Concat docs => AllSilent docs
   | _ => False
 
@@ -545,18 +489,16 @@ def Doc.Proofs.AllSilent: List Doc → Prop
 --| `doc` ends with a word `last` holds of: whatever the layout, the last
 --| thing it writes is a chunk or closer, and after it only `Silent` docs.
 def Doc.Proofs.Finishes (last: Text → Prop): Doc → Prop
-  | Chunk text _ => last text
-  | Closing text => last text
-  | Nest _ inner => Finishes last inner
-  | Align inner => Finishes last inner
-  | AlignInset inner => Finishes last inner
-  | Displaced inner => Finishes last inner
-  | Group inner _ => Finishes last inner
-  | NarrowGroup _ inner _ => Finishes last inner
-  | IdGroup _ inner _ => Finishes last inner
+  | Chunk text _ | Closing text => last text
+  | Nest _ inner |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      IdGroup _ inner _ => Finishes last inner
   | IfBroken _ broken flat => Finishes last broken ∧ Finishes last flat
-  | Flatten inner => Finishes last inner
-  | OneLineBelow inner => Finishes last inner
+  | Flatten inner | OneLineBelow inner => Finishes last inner
   | Concat docs => FinishesAll last docs
   | Fill items => FinishesLast last items
   | Choice options => FinishesEach last options
@@ -581,8 +523,7 @@ def Doc.Proofs.FinishesEach (last: Text → Prop): List Doc → Prop
 
 --| A command's doc ends with a word.
 def Doc.Proofs.CmdFinishes (last: Text → Prop): Cmd → Prop
-  | Print _ _ doc => Finishes last doc
-  | FillSep _ item => Finishes last item
+  | Print _ _ doc | FillSep _ doc => Finishes last doc
 
 --| A command's doc is `Silent` (a fill separator never is: it writes a
 --| space or breaks the line).
@@ -710,10 +651,7 @@ theorem Doc.Proofs.stepFront ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) 
     | FillSep indent item, Inr broken => rewrite broken then ([Print indent Break item], byComputing)
     | Print indent mode doc, steps =>
       match doc, steps with
-        | Doc.Nothing, steps => rewrite steps then ([], byComputing)
-        | BreakParent, steps => rewrite steps then ([], byComputing)
-        | Chunk text width, steps => rewrite steps then ([], byComputing)
-        | Closing text, steps => rewrite steps then ([], byComputing)
+        | Doc.Nothing | BreakParent | Chunk _ _ | Closing _, steps => rewrite steps then ([], byComputing)
         | Line, steps =>
           rewrite steps then
             eitherFront mode.isFlat
@@ -728,10 +666,7 @@ theorem Doc.Proofs.stepFront ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) 
               [],
               byComputing
             )
-        | HardLine, steps => rewrite steps then ([], byComputing)
-        | Mark key, steps => rewrite steps then ([], byComputing)
-        | CloserLine key, steps => rewrite steps then ([], byComputing)
-        | LineStart, steps => rewrite steps then ([], byComputing)
+        | HardLine | Mark _ | CloserLine _ | LineStart, steps => rewrite steps then ([], byComputing)
         | LineStartHere, steps =>
           rewrite steps then
             eitherFront printer.atLineStart
@@ -804,26 +739,18 @@ theorem Doc.Proofs.cmdFinishes ∀ (last: Text → Prop) (printer: Printer) (cmd
     (silent: StackSilent rest):
     Finishing last result.fst result.snd :=
   match cmd, steps, ends with
-    | FillSep indent item, Inl (Both _ flat), ends => rewrite flat then Inl (Inr (ends, silent))
-    | FillSep indent item, Inr broken, ends => rewrite broken then Inl (Inr (ends, silent))
+    | FillSep _ _, Inl (Both _ flat) | Inr flat, ends => rewrite flat then Inl (Inr (ends, silent))
     | Print indent mode doc, steps, ends =>
       match doc, steps, ends with
         | Chunk text width, steps, isLast =>
           rewrite steps then Inr ((writeTopped last printer indent text width (solid text isLast) isLast), silent)
         | Closing text, steps, isLast =>
           rewrite steps then Inr ((closeTopped last printer text (solid text isLast) isLast), silent)
-        | Nest more inner, steps, ends => rewrite steps then Inl (Inr (ends, silent))
-        | Align inner, steps, ends => rewrite steps then Inl (Inr (ends, silent))
-        | AlignInset inner, steps, ends => rewrite steps then Inl (Inr (ends, silent))
-        | Displaced inner, steps, ends => rewrite steps then Inl (Inr (ends, silent))
-        | Flatten inner, steps, ends => rewrite steps then Inl (Inr (ends, silent))
+        | Nest _ _ | Align _ | AlignInset _ | Displaced _ | Flatten _, steps, ends =>
+          rewrite steps then Inl (Inr (ends, silent))
         | OneLineBelow inner, steps, ends => rewrite steps then Inl (Inl (Inr (ends, silent)))
-        | Group inner hard, Inl (Both _ flat), ends => rewrite flat then Inl (Inr (ends, silent))
-        | Group inner hard, Inr (Both _ broken), ends => rewrite broken then Inl (Inr (ends, silent))
-        | NarrowGroup max inner hard, Inl (Both _ flat), ends => rewrite flat then Inl (Inr (ends, silent))
-        | NarrowGroup max inner hard, Inr (Both _ broken), ends => rewrite broken then Inl (Inr (ends, silent))
-        | IdGroup id inner hard, Inl (Both _ flat), ends => rewrite flat then Inl (Inr (ends, silent))
-        | IdGroup id inner hard, Inr (Both _ broken), ends => rewrite broken then Inl (Inr (ends, silent))
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), ends =>
+          rewrite flat then Inl (Inr (ends, silent))
         | IfBroken id broken flat, steps, Both brokenEnds flatEnds =>
           rewrite steps then Inl (Inr ((pickFinishes last printer.modes id broken flat brokenEnds flatEnds), silent))
         | Concat docs, steps, ends => rewrite steps then Inl (printsFinish last indent mode docs rest ends silent)
@@ -856,10 +783,7 @@ theorem Doc.Proofs.silentStep ∀ (last: Text → Prop) (printer: Printer) (cmd:
   match cmd, steps, quiet with
     | Print indent mode doc, steps, quiet =>
       match doc, steps, quiet with
-        | Doc.Nothing, steps, _ => rewrite steps then Inr (topped, silent)
-        | BreakParent, steps, _ => rewrite steps then Inr (topped, silent)
-        | Mark key, steps, _ => rewrite steps then Inr (topped, silent)
-        | LineSuffix comment, steps, _ => rewrite steps then Inr (topped, silent)
+        | Doc.Nothing | BreakParent | Mark _ | LineSuffix _, steps, _ => rewrite steps then Inr (topped, silent)
         | Concat docs, steps, quiet =>
           rewrite steps then Inr (topped, (printsSilent indent mode docs rest quiet silent))
         | _, _, never => cases
@@ -889,8 +813,7 @@ theorem Doc.Proofs.readingFinishes ∀ (last: Text → Prop) (printer: Printer) 
     (enough: stackCost stack ≤ fuel):
     Topped last final :=
   match fuel, stack, reads, ahead with
-    | Zero, [], reads, Inr (Both topped _) => rewrite reads then topped
-    | Succ more, [], reads, Inr (Both topped _) => rewrite reads then topped
+    | Zero | Succ _, [], reads, Inr (Both topped _) => rewrite reads then topped
     | _, [], _, Inl never => cases
     | Zero, [cmd, ..rest], _, _ =>
       let positive := costPositive cmd
@@ -910,8 +833,7 @@ theorem Doc.Proofs.readingQuiet ∀ (closer suffix: Text → Prop) (printer: Pri
     (waits: Every suffix printer.suffixes):
     Every suffix final.suffixes :=
   match fuel, stack, reads, marked with
-    | Zero, [], reads, _ => rewrite reads then waits
-    | Succ more, [], reads, _ => rewrite reads then waits
+    | Zero | Succ _, [], reads, _ => rewrite reads then waits
     | Zero, [cmd, ..rest], reads, _ => rewrite reads then waits
     | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), Both first others =>
       readingQuiet closer suffix next more later final laterReads
@@ -1015,21 +937,21 @@ theorem Doc.Proofs.printedFinishes ∀ (last closer suffix: Text → Prop) (doc:
 theorem Doc.Proofs.finishesFilled ∀ (last: Text → Prop) (doc: Doc) (ends: Finishes last doc): doc.isEmpty = False :=
   match doc, ends with
     | Doc.Nothing, never => cases
-    | Chunk _ _, _ => byComputing
-    | Closing _, _ => byComputing
-    | Nest _ _, _ => byComputing
-    | Align _, _ => byComputing
-    | AlignInset _, _ => byComputing
-    | Displaced _, _ => byComputing
-    | Group _ _, _ => byComputing
-    | NarrowGroup _ _ _, _ => byComputing
-    | IdGroup _ _ _, _ => byComputing
-    | IfBroken _ _ _, _ => byComputing
-    | Flatten _, _ => byComputing
-    | OneLineBelow _, _ => byComputing
-    | Concat _, _ => byComputing
-    | Fill _, _ => byComputing
-    | Choice _, _ => byComputing
+    | Chunk _ _ |
+        Closing _ |
+        Nest _ _ |
+        Align _ |
+        AlignInset _ |
+        Displaced _ |
+        Group _ _ |
+        NarrowGroup _ _ _ |
+        IdGroup _ _ _ |
+        IfBroken _ _ _ |
+        Flatten _ |
+        OneLineBelow _ |
+        Concat _ |
+        Fill _ |
+        Choice _, _ => byComputing
 
 --| Leaving out the empty docs keeps silent docs silent.
 theorem Doc.Proofs.silentKept ∀ (docs: List Doc)
@@ -1093,8 +1015,7 @@ theorem Doc.Proofs.joinedFinishes ∀ (last: Text → Prop) (separator: Doc) (do
     FinishesLast last (Doc.joinedWith separator docs) :=
   match docs, ends with
     | [], never => cases
-    | [only], ends => ends
-    | [doc, next], ends => ends
+    | [_] | [_, _], ends => ends
     | [doc, next, after, ..more], ends => joinedFinishes last separator [next, after, ..more] ends
 
 --| Docs whose last finishes with a word still do with docs in front.

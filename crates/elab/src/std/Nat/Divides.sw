@@ -129,9 +129,7 @@ theorem Nat.mulEqZero ∀ (m n: Nat) (h: m * n = 0): (m = 0) ∨ (n = 0) := matc
   | Succ m, Succ n => arithmetic [Nat.leMulPos (Succ m) (Succ n) (arithmetic)]
 
 --| A square is 0 only for 0.
-theorem Nat.mulSelfZero ∀ (n: Nat) (h: n * n = 0): n = 0 := match Nat.mulEqZero n n h with
-  | Inl z => z
-  | Inr z => z
+theorem Nat.mulSelfZero ∀ (n: Nat) (h: n * n = 0): n = 0 := match Nat.mulEqZero n n h with | Inl z | Inr z => z
 
 --| A square is 1 only for 1.
 theorem Nat.mulSelfOne ∀ (n: Nat) (square: n * n = 1): n = 1 := match n with

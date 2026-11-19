@@ -103,9 +103,7 @@ def Text.joinPair (separator: Char): (state: Pair (List Char) (List (List Char))
 
 theorem Text.joinCons ∀ (s c: Char) (f: List Char) (fs: List (List Char)):
     Text.joinChars s [c, ..f] fs = [c, ..Text.joinChars s f fs] :=
-  match fs with
-    | [] => byComputing
-    | [g, ..gs] => byComputing
+  match fs with | [] | [_, .._] => byComputing
 
 theorem Text.joinSplitCons ∀ (s c: Char) (cs: List Char):
     ∀ (p: Pair (List Char) (List (List Char))) => Text.joinPair s p = cs
@@ -215,9 +213,7 @@ theorem Char.lineFeedCodeIs ∀ (code: Nat) (h: Char.isLineFeedCode code = True)
 theorem Text.spaceTabPlain ∀ (char: Char)
     (h: (char == ' ' ∨ char == '\t') = True):
     Char.isLineFeedCode (Char.toNat char) = False ∧ Char.isCarriageReturnCode (Char.toNat char) = False :=
-  match h with
-    | Inl left => rewrite left.read then Both byComputing byComputing
-    | Inr right => rewrite right.read then Both byComputing byComputing
+  match h with | Inl left | Inr left => rewrite left.read then Both byComputing byComputing
 
 --| `Text.linesFrom` keeps its finished lines apart from the line it is on:
 --| the finished lines (`acc`, newest first) come first, in order.
@@ -960,8 +956,7 @@ theorem Char.utf8LengthNeZero ∀ (char: Char): ((Char.utf8 char).length == 0) =
         | True => byComputing
         | False =>
           match Nat.leq char.toNat 65535 with
-            | True => byComputing
-            | False => byComputing
+            | True | False => byComputing
 
 --| Characters none of which is a line break do not contain one.
 theorem Text.containsLineBreakFalse ∀ (chars: List Char)

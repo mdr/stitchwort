@@ -6,34 +6,18 @@
 
 --| `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
 --| commutes.
-theorem Bool.orFalse ∀ (b: Bool): (b ∨ False) = b := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.orFalse ∀ (b: Bool): (b ∨ False) = b := match b with | True | False => byComputing
 
-theorem Bool.orTrue ∀ (b: Bool): (b ∨ True) = True := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.orTrue ∀ (b: Bool): (b ∨ True) = True := match b with | True | False => byComputing
 
-theorem Bool.orAssoc ∀ (a b c: Bool): ((a ∨ b) ∨ c) = (a ∨ (b ∨ c)) := match a with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.orAssoc ∀ (a b c: Bool): ((a ∨ b) ∨ c) = (a ∨ (b ∨ c)) := match a with | True | False => byComputing
 
-theorem Bool.orComm ∀ (a b: Bool): (a ∨ b) = (b ∨ a) := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
-  | False, True => byComputing
-  | False, False => byComputing
+theorem Bool.orComm ∀ (a b: Bool): (a ∨ b) = (b ∨ a) := match a, b with | True | False, True | False => byComputing
 
 --| `&&` on `Bool`s groups and commutes, as `||` does.
-theorem Bool.andAssoc ∀ (a b c: Bool): ((a ∧ b) ∧ c) = (a ∧ (b ∧ c)) := match a with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.andAssoc ∀ (a b c: Bool): ((a ∧ b) ∧ c) = (a ∧ (b ∧ c)) := match a with | True | False => byComputing
 
-theorem Bool.andComm ∀ (a b: Bool): (a ∧ b) = (b ∧ a) := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
-  | False, True => byComputing
-  | False, False => byComputing
+theorem Bool.andComm ∀ (a b: Bool): (a ∧ b) = (b ∧ a) := match a, b with | True | False, True | False => byComputing
 
 --| `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
 --| are equal when each implies the other.
@@ -110,9 +94,7 @@ theorem Bool.notOfFalse ∀ (a: Bool) (h: a = False): (¬a) = True := match a wi
 theorem Bool.notOfTrue ∀ (a: Bool) (h: a = True): (¬a) = False := match a with | True => byComputing
 
 --| `Bool.toNat` is 0 or 1, for `arithmetic` (`arithmetic [Bool.toNatLeOne b]`).
-theorem Bool.toNatLeOne ∀ (b: Bool): Bool.toNat b ≤ 1 := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.toNatLeOne ∀ (b: Bool): Bool.toNat b ≤ 1 := match b with | True | False => byComputing
 
 --| `&&` chained is `False` when its last operand is.
 theorem Bool.andAndFalse ∀ (a b c: Bool) (no: c = False): (a && b && c) = False := match a, b with
@@ -169,9 +151,7 @@ theorem Bool.andFalseLeftOf ∀ (a b c: Bool) (no: (a && b) = False): (a && b &&
   | False, _, no => byComputing
 
 --| A chained `&&` is `False` when its middle operand is.
-theorem Bool.andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a with | True | False => byComputing
 
 --| The `Bool` facts that lived in other files: the `Bool` lemmas from
 --| `List/SortLemmas.sw`, and the theorems about nothing but `Bool` from
@@ -181,23 +161,16 @@ theorem Bool.toNatAddLeOne ∀ (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n
   | False, n => h
   | True, Zero => byComputing
 
-theorem Bool.andFalse ∀ (b: Bool): (b ∧ False) = False := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.andFalse ∀ (b: Bool): (b ∧ False) = False := match b with | True | False => byComputing
 
-theorem Bool.andTrue ∀ (b: Bool): (b ∧ True) = b := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Bool.andTrue ∀ (b: Bool): (b ∧ True) = b := match b with | True | False => byComputing
 
 theorem Float.notNotAndOr ∀ (a b c d: Bool)
     (ha: a = False)
     (hb: b = False)
     (hd: d = True):
     (¬a ∧ ¬b ∧ (c ∨ d)) = True :=
-  rewrite ha, hb, hd then
-    match c with
-      | True => byComputing
-      | False => byComputing
+  rewrite ha, hb, hd then match c with | True | False => byComputing
 
 theorem Float.notNotAndNotAnd ∀ (a b c d: Bool)
     (ha: a = False)
@@ -211,19 +184,12 @@ theorem Float.Theory.boolCases ∀ (b: Bool): (b = True) ∨ (b = False) := matc
   | True => Inl byComputing
   | False => Inr byComputing
 
-theorem Float.Theory.andFalseRight ∀ (b: Bool): (b ∧ False) = False := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Float.Theory.andFalseRight ∀ (b: Bool): (b ∧ False) = False := match b with | True | False => byComputing
 
-theorem Float.Theory.andTrueRight ∀ (b: Bool): (b ∧ True) = b := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Float.Theory.andTrueRight ∀ (b: Bool): (b ∧ True) = b := match b with | True | False => byComputing
 
 theorem Float.Theory.andSwap ∀ (a b: Bool): (a ∧ b) = (b ∧ a) := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
-  | False, True => byComputing
-  | False, False => byComputing
+  | True | False, True | False => byComputing
 
 theorem Float.Theory.orFalse ∀ (x y: Bool) (hx: x = False) (hy: y = False): (x ∨ y) = False := rewrite hx, hy
 
@@ -233,9 +199,7 @@ theorem Float.Theory.orRightFalse ∀ (x y: Bool) (h: (x ∨ y) = False): y = Fa
   | True => cases
   | False => byComputing
 
-theorem Float.Theory.xorFalse ∀ (b: Bool): Bool.xor b False = b := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Float.Theory.xorFalse ∀ (b: Bool): Bool.xor b False = b := match b with | True | False => byComputing
 
 theorem Float.Theory.andFalseUp ∀ (a b c: Bool) (f: a = False → b = False) (k: (a ∧ c) = False): (b ∧ c) = False :=
   match a, b with
@@ -255,10 +219,7 @@ theorem Float.Theory.xorFalseUp ∀ (a b c: Bool)
     | True, False => hc
 
 theorem Float.Theory.xorComm ∀ (a b: Bool): Bool.xor a b = Bool.xor b a := match a, b with
-  | True, True => byComputing
-  | True, False => byComputing
-  | False, True => byComputing
-  | False, False => byComputing
+  | True | False, True | False => byComputing
 
 --| A disjunction that is false has a false right side.
 theorem Doc.orFalseRight ∀ (left right: Bool) (plain: (left || right) = False): right = False :=

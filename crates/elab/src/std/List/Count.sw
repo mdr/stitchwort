@@ -68,8 +68,7 @@ theorem List.lengthFilter ∀ (xs: List a) (p: a → Bool): List.length (List.fi
     | [x, ..rest] =>
       rewrite List.countCons rest x p, <- List.lengthFilter rest p then
         match keep: p x with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
 
 --| A count is at most the length, and so is a `filter`'s length; filtering
 --| out an element that is there makes the list shorter.

@@ -51,14 +51,12 @@ theorem List.zipWithNextExample: List.zipWithNext [1, 2, 3] = [MkPair 1 2, MkPai
 
 --| One pair fewer than there are elements.
 theorem List.lengthZipWithNext ∀ (xs: List a): List.length (List.zipWithNext xs) = List.length xs - 1 := match xs with
-  | [] => byComputing
-  | [x] => byComputing
+  | [] | [_] => byComputing
   | [x, next, ..rest] => rewrite List.lengthZipWithNext [next, ..rest]
 
 --| The list zipped with its own tail.
 theorem List.zipWithNextZip ∀ (xs: List a): List.zipWithNext xs = List.zip xs (List.tailOf xs) := match xs with
-  | [] => byComputing
-  | [x] => byComputing
+  | [] | [_] => byComputing
   | [x, next, ..rest] => rewrite List.zipWithNextZip [next, ..rest]
 
 theorem List.chainEmpty ∀ (holds: a → a → Bool): List.chain [] holds = True := byComputing
@@ -73,8 +71,7 @@ theorem List.chainCons ∀ (x next: a) (rest: List a) (holds: a → a → Bool):
 theorem List.chainZipWithNext ∀ (xs: List a) (holds: a → a → Bool):
     List.chain xs holds = (List.zipWithNext xs |> .all (pair => holds pair.fst pair.snd)) :=
   match xs with
-    | [] => byComputing
-    | [x] => byComputing
+    | [] | [_] => byComputing
     | [x, next, ..rest] => rewrite List.chainZipWithNext [next, ..rest] holds
 
 --| Without the first element, it still holds.
@@ -82,8 +79,7 @@ theorem List.chainTail ∀ (xs: List a) (holds: a → a → Bool)
     (chained: List.chain xs holds = True):
     List.chain (List.tailOf xs) holds = True :=
   match xs with
-    | [] => byComputing
-    | [x] => byComputing
+    | [] | [_] => byComputing
     | [x, next, ..rest] =>
       let Both _ more := chained
       more
@@ -100,8 +96,7 @@ theorem List.chainInitCons ∀ (x: a) (rest: List a) (holds: a → a → Bool)
     (chained: List.chain [x, ..rest] holds = True):
     List.chain (List.init [x, ..rest]) holds = True :=
   match rest with
-    | [] => byComputing
-    | [next] => byComputing
+    | [] | [_] => byComputing
     | [next, after, ..more] =>
       let Both first rest := chained
       Both first (List.chainInitCons next [after, ..more] holds rest)
@@ -110,8 +105,7 @@ theorem List.chainInitCons ∀ (x: a) (rest: List a) (holds: a → a → Bool)
 theorem List.chainAnd ∀ (xs: List a) (holds1 holds2: a → a → Bool):
     List.chain xs (x y => holds1 x y ∧ holds2 x y) = (List.chain xs holds1 ∧ List.chain xs holds2) :=
   match xs with
-    | [] => byComputing
-    | [x] => byComputing
+    | [] | [_] => byComputing
     | [x, next, ..rest] => rewrite List.chainAnd [next, ..rest] holds1 holds2 then cases
 
 --| `all` over a cons: the head's answer, then the rest's.
@@ -490,8 +484,7 @@ theorem List.filterAppend ∀ (xs ys: List a) (p: a → Bool):
     | [] => byComputing
     | [x, ..rest] =>
       match t: p x with
-        | True => rewrite List.filterAppend rest ys p
-        | False => rewrite List.filterAppend rest ys p
+        | True | False => rewrite List.filterAppend rest ys p
 
 theorem List.foldLeftAppend ∀ (xs: List a) (z: b) (ys: List a) (f: b → a → b):
     List.foldLeft (List.append xs ys) z f = List.foldLeft ys (List.foldLeft xs z f) f :=

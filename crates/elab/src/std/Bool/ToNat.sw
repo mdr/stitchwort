@@ -11,13 +11,10 @@ theorem Bool.toNatEqZero ∀ (b: Bool) (h: Bool.toNat b = 0): b = False := match
 --| `toNat` of a conjunction: the second `Bool`'s count, kept only when the
 --| first holds.
 theorem Bool.toNatAnd ∀ (a: Bool) [b: Bool]: Bool.toNat (a ∧ b) = b.toNat.keepIf a := match a with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 --| The parity of a `Bool`'s `toNat` is the `Bool`.
-theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with
-  | False => byComputing
-  | True => byComputing
+theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with | False | True => byComputing
 
 test "Bool.toNatAnd" :=
   Bool.toNat (True ∧ False) == Nat.keepIf (Bool.toNat False) True

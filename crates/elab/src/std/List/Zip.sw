@@ -170,10 +170,7 @@ theorem List.getMapWithIndex ∀ (xs: List a) (f: Nat → a → b) (k: Nat):
   let mapped: List.get (List.mapWithIndex xs f) k
     = Option.map (Option.map (List.get xs k) (x => MkPair k x)) (pair => f pair.fst pair.snd) :=
     rewrite <- List.getWithIndex xs k then List.getMap (List.withIndex xs) (pair => f pair.fst pair.snd) k
-  rewrite mapped then
-    match List.get xs k with
-      | None => byComputing
-      | Some x => byComputing
+  rewrite mapped then match List.get xs k with | None | Some _ => byComputing
 
 --| `zipWith` has `f x y` where both lists have an element, `x` and `y`.
 theorem List.getZipWith ∀ (f: a → b → c) (xs: List a) (ys: List b) (k: Nat):
@@ -183,8 +180,7 @@ theorem List.getZipWith ∀ (f: a → b → c) (xs: List a) (ys: List b) (k: Nat
     | [x, ..xs], [], Zero => byComputing
     | [x, ..xs], [], Succ k =>
       match c: List.get xs k with
-        | None => byComputing
-        | Some u => byComputing
+        | None | Some _ => byComputing
     | [x, ..xs], [y, ..ys], Zero => byComputing
     | [x, ..xs], [y, ..ys], Succ k => List.getZipWith f xs ys k
 
@@ -300,8 +296,7 @@ theorem List.getScanLeft ∀ (f: b → a → b) (xs: List a) (z: b) (k: Nat)
     (h: k ≤ List.length xs):
     List.get (List.scanLeft xs z f) k = Some (List.foldLeft (List.take xs k) z f) :=
   match xs, k with
-    | [], Zero => byComputing
-    | [x, ..xs], Zero => byComputing
+    | [] | [_, .._], Zero => byComputing
     | [x, ..xs], Succ k => List.getScanLeft f xs (f z x) k h
 
 --| Element k of each element beside the running accumulations is `g` of
@@ -492,8 +487,7 @@ theorem List.mapZipWith ∀ (f: a → b → c) (g: c → d) (xs: List a) (ys: Li
 theorem List.zipWithSwap ∀ (f: a → b → c) (xs: List a) (ys: List b):
     List.zipWith ys xs (y x => f x y) = List.zipWith xs ys f :=
   match xs, ys with
-    | [], [] => byComputing
-    | [], [y, ..ys] => byComputing
+    | [], [] | [_, .._] => byComputing
     | [x, ..xs], [] => byComputing
     | [x, ..xs], [y, ..ys] => rewrite List.zipWithSwap f xs ys
 
@@ -715,8 +709,7 @@ theorem List.eqNilOfIsEmpty ∀ (xs: List a) (empty: xs.isEmpty = True): xs = []
 
 --| A list with an element after the front is not empty.
 theorem List.isEmptyAppendCons ∀ (xs: List a) (y: a) (ys: List a): (xs ++ [y, ..ys]).isEmpty = False := match xs with
-  | [] => byComputing
-  | [_, .._] => byComputing
+  | [] | [_, .._] => byComputing
 
 --| Dropping the length of the first part off a join leaves the second part.
 theorem List.dropAppendOf ∀ (whole read later: List t)

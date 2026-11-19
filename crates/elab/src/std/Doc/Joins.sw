@@ -114,25 +114,18 @@ def Doc.Proofs.SuffixJoins (follows: Text → Text → Prop) (edge: Edge) (next:
 --| From `edge`, every way `doc` may print puts each piece after one it
 --| may follow, and every edge it may leave satisfies `next`.
 def Doc.Proofs.Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge → Prop): Prop := match doc with
-  | Doc.Nothing => next edge
-  | BreakParent => next edge
-  | Blank => next edge
+  | Doc.Nothing | BreakParent | Blank => next edge
   | Chunk text _ => WriteJoins follows edge text next
   | Closing text => CloseJoins follows edge text next
   | Line => SepJoins follows edge next
   | SoftLine => SoftJoins edge next
   | HardLine => next (Plain None)
-  | LineStart => StartJoins edge next
-  | LineStartHere => StartJoins edge next
+  | LineStart | LineStartHere => StartJoins edge next
   | Mark _ => next edge
   | CloserLine _ => next (Plain None)
-  | Nest _ inner => Joins follows inner edge next
-  | Align inner => Joins follows inner edge next
-  | AlignInset inner => Joins follows inner edge next
+  | Nest _ inner | Align inner | AlignInset inner => Joins follows inner edge next
   | Displaced inner => DisplacedJoins edge (start => Joins follows inner start next)
-  | Group inner _ => Joins follows inner edge next
-  | NarrowGroup _ inner _ => Joins follows inner edge next
-  | IdGroup _ inner _ => Joins follows inner edge next
+  | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _ => Joins follows inner edge next
   | IfBroken _ broken flat => Joins follows broken edge next ∧ Joins follows flat edge next
   | Flatten inner => Joins follows inner edge next
   | OneLineBelow inner => Joins follows inner (Plain None) next
@@ -219,9 +212,7 @@ theorem Doc.Proofs.softWeaker ∀ (edge: Edge)
     (strong weak: Edge → Prop) (implies: ∀ (after: Edge) => strong after → weak after)
     (joins: SoftJoins edge strong):
     SoftJoins edge weak :=
-  match edge, joins with
-    | Plain touching, Both same broken => ((implies _ same), (implies _ broken))
-    | Waiting touching, Both same broken => ((implies _ same), (implies _ broken))
+  match edge, joins with | Plain _ | Waiting _, Both same broken => ((implies _ same), (implies _ broken))
 
 --| `StartJoins` holds with a weaker requirement on the edge after it, if it
 --| holds with a stronger one.
@@ -249,21 +240,16 @@ theorem Doc.Proofs.joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) 
     (joins: Joins follows doc edge strong):
     Joins follows doc edge weak :=
   match doc, joins with
-    | Doc.Nothing, joins => implies edge joins
-    | BreakParent, joins => implies edge joins
-    | Blank, joins => implies edge joins
+    | Doc.Nothing | BreakParent | Blank, joins => implies edge joins
     | Chunk text width, joins => writeWeaker follows edge text strong weak implies joins
     | Closing text, joins => closeWeaker follows edge text strong weak implies joins
     | Line, joins => sepWeaker follows edge strong weak implies joins
     | SoftLine, joins => softWeaker edge strong weak implies joins
     | HardLine, joins => implies _ joins
-    | LineStart, joins => startWeaker edge strong weak implies joins
-    | LineStartHere, joins => startWeaker edge strong weak implies joins
+    | LineStart | LineStartHere, joins => startWeaker edge strong weak implies joins
     | Mark key, joins => implies edge joins
     | CloserLine key, joins => implies _ joins
-    | Nest more inner, joins => joinsWeaker follows inner edge strong weak implies joins
-    | Align inner, joins => joinsWeaker follows inner edge strong weak implies joins
-    | AlignInset inner, joins => joinsWeaker follows inner edge strong weak implies joins
+    | Nest _ inner | Align inner | AlignInset inner, joins => joinsWeaker follows inner edge strong weak implies joins
     | Displaced inner, joins =>
       match edge, joins with
         | Plain touching, joins => joinsWeaker follows inner (Plain touching) strong weak implies joins
@@ -271,9 +257,8 @@ theorem Doc.Proofs.joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) 
           (joinsWeaker follows inner (Waiting touching) strong weak implies stays),
           (joinsWeaker follows inner (Plain None) strong weak implies broken)
         )
-    | Group inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
-    | NarrowGroup max inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
-    | IdGroup id inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, joins =>
+      joinsWeaker follows inner edge strong weak implies joins
     | IfBroken id broken flat, Both brokenJoins flatJoins => (
       (joinsWeaker follows broken edge strong weak implies brokenJoins),
       (joinsWeaker follows flat edge strong weak implies flatJoins)
@@ -412,8 +397,7 @@ theorem Doc.Proofs.optionJoins ∀ (follows: Text → Text → Prop) (chosen: Do
     (joins: OptionsJoin follows options edge next):
     Joins follows chosen edge next :=
   match options, isOption, joins with
-    | [], picked, joins => rewrite picked then joins
-    | [last], picked, joins => rewrite picked then joins
+    | [] | [_], picked, joins => rewrite picked then joins
     | [option, second, ..others], Inl picked, Both first _ => rewrite picked then first
     | [option, second, ..others], Inr later, Both _ rest =>
       optionJoins follows chosen [second, ..others] edge next later rest
@@ -423,8 +407,7 @@ theorem Doc.Proofs.headOrJoins ∀ (follows: Text → Text → Prop) (options: L
     (joins: OptionsJoin follows options edge next):
     Joins follows (options.headOr Doc.Nothing) edge next :=
   match options, joins with
-    | [], joins => joins
-    | [last], joins => joins
+    | [] | [_], joins => joins
     | [option, second, ..others], Both first _ => first
 
 -- The printer's side: what its output must satisfy between steps.
@@ -626,8 +609,7 @@ theorem Doc.Proofs.payPairs ∀ (follows: Text → Text → Prop) (printer: Prin
     (accepts: Accepts follows printer.out text):
     Pairs follows [text, ..printer.payIndent.out] :=
   match owed: printer.owed, owedOk with
-    | None, _ => (filled, accepts, pairs)
-    | Some Zero, _ => (filled, accepts, pairs)
+    | None | Some Zero, _ => (filled, accepts, pairs)
     | Some (Succ less), Inr start => (
       filled,
       (Inl (spacesIsLayout _ (indentSpaces (Succ less)))),
@@ -960,9 +942,7 @@ theorem Doc.Proofs.closeHolds ∀ (follows: Text → Text → Prop) (next: Edge 
 theorem Doc.Proofs.sepBreak ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (edge: Edge)
     (joins: SepJoins follows edge next):
     next (Plain None) :=
-  match edge, joins with
-    | Plain touching, Both _ after => after
-    | Waiting _, Both _ after => after
+  match edge, joins with | Plain _ | Waiting _, Both _ after => after
 
 --| A separator's space: written where no comment waits, held where one
 --| does.
@@ -982,15 +962,11 @@ theorem Doc.Proofs.sepWrite ∀ (follows: Text → Text → Prop) (next: Edge �
 
 --| A soft line joins where it breaks, with nothing touched after the break.
 theorem Doc.Proofs.softBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next (Plain None) :=
-  match edge, joins with
-    | Plain touching, Both _ broken => broken
-    | Waiting _, Both _ broken => broken
+  match edge, joins with | Plain _ | Waiting _, Both _ broken => broken
 
 --| A soft line that stays flat leaves the edge as it was.
 theorem Doc.Proofs.softStay ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next edge :=
-  match edge, joins with
-    | Plain touching, Both same _ => same
-    | Waiting touching, Both same _ => same
+  match edge, joins with | Plain _ | Waiting _, Both same _ => same
 
 --| A line start that breaks leaves nothing touched after it.
 theorem Doc.Proofs.startBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: StartJoins edge next): next (Plain None) :=
@@ -1098,9 +1074,7 @@ theorem Doc.Proofs.breakWaits ∀ (follows: Text → Text → Prop) (suffixes ou
 theorem Doc.Proofs.breakEdge ∀ (suffixes out: List Text)
     (fresh: Fresh out):
     edgeOf suffixes ["\n", ..out] = edgeOf suffixes out :=
-  match empty: suffixes.isEmpty with
-    | True => rewrite freshTouch out fresh
-    | False => rewrite freshTouch out fresh
+  match empty: suffixes.isEmpty with | True | False => rewrite freshTouch out fresh
 
 --| A kept blank line: the edge is as it was, a line start.
 theorem Doc.Proofs.blankedHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
@@ -1204,8 +1178,7 @@ theorem Doc.Proofs.stepJoins ∀ (follows: Text → Text → Prop) (printer: Pri
             joins)
     | Print indent mode doc, steps, joins =>
       match doc, steps, joins with
-        | Doc.Nothing, steps, joins => rewrite steps then (sound, joins)
-        | BreakParent, steps, joins => rewrite steps then (sound, joins)
+        | Doc.Nothing | BreakParent, steps, joins => rewrite steps then (sound, joins)
         | Chunk text width, steps, joins =>
           rewrite steps then
             writeHolds follows (edge => StackJoins follows rest edge) printer indent text width sound joins
@@ -1271,9 +1244,7 @@ theorem Doc.Proofs.stepJoins ∀ (follows: Text → Text → Prop) (printer: Pri
                   (startBreak (edge => StackJoins follows rest edge) printer.edge joins)
         | Blank, steps, joins =>
           rewrite steps then blankHolds follows (edge => StackJoins follows rest edge) printer sound joins
-        | Nest more inner, steps, joins => rewrite steps then (sound, joins)
-        | Align inner, steps, joins => rewrite steps then (sound, joins)
-        | AlignInset inner, steps, joins => rewrite steps then (sound, joins)
+        | Nest _ _ | Align _ | AlignInset _, steps, joins => rewrite steps then (sound, joins)
         | Displaced inner, steps, joins =>
           rewrite steps then
             displaceHolds follows
@@ -1282,17 +1253,12 @@ theorem Doc.Proofs.stepJoins ∀ (follows: Text → Text → Prop) (printer: Pri
               indent
               sound
               joins
-        | OneLineBelow inner, steps, joins => rewrite steps then (sound, joins)
-        | Flatten inner, steps, joins => rewrite steps then (sound, joins)
+        | OneLineBelow _ | Flatten _, steps, joins => rewrite steps then (sound, joins)
         | LineSuffix comment, steps, Both filled joins =>
           rewrite steps then
             suffixHolds follows (edge => StackJoins follows rest edge) printer comment sound filled joins
-        | Group inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
-        | NarrowGroup max inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
-        | Group inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
-        | NarrowGroup max inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
-        | IdGroup id inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
-        | IdGroup id inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
+        | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), joins =>
+          rewrite flat then (sound, joins)
         | IfBroken id broken flat, steps, joins =>
           rewrite steps then
             (
@@ -1343,8 +1309,7 @@ theorem Doc.Proofs.readingJoins ∀ (follows: Text → Text → Prop) (printer: 
     (joins: StackJoins follows stack printer.edge):
     Sound follows final :=
   match fuel, stack, reads, joins with
-    | Zero, [], reads, _ => rewrite reads then sound
-    | Succ more, [], reads, _ => rewrite reads then sound
+    | Zero | Succ _, [], reads, _ => rewrite reads then sound
     | Zero, [cmd, ..rest], reads, _ => rewrite reads then sound
     | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), joins =>
       match stepJoins follows printer cmd rest (next, later) steps sound joins with

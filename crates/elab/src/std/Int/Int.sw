@@ -8,9 +8,7 @@
 theorem Int.toNatCheckedToInt ∀ (n: Nat): Int.toNatChecked (Nat.toInt n) = Some n := byComputing
 
 theorem Int.negNeg ∀ (x: Int): Int.neg (Int.neg x) = x := match x with
-  | OfNat Zero => byComputing
-  | OfNat (Succ n) => byComputing
-  | NegSucc n => byComputing
+  | OfNat Zero | OfNat (Succ _) | NegSucc _ => byComputing
 
 -- These hold by computation; stating them keeps it that way.
 
@@ -27,9 +25,7 @@ theorem Int.toIntToNat ∀ (z: Int) (nonneg: 0 ≤ z): Nat.toInt (Int.toNat z) =
 theorem Int.natAbsToInt ∀ (n: Nat): Int.natAbs (Nat.toInt n) = n := byComputing
 
 theorem Int.natAbsNeg ∀ (x: Int): Int.natAbs (Int.neg x) = Int.natAbs x := match x with
-  | OfNat Zero => byComputing
-  | OfNat (Succ n) => byComputing
-  | NegSucc n => byComputing
+  | OfNat Zero | OfNat (Succ _) | NegSucc _ => byComputing
 
 --| `|x|` is `x` when `x` isn't negative, and `-x` when it is (Lean's
 --| `Int.natAbs_dichotomy`). `arithmetic` splits on this for each `Int.natAbs x`
@@ -54,8 +50,7 @@ theorem Int.modNatLt ∀ (x: Int) (d: Nat) [auto ok: d ≠ 0]: Int.modNat x d < 
 theorem Int.modNatToInt ∀ (x: Int) (d: Nat) [auto ok: d ≠ 0]: Nat.toInt (Int.modNat x d) = x % Nat.toInt d :=
   match x, d with
     | x, Zero => (ok byComputing).impossible
-    | OfNat m, Succ n => byComputing
-    | NegSucc m, Succ n => byComputing
+    | OfNat _ | NegSucc _, Succ _ => byComputing
 
 --| Dividing by 0 gives 0 (Lean's `Int.ediv_zero`), by computation.
 theorem Int.divZero ∀ (x: Int): x / 0 = 0 := byComputing
@@ -81,10 +76,7 @@ theorem Int.neZeroOfNatAbs ∀ (d: Int) (h: Nat.equal (Int.natAbs d) 0 = False):
 --| Remainder bounds: `0 <= a % d < |d|`, for `d ≠ 0` (`a % 0` is `a`).
 theorem Int.modNonneg ∀ (a d: Int) [auto ok: d ≠ 0]: 0 ≤ a % d := match a, d with
   | a, OfNat Zero => (ok byComputing).impossible
-  | OfNat m, OfNat (Succ n) => byComputing
-  | NegSucc m, OfNat (Succ n) => byComputing
-  | OfNat m, NegSucc n => byComputing
-  | NegSucc m, NegSucc n => byComputing
+  | OfNat _ | NegSucc _, OfNat (Succ _) | NegSucc _ => byComputing
 
 theorem Int.modLtAbs ∀ (a d: Int) [auto ok: d ≠ 0]: a % d < Nat.toInt (Int.natAbs d) := match a, d with
   | a, OfNat Zero => (ok byComputing).impossible
@@ -161,8 +153,7 @@ theorem Int.subOfNats ∀ (m n: Nat): Nat.toInt m - Nat.toInt n = Int.subNatNat 
   | Succ n => byComputing
 
 theorem Int.negSubNatNat ∀ (m n: Nat): Int.neg (Int.subNatNat m n) = Int.subNatNat n m := match m, n with
-  | Zero, Zero => byComputing
-  | Zero, Succ n => byComputing
+  | Zero, Zero | Succ _ => byComputing
   | Succ m, Zero => byComputing
   | Succ m, Succ n =>
     calc Int.neg (Int.subNatNat (Succ m) (Succ n))
@@ -172,14 +163,12 @@ theorem Int.negSubNatNat ∀ (m n: Nat): Int.neg (Int.subNatNat m n) = Int.subNa
 
 theorem Int.addNeg ∀ (a: Int): Int.add a (Int.neg a) = OfNat 0 := match a with
   | OfNat Zero => byComputing
-  | OfNat (Succ n) => Int.subNatNatSelf (Succ n)
-  | NegSucc n => Int.subNatNatSelf (Succ n)
+  | OfNat (Succ n) | NegSucc n => Int.subNatNatSelf (Succ n)
 
 theorem Int.subSelf ∀ (a: Int): Int.sub a a = OfNat 0 := Int.addNeg a
 
 theorem Int.negAdd ∀ (a b: Int): Int.neg (Int.add a b) = Int.add (Int.neg a) (Int.neg b) := match a, b with
-  | OfNat Zero, OfNat Zero => byComputing
-  | OfNat Zero, OfNat (Succ n) => byComputing
+  | OfNat Zero, OfNat Zero | OfNat (Succ _) => byComputing
   | OfNat (Succ m), OfNat Zero => Eq.cong NegSucc (Nat.addZero m)
   | OfNat (Succ m), OfNat (Succ n) => Eq.cong NegSucc (Nat.addSucc m n)
   | OfNat Zero, NegSucc n => byComputing
@@ -369,8 +358,7 @@ theorem Int.mulZero ∀ (a: Int): Int.mul a (OfNat 0) = OfNat 0 := match a with
 -- `m - n` of two naturals: `k * (m - n) = k * m - k * n`.
 
 theorem Int.subNatNatZeroLeft ∀ (q: Nat): Int.subNatNat 0 q = Int.neg (OfNat q) := match q with
-  | Zero => byComputing
-  | Succ q => byComputing
+  | Zero | Succ _ => byComputing
 
 theorem Int.subNatNatAddCancel ∀ (p q k: Nat): Int.subNatNat (k + p) (k + q) = Int.subNatNat p q := match k with
   | Zero => byComputing
@@ -469,9 +457,7 @@ theorem Int.mulNonneg ∀ (a b: Int) (ha: 0 ≤ a) (hb: 0 ≤ b): 0 ≤ a * b :=
 theorem Int.notNonnegOfIsNeg ∀ (c: Int) (n1: Int.isNeg c = True) (h: 0 ≤ c): Void := match c with
   | NegSucc n => Bool.falseNotTrue h
 
-theorem Int.zeroMul ∀ (a: Int): Int.mul (OfNat 0) a = OfNat 0 := match a with
-  | OfNat n => byComputing
-  | NegSucc n => byComputing
+theorem Int.zeroMul ∀ (a: Int): Int.mul (OfNat 0) a = OfNat 0 := match a with | OfNat _ | NegSucc _ => byComputing
 
 theorem Int.negOneMul ∀ (a: Int): Int.mul (NegSucc 0) a = Int.neg a :=
   Eq.trans (Int.mulNegSucc 0 a) (Eq.cong Int.neg (Int.oneMul a))

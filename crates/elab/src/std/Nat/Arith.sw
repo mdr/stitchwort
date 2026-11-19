@@ -165,21 +165,15 @@ theorem Nat.divFuelBound ∀ (fuel n d: Nat) (ok: d ≠ 0) (hn: n ≤ fuel): n <
       Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) byComputing (m hm => Nat.divFuelBound fuel m d ok hm)
 
 --| Dividing by 0 gives 0 (Lean's `Nat.div_zero`).
-theorem Nat.divZero ∀ (n: Nat): n / 0 = 0 := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+theorem Nat.divZero ∀ (n: Nat): n / 0 = 0 := match n with | Zero | Succ _ => byComputing
 
 --| Counting divisions by 0 gives 0, whatever the fuel: `Nat.divStep` stops at
 --| a divisor of 0. `arithmetic` uses it for `n / 0`, which is `Nat.divFuel n n 0`,
 --| stuck on the fuel `n` when `n` is unknown.
-theorem Nat.divFuelZero ∀ (fuel n: Nat): Nat.divFuel fuel n 0 = 0 := match fuel with
-  | Zero => byComputing
-  | Succ fuel => byComputing
+theorem Nat.divFuelZero ∀ (fuel n: Nat): Nat.divFuel fuel n 0 = 0 := match fuel with | Zero | Succ _ => byComputing
 
 --| The remainder of dividing by 0 is the number itself (Lean's `Nat.mod_zero`).
-theorem Nat.modZero ∀ (n: Nat): n % 0 = n := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+theorem Nat.modZero ∀ (n: Nat): n % 0 = n := match n with | Zero | Succ _ => byComputing
 
 --| `(n / d) * d <= n`: the quotient never overshoots.
 theorem Nat.divMulLe ∀ (n d: Nat): (n / d) * d ≤ n := Nat.divFuelLe n n d
@@ -257,9 +251,7 @@ theorem Nat.addModSelf ∀ (d n: Nat): (d + n) % d = n % d := match d with
       (Nat.modLess n (Succ d) (Nat.succNotZero d))
       (Nat.addDivModSelf (Succ d) n)
 
-theorem Nat.zeroSub ∀ (n: Nat): 0 - n = 0 := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+theorem Nat.zeroSub ∀ (n: Nat): 0 - n = 0 := match n with | Zero | Succ _ => byComputing
 
 theorem Nat.subEqZero ∀ (n m: Nat) (h: n ≤ m): n - m = 0 := match n, m with
   | Zero, m => Nat.zeroSub m
@@ -660,8 +652,7 @@ theorem Nat.ltOfRunSub ∀ (s d n: Nat) (h1: s ≤ d) (h2: d < s + (n - s)): d <
 --| Whether the ordering is `Less`.
 def Ordering.isLess: (ordering: Ordering) → Bool
   | Less => True
-  | Equal => False
-  | Greater => False
+  | Equal | Greater => False
 
 --| The smaller of two numbers: `Nat.min 3 5` is 3.
 def Nat.min (m n: Nat): Nat := if Nat.leq m n then m else n
@@ -784,8 +775,7 @@ theorem Nat.equalOfLess ∀ (b v: Nat) (h: b < v): Nat.equal v b = False := matc
 
 --| `Nat.equal` doesn't care which number comes first.
 theorem Nat.equalComm ∀ (a b: Nat): Nat.equal a b = Nat.equal b a := match a, b with
-  | Zero, Zero => byComputing
-  | Zero, Succ b => byComputing
+  | Zero, Zero | Succ _ => byComputing
   | Succ a, Zero => byComputing
   | Succ a, Succ b => Nat.equalComm a b
 

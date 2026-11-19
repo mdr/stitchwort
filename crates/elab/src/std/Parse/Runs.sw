@@ -2515,8 +2515,7 @@ theorem Parse.runsAttempt ∀ (p: () → {Parse t} a) (read rest: List t) (v: a)
         let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
         let progressed: ((m.offset > state.at.offset): Bool) = ((0 < read.length): Bool) :=
           match c: ((0 < read.length): Bool) with
-            | True => arithmetic [moff, c]
-            | False => arithmetic [moff, c]
+            | True | False => arithmetic [moff, c]
         Witness m
           (Both
             (rewrite <- progressed then

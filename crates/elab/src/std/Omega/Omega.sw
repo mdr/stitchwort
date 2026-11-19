@@ -296,11 +296,7 @@ def Omega.Fact.rows: (fact: Omega.Fact) → List Omega.Row
 --| `a - b` is `t` with `t + b = a` when `b <= a`, and 0 when `a < b`; `max`
 --| and `min` are one side or the other; `a != b` is `a < b` or `b < a`.
 def Omega.Fact.splits: (fact: Omega.Fact) → Bool
-  | FSub t a b => True
-  | FMax t a b => True
-  | FMin t a b => True
-  | FNe a b => True
-  | FINe a b => True
+  | FSub _ _ _ | FMax _ _ _ | FMin _ _ _ | FNe _ _ | FINe _ _ => True
   | f => False
 
 --| The facts a split fact's first case adds: `b <= a` and `t + b = a` for `t = a - b`, say.
@@ -401,8 +397,7 @@ def Omega.allRefs (ctx: List Omega.Row): (refs: List (Pair Nat Nat)) → Bool
 --| Whether an integer is 0.
 def Omega.isZero: (x: Int) → Bool
   | OfNat Zero => True
-  | OfNat (Succ n) => False
-  | NegSucc n => False
+  | OfNat (Succ _) | NegSucc _ => False
 
 --| Whether every coefficient is 0.
 @[tailrec]

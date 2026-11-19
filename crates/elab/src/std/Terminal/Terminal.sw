@@ -100,8 +100,7 @@ def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List 
 def Terminal.afterRead (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s)
     (reads: Nat) (bytes: List Nat):
     (result: Pair (Option (List Nat)) s) → {e} Terminal.Read s
-  | MkPair None source => Terminal.ended bytes source
-  | MkPair (Some []) source => Terminal.ended bytes source
+  | MkPair None source | MkPair (Some []) source => Terminal.ended bytes source
   | MkPair (Some more) source => Terminal.decode inputIsTerminal read reads (List.append bytes more) source
 
 --| Whether to read more to finish the cut-off key at the front of `bytes`:
@@ -261,8 +260,7 @@ def Terminal.echoKeys: (limit: Nat) → (keys: List Key) → {Terminal} List Key
   | Succ limit, seen =>
     Terminal.draw ["${List.length seen} keys"]
     match Terminal.readKey () with
-      | None => List.reverse seen
-      | Some (Printable 'q') => List.reverse seen
+      | None | Some (Printable 'q') => List.reverse seen
       | Some key => Terminal.echoKeys limit [key, ..seen]
 
 test "simulate: a frame per draw, and the keys in order" :=

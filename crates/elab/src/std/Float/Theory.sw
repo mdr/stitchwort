@@ -43,8 +43,7 @@ theorem Float.Theory.ltPow ∀ (n: Nat): n < Nat.pow 2 n := match n with
 def Float.Theory.IsBitLength (n b: Nat): Prop := (n < Nat.pow 2 b) ∧ (Nat.pow 2 b ≤ n + n)
 
 theorem Float.Theory.bitLengthSlowZero ∀ (fuel: Nat): Float.Model.bitLengthSlow fuel 0 = 0 := match fuel with
-  | Zero => byComputing
-  | Succ fuel => byComputing
+  | Zero | Succ _ => byComputing
 
 theorem Float.Theory.bitLengthSlowSpec ∀ (fuel n: Nat)
     (pos: 0 < n)
@@ -1427,15 +1426,11 @@ theorem Float.Theory.roundKeyNeg ∀ (k den: Nat) (scale: Int) (z: Bool):
 --| every negative one's.
 theorem Float.Theory.roundKeyZeroLe ∀ (den: Nat) (scale: Int) (z: Bool) (m: Nat):
     Int.leq (Float.Theory.roundKey (OfNat 0) den scale z) (OfNat m) = True :=
-  match z with
-    | True => byComputing
-    | False => byComputing
+  match z with | True | False => byComputing
 
 theorem Float.Theory.roundKeyZeroGe ∀ (den: Nat) (scale: Int) (z: Bool) (m: Nat):
     Int.leq (NegSucc m) (Float.Theory.roundKey (OfNat 0) den scale z) = True :=
-  match z with
-    | True => byComputing
-    | False => byComputing
+  match z with | True | False => byComputing
 
 --| A smaller numerator rounds to a double no greater, whatever the zero signs.
 theorem Float.Theory.roundKeyMono ∀ (den: Nat) (scale: Int) (z1 z2: Bool)
@@ -1820,9 +1815,7 @@ theorem Float.Theory.keyTo ∀ (a r s: Nat)
 theorem Float.Theory.validTo ∀ (r s: Nat) (e: r = s) (h: Float.isValid s = True): Float.isValid r = True :=
   J (y w => Float.isValid y = True) h e.flipped
 
-theorem Float.Theory.keyRefl ∀ (x: Int): Int.leq x x = True := match x with
-  | OfNat n => Nat.leRefl n
-  | NegSucc n => Nat.leRefl n
+theorem Float.Theory.keyRefl ∀ (x: Int): Int.leq x x = True := match x with | OfNat n | NegSucc n => Nat.leRefl n
 
 theorem Float.Theory.keySet ∀ (a: Nat)
     (c: Nat.leq 9223372036854775808 a = True):
@@ -1889,9 +1882,7 @@ theorem Float.Theory.keyLeInf ∀ (a: Nat)
 theorem Float.Theory.zeroLeZeroBits ∀ (a: Nat)
     (h: (a = 0) ∨ (a = 9223372036854775808)):
     Int.leq (Float.Theory.key a) (OfNat 0) = True :=
-  match h with
-    | Inl e => J (y w => Int.leq (Float.Theory.key y) (OfNat 0) = True) byComputing e.flipped
-    | Inr e => J (y w => Int.leq (Float.Theory.key y) (OfNat 0) = True) byComputing e.flipped
+  match h with | Inl e | Inr e => J (y w => Int.leq (Float.Theory.key y) (OfNat 0) = True) byComputing e.flipped
 
 -- Units and rounding, on patterns
 
@@ -1931,9 +1922,7 @@ theorem Float.Theory.unitsZeroIsZeroBits ∀ (a: Nat)
 
 --| The two zeros' patterns have no units.
 theorem Float.Theory.unitsZeroBits ∀ (a: Nat) (h: (a = 0) ∨ (a = 9223372036854775808)): Float.Model.units a = OfNat 0 :=
-  match h with
-    | Inl e => J (y w => Float.Model.units y = OfNat 0) byComputing e.flipped
-    | Inr e => J (y w => Float.Model.units y = OfNat 0) byComputing e.flipped
+  match h with | Inl e | Inr e => J (y w => Float.Model.units y = OfNat 0) byComputing e.flipped
 
 --| The zero sign matters only for a zero
 --| numerator.
@@ -1942,8 +1931,7 @@ theorem Float.Theory.roundRatioSignIrrelevant ∀ (den: Nat) (scale: Int) (z1 z2
     Float.Model.roundRatio num den scale z1 = Float.Model.roundRatio num den scale z2 :=
   match num with
     | OfNat Zero => (ne byComputing).impossible
-    | OfNat (Succ k) => byComputing
-    | NegSucc k => byComputing
+    | OfNat (Succ _) | NegSucc _ => byComputing
 
 theorem Float.Theory.intZeroCases ∀ (x: Int): (x = OfNat 0) ∨ (x ≠ OfNat 0) := match x with
   | OfNat Zero => Inl byComputing
@@ -2229,8 +2217,7 @@ theorem Float.Theory.zeroOfBits ∀ (x: Float)
     (h: (x.bits = 0) ∨ (x.bits = 9223372036854775808)):
     Float.isZero x = True :=
   match h with
-    | Inl e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) byComputing e.flipped
-    | Inr e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) byComputing e.flipped
+    | Inl e | Inr e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) byComputing e.flipped
 
 --| A zero has no units.
 theorem Float.Theory.unitsZero ∀ (x: Float) (h: Float.isZero x = True): Float.Theory.units x = OfNat 0 :=
@@ -2998,8 +2985,7 @@ theorem Float.Theory.zeroKeyLe ∀ (den: Nat) (scale: Int) (z1 z2: Bool)
     (zs: z1 = False → z2 = False):
     Int.leq (Float.Theory.roundKey (OfNat 0) den scale z1) (Float.Theory.roundKey (OfNat 0) den scale z2) = True :=
   match z1, z2 with
-    | True, True => byComputing
-    | True, False => byComputing
+    | True, True | False => byComputing
     | False, True => Void.impossible (Bool.falseNotTrue (zs byComputing).flipped)
     | False, False => byComputing
 
@@ -3527,9 +3513,7 @@ theorem Float.Theory.ceilDivGe ∀ (s: Bool) (m p: Nat)
   let n: Int.mul (Int.neg (Float.Model.floorDiv (¬s) m p)) (OfNat p)
     = Int.neg (Int.mul (Float.Model.floorDiv (¬s) m p) (OfNat p)) :=
     Float.Theory.negIntMul (Float.Model.floorDiv (¬s) m p) p
-  match s with
-    | True => arithmetic [h, n]
-    | False => arithmetic [h, n]
+  match s with | True | False => arithmetic [h, n]
 
 --| A whole number of doubles' units: `n` at scale 1 is `n × 2^1074` units.
 theorem Float.Theory.roundWholeShift ∀ (s: Bool) (k: Nat) (z: Bool):
@@ -3563,8 +3547,7 @@ theorem Float.Theory.roundWhole ∀ (n: Int) (z: Bool):
 theorem Float.Theory.signedNatAbs ∀ (s: Bool) (k: Nat): Int.signed s (Int.natAbs (Int.signed s k)) = Int.signed s k :=
   match s, k with
     | False, k => byComputing
-    | True, Zero => byComputing
-    | True, Succ k => byComputing
+    | True, Zero | Succ _ => byComputing
 
 --| A finite pattern's units: its size, with its sign.
 theorem Float.Theory.unitsSigned ∀ (a: Nat):
@@ -4145,8 +4128,7 @@ theorem Float.Theory.gridFinite ∀ (q e: Nat)
     (J (y w => y < Nat.pow 2 2098) fin (Float.Theory.gridUnits q e hq).flipped)
 
 theorem Float.Theory.signedNonzero ∀ (s: Bool) (n: Nat) (pn: 0 < n): Int.signed s n ≠ OfNat 0 := match s, n with
-  | False, Succ k => (e => cases)
-  | True, Succ k => (e => cases)
+  | False | True, Succ _ => (e => cases)
 
 --| The finite pattern of magnitude `m` and sign `s`: its units.
 theorem Float.Theory.unitsOfMagnitude ∀ (m: Nat) (s: Bool)
@@ -4179,8 +4161,7 @@ theorem Float.Theory.roundGrid ∀ (s: Bool) (q e: Nat) (z: Bool)
     (n0 =>
       rewrite n0 then
         match s, z with
-          | False, False => Both byComputing byComputing
-          | False, True => Both byComputing byComputing
+          | False, False | True => Both byComputing byComputing
           | True, False => Both byComputing byComputing
           | True, True => Both byComputing byComputing)
     (pn =>
@@ -4206,9 +4187,7 @@ theorem Float.Theory.leLessTrans ∀ (a b c: Nat) (x: a ≤ b) (y: b < c): a < c
 
 theorem Float.Theory.wholeSignedForm ∀ (n: Int):
     Int.mul n (OfNat (Float.Model.pow2 1074)) = Int.signed (Int.isNeg n) (Int.natAbs n * Nat.pow 2 1074) :=
-  match n with
-    | OfNat k => byComputing
-    | NegSucc k => byComputing
+  match n with | OfNat _ | NegSucc _ => byComputing
 
 --| A whole number `n` with `|n| ≤ 2^53`, as `n × 2^1074` units, rounds to
 --| a finite double with exactly those units.
@@ -4280,8 +4259,7 @@ theorem Float.Theory.floorDivRange ∀ (s: Bool) (m p: Nat)
 
 theorem Float.Theory.natAbsSigned ∀ (s: Bool) (k: Nat): Int.natAbs (Int.signed s k) = k := match s, k with
   | False, k => byComputing
-  | True, Zero => byComputing
-  | True, Succ k => byComputing
+  | True, Zero | Succ _ => byComputing
 
 --| `|x|`'s key is its magnitude: clearing the sign of a valid pattern
 --| leaves it below the sign bit.
@@ -5244,8 +5222,7 @@ theorem Float.Theory.roundFinite ∀ (num: Int) (z: Bool)
   match num with
     | OfNat Zero =>
       match z with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | OfNat (Succ k) =>
       J
         (r w => Float.Theory.FiniteBits r)
@@ -6345,10 +6322,7 @@ theorem Float.Theory.ratioZeroUnitsAt ∀ (num: Int) (den: Nat) (scale: Int) (z:
     (n0: Int.natAbs num = 0):
     Float.Theory.magUnits (Float.Model.magnitude (Float.Model.roundRatio num den scale z)) = 0 :=
   let e: num = OfNat 0 := arithmetic [n0]
-  rewrite e then
-    match z with
-      | True => byComputing
-      | False => byComputing
+  rewrite e then match z with | True | False => byComputing
 
 theorem Float.Theory.divRelErrorZero ∀ (a den n p: Nat)
     (n0: n = 0)
@@ -6986,11 +6960,7 @@ theorem Float.Theory.roundedSumNear ∀ (g n s: Int) (w m: Nat)
     (Int.leq (Int.add g n) (Int.add s (OfNat (w * 2))) = True)
       ∧ (Int.leq s (Int.add (Int.add g n) (OfNat (w * 2))) = True) :=
   match sign with
-    | Inl b =>
-      let b1 := b.left
-      let b2 := b.right
-      Both (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2]) (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2])
-    | Inr b =>
+    | Inl b | Inr b =>
       let b1 := b.left
       let b2 := b.right
       Both (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2]) (arithmetic [w2, mw, gLo, gHi, nLo, nHi, err, b1, b2])
@@ -7166,8 +7136,7 @@ theorem Float.Theory.roundKeyAntiDen ∀ (num: Int) (d1 d2: Nat) (scale: Int) (z
   match num with
     | OfNat Zero =>
       match z with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
     | OfNat (Succ k) =>
       Float.Theory.leqVia
         (Float.Theory.roundKey (OfNat (Succ k)) d2 scale z)
@@ -7489,9 +7458,7 @@ theorem Float.Theory.ceilAtLeast ∀ (y: Float) (k: Nat)
 
 --| A signed product, the sign moved out.
 theorem Float.Theory.signedScaled ∀ (s: Bool) (r p: Nat): Int.signed s (r * p) = Int.mul (Int.signed s r) (OfNat p) :=
-  match s with
-    | False => algebra
-    | True => algebra
+  match s with | False | True => algebra
 
 theorem Float.Theory.remStepArith ∀ (s: Bool) (m q d r: Nat) (ux ur qd: Int)
     (eu: ux = Int.signed s m)

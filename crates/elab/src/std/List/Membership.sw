@@ -903,8 +903,7 @@ theorem List.foldMinByLeStart ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (s
             (f start)
             (List.foldMinByLeStart f ys y)
             (Ord.lessLe (f y) (f start) (ord.lessThanOf (f y) (f start) flipped))
-        | Less => List.foldMinByLeStart f ys start
-        | Equal => List.foldMinByLeStart f ys start
+        | Less | Equal => List.foldMinByLeStart f ys start
 
 --| Folding with `List.minByStep` gives a key at most each member's.
 theorem List.foldMinByLeMember ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (start x: a)
@@ -933,8 +932,7 @@ theorem List.foldMinByLeMember ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (
     | [y, ..ys], Inr member =>
       match order: Ord.compare (f start) (f y) with
         | Greater => List.foldMinByLeMember f ys y x member
-        | Less => List.foldMinByLeMember f ys start x member
-        | Equal => List.foldMinByLeMember f ys start x member
+        | Less | Equal => List.foldMinByLeMember f ys start x member
 
 --| Folding with `List.minByStep` gives the start or a member.
 theorem List.foldMinByMember ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (start: a):
@@ -947,11 +945,7 @@ theorem List.foldMinByMember ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (st
           match List.foldMinByMember f ys y with
             | Inl same => Inr (Inl same.flipped)
             | Inr member => Inr (Inr member)
-        | Less =>
-          match List.foldMinByMember f ys start with
-            | Inl same => Inl same
-            | Inr member => Inr (Inr member)
-        | Equal =>
+        | Less | Equal =>
           match List.foldMinByMember f ys start with
             | Inl same => Inl same
             | Inr member => Inr (Inr member)

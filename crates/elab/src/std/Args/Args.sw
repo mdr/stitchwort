@@ -165,8 +165,7 @@ def Args.readEach [auto value: Args.Value a] (place: Text): (texts: List Text) �
   | [text, ..rest] =>
     match (Args.readPiece [a := a] place text, Args.readEach [a := a] place rest) with
       | (Ok first, Ok others) => Ok [first, ..others]
-      | (Err error, _) => Err error
-      | (_, Err error) => Err error
+      | (Err error, _) | (_, Err error) => Err error
 
 --| A flag: `True` if it is on the command line. `help` says what it does.
 def Args.flag (name: Text) (help: Text := ""): Args.Spec Bool := {
@@ -248,8 +247,7 @@ def Args.Spec.and (functions: Args.Spec (a → b)) (argument: Args.Spec a): Args
   read = found =>
     match (functions.read found, argument.read found) with
       | (Ok function, Ok result) => Ok (function result)
-      | (Err error, _) => Err error
-      | (_, Err error) => Err error
+      | (Err error, _) | (_, Err error) => Err error
 }
 
 --| Whether the item is an option, as opposed to the positional arguments.
@@ -306,8 +304,7 @@ def Args.record (items: List Args.Info) (found: Args.Found) (info: Args.Info) (v
 def Args.scan (items: List Args.Info) (found: Args.Found): (arguments: List Text) → Result Args.Scan Args.Error
   | [] => Ok (Scanned found)
   | ["--", ..rest] => Ok (Scanned { found | positionals = found.positionals ++ rest })
-  | ["--help", .._] => Ok HelpAsked
-  | ["-h", .._] => Ok HelpAsked
+  | ["--help", .._] | ["-h", .._] => Ok HelpAsked
   | [argument, ..rest] =>
     match argument.stripPrefix "--" with
       | Some body =>

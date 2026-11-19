@@ -66,9 +66,7 @@ theorem Int.natAbsLt ∀ (x d: Int)
     (low: 0 - Nat.toInt (Int.natAbs d) < x)
     (high: x < Nat.toInt (Int.natAbs d)):
     Int.natAbs x < Int.natAbs d :=
-  match Int.natAbsCases x with
-    | Inl same => arithmetic
-    | Inr opposite => arithmetic
+  match Int.natAbsCases x with | Inl _ | Inr _ => arithmetic
 
 --| A multiple of `d` smaller in size than `d` is 0 times `d`.
 theorem Int.smallMultiple ∀ (d k: Int) (nonzero: d ≠ 0) (small: Int.natAbs (d * k) < Int.natAbs d): k = 0 :=
@@ -180,8 +178,7 @@ theorem Int.mulEqZero ∀ (a b: Int) (h: a * b = 0): (a = 0) ∨ (b = 0) := matc
       | Inr z => Inr (Eq.cong OfNat z)
   | NegSucc m, NegSucc n =>
     match Nat.mulEqZero (Succ m) (Succ n) (Int.ofNatInjective (Succ m * Succ n) 0 h) with
-      | Inl z => Void.impossible (arithmetic [z])
-      | Inr z => Void.impossible (arithmetic [z])
+      | Inl z | Inr z => Void.impossible (arithmetic [z])
 
 --| A nonzero factor cancels (Lean's `Int.mul_left_cancel`).
 theorem Int.mulCancelLeft ∀ (c a b: Int) (nonzero: c ≠ 0) (h: c * a = c * b): a = b :=
@@ -196,8 +193,7 @@ theorem Int.mulCancelLeft ∀ (c a b: Int) (nonzero: c ≠ 0) (h: c * a = c * b)
 
 --| A square is the square of the size.
 theorem Int.mulSelf ∀ (x: Int): x * x = OfNat (Int.natAbs x * Int.natAbs x) := match x with
-  | OfNat n => byComputing
-  | NegSucc n => byComputing
+  | OfNat _ | NegSucc _ => byComputing
 
 --| Two squares add up to 0 only when both are 0.
 theorem Int.sumSquaresZero ∀ (x y: Int) (h: x * x + y * y = 0): (x = 0) ∧ (y = 0) :=
@@ -230,8 +226,7 @@ theorem Int.toNatCheckedNone ∀ (x: Int) (checked: x.toNatChecked = None): x < 
 --| `|x|` is `x` times its sign.
 theorem Int.natAbsSign ∀ (x: Int): x.natAbs.toInt = x.sign * x := match x with
   | OfNat Zero => byComputing
-  | OfNat (Succ n) => Eq.cong OfNat (arithmetic)
-  | NegSucc n => Eq.cong OfNat (arithmetic)
+  | OfNat (Succ _) | NegSucc _ => Eq.cong OfNat (arithmetic)
 
 --| What `Int.sign` is, by the three cases for the sign of `x`.
 theorem Int.signCases ∀ (x: Int): (x.sign = 1 ∧ 0 < x) ∨ (x.sign = 0 ∧ x = 0) ∨ (x.sign = -1 ∧ x < 0) := match x with
@@ -249,9 +244,7 @@ theorem Int.mulNonnegSucc ∀ (d: Int): 0 ≤ d * (d + 1) := match e: Int.leq 0 
 --| Scaling a count kept only when `b` holds: `v` times the kept count is the
 --| count times `v` when `b` holds, else 0.
 theorem Int.mulKeepIf ∀ (v: Int) (x: Nat) (b: Bool): v * (x.keepIf b).toInt = x.toInt * (if b then v else 0) :=
-  match b with
-    | True => algebra
-    | False => algebra
+  match b with | True | False => algebra
 
 --| Dividing a multiple of a positive number by it: if `|value|` is `times`
 --| times `Succ below`, then `Succ below` times `value / Succ below` is `value`.

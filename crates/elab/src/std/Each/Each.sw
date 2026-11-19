@@ -76,9 +76,7 @@ theorem Each.collectRequire ∀ (k: () → {Each} b) (ok: Bool):
       Each.require ok
       k())
       = (if ok then Each.collect k else []) :=
-  match ok with
-    | True => byComputing
-    | False => byComputing
+  match ok with | True | False => byComputing
 
 --| `each` of a list collects to the list itself.
 theorem Each.collectEachSelf ∀ (xs: List a): Each.collect (() => Each.each xs) = xs := match xs with

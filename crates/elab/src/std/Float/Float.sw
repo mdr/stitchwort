@@ -455,9 +455,7 @@ theorem Float.ieeeRankExample: Float.ieeeRank (-Float.infinity) = 0 := byComputi
 theorem Float.rankZero ∀ (n: Nat)
     (z: (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808) = True):
     Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312 :=
-  match z with
-    | Inl e => rewrite e.read
-    | Inr e => rewrite e.read
+  match z with | Inl e | Inr e => rewrite e.read
 
 --| The ranks, from the order keys `ieeeLe` and `ieeeLt` compare, and back.
 theorem Float.rankLeOfKeys ∀ (m n: Nat):
@@ -465,8 +463,7 @@ theorem Float.rankLeOfKeys ∀ (m n: Nat):
       → ∀ (q: Bool) => Nat.leq 9223372036854775808 n = q
         → Int.leq (Float.keyOf m p) (Float.keyOf n q) = True
         → Float.rankOf m p ≤ Float.rankOf n q
-  | True, hp, True, hq, h => arithmetic
-  | True, hp, False, hq, h => arithmetic
+  | True, _, True | False, _, _ => arithmetic
   | False, hp, True, hq, h => cases
   | False, hp, False, hq, h => arithmetic
 

@@ -156,8 +156,7 @@ def Option.flatten: (nested: Option (Option a)) → Option a
   | Some inner => inner
 
 theorem Option.flattenFlatMap ∀ (x: Option (Option a)): Option.flatten x = Option.flatMap x id := match x with
-  | None => byComputing
-  | Some inner => byComputing
+  | None | Some _ => byComputing
 
 theorem Option.toListExample: (Some 3).toList = [3] := byComputing
 

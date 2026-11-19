@@ -37,8 +37,7 @@ def Nat.firstFrom (passes: Nat → Bool): (count: Nat) → (start: Nat) → Nat
 
 --| `True` for `Less` and `Equal`.
 def Ordering.isLessEq: (ordering: Ordering) → Bool
-  | Less => True
-  | Equal => True
+  | Less | Equal => True
   | Greater => False
 
 --| Merges two lists sorted by `le` ("may come before"), taking from the first
@@ -227,8 +226,7 @@ theorem List.pushRunMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a �
     (run: List a) (c: List (Option (List a))):
     List.mapRuns f (List.pushRun le2 run c) = List.pushRun le (List.map run f) (List.mapRuns f c) :=
   match c with
-    | [] => byComputing
-    | [None, ..rest] => byComputing
+    | [] | [None, .._] => byComputing
     | [Some r, ..rest] => rewrite List.pushRunMap f le le2 h (List.merge le2 r run) rest, List.mergeMap f le le2 h r run
 
 theorem List.buildRunsMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a → Bool)

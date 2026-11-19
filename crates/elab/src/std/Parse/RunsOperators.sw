@@ -299,8 +299,7 @@ theorem Parse.OperatorTree.topFromBound ∀ (count level: Nat) (tree: Parse.Oper
     | Operand read value => Both (arithmetic [small]) (arithmetic [small])
     | Joined item own associativity combine left right =>
       match associativity with
-        | LeftAssociative => Both (arithmetic [under]) (arithmetic [under])
-        | RightAssociative => Both (arithmetic [under]) (arithmetic [under])
+        | LeftAssociative | RightAssociative => Both (arithmetic [under]) (arithmetic [under])
 
 --| A formed tree whose operators are all past the last level is an operand.
 theorem Parse.OperatorTree.operandIfPast ∀ (levels: List (Parse.Level t a)) (count lowest: Nat)

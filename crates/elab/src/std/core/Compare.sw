@@ -46,10 +46,7 @@ theorem Ordering.andThenEqual ∀ (c d: Ordering) (h: Ordering.andThen c d = Equ
 
 theorem Ordering.flipAndThen ∀ (c d: Ordering):
     Ordering.flip (Ordering.andThen c d) = Ordering.andThen (Ordering.flip c) (Ordering.flip d) :=
-  match c with
-    | Less => byComputing
-    | Equal => byComputing
-    | Greater => byComputing
+  match c with | Less | Equal | Greater => byComputing
 
 --| `Less` is transitive for `c1` then `r1` (lexicographic), given that it
 --| is for the first comparisons and for the rest, and that an `Equal` first
@@ -81,8 +78,7 @@ theorem Nat.compareSelf ∀ (n: Nat): Nat.compare n n = Equal := match n with
   | Succ n => Nat.compareSelf n
 
 theorem Nat.compareFlip ∀ (m n: Nat): Nat.compare n m = Ordering.flip (Nat.compare m n) := match m, n with
-  | Zero, Zero => byComputing
-  | Zero, Succ n => byComputing
+  | Zero, Zero | Succ _ => byComputing
   | Succ m, Zero => byComputing
   | Succ m, Succ n => Nat.compareFlip m n
 
@@ -132,8 +128,7 @@ theorem Int.compareTrans ∀ (a b c: Int)
     Int.compare a c = Less :=
   match a, b, c with
     | OfNat x, OfNat y, OfNat z => Nat.compareTrans x y z h1 h2
-    | NegSucc x, OfNat y, OfNat z => byComputing
-    | NegSucc x, NegSucc y, OfNat z => byComputing
+    | NegSucc _, OfNat _ | NegSucc _, OfNat _ => byComputing
     | NegSucc x, NegSucc y, NegSucc z => Nat.compareTrans z y x h2 h1
 
 theorem Int.lessOfCompare ∀ (a b: Int) (h: Int.compare a b = Less): Int.LessThan a b := match a, b with

@@ -33,8 +33,7 @@ theorem List.compareLexFlip ∀ (cmp: a → a → Ordering)
     (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y)) (xs ys: List a):
     List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys) :=
   match xs, ys with
-    | [], [] => byComputing
-    | [], [y, ..ys] => byComputing
+    | [], [] | [_, .._] => byComputing
     | [x, ..xs], [] => byComputing
     | [x, ..xs], [y, ..ys] =>
       rewrite flip x y, List.compareLexFlip cmp flip xs ys then
@@ -130,8 +129,7 @@ theorem Option.compareWithFlip ∀ (cmp: a → a → Ordering)
     (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y)) (m n: Option a):
     Option.compareWith cmp n m = Ordering.flip (Option.compareWith cmp m n) :=
   match m, n with
-    | None, None => byComputing
-    | None, Some y => byComputing
+    | None, None | Some _ => byComputing
     | Some x, None => byComputing
     | Some x, Some y => flip x y
 
@@ -163,8 +161,7 @@ theorem Char.compareTrans ∀ (x y z: Char)
 --| [`Char.compare`], step for step. So its laws are the list's.
 theorem Text.compareCharsLex ∀ (xs ys: List Char): Text.compareChars xs ys = List.compareLex Char.compare xs ys :=
   match xs, ys with
-    | [], [] => byComputing
-    | [], [y, ..ys] => byComputing
+    | [], [] | [_, .._] => byComputing
     | [x, ..xs], [] => byComputing
     | [x, ..xs], [y, ..ys] => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
 

@@ -107,37 +107,27 @@ theorem Fail.toResultFail ∀ (msg: Text): Fail.toResult (() => (Fail.fail msg: 
 
 --| `need` and `toResult` give `Option.toResult`.
 theorem Fail.toResultNeed ∀ (msg: Text) (o: Option a): Fail.toResult (() => Fail.need o msg) = Option.toResult o msg :=
-  match o with
-    | None => byComputing
-    | Some x => byComputing
+  match o with | None | Some _ => byComputing
 
 theorem Fail.toResultEnsure ∀ (msg: Text) (ok: Bool):
     Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg) :=
-  match ok with
-    | True => byComputing
-    | False => byComputing
+  match ok with | True | False => byComputing
 
 --| `orFail` and `toResult` undo each other.
 theorem Fail.toResultOrFail ∀ (r: Result a Text): Fail.toResult (() => Result.orFail r) = r := match r with
-  | Ok x => byComputing
-  | Err m => byComputing
+  | Ok _ | Err _ => byComputing
 
 --| Reading an `Option` and going on: the form a proof about a parser uses.
 theorem Fail.toResultNeedThen ∀ (k: a → {Fail} b) (msg: Text) (o: Option a):
     Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x)) :=
-  match o with
-    | None => byComputing
-    | Some x => byComputing
+  match o with | None | Some _ => byComputing
 
 theorem Fail.toOptionNeed ∀ (msg: Text) (o: Option a): Fail.toOption (() => Fail.need o msg) = o := match o with
-  | None => byComputing
-  | Some x => byComputing
+  | None | Some _ => byComputing
 
 theorem Abort.orFailNeed ∀ (msg: Text) (o: Option a):
     Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg :=
-  match o with
-    | None => byComputing
-    | Some x => byComputing
+  match o with | None | Some _ => byComputing
 
 -- Laws about any computation. Each splits on what the computation does
 -- first, with `match reify` (docs/proposals/proof-reification.md): in each

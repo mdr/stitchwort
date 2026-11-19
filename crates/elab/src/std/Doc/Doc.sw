@@ -140,23 +140,11 @@ def Doc.isEmpty: Doc → Bool := matches | Doc.Nothing
 --| Whether printing this always breaks a line, so a group around it can't
 --| be flat.
 def Doc.forcesBreak: Doc → Bool
-  | HardLine => True
-  | LineStart => True
-  | LineStartHere => True
-  | CloserLine _ => True
-  | BreakParent => True
-  | OneLineBelow _ => True
-  | Group _ hard => hard
-  | NarrowGroup _ _ hard => hard
-  | IdGroup _ _ hard => hard
+  | HardLine | LineStart | LineStartHere | CloserLine _ | BreakParent | OneLineBelow _ => True
+  | Group _ hard | NarrowGroup _ _ hard | IdGroup _ _ hard => hard
   | IfBroken _ broken flat => broken.forcesBreak && flat.forcesBreak
-  | Nest _ inner => inner.forcesBreak
-  | Align inner => inner.forcesBreak
-  | AlignInset inner => inner.forcesBreak
-  | Displaced inner => inner.forcesBreak
-  | Flatten inner => inner.forcesBreak
-  | Concat docs => Doc.anyForcesBreak docs
-  | Fill items => Doc.anyForcesBreak items
+  | Nest _ inner | Align inner | AlignInset inner | Displaced inner | Flatten inner => inner.forcesBreak
+  | Concat docs | Fill docs => Doc.anyForcesBreak docs
   | Choice options => Doc.allForceBreak options
   | _ => False
 
@@ -173,13 +161,13 @@ def Doc.allForceBreak: List Doc → Bool
 --| The number of nodes, which bounds the printer's steps: each node is
 --| pushed on its work list at most twice.
 def Doc.size: Doc → Nat
-  | Nest _ inner => 1 + inner.size
-  | Group inner _ => 1 + inner.size
-  | NarrowGroup _ inner _ => 1 + inner.size
-  | Align inner => 1 + inner.size
-  | AlignInset inner => 1 + inner.size
-  | Displaced inner => 1 + inner.size
-  | IdGroup _ inner _ => 1 + inner.size
+  | Nest _ inner |
+      Group inner _ |
+      NarrowGroup _ inner _ |
+      Align inner |
+      AlignInset inner |
+      Displaced inner |
+      IdGroup _ inner _ => 1 + inner.size
   | IfBroken _ broken flat => 1 + broken.size + flat.size
   | Flatten inner => 1 + inner.size
   | OneLineBelow inner => 2 + inner.size

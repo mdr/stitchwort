@@ -30,14 +30,10 @@ def Nat.shiftRight: (n: Nat) → (count: Nat) → Nat
   | Succ n, Zero => Succ n
   | Succ n, Succ count => Nat.shiftRight (Succ n / 2) count
 
-theorem Nat.shiftRightNone ∀ (n: Nat): Nat.shiftRight n 0 = n := match n with
-  | Zero => byComputing
-  | Succ n => byComputing
+theorem Nat.shiftRightNone ∀ (n: Nat): Nat.shiftRight n 0 = n := match n with | Zero | Succ _ => byComputing
 
 theorem Nat.shiftRightSucc ∀ (n count: Nat): Nat.shiftRight n (Succ count) = Nat.shiftRight (n / 2) count :=
-  match n with
-    | Zero => byComputing
-    | Succ n => byComputing
+  match n with | Zero | Succ _ => byComputing
 
 theorem Nat.shiftRightDiv ∀ (n count: Nat): Nat.shiftRight n count = n / Nat.pow 2 count := match count with
   | Zero => rewrite Nat.shiftRightNone n then Eq.flipped (Nat.divOne n)
@@ -90,11 +86,7 @@ theorem Nat.oddSumBits ∀ (m n: Nat)
     (small: m < 2)
     (alsoSmall: n < 2):
     ((m + n) % 2 == 1) = Bool.xor (m == 1) (n == 1) :=
-  match m, n with
-    | Zero, Zero => byComputing
-    | Zero, Succ Zero => byComputing
-    | Succ Zero, Zero => byComputing
-    | Succ Zero, Succ Zero => byComputing
+  match m, n with | Zero | Succ Zero, Zero | Succ Zero => byComputing
 
 theorem Nat.oddSum ∀ (m n: Nat): ((m + n) % 2 == 1) = Bool.xor (m % 2 == 1) (n % 2 == 1) :=
   rewrite Eq.flipped (Nat.addModMod m n 2), Eq.flipped (Nat.modAddMod m (n % 2) 2) then
@@ -148,21 +140,13 @@ theorem Nat.xorExample: Nat.xor 2024 43690 = 44354 := byComputing
 --| Whether the product, and the sum plus the product, of two bits is odd:
 --| their `and` and their `or`.
 theorem Nat.oddProductBits ∀ (m n: Nat) (small: m < 2) (alsoSmall: n < 2): (m * n % 2 == 1) = (m == 1 ∧ n == 1) :=
-  match m, n with
-    | Zero, Zero => byComputing
-    | Zero, Succ Zero => byComputing
-    | Succ Zero, Zero => byComputing
-    | Succ Zero, Succ Zero => byComputing
+  match m, n with | Zero | Succ Zero, Zero | Succ Zero => byComputing
 
 theorem Nat.oddEitherBits ∀ (m n: Nat)
     (small: m < 2)
     (alsoSmall: n < 2):
     ((m + n + m * n) % 2 == 1) = (m == 1 ∨ n == 1) :=
-  match m, n with
-    | Zero, Zero => byComputing
-    | Zero, Succ Zero => byComputing
-    | Succ Zero, Zero => byComputing
-    | Succ Zero, Succ Zero => byComputing
+  match m, n with | Zero | Succ Zero, Zero | Succ Zero => byComputing
 
 theorem Nat.oddProduct ∀ (m n: Nat): (m * n % 2 == 1) = (m % 2 == 1 ∧ n % 2 == 1) :=
   rewrite Eq.flipped (Nat.mulModMod m n 2), Eq.flipped (Nat.modMulMod m (n % 2) 2) then
@@ -393,8 +377,7 @@ theorem Nat.fromBitsFlipped ∀ (bits: List Bool):
           Nat.fromBitsCons (Bool.not bit) (List.map rest Bool.not),
           List.lengthMap rest Bool.not then
         match bit with
-          | True => arithmetic [Nat.fromBitsFlipped rest]
-          | False => arithmetic [Nat.fromBitsFlipped rest]
+          | True | False => arithmetic [Nat.fromBitsFlipped rest]
 
 --| Every bit string reads as less than `2 ^ n`, for its `n` bits.
 --| `Nat.fromBitsBelow [a, b, c, d]` is `Nat.fromBits [a, b, c, d] < 16`.
@@ -435,8 +418,7 @@ theorem Nat.toBitsLength ∀ (width n: Nat): List.length (Nat.toBits width n) = 
 theorem Nat.parityBit ∀ (n: Nat): Bool.toNat (n % 2 == 1) = n % 2 :=
   let below := Nat.modLess n 2 (arithmetic)
   match e: n % 2 with
-    | 0 => byComputing
-    | 1 => byComputing
+    | 0 | 1 => byComputing
     | Succ (Succ k) => arithmetic
 
 --| A number that fits in `width` bits is read back from them:
@@ -453,9 +435,7 @@ theorem Nat.fromBitsToBits ∀ (width n: Nat) (small: n < Nat.pow 2 width): Nat.
 theorem Nat.halfOfDoubleBit ∀ (acc: Nat) (bit: Bool): (acc * 2 + Bool.toNat bit) / 2 = acc :=
   let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2
   let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (arithmetic)
-  match bit with
-    | True => arithmetic
-    | False => arithmetic
+  match bit with | True | False => arithmetic
 
 --| Doubling a number and adding a bit: the result is odd exactly when the
 --| bit is 1.

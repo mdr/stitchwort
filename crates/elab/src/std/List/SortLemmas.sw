@@ -147,8 +147,7 @@ theorem List.lengthPairsDouble ∀ (xs: List a):
         List.pairsStep (List.length xs) (List.length (List.pairs xs)) (List.lengthPairsDouble xs)
 
 theorem List.pairsDoubleSub ∀ (n p: Nat) (h: p + p + n = n * n): p + p = n * (n - 1) := match n with
-  | Zero => algebra [h]
-  | Succ m => algebra [h]
+  | Zero | Succ _ => algebra [h]
 
 --| Twice the number of pairs is n * (n - 1).
 theorem List.lengthPairsDoubled ∀ (xs: List a):
@@ -186,8 +185,7 @@ theorem List.lengthTake ∀ (xs: List a) (k: Nat) (h: k ≤ List.length xs): Lis
     | [x, ..xs], Succ k => Eq.cong Succ (List.lengthTake xs k h)
 
 theorem List.takeAll ∀ (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take xs k = xs := match xs, k with
-  | [], Zero => byComputing
-  | [], Succ k => byComputing
+  | [], Zero | Succ _ => byComputing
   | [x, ..xs], Succ k => Eq.cong (Cons x) (List.takeAll xs k h)
 
 --| Dropping at least the whole length leaves nothing.
@@ -298,14 +296,11 @@ theorem List.dropAppendLength ∀ (xs ys: List a) (k: Nat)
   rewrite <- h then List.dropAppend xs ys
 
 theorem List.headTake ∀ (xs: List a) (d: a) (k: Nat) (h: 1 ≤ k): List.headOr (List.take xs k) d = List.headOr xs d :=
-  match xs, k with
-    | [], Succ k => byComputing
-    | [x, ..xs], Succ k => byComputing
+  match xs, k with | [] | [_, .._], Succ _ => byComputing
 
 --| `if b then x else 0` is `keepIf x b`.
 theorem Nat.ifKeep ∀ (x: Nat) (b: Bool): (if b then x else 0) = Nat.keepIf x b := match b with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 theorem List.sumByZero ∀ [auto add: Add c] (xs: List a): List.sumBy xs (x => Add.zero) = (Add.zero: c) := match xs with
   | [] => byComputing
@@ -315,13 +310,9 @@ theorem List.sumByZero ∀ [auto add: Add c] (xs: List a): List.sumBy xs (x => A
       _ = xs.sumBy (x1 => Add.zero) := add.zeroAdd (List.sumBy xs (x => Add.zero))
       _ = Add.zero := List.sumByZero xs
 
-theorem Nat.keepIfZero ∀ (b: Bool): Nat.keepIf 0 b = 0 := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Nat.keepIfZero ∀ (b: Bool): Nat.keepIf 0 b = 0 := match b with | True | False => byComputing
 
-theorem Nat.keepIfOne ∀ (b: Bool): Nat.keepIf 1 b = Bool.toNat b := match b with
-  | True => byComputing
-  | False => byComputing
+theorem Nat.keepIfOne ∀ (b: Bool): Nat.keepIf 1 b = Bool.toNat b := match b with | True | False => byComputing
 
 --| Keeping a sum is keeping each term.
 theorem Nat.keepIfSumBy ∀ [g: a → Nat] [xs: List a] (b: Bool):
@@ -331,16 +322,10 @@ theorem Nat.keepIfSumBy ∀ [g: a → Nat] [xs: List a] (b: Bool):
     | False => Eq.flipped (List.sumByZero [add := Nat.instAdd] xs)
 
 --| `keepIf` as multiplying by 1 or 0.
-theorem Nat.mulToNat ∀ (x: Nat) (a: Bool): x * Bool.toNat a = Nat.keepIf x a := match a with
-  | True => algebra
-  | False => algebra
+theorem Nat.mulToNat ∀ (x: Nat) (a: Bool): x * Bool.toNat a = Nat.keepIf x a := match a with | True | False => algebra
 
 theorem Nat.keepIfKeepIf ∀ (x: Nat) (a b: Bool): Nat.keepIf (Nat.keepIf x a) b = x * Bool.toNat (a ∧ b) :=
-  match a, b with
-    | True, True => algebra
-    | True, False => algebra
-    | False, True => algebra
-    | False, False => algebra
+  match a, b with | True | False, True | False => algebra
 
 theorem List.sumByAdd ∀ [auto add: Add c] (xs: List a) (f g: a → c):
     List.sumBy xs (x => f x + g x) = List.sumBy xs f + List.sumBy xs g :=
@@ -795,8 +780,7 @@ theorem List.sumByCongAll ∀ (p: a → Bool) (f g: a → Nat)
         _ = xs.foldLeft (g x) (acc x => acc + g x) := (List.sumByCons xs x g).flipped
 
 theorem Ordering.isLessEqIf ∀ (d: Bool): Ordering.isLessEq (if d then Less else Greater) = d := match d with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 --| `Nat.compare` agrees with `<=`, so `List.sortBy` with it is total.
 theorem Nat.compareLeq ∀ (m n: Nat): Ordering.isLessEq (Nat.compare m n) = Nat.leq m n :=
@@ -917,8 +901,7 @@ theorem Ordering.notGreaterOfIsLessEq ∀ (c: Ordering) (h: Ordering.isLessEq c 
   Bool.falseNotTrue (rewrite e at h)
 
 theorem Ordering.isLessEqOfNotGreater ∀ (c: Ordering) (n: c ≠ Greater): Ordering.isLessEq c = True := match c with
-  | Less => byComputing
-  | Equal => byComputing
+  | Less | Equal => byComputing
   | Greater => (n byComputing).impossible
 
 --| The test `List.sort` sorts by is transitive, and holds both ways round
@@ -976,8 +959,7 @@ theorem List.sortedOfChain ∀ (le: a → a → Bool) (xs: List a) (chained: Lis
 
 theorem List.chainOfSorted ∀ (le: a → a → Bool) (xs: List a) (h: List.Sorted le xs): List.chain xs le = True :=
   match xs, h with
-    | [], sorted => byComputing
-    | [x], sorted => byComputing
+    | [] | [_], _ => byComputing
     | [x, next, ..rest], Both first sorted => Both first (List.chainOfSorted le [next, ..rest] sorted)
 
 --| For numbers, that's `Nat.leq`.
@@ -1272,8 +1254,7 @@ theorem List.pushRunJoined ∀ (le: a → a → Bool) (run: List a) (c: List (Op
     (h: List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) run)):
     List.runsJoined (List.pushRun le run c) = List.append (List.runsJoined c) run :=
   match c with
-    | [] => byComputing
-    | [None, ..rest] => byComputing
+    | [] | [None, .._] => byComputing
     | [Some older, ..rest] =>
       calc (List.pushRun le (List.merge le older run) rest).runsJoined
         _ = (List.pushRun le (older ++ run) rest).runsJoined :=
@@ -1480,10 +1461,7 @@ theorem List.occurrencesSplit ∀ [auto eq: DecEq a] (xs: List a) (v: a) (p: a �
     | [] => byComputing
     | [x, ..xs] =>
       let one: Bool.toNat (p x) = Bool.toNat (p x ∧ ¬(x == v)) + Bool.toNat (p x ∧ (x == v)) := match p x, x == v with
-        | True, True => byComputing
-        | True, False => byComputing
-        | False, True => byComputing
-        | False, False => byComputing
+        | True | False, True | False => byComputing
       calc List.occurrences [x, ..xs] p
         _ = Bool.toNat (p x) + List.occurrences xs p := byComputing
         _ = (Bool.toNat (p x ∧ ¬(x == v)) + Bool.toNat (p x ∧ (x == v))) + List.occurrences xs p :=
@@ -1951,8 +1929,7 @@ def List.runsCount (p: a → Bool): (runs: List (Option (List a))) → Nat
 theorem List.pushRunCount ∀ (run: List a) (c: List (Option (List a))) (le: a → a → Bool) (p: a → Bool):
     List.runsCount p (List.pushRun le run c) = List.occurrences run p + List.runsCount p c :=
   match c with
-    | [] => byComputing
-    | [None, ..rest] => byComputing
+    | [] | [None, .._] => byComputing
     | [Some r, ..rest] => algebra [List.pushRunCount (List.merge le r run) rest le p, List.mergeCount r run le p]
 
 theorem List.buildRunsCount ∀ (c: List (Option (List a))) (xs: List a) (le: a → a → Bool) (p: a → Bool):
