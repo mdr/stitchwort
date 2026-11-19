@@ -332,7 +332,8 @@ compiler saw.
 
 The lowering raises three errors of its own [source, 14 Nov]: a parameter
 named twice in a header, an or-pattern that binds names, and a condition
-on an arm with `()` and no body. The formatter ports them as one small
+on an arm with `()` and no body. Since 19 Nov 2026 or-patterns may bind
+names (D3694); see docs/syntax.md. The formatter ports them as one small
 check on the tree, so it refuses the same files. The gate is the 1,157
 deliberately unformatted files under `examples` [measured, 14 Nov], file
 by file. "Left as written" is gone: with no check there is nothing to fall

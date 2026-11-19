@@ -539,6 +539,10 @@ lane missed it and a batch failed:
   (5 Nov 2026: SW-1359, SW-1379, SW-1420; a name matching nothing now fails,
   SW-1440). For a std change, "commit the regenerated prelude snapshot
   (additions only)" (SW-1494).
+- **Changes a std file:** "check it from `crates/elab/src/std` with
+  `stitchwort check --std --std-dir . FILE`; `core/*.sw` files can't be
+  named this way and are covered by the hash snapshot run
+  (`task snap:hashes`)."
 - **Changes std core** (Int, Nat, Text, Char, Bool definitions or lemmas):
   "run `task test:one -- -E '(package(stitchwort-cli) & binary(extraction) & test(/bound_to_the_prelude/)) | (package(stitchwort-driver) & binary(projects) & test(compact_text_is_bound_to_the_prelude))'`
   (about 20 s; the three extract tests are
