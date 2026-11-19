@@ -8038,14 +8038,14 @@
     {
       "id": 2152,
       "title": "[Sonnet] Goal printer: record updates (record_update) and Float's of_bits recognise Proj fields, not just accessor calls, so record updates print as written after record eta",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [
         "goals"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/goal-printing-gaps.md. Lane B; replaces SW-2076. 30 min.",
+      "body": "From docs/proposals/goal-printing-gaps.md. Lane B; replaces SW-2076. 30 min.\n\nLane note: record_update and float_key accept Proj fields (core pretty.rs); unit test prints_a_record_of_projections_as_an_update. Could not reach a Proj from surface goals; no Float test.\n",
       "created": "2026-11-07",
       "updated": "2026-11-19",
       "commits": []
@@ -26652,12 +26652,12 @@
     {
       "id": 4183,
       "title": "[Opus] fmt S1: rule N keeps its closer bookkeeping inside the tidying step (D3690): commaMoved stops marking the closer's lineStart; the walk treats a closer after an own-line bare comma as starting its line; settled tokens equal the lexer's; settledParsesMoved1 deleted; no output change",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4183",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.\n\n\nLane notes (Opus, 19 Nov, 14:58-15:02): stopped at the route decision, no code. Generalising the two-run walk is not a 60-min job: the item relation is elementwise (List.All2 SameCode), but the moved closer differs in lineStart, glued, and the lineIndent of every later item on its line; agreement of readers (startsBlock: a closer is not endsConstruct, so it differs; lineHasSemicolon, blockEnd, stopsByLine needs depth>0, headIndentOn) needs context (the comma before it, its column, the parse failing at a closer) that an elementwise relation cannot carry; ~70 deaf readers used by the walk. Routes for the orchestrator in the lane report. Not false; no source found failing.\n\nD3690 (Matt, 19 Nov 2026, 15:33): \"go for the best, cleanest end state ... If there's bookkeeping the tidying step needs, that's just encapsulated within the tidying step and doesn't leak into anything else.\" Route: rule N stops marking the closer; its walk treats a closer right after a bare comma that starts its line as starting the line, internally (SW-4184 route 2d). Settled tokens = the lexer's, so settledParsesKept1 covers every source; settledParsesMoved1 goes. Output must not change.\n",
+      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.\n\n\nLane notes (Opus, 19 Nov, 14:58-15:02): stopped at the route decision, no code. Generalising the two-run walk is not a 60-min job: the item relation is elementwise (List.All2 SameCode), but the moved closer differs in lineStart, glued, and the lineIndent of every later item on its line; agreement of readers (startsBlock: a closer is not endsConstruct, so it differs; lineHasSemicolon, blockEnd, stopsByLine needs depth>0, headIndentOn) needs context (the comma before it, its column, the parse failing at a closer) that an elementwise relation cannot carry; ~70 deaf readers used by the walk. Routes for the orchestrator in the lane report. Not false; no source found failing.\n\nD3690 (Matt, 19 Nov 2026, 15:33): \"go for the best, cleanest end state ... If there's bookkeeping the tidying step needs, that's just encapsulated within the tidying step and doesn't leak into anything else.\" Route: rule N stops marking the closer; its walk treats a closer right after a bare comma that starts its line as starting the line, internally (SW-4184 route 2d). Settled tokens = the lexer's, so settledParsesKept1 covers every source; settledParsesMoved1 goes. Output must not change.\n\n\nLane notes (Opus, 19 Nov, 15:34-16:20, est. 75 min): done, be7f781b3 on lane/SW-4183. Rule N: commaMoved no longer marks; startsWalk bareLast (Settle.sw) reads a closer right after a comma that starts its line, with an item before, as starting the line; settledOnce = settledWith True, settled = settledWith False (unchanged, mirrors Rust). settledOnceTokens/tokensBare/settledParses1 lose plain1; settledParsesGrammar1 = settledParses1 = settledParsesKept1; settledParsesMoved1 deleted. bareSettles restated up to line starts (new Syntax.SettleMarkProofs; old statement kept as markedSettles about the proof-side settledMarked). Output byte-identical (s1, s6a, settled notes) on 10,476 sources; multi-line gate scale 0 identical to HEAD (12 result files). Whole-project check 0 errors, goal: none; Fmt.Tests 417/417 (144 accepted); audit 652 theorems, 0 failed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
