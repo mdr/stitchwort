@@ -25917,7 +25917,7 @@
     {
       "id": 4128,
       "title": "[Opus] fmt S1 item 5 (D3689, SW-4120): the driver accepts the name auto: a parsed-tree fact (no list's first item is auto then an upper-case name), carried like shaped1 and used in read-back's list case; the spelling test on auto goes",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4128",
       "labels": [],
@@ -26488,7 +26488,7 @@
     {
       "id": 4171,
       "title": "[Sonnet] fmt S1 lane L (SW-4166): lexer words: textSpells1 takes auto; every name/numeral token lex gives is textSpells1; Spells -> textSpells1; lexGood without spelled; quiet raw groups from lexLaidProved",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4171",
       "labels": [],
@@ -26516,7 +26516,7 @@
     {
       "id": 4173,
       "title": "[Sonnet] fmt S1 lane K2 (SW-4166): ParseCarriesLadder/Decl/File converted to Kept; GroupShapes1 restated with good/quiet; groupShapesProved and parsedSourcePlain1 closed (after K1, L)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4173",
       "labels": [],
@@ -26544,9 +26544,9 @@
     {
       "id": 4175,
       "title": "[Sonnet] fmt S1 (SW-4166 follow-up, from lane A): Kept gains a 4th conjunct expr.autoPlaced1 False (no list at an inner full position starts with an auto call), proved at every node across ParseKept and K2's files; KeptAt at full goals from lane A's exprPlain upgrade lemma; closes lane A's open parser-placement goal with the glue lane",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4175",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.",
