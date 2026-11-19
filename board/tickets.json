@@ -26434,15 +26434,17 @@
     {
       "id": 4167,
       "title": "[Sonnet] fmt (SW-4132 lane 4): two-run walk of Parser.sw first half: applications, unary, the operator ladder, ranges, comparisons, logic, pipes (Syntax/FollowsLadder.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4167",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.\n\n\nProgress (lane, 19 Nov 2026): Syntax/FollowsLadder.sw done on lane/SW-4167, 87 followsF/helper lemmas, check 0 errors, audit 94 passed. Hypotheses: AtomFollows, BraceFollows, MatchFollows, ClauseLambdaFollows, LambdaFollows, IfFollows, QuantifierFollows (lane 5), ResultTypeFollows (lane 6). No comment read, no narrowing.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "f5fd5ebe9"
+      ]
     },
     {
       "id": 4168,
