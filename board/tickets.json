@@ -27065,7 +27065,7 @@
     {
       "id": 4214,
       "title": "[Sonnet] fmt consolidation L1: un-number the 77 tree properties (shaped1, lexical1, settled1, unreturned1, kinds1, …) per docs/proposals/fmt-consolidation-statements.md lane 1; Predicates1.sw → Predicates.sw, Kinds1.sw → Kinds.sw; grammar, driver, within1 and token tables stay numbered; after SW-4209",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27604,7 +27604,7 @@
     {
       "id": 4255,
       "title": "[Opus] Differential oracle regression: at 3905c6d07 (passing at f691c91c4) the_evaluators_agree_on_the_prelude_and_every_example skips 104 comparisons as too big (max 60): float-playlist.sw, negative-arguments.sw (Float.Model.isqrt, sqrtBits, pow2, bitLength, addBits…; Nat.pred), random-seed.sw, omega-folded-call.sw; the only code merge in range is SW-4091 (4e6e65670); find the cause and fix, or explain",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
