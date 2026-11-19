@@ -1,5 +1,5 @@
 {
-  "next": 4280,
+  "next": 4281,
   "tickets": [
     {
       "id": 47,
@@ -27716,15 +27716,17 @@
     {
       "id": 4263,
       "title": "[Sonnet] Functional induction D: or-patterns of match induct cases, dot-form calls, a ? hole listing every case, editor code action",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 40 min.",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 40 min.\n\n\nProgress (lane, 19 Nov): items 1-3 done on lane/SW-4263 (or-patterns of cases, dot-form call, `with ?` listing cases; docs and examples). Item 4 (editor action) skipped: the existing add-arms fix is driven by E-NONEXHAUSTIVE data whose label would have to cover the whole match, and `with ?` is not a diagnostic fix; more than a small addition.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "340532842"
+      ]
     },
     {
       "id": 4264,
@@ -27932,6 +27934,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "From SW-4270.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4280,
+      "title": "[Sonnet] match induct follow-ups (SW-4263): 'Fill in the cases' editor action via E-NONEXHAUSTIVE fill data for match induct; fold one body error across or-pattern cases ('in each of the N alternatives') and list binder types in the note as ordinary or-patterns do",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4263; design notes on its ticket.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
