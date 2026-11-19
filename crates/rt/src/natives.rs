@@ -563,6 +563,7 @@ pub enum FloatPrim {
     Ceil,
     Trunc,
     Round,
+    Sqrt,
     OfInt,
     OfNat,
     /// JS's `String(x)`: the runtimes' own `Float.toText`, which the kernel
@@ -790,6 +791,7 @@ impl Representation {
                     (_, Some(FloatNative::Ceil)) => FloatPrim::Ceil,
                     (_, Some(FloatNative::Trunc)) => FloatPrim::Trunc,
                     (_, Some(FloatNative::Round)) => FloatPrim::Round,
+                    (_, Some(FloatNative::Sqrt)) => FloatPrim::Sqrt,
                     (_, Some(FloatNative::OfInt)) => FloatPrim::OfInt,
                     (_, Some(FloatNative::OfNat)) => FloatPrim::OfNat,
                     (Some(FloatOp::ToText), _) => FloatPrim::ToText,

@@ -19,15 +19,15 @@ fn the_float_natives_agree_with_their_definitions() {
         .map(|c| format!("[{}] {}: {}", c.mode.name(), c.name, c.detail))
         .collect();
     assert!(failed.is_empty(), "{}", failed.join("\n"));
-    // Per mode: the program, 19 natives, 13 pairs, 6 x 12 neutral witnesses
-    // for `neg`, `abs`, `floor`, `ceil`, `trunc` and `round`, 3 x 12 for
+    // Per mode: the program, 20 natives, 13 pairs, 7 x 12 neutral witnesses
+    // for `neg`, `abs`, `floor`, `ceil`, `trunc`, `round` and `sqrt`, 3 x 12 for
     // `isNaN`, `isFinite` and `toInt`, 2 x 12 x 12 for `ieeeLt` and
     // `ieeeLe`, 5 x 12 x 12 for `add`, `sub`, `mul`, `div` and `rem`, and
-    // 5 + 7 numbers for `ofNat` and `ofInt`; then 33 + 72 + 36 + 288 + 720
+    // 5 + 7 numbers for `ofNat` and `ofInt`; then 33 + 84 + 36 + 288 + 720
     // + 12 normal forms compared across the modes.
     assert_eq!(
         checks.len(),
-        2 * (1 + 19 + 13 + 72 + 36 + 288 + 720 + 12) + 33 + 72 + 36 + 288 + 720 + 12,
+        2 * (1 + 20 + 13 + 84 + 36 + 288 + 720 + 12) + 33 + 84 + 36 + 288 + 720 + 12,
         "{checks:#?}"
     );
     // The cross-mode comparisons ran.

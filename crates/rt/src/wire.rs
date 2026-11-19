@@ -241,6 +241,7 @@ tags!(
         FloatPrim::Ceil,
         FloatPrim::Trunc,
         FloatPrim::Round,
+        FloatPrim::Sqrt,
         FloatPrim::OfInt,
         FloatPrim::OfNat,
         FloatPrim::ToText,

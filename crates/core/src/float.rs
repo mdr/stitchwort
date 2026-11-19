@@ -68,7 +68,7 @@ pub const FLOAT_CONTRACT: u32 = 1;
 
 /// The definitions bound here, each with a native or put in one's result,
 /// all pinned in [`crate::pins`].
-pub const PINNED_DEFS: [Builtin; 19] = [
+pub const PINNED_DEFS: [Builtin; 20] = [
     Builtin::FloatNeg,
     Builtin::FloatAbs,
     Builtin::FloatIsNaN,
@@ -88,6 +88,7 @@ pub const PINNED_DEFS: [Builtin; 19] = [
     Builtin::FloatCeil,
     Builtin::FloatTrunc,
     Builtin::FloatRound,
+    Builtin::FloatSqrt,
 ];
 
 /// The sign bit.
@@ -388,10 +389,12 @@ pub enum FloatNative {
     Trunc,
     /// `Float.round x`, JS's `Math.round`, defined through `Float.Model`.
     Round,
+    /// `Float.sqrt x`, JS's `Math.sqrt`, defined through `Float.Model`.
+    Sqrt,
 }
 
 impl FloatNative {
-    pub const ALL: [FloatNative; 19] = [
+    pub const ALL: [FloatNative; 20] = [
         FloatNative::Neg,
         FloatNative::Abs,
         FloatNative::IsNaN,
@@ -411,6 +414,7 @@ impl FloatNative {
         FloatNative::Ceil,
         FloatNative::Trunc,
         FloatNative::Round,
+        FloatNative::Sqrt,
     ];
 
     pub fn builtin(self) -> Builtin {
@@ -434,6 +438,7 @@ impl FloatNative {
             FloatNative::Ceil => Builtin::FloatCeil,
             FloatNative::Trunc => Builtin::FloatTrunc,
             FloatNative::Round => Builtin::FloatRound,
+            FloatNative::Sqrt => Builtin::FloatSqrt,
         }
     }
 
@@ -465,6 +470,9 @@ impl FloatNative {
             FloatNative::Ceil => canonical_bits(f64::from_bits(bits).ceil()),
             FloatNative::Trunc => canonical_bits(f64::from_bits(bits).trunc()),
             FloatNative::Round => canonical_bits(js_round(f64::from_bits(bits))),
+            // IEEE 754 requires it correctly rounded, and so does ECMA-262's
+            // `Math.sqrt`: every host gives these bits.
+            FloatNative::Sqrt => canonical_bits(f64::from_bits(bits).sqrt()),
             _ => unreachable!("`{}` doesn't return a `Float`", self.name()),
         }
     }

@@ -302,6 +302,14 @@ def Float.trunc: (x: Float) → Float
 def Float.round: (x: Float) → Float
   | { bits = a, valid = p } => Float.ofBits (Float.Model.roundBits a)
 
+--| The square root of `x`, correctly rounded as IEEE 754 requires (JS's
+--| `Math.sqrt`, which the standard makes exact too, so every runtime gives the
+--| same bits): `sqrt 4.0` is `2.0`, `sqrt 2.0` is `1.4142135623730951`. A
+--| negative `x` gives the NaN, as does the NaN, but `-0.0` stays `-0.0` and
+--| `+infinity` stays `+infinity` (`Float.Model.sqrtBits`).
+def Float.sqrt: (x: Float) → Float
+  | { bits = a, valid = p } => Float.ofBits (Float.Model.sqrtBits a)
+
 --| JS's `String(x)`: `0.30000000000000004`, `1e+21`, `NaN`, `-Infinity`, and
 --| `0` for both zeros. The checker doesn't compute it (each runtime supplies
 --| it), so a test about its result runs only at run time.

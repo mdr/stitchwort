@@ -5816,6 +5816,7 @@ fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String
         FloatPrim::Ceil => "(a) => Math.ceil(a)".into(),
         FloatPrim::Trunc => "(a) => Math.trunc(a)".into(),
         FloatPrim::Round => "(a) => Math.round(a)".into(),
+        FloatPrim::Sqrt => "(a) => Math.sqrt(a)".into(),
         FloatPrim::OfNat => "(n) => Number(n)".into(),
         FloatPrim::OfInt if native_int => "(n) => Number(n)".into(),
         FloatPrim::OfInt => "(n) => Number(n.tag === \"OfNat\" ? n.n : -n.n - 1n)".into(),

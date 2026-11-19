@@ -196,6 +196,10 @@ pub const PINS: &[Pin] = &[
         Builtin::FloatRound,
         "34c29653feaf1c6fcee6abeb6a11b8af0c60f0d02805e340e4b4ad338349d235",
     ),
+    kernel(
+        Builtin::FloatSqrt,
+        "78c4193a02bbb0632e791ea558e7f354abd205faefac2ae5343ce4ab327de48e",
+    ),
 ];
 
 /// The pin on `b`, if it has one.

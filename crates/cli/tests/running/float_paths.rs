@@ -153,6 +153,7 @@ fn program(values: &[u64]) -> (String, usize) {
         items.push(format!("(Float.ceil v{i}).bits"));
         items.push(format!("(Float.trunc v{i}).bits"));
         items.push(format!("(Float.round v{i}).bits"));
+        items.push(format!("(Float.sqrt v{i}).bits"));
         items.push(format!("code (Float.toInt v{i})"));
         items.push(format!("(backAgain v{i}).bits"));
         // Against literals and a named constant: the operand isn't bound.
@@ -214,7 +215,7 @@ const SORTED: [&str; 6] = [
 ];
 
 /// Per value: its bits and the 13 unary results; per pair, 17 results.
-const PER_VALUE: usize = 14;
+const PER_VALUE: usize = 15;
 const PER_PAIR: usize = 17;
 
 /// What each path computed, as numbers (in decimal: an `Option Int` from
@@ -789,6 +790,46 @@ fn mul_rounds_like_the_hardware() {
     agree_with_the_machine("mul", items, expected, |i| {
         let (a, b) = pairs[i];
         format!("{a:#018x} * {b:#018x}")
+    });
+}
+
+/// `Float.sqrt` on the edges (the zeros, the infinities, the NaN, negative
+/// numbers, the subnormals, the largest double), perfect squares, `2`, `0.1`
+/// and random patterns. The kernel through `Float.Model.sqrtBits`, the Rust
+/// runtime and Node (`Math.sqrt`) all give the machine's correctly rounded
+/// bits.
+#[test]
+fn sqrt_rounds_like_the_hardware() {
+    let mut values = vec![
+        0.0,
+        -0.0,
+        1.0,
+        2.0,
+        4.0,
+        0.25,
+        9.0,
+        1e300,
+        0.1,
+        -1.0,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+        f64::MAX,
+        f64::MIN_POSITIVE,
+        f64::from_bits(1),
+        f64::from_bits(3),
+        f64::from_bits(0x000F_FFFF_FFFF_FFFF),
+        (1u64 << 52) as f64 * 3.0,
+    ];
+    values.extend(random_patterns(60).into_iter().map(f64::from_bits));
+    let bits = |x: f64| stitchwort_core::float::canonical_bits(x);
+    let items = values
+        .iter()
+        .map(|&x| format!("(Float.sqrt (ofBits {})).bits", bits(x)))
+        .collect();
+    let expected = values.iter().map(|&x| bits(x.sqrt())).collect();
+    agree_with_the_machine("sqrt", items, expected, |i| {
+        format!("sqrt {:#018x}", bits(values[i]))
     });
 }
 
