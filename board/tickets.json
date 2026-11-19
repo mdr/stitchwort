@@ -26735,12 +26735,12 @@
     {
       "id": 4189,
       "title": "[DeepSeek] fmt: delete the 13 orphan theorems SW-4186 listed (LaysApp appFromHug; LaysRules chainAll, plainEnds, stepConcat; LaysWords noHeldStarts; StandsProofs atomDeclStands, returnedFalls and six …Witness) after SW-4183 merges; check each is still unused",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 10 min.",
+      "body": "commits: -\n\nEst. 10 min.\n\nLane notes (Sonnet, 19 Nov, branch lane/SW-4193, commit 176b98182): uses --unused --dead listed 997 dead declarations; deleted 821 (about 11,900 lines, 6 files: Lays{Rules,App,Brackets,Els,Words}, NoteMarks) incl. the 13 orphans; kept slice files, Twin, Meaning and *Statements files and name-collision closure. check: 0 errors, no goals; Fmt.Tests 424 passed; multiline gate scale 0 counts equal to parent.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26789,12 +26789,12 @@
     {
       "id": 4193,
       "title": "[Sonnet] fmt tidy after slice 1: delete dead settledPlaced1 (SettleParseProofs.sw:310, plain1, no caller); drop settledParsesGrammar1's unused source/lexes/alphabet arguments if nothing needs them; fix tools/fmt/NOTES.md:1399-1400 (bareSettles now proved, up to line starts) and SettleParseProofs.sw:6's long doc line; with SW-4189's 13 orphans and SW-4192's marked copy if convenient (SW-4191 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 20 min.",
+      "body": "commits: -\n\nEst. 20 min.\n\nLane notes (Sonnet, 19 Nov, branch lane/SW-4193, commit 176b98182): uses --unused --dead listed 997 dead declarations; deleted 821 (about 11,900 lines, 6 files: Lays{Rules,App,Brackets,Els,Words}, NoteMarks) incl. the 13 orphans; kept slice files, Twin, Meaning and *Statements files and name-collision closure. check: 0 errors, no goals; Fmt.Tests 424 passed; multiline gate scale 0 counts equal to parent.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
