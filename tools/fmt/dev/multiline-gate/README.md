@@ -100,3 +100,19 @@ marks and closer lines at or after its own position. On 19 Nov 2026 (the hand ca
 modes `noted`, `longnoted`, `legal` and `wild`, one chunk of 250 each): 855 declarations with the tree facts, 631 with
 comments inside; no node failed, and 147 nodes in 72 declarations have a key at exactly their position, so the floor
 can't be raised.
+
+## Kept blank lines before items (SW-4153)
+
+An item with no comments but a kept blank line before it leads with `[BreakParent, LineStart, Blank]`. Two checks:
+
+- `BlankGate.sw`: prints each declaration with the tree facts at the eight widths, with and without the `LineStart` of
+  every such item, and compares the texts; the same text means every such item was entered right after a line
+  break. Inputs: `gen.py` seeds 77 to 80 in modes `noted`, `longnoted`, `legal` and `wild` (250 each) and the hand
+  cases, each passed through `blankify.py IN OUT SEED` (the mode's seed; 1 for the hand cases). On 19 Nov 2026:
+  858 declarations with the tree facts, 157 of them with 939 such items in all; the text was the same in every one.
+- `BlankMid.sw` with `blank-mid.cases`: what `Lays` also allows, the separator before such an item laid as a space,
+  printed by hand: the `LineStart` then breaks to two right of the line, and an undisplaced tuple, list or chain
+  item keeps its later lines at the indentation, so `hangs` fails at width 8; displaced, every case keeps `hangs`.
+
+Run either as `ElementsGate.sw` is run (copy into `tools/fmt/src`, `stitchwort run BlankGate.main < FILE.cases`
+from `tools/fmt`, delete).

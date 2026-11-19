@@ -1,0 +1,30 @@
+def x: Nat :=
+  [(a, b),
+
+    (cccccc, dddddd)]
+###
+def x: Nat :=
+  [(a, b),
+
+    [cccccc, dddddd, eeeeee]]
+###
+def x: Nat :=
+  [(a, b),
+
+    ffffff cccccc dddddd]
+###
+def x: Nat :=
+  [(a, b),
+
+    cccccc + dddddd + eeeeee]
+###
+def x: Nat :=
+  [(a, b),
+
+    (cccccc + dddddd + eeeeee)]
+###
+def x: Nat :=
+  [(a, b),
+
+    cccccc]
+###

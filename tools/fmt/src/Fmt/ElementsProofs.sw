@@ -36,6 +36,7 @@ import Fmt.OutputStatements (tidiedOf)
 import Fmt.OneLineStatements (..)
 import Fmt.Driver1 (..)
 import Fmt.ElementsKeys (LedAt, anyKeys, ledItemHangs)
+import Fmt.ElementsBlank (BlankLined, blankItemHangs)
 
 -- The invariant.
 
@@ -556,6 +557,23 @@ theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Hang
     (quiet: (plainStart entry && note.blankBefore && around.item) = False):
     LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
   ledItemHangs expr around indent state entry note rest within lexical sound hoisted noted quiet (inset =>
+    anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
+
+--| An item with `AnyFacts`, a kept blank line before its first token and no comments above it, hangs from its seat
+--| at an entry that isn't a plain line start where `BlankLined` holds, its first token on the line after the blank
+--| line (`blankItemHangs`, its hoisted form plain).
+theorem blankAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
+    (within: expr.within1 = True)
+    (sound: expr.sound = True)
+    (facts: AnyFacts expr)
+    (hoisted: around.hoisted = False)
+    (item: around.item = True)
+    (unnoted: expr.lead.comments.above = [])
+    (blank: expr.lead.comments.blankBefore = True)
+    (fresh: plainStart entry = False)
+    (seatLined: BlankLined indent around.before entry):
+    LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
+  blankItemHangs expr around indent state entry within sound hoisted item unnoted blank fresh seatLined (inset =>
     anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
 
 --| `ledHangs` for every slice 1 expression with the tree facts.
