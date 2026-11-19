@@ -1,8 +1,8 @@
---| Read-back for slice 1's top theorems (SW-4079), for declarations that print on one line (`Decl.oneLine1`, D3685):
---| the output's leaves, settled, parse to `calmTop` of the printed tree.
+--| Read-back for slice 1's top theorems (SW-4079): the output's leaves, settled, parse to `calmTop` of the printed
+--| tree, on any number of lines.
 --|
---| The seam is one declaration's group: `readsBackDecl1` is proved from read-back's one-line theorem
---| (`readsBackLineWithin`) and the split of the printer's items (`printedSplit1`, in `Fmt.GroupSlots`). The file
+--| The seam is one declaration's group: `readsBackDecl1` is proved from read-back's theorem over lines that keep the
+--| line rule (`readsBackHung`) and the split of the printer's items (`printedSplit1`, in `Fmt.GroupSlots`). The file
 --| form, `readsBackFile1`, takes it as a hypothesis and is proved, with the file-level lemmas of `Fmt.ReadBackFile`.
 
 namespace Fmt.TopReadBack
@@ -15,8 +15,10 @@ import Fmt.PassProofs (..)
 import Syntax.SettleProofs (tokens)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ReadBackRuns (plainHeader)
-import Syntax.ReadBackLine (Spelt, inLineAll, laterInLine, lineAll, readsBackLineWithin, speltExpr)
-import Fmt.PrintedLines (exprLine, groupLeafTokens, laterOfValue, leafTokens, leafTokensAppend, typeLines)
+import Syntax.ReadBackLine (Spelt, lineAll, speltExpr)
+import Syntax.ReadBackHungDeep (hangsTokens)
+import Syntax.ReadBackHungTop (readsBackHung)
+import Fmt.PrintedLines (exprLine)
 import Fmt.CalmProofs (headerCalmWithin, withinCalm)
 import Fmt.OutputFileProofs (printedGroups1)
 import Fmt.ReadBackFile (declLowers, groupReads, groupsFromTokens, groupsTokens, refusalNone)
@@ -32,60 +34,38 @@ def DeclReadsBack (seen: Seen) (group: List Leaf) (read: Decl): Prop :=
     decl)
     = Ok read
 
---| The line facts `readsBackLineWithin` takes: every item of a kind it reads on a line, no item of the type starting
---| a line, and none of the value's after its first.
-def LinesRead (typeRead valueRead: List Item): Prop :=
-  lineAll typeRead = True ∧ lineAll valueRead = True ∧ inLineAll typeRead = True ∧ laterInLine valueRead = True
+--| The line facts `readsBackHung` takes: every item of the type and the value of a kind it reads.
+def LinesRead (typeRead valueRead: List Item): Prop := lineAll typeRead = True ∧ lineAll valueRead = True
 
---| `printedLines1` (the stock take's U3 under one-line declarations): the items of a printed one-line
---| declaration are of the kinds read-back reads on a line, and start lines only where `oneLine1` lets them.
---|
---| What it needs: `lineAll` from slice 1's alphabet (every printed kind is one), and the rest from `oneLine1` read
---| through `items` (an item's line start is its token's) and `Spelt` (the type's items hold no `:=`). `lineKind`
---| admits every operator `Spelt` spells (`logicLine`).
---|
---| Proof idea: `speltExpr` gives the type's and value's items an expression's kinds, which `lineKind` admits. The
---| group's tokens are `oneLine1`'s (`tokens group = tokens decl.leaves1`) and its items' leaves are the group
---| (`groupLeafTokens`), so `onLine1` reads over the split items: `typeLines` walks the type (no `:=` in it, by its
---| kinds) to the `:=`, leaving the value's `valueOnLine1`.
-theorem printedLines1 ∀ (decl read: Decl) (group: List Leaf) (keyword name colon colonEq: Item)
+--| `printedLines1` (the stock take's U3): the items of a printed declaration's type and value are of the kinds
+--| read-back reads, from slice 1's alphabet: `speltExpr` gives them an expression's kinds, which `lineKind` admits
+--| (`logicLine` for the logical operators). Where they start lines is `hangs`' business, not this lemma's.
+theorem printedLines1 ∀ (group: List Leaf) (read: Decl) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
-    (printed: PrintedGroup decl read group)
     (split: GroupSplit group read keyword name colon colonEq typeRead valueRead result value):
     LinesRead typeRead valueRead :=
-  let (within, shaped, settled, lexical, commaFree, oneLine, sameTokens, words, calmed) := printed
-  let (isItems, isRead, isDef, isLower, isColon, isColonEq, typeSpelt, valueSpelt, typeWithin, valueWithin) := split
-  let typeExpr := speltExpr result typeRead typeSpelt
-  let valueExpr := speltExpr value valueRead valueSpelt
-  let onLine: onLine1 (tokens decl.leaves1) = True := oneLine
-  let itemTokens: leafTokens (items group) = leafTokens [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]] :=
-    rewrite isItems
-  let lines: typeOnLine1 (leafTokens typeRead ++ [colonEq.leaf.token, ..leafTokens valueRead]) = True :=
-    rewrite <- sameTokens,
-        <- groupLeafTokens group,
-        itemTokens,
-        leafTokensAppend typeRead [colonEq, ..valueRead] at onLine then
-      onLine
-  let (typeIn, valueLines) := typeLines typeRead valueRead colonEq typeExpr isColonEq lines
-  (exprLine typeRead typeExpr, exprLine valueRead valueExpr, typeIn, laterOfValue valueRead valueLines)
+  let (_, _, _, _, _, _, typeSpelt, valueSpelt, _, _) := split
+  (exprLine typeRead (speltExpr result typeRead typeSpelt), exprLine valueRead (speltExpr value valueRead valueSpelt))
 
---| A printed one-line declaration's group reads back to `read`: `readsBackLineWithin` on the items `printedSplit1`
---| gives, with `printedLines1`'s line facts.
+--| A printed declaration's group reads back to `read`, on any number of lines: `readsBackHung` on the items
+--| `printedSplit1` gives, with `printedLines1`'s kinds, the group keeping the line rule because its tokens are the
+--| printed leaves' (`hangsTokens`).
 theorem readsBackDecl1 ∀ (seen: Seen) (decl read: Decl) (group: List Leaf)
     (printed: PrintedGroup decl read group):
     DeclReadsBack seen group read :=
   let (keyword, name, colon, colonEq, typeRead, valueRead, result, value, split) :=
     printedSplit1 decl read group printed
-  let (typeLine, valueLine, typeInLine, valueLater) :=
-    printedLines1 decl read group keyword name colon colonEq typeRead valueRead result value printed split
+  let (typeLine, valueLine) := printedLines1 group read keyword name colon colonEq typeRead valueRead result value split
+  let (_, _, _, _, _, printedHangs, sameTokens, _, _) := printed
   let (isItems, isRead, isDef, isLower, isColon, isColonEq, typeSpelt, valueSpelt, typeWithin, valueWithin) := split
-  rewrite isItems, isRead then
-    readsBackLineWithin seen keyword name colon colonEq typeRead valueRead result value isDef isLower isColon isColonEq
-        typeSpelt valueSpelt typeLine valueLine typeInLine valueLater typeWithin valueWithin
+  let hung: hangs group = True := rewrite hangsTokens group decl.leaves1 sameTokens then printedHangs
+  rewrite isRead then
+    readsBackHung seen group keyword name colon colonEq typeRead valueRead result value isItems hung isDef isLower
+        isColon isColonEq typeSpelt valueSpelt typeLine valueLine typeWithin valueWithin
 
 -- The file.
 
---| Every printed one-line declaration's group reads back: `readsBackDecl1`'s statement, which `readsBackFile1` takes.
+--| Every printed declaration's group reads back: `readsBackDecl1`'s statement, which `readsBackFile1` takes.
 def DeclsReadBack: Prop :=
   ∀ (seen: Seen) (decl read: Decl) (group: List Leaf) => PrintedGroup decl read group → DeclReadsBack seen group read
 
@@ -148,7 +128,7 @@ theorem groupsReadBack ∀ (seen: Seen) (decls: List Decl) (groups: List (List L
     (settled: decls.all Decl.settled1 = True)
     (lexical: decls.all Decl.lexical1 = True)
     (commaFree: decls.all Decl.commaFree = True)
-    (oneLine: decls.all Decl.oneLine1 = True)
+    (hung: decls.all (decl => hangs decl.leaves1) = True)
     (tokensSame: groups.map tokens = decls.map (decl => tokens decl.leaves1))
     (words: groups.map codeWords = (decls.map Decl.calm).map Decl.words) (reads: DeclsReadBack):
     parseGroups seen groups found = Ok (found.reverse ++ decls.map Decl.calm) :=
@@ -161,7 +141,7 @@ theorem groupsReadBack ∀ (seen: Seen) (decls: List Decl) (groups: List (List L
         Bool.andLeft settled,
         Bool.andLeft lexical,
         Bool.andLeft commaFree,
-        Bool.andLeft oneLine,
+        Bool.andLeft hung,
         Eq.cong (firstOr (tokens group)) tokensSame,
         Eq.cong (firstOr (codeWords group)) words,
         (False, byComputing)
@@ -177,7 +157,7 @@ theorem groupsReadBack ∀ (seen: Seen) (decls: List Decl) (groups: List (List L
           (Bool.andRight settled)
           (Bool.andRight lexical)
           (Bool.andRight commaFree)
-          (Bool.andRight oneLine)
+          (Bool.andRight hung)
           (Eq.cong (xs => xs.drop 1) tokensSame)
           (Eq.cong (xs => xs.drop 1) words)
           reads
@@ -197,7 +177,7 @@ theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True)
     (commaFree: file.commaFree = True)
-    (oneLine: file.oneLine1 = True)
+    (hung: file.hung1 = True)
     (tokensSame: groups.map tokens = file.decls.map (decl => tokens decl.leaves1))
     (words: groups.map codeWords = file.calmTop.decls.map Decl.words) (reads: DeclsReadBack):
     parseGroups Seen.start groups [] = Ok file.calmTop.decls :=
@@ -216,7 +196,7 @@ theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
             Bool.andLeft declsSettled,
             Bool.andLeft lexical,
             Bool.andLeft commaFree,
-            Bool.andLeft oneLine,
+            Bool.andLeft hung,
             Eq.cong (firstOr (tokens group)) tokensSame,
             Eq.cong (firstOr (codeWords group)) words,
             (True, byComputing)
@@ -232,7 +212,7 @@ theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
               (Bool.andRight declsSettled)
               (Bool.andRight lexical)
               (Bool.andRight commaFree)
-              (Bool.andRight oneLine)
+              (Bool.andRight hung)
               (Eq.cong (xs => xs.drop 1) tokensSame)
               (Eq.cong (xs => xs.drop 1) words)
               reads
@@ -242,7 +222,7 @@ theorem fileGroupsRead ∀ (file: SourceFile) (groups: List (List Leaf))
                 (declLowers (decl.calmAt True) (calmAtWithin decl True (Bool.andLeft within))) then
             next
 
---| `readsBackFile1` (the stock take's U2, SW-4044's file half): leaves whose tokens are a printed one-line file's,
+--| `readsBackFile1` (the stock take's U2, SW-4044's file half): leaves whose tokens are a printed file's,
 --| and whose groups' words and end are `calmTop`'s, parse to `calmTop`, given each declaration's group reads back.
 --|
 --| Proof idea: the splitter reads only tokens (`groupsTokens`), so the leaves' groups have the tokens of the printed
@@ -255,7 +235,6 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     (settled: file.settled1 = True)
     (lexical: file.lexical1 = True)
     (commaFree: file.commaFree = True)
-    (oneLine: file.oneLine1 = True)
     (hung: file.hung1 = True)
     (tokensSame: tokens lexed.leaves = tokens file.lexed1.leaves)
     (words: (groupsOf lexed.leaves).map codeWords = file.calmTop.decls.map Decl.words)
@@ -267,7 +246,7 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
       (rewrite printedGroups1 file within shaped settled lexical hung then groupsFromTokens True file.decls)
   let refusal := refusalNone lexed.leaves file.decls within shaped (Bool.andLeft settled) lexical hung tokensSame
   let parsed :=
-    fileGroupsRead file (groupsOf lexed.leaves) within shaped settled lexical commaFree oneLine groupsSame words decls
+    fileGroupsRead file (groupsOf lexed.leaves) within shaped settled lexical commaFree hung groupsSame words decls
   rewrite refusal, parsed, ends
 
 --| `readsBackLineWithin` reads the logical operators on a line: `&&` and `||` are kinds it reads
