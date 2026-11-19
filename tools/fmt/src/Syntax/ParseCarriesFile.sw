@@ -8,7 +8,7 @@ import Syntax (..)
 import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
-import Syntax.ParseWalk (..)
+import Syntax.ParseWalkFrame (..)
 import Syntax.ParseCarries (..)
 
 -- The file: the declarations' words are the groups'.
