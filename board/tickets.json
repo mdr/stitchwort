@@ -26663,7 +26663,7 @@
     {
       "id": 4184,
       "title": "[Fable, paper] Slice 1 checkpoint and the route for settledParsesMoved1: (1) generalise Parse.Follows to a list-level item relation and prove the ~70 layout readers, or (2) change rule N's commaMoved so the closer keeps its own lineStart (settled tokens = raw; settledParsesKept1 closes the goal) and redo SW-4131's settle facts; does (2) change any output? Plus the slice-1 review: top theorems + formatAccepts1 say what D3687 asks, nothing narrowed",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4184",
       "labels": [],
