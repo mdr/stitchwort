@@ -1,5 +1,5 @@
 {
-  "next": 4227,
+  "next": 4228,
   "tickets": [
     {
       "id": 47,
@@ -27000,7 +27000,7 @@
     {
       "id": 4209,
       "title": "[Sonnet] fmt consolidation C3: duplicate theorems: 104 theorem names occur more than once across tools/fmt namespaces (commaStep, closerNotComma four times; SW-4205 §5 item 3); compare statements, keep one per statement (in the most general home), repoint users, delete the rest",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27229,6 +27229,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4219.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4227,
+      "title": "[Sonnet] fmt consolidation: 59 same-name-different-statement theorem pairs across Fmt/Syntax (SW-4209 list on its ticket): rename each to say what it states, merge allReverseOnto's identical copies and givesLocated if equal, move one-line Bool lemmas onto std's Bool.andFalseRight/orFalse*",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 45 min. SW-4209 findings; scripts in scratchpad sw4209.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
