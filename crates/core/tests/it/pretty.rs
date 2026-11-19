@@ -777,3 +777,35 @@ fn prints_a_deep_chain_of_operators_and_applications() {
     });
     assert_eq!(show(&p, &names, &term), text);
 }
+
+/// After record eta a value rebuilt from the fields of an unknown record
+/// holds `Proj`s, and still prints as the update that made it (SW-2152).
+#[test]
+fn prints_a_record_of_projections_as_an_update() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let pos = stitchwort_core::check::declare_data_group_as(
+        &mut p.g,
+        vec![],
+        Sort::Type(0),
+        vec![("Pos".into(), "Pos".into(), span(), true)],
+    )
+    .expect("Pos")[0];
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        pos,
+        vec![ctor("MkPos", vec![("row", nat.clone()), ("column", nat)])],
+    )
+    .expect("Pos");
+    let field = |i| Term::Proj(pos, i, Rc::new(v(0)));
+    let rebuilt = |row: Term, column: Term| Term::ctor(pos, 0, vec![row, column]);
+    assert_eq!(
+        show(&p, &["pos"], &rebuilt(field(0), p.num(7))),
+        "{ pos | column = 7 }"
+    );
+    // A field taken from the wrong place is not a field of `pos`.
+    assert_eq!(
+        show(&p, &["pos"], &rebuilt(field(1), p.num(7))),
+        "{ row = pos.column, column = 7 }"
+    );
+}
