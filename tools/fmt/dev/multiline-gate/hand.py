@@ -63,6 +63,15 @@ cases = [
  'def d: A := [\n\n  a\n\n]\n',
  'def d: A := a +\n\n  b\n',
  'def d: A := [a, -- c\n\n  -- o\n\n  b]\n',
+ # a blank line above a comment, wherever it is (D3693)
+ 'def d: A := f\n\n  -- c\n  x\n',
+ 'def d: A := a +\n\n  -- c\n  b\n',
+ 'def d: A := a\n\n  -- c\n  + b\n',
+ 'def d: A := [\n  1,\n  2\n\n  -- c\n]\n',
+ 'def d: A := (a\n\n  -- c\n)\n',
+ 'def d:\n\n  -- c\n  A := 1\n',
+ 'def d: A :=\n\n  -- c\n  1\n',
+ 'def d: A := f\n\n  -- c\n\n  -- e\n  x\n',
  # mixtures
  'def d: A := %s (- -- c\n  %s) [%s -- e\n  ]\n' % (L, A, ', '.join([A] * 6)),
  '-- top\ndef d: A -> -- x\n  B := g [ -- open\n    a, -- first\n\n    -- above\n    b,\n  ] -- close\n\n\ndef e: C := -1 + f x -- end\n-- last\n',

@@ -55,8 +55,7 @@ theorem notedFramedLowers ∀ (first: Word) (around: Around) (doc: Doc) (indent 
     (keys: keysFrom low (framedBy first around doc) = True):
     StartLowers (framedBy first around doc) indent low :=
   let notes :=
-    (notesAbove around.item [note, ..rest] ++ (if first.comments.blankBefore then [Blank] else [])).filter (doc =>
-      not doc.isEmpty)
+    (notesAbove [note, ..rest] ++ (if first.comments.blankBefore then [Blank] else [])).filter (doc => not doc.isEmpty)
   let after: Doc := Concat [Concat notes, Displaced doc]
   let afterKeys: keysFrom low after = True := rewrite hoisted, noted, closer at keys then keys
   rewrite hoisted, noted, closer then
@@ -97,7 +96,7 @@ theorem notedLeafLowers ∀ (word: Word) (around: Around) (key indent low: Nat) 
     StartLowers (word.leaf around key) indent low :=
   let after: Doc :=
     Concat
-      (((notesAbove around.item [note, ..rest] ++ (if word.comments.blankBefore then [Blank] else []))
+      (((notesAbove [note, ..rest] ++ (if word.comments.blankBefore then [Blank] else []))
         ++ [Doc.text word.text, ..word.trailing]).filter
         (doc => not doc.isEmpty))
   let shaped := leafPiece word around key closer comma

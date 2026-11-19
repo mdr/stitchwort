@@ -59,9 +59,7 @@ theorem itemLed ∀ (expr: Expr) (around: Around) (inset: Nat)
     | [note, ..rest] => (
       True,
       state entry fresh =>
-        ledItemHangs expr around inset state entry note rest within lexical sound hoisted above
-          (rewrite fresh)
-          hoistedHangs
+        ledItemHangs expr around inset state entry note rest within lexical sound hoisted above hoistedHangs
     )
     | [] =>
       match kept: around.item && expr.lead.comments.blankBefore with

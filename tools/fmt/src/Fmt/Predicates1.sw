@@ -58,14 +58,11 @@ def SourceFile.settled1 (file: SourceFile): Bool :=
 
 --| A token's comments with the blank-line flags the rules never read
 --| cleared: the flag below the comments is read above an item with no
---| comments and below any comments that aren't a closer's; the first
---| comment's flag only above an item.
+--| comments and below any comments that aren't a closer's. The comments'
+--| own flags are all read.
 def Comments.kept (comments: Comments) (item closer: Bool): Comments :=
-  let above := match comments.above with
-    | [] => []
-    | [first, ..rest] => [{ first | blankBefore = first.blankBefore && item && !closer }, ..rest]
   let below := if comments.above.isEmpty then item else !closer
-  { comments | above, blankBefore = comments.blankBefore && below }
+  { comments | blankBefore = comments.blankBefore && below }
 
 def Word.kept (word: Word) (item closer: Bool): Word := { word | comments = word.comments.kept item closer }
 

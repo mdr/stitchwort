@@ -20,11 +20,10 @@ import Fmt.OneLineStatements (..)
 -- Tokens.
 
 --| Own-line comments are text and line breaks.
-theorem notesAboveKeys ∀ (low: Nat) (keep: Bool) (notes: List Note): allKeysFrom low (notesAbove keep notes) = True :=
-  match notes with
-    | [] => byComputing
-    | [note, ..rest] =>
-      allKeysAppend low _ _ (allKeysIf low _ [Blank] [] byComputing byComputing) (rewrite notesAboveKeys low True rest)
+theorem notesAboveKeys ∀ (low: Nat) (notes: List Note): allKeysFrom low (notesAbove notes) = True := match notes with
+  | [] => byComputing
+  | [note, ..rest] =>
+    allKeysAppend low _ _ (allKeysIf low _ [Blank] [] byComputing byComputing) (rewrite notesAboveKeys low rest)
 
 theorem parenOpens ∀ (text: Text) (is: text = "("): isCloserText text = False := rewrite is
 

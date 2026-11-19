@@ -611,33 +611,33 @@ theorem blankLeadPasses ∀ (kinds: Text → Tok) (blank before: Bool) (first: T
           (edge gapped => gappedReady kinds before first edge gapped))
     | False => passesNil kinds (Ready kinds before first) (Ready kinds before first) (edge holds => holds)
 
-theorem notesAbovePasses ∀ (kinds: Text → Tok) (before keep: Bool) (notes: List Note)
+theorem notesAbovePasses ∀ (kinds: Text → Tok) (before: Bool) (notes: List Note)
     (sound: notesSound notes = True):
-    PassesAll kinds (notesAbove keep notes) (Gapped before) (Gapped before) :=
+    PassesAll kinds (notesAbove notes) (Gapped before) (Gapped before) :=
   match notes with
     | [] => passesNil kinds (Gapped before) (Gapped before) (edge holds => holds)
     | [note, ..rest] =>
       passesAppend kinds
-        (if note.blankBefore && keep then [Blank] else [])
-        ([Doc.text note.text, HardLine] ++ notesAbove True rest)
+        (if note.blankBefore then [Blank] else [])
+        ([Doc.text note.text, HardLine] ++ notesAbove rest)
         (Gapped before)
         (Gapped before)
         (Gapped before)
-        (blankListPasses kinds (note.blankBefore && keep) (Gapped before))
+        (blankListPasses kinds note.blankBefore (Gapped before))
         (passesCons kinds
           (Doc.text note.text)
-          ([HardLine] ++ notesAbove True rest)
+          ([HardLine] ++ notesAbove rest)
           (Gapped before)
           (edge => True)
           (Gapped before)
           (commentPasses kinds before note.text (Bool.andLeft sound))
           (passesCons kinds HardLine
-            (notesAbove True rest)
+            (notesAbove rest)
             (edge => True)
             (Gapped before)
             (Gapped before)
             (passesHard kinds (edge => True) (Gapped before) byComputing)
-            (notesAbovePasses kinds before True rest (Bool.andRight sound))))
+            (notesAbovePasses kinds before rest (Bool.andRight sound))))
 
 theorem laterCloserNotesPasses ∀ (kinds: Text → Tok) (notes: List Note)
     (sound: notesSound notes = True):
@@ -673,14 +673,21 @@ theorem closerNotesPasses ∀ (kinds: Text → Tok) (before: Bool) (notes: List 
   match notes with
     | [] => passesNil kinds (Gapped before) (edge => True) (edge holds => byComputing)
     | [note, ..rest] =>
-      passesCons kinds
-        (Doc.text note.text)
-        (laterCloserNotes rest)
+      passesAppend kinds
+        (if note.blankBefore then [Blank] else [])
+        ([Doc.text note.text] ++ laterCloserNotes rest)
+        (Gapped before)
         (Gapped before)
         (edge => True)
-        (edge => True)
-        (commentPasses kinds before note.text (Bool.andLeft sound))
-        (laterCloserNotesPasses kinds rest (Bool.andRight sound))
+        (blankListPasses kinds note.blankBefore (Gapped before))
+        (passesCons kinds
+          (Doc.text note.text)
+          (laterCloserNotes rest)
+          (Gapped before)
+          (edge => True)
+          (edge => True)
+          (commentPasses kinds before note.text (Bool.andLeft sound))
+          (laterCloserNotesPasses kinds rest (Bool.andRight sound)))
 
 --| Where a line starts, from where a token may stand: a comment may still wait.
 theorem startPasses ∀ (kinds: Text → Tok) (before: Bool) (first: Text):
@@ -802,27 +809,27 @@ theorem frontPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
                       blankLeadPasses kinds (around.item && blankBefore) around.before text
                   | [first, ..rest] =>
                     rewrite List.appendNil
-                          ([BreakParent, LineStart, ..notesAbove around.item [first, ..rest]]
+                          ([BreakParent, LineStart, ..notesAbove [first, ..rest]]
                             ++ (if blankBefore then [Blank] else [])) then
                       passesAppend kinds
-                        [BreakParent, LineStart, ..notesAbove around.item [first, ..rest]]
+                        [BreakParent, LineStart, ..notesAbove [first, ..rest]]
                         (if blankBefore then [Blank] else [])
                         (Ready kinds around.before text)
                         (Gapped around.before)
                         (Ready kinds around.before text)
                         (passesCons kinds BreakParent
-                          [LineStart, ..notesAbove around.item [first, ..rest]]
+                          [LineStart, ..notesAbove [first, ..rest]]
                           (Ready kinds around.before text)
                           (Ready kinds around.before text)
                           (Gapped around.before)
                           (passesBreakParent kinds (Ready kinds around.before text))
                           (passesCons kinds LineStart
-                            (notesAbove around.item [first, ..rest])
+                            (notesAbove [first, ..rest])
                             (Ready kinds around.before text)
                             (Gapped around.before)
                             (Gapped around.before)
                             (startPasses kinds around.before text)
-                            (notesAbovePasses kinds around.before around.item [first, ..rest] notes)))
+                            (notesAbovePasses kinds around.before [first, ..rest] notes)))
                         (allTo kinds
                           (if blankBefore then [Blank] else [])
                           (Gapped around.before)
