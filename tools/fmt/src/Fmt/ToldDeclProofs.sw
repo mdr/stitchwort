@@ -906,10 +906,23 @@ theorem toldLeadShape ∀ (word: Word) (around: Around):
     | True => byComputing
     | False => (shapeKLead word around.item).flipped
 
+--| A frame around a document that tells its first token hoisted, then `rest`, tells the token's shape, then `rest`.
+theorem framedWordShape ∀ (first: Word) (around: Around) (doc: Doc) (rest: List Told)
+    (sound: first.sound = True)
+    (inner: Is doc (first.shapeK around.item True ++ rest)):
+    Is (framedBy first around doc) (first.shapeK around.item around.hoisted ++ rest) :=
+  spot =>
+    rewrite framedTell first around doc spot sound,
+        <- toldLeadShape first around,
+        List.appendAssoc (first.toldLead around) (first.shapeK around.item True) rest then
+      refinesAppend _ _ _ _
+        (refinesSelf _ (toldAboveExact (first.printed around).comments))
+        (inner (first.placedSpot around spot))
+
 --| A hugged bracket and its hug tell the bracket's shape.
 --|
---| Proof idea: the opener's own-line comments (`leadingIs`), then the bracket's content in a group
---| (`bracketContentShape`, with the opener hoisted); `toldLeadShape` puts the comments back on the opener.
+--| Proof idea: the bracket's content in a group (`bracketContentShape`, with the opener hoisted), framed by the
+--| opener (`framedWordShape`).
 theorem huggedBracketShape ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word)
     (around: Around) (prior: List Word)
     (within: allWithin1 items = True)
@@ -942,36 +955,19 @@ theorem huggedBracketShape ∀ (list: Bool) (open: Word) (items: List Expr) (clo
       opens
       each
       homed
-  let leading := leadingIs open around around.at openSound
-  let moved: open.toldLead around
-    ++ (open.shapeK around.item True
-      ++ itemsShape (!(list && items.all Expr.plainItem)) items
-      ++ close.shapeK False False)
-    = open.shapeK around.item around.hoisted
-      ++ itemsShape (!(list && items.all Expr.plainItem)) items
-      ++ close.shapeK False False :=
-    rewrite <- toldLeadShape open around,
-        List.appendAssoc
-          (open.toldLead around)
-          (open.shapeK around.item True)
-          (itemsShape (!(list && items.all Expr.plainItem)) items ++ close.shapeK False False)
   (
-    isSame _ _ _
-      (isConcat _ _
-        (isCons _ _ _ _ leading
-          (isLast _ _
-            (isGroup
-              (bracketContent list open items close { around | hoisted = True })
-              (bracketContent list open items close { around | hoisted = True }).forcesBreak _
-              content))))
-      moved,
+    framedWordShape open around
+      (Group
+        (bracketContent list open items close { around | hoisted = True })
+        (bracketContent list open items close { around | hoisted = True }).forcesBreak) _
+      openSound
+      (isGroup _ (bracketContent list open items close { around | hoisted = True }).forcesBreak _ content),
     hugged same =>
       rewrite <- Option.someInjective same then
-        isSame _ _ _
-          (isConcat _ _
-            (isCons _ _ _ _ leading
-              (isLast _ _ (isGroup (bracketContent list open items close { around | hoisted = True }) True _ content))))
-          moved
+        framedWordShape open around
+          (Group (bracketContent list open items close { around | hoisted = True }) True) _
+          openSound
+          (isGroup _ True _ content)
   )
 
 --| What a call's last argument and its hug tell.

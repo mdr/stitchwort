@@ -247,6 +247,17 @@ fn a_comment_where_no_layout_breaks_gets_a_line_break() {
 }
 
 #[test]
+fn a_hugged_bracket_after_a_comment_lays_its_items_under_it() {
+    // S23, S40: a comment above a hugged last argument, or after the
+    // argument before it, puts the bracket on a line of its own; its items
+    // go 2 in from it and its closer under it, as for any other node.
+    check(
+        "def x: List Nat := f\n  -- the pairs\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\n",
+        "def x: List Nat := f\n  -- the pairs\n  (\n    firstLongArgumentName,\n    secondLongArgumentName,\n    thirdLongArgumentName,\n    fourthLongArgumentName\n  )\n",
+    );
+}
+
+#[test]
 fn comments_around_a_leading_comma_go_above_the_next_item() {
     let gate = gate("def x: List Nat :=\n  [ 1 -- a\n  -- b\n  , -- c\n    2\n  ]\n").unwrap();
     assert_eq!(gate.check, Ok(()));

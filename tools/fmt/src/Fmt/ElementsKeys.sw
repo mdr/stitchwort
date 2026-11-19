@@ -198,24 +198,20 @@ theorem anyHugKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) (
       ∧ (∀ (opened: Doc) => (huggedBracket list open items close around).snd = Some opened
         → keysFrom low opened = True) :=
   let content := anyContentKeys low list open items close { around | hoisted = True } floor within
-  let lead := keysConcat low (open.leading around around.at) (leadingKeysAt low around.at open around floor)
-  let fst: keysFrom low
-    (Doc.concat [
-      Doc.concat (open.leading around around.at),
-      Group
+  (
+    framedKeysAt low open around
+      (Group
         (bracketContent list open items close { around | hoisted = True })
-        (bracketContent list open items close { around | hoisted = True }).forcesBreak
-    ])
-    = True :=
-    keysConcat low _ (rewrite lead, content)
-  let snd: keysFrom low
-    (Doc.concat [
-      Doc.concat (open.leading around around.at),
-      Group (bracketContent list open items close { around | hoisted = True }) True
-    ])
-    = True :=
-    keysConcat low _ (rewrite lead, content)
-  (fst, opened same => rewrite <- Option.someInjective same then snd)
+        (bracketContent list open items close { around | hoisted = True }).forcesBreak)
+      floor
+      content,
+    opened same =>
+      rewrite <- Option.someInjective same then
+        framedKeysAt low open around
+          (Group (bracketContent list open items close { around | hoisted = True }) True)
+          floor
+          content
+  )
 
 --| A slice 1 call's last argument keeps its keys, as it is and opened.
 theorem anyLastKeys ∀ (low: Nat) (argument: Expr) (around: Around)

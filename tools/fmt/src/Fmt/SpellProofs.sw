@@ -1359,7 +1359,8 @@ theorem hugTexts ∀ (open: Word) (hoisted: Bool) (items close: List Text):
 
 --| A hugged bracket and its hug spell the opener, its items and its closer.
 --|
---| Proof idea: The opener's own-line comments, then the bracket's content in a group (`bracketContentSpells`); `hugTexts` moves the comments back to the front.
+--| Proof idea: The bracket's content in a group (`bracketContentSpells`), framed (`framedSpells`); `hugTexts` moves the
+--| comments back to the front.
 theorem huggedSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
@@ -1376,25 +1377,13 @@ theorem huggedSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
       openSound
       closeSound
       (allElSpells items within sound)
-  let leading := spellsConcat _ _ (leadingSpells open around around.at openSound)
   (
     rewrite hugTexts open around.hoisted (commaSpelt items) (close.spelledAt False) then
-      spellsConcat _ _
-        (spellsCons _ _ _ _ leading
-          (spellsLast
-            (Group
-              (bracketContent list open items close { around | hoisted = True })
-              (bracketContent list open items close { around | hoisted = True }).forcesBreak) _
-            (spellsGroupWith _
-              (bracketContent list open items close { around | hoisted = True }).forcesBreak _
-              content))),
+      framedSpells open around _ _ openSound
+        (spellsGroupWith _ (bracketContent list open items close { around | hoisted = True }).forcesBreak _ content),
     (hugged same =>
       rewrite <- Option.someInjective same, hugTexts open around.hoisted (commaSpelt items) (close.spelledAt False) then
-        spellsConcat _ _
-          (spellsCons _ _ _ _ leading
-            (spellsLast
-              (Group (bracketContent list open items close { around | hoisted = True }) True) _
-              (spellsGroupWith _ True _ content))))
+        framedSpells open around _ _ openSound (spellsGroupWith _ True _ content))
   )
 
 --| What an option of a call's arguments spells: nothing if there is none, else its document and its hug.

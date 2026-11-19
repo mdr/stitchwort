@@ -1026,22 +1026,19 @@ theorem bracketKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
 theorem pairCong ∀ (a a': Doc) (b b': Option Doc) (first: a = a') (second: b = b'): (a, b) = (a', b') :=
   rewrite first, second
 
-theorem huggedFromCong ∀ (leading leading': List Doc) (content content': Doc)
-    (sameLeading: leading = leading')
+theorem huggedFromCong ∀ (first first': Word) (around: Around) (content content': Doc)
+    (sameFrame: ∀ (doc: Doc) => framedBy first around doc = framedBy first' around doc)
     (sameContent: content = content'):
-    (
-      Doc.concat [Doc.concat leading, Group content content.forcesBreak],
-      Some (Doc.concat [Doc.concat leading, Group content True])
-    )
+    (framedBy first around (Group content content.forcesBreak), Some (framedBy first around (Group content True)))
       = (
-        Doc.concat [Doc.concat leading', Group content' content'.forcesBreak],
-        Some (Doc.concat [Doc.concat leading', Group content' True])
+        framedBy first' around (Group content' content'.forcesBreak),
+        Some (framedBy first' around (Group content' True))
       ) :=
-  rewrite sameLeading, sameContent
+  rewrite sameContent, sameFrame (Group content' content'.forcesBreak), sameFrame (Group content' True)
 
 --| A hugged bracket's two documents are the same for the calm items and bracket.
 --|
---| Proof idea: Both are the opener's own-line comments and the bracket's content in a group; `leadingKept` and `bracketKept`.
+--| Proof idea: Both are the bracket's content in a group, framed by the opener; `framedByKept` and `bracketKept`.
 theorem huggedKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (item: Bool)
     (same: around.item = item)
     (good: allGood items = True)
@@ -1054,15 +1051,16 @@ theorem huggedKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word
       around
       = huggedBracket list open items close around :=
   huggedFromCong
-    ((open.kept item False).leading around around.at)
-    (open.leading around around.at)
+    (open.kept item False)
+    open
+    around
     (bracketContent list
       (open.kept item False)
       (pickItems (list && items.all Expr.plainItem) items)
       (close.kept False True)
       { around | hoisted = True })
     (bracketContent list open items close { around | hoisted = True })
-    (leadingKept open around around.at item False same byComputing)
+    (doc => framedByKept open around doc item same)
     (bracketKept list open items close { around | hoisted = True } item same good closes each)
 
 theorem takeCalm ∀ (items: List Expr) (item: Bool) (count: Nat):

@@ -11,7 +11,6 @@ import Fmt (..)
 import Fmt.HangProofs (Gap, prefixGapIs)
 import Fmt.MarkProofs (allKeysFrom, keysFrom)
 import Fmt.AppHangProofs (appDocsIs, argAround)
-import Fmt.BracketHangProofs (huggedBracketIs)
 import Fmt.ExprHangProofs (..)
 import Fmt.QuietKeyProofs (
   ArgKeys,
@@ -251,7 +250,6 @@ theorem edgeContentKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Ex
 --| An edge-quiet bracket hugged as a call's last argument keeps its keys, as it is and opened.
 theorem edgeHugKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (end: Bool)
     (opens: isCloserText open.text = False)
-    (bare: open.leading around around.at = [])
     (closeQuiet: close.quiet1 = True)
     (within: allWithin1 items = True)
     (lexical: allLexical1 items = True)
@@ -261,8 +259,20 @@ theorem edgeHugKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) 
         → keysFrom low opened = True) :=
   let content :=
     edgeContentKeys low list open items close { around | hoisted = True } end opens closeQuiet within lexical edge
-  rewrite huggedBracketIs list open items close around bare then
-    (content, opened same => rewrite <- Option.someInjective same then content)
+  (
+    framedKeysOpen low open around
+      (Group
+        (bracketContent list open items close { around | hoisted = True })
+        (bracketContent list open items close { around | hoisted = True }).forcesBreak)
+      opens
+      content,
+    opened same =>
+      rewrite <- Option.someInjective same then
+        framedKeysOpen low open around
+          (Group (bracketContent list open items close { around | hoisted = True }) True)
+          opens
+          content
+  )
 
 --| An edge-quiet slice 1 call's last argument keeps its keys, as it is and opened.
 theorem edgeLastKeys ∀ (low: Nat) (argument: Expr) (around: Around) (end: Bool)
@@ -283,7 +293,6 @@ theorem edgeLastKeys ∀ (low: Nat) (argument: Expr) (around: Around) (end: Bool
     | Tuple open items trailing close, within =>
       edgeHugKeys low False open items close around end
         (parenOpens open.text (DecEq.sound (Bool.andLeft lexical)))
-        (edgeLeadingOff open around around.at False (Bool.andLeft edge))
         (Bool.andRight (Bool.andRight edge))
         within
         (Bool.andRight (Bool.andRight lexical))
@@ -291,7 +300,6 @@ theorem edgeLastKeys ∀ (low: Nat) (argument: Expr) (around: Around) (end: Bool
     | ListOf open items trailing close, within =>
       edgeHugKeys low True open items close around end
         (bracketOpens open.text (DecEq.sound (Bool.andLeft lexical)))
-        (edgeLeadingOff open around around.at (end && items.isEmpty) (Bool.andLeft edge))
         (Bool.andRight (Bool.andRight edge))
         within
         (Bool.andRight (Bool.andRight lexical))

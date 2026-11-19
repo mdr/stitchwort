@@ -33,6 +33,11 @@ test "a call hugs its last argument, a list, when the list can't fit below" :=
       "def hug: List Nat := f [aaaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, cccccccccccccccccccccccccccc, dddddddddddddddddddddd, eeeeeeeeeeeeeeeee + 1]\n"
       "def hug: List Nat := f [\n  aaaaaaaaaaaaaaaaaaaaa,\n  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,\n  cccccccccccccccccccccccccccc,\n  dddddddddddddddddddddd,\n  eeeeeeeeeeeeeeeee + 1\n]\n"
 
+test "a hugged last argument after a comment has its items under its bracket and its closer at the bracket's column" :=
+  formats
+      "def x: List Nat := f\n  -- the pairs\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\n"
+      "def x: List Nat := f\n  -- the pairs\n  (\n    firstLongArgumentName,\n    secondLongArgumentName,\n    thirdLongArgumentName,\n    fourthLongArgumentName\n  )\n"
+
 test "a closer after a trailing comment goes left of the lines inside its brackets" :=
   formats "def d: ( -- t7\n    a -- t9\n  ) -- t10\n  := b\n" "def d: ( -- t7\n    a -- t9\n) -- t10\n  :=\n  b\n"
 

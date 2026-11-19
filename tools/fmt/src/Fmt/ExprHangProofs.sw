@@ -41,7 +41,6 @@ import Fmt.BracketHangProofs (
   ItemsHang,
   elItemHangs,
   groupedBracketHangs,
-  huggedBracketIs,
   lastList,
   lastTrails,
   lastTuple,
@@ -847,17 +846,18 @@ theorem itemsHang ∀ (items: List Expr) (inset: Nat) (bare arm: Bool) (at: Nat)
 
 --| A quiet bracket hugged as a call's last argument: as `huggedBracket` writes it, and opened.
 --|
---| Proof idea: the bracket's parts in a group, broken or not (`groupedBracketHangs`), whose items hang
---| (`itemsHang`) and whose keys are the items' (`cellsKeys`, `brokenKeys`); nothing trails before the closer.
+--| Proof idea: the bracket's parts in a group, broken or not (`groupedBracketHangs`), framed by the opener
+--| (`framedHangs`), whose items hang (`itemsHang`) and whose keys are the items' (`cellsKeys`, `brokenKeys`); nothing
+--| trails before the closer.
 theorem hugFacts ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
     (lexical: allLexical1 items = True)
     (within: allWithin1 items = True)
     (quiet: (ListOf open items False close).quiet1 = True)
     (isOpen: open.text = (if list then "[" else "("))
     (isClose: close.text = (if list then "]" else ")")) (keys: QuietKeys):
-    Hangs lexKind False False (huggedBracket list open items close around).fst
+    Hangs lexKind around.before False (huggedBracket list open items close around).fst
       ∧ (∀ (opened: Doc) => (huggedBracket list open items close around).snd = Some opened
-        → Hangs lexKind False False opened) :=
+        → Hangs lexKind around.before False opened) :=
   let openWord := fixedWord open.text Comments.none
   let closeWord := fixedWord close.text Comments.none
   let itemsQuietly: allQuiet1 items = True := Bool.andLeft (Bool.andRight quiet)
@@ -870,29 +870,35 @@ theorem hugFacts ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) 
     | True => rewrite isClose then closeBracket
     | False => rewrite isClose then closeParen
   let bareItems := list && items.all Expr.plainItem
-  let lays: ∀ (hard: Bool) => Hangs lexKind False False
-    (Group (bracketContent list openWord items closeWord { around | hoisted = True }) hard) :=
+  let lays: ∀ (hard: Bool) => Hangs lexKind around.before False
+    (framedBy openWord around
+      (Group (bracketContent list openWord items closeWord { around | hoisted = True }) hard)) :=
     hard inset =>
-      let el :=
-        groupedBracketHangs lexKind list openWord items closeWord around hard inset inset opener byComputing closer
-            byComputing byComputing byComputing
-            (itemsHang items (inset + 2) bareItems around.inArm (around.at + 1) within lexical itemsQuietly keys)
-            (cellsKeys items (around.at + 1) bareItems around.inArm False (around.at + 1) within itemsQuietly keys)
-            (brokenKeys items
-              (around.at + 1)
-              bareItems
-              around.inArm
-              True
-              False
-              (around.at + 1)
-              within
-              itemsQuietly
-              keys)
-            (never => (Bool.falseNotTrue (Eq.trans (lastTrailsQuiet items itemsQuietly).flipped never)).impossible)
-      elQuiet lexKind _ inset inset False _ wordStart el beforeClose
-  rewrite quietIs open (Bool.andLeft quiet),
-      quietIs close (Bool.andRight (Bool.andRight quiet)),
-      huggedBracketIs list openWord items closeWord around bare then
+      framedHangs lexKind openWord around
+        (Group (bracketContent list openWord items closeWord { around | hoisted = True }) hard)
+        inset
+        inset
+        False
+        bare
+        (indent seat =>
+          let el :=
+            groupedBracketHangs lexKind list openWord items closeWord around hard indent seat opener byComputing closer
+                byComputing byComputing byComputing
+                (itemsHang items (indent + 2) bareItems around.inArm (around.at + 1) within lexical itemsQuietly keys)
+                (cellsKeys items (around.at + 1) bareItems around.inArm False (around.at + 1) within itemsQuietly keys)
+                (brokenKeys items
+                  (around.at + 1)
+                  bareItems
+                  around.inArm
+                  True
+                  False
+                  (around.at + 1)
+                  within
+                  itemsQuietly
+                  keys)
+                (never => (Bool.falseNotTrue (Eq.trans (lastTrailsQuiet items itemsQuietly).flipped never)).impossible)
+          elQuiet lexKind _ indent seat False _ wordStart el beforeClose)
+  rewrite quietIs open (Bool.andLeft quiet), quietIs close (Bool.andRight (Bool.andRight quiet)) then
     (
       lays (bracketContent list openWord items closeWord { around | hoisted = True }).forcesBreak,
       opened same => rewrite <- Option.someInjective same then lays True
@@ -919,23 +925,21 @@ theorem lastHangs ∀ (argument: Expr) (around: Around)
     | Infix InfixArrow _ _ _, _ => (plain, opened never => cases)
     | Prefix _ _, _ => (plain, opened never => cases)
     | Tuple open items trailing close, within =>
-      rewrite quietBefore then
-        hugFacts False open items close around
-          (Bool.andRight (Bool.andRight lexical))
-          within
-          quiet
-          (DecEq.sound (Bool.andLeft lexical))
-          (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))
-          keys
+      hugFacts False open items close around
+        (Bool.andRight (Bool.andRight lexical))
+        within
+        quiet
+        (DecEq.sound (Bool.andLeft lexical))
+        (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))
+        keys
     | ListOf open items trailing close, within =>
-      rewrite quietBefore then
-        hugFacts True open items close around
-          (Bool.andRight (Bool.andRight lexical))
-          within
-          quiet
-          (DecEq.sound (Bool.andLeft lexical))
-          (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))
-          keys
+      hugFacts True open items close around
+        (Bool.andRight (Bool.andRight lexical))
+        within
+        quiet
+        (DecEq.sound (Bool.andLeft lexical))
+        (DecEq.sound (Bool.andLeft (Bool.andRight lexical)))
+        keys
 
 --| Quiet arguments of a slice 1 call each hang, the last as it is and opened, after an element that trails nothing.
 theorem argsHang ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Expr)

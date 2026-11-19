@@ -132,10 +132,9 @@ theorem itemsCoded ∀ (argument: Expr) (rest: List Expr)
     | [next, ..more] => itemsCoded next more (Bool.andRight within) (Bool.andRight nonCloser)
 
 --| A bracket as a call's last argument: its own-line comments, then the bracket's content grouped, whether it stands
---| as it is or opened (`hard`).
+--| as it is or opened (`hard`), displaced as any node is.
 --|
---| Proof idea: the comments (`leadingStep`), then the content from where they leave the printer (`LeadHeld`), which
---| `bracketContentStepFrom` takes as it is.
+--| Proof idea: the frame (`framedStep`) around the content, which `bracketContentStepFrom` takes from any start.
 theorem huggedStep ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (place: Around) (hard: Bool)
     (openSound: open.sound = True)
     (closeSound: close.sound = True)
@@ -147,55 +146,26 @@ theorem huggedStep ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word
     (stops: ∀ (argument: Expr) (rest: List Expr) => items = [argument, ..rest]
       → Coded (lastArg argument rest).words.reverse = True):
     Step
-      (Doc.concat [
-        Doc.concat (open.leading place place.at),
-        Group (bracketContent list open items close { place | hoisted = True }) hard
-      ])
+      (framedBy open place (Group (bracketContent list open items close { place | hoisted = True }) hard))
       (Starts place.hoisted place.before)
       (kinds => Ends kinds (ListOf open items False close).trails) :=
-  match open with
-    | { text, comments = { above, after, blankBefore } } =>
-      stepDocConcat _ _ _
-        (stepAllCons
-          (Doc.concat (Word.leading ({ text, comments = { above, after, blankBefore } }) place place.at))
-          [
-            Group
-              (bracketContent list ({ text, comments = { above, after, blankBefore } }) items close { place |
-                hoisted = True
-              })
-              hard
-          ]
-          (Starts place.hoisted place.before)
-          (LeadHeld (!above.isEmpty && isCloserText text) place.before)
-          (kinds => Ends kinds (ListOf ({ text, comments = { above, after, blankBefore } }) items False close).trails)
-          (stepDocConcat _ _ _
-            (leadingStep text above after blankBefore place place.at (Bool.andLeft (Bool.andRight openSound)) (closed =>
-              Void.impossible (Bool.falseNotTrue (Eq.trans openOpen.flipped closed)))))
-          (stepAllOne
-            (Group
-              (bracketContent list ({ text, comments = { above, after, blankBefore } }) items close { place |
-                hoisted = True
-              })
-              hard)
-            (LeadHeld (!above.isEmpty && isCloserText text) place.before)
-            (kinds => Ends kinds (ListOf ({ text, comments = { above, after, blankBefore } }) items False close).trails)
-            (stepGroup _ hard _ _
-              (bracketContentStepFrom
-                (LeadHeld (!above.isEmpty && isCloserText text) place.before)
-                list
-                ({ text, comments = { above, after, blankBefore } })
-                items
-                close
-                { place | hoisted = True }
-                byComputing
-                openSound
-                closeSound
-                openOpen
-                openComma
-                closeShut
-                closes
-                els
-                stops))))
+  framedStep open place
+    (Group (bracketContent list open items close { place | hoisted = True }) hard)
+    (ListOf open items False close).trails
+    openSound
+    openOpen
+    (stepGroup _ hard _ _
+      (bracketContentStepFrom NoHeld list open items close
+        { place | hoisted = True }
+        byComputing
+        openSound
+        closeSound
+        openOpen
+        openComma
+        closeShut
+        closes
+        els
+        stops))
 
 --| A call's last argument, as it stands and opened.
 --|

@@ -29,7 +29,7 @@ import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.DeclHangProofs (BodyLays, OnLine, atomDecl, declStart, plainBody)
 import Fmt.DeclFactsProofs (DeclElements, HugOnLine, appDocsHug, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
 import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, infixTrails, lastLexical, lastWithin, prefixTrails, trailsSwap)
-import Fmt.AppHangProofs (ArgsHang, appElHangs, lastArg)
+import Fmt.AppHangProofs (ArgsHang, HangsFor, appElHangs, argAround, lastArg)
 import Fmt.TrailsProofs (appTrails)
 import Fmt.EdgeDeclProofs (edgeNotedNodeHangs)
 import Fmt.ElementsHomed (..)
@@ -46,7 +46,7 @@ import Fmt.TrailsProofs (parenTrails)
 import Fmt.ElementsApp (LastHangs, Led, argsLed, lastLed)
 import Fmt.ElementsItems (itemsLed)
 import Fmt.ElementsKeys (anyBrokenKeys, anyCellsKeys)
-import Fmt.BracketHangProofs (bracketTrails, listHangs, tupleHangs, tupleTrails)
+import Fmt.BracketHangProofs (bracketTrails, groupedBracketHangs, listHangs, tupleHangs, tupleTrails)
 import Fmt.EdgeHangProofs (edgeCloseBefore)
 import Fmt.ExprHangProofs (closeBracket, openBracket)
 
@@ -425,7 +425,204 @@ theorem listAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Wor
           (edgeCloseBefore open items close opens within itemsLexical))
   (hangs, level first around plain => hangs around plain)
 
---| A call (open): comments above and after the function and any argument.
+--| What a tuple or list carries for its hug as a call's last argument: its items' facts. Nothing for any other
+--| expression.
+def BracketFacts: Expr → Prop
+  | Tuple _ items _ _ => AllAnyFacts items
+  | ListOf _ items _ _ => AllAnyFacts items
+  | _ => True
+
+def AllBracketFacts: List Expr → Prop
+  | [] => True
+  | [expr, ..rest] => BracketFacts expr ∧ AllBracketFacts rest
+
+--| What a call asks of each argument: its facts, and its items' if it can hug.
+def ArgFacts (expr: Expr): Prop := AnyFacts expr ∧ BracketFacts expr
+
+def AllArgFacts (exprs: List Expr): Prop := AllAnyFacts exprs ∧ AllBracketFacts exprs
+
+--| A node framed by its first token, standing where it writes the comments above that token (not hoisted, not an
+--| item), hangs from its seat at the indentation, its first word where `startFor` says, if its document hangs from
+--| any seat with no comment waiting.
+--|
+--| Proof idea: with no comments above the token, `framedHangs`; with some, `notedFramedHangs`, whose hoisted frame is
+--| the displaced document, which `framedHangs` gives as well.
+theorem framedLedHangs ∀ (first: Word) (around: Around) (doc: Doc) (indent: Nat) (trails: Bool)
+    (sound: first.sound = True)
+    (closer: isCloserText first.text = False)
+    (hoisted: around.hoisted = False)
+    (item: around.item = False)
+    (el: ∀ (inset seat: Nat) => ElHangs lexKind doc inset seat False trails wordStart):
+    ElHangs lexKind (framedBy first around doc) indent indent around.before trails (startFor first.noted) :=
+  match first with
+    | { text, comments = { above = [], after, blankBefore } } =>
+      framedHangs lexKind
+        { text, comments = { above = [], after, blankBefore } }
+        around
+        doc
+        indent
+        indent
+        trails
+        (unledLeading { text, comments = { above = [], after, blankBefore } } around around.at (rewrite hoisted, item))
+        el
+    | { text, comments = { above = [note, ..rest], after, blankBefore } } =>
+      let word := { text, comments = { above = [note, ..rest], after, blankBefore } }
+      notedFramedHangs lexKind word around doc indent trails note rest hoisted byComputing closer
+        (notesOfWord word sound)
+        (rewrite item then Bool.andFalse note.blankBefore)
+        (inset => framedHangs lexKind word { around | hoisted = True } doc inset inset trails byComputing el)
+
+--| A tuple or list as a call's last argument (`huggedBracket`), as it is and opened, whatever its comments: framed by
+--| its opener (`framedLedHangs`), its parts in a group (`groupedBracketHangs`) whose items hang by their facts
+--| (`itemsLed`).
+theorem hugLastHangs ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (trails: Bool)
+    (hoisted: around.hoisted = False)
+    (item: around.item = False)
+    (isOpen: open.text = (if list then "[" else "("))
+    (isClose: close.text = (if list then "]" else ")"))
+    (openSound: open.sound = True)
+    (closeSound: close.sound = True)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True)
+    (sound: allSound items = True)
+    (facts: AllAnyFacts items)
+    (trailsIs: (close.trails || (ListOf open items False close).trailsBeforeClose) = trails):
+    HangsFor lexKind open.noted around.before trails (huggedBracket list open items close around).fst
+      ∧ (∀ (opened: Doc) => (huggedBracket list open items close around).snd = Some opened
+        → HangsFor lexKind open.noted around.before trails opened) :=
+  let opener: OpenerToken lexKind open.text := match list with
+    | True => rewrite isOpen then openBracket
+    | False => rewrite isOpen then openParen
+  let opens: isCloserText open.text = False := match list with
+    | True => rewrite isOpen
+    | False => rewrite isOpen
+  let closer: CloserToken lexKind close.text := match list with
+    | True => rewrite isClose then closeBracket
+    | False => rewrite isClose then closeParen
+  let bare := list && items.all Expr.plainItem
+  let lays: ∀ (hard: Bool) => HangsFor lexKind open.noted around.before trails
+    (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard)) :=
+    hard inset =>
+      framedLedHangs open around
+        (Group (bracketContent list open items close { around | hoisted = True }) hard)
+        inset
+        trails
+        openSound
+        opens
+        hoisted
+        item
+        (indent seat =>
+          trailsSwap lexKind _ indent seat False _ _ wordStart trailsIs
+            (groupedBracketHangs lexKind list open items close around hard indent seat opener
+              (trailsOfSound open openSound)
+              closer
+              (notesOfWord close closeSound)
+              (trailsOfSound close closeSound)
+              byComputing
+              (itemsLed AnyFacts AllAnyFacts
+                (expr more both => both)
+                (expr held => held.left)
+                (indent + 2)
+                bare
+                around.inArm
+                open.trails
+                (around.at + 1)
+                items
+                within
+                lexical
+                sound
+                facts)
+              (anyCellsKeys items (around.at + 1) bare around.inArm open.trails (around.at + 1) within (Nat.leRefl _))
+              (anyBrokenKeys items
+                (around.at + 1)
+                bare
+                around.inArm
+                True
+                open.trails
+                (around.at + 1)
+                within
+                (Nat.leRefl _))
+              (edgeCloseBefore open items close opens within lexical)))
+  (
+    lays (bracketContent list open items close { around | hoisted = True }).forcesBreak,
+    opened same => rewrite <- Option.someInjective same then lays True
+  )
+
+--| A call's last argument that can hug (a tuple or list) hangs as `lastArgument` writes it, and opened.
+theorem bracketLastHangs ∀ (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr)
+    (facts: BracketFacts argument)
+    (within: argument.within1 = True)
+    (lexical: argument.lexical1 = True)
+    (sound: argument.sound = True)
+    (opens: argument.opensBracket = True):
+    LastHangs arm previous at argument :=
+  match argument, within, opens with
+    | Atom _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Paren _ _ _, _, never => (Bool.falseNotTrue never).impossible
+    | App _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Infix InfixBinary _ _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Infix InfixArrow _ _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Prefix _ _, _, never => (Bool.falseNotTrue never).impossible
+    | Tuple open items trailing close, within, _ =>
+      let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+      hugLastHangs False open items close
+        (argAround arm previous at)
+        (Tuple open items trailing close).trails
+        byComputing
+        byComputing
+        (DecEq.sound (Bool.andLeft lexical))
+        isClose
+        (Bool.andLeft sound)
+        (Bool.andRight (Bool.andRight sound))
+        within
+        (Bool.andRight (Bool.andRight lexical))
+        (Bool.andLeft (Bool.andRight sound))
+        facts
+        (tupleTrails open items trailing close (rewrite isClose)).flipped
+    | ListOf open items trailing close, within, _ =>
+      let isClose: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+      hugLastHangs True open items close
+        (argAround arm previous at)
+        (ListOf open items trailing close).trails
+        byComputing
+        byComputing
+        (DecEq.sound (Bool.andLeft lexical))
+        isClose
+        (Bool.andLeft sound)
+        (Bool.andRight (Bool.andRight sound))
+        within
+        (Bool.andRight (Bool.andRight lexical))
+        (Bool.andLeft (Bool.andRight sound))
+        facts
+        (bracketTrails open items trailing close (rewrite isClose)).flipped
+
+--| What a call's arguments ask, from their facts (`argsLed`): each led, the last as `lastArgument` writes it.
+theorem appArgsHang ∀ (arm: Bool) (head: Expr) (at: Nat) (arguments: List Expr)
+    (within: allWithin1 arguments = True)
+    (lexical: allLexical1 arguments = True)
+    (sound: allSound arguments = True)
+    (facts: AllAnyFacts arguments)
+    (brackets: AllBracketFacts arguments):
+    ArgsHang lexKind arm head at arguments :=
+  let led: Led ArgFacts := expr around inset held exprWithin exprLexical exprSound hoisted item =>
+    ledHangs expr around inset exprWithin exprLexical exprSound held.left hoisted item
+  argsLed ArgFacts AllArgFacts
+    (expr more both => ((both.left.left, both.right.left), (both.left.right, both.right.right)))
+    led
+    arm
+    (previous at last held lastWithin lastLexical lastSound =>
+      lastLed ArgFacts led arm previous at last held lastWithin lastLexical lastSound (opens =>
+        bracketLastHangs arm previous at last held.right lastWithin lastLexical lastSound opens))
+    head
+    at
+    arguments
+    within
+    lexical
+    sound
+    (facts, brackets)
+
+--| A call (proved): comments above and after the function and any argument; a last tuple or list hugs as
+--| `hugLastHangs` lays it.
 theorem appAny ∀ (head: Expr) (arguments: List Expr)
     (within: (App head arguments).within1 = True)
     (lexical: (App head arguments).lexical1 = True)
@@ -433,7 +630,8 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
     (homed: (App head arguments).homed1 = True)
     (shaped: (App head arguments).shaped1 = True)
     (headFacts: AnyFacts head)
-    (argumentFacts: AllAnyFacts arguments):
+    (argumentFacts: AllAnyFacts arguments)
+    (argumentBrackets: AllBracketFacts arguments):
     AnyFacts (App head arguments) :=
   match arguments, within with
     | [], _ =>
@@ -445,8 +643,6 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
           (lastArg argument rest)
           (lastWithin argument rest (Bool.andRight within))
           (lastLexical argument rest (Bool.andRight lexical))
-      let led: Led AnyFacts := expr around inset facts exprWithin exprLexical exprSound hoisted item =>
-        ledHangs expr around inset exprWithin exprLexical exprSound facts hoisted item
       let hangs: ∀ (around: Around) => (App head [argument, ..rest]).plainAt around = True
         → HangsAt lexKind around.before
           (App head [argument, ..rest]).trails
@@ -465,22 +661,14 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
                   head.trails
                   wordStart
                   (anyHangsOf head headFacts { around | hoisted = True } byComputing inset seat))
-              (argsLed AnyFacts AllAnyFacts
-                (expr more both => both)
-                led
-                around.inArm
-                (previous at last held lastWithin lastLexical lastSound =>
-                  lastLed AnyFacts led around.inArm previous at last held lastWithin lastLexical lastSound (opens =>
-                    -- A hugged tuple or list last argument after a comment break: waits for the `huggedBracket` layout fix
-                    -- (it lays the bracket undisplaced, its seat right of its indentation).
-                    ?))
-                head
+              (appArgsHang around.inArm head
                 (around.at + head.size)
                 [argument, ..rest]
                 (Bool.andRight within)
                 (Bool.andRight lexical)
                 (Bool.andRight sound)
-                argumentFacts)
+                argumentFacts
+                argumentBrackets)
       (hangs, level first around plain => hangs around plain)
 
 --| A binary operator's chain (proved): comments above and after any operand and the operator. An operator or right
@@ -679,6 +867,12 @@ theorem anyFacts ∀ (expr: Expr)
           (Bool.andRight sound)
           (Bool.andRight homed)
           (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))))
+        (allBracketFacts arguments
+          (Bool.andRight within)
+          (Bool.andRight lexical)
+          (Bool.andRight sound)
+          (Bool.andRight homed)
+          (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))))
     | Infix InfixBinary left operator right, within =>
       binaryAny left operator right within lexical sound homed
         (anyFacts left
@@ -725,6 +919,58 @@ theorem allAnyFacts ∀ (items: List Expr)
         (Bool.andLeft homed)
         (Bool.andLeft shaped),
       allAnyFacts rest
+        (Bool.andRight within)
+        (Bool.andRight lexical)
+        (Bool.andRight sound)
+        (Bool.andRight homed)
+        (Bool.andRight shaped)
+    )
+
+--| A tuple's or list's items' facts, for its hug.
+theorem bracketFacts ∀ (expr: Expr)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True)
+    (sound: expr.sound = True)
+    (homed: expr.homed1 = True)
+    (shaped: expr.shaped1 = True):
+    BracketFacts expr :=
+  match expr, within with
+    | Atom _ _, _ => byComputing
+    | Prefix _ _, _ => byComputing
+    | Paren _ _ _, _ => byComputing
+    | Tuple open items trailing close, within =>
+      allAnyFacts items within
+        (Bool.andRight (Bool.andRight lexical))
+        (Bool.andLeft (Bool.andRight sound))
+        (Bool.andLeft homed)
+        (Bool.andRight shaped)
+    | ListOf open items trailing close, within =>
+      allAnyFacts items within
+        (Bool.andRight (Bool.andRight lexical))
+        (Bool.andLeft (Bool.andRight sound))
+        (Bool.andLeft homed)
+        shaped
+    | App _ _, _ => byComputing
+    | Infix InfixBinary _ _ _, _ => byComputing
+    | Infix InfixArrow _ _ _, _ => byComputing
+
+theorem allBracketFacts ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True)
+    (sound: allSound items = True)
+    (homed: allHomed1 items = True)
+    (shaped: allShaped1 items = True):
+    AllBracketFacts items :=
+  match items with
+    | [] => byComputing
+    | [item, ..rest] => (
+      bracketFacts item
+        (Bool.andLeft within)
+        (Bool.andLeft lexical)
+        (Bool.andLeft sound)
+        (Bool.andLeft homed)
+        (Bool.andLeft shaped),
+      allBracketFacts rest
         (Bool.andRight within)
         (Bool.andRight lexical)
         (Bool.andRight sound)
@@ -948,7 +1194,7 @@ theorem anyElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
     ElHangs lexKind (expr.el around) indent indent around.before expr.trails (startFor expr.noted) :=
   ledHangs expr around indent within lexical sound (anyFacts expr within lexical sound homed shaped) hoisted item
 
---| A call value's hug, if it has one, hangs on the `:=`'s line (open; with `appAny`): the function and the
+--| A call value's hug, if it has one, hangs on the `:=`'s line (proved): the function and the
 --| arguments before the last, then the last argument opened, whatever their comments.
 theorem anyHug ∀ (value: Expr) (around: Around)
     (within: value.within1 = True)
@@ -970,25 +1216,21 @@ theorem anyHug ∀ (value: Expr) (around: Around)
               (Bool.andLeft sound)
               (Bool.andLeft homed)
               (Bool.andLeft (Bool.andRight shaped))
-          let led: Led AnyFacts := expr at inset facts exprWithin exprLexical exprSound hoisted item =>
-            ledHangs expr at inset exprWithin exprLexical exprSound facts hoisted item
           let facts: ArgsHang lexKind inside.inArm head (inside.at + head.size) [argument, ..rest] :=
-            argsLed AnyFacts AllAnyFacts
-              (expr more both => both)
-              led
-              inside.inArm
-              (previous at last held lastWithin lastLexical lastSound =>
-                lastLed AnyFacts led inside.inArm previous at last held lastWithin lastLexical lastSound (opens =>
-                  -- A hugged tuple or list last argument after a comment break: waits for the `huggedBracket` layout fix
-                  -- (it lays the bracket undisplaced, its seat right of its indentation).
-                  ?))
-              head
+            appArgsHang inside.inArm head
               (inside.at + head.size)
               [argument, ..rest]
               (Bool.andRight within)
               (Bool.andRight lexical)
               (Bool.andRight sound)
               (allAnyFacts
+                [argument, ..rest]
+                (Bool.andRight within)
+                (Bool.andRight lexical)
+                (Bool.andRight sound)
+                (Bool.andRight homed)
+                (Bool.andRight (Bool.andRight (Bool.andRight shaped))))
+              (allBracketFacts
                 [argument, ..rest]
                 (Bool.andRight within)
                 (Bool.andRight lexical)

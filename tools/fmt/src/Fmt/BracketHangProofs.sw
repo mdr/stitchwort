@@ -1432,19 +1432,6 @@ theorem parenElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close
 
 -- A call's last argument.
 
---| A tuple or list as a call's last argument (`huggedBracket`), with no own-line comments before it: its parts in a
---| group, which the hug breaks.
-theorem huggedBracketIs ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
-    (bare: open.leading around around.at = []):
-    huggedBracket list open items close around
-      = (
-        Group
-          (bracketContent list open items close { around | hoisted = True })
-          (bracketContent list open items close { around | hoisted = True }).forcesBreak,
-        Some (Group (bracketContent list open items close { around | hoisted = True }) True)
-      ) :=
-  rewrite bare
-
 --| A tuple's or list's parts in a group, broken or not, as one element: as `huggedBracket` writes them.
 theorem groupedBracketHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (close: Word)
     (around: Around) (hard: Bool) (indent column: Nat)
