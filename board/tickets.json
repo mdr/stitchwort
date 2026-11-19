@@ -26919,7 +26919,7 @@
     {
       "id": 4203,
       "title": "[Opus] slice1Formats: add that comments are kept (CommentsKept, Fmt/Meaning.sw:288, has no theorem) before slice 2's passes delete tokens (SW-4196 finding 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Claude",
       "where": "",
       "labels": [],
