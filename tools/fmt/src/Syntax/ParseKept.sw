@@ -4,12 +4,12 @@
 --| spec is `Kept`, `Syntax.ParseCarries`' `Carried` gated on the grammar rather than the driver's slice and with two
 --| more conjuncts; `carriedOfKept` gives `Carried` back.
 --|
---| This file has the spec, its combinators, the atoms, brackets and comma lists, arguments and applications, `unary`
---| and the operator links up to `append_expr`: the first half of `Syntax.ParseCarries`' walk, over the same parser
---| functions with the same splits. The levels above `append_expr`, the knot, declarations and the file are lane K2's.
+--| This file has the spec, its combinators, the atoms, brackets and comma lists, arguments and applications, `unary`,
+--| the operator links up to `append_expr`, and the recursion's knot (`bothExpressionAt`, `keptExpressionAt`), which takes
+--| the levels above `append_expr` as one hypothesis (`LadderKept`). Those levels are `Syntax.ParseCarriesLadder`'s,
+--| declarations `Syntax.ParseCarriesDecl`'s.
 --|
---| A name or numeral's spelling is in the driver's slice by lane L's fact, taken here as the hypothesis `SpellsText1`
---| until it is proved.
+--| A name or numeral's spelling is in the driver's slice by `textSpellsOfSpells` (`Syntax.GoodItemProofs`).
 
 namespace Syntax.ParseKept
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
@@ -19,6 +19,7 @@ import Fmt.Grammar1 (..)
 import Fmt.Kinds1 (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
+import Syntax.GoodItemProofs (textSpellsOfSpells)
 import Syntax.ParseWalk (..)
 import Syntax.AutoPlaced (..)
 import Syntax.ParseCarries (
@@ -66,10 +67,16 @@ theorem carriedOfKept ∀ [read: List Item] [expr: Expr] (kept: Kept read expr):
 theorem nestedCarriesOfKept ∀ [self: Goal → {Parse Item} Expr] (nested: NestedKept self): NestedCarries self := goal =>
   Parse.readsWeaken (nested goal) (read value kept => carriedOfKept kept)
 
---| Lane L's fact (docs/reviews/SW-4166-carried-walk-plan.md §4): a name or numeral spelled as `Spells` has it is one
---| `textSpells1` takes. A hypothesis here until it is proved; false today only for `auto`, which `textSpells1` refuses.
-def SpellsText1: Prop :=
-  ∀ (kind: Tok) (text: Text) => kind.atom1 = True → Spells kind text → textSpells1 kind text = True
+--| A name or numeral spelled as `Spells` has it is one `textSpells1` takes.
+theorem spellsText1 ∀ (kind: Tok) (text: Text)
+    (atom: kind.atom1 = True)
+    (spells: Spells kind text):
+    textSpells1 kind text = True :=
+  match kind, atom with
+    | Lower, atom => textSpellsOfSpells Lower text spells
+    | Upper, atom => textSpellsOfSpells Upper text spells
+    | Num, atom => textSpellsOfSpells Num text spells
+    | Float, atom => textSpellsOfSpells Float text spells
 
 -- Where an `auto` call may start a list (SW-4128, lane A): `KeptAt` and the step at `exprPlain`, for the walk
 -- follow-up that carries them.
@@ -324,16 +331,13 @@ theorem tokWithinOfAtom1 ∀ (kind: Tok) (atom: kind.atom1 = True): kind.within1
   | Float => byComputing
 
 --| A good item read as an atom: in the grammar, it is a name or numeral, spelled as the slice has them.
-theorem keptAtom ∀ (spelled: SpellsText1) (item: Item)
-    (good: GoodItem item):
-    Kept [item] (Atom item.kind item.leaf.word) :=
-  grammar =>
-    let word := wordOfAtom1 item.kind grammar
-    (
-      (rewrite itemWordsCode item (wordCode item.kind word)),
-      byComputing,
-      Bool.andIntro word (spelled item.kind item.text grammar (good (tokWithinOfAtom1 item.kind grammar)))
-    )
+theorem keptAtom ∀ (item: Item) (good: GoodItem item): Kept [item] (Atom item.kind item.leaf.word) := grammar =>
+  let word := wordOfAtom1 item.kind grammar
+  (
+    (rewrite itemWordsCode item (wordCode item.kind word)),
+    byComputing,
+    Bool.andIntro word (spellsText1 item.kind item.text grammar (good (tokWithinOfAtom1 item.kind grammar)))
+  )
 
 --| An item a prefix operator is read from: the kind and text are slice 1's, and it is no comma.
 def PrefixItem (item: Item): Prop :=
@@ -365,12 +369,12 @@ theorem keptPrefix ∀ (item: Item) (read: List Item) (operand: Expr)
     let (kindIs, text, code) := sign
     ((rewrite itemWordsCons item read code, words), (rewrite kinds, kindIs), Bool.andIntro within text)
 
-theorem readsWordAtom ∀ (spelled: SpellsText1) (start: Parse.Mark Item) (item: Item) (later: List Item)
+theorem readsWordAtom ∀ (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => wordAtom item.kind) Kept :=
   readsAtBumpRead [k := word => Atom item.kind word] shape fine (after tail fits =>
-    Parse.readsAtDone after _ _ (keptAtom spelled item (goodHead fine shape)))
+    Parse.readsAtDone after _ _ (keptAtom item (goodHead fine shape)))
 
 theorem readsPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
@@ -386,7 +390,7 @@ theorem readsPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         Parse.readsAtDone after2 _ _ (rewrite List.appendNil read then keptPrefix item read operand prefix kept)))
     | False => readsFailName modes _ start fine
 
-theorem readsNegativeNumber ∀ (spelled: SpellsText1) (start: Parse.Mark Item) (minus number: Item) (later: List Item)
+theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (later: List Item)
     (shape: start.rest = [minus, number, ..later])
     (isMinus: minus.kind = Minus)
     (fine: Parse.Fits Item GoodItems start.rest):
@@ -404,13 +408,9 @@ theorem readsNegativeNumber ∀ (spelled: SpellsText1) (start: Parse.Mark Item) 
           (after3 tail3 fits3 =>
             Parse.readsAtDone after3
               (Prefix minus.leaf.word (Atom number.kind number.leaf.word)) _
-              (keptPrefix minus
-                [number]
-                (Atom number.kind number.leaf.word)
-                prefix
-                (keptAtom spelled number numberGood)))))
+              (keptPrefix minus [number] (Atom number.kind number.leaf.word) prefix (keptAtom number numberGood)))))
 
-theorem readsNegativeAtomOn ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr) (modes: Modes)
+theorem readsNegativeAtomOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
     (items: List Item) (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
@@ -421,10 +421,10 @@ theorem readsNegativeAtomOn ∀ (spelled: SpellsText1) (self: Goal → {Parse It
   match negative: negativeNumeral items with
     | True =>
       let (minus, number, rest, split, minusKind, numberKind) := negativeNumeralKinds items negative
-      readsNegativeNumber spelled start minus number rest (rewrite <- found then split) minusKind fine
+      readsNegativeNumber start minus number rest (rewrite <- found then split) minusKind fine
     | False => readsPrefixAtom self modes nested (argumentMinus items) start item later shape (rewrite isMinus) fine
 
-theorem readsNegativeAtom ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr) (modes: Modes)
+theorem readsNegativeAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
     (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
@@ -432,7 +432,7 @@ theorem readsNegativeAtom ∀ (spelled: SpellsText1) (self: Goal → {Parse Item
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => negativeAtom self modes) Kept :=
   readsAtAfterLeft [j := items => negativeAtomOn self modes items] fine (after same fits =>
-    readsNegativeAtomOn spelled self modes nested start.rest after item later
+    readsNegativeAtomOn self modes nested start.rest after item later
       (rewrite same then shape)
       same.flipped
       isMinus
@@ -980,7 +980,7 @@ theorem readsBracketAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 --| Proof idea: one case per branch of `atomOf`, each by the kind of the item peeked at: `-`, `!`, `(`, `[`, a word, and
 --| the rest outside the grammar.
-theorem readsAtomOf ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr) (modes: Modes)
+theorem readsAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
     (outside: OutsideAtoms self)
     (start: Parse.Mark Item) (item: Item) (later: List Item)
@@ -988,7 +988,7 @@ theorem readsAtomOf ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => atomOf self modes item.kind) Kept :=
   match isMinus: item.kind == Minus with
-    | True => readsNegativeAtom spelled self modes nested start item later shape (DecEq.sound isMinus) fine
+    | True => readsNegativeAtom self modes nested start item later shape (DecEq.sound isMinus) fine
     | False =>
       match isBang: item.kind == Bang with
         | True => readsAtAfterLeft [j := items => prefixBangOn self modes items] fine (after same fits =>
@@ -1008,7 +1008,7 @@ theorem readsAtomOf ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr
                 | True => readsBracketAtom self modes nested outside start item later shape (DecEq.sound isBracket) fine
                 | False =>
                   match word: isWord item.kind with
-                    | True => readsWordAtom spelled start item later shape fine
+                    | True => readsWordAtom start item later shape fine
                     | False =>
                       readsOut [p := () => atomRest self modes item.kind] (outside.rests modes item.kind) start fine
 
@@ -1016,7 +1016,7 @@ theorem readsAtomOf ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr
 def BasesKept (self: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => atomBase self modes) Kept
 
-theorem readsAtomBases ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} Expr)
+theorem readsAtomBases ∀ (self: Goal → {Parse Item} Expr)
     (nested: NestedKept self)
     (outside: OutsideAtoms self):
     BasesKept self :=
@@ -1024,7 +1024,7 @@ theorem readsAtomBases ∀ (spelled: SpellsText1) (self: Goal → {Parse Item} E
     readsInPeeked modes
       (seen => atomBaseOn self modes seen) _
       (start fine stops => readsOut [p := () => atomMissing self modes] (outside.missings modes) start fine)
-      (start item later shape fine stopped => readsAtomOf spelled self modes nested outside start item later shape fine)
+      (start item later shape fine stopped => readsAtomOf self modes nested outside start item later shape fine)
 
 -- Application.
 
@@ -1439,3 +1439,86 @@ theorem readsAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           (operator took good => appendSpells operator.kind operator.text took good)
           addReads))
       (r2 links rounds => Parse.readsDone _ _ (rewrite List.appendNil r2 then keptRightNested links kept rounds)))
+
+-- The recursion.
+
+--| The levels of the expression parser above `append_expr`, kept: to prove, given `self` at every goal and what the
+--| parsers outside slice 1 give.
+type Ladder (self: Goal → {Parse Item} Expr) = {
+  full: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => expr self modes) Kept,
+  inline: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => exprInline self modes) Kept,
+  logic: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => logicLevel self modes) Kept,
+  comparison: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => cmpExpr self modes) Kept,
+  thenBody: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => thenBody self modes) Kept
+}
+
+--| The ladder keeps its items for every `self` that gives what `ParseWalk` says and keeps its own, given what the
+--| parsers outside slice 1 give: the hypothesis the knot takes from the second half.
+def LadderKept: Type := ∀ (self: Goal → {Parse Item} Expr) => Nested self → NestedKept self → Outside self → Ladder self
+
+--| `atom_base` keeps its items, from `self` and what the parsers outside slice 1 give.
+theorem basesKept ∀ (self: Goal → {Parse Item} Expr) (kept: NestedKept self) (outside: Outside self): BasesKept self :=
+  readsAtomBases self kept outside.below.below.below.below.below
+
+--| One level of the expression parser keeps its items: the levels above `append_expr` from `ladder`, the others from
+--| this file's walk.
+--|
+--| Proof idea: one case per level: the ladder above `append_expr` from `ladder`; `append_expr`, `add_expr` and
+--| `mul_expr` over `unary`, which is over `app`, from this file.
+theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
+    (kept: NestedKept self)
+    (outside: Outside self)
+    (ladder: Ladder self):
+    Parse.ReadsIn GoodItems (() => expressionRule self goal) Kept :=
+  let atoms := outside.below.below.below.below.below
+  let braced := outside.below.below.below.below
+  let bases := basesKept self kept outside
+  let unaryAt := (modes: Modes) => readsUnary self modes kept atoms (readsApp self modes kept braced bases)
+  let mulAt := (modes: Modes) => readsMulExpr self modes (unaryAt modes)
+  let addAt := (modes: Modes) => readsAddExpr self modes (mulAt modes)
+  match goal with
+    | { modes, level } =>
+      match level with
+        | LevelFull => ladder.full modes
+        | LevelInline => ladder.inline modes
+        | LevelLogic => ladder.logic modes
+        | LevelComparison => ladder.comparison modes
+        | LevelAppend => readsAppendExpr self modes (addAt modes)
+        | LevelAdditive => addAt modes
+        | LevelMultiplicative => mulAt modes
+        | LevelUnary => unaryAt modes
+        | LevelArgument => readsAtomArgument self modes False atoms bases
+        | LevelApp => readsApp self modes kept braced bases
+        | LevelThenBody => ladder.thenBody modes
+
+--| `self` gives what `ParseWalk` says and keeps its items, at every goal: the two walks' hypothesis, held together so
+--| the recursion can be tied once for both.
+def NestedBoth (self: Goal → {Parse Item} Expr): Prop :=
+  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (read value => GoalRead goal read value ∧ Kept read value)
+
+theorem nestedOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self): Nested self := goal =>
+  Parse.readsWeaken (both goal) (read value facts => facts.left)
+
+theorem keptOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self): NestedKept self := goal =>
+  Parse.readsWeaken (both goal) (read value facts => facts.right)
+
+--| The recursion's knot: `expressionAt` gives what `ParseWalk` says and keeps its items, at every goal, once the ladder
+--| does.
+--|
+--| Proof idea: `Parse.readsRecursiveWith` with both walks' specs at once, since the parsers outside slice 1 are proved
+--| (`outsideOf`) from `ParseWalk`'s `Nested`, which this walk's levels need too; each level is `givesExpressionRule`
+--| and `readsExpressionRule`, joined by `Parse.readsBoth`.
+theorem bothExpressionAt ∀ (ladder: LadderKept): NestedBoth expressionAt := goal =>
+  Parse.readsRecursiveWith expressionRule
+    (inner read value => GoalRead inner read value ∧ Kept read value)
+    (self both argument =>
+      let nested := nestedOfBoth both
+      let kept := keptOfBoth both
+      let outside := outsideOf self nested
+      Parse.readsBoth
+        (givesExpressionRule self argument nested outside)
+        (readsExpressionRule self argument kept outside (ladder self nested kept outside)))
+    goal
+
+--| `expressionAt` keeps its items at every goal, once the ladder does.
+theorem keptExpressionAt ∀ (ladder: LadderKept): NestedKept expressionAt := keptOfBoth (bothExpressionAt ladder)
