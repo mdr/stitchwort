@@ -1,5 +1,5 @@
 {
-  "next": 4238,
+  "next": 4243,
   "tickets": [
     {
       "id": 47,
@@ -27372,6 +27372,71 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4091. Test with grow 22, never ? with grow 30 (24 GB).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4238,
+      "title": "[Fable, paper] Review and settle the walk step design (docs/proposals/proof-walk-step.md, SW-4231) against prior art: Lean mvcgen/vcgen and Std.Do, Iris wp_ tactics, Dafny/F*/Why3 VC generation, Isabelle's monad VCG; decide registration, how far it unfolds, failure messages, cache invalidation (§3.2), and the pilot's success bars; end state for Matt",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Est. 60 min. Matt, 19 Nov 2026: 'I'm open for us doing some like Fable level investigation into this type of tactic that we might be able to include into Stitchwort.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4239,
+      "title": "[Opus] Build the walk step, part (a): read p and j off the body in evaluation order and apply registered lemmas (subsumes SW-4220); pilot on the comma lists; after the Fable review settles the design and Matt's decision",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4240,
+      "title": "[Opus] Build the walk step, part (b): split a definition's inner if/match inside the walk with the guard as a hypothesis (overlaps SW-4047); after part (a)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4241,
+      "title": "[Opus] A closer with a default lemma set: std lemmas tagged for rewrite repeatedly used without listing (SW-4222 §6.3a, on top of SW-3631 rule sets)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4242,
+      "title": "[Fable, paper] A general closer that chains facts in scope with a tagged lemma set, like Lean's grind / simp_all and Rocq's auto (SW-4222 §6.3b): what it would close in slice 1's proofs (measure on a sample), cost, check-time and brittleness risks; design or say no",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
