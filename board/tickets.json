@@ -26709,12 +26709,12 @@
     {
       "id": 4187,
       "title": "[Opus, bug] Internal-error panic checking reject/export-indexed-family and reject/export-polymorphic: crates/core/src/value.rs:3599 'variable at level 0 read back with 0 in scope'; it fails stitchwort-cli running examples::rejected_examples_fail_for_the_expected_reason. Find whether it regressed (git log of value.rs and export checking), fix at the root, test; also make the examples test name the example that panicked",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4187",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Est. 40 min. Found by SW-4182, 19 Nov.",
+      "body": "Est. 40 min. Found by SW-4182, 19 Nov.\n\n19 Nov (Opus lane): regression from 6308a67d9 (SW-3960, 18 Nov). The Partial check moved from quoting the closed def type at 0 to quoting each telescope entry at 0, but parameter i's type lives under i binders (the result under all). Fixed in crates/js/src/lib.rs: quote at the entry's depth. Not a kernel change. The examples test's check() now catches a panic and re-raises it naming the example. Before: the two examples panic (shown with EXAMPLES filter, now naming both files); after: match their snapshots unchanged (snapshots were right).\nFull rejected_examples test passed (380 s). Commit 662c43760. ~10 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
