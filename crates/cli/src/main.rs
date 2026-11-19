@@ -418,6 +418,20 @@ enum Command {
         counterexamples: CounterexampleArgs,
         #[command(flatten)]
         cache: CacheArgs,
+        /// After the check, print stderr tables of where the time went: each
+        /// namespace (a cached one is marked, not timed), then each
+        /// declaration checked with its elaboration, kernel and total time,
+        /// slowest first. `--timings=N` lists the N slowest declarations,
+        /// `--timings=all` every one; 20 without a value
+        #[arg(
+            long,
+            value_name = "all|N",
+            num_args = 0..=1,
+            require_equals = true,
+            default_missing_value = "20",
+            value_parser = parse_timings
+        )]
+        timings: Option<usize>,
     },
     /// Print an embedded standard library file (`List/Toolkit.sw`;
     /// `core/Int.sw` is a file of the core), as the index's `std` markers name them
@@ -1064,6 +1078,19 @@ fn exit_quietly_on_broken_pipe() {
     }));
 }
 
+/// `--timings`' value: a count of declarations, or `all`.
+fn parse_timings(value: &str) -> Result<usize, String> {
+    if value == "all" {
+        return Ok(usize::MAX);
+    }
+    match value.parse::<usize>() {
+        Ok(n) if n > 0 => Ok(n),
+        _ => Err(format!(
+            "expected `all` or a positive number, not `{value}`"
+        )),
+    }
+}
+
 fn main() -> ExitCode {
     exit_quietly_on_broken_pipe();
     let cli = Cli::parse();
@@ -1108,6 +1135,13 @@ fn main() -> ExitCode {
         }
         _ => STACK,
     };
+    if let Command::Check {
+        timings: Some(shown),
+        ..
+    } = &cli.command
+    {
+        stitchwort_elab::timings::request(*shown);
+    }
     let ran = stitchwort_host::try_with_stack(stack, move || {
         stitchwort_elab::timings::start();
         stitchwort_elab::progress::report_to(|note| eprintln!("note: {note}"));
@@ -1145,6 +1179,7 @@ fn run(cli: Cli) -> ExitCode {
             expand_repeatedly,
             counterexamples,
             cache,
+            timings: _,
         } => check(
             &targets,
             project.as_deref(),

@@ -963,9 +963,14 @@ program can be an enormous term.
   namespace taking several seconds cold has something unfolding; halving
   the file (or replacing proofs with `?`) finds it. On day 23 one 100-line
   theorem took 16 s; split into lemmas, 2 s (aoc/NOTES-2024.md:7689).
-  `check` has no `--timings`: to time one theorem, run
-  `time stitchwort check --only NAME --no-cache NAMESPACE` and subtract
-  std's own check time (about 9 s).
+  `stitchwort check --no-cache --timings NAMESPACE` prints, after the
+  check, a table per namespace (a cached one is marked `(cached)`) and one
+  of the declarations checked: elaboration, kernel and total milliseconds,
+  evaluation steps and term nodes, slowest first, the 20 slowest by default
+  (`--timings=50` for 50, `--timings=all` for every one; std's own
+  declarations are in the table too). The theorem at the top is the one to
+  split. A namespace the cache answers for has no rows, so add
+  `--no-cache`.
 
 ## 7. The report
 
