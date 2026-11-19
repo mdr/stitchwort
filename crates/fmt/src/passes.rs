@@ -55,18 +55,31 @@ pub fn run(file: FileId, text: &str, passes: &[Pass]) -> Tidied {
     let mut tree = parse_tree(file, &text, DEFAULT_STACK);
     let mut made = Vec::with_capacity(passes.len());
     for pass in passes {
-        let edits = pass(&tree, &text);
-        made.push(edits.len());
-        if edits.is_empty() {
-            continue;
-        }
-        text = apply(&text, edits);
-        tree = parse_tree(file, &text, DEFAULT_STACK);
+        made.push(settle(file, &mut text, &mut tree, *pass));
     }
     Tidied {
         text,
         tree,
         edits: made,
+    }
+}
+
+/// Applies `pass` until it has nothing left to do, and returns how many
+/// edits it made in all. One round can uncover more for the same pass: P3
+/// dropping the pair after a row leaves a binder's pair at the header's top
+/// level, where the round has already looked, so a single round would leave
+/// it to the next run of the formatter. The rounds stop: every edit deletes
+/// or merges tokens.
+fn settle(file: FileId, text: &mut String, tree: &mut SyntaxFile, pass: Pass) -> usize {
+    let mut made = 0;
+    loop {
+        let edits = pass(tree, text);
+        if edits.is_empty() {
+            return made;
+        }
+        made += edits.len();
+        *text = apply(text, edits);
+        *tree = parse_tree(file, text, DEFAULT_STACK);
     }
 }
 
@@ -78,11 +91,7 @@ pub fn dump_after_each(file: FileId, text: &str) -> String {
     let mut tree = parse_tree(file, &text, DEFAULT_STACK);
     let mut out = String::new();
     for (number, pass) in PASSES.iter().enumerate() {
-        let edits = pass(&tree, &text);
-        if !edits.is_empty() {
-            text = apply(&text, edits);
-            tree = parse_tree(file, &text, DEFAULT_STACK);
-        }
+        settle(file, &mut text, &mut tree, *pass);
         out.push_str(&format!("== P{} ==\n", number + 1));
         let dump = tree.dump(&text);
         let dump = dump.trim_end_matches('\n');
@@ -384,6 +393,14 @@ mod tests {
         assert_eq!(
             tidied("def f (a: (Nat)) (b: Nat): Nat := a\n", &PASSES),
             "def f (a b: Nat): Nat := a\n"
+        );
+    }
+
+    #[test]
+    fn a_pair_dropped_after_a_row_uncovers_a_binder_the_next_round_strips() {
+        assert_eq!(
+            tidied("def f: {Fail} ((x: (A)) => x) := g\n", &[drop_parens]),
+            "def f: {Fail} (x: A) => x := g\n"
         );
     }
 }
