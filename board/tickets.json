@@ -27580,12 +27580,12 @@
     {
       "id": 4253,
       "title": "[DeepSeek] Or-pattern sweep 3/3: aoc/ and games/rogue: join repeated match arms with or-patterns or a catch-all",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.",
+      "body": "Matt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.\n\nLane (Sonnet, 19 Nov): joinarms.py applied to aoc/src and games/rogue/src: 194 joins in 100 files, 66,577 -> 66,284 lines (diff +182/-528). All 60 touched namespaces check; tests pass for 5 program days. Branch lane/SW-4253, commit 800f40cba.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27704,7 +27704,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min.\n\nProgress (lane, 21:12): done on lane/SW-4262, cc3221b5f. G2 ih = alternative's variables + its equation as premise, read from the helper's kernel case tree; structural and decreasing (match h: equation mapped to the premise); number arms get `x = k`, number defaults no premise; catch-alls over constructors give one ih per constructor. Refused with reason: split of an indexed family; helper calling itself. Existing induct examples' hashes unchanged. Examples accept/function-induct-nontail-match.sw, reject/match-induct-nontail-indexed.sw; docs syntax.md, guide ch.10, proving guide. ~29 min.\n",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min.\n\nProgress (lane, 21:12): done on lane/SW-4262, cc3221b5f. G2 ih = alternative's variables + its equation as premise, read from the helper's kernel case tree; structural and decreasing (match h: equation mapped to the premise); number arms get `x = k`, number defaults no premise; catch-alls over constructors give one ih per constructor. Refused with reason: split of an indexed family; helper calling itself. Existing induct examples' hashes unchanged. Examples accept/function-induct-nontail-match.sw, reject/match-induct-nontail-indexed.sw; docs syntax.md, guide ch.10, proving guide. ~29 min.\n\nReview fixes (lane, 21:31): 1c8704176. F1 decrease proofs carried along the premises by J (refinement-based proofs now work; accept example gains `counted`); F2 helper stack, cycle refused (reject match-induct-nontail-cycle); F3 decreasing path follows only f's own helpers (reject match-induct-decreasing-passed-rec); N3 code notes done. Same named tests rerun, all pass; induct examples' hashes unchanged. ~9 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
