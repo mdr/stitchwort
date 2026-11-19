@@ -15,9 +15,11 @@
 --|   equation between computed values, one for each rule.
 --| - `stands1OfLays` (proved from it): `printedStands1` with no `DeclHangs`.
 --| - `closersBareOfStands` and `blanksBelowOfStands` (open, bookkeeping): a declaration that `stands1` and prints on
---|   one line has bare closers and no blank-line flag but below comments.
+--|   one line has bare closers and no blank-line flag but below comments. Their first step is proved: a leaf with
+--|   comments or blank lines above it starts its line (`Fmt.LedProofs.leavesLed`).
 --| - `closersBareUnreturned1` and `blanksBelowUnreturned1` (proved from the three): the two parts, with one more
 --|   hypothesis than `Fmt.OneLineParts` states them with, `unreturned1`, which `stands` needs (`returnedFalls`).
+--|   Every use of the parts has it (`Fmt.TopStatements.declsAll` hands it to each declaration).
 
 namespace Fmt.OneLineLays
 import Std (Bool, Doc, List, Option, Text)
@@ -130,8 +132,7 @@ theorem stands1OfLays ∀ (decl: Decl)
 --|
 --| Route: `stands` pairs each word of `decl.stood` (the `def`, the name, the `:`, the calmed type's words, the `:=`,
 --| the calmed value's) with a leaf that is no comma. A closer with own-line comments has a leaf with those comments
---| (`headedAs`), and a leaf with comments above it starts its line (an invariant of `Laid.lay`: comments wait, and
---| blank lines are counted, only while `freshLine`). A closer with only a comment after it starts its line by
+--| (`headedAs`), and a leaf with comments above it starts its line (`Fmt.LedProofs.leavesLed`). A closer with only a comment after it starts its line by
 --| `stands`' own clause. `onLine1` lets a line start only at the first three leaves, at the first of kind `ColonEq`
 --| (the `:=`'s: no word of the type lexes as one) and at the leaf after it, the value's first word, which is no
 --| closer (`Expr.nonCloser`). Then from the words to the tree (`Expr.words` to `Expr.closersBare1`, by induction).
@@ -149,7 +150,7 @@ theorem closersBareOfStands ∀ (decl: Decl)
 --| comments (open, bookkeeping).
 --|
 --| Route: as `closersBareOfStands`: a word with the flag set has a leaf with `blankLines` over 0 (`headedAs`), which
---| starts its line (the same invariant of `Laid.lay`), so it is the value's first word; `calm` keeps that word's
+--| starts its line (`leavesLed`), so it is the value's first word; `calm` keeps that word's
 --| flag only below comments (`Comments.kept` with `item` false).
 theorem blanksBelowOfStands ∀ (decl: Decl)
     (within: decl.within1 = True)
