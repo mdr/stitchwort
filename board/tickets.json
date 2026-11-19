@@ -26038,15 +26038,17 @@
     {
       "id": 4137,
       "title": "[Sonnet] fmt S1 item 6 C1 (SW-4131): accept a last comma that starts its line: sourcePlain1 replaces plain1 in the driver and the 12 source theorems; tokensBare/settledOnceTokens restated as tokens equal up to line starts (NOT a new condition); commaMoved's other branch in laidWithout, plainWithout, allTokensWithout, textsWithout",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4137",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4131-own-line-comma.md. Model: Sonnet. Est. 40 min.",
+      "body": "docs/reviews/SW-4131-own-line-comma.md. Model: Sonnet. Est. 40 min.\n\n\nLane notes (Sonnet, 19 Nov): done in about 35 min on branch lane/SW-4137, commit ec53c39ef. sourcePlain1 defined (Syntax/SettleProofs.sw) and used in the driver and the source theorems; plain1 kept for the output and settledHomed/settledIdempotent. tokensBare/settledOnceTokens keep their plain1 statements (SettleParseProofs uses them); new tokensBareFlat/settledOnceFlat say tokens equal once line starts are forgotten, unconditionally. laidWithout/textsWithout/allTokensWithout need no plain hypothesis now; plainWithout reads sourcePlainFrom. Closed example Fmt.Driver1.formatOwnLineCommaExample. MustAccept1: 3 more pass (source84 and two others), none newly failing. Pre-existing errors in Syntax.ReadBackHungTop.readsBackHung and Fmt.TopReadBack.readsBackDecl1 (isLower: Lower vs Lower or Upper) are from SW-4126/SW-4125, not this lane. Model result: Sonnet, worked, 35 min (est. 40).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "ec53c39ef"
+      ]
     },
     {
       "id": 4138,
@@ -26133,9 +26135,9 @@
     {
       "id": 4144,
       "title": "[Sonnet] fmt S1 comments anywhere E1: homedOfSettled (Fmt.ElementsProofs): a settled1 declaration is homed1 node by node (SW-4130 plan)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4144",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 30 min. Folds in SW-4082 where it applies.",
