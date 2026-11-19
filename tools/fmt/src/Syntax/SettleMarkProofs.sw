@@ -297,73 +297,66 @@ theorem markedGap ∀ (leaf: Leaf) (behind after: List Leaf)
 theorem markedBareR ∀ (behind rest: List Leaf)
     (gap: gapOk behind rest = True):
     withMarkedR (markRev behind) rest = markRev (withBareR behind rest) :=
-  match rest with
-    | [] => byComputing
-    | [leaf, ..after] =>
-      match pair: fwdPair behind leaf after with
-        | False =>
-          let pairM: fwdPair (markRev behind) leaf after = False := rewrite fwdPairMark behind leaf after then pair
-          let same: leaf.markedOn behind = leaf := markedGap leaf behind after gap
-          let swap: withMarkedR [leaf, ..markRev behind] after
-            = withMarkedR [leaf.markedOn behind, ..markRev behind] after :=
-            Eq.cong (x => withMarkedR [x, ..markRev behind] after) same.flipped
-          rewrite withMarkedRNop leaf (markRev behind) after pairM, withBareRNop leaf behind after pair then
-            Eq.trans swap (markedBareR [leaf, ..behind] after (gapAfterNop leaf behind after pair))
-        | True =>
-          match after with
-            | [closer, ..after2] =>
-              let pairM: fwdPair (markRev behind) leaf [closer, ..after2] = True :=
-                rewrite fwdPairMark behind leaf [closer, ..after2] then pair
-              let moved := commaMoved leaf closer behind
-              let bare := { leaf | trivia = Trivia.empty }
-              let (fstTok, sndToks) := commaMovedTokens leaf closer behind
-              let isComma: (leaf.token.kind == Comma) = True := Bool.andLeft pair
-              let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
-              let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
-              let itemMoved: hasItem moved.snd = True :=
-                rewrite hasItemT moved.snd, sndToks, <- hasItemT behind then item
-              let pair2: lastPair moved.fst.token.kind bare moved.snd = True :=
-                rewrite fstTok, itemMoved then Bool.andIntro isComma (Bool.andIntro isCloser byComputing)
-              let barePlain: bare.markedOn moved.snd = bare :=
-                Eq.trans
-                  (Eq.cong
-                    (start => bare.startingLine start)
-                    (startsNotCloser bare moved.snd (commaNotCloser leaf.token.kind isComma)))
-                  (leafEta bare)
-              let startsMoved: startsWalk True moved.fst [bare, ..moved.snd]
-                = (leaf.token.lineStart || closer.token.lineStart) :=
-                let unfolded: startsWalk True moved.fst [bare, ..moved.snd]
-                  = (moved.fst.token.lineStart
-                    || (moved.fst.token.kind.isCloser
-                      && bare.token.kind == Comma
-                      && bare.token.lineStart
-                      && hasItem moved.snd)) :=
-                  byComputing
-                Eq.trans unfolded
-                  (rewrite fstTok, isCloser, isComma, itemMoved then
-                    match l: leaf.token.lineStart, c: closer.token.lineStart with
-                      | True, True => byComputing
-                      | True, False => byComputing
-                      | False, True => byComputing
-                      | False, False => byComputing)
-              let fstEq: (commaDeleted leaf closer (markRev behind)).fst = moved.fst.markedOn [bare, ..moved.snd] :=
-                rewrite commaMovedFstAny leaf closer (markRev behind) behind then
-                  Eq.cong (start => moved.fst.startingLine start) startsMoved.flipped
-              let accEq: [
-                (commaDeleted leaf closer (markRev behind)).fst,
-                bare,
-                ..(commaDeleted leaf closer (markRev behind)).snd
-              ]
-                = markRev [moved.fst, bare, ..moved.snd] :=
-                rewrite fstEq, barePlain, commaMovedSndMark leaf closer behind
-              rewrite withMarkedRPair leaf closer (markRev behind) after2 pairM,
-                  withBareRPair leaf closer behind after2 pair then
-                Eq.trans
-                  (Eq.cong (acc => withMarkedR acc after2) accEq)
-                  (markedBareR
-                    [moved.fst, bare, ..moved.snd]
-                    after2
-                    (gapAfterPair bare moved.fst moved.snd after2 pair2))
+  match induct (withBareR behind rest) with
+    | eq1 _ => byComputing
+    | eq2 behind comma closer after guard ih =>
+      let pair: lastPair closer.token.kind comma behind = True :=
+        let (isComma, isCloser, item) := guard
+        (isComma, Bool.andIntro isCloser item)
+      let pairM: lastPair closer.token.kind comma (markRev behind) = True :=
+        rewrite fwdPairMark behind comma [closer, ..after] then pair
+      let moved := commaMoved comma closer behind
+      let bare := { comma | trivia = Trivia.empty }
+      let (fstTok, sndToks) := commaMovedTokens comma closer behind
+      let isComma: (comma.token.kind == Comma) = True := Bool.andLeft pair
+      let isCloser: closer.token.kind.isCloser = True := Bool.andLeft (Bool.andRight pair)
+      let item: hasItem behind = True := Bool.andRight (Bool.andRight pair)
+      let itemMoved: hasItem moved.snd = True := rewrite hasItemT moved.snd, sndToks, <- hasItemT behind then item
+      let pair2: lastPair moved.fst.token.kind bare moved.snd = True :=
+        rewrite fstTok, itemMoved then Bool.andIntro isComma (Bool.andIntro isCloser byComputing)
+      let barePlain: bare.markedOn moved.snd = bare :=
+        Eq.trans
+          (Eq.cong
+            (start => bare.startingLine start)
+            (startsNotCloser bare moved.snd (commaNotCloser comma.token.kind isComma)))
+          (leafEta bare)
+      let startsMoved: startsWalk True moved.fst [bare, ..moved.snd]
+        = (comma.token.lineStart || closer.token.lineStart) :=
+        let unfolded: startsWalk True moved.fst [bare, ..moved.snd]
+          = (moved.fst.token.lineStart
+            || (moved.fst.token.kind.isCloser
+              && bare.token.kind == Comma
+              && bare.token.lineStart
+              && hasItem moved.snd)) :=
+          byComputing
+        Eq.trans unfolded
+          (rewrite fstTok, isCloser, isComma, itemMoved then
+            match l: comma.token.lineStart, c: closer.token.lineStart with
+              | True, True => byComputing
+              | True, False => byComputing
+              | False, True => byComputing
+              | False, False => byComputing)
+      let fstEq: (commaDeleted comma closer (markRev behind)).fst = moved.fst.markedOn [bare, ..moved.snd] :=
+        rewrite commaMovedFstAny comma closer (markRev behind) behind then
+          Eq.cong (start => moved.fst.startingLine start) startsMoved.flipped
+      let accEq: [
+        (commaDeleted comma closer (markRev behind)).fst,
+        bare,
+        ..(commaDeleted comma closer (markRev behind)).snd
+      ]
+        = markRev [moved.fst, bare, ..moved.snd] :=
+        rewrite fstEq, barePlain, commaMovedSndMark comma closer behind
+      rewrite withMarkedR.eq2 (markRev behind) comma closer after (guardOfPair comma closer (markRev behind) pairM) then
+        Eq.trans (Eq.cong (acc => withMarkedR acc after) accEq) (ih (gapAfterPair bare moved.fst moved.snd after pair2))
+    | eq3 behind leaf after notArm2 ih =>
+      let pair := fwdPairOfNotArm leaf behind after notArm2
+      let pairM: fwdPair (markRev behind) leaf after = False := rewrite fwdPairMark behind leaf after then pair
+      let same: leaf.markedOn behind = leaf := markedGap leaf behind after gap
+      let swap: withMarkedR [leaf, ..markRev behind] after
+        = withMarkedR [leaf.markedOn behind, ..markRev behind] after :=
+        Eq.cong (x => withMarkedR [x, ..markRev behind] after) same.flipped
+      rewrite withMarkedR.eq3 (markRev behind) leaf after (notArmOfFwdPair leaf (markRev behind) after pairM) then
+        Eq.trans swap (ih (gapAfterNop leaf behind after pair))
 
 theorem markedOfBare ∀ (leaves: List Leaf):
     withMarkedLastCommas [] leaves = markFwd [] (withBareLastCommas [] leaves) :=
