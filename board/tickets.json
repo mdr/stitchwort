@@ -1,5 +1,5 @@
 {
-  "next": 4276,
+  "next": 4278,
   "tickets": [
     {
       "id": 47,
@@ -27162,12 +27162,12 @@
     {
       "id": 4221,
       "title": "[Sonnet] Proving guide + pattern: deciding facts over finite token kinds by computation (Finite.check), with an example replacing a per-kind lemma family in tools/fmt (SW-4205 §6 item 7)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'\n\nSonnet lane, 19 Nov: Finite.check exists (std/Finite, core/Finite.sw; derived for Tok); the guide already had a line, now an entry with an example. within1Not replaces notAt, within1NotLet, within1NotPipe (branch lane/SW-4221, 677ba184c). Fmt.Tests 441 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27878,6 +27878,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4230. Est. 30 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4276,
+      "title": "[Sonnet] Goals after rewrite f.unfold show f.%step n (n [auto decreasing: _] => f n), which a reader can't follow or paste back: print the step readably (SW-4274 left it; examples/reject/goal-shows-step-name.sw pins today's output)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4274.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4277,
+      "title": "[DeepSeek] Fmt/SpeltSlots.sw tokLevelLow: replace the long per-kind arm list with one Finite.check, as SW-4221 did for within1Not",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4221.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
