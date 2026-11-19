@@ -14,7 +14,7 @@ import Std.Doc.Proofs (..)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.AppHangProofs (ArgsHang, Hangs, appElHangs, argAround, lastArg)
-import Fmt.ChainHangProofs (HangsAt, LinkFacts, PairFacts, arrowChainHangs, binaryChainHangs)
+import Fmt.ChainHangProofs (HangsAt, LinkFacts, PairFacts, arrowChainHangs, binaryChainHangs, runFactsOf)
 import Fmt.BracketHangProofs (
   ItemsHang,
   bracketTrails,
@@ -794,8 +794,14 @@ theorem edgeFacts ∀ (expr: Expr) (lead end: Bool)
         level first around bare =>
           let leftLinks := edgeLinksOf left leftFacts level first around bare
           (
+            False,
+            False,
             rewrite leftOff at leftLinks then leftLinks,
-            quietRun operator.text (around.next left.trails left.size) (around.next left.trails left.size).at listed,
+            runFactsOf lexKind False False _
+              (quietRun operator.text
+                (around.next left.trails left.size)
+                (around.next left.trails left.size).at
+                listed),
             chainRightPlain level right (around.next False (left.size + 1)) rightWithin,
             edgeLinksOf right rightFacts level False
               (around.next False (left.size + 1))
@@ -819,8 +825,8 @@ theorem edgeFacts ∀ (expr: Expr) (lead end: Bool)
             rewrite infixTrails InfixBinary left word right code then
               match chained: (Infix InfixBinary left word right).inChain level with
                 | True =>
-                  let (leftLinks, run, rightDocs, rightLinks) := pair level first around bare
-                  (False, leftLinks, run, rightDocs, rightLinks)
+                  let (noted, next, leftLinks, run, rightDocs, rightLinks) := pair level first around bare
+                  (False, noted, next, leftLinks, run, rightDocs, rightLinks)
                 | False =>
                   let whole := hangs around bare
                   rewrite infixTrails InfixBinary left word right code at whole then whole
@@ -843,8 +849,14 @@ theorem edgeFacts ∀ (expr: Expr) (lead end: Bool)
         level first around bare =>
           let leftLinks := edgeLinksOf left leftFacts level first around bare
           (
+            False,
+            False,
             rewrite leftOff at leftLinks then leftLinks,
-            quietRun operator.text (around.next left.trails left.size) (around.next left.trails left.size).at listed,
+            runFactsOf lexKind False False _
+              (quietRun operator.text
+                (around.next left.trails left.size)
+                (around.next left.trails left.size).at
+                listed),
             chainRightPlain level right (around.next False (left.size + 1)) rightWithin,
             edgeLinksOf right rightFacts level False
               (around.next False (left.size + 1))
@@ -868,8 +880,8 @@ theorem edgeFacts ∀ (expr: Expr) (lead end: Bool)
             rewrite infixTrails InfixArrow left word right code then
               match chained: (Infix InfixArrow left word right).inChain level with
                 | True =>
-                  let (leftLinks, run, rightDocs, rightLinks) := pair level first around bare
-                  (False, leftLinks, run, rightDocs, rightLinks)
+                  let (noted, next, leftLinks, run, rightDocs, rightLinks) := pair level first around bare
+                  (False, noted, next, leftLinks, run, rightDocs, rightLinks)
                 | False =>
                   let whole := hangs around bare
                   rewrite infixTrails InfixArrow left word right code at whole then whole

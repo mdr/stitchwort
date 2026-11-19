@@ -34,7 +34,8 @@ import Fmt.ChainHangProofs (
   RunOperator,
   arrowChainHangs,
   arrowLeafGlues,
-  binaryChainHangs
+  binaryChainHangs,
+  runFactsOf
 )
 import Fmt.BracketHangProofs (
   ItemsHang,
@@ -1170,8 +1171,14 @@ theorem leadFacts ∀ (expr: Expr)
         → PairFacts lexKind level first left word right around False False :=
         level first around bare =>
           (
+            False,
+            False,
             leadLinksOf left leftFacts level first around bare,
-            quietRun operator.text (around.next left.trails left.size) (around.next left.trails left.size).at listed,
+            runFactsOf lexKind False False _
+              (quietRun operator.text
+                (around.next left.trails left.size)
+                (around.next left.trails left.size).at
+                listed),
             chainRightPlain level right (around.next False (left.size + 1)) (Bool.andLeft (Bool.andRight within)),
             leadLinksOf right rightFacts level False
               (around.next False (left.size + 1))
@@ -1191,8 +1198,8 @@ theorem leadFacts ∀ (expr: Expr)
           level first around bare =>
             match chained: (Infix InfixBinary left word right).inChain level with
               | True =>
-                let (leftLinks, run, rightDocs, rightLinks) := pair level first around bare
-                (False, leftLinks, run, rightDocs, rightLinks)
+                let (noted, next, leftLinks, run, rightDocs, rightLinks) := pair level first around bare
+                (False, noted, next, leftLinks, run, rightDocs, rightLinks)
               | False => hangs around bare
         )
     | Infix InfixArrow left operator right, within =>
@@ -1211,8 +1218,14 @@ theorem leadFacts ∀ (expr: Expr)
         → PairFacts lexKind level first left word right around False False :=
         level first around bare =>
           (
+            False,
+            False,
             leadLinksOf left leftFacts level first around bare,
-            quietRun operator.text (around.next left.trails left.size) (around.next left.trails left.size).at listed,
+            runFactsOf lexKind False False _
+              (quietRun operator.text
+                (around.next left.trails left.size)
+                (around.next left.trails left.size).at
+                listed),
             chainRightPlain level right (around.next False (left.size + 1)) (Bool.andLeft (Bool.andRight within)),
             leadLinksOf right rightFacts level False
               (around.next False (left.size + 1))
@@ -1232,8 +1245,8 @@ theorem leadFacts ∀ (expr: Expr)
           level first around bare =>
             match chained: (Infix InfixArrow left word right).inChain level with
               | True =>
-                let (leftLinks, run, rightDocs, rightLinks) := pair level first around bare
-                (False, leftLinks, run, rightDocs, rightLinks)
+                let (noted, next, leftLinks, run, rightDocs, rightLinks) := pair level first around bare
+                (False, noted, next, leftLinks, run, rightDocs, rightLinks)
               | False => hangs around bare
         )
 

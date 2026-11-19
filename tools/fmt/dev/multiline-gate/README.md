@@ -116,3 +116,16 @@ An item with no comments but a kept blank line before it leads with `[BreakParen
 
 Run either as `ElementsGate.sw` is run (copy into `tools/fmt/src`, `stitchwort run BlankGate.main < FILE.cases`
 from `tools/fmt`, delete).
+
+## Comments above a chain's operator or right operand (SW-4149)
+
+`ChainGate.sw` counts, at each chain node of each declaration with the tree facts, operators with own-line comments
+above them (`opNoted`), operators with a comment after them, and right operands with comments above their first
+token (`rightNoted`); and for each such operator and operand, whether its element keeps `hangs` laid after `A -> `,
+which glues the fold (`opGluedFails`, `gluedFails`). `LinkFacts` before SW-4149 asked `HangsAt`, so from every seat,
+the glued one among them, of every operator and of every right operand that is no chain of its level; a failure here
+is a parse for which that was false. Run it as `ElementsGate.sw` is run. On 19 Nov 2026 (the hand cases, the SW-4149
+cases and `gen.py` seeds 77 to 80 in modes `noted`, `longnoted`, `legal` and `wild`, 250 each): 866 declarations
+with the tree facts and 5,240 chain nodes; 186 operators in 140 declarations and 147 right operands in 116 have
+comments above them, and every one of them fails `hangs` after `->`. `Links` and `RunFacts` now ask for those that
+they start the line after their comments (`startFor`).
