@@ -25930,12 +25930,12 @@
     {
       "id": 4129,
       "title": "[Opus] fmt S1 item 7 (SW-4120): prove rule N keeps the parse (parseFile of the settled leaves gives the tree of parseFile of the lexer's leaves, up to comment placement), linking inGrammar1 to the driver's parse",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4129",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4120-grammar1.md item 7. Model: Opus. Est. 60-90 min; may need a Fable sketch first.\n\nLane notes (Opus, 19 Nov): branch lane/SW-4129, commit 9a285d94a, new file tools/fmt/src/Fmt/SettleParseProofs.sw.\n- Stated `settledParses1` (parseFile lexed = Ok file, file.grammar1, plain1 ⇒ parseFile lexed.settledOnce = Ok settled, settled.withoutComments = file.withoutComments, settled.grammar1), `settledParsesKept1` (token equation instead of plain1) and `settledPlaced1` (adds the driver's comment placement via parseCarriesSourceProved).\n- Proved the file layer (groups cut by tokens, fileRefusal, parseGroups induction, Seen, withoutComments as walkDecls).\n- Open: `groupKeepsTokens1`, one group's declaration parse reads comments only into the tree. A relational walk of the declaration parser over the Parse handler (mark/next/fatal, loop, recursiveWith; no backtracking). Multi-lane; no std framework for relating two runs exists.\n- Closed examples by computing: settlesOn (3 sources incl. the own-line comma, which fails plain1 but still parses alike), groupsKeepOn, placedOn.\n- check Fmt.SettleParseProofs: 0 errors, 1 open goal; audit: 6 fail (the open goal and the 5 that rely on it), 33 pass.\n",
+      "body": "\ndocs/reviews/SW-4120-grammar1.md item 7. Model: Opus. Est. 60-90 min; may need a Fable sketch first.\n\nLane notes (Opus, 19 Nov): branch lane/SW-4129, commit 9a285d94a, new file tools/fmt/src/Fmt/SettleParseProofs.sw.\n- Stated `settledParses1` (parseFile lexed = Ok file, file.grammar1, plain1 ⇒ parseFile lexed.settledOnce = Ok settled, settled.withoutComments = file.withoutComments, settled.grammar1), `settledParsesKept1` (token equation instead of plain1) and `settledPlaced1` (adds the driver's comment placement via parseCarriesSourceProved).\n- Proved the file layer (groups cut by tokens, fileRefusal, parseGroups induction, Seen, withoutComments as walkDecls).\n- Open: `groupKeepsTokens1`, one group's declaration parse reads comments only into the tree. A relational walk of the declaration parser over the Parse handler (mark/next/fatal, loop, recursiveWith; no backtracking). Multi-lane; no std framework for relating two runs exists.\n- Closed examples by computing: settlesOn (3 sources incl. the own-line comma, which fails plain1 but still parses alike), groupsKeepOn, placedOn.\n- check Fmt.SettleParseProofs: 0 errors, 1 open goal; audit: 6 fail (the open goal and the 5 that rely on it), 33 pass.\n\n\nMerged 19 Nov, partial: one open goal (groupKeepsTokens1) carried to SW-4132 (Fable sketch) and SW-4133. 14 min (est. 75). D3688 review: new file only; plain1 condition on settledParses1 (intermediate) named for SW-4131; settledParsesKept1 covers more without it; no top theorem touched.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -25995,9 +25995,9 @@
     {
       "id": 4134,
       "title": "[Sonnet] fmt S1: loweringError = None for every slice 1 declaration, a lemma on its own (takes a conjunct out of groupKeepsTokens1)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4134",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4129. Est. 20 min.",
