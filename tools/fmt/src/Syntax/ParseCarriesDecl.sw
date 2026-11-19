@@ -1,7 +1,8 @@
---| `parseCarries1`'s walk, third part (SW-4020): a declaration. A plain definition's words are its items': the `def`, its
---| name, the `:`, the result type, the `:=` and the body; the parts that make a header outside slice 1 (parameters,
---| clauses, attributes) are read in no item when they are absent. `GroupCarries` for the file level
---| (`Syntax.ParseCarriesFile`) is proved here.
+--| The parser's walk for slice 1's grammar, third part (SW-4020, SW-4173): a declaration. A plain definition's words
+--| and token kinds are its items': the `def`, its name, the `:`, the result type, the `:=` and the body; the parts that
+--| make a header outside slice 1 (parameters, clauses, attributes) are read in no item when they are absent.
+--| `runKept` is the fact for one group of items; `GroupCarries` for the file level (`Syntax.ParseCarriesFile`) follows
+--| from it, and `Fmt.SourcePlainProofs.groupShapesProved` gets the shapes.
 
 namespace Syntax.ParseCarriesDecl
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
@@ -10,10 +11,25 @@ import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
-import Syntax.ParseCarries (..)
-import Syntax.ParseCarries (Carried)
+import Syntax.ParseKept (..)
+import Syntax.ParseCarries (
+  Carried,
+  NestedCarries,
+  SameOrOut,
+  codeAs,
+  itemWords,
+  itemWordsAppend,
+  itemWordsCode,
+  itemWordsCons,
+  readsAfter0,
+  readsAtBumpRead,
+  readsFail,
+  readsFailName
+)
+import Fmt.Kinds1 (..)
+import Fmt.Grammar1 (..)
 import Syntax.ParseCarriesLadder (..)
-import Syntax.ParseCarriesFile (..)
+import Syntax.ParseCarriesFile (GroupCarries, itemWordsOfGroup, itemsLeaves)
 
 -- Reading where the parser is.
 
@@ -239,9 +255,17 @@ theorem readsFixed: Parse.ReadsIn GoodItems (() => fixedFrom()) (read comments =
   Parse.readsThen [p := () => bump()] [j := word => word.comments] readsBumpAny (r word (item, single, same) =>
     Parse.readsDone word.comments _ (item, rewrite List.appendNil r then single, rewrite same))
 
---| A name read: one item, no comma.
+--| A name read: one item, a `Lower` or an `Upper`.
 def NameRead (read: List Item) (word: Word): Prop :=
-  ∃ (item: Item) => read = [item] ∧ word = item.leaf.word ∧ (item.kind == Comma) = False
+  ∃ (item: Item) => read = [item] ∧ word = item.leaf.word ∧ (item.kind == Lower || item.kind == Upper) = True
+
+theorem nameKindCode ∀ (item: Item)
+    (name: (item.kind == Lower || item.kind == Upper) = True):
+    (item.kind == Comma) = False :=
+  match item.kind, name with
+    | Lower, name => byComputing
+    | Upper, name => byComputing
+    | other, name => (Bool.falseNotTrue name).impossible
 
 theorem readsLowerQualified ∀ (modes: Modes) (what: Text):
     Parse.ReadsIn GoodItems (() => modes.lowerQualified what) NameRead :=
@@ -252,7 +276,7 @@ theorem readsLowerQualified ∀ (modes: Modes) (what: Text):
       match took: isSome Lower (Some item.kind) with
         | False => readsFailName modes what start fine
         | True => Parse.readsAtWeaken (readsAtBump shape) (read word (single, same) =>
-          (item, single, same, codeAs (DecEq.sound took) byComputing)))
+          (item, single, same, rewrite DecEq.sound took)))
 
 theorem readsUpperQualified ∀ (modes: Modes) (what: Text):
     Parse.ReadsIn GoodItems (() => modes.upperQualified what) NameRead :=
@@ -263,7 +287,7 @@ theorem readsUpperQualified ∀ (modes: Modes) (what: Text):
       match took: isSome Upper (Some item.kind) with
         | False => readsFail modes what start fine
         | True => Parse.readsAtWeaken (readsAtBump shape) (read word (single, same) =>
-          (item, single, same, codeAs (DecEq.sound took) byComputing)))
+          (item, single, same, rewrite DecEq.sound took)))
 
 theorem readsDefinitionName ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => definitionName modes) NameRead :=
   readsAfter0
@@ -398,23 +422,23 @@ theorem textOfGood ∀ (item: Item) (kind: Tok)
   rewrite is at good (rewrite is then within)
 
 --| A definition's body, read: `:= value` is the `:=` item then what the value read.
-def BodyCarried (read: List Item) (body: DefBody): Prop := match body with
+def BodyKept (read: List Item) (body: DefBody): Prop := match body with
   | Primitive => True
   | Assigned colonEq value =>
     ∃ (item: Item) (rest: List Item) => read = [item, ..rest]
       ∧ item.kind = ColonEq
       ∧ item.leaf.token.text = ":="
       ∧ colonEq = item.leaf.word.comments
-      ∧ Carried rest value
+      ∧ Kept rest value
   | Arms arms => True
 
 theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (carries: NestedCarries self)
+    (carries: NestedKept self)
     (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
     (isColonEq: item.kind = ColonEq)
     (fine: Parse.Fits Item GoodItems start.rest):
-    Parse.ReadsAt start (() => assignedBody self modes) BodyCarried :=
+    Parse.ReadsAt start (() => assignedBody self modes) BodyKept :=
   Parse.readsAtThen
     [p := () => fixedFrom()]
     [j := colonEq => assignedValue modes colonEq (self { modes, level = LevelFull })]
@@ -445,7 +469,7 @@ theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
 
 theorem readsArmsBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat)
     (nested: Nested self):
-    Parse.ReadsIn GoodItems (() => armsBody self modes d) BodyCarried :=
+    Parse.ReadsIn GoodItems (() => armsBody self modes d) BodyKept :=
   Parse.readsThen
     [p := () => definitionArms self modes d]
     [j := arms => Arms arms]
@@ -455,8 +479,8 @@ theorem readsArmsBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d: 
 
 theorem readsDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (d: Nat)
     (nested: Nested self)
-    (carries: NestedCarries self):
-    Parse.ReadsIn GoodItems (() => definitionBodyOn self modes result d modes.peek) BodyCarried :=
+    (carries: NestedKept self):
+    Parse.ReadsIn GoodItems (() => definitionBodyOn self modes result d modes.peek) BodyKept :=
   readsInPeeked modes
     (seen => definitionBodyOn self modes result d seen) _
     (start fine stops =>
@@ -476,8 +500,8 @@ theorem readsDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
 
 theorem readsDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (isInstance: Bool) (d: Nat)
     (nested: Nested self)
-    (carries: NestedCarries self):
-    Parse.ReadsIn GoodItems (() => definitionBody self modes result isInstance d) BodyCarried :=
+    (carries: NestedKept self):
+    Parse.ReadsIn GoodItems (() => definitionBody self modes result isInstance d) BodyKept :=
   Parse.readsThen
     [p := () => definitionBodyOn self modes result d modes.peek]
     [j := body => definitionChecked isInstance body]
@@ -534,9 +558,24 @@ theorem wordsOfParts ∀ (defItem nameItem colonItem bodyItem: Item) (rResult rV
 
 -- A plain definition's header and body.
 
---| The words of a definition within slice 1 are those of the items its header and body read.
-def PartsCarried (read: List Item) (parts: (Header, DefBody)): Prop :=
-  (Definition [] parts.fst parts.snd).within1 = True → (Definition [] parts.fst parts.snd).words = itemWords read
+--| The token kinds of a plain definition's items: the `def`, a name, the `:`, the type's items, the `:=` and the
+--| value's. A definition of any other form says nothing.
+def DeclKinds (read: List Item) (decl: Decl): Prop := match decl with
+  | Definition attributes header (Assigned colonEq value) =>
+    ∃ (defItem nameItem colonItem bodyItem: Item) (rResult rValue: List Item) => read
+      = [defItem] ++ [nameItem] ++ [colonItem] ++ rResult ++ [bodyItem, ..rValue]
+      ∧ defItem.kind = KwDef
+      ∧ (nameItem.kind == Lower || nameItem.kind == Upper) = True
+      ∧ colonItem.kind = Colon
+      ∧ bodyItem.kind = ColonEq
+      ∧ header.result.kinds1 = itemKinds rResult
+      ∧ value.kinds1 = itemKinds rValue
+  | other => True
+
+--| A definition of slice 1's grammar has the words of the items its header and body read, and their kinds.
+def PartsKept (read: List Item) (parts: (Header, DefBody)): Prop :=
+  (Definition [] parts.fst parts.snd).grammar1 = True
+    → (Definition [] parts.fst parts.snd).words = itemWords read ∧ DeclKinds read (Definition [] parts.fst parts.snd)
 
 --| What a header's `:` read: one item, which is a `:` if the header has no parameters.
 def ColonRead (params: List Group) (read: List Item) (colon: Comments): Prop :=
@@ -566,9 +605,9 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
     (shape: start.rest = [item, ..later])
     (ok: (item.kind == KwDef || item.kind == KwTheorem) = True)
     (notStopped: modes.stops item = False)
-    (nested: Nested expressionAt) (carries: NestedCarries expressionAt) (outside: Outside expressionAt)
+    (nested: Nested expressionAt) (carries: NestedKept expressionAt) (outside: Outside expressionAt)
     (fine: Parse.Fits Item GoodItems start.rest):
-    Parse.ReadsAt start (() => definitionParts expressionAt modes None None None) PartsCarried :=
+    Parse.ReadsAt start (() => definitionParts expressionAt modes None None None) PartsKept :=
   Parse.readsAtThen (readsAtDefKind start modes item later shape ok notStopped) (r1 kind after1 starts1 (e1, kindEq) =>
     let shape1: after1.rest = [item, ..later] := (Eq.trans shape.flipped (restSame starts1 e1)).flipped
     let fine1 := Parse.Fits.after fine starts1
@@ -590,7 +629,7 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                   let fine6 := Parse.Fits.after fine5 starts6
                   Parse.readsAtThen
                     (readsResultType expressionAt modes carries outside.below after6 fine6)
-                    (r7 result after7 starts7 resultCarried =>
+                    (r7 result after7 starts7 resultKept =>
                       let fine7 := Parse.Fits.after fine6 starts7
                       Parse.readsAtThen
                         (readsDecreasingPart expressionAt modes modes (kind == DefInstance) nested after7 fine7)
@@ -634,21 +673,25 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                       fine13)
                                                     (r14 body after14 starts14 bodyFact =>
                                                       Parse.readsAtDone after14 _ _
-                                                        ((within =>
-                                                          match kind, forallKeyword, params, decreasingClause, unfoldingClause, body, within with
+                                                        ((grammar =>
+                                                          match kind, forallKeyword, params, decreasingClause, unfoldingClause, body, grammar with
                                                             | DefPlain, None, [], None, None, Assigned colonEq
-                                                                  value, within =>
+                                                                  value, grammar =>
                                                               let isDef := kindEq byComputing
-                                                              let (headerWithin, valueWithin) := within
-                                                              let resultWithin := Bool.andRight headerWithin
+                                                              let (headerGrammar, valueGrammar) := grammar
+                                                              let resultGrammar := Bool.andRight headerGrammar
                                                               let (e5, nextIs) := paramsFact byComputing
                                                               let (colonItem, single6, colonSame, colonKind) :=
                                                                 colonFact
                                                               let (isColon, colonText) := colonKind byComputing
-                                                              let (nameItem, single3, nameEq, nameCode) := nameFact
+                                                              let (nameItem, single3, nameEq, nameKind) := nameFact
                                                               let (bodyItem, rest, single14, isColonEq, bodyText,
-                                                                colonEqSame, valueCarried) :=
+                                                                colonEqSame, valueKept) :=
                                                                 bodyFact
+                                                              let (resultWords, resultKinds, resultWithin) :=
+                                                                resultKept resultGrammar
+                                                              let (valueWords, valueKinds, valueWithin) :=
+                                                                valueKept valueGrammar
                                                               rewrite List.appendNil r14,
                                                                   e1,
                                                                   single2,
@@ -662,30 +705,48 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                                   e11,
                                                                   e13,
                                                                   single14 then
-                                                                wordsOfParts item nameItem colonItem bodyItem r7 rest
-                                                                    keyword colon colonEq name result value keywordEq
-                                                                    (textOfGood item KwDef
-                                                                      (goodHead fine shape)
-                                                                      isDef
-                                                                      byComputing)
-                                                                    (codeAs isDef byComputing)
-                                                                    nameEq
-                                                                    nameCode
-                                                                    colonSame
-                                                                    colonText
-                                                                    (codeAs isColon byComputing)
-                                                                    (resultCarried resultWithin)
-                                                                    colonEqSame
-                                                                    bodyText
-                                                                    (codeAs isColonEq byComputing)
-                                                                    (valueCarried valueWithin)
-                                                            | kinds, other, others, clauses, unfoldings, Primitive, within =>
-                                                              (Bool.falseNotTrue within).impossible
+                                                                (
+                                                                  wordsOfParts item nameItem colonItem bodyItem r7 rest
+                                                                      keyword colon colonEq name result value keywordEq
+                                                                      (textOfGood item KwDef
+                                                                        (goodHead fine shape)
+                                                                        isDef
+                                                                        byComputing)
+                                                                      (codeAs isDef byComputing)
+                                                                      nameEq
+                                                                      (nameKindCode nameItem nameKind)
+                                                                      colonSame
+                                                                      colonText
+                                                                      (codeAs isColon byComputing)
+                                                                      resultWords
+                                                                      colonEqSame
+                                                                      bodyText
+                                                                      (codeAs isColonEq byComputing)
+                                                                      valueWords,
+                                                                  (
+                                                                    item,
+                                                                    nameItem,
+                                                                    colonItem,
+                                                                    bodyItem,
+                                                                    r7,
+                                                                    rest,
+                                                                    byComputing,
+                                                                    isDef,
+                                                                    nameKind,
+                                                                    isColon,
+                                                                    isColonEq,
+                                                                    resultKinds,
+                                                                    valueKinds
+                                                                  )
+                                                                )
+                                                            | kinds, other, others, clauses, unfoldings, Primitive, grammar =>
+                                                              (Bool.falseNotTrue grammar).impossible
                                                             | kinds, other, others, clauses, unfoldings, Arms
-                                                                  arms, within => (Bool.falseNotTrue within).impossible
+                                                                  arms, grammar =>
+                                                              (Bool.falseNotTrue grammar).impossible
                                                             | kinds, other, others, clauses, unfoldings, Assigned
-                                                                  colonEq value, within =>
-                                                              (Bool.falseNotTrue within).impossible))))))))))))))))
+                                                                  colonEq value, grammar =>
+                                                              (Bool.falseNotTrue grammar).impossible))))))))))))))))
 
 -- A declaration.
 
@@ -719,24 +780,25 @@ theorem readsAttributesOf ∀ (modes: Modes):
         let atNone := rewrite equal at rounds
         atNone byComputing)
 
---| A declaration within slice 1 has the words of the items read for it.
-def DeclCarried (read: List Item) (decl: Decl): Prop := decl.within1 = True → decl.words = itemWords read
+--| A declaration of slice 1's grammar has the words of the items read for it, and their kinds.
+def DeclKept (read: List Item) (decl: Decl): Prop :=
+  decl.grammar1 = True → decl.words = itemWords read ∧ DeclKinds read decl
 
 --| After attributes were read (`before`): no attributes means `before` is empty.
 def DeclAfter (before: List Item) (attributes: List Attributes) (read: List Item) (decl: Decl): Prop :=
-  (attributes = [] → before = []) → DeclCarried (before ++ read) decl
+  (attributes = [] → before = []) → DeclKept (before ++ read) decl
 
 theorem declOutAfter ∀ (before: List Item) (attributes: List Attributes) [read: List Item] [decl: Decl]
     (out: DeclOut decl):
     DeclAfter before attributes read decl :=
-  attributesEmpty within => (Bool.falseNotTrue (rewrite withinFalseOfDeclOut out at within)).impossible
+  attributesEmpty grammar => (Bool.falseNotTrue (rewrite out at grammar)).impossible
 
 theorem readsAtDefinition ∀ (modes: Modes) (attributes: List Attributes) (before: List Item) (start: Parse.Mark Item)
     (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
     (ok: (item.kind == KwDef || item.kind == KwTheorem) = True)
     (notStopped: modes.stops item = False)
-    (nested: Nested expressionAt) (carries: NestedCarries expressionAt) (outside: Outside expressionAt)
+    (nested: Nested expressionAt) (carries: NestedKept expressionAt) (outside: Outside expressionAt)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => definition modes attributes None None) (DeclAfter before attributes) :=
   Parse.readsAtThen
@@ -746,11 +808,11 @@ theorem readsAtDefinition ∀ (modes: Modes) (attributes: List Attributes) (befo
         match parts with
           | (header, body) =>
             match attributes with
-              | [] => within => rewrite attributesEmpty byComputing, List.appendNil r1 then carried within
-              | [group, ..groups] => within => (Bool.falseNotTrue within).impossible))
+              | [] => grammar => rewrite attributesEmpty byComputing, List.appendNil r1 then carried grammar
+              | [group, ..groups] => grammar => (Bool.falseNotTrue grammar).impossible))
 
 theorem readsDeclarationBody ∀ (modes: Modes) (attributes: List Attributes) (before: List Item)
-    (nested: Nested expressionAt) (carries: NestedCarries expressionAt)
+    (nested: Nested expressionAt) (carries: NestedKept expressionAt)
     (outside: Outside expressionAt) (frame: FrameRest expressionAt):
     Parse.ReadsIn GoodItems (() => declarationBody modes attributes) (DeclAfter before attributes) :=
   readsInPeeked modes
@@ -766,7 +828,7 @@ theorem readsDeclarationBody ∀ (modes: Modes) (attributes: List Attributes) (b
           declOutAfter before attributes out))
 
 theorem readsDeclarationKind ∀ (seen: Seen) (modes: Modes) (attributes: List Attributes) (before: List Item)
-    (nested: Nested expressionAt) (carries: NestedCarries expressionAt)
+    (nested: Nested expressionAt) (carries: NestedKept expressionAt)
     (outside: Outside expressionAt) (frame: FrameRest expressionAt):
     Parse.ReadsIn GoodItems (() => declarationKind seen modes attributes modes.peek) (DeclAfter before attributes) :=
   readsInPeeked modes
@@ -785,9 +847,9 @@ theorem readsDeclarationKind ∀ (seen: Seen) (modes: Modes) (attributes: List A
 --| One declaration group, read whole: what it read is all the items, and the declaration has their words if it is
 --| within slice 1.
 theorem readsAtDeclaration ∀ (seen: Seen) (start: Parse.Mark Item) (nested: Nested expressionAt)
-    (carries: NestedCarries expressionAt) (outside: Outside expressionAt) (frame: FrameRest expressionAt)
+    (carries: NestedKept expressionAt) (outside: Outside expressionAt) (frame: FrameRest expressionAt)
     (fine: Parse.Fits Item GoodItems start.rest):
-    Parse.ReadsAt start (() => declaration seen) (read decl => read = start.rest ∧ DeclCarried read decl) :=
+    Parse.ReadsAt start (() => declaration seen) (read decl => read = start.rest ∧ DeclKept read decl) :=
   Parse.readsAtThen
     [p := () => attributesOf Modes.start]
     [j := attributes => declarationAttributes seen Modes.start attributes]
@@ -823,19 +885,19 @@ theorem readsAtDeclaration ∀ (seen: Seen) (start: Parse.Mark Item) (nested: Ne
                         | [head, ..more], itemsEq => readsFail Modes.start _ after4 fine4))))
 
 --| A declaration parsed from good items carries the items it was parsed from.
-theorem runCarries ∀ (input: List Item) (seen: Seen) (frame: FrameRest expressionAt)
+theorem runKept ∀ (input: List Item) (seen: Seen) (frame: FrameRest expressionAt)
     (fits: Parse.Fits Item GoodItems input) (decl: Decl)
     (ran: Parse.run input (() =>
       let found := declaration seen
       found)
       = Ok decl):
-    DeclCarried input decl :=
+    DeclKept input decl :=
   match Parse.runFromThenOk (() => declaration seen) (Parse.State.start input) (found => found) decl ran with
     | Witness found (Witness middle (Both started rest)) =>
       match readsAtDeclaration seen
         (Parse.State.start input).at
         givesExpressionAt
-        expressionAtCarries
+        expressionAtKept
         (outsideOf expressionAt givesExpressionAt)
         frame
         fits
@@ -853,4 +915,11 @@ theorem runCarries ∀ (input: List Item) (seen: Seen) (frame: FrameRest express
 --| Every declaration of a group of good items that parses carries the group's words.
 theorem groupCarries ∀ (frame: FrameRest expressionAt): GroupCarries frame := seen group decl good quiet ran within =>
   rewrite <- itemWordsOfGroup group then
-    runCarries (items group) seen frame (goodItemsOf (items group) good quiet) decl ran within
+    (runKept
+      (items group)
+      seen
+      frame
+      (goodItemsOf (items group) good quiet)
+      decl
+      ran
+      (Decl.grammarOfWithin1 decl within)).left

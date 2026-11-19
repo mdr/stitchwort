@@ -10,17 +10,27 @@
 --|   ignores line starts (`exprSeg1`, `fileSeg1`), so any tokens with those shapes are `sourcePlain1`
 --|   (`sourcePlainOfShapes1`).
 --| - The parser's half: the lexer's tokens have the parsed tree's shapes. The file's layer is proved here
---|   (`parsedShapesOf`), from one declaration's fact (`GroupShapes1`), which is open (`groupShapesProved`): a walk of
---|   the parser like `Syntax.ParseCarries`', whose `Carried` speaks of the tree's words, commas left out, so it can't
---|   place a comma.
+--|   (`parsedShapesOf`), from one declaration's fact (`GroupShapes1`), which `groupShapesProved` gets from the parser's
+--|   walk (`Syntax.ParseKept`, `Syntax.ParseCarriesDecl.runKept`): it gives the tree's token kinds, commas included,
+--|   where `Carried`'s words leave commas out. The lexer's facts (`lexGood`, `lexedItemsQuiet`) give the walk's
+--|   invariant.
 
 namespace Fmt.SourcePlainProofs
 import Std (Bool, DecEq, Eq, List, Option, Parse, Result, Text, Void)
 import Syntax (..)
+import Fmt (..)
 import Fmt.Grammar1 (..)
 import Fmt.Kinds1 (..)
 import Syntax.SettleProofs (arrowFollow, itemKind, passableKind, sourcePlain1, sourcePlainFrom, tokens)
 import Syntax.SettleSplitProofs (groupsConcat)
+import Syntax.SettleProofs (alphabet1)
+import Syntax.ParseProofs (GoodItem, goodItemsOf, itemsQuiet)
+import Syntax.ParseCarriesFile (itemsLeaves)
+import Syntax.ParseKept (itemKinds, itemKindsAppend)
+import Syntax.ParseCarriesDecl (DeclKinds, runKept)
+import Syntax.ParseWalkOthers (frameRest)
+import Syntax.GoodItemProofs (lexGood)
+import Syntax.GlueQuietProofs (lexedItemsQuiet)
 
 -- Shapes.
 
@@ -564,10 +574,12 @@ theorem sourcePlainOfFile1 ∀ (toks: List Token) (file: SourceFile)
 
 def groupShapes1 (group: List Leaf): List Shape1 := tokenShapes1 (tokens group)
 
---| What the parser of one declaration gives, as `parsedShapes1` needs it: a declaration of slice 1's grammar has the
---| shapes of the group it was parsed from.
+--| What the parser of one declaration gives, as `parsedShapes1` needs it: a declaration of slice 1's grammar, parsed
+--| from a group of good, quiet items, has the shapes of the group it was parsed from.
 def GroupShapes1: Prop :=
-  ∀ (seen: Seen) (group: List Leaf) (decl: Decl) (ran: Parse.run (items group) (() =>
+  ∀ (seen: Seen) (group: List Leaf) (decl: Decl) (good: List.All GoodItem (items group)) (quiet: itemsQuiet
+    (items group)
+    = True) (ran: Parse.run (items group) (() =>
     let found := declaration seen
     found)
     = Ok decl) (grammar: decl.grammar1 = True) => decl.shapes1 = groupShapes1 group
@@ -624,24 +636,28 @@ theorem groupRanShapes ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: L
 --| Proof idea: by the groups, as `ParseCarriesFile.parseGroupsCarried` for words; `parseGroups` keeps the declarations
 --| newest first in `found`, so the ones it makes are the ones after `found.reverse`.
 theorem parseGroupsShapes ∀ (shapes: GroupShapes1) (seen: Seen) (groups: List (List Leaf)) (found decls: List Decl)
+    (good: List.All (group => List.All GoodItem (items group)) groups)
+    (quiet: List.All (group => itemsQuiet (items group) = True) groups)
     (parses: parseGroups seen groups found = Ok decls):
     ∃ (news: List Decl) => decls = found.reverse ++ news
       ∧ (news.all Decl.grammar1 = True → news.map Decl.shapes1 = groups.map groupShapes1) :=
-  match groups, parses with
-    | [], parses =>
+  match groups, good, quiet, parses with
+    | [], good, quiet, parses =>
       let same: found.reverse = decls := Result.okInjective parses
       ([], rewrite <- same, List.appendNil found.reverse then byComputing, grammar => byComputing)
-    | [group, ..rest], parses =>
+    | [group, ..rest], (groupGood, restGood), (groupQuiet, restQuiet), parses =>
       groupRanShapes seen rest found decls group
         (Parse.run (items group) (() =>
           let decl := declaration seen
           decl))
-        (decl ran grammar => shapes seen group decl ran grammar)
-        (following more again => parseGroupsShapes shapes following rest more decls again)
+        (decl ran grammar => shapes seen group decl groupGood groupQuiet ran grammar)
+        (following more again => parseGroupsShapes shapes following rest more decls restGood restQuiet again)
         parses
 
 --| The lexer's tokens have the shapes of the file parsed from them, given that each declaration does.
 theorem parsedShapesOf ∀ (shapes: GroupShapes1) (lexed: Lexed) (file: SourceFile)
+    (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (grammar: file.grammar1 = True):
     tokenShapes1 (tokens lexed.leaves) = file.shapes1 :=
@@ -652,7 +668,8 @@ theorem parsedShapesOf ∀ (shapes: GroupShapes1) (lexed: Lexed) (file: SourceFi
         | Err message, parses => (Result.errNotOk parses).impossible
         | Ok decls, parses =>
           let same: { decls, end = lexed.end.comments } = file := Result.okInjective parses
-          let (news, split, shapesNews) := parseGroupsShapes shapes Seen.start (groupsOf lexed.leaves) [] decls ran
+          let (news, split, shapesNews) :=
+            parseGroupsShapes shapes Seen.start (groupsOf lexed.leaves) [] decls good quiet ran
           let newsAre: news = file.decls := rewrite <- same, split
           let all: news.all Decl.grammar1 = True := rewrite newsAre then grammar
           calc tokenShapes1 (tokens lexed.leaves)
@@ -662,9 +679,95 @@ theorem parsedShapesOf ∀ (shapes: GroupShapes1) (lexed: Lexed) (file: SourceFi
             _ = (news.map Decl.shapes1).concat := rewrite shapesNews all
             _ = file.shapes1 := rewrite newsAre, declsShapesConcat file.decls
 
---| Open: the walk of one declaration's parser, beside `Syntax.ParseCarries`' for words. Checked by computation on
---| 3,462 sources of the grammar (SW-4138's report); `Carried` can't give it, since it leaves commas out.
-theorem groupShapesProved: GroupShapes1 := ?
+-- The walk's fact, as shapes.
+
+--| The shapes of an item list's kinds are the shapes of its group's tokens.
+theorem itemShapesOfGroup ∀ (group: List Leaf): (itemKinds (items group)).map Tok.shape1 = groupShapes1 group :=
+  calc (itemKinds (items group)).map Tok.shape1
+    _ = (items group).map (item => item.kind.shape1) := List.mapMap (items group) Tok.shape1 Item.kind
+    _ = ((items group).map Item.leaf).map (leaf => leaf.token.kind.shape1) :=
+      Eq.flipped (List.mapMap (items group) (leaf => leaf.token.kind.shape1) Item.leaf)
+    _ = group.map (leaf => leaf.token.kind.shape1) := rewrite itemsLeaves group
+    _ = groupShapes1 group := Eq.flipped (List.mapMap group (token => token.kind.shape1) (leaf => leaf.token))
+
+theorem kindShapesAppend ∀ (first rest: List Item):
+    (itemKinds (first ++ rest)).map Tok.shape1 = (itemKinds first).map Tok.shape1 ++ (itemKinds rest).map Tok.shape1 :=
+  rewrite itemKindsAppend first rest, List.mapAppend (itemKinds first) (itemKinds rest) Tok.shape1
+
+theorem itemShapeOther ∀ (item: Item) (kind: Tok)
+    (is: item.kind = kind)
+    (other: kind.shape1 = ShapeOther):
+    (itemKinds [item]).map Tok.shape1 = [ShapeOther] :=
+  let step: (itemKinds [item]).map Tok.shape1 = [item.kind.shape1] := byComputing
+  let shape: item.kind.shape1 = ShapeOther := rewrite is then other
+  Eq.trans step (Eq.cong (found => [found]) shape)
+
+theorem itemShapeName ∀ (item: Item)
+    (name: (item.kind == Lower || item.kind == Upper) = True):
+    (itemKinds [item]).map Tok.shape1 = [ShapeOther] :=
+  match (Bool.orReads _ _).forward name with
+    | Inl lower => itemShapeOther item Lower (DecEq.sound lower) byComputing
+    | Inr upper => itemShapeOther item Upper (DecEq.sound upper) byComputing
+
+theorem bodyShapes ∀ (item: Item) (rest: List Item)
+    (is: item.kind = ColonEq):
+    (itemKinds [item, ..rest]).map Tok.shape1 = [ShapeOther, ..(itemKinds rest).map Tok.shape1] :=
+  let step: (itemKinds [item, ..rest]).map Tok.shape1 = [item.kind.shape1, ..(itemKinds rest).map Tok.shape1] :=
+    byComputing
+  let shape: item.kind.shape1 = ShapeOther := rewrite is
+  Eq.trans step (Eq.cong (found => [found, ..(itemKinds rest).map Tok.shape1]) shape)
+
+--| A definition's shapes are those of the kinds of the items read for it.
+theorem declShapesOfKinds1 ∀ (decl: Decl) (read: List Item)
+    (grammar: decl.grammar1 = True)
+    (kinds: DeclKinds read decl):
+    decl.shapes1 = (itemKinds read).map Tok.shape1 :=
+  match decl with
+    | Definition attributes header body =>
+      match attributes, body, grammar, kinds with
+        | [], Assigned colonEq value, grammar, kinds =>
+          let (defItem, nameItem, colonItem, bodyItem, rResult, rValue, readIs, isDef, isName, isColon, isColonEq,
+            resultKinds, valueKinds) :=
+            kinds
+          let resultShapes := Expr.shapesOfKinds1 header.result (headerResult1 header (Bool.andLeft grammar))
+          let valueShapes := Expr.shapesOfKinds1 value (Bool.andRight grammar)
+          rewrite readIs,
+              kindShapesAppend ([defItem] ++ [nameItem] ++ [colonItem] ++ rResult) [bodyItem, ..rValue],
+              kindShapesAppend ([defItem] ++ [nameItem] ++ [colonItem]) rResult,
+              kindShapesAppend ([defItem] ++ [nameItem]) [colonItem],
+              kindShapesAppend [defItem] [nameItem],
+              itemShapeOther defItem KwDef isDef byComputing,
+              itemShapeName nameItem isName,
+              itemShapeOther colonItem Colon isColon byComputing,
+              bodyShapes bodyItem rValue isColonEq,
+              <- resultKinds,
+              <- valueKinds,
+              resultShapes,
+              valueShapes
+        | [], Primitive, grammar, kinds => (Bool.falseNotTrue grammar).impossible
+        | [], Arms arms, grammar, kinds => (Bool.falseNotTrue grammar).impossible
+        | [group, ..groups], body, grammar, kinds => (Bool.falseNotTrue grammar).impossible
+
+--| A declaration of slice 1's grammar parsed from good, quiet items has the shapes of the group's tokens: the walk
+--| of one declaration's parser (`Syntax.ParseCarriesDecl.runKept`) gives the kinds of its items.
+theorem groupShapesProved: GroupShapes1 := seen group decl good quiet ran grammar =>
+  let kept := runKept (items group) seen frameRest (goodItemsOf (items group) good quiet) decl ran grammar
+  rewrite <- itemShapesOfGroup group then declShapesOfKinds1 decl (items group) grammar kept.right
+
+theorem tokenAlphabet1 ∀ (kind: Tok): (!kind.alphabet1 || kind.within1) = True := cases
+
+theorem tokenWithin1 ∀ (kind: Tok) (alphabet: kind.alphabet1 = True): kind.within1 = True :=
+  let both := tokenAlphabet1 kind
+  rewrite alphabet at both then both
+
+--| The grammar's alphabet is within the driver's.
+theorem alphabetOfAlphabet1 ∀ (leaves: List Leaf)
+    (all: leaves.all (leaf => leaf.token.kind.alphabet1) = True):
+    alphabet1 leaves = True :=
+  match leaves, all with
+    | [], all => byComputing
+    | [leaf, ..more], all =>
+      Bool.andIntro (tokenWithin1 leaf.token.kind (Bool.andLeft all)) (alphabetOfAlphabet1 more (Bool.andRight all))
 
 --| Every source of slice 1's grammar is `sourcePlain1`, so the driver's plain test refuses none of it.
 theorem parsedSourcePlain1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
@@ -673,7 +776,16 @@ theorem parsedSourcePlain1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (parses: parseFile lexed = Ok file)
     (grammar: file.grammar1 = True):
     sourcePlain1 (tokens lexed.leaves) = True :=
-  sourcePlainOfFile1 (tokens lexed.leaves) file grammar (parsedShapesOf groupShapesProved lexed file parses grammar)
+  let within := alphabetOfAlphabet1 lexed.leaves alphabet
+  sourcePlainOfFile1
+    (tokens lexed.leaves)
+    file
+    grammar
+    (parsedShapesOf groupShapesProved lexed file
+      (lexGood source lexed lexes within)
+      (lexedItemsQuiet source lexed lexes within)
+      parses
+      grammar)
 
 -- Closed examples (D3684).
 
