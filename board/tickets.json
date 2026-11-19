@@ -26475,12 +26475,12 @@
     {
       "id": 4170,
       "title": "[Sonnet] fmt (SW-4132 lane 7): two-run walk of Statements.sw: blocks, let, local definitions, proof steps, handle (Syntax/FollowsStatements.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4170",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 25 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "body": "Est. 25 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.\n\nNotes (lane, 19 Nov): Syntax/FollowsStatements.sw, commit 588589098. 79 of Statements.sw's 99 functions have a lemma, the rest are pure or read through. check 0 errors; audit passes (2 vacuity warnings on indexSameOf/depthSameOf, like gluedSame). Lane 5's ten defs proved in the closing section. Cross-lane hypotheses on lane 6: ExpectFixedFollows, LowerQualifiedFollows, AttributesOfFollows, DefinitionPartsFollows (my own relations AttributesAlike/PartsAlike; lane 8 may need adapters). About 17 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
