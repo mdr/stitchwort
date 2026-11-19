@@ -20,7 +20,6 @@ import Fmt.BracketHangProofs (
   elItemHangs,
   bracketTrails,
   groupedBracketHangs,
-  huggedBracketIs,
   lastTrails,
   listHangs,
   parenElHangs,
@@ -332,8 +331,8 @@ theorem edgeOpenItems ∀ (open: Word) (items: List Expr) (inset: Nat) (bare arm
 
 --| An edge-quiet bracket hugged as a call's last argument: as `huggedBracket` writes it, and opened.
 --|
---| Proof idea: `hugFacts`' route, the items by `edgeItemsHang`, the keys by `edgeCellsKeys` and `edgeBrokenKeys`, and
---| the comment before the closer, if any, the last item's (`edgeCloseBefore`).
+--| Proof idea: `hugFacts`' route (framed by the opener), the items by `edgeItemsHang`, the keys by `edgeCellsKeys`
+--| and `edgeBrokenKeys`, and the comment before the closer, if any, the last item's (`edgeCloseBefore`).
 theorem edgeHugFacts ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (end: Bool)
     (within: allWithin1 items = True)
     (lexical: allLexical1 items = True)
@@ -351,11 +350,11 @@ theorem edgeHugFacts ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
     (closeQuiet: close.quiet1 = True)
     (isOpen: open.text = (if list then "[" else "("))
     (isClose: close.text = (if list then "]" else ")")):
-    Hangs lexKind False
+    Hangs lexKind around.before
       (close.trails || (ListOf open items False close).trailsBeforeClose)
       (huggedBracket list open items close around).fst
       ∧ (∀ (opened: Doc) => (huggedBracket list open items close around).snd = Some opened
-        → Hangs lexKind False (close.trails || (ListOf open items False close).trailsBeforeClose) opened) :=
+        → Hangs lexKind around.before (close.trails || (ListOf open items False close).trailsBeforeClose) opened) :=
   let opener: OpenerToken lexKind open.text := match list with
     | True => rewrite isOpen then openBracket
     | False => rewrite isOpen then openParen
@@ -366,35 +365,49 @@ theorem edgeHugFacts ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
     | True => rewrite isClose then closeBracket
     | False => rewrite isClose then closeParen
   let bareItems := list && items.all Expr.plainItem
-  let lays: ∀ (hard: Bool) => Hangs lexKind False
+  let lays: ∀ (hard: Bool) => Hangs lexKind around.before
     (close.trails || (ListOf open items False close).trailsBeforeClose)
-    (Group (bracketContent list open items close { around | hoisted = True }) hard) :=
+    (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard)) :=
     hard inset =>
-      groupedBracketHangs lexKind list open items close around hard inset inset opener
-        (trailsOfSound open openSound)
-        closer
-        (notesOfWord close closeSound)
-        (trailsOfSound close closeSound)
-        byComputing
-        (each (inset + 2))
-        (edgeCellsKeys items (around.at + 1) bareItems around.inArm open.trails (around.at + 1) end within lexical edge)
-        (edgeBrokenKeys items
-          (around.at + 1)
-          bareItems
-          around.inArm
-          True
-          open.trails
-          (around.at + 1)
-          end
-          within
-          lexical
-          edge)
-        (edgeCloseBefore open items close opens within lexical)
-  rewrite huggedBracketIs list open items close around bare then
-    (
-      lays (bracketContent list open items close { around | hoisted = True }).forcesBreak,
-      opened same => rewrite <- Option.someInjective same then lays True
-    )
+      framedHangs lexKind open around
+        (Group (bracketContent list open items close { around | hoisted = True }) hard)
+        inset
+        inset _
+        bare
+        (indent seat =>
+          groupedBracketHangs lexKind list open items close around hard indent seat opener
+            (trailsOfSound open openSound)
+            closer
+            (notesOfWord close closeSound)
+            (trailsOfSound close closeSound)
+            byComputing
+            (each (indent + 2))
+            (edgeCellsKeys items
+              (around.at + 1)
+              bareItems
+              around.inArm
+              open.trails
+              (around.at + 1)
+              end
+              within
+              lexical
+              edge)
+            (edgeBrokenKeys items
+              (around.at + 1)
+              bareItems
+              around.inArm
+              True
+              open.trails
+              (around.at + 1)
+              end
+              within
+              lexical
+              edge)
+            (edgeCloseBefore open items close opens within lexical))
+  (
+    lays (bracketContent list open items close { around | hoisted = True }).forcesBreak,
+    opened same => rewrite <- Option.someInjective same then lays True
+  )
 
 --| An edge-quiet slice 1 call's last argument hangs, as it is and opened, after an element that trails nothing.
 theorem edgeLastHangs ∀ (argument: Expr) (around: Around) (end: Bool)
@@ -443,11 +456,11 @@ theorem edgeLastHangs ∀ (argument: Expr) (around: Around) (end: Bool)
           (Bool.andRight (Bool.andRight edge))
           isOpen
           isClose
-      rewrite quietBefore then
-        (
-          inset => trailsSwap lexKind _ inset inset False _ _ wordStart same (hug inset),
-          opened opening inset => trailsSwap lexKind _ inset inset False _ _ wordStart same (opens opened opening inset)
-        )
+      (
+        inset => trailsSwap lexKind _ inset inset around.before _ _ wordStart same (hug inset),
+        opened opening inset =>
+          trailsSwap lexKind _ inset inset around.before _ _ wordStart same (opens opened opening inset)
+      )
     | ListOf open items trailing close, within =>
       let isOpen: open.text = "[" := DecEq.sound (Bool.andLeft lexical)
       let isClose: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
@@ -479,11 +492,11 @@ theorem edgeLastHangs ∀ (argument: Expr) (around: Around) (end: Bool)
           (Bool.andRight (Bool.andRight edge))
           isOpen
           isClose
-      rewrite quietBefore then
-        (
-          inset => trailsSwap lexKind _ inset inset False _ _ wordStart same (hug inset),
-          opened opening inset => trailsSwap lexKind _ inset inset False _ _ wordStart same (opens opened opening inset)
-        )
+      (
+        inset => trailsSwap lexKind _ inset inset around.before _ _ wordStart same (hug inset),
+        opened opening inset =>
+          trailsSwap lexKind _ inset inset around.before _ _ wordStart same (opens opened opening inset)
+      )
 
 --| Arguments, quiet but the last, which is edge-quiet, each hang, the last as it is and opened, after an element
 --| that trails nothing.

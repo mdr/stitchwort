@@ -2278,27 +2278,17 @@ theorem huggedBracketPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
     (closer: CloserJoins close)
     (each: EachEl kinds items):
     Passes kinds
-      (Doc.concat [
-        Doc.concat (open.leading around around.at),
-        Group (bracketContent list open items close { around | hoisted = True }) hard
-      ])
+      (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard))
       (Ready kinds True open.text)
       (Ended (ListOf open items False close).trails) :=
-  passesConcat kinds _
-    (Ready kinds True open.text)
-    (Ended (ListOf open items False close).trails)
-    (passesTwo kinds _ _
-      (Ready kinds True open.text)
+  framedPasses kinds open around
+    (Group (bracketContent list open items close { around | hoisted = True }) hard) _
+    opener.left.left
+    opener.left.right.right.right
+    (passesGroup kinds _ hard
       (Ready kinds True open.text)
       (Ended (ListOf open items False close).trails)
-      (passesConcat kinds _
-        (Ready kinds True open.text)
-        (Ready kinds True open.text)
-        (leadingTrue kinds open around around.at opener.left.left opener.left.right.right.right))
-      (passesGroup kinds _ hard
-        (Ready kinds True open.text)
-        (Ended (ListOf open items False close).trails)
-        (bracketContentPasses kinds list open items close { around | hoisted = True } opener closer each)))
+      (bracketContentPasses kinds list open items close { around | hoisted = True } opener closer each))
 
 theorem hugFrom ∀ (kinds: Text → Tok) (hug: Option Doc) (pre weaker post later: Edge → Prop)
     (passes: HugPasses kinds hug pre post)

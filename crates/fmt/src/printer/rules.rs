@@ -1494,6 +1494,15 @@ impl<'a> Rules<'a> {
             }
         };
         self.hoisted[first] = saved;
+        // Displaced as `el` displaces a node, so a comment that puts the
+        // argument on a line of its own indents its inside from there.
+        let (normal, hug) = if !self.trivia[first].leading.is_empty()
+            || self.ends_line_with_comment_before(first)
+        {
+            (Doc::displaced(normal), Doc::displaced(hug))
+        } else {
+            (normal, hug)
+        };
         (
             Doc::concat([leading.clone(), normal]),
             Some(Doc::concat([leading, hug])),

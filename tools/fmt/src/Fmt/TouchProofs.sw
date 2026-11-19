@@ -1411,26 +1411,19 @@ theorem huggedSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
     (closer: CloserJoins close)
     (each: EachFree items):
     Steps
-      (Doc.concat [
-        Doc.concat (open.leading around around.at),
-        Group (bracketContent list open items close { around | hoisted = True }) hard
-      ])
+      (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard))
       (Gapped True)
       ([Free, ..commaSpacing1 items] ++ [Free])
       (Ends (ListOf open items False close).trails) :=
-  stepsConcat _ _ _ _
-    (stepsTwo
-      (Doc.concat (open.leading around around.at))
-      (Group (bracketContent list open items close { around | hoisted = True }) hard)
-      (Gapped True)
-      (Fits True Free) _
-      []
-      ([Free, ..commaSpacing1 items] ++ [Free])
-      (stepsConcat _ _ _ _
-        (allFrom _ _ _ _ _ (leadingSteps open around around.at True Free opener.left (Inl byComputing)) (seam gapped =>
-          gappedFits True Free seam byComputing gapped)))
+  stepsFrom _ _ _ _ _
+    (framedSteps open around
+      (Group (bracketContent list open items close { around | hoisted = True }) hard) _ _
+      Free
+      opener.left
+      (Inl byComputing)
       (stepsGroup _ hard _ _ _
         (bracketSteps list open items close { around | hoisted = True } Free byComputing opener closer each)))
+    (seam gapped => gappedFits True Free seam byComputing gapped)
 
 --| A call's last argument, as it stands and opened, after a space or a line break.
 theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)

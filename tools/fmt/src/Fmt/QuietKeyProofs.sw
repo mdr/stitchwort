@@ -10,7 +10,6 @@ import Fmt (..)
 import Fmt.HangProofs (Gap, prefixGapIs)
 import Fmt.MarkProofs (allKeysFrom, keysFrom)
 import Fmt.AppHangProofs (appDocsIs, argAround)
-import Fmt.BracketHangProofs (huggedBracketIs)
 import Fmt.ExprHangProofs (..)
 
 -- Lists of documents.
@@ -331,8 +330,20 @@ theorem hugKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) (clo
       ∧ (∀ (opened: Doc) => (huggedBracket list open items close around).snd = Some opened
         → keysFrom low opened = True) :=
   let content := contentKeys low list open items close { around | hoisted = True } openQuiet closeQuiet within quiet
-  rewrite huggedBracketIs list open items close around (quietLeading open around around.at openQuiet) then
-    (content, opened same => rewrite <- Option.someInjective same then content)
+  (
+    framedKeys low open around
+      (Group
+        (bracketContent list open items close { around | hoisted = True })
+        (bracketContent list open items close { around | hoisted = True }).forcesBreak)
+      openQuiet
+      content,
+    opened same =>
+      rewrite <- Option.someInjective same then
+        framedKeys low open around
+          (Group (bracketContent list open items close { around | hoisted = True }) True)
+          openQuiet
+          content
+  )
 
 --| What a call's arguments' documents keep: the documents before the last, the last's and its hug's.
 def ArgKeys (low: Nat) (docs: (List Doc, Option (Doc, Option Doc))): Prop :=

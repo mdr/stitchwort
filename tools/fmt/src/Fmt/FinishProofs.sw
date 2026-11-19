@@ -103,12 +103,10 @@ theorem bracketFinishes ∀ (list: Bool) (open: Word) (items: List Expr) (close:
 theorem huggedFinishes ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (hard: Bool)
     (closer: CloserJoins close):
     Finishes Final
-      (Doc.concat [
-        Doc.concat (open.leading around around.at),
-        Group (bracketContent list open items close { around | hoisted = True }) hard
-      ]) :=
-  finishesConcat Final _
-    (Inl (Inr ((bracketFinishes list open items close { around | hoisted = True } closer), byComputing)))
+      (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard)) :=
+  framedFinishes open around
+    (Group (bracketContent list open items close { around | hoisted = True }) hard)
+    (bracketFinishes list open items close { around | hoisted = True } closer)
 
 -- Calls.
 

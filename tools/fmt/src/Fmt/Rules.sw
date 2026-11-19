@@ -647,11 +647,13 @@ def lastArgument (argument: Expr) (around: Around): (Doc, Option Doc) := match a
 def huggedLambda (open: Word) (params: List Param) (arrow: Word) (body: Expr) (close: Word) (around: Around):
     (Doc, Option Doc) :=
   let lambda := Binding BindsLambda None params arrow body
-  let leading := Doc.concat (open.leading around around.at)
   let openDoc := open.opening { around | hoisted = True } close
   let closeDoc := close.leaf (around.next lambda.trails (1 + lambda.size)) around.at
   let (flat, opened) := lambdaBoth params arrow body False (around.next open.trails 1)
-  (Doc.concat [leading, openDoc, flat, closeDoc], Some (Doc.concat [leading, openDoc, opened, closeDoc]))
+  (
+    framedBy open around (Doc.concat [openDoc, flat, closeDoc]),
+    Some (framedBy open around (Doc.concat [openDoc, opened, closeDoc]))
+  )
 
 --| `( block )` as a last argument: the block below the bracket at 2, the
 --| same as it is and opened.
@@ -659,18 +661,20 @@ def huggedBlock (open: Word) (first: Statement) (rest: List Statement) (result: 
     (Doc, Option Doc) :=
   let block := Block first rest result
   let inner := around.next open.trails 1
-  let doc := Doc.concat [
-    Doc.concat (open.leading around around.at),
-    open.opening { around | hoisted = True } close,
-    Nest 2 (Doc.concat [HardLine, block.framed inner (blockDoc first rest result { inner | hoisted = True })]),
-    close.leaf (around.next block.trails (1 + block.size)) around.at
-  ]
+  let doc :=
+    framedBy open around
+      (Doc.concat [
+        open.opening { around | hoisted = True } close,
+        Nest 2 (Doc.concat [HardLine, block.framed inner (blockDoc first rest result { inner | hoisted = True })]),
+        close.leaf (around.next block.trails (1 + block.size)) around.at
+      ])
   (doc, Some doc)
 
+--| A tuple or list as a last argument: as it is, and opened. Framed as any node is, so a comment
+--| that puts the bracket on a line of its own lays its items under it and its closer at its column.
 def huggedBracket (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around): (Doc, Option Doc) :=
-  let leading := Doc.concat (open.leading around around.at)
   let content := bracketContent list open items close { around | hoisted = True }
-  (Doc.concat [leading, Group content content.forcesBreak], Some (Doc.concat [leading, Group content True]))
+  (framedBy open around (Group content content.forcesBreak), Some (framedBy open around (Group content True)))
 
 --| Whether an argument may stay on the call's line when the others go
 --| below (`simple`): a token, `[]`, a prefix operator on a token, or a
@@ -1566,9 +1570,8 @@ def recordItems (arm before: Bool) (at: Nat): List Expr → List Doc
 --| A record as a call's last argument: as it is, and opened.
 def huggedRecord (open: Word) (base: Option (Expr, Word)) (fields: List Expr) (close: Word) (around: Around):
     (Doc, Option Doc) :=
-  let leading := Doc.concat (open.leading around around.at)
   let content := recordContent open base fields close { around | hoisted = True }
-  (Doc.concat [leading, Group content content.forcesBreak], Some (Doc.concat [leading, Group content True]))
+  (framedBy open around (Group content content.forcesBreak), Some (framedBy open around (Group content True)))
 
 --| `x` or `x = p` in a record pattern (`join`: Rust's tree has no node
 --| for it).
