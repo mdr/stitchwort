@@ -12,6 +12,7 @@ import Fmt.TriviaStatements (..)
 import Fmt.FileLexProofs (laidNotesFalse, printedFileLexes1)
 import Fmt.OutputFileProofs (declStartsKw, printedAlphabet1, printedGroups1, printedPlain1)
 import Syntax.ParseSettledStatements (..)
+import Syntax.ReadBackHungFrameLemmas (wordIsNoArrow)
 import Fmt.CalmProofs (..)
 import Syntax.ParseCarries (codeWords)
 import Syntax.SettleOnceProofs (isMarked, markedTokens)
@@ -947,12 +948,6 @@ theorem wordWithin ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.within1
   | Num => byComputing
   | Float => byComputing
 
-theorem wordNotArrow ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == Arrow) = False := match kind with
-  | Lower => byComputing
-  | Upper => byComputing
-  | Num => byComputing
-  | Float => byComputing
-
 theorem markedArrow ∀ (leaf: Leaf) (kind: Tok) (text: Text)
     (sameText: leaf.token.text = text)
     (sameKind: leaf.token.kind = kind)
@@ -984,7 +979,7 @@ theorem atomNotArrow ∀ (kind: Tok) (text: Text)
           let all: lexed.leaves.all Leaf.marked = True := Bool.andLeft (Bool.andRight laid)
           markedArrow leaf kind text sameText sameKind
             (Bool.andLeft (rewrite leaves at all then all))
-            (wordNotArrow kind word)
+            (wordIsNoArrow kind word)
 
 theorem closeQuiet ∀ (close: Word) (text: Text)
     (same: close.text = text)

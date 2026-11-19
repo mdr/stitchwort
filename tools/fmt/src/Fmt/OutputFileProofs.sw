@@ -23,6 +23,7 @@ import Fmt.TreeJoinProofs (..)
 import Fmt.TokenProofs (declRealOfLexical, printedTokens1)
 import Fmt.OutputStatements (..)
 import Fmt.FileLexProofs (..)
+import Syntax.ReadBackHungAtomsLemmas (hungStep)
 
 -- One pass over the texts.
 
@@ -1029,7 +1030,7 @@ theorem hangsFromCol ∀ (leaves: List Leaf) (state: HangState)
   match leaves with
     | [] => byComputing
     | [leaf, ..rest] =>
-      match hangsStep state leaf rest hung with
+      match hungStep state leaf rest hung with
         | Witness next (step, more) => Bool.andIntro (stepCol state leaf next step) (hangsFromCol rest next more)
 
 -- A leaf in column 0 starts its line.
@@ -1519,11 +1520,6 @@ theorem stepCommaNone ∀ (state: HangState) (leaf: Leaf)
           | [] => byComputing
           | [block, ..outer] => rewrite starts
 
-theorem hangsStep ∀ (state: HangState) (leaf: Leaf) (rest: List Leaf)
-    (hung: hangsFrom state [leaf, ..rest] = True):
-    ∃ (next: HangState) => state.step leaf = Some next ∧ hangsFrom next rest = True :=
-  match step: state.step leaf with | Some next => Witness next (step, hung)
-
 theorem stepFlat ∀ (state: HangState) (leaf: Leaf) (next: HangState)
     (step: state.step leaf = Some next):
     (!(leaf.token.kind == Comma && leaf.token.lineStart)) = True :=
@@ -1539,7 +1535,7 @@ theorem hangsFromFlat ∀ (leaves: List Leaf) (state: HangState)
   match leaves with
     | [] => byComputing
     | [leaf, ..rest] =>
-      match hangsStep state leaf rest hung with
+      match hungStep state leaf rest hung with
         | Witness next (step, more) => Bool.andIntro (stepFlat state leaf next step) (hangsFromFlat rest next more)
 
 theorem hangsFlat ∀ (leaves: List Leaf) (hung: hangs leaves = True): commaFlat leaves = True := match leaves with

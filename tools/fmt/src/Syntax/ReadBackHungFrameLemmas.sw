@@ -8,6 +8,7 @@ import Fmt (..)
 import Syntax.ReadBackProofs (..)
 import Syntax.ReadBackLine (..)
 import Syntax.ReadBackHung (..)
+import Fmt.HangProofs (staleBlocks)
 
 --| An atom's kind is no bracket, comma, `:=` or `:`.
 theorem wordIsFlat ∀ (kind: Tok)
@@ -123,8 +124,6 @@ theorem enteredIdle ∀ (state: HangState) (leaf: Leaf)
     state.entered leaf = { blocks = state.blocks, top = state.top, start = False, glue = False } :=
   match state with | { blocks, top, start, glue } => rewrite idle then cases
 
-theorem startBlocksNo ∀ (column: Nat) (blocks: List (Option Nat)): startBlocks False column blocks = blocks := cases
-
 --| An idle state stepped over a flat leaf that is no `->` keeps its columns.
 theorem idleStep ∀ (state next: HangState) (leaf: Leaf)
     (idle: state.start = False)
@@ -141,7 +140,7 @@ theorem idleStep ∀ (state next: HangState) (leaf: Leaf)
   match state, idle with
     | { blocks, top, start = False, glue }, _ =>
       rewrite notComma, notCloser, notColonEq, notColon, notOpener, noArrow at stepped then
-        rewrite startBlocksNo leaf.token.column blocks at stepped then cases
+        rewrite staleBlocks leaf.token.column blocks at stepped then cases
 
 --| The same over `->`, which glues the next leaf to it.
 theorem idleArrow ∀ (state next: HangState) (leaf: Leaf)
@@ -159,7 +158,7 @@ theorem idleArrow ∀ (state next: HangState) (leaf: Leaf)
   match state, idle with
     | { blocks, top, start = False, glue }, _ =>
       rewrite notComma, notCloser, notColonEq, notColon, notOpener, arrow at stepped then
-        rewrite startBlocksNo leaf.token.column blocks at stepped then cases
+        rewrite staleBlocks leaf.token.column blocks at stepped then cases
 
 --| Inside a bracket (its item's block over the outer ones), a leaf's entry replaces the item's block and keeps the
 --| outer ones and the type's or body's column.
