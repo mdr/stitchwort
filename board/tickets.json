@@ -1,5 +1,5 @@
 {
-  "next": 4181,
+  "next": 4182,
   "tickets": [
     {
       "id": 47,
@@ -26617,6 +26617,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 10 min.\nModel result: DeepSeek, worked, 15 min (est. 10).\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4181,
+      "title": "[DeepSeek] fmt: rename lambda parameters in Syntax/Follows*.sw that shadow Syntax functions (items, word, skipped, pattern, operation, argument), clearing the W-LAMBDA-SHADOW warnings that flood every check (SW-4133 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 15 min. Mechanical; names only; no statement changes.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
