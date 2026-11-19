@@ -1,5 +1,5 @@
 {
-  "next": 4154,
+  "next": 4155,
   "tickets": [
     {
       "id": 47,
@@ -26239,12 +26239,12 @@
     {
       "id": 4152,
       "title": "[Opus] fmt multi-line read-back H6 (SW-4121 plan): calls and signs: signArgHung, argumentHung, argsHung, appHung, headHung, appAnyHung, unaryHung (ReadBackHungApp.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4152",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. Use ReadBackHungAtomsLemmas (leadHung, speltHung, hungStep, hungSplit).",
+      "body": "Est. 60 min. Use ReadBackHungAtomsLemmas (leadHung, speltHung, hungStep, hungSplit).\n\nProgress (lane, 19 Nov): all seven H6 lemmas proved on lane/SW-4152 (1a86f0061), helpers in Syntax/ReadBackHungAppLemmas.sw. signArgHung and argumentHung restated to bound the state before the argument (bounds modes state), as argsHung already did: as written, a sign starting an item and its line at the limit column stops the reading while the entered bound holds (computed). No callers outside the file; the other five statements unchanged. check ReadBackHungTop: 0 errors, the 7 goals gone; audit ReadBackHungApp 7/7 and ReadBackHungAppLemmas 5/5 passed. ~15 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26258,6 +26258,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 45 min. See SW-4145 report: Fmt/ElementsKeys.sw ledItemHangs covers only commented items.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4154,
+      "title": "[Opus] fmt multi-line read-back H9 (SW-4121 plan): assemble: confirm readsBackHung closed with H1-H8, delete the one-line read-back twins no longer used on the top theorems' path, audit Syntax.ReadBackHung*",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 45 min. Plan: docs/reviews/SW-4121-multiline-readback.md, H9 row.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
