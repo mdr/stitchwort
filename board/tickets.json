@@ -27026,7 +27026,7 @@
     {
       "id": 4211,
       "title": "[Opus] D3693: both formatters keep a blank line above a comment wherever the source has one (today only between declarations and above list/tuple items; dropped above a call argument, an operand, a closer, a type): Rust crates/fmt and self-hosted tools/fmt printer, the calm/Comments.kept predicate (Predicates1.sw) and the slice 1 proofs that rest on it; output stays idempotent; goldens and must-accept tests",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
