@@ -1,5 +1,5 @@
 {
-  "next": 4188,
+  "next": 4190,
   "tickets": [
     {
       "id": 47,
@@ -26694,7 +26694,7 @@
     {
       "id": 4186,
       "title": "[Sonnet] stitchwort uses --unused lists only defs, not theorems (SW-4185 found it reports nothing unused over tools/fmt); include theorems (excluding tests and examples) or add --theorems; and a second pass over the Lays*/StandsProofs cluster for orphans",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4186",
       "labels": [],
@@ -26715,6 +26715,32 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Est. 40 min. Found by SW-4182, 19 Nov.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4188,
+      "title": "[Sonnet] stitchwort uses --unused --dead: also list declarations reachable only from other unused ones (dead clusters that refer to each other, as SW-4185 met in tools/fmt), i.e. not reachable from tests, top theorems or a named root set",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Est. 30 min. SW-4186 follow-up.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4189,
+      "title": "[DeepSeek] fmt: delete the 13 orphan theorems SW-4186 listed (LaysApp appFromHug; LaysRules chainAll, plainEnds, stepConcat; LaysWords noHeldStarts; StandsProofs atomDeclStands, returnedFalls and six …Witness) after SW-4183 merges; check each is still unused",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 10 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
