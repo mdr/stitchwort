@@ -1,5 +1,5 @@
 {
-  "next": 4156,
+  "next": 4157,
   "tickets": [
     {
       "id": 47,
@@ -26284,6 +26284,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. Orchestrator's call (D3447-style: printed output unchanged, no narrowing): output must be byte-identical: check by printing the gate corpora and every slice 1 declaration in the repo before/after. Rust rule (crates/fmt rules.rs:399) is NOT changed (D3677 freeze). Touches SpellProofs, FinishProofs, HangProofs:1039, JoinProofs, HeldParenProofs, TouchProofs; after SW-4146 (parenAny). Then drop BlankLined from blankItemHangs. See SW-4153 report.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4156,
+      "title": "[Sonnet] fmt: rename one of the two quietLeading lemmas (Fmt.ExprHangProofs vs Fmt.HeldParenProofs, different hypotheses; an import silently picks the wrong one) (SW-4146 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 15 min. After SW-4155 (both touch HeldParenProofs).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
