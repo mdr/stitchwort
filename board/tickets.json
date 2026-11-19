@@ -1,5 +1,5 @@
 {
-  "next": 4302,
+  "next": 4304,
   "tickets": [
     {
       "id": 47,
@@ -27971,12 +27971,12 @@
     {
       "id": 4282,
       "title": "[Sonnet] Printer lemma families read their arguments off the premises (hangs…, steps…), as SW-4230 did for passes… (survey target 1, part A)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.",
+      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.\n\nLane note (Sonnet): branch lane/SW-4282, commit 82ea61e5e. 15 files, +434/-887. Binders named bare by a premise are implicit; HangLays/Steps premises with lambda pre/post/middle stay explicit (HangLays applies pre to (hangOf kinds trace), not a pattern once unfolded). Whole check 0 errors (2:50), no goals, Fmt.Tests 441 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27989,7 +27989,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.",
+      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.\n\nFrom SW-4282: use its script, scratchpad keep/implicit.py (positional binders made implicit where a later premise names them as a bare predicate argument; dropped at uses). Keep pre/middle/post/weaker explicit where the predicate applies them to a computed hang (HangLays-like); check per namespace (stitchwort check Fmt.X) as the inner loop.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -28224,6 +28224,32 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From SW-4284.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4302,
+      "title": "[Opus] HangLays/Steps shape blocks inference of pre/middle/post (pre place (hangOf kinds trace) isn't a pattern once unfolded): restate HangLays with the hang as a bound variable (meaning unchanged; orchestrator statement check), or teach the unifier; est. ~400 more lines off the hangs/steps families (SW-4282 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4282; see its report in the worklog/ticket.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4303,
+      "title": "[Opus] Unifier: try eta (Ends True vs x => Ends True x) before unfolding when matching an applied predicate, as Steps Line (Ends True) … vs Steps ?first (x => Ends True x) … falls back to unfolding and gets stuck (SW-4282 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-4282.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
