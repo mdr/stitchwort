@@ -26122,7 +26122,7 @@
     {
       "id": 4143,
       "title": "[Opus] fmt multi-line read-back H5 (SW-4121 plan): atoms, brackets, items, and fullHungStep's block case (the one hard invariant): atomHung, tupleStepsHung, listStepsHung, openStepsHung (ReadBackHungAtoms.sw), fullHungStep (ReadBackHungFull.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4143",
       "labels": [],
