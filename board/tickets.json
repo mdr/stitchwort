@@ -25526,12 +25526,12 @@
     {
       "id": 4098,
       "title": "[Opus] fmt S1 goal (A) edgeQuietOneLine1 (Fmt.OneLineStatements): a one-line declaration is edge-quiet, by SW-4096's non-circular route (printedSpellsSettled, CommentsEnd, onLine1); step 5 (read blank-line flags) has no known route: report it as stuck rather than loop",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane notes (Opus, 19 Nov 2026, branch lane/SW-4098, commit 499afe8ce):\n\n- `edgeQuietOneLine1` moved to `Fmt.OneLineParts` (statement unchanged) and proved from three open parts by `edgeQuietOfParts` (an `edgeQuiet1` declaration is exactly: comments on non-closers at the edges, closers bare, blank flags below comments). TopStatements imports it from there. Open goals in TopStatements' closure: 2 -> 4 (one goal split into three).\n- `wordsEdgeOneLine1` (open): SW-4096's steps 1-4 for tokens that are no closers. Route sound (checked by hand), but it is 300+ lines of new list and tree bookkeeping (events after a comment start a line; P vs `decl.spelt` positions; a scan of `spelt` back to `wordsEdge1`); not started.\n- `closersBareOneLine1` (open, no route): the printed words' order can't place a closer against comments: `f (a) -- c⏎-- d` satisfies printedSpells, CommentsEnd and onLine1 for the tree of `f (a -- c⏎) -- d`. Needs the document's line breaks (`CloserLine`).\n- `blanksBelowOneLine1` (open, step 5, no route): `[a,⏎⏎b]` and `[a, b]` print the same words. Needs the document's line breaks (`LineStart`, `Blank`).\n- Both no-route parts need `told`-level facts; `printTold` needs `Lays`, from `doc1Hangs`, from `DeclHangs`: the circle. Routes: a Lays-free reading of HardLine/LineStart/CloserLine in std Doc, or DeclHangs for every slice 1 declaration (SW-4082's direction), or the driver refusal (Fable's fallback; it could be narrowed to `closersBare1 && blanksBelow1`).\n- Checks: check Fmt.OneLineParts / OneLineStatements / TopStatements 0 errors; audit OneLineStatements 25/25 passed, OneLineParts 44 passed, 4 failed (the three open goals and edgeQuietOneLine1); test Fmt.Tests 120/120.\n",
+      "body": "Lane notes (Opus, 19 Nov 2026, branch lane/SW-4098, commit 499afe8ce):\n\n- `edgeQuietOneLine1` moved to `Fmt.OneLineParts` (statement unchanged) and proved from three open parts by `edgeQuietOfParts` (an `edgeQuiet1` declaration is exactly: comments on non-closers at the edges, closers bare, blank flags below comments). TopStatements imports it from there. Open goals in TopStatements' closure: 2 -> 4 (one goal split into three).\n- `wordsEdgeOneLine1` (open): SW-4096's steps 1-4 for tokens that are no closers. Route sound (checked by hand), but it is 300+ lines of new list and tree bookkeeping (events after a comment start a line; P vs `decl.spelt` positions; a scan of `spelt` back to `wordsEdge1`); not started.\n- `closersBareOneLine1` (open, no route): the printed words' order can't place a closer against comments: `f (a) -- c⏎-- d` satisfies printedSpells, CommentsEnd and onLine1 for the tree of `f (a -- c⏎) -- d`. Needs the document's line breaks (`CloserLine`).\n- `blanksBelowOneLine1` (open, step 5, no route): `[a,⏎⏎b]` and `[a, b]` print the same words. Needs the document's line breaks (`LineStart`, `Blank`).\n- Both no-route parts need `told`-level facts; `printTold` needs `Lays`, from `doc1Hangs`, from `DeclHangs`: the circle. Routes: a Lays-free reading of HardLine/LineStart/CloserLine in std Doc, or DeclHangs for every slice 1 declaration (SW-4082's direction), or the driver refusal (Fable's fallback; it could be narrowed to `closersBare1 && blanksBelow1`).\n- Checks: check Fmt.OneLineParts / OneLineStatements / TopStatements 0 errors; audit OneLineStatements 25/25 passed, OneLineParts 44 passed, 4 failed (the three open goals and edgeQuietOneLine1); test Fmt.Tests 120/120.\n\nMerged 19 Nov. 15 min (est. 75), stopped as briefed. Statement unchanged (moved to Fmt.OneLineParts). Follow-ups: SW-4107 (wordsEdgeOneLine1, Opus), SW-4108 (closers and blank flags, Fable per D3682).",
       "created": "2026-11-18",
       "updated": "2026-11-19",
       "commits": []
@@ -25643,7 +25643,7 @@
     {
       "id": 4107,
       "title": "[Opus] fmt S1 goal wordsEdgeOneLine1 (Fmt.OneLineParts): comments on non-closer tokens of a one-line declaration sit only at the edges; route in SW-4098's note (events after a comment start their line, positions in printed words against decl.spelt, scan back to wordsEdge1); est. 1-2 lanes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -25656,7 +25656,7 @@
     {
       "id": 4108,
       "title": "[Fable] fmt S1 goals closersBareOneLine1 and blanksBelowOneLine1 (Fmt.OneLineParts): SW-4098 (Opus) found no route; both need the document's line breaks (CloserLine, LineStart/Blank) without Lays/DeclHangs (circular). Find a route (e.g. a std Doc lemma reading hard breaks from printed pieces, or a non-circular DeclHangs for closers/blank flags), or show none exists short of refusing such declarations; prove what you can, report",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
