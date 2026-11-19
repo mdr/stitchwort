@@ -1,5 +1,4 @@
---| `wordsEdge1`, the first of `edgeQuietOneLine1`'s three parts (`Fmt.OneLineParts`), and when the marks of the
---| tree's comments give it (SW-4107).
+--| `wordsEdge1`, and when the marks of the tree's comments give it (SW-4107).
 --|
 --| `wordsEdgeOfMarks`: in an expression of the slice, if no comment falls between two tokens that are no closers,
 --| none before the first unless `lead`, and none after the last unless `end`, then its comments on tokens that are no

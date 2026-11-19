@@ -1271,8 +1271,7 @@ theorem anyBody ∀ (value: Expr) (before: Bool) (at: Nat) (inArm: Bool)
 -- The declaration.
 
 --| Every slice 1 declaration with the tree facts meets `DeclElements`, the element facts `printedHangs` and
---| `printedStands1` take, whatever its comments and layout. `unreturned` is not needed; it is one of the hypotheses
---| `declElementsOneLine1` had, less `oneLine`.
+--| `printedStands1` take, whatever its comments and layout.
 --|
 --| Proof idea: the type's facts from `anyType`, the value's from `anyBody`, each part's tokens sound by `settled1`
 --| (`declSoundOfSettled`) and homed by `homedOfSettled`.
@@ -1350,8 +1349,7 @@ theorem insideDeclFacts: (insideDecl.within1
       && insideDecl.settled1
       && insideDecl.lexical1
       && insideDecl.unreturned1
-      && !insideDecl.edgeQuiet1
-      && !insideDecl.oneLine1)
+      && !insideDecl.edgeQuiet1)
       = True :=
   byComputing
 

@@ -1,4 +1,4 @@
---| What the rules' documents do to `laysKinds` (SW-4109, `doc1Checks`' walk): from a place that has words on its line, or
+--| What the rules' documents do to `laysKinds` (SW-4109, the document check's walk): from a place that has words on its line, or
 --| a comment waiting only where the code before ends its line with one, each element's document passes the check and
 --| leaves a place with words on its line.
 namespace Fmt.LaysRules

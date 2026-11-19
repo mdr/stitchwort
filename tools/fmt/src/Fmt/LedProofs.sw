@@ -49,24 +49,6 @@ theorem foldLed ∀ (pieces: List Piece) (laid: Laid)
     | [] => led
     | [piece, ..rest] => foldLed rest (laid.lay piece) (layLed laid piece led)
 
-theorem allOnto ∀ (leaves onto: List Leaf)
-    (led: leaves.all Leaf.led = True)
-    (rest: onto.all Leaf.led = True):
-    (leaves.reverseOnto onto).all Leaf.led = True :=
-  match leaves, led with
-    | [], _ => rest
-    | [leaf, ..more], led => allOnto more [leaf, ..onto] (Bool.andRight led) (Bool.andIntro (Bool.andLeft led) rest)
-
---| Every leaf of a declaration's printed text with comments or blank lines above it starts its line.
-theorem leavesLed ∀ (decl: Decl): decl.leaves1.all Leaf.led = True := match decl.doc1 with
-  | Some doc =>
-    allOnto
-      (laidOf doc).leaves
-      []
-      (Bool.andRight (foldLed (pieceFold lexKind (printedPieces doc width)) Laid.start byComputing))
-      byComputing
-  | None => byComputing
-
 --| `foldLed` applies: `a`, then `b` under a comment on the next line; `b`'s leaf has the comment above it and
 --| starts its line.
 theorem leavesLedExample: ([Code Lower "a", Break, Remark "-- c", Break, Code Lower "b"].foldLeft Laid.start

@@ -1,4 +1,4 @@
---| `laysKinds` of the rules' element documents (SW-4109, `doc1Checks`' walk, after `Fmt.LaysRules`'s tokens): a token
+--| `laysKinds` of the rules' element documents (SW-4109, the document check's walk, after `Fmt.LaysRules`'s tokens): a token
 --| from a calm place, then the nodes of slice 1 by induction on the expression.
 namespace Fmt.LaysEls
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
