@@ -1,5 +1,5 @@
 {
-  "next": 4258,
+  "next": 4259,
   "tickets": [
     {
       "id": 47,
@@ -27197,7 +27197,7 @@
     {
       "id": 4224,
       "title": "[Sonnet] stitchwort fmt: wrap a long or-pattern (today joined onto one line, 150 chars in a probe), Rust and self-hosted printers alike; goldens (proof-match-likewise.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27636,6 +27636,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4245.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4258,
+      "title": "[Opus] When or-patterns enter the self-hosted formatter's grammar: its printer and proofs follow S22's or-pattern breaking (trailing |, +4 continuation) exactly as the Rust printer (SW-4224 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4224.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
