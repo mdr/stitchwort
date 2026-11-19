@@ -27500,8 +27500,8 @@
     {
       "id": 4247,
       "title": "[Opus] Self-hosted parser: accept or-patterns that bind names (D3694; tools/fmt/src/Syntax/Lowering.sw checkPattern/orPatternBinds), so fmt:twin agrees with the Rust parser again on the new examples, guide files and the two rewritten proof files; accepts more, not a narrowing; repair dependent proofs",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
