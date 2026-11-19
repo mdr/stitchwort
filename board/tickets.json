@@ -1,5 +1,5 @@
 {
-  "next": 4233,
+  "next": 4234,
   "tickets": [
     {
       "id": 47,
@@ -26924,7 +26924,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.\n\nProgress (lane, 19 Nov 17:25, Opus): stopped as the brief says. CommentsKept's clause 1 (blankAbove in commentViews) is false of slice 1's formatter. Counterexample, in inGrammar1 and accepted by formatWithin1: source \"def d: A := f\\n\\n  -- c\\n  x\\n\" formats to \"def d: A :=\\n  f\\n    -- c\\n    x\\n\"; the comment's blank line above is dropped (settledBare view -- c own-line blankAbove=T, output's blankAbove=F). Cause: calm (Comments.kept, Fmt/Predicates1.sw) clears the first comment's blankBefore unless the token is a tuple/list item and not a closer. Same for an operator's operand, a closer, a type's first token. Kept: between declarations, above a list item. Clause 2 (holders, incl. blankBelow) held on every probe. No theorem written; nothing committed. Decision for Matt: narrow clause 1's blankAbove (e.g. to declarations' first tokens and items) or make the printer keep these blank lines. Also: main's Fmt.TopStatements doesn't check: meaningBlanksFirst was deleted by SW-4193 (176b98182) but slice1Formats uses it.\n\nD3693 (Matt, 19 Nov 2026): keep the blank line above a comment everywhere (\"Agreed. Keep the blank line everywhere.\"). SW-4211 changes both printers; then this ticket proves CommentsKept as stated.\n",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.\n\nProgress (lane, 19 Nov 17:25, Opus): stopped as the brief says. CommentsKept's clause 1 (blankAbove in commentViews) is false of slice 1's formatter. Counterexample, in inGrammar1 and accepted by formatWithin1: source \"def d: A := f\\n\\n  -- c\\n  x\\n\" formats to \"def d: A :=\\n  f\\n    -- c\\n    x\\n\"; the comment's blank line above is dropped (settledBare view -- c own-line blankAbove=T, output's blankAbove=F). Cause: calm (Comments.kept, Fmt/Predicates1.sw) clears the first comment's blankBefore unless the token is a tuple/list item and not a closer. Same for an operator's operand, a closer, a type's first token. Kept: between declarations, above a list item. Clause 2 (holders, incl. blankBelow) held on every probe. No theorem written; nothing committed. Decision for Matt: narrow clause 1's blankAbove (e.g. to declarations' first tokens and items) or make the printer keep these blank lines. Also: main's Fmt.TopStatements doesn't check: meaningBlanksFirst was deleted by SW-4193 (176b98182) but slice1Formats uses it.\n\nD3693 (Matt, 19 Nov 2026): keep the blank line above a comment everywhere (\"Agreed. Keep the blank line everywhere.\"). SW-4211 changes both printers; then this ticket proves CommentsKept as stated.\n\n\nProgress (lane, 19 Nov 18:25, Opus): stopped before proving, as the brief says (D3688). After SW-4211, CommentsKept is still false as stated, in two places, both the flag-clearings calm/calmTop still do. A probe (scratchpad sw4203/Probe4203.sw, 27 cases, comparing settledBare's and the output's settled commentViews/holders) found:\n(A) clause 1, blankAbove of the file's first comment: \"\\n-- c\\ndef d: A := a\\n\" formats to \"-- c\\ndef d: A := a\\n\"; source view `-- c` own blankAbove=T, output F (calmTop's `topped`; the file loop prints nothing above the first thing). Same with no declarations: \"\\n-- c\\n\".\n(B) clause 3, Holder.blankBelow of a closer: \"def d: A := (a\\n  -- c\\n\\n  )\\n\" formats to \"def d: A :=\\n  (a\\n    -- c\\n  )\\n\"; holder `)` blankBelow T in source, F in output (Comments.kept with closer=True clears it). Same for a tuple's `)` and a list's `]` (with or without a last comma).\nHeld on: blank below comments above def, name, type's first token, `:=`, an operator, an operand, an argument, an opener, a list item; blank above comments everywhere else; comma comments (own and trailing), arrows, `:=` trailing, end of file.\nDecision for Matt: narrow CommentsKept (A: don't compare blank lines above the file's first comment; B: blankBelow only for non-closers, as Meaning.sw's own doc anticipated) or make the printer keep these blank lines. No theorem written; nothing committed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27307,6 +27307,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4231.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4233,
+      "title": "[Sonnet] Fmt.Tests: evaluate CommentsKept on the formatter's output for a set of cases (file top, closers, every token kind with comments above/below and blank lines), so a printer change that drops a comment flag fails a test (SW-4203 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4203. Probe: scratchpad sw4203/Probe4203.sw.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
