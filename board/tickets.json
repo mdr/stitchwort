@@ -27288,12 +27288,12 @@
     {
       "id": 4231,
       "title": "[Opus, paper] Design note: a walk step for proofs about effectful code (SW-4222 §6.1): follows a body in evaluation order, applies registered lemmas for calls, steps through inner if/match; part (a) reads p and j off the body (subsumes SW-4220), part (b) splits a definition's inner match (overlaps SW-4047)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Est. 45 min. From SW-4222. Orchestrator's call: a note is cheap and reversible; building waits for Matt.",
+      "body": "Est. 45 min. From SW-4222. Orchestrator's call: a note is cheap and reversible; building waits for Matt.\n\nOpus, 19 Nov: docs/proposals/proof-walk-step.md on lane/SW-4231 (71de1de9a). Measured in tools/fmt/src/Syntax: 1,387 theorems conclude in a parser relation (19,279 lines); 920 walks (13,828 lines) use a sequencing step; 531 spell [p/q/j/k :=] 1,583 times; 536 of 788 parser functions called from one place. Design: walk [lemmas] then t, @[walk] lemmas, @[walk.then/done/weaken] families; (a) reads p/j off the elaborated bind chain; (b) proof match along the definition's case tree with folded per-arm types; E-WALK names call/branch and goal. Sketches 46/26/55 -> ~10/10/27 lines. Lanes W1-W7 ~6-7 agent h. D3695 for Matt (build it, rec yes).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
