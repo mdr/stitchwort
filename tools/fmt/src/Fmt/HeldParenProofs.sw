@@ -87,12 +87,12 @@ theorem lineTrailingHangs ∀ (kinds: Text → Tok) (word: Word) (indent: Nat) (
   match after: word.comments.after, trailed with
     | None, _ => hangsNil kinds indent pre pre (place hang held => held)
     | Some comment, (isComment, layout) =>
-      hangsLast kinds
+      hangsLast
         (LineSuffix comment)
         indent
         pre
         post
-        (hangsSuffix kinds comment indent pre post isComment layout (place hang ((ended, folded), onLine) =>
+        (hangsSuffix kinds indent pre post isComment layout (place hang ((ended, folded), onLine) =>
           match place, ended, onLine with
             | Mid at carry, (floor, left), onLine =>
               (at, carry, (byComputing, ((byComputing, floor, left), folded), onLine))
@@ -137,27 +137,24 @@ theorem lineOpeningHangs ∀ (kinds: Text → Tok) (word closer: Word) (around: 
   let post: Place → Hang → Prop := place hang =>
     (Ended opened word.trails place ∧ hang = Hang.At opened) ∧ place.indent = line
   let rest: HangLaysAll kinds [Doc.text word.text, ..word.trailing] indent ready post :=
-    hangsCons kinds
+    hangsCons
       (Doc.text word.text)
       word.trailing
-      indent
       ready
       written
       post
       (lineOpenerStep kinds word.text indent column state start line token)
       (lineTrailingHangs kinds word indent opened line trailed)
   let kept :=
-    allHangsKept kinds [Doc.text word.text, ..word.trailing] indent low origin ready post (trailingKeys low word) rest
+    allHangsKept [Doc.text word.text, ..word.trailing] indent low origin ready post (trailingKeys low word) rest
   rewrite hoisted, notCloser, notComma, marks then
-    hangsConcat kinds
+    hangsConcat
       [Mark around.at, Doc.text word.text, ..word.trailing]
-      indent
       (Entered indent column False state entry start)
       (place hang => post place hang ∧ MarksKept low origin place.carry)
-      (hangsCons kinds
+      (hangsCons
         (Mark around.at)
         [Doc.text word.text, ..word.trailing]
-        indent
         (Entered indent column False state entry start)
         (place hang => ready place hang ∧ MarksKept low origin place.carry)
         (place hang => post place hang ∧ MarksKept low origin place.carry)
@@ -394,10 +391,7 @@ theorem heldOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around
     (close.noted || close.trails)
     (_ => HangLays kinds (open.opening around close) indent pre gap)
     (marks =>
-      hangsPost kinds
-        (open.opening around close)
-        indent
-        pre
+      hangsPost pre
         (place hang =>
           ((Ended (openingBy state start) open.trails place ∧ hang = Hang.At (openingBy state start))
             ∧ place.indent = entry.indent)
@@ -407,10 +401,7 @@ theorem heldOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around
         (place hang (((ended, folded), line), kept) =>
           ((rewrite trails at ended then ended, folded), _ => (kept, line))))
     (marks =>
-      hangsPost kinds
-        (open.opening around close)
-        indent
-        pre
+      hangsPost pre
         (place hang => Ended (openingBy state start) open.trails place ∧ hang = Hang.At (openingBy state start))
         gap
         (openingHangs kinds open close around indent column state entry token hoisted trailed)
@@ -639,19 +630,11 @@ theorem parenHeldHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clo
       heldCloser kinds close closeAround around.at indent outer top closer byComputing byComputing closeComments
           closeTrailed bound
     rewrite plain then
-      hangsConcat kinds
+      hangsConcat
         [prefix, innerDoc, closerDoc]
-        indent
         pre
         post
-        (hangsCons kinds prefix
-          [innerDoc, closerDoc]
-          indent
-          pre
-          gap
-          post
-          opening
-          (hangsTwo kinds innerDoc closerDoc indent gap done post middle closing))
+        (hangsCons prefix [innerDoc, closerDoc] pre gap post opening (hangsTwo innerDoc gap done post middle closing))
         place
         trace
         next

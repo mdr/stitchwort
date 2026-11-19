@@ -145,12 +145,11 @@ theorem belowTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before
     (el: ElHangs kinds doc column column before trails (startFor noted)):
     HangLays kinds (Doc.concat [HardLine, doc]) column (AfterTop after) (TopDone trails) :=
   let started: Place → Hang → Prop := place hang => StartsAt column place ∧ hang = Hang.At topFrom
-  hangsConcat kinds
+  hangsConcat
     [HardLine, doc]
-    column
     (AfterTop after)
     (TopDone trails)
-    (hangsTwo kinds HardLine doc column
+    (hangsTwo HardLine
       (AfterTop after)
       started
       (TopDone trails)
@@ -182,21 +181,15 @@ theorem keywordHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
   let ended: Place → Hang → Prop := place hang =>
     Ended HangState.initial word.trails place ∧ hang = Hang.At HangState.initial
   rewrite leafIsText word around 0 closer comma bare then
-    hangsPost kinds
-      (Doc.concat [Doc.text word.text, ..word.trailing])
-      0
-      DeclStart
-      ended
+    hangsPost DeclStart ended
       (AfterWords HangState.initial 0 word.trails)
-      (hangsConcat kinds
+      (hangsConcat
         [Doc.text word.text, ..word.trailing]
-        0
         DeclStart
         ended
-        (hangsCons kinds
+        (hangsCons
           (Doc.text word.text)
           word.trailing
-          0
           DeclStart
           written
           ended
@@ -261,22 +254,18 @@ theorem headHangs ∀ (kinds: Text → Tok) (keyword name: Word) (start: Around)
     rewrite atStart then keywordHangs kinds keyword start isKeyword keywordToken hoisted keywordTrailed
   let goal: spaced (headDocs start [keyword, name]) = Doc.concat [keywordDoc, Doc.text " ", nameDoc] := byComputing
   rewrite goal then
-    hangsConcat kinds
+    hangsConcat
       [keywordDoc, Doc.text " ", nameDoc]
-      0
       DeclStart
       (AfterWords state 0 name.trails)
-      (hangsCons kinds keywordDoc
+      (hangsCons keywordDoc
         [Doc.text " ", nameDoc]
-        0
         DeclStart
         (AfterWords state 0 keyword.trails)
         (AfterWords state 0 name.trails)
         keywordLays
-        (hangsTwo kinds
+        (hangsTwo
           (Doc.text " ")
-          nameDoc
-          0
           (AfterWords state 0 keyword.trails)
           (AfterWords state 0 keyword.trails)
           (AfterWords state 0 name.trails)
@@ -345,23 +334,19 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
     let written: Place → Hang → Prop := at hang => Ended final False at ∧ hang = Hang.At final
     let post: Place → Hang → Prop := at hang => Ended final word.trails at ∧ hang = Hang.At final
     rewrite leafPiece word around key closer comma then
-      hangsConcat kinds
+      hangsConcat
         (word.leading around key ++ [Doc.text word.text, ..word.trailing])
-        indent
         entry
         post
-        (hangsAppend kinds
+        (hangsAppend
           (word.leading around key)
-          [Doc.text word.text, ..word.trailing]
-          indent
           entry
           lined
           post
           (leadingHangs kinds word around key indent before state place note rest hoisted noted closer comments fresh)
-          (hangsCons kinds
+          (hangsCons
             (Doc.text word.text)
             word.trailing
-            indent
             lined
             written
             post
@@ -387,15 +372,13 @@ theorem colonHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key 
   let (notComment, solid, closer, comma) := token
   let pre := AfterWords HangState.initial 0 before
   rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
-    hangsConcat kinds
+    hangsConcat
       [Doc.text word.text, ..word.trailing]
-      indent
       pre
       (AfterTop word.trails)
-      (hangsCons kinds
+      (hangsCons
         (Doc.text word.text)
         word.trailing
-        indent
         pre
         (AfterTop False)
         (AfterTop word.trails)
@@ -436,15 +419,13 @@ theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
   let (notComment, solid, closer, comma) := token
   let pre := TopDone before
   rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
-    hangsConcat kinds
+    hangsConcat
       [Doc.text word.text, ..word.trailing]
-      indent
       pre
       (AfterTop word.trails)
-      (hangsCons kinds
+      (hangsCons
         (Doc.text word.text)
         word.trailing
-        indent
         pre
         (AfterTop False)
         (AfterTop word.trails)
@@ -589,59 +570,49 @@ theorem headerHangs ∀ (kinds: Text → Tok) (headDoc colonDoc typeDoc: Doc) (n
       (TopDone typeTrails) :=
   match trails: colonTrails with
     | True =>
-      hangsConcat kinds
+      hangsConcat
         [headDoc, colonDoc, Nest 4 (Doc.concat [HardLine, typeDoc])]
-        0
         DeclStart
         (TopDone typeTrails)
-        (hangsCons kinds headDoc
+        (hangsCons headDoc
           [colonDoc, Nest 4 (Doc.concat [HardLine, typeDoc])]
-          0
           DeclStart
           (AfterWords HangState.initial 0 named)
           (TopDone typeTrails)
           head
-          (hangsTwo kinds colonDoc
-            (Nest 4 (Doc.concat [HardLine, typeDoc]))
-            0
+          (hangsTwo colonDoc
             (AfterWords HangState.initial 0 named)
             (AfterTop True)
             (TopDone typeTrails)
             colon
-            (hangsNest kinds 4 0
-              (Doc.concat [HardLine, typeDoc])
+            (hangsNest 4 0
               (AfterTop True)
               (TopDone typeTrails)
               (belowTopHangs kinds typeDoc 4 True typeTrails True typeNoted byComputing typed))))
     | False =>
-      hangsConcat kinds
+      hangsConcat
         [headDoc, colonDoc, Doc.text " ", Nest 4 typeDoc]
-        0
         DeclStart
         (TopDone typeTrails)
-        (hangsCons kinds headDoc
+        (hangsCons headDoc
           [colonDoc, Doc.text " ", Nest 4 typeDoc]
-          0
           DeclStart
           (AfterWords HangState.initial 0 named)
           (TopDone typeTrails)
           head
-          (hangsCons kinds colonDoc
+          (hangsCons colonDoc
             [Doc.text " ", Nest 4 typeDoc]
-            0
             (AfterWords HangState.initial 0 named)
             (AfterTop False)
             (TopDone typeTrails)
             colon
-            (hangsTwo kinds
+            (hangsTwo
               (Doc.text " ")
-              (Nest 4 typeDoc)
-              0
               (AfterTop False)
               (AfterTop False)
               (TopDone typeTrails)
               (spaceKeeps kinds 0 topFrom False)
-              (hangsNest kinds 4 0 typeDoc
+              (hangsNest 4 0
                 (AfterTop False)
                 (TopDone typeTrails)
                 (midTopHangs kinds typeDoc 4 typeTrails typeNoted typed)))))
@@ -656,20 +627,17 @@ theorem spaceDocHangs ∀ (kinds: Text → Tok) (doc: Doc)
     (on: OnLine kinds doc):
     HangLays kinds (Doc.concat [Doc.text " ", doc]) 0 (AfterTop False) Unbroken :=
   let (trails, el) := on
-  hangsConcat kinds
+  hangsConcat
     [Doc.text " ", doc]
-    0
     (AfterTop False)
     Unbroken
-    (hangsTwo kinds
+    (hangsTwo
       (Doc.text " ")
-      doc
-      0
       (AfterTop False)
       (AfterTop False)
       Unbroken
       (spaceKeeps kinds 0 topFrom False)
-      (hangsPost kinds doc 0
+      (hangsPost
         (AfterTop False)
         (TopDone trails)
         Unbroken
@@ -680,13 +648,10 @@ theorem spaceDocHangs ∀ (kinds: Text → Tok) (doc: Doc)
 theorem belowHangs ∀ (kinds: Text → Tok) (doc: Doc) (before trails noted: Bool)
     (el: ElHangs kinds doc 2 2 before trails (startFor noted)):
     HangLays kinds (Nest 2 (Doc.concat [HardLine, doc])) 0 (AfterTop before) Unbroken :=
-  hangsNest kinds 2 0
-    (Doc.concat [HardLine, doc])
+  hangsNest 2 0
     (AfterTop before)
     Unbroken
-    (hangsPost kinds
-      (Doc.concat [HardLine, doc])
-      2
+    (hangsPost
       (AfterTop before)
       (TopDone trails)
       Unbroken
@@ -698,11 +663,11 @@ theorem oneLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
     (el: ElHangs kinds doc 2 2 False trails wordStart):
     HangLays kinds (OneLineBelow doc) 0 (AfterTop False) Unbroken :=
   let started: Place → Hang → Prop := place hang => StartsAt 2 place ∧ hang = Hang.At topFrom
-  hangsOneLineBelow kinds doc 0
+  hangsOneLineBelow 0
     (AfterTop False)
     started
     Unbroken
-    (hangsPost kinds doc 2 started
+    (hangsPost started
       (TopDone trails)
       Unbroken
       (startTopHangs kinds doc 2 False trails False byComputing el)
@@ -727,8 +692,7 @@ theorem plainChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (hug: Option Doc) 
         ++ (if hug.isSome then [OneLineBelow doc] else [])
         ++ optionList (hug.map (open => Doc.concat [Doc.text " ", open]))
         ++ [Nest 2 (Doc.concat [HardLine, doc])]) :=
-  let flat :=
-    hangsFlatten kinds (Doc.concat [Doc.text " ", doc]) 0 (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine)
+  let flat := hangsFlatten (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine)
   let low := belowHangs kinds doc False trails False below
   match hug, hugs with
     | None, _ => (flat, low, byComputing)
@@ -746,7 +710,7 @@ theorem openChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
       Nest 2 (Doc.concat [HardLine, doc])
     ] :=
   (
-    hangsFlatten kinds (Doc.concat [Doc.text " ", doc]) 0 (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine),
+    hangsFlatten (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine),
     oneLineHangs kinds doc trails below,
     spaceDocHangs kinds doc onLine,
     belowHangs kinds doc False trails False below,
@@ -844,35 +808,30 @@ theorem defFromHangs ∀ (kinds: Text → Tok) (headerDoc: Doc) (breaks: Bool)
       ∧ HangLays kinds choice 0 (AfterTop assignTrails) Unbroken):
     HangLays kinds (defFrom headerDoc breaks assignDoc below choice) 0 DeclStart Unbroken :=
   let (low, chosen) := body
-  hangsConcat kinds
+  hangsConcat
     [IdGroup 0 headerDoc breaks, Doc.text " ", assignDoc, IfBroken 0 below choice]
-    0
     DeclStart
     Unbroken
-    (hangsCons kinds
+    (hangsCons
       (IdGroup 0 headerDoc breaks)
       [Doc.text " ", assignDoc, IfBroken 0 below choice]
-      0
       DeclStart
       (TopDone typeTrails)
       Unbroken
-      (hangsIdGroup kinds 0 headerDoc breaks 0 DeclStart (TopDone typeTrails) header)
-      (hangsCons kinds
+      (hangsIdGroup 0 breaks DeclStart (TopDone typeTrails) header)
+      (hangsCons
         (Doc.text " ")
         [assignDoc, IfBroken 0 below choice]
-        0
         (TopDone typeTrails)
         (TopDone typeTrails)
         Unbroken
         (spaceTop kinds 0 typeTrails)
-        (hangsTwo kinds assignDoc
-          (IfBroken 0 below choice)
-          0
+        (hangsTwo assignDoc
           (TopDone typeTrails)
           (AfterTop assignTrails)
           Unbroken
           assign
-          (hangsIfBroken kinds 0 below choice 0 (AfterTop assignTrails) Unbroken low chosen))))
+          (hangsIfBroken 0 0 (AfterTop assignTrails) Unbroken low chosen))))
 
 --| The lexer's kinds of slice 1's fixed tokens.
 def FixedKinds (kinds: Text → Tok): Prop := kinds "def" = KwDef ∧ kinds ":" = Colon ∧ kinds ":=" = ColonEq

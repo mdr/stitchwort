@@ -130,31 +130,33 @@ theorem stay ∀ (post: Seam → Prop) (spacing: List Spacing) (seam: Seam)
     next seam trace :=
   rewrite <- List.appendNil trace then after seam [] holds none
 
-theorem stepsFrom ∀ (doc: Doc) (pre weaker: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsFrom ∀ [doc: Doc] (pre weaker: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps doc pre spacing post) (implies: ∀ (seam: Seam) => weaker seam → pre seam):
     Steps doc weaker spacing post :=
   seam trace next holds after => steps seam trace next (implies seam holds) after
 
-theorem stepsTo ∀ (doc: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post weaker: Seam → Prop)
+theorem stepsTo ∀ (doc: Doc) (pre: Seam → Prop) [spacing: List Spacing] (post weaker: Seam → Prop)
     (steps: Steps doc pre spacing post) (implies: ∀ (seam: Seam) => post seam → weaker seam):
     Steps doc pre spacing weaker :=
   seam trace next holds after =>
     steps seam trace next holds (left added reached admits => after left added (implies left reached) admits)
 
-theorem allTo ∀ (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post weaker: Seam → Prop)
+theorem allTo ∀ (docs: List Doc) (pre: Seam → Prop) [spacing: List Spacing] (post weaker: Seam → Prop)
     (steps: StepsAll docs pre spacing post) (implies: ∀ (seam: Seam) => post seam → weaker seam):
     StepsAll docs pre spacing weaker :=
   seam trace next holds after =>
     steps seam trace next holds (left added reached admits => after left added (implies left reached) admits)
 
 --| The same documents, spaced alike.
-theorem stepsSpacing ∀ (doc: Doc) (pre: Seam → Prop) (spacing spacing': List Spacing) (post: Seam → Prop)
+theorem stepsSpacing ∀ [doc: Doc] (pre: Seam → Prop) [spacing: List Spacing]
+    (spacing': List Spacing) (post: Seam → Prop)
     (same: spacing = spacing')
     (steps: Steps doc pre spacing post):
     Steps doc pre spacing' post :=
   rewrite <- same then steps
 
-theorem allSpacing ∀ (docs: List Doc) (pre: Seam → Prop) (spacing spacing': List Spacing) (post: Seam → Prop)
+theorem allSpacing ∀ [docs: List Doc] (pre: Seam → Prop) [spacing: List Spacing]
+    (spacing': List Spacing) (post: Seam → Prop)
     (same: spacing = spacing')
     (steps: StepsAll docs pre spacing post):
     StepsAll docs pre spacing' post :=
@@ -163,7 +165,7 @@ theorem allSpacing ∀ (docs: List Doc) (pre: Seam → Prop) (spacing spacing': 
 theorem stepsNil ∀ (pre post: Seam → Prop) (implies: ∀ (seam: Seam) => pre seam → post seam): StepsAll [] pre [] post :=
   seam trace next holds after => stay post [] seam trace next byComputing after (implies seam holds)
 
-theorem stepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
+theorem stepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) [front back: List Spacing]
     (first: Steps doc pre front middle)
     (rest: StepsAll docs middle back post):
     StepsAll [doc, ..docs] pre (front ++ back) post :=
@@ -177,11 +179,10 @@ theorem stepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Pro
             (rewrite codeTouchingAppend added more then
               admitsAppend front back (codeTouching added) (codeTouching more) admits admitsMore)))
 
-theorem stepsLast ∀ (doc: Doc) (pre post: Seam → Prop) (spacing: List Spacing)
+theorem stepsLast ∀ [doc: Doc] (pre post: Seam → Prop) [spacing: List Spacing]
     (only: Steps doc pre spacing post):
     StepsAll [doc] pre spacing post :=
-  rewrite <- List.appendNil spacing then
-    stepsCons doc [] pre post post spacing [] only (stepsNil post post (seam holds => holds))
+  rewrite <- List.appendNil spacing then stepsCons doc [] pre post post only (stepsNil post post (seam holds => holds))
 
 theorem touchesAllAppend ∀ (front back: List Doc) (seam: Seam) (trace: List Touch) (next: Seam → List Touch → Prop)
     (touches: TouchesAll front seam trace (between later => TouchesAll back between later next)):
@@ -195,7 +196,7 @@ theorem touchesAllAppend ∀ (front back: List Doc) (seam: Seam) (trace: List To
         (between later inner => touchesAllAppend rest back between later next inner)
         touches
 
-theorem stepsAppend ∀ (front back: List Doc) (pre middle post: Seam → Prop) (first second: List Spacing)
+theorem stepsAppend ∀ (front: List Doc) [back: List Doc] (pre middle post: Seam → Prop) [first second: List Spacing]
     (one: StepsAll front pre first middle)
     (other: StepsAll back middle second post):
     StepsAll (front ++ back) pre (first ++ second) post :=
@@ -248,16 +249,16 @@ theorem concatTouches ∀ (docs: List Doc) (seam: Seam) (trace: List Touch) (nex
         kept
     | [first, second, ..rest] => kept
 
-theorem stepsConcat ∀ (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsConcat ∀ (docs: List Doc) (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (each: StepsAll docs pre spacing post):
     Steps (Doc.concat docs) pre spacing post :=
   seam trace next holds after => concatTouches docs seam trace next (each seam trace next holds after)
 
-theorem stepsTwo ∀ (first second: Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
+theorem stepsTwo ∀ (first: Doc) [second: Doc] (pre middle post: Seam → Prop) [front back: List Spacing]
     (one: Steps first pre front middle)
     (other: Steps second middle back post):
     StepsAll [first, second] pre (front ++ back) post :=
-  stepsCons first [second] pre middle post front back one (stepsLast second middle post back other)
+  stepsCons first [second] pre middle post one (stepsLast middle post other)
 
 -- The document's constructors.
 
@@ -310,28 +311,28 @@ theorem stepsSoft ∀ (pre post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre 
       breakStep post seam trace next (quiet seam holds) fresh after
     )
 
-theorem stepsNest ∀ (indent: Nat) (inner: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsNest ∀ (indent: Nat) [inner: Doc] (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps inner pre spacing post):
     Steps (Nest indent inner) pre spacing post :=
   steps
 
-theorem stepsGroup ∀ (inner: Doc) (hard: Bool) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsGroup ∀ [inner: Doc] (hard: Bool) (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps inner pre spacing post):
     Steps (Group inner hard) pre spacing post :=
   steps
 
-theorem stepsIdGroup ∀ (id: Nat) (inner: Doc) (hard: Bool) (pre: Seam → Prop)
-    (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsIdGroup ∀ (id: Nat) [inner: Doc] (hard: Bool) (pre: Seam → Prop)
+    [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps inner pre spacing post):
     Steps (IdGroup id inner hard) pre spacing post :=
   steps
 
-theorem stepsFlatten ∀ (inner: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsFlatten ∀ [inner: Doc] (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps inner pre spacing post):
     Steps (Flatten inner) pre spacing post :=
   steps
 
-theorem stepsIfBroken ∀ (id: Nat) (broken flat: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsIfBroken ∀ (id: Nat) [broken flat: Doc] (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (brokenSteps: Steps broken pre spacing post)
     (flatSteps: Steps flat pre spacing post):
     Steps (IfBroken id broken flat) pre spacing post :=
@@ -355,14 +356,14 @@ theorem optionsStep ∀ (first: Doc) (others: List Doc) (pre: Seam → Prop) (sp
       (steps seam trace next holds after, optionsStep second more pre spacing post rest seam trace next holds after)
 
 --| A choice whose options all step alike.
-theorem stepsChoice ∀ (first: Doc) (others: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsChoice ∀ (first: Doc) (others: List Doc) (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (each: EachSteps pre spacing post [first, ..others]):
     Steps (Choice [first, ..others]) pre spacing post :=
   seam trace next holds after => optionsStep first others pre spacing post each seam trace next holds after
 
 --| A displaced element steps if its contents do from where they start, and from a line start where a comment
 --| waits.
-theorem stepsDisplaced ∀ (inner: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
+theorem stepsDisplaced ∀ [inner: Doc] (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps inner pre spacing post)
     (fresh: pre Begun) (quiet: ∀ (seam: Seam) => pre seam → Quiet seam):
     Steps (Displaced inner) pre spacing post :=
@@ -378,8 +379,8 @@ theorem stepsDisplaced ∀ (inner: Doc) (pre: Seam → Prop) (spacing: List Spac
             after left (ending ++ added) reached (rewrite codeTouchingAppend ending added, silent then admits))
 
 --| A document one line below: the waiting comment, then the document from a line start.
-theorem stepsOneLineBelow ∀ (inner: Doc) (pre start: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
-    (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: start Begun)
+theorem stepsOneLineBelow ∀ [inner: Doc] (pre: Seam → Prop) [start: Seam → Prop] [spacing: List Spacing]
+    (post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: start Begun)
     (steps: Steps inner start spacing post):
     Steps (OneLineBelow inner) pre spacing post :=
   seam trace next holds after =>
@@ -420,7 +421,7 @@ theorem stepsSpace ∀ (trails: Bool): Steps (Doc.text " ") (Ends trails) [] (Ga
 def Code (text: Text): Prop := text.isEmpty = False ∧ isLayout text = False ∧ isComment text = False
 
 --| A token's text, starting a line, after a word, or after a waiting comment on the next line.
-theorem stepsChunk ∀ (text: Text) (size: Nat) (before: Bool) (first: Spacing)
+theorem stepsChunk ∀ [text: Text] (size: Nat) (before: Bool) (first: Spacing)
     (code: Code text):
     Steps (Chunk text size) (Fits before first) [first] (seam => seam = Along True) :=
   let (filled, solid, notComment) := code
@@ -460,7 +461,7 @@ theorem closedAlong ∀ (seam: Seam) (closed: Closed False seam): seam = Along T
   | Awaiting word comment, (never, _) => (Bool.falseNotTrue never).impossible
 
 --| A closer or a comma, which joins the line of a waiting comment before it.
-theorem stepsClosing ∀ (text: Text) (before: Bool)
+theorem stepsClosing ∀ [text: Text] (before: Bool)
     (code: Code text):
     Steps (Closing text) (Fits before Free) [Free] (Closed before) :=
   let (filled, solid, notComment) := code

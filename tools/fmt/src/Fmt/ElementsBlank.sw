@@ -42,14 +42,13 @@ theorem blankLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around
   let column := leadColumn indent entry
   let broken := BrokenAt indent column (Hang.At state)
   rewrite hoisted, unnoted, item, blank then
-    hangsCons kinds BreakParent
+    hangsCons BreakParent
       [LineStart, Blank]
-      indent
       pre
       pre
       (LineAt indent column (Hang.At state))
       (hangsBreakParent kinds indent pre)
-      (hangsTwo kinds LineStart Blank indent pre broken
+      (hangsTwo LineStart pre broken
         (LineAt indent column (Hang.At state))
         (startHangsBroken kinds indent before state entry fresh)
         (blankHangs kinds indent column (Hang.At state)))
@@ -88,32 +87,26 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
         let written: Place → Hang → Prop := place hang => Ended opened False place ∧ hang = Hang.At opened
         let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = Hang.At opened
         let leading :=
-          allHangsPre kinds
-            (word.leading around key)
-            indent
+          allHangsPre
             (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent around.before state entry)
             pre
             lined
             (blankLeadingHangs kinds word around key indent around.before state entry hoisted item unnoted blank fresh)
             (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
         rewrite leafPiece word around key closer comma then
-          hangsConcat kinds
+          hangsConcat
             (word.leading around key ++ [Doc.text word.text, ..word.trailing])
-            indent
             pre
             post
-            (hangsAppend kinds
+            (hangsAppend
               (word.leading around key)
-              [Doc.text word.text, ..word.trailing]
-              indent
               pre
               lined
               post
               leading
-              (hangsCons kinds
+              (hangsCons
                 (Doc.text word.text)
                 word.trailing
-                indent
                 lined
                 written
                 post
@@ -160,8 +153,8 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
     match entered with
       | (_, _, (seated, _, _, room)) =>
         let leading :=
-          hangsConcat kinds leadingDocs indent pre lined
-            (allHangsPre kinds leadingDocs indent
+          hangsConcat leadingDocs pre lined
+            (allHangsPre
               (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent before state entry)
               pre
               lined
@@ -173,12 +166,11 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
             (leadDeep indent before state entry seated fresh)
             room
             framed
-        hangsConcat kinds
+        hangsConcat
           [Doc.concat leadingDocs, Displaced doc]
-          indent
           pre
           post
-          (hangsTwo kinds (Doc.concat leadingDocs) (Displaced doc) indent pre lined post leading body)
+          (hangsTwo (Doc.concat leadingDocs) pre lined post leading body)
           place
           trace
           next

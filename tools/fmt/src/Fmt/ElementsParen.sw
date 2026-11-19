@@ -315,10 +315,7 @@ theorem ledOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around)
     (close.noted || close.trails)
     (_ => HangLays kinds (open.opening around close) indent pre gap)
     (marks =>
-      hangsPost kinds
-        (open.opening around close)
-        indent
-        pre
+      hangsPost pre
         (place hang =>
           ((Ended (openingBy state start) open.trails place ∧ hang = Hang.At (openingBy state start))
             ∧ place.indent = entry.indent)
@@ -327,10 +324,7 @@ theorem ledOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around)
         (lineOpeningHangs kinds open close around indent column state entry token hoisted trailed marks)
         (place hang (((ended, folded), line), kept) => ((ended, folded), _ => (kept, line))))
     (marks =>
-      hangsPost kinds
-        (open.opening around close)
-        indent
-        pre
+      hangsPost pre
         (place hang => Ended (openingBy state start) open.trails place ∧ hang = Hang.At (openingBy state start))
         gap
         (openingHangs kinds open close around indent column state entry token hoisted trailed)
@@ -518,19 +512,11 @@ theorem parenLedHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clos
       heldCloser kinds close closeAround around.at indent outer top closer byComputing byComputing closeComments
           closeTrailed bound
     rewrite plain then
-      hangsConcat kinds
+      hangsConcat
         [prefix, innerDoc, closerDoc]
-        indent
         pre
         post
-        (hangsCons kinds prefix
-          [innerDoc, closerDoc]
-          indent
-          pre
-          gap
-          post
-          opening
-          (hangsTwo kinds innerDoc closerDoc indent gap done post middle closing))
+        (hangsCons prefix [innerDoc, closerDoc] pre gap post opening (hangsTwo innerDoc gap done post middle closing))
         place
         trace
         next

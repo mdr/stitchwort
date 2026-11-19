@@ -51,10 +51,9 @@ theorem spacedRest ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (sta
         hangsNil kinds indent (AfterWords state indent trails) (AfterWords state indent trails) (place hang holds =>
           holds)
     | [doc, ..rest], (middle, part, more) =>
-      hangsCons kinds
+      hangsCons
         (Doc.text " ")
         [doc, ..rest.concatMap (doc => [Doc.text " ", doc])]
-        indent
         (AfterWords state indent before)
         (AfterWords state indent before)
         (AfterWords state indent trails)
@@ -71,9 +70,8 @@ theorem spacedRest ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (sta
             next
             (ended, folded, clear)
             after)
-        (hangsCons kinds doc
+        (hangsCons doc
           (rest.concatMap (doc => [Doc.text " ", doc]))
-          indent
           (AfterWords state indent before)
           (AfterWords state indent middle)
           (AfterWords state indent trails)
@@ -102,18 +100,16 @@ theorem spacedHangs ∀ (kinds: Text → Tok) (first: Doc) (rest: List Doc) (ind
       openedBound indent column state entry seated below clear room
     let pre := Entered indent column False state entry (wordStart indent entry)
     rewrite joinedWithIs (Doc.text " ") first rest then
-      hangsConcat kinds
+      hangsConcat
         [first, ..rest.concatMap (doc => [Doc.text " ", doc])]
-        indent
         pre
         (AfterWords opened indent trails)
-        (hangsCons kinds first
+        (hangsCons first
           (rest.concatMap (doc => [Doc.text " ", doc]))
-          indent
           pre
           (AfterWords opened indent middle)
           (AfterWords opened indent trails)
-          (hangsPost kinds first indent pre
+          (hangsPost pre
             (place hang => Ended opened middle place ∧ hang = Hang.At opened)
             (AfterWords opened indent middle)
             (head state entry)
@@ -274,16 +270,14 @@ theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat)
         hangsNil kinds inset (AfterWords state indent trails) (AfterWords state indent trails) (place hang holds =>
           holds)
     | [doc, ..rest], (middle, (noted, el), more) =>
-      hangsCons kinds HardLine
+      hangsCons HardLine
         [doc, ..rest.concatMap (doc => [HardLine, doc])]
-        inset
         (AfterWords state indent before)
         (LineSeat state inset)
         (AfterWords state indent trails)
         (hardLineArg kinds inset indent state before unglued deeper)
-        (hangsCons kinds doc
+        (hangsCons doc
           (rest.concatMap (doc => [HardLine, doc]))
-          inset
           (LineSeat state inset)
           (AfterWords state indent middle)
           (AfterWords state indent trails)
@@ -370,9 +364,8 @@ theorem linedPart ∀ (kinds: Text → Tok) (docs: List Doc) (more indent: Nat) 
     (args: LinedArgs kinds (indent + more) before trails docs):
     PartHangs kinds (Nest more (Doc.concat (docs.concatMap (doc => [HardLine, doc])))) indent before trails :=
   state entry quiet unglued place trace next (isEntry, folded, ended, clear) after =>
-    hangsConcat kinds
+    hangsConcat
       (docs.concatMap (doc => [HardLine, doc]))
-      (indent + more)
       (AfterWords state indent before)
       (AfterWords state indent trails)
       (linedRest kinds docs (indent + more) indent state before trails quiet unglued clear arithmetic args)
@@ -385,23 +378,21 @@ theorem linedPart ∀ (kinds: Text → Tok) (docs: List Doc) (more indent: Nat) 
 -- A call's layouts.
 
 --| A choice among options that each hang hangs; with one option at least, nothing is asked of where it starts.
-theorem hangsOptions ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc) (indent: Nat) (pre post: Place → Hang → Prop)
+theorem hangsOptions ∀ [kinds: Text → Tok] [first: Doc] [others: List Doc] [indent: Nat] (pre post: Place → Hang → Prop)
     (one: HangLays kinds first indent pre post)
     (each: EachHangs kinds indent pre post others):
     HangLays kinds (Choice [first, ..others]) indent pre post :=
   place trace next holds after =>
     match others, each with
       | [], _ => one place trace next holds after
-      | [second, ..more], (two, rest) => (
-        one place trace next holds after,
-        hangsOptions kinds second more indent pre post two rest place trace next holds after
-      )
+      | [second, ..more], (two, rest) =>
+        (one place trace next holds after, hangsOptions pre post two rest place trace next holds after)
 
 theorem elFlatten ∀ (kinds: Text → Tok) (doc: Doc) (indent column: Nat) (before trails: Bool)
     (el: ElHangs kinds doc indent column before trails wordStart):
     ElHangs kinds (Flatten doc) indent column before trails wordStart :=
   state entry =>
-    hangsFlatten kinds doc indent
+    hangsFlatten
       (Entered indent column before state entry (wordStart indent entry))
       (place hang =>
         Ended (openedBy state (wordStart indent entry)) trails place
@@ -418,7 +409,7 @@ theorem elChoice ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc) (inde
       others):
     ElHangs kinds (Choice [first, ..others]) indent column before trails wordStart :=
   state entry =>
-    hangsOptions kinds first others indent
+    hangsOptions
       (Entered indent column before state entry (wordStart indent entry))
       (place hang =>
         Ended (openedBy state (wordStart indent entry)) trails place
@@ -479,10 +470,7 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
         kept
         trails
         (state entry =>
-          hangsIdGroup kinds id
-            (Nest 4 (Fill [headDoc, ..args.take k]))
-            False
-            indent
+          hangsIdGroup id False
             (Entered indent column False state entry (wordStart indent entry))
             (place hang =>
               Ended (openedBy state (wordStart indent entry)) kept place
@@ -500,10 +488,7 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
               state
               entry))
         (state entry quiet unglued =>
-          hangsIfBroken kinds id
-            (Nest 4 (Doc.concat rest))
-            (Nest 2 (Doc.concat rest))
-            indent
+          hangsIfBroken id indent
             (place hang =>
               place = entry
                 ∧ hang = Hang.At state
@@ -684,10 +669,10 @@ theorem partHangsFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before 
           ∧ Ended state before entry
           ∧ (inForce state.blocks state.top <= indent) = True
       let opened := openedBy state (leadStart indent entry)
-      hangsPost kinds doc indent pre
+      hangsPost pre
         (place hang => Ended opened trails place ∧ hang = Hang.At opened)
         (place hang => Ended state trails place ∧ hang = Hang.At state)
-        (hangsPre kinds doc indent
+        (hangsPre
           (Entered indent indent before state entry (leadStart indent entry))
           pre
           (place hang => Ended opened trails place ∧ hang = Hang.At opened)

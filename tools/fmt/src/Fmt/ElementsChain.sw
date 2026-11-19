@@ -293,9 +293,7 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
         let post: Place → Hang → Prop := place hang => Ended glued False place ∧ hang = Hang.At glued
         let fresh := leadFresh inset state entry room
         let leading :=
-          allHangsPre lexKind
-            (word.leading around key)
-            inset
+          allHangsPre
             (place hang => place = entry ∧ hang = Hang.At state ∧ Seated inset around.before state entry)
             pre
             lined
@@ -306,20 +304,17 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
         rewrite leafPiece word around key closer comma then
           match trailing: word.comments.after, quiet with
             | None, _ =>
-              hangsConcat lexKind
+              hangsConcat
                 (word.leading around key ++ [Doc.text word.text])
-                inset
                 pre
                 post
-                (hangsAppend lexKind
+                (hangsAppend
                   (word.leading around key)
-                  [Doc.text word.text]
-                  inset
                   pre
                   lined
                   post
                   leading
-                  (hangsLast lexKind (Doc.text word.text) inset lined post written))
+                  (hangsLast (Doc.text word.text) inset lined post written))
                 place
                 trace
                 next
