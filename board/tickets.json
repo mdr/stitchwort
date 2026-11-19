@@ -26854,7 +26854,7 @@
     {
       "id": 4198,
       "title": "[Sonnet] proving guide: one section of proof-language behaviours lanes rediscover (SW-4195 friction 2): && and ++ associativity, != is the proposition (use == ... = False), method imports by name don't parse and (..) name clashes, rewrite rejects definition names, a match refines hypotheses so later rewrites find nothing, ?name holes rarely print goals",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27281,7 +27281,7 @@
     {
       "id": 4230,
       "title": "[Sonnet] Printer triple lemmas (passesCons, passesAppend, …): make kinds/pre/middle/post implicit where inferable, removing explicit arguments at every use (SW-4222 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27872,8 +27872,8 @@
     {
       "id": 4275,
       "title": "[Sonnet] Printer constructor lemmas (passesConcat, passesNest, passesGroup, passesFlatten, passesIfBroken, passesDisplaced, …) and passesNil: implicit kinds/pre/post where inferable, as SW-4230 did for the triple lemmas",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
