@@ -9,7 +9,7 @@ expression: output
     │                 ────┬───  
     │                     ╰───── this call
     │ 
-    │ Note 1: why: its equations aren't made, and its cases are theirs: its body has no `if` or `match` at the top, so no equations are generated; move the split to the top (for example, make the `match` the whole right side) so its branches can be equations
+    │ Note 1: why: no equations are generated for it, so `f.induct` isn't generated either: its body has no `if` or `match` at the top; move the split to the top (for example, make the `match` the whole right side) so its branches can be equations
     │ 
     │ Note 2: `f.induct` is generated for a recursive definition where it can be stated and proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as the definition does, with its equations for the steps
 ────╯

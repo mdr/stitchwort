@@ -237,7 +237,9 @@ pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) 
         e.tables.equation_skips.push((
             f,
             "induct".to_string(),
-            format!("its equations aren't made, and its cases are theirs: {why}"),
+            format!(
+                "no equations are generated for it, so `f.induct` isn't generated either: {why}"
+            ),
         ));
     }
 }

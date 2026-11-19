@@ -805,9 +805,9 @@ fn no_arms_reason(equations: &[Decl]) -> String {
     ] = equations
         && tail_split(body).is_none()
     {
-        return "its body has no `if` or `match` at the top, so no equations are \
-                generated; move the split to the top (for example, make the `match` \
-                the whole right side) so its branches can be equations"
+        return "its body has no `if` or `match` at the top; move the split to the \
+                top (for example, make the `match` the whole right side) so its \
+                branches can be equations"
             .to_string();
     }
     "its arms couldn't be read as equations".to_string()
