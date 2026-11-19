@@ -5,12 +5,14 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Leaf, Note, Tok, Token, Word)
 import Syntax.SettleProofs (tokens)
 import Fmt (..)
-import Fmt.TreeJoinProofs (lexKind)
+import Fmt.TreeJoinProofs (infixListed, lexKind)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.LedProofs (..)
 import Fmt.Driver1 (..)
 import Fmt.OneLineParts (..)
+import Fmt.SpellProofs (allAppendBool, allConsBool, allSplitBool)
+import Fmt.WordsEdgeLine (..)
 
 -- Loud words start their lines.
 
@@ -25,6 +27,9 @@ def Loud: List Word → List Token → Bool
   | [word, ..words], [token, ..tokens] =>
     (token.text == word.text) && (!word.loud1 || token.lineStart) && Loud words tokens
   | _, _ => False
+
+--| A word the rules leave where the line goes on.
+def Word.still1 (word: Word): Bool := !word.loud1
 
 def Token.nonComma (token: Token): Bool := !(token.kind == Comma)
 
@@ -119,3 +124,413 @@ theorem standsLoud ∀ (owed: Option Text) (words: List Word) (leaves: List Leaf
                 (Bool.andIntro
                   (loudLeaf leaf word headed (Bool.andLeft led) (Bool.andLeft kinded) closer)
                   (standsLoud still later rest tail (Bool.andRight kinded) (Bool.andRight led)))
+
+-- Splitting the tokens by the words.
+
+theorem loudSplit ∀ (front back: List Word) (tokens: List Token)
+    (loud: Loud (front ++ back) tokens = True):
+    ∃ (first second: List Token) => tokens = first ++ second ∧ Loud front first = True ∧ Loud back second = True :=
+  match front, tokens, loud with
+    | [], tokens, loud => ([], tokens, byComputing, byComputing, loud)
+    | [word, ..words], [token, ..others], loud =>
+      let (first, second, split, frontLoud, backLoud) :=
+        loudSplit words back others (Bool.andRight (Bool.andRight loud))
+      (
+        [token, ..first],
+        second,
+        (rewrite split),
+        Bool.andIntro (Bool.andLeft loud) (Bool.andIntro (Bool.andLeft (Bool.andRight loud)) frontLoud),
+        backLoud
+      )
+
+theorem loudQuiet ∀ (words: List Word) (tokens: List Token)
+    (loud: Loud words tokens = True)
+    (quiet: tokens.all (token => !token.lineStart) = True):
+    words.all Word.still1 = True :=
+  match words, tokens, loud with
+    | [], [], _ => byComputing
+    | [word, ..rest], [token, ..others], loud =>
+      let starts: token.lineStart = False := Bool.notTrue _ (Bool.andLeft quiet)
+      let step: (!word.loud1 || token.lineStart) = True := Bool.andLeft (Bool.andRight loud)
+      Bool.andIntro
+        (rewrite starts at step then rewrite Bool.orFalse (!word.loud1) at step then step)
+        (loudQuiet rest others (Bool.andRight (Bool.andRight loud)) (Bool.andRight quiet))
+
+--| A word the lexer reads as no `:=`.
+def Word.notAssign1 (word: Word): Bool := notAssign word.text
+
+--| A token that is no `:=`.
+def Token.notAssign1 (token: Token): Bool := !(token.kind == ColonEq)
+
+theorem loudAssign ∀ (words: List Word) (tokens: List Token)
+    (loud: Loud words tokens = True)
+    (kinded: tokens.all (token => token.kind == lexKind token.text) = True)
+    (other: words.all Word.notAssign1 = True):
+    tokens.all Token.notAssign1 = True :=
+  match words, tokens, loud with
+    | [], [], _ => byComputing
+    | [word, ..rest], [token, ..others], loud =>
+      let sameText: token.text = word.text := DecEq.sound (Bool.andLeft loud)
+      let sameKind: token.kind = lexKind token.text := DecEq.sound (Bool.andLeft kinded)
+      let head: Token.notAssign1 token = True := rewrite sameKind, sameText then Bool.andLeft other
+      Bool.andIntro head
+        (loudAssign rest others (Bool.andRight (Bool.andRight loud)) (Bool.andRight kinded) (Bool.andRight other))
+
+-- `onLine1` with the commas left out.
+
+theorem allFilter ∀ (tokens: List Token) (keep check: Token → Bool)
+    (all: tokens.all check = True):
+    (tokens.filter keep).all check = True :=
+  match tokens with
+    | [] => byComputing
+    | [token, ..rest] =>
+      match keep token with
+        | True => Bool.andIntro (Bool.andLeft all) (allFilter rest keep check (Bool.andRight all))
+        | False => allFilter rest keep check (Bool.andRight all)
+
+theorem valueQuietAll ∀ (tokens: List Token)
+    (quiet: tokens.all (token => !token.lineStart) = True):
+    valueOnLine1 tokens = True :=
+  match tokens with
+    | [] => byComputing
+    | [token, ..rest] => Bool.andRight quiet
+
+theorem valueFilter ∀ (tokens: List Token)
+    (line: valueOnLine1 tokens = True):
+    valueOnLine1 (tokens.filter Token.nonComma) = True :=
+  match tokens, line with
+    | [], _ => byComputing
+    | [token, ..rest], line =>
+      match token.nonComma with
+        | True => allFilter rest Token.nonComma (token => !token.lineStart) line
+        | False =>
+          valueQuietAll (rest.filter Token.nonComma) (allFilter rest Token.nonComma (token => !token.lineStart) line)
+
+theorem typeFilter ∀ (tokens: List Token)
+    (line: typeOnLine1 tokens = True):
+    typeOnLine1 (tokens.filter Token.nonComma) = True :=
+  match tokens, line with
+    | [], _ => byComputing
+    | [token, ..rest], line =>
+      match colon: token.kind == ColonEq, line with
+        | True, line =>
+          let kept: token.nonComma = True := rewrite DecEq.sound colon
+          rewrite kept, colon then valueFilter rest line
+        | False, line =>
+          match token.nonComma with
+            | True => rewrite colon then Bool.andIntro (Bool.andLeft line) (typeFilter rest (Bool.andRight line))
+            | False => typeFilter rest (Bool.andRight line)
+
+theorem typeSplitTokens ∀ (front back: List Token)
+    (other: front.all Token.notAssign1 = True)
+    (line: typeOnLine1 (front ++ back) = True):
+    front.all (token => !token.lineStart) = True ∧ typeOnLine1 back = True :=
+  match front with
+    | [] => (byComputing, line)
+    | [token, ..rest] =>
+      let notColon: (token.kind == ColonEq) = False := Bool.notTrue _ (Bool.andLeft other)
+      let stepped: (!token.lineStart && typeOnLine1 (rest ++ back)) = True := rewrite notColon at line then line
+      let (quiet, after) := typeSplitTokens rest back (Bool.andRight other) (Bool.andRight stepped)
+      (Bool.andIntro (Bool.andLeft stepped) quiet, after)
+
+-- From the words to the tree.
+
+--| Every word after the first is still.
+def tailStill: List Word → Bool
+  | [] => True
+  | [_, ..rest] => rest.all Word.still1
+
+theorem tailOfAll ∀ (words: List Word) (all: words.all Word.still1 = True): tailStill words = True := match words with
+  | [] => byComputing
+  | [word, ..rest] => Bool.andRight all
+
+theorem tailSplit ∀ (front back: List Word)
+    (still: tailStill (front ++ back) = True):
+    tailStill front = True ∧ tailStill back = True :=
+  match front with
+    | [] => (byComputing, still)
+    | [word, ..rest] =>
+      let (restStill, backStill) := allSplitBool rest back Word.still1 still
+      (restStill, tailOfAll back backStill)
+
+theorem closeBare ∀ (word: Word)
+    (closer: (lexKind word.text).isCloser = True)
+    (still: word.still1 = True):
+    word.bare1 = True :=
+  match word with
+    | { text, comments = { above, after, blankBefore } } =>
+      let quiet: (!(!above.isEmpty || blankBefore || (after.isSome && (lexKind text).isCloser))) = True := still
+      let shut: (!(!above.isEmpty || blankBefore || after.isSome)) = True :=
+        rewrite closer, Bool.andTrue after.isSome at quiet then quiet
+      match above, blankBefore, after, shut with
+        | [], False, None, _ => byComputing
+
+theorem closeOf ∀ (word: Word) (closer: Text)
+    (text: (word.text == closer) = True)
+    (kind: (lexKind closer).isCloser = True)
+    (still: word.still1 = True):
+    word.bare1 = True :=
+  closeBare word (rewrite DecEq.sound text then kind) still
+
+--| The closers of an expression whose words after the first are still have no comments, after `calm`.
+--|
+--| Proof idea: by induction on the expression; a closer is never an expression's first word, so each is still, and
+--| a still closer is bare (`closeBare`).
+theorem closersOfTail ∀ (expr: Expr) (item: Bool)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True)
+    (still: tailStill (expr.calm item).words = True):
+    (expr.calm item).closersBare1 = True :=
+  match expr with
+    | Atom _ _ => byComputing
+    | Paren open inner close =>
+      let (_, closeText, innerLexical) := lexical
+      let (innerStill, closeStill) := allSplitBool (inner.calm False).words [close.kept False True] Word.still1 still
+      Bool.andIntro
+        (closersOfTail inner False within innerLexical (tailOfAll _ innerStill))
+        (closeOf (close.kept False True) ")" closeText byComputing (Bool.andLeft closeStill))
+    | Tuple open items _ close =>
+      let (_, closeText, itemsLexical) := lexical
+      let (itemsStill, closeStill) :=
+        allSplitBool (itemsWords (calmAll True items)) [close.kept False True] Word.still1 still
+      Bool.andIntro
+        (itemsClosers items True within itemsLexical (tailOfAll _ itemsStill))
+        (closeOf (close.kept False True) ")" closeText byComputing (Bool.andLeft closeStill))
+    | ListOf open items _ close =>
+      let (_, closeText, itemsLexical) := lexical
+      let (itemsStill, closeStill) :=
+        allSplitBool (itemsWords (calmItems items)) [close.kept False True] Word.still1 still
+      Bool.andIntro
+        (pickClosers items within itemsLexical (tailOfAll _ itemsStill))
+        (closeOf (close.kept False True) "]" closeText byComputing (Bool.andLeft closeStill))
+    | App head arguments =>
+      let (headStill, argumentsStill) := tailSplit (head.calm item).words (itemsWords (calmAll False arguments)) still
+      Bool.andIntro
+        (closersOfTail head item (Bool.andLeft within) (Bool.andLeft lexical) headStill)
+        (itemsClosers arguments False (Bool.andRight within) (Bool.andRight lexical) argumentsStill)
+    | Infix kind left operator right =>
+      let (leftStill, restStill) :=
+        tailSplit (left.calm item).words [operator.kept False False, ..(right.calm False).words] still
+      let (leftLexical, _, rightLexical) := lexical
+      match kind with
+        | InfixBinary =>
+          let (leftWithin, rightWithin, _) := within
+          Bool.andIntro
+            (closersOfTail left item leftWithin leftLexical leftStill)
+            (closersOfTail right False rightWithin rightLexical (tailOfAll _ restStill))
+        | InfixArrow =>
+          let (leftWithin, rightWithin, _) := within
+          Bool.andIntro
+            (closersOfTail left item leftWithin leftLexical leftStill)
+            (closersOfTail right False rightWithin rightLexical (tailOfAll _ restStill))
+        | _ => cases
+    | Prefix operator operand =>
+      closersOfTail operand False (Bool.andLeft within) (Bool.andRight lexical) (tailOfAll _ still)
+
+theorem itemsClosers ∀ (items: List Expr) (item: Bool)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True)
+    (still: tailStill (itemsWords (calmAll item items)) = True):
+    allClosersBare1 (calmAll item items) = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      let (firstStill, restStill) := tailSplit (first.calm item).words (itemsWords (calmAll item rest)) still
+      Bool.andIntro
+        (closersOfTail first item (Bool.andLeft within) (Bool.andLeft lexical) firstStill)
+        (itemsClosers rest item (Bool.andRight within) (Bool.andRight lexical) restStill)
+
+theorem pickClosers ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True)
+    (still: tailStill (itemsWords (calmItems items)) = True):
+    allClosersBare1 (calmItems items) = True :=
+  match plain: items.all Expr.plainItem, still with
+    | False, still => itemsClosers items True within lexical still
+    | True, still =>
+      match items, still with
+        | [], _ => byComputing
+        | [first, ..rest], still =>
+          let (firstStill, restStill) := tailSplit (first.calm False).words (itemsWords (calmAll True rest)) still
+          Bool.andIntro
+            (closersOfTail first False (Bool.andLeft within) (Bool.andLeft lexical) firstStill)
+            (itemsClosers rest True (Bool.andRight within) (Bool.andRight lexical) restStill)
+
+-- Blank-line flags.
+
+--| The first word's blank-line flag, if set, is below own-line comments.
+def headBelow: List Word → Bool
+  | [] => True
+  | [word, .._] => word.blankBelow1
+
+theorem headAppend ∀ (front back: List Word)
+    (frontBelow: headBelow front = True)
+    (backBelow: headBelow back = True):
+    headBelow (front ++ back) = True :=
+  match front with
+    | [] => backBelow
+    | [word, ..rest] => frontBelow
+
+theorem keptBelow ∀ (word: Word) (closer: Bool): (word.kept False closer).blankBelow1 = True := match word with
+  | { text, comments = { above, after, blankBefore } } =>
+    match above, blankBefore with
+      | [], True => byComputing
+      | [], False => byComputing
+      | [_, .._], _ => byComputing
+
+--| `calm` with no item clears the first word's blank-line flag unless comments are above it.
+theorem calmHead ∀ (expr: Expr) (within: expr.within1 = True): headBelow (expr.calm False).words = True :=
+  match expr with
+    | Atom _ word => keptBelow word False
+    | Paren open _ _ => keptBelow open False
+    | Tuple open _ _ _ => keptBelow open False
+    | ListOf open _ _ _ => keptBelow open False
+    | App head arguments =>
+      headAppend
+        (head.calm False).words
+        (itemsWords (calmAll False arguments))
+        (calmHead head (Bool.andLeft within))
+        (itemsHead arguments (Bool.andRight within))
+    | Infix kind left operator right =>
+      match kind with
+        | InfixBinary =>
+          headAppend
+            (left.calm False).words
+            [operator.kept False False, ..(right.calm False).words]
+            (calmHead left (Bool.andLeft within))
+            (keptBelow operator False)
+        | InfixArrow =>
+          headAppend
+            (left.calm False).words
+            [operator.kept False False, ..(right.calm False).words]
+            (calmHead left (Bool.andLeft within))
+            (keptBelow operator False)
+        | _ => cases
+    | Prefix operator _ => keptBelow operator False
+
+theorem itemsHead ∀ (items: List Expr)
+    (within: allWithin1 items = True):
+    headBelow (itemsWords (calmAll False items)) = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      headAppend
+        (first.calm False).words
+        (itemsWords (calmAll False rest))
+        (calmHead first (Bool.andLeft within))
+        (itemsHead rest (Bool.andRight within))
+
+theorem stillBelow ∀ (word: Word) (still: word.still1 = True): word.blankBelow1 = True := match word with
+  | { text, comments = { above, after, blankBefore } } =>
+    match above, blankBefore, still with
+      | [], False, _ => byComputing
+      | [], True, never => cases
+      | [_, .._], _, _ => byComputing
+
+theorem allBelow ∀ (words: List Word) (all: words.all Word.still1 = True): words.all Word.blankBelow1 = True :=
+  match words with
+    | [] => byComputing
+    | [word, ..rest] => Bool.andIntro (stillBelow word (Bool.andLeft all)) (allBelow rest (Bool.andRight all))
+
+theorem headTailBelow ∀ (words: List Word)
+    (head: headBelow words = True)
+    (still: tailStill words = True):
+    words.all Word.blankBelow1 = True :=
+  match words with
+    | [] => byComputing
+    | [word, ..rest] => Bool.andIntro head (allBelow rest still)
+
+-- No word of the type is a `:=`.
+
+theorem fixedNotAssign ∀ (word: Word) (fixed: Text)
+    (same: (word.text == fixed) = True)
+    (other: notAssign fixed = True):
+    word.notAssign1 = True :=
+  rewrite DecEq.sound same then other
+
+theorem calmAssign ∀ (expr: Expr) (item: Bool)
+    (within: expr.within1 = True)
+    (lexical: expr.lexical1 = True):
+    (expr.calm item).words.all Word.notAssign1 = True :=
+  match expr with
+    | Atom kind word => Bool.andIntro (atomAssign kind word within) byComputing
+    | Paren open inner close =>
+      let (openText, closeText, innerLexical) := lexical
+      Bool.andIntro
+        (fixedNotAssign (open.kept item False) "(" openText byComputing)
+        (rewrite allAppendBool (inner.calm False).words [close.kept False True] Word.notAssign1 then
+          Bool.andIntro
+            (calmAssign inner False within innerLexical)
+            (Bool.andIntro (fixedNotAssign (close.kept False True) ")" closeText byComputing) byComputing))
+    | Tuple open items _ close =>
+      let (openText, closeText, itemsLexical) := lexical
+      Bool.andIntro
+        (fixedNotAssign (open.kept item False) "(" openText byComputing)
+        (rewrite allAppendBool (itemsWords (calmAll True items)) [close.kept False True] Word.notAssign1 then
+          Bool.andIntro
+            (itemsAssign items True within itemsLexical)
+            (Bool.andIntro (fixedNotAssign (close.kept False True) ")" closeText byComputing) byComputing))
+    | ListOf open items _ close =>
+      let (openText, closeText, itemsLexical) := lexical
+      Bool.andIntro
+        (fixedNotAssign (open.kept item False) "[" openText byComputing)
+        (rewrite allAppendBool (itemsWords (calmItems items)) [close.kept False True] Word.notAssign1 then
+          Bool.andIntro
+            (pickAssign items within itemsLexical)
+            (Bool.andIntro (fixedNotAssign (close.kept False True) "]" closeText byComputing) byComputing))
+    | App head arguments =>
+      rewrite allAppendBool (head.calm item).words (itemsWords (calmAll False arguments)) Word.notAssign1 then
+        Bool.andIntro
+          (calmAssign head item (Bool.andLeft within) (Bool.andLeft lexical))
+          (itemsAssign arguments False (Bool.andRight within) (Bool.andRight lexical))
+    | Infix kind left operator right =>
+      let (leftLexical, _, rightLexical) := lexical
+      let listed := infixListed kind left operator right within
+      rewrite allAppendBool
+            (left.calm item).words
+            [operator.kept False False, ..(right.calm False).words]
+            Word.notAssign1 then
+        match kind with
+          | InfixBinary =>
+            let (leftWithin, rightWithin, _) := within
+            Bool.andIntro
+              (calmAssign left item leftWithin leftLexical)
+              (Bool.andIntro (operatorAssign operator.text listed) (calmAssign right False rightWithin rightLexical))
+          | InfixArrow =>
+            let (leftWithin, rightWithin, _) := within
+            Bool.andIntro
+              (calmAssign left item leftWithin leftLexical)
+              (Bool.andIntro (operatorAssign operator.text listed) (calmAssign right False rightWithin rightLexical))
+          | _ => cases
+    | Prefix operator operand =>
+      let (operandWithin, prefixed) := within
+      Bool.andIntro
+        (prefixAssign operator.text prefixed)
+        (calmAssign operand False operandWithin (Bool.andRight lexical))
+
+theorem itemsAssign ∀ (items: List Expr) (item: Bool)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True):
+    (itemsWords (calmAll item items)).all Word.notAssign1 = True :=
+  match items with
+    | [] => byComputing
+    | [first, ..rest] =>
+      rewrite allAppendBool (first.calm item).words (itemsWords (calmAll item rest)) Word.notAssign1 then
+        Bool.andIntro
+          (calmAssign first item (Bool.andLeft within) (Bool.andLeft lexical))
+          (itemsAssign rest item (Bool.andRight within) (Bool.andRight lexical))
+
+theorem pickAssign ∀ (items: List Expr)
+    (within: allWithin1 items = True)
+    (lexical: allLexical1 items = True):
+    (itemsWords (calmItems items)).all Word.notAssign1 = True :=
+  match plain: items.all Expr.plainItem with
+    | False => itemsAssign items True within lexical
+    | True =>
+      match items with
+        | [] => byComputing
+        | [first, ..rest] =>
+          rewrite allAppendBool (first.calm False).words (itemsWords (calmAll True rest)) Word.notAssign1 then
+            Bool.andIntro
+              (calmAssign first False (Bool.andLeft within) (Bool.andLeft lexical))
+              (itemsAssign rest True (Bool.andRight within) (Bool.andRight lexical))
