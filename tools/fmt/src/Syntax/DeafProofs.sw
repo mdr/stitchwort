@@ -990,3 +990,175 @@ theorem grammar1Deaf ∀ (decl: Decl): decl.grammar1 = (decl.walk blankPure).gra
           | Primitive => byComputing
           | Arms arms => byComputing
   | _ => cases
+
+-- What the lowering's checks read.
+
+theorem anyGuardWithoutBodyDeaf ∀ (arms: List Arm):
+    anyGuardWithoutBody arms = anyGuardWithoutBody (blankArms (walkArms blankPure arms)) :=
+  match arms with
+    | [] => byComputing
+    | [{ bar, patterns, guard, body }, ..rest] =>
+      match guard with
+        | None => rewrite anyGuardWithoutBodyDeaf rest
+        | Some { keyword, binder, condition } =>
+          match body with
+            | None => byComputing
+            | Some (arrow, value) => rewrite anyGuardWithoutBodyDeaf rest
+
+theorem patternBindsDeaf ∀ (pattern: Pattern): pattern.binds = (pattern.walk blankPure).binds := match pattern with
+  | PatternCtor name arguments => anyBindsDeaf arguments
+  | PatternCtorFields name fields => fieldsBindDeaf fields
+  | PatternRecord fields => fieldsBindDeaf fields
+  | PatternTuple open items comma close => anyBindsDeaf items
+  | PatternList open items comma tail close =>
+    match tail with
+      | None => rewrite anyBindsDeaf items
+      | Some (bar, rest) => rewrite anyBindsDeaf items, patternBindsDeaf rest
+  | PatternNamed open name colonEq value close => patternBindsDeaf value
+  | PatternOr first rest => rewrite patternBindsDeaf first, anyLinkBindsDeaf rest
+  | PatternParen open inner close => patternBindsDeaf inner
+  | PatternAppend start operator rest => rewrite patternBindsDeaf start, patternBindsDeaf rest
+  | _ => byComputing
+
+theorem anyBindsDeaf ∀ (patterns: List Pattern): anyBinds patterns = anyBinds (walkPatterns blankPure patterns) :=
+  match patterns with
+    | [] => byComputing
+    | [first, ..rest] => rewrite patternBindsDeaf first, anyBindsDeaf rest
+
+theorem anyLinkBindsDeaf ∀ (links: List (Word, Pattern)):
+    anyLinkBinds links = anyLinkBinds (blankLinks (walkPatternLinks blankPure links)) :=
+  match links with
+    | [] => byComputing
+    | [(bar, item), ..rest] => rewrite patternBindsDeaf item, anyLinkBindsDeaf rest
+
+theorem fieldsBindDeaf ∀ (fields: FieldsPattern):
+    fieldsBind fields = fieldsBind (FieldsPattern.blank (walkFields blankPure fields)) :=
+  match fields with | { open, fields, trailingComma, rest, close } => anyFieldBindsDeaf fields
+
+theorem anyFieldBindsDeaf ∀ (fields: List FieldPattern):
+    anyFieldBinds fields = anyFieldBinds (blankFieldPatterns (walkFieldPatterns blankPure fields)) :=
+  match fields with
+    | [] => byComputing
+    | [{ name, value }, ..rest] =>
+      match value with
+        | None => rewrite anyFieldBindsDeaf rest
+        | Some (equals, pattern) => rewrite patternBindsDeaf pattern, anyFieldBindsDeaf rest
+
+theorem spineRepeatDeaf ∀ (header: List Text) (expr: Expr):
+    spineRepeat header expr = spineRepeat header (expr.walk blankPure) :=
+  match expr with
+    | FunctionType
+        ({ kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare })
+        arrow
+        result =>
+      match implicit with
+        | False => spineRepeatDeaf header result
+        | True =>
+          rewrite wordsTextsBlank names then
+            match e: (names.map (name => name.text)).find (name => header.contains name) with
+              | Some found => byComputing
+              | None => spineRepeatDeaf header result
+    | Infix kind left operator right =>
+      match kind with
+        | InfixArrow => spineRepeatDeaf header right
+        | _ => byComputing
+    | _ => byComputing
+
+theorem groupNamesDeaf ∀ (groups: List Group):
+    groupNames groups = groupNames (blankGroups (walkGroups blankPure groups)) :=
+  match groups with
+    | [] => byComputing
+    | [{ kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare }, ..rest] =>
+      rewrite wordsTextsBlank names, groupNamesDeaf rest
+
+theorem duplicateParameterDeaf ∀ (header: Header):
+    duplicateParameter header = duplicateParameter (walkHeader blankPure header) :=
+  match header with
+    | {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params,
+        colon,
+        result,
+        decreasingClause,
+        unfoldingClause
+      } =>
+      rewrite groupNamesDeaf params then
+        match e: repeatedIn [] (groupNames (blankGroups (walkGroups blankPure params))) with
+          | Some repeated => byComputing
+          | None =>
+            rewrite <- spineRepeatDeaf (groupNames (blankGroups (walkGroups blankPure params))) result,
+                groupNamesDeaf params then
+              match f: spineRepeat (groupNames (blankGroups (walkGroups blankPure params))) result with
+                | Some repeated => byComputing
+                | None => byComputing
+
+theorem localDuplicateDeaf ∀ (statements: List Statement):
+    localDuplicate statements = localDuplicate (blankStatements (walkStatements blankPure statements)) :=
+  match statements with
+    | [] => byComputing
+    | [LetStatement binding, ..rest] => localDuplicateDeaf rest
+    | [ExprStatement value, ..rest] => localDuplicateDeaf rest
+    | [LocalDef attributes header body, ..rest] =>
+      rewrite duplicateParameterDeaf header then
+        match e: duplicateParameter (walkHeader blankPure header) with
+          | Some message => byComputing
+          | None => localDuplicateDeaf rest
+
+-- From the stripped form to related inputs.
+
+--| Every look-ahead lemma above has the form `f items = f (items.map Item.stripped)`; this is how a walk uses one on the
+--| items of two runs.
+theorem deafOfStripped ∀ (read: List Item → r)
+    (deaf: ∀ (items: List Item) => read items = read (items.map Item.stripped)) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    read items = read others :=
+  calc read items
+    _ = read (items.map Item.stripped) := deaf items
+    _ = read (others.map Item.stripped) := rewrite sameCodeMap items others same
+    _ = read others := Eq.flipped (deaf others)
+
+--| The same for a function of one item (`Modes.stops modes`, `startsBlock modes`, …).
+theorem deafItem ∀ (read: Item → r)
+    (deaf: ∀ (item: Item) => read item = read item.stripped) (item other: Item)
+    (same: SameCode item other):
+    read item = read other :=
+  calc read item
+    _ = read item.stripped := deaf item
+    _ = read other.stripped := rewrite same
+    _ = read other := Eq.flipped (deaf other)
+
+theorem peekInSame ∀ (modes: Modes) (ahead: Nat) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    peekIn modes ahead items = peekIn modes ahead others :=
+  deafOfStripped (peekIn modes ahead) (peekInDeaf modes ahead) items others same
+
+theorem stopsSame ∀ (modes: Modes) (item other: Item)
+    (same: SameCode item other):
+    modes.stops item = modes.stops other :=
+  deafItem (modes.stops) (stopsDeaf modes) item other same
+
+theorem lambdaAheadSame ∀ (modes: Modes) (fuel: Nat) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    lambdaAhead modes fuel items = lambdaAhead modes fuel others :=
+  deafOfStripped (lambdaAhead modes fuel) (lambdaAheadDeaf modes fuel) items others same
+
+def witnessItem: Item := {
+  leaf = { token = { kind = Lower, text = "x", column = 0, lineStart = True }, trivia = Trivia.empty },
+  glued = False,
+  afterOperand = False,
+  afterDot = False,
+  index = 0,
+  depth = 0,
+  lineIndent = 0
+}
+
+--| The same item with two blank lines before it: `SameCode` holds for this pair.
+def witnessSpaced: Item := { witnessItem | leaf = { witnessItem.leaf | trivia = { Trivia.empty | blankLines = 2 } } }
+
+theorem stopsSameExample: Modes.start.stops witnessItem = Modes.start.stops witnessSpaced :=
+  stopsSame Modes.start witnessItem witnessSpaced byComputing
