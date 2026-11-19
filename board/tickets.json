@@ -1,5 +1,5 @@
 {
-  "next": 4212,
+  "next": 4213,
   "tickets": [
     {
       "id": 47,
@@ -26906,7 +26906,7 @@
     {
       "id": 4202,
       "title": "[Sonnet, bug] Rust fmt P3 not idempotent after an ability row: def f: {Fail} ((x: (A)) => x) := g formats to {Fail} (x: (A)) => x then {Fail} (x: A) => x; also groups merged only on the second run (SW-4196 finding 1); fix with a golden test both runs",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -26932,12 +26932,12 @@
     {
       "id": 4204,
       "title": "[DeepSeek] fmt self-hosted: Rules.sw:356 lambda rule drops a fun keyword (matched with _); paramsWithin2's PatternWord arm is dead; fmt-passes.md line: P3 strips binder types only along a header's type, so (x: (A)) (y: A) => in a value is neither stripped nor merged (SW-4196 findings 3, 4, 7)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.\n\nModel result: DeepSeek, worked, 20 min (est. 20).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27032,6 +27032,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. D3693 (Matt, 19 Nov 2026): 'Keep the blank line everywhere.' Counterexamples and probe: SW-4203 notes; /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4203/CommentsProbe.sw",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4212,
+      "title": "[Sonnet] Self-hosted parser reads fun in 'fun x => x' as a parameter name (NameParam), not the lambda keyword (SW-4204 finding): record it as Binding BindsLambda (Some fun) as the Rust parser does, with a test; then the lambda rule's keyword printing (SW-4204) is live",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 25 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
