@@ -404,12 +404,20 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
     | _ => Nothing
 
 --| A node's document with its first token's own-line comments before it,
---| displaced when a comment puts its first line below where its
---| construct would.
+--| displaced as `Word.displaces` says.
 def Expr.framed (expr: Expr) (around: Around) (doc: Doc): Doc := framedBy expr.firstWord around doc
 
+--| Whether a node starting with `first` is displaced: its first line is
+--| put below where its construct would by own-line comments above it, by
+--| a blank line kept before it as an item (both start a line, at a column
+--| that may be right of the indentation), or by a comment waiting before it.
+--| Printed, a kept blank line always follows a line break, where
+--| `Displaced` lays at the indentation as the node alone does.
+def Word.displaces (first: Word) (around: Around): Bool :=
+  first.noted || (around.item && first.comments.blankBefore) || around.before
+
 def framedBy (first: Word) (around: Around) (doc: Doc): Doc :=
-  let placed := if first.noted || around.before then Displaced doc else doc
+  let placed := if first.displaces around then Displaced doc else doc
   Doc.concat [Doc.concat (first.leading around around.at), placed]
 
 -- Binders.

@@ -1025,8 +1025,14 @@ theorem displacedHangs ∀ (kinds: Text → Tok) (inner: Doc) (indent column: Na
               let deep: (floored carry broken <= broken) = True := rewrite landed then Nat.leRefl broken
               ((byComputing, folded, (byComputing, rewrite landed then landed), deep, wide, room), byComputing))
 
+--| A node that isn't displaced has no comment waiting before it.
+theorem displacesUnheld ∀ (first: Word) (around: Around)
+    (placed: first.displaces around = False):
+    around.before = False :=
+  Bool.orFalseRight _ _ (Bool.orFalseRight _ _ placed)
+
 --| A node framed by its first token, whose own-line comments an enclosing element wrote, or that has none: the node,
---| displaced where a comment waits before it.
+--| displaced or not (`Word.displaces`).
 theorem framedHangs ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (indent column: Nat) (trails: Bool)
     (bare: first.leading around around.at = [])
     (el: ∀ (inset seat: Nat) => ElHangs kinds doc inset seat False trails wordStart):
@@ -1036,7 +1042,7 @@ theorem framedHangs ∀ (kinds: Text → Tok) (first: Word) (around: Around) (do
     let post: Place → Hang → Prop := place hang =>
       Ended (openedBy state (wordStart indent entry)) trails place ∧ hang = At (openedBy state (wordStart indent entry))
     rewrite bare then
-      match placed: first.noted || around.before with
+      match placed: first.displaces around with
         | True =>
           hangsConcat kinds
             [Doc.Nothing, Displaced doc]
@@ -1057,7 +1063,7 @@ theorem framedHangs ∀ (kinds: Text → Tok) (first: Word) (around: Around) (do
                 post
                 (displacedHangs kinds doc indent column around.before trails el state entry)))
         | False =>
-          let unheld: around.before = False := Bool.orFalseRight first.noted around.before placed
+          let unheld: around.before = False := displacesUnheld first around placed
           hangsConcat kinds
             [Doc.Nothing, doc]
             indent

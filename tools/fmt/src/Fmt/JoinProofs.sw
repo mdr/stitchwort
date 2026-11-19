@@ -1201,8 +1201,8 @@ theorem framedPasses ∀ (kinds: Text → Tok) (first: Word) (around: Around) (d
     (inner: Passes kinds doc (Ready kinds True first.text) post):
     Passes kinds (framedBy first around doc) (Ready kinds True first.text) post :=
   let pre := Ready kinds True first.text
-  let placed := if first.noted || around.before then Displaced doc else doc
-  let placedPasses: Passes kinds placed pre post := match first.noted || around.before with
+  let placed := if first.displaces around then Displaced doc else doc
+  let placedPasses: Passes kinds placed pre post := match first.displaces around with
     | True => passesDisplaced kinds doc pre post inner byComputing
     | False => inner
   passesConcat kinds _ pre post

@@ -565,13 +565,18 @@ theorem framedByKept ∀ (first: Word) (around: Around) (doc: Doc) (item: Bool)
   match first with
     | { text, comments = { above = [], after, blankBefore } } =>
       rewrite leadingKept
-        { text, comments = { above = [], after, blankBefore } }
-        around
-        around.at
-        item
-        False
-        same
-        byComputing
+            { text, comments = { above = [], after, blankBefore } }
+            around
+            around.at
+            item
+            False
+            same
+            byComputing,
+          same then
+        match item, blankBefore with
+          | True, True => byComputing
+          | True, False => byComputing
+          | False, _ => byComputing
     | { text, comments = { above = [head, ..rest], after, blankBefore } } =>
       rewrite leadingKept
         { text, comments = { above = [head, ..rest], after, blankBefore } }

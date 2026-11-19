@@ -39,7 +39,7 @@ import Fmt.OutputStatements (tidiedOf)
 import Fmt.OneLineStatements (..)
 import Fmt.Driver1 (..)
 import Fmt.ElementsKeys (LedAt, anyKeys, ledItemHangs)
-import Fmt.ElementsBlank (BlankLined, blankItemHangs)
+import Fmt.ElementsBlank (blankItemHangs)
 import Fmt.ElementsParen (innerLowers, parenLedElHangs, parenPlainElHangs)
 import Fmt.ExprHangProofs (closeParen, openParen, parenInnerPlain)
 import Fmt.TrailsProofs (parenTrails)
@@ -837,8 +837,8 @@ theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Hang
     anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
 
 --| An item with `AnyFacts`, a kept blank line before its first token and no comments above it, hangs from its seat
---| at an entry that isn't a plain line start where `BlankLined` holds, its first token on the line after the blank
---| line (`blankItemHangs`, its hoisted form plain).
+--| at an entry that isn't a plain line start, its first token on the line after the blank line (`blankItemHangs`, its
+--| hoisted form displaced).
 theorem blankAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
     (within: expr.within1 = True)
     (sound: expr.sound = True)
@@ -847,10 +847,9 @@ theorem blankAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Ha
     (item: around.item = True)
     (unnoted: expr.lead.comments.above = [])
     (blank: expr.lead.comments.blankBefore = True)
-    (fresh: plainStart entry = False)
-    (seatLined: BlankLined indent around.before entry):
+    (fresh: plainStart entry = False):
     LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
-  blankItemHangs expr around indent state entry within sound hoisted item unnoted blank fresh seatLined (inset =>
+  blankItemHangs expr around indent state entry within sound hoisted item unnoted blank fresh (inset =>
     anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
 
 --| `ledHangs` for every slice 1 expression with the tree facts.

@@ -143,7 +143,7 @@ theorem closerNotesSteps ∀ (note: Note) (rest: List Note)
 --| Whether a token is printed with nothing before it on its line from where it stands: no own-line comments, no
 --| blank line kept, no comment waiting before it.
 def Word.quietAt (word: Word) (around: Around) (key: Nat): Bool :=
-  !(word.noted || around.before) && (word.leading around key).isEmpty
+  !(word.displaces around) && (word.leading around key).isEmpty
 
 --| A spacing that a word starting its line, or after a space, meets.
 def Loose (first: Spacing): Prop := first.admits False = True
@@ -577,21 +577,21 @@ theorem framedSteps ∀ (first: Word) (around: Around) (doc: Doc) (spacing: List
   let leadLoose: Loose start ∨ (first.leading around around.at).isEmpty = True := match loose with
     | Inl free => Inl free
     | Inr quiet => Inr (Bool.andRight quiet)
-  let fresh: (first.noted || around.before) = True → Loose start := shown =>
+  let fresh: (first.displaces around) = True → Loose start := shown =>
     match loose with
       | Inl free => free
       | Inr quiet => (Bool.falseNotTrue (rewrite shown at quiet then quiet)).impossible
   stepsConcat _ _ _ _
     (stepsTwo
       (Doc.concat (first.leading around around.at))
-      (if first.noted || around.before then Displaced doc else doc)
+      (if first.displaces around then Displaced doc else doc)
       (Fits True start)
       (Fits True start)
       post
       []
       spacing
       (stepsConcat _ _ _ _ (leadingSteps first around around.at True start sound leadLoose))
-      (placedSteps (first.noted || around.before) doc start spacing post inner fresh))
+      (placedSteps (first.displaces around) doc start spacing post inner fresh))
 
 --| An expression of the slice spaces its first code word as `Free`.
 --|

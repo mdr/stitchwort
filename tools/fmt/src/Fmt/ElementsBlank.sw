@@ -3,14 +3,10 @@
 --| follow modes, start a line even where the separator before the item is laid as a space, so its first token starts
 --| the line after the blank line, at `leadColumn`, as a token with comments above it does (`LedAt`).
 --|
---| Printed, such an item always follows a line break (the `BreakParent` breaks every group around it, and a fill's
---| separator before it): there `leadColumn` is the indentation and the node lays as its hoisted form does
---| (`dev/multiline-gate/BlankGate.sw`). `Lays` also has the separator laid as a space; the `LineStart` then breaks to
---| `Nat.max indent (at + 2)`, which can be right of the indentation, and a node is displaced to that column only
---| after a waiting comment (`framedBy`), so otherwise its later lines stay at the indentation, left of its first
---| token, and the line rule fails (`dev/multiline-gate/BlankMid.sw`: a tuple, a list and a chain). So
---| `blankItemHangs` asks, for a node, for a waiting comment before it or a line start at the indentation
---| (`BlankLined`); a name or numeral needs neither (`blankLeafHangs`).
+--| That column can be right of the indentation (`Nat.max indent (at + 2)` after a separator laid as a space), so a
+--| node there is displaced (`Word.displaces`, SW-4155), as one with comments above it is: its later lines follow its
+--| first token. Printed, such an item always follows a line break (`dev/multiline-gate/BlankGate.sw`), where
+--| `Displaced` lays at the indentation as the node alone does, so the displacement changes no printed text.
 
 namespace Fmt.ElementsBlank
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
@@ -131,56 +127,8 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
 
 -- Nodes.
 
---| Where a node with a kept blank line before it may stand so its later lines follow its first token: after a
---| waiting comment, which displaces it to its first token's line (`framedBy`), or where its first token's line starts
---| at the indentation, as after any line break.
-def BlankLined (indent: Nat) (before: Bool) (entry: Place): Prop := before = True ∨ leadColumn indent entry = indent
-
---| A document after nothing lays as it does alone.
-theorem unconcatLays ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
-    (lays: Lays (Doc.concat [Doc.concat [], doc]) indent place trace next):
-    Lays doc indent place trace next :=
-  match empty: doc.isEmpty with
-    | False => lays
-    | True =>
-      match doc, empty, lays with
-        | Doc.Nothing, _, lays => lays
-
---| At the start of a line at the indentation, a node lays as it does with its first token's comments written
---| elsewhere and nothing displaced, entered at that line start.
-theorem linedPlain ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before trails: Bool) (state: HangState)
-    (room: Room state (Some indent))
-    (framed: ElHangs kinds (Doc.concat [Doc.concat [], doc]) indent indent before trails wordStart):
-    HangLays kinds doc indent (LineAt indent indent (Hang.At state)) (place hang =>
-      Ended (openedBy state (Some indent)) trails place ∧ hang = Hang.At (openedBy state (Some indent))) :=
-  place trace next lineAt after =>
-    match place, lineAt with
-      | AtStart at carry, (now, atColumn, landed) =>
-        let laid: Lays (Doc.concat [Doc.concat [], doc]) indent (AtStart at carry) trace next :=
-          framed state
-            (AtStart at carry)
-            (AtStart at carry)
-            trace
-            next
-            (byComputing, now, ((atColumn, landed), Nat.leRefl indent, arithmetic, rewrite atColumn then room))
-            (left later (ended, folded) =>
-              after left later (rewrite atColumn at ended then ended, rewrite atColumn at folded then folded))
-        unconcatLays doc indent (AtStart at carry) trace next laid
-      | Broken at carry, (now, atColumn, landed) =>
-        let laid: Lays (Doc.concat [Doc.concat [], doc]) indent (Broken at carry) trace next :=
-          framed state
-            (Broken at carry)
-            (Broken at carry)
-            trace
-            next
-            (byComputing, now, ((atColumn, landed), Nat.leRefl indent, arithmetic, rewrite atColumn then room))
-            (left later (ended, folded) =>
-              after left later (rewrite atColumn at ended then ended, rewrite atColumn at folded then folded))
-        unconcatLays doc indent (Broken at carry) trace next laid
-      | Mid at carry, never => (Bool.falseNotTrue never).impossible
-      | Held at carry, never => (Bool.falseNotTrue never).impossible
-
---| `blankFramedAt` with the node's placement spelled out: displaced after a waiting comment (`before`).
+--| `blankFramedAt` with the node's placement spelled out: displaced, laid from the start of the line after the blank
+--| line.
 theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (indent: Nat)
     (before trails: Bool) (state: HangState) (entry: Place)
     (hoisted: around.hoisted = False)
@@ -188,16 +136,15 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
     (unnoted: first.comments.above = [])
     (blank: first.comments.blankBefore = True)
     (fresh: plainStart entry = False)
-    (seatLined: BlankLined indent before entry)
     (framed: ∀ (inset: Nat) => ElHangs kinds
-      (Doc.concat [Doc.concat [], if before then Displaced doc else doc])
+      (Doc.concat [Doc.concat [], Displaced doc])
       inset
       inset
       before
       trails
       wordStart):
     LedAt kinds
-      (Doc.concat [Doc.concat (first.leading around around.at), if before then Displaced doc else doc])
+      (Doc.concat [Doc.concat (first.leading around around.at), Displaced doc])
       indent
       before
       trails
@@ -208,72 +155,39 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
   let lined := LineAt indent column (Hang.At state)
   let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = Hang.At opened
   let leadingDocs := first.leading around around.at
-  match before with
-    | True =>
-      let pre := Entered indent indent True state entry (leadStart indent entry)
-      place trace next entered after =>
-        match entered with
-          | (_, _, (seated, _, _, room)) =>
-            let leading :=
-              hangsConcat kinds leadingDocs indent pre lined
-                (allHangsPre kinds leadingDocs indent
-                  (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent True state entry)
-                  pre
-                  lined
-                  (blankLeadingHangs kinds first around around.at indent True state entry hoisted item unnoted blank
-                      fresh)
-                  (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
-            let body :=
-              linedDisplaced kinds doc indent column True trails state
-                (leadDeep indent True state entry seated)
-                room
-                framed
-            hangsConcat kinds
-              [Doc.concat leadingDocs, Displaced doc]
-              indent
+  let pre := Entered indent indent before state entry (leadStart indent entry)
+  place trace next entered after =>
+    match entered with
+      | (_, _, (seated, _, _, room)) =>
+        let leading :=
+          hangsConcat kinds leadingDocs indent pre lined
+            (allHangsPre kinds leadingDocs indent
+              (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent before state entry)
               pre
-              post
-              (hangsTwo kinds (Doc.concat leadingDocs) (Displaced doc) indent pre lined post leading body)
-              place
-              trace
-              next
-              entered
-              after
-    | False =>
-      let pre := Entered indent indent False state entry (leadStart indent entry)
-      let atIndent: column = indent := match seatLined with
-        | Inl never => (Bool.falseNotTrue never).impossible
-        | Inr same => same
-      place trace next entered after =>
-        match entered with
-          | (_, _, (seated, _, _, room)) =>
-            let leading :=
-              hangsConcat kinds leadingDocs indent pre lined
-                (allHangsPre kinds leadingDocs indent
-                  (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent False state entry)
-                  pre
-                  lined
-                  (blankLeadingHangs kinds first around around.at indent False state entry hoisted item unnoted blank
-                      fresh)
-                  (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
-            let body :=
-              linedPlain kinds doc indent False trails state (rewrite atIndent at room then room) (framed indent)
-            let atLine: HangLays kinds doc indent lined post := rewrite atIndent then body
-            hangsConcat kinds
-              [Doc.concat leadingDocs, doc]
-              indent
-              pre
-              post
-              (hangsTwo kinds (Doc.concat leadingDocs) doc indent pre lined post leading atLine)
-              place
-              trace
-              next
-              entered
-              after
+              lined
+              (blankLeadingHangs kinds first around around.at indent before state entry hoisted item unnoted blank
+                  fresh)
+              (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
+        let body :=
+          linedDisplaced kinds doc indent column before trails state
+            (leadDeep indent before state entry seated)
+            room
+            framed
+        hangsConcat kinds
+          [Doc.concat leadingDocs, Displaced doc]
+          indent
+          pre
+          post
+          (hangsTwo kinds (Doc.concat leadingDocs) (Displaced doc) indent pre lined post leading body)
+          place
+          trace
+          next
+          entered
+          after
 
 --| A node framed by its first token, which has a kept blank line before it as an item and no comments above it, at
---| one entry that isn't a plain line start, where `BlankLined` holds: the blank line, then the node from the start of
---| the line after it. `framed` is the node with its first token's blank line written elsewhere (`hoisted`).
+--| one entry that isn't a plain line start: the blank line, then the node displaced from the start of the line after
+--| it. `framed` is the node with its first token's blank line written elsewhere (`hoisted`), displaced all the same.
 theorem blankFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (indent: Nat) (trails: Bool)
     (state: HangState) (entry: Place)
     (hoisted: around.hoisted = False)
@@ -281,9 +195,8 @@ theorem blankFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
     (unnoted: first.comments.above = [])
     (blank: first.comments.blankBefore = True)
     (fresh: plainStart entry = False)
-    (seatLined: BlankLined indent around.before entry)
     (framed: ∀ (inset: Nat) => ElHangs kinds
-      (Doc.concat [Doc.concat [], if around.before then Displaced doc else doc])
+      (Doc.concat [Doc.concat [], Displaced doc])
       inset
       inset
       around.before
@@ -291,12 +204,10 @@ theorem blankFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
       wordStart):
     LedAt kinds (framedBy first around doc) indent around.before trails state entry :=
   let isUnnoted: first.noted = False := rewrite unnoted
-  let unframed: framedBy first around doc
-    = Doc.concat [Doc.concat (first.leading around around.at), if around.before then Displaced doc else doc] :=
-    rewrite isUnnoted
+  let unframed: framedBy first around doc = Doc.concat [Doc.concat (first.leading around around.at), Displaced doc] :=
+    rewrite isUnnoted, item, blank
   rewrite unframed then
-    blankPlacedAt kinds first around doc indent around.before trails state entry hoisted item unnoted blank fresh
-        seatLined framed
+    blankPlacedAt kinds first around doc indent around.before trails state entry hoisted item unnoted blank fresh framed
 
 --| A node whose first token has a kept blank line before it as an item and no comments above it, at one entry
 --| (`blankFramedAt` from its hoisted form).
@@ -309,7 +220,6 @@ theorem blankNodeAt ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around
     (unnoted: word.comments.above = [])
     (blank: word.comments.blankBefore = True)
     (fresh: plainStart entry = False)
-    (seatLined: BlankLined indent around.before entry)
     (hoistedHangs: ∀ (inset: Nat) => ElHangs lexKind
       (expr.el { around | hoisted = True })
       inset
@@ -320,35 +230,21 @@ theorem blankNodeAt ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around
     LedAt lexKind (expr.el around) indent around.before trails state entry :=
   let lifted := { around | hoisted = True }
   let isUnnoted: word.noted = False := rewrite unnoted
-  let unwrapped: framedBy word lifted (node lifted)
-    = Doc.concat [Doc.concat [], if around.before then Displaced (node around) else node around] :=
-    rewrite isUnnoted, same
+  let unwrapped: framedBy word lifted (node lifted) = Doc.concat [Doc.concat [], Displaced (node around)] :=
+    rewrite isUnnoted, same, item, blank
   rewrite elIs around then
-    blankFramedAt lexKind word around
-      (node around)
-      indent
-      trails
-      state
-      entry
-      hoisted
-      item
-      unnoted
-      blank
-      fresh
-      seatLined
-      (inset =>
-        let fact := hoistedHangs inset
-        rewrite elIs lifted, unwrapped at fact then fact)
+    blankFramedAt lexKind word around (node around) indent trails state entry hoisted item unnoted blank fresh (inset =>
+      let fact := hoistedHangs inset
+      rewrite elIs lifted, unwrapped at fact then fact)
 
 --| A slice 1 expression standing as an item, with a kept blank line before its first token and no comments above it,
 --| hangs from its seat at an entry that isn't a plain line start, its first token on the line after the blank line
---| (`leadStart`), where a node's later lines can follow it (`BlankLined`; a name or numeral needs no such seat, see
---| `blankLeafHangs`). `hoistedHangs` is the expression with its blank line written elsewhere, which `AnyFacts` gives
+--| (`leadStart`). `hoistedHangs` is the expression with its blank line written elsewhere, which `AnyFacts` gives
 --| (`Fmt.ElementsProofs.anyHangsOf`, plain when hoisted).
 --|
 --| Proof idea: `ledItemHangs`' cases with the blank line in place of the comments: a name or numeral by
---| `blankLeafHangs`, a node by `blankNodeAt` from its hoisted form, laid from the line start after the blank line,
---| displaced there after a waiting comment and at the indentation otherwise.
+--| `blankLeafHangs`, a node by `blankNodeAt` from its hoisted form, displaced and laid from the line start after the
+--| blank line.
 theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
     (within: expr.within1 = True)
     (sound: expr.sound = True)
@@ -357,7 +253,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
     (unnoted: expr.lead.comments.above = [])
     (blank: expr.lead.comments.blankBefore = True)
     (fresh: plainStart entry = False)
-    (seatLined: BlankLined indent around.before entry)
     (hoistedHangs: ∀ (inset: Nat) => ElHangs lexKind
       (expr.el { around | hoisted = True })
       inset
@@ -391,7 +286,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
     | Tuple open items trailing close, _ =>
       blankNodeAt
@@ -410,7 +304,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
     | ListOf open items trailing close, _ =>
       blankNodeAt
@@ -429,7 +322,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
     | App head arguments, within =>
       let node: Around → Doc := at => (appDocs head arguments { at | hoisted = True }).doc
@@ -451,7 +343,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
     | Infix InfixBinary left operator right, within =>
       let expr := Infix InfixBinary left operator right
@@ -466,7 +357,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
     | Infix InfixArrow left operator right, within =>
       let expr := Infix InfixArrow left operator right
@@ -481,7 +371,6 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
     | Prefix operator operand, _ =>
       blankNodeAt
@@ -505,5 +394,4 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         unnoted
         blank
         fresh
-        seatLined
         hoistedHangs
