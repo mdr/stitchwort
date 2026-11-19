@@ -26585,12 +26585,12 @@
     {
       "id": 4178,
       "title": "[Sonnet] std: Parse.readsAtMark and Parse.readsAtLeft generic over the token type, replacing the copies in Syntax/GoodItemProofs (Char), ParseWalk, ParseCarriesDecl/ParseKept (Item) and toyfmt CarryProofs (Tok) (SW-4157 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4178",
       "labels": [],
       "epic": "std-library",
-      "body": "Est. 20 min. After SW-4175 (ParseKept/ParseCarriesDecl).",
+      "body": "Est. 20 min. After SW-4175 (ParseKept/ParseCarriesDecl).\n\n\nLane notes: std Parse.readsAtMark (k, spec, start, each) and Parse.readsAtLeft added in Parse/Reads.sw; copies in GoodItemProofs, ParseKept, ParseWalk, ParseCarriesDecl and toyfmt CarryProofs deleted, users repointed. Checked fmt/toyfmt namespaces, audits clean.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
