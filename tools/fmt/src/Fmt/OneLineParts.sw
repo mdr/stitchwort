@@ -10,8 +10,10 @@
 --|   words' order says nothing of blank lines (`[a,⏎⏎b]` and `[a, b]` print the same words), so this needs the
 --|   document's line breaks too (the `LineStart` and `Blank` the rules write for a kept blank line).
 --|
---| The document's line breaks are read today by `printTold`, which needs the document to lay (`Lays`), which
+--| The document's line breaks are read by `printTold`, which needs the document to lay (`Lays`), which
 --| `doc1Hangs` gives from `DeclHangs`, which `edgeElements1` gives from `edgeQuiet1`: the circle SW-4096 avoided.
+--| `Fmt.OneLineLays` (SW-4108) breaks it: `printTold` needs no columns, and that the document lays with any is a
+--| check that computes (`Fmt.LaysKinds`).
 --| `edgeQuietOfParts` puts the three together.
 
 namespace Fmt.OneLineParts
@@ -301,14 +303,15 @@ theorem wordsEdgeOneLine1 ∀ (decl: Decl)
     decl.wordsEdge1 = True :=
   ?
 
---| A one-line declaration's closers hold no comments (open; no route known that avoids `DeclHangs`).
+--| A one-line declaration's closers hold no comments (open; route in `Fmt.OneLineLays`).
 --|
 --| `settled1`'s `homedBack` gives a closer with a trailing comment own-line comments, or a comment on the code before
 --| it; the rules then write a `CloserLine` before it, so it starts a line, which `onLine1` refuses. The printed words'
 --| order alone doesn't show the line break: a closer may change places with a trailing comment (`Closing` is written
 --| before a waiting one), so `f (a) -- c⏎-- d` has the words and comment breaks of `f (a -- c⏎) -- d` with no closer
---| starting a line. A route needs the document's line breaks without `Lays`, or `DeclHangs` for every slice 1
---| declaration.
+--| starting a line. The line break is read by `printedTold` and `printTold`, which ask only that the document lays
+--| with any columns (`Fmt.OneLineLays.closersBareUnreturned1`, from `doc1Checks` and `closersBareOfStands`, both
+--| open, for declarations with no comment ending in a carriage return).
 theorem closersBareOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -318,13 +321,13 @@ theorem closersBareOneLine1 ∀ (decl: Decl)
     decl.closersBare1 = True :=
   ?
 
---| A one-line declaration's blank-line flags, after `calm`, are below own-line comments (open, SW-4096's step 5; no
---| route known that avoids `DeclHangs`).
+--| A one-line declaration's blank-line flags, after `calm`, are below own-line comments (open, SW-4096's step 5;
+--| route in `Fmt.OneLineLays`).
 --|
 --| `calm` keeps a flag below comments that are no closer's, and on a bracket item's first token with no comments
 --| above it. The rules write such an item's flag as `LineStart` and `Blank`, so the item starts a line, which
---| `onLine1` refuses. The printed words don't show it (`[a,⏎⏎b]` and `[a, b]` print the same words), so a route
---| needs the document's line breaks, as `closersBareOneLine1` does.
+--| `onLine1` refuses. The printed words don't show it (`[a,⏎⏎b]` and `[a, b]` print the same words); the document's
+--| line breaks do, as for `closersBareOneLine1` (`Fmt.OneLineLays.blanksBelowUnreturned1`).
 theorem blanksBelowOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
