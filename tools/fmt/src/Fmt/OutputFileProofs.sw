@@ -15,7 +15,7 @@ namespace Fmt.OutputFileProofs
 import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (..)
 import Syntax.Proofs (AllPlain, Laid, Piece, Spells, utf8Chars, utf8OfText)
-import Syntax.SettleProofs (alphabet1, arrowFollow, plain1, plainFrom, tokens)
+import Syntax.SettleProofs (alphabet1, arrowFollow, plain1, plainFrom, tokens, within1Not)
 import Syntax.SettleBareProofs (lastPair, noLast)
 import Fmt (..)
 import Fmt.SpellProofs (..)
@@ -1118,17 +1118,13 @@ def Stays (open: Nat): List Leaf → Bool
   | [] => True
   | [leaf, ..rest] => stays open leaf && Stays (bump open leaf.token.kind) rest
 
-theorem notAt ∀ (kind: Tok) (within: kind.within1 = True): (kind == At) = False := match same: kind == At with
-  | True => (Bool.falseNotTrue (rewrite DecEq.sound same at within then within)).impossible
-  | False => byComputing
-
 --| A leaf that starts no group leaves the splitter in a declaration, with the bracket counted.
 theorem splitStay ∀ (open: Nat) (current: List Leaf) (groups: List (List Leaf)) (leaf: Leaf) (rest: List Leaf)
     (within: leaf.token.kind.within1 = True)
     (stay: stays open leaf = True):
     splitFrom (Splitter.at open) current groups [leaf, ..rest]
       = splitFrom (Splitter.at (bump open leaf.token.kind)) [leaf, ..current] groups rest :=
-  rewrite notAt leaf.token.kind within then
+  rewrite within1Not leaf.token.kind At byComputing within then
     match zero: leaf.token.column == 0 with
       | False => rewrite Bool.andFalse leaf.token.kind.isOpener, Bool.andFalse leaf.token.kind.isCloser
       | True =>

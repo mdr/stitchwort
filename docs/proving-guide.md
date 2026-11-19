@@ -475,6 +475,21 @@ Import what you use: std's theorems live in namespaces that need an import
   in one record or pair. It is the way past `cases`' 64 cases: 2^10 values
   take about 0.1 s, 2^16 about 12 s (`examples/accept/finite-check.sw`).
   Data types without recursion or `Nat` fields get `Finite` derived.
+- **Deciding a fact over a finite type by computation.** A fact about every
+  constructor of a type like the formatter's `Tok` (about 60) is one
+  `Finite.check`, not a lemma per constructor or a 60-arm `match`. Write the
+  fact as a `Bool` that is true when the hypotheses fail or the conclusion
+  holds, check it, then rewrite the hypotheses into the result:
+
+      theorem within1Not ∀ (kind other: Tok) (without: other.within1 = False) (within: kind.within1 = True):
+          (kind == other) = False :=
+        let checked := Finite.check (((kind, other)) => !kind.within1 || other.within1 || !(kind == other)) byComputing (kind, other)
+        Bool.notTrue (kind == other) (rewrite within, without at checked then checked)
+
+  This one lemma (`Syntax.SettleProofs.within1Not`, 3,600 pairs) replaced
+  three, one per excluded kind; each use passes the excluded constructor and
+  `byComputing` for `without`. Prefer a parameter (`other`) over a lemma per
+  constructor, and put several variables in one pair.
 - **`rewrite repeatedly [rules]`** (docs/syntax.md, "`rewrite repeatedly`")
   is for a goal that needs the same few lemmas in several places, in an
   order you would otherwise work out by hand: `List.appendAssoc` and
