@@ -26010,9 +26010,9 @@
     {
       "id": 4135,
       "title": "[Bug, Sonnet] stitchwort check panics printing diagnostics: ariadne write.rs:267 'byte index 5 is not a char boundary; it is inside →' (a missing-import error in one file with a W-UNREACHABLE warning in another); later errors lost. Repro from SW-4126's lane; failing-first test",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4135",
       "labels": [
         "bug"
       ],
