@@ -27900,7 +27900,7 @@
     {
       "id": 4277,
       "title": "[DeepSeek] Fmt/SpeltSlots.sw tokLevelLow: replace the long per-kind arm list with one Finite.check, as SW-4221 did for within1Not",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
