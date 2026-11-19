@@ -7,7 +7,9 @@
 //! These use small inputs; deep ones are in `resources.rs`. The reference
 //! recurses on the Rust stack, so they run on a thread with a large one.
 
+use std::collections::BTreeSet;
 use std::path::Path;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use stitchwort_core::budget::{ResourceError, Result};
@@ -81,23 +83,40 @@ fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
 /// `STITCHWORT_DIFFERENTIAL_STEPS` overrides it, to measure.
 const REFERENCE_STEPS: u64 = 5_000_000;
 
-/// Comparisons skipped as too big, across the sweep. Skipping hides nothing
-/// from a passing run only if someone looks, so the test reports the count
-/// and fails above [`MAX_SKIPPED`].
-static SKIPPED: AtomicUsize = AtomicUsize::new(0);
+/// Comparisons skipped as too big, across the sweep, each counted once: a
+/// comparison of std's definitions alone is the same in every example that
+/// imports them, so it is kept under `std`, and any other under its example
+/// (see [`place`]). Skipping hides nothing from a passing run only if someone
+/// looks, so the test reports the count and fails above [`MAX_SKIPPED`].
+static SKIPPED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
 
-/// The most skips the sweep tolerates. The whole corpus (the all tier)
-/// skipped 48 before the float stages (10 Nov 2026; their definitions are now
-/// [`left_out`]), nearly all in a few examples (float-playlist.sw,
-/// random-seed.sw,
-/// kernel-same-call-arguments.sw, as-written-unconfirmed.sw,
-/// match-bounded-search.sw, ...); a sample can land on more or fewer of
-/// them (the broad sample, 0 on 10 Nov 2026), so one limit serves every tier,
-/// with some room. A new skip is an oracle that compares less than before:
-/// look at which (`--no-capture` lists them) before raising this. Slices
-/// (`STITCHWORT_DIFFERENTIAL_SKIP` or `_LIMIT`) and another step budget skip
-/// other amounts, so they are not checked.
+/// Skips across the sweep counting repeats, for the report only.
+static SKIPPED_REPEATS: AtomicUsize = AtomicUsize::new(0);
+
+/// The most distinct skips the sweep tolerates. Counted with repeats, a
+/// sample's skips rose and fell with how many examples importing `Float` it
+/// happened to take, about 23 each for `Float.Model`'s `isqrt`, `sqrtBits`
+/// and the four arithmetic `...Bits` (SW-4255): the broad sample is every
+/// fourth example, so a new example early in the list moved it from about 50
+/// skips to 104 with no change to either evaluator. Counted once, std's
+/// skips are the same whichever examples import them, and what remains
+/// varies with the sample only through examples' own definitions
+/// (random-seed.sw, kernel-same-call-arguments.sw, as-written-unconfirmed.sw,
+/// match-bounded-search.sw, ...). A new skip is an oracle that compares
+/// less than before: look at which (`--no-capture` lists them) before
+/// raising this. Slices (`STITCHWORT_DIFFERENTIAL_SKIP` or `_LIMIT`) and
+/// another step budget skip other amounts, so they are not checked.
 const MAX_SKIPPED: usize = 60;
+
+/// Where a skipped comparison is counted: `std` when it involves only std's
+/// definitions, otherwise the example (or `prelude`) being swept.
+fn place<'a>(g: &stitchwort_core::Ev, example: &'a str, ids: &[DefId]) -> &'a str {
+    if ids.iter().all(|&id| g.def(id).path().starts_with("Std.")) {
+        "std"
+    } else {
+        example
+    }
+}
 
 fn reference_steps() -> u64 {
     static STEPS: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
@@ -131,19 +150,28 @@ fn left_out(name: &str) -> bool {
 
 /// `f`, with the reference evaluator on this thread limited to
 /// [`REFERENCE_STEPS`]; `None` if it ran out, after saying what was too big
-/// to compare.
-fn within_budget<T>(what: impl std::fmt::Display, f: impl FnOnce() -> Result<T>) -> Option<T> {
+/// to compare. `comparison` is counted in [`SKIPPED`] under `place`.
+fn within_budget<T>(
+    example: &str,
+    place: &str,
+    comparison: &str,
+    f: impl FnOnce() -> Result<T>,
+) -> Option<T> {
     reference::set_budget(Some(reference_steps()));
     let out = f();
     reference::set_budget(None);
     match out {
         Ok(out) => Some(out),
         Err(ResourceError::Work) => {
-            eprintln!("too big to compare: {what}");
-            SKIPPED.fetch_add(1, Ordering::Relaxed);
+            eprintln!("too big to compare: {example}: {comparison}");
+            SKIPPED
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(format!("{place}: {comparison}"));
+            SKIPPED_REPEATS.fetch_add(1, Ordering::Relaxed);
             None
         }
-        Err(e) => panic!("{what}: {e}"),
+        Err(e) => panic!("{example}: {comparison}: {e}"),
     }
 }
 
@@ -161,13 +189,15 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
             continue;
         }
         let icits = param_icits(g, id);
+        let place = place(g, what, &[id]);
         // Applied to every prefix of its parameters, so partial
         // applications are covered too.
         for n in 0..icits.len() + 1 {
-            let applied = format!("{what}: `{}` applied to {n} variable(s)", def.name());
+            let comparison = format!("`{}` applied to {n} variable(s)", def.name());
+            let applied = format!("{what}: {comparison}");
             // The reference first, so the machine never builds a value whose
             // read-back is over the budget.
-            let Some(slow) = within_budget(&applied, || {
+            let Some(slow) = within_budget(what, place, &comparison, || {
                 let mut slow = reference::eval(g, &[], &Term::Def(id))?;
                 for (level, icit) in icits.iter().take(n).enumerate() {
                     slow = reference::apply_icit(g, slow, Value::var(level), *icit)?;
@@ -176,14 +206,18 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
             }) else {
                 break;
             };
-            let Some(slow_normal) = within_budget(&applied, || try_normal(g, n, &slow)) else {
+            let Some(slow_normal) =
+                within_budget(what, place, &comparison, || try_normal(g, n, &slow))
+            else {
                 break;
             };
             let mut fast = value::eval(g, &[], &Term::Def(id)).expect("no limits");
             for (level, icit) in icits.iter().take(n).enumerate() {
                 fast = value::apply_icit(g, fast, Value::var(level), *icit).expect("no limits");
             }
-            let Some(fast_normal) = within_budget(&applied, || try_normal(g, n, &fast)) else {
+            let Some(fast_normal) =
+                within_budget(what, place, &comparison, || try_normal(g, n, &fast))
+            else {
                 break;
             };
             assert_eq!(fast_normal, slow_normal, "{applied}");
@@ -203,15 +237,20 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
             );
             compared += 1;
         }
-        let the_type = format!("{what}: the type of `{}`", def.name());
-        let Some(ty) = within_budget(&the_type, || reference::eval(g, &[], def.ty())) else {
+        let comparison = format!("the type of `{}`", def.name());
+        let the_type = format!("{what}: {comparison}");
+        let Some(ty) = within_budget(what, place, &comparison, || {
+            reference::eval(g, &[], def.ty())
+        }) else {
             continue;
         };
         assert!(value::conv(g, 0, def.ty_value(), &ty).expect("no limits"));
-        let Some(slow) = within_budget(&the_type, || try_normal(g, 0, &ty)) else {
+        let Some(slow) = within_budget(what, place, &comparison, || try_normal(g, 0, &ty)) else {
             continue;
         };
-        let Some(fast) = within_budget(&the_type, || try_normal(g, 0, &unglued_type(g, id))) else {
+        let Some(fast) = within_budget(what, place, &comparison, || {
+            try_normal(g, 0, &unglued_type(g, id))
+        }) else {
             continue;
         };
         assert_eq!(fast, slow, "{the_type}");
@@ -226,29 +265,36 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
 /// with its own, and each definition's type with the next few types. A
 /// pair the reference can't decide within its budget is skipped.
 fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
-    let defs: Vec<(String, Value, Value)> = (0..g.env.defs().len())
+    let defs: Vec<(DefId, String, Value, Value)> = (0..g.env.defs().len())
         .filter(|&i| g.env.defs()[i].body().is_some() && !left_out(g.env.defs()[i].name()))
         .map(|i| {
             let def = &g.env.defs()[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
-            (def.name().to_string(), value, unglued_type(g, DefId(i)))
+            (
+                DefId(i),
+                def.name().to_string(),
+                value,
+                unglued_type(g, DefId(i)),
+            )
         })
         .collect();
-    let agree = |x: &Value, y: &Value, what: &str| {
-        let slow = within_budget(what, || reference::conv(g, 0, x, y))?;
+    let agree = |x: &Value, y: &Value, place: &str, comparison: &str| {
+        let slow = within_budget(what, place, comparison, || reference::conv(g, 0, x, y))?;
         let fast = value::conv(g, 0, x, y).expect("no limits");
-        assert_eq!(fast, slow, "{what}");
+        assert_eq!(fast, slow, "{what}: {comparison}");
         Some(fast)
     };
     let mut compared = 0;
-    for (i, (x_name, x, x_ty)) in defs.iter().enumerate() {
-        for (y_name, y, y_ty) in defs.iter().skip(i) {
+    for (i, (x_id, x_name, x, x_ty)) in defs.iter().enumerate() {
+        for (y_id, y_name, y, y_ty) in defs.iter().skip(i) {
+            let place = place(g, what, &[*x_id, *y_id]);
             if agree(
                 x_ty,
                 y_ty,
-                &format!("{what}: the types of `{x_name}` and `{y_name}`"),
+                place,
+                &format!("the types of `{x_name}` and `{y_name}`"),
             ) == Some(true)
-                && agree(x, y, &format!("{what}: `{x_name}` and `{y_name}`")).is_some()
+                && agree(x, y, place, &format!("`{x_name}` and `{y_name}`")).is_some()
             {
                 compared += 1;
             }
@@ -320,16 +366,18 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             compare_definitions(g, name);
             compare_conversion(g, name);
             for test in session.elab.tests() {
-                let what = format!("{name}: test \"{}\"", test.name);
+                let comparison = format!("test \"{}\"", test.name);
+                let what = format!("{name}: {comparison}");
                 let term = Term::Def(test.def);
-                let Some(slow) = within_budget(&what, || {
+                let Some(slow) = within_budget(name, name, &comparison, || {
                     let slow = reference::eval(g, &[], &term)?;
                     try_normal(g, 0, &slow)
                 }) else {
                     continue;
                 };
                 let fast = value::eval(g, &[], &term).expect("no limits");
-                let Some(fast) = within_budget(&what, || try_normal(g, 0, &fast)) else {
+                let Some(fast) = within_budget(name, name, &comparison, || try_normal(g, 0, &fast))
+                else {
                     continue;
                 };
                 assert_eq!(fast, slow, "{what}");
@@ -340,19 +388,23 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
 }
 
 /// Says how many comparisons were skipped: on stderr, and in
-/// `differential-skips.txt` in the cargo target folder (nextest shows a
-/// passing test's output only with `--success-output`), and fails the test
-/// above [`MAX_SKIPPED`].
+/// `differential-skips.txt` in the cargo target folder with each distinct
+/// skip (nextest shows a passing test's output only with `--success-output`),
+/// and fails the test above [`MAX_SKIPPED`].
 fn report_skips() {
-    let skipped = SKIPPED.load(Ordering::Relaxed);
+    let distinct = SKIPPED.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let skipped = distinct.len();
+    let repeats = SKIPPED_REPEATS.load(Ordering::Relaxed);
     let tier = tier();
     let line = format!(
-        "differential: {skipped} comparisons too big to compare (tier {tier:?}, budget {} steps)",
+        "differential: {skipped} comparisons too big to compare ({repeats} counting repeats \
+         across examples; tier {tier:?}, budget {} steps)",
         reference_steps()
     );
     eprintln!("{line}");
     let file = Path::new(env!("CARGO_TARGET_TMPDIR")).join("differential-skips.txt");
-    let _ = std::fs::write(file, format!("{line}\n"));
+    let listed: String = distinct.iter().map(|s| format!("{s}\n")).collect();
+    let _ = std::fs::write(file, format!("{line}\n{listed}"));
     let sliced = [
         "STITCHWORT_DIFFERENTIAL_SKIP",
         "STITCHWORT_DIFFERENTIAL_LIMIT",
@@ -363,8 +415,9 @@ fn report_skips() {
     assert!(
         sliced || skipped <= MAX_SKIPPED,
         "{line}; the most expected is {}. The oracle compares less than it did: \
-         look at the new `too big to compare` skips (--no-capture lists them) \
-         before raising `MAX_SKIPPED`",
+         look at the new `too big to compare` skips (--no-capture, or \
+         differential-skips.txt in the target's tmp folder, lists them) before \
+         raising `MAX_SKIPPED`",
         MAX_SKIPPED
     );
 }
