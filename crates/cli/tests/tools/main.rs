@@ -26,6 +26,7 @@ mod test_failures;
 mod test_json;
 mod timings;
 mod trial_edits;
+mod uses;
 mod warning_pins;
 
 use stitchwort_test_alloc as _;

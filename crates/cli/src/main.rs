@@ -693,6 +693,33 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Which declarations of the project refer to each NAME (a full name,
+    /// or a short one that only one declaration has), read off the checked
+    /// terms, not the text, so two namespaces that define the same short
+    /// name are told apart. Listed by namespace, with FILE:LINE. With
+    /// `--unused NAMESPACE…`, the definitions in those namespaces nothing
+    /// else in the project refers to (tests and `…Example` theorems left
+    /// out). Exits with status 0 with an answer, 2 when a name is unknown or
+    /// ambiguous (the candidates are listed), 1 if the project doesn't load
+    /// (docs/syntax.md, "Who uses a declaration")
+    Uses {
+        /// Declarations to look up; with `--unused`, namespaces to list in
+        #[arg(value_name = "NAME", required = true)]
+        names: Vec<String>,
+        /// List unused definitions of the namespaces instead
+        #[arg(long)]
+        unused: bool,
+        /// The answer as a JSON object: version 1; `declarations`, each
+        /// with `name` and `users` (`declaration`, `namespace`, `file`,
+        /// `line`); with `--unused`, `unused`
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the nearest one above the current one
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// What a declaration does: its header, doc, examples (tests and
     /// `…Example` theorems named after it) and theorems about it, or a
     /// namespace's docs and what it declares (docs/syntax.md, "Doc
@@ -1211,6 +1238,13 @@ fn run(cli: Cli) -> ExitCode {
             (None, true) => goal_summary(project.as_deref(), json, &cache),
             (None, false) => goal_list(&targets, project.as_deref(), json, &cache),
         },
+        Command::Uses {
+            names,
+            unused,
+            json,
+            project,
+            cache,
+        } => uses(&names, unused, json, project.as_deref(), &cache),
         Command::Search {
             query,
             file,
@@ -3656,6 +3690,95 @@ fn goal_list(
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+        }
+    }
+    discard(session);
+    ExitCode::SUCCESS
+}
+
+/// `uses`: the declarations of the project that refer to each name, or
+/// with `unused`, the definitions of the namespaces nothing refers to.
+fn uses(
+    names: &[String],
+    unused: bool,
+    json: bool,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
+    let Some((session, _, order)) = load_project_goals(project, &Target::Everything, cache) else {
+        return ExitCode::FAILURE;
+    };
+    let by_namespace = |users: &[stitchwort_driver::uses::User]| {
+        let mut last = None;
+        for u in users {
+            if last != Some(&u.namespace) {
+                let ns = if u.namespace.is_empty() {
+                    "(top level)"
+                } else {
+                    &u.namespace
+                };
+                println!("  {ns}");
+                last = Some(&u.namespace);
+            }
+            println!("    {}  {}:{}", u.declaration, u.file, u.line);
+        }
+    };
+    if unused {
+        let users = session.unused_in(&order, names);
+        if json {
+            println!("{}", serde_json::json!({"version": 1, "unused": users}));
+        } else if users.is_empty() {
+            println!("nothing unused in {}", names.join(", "));
+        } else {
+            println!("{} unused:", users.len());
+            by_namespace(&users);
+        }
+        discard(session);
+        return ExitCode::SUCCESS;
+    }
+    let mut answers = Vec::new();
+    for name in names {
+        let found = session.defs_named(&order, name);
+        let paths: Vec<String> = found
+            .iter()
+            .map(|id| session.elab.ev().def(*id).path().to_string())
+            .collect();
+        match found.as_slice() {
+            [] => {
+                eprintln!("error: there's no declaration `{name}` in the project");
+                return ExitCode::from(2);
+            }
+            [id] => answers.push((paths[0].clone(), session.users_of(&order, *id))),
+            _ => {
+                eprintln!(
+                    "error: `{name}` is ambiguous: {}; name one in full",
+                    paths
+                        .iter()
+                        .map(|p| format!("`{p}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                return ExitCode::from(2);
+            }
+        }
+    }
+    if json {
+        let declarations: Vec<_> = answers
+            .iter()
+            .map(|(name, users)| serde_json::json!({"name": name, "users": users}))
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({"version": 1, "declarations": declarations})
+        );
+    } else {
+        for (name, users) in &answers {
+            if users.is_empty() {
+                println!("`{name}` is used by nothing in the project");
+            } else {
+                println!("`{name}` is used by {}:", users.len());
+                by_namespace(users);
+            }
         }
     }
     discard(session);

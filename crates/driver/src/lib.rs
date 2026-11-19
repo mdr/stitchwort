@@ -30,3 +30,4 @@ pub mod run;
 pub mod search;
 pub mod search_at;
 pub mod test_run;
+pub mod uses;
