@@ -27132,12 +27132,12 @@
     {
       "id": 4219,
       "title": "[Opus, paper] Design note: 'remaining cases likewise' in a proof match (arms checked separately, one proof text for several arms), with or-patterns; evidence: dispatchers ~26% of fmt theorems, andLevels/orLevels four near-identical arms (SW-4205 §6 item 3); syntax and semantics, guide text, cost; for Matt's decision before building",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'\n\nProgress (Opus lane, 19 Nov 17:43-18:00): docs/proposals/proof-match-likewise.md on lane/SW-4219 (6bfc1963c). Survey (scratch arms.py): tools/fmt 1,787 of 10,970 theorem arms repeat an earlier arm (648 theorems, <=2.6% of theorem lines); std 890 of 6,634 (451 theorems, 2.4%). 72% bind nothing the body uses; a catch-all after a split is already checked per case (names allowed). Rec: teach + fmt wraps or-patterns (no decision); or-patterns that bind, checked per alternative (D question for Matt, rec yes); no new splitting keyword.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
