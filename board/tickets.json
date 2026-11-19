@@ -24646,14 +24646,14 @@
     {
       "id": 4032,
       "title": "[Sonnet] stitchwort check: when a check is killed by timeout or runs out, say so and exit non-zero (SW-4027: a check that hit timeout exited 0 with no output, read as a pass)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, needed fixes (treated *-BUDGET proof failures as did-not-finish; per-thread doc on a global), ~45 min (est. 40). Exit 3 for E-RESOURCE and signals; note GNU timeout itself returns 124 unless --preserve-status.\n",
       "created": "2026-11-18",
       "updated": "2026-11-19",
       "commits": []
