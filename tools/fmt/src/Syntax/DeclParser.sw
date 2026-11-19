@@ -1484,6 +1484,6 @@ def codeOf (message: Text): Text :=
   else if message.startsWith "a `calc` chain goes one way" then "E-CALC-RELATION"
   else if message.startsWith "the namespace line must come first" then "E-NAMESPACE-NOT-FIRST"
   else if message.startsWith "`where` isn't part of Stitchwort" then "E-WHERE"
-  else if message == orPatternBinds then "E-OR-PATTERN-BINDS"
+  else if isUnsharedMessage message then "E-OR-PATTERN-BINDS"
   else if message.contains "` is already a parameter of `" then "E-DUPLICATE-PARAMETER"
   else "E-PARSE"

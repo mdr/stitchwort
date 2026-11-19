@@ -909,44 +909,130 @@ theorem anyGuardWithoutBodyDeaf ∀ (arms: List Arm):
             | None => byComputing
             | Some (arrow, value) => rewrite anyGuardWithoutBodyDeaf rest
 
-theorem patternBindsDeaf ∀ (pattern: Pattern): pattern.binds = (pattern.walk blankPure).binds := match pattern with
-  | PatternCtor name arguments => anyBindsDeaf arguments
-  | PatternCtorFields name fields => fieldsBindDeaf fields
-  | PatternRecord fields => fieldsBindDeaf fields
-  | PatternTuple open items comma close => anyBindsDeaf items
-  | PatternList open items comma tail close =>
-    match tail with
-      | None => rewrite anyBindsDeaf items
-      | Some (bar, rest) => rewrite anyBindsDeaf items, patternBindsDeaf rest
-  | PatternNamed open name colonEq value close => patternBindsDeaf value
-  | PatternOr first rest => rewrite patternBindsDeaf first, anyLinkBindsDeaf rest
-  | PatternParen open inner close => patternBindsDeaf inner
-  | PatternAppend start operator rest => rewrite patternBindsDeaf start, patternBindsDeaf rest
-  | _ => byComputing
+theorem boundNamesDeaf ∀ (pattern: Pattern): pattern.boundNames = (pattern.walk blankPure).boundNames :=
+  match pattern with
+    | PatternCtor name arguments => namesOfDeaf arguments
+    | PatternCtorFields name fields => fieldsNamesDeaf fields
+    | PatternRecord fields => fieldsNamesDeaf fields
+    | PatternTuple open items comma close => namesOfDeaf items
+    | PatternList open items comma tail close => rewrite namesOfDeaf items, tailNamesDeaf tail
+    | PatternNamed open name colonEq value close => boundNamesDeaf value
+    | PatternOr first rest => boundNamesDeaf first
+    | PatternParen open inner close => boundNamesDeaf inner
+    | PatternAppend start operator rest => rewrite boundNamesDeaf start, boundNamesDeaf rest
+    | _ => byComputing
 
-theorem anyBindsDeaf ∀ (patterns: List Pattern): anyBinds patterns = anyBinds (walkPatterns blankPure patterns) :=
+theorem namesOfDeaf ∀ (patterns: List Pattern): namesOf patterns = namesOf (walkPatterns blankPure patterns) :=
   match patterns with
     | [] => byComputing
-    | [first, ..rest] => rewrite patternBindsDeaf first, anyBindsDeaf rest
+    | [first, ..rest] => rewrite boundNamesDeaf first, namesOfDeaf rest
 
-theorem anyLinkBindsDeaf ∀ (links: List (Word, Pattern)):
-    anyLinkBinds links = anyLinkBinds (blankLinks (walkPatternLinks blankPure links)) :=
-  match links with
-    | [] => byComputing
-    | [(bar, item), ..rest] => rewrite patternBindsDeaf item, anyLinkBindsDeaf rest
+theorem tailNamesDeaf ∀ (tail: Option (Word, Pattern)):
+    tailNames tail = tailNames (blankAfterWord (walkTail blankPure tail)) :=
+  match tail with
+    | None => byComputing
+    | Some (dots, rest) => boundNamesDeaf rest
 
-theorem fieldsBindDeaf ∀ (fields: FieldsPattern):
-    fieldsBind fields = fieldsBind (FieldsPattern.blank (walkFields blankPure fields)) :=
-  match fields with | { open, fields, trailingComma, rest, close } => anyFieldBindsDeaf fields
+theorem fieldsNamesDeaf ∀ (fields: FieldsPattern):
+    fieldsNames fields = fieldsNames (FieldsPattern.blank (walkFields blankPure fields)) :=
+  match fields with | { open, fields, trailingComma, rest, close } => fieldNamesDeaf fields
 
-theorem anyFieldBindsDeaf ∀ (fields: List FieldPattern):
-    anyFieldBinds fields = anyFieldBinds (blankFieldPatterns (walkFieldPatterns blankPure fields)) :=
+theorem fieldNamesDeaf ∀ (fields: List FieldPattern):
+    fieldNames fields = fieldNames (blankFieldPatterns (walkFieldPatterns blankPure fields)) :=
   match fields with
     | [] => byComputing
     | [{ name, value }, ..rest] =>
       match value with
-        | None => rewrite anyFieldBindsDeaf rest
-        | Some (equals, pattern) => rewrite patternBindsDeaf pattern, anyFieldBindsDeaf rest
+        | None => rewrite fieldNamesDeaf rest
+        | Some (equals, pattern) => rewrite boundNamesDeaf pattern, fieldNamesDeaf rest
+
+theorem shownDeaf ∀ (pattern: Pattern): pattern.shown = (pattern.walk blankPure).shown := match pattern with
+  | PatternCtor name arguments => rewrite spacedShownDeaf arguments
+  | PatternCtorFields name fields => rewrite fieldsShownDeaf fields
+  | PatternRecord fields => fieldsShownDeaf fields
+  | PatternTuple open items comma close => rewrite commaShownDeaf items
+  | PatternList open items comma tail close =>
+    rewrite commaShownDeaf items, tailShownDeaf (commaShown (walkPatterns blankPure items) == "") tail
+  | PatternNamed open name colonEq value close => rewrite shownDeaf value
+  | PatternOr first rest => rewrite shownDeaf first, linksShownDeaf rest
+  | PatternParen open inner close => rewrite shownDeaf inner
+  | PatternAppend start operator rest => rewrite shownDeaf start, shownDeaf rest
+  | _ => byComputing
+
+theorem spacedShownDeaf ∀ (patterns: List Pattern):
+    spacedShown patterns = spacedShown (walkPatterns blankPure patterns) :=
+  match patterns with
+    | [] => byComputing
+    | [first, ..rest] => rewrite shownDeaf first, spacedShownDeaf rest
+
+theorem commaShownDeaf ∀ (patterns: List Pattern): commaShown patterns = commaShown (walkPatterns blankPure patterns) :=
+  match patterns with
+    | [] => byComputing
+    | [first, ..rest] => rewrite shownDeaf first, commasShownDeaf rest
+
+theorem commasShownDeaf ∀ (patterns: List Pattern):
+    commasShown patterns = commasShown (walkPatterns blankPure patterns) :=
+  match patterns with
+    | [] => byComputing
+    | [first, ..rest] => rewrite shownDeaf first, commasShownDeaf rest
+
+theorem tailShownDeaf ∀ (first: Bool) (tail: Option (Word, Pattern)):
+    tailShown first tail = tailShown first (blankAfterWord (walkTail blankPure tail)) :=
+  match tail with
+    | None => byComputing
+    | Some (dots, rest) => rewrite shownDeaf rest
+
+theorem linksShownDeaf ∀ (links: List (Word, Pattern)):
+    linksShown links = linksShown (blankLinks (walkPatternLinks blankPure links)) :=
+  match links with
+    | [] => byComputing
+    | [(bar, item), ..rest] => rewrite shownDeaf item, linksShownDeaf rest
+
+theorem fieldsShownDeaf ∀ (fields: FieldsPattern):
+    fieldsShown fields = fieldsShown (FieldsPattern.blank (walkFields blankPure fields)) :=
+  match fields with
+    | { open, fields, trailingComma, rest, close } =>
+      match rest with
+        | None => rewrite fieldListShownDeaf fields
+        | Some dots => rewrite fieldListShownDeaf fields
+
+theorem fieldListShownDeaf ∀ (fields: List FieldPattern):
+    fieldListShown fields = fieldListShown (blankFieldPatterns (walkFieldPatterns blankPure fields)) :=
+  match fields with
+    | [] => byComputing
+    | [{ name, value }, ..rest] =>
+      match value with
+        | None => rewrite fieldsAfterShownDeaf rest
+        | Some (equals, pattern) => rewrite shownDeaf pattern, fieldsAfterShownDeaf rest
+
+theorem fieldsAfterShownDeaf ∀ (fields: List FieldPattern):
+    fieldsAfterShown fields = fieldsAfterShown (blankFieldPatterns (walkFieldPatterns blankPure fields)) :=
+  match fields with
+    | [] => byComputing
+    | [{ name, value }, ..rest] =>
+      match value with
+        | None => rewrite fieldsAfterShownDeaf rest
+        | Some (equals, pattern) => rewrite shownDeaf pattern, fieldsAfterShownDeaf rest
+
+theorem linkNamesDeaf ∀ (links: List (Word, Pattern)):
+    linkNames links = linkNames (blankLinks (walkPatternLinks blankPure links)) :=
+  match links with
+    | [] => byComputing
+    | [(bar, item), ..rest] => rewrite boundNamesDeaf item, linkNamesDeaf rest
+
+theorem linkShownAtDeaf ∀ (position: Nat) (links: List (Word, Pattern)):
+    linkShownAt position links = linkShownAt position (blankLinks (walkPatternLinks blankPure links)) :=
+  match links, position with
+    | [], _ => byComputing
+    | [(bar, item), .._], Zero => rewrite shownDeaf item
+    | [(bar, item), ..rest], Succ after => linkShownAtDeaf after rest
+
+theorem alternativeShownDeaf ∀ (first: Pattern) (rest: List (Word, Pattern)) (position: Nat):
+    alternativeShown first rest position
+      = alternativeShown (first.walk blankPure) (blankLinks (walkPatternLinks blankPure rest)) position :=
+  match position with
+    | Zero => shownDeaf first
+    | Succ after => linkShownAtDeaf after rest
 
 theorem spineRepeatDeaf ∀ (header: List Text) (expr: Expr):
     spineRepeat header expr = spineRepeat header (expr.walk blankPure) :=
@@ -1102,10 +1188,14 @@ theorem checkPatternBlanks ∀ (z: Pattern):
       = (Fail.toResult (() => checkPattern z)).map (x => x.walk blankPure) :=
   match z with
     | PatternOr first rest =>
-      rewrite patternBindsDeaf first, anyLinkBindsDeaf rest then
-        match e: (first.walk blankPure).binds || anyLinkBinds (blankLinks (walkPatternLinks blankPure rest)) with
-          | True => byComputing
-          | False => byComputing
+      rewrite boundNamesDeaf first, linkNamesDeaf rest then
+        match e: unsharedName [
+          (first.walk blankPure).boundNames,
+          ..linkNames (blankLinks (walkPatternLinks blankPure rest))
+        ] with
+          | Some { name, binding, lacking } =>
+            rewrite alternativeShownDeaf first rest binding, alternativeShownDeaf first rest lacking
+          | None => byComputing
     | _ => byComputing
 
 theorem traversalErrorRun ∀ (decl: Decl):

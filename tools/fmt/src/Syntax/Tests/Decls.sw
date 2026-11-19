@@ -48,8 +48,9 @@ test "the first error in file order wins" :=
 test "a lowering error comes before a later declaration's syntax error" :=
   tree "def f (x x: Nat): Nat := x\ndef g: Nat := (" == "error: `x` is already a parameter of `f`"
 
-test "an or-pattern binding a name is the lowering's error" :=
-  tree "def f: Nat -> Nat\n  | 0 | n => 1" == "error: an or-pattern can't bind names"
+test "an or-pattern binding a name in one alternative only is the lowering's error" :=
+  tree "def f: Nat -> Nat\n  | 0 | n => 1" == "error: `n` is bound in `n` but not in `0`"
+    && codeOf "`n` is bound in `n` but not in `0`" == "E-OR-PATTERN-BINDS"
 
 test "an implicit binder on the type's spine can't repeat a parameter" :=
   tree "def f (a: Nat): [a: Type] -> a := a" == "error: `a` is already a parameter of `f`"

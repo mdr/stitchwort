@@ -1,7 +1,7 @@
 --| The lowering's three checks on what parsed (`crates/syntax/src/lower`),
 --| as functions of the tree that `parseFile` calls on each declaration
---| once it has parsed: an or-pattern that binds a name
---| (`E-OR-PATTERN-BINDS`), a header's parameter named twice
+--| once it has parsed: an or-pattern with a name bound in some
+--| alternatives but not all (`E-OR-PATTERN-BINDS`), a header's parameter named twice
 --| (`E-DUPLICATE-PARAMETER`), and an arm with `()`, a condition and no
 --| body. The first two are checked by the traversal's steps, which fail at
 --| the first node they refuse.
@@ -9,7 +9,12 @@
 namespace Syntax
 import Std (Bool, Fail, List, Option, Result, Text)
 
-def orPatternBinds: Text := "an or-pattern can't bind names"
+--| `E-OR-PATTERN-BINDS`'s message, as the Rust lowering's `unshared_name` words it.
+def unsharedMessage (name binding lacking: Text): Text := "`${name}` is bound in `${binding}` but not in `${lacking}`"
+
+--| Whether `message` is `unsharedMessage`'s.
+def isUnsharedMessage (message: Text): Bool :=
+  message.startsWith "`" && message.contains "` is bound in `" && message.contains "` but not in `"
 
 def guardWithoutBody: Text := "an arm with `()` and no body can't have a condition"
 
@@ -34,8 +39,50 @@ def traversalError (decl: Decl): Option Text := match Fail.toResult (() => decl.
 def checkSteps: Steps := { Steps.keep | expr = checkExpr, pattern = checkPattern }
 
 def checkPattern (pattern: Pattern): {Fail} Pattern := match pattern with
-  | PatternOr first rest => if first.binds || anyLinkBinds rest then Fail.fail orPatternBinds else pattern
+  | PatternOr first rest =>
+    match unsharedName [first.boundNames, ..linkNames rest] with
+      | Some { name, binding, lacking } =>
+        Fail.fail (unsharedMessage name (alternativeShown first rest binding) (alternativeShown first rest lacking))
+      | None => pattern
   | _ => pattern
+
+--| The names each alternative after an or-pattern's first binds.
+def linkNames: List (Word, Pattern) → List (List Text)
+  | [] => []
+  | [(bar, item), ..rest] => [item.boundNames, ..linkNames rest]
+
+--| An or-pattern's alternative by its position, shown as in the message. Only shown for the message: showing every
+--| alternative of every or-pattern would take time quadratic in their nesting.
+def alternativeShown (first: Pattern) (rest: List (Word, Pattern)) (position: Nat): Text := match position with
+  | Zero => first.shown
+  | Succ after => linkShownAt after rest
+
+def linkShownAt (position: Nat) (links: List (Word, Pattern)): Text := match links, position with
+  | [], _ => ""
+  | [(bar, item), .._], Zero => item.shown
+  | [_, ..rest], Succ after => linkShownAt after rest
+
+--| A name that one alternative of an or-pattern binds and another doesn't, with their positions.
+type Unshared = { name: Text, binding: Nat, lacking: Nat }
+
+--| The first name, taking the alternatives and then their names in order, that some alternative doesn't bind, with
+--| the first such alternative: the arm's body is checked once per alternative, so each must bind every name the body
+--| may use (D3694).
+def unsharedName (alternatives: List (List Text)): Option Unshared := firstUnshared alternatives 0 alternatives
+
+def firstUnshared (all: List (List Text)) (position: Nat): List (List Text) → Option Unshared
+  | [] => None
+  | [names, ..rest] =>
+    match firstMissing all position names with
+      | Some unshared => Some unshared
+      | None => firstUnshared all (position + 1) rest
+
+def firstMissing (all: List (List Text)) (position: Nat): List Text → Option Unshared
+  | [] => None
+  | [name, ..more] =>
+    match all.findIndex (bound => !bound.contains name) with
+      | Some lacking => Some { name, binding = position, lacking }
+      | None => firstMissing all position more
 
 def checkExpr (expr: Expr): {Fail} Expr := match expr with
   | Block first rest _ =>
@@ -100,40 +147,99 @@ def spineRepeat (header: List Text): Expr → Option Text
   | Infix InfixArrow _ _ result => spineRepeat header result
   | _ => None
 
---| Whether a pattern binds a name: a lowercase name, or a punned field.
-def Pattern.binds: Pattern → Bool
-  | PatternWord kind word => kind == Lower && word.text != "Quot.mk"
-  | PatternCtor _ arguments => anyBinds arguments
-  | PatternCtorFields _ fields => fieldsBind fields
-  | PatternRecord fields => fieldsBind fields
-  | PatternTuple _ items _ _ => anyBinds items
-  | PatternList _ items _ tail _ =>
-    anyBinds items
-      || (match tail with
-        | Some (_, rest) => rest.binds
-        | None => False)
-  | PatternNamed _ _ _ value _ => value.binds
-  | PatternOr first rest => first.binds || anyLinkBinds rest
-  | PatternParen _ inner _ => inner.binds
-  | PatternNegative _ _ => False
-  | PatternAbsurd _ _ => False
-  | PatternAppend start _ rest => start.binds || rest.binds
+--| The names a pattern binds, left to right: its lowercase names and punned fields. An or-pattern binds its first
+--| alternative's names, as the Rust lowering's `bound_names` does, since `unsharedName` checks that the others bind
+--| the same.
+def Pattern.boundNames: Pattern → List Text
+  | PatternWord kind word => if kind == Lower && word.text != "Quot.mk" then [word.text] else []
+  | PatternCtor _ arguments => namesOf arguments
+  | PatternCtorFields _ fields => fieldsNames fields
+  | PatternRecord fields => fieldsNames fields
+  | PatternTuple _ items _ _ => namesOf items
+  | PatternList _ items _ tail _ => namesOf items ++ tailNames tail
+  | PatternNamed _ _ _ value _ => value.boundNames
+  | PatternOr first _ => first.boundNames
+  | PatternParen _ inner _ => inner.boundNames
+  | PatternNegative _ _ => []
+  | PatternAbsurd _ _ => []
+  | PatternAppend start _ rest => start.boundNames ++ rest.boundNames
 
-def anyBinds: List Pattern → Bool
-  | [] => False
-  | [first, ..rest] => first.binds || anyBinds rest
+def namesOf: List Pattern → List Text
+  | [] => []
+  | [first, ..rest] => first.boundNames ++ namesOf rest
 
-def anyLinkBinds: List (Word, Pattern) → Bool
-  | [] => False
-  | [(bar, item), ..rest] => item.binds || anyLinkBinds rest
+def tailNames: Option (Word, Pattern) → List Text
+  | Some (_, rest) => rest.boundNames
+  | None => []
 
-def fieldsBind: FieldsPattern → Bool
-  | { open, fields, trailingComma, rest, close } => anyFieldBinds fields
+def fieldsNames: FieldsPattern → List Text
+  | { open, fields, trailingComma, rest, close } => fieldNames fields
 
-def anyFieldBinds: List FieldPattern → Bool
-  | [] => False
-  | [{ name, value }, ..rest] =>
-    (match value with
-      | Some (_, pattern) => pattern.binds
-      | None => True)
-      || anyFieldBinds rest
+def fieldNames: List FieldPattern → List Text
+  | [] => []
+  | [{ name, value = Some (_, pattern) }, ..rest] => pattern.boundNames ++ fieldNames rest
+  | [{ name, value = None }, ..rest] => [name.text, ..fieldNames rest]
+
+--| A pattern as the formatter writes it: what the Rust message quotes from the source, for a formatted file.
+def Pattern.shown: Pattern → Text
+  | PatternWord _ word => word.text
+  | PatternCtor name arguments => name.text ++ spacedShown arguments
+  | PatternCtorFields name fields => "${name.text} ${fieldsShown fields}"
+  | PatternRecord fields => fieldsShown fields
+  | PatternTuple open items trailingComma close => open.text ++ commaShown items ++ commaIf trailingComma ++ close.text
+  | PatternList open items trailingComma tail close =>
+    open.text ++ commaShown items ++ commaIf trailingComma ++ tailShown (commaShown items == "") tail ++ close.text
+  | PatternNamed open name colonEq value close => "${open.text}${name.text} ${colonEq.text} ${value.shown}${close.text}"
+  | PatternOr first rest => first.shown ++ linksShown rest
+  | PatternParen open inner close => open.text ++ inner.shown ++ close.text
+  | PatternNegative minus number => minus.text ++ number.text
+  | PatternAbsurd open close => open.text ++ close.text
+  | PatternAppend start operator rest => "${start.shown} ${operator.text} ${rest.shown}"
+
+def commaIf (comma: Bool): Text := if comma then "," else ""
+
+--| ` p` for each pattern.
+def spacedShown: List Pattern → Text
+  | [] => ""
+  | [first, ..rest] => " " ++ first.shown ++ spacedShown rest
+
+--| The patterns with `, ` between them.
+def commaShown: List Pattern → Text
+  | [] => ""
+  | [first, ..rest] => first.shown ++ commasShown rest
+
+def commasShown: List Pattern → Text
+  | [] => ""
+  | [first, ..rest] => ", " ++ first.shown ++ commasShown rest
+
+--| A list pattern's `..rest`, after `, ` unless it comes first.
+def tailShown (first: Bool): Option (Word, Pattern) → Text
+  | Some (dots, rest) => (if first then "" else ", ") ++ dots.text ++ rest.shown
+  | None => ""
+
+def linksShown: List (Word, Pattern) → Text
+  | [] => ""
+  | [(bar, item), ..rest] => " ${bar.text} ${item.shown}" ++ linksShown rest
+
+--| `{ a, b = p, .. }`, or `{}`.
+def fieldsShown: FieldsPattern → Text
+  | { open, fields, rest, close, .. } =>
+    bracesAround open.text (fieldListShown fields ++ restShown (fieldListShown fields == "") rest) close.text
+
+def bracesAround (open inside close: Text): Text := if inside == "" then open ++ close else "${open} ${inside} ${close}"
+
+def fieldListShown: List FieldPattern → Text
+  | [] => ""
+  | [first, ..rest] => first.shown ++ fieldsAfterShown rest
+
+def fieldsAfterShown: List FieldPattern → Text
+  | [] => ""
+  | [first, ..rest] => ", " ++ first.shown ++ fieldsAfterShown rest
+
+def FieldPattern.shown: FieldPattern → Text
+  | { name, value = Some (equals, pattern) } => "${name.text} ${equals.text} ${pattern.shown}"
+  | { name, value = None } => name.text
+
+def restShown (first: Bool): Option Word → Text
+  | Some dots => (if first then "" else ", ") ++ dots.text
+  | None => ""
