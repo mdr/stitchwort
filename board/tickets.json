@@ -25995,12 +25995,12 @@
     {
       "id": 4134,
       "title": "[Sonnet] fmt S1: loweringError = None for every slice 1 declaration, a lemma on its own (takes a conjunct out of groupKeepsTokens1)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4134",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4129. Est. 20 min.",
+      "body": "From SW-4129. Est. 20 min.\nLane note: declLowers1 (grammar1 -> loweringError = None) added to Fmt/SettleParseProofs.sw, closed example declLowers1Example; check 0 errors, audit passes for it.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26036,9 +26036,9 @@
     {
       "id": 4137,
       "title": "[Sonnet] fmt S1 item 6 C1 (SW-4131): accept a last comma that starts its line: sourcePlain1 replaces plain1 in the driver and the 12 source theorems; tokensBare/settledOnceTokens restated as tokens equal up to line starts (NOT a new condition); commaMoved's other branch in laidWithout, plainWithout, allTokensWithout, textsWithout",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4137",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4131-own-line-comma.md. Model: Sonnet. Est. 40 min.",
