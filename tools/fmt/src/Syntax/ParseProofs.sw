@@ -665,6 +665,24 @@ theorem negativeNumeralKinds ∀ (items: List Item)
     | [], found => (Bool.falseNotTrue found).impossible
     | [only], found => (Bool.falseNotTrue found).impossible
 
+--| A negative numeral's number is glued to its `-`.
+theorem negativeNumeralGlued ∀ (items: List Item)
+    (found: negativeNumeral items = True)
+    (minus number: Item) (later: List Item)
+    (split: items = [minus, number, ..later]):
+    number.glued = True :=
+  let pair: negativeNumeral [minus, number, ..later] = True := rewrite <- split then found
+  Bool.andLeft (Bool.andRight (Bool.andRight pair))
+
+--| The item an argument's sign negates is glued to it.
+theorem argumentPrefixGlued ∀ (items: List Item)
+    (found: argumentPrefix items = True)
+    (sign next: Item) (later: List Item)
+    (split: items = [sign, next, ..later]):
+    next.glued = True :=
+  let pair: argumentPrefix [sign, next, ..later] = True := rewrite <- split then found
+  Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight pair)))
+
 --| A `-` or `!` that negates an argument is followed by an item that opens an atom.
 theorem argumentPrefixOpens ∀ (items: List Item)
     (found: argumentPrefix items = True):

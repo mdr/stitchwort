@@ -1,7 +1,7 @@
 --| Glued signs carry no comments (SW-4081): in the leaves the parser reads, a `-` or `!` with an atom's first token
 --| glued to it on its line has no trailing comment, and that token no own-line comments. The parser reads a sign as a
 --| call argument's (`f -x`) or a head's negative numeral (`-1 n`) only when the next item is glued, so this is what
---| the tree fact `signsQuiet1` needs of the items.
+--| `argument1` and `head1` need of the items (their `signQuiet`, through `GoodItems` in `Syntax.ParseWalk`).
 --|
 --| The lexer's leaves are laid out (`laidOut`: a leaf with own-line comments, or after a trailing comment, starts its
 --| line), which gives it at once. Rule N moves comments, and breaks `laidOut` (in `a, -- c` the comment goes back to
@@ -975,7 +975,7 @@ theorem groupsQuiet ∀ (groups: List (List Leaf))
       (itemsQuietOf group groupQuiet, groupsQuiet more moreQuiet)
 
 --| Every declaration's items, as `parseFile` reads them from a lexed source in slice 1's alphabet, have glued signs
---| quiet: what the parse fact `signsQuiet1` needs of them.
+--| quiet: what `parseShaped1` needs of them for `signQuiet`.
 theorem settledItemsQuiet ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
     (within: alphabet1 lexed.leaves = True):

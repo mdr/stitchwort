@@ -438,14 +438,25 @@ theorem levelUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).level = ex
 
 theorem atomicUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).atomic1 = expr.atomic1 := cases
 
+theorem leadUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).lead = expr.lead := match expr with
+  | App head arguments => leadUncomma head
+  | Infix kind left operator right => leadUncomma left
+  | _ => cases
+
+theorem signQuietUncomma ∀ (operator: Word) (operand: Expr):
+    signQuiet operator (operand.mapIn1 withoutCommaExpr) = signQuiet operator operand :=
+  calc signQuiet operator (operand.mapIn1 withoutCommaExpr)
+    _ = quietBefore operator (operand.mapIn1 withoutCommaExpr).lead := byComputing
+    _ = signQuiet operator operand := rewrite leadUncomma operand
+
 theorem argumentUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).argument1 = expr.argument1 := match expr with
-  | Prefix operator operand => rewrite atomicUncomma operand
+  | Prefix operator operand => rewrite atomicUncomma operand, signQuietUncomma operator operand
   | _ => cases
 
 theorem numberAtomUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).numberAtom1 = expr.numberAtom1 := cases
 
 theorem headUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).head1 = expr.head1 := match expr with
-  | Prefix operator operand => rewrite numberAtomUncomma operand
+  | Prefix operator operand => rewrite numberAtomUncomma operand, signQuietUncomma operator operand
   | _ => cases
 
 theorem shapedUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).shaped1 = expr.shaped1 := match expr with

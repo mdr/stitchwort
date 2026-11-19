@@ -464,17 +464,6 @@ theorem leafSpells ∀ (word: Word) (around: Around) (key: Nat)
 
 -- The tree's spelling.
 
---| The leftmost token of an expression of the slice.
-def Expr.lead: Expr → Word
-  | Atom _ word => word
-  | Paren open _ _ => open
-  | Tuple open _ _ _ => open
-  | ListOf open _ _ _ => open
-  | App head _ => head.lead
-  | Infix _ left _ _ => left.lead
-  | Prefix operator _ => operator
-  | _ => Word.none
-
 --| The items of a bracket, a comma after each but the last.
 def commaSpelt: List Expr → List Text
   | [] => []
