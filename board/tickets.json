@@ -26462,9 +26462,9 @@
     {
       "id": 4169,
       "title": "[Sonnet] fmt (SW-4132 lane 6): two-run walk of DeclParser.sw: headers and groups (the bare flag, hard spot 1), types, the declarations (Syntax/FollowsDecl.sw)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4169",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 55 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
@@ -26516,15 +26516,17 @@
     {
       "id": 4173,
       "title": "[Sonnet] fmt S1 lane K2 (SW-4166): ParseCarriesLadder/Decl/File converted to Kept; GroupShapes1 restated with good/quiet; groupShapesProved and parsedSourcePlain1 closed (after K1, L)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4173",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row K2.",
+      "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row K2.\n\nK2 notes (Sonnet, 19 Nov 2026), branch lane/SW-4173:\n- Ladder (ParseCarriesLadder) and Decl (ParseCarriesDecl) converted onto Kept; knot (Ladder, LadderKept, basesKept, readsExpressionRule, NestedBoth, bothExpressionAt, keptExpressionAt) moved to the end of ParseKept.sw. SpellsText1 replaced by spellsText1 (from textSpellsOfSpells). ParseCarries.sw keeps only Carried/NestedCarries, itemWords*, and combinators; 79 Carried-walk theorems deleted (1,141 lines).\n- Comparison, logic and arrow links take BinaryItem / arrow facts (comparisonSpells, logicSpells, arrowText).\n- Decl level: DeclKept (grammar1 -> words and DeclKinds), runKept; groupCarries (within1 form, for the consumers) is derived from it. ParseCarriesFile unchanged (its GroupCarries stays within1-based for parseCarriesOf's consumers).\n- SourcePlainProofs: GroupShapes1 restated with good/quiet; groupShapesProved and parsedSourcePlain1 closed (lexGood, lexedItemsQuiet, frameRest).\n\n- Commit b410d9002. Whole-project check: only the known ReadBackLine.autoCallWithin1 error; groupShapesProved closed (2 goals open: formatAccepts1, groupKeepsTokens1). Audits of ParseKept, ParseCarriesLadder, ParseCarriesDecl, SourcePlainProofs, ParseCarries pass. 18 min (est. 60).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "b410d9002"
+      ]
     },
     {
       "id": 4174,
