@@ -2,11 +2,11 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-TYPE-MISMATCH] Error: these patterns match a `Int`, but the argument has type `Bool`
+[E-TYPE-MISMATCH] Error: these patterns match an `Int`, but the argument has type `Bool`
    ╭─[ reject/int-pattern-bool.sw:4:3 ]
    │
  4 │ ╭─▶   | (-1) => 1
  5 │ ├─▶   | _ => 2
    │ │                
-   │ ╰──────────────── these patterns match a `Int`, but the argument has type `Bool`
+   │ ╰──────────────── these patterns match an `Int`, but the argument has type `Bool`
 ───╯
