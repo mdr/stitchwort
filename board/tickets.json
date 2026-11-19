@@ -27689,13 +27689,13 @@
     },
     {
       "id": 4261,
-      "title": "[Opus] Functional induction B: G1, guarded arm partly overlapped by a later arm gets f.induct (two cases eq3 / eq3NotArm2, pending D3697)",
-      "status": "backlog",
+      "title": "[Opus] Functional induction B: G1, a guarded arm partly overlapped by a later arm gets f.induct, one case per arm with Lean's overlap hypothesis (D3697)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min. Waits for D3697.",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min. Waits for D3697.\n\nD3697 (Matt, 19 Nov 2026: \"let's go with the revised recommendation from Fable\"): a guarded arm partly overlapped by a later arm gives ONE case for the later arm (eq3), carrying the hypothesis withoutR.eq3 already takes (\"for every way arm 2's pattern could match, its guard is false\"), as Lean's f.induct does. No eq3NotArm2. See docs/reviews/SW-4278-d3697-review.md (including the 10-line bridge lemma, p3.sw). Opus lane + Opus review (kernel-term generation).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
