@@ -1,5 +1,5 @@
 {
-  "next": 4184,
+  "next": 4185,
   "tickets": [
     {
       "id": 47,
@@ -26650,12 +26650,25 @@
     {
       "id": 4183,
       "title": "[Opus] fmt S1: prove settledParsesMoved1 (a last comma that starts its line before the closer: rule N marks the closer as starting a line, so groupKeepsTokens' same-tokens premise fails); generalise the two-run item relation to same up to a closer's line start, or another route; the last obligation for formatAccepts1",
-      "status": "doing",
+      "status": "next",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4183",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.",
+      "body": "Est. 60 min. From SW-4176's report. Parser reads closers' line starts in startsBlock, ranOutOn, blockEnd; followsPeek relates peeked items as Same.\n\n\nLane notes (Opus, 19 Nov, 14:58-15:02): stopped at the route decision, no code. Generalising the two-run walk is not a 60-min job: the item relation is elementwise (List.All2 SameCode), but the moved closer differs in lineStart, glued, and the lineIndent of every later item on its line; agreement of readers (startsBlock: a closer is not endsConstruct, so it differs; lineHasSemicolon, blockEnd, stopsByLine needs depth>0, headIndentOn) needs context (the comma before it, its column, the parse failing at a closer) that an elementwise relation cannot carry; ~70 deaf readers used by the walk. Routes for the orchestrator in the lane report. Not false; no source found failing.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4184,
+      "title": "[Fable, paper] Slice 1 checkpoint and the route for settledParsesMoved1: (1) generalise Parse.Follows to a list-level item relation and prove the ~70 layout readers, or (2) change rule N's commaMoved so the closer keeps its own lineStart (settled tokens = raw; settledParsesKept1 closes the goal) and redo SW-4131's settle facts; does (2) change any output? Plus the slice-1 review: top theorems + formatAccepts1 say what D3687 asks, nothing narrowed",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4184",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 30 min. Paper. From SW-4183's report (board). Output: docs/reviews/SW-4184-slice1-checkpoint.md.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
