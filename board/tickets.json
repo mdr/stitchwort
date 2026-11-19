@@ -26174,9 +26174,9 @@
     {
       "id": 4147,
       "title": "[Opus] fmt S1 comments anywhere E4: tupleAny and listAny (after E2; ItemsHang with startFor per item, held opener) (SW-4130 plan)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4147",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 2 lanes, 60-90 min each. Folds in SW-4082 where it applies.",
@@ -26278,7 +26278,7 @@
     {
       "id": 4155,
       "title": "[Opus] fmt S1 rules: displace an item whose first token keeps a blank line (framedBy, Rules.sw:412: first.noted || (around.item && first.comments.blankBefore) || around.before), so blankItemHangs needs no BlankLined (SW-4153 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4155",
       "labels": [],

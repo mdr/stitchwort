@@ -130,3 +130,7 @@ cases and `gen.py` seeds 77 to 80 in modes `noted`, `longnoted`, `legal` and `wi
 with the tree facts and 5,240 chain nodes; 186 operators in 140 declarations and 147 right operands in 116 have
 comments above them, and every one of them fails `hangs` after `->`. `Links` and `RunFacts` now ask for those that
 they start the line after their comments (`startFor`).
+
+## CmpGate: printed output unchanged
+
+`CmpGate.sw` prints every declaration's slice 1 and slice 5a documents at eight widths. To show a rules change leaves printed text byte-identical, run it on copies of `tools/fmt` before and after the change (copy it into `src`, `stitchwort run CmpGate.main < cases`) and `diff` the outputs. The first run is cold (2-3 min). In tools/fmt/src, Syntax/LexProofs, LexReadsProofs, ParseCarriesDecl and ParseWalk take over 90 s each; skip them. Used by SW-4155.
