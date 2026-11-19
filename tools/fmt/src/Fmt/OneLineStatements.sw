@@ -1,8 +1,8 @@
 --| `declElementsOneLine1` (`Fmt.TopStatements`) in two halves that meet at a test on the tree, `Decl.edgeQuiet1`
 --| (SW-4096; docs/reviews/SW-4096-one-line-elements.md):
 --|
---| - `edgeQuietOneLine1` (open, the link): a slice 1 declaration that prints on one line is `edgeQuiet1`. It reads the
---|   printed line starts back to the tree's comments.
+--| - `edgeQuietOneLine1` (`Fmt.OneLineParts`, from three open parts, the link): a slice 1 declaration that prints on
+--|   one line is `edgeQuiet1`. It reads the printed line starts back to the tree's comments and blank lines.
 --| - `edgeElements1` (proved in `Fmt.EdgeDeclProofs`, the hangs): an `edgeQuiet1` slice 1 declaration meets
 --|   `DeclElements`. It says nothing of the printed text.
 --|
@@ -59,27 +59,8 @@ def Decl.edgeQuiet1: Decl → Bool
     (header.result.calm False).edgeQuiet1 False True && (value.calm False).edgeQuiet1 True True
   | _ => False
 
--- The two halves.
-
---| The link (open, SW-4096's A): a slice 1 declaration that prints on one line (`oneLine1`) is `edgeQuiet1`.
---|
---| Proof idea, without `standsOfDoc` (it needs `DeclHangs`, which this feeds): by contraposition, on the printed
---| pieces. `printedSpellsSettled` says the printed words less the closers are the tree's tokens and comments in
---| order, and less the comments its tokens, closers and commas in order; `CommentsEnd` (`printedJoins`) that a line
---| break follows each printed comment, so the next token laid (`Laid.lay`, `Decl.leaves1`) has `lineStart`. A
---| comment above a token is printed before it, so that token starts a line; a comment after a token that is not the
---| type's or value's last but for closers is printed before a later token of the same part, which starts a line
---| (`settled1`'s `homedBack` puts a closer's comment below one on the code before it, so that closer starts a line
---| too). `onLine1` allows a line start only at the `:=` and the value's first token, which leaves `edge1`'s cases.
---| The blank lines: a calmed flag left set is one the rules read (`Word.leading`), as a `Blank` after a line start.
-theorem edgeQuietOneLine1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (oneLine: decl.oneLine1 = True):
-    decl.edgeQuiet1 = True :=
-  ?
+-- `edgeQuietOneLine1`, the link, is in `Fmt.OneLineParts`, from three parts (SW-4098); `edgeElements1`, the
+-- hangs, is proved in `Fmt.EdgeDeclProofs`.
 
 -- Sources the two statements apply to (D3684).
 
