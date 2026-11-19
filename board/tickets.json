@@ -27249,12 +27249,12 @@
     {
       "id": 4228,
       "title": "[Fable, paper] Prior art for one proof over several match cases (D3694): how Lean 4, Rocq (Ltac, ssreflect, Equations), Agda, Idris 2, Isabelle/Isar, F*, Dafny, Coq-family and ML/Haskell languages handle or-patterns binding names (same vs per-alternative types) and repeated case proofs; recommend Stitchwort's design",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Est. 60 min. Matt, 19 Nov 2026, on D3694: 'I think this needs a Fable design lane to look at how other people handle this, particularly in the theorem prover space.' Input: docs/proposals/proof-match-likewise.md (SW-4219).",
+      "body": "Est. 60 min. Matt, 19 Nov 2026, on D3694: 'I think this needs a Fable design lane to look at how other people handle this, particularly in the theorem prover space.' Input: docs/proposals/proof-match-likewise.md (SW-4219).\n\nLane note (Fable, 19 Nov, 18:00-18:10): survey written, docs/proposals/proof-match-likewise-prior-art.md, commit 6e60e2f58 on lane/SW-4228. Lean 4 and Rocq both check a shared or-pattern body once per alternative, a bound name typed differently in each (measured); OCaml/Rust/Swift require one type; GHC, Scala today and Dafny forbid binding; Agda, Idris 2 and Isabelle have no or-patterns. Recommendation: confirm Design 2 with four amendments (error names its alternative, in the same lane; one error when all alternatives fail alike; the rule stated in the guide; a hole lists each goal). D3694 restated in the note, section 5, rec: yes.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
