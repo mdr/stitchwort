@@ -27186,8 +27186,8 @@
     {
       "id": 4223,
       "title": "[Sonnet] Teach one proof for several cases (docs/proposals/proof-match-likewise.md, no decision needed): guide and proving-guide section on a catch-all after a split and on or-patterns in proofs; an or-pattern arm's error names the failing alternative",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -27279,8 +27279,8 @@
     {
       "id": 4230,
       "title": "[Sonnet] Printer triple lemmas (passesCons, passesAppend, …): make kinds/pre/middle/post implicit where inferable, removing explicit arguments at every use (SW-4222 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -27450,7 +27450,7 @@
     {
       "id": 4243,
       "title": "[DeepSeek] Fix two W-UNREACHABLE warnings in tools/fmt/src/Syntax/FollowsDecl.sw:3281-3282 (arms | Some x, None => cases and | None, Some y => cases)",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27753,7 +27753,7 @@
     {
       "id": 4266,
       "title": "[DeepSeek] E-NO-INDUCT note: say 'doesn't call itself' only when the function really isn't recursive; otherwise name the gap (guarded overlap, non-tail call) (SW-4260 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
