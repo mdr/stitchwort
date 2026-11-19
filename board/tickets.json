@@ -24646,8 +24646,8 @@
     {
       "id": 4032,
       "title": "[Sonnet] stitchwort check: when a check is killed by timeout or runs out, say so and exit non-zero (SW-4027: a check that hit timeout exited 0 with no output, read as a pass)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "bug"
