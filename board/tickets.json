@@ -27746,7 +27746,7 @@
     {
       "id": 4265,
       "title": "[Sonnet] Differential oracle: lower Float.Model.isqrt/sqrtBits cost in the reference evaluator so their skipped comparisons run again (29 distinct skips of cap 60 on 19 Nov; SW-4255 finding)",
-      "status": "doing",
+      "status": "next",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27969,8 +27969,8 @@
     {
       "id": 4282,
       "title": "[Sonnet] Printer lemma families read their arguments off the premises (hangs…, steps…), as SW-4230 did for passes… (survey target 1, part A)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
