@@ -699,9 +699,12 @@ enum Command {
     /// name are told apart. Listed by namespace, with FILE:LINE. With
     /// `--unused NAMESPACE…`, the definitions in those namespaces nothing
     /// else in the project refers to (tests and `…Example` theorems left
-    /// out). Exits with status 0 with an answer, 2 when a name is unknown or
-    /// ambiguous (the candidates are listed), 1 if the project doesn't load
-    /// (docs/syntax.md, "Who uses a declaration")
+    /// out). With `--unused --dead`, the definitions no root reaches instead:
+    /// the roots are tests, `…Example` theorems, declarations outside the
+    /// namespaces, and each `--root NAME`. Exits with status 0 with an
+    /// answer, 2 when a name is unknown or ambiguous (the candidates are
+    /// listed), 1 if the project doesn't load (docs/syntax.md, "Who uses a
+    /// declaration")
     Uses {
         /// Declarations to look up; with `--unused`, namespaces to list in
         #[arg(value_name = "NAME", required = true)]
@@ -709,9 +712,15 @@ enum Command {
         /// List unused definitions of the namespaces instead
         #[arg(long)]
         unused: bool,
+        /// With `--unused`, list the definitions no root reaches instead
+        #[arg(long, requires = "unused")]
+        dead: bool,
+        /// With `--dead`, an extra root to reach from; may be repeated
+        #[arg(long, value_name = "NAME", requires = "dead")]
+        root: Vec<String>,
         /// The answer as a JSON object: version 1; `declarations`, each
         /// with `name` and `users` (`declaration`, `namespace`, `file`,
-        /// `line`); with `--unused`, `unused`
+        /// `line`); with `--unused`, `unused` (`dead` with `--dead`)
         #[arg(long)]
         json: bool,
         /// The project folder, if not the nearest one above the current one
@@ -1241,10 +1250,20 @@ fn run(cli: Cli) -> ExitCode {
         Command::Uses {
             names,
             unused,
+            dead,
+            root,
             json,
             project,
             cache,
-        } => uses(&names, unused, json, project.as_deref(), &cache),
+        } => uses(
+            &names,
+            unused,
+            dead,
+            &root,
+            json,
+            project.as_deref(),
+            &cache,
+        ),
         Command::Search {
             query,
             file,
@@ -3697,10 +3716,13 @@ fn goal_list(
 }
 
 /// `uses`: the declarations of the project that refer to each name, or
-/// with `unused`, the definitions of the namespaces nothing refers to.
+/// with `unused`, the definitions of the namespaces nothing refers to
+/// (`dead`: the definitions no root reaches).
 fn uses(
     names: &[String],
     unused: bool,
+    dead: bool,
+    roots: &[String],
     json: bool,
     project: Option<&Path>,
     cache: &CacheArgs,
@@ -3724,13 +3746,32 @@ fn uses(
         }
     };
     if unused {
-        let users = session.unused_in(&order, names);
-        if json {
-            println!("{}", serde_json::json!({"version": 1, "unused": users}));
-        } else if users.is_empty() {
-            println!("nothing unused in {}", names.join(", "));
+        let users = if dead {
+            let mut root_ids = Vec::new();
+            for name in roots {
+                match one_named(&session, &order, name) {
+                    Ok(id) => root_ids.push(id),
+                    Err(code) => return code,
+                }
+            }
+            session.dead_in(&order, names, &root_ids)
         } else {
-            println!("{} unused:", users.len());
+            session.unused_in(&order, names)
+        };
+        if json {
+            if dead {
+                println!("{}", serde_json::json!({"version": 1, "dead": users}));
+            } else {
+                println!("{}", serde_json::json!({"version": 1, "unused": users}));
+            }
+        } else if users.is_empty() {
+            println!(
+                "nothing {} in {}",
+                if dead { "dead" } else { "unused" },
+                names.join(", ")
+            );
+        } else {
+            println!("{} {}:", users.len(), if dead { "dead" } else { "unused" });
             by_namespace(&users);
         }
         discard(session);
@@ -3738,29 +3779,12 @@ fn uses(
     }
     let mut answers = Vec::new();
     for name in names {
-        let found = session.defs_named(&order, name);
-        let paths: Vec<String> = found
-            .iter()
-            .map(|id| session.elab.ev().def(*id).path().to_string())
-            .collect();
-        match found.as_slice() {
-            [] => {
-                eprintln!("error: there's no declaration `{name}` in the project");
-                return ExitCode::from(2);
-            }
-            [id] => answers.push((paths[0].clone(), session.users_of(&order, *id))),
-            _ => {
-                eprintln!(
-                    "error: `{name}` is ambiguous: {}; name one in full",
-                    paths
-                        .iter()
-                        .map(|p| format!("`{p}`"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                return ExitCode::from(2);
-            }
-        }
+        let id = match one_named(&session, &order, name) {
+            Ok(id) => id,
+            Err(code) => return code,
+        };
+        let path = session.elab.ev().def(id).path().to_string();
+        answers.push((path, session.users_of(&order, id)));
     }
     if json {
         let declarations: Vec<_> = answers
@@ -3783,6 +3807,38 @@ fn uses(
     }
     discard(session);
     ExitCode::SUCCESS
+}
+
+/// The one declaration `name` means in `namespaces`, or exit 2 (reported)
+/// when the project has none or more than one.
+fn one_named(
+    session: &Session,
+    namespaces: &[String],
+    name: &str,
+) -> Result<stitchwort_core::DefId, ExitCode> {
+    let found = session.defs_named(namespaces, name);
+    match found.as_slice() {
+        [] => {
+            eprintln!("error: there's no declaration `{name}` in the project");
+            Err(ExitCode::from(2))
+        }
+        [id] => Ok(*id),
+        _ => {
+            let paths: Vec<String> = found
+                .iter()
+                .map(|id| session.elab.ev().def(*id).path().to_string())
+                .collect();
+            eprintln!(
+                "error: `{name}` is ambiguous: {}; name one in full",
+                paths
+                    .iter()
+                    .map(|p| format!("`{p}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            Err(ExitCode::from(2))
+        }
+    }
 }
 
 /// The project's open goals and its namespaces in canonical order, for
