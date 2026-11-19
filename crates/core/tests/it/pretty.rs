@@ -809,3 +809,49 @@ fn prints_a_record_of_projections_as_an_update() {
         "{ row = pos.column, column = 7 }"
     );
 }
+
+/// `Float.keyOf` unfolded with the bits read as `Proj`s, as after record eta,
+/// is still the comparison of two floats: `x < y` (SW-2152).
+#[test]
+fn prints_float_order_keys_of_projected_bits_as_a_comparison() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let float = stitchwort_core::check::declare_data_group_as(
+        &mut p.g,
+        vec![],
+        Sort::Type(0),
+        vec![("Std.Float".into(), "Std.Float".into(), span(), true)],
+    )
+    .expect("Float")[0];
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        float,
+        vec![ctor("Float.mk", vec![("bits", nat.clone())])],
+    )
+    .expect("Float");
+    let binary = |p: &mut Prelude, name: &str| {
+        let ty = arrow(nat.clone(), arrow(nat.clone(), nat.clone()));
+        let id = define(&mut p.g, name, ty, lam("x", lam("y", v(1)))).unwrap();
+        registry::bind_def(&mut p.g, id);
+        id
+    };
+    let leq = binary(&mut p, "Nat.leq");
+    let less = binary(&mut p, "Int.less");
+    let key_of = binary(&mut p, "Std.Float.keyOf");
+    let bits = |x: Term| Term::Proj(float, 0, Rc::new(x));
+    let sign = || Term::Nat(Rc::new((1u64 << 63).into()));
+    let key = |x: Term| {
+        app(
+            Term::Def(key_of),
+            [bits(x.clone()), app(Term::Def(leq), [sign(), bits(x)])],
+        )
+    };
+    assert_eq!(
+        show(
+            &p,
+            &["x", "y"],
+            &app(Term::Def(less), [key(v(1)), key(v(0))])
+        ),
+        "x < y"
+    );
+}
