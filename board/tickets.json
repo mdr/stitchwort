@@ -1,5 +1,5 @@
 {
-  "next": 4175,
+  "next": 4176,
   "tickets": [
     {
       "id": 47,
@@ -26535,6 +26535,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "Est. 15 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4175,
+      "title": "[Sonnet] fmt S1 (SW-4166 follow-up, from lane A): Kept gains a 4th conjunct expr.autoPlaced1 False (no list at an inner full position starts with an auto call), proved at every node across ParseKept and K2's files; KeptAt at full goals from lane A's exprPlain upgrade lemma; closes lane A's open parser-placement goal with the glue lane",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
