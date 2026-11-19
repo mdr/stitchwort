@@ -3325,3 +3325,149 @@ theorem followsDataIndicesPart ∀ (rule: ExpressionRule) (modes: Modes) (atColo
                 | (steps, last), (twins, lastTwin) =>
                   Parse.followsDone _ _ (alikeIndices colon colonTwin steps twins pairs.left last lastTwin pairs.right))))
     | False => Parse.followsDone None None byComputing
+
+theorem followsDataDeclOn ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (isInterface: Bool):
+    Parse.Follows SameCode DeclsAlike (() => dataDeclOn modes attributes isInterface) (() =>
+      dataDeclOn modes attributesTwin isInterface) :=
+  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+    Parse.followsThen (followsDataName modes isInterface) (name nameTwin names =>
+      Parse.followsThen
+        (followsDataParams rule modes (if isInterface then "interface" else "type") name nameTwin)
+        (params paramsTwin paramses =>
+          followsThenEq
+            [j := atColon =>
+              (let indices := dataIndicesPart modes atColon;
+               if isInterface then
+                 interfaceDecl modes attributes keyword name params indices
+                   (indices.map (found => !found.steps.isEmpty) |> .getOrElse False)
+               else
+                 typeDecl modes attributes keyword name params indices
+                   (indices.map (found => !found.steps.isEmpty) |> .getOrElse False))]
+            [k := atColon =>
+              (let indices := dataIndicesPart modes atColon;
+               if isInterface then
+                 interfaceDecl modes attributesTwin keywordTwin nameTwin paramsTwin indices
+                   (indices.map (found => !found.steps.isEmpty) |> .getOrElse False)
+               else
+                 typeDecl modes attributesTwin keywordTwin nameTwin paramsTwin indices
+                   (indices.map (found => !found.steps.isEmpty) |> .getOrElse False))]
+            (followsAt modes Colon)
+            (atColon =>
+              Parse.followsThen (followsDataIndicesPart rule modes atColon) (indices indicesTwin indiceses =>
+                rewrite indexedAlike indices indicesTwin indiceses then
+                  match isInterface with
+                    | True =>
+                      followsInterfaceDecl rule modes attributes attributesTwin attributeses keyword keywordTwin name
+                        nameTwin names params paramsTwin paramses indices indicesTwin indiceses
+                        (indicesTwin.map (found => !found.steps.isEmpty) |> .getOrElse False)
+                    | False =>
+                      followsTypeDecl rule modes attributes attributesTwin attributeses keyword keywordTwin name
+                        nameTwin names params paramsTwin paramses indices indicesTwin indiceses
+                        (indicesTwin.map (found => !found.steps.isEmpty) |> .getOrElse False))))))
+
+theorem followsDataDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin):
+    Parse.Follows SameCode DeclsAlike (() => dataDecl modes attributes) (() => dataDecl modes attributesTwin) :=
+  followsThenEq
+    [j := isInterface => dataDeclOn modes attributes isInterface]
+    [k := isInterface => dataDeclOn modes attributesTwin isInterface]
+    (followsAt modes KwInterface)
+    (isInterface => followsDataDeclOn rule modes attributes attributesTwin attributeses isInterface)
+
+-- Abilities, tests and rule sets.
+
+theorem followsOperation ∀ (rule: ExpressionRule) (modes: Modes):
+    Parse.Follows SameCode OperationAlike (() => operation modes) (() => operation modes) :=
+  followsThenEq followsOffset (here =>
+    Parse.followsThen (followsLower { modes | allow = Some here } "an operation name") (name nameTwin names =>
+      Parse.followsThen (followsExpectFixed { modes | allow = Some here } Colon "`:`") (colon colonTwin colons =>
+        Parse.followsMap
+          [alike := OperationAlike]
+          [p := () => expressionAt { modes = { modes | allow = Some here }, level = LevelInline }]
+          [q := () => expressionAt { modes = { modes | allow = Some here }, level = LevelInline }]
+          (annotation => { name, colon, annotation })
+          (annotation => { name = nameTwin, colon = colonTwin, annotation })
+          (annotation annotationTwin annotations =>
+            alikeOperation name nameTwin names colon colonTwin annotation annotationTwin annotations)
+          (followsExpressionAt rule { modes = { modes | allow = Some here }, level = LevelInline }))))
+
+theorem followsOperationNext ∀ (rule: ExpressionRule) (modes: Modes) (column: Nat) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    Parse.Follows SameCode (Option.Alike OperationAlike) (() => operationNext modes column items) (() =>
+      operationNext modes column others) :=
+  match items, others with
+    | [next, ..rest], [nextTwin, ..restTwin] =>
+      let tokens: next.leaf.token = nextTwin.leaf.token := itemToken next nextTwin same.left
+      rewrite tokens then
+        match nextTwin.leaf.token.lineStart && nextTwin.leaf.token.column == column with
+          | True =>
+            Parse.followsMap
+              [alike := Option.Alike OperationAlike]
+              (found => Some found)
+              (found => Some found)
+              (x y alike => alike)
+              (followsOperation rule modes)
+          | False => Parse.followsDone None None Trivial
+    | [], [] => Parse.followsDone None None Trivial
+
+theorem followsOperations ∀ (rule: ExpressionRule) (modes: Modes) (column: Nat):
+    Parse.Follows SameCode (List.All2 OperationAlike) (() => operations modes column) (() => operations modes column) :=
+  Parse.followsThen (followsOperation rule modes) (first firstTwin firsts =>
+    Parse.followsMap
+      [alike := List.All2 OperationAlike]
+      (rest => [first, ..rest])
+      (rest => [firstTwin, ..rest])
+      (rest restTwin rests => Both firsts rests)
+      (Parse.followsLoop _ _
+        (followsOn
+          (items => operationNext modes column items)
+          (items => operationNext modes column items)
+          (items others same => followsOperationNext rule modes column items others same))))
+
+theorem followsAbilityParamStep ∀ (rule: ExpressionRule) (modes: Modes) (atParen: Bool):
+    Parse.Follows SameCode (Option.Alike GroupsAlike) (() => abilityParamStep modes atParen) (() =>
+      abilityParamStep modes atParen) :=
+  match atParen with
+    | True =>
+      Parse.followsThen (followsBinderGroup (expressionKnot rule) modes False) (binder binderTwin binders =>
+        Parse.followsThen
+          (followsRefuseEmpty binder.attributes binderTwin.attributes (groupAttributesEmpty binder binderTwin binders)
+            "an ability's parameter")
+          (refusal refusalTwin refusals => Parse.followsDone (Some binder) (Some binderTwin) binders))
+    | False => Parse.followsDone None None Trivial
+
+theorem followsAbilityParams ∀ (rule: ExpressionRule) (modes: Modes):
+    Parse.Follows SameCode (List.All2 GroupsAlike) (() => abilityParams modes) (() => abilityParams modes) :=
+  Parse.followsLoop _ _
+    (followsThenEq
+      [j := atParen => abilityParamStep modes atParen]
+      [k := atParen => abilityParamStep modes atParen]
+      (followsAt modes LParen)
+      (atParen => followsAbilityParamStep rule modes atParen))
+
+theorem followsAbilityOn ∀ (rule: ExpressionRule) (modes: Modes) (keyword keywordTwin: Comments) (name nameTwin: Word)
+    (names: WordsAlike name nameTwin) (params paramsTwin: List Group) (paramses: List.All2 GroupsAlike params paramsTwin)
+    (whereKeyword whereTwin: Comments) (seen: Option Tok) (items others: List Item) (same: List.All2 SameCode items others):
+    Parse.Follows SameCode DeclsAlike
+      (() => abilityOn modes keyword name params whereKeyword seen items)
+      (() => abilityOn modes keywordTwin nameTwin paramsTwin whereTwin seen others) :=
+  match seen with
+    | Some kind =>
+      match items, others with
+        | [first, ..rest], [firstTwin, ..restTwin] =>
+          let tokens: first.leaf.token = firstTwin.leaf.token := itemToken first firstTwin same.left
+          rewrite tokens then
+            Parse.followsMap
+              [alike := DeclsAlike]
+              [p := () => operations { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column]
+              [q := () => operations { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column]
+              (found => Ability keyword name params whereKeyword found)
+              (found => Ability keywordTwin nameTwin paramsTwin whereTwin found)
+              (found foundTwin founds =>
+                alikeAbility keyword keywordTwin name nameTwin names params paramsTwin paramses whereKeyword whereTwin
+                  found foundTwin founds)
+              (followsOperations rule { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column)
+        | [], [] =>
+          followsFail modes "the ability's operations" (() => modes.fail "the ability's operations")
+    | None => followsFail modes "the ability's operations" (() => modes.fail "the ability's operations")
