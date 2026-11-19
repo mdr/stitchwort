@@ -100,7 +100,7 @@ theorem withTrailingMarked ∀ (leaves: List Leaf) (comment: Comment) (p: Leaf �
     | [] => byComputing
     | [last, ..earlier] => rewrite same last
 
-theorem withTrailingTexts ∀ (leaves: List Leaf) (comment: Comment)
+theorem withTrailingRaw ∀ (leaves: List Leaf) (comment: Comment)
     (old: (leafTexts leaves).all rawText = True)
     (raw: rawText comment.text = True):
     (leafTexts (withTrailing leaves comment)).all rawText = True :=
@@ -186,7 +186,7 @@ theorem addCommentFine ∀ (asm: Assembly) (last: Bool) (source: Text) (offset l
             (Bool.orTrue (!pendB (withTrailing asm.leaves comment)))
             (Bool.andIntro markedNew
               (Bool.andIntro
-                (withTrailingTexts asm.leaves comment
+                (withTrailingRaw asm.leaves comment
                   (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight fine)))))
                   ok)
                 (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight fine)))))))))
@@ -451,7 +451,7 @@ theorem lexLaidProved ∀ (source: Text) (lexed: Lexed)
 def noteAt: Comment := { text = "-- note", column = 0, blankLines = 0 }
 
 theorem withTrailingTextsExample: (leafTexts (withTrailing [] noteAt)).all rawText = True :=
-  withTrailingTexts [] noteAt byComputing byComputing
+  withTrailingRaw [] noteAt byComputing byComputing
 
 theorem addCommentFineExample: asmFine
       (Assembly.start.add "-- note" { value = CommentLexeme, offset = 0, length = 7 })

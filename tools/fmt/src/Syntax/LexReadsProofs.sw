@@ -406,6 +406,7 @@ theorem commentRaw ∀ (body: List Char)
 theorem soundSkip ∀ (count: Nat): Sound (() => skip count) := start fine =>
   Parse.readsAtWeaken (atSkip count start) (read v h => byComputing)
 
+--| `located value from` gives a lexeme of that value.
 theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
     Gives (() => located value from) (lexeme => lexeme.value = value) :=
   start fine =>

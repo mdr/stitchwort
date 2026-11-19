@@ -73,7 +73,7 @@ def HangState.atTop: HangState := { blocks = [], top = None, start = True, glue 
 
 --| A group's leaves are its items'.
 theorem leavesItems ∀ (group: List Leaf): leavesOf (items group) = group :=
-  rewrite itemsStart group then itemsLeaves ItemsAt.start group
+  rewrite itemsStart group then placeItemsLeaves ItemsAt.start group
 
 --| The line rule's state after a definition's name, outside brackets.
 def HangState.afterName: HangState := { blocks = [], top = None, start = False, glue = False }
@@ -183,7 +183,7 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
     rewrite List.appendNil valueRead then Bool.andRight (deepRest typeRead after deepType)
   let (first, more, isType, starts) := speltStarts result typeRead typeSpelt
   let typeLeaves: hangsAfter (HangState.atTop.after (leavesOf typeRead)) (leavesOf after) = True :=
-    rewrite <- hangsAppend HangState.atTop (leavesOf typeRead) (leavesOf after),
+    rewrite <- hangsFromAppend HangState.atTop (leavesOf typeRead) (leavesOf after),
         <- List.mapAppend typeRead after (item => item.leaf) then
       fromColon
   let valueHung: hangsFrom HangState.atTop (leavesOf (valueRead ++ [])) = True :=

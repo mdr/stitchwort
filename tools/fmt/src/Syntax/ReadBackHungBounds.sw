@@ -88,7 +88,7 @@ theorem boundsCong ∀ (modes: Modes) (now before: HangState)
     | Some limit => rewrite same then bound
 
 --| A step over a leaf that is no closer, comma, `:=` or `:` is what `entered` makes of the state, bracket columns aside.
-theorem stepPlain ∀ (state next: HangState) (leaf: Leaf)
+theorem leafStepPlain ∀ (state next: HangState) (leaf: Leaf)
     (step: state.step leaf = Some next)
     (plain: (leaf.token.kind == Comma
       || leaf.token.kind.isCloser
@@ -123,7 +123,7 @@ theorem boundsPast ∀ (modes: Modes) (state next: HangState) (item: Item)
     (stepped: state.step item.leaf = Some next)
     (plain: (item.kind == Comma || item.kind.isCloser || item.kind == ColonEq || item.kind == Colon) = False):
     bounds modes next = True :=
-  boundsCong modes next (state.entered item.leaf) (stepPlain state next item.leaf stepped plain) bound
+  boundsCong modes next (state.entered item.leaf) (leafStepPlain state next item.leaf stepped plain) bound
 
 --| A block opened at an item that starts its expression and its line bounds the state that item enters.
 theorem boundsBlock ∀ (modes: Modes) (state: HangState) (item: Item) (allow: Option Nat) (kind: LineKind)

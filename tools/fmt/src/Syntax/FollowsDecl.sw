@@ -2288,7 +2288,7 @@ def stepKey: (Index, Word) → (Index, Word)
 
 def IndexStepAlike (step twin: (Index, Word)): Prop := stepKey step = stepKey twin
 
-theorem stepsCons ∀ (step: (Index, Word)) (rest: List (Index, Word)):
+theorem blankIndexStepsCons ∀ (step: (Index, Word)) (rest: List (Index, Word)):
     blankIndexSteps (walkIndices blankPure [step, ..rest])
       = [stepKey step, ..blankIndexSteps (walkIndices blankPure rest)] :=
   match step with
@@ -2303,10 +2303,10 @@ theorem indexStepsBlank ∀ (steps twins: List (Index, Word))
     | [step, ..rest], [twin, ..restTwin] =>
       let (head, tail) := alike
       calc blankIndexSteps (walkIndices blankPure [step, ..rest])
-        _ = [stepKey step, ..blankIndexSteps (walkIndices blankPure rest)] := stepsCons step rest
+        _ = [stepKey step, ..blankIndexSteps (walkIndices blankPure rest)] := blankIndexStepsCons step rest
         _ = [stepKey twin, ..blankIndexSteps (walkIndices blankPure restTwin)] :=
           rewrite head, indexStepsBlank rest restTwin tail
-        _ = blankIndexSteps (walkIndices blankPure [twin, ..restTwin]) := Eq.flipped (stepsCons twin restTwin)
+        _ = blankIndexSteps (walkIndices blankPure [twin, ..restTwin]) := Eq.flipped (blankIndexStepsCons twin restTwin)
 
 theorem alikeStepBinder ∀ (binder twin: Group)
     (binders: GroupsAlike binder twin) (arrow arrowTwin: Word)
@@ -3079,7 +3079,9 @@ theorem groupAutoSome ∀ (group twin: Group) (alike: GroupsAlike group twin): g
     _ = (blankComments twin.auto).isSome := rewrite same
     _ = twin.auto.isSome := blankCommentsSome twin.auto
 
-theorem isNoneOfSome ∀ (found twin: Option Comments) (same: found.isSome = twin.isSome): found.isNone = twin.isNone :=
+theorem isNoneOfAlikeSome ∀ (found twin: Option Comments)
+    (same: found.isSome = twin.isSome):
+    found.isNone = twin.isNone :=
   match found, twin with
     | Some x, Some y => byComputing
     | None, None => byComputing
@@ -3321,7 +3323,7 @@ theorem followsDataParamBracket ∀ (rule: ExpressionRule) (modes: Modes) (word:
           "a data type's parameter")
         (refusal refusalTwin refusals =>
           let autos: binder.auto.isNone = binderTwin.auto.isNone :=
-            isNoneOfSome binder.auto binderTwin.auto (groupAutoSome binder binderTwin binders)
+            isNoneOfAlikeSome binder.auto binderTwin.auto (groupAutoSome binder binderTwin binders)
           let names: binder.names.isEmpty = binderTwin.names.isEmpty := groupNamesEmpty binder binderTwin binders
           rewrite autos, names then
             match binderTwin.auto.isNone with

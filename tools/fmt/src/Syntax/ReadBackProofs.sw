@@ -184,10 +184,11 @@ def ItemsAt.past (place: ItemsAt): List Leaf → ItemsAt
 
 theorem itemsStart ∀ (leaves: List Leaf): items leaves = ItemsAt.start.items leaves := byComputing
 
-theorem itemsLeaves ∀ (place: ItemsAt) (leaves: List Leaf): (place.items leaves).map (item => item.leaf) = leaves :=
+theorem placeItemsLeaves ∀ (place: ItemsAt) (leaves: List Leaf):
+    (place.items leaves).map (item => item.leaf) = leaves :=
   match leaves with
     | [] => byComputing
-    | [leaf, ..rest] => Eq.cong (Cons leaf) (itemsLeaves (place.step leaf) rest)
+    | [leaf, ..rest] => Eq.cong (Cons leaf) (placeItemsLeaves (place.step leaf) rest)
 
 -- The line rule over parts of the leaves.
 
@@ -205,13 +206,13 @@ def hangsAfter (state: Option HangState) (leaves: List Leaf): Bool := match stat
 
 --| The line rule holds of leaves read one after another when it holds of the first, and of the rest from where the
 --| first left it: what lets the read-back take `hangs` apart along the tree.
-theorem hangsAppend ∀ (state: HangState) (first rest: List Leaf):
+theorem hangsFromAppend ∀ (state: HangState) (first rest: List Leaf):
     hangsFrom state (first ++ rest) = hangsAfter (state.after first) rest :=
   match first with
     | [] => byComputing
     | [leaf, ..more] =>
       match stepped: state.step leaf with
-        | Some next => hangsAppend next more rest
+        | Some next => hangsFromAppend next more rest
         | None => byComputing
 
 --| Whether a leaf would take a block at `column` round again: `continuesAt` of its item.

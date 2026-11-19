@@ -67,7 +67,7 @@ theorem openerParts ∀ (kind: Tok)
   cases
 
 --| An opener enters the state its expression's first leaf places, and starts the bracket's first item.
-theorem openStep ∀ (state next: HangState) (leaf: Leaf)
+theorem hangOpenStep ∀ (state next: HangState) (leaf: Leaf)
     (opener: leaf.token.kind.isOpener = True)
     (stepped: state.step leaf = Some next):
     next
@@ -91,7 +91,7 @@ theorem closeStep ∀ (state next: HangState) (leaf: Leaf) (block: Option Nat) (
   match state with | { blocks, top, start, glue } => rewrite inside, closer at stepped then cases
 
 --| A comma starts the bracket's next item.
-theorem commaStep ∀ (state next: HangState) (leaf: Leaf) (block: Option Nat) (outer: List (Option Nat))
+theorem hangCommaStep ∀ (state next: HangState) (leaf: Leaf) (block: Option Nat) (outer: List (Option Nat))
     (comma: (leaf.token.kind == Comma) = True)
     (inside: state.blocks = [block, ..outer])
     (stepped: state.step leaf = Some next):
@@ -194,7 +194,7 @@ theorem openWithin ∀ (state next: HangState) (leaf: Leaf)
     (opener: leaf.token.kind.isOpener = True)
     (stepped: state.step leaf = Some next):
     Within next (state.entered leaf) :=
-  rewrite openStep state next leaf opener stepped then (None, byComputing, byComputing)
+  rewrite hangOpenStep state next leaf opener stepped then (None, byComputing, byComputing)
 
 --| Entering a state by some items' first keeps it inside the bracket.
 theorem entersWithin ∀ (state entered: HangState) (read: List Item)
@@ -213,10 +213,10 @@ theorem commaWithin ∀ (state next entered: HangState) (leaf: Leaf)
     (stepped: state.step leaf = Some next):
     Within next entered :=
   let (placed, isBlocks, isTop) := within
-  rewrite commaStep state next leaf placed entered.blocks comma isBlocks stepped then (None, byComputing, isTop)
+  rewrite hangCommaStep state next leaf placed entered.blocks comma isBlocks stepped then (None, byComputing, isTop)
 
 --| A closer ends the bracket that a leaf opened: the state is the one that leaf entered.
-theorem closeBracket ∀ (state inside next: HangState) (first last: Leaf)
+theorem closerEntered ∀ (state inside next: HangState) (first last: Leaf)
     (closer: last.token.kind.isCloser = True)
     (within: Within inside (state.entered first))
     (stepped: inside.step last = Some next):
@@ -269,10 +269,10 @@ theorem afterOne ∀ (state next: HangState) (leaf: Leaf)
 def exampleLeaf (kind: Tok) (text: Text): Leaf :=
   { token = { kind, text, column = 2, lineStart = False }, trivia = Trivia.empty }
 
---| `openStep`'s hypotheses hold: a `(` at column 2 inside the type, as the first item of a bracket.
+--| `hangOpenStep`'s hypotheses hold: a `(` at column 2 inside the type, as the first item of a bracket.
 theorem openStepExample: { blocks = [None], top = None, start = True, glue = False }
       = { blocks = [None, ..[]], top = None, start = True, glue = False } :=
-  openStep
+  hangOpenStep
     { blocks = [], top = None, start = True, glue = False }
     { blocks = [None], top = None, start = True, glue = False }
     (exampleLeaf LParen "(")

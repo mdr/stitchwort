@@ -263,16 +263,13 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
 
 -- Tokens.
 
-theorem solidFilled ∀ (text: Text) (solid: isLayout text = False): text.isEmpty = False := match text, solid with
-  | MkText [first, ..rest], _ => byComputing
-
 theorem soundSolid ∀ (word: Word) (sound: word.sound = True): isLayout word.text = False :=
   Bool.notTrue (isLayout word.text) (Bool.andLeft sound)
 
 --| A token's text is code: from what `Joinable` says of it.
 theorem wordCode ∀ (word: Word) (sound: word.sound = True) (token: Token word.text): Code word.text :=
   let solid := soundSolid word sound
-  (solidFilled word.text solid, solid, token)
+  (Doc.Proofs.wordFilled word.text solid, solid, token)
 
 --| A token's trailing comment, after it on its line.
 theorem trailingSteps ∀ (word: Word)
@@ -1002,7 +999,7 @@ theorem eachFree ∀ (items: List Expr)
     )
 
 --| A comma after an item: it stands on the item's line, before a comment the item ends with.
-theorem commaStep ∀ (trails: Bool): Steps (Closing ",") (Ends trails) [Free] (Ends trails) :=
+theorem closingCommaSteps ∀ (trails: Bool): Steps (Closing ",") (Ends trails) [Free] (Ends trails) :=
   stepsFrom _ _ _ _ _
     (stepsTo _ _ _ _ _ (stepsClosing "," trails (byComputing, byComputing, byComputing)) (seam closed =>
       closedEnds trails seam closed))
@@ -1065,7 +1062,7 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
             (Ends (trailsBack (seen ++ item.words).reverse)) _
             [Free]
             (commaSpacing [second, ..more])
-            (commaStep (trailsBack (seen ++ item.words).reverse))
+            (closingCommaSteps (trailsBack (seen ++ item.words).reverse))
             (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
               brokenSteps (seen ++ item.words) [second, ..more] False arm False item.trails (at + item.size) rest)))
 
@@ -1116,7 +1113,7 @@ theorem cellsRestSteps ∀ (seen: List Word) (items: List Expr) (arm before: Boo
                 [Free]
                 (stepsTo _ _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
                   itemEnds seen item seam ended))
-                (commaStep (trailsBack (seen ++ item.words).reverse)))))
+                (closingCommaSteps (trailsBack (seen ++ item.words).reverse)))))
           (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
             cellsRestSteps (seen ++ item.words) [second, ..more] arm item.trails (at + item.size) rest)
 
@@ -1165,7 +1162,7 @@ theorem cellsSteps ∀ (open: Word) (item: Expr) (others: List Expr) (bare arm b
                 [Free]
                 (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
                   itemEnds [open] item seam ended))
-                (commaStep (trailsBack ([open] ++ item.words).reverse))))
+                (closingCommaSteps (trailsBack ([open] ++ item.words).reverse))))
             start)
           (rewrite <- List.appendAssoc [open] item.words (itemsWords [second, ..more]) then
             cellsRestSteps ([open] ++ item.words) [second, ..more] arm item.trails (at + item.size) rest)
@@ -1638,7 +1635,7 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
     first
     sound
     loose
-    (rewrite appDocsIs head arguments inside then
+    (rewrite appDocsIsOneFirst head arguments inside then
       stepsSpacing _ _ _ _ _ same
         (appFromSteps
           (inside.at + 1)
@@ -1983,7 +1980,7 @@ theorem callHugSteps ∀ (value: Expr) (inside: Around)
       let same: joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
         = (App head arguments).spacing False :=
         rewrite callJoin headSpacing arguments filled, freeFirst head headWithin
-      rewrite appDocsIs head arguments inside, <- same then
+      rewrite appDocsIsOneFirst head arguments inside, <- same then
         appFromHugSteps
           (inside.at + 1)
           (1 + keptFront head arguments)

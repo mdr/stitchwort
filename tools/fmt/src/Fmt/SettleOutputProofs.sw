@@ -1056,7 +1056,7 @@ def headQuiet: List Word → Bool
   | [] => True
   | [word, ..rest] => !arrowText word
 
-theorem pairQuiet ∀ (word next: Word)
+theorem arrowQuietPair ∀ (word next: Word)
     (quiet: (!arrowText word) = True):
     (operatorTok word.text != Some Arrow || (!word.trails && !next.noted)) = True :=
   let plain: arrowText word = False := Bool.notTrue _ quiet
@@ -1073,7 +1073,7 @@ theorem arrowsJoin ∀ (xs ys: List Word)
     | [x] =>
       match ys with
         | [] => byComputing
-        | [y, ..more] => Bool.andIntro (pairQuiet x y quiet) back
+        | [y, ..more] => Bool.andIntro (arrowQuietPair x y quiet) back
     | [x, next, ..rest] =>
       Bool.andIntro (Bool.andLeft front) (arrowsJoin [next, ..rest] ys (Bool.andRight front) back quiet)
 
@@ -1598,7 +1598,7 @@ theorem leadingClean ∀ (comments: List Comment) (rest: List Text)
       let (moreClean, restClean) := leadingClean more rest (Bool.andRight texts)
       (Bool.andIntro (Bool.andLeft texts) moreClean, restClean)
 
-theorem wordClean ∀ (leaf: Leaf) (texts: leaf.word.comments.texts.all commentText = True): leaf.clean = True :=
+theorem leafCleanOfTexts ∀ (leaf: Leaf) (texts: leaf.word.comments.texts.all commentText = True): leaf.clean = True :=
   let (leading, trailing) :=
     leadingClean leaf.trivia.leading (leaf.trivia.trailing.map (comment => comment.text)).toList texts
   match leaf.trivia.trailing with
@@ -1624,7 +1624,7 @@ theorem matchedClean ∀ (behind: List Leaf) (done: List Word)
               let wordTexts: leaf.word.comments.texts.all commentText = True :=
                 rewrite fitsWord leaf word (Bool.andLeft m) then Bool.andLeft texts
               Bool.andIntro
-                (wordClean leaf wordTexts)
+                (leafCleanOfTexts leaf wordTexts)
                 (matchedClean earlier older (Bool.andRight m) (Bool.andRight texts))
 
 theorem leadOf ∀ (leaves: List Leaf) (plain: plain1 (tokens leaves) = True): notCommaFirst leaves = True :=

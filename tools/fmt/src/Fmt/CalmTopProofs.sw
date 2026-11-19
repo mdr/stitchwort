@@ -185,7 +185,7 @@ theorem calmTopWithin ∀ (file: SourceFile) (within: file.within1 = True): file
           Bool.andIntro
             (topFlagWithin
               (Definition [] header (Assigned colonEq value)).calm
-              (Eq.trans (declCalmWithin (Definition [] header (Assigned colonEq value))) (Bool.andLeft within)))
+              (Eq.trans (declCalmWithinEq (Definition [] header (Assigned colonEq value))) (Bool.andLeft within)))
             (Eq.trans (declsCalmWithin rest) (Bool.andRight within))
       | _ => cases
 
@@ -346,7 +346,7 @@ theorem calmTopPrints ∀ (file: SourceFile)
           let declaration: Decl := Definition [] header (Assigned colonEq value)
           let calmed: Decl := Definition [] header.calm (Assigned (colonEq.kept False False) (value.calm False))
           let output: Output := { pieces = [], empty = True }
-          let withinCalmed: calmed.within1 = True := Eq.trans (declCalmWithin declaration) (Bool.andLeft within)
+          let withinCalmed: calmed.within1 = True := Eq.trans (declCalmWithinEq declaration) (Bool.andLeft within)
           calc ({ decls = [declaration, ..rest], end }: SourceFile).calmTop.printed1
             _ = finishFile
                 (printDecls Decl.printed1 output [calmed.topFlag, ..rest.map Decl.calm])

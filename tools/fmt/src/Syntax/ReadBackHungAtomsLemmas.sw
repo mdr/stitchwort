@@ -13,7 +13,7 @@ import Syntax.ReadBackLine (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungBounds (..)
 import Syntax.ReadBackHungFrame (speltEnters, speltHangs)
-import Syntax.ReadBackHungFrameLemmas (commaStep, exampleLeaf, leavesOfAppend, infixIsFlat, flatParts)
+import Syntax.ReadBackHungFrameLemmas (hangCommaStep, exampleLeaf, leavesOfAppend, infixIsFlat, flatParts)
 import Syntax.SharedFacts (commaNotCloser)
 
 --| The line rule over the leaves after the first, from the state the first left.
@@ -26,7 +26,7 @@ theorem hungStep ∀ (state: HangState) (leaf: Leaf) (rest: List Leaf)
 theorem hungSplit ∀ (state: HangState) (first rest: List Leaf)
     (hung: hangsFrom state (first ++ rest) = True):
     ∃ (mid: HangState) => state.after first = Some mid ∧ hangsFrom mid rest = True :=
-  let whole: hangsAfter (state.after first) rest = True := rewrite <- hangsAppend state first rest then hung
+  let whole: hangsAfter (state.after first) rest = True := rewrite <- hangsFromAppend state first rest then hung
   match after: state.after first with | Some mid => (mid, byComputing, whole)
 
 --| `deepAll` of the head alone.
@@ -168,7 +168,7 @@ theorem commaNext ∀ (state next: HangState) (leaf: Leaf)
     | { blocks, top, start, glue } =>
       match blocks with
         | [block, ..outer] =>
-          commaStep { blocks = [block, ..outer], top, start, glue } next leaf block outer comma byComputing stepped
+          hangCommaStep { blocks = [block, ..outer], top, start, glue } next leaf block outer comma byComputing stepped
         | [] =>
           let notCloser := commaNotCloser leaf.token.kind comma
           rewrite notCloser, comma at stepped then cases

@@ -17,13 +17,13 @@ import Syntax.ReadBackLine (..)
 import Syntax.AutoPlaced (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungBounds (hungStops, boundsCong)
-import Syntax.ReadBackHungFrameLemmas (openStep)
+import Syntax.ReadBackHungFrameLemmas (hangOpenStep)
 import Syntax.ReadBackHungAtomsLemmas (..)
 
 --| A spelt expression is what `atom` reads, on any lines the line rule allows.
 --|
 --| Proof idea: by the atom's kind. A bracket's opener puts the line rule at the start of its first item, with the
---| column in force the one the opener entered, which the modes' limit is within (`openStep`); each item is read by
+--| column in force the one the opener entered, which the modes' limit is within (`hangOpenStep`); each item is read by
 --| `fullHung` from the start of an item, a comma restarting it (`commaNext`), and the state an item leaves gives the
 --| next item's start back (`entersNext`). Commas and the closer never stop a reading, being inside the bracket
 --| (`deepStops`); the peeks at an item's first leaves see them unstopped as the line rule steps over them
@@ -74,7 +74,7 @@ theorem atomHung ∀ (modes: Modes)
           let deepBody: deepAll (inside ++ [last, ..rest]) = True := Bool.andRight deepItems1
           let deepLast := deepHead last rest (deepRest inside [last, ..rest] deepBody)
           let (s1, steppedOpen, hungBody) := hungStep state first.leaf (leavesOf (inside ++ [last, ..rest])) hungItems
-          let isS1 := openStep state s1 first.leaf (rewrite isOpen) steppedOpen
+          let isS1 := hangOpenStep state s1 first.leaf (rewrite isOpen) steppedOpen
           let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at bound then bound
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
@@ -112,7 +112,7 @@ theorem atomHung ∀ (modes: Modes)
                 (rewrite isClose),
             noRight = rewrite assoc then
               rightClosed first inside last rest
-                (groupWalk body inside bodySpelt LParen [] [] [last, ..rest])
+                (groupInsideReverse body inside bodySpelt LParen [] [] [last, ..rest])
                 (speltLast body inside bodySpelt [])
                 isClose
           }
@@ -168,7 +168,7 @@ theorem atomHung ∀ (modes: Modes)
             rewrite <- stepsAssoc then deepRest read2 _ deep2
           let deepLast := deepHead last rest (deepRest (commaReads steps) [last, ..rest] deepSteps)
           let (s1, steppedOpen, hung1) := hungStep state first.leaf (leavesOf (read1 ++ (elements ++ rest))) hungItems
-          let isS1 := openStep state s1 first.leaf (rewrite isOpen) steppedOpen
+          let isS1 := hangOpenStep state s1 first.leaf (rewrite isOpen) steppedOpen
           let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at bound then bound
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
@@ -268,7 +268,7 @@ theorem atomHung ∀ (modes: Modes)
                       [last, ..rest])
                   (lastOf read1 ([separator, ..read2] ++ commaReads steps) [] (before =>
                     rewrite ontoAppend [separator, ..read2] (commaReads steps) before then
-                      stepsLast others steps stepsSpelt
+                      headPlainCommaReads others steps stepsSpelt
                         (List.reverseOnto [separator, ..read2] before)
                         (speltLast two read2 twoSpelt [separator, ..before])))
                   isClose
@@ -353,7 +353,7 @@ theorem atomHung ∀ (modes: Modes)
           let deepSteps: deepAll (commaReads steps ++ [last, ..rest]) = True := rewrite <- stepsAssoc then deepElements
           let deepLast := deepHead last rest (deepRest (commaReads steps) [last, ..rest] deepSteps)
           let (s1, steppedOpen, hung1) := hungStep state first.leaf (leavesOf (read1 ++ (elements ++ rest))) hungItems
-          let isS1 := openStep state s1 first.leaf (rewrite isOpen) steppedOpen
+          let isS1 := hangOpenStep state s1 first.leaf (rewrite isOpen) steppedOpen
           let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at bound then bound
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound

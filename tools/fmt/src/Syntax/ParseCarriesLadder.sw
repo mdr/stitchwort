@@ -269,7 +269,7 @@ theorem readsCmpAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs
         readsCmpChain self modes lhs kind item second before r2 outside.below.below binary lhsCarried secondCarried
             seen))
 
-theorem readsCmpCompare ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (before: List Item)
+theorem readsCarriedCmpCompare ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (before: List Item)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self)
@@ -306,7 +306,8 @@ theorem readsCmpPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (fir
         | False =>
           match isCmp: item.kind.isComparison with
             | True =>
-              readsCmpCompare self modes lhs before nested carries outside lhsCarried start item later shape isCmp fine
+              readsCarriedCmpCompare self modes lhs before nested carries outside lhsCarried start item later shape
+                  isCmp fine
             | False => Parse.readsAtDone start lhs _ (rewrite List.appendNil before then lhsCarried))
 
 theorem readsCmpExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
