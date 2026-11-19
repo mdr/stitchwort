@@ -172,7 +172,7 @@ theorem blanksBelowOfStands ∀ (decl: Decl)
 --| order alone doesn't show the line break: a closer may change places with a trailing comment (`Closing` is written
 --| before a waiting one), so `f (a) -- c⏎-- d` has the words and comment breaks of `f (a -- c⏎) -- d` with no closer
 --| starting a line. The line break is read by `printedTold` and `printTold`, which ask only that the document lays
---| with any columns (`doc1Checks`, `closersBareOfStands`, both open).
+--| with any columns (`doc1Checks`, open, and `closersBareOfStands`, proved in `Fmt.StandsLine`).
 theorem closersBareOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)

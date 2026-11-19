@@ -944,13 +944,13 @@ theorem stepChoice ∀ (first: Doc) (more: List Doc) (pre: Kinds → Bool) (trai
 
 --| Documents one after another, each from where the one before ended: the first from a place that ends with a comment
 --| waiting only if `before`, then each from the previous one's.
-def Chain: List Doc → Bool → Bool → Prop
+def Chained: List Doc → Bool → Bool → Prop
   | [], before, trails => before = trails
   | [doc, ..rest], before, trails =>
-    ∃ (middle: Bool) => Step doc (Starts False before) (kinds => Ends kinds middle) ∧ Chain rest middle trails
+    ∃ (middle: Bool) => Step doc (Starts False before) (kinds => Ends kinds middle) ∧ Chained rest middle trails
 
 theorem chainAll ∀ (docs: List Doc) (before trails: Bool)
-    (chain: Chain docs before trails):
+    (chain: Chained docs before trails):
     StepAll docs (kinds => Ends kinds before) (kinds => Ends kinds trails) :=
   match docs with
     | [] => kinds holds => (kinds, byComputing, rewrite <- chain then holds)
@@ -984,7 +984,7 @@ theorem joinedWithCons ∀ (separator doc: Doc) (rest: List Doc):
 --| A separator that leaves words on the line, between documents.
 theorem chainSeparated ∀ (separator: Doc) (docs: List Doc) (before trails: Bool)
     (apart: ∀ (trails: Bool) => Step separator (kinds => Ends kinds trails) (Starts False trails))
-    (chain: Chain docs before trails):
+    (chain: Chained docs before trails):
     StepAll (sepBefore separator docs) (kinds => Ends kinds before) (kinds => Ends kinds trails) :=
   match docs with
     | [] => kinds holds => (kinds, byComputing, rewrite <- chain then holds)
@@ -1021,7 +1021,7 @@ theorem sepsKindsCons ∀ (doc: Doc) (rest: List Doc) (kinds after final: Kinds)
 
 --| A fill's later items, each after a line break or a space, from where the first ended.
 theorem fillSeps ∀ (docs: List Doc) (before trails: Bool)
-    (chain: Chain docs before trails) (kinds: Kinds)
+    (chain: Chained docs before trails) (kinds: Kinds)
     (ends: Ends kinds before = True):
     ∃ (final: Kinds) => laysSepsKinds docs kinds = Some final ∧ Ends final trails = True :=
   match docs with
@@ -1043,7 +1043,7 @@ theorem fillKinds ∀ (first: Doc) (others: List Doc) (kinds after final: Kinds)
 
 theorem stepFill ∀ (first: Doc) (others: List Doc) (pre: Kinds → Bool) (middle trails: Bool)
     (head: Step first pre (kinds => Ends kinds middle))
-    (chain: Chain others middle trails):
+    (chain: Chained others middle trails):
     Step (Fill [first, ..others]) pre (kinds => Ends kinds trails) :=
   kinds holds =>
     let (after, found, good) := head kinds holds
