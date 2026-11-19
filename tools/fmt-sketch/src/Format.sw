@@ -17,8 +17,9 @@ type FormatResult = | Formatted (text: Text) | Refused (message: Text)
 def grammarWith (extra: Nat) (lexed: Lexed): Result SourceFile Text := ?
 
 --| The errors the lowering raises that the formatter must refuse too
---| (§3.5): a parameter named twice in a header, an or-pattern that binds
---| names, a condition on an arm with `()` and no body.
+--| (§3.5): a parameter named twice in a header, an or-pattern whose
+--| alternatives bind different names, a condition on an arm with `()` and
+--| no body.
 def SourceFile.refusal (file: SourceFile): Option Text := ?
 
 --| The tree of settled leaves. No extra fuel is needed for any nesting
