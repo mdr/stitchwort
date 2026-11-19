@@ -1,5 +1,5 @@
 {
-  "next": 4157,
+  "next": 4158,
   "tickets": [
     {
       "id": 47,
@@ -26265,7 +26265,7 @@
     {
       "id": 4154,
       "title": "[Opus] fmt multi-line read-back H9 (SW-4121 plan): assemble: confirm readsBackHung closed with H1-H8, delete the one-line read-back twins no longer used on the top theorems' path, audit Syntax.ReadBackHung*",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4154",
       "labels": [],
@@ -26297,6 +26297,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 15 min. After SW-4155 (both touch HeldParenProofs).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4157,
+      "title": "[Sonnet] fmt: merge duplicate lemmas across Fmt and Syntax (startBlocksNo = HangProofs.staleBlocks, wordIsNoArrow = SettleOutputProofs.wordNotArrow, hungStep = OutputFileProofs.hangsStep, readsAtMark/readsAtLeft in ParseCarriesDecl and GoodItemProofs/ParseWalk) (SW-4154 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 30 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
