@@ -1,14 +1,32 @@
 --| The predicates slice 1's proofs speak of (docs/proposals/
 --| self-hosted-fmt-s1-sketch.md §1.2, §1.3, §1.5), written out as tests on
---| the real tree: what rule N leaves (`settled1`), the blank-line flags the
---| rules read (`calm`), the shapes the parser gives (`shaped1`), the
---| tokens' spellings (`lexical1`) and where printed lines start (`hangs`).
+--| the real tree: what rule N leaves (`settled`), the blank-line flags the
+--| rules read (`calm`), the shapes the parser gives (`shaped`), the
+--| tokens' spellings (`lexical`) and where printed lines start (`hangs`).
 --|
---| `shaped1` and `lexical1` are the sketch's `Shaped1` and `Lexical1`,
+--| `shaped` and `lexical` are the sketch's `Shaped1` and `Lexical1`,
 --| which it only names. They are written here from its description, for
 --| the passes' proofs: the parser lane (ticket 16) owns them and may
 --| tighten them; the passes keep any test that doesn't read a trailing
 --| comma.
+--|
+--| One definition each, for every slice (docs/proposals/fmt-consolidation-statements.md §1): a later slice adds arms
+--| to `shaped`, `lexical`, `settled`, `unreturned` and the rest instead of copying them under a new number. A form has
+--| an arm once some slice's proofs cover it; until then the last arm is `False`, so a shaped tree is made only of
+--| covered forms. These rules keep slice 1's lemmas standing when an arm is added:
+--|
+--| 1. A slice is its Scope definitions (the grammar, the driver and its gate `within1`, the token alphabet) and
+--|    nothing else: a property never names a slice. The one exception is `shaped`'s atom arm, which reads
+--|    `kind.wordWithin1`; slice 2's statements lane moves that test.
+--| 2. A lemma that splits on the tree's forms and needs "there is no other form" takes the gate (`within1`) and closes
+--|    the other arms with the gate, not with a property's last arm. Then filling a property's arm cannot break it.
+--| 3. A lemma about one form takes facts about that node and its children and no gate (`appParsed` in
+--|    `Syntax/ParseWalk.sw` is the pattern). It stands in every slice. Write new forms' proof content this way.
+--| 4. A lemma with no gate that splits on a property gains an arm when the property does, with its statement and
+--|    callers unchanged: one property's arm and its handful of ungated lemmas make one lane.
+--|
+--| Numbered names stay for the slice's Scope definitions (`Grammar1.sw`, `Driver1.sw`, `Slice1.sw`), the token
+--| tables (`Tok.symbolic1`, `fixedKind1`, `movable1`, `Lexed.laid1`, …) and theorems that are rightly one slice's.
 
 namespace Fmt
 import Std (Bool, List, Nat, Option, Result, Text)
@@ -48,11 +66,11 @@ def commentText (text: Text): Bool := text.startsWith "--" && !text.contains "\n
 
 def Comments.texts (comments: Comments): List Text := comments.above.map (note => note.text) ++ comments.after.toList
 
-def Decl.settled1 (decl: Decl): Bool :=
+def Decl.settled (decl: Decl): Bool :=
   homedBack decl.words.reverse && arrowsBare decl.words && decl.words.all (word => word.comments.texts.all commentText)
 
-def SourceFile.settled1 (file: SourceFile): Bool :=
-  file.decls.all Decl.settled1 && file.end.texts.all commentText && file.end.after.isNone
+def SourceFile.settled (file: SourceFile): Bool :=
+  file.decls.all Decl.settled && file.end.texts.all commentText && file.end.after.isNone
 
 -- Blank lines: `calm`.
 
@@ -114,7 +132,7 @@ def SourceFile.calm (file: SourceFile): SourceFile :=
 -- Shaped and lexical.
 
 --| An atom or a bracket: what a call's argument may be, and what a sign on an argument may sit on.
-def Expr.atomic1: Expr → Bool
+def Expr.primary: Expr → Bool
   | Atom _ _ => True
   | Paren _ _ _ => True
   | Tuple _ _ _ _ => True
@@ -122,7 +140,7 @@ def Expr.atomic1: Expr → Bool
   | _ => False
 
 --| A numeral, which a `-` glued to it reads as one atom with.
-def Expr.numberAtom1: Expr → Bool
+def Expr.numberAtom: Expr → Bool
   | Atom Num _ => True
   | Atom Float _ => True
   | _ => False
@@ -150,16 +168,16 @@ def quietBefore (operator next: Word): Bool := match operator.comments.after, ne
 --| A call's head: an atom or a bracket, or `-` on a numeral (`-1 n` reads `-1` as one atom, `App (Prefix - 1) [n]`),
 --| with no comment between them (`signQuiet`: the parser reads `-1` as one atom only when the two are glued). Any
 --| other sign takes the whole call: `-x y` and `!x y` read as `-(x y)` and `!(x y)`.
-def Expr.head1: Expr → Bool
-  | Prefix operator operand => operator.text == "-" && operand.numberAtom1 && signQuiet operator operand
-  | other => other.atomic1
+def Expr.callHead: Expr → Bool
+  | Prefix operator operand => operator.text == "-" && operand.numberAtom && signQuiet operator operand
+  | other => other.primary
 
 --| A call's argument: an atom or a bracket, or a sign on one (`f -x !b`) with no comment between them
 --| (`signQuiet`: the parser reads an argument's sign only when its operand is glued to it). A sign on a sign is no
 --| argument: `f - -x` reads as `f - (-x)`, since only an atom or a bracket may follow an argument's sign.
-def Expr.argument1: Expr → Bool
-  | Prefix operator operand => operand.atomic1 && signQuiet operator operand
-  | other => other.atomic1
+def Expr.callArgument: Expr → Bool
+  | Prefix operator operand => operand.primary && signQuiet operator operand
+  | other => other.primary
 
 --| The least level an expression needs to stand bare as the right operand of an infix operator: the operator's own
 --| level where it nests to the right (`++`, `&&`, `||`, `->`), the next level up where it nests to the left (`+`, `*`:
@@ -177,24 +195,24 @@ def rightNeeds (kind: InfixKind) (operator: Text): Nat := match kind with
 --| atoms, brackets or signs on them (so a head is no application); operands of an infix sit at their ladder levels
 --| (`ParseProofs` proves the levels), the right operand of a chain that nests to the left one level up; a tuple has
 --| two items or more.
-def Expr.shaped1: Expr → Bool
+def Expr.shaped: Expr → Bool
   | Atom kind _ => kind.wordWithin1
-  | Paren _ inner _ => inner.shaped1
-  | Tuple _ items _ _ => items.length >= 2 && allShaped1 items
-  | ListOf _ items _ _ => allShaped1 items
+  | Paren _ inner _ => inner.shaped
+  | Tuple _ items _ _ => items.length >= 2 && allShaped items
+  | ListOf _ items _ _ => allShaped items
   | App head arguments =>
-    head.head1 && head.shaped1 && !arguments.isEmpty && arguments.all Expr.argument1 && allShaped1 arguments
+    head.callHead && head.shaped && !arguments.isEmpty && arguments.all Expr.callArgument && allShaped arguments
   | Infix kind left operator right =>
-    left.shaped1
-      && right.shaped1
+    left.shaped
+      && right.shaped
       && leftNeeds kind operator.text <= left.level
       && rightNeeds kind operator.text <= right.level
-  | Prefix _ operand => operand.shaped1 && 18 <= operand.level
+  | Prefix _ operand => operand.shaped && 18 <= operand.level
   | _ => False
 
-def allShaped1: List Expr → Bool
+def allShaped: List Expr → Bool
   | [] => True
-  | [expr, ..rest] => expr.shaped1 && allShaped1 rest
+  | [expr, ..rest] => expr.shaped && allShaped rest
 
 --| A text lexes as exactly one token, of the given kind.
 def textLexesAs (text: Text) (kind: Tok): Bool := match lex text with
@@ -213,32 +231,32 @@ theorem Word.keptNameWithin1 ∀ (word: Word) (item closer: Bool):
 
 --| Each word's text lexes as one token of its kind, a bracket's word is
 --| its bracket and an operator's text is in `operatorTok`'s table.
-def Expr.lexical1: Expr → Bool
+def Expr.lexical: Expr → Bool
   | Atom kind word => word.lexesAs kind
-  | Paren open inner close => open.text == "(" && close.text == ")" && inner.lexical1
-  | Tuple open items _ close => open.text == "(" && close.text == ")" && allLexical1 items
-  | ListOf open items _ close => open.text == "[" && close.text == "]" && allLexical1 items
-  | App head arguments => head.lexical1 && allLexical1 arguments
-  | Infix _ left operator right => left.lexical1 && (operatorTok operator.text).isSome && right.lexical1
-  | Prefix operator operand => (operatorTok operator.text).isSome && operand.lexical1
+  | Paren open inner close => open.text == "(" && close.text == ")" && inner.lexical
+  | Tuple open items _ close => open.text == "(" && close.text == ")" && allLexical items
+  | ListOf open items _ close => open.text == "[" && close.text == "]" && allLexical items
+  | App head arguments => head.lexical && allLexical arguments
+  | Infix _ left operator right => left.lexical && (operatorTok operator.text).isSome && right.lexical
+  | Prefix operator operand => (operatorTok operator.text).isSome && operand.lexical
   | _ => False
 
-def allLexical1: List Expr → Bool
+def allLexical: List Expr → Bool
   | [] => True
-  | [expr, ..rest] => expr.lexical1 && allLexical1 rest
+  | [expr, ..rest] => expr.lexical && allLexical rest
 
-def Decl.lexical1: Decl → Bool
+def Decl.lexical: Decl → Bool
   | Definition _ header (Assigned _ value) =>
-    (header.name.lexesAs Lower || header.name.lexesAs Upper) && header.result.lexical1 && value.lexical1
+    (header.name.lexesAs Lower || header.name.lexesAs Upper) && header.result.lexical && value.lexical
   | _ => False
 
-def Decl.shaped1: Decl → Bool
-  | Definition _ header (Assigned _ value) => header.result.shaped1 && value.shaped1
+def Decl.shaped: Decl → Bool
+  | Definition _ header (Assigned _ value) => header.result.shaped && value.shaped
   | _ => False
 
-def SourceFile.shaped1 (file: SourceFile): Bool := file.decls.all Decl.shaped1
+def SourceFile.shaped (file: SourceFile): Bool := file.decls.all Decl.shaped
 
-def SourceFile.lexical1 (file: SourceFile): Bool := file.decls.all Decl.lexical1
+def SourceFile.lexical (file: SourceFile): Bool := file.decls.all Decl.lexical
 
 -- Continued lines: `hangs` (K3a).
 

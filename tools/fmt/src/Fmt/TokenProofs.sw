@@ -1,5 +1,5 @@
 --| `printedTokens1` (SW-4038, ticket A of docs/reviews/SW-4025-output-statements.md): a declaration's printed leaves
---| have the texts the rules spell for it, comments left out, and the lexer's kind for each text. `Decl.leaves1` lays
+--| have the texts the rules spell for it, comments left out, and the lexer's kind for each text. `Decl.leaves` lays
 --| the printed texts as pieces (`laidOf`), one leaf for each `Code` piece, and `printedSpellsSettled` says which
 --| texts are code.
 
@@ -180,11 +180,11 @@ theorem pieceFoldKinded ∀ (texts: List Text): allKinded (pieceFold lexKind tex
 
 -- The leaves of a declaration.
 
---| `Decl.real` of a slice 1 declaration, from `lexical1`: its words' texts lex as tokens, so none is spaces or a line
+--| `Decl.real` of a slice 1 declaration, from `lexical`: its words' texts lex as tokens, so none is spaces or a line
 --| break (`declReal`, with the operators `within1` allows).
 theorem declRealOfLexical ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True):
+    (lexical: decl.lexical = True):
     decl.real = True :=
   declReal decl within lexical (declOperators decl within)
 
@@ -197,10 +197,10 @@ theorem declRealOfLexical ∀ (decl: Decl)
 --| are `decl.spelt`'s. Each `Code` piece `pieceOf` makes has the lexer's kind for its text, which `Laid.lay` keeps.
 theorem printedTokens1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    tokenTexts decl.leaves1 = decl.spelt.filter notComment ∧ decl.leaves1.all Leaf.kinded = True :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    tokenTexts decl.leaves = decl.spelt.filter notComment ∧ decl.leaves.all Leaf.kinded = True :=
   match shows: decl.doc1 with
     | Some doc =>
       let spelled :=

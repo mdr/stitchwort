@@ -1,7 +1,7 @@
 --| The parser's walk for slice 1's grammar (docs/reviews/SW-4166-carried-walk-plan.md §2, lane K1): every parser
 --| function on slice 1's path gives a tree that, if it is in the grammar (`grammar1`), has the words of the items it read
---| (commas left out), their kinds (commas in, `Fmt.Kinds1.Expr.kinds1`), is in the driver's slice (`within1`), and has no
---| list that starts a full expression starting with an `auto` call (`Syntax.AutoPlaced.Expr.autoPlaced1`; SW-4128,
+--| (commas left out), their kinds (commas in, `Fmt.Kinds.Expr.kinds`), is in the driver's slice (`within1`), and has no
+--| list that starts a full expression starting with an `auto` call (`Syntax.AutoPlaced.Expr.autoPlaced`; SW-4128,
 --| SW-4175). The spec is `Kept`, `Syntax.ParseCarries`' `Carried` gated on the grammar rather than the driver's slice and
 --| with three more conjuncts; `carriedOfKept` gives `Carried` back. At a goal that starts a full expression the spec is
 --| `KeptFull`: the tree is placed as a full expression too, which a bracket's inside, a list's item or an arrow's right
@@ -19,7 +19,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Grammar1 (..)
-import Fmt.Kinds1 (..)
+import Fmt.Kinds (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.GoodItemProofs (textSpellsOfSpells)
@@ -54,11 +54,11 @@ def itemKinds (read: List Item): List Tok := read.map Item.kind
 
 --| What a parser function gives, read from `read`: a tree of slice 1's grammar has the words of the items read for it
 --| (commas left out), their kinds (commas in), is in the driver's slice, and is placed where it doesn't start a full
---| expression (`autoPlaced1 False`: each of its own full positions is placed). A tree outside the grammar says
+--| expression (`autoPlaced False`: each of its own full positions is placed). A tree outside the grammar says
 --| nothing.
 def Kept (read: List Item) (expr: Expr): Prop :=
   expr.grammar1 = True
-    → expr.words = itemWords read ∧ expr.kinds1 = itemKinds read ∧ expr.within1 = True ∧ expr.autoPlaced1 False = True
+    → expr.words = itemWords read ∧ expr.kinds = itemKinds read ∧ expr.within1 = True ∧ expr.autoPlaced False = True
 
 --| A goal that starts a full expression: `expr` and `expr_inline`, the levels whose parser reaches `exprPlain` and so
 --| tests for an implicit binder.
@@ -67,10 +67,10 @@ def Goal.full (goal: Goal): Bool := match goal.level with
   | LevelInline => True
   | _ => False
 
---| `Kept`, and a tree of the grammar placed as a full expression's (`Syntax.AutoPlaced.Expr.autoPlaced1`: no list at
+--| `Kept`, and a tree of the grammar placed as a full expression's (`Syntax.AutoPlaced.Expr.autoPlaced`: no list at
 --| its start starts with an `auto` call).
 def KeptFull (read: List Item) (expr: Expr): Prop :=
-  Kept read expr ∧ (expr.grammar1 = True → expr.autoPlaced1 True = True)
+  Kept read expr ∧ (expr.grammar1 = True → expr.autoPlaced True = True)
 
 --| What `self` keeps at a goal: `KeptFull` where the goal starts a full expression, `Kept` elsewhere.
 def KeptAt (goal: Goal) (read: List Item) (expr: Expr): Prop := match goal.full with
@@ -95,8 +95,8 @@ theorem spellsText1 ∀ (kind: Tok) (text: Text)
 --| An `auto` call on a type's name starts with its tokens: `auto`, then an upper-case name.
 theorem autoCallTokens ∀ (expr: Expr)
     (grammar: expr.grammar1 = True)
-    (call: expr.autoCall1 = True):
-    ∃ (auto: Word) (kinds: List Tok) (words: List Word) => expr.kinds1 = [Lower, Upper, ..kinds]
+    (call: expr.autoCall = True):
+    ∃ (auto: Word) (kinds: List Tok) (words: List Word) => expr.kinds = [Lower, Upper, ..kinds]
       ∧ expr.words = [auto, ..words]
       ∧ auto.text = "auto" :=
   match expr, grammar, call with
@@ -104,12 +104,12 @@ theorem autoCallTokens ∀ (expr: Expr)
       let isLower: headKind = Lower := DecEq.sound (Bool.andLeft call)
       let isAuto: word.text = "auto" := DecEq.sound (Bool.andLeft (Bool.andRight call))
       let isUpper: argumentKind = Upper := DecEq.sound (Bool.andRight (Bool.andRight call))
-      (word, argsKinds1 more, [argumentWord, ..itemsWords more], (rewrite isLower, isUpper), byComputing, isAuto)
+      (word, argsKinds more, [argumentWord, ..itemsWords more], (rewrite isLower, isUpper), byComputing, isAuto)
     | Infix InfixBinary left operator right, grammar, call =>
       let (auto, kinds, words, isKinds, isWords, isAuto) := autoCallTokens left (Bool.andLeft grammar) call
       (
         auto,
-        kinds ++ [binaryKind1 operator.text, ..right.kinds1],
+        kinds ++ [binaryKind operator.text, ..right.kinds],
         words ++ [operator, ..right.words],
         (rewrite isKinds),
         (rewrite isWords),
@@ -119,7 +119,7 @@ theorem autoCallTokens ∀ (expr: Expr)
       let (auto, kinds, words, isKinds, isWords, isAuto) := autoCallTokens left (Bool.andLeft grammar) call
       (
         auto,
-        kinds ++ [Arrow, ..right.kinds1],
+        kinds ++ [Arrow, ..right.kinds],
         words ++ [operator, ..right.words],
         (rewrite isKinds),
         (rewrite isWords),
@@ -133,15 +133,15 @@ theorem autoCallTokens ∀ (expr: Expr)
 --| differ only at the list that ends it; there `autoLeadCall` and `autoCallTokens` give the tokens.
 theorem unplacedTokens ∀ (expr: Expr)
     (grammar: expr.grammar1 = True)
-    (inner: expr.autoPlaced1 False = True)
-    (unplaced: expr.autoPlaced1 True = False):
-    ∃ (open auto: Word) (kinds: List Tok) (words: List Word) => expr.kinds1 = [LBracket, Lower, Upper, ..kinds]
+    (inner: expr.autoPlaced False = True)
+    (unplaced: expr.autoPlaced True = False):
+    ∃ (open auto: Word) (kinds: List Tok) (words: List Word) => expr.kinds = [LBracket, Lower, Upper, ..kinds]
       ∧ expr.words = [open, auto, ..words]
       ∧ auto.text = "auto" :=
   match expr, grammar, inner, unplaced with
     | ListOf open [one, ..others] trailing close, grammar, inner, unplaced =>
-      let rest: (one.autoPlaced1 True && autoPlacedAll True others) = True := inner
-      let lead: autoLead1 True one = False := match isLead: autoLead1 True one with
+      let rest: (one.autoPlaced True && autoPlacedAll True others) = True := inner
+      let lead: autoLead True one = False := match isLead: autoLead True one with
         | False => byComputing
         | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped rest)).impossible
       let (auto, kinds, words, isKinds, isWords, isAuto) :=
@@ -149,14 +149,14 @@ theorem unplacedTokens ∀ (expr: Expr)
       (
         open,
         auto,
-        kinds ++ restKinds1 RBracket trailing others,
+        kinds ++ restKinds RBracket trailing others,
         (words ++ itemsWords others) ++ [close],
         (rewrite isKinds),
         (rewrite isWords),
         isAuto
       )
     | App head arguments, grammar, inner, unplaced =>
-      let headUnplaced: head.autoPlaced1 True = False := match isHead: head.autoPlaced1 True with
+      let headUnplaced: head.autoPlaced True = False := match isHead: head.autoPlaced True with
         | False => byComputing
         | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped (Bool.andRight inner))).impossible
       let (open, auto, kinds, words, isKinds, isWords, isAuto) :=
@@ -164,14 +164,14 @@ theorem unplacedTokens ∀ (expr: Expr)
       (
         open,
         auto,
-        kinds ++ argsKinds1 arguments,
+        kinds ++ argsKinds arguments,
         words ++ itemsWords arguments,
         (rewrite isKinds),
         (rewrite isWords),
         isAuto
       )
     | Infix InfixBinary left operator right, grammar, inner, unplaced =>
-      let leftUnplaced: left.autoPlaced1 True = False := match isLeft: left.autoPlaced1 True with
+      let leftUnplaced: left.autoPlaced True = False := match isLeft: left.autoPlaced True with
         | False => byComputing
         | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped (Bool.andRight inner))).impossible
       let (open, auto, kinds, words, isKinds, isWords, isAuto) :=
@@ -179,14 +179,14 @@ theorem unplacedTokens ∀ (expr: Expr)
       (
         open,
         auto,
-        kinds ++ [binaryKind1 operator.text, ..right.kinds1],
+        kinds ++ [binaryKind operator.text, ..right.kinds],
         words ++ [operator, ..right.words],
         (rewrite isKinds),
         (rewrite isWords),
         isAuto
       )
     | Infix InfixArrow left operator right, grammar, inner, unplaced =>
-      let leftUnplaced: left.autoPlaced1 True = False := match isLeft: left.autoPlaced1 True with
+      let leftUnplaced: left.autoPlaced True = False := match isLeft: left.autoPlaced True with
         | False => byComputing
         | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped (Bool.andRight inner))).impossible
       let (open, auto, kinds, words, isKinds, isWords, isAuto) :=
@@ -194,7 +194,7 @@ theorem unplacedTokens ∀ (expr: Expr)
       (
         open,
         auto,
-        kinds ++ [Arrow, ..right.kinds1],
+        kinds ++ [Arrow, ..right.kinds],
         words ++ [operator, ..right.words],
         (rewrite isKinds),
         (rewrite isWords),
@@ -254,8 +254,8 @@ theorem keptPlacedUp ∀ (read rest: List Item) (expr: Expr)
     (noBinder: ∀ (item: Item) (later: List Item) => read ++ rest = [item, ..later]
       → item.kind = LBracket
       → namelessAutoAt (read ++ rest) = False):
-    expr.autoPlaced1 True = True :=
-  match unplaced: expr.autoPlaced1 True with
+    expr.autoPlaced True = True :=
+  match unplaced: expr.autoPlaced True with
     | True => byComputing
     | False =>
       let (isWords, isKinds, _, inner) := kept grammar
@@ -390,12 +390,12 @@ theorem keptAtom ∀ (item: Item) (good: GoodItem item): Kept [item] (Atom item.
 
 --| An item a prefix operator is read from: the kind and text are slice 1's, and it is no comma.
 def PrefixItem (item: Item): Prop :=
-  prefixKind1 item.text = item.kind ∧ prefixText1 item.text = True ∧ (item.kind == Comma) = False
+  prefixKind item.text = item.kind ∧ prefixText1 item.text = True ∧ (item.kind == Comma) = False
 
 theorem prefixSpells ∀ (kind: Tok) (text: Text)
     (sign: (kind == Minus || kind == Bang) = True)
     (good: kind.within1 = True → Spells kind text):
-    prefixKind1 text = kind ∧ prefixText1 text = True ∧ (kind == Comma) = False :=
+    prefixKind text = kind ∧ prefixText1 text = True ∧ (kind == Comma) = False :=
   match kind, sign, good with
     | Minus, sign, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
     | Bang, sign, good =>
@@ -491,7 +491,7 @@ theorem readsNegativeAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 def RestKept (read: List Item) (items: List Expr) (trailing: Bool): Prop :=
   allGrammar1 items = True
     → itemsWords items = itemWords read
-      ∧ (∀ (close: Tok) => restKinds1 close trailing items = itemKinds read ++ [close])
+      ∧ (∀ (close: Tok) => restKinds close trailing items = itemKinds read ++ [close])
       ∧ allWithin1 items = True
       ∧ autoPlacedAll True items = True
 
@@ -500,7 +500,7 @@ def RestKept (read: List Item) (items: List Expr) (trailing: Bool): Prop :=
 def ItemsKept (read: List Item) (items: List Expr) (trailing: Bool): Prop :=
   allGrammar1 items = True
     → itemsWords items = itemWords read
-      ∧ (∀ (close: Tok) => itemsKinds1 close trailing items = itemKinds read ++ [close])
+      ∧ (∀ (close: Tok) => itemsKinds close trailing items = itemKinds read ++ [close])
       ∧ allWithin1 items = True
       ∧ autoPlacedAll True items = True
 
@@ -528,7 +528,7 @@ theorem restKeptStep ∀ [first rest: List Item] [value: Expr] [more: List Expr]
     (
       (rewrite itemWordsAfterComma comma (first ++ rest) isComma, itemWordsAppend first rest, words, otherWords),
       (close =>
-        calc restKinds1 close trailing [value, ..more]
+        calc restKinds close trailing [value, ..more]
           _ = [Comma, ..itemKinds first ++ (itemKinds rest ++ [close])] := rewrite kinds, otherKinds close
           _ = itemKinds [comma, ..first ++ rest] ++ [close] :=
             rewrite itemKindsAppend first rest, isComma, List.appendAssoc (itemKinds first) (itemKinds rest) [close]),
@@ -548,7 +548,7 @@ theorem itemsKeptCons ∀ [first rest: List Item] [value: Expr] [more: List Expr
     (
       (rewrite itemWordsAppend first rest, words, otherWords),
       (close =>
-        calc itemsKinds1 close trailing [value, ..more]
+        calc itemsKinds close trailing [value, ..more]
           _ = itemKinds first ++ (itemKinds rest ++ [close]) := rewrite kinds, otherKinds close
           _ = itemKinds (first ++ rest) ++ [close] :=
             rewrite itemKindsAppend first rest, List.appendAssoc (itemKinds first) (itemKinds rest) [close]),
@@ -629,7 +629,7 @@ theorem keptParen ∀ (open: Item) (inside rest: List Item) (inner: Expr) (close
           itemWordsAppend inside rest,
           words,
           oneOfWords closeOne byComputing),
-      (calc (Paren open.leaf.word inner close).kinds1
+      (calc (Paren open.leaf.word inner close).kinds
         _ = [open.kind, ..itemKinds inside ++ [closeItem.kind]] := rewrite kinds, isOpen, closeKind
         _ = itemKinds [open, ..inside ++ rest] := rewrite single, itemKindsAppend inside [closeItem]),
       within,
@@ -649,7 +649,7 @@ theorem keptTuple ∀ (open: Item) (inside rest: List Item) (items: List Expr) (
           itemWordsAppend inside rest,
           words,
           oneOfWords closeOne byComputing),
-      (calc (Tuple open.leaf.word items trailing close).kinds1
+      (calc (Tuple open.leaf.word items trailing close).kinds
         _ = [open.kind, ..itemKinds inside ++ [closeItem.kind]] := rewrite kinds RParen, isOpen, closeKind
         _ = itemKinds [open, ..inside ++ rest] := rewrite single, itemKindsAppend inside [closeItem]),
       within,
@@ -659,7 +659,7 @@ theorem keptTuple ∀ (open: Item) (inside rest: List Item) (items: List Expr) (
 --| A list of items placed as full expressions is placed where it starts no full expression.
 theorem listPlacedAway ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
     (placed: autoPlacedAll True items = True):
-    (ListOf open items trailing close).autoPlaced1 False = True :=
+    (ListOf open items trailing close).autoPlaced False = True :=
   match items, placed with
     | [], placed => byComputing
     | [one, ..others], placed => Bool.andIntro byComputing placed
@@ -677,7 +677,7 @@ theorem keptList ∀ (open: Item) (inside rest: List Item) (items: List Expr) (t
           itemWordsAppend inside rest,
           words,
           oneOfWords closeOne byComputing),
-      (calc (ListOf open.leaf.word items trailing close).kinds1
+      (calc (ListOf open.leaf.word items trailing close).kinds
         _ = [open.kind, ..itemKinds inside ++ [closeItem.kind]] := rewrite kinds RBracket, isOpen, closeKind
         _ = itemKinds [open, ..inside ++ rest] := rewrite single, itemKindsAppend inside [closeItem]),
       within,
@@ -1022,7 +1022,7 @@ theorem readsAtomBases ∀ (self: Goal → {Parse Item} Expr)
 def ArgsKept (read: List Item) (args: List Expr): Prop :=
   allGrammar1 args = True
     → itemsWords args = itemWords read
-      ∧ argsKinds1 args = itemKinds read
+      ∧ argsKinds args = itemKinds read
       ∧ allWithin1 args = True
       ∧ autoPlacedAll False args = True
 
@@ -1228,7 +1228,7 @@ theorem readsUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 --| An item a binary operator is read from: its kind is the one its text gives, the text is one of slice 1's binary
 --| operators, and it is no comma.
 def BinaryItem (item: Item): Prop :=
-  binaryKind1 item.text = item.kind ∧ binaryText1 item.text = True ∧ (item.kind == Comma) = False
+  binaryKind item.text = item.kind ∧ binaryText1 item.text = True ∧ (item.kind == Comma) = False
 
 --| An operator link, read: the operator's item, a binary one, then what its operand read.
 def LinkKept (read: List Item) (link: (Word, Expr)): Prop :=
@@ -1353,7 +1353,7 @@ theorem readsLeftChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: 
 theorem mulSpells ∀ (kind: Tok) (text: Text)
     (took: (kind == Star || kind == Slash || kind == Percent) = True)
     (good: kind.within1 = True → Spells kind text):
-    binaryKind1 text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
+    binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
     | Star, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
     | Slash, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
@@ -1362,7 +1362,7 @@ theorem mulSpells ∀ (kind: Tok) (text: Text)
 theorem addSpells ∀ (kind: Tok) (text: Text)
     (took: (kind == Plus || kind == Minus) = True)
     (good: kind.within1 = True → Spells kind text):
-    binaryKind1 text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
+    binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
     | Plus, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
     | Minus, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
@@ -1370,7 +1370,7 @@ theorem addSpells ∀ (kind: Tok) (text: Text)
 theorem appendSpells ∀ (kind: Tok) (text: Text)
     (took: (kind == PlusPlus) = True)
     (good: kind.within1 = True → Spells kind text):
-    binaryKind1 text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
+    binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
     | PlusPlus, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
 

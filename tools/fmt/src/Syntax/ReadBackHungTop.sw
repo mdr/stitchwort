@@ -34,9 +34,9 @@ theorem fullHungUpTo ∀ (limit depth: Nat) (below: depth < limit): FullHungAt d
 theorem fullHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
-    (deep: expr.nest1 <= depth)
+    (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
-    (free: expr.autoPlaced1 True = True)
+    (free: expr.autoPlaced True = True)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
     (placed: state.start = True ∨ state.glue = True)
@@ -138,7 +138,7 @@ theorem colonEqHung ∀ (state: HangState) (colonEq: Leaf) (rest: List Leaf)
 
 --| The read-back of a declaration on any lines: `def name: A := b`, with `A` and `b` spelt by the items between `:`
 --| and `:=` and after `:=`, no list at a full expression's start in either starting with an `auto` call
---| (`autoPlaced1`), and the group's leaves keeping the line rule, parses as `parseGroups` runs it to that definition,
+--| (`autoPlaced`), and the group's leaves keeping the line rule, parses as `parseGroups` runs it to that definition,
 --| the words being the items'.
 --|
 --| Proof idea: `declarationTree`, with the type and the value as `fullHung` trees under the start's and the body's
@@ -157,8 +157,8 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
     (valueSpelt: Spelt value valueRead)
     (typeLine: lineAll typeRead = True)
     (valueLine: lineAll valueRead = True)
-    (typePlaced: result.autoPlaced1 True = True)
-    (valuePlaced: value.autoPlaced1 True = True):
+    (typePlaced: result.autoPlaced True = True)
+    (valuePlaced: value.autoPlaced True = True):
     Parse.run (items group) (() =>
       let decl := declaration seen
       decl)
@@ -206,8 +206,8 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
       result :=
     rewrite allowed then
       (
-        Succ result.nest1,
-        fullHung Modes.start startQuiet result typeRead after result.nest1 HangState.atTop
+        Succ result.nest,
+        fullHung Modes.start startQuiet result typeRead after result.nest HangState.atTop
           (arithmetic [])
           typeSpelt
           typePlaced
@@ -220,8 +220,8 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
           (rewrite isColonEq)
       )
   let valueTree: Tree { modes = body, level = LevelFull } valueRead [] value := (
-    Succ value.nest1,
-    fullHung body bodyQuiet value valueRead [] value.nest1 HangState.atTop
+    Succ value.nest,
+    fullHung body bodyQuiet value valueRead [] value.nest HangState.atTop
       (arithmetic [])
       valueSpelt
       valuePlaced

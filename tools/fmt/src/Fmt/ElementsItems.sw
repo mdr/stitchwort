@@ -42,7 +42,7 @@ theorem unledWord ∀ (word: Word) (around: Around)
 --| plain line start); otherwise it writes nothing before its first token and hangs where it stands (`plain`).
 theorem itemLed ∀ (expr: Expr) (around: Around) (inset: Nat)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
     (plain: PlainHangs expr)
     (hoisted: around.hoisted = False):
@@ -83,7 +83,7 @@ theorem itemsLed ∀ (facts: Expr → Prop) (all: List Expr → Prop)
     (plain: ∀ (expr: Expr) => facts expr → PlainHangs expr) (inset: Nat) (bare arm before: Bool)
     (at: Nat) (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
+    (lexical: allLexical items = True)
     (sound: allSound items = True) (held: all items):
     ItemsHang lexKind inset bare arm before before at items :=
   match items with

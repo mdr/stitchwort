@@ -81,7 +81,7 @@ theorem endsOpenReverse ∀ (word: Word) (rest: List Word)
     endsOpen (List.reverse [word, ..rest]) = True :=
   rewrite List.reverseCons word rest then endsOpenSnoc (List.reverse rest) word open
 
---| `settledWords` (`ParseSettledStatements`), which that file's `settledIsWords` shows is `Decl.settled1`'s test.
+--| `settledWords` (`ParseSettledStatements`), which that file's `settledIsWords` shows is `Decl.settled`'s test.
 def settledOf (words: List Word): Bool :=
   homedBack words.reverse && arrowsBare words && words.all (word => word.comments.texts.all commentText)
 
@@ -210,7 +210,7 @@ theorem declsWordsOpen ∀ (decls: List Decl): (decls.map Decl.words).all starts
 
 theorem declsSettled ∀ (decls: List Decl)
     (settled: (decls.map Decl.words).all settledOf = True):
-    decls.all Decl.settled1 = True :=
+    decls.all Decl.settled = True :=
   match decls with
     | [] => byComputing
     | [decl, ..more] => Bool.andIntro (Bool.andLeft settled) (declsSettled more (Bool.andRight settled))

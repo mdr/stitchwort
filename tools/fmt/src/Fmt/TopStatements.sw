@@ -48,11 +48,11 @@ import Syntax.SettleBareProofs (settledOnceNone)
 import Syntax.AutoPlaced (..)
 import Fmt.PlacedProofs (commaKeepsPlaced, parsedPlaced1)
 import Fmt.Grammar1 (..)
-import Fmt.Kinds1 (..)
+import Fmt.Kinds (..)
 import Fmt.SettleParseProofs (parseKeepsTokens1, settledParses1)
 
 --| P2 is the identity on an expression with no last comma.
-theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
+theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn withoutCommaExpr = expr := match expr with
   | Paren open inner close => rewrite uncommaSame inner free
   | Tuple open items comma close =>
     match comma, free with
@@ -68,7 +68,7 @@ theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 
   | Prefix operator operand => rewrite uncommaSame operand free
   | _ => cases
 
-theorem uncommasSame ∀ (items: List Expr) (free: allCommaFree items = True): mapAll1 withoutCommaExpr items = items :=
+theorem uncommasSame ∀ (items: List Expr) (free: allCommaFree items = True): mapAll withoutCommaExpr items = items :=
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite uncommaSame first (Bool.andLeft free), uncommasSame rest (Bool.andRight free)
@@ -158,7 +158,7 @@ theorem tidyComma1 ∀ (file: SourceFile) (within: file.within1 = True): file.ti
 
 --| `tidiedDeclsUnreturned1` (the stock take's U6): no comment of the tree the driver prints ends in a carriage
 --| return or a space, above or after any word of any declaration. `printedStands1` takes it. It is false of a tree
---| outside the slice (`Decl.unreturned1` is false of a namespace line), so it takes `Formats1`'s hypotheses.
+--| outside the slice (`Decl.unreturned` is false of a namespace line), so it takes `Formats1`'s hypotheses.
 --|
 --| Proof idea: the lexer strips both (`lexUnreturned`), rule N and the parser carry comments without changing their
 --| texts, and P2 keeps every word (`commaUnreturned`).
@@ -167,19 +167,19 @@ theorem tidiedDeclsUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: Source
     (leaves: leavesWithin1 lexed.leaves = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
-    parsed.tidy1.decls.all Decl.unreturned1 = True :=
+    parsed.tidy1.decls.all Decl.unreturned = True :=
   rewrite tidyComma1 parsed within then
     (commaUnreturned source lexed parsed lexes (Bool.andLeft leaves) (Bool.andRight leaves) parses within).left
 
 --| `tidiedUnreturned1` (SW-3973's parser side): the tree the formatter prints has no own-line comment ending in a
---| carriage return or a space, which is `printedSettle1`'s hypothesis `unreturned1`. Same route and hypotheses as
+--| carriage return or a space, which is `printedSettle1`'s hypothesis `unreturned`. Same route and hypotheses as
 --| `tidiedDeclsUnreturned1`.
 theorem tidiedUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (leaves: leavesWithin1 lexed.leaves = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
-    parsed.tidy1.unreturned1 = True :=
+    parsed.tidy1.unreturned = True :=
   rewrite tidyComma1 parsed within then
     (commaUnreturned source lexed parsed lexes (Bool.andLeft leaves) (Bool.andRight leaves) parses within).right
 
@@ -192,7 +192,7 @@ theorem tidySame1 ∀ (file: SourceFile)
 
 --| The tree facts the output's theorems take.
 def TreeFacts (file: SourceFile): Prop :=
-  file.within1 = True ∧ file.shaped1 = True ∧ file.settled1 = True ∧ file.lexical1 = True ∧ file.commaFree = True
+  file.within1 = True ∧ file.shaped = True ∧ file.settled = True ∧ file.lexical = True ∧ file.commaFree = True
 
 --| The tree the driver prints has the facts: the parser's (`parseShaped1`, `parseLexical1`, `parseSettledSourceProved`
 --| from the source, `good` by `settledGood`), carried through P2.
@@ -223,11 +223,11 @@ theorem tidiedFacts ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
 --| A declaration of the tree the driver prints hangs as the rules lay it out, over one line or several, and stands.
 theorem declHangs1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (unreturned: decl.unreturned1 = True):
-    hangs decl.leaves1 = True ∧ (decl.unreturned1 = True → decl.stands1 = True) :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
+    (unreturned: decl.unreturned = True):
+    hangs decl.leaves = True ∧ (decl.unreturned = True → decl.stands = True) :=
   let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
   let elements := declElements1 decl within shaped settled lexical unreturned
   match decl with
@@ -267,15 +267,15 @@ theorem declHangs1 ∀ (decl: Decl)
 --| Each declaration's facts give `p` of it, so all declarations' give `p` of all.
 theorem declsAll ∀ (decls: List Decl) (p: Decl → Bool)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True)
-    (unreturned: decls.all Decl.unreturned1 = True)
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True)
+    (unreturned: decls.all Decl.unreturned = True)
     (each: ∀ (decl: Decl) => decl.within1 = True
-      → decl.shaped1 = True
-      → decl.settled1 = True
-      → decl.lexical1 = True
-      → decl.unreturned1 = True
+      → decl.shaped = True
+      → decl.settled = True
+      → decl.lexical = True
+      → decl.unreturned = True
       → p decl = True):
     decls.all p = True :=
   match decls with
@@ -298,38 +298,38 @@ theorem declsAll ∀ (decls: List Decl) (p: Decl → Bool)
 
 -- The output parses.
 
---| The output's text lexes to `file.lexed1`, and its settled-once leaves parse to `calmTop` of the printed tree.
+--| The output's text lexes to `file.lexed`, and its settled-once leaves parse to `calmTop` of the printed tree.
 --|
 --| Proof idea: `printedFileLexes1`; no last comma (`printedNoLast1`), so `settledOnce` is `settled`; rule N gives the
---| tree's words back (`printedSettle1`, whose `hung1` and `stood1` come from each declaration's element facts); then
+--| tree's words back (`printedSettle1`, whose `hung` and `stood` come from each declaration's element facts); then
 --| read-back in file form, with each declaration's group read back by `readsBackDecl1`.
 theorem outputParses1 ∀ (file: SourceFile)
     (facts: TreeFacts file)
-    (declsUnreturned: file.decls.all Decl.unreturned1 = True)
-    (unreturned: file.unreturned1 = True)
-    (placed: file.autoPlaced1 = True):
-    lex file.printed1 = Ok file.lexed1 ∧ parseFile file.lexed1.settledOnce = Ok file.calmTop :=
+    (declsUnreturned: file.decls.all Decl.unreturned = True)
+    (unreturned: file.unreturned = True)
+    (placed: file.autoPlaced = True):
+    lex file.printed1 = Ok file.lexed ∧ parseFile file.lexed.settledOnce = Ok file.calmTop :=
   let (within, shaped, settled, lexical, commaFree) := facts
-  let declsSettled: file.decls.all Decl.settled1 = True := Bool.andLeft settled
-  let hung: file.hung1 = True :=
+  let declsSettled: file.decls.all Decl.settled = True := Bool.andLeft settled
+  let hung: file.hung = True :=
     declsAll file.decls
-      (decl => hangs decl.leaves1)
+      (decl => hangs decl.leaves)
       within
       shaped
       declsSettled
       lexical
       declsUnreturned
       (decl w s t l u => (declHangs1 decl w s t l u).left)
-  let stood: file.stood1 = True :=
-    declsAll file.decls Decl.stands1 within shaped declsSettled lexical declsUnreturned (decl w s t l u =>
+  let stood: file.stood = True :=
+    declsAll file.decls Decl.stands within shaped declsSettled lexical declsUnreturned (decl w s t l u =>
       (declHangs1 decl w s t l u).right u)
-  let once := settledOnceNone file.lexed1 (printedNoLast1 file within shaped settled lexical)
+  let once := settledOnceNone file.lexed (printedNoLast1 file within shaped settled lexical)
   let (words, ends) := printedSettle1 file within shaped settled lexical hung stood unreturned
   (
     printedFileLexes1 file within shaped settled lexical,
     rewrite once then
-      readsBackFile1 file file.lexed1.settled within shaped settled lexical commaFree hung placed
-        (settledKeepsTokens file.lexed1)
+      readsBackFile1 file file.lexed.settled within shaped settled lexical commaFree hung placed
+        (settledKeepsTokens file.lexed)
         words
         ends
         declsReadBack
@@ -341,15 +341,15 @@ theorem tidiedPlaced1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (leaves: leavesWithin1 lexed.leaves = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
-    parsed.tidy1.autoPlaced1 = True :=
+    parsed.tidy1.autoPlaced = True :=
   rewrite tidyComma1 parsed within then
     commaKeepsPlaced parsed within (parsedPlaced1 source lexed parsed lexes leaves parses within)
 
 --| The facts of the tree the driver prints for an accepted source.
 def Printed1 (source: Text) (lexed: Lexed) (parsed: SourceFile): Prop :=
   TreeFacts parsed.tidy1
-    ∧ lex parsed.tidy1.printed1 = Ok parsed.tidy1.lexed1
-    ∧ parseFile parsed.tidy1.lexed1.settledOnce = Ok parsed.tidy1.calmTop
+    ∧ lex parsed.tidy1.printed1 = Ok parsed.tidy1.lexed
+    ∧ parseFile parsed.tidy1.lexed.settledOnce = Ok parsed.tidy1.calmTop
 
 theorem printedOf ∀ (source out: Text) (lexed: Lexed) (parsed: SourceFile)
     (formats: Formats1 source out lexed parsed):
@@ -413,30 +413,30 @@ theorem formatIdempotent1 ∀ (source out: Text) (formats: formatWithin1 source 
   let (facts, lexOut, parseOut) := printedOf source out lexed parsed accepted
   let (within, shaped, settled, lexical, commaFree) := facts
   let file := parsed.tidy1
-  let declsSettled: file.decls.all Decl.settled1 = True := Bool.andLeft settled
-  let hung: file.hung1 = True :=
+  let declsSettled: file.decls.all Decl.settled = True := Bool.andLeft settled
+  let hung: file.hung = True :=
     declsAll file.decls
-      (decl => hangs decl.leaves1)
+      (decl => hangs decl.leaves)
       within
       shaped
       declsSettled
       lexical
       (tidiedDeclsUnreturnedOf source out lexed parsed accepted)
       (decl w s t l u => (declHangs1 decl w s t l u).left)
-  let leaves: leavesWithin1 file.lexed1.leaves = True :=
+  let leaves: leavesWithin1 file.lexed.leaves = True :=
     Bool.andIntro
       (printedAlphabet1 file within shaped settled lexical)
       (sourcePlainOfPlain _ (printedPlain1 file within shaped settled lexical hung))
   let topWithin := calmTopWithin file within
   let same := tidySame1 file.calmTop topWithin (calmTopCommaFree file within commaFree)
-  let again := formatsFrom out file.lexed1 file.calmTop (rewrite outIs then lexOut) leaves parseOut topWithin
+  let again := formatsFrom out file.lexed file.calmTop (rewrite outIs then lexOut) leaves parseOut topWithin
   rewrite same, calmTopPrints file within lexical at again then
     Eq.trans again (Eq.cong (text => (Ok text: Result Text Text)) outIs.flipped)
 
 --| The declarations' comments of an accepted source's printed tree end in neither a carriage return nor a space.
 theorem tidiedDeclsUnreturnedOf ∀ (source out: Text) (lexed: Lexed) (parsed: SourceFile)
     (formats: Formats1 source out lexed parsed):
-    parsed.tidy1.decls.all Decl.unreturned1 = True :=
+    parsed.tidy1.decls.all Decl.unreturned = True :=
   let (lexes, leaves, parses, within, _) := formats
   tidiedDeclsUnreturned1 source lexed parsed lexes leaves parses within
 
@@ -570,24 +570,24 @@ def goalsHoldOn (source: Text): Bool := match tidiedOf source with
   | None => False
   | Some file =>
     file.within1
-      && file.shaped1
-      && file.settled1
-      && file.lexical1
+      && file.shaped
+      && file.settled
+      && file.lexical
       && file.commaFree
-      && file.unreturned1
-      && file.decls.all Decl.unreturned1
+      && file.unreturned
+      && file.decls.all Decl.unreturned
       && file.calmTop.within1
       && file.calmTop.commaFree
       && file.calmTop.printed1 == file.printed1
-      && readsBack file.lexed1.settled file
+      && readsBack file.lexed.settled file
 
 --| The layers' hypotheses and conclusions hold of `witnessSource`'s printed tree.
 theorem witnessGoals: goalsHoldOn witnessSource = True := byComputing
 
 --| `tidiedUnreturned1`'s and `tidiedDeclsUnreturned1`'s hypotheses hold of `witnessSource` (its `Formats1`), and so do
 --| their conclusions.
-theorem witnessUnreturned: ∃ (lexed: Lexed) (parsed: SourceFile) => parsed.tidy1.unreturned1 = True
-      ∧ parsed.tidy1.decls.all Decl.unreturned1 = True :=
+theorem witnessUnreturned: ∃ (lexed: Lexed) (parsed: SourceFile) => parsed.tidy1.unreturned = True
+      ∧ parsed.tidy1.decls.all Decl.unreturned = True :=
   match formatsOf witnessSource witnessOut witnessFormats with
     | Witness lexed (Witness parsed (lexes, leaves, parses, within, _)) =>
       Witness lexed

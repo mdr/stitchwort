@@ -1,7 +1,7 @@
 --| Glued signs carry no comments (SW-4081): in the leaves the parser reads, a `-` or `!` with an atom's first token
 --| glued to it on its line has no trailing comment, and that token no own-line comments. The parser reads a sign as a
 --| call argument's (`f -x`) or a head's negative numeral (`-1 n`) only when the next item is glued, so this is what
---| `argument1` and `head1` need of the items (their `signQuiet`, through `GoodItems` in `Syntax.ParseWalk`).
+--| `callArgument` and `callHead` need of the items (their `signQuiet`, through `GoodItems` in `Syntax.ParseWalk`).
 --|
 --| The lexer's leaves are laid out (`laidOut`: a leaf with own-line comments, or after a trailing comment, starts its
 --| line), which gives it at once. Rule N moves comments, and breaks `laidOut` (in `a, -- c` the comment goes back to

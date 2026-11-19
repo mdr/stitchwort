@@ -30,7 +30,7 @@ def prefixHeadDecl: Decl :=
       ]))
 
 --| `prefixHeadDecl` is a slice 1 one-line declaration whose printed group is its own leaves, `calm` of it the read.
-theorem prefixHeadPrinted: PrintedGroup prefixHeadDecl (prefixHeadDecl.calmAt True) prefixHeadDecl.leaves1 := (
+theorem prefixHeadPrinted: PrintedGroup prefixHeadDecl (prefixHeadDecl.calmAt True) prefixHeadDecl.leaves := (
   byComputing,
   byComputing,
   byComputing,

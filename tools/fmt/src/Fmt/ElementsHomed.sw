@@ -1,7 +1,7 @@
 --| `homedOfSettled` (SW-4144, piece E1 of the comments-anywhere plan, SW-4130): a settled slice 1 declaration is
---| homed node by node (`Expr.homed1`).
+--| homed node by node (`Expr.homed`).
 --|
---| `settled1` reads the declaration's words once, from the back (`homedBack`) and forwards (`arrowsBare`). A node's
+--| `settled` reads the declaration's words once, from the back (`homedBack`) and forwards (`arrowsBare`). A node's
 --| words are one run of them, so the induction carries the words that come before it (`rest`, newest first) and
 --| reads each node's own facts off: `homedBack` of a run followed by `rest` gives `homedBack` of what lies before,
 --| and a closer's check `trailsBack earlier` stops at its own opener (`trailsBackCoded`: the opener is no closer),
@@ -15,33 +15,33 @@ import Fmt.TrailsProofs (Coded, codedSnoc, trailsBackCoded)
 import Fmt.SpellProofs (firstWordLead, wordsLead)
 import Syntax.SharedFacts (arrowsBarePrefix, arrowsBareSuffix, headerResultWithin, homedBackSuffix)
 
--- What `settled1` gives the layout.
+-- What `settled` gives the layout.
 
 --| A closer with a comment after it has comments above it, or follows code that ends its line with one (`before`).
 def Word.homedAfter (word: Word) (before: Bool): Bool := !word.trails || word.noted || before
 
---| `Decl.settled1`'s `homedBack` and `arrowsBare`, node by node: each closer is homed after the code before it in
+--| `Decl.settled`'s `homedBack` and `arrowsBare`, node by node: each closer is homed after the code before it in
 --| its brackets, and `->` has no comment after it and its right operand none above its first token.
-def Expr.homed1: Expr → Bool
+def Expr.homed: Expr → Bool
   | Atom _ _ => True
-  | Paren open inner close => inner.homed1 && close.homedAfter (Paren open inner close).trailsBeforeClose
+  | Paren open inner close => inner.homed && close.homedAfter (Paren open inner close).trailsBeforeClose
   | Tuple open items trailing close =>
-    allHomed1 items && close.homedAfter (Tuple open items trailing close).trailsBeforeClose
+    allHomed items && close.homedAfter (Tuple open items trailing close).trailsBeforeClose
   | ListOf open items trailing close =>
-    allHomed1 items && close.homedAfter (ListOf open items trailing close).trailsBeforeClose
-  | App head arguments => head.homed1 && allHomed1 arguments
-  | Infix InfixBinary left _ right => left.homed1 && right.homed1
-  | Infix InfixArrow left operator right => left.homed1 && right.homed1 && !operator.trails && !right.noted
-  | Prefix _ operand => operand.homed1
+    allHomed items && close.homedAfter (ListOf open items trailing close).trailsBeforeClose
+  | App head arguments => head.homed && allHomed arguments
+  | Infix InfixBinary left _ right => left.homed && right.homed
+  | Infix InfixArrow left operator right => left.homed && right.homed && !operator.trails && !right.noted
+  | Prefix _ operand => operand.homed
   | _ => False
 
-def allHomed1: List Expr → Bool
+def allHomed: List Expr → Bool
   | [] => True
-  | [expr, ..rest] => expr.homed1 && allHomed1 rest
+  | [expr, ..rest] => expr.homed && allHomed rest
 
 --| A slice 1 declaration's type and value are homed.
-def Decl.homed1: Decl → Bool
-  | Definition [] header (Assigned _ value) => header.result.homed1 && value.homed1
+def Decl.homed: Decl → Bool
+  | Definition [] header (Assigned _ value) => header.result.homed && value.homed
   | _ => False
 
 -- Words read back.
@@ -153,10 +153,10 @@ theorem arrowsInside ∀ (open close: Word) (inside: List Word)
 
 theorem homedAt ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True) (rest: List Word)
+    (lexical: expr.lexical = True) (rest: List Word)
     (homed: homedBack (expr.words.reverse ++ rest) = True)
     (arrows: arrowsBare expr.words = True):
-    expr.homed1 = True :=
+    expr.homed = True :=
   match expr, within with
     | Atom kind word, within => byComputing
     | Prefix operator operand, within =>
@@ -258,10 +258,10 @@ theorem homedAt ∀ (expr: Expr)
 --| Items or arguments, the same.
 theorem allHomedAt ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True) (rest: List Word)
+    (lexical: allLexical items = True) (rest: List Word)
     (homed: homedBack ((itemsWords items).reverse ++ rest) = True)
     (arrows: arrowsBare (itemsWords items) = True):
-    allHomed1 items = True :=
+    allHomed items = True :=
   match items with
     | [] => byComputing
     | [item, ..more] =>
@@ -294,15 +294,15 @@ theorem notedLead ∀ (expr: Expr) (within: expr.within1 = True): expr.noted = e
 --| `bracketBack`; `->`, from `arrowsBare` at the operator and its right operand's first word).
 theorem homedOfSettled ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True)
-    (settled: decl.settled1 = True):
-    decl.homed1 = True :=
+    (lexical: decl.lexical = True)
+    (settled: decl.settled = True):
+    decl.homed = True :=
   match decl, within with
     | Definition [] header (Assigned colonEq value), within =>
       let resultWithin: header.result.within1 = True := headerResultWithin header (Bool.andLeft within)
       let valueWithin: value.within1 = True := Bool.andRight within
-      let resultLexical: header.result.lexical1 = True := Bool.andLeft (Bool.andRight lexical)
-      let valueLexical: value.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+      let resultLexical: header.result.lexical = True := Bool.andLeft (Bool.andRight lexical)
+      let valueLexical: value.lexical = True := Bool.andRight (Bool.andRight lexical)
       let head := [fixedWord "def" header.keyword, header.name, fixedWord ":" header.colon]
       let colonEqWord := fixedWord ":=" colonEq
       let homed: homedBack (head ++ (header.result.words ++ [colonEqWord, ..value.words])).reverse = True :=

@@ -940,29 +940,29 @@ def afterUnreturned: Option Text → Bool
 
 def Word.unreturned (word: Word): Bool := word.comments.above.all Note.unreturned && afterUnreturned word.comments.after
 
-def Expr.unreturned1: Expr → Bool
+def Expr.unreturned: Expr → Bool
   | Atom _ word => word.unreturned
-  | Paren open inner close => open.unreturned && inner.unreturned1 && close.unreturned
-  | Tuple open items _ close => open.unreturned && allUnreturned1 items && close.unreturned
-  | ListOf open items _ close => open.unreturned && allUnreturned1 items && close.unreturned
-  | App head arguments => head.unreturned1 && allUnreturned1 arguments
-  | Infix _ left operator right => left.unreturned1 && operator.unreturned && right.unreturned1
-  | Prefix operator operand => operator.unreturned && operand.unreturned1
+  | Paren open inner close => open.unreturned && inner.unreturned && close.unreturned
+  | Tuple open items _ close => open.unreturned && allUnreturned items && close.unreturned
+  | ListOf open items _ close => open.unreturned && allUnreturned items && close.unreturned
+  | App head arguments => head.unreturned && allUnreturned arguments
+  | Infix _ left operator right => left.unreturned && operator.unreturned && right.unreturned
+  | Prefix operator operand => operator.unreturned && operand.unreturned
   | _ => False
 
-def allUnreturned1: List Expr → Bool
+def allUnreturned: List Expr → Bool
   | [] => True
-  | [expr, ..rest] => expr.unreturned1 && allUnreturned1 rest
+  | [expr, ..rest] => expr.unreturned && allUnreturned rest
 
 --| No comment of the declaration ends in a carriage return.
-def Decl.unreturned1: Decl → Bool
+def Decl.unreturned: Decl → Bool
   | Definition _ header (Assigned colonEq value) =>
     (fixedWord "def" header.keyword).unreturned
       && header.name.unreturned
       && (fixedWord ":" header.colon).unreturned
-      && header.result.unreturned1
+      && header.result.unreturned
       && (fixedWord ":=" colonEq).unreturned
-      && value.unreturned1
+      && value.unreturned
   | _ => False
 
 --| A token's text the lexer reads as one token of a kind that is a comma or closer exactly when the text is, and no
@@ -1062,8 +1062,8 @@ theorem prefixKindOk ∀ (text: Text) (spelled: PrefixSpells text): KindOk text 
 theorem exprBits ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True)
     (sound: expr.sound = True)
-    (lexical: expr.lexical1 = True)
-    (plain: expr.unreturned1 = True):
+    (lexical: expr.lexical = True)
+    (plain: expr.unreturned = True):
     bitsWords (expr.bits item False) = (expr.calm item).words ∧ BitsFine lexKind (expr.bits item False) :=
   match expr with
     | Atom kind word =>
@@ -1218,8 +1218,8 @@ theorem exprBits ∀ (expr: Expr) (item: Bool)
 theorem itemsBitsFacts ∀ (first: Bool) (items: List Expr)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
-    (lexical: allLexical1 items = True)
-    (plain: allUnreturned1 items = True):
+    (lexical: allLexical items = True)
+    (plain: allUnreturned items = True):
     bitsWords (itemsBits first items) = itemsWords (calmFrom first items) ∧ BitsFine lexKind (itemsBits first items) :=
   match items with
     | [] => (byComputing, byComputing)
@@ -1250,8 +1250,8 @@ theorem itemsBitsFacts ∀ (first: Bool) (items: List Expr)
 theorem argumentsBitsFacts ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True)
     (sound: allSound arguments = True)
-    (lexical: allLexical1 arguments = True)
-    (plain: allUnreturned1 arguments = True):
+    (lexical: allLexical arguments = True)
+    (plain: allUnreturned arguments = True):
     bitsWords (argumentsBits arguments) = itemsWords (calmAll False arguments)
       ∧ BitsFine lexKind (argumentsBits arguments) :=
   match arguments with
@@ -1278,8 +1278,8 @@ theorem argumentsBitsFacts ∀ (arguments: List Expr)
 theorem declBits ∀ (decl: Decl)
     (within: decl.within1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True):
+    (lexical: decl.lexical = True)
+    (plain: decl.unreturned = True):
     bitsWords decl.bits = decl.stood ∧ BitsFine lexKind decl.bits :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -1407,7 +1407,7 @@ theorem leavesHeard ∀ (doc: Doc)
 def LaysSomehow (doc: Doc): Prop := Std.Doc.Proofs.Lays doc 0 (AtStart 0 Carry.none) [] (place laid => True)
 
 --| `printedStands1` for a declaration and its document, with what the statement adds: no comment ends in a
---| carriage return (`unreturned1`), and that the document lays at all (`LaysSomehow`): no fact about columns.
+--| carriage return (`unreturned`), and that the document lays at all (`LaysSomehow`): no fact about columns.
 --|
 --| Proof idea: the document lays, so `printTold` reads its laid trace as `told`, which refines the
 --| tree's shape (`printedTold`), the reading of its bits (`declShapeBits`); the printed events tuck that trace
@@ -1416,10 +1416,10 @@ def LaysSomehow (doc: Doc): Prop := Std.Doc.Proofs.Lays doc 0 (AtStart 0 Carry.n
 --| line (`pairsEnd`).
 theorem standsOfLays ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True)
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
+    (plain: decl.unreturned = True)
     (lays: LaysSomehow doc)
     (shows: decl.doc1 = Some doc):
     stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
@@ -1457,10 +1457,10 @@ theorem standsOfLays ∀ (decl: Decl) (doc: Doc)
 --| `standsOfLays` from the facts `printedHangs` takes (`DeclHangs`), from which the document lays (`doc1Hangs`).
 theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True)
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
+    (plain: decl.unreturned = True)
     (facts: DeclHangs lexKind decl)
     (shows: decl.doc1 = Some doc):
     stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
@@ -1474,15 +1474,15 @@ theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
     shows
 
 --| `printedStands1`, as proved: the four tree facts, no comment ending in a carriage return, and `DeclHangs`. It is
---| false without `unreturned1`.
+--| false without `unreturned`.
 theorem printedStands1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True)
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
+    (plain: decl.unreturned = True)
     (facts: DeclHangs lexKind decl):
-    decl.stands1 = True :=
+    decl.stands = True :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       standsOfDoc

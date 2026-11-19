@@ -4,7 +4,7 @@ section 1.4) on the twin's outputs in folders `probe.py` wrote: a line
 that starts with a token is right of the block column in force, a closer
 that starts a line is left of the column its bracket's item started at,
 no comma starts a line, nor the token after `->`, and a `:` that starts
-one is right of column 0. `Fmt.hangs` (src/Fmt/Predicates1.sw) is the
+one is right of column 0. `Fmt.hangs` (src/Fmt/Predicates.sw) is the
 same rule, and `Fmt.Twin --stage hangs` evaluates it. Slice 1 files only.
 
   tools/fmt/dev/hangs.py OUT [OUT ...]

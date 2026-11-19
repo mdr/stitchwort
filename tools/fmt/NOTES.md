@@ -2,6 +2,21 @@
 
 The plan is `docs/proposals/self-hosted-fmt.md`. Each stage ends with a section here: its harness count, its speed numbers and friction.
 
+## Naming and the slice gate (consolidation, SW-4214)
+
+From 19 November 2026 the properties and functions of the tree that the proofs state facts with have one name for every slice: `shaped`, `lexical`, `settled`, `unreturned`, `operators`, `autoPlaced`, `homed`, `quiet`, `stands`, `kinds`, `spacing`, `slots`, `shapes`, `leaves`, `mapIn` and their companions (`Fmt/Predicates.sw`, `Fmt/Kinds.sw`, and the files that define the rest). A later slice adds arms to them. Their last arm is `False`: a form is shaped only once some slice's proofs cover it. Renamed where the plain name was taken or read badly: `Expr.atomic1` is `Expr.primary`, `Expr.head1` is `Expr.callHead`, `Expr.argument1` is `Expr.callArgument`, `Shape1` is `PlainShape`. Theorem names keep their numbers where they are one slice's (`printedHangs1`).
+
+Numbered and frozen: the slice's Scope definitions (`Grammar1.sw`, `Driver1.sw`, `Slice1.sw`, `inGrammar1`, `formatWithin1`, `within1`, `alphabet1`), `Fmt/Tests/MustAccept1.sw`, and the token tables (`Tok.symbolic1`, `fixedKind1`, `Token.fixed1`, `spelledPlain1`, `movable1`, `home1`, `walk1`, `Lexed.laid1`, `Lexed.wordsSettled1`), which grow by token kind. `arrowKind1` keeps its `1`: `arrowKind` is taken.
+
+The rules that let slice 1's lemmas stand when a property gains an arm (also in the header of `Fmt/Predicates.sw`):
+
+1. A slice is its Scope definitions and nothing else. A property never names a slice (one exception for now: `shaped`'s atom arm reads `kind.wordWithin1`).
+2. A lemma that splits on the tree's forms and needs "there is no other form" takes the gate (`within1`) and closes the other arms with the gate, not with a property's last arm. Then filling a property's arm cannot break it.
+3. A lemma about one form takes facts about that node and its children and no gate (`appParsed` in `Syntax/ParseWalk.sw`). Such a lemma stands in every slice; write new forms' proof content this way.
+4. A lemma with no gate that splits on a property (`argLevel`, `atomicArgument`) gains an arm when that property gains one, with its statement and callers unchanged: one property's arm and its handful of ungated lemmas in one lane.
+
+The rationale and the counts are in `docs/proposals/fmt-consolidation-statements.md`, section 1.
+
 ## Stage 0 (SW-3772): the comparison harness
 
 Sonnet, 17 November 2026.
@@ -1203,8 +1218,8 @@ Ticket 18a of the proof plan. Three files beside `Rules.sw`; `audit` of each: `F
 
 ### What is proved
 
-- **`calmPrints`** (`Fmt/CalmProofs.sw`, namespace `Fmt.CalmProofs`): `file.within1`, `file.lexical1` give `file.calm.printed1 = file.printed1`. `lexical1` is only used for its closers (`Expr.closed`: a bracket's last word is a closer, which `calm` clears as one; a closer word of other text would be read as a token and its flag lost). The proof is by `elCalm` (induction on the expression, each rule's lemma taking the hypothesis for its parts as `ElKept`), `defDocKept` for the declaration and `printDeclsCalm` for the file loop. Groups: words that `calm` keeps (`Word.alike`, `wordsCalm`, `firstCalm`, `sizeCalm`, `trailsCalm`, `holdsCalm`, 20), what `leading` reads (`leadingKept`, `leafKept`, `openingKept`, 6), chains (`chainKept`, `linkDocsKept`, 8), brackets and calls (`bracketKept`, `huggedKept`, `lastArgumentKept`, `argumentDocsKept`, `appKept`, 25), the body and the definition (`bodyAfterKept`, `defDocKept`, `plainDefKept`, 20), the file (`declPrintedCalm`, `calmPrints`, 17), parts of a good expression (27).
-- **`printedSpells`** (`Fmt/SpellProofs.sw`, namespace `Fmt.SpellProofs`): for `decl.within1` and `decl.sound` (every token's text isn't layout, its comments are as rule N leaves them), at any width, `wordsOf (printedPieces doc width)` filtered to drop closers and commas is the tree's spelling filtered the same, and filtered to drop comments likewise. Two statements, because `Std.Doc`'s `printedWords` lets a closer and a trailing comment change places on a line (a `Closing` is written before the comment waiting there). `Decl.spelt` is each token's own-line comments, text and trailing comment in the tree's order, a comma between a bracket's items; the keyword's own-line comments are the file's. `printedSpellsSettled` takes `settled1` and `Decl.real` (no token's text is layout) instead of `sound`; `printedSpellsText` ties it to `Decl.printed1`. The pieces: `Spells doc texts` (the document's words, `Uniform`, `Marked`) with one combinator per `Doc` constructor (23), one lemma per rule function (`leafSpells`, `openingSpells`, `framedSpells`, `parenSpells`, `bracketFromSpells`, `cellsSpells`, `brokenItemsSpells`, `appFromSpells`, `argumentDocsSpells`, `chainLinksSpells`, `bodyAfterSpells`, `plainDefSpells`, `elSpells`), and the bridge from `settled1` (11).
+- **`calmPrints`** (`Fmt/CalmProofs.sw`, namespace `Fmt.CalmProofs`): `file.within1`, `file.lexical` give `file.calm.printed1 = file.printed1`. `lexical` is only used for its closers (`Expr.closed`: a bracket's last word is a closer, which `calm` clears as one; a closer word of other text would be read as a token and its flag lost). The proof is by `elCalm` (induction on the expression, each rule's lemma taking the hypothesis for its parts as `ElKept`), `defDocKept` for the declaration and `printDeclsCalm` for the file loop. Groups: words that `calm` keeps (`Word.alike`, `wordsCalm`, `firstCalm`, `sizeCalm`, `trailsCalm`, `holdsCalm`, 20), what `leading` reads (`leadingKept`, `leafKept`, `openingKept`, 6), chains (`chainKept`, `linkDocsKept`, 8), brackets and calls (`bracketKept`, `huggedKept`, `lastArgumentKept`, `argumentDocsKept`, `appKept`, 25), the body and the definition (`bodyAfterKept`, `defDocKept`, `plainDefKept`, 20), the file (`declPrintedCalm`, `calmPrints`, 17), parts of a good expression (27).
+- **`printedSpells`** (`Fmt/SpellProofs.sw`, namespace `Fmt.SpellProofs`): for `decl.within1` and `decl.sound` (every token's text isn't layout, its comments are as rule N leaves them), at any width, `wordsOf (printedPieces doc width)` filtered to drop closers and commas is the tree's spelling filtered the same, and filtered to drop comments likewise. Two statements, because `Std.Doc`'s `printedWords` lets a closer and a trailing comment change places on a line (a `Closing` is written before the comment waiting there). `Decl.spelt` is each token's own-line comments, text and trailing comment in the tree's order, a comma between a bracket's items; the keyword's own-line comments are the file's. `printedSpellsSettled` takes `settled` and `Decl.real` (no token's text is layout) instead of `sound`; `printedSpellsText` ties it to `Decl.printed1`. The pieces: `Spells doc texts` (the document's words, `Uniform`, `Marked`) with one combinator per `Doc` constructor (23), one lemma per rule function (`leafSpells`, `openingSpells`, `framedSpells`, `parenSpells`, `bracketFromSpells`, `cellsSpells`, `brokenItemsSpells`, `appFromSpells`, `argumentDocsSpells`, `chainLinksSpells`, `bodyAfterSpells`, `plainDefSpells`, `elSpells`), and the bridge from `settled` (11).
 - Witnesses: `exampleDecl` (`def d: A := g [a, b]`) meets the hypotheses of both (`printedSpellsExample`, `calmPrintsExample`).
 - `Fmt.Tests` (`Tests/RuleProofs.sw`, 4 tests): the hypotheses and the proved equalities hold of the tidied tree of files with comments in every gap, parsed by the real parser.
 
@@ -1266,7 +1281,7 @@ What keeps the rest out [measured, as SW-3990's count]: of 1,930 declarations ou
 
 Ticket 17 of the proof plan: `hangs` in its final form, `blockOneLine`, and the item facts, in `Syntax/ReadBackProofs.sw`.
 
-- **`hangs` (K3a) is `Fmt.hangs`** in `Fmt/Predicates1.sw`, a step function (`HangState.step`) folded over a declaration's leaves after its `def`. It is the sketch's §1.4 with two clauses more, each found false of the sketch's form against the parser: the leaf after `->` doesn't start a line (the operand is read by `resultType` as a full expression, so `def d: A ->⏎    B⏎    C := x` reads as `A -> Block [B] C`, not `A -> B C`), and a `:` that starts a line is right of column 0 (`groupsOf` starts a declaration there). `Fmt.Twin --stage hangs` evaluates it, a line a declaration; `dev/hangs.py` checks the same rule. On seed 11's 400 generated files (250 formatted, 465 declarations) the two agree, and the only declarations that break it are 3 outside slice 1 (an `→` whose operand is a block).
+- **`hangs` (K3a) is `Fmt.hangs`** in `Fmt/Predicates.sw`, a step function (`HangState.step`) folded over a declaration's leaves after its `def`. It is the sketch's §1.4 with two clauses more, each found false of the sketch's form against the parser: the leaf after `->` doesn't start a line (the operand is read by `resultType` as a full expression, so `def d: A ->⏎    B⏎    C := x` reads as `A -> Block [B] C`, not `A -> B C`), and a `:` that starts a line is right of column 0 (`groupsOf` starts a declaration there). `Fmt.Twin --stage hangs` evaluates it, a line a declaration; `dev/hangs.py` checks the same rule. On seed 11's 400 generated files (250 formatted, 465 declarations) the two agree, and the only declarations that break it are 3 outside slice 1 (an `→` whose operand is a block).
 - **`blockOneLine`**, both halves: `blockOneLine` (soundness, `Parse.ReadsAt`: a success read one line and gave its expression) and `runsBlockOneLine` (completeness, `Parse.RunsFrom`: it runs, reading exactly the line). The hypothesis `ends` is `continuesAt column rest = False`; `stepInBracket` and `stepAtTop` give it from `hangs` for an item's block and for the type's or body's.
 - **Items from leaves**: `ItemsAt` is `itemsAfter`'s place (token before, index, depth, line indent); `itemsAppend` splits the items of a subtree's leaves from the rest, `pastIndex` makes a declaration's items numbered by their offsets (what `allow = Some offset` compares with `item.index`), `pastLast` gives `glued`/`afterOperand`'s token before, `pastDepth` keeps the depth across balanced leaves. `hangsAppend` splits `hangs` the same way.
 - **Shape for the rest of readsBack1**: per parser function, `RunsFrom state (() => f self modes) (place.items leaves) rest value`, with `state.at.offset = place.index`, `hangsAfter` of the leaves from the state the context gives, and what `rest` starts with as the look-aheads need it. The node-by-node part waits for SW-3968, which splits every function on the path into named steps; `block`'s split here is SW-3968's, copied verbatim.
@@ -1280,20 +1295,20 @@ Ticket 17c, in `Syntax/ReadBackTree.sw`, on SW-4004's `Syntax.ReadBackRuns`.
 - **Building trees (for 17d)**: every rung is monotone in `sub` (`layerMono`), so `treeNRaise` lifts children to a common depth and `treeOfLayer` closes a node; `fullWord`/`treeWord` is the one-word case, and `itemsAround`/`declarationItems` cut a node's or a declaration's items through `ItemsAt`.
 - **A line-start expression reads one way.** `expr` tests the item's index, not the parser's offset (`startsBlock modes item`, SW-4026), and a block's line allows the index of its first item (`nextIndex`), as Rust's `self.pos` does; in a declaration group indices are offsets, so the parser behaves as before. `FullReads` is the inline reading where no block starts or the block's where one does, and `BlockAt` reads its line in the modes that allow the item itself. (With offsets, SW-4013 proved `BlockAt` could hold of no word starting a line: the line modes allowed every offset, and a reading must hold from every state.)
 - `InlinePlain` and `OperandEnds` (SW-4004) are now `Prop` records, so rungs can conjoin them.
-- **Calls read back on one line** (SW-4026, `appLine`): a head atom and atomic arguments, each argument at the depth below the call. A list whose first element is `auto Name …` reads as an implicit binder, so the read-back assumes none (`Expr.autoFree1`; `typeFree` and `valueFree` on `readsBackLine`) until `shaped1` excludes it (SW-4027). `-` and `!` need `lineKind` to admit `Minus` and `Bang`, and `Minus` is a section operator, so `groupLine` must then look at the last item before `)` rather than at every item.
+- **Calls read back on one line** (SW-4026, `appLine`): a head atom and atomic arguments, each argument at the depth below the call. A list whose first element is `auto Name …` reads as an implicit binder, so the read-back assumes none (`Expr.autoFree1`; `typeFree` and `valueFree` on `readsBackLine`) until `shaped` excludes it (SW-4027). `-` and `!` need `lineKind` to admit `Minus` and `Bang`, and `Minus` is a section operator, so `groupLine` must then look at the last item before `)` rather than at every item.
 
 ## Read-back, signs and arrows (SW-4031, Opus, 18 November 2026)
 
 Ticket 17f, in `Syntax/ReadBackLine.sw`. What reads back on one line now, and what the rest of `readsBack1` needs.
 
-- **Signs.** `Spelt` has a `Prefix` case: the sign (`signKind`: `Minus`, `Bang`), its operand (no infix at the top, `Expr.unary1`), and `negativeNumeral [sign, ..more] = (sign.kind == Minus && operand.numeral1)`: the glue the parser reads, so `-1` is one atom (`NumberBase`) exactly where the tree has `-` on a numeral. `unaryLine` reads any spelt expression at the unary level (a sign, its operand one level down; `-1` as an atom; anything else by `appAny`). `speltStarts` gives `leadKind` (an atom's first kind or a sign), `speltPlainStarts` the atom kinds for expressions that don't start with a sign (`signed1`). `lineKind` and `exprKind` admit `Minus`, `Bang` and `Arrow`. `Minus` is no section operator (`Tok.isSectionOperator` excludes it; `Bang` is no operator at all), so signs needed nothing of `groupLine`; it was still reworked (below), for the binary operators.
-- **Signs as arguments** (`f -x !b -1`): an argument is an atom, a bracket, or a sign on one (`Expr.signArg1`), spaced as `argumentPrefix` asks (`argumentGlue`: the sign not glued to what precedes it, which ends an operand, and glued to its atom); `signArgLine` reads it as `SignBase`, or `NumberBase` for `-1`. A sign on a sign can't be an argument (`f -!x` doesn't parse: `!` is no `opensAtom`), nor a call's head but `-1` (`!x y` reads as `!(x y)`). Heads stay atoms: `-1 n` is not here.
+- **Signs.** `Spelt` has a `Prefix` case: the sign (`signKind`: `Minus`, `Bang`), its operand (no infix at the top, `Expr.unary`), and `negativeNumeral [sign, ..more] = (sign.kind == Minus && operand.numeral1)`: the glue the parser reads, so `-1` is one atom (`NumberBase`) exactly where the tree has `-` on a numeral. `unaryLine` reads any spelt expression at the unary level (a sign, its operand one level down; `-1` as an atom; anything else by `appAny`). `speltStarts` gives `leadKind` (an atom's first kind or a sign), `speltPlainStarts` the atom kinds for expressions that don't start with a sign (`signed`). `lineKind` and `exprKind` admit `Minus`, `Bang` and `Arrow`. `Minus` is no section operator (`Tok.isSectionOperator` excludes it; `Bang` is no operator at all), so signs needed nothing of `groupLine`; it was still reworked (below), for the binary operators.
+- **Signs as arguments** (`f -x !b -1`): an argument is an atom, a bracket, or a sign on one (`Expr.signArg`), spaced as `argumentPrefix` asks (`argumentGlue`: the sign not glued to what precedes it, which ends an operand, and glued to its atom); `signArgLine` reads it as `SignBase`, or `NumberBase` for `-1`. A sign on a sign can't be an argument (`f -!x` doesn't parse: `!` is no `opensAtom`), nor a call's head but `-1` (`!x y` reads as `!(x y)`). Heads stay atoms: `-1 n` is not here.
 - **Arrows** (`A -> B -> C`): `Spelt` has `Infix InfixArrow` with a left side that has no infix; `arrowLine` reads the left side by `unaryLine` (ended by `->`, `arrowUnaryEnds`), lifts it through the chains with no links, then `EndReads`' arrow with the right side by `fullLine` (`allowBraceOn` leaves the modes: no `{` starts a spelt expression). `inlineLine` picks `arrowLine` or `inlineUnary`.
 - **`groupLine`** carries `pairPlain` under `beforeClosePlain`: only the item straight before the group's closer must be no section operator, which is all `rightOperator` reads. `rightPlain` takes `beforeClosePlain`; `rightLine` still gets it from `lineAll` (`lineBefore`), which stops working once `lineKind` admits a section operator (`+`): then it must come from `Spelt` (an operator is always followed by an operand).
 - **`UnaryEnds`**: `unaryLine`, `appAny`, `appLine`, `argsLine` and `argEnds` ask only what ends a unary reading, so an operand followed by an operator uses the same lemmas (`arrowUnaryEnds` is the first such).
-- **`typeFree`/`valueFree` from the tree**: `autoCallWithin1` (`within1` refuses the name `auto`, SW-4027) and `autoFreeWithin1`; `readsBackLineWithin` is `readsBackLine` with both discharged. `autoCall1` looks down an infix's left spine, since `[auto Ord -> x]` reads as a binder too.
+- **`typeFree`/`valueFree` from the tree**: `autoCallWithin1` (`within1` refuses the name `auto`, SW-4027) and `autoFreeWithin1`; `readsBackLineWithin` is `readsBackLine` with both discharged. `autoCall` looks down an infix's left spine, since `[auto Ord -> x]` reads as a binder too.
 
-**`shaped1` is too weak for read-back** [computed, `stitchwort eval` on hand-built trees, each `within1` and `shaped1`]:
+**`shaped` is too weak for read-back** [computed, `stitchwort eval` on hand-built trees, each `within1` and `shaped`]:
 
 | Tree | Prints | Reads back as |
 |---|---|---|
@@ -1301,7 +1316,7 @@ Ticket 17f, in `Syntax/ReadBackLine.sw`. What reads back on one line now, and wh
 | `App (Prefix ! x) [y]` | `def d: A := !x y` | `!(x y)` |
 | `App f [Prefix - (Prefix - x)]` | `def d: A := f - -x` | `f - (-x)` |
 
-`rightNeeds` lets a left-nesting operator's right operand sit at the operator's own level, `argument1` lets a head be any prefix and an argument's prefix nest. The parser never builds these, so the end theorem is not false; but `readsBack1` can't take `shaped1` as its shape fact. It needs the parser's own shape: a left-nesting chain's right operand one level up, a head an atom or `-` on a numeral, an argument's sign on an atom or bracket. Either `shaped1` is tightened (and `parseShaped1` re-proved) or `readsBack1` takes a stricter fact proved of the parse.
+`rightNeeds` lets a left-nesting operator's right operand sit at the operator's own level, `callArgument` lets a head be any prefix and an argument's prefix nest. The parser never builds these, so the end theorem is not false; but `readsBack1` can't take `shaped` as its shape fact. It needs the parser's own shape: a left-nesting chain's right operand one level up, a head an atom or `-` on a numeral, an argument's sign on an atom or bracket. Either `shaped` is tightened (and `parseShaped1` re-proved) or `readsBack1` takes a stricter fact proved of the parse.
 
 **Glue is a printer fact nobody has stated.** `Spelt` now says how signs are glued (`negativeNumeral`, `argumentGlue`), and a binary `-` will need its right operand not glued (or `a -b` reads as a call). `printedTokens1` gives texts and kinds, `printedSpells` words; neither gives the items' `glued` or `afterOperand`. Step 4 needs a lemma on the printed items' spacing (`prefixGap` and the spaces around operators and between arguments): stated by SW-4070, "Printed spacing" below.
 
@@ -1311,7 +1326,7 @@ Ticket 17f, in `Syntax/ReadBackLine.sw`. What reads back on one line now, and wh
 
 What read-back's `Spelt` reads of the printed items' spacing, stated in `Fmt/OutputStatements.sw` and checked, not proved.
 
-**The statement.** `Decl.spacing1` gives one `Spacing` (`Free`, `Glued`, `Apart`) for each token of `decl.spelt.filter notComment`, commas included; `printedSpacing1` would be `spacingAdmits decl.spacing1 (items decl.leaves1) = True` from `within1`, `shaped1`, `settled1` and `lexical1`. It asks only what `Spelt` reads, plus what SW-4071's binary `-` will:
+**The statement.** `Decl.spacing` gives one `Spacing` (`Free`, `Glued`, `Apart`) for each token of `decl.spelt.filter notComment`, commas included; `printedSpacing1` would be `spacingAdmits decl.spacing (items decl.leaves) = True` from `within1`, `shaped`, `settled` and `lexical`. It asks only what `Spelt` reads, plus what SW-4071's binary `-` will:
 
 - a call argument's sign `Apart` from what precedes it, its operand's first token `Glued` (`argumentGlue`);
 - `-` on a numeral: the numeral `Glued` (`negativeNumeral`); `-` on a numeral's call (`- 2 n`): `Apart`, which `prefixGap` spaces;
@@ -1322,7 +1337,7 @@ What read-back's `Spelt` reads of the printed items' spacing, stated in `Fmt/Out
 
 **Found: `Spelt`'s prefix equation is false of a parsed source.** `def d: A := (- -- c\n  1)` prints as written: the comment breaks the line, so `1` isn't glued and `negativeNumeral` is `False`, while `Spelt` asks it to equal `operand.numeral1 = True`. The output still reads back (`readsBack` is `True`): the parser reads `-` then `1` as the same `Prefix`. So `Spelt`'s `Prefix` case should ask `negativeNumeral … = True → operand.numeral1 = True` (a glued numeral reads as one atom, which must be the tree's), and the converse only where the two readings differ: a call's head (`-1 n` against `- 1 n`, not in `Spelt` yet) or an argument (`argumentGlue` already). `unaryLine` would then split on `negativeNumeral` instead of on the operand. The same holds of an own-line comment above the numeral (`(-\n  -- o\n  2)`).
 
-**Found: a comment on a glued sign breaks read-back, and the tree facts allow it** [computed, `stitchwort eval` on hand-built trees, each `within1`, `shaped1`, `settled1` and `lexical1`, `readsBack` `False`]:
+**Found: a comment on a glued sign breaks read-back, and the tree facts allow it** [computed, `stitchwort eval` on hand-built trees, each `within1`, `shaped`, `settled` and `lexical`, `readsBack` `False`]:
 
 | Tree | Prints | Reads back as |
 |---|---|---|
@@ -1335,13 +1350,13 @@ The parser never builds them (a glued `-x` or `-1` has no room for a comment), a
 
 1. Std.Doc: whether each word touches the piece before it. Either `Event` gains it (`eventsOf`: the piece before is no layout and the line isn't blank) and `Puts`, `Lays`, `Told` (`Spot` gains `touching`) and their printer theorems carry it, or a separate predicate in continuation style with its own printer theorem, as `Joins` has. Core std, so Opus.
 2. The rules: an operand right after its sign with `prefixGap` empty and no comment touches it; `spaced`/`argumentDocs` and the chain's links put a space or a `Line` before each argument and right operand, so those never touch. Over slice 1's `Expr.el`, as `JoinProofs` does for `Joins`.
-3. The lexer bridge: in `items` of `Decl.leaves1`, a leaf laid right after a `Code` piece is glued (`endColumn` is `column + utf8Length` for a one-line text), one after a `Gap` or `Break` is not.
+3. The lexer bridge: in `items` of `Decl.leaves`, a leaf laid right after a `Code` piece is glued (`endColumn` is `column + utf8Length` for a one-line text), one after a `Gap` or `Break` is not.
 4. `printedSpacing1` from 1 to 3; then `Spelt`'s `Prefix` fix above, and `Spelt` of a printed expression for atoms, brackets, calls, signs and arrows (step 4's discharge).
-## `shaped1` is the parser's shape (SW-4069, Opus, 18 November 2026)
+## `shaped` is the parser's shape (SW-4069, Opus, 18 November 2026)
 
-SW-4031's three trees that print as text parsing differently (`Infix - a (Infix - b c)`, `App (Prefix ! x) [y]`, `App f [Prefix - (Prefix - x)]`) are out of `shaped1` now, and `parseShaped1` still holds (statement unchanged).
+SW-4031's three trees that print as text parsing differently (`Infix - a (Infix - b c)`, `App (Prefix ! x) [y]`, `App f [Prefix - (Prefix - x)]`) are out of `shaped` now, and `parseShaped1` still holds (statement unchanged).
 
-- **Rules, from the parser's code.** `rightNeeds`: an operator that nests to the left (`leftNeeds` is its own level: `+ -`, `* / %`) needs its right operand one rung up (16, 18), as `addExpr`/`mulExpr` read it; right-nesting ones (`++ && ||`, `->`) and comparisons are as before. A call's head is `Expr.head1`: an atom, a bracket, or `-` (text `-`) on a numeral, since `unaryNext` hands `app` only a token that is no sign, or a `negativeNumeral`. An argument is `Expr.argument1`: an atom or a bracket, or a sign on one, since `argumentPrefix` asks the next item to `opensAtom` (no sign does).
+- **Rules, from the parser's code.** `rightNeeds`: an operator that nests to the left (`leftNeeds` is its own level: `+ -`, `* / %`) needs its right operand one rung up (16, 18), as `addExpr`/`mulExpr` read it; right-nesting ones (`++ && ||`, `->`) and comparisons are as before. A call's head is `Expr.callHead`: an atom, a bracket, or `-` (text `-`) on a numeral, since `unaryNext` hands `app` only a token that is no sign, or a `negativeNumeral`. An argument is `Expr.callArgument`: an atom or a bracket, or a sign on one, since `argumentPrefix` asks the next item to `opensAtom` (no sign does).
 - **How the walk shows it.** `Nested` is now a `ReadsIn` (`GoalRead`), so the argument goal can say what it read: `ArgRead read expr` is an atom (`AtomParsed`) or, if `read` starts with a sign (`SignFirst`), a sign on one. An argument's sign is followed by an item that opens an atom, so the argument read after it is no sign (`argReadPlain`). Heads are walked from the mark `unaryNext` sees (`readsAppAt` with `readsAtomHeadPlain`, `readsAtomHeadNegative`, `readsAtomHeadNone`); `self` at `LevelApp` (rows, patterns: outside the slice) now gives `True`. Every other level's statement is as before.
 - **Not in the tree facts yet: comments on a glued sign** (SW-4070's finding 2). `App f [Prefix (- -- c) x]` prints `f - -- c` with `x` on the next line and reads back as `f - x`; `App (Prefix (- -- c) 1) [n]` likewise reads back as `-(1 n)`. The parser never builds either: an argument's sign and a negative numeral need the next item `glued`, and a comment after the sign or above the operand puts it on a later line. Showing that needs an item invariant the walk lacks (`GoodItem` says only how a token is spelled): a glued item has no comment above it and its predecessor no trailing comment, from the lexer and rule N. Left as a follow-up.
 
@@ -1360,27 +1375,27 @@ A separate predicate, as `Joins` is, not a field of `Event`: `Event` is built in
 `printedSpacing1` is stated in `Fmt/SpacingProofs.sw` with exactly the four hypotheses above and proved, relying on two named open goals: `appSteps` (calls) and `declSpacedTouches` (the definition's own document). `printedSpacing1Example` applies it to `def d: A := f -x`.
 
 - **Step 3, proved** (`Fmt/GlueProofs.sw`, 23 theorems, audit clean). `printedGlued`: the `glued` of the items `Laid.lay` makes of the printed pieces is `codeTouching (touchesOf texts.reverse)` (each word's `touching`, comments dropped), given `CommentsEnd` (no code after a comment on its line, from `pairsEnd`) and `AllGood`. The fold keeps one invariant, `GlueTracks`: the glue flag is "the last text ends in a word, or is a comment", which avoids reasoning about UTF-8 lengths.
-- **Step 4, proved from step 2's goal** (`printedSpacingOfTouches`): `printTouches` takes `SpacedTouches decl doc` (from `Begun`, `admitsGlue decl.spacing1` of the touches) to the printed pieces, and `printedGlued` with `printedJoins` takes that to the items.
+- **Step 4, proved from step 2's goal** (`printedSpacingOfTouches`): `printTouches` takes `SpacedTouches decl doc` (from `Begun`, `admitsGlue decl.spacing` of the touches) to the printed pieces, and `printedGlued` with `printedJoins` takes that to the items.
 - **Step 2, the framework** (`Fmt/TouchSteps.sw`, 54 theorems, audit clean). `Steps doc pre spacing post`: from a seam meeting `pre`, the words the document adds are admitted by `spacing` (code words only) and it ends at a seam meeting `post`. Seam predicates: `Fits before first` (where a word spaced `first` may start; a comment may wait only if `before`), `Ends trails` (a comment waits only if the element ends with one), `Gapped` (after a `Line` or space), `Closed` (after a token). Combinators for every `Doc` form the rules use, `Fill` and `Choice` included.
-- **Step 2, the rules** (`Fmt/TouchProofs.sw`). `ElSteps expr`: `expr.el around` from `Fits True first` adds `spacedFirst first (expr.spacing1 argument)` and ends at `Ends expr.trails`, given `within1`, `shaped1`, `lexical1`, `Joinable`, `argument → argument1`, and `first` loose (admits a gap) or the first word quiet (no own-line comment, none waiting). Proved for tokens and their comments (a closer's `CloserLine` is what keeps a second comment from waiting), atoms, signs (`operandSpacing`'s three cases: apart after `prefixGap`'s space, glued under `signQuiet` with `argument1` or a numeral, else free), brackets, tuples and lists (filled and broken) and infix chains (through `linkDocs`, mutually with `elSteps`). `elSteps` is the induction.
+- **Step 2, the rules** (`Fmt/TouchProofs.sw`). `ElSteps expr`: `expr.el around` from `Fits True first` adds `spacedFirst first (expr.spacing argument)` and ends at `Ends expr.trails`, given `within1`, `shaped`, `lexical`, `Joinable`, `argument → callArgument`, and `first` loose (admits a gap) or the first word quiet (no own-line comment, none waiting). Proved for tokens and their comments (a closer's `CloserLine` is what keeps a second comment from waiting), atoms, signs (`operandSpacing`'s three cases: apart after `prefixGap`'s space, glued under `signQuiet` with `callArgument` or a numeral, else free), brackets, tuples and lists (filled and broken) and infix chains (through `linkDocs`, mutually with `elSteps`). `elSteps` is the induction.
 - **Left:** `appSteps`, whose route is `JoinProofs.appFromPasses` with the spacing carried per document (`spaced`, the `Fill` front, `HardLine` rest, the `Choice`'s three options and the hug, `IfBroken`); and `declSpacedTouches`, through `defFrom` and `bodyAfter`, which uses the call's hug too, so it comes after `appSteps`. Then `Spelt`'s `Prefix` fix and `Spelt` itself (step 4's discharge).
 
 ### Step 2 finished: `appSteps` and `declSpacedTouches` (SW-4093, Opus, 18 November 2026)
 
-`printedSpacing1` now audits with no open goal: a slice 1 declaration's printed items are spaced as `Decl.spacing1` says. No statement changed; 32 new theorems.
+`printedSpacing1` now audits with no open goal: a slice 1 declaration's printed items are spaced as `Decl.spacing` says. No statement changed; 32 new theorems.
 
 - **`Fmt/TouchSeq.sw`** (new, 20 theorems with the three fill lemmas moved from `TouchProofs`). `SeqSteps pre post docs spacings`: documents one after another, a space or line break between each two, each with its own spacing list beside it (two lists alike in length; a mismatch is `Void`), the first from `pre`, each later one from `Gapped True`, each but the last ending at `Ends True`. `spacedSteps`, `fillSteps`, `hardSteps` (each after a `HardLine`) and `seqSplit` (at `keep`, the back never empty) cover `appFrom`'s layouts; `appFromSteps` is every layout and `appFromHugSteps` the hug alone, as `JoinProofs.appFromPasses` and `appFromHugPasses`. `HugSteps` is `HugPasses`'s twin.
-- **Calls** (`Fmt/TouchProofs.sw`). `argumentsSteps` follows `argumentDocs` with the spacings `initSpacings`/`lastSpacing` beside its documents; an argument starts from `Gapped True` with its own first spacing (`argumentStarts`: `Apart` for a sign, `Free` otherwise), so `spacing1 True` comes out as it is. A tuple or list as the last argument is `huggedBracket`, not its element: `lastArgumentSteps` steps it through `leadingSteps` and `bracketSteps` (its items by `allElSteps`, in the mutual block as `JoinProofs.lastArgumentPasses` does). `callHugSteps` gives a value's hug for the `:=` line.
+- **Calls** (`Fmt/TouchProofs.sw`). `argumentsSteps` follows `argumentDocs` with the spacings `initSpacings`/`lastSpacing` beside its documents; an argument starts from `Gapped True` with its own first spacing (`argumentStarts`: `Apart` for a sign, `Free` otherwise), so `spacing True` comes out as it is. A tuple or list as the last argument is `huggedBracket`, not its element: `lastArgumentSteps` steps it through `leadingSteps` and `bracketSteps` (its items by `allElSteps`, in the mutual block as `JoinProofs.lastArgumentPasses` does). `callHugSteps` gives a value's hug for the `:=` line.
 - **The definition** (`Fmt/SpacingProofs.sw`): `plainDefSteps` follows `JoinProofs.plainDefPasses` (`def` and the name `spaced`, the `:`, `typedSteps`, the `:=`, then `bodySteps` for both of `IfBroken`'s forms: below, on the line, `OneLineBelow` through the new `TouchSteps.stepsOneLineBelow`, and the hug after a space); `spacedOfSteps` turns a triple from `Fits True Free` to a quiet seam into `SpacedTouches`.
 
 ## `Spelt`'s prefix clause and negative numeral heads (SW-4077, Opus, 18 November 2026)
 
 - **The prefix clause is one direction now.** `Spelt`'s `Prefix` case asks `negativeNumeral [sign, ..more] = True → operand.numeral1 = True`, not the equation: SW-4070's finding 1, `def d: A := (- -- c⏎  1)`, where the comment leaves the `1` unglued and the parser reads a sign on a numeral. `unaryLine` and `signArgLine` split on `negativeNumeral` (`negativeMinus` gives the `-`). `readsBackLineWithin` keeps its name and shape and is stronger. Witnesses from the lexer's items: `commentMinusApart` (the old equation fails there), `commentSpeltExample`, `readsBackCommentExample` (the parse, by computing).
-- **A call's head may be `-` on a numeral** (`def d: A := -1 n`, which every `PrintedGroup` fact admits and which made `printedSplit1` false as first stated). `Spelt`'s `App` case asks `headFits`: an atom or a bracket, or a prefix whose items the parser reads as a negative numeral, the one sign `unaryNext` hands to `app`. `signed1` looks through a call to its head, so `unaryLine` reads such a call after its sign (`UnaryReads`' second branch) and `appLine` reads the head by `headLine` (`NumberBase`). Witness: `readsBackNegativeHeadExample`; `Fmt.PrefixHeadSplit` keeps the driver's tree and its `PrintedGroup` facts.
-- **Toward `printedSplit1`** (`Fmt/SplitProofs.sw`, proved): `groupSpacing` (the group's items are spaced as `Decl.spacing1` says: `items` reads glue from tokens alone, `gluedSameTokens`); `codeTextsOf` (an expression's spelling with comments filtered out is `codeTexts1`, commas kept); `itemsChained` (each item's `afterOperand` is the kind of the one before).
+- **A call's head may be `-` on a numeral** (`def d: A := -1 n`, which every `PrintedGroup` fact admits and which made `printedSplit1` false as first stated). `Spelt`'s `App` case asks `headFits`: an atom or a bracket, or a prefix whose items the parser reads as a negative numeral, the one sign `unaryNext` hands to `app`. `signed` looks through a call to its head, so `unaryLine` reads such a call after its sign (`UnaryReads`' second branch) and `appLine` reads the head by `headLine` (`NumberBase`). Witness: `readsBackNegativeHeadExample`; `Fmt.PrefixHeadSplit` keeps the driver's tree and its `PrintedGroup` facts.
+- **Toward `printedSplit1`** (`Fmt/SplitProofs.sw`, proved): `groupSpacing` (the group's items are spaced as `Decl.spacing` says: `items` reads glue from tokens alone, `gluedSameTokens`); `codeTextsOf` (an expression's spelling with comments filtered out is `codeTexts`, commas kept); `itemsChained` (each item's `afterOperand` is the kind of the one before).
 - **An infix's kind matches its operator** (orchestrator's call, 19 November 2026). `within1` used to let `InfixBinary` and `InfixArrow` take any operator of the slice, so `Infix InfixBinary a "->" b` met every `PrintedGroup` fact, printed as `a -> b` and read back as an arrow, which made `printedSplit1` false (proved, then deleted with the fix). `within1` now asks `arrowText1` (`->` or `→`) of an `InfixArrow`'s operator and `binaryText1` (an operator of the slice that is no arrow) of an `InfixBinary`'s; `infixListed` gives back `operatorText1`. The parser builds arrows only from `Arrow` tokens and binary operators only from the others, so no parse is refused that wasn't before (read off `ParseWalk`, not proved: `within1` is the formatter's run-time test, so the theorems need no parser fact). `Spelt`'s `infixTok` and level facts then follow from `lexKind` of the operator's text.
 - **Also proved toward it** (`Fmt/SplitProofs.sw`): `calm` keeps the spacing (`spacingCalm`, with `signQuietCalm`), the shape (`shapedCalm`) and the lexing (`lexicalCalm`), so `Spelt` can be shown of the calm tree from the printed tree's facts.
-- **`printedSplit1` is proved** (19 November 2026), so `readsBackDecl1` and `readsBackFile1`'s read-back side have no open goal. `Fmt/SpeltSlots.sw`: `slots1` of an expression (`Some word` per token, `None` per comma) and `SlotMatch` (a word's item carries it and `lexKind` of its text, a comma's item is `Comma`); `speltSlots`, the induction, gives `Spelt expr read` from the tree facts (`within1`, `shaped1`, `lexical1`, `commaFree`), the items filling the slots, `spacingAdmits (expr.spacing1 argument) read`, `Chained read` and the first item's `afterOperand`. No new hypothesis: `shaped1`'s `signQuiet` (SW-4081) gives the quiet signs. `Fmt/GroupSlots.sw`: an expression's words are clean (`wordsClean`), its slots read as its code texts and words (`slotTexts`, `slotWords`), `calm` keeps the code texts (`codeTextsCalm`), no word lexes as a comma (`slotsCode`), so items with the slots' texts, kinds and words fill them (`slotsFromTexts`); `splitOfParts` splits the group at the `:` and `:=` and spells both parts; `printedSplitParts` gives its hypotheses from `PrintedGroup` (`printedTokens1`, `groupSpacing`, `calmShape`). `PrintedGroup`, `GroupSplit` and `Decl.calmAt` moved to `Fmt/GroupFacts.sw` so the proof can sit below `Fmt.TopReadBack`.
+- **`printedSplit1` is proved** (19 November 2026), so `readsBackDecl1` and `readsBackFile1`'s read-back side have no open goal. `Fmt/SpeltSlots.sw`: `slots` of an expression (`Some word` per token, `None` per comma) and `SlotMatch` (a word's item carries it and `lexKind` of its text, a comma's item is `Comma`); `speltSlots`, the induction, gives `Spelt expr read` from the tree facts (`within1`, `shaped`, `lexical`, `commaFree`), the items filling the slots, `spacingAdmits (expr.spacing argument) read`, `Chained read` and the first item's `afterOperand`. No new hypothesis: `shaped`'s `signQuiet` (SW-4081) gives the quiet signs. `Fmt/GroupSlots.sw`: an expression's words are clean (`wordsClean`), its slots read as its code texts and words (`slotTexts`, `slotWords`), `calm` keeps the code texts (`codeTextsCalm`), no word lexes as a comma (`slotsCode`), so items with the slots' texts, kinds and words fill them (`slotsFromTexts`); `splitOfParts` splits the group at the `:` and `:=` and spells both parts; `printedSplitParts` gives its hypotheses from `PrintedGroup` (`printedTokens1`, `groupSpacing`, `calmShape`). `PrintedGroup`, `GroupSplit` and `Decl.calmAt` moved to `Fmt/GroupFacts.sw` so the proof can sit below `Fmt.TopReadBack`.
 - **What is left on this path**: `edgeQuietOneLine1` (`Fmt.OneLineStatements`), the printing side's open goal, is the one open goal under the top theorems.
 
 ## One parse (SW-3964, proof plan ticket 13c)
@@ -1602,7 +1617,7 @@ and `defKindOf` is `DefPlain` for any token but `theorem` and `instance`, so a `
 ## Slice 1 rules proofs, `printedHangs` at the declaration (SW-4034, Opus, 18 November 2026)
 
 Ticket 18g. `printedHangs` is proved (`Fmt.DeclHangProofs`): a slice 1 declaration's printed text, at any width,
-lexes to leaves whose fold never breaks, from `within1`, `shaped1`, `sound`, `lexical1`, `doc1 = Some doc` and one
+lexes to leaves whose fold never breaks, from `within1`, `shaped`, `sound`, `lexical`, `doc1 = Some doc` and one
 named hypothesis, `DeclHangs lexKind decl`. `DeclHangs` collects what is not yet derived from the tree facts: the
 comment facts of the tokens (`TrailsComment` of `def`, the name, `:` and `:=`; no comments above the name, `:` and
 `:=`), the name's `Plain` kind and `WordToken` spelling, the type's `ElHangs` at 4 and the value's `BodyLays` (below
@@ -1632,16 +1647,16 @@ at 2, and on the `:=`'s line with its hug when the `:=` trails nothing). `atomDe
 - Each slice 1 expression's `ElHangs` from `within1` (an induction over atoms, parens, brackets, calls, chains and
   prefixes, assembling `ItemsHang`, `ArgsHang`, `LinkFacts`, `PairFacts`, `HeldLowers`, `Coded`, the arrow's bare
   token and `huggedBracket`'s opened form), to give the type's and value's facts in `DeclHangs`.
-- The tokens' facts from `sound` and `shaped1`: `TrailsComment` from `afterSound` (`commentText` to `IsComment`
+- The tokens' facts from `sound` and `shaped`: `TrailsComment` from `afterSound` (`commentText` to `IsComment`
   needs a `startsWith` to `toList` lemma), no comments above `:` and `:=` (or a lemma for their leading comments),
   and the name's `Plain` and `WordToken` from `nameWithin1`.
 - Parameter groups: slice 1 has none, so `defDocHangs` takes `params = []`; later slices need `paramsHeader`.
 
 ## Slice 1 rules proofs, `DeclHangs` from the tree facts (SW-4045, Opus, 18 November 2026)
 
-`printedHangs1Quiet` (`Fmt.DeclFactsProofs`) gives `hangs lexed.leaves = True` from `within1`, `shaped1`, `sound`,
-`lexical1` and `DeclQuiet`: no own-line comments above the name, `:` or `:=`, and the type and value quiet
-(`Expr.quiet1`: every token with no comments above, none after, no kept blank line, and every call with an
+`printedHangs1Quiet` (`Fmt.DeclFactsProofs`) gives `hangs lexed.leaves = True` from `within1`, `shaped`, `sound`,
+`lexical` and `DeclQuiet`: no own-line comments above the name, `:` or `:=`, and the type and value quiet
+(`Expr.quiet`: every token with no comments above, none after, no kept blank line, and every call with an
 argument). `printedHangs1` is the general form, taking `DeclElements` (the bare-token conjuncts, the type's
 `ElHangs` and the value's `BodyLays`) in place of `DeclQuiet`; `printedHangs` is unchanged.
 
@@ -1662,7 +1677,7 @@ argument). `printedHangs1` is the general form, taking `DeclElements` (the bare-
 
 Findings (not consequences of the tree facts, so `DeclQuiet` names them):
 
-- **Comments above `:`, `:=` and the name are slice 1.** Neither `shaped1` nor `sound` rules them out, and the
+- **Comments above `:`, `:=` and the name are slice 1.** Neither `shaped` nor `sound` rules them out, and the
   printer keeps them: `def x\n  -- c\n  : T := a` prints `def x\n  -- c\n  : T :=\n  a`; `def x: T\n  -- c\n  := a`
   prints as it stands; `def\n  -- c\n  x: T := a` prints `def\n  -- c\n  x: T :=\n  a`. `DeclHangs`' bare-token
   conjuncts fail for these. The fix is a noted form of `colonHangs`/`assignHangs` built from `leadingHangs`.
@@ -1754,7 +1769,7 @@ engine's tuck, then `printedStands1`) starts from `printedTold`.
 
 ```
 theorem printedTold ∀ (decl: Decl) (doc: Doc)
-    (within: decl.within1 = True) (settled: decl.settled1 = True) (real: decl.real = True)
+    (within: decl.within1 = True) (settled: decl.settled = True) (real: decl.real = True)
     (joins: DeclJoins lexKind decl) (shows: decl.doc1 = Some doc):
     Refines (doc.told Spot.lineStart) decl.shape ∧ dropCommas decl.shape = wordsShape decl.stood
 ```
@@ -1863,19 +1878,19 @@ no longer an open goal in `Fmt.TriviaStatements`, which keeps a pointer.
 
 ```
 theorem printedStands1 ∀ (decl: Decl)
-    (within: decl.within1 = True) (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True) (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True)
+    (within: decl.within1 = True) (shaped: decl.shaped = True)
+    (settled: decl.settled = True) (lexical: decl.lexical = True)
+    (plain: decl.unreturned = True)
     (facts: DeclHangs lexKind decl):
-    decl.stands1 = True
+    decl.stands = True
 ```
 
 Two hypotheses beyond the four tree facts:
 
-- `unreturned1`: no comment of the declaration ends in a carriage return. Without it the statement is false
+- `unreturned`: no comment of the declaration ends in a carriage return. Without it the statement is false
   (`returnedFalls`: `def d: A := b -- c\r`, built by hand, meets the four facts but the lexer's `withoutReturn` takes
   the return off, so the leaf's comment is not the tree's). The parser never builds such a tree; SW-4061's
-  `SourceFile.unreturned1` is the file-level cousin, for the file loop's comments only.
+  `SourceFile.unreturned` is the file-level cousin, for the file loop's comments only.
 - `DeclHangs lexKind decl`: what `printedHangs` takes, from which `doc1Hangs` gives the document's `Lays`, which
   `printTold` needs. Chosen as the most general of the three (`DeclQuiet` → `DeclElements` → `DeclHangs`, by
   `quietElements` and `declHangsOf`); the orchestrator may prefer `DeclQuiet` for a statement with no element facts.
@@ -1887,8 +1902,8 @@ Two hypotheses beyond the four tree facts:
 - `Heard owed bits views` mirrors `stands`; `heardStands` turns it into `stands owed (bitsWords bits) leaves = True`.
 - `Bit` (a word, or a bare comma): `Expr.bits`/`Decl.bits` are written as `Expr.shape`, so `shapeBits` and
   `declShapeBits` hold with no hypotheses; `exprBits`/`declBits` give `bitsWords decl.bits = decl.stood` and
-  `BitsFine lexKind` (each token reads back as its kind, no comment, no comma) from `within1`, `sound`, `lexical1`,
-  `unreturned1`.
+  `BitsFine lexKind` (each token reads back as its kind, no comment, no comma) from `within1`, `sound`, `lexical`,
+  `unreturned`.
 - The tuck: `bitsHeard` walks the bits against `Tucks`'s stretches (`HeardFrom`, quantified over the hearing so far):
   a waiting trailing comment is printed after the closers and commas that follow it, and the hearing hands it to the
   last of them, as `stands` says. `keptFront` splits the stretches at a word's own events.
@@ -1903,19 +1918,19 @@ Two hypotheses beyond the four tree facts:
 
 ## Slice 1 rules proofs, noted header leaves (SW-4057, Sonnet, 18 November 2026)
 
-`DeclQuiet` no longer excludes comments above the name, the `:` and the `:=` (SW-4045 finding 1); it is now `header.result.quiet1 = True ∧ value.quiet1 = True`. `printedHangs1Quiet` keeps its name and conclusion with the smaller hypothesis. `Fmt.DeclHangProofs` 35 theorems (7 new), `Fmt.DeclFactsProofs` 24 (6 new), audits clean.
+`DeclQuiet` no longer excludes comments above the name, the `:` and the `:=` (SW-4045 finding 1); it is now `header.result.quiet = True ∧ value.quiet = True`. `printedHangs1Quiet` keeps its name and conclusion with the smaller hypothesis. `Fmt.DeclHangProofs` 35 theorems (7 new), `Fmt.DeclFactsProofs` 24 (6 new), audits clean.
 
 - **`notedStepHangs`** (and `lineStepHangs`): a header token with own-line comments above it, after words: `leadingHangs` to the start of its line, the token there as one step of the fold (a hypothesis, `step`, from `state` to `final`), then its trailing comment. `colonNotedHangs` (`stepColon`, to `topFrom`) and `assignNotedHangs` (`stepAssign`, from `topState top`) apply it; `colonAnyHangs` and `assignAnyHangs` split on the comments (`notesCases`) and use the bare `colonHangs`/`assignHangs` otherwise. The room for the token comes from `Ended`'s `inForce ≤ at` alone: the comment break lands at `max indent (at + 2)`.
 - **The name** (`namePartHangs`): bare (`elPart` of `plainLeafHangs`) or noted (`notedPartHangs`); `headHangs` takes `NotesComment name.comments.above` in place of `name.comments.above = []`.
 - **`DeclHangs`** asks `NotesComment` of the three comment lists instead of `= []`; **`DeclElements`** loses those three conjuncts, since `declHangsOf` derives them from `sound` (`notesOfWord`, from `commentIs`). So `printedHangs1` is stronger too.
-- Witnesses: `colonNotedDecl` (`def d⏎  -- c⏎  : A := b`) and `assignNotedDecl` (`def d: A⏎  -- c⏎  := b`) meet `DeclQuiet`, `within1`, `shaped1`, `sound` and `lexical1` (`colonNotedMeets`, `assignNotedMeets`).
+- Witnesses: `colonNotedDecl` (`def d⏎  -- c⏎  : A := b`) and `assignNotedDecl` (`def d: A⏎  -- c⏎  := b`) meet `DeclQuiet`, `within1`, `shaped`, `sound` and `lexical` (`colonNotedMeets`, `assignNotedMeets`).
 - No comment above the name witness: not tried (`nameWithin1` may exclude one; `namePartHangs` covers it anyway).
 - Still owed from SW-4045: a noted element's start inside the type and the value (SW-4058), and items after a trailing comment.
 ## Slice 1 rules proofs, noted starts of the type and the value (SW-4058, Opus, 18 November 2026)
 
 `DeclQuiet` no longer excludes own-line comments above the type's or the value's first token (SW-4045 finding 2,
-`def x:\n  -- c\n  T := a`): it is now `header.result.leadQuiet1 = True ∧ value.leadQuiet1 = True`, quiet but for
-comments above the first token (`Fmt.ExprHangProofs.Expr.leadQuiet1`). `printedHangs1Quiet` and `printedHangs1` keep
+`def x:\n  -- c\n  T := a`): it is now `header.result.leadQuiet = True ∧ value.leadQuiet = True`, quiet but for
+comments above the first token (`Fmt.ExprHangProofs.Expr.leadQuiet`). `printedHangs1Quiet` and `printedHangs1` keep
 their names and conclusions; `quietElements` takes `sound` too (for the comments' `NotesComment`).
 
 - **Start per element** (`Fmt.HangProofs.startFor noted`: `leadStart` if noted, else `wordStart`; they agree at a line
@@ -1930,7 +1945,7 @@ their names and conclusions; `quietElements` takes `sound` too (for the comments
   noted first token), laid at that column. `Fmt.DeclFactsProofs.notedNodeHangs` packages it per node kind;
   `leadElHangs` covers names and numerals (`notedLeafHangs`) and the six node kinds.
 - **The induction** (`leadFacts`, replacing `exprFacts`' body; `exprFacts` is now its quiet case): for
-  `leadQuiet1` expressions, `LeadFacts` is `ExprFacts` restricted to the places where the element writes no comments
+  `leadQuiet` expressions, `LeadFacts` is `ExprFacts` restricted to the places where the element writes no comments
   above its first token (`Expr.bareAt`: hoisted, or none). The call's head and the chain's first operand share the
   first token and are laid hoisted; everything else is quiet.
 - Witnesses: `typeNotedDecl` (`def d:\n  -- c\n  F A := b`) and `valueNotedDecl` (`def d: A :=\n  -- c\n  f b`)
@@ -1979,9 +1994,9 @@ Ticket 17g-ii, in `Syntax/ReadBackLine.sw`, after SW-4071's other binary operato
 
 Lane A of docs/reviews/SW-4166-carried-walk-plan.md. Lane L's `textSpells1` takes the name `auto`, so `within1` no longer keeps `[auto Ord]` out, and read-back's `Expr.autoFree1` (no list at any depth starts with an `auto` call) was false of slice 1 trees such as `f [auto Ord]`, which the parser reads as a list.
 
-- **`Syntax.AutoPlaced`.** `Expr.autoPlaced1 full`: the flag says whether the expression starts a full expression (a declaration's type or value, a paren's inside, a tuple's or list's item, an arrow's right side), passes down the leftmost spine, and only there is the list's first item tested (`autoCall1`, moved here). `autoFree1` is `autoPlaced1` with the flag always on, so the new fact covers more trees. Read-back's lemmas take `autoPlaced1 False` below the operator level and `autoPlaced1 True` where `noAutoLine` needs the start (`fullHung`, `inlineHung`, `arrowHung`, `inlinePlainHung`); `autoPlacedInner` goes from one to the other.
+- **`Syntax.AutoPlaced`.** `Expr.autoPlaced full`: the flag says whether the expression starts a full expression (a declaration's type or value, a paren's inside, a tuple's or list's item, an arrow's right side), passes down the leftmost spine, and only there is the list's first item tested (`autoCall`, moved here). `autoFree1` is `autoPlaced` with the flag always on, so the new fact covers more trees. Read-back's lemmas take `autoPlaced False` below the operator level and `autoPlaced True` where `noAutoLine` needs the start (`fullHung`, `inlineHung`, `arrowHung`, `inlinePlainHung`); `autoPlacedInner` goes from one to the other.
 - **`readsBackHung`** takes the type's and value's placement instead of their `within1`, and `DeclsReadBack`, `readsBackFile1` and `outputParses1` pass it up. `tidiedPlaced1` gives it for the driver's tidied tree from `Fmt.PlacedProofs.parsedPlaced1`, which is **open**: the parser's fact. Computed on 1,686 grammar1 parses, none unplaced (and none `autoFree1` but unplaced).
-- **Parser side.** `Syntax.ParseKept`: `Goal.full`, `KeptAt`, and `keptPlacedUp` (placed inside, kept, and no implicit binder ahead give placed at the start). For the walk to give `KeptAt`, `Kept` itself has to carry `autoPlaced1 False`, since a node's inner full expressions are built inside the walk; that is the walk follow-up's.
+- **Parser side.** `Syntax.ParseKept`: `Goal.full`, `KeptAt`, and `keptPlacedUp` (placed inside, kept, and no implicit binder ahead give placed at the start). For the walk to give `KeptAt`, `Kept` itself has to carry `autoPlaced False`, since a node's inner full expressions are built inside the walk; that is the walk follow-up's.
 - `autoPlacedDeaf`, `autoPlacedCalm` and `commaKeepsPlaced` (P2) are in `Fmt.PlacedProofs`.
 
 ## Slice 1 checkpoint (19 Nov 2026)
@@ -1996,11 +2011,11 @@ The sketch (`docs/proposals/self-hosted-fmt-s1-sketch.md` §2) predicted by laye
 |---|---|---|---|---|---|
 | Lexer (14) | `Syntax/Lex*Proofs`, `OnceUnreturnedProofs`, `Fmt/UnreturnedProofs` | 90–130 | 348 | 2.7–3.9 | 3.2 |
 | Rule N (15) | `Syntax/Settle*Proofs`, `GoodItemProofs`, `GlueQuietProofs`, `Fmt/SettleParseProofs` | 150–230 | 550 | 2.4–3.7 | 2.9 |
-| Parser (16) | `Syntax/Parse*`, `Follows*`, `DeafProofs`, `AutoPlaced`; `Fmt/TraverseFail`, `PlacedProofs`, `SourcePlainProofs`, `Kinds1`, `Grammar1` | 230–320 | 2,115 | 6.6–9.2 | 7.7 |
+| Parser (16) | `Syntax/Parse*`, `Follows*`, `DeafProofs`, `AutoPlaced`; `Fmt/TraverseFail`, `PlacedProofs`, `SourcePlainProofs`, `Kinds`, `Grammar1` | 230–320 | 2,115 | 6.6–9.2 | 7.7 |
 | Read-back (17) | `Syntax/ReadBack*`; `Fmt/ReadBackFile`, `SplitProofs`, `SpeltSlots`, `GroupSlots`, `PrefixHeadSplit`, `TopReadBack` | 110–160 | 667 | 4.2–6.1 | 4.9 |
 | Rules and spelling (18) | the rest of `Fmt/` (hangs, lays, elements, touch, told, spell, join, stands, trivia, print) | 300–450 | 1,843 | 4.1–6.1 | 4.9 |
 | Passes (19) | `Fmt/PassProofs`, `Walk`, `MergeProofs`, `BlankProofs`, `MeaningProofs`, `CalmProofs`, `CalmTopProofs` | 40–60 | 257 (458 less the 201 already there) | 4.3–6.4 | 5.1 |
-| Glue (20) | `Fmt/TopStatements`, `Accepts1`, `Driver1`, `OutputStatements`, `TriviaStatements`, `Predicates1`, `FinishProofs`, `OutputFileProofs`, `FileLexProofs`, `TokenProofs` | 25–40 | 251 | 6.3–10.0 | 7.7 |
+| Glue (20) | `Fmt/TopStatements`, `Accepts1`, `Driver1`, `OutputStatements`, `TriviaStatements`, `Predicates`, `FinishProofs`, `OutputFileProofs`, `FileLexProofs`, `TokenProofs` | 25–40 | 251 | 6.3–10.0 | 7.7 |
 | **All** | | **945–1,390** | **6,031** (6,232 in the tree) | **4.3–6.4** | **5.2** |
 
 Gross: 6,796 `theorem` lines added and 759 removed across the non-merge commits since the sketch (a renamed or edited signature counts as one of each, so churn is overstated). The 4,900 lines SW-4154 deleted were mostly definitions and lemmas of the one-line read-back route.

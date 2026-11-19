@@ -33,9 +33,9 @@ theorem spacingAdmitsGlue ∀ (spacing: List Spacing) (found: List Item):
     | [first, ..rest], [item, ..later] => rewrite spacingAdmitsGlue rest later
 
 --| Step 2's goal for one declaration: from the start of a line, its document lists its words touching as
---| `Decl.spacing1` asks of its code words.
+--| `Decl.spacing` asks of its code words.
 def SpacedTouches (decl: Decl) (doc: Doc): Prop :=
-  Touches doc Begun [] (seam trace => admitsGlue decl.spacing1 (codeTouching (trace ++ seam.ending)) = True)
+  Touches doc Begun [] (seam trace => admitsGlue decl.spacing (codeTouching (trace ++ seam.ending)) = True)
 
 theorem allGoodAppend ∀ (kinds: Text → Syntax.Tok) (front back: List Text)
     (good: AllGood kinds front)
@@ -54,7 +54,7 @@ theorem allGoodReverse ∀ (kinds: Text → Syntax.Tok) (texts: List Text)
       rewrite List.reverseCons text rest then
         allGoodAppend kinds rest.reverse [text] (allGoodReverse kinds rest others) (first, byComputing)
 
---| A slice 1 declaration's printed items are spaced as `Decl.spacing1` says, given that its document touches as the
+--| A slice 1 declaration's printed items are spaced as `Decl.spacing` says, given that its document touches as the
 --| spacing asks (`SpacedTouches`, step 2).
 --|
 --| Proof idea: `printTouches` gives the spacing of the printed pieces' touches; `printedJoins`, from `doc1Passes`
@@ -62,11 +62,11 @@ theorem allGoodReverse ∀ (kinds: Text → Syntax.Tok) (texts: List Text)
 --| that every text is good (`goodOfChrono`), so `printedGlued` makes the items' glue those touches.
 theorem printedSpacingOfTouches ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
     (spaced: ∀ (doc: Doc) => decl.doc1 = Some doc → SpacedTouches decl doc):
-    spacingAdmits decl.spacing1 (items decl.leaves1) = True :=
+    spacingAdmits decl.spacing (items decl.leaves) = True :=
   match shows: decl.doc1 with
     | Some doc =>
       let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
@@ -82,10 +82,10 @@ theorem printedSpacingOfTouches ∀ (decl: Decl)
       let chrono := chronoOfPairs (Follows lexKind) texts.reverse pairs
       let ordered := rewrite List.reverseReverse texts at chrono then chrono
       let good := goodOfChrono lexKind texts ordered every
-      let touched: admitsGlue decl.spacing1 (codeTouching (touchesOf texts.reverse)) = True :=
-        printTouches (touches => admitsGlue decl.spacing1 (codeTouching touches) = True) doc width (spaced doc shows)
+      let touched: admitsGlue decl.spacing (codeTouching (touchesOf texts.reverse)) = True :=
+        printTouches (touches => admitsGlue decl.spacing (codeTouching touches) = True) doc width (spaced doc shows)
       let glued := printedGlued lexKind texts (pairsEnd lexKind texts.reverse pairs) (allGoodReverse lexKind texts good)
-      rewrite spacingAdmitsGlue decl.spacing1 (items (laidOf doc).leaves.reverse), glued then touched
+      rewrite spacingAdmitsGlue decl.spacing (items (laidOf doc).leaves.reverse), glued then touched
     | None =>
       match decl, within, shows with
         | Definition [] header (Assigned colonEq value), _, never => cases
@@ -100,21 +100,21 @@ theorem wordEndsSteps ∀ (word: Word) (around: Around) (key: Nat)
     endsWeaker word.trails True (_ => byComputing) seam (closedEnds word.trails seam closed))
 
 --| What follows a `:=`: the value below, or one of the layouts that keep its start on the line, each spacing the
---| value's words as `spacing1` says.
+--| value's words as `spacing` says.
 --|
 --| Proof idea: as `Fmt.JoinProofs.bodyAfterPasses`: `matchedNone`, `valueElPlain` and `lambdaHugNone` leave the
 --| value's element; each option is it after a space or a line break (`OneLineBelow` included), or the call's hug
 --| after a space (`callHugSteps`).
 theorem bodySteps ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
     (within: value.within1 = True)
-    (shaped: value.shaped1 = True)
-    (lexical: value.lexical1 = True)
+    (shaped: value.shaped = True)
+    (lexical: value.lexical = True)
     (joinable: Joinable lexKind value)
     (steps: ElSteps value):
-    Steps (bodyAfter value assign around semi).fst (Ends True) (value.spacing1 False) (Ends value.trails)
-      ∧ Steps (bodyAfter value assign around semi).snd (Ends True) (value.spacing1 False) (Ends value.trails) :=
+    Steps (bodyAfter value assign around semi).fst (Ends True) (value.spacing False) (Ends value.trails)
+      ∧ Steps (bodyAfter value assign around semi).snd (Ends True) (value.spacing False) (Ends value.trails) :=
   let inside: Around := { around | hoisted = True }
-  let spacing := value.spacing1 False
+  let spacing := value.spacing False
   let post := Ends value.trails
   let element: Steps (value.el around) (Fits True Free) spacing post :=
     elFree value around steps within shaped lexical joinable
@@ -223,7 +223,7 @@ theorem typedSteps ∀ (trails: Bool) (typeDoc: Doc) (spacing: List Spacing)
           (stepsFrom _ _ _ _ _ typeSteps (seam gapped => gappedFits True Free seam byComputing gapped)))
 
 --| A plain definition: `def`, the name, `:`, the type, `:=` and the value, from where a free word may start, each
---| token free but as the type's and value's `spacing1` say.
+--| token free but as the type's and value's `spacing` say.
 --|
 --| Proof idea: as `Fmt.JoinProofs.plainDefPasses`: the header's tokens each after the one before (`spacedSteps`),
 --| the type after a space or a line break (`typedSteps`), then the `:=` after a space and the body in either of
@@ -231,11 +231,11 @@ theorem typedSteps ∀ (trails: Bool) (typeDoc: Doc) (spacing: List Spacing)
 theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (result: Expr)
     (colonEq: Comments) (value: Expr)
     (resultWithin: result.within1 = True)
-    (resultShaped: result.shaped1 = True)
-    (resultLexical: result.lexical1 = True)
+    (resultShaped: result.shaped = True)
+    (resultLexical: result.lexical = True)
     (valueWithin: value.within1 = True)
-    (valueShaped: value.shaped1 = True)
-    (valueLexical: value.lexical1 = True)
+    (valueShaped: value.shaped = True)
+    (valueLexical: value.lexical = True)
     (keywordJoins: WordJoins (fixedWord "def" keyword))
     (nameJoins: WordJoins name)
     (colonJoins: WordJoins (fixedWord ":" colon))
@@ -245,7 +245,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
     Steps
       (plainDef keyword name colon result colonEq value)
       (Fits True Free)
-      ([Free, Free, Free] ++ result.spacing1 False ++ [Free] ++ value.spacing1 False)
+      ([Free, Free, Free] ++ result.spacing False ++ [Free] ++ value.spacing False)
       (Ends value.trails) :=
   let start: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
   let keywordWord := fixedWord "def" keyword
@@ -256,7 +256,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
   let headDoc := spaced (headDocs start [keywordWord, name])
   let typed := if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
   let headerDoc := Doc.concat ([headDoc, colonWord.leaf colonAround 2] ++ typed)
-  let typeSteps: Steps typeDoc (Fits True Free) (result.spacing1 False) (Ends True) :=
+  let typeSteps: Steps typeDoc (Fits True Free) (result.spacing False) (Ends True) :=
     stepsTo _ _ _ _ _
       (elFree result
         (start.next colonWord.trails 3)
@@ -279,7 +279,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
       )
   let colonSteps: Steps (colonWord.leaf colonAround 2) (Ends True) [Free] (Ends True) :=
     stepsFrom _ _ _ _ _ (wordEndsSteps colonWord colonAround 2 colonJoins) (seam ended => endsFits True seam ended)
-  let headerSteps: Steps headerDoc (Fits True Free) [Free, Free, Free, ..result.spacing1 False] (Ends True) :=
+  let headerSteps: Steps headerDoc (Fits True Free) [Free, Free, Free, ..result.spacing False] (Ends True) :=
     stepsConcat _ _ _ _
       (stepsCons headDoc
         [colonWord.leaf colonAround 2, ..typed]
@@ -287,7 +287,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
         (Ends True)
         (Ends True)
         [Free, Free]
-        [Free, ..result.spacing1 False]
+        [Free, ..result.spacing False]
         headSteps
         (stepsCons
           (colonWord.leaf colonAround 2)
@@ -296,9 +296,9 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
           (Ends True)
           (Ends True)
           [Free]
-          (result.spacing1 False)
+          (result.spacing False)
           colonSteps
-          (typedSteps colonWord.trails typeDoc (result.spacing1 False) typeSteps)))
+          (typedSteps colonWord.trails typeDoc (result.spacing False) typeSteps)))
   let around := start.next assign.trails (4 + result.size)
   let body := bodyAfter value assign around False
   let (belowSteps, choiceSteps) :=
@@ -323,8 +323,8 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
         (Fits True Free)
         (Ends True)
         (Ends value.trails)
-        [Free, Free, Free, ..result.spacing1 False]
-        ([] ++ ([Free] ++ value.spacing1 False))
+        [Free, Free, Free, ..result.spacing False]
+        ([] ++ ([Free] ++ value.spacing False))
         (stepsIdGroup 0 headerDoc breaks _ _ _ headerSteps)
         (stepsCons
           (Doc.text " ")
@@ -333,7 +333,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
           (Gapped True)
           (Ends value.trails)
           []
-          ([Free] ++ value.spacing1 False)
+          ([Free] ++ value.spacing False)
           (stepsSpace True)
           (stepsTwo assignLeaf
             (IfBroken 0 body.fst body.snd)
@@ -341,26 +341,26 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
             (Ends True)
             (Ends value.trails)
             [Free]
-            (value.spacing1 False)
+            (value.spacing False)
             assignSteps
             (stepsIfBroken 0 body.fst body.snd _ _ _ belowSteps choiceSteps)))))
 
 --| A document that steps from a line start to a seam where no code waits lists its words as the spacing asks.
 theorem spacedOfSteps ∀ (decl: Decl) (doc: Doc) (post: Seam → Prop)
-    (steps: Steps doc (Fits True Free) decl.spacing1 post) (quiet: ∀ (seam: Seam) => post seam → Quiet seam):
+    (steps: Steps doc (Fits True Free) decl.spacing post) (quiet: ∀ (seam: Seam) => post seam → Quiet seam):
     SpacedTouches decl doc :=
   steps Begun []
-    (seam trace => admitsGlue decl.spacing1 (codeTouching (trace ++ seam.ending)) = True)
+    (seam trace => admitsGlue decl.spacing (codeTouching (trace ++ seam.ending)) = True)
     byComputing
     (after added ended admits =>
-      let glue: admitsGlue decl.spacing1 (codeTouching (added ++ after.ending)) = True :=
+      let glue: admitsGlue decl.spacing (codeTouching (added ++ after.ending)) = True :=
         rewrite codeTouchingAppend added after.ending,
             endingQuiet after (quiet after ended),
             List.appendNil (codeTouching added) then
           admits
       glue)
 
---| A slice 1 definition's document touches as `Decl.spacing1` asks, given that every expression's element does
+--| A slice 1 definition's document touches as `Decl.spacing` asks, given that every expression's element does
 --| (`elSteps`).
 --|
 --| Proof idea: `doc1` is `plainDef` (`plainDefIs`, as `Fmt.JoinProofs.doc1Passes` has it), which `plainDefSteps`
@@ -368,9 +368,9 @@ theorem spacedOfSteps ∀ (decl: Decl) (doc: Doc) (post: Seam → Prop)
 --| touches.
 theorem declSpacedTouches ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
     (elements: ∀ (expr: Expr) => ElSteps expr) (doc: Doc)
     (shows: decl.doc1 = Some doc):
     SpacedTouches decl doc :=
@@ -428,14 +428,14 @@ theorem declSpacedTouches ∀ (decl: Decl)
                 elements)
               (seam ended => endsQuiet value.trails seam ended)
 
---| A slice 1 declaration's printed items are spaced as `Decl.spacing1` says: each glued to the item before exactly
+--| A slice 1 declaration's printed items are spaced as `Decl.spacing` says: each glued to the item before exactly
 --| where its spacing is `Glued`, and apart where it is `Apart` (the statement `Fmt.OutputStatements` describes).
 theorem printedSpacing1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    spacingAdmits decl.spacing1 (items decl.leaves1) = True :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    spacingAdmits decl.spacing (items decl.leaves) = True :=
   printedSpacingOfTouches decl within shaped settled lexical (doc shows =>
     declSpacedTouches decl within shaped settled lexical elSteps doc shows)
 
@@ -463,7 +463,7 @@ def signDecl: Decl :=
 theorem signSpacedTouches: SpacedTouches signDecl (signDecl.doc1.getOrElse Nothing) := byDecision
 
 --| `printedSpacingOfTouches` applies: `f -x`'s sign apart from `f` and glued to `x`.
-theorem printedSpacingExample: spacingAdmits signDecl.spacing1 (items signDecl.leaves1) = True :=
+theorem printedSpacingExample: spacingAdmits signDecl.spacing (items signDecl.leaves) = True :=
   printedSpacingOfTouches signDecl byComputing byComputing byComputing byComputing (doc shows =>
     let same: signDecl.doc1.getOrElse Nothing = doc := Eq.cong (found => found.getOrElse Nothing) shows
     rewrite <- same then signSpacedTouches)

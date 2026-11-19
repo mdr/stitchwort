@@ -28,11 +28,11 @@ theorem signArgHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (operator: Word) (operand: Expr) (read later: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
-    (deep: (Prefix operator operand).nest1 <= depth)
+    (deep: (Prefix operator operand).nest <= depth)
     (spelt: Spelt (Prefix operator operand) read)
-    (atomic: operand.atomic1 = True)
+    (atomic: operand.primary = True)
     (glue: argumentGlue read = True)
-    (free: operand.autoPlaced1 False = True)
+    (free: operand.autoPlaced False = True)
     (lineRead: lineAll read = True)
     (lineLater: lineAll later = True)
     (bound: bounds modes state = True)
@@ -118,10 +118,10 @@ theorem argumentHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (argument: Expr) (read later: List Item) (below: Nat) (state: HangState)
     (inner: FullHungBelow (Succ below))
-    (deep: argument.nest1 <= below)
+    (deep: argument.nest <= below)
     (spelt: Spelt argument read)
     (fits: argumentFits argument read = True)
-    (free: argument.autoPlaced1 False = True)
+    (free: argument.autoPlaced False = True)
     (lineRead: lineAll read = True)
     (lineLater: lineAll later = True)
     (bound: bounds modes state = True)
@@ -137,7 +137,7 @@ theorem argumentHung ∀ (modes: Modes)
   let openRead: openHead modes read = True := rewrite isRead then openHeadOf modes first more open
   let (entered, _) := speltHung modes argument read later state spelt bound hung
   let innerBelow := belowLess below (Succ below) (arithmetic []) inner
-  let atom: AtomReads (TreeN below) modes False read later argument := match signed: argument.signed1 with
+  let atom: AtomReads (TreeN below) modes False read later argument := match signed: argument.signed with
     | False =>
       atomHung modes quiet False argument read later below state innerBelow deep spelt
         (signArgAtomic argument (Bool.andLeft fits) signed)
@@ -265,9 +265,9 @@ theorem appHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (head argument: Expr) (more: List Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
-    (deep: (App head [argument, ..more]).nest1 <= depth)
+    (deep: (App head [argument, ..more]).nest <= depth)
     (spelt: Spelt (App head [argument, ..more]) read)
-    (free: (App head [argument, ..more]).autoPlaced1 False = True)
+    (free: (App head [argument, ..more]).autoPlaced False = True)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
     (openFirst: openHead modes read = True)
@@ -412,10 +412,10 @@ theorem headHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (head: Expr) (read later: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
-    (deep: head.nest1 <= depth)
+    (deep: head.nest <= depth)
     (spelt: Spelt head read)
     (fits: headFits head read = True)
-    (free: head.autoPlaced1 False = True)
+    (free: head.autoPlaced False = True)
     (lineRead: lineAll read = True)
     (lineLater: lineAll later = True)
     (openRead: openHead modes read = True)
@@ -424,7 +424,7 @@ theorem headHung ∀ (modes: Modes)
     (deepItems: deepAll (read ++ later) = True)
     (after: ∀ (kind: Tok) => AtomEnds modes True kind later):
     AtomReads (TreeN depth) modes True read later head :=
-  match atomic: head.atomic1 with
+  match atomic: head.primary with
     | True =>
       atomHung modes quiet True head read later depth state inner deep spelt atomic free lineRead lineLater openRead
           bound hung deepItems after
@@ -456,9 +456,9 @@ theorem appAnyHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
-    (deep: expr.nest1 <= depth)
+    (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
-    (free: expr.autoPlaced1 False = True)
+    (free: expr.autoPlaced False = True)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
     (openFirst: openHead modes read = True)
@@ -466,10 +466,10 @@ theorem appAnyHung ∀ (modes: Modes)
     (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
     (deepItems: deepAll (read ++ rest) = True)
     (ends: UnaryEnds modes rest)
-    (unsigned: expr.signed1 = False)
-    (plain: expr.unary1 = True):
+    (unsigned: expr.signed = False)
+    (plain: expr.unary = True):
     AppReads (TreeN depth) modes read rest expr :=
-  let alone: expr.atomic1 = True → AppReads (TreeN depth) modes read rest expr := atomic =>
+  let alone: expr.primary = True → AppReads (TreeN depth) modes read rest expr := atomic =>
     let (item, more, isRead, starts) := speltStarts expr read spelt
     let openItems: openHead modes [item, ..more] = True := rewrite <- isRead then openFirst
     let open1 := openHeadStops modes item more openItems
@@ -503,9 +503,9 @@ theorem unaryHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
-    (deep: expr.nest1 <= depth)
+    (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
-    (free: expr.autoPlaced1 False = True)
+    (free: expr.autoPlaced False = True)
     (lineRead: lineAll read = True)
     (lineRest: lineAll rest = True)
     (openFirst: openHead modes read = True)
@@ -513,9 +513,9 @@ theorem unaryHung ∀ (modes: Modes)
     (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
     (deepItems: deepAll (read ++ rest) = True)
     (ends: UnaryEnds modes rest)
-    (unary: expr.unary1 = True):
+    (unary: expr.unary = True):
     UnaryReads (TreeN depth) modes read rest expr :=
-  match signed: expr.signed1 with
+  match signed: expr.signed with
     | False =>
       let (item, more, isRead, starts) := speltPlainStarts expr read spelt signed
       let openItems: openHead modes [item, ..more] = True := rewrite <- isRead then openFirst

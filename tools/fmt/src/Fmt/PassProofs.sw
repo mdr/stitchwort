@@ -5,21 +5,21 @@ import Fmt.Proofs (..)
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
 
-def Expr.mapIn1 (expr: Expr) (f: Expr → Expr): Expr := match expr with
+def Expr.mapIn (expr: Expr) (f: Expr → Expr): Expr := match expr with
   | Atom kind word => f (Atom kind word)
-  | Paren open inner close => f (Paren open (inner.mapIn1 f) close)
-  | Tuple open items comma close => f (Tuple open (mapAll1 f items) comma close)
-  | ListOf open items comma close => f (ListOf open (mapAll1 f items) comma close)
-  | App head arguments => f (App (head.mapIn1 f) (mapAll1 f arguments))
-  | Infix kind left operator right => f (Infix kind (left.mapIn1 f) operator (right.mapIn1 f))
-  | Prefix operator operand => f (Prefix operator (operand.mapIn1 f))
+  | Paren open inner close => f (Paren open (inner.mapIn f) close)
+  | Tuple open items comma close => f (Tuple open (mapAll f items) comma close)
+  | ListOf open items comma close => f (ListOf open (mapAll f items) comma close)
+  | App head arguments => f (App (head.mapIn f) (mapAll f arguments))
+  | Infix kind left operator right => f (Infix kind (left.mapIn f) operator (right.mapIn f))
+  | Prefix operator operand => f (Prefix operator (operand.mapIn f))
   | other => other
 
-def mapAll1 (f: Expr → Expr): List Expr → List Expr
+def mapAll (f: Expr → Expr): List Expr → List Expr
   | [] => []
-  | [expr, ..rest] => [expr.mapIn1 f, ..mapAll1 f rest]
+  | [expr, ..rest] => [expr.mapIn f, ..mapAll f rest]
 
-theorem walkMap ∀ (p: Pure) (expr: Expr) (within: expr.within1 = True): expr.walk p = expr.mapIn1 p.expr :=
+theorem walkMap ∀ (p: Pure) (expr: Expr) (within: expr.within1 = True): expr.walk p = expr.mapIn p.expr :=
   match expr with
     | Atom kind word => byComputing
     | Paren open inner close => rewrite walkMap p inner within
@@ -37,7 +37,7 @@ theorem walkMap ∀ (p: Pure) (expr: Expr) (within: expr.within1 = True): expr.w
 
 theorem walksMap ∀ (p: Pure) (items: List Expr)
     (within: allWithin1 items = True):
-    walkExprs p items = mapAll1 p.expr items :=
+    walkExprs p items = mapAll p.expr items :=
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite walkMap p first (Bool.andLeft within), walksMap p rest (Bool.andRight within)
@@ -45,7 +45,7 @@ theorem walksMap ∀ (p: Pure) (items: List Expr)
 theorem mapSame ∀ (f: Expr → Expr)
     (fixes: ∀ (z: Expr) => z.within1 = True → f z = z) (expr: Expr)
     (within: expr.within1 = True):
-    expr.mapIn1 f = expr :=
+    expr.mapIn f = expr :=
   match expr with
     | Atom kind word => fixes (Atom kind word) within
     | Paren open inner close => rewrite mapSame f fixes inner within, fixes (Paren open inner close) within
@@ -73,22 +73,22 @@ theorem mapSame ∀ (f: Expr → Expr)
 theorem mapsSame ∀ (f: Expr → Expr)
     (fixes: ∀ (z: Expr) => z.within1 = True → f z = z) (items: List Expr)
     (within: allWithin1 items = True):
-    mapAll1 f items = items :=
+    mapAll f items = items :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
       rewrite mapSame f fixes first (Bool.andLeft within), mapsSame f fixes rest (Bool.andRight within)
 
 --| A declaration with `p`'s steps applied over the slice's shapes.
-def Decl.mapIn1 (decl: Decl) (p: Pure): Decl := match decl with
+def Decl.mapIn (decl: Decl) (p: Pure): Decl := match decl with
   | Definition [] header (Assigned colonEq value) =>
     p.decl
       (Definition []
-        (p.header { header | result = header.result.mapIn1 p.expr })
-        (Assigned colonEq (value.mapIn1 p.expr)))
+        (p.header { header | result = header.result.mapIn p.expr })
+        (Assigned colonEq (value.mapIn p.expr)))
   | other => other
 
-theorem declMap ∀ (p: Pure) (decl: Decl) (within: decl.within1 = True): decl.walk p = decl.mapIn1 p := match decl with
+theorem declMap ∀ (p: Pure) (decl: Decl) (within: decl.within1 = True): decl.walk p = decl.mapIn p := match decl with
   | Definition [] header (Assigned colonEq value) =>
     match header with
       | {
@@ -107,13 +107,13 @@ theorem declMap ∀ (p: Pure) (decl: Decl) (within: decl.within1 = True): decl.w
       | _ => cases
 
 --| The steps leave slice 1's nodes as they are.
-type Fixes1 (p: Pure) = {
+type Fixes (p: Pure) = {
   expr: ∀ (z: Expr) => z.within1 = True → p.expr z = z,
   header: ∀ (z: Header) => z.within1 = True → p.header z = z,
   decl: ∀ (z: Decl) => z.within1 = True → p.decl z = z
 }
 
-theorem declSame ∀ (p: Pure) (fixes: Fixes1 p) (decl: Decl) (within: decl.within1 = True): decl.mapIn1 p = decl :=
+theorem declSame ∀ (p: Pure) (fixes: Fixes p) (decl: Decl) (within: decl.within1 = True): decl.mapIn p = decl :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       match header with
@@ -152,15 +152,15 @@ theorem declSame ∀ (p: Pure) (fixes: Fixes1 p) (decl: Decl) (within: decl.with
 
 theorem declsMap ∀ (p: Pure) (decls: List Decl)
     (within: decls.all Decl.within1 = True):
-    walkDecls p decls = decls.map (decl => decl.mapIn1 p) :=
+    walkDecls p decls = decls.map (decl => decl.mapIn p) :=
   match decls with
     | [] => byComputing
     | [first, ..rest] => rewrite declMap p first (Bool.andLeft within), declsMap p rest (Bool.andRight within)
 
 theorem declsSame ∀ (p: Pure)
-    (fixes: Fixes1 p) (decls: List Decl)
+    (fixes: Fixes p) (decls: List Decl)
     (within: decls.all Decl.within1 = True):
-    decls.map (decl => decl.mapIn1 p) = decls :=
+    decls.map (decl => decl.mapIn p) = decls :=
   match decls with
     | [] => byComputing
     | [first, ..rest] =>
@@ -170,7 +170,7 @@ theorem declsSame ∀ (p: Pure)
 --| of the slice: the traversal is the nodes' bottom-up map (`walkMap`),
 --| and the map of nodes that stay stays.
 theorem walkSame1 ∀ (p: Pure)
-    (fixes: Fixes1 p) (file: SourceFile)
+    (fixes: Fixes p) (file: SourceFile)
     (within: file.within1 = True):
     { file | decls = walkDecls p file.decls } = file :=
   rewrite declsMap p file.decls within, declsSame p fixes file.decls within
@@ -194,7 +194,7 @@ theorem forallHeaderSame ∀ (header: Header) (within: header.within1 = True): w
       } => byComputing
     | _ => cases
 
-def forallFixes: Fixes1 forallPure :=
+def forallFixes: Fixes forallPure :=
   { expr = (z => (w => byComputing)), header = forallHeaderSame, decl = (z => (w => byComputing)) }
 
 theorem forallSame1 ∀ (file: SourceFile) (within: file.within1 = True): file.withForall = file :=
@@ -239,7 +239,7 @@ theorem bindersHeaderSame ∀ (header: Header) (within: header.within1 = True): 
 theorem bindersDeclSame ∀ (decl: Decl) (within: decl.within1 = True): dropDeclBindersPure decl = decl := match decl with
   | Definition [] header (Assigned colonEq value) => rewrite bindersHeaderSame header (Bool.andLeft within)
 
-def bracketFixes: Fixes1 bracketPure :=
+def bracketFixes: Fixes bracketPure :=
   { expr = (z => (w => cases)), header = (z => (w => byComputing)), decl = bindersDeclSame }
 
 theorem bracketsSame1 ∀ (file: SourceFile) (within: file.within1 = True): file.withoutSpareBrackets = file :=
@@ -261,7 +261,7 @@ theorem mergeHeaderSame ∀ (header: Header) (within: header.within1 = True): me
         unfoldingClause = None
       } => byComputing
 
-def mergeFixes: Fixes1 mergePure :=
+def mergeFixes: Fixes mergePure :=
   { expr = (z => (w => cases)), header = mergeHeaderSame, decl = (z => (w => byComputing)) }
 
 theorem mergeSame1 ∀ (file: SourceFile) (within: file.within1 = True): file.withMergedParameters = file :=
@@ -270,24 +270,24 @@ theorem mergeSame1 ∀ (file: SourceFile) (within: file.within1 = True): file.wi
 -- P2: what it keeps. In the slice P2 is the bottom-up map of
 -- `withoutCommaExpr` (`walkMap`); the facts below are about that map.
 
-def Decl.uncomma (decl: Decl): Decl := decl.mapIn1 commaPure
+def Decl.uncomma (decl: Decl): Decl := decl.mapIn commaPure
 
 theorem commaMap ∀ (file: SourceFile)
     (within: file.within1 = True):
     file.withoutTrailingCommas = { file | decls = file.decls.map Decl.uncomma } :=
   rewrite applyWalk file commaSteps commaPure commaAgrees, declsMap commaPure file.decls within
 
-theorem mapsLength ∀ (f: Expr → Expr) (items: List Expr): (mapAll1 f items).length = items.length := match items with
+theorem mapsLength ∀ (f: Expr → Expr) (items: List Expr): (mapAll f items).length = items.length := match items with
   | [] => byComputing
   | [first, ..rest] => rewrite mapsLength f rest
 
-theorem mapsEmpty ∀ (f: Expr → Expr) (items: List Expr): (mapAll1 f items).isEmpty = items.isEmpty := match items with
+theorem mapsEmpty ∀ (f: Expr → Expr) (items: List Expr): (mapAll f items).isEmpty = items.isEmpty := match items with
   | [] => byComputing
   | [first, ..rest] => byComputing
 
 theorem mapsAll ∀ (q: Expr → Bool)
-    (same: ∀ (z: Expr) => q (z.mapIn1 withoutCommaExpr) = q z) (items: List Expr):
-    (mapAll1 withoutCommaExpr items).all q = items.all q :=
+    (same: ∀ (z: Expr) => q (z.mapIn withoutCommaExpr) = q z) (items: List Expr):
+    (mapAll withoutCommaExpr items).all q = items.all q :=
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite same first, mapsAll q same rest
@@ -297,16 +297,16 @@ theorem mapsAll ∀ (q: Expr → Bool)
 theorem mapWithin ∀ (f: Expr → Expr)
     (keeps: ∀ (z: Expr) => z.within1 = True → (f z).within1 = True) (expr: Expr)
     (within: expr.within1 = True):
-    (expr.mapIn1 f).within1 = True :=
+    (expr.mapIn f).within1 = True :=
   match expr with
     | Atom kind word => keeps (Atom kind word) within
-    | Paren open inner close => keeps (Paren open (inner.mapIn1 f) close) (mapWithin f keeps inner within)
-    | Tuple open items comma close => keeps (Tuple open (mapAll1 f items) comma close) (mapsWithin f keeps items within)
+    | Paren open inner close => keeps (Paren open (inner.mapIn f) close) (mapWithin f keeps inner within)
+    | Tuple open items comma close => keeps (Tuple open (mapAll f items) comma close) (mapsWithin f keeps items within)
     | ListOf open items comma close =>
-      keeps (ListOf open (mapAll1 f items) comma close) (mapsWithin f keeps items within)
+      keeps (ListOf open (mapAll f items) comma close) (mapsWithin f keeps items within)
     | App head arguments =>
       keeps
-        (App (head.mapIn1 f) (mapAll1 f arguments))
+        (App (head.mapIn f) (mapAll f arguments))
         (Bool.andIntro
           (mapWithin f keeps head (Bool.andLeft within))
           (mapsWithin f keeps arguments (Bool.andRight within)))
@@ -314,7 +314,7 @@ theorem mapWithin ∀ (f: Expr → Expr)
       match kind with
         | InfixBinary =>
           keeps
-            (Infix InfixBinary (left.mapIn1 f) operator (right.mapIn1 f))
+            (Infix InfixBinary (left.mapIn f) operator (right.mapIn f))
             (Bool.andIntro
               (mapWithin f keeps left (Bool.andLeft within))
               (Bool.andIntro
@@ -322,7 +322,7 @@ theorem mapWithin ∀ (f: Expr → Expr)
                 (Bool.andRight (Bool.andRight within))))
         | InfixArrow =>
           keeps
-            (Infix InfixArrow (left.mapIn1 f) operator (right.mapIn1 f))
+            (Infix InfixArrow (left.mapIn f) operator (right.mapIn f))
             (Bool.andIntro
               (mapWithin f keeps left (Bool.andLeft within))
               (Bool.andIntro
@@ -331,13 +331,13 @@ theorem mapWithin ∀ (f: Expr → Expr)
         | _ => cases
     | Prefix operator operand =>
       keeps
-        (Prefix operator (operand.mapIn1 f))
+        (Prefix operator (operand.mapIn f))
         (Bool.andIntro (mapWithin f keeps operand (Bool.andLeft within)) (Bool.andRight within))
 
 theorem mapsWithin ∀ (f: Expr → Expr)
     (keeps: ∀ (z: Expr) => z.within1 = True → (f z).within1 = True) (items: List Expr)
     (within: allWithin1 items = True):
-    allWithin1 (mapAll1 f items) = True :=
+    allWithin1 (mapAll f items) = True :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
@@ -384,7 +384,7 @@ theorem commaKeepsWithin ∀ (file: SourceFile)
 
 -- Comments kept: P2 leaves each expression's words, with their comments.
 
-theorem wordsUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).words = expr.words := match expr with
+theorem wordsUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).words = expr.words := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => rewrite wordsUncomma inner
   | Tuple open items comma close => rewrite itemsWordsUncomma items
@@ -394,7 +394,7 @@ theorem wordsUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).words = ex
   | Prefix operator operand => rewrite wordsUncomma operand
   | _ => cases
 
-theorem itemsWordsUncomma ∀ (items: List Expr): itemsWords (mapAll1 withoutCommaExpr items) = itemsWords items :=
+theorem itemsWordsUncomma ∀ (items: List Expr): itemsWords (mapAll withoutCommaExpr items) = itemsWords items :=
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite wordsUncomma first, itemsWordsUncomma rest
@@ -416,50 +416,50 @@ theorem commaKeepsComments ∀ (file: SourceFile)
       ∧ file.withoutTrailingCommas.end = file.end :=
   rewrite commaMap file within, declsWordsUncomma file.decls then (byComputing, byComputing)
 
--- `settled1` is a test on the words, so P2 keeps it.
+-- `settled` is a test on the words, so P2 keeps it.
 
-theorem declSettledUncomma ∀ (decl: Decl): decl.uncomma.settled1 = decl.settled1 := rewrite declWordsUncomma decl
+theorem declSettledUncomma ∀ (decl: Decl): decl.uncomma.settled = decl.settled := rewrite declWordsUncomma decl
 
-theorem declsSettledUncomma ∀ (decls: List Decl):
-    (decls.map Decl.uncomma).all Decl.settled1 = decls.all Decl.settled1 :=
+theorem declsSettledUncomma ∀ (decls: List Decl): (decls.map Decl.uncomma).all Decl.settled = decls.all Decl.settled :=
   match decls with
     | [] => byComputing
     | [first, ..rest] => rewrite declSettledUncomma first, declsSettledUncomma rest
 
---| P2 keeps `settled1`: it reads the words, and the words don't change.
+--| P2 keeps `settled`: it reads the words, and the words don't change.
 theorem commaKeepsSettled ∀ (file: SourceFile)
     (within: file.within1 = True):
-    file.withoutTrailingCommas.settled1 = file.settled1 :=
+    file.withoutTrailingCommas.settled = file.settled :=
   rewrite commaMap file within, declsSettledUncomma file.decls
 
--- `shaped1` and `lexical1` don't read a trailing comma, so P2 keeps them.
+-- `shaped` and `lexical` don't read a trailing comma, so P2 keeps them.
 
-theorem levelUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).level = expr.level := cases
+theorem levelUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).level = expr.level := cases
 
-theorem atomicUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).atomic1 = expr.atomic1 := cases
+theorem atomicUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).primary = expr.primary := cases
 
-theorem leadUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).lead = expr.lead := match expr with
+theorem leadUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).lead = expr.lead := match expr with
   | App head arguments => leadUncomma head
   | Infix kind left operator right => leadUncomma left
   | _ => cases
 
 theorem signQuietUncomma ∀ (operator: Word) (operand: Expr):
-    signQuiet operator (operand.mapIn1 withoutCommaExpr) = signQuiet operator operand :=
-  calc signQuiet operator (operand.mapIn1 withoutCommaExpr)
-    _ = quietBefore operator (operand.mapIn1 withoutCommaExpr).lead := byComputing
+    signQuiet operator (operand.mapIn withoutCommaExpr) = signQuiet operator operand :=
+  calc signQuiet operator (operand.mapIn withoutCommaExpr)
+    _ = quietBefore operator (operand.mapIn withoutCommaExpr).lead := byComputing
     _ = signQuiet operator operand := rewrite leadUncomma operand
 
-theorem argumentUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).argument1 = expr.argument1 := match expr with
-  | Prefix operator operand => rewrite atomicUncomma operand, signQuietUncomma operator operand
-  | _ => cases
+theorem argumentUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).callArgument = expr.callArgument :=
+  match expr with
+    | Prefix operator operand => rewrite atomicUncomma operand, signQuietUncomma operator operand
+    | _ => cases
 
-theorem numberAtomUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).numberAtom1 = expr.numberAtom1 := cases
+theorem numberAtomUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).numberAtom = expr.numberAtom := cases
 
-theorem headUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).head1 = expr.head1 := match expr with
+theorem headUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).callHead = expr.callHead := match expr with
   | Prefix operator operand => rewrite numberAtomUncomma operand, signQuietUncomma operator operand
   | _ => cases
 
-theorem shapedUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).shaped1 = expr.shaped1 := match expr with
+theorem shapedUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).shaped = expr.shaped := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => rewrite shapedUncomma inner
   | Tuple open items comma close => rewrite mapsLength withoutCommaExpr items, shapesUncomma items
@@ -468,19 +468,19 @@ theorem shapedUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).shaped1 =
     rewrite headUncomma head,
         shapedUncomma head,
         mapsEmpty withoutCommaExpr arguments,
-        mapsAll Expr.argument1 argumentUncomma arguments,
+        mapsAll Expr.callArgument argumentUncomma arguments,
         shapesUncomma arguments
   | Infix kind left operator right =>
     rewrite shapedUncomma left, shapedUncomma right, levelUncomma left, levelUncomma right
   | Prefix operator operand => rewrite shapedUncomma operand, levelUncomma operand
   | _ => cases
 
-theorem shapesUncomma ∀ (items: List Expr): allShaped1 (mapAll1 withoutCommaExpr items) = allShaped1 items :=
+theorem shapesUncomma ∀ (items: List Expr): allShaped (mapAll withoutCommaExpr items) = allShaped items :=
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite shapedUncomma first, shapesUncomma rest
 
-theorem lexicalUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).lexical1 = expr.lexical1 := match expr with
+theorem lexicalUncomma ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).lexical = expr.lexical := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => rewrite lexicalUncomma inner
   | Tuple open items comma close => rewrite lexicalsUncomma items
@@ -490,40 +490,39 @@ theorem lexicalUncomma ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).lexical1
   | Prefix operator operand => rewrite lexicalUncomma operand
   | _ => cases
 
-theorem lexicalsUncomma ∀ (items: List Expr): allLexical1 (mapAll1 withoutCommaExpr items) = allLexical1 items :=
+theorem lexicalsUncomma ∀ (items: List Expr): allLexical (mapAll withoutCommaExpr items) = allLexical items :=
   match items with
     | [] => byComputing
     | [first, ..rest] => rewrite lexicalUncomma first, lexicalsUncomma rest
 
-theorem declShapedUncomma ∀ (decl: Decl): decl.uncomma.shaped1 = decl.shaped1 := match decl with
+theorem declShapedUncomma ∀ (decl: Decl): decl.uncomma.shaped = decl.shaped := match decl with
   | Definition [] header (Assigned colonEq value) => rewrite shapedUncomma header.result, shapedUncomma value
   | _ => cases
 
-theorem declLexicalUncomma ∀ (decl: Decl): decl.uncomma.lexical1 = decl.lexical1 := match decl with
+theorem declLexicalUncomma ∀ (decl: Decl): decl.uncomma.lexical = decl.lexical := match decl with
   | Definition [] header (Assigned colonEq value) => rewrite lexicalUncomma header.result, lexicalUncomma value
   | _ => cases
 
-theorem declsShapedUncomma ∀ (decls: List Decl): (decls.map Decl.uncomma).all Decl.shaped1 = decls.all Decl.shaped1 :=
+theorem declsShapedUncomma ∀ (decls: List Decl): (decls.map Decl.uncomma).all Decl.shaped = decls.all Decl.shaped :=
   match decls with
     | [] => byComputing
     | [first, ..rest] => rewrite declShapedUncomma first, declsShapedUncomma rest
 
-theorem declsLexicalUncomma ∀ (decls: List Decl):
-    (decls.map Decl.uncomma).all Decl.lexical1 = decls.all Decl.lexical1 :=
+theorem declsLexicalUncomma ∀ (decls: List Decl): (decls.map Decl.uncomma).all Decl.lexical = decls.all Decl.lexical :=
   match decls with
     | [] => byComputing
     | [first, ..rest] => rewrite declLexicalUncomma first, declsLexicalUncomma rest
 
---| P2 keeps `shaped1`.
+--| P2 keeps `shaped`.
 theorem commaKeepsShaped ∀ (file: SourceFile)
     (within: file.within1 = True):
-    file.withoutTrailingCommas.shaped1 = file.shaped1 :=
+    file.withoutTrailingCommas.shaped = file.shaped :=
   rewrite commaMap file within, declsShapedUncomma file.decls
 
---| P2 keeps `lexical1`.
+--| P2 keeps `lexical`.
 theorem commaKeepsLexical ∀ (file: SourceFile)
     (within: file.within1 = True):
-    file.withoutTrailingCommas.lexical1 = file.lexical1 :=
+    file.withoutTrailingCommas.lexical = file.lexical :=
   rewrite commaMap file within, declsLexicalUncomma file.decls
 
 -- P2 leaves no comma before a closer.
@@ -549,7 +548,7 @@ def Decl.commaFree: Decl → Bool
 
 def SourceFile.commaFree (file: SourceFile): Bool := file.decls.all Decl.commaFree
 
-theorem commaBareExpr ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).commaFree = True := match expr with
+theorem commaBareExpr ∀ (expr: Expr): (expr.mapIn withoutCommaExpr).commaFree = True := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => commaBareExpr inner
   | Tuple open items comma close => Bool.andIntro byComputing (commaBareItems items)
@@ -559,7 +558,7 @@ theorem commaBareExpr ∀ (expr: Expr): (expr.mapIn1 withoutCommaExpr).commaFree
   | Prefix operator operand => commaBareExpr operand
   | _ => cases
 
-theorem commaBareItems ∀ (items: List Expr): allCommaFree (mapAll1 withoutCommaExpr items) = True := match items with
+theorem commaBareItems ∀ (items: List Expr): allCommaFree (mapAll withoutCommaExpr items) = True := match items with
   | [] => byComputing
   | [first, ..rest] => Bool.andIntro (commaBareExpr first) (commaBareItems rest)
 

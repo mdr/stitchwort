@@ -356,7 +356,7 @@ theorem commaStep ∀ (scan: Scan) (last: Tok)
 theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
     (within: expr.within1 = True)
     (sound: expr.sound = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
+    (lexical: expr.lexical = True) (spelled: expr.operators):
     Runs (expr.spelt hoisted) :=
   match expr, spelled with
     | Atom kind word, _ =>
@@ -571,8 +571,8 @@ theorem prefixStep ∀ (scan: Scan) (text: Text)
 theorem commaRuns ∀ (first: Expr) (rest: List Expr)
     (within: allWithin1 [first, ..rest] = True)
     (sound: allSound [first, ..rest] = True)
-    (lexical: allLexical1 [first, ..rest] = True)
-    (spelled: AllOperators1 [first, ..rest]):
+    (lexical: allLexical [first, ..rest] = True)
+    (spelled: AllOperators [first, ..rest]):
     Runs (commaSpelt [first, ..rest]) :=
   match rest, spelled with
     | [], (firstSpelled, _) =>
@@ -598,8 +598,8 @@ theorem commaRuns ∀ (first: Expr) (rest: List Expr)
 theorem commaRunsAfter ∀ (items: List Expr)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
-    (lexical: allLexical1 items = True)
-    (spelled: AllOperators1 items):
+    (lexical: allLexical items = True)
+    (spelled: AllOperators items):
     RunsAfter (commaSpelt items) :=
   match items with
     | [] => scan before same quiet =>
@@ -611,8 +611,8 @@ theorem commaRunsAfter ∀ (items: List Expr)
 theorem argsRunsAfter ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True)
     (sound: allSound arguments = True)
-    (lexical: allLexical1 arguments = True)
-    (spelled: AllOperators1 arguments):
+    (lexical: allLexical arguments = True)
+    (spelled: AllOperators arguments):
     RunsAfter (argumentsSpelt arguments) :=
   match arguments, spelled with
     | [], _ => scan before same quiet =>
@@ -658,7 +658,7 @@ def Scan.start: Scan := { previous = None, open = 0 }
 theorem declRuns ∀ (decl: Decl)
     (within: decl.within1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
+    (lexical: decl.lexical = True) (spelled: decl.operators):
     ∃ (last: Tok) => Scan.start.run decl.spelt = Some { previous = Some last, open = 0 } ∧ quietLast last = True :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -857,19 +857,19 @@ theorem leafScan ∀ (leaves: List Leaf) (scan end: Scan)
 --| The leaves of a declaration are in the alphabet, and each may follow the one before.
 theorem declLeaves ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    leafWithin decl.leaves1 = True ∧ leafPairs decl.leaves1 = True :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    leafWithin decl.leaves = True ∧ leafPairs decl.leaves = True :=
   let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
   let (texts, kinded) := printedTokens1 decl within shaped settled lexical
   match declRuns decl within sound lexical (declOperators decl within) with
     | Witness last (run, quiet) =>
       let filtered: Scan.start.run (decl.spelt.filter notComment) = Some { previous = Some last, open = 0 } :=
         Eq.trans (runFilter decl.spelt Scan.start).flipped run
-      let plain: (tokenTexts decl.leaves1).all notComment = True := rewrite texts then filterNotComment decl.spelt
+      let plain: (tokenTexts decl.leaves).all notComment = True := rewrite texts then filterNotComment decl.spelt
       let (within, pairs, head) :=
-        leafScan decl.leaves1 Scan.start { previous = Some last, open = 0 } kinded plain (rewrite texts then filtered)
+        leafScan decl.leaves Scan.start { previous = Some last, open = 0 } kinded plain (rewrite texts then filtered)
       (within, pairs)
 
 theorem leafWithinAppend ∀ (xs ys: List Leaf): leafWithin (xs ++ ys) = (leafWithin xs && leafWithin ys) := match xs with
@@ -886,26 +886,26 @@ theorem headedWithin ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     | [first, ..rest] => byComputing
 
 theorem declLaidWithin ∀ (decl: Decl) (empty: Bool)
-    (within: leafWithin decl.leaves1 = True):
-    leafWithin (decl.laid1 empty) = True :=
+    (within: leafWithin decl.leaves = True):
+    leafWithin (decl.laid empty) = True :=
   rewrite headedWithin
         (laidNotes empty decl.firstComments.above)
         (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
-        decl.leaves1 then
+        decl.leaves then
     within
 
 theorem groupsWithin ∀ (empty: Bool) (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True):
     leafWithin (groupsFrom empty decls).concat = True :=
   match decls with
     | [] => byComputing
     | [decl, ..rest] =>
       let (leavesWithin, leavesPairs) :=
         declLeaves decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
-      rewrite leafWithinAppend (decl.laid1 empty) (groupsFrom False rest).concat,
+      rewrite leafWithinAppend (decl.laid empty) (groupsFrom False rest).concat,
           declLaidWithin decl empty leavesWithin then
         groupsWithin False rest
           (Bool.andRight within)
@@ -960,18 +960,18 @@ theorem leafDepth ∀ (leaves: List Leaf) (scan end: Scan)
 --| A declaration's brackets are balanced, each closer after its opener.
 theorem declDepth ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    closersDeep 0 decl.leaves1 = True ∧ bumpAll 0 decl.leaves1 = 0 :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    closersDeep 0 decl.leaves = True ∧ bumpAll 0 decl.leaves = 0 :=
   let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
   let (texts, kinded) := printedTokens1 decl within shaped settled lexical
   match declRuns decl within sound lexical (declOperators decl within) with
     | Witness last (run, quiet) =>
       let filtered: Scan.start.run (decl.spelt.filter notComment) = Some { previous = Some last, open = 0 } :=
         Eq.trans (runFilter decl.spelt Scan.start).flipped run
-      let plain: (tokenTexts decl.leaves1).all notComment = True := rewrite texts then filterNotComment decl.spelt
-      leafDepth decl.leaves1 Scan.start { previous = Some last, open = 0 } kinded plain (rewrite texts then filtered)
+      let plain: (tokenTexts decl.leaves).all notComment = True := rewrite texts then filterNotComment decl.spelt
+      leafDepth decl.leaves Scan.start { previous = Some last, open = 0 } kinded plain (rewrite texts then filtered)
 
 -- Where `hangs` lets a leaf stand in column 0.
 
@@ -1094,16 +1094,16 @@ theorem foldOk ∀ (pieces: List Piece) (laid: Laid)
 --| A declaration's leaves in column 0 start their lines.
 theorem declColLines ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    colLines decl.leaves1 = True :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    colLines decl.leaves = True :=
   let (plain, _, _, _) := declPiecesOk decl within shaped settled lexical
-  let made := Bool.andRight (foldOk decl.pieces1 Laid.start byComputing plain)
+  let made := Bool.andRight (foldOk decl.pieces Laid.start byComputing plain)
   rewrite leavesOfPieces decl then
     List.allReverseOntoTrue
       (leaf => !(leaf.token.column == 0) || leaf.token.lineStart)
-      (decl.pieces1.foldLeft Laid.start Laid.lay).leaves
+      (decl.pieces.foldLeft Laid.start Laid.lay).leaves
       []
       made
       byComputing
@@ -1235,21 +1235,21 @@ theorem hangsCol ∀ (first: Leaf) (tail: List Leaf) (hung: hangs [first, ..tail
 --| outside any declaration, and leaves it so.
 theorem laidSplit ∀ (decl: Decl) (empty: Bool) (rest current: List Leaf) (groups: List (List Leaf))
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (hung: hangs decl.leaves1 = True):
-    splitFrom (Splitter.at 0) current groups (decl.laid1 empty ++ rest)
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
+    (hung: hangs decl.leaves = True):
+    splitFrom (Splitter.at 0) current groups (decl.laid empty ++ rest)
       = splitFrom
         (Splitter.at 0)
-        (decl.laid1 empty).reverse
+        (decl.laid empty).reverse
         (if current.isEmpty then groups else [current.reverse, ..groups])
         rest :=
   let (leavesWithin, _) := declLeaves decl within shaped settled lexical
   let (deepAll, balancedAll) := declDepth decl within shaped settled lexical
   let lined := declColLines decl within shaped settled lexical
   let starts := declStartsKw decl within shaped settled lexical
-  match shows: decl.leaves1 with
+  match shows: decl.leaves with
     | [first, ..tail] =>
       let keyword: (first.token.kind == KwDef) = True := Bool.andLeft hung
       let zero: (first.token.column == 0) = True := Bool.andLeft (Bool.andRight hung)
@@ -1278,10 +1278,10 @@ theorem flushLaid ∀ (laid: List Leaf) (groups: List (List Leaf))
 --| The splitter cuts the file's leaves into the declarations'.
 theorem groupsSplit ∀ (empty: Bool) (decls: List Decl) (current: List Leaf) (groups: List (List Leaf))
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True)
-    (hung: decls.all (decl => hangs decl.leaves1) = True):
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True)
+    (hung: decls.all (decl => hangs decl.leaves) = True):
     splitFrom (Splitter.at 0) current groups (groupsFrom empty decls).concat
       = (if current.isEmpty then groups else [current.reverse, ..groups]).reverse ++ groupsFrom empty decls :=
   match decls with
@@ -1289,24 +1289,24 @@ theorem groupsSplit ∀ (empty: Bool) (decls: List Decl) (current: List Leaf) (g
     | [decl, ..rest] =>
       let first :=
         declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
-      let laidFirst: kindFirst (decl.laid1 empty) = True :=
+      let laidFirst: kindFirst (decl.laid empty) = True :=
         rewrite headedFirst
               (laidNotes empty decl.firstComments.above)
               (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
-              decl.leaves1 then
+              decl.leaves then
           first
       let flushed := if current.isEmpty then groups else [current.reverse, ..groups]
       let rec :=
         groupsSplit False rest
-          (decl.laid1 empty).reverse
+          (decl.laid empty).reverse
           flushed
           (Bool.andRight within)
           (Bool.andRight shaped)
           (Bool.andRight settled)
           (Bool.andRight lexical)
           (Bool.andRight hung)
-      calc splitFrom (Splitter.at 0) current groups (decl.laid1 empty ++ (groupsFrom False rest).concat)
-        _ = splitFrom (Splitter.at 0) (decl.laid1 empty).reverse flushed (groupsFrom False rest).concat :=
+      calc splitFrom (Splitter.at 0) current groups (decl.laid empty ++ (groupsFrom False rest).concat)
+        _ = splitFrom (Splitter.at 0) (decl.laid empty).reverse flushed (groupsFrom False rest).concat :=
           laidSplit decl empty
             (groupsFrom False rest).concat
             current
@@ -1316,12 +1316,12 @@ theorem groupsSplit ∀ (empty: Bool) (decls: List Decl) (current: List Leaf) (g
             (Bool.andLeft settled)
             (Bool.andLeft lexical)
             (Bool.andLeft hung)
-        _ = (if (decl.laid1 empty).reverse.isEmpty then flushed
-             else [(decl.laid1 empty).reverse.reverse, ..flushed]).reverse
+        _ = (if (decl.laid empty).reverse.isEmpty then flushed
+             else [(decl.laid empty).reverse.reverse, ..flushed]).reverse
             ++ groupsFrom False rest := rec
-        _ = flushed.reverse ++ [decl.laid1 empty, ..groupsFrom False rest] :=
-          rewrite flushLaid (decl.laid1 empty) flushed laidFirst, List.reverseCons (decl.laid1 empty) flushed then
-            List.appendAssoc flushed.reverse [decl.laid1 empty] (groupsFrom False rest)
+        _ = flushed.reverse ++ [decl.laid empty, ..groupsFrom False rest] :=
+          rewrite flushLaid (decl.laid empty) flushed laidFirst, List.reverseCons (decl.laid empty) flushed then
+            List.appendAssoc flushed.reverse [decl.laid empty] (groupsFrom False rest)
 
 -- Where a declaration starts.
 
@@ -1366,12 +1366,12 @@ theorem leavesStartDef ∀ (leaves: List Leaf) (texts: List Text)
 --| A declaration's leaves start with `def`.
 theorem declStartsKw ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    kindFirst decl.leaves1 = True :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    kindFirst decl.leaves = True :=
   let (texts, kinded) := printedTokens1 decl within shaped settled lexical
-  leavesStartDef decl.leaves1 (decl.spelt.filter notComment) kinded texts (declStartsDef decl within)
+  leavesStartDef decl.leaves (decl.spelt.filter notComment) kinded texts (declStartsDef decl within)
 
 theorem headedFirst ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     kindFirst (headed above blank leaves) = kindFirst leaves :=
@@ -1414,9 +1414,9 @@ theorem startsAppend ∀ (xs ys: List Leaf) (first: kindFirst xs = True): starts
 --| Each declaration's leaves may follow the one before, and they start with `def`.
 theorem groupsPairs ∀ (empty: Bool) (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True):
     leafPairs (groupsFrom empty decls).concat = True ∧ startsDef (groupsFrom empty decls).concat = True :=
   match decls with
     | [] => (byComputing, byComputing)
@@ -1431,21 +1431,21 @@ theorem groupsPairs ∀ (empty: Bool) (decls: List Decl)
           (Bool.andRight shaped)
           (Bool.andRight settled)
           (Bool.andRight lexical)
-      let laidFirst: kindFirst (decl.laid1 empty) = True :=
+      let laidFirst: kindFirst (decl.laid empty) = True :=
         rewrite headedFirst
               (laidNotes empty decl.firstComments.above)
               (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
-              decl.leaves1 then
+              decl.leaves then
           first
-      let laidPairs: leafPairs (decl.laid1 empty) = True :=
+      let laidPairs: leafPairs (decl.laid empty) = True :=
         rewrite headedPairs
               (laidNotes empty decl.firstComments.above)
               (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
-              decl.leaves1 then
+              decl.leaves then
           leavesPairs
       (
-        leafPairsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidPairs restPairs restStarts,
-        startsAppend (decl.laid1 empty) (groupsFrom False rest).concat laidFirst
+        leafPairsAppend (decl.laid empty) (groupsFrom False rest).concat laidPairs restPairs restStarts,
+        startsAppend (decl.laid empty) (groupsFrom False rest).concat laidFirst
       )
 
 -- No last comma.
@@ -1477,11 +1477,11 @@ theorem noLastOfPairs ∀ (leaves behind: List Leaf) (pairs: leafPairs leaves = 
 --| (`declRuns`); a declaration's `def` follows anything, so it holds across the file.
 theorem printedNoLast1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    noLast [] file.lexed1.leaves = True :=
-  noLastOfPairs file.lexed1.leaves [] (groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical).left
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
+    noLast [] file.lexed.leaves = True :=
+  noLastOfPairs file.lexed.leaves [] (groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical).left
 
 -- No comma starts a line.
 
@@ -1564,17 +1564,17 @@ theorem headedFlat ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     | [first, ..rest] => byComputing
 
 theorem groupsFlat ∀ (empty: Bool) (decls: List Decl)
-    (hung: decls.all (decl => hangs decl.leaves1) = True):
+    (hung: decls.all (decl => hangs decl.leaves) = True):
     commaFlat (groupsFrom empty decls).concat = True :=
   match decls with
     | [] => byComputing
     | [decl, ..rest] =>
-      rewrite commaFlatAppend (decl.laid1 empty) (groupsFrom False rest).concat,
+      rewrite commaFlatAppend (decl.laid empty) (groupsFrom False rest).concat,
           headedFlat
             (laidNotes empty decl.firstComments.above)
             (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
-            decl.leaves1,
-          hangsFlat decl.leaves1 (Bool.andLeft hung) then
+            decl.leaves,
+          hangsFlat decl.leaves (Bool.andLeft hung) then
         groupsFlat False rest (Bool.andRight hung)
 
 -- The statements.
@@ -1582,16 +1582,16 @@ theorem groupsFlat ∀ (empty: Bool) (decls: List Decl)
 --| `printedAlphabet1`: the output passes the alphabet, the driver's first test on the second run.
 --|
 --| Proof idea: by `printedTokens1` a token's text is a comma or a word's of the tree and its kind the lexer's for
---| that text; `lexical1` and `within1` put every word's kind in the alphabet. The kinds are one pass over a
+--| that text; `lexical` and `within1` put every word's kind in the alphabet. The kinds are one pass over a
 --| declaration's texts (`declRuns`), whose steps `exprRuns` takes along the expression.
 theorem printedAlphabet1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    alphabet1 file.lexed1.leaves = True :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
+    alphabet1 file.lexed.leaves = True :=
   Eq.trans
-    (List.allMapBool file.lexed1.leaves (token => token.kind.within1) (leaf => leaf.token))
+    (List.allMapBool file.lexed.leaves (token => token.kind.within1) (leaf => leaf.token))
     (groupsWithin True file.decls within shaped (Bool.andLeft settled) lexical)
 
 --| `printedPlain1`: the output is `plain1`, which rule N's theorems ask and the driver tests: its first token is a
@@ -1601,13 +1601,13 @@ theorem printedAlphabet1 ∀ (file: SourceFile)
 --| declaration's `def` follows anything, and `hangs` refuses a comma that starts its line.
 theorem printedPlain1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    plain1 (tokens file.lexed1.leaves) = True :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (hung: file.hung = True):
+    plain1 (tokens file.lexed.leaves) = True :=
   let (pairs, starts) := groupsPairs True file.decls within shaped (Bool.andLeft settled) lexical
-  plainOfLeaves file.lexed1.leaves pairs (groupsFlat True file.decls hung) starts
+  plainOfLeaves file.lexed.leaves pairs (groupsFlat True file.decls hung) starts
 
 --| `printedGroups1`: the parser's groups of the output are the declarations' leaves, one group a declaration.
 --|
@@ -1618,11 +1618,11 @@ theorem printedPlain1 ∀ (file: SourceFile)
 --| splitter is outside every declaration when the next `def` comes (`groupsSplit`).
 theorem printedGroups1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True):
-    groupsOf file.lexed1.leaves = groupsFrom True file.decls :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (hung: file.hung = True):
+    groupsOf file.lexed.leaves = groupsFrom True file.decls :=
   groupsSplit True file.decls [] [] within shaped (Bool.andLeft settled) lexical hung
 
 -- Cases the lemmas apply to, so their hypotheses can be met.
@@ -1655,5 +1655,5 @@ theorem opKindCExample: opKind "!=" = True := opKindC "!=" byComputing
 
 theorem opKindDExample: opKind ">" = True := opKindD ">" byComputing
 
-theorem leavesStartDefExample: kindFirst exampleDecl.leaves1 = True :=
-  leavesStartDef exampleDecl.leaves1 (exampleDecl.spelt.filter notComment) byComputing byComputing byComputing
+theorem leavesStartDefExample: kindFirst exampleDecl.leaves = True :=
+  leavesStartDef exampleDecl.leaves (exampleDecl.spelt.filter notComment) byComputing byComputing byComputing

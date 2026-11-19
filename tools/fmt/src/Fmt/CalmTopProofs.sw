@@ -333,7 +333,7 @@ theorem finishCong ∀ (body body': Output) (above above': List Note)
 --| an empty output, which ignores their first flag.
 theorem calmTopPrints ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (lexical: file.lexical1 = True):
+    (lexical: file.lexical = True):
     file.calmTop.printed1 = file.printed1 :=
   match file with
     | { decls, end } =>

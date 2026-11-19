@@ -20,7 +20,7 @@ import Fmt.TreeJoinProofs (lexKind)
 def Led (facts: Expr → Prop): Prop :=
   ∀ (expr: Expr) (around: Around) (inset: Nat) => facts expr
     → expr.within1 = True
-    → expr.lexical1 = True
+    → expr.lexical = True
     → expr.sound = True
     → around.hoisted = False
     → around.item = False
@@ -40,7 +40,7 @@ theorem lastLed ∀ (facts: Expr → Prop)
     (led: Led facts)
     (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr) (held: facts argument)
     (within: argument.within1 = True)
-    (lexical: argument.lexical1 = True)
+    (lexical: argument.lexical = True)
     (sound: argument.sound = True)
     (bracket: argument.opensBracket = True → LastHangs arm previous at argument):
     LastHangs arm previous at argument :=
@@ -65,12 +65,12 @@ theorem argsLed ∀ (facts: Expr → Prop) (all: List Expr → Prop)
     (led: Led facts) (arm: Bool)
     (last: ∀ (previous: Expr) (at: Nat) (argument: Expr) => facts argument
       → argument.within1 = True
-      → argument.lexical1 = True
+      → argument.lexical = True
       → argument.sound = True
       → LastHangs arm previous at argument)
     (previous: Expr) (at: Nat) (arguments: List Expr)
     (within: allWithin1 arguments = True)
-    (lexical: allLexical1 arguments = True)
+    (lexical: allLexical arguments = True)
     (sound: allSound arguments = True) (held: all arguments):
     ArgsHang lexKind arm previous at arguments :=
   match arguments with

@@ -2597,7 +2597,7 @@ theorem declStood ∀ (decl: Decl)
 --| starts (it follows no words). `Refines` says no entry is a `MaybeGap` or `Lost`: every entry is a blank line or a
 --| word whose text and comments are the tree's, the layout deciding only the flags `decl.shape` leaves open.
 --|
---| Hypotheses: the declaration is within slice 1 and `settled1` (for `homedBack`: a closer with a comment of its own
+--| Hypotheses: the declaration is within slice 1 and `settled` (for `homedBack`: a closer with a comment of its own
 --| and none above it follows code ending with a comment, so the rules give it a line of its own, `Word.ownsLine`), its
 --| tokens aren't layout (`decl.real`, as `printedSpellsSettled`), and `DeclJoins`, which says the words are the kinds
 --| the rules print (names, numerals, brackets, operators), none a comma or closer but the brackets' closers.
@@ -2606,7 +2606,7 @@ theorem declStood ∀ (decl: Decl)
 --| stood words with bare commas).
 theorem printedTold ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
-    (settled: decl.settled1 = True)
+    (settled: decl.settled = True)
     (real: decl.real = True)
     (joins: DeclJoins lexKind decl)
     (shows: decl.doc1 = Some doc):

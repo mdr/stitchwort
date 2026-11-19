@@ -1,6 +1,6 @@
 --| `printLexes1` from the tree's facts (docs/proposals/self-hosted-fmt-s1-sketch.md §1.5, ticket 18c): `printLexes1`
 --| (`Fmt.JoinProofs`) takes `DeclJoins` and `Every Printable`, which are facts about the declaration's tokens' spellings
---| and what may follow them; this file derives both from the tree's facts (`within1`, `sound`, `lexical1`, `shaped1`)
+--| and what may follow them; this file derives both from the tree's facts (`within1`, `sound`, `lexical`, `shaped`)
 --| alone, with `kinds` the lexer's kind of each text (`lexKind`).
 --|
 --| A name or numeral's spelling comes from `within1` (`textSpells1`, `spellsOfText1`): `lexesAs` alone is too weak,
@@ -8,7 +8,7 @@
 --| and neither is a text `Spells` that kind (`qualifiedLexes`, `exponentLexes`), so `within1` leaves them out. An
 --| operator's token is narrowed the same way: `within1` lets an infix operator through only if some token of the
 --| alphabet is spelled with its text, and a prefix only if it is `-`, `!` or `¬` (`withinOperators`, giving
---| `operators1`), so `|>` is out (`pipedOut`, `pipedNotSpelled`).
+--| `operators`), so `|>` is out (`pipedOut`, `pipedNotSpelled`).
 
 namespace Fmt.TreeJoinProofs
 import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Pair, Result, Text, Void, byDecision)
@@ -498,24 +498,24 @@ theorem spellsOfText1 ∀ (kind: Tok) (text: Text) (spells: textSpells1 kind tex
 --| An infix operator's text spells a token that is no comma or closer.
 def OperatorSpells (text: Text): Prop := ∃ (kind: Tok) => Spells kind text ∧ Quiet kind
 
---| What the parser's leaves spell, which `lexical1` doesn't say (the header): each name and numeral is a text its
+--| What the parser's leaves spell, which `lexical` doesn't say (the header): each name and numeral is a text its
 --| kind is spelled with, each infix operator a token's and each prefix operator `-`, `!` or `¬`.
-def Expr.operators1: Expr → Prop
+def Expr.operators: Expr → Prop
   | Atom _ _ => True
-  | Paren _ inner _ => inner.operators1
-  | Tuple _ items _ _ => AllOperators1 items
-  | ListOf _ items _ _ => AllOperators1 items
-  | App head arguments => head.operators1 ∧ AllOperators1 arguments
-  | Infix _ left operator right => left.operators1 ∧ OperatorSpells operator.text ∧ right.operators1
-  | Prefix operator operand => PrefixSpells operator.text ∧ operand.operators1
+  | Paren _ inner _ => inner.operators
+  | Tuple _ items _ _ => AllOperators items
+  | ListOf _ items _ _ => AllOperators items
+  | App head arguments => head.operators ∧ AllOperators arguments
+  | Infix _ left operator right => left.operators ∧ OperatorSpells operator.text ∧ right.operators
+  | Prefix operator operand => PrefixSpells operator.text ∧ operand.operators
   | _ => False
 
-def AllOperators1: List Expr → Prop
+def AllOperators: List Expr → Prop
   | [] => True
-  | [expr, ..rest] => expr.operators1 ∧ AllOperators1 rest
+  | [expr, ..rest] => expr.operators ∧ AllOperators rest
 
-def Decl.operators1: Decl → Prop
-  | Definition _ header (Assigned _ value) => header.result.operators1 ∧ value.operators1
+def Decl.operators: Decl → Prop
+  | Definition _ header (Assigned _ value) => header.result.operators ∧ value.operators
   | _ => False
 
 --| An infix operator `within1` lets through is a text some token of the alphabet is spelled with.
@@ -614,10 +614,10 @@ theorem prefixSpellsOf ∀ (text: Text) (listed: prefixText1 text = True): Prefi
           match not: text == "¬" with
             | True => Inr (Inr (DecEq.sound not))
 
---| What `within1` says of an expression's operators is `operators1`: the slice's alphabet spells each.
+--| What `within1` says of an expression's operators is `operators`: the slice's alphabet spells each.
 --|
 --| Proof idea: Induction on the expression; an operator is `operatorSpellsOf` or `prefixSpellsOf`.
-theorem withinOperators ∀ (expr: Expr) (within: expr.within1 = True): expr.operators1 := match expr, within with
+theorem withinOperators ∀ (expr: Expr) (within: expr.within1 = True): expr.operators := match expr, within with
   | Atom kind word, within => byComputing
   | Paren open inner close, within => withinOperators inner within
   | Tuple open items comma close, within => allWithinOperators items within
@@ -640,12 +640,12 @@ theorem withinOperators ∀ (expr: Expr) (within: expr.within1 = True): expr.ope
   | Prefix operator operand, within =>
     (prefixSpellsOf operator.text (Bool.andRight within), withinOperators operand (Bool.andLeft within))
 
-theorem allWithinOperators ∀ (items: List Expr) (within: allWithin1 items = True): AllOperators1 items :=
+theorem allWithinOperators ∀ (items: List Expr) (within: allWithin1 items = True): AllOperators items :=
   match items with
     | [] => byComputing
     | [item, ..rest] => (withinOperators item (Bool.andLeft within), allWithinOperators rest (Bool.andRight within))
 
-theorem declOperators ∀ (decl: Decl) (within: decl.within1 = True): decl.operators1 := match decl with
+theorem declOperators ∀ (decl: Decl) (within: decl.within1 = True): decl.operators := match decl with
   | Definition [] header (Assigned colonEq value) =>
     match header with
       | {
@@ -692,7 +692,7 @@ theorem nameKinded ∀ (name: Word)
 --| Proof idea: Induction down the first operands.
 theorem leadsOf ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
+    (lexical: expr.lexical = True) (spelled: expr.operators):
     Leads expr.lead.text :=
   match expr, spelled with
     | Atom kind word, _ =>
@@ -762,13 +762,13 @@ theorem infixListed ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: 
 --| `printLexes1`'s facts about the tokens of an expression, from the tree's.
 --|
 --| Proof idea: Induction on the expression; each token is `spellsJoins` of its spelling (an opening bracket
---| `bracketOpener`, a closing one by its text), an application's arguments are not empty by `shaped1`, and a prefix
+--| `bracketOpener`, a closing one by its text), an application's arguments are not empty by `shaped`, and a prefix
 --| operator's operand may follow it by `prefixFollows`.
 theorem joinable ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (shaped: expr.shaped1 = True)
+    (shaped: expr.shaped = True)
     (sound: expr.sound = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
+    (lexical: expr.lexical = True) (spelled: expr.operators):
     Joinable lexKind expr :=
   match expr, spelled with
     | Atom kind word, _ =>
@@ -852,10 +852,10 @@ theorem joinable ∀ (expr: Expr)
 
 theorem allJoinable ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (shaped: allShaped1 items = True)
+    (shaped: allShaped items = True)
     (sound: allSound items = True)
-    (lexical: allLexical1 items = True)
-    (spelled: AllOperators1 items):
+    (lexical: allLexical items = True)
+    (spelled: AllOperators items):
     AllJoinable lexKind items :=
   match items, spelled with
     | [], _ => byComputing
@@ -931,8 +931,8 @@ theorem commaTextPrintable: Printable lexKind "," := tokenPrintable "," Comma by
 theorem commaPrintable ∀ (items: List Expr)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
-    (lexical: allLexical1 items = True)
-    (spelled: AllOperators1 items):
+    (lexical: allLexical items = True)
+    (spelled: AllOperators items):
     Every (Printable lexKind) (commaSpelt items) :=
   match items, spelled with
     | [], _ => byComputing
@@ -952,8 +952,8 @@ theorem commaPrintable ∀ (items: List Expr)
 theorem argumentsPrintable ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True)
     (sound: allSound arguments = True)
-    (lexical: allLexical1 arguments = True)
-    (spelled: AllOperators1 arguments):
+    (lexical: allLexical arguments = True)
+    (spelled: AllOperators arguments):
     Every (Printable lexKind) (argumentsSpelt arguments) :=
   match arguments, spelled with
     | [], _ => byComputing
@@ -972,7 +972,7 @@ theorem argumentsPrintable ∀ (arguments: List Expr)
 theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
     (within: expr.within1 = True)
     (sound: expr.sound = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
+    (lexical: expr.lexical = True) (spelled: expr.operators):
     Every (Printable lexKind) (expr.spelt hoisted) :=
   match expr, spelled with
     | Atom kind word, _ => wordPrintable word kind hoisted sound (spellsOfText1 kind word.text (Bool.andRight within))
@@ -1057,13 +1057,13 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
 
 --| `DeclJoins`, from the tree's facts.
 --|
---| Proof idea: The keyword, colon and `:=` are fixed spellings, the name's spelling is `operators1`'s; the type and the
+--| Proof idea: The keyword, colon and `:=` are fixed spellings, the name's spelling is `operators`'s; the type and the
 --| value are `joinable`.
 theorem declJoins ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
+    (shaped: decl.shaped = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
+    (lexical: decl.lexical = True) (spelled: decl.operators):
     DeclJoins lexKind decl :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -1117,7 +1117,7 @@ theorem declJoins ∀ (decl: Decl)
 theorem declPrintable ∀ (decl: Decl)
     (within: decl.within1 = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
+    (lexical: decl.lexical = True) (spelled: decl.operators):
     Every (Printable lexKind) decl.spelt :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -1186,9 +1186,9 @@ theorem declPrintable ∀ (decl: Decl)
 --| (`within1` says each operator is one the alphabet spells).
 theorem printLexes1Tree ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
+    (shaped: decl.shaped = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True)
+    (lexical: decl.lexical = True)
     (shows: decl.doc1 = Some doc):
     lex (Doc.print doc width)
       = Ok {
@@ -1294,7 +1294,7 @@ theorem realAppend ∀ (front back: List Word)
 --| spelling, and the lists join by `allAppendBool`.
 theorem exprReal ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True) (spelled: expr.operators1):
+    (lexical: expr.lexical = True) (spelled: expr.operators):
     expr.words.all Word.real = True :=
   match expr, spelled with
     | Atom kind word, _ =>
@@ -1346,8 +1346,8 @@ theorem exprReal ∀ (expr: Expr)
 
 theorem itemsReal ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
-    (spelled: AllOperators1 items):
+    (lexical: allLexical items = True)
+    (spelled: AllOperators items):
     (itemsWords items).all Word.real = True :=
   match items, spelled with
     | [], _ => byComputing
@@ -1360,7 +1360,7 @@ theorem itemsReal ∀ (items: List Expr)
 --| The tokens of a slice 1 declaration are not layout, from the tree's facts: `Decl.real`.
 theorem declReal ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True) (spelled: decl.operators1):
+    (lexical: decl.lexical = True) (spelled: decl.operators):
     decl.real = True :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>

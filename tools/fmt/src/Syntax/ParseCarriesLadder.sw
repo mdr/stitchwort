@@ -13,7 +13,7 @@ import Syntax.ParseWalk (..)
 import Syntax.ParseKept (..)
 import Syntax.FollowsBase (Never, neverFail, neverFailName, neverGap, neverThen)
 import Syntax.ParseCarries (SameOrOut, codeAs, itemWordsAppend, itemWordsCons, readsAfter0, readsAtBumpRead)
-import Fmt.Kinds1 (..)
+import Fmt.Kinds (..)
 import Fmt.Grammar1 (..)
 
 -- Chaining with what came before.
@@ -47,7 +47,7 @@ theorem readsOutFrom ∀ (before: List Item) [p: () → {Parse Item} Expr]
 theorem comparisonSpells ∀ (kind: Tok) (text: Text)
     (took: kind.isComparison = True)
     (good: kind.within1 = True → Spells kind text):
-    binaryKind1 text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
+    binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
     | Equals, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
     | EqEq, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
@@ -235,7 +235,7 @@ theorem readsPipedRange ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem logicSpells ∀ (kind: Tok) (text: Text)
     (is: (kind == AndAnd || kind == OrOr) = True)
     (good: kind.within1 = True → Spells kind text):
-    binaryKind1 text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
+    binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, is, good with
     | AndAnd, is, good =>
       let spelled: text = "&&" ∨ text = "∧" := good byComputing

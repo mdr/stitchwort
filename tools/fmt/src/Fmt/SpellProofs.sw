@@ -2014,7 +2014,7 @@ theorem allAndBool ∀ (xs: List Word) (p q: Word → Bool)
         (Bool.andIntro (Bool.andLeft first) (Bool.andLeft second))
         (allAndBool rest p q (Bool.andRight first) (Bool.andRight second))
 
---| A token's own-line comments and trailing comment are as rule N leaves them, as `settled1` says.
+--| A token's own-line comments and trailing comment are as rule N leaves them, as `settled` says.
 def Word.commented (word: Word): Bool := word.comments.texts.all commentText
 
 theorem textsAll ∀ (above: List Note) (after: Option Text):
@@ -2129,7 +2129,7 @@ def Decl.real (decl: Decl): Bool := decl.words.all (word => !isLayout word.text)
 --| Proof idea: Every token is commented-and-real (`allAndBool`), hence sound (`commentedSound`); split the list into the keyword, the name, the colon, the type, the `:=` and the value.
 theorem declSoundOfSettled ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (settled: decl.settled1 = True)
+    (settled: decl.settled = True)
     (real: decl.real = True):
     decl.sound = True :=
   match decl with
@@ -2157,10 +2157,10 @@ theorem declSoundOfSettled ∀ (decl: Decl)
               (soundOfAll header.result (headerResultWithin header (Bool.andLeft within)) resultOk)
               (Bool.andIntro assignOk (soundOfAll value (Bool.andRight within) valueOk)))))
 
---| `printedSpells`, from what the passes establish: rule N's `settled1` and tokens that aren't layout.
+--| `printedSpells`, from what the passes establish: rule N's `settled` and tokens that aren't layout.
 theorem printedSpellsSettled ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
-    (settled: decl.settled1 = True)
+    (settled: decl.settled = True)
     (real: decl.real = True)
     (shows: decl.doc1 = Some doc):
     (wordsOf (printedPieces doc width)).filter notCloser = decl.spelt.filter notCloser

@@ -46,7 +46,7 @@ theorem argStartsHung ∀ (modes: Modes) (argument: Expr) (first: Item) (more la
     (fits: argumentFits argument [first, ..more] = True)
     (open: modes.stops first = False):
     startsAtomOn modes [first, ..more ++ later] = True :=
-  match signed: argument.signed1 with
+  match signed: argument.signed with
     | False =>
       let (start, inside, isRead, starts) := speltPlainStarts argument [first, ..more] spelt signed
       rewrite peekFirst modes first (more ++ later) open,

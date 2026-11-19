@@ -156,9 +156,9 @@ theorem declHangsOf ∀ (decl: Decl)
 --| slice 1 declaration, at any width, lexes to leaves whose fold never breaks.
 theorem printedHangs1 ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
+    (shaped: decl.shaped = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True)
+    (lexical: decl.lexical = True)
     (elements: DeclElements lexKind decl)
     (shows: decl.doc1 = Some doc) (lexed: Lexed)
     (read: lex (Doc.print doc width) = Ok lexed):
@@ -276,7 +276,7 @@ theorem appDocsHug ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List E
 --| A slice 1 expression's first token is no closer.
 theorem leadNotCloser ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True):
+    (lexical: expr.lexical = True):
     isCloserText expr.lead.text = False :=
   match expr, within with
     | Atom kind word, within =>

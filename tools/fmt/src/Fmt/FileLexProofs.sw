@@ -1,5 +1,5 @@
 --| `printedFileLexes1` (SW-4039, ticket B of docs/reviews/SW-4025-output-statements.md): the file loop's text lexes
---| to `SourceFile.lexed1`. The text is the lexer proofs' pieces of each item (an own-line comment, or a
+--| to `SourceFile.lexed`. The text is the lexer proofs' pieces of each item (an own-line comment, or a
 --| declaration's printed pieces) after one or two line breaks, so `lexPrintedPairs` reads it as `Laid.lay` folded
 --| over them; a declaration laid from the start of a line gives its own leaves, the first holding the comments and
 --| blank lines waiting there (`layShifted`), as long as it starts with a token and ends with nothing waiting
@@ -50,12 +50,12 @@ import Fmt.OutputStatements (..)
 
 -- A declaration's pieces.
 
---| The lexer proofs' pieces of a declaration's printed text, as `Decl.leaves1` lays them.
-def Decl.pieces1 (decl: Decl): List Piece := match decl.doc1 with
+--| The lexer proofs' pieces of a declaration's printed text, as `Decl.leaves` lays them.
+def Decl.pieces (decl: Decl): List Piece := match decl.doc1 with
   | Some doc => pieceFold lexKind (printedPieces doc width)
   | None => []
 
-theorem leavesOfPieces ∀ (decl: Decl): decl.leaves1 = (decl.pieces1.foldLeft Laid.start Laid.lay).leaves.reverse :=
+theorem leavesOfPieces ∀ (decl: Decl): decl.leaves = (decl.pieces.foldLeft Laid.start Laid.lay).leaves.reverse :=
   match decl.doc1 with
     | Some doc => byComputing
     | None => byComputing
@@ -86,13 +86,13 @@ theorem printedPiecesOk ∀ (doc: Doc) (width: Nat) (kinds: Text → Tok)
 --| `printedPiecesOk` of a slice 1 declaration, from the tree's facts, as `printLexes1Settled` takes them.
 theorem declPiecesOk ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    AllPlain decl.pieces1
-      ∧ AllSpelled decl.pieces1
-      ∧ PairsFollow decl.pieces1
-      ∧ (decl.printed1.getOrElse "").toList = Parse.joinReads (pieceSteps decl.pieces1) :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    AllPlain decl.pieces
+      ∧ AllSpelled decl.pieces
+      ∧ PairsFollow decl.pieces
+      ∧ (decl.printed1.getOrElse "").toList = Parse.joinReads (pieceSteps decl.pieces) :=
   let operators := declOperators decl within
   let sound := declSoundOfSettled decl within settled (declReal decl within lexical operators)
   match shows: decl.doc1 with
@@ -271,7 +271,7 @@ def declsPieces (empty: Bool): List Decl → List Piece
   | [decl, ..rest] =>
     let first := decl.firstComments
     notesPieces empty first.above
-      ++ (gapPieces (empty && first.above.isEmpty) first.blankBefore ++ (decl.pieces1 ++ declsPieces False rest))
+      ++ (gapPieces (empty && first.above.isEmpty) first.blankBefore ++ (decl.pieces ++ declsPieces False rest))
 
 --| The pieces of the file's text (`SourceFile.printedBy`): a line break ends it unless it is empty.
 def filePieces (file: SourceFile): List Piece :=
@@ -430,10 +430,10 @@ theorem plainDefLeads ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
 --| (`plainDefLeads`), which the printer writes first at every width (`printedLeads`).
 theorem printedStart1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => decl.pieces1 = [Code kind text, ..rest] :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => decl.pieces = [Code kind text, ..rest] :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       match header, within with
@@ -565,10 +565,10 @@ theorem tailOfComments ∀ (kinds: Text → Tok) (front: List Piece) (code: Piec
 --| a line break (`PairsFollow`, from `declPiecesOk`), so there is at most one (`tailOfComments`).
 theorem printedFinish1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    ∃ (front: List Piece) => ∃ (kind: Tok) => ∃ (text: Text) => ∃ (tail: List Piece) => decl.pieces1
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    ∃ (front: List Piece) => ∃ (kind: Tok) => ∃ (text: Text) => ∃ (tail: List Piece) => decl.pieces
       = front ++ [Code kind text, ..tail]
       ∧ TailOk tail :=
   let operators := declOperators decl within
@@ -622,27 +622,27 @@ theorem printedFinish1 ∀ (decl: Decl)
 --| token's trailing comment, with no line break after.
 theorem printedSeam1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True):
-    Seamed decl.pieces1 :=
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True):
+    Seamed decl.pieces :=
   match printedStart1 decl within shaped settled lexical, printedFinish1 decl within shaped settled lexical with
     | Witness first (Witness start (Witness rest starts)), Witness front
         (Witness kind (Witness text (Witness tail (Both split ok)))) =>
-      seamedOfTail decl.pieces1 front kind first start text rest tail starts split ok
+      seamedOfTail decl.pieces front kind first start text rest tail starts split ok
 
 --| The layout after a declaration's own-line comments, the line breaks before it and its pieces: its leaves, the
 --| first holding the comments and blank line, after the earlier ones, with nothing waiting.
 theorem declLay ∀ (decl: Decl) (empty: Bool) (laid: Laid) (leaves: List Leaf)
     (before: Before empty laid leaves [])
-    (seam: Seamed decl.pieces1):
+    (seam: Seamed decl.pieces):
     Ends
-      (decl.pieces1.foldLeft
+      (decl.pieces.foldLeft
         ((gapPieces (empty && decl.firstComments.above.isEmpty) decl.firstComments.blankBefore).foldLeft
           ((notesPieces empty decl.firstComments.above).foldLeft laid Laid.lay)
           Laid.lay)
         Laid.lay)
-      ((decl.laid1 empty).reverse ++ leaves)
+      ((decl.laid empty).reverse ++ leaves)
       [] :=
   match seam with
     | Witness kind (Witness text (Witness rest (Both same ended))) =>
@@ -651,15 +651,15 @@ theorem declLay ∀ (decl: Decl) (empty: Bool) (laid: Laid) (leaves: List Leaf)
 theorem declLaySeamed ∀ (decl: Decl) (empty: Bool) (laid: Laid) (leaves: List Leaf)
     (before: Before empty laid leaves [])
     (kind: Tok) (text: Text) (rest: List Piece)
-    (same: decl.pieces1 = [Code kind text, ..rest])
-    (ended: Ended (decl.pieces1.foldLeft Laid.start Laid.lay)):
+    (same: decl.pieces = [Code kind text, ..rest])
+    (ended: Ended (decl.pieces.foldLeft Laid.start Laid.lay)):
     Ends
-      (decl.pieces1.foldLeft
+      (decl.pieces.foldLeft
         ((gapPieces (empty && decl.firstComments.above.isEmpty) decl.firstComments.blankBefore).foldLeft
           ((notesPieces empty decl.firstComments.above).foldLeft laid Laid.lay)
           Laid.lay)
         Laid.lay)
-      ((decl.laid1 empty).reverse ++ leaves)
+      ((decl.laid empty).reverse ++ leaves)
       [] :=
   let first := decl.firstComments
   let above := laidNotes empty first.above
@@ -675,12 +675,12 @@ theorem declLaySeamed ∀ (decl: Decl) (empty: Bool) (laid: Laid) (leaves: List 
       noted
   let waiting: (above.reverse ++ []).reverse = above :=
     rewrite List.appendNil above.reverse then List.reverseReverse above
-  let topLeaves: topped above blank (decl.pieces1.foldLeft Laid.start Laid.lay).leaves = (decl.laid1 empty).reverse :=
+  let topLeaves: topped above blank (decl.pieces.foldLeft Laid.start Laid.lay).leaves = (decl.laid empty).reverse :=
     rewrite leavesOfPieces decl,
-        <- toppedReverse above blank (decl.pieces1.foldLeft Laid.start Laid.lay).leaves,
-        List.reverseReverse (topped above blank (decl.pieces1.foldLeft Laid.start Laid.lay).leaves)
-  let laidAfter: decl.pieces1.foldLeft (lineStart leaves (above.reverse ++ []) blank) Laid.lay
-    = shifted (decl.pieces1.foldLeft Laid.start Laid.lay) leaves above blank :=
+        <- toppedReverse above blank (decl.pieces.foldLeft Laid.start Laid.lay).leaves,
+        List.reverseReverse (topped above blank (decl.pieces.foldLeft Laid.start Laid.lay).leaves)
+  let laidAfter: decl.pieces.foldLeft (lineStart leaves (above.reverse ++ []) blank) Laid.lay
+    = shifted (decl.pieces.foldLeft Laid.start Laid.lay) leaves above blank :=
     rewrite same, codeShifted kind text leaves (above.reverse ++ []) blank, waiting then
       foldShifted rest (Laid.start.lay (Code kind text)) leaves above blank byComputing
 
@@ -690,9 +690,9 @@ theorem declLaySeamed ∀ (decl: Decl) (empty: Bool) (laid: Laid) (leaves: List 
 theorem declsLay ∀ (decls: List Decl) (empty: Bool) (laid: Laid) (leaves: List Leaf)
     (before: Before empty laid leaves [])
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True):
     Before
       (empty && decls.isEmpty)
       ((declsPieces empty decls).foldLeft laid Laid.lay)
@@ -710,19 +710,19 @@ theorem declsLay ∀ (decls: List Decl) (empty: Bool) (laid: Laid) (leaves: List
       let laidDecl := declLay decl empty laid leaves before seam
       let laidRest :=
         declsLay rest False
-          (decl.pieces1.foldLeft (gap.foldLeft (notes.foldLeft laid Laid.lay) Laid.lay) Laid.lay)
-          ((decl.laid1 empty).reverse ++ leaves)
+          (decl.pieces.foldLeft (gap.foldLeft (notes.foldLeft laid Laid.lay) Laid.lay) Laid.lay)
+          ((decl.laid empty).reverse ++ leaves)
           laidDecl
           (Bool.andRight within)
           (Bool.andRight shaped)
           (Bool.andRight settled)
           (Bool.andRight lexical)
       rewrite Bool.andFalse empty,
-          List.foldLeftAppend notes laid (gap ++ (decl.pieces1 ++ later)) Laid.lay,
-          List.foldLeftAppend gap (notes.foldLeft laid Laid.lay) (decl.pieces1 ++ later) Laid.lay,
-          List.foldLeftAppend decl.pieces1 (gap.foldLeft (notes.foldLeft laid Laid.lay) Laid.lay) later Laid.lay,
-          List.reverseAppend (decl.laid1 empty) (groupsFrom False rest).concat,
-          List.appendAssoc (groupsFrom False rest).concat.reverse (decl.laid1 empty).reverse leaves then
+          List.foldLeftAppend notes laid (gap ++ (decl.pieces ++ later)) Laid.lay,
+          List.foldLeftAppend gap (notes.foldLeft laid Laid.lay) (decl.pieces ++ later) Laid.lay,
+          List.foldLeftAppend decl.pieces (gap.foldLeft (notes.foldLeft laid Laid.lay) Laid.lay) later Laid.lay,
+          List.reverseAppend (decl.laid empty) (groupsFrom False rest).concat,
+          List.appendAssoc (groupsFrom False rest).concat.reverse (decl.laid empty).reverse leaves then
         laidRest
 
 theorem breakEnds ∀ (laid: Laid) (leaves: List Leaf) (pending: List Comment)
@@ -735,9 +735,9 @@ theorem breakEnds ∀ (laid: Laid) (leaves: List Leaf) (pending: List Comment)
 --| The layout of the whole file: the declarations' leaves, and the file's last comments waiting at the end.
 theorem fileLaid ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
     ((filePieces file).foldLeft Laid.start Laid.lay).leaves.reverse = (groupsFrom True file.decls).concat
       ∧ ((filePieces file).foldLeft Laid.start Laid.lay).pending.reverse = laidNotes file.decls.isEmpty file.end.above
       ∧ ((filePieces file).foldLeft Laid.start Laid.lay).blankRun = 0 :=
@@ -835,9 +835,9 @@ theorem notesShows ∀ (notes: List Note) (output: Output) (pieces: List Piece)
 theorem declsShows ∀ (decls: List Decl) (output: Output) (pieces: List Piece)
     (shows: Shows output pieces)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True):
     Shows (printDecls Decl.printed1 output decls) (pieces ++ declsPieces output.empty decls)
       ∧ (printDecls Decl.printed1 output decls).empty = (output.empty && decls.isEmpty) :=
   match decls with
@@ -851,29 +851,29 @@ theorem declsShows ∀ (decls: List Decl) (output: Output) (pieces: List Piece)
       let (_, _, _, chars) :=
         declPiecesOk decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
       let (itemOk, itemFull) :=
-        itemShows noted (pieces ++ notes) first.blankBefore (decl.printed1.getOrElse "") decl.pieces1 notedOk chars
+        itemShows noted (pieces ++ notes) first.blankBefore (decl.printed1.getOrElse "") decl.pieces notedOk chars
       let item := noted.item first.blankBefore (decl.printed1.getOrElse "")
       let (restOk, restEmpty) :=
         declsShows rest item
-          ((pieces ++ notes) ++ (gap ++ decl.pieces1))
+          ((pieces ++ notes) ++ (gap ++ decl.pieces))
           (rewrite <- notedEmpty then itemOk)
           (Bool.andRight within)
           (Bool.andRight shaped)
           (Bool.andRight settled)
           (Bool.andRight lexical)
-      let joined: ((pieces ++ notes) ++ (gap ++ decl.pieces1)) ++ declsPieces False rest
+      let joined: ((pieces ++ notes) ++ (gap ++ decl.pieces)) ++ declsPieces False rest
         = pieces ++ declsPieces output.empty [decl, ..rest] :=
-        rewrite List.appendAssoc (pieces ++ notes) (gap ++ decl.pieces1) (declsPieces False rest),
-            List.appendAssoc pieces notes ((gap ++ decl.pieces1) ++ declsPieces False rest),
-            List.appendAssoc gap decl.pieces1 (declsPieces False rest)
+        rewrite List.appendAssoc (pieces ++ notes) (gap ++ decl.pieces) (declsPieces False rest),
+            List.appendAssoc pieces notes ((gap ++ decl.pieces) ++ declsPieces False rest),
+            List.appendAssoc gap decl.pieces (declsPieces False rest)
       (rewrite <- joined, <- itemFull then restOk, rewrite Bool.andFalse output.empty, restEmpty, itemFull)
 
 --| The file's text is the text of its pieces.
 theorem fileText ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
     file.printed1 = piecesText (filePieces file) :=
   match file with
     | { decls, end } =>
@@ -959,7 +959,7 @@ theorem notesOk ∀ (empty: Bool) (notes: List Note)
 --| A declaration's own-line comments are comments as rule N leaves them.
 theorem firstNotesSound ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (settled: decl.settled1 = True):
+    (settled: decl.settled = True):
     notesSound decl.firstComments.above = True :=
   match decl, within with
     | Definition [] header (Assigned colonEq value), _ =>
@@ -990,9 +990,9 @@ theorem declsLed ∀ (above: List Note) (blank: Bool) (rest: List Piece):
 --| a line break.
 theorem declsOk ∀ (empty: Bool) (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True):
     AllPlain (declsPieces empty decls)
       ∧ AllSpelled (declsPieces empty decls)
       ∧ PairsFollow (declsPieces empty decls)
@@ -1011,36 +1011,36 @@ theorem declsOk ∀ (empty: Bool) (decls: List Decl)
       let (notesPlain, notesSpelled, notesPairs, _) :=
         notesOk empty first.above (firstNotesSound decl (Bool.andLeft within) (Bool.andLeft settled))
       let (gapPlain, gapSpelled) := gapOk (empty && first.above.isEmpty) first.blankBefore
-      let tailPairs: PairsFollow (decl.pieces1 ++ later) :=
-        pairsAppend decl.pieces1 later declPairs laterPairs (Bool.orRight laterLed)
-      let gappedPairs: PairsFollow (gap ++ (decl.pieces1 ++ later)) :=
-        gapPairs (empty && first.above.isEmpty) first.blankBefore (decl.pieces1 ++ later) tailPairs
+      let tailPairs: PairsFollow (decl.pieces ++ later) :=
+        pairsAppend decl.pieces later declPairs laterPairs (Bool.orRight laterLed)
+      let gappedPairs: PairsFollow (gap ++ (decl.pieces ++ later)) :=
+        gapPairs (empty && first.above.isEmpty) first.blankBefore (decl.pieces ++ later) tailPairs
       (
         plainAppend notes
-          (gap ++ (decl.pieces1 ++ later))
+          (gap ++ (decl.pieces ++ later))
           notesPlain
-          (plainAppend gap (decl.pieces1 ++ later) gapPlain (plainAppend decl.pieces1 later declPlain laterPlain)),
+          (plainAppend gap (decl.pieces ++ later) gapPlain (plainAppend decl.pieces later declPlain laterPlain)),
         spelledAppend notes
-          (gap ++ (decl.pieces1 ++ later))
+          (gap ++ (decl.pieces ++ later))
           notesSpelled
           (spelledAppend gap
-            (decl.pieces1 ++ later)
+            (decl.pieces ++ later)
             gapSpelled
-            (spelledAppend decl.pieces1 later declSpelled laterSpelled)),
+            (spelledAppend decl.pieces later declSpelled laterSpelled)),
         pairsAppend notes
-          (gap ++ (decl.pieces1 ++ later))
+          (gap ++ (decl.pieces ++ later))
           notesPairs
           gappedPairs
-          (notesGapLed empty first.blankBefore first.above (decl.pieces1 ++ later)),
-        Bool.orRight (declsLed first.above first.blankBefore (decl.pieces1 ++ later))
+          (notesGapLed empty first.blankBefore first.above (decl.pieces ++ later)),
+        Bool.orRight (declsLed first.above first.blankBefore (decl.pieces ++ later))
       )
 
 --| The file's pieces are plain, spelled and follow one another.
 theorem filePiecesOk ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
     AllPlain (filePieces file) ∧ AllSpelled (filePieces file) ∧ PairsFollow (filePieces file) :=
   match file with
     | { decls, end } =>
@@ -1081,10 +1081,10 @@ theorem filePiecesOk ∀ (file: SourceFile)
 --| leaves after the earlier ones, the first holding the comments and blank line before it (`fileLaid`).
 theorem printedFileLexes1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    lex file.printed1 = Ok file.lexed1 :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
+    lex file.printed1 = Ok file.lexed :=
   let (plain, spelled, pairs) := filePiecesOk file within shaped settled lexical
   let (leavesOk, pendingOk, blankOk) := fileLaid file within shaped settled lexical
   rewrite fileText file within shaped settled lexical,

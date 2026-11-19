@@ -1011,7 +1011,7 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
 
 -- Slice 1's declarations.
 
---| What `printedHangs` still asks of a slice 1 declaration beyond `within1`, `shaped1`, `sound` and `lexical1`: the
+--| What `printedHangs` still asks of a slice 1 declaration beyond `within1`, `shaped`, `sound` and `lexical`: the
 --| facts `defDocHangs` takes, about its tokens' comments and its type's and value's elements.
 def DeclHangs (kinds: Text → Tok): Decl → Prop
   | Definition [] header (Assigned colonEq value) =>
@@ -1077,9 +1077,9 @@ theorem doc1Hangs ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc)
 --| (`doc1Spells`, `doc1Passes` with `declJoins`, `declPrintable`), its triple from `doc1Hangs`.
 theorem printedHangs ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
+    (shaped: decl.shaped = True)
     (sound: decl.sound = True)
-    (lexical: decl.lexical1 = True)
+    (lexical: decl.lexical = True)
     (facts: DeclHangs lexKind decl)
     (shows: decl.doc1 = Some doc) (lexed: Lexed)
     (read: lex (Doc.print doc width) = Ok lexed):

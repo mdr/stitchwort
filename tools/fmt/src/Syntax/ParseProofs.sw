@@ -13,7 +13,7 @@ import Fmt.Grammar1 (..)
 --| `floor` of the precedence ladder. A tree outside the slice says nothing, so the constructs of later slices (a
 --| `match`, a lambda, a section) need no case of their own.
 def Parsed1 (floor: Nat) (expr: Expr): Prop :=
-  expr.within1 = True → expr.shaped1 = True ∧ expr.lexical1 = True ∧ floor <= expr.level
+  expr.within1 = True → expr.shaped = True ∧ expr.lexical = True ∧ floor <= expr.level
 
 theorem parsedWeaken ∀ [floor lower: Nat] [expr: Expr]
     (parsed: Parsed1 floor expr)

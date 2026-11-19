@@ -158,7 +158,7 @@ theorem framedInnerLowers ∀ (expr: Expr) (first: Word) (doc: Doc) (around: Aro
 --| `InnerLowers` of every slice 1 expression standing where it writes its comments, not as an item.
 theorem innerLowers ∀ (expr: Expr) (around: Around) (indent low: Nat)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (hoisted: around.hoisted = False)
     (single: around.item = False)
     (floor: (low <= around.at) = True):

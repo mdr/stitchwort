@@ -9,8 +9,8 @@
 --| `laysKinds` (`Fmt.LaysKinds`) is no route here: it drops columns, and `ElHangs` is about them (a line's start
 --| against the block column in force, `Room`, `CloserRoom`).
 --|
---| What `settled1` says that the rules' layout needs, node by node, is `Expr.homed1` (`Fmt.ElementsHomed`), which `homedOfSettled`
---| reads off `settled1`.
+--| What `settled` says that the rules' layout needs, node by node, is `Expr.homed` (`Fmt.ElementsHomed`), which `homedOfSettled`
+--| reads off `settled`.
 
 namespace Fmt.ElementsProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
@@ -168,14 +168,14 @@ theorem prefixLedHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr
 --| `prefixLedHangs`).
 theorem prefixAny ∀ (operator: Word) (operand: Expr)
     (within: (Prefix operator operand).within1 = True)
-    (lexical: (Prefix operator operand).lexical1 = True)
+    (lexical: (Prefix operator operand).lexical = True)
     (sound: (Prefix operator operand).sound = True)
-    (homed: (Prefix operator operand).homed1 = True)
+    (homed: (Prefix operator operand).homed = True)
     (inner: AnyFacts operand):
     AnyFacts (Prefix operator operand) :=
   let (plain, (notComment, solid, closer, comma)) := prefixToken operator.text (Bool.andRight within)
   let operandWithin: operand.within1 = True := Bool.andLeft within
-  let operandLexical: operand.lexical1 = True := Bool.andRight lexical
+  let operandLexical: operand.lexical = True := Bool.andRight lexical
   let operandSound: operand.sound = True := Bool.andRight sound
   let hangs: ∀ (around: Around) => (Prefix operator operand).plainAt around = True
     → HangsAt lexKind around.before (Prefix operator operand).trails ((Prefix operator operand).el around) :=
@@ -200,15 +200,15 @@ theorem prefixAny ∀ (operator: Word) (operand: Expr)
 --| (`parenPlainElHangs`), or on the line after own-line comments above its first token (`parenLedElHangs`).
 theorem parenAny ∀ (open: Word) (inner: Expr) (close: Word)
     (within: (Paren open inner close).within1 = True)
-    (lexical: (Paren open inner close).lexical1 = True)
+    (lexical: (Paren open inner close).lexical = True)
     (sound: (Paren open inner close).sound = True)
-    (homed: (Paren open inner close).homed1 = True)
+    (homed: (Paren open inner close).homed = True)
     (facts: AnyFacts inner):
     AnyFacts (Paren open inner close) :=
   let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
   let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
   let innerWithin: inner.within1 = True := within
-  let innerLexical: inner.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let innerLexical: inner.lexical = True := Bool.andRight (Bool.andRight lexical)
   let innerSound: inner.sound = True := Bool.andLeft (Bool.andRight sound)
   let closeSound: close.sound = True := Bool.andRight (Bool.andRight sound)
   let hangs: ∀ (around: Around) => (Paren open inner close).plainAt around = True
@@ -270,14 +270,14 @@ theorem parenAny ∀ (open: Word) (inner: Expr) (close: Word)
 --| comments or a kept blank line above its first token starts the line after them (`itemsLed`).
 theorem tupleAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
     (within: (Tuple open items trailing close).within1 = True)
-    (lexical: (Tuple open items trailing close).lexical1 = True)
+    (lexical: (Tuple open items trailing close).lexical = True)
     (sound: (Tuple open items trailing close).sound = True)
-    (homed: (Tuple open items trailing close).homed1 = True)
+    (homed: (Tuple open items trailing close).homed = True)
     (facts: AllAnyFacts items):
     AnyFacts (Tuple open items trailing close) :=
   let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
   let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
-  let itemsLexical: allLexical1 items = True := Bool.andRight (Bool.andRight lexical)
+  let itemsLexical: allLexical items = True := Bool.andRight (Bool.andRight lexical)
   let itemsSound: allSound items = True := Bool.andLeft (Bool.andRight sound)
   let closeSound: close.sound = True := Bool.andRight (Bool.andRight sound)
   let opens: isCloserText open.text = False := rewrite isOpen
@@ -319,14 +319,14 @@ theorem tupleAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Wo
 --| A list (proved): as a tuple, filled or broken.
 theorem listAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
     (within: (ListOf open items trailing close).within1 = True)
-    (lexical: (ListOf open items trailing close).lexical1 = True)
+    (lexical: (ListOf open items trailing close).lexical = True)
     (sound: (ListOf open items trailing close).sound = True)
-    (homed: (ListOf open items trailing close).homed1 = True)
+    (homed: (ListOf open items trailing close).homed = True)
     (facts: AllAnyFacts items):
     AnyFacts (ListOf open items trailing close) :=
   let isOpen: open.text = "[" := DecEq.sound (Bool.andLeft lexical)
   let isClose: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
-  let itemsLexical: allLexical1 items = True := Bool.andRight (Bool.andRight lexical)
+  let itemsLexical: allLexical items = True := Bool.andRight (Bool.andRight lexical)
   let itemsSound: allSound items = True := Bool.andLeft (Bool.andRight sound)
   let closeSound: close.sound = True := Bool.andRight (Bool.andRight sound)
   let opens: isCloserText open.text = False := rewrite isOpen
@@ -422,7 +422,7 @@ theorem hugLastHangs ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
     (openSound: open.sound = True)
     (closeSound: close.sound = True)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
+    (lexical: allLexical items = True)
     (sound: allSound items = True)
     (facts: AllAnyFacts items)
     (trailsIs: (close.trails || (ListOf open items False close).trailsBeforeClose) = trails):
@@ -491,7 +491,7 @@ theorem hugLastHangs ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
 theorem bracketLastHangs ∀ (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr)
     (facts: BracketFacts argument)
     (within: argument.within1 = True)
-    (lexical: argument.lexical1 = True)
+    (lexical: argument.lexical = True)
     (sound: argument.sound = True)
     (opens: argument.opensBracket = True):
     LastHangs arm previous at argument :=
@@ -538,7 +538,7 @@ theorem bracketLastHangs ∀ (arm: Bool) (previous: Expr) (at: Nat) (argument: E
 --| What a call's arguments ask, from their facts (`argsLed`): each led, the last as `lastArgument` writes it.
 theorem appArgsHang ∀ (arm: Bool) (head: Expr) (at: Nat) (arguments: List Expr)
     (within: allWithin1 arguments = True)
-    (lexical: allLexical1 arguments = True)
+    (lexical: allLexical arguments = True)
     (sound: allSound arguments = True)
     (facts: AllAnyFacts arguments)
     (brackets: AllBracketFacts arguments):
@@ -564,10 +564,10 @@ theorem appArgsHang ∀ (arm: Bool) (head: Expr) (at: Nat) (arguments: List Expr
 --| `hugLastHangs` lays it.
 theorem appAny ∀ (head: Expr) (arguments: List Expr)
     (within: (App head arguments).within1 = True)
-    (lexical: (App head arguments).lexical1 = True)
+    (lexical: (App head arguments).lexical = True)
     (sound: (App head arguments).sound = True)
-    (homed: (App head arguments).homed1 = True)
-    (shaped: (App head arguments).shaped1 = True)
+    (homed: (App head arguments).homed = True)
+    (shaped: (App head arguments).shaped = True)
     (headFacts: AnyFacts head)
     (argumentFacts: AllAnyFacts arguments)
     (argumentBrackets: AllBracketFacts arguments):
@@ -618,15 +618,15 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
 --| as it writes its comments (`operandLinks`, from the operands' facts and `ledHangs`).
 theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
     (within: (Infix InfixBinary left operator right).within1 = True)
-    (lexical: (Infix InfixBinary left operator right).lexical1 = True)
+    (lexical: (Infix InfixBinary left operator right).lexical = True)
     (sound: (Infix InfixBinary left operator right).sound = True)
-    (homed: (Infix InfixBinary left operator right).homed1 = True)
+    (homed: (Infix InfixBinary left operator right).homed = True)
     (leftFacts: AnyFacts left)
     (rightFacts: AnyFacts right):
     AnyFacts (Infix InfixBinary left operator right) :=
   let leftWithin: left.within1 = True := Bool.andLeft within
   let rightWithin: right.within1 = True := Bool.andLeft (Bool.andRight within)
-  let rightLexical: right.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let rightLexical: right.lexical = True := Bool.andRight (Bool.andRight lexical)
   let (_, leftLinks) := leftFacts
   let (_, rightLinks) := rightFacts
   let leftLed: LedEl left := at inset hoisted item =>
@@ -678,21 +678,21 @@ theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
             )
   )
 
---| An arrow's chain (proved): as a binary chain, but `homed1` leaves no comment after `->` or above its right operand;
+--| An arrow's chain (proved): as a binary chain, but `homed` leaves no comment after `->` or above its right operand;
 --| `->` may have comments above it, and then starts the line after them, glued to its operand.
 --|
 --| Proof idea: `binaryAny`'s, with `arrowChainHangs` and `arrowPair`.
 theorem arrowAny ∀ (left: Expr) (operator: Word) (right: Expr)
     (within: (Infix InfixArrow left operator right).within1 = True)
-    (lexical: (Infix InfixArrow left operator right).lexical1 = True)
+    (lexical: (Infix InfixArrow left operator right).lexical = True)
     (sound: (Infix InfixArrow left operator right).sound = True)
-    (homed: (Infix InfixArrow left operator right).homed1 = True)
+    (homed: (Infix InfixArrow left operator right).homed = True)
     (leftFacts: AnyFacts left)
     (rightFacts: AnyFacts right):
     AnyFacts (Infix InfixArrow left operator right) :=
   let leftWithin: left.within1 = True := Bool.andLeft within
   let rightWithin: right.within1 = True := Bool.andLeft (Bool.andRight within)
-  let rightLexical: right.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let rightLexical: right.lexical = True := Bool.andRight (Bool.andRight lexical)
   let unled: operator.trails = False :=
     Bool.notTrue operator.trails (Bool.andLeft (Bool.andRight (Bool.andRight homed)))
   let unnoted: right.noted = False := Bool.notTrue right.noted (Bool.andRight (Bool.andRight (Bool.andRight homed)))
@@ -756,10 +756,10 @@ theorem arrowAny ∀ (left: Expr) (operator: Word) (right: Expr)
 --| `shaped` gives each call its arguments: with none, `appFrom`'s broken layout would end at a line start.
 theorem anyFacts ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
-    (homed: expr.homed1 = True)
-    (shaped: expr.shaped1 = True):
+    (homed: expr.homed = True)
+    (shaped: expr.shaped = True):
     AnyFacts expr :=
   match expr, within with
     | Atom kind word, within => atomAny kind word within sound
@@ -843,10 +843,10 @@ theorem anyFacts ∀ (expr: Expr)
 
 theorem allAnyFacts ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
+    (lexical: allLexical items = True)
     (sound: allSound items = True)
-    (homed: allHomed1 items = True)
-    (shaped: allShaped1 items = True):
+    (homed: allHomed items = True)
+    (shaped: allShaped items = True):
     AllAnyFacts items :=
   match items with
     | [] => byComputing
@@ -868,10 +868,10 @@ theorem allAnyFacts ∀ (items: List Expr)
 --| A tuple's or list's items' facts, for its hug.
 theorem bracketFacts ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
-    (homed: expr.homed1 = True)
-    (shaped: expr.shaped1 = True):
+    (homed: expr.homed = True)
+    (shaped: expr.shaped = True):
     BracketFacts expr :=
   match expr, within with
     | Atom _ _, _ => byComputing
@@ -895,10 +895,10 @@ theorem bracketFacts ∀ (expr: Expr)
 
 theorem allBracketFacts ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
+    (lexical: allLexical items = True)
     (sound: allSound items = True)
-    (homed: allHomed1 items = True)
-    (shaped: allShaped1 items = True):
+    (homed: allHomed items = True)
+    (shaped: allShaped items = True):
     AllBracketFacts items :=
   match items with
     | [] => byComputing
@@ -926,7 +926,7 @@ theorem allBracketFacts ∀ (items: List Expr)
 --| name or numeral by `notedLeafHangs` and a node by `edgeNotedNodeHangs` from its hoisted form's facts.
 theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
     (facts: AnyFacts expr)
     (hoisted: around.hoisted = False)
@@ -1086,7 +1086,7 @@ theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
 theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
     (note: Note) (rest: List Note)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
     (facts: AnyFacts expr)
     (hoisted: around.hoisted = False)
@@ -1098,10 +1098,10 @@ theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Hang
 --| `ledHangs` for every slice 1 expression with the tree facts.
 theorem anyElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
-    (homed: expr.homed1 = True)
-    (shaped: expr.shaped1 = True)
+    (homed: expr.homed = True)
+    (shaped: expr.shaped = True)
     (hoisted: around.hoisted = False)
     (item: around.item = False):
     ElHangs lexKind (expr.el around) indent indent around.before expr.trails (startFor expr.noted) :=
@@ -1111,10 +1111,10 @@ theorem anyElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
 --| arguments before the last, then the last argument opened, whatever their comments.
 theorem anyHug ∀ (value: Expr) (around: Around)
     (within: value.within1 = True)
-    (lexical: value.lexical1 = True)
+    (lexical: value.lexical = True)
     (sound: value.sound = True)
-    (homed: value.homed1 = True)
-    (shaped: value.shaped1 = True):
+    (homed: value.homed = True)
+    (shaped: value.shaped = True):
     HugOnLine lexKind value around :=
   let inside := { around | hoisted = True }
   match value, within with
@@ -1171,10 +1171,10 @@ theorem anyHug ∀ (value: Expr) (around: Around)
 --| A slice 1 type hangs as `DeclElements` asks, where it stands in a declaration.
 theorem anyType ∀ (result: Expr) (before: Bool) (at: Nat) (inArm: Bool)
     (within: result.within1 = True)
-    (lexical: result.lexical1 = True)
+    (lexical: result.lexical = True)
     (sound: result.sound = True)
-    (homed: result.homed1 = True)
-    (shaped: result.shaped1 = True):
+    (homed: result.homed = True)
+    (shaped: result.shaped = True):
     ElHangs lexKind
       (result.el { before, hoisted = False, item = False, at, inArm })
       4
@@ -1197,10 +1197,10 @@ theorem anyType ∀ (result: Expr) (before: Bool) (at: Nat) (inArm: Bool)
 --| hug, if it has one.
 theorem anyOnLine ∀ (value: Expr) (at: Nat) (inArm: Bool)
     (within: value.within1 = True)
-    (lexical: value.lexical1 = True)
+    (lexical: value.lexical = True)
     (sound: value.sound = True)
-    (homed: value.homed1 = True)
-    (shaped: value.shaped1 = True)
+    (homed: value.homed = True)
+    (shaped: value.shaped = True)
     (unnoted: value.noted = False):
     OnLine lexKind (plainBody value { before = False, hoisted = False, item = False, at, inArm })
       ∧ (∀ (open: Doc) => value.callHug { before = False, hoisted = True, item = False, at, inArm } = Some open
@@ -1221,10 +1221,10 @@ theorem anyOnLine ∀ (value: Expr) (at: Nat) (inArm: Bool)
 --| first token.
 theorem anyBody ∀ (value: Expr) (before: Bool) (at: Nat) (inArm: Bool)
     (within: value.within1 = True)
-    (lexical: value.lexical1 = True)
+    (lexical: value.lexical = True)
     (sound: value.sound = True)
-    (homed: value.homed1 = True)
-    (shaped: value.shaped1 = True):
+    (homed: value.homed = True)
+    (shaped: value.shaped = True):
     BodyLays lexKind value { before, hoisted = False, item = False, at, inArm } before :=
   let around: Around := { before, hoisted = False, item = False, at, inArm }
   (
@@ -1242,14 +1242,14 @@ theorem anyBody ∀ (value: Expr) (before: Bool) (at: Nat) (inArm: Bool)
 --| Every slice 1 declaration with the tree facts meets `DeclElements`, the element facts `printedHangs` and
 --| `printedStands1` take, whatever its comments and layout.
 --|
---| Proof idea: the type's facts from `anyType`, the value's from `anyBody`, each part's tokens sound by `settled1`
+--| Proof idea: the type's facts from `anyType`, the value's from `anyBody`, each part's tokens sound by `settled`
 --| (`declSoundOfSettled`) and homed by `homedOfSettled`.
 theorem declElements1 ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (unreturned: decl.unreturned1 = True):
+    (shaped: decl.shaped = True)
+    (settled: decl.settled = True)
+    (lexical: decl.lexical = True)
+    (unreturned: decl.unreturned = True):
     DeclElements lexKind decl :=
   let homed := homedOfSettled decl within lexical settled
   match decl, homed with
@@ -1257,8 +1257,8 @@ theorem declElements1 ∀ (decl: Decl)
       let sound := declSoundOfSettled _ within settled (declRealOfLexical _ within lexical)
       let typeWithin: header.result.within1 = True := headerResultWithin header (Bool.andLeft within)
       let valueWithin: value.within1 = True := Bool.andRight within
-      let typeLexical: header.result.lexical1 = True := Bool.andLeft (Bool.andRight lexical)
-      let valueLexical: value.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+      let typeLexical: header.result.lexical = True := Bool.andLeft (Bool.andRight lexical)
+      let valueLexical: value.lexical = True := Bool.andRight (Bool.andRight lexical)
       let rest := Bool.andRight (Bool.andRight (Bool.andRight sound))
       let typeSound: header.result.sound = True := Bool.andLeft rest
       let valueSound: value.sound = True := Bool.andRight (Bool.andRight rest)
