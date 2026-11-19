@@ -1,5 +1,5 @@
 {
-  "next": 4294,
+  "next": 4295,
   "tickets": [
     {
       "id": 47,
@@ -27692,15 +27692,17 @@
     {
       "id": 4261,
       "title": "[Opus] Functional induction B: G1, a guarded arm partly overlapped by a later arm gets f.induct, one case per arm with Lean's overlap hypothesis (D3697)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min. Waits for D3697.\n\nD3697 (Matt, 19 Nov 2026: \"let's go with the revised recommendation from Fable\"): a guarded arm partly overlapped by a later arm gives ONE case for the later arm (eq3), carrying the hypothesis withoutR.eq3 already takes (\"for every way arm 2's pattern could match, its guard is false\"), as Lean's f.induct does. No eq3NotArm2. See docs/reviews/SW-4278-d3697-review.md (including the 10-line bridge lemma, p3.sw). Opus lane + Opus review (kernel-term generation).\n",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min. Waits for D3697.\n\nD3697 (Matt, 19 Nov 2026: \"let's go with the revised recommendation from Fable\"): a guarded arm partly overlapped by a later arm gives ONE case for the later arm (eq3), carrying the hypothesis withoutR.eq3 already takes (\"for every way arm 2's pattern could match, its guard is false\"), as Lean's f.induct does. No eq3NotArm2. See docs/reviews/SW-4278-d3697-review.md (including the 10-line bridge lemma, p3.sw). Opus lane + Opus review (kernel-term generation).\n\n\nProgress (lane, 19 Nov 23:25, ~20 min): done on lane/SW-4261 (e9edd88f3). One case per arm; eqK takes notArmJ in f.eqK's form; proved at the leaf from the failed guard's fact, carried along the equations by J with hidden projections f.induct.%fieldN. All 9 formatter definitions (withoutR, withBareR, withMarkedR, barishF, withoutLastCommas, withBareLastCommas, withMarkedLastCommas, pastAttributes, rowNames) now get f.induct (probe: E-NO-EQUATION on main's binary, accepted on the branch). Examples match-induct-guarded-overlap(-several) + hash snapshots. Tests: test:example NAME=match-induct, NAME=induct, all of examples::soundness, snap:hashes for the two new files (prelude hashes unchanged): pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "e9edd88f3"
+      ]
     },
     {
       "id": 4262,
@@ -28118,6 +28120,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target -. D3698 overnight.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4294,
+      "title": "[Opus] Review SW-4261 (G1 functional induction: refute_guard, project, %fieldN, J motives) before merge",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Kernel-term generation: Opus review per D2364.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
