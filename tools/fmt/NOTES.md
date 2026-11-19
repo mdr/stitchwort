@@ -1984,3 +1984,118 @@ Lane A of docs/reviews/SW-4166-carried-walk-plan.md. Lane L's `textSpells1` take
 - **`readsBackHung`** takes the type's and value's placement instead of their `within1`, and `DeclsReadBack`, `readsBackFile1` and `outputParses1` pass it up. `tidiedPlaced1` gives it for the driver's tidied tree from `Fmt.PlacedProofs.parsedPlaced1`, which is **open**: the parser's fact. Computed on 1,686 grammar1 parses, none unplaced (and none `autoFree1` but unplaced).
 - **Parser side.** `Syntax.ParseKept`: `Goal.full`, `KeptAt`, and `keptPlacedUp` (placed inside, kept, and no implicit binder ahead give placed at the start). For the walk to give `KeptAt`, `Kept` itself has to carry `autoPlaced1 False`, since a node's inner full expressions are built inside the walk; that is the walk follow-up's.
 - `autoPlacedDeaf`, `autoPlacedCalm` and `commaKeepsPlaced` (P2) are in `Fmt.PlacedProofs`.
+
+## Slice 1 checkpoint (19 Nov 2026)
+
+SW-4195 (Sonnet), the end-of-slice measurements of `docs/proposals/self-hosted-fmt-proof-plan.md` §4. Measured on SW-4195's worktree, which is `main` at 3ea9a5981 (after SW-4194's merge), while SW-4193 was deleting dead proofs, so the counts are a little high. The one-screen summary is `docs/reviews/SW-4195-slice1-checkpoint-numbers.md`; this section has the tables behind it. Method and scripts: counts are text counts of lines starting `theorem` in `tools/fmt/src/**/*.sw`; tests (`Tests/`) and examples are excluded (they have none). Everything is measured unless marked [estimated] or [heuristic].
+
+### 1. Theorems per layer, against the sketch
+
+The sketch (`docs/proposals/self-hosted-fmt-s1-sketch.md` §2) predicted by layer. Files are mapped to layers by what they prove, as the sketch describes its layers; where a file serves two, it goes to the one its statements are about [heuristic, by file name and header doc]. Counts are net new since the sketch (006bcf80f, 18 Nov 11:48): the 201 theorems that already existed then (`Fmt/Walk`, `MeaningProofs`, `BlankProofs`, `MergeProofs`, all passes) are taken off Passes.
+
+| Layer | Files | Sketch | Actual (net new) | Times sketch's range | Times its middle |
+|---|---|---|---|---|---|
+| Lexer (14) | `Syntax/Lex*Proofs`, `OnceUnreturnedProofs`, `Fmt/UnreturnedProofs` | 90–130 | 348 | 2.7–3.9 | 3.2 |
+| Rule N (15) | `Syntax/Settle*Proofs`, `GoodItemProofs`, `GlueQuietProofs`, `Fmt/SettleParseProofs` | 150–230 | 550 | 2.4–3.7 | 2.9 |
+| Parser (16) | `Syntax/Parse*`, `Follows*`, `DeafProofs`, `AutoPlaced`; `Fmt/TraverseFail`, `PlacedProofs`, `SourcePlainProofs`, `Kinds1`, `Grammar1` | 230–320 | 2,115 | 6.6–9.2 | 7.7 |
+| Read-back (17) | `Syntax/ReadBack*`; `Fmt/ReadBackFile`, `SplitProofs`, `SpeltSlots`, `GroupSlots`, `PrefixHeadSplit`, `TopReadBack` | 110–160 | 667 | 4.2–6.1 | 4.9 |
+| Rules and spelling (18) | the rest of `Fmt/` (hangs, lays, elements, touch, told, spell, join, stands, trivia, print) | 300–450 | 1,843 | 4.1–6.1 | 4.9 |
+| Passes (19) | `Fmt/PassProofs`, `Walk`, `MergeProofs`, `BlankProofs`, `MeaningProofs`, `CalmProofs`, `CalmTopProofs` | 40–60 | 257 (458 less the 201 already there) | 4.3–6.4 | 5.1 |
+| Glue (20) | `Fmt/TopStatements`, `Accepts1`, `Driver1`, `OutputStatements`, `TriviaStatements`, `Predicates1`, `FinishProofs`, `OutputFileProofs`, `FileLexProofs`, `TokenProofs` | 25–40 | 251 | 6.3–10.0 | 7.7 |
+| **All** | | **945–1,390** | **6,031** (6,232 in the tree) | **4.3–6.4** | **5.2** |
+
+Gross: 6,796 `theorem` lines added and 759 removed across the non-merge commits since the sketch (a renamed or edited signature counts as one of each, so churn is overstated). The 4,900 lines SW-4154 deleted were mostly definitions and lemmas of the one-line read-back route.
+
+Where the extra count is, against what the sketch did not plan (D3687 widened slice 1 from "quiet" declarations to the whole grammar on 19 Nov; the sketch assumed the narrower statement) [heuristic, by file group]:
+
+| Group the sketch did not size | Theorems |
+|---|---|
+| Two-run parser framework (`Follows*`, `DeafProofs`, `TraverseFail`): one lemma per parser function, SW-4132's plan | 1,058 |
+| The `Kept` walk (`ParseKept`, `ParseCarries*`) | 265 |
+| Multi-line read-back (`ReadBackHung*`, SW-4121) | 137 |
+| Comments anywhere (`Fmt/Elements*`, SW-4130) | 114 |
+| Those four | 1,574 |
+| The rest, against the sketch's 945–1,390 | 4,457 (3.2–4.7 times) |
+
+So taking out everything D3687 added still leaves the count more than 2 times the sketch's top.
+
+### 2. Lane minutes and theorems per agent hour
+
+Method. The lane set is the board's done tickets in epic `parser-proofs` from SW-3964 on whose agent is Sonnet or Opus (a `[Sonnet]`, `[Opus]` or `[Sonnet→Opus]` title tag), about the formatter's proofs or the std they need, not paper lanes, not the slice 2 to 6a programs, not the bug fixes made in both formatters, not DeepSeek: 119 lanes. A lane's minutes are the time from the commit that records it started (`Board: … SW-N started`) to its merge commit on `main`. Check on the 38 lanes whose "Model result" line gives minutes: the median of reported over measured is 0.97 (reported total 1,164 min, measured 1,027), so the measure is good for a total; it includes the wait for a merge batch, and misses time before the board commit. 118 of the 119 lanes have both commits (SW-4139's start is in a combined commit; it counts as zero).
+
+| | Lanes | Minutes | Hours |
+|---|---|---|---|
+| Opus | 66 | 2,829 | 47.2 |
+| Sonnet (one Sonnet→Opus) | 52 | 1,335 | 22.2 |
+| **Proof lanes** | **118** | **4,164** | **69.4** |
+| Paper lanes (Fable, plus SW-4166 on Opus; sketches, statements, reviews, checkpoints) | 17 | about 703 | about 11.7 |
+| Proof and paper | | about 4,867 | about 81 |
+
+- Elapsed: 18 Nov 11:49 to 19 Nov 16:38, 28.8 hours, with up to three build lanes and paper lanes at once.
+- **Theorems per agent hour:** 6,031 / 69.4 = **87 on proof lanes** (98 gross), 74 with the paper lanes counted. The toy's was 80–110; the sketch's rate was 90.
+- The sketch's own lane estimate for tickets 14 to 20 was 815 minutes. The 4,164 measured is 5.1 times that; the theorem count is 5.2 times. So the rate held; the count was wrong.
+- Not counted: DeepSeek lanes (not measured), the lanes for slices 2 to 6a, orchestrator and review time, Matt's time.
+- Approximate: lane start is a commit time, and several paper lanes (SW-4132: 191 minutes) include a wait.
+
+### 3. Lines per theorem
+
+A theorem's lines run from its `theorem` line to the last line before the next line that starts in column 0 (its statement and proof; the doc comment above is not counted).
+
+| | Slice 1 (6,232 theorems) | The toy |
+|---|---|---|
+| Median | 9 | 11 |
+| Mean | 14.7 | 19 |
+| 90th percentile | 32 | |
+| Up to 5 lines | 30.7% | |
+
+The five longest proofs:
+
+| Lines | Theorem | File |
+|---|---|---|
+| 433 | `atomHung` | `Syntax/ReadBackHungAtoms.sw` |
+| 346 | `edgeFacts` | `Fmt/EdgeHangProofs.sw` |
+| 318 | `exprOk` | `Fmt/Walk.sw` (before slice 1: SW-3877's) |
+| 316 | `elStep` | `Fmt/LaysEls.sw` |
+| 303 | `declOk` | `Fmt/Walk.sw` (SW-3877's) |
+
+### 4. What the theorems are [heuristic]
+
+Each theorem gets the first class it fits: (a) list helper: a name containing an `Append`, `Rev`, `Map`, `Filter`, `Length`, `Take`, `Drop`, `Concat`, `Zip`, `Fold`, `Mem`, `Last`, `Head`, `Tail`, `Nth`, `Flat`, `Cons`, `Nil`, `Sum`, `Count`, `Prefix`, `Suffix`, `Cat`, `Items`, `Words`, `All…`, `Any…`, `Pair`, `Split` or `Join` piece (generous: it also catches theorems about the printer's items and words); (b) dispatcher: at most 12 lines and the proof's first step is a `cases`, `match`, `induction` or `byCases`; (c) per-function walk lemma: any other theorem in the parser walks (`Follows*`, `ParseWalk*`, `ParseCarries*`, `ParseKept`, `ReadBackRuns`, `DeafProofs`), one per parser function; (d) slice bookkeeping: at most 3 lines, or in the glue layer; (e) other.
+
+| Class | Theorems | Share |
+|---|---|---|
+| Per-function walk lemmas | 1,458 | 23.4% |
+| Dispatchers | 1,644 | 26.4% |
+| List helpers | 732 | 11.7% |
+| Slice bookkeeping | 561 | 9.0% |
+| Other (the substantive statements) | 1,837 | 29.5% |
+
+By layer, the share in no class but "other": Parser 4%, Rules and spelling 52%, Read-back 40%, Lexer 44%, Rule N 38%, Passes 37%, Glue 0%. Read as: the parser's count is almost all one lemma per parser function, which is why it is the layer furthest over (7.7 times). The dispatcher class is an upper bound: a short `cases` proof is often a real fact.
+
+### 5. `check` time
+
+`stitchwort check` over `tools/fmt` (the whole project), one run in this worktree, in the background at `nice -n 15`: **396 s wall (6.6 min), 388 s of user CPU**, "checked 131 namespaces of fmt". The load average was 22 at the start and 10 at the end (other lanes), but the user time shows it is CPU-bound, so the figure is near what an idle machine gives. Whether every namespace came from the check cache is not known: it is the time of the run as the cache stood in a fresh worktree (so not a cold run, and not necessarily fully warm). It prints W-UNREACHABLE warnings (about proofs, in `Syntax.FollowsDecl`).
+
+### 6. Harness score
+
+Not re-run: the multi-line gate (`tools/fmt/dev/multiline-gate`) copies a module into `tools/fmt/src` and rechecks the project, and a repo-wide "declarations within slice 1" count needs the corpus run over all of `aoc/`, `std` and `games/rogue`. What exists:
+
+- SW-4119's corpus run (19 Nov 07:41, before D3687's widening): the driver accepted **380 of about 515** slice 1 definitions in the repo (74%), 355 unchanged and 25 reformatted; 114 refused only for qualified names, exponents, `auto`, `Prop`/`Type` (since widened: SW-4125, SW-4128), 29 for not printing on one line (since widened: SW-4176), 43 outside `within1`.
+- SW-4185's gate at scale 0 (generated multi-line declarations; the counts are from this lane's brief, quoting SW-4185's report, not re-read): check A accepted 730 multi-line and 167 one-line cases; no FAIL; SW-4183 and SW-4176 report the same gate with no FAIL, and SW-4183 byte-identical output on 10,476 sources.
+- Missing: a corpus count after the widening. It is one `stitchwort fmt` sweep with a note of which definitions refuse and why (the SW-4119 scripts are in that lane's scratch); SW-4201 is filed for it.
+
+### 7. Top five frictions
+
+From `docs/agent-feedback/2026-11.md` (about 100 rows for the slice 1 lanes; time costs are the lanes' own estimates, so approximate).
+
+| # | Friction | Cost | Ticket |
+|---|---|---|---|
+| 1 | The checker's resource and feedback problems on large proofs: `E-RESOURCE` that names no `let` and needs hand bisection (SW-4071 15 min, SW-4077, SW-4110), checks of 2 to 5 minutes with no fast loop for one theorem, a check killed by timeout that exits 0, `rewrite` silent no-ops | about 2 to 3 hours over the slice | SW-4091, SW-4113, SW-4032 (existing); new: SW-4197 (a fast loop) |
+| 2 | Proof-language behaviours the guide does not say: a `match` does not refine hypotheses or guards (SW-4006 15 min, SW-4040 10 min), `&&`, `++` associativity and `!=` as a proposition, `(..)` import name clashes, rewrite rejecting definition names (SW-4011 10 min, rediscovered), `byComputing` through hidden matches | about 2 hours | SW-3984, SW-4047, SW-4101, SW-4164 (existing); new: SW-4198 (one guide section) |
+| 3 | Briefs that assume a fact, file, namespace or theorem that isn't there (about 20 rows: SW-3965 5 min, SW-4053 20 min, SW-4013 15 min, SW-4045 5 min, SW-4088 10 min) | about 2 hours | new: SW-4199 |
+| 4 | The shell and scripting environment: zsh globs and word splitting, BSD `sed -i ''`, no `python3`/`jq` on PATH, polling with `sleep` blocked, a foreground check hitting the 120 s tool limit, edits to a rewrapped (formatted) file by script | about 1.5 hours | new: SW-4200 (a short "environment" section for lane briefs, and `board show --body` / `board note`) |
+| 5 | The dev twin and slim-copy wrappers: stale binary answers (cache keyed on sources, SW-3962 5 min), wrapper paths in removed worktrees, `fmt:twin` run from the root, copying a test file over a source | about 40 minutes | SW-3988, SW-3976 (existing) |
+
+### What the numbers say
+
+Stop rules (proof plan §4): overall count over 2 times the sketch's (4.3 to 6.4 times): **fires**; two layers over 2 times (all seven are): **fires**; the projected total passing 9,000 theorems or 110 agent hours: slice 1 alone is 6,031 (67% of 9,000) and 69 to 81 hours (63 to 74% of 110), with six more slices in the plan: **fires**; rate under 40 an hour: no (87). Carry-on does not apply. The plan asks for a rethink note to Matt with options; this checkpoint gives the numbers, the note is the orchestrator's. Two readings the note should carry: the count was off but the rate held (the sketch costed a narrower slice 1, and the parser's walk is one lemma per function), and four D3687 groups are a quarter of the total.
