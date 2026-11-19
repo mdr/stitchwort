@@ -27995,8 +27995,8 @@
     {
       "id": 4284,
       "title": "[Sonnet] std Fail.toResultSeqN and …Then infer their computations and values; drop the spelled arguments at 121 uses, mostly Fmt/Walk.sw (exprOk 327 → ~130 lines) (survey target 2)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
