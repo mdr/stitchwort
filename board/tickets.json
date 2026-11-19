@@ -26775,13 +26775,13 @@
     },
     {
       "id": 4192,
-      "title": "[Sonnet] fmt: prove markedSettles directly on settledOnce via startsWalk and delete the proof-side settledMarked/withMarkedLastCommas copy (~6 duplicated withMarkedR* lemmas) (SW-4183 finding)",
-      "status": "doing",
+      "title": "[Opus] fmt: prove markedSettles directly on settledOnce (new invariant: barish without the mark clause, startsWalk-aware stopsAt) and delete settledMarked/withMarkedLastCommas/onceMarked",
+      "status": "backlog",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min.",
+      "body": "Est. 30 min.\n\nLane note (Sonnet, 19 Nov): not done; stopped after reading, no code changed. A direct proof needs a new invariant: the walk lemmas of Syntax/SettleBareProofs.sw (walkDrop, walkZero, stepNormal, stepPair, home1Drop, buildDrop, barish*) relate rule 1 on leaves with commas to rule 1 on leaves without, and read a stop at a closer from the token's own lineStart, with `barish` requiring the mark (comma.lineStart implies closer.lineStart) already applied. Doing it on settledOnce means restating them with startsWalk True reading the bare comma behind the closer, about 600 lines of statements and proofs. Replacing withMarkedR by markFwd [] (withBareR ..) alone deletes ~200 lines but buildDrop/relBare need a withMarkedR-shaped induction anyway, so it moves the duplication rather than removing it. Suggest Opus/Fable to decide the invariant (barish without the mark clause plus startsWalk-aware stopsAt) first.\n\nOrchestrator: Sonnet stopped at 3 min (needs a new invariant: barish without the mark clause, a startsWalk-aware stopsAt; ~600 lines in SettleBareProofs). Rerun on Opus, or fold into SW-4205's consolidation plan. Model result: Sonnet, failed (needs a new invariant), 3 min (est. 40).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26906,12 +26906,12 @@
     {
       "id": 4202,
       "title": "[Sonnet, bug] Rust fmt P3 not idempotent after an ability row: def f: {Fail} ((x: (A)) => x) := g formats to {Fail} (x: (A)) => x then {Fail} (x: A) => x; also groups merged only on the second run (SW-4196 finding 1); fix with a golden test both runs",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.\n\nNotes (lane, 19 Nov): cause: P3 binder_types only looks at the header top level, so a pair after a row (depth 1) is dropped, uncovering `(x: (A))` at top level in the same round. Fix: passes::settle runs each pass to a fixed point (run and dump_after_each). Goldens row-bracket-uncovers-binder / -merge fail before, pass after. The merge case is the same cause. Commit 2533f33ae on lane/SW-4202. Self-hosted Fmt/Passes.sw: expr step (dropAfterRow) runs bottom-up before the decl step (spineBinders), which strips binders through Effect rows, so it should not have the bug.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26919,8 +26919,8 @@
     {
       "id": 4203,
       "title": "[Opus] slice1Formats: add that comments are kept (CommentsKept, Fmt/Meaning.sw:288, has no theorem) before slice 2's passes delete tokens (SW-4196 finding 2)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
