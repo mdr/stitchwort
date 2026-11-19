@@ -1,5 +1,5 @@
 {
-  "next": 4120,
+  "next": 4122,
   "tickets": [
     {
       "id": 47,
@@ -25805,6 +25805,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "\nMatt, 19 Nov 2026, after the one-line stage was found to rest on lane narrowings never put to him ('OK, so we quietly cheated'): 'Let's get Fable to have a look at it - to understand what is the current proof, what gaps we've still got to the initial milestone goal, whether that goal is still the right milestone, what it might take to get to that milestone, the best path forward.' Folds in SW-4003's checklist. Model: Fable. Est. 60 min. Note goes in docs/reviews/.\n\nMerged 19 Nov. Fable, 17 min (est. 60). Note: docs/reviews/SW-4119-slice1-review.md. Driver accepts 380 of ~515 slice 1 definitions in the repo [measured]; qualified names/exponents narrowing (SW-4018) turns away 94, one-line 29, upper-case 2, plain1 1, Prop/Type/() ~10. Recs 1-5 to Matt as D questions one at a time (D3687 first: the milestone definition). Findings to ticket: stale \"open\" in TopStatements header; one message for three refusals; no formatWithin1/formatWithin link and s1 gate tests within1 not the driver; 1_000 lexes as a call (both formatters); a dev task to measure driver acceptance on the repo.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4120,
+      "title": "[Fable] fmt S1 scope part A (D3687): write the slice 1 grammar as one exact definition (qualified names and exponents back in, per the plan), state formatAccepts1 (every source in the grammar is accepted by formatWithin1) as an open goal, add a must-accept test file lanes may not edit, list every case the current driver refuses that is in the grammar, with a recommended move-out or keep for each",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4120",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3687 (Matt, 19 Nov 2026: 'D3687 sounds good'): slice 1 is done when the formatter accepts the whole slice 1 grammar and a theorem says so; the grammar written down precisely; anything taken out is Matt's decision, with a named later slice. Matt, 19 Nov: 'we want correctness for all possible programs, not just ones in our repo.' From SW-4119 piece A. Model: Fable (D3682: deciding statements). Est. 45 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4121,
+      "title": "[Fable paper] fmt S1 scope part C (D3687): sketch the statement of multi-line read-back (a declaration printed over several lines, comments anywhere inside, parses back to the same tree), check it by computation on generated sources, list the lemmas and their order for Opus/Sonnet lanes",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4121",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3687 (Matt, 19 Nov 2026). SW-4119 piece C; stop rule: if the statement can't be made to hold on generated files, stop and bring Matt the choice. Model: Fable. Est. 45 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
