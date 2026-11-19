@@ -1,5 +1,5 @@
 {
-  "next": 4144,
+  "next": 4150,
   "tickets": [
     {
       "id": 47,
@@ -26126,6 +26126,84 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 75 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4144,
+      "title": "[Sonnet] fmt S1 comments anywhere E1: homedOfSettled (Fmt.ElementsProofs): a settled1 declaration is homed1 node by node (SW-4130 plan)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 30 min. Folds in SW-4082 where it applies.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4145,
+      "title": "[Opus] fmt S1 comments anywhere E2: anyKeys (keysFrom of any expression, generalising edgeKeys) and ledItemHangs (a commented item at an item position) (SW-4130 plan)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 45-60 min. Folds in SW-4082 where it applies.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4146,
+      "title": "[Opus] fmt S1 comments anywhere E3: parenAny (after E2) (SW-4130 plan)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 min. Folds in SW-4082 where it applies.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4147,
+      "title": "[Opus] fmt S1 comments anywhere E4: tupleAny and listAny (after E2; ItemsHang with startFor per item, held opener) (SW-4130 plan)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 2 lanes, 60-90 min each. Folds in SW-4082 where it applies.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4148,
+      "title": "[Opus] fmt S1 comments anywhere E5: appAny and anyHug (after E2; ArgsHang restated with startFor) (SW-4130 plan)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60-90 min. Folds in SW-4082 where it applies.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4149,
+      "title": "[Opus] fmt S1 comments anywhere E6: binaryAny then arrowAny (after E2; LinkFacts likely redefined in ChainHangProofs) (SW-4130 plan)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 + 30 min. Folds in SW-4082 where it applies.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
