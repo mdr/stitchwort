@@ -26639,12 +26639,12 @@
     {
       "id": 4182,
       "title": "[Sonnet, bug] Rejected-example messages differ by environment: on Speedwell (agent, main checkout) reject/int-pattern-bool prints 'an `Int`' and reject/instance-head-synonym prints 'Pretty Grid', but the running/ snapshots (and Overmind's green runs) have 'a `Int`' and 'Pretty (List (List Nat))'. article() gives 'an' for Int, so Overmind's output names the type differently (qualified? synonym unfolded?). Find what the output depends on (std location, cache state, release vs debug), make it deterministic, fix the snapshots to the intended text",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4182",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Est. 30 min. Seen 19 Nov 14:53 running stitchwort-cli binary(running) rejected_examples_fail_for_the_expected_reason on main 884441d2b; Overmind passes it at 6dcd79b95.",
+      "body": "Est. 30 min. Seen 19 Nov 14:53 running stitchwort-cli binary(running) rejected_examples_fail_for_the_expected_reason on main 884441d2b; Overmind passes it at 6dcd79b95.\n\n\nLane notes (Sonnet, 19 Nov): not environment-dependent. Both snapshots were stale (code says \"an\" since e8ef3761f, 17 Nov; synonym kept as written since SW-3937). Snapshots fixed in da3a20f55 on lane/SW-4182. The test still fails here on internal-error panics (value.rs:3599 \"variable at level 0 read back with 0 in scope\") in reject/export-indexed-family and reject/export-polymorphic.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
