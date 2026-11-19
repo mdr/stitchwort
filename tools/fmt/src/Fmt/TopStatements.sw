@@ -30,7 +30,7 @@ import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
 import Fmt.UnreturnedProofs (commaUnreturned)
 import Fmt.DeclFactsProofs (DeclElements, declHangsOf, printedHangs1)
-import Fmt.OneLineParts (edgeQuietOneLine1)
+import Fmt.OneLineLays (edgeQuietOneLine1)
 import Fmt.EdgeDeclProofs (edgeElements1)
 import Fmt.TreeJoinProofs (lexKind, printLexes1Tree)
 import Fmt.TokenProofs (declRealOfLexical)
@@ -57,9 +57,11 @@ theorem declElementsOneLine1 ∀ (decl: Decl)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True)
+    (unreturned: decl.unreturned1 = True)
     (oneLine: decl.oneLine1 = True):
     DeclElements lexKind decl :=
-  edgeElements1 decl within shaped settled lexical (edgeQuietOneLine1 decl within shaped settled lexical oneLine)
+  edgeElements1 decl within shaped settled lexical
+    (edgeQuietOneLine1 decl within shaped settled lexical unreturned oneLine)
 
 --| P2 is the identity on an expression with no last comma.
 theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
@@ -260,10 +262,11 @@ theorem declHangsOneLine ∀ (decl: Decl)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True)
+    (unreturned: decl.unreturned1 = True)
     (oneLine: decl.oneLine1 = True):
     hangs decl.leaves1 = True ∧ (decl.unreturned1 = True → decl.stands1 = True) :=
   let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
-  let elements := declElementsOneLine1 decl within shaped settled lexical oneLine
+  let elements := declElementsOneLine1 decl within shaped settled lexical unreturned oneLine
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       let doc := defDoc header colonEq value
@@ -358,10 +361,10 @@ theorem outputParses1 ∀ (file: SourceFile)
       lexical
       oneLine
       declsUnreturned
-      (decl w s t l o u => (declHangsOneLine decl w s t l o).left)
+      (decl w s t l o u => (declHangsOneLine decl w s t l u o).left)
   let stood: file.stood1 = True :=
     declsAll file.decls Decl.stands1 within shaped declsSettled lexical oneLine declsUnreturned (decl w s t l o u =>
-      (declHangsOneLine decl w s t l o).right u)
+      (declHangsOneLine decl w s t l u o).right u)
   let once := settledOnceNone file.lexed1 (printedNoLast1 file within shaped settled lexical)
   let (words, ends) := printedSettle1 file within shaped settled lexical hung stood unreturned
   (
@@ -452,7 +455,7 @@ theorem formatIdempotent1 ∀ (source out: Text) (formats: formatWithin1 source 
       lexical
       oneLine
       (tidiedDeclsUnreturnedOf source out lexed parsed accepted)
-      (decl w s t l o u => (declHangsOneLine decl w s t l o).left)
+      (decl w s t l o u => (declHangsOneLine decl w s t l u o).left)
   let leaves: leavesWithin1 file.lexed1.leaves = True :=
     Bool.andIntro
       (printedAlphabet1 file within shaped settled lexical)
