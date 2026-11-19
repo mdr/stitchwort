@@ -1,5 +1,5 @@
 {
-  "next": 4247,
+  "next": 4251,
   "tickets": [
     {
       "id": 47,
@@ -27353,7 +27353,7 @@
     {
       "id": 4236,
       "title": "[Opus] D3694: or-patterns bind names, the body checked once per alternative (docs/proposals/proof-match-likewise.md Design 2 with the four amendments in proof-match-likewise-prior-art.md): error names its alternative and the names' types there; one error when all fail alike; a hole lists each alternative's goal; guide + syntax.md; supersedes SW-676's same-type rule",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27491,6 +27491,58 @@
       "labels": [],
       "epic": "std-library",
       "body": "Found by the 19 Nov batch verifier. Est. 40 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4247,
+      "title": "[Opus] Self-hosted parser: accept or-patterns that bind names (D3694; tools/fmt/src/Syntax/Lowering.sw checkPattern/orPatternBinds), so fmt:twin agrees with the Rust parser again on the new examples, guide files and the two rewritten proof files; accepts more, not a narrowing; repair dependent proofs",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4236.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4248,
+      "title": "[Sonnet] Pre-commit format hook prefers the main checkout's target/release/stitchwort over the worktree's own (its comment says the reverse): fix the order; workflow.md 'Pre-commit hook' says which binary runs (SW-4236 needed --no-verify for new syntax)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4236.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4249,
+      "title": "[Sonnet] Add the missing goal_index server snapshots for examples/goals false-in-statement and large-hypothesis-goal; examples/README.md: goal_examples_in_the_index asserts labels match index data and ignores EXAMPLES",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4236.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4250,
+      "title": "[Sonnet] Language server for or-patterns that bind: hover, go-to-definition and rename for a name bound in several alternatives (proof-match-likewise.md Design 2)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4236.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
