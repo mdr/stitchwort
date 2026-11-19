@@ -1,5 +1,5 @@
 {
-  "next": 4155,
+  "next": 4156,
   "tickets": [
     {
       "id": 47,
@@ -26187,9 +26187,9 @@
     {
       "id": 4148,
       "title": "[Opus] fmt S1 comments anywhere E5: appAny and anyHug (after E2; ArgsHang restated with startFor) (SW-4130 plan)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4148",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60-90 min. Folds in SW-4082 where it applies.",
@@ -26252,7 +26252,7 @@
     {
       "id": 4153,
       "title": "[Opus] fmt S1 comments anywhere: hang lemma for an item with no comments but a kept blank line (leading [BreakParent, LineStart, Blank]; startFor gives wordStart, first word at leadColumn; differs at Mid entries) (SW-4145 finding, needed by E4)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4153",
       "labels": [],
@@ -26271,6 +26271,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 45 min. Plan: docs/reviews/SW-4121-multiline-readback.md, H9 row.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4155,
+      "title": "[Opus] fmt S1 rules: displace an item whose first token keeps a blank line (framedBy, Rules.sw:412: first.noted || (around.item && first.comments.blankBefore) || around.before), so blankItemHangs needs no BlankLined (SW-4153 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. Orchestrator's call (D3447-style: printed output unchanged, no narrowing): output must be byte-identical: check by printing the gate corpora and every slice 1 declaration in the repo before/after. Rust rule (crates/fmt rules.rs:399) is NOT changed (D3677 freeze). Touches SpellProofs, FinishProofs, HangProofs:1039, JoinProofs, HeldParenProofs, TouchProofs; after SW-4146 (parenAny). Then drop BlankLined from blankItemHangs. See SW-4153 report.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
