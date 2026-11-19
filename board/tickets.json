@@ -1,5 +1,5 @@
 {
-  "next": 4171,
+  "next": 4174,
   "tickets": [
     {
       "id": 47,
@@ -26421,12 +26421,12 @@
     {
       "id": 4166,
       "title": "[Opus, paper] fmt S1: plan one extension of the parser's Carried walk (ParseCarries*) for three facts the acceptance proof needs: GroupShapes1 (tokens with commas, SW-4138), autoStart (SW-4128), and lifting the GoodItems/spelledPlain1 and within1 gates to grammar1; lane split and estimates",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min paper. Inputs: SW-4138 report (Fmt/SourcePlainProofs.sw), SW-4128 notes, docs/reviews/SW-4120-grammar1.md, SW-4131, SW-4132.",
+      "body": "Est. 30 min paper. Inputs: SW-4138 report (Fmt/SourcePlainProofs.sw), SW-4128 notes, docs/reviews/SW-4120-grammar1.md, SW-4131, SW-4132.\n\nLane notes (Opus paper, 19 Nov, 11:54-12:05): note written to the lane scratchpad (sw4166/SW-4166-carried-walk-plan.md) for docs/reviews/. Design: Carried becomes Kept in place (gate grammar1; words + kinds with commas + within1; autoPlaced1 at full goals), ParseWalk.Out re-gated to grammar1 = False. Lanes L (Sonnet, lexer words, 50 min), K1 (Opus, spec + first half, 60), K2 (Sonnet, ladder/decl/file, closes groupShapesProved, 50), A (Opus, auto = SW-4128, 75). Follows cannot carry these (one-run facts); it moves within1/autoPlaced1 from the lexer parse to the settled one via deaf lemmas. No decision for Matt.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26479,6 +26479,45 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 25 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4171,
+      "title": "[Sonnet] fmt S1 lane L (SW-4166): lexer words: textSpells1 takes auto; every name/numeral token lex gives is textSpells1; Spells -> textSpells1; lexGood without spelled; quiet raw groups from lexLaidProved",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row L (compute first; widen Spells/textSpells1, never the grammar).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4172,
+      "title": "[Opus] fmt S1 lane K1 (SW-4166): Carried becomes Kept: Expr.kinds1 (new file), Out/DeclOut regated on grammar1, Kept/KeptAt/carriedOfKept, ParseCarries.sw converted, within1 -> grammar1 lemmas",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §2, §4 row K1. Later ParseWalk.sw editors wait for it.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4173,
+      "title": "[Sonnet] fmt S1 lane K2 (SW-4166): ParseCarriesLadder/Decl/File converted to Kept; GroupShapes1 restated with good/quiet; groupShapesProved and parsedSourcePlain1 closed (after K1, L)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row K2.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
