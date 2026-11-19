@@ -1,6 +1,5 @@
 --| A call whose head is `-` on a numeral, `def d: A := -1 n`, as `printedSplit1` meets it (SW-4077): the driver's tree,
---| printed as written, meets every fact `PrintedGroup` asks. `Spelt` spells such a head (`headFits`), and
---| `Syntax.ReadBackLine.readsBackNegativeHeadExample` reads the line back.
+--| printed as written, meets every fact `PrintedGroup` asks. `Spelt` spells such a head (`headFits`).
 
 namespace Fmt.PrefixHeadSplit
 import Std (Bool, List, Option)

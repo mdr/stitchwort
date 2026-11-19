@@ -1,6 +1,6 @@
---| `&&`, `||`, `->` and the inline expression on any lines (H8 of SW-4121's plan): `logicLinks`, `logicAfterLinks`,
---| `logicOperator`, `operatorLine`, `arrowLine`, `inlinePlainLine` and `inlineLine` with the line rule's state in
---| place of "starts no line", as in `Syntax.ReadBackHungAtoms`. The arrow is where the line rule's `glue` is used: the
+--| `&&`, `||`, `->` and the inline expression on any lines (H8 of SW-4121's plan): the logic links, the operator
+--| level, an arrow's right side and the inline expression, read from the line rule's state, as in
+--| `Syntax.ReadBackHungAtoms`. The arrow is where the line rule's `glue` is used: the
 --| leaf after `->` starts no line, so its right side opens no block.
 
 namespace Syntax.ReadBackHungInline
@@ -17,8 +17,8 @@ import Syntax.ReadBackHungChains (..)
 import Syntax.ReadBackHungAtomsLemmas (leadHung, speltHung, deepRest)
 import Syntax.ReadBackHungInlineLemmas (..)
 
---| `cmpHung` at `depth` in `modes`, as a hypothesis: the logic chain's lemmas take it, as the one-line family's take
---| `CmpLineAt`.
+--| `cmpHung` at `depth` in `modes`, as a hypothesis: the logic chain's lemmas take it, so only the operator level,
+--| which passes it, is in `cmpHung`'s recursion.
 def CmpHungAt (modes: Modes) (depth: Nat): Prop :=
   ∀ (expr: Expr) (read rest: List Item) (state: HangState) => expr.nest1 <= depth
     → Spelt expr read
@@ -423,9 +423,9 @@ theorem inlinePlainHung ∀ (modes: Modes)
     operatorReads
   )
 
---| The rungs below `expr` (`inlineLine`, `operatorLine`, the chains, `unaryLine`, `appLine`, `atomLine`): today's
---| statement with `inLater` and `restOpen` replaced by the state before the first item, the bound against the state
---| that item enters, and the line rule over the items and what follows. `open` stays: the first item is the caller's
+--| The inline expression, what `expr` reads where its first item starts no block: from the state before the first
+--| item, with the modes' limit bounded against the state that item enters, and the line rule over the items and what
+--| follows. `open` stays: the first item is the caller's
 --| to place (a block's own first item is allowed by its modes, not by its column).
 theorem inlineHung ∀ (modes: Modes)
     (quiet: Quiet modes)

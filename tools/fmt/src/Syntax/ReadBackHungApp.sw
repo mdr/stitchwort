@@ -1,6 +1,5 @@
---| Calls and signs on any lines (H6 of SW-4121's plan): `signArgLine`, `argumentLine`, `argsLine`, `appLine`,
---| `headLine`, `appAny` and `unaryLine` with the line rule's state in place of "starts no line", as in
---| `Syntax.ReadBackHungAtoms`.
+--| Calls and signs on any lines (H6 of SW-4121's plan): a sign's argument, a call's arguments, its head, the call and
+--| the unary level, read from the line rule's state, as in `Syntax.ReadBackHungAtoms`.
 
 namespace Syntax.ReadBackHungApp
 import Std (Bool, Eq, List, Nat, Option, Parse, Void)
@@ -22,7 +21,7 @@ import Syntax.ReadBackHungAppLemmas (..)
 --| limit is within: a sign that starts a line is then right of the limit, which the state the sign enters wouldn't
 --| say where the sign starts an item.
 --|
---| Proof idea: `signArgLine`'s, the line facts by `leadHung`: the sign and the operand's first item stop no reading,
+--| Proof idea: the line facts by `leadHung`: the sign and the operand's first item stop no reading,
 --| the bound carrying past the sign, and `atomHung` reads the operand from the state the sign left.
 theorem signArgHung ∀ (modes: Modes)
     (quiet: Quiet modes)
@@ -173,7 +172,7 @@ theorem argumentHung ∀ (modes: Modes)
 
 --| A call's arguments after the first: `state` is the line rule's before the first of them.
 --|
---| Proof idea: `argsLine`'s, each argument read by `argumentHung` from the state the arguments before it left, which
+--| Proof idea: each argument read by `argumentHung` from the state the arguments before it left, which
 --| `speltHung` gives with the bound.
 theorem argsHung ∀ (modes: Modes)
     (quiet: Quiet modes)
@@ -258,7 +257,7 @@ theorem argsHung ∀ (modes: Modes)
 
 --| A call.
 --|
---| Proof idea: `appLine`'s. The head is read by `headHung`; the line rule leaves the state the head's first leaf
+--| Proof idea: the head is read by `headHung`; the line rule leaves the state the head's first leaf
 --| entered (`speltEnters`), which the bound holds of, and from there the first argument by `argumentHung` and the
 --| others by `argsHung`, from the state the first left (`speltHung`).
 theorem appHung ∀ (modes: Modes)
@@ -407,7 +406,7 @@ theorem appHung ∀ (modes: Modes)
         ends
     )
 
---| A call's head: an atom or a bracket by `atomHung`, or `-` on a numeral read as one atom, as in `headLine`.
+--| A call's head: an atom or a bracket by `atomHung`, or `-` on a numeral read as one atom.
 theorem headHung ∀ (modes: Modes)
     (quiet: Quiet modes)
     (head: Expr) (read later: List Item) (depth: Nat) (state: HangState)
@@ -495,7 +494,7 @@ theorem appAnyHung ∀ (modes: Modes)
 
 --| The unary level: a sign and its operand, or a call.
 --|
---| Proof idea: `unaryLine`'s. A sign the parser doesn't read as a negative numeral is read with its operand by
+--| Proof idea: a sign the parser doesn't read as a negative numeral is read with its operand by
 --| `unaryHung` one level down, from the state the sign left, which the bound carries to (`pastFirst`); the operand's
 --| first item stops no reading and its entered state is bounded (`leadHung`). A negative numeral is one atom, and
 --| anything else is `appAnyHung`.

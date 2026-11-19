@@ -15,10 +15,9 @@ import Fmt.PassProofs (..)
 import Syntax.SettleProofs (tokens)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ReadBackRuns (plainHeader)
-import Syntax.ReadBackLine (Spelt, lineAll, speltExpr)
+import Syntax.ReadBackLine (Spelt, exprLine, lineAll, speltExpr)
 import Syntax.ReadBackHungDeep (hangsTokens)
 import Syntax.ReadBackHungTop (readsBackHung)
-import Fmt.PrintedLines (exprLine)
 import Fmt.CalmProofs (headerCalmWithin, withinCalm)
 import Fmt.OutputFileProofs (printedGroups1)
 import Fmt.ReadBackFile (declLowers, groupReads, groupsFromTokens, groupsTokens, refusalNone)
@@ -249,8 +248,7 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
     fileGroupsRead file (groupsOf lexed.leaves) within shaped settled lexical commaFree hung groupsSame words decls
   rewrite refusal, parsed, ends
 
---| `readsBackLineWithin` reads the logical operators on a line: `&&` and `||` are kinds it reads
---| (`Syntax.ReadBackLine.readsBackLexedLogicExample` reads such a line whole).
+--| `&&` and `||` are kinds `readsBackHung` reads (`lineAll`).
 theorem logicLine: (match lex "a && b || c" with
       | Ok lexed => lineAll (items lexed.leaves)
       | Err _ => False)

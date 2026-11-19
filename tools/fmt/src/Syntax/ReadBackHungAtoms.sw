@@ -1,6 +1,5 @@
---| Atoms and brackets on any lines (H5 of SW-4121's plan): `atomLine`, `tupleSteps`, `listSteps` and `openSteps`
---| with the line rule's state in place of "starts no line". Each is today's statement with `laterInLine` (or
---| `inLineAll`) replaced by the state before the first item (`state`), the modes' limit bounded against the state that
+--| Atoms and brackets on any lines (H5 of SW-4121's plan): an atom, a tuple's and a list's items, and a bracket's
+--| first item. Each takes the state before the first item (`state`), the modes' limit bounded against the state that
 --| item enters (`bound`), the line rule over the items and what follows (`hung`), every closer and comma inside a
 --| bracket (`deepItems`), and `fullHung` below the depth (`inner`) for the expressions inside the brackets.
 --| `openStepsHung` takes the items' spelling instead of their line facts: what keeps a comma or closer from stopping
@@ -22,7 +21,7 @@ import Syntax.ReadBackHungAtomsLemmas (..)
 
 --| A spelt expression is what `atom` reads, on any lines the line rule allows.
 --|
---| Proof idea: `atomLine`'s cases. A bracket's opener puts the line rule at the start of its first item, with the
+--| Proof idea: by the atom's kind. A bracket's opener puts the line rule at the start of its first item, with the
 --| column in force the one the opener entered, which the modes' limit is within (`openStep`); each item is read by
 --| `fullHung` from the start of an item, a comma restarting it (`commaNext`), and the state an item leaves gives the
 --| next item's start back (`entersNext`). Commas and the closer never stop a reading, being inside the bracket

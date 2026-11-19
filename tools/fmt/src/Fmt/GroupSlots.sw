@@ -976,8 +976,8 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
     (rewrite itemWordsOfGroup group, words then readWords)
     (rewrite spacingCalm result False False resultWithin, spacingCalm value False False valueWithin then spacing)
 
---| A printed one-line declaration's group splits into the items `readsBackLineWithin` reads, with `read`'s type and
---| value spelt by them.
+--| A printed declaration's group splits into the items `Syntax.ReadBackHungTop.readsBackHung` reads, with `read`'s
+--| type and value spelt by them.
 --|
 --| Proof idea: the declaration is slice 1's `def name: type := value` (`within1`), and `printedSplitParts` splits its
 --| group. The group's tokens are the printed ones, their kinds the lexer's and their texts the rules' spelling
