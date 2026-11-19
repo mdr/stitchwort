@@ -292,11 +292,22 @@ theorem, its hypotheses and the lemmas about the helper, as above.
    them again.
 5. **The check cache.** `check`, `test` and `run` reuse checked
    namespaces from `.stitchwort/cache` in the project folder, keyed by the
-   source, its dependencies and the compiler. A warm check of a proof
+   source, its dependencies and the compiler. A namespace is the name on the
+   file's `namespace` line, not its path:
+   `tools/fmt/src/Syntax/LexProofs.sw` declares `namespace Syntax.Proofs`, so
+   that file is checked as `check Syntax.Proofs` (while
+   `check Syntax.LexProofs` is `E-NAMESPACE-UNKNOWN`); find the line with
+   `grep -m1 '^namespace' FILE`. A warm check of a proof
    namespace takes about 0.25 s, a cold one seconds (agentic-proving.md §6).
    Hits are trusted without the kernel checking them again
    ([check-cache.md](proposals/check-cache.md), stage 3). Use `--no-cache`
    to time a check, and if you suspect a stale answer.
+   **Editing a namespace many others import.** A change in `Fmt`
+   (`tools/fmt/src/Fmt/Meaning.sw`) makes the next check recheck every
+   namespace that depends on it: the whole `tools/fmt` project took 5:18
+   after that edit (19 Nov 2026; 5:27 from an almost empty cache, so about
+   six minutes), while the round after is fast again (2.5 s). Plan edits to
+   such roots together, not one at a time.
    **The loop for one theorem in a big namespace (SW-4197).** The cache is
    per namespace, so editing any theorem makes `check NAMESPACE` check the
    whole namespace again. Measured with a release build, warm (tools/fmt,
@@ -304,8 +315,10 @@ theorem, its hypotheses and the lemmas about the helper, as above.
    661 lines) costs 14 to 15 s to `check`; `check --only
    Syntax.ReadBackHungApp.appAnyHung` costs 1.8 to 5 s for the theorem
    alone, about 1.4 s of it loading the namespace's 17 dependencies from
-   the cache. A warm, unedited check is 0.6 to 0.9 s. So while editing a
-   theorem, run `stitchwort check --only NAMESPACE.theorem` (the output
+   the cache. On a cold cache it still loads and checks that whole
+   dependency closure, so the first run can take 30 s or more (74 s for
+   `appAnyHung`, 19 Nov 2026). A warm, unedited check is 0.6 to 0.9 s. So
+   while editing a theorem, run `stitchwort check --only NAMESPACE.theorem` (the output
    says how many theorems were NOT checked), and run the plain `check
    NAMESPACE` once at the end (and before the report), since only that
    checks every theorem. Two limits: `--only` checks the theorems it
@@ -854,6 +867,28 @@ grep -rn -A2 "^theorem Set\.contains" crates/elab/src/std
 # a function's congruence lemmas (for rewrite and decreasing inside a callback)
 grep -rn "^theorem List\.[A-Za-z]*Cong\b" crates/elab/src/std
 ```
+
+A std lemma whose name ends in `Cong` is checked as a congruence lemma for
+the function named by the rest of it: the test
+`pinned_hashes::every_std_congruence_lemma_passes_validate_cong` in
+`crates/driver/tests` strips the suffix and requires a function of that name
+(or one of the five listed exceptions there); unless that function takes no
+function parameter, it runs `validate_cong` (`crates/elab/src/congruence.rs`)
+on the statement. That statement must take the function's parameters in
+order, with each function parameter twice consecutively, then one premise
+`(x…) → f1 x… = f2 x…` for each such parameter (the premises come after all
+the parameters), and conclude `F … f1 … = F … f2 …` with the other
+arguments the same:
+
+```stitchwort
+theorem List.mapCong ∀ (xs: List a) (f1 f2: a → b)
+    (ef: ∀ (x: a) => f1 x = f2 x):
+    List.map xs f1 = List.map xs f2
+```
+
+A lemma that isn't a congruence lemma for the function its name would name
+must not end in `Cong`: name it otherwise, as `List.consEqOfEq` is (e.g.
+`...EqOfEq`).
 
 Then check how it's stated (argument order, implicit arguments, `[auto]`
 premises) before using it. `Nat.addComm`, `Nat.addZero`, `Nat.modLess`,
