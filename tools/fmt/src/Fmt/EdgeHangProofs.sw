@@ -13,7 +13,7 @@ import Syntax (Comments, Expr, InfixKind, Tok, Word)
 import Std.Doc.Proofs (..)
 import Fmt (..)
 import Fmt.HangProofs (..)
-import Fmt.AppHangProofs (ArgsHang, Hangs, appElHangs, argAround, lastArg)
+import Fmt.AppHangProofs (ArgsHang, Hangs, HangsFor, appElHangs, argAround, lastArg)
 import Fmt.ChainHangProofs (HangsAt, LinkFacts, PairFacts, arrowChainHangs, binaryChainHangs)
 import Fmt.BracketHangProofs (
   ItemsHang,
@@ -495,20 +495,26 @@ theorem edgeArgsHang ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List
   match arguments with
     | [] => byComputing
     | [argument] =>
-      edgeLastHangs argument
-        (argAround arm previous at)
-        end
-        previousQuiet
-        (Bool.andLeft within)
-        (Bool.andLeft lexical)
-        (Bool.andLeft sound)
-        edge
+      let unnoted: argument.noted = False :=
+        Eq.trans (Eq.cong Word.noted (firstWordLead argument (Bool.andLeft within))) (edgeLeadUnnoted argument end edge)
+      rewrite unnoted then
+        edgeLastHangs argument
+          (argAround arm previous at)
+          end
+          previousQuiet
+          (Bool.andLeft within)
+          (Bool.andLeft lexical)
+          (Bool.andLeft sound)
+          edge
     | [argument, next, ..more] =>
       let quiet: argument.quiet1 = True := Bool.andLeft edge
       let argumentQuiet := quietTrails argument quiet
       let facts := leadFacts argument (Bool.andLeft within) (Bool.andLeft lexical) (quietLead argument quiet) quietKeys
-      let first: Hangs lexKind previous.trails argument.trails (argument.el (argAround arm previous at)) :=
-        rewrite argumentQuiet then
+      let unnoted: argument.noted = False :=
+        Eq.trans (Eq.cong Word.noted (firstWordLead argument (Bool.andLeft within))) (quietUnnoted argument quiet)
+      let first: HangsFor lexKind argument.noted previous.trails argument.trails
+        (argument.el (argAround arm previous at)) :=
+        rewrite argumentQuiet, unnoted then
           (inset =>
             leadHangsOf argument facts
               (argAround arm previous at)

@@ -214,9 +214,59 @@ theorem hardArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState)
       | Held at carry, (_, floor, _) =>
         (byComputing, rewrite folded then startArgSeat inset state False carry unglued floor bound))
 
---| Arguments each on a line of its own, laid at `inset`.
+--| Arguments each on a line of its own, laid at `inset`, each first word where `startFor` says: at a line start the
+--| comments above an argument, if any, change nothing of where its first word starts.
 def LinedArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool) (docs: List Doc): Prop :=
-  Chained (before middle doc => ElHangs kinds doc inset inset False middle wordStart) before trails docs
+  Chained
+    (before middle doc => ∃ (noted: Bool) => ElHangs kinds doc inset inset False middle (startFor noted))
+    before
+    trails
+    docs
+
+--| Where an argument on a line of its own starts: a seat at the start of a line.
+def LineSeat (state: HangState) (inset: Nat): Place → Hang → Prop := place hang =>
+  ArgSeat state inset False place hang ∧ plainStart place = True
+
+--| At the start of a line an element's first word starts it, whatever comments it has above it.
+theorem lineStartFor ∀ (noted: Bool) (inset: Nat) (place: Place)
+    (start: plainStart place = True):
+    startFor noted inset place = wordStart inset place :=
+  match place, start with
+    | AtStart at carry, _ =>
+      match noted with
+        | True => byComputing
+        | False => byComputing
+    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+    | Mid at carry, never => (Bool.falseNotTrue never).impossible
+    | Held at carry, never => (Bool.falseNotTrue never).impossible
+
+--| A `HardLine` before an argument laid deeper than the call: the start of a line at `inset`, as `hardArg`.
+theorem hardLineArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState) (before: Bool)
+    (unglued: state.glue = False)
+    (deeper: (indent < inset) = True):
+    HangLays kinds HardLine inset (AfterWords state indent before) (LineSeat state inset) :=
+  hangsHard kinds inset (AfterWords state indent before) (LineSeat state inset) (place hang (ended, folded, clear) =>
+    let bound: (inForce state.blocks state.top < inset) = True := arithmetic
+    match place, ended with
+      | Mid at carry, (floor, _) =>
+        (byComputing, (rewrite folded then startArgSeat inset state False carry unglued floor bound, byComputing))
+      | Held at carry, (_, floor, _) =>
+        (byComputing, (rewrite folded then startArgSeat inset state False carry unglued floor bound, byComputing)))
+
+--| An argument on a line of its own, from its seat, its first word where `startFor` says: the fold after it as before
+--| it, as `argHangs`.
+theorem argLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: HangState) (trails noted: Bool)
+    (quiet: state.start = False)
+    (unglued: state.glue = False)
+    (clear: (inForce state.blocks state.top <= indent) = True)
+    (el: ElHangs kinds doc inset inset False trails (startFor noted)):
+    HangLays kinds doc inset (LineSeat state inset) (AfterWords state indent trails) :=
+  place trace next ((folded, seat), start) after =>
+    let first: startFor noted inset place = wordStart inset place := lineStartFor noted inset place start
+    let seated: Seat inset inset False state place (startFor noted inset place) := rewrite first then seat
+    let same := openedQuiet state (startFor noted inset place) quiet unglued
+    el state place place trace next (byComputing, folded, seated) (left later (ended, landed) =>
+      after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
 
 --| Arguments each on a line of its own (a broken call's `rest`), laid deeper than the call: the fold kept.
 theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat) (state: HangState) (before trails: Bool)
@@ -235,21 +285,21 @@ theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat)
       rewrite same then
         hangsNil kinds inset (AfterWords state indent trails) (AfterWords state indent trails) (place hang holds =>
           holds)
-    | [doc, ..rest], (middle, el, more) =>
+    | [doc, ..rest], (middle, (noted, el), more) =>
       hangsCons kinds HardLine
         [doc, ..rest.concatMap (doc => [HardLine, doc])]
         inset
         (AfterWords state indent before)
-        (ArgSeat state inset False)
+        (LineSeat state inset)
         (AfterWords state indent trails)
-        (hardArg kinds inset indent state before unglued deeper)
+        (hardLineArg kinds inset indent state before unglued deeper)
         (hangsCons kinds doc
           (rest.concatMap (doc => [HardLine, doc]))
           inset
-          (ArgSeat state inset False)
+          (LineSeat state inset)
           (AfterWords state indent middle)
           (AfterWords state indent trails)
-          (argHangs kinds doc inset indent state False middle quiet unglued clear el)
+          (argLineHangs kinds doc inset indent state middle noted quiet unglued clear el)
           (linedRest kinds rest inset indent state middle trails quiet unglued clear deeper more))
 
 --| Arguments filling lines, laid at `inset`: each after a separator, after a waiting comment only if the one before
@@ -393,20 +443,24 @@ theorem elChoice ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc) (inde
       (each state entry)
 
 --| What a call's layouts ask of its elements (`appFrom`), the function first, the arguments `args`, `k` of them kept
---| on the function's line when the call breaks: spaced on one line, or filling lines at 4; the kept ones likewise
---| and the rest on lines of their own at 2 or 4; and the hug's opened argument after the others spaced, if it has
---| one.
-def AppArgs (kinds: Text → Tok) (indent: Nat) (middle trails: Bool) (args: List Doc) (k: Nat)
+--| on the function's line when the call breaks: spaced on one line, or filling lines at 4 where no comment sits
+--| between them (`between`); the kept ones likewise (`betweenFront`) and the rest on lines of their own at 2 or 4;
+--| and the hug's opened argument after the others spaced, if it has one.
+def AppArgs (kinds: Text → Tok) (indent: Nat) (middle trails between betweenFront: Bool) (args: List Doc) (k: Nat)
     (front: List Doc) (hug: Option Doc):
     Prop :=
   SpacedParts kinds indent middle trails args
-    ∧ FilledArgs kinds (indent + 4) middle trails args
+    ∧ (between = False → FilledArgs kinds (indent + 4) middle trails args)
     ∧ (∃ (kept: Bool) => SpacedParts kinds indent middle kept (args.take k)
-      ∧ FilledArgs kinds (indent + 4) middle kept (args.take k)
+      ∧ (betweenFront = False → FilledArgs kinds (indent + 4) middle kept (args.take k))
       ∧ LinedArgs kinds (indent + 2) kept trails (args.drop k)
       ∧ LinedArgs kinds (indent + 4) kept trails (args.drop k))
     ∧ (∃ (fronted: Bool) => SpacedParts kinds indent middle fronted front
       ∧ (∀ (opened: Doc) => hug = Some opened → PartHangs kinds opened indent fronted trails))
+
+--| The kept elements fill lines only where no comment sits between them.
+theorem fillsQuiet ∀ (more betweenFront: Bool) (fills: (more && !betweenFront) = True): betweenFront = False :=
+  match more, betweenFront with | True, False => byComputing
 
 --| `appFrom`'s broken layout, `k` arguments kept on the function's line.
 def brokenApp (id k: Nat) (fillFront: Bool) (headDoc: Doc) (args: List Doc): Doc :=
@@ -422,7 +476,7 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
     (indent column: Nat) (middle kept trails: Bool)
     (head: ∀ (inset: Nat) => ElHangs kinds headDoc inset column False middle wordStart)
     (keptSpaced: SpacedParts kinds indent middle kept (args.take k))
-    (keptFilled: FilledArgs kinds (indent + 4) middle kept (args.take k))
+    (keptFilled: fillFront = True → FilledArgs kinds (indent + 4) middle kept (args.take k))
     (restAt2: LinedArgs kinds (indent + 2) kept trails (args.drop k))
     (restAt4: LinedArgs kinds (indent + 4) kept trails (args.drop k)):
     ElHangs kinds (brokenApp id k fillFront headDoc args) indent column False trails wordStart :=
@@ -458,7 +512,7 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
               kept
               byComputing
               (head (indent + 4))
-              keptFilled
+              (keptFilled byComputing)
               state
               entry))
         (state entry quiet unglued =>
@@ -494,7 +548,7 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
 theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront: Bool) (headDoc: Doc) (front: List Doc)
     (lastDoc: Doc) (hug: Option Doc) (indent column: Nat) (middle trails: Bool)
     (head: ∀ (inset: Nat) => ElHangs kinds headDoc inset column False middle wordStart)
-    (facts: AppArgs kinds indent middle trails (front ++ [lastDoc]) k front hug):
+    (facts: AppArgs kinds indent middle trails between betweenFront (front ++ [lastDoc]) k front hug):
     ElHangs kinds
       (appFrom id (k + 1) between betweenFront headDoc front lastDoc hug).doc
       indent
@@ -514,14 +568,18 @@ theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront
       ∧ hang = Hang.At (openedBy state (wordStart indent entry))
   let fillFront := k + 1 > 2 && !betweenFront
   let broken :=
-    brokenAppHangs kinds id k fillFront headDoc args indent column middle kept trails head keptSpaced keptFilled restAt2
-        restAt4
+    brokenAppHangs kinds id k fillFront headDoc args indent column middle kept trails head keptSpaced
+      (fills => keptFilled (fillsQuiet (k + 1 > 2) betweenFront fills))
+      restAt2
+      restAt4
   match whole: k + 1 == args.length + 1 with
     | True =>
       match between with
         | True => allHangs
         | False =>
-          filledHangs kinds headDoc args 4 indent column middle trails byComputing (head (indent + 4)) filledAll
+          filledHangs kinds headDoc args 4 indent column middle trails byComputing
+            (head (indent + 4))
+            (filledAll byComputing)
     | False =>
       match hug, hugged with
         | None, _ =>
@@ -609,40 +667,170 @@ def lastArg (argument: Expr): List Expr → Expr
   | [] => argument
   | [next, ..rest] => lastArg next rest
 
+--| An element that hangs wherever it is laid, seated at its indentation, its first word where `startFor noted` says:
+--| on the line after the comments above it, if it writes any (`noted`).
+def HangsFor (kinds: Text → Tok) (noted before trails: Bool) (doc: Doc): Prop :=
+  ∀ (inset: Nat) => ElHangs kinds doc inset inset before trails (startFor noted)
+
 --| What a call's arguments ask, each after the one before (`previous`, the function at first): each hangs as an
---| element, and the last's hug, if it has one, as well.
+--| element, its first word where `startFor` says for the comments above it, and the last's hug, if it has one, as
+--| well.
 def ArgsHang (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat): List Expr → Prop
   | [] => True
   | [argument] =>
-    Hangs kinds previous.trails argument.trails (lastArgument argument (argAround arm previous at)).fst
+    HangsFor kinds argument.noted previous.trails argument.trails
+      (lastArgument argument (argAround arm previous at)).fst
       ∧ (∀ (opened: Doc) => (lastArgument argument (argAround arm previous at)).snd = Some opened
-        → Hangs kinds previous.trails argument.trails opened)
+        → HangsFor kinds argument.noted previous.trails argument.trails opened)
   | [argument, ..rest] =>
-    Hangs kinds previous.trails argument.trails (argument.el (argAround arm previous at))
+    HangsFor kinds argument.noted previous.trails argument.trails (argument.el (argAround arm previous at))
       ∧ ArgsHang kinds arm argument (at + argument.size) rest
 
---| A call's argument documents (`argumentDocs`) hang in turn, from where the function ended.
+--| An argument's document in a call's chain: it hangs, its first word where `startFor` says, with no comments above
+--| it where no comment sits between the call's elements (`between`).
+def ArgStep (kinds: Text → Tok) (between before middle: Bool) (doc: Doc): Prop :=
+  ∃ (noted: Bool) => HangsFor kinds noted before middle doc ∧ (between = False → noted = False)
+
+--| Where no comment sits between a call's elements from an argument on, that argument has none above it, the element
+--| before it ends with none, and none sits between the rest.
+theorem betweenParts ∀ (noted trails rest: Bool)
+    (quiet: (noted || trails || rest) = False):
+    noted = False ∧ rest = False :=
+  (
+    Bool.orFalseLeft noted (trails || rest) quiet,
+    Bool.orFalseRight trails rest (Bool.orFalseRight noted (trails || rest) quiet)
+  )
+
+--| Where an element ended, one whose first token has own-line comments may start: its first word on the comment break
+--| the `LineStart` before the comments makes, right of the line, so with room for it but for `->`'s glue.
+theorem endedLeadSeat ∀ (indent: Nat) (before: Bool) (state: HangState) (place: Place)
+    (unglued: state.glue = False)
+    (ended: Ended state before place)
+    (clear: (inForce state.blocks state.top <= indent) = True):
+    Seat indent indent before state place (leadStart indent place) :=
+  match place, ended with
+    | Mid at carry, (floor, left) => ((floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
+    | Held at carry, (trails, floor, left) => ((trails, floor, left), Nat.leRefl indent, clear, (unglued, arithmetic))
+
+--| An element after words is a part, its first token where `startFor` says: `elPart`, and the same from
+--| `endedLeadSeat` for an element whose first token has comments above it.
+theorem partHangsFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before trails noted: Bool)
+    (el: ElHangs kinds doc indent indent before trails (startFor noted)):
+    PartHangs kinds doc indent before trails :=
+  match noted with
+    | False => elPart kinds doc indent before trails el
+    | True => state entry quiet unglued =>
+      let pre: Place → Hang → Prop := place hang =>
+        place = entry
+          ∧ hang = Hang.At state
+          ∧ Ended state before entry
+          ∧ (inForce state.blocks state.top <= indent) = True
+      let opened := openedBy state (leadStart indent entry)
+      hangsPost kinds doc indent pre
+        (place hang => Ended opened trails place ∧ hang = Hang.At opened)
+        (place hang => Ended state trails place ∧ hang = Hang.At state)
+        (hangsPre kinds doc indent
+          (Entered indent indent before state entry (leadStart indent entry))
+          pre
+          (place hang => Ended opened trails place ∧ hang = Hang.At opened)
+          (el state entry)
+          (place hang (isEntry, folded, ended, clear) =>
+            (isEntry, folded, endedLeadSeat indent before state entry unglued ended clear)))
+        (place hang (ended, folded) =>
+          let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
+          (rewrite same at ended then ended, rewrite same at folded then folded))
+
+--| A call's argument documents (`argumentDocs`) hang in turn, from where the function ended, each with no comments
+--| above it where none sits between the elements (`between`).
 --|
 --| Proof idea: by the arguments, as `argumentDocs` builds its documents; the last gives the last document and its
 --| hug.
-theorem argumentDocsHang ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr) (rest: List Expr)
+theorem argumentDocsHang ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr)
+    (rest: List Expr) (between: Bool)
+    (quiet: between = False → commentBetween previous [argument, ..rest] = False)
     (facts: ArgsHang kinds arm previous at [argument, ..rest]):
     ∃ (fronted: Bool) => Chained
-      (before middle doc => Hangs kinds before middle doc)
+      (ArgStep kinds between)
       previous.trails
       fronted
       (argumentDocs arm previous at [argument, ..rest]).fst
-      ∧ Hangs kinds fronted
+      ∧ ArgStep kinds between fronted
         (lastArg argument rest).trails
         ((argumentDocs arm previous at [argument, ..rest]).snd.getOrElse (Nothing, None)).fst
       ∧ (∀ (opened: Doc) => ((argumentDocs arm previous at [argument, ..rest]).snd.getOrElse (Nothing, None)).snd
         = Some opened
-        → Hangs kinds fronted (lastArg argument rest).trails opened) :=
+        → ∃ (noted: Bool) => HangsFor kinds noted fronted (lastArg argument rest).trails opened) :=
+  let unnoted: between = False → argument.noted = False := none =>
+    (betweenParts argument.noted previous.trails (commentBetween argument rest) (quiet none)).left
   match rest, facts with
-    | [], (last, hug) => (previous.trails, byComputing, last, hug)
+    | [], (last, hug) =>
+      (previous.trails, byComputing, (argument.noted, last, unnoted), opened same => (argument.noted, hug opened same))
     | [following, ..more], (first, others) =>
-      let (fronted, chain, last, hug) := argumentDocsHang kinds arm argument (at + argument.size) following more others
-      (fronted, (argument.trails, first, chain), last, hug)
+      let (fronted, chain, last, hug) :=
+        argumentDocsHang kinds arm argument
+          (at + argument.size)
+          following
+          more
+          between
+          (none =>
+            (betweenParts argument.noted previous.trails
+              (commentBetween argument [following, ..more])
+              (quiet none)).right)
+          others
+      (fronted, (argument.trails, (argument.noted, first, unnoted), chain), last, hug)
+
+--| A call's argument documents cut where those kept on its line end (`keptFront`): the kept ones in turn, each with
+--| no comments above it where none sits between them (`betweenFront`), then the rest.
+--|
+--| Proof idea: by the arguments, as `keptFront` counts them; where it stops, the rest are all of
+--| `argumentDocsHang`'s chain.
+theorem keptArgsHang ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at: Nat) (argument: Expr)
+    (rest: List Expr) (betweenFront: Bool)
+    (quiet: betweenFront = False
+      → commentBetween previous ([argument, ..rest].take (keptFront previous [argument, ..rest])) = False)
+    (facts: ArgsHang kinds arm previous at [argument, ..rest]):
+    ∃ (kept: Bool) => Chained
+      (ArgStep kinds betweenFront)
+      previous.trails
+      kept
+      (((argumentDocs arm previous at [argument, ..rest]).fst
+        ++ [((argumentDocs arm previous at [argument, ..rest]).snd.getOrElse (Nothing, None)).fst]).take
+        (keptFront previous [argument, ..rest]))
+      ∧ Chained
+        (ArgStep kinds True)
+        kept
+        (lastArg argument rest).trails
+        (((argumentDocs arm previous at [argument, ..rest]).fst
+          ++ [((argumentDocs arm previous at [argument, ..rest]).snd.getOrElse (Nothing, None)).fst]).drop
+          (keptFront previous [argument, ..rest])) :=
+  match keeps: argument.simple && !previous.trails with
+    | False =>
+      let (fronted, chain, last, _) :=
+        argumentDocsHang kinds arm previous at argument rest True (never => (Bool.trueNotFalse never).impossible) facts
+      (
+        previous.trails,
+        byComputing,
+        chainedSnoc (ArgStep kinds True) previous.trails fronted (lastArg argument rest).trails _ _ chain last
+      )
+    | True =>
+      let unnoted: betweenFront = False → argument.noted = False := none =>
+        (betweenParts argument.noted previous.trails _ (quiet none)).left
+      match rest, facts with
+        | [], (last, _) => (
+          (lastArg argument []).trails,
+          ((lastArg argument []).trails, (argument.noted, last, unnoted), byComputing),
+          byComputing
+        )
+        | [following, ..more], (first, others) =>
+          let (kept, keptChain, restChain) :=
+            keptArgsHang kinds arm argument
+              (at + argument.size)
+              following
+              more
+              betweenFront
+              (none => (betweenParts argument.noted previous.trails _ (quiet none)).right)
+              others
+          (kept, (argument.trails, (argument.noted, first, unnoted), keptChain), restChain)
 
 --| `appDocs` as `appFrom` takes it, the count of elements kept on the call's line written `k + 1`.
 theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
@@ -661,8 +849,9 @@ theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
 --| A call's parts (`appDocs`) as one element, the fold after them as after its function's first word.
 --|
 --| Proof idea: `appDocsIs` and `appFromHangs`; what each layout asks of the elements comes from each argument
---| hanging wherever it is laid (`argumentDocsHang`): spaced, it is a part (`elPart`); on a line of its own, it starts
---| after no waiting comment (`elUnheld`); and the chain cuts where the kept elements end (`chainedSplit`).
+--| hanging wherever it is laid (`argumentDocsHang`, `keptArgsHang`): spaced, it is a part (`partHangsFor`); on a
+--| line of its own, it starts after no waiting comment (`elUnheld`), at a line start, where its comments change
+--| nothing; filling lines, only where no comment sits between the elements, so it has none above it.
 theorem appDocsHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List Expr) (around: Around) (indent column: Nat)
     (headHangs: ∀ (inset: Nat) => ElHangs kinds (head.el around) inset column False head.trails wordStart)
     (facts: ArgsHang kinds around.inArm head (around.at + head.size) [argument, ..rest]):
@@ -680,75 +869,64 @@ theorem appDocsHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List
   let hug := (docs.snd.getOrElse (Nothing, None)).snd
   let k := keptFront head arguments
   let trails := (lastArg argument rest).trails
+  let between := commentBetween head arguments
+  let betweenFront := commentBetween head (arguments.take k)
   let (fronted, chain, last, hugs) :=
-    argumentDocsHang kinds around.inArm head (around.at + head.size) argument rest facts
-  let all :=
-    chainedSnoc (before middle doc => Hangs kinds before middle doc) head.trails fronted trails front lastDoc chain last
-  let spacedAll: SpacedParts kinds indent head.trails trails (front ++ [lastDoc]) :=
-    chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
-      (before middle doc => PartHangs kinds doc indent before middle)
-      head.trails
-      trails
-      (front ++ [lastDoc])
-      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
-      all
-  let filledAll: FilledArgs kinds (indent + 4) head.trails trails (front ++ [lastDoc]) :=
-    chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
-      (before middle doc => ElHangs kinds doc (indent + 4) (indent + 4) before middle wordStart)
-      head.trails
-      trails
-      (front ++ [lastDoc])
-      (before middle doc hangs => hangs (indent + 4))
-      all
+    argumentDocsHang kinds around.inArm head (around.at + head.size) argument rest between (none => none) facts
+  let all := chainedSnoc (ArgStep kinds between) head.trails fronted trails front lastDoc chain last
+  let spacedOf: ∀ (quiet before after: Bool) (docs: List Doc) (chained: Chained
+    (ArgStep kinds quiet)
+    before
+    after
+    docs) => SpacedParts kinds indent before after docs :=
+    quiet before after docs chained =>
+      chainedWeaker
+        (ArgStep kinds quiet)
+        (before middle doc => PartHangs kinds doc indent before middle)
+        before
+        after
+        docs
+        (before middle doc (noted, hangs, _) => partHangsFor kinds doc indent before middle noted (hangs indent))
+        chained
+  let filledOf: ∀ (quiet before after: Bool) (docs: List Doc) (chained: Chained
+    (ArgStep kinds quiet)
+    before
+    after
+    docs) => quiet = False → FilledArgs kinds (indent + 4) before after docs :=
+    quiet before after docs chained none =>
+      chainedWeaker
+        (ArgStep kinds quiet)
+        (before middle doc => ElHangs kinds doc (indent + 4) (indent + 4) before middle wordStart)
+        before
+        after
+        docs
+        (before middle doc (noted, hangs, unnoted) => rewrite unnoted none at hangs then hangs (indent + 4))
+        chained
   let (kept, keptChain, restChain) :=
-    chainedSplit (before middle doc => Hangs kinds before middle doc) head.trails trails (front ++ [lastDoc]) k all
+    keptArgsHang kinds around.inArm head (around.at + head.size) argument rest betweenFront (none => none) facts
   let lined: ∀ (more: Nat) => LinedArgs kinds (indent + more) kept trails ((front ++ [lastDoc]).drop k) := more =>
     chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
-      (before middle doc => ElHangs kinds doc (indent + more) (indent + more) False middle wordStart)
+      (ArgStep kinds True)
+      (before middle doc =>
+        ∃ (noted: Bool) => ElHangs kinds doc (indent + more) (indent + more) False middle (startFor noted))
       kept
       trails
       ((front ++ [lastDoc]).drop k)
-      (before middle doc hangs =>
-        elUnheld kinds doc (indent + more) (indent + more) before middle wordStart (hangs (indent + more)))
+      (before middle doc (noted, hangs, _) =>
+        (
+          noted,
+          elUnheld kinds doc (indent + more) (indent + more) before middle (startFor noted) (hangs (indent + more))
+        ))
       restChain
-  let keptSpaced: SpacedParts kinds indent head.trails kept ((front ++ [lastDoc]).take k) :=
-    chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
-      (before middle doc => PartHangs kinds doc indent before middle)
-      head.trails
-      kept
-      ((front ++ [lastDoc]).take k)
-      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
-      keptChain
-  let keptFilled: FilledArgs kinds (indent + 4) head.trails kept ((front ++ [lastDoc]).take k) :=
-    chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
-      (before middle doc => ElHangs kinds doc (indent + 4) (indent + 4) before middle wordStart)
-      head.trails
-      kept
-      ((front ++ [lastDoc]).take k)
-      (before middle doc hangs => hangs (indent + 4))
-      keptChain
-  let frontSpaced: SpacedParts kinds indent head.trails fronted front :=
-    chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
-      (before middle doc => PartHangs kinds doc indent before middle)
-      head.trails
-      fronted
-      front
-      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
-      chain
   let hugged: ∀ (opened: Doc) => hug = Some opened → PartHangs kinds opened indent fronted trails := opened same =>
-    elPart kinds opened indent fronted trails (hugs opened same indent)
+    let (noted, hangs) := hugs opened same
+    partHangsFor kinds opened indent fronted trails noted (hangs indent)
   rewrite appDocsIs head arguments around then
     appFromHangs kinds
       (around.at + 1)
       k
-      (commentBetween head arguments)
-      (commentBetween head (arguments.take k))
+      between
+      betweenFront
       (head.el around)
       front
       lastDoc
@@ -758,7 +936,18 @@ theorem appDocsHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List
       head.trails
       trails
       headHangs
-      (spacedAll, filledAll, (kept, keptSpaced, keptFilled, lined 2, lined 4), (fronted, frontSpaced, hugged))
+      (
+        spacedOf between head.trails trails (front ++ [lastDoc]) all,
+        filledOf between head.trails trails (front ++ [lastDoc]) all,
+        (
+          kept,
+          spacedOf betweenFront head.trails kept ((front ++ [lastDoc]).take k) keptChain,
+          filledOf betweenFront head.trails kept ((front ++ [lastDoc]).take k) keptChain,
+          lined 2,
+          lined 4
+        ),
+        (fronted, spacedOf between head.trails fronted front chain, hugged)
+      )
 
 --| A call (`App`) as an element, framed, the call's own-line comments written elsewhere or none.
 theorem appElHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List Expr) (around: Around) (indent column: Nat)
