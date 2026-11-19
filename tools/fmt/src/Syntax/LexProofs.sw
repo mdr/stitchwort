@@ -15,6 +15,7 @@ namespace Syntax.Proofs
 import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
+import Syntax.SharedFacts (allJoin, wordStartChar)
 
 --| `text` is lexed as one token of `kind`, alone at the start of a line with no comments around it.
 def LexesAs (text: Text) (kind: Tok): Prop :=
@@ -1011,8 +1012,6 @@ theorem itemReadsComment ∀ (others rest: List Char)
 
 -- Words.
 
-theorem wordStartIsChar ∀ (first: Char) (starts: isWordStart first = True): isWordChar first = True := cases
-
 --| `located` after something read: the lexeme at where the item began.
 --|
 --| Proof idea: `located` marks the end: its length is the offset there minus the start's.
@@ -1083,7 +1082,7 @@ theorem runsFromWordKind ∀ (state: Parse.State Char) (first: Char) (others res
       read
       value
       (List.appendNil read).flipped
-      (Parse.runsSpan isWordChar read rest (Bool.andIntro (wordStartIsChar first starts) word) ends)
+      (Parse.runsSpan isWordChar read rest (Bool.andIntro (wordStartChar first starts) word) ends)
       (middle atRest honest offset =>
         Parse.runsFromBind middle
           (() =>
@@ -1355,7 +1354,7 @@ theorem runsFromWordQualified ∀ (state: Parse.State Char) (first: Char) (other
           (Parse.runsSpan isWordChar
             [first, ..others]
             (qualChars comps ++ rest)
-            (Bool.andIntro (wordStartIsChar first starts) word)
+            (Bool.andIntro (wordStartChar first starts) word)
             (qualCharsStops comps rest ends))
           (middle atRest honest offset =>
             Parse.runsFromBind middle
@@ -2286,15 +2285,6 @@ theorem lexPieces ∀ (pieces: List Piece)
     (self => lexableRounds self (piecesText pieces) pieces [] plain lexable byComputing)
     plain
 
-theorem allJoin ∀ (front back: List Char) (passes: Char → Bool)
-    (inFront: front.all passes = True)
-    (inBack: back.all passes = True):
-    (front ++ back).all passes = True :=
-  match front, inFront with
-    | [], inFront => inBack
-    | [first, ..more], inFront =>
-      Bool.andIntro (Bool.andLeft inFront) (allJoin more back passes (Bool.andRight inFront) inBack)
-
 theorem wordCharNoBreak ∀ (char: Char) (word: isWordChar char = True): ((char != '\n'): Bool) = True :=
   arithmetic [word]
 
@@ -2412,7 +2402,7 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
         (rewrite split then different => cases)
         (rewrite split then
           Bool.andIntro
-            (wordCharNoBreak first (wordStartIsChar first starts))
+            (wordCharNoBreak first (wordStartChar first starts))
             (allJoin others
               (qualChars comps)
               (char => char != '\n')
@@ -2423,7 +2413,7 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
         (rewrite split then different => cases)
         (rewrite split then
           Bool.andIntro
-            (wordCharNoBreak first (wordStartIsChar first starts))
+            (wordCharNoBreak first (wordStartChar first starts))
             (allJoin others
               (qualChars comps)
               (char => char != '\n')

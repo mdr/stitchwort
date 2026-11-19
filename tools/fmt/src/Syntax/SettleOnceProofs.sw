@@ -142,8 +142,6 @@ theorem laidPair ∀ (comma closer previous: Leaf) (tail after: List Leaf)
         closerRest
       )
 
-theorem orTrueB ∀ (x: Bool): (x || True) = True := cases
-
 --| What `commaDeleted` leaves behind for a last comma that starts its line: the leaves before it, untouched.
 theorem commaDeletedStartsSnd ∀ (comma closer: Leaf) (behind: List Leaf)
     (starts: comma.token.lineStart = True):
@@ -190,7 +188,7 @@ theorem laidMovedStarts ∀ (comma closer previous: Leaf) (tail after: List Leaf
   let fstStart: (commaDeleted comma closer [previous, ..tail]).fst.token.lineStart = True := rewrite tok, starts
   let trail := commaDeletedTrailing comma closer [previous, ..tail]
   let closerRest := Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight fwd)))
-  rewrite same, fstStart, trail then (Bool.andIntro (orTrueB _) (Bool.andIntro (orTrueB _) back), closerRest)
+  rewrite same, fstStart, trail then (Bool.andIntro (Bool.orTrue _) (Bool.andIntro (Bool.orTrue _) back), closerRest)
 
 --| `laidMoved` for a last comma that doesn't start its line.
 theorem laidMovedPlain ∀ (comma closer previous: Leaf) (tail after: List Leaf)
@@ -310,8 +308,6 @@ theorem linkStrict ∀ (isComma start pass closer item: Bool)
     (notPair: (isComma && closer && item) = False):
     (!(isComma && start) || !pass) = True :=
   cases
-
-theorem closerNotComma ∀ (kind: Tok) (isCloser: kind.isCloser = True): (kind == Comma) = False := cases
 
 theorem sourceTail ∀ (item: Bool) (x: Leaf) (xs: List Leaf)
     (plain: sourcePlainFrom item (tokens [x, ..xs]) = True):
@@ -1067,10 +1063,6 @@ theorem followFacts ∀ (kind: Tok) (h: arrowFollow kind = False): (kind == Comm
   Bool.orFalseRight (passableKind kind) (kind == Arrow) h
 )
 
-theorem notTrue ∀ (b: Bool) (h: (!b) = True): b = False := cases
-
-theorem orFalseR ∀ (a b: Bool) (h: (a || b) = True) (off: b = False): a = True := cases
-
 theorem arrowsWordsPlain ∀ (first: Leaf) (rest: List Leaf)
     (notComma: (first.token.kind == Comma) = False)
     (notArrow: (first.token.kind == Arrow) = False)
@@ -1087,10 +1079,10 @@ theorem arrowsWordsArrow ∀ (first next: Leaf) (more: List Leaf)
     (plain: (!arrowFollow next.token.kind) = True)
     (ih: arrowsBare (wordsOf [next, ..more]) = True):
     arrowsBare (wordsOf [first, next, ..more]) = True :=
-  let follow: arrowFollow next.token.kind = False := notTrue _ plain
+  let follow: arrowFollow next.token.kind = False := Bool.notTrue _ plain
   let (nextComma, nextNotArrow) := followFacts next.token.kind follow
   let own := Bool.andLeft leafArrows
-  let noOwn: next.trivia.leading.isEmpty = True := orFalseR _ _ (Bool.andRight leafArrows) nextNotArrow
+  let noOwn: next.trivia.leading.isEmpty = True := orOfFalse _ _ (Bool.andRight leafArrows) nextNotArrow
   let noTrail: first.trivia.trailing.isSome = False := noneNotSome first.trivia.trailing own
   let rest := rewrite wordsOfItem next more nextComma at ih then ih
   rewrite wordsOfItem first [next, ..more] notComma, wordsOfItem next more nextComma then

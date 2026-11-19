@@ -101,7 +101,8 @@ fn the_float_operations_on_records_are_held() {
             "Float.floor",
             "Float.ceil",
             "Float.trunc",
-            "Float.round"
+            "Float.round",
+            "Float.sqrt"
         ]
     );
 }

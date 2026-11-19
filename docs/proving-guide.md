@@ -297,6 +297,26 @@ theorem, its hypotheses and the lemmas about the helper, as above.
    Hits are trusted without the kernel checking them again
    ([check-cache.md](proposals/check-cache.md), stage 3). Use `--no-cache`
    to time a check, and if you suspect a stale answer.
+   **The loop for one theorem in a big namespace (SW-4197).** The cache is
+   per namespace, so editing any theorem makes `check NAMESPACE` check the
+   whole namespace again. Measured with a release build, warm (tools/fmt,
+   19 Nov 2026): a one-line edit in `Syntax.ReadBackHungApp` (7 theorems,
+   661 lines) costs 14 to 15 s to `check`; `check --only
+   Syntax.ReadBackHungApp.appAnyHung` costs 1.8 to 5 s for the theorem
+   alone, about 1.4 s of it loading the namespace's 17 dependencies from
+   the cache. A warm, unedited check is 0.6 to 0.9 s. So while editing a
+   theorem, run `stitchwort check --only NAMESPACE.theorem` (the output
+   says how many theorems were NOT checked), and run the plain `check
+   NAMESPACE` once at the end (and before the report), since only that
+   checks every theorem. Two limits: `--only` checks the theorems it
+   names and those they use, so it doesn't see what a later theorem in
+   the file breaks; and after editing a namespace, checking a namespace
+   that uses it (`--only Down.thm`) still checks the edited one in full
+   (22 s for `ReadBackHungFull` after an edit in `ReadBackHungApp`),
+   because only the namespaces you name are pruned. Naming the edited one
+   too (`check --only Down.thm Up`) prunes both, but saves nothing when
+   `Down.thm` needs all of `Up`'s theorems (it did, 23 s). Edit and check
+   the theorem in its own namespace, and check downstream ones at the end.
 6. **Work in a scratch file** for experiments (a lemma's shape, an error you
    don't understand), outside the repo or in the scratchpad, checked with
    `stitchwort check file.sw` (file mode: only `Std` is visible).
@@ -943,9 +963,14 @@ program can be an enormous term.
   namespace taking several seconds cold has something unfolding; halving
   the file (or replacing proofs with `?`) finds it. On day 23 one 100-line
   theorem took 16 s; split into lemmas, 2 s (aoc/NOTES-2024.md:7689).
-  `check` has no `--timings`: to time one theorem, run
-  `time stitchwort check --only NAME --no-cache NAMESPACE` and subtract
-  std's own check time (about 9 s).
+  `stitchwort check --no-cache --timings NAMESPACE` prints, after the
+  check, a table per namespace (a cached one is marked `(cached)`) and one
+  of the declarations checked: elaboration, kernel and total milliseconds,
+  evaluation steps and term nodes, slowest first, the 20 slowest by default
+  (`--timings=50` for 50, `--timings=all` for every one; std's own
+  declarations are in the table too). The theorem at the top is the one to
+  split. A namespace the cache answers for has no rows, so add
+  `--no-cache`.
 
 ## 7. The report
 

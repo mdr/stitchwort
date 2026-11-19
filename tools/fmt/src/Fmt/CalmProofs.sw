@@ -11,6 +11,7 @@ import Std (Bool, Doc, Eq, List, Nat, Option, Text)
 import Std.Doc (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Syntax.SharedFacts (consCong, headerResultWithin)
 
 -- A word and its calm word.
 
@@ -1149,12 +1150,6 @@ theorem prefixGood ∀ (operator: Word) (operand: Expr)
     operand.good = True :=
   Bool.andIntro (Bool.andLeft (Bool.andLeft good)) (Bool.andRight good)
 
-theorem consCong ∀ (first first': Doc) (rest rest': List Doc)
-    (sameFirst: first = first')
-    (sameRest: rest = rest'):
-    [first, ..rest] = [first', ..rest'] :=
-  rewrite sameFirst, sameRest
-
 theorem chainRightKept ∀ (level: Option Nat) (right: Expr) (around: Around)
     (good: right.good = True)
     (link: linkDocs level False (right.calm False) around = linkDocs level False right around):
@@ -1945,22 +1940,6 @@ theorem lexicalClosed ∀ (expr: Expr) (lexical: expr.lexical1 = True): expr.clo
       (lexicalClosed left (Bool.andLeft lexical))
       (lexicalClosed right (Bool.andRight (Bool.andRight lexical)))
   | Prefix operator operand => lexicalClosed operand (Bool.andRight lexical)
-
-theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
-  match header with
-    | {
-        exportKeyword = None,
-        opaqueKeyword = None,
-        kind = DefPlain,
-        keyword,
-        name,
-        forallKeyword = None,
-        params = [],
-        colon,
-        result,
-        decreasingClause = None,
-        unfoldingClause = None
-      } => Bool.andRight within
 
 theorem headerCalmWithin ∀ (header: Header) (within: header.within1 = True): header.calm.within1 = True :=
   match header with

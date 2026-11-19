@@ -45,16 +45,17 @@ import Syntax.SettleProofs (
 )
 import Syntax.SettleSplitProofs (
   codeWordsAppend,
-  arrowsBareSuffix,
   declsWordsOpen,
   endsOpen,
   endsOpenReverse,
   groupsConcat,
-  notTrueW,
   startsOpen,
   startsOpenConcat,
   trailsBackAppend
 )
+import Syntax.GlueQuietProofs (orFalseOf)
+import Syntax.ParseWalk (wordWithinWithin)
+import Syntax.SharedFacts (allJoin, arrowsBareSuffix, consCong, reverseFilled, startsHeadChar)
 
 -- What rule 1 has passed.
 
@@ -208,8 +209,6 @@ theorem matchedBare ∀ (behind: List Leaf) (done: List Word)
           match done with
             | [word, ..older] => Bool.andIntro (Bool.orRight byComputing) (matchedBare earlier older (Bool.andRight m))
 
-theorem orFalseIs ∀ (a: Bool) (h: (a || False) = True): a = True := match a with | True => byComputing
-
 --| A comment is owed only once a word has been passed.
 theorem owingNonEmpty ∀ (text: Text) (behind: List Leaf) (done: List Word)
     (owes: owing text behind done = True):
@@ -349,7 +348,7 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
           let leadingEmpty: leaf.trivia.leading.isEmpty = True := Bool.andLeft standing
           let tuck := Bool.andRight (Bool.andRight standing)
           let filled: (!done.isEmpty) = True := match owed with
-            | None => orFalseIs (!done.isEmpty) lead
+            | None => orFalseOf (!done.isEmpty) lead
             | Some text => owingNonEmpty text behind done state
           let leadNext: (!done.isEmpty || notCommaFirst after) = True := Bool.orLeft filled
           match owed, trailing: leaf.trivia.trailing with
@@ -749,7 +748,7 @@ theorem homedBackAppend ∀ (xs ys: List Word)
     homedBack (xs ++ ys) = True :=
   match xs with
     | [word] =>
-      let open := notTrueW (isCloserText word.text) ends
+      let open := Bool.notTrue (isCloserText word.text) ends
       Bool.andIntro (rewrite open) back
     | [word, next, ..rest] =>
       let ih := homedBackAppend [next, ..rest] ys ends (Bool.andRight front) back
@@ -774,17 +773,9 @@ theorem homedConcat ∀ (pieces: List (List Word))
             homedBackAppend
               (List.reverse [word, ..others])
               piece.reverse
-              (endsOpenReverse word others (notTrueW (isCloserText word.text) opens))
+              (endsOpenReverse word others (Bool.notTrue (isCloserText word.text) opens))
               rest
               (Bool.andLeft homed)
-
-theorem allJoin ∀ (xs ys: List Word) (p: Word → Bool)
-    (front: xs.all p = True)
-    (back: ys.all p = True):
-    (xs ++ ys).all p = True :=
-  match xs with
-    | [] => back
-    | [x, ..rest] => Bool.andIntro (Bool.andLeft front) (allJoin rest ys p (Bool.andRight front) back)
 
 theorem allConcat ∀ (pieces: List (List Word)) (p: Word → Bool)
     (all: pieces.all (piece => piece.all p) = True):
@@ -942,12 +933,6 @@ theorem endsQuietCons ∀ (word: Word) (rest: List Word)
     endsQuiet [word, ..rest] = True :=
   match rest with | [next, ..more] => quiet
 
-theorem wordWithin ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.within1 = True := match kind with
-  | Lower => byComputing
-  | Upper => byComputing
-  | Num => byComputing
-  | Float => byComputing
-
 theorem markedArrow ∀ (leaf: Leaf) (kind: Tok) (text: Text)
     (sameText: leaf.token.text = text)
     (sameKind: leaf.token.kind = kind)
@@ -974,7 +959,7 @@ theorem atomNotArrow ∀ (kind: Tok) (text: Text)
           let sameText: leaf.token.text = text := DecEq.sound (Bool.andLeft lexes)
           let sameKind: leaf.token.kind = kind := DecEq.sound (Bool.andRight lexes)
           let within: alphabet1 lexed.leaves = True :=
-            rewrite leaves then Bool.andIntro (rewrite sameKind then wordWithin kind word) byComputing
+            rewrite leaves then Bool.andIntro (rewrite sameKind then wordWithinWithin kind word) byComputing
           let laid := lexLaid1 text lexed ran within
           let all: lexed.leaves.all Leaf.marked = True := Bool.andLeft (Bool.andRight laid)
           markedArrow leaf kind text sameText sameKind
@@ -1521,16 +1506,6 @@ theorem notesTexts ∀ (notes: List Note) (rest: List Text)
     | [] => byComputing
     | [note, ..more] => Bool.andIntro (Bool.andLeft texts) (notesTexts more rest (Bool.andRight texts))
 
-theorem reverseOntoFilled ∀ (xs acc: List Char) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
-  match xs with
-    | [] => filled
-    | [x, ..rest] => reverseOntoFilled rest [x, ..acc] byComputing
-
-theorem startsHead ∀ (mark: Char) (ys zs: List Char)
-    (filled: ys.isEmpty = False):
-    Text.startsWithChars [mark] (ys ++ zs) = Text.startsWithChars [mark] ys :=
-  match ys with | [y, ..more] => byComputing
-
 --| Characters that end in neither a carriage return nor a space keep all of them when the lexer takes those off the
 --| end.
 theorem trimReturnsSame ∀ (chars: List Char)
@@ -1553,12 +1528,12 @@ theorem trimReturnsSame ∀ (chars: List Char)
                   Void.impossible (Bool.trueNotFalse (rewrite same at unspaced then unspaced))
                 | False => byComputing
         | [next, ..more] =>
-          let filled: (List.reverse [next, ..more]).isEmpty = False := reverseOntoFilled more [next] byComputing
+          let filled: (List.reverse [next, ..more]).isEmpty = False := reverseFilled more [next] byComputing
           let tail: Text.startsWithChars ['\r'] (List.reverse [next, ..more]) = False :=
-            rewrite <- startsHead '\r' (List.reverse [next, ..more]) [char] filled then
+            rewrite <- startsHeadChar '\r' (List.reverse [next, ..more]) [char] filled then
               rewrite List.reverseCons char [next, ..more] at plain then plain
           let tailSpace: Text.startsWithChars [' '] (List.reverse [next, ..more]) = False :=
-            rewrite <- startsHead ' ' (List.reverse [next, ..more]) [char] filled then
+            rewrite <- startsHeadChar ' ' (List.reverse [next, ..more]) [char] filled then
               rewrite List.reverseCons char [next, ..more] at unspaced then unspaced
           let same := trimReturnsSame [next, ..more] tail tailSpace
           match cut: char == '\r' with
@@ -1927,8 +1902,6 @@ theorem flushTokens ∀ (current other: List Leaf) (groups others: List (List Le
         _ = (tokens [second, ..later]).reverse := Eq.cong (all => all.reverse) sameCurrent
         _ = tokens [second, ..later].reverse := Eq.flipped (tokensReverse [second, ..later])
       consCong _ _ _ _ reversed sameGroups
-
-theorem consCong ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] := rewrite head, tail
 
 -- Standing, group by group.
 

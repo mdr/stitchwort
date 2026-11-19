@@ -256,7 +256,7 @@ theorem wordNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
     text.toList.takeWhile isWordChar ≠ ['i', 'n'] :=
   same =>
     let whole: text.toList.takeWhile isWordChar = text.toList :=
-      rewrite split, Syntax.Proofs.wordStartIsChar first starts, takeWhileAll isWordChar others word
+      rewrite split, Syntax.SharedFacts.wordStartChar first starts, takeWhileAll isWordChar others word
     let named: text = "in" := Eq.trans (Text.fromToList text).flipped (rewrite (Eq.trans whole.flipped same))
     notIn (rewrite named at kinded then kinded)
 
@@ -286,7 +286,7 @@ theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
           takeWhileJoin isWordChar
             [first, ..others]
             (qualChars [(letter, letters), ..more])
-            (Bool.andIntro (Syntax.Proofs.wordStartIsChar first starts) word)
+            (Bool.andIntro (Syntax.SharedFacts.wordStartChar first starts) word)
             byComputing
       let head := List.consInjectiveHead first 'i' others ['n'] (Eq.trans whole.flipped same)
       let notUpper: first.isAsciiUppercase = False := rewrite head
@@ -1024,13 +1024,6 @@ theorem argumentsPrintable ∀ (arguments: List Expr)
         (exprPrintable argument False (Bool.andLeft within) (Bool.andLeft sound) (Bool.andLeft lexical) first)
         (argumentsPrintable rest (Bool.andRight within) (Bool.andRight sound) (Bool.andRight lexical) others)
 
---| An opening or closing bracket's words are pieces the lexer proofs can read.
-theorem bracketPrintable ∀ (word: Word) (kind: Tok) (hoisted: Bool)
-    (sound: word.sound = True)
-    (spells: Spells kind word.text):
-    Every (Printable lexKind) (word.spelledAt hoisted) :=
-  wordPrintable word kind hoisted sound spells
-
 --| The tokens of an expression, with their comments, are pieces the lexer proofs can read.
 --|
 --| Proof idea: Induction on the expression: each token by `wordPrintable` with its spelling, the pieces in order by
@@ -1048,12 +1041,12 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
         (open.spelledAt hoisted)
         (inner.spelt False)
         (close.spelledAt False)
-        (bracketPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
+        (wordPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
         (exprPrintable inner False within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight (Bool.andRight lexical))
           innerSpelled)
-        (bracketPrintable close RParen False
+        (wordPrintable close RParen False
           (Bool.andRight (Bool.andRight sound))
           (DecEq.sound (Bool.andLeft (Bool.andRight lexical))))
     | Tuple open items comma close, itemsSpelled =>
@@ -1062,12 +1055,12 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
         (open.spelledAt hoisted)
         (commaSpelt items)
         (close.spelledAt False)
-        (bracketPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
+        (wordPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
         (commaPrintable items within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight (Bool.andRight lexical))
           itemsSpelled)
-        (bracketPrintable close RParen False
+        (wordPrintable close RParen False
           (Bool.andRight (Bool.andRight sound))
           (DecEq.sound (Bool.andLeft (Bool.andRight lexical))))
     | ListOf open items comma close, itemsSpelled =>
@@ -1076,12 +1069,12 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
         (open.spelledAt hoisted)
         (commaSpelt items)
         (close.spelledAt False)
-        (bracketPrintable open LBracket hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
+        (wordPrintable open LBracket hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
         (commaPrintable items within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight (Bool.andRight lexical))
           itemsSpelled)
-        (bracketPrintable close RBracket False
+        (wordPrintable close RBracket False
           (Bool.andRight (Bool.andRight sound))
           (DecEq.sound (Bool.andLeft (Bool.andRight lexical))))
     | App head arguments, (headSpelled, argumentsSpelled) =>

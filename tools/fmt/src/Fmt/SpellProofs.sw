@@ -12,16 +12,8 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
-import Fmt.CalmProofs (
-  bracketFrom,
-  bracketIs,
-  headerResultWithin,
-  lambdaHugNone,
-  matchedNone,
-  plainDef,
-  plainDefIs,
-  valueElPlain
-)
+import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
+import Syntax.SharedFacts (headerResultWithin)
 
 --| A closer the rules write: a closing bracket or a comma.
 def closesText (text: Text): Prop := isCloserText text = True ∨ text = ","

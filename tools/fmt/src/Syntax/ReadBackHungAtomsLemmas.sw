@@ -13,7 +13,8 @@ import Syntax.ReadBackLine (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungBounds (..)
 import Syntax.ReadBackHungFrame (speltEnters, speltHangs)
-import Syntax.ReadBackHungFrameLemmas (commaStep, commaParts, exampleLeaf, leavesOfAppend, infixIsFlat, flatParts)
+import Syntax.ReadBackHungFrameLemmas (commaStep, exampleLeaf, leavesOfAppend, infixIsFlat, flatParts)
+import Syntax.SharedFacts (commaNotCloser)
 
 --| The line rule over the leaves after the first, from the state the first left.
 theorem hungStep ∀ (state: HangState) (leaf: Leaf) (rest: List Leaf)
@@ -169,7 +170,7 @@ theorem commaNext ∀ (state next: HangState) (leaf: Leaf)
         | [block, ..outer] =>
           commaStep { blocks = [block, ..outer], top, start, glue } next leaf block outer comma byComputing stepped
         | [] =>
-          let notCloser := commaParts leaf.token.kind comma
+          let notCloser := commaNotCloser leaf.token.kind comma
           rewrite notCloser, comma at stepped then cases
 
 --| An item entered at the start of a bracket's item leaves the next item's start where it was.

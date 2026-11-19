@@ -8,6 +8,10 @@
 //! exclusive: a library file loads in the middle of the namespace that needs
 //! it, and its time and terms count against the file, not the namespace.
 //!
+//! `stitchwort check --timings[=all|N]` turns the tables on too, and says
+//! how many declarations to list (20 by default). A namespace the check
+//! cache answered for is a row marked `(cached)`.
+//!
 //! A second table lists declarations, slowest first (elaboration plus kernel
 //! time), with their full names: a component of mutually recursive
 //! declarations is one row. Besides the times it shows the evaluation steps
@@ -25,24 +29,41 @@
 //! read of a cached flag.
 
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use stitchwort_core::budget::Peaks;
 use stitchwort_core::{Ev, Term};
 
-/// Whether `STITCHWORT_TIMINGS` is set. Read once.
+/// How many declarations `check --timings` asked the tables to list; 0 if
+/// it wasn't given.
+static REQUESTED: AtomicUsize = AtomicUsize::new(0);
+
+/// Turns the tables on for a run, listing `shown` declarations
+/// (`check --timings`). Call it before any checking starts.
+pub fn request(shown: usize) {
+    REQUESTED.store(shown.max(1), Ordering::Relaxed);
+}
+
+/// Whether the tables are on: `check --timings`, or `STITCHWORT_TIMINGS`
+/// set (read once).
 #[inline]
 pub fn enabled() -> bool {
     static ON: OnceLock<bool> = OnceLock::new();
     *ON.get_or_init(|| std::env::var_os("STITCHWORT_TIMINGS").is_some())
+        || REQUESTED.load(Ordering::Relaxed) != 0
 }
 
-/// How many declarations the second table lists.
+/// How many declarations the second table lists: what `--timings` asked
+/// for, else the variable's count (`decls` is all), else 20.
 fn decls_shown() -> usize {
-    match std::env::var("STITCHWORT_TIMINGS") {
-        Ok(v) if v == "decls" => usize::MAX,
-        _ => 20,
+    match REQUESTED.load(Ordering::Relaxed) {
+        0 => match std::env::var("STITCHWORT_TIMINGS") {
+            Ok(v) if v == "decls" => usize::MAX,
+            _ => 20,
+        },
+        n => n,
     }
 }
 
@@ -189,6 +210,20 @@ pub(crate) fn end(g: &Ev, label: String) {
         nodes: nodes - frame.child_nodes,
         decls: decls - frame.child_decls,
     });
+}
+
+/// Records namespace `ns`, which the check cache answered for without
+/// elaborating anything: a row marked `(cached)`, with no time to show.
+pub fn cached_namespace(ns: &str) {
+    if enabled() {
+        ROWS.lock().unwrap().push(Row {
+            label: format!("{ns} (cached)"),
+            elab: Duration::ZERO,
+            kernel: Duration::ZERO,
+            nodes: 0,
+            decls: 0,
+        });
+    }
 }
 
 /// Starts checking a declaration (a component of them).
@@ -347,6 +382,8 @@ pub fn report() {
 fn report_decls() {
     let mut rows = DECL_ROWS.lock().unwrap();
     if rows.is_empty() {
+        eprintln!();
+        eprintln!("no declarations were checked");
         return;
     }
     rows.sort_by(|a, b| {
@@ -363,15 +400,16 @@ fn report_decls() {
         .max(11);
     eprintln!();
     eprintln!(
-        "{:<width$}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
-        "declaration", "elab ms", "kernel ms", "steps", "nodes", "read-back", "frames"
+        "{:<width$}  {:>10}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
+        "declaration", "elab ms", "kernel ms", "total ms", "steps", "nodes", "read-back", "frames"
     );
     for r in &rows[..shown] {
         eprintln!(
-            "{:<width$}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
+            "{:<width$}  {:>10}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
             r.label,
             ms(r.elab),
             ms(r.kernel),
+            ms(r.elab + r.kernel),
             r.steps,
             r.nodes,
             r.peaks.readback,
@@ -380,7 +418,7 @@ fn report_decls() {
     }
     if shown < rows.len() {
         eprintln!(
-            "({} more; STITCHWORT_TIMINGS=decls lists every declaration)",
+            "({} more; --timings=all lists every declaration)",
             rows.len() - shown
         );
     }

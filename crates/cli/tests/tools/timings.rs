@@ -13,7 +13,7 @@ fn source_file(name: &str, source: &str) -> PathBuf {
     path
 }
 
-/// A row of the declaration table: name, elaboration ms, kernel ms, steps,
+/// A row of the declaration table: name, elaboration ms, kernel ms, total ms, steps,
 /// nodes, largest read-back, most frames.
 struct Row {
     name: String,
@@ -43,18 +43,18 @@ fn declaration_rows(path: &PathBuf, value: &str) -> (Vec<Row>, String) {
     let mut after = String::new();
     for line in lines.by_ref() {
         // The name may contain spaces (`Main.test "x"`, `Main.a, Main.b`):
-        // the six numbers are the last six columns.
+        // the seven numbers are the last seven columns.
         let words: Vec<&str> = line.split_whitespace().collect();
         let numbers: Option<Vec<f64>> = words
             .iter()
             .rev()
-            .take(6)
+            .take(7)
             .map(|w| w.parse::<f64>().ok())
             .collect();
         match numbers {
-            Some(n) if words.len() > 6 => rows.push(Row {
-                name: words[..words.len() - 6].join(" "),
-                ms: n[5] + n[4],
+            Some(n) if words.len() > 7 => rows.push(Row {
+                name: words[..words.len() - 7].join(" "),
+                ms: n[4],
                 steps: n[3] as u64,
                 nodes: n[2] as u64,
                 readback: n[1] as u64,
@@ -128,7 +128,7 @@ fn declarations_are_listed_slowest_first_with_full_names() {
     assert_eq!(
         after,
         format!(
-            "({} more; STITCHWORT_TIMINGS=decls lists every declaration)",
+            "({} more; --timings=all lists every declaration)",
             all.len() - 20
         )
     );
@@ -198,4 +198,78 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
         row.split_whitespace().collect::<Vec<_>>(),
         ["Main.t", "205", "5"]
     );
+}
+
+/// `check --timings[=all|N]`: the namespace table, then the declaration
+/// table with elaboration, kernel and total times, slowest first. Asserts
+/// on the layout, not the numbers.
+#[test]
+fn check_timings_lists_namespaces_and_declarations() {
+    let base = std::env::temp_dir().join(format!("stitchwort-timings-flag-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let dir = base.join("proj");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "").unwrap();
+    std::fs::write(
+        dir.join("src/a.sw"),
+        "namespace A\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n\ndef three: Nat := 3\n",
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("check")
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .expect("run stitchwort");
+        assert!(out.status.success(), "{out:?}");
+        String::from_utf8_lossy(&out.stderr).into_owned()
+    };
+
+    // Cold: the project's own declarations, by full name.
+    let stderr = run(&["--no-cache", "--timings=all", "A"]);
+    let table: Vec<&str> = stderr
+        .lines()
+        .skip_while(|l| !l.starts_with("declaration "))
+        .collect();
+    let header: Vec<&str> = table[0].split_whitespace().collect();
+    assert_eq!(
+        header[..8],
+        [
+            "declaration",
+            "elab",
+            "ms",
+            "kernel",
+            "ms",
+            "total",
+            "ms",
+            "steps"
+        ]
+    );
+    for name in ["A.one", "A.two", "A.three"] {
+        assert!(
+            table.iter().any(|l| l.starts_with(&format!("{name} "))),
+            "{name} missing:\n{stderr}"
+        );
+    }
+    assert!(stderr.lines().any(|l| l.starts_with("A ")), "{stderr}");
+    assert!(stderr.lines().any(|l| l.starts_with("total ")), "{stderr}");
+
+    // A count limits the table and says how many it left out.
+    let stderr = run(&["--no-cache", "--timings=2", "A"]);
+    assert!(
+        stderr.contains("more; --timings=all lists every declaration)"),
+        "{stderr}"
+    );
+    // Without the flag, nothing is printed.
+    let stderr = run(&["--no-cache", "A"]);
+    assert!(!stderr.contains("declaration "), "{stderr}");
+
+    // Warm: the namespace comes from the cache, and is marked, not timed.
+    run(&["A"]);
+    let stderr = run(&["--timings", "A"]);
+    assert!(stderr.contains("A (cached)"), "{stderr}");
+    // Its declarations weren't checked, so they have no rows.
+    let stderr = run(&["--timings=all", "A"]);
+    assert!(!stderr.contains("A.one"), "{stderr}");
 }

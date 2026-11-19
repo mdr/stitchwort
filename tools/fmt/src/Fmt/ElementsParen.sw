@@ -26,8 +26,7 @@ import Fmt.HeldParenProofs (
   heldCloser,
   heldFits,
   lineOpeningHangs,
-  parenHeldHangs,
-  bareLeading
+  parenHeldHangs
 )
 import Fmt.ExprHangProofs (wordFacts)
 import Fmt.SpellProofs (firstWordLead)
@@ -151,7 +150,7 @@ theorem framedInnerLowers ∀ (expr: Expr) (first: Word) (doc: Doc) (around: Aro
         match above: first.comments.above with
           | [note, ..rest] => notedFramedLowers first around doc indent low note rest hoisted above closer framedKeys,
       bare before =>
-        let unled := bareLeading first around around.at hoisted bare single
+        let unled := bareCloserLeading first around around.at hoisted bare single
         framedLowers first around doc indent low unled before
           (rewrite framedDisplaced first around doc unled before at framedKeys then framedKeys)
     )

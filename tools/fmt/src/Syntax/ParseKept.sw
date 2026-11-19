@@ -294,15 +294,6 @@ theorem namelessAutoOfImplicit ∀ (fuel: Nat) (item: Item) (later: List Item) (
         _ = True := Eq.trans on isTrue
       (Bool.falseNotTrue wrong).impossible
 
---| What a run read is a start of the input from its mark: the rest is what it left.
-theorem readsAtRest ∀ [start: Parse.Mark Item] [p: () → {Parse Item} a] [spec: List Item → a → Prop]
-    (reads: Parse.ReadsAt start p spec):
-    Parse.ReadsAt start p (read value => spec read value ∧ ∃ (rest: List Item) => start.rest = read ++ rest) :=
-  total state value after here honest h =>
-    match reads total state value after here honest h with
-      | Witness read (Both starts (Both honestAfter holds)) =>
-        Witness read (Both starts (Both honestAfter (Both holds (Witness after.rest starts))))
-
 --| What `modes.peek` gives, from a mark.
 theorem readsAtPeekValue ∀ (start: Parse.Mark Item) (modes: Modes):
     Parse.ReadsAt start (() => modes.peek) (read found => read = [] ∧ found = peekIn modes 0 start.rest) :=

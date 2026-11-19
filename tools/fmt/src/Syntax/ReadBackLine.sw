@@ -24,10 +24,6 @@ import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
 import Syntax.AutoPlaced (..)
 
-theorem notTrueFalse ∀ (b: Bool) (no: (!b) = True): b = False := match b, no with
-  | False, _ => byComputing
-  | True, never => (Bool.falseNotTrue never).impossible
-
 --| Modes in which nothing but a line start stops a reading: no guard, `calc` or `rewrite` rule, as in a declaration's
 --| type and body, inside their brackets, and in a block's line.
 type Quiet (modes: Modes): Prop = {
@@ -49,7 +45,7 @@ theorem openHeadOf ∀ (modes: Modes) (item: Item) (later: List Item)
 theorem openHeadStops ∀ (modes: Modes) (item: Item) (later: List Item)
     (open: openHead modes [item, ..later] = True):
     modes.stops item = False :=
-  notTrueFalse _ open
+  Bool.notTrue _ open
 
 theorem quietPeekSecond ∀ (modes: Modes) (first second: Item) (later: List Item)
     (open1: modes.stops first = False)
@@ -572,10 +568,6 @@ def headPlain: List Item → Bool
   | [] => True
   | [item, .._] => !item.kind.isSectionOperator
 
-theorem orTrueRight ∀ (a: Bool): (a || True) = True := match a with
-  | True => byComputing
-  | False => byComputing
-
 theorem ontoAppend ∀ (first rest found: List Item):
     List.reverseOnto (first ++ rest) found = List.reverseOnto rest (List.reverseOnto first found) :=
   match first with
@@ -816,7 +808,7 @@ theorem rightClosed ∀ (first: Item) (body: List Item) (last: Item) (rest: List
       | [] => byComputing
       | [lastItem, ..more] =>
         let lastPlain: headPlain [lastItem, ..more] = True := rewrite <- backwards then plain
-        rewrite notTrueFalse lastItem.kind.isSectionOperator lastPlain
+        rewrite Bool.notTrue lastItem.kind.isSectionOperator lastPlain
 
 theorem startFacts ∀ (kind: Tok)
     (starts: startKind kind = True):
@@ -988,7 +980,7 @@ theorem noAutoFirst ∀ (expr: Expr) (item: Item) (read later: List Item)
       rewrite isRead then
         match later, upper with
           | [], _ => byComputing
-          | [third, .._], upper => andFalseRight _ _ _ (notTrueFalse _ upper)
+          | [third, .._], upper => andFalseRight _ _ _ (Bool.notTrue _ upper)
     | Paren _ _ _, (second, _, _, isRead, isOpen, _), _ => rewrite isRead then autoSecond item second _ (rewrite isOpen)
     | Tuple _ [_, _, .._] _ _, (second, _, _, _, _, _, isRead, _, isOpen, _), _ =>
       rewrite isRead then autoSecond item second _ (rewrite isOpen)
@@ -1321,7 +1313,7 @@ def opTok (tok: Tok): Bool := tok == Arrow || binaryTok tok
 theorem infixOp ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = True): opTok tok = True :=
   match kind, isOp with
     | InfixArrow, isOp => rewrite DecEq.sound isOp
-    | InfixBinary, isOp => rewrite isOp then orTrueRight (tok == Arrow)
+    | InfixBinary, isOp => rewrite isOp then Bool.orTrue (tok == Arrow)
     | _, never => (Bool.falseNotTrue never).impossible
 
 --| An operator is no bracket, field, argument, `cases`, range, pipe or `<->`, and its rung is at least 1.
@@ -1443,7 +1435,7 @@ theorem prefixApart ∀ (op: Item) (after: List Item)
   match after, apart with
     | [], _ => byComputing
     | [next, .._], apart =>
-      rewrite notTrueFalse _ apart then
+      rewrite Bool.notTrue _ apart then
         match op.kind == Minus || op.kind == Bang with
           | False => byComputing
           | True =>

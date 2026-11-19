@@ -11,6 +11,7 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Fmt.Grammar1 (..)
 import Fmt.Kinds1 (..)
+import Syntax.SharedFacts (headerResultWithin)
 
 -- What each level of the recursion gives.
 
@@ -1658,19 +1659,12 @@ theorem givesUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 -- The operator ladder, from `unary` down.
 
-theorem givesUnaryOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (nested: Nested self)
-    (outside: OutsideBraced self)
-    (bases: AtomBases self):
-    Parse.Gives GoodItems (() => unary self modes) (Parsed1 18) :=
-  givesUnary self modes nested outside bases
-
 theorem givesMulOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16) :=
-  givesMulExpr self modes (givesUnaryOf self modes nested outside bases)
+  givesMulExpr self modes (givesUnary self modes nested outside bases)
 
 theorem givesAddOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -2744,7 +2738,7 @@ theorem givesExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
         | LevelAppend => givesAppendOf self modes nested outside.below.below.below.below bases
         | LevelAdditive => givesAddOf self modes nested outside.below.below.below.below bases
         | LevelMultiplicative => givesMulOf self modes nested outside.below.below.below.below bases
-        | LevelUnary => givesUnaryOf self modes nested outside.below.below.below.below bases
+        | LevelUnary => givesUnary self modes nested outside.below.below.below.below bases
         | LevelArgument => readsArgumentAtom self modes outside.below.below.below.below.below bases
         | LevelApp => givesAppAny self modes nested outside.below.below.below.below bases
         | LevelThenBody => givesThenBody self modes nested outside bases
@@ -6899,26 +6893,6 @@ theorem headerNameKind ∀ (header: Header)
           match (Bool.orReads _ _).forward (Bool.andLeft within) with
             | Inl lower => (Bool.orReads _ _).backward (Inl (Bool.andLeft lower))
             | Inr upper => (Bool.orReads _ _).backward (Inr (Bool.andLeft upper))
-        | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
-          (Bool.falseNotTrue within).impossible
-
-theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
-  match header with
-    | {
-        exportKeyword,
-        opaqueKeyword,
-        kind,
-        keyword,
-        name,
-        forallKeyword,
-        params,
-        colon,
-        result,
-        decreasingClause,
-        unfoldingClause
-      } =>
-      match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
-        | None, None, DefPlain, None, [], None, None, within => Bool.andRight within
         | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
           (Bool.falseNotTrue within).impossible
 

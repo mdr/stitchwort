@@ -108,13 +108,6 @@ def AttributeAlike (attribute twin: Attribute): Prop := attributeBlank attribute
 
 def AttributeGroupAlike (attributes twin: Attributes): Prop := blankAttributes attributes = blankAttributes twin
 
-theorem optionWordBlank ∀ (word twin: Option Word)
-    (alike: Option.Alike WordsAlike word twin):
-    word.map Word.blank = twin.map Word.blank :=
-  match word, twin with
-    | Some x, Some y => Eq.cong (found => Some found) alike
-    | None, None => byComputing
-
 theorem dottedAlike ∀ (parts twins: List (Comments, Word))
     (alike: List.All2 (PairAlike Anything WordsAlike) parts twins):
     blankDottedParts parts = blankDottedParts twins :=
@@ -137,7 +130,7 @@ theorem alikeAttribute ∀ (name nameTwin: Word)
   calc attributeBlank { name, parts, argument }
     _ = { name = name.blank, parts = blankDottedParts parts, argument = argument.map Word.blank } := byComputing
     _ = { name = nameTwin.blank, parts = blankDottedParts partsTwin, argument = argumentTwin.map Word.blank } :=
-      rewrite names, dottedAlike parts partsTwin partses, optionWordBlank argument argumentTwin arguments
+      rewrite names, dottedAlike parts partsTwin partses, keywordBlank argument argumentTwin arguments
     _ = attributeBlank { name = nameTwin, parts = partsTwin, argument = argumentTwin } := byComputing
 
 theorem attributeItemsCons ∀ (item: Attribute) (rest: List Attribute):
@@ -204,14 +197,6 @@ theorem walkAttributesAlike ∀ (items twins: List Attributes)
 
 -- Attributes.
 
-theorem all2Empty ∀ [r: a → b → Prop] (xs: List a) (ys: List b) (alike: List.All2 r xs ys): xs.isEmpty = ys.isEmpty :=
-  match xs, ys with
-    | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] => byComputing
-
-theorem wordText ∀ (word twin: Word) (alike: WordsAlike word twin): word.text = twin.text :=
-  Eq.cong (found => found.text) alike
-
 theorem followsLowerQualifiedOn ∀ (modes: Modes) (what: Text) (seen: Option Tok):
     Parse.Follows SameCode WordsAlike (() => modes.lowerQualifiedOn what seen) (() =>
       modes.lowerQualifiedOn what seen) :=
@@ -239,7 +224,7 @@ theorem followsUpperQualified ∀ (modes: Modes) (what: Text):
 theorem followsUpper ∀ (modes: Modes) (what: Text):
     Parse.Follows SameCode WordsAlike (() => modes.upper what) (() => modes.upper what) :=
   Parse.followsThen (followsUpperQualified modes what) (name nameTwin names =>
-    rewrite wordText name nameTwin names then
+    rewrite wordTextSame name nameTwin names then
       match nameTwin.text.contains "." with
         | True => followsFatalAny _ _
         | False => Parse.followsDone name nameTwin names)
@@ -334,7 +319,7 @@ theorem followsAttributeItemsAt ∀ (more: Nat) (modes: Modes)
       (PairAlike (List.All2 AttributeAlike) Same)
       (() => attributeItemsAt more modes found closed)
       (() => attributeItemsAt more modes twins closed) :=
-  let empties: found.isEmpty = twins.isEmpty := all2Empty found twins founds
+  let empties: found.isEmpty = twins.isEmpty := listsEmpty found twins founds
   rewrite empties then
     match closed && !twins.isEmpty with
       | True =>
@@ -416,30 +401,11 @@ theorem followsAttributesOf ∀ (modes: Modes):
 
 -- Groups.
 
-theorem wordsBlankAlike ∀ (words twins: List Word)
-    (alike: List.All2 WordsAlike words twins):
-    blankWords words = blankWords twins :=
-  match words, twins with
-    | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] =>
-      let (head, tail) := alike
-      calc blankWords [x, ..xs]
-        _ = [x.blank, ..blankWords xs] := byComputing
-        _ = [y.blank, ..blankWords ys] := rewrite head, wordsBlankAlike xs ys tail
-        _ = blankWords [y, ..ys] := byComputing
-
 theorem commentsBlankAlike ∀ (found twin: Option Comments)
     (alike: Option.Alike Anything found twin):
     blankComments found = blankComments twin :=
   match found, twin with
     | Some x, Some y => byComputing
-    | None, None => byComputing
-
-theorem optionalWalkAlike ∀ (found twin: Option Expr)
-    (alike: Option.Alike ExprsAlike found twin):
-    walkOptional blankPure found = walkOptional blankPure twin :=
-  match found, twin with
-    | Some x, Some y => Eq.cong (value => Some value) alike
     | None, None => byComputing
 
 theorem afterAlike ∀ (found twin: Option (Comments, Expr))
@@ -507,9 +473,9 @@ theorem alikeGroup ∀ (kind: GroupKind) (implicit: Bool)
       } :=
       rewrite walkAttributesAlike attributes twinAttributes attributeses,
           commentsBlankAlike auto autoTwin autos,
-          wordsBlankAlike names twinNames nameses,
+          namesBlank names twinNames nameses,
           commentsBlankAlike colon colonTwin colons,
-          optionalWalkAlike annotation annotationTwin annotations,
+          walkOptionalAlike annotation annotationTwin annotations,
           afterAlike default defaultTwin defaults
     _ = ({
             kind,
@@ -809,7 +775,7 @@ theorem autoSplitAlike ∀ (implicit: Bool) (names namesTwin: List Word)
     | [], [] => (Trivial, Trivial)
     | [word], [twin] => (Trivial, alike)
     | [word, second, ..more], [twin, secondTwin, ..moreTwin] =>
-      rewrite wordText word twin alike.left then
+      rewrite wordTextSame word twin alike.left then
         match implicit && twin.text == "auto" with
           | True => (Trivial, alike.right)
           | False => (Trivial, alike)
@@ -889,7 +855,7 @@ theorem followsHeaderGroupNames ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => headerGroupNames selfTwin inner kind refused implicit startedTwin openTwin namesTwin typeFollows) :=
   match names, namesTwin with
     | [auto], [autoTwin] =>
-      let texts: auto.text = autoTwin.text := wordText auto autoTwin nameses.left
+      let texts: auto.text = autoTwin.text := wordTextSame auto autoTwin nameses.left
       let guards: (implicit && auto.text == "auto" && typeFollows)
         = (implicit && autoTwin.text == "auto" && typeFollows) :=
         Eq.cong (text => implicit && text == "auto" && typeFollows) texts
@@ -1343,7 +1309,7 @@ theorem implicitAutoAlike ∀ (first firstTwin: Word)
   match rest, restTwin with
     | [], [] => (Trivial, Both firsts Trivial)
     | [second, ..more], [secondTwin, ..moreTwin] =>
-      let texts: first.text = firstTwin.text := wordText first firstTwin firsts
+      let texts: first.text = firstTwin.text := wordTextSame first firstTwin firsts
       let guards: (first.text == "auto") = (firstTwin.text == "auto") := Eq.cong (text => text == "auto") texts
       match which: first.text == "auto", twin: firstTwin.text == "auto" with
         | True, True => (Trivial, rests)
@@ -1480,7 +1446,7 @@ theorem unfoldingBlankAlike ∀ (found twin: Option (Comments, List Word))
     blankUnfolding found = blankUnfolding twin :=
   match found, twin with
     | Some (c, names), Some (d, namesTwin) =>
-      let same: blankWords names = blankWords namesTwin := wordsBlankAlike names namesTwin alike.right
+      let same: blankWords names = blankWords namesTwin := namesBlank names namesTwin alike.right
       calc blankUnfolding (Some (c, names))
         _ = Some (Comments.none, blankWords names) := byComputing
         _ = Some (Comments.none, blankWords namesTwin) := rewrite same
@@ -1568,7 +1534,7 @@ theorem alikeHeader ∀ (exportKeyword exportTwin opaqueKeyword opaqueTwin: Opti
       rewrite commentsBlankAlike exportKeyword exportTwin exports,
           commentsBlankAlike opaqueKeyword opaqueTwin opaques,
           names,
-          optionWordBlank forallKeyword forallTwin foralls,
+          keywordBlank forallKeyword forallTwin foralls,
           groupsBlankAlike params paramsTwin paramses,
           results,
           afterAlike decreasingClause decreasingTwin decreasings,
@@ -2864,7 +2830,8 @@ theorem followsImportAliasWord ∀ (modes: Modes) (name nameTwin: Word)
     | [alias, ..rest], [aliasTwin, ..restTwin] =>
       let guards := importNameGuard modes alias aliasTwin same.left
       let texts: alias.text = aliasTwin.text := deafItem Item.text itemTextDeaf alias aliasTwin same.left
-      let upper: startsUpper name.text = startsUpper nameTwin.text := Eq.cong startsUpper (wordText name nameTwin names)
+      let upper: startsUpper name.text = startsUpper nameTwin.text :=
+        Eq.cong startsUpper (wordTextSame name nameTwin names)
       match first: (alias.kind == Lower || alias.kind == Upper)
         && !isQualified alias
         && !modes.stops alias, second: (aliasTwin.kind == Lower || aliasTwin.kind == Upper)
@@ -2949,7 +2916,7 @@ theorem followsImportStop ∀ (modes: Modes) (path pathTwin: Word) (found twins:
     (founds: List.All2 ImportItemAlike found twins) (dots: Bool):
     Parse.Follows SameCode (List.All2 ImportItemAlike) (() => importStop modes path found dots) (() =>
       importStop modes pathTwin twins dots) :=
-  let empties: found.isEmpty = twins.isEmpty := all2Empty found twins founds
+  let empties: found.isEmpty = twins.isEmpty := listsEmpty found twins founds
   rewrite empties then
     match dots && !twins.isEmpty with
       | True => followsFatalAny _ (() => Syntax.fatal (mixedImport pathTwin))
@@ -4458,7 +4425,7 @@ theorem followsDeclarationEnd ∀ (modes: Modes) (decl declTwin: Decl)
     (same: List.All2 SameCode items others):
     Parse.Follows SameCode DeclsAlike (() => declarationEnd modes decl items) (() =>
       declarationEnd modes declTwin others) :=
-  let empties: items.isEmpty = others.isEmpty := all2Empty items others same
+  let empties: items.isEmpty = others.isEmpty := listsEmpty items others same
   rewrite empties then
     match others.isEmpty with
       | True => Parse.followsDone decl declTwin decls

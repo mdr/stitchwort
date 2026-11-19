@@ -88,16 +88,6 @@ theorem allCons ∀ (x: a) (xs: List a) (p: a → Bool) (all: [x, ..xs].all p = 
     | True, all => (byComputing, all)
     | False, never => (Bool.falseNotTrue never).impossible
 
-theorem wordsAppendAll ∀ (xs ys: List Word) (p: Word → Bool)
-    (all: (xs ++ ys).all p = True):
-    xs.all p = True ∧ ys.all p = True :=
-  match xs, all with
-    | [], all => (byComputing, all)
-    | [first, ..rest], all =>
-      let (head, tail) := allCons first (rest ++ ys) p all
-      let (front, back) := wordsAppendAll rest ys p tail
-      (rewrite head then front, back)
-
 --| Comments filtered out leave nothing.
 theorem commentsDropped ∀ (texts: List Text) (all: texts.all commentText = True): texts.filter notComment = [] :=
   match texts, all with
@@ -142,7 +132,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
   match expr, within with
     | Atom _ word, _ => wordDropsComments word hoisted (allCons word [] Word.clean1 clean).left
     | Paren open inner close, within =>
-      let (front, back) := wordsAppendAll [open, ..inner.words] [close] Word.clean1 clean
+      let (front, back) := allSplitBool [open, ..inner.words] [close] Word.clean1 clean
       let (openClean, innerClean) := allCons open inner.words Word.clean1 front
       rewrite List.filterAppend (open.spelledAt hoisted) (inner.spelt False ++ close.spelledAt False) notComment,
           List.filterAppend (inner.spelt False) (close.spelledAt False) notComment,
@@ -150,7 +140,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
           codeTextsOf inner False within innerClean,
           wordDropsComments close False (allCons close [] Word.clean1 back).left
     | Tuple open items _ close, within =>
-      let (front, back) := wordsAppendAll [open, ..itemsWords items] [close] Word.clean1 clean
+      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean1 clean
       let (openClean, itemsClean) := allCons open (itemsWords items) Word.clean1 front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
           List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
@@ -158,7 +148,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
           commaTextsOf items within itemsClean,
           wordDropsComments close False (allCons close [] Word.clean1 back).left
     | ListOf open items _ close, within =>
-      let (front, back) := wordsAppendAll [open, ..itemsWords items] [close] Word.clean1 clean
+      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean1 clean
       let (openClean, itemsClean) := allCons open (itemsWords items) Word.clean1 front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
           List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
@@ -166,7 +156,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
           commaTextsOf items within itemsClean,
           wordDropsComments close False (allCons close [] Word.clean1 back).left
     | App head arguments, within =>
-      let (headClean, argumentsClean) := wordsAppendAll head.words (itemsWords arguments) Word.clean1 clean
+      let (headClean, argumentsClean) := allSplitBool head.words (itemsWords arguments) Word.clean1 clean
       rewrite List.filterAppend (head.spelt hoisted) (argumentsSpelt arguments) notComment,
           codeTextsOf head hoisted (Bool.andLeft within) headClean,
           argumentTextsOf arguments (Bool.andRight within) argumentsClean
@@ -193,7 +183,7 @@ theorem infixTextsOf ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right:
     (rightWithin: right.within1 = True)
     (clean: (Infix kind left operator right).words.all Word.clean1 = True):
     ((Infix kind left operator right).spelt hoisted).filter notComment = (Infix kind left operator right).codeTexts1 :=
-  let (leftClean, restClean) := wordsAppendAll left.words [operator, ..right.words] Word.clean1 clean
+  let (leftClean, restClean) := allSplitBool left.words [operator, ..right.words] Word.clean1 clean
   let (operatorClean, rightClean) := allCons operator right.words Word.clean1 restClean
   rewrite List.filterAppend (left.spelt hoisted) (operator.spelledAt False ++ right.spelt False) notComment,
       List.filterAppend (operator.spelledAt False) (right.spelt False) notComment,
@@ -207,9 +197,9 @@ theorem commaTextsOf ∀ (items: List Expr)
     (commaSpelt items).filter notComment = commaTexts1 items :=
   match items with
     | [] => byComputing
-    | [item] => codeTextsOf item False (Bool.andLeft within) (wordsAppendAll item.words [] Word.clean1 clean).left
+    | [item] => codeTextsOf item False (Bool.andLeft within) (allSplitBool item.words [] Word.clean1 clean).left
     | [item, next, ..rest] =>
-      let (itemClean, restClean) := wordsAppendAll item.words (itemsWords [next, ..rest]) Word.clean1 clean
+      let (itemClean, restClean) := allSplitBool item.words (itemsWords [next, ..rest]) Word.clean1 clean
       rewrite List.filterAppend (item.spelt False) ([","] ++ commaSpelt [next, ..rest]) notComment,
           List.filterAppend [","] (commaSpelt [next, ..rest]) notComment,
           codeTextsOf item False (Bool.andLeft within) itemClean,
@@ -222,7 +212,7 @@ theorem argumentTextsOf ∀ (arguments: List Expr)
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
-      let (argumentClean, restClean) := wordsAppendAll argument.words (itemsWords rest) Word.clean1 clean
+      let (argumentClean, restClean) := allSplitBool argument.words (itemsWords rest) Word.clean1 clean
       rewrite List.filterAppend (argument.spelt False) (argumentsSpelt rest) notComment,
           codeTextsOf argument False (Bool.andLeft within) argumentClean,
           argumentTextsOf rest (Bool.andRight within) restClean

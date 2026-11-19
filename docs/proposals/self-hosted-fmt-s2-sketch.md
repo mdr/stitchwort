@@ -54,6 +54,11 @@ list of gaps, not from the program's own idea of the slice.
   9,000-theorem question to Matt (§4 of the plan) is reached during slice
   2 on these figures; that is the checkpoint's to bring (SW-4195), not
   this note's.
+  *Corrected 19 Nov (SW-4210): the count is **2,150 to 3,450** [estimated].
+  The parser walk was priced at "16 a function"; the right rates are 1.3
+  (shape) and 1.8 (tokens kept) per function walked, so that row is 250 to
+  350, not 500 to 800 (§5.1 shows the arithmetic). Source:
+  `fmt-consolidation-statements.md`, §1 and §2.*
 - **`slice1Formats` doesn't say comments are kept.** `CommentsKept` is a
   definition with no theorem (`Fmt/Meaning.sw:288`) [source]. Slice 2's
   top statement inherits the gap; see §3.3.
@@ -436,17 +441,24 @@ actuals per parser function and per construct, not from the plan.
 | Lexer | 331 | 60–110 | nine token kinds |
 | Rule N | 523 | 60–120 | restated alphabet; no new clause |
 | Two-run parse | 1,006 | 20–40 | closing and file lemmas only |
-| Parser walk | 951 | 500–800 | 65 functions; slice 1 ran at 16 a function over 58, less the combinators that carry |
+| Parser walk | 951 | ~~500–800~~ **250–350** | 65 functions. *Corrected 19 Nov (SW-4210):* the original basis, "slice 1 ran at 16 a function over 58", divided all 951 theorems by the 58 functions slice 1 reaches, but those theorems walk about 500 functions. Measured per function walked, shape is 1.3 (665 theorems over 504) and tokens kept 1.8 (261 over 142), so 65 × 4.2 (1.75 + 1.84 + 0.65 for spec helpers) ≈ 276 to 65 × 5.4 ≈ 350 [estimated from measured rates] |
 | Read-back | 494 | 350–550 | seven rungs and the look-aheads both ways |
 | Printer: tokens, spelling, joins | 883 | 300–500 | seven node kinds against slice 1's eight, sharing the machinery |
 | Printer: layout | 1,311 | 700–1,100 | the header fill is new; the rest are arms |
 | Passes and `calm` | 292 | 250–400 | three passes × five predicates, `tidyTwice`, `Group.bare` |
 | `meaning` | 253 | 0–20 | done |
 | Top, grammar, acceptance | 188 | 150–250 | as slice 1 |
-| **Total** | **6,232** | **2,400–3,900** | |
+| **Total** | **6,232** | **~~2,400–3,900~~ 2,150–3,450** | |
+
+*Corrected 19 Nov (SW-4210).* The other nine rows are unchanged, so the
+total moves by the parser row alone: low 2,400 − 500 + 250 = **2,150**,
+high 3,900 − 800 + 350 = **3,450** [estimated]. In agent time at slice
+1's 87 theorems an hour that is 25 to 40 hours, not 28 to 45 (2,150 / 87 =
+24.7; 3,450 / 87 = 39.7).
 
 The plan's stop rules read against this table at the checkpoint: one
-layer over twice its count is re-sketched; the total over twice (7,800)
+layer over twice its count is re-sketched; the total over twice (7,800;
+*corrected 19 Nov (SW-4210): 2 × 3,450 = 6,900*)
 stops the slice.
 
 ### 5.2 Spikes due

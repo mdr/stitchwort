@@ -38,7 +38,7 @@
 --| Lane 5's ten facts about this file (`StatementFollows`, `LetStatementFollows`, `LetBodyFollows`, `HandleFollows`,
 --| `CalcFollows`, `RewriteFollows`, `CasesFollows`, `ThenBodyFollows`, `InductFollows`, `ReifyFollows`) are proved in
 --| the last section (`statementFollows`, `letStatementFollows`, `letBodyFollows`, `handleFollows`, `calcFollows`,
---| `rewriteFollows`, `casesFollows`, `thenBodyFollows`, `inductFollows`, `reifyFollows`), none with a cycle: lane 5's
+--| `rewriteFollows`, `followsCasesExpr`, `thenBodyFollows`, `inductFollows`, `reifyFollows`), none with a cycle: lane 5's
 --| `followsExprInline` takes the facts about `handleExpr`, `letStatement`, `letBody`, `calcExpr`, `rewriteExpr` and
 --| `casesExpr`, but not `statement`'s, and `thenBodyFollows` uses `statementFollows`. Lane 8 supplies the lane 6 and lane 5 facts the
 --| closing theorems take (`HeaderGroupFollows`, `BinderTypeFollows`, `PiExprFollows`, `ResultTypeFollows`, and
@@ -2017,11 +2017,6 @@ theorem reifyFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
   modes keyword keywordTwin word wordTwin =>
     followsReifyExpr knot expects lowers modes keyword keywordTwin word wordTwin
 
-theorem casesFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
-    (knot: SelfFollows self selfTwin):
-    CasesFollows self selfTwin :=
-  followsCasesExpr knot
-
 theorem appendExprFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows):
@@ -2099,7 +2094,7 @@ theorem exprInlineFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (letBodyFollows knot)
       (calcFollows knot expects lowers groups binders results)
       (rewriteFollows knot expects lowers)
-      (casesFollows knot)
+      (followsCasesExpr knot)
       modes
 
 theorem statementFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -2139,6 +2134,6 @@ theorem thenBodyFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (letBodyFollows knot)
       (calcFollows knot expects lowers groups binders results)
       (rewriteFollows knot expects lowers)
-      (casesFollows knot)
+      (followsCasesExpr knot)
       statements
       modes)

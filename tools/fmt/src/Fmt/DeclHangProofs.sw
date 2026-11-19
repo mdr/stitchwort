@@ -15,7 +15,6 @@ import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, Lexed, Note, Tok,
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.AppHangProofs (AfterWords, joinedWithIs, partStep)
-import Fmt.HeldParenProofs (bareLeading)
 import Fmt.PrintHangProofs (hangsOfLays)
 import Fmt.SpellProofs (..)
 import Fmt.JoinProofs (doc1Passes)
@@ -246,7 +245,7 @@ theorem namePartHangs ∀ (kinds: Text → Tok) (name: Word) (around: Around)
         around.before
         name.trails
         (plainLeafHangs kinds name around around.at 0 0 plain notComment solid closer comma
-          (bareLeading name around around.at hoisted bare single)
+          (bareCloserLeading name around around.at hoisted bare single)
           nameTrailed))
     (note rest noted =>
       notedPartHangs kinds name around around.at 0 note rest plain notComment solid closer comma hoisted noted
@@ -408,7 +407,7 @@ theorem colonHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key 
     HangLays kinds (word.leaf around key) indent (AfterWords HangState.initial 0 before) (AfterTop word.trails) :=
   let (notComment, solid, closer, comma) := token
   let pre := AfterWords HangState.initial 0 before
-  rewrite leafIsText word around key closer comma (bareLeading word around key hoisted bare single) then
+  rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
     hangsConcat kinds
       [Doc.text word.text, ..word.trailing]
       indent
@@ -457,7 +456,7 @@ theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
     HangLays kinds (word.leaf around key) indent (TopDone before) (AfterTop word.trails) :=
   let (notComment, solid, closer, comma) := token
   let pre := TopDone before
-  rewrite leafIsText word around key closer comma (bareLeading word around key hoisted bare single) then
+  rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
     hangsConcat kinds
       [Doc.text word.text, ..word.trailing]
       indent
