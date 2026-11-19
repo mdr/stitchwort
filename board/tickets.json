@@ -26226,7 +26226,7 @@
     {
       "id": 4151,
       "title": "[Opus] fmt multi-line read-back H8 (SW-4121 plan): && and ||, ->, operator and inline rungs: logicLinksHung, logicAfterLinksHung, logicOperatorHung, operatorHung, arrowHung, inlinePlainHung, inlineHung (ReadBackHungInline.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4151",
       "labels": [],
