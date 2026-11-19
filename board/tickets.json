@@ -26408,12 +26408,12 @@
     {
       "id": 4165,
       "title": "[Opus] fmt (SW-4132 lane 3): pattern lane: the alike relations, two-run wrappers (followsBump, peeked, eat, expect, lower, fail), the knot's statement and the cross-file record, atoms, brackets and comma lists as the worked pattern; a how-to header for lanes 4-7 (Syntax/FollowsBase.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4165",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 35 min.",
+      "body": "Est. 35 min.\n\nLane notes (Opus, 19 Nov, 11:40-11:55): tools/fmt/src/Syntax/FollowsBase.sw, branch lane/SW-4165, commit 542482a24. check 0 errors; audit 70 theorems, 0 failed, 0 warnings. Relations (WordsAlike, ExprsAlike, PatternsAlike, GroupsAlike, ParamsAlike, StatementsAlike, LetsAlike, DeclsAlike, Same, Anything, PairAlike); wrappers (followsBump, followsBumpThen, followsLeft, followsOn, followsLook, followsPeek(At), followsPeeked, followsAt, followsAtEither, followsEat, followsExpect(On), followsLower(On), followsOffset, followsLeftCount, followsThenEq, followsFail/FailName/FailNameOn/Gap/FatalAny); knot SelfFollows/PatternSelfFollows with ties followsExpressionAt, followsExpression, followsPattern; atoms, bracketed/tuple/annotation, listExpr, commaList, parenAtom, bracketAtom. Orchestrator-level deviation: no single cross-file record (the files call each other, so it could not be built); each lemma takes the Follows fact of each other-lane function it calls directly, and lane 8 supplies them in call order. How-to header for lanes 4-7 at the top of the file.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
