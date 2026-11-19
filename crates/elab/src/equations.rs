@@ -792,6 +792,27 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
     Some((Form::WholeMatch, columns, arms))
 }
 
+/// Why a definition's source implies no equations, for the note on its
+/// `E-NO-EQUATION` and `E-NO-INDUCT`: a `:=` body with no `if` or `match`
+/// at the top has no rows, so none of its branches can be equations.
+fn no_arms_reason(equations: &[Decl]) -> String {
+    if let [
+        Decl::Equation {
+            arm: None,
+            rhs: Some(body),
+            ..
+        },
+    ] = equations
+        && tail_split(body).is_none()
+    {
+        return "its body has no `if` or `match` at the top; move the split to the \
+                top (for example, make the `match` the whole right side) so its \
+                branches can be equations"
+            .to_string();
+    }
+    "its arms couldn't be read as equations".to_string()
+}
+
 /// The equation names the source implies for a definition with these
 /// equations (§3.3): `eq1`, `eq2`, `eq3.or1`, …, and below each its
 /// branches (`eq2.ifTrue`, `eq3.some.none`; `eq.ifFalse` below a `:=`
@@ -2121,6 +2142,10 @@ impl Elaborator {
             return Ok(());
         };
         let Some((form, scrutinees, arms)) = source_arms(equations) else {
+            // No rows: for a recursive definition, say why its `f.induct`
+            // isn't made, rather than leaving it to look non-recursive.
+            let why = no_arms_reason(equations);
+            induct::no_equations(self, f, kind, &why);
             return Ok(());
         };
         let key = match local_key {
@@ -7591,6 +7616,13 @@ pub fn is_generated_name(g: &stitchwort_core::Ev, name: &str) -> bool {
 }
 
 // ------------------------------------------------------------ E-NO-EQUATION
+
+/// Whether `f` calls itself, directly or through its own helpers. Used to
+/// tell an induction principle that wasn't generated from one that can't
+/// exist because the definition isn't recursive.
+pub(crate) fn calls_itself(e: &Elaborator, f: DefId) -> bool {
+    induct::calls_itself(&e.ev(), f)
+}
 
 /// `E-NO-EQUATION` if `name` is an equation the source implies that wasn't
 /// generated, with the reason (D2176, D2185).

@@ -210,26 +210,36 @@ fn recursive(g: &Ev, d: &Def) -> bool {
     })
 }
 
+/// Whether `f`'s body calls `f`, directly or through its own helpers. A
+/// `decreasing` definition's recursion is in its run body, without the fuel
+/// its checked body recurses on.
+pub(super) fn calls_itself(g: &Ev, f: DefId) -> bool {
+    let d = g.def(f);
+    [d.body(), d.run_body()].into_iter().flatten().any(|body| {
+        let mut seen = Vec::new();
+        body.subterms().any(|(t, _)| match t {
+            Term::Def(x) if *x == f => true,
+            Term::Def(x) => helper_calls(g, f, *x, &mut seen),
+            _ => false,
+        })
+    })
+}
+
 /// Records why `f.induct` isn't made when `f`'s equations aren't (`why`),
 /// if `f` calls itself.
 pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) {
     let g = &e.ev();
     let calls = match kind {
         Kind::Decreasing { .. } => true,
-        _ => g.def(f).body().is_some_and(|body| {
-            let mut seen = Vec::new();
-            body.subterms().any(|(t, _)| match t {
-                Term::Def(x) if *x == f => true,
-                Term::Def(x) => helper_calls(g, f, *x, &mut seen),
-                _ => false,
-            })
-        }),
+        _ => calls_itself(g, f),
     };
     if calls {
         e.tables.equation_skips.push((
             f,
             "induct".to_string(),
-            format!("its equations aren't made, and its cases are theirs: {why}"),
+            format!(
+                "no equations are generated for it, so `f.induct` isn't generated either: {why}"
+            ),
         ));
     }
 }
