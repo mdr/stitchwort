@@ -26572,12 +26572,12 @@
     {
       "id": 4177,
       "title": "[Fable, paper] Two-run checkpoint (SW-4132 lane 9): do groupKeepsTokens and the alike relations say what they should (DeclsAlike = equal after walk blankPure; Anything only on consumedBare's Bool and Comments), is anything narrowed (D3682, D3688), and does groupKeepsTokens1 follow as claimed",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4177",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 20 min. Paper. Review note docs/reviews/SW-4133-two-run-checkpoint.md.",
+      "body": "Est. 20 min. Paper. Review note docs/reviews/SW-4133-two-run-checkpoint.md.\n\n\nLane note (Fable, 19 Nov 2026): review written, docs/reviews/SW-4133-two-run-checkpoint.md, commit 6d75e3608 on lane/SW-4177. Verdict: sound, with notes; no gap, no narrowing; groupKeepsTokens1 statement unchanged from SW-4129. Notes: token equality includes column and lineStart (own-line last comma stays behind plain1, SW-4131); successes only, messages not related; twin Group.bare not known equal; Anything also on three () results; file layer still slice 1 only (seenAfter1). Four follow-ups listed in the note.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
