@@ -1,0 +1,57 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "q",
+          "type": "Tree → Prop"
+        },
+        {
+          "name": "big✝",
+          "type": "q (grow 22 (Leaf x))"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "big",
+          "type": "q (grow 22 (Leaf n))"
+        }
+      ],
+      "target": "n = n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\nq: Tree → Prop\nbig✝: q (grow 22 (Leaf x))\nn: Nat\nbig: q (grow 22 (Leaf n))\n⊢ n = n",
+        "range": [
+          12,
+          108,
+          12,
+          109
+        ]
+      }
+    ],
+    "message": "in `shown`",
+    "notes": [],
+    "range": [
+      12,
+      108,
+      12,
+      109
+    ],
+    "severity": "goal"
+  }
+]

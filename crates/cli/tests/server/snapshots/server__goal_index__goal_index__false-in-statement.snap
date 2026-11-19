@@ -1,0 +1,59 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "n",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "n0",
+          "type": "n = 0"
+        }
+      ],
+      "lemma": "theorem noProofGoal1 (n: Nat) (n0: n = 0): False = True := ?",
+      "target": "False = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nn0: n = 0\n⊢ False = True",
+        "range": [
+          4,
+          51,
+          4,
+          52
+        ]
+      }
+    ],
+    "message": "in `noProof`",
+    "notes": [
+      "`False` here is the Bool, so this goal is `False = True`, which has no proof unless the hypotheses contradict each other; for a proposition with no proof, write `Void`",
+      "this statement is false; a counterexample:\n  n = 0\n`n = 0` holds\n`False = True` is false:\n  left:  False\n  right: True"
+    ],
+    "range": [
+      4,
+      51,
+      4,
+      52
+    ],
+    "severity": "goal"
+  }
+]

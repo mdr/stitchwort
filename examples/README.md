@@ -54,6 +54,14 @@ narrows the extraction files that `examples::accepted_examples_check` checks
 for warnings and tests. There is no per-example filter for extraction
 snapshots.
 
+`goal_index::goal_examples_in_the_index` (in the `server` binary) **does not**
+read `EXAMPLES` either: it always checks every `examples/goals/*.sw`. It
+snapshots each example's goal diagnostics and asserts that every goal's label
+matches its goal data (hypotheses and target) from the language server, so a
+new goals example needs its
+`server__goal_index__goal_index__<name>.snap` accepted (`cargo insta accept`)
+before the test passes.
+
 ## Snapshots
 
 `task test:example NAME=…` checks one example's or project's snapshots, and
