@@ -49,17 +49,7 @@ import Syntax.Proofs (
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows, Printable, pieceFold)
 import Fmt.SpellProofs (..)
-import Fmt.JoinProofs (
-  DeclJoins,
-  headDiffers,
-  Joinable,
-  AllJoinable,
-  WordJoins,
-  CloserJoins,
-  OpenerJoins,
-  Token,
-  printLexes1
-)
+import Fmt.JoinProofs (DeclJoins, Joinable, AllJoinable, WordJoins, CloserJoins, OpenerJoins, Token, printLexes1)
 
 -- The lexer's kind of a text, and where `lexesAs` is too weak.
 
@@ -193,9 +183,6 @@ theorem digitBeq ∀ (first: Char)
     (first == '-') = False ∧ (first == '>') = False ∧ (first == '=') = False :=
   cases
 
-theorem charNe ∀ (first other: Char) (differs: (first == other) = False): first ≠ other := same =>
-  DecEq.soundFalse first other differs same
-
 --| An expression's first token that isn't `-` starts with a character that is no `-`, `>` or `=`.
 theorem leadsHead ∀ (text: Text)
     (leads: Leads text)
@@ -324,15 +311,15 @@ theorem minusFollows ∀ (text: Text)
     MayFollow Minus "-" text.toList :=
   let (first, others, split, dash, greater, equals) := leadsHead text leads notMinus
   (
-    headDiffers text.toList first '-' (rewrite split) (charNe first '-' dash),
-    headDiffers text.toList first '>' (rewrite split) (charNe first '>' greater)
+    List.headNeOfHead text.toList first '-' (rewrite split) (Char.neOfBeqFalse first '-' dash),
+    List.headNeOfHead text.toList first '>' (rewrite split) (Char.neOfBeqFalse first '>' greater)
   )
 
 theorem leadsNotEquals ∀ (text: Text) (leads: Leads text): text.toList.head ≠ Some '=' := match dash: text == "-" with
   | True => rewrite DecEq.sound dash then byDecision
   | False =>
     let (first, others, split, dash, greater, equals) := leadsHead text leads dash
-    headDiffers text.toList first '=' (rewrite split) (charNe first '=' equals)
+    List.headNeOfHead text.toList first '=' (rewrite split) (Char.neOfBeqFalse first '=' equals)
 
 theorem bangFollows ∀ (text: Text) (leads: Leads text): MayFollow Bang "!" text.toList := same =>
   (leadsNotEquals text leads, leadsNotIn text leads)

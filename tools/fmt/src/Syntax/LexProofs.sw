@@ -116,29 +116,6 @@ theorem runsFromTokenList ∀ (state: Parse.State Char) (kind: Tok) (count: Nat)
       starts
       honest
 
---| `optional p` where `p` succeeds from this state: as `Parse.runsOptional`, for a `p` whose value depends on where
---| it starts.
---|
---| Proof idea: As `Parse.runsOptional`, which needs a `p` that doesn't depend on its offset: the same proof from the one state's run.
-theorem runsFromOptional ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (read rest: List Char) (v: a)
-    (runsP: Parse.RunsFrom state p read rest v):
-    Parse.RunsFrom state (() => Parse.optional p) read rest (Some v) :=
-  starts honest =>
-    match runsP starts honest with
-      | Witness m (Both ran (Both mrest (Both mleft moff))) =>
-        Witness m
-          (Both
-            (Parse.runFromOptionalFromBack p
-              (Effect.Always.tree (x => Std.Unit) (p ()) (Effect.alwaysUnit (p ())))
-              state.at
-              state
-              (x => (x, Parse.mark()))
-              v
-              { state | at = m } _
-              ran
-              byComputing)
-            (Both mrest (Both mleft moff)))
-
 --| One `item`'s lexeme at a place: it reads `read` and gives the one lexeme, whatever follows is `rest`.
 def ItemReads (read: List Char) (lexeme: Lexeme) (rest: List Char): Prop :=
   ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (state: Parse.State
@@ -225,7 +202,7 @@ theorem runsItemsFrom ∀ (self: Place → {Parse Char} List (Parse.Located Lexe
             ([[{ value = lexeme, offset = state.at.offset, length = read.length }], ..found].reverse
               ++ roundsAt (state.at.offset + read.length) steps)
             byComputing
-            (runsFromOptional state
+            (Parse.runsFromOptionalOf state
               (() => item self source TopLevel)
               read
               (Parse.joinReads steps ++ rest) _
@@ -342,11 +319,6 @@ theorem utf8Sum ∀ (chars: List Char) (acc: Nat):
 
 theorem utf8OfList ∀ (chars: List Char): (Text.fromList chars).utf8Length = utf8Chars chars := utf8Sum chars 0
 
---| An ASCII character is a byte.
-theorem utf8OfAscii ∀ (char: Char) (ascii: char.toNat < 128): (Char.utf8 char).length = 1 :=
-  let leq: Nat.leq char.toNat 127 = True := arithmetic [ascii]
-  rewrite leq
-
 --| A run of ASCII characters takes a byte each.
 theorem utf8OfAsciiRun ∀ (chars: List Char)
     (ascii: chars.all (char => char.toNat < 128) = True):
@@ -356,7 +328,7 @@ theorem utf8OfAsciiRun ∀ (chars: List Char)
     | [first, ..more], ascii =>
       let small: ((first.toNat <= 127): Bool) = True := Bool.andLeft ascii
       let later: more.all (char => char.toNat <= 127) = True := Bool.andRight ascii
-      rewrite utf8OfAscii first (arithmetic [small]), utf8OfAsciiRun more later
+      rewrite Char.utf8LengthAscii first (arithmetic [small]), utf8OfAsciiRun more later
 
 theorem afterLastBreakNone ∀ (chars: List Char) (acc: Option Nat)
     (none: acc = None)
@@ -922,19 +894,13 @@ theorem spacesPass ∀ (count: Nat): (List.replicate count ' ').all (char => cha
     | Zero => byComputing
     | Succ more => spacesPass more
 
---| The first character of a text that doesn't start with `char` isn't `char`.
-theorem headNe ∀ (next: Char) (more: List Char) (char: Char)
-    (different: [next, ..more].head ≠ Some char):
-    (next == char) = False :=
-  let ne: next ≠ char := same => different (rewrite same)
-  DecEq.falseOfNe ne
-
 theorem spacesStop ∀ (rest: List Char)
     (follow: rest.head ≠ Some ' ' ∧ rest.head ≠ Some '\r'):
     rest.takeWhile (char => char == ' ' || char == '\r') = [] :=
   match rest, follow with
     | [], follow => byComputing
-    | [next, ..more], Both space carriage => rewrite headNe next more ' ' space, headNe next more '\r' carriage
+    | [next, ..more], Both space carriage =>
+      rewrite List.beqFalseOfHeadNe next more ' ' space, List.beqFalseOfHeadNe next more '\r' carriage
 
 --| A run of spaces up to a character that isn't a space or a carriage return.
 --|
@@ -1597,11 +1563,6 @@ theorem runsExponent ∀ (exponent rest: List Char)
                       (Parse.runsSpan Char.isAsciiDigit [digit, ..digits] rest (Bool.andIntro isDigit isDigits) ends)
                       (Parse.runsPure True rest))) state starts honest)
 
-theorem headNotChar ∀ (char: Char) (more: List Char) (other: Char)
-    (differs: (char == other) = False):
-    [char, ..more].head ≠ Some other :=
-  same => DecEq.soundFalse char other differs (Option.someInjective same)
-
 --| A fraction's text: a `.`, a digit and more digits.
 def FractionAs (fraction: List Char): Prop :=
   ∃ (second: Char) (more: List Char) => fraction = ['.', second, ..more]
@@ -1615,10 +1576,10 @@ theorem runsTailExponent ∀ (exponent rest: List Char)
     Parse.Runs (() => numberTail False) exponent rest True :=
   let noDot: (exponent ++ rest).head ≠ Some '.' := match exponent, shape with
     | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
-      rewrite same then headNotChar marker ([digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
+      rewrite same then List.headNeOfBeqFalse marker ([digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
     | exponent, Inr
         (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
-      rewrite same then headNotChar marker ([sign, digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
+      rewrite same then List.headNeOfBeqFalse marker ([sign, digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
   Parse.runsBind
     (() => fractionPart())
     (fraction =>
@@ -1705,8 +1666,8 @@ theorem exponentNone ∀ (rest: List Char) (noE: rest.head ≠ Some 'e' ∧ rest
   match rest, noE with
     | [], noE => byComputing
     | [next, ..more], Both lower upper =>
-      let notLower := headNe next more 'e' lower
-      let notUpper := headNe next more 'E' upper
+      let notLower := List.beqFalseOfHeadNe next more 'e' lower
+      let notUpper := List.beqFalseOfHeadNe next more 'E' upper
       match more with
         | [] => byComputing
         | [second, ..later] =>

@@ -1043,22 +1043,12 @@ theorem nonZeroAdd ∀ (a b: Nat) (nonzero: (a == 0) = False): (b + a == 0) = Fa
 theorem nonZeroAddLeft ∀ (a b: Nat) (nonzero: (a == 0) = False): (a + b == 0) = False := match a with
   | Succ k => byComputing
 
-theorem utf8Positive ∀ (char: Char): ((Char.utf8 char).length == 0) = False := match Nat.leq char.toNat 127 with
-  | True => byComputing
-  | False =>
-    match Nat.leq char.toNat 2047 with
-      | True => byComputing
-      | False =>
-        match Nat.leq char.toNat 65535 with
-          | True => byComputing
-          | False => byComputing
-
 --| A text that isn't empty has bytes.
 theorem textBytes ∀ (text: Text) (filled: text.toList ≠ []): (text.utf8Length == 0) = False :=
   rewrite utf8OfText text then
     match text.toList with
       | [] => (filled byComputing).impossible
-      | [char, ..more] => nonZeroAddLeft (Char.utf8 char).length (utf8Chars more) (utf8Positive char)
+      | [char, ..more] => nonZeroAddLeft (Char.utf8 char).length (utf8Chars more) (Char.utf8LengthNeZero char)
 
 theorem colLinesWithTrailing ∀ (leaves: List Leaf) (comment: Comment):
     colLines (withTrailing leaves comment) = colLines leaves :=

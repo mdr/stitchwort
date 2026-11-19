@@ -39,14 +39,15 @@ theorem runsSame ∀ (p: () → {Parse t} a) (read rest: List t) (v w: a)
     Parse.Runs p read rest w :=
   rewrite <- same then runs
 
---| A value that is `y` from this state reads nothing.
-theorem runsFromPure ∀ (state: Parse.State t) (x y: a) (rest: List t)
-    (same: x = y):
-    Parse.RunsFrom state (() => x) [] rest y :=
-  rewrite same then Parse.runsPure y rest state
-
 theorem runsLeftOn ∀ (rest: List Item): Parse.Runs (() => left()) [] rest rest := state starts honest =>
-  Parse.runsFromMark state (here => here.rest) [] rest rest (runsFromPure state _ rest rest starts) starts honest
+  Parse.runsFromMark state
+    (here => here.rest)
+    []
+    rest
+    rest
+    (Parse.runsFromPureEq state _ rest rest starts)
+    starts
+    honest
 
 theorem runsPeekOn ∀ (modes: Modes) (rest: List Item): Parse.Runs (() => modes.peek) [] rest (peekIn modes 0 rest) :=
   state starts honest =>
@@ -55,7 +56,7 @@ theorem runsPeekOn ∀ (modes: Modes) (rest: List Item): Parse.Runs (() => modes
       []
       rest
       (peekIn modes 0 rest)
-      (runsFromPure state _ _ rest (Eq.cong (peekIn modes 0) starts))
+      (Parse.runsFromPureEq state _ _ rest (Eq.cong (peekIn modes 0) starts))
       starts
       honest
 
@@ -67,7 +68,7 @@ theorem runsPeekAtOn ∀ (modes: Modes) (ahead: Nat) (rest: List Item):
       []
       rest
       (peekIn modes ahead rest)
-      (runsFromPure state _ _ rest (Eq.cong (peekIn modes ahead) starts))
+      (Parse.runsFromPureEq state _ _ rest (Eq.cong (peekIn modes ahead) starts))
       starts
       honest
 
@@ -1910,7 +1911,7 @@ theorem runsLambdaHere ∀ (modes: Modes) (items: List Item)
       []
       items
       False
-      (runsFromPure state _ False items none)
+      (Parse.runsFromPureEq state _ False items none)
       starts
       honest
 
@@ -1924,7 +1925,7 @@ theorem runsLambdaResultHere ∀ (modes: Modes) (items: List Item)
       []
       items
       False
-      (runsFromPure state _ False items none)
+      (Parse.runsFromPureEq state _ False items none)
       starts
       honest
 

@@ -112,22 +112,14 @@ theorem spellsOfTests ∀ (kind: Tok) (text: Text)
     | Star, _, _, fixed => DecEq.sound fixed
     | Slash, _, _, fixed => DecEq.sound fixed
     | Percent, _, _, fixed => DecEq.sound fixed
-    | OrOr, _, _, fixed => eitherText fixed
-    | AndAnd, _, _, fixed => eitherText fixed
-    | NotEq, _, _, fixed => eitherText fixed
-    | Le, _, _, fixed => eitherText fixed
-    | Ge, _, _, fixed => eitherText fixed
-    | Bang, _, _, fixed => eitherText fixed
-    | Arrow, _, _, fixed => eitherText fixed
+    | OrOr, _, _, fixed => Text.eqOfOrBeq fixed
+    | AndAnd, _, _, fixed => Text.eqOfOrBeq fixed
+    | NotEq, _, _, fixed => Text.eqOfOrBeq fixed
+    | Le, _, _, fixed => Text.eqOfOrBeq fixed
+    | Ge, _, _, fixed => Text.eqOfOrBeq fixed
+    | Bang, _, _, fixed => Text.eqOfOrBeq fixed
+    | Arrow, _, _, fixed => Text.eqOfOrBeq fixed
     | _, within, _, _ => (Bool.falseNotTrue within).impossible
-
---| A text that is one of two.
-theorem eitherText ∀ [text first second: Text]
-    (either: (text == first || text == second) = True):
-    text = first ∨ text = second :=
-  match (Bool.orReads (text == first) (text == second)).forward either with
-    | Inl one => Inl (DecEq.sound one)
-    | Inr other => Inr (DecEq.sound other)
 
 --| An item whose token passes both tests is good.
 theorem goodOfToken ∀ (item: Item)
@@ -343,26 +335,6 @@ theorem readsAtThenMoved ∀ [start: Parse.Mark Char] [p: () → {Parse Char} a]
                   (Both
                     (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
                     (Both honest2 holds2))
-
---| `next` of anything reads the first character left, if there is one.
-theorem readsAtNextAny ∀ (start: Parse.Mark Char):
-    Parse.ReadsAt start (() => Parse.next (char => True)) (read v => read = start.rest.take 1) :=
-  total state value after here honest h =>
-    let honestAt: Parse.Honest total state.at := rewrite here then honest
-    rewrite <- here then
-      match e: state.at.rest with
-        | [] =>
-          let same := Result.okInjective h
-          let atSame: state.at = after := Pair.mkInjectiveSnd same
-          Witness [] (rewrite <- atSame, e then Both byComputing (Both honestAt byComputing))
-        | [char, ..more] =>
-          let same := Result.okInjective h
-          let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
-          let counted: state.at.left = more.length + 1 := honestAt.left
-          Witness
-            [char]
-            (rewrite <- atSame then
-              Both byComputing (Both (Both (arithmetic [counted]) (arithmetic [counted, honestAt.right])) byComputing))
 
 --| A lexeme from a mark in step, to where reading `read` took it, is `read` in the source.
 theorem sliceRead ∀ (source: Text) (start after: Parse.Mark Char) (read: List Char)
@@ -1228,7 +1200,7 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
             (atThen
               [p := () => word False]
               [j := made => [made]]
-              (atMarkThen [j := from => wordFrom False from] (wordFine source start other more step here w))
+              (Parse.readsAtMarkThen [j := from => wordFrom False from] (wordFine source start other more step here w))
               (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
         | False =>
           match d: other.isAsciiDigit with
@@ -1237,7 +1209,9 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
                 (atThen
                   [p := () => number False]
                   [j := made => [made]]
-                  (atMarkThen [j := from => numberFrom False from] (numberFine source start other more step here d))
+                  (Parse.readsAtMarkThen
+                    [j := from => numberFrom False from]
+                    (numberFine source start other more step here d))
                   (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
             | False =>
               match u: other.toNat >= 128 with

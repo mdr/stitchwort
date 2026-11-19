@@ -40,12 +40,6 @@ def Stops (char: Char): Prop :=
     ∧ char ≠ 'e'
     ∧ char ≠ 'E'
 
-theorem headDiffers ∀ (rest: List Char) (first other: Char)
-    (head: rest.head = Some first)
-    (differs: first ≠ other):
-    rest.head ≠ Some other :=
-  same => differs (Option.someInjective (Eq.trans head.flipped same))
-
 --| A token may be followed by a text that starts with a character no token goes on with.
 --|
 --| Proof idea: One case per kind with a condition; each is a character the head isn't, or a run of name or digit
@@ -59,23 +53,23 @@ theorem mayFollowStops ∀ (kind: Tok) (text: Text) (rest: List Char) (first: Ch
       let noWord := List.takeWhileHeadFails isWordChar rest first head word
       let noDigit := List.takeWhileHeadFails Char.isAsciiDigit rest first head digit
       match kind with
-        | Colon => headDiffers rest first '=' head notEquals
-        | Equals => (headDiffers rest first '=' head notEquals, headDiffers rest first '>' head notGreater)
-        | Plus => headDiffers rest first '+' head notPlus
-        | Minus => (headDiffers rest first '-' head notMinus, headDiffers rest first '>' head notGreater)
-        | Lt => (headDiffers rest first '=' head notEquals, headDiffers rest first '-' head notMinus)
-        | Gt => headDiffers rest first '=' head notEquals
-        | Bang => bang => (headDiffers rest first '=' head notEquals, (run => (rewrite noWord at run then cases)))
-        | KwDef => (noWord, headDiffers rest first '.' head notDot)
-        | Lower => (noWord, headDiffers rest first '.' head notDot)
-        | Upper => (noWord, headDiffers rest first '.' head notDot)
+        | Colon => List.headNeOfHead rest first '=' head notEquals
+        | Equals => (List.headNeOfHead rest first '=' head notEquals, List.headNeOfHead rest first '>' head notGreater)
+        | Plus => List.headNeOfHead rest first '+' head notPlus
+        | Minus => (List.headNeOfHead rest first '-' head notMinus, List.headNeOfHead rest first '>' head notGreater)
+        | Lt => (List.headNeOfHead rest first '=' head notEquals, List.headNeOfHead rest first '-' head notMinus)
+        | Gt => List.headNeOfHead rest first '=' head notEquals
+        | Bang => bang => (List.headNeOfHead rest first '=' head notEquals, (run => (rewrite noWord at run then cases)))
+        | KwDef => (noWord, List.headNeOfHead rest first '.' head notDot)
+        | Lower => (noWord, List.headNeOfHead rest first '.' head notDot)
+        | Upper => (noWord, List.headNeOfHead rest first '.' head notDot)
         | Num => (
           noDigit,
-          headDiffers rest first '.' head notDot,
-          headDiffers rest first 'e' head notE,
-          headDiffers rest first 'E' head notBigE
+          List.headNeOfHead rest first '.' head notDot,
+          List.headNeOfHead rest first 'e' head notE,
+          List.headNeOfHead rest first 'E' head notBigE
         )
-        | Float => (noDigit, headDiffers rest first 'e' head notE, headDiffers rest first 'E' head notBigE)
+        | Float => (noDigit, List.headNeOfHead rest first 'e' head notE, List.headNeOfHead rest first 'E' head notBigE)
         | other => byComputing
 
 theorem stopsSpace: Stops ' ' :=

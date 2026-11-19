@@ -913,3 +913,88 @@ test "splitOnce" :=
 --| Equal `Text`s compare `==`.
 theorem Text.beqOfEq ∀ (text expected: Text) (same: text = expected): (text == expected) = True :=
   rewrite same then DecEq.refl expected
+
+--| Characters that compare `==` as `False` differ.
+theorem Char.neOfBeqFalse ∀ (first other: Char) (differs: (first == other) = False): first ≠ other := same =>
+  DecEq.soundFalse first other differs same
+
+--| A text that equals one of two texts by `==` is one of the two.
+theorem Text.eqOfOrBeq ∀ [text first second: Text]
+    (either: (text == first || text == second) = True):
+    text = first ∨ text = second :=
+  match (Bool.orReads (text == first) (text == second)).forward either with
+    | Inl one => Inl (DecEq.sound one)
+    | Inr other => Inr (DecEq.sound other)
+
+--| Characters left after dropping the leading spaces do not start with a space.
+theorem Text.startsWithSpaceDropWhile ∀ (chars: List Char):
+    Text.startsWithChars [' '] (chars.dropWhile (char => char == ' ')) = False :=
+  match chars with
+    | [] => byComputing
+    | [char, ..rest] =>
+      match space: char == ' ' with
+        | True => Text.startsWithSpaceDropWhile rest
+        | False =>
+          let other: Text.sameChar ' ' char = False := calc Text.sameChar ' ' char
+            _ = Nat.equal (Char.toNat char) (Char.toNat ' ') := Nat.equalComm (Char.toNat ' ') (Char.toNat char)
+            _ = False := space
+          rewrite other
+
+--| A text that is not empty has a non-zero length.
+theorem Text.lengthNeZeroOfNotEmpty ∀ (text: Text) (filled: text.isEmpty = False): text.length ≠ 0 :=
+  match text, filled with
+    | MkText [], never => cases
+    | MkText [first, ..rest], _ => same => cases
+
+--| An ASCII character is one byte.
+theorem Char.utf8LengthAscii ∀ (char: Char) (ascii: char.toNat < 128): (Char.utf8 char).length = 1 :=
+  let leq: Nat.leq char.toNat 127 = True := arithmetic [ascii]
+  rewrite leq
+
+--| A character has some bytes.
+theorem Char.utf8LengthNeZero ∀ (char: Char): ((Char.utf8 char).length == 0) = False :=
+  match Nat.leq char.toNat 127 with
+    | True => byComputing
+    | False =>
+      match Nat.leq char.toNat 2047 with
+        | True => byComputing
+        | False =>
+          match Nat.leq char.toNat 65535 with
+            | True => byComputing
+            | False => byComputing
+
+--| Characters none of which is a line break do not contain one.
+theorem Text.containsLineBreakFalse ∀ (chars: List Char)
+    (none: chars.all (char => char != '\n') = True):
+    Text.containsChars ['\n'] chars = False :=
+  match chars with
+    | [] => byComputing
+    | [char, ..rest] =>
+      let notBreak: ((char != '\n'): Bool) = True := Bool.andLeft none
+      let differ: Text.sameChar '\n' char = False := arithmetic [notBreak]
+      rewrite differ, Text.containsLineBreakFalse rest (Bool.andRight none)
+
+--| Characters that do not contain a line break are none of them one.
+theorem Text.allNotLineBreak ∀ (chars: List Char)
+    (none: Text.containsChars ['\n'] chars = False):
+    chars.all (char => char != '\n') = True :=
+  match chars with
+    | [] => byComputing
+    | [first, ..rest] =>
+      match same: Text.sameChar '\n' first with
+        | False =>
+          Bool.andIntro
+            (match isBreak: first == '\n' with
+              | True => cases
+              | False => byComputing)
+            (Text.allNotLineBreak rest none)
+
+--| Characters with no line break after the first have none after it either.
+theorem Text.containsLineBreakTail ∀ (char: Char) (rest: List Char)
+    (free: Text.containsChars ['\n'] [char, ..rest] = False):
+    Text.containsChars ['\n'] rest = False :=
+  match later: Text.containsChars ['\n'] rest with
+    | True =>
+      let found := Text.containsCharsCons ['\n'] char rest later
+      (Bool.falseNotTrue (Eq.trans free.flipped found)).impossible
+    | False => byComputing

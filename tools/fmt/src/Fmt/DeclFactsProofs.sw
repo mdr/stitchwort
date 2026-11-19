@@ -28,19 +28,8 @@ import Fmt.TreeJoinProofs (
 )
 import Fmt.DeclHangProofs (BodyLays, DeclHangs, OnLine, WordToken, declStart, plainBody, printedHangs)
 import Fmt.ExprHangProofs (..)
-import Fmt.PrintLexProofs (noBreakOfContains)
 
 -- Trailing comments, from `sound`.
-
---| Characters with no line break after the first have none after it either.
-theorem freeTail ∀ (char: Char) (rest: List Char)
-    (free: Text.containsChars ['\n'] [char, ..rest] = False):
-    Text.containsChars ['\n'] rest = False :=
-  match later: Text.containsChars ['\n'] rest with
-    | True =>
-      let found := Text.containsCharsCons ['\n'] char rest later
-      (Bool.falseNotTrue (Eq.trans free.flipped found)).impossible
-    | False => byComputing
 
 --| Characters that start with `--` and have no line break are a comment's.
 theorem dashed ∀ (chars: List Char)
@@ -49,7 +38,7 @@ theorem dashed ∀ (chars: List Char)
     ∃ (others: List Char) => chars = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True :=
   match chars, starts with
     | [first, second, ..others], starts =>
-      let whole := noBreakOfContains [first, second, ..others] free
+      let whole := Text.allNotLineBreak [first, second, ..others] free
       match one: Text.sameChar '-' first with
         | True =>
           match two: Text.sameChar '-' second with

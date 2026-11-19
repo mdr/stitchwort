@@ -10,7 +10,6 @@ import Syntax.SettleProofs (
   alphabet1Leaves,
   arrowFrom,
   bareComma,
-  dropSpacesStart,
   endsOn,
   homedBehind,
   homedLeaf,
@@ -799,7 +798,7 @@ theorem trimmedComment ∀ (text: Text)
       let back: (kept.reverseOnto []).reverseOnto [] = kept := List.reverseReverse kept
       let startsOk := trimStartsDashes text.toList starts
       let singleOk := trimNoNewline text.toList single
-      rewrite startsOk, singleOk, back, dropSpacesStart (text.toList.reverseOnto [])
+      rewrite startsOk, singleOk, back, Text.startsWithSpaceDropWhile (text.toList.reverseOnto [])
 
 -- From leaves to words: comments.
 

@@ -4447,3 +4447,33 @@ theorem List.takeConsNotNil ∀ (doc: a) (rest: List a) (count: Nat)
 theorem List.twoLeLengthAppend ∀ (front: List a) (first second: a) (more: List a):
     2 ≤ (front ++ [first, second, ..more]).length :=
   rewrite List.lengthAppend front [first, second, ..more] then arithmetic
+
+--| Items related element by element to two joined lists split where the lists join.
+theorem List.all2AppendSplit ∀ (r: a → b → Prop) (read: List a) (front back: List b)
+    (all: List.All2 r read (front ++ back)):
+    ∃ (first second: List a) => read = first ++ second ∧ List.All2 r first front ∧ List.All2 r second back :=
+  match front, read, all with
+    | [], read, all => ([], read, byComputing, Trivial, all)
+    | [y, ..ys], [x, ..xs], (head, rest) =>
+      let (first, second, isRead, firstAll, secondAll) := List.all2AppendSplit r xs ys back rest
+      ([x, ..first], second, (rewrite isRead), (head, firstAll), secondAll)
+
+--| The head of a list that starts with an element that differs from `other` is not `Some other`.
+theorem List.headNeOfBeqFalse ∀ (char: Char) (more: List Char) (other: Char)
+    (differs: (char == other) = False):
+    [char, ..more].head ≠ Some other :=
+  same => DecEq.soundFalse char other differs (Option.someInjective same)
+
+--| The first element of a list whose head is not `Some char` is not `char`.
+theorem List.beqFalseOfHeadNe ∀ (next: Char) (more: List Char) (char: Char)
+    (different: [next, ..more].head ≠ Some char):
+    (next == char) = False :=
+  let ne: next ≠ char := same => different (rewrite same)
+  DecEq.falseOfNe ne
+
+--| The head of a list that is `Some first` is not `Some other` when `first` and `other` differ.
+theorem List.headNeOfHead ∀ (rest: List Char) (first other: Char)
+    (head: rest.head = Some first)
+    (differs: first ≠ other):
+    rest.head ≠ Some other :=
+  same => differs (Option.someInjective (Eq.trans head.flipped same))

@@ -574,7 +574,7 @@ theorem plainHeaderOf ∀ (keyword name colon: Item) (result: Expr):
 --| lexer's kinds, their code words, their spacing, and the expressions' trees.
 --|
 --| Proof idea: the items fill the declaration's slots (`slotsFromTexts`), which split at the `:` and the `:=`
---| (`all2Split`), and so do the spacing (`admitsSplit`) and the chaining (`chainedSplit`); `speltSlots` spells each
+--| (`List.all2AppendSplit`), and so do the spacing (`admitsSplit`) and the chaining (`chainedSplit`); `speltSlots` spells each
 --| expression from its items, which follow a `:` or `:=`, neither of which closes an operand (`chainedAfter`).
 theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     (colon colonEq: Comments) (result value: Expr)
@@ -632,13 +632,13 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
       (Eq.trans words slotWordsAre.flipped)
       code
   let (front, rest, isItems, frontFilled, restFilled) :=
-    all2Split SlotMatch
+    List.all2AppendSplit SlotMatch
       (items group)
       [Some (fixedWord "def" keyword), Some name, Some (fixedWord ":" colon)]
       (result.slots1 ++ [Some (fixedWord ":=" colonEq), ..value.slots1])
       filled
   let (typeRead, tail, isRest, typeFilled, tailFilled) :=
-    all2Split SlotMatch rest result.slots1 [Some (fixedWord ":=" colonEq), ..value.slots1] restFilled
+    List.all2AppendSplit SlotMatch rest result.slots1 [Some (fixedWord ":=" colonEq), ..value.slots1] restFilled
   splitFilled group keyword name colon colonEq result value resultTree valueTree lower spacing front typeRead tail
     (rewrite isItems, isRest)
     frontFilled

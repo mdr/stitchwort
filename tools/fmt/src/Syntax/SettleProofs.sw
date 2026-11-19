@@ -414,19 +414,6 @@ theorem barsQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
 
 -- Rule 5: a comment's text, trimmed, has no space at its end.
 
-theorem dropSpacesStart ∀ (chars: List Char):
-    Text.startsWithChars [' '] (chars.dropWhile (char => char == ' ')) = False :=
-  match chars with
-    | [] => byComputing
-    | [char, ..rest] =>
-      match space: char == ' ' with
-        | True => dropSpacesStart rest
-        | False =>
-          let other: Text.sameChar ' ' char = False := calc Text.sameChar ' ' char
-            _ = Nat.equal (Char.toNat char) (Char.toNat ' ') := Nat.equalComm (Char.toNat ' ') (Char.toNat char)
-            _ = False := space
-          rewrite other
-
 def optionText: Option Comment → List Text
   | Some comment => [comment.text]
   | None => []

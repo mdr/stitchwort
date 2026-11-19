@@ -115,32 +115,14 @@ theorem pieceFoldChars ∀ (kinds: Text → Tok) (texts: List Text):
 
 -- Each piece is plain and spelled.
 
-theorem lengthPositive ∀ (text: Text) (filled: text.isEmpty = False): text.length ≠ 0 := match text, filled with
-  | MkText [], never => cases
-  | MkText [first, ..rest], _ => same => cases
-
-theorem noBreakOfContains ∀ (chars: List Char)
-    (none: Text.containsChars ['\n'] chars = False):
-    chars.all (char => char != '\n') = True :=
-  match chars with
-    | [] => byComputing
-    | [first, ..rest] =>
-      match same: Text.sameChar '\n' first with
-        | False =>
-          Bool.andIntro
-            (match isBreak: first == '\n' with
-              | True => cases
-              | False => byComputing)
-            (noBreakOfContains rest none)
-
 --| A comment as rule N leaves it is read as a comment: `--`, then no line break.
 --|
---| Proof idea: `startsWith "--"` gives the two dashes by `sameChar`; no line break in the text is no line break in what follows them (`noBreakOfContains`).
+--| Proof idea: `startsWith "--"` gives the two dashes by `sameChar`; no line break in the text is no line break in what follows them (`Text.allNotLineBreak`).
 theorem remarkSpelled ∀ (text: Text)
     (starts: text.startsWith "--" = True)
     (noBreak: text.contains "\n" = False):
     (Remark text).Plain ∧ (Remark text).Spells :=
-  let chars := noBreakOfContains text.toList noBreak
+  let chars := Text.allNotLineBreak text.toList noBreak
   match text with
     | MkText [first] => cases
     | MkText [first, second, ..rest] =>
@@ -158,13 +140,13 @@ theorem remarkSpelled ∀ (text: Text)
 
 --| A good printed piece reads as a plain, spelled lexer piece.
 --|
---| Proof idea: Cases on how `pieceOf` classifies it: spaces (`lengthPositive`), a line break, a comment (`remarkSpelled`) or a token (`spellsPlain`).
+--| Proof idea: Cases on how `pieceOf` classifies it: spaces (`Text.lengthNeZeroOfNotEmpty`), a line break, a comment (`remarkSpelled`) or a token (`spellsPlain`).
 theorem pieceOfOk ∀ (kinds: Text → Tok) (text: Text)
     (good: Good kinds text):
     (pieceOf kinds text).Plain ∧ (pieceOf kinds text).Spells :=
   let printable := good.right
   match spaces: text.all (char => char == ' ') with
-    | True => (lengthPositive text good.left, byComputing)
+    | True => (Text.lengthNeZeroOfNotEmpty text good.left, byComputing)
     | False =>
       match lineBreak: text == "\n" with
         | True => (byComputing, byComputing)

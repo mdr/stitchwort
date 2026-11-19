@@ -42,16 +42,6 @@ def SlotMatch (item: Item) (slot: Option Word): Prop := match slot with
   | Some word => item.leaf.word = word ∧ item.kind = lexKind word.text
   | None => item.kind = Comma
 
---| Items related elementwise to two joined lists split where the lists join.
-theorem all2Split ∀ (r: a → b → Prop) (read: List a) (front back: List b)
-    (all: List.All2 r read (front ++ back)):
-    ∃ (first second: List a) => read = first ++ second ∧ List.All2 r first front ∧ List.All2 r second back :=
-  match front, read, all with
-    | [], read, all => ([], read, byComputing, Trivial, all)
-    | [y, ..ys], [x, ..xs], (head, rest) =>
-      let (first, second, isRead, firstAll, secondAll) := all2Split r xs ys back rest
-      ([x, ..first], second, (rewrite isRead), (head, firstAll), secondAll)
-
 --| Whether the first item comes after an operand exactly when the expression is a call's argument: what `items`
 --| sets for an argument's sign after the call's head, and for any other expression's first token after an opener, a
 --| comma, an operator or a sign.
@@ -345,7 +335,8 @@ def BracketRead (read: List Item) (open close: Word) (inside: List (Option Word)
 theorem bracketSlots ∀ (read: List Item) (open close: Word) (inside: List (Option Word))
     (slots: List.All2 SlotMatch read ([Some open, ..inside] ++ [Some close])):
     ∃ (first: Item) (middle: List Item) (last: Item) => BracketRead read open close inside first middle last :=
-  let (front, back, isRead, frontSlots, backSlots) := all2Split SlotMatch read [Some open, ..inside] [Some close] slots
+  let (front, back, isRead, frontSlots, backSlots) :=
+    List.all2AppendSplit SlotMatch read [Some open, ..inside] [Some close] slots
   let (last, isBack, lastWord, lastKind) := slotOne back close backSlots
   match front, frontSlots with
     | [first, ..middle], ((firstWord, firstKind), middleSlots) =>
@@ -426,7 +417,7 @@ theorem lastCloses ∀ (expr: Expr) (read: List Item)
         (bracketCloser close (Bool.andLeft (Bool.andRight lexical)))
     | App head arguments, within =>
       let (headRead, argsRead, isRead, _, argsSlots) :=
-        all2Split SlotMatch read head.slots1 (argumentSlots1 arguments) slots
+        List.all2AppendSplit SlotMatch read head.slots1 (argumentSlots1 arguments) slots
       let (front, last, isArgs, closes) :=
         argumentsLast arguments argsRead
           (Bool.andLeft (Bool.andRight (Bool.andRight shaped)))
@@ -462,7 +453,7 @@ theorem infixLast ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Ex
     (slots: List.All2 SlotMatch read (Infix kind left operator right).slots1):
     EndsClosed read :=
   let (leftRead, rest, isRead, _, restSlots) :=
-    all2Split SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+    List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
   match rest, restSlots with
     | [op, ..rightRead], (_, rightSlots) =>
       let (front, last, isRight, closes) := lastCloses right rightRead within shaped lexical rightSlots
@@ -483,7 +474,7 @@ theorem argumentsLast ∀ (arguments: List Expr) (read: List Item)
   match arguments with
     | [argument, ..rest] =>
       let (first, second, isRead, firstSlots, secondSlots) :=
-        all2Split SlotMatch read argument.slots1 (argumentSlots1 rest) slots
+        List.all2AppendSplit SlotMatch read argument.slots1 (argumentSlots1 rest) slots
       match rest, second, secondSlots with
         | [], [], _ =>
           let (front, last, isFirst, closes) :=
@@ -635,21 +626,21 @@ theorem firstKindOf ∀ (expr: Expr) (read: List Item)
       rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
     | App head arguments, within =>
       let (headRead, argsRead, isRead, headSlots, _) :=
-        all2Split SlotMatch read head.slots1 (argumentSlots1 arguments) slots
+        List.all2AppendSplit SlotMatch read head.slots1 (argumentSlots1 arguments) slots
       let (slot, rest, starts) := slotsSome head (Bool.andLeft within)
       rewrite isRead then
         frontFirst headRead argsRead head.slots1 slot rest starts headSlots head.firstKind1
           (firstKindOf head headRead (Bool.andLeft within) (Bool.andLeft lexical) headSlots)
     | Infix InfixBinary left operator right, within =>
       let (leftRead, rightRead, isRead, leftSlots, _) :=
-        all2Split SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+        List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
       rewrite isRead then
         frontFirst leftRead rightRead left.slots1 slot rest starts leftSlots left.firstKind1
           (firstKindOf left leftRead (Bool.andLeft within) (Bool.andLeft lexical) leftSlots)
     | Infix InfixArrow left operator right, within =>
       let (leftRead, rightRead, isRead, leftSlots, _) :=
-        all2Split SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+        List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
       rewrite isRead then
         frontFirst leftRead rightRead left.slots1 slot rest starts leftSlots left.firstKind1
@@ -905,7 +896,7 @@ theorem negativeHead ∀ (operator: Word) (kind: Tok) (word: Word) (read: List I
 --| chains them, with the first after an operand exactly when the expression is a call's argument.
 --|
 --| Proof idea: by induction on the expression, its brackets' items and its call's arguments. The items split with
---| the slots (`all2Split`), and the spacing and chaining with them (`admitsSplit`, `chainedSplit`); each token's kind
+--| the slots (`List.all2AppendSplit`), and the spacing and chaining with them (`admitsSplit`, `chainedSplit`); each token's kind
 --| is the lexer's for its text (`lexKindOfLexes`, `infixFacts`, `prefixFacts`). A part after an opener, a comma, an
 --| operator or a sign comes after no operand (`chainedAfter`); an argument comes after its call's head or the argument
 --| before it, which end with a closing token (`lastCloses`). The glue `Spelt` reads comes from the spacing:
@@ -1184,7 +1175,7 @@ theorem speltInfix ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
     (lead: leadAfter read False = True):
     Spelt (Infix kind left operator right) read :=
   let (leftRead, rest, isRead, leftSlots, restSlots) :=
-    all2Split SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+    List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
   match rest, restSlots with
     | [op, ..rightRead], ((opWord, opKind), rightSlots) =>
       let (isTok, level) := infixFacts kind operator.text fits
@@ -1256,7 +1247,7 @@ theorem speltApp ∀ (head: Expr) (arguments: List Expr) (read: List Item)
     (lead: leadAfter read False = True):
     Spelt (App head arguments) read :=
   let (headRead, argsRead, isRead, headSlots, argsSlots) :=
-    all2Split SlotMatch read head.slots1 (argumentSlots1 arguments) slots
+    List.all2AppendSplit SlotMatch read head.slots1 (argumentSlots1 arguments) slots
   let headWithin: head.within1 = True := Bool.andLeft within
   let headLexical: head.lexical1 = True := Bool.andLeft lexical
   let fitsHead: head.head1 = True := Bool.andLeft shaped
@@ -1334,7 +1325,7 @@ theorem speltArguments ∀ (arguments: List Expr) (read: List Item)
         | [], _ => ([], byComputing, byComputing)
     | [argument, ..rest] =>
       let (argRead, restRead, isRead, argSlots, restSlots) :=
-        all2Split SlotMatch read argument.slots1 (argumentSlots1 rest) slots
+        List.all2AppendSplit SlotMatch read argument.slots1 (argumentSlots1 rest) slots
       let argWithin: argument.within1 = True := Bool.andLeft within
       let argLexical: argument.lexical1 = True := Bool.andLeft lexical
       let isArgument: argument.argument1 = True := Bool.andLeft args
@@ -1429,7 +1420,7 @@ theorem speltCommas ∀ (items: List Expr) (read: List Item)
     )
     | [one, two, ..others] =>
       let (oneRead, restRead, isRead, oneSlots, restSlots) :=
-        all2Split SlotMatch read one.slots1 ([None] ++ commaSlots1 [two, ..others]) slots
+        List.all2AppendSplit SlotMatch read one.slots1 ([None] ++ commaSlots1 [two, ..others]) slots
       match restRead, restSlots with
         | [comma, ..twoRead], (isComma, twoSlots) =>
           let readAdmits: spacingAdmits

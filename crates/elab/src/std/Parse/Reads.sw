@@ -2309,3 +2309,43 @@ theorem Parse.readsFindAllStarting ∀ [inv: Parse.Invariant t] (starts: t → B
       (Parse.readsMap (() => Parse.span (char => ¬(starts char))) (skipped => ()) _ (Parse.readsSpan _))
       (read u h => Trivial))
     reads
+
+--| `mark()` reads nothing and gives the mark where the parser is.
+theorem Parse.readsAtMarkHere ∀ (start: Parse.Mark t):
+    Parse.ReadsAt start (() => Parse.mark()) (read at => read = [] ∧ at = start) :=
+  total state value after here honest h =>
+    let same := Result.okInjective h
+    let valueSame: state.at = value := Pair.mkInjectiveFst same
+    let atSame: state.at = after := Pair.mkInjectiveSnd same
+    rewrite <- atSame, <- valueSame, here then
+      Witness [] (Both byComputing (Both honest (Both byComputing byComputing)))
+
+--| `next` of anything reads the first character left, if there is one.
+theorem Parse.readsAtNextAny ∀ (start: Parse.Mark Char):
+    Parse.ReadsAt start (() => Parse.next (char => True)) (read value => read = start.rest.take 1) :=
+  total state value after here honest h =>
+    let honestS: Parse.Honest total state.at := rewrite here then honest
+    rewrite <- here then
+      (match e: state.at.rest with
+        | [] =>
+          let same := Result.okInjective h
+          let atSame: state.at = after := Pair.mkInjectiveSnd same
+          Witness [] (rewrite <- atSame, e then Both byComputing (Both honestS byComputing))
+        | [char, ..more] =>
+          let same := Result.okInjective h
+          let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
+          let counted: state.at.left = more.length + 1 := honestS.left
+          Witness
+            [char]
+            (rewrite <- atSame then
+              Both byComputing (Both (Both (arithmetic [counted]) (arithmetic [counted, honestS.right])) byComputing)))
+
+--| A parser that starts by marking where it is reads as it does when given that mark.
+theorem Parse.readsAtMarkThen ∀ [start: Parse.Mark t] [j: Parse.Mark t → {Parse t} b] [spec: List t → b → Prop]
+    (reads: Parse.ReadsAt start (() => j start) spec):
+    Parse.ReadsAt start (() => j (Parse.mark())) spec :=
+  total state value after here honest h =>
+    let marked := Eq.trans (Parse.runFromMark state (m => (j m, Parse.mark()))).flipped h
+    let given: Parse.runFrom state (() => (j start, Parse.mark())) = Ok (value, after) :=
+      rewrite here at marked then marked
+    reads total state value after here honest given
