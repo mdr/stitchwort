@@ -1,5 +1,5 @@
 {
-  "next": 4237,
+  "next": 4238,
   "tickets": [
     {
       "id": 47,
@@ -25435,7 +25435,7 @@
     {
       "id": 4091,
       "title": "[Opus] tactics/kernel: a big rewrite on a goal like OperatorReads, or taking apart a large ∃ inside a mutual block, fails with E-RESOURCE (value too large to write out) (SW-4071); find why and fix, or document generalise-with-equations in the proving guide",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -25721,7 +25721,7 @@
     {
       "id": 4113,
       "title": "[Sonnet] checker: E-RESOURCE 'value too large to write out' when a let-pair destructure generalises a match in a context mentioning decl.leaves1 (SW-4077); point the error at the destructure, or avoid unfolding while generalising; proving guide: .left/.right workaround",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27359,6 +27359,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Est. 150 min. D3694, Matt, 19 Nov 2026: 'Yeah, sounds good. Let's implement that.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4237,
+      "title": "[Sonnet] Audit elaborator read-backs that bypass the too-large fallback (unify.rs, effects.rs, closing.rs, omega.rs, named.rs, derive_induct.rs) and any uncapped read-back outside a check; route them through check.rs's fallback where a hypothesis or goal may be huge; a test per site changed (SW-4091 findings)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4091. Test with grow 22, never ? with grow 30 (24 GB).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
