@@ -1,5 +1,5 @@
 {
-  "next": 4260,
+  "next": 4265,
   "tickets": [
     {
       "id": 47,
@@ -27262,7 +27262,7 @@
     {
       "id": 4229,
       "title": "[Opus] Generated functional induction: f.induct following a function's own cases and recursive calls (Lean's functional induction), so proofs about f need no hand-built match with guard workarounds; SW-4222 sample: allTokensWithout 29 → ~15 lines; overlaps SW-4047",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27662,6 +27662,71 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4256. Est. 40 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4260,
+      "title": "[Sonnet] Functional induction A: fix B1 (match induct on a std function says it doesn't call itself unless f.induct is named elsewhere in the file; repro docs/proposals/functional-induction/b1-std-on-demand.sw) and add a match induct entry to docs/proving-guide.md; correct SW-4222 §6.2's premise",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 20 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4261,
+      "title": "[Opus] Functional induction B: G1, guarded arm partly overlapped by a later arm gets f.induct (two cases eq3 / eq3NotArm2, pending D3697)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min. Waits for D3697.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4262,
+      "title": "[Opus] Functional induction C: G2, recursive call inside a non-tail match gets an induction hypothesis with the branch equation",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 45 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4263,
+      "title": "[Sonnet] Functional induction D: or-patterns of match induct cases, dot-form calls, a ? hole listing every case, editor code action",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 40 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4264,
+      "title": "[Sonnet] Functional induction E: formatter pilot, rewrite the withoutR family's proofs with match induct and delete unused step lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 40 min. After B.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
