@@ -191,7 +191,7 @@ theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     file.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
       ∧ file.end = lexed.settledOnce.end.comments :=
   parseCarries1 frame lexed.settledOnce file
-    (settledGood source lexed lexes alphabet spelled plain)
+    (settledGood source lexed lexes alphabet plain)
     (settledItemsQuiet source lexed lexes alphabet)
     parses
     within
@@ -207,7 +207,7 @@ theorem parseSettledSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     (within: file.within1 = True):
     file.settled1 = True :=
   parseSettled1 frame lexed.settledOnce file
-    (settledGood source lexed lexes alphabet spelled plain)
+    (settledGood source lexed lexes alphabet plain)
     (settledItemsQuiet source lexed lexes alphabet)
     parses
     within
