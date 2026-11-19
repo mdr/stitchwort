@@ -26265,12 +26265,12 @@
     {
       "id": 4154,
       "title": "[Opus] fmt multi-line read-back H9 (SW-4121 plan): assemble: confirm readsBackHung closed with H1-H8, delete the one-line read-back twins no longer used on the top theorems' path, audit Syntax.ReadBackHung*",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4154",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 45 min. Plan: docs/reviews/SW-4121-multiline-readback.md, H9 row.",
+      "body": "Est. 45 min. Plan: docs/reviews/SW-4121-multiline-readback.md, H9 row.\n\nLane notes (19 Nov, Opus, 10:17-10:40, ~23 min): commit 0239d5d95 on lane/SW-4154.\n- Closed: readsBackHung and readsBackDecl1 rely on no open goal (`stitchwort goal --json`: no ReadBack name among the dependants). Open goals unchanged: the six *Any and anyHug (ElementsProofs), formatAccepts1; groupKeepsTokens1 (SettleParseProofs) is open but not on TopStatements' path.\n- Deleted (~4,900 lines): readsBackLine/readsBackLineWithin/fullAnyLine, the *Line rungs and their examples (ReadBackLine 6590 -> 2207), readsBackWords (Ends 503 -> 410), blockOneLine/blockLinesOneLine + readsAt* (Proofs 472 -> 380), the word-only runs lemmas (Runs 2878 -> 2766), fullOfInline/inlineWord/fullWord/treeWord/treeOfLayer (Tree 1763 -> 1670), Fmt.PrintedLines (exprLine moved into ReadBackLine).\n- Kept though unused: TreeN's monotonicity family (commaMono..layerMono, treeNRaise), the items/past lemmas in ReadBackProofs, itemsAround, declarationItems, runsOffsetOn, runsPeek, runsAtomBaseWord; the SW-4074/4077 lexer witnesses.\n- Duplicates merged onto ReadBackHungAtomsLemmas: deepRight x2 -> deepRest, hungCons -> hungStep, hungSplit and deepHead's copies in ChainsLemmas.\n- Witnesses added for mulNeeds/addNeeds/appendNeeds/andNeeds/orNeeds (lost with the examples).\n- Checks: check Fmt.TopStatements 0 errors, goals as main; audit Syntax.ReadBackHung* + Fmt.TopReadBack: 161 passed, 0 warn; audit ReadBackLine/Ends/Proofs/Tree/Runs: 679 passed, 0 warn; MustAccept1: 239 passed, 49 failed (no program code changed).\n- Left: Driver1.sw:27 comment still names readsBackLineWithin (Driver1 off limits).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
