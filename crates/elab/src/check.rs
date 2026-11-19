@@ -1143,6 +1143,9 @@ impl<'e> Ctx<'e> {
     /// is shown as it was written when it is a comparison: `3 < n` rather
     /// than `4 ≤ n`, what `<` computes to (SW-3100).
     fn show_expected(&self, expected: &Value) -> String {
+        if let Some(written) = self.written_form(expected) {
+            return self.show(&written);
+        }
         if let Some((_, goal)) = &self.goal
             && written_comparison(&self.g(), goal)
             && let Some(goal) = self.goal_as_written(expected)
@@ -1150,6 +1153,14 @@ impl<'e> Ctx<'e> {
             return self.show_term(&goal);
         }
         self.show(expected)
+    }
+
+    /// The expected type as the user wrote it (`Grid`), when `expected` is
+    /// what the type being checked against computes to (`List (List Nat)`):
+    /// the two print alike. Error path only.
+    fn written_form(&self, expected: &Value) -> Option<Value> {
+        let written = self.e.decl.written_expected.borrow().clone()?;
+        (self.show_unfolded(&written) == self.show(expected)).then_some(written)
     }
 
     /// The declaration's statement as written, when `expected` is the type
@@ -1258,6 +1269,32 @@ impl<'e> Ctx<'e> {
             ),
         };
         let d = self.unknown_notes(d, &[&expected_shown, &found_shown], &[expected, found]);
+        // The expected type shown as written: say what it computes to.
+        let d = match self.written_form(expected) {
+            Some(written) => {
+                let unfolded = self.show_unfolded(&written);
+                let note = format!("`{expected_shown}` is `{unfolded}`");
+                // A call shown in notation (`k < n`) is a relation, not a
+                // name to explain (see `alias_notes`).
+                let named = match &written {
+                    Value::Call(id, ..) => {
+                        let g = self.g();
+                        g.def(*id)
+                            .path()
+                            .rsplit('.')
+                            .next()
+                            .is_some_and(|last| expected_shown.contains(last))
+                    }
+                    _ => true,
+                };
+                if named && expected_shown != unfolded && !d.notes.contains(&note) {
+                    d.with_note(note)
+                } else {
+                    d
+                }
+            }
+            None => d,
+        };
         let d = if hidden {
             d.with_note(
                 "the two types differ only in arguments the compiler fills in, shown here in \
@@ -6396,6 +6433,15 @@ pub(crate) fn check_value(
     expected: &Value,
     named: &Value,
 ) -> Result<Term> {
+    let written = matches!(named, Value::Call(..)).then(|| named.clone());
+    let outer = cx.e.decl.written_expected.replace(written);
+    let result = check_value_against(cx, expr, expected, named);
+    *cx.e.decl.written_expected.borrow_mut() = outer;
+    result
+}
+
+/// [`check_value`] with the type as written kept for [`Ctx::mismatch`].
+fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
     let g = cx.g();
     let expected = expected.clone();
     if let Some(logic) = crate::logic::classify(cx, expr) {

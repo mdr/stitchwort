@@ -7,5 +7,7 @@ expression: output
     │
  16 │ theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): takes (computation := computation) (count := 1) := Trivial
     │                                                                                                                                 ───┬───  
-    │                                                                                                                                    ╰───── expected `IsDone computation`, but this has type `Unit`
+    │                                                                                                                                    ╰───── expected `takes 1 computation`, but this has type `Unit`
+    │ 
+    │ Note: `takes 1 computation` is `IsDone computation`
 ────╯

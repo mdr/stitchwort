@@ -7,5 +7,7 @@ expression: output
     │
  21 │ theorem anyIsDone ∀ (xs: List Nat): (stuckThunk xs).finished := Trivial
     │                                                                 ───┬───  
-    │                                                                    ╰───── expected `IsDone (stuckThunk xs)`, but this has type `Unit`
+    │                                                                    ╰───── expected `Thunk.finished (stuckThunk xs)`, but this has type `Unit`
+    │ 
+    │ Note: `Thunk.finished (stuckThunk xs)` is `IsDone (stuckThunk xs)`
 ────╯

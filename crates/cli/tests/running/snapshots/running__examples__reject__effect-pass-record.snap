@@ -7,5 +7,7 @@ expression: output
     │
  18 │ theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): holderDone { inner = computation } := Trivial
     │                                                                                                                    ───┬───  
-    │                                                                                                                       ╰───── expected `IsDone computation`, but this has type `Unit`
+    │                                                                                                                       ╰───── expected `holderDone { inner = computation }`, but this has type `Unit`
+    │ 
+    │ Note: `holderDone { inner = computation }` is `IsDone computation`
 ────╯

@@ -7,5 +7,7 @@ expression: output
     │
  18 │ theorem anyIsDone ∀ (computation: Thunk): computation.finished := Trivial
     │                                                                   ───┬───  
-    │                                                                      ╰───── expected `IsDone computation`, but this has type `Unit`
+    │                                                                      ╰───── expected `Thunk.finished computation`, but this has type `Unit`
+    │ 
+    │ Note: `Thunk.finished computation` is `IsDone computation`
 ────╯
