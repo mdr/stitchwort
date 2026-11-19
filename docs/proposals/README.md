@@ -251,6 +251,7 @@ status line now says the wrong thing; the details are in
 | [parse-on-text.md](parse-on-text.md) | Parsing on `Text`: what `Std.Parse` reads in the end | proposed | SW-3269 |
 | [parse-proof-library.md](parse-proof-library.md) | Std's parser-proof library: the end state | proposed | SW-3493 |
 | [parser-input-naming.md](parser-input-naming.md) | Naming the character case of a generic parser | record (survey for D3588) | SW-3277 |
+| [proof-walk-step.md](proof-walk-step.md) | A walk step for proofs about effectful code: `walk [lemmas]` follows a parser's body with registered lemmas | proposed: D3695 | SW-4231 |
 | [std-lemma-references.md](std-lemma-references.md) | The compiler's references to std, checked | proposed | SW-1392 |
 | [std-naming.md](std-naming.md) | One name per operation in std, and how lemmas are named | proposed | SW-2179 |
 
