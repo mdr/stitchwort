@@ -1,0 +1,26 @@
+-- SW-4238 probe (inline-match). A function with a match and an if written inline after an effectful call; the proof matches on the same things, with no arguments spelled and no types stated in the arms.
+-- Checked with the main checkout's release binary (stitchwort check), 19 Nov 2026: checks
+
+import Std (Parse, Option, Nat, Bool, List)
+
+def step (fuel: Nat): {Parse Nat} Nat :=
+  let seen := Parse.next (n => True)
+  match fuel, seen with
+    | Succ more, Some n => if n == 0 then 5 else n
+    | _, _ => 7
+
+theorem givesNext: Parse.Gives Parse.Invariant.any (() => Parse.next (n => True)) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+-- A: no stated types in the arms.
+theorem givesStepA ∀ (fuel: Nat): Parse.Gives Parse.Invariant.any (() => step fuel) (v => True) :=
+  Parse.givesThen
+    givesNext
+    (seen _ =>
+      match fuel, seen with
+        | Succ more, Some n =>
+          match c: n == 0 with
+            | True => Parse.givesDone byComputing
+            | False => Parse.givesDone byComputing
+        | Succ more, None => Parse.givesDone byComputing
+        | Zero, seen => Parse.givesDone byComputing)

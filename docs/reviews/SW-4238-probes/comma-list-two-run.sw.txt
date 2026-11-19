@@ -1,0 +1,63 @@
+-- SW-4238 probe (comma-list-two-run). The two-run walk (Parse.Follows, followsThenEq) over the cut comma list, with no spelled arguments.
+-- Checked with the main checkout's release binary (stitchwort check), 19 Nov 2026: checks
+
+import Std (Parse, Option, Nat, Bool, List, Eq)
+
+def Same (x y: a): Prop := x = y
+
+theorem followsThenEq ∀ [same: Nat → Nat → Prop] [alike: c → d → Prop] [p q: () → {Parse Nat} a]
+    [j: a → {Parse Nat} c] [k: a → {Parse Nat} d]
+    (first: Parse.Follows same Same p q)
+    (rest: ∀ (x: a) => Parse.Follows same alike (() => j x) (() => k x)):
+    Parse.Follows same alike (() => j (p())) (() => k (q())) :=
+  Parse.followsThen first (x y same2 => rewrite <- same2 then rest x)
+
+def commaListFrom (fuel: Nat) (look: () → {Parse Nat} Option Nat) (ends: Nat → {Parse Nat} Bool)
+    (next: () → {Parse Nat} a) (count: Nat) (current: a) (found: List a):
+    {Parse Nat} (List a, Bool) :=
+  commaListOn fuel look ends next count current found (look())
+
+def commaListOn (fuel: Nat) (look: () → {Parse Nat} Option Nat) (ends: Nat → {Parse Nat} Bool)
+    (next: () → {Parse Nat} a) (count: Nat) (current: a) (found: List a) (seen: Option Nat):
+    {Parse Nat} (List a, Bool) :=
+  match fuel, seen with
+    | Succ more, Some kind =>
+      if kind == 0 then commaListComma more look ends next count current found
+      else ([current, ..found].reverse, False)
+    | _, _ => ([current, ..found].reverse, False)
+
+def commaListComma (more: Nat) (look: () → {Parse Nat} Option Nat) (ends: Nat → {Parse Nat} Bool)
+    (next: () → {Parse Nat} a) (count: Nat) (current: a) (found: List a):
+    {Parse Nat} (List a, Bool) :=
+  let comma := look()
+  commaListAfter more look ends next count [current, ..found] (ends count)
+
+def commaListAfter (more: Nat) (look: () → {Parse Nat} Option Nat) (ends: Nat → {Parse Nat} Bool)
+    (next: () → {Parse Nat} a) (count: Nat) (done: List a) (stop: Bool):
+    {Parse Nat} (List a, Bool) :=
+  if stop then (done.reverse, True) else commaListFrom more look ends next (count + 1) (next()) done
+
+theorem followsCommaList ∀ (same: Nat → Nat → Prop) (look: () → {Parse Nat} Option Nat)
+    (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a)
+    (lookFollows: Parse.Follows same Same look look)
+    (endsFollows: ∀ (count: Nat) => Parse.Follows same Same (() => ends count) (() => ends count))
+    (nextFollows: Parse.Follows same Same next next)
+    (fuel count: Nat) (current: a) (found: List a):
+    Parse.Follows same Same (() => commaListFrom fuel look ends next count current found) (() =>
+      commaListFrom fuel look ends next count current found) :=
+  followsThenEq lookFollows (seen =>
+    match fuel, seen with
+      | Succ more, Some kind =>
+        match isComma: kind == 0 with
+          | True =>
+            followsThenEq lookFollows (comma =>
+              followsThenEq (endsFollows count) (stop =>
+                match stop with
+                  | True => Parse.followsDone _ _ byComputing
+                  | False =>
+                    followsThenEq nextFollows (value =>
+                      followsCommaList same look ends next lookFollows endsFollows nextFollows more (count + 1) value
+                        [current, ..found])))
+          | False => Parse.followsDone _ _ byComputing
+      | Succ more, None => Parse.followsDone _ _ byComputing
+      | Zero, seen => Parse.followsDone _ _ byComputing)
