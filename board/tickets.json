@@ -27735,12 +27735,12 @@
     {
       "id": 4264,
       "title": "[Sonnet] Functional induction E: formatter pilot, rewrite the withoutR family's proofs with match induct and delete unused step lemmas",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 40 min. After B.",
+      "body": "See docs/proposals/functional-induction.md (SW-4229). Est. 40 min. After B.\n\n\nLane notes (Sonnet): proofs of withoutR/withBareR/withMarkedR/barishF/dropF families rewritten with match induct; allTokensWithout 29 to 14; 6 Nop/Pair step lemmas deleted, 4 bridge lemmas added; whole fmt check 0 errors, goals none, Fmt.Tests 441 passed. Commit ab74e9f92 on lane/SW-4264. Review.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
