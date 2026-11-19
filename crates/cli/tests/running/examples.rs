@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use crate::common;
 
-use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
+use stitchwort_cli::driver::{Cache, Outcome, Session, par_map_labelled, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::{render, with_repeated_generic_notes_cut};
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
@@ -175,23 +175,12 @@ fn untimed(mut session: Session) -> Session {
     session
 }
 
-/// Checks one example. A panic while checking it is re-raised with the
-/// example's name: a sweep's panic otherwise names only the line that
-/// panicked, not which of hundreds of files led there.
+/// Checks one example: its sources, and whether it loaded. A panic says
+/// which example led there when the sweep re-raises it ([`par_map_labelled`]).
 fn check(example: &Example) -> (SourceMap, Result<(), Vec<Diagnostic>>) {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let mut session = untimed(Session::for_stack(STACK));
-        let result = session.load(&example.name, &example.text).map(|_| ());
-        (session.sources, result)
-    }))
-    .unwrap_or_else(|payload| {
-        let message = payload
-            .downcast_ref::<String>()
-            .map(String::as_str)
-            .or_else(|| payload.downcast_ref::<&str>().copied())
-            .unwrap_or("(a panic with no message)");
-        panic!("{} panicked while being checked: {message}", example.name)
-    })
+    let mut session = untimed(Session::for_stack(STACK));
+    let result = session.load(&example.name, &example.text).map(|_| ());
+    (session.sources, result)
 }
 
 /// The command line's text output for one run: a generic note is printed in
@@ -221,7 +210,12 @@ fn accepted_examples_check() {
         .into_iter()
         .chain(examples("extract"))
         .collect();
-    let results = par_map(STACK, &all, accepted_example);
+    let results = par_map_labelled(
+        STACK,
+        &all,
+        |example| example.name.clone(),
+        accepted_example,
+    );
     let mut failures = Vec::new();
     for (example, (failed, warnings)) in all.iter().zip(results) {
         failures.extend(failed);
@@ -358,18 +352,23 @@ fn goal_examples_report_their_goals() {
     if !filtering() {
         assert!(!all.is_empty());
     }
-    par_map(STACK, &all, |example| {
-        let mut session = untimed(Session::for_stack(STACK));
-        let loaded = session.load(&example.name, &example.text).map(|_| ());
-        let output = assert_goals(
-            &example.name,
-            example.expected_error(),
-            example.expected_test_failure(),
-            &mut session,
-            loaded,
-        );
-        insta::assert_snapshot!(snapshot_name(example), output);
-    });
+    par_map_labelled(
+        STACK,
+        &all,
+        |example| example.name.clone(),
+        |example| {
+            let mut session = untimed(Session::for_stack(STACK));
+            let loaded = session.load(&example.name, &example.text).map(|_| ());
+            let output = assert_goals(
+                &example.name,
+                example.expected_error(),
+                example.expected_test_failure(),
+                &mut session,
+                loaded,
+            );
+            insta::assert_snapshot!(snapshot_name(example), output);
+        },
+    );
 }
 
 #[test]
@@ -378,40 +377,55 @@ fn goal_projects_report_their_goals() {
     if !filtering() {
         assert!(!all.is_empty());
     }
-    par_map(STACK, &all, |(name, path)| {
-        let mut session = untimed(Session::for_stack(STACK));
-        let loaded = load_project(name, path, &mut session);
-        let output = assert_goals(
-            &format!("projects/goals/{name}"),
-            None,
-            None,
-            &mut session,
-            loaded,
-        );
-        insta::assert_snapshot!(format!("projects__goals__{name}"), output);
-    });
+    par_map_labelled(
+        STACK,
+        &all,
+        |(name, _)| format!("projects/goals/{name}"),
+        |(name, path)| {
+            let mut session = untimed(Session::for_stack(STACK));
+            let loaded = load_project(name, path, &mut session);
+            let output = assert_goals(
+                &format!("projects/goals/{name}"),
+                None,
+                None,
+                &mut session,
+                loaded,
+            );
+            insta::assert_snapshot!(format!("projects__goals__{name}"), output);
+        },
+    );
 }
 
 #[test]
 fn rejected_examples_fail_for_the_expected_reason() {
-    par_map(STACK, &examples("reject"), assert_rejected);
+    par_map_labelled(
+        STACK,
+        &examples("reject"),
+        |example| example.name.clone(),
+        assert_rejected,
+    );
 }
 
 #[test]
 fn soundness_examples_fail_for_the_expected_reason() {
-    par_map(STACK, &examples("soundness"), |example| {
-        if example.text.starts_with(KNOWN_GAP) {
-            if let (sources, Err(diagnostics)) = check(example) {
-                panic!(
-                    "{} is marked `{KNOWN_GAP}` but is now rejected. Remove the marker!\n\n{}",
-                    example.name,
-                    rendered(&sources, &diagnostics)
-                );
+    par_map_labelled(
+        STACK,
+        &examples("soundness"),
+        |example| example.name.clone(),
+        |example| {
+            if example.text.starts_with(KNOWN_GAP) {
+                if let (sources, Err(diagnostics)) = check(example) {
+                    panic!(
+                        "{} is marked `{KNOWN_GAP}` but is now rejected. Remove the marker!\n\n{}",
+                        example.name,
+                        rendered(&sources, &diagnostics)
+                    );
+                }
+            } else {
+                assert_rejected(example);
             }
-        } else {
-            assert_rejected(example);
-        }
-    });
+        },
+    );
 }
 
 /// The project folders under `examples/projects/<dir>/`, sorted.
@@ -488,9 +502,12 @@ fn accepted_projects_check() {
     if !filtering() {
         assert!(!all.is_empty());
     }
-    let failures: Vec<String> = par_map(STACK, &all, |(name, path)| {
-        accepted_project_failures(name, path)
-    })
+    let failures: Vec<String> = par_map_labelled(
+        STACK,
+        &all,
+        |(name, _)| name.clone(),
+        |(name, path)| accepted_project_failures(name, path),
+    )
     .into_iter()
     .flatten()
     .collect();
@@ -508,9 +525,12 @@ fn accepted_projects_check() {
 fn the_trip_journal_checks() {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept/trip-journal");
-    let failures = par_map(STACK, &[path], |path| {
-        accepted_project_failures("trip-journal", path)
-    })
+    let failures = par_map_labelled(
+        STACK,
+        &[path],
+        |_| "trip-journal".to_string(),
+        |path| accepted_project_failures("trip-journal", path),
+    )
     .into_iter()
     .flatten()
     .collect::<Vec<_>>();
@@ -523,32 +543,37 @@ fn rejected_projects_fail_for_the_expected_reason() {
     if !filtering() {
         assert!(!all.is_empty());
     }
-    par_map(STACK, &all, |(name, path)| {
-        let config = std::fs::read_to_string(path.join("stitchwort.yaml"))
-            .expect("a project has a stitchwort.yaml");
-        let Some(expected) = config
-            .lines()
-            .take_while(|line| line.starts_with('#'))
-            .find_map(|line| line.strip_prefix("# expect-error:"))
-            .map(str::trim)
-        else {
-            panic!(
-                "projects/reject/{name} must declare the error it expects, e.g. `# expect-error: E-NAMESPACE-CYCLE`"
-            );
-        };
-        let mut session = untimed(Session::for_stack(STACK));
-        match load_project(name, path, &mut session) {
-            Ok(()) => panic!("projects/reject/{name} should be rejected but checks"),
-            Err(diagnostics) => {
-                let output = rendered(&session.sources, &diagnostics);
-                assert!(
-                    diagnostics.iter().any(|d| d.code == expected),
-                    "projects/reject/{name} was rejected, but not with {expected}:\n\n{output}"
+    par_map_labelled(
+        STACK,
+        &all,
+        |(name, _)| name.clone(),
+        |(name, path)| {
+            let config = std::fs::read_to_string(path.join("stitchwort.yaml"))
+                .expect("a project has a stitchwort.yaml");
+            let Some(expected) = config
+                .lines()
+                .take_while(|line| line.starts_with('#'))
+                .find_map(|line| line.strip_prefix("# expect-error:"))
+                .map(str::trim)
+            else {
+                panic!(
+                    "projects/reject/{name} must declare the error it expects, e.g. `# expect-error: E-NAMESPACE-CYCLE`"
                 );
-                insta::assert_snapshot!(format!("projects__reject__{name}"), output);
+            };
+            let mut session = untimed(Session::for_stack(STACK));
+            match load_project(name, path, &mut session) {
+                Ok(()) => panic!("projects/reject/{name} should be rejected but checks"),
+                Err(diagnostics) => {
+                    let output = rendered(&session.sources, &diagnostics);
+                    assert!(
+                        diagnostics.iter().any(|d| d.code == expected),
+                        "projects/reject/{name} was rejected, but not with {expected}:\n\n{output}"
+                    );
+                    insta::assert_snapshot!(format!("projects__reject__{name}"), output);
+                }
             }
-        }
-    });
+        },
+    );
 }
 
 /// The reject examples whose messages may print an unknown as `?N`: none
@@ -626,7 +651,12 @@ fn listed_missing_arms_paste_in_and_check_as_holes() {
             text: std::fs::read_to_string(&path).unwrap(),
         })
         .collect();
-    let rounds = par_map(STACK, &all, paste_listed_arms);
+    let rounds = par_map_labelled(
+        STACK,
+        &all,
+        |example| example.name.clone(),
+        paste_listed_arms,
+    );
     // The cap: 23 cases are missing, 20 listed, then the other 3.
     for (example, rounds) in all.iter().zip(rounds) {
         let expected: &[usize] = if example.name.ends_with("-cap.sw") {
