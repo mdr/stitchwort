@@ -141,7 +141,7 @@ pub fn relies_on(g: &Ev, root: Decl, skip: &dyn Fn(Decl) -> bool) -> Option<DefI
 /// Calls `each` on every declaration `node`'s checked terms mention: its
 /// type, body, run body, validators and `unfolding` list for a definition;
 /// parameters, indices, fields and validators for a data type.
-fn mentions(g: &Ev, node: Decl, each: &mut dyn FnMut(Decl)) {
+pub fn mentions(g: &Ev, node: Decl, each: &mut dyn FnMut(Decl)) {
     let builtins = g.env.builtins();
     let mut terms: Vec<&Term> = Vec::new();
     match node {
