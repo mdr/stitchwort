@@ -144,19 +144,75 @@ theorem rightNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Exp
 --| What the lexer's theorems say of an item of slice 1's alphabet: its text is one the kind is spelled with.
 def GoodItem (item: Item): Prop := item.kind.within1 = True → Spells item.kind item.text
 
---| The invariant the parse runs under: every item left is good.
-def GoodItems: Parse.Invariant Item := Parse.Invariant.every GoodItem
+--| A `-` or `!`.
+def Tok.signLike (kind: Tok): Bool := kind == Minus || kind == Bang
+
+--| What `glueQuiet` and `itemGlueQuiet` read of a sign and what follows it: if it is a sign and the next token opens
+--| an atom and is glued to it, the sign has no trailing comment and the token no own-line comments.
+def quietOf (sign apart opens untrailed unled: Bool): Bool := !sign || apart || !opens || (untrailed && unled)
+
+--| A sign and the item after it: if that item opens an atom and is glued to the sign, neither has a comment between
+--| them. What `argumentPrefix` and `negativeNumeral` see (`Syntax.GlueQuietProofs.settledItemsQuiet`).
+def itemGlueQuiet (sign next: Item): Bool :=
+  quietOf sign.kind.signLike
+    !next.glued
+    next.kind.opensAtom
+    sign.leaf.trivia.trailing.isNone
+    next.leaf.trivia.leading.isEmpty
+
+--| `itemGlueQuiet` of each item and the one after it.
+def itemsQuiet: List Item → Bool
+  | [] => True
+  | [first, ..rest] => itemsQuietAfter first rest
+
+def itemsQuietAfter (previous: Item) (rest: List Item): Bool := match rest with
+  | [] => True
+  | [next, ..more] => itemGlueQuiet previous next && itemsQuietAfter next more
+
+theorem itemsQuietTail ∀ (first: Item) (rest: List Item)
+    (quiet: itemsQuietAfter first rest = True):
+    itemsQuiet rest = True :=
+  match rest with
+    | [] => byComputing
+    | [next, ..more] => Bool.andRight quiet
+
+theorem itemsQuietDrop ∀ (read rest: List Item) (quiet: itemsQuiet (read ++ rest) = True): itemsQuiet rest = True :=
+  match read with
+    | [] => quiet
+    | [first, ..more] => itemsQuietDrop more rest (itemsQuietTail first (more ++ rest) quiet)
+
+--| Every glued sign left is quiet.
+def QuietItems: Parse.Invariant Item :=
+  { holds = items => itemsQuiet items = True, kept = read rest h => itemsQuietDrop read rest h }
+
+--| The invariant the parse runs under: every item left is good, and its glued signs are quiet.
+def GoodItems: Parse.Invariant Item := Parse.Invariant.both (Parse.Invariant.every GoodItem) QuietItems
 
 --| The head of what is left is good.
 theorem goodHead ∀ [start: Parse.Mark Item] [item: Item] [later: List Item]
     (fine: Parse.Fits Item GoodItems start.rest)
     (shape: start.rest = [item, ..later]):
     GoodItem item :=
-  let all: List.All GoodItem start.rest := fine.holds
+  let all: List.All GoodItem start.rest := fine.holds.left
   (rewrite shape at all then all).left
 
 theorem goodFirst ∀ [item: Item] [later: List Item] (fine: Parse.Fits Item GoodItems [item, ..later]): GoodItem item :=
-  fine.holds.left
+  fine.holds.left.left
+
+--| The first two items left are a quiet pair.
+theorem quietPair ∀ [start: Parse.Mark Item] [first second: Item] [later: List Item]
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (shape: start.rest = [first, second, ..later]):
+    itemGlueQuiet first second = True :=
+  let quiet: itemsQuiet start.rest = True := fine.holds.right
+  Bool.andLeft (rewrite shape at quiet then quiet)
+
+--| What the parse runs under, from the items' facts.
+theorem goodItemsOf ∀ (items: List Item)
+    (good: List.All GoodItem items)
+    (quiet: itemsQuiet items = True):
+    Parse.Fits Item GoodItems items :=
+  { holds = (good, quiet) }
 
 --| `bump` reads the item that is next, and gives its word.
 theorem readsAtBump ∀ [start: Parse.Mark Item] [item: Item] [later: List Item]

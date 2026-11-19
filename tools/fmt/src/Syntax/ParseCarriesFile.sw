@@ -37,11 +37,11 @@ theorem itemWordsOfGroup ∀ (group: List Leaf): itemWords (items group) = codeW
 --| What the parser of one declaration is known to do: the words of a declaration within slice 1 are those of the items
 --| of the group it was parsed from.
 def GroupCarries (frame: FrameRest expressionAt): Prop :=
-  ∀ (seen: Seen) (group: List Leaf) (decl: Decl) (good: List.All GoodItem (items group)) (ran: Parse.run
+  ∀ (seen: Seen) (group: List Leaf) (decl: Decl) (good: List.All GoodItem (items group)) (quiet: itemsQuiet
     (items group)
-    (() =>
-      let found := declaration seen
-      found)
+    = True) (ran: Parse.run (items group) (() =>
+    let found := declaration seen
+    found)
     = Ok decl) (within: decl.within1 = True) => decl.words = codeWords group
 
 theorem groupLoweredCarried ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List Decl) (decl: Decl)
@@ -85,20 +85,21 @@ theorem parseGroupsCarried ∀ (frame: FrameRest expressionAt)
     (carries: GroupCarries frame)
     (seen: Seen) (groups: List (List Leaf)) (found decls: List Decl)
     (good: List.All (group => List.All GoodItem (items group)) groups)
+    (quiet: List.All (group => itemsQuiet (items group) = True) groups)
     (parses: parseGroups seen groups found = Ok decls):
     ∃ (news: List Decl) => decls = found.reverse ++ news
       ∧ (news.all Decl.within1 = True → news.map Decl.words = groups.map codeWords) :=
-  match groups, good, parses with
-    | [], good, parses =>
+  match groups, good, quiet, parses with
+    | [], good, quiet, parses =>
       let same: found.reverse = decls := Result.okInjective parses
       ([], rewrite <- same, List.appendNil found.reverse then byComputing, within => byComputing)
-    | [group, ..rest], (groupGood, restGood), parses =>
+    | [group, ..rest], (groupGood, restGood), (groupQuiet, restQuiet), parses =>
       groupRanCarried seen rest found decls group
         (Parse.run (items group) (() =>
           let decl := declaration seen
           decl))
-        (decl ran within => carries seen group decl groupGood ran within)
-        (following more again => parseGroupsCarried frame carries following rest more decls restGood again)
+        (decl ran within => carries seen group decl groupGood groupQuiet ran within)
+        (following more again => parseGroupsCarried frame carries following rest more decls restGood restQuiet again)
         parses
 
 theorem fileEndCarried ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
@@ -118,6 +119,7 @@ theorem parseCarriesOf ∀ (frame: FrameRest expressionAt)
     (carries: GroupCarries frame)
     (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.leaves).map codeWords ∧ file.end = lexed.end.comments :=
@@ -130,7 +132,7 @@ theorem parseCarriesOf ∀ (frame: FrameRest expressionAt)
         ((groupsOf lexed.leaves).map codeWords)
         (decls ran allWithin =>
           let (news, split, words) :=
-            parseGroupsCarried frame carries Seen.start (groupsOf lexed.leaves) [] decls good ran
+            parseGroupsCarried frame carries Seen.start (groupsOf lexed.leaves) [] decls good quiet ran
           rewrite split then words (rewrite split at allWithin then allWithin))
         parses
         within

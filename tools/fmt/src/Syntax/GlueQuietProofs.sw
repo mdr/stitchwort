@@ -12,6 +12,7 @@
 namespace Syntax.GlueQuietProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Result, Text, Void)
 import Syntax (..)
+import Syntax.ParseProofs (..)
 import Syntax.SettleProofs (alphabet1, laidOut)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Syntax.LexLaidProofs (lexLaidProved)
@@ -19,12 +20,6 @@ import Syntax.SettleOnceProofs (intoTrailing)
 import Syntax.SettleBareProofs (fwdPair, lastPair, withBareFromR, withBareR, withBareRNop, withBareRPair)
 
 -- The invariant.
-
---| A `-` or `!`.
-def Tok.signLike (kind: Tok): Bool := kind == Minus || kind == Bang
-
---| The four facts `glueQuiet` reads, as Bools.
-def quietOf (sign lineStart opens untrailed unled: Bool): Bool := !sign || lineStart || !opens || (untrailed && unled)
 
 --| A sign and the leaf after it: if that leaf opens an atom on the same line, the sign has no trailing comment and
 --| the leaf no own-line comments.
@@ -898,23 +893,6 @@ theorem onceQuiet ∀ (source: Text) (lexed: Lexed)
     (bareQuiet lexed.leaves (laidQuiet lexed.leaves False laid))
 
 -- Items.
-
---| A sign and the item after it: if that item opens an atom and is glued to the sign, neither has a comment between
---| them. What `argumentPrefix` and `negativeNumeral` see.
-def itemGlueQuiet (sign next: Item): Bool :=
-  quietOf sign.kind.signLike
-    !next.glued
-    next.kind.opensAtom
-    sign.leaf.trivia.trailing.isNone
-    next.leaf.trivia.leading.isEmpty
-
-def itemsQuiet: List Item → Bool
-  | [] => True
-  | [first, ..rest] => itemsQuietAfter first rest
-
-def itemsQuietAfter (previous: Item) (rest: List Item): Bool := match rest with
-  | [] => True
-  | [next, ..more] => itemGlueQuiet previous next && itemsQuietAfter next more
 
 theorem quietAnyStart ∀ (s x o t e: Bool) (quiet: quietOf s False o t e = True): quietOf s x o t e = True :=
   match x with

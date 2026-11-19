@@ -6952,14 +6952,15 @@ theorem groupRanOk ∀ (seen: Seen) (rest: List (List Leaf)) (found decls: List 
 
 theorem parseGroupsOk ∀ (frame: FrameRest expressionAt) (seen: Seen) (groups: List (List Leaf)) (found decls: List Decl)
     (good: List.All (group => List.All GoodItem (items group)) groups)
+    (quiet: List.All (group => itemsQuiet (items group) = True) groups)
     (foundOk: List.All DeclOk found)
     (parses: parseGroups seen groups found = Ok decls):
     List.All DeclOk decls :=
-  match groups, good, parses with
-    | [], good, parses =>
+  match groups, good, quiet, parses with
+    | [], good, quiet, parses =>
       let same: found.reverse = decls := Result.okInjective parses
       rewrite <- same then List.allReverse DeclOk found foundOk
-    | [group, ..rest], (groupGood, restGood), parses =>
+    | [group, ..rest], (groupGood, restGood), (groupQuiet, restQuiet), parses =>
       let nested: Nested expressionAt := givesExpressionAt
       groupRanOk seen rest found decls
         (Parse.run (items group) (() =>
@@ -6971,11 +6972,11 @@ theorem parseGroupsOk ∀ (frame: FrameRest expressionAt) (seen: Seen) (groups: 
             (() => declaration seen)
             DeclOk
             (givesDeclaration seen nested (outsideOf expressionAt nested) (frameOf expressionAt nested frame))
-            { holds = groupGood }
+            (goodItemsOf (items group) groupGood groupQuiet)
             decl
             ran)
         foundOk
-        (following more moreOk again => parseGroupsOk frame following rest more decls restGood moreOk again)
+        (following more moreOk again => parseGroupsOk frame following rest more decls restGood restQuiet moreOk again)
         parses
 
 theorem fileEndOk ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
@@ -6991,6 +6992,7 @@ theorem fileEndOk ∀ (lexed: Lexed) (parsed: Result (List Decl) Text)
 --| The declarations of a file that parses from good items are each as `DeclOk` says.
 theorem parseFileOk ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file):
     List.All DeclOk file.decls :=
   match fileRefusal lexed.leaves, parses with
@@ -6999,7 +7001,7 @@ theorem parseFileOk ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: So
       fileEndOk lexed
         (parseGroups Seen.start (groupsOf lexed.leaves) [])
         file
-        (decls ran => parseGroupsOk frame Seen.start (groupsOf lexed.leaves) [] decls good () ran)
+        (decls ran => parseGroupsOk frame Seen.start (groupsOf lexed.leaves) [] decls good quiet () ran)
         parses
 
 theorem declsShapedLexical ∀ (decls: List Decl)
@@ -7018,16 +7020,18 @@ theorem declsShapedLexical ∀ (decls: List Decl)
 --| It assumes what the frame parsers give that is not yet proved (`FrameRest`), and that every item of every declaration's group is good (the lexer's spelling, `GoodItem`).
 theorem parseShaped1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.shaped1 = True :=
-  (declsShapedLexical file.decls (parseFileOk frame lexed file good parses) within).left
+  (declsShapedLexical file.decls (parseFileOk frame lexed file good quiet parses) within).left
 
 --| Every word of the file lexes as one token of its kind (a definition's name as a lower-case name, which
 --| `Header.within1` asks for).
 theorem parseLexical1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.lexical1 = True :=
-  (declsShapedLexical file.decls (parseFileOk frame lexed file good parses) within).right
+  (declsShapedLexical file.decls (parseFileOk frame lexed file good quiet parses) within).right

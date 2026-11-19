@@ -23,6 +23,7 @@ import Syntax.SettleProofs (alphabet1, laidOut, lexedTexts, plain1, tokens)
 import Syntax.SettleOnceProofs (onceSettledProved)
 import Syntax.SettleSplitProofs (declsSettled, declsWordsOpen, groupWordsConcat, groupsConcat, settledOf, settledPieces)
 import Syntax.GoodItemProofs (settledGood, spelledPlain1)
+import Syntax.GlueQuietProofs (settledItemsQuiet)
 import Syntax.LexLaidProofs (lexLaidProved)
 
 -- The words of leaves.
@@ -57,10 +58,11 @@ def Lexed.wordsSettled1 (lexed: Lexed): Bool :=
 --| file's declarations are those of the groups in order (`parseCarriesOf`).
 theorem parseCarries1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.leaves).map codeWords ∧ file.end = lexed.end.comments :=
-  parseCarriesOf frame (groupCarries frame) lexed file good parses within
+  parseCarriesOf frame (groupCarries frame) lexed file good quiet parses within
 
 --| `parseSettled1`: the tree of settled leaves is settled.
 --|
@@ -71,11 +73,12 @@ theorem parseCarries1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: 
 --| comments' texts hold of every part of a list they hold of (`settledPieces`, `Syntax.SettleSplitProofs`).
 theorem parseSettled1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
     (good: List.All (group => List.All GoodItem (items group)) (groupsOf lexed.leaves))
+    (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True)
     (settled: lexed.wordsSettled1 = True):
     file.settled1 = True :=
-  match parseCarries1 frame lexed file good parses within with
+  match parseCarries1 frame lexed file good quiet parses within with
     | (words, fileEnd) =>
       let joined: (file.decls.map Decl.words).concat = codeWords lexed.leaves :=
         rewrite words then Eq.trans (groupWordsConcat (groupsOf lexed.leaves)) (rewrite groupsConcat lexed.leaves)
@@ -185,7 +188,11 @@ theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     (within: file.within1 = True):
     file.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
       ∧ file.end = lexed.settledOnce.end.comments :=
-  parseCarries1 frame lexed.settledOnce file (settledGood source lexed lexes alphabet spelled plain) parses within
+  parseCarries1 frame lexed.settledOnce file
+    (settledGood source lexed lexes alphabet spelled plain)
+    (settledItemsQuiet source lexed lexes alphabet)
+    parses
+    within
 
 --| `parseSettled1` from the source: the tree the formatter parses from a source of slice 1's alphabet, plain and
 --| spelled plainly, is settled. Its leaves are settled by `onceWordsSettled1`, with `lexLaid1`.
@@ -199,6 +206,7 @@ theorem parseSettledSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     file.settled1 = True :=
   parseSettled1 frame lexed.settledOnce file
     (settledGood source lexed lexes alphabet spelled plain)
+    (settledItemsQuiet source lexed lexes alphabet)
     parses
     within
     (onceWordsSettled1 lexed alphabet plain (lexLaid1 source lexed lexes alphabet))

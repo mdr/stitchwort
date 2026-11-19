@@ -851,5 +851,6 @@ theorem runCarries ∀ (input: List Item) (seen: Seen) (frame: FrameRest express
           rewrite <- same then (rewrite readEq at carried then carried)
 
 --| Every declaration of a group of good items that parses carries the group's words.
-theorem groupCarries ∀ (frame: FrameRest expressionAt): GroupCarries frame := seen group decl good ran within =>
-  rewrite <- itemWordsOfGroup group then runCarries (items group) seen frame { holds = good } decl ran within
+theorem groupCarries ∀ (frame: FrameRest expressionAt): GroupCarries frame := seen group decl good quiet ran within =>
+  rewrite <- itemWordsOfGroup group then
+    runCarries (items group) seen frame (goodItemsOf (items group) good quiet) decl ran within
