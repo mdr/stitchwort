@@ -1563,53 +1563,6 @@ theorem followsOperatorExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
 
 -- The two steps `pipesFrom` is made of, from the same lemma.
 
-theorem followsPipesAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
-    (knot: SelfFollows self selfTwin)
-    (atoms: AtomFollows self selfTwin)
-    (braces: BraceFollows self selfTwin)
-    (matches: MatchFollows self selfTwin)
-    (clauses: ClauseLambdaFollows self selfTwin)
-    (lambdaFacts: LambdaFollows self selfTwin)
-    (modes: Modes) (indent more: Nat) (value valueTwin: Expr)
-    (values: ExprsAlike value valueTwin) (operator operatorTwin: Word)
-    (operators: WordsAlike operator operatorTwin) (lambdas: Bool):
-    Parse.Follows SameCode ExprsAlike (() => pipesAfter more self modes indent value operator lambdas) (() =>
-      pipesAfter more selfTwin modes indent valueTwin operatorTwin lambdas) :=
-  Parse.followsThen
-    (followsPipeFunction knot atoms braces matches clauses lambdaFacts modes lambdas)
-    (function functionTwin functions =>
-      followsPipesFrom knot atoms braces matches clauses lambdaFacts modes indent more
-        (Infix InfixPipe value operator function)
-        (Infix InfixPipe valueTwin operatorTwin functionTwin)
-        (alikeInfix InfixPipe value valueTwin values operator operatorTwin operators function functionTwin functions))
-
-theorem followsPipesStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
-    (knot: SelfFollows self selfTwin)
-    (atoms: AtomFollows self selfTwin)
-    (braces: BraceFollows self selfTwin)
-    (matches: MatchFollows self selfTwin)
-    (clauses: ClauseLambdaFollows self selfTwin)
-    (lambdaFacts: LambdaFollows self selfTwin)
-    (modes: Modes) (indent fuel: Nat) (value valueTwin: Expr)
-    (values: ExprsAlike value valueTwin) (ahead: Bool):
-    Parse.Follows SameCode ExprsAlike (() => pipesStep fuel self modes indent value ahead) (() =>
-      pipesStep fuel selfTwin modes indent valueTwin ahead) :=
-  match fuel with
-    | Zero => Parse.followsDone value valueTwin values
-    | Succ more =>
-      match ahead with
-        | True => Parse.followsThen followsBump (operator operatorTwin operators =>
-          followsThenEq
-            [p := () => lambdaHere modes]
-            [q := () => lambdaHere modes]
-            [j := lambdas => pipesAfter more self modes indent value operator lambdas]
-            [k := lambdas => pipesAfter more selfTwin modes indent valueTwin operatorTwin lambdas]
-            (followsLambdaHere modes)
-            (lambdas =>
-              followsPipesAfter knot atoms braces matches clauses lambdaFacts modes indent more value valueTwin values
-                  operator operatorTwin operators lambdas))
-        | False => Parse.followsDone value valueTwin values
-
 theorem followsBareCases ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => bareCases modes) (() => bareCases modes) :=
   followsLook (bareCasesOn modes) (bareCasesOnDeaf modes)

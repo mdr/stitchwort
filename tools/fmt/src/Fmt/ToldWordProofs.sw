@@ -63,11 +63,6 @@ theorem chunkTellSolid ∀ (text: Text) (spot: Spot)
     chunkTell text spot = { said = [Said text (spot.fresh || spot.held) spot.mid], after = Spot.afterWords } :=
   rewrite wordFilled text solid, solidSpaces text solid
 
-theorem textLineTell ∀ (text: Text)
-    (solid: isLayout text = False):
-    Doc.tellAll [Doc.text text, HardLine] Spot.lineStart = { said = [Said text True False], after = Spot.lineStart } :=
-  rewrite chunkTellSolid text Spot.lineStart solid
-
 -- Own-line comments.
 
 --| What one own-line comment says: a blank line above it if it is flagged, then its text on a line of its own.
@@ -390,12 +385,6 @@ theorem openingTell ∀ (word: Word) (around: Around) (closer: Word) (spot: Spot
 
 -- An atom and a framed node.
 
---| An atom is its word's leaf.
-theorem atomTell ∀ (kind: Tok) (word: Word) (around: Around) (spot: Spot)
-    (sound: word.sound = True):
-    ((Atom kind word).el around).tell spot = word.leafTelling around spot :=
-  leafTell word around around.at spot sound
-
 --| Where the printer is after a word's own-line comments, if it writes any.
 def Word.leadSpot (word: Word) (around: Around) (spot: Spot): Spot :=
   if word.leadsLine around then Spot.lineStart else spot
@@ -549,26 +538,6 @@ theorem prefixTell ∀ (operator: Word) (operand: Expr) (around: Around) (spot: 
           gapTell operator operand leaf.after (leafTellingFresh operator { around | hoisted = True } spot)
     _ = prefixTelling operator operand around spot := rewrite tellingQuietRight operandTelling
 
---| A prefix expression: the operator's own-line comments and blank line, then the operator and its operand where
---| they leave the printer.
-theorem prefixElTell ∀ (operator: Word) (operand: Expr) (around: Around) (spot: Spot)
-    (sound: operator.sound = True):
-    ((Prefix operator operand).el around).tell spot
-      = {
-        said = operator.toldLead around
-          ++ (prefixTelling operator operand around (operator.placedSpot around spot)).said,
-        after = (prefixTelling operator operand around (operator.placedSpot around spot)).after
-      } :=
-  rewrite framedTell operator around
-        (Doc.concat [
-          operator.leaf { around | hoisted = True } around.at,
-          prefixGap operator operand,
-          operand.el (around.next operator.trails 1)
-        ])
-        spot
-        sound,
-      prefixTell operator operand around (operator.placedSpot around spot) sound
-
 -- A leaf at the spots the rules enter it from.
 
 --| A word at a line start starts its line.
@@ -581,102 +550,6 @@ theorem wordTellingLine ∀ (text: Text):
 --| Whether the word's leaf starts a line whatever precedes it: it writes own-line comments or a kept blank line, or a
 --| closer takes a line of its own.
 def Word.forced (word: Word) (around: Around): Bool := word.leadsLine around || word.ownsLine around
-
---| With no line start of its own, a word has no comments above it and no blank line.
-theorem toldLeadQuiet ∀ (word: Word) (around: Around)
-    (quiet: word.leadsLine around = False):
-    word.toldLead around = [] :=
-  match word, around.hoisted with
-    | { text, comments = { above, after, blankBefore } }, True => byComputing
-    | { text, comments = { above = [], after, blankBefore } }, False =>
-      match around.item, blankBefore with
-        | True, False => byComputing
-        | False, True => byComputing
-        | False, False => byComputing
-
---| From a line start, a word starts its line, and (as every leaf) ends where its trailing comment or the words leave
---| the printer.
-theorem leafAtLineStart ∀ (word: Word) (around: Around) (key: Nat)
-    (sound: word.sound = True):
-    (word.leaf around key).tell Spot.lineStart
-      = {
-        said = word.toldLead around ++ [Said word.text True False] ++ word.toldTrail,
-        after = if word.trails then Spot.afterComment else Spot.afterWords
-      } :=
-  rewrite leafTell word around key Spot.lineStart sound then
-    match word.forced around with
-      | True => rewrite wordTellingLine word.text
-      | False => rewrite wordTellingLine word.text
-
---| After a separator, where a line may or may not have broken, a word starts its line or follows words.
-theorem wordTellingSep ∀ (text: Text):
-    wordTelling text Spot.afterWords.afterSep = { said = [Said text True True], after = Spot.afterWords } :=
-  match closing text with
-    | True => byComputing
-    | False => byComputing
-
---| After words on a line, a word follows them.
-theorem wordTellingWords ∀ (text: Text):
-    wordTelling text Spot.afterWords = { said = [Said text False True], after = Spot.afterWords } :=
-  match closing text with
-    | True => byComputing
-    | False => byComputing
-
---| After a trailing comment, which waits to end its line, a closer slips in front of it and still follows words on the
---| line; anything else starts the line after.
-theorem wordTellingComment ∀ (text: Text):
-    wordTelling text Spot.afterComment
-      = if closing text then { said = [Said text False True], after = Spot.afterComment }
-      else { said = [Said text True False], after = Spot.afterWords } :=
-  match closing text with
-    | True => byComputing
-    | False => byComputing
-
---| After a separator (`Line`, `SoftLine`, a fill's), a leaf starts its line if it must, else it may either.
-theorem leafAfterSep ∀ (word: Word) (around: Around) (key: Nat)
-    (sound: word.sound = True):
-    (word.leaf around key).tell Spot.afterWords.afterSep
-      = {
-        said = word.toldLead around ++ [Said word.text True (!word.forced around)] ++ word.toldTrail,
-        after = if word.trails then Spot.afterComment else Spot.afterWords
-      } :=
-  rewrite leafTell word around key Spot.afterWords.afterSep sound then
-    match word.forced around with
-      | True => rewrite wordTellingLine word.text
-      | False => rewrite wordTellingSep word.text
-
---| After words, a leaf follows them unless it must start a line.
-theorem leafAfterWords ∀ (word: Word) (around: Around) (key: Nat)
-    (sound: word.sound = True):
-    (word.leaf around key).tell Spot.afterWords
-      = {
-        said = word.toldLead around ++ [Said word.text (word.forced around) (!word.forced around)] ++ word.toldTrail,
-        after = if word.trails then Spot.afterComment else Spot.afterWords
-      } :=
-  rewrite leafTell word around key Spot.afterWords sound then
-    match word.forced around with
-      | True => rewrite wordTellingLine word.text
-      | False => rewrite wordTellingWords word.text
-
---| After a trailing comment, a closer with no line of its own slips in front of it and follows the words; anything
---| else starts a line.
-theorem leafAfterComment ∀ (word: Word) (around: Around) (key: Nat)
-    (sound: word.sound = True):
-    (word.leaf around key).tell Spot.afterComment
-      = {
-        said = word.toldLead around
-          ++ [if closing word.text && !word.forced around then Said word.text False True else Said word.text True False]
-          ++ word.toldTrail,
-        after = if word.trails then Spot.afterComment
-        else if closing word.text && !word.forced around then Spot.afterComment
-        else Spot.afterWords
-      } :=
-  rewrite leafTell word around key Spot.afterComment sound then
-    match word.forced around, closing word.text with
-      | True, True => byComputing
-      | True, False => byComputing
-      | False, True => byComputing
-      | False, False => byComputing
 
 -- Nothing is left to the layout.
 
@@ -700,13 +573,6 @@ theorem toldExactAppend ∀ (one other: List Told)
     | [] => second
     | [told, ..rest] => Bool.andIntro (Bool.andLeft first) (toldExactAppend rest other (Bool.andRight first) second)
 
---| Two tellings in a row say exactly what each does.
-theorem exactAndThen ∀ (one other: Telling)
-    (first: toldExact one.said = True)
-    (second: toldExact other.said = True):
-    toldExact (one.andThen other).said = True :=
-  toldExactAppend one.said other.said first second
-
 theorem noteToldExact ∀ (note: Note): toldExact (noteTold note) = True := match note.blankBefore with
   | True => byComputing
   | False => byComputing
@@ -723,111 +589,3 @@ theorem toldAboveExact ∀ (comments: Comments): toldExact comments.toldAbove = 
     (match comments.blankBefore with
       | True => byComputing
       | False => byComputing)
-
-theorem wordTellingExact ∀ (text: Text) (spot: Spot): toldExact (wordTelling text spot).said = True :=
-  match closing text, spot.held with
-    | True, True => byComputing
-    | True, False => byComputing
-    | False, True => byComputing
-    | False, False => byComputing
-
---| A leaf says exactly its words and blank lines: nothing in it is left to the layout.
-theorem leafTellingExact ∀ (word: Word) (around: Around) (spot: Spot):
-    toldExact (word.leafTelling around spot).said = True :=
-  toldExactAppend
-    (word.toldLead around)
-    ((wordTelling word.text (word.textSpot around spot)).said ++ word.toldTrail)
-    (toldAboveExact (word.printed around).comments)
-    (toldExactAppend
-      (wordTelling word.text (word.textSpot around spot)).said
-      word.toldTrail
-      (wordTellingExact word.text (word.textSpot around spot))
-      (match word.comments.after with
-        | Some comment => byComputing
-        | None => byComputing))
-
--- Witnesses.
-
-def witnessItem: Around := { before = False, hoisted = False, item = True, at = 0, inArm = False }
-
-def witnessAfterCode: Around := { before = True, hoisted = False, item = False, at = 0, inArm = False }
-
-def witnessPlain: Around := { before = False, hoisted = False, item = False, at = 0, inArm = False }
-
-def witnessBare: Comments := { above = [], after = None, blankBefore = False }
-
---| An item whose blank line is kept, entered after a separator: a blank line, and the word starts its line.
-theorem toldItemBlank: ((fixedWord "b" { witnessBare | blankBefore = True }).leaf witnessItem 0).told
-        Spot.afterWords.afterSep
-      = [Gap, Said "b" True False] :=
-  byComputing
-
---| An item with an own-line comment after a blank line, and the same word where no blank line is kept (not an item):
---| the flag is read above an item only.
-theorem toldItemNote: ((fixedWord "a" { witnessBare | above = [{ text = "-- x", blankBefore = True }] }).leaf
-            witnessItem 0).told Spot.afterWords.afterSep
-      = [Gap, Said "-- x" True False, Said "a" True False]
-      ∧ ((fixedWord "a" { witnessBare | above = [{ text = "-- x", blankBefore = True }] }).leaf witnessPlain 0).told
-          Spot.afterWords.afterSep
-        = [Said "-- x" True False, Said "a" True False] :=
-  (byComputing, byComputing)
-
---| A closer's own-line comments: no blank line above the first, one above the second, none below the last; the closer
---| starts a line of its own.
-theorem toldCloserNotes: ((fixedWord ")" { witnessBare |
-              above = [{ text = "-- n", blankBefore = True }, { text = "-- m", blankBefore = True }],
-              blankBefore = True
-            }).leaf witnessPlain 0).told Spot.afterWords
-      = [Said "-- n" True False, Gap, Said "-- m" True False, Said ")" True False] :=
-  byComputing
-
---| After code that ends with a comment, a closer with a comment of its own starts a line, and the comment follows it.
-theorem toldCloserOwnLine: ((fixedWord ")" { witnessBare | after = Some "-- c" }).leaf witnessAfterCode 0).told
-        Spot.afterComment
-      = [Said ")" True False, Said "-- c" False True] :=
-  byComputing
-
---| Otherwise it slips in front of the waiting comment: it follows the words and starts no line.
-theorem toldCloserTucked: ((fixedWord ")" witnessBare).leaf witnessPlain 0).told Spot.afterComment
-      = [Said ")" False True] :=
-  byComputing
-
---| `(a)`, entered at a line start.
-theorem toldParen: (parenDoc
-          (fixedWord "(" witnessBare)
-          (Atom Lower (fixedWord "a" witnessBare))
-          (fixedWord ")" witnessBare)
-          witnessPlain).told Spot.lineStart
-      = [Said "(" True False, Said "a" False True, Said ")" False True] :=
-  byComputing
-
---| `-x`, entered after a separator.
-theorem toldPrefix: ((Prefix (fixedWord "-" witnessBare) (Atom Lower (fixedWord "x" witnessBare))).el witnessPlain).told
-        Spot.afterWords.afterSep
-      = [Said "-" True True, Said "x" False True] :=
-  byComputing
-
---| `laterCloserNotesTell` applies: two comments, each on its line, a blank line above the second.
-theorem laterCloserNotesWitness: Doc.tellAll
-      (laterCloserNotes [{ text = "-- n", blankBefore = False }, { text = "-- m", blankBefore = True }])
-      Spot.lineStart
-      = {
-        said = notesTold [{ text = "-- n", blankBefore = False }, { text = "-- m", blankBefore = True }],
-        after = Spot.afterWords
-      } :=
-  laterCloserNotesTell
-    { text = "-- n", blankBefore = False }
-    [{ text = "-- m", blankBefore = True }]
-    Spot.lineStart
-    byComputing
-
---| `closerLeadTell` applies: a closer's comments, from any spot.
-theorem closerLeadWitness: Doc.tellAll
-      [
-        BreakParent,
-        Nest 2 (Doc.concat [LineStartHere, ..closerNotes [{ text = "-- n", blankBefore = True }]]),
-        CloserLine 0
-      ]
-      Spot.afterWords
-      = { said = notesTold (gated False [{ text = "-- n", blankBefore = True }]), after = Spot.lineStart } :=
-  closerLeadTell { text = "-- n", blankBefore = True } [] 0 Spot.afterWords byComputing

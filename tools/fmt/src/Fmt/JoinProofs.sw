@@ -127,9 +127,6 @@ theorem followsCloser ∀ (kinds: Text → Tok) (word text: Text)
     | Inr (Inr (Inl same)) => rewrite same then followsStops kinds word "}" '}' token byComputing stopsBrace
     | Inr (Inr (Inr same)) => rewrite same then followsStops kinds word "," ',' token byComputing stopsComma
 
-theorem followsToken ∀ (kinds: Text → Tok) (word next: Text) (follows: Follows kinds word next): Token word :=
-  follows.left
-
 -- The edges.
 
 --| Where an element whose first text is `first` starts: the line ends with nothing or with a token `first` may
@@ -176,12 +173,6 @@ theorem gappedReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge
     | Waiting None, waits => waits
     | Waiting (Some word), waits => waits
 
-theorem gappedEnded ∀ (trails: Bool) (edge: Edge) (gapped: Gapped trails edge): Ended trails edge :=
-  match edge, gapped with
-    | Plain None, _ => byComputing
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
-
 theorem freeReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
     (free: Free kinds trails edge):
     Ready kinds trails first edge :=
@@ -195,15 +186,6 @@ theorem freeEnded ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge) (free: F
   match edge, free with
     | Plain None, _ => byComputing
     | Plain (Some word), any => (any " ").left
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
-
-theorem readyEnded ∀ (kinds: Text → Tok) (before: Bool) (first: Text) (edge: Edge)
-    (ready: Ready kinds before first edge):
-    Ended before edge :=
-  match edge, ready with
-    | Plain None, _ => byComputing
-    | Plain (Some word), follows => follows.left
     | Waiting None, waits => waits
     | Waiting (Some word), waits => waits
 
@@ -374,11 +356,6 @@ theorem passesConcat ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge 
     Passes kinds (Doc.concat docs) pre post :=
   edge next holds after => concatJoins kinds docs edge next (each edge next holds after)
 
-theorem passesConcatOf ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
-    (each: PassesAll kinds docs pre post):
-    Passes kinds (Concat docs) pre post :=
-  edge next holds after => each edge next holds after
-
 theorem passesTwo ∀ (kinds: Text → Tok) (first second: Doc) (pre middle post: Edge → Prop)
     (one: Passes kinds first pre middle)
     (other: Passes kinds second middle post):
@@ -386,9 +363,6 @@ theorem passesTwo ∀ (kinds: Text → Tok) (first second: Doc) (pre middle post
   passesCons kinds first [second] pre middle post one (passesLast kinds second middle post other)
 
 -- The document's constructors.
-
-theorem passesNothing ∀ (kinds: Text → Tok) (pre: Edge → Prop): Passes kinds Doc.Nothing pre pre :=
-  edge next holds after => after edge holds
 
 theorem passesBreakParent ∀ (kinds: Text → Tok) (pre: Edge → Prop): Passes kinds BreakParent pre pre :=
   edge next holds after => after edge holds
@@ -410,11 +384,6 @@ theorem passesCloserLine ∀ (kinds: Text → Tok) (key: Nat) (pre post: Edge �
 theorem passesNest ∀ (kinds: Text → Tok) (indent: Nat) (inner: Doc) (pre post: Edge → Prop)
     (passes: Passes kinds inner pre post):
     Passes kinds (Nest indent inner) pre post :=
-  passes
-
-theorem passesAlign ∀ (kinds: Text → Tok) (inner: Doc) (pre post: Edge → Prop)
-    (passes: Passes kinds inner pre post):
-    Passes kinds (Align inner) pre post :=
   passes
 
 theorem passesGroup ∀ (kinds: Text → Tok) (inner: Doc) (hard: Bool) (pre post: Edge → Prop)
@@ -447,23 +416,6 @@ theorem passesOneLineBelow ∀ (kinds: Text → Tok) (inner: Doc) (pre post: Edg
 def EachPasses (kinds: Text → Tok) (pre post: Edge → Prop): List Doc → Prop
   | [] => True
   | [option, ..others] => Passes kinds option pre post ∧ EachPasses kinds pre post others
-
-theorem optionsPass ∀ (kinds: Text → Tok) (options: List Doc) (pre post: Edge → Prop)
-    (each: EachPasses kinds pre post options)
-    (keeps: ∀ (edge: Edge) => pre edge → post edge) (edge: Edge) (next: Edge → Prop)
-    (holds: pre edge) (after: ∀ (left: Edge) => post left → next left):
-    OptionsJoin (Follows kinds) options edge next :=
-  match options, each with
-    | [], _ => after edge (keeps edge holds)
-    | [last], (passes, _) => passes edge next holds after
-    | [option, second, ..others], (passes, rest) =>
-      (passes edge next holds after, optionsPass kinds [second, ..others] pre post rest keeps edge next holds after)
-
---| A choice whose options all pass, from edges where doing nothing would too.
-theorem passesChoice ∀ (kinds: Text → Tok) (options: List Doc) (pre post: Edge → Prop)
-    (each: EachPasses kinds pre post options) (keeps: ∀ (edge: Edge) => pre edge → post edge):
-    Passes kinds (Choice options) pre post :=
-  edge next holds after => optionsPass kinds options pre post each keeps edge next holds after
 
 --| A displaced element passes if its contents do from where they start, and from a fresh line where a comment
 --| waits.
@@ -1019,13 +971,6 @@ def Joinable (kinds: Text → Tok): Expr → Prop
 def AllJoinable (kinds: Text → Tok): List Expr → Prop
   | [] => True
   | [expr, ..rest] => Joinable kinds expr ∧ AllJoinable kinds rest
-
---| What the rules' lemmas say of an expression: its element joins from where its first token may stand, and leaves
---| the line ending with a token, a comment waiting only if it ends with one.
-def ElPasses (kinds: Text → Tok) (expr: Expr): Prop :=
-  expr.within1 = True
-    → Joinable kinds expr
-    → ∀ (around: Around) => Passes kinds (expr.el around) (Ready kinds True expr.lead.text) (Ended expr.trails)
 
 -- Comments ending an element.
 
@@ -1987,12 +1932,6 @@ def PassesSeq (kinds: Text → Tok) (pre post: Edge → Prop): List Doc → Prop
 def SeqFrom (kinds: Text → Tok) (pre post: Edge → Prop) (doc: Doc): List Doc → Prop
   | [] => Passes kinds doc pre post
   | [next, ..more] => Passes kinds doc pre (Ended True) ∧ SeqFrom kinds (Gapped True) post next more
-
-theorem seqCons ∀ (kinds: Text → Tok) (pre post: Edge → Prop) (doc next: Doc) (more: List Doc)
-    (first: Passes kinds doc pre (Ended True))
-    (rest: PassesSeq kinds (Gapped True) post [next, ..more]):
-    PassesSeq kinds pre post [doc, next, ..more] :=
-  (first, rest)
 
 --| The documents with a space between each two (`spaced`).
 theorem joinedSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
@@ -3230,65 +3169,3 @@ theorem printLexes1 ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc) (width: Na
       } :=
   let (uniform, _, words) := doc1Spells decl doc within sound shows
   printedLexes doc width kinds uniform (doc1Passes kinds decl doc within joins shows) (rewrite words then printable)
-
--- A declaration the theorem applies to, so its hypotheses can be met.
-
---| The kinds of `exampleDecl`'s tokens (`def d: A := g [a, b]`).
-def exampleKinds (text: Text): Tok :=
-  if text == "def" then KwDef
-  else if text == ":" then Colon
-  else if text == ":=" then ColonEq
-  else if text == "[" then LBracket
-  else if text == "]" then RBracket
-  else if text == "," then Comma
-  else if text == "A" then Upper
-  else Lower
-
-theorem exampleWordJoins ∀ (text: Text)
-    (sound: (fixedWord text Comments.none).sound = True)
-    (token: Token text)
-    (comma: (text == ",") = False)
-    (closer: isCloserText text = False):
-    WordJoins (fixedWord text Comments.none) :=
-  (sound, token, comma, closer)
-
-theorem exampleDeclJoins: DeclJoins exampleKinds exampleDecl :=
-  let word := (text: Text) => fixedWord text Comments.none
-  (
-    exampleWordJoins "def" byComputing byComputing byComputing byComputing,
-    exampleWordJoins "d" byComputing byComputing byComputing byComputing,
-    exampleWordJoins ":" byComputing byComputing byComputing byComputing,
-    exampleWordJoins "A" byComputing byComputing byComputing byComputing,
-    exampleWordJoins ":=" byComputing byComputing byComputing byComputing,
-    (
-      exampleWordJoins "g" byComputing byComputing byComputing byComputing,
-      (
-        (
-          (exampleWordJoins "[" byComputing byComputing byComputing byComputing, next => (byComputing, byComputing)),
-          (byComputing, byComputing),
-          (
-            exampleWordJoins "a" byComputing byComputing byComputing byComputing,
-            exampleWordJoins "b" byComputing byComputing byComputing byComputing,
-            byComputing
-          )
-        ),
-        byComputing
-      ),
-      List.consNotNil (ListOf (word "[") [Atom Lower (word "a"), Atom Lower (word "b")] False (word "]")) []
-    )
-  )
-
-theorem exampleDeclPrintable: Every (Printable exampleKinds) exampleDecl.spelt := (
-  Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('d', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
-  Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('A', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
-  Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('g', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
-  Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('a', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
-  Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('b', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
-  Inr (Inr (byComputing, byComputing, byComputing)),
-  byComputing
-)

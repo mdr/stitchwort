@@ -54,13 +54,6 @@ theorem quietUntrail ∀ (s l o t e: Bool) (quiet: quietOf s l o t e = True): qu
     | True, False, False, _, _, _ => byComputing
     | True, False, True, True, True, _ => byComputing
 
-theorem quietUnlead ∀ (s l o t e: Bool) (quiet: quietOf s l o t e = True): quietOf s l o t True = True :=
-  match s, l, o, t, e, quiet with
-    | False, _, _, _, _, _ => byComputing
-    | True, True, _, _, _, _ => byComputing
-    | True, False, False, _, _, _ => byComputing
-    | True, False, True, True, True, _ => byComputing
-
 theorem quietNotSign ∀ (l o t e: Bool): quietOf False l o t e = True := byComputing
 
 theorem quietNotOpens ∀ (s l t e: Bool): quietOf s l False t e = True := match s, l with
@@ -482,13 +475,6 @@ theorem tailQuiet ∀ (first: Leaf) (rest: List Leaf)
     | [] => byComputing
     | [next, ..more] => Bool.andRight quiet
 
-theorem headQuiet ∀ (first: Leaf) (rest: List Leaf)
-    (quiet: gluesQuietAfter first rest = True):
-    edgeQuiet [first] rest = True :=
-  match rest with
-    | [] => byComputing
-    | [next, ..more] => Bool.andLeft quiet
-
 --| Leaves newest first, put back in order in front of `acc`, are quiet.
 theorem reverseQuiet ∀ (behind acc: List Leaf)
     (back: gluesQuietBack behind = True)
@@ -885,9 +871,6 @@ theorem settledWithQuiet ∀ (lexed: Lexed) (bareLast: Bool)
     (letsFrom [] (arrows commas.leaves))
     (letsQuiet (arrows commas.leaves) (arrowsQuiet commas.leaves (commasQuiet homed lexed.end homedQuiet)))
 
-theorem settledQuiet ∀ (lexed: Lexed) (quiet: gluesQuiet lexed.leaves = True): gluesQuiet lexed.settled.leaves = True :=
-  settledWithQuiet lexed False quiet
-
 --| The leaves the parser reads from a lexed source in slice 1's alphabet have glued signs quiet.
 theorem onceQuiet ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
@@ -1007,25 +990,8 @@ def settledItemsOf (source: Text): List Item := match lex source with
   | Ok lexed => items lexed.settledOnce.leaves
   | Err _ => []
 
---| Every glued item without a comment above it and none on the item before: the invariant without its restriction
---| to a sign and an atom's first token.
-def gluedBare: List Item → Bool
-  | [] => True
-  | [first, ..rest] => gluedBareAfter first rest
-
-def gluedBareAfter (previous: Item) (rest: List Item): Bool := match rest with
-  | [] => True
-  | [next, ..more] =>
-    (!next.glued || (previous.leaf.trivia.trailing.isNone && next.leaf.trivia.leading.isEmpty))
-      && gluedBareAfter next more
-
 --| Glued signs with comments nearby, and comments on signs that aren't glued: the items are quiet.
 theorem settledItemsQuietExample: itemsQuiet
       (settledItemsOf "def d: A := f -x !b (-1) (- -- c\n  1) - -- d\n  2 (-\n  -- o\n  y)\n")
       = True :=
   byComputing
-
---| The invariant needs its restriction: rule N moves `a, -- c`'s comment back to `a`, with the `,` still glued to it.
-theorem gluedBareFalse: gluedBare (settledItemsOf "def d: A := f (a, -- c\n  b)\n") = False := byComputing
-
-theorem gluedBareQuiet: itemsQuiet (settledItemsOf "def d: A := f (a, -- c\n  b)\n") = True := byComputing

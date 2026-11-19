@@ -22,38 +22,6 @@ import Syntax.ParseWalkOthers (frameRest)
 import Syntax.GoodItemProofs (settledGood)
 import Syntax.GlueQuietProofs (settledItemsQuiet)
 
--- Comments.
-
-theorem autoCallDeaf ∀ (expr: Expr): expr.autoCall1 = (expr.walk blankPure).autoCall1 := match expr with
-  | App head arguments =>
-    match head, arguments with
-      | Atom headKind word, [Atom argumentKind other, ..more] => byComputing
-      | Atom headKind word, [] => byComputing
-      | Atom headKind word, [argument, ..more] => cases
-      | other, _ => cases
-  | Infix kind left operator right => autoCallDeaf left
-  | _ => cases
-
---| Comments don't move a list from where it starts: a tree is placed exactly when its blanked tree is.
-theorem autoPlacedDeaf ∀ (expr: Expr) (full: Bool): expr.autoPlaced1 full = (expr.walk blankPure).autoPlaced1 full :=
-  match expr with
-    | Paren open inner close => autoPlacedDeaf inner True
-    | Tuple open items comma close => allPlacedDeaf True items
-    | ListOf open items comma close =>
-      match items with
-        | [] => byComputing
-        | [one, ..others] => rewrite autoCallDeaf one, autoPlacedDeaf one True, allPlacedDeaf True others
-    | App head arguments => rewrite autoPlacedDeaf head full, allPlacedDeaf False arguments
-    | Prefix operator operand => autoPlacedDeaf operand False
-    | Infix kind left operator right => rewrite autoPlacedDeaf left full, autoPlacedDeaf right (arrowKind1 kind)
-    | _ => byComputing
-
-theorem allPlacedDeaf ∀ (full: Bool) (exprs: List Expr):
-    autoPlacedAll full exprs = autoPlacedAll full (walkExprs blankPure exprs) :=
-  match exprs with
-    | [] => byComputing
-    | [first, ..rest] => rewrite autoPlacedDeaf first full, allPlacedDeaf full rest
-
 -- `calm`.
 
 theorem autoCallCalm ∀ (expr: Expr) (item: Bool): (expr.calm item).autoCall1 = expr.autoCall1 := match expr with

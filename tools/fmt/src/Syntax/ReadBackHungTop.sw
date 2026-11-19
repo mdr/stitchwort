@@ -414,10 +414,3 @@ theorem readsBackHungTypeExample: Parse.run (items (lexedLeaves typeSource)) (()
     byComputing
     byComputing
     byComputing
-
---| The three witnesses' sources lie over several lines: each has a token starting a line right of column 0.
-theorem hungExamplesMultiLine: ((lexedLeaves listSource).any (leaf => leaf.token.lineStart && leaf.token.column > 0)
-      && (lexedLeaves signSource).any (leaf => leaf.token.lineStart && leaf.token.column > 0)
-      && (lexedLeaves typeSource).any (leaf => leaf.token.lineStart && leaf.token.column > 0))
-      = True :=
-  byComputing

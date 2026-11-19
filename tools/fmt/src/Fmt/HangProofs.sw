@@ -244,11 +244,6 @@ theorem hangsConcat ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (pr
     HangLays kinds (Doc.concat docs) indent pre post :=
   place trace next holds after => concatLays docs indent place trace next (each place trace next holds after)
 
-theorem hangsConcatOf ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (pre post: Place → Hang → Prop)
-    (each: HangLaysAll kinds docs indent pre post):
-    HangLays kinds (Concat docs) indent pre post :=
-  each
-
 -- The document's constructors that put down no word.
 
 theorem hangsNothing ∀ (kinds: Text → Tok) (indent: Nat) (pre: Place → Hang → Prop):
@@ -420,41 +415,6 @@ theorem hangsOneLineBelow ∀ (kinds: Text → Tok) (inner: Doc) (indent: Nat) (
     HangLays kinds (OneLineBelow inner) indent pre post :=
   place trace next holds after =>
     match moves place (hangOf kinds trace) holds with | (mid, started) => (mid, lays _ trace next started after)
-
---| The separators and items after a fill's first item: a separator from where an item ends, then the item.
-def SepsHang (kinds: Text → Tok) (indent: Nat) (gap ended: Place → Hang → Prop): List Doc → Prop
-  | [] => True
-  | [item, ..more] => HangLays kinds item indent gap ended ∧ SepsHang kinds indent gap ended more
-
-theorem sepsHang ∀ (kinds: Text → Tok) (items: List Doc) (indent: Nat) (gap ended: Place → Hang → Prop)
-    (each: SepsHang kinds indent gap ended items)
-    (separates: ∀ (place: Place) (trace: List Event) => ended place (hangOf kinds trace)
-      → SepLays indent place trace (after later => gap after (hangOf kinds later)))
-    (place: Place) (trace: List Event) (next: Place → List Event → Prop) (holds: ended place (hangOf kinds trace))
-    (after: ∀ (left: Place) (later: List Event) => ended left (hangOf kinds later) → next left later):
-    SepsLay items indent place trace next :=
-  match items, each with
-    | [], _ => after place trace holds
-    | [item, ..more], (lays, rest) =>
-      sepLaysWeaker indent place trace
-        (middle between => gap middle (hangOf kinds between))
-        (middle between => Lays item indent middle between (left later => SepsLay more indent left later next))
-        (middle between spaced =>
-          lays middle between (left later => SepsLay more indent left later next) spaced (left later reached =>
-            sepsHang kinds more indent gap ended rest separates left later next reached after))
-        (separates place trace holds)
-
---| A fill: its first item, then each later one after a space or a line break.
-theorem hangsFill ∀ (kinds: Text → Tok) (first: Doc) (others: List Doc)
-    (indent: Nat) (pre gap ended: Place → Hang → Prop)
-    (lays: HangLays kinds first indent pre ended)
-    (each: SepsHang kinds indent gap ended others)
-    (separates: ∀ (place: Place) (trace: List Event) => ended place (hangOf kinds trace)
-      → SepLays indent place trace (after later => gap after (hangOf kinds later))):
-    HangLays kinds (Fill [first, ..others]) indent pre ended :=
-  place trace next holds after =>
-    lays place trace (left later => SepsLay others indent left later next) holds (left later reached =>
-      sepsHang kinds others indent gap ended each separates left later next reached after)
 
 -- Words.
 
@@ -797,26 +757,6 @@ theorem plainStep ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (b
                 plain
                 room
             ))
-
-theorem plainHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat) (before: Bool)
-    (plain: Plain (kinds text))
-    (token: text.startsWith "--" = False)
-    (solid: isLayout text = False):
-    ElHangs kinds (Doc.text text) indent column before False wordStart :=
-  state entry =>
-    hangsPost kinds
-      (Doc.text text)
-      indent
-      (Entered indent column before state entry (wordStart indent entry))
-      (place hang =>
-        place = wordAfter indent text entry
-          ∧ Ended (openedBy state (wordStart indent entry)) False place
-          ∧ hang = At (openedBy state (wordStart indent entry)))
-      (place hang =>
-        Ended (openedBy state (wordStart indent entry)) False place
-          ∧ hang = At (openedBy state (wordStart indent entry)))
-      (plainStep kinds text indent column before state entry plain token solid)
-      (place hang (_, ended, folded) => (ended, folded))
 
 --| After a word the printer is mid-line.
 theorem wordAfterMid ∀ (indent: Nat) (text: Text) (place: Place):
@@ -1205,56 +1145,6 @@ theorem elGapThen ∀ (kinds: Text → Tok) (first gap part: Doc) (indent column
           entered
           after
 
---| A prefix operator and its operand, the operator's own-line comments written elsewhere or none.
-theorem prefixHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) (around: Around)
-    (indent column: Nat) (trails: Bool)
-    (plain: Plain (kinds operator.text))
-    (token: operator.text.startsWith "--" = False)
-    (solid: isLayout operator.text = False)
-    (closer: isCloserText operator.text = False)
-    (comma: (operator.text == ",") = False)
-    (bare: operator.leading around around.at = [])
-    (trailed: TrailsComment operator)
-    (operandHangs: ∀ (inset: Nat) => ElHangs kinds
-      (operand.el (around.next operator.trails 1))
-      inset
-      inset
-      operator.trails
-      trails
-      wordStart):
-    ElHangs kinds (Expr.el (Prefix operator operand) around) indent column around.before trails wordStart :=
-  let inside := { around | hoisted = True }
-  framedHangs kinds operator around
-    (Doc.concat [
-      operator.leaf inside around.at,
-      prefixGap operator operand,
-      operand.el (around.next operator.trails 1)
-    ])
-    indent
-    column
-    trails
-    bare
-    (inset seat =>
-      elGapThen kinds
-        (operator.leaf inside around.at)
-        (prefixGap operator operand)
-        (operand.el (around.next operator.trails 1))
-        inset
-        seat
-        operator.trails
-        trails
-        (elUnheld kinds
-          (operator.leaf inside around.at)
-          inset
-          seat
-          inside.before
-          operator.trails
-          wordStart
-          (plainLeafHangs kinds operator inside around.at inset seat plain token solid closer comma byComputing
-              trailed))
-        (prefixGapIs operator operand)
-        (elPart kinds (operand.el (around.next operator.trails 1)) inset operator.trails trails (operandHangs inset)))
-
 -- Own-line comments.
 
 --| Own-line comments the lexer reads as comments.
@@ -1519,45 +1409,6 @@ theorem startNotesHang ∀ (kinds: Text → Tok) (keep: Bool) (indent: Nat) (bef
         (BrokenAt indent column (At state))
         (startHangsBroken kinds indent before state entry plain)
         (notesHangBroken kinds keep note rest indent column (At state) comments)
-
---| A token with no comments above it, seated right after a line break: the blank line kept above an item is left,
---| and the token's line starts where it did.
-theorem blankLeadHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
-    (state: HangState) (at: Nat) (carry: Carry)
-    (hoisted: around.hoisted = False)
-    (bare: word.comments.above = []):
-    HangLaysAll kinds
-      (word.leading around key)
-      indent
-      (place hang => place = Broken at carry ∧ hang = At state ∧ Seated indent before state (Broken at carry))
-      (place hang => hang = At state ∧ Seated indent before state place ∧ place.midLine = False) :=
-  let pre: Place → Hang → Prop := place hang =>
-    place = Broken at carry ∧ hang = At state ∧ Seated indent before state (Broken at carry)
-  let post: Place → Hang → Prop := place hang =>
-    hang = At state ∧ Seated indent before state place ∧ place.midLine = False
-  rewrite hoisted, bare then
-    match blank: around.item && word.comments.blankBefore with
-      | True =>
-        hangsCons kinds BreakParent
-          [LineStart, Blank]
-          indent
-          pre
-          pre
-          post
-          (hangsBreakParent kinds indent pre)
-          (hangsCons kinds LineStart
-            [Blank]
-            indent
-            pre
-            pre
-            post
-            (hangsStart kinds indent pre pre (place trace (isEntry, folded, seated) =>
-              rewrite isEntry then (byComputing, folded, seated)))
-            (hangsLast kinds Blank indent pre post
-              (hangsBlank kinds indent pre post (place trace (isEntry, folded, seated) =>
-                rewrite isEntry, blankHang kinds trace then (folded, seated, byComputing)))))
-      | False => hangsNil kinds indent pre post (place hang (isEntry, folded, seated) =>
-        rewrite isEntry then (folded, seated, byComputing))
 
 --| A token's own-line comments and the blank line kept above it, from a seat: to the start of the token's line.
 theorem leadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)

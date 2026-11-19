@@ -283,10 +283,3 @@ theorem readsBackFile1 ∀ (file: SourceFile) (lexed: Lexed)
       words
       decls
   rewrite refusal, parsed, ends
-
---| `&&` and `||` are kinds `readsBackHung` reads (`lineAll`).
-theorem logicLine: (match lex "a && b || c" with
-      | Ok lexed => lineAll (items lexed.leaves)
-      | Err _ => False)
-      = True :=
-  byComputing

@@ -74,9 +74,3 @@ theorem appTrails ∀ (head argument: Expr) (rest: List Expr)
       back,
       List.appendAssoc (lastArg argument rest).words.reverse front head.words.reverse,
       trailsBackCoded (lastArg argument rest).words.reverse (front ++ head.words.reverse) code
-
---| A token that is no closer is coded: `parenTrails`' and `appTrails`' hypothesis holds of it.
-theorem atomCoded ∀ (kind: Syntax.Tok) (word: Word)
-    (closer: isCloserText word.text = False):
-    Coded (Atom kind word).words.reverse = True :=
-  rewrite closer

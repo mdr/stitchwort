@@ -94,8 +94,7 @@ type Meaning = { plain: SourceFile }
 
 --| Each step blanks the node's comments (`Fmt/Blank.sw`) before it reads
 --| it, so the traversal is `blankSteps`' and then these, one node at a
---| time: `meaningBlanksFirst` says it is the file without comments, with
---| these steps.
+--| time.
 def SourceFile.meaning (file: SourceFile): Meaning := { plain = file.withoutEnd.apply meaningSteps }
 
 --| Without the comments after the last token.

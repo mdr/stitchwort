@@ -29,7 +29,6 @@ import Syntax.SettleProofs (
   plainFromOf,
   flatToken,
   itemKind,
-  settledAlphabet1,
   settledArrowsBare1,
   settledCommasBare,
   settledHomed,
@@ -51,12 +50,6 @@ import Syntax.SettleMarkProofs (..)
 def parked (trailing: Option Comment) (behind: List Leaf): List Leaf := match trailing, behind with
   | Some comment, [previous, ..earlier] => [previous.withTrailing (Some comment), ..earlier]
   | _, _ => behind
-
-theorem leafEta ∀ (leaf: Leaf): { leaf | token = leaf.token, trivia = leaf.trivia } = leaf := match leaf with
-  | { token, trivia } => byComputing
-
-theorem triviaEta ∀ (trivia: Trivia): { trivia | leading = trivia.leading } = trivia := match trivia with
-  | { leading, blankLines, trailing } => byComputing
 
 theorem commaDeletedPlain ∀ (comma closer: Leaf) (behind: List Leaf)
     (nostart: comma.token.lineStart = False)
@@ -353,15 +346,6 @@ theorem itemNotComma ∀ (previous: Leaf) (tail: List Leaf)
       rewrite nothing at item then cases
 
 theorem notArrowBeforeComma ∀ (x: Bool) (h: (!x || !arrowFollow Comma) = True): x = False := cases
-
-theorem tokensParked ∀ (trailing: Option Comment) (behind: List Leaf):
-    tokens (parked trailing behind) = tokens behind :=
-  match trailing with
-    | None => byComputing
-    | Some comment =>
-      match behind with
-        | [] => byComputing
-        | [previous, ..earlier] => byComputing
 
 theorem itemOfKind ∀ (fst closer: Leaf) (snd: List Leaf)
     (same: fst.token.kind = closer.token.kind):
@@ -974,9 +958,6 @@ theorem endsOnTrails ∀ (older: List Leaf)
         | True => endsOnTrailsComma leaf earlier isComma ends (Bool.andLeft bare) rec
         | False => endsOnTrailsItem leaf earlier isComma ends (Bool.andLeft marked) rec
 
-theorem someNotNone ∀ (option: Option Comment) (some: option.isSome = True): option.isNone = False := match option with
-  | Some comment => byComputing
-
 theorem homedCore ∀ (tr cl ct lead em wem ls ends tb: Bool)
     (there: (!tr || (!cl || em || (ls && (!lead || ends)))) = True)
     (marker: (ct == cl) = True)
@@ -1087,8 +1068,6 @@ theorem followFacts ∀ (kind: Tok) (h: arrowFollow kind = False): (kind == Comm
 )
 
 theorem notTrue ∀ (b: Bool) (h: (!b) = True): b = False := cases
-
-theorem notNotOr ∀ (a b: Bool) (h: (!a || !b) = True) (on: a = True): b = False := cases
 
 theorem orFalseR ∀ (a b: Bool) (h: (a || b) = True) (off: b = False): a = True := cases
 
@@ -1443,9 +1422,3 @@ theorem onceSettledProved ∀ (lexed: Lexed)
     wordTextsS
     endTextsS
     afterNone
-
---| The hypotheses of `trimStartsDashes` and `trimmedComment` hold of a comment with spaces at its end.
-theorem trimStartsDashesWitness: Text.startsWithChars ['-', '-'] (trimChars "-- x  ".toList) = True :=
-  trimStartsDashes "-- x  ".toList byComputing
-
-theorem trimmedCommentWitness: commentText (trimEnd "-- x  ") = True := trimmedComment "-- x  " byComputing byComputing

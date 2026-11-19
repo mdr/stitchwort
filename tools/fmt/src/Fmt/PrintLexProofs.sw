@@ -543,11 +543,6 @@ theorem foldNotSpaces ∀ (kinds: Text → Tok) (text: Text) (rest: List Text)
 theorem pairsOfEq ∀ (xs ys: List Piece) (same: xs = ys) (follows: PairsFollow ys): PairsFollow xs :=
   rewrite same then follows
 
-theorem pieceOfSpaces ∀ (kinds: Text → Tok) (text: Text)
-    (spaces: text.all (char => char == ' ') = True):
-    pieceOf kinds text = Gap text.length :=
-  rewrite spaces
-
 --| The piece a text reads as and the first piece of the output from it start alike: the same piece, or spaces.
 theorem foldAlike ∀ (kinds: Text → Tok) (text: Text) (rest: List Text) (piece: Piece) (more: List Piece)
     (good: AllGood kinds [text, ..rest])

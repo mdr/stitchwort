@@ -26,8 +26,6 @@ import Syntax.GoodItemProofs (textSpellsOfSpells)
 import Syntax.ParseWalk (..)
 import Syntax.AutoPlaced (..)
 import Syntax.ParseCarries (
-  Carried,
-  NestedCarries,
   OneOf,
   SameOrOut,
   codeAs,
@@ -82,19 +80,6 @@ def KeptAt (goal: Goal) (read: List Item) (expr: Expr): Prop := match goal.full 
 --| `self` keeps its items at every goal.
 def NestedKept (self: Goal → {Parse Item} Expr): Prop :=
   ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (KeptAt goal)
-
---| What is kept at any goal is kept.
-theorem keptOfAt ∀ (goal: Goal) [read: List Item] [expr: Expr] (at: KeptAt goal read expr): Kept read expr :=
-  match goal.full, at with
-    | True, at => at.left
-    | False, at => at
-
---| `Kept` says all `Carried` does, since the driver's slice is within the grammar.
-theorem carriedOfKept ∀ [read: List Item] [expr: Expr] (kept: Kept read expr): Carried read expr := within =>
-  (kept (Expr.grammarOfWithin1 expr within)).left
-
-theorem nestedCarriesOfKept ∀ [self: Goal → {Parse Item} Expr] (nested: NestedKept self): NestedCarries self := goal =>
-  Parse.readsWeaken (nested goal) (read value kept => carriedOfKept (keptOfAt goal kept))
 
 --| A name or numeral spelled as `Spells` has it is one `textSpells1` takes.
 theorem spellsText1 ∀ (kind: Tok) (text: Text)

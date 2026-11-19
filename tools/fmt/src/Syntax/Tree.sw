@@ -23,7 +23,3 @@ def indent (depth: Nat): Text := Text.repeat "  " depth
 --| A node's line in the dump: its kind's name, as Rust's `NodeKind` debug
 --| name (`Def`, `Param`, `Body`).
 def nodeLine (depth: Nat) (kind: Text): Text := "${indent depth}${kind}\n"
-
---| A leaf's line in the dump: its source text. Comments and blank lines
---| don't show, as in the Rust dump.
-def Leaf.treeLine (leaf: Leaf) (depth: Nat): Text := "${indent depth}${leaf.token.text}\n"

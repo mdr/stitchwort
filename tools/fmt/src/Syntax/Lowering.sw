@@ -21,16 +21,6 @@ def Decl.loweringError (decl: Decl): Option Text := match decl with
       | None => traversalError decl
   | _ => traversalError decl
 
---| The first of the lowering's errors in a file.
-def SourceFile.loweringError (file: SourceFile): Option Text := firstLoweringError file.decls
-
-def firstLoweringError: List Decl → Option Text
-  | [] => None
-  | [decl, ..rest] =>
-    match decl.loweringError with
-      | Some message => Some message
-      | None => firstLoweringError rest
-
 --| The first of the lowering's errors in an expression read on its own.
 def Expr.loweringError (expr: Expr): Option Text := match Fail.toResult (() => expr.traverse checkSteps) with
   | Err message => Some message

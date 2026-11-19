@@ -2892,16 +2892,6 @@ theorem patternLinksBlank ∀ (links twins: List (Word, Pattern))
           rewrite alike.left.left, alike.left.right, patternLinksBlank rest restTwin alike.right
         _ = blankLinks (walkPatternLinks blankPure [(barTwin, alternativeTwin), ..restTwin]) := byComputing
 
-theorem alikePatternOr ∀ (first twin: Pattern)
-    (firsts: PatternsAlike first twin) (rest restTwin: List (Word, Pattern))
-    (rests: List.All2 (PairAlike WordsAlike PatternsAlike) rest restTwin):
-    PatternsAlike (PatternOr first rest) (PatternOr twin restTwin) :=
-  calc (PatternOr first rest).walk blankPure
-    _ = PatternOr (first.walk blankPure) (blankLinks (walkPatternLinks blankPure rest)) := byComputing
-    _ = PatternOr (twin.walk blankPure) (blankLinks (walkPatternLinks blankPure restTwin)) :=
-      rewrite firsts, patternLinksBlank rest restTwin rests
-    _ = (PatternOr twin restTwin).walk blankPure := byComputing
-
 -- Patterns: the parser.
 
 theorem followsNegativeDigits ∀ (modes: Modes) (minus minusTwin: Word)
@@ -4610,38 +4600,3 @@ theorem followsExpressionRule ∀ [self selfTwin: Goal → {Parse Item} Expr]
       | LevelArgument => followsAtom knot goal.modes False
       | LevelApp => followsApp knot (atomFollows knot) (braceFollows knot) goal.modes
       | LevelThenBody => thens goal.modes
-
--- Reading a whole input as one expression.
-
-theorem isEmptyDeaf ∀ (items: List Item): items.isEmpty = (items.map Item.stripped).isEmpty := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
-
-theorem followsWholeExpression ∀
-    (rule: ∀ (self selfTwin: Goal → {Parse Item} Expr) => SelfFollows self selfTwin
-      → SelfFollows (expressionRule self) (expressionRule selfTwin)):
-    Parse.Follows SameCode ExprsAlike (() => wholeExpression()) (() => wholeExpression()) :=
-  Parse.followsThen (followsExpression rule Modes.start) (value valueTwin values =>
-    followsThenEq (followsLook (found => found.isEmpty) isEmptyDeaf) (empty =>
-      match empty with
-        | True => Parse.followsDone _ _ values
-        | False =>
-          followsFail Modes.start "the end of the declaration" (() => Modes.start.fail "the end of the declaration")))
-
-theorem followsLambda ∀ [self selfTwin: Goal → {Parse Item} Expr]
-    (knot: SelfFollows self selfTwin)
-    (groups: HeaderGroupFollows self selfTwin)
-    (binders: BinderTypeFollows self selfTwin)
-    (modes: Modes) (keyword keywordTwin: Option Word)
-    (keywords: Option.Alike WordsAlike keyword keywordTwin):
-    Parse.Follows SameCode ExprsAlike (() => lambda self modes keyword) (() => lambda selfTwin modes keywordTwin) :=
-  followsLambdaOf knot patternOfFollows groups binders modes keyword keywordTwin keywords
-
-theorem followsClauseLambda ∀ [self selfTwin: Goal → {Parse Item} Expr]
-    (knot: SelfFollows self selfTwin)
-    (modes: Modes) (keyword keywordTwin: Word)
-    (keywords: WordsAlike keyword keywordTwin) (word wordTwin: Option Word)
-    (words: Option.Alike WordsAlike word wordTwin) (kind: ClauseKind):
-    Parse.Follows SameCode ExprsAlike (() => clauseLambda self modes keyword word kind) (() =>
-      clauseLambda selfTwin modes keywordTwin wordTwin kind) :=
-  followsClauseLambdaOf knot altPatternFollows modes keyword keywordTwin keywords word wordTwin words kind

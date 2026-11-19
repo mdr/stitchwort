@@ -14,8 +14,6 @@ import Syntax.ParseWalk (..)
 import Syntax.ParseKept (..)
 import Syntax.AutoPlaced (..)
 import Syntax.ParseCarries (
-  Carried,
-  NestedCarries,
   SameOrOut,
   codeAs,
   itemWords,

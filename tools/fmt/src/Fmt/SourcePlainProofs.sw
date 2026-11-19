@@ -445,8 +445,6 @@ theorem itemOfShape ∀ (kind: Tok): kind.shape1.isItem = itemKind kind := match
               | True => byComputing
               | False => byComputing
 
-theorem arrowShape ∀ (kind: Tok) (arrow: (kind == Arrow) = True): kind.shape1 = ShapeArrow := rewrite DecEq.sound arrow
-
 theorem followShape ∀ (kind: Tok) (follow: arrowFollow kind = True): kind.shape1.follows = True :=
   match kind, follow with
     | Comma, _ => byComputing
@@ -463,8 +461,6 @@ theorem passShape ∀ (kind: Tok) (passable: passableKind kind = True): kind.sha
     | RBrace, _ => byComputing
 
 theorem passFollows ∀ (shape: Shape1) (passes: shape.passes = True): shape.follows = True := cases
-
-theorem commaShape ∀ (kind: Tok) (comma: (kind == Comma) = True): kind.shape1 = ShapeComma := rewrite DecEq.sound comma
 
 theorem closerShape ∀ (kind: Tok) (closer: kind.shape1 = ShapeCloser): kind.isCloser = True := match kind, closer with
   | RParen, _ => byComputing

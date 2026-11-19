@@ -463,14 +463,6 @@ theorem reads0Then ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} b]
 
 theorem reads0Left: Reads0 (() => left()) := reads0Mark (here => here.rest)
 
-theorem reads0If ∀ (c: Bool) [yes no: () → {Parse Item} a]
-    (whenYes: Reads0 yes)
-    (whenNo: Reads0 no):
-    Reads0 (() => if c then yes() else no()) :=
-  match c with
-    | True => whenYes
-    | False => whenNo
-
 theorem reads0Peek ∀ (modes: Modes): Reads0 (() => modes.peek) := reads0Mark (here => peekIn modes 0 here.rest)
 
 theorem reads0PeekAt ∀ (modes: Modes) (ahead: Nat): Reads0 (() => modes.peekAt ahead) :=

@@ -210,18 +210,8 @@ def textLexesAs (text: Text) (kind: Tok): Bool := match lex text with
 --| A word's text lexes as exactly one token, of the given kind.
 def Word.lexesAs (word: Word) (kind: Tok): Bool := textLexesAs word.text kind
 
---| Words with one text lex alike: the comments are no part of the lexing.
-theorem Word.lexesAsText ∀ (word other: Word)
-    (same: word.text = other.text) (kind: Tok):
-    word.lexesAs kind = other.lexesAs kind :=
-  rewrite same
-
 theorem Word.keptNameWithin1 ∀ (word: Word) (item closer: Bool):
     (word.kept item closer).nameWithin1 = word.nameWithin1 :=
-  byComputing
-
-theorem Word.keptLexesAs ∀ (word: Word) (item closer: Bool) (kind: Tok):
-    (word.kept item closer).lexesAs kind = word.lexesAs kind :=
   byComputing
 
 --| Each word's text lexes as one token of its kind, a bracket's word is

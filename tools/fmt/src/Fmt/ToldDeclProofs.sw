@@ -406,15 +406,6 @@ theorem isAppend ∀ (front back: List Doc) (one two: List Told)
     rewrite tellAllAppend front back spot then
       refinesAppend _ _ _ _ (first spot) (second (Doc.tellAll front spot).after)
 
-theorem eachAll ∀ (docs: List Doc) (shapes: List (List Told))
-    (each: IsEach docs shapes):
-    IsAll docs (joinShapes shapes) :=
-  match docs, shapes with
-    | [], [] => isNil
-    | [doc, ..more], [shape, ..rest] =>
-      let (head, tail) := each
-      isCons doc more shape (joinShapes rest) head (eachAll more rest tail)
-
 theorem sepsTell ∀ (docs: List Doc) (shapes: List (List Told))
     (each: IsEach docs shapes) (spot: Spot):
     Refines (Doc.tellSeps docs spot).said (joinShapes shapes) :=
@@ -890,14 +881,6 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
       (empty => match items, empty with | [], _ => byComputing)
 
 -- Calls.
-
---| A token's own-line comments and kept blank line, as the document `Word.leading` writes them.
-theorem leadingIs ∀ (word: Word) (around: Around) (key: Nat)
-    (sound: word.sound = True):
-    Is (Doc.concat (word.leading around key)) (word.toldLead around) :=
-  spot =>
-    rewrite concatTell (word.leading around key) spot, leadingTell word around key spot sound then
-      refinesSelf _ (toldAboveExact (word.printed around).comments)
 
 --| The own-line comments a frame writes, then the token hoisted, are the token's shape.
 theorem toldLeadShape ∀ (word: Word) (around: Around):
@@ -2248,20 +2231,6 @@ theorem wordsShapeAppend ∀ (front back: List Word): wordsShape (front ++ back)
 def Word.hoist (word: Word): Word :=
   { word | comments = { above = [], after = word.comments.after, blankBefore = False } }
 
---| What a list of words tells, the first hoisted if `hoisted`.
-def wordsShapeAt (hoisted: Bool) (words: List Word): List Told := match hoisted, words with
-  | False, words => wordsShape words
-  | True, [] => []
-  | True, [word, ..rest] => word.hoist.shapeW ++ wordsShape rest
-
-theorem shapeKIs ∀ (word: Word) (item closer hoisted: Bool)
-    (same: isCloserText word.text = closer):
-    word.shapeK item hoisted = wordsShapeAt hoisted [word.kept item closer] :=
-  rewrite same then
-    match hoisted with
-      | True => rewrite List.appendNil (word.kept item closer).hoist.shapeW
-      | False => rewrite List.appendNil (word.kept item closer).shapeW
-
 theorem noteBare ∀ (note: Note): dropCommas (noteTold note) = noteTold note := match note.blankBefore with
   | True => byComputing
   | False => byComputing
@@ -2685,25 +2654,3 @@ theorem shapeExample: exampleDecl.shape
       ]
       ∧ dropCommas exampleDecl.shape = wordsShape exampleDecl.stood :=
   (byComputing, byComputing)
-
---| A closer that holds a comment is told as starting its line (it follows no words), as `stands` needs; the same
---| closer with no comment is left to the layout.
-theorem shapeCloser: ((Paren
-          (fixedWord "(" Comments.none)
-          (Atom Lower (fixedWord "a" Comments.none))
-          (fixedWord ")" { above = [], after = Some "-- c", blankBefore = False })).shape False False
-      = [Said "(" True True, Said "a" True True, Said ")" True False, Said "-- c" False True])
-      ∧ ((Paren
-            (fixedWord "(" Comments.none)
-            (Atom Lower (fixedWord "a" Comments.none))
-            (fixedWord ")" Comments.none)).shape False False
-        = [Said "(" True True, Said "a" True True, Said ")" True True]) :=
-  (byComputing, byComputing)
-
---| `forcedOfHomes` applies: a closer that holds a comment after code that ends with one takes a line of its own.
-theorem forcedWitness: (fixedWord ")" { above = [], after = Some "-- c", blankBefore = False }).forced witnessAfterCode
-      = True :=
-  forcedOfHomes _ witnessAfterCode byComputing byComputing
-
---| `closerNotComma` applies.
-theorem closerNotCommaWitness: (")" == ",") = False := closerNotComma ")" byComputing

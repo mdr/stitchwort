@@ -14,21 +14,6 @@ import Fmt.Kinds1 (..)
 
 -- What each level of the recursion gives.
 
---| What `self` gives at a goal: an argument is an `argument1` (so a call's head and arguments are what `shaped1`
---| asks); every other level is `Parsed1` at the lowest level its trees can have in the slice.
-def Level.floor: Level → Nat
-  | LevelFull => 1
-  | LevelInline => 1
-  | LevelLogic => 4
-  | LevelComparison => 6
-  | LevelAppend => 12
-  | LevelAdditive => 14
-  | LevelMultiplicative => 16
-  | LevelUnary => 18
-  | LevelArgument => 18
-  | LevelApp => 18
-  | LevelThenBody => 1
-
 --| A tree in the slice that is shaped, lexical and an argument: an atom, a bracket, or a sign on one.
 def ArgParsed (expr: Expr): Prop :=
   expr.within1 = True → expr.shaped1 = True ∧ expr.lexical1 = True ∧ expr.argument1 = True
@@ -336,11 +321,6 @@ theorem givesOut ∀ [p: () → {Parse Item} Expr] (floor: Nat)
     Parse.Gives GoodItems p (Parsed1 floor) :=
   Parse.givesWeaken gives (value out => outParsed floor out)
 
-theorem givesOutAtom ∀ [p: () → {Parse Item} Expr]
-    (gives: Parse.Gives GoodItems p Out):
-    Parse.Gives GoodItems p AtomParsed :=
-  Parse.givesWeaken gives (value out => outAtom out)
-
 theorem givesOutArg ∀ [p: () → {Parse Item} Expr]
     (gives: Parse.Gives GoodItems p Out):
     Parse.Gives GoodItems p ArgParsed :=
@@ -417,10 +397,6 @@ theorem appParsed ∀ (head first: Expr) (more: List Expr)
     let (headShaped, headLexical, headHead) := headParsed headWithin
     let (argsShaped, argsLexical, argsArgument) := argsParsed [first, ..more] (firstParsed, moreParsed) argsWithin
     (Both headHead (Both headShaped (Both argsArgument argsShaped)), Both headLexical argsLexical, arithmetic)
-
-theorem argParsedParsed ∀ [expr: Expr] (parsed: ArgParsed expr): Parsed1 18 expr := within =>
-  let (shaped, lexical, argument) := parsed within
-  (shaped, lexical, argLevel expr argument)
 
 theorem headParsedParsed ∀ [expr: Expr] (parsed: HeadParsed expr): Parsed1 18 expr := within =>
   let (shaped, lexical, head) := parsed within
@@ -764,20 +740,6 @@ theorem quietBeforeOf ∀ (sign next: Leaf)
         | [], unled => byComputing
         | [comment, ..more], unled => (Bool.falseNotTrue unled).impossible
     | Some comment, untrailed => (Bool.falseNotTrue untrailed).impossible
-
---| `readsAtBumpThen`, with the items left after the `bump` known: the ones after the item.
-theorem readsAtBumpAfter ∀ [start: Parse.Mark Item] [item: Item] [later: List Item]
-    [k: Word → {Parse Item} b] [holds: b → Prop]
-    (shape: start.rest = [item, ..later])
-    (fine: Parse.Fits Item GoodItems start.rest)
-    (rest: ∀ (after: Parse.Mark Item) => after.rest = later
-      → Parse.Fits Item GoodItems after.rest
-      → Parse.ReadsAt after (() => k item.leaf.word) (read value => holds value)):
-    Parse.ReadsAt start (() => k (bump())) (read value => holds value) :=
-  Parse.readsAtThen (readsAtBump shape) (read word after starts (Both single same) =>
-    let joined: [item, ..later] = [item, ..after.rest] := Eq.trans shape.flipped (rewrite single at starts then starts)
-    rewrite same then
-      rest after (List.consInjective item later after.rest joined).flipped (Parse.Fits.after fine starts))
 
 --| `left()` then `j` of the items left, from a mark; `j` is read from the mark after it, which has the same items.
 theorem readsAtAfterLeft ∀ [start: Parse.Mark Item] [j: List Item → {Parse Item} b] [spec: List Item → b → Prop]
@@ -6368,13 +6330,6 @@ theorem givesExpressionAt: Nested expressionAt := goal =>
     (inner read expr => GoalRead inner read expr)
     (self nested argument => givesExpressionRule self argument nested (outsideOf self nested))
     goal
-
---| A whole expression read by `expression`, from good items: at the level of `expr`.
-theorem givesExpression ∀ (modes: Modes): Parse.Gives GoodItems (() => expression modes) (Parsed1 1) :=
-  Parse.readsRecursiveWith expressionRule
-    (inner read expr => GoalRead inner read expr)
-    (self nested argument => givesExpressionRule self argument nested (outsideOf self nested))
-    { modes, level = LevelFull }
 
 -- The `def` frame.
 

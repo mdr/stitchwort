@@ -49,12 +49,6 @@ theorem expressionRuleFollows: ExpressionRule := self selfTwin knot =>
     (statementFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
     (thenBodyFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
 
---| `expressionAt` follows itself at every goal.
-theorem expressionSelfFollows: SelfFollows expressionAt expressionAt := expressionKnot expressionRuleFollows
-
---| `pattern` follows itself at every goal.
-theorem patternSelfFollows: PatternSelfFollows pattern pattern := goal => followsPattern patternRuleFollows goal
-
 --| A declaration follows itself, for every `Seen`.
 theorem declarationFollows ∀ (seen: Seen):
     Parse.Follows SameCode DeclsAlike (() => declaration seen) (() => declaration seen) :=

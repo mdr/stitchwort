@@ -200,20 +200,6 @@ theorem lineArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState)
             brokenArgSeat inset state before carry unglued floor bound
           ))
 
---| A `HardLine` before an argument laid deeper than the call: the start of a line at `inset`.
-theorem hardArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState) (before: Bool)
-    (unglued: state.glue = False)
-    (deeper: (indent < inset) = True):
-    HangLays kinds HardLine inset (AfterWords state indent before) (ArgSeat state inset False) :=
-  hangsHard kinds inset (AfterWords state indent before) (ArgSeat state inset False) (place hang (ended, folded,
-    clear) =>
-    let bound: (inForce state.blocks state.top < inset) = True := arithmetic
-    match place, ended with
-      | Mid at carry, (floor, _) =>
-        (byComputing, rewrite folded then startArgSeat inset state False carry unglued floor bound)
-      | Held at carry, (_, floor, _) =>
-        (byComputing, rewrite folded then startArgSeat inset state False carry unglued floor bound))
-
 --| Arguments each on a line of its own, laid at `inset`, each first word where `startFor` says: at a line start the
 --| comments above an argument, if any, change nothing of where its first word starts.
 def LinedArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool) (docs: List Doc): Prop :=
@@ -240,7 +226,7 @@ theorem lineStartFor ∀ (noted: Bool) (inset: Nat) (place: Place)
     | Mid at carry, never => (Bool.falseNotTrue never).impossible
     | Held at carry, never => (Bool.falseNotTrue never).impossible
 
---| A `HardLine` before an argument laid deeper than the call: the start of a line at `inset`, as `hardArg`.
+--| A `HardLine` before an argument laid deeper than the call: the start of a line at `inset`.
 theorem hardLineArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState) (before: Bool)
     (unglued: state.glue = False)
     (deeper: (indent < inset) = True):
@@ -633,17 +619,6 @@ theorem chainedWeaker ∀ (step weaker: Bool → Bool → Doc → Prop) (before 
     | [doc, ..rest], (middle, holds, more) =>
       (middle, implies before middle doc holds, chainedWeaker step weaker middle trails rest implies more)
 
---| A chain cut anywhere: the part before the cut ends where the part after starts.
-theorem chainedSplit ∀ (step: Bool → Bool → Doc → Prop) (before trails: Bool) (docs: List Doc) (k: Nat)
-    (chained: Chained step before trails docs):
-    ∃ (kept: Bool) => Chained step before kept (docs.take k) ∧ Chained step kept trails (docs.drop k) :=
-  match k, docs, chained with
-    | Zero, docs, chained => (before, byComputing, chained)
-    | Succ k, [], same => (before, byComputing, same)
-    | Succ k, [doc, ..rest], (middle, holds, more) =>
-      let (kept, front, back) := chainedSplit step middle trails rest k more
-      (kept, (middle, holds, front), back)
-
 theorem chainedSnoc ∀ (step: Bool → Bool → Doc → Prop) (before middle trails: Bool) (docs: List Doc) (last: Doc)
     (chained: Chained step before middle docs) (holds: step middle trails last):
     Chained step before trails (docs ++ [last]) :=
@@ -657,10 +632,6 @@ theorem chainedSnoc ∀ (step: Bool → Bool → Doc → Prop) (before middle tr
 --| Where a call's argument stands, after the element before it.
 def argAround (arm: Bool) (previous: Expr) (at: Nat): Around :=
   { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-
---| An element that hangs wherever it is laid, seated at its indentation.
-def Hangs (kinds: Text → Tok) (before trails: Bool) (doc: Doc): Prop :=
-  ∀ (inset: Nat) => ElHangs kinds doc inset inset before trails wordStart
 
 --| A call's last argument.
 def lastArg (argument: Expr): List Expr → Expr

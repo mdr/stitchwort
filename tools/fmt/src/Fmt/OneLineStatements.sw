@@ -1,5 +1,5 @@
 --| `Decl.edgeQuiet1` (SW-4096; docs/reviews/SW-4096-one-line-elements.md), the test on the tree that
---| `edgeElements1` (proved in `Fmt.EdgeDeclProofs`, the hangs) takes: an `edgeQuiet1` slice 1 declaration meets
+--| once took: an `edgeQuiet1` slice 1 declaration meets
 --| `DeclElements`. The top theorems take `declElements1` (`Fmt.ElementsProofs`), which asks no such test.
 --|
 --| `edgeQuiet1`: the only comments in the type and the value are at their edges. One may follow the last word that
@@ -53,7 +53,5 @@ def Decl.edgeQuiet1: Decl → Bool
   | Definition [] header (Assigned _ value) =>
     (header.result.calm False).edgeQuiet1 False True && (value.calm False).edgeQuiet1 True True
   | _ => False
-
--- `edgeElements1`, the hangs, is proved in `Fmt.EdgeDeclProofs`.
 
 -- Sources the two statements apply to (D3684).
