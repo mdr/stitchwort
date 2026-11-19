@@ -1,0 +1,2144 @@
+--| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
+--| SW-4132-two-run-parse.md, lane 7): `followsF`, one lemma for each parser function of `Syntax/Statements.sw`, says
+--| that `F` follows itself on alike arguments, by the pattern of `Syntax/FollowsBase.sw`.
+--|
+--| Covered with a lemma of their own (79 functions, in the order of the file):
+--|
+--|   here, hereOn, columnHere, statement, statementOn, statementValue, statementOther, letStatementEnd,
+--|   attributedLocal, localAttributed, letStatement, letAnnotation, letEquals, letPattern, letPatternOf, letBody,
+--|   letBodyOf, letEnd, localDef, handleExpr, reifyExpr, reifyComma, handlerClauses, handlerClausesEnd, clausesFrom,
+--|   handlerClause, handlerClauseOf, handlerName, operationClause, operationEnd, inductExpr, inductComma, inductEnd,
+--|   inductArms, caseNames, caseNamesOn, calcExpr, calcIndented, calcAfter, calcBody, calcEnd, calcOperand,
+--|   calcSteps, calcLine, calcRelation, calcRecord, stepSign, calcProof, rewriteExpr, rewriteAfter, rewriteWith,
+--|   repeatedlyAhead, repeatedlyOn, rewriteRulesOf, reverseAhead, reverseOn, reverseOf, reverseIf, rewriteRules,
+--|   rewriteRule, ruleSet, ruleSetAfter, setRules, setRule, rewriteTarget, rewriteTargetIf, targetAfter, targetOf,
+--|   rewriteThen, rewriteOldIn, rewriteBody, startsAt, startsOn, ownLineAt, casesExpr, casesIn, casesThen, thenBody,
+--|   thenBodyOn
+--|
+--| Without a lemma: `startsOtherStatement`, `allowedAt`, `letAtEnd`, `sequenceOn`, `calcNextOn`, `ownLineOn`,
+--| `reverseMinus`, `columnOn` (pure; lane 2's `…Deaf` lemmas), `calcRelations`, `atWithoutTarget`, `oldIn` (text),
+--| and `clausesLined`, `clausesAhead`, `inductLined`, `inductAhead`, `calcStep`, `rewriteMore`, `setMore`,
+--| `setRulesAfter` (the lemma of the function that calls them runs over their bodies, as `matchArmsLined` is in lane
+--| 5). `sequenceAhead` is lane 4's (`followsSequenceAhead`).
+--|
+--| Hypotheses. A lemma takes the knot (`SelfFollows self selfTwin`), alike arguments, and the `Follows` fact of each
+--| function of another lane that it calls, as a `def` below:
+--|
+--| - lane 6 (`Syntax/DeclParser.sw`): `ExpectFixedFollows` (`Modes.expectFixed`), `LowerQualifiedFollows`
+--|   (`Modes.lowerQualified`), `AttributesOfFollows` (`attributesOf`) and `DefinitionPartsFollows` (`definitionParts`
+--|   with no `export` or `opaque`). They are stated with this file's own relations `AttributesAlike` and `PartsAlike`
+--|   (the attributes walked with `blankPure`; the header walked and the body walked and blanked), so lane 6's lemmas
+--|   need an adapter if they use other relations. `followsExpectFixed` and `followsLowerQualified` of lane 6 are
+--|   `ExpectFixedFollows` and `LowerQualifiedFollows` as they stand.
+--| - lanes 4 and 5, where the lemma needs many hypotheses of its own: `ExprInlineFollows`, `CalcOperandFollows`,
+--|   `AppendExprFollows`, `BlockFollows` and `ExprFollows`, each proved at the end from the knot and the facts
+--|   below (`exprInlineFollows`, `calcOperandFollows`, `appendExprFollows`; `blocks` and `exprs` are lane 5's
+--|   `followsBlock` and `followsExpr`, in `thenBodyFollows`).
+--|
+--| Lane 5's ten facts about this file (`StatementFollows`, `LetStatementFollows`, `LetBodyFollows`, `HandleFollows`,
+--| `CalcFollows`, `RewriteFollows`, `CasesFollows`, `ThenBodyFollows`, `InductFollows`, `ReifyFollows`) are proved in
+--| the last section (`statementFollows`, `letStatementFollows`, `letBodyFollows`, `handleFollows`, `calcFollows`,
+--| `rewriteFollows`, `casesFollows`, `thenBodyFollows`, `inductFollows`, `reifyFollows`), none with a cycle: lane 5's
+--| `followsExprInline` takes the facts about `handleExpr`, `letStatement`, `letBody`, `calcExpr`, `rewriteExpr` and
+--| `casesExpr`, but not `statement`'s, and `thenBodyFollows` uses `statementFollows`. Lane 8 supplies the lane 6 and lane 5 facts the
+--| closing theorems take (`HeaderGroupFollows`, `BinderTypeFollows`, `PiExprFollows`, `ResultTypeFollows`, and
+--| lane 6's four above).
+--|
+--| Nothing here reads a comment: a keyword's comments are `Anything`, and `Handle`, `Reify`, `Induct`, `Calc`,
+--| `Rewrite`, `Cases` and `LetIn` are alike whatever those comments are (`inductFollows` and `reifyFollows` hold for
+--| any comments, as lane 5 states them). A statement's `LocalDef` is alike when its attributes and header are equal
+--| once walked and its body walked and blanked; `localDef` reads the header's `unfolding` clause and whether the body
+--| is a primitive from these (`unfoldingSame`, `primitiveSame`).
+--|
+--| Helpers added here: the relations `CommentedAlike`, `AttributesAlike`, `PartsAlike`, `ClauseAlike`, `InductArmAlike`,
+--| `StepAlike`, `RuleAlike`, `RuleSetAlike`, `RulesAlike`, `ReverseAlike`, `StepsAlike`, `SetRulesAlike`, the trees
+--| (`alikeLet`, `alikeLetIn`, `alikeLocalDef`, `alikeHandle`, `alikeReify`, `alikeInduct`, `alikeCalc`,
+--| `alikeRewrite`, `alikeCases`, …) and their list lemmas (`clausesBlank`, `inductArmsBlank`, `stepsBlank`,
+--| `ruleListBlank`).
+
+namespace Syntax.FollowsStatements
+import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit, Void)
+import Syntax (..)
+import Fmt (..)
+import Fmt.Walk (..)
+import Fmt.Proofs (blankPure)
+import Syntax.DeafProofs (..)
+import Syntax.FollowsBase (..)
+import Syntax.FollowsLadder (..)
+import Syntax.FollowsForms (..)
+
+-- Relations on the parts of a statement, a handler, a `calc` and a `rewrite`.
+
+def CommentedAlike (found twin: Option (Comments, Expr)): Prop :=
+  Option.Alike (PairAlike Anything ExprsAlike) found twin
+
+def AttributesAlike (attributes twin: List Attributes): Prop :=
+  walkAttributes blankPure attributes = walkAttributes blankPure twin
+
+def PartsAlike (parts twin: (Header, DefBody)): Prop :=
+  walkHeader blankPure parts.fst = walkHeader blankPure twin.fst
+    ∧ (walkDefBody blankPure parts.snd).blank = (walkDefBody blankPure twin.snd).blank
+
+def ClauseAlike (clause twin: HandlerClause): Prop :=
+  blankClauses (walkClauses blankPure [clause]) = blankClauses (walkClauses blankPure [twin])
+
+def InductArmAlike (arm twin: InductArm): Prop :=
+  blankInductArms (walkInductArms blankPure [arm]) = blankInductArms (walkInductArms blankPure [twin])
+
+def StepAlike (step twin: CalcStep): Prop :=
+  blankCalcSteps (walkSteps blankPure [step]) = blankCalcSteps (walkSteps blankPure [twin])
+
+def RuleAlike (rule twin: RewriteRule): Prop :=
+  blankRuleList (walkRuleList blankPure [rule]) = blankRuleList (walkRuleList blankPure [twin])
+
+def RuleSetAlike (set twin: RuleSet): Prop := walkRuleSet blankPure set = walkRuleSet blankPure twin
+
+def RulesAlike (rules twin: Rules): Prop := (walkRules blankPure rules).blank = (walkRules blankPure twin).blank
+
+-- Facts about the functions of lane 6 (`Syntax/DeclParser.sw`) that this file calls directly, each for every argument.
+
+def ExpectFixedFollows: Prop :=
+  ∀ (modes: Modes) (wanted: Tok) (what: Text) => Parse.Follows SameCode Anything
+    (() => modes.expectFixed wanted what)
+    (() => modes.expectFixed wanted what)
+
+def LowerQualifiedFollows: Prop :=
+  ∀ (modes: Modes) (what: Text) => Parse.Follows SameCode WordsAlike (() => modes.lowerQualified what) (() =>
+    modes.lowerQualified what)
+
+def AttributesOfFollows: Prop :=
+  ∀ (modes: Modes) => Parse.Follows SameCode AttributesAlike (() => attributesOf modes) (() => attributesOf modes)
+
+def DefinitionPartsFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) (local: Option Nat) => Parse.Follows SameCode PartsAlike
+    (() => definitionParts self modes None None local)
+    (() => definitionParts selfTwin modes None None local)
+
+-- Facts about the functions of lanes 4 and 5 that this file calls and whose lemmas take many hypotheses.
+
+def ExprInlineFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => exprInline self modes) (() => exprInline selfTwin modes)
+
+def CalcOperandFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => calcOperand self modes) (() =>
+    calcOperand selfTwin modes)
+
+def AppendExprFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => appendExpr self modes) (() => appendExpr selfTwin modes)
+
+def BlockFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) (column: Nat) (many: Bool) => Parse.Follows SameCode ExprsAlike
+    (() => block self modes column many)
+    (() => block selfTwin modes column many)
+
+def ExprFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => expr self modes) (() => expr selfTwin modes)
+
+-- Items the two runs read as the same code.
+
+theorem indexSameOf ∀ (item other: Item) (same: SameCode item other): item.index = other.index :=
+  deafItem Item.index (found => byComputing) item other same
+
+theorem depthSameOf ∀ (item other: Item) (same: SameCode item other): item.depth = other.depth :=
+  deafItem Item.depth (found => byComputing) item other same
+
+-- Trees built from alike parts.
+
+theorem afterBlank ∀ (found twin: Option (Comments, Expr))
+    (alike: CommentedAlike found twin):
+    blankAfter (walkAfter blankPure found) = blankAfter (walkAfter blankPure twin) :=
+  match found, twin with
+    | None, None => byComputing
+    | Some (comments, value), Some (commentsTwin, valueTwin) =>
+      calc blankAfter (walkAfter blankPure (Some (comments, value)))
+        _ = Some (Comments.none, value.walk blankPure) := byComputing
+        _ = Some (Comments.none, valueTwin.walk blankPure) := rewrite alike.right
+        _ = blankAfter (walkAfter blankPure (Some (commentsTwin, valueTwin))) := byComputing
+
+theorem alikeExprStatement ∀ (value twin: Expr)
+    (values: ExprsAlike value twin):
+    StatementsAlike (ExprStatement value) (ExprStatement twin) :=
+  calc (walkStatement blankPure (ExprStatement value)).blank
+    _ = ExprStatement (value.walk blankPure) := byComputing
+    _ = ExprStatement (twin.walk blankPure) := rewrite values
+    _ = (walkStatement blankPure (ExprStatement twin)).blank := byComputing
+
+theorem alikeLetStatement ∀ (binding twin: Let)
+    (lets: LetsAlike binding twin):
+    StatementsAlike (LetStatement binding) (LetStatement twin) :=
+  calc (walkStatement blankPure (LetStatement binding)).blank
+    _ = LetStatement (walkLet blankPure binding).blank := byComputing
+    _ = LetStatement (walkLet blankPure twin).blank := rewrite lets
+    _ = (walkStatement blankPure (LetStatement twin)).blank := byComputing
+
+theorem alikeLet ∀ (keyword keywordTwin: Comments) (pattern patternTwin: Pattern)
+    (patterns: PatternsAlike pattern patternTwin) (annotation annotationTwin: Option (Comments, Expr))
+    (annotations: CommentedAlike annotation annotationTwin)
+    (colonEq colonEqTwin: Comments) (value valueTwin: Expr)
+    (values: ExprsAlike value valueTwin):
+    LetsAlike { keyword, pattern, annotation, colonEq, value } {
+      keyword = keywordTwin,
+      pattern = patternTwin,
+      annotation = annotationTwin,
+      colonEq = colonEqTwin,
+      value = valueTwin
+    } :=
+  calc (walkLet blankPure { keyword, pattern, annotation, colonEq, value }).blank
+    _ = {
+        keyword = Comments.none,
+        pattern = pattern.walk blankPure,
+        annotation = blankAfter (walkAfter blankPure annotation),
+        colonEq = Comments.none,
+        value = value.walk blankPure
+      } := byComputing
+    _ = {
+        keyword = Comments.none,
+        pattern = patternTwin.walk blankPure,
+        annotation = blankAfter (walkAfter blankPure annotationTwin),
+        colonEq = Comments.none,
+        value = valueTwin.walk blankPure
+      } := rewrite patterns, afterBlank annotation annotationTwin annotations, values
+    _ = (walkLet blankPure {
+        keyword = keywordTwin,
+        pattern = patternTwin,
+        annotation = annotationTwin,
+        colonEq = colonEqTwin,
+        value = valueTwin
+      }).blank := byComputing
+
+theorem alikeLetIn ∀ (binding twin: Let)
+    (lets: LetsAlike binding twin)
+    (semicolon semicolonTwin: Comments) (body bodyTwin: Expr)
+    (bodies: ExprsAlike body bodyTwin):
+    ExprsAlike (LetIn binding semicolon body) (LetIn twin semicolonTwin bodyTwin) :=
+  calc (LetIn binding semicolon body).walk blankPure
+    _ = LetIn (walkLet blankPure binding).blank Comments.none (body.walk blankPure) := byComputing
+    _ = LetIn (walkLet blankPure twin).blank Comments.none (bodyTwin.walk blankPure) := rewrite lets, bodies
+    _ = (LetIn twin semicolonTwin bodyTwin).walk blankPure := byComputing
+
+-- The two sides of a header's `unfolding` clause and a body's primitiveness are read by `localDef`.
+
+theorem unfoldingKept ∀ (header: Header):
+    (walkHeader blankPure header).unfoldingClause.isSome = header.unfoldingClause.isSome :=
+  match header with
+    | {
+        exportKeyword,
+        opaqueKeyword,
+        kind,
+        keyword,
+        name,
+        forallKeyword,
+        params,
+        colon,
+        result,
+        decreasingClause,
+        unfoldingClause
+      } =>
+      match unfoldingClause with
+        | Some (written, names) => byComputing
+        | None => byComputing
+
+theorem unfoldingSame ∀ (parts twin: (Header, DefBody))
+    (alike: PartsAlike parts twin):
+    parts.fst.unfoldingClause.isSome = twin.fst.unfoldingClause.isSome :=
+  calc parts.fst.unfoldingClause.isSome
+    _ = (walkHeader blankPure parts.fst).unfoldingClause.isSome := Eq.flipped (unfoldingKept parts.fst)
+    _ = (walkHeader blankPure twin.fst).unfoldingClause.isSome :=
+      Eq.cong (found => found.unfoldingClause.isSome) alike.left
+    _ = twin.fst.unfoldingClause.isSome := unfoldingKept twin.fst
+
+def BodyTag: DefBody → Nat
+  | Primitive => 0
+  | Assigned _ _ => 1
+  | Arms _ => 2
+
+theorem primitiveKept ∀ (body: DefBody): BodyTag (walkDefBody blankPure body).blank = BodyTag body := match body with
+  | Primitive => byComputing
+  | Assigned colonEq value => byComputing
+  | Arms arms => byComputing
+
+theorem primitiveSame ∀ (parts twin: (Header, DefBody))
+    (alike: PartsAlike parts twin):
+    BodyTag parts.snd = BodyTag twin.snd :=
+  calc BodyTag parts.snd
+    _ = BodyTag (walkDefBody blankPure parts.snd).blank := Eq.flipped (primitiveKept parts.snd)
+    _ = BodyTag (walkDefBody blankPure twin.snd).blank := Eq.cong BodyTag alike.right
+    _ = BodyTag twin.snd := primitiveKept twin.snd
+
+theorem alikeLocalDef ∀ (attributes twinAttributes: List Attributes)
+    (attributeses: AttributesAlike attributes twinAttributes)
+    (header twinHeader: Header) (body twinBody: DefBody)
+    (parts: PartsAlike (header, body) (twinHeader, twinBody)):
+    StatementsAlike (LocalDef attributes header body) (LocalDef twinAttributes twinHeader twinBody) :=
+  calc (walkStatement blankPure (LocalDef attributes header body)).blank
+    _ = LocalDef
+        (walkAttributes blankPure attributes)
+        (walkHeader blankPure header)
+        (walkDefBody blankPure body).blank := byComputing
+    _ = LocalDef
+        (walkAttributes blankPure twinAttributes)
+        (walkHeader blankPure twinHeader)
+        (walkDefBody blankPure twinBody).blank := rewrite attributeses, parts.left, parts.right
+    _ = (walkStatement blankPure (LocalDef twinAttributes twinHeader twinBody)).blank := byComputing
+
+-- Where the next item is.
+
+theorem followsHereOn ∀ (items others: List Item)
+    (same: List.All2 SameCode items others):
+    Parse.Follows SameCode Same (() => hereOn items) (() => hereOn others) :=
+  match items, others with
+    | [], [] =>
+      Parse.followsMap
+        [alike := Same]
+        [p := () => offset()]
+        [q := () => offset()]
+        (found => (found, 0))
+        (found => (found, 0))
+        (found twin founds => Eq.cong (n => (n, 0)) founds)
+        followsOffset
+    | [item, ..rest], [other, ..restTwin] =>
+      Parse.followsDone _ _
+        (Eq.cong2 (index depth => (index, depth)) (indexSameOf item other same.left) (depthSameOf item other same.left))
+
+theorem followsHere: Parse.Follows SameCode Same (() => here()) (() => here()) :=
+  followsOn hereOn hereOn (seen others same => followsHereOn seen others same)
+
+theorem followsColumnHere: Parse.Follows SameCode Same (() => columnHere()) (() => columnHere()) :=
+  followsLook columnOn columnOnDeaf
+
+-- A local definition.
+
+theorem followsLocalDefMatch ∀ (attributes twinAttributes: List Attributes)
+    (attributeses: AttributesAlike attributes twinAttributes)
+    (header twinHeader: Header) (body twinBody: DefBody)
+    (parts: PartsAlike (header, body) (twinHeader, twinBody)):
+    Parse.Follows SameCode StatementsAlike
+      (() =>
+        match header.unfoldingClause, body with
+          | Some _, _ => Syntax.fatal "a local definition can't have `unfolding`"
+          | None, Primitive => Syntax.fatal localNeedsBody
+          | None, _ => LocalDef attributes header body)
+      (() =>
+        match twinHeader.unfoldingClause, twinBody with
+          | Some _, _ => Syntax.fatal "a local definition can't have `unfolding`"
+          | None, Primitive => Syntax.fatal localNeedsBody
+          | None, _ => LocalDef twinAttributes twinHeader twinBody) :=
+  let some: header.unfoldingClause.isSome = twinHeader.unfoldingClause.isSome :=
+    unfoldingSame (header, body) (twinHeader, twinBody) parts
+  let primitive: BodyTag body = BodyTag twinBody := primitiveSame (header, body) (twinHeader, twinBody) parts
+  match header.unfoldingClause, twinHeader.unfoldingClause with
+    | Some written, Some writtenTwin => followsFatalAny "a local definition can't have `unfolding`" (() =>
+      Syntax.fatal "a local definition can't have `unfolding`")
+    | None, None =>
+      match body, twinBody with
+        | Primitive, Primitive => followsFatalAny localNeedsBody (() => Syntax.fatal localNeedsBody)
+        | Assigned colonEq value, Assigned colonEqTwin valueTwin =>
+          Parse.followsDone _ _ (alikeLocalDef attributes twinAttributes attributeses header twinHeader _ _ parts)
+        | Arms arms, Arms armsTwin =>
+          Parse.followsDone _ _ (alikeLocalDef attributes twinAttributes attributeses header twinHeader _ _ parts)
+        | Primitive, Assigned colonEqTwin valueTwin =>
+          let clash := primitive
+          cases
+        | Primitive, Arms armsTwin =>
+          let clash := primitive
+          cases
+        | Assigned colonEq value, Primitive =>
+          let clash := primitive
+          cases
+        | Arms arms, Primitive =>
+          let clash := primitive
+          cases
+        | Assigned colonEq value, Arms armsTwin =>
+          let clash := primitive
+          cases
+        | Arms arms, Assigned colonEqTwin valueTwin =>
+          let clash := primitive
+          cases
+
+theorem followsLocalDef ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (modes: Modes) (attributes twinAttributes: List Attributes)
+    (alike: AttributesAlike attributes twinAttributes):
+    Parse.Follows SameCode StatementsAlike (() => localDef self modes attributes) (() =>
+      localDef selfTwin modes twinAttributes) :=
+  followsThenEq followsColumnHere (d =>
+    Parse.followsThen (definitions modes (Some d)) (found twin parts =>
+      match found, twin with
+        | (header, body), (twinHeader, twinBody) =>
+          followsLocalDefMatch attributes twinAttributes alike header twinHeader body twinBody parts))
+
+-- `let`.
+
+theorem followsLetAnnotation ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (atColon: Bool):
+    Parse.Follows SameCode CommentedAlike (() => letAnnotation self modes atColon) (() =>
+      letAnnotation selfTwin modes atColon) :=
+  match atColon with
+    | True => Parse.followsThen followsFixedFrom (colon colonTwin colons =>
+      Parse.followsMap
+        [alike := CommentedAlike]
+        (annotation => Some (colon, annotation))
+        (annotation => Some (colonTwin, annotation))
+        (annotation annotationTwin annotations => (colons, annotations))
+        (knot { modes = modes.sealed, level = LevelInline }))
+    | False => Parse.followsDone None None Trivial
+
+theorem followsLetEquals ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes) (depth: Nat)
+    (keyword keywordTwin: Comments) (pattern patternTwin: Pattern)
+    (patterns: PatternsAlike pattern patternTwin) (annotation annotationTwin: Option (Comments, Expr))
+    (annotations: CommentedAlike annotation annotationTwin) (atEquals: Bool):
+    Parse.Follows SameCode LetsAlike (() => letEquals self modes depth keyword pattern annotation atEquals) (() =>
+      letEquals selfTwin modes depth keywordTwin patternTwin annotationTwin atEquals) :=
+  match atEquals with
+    | True => followsFatalAny defEquals (() => Syntax.fatal defEquals)
+    | False => Parse.followsThen (expects modes ColonEq "`:=`") (colonEq colonEqTwin colonEqs =>
+      Parse.followsMap
+        [alike := LetsAlike]
+        (value => { keyword, pattern, annotation, colonEq, value })
+        (value =>
+          { keyword = keywordTwin, pattern = patternTwin, annotation = annotationTwin, colonEq = colonEqTwin, value })
+        (value valueTwin values =>
+          alikeLet keyword keywordTwin pattern patternTwin patterns annotation annotationTwin annotations colonEq
+              colonEqTwin value valueTwin values)
+        (followsFull knot { modes | letValue = Some depth }))
+
+theorem followsLetPatternOf ∀ (modes: Modes) (isCtor: Bool):
+    Parse.Follows SameCode PatternsAlike (() => letPatternOf modes isCtor) (() => letPatternOf modes isCtor) :=
+  match isCtor with
+    | True => Parse.followsThen followsBump (name nameTwin names =>
+      followsCtorArgs (goal => followsPattern patternRuleFollows goal) modes name nameTwin names (kind =>
+        kind == Equals || kind == ColonEq || kind == Colon))
+    | False => followsPattern patternRuleFollows { modes, level = PatternTupleComponent }
+
+theorem followsLetPattern ∀ (modes: Modes):
+    Parse.Follows SameCode PatternsAlike (() => letPattern modes) (() => letPattern modes) :=
+  followsThenEq (followsCtorAhead modes) (isCtor => followsLetPatternOf modes isCtor)
+
+theorem followsLetStatement ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes):
+    Parse.Follows SameCode LetsAlike (() => letStatement self modes) (() => letStatement selfTwin modes) :=
+  followsThenEq followsHere (found =>
+    match found with
+      | (index, depth) => Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+        Parse.followsThen (followsLetPattern modes) (bound boundTwin patterns =>
+          Parse.followsThen
+            (followsThenEq (followsAt modes Colon) (atColon => followsLetAnnotation knot modes atColon))
+            (annotation annotationTwin annotations =>
+              followsThenEq (followsAt modes Equals) (atEquals =>
+                followsLetEquals knot expects modes depth keyword keywordTwin bound boundTwin patterns annotation
+                    annotationTwin annotations atEquals)))))
+
+theorem followsLetEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (binding twin: Let)
+    (lets: LetsAlike binding twin)
+    (semicolon semicolonTwin: Comments) (atEnd: Bool):
+    Parse.Follows SameCode ExprsAlike (() => letEnd self modes binding semicolon atEnd) (() =>
+      letEnd selfTwin modes twin semicolonTwin atEnd) :=
+  match atEnd with
+    | True => followsFatalAny "`let` needs a body after `;`: `(let x := e; body)`" (() =>
+      Syntax.fatal "`let` needs a body after `;`: `(let x := e; body)`")
+    | False =>
+      Parse.followsMap
+        [alike := ExprsAlike]
+        (body => LetIn binding semicolon body)
+        (body => LetIn twin semicolonTwin body)
+        (body bodyTwin bodies => alikeLetIn binding twin lets semicolon semicolonTwin body bodyTwin bodies)
+        (followsFull knot modes)
+
+theorem followsLetBodyOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (binding twin: Let)
+    (lets: LetsAlike binding twin) (atSemi: Bool):
+    Parse.Follows SameCode ExprsAlike (() => letBodyOf self modes binding atSemi) (() =>
+      letBodyOf selfTwin modes twin atSemi) :=
+  match atSemi with
+    | False => followsFail modes "`;` after the value of `let`" (() => modes.fail "`;` after the value of `let`")
+    | True => Parse.followsThen followsFixedFrom (semicolon semicolonTwin semicolons =>
+      Parse.followsThen followsLeft (seen others same =>
+        rewrite deafOfStripped letAtEnd letAtEndDeaf seen others same then
+          followsLetEnd knot modes binding twin lets semicolon semicolonTwin (letAtEnd others)))
+
+theorem followsLetBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (binding twin: Let)
+    (lets: LetsAlike binding twin):
+    Parse.Follows SameCode ExprsAlike (() => letBody self modes binding) (() => letBody selfTwin modes twin) :=
+  followsThenEq (followsAt modes Semi) (atSemi => followsLetBodyOf knot modes binding twin lets atSemi)
+
+-- A line of a block.
+
+theorem followsStatementValue ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (inlines: ExprInlineFollows self selfTwin) (modes: Modes):
+    Parse.Follows SameCode StatementsAlike (() => statementValue self modes) (() => statementValue selfTwin modes) :=
+  Parse.followsMap
+    [alike := StatementsAlike]
+    ExprStatement
+    ExprStatement
+    (value valueTwin values => alikeExprStatement value valueTwin values)
+    (inlines modes)
+
+theorem followsLetStatementEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (bodies: LetBodyFollows self selfTwin)
+    (modes: Modes) (binding twin: Let)
+    (lets: LetsAlike binding twin) (atSemi: Bool):
+    Parse.Follows SameCode StatementsAlike (() => letStatementEnd self modes binding atSemi) (() =>
+      letStatementEnd selfTwin modes twin atSemi) :=
+  match atSemi with
+    | True =>
+      Parse.followsMap
+        [alike := StatementsAlike]
+        ExprStatement
+        ExprStatement
+        (value valueTwin values => alikeExprStatement value valueTwin values)
+        (bodies modes binding twin lets)
+    | False => Parse.followsDone _ _ (alikeLetStatement binding twin lets)
+
+theorem followsLocalAttributed ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (allowed: Modes) (attributes twinAttributes: List Attributes)
+    (alike: AttributesAlike attributes twinAttributes):
+    Parse.Follows SameCode StatementsAlike
+      (() => localAttributed self allowed attributes (allowed.at KwDef) (allowed.at KwTheorem))
+      (() => localAttributed selfTwin allowed twinAttributes (allowed.at KwDef) (allowed.at KwTheorem)) :=
+  followsThenEq
+    [p := () => allowed.at KwDef]
+    [q := () => allowed.at KwDef]
+    [j := atDef => localAttributed self allowed attributes atDef (allowed.at KwTheorem)]
+    [k := atDef => localAttributed selfTwin allowed twinAttributes atDef (allowed.at KwTheorem)]
+    (followsAt allowed KwDef)
+    (atDef =>
+      followsThenEq
+        [p := () => allowed.at KwTheorem]
+        [q := () => allowed.at KwTheorem]
+        [j := atTheorem => localAttributed self allowed attributes atDef atTheorem]
+        [k := atTheorem => localAttributed selfTwin allowed twinAttributes atDef atTheorem]
+        (followsAt allowed KwTheorem)
+        (atTheorem =>
+          match atDef || atTheorem with
+            | True => followsLocalDef definitions allowed attributes twinAttributes alike
+            | False => followsFatalAny (misplaced "a statement that isn't a local definition") (() =>
+              Syntax.fatal (misplaced "a statement that isn't a local definition"))))
+
+theorem followsAttributedLocal ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (modes: Modes) (attributes twinAttributes: List Attributes)
+    (alike: AttributesAlike attributes twinAttributes) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    Parse.Follows SameCode StatementsAlike (() => attributedLocal self modes attributes items) (() =>
+      attributedLocal selfTwin modes twinAttributes others) :=
+  rewrite deafOfStripped (allowedAt modes) (allowedAtDeaf modes) items others same then
+    followsLocalAttributed definitions (allowedAt modes others) attributes twinAttributes alike
+
+theorem followsStatementOther ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (lets: LetStatementFollows self selfTwin)
+    (bodies: LetBodyFollows self selfTwin) (attributesOfFact: AttributesOfFollows)
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (modes: Modes) (kind: Tok):
+    Parse.Follows SameCode StatementsAlike (() => statementOther self modes kind) (() =>
+      statementOther selfTwin modes kind) :=
+  match kind == KwLet with
+    | True =>
+      Parse.followsThen
+        [p := () => letStatement self modes]
+        [q := () => letStatement selfTwin modes]
+        [j := binding => letStatementEnd self modes binding (modes.at Semi)]
+        [k := binding => letStatementEnd selfTwin modes binding (modes.at Semi)]
+        (lets modes)
+        (binding twin alike =>
+          followsThenEq
+            [p := () => modes.at Semi]
+            [q := () => modes.at Semi]
+            [j := atSemi => letStatementEnd self modes binding atSemi]
+            [k := atSemi => letStatementEnd selfTwin modes twin atSemi]
+            (followsAt modes Semi)
+            (atSemi => followsLetStatementEnd bodies modes binding twin alike atSemi))
+    | False =>
+      match kind == KwDef || kind == KwTheorem with
+        | True => followsLocalDef definitions modes [] [] byComputing
+        | False =>
+          match kind == At with
+            | True =>
+              Parse.followsThen
+                [p := () => attributesOf modes]
+                [q := () => attributesOf modes]
+                [j := attributes => (let items := left(); attributedLocal self modes attributes items)]
+                [k := attributes => (let items := left(); attributedLocal selfTwin modes attributes items)]
+                (attributesOfFact modes)
+                (attributes twinAttributes alike =>
+                  Parse.followsThen
+                    [p := () => left()]
+                    [q := () => left()]
+                    [j := items => attributedLocal self modes attributes items]
+                    [k := items => attributedLocal selfTwin modes twinAttributes items]
+                    followsLeft
+                    (seen others same =>
+                      followsAttributedLocal definitions modes attributes twinAttributes alike seen others same))
+            | False =>
+              match kind == KwExport with
+                | True => followsFatalAny "local definitions can't be exported: only top-level ones are" (() =>
+                  Syntax.fatal "local definitions can't be exported: only top-level ones are")
+                | False => followsFatalAny "local definitions can't be `opaque`: only top-level ones can" (() =>
+                  Syntax.fatal "local definitions can't be `opaque`: only top-level ones can")
+
+theorem followsStatementOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (inlines: ExprInlineFollows self selfTwin)
+    (lets: LetStatementFollows self selfTwin)
+    (bodies: LetBodyFollows self selfTwin) (attributesOfFact: AttributesOfFollows)
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (modes: Modes) (seen: Option Tok):
+    Parse.Follows SameCode StatementsAlike (() => statementOn self modes seen) (() =>
+      statementOn selfTwin modes seen) :=
+  match seen with
+    | Some kind =>
+      match startsOtherStatement kind with
+        | True => followsStatementOther knot lets bodies attributesOfFact definitions modes kind
+        | False => followsStatementValue inlines modes
+    | None => followsStatementValue inlines modes
+
+theorem followsStatement ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (inlines: ExprInlineFollows self selfTwin)
+    (lets: LetStatementFollows self selfTwin)
+    (bodies: LetBodyFollows self selfTwin) (attributesOfFact: AttributesOfFollows)
+    (definitions: DefinitionPartsFollows self selfTwin):
+    StatementFollows self selfTwin :=
+  modes =>
+    followsPeeked modes (seen => statementOn self modes seen) (seen => statementOn selfTwin modes seen) (seen =>
+      followsStatementOn knot inlines lets bodies attributesOfFact definitions modes seen)
+
+-- Handler clauses and `match induct` arms: the trees.
+
+theorem alikeReturnClause ∀ (bar barTwin keyword keywordTwin: Comments) (name nameTwin: Word)
+    (names: WordsAlike name nameTwin)
+    (arrow arrowTwin: Comments) (body bodyTwin: Expr)
+    (bodies: ExprsAlike body bodyTwin):
+    ClauseAlike
+      (ReturnClause bar keyword name arrow body)
+      (ReturnClause barTwin keywordTwin nameTwin arrowTwin bodyTwin) :=
+  calc blankClauses (walkClauses blankPure [ReturnClause bar keyword name arrow body])
+    _ = [ReturnClause Comments.none Comments.none name.blank Comments.none (body.walk blankPure)] := byComputing
+    _ = [ReturnClause Comments.none Comments.none nameTwin.blank Comments.none (bodyTwin.walk blankPure)] :=
+      rewrite names, bodies
+    _ = blankClauses (walkClauses blankPure [ReturnClause barTwin keywordTwin nameTwin arrowTwin bodyTwin]) :=
+      byComputing
+
+theorem alikeOperationClause ∀ (bar barTwin: Comments) (operation operationTwin: Word)
+    (operations: WordsAlike operation operationTwin) (argument argumentTwin: Pattern)
+    (arguments: PatternsAlike argument argumentTwin)
+    (comma commaTwin: Comments) (continuation continuationTwin: Word)
+    (continuations: WordsAlike continuation continuationTwin)
+    (arrow arrowTwin: Comments) (body bodyTwin: Expr)
+    (bodies: ExprsAlike body bodyTwin):
+    ClauseAlike
+      (OperationClause bar operation argument comma continuation arrow body)
+      (OperationClause barTwin operationTwin argumentTwin commaTwin continuationTwin arrowTwin bodyTwin) :=
+  calc blankClauses (walkClauses blankPure [OperationClause bar operation argument comma continuation arrow body])
+    _ = [
+        OperationClause Comments.none operation.blank
+          (argument.walk blankPure)
+          Comments.none
+          continuation.blank
+          Comments.none
+          (body.walk blankPure)
+      ] := byComputing
+    _ = [
+        OperationClause Comments.none operationTwin.blank
+          (argumentTwin.walk blankPure)
+          Comments.none
+          continuationTwin.blank
+          Comments.none
+          (bodyTwin.walk blankPure)
+      ] := rewrite operations, arguments, continuations, bodies
+    _ = blankClauses
+        (walkClauses blankPure [
+          OperationClause barTwin operationTwin argumentTwin commaTwin continuationTwin arrowTwin bodyTwin
+        ]) := byComputing
+
+theorem clausesBlankCons ∀ (clause: HandlerClause) (rest: List HandlerClause):
+    blankClauses (walkClauses blankPure [clause, ..rest])
+      = blankClauses (walkClauses blankPure [clause]) ++ blankClauses (walkClauses blankPure rest) :=
+  match clause with
+    | ReturnClause bar keyword name arrow body => byComputing
+    | OperationClause bar operation argument comma continuation arrow body => byComputing
+
+theorem clausesBlank ∀ (clauses twins: List HandlerClause)
+    (alike: List.All2 ClauseAlike clauses twins):
+    blankClauses (walkClauses blankPure clauses) = blankClauses (walkClauses blankPure twins) :=
+  match clauses, twins with
+    | [], [] => byComputing
+    | [clause, ..rest], [twin, ..restTwin] =>
+      calc blankClauses (walkClauses blankPure [clause, ..rest])
+        _ = blankClauses (walkClauses blankPure [clause]) ++ blankClauses (walkClauses blankPure rest) :=
+          clausesBlankCons clause rest
+        _ = blankClauses (walkClauses blankPure [twin]) ++ blankClauses (walkClauses blankPure restTwin) :=
+          rewrite alike.left, clausesBlank rest restTwin alike.right
+        _ = blankClauses (walkClauses blankPure [twin, ..restTwin]) := Eq.flipped (clausesBlankCons twin restTwin)
+
+theorem alikeHandle ∀ (keyword keywordTwin: Comments) (computation computationTwin: Expr)
+    (computations: ExprsAlike computation computationTwin)
+    (withKeyword withKeywordTwin: Comments) (clauses twins: List HandlerClause)
+    (alike: List.All2 ClauseAlike clauses twins):
+    ExprsAlike
+      (Handle keyword computation withKeyword clauses)
+      (Handle keywordTwin computationTwin withKeywordTwin twins) :=
+  calc (Handle keyword computation withKeyword clauses).walk blankPure
+    _ = Handle Comments.none
+        (computation.walk blankPure)
+        Comments.none
+        (blankClauses (walkClauses blankPure clauses)) := byComputing
+    _ = Handle Comments.none
+        (computationTwin.walk blankPure)
+        Comments.none
+        (blankClauses (walkClauses blankPure twins)) := rewrite computations, clausesBlank clauses twins alike
+    _ = (Handle keywordTwin computationTwin withKeywordTwin twins).walk blankPure := byComputing
+
+theorem alikeReify ∀ (keyword keywordTwin reify reifyTwin: Comments) (computation computationTwin: Expr)
+    (computations: ExprsAlike computation computationTwin)
+    (withKeyword withKeywordTwin: Comments) (clauses twins: List HandlerClause)
+    (alike: List.All2 ClauseAlike clauses twins):
+    ExprsAlike
+      (Reify keyword reify computation withKeyword clauses)
+      (Reify keywordTwin reifyTwin computationTwin withKeywordTwin twins) :=
+  calc (Reify keyword reify computation withKeyword clauses).walk blankPure
+    _ = Reify Comments.none Comments.none
+        (computation.walk blankPure)
+        Comments.none
+        (blankClauses (walkClauses blankPure clauses)) := byComputing
+    _ = Reify Comments.none Comments.none
+        (computationTwin.walk blankPure)
+        Comments.none
+        (blankClauses (walkClauses blankPure twins)) := rewrite computations, clausesBlank clauses twins alike
+    _ = (Reify keywordTwin reifyTwin computationTwin withKeywordTwin twins).walk blankPure := byComputing
+
+theorem namesBlank ∀ (words twins: List Word)
+    (alike: List.All2 WordsAlike words twins):
+    blankWords words = blankWords twins :=
+  match words, twins with
+    | [], [] => byComputing
+    | [word, ..rest], [twin, ..restTwin] =>
+      calc blankWords [word, ..rest]
+        _ = [word.blank, ..blankWords rest] := byComputing
+        _ = [twin.blank, ..blankWords restTwin] := rewrite alike.left, namesBlank rest restTwin alike.right
+        _ = blankWords [twin, ..restTwin] := byComputing
+
+theorem alikeInductArm ∀ (bar barTwin: Comments) (case caseTwin: Word)
+    (kinds: WordsAlike case caseTwin) (names twins: List Word)
+    (alike: List.All2 WordsAlike names twins)
+    (arrow arrowTwin: Comments) (body bodyTwin: Expr)
+    (bodies: ExprsAlike body bodyTwin):
+    InductArmAlike { bar, case, names, arrow, body } {
+      bar = barTwin,
+      case = caseTwin,
+      names = twins,
+      arrow = arrowTwin,
+      body = bodyTwin
+    } :=
+  calc blankInductArms (walkInductArms blankPure [{ bar, case, names, arrow, body }])
+    _ = [
+        {
+          bar = Comments.none,
+          case = case.blank,
+          names = blankWords names,
+          arrow = Comments.none,
+          body = body.walk blankPure
+        }
+      ] := byComputing
+    _ = [
+        {
+          bar = Comments.none,
+          case = caseTwin.blank,
+          names = blankWords twins,
+          arrow = Comments.none,
+          body = bodyTwin.walk blankPure
+        }
+      ] := rewrite kinds, namesBlank names twins alike, bodies
+    _ = blankInductArms
+        (walkInductArms blankPure [
+          { bar = barTwin, case = caseTwin, names = twins, arrow = arrowTwin, body = bodyTwin }
+        ]) := byComputing
+
+theorem inductArmsBlankCons ∀ (arm: InductArm) (rest: List InductArm):
+    blankInductArms (walkInductArms blankPure [arm, ..rest])
+      = blankInductArms (walkInductArms blankPure [arm]) ++ blankInductArms (walkInductArms blankPure rest) :=
+  match arm with | { bar, case, names, arrow, body } => byComputing
+
+theorem inductArmsBlank ∀ (arms twins: List InductArm)
+    (alike: List.All2 InductArmAlike arms twins):
+    blankInductArms (walkInductArms blankPure arms) = blankInductArms (walkInductArms blankPure twins) :=
+  match arms, twins with
+    | [], [] => byComputing
+    | [arm, ..rest], [twin, ..restTwin] =>
+      calc blankInductArms (walkInductArms blankPure [arm, ..rest])
+        _ = blankInductArms (walkInductArms blankPure [arm]) ++ blankInductArms (walkInductArms blankPure rest) :=
+          inductArmsBlankCons arm rest
+        _ = blankInductArms (walkInductArms blankPure [twin]) ++ blankInductArms (walkInductArms blankPure restTwin) :=
+          rewrite alike.left, inductArmsBlank rest restTwin alike.right
+        _ = blankInductArms (walkInductArms blankPure [twin, ..restTwin]) :=
+          Eq.flipped (inductArmsBlankCons twin restTwin)
+
+theorem alikeInduct ∀ (keyword keywordTwin induct inductTwin: Comments) (call callTwin: Expr)
+    (calls: ExprsAlike call callTwin)
+    (withKeyword withKeywordTwin: Comments) (arms twins: List InductArm)
+    (alike: List.All2 InductArmAlike arms twins):
+    ExprsAlike
+      (Induct keyword induct call withKeyword arms)
+      (Induct keywordTwin inductTwin callTwin withKeywordTwin twins) :=
+  calc (Induct keyword induct call withKeyword arms).walk blankPure
+    _ = Induct Comments.none Comments.none
+        (call.walk blankPure)
+        Comments.none
+        (blankInductArms (walkInductArms blankPure arms)) := byComputing
+    _ = Induct Comments.none Comments.none
+        (callTwin.walk blankPure)
+        Comments.none
+        (blankInductArms (walkInductArms blankPure twins)) := rewrite calls, inductArmsBlank arms twins alike
+    _ = (Induct keywordTwin inductTwin callTwin withKeywordTwin twins).walk blankPure := byComputing
+
+theorem listsEmpty ∀ [r: a → b → Prop] (xs: List a) (ys: List b) (alike: List.All2 r xs ys): xs.isEmpty = ys.isEmpty :=
+  match xs, ys with
+    | [], [] => byComputing
+    | [x, ..xs], [y, ..ys] => byComputing
+
+-- Handlers.
+
+theorem followsHandlerName ∀ (lowers: LowerQualifiedFollows) (modes: Modes) (what: Text) (underscore: Bool):
+    Parse.Follows SameCode WordsAlike (() => handlerName modes what underscore) (() =>
+      handlerName modes what underscore) :=
+  match underscore with
+    | True => followsBump
+    | False => followsLower modes what
+
+theorem followsOperationEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes) (bar barTwin: Comments) (operation operationTwin: Word)
+    (operations: WordsAlike operation operationTwin) (argument argumentTwin: Pattern)
+    (arguments: PatternsAlike argument argumentTwin)
+    (comma commaTwin: Comments) (continuation continuationTwin: Word)
+    (continuations: WordsAlike continuation continuationTwin) (atComma: Bool):
+    Parse.Follows SameCode ClauseAlike
+      (() => operationEnd self modes bar operation argument comma continuation atComma)
+      (() => operationEnd selfTwin modes barTwin operationTwin argumentTwin commaTwin continuationTwin atComma) :=
+  match atComma with
+    | True => followsFatalAny "an operation takes one argument; bracket a tuple: `(a, b)`" (() =>
+      Syntax.fatal "an operation takes one argument; bracket a tuple: `(a, b)`")
+    | False => Parse.followsThen (expects modes FatArrow "`=>`") (arrow arrowTwin arrows =>
+      Parse.followsMap
+        [alike := ClauseAlike]
+        (body => OperationClause bar operation argument comma continuation arrow body)
+        (body => OperationClause barTwin operationTwin argumentTwin commaTwin continuationTwin arrowTwin body)
+        (body bodyTwin bodies =>
+          alikeOperationClause bar barTwin operation operationTwin operations argument argumentTwin arguments comma
+              commaTwin continuation continuationTwin continuations arrow arrowTwin body bodyTwin bodies)
+        (followsFull knot modes))
+
+theorem followsOperationClause ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (modes: Modes)
+    (bar barTwin: Comments) (operation operationTwin: Word)
+    (operations: WordsAlike operation operationTwin) (argument argumentTwin: Pattern)
+    (arguments: PatternsAlike argument argumentTwin) (atArrow: Bool):
+    Parse.Follows SameCode ClauseAlike (() => operationClause self modes bar operation argument atArrow) (() =>
+      operationClause selfTwin modes barTwin operationTwin argumentTwin atArrow) :=
+  match atArrow with
+    | True => followsFatalAny "name the continuation: `| ${operation.text} x, k => …`" (() =>
+      Syntax.fatal "name the continuation: `| ${operationTwin.text} x, k => …`")
+    | False => Parse.followsThen (expects modes Comma "`,` and a name for the continuation") (comma commaTwin commas =>
+      Parse.followsThen
+        [p := () => handlerName modes "a name for the continuation" (modes.at Underscore)]
+        [q := () => handlerName modes "a name for the continuation" (modes.at Underscore)]
+        [j := continuation => operationEnd self modes bar operation argument comma continuation (modes.at Comma)]
+        [k := continuation =>
+          operationEnd selfTwin modes barTwin operationTwin argumentTwin commaTwin continuation (modes.at Comma)]
+        (followsThenEq (followsAt modes Underscore) (underscore =>
+          followsHandlerName lowers modes "a name for the continuation" underscore))
+        (continuation continuationTwin continuations =>
+          followsThenEq
+            [p := () => modes.at Comma]
+            [q := () => modes.at Comma]
+            [j := atComma => operationEnd self modes bar operation argument comma continuation atComma]
+            [k := atComma =>
+              operationEnd selfTwin modes barTwin operationTwin argumentTwin commaTwin continuationTwin atComma]
+            (followsAt modes Comma)
+            (atComma =>
+              followsOperationEnd knot expects modes bar barTwin operation operationTwin operations argument
+                  argumentTwin arguments comma commaTwin continuation continuationTwin continuations atComma)))
+
+theorem followsHandlerClauseOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (modes: Modes)
+    (bar barTwin: Comments) (atReturn: Bool):
+    Parse.Follows SameCode ClauseAlike (() => handlerClauseOf self modes bar atReturn) (() =>
+      handlerClauseOf selfTwin modes barTwin atReturn) :=
+  match atReturn with
+    | True => Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+      Parse.followsThen
+        [p := () => handlerName modes "a name for the result" (modes.at Underscore)]
+        [q := () => handlerName modes "a name for the result" (modes.at Underscore)]
+        [j := name =>
+          (let arrow := modes.expectFixed FatArrow "`=>`"; ReturnClause bar keyword name arrow (full self modes))]
+        [k := name =>
+          (let arrow := modes.expectFixed FatArrow "`=>`";
+           ReturnClause barTwin keywordTwin name arrow (full selfTwin modes))]
+        (followsThenEq (followsAt modes Underscore) (underscore =>
+          followsHandlerName lowers modes "a name for the result" underscore))
+        (name nameTwin names =>
+          Parse.followsThen (expects modes FatArrow "`=>`") (arrow arrowTwin arrows =>
+            Parse.followsMap
+              [alike := ClauseAlike]
+              (body => ReturnClause bar keyword name arrow body)
+              (body => ReturnClause barTwin keywordTwin nameTwin arrowTwin body)
+              (body bodyTwin bodies =>
+                alikeReturnClause bar barTwin keyword keywordTwin name nameTwin names arrow arrowTwin body bodyTwin
+                    bodies)
+              (followsFull knot modes))))
+    | False => Parse.followsThen (lowers modes "an operation, or `return`") (op opTwin ops =>
+      Parse.followsThen (patternOfFollows modes) (arg argTwin args =>
+        followsThenEq (followsAt modes FatArrow) (atArrow =>
+          followsOperationClause knot expects lowers modes bar barTwin op opTwin ops arg argTwin args atArrow)))
+
+theorem followsHandlerClause ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (modes: Modes) (bar barTwin: Comments):
+    Parse.Follows SameCode ClauseAlike (() => handlerClause self modes bar) (() =>
+      handlerClause selfTwin modes barTwin) :=
+  followsThenEq (followsAt modes KwReturn) (atReturn =>
+    followsHandlerClauseOf knot expects lowers modes bar barTwin atReturn)
+
+theorem followsClausesFrom ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (fuel: Nat) (modes: Modes)
+    (column: Option Nat) (found foundTwin: List HandlerClause)
+    (founds: List.All2 ClauseAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 ClauseAlike) (() => clausesFrom fuel self modes column found) (() =>
+      clausesFrom fuel selfTwin modes column foundTwin) :=
+  followsThenEq
+    [p := () => armColumn column]
+    [q := () => armColumn column]
+    [j := columned => clausesLined fuel self modes found columned]
+    [k := columned => clausesLined fuel selfTwin modes foundTwin columned]
+    (followsArmColumn column)
+    (columned =>
+      match columned with
+        | (lined, next) =>
+          followsThenEq
+            [p := () => modes.at Pipe]
+            [q := () => modes.at Pipe]
+            [j := atPipe => clausesAhead fuel self modes next found lined atPipe]
+            [k := atPipe => clausesAhead fuel selfTwin modes next foundTwin lined atPipe]
+            (followsAt modes Pipe)
+            (atPipe =>
+              match fuel with
+                | Zero => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)
+                | Succ more =>
+                  match atPipe && lined with
+                    | True => Parse.followsThen followsFixedFrom (bar barTwin bars =>
+                      Parse.followsThen
+                        [p := () => handlerClause self modes bar]
+                        [q := () => handlerClause selfTwin modes barTwin]
+                        [j := clause => clausesFrom more self modes next [clause, ..found]]
+                        [k := clause => clausesFrom more selfTwin modes next [clause, ..foundTwin]]
+                        (followsHandlerClause knot expects lowers modes bar barTwin)
+                        (clause clauseTwin clauses =>
+                          followsClausesFrom knot expects lowers more modes next
+                            [clause, ..found]
+                            [clauseTwin, ..foundTwin]
+                            (Both clauses founds)))
+                    | False => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)))
+
+theorem followsHandlerClausesEnd ∀ (modes: Modes) (clauses twins: List HandlerClause)
+    (alike: List.All2 ClauseAlike clauses twins):
+    Parse.Follows SameCode (List.All2 ClauseAlike) (() => handlerClausesEnd modes clauses) (() =>
+      handlerClausesEnd modes twins) :=
+  rewrite listsEmpty clauses twins alike then
+    match twins.isEmpty with
+      | True => followsFail modes "`|` and a handler clause" (() => modes.fail "`|` and a handler clause")
+      | False => Parse.followsDone _ _ alike
+
+theorem followsHandlerClauses ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (modes: Modes):
+    Parse.Follows SameCode (List.All2 ClauseAlike) (() => handlerClauses self modes) (() =>
+      handlerClauses selfTwin modes) :=
+  Parse.followsThen
+    [p := () => Parse.mark()]
+    [q := () => Parse.mark()]
+    [j := here => handlerClausesEnd modes (clausesFrom (here.left + 1) self modes None [])]
+    [k := here => handlerClausesEnd modes (clausesFrom (here.left + 1) selfTwin modes None [])]
+    Parse.followsMark
+    (here hereTwin marks =>
+      rewrite <- marks.right.right then
+        Parse.followsThen
+          [p := () => clausesFrom (here.left + 1) self modes None []]
+          [q := () => clausesFrom (here.left + 1) selfTwin modes None []]
+          (followsClausesFrom knot expects lowers (here.left + 1) modes None [] [] Trivial)
+          (clauses twins alike => followsHandlerClausesEnd modes clauses twins alike))
+
+theorem followsHandleExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (modes: Modes):
+    Parse.Follows SameCode ExprsAlike (() => handleExpr self modes) (() => handleExpr selfTwin modes) :=
+  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+    Parse.followsThen (knot { modes = modes.sealed, level = LevelInline }) (computation computationTwin computations =>
+      Parse.followsThen (expects modes KwWith "`with`") (withKeyword withKeywordTwin withKeywords =>
+        Parse.followsMap
+          [alike := ExprsAlike]
+          (clauses => Handle keyword computation withKeyword clauses)
+          (clauses => Handle keywordTwin computationTwin withKeywordTwin clauses)
+          (clauses twins alike =>
+            alikeHandle keyword keywordTwin computation computationTwin computations withKeyword withKeywordTwin clauses
+                twins alike)
+          (followsHandlerClauses knot expects lowers modes))))
+
+theorem followsReifyComma ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (modes: Modes)
+    (keyword keywordTwin reify reifyTwin: Comments) (computation computationTwin: Expr)
+    (computations: ExprsAlike computation computationTwin) (comma: Bool):
+    Parse.Follows SameCode ExprsAlike (() => reifyComma self modes keyword reify computation comma) (() =>
+      reifyComma selfTwin modes keywordTwin reifyTwin computationTwin comma) :=
+  match comma with
+    | True => followsFatalAny "`match reify` takes one computation, with nothing else to match" (() =>
+      Syntax.fatal "`match reify` takes one computation, with nothing else to match")
+    | False => Parse.followsThen (expects modes KwWith "`with`") (withKeyword withKeywordTwin withKeywords =>
+      Parse.followsMap
+        [alike := ExprsAlike]
+        (clauses => Reify keyword reify computation withKeyword clauses)
+        (clauses => Reify keywordTwin reifyTwin computationTwin withKeywordTwin clauses)
+        (clauses twins alike =>
+          alikeReify keyword keywordTwin reify reifyTwin computation computationTwin computations withKeyword
+              withKeywordTwin clauses twins alike)
+        (followsHandlerClauses knot expects lowers modes))
+
+theorem followsReifyExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows)
+    (modes: Modes) (keyword keywordTwin reify reifyTwin: Comments):
+    Parse.Follows SameCode ExprsAlike (() => reifyExpr self modes keyword reify) (() =>
+      reifyExpr selfTwin modes keywordTwin reifyTwin) :=
+  Parse.followsThen (knot { modes = modes.sealed, level = LevelInline }) (computation computationTwin computations =>
+    followsThenEq (followsAt modes Comma) (comma =>
+      followsReifyComma knot expects lowers modes keyword keywordTwin reify reifyTwin computation computationTwin
+          computations comma))
+
+-- `match induct`.
+
+theorem followsCaseNames ∀ (fuel: Nat) (modes: Modes) (found foundTwin: List Word)
+    (founds: List.All2 WordsAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 WordsAlike) (() => caseNames fuel modes found) (() =>
+      caseNames fuel modes foundTwin) :=
+  followsPeeked modes
+    (seen => caseNamesOn fuel modes found seen)
+    (seen => caseNamesOn fuel modes foundTwin seen)
+    (seen =>
+      match fuel, seen with
+        | Succ more, Some Lower =>
+          Parse.followsThen
+            [p := () => modes.lower "a name"]
+            [q := () => modes.lower "a name"]
+            [j := name => caseNames more modes [name, ..found]]
+            [k := name => caseNames more modes [name, ..foundTwin]]
+            (followsLower modes "a name")
+            (name nameTwin names =>
+              followsCaseNames more modes [name, ..found] [nameTwin, ..foundTwin] (Both names founds))
+        | Succ more, Some Underscore =>
+          Parse.followsThen
+            [p := () => bump()]
+            [q := () => bump()]
+            [j := name => caseNames more modes [name, ..found]]
+            [k := name => caseNames more modes [name, ..foundTwin]]
+            followsBump
+            (name nameTwin names =>
+              followsCaseNames more modes [name, ..found] [nameTwin, ..foundTwin] (Both names founds))
+        | _, _ => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds))
+
+theorem followsInductArms ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (fuel: Nat) (modes: Modes) (column: Option Nat) (found foundTwin: List InductArm)
+    (founds: List.All2 InductArmAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 InductArmAlike) (() => inductArms fuel self modes column found) (() =>
+      inductArms fuel selfTwin modes column foundTwin) :=
+  followsThenEq
+    [p := () => armColumn column]
+    [q := () => armColumn column]
+    [j := columned => inductLined fuel self modes found columned]
+    [k := columned => inductLined fuel selfTwin modes foundTwin columned]
+    (followsArmColumn column)
+    (columned =>
+      match columned with
+        | (lined, next) =>
+          followsThenEq
+            [p := () => modes.at Pipe]
+            [q := () => modes.at Pipe]
+            [j := atPipe => inductAhead fuel self modes next found lined atPipe]
+            [k := atPipe => inductAhead fuel selfTwin modes next foundTwin lined atPipe]
+            (followsAt modes Pipe)
+            (atPipe =>
+              match fuel with
+                | Zero => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)
+                | Succ more =>
+                  match atPipe && lined with
+                    | True => Parse.followsThen followsFixedFrom (bar barTwin bars =>
+                      Parse.followsThen
+                        (followsLower modes "the name of a case of `f.induct`")
+                        (label labelTwin labels =>
+                          Parse.followsThen
+                            [p := () => Parse.mark()]
+                            [q := () => Parse.mark()]
+                            [j := here =>
+                              (let names := caseNames (here.left + 1) modes [];
+                               let arrow := modes.expectFixed FatArrow "`=>`";
+                               let body := full self modes;
+                               inductArms more self modes next [{ bar, case = label, names, arrow, body }, ..found])]
+                            [k := here =>
+                              (let names := caseNames (here.left + 1) modes [];
+                               let arrow := modes.expectFixed FatArrow "`=>`";
+                               let body := full selfTwin modes;
+                               inductArms more selfTwin modes next [
+                                 { bar = barTwin, case = labelTwin, names, arrow, body },
+                                 ..foundTwin
+                               ])]
+                            Parse.followsMark
+                            (here hereTwin marks =>
+                              rewrite <- marks.right.right then
+                                Parse.followsThen
+                                  (followsCaseNames (here.left + 1) modes [] [] Trivial)
+                                  (names namesTwin nameses =>
+                                    Parse.followsThen (expects modes FatArrow "`=>`") (arrow arrowTwin arrows =>
+                                      Parse.followsThen (followsFull knot modes) (body bodyTwin bodies =>
+                                        followsInductArms knot expects more modes next
+                                          [{ bar, case = label, names, arrow, body }, ..found]
+                                          [
+                                            {
+                                              bar = barTwin,
+                                              case = labelTwin,
+                                              names = namesTwin,
+                                              arrow = arrowTwin,
+                                              body = bodyTwin
+                                            },
+                                            ..foundTwin
+                                          ]
+                                          (Both
+                                            (alikeInductArm bar barTwin label labelTwin labels names namesTwin nameses
+                                                arrow arrowTwin body bodyTwin bodies)
+                                            founds)))))))
+                    | False => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)))
+
+theorem followsInductEnd ∀ (modes: Modes) (keyword keywordTwin induct inductTwin: Comments) (call callTwin: Expr)
+    (calls: ExprsAlike call callTwin)
+    (withKeyword withKeywordTwin: Comments) (arms twins: List InductArm)
+    (alike: List.All2 InductArmAlike arms twins):
+    Parse.Follows SameCode ExprsAlike (() => inductEnd modes keyword induct call withKeyword arms) (() =>
+      inductEnd modes keywordTwin inductTwin callTwin withKeywordTwin twins) :=
+  rewrite listsEmpty arms twins alike then
+    match twins.isEmpty with
+      | True => followsFail modes "`|` and an alternative named after a case" (() =>
+        modes.fail "`|` and an alternative named after a case")
+      | False =>
+        Parse.followsDone _ _
+          (alikeInduct keyword keywordTwin induct inductTwin call callTwin calls withKeyword withKeywordTwin arms twins
+              alike)
+
+theorem followsInductComma ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes) (keyword keywordTwin induct inductTwin: Comments) (call callTwin: Expr)
+    (calls: ExprsAlike call callTwin) (comma: Bool):
+    Parse.Follows SameCode ExprsAlike (() => inductComma self modes keyword induct call comma) (() =>
+      inductComma selfTwin modes keywordTwin inductTwin callTwin comma) :=
+  match comma with
+    | True => followsFatalAny "`match induct` takes one call, with nothing else to match" (() =>
+      Syntax.fatal "`match induct` takes one call, with nothing else to match")
+    | False => Parse.followsThen (expects modes KwWith "`with`") (withKeyword withKeywordTwin withKeywords =>
+      Parse.followsThen
+        [p := () => Parse.mark()]
+        [q := () => Parse.mark()]
+        [j := here => inductEnd modes keyword induct call withKeyword (inductArms (here.left + 1) self modes None [])]
+        [k := here =>
+          inductEnd modes keywordTwin inductTwin callTwin withKeywordTwin
+            (inductArms (here.left + 1) selfTwin modes None [])]
+        Parse.followsMark
+        (here hereTwin marks =>
+          rewrite <- marks.right.right then
+            Parse.followsThen
+              [p := () => inductArms (here.left + 1) self modes None []]
+              [q := () => inductArms (here.left + 1) selfTwin modes None []]
+              (followsInductArms knot expects (here.left + 1) modes None [] [] Trivial)
+              (arms twins alike =>
+                followsInductEnd modes keyword keywordTwin induct inductTwin call callTwin calls withKeyword
+                    withKeywordTwin arms twins alike)))
+
+theorem followsInductExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes) (keyword keywordTwin induct inductTwin: Comments):
+    Parse.Follows SameCode ExprsAlike (() => inductExpr self modes keyword induct) (() =>
+      inductExpr selfTwin modes keywordTwin inductTwin) :=
+  Parse.followsThen (knot { modes = modes.sealed, level = LevelInline }) (call callTwin calls =>
+    followsThenEq (followsAt modes Comma) (comma =>
+      followsInductComma knot expects modes keyword keywordTwin induct inductTwin call callTwin calls comma))
+
+-- `calc`: the trees.
+
+def StepsAlike (found twin: (List CalcStep, Bool, Bool)): Prop :=
+  PairAlike (List.All2 StepAlike) (PairAlike Same Same) found twin
+
+theorem alikeStep ∀ (underscore underscoreTwin: Comments) (relation relationTwin: Word)
+    (relations: WordsAlike relation relationTwin) (operand operandTwin: Expr)
+    (operands: ExprsAlike operand operandTwin) (proof proofTwin: Option (Comments, Expr))
+    (proofs: CommentedAlike proof proofTwin):
+    StepAlike { underscore, relation, operand, proof } {
+      underscore = underscoreTwin,
+      relation = relationTwin,
+      operand = operandTwin,
+      proof = proofTwin
+    } :=
+  calc blankCalcSteps (walkSteps blankPure [{ underscore, relation, operand, proof }])
+    _ = [
+        {
+          underscore = Comments.none,
+          relation = relation.blank,
+          operand = operand.walk blankPure,
+          proof = blankAfter (walkAfter blankPure proof)
+        }
+      ] := byComputing
+    _ = [
+        {
+          underscore = Comments.none,
+          relation = relationTwin.blank,
+          operand = operandTwin.walk blankPure,
+          proof = blankAfter (walkAfter blankPure proofTwin)
+        }
+      ] := rewrite relations, operands, afterBlank proof proofTwin proofs
+    _ = blankCalcSteps
+        (walkSteps blankPure [
+          { underscore = underscoreTwin, relation = relationTwin, operand = operandTwin, proof = proofTwin }
+        ]) := byComputing
+
+theorem stepsBlankCons ∀ (step: CalcStep) (rest: List CalcStep):
+    blankCalcSteps (walkSteps blankPure [step, ..rest])
+      = blankCalcSteps (walkSteps blankPure [step]) ++ blankCalcSteps (walkSteps blankPure rest) :=
+  match step with | { underscore, relation, operand, proof } => byComputing
+
+theorem stepsBlank ∀ (steps twins: List CalcStep)
+    (alike: List.All2 StepAlike steps twins):
+    blankCalcSteps (walkSteps blankPure steps) = blankCalcSteps (walkSteps blankPure twins) :=
+  match steps, twins with
+    | [], [] => byComputing
+    | [step, ..rest], [twin, ..restTwin] =>
+      calc blankCalcSteps (walkSteps blankPure [step, ..rest])
+        _ = blankCalcSteps (walkSteps blankPure [step]) ++ blankCalcSteps (walkSteps blankPure rest) :=
+          stepsBlankCons step rest
+        _ = blankCalcSteps (walkSteps blankPure [twin]) ++ blankCalcSteps (walkSteps blankPure restTwin) :=
+          rewrite alike.left, stepsBlank rest restTwin alike.right
+        _ = blankCalcSteps (walkSteps blankPure [twin, ..restTwin]) := Eq.flipped (stepsBlankCons twin restTwin)
+
+theorem alikeCalc ∀ (keyword keywordTwin: Comments) (first firstTwin: Expr)
+    (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
+    (alike: List.All2 StepAlike steps twins):
+    ExprsAlike (Calc keyword first steps) (Calc keywordTwin firstTwin twins) :=
+  calc (Calc keyword first steps).walk blankPure
+    _ = Calc Comments.none (first.walk blankPure) (blankCalcSteps (walkSteps blankPure steps)) := byComputing
+    _ = Calc Comments.none (firstTwin.walk blankPure) (blankCalcSteps (walkSteps blankPure twins)) :=
+      rewrite firsts, stepsBlank steps twins alike
+    _ = (Calc keywordTwin firstTwin twins).walk blankPure := byComputing
+
+-- `calc`.
+
+theorem followsCalcProof ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (colonEq: Bool):
+    Parse.Follows SameCode CommentedAlike (() => calcProof self modes colonEq) (() =>
+      calcProof selfTwin modes colonEq) :=
+  match colonEq with
+    | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
+      Parse.followsMap
+        [alike := CommentedAlike]
+        (proof => Some (written, proof))
+        (proof => Some (writtenTwin, proof))
+        (proof proofTwin proofs => (writtens, proofs))
+        (followsFull knot modes))
+    | False => Parse.followsDone None None Trivial
+
+theorem followsStepSign ∀ (modes: Modes) (seen: Option Tok):
+    Parse.Follows SameCode Same (() => stepSign modes seen) (() => stepSign modes seen) :=
+  match seen with
+    | Some Equals => Parse.followsDone _ _ byComputing
+    | Some Le => Parse.followsDone _ _ byComputing
+    | Some Lt => Parse.followsDone _ _ byComputing
+    | Some Ge => Parse.followsDone _ _ byComputing
+    | Some Gt => Parse.followsDone _ _ byComputing
+    | Some NotEq => followsFatalAny calcRelations (() => Syntax.fatal calcRelations)
+    | Some EqEq => followsFatalAny calcRelations (() => Syntax.fatal calcRelations)
+    | _ => followsFail modes "`=`, `<=`, `<`, `>=` or `>` after `_`" (() =>
+      modes.fail "`=`, `<=`, `<`, `>=` or `>` after `_`")
+
+def CalcRest (self selfTwin: Goal → {Parse Item} Expr) (more: Nat) (modes: Modes) (indent place: Nat): Prop :=
+  ∀ (found foundTwin: List CalcStep) (ascending descending: Bool) => List.All2 StepAlike found foundTwin
+    → Parse.Follows SameCode StepsAlike
+      (() => calcSteps more self modes indent (Some place) found ascending descending)
+      (() => calcSteps more selfTwin modes indent (Some place) foundTwin ascending descending)
+
+theorem followsCalcRecord ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (more: Nat) (modes: Modes) (indent place: Nat) (found foundTwin: List CalcStep)
+    (founds: List.All2 StepAlike found foundTwin)
+    (ascending descending: Bool) (underscore underscoreTwin: Comments) (relation relationTwin: Word)
+    (relations: WordsAlike relation relationTwin) (operand operandTwin: Expr)
+    (operands: ExprsAlike operand operandTwin) (colonEq: Bool)
+    (rest: CalcRest self selfTwin more modes indent place):
+    Parse.Follows SameCode StepsAlike
+      (() => calcRecord more self modes indent place found ascending descending underscore relation operand colonEq)
+      (() =>
+        calcRecord more selfTwin modes indent place foundTwin ascending descending underscoreTwin relationTwin
+            operandTwin colonEq) :=
+  Parse.followsThen (followsCalcProof knot modes colonEq) (proof proofTwin proofs =>
+    rest
+      [{ underscore, relation, operand, proof }, ..found]
+      [{ underscore = underscoreTwin, relation = relationTwin, operand = operandTwin, proof = proofTwin }, ..foundTwin]
+      ascending
+      descending
+      (Both
+        (alikeStep underscore underscoreTwin relation relationTwin relations operand operandTwin operands proof
+            proofTwin proofs)
+        founds))
+
+theorem followsCalcRelation ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin)
+    (more: Nat) (modes: Modes) (indent place: Nat) (found foundTwin: List CalcStep)
+    (founds: List.All2 StepAlike found foundTwin)
+    (ascending descending: Bool) (underscore underscoreTwin: Comments)
+    (rest: CalcRest self selfTwin more modes indent place):
+    Parse.Follows SameCode StepsAlike
+      (() => calcRelation more self modes indent place found ascending descending underscore)
+      (() => calcRelation more selfTwin modes indent place foundTwin ascending descending underscoreTwin) :=
+  Parse.followsThen followsBump (relation relationTwin relations =>
+    Parse.followsThen (operands modes) (operand operandTwin operandAlike =>
+      followsThenEq
+        [p := () => modes.at ColonEq]
+        [q := () => modes.at ColonEq]
+        [j := colonEq =>
+          calcRecord more self modes indent place found ascending descending underscore relation operand colonEq]
+        [k := colonEq =>
+          calcRecord more selfTwin modes indent place foundTwin ascending descending underscoreTwin relationTwin
+              operandTwin colonEq]
+        (followsAt modes ColonEq)
+        (colonEq =>
+          followsCalcRecord knot more modes indent place found foundTwin founds ascending descending underscore
+              underscoreTwin relation relationTwin relations operand operandTwin operandAlike colonEq rest)))
+
+theorem followsCalcLine ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin)
+    (more: Nat) (modes: Modes) (indent place: Nat) (found foundTwin: List CalcStep)
+    (founds: List.All2 StepAlike found foundTwin) (ascending descending: Bool)
+    (rest: CalcRest self selfTwin more modes indent place):
+    Parse.Follows SameCode StepsAlike (() => calcLine more self modes indent place found ascending descending) (() =>
+      calcLine more selfTwin modes indent place foundTwin ascending descending) :=
+  Parse.followsThen followsFixedFrom (underscore underscoreTwin underscores =>
+    followsThenEq
+      (followsPeeked modes (seen => stepSign modes seen) (seen => stepSign modes seen) (seen =>
+        followsStepSign modes seen))
+      (signs =>
+        match signs with
+          | (up, down) =>
+            followsCalcRelation knot operands more modes indent place found foundTwin founds
+              (ascending || up)
+              (descending || down)
+              underscore
+              underscoreTwin
+              rest))
+
+theorem followsCalcSteps ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin)
+    (fuel: Nat) (modes: Modes) (indent: Nat) (column: Option Nat) (found foundTwin: List CalcStep)
+    (founds: List.All2 StepAlike found foundTwin) (ascending descending: Bool):
+    Parse.Follows SameCode StepsAlike (() => calcSteps fuel self modes indent column found ascending descending) (() =>
+      calcSteps fuel selfTwin modes indent column foundTwin ascending descending) :=
+  followsOn
+    (seen => calcStep fuel self modes indent column found ascending descending (calcNextOn modes indent seen))
+    (seen => calcStep fuel selfTwin modes indent column foundTwin ascending descending (calcNextOn modes indent seen))
+    (seen others same =>
+      rewrite deafOfStripped (calcNextOn modes indent) (calcNextOnDeaf modes indent) seen others same then
+        match fuel, calcNextOn modes indent others with
+          | Succ more, Some place =>
+            match column with
+              | Some first =>
+                match first != place with
+                  | True => followsFatalAny "this step isn't lined up with the steps above it" (() =>
+                    Syntax.fatal "this step isn't lined up with the steps above it")
+                  | False =>
+                    followsCalcLine knot operands more modes indent place found foundTwin founds ascending descending
+                      (found foundTwin ascending descending founds =>
+                        followsCalcSteps knot operands more modes indent
+                          (Some place)
+                          found
+                          foundTwin
+                          founds
+                          ascending
+                          descending)
+              | None =>
+                followsCalcLine knot operands more modes indent place found foundTwin founds ascending descending
+                  (found foundTwin ascending descending founds =>
+                    followsCalcSteps knot operands more modes indent
+                      (Some place)
+                      found
+                      foundTwin
+                      founds
+                      ascending
+                      descending)
+          | _, _ => Parse.followsDone [alike := StepsAlike] _ _ (
+            List.all2Reverse found foundTwin founds,
+            (byComputing, byComputing)
+          ))
+
+theorem followsCalcEnd ∀ (inner: Modes) (keyword keywordTwin: Comments) (first firstTwin: Expr)
+    (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
+    (alike: List.All2 StepAlike steps twins) (ascending descending: Bool):
+    Parse.Follows SameCode ExprsAlike (() => calcEnd inner keyword first steps ascending descending) (() =>
+      calcEnd inner keywordTwin firstTwin twins ascending descending) :=
+  rewrite listsEmpty steps twins alike then
+    match twins.isEmpty with
+      | True => followsFail inner "a step `_ = e` on the next line, indented past `calc`" (() =>
+        inner.fail "a step `_ = e` on the next line, indented past `calc`")
+      | False =>
+        match ascending && descending with
+          | True => followsFatalAny "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`" (() =>
+            Syntax.fatal "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`")
+          | False => Parse.followsDone _ _ (alikeCalc keyword keywordTwin first firstTwin firsts steps twins alike)
+
+theorem followsCalcBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin)
+    (inner: Modes) (indent: Nat) (keyword keywordTwin: Comments) (first firstTwin: Expr)
+    (firsts: ExprsAlike first firstTwin):
+    Parse.Follows SameCode ExprsAlike (() => calcBody self inner indent keyword first) (() =>
+      calcBody selfTwin inner indent keywordTwin firstTwin) :=
+  Parse.followsThen [p := () => Parse.mark()] [q := () => Parse.mark()] Parse.followsMark (here hereTwin marks =>
+    rewrite <- marks.right.right then
+      Parse.followsThen
+        (followsCalcSteps knot operands (here.left + 1) inner indent None [] [] Trivial False False)
+        (found foundTwin alike =>
+          match found, foundTwin with
+            | (steps, ascending, descending), (twins, ascendingTwin, descendingTwin) =>
+              rewrite <- alike.right.left, <- alike.right.right then
+                followsCalcEnd inner keyword keywordTwin first firstTwin firsts steps twins alike.left ascending
+                    descending))
+
+theorem followsCalcAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin)
+    (inner: Modes) (indent: Nat) (keyword keywordTwin: Comments) (first firstTwin: Expr)
+    (firsts: ExprsAlike first firstTwin) (seen: Option Tok):
+    Parse.Follows SameCode ExprsAlike (() => calcAfter self inner indent keyword first seen) (() =>
+      calcAfter selfTwin inner indent keywordTwin firstTwin seen) :=
+  match seen with
+    | Some kind =>
+      match kind.isComparison with
+        | True => followsFatalAny "`calc` starts with one expression; each relation goes on a line of its own" (() =>
+          Syntax.fatal "`calc` starts with one expression; each relation goes on a line of its own")
+        | False => followsCalcBody knot operands inner indent keyword keywordTwin first firstTwin firsts
+    | None => followsCalcBody knot operands inner indent keyword keywordTwin first firstTwin firsts
+
+theorem followsCalcIndented ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin)
+    (modes: Modes) (indent: Nat):
+    Parse.Follows SameCode ExprsAlike (() => calcIndented self modes indent) (() =>
+      calcIndented selfTwin modes indent) :=
+  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+    Parse.followsThen (operands { modes | inCalc = True }.sealed) (first firstTwin firsts =>
+      followsPeeked
+        { modes | inCalc = True }
+        (seen => calcAfter self { modes | inCalc = True } indent keyword first seen)
+        (seen => calcAfter selfTwin { modes | inCalc = True } indent keywordTwin firstTwin seen)
+        (seen =>
+          followsCalcAfter knot operands
+            { modes | inCalc = True }
+            indent
+            keyword
+            keywordTwin
+            first
+            firstTwin
+            firsts
+            seen)))
+
+theorem followsCalcExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (operands: CalcOperandFollows self selfTwin):
+    CalcFollows self selfTwin :=
+  modes => followsThenEq followsHeadIndent (indent => followsCalcIndented knot operands modes indent)
+
+-- `rewrite`: the trees.
+
+def ReverseAlike (found twin: Option (Comments, Comments)): Prop :=
+  Option.Alike (PairAlike Anything Anything) found twin
+
+theorem reverseBlank ∀ (found twin: Option (Comments, Comments))
+    (alike: ReverseAlike found twin):
+    blankReverse found = blankReverse twin :=
+  match found, twin with
+    | None, None => byComputing
+    | Some (first, second), Some (firstTwin, secondTwin) => byComputing
+
+theorem alikeRule ∀ (reverse reverseTwin: Option (Comments, Comments))
+    (reverses: ReverseAlike reverse reverseTwin) (rule ruleTwin: Expr)
+    (rules: ExprsAlike rule ruleTwin):
+    RuleAlike { reverse, rule } { reverse = reverseTwin, rule = ruleTwin } :=
+  calc blankRuleList (walkRuleList blankPure [{ reverse, rule }])
+    _ = [{ reverse = blankReverse reverse, rule = rule.walk blankPure }] := byComputing
+    _ = [{ reverse = blankReverse reverseTwin, rule = ruleTwin.walk blankPure }] :=
+      rewrite reverseBlank reverse reverseTwin reverses, rules
+    _ = blankRuleList (walkRuleList blankPure [{ reverse = reverseTwin, rule = ruleTwin }]) := byComputing
+
+theorem ruleListBlankCons ∀ (rule: RewriteRule) (rest: List RewriteRule):
+    blankRuleList (walkRuleList blankPure [rule, ..rest])
+      = blankRuleList (walkRuleList blankPure [rule]) ++ blankRuleList (walkRuleList blankPure rest) :=
+  match rule with | { reverse, rule } => byComputing
+
+theorem ruleListBlank ∀ (rules twins: List RewriteRule)
+    (alike: List.All2 RuleAlike rules twins):
+    blankRuleList (walkRuleList blankPure rules) = blankRuleList (walkRuleList blankPure twins) :=
+  match rules, twins with
+    | [], [] => byComputing
+    | [rule, ..rest], [twin, ..restTwin] =>
+      calc blankRuleList (walkRuleList blankPure [rule, ..rest])
+        _ = blankRuleList (walkRuleList blankPure [rule]) ++ blankRuleList (walkRuleList blankPure rest) :=
+          ruleListBlankCons rule rest
+        _ = blankRuleList (walkRuleList blankPure [twin]) ++ blankRuleList (walkRuleList blankPure restTwin) :=
+          rewrite alike.left, ruleListBlank rest restTwin alike.right
+        _ = blankRuleList (walkRuleList blankPure [twin, ..restTwin]) := Eq.flipped (ruleListBlankCons twin restTwin)
+
+theorem alikeRuleList ∀ (rules twins: List RewriteRule)
+    (alike: List.All2 RuleAlike rules twins):
+    RulesAlike (RuleList rules) (RuleList twins) :=
+  calc (walkRules blankPure (RuleList rules)).blank
+    _ = RuleList (blankRuleList (walkRuleList blankPure rules)) := byComputing
+    _ = RuleList (blankRuleList (walkRuleList blankPure twins)) := rewrite ruleListBlank rules twins alike
+    _ = (walkRules blankPure (RuleList twins)).blank := byComputing
+
+theorem alikeRepeatedly ∀ (word wordTwin: Comments) (set twin: RuleSet)
+    (alike: RuleSetAlike set twin):
+    RulesAlike (Repeatedly word set) (Repeatedly wordTwin twin) :=
+  calc (walkRules blankPure (Repeatedly word set)).blank
+    _ = Repeatedly Comments.none (walkRuleSet blankPure set) := byComputing
+    _ = Repeatedly Comments.none (walkRuleSet blankPure twin) := rewrite alike
+    _ = (walkRules blankPure (Repeatedly wordTwin twin)).blank := byComputing
+
+theorem alikeRuleSet ∀ (open openTwin: Comments) (rules twins: List RewriteRule)
+    (alike: List.All2 RuleAlike rules twins)
+    (trailingComma: Bool) (close closeTwin: Comments):
+    RuleSetAlike { open, rules, trailingComma, close } {
+      open = openTwin,
+      rules = twins,
+      trailingComma,
+      close = closeTwin
+    } :=
+  calc walkRuleSet blankPure { open, rules, trailingComma, close }
+    _ = {
+        open = Comments.none,
+        rules = blankRuleList (walkRuleList blankPure rules),
+        trailingComma,
+        close = Comments.none
+      } := byComputing
+    _ = {
+        open = Comments.none,
+        rules = blankRuleList (walkRuleList blankPure twins),
+        trailingComma,
+        close = Comments.none
+      } := rewrite ruleListBlank rules twins alike
+    _ = walkRuleSet blankPure { open = openTwin, rules = twins, trailingComma, close = closeTwin } := byComputing
+
+theorem alikeRewrite ∀ (keyword keywordTwin: Comments) (rules twinRules: Rules)
+    (ruleses: RulesAlike rules twinRules) (target targetTwin: Option (Comments, Expr))
+    (targets: CommentedAlike target targetTwin) (body bodyTwin: Option (Comments, Expr))
+    (bodies: CommentedAlike body bodyTwin):
+    ExprsAlike (Rewrite keyword rules target body) (Rewrite keywordTwin twinRules targetTwin bodyTwin) :=
+  calc (Rewrite keyword rules target body).walk blankPure
+    _ = Rewrite Comments.none
+        (walkRules blankPure rules).blank
+        (blankAfter (walkAfter blankPure target))
+        (blankAfter (walkAfter blankPure body)) := byComputing
+    _ = Rewrite Comments.none
+        (walkRules blankPure twinRules).blank
+        (blankAfter (walkAfter blankPure targetTwin))
+        (blankAfter (walkAfter blankPure bodyTwin)) :=
+      rewrite ruleses, afterBlank target targetTwin targets, afterBlank body bodyTwin bodies
+    _ = (Rewrite keywordTwin twinRules targetTwin bodyTwin).walk blankPure := byComputing
+
+theorem alikeCases ∀ (keyword keywordTwin thenKeyword thenKeywordTwin: Comments) (body bodyTwin: Expr)
+    (bodies: ExprsAlike body bodyTwin):
+    ExprsAlike (Cases keyword thenKeyword body) (Cases keywordTwin thenKeywordTwin bodyTwin) :=
+  calc (Cases keyword thenKeyword body).walk blankPure
+    _ = Cases Comments.none Comments.none (body.walk blankPure) := byComputing
+    _ = Cases Comments.none Comments.none (bodyTwin.walk blankPure) := rewrite bodies
+    _ = (Cases keywordTwin thenKeywordTwin bodyTwin).walk blankPure := byComputing
+
+-- `rewrite`: the look-aheads.
+
+theorem followsReverseOn ∀ (modes: Modes) (less: Bool) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    Parse.Follows SameCode Same (() => reverseOn modes less items) (() => reverseOn modes less others) :=
+  match items, others with
+    | [], [] => Parse.followsDone False False byComputing
+    | [first], [firstTwin] => Parse.followsDone False False byComputing
+    | [first, minus, ..rest], [firstTwin, minusTwin, ..restTwin] =>
+      match less with
+        | True =>
+          followsThenEq
+            [p := () => modes.peekAt 1]
+            [q := () => modes.peekAt 1]
+            [j := second => reverseMinus minus.glued second]
+            [k := second => reverseMinus minusTwin.glued second]
+            (followsPeekAt modes 1)
+            (second =>
+              Parse.followsDone _ _
+                (Eq.cong (glued => reverseMinus glued second) (gluedSame minus minusTwin same.right.left)))
+        | False => Parse.followsDone False False byComputing
+    | [first], [firstTwin, minusTwin, ..restTwin] => same.right.impossible
+    | [first, minus, ..rest], [firstTwin] => same.right.impossible
+
+theorem followsReverseAhead ∀ (modes: Modes):
+    Parse.Follows SameCode Same (() => reverseAhead modes) (() => reverseAhead modes) :=
+  followsThenEq
+    [p := () => modes.at Lt]
+    [q := () => modes.at Lt]
+    [j := less => reverseOn modes less left()]
+    [k := less => reverseOn modes less left()]
+    (followsAt modes Lt)
+    (less =>
+      followsOn (seen => reverseOn modes less seen) (seen => reverseOn modes less seen) (seen others same =>
+        followsReverseOn modes less seen others same))
+
+theorem followsReverseIf ∀ (reverse: Bool):
+    Parse.Follows SameCode ReverseAlike (() => reverseIf reverse) (() => reverseIf reverse) :=
+  match reverse with
+    | True => Parse.followsThen followsFixedFrom (less lessTwin lesses =>
+      Parse.followsMap
+        [alike := ReverseAlike]
+        (second => Some (less, second))
+        (second => Some (lessTwin, second))
+        (second secondTwin seconds => (lesses, seconds))
+        followsFixedFrom)
+    | False => Parse.followsDone None None Trivial
+
+theorem followsReverseOf ∀ (modes: Modes):
+    Parse.Follows SameCode ReverseAlike (() => reverseOf modes) (() => reverseOf modes) :=
+  followsThenEq (followsReverseAhead modes) (reverse => followsReverseIf reverse)
+
+theorem followsRepeatedlyOn ∀ (outer: Modes) (word: Bool):
+    Parse.Follows SameCode Same (() => repeatedlyOn outer word) (() => repeatedlyOn outer word) :=
+  match word with
+    | True =>
+      followsThenEq
+        [p := () => outer.peekAt 1]
+        [q := () => outer.peekAt 1]
+        [j := seen => isSome LBracket seen]
+        [k := seen => isSome LBracket seen]
+        (followsPeekAt outer 1)
+        (seen => Parse.followsDone _ _ byComputing)
+    | False => Parse.followsDone False False byComputing
+
+theorem followsRepeatedlyAhead ∀ (outer: Modes):
+    Parse.Follows SameCode Same (() => repeatedlyAhead outer) (() => repeatedlyAhead outer) :=
+  followsThenEq (followsWordAhead outer "repeatedly") (word => followsRepeatedlyOn outer word)
+
+theorem followsOwnLineAt ∀ (wanted: Tok) (column: Nat):
+    Parse.Follows SameCode Same (() => ownLineAt wanted column) (() => ownLineAt wanted column) :=
+  followsLook (ownLineOn wanted column) (ownLineOnDeaf wanted column)
+
+theorem followsStartsOn ∀ (here: Bool) (wanted: Tok) (column: Nat):
+    Parse.Follows SameCode Same (() => startsOn here wanted column) (() => startsOn here wanted column) :=
+  match here with
+    | True => Parse.followsDone True True byComputing
+    | False => followsOwnLineAt wanted column
+
+theorem followsStartsAt ∀ (modes: Modes) (wanted: Tok) (column: Nat):
+    Parse.Follows SameCode Same (() => startsAt modes wanted column) (() => startsAt modes wanted column) :=
+  followsThenEq (followsAt modes wanted) (here => followsStartsOn here wanted column)
+
+-- `rewrite`.
+
+theorem followsRewriteBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (column: Nat) (keyword keywordTwin: Comments) (rules twinRules: Rules)
+    (ruleses: RulesAlike rules twinRules) (target targetTwin: Option (Comments, Expr))
+    (targets: CommentedAlike target targetTwin) (hasThen: Bool):
+    Parse.Follows SameCode ExprsAlike (() => rewriteBody self modes column keyword rules target hasThen) (() =>
+      rewriteBody selfTwin modes column keywordTwin twinRules targetTwin hasThen) :=
+  match hasThen with
+    | True => Parse.followsThen followsFixedFrom (thenKeyword thenTwin thens =>
+      Parse.followsMap
+        [alike := ExprsAlike]
+        (body => Rewrite keyword rules target (Some (thenKeyword, body)))
+        (body => Rewrite keywordTwin twinRules targetTwin (Some (thenTwin, body)))
+        (body bodyTwin bodies =>
+          alikeRewrite keyword keywordTwin rules twinRules ruleses target targetTwin targets
+            (Some (thenKeyword, body))
+            (Some (thenTwin, bodyTwin))
+            (thens, bodies))
+        (knot { modes, level = LevelThenBody }))
+    | False =>
+      Parse.followsDone _ _
+        (alikeRewrite keyword keywordTwin rules twinRules ruleses target targetTwin targets None None Trivial)
+
+theorem followsRewriteOldIn ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (column: Nat) (keyword keywordTwin: Comments) (rules twinRules: Rules)
+    (ruleses: RulesAlike rules twinRules) (target targetTwin: Option (Comments, Expr))
+    (targets: CommentedAlike target targetTwin) (old: Bool):
+    Parse.Follows SameCode ExprsAlike (() => rewriteOldIn self modes column keyword rules target old) (() =>
+      rewriteOldIn selfTwin modes column keywordTwin twinRules targetTwin old) :=
+  match old with
+    | True => followsFatalAny (oldIn "rewrite") (() => Syntax.fatal (oldIn "rewrite"))
+    | False => followsThenEq (followsStartsAt modes KwThen column) (hasThen =>
+      followsRewriteBody knot modes column keyword keywordTwin rules twinRules ruleses target targetTwin targets
+          hasThen)
+
+theorem followsRewriteThen ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (column: Nat) (keyword keywordTwin: Comments) (rules twinRules: Rules)
+    (ruleses: RulesAlike rules twinRules) (target targetTwin: Option (Comments, Expr))
+    (targets: CommentedAlike target targetTwin):
+    Parse.Follows SameCode ExprsAlike (() => rewriteThen self modes column keyword rules target) (() =>
+      rewriteThen selfTwin modes column keywordTwin twinRules targetTwin) :=
+  followsThenEq (followsStartsAt modes KwIn column) (old =>
+    followsRewriteOldIn knot modes column keyword keywordTwin rules twinRules ruleses target targetTwin targets old)
+
+theorem followsTargetOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (appends: AppendExprFollows self selfTwin)
+    (modes: Modes) (written writtenTwin: Comments):
+    Parse.Follows SameCode CommentedAlike (() => targetOf self modes written) (() =>
+      targetOf selfTwin modes writtenTwin) :=
+  followsThenEq followsHere (start =>
+    Parse.followsMap
+      [alike := CommentedAlike]
+      (target => Some (written, target))
+      (target => Some (writtenTwin, target))
+      (target targetTwin targets => (Trivial, targets))
+      (appends { modes | rewriteRule = Some start, rewriteAt = False }))
+
+theorem followsTargetAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (appends: AppendExprFollows self selfTwin)
+    (modes: Modes) (written writtenTwin: Comments) (seen: Option Tok):
+    Parse.Follows SameCode CommentedAlike (() => targetAfter self modes written seen) (() =>
+      targetAfter selfTwin modes writtenTwin seen) :=
+  match seen with
+    | Some kind =>
+      match kind == KwThen || kind == KwIn with
+        | True => followsFatalAny atWithoutTarget (() => Syntax.fatal atWithoutTarget)
+        | False => followsTargetOf appends modes written writtenTwin
+    | None => followsFatalAny atWithoutTarget (() => Syntax.fatal atWithoutTarget)
+
+theorem followsRewriteTargetIf ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (appends: AppendExprFollows self selfTwin)
+    (modes: Modes) (atAhead: Bool):
+    Parse.Follows SameCode CommentedAlike (() => rewriteTargetIf self modes atAhead) (() =>
+      rewriteTargetIf selfTwin modes atAhead) :=
+  match atAhead with
+    | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
+      followsThenEq (followsPeek modes) (seen => followsTargetAfter appends modes written writtenTwin seen))
+    | False => Parse.followsDone None None Trivial
+
+theorem followsRewriteTarget ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (appends: AppendExprFollows self selfTwin) (modes: Modes):
+    Parse.Follows SameCode CommentedAlike (() => rewriteTarget self modes) (() => rewriteTarget selfTwin modes) :=
+  followsThenEq (followsWordAhead modes "at") (atAhead => followsRewriteTargetIf appends modes atAhead)
+
+theorem followsRewriteRule ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (appends: AppendExprFollows self selfTwin)
+    (modes: Modes) (found foundTwin: List RewriteRule)
+    (founds: List.All2 RuleAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 RuleAlike) (() => rewriteRule self modes found) (() =>
+      rewriteRule selfTwin modes foundTwin) :=
+  Parse.followsThen (followsReverseOf modes) (reverse reverseTwin reverses =>
+    followsThenEq followsHere (start =>
+      Parse.followsMap
+        [alike := List.All2 RuleAlike]
+        (rule => [{ reverse, rule }, ..found])
+        (rule => [{ reverse = reverseTwin, rule }, ..foundTwin])
+        (rule ruleTwin rules => Both (alikeRule reverse reverseTwin reverses rule ruleTwin rules) founds)
+        (appends { modes | rewriteRule = Some start, rewriteAt = True })))
+
+theorem followsRewriteRules ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (appends: AppendExprFollows self selfTwin)
+    (fuel: Nat) (modes: Modes) (found foundTwin: List RewriteRule)
+    (founds: List.All2 RuleAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 RuleAlike) (() => rewriteRules fuel self modes found) (() =>
+      rewriteRules fuel selfTwin modes foundTwin) :=
+  Parse.followsThen (followsRewriteRule appends modes found foundTwin founds) (done doneTwin dones =>
+    followsThenEq (followsAt modes Comma) (comma =>
+      match fuel with
+        | Succ more =>
+          match comma with
+            | True => Parse.followsThen followsBump (comma commaTwin commas =>
+              followsRewriteRules appends more modes done doneTwin dones)
+            | False => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones)
+        | Zero => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones)))
+
+def SetRulesAlike (found twin: (List RewriteRule, Bool)): Prop := PairAlike (List.All2 RuleAlike) Same found twin
+
+theorem followsSetRule ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (found foundTwin: List RewriteRule)
+    (founds: List.All2 RuleAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 RuleAlike) (() => setRule self modes found) (() =>
+      setRule selfTwin modes foundTwin) :=
+  Parse.followsThen (followsReverseOf modes) (reverse reverseTwin reverses =>
+    Parse.followsMap
+      [alike := List.All2 RuleAlike]
+      (rule => [{ reverse, rule }, ..found])
+      (rule => [{ reverse = reverseTwin, rule }, ..foundTwin])
+      (rule ruleTwin rules => Both (alikeRule reverse reverseTwin reverses rule ruleTwin rules) founds)
+      (followsFull knot modes))
+
+theorem followsSetRules ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (fuel: Nat) (modes: Modes) (found foundTwin: List RewriteRule)
+    (founds: List.All2 RuleAlike found foundTwin):
+    Parse.Follows SameCode SetRulesAlike (() => setRules fuel self modes found) (() =>
+      setRules fuel selfTwin modes foundTwin) :=
+  Parse.followsThen (followsSetRule knot modes found foundTwin founds) (done doneTwin dones =>
+    followsThenEq (followsAt modes Comma) (comma =>
+      match fuel with
+        | Succ more =>
+          match comma with
+            | True => Parse.followsThen followsBump (written writtenTwin writtens =>
+              followsThenEq (followsAt modes RBracket) (closed =>
+                match closed with
+                  | True => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones, byComputing)
+                  | False => followsSetRules knot more modes done doneTwin dones))
+            | False => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones, byComputing)
+        | Zero => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones, byComputing)))
+
+theorem followsRuleSetAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes) (open openTwin: Comments) (empty: Bool):
+    Parse.Follows SameCode RuleSetAlike (() => ruleSetAfter self modes open empty) (() =>
+      ruleSetAfter selfTwin modes openTwin empty) :=
+  match empty with
+    | True => followsFatalAny "`rewrite repeatedly` needs at least one rule between its brackets" (() =>
+      Syntax.fatal "`rewrite repeatedly` needs at least one rule between its brackets")
+    | False =>
+      Parse.followsThen [p := () => Parse.mark()] [q := () => Parse.mark()] Parse.followsMark (here hereTwin marks =>
+        rewrite <- marks.right.right then
+          Parse.followsThen
+            (followsSetRules knot (here.left + 1) modes.inBrackets [] [] Trivial)
+            (found foundTwin alike =>
+              match found, foundTwin with
+                | (rules, trailing), (twins, trailingTwin) =>
+                  rewrite <- alike.right then
+                    Parse.followsThen (expects modes.inBrackets RBracket "`,` or `]`") (close closeTwin closes =>
+                      Parse.followsDone _ _
+                        (alikeRuleSet open openTwin rules twins alike.left trailing close closeTwin))))
+
+theorem followsRuleSet ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (modes: Modes):
+    Parse.Follows SameCode RuleSetAlike (() => ruleSet self modes) (() => ruleSet selfTwin modes) :=
+  Parse.followsThen followsFixedFrom (open openTwin opens =>
+    followsThenEq (followsAt modes RBracket) (empty => followsRuleSetAfter knot expects modes open openTwin empty))
+
+theorem followsRewriteRulesOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows)
+    (appends: AppendExprFollows self selfTwin)
+    (outer: Modes) (repeatedly: Bool):
+    Parse.Follows SameCode RulesAlike (() => rewriteRulesOf self outer repeatedly) (() =>
+      rewriteRulesOf selfTwin outer repeatedly) :=
+  match repeatedly with
+    | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
+      Parse.followsMap
+        [alike := RulesAlike]
+        (set => Repeatedly written set)
+        (set => Repeatedly writtenTwin set)
+        (set twin sets => alikeRepeatedly written writtenTwin set twin sets)
+        (followsRuleSet knot expects outer))
+    | False =>
+      Parse.followsThen
+        [p := () => Parse.mark()]
+        [q := () => Parse.mark()]
+        [j := here => RuleList (rewriteRules (here.left + 1) self outer [])]
+        [k := here => RuleList (rewriteRules (here.left + 1) selfTwin outer [])]
+        Parse.followsMark
+        (here hereTwin marks =>
+          rewrite <- marks.right.right then
+            Parse.followsMap
+              [alike := RulesAlike]
+              (found => RuleList found)
+              (found => RuleList found)
+              (found twins alike => alikeRuleList found twins alike)
+              (followsRewriteRules appends (here.left + 1) outer [] [] Trivial))
+
+theorem followsRewriteWith ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows)
+    (appends: AppendExprFollows self selfTwin)
+    (outer: Modes) (column: Nat) (keyword keywordTwin: Comments) (repeatedly: Bool):
+    Parse.Follows SameCode ExprsAlike (() => rewriteWith self outer column keyword repeatedly) (() =>
+      rewriteWith selfTwin outer column keywordTwin repeatedly) :=
+  Parse.followsThen (followsRewriteRulesOf knot expects appends outer repeatedly) (rules twinRules ruleses =>
+    Parse.followsThen (followsRewriteTarget appends outer) (target targetTwin targets =>
+      followsRewriteThen knot outer column keyword keywordTwin rules twinRules ruleses target targetTwin targets))
+
+theorem followsRewriteAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows)
+    (appends: AppendExprFollows self selfTwin)
+    (outer: Modes) (column: Nat) (keyword keywordTwin: Comments):
+    Parse.Follows SameCode ExprsAlike (() => rewriteAfter self outer column keyword) (() =>
+      rewriteAfter selfTwin outer column keywordTwin) :=
+  followsThenEq (followsRepeatedlyAhead outer) (repeatedly =>
+    followsRewriteWith knot expects appends outer column keyword keywordTwin repeatedly)
+
+theorem followsRewriteExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows)
+    (appends: AppendExprFollows self selfTwin):
+    RewriteFollows self selfTwin :=
+  modes =>
+    followsThenEq followsColumnHere (column =>
+      Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+        followsRewriteAfter knot expects appends
+          { modes | rewriteRule = None, rewriteAt = False }
+          column
+          keyword
+          keywordTwin))
+
+-- `cases` and the body after `then`.
+
+theorem followsCasesThen ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (keyword keywordTwin: Word)
+    (keywords: WordsAlike keyword keywordTwin) (atThen: Bool):
+    Parse.Follows SameCode ExprsAlike (() => casesThen self modes keyword atThen) (() =>
+      casesThen selfTwin modes keywordTwin atThen) :=
+  match atThen with
+    | True => Parse.followsThen followsFixedFrom (thenKeyword thenTwin thens =>
+      Parse.followsMap
+        [alike := ExprsAlike]
+        (body => Cases keyword.comments thenKeyword body)
+        (body => Cases keywordTwin.comments thenTwin body)
+        (body bodyTwin bodies =>
+          alikeCases keyword.comments keywordTwin.comments thenKeyword thenTwin body bodyTwin bodies)
+        (knot { modes, level = LevelThenBody }))
+    | False => Parse.followsDone _ _ (alikeAtom KwCases keyword keywordTwin keywords)
+
+theorem followsCasesIn ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (keyword keywordTwin: Word)
+    (keywords: WordsAlike keyword keywordTwin) (atIn: Bool):
+    Parse.Follows SameCode ExprsAlike (() => casesIn self modes keyword atIn) (() =>
+      casesIn selfTwin modes keywordTwin atIn) :=
+  match atIn with
+    | True => followsFatalAny (oldIn "cases") (() => Syntax.fatal (oldIn "cases"))
+    | False =>
+      followsThenEq (followsAt modes KwThen) (atThen => followsCasesThen knot modes keyword keywordTwin keywords atThen)
+
+theorem followsCasesExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin):
+    CasesFollows self selfTwin :=
+  modes =>
+    Parse.followsThen followsBump (keyword keywordTwin keywords =>
+      followsThenEq (followsAt modes KwIn) (atIn => followsCasesIn knot modes keyword keywordTwin keywords atIn))
+
+theorem followsThenBodyOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (blocks: BlockFollows self selfTwin)
+    (exprs: ExprFollows self selfTwin)
+    (modes: Modes) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    Parse.Follows SameCode ExprsAlike (() => thenBodyOn self modes items) (() => thenBodyOn selfTwin modes others) :=
+  match items, others with
+    | [], [] => exprs modes
+    | [next, ..rest], [other, ..restTwin] =>
+      let ends: modes.endsConstruct next = modes.endsConstruct other :=
+        deafItem (modes.endsConstruct) (endsConstructDeaf modes) next other same.left
+      let guards: (next.leaf.token.lineStart
+        && modes.allow != Some next.index
+        && !modes.endsConstruct next
+        && modes.limit == Some next.leaf.token.column)
+        = (other.leaf.token.lineStart
+          && modes.allow != Some other.index
+          && !modes.endsConstruct other
+          && modes.limit == Some other.leaf.token.column) :=
+        rewrite ends,
+            lineStartSame next other same.left,
+            indexSameOf next other same.left,
+            columnSame next other same.left
+      let columns: next.leaf.token.column = other.leaf.token.column := columnSame next other same.left
+      match first: next.leaf.token.lineStart
+        && modes.allow != Some next.index
+        && !modes.endsConstruct next
+        && modes.limit == Some next.leaf.token.column, second: other.leaf.token.lineStart
+        && modes.allow != Some other.index
+        && !modes.endsConstruct other
+        && modes.limit == Some other.leaf.token.column with
+        | True, True => rewrite columns then blocks modes other.leaf.token.column True
+        | False, False => exprs modes
+
+theorem followsThenBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (blocks: BlockFollows self selfTwin)
+    (exprs: ExprFollows self selfTwin):
+    ThenBodyFollows self selfTwin :=
+  modes =>
+    followsOn (seen => thenBodyOn self modes seen) (seen => thenBodyOn selfTwin modes seen) (seen others same =>
+      followsThenBodyOn blocks exprs modes seen others same)
+
+-- Lane 5's facts about this file's functions (`StatementFollows` and the rest), proved from the knot, the facts about
+-- lane 6's functions and the facts lane 5 itself proves.
+
+theorem letStatementFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows):
+    LetStatementFollows self selfTwin :=
+  modes => followsLetStatement knot expects modes
+
+theorem letBodyFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin):
+    LetBodyFollows self selfTwin :=
+  modes binding twin alike => followsLetBody knot modes binding twin alike
+
+theorem handleFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows):
+    HandleFollows self selfTwin :=
+  modes => followsHandleExpr knot expects lowers modes
+
+theorem inductFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows):
+    InductFollows self selfTwin :=
+  modes keyword keywordTwin word wordTwin => followsInductExpr knot expects modes keyword keywordTwin word wordTwin
+
+theorem reifyFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows):
+    ReifyFollows self selfTwin :=
+  modes keyword keywordTwin word wordTwin =>
+    followsReifyExpr knot expects lowers modes keyword keywordTwin word wordTwin
+
+theorem casesFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin):
+    CasesFollows self selfTwin :=
+  followsCasesExpr knot
+
+theorem appendExprFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows):
+    AppendExprFollows self selfTwin :=
+  modes =>
+    followsAppendExpr knot
+      (atomFollows knot)
+      (braceFollows knot)
+      (matchFollows knot altPatternFollows (inductFollows knot expects) (reifyFollows knot expects lowers))
+      (clauseLambdaFollows knot altPatternFollows)
+      modes
+
+theorem rewriteFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows):
+    RewriteFollows self selfTwin :=
+  followsRewriteExpr knot expects (appendExprFollows knot expects lowers)
+
+theorem calcOperandFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows)
+    (groups: HeaderGroupFollows self selfTwin)
+    (binders: BinderTypeFollows self selfTwin)
+    (results: ResultTypeFollows self selfTwin):
+    CalcOperandFollows self selfTwin :=
+  modes =>
+    Parse.followsThen
+      (followsPipedRange knot
+        (atomFollows knot)
+        (braceFollows knot)
+        (matchFollows knot altPatternFollows (inductFollows knot expects) (reifyFollows knot expects lowers))
+        (clauseLambdaFollows knot altPatternFollows)
+        (lambdaFollows knot patternOfFollows groups binders)
+        modes)
+      (piped pipedTwin pipeds =>
+        followsLogicAfter knot
+          (atomFollows knot)
+          (braceFollows knot)
+          (matchFollows knot altPatternFollows (inductFollows knot expects) (reifyFollows knot expects lowers))
+          (clauseLambdaFollows knot altPatternFollows)
+          (lambdaFollows knot patternOfFollows groups binders)
+          (ifFollows knot)
+          (quantifierFollows knot patternOfFollows groups binders)
+          results
+          modes
+          piped
+          pipedTwin
+          pipeds)
+
+theorem calcFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows)
+    (groups: HeaderGroupFollows self selfTwin)
+    (binders: BinderTypeFollows self selfTwin)
+    (results: ResultTypeFollows self selfTwin):
+    CalcFollows self selfTwin :=
+  followsCalcExpr knot (calcOperandFollows knot expects lowers groups binders results)
+
+theorem exprInlineFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows)
+    (groups: HeaderGroupFollows self selfTwin)
+    (binders: BinderTypeFollows self selfTwin)
+    (pis: PiExprFollows self selfTwin)
+    (results: ResultTypeFollows self selfTwin):
+    ExprInlineFollows self selfTwin :=
+  modes =>
+    followsExprInline knot groups binders
+      (inductFollows knot expects)
+      (reifyFollows knot expects lowers)
+      pis
+      results
+      (handleFollows knot expects lowers)
+      (letStatementFollows knot expects)
+      (letBodyFollows knot)
+      (calcFollows knot expects lowers groups binders results)
+      (rewriteFollows knot expects lowers)
+      (casesFollows knot)
+      modes
+
+theorem statementFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (attributesOfFact: AttributesOfFollows)
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (groups: HeaderGroupFollows self selfTwin)
+    (binders: BinderTypeFollows self selfTwin)
+    (pis: PiExprFollows self selfTwin)
+    (results: ResultTypeFollows self selfTwin):
+    StatementFollows self selfTwin :=
+  followsStatement knot
+    (exprInlineFollows knot expects lowers groups binders pis results)
+    (letStatementFollows knot expects)
+    (letBodyFollows knot)
+    attributesOfFact
+    definitions
+
+theorem thenBodyFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows) (attributesOfFact: AttributesOfFollows)
+    (definitions: DefinitionPartsFollows self selfTwin)
+    (groups: HeaderGroupFollows self selfTwin)
+    (binders: BinderTypeFollows self selfTwin)
+    (pis: PiExprFollows self selfTwin)
+    (results: ResultTypeFollows self selfTwin):
+    ThenBodyFollows self selfTwin :=
+  let statements := statementFollows knot expects lowers attributesOfFact definitions groups binders pis results
+  followsThenBody (modes column many => followsBlock statements modes column many) (modes =>
+    followsExpr knot groups binders
+      (inductFollows knot expects)
+      (reifyFollows knot expects lowers)
+      pis
+      results
+      (handleFollows knot expects lowers)
+      (letStatementFollows knot expects)
+      (letBodyFollows knot)
+      (calcFollows knot expects lowers groups binders results)
+      (rewriteFollows knot expects lowers)
+      (casesFollows knot)
+      statements
+      modes)
