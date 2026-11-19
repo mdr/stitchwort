@@ -26148,7 +26148,7 @@
     {
       "id": 4145,
       "title": "[Opus] fmt S1 comments anywhere E2: anyKeys (keysFrom of any expression, generalising edgeKeys) and ledItemHangs (a commented item at an item position) (SW-4130 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4145",
       "labels": [],
@@ -26161,9 +26161,9 @@
     {
       "id": 4146,
       "title": "[Opus] fmt S1 comments anywhere E3: parenAny (after E2) (SW-4130 plan)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4146",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 min. Folds in SW-4082 where it applies.",
@@ -26213,7 +26213,7 @@
     {
       "id": 4150,
       "title": "[Sonnet] fmt multi-line read-back H7 (SW-4121 plan): the * + ++ and comparison chains: mulAccHung, mulHung, addAccHung, addBaseHung, addHung, appendHung, appendBaseHung, cmpAloneHung, cmpHung (ReadBackHungChains.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4150",
       "labels": [],
