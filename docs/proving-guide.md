@@ -578,10 +578,35 @@ Import what you use: std's theorems live in namespaces that need an import
   equation as a premise: `ih: (still: Nat) → step owed x = Some still →
   …`; in the proof, `match hs: step owed x with` and pass `ih still
   byComputing` (the alternative refines the premise to `Some still = Some
-  still`), `examples/accept/function-induct-nontail-match.sw`. It doesn't
-  yet split a guarded, partly overlapped arm into its cases
-  (functional-induction.md, G1): there, fall back to the hand-built
-  `match`.
+  still`), `examples/accept/function-induct-nontail-match.sw`. An arm below a
+  guarded arm whose patterns take only some of its values (G1, D3697)
+  keeps one case, whose hypothesis is the one its equation takes: wherever
+  the guarded arm's patterns match, its condition is false. For
+  `| [comma, closer, ..after] if isComma comma && … => … | [leaf, ..after]
+  => …`, case `eq3` binds `notArm2: ∀ (closer: Kind) (after1: List Kind)
+  => after = [closer, ..after1] → ¬(isComma leaf ∧ …)`. A proof that
+  doesn't need it ignores it, or passes it whole to a lemma stated the
+  way `f.eq3` states it; one that needs the next value splits `after` and
+  applies it, the equation by `byComputing`:
+
+  ```
+  | eq3 b leaf after notArm2 ih =>
+    match after with
+      | [] => byComputing
+      | [closer, ..after1] =>
+        match pairTest: isComma leaf && isCloser closer && hasItem b with
+          | False => ih
+          | True =>
+            (notArm2 closer after1 byComputing (
+              Bool.andLeft pairTest,
+              Bool.andLeft (Bool.andRight pairTest),
+              Bool.andRight (Bool.andRight pairTest)
+            )).impossible
+  ```
+
+  Several guarded arms above one arm give it one such hypothesis each,
+  never more cases (`examples/accept/match-induct-guarded-overlap.sw`,
+  `match-induct-guarded-overlap-several.sw`).
 - **Arms have equations.** Every `def` with arms gets `f.eq1`, `f.eq2`, …
   (one for each arm, in the order written): the call on that arm's patterns
   equals its body. An arm an earlier arm overlaps takes a hypothesis for

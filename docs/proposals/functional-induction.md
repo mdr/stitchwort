@@ -247,6 +247,28 @@ parameters. Or-pattern arms already give one case per alternative
 (`eq3Or1`, `eq3Or2`) [run: a probe of `width` with `| Nest inner | Group
 inner`].
 
+> **As built (SW-4261, 19 Nov 2026): one case per arm, not the split
+> below.** Matt chose the review's option 2 (D3697,
+> [SW-4278](../reviews/SW-4278-d3697-review.md)): arm K keeps the one case
+> `eqK`, and for each guarded arm J above it whose patterns take some of
+> K's values, the case takes the hypothesis `f.eqK` takes, in the same
+> form: `notArmJ: ∀ (J's variables) => x = p → … → ¬guard`. For
+> `withoutR`: `eq1 behind`, `eq2 behind comma closer after guard ih`,
+> `eq3 behind leaf after notArm2 ih`, with `notArm2: ∀ (closer: Kind)
+> (after1: List Kind) => after = [closer, ..after1] → ¬(isComma leaf ∧
+> isCloser closer ∧ hasItem behind)`. The proof establishes it at each of
+> K's leaves: by the `%apart` refutation where the values differ from J's
+> pattern in a constructor, and where they match it, from the failed
+> guard's fact above, carried along the equations by `J` (J's variables
+> read off the values by hidden projections, `f.induct.%fieldN`). No case
+> cap and no new names. Still skipped, with the reason: J's pattern
+> differing from the values only in a number or character literal, or on
+> an indexed family. Examples:
+> `examples/accept/match-induct-guarded-overlap.sw` (this repro, with a
+> proof that applies `notArm2`) and `…-several.sw` (two guarded arms above
+> one, a nested pattern; a decided guard on two scrutinees). The text
+> below is the option 1 design as proposed.
+
 **G1: a guarded arm that a later arm partly overlaps.** Where arm K comes
 after a guarded arm J whose patterns take some but not all of K's values,
 K's case splits in two, at J's patterns, as the compiled definition does:
