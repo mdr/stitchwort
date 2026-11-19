@@ -26663,12 +26663,12 @@
     {
       "id": 4184,
       "title": "[Fable, paper] Slice 1 checkpoint and the route for settledParsesMoved1: (1) generalise Parse.Follows to a list-level item relation and prove the ~70 layout readers, or (2) change rule N's commaMoved so the closer keeps its own lineStart (settled tokens = raw; settledParsesKept1 closes the goal) and redo SW-4131's settle facts; does (2) change any output? Plus the slice-1 review: top theorems + formatAccepts1 say what D3687 asks, nothing narrowed",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4184",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min. Paper. From SW-4183's report (board). Output: docs/reviews/SW-4184-slice1-checkpoint.md.",
+      "body": "Est. 30 min. Paper. From SW-4183's report (board). Output: docs/reviews/SW-4184-slice1-checkpoint.md.\n\n\nLane notes (Fable, 19 Nov, 15:03-15:10): docs/reviews/SW-4184-slice1-checkpoint.md, commit 098789799 on lane/SW-4184. B: sound with notes (one open goal; driver only widened; grammar, must-accept file and top statements untouched). A: recommend the driver parse the settled leaves with the lexer own tokens (new Lexed.settledSource), so settledParsesKept1 covers every source and settledParsesMoved1 is deleted; one Opus lane, 45 min est. Changes the driver definition: Matt to agree; no output or acceptance change known. Unmarking the closer inside rule N would change printed comments (cases in the review).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
