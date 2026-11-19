@@ -26449,12 +26449,12 @@
     {
       "id": 4168,
       "title": "[Sonnet] fmt (SW-4132 lane 5): two-run walk of Parser.sw second half: keyword expressions, lambdas, quantifiers, if, match, patterns, records, the rest (Syntax/FollowsForms.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4168",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.\n\nProgress (Sonnet lane, 19 Nov 2026): Syntax/FollowsForms.sw, 190 parser functions with a followsF of their own, 9 read through; check 0 errors, audit 0 failed (6 vacuity warnings on SameCode lemmas). Lane 4's seven defs (Atom, Brace, Match, ClauseLambda, Lambda, If, Quantifier) proved from the knot and lane 6/7 facts. patternOf/altPattern facts proved outright; followsExpressionRule is the rule lemma for lane 8. Commits on lane/SW-4168. Done in about 38 min (est. 50).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
