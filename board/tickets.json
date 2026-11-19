@@ -25643,12 +25643,12 @@
     {
       "id": 4107,
       "title": "[Opus] fmt S1 goal wordsEdgeOneLine1 (Fmt.OneLineParts): comments on non-closer tokens of a one-line declaration sit only at the edges; route in SW-4098's note (events after a comment start their line, positions in printed words against decl.spelt, scan back to wordsEdge1); est. 1-2 lanes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\nLane notes (Opus, 19 Nov 2026, branch lane/SW-4107, commits dc1a07b01, 2bdb454e6):\n\n- `wordsEdgeOneLine1` proved, statement unchanged: `wordsEdgeOneLine` (Fmt.WordsEdgeLine). Open goals in OneLineParts 3 -> 2 (closersBareOneLine1, blanksBelowOneLine1 left to SW-4108). Uses no closer or blank-flag facts.\n- New modules: Fmt.NoteMarks (marks of comments among tokens; spreadMarked), Fmt.NoteLines (declCovered: a token after a printed comment starts its line, from Chrono), Fmt.WordsEdge (the wordsEdge1 defs, moved out of OneLineParts so the proof can name them; wordsEdgeOfMarks by induction; calm transport), Fmt.WordsEdgeLine (lineCov, the split by lengths, the assembly).\n- OneLineParts changes beyond the goal body: the four wordsEdge1 defs moved to Fmt.WordsEdge (import added), module doc and goal doc updated.\n- Checks: check WordsEdgeLine / OneLineParts / TopStatements 0 errors; audit NoteMarks 62 passed, WordsEdge 49 passed, NoteLines 10 passed, WordsEdgeLine 38 passed, OneLineParts 30 passed with 3 failed (the two open goals and edgeQuietOneLine1 on them); test Fmt.Tests 125/125. ~40 min (est. 90).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
