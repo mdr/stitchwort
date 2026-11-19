@@ -27554,8 +27554,8 @@
     {
       "id": 4251,
       "title": "[Sonnet] Or-pattern sweep 1/3: std (crates/elab/src/std): join repeated match arms with or-patterns or a catch-all",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -27567,8 +27567,8 @@
     {
       "id": 4252,
       "title": "[Sonnet] Or-pattern sweep 2/3: tools/fmt proofs and program: join repeated match arms with or-patterns or a catch-all",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
