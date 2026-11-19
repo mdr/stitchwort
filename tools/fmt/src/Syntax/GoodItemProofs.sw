@@ -6,10 +6,10 @@
 --| - A token of fixed spelling (`def`, a bracket, `:`, an operator) has its kind's text: the lexer's soundness
 --|   (`lexFixed`), what a successful `lex` of a source in slice 1's alphabet gave: each round of `item` is spelled from
 --|   where it read (`itemFixed`), joined as in `Syntax.LexReadsProofs`'s `lexemesRounds` (`lexemesFixed`).
---| - A name or numeral is spelled plainly (no `.`, no exponent) only if the source says so: `List.map` lexes as one
---|   `Lower` token and `1e3` as a `Float`, both in slice 1's alphabet, and `GoodItem` is false of them. So that half is a
---|   test on the lexed leaves (`spelledPlain1`), the same `textSpells1` that `within1` makes of the tree's words, which
---|   slice 1's driver makes of the source as it tests the alphabet.
+--| - A name or numeral is spelled as slice 1 has it (a plain or qualified name, a numeral with a fraction or an
+--|   exponent) only if the source says so: the name `auto` lexes as one `Lower` token in the alphabet, and
+--|   `GoodItem` is false of it. So that half is a test on the lexed leaves (`spelledPlain1`), the same `textSpells1`
+--|   that `within1` makes of the tree's words, which slice 1's driver makes of the source as it tests the alphabet.
 
 namespace Syntax.GoodItemProofs
 import Std (Bool, Char, DecEq, Empty, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
@@ -275,18 +275,8 @@ def alphabetNotPlain (source: Text): Bool := match lex source with
   | Ok lexed => alphabet1 lexed.leaves && !spelledPlain1 lexed.leaves
   | Err _ => False
 
---| A qualified name is in the alphabet and fails the test.
-theorem qualifiedNotPlain: alphabetNotPlain "def d: A := List.map\n" = True := byComputing
-
---| So does a number with an exponent.
-theorem exponentNotPlain: alphabetNotPlain "def d: A := 1e3\n" = True := byComputing
-
---| And `GoodItem` is false of the qualified name's item: `Spells Lower` has no `.`.
-theorem qualifiedNotSpelled ∀ (spells: Spells Lower "List.map"): Void :=
-  let (first, others, chars, _, rest, _) := spells
-  let tail: ['i', 's', 't', '.', 'm', 'a', 'p'] = others := Eq.cong ((list: List Char) => list.drop 1) chars
-  let stuck: (['i', 's', 't', '.', 'm', 'a', 'p']: List Char).all isWordChar = True := rewrite tail then rest
-  Bool.falseNotTrue stuck
+--| `auto` is in the alphabet and fails the test: the parser reads `[auto Ord]` as an implicit binder.
+theorem autoNotPlain: alphabetNotPlain "def d: A := auto\n" = True := byComputing
 
 --| A source that lexes and passes the test, so `lexGood` applies to it.
 def lexesPlain (source: Text): Bool := match lex source with
@@ -295,6 +285,15 @@ def lexesPlain (source: Text): Bool := match lex source with
 
 theorem lexesPlainExample: lexesPlain "def d: A -> (B) := g [a, b] -- end\n\ndef e: C := -1 + f x 2.5\n" = True :=
   byComputing
+
+--| A qualified name passes the test.
+theorem qualifiedPlain: lexesPlain "def d: A := List.map\n" = True := byComputing
+
+--| So does a number with an exponent.
+theorem exponentPlain: lexesPlain "def d: A := 1.5e-13 + 1e3\n" = True := byComputing
+
+--| And so does an upper-case name for the definition.
+theorem upperDefPlain: lexesPlain "def Holds: A := b\n" = True := byComputing
 
 -- What the lexer's choices of kind say of the text, for the walk of `lexemesIn` (`lexemesFixed`).
 

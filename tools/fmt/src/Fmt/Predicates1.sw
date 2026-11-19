@@ -241,7 +241,8 @@ def allLexical1: List Expr → Bool
   | [expr, ..rest] => expr.lexical1 && allLexical1 rest
 
 def Decl.lexical1: Decl → Bool
-  | Definition _ header (Assigned _ value) => header.name.lexesAs Lower && header.result.lexical1 && value.lexical1
+  | Definition _ header (Assigned _ value) =>
+    (header.name.lexesAs Lower || header.name.lexesAs Upper) && header.result.lexical1 && value.lexical1
   | _ => False
 
 def Decl.shaped1: Decl → Bool

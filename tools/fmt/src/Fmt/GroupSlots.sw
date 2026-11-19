@@ -15,6 +15,7 @@ import Fmt.TreeJoinProofs (
   PrefixSpells,
   infixListed,
   lexKind,
+  nameKinded,
   operatorSpellsOf,
   prefixSpellsOf,
   spellsNotComment,
@@ -599,7 +600,7 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     (colon colonEq: Comments) (result value: Expr)
     (resultTree: SlotTree result)
     (valueTree: SlotTree value)
-    (lower: lexKind name.text = Lower)
+    (lower: lexKind name.text = Lower ∨ lexKind name.text = Upper)
     (texts: (items group).map Item.text = ["def", name.text, ":"] ++ result.codeTexts1 ++ [":=", ..value.codeTexts1])
     (kinded: (items group).all (item => item.leaf.token.kind == lexKind item.leaf.token.text) = True)
     (words: itemWords (items group)
@@ -630,7 +631,9 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     rewrite someWordsAppend result.slots1 [Some (fixedWord ":=" colonEq), ..value.slots1],
         slotWords result resultWithin,
         slotWords value valueWithin
-  let nameCode: slotCode (Some name) = True := rewrite lower
+  let nameCode: slotCode (Some name) = True := match lower with
+    | Inl same => rewrite same
+    | Inr same => rewrite same
   let code: slots.all slotCode = True :=
     Bool.andIntro byComputing
       (Bool.andIntro nameCode
@@ -665,7 +668,7 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
 theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr)
     (resultTree: SlotTree result)
     (valueTree: SlotTree value)
-    (lower: lexKind name.text = Lower)
+    (lower: lexKind name.text = Lower ∨ lexKind name.text = Upper)
     (spacing: spacingAdmits
       ([Free, Free, Free] ++ result.spacing1 False ++ [Free] ++ value.spacing1 False)
       (items group)
@@ -694,7 +697,9 @@ theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (col
       let (resultWithin, resultShaped, resultLexical, resultFree) := resultTree
       let (valueWithin, valueShaped, valueLexical, valueFree) := valueTree
       let isDef: keywordItem.kind = KwDef := rewrite keywordKind
-      let isLower: nameItem.kind = Lower := rewrite nameKind, lower
+      let isLower: nameItem.kind = Lower ∨ nameItem.kind = Upper := match lower with
+        | Inl same => Inl (rewrite nameKind, same)
+        | Inr same => Inr (rewrite nameKind, same)
       let isColon: colonItem.kind = Colon := rewrite colonKind
       let isColonEq: colonEqItem.kind = ColonEq := rewrite colonEqKind
       let spaced: spacingAdmits
@@ -840,7 +845,7 @@ theorem declCodeTexts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comme
     allCons (fixedWord ":=" colonEq) value.words Fmt.SpellProofs.Word.commented afterResult
   let nameClean: name.clean1 = True :=
     wordClean name
-      (spellsNotComment Lower name.text (spellsOfText1 Lower name.text (Bool.andRight nameWithin)))
+      (let (nameKind, nameSpelled, _, _) := nameKinded name nameWithin; spellsNotComment nameKind name.text nameSpelled)
       nameCommented
   rewrite List.filterAppend
         (((fixedWord "def" keyword).spelledAt True ++ name.spelledAt False)
@@ -868,7 +873,7 @@ theorem splitOfRead ∀ (group: List Leaf) (read: Decl) (keyword: Comments) (nam
     (isRead: read = plainDecl keyword name colon colonEq result value)
     (resultTree: SlotTree result)
     (valueTree: SlotTree value)
-    (lower: lexKind name.text = Lower)
+    (lower: lexKind name.text = Lower ∨ lexKind name.text = Upper)
     (texts: (items group).map Item.text = ["def", name.text, ":"] ++ result.codeTexts1 ++ [":=", ..value.codeTexts1])
     (kinded: (items group).all (item => item.leaf.token.kind == lexKind item.leaf.token.text) = True)
     (words: itemWords (items group)
@@ -905,6 +910,13 @@ theorem calmShape ∀ (keyword: Comments) (name: Word) (colon colonEq: Comments)
 --| spacing (`withinCalm`, `shapedCalm`, `lexicalCalm`, `codeTextsCalm`, `spacingCalm`); the group's texts and kinds
 --| are the printed leaves' (`printedTokens1`), its words `read`'s, and its spacing the printed one (`groupSpacing`),
 --| which is what `splitOfParts` takes.
+theorem lexKindOfNameLexes ∀ (name: Word)
+    (lexes: (name.lexesAs Lower || name.lexesAs Upper) = True):
+    lexKind name.text = Lower ∨ lexKind name.text = Upper :=
+  match (Bool.orReads _ _).forward lexes with
+    | Inl lower => Inl (lexKindOfLexes name.text Lower lower)
+    | Inr upper => Inr (lexKindOfLexes name.text Upper upper)
+
 theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr)
     (read: Decl) (group: List Leaf)
     (printed: PrintedGroup (plainDecl keyword name colon colonEq result value) read group):
@@ -918,7 +930,7 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
   let headerWithin: (name.nameWithin1 && result.within1) = True := Bool.andLeft within
   let valueWithin: value.within1 = True := Bool.andRight within
   let resultWithin: result.within1 = True := Bool.andRight headerWithin
-  let nameLexes: name.lexesAs Lower = True := Bool.andLeft lexical
+  let nameLexes: (name.lexesAs Lower || name.lexesAs Upper) = True := Bool.andLeft lexical
   let resultLexical: result.lexical1 = True := Bool.andLeft (Bool.andRight lexical)
   let valueLexical: value.lexical1 = True := Bool.andRight (Bool.andRight lexical)
   let resultTree: SlotTree (result.calm False) := (
@@ -958,7 +970,7 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
     isCalm
     resultTree
     valueTree
-    (lexKindOfLexes name.text Lower nameLexes)
+    (lexKindOfNameLexes name nameLexes)
     texts
     (itemsKinded group (kindedOfTokens group decl.leaves1 sameTokens printedTokens.right))
     (rewrite itemWordsOfGroup group, words then readWords)

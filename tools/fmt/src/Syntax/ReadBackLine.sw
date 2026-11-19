@@ -20,7 +20,7 @@
 --| inside an expression are not here yet.
 
 namespace Syntax.ReadBackLine
-import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Void, byDecision)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
@@ -4384,7 +4384,7 @@ theorem startNotBrace ∀ (kind: Tok) (starts: leadKind kind = True): (kind == L
 theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (isDef: keyword.kind = KwDef)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (isColon: colon.kind = Colon)
     (isColonEq: colonEq.kind = ColonEq)
     (typeSpelt: Spelt result typeRead)
@@ -4453,7 +4453,7 @@ theorem readsBackLine ∀ (seen: Seen) (keyword name colon colonEq: Item)
 theorem readsBackLineWithin ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (isDef: keyword.kind = KwDef)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (isColon: colon.kind = Colon)
     (isColonEq: colonEq.kind = ColonEq)
     (typeSpelt: Spelt result typeRead)
@@ -4527,7 +4527,7 @@ theorem readsBackLineExample: Parse.run
     (Atom Upper (wordItem Upper "A" 3).leaf.word)
     exampleValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -4639,7 +4639,7 @@ theorem readsBackOwnLineExample: Parse.run
     (Atom Upper (wordItem Upper "A" 3).leaf.word)
     ownLineValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -4728,7 +4728,7 @@ theorem readsBackCallExample: Parse.run
     (Atom Upper (wordItem Upper "A" 3).leaf.word)
     callValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -4822,7 +4822,7 @@ theorem readsBackSignExample: Parse.run
     (Atom Upper (wordItem Upper "A" 3).leaf.word)
     signValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -4910,7 +4910,7 @@ theorem readsBackSignArgExample: Parse.run
     (Atom Upper (wordItem Upper "A" 3).leaf.word)
     signArgValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -5041,7 +5041,7 @@ theorem readsBackArrowExample: Parse.run
     arrowType
     (Atom Lower (wordItem Lower "x" 9).leaf.word)
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (
@@ -5183,7 +5183,7 @@ theorem readsBackLexedExample: Parse.run
     (Atom Upper (lexedAt 3).leaf.word)
     lexedValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (lexedAt 3, byComputing, byComputing, byComputing, byComputing)
@@ -5368,7 +5368,7 @@ theorem readsBackNegativeHeadExample: Parse.run
     (Atom Upper (negativeHeadAt 3).leaf.word)
     negativeHeadValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (negativeHeadAt 3, byComputing, byComputing, byComputing, byComputing)
@@ -5452,7 +5452,7 @@ theorem readsBackMinusExample: Parse.run
       (wordItem Minus "-" 8).leaf.word
       (Atom Lower (wordItem Lower "c" 9).leaf.word))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -5559,7 +5559,7 @@ theorem readsBackMulAddExample: Parse.run
         (wordItem Star "*" 10).leaf.word
         (Atom Lower (wordItem Lower "d" 11).leaf.word)))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -5669,7 +5669,7 @@ theorem readsBackAppendExample: Parse.run
         (wordItem PlusPlus "++" 8).leaf.word
         (Atom Lower (wordItem Lower "z" 9).leaf.word)))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -5776,7 +5776,7 @@ theorem readsBackCmpExample: Parse.run
         (wordItem Star "*" 10).leaf.word
         (Atom Lower (wordItem Lower "c" 11).leaf.word)))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -5891,7 +5891,7 @@ theorem readsBackArrowOperatorExample: Parse.run
         (Atom Upper (wordItem Upper "C" 9).leaf.word)))
     (Atom Lower (wordItem Lower "x" 11).leaf.word)
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (
@@ -6030,7 +6030,7 @@ theorem readsBackLexedOpExample: Parse.run
     lexedOpType
     lexedOpValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (
@@ -6151,7 +6151,7 @@ theorem readsBackAndExample: Parse.run
       (wordItem AndAnd "&&" 6).leaf.word
       (Atom Lower (wordItem Lower "b" 7).leaf.word))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -6229,7 +6229,7 @@ theorem readsBackOrAndExample: Parse.run
         (wordItem AndAnd "&&" 8).leaf.word
         (Atom Lower (wordItem Lower "c" 9).leaf.word)))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -6346,7 +6346,7 @@ theorem readsBackLogicCmpExample: Parse.run
       (wordItem OrOr "||" 12).leaf.word
       (Atom Lower (wordItem Lower "e" 13).leaf.word))
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (wordItem Upper "A" 3, byComputing, byComputing, byComputing, byComputing)
@@ -6519,7 +6519,7 @@ theorem readsBackLexedLogicExample: Parse.run
     (Atom Upper (lexedLogicAt 3).leaf.word)
     lexedLogicValue
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     (lexedLogicAt 3, byComputing, byComputing, byComputing, byComputing)

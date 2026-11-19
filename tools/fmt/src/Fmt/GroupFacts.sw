@@ -28,7 +28,7 @@ def GroupSplit (group: List Leaf) (read: Decl) (keyword name colon colonEq: Item
   items group = [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]]
     ∧ read = Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)
     ∧ keyword.kind = KwDef
-    ∧ name.kind = Lower
+    ∧ (name.kind = Lower ∨ name.kind = Upper)
     ∧ colon.kind = Colon
     ∧ colonEq.kind = ColonEq
     ∧ Spelt result typeRead

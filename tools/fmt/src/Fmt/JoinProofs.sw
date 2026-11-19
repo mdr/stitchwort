@@ -3290,15 +3290,15 @@ theorem exampleDeclJoins: DeclJoins exampleKinds exampleDecl :=
 
 theorem exampleDeclPrintable: Every (Printable exampleKinds) exampleDecl.spelt := (
   Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('d', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (('d', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
   Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('A', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (('A', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
   Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('g', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (('g', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
   Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('a', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (('a', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
   Inr (Inr (byComputing, byComputing, byComputing)),
-  Inr (Inr (('b', [], byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
+  Inr (Inr (('b', [], [], byComputing, byComputing, byComputing, byComputing, byComputing), byComputing, byComputing)),
   Inr (Inr (byComputing, byComputing, byComputing)),
   byComputing
 )

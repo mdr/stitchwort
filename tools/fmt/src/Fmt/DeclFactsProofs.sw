@@ -22,6 +22,7 @@ import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (
   lexKind,
   lexKindOfSpells,
+  nameKinded,
   spellsNotComment,
   spellsNotLayout,
   spellsOfText1,
@@ -113,17 +114,22 @@ theorem notesOfWord ∀ (word: Word) (sound: word.sound = True): NotesComment wo
 
 -- The name, from `within1`.
 
---| A header's name, as `within1` spells it, is a plain token of the lexer's `Lower` kind.
+--| A header's name, as `within1` spells it, is a plain token of the lexer's `Lower` or `Upper` kind.
 theorem nameFacts ∀ (name: Word)
     (within: name.nameWithin1 = True):
     Fmt.HangProofs.Plain (lexKind name.text) ∧ WordToken name.text :=
-  let spells := spellsOfText1 Lower name.text (Bool.andRight within)
-  let (comma, closer) := spellsQuiet Lower name.text spells (wordQuiet Lower byComputing)
-  (
-    rewrite lexKindOfSpells Lower name.text spells then
-      (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing),
-    (spellsNotComment Lower name.text spells, spellsNotLayout Lower name.text spells, closer, comma)
-  )
+  let (kind, spells, quiet, isName) := nameKinded name within
+  let (comma, closer) := spellsQuiet kind name.text spells quiet
+  let kinded := lexKindOfSpells kind name.text spells
+  match isName with
+    | Inl same => (
+      rewrite kinded, same then (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing),
+      (spellsNotComment kind name.text spells, spellsNotLayout kind name.text spells, closer, comma)
+    )
+    | Inr same => (
+      rewrite kinded, same then (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing),
+      (spellsNotComment kind name.text spells, spellsNotLayout kind name.text spells, closer, comma)
+    )
 
 -- The declaration.
 

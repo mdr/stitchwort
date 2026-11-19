@@ -40,6 +40,12 @@ theorem spellOfWord ∀ (kind: Tok) (text: Text)
   let spells := spellsOfText1 kind text (Bool.andRight within)
   rewrite lexKindOfSpells kind text spells then Bool.orRight (Bool.orRight (Bool.andRight within))
 
+--| A header's name, as `within1` spells it.
+theorem spellOfName ∀ (name: Word) (within: name.nameWithin1 = True): passText name.text = True :=
+  match (Bool.orReads _ _).forward within with
+    | Inl lower => spellOfWord Lower name.text (Bool.andIntro byComputing (Bool.andRight lower))
+    | Inr upper => spellOfWord Upper name.text (Bool.andIntro byComputing (Bool.andRight upper))
+
 --| A text that is a comment passes.
 theorem passComment ∀ (text: Text) (comment: commentText text = True): passText text = True :=
   rewrite Bool.andLeft comment
@@ -287,8 +293,7 @@ theorem declPass ∀ (decl: Decl)
             decreasingClause = None,
             unfoldingClause = None
           } =>
-          let namePass :=
-            spellOfWord Lower name.text (Bool.andIntro byComputing (Bool.andRight (Bool.andLeft (Bool.andLeft within))))
+          let namePass := spellOfName name (Bool.andLeft (Bool.andLeft within))
           let resultPass :=
             exprPass result False
               (Bool.andRight (Bool.andLeft within))

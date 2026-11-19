@@ -2262,25 +2262,44 @@ theorem runsDefKind ∀ (modes: Modes) (keyword: Item) (rest: List Item)
       (Some keyword.kind)
       (runsSame (() => modes.peek) [] _ _ _ (peekFirst modes keyword rest open) (runsPeekOn modes [keyword, ..rest])))
 
+--| A definition's name, an item of the lower-case kind or the upper-case one.
 theorem runsDefinitionName ∀ (modes: Modes) (name: Item) (rest: List Item)
     (open: modes.stops name = False)
-    (isLower: name.kind = Lower):
+    (isLower: name.kind = Lower ∨ name.kind = Upper):
     Parse.Runs (() => definitionName modes) [name] rest name.leaf.word :=
-  runsLook
-    (() => modes.at Upper)
-    (upper => definitionNameAfter modes upper)
-    False
-    [name]
-    rest _
-    (runsSame (() => modes.at Upper) [] _ _ _ (rewrite isLower) (runsAtFirst modes Upper name rest open))
-    (runsLook
-      (() => modes.peek)
-      (seen => modes.lowerQualifiedOn "a name" seen)
-      (Some name.kind)
-      [name]
-      rest _
-      (runsSame (() => modes.peek) [] _ _ _ (peekFirst modes name rest open) (runsPeekOn modes [name, ..rest]))
-      (rewrite isLower then runsBump name rest))
+  match isLower with
+    | Inl isLower =>
+      runsLook
+        (() => modes.at Upper)
+        (upper => definitionNameAfter modes upper)
+        False
+        [name]
+        rest _
+        (runsSame (() => modes.at Upper) [] _ _ _ (rewrite isLower) (runsAtFirst modes Upper name rest open))
+        (runsLook
+          (() => modes.peek)
+          (seen => modes.lowerQualifiedOn "a name" seen)
+          (Some name.kind)
+          [name]
+          rest _
+          (runsSame (() => modes.peek) [] _ _ _ (peekFirst modes name rest open) (runsPeekOn modes [name, ..rest]))
+          (rewrite isLower then runsBump name rest))
+    | Inr isUpper =>
+      runsLook
+        (() => modes.at Upper)
+        (upper => definitionNameAfter modes upper)
+        True
+        [name]
+        rest _
+        (runsSame (() => modes.at Upper) [] _ _ _ (rewrite isUpper) (runsAtFirst modes Upper name rest open))
+        (runsLook
+          (() => modes.peek)
+          (seen => modes.upperQualifiedOn "a name" seen)
+          (Some name.kind)
+          [name]
+          rest _
+          (runsSame (() => modes.peek) [] _ _ _ (peekFirst modes name rest open) (runsPeekOn modes [name, ..rest]))
+          (rewrite isUpper then runsBump name rest))
 
 theorem runsForallNone ∀ (modes: Modes) (kind: DefKind) (next: Item) (rest: List Item)
     (open: modes.stops next = False)
@@ -2392,7 +2411,7 @@ theorem runsDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (keywordOpen: modes.stops keyword = False)
     (isDef: keyword.kind = KwDef)
     (nameOpen: modes.stops name = False)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (colonOpen: modes.stops colon = False)
     (colonSealed: modes.sealed.stops colon = False)
     (isColon: colon.kind = Colon)
@@ -2560,7 +2579,7 @@ theorem runsAttributesNone ∀ (modes: Modes) (item: Item) (rest: List Item)
 theorem runsDeclarationDef ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (isDef: keyword.kind = KwDef)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (isColon: colon.kind = Colon)
     (resultRuns: Parse.Runs (() => resultType expressionAt Modes.start) typeRead [colonEq, ..valueRead] result)
     (isColonEq: colonEq.kind = ColonEq)
@@ -2661,7 +2680,7 @@ theorem runsDeclarationDef ∀ (seen: Seen) (keyword name colon colonEq: Item)
 theorem declarationRuns ∀ (seen: Seen) (keyword name colon colonEq: Item)
     (typeRead valueRead: List Item) (result value: Expr)
     (isDef: keyword.kind = KwDef)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (isColon: colon.kind = Colon)
     (resultRuns: Parse.Runs (() => resultType expressionAt Modes.start) typeRead [colonEq, ..valueRead] result)
     (isColonEq: colonEq.kind = ColonEq)
