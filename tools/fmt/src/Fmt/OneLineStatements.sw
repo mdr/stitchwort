@@ -1,17 +1,11 @@
---| The element facts for one-line declarations, in two halves that meet at a test on the tree, `Decl.edgeQuiet1`
---| (SW-4096; docs/reviews/SW-4096-one-line-elements.md). The top theorems no longer use this route: they take
---| `declElements1` (`Fmt.ElementsProofs`), which asks no one-line test.
---|
---| - `edgeQuietOneLine1` (`Fmt.OneLineParts`, from three open parts, the link): a slice 1 declaration that prints on
---|   one line is `edgeQuiet1`. It reads the printed line starts back to the tree's comments and blank lines.
---| - `edgeElements1` (proved in `Fmt.EdgeDeclProofs`, the hangs): an `edgeQuiet1` slice 1 declaration meets
---|   `DeclElements`. It says nothing of the printed text.
+--| `Decl.edgeQuiet1` (SW-4096; docs/reviews/SW-4096-one-line-elements.md), the test on the tree that
+--| `edgeElements1` (proved in `Fmt.EdgeDeclProofs`, the hangs) takes: an `edgeQuiet1` slice 1 declaration meets
+--| `DeclElements`. The top theorems take `declElements1` (`Fmt.ElementsProofs`), which asks no such test.
 --|
 --| `edgeQuiet1`: the only comments in the type and the value are at their edges. One may follow the last word that
 --| is no closer (the printer writes it after the closers that follow, so it ends the line), and the value's first
---| word may have comments above it (it then starts the value's line, which `oneLine1` allows). The test is made of
---| the calmed type and value (`Expr.calm`): a blank line the rules never read is no part of it, and the driver's
---| tree is not calmed.
+--| word may have comments above it. The test is made of the calmed type and value (`Expr.calm`): a blank line the
+--| rules never read is no part of it, and the driver's tree is not calmed.
 
 namespace Fmt.OneLineStatements
 import Std (Bool, List, Option, Text)
@@ -60,51 +54,6 @@ def Decl.edgeQuiet1: Decl → Bool
     (header.result.calm False).edgeQuiet1 False True && (value.calm False).edgeQuiet1 True True
   | _ => False
 
--- `edgeQuietOneLine1`, the link, is in `Fmt.OneLineParts`, from three parts (SW-4098); `edgeElements1`, the
--- hangs, is proved in `Fmt.EdgeDeclProofs`.
+-- `edgeElements1`, the hangs, is proved in `Fmt.EdgeDeclProofs`.
 
 -- Sources the two statements apply to (D3684).
-
---| The halves' hypotheses and the test between them, run on a source's printed tree: the four tree facts, each
---| declaration on one line, and each `edgeQuiet1`.
-def edgeHoldsOn (source: Text): Bool := match tidiedOf source with
-  | None => False
-  | Some file =>
-    file.within1 && file.shaped1 && file.settled1 && file.lexical1 && file.oneLine1 && file.decls.all Decl.edgeQuiet1
-
---| A source in the slice that fails both the one-line test and `edgeQuiet1`: a comment the test must refuse.
-def edgeFailsOn (source: Text): Bool := match tidiedOf source with
-  | None => False
-  | Some file =>
-    file.within1 && file.shaped1 && file.settled1 && file.lexical1 && !file.oneLine1 && !file.decls.all Decl.edgeQuiet1
-
---| Comments after the last tokens with closers after them, in the type and in a list (`def x: F (a) -- c`, then
---| `:=`, then `[b, d] -- e`).
-theorem heldClosersEdge: edgeHoldsOn "def x: F (a -- c\n  ) := [b, d -- e\n  ]\n" = True := byComputing
-
---| A comment after the type, one after the `:=`, two above the value's first token with a blank line kept below
---| them, and one after a tuple's last item.
-theorem everyEdge: edgeHoldsOn "def x: F a -- c\n  := -- d\n  -- e\n  -- f\n\n  g (b, c -- h\n  )\n" = True :=
-  byComputing
-
---| Nested closers after the comment, a comment after an empty list's opener, after an operand and after a sign's.
-theorem deepEdges: edgeHoldsOn
-        "def x: T := f (g [a -- c\n  ])\ndef y: T := [ -- c\n  ]\ndef z: A -> B -- c\n  := a + b -- c\ndef w: T := -a -- c\n"
-      = True :=
-  byComputing
-
---| A blank line the rules never read (above an argument) is no part of the test.
-theorem unreadBlankEdge: edgeHoldsOn "def x: T := f\n\n  [a -- c\n  ]\n" = True := byComputing
-
---| Refused: a comment above a later token of the value, above the type's first token, after an argument that is
---| not the last, after a closer below a comment, and above a closer.
-theorem insideFails: (edgeFailsOn "def x: T := f a\n  -- c\n  b\n"
-      && edgeFailsOn "def x:\n  -- c\n  T := b\n"
-      && edgeFailsOn "def x: T := f (a -- c\n  ) b\n"
-      && edgeFailsOn "def x: T := f (a -- c\n  ) -- d\n"
-      && edgeFailsOn "def x: T := (a\n  -- c\n  )\n")
-      = True :=
-  byComputing
-
---| Refused: a blank line the rules read, above a list's later item.
-theorem readBlankFails: edgeFailsOn "def x: T := [a,\n\n  b]\n" = True := byComputing

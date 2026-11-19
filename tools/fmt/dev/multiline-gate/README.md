@@ -11,8 +11,8 @@ and runs two checks on each:
   `Fmt.hangs`, the layout must parse to the same tree as its tokens
   written on one line (compared by `meaning`'s dump). A failure is a
   counterexample to `readsBackHung`.
-- **Check A, the printer's side.** The driver's steps without its one-line
-  test. For each accepted file, seven tests of the tidied tree: the tree
+- **Check A, the printer's side.** The driver's steps; the gate only labels a
+  file `one` or `multi` by where its tokens start lines (`gateOnLine`; the driver no longer tests it). For each accepted file, seven tests of the tidied tree: the tree
   facts, `hung1`, `stood1`, the printed text lexes to `lexed1`, every
   printed group keeps `hangs`, the output reads back to `calmTop`, and
   formatting the output gives it back.

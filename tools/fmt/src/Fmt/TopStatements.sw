@@ -107,7 +107,7 @@ theorem commaSame1 ∀ (file: SourceFile)
     file.withoutTrailingCommas = file :=
   rewrite commaMap file within, declsUncommaSame file.decls within commaFree
 
--- `calmTop` keeps `calm`'s facts: `calmTopWithin`, `calmTopCommaFree`, `calmTopOneLine`, `calmTopPrints` and
+-- `calmTop` keeps `calm`'s facts: `calmTopWithin`, `calmTopCommaFree`, `calmTopPrints` and
 -- `calmTopMeans` are in `Fmt.CalmTopProofs`.
 
 -- The driver, both ways.

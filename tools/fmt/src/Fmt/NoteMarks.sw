@@ -1,4 +1,4 @@
---| Where comments fall among a declaration's tokens, as lists of marks (SW-4107, for `wordsEdgeOneLine1`).
+--| Where comments fall among a declaration's tokens, as lists of marks (SW-4107).
 --|
 --| `marked` pairs each token of a list of texts with whether a comment came since the token before it. The printed
 --| words and the tree's tokens (`Decl.spelt`) agree only once the closers, or once the comments, are left out
@@ -77,25 +77,6 @@ theorem orFalse ∀ (a: Bool): (a || False) = a := match a with
   | True => byComputing
   | False => byComputing
 
---| Marking the tokens, then spreading the marks over those that are no closers, marks the texts with the closers left
---| out.
---|
---| Proof idea: induction on the texts; a comment sets the mark both ways, a token that is no closer gives its mark and
---| clears it, and a closer passes its mark on to the next token that is none.
-theorem spreadMarked ∀ (texts: List Text) (acc pending: Bool):
-    spread acc (marked pending texts) = marks (acc || pending) (texts.filter notCloser) :=
-  match texts with
-    | [] => byComputing
-    | [text, ..rest] =>
-      match note: notComment text with
-        | False =>
-          let kept: notCloser text = True := noteNotCloser text note
-          rewrite kept, spreadMarked rest acc True, orTrue acc
-        | True =>
-          match closer: notCloser text with
-            | True => rewrite spreadMarked rest False False
-            | False => rewrite spreadMarked rest (acc || pending) False, orFalse (acc || pending)
-
 -- Splitting marks.
 
 theorem marksAppend ∀ (pending: Bool) (front back: List Text):
@@ -115,45 +96,6 @@ theorem pendingAppend ∀ (pending: Bool) (front back: List Text):
       match notComment text with
         | True => pendingAppend False rest back
         | False => pendingAppend True rest back
-
-theorem lengthMarks ∀ (pending: Bool) (texts: List Text):
-    (marks pending texts).length = (texts.filter notComment).length :=
-  match texts with
-    | [] => byComputing
-    | [text, ..rest] =>
-      match notComment text with
-        | True => rewrite lengthMarks False rest
-        | False => lengthMarks True rest
-
-theorem fstMarked ∀ (pending: Bool) (texts: List Text): (marked pending texts).map Pair.fst = texts.filter notComment :=
-  match texts with
-    | [] => byComputing
-    | [text, ..rest] =>
-      match notComment text with
-        | True => rewrite fstMarked False rest
-        | False => fstMarked True rest
-
-theorem lengthSpread ∀ (pending: Bool) (pairs: List (Text, Bool)):
-    (spread pending pairs).length = ((pairs.map Pair.fst).filter notCloser).length :=
-  match pairs with
-    | [] => byComputing
-    | [(text, mark), ..rest] =>
-      match notCloser text with
-        | True => rewrite lengthSpread False rest
-        | False => lengthSpread (pending || mark) rest
-
-theorem spreadAppend ∀ (front back: List (Text, Bool))
-    (quiet: anyMarked front = False):
-    spread False (front ++ back) = spread False front ++ spread False back :=
-  match front with
-    | [] => byComputing
-    | [(text, mark), ..rest] =>
-      match mark, quiet with
-        | True, never => (Bool.trueNotFalse never).impossible
-        | False, quiet =>
-          match notCloser text with
-            | True => rewrite spreadAppend rest back quiet
-            | False => spreadAppend rest back quiet
 
 -- No marks.
 
@@ -186,16 +128,6 @@ theorem spreadTailQuiet ∀ (pending: Bool) (pairs: List (Text, Bool))
             | False => spreadTailQuiet (pending || False) rest quiet
 
 -- Lists.
-
-theorem filterSwap ∀ (p q: Text → Bool) (texts: List Text): (texts.filter p).filter q = (texts.filter q).filter p :=
-  match texts with
-    | [] => byComputing
-    | [text, ..rest] =>
-      match p text, q text with
-        | True, True => rewrite filterSwap p q rest
-        | True, False => filterSwap p q rest
-        | False, True => filterSwap p q rest
-        | False, False => filterSwap p q rest
 
 theorem appendCancel ∀ (front back front' back': List Bool)
     (length: front.length = front'.length)
@@ -289,12 +221,6 @@ theorem pendingNotes ∀ (pending: Bool) (texts: List Text)
       match note: notComment text with
         | False => rewrite pendingNotes True rest notes, orTrue pending
 
-theorem hasNotes ∀ (texts: List Text) (notes: allNotes texts = True): hasToken texts = False := match texts with
-  | [] => byComputing
-  | [text, ..rest] =>
-    match note: notComment text with
-      | False => hasNotes rest notes
-
 theorem hasAppendLeft ∀ (front back: List Text) (has: hasToken front = True): hasToken (front ++ back) = True :=
   match front with
     | [text, ..rest] =>
@@ -327,35 +253,12 @@ theorem notesAppend ∀ (front back: List Text)
       match note: notComment text with
         | False => notesAppend rest back frontNotes backNotes
 
-theorem appendCancelFront ∀ (front back front' back': List Bool)
-    (length: front.length = front'.length)
-    (same: front ++ back = front' ++ back'):
-    front = front' :=
-  match front, front', length, same with
-    | [], [], _, same => byComputing
-    | [], [_, .._], never, _ => cases
-    | [_, .._], [], never, _ => cases
-    | [x, ..xs], [y, ..ys], length, same =>
-      let head: x = y := List.consInjectiveHead _ _ _ _ same
-      rewrite head,
-          appendCancelFront xs back ys back'
-            (Nat.succInjective length)
-            (Eq.cong ((list: List Bool) => list.drop 1) same)
-
 theorem notesNoTokens ∀ (texts: List Text) (notes: allNotes texts = True): texts.filter notComment = [] :=
   match texts with
     | [] => byComputing
     | [text, ..rest] =>
       match note: notComment text with
         | False => notesNoTokens rest notes
-
-theorem allTexts ∀ (front back: List Text) (p: Text → Bool)
-    (frontAll: front.all p = True)
-    (backAll: back.all p = True):
-    (front ++ back).all p = True :=
-  match front with
-    | [] => backAll
-    | [text, ..rest] => Bool.andIntro (Bool.andLeft frontAll) (allTexts rest back p (Bool.andRight frontAll) backAll)
 
 theorem spreadValue ∀ (pairs: List (Text, Bool))
     (quiet: anyMarked (pairs.drop 1) = False):
@@ -366,5 +269,3 @@ theorem spreadValue ∀ (pairs: List (Text, Bool))
       match notCloser text with
         | True => spreadQuiet rest quiet
         | False => spreadTailQuiet (False || mark) rest quiet
-
-theorem noteNotCloserExample: notCloser "-- c" = True := noteNotCloser "-- c" byComputing

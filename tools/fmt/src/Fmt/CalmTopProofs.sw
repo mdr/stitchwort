@@ -149,12 +149,6 @@ theorem topFlagDoc ∀ (decl: Decl) (within: decl.within1 = True): decl.topFlag.
   | Definition [] header (Assigned colonEq value) =>
     Eq.cong (doc => Some doc) (defDocTopped header colonEq value (Bool.andLeft within))
 
-theorem topFlagLeaves ∀ (decl: Decl) (within: decl.within1 = True): decl.topFlag.leaves1 = decl.leaves1 :=
-  rewrite topFlagDoc decl within
-
-theorem topFlagOneLine ∀ (decl: Decl) (within: decl.within1 = True): decl.topFlag.oneLine1 = decl.oneLine1 :=
-  rewrite topFlagLeaves decl within
-
 theorem topFlagPrinted ∀ (decl: Decl) (within: decl.within1 = True): decl.topFlag.printed1 = decl.printed1 :=
   rewrite topFlagWithin decl within, within, topFlagDoc decl within
 
@@ -231,22 +225,6 @@ theorem declsCalmCommaFree ∀ (decls: List Decl): (decls.map Decl.calm).all Dec
     | [] => byComputing
     | [first, ..rest] => rewrite declCalmCommaFree first, declsCalmCommaFree rest
 
-theorem declCalmOneLine ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True):
-    decl.calm.oneLine1 = decl.oneLine1 :=
-  rewrite declDocCalm decl within lexical
-
-theorem declsCalmOneLine ∀ (decls: List Decl)
-    (within: decls.all Decl.within1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
-    (decls.map Decl.calm).all Decl.oneLine1 = decls.all Decl.oneLine1 :=
-  match decls with
-    | [] => byComputing
-    | [first, ..rest] =>
-      rewrite declCalmOneLine first (Bool.andLeft within) (Bool.andLeft lexical),
-          declsCalmOneLine rest (Bool.andRight within) (Bool.andRight lexical)
-
 --| `calmTopCommaFree`: `calmTop` keeps a tree free of last commas.
 --|
 --| Proof idea: `calm` keeps every comma (`declsCalmCommaFree`), and `topFlag` touches only the first keyword's flags.
@@ -266,34 +244,6 @@ theorem calmTopCommaFree ∀ (file: SourceFile)
             _ = True := Bool.andLeft commaFree
           rewrite calmTopDefinition [] header (Assigned colonEq value) rest end then
             Bool.andIntro firstFree (Eq.trans (declsCalmCommaFree rest) (Bool.andRight commaFree))
-        | _ => cases
-
---| `calmTopOneLine`: `calmTop` keeps every declaration on one line: `calm` changes no declaration's printed text,
---| and the cleared flag is the file loop's, not printed by the declaration.
---|
---| Proof idea: a declaration's leaves are laid from its document, which `calm` (`declDocCalm`) and `topFlag`
---| (`topFlagDoc`) keep, so each declaration's one-line test is the same before and after.
-theorem calmTopOneLine ∀ (file: SourceFile)
-    (within: file.within1 = True)
-    (lexical: file.lexical1 = True)
-    (oneLine: file.oneLine1 = True):
-    file.calmTop.oneLine1 = True :=
-  match file with
-    | { decls, end } =>
-      match decls with
-        | [] => byComputing
-        | [Definition [] header (Assigned colonEq value), ..rest] =>
-          let declaration: Decl := Definition [] header (Assigned colonEq value)
-          let withinCalm: declaration.calm.within1 = True := Eq.trans (declCalmWithin declaration) (Bool.andLeft within)
-          let firstOneLine: declaration.calm.topFlag.oneLine1 = True := calc declaration.calm.topFlag.oneLine1
-            _ = declaration.calm.oneLine1 := topFlagOneLine declaration.calm withinCalm
-            _ = declaration.oneLine1 := declCalmOneLine declaration (Bool.andLeft within) (Bool.andLeft lexical)
-            _ = True := Bool.andLeft oneLine
-          let restOneLine: (rest.map Decl.calm).all Decl.oneLine1 = True := calc (rest.map Decl.calm).all Decl.oneLine1
-            _ = rest.all Decl.oneLine1 := declsCalmOneLine rest (Bool.andRight within) (Bool.andRight lexical)
-            _ = True := Bool.andRight oneLine
-          rewrite calmTopDefinition [] header (Assigned colonEq value) rest end then
-            Bool.andIntro firstOneLine restOneLine
         | _ => cases
 
 --| `calmTopWalk`: `calmTop` walks to what `calm` walks to: `meaning`'s walk blanks the keyword's comments first.
