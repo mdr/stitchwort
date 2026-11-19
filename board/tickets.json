@@ -27567,12 +27567,12 @@
     {
       "id": 4252,
       "title": "[Sonnet] Or-pattern sweep 2/3: tools/fmt proofs and program: join repeated match arms with or-patterns or a catch-all",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.",
+      "body": "Matt, 19 Nov 2026: 'Are you able to tidy up existing proofs using the [or-]patterns feature? ... across all of our codebase.' After SW-4224 (fmt wraps long or-patterns) and SW-4247 (self-hosted parser accepts binding or-patterns). Method: a script finding arms whose body repeats an earlier arm's up to bound names (SW-4219 measured 1,787 in tools/fmt, 890 in std); join them with an or-pattern, or a catch-all after a split where every remaining case shares the body; keep it readable (no joins across unrelated constructors just to save a line); proofs and programs both; no statement changes; check each touched namespace; report lines before/after.\n\nProgress (lane): joined 1,843 arms (1,813 or-pattern, 30 minus 23 reverted... see report); whole-project check 0 errors, goal none, Fmt.Tests 441 and Syntax.Tests 52 pass. Commits 753f7caf5, 18e69f6d2 on lane/SW-4252.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
