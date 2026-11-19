@@ -7,7 +7,9 @@ expression: output
     │
  16 │ theorem useNat: Dep (Type → Type) ((b: Type) => List b) 0 := dep natSrc 1
     │                                                              ──────┬─────  
-    │                                                                    ╰─────── expected `0 = 0`, but this has type `Dep Type Nat 1`
+    │                                                                    ╰─────── expected `Dep (Type → Type) (b => List b) 0`, but this has type `Dep Type Nat 1`
     │ 
-    │ Note: `Dep Type Nat 1` is `1 = 1`
+    │ Note 1: `Dep (Type → Type) (b => List b) 0` is `0 = 0`
+    │ 
+    │ Note 2: `Dep Type Nat 1` is `1 = 1`
 ────╯
