@@ -26330,7 +26330,7 @@
     {
       "id": 4159,
       "title": "[Opus] fmt: hugged bracket after a comment break lays out wrong in both formatters: 'f / -- c / (' then items at the bracket's column and ')' at column 0; frame huggedBracket like framedBy (items indented under the bracket, closer at the bracket's column), in Rules.sw and crates/fmt (D3677 shared bug), then prove appAny's and anyHug's hugged last-argument case (SW-4148 gap 2)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4159",
       "labels": [],
@@ -26449,9 +26449,9 @@
     {
       "id": 4168,
       "title": "[Sonnet] fmt (SW-4132 lane 5): two-run walk of Parser.sw second half: keyword expressions, lambdas, quantifiers, if, match, patterns, records, the rest (Syntax/FollowsForms.sw)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4168",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
