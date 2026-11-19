@@ -1,5 +1,5 @@
 {
-  "next": 4236,
+  "next": 4237,
   "tickets": [
     {
       "id": 47,
@@ -27346,6 +27346,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4218.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4236,
+      "title": "[Opus] D3694: or-patterns bind names, the body checked once per alternative (docs/proposals/proof-match-likewise.md Design 2 with the four amendments in proof-match-likewise-prior-art.md): error names its alternative and the names' types there; one error when all fail alike; a hole lists each alternative's goal; guide + syntax.md; supersedes SW-676's same-type rule",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Est. 150 min. D3694, Matt, 19 Nov 2026: 'Yeah, sounds good. Let's implement that.'",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
