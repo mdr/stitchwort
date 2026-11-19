@@ -224,7 +224,7 @@ theorem tidiedFacts ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
   let alphabet := Bool.andLeft leaves
   let spelled := Bool.andLeft (Bool.andRight leaves)
   let plain := Bool.andRight (Bool.andRight leaves)
-  let good := settledGood source lexed lexes alphabet spelled plain
+  let good := settledGood source lexed lexes alphabet plain
   let quiet := settledItemsQuiet source lexed lexes alphabet
   let shaped := parseShaped1 frameRest lexed.settledOnce parsed good quiet parses within
   let lexical := parseLexical1 frameRest lexed.settledOnce parsed good quiet parses within
