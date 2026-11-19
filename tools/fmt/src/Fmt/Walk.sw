@@ -589,330 +589,99 @@ theorem exprOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Expr): run
   match input with
     | Atom kind word => agree.expr (Atom kind word)
     | Paren open inner close =>
-      rewrite Fail.toResultSeq1Then
-            (() => inner.traverse on)
-            (v1 => Paren open v1 close)
-            on.expr
-            (inner.walk p)
-            (exprOk on p agree inner),
-          agree.expr (Paren open (inner.walk p) close)
+      rewrite Fail.toResultSeq1Then (exprOk on p agree inner), agree.expr (Paren open (inner.walk p) close)
     | Unit open close => agree.expr (Unit open close)
     | Universe keyword level => agree.expr (Universe keyword level)
     | Include keyword path => agree.expr (Include keyword path)
     | Tuple open items trailingComma close =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseExprs on items)
-            (v1 => Tuple open v1 trailingComma close)
-            on.expr
-            (walkExprs p items)
-            (exprsOk on p agree items),
+      rewrite Fail.toResultSeq1Then (exprsOk on p agree items),
           agree.expr (Tuple open (walkExprs p items) trailingComma close)
     | ListOf open items trailingComma close =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseExprs on items)
-            (v1 => ListOf open v1 trailingComma close)
-            on.expr
-            (walkExprs p items)
-            (exprsOk on p agree items),
+      rewrite Fail.toResultSeq1Then (exprsOk on p agree items),
           agree.expr (ListOf open (walkExprs p items) trailingComma close)
-    | Spread dots list =>
-      rewrite Fail.toResultSeq1Then
-            (() => list.traverse on)
-            (v1 => Spread dots v1)
-            on.expr
-            (list.walk p)
-            (exprOk on p agree list),
-          agree.expr (Spread dots (list.walk p))
+    | Spread dots list => rewrite Fail.toResultSeq1Then (exprOk on p agree list), agree.expr (Spread dots (list.walk p))
     | Record open base fields trailingComma close =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseBefore on base)
-            (() => traverseExprs on fields)
-            (v1 v2 => Record open v1 v2 trailingComma close)
-            on.expr
-            (walkBefore p base)
-            (walkExprs p fields)
-            (beforeOk on p agree base)
-            (exprsOk on p agree fields),
+      rewrite Fail.toResultSeq2Then (beforeOk on p agree base) (exprsOk on p agree fields),
           agree.expr (Record open (walkBefore p base) (walkExprs p fields) trailingComma close)
     | RecordField name equals value =>
-      rewrite Fail.toResultSeq1Then
-            (() => value.traverse on)
-            (v1 => RecordField name equals v1)
-            on.expr
-            (value.walk p)
-            (exprOk on p agree value),
-          agree.expr (RecordField name equals (value.walk p))
+      rewrite Fail.toResultSeq1Then (exprOk on p agree value), agree.expr (RecordField name equals (value.walk p))
     | CtorFields ctor record =>
-      rewrite Fail.toResultSeq2Then
-            (() => ctor.traverse on)
-            (() => record.traverse on)
-            (v1 v2 => CtorFields v1 v2)
-            on.expr
-            (ctor.walk p)
-            (record.walk p)
-            (exprOk on p agree ctor)
-            (exprOk on p agree record),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree ctor) (exprOk on p agree record),
           agree.expr (CtorFields (ctor.walk p) (record.walk p))
     | App head arguments =>
-      rewrite Fail.toResultSeq2Then
-            (() => head.traverse on)
-            (() => traverseExprs on arguments)
-            (v1 v2 => App v1 v2)
-            on.expr
-            (head.walk p)
-            (walkExprs p arguments)
-            (exprOk on p agree head)
-            (exprsOk on p agree arguments),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree head) (exprsOk on p agree arguments),
           agree.expr (App (head.walk p) (walkExprs p arguments))
     | NamedArg open name colonEq value close =>
-      rewrite Fail.toResultSeq1Then
-            (() => value.traverse on)
-            (v1 => NamedArg open name colonEq v1 close)
-            on.expr
-            (value.walk p)
-            (exprOk on p agree value),
+      rewrite Fail.toResultSeq1Then (exprOk on p agree value),
           agree.expr (NamedArg open name colonEq (value.walk p) close)
     | FieldAccess target dot field =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseOptional on target)
-            (v1 => FieldAccess v1 dot field)
-            on.expr
-            (walkOptional p target)
-            (optionalOk on p agree target),
+      rewrite Fail.toResultSeq1Then (optionalOk on p agree target),
           agree.expr (FieldAccess (walkOptional p target) dot field)
-    | Section body =>
-      rewrite Fail.toResultSeq1Then
-            (() => body.traverse on)
-            (v1 => Section v1)
-            on.expr
-            (body.walk p)
-            (exprOk on p agree body),
-          agree.expr (Section (body.walk p))
+    | Section body => rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.expr (Section (body.walk p))
     | OperatorSection open left operator right close =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseOptional on left)
-            (() => traverseOptional on right)
-            (v1 v2 => OperatorSection open v1 operator v2 close)
-            on.expr
-            (walkOptional p left)
-            (walkOptional p right)
-            (optionalOk on p agree left)
-            (optionalOk on p agree right),
+      rewrite Fail.toResultSeq2Then (optionalOk on p agree left) (optionalOk on p agree right),
           agree.expr (OperatorSection open (walkOptional p left) operator (walkOptional p right) close)
     | Infix kind left operator right =>
-      rewrite Fail.toResultSeq2Then
-            (() => left.traverse on)
-            (() => right.traverse on)
-            (v1 v2 => Infix kind v1 operator v2)
-            on.expr
-            (left.walk p)
-            (right.walk p)
-            (exprOk on p agree left)
-            (exprOk on p agree right),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree left) (exprOk on p agree right),
           agree.expr (Infix kind (left.walk p) operator (right.walk p))
     | Chain first rest =>
-      rewrite Fail.toResultSeq2Then
-            (() => first.traverse on)
-            (() => traverseLinks on rest)
-            (v1 v2 => Chain v1 v2)
-            on.expr
-            (first.walk p)
-            (walkLinks p rest)
-            (exprOk on p agree first)
-            (linksOk on p agree rest),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree first) (linksOk on p agree rest),
           agree.expr (Chain (first.walk p) (walkLinks p rest))
     | Prefix operator operand =>
-      rewrite Fail.toResultSeq1Then
-            (() => operand.traverse on)
-            (v1 => Prefix operator v1)
-            on.expr
-            (operand.walk p)
-            (exprOk on p agree operand),
-          agree.expr (Prefix operator (operand.walk p))
+      rewrite Fail.toResultSeq1Then (exprOk on p agree operand), agree.expr (Prefix operator (operand.walk p))
     | Binding kind keyword params arrow body =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseParams on params)
-            (() => body.traverse on)
-            (v1 v2 => Binding kind keyword v1 arrow v2)
-            on.expr
-            (walkParams p params)
-            (body.walk p)
-            (paramsOk on p agree params)
-            (exprOk on p agree body),
+      rewrite Fail.toResultSeq2Then (paramsOk on p agree params) (exprOk on p agree body),
           agree.expr (Binding kind keyword (walkParams p params) arrow (body.walk p))
     | If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse =>
       rewrite Fail.toResultSeq3Then
-            (() => condition.traverse on)
-            (() => whenTrue.traverse on)
-            (() => whenFalse.traverse on)
-            (v1 v2 v3 => If keyword binder v1 thenKeyword v2 elseKeyword v3)
-            on.expr
-            (condition.walk p)
-            (whenTrue.walk p)
-            (whenFalse.walk p)
             (exprOk on p agree condition)
             (exprOk on p agree whenTrue)
             (exprOk on p agree whenFalse),
           agree.expr (If keyword binder (condition.walk p) thenKeyword (whenTrue.walk p) elseKeyword (whenFalse.walk p))
     | Annotation open value colon annotation close =>
-      rewrite Fail.toResultSeq2Then
-            (() => value.traverse on)
-            (() => annotation.traverse on)
-            (v1 v2 => Annotation open v1 colon v2 close)
-            on.expr
-            (value.walk p)
-            (annotation.walk p)
-            (exprOk on p agree value)
-            (exprOk on p agree annotation),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree value) (exprOk on p agree annotation),
           agree.expr (Annotation open (value.walk p) colon (annotation.walk p) close)
     | Interpolated pieces =>
-      rewrite Fail.toResultSeq1Then
-            (() => traversePieces on pieces)
-            (v1 => Interpolated v1)
-            on.expr
-            (walkPieces p pieces)
-            (piecesOk on p agree pieces),
-          agree.expr (Interpolated (walkPieces p pieces))
+      rewrite Fail.toResultSeq1Then (piecesOk on p agree pieces), agree.expr (Interpolated (walkPieces p pieces))
     | Match keyword scrutinees withKeyword arms =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseScrutinees on scrutinees)
-            (() => traverseArms on arms)
-            (v1 v2 => Match keyword v1 withKeyword v2)
-            on.expr
-            (walkScrutinees p scrutinees)
-            (walkArms p arms)
-            (scrutineesOk on p agree scrutinees)
-            (armsOk on p agree arms),
+      rewrite Fail.toResultSeq2Then (scrutineesOk on p agree scrutinees) (armsOk on p agree arms),
           agree.expr (Match keyword (walkScrutinees p scrutinees) withKeyword (walkArms p arms))
     | ClauseLambda keyword word arms =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseArms on arms)
-            (v1 => ClauseLambda keyword word v1)
-            on.expr
-            (walkArms p arms)
-            (armsOk on p agree arms),
-          agree.expr (ClauseLambda keyword word (walkArms p arms))
+      rewrite Fail.toResultSeq1Then (armsOk on p agree arms), agree.expr (ClauseLambda keyword word (walkArms p arms))
     | Facts kind keyword facts =>
-      rewrite Fail.toResultSeq1Then
-            (() => facts.traverse on)
-            (v1 => Facts kind keyword v1)
-            on.expr
-            (facts.walk p)
-            (exprOk on p agree facts),
-          agree.expr (Facts kind keyword (facts.walk p))
+      rewrite Fail.toResultSeq1Then (exprOk on p agree facts), agree.expr (Facts kind keyword (facts.walk p))
     | FunctionType binder arrow result =>
-      rewrite Fail.toResultSeq2Then
-            (() => binder.traverse on)
-            (() => result.traverse on)
-            (v1 v2 => FunctionType v1 arrow v2)
-            on.expr
-            (binder.walk p)
-            (result.walk p)
-            (groupOk on p agree binder)
-            (exprOk on p agree result),
+      rewrite Fail.toResultSeq2Then (groupOk on p agree binder) (exprOk on p agree result),
           agree.expr (FunctionType (binder.walk p) arrow (result.walk p))
     | Effect row result =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseRow on row)
-            (() => result.traverse on)
-            (v1 v2 => Effect v1 v2)
-            on.expr
-            (walkRow p row)
-            (result.walk p)
-            (rowOk on p agree row)
-            (exprOk on p agree result),
+      rewrite Fail.toResultSeq2Then (rowOk on p agree row) (exprOk on p agree result),
           agree.expr (Effect (walkRow p row) (result.walk p))
     | Block first rest result =>
       rewrite Fail.toResultSeq3Then
-            (() => traverseStatement on first)
-            (() => traverseStatements on rest)
-            (() => result.traverse on)
-            (v1 v2 v3 => Block v1 v2 v3)
-            on.expr
-            (walkStatement p first)
-            (walkStatements p rest)
-            (result.walk p)
             (statementOk on p agree first)
             (statementsOk on p agree rest)
             (exprOk on p agree result),
           agree.expr (Block (walkStatement p first) (walkStatements p rest) (result.walk p))
     | LetIn binding semicolon body =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseLet on binding)
-            (() => body.traverse on)
-            (v1 v2 => LetIn v1 semicolon v2)
-            on.expr
-            (walkLet p binding)
-            (body.walk p)
-            (letOk on p agree binding)
-            (exprOk on p agree body),
+      rewrite Fail.toResultSeq2Then (letOk on p agree binding) (exprOk on p agree body),
           agree.expr (LetIn (walkLet p binding) semicolon (body.walk p))
     | Handle keyword computation withKeyword clauses =>
-      rewrite Fail.toResultSeq2Then
-            (() => computation.traverse on)
-            (() => traverseClauses on clauses)
-            (v1 v2 => Handle keyword v1 withKeyword v2)
-            on.expr
-            (computation.walk p)
-            (walkClauses p clauses)
-            (exprOk on p agree computation)
-            (clausesOk on p agree clauses),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree computation) (clausesOk on p agree clauses),
           agree.expr (Handle keyword (computation.walk p) withKeyword (walkClauses p clauses))
     | Reify keyword reifyWord computation withKeyword clauses =>
-      rewrite Fail.toResultSeq2Then
-            (() => computation.traverse on)
-            (() => traverseClauses on clauses)
-            (v1 v2 => Reify keyword reifyWord v1 withKeyword v2)
-            on.expr
-            (computation.walk p)
-            (walkClauses p clauses)
-            (exprOk on p agree computation)
-            (clausesOk on p agree clauses),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree computation) (clausesOk on p agree clauses),
           agree.expr (Reify keyword reifyWord (computation.walk p) withKeyword (walkClauses p clauses))
     | Induct keyword inductWord call withKeyword arms =>
-      rewrite Fail.toResultSeq2Then
-            (() => call.traverse on)
-            (() => traverseInductArms on arms)
-            (v1 v2 => Induct keyword inductWord v1 withKeyword v2)
-            on.expr
-            (call.walk p)
-            (walkInductArms p arms)
-            (exprOk on p agree call)
-            (inductArmsOk on p agree arms),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree call) (inductArmsOk on p agree arms),
           agree.expr (Induct keyword inductWord (call.walk p) withKeyword (walkInductArms p arms))
     | Calc keyword first steps =>
-      rewrite Fail.toResultSeq2Then
-            (() => first.traverse on)
-            (() => traverseSteps on steps)
-            (v1 v2 => Calc keyword v1 v2)
-            on.expr
-            (first.walk p)
-            (walkSteps p steps)
-            (exprOk on p agree first)
-            (calcStepsOk on p agree steps),
+      rewrite Fail.toResultSeq2Then (exprOk on p agree first) (calcStepsOk on p agree steps),
           agree.expr (Calc keyword (first.walk p) (walkSteps p steps))
     | Rewrite keyword rules target body =>
-      rewrite Fail.toResultSeq3Then
-            (() => traverseRules on rules)
-            (() => traverseAfter on target)
-            (() => traverseAfter on body)
-            (v1 v2 v3 => Rewrite keyword v1 v2 v3)
-            on.expr
-            (walkRules p rules)
-            (walkAfter p target)
-            (walkAfter p body)
-            (rulesOk on p agree rules)
-            (afterOk on p agree target)
-            (afterOk on p agree body),
+      rewrite Fail.toResultSeq3Then (rulesOk on p agree rules) (afterOk on p agree target) (afterOk on p agree body),
           agree.expr (Rewrite keyword (walkRules p rules) (walkAfter p target) (walkAfter p body))
     | Cases keyword thenKeyword body =>
-      rewrite Fail.toResultSeq1Then
-            (() => body.traverse on)
-            (v1 => Cases keyword thenKeyword v1)
-            on.expr
-            (body.walk p)
-            (exprOk on p agree body),
-          agree.expr (Cases keyword thenKeyword (body.walk p))
+      rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.expr (Cases keyword thenKeyword (body.walk p))
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -923,15 +692,7 @@ theorem statementsOk ∀ (on: Steps) (p: Pure)
     runStatements on input = Ok (walkStatements p input) :=
   match input with
     | [] => byComputing
-    | [first, ..rest] =>
-      Fail.toResultSeq2
-        (() => traverseStatement on first)
-        (() => traverseStatements on rest)
-        (v1 v2 => [v1, ..v2])
-        (walkStatement p first)
-        (walkStatements p rest)
-        (statementOk on p agree first)
-        (statementsOk on p agree rest)
+    | [first, ..rest] => Fail.toResultSeq2 (statementOk on p agree first) (statementsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -941,26 +702,10 @@ theorem statementOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Statement):
     runStatement on input = Ok (walkStatement p input) :=
   match input with
-    | LetStatement binding =>
-      Fail.toResultSeq1
-        (() => traverseLet on binding)
-        (v1 => LetStatement v1)
-        (walkLet p binding)
-        (letOk on p agree binding)
+    | LetStatement binding => Fail.toResultSeq1 (letOk on p agree binding)
     | LocalDef attributes header body =>
-      Fail.toResultSeq3
-        (() => traverseAttributes on attributes)
-        (() => traverseHeader on header)
-        (() => traverseDefBody on body)
-        (v1 v2 v3 => LocalDef v1 v2 v3)
-        (walkAttributes p attributes)
-        (walkHeader p header)
-        (walkDefBody p body)
-        (attributesOk on p agree attributes)
-        (headerOk on p agree header)
-        (defBodyOk on p agree body)
-    | ExprStatement value =>
-      Fail.toResultSeq1 (() => value.traverse on) (v1 => ExprStatement v1) (value.walk p) (exprOk on p agree value)
+      Fail.toResultSeq3 (attributesOk on p agree attributes) (headerOk on p agree header) (defBodyOk on p agree body)
+    | ExprStatement value => Fail.toResultSeq1 (exprOk on p agree value)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -969,17 +714,7 @@ theorem statementOk ∀ (on: Steps) (p: Pure)
 theorem letOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Let): runLet on input = Ok (walkLet p input) :=
   match input with
     | { keyword, pattern, annotation, colonEq, value } =>
-      Fail.toResultSeq3
-        (() => pattern.traverse on)
-        (() => traverseAfter on annotation)
-        (() => value.traverse on)
-        (v1 v2 v3 => { keyword, pattern = v1, annotation = v2, colonEq, value = v3 })
-        (pattern.walk p)
-        (walkAfter p annotation)
-        (value.walk p)
-        (patternOk on p agree pattern)
-        (afterOk on p agree annotation)
-        (exprOk on p agree value)
+      Fail.toResultSeq3 (patternOk on p agree pattern) (afterOk on p agree annotation) (exprOk on p agree value)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -991,26 +726,9 @@ theorem clausesOk ∀ (on: Steps) (p: Pure)
   match input with
     | [] => byComputing
     | [ReturnClause bar keyword name arrow body, ..rest] =>
-      Fail.toResultSeq2
-        (() => body.traverse on)
-        (() => traverseClauses on rest)
-        (v1 v2 => [ReturnClause bar keyword name arrow v1, ..v2])
-        (body.walk p)
-        (walkClauses p rest)
-        (exprOk on p agree body)
-        (clausesOk on p agree rest)
+      Fail.toResultSeq2 (exprOk on p agree body) (clausesOk on p agree rest)
     | [OperationClause bar operation argument comma continuation arrow body, ..rest] =>
-      Fail.toResultSeq3
-        (() => argument.traverse on)
-        (() => body.traverse on)
-        (() => traverseClauses on rest)
-        (v1 v2 v3 => [OperationClause bar operation v1 comma continuation arrow v2, ..v3])
-        (argument.walk p)
-        (body.walk p)
-        (walkClauses p rest)
-        (patternOk on p agree argument)
-        (exprOk on p agree body)
-        (clausesOk on p agree rest)
+      Fail.toResultSeq3 (patternOk on p agree argument) (exprOk on p agree body) (clausesOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1022,14 +740,7 @@ theorem inductArmsOk ∀ (on: Steps) (p: Pure)
   match input with
     | [] => byComputing
     | [{ bar, case, names, arrow, body }, ..rest] =>
-      Fail.toResultSeq2
-        (() => body.traverse on)
-        (() => traverseInductArms on rest)
-        (v1 v2 => [{ bar, case, names, arrow, body = v1 }, ..v2])
-        (body.walk p)
-        (walkInductArms p rest)
-        (exprOk on p agree body)
-        (inductArmsOk on p agree rest)
+      Fail.toResultSeq2 (exprOk on p agree body) (inductArmsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1041,17 +752,7 @@ theorem calcStepsOk ∀ (on: Steps) (p: Pure)
   match input with
     | [] => byComputing
     | [{ underscore, relation, operand, proof }, ..rest] =>
-      Fail.toResultSeq3
-        (() => operand.traverse on)
-        (() => traverseAfter on proof)
-        (() => traverseSteps on rest)
-        (v1 v2 v3 => [{ underscore, relation, operand = v1, proof = v2 }, ..v3])
-        (operand.walk p)
-        (walkAfter p proof)
-        (walkSteps p rest)
-        (exprOk on p agree operand)
-        (afterOk on p agree proof)
-        (calcStepsOk on p agree rest)
+      Fail.toResultSeq3 (exprOk on p agree operand) (afterOk on p agree proof) (calcStepsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1061,18 +762,8 @@ theorem rulesOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Rules):
     runRules on input = Ok (walkRules p input) :=
   match input with
-    | RuleList rules =>
-      Fail.toResultSeq1
-        (() => traverseRuleList on rules)
-        (v1 => RuleList v1)
-        (walkRuleList p rules)
-        (ruleListOk on p agree rules)
-    | Repeatedly word set =>
-      Fail.toResultSeq1
-        (() => traverseRuleSet on set)
-        (v1 => Repeatedly word v1)
-        (walkRuleSet p set)
-        (ruleSetOk on p agree set)
+    | RuleList rules => Fail.toResultSeq1 (ruleListOk on p agree rules)
+    | Repeatedly word set => Fail.toResultSeq1 (ruleSetOk on p agree set)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1083,12 +774,7 @@ theorem ruleSetOk ∀ (on: Steps) (p: Pure)
     runRuleSet on input = Ok (walkRuleSet p input) :=
   match input with
     | { open, rules, trailingComma, close } =>
-      rewrite Fail.toResultSeq1Let
-            (() => traverseRuleList on rules)
-            (v1 => { open, rules = v1, trailingComma, close })
-            on.ruleSet
-            (walkRuleList p rules)
-            (ruleListOk on p agree rules),
+      rewrite Fail.toResultSeq1Let [k := on.ruleSet] (ruleListOk on p agree rules),
           agree.ruleSet ({ open, rules = (walkRuleList p rules), trailingComma, close })
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -1100,28 +786,14 @@ theorem ruleListOk ∀ (on: Steps) (p: Pure)
     runRuleList on input = Ok (walkRuleList p input) :=
   match input with
     | [] => byComputing
-    | [{ reverse, rule }, ..rest] =>
-      Fail.toResultSeq2
-        (() => rule.traverse on)
-        (() => traverseRuleList on rest)
-        (v1 v2 => [{ reverse, rule = v1 }, ..v2])
-        (rule.walk p)
-        (walkRuleList p rest)
-        (exprOk on p agree rule)
-        (ruleListOk on p agree rest)
+    | [{ reverse, rule }, ..rest] => Fail.toResultSeq2 (exprOk on p agree rule) (ruleListOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
 --| finish (the induction hypotheses), so the arm's binds compute
 --| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
 theorem rowOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Row): runRow on input = Ok (walkRow p input) :=
-  match input with
-    | { open, abilities, variable, close } =>
-      Fail.toResultSeq1
-        (() => traverseExprs on abilities)
-        (v1 => { open, abilities = v1, variable, close })
-        (walkExprs p abilities)
-        (exprsOk on p agree abilities)
+  match input with | { open, abilities, variable, close } => Fail.toResultSeq1 (exprsOk on p agree abilities)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1132,15 +804,7 @@ theorem exprsOk ∀ (on: Steps) (p: Pure)
     runExprs on input = Ok (walkExprs p input) :=
   match input with
     | [] => byComputing
-    | [first, ..rest] =>
-      Fail.toResultSeq2
-        (() => first.traverse on)
-        (() => traverseExprs on rest)
-        (v1 v2 => [v1, ..v2])
-        (first.walk p)
-        (walkExprs p rest)
-        (exprOk on p agree first)
-        (exprsOk on p agree rest)
+    | [first, ..rest] => Fail.toResultSeq2 (exprOk on p agree first) (exprsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1151,15 +815,7 @@ theorem linksOk ∀ (on: Steps) (p: Pure)
     runLinks on input = Ok (walkLinks p input) :=
   match input with
     | [] => byComputing
-    | [(operator, operand), ..rest] =>
-      Fail.toResultSeq2
-        (() => operand.traverse on)
-        (() => traverseLinks on rest)
-        (v1 v2 => [(operator, v1), ..v2])
-        (operand.walk p)
-        (walkLinks p rest)
-        (exprOk on p agree operand)
-        (linksOk on p agree rest)
+    | [(operator, operand), ..rest] => Fail.toResultSeq2 (exprOk on p agree operand) (linksOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1170,21 +826,8 @@ theorem piecesOk ∀ (on: Steps) (p: Pure)
     runPieces on input = Ok (walkPieces p input) :=
   match input with
     | [] => byComputing
-    | [TextPiece word, ..rest] =>
-      Fail.toResultSeq1
-        (() => traversePieces on rest)
-        (v1 => [TextPiece word, ..v1])
-        (walkPieces p rest)
-        (piecesOk on p agree rest)
-    | [Interpolation open value close, ..rest] =>
-      Fail.toResultSeq2
-        (() => value.traverse on)
-        (() => traversePieces on rest)
-        (v1 v2 => [Interpolation open v1 close, ..v2])
-        (value.walk p)
-        (walkPieces p rest)
-        (exprOk on p agree value)
-        (piecesOk on p agree rest)
+    | [TextPiece word, ..rest] => Fail.toResultSeq1 (piecesOk on p agree rest)
+    | [Interpolation open value close, ..rest] => Fail.toResultSeq2 (exprOk on p agree value) (piecesOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1195,15 +838,7 @@ theorem scrutineesOk ∀ (on: Steps) (p: Pure)
     runScrutinees on input = Ok (walkScrutinees p input) :=
   match input with
     | [] => byComputing
-    | [{ name, value }, ..rest] =>
-      Fail.toResultSeq2
-        (() => value.traverse on)
-        (() => traverseScrutinees on rest)
-        (v1 v2 => [{ name, value = v1 }, ..v2])
-        (value.walk p)
-        (walkScrutinees p rest)
-        (exprOk on p agree value)
-        (scrutineesOk on p agree rest)
+    | [{ name, value }, ..rest] => Fail.toResultSeq2 (exprOk on p agree value) (scrutineesOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1216,15 +851,6 @@ theorem armsOk ∀ (on: Steps) (p: Pure)
     | [] => byComputing
     | [{ bar, patterns, guard, body }, ..rest] =>
       Fail.toResultSeq4
-        (() => traversePatterns on patterns)
-        (() => traverseGuard on guard)
-        (() => traverseAfter on body)
-        (() => traverseArms on rest)
-        (v1 v2 v3 v4 => [{ bar, patterns = v1, guard = v2, body = v3 }, ..v4])
-        (walkPatterns p patterns)
-        (walkGuard p guard)
-        (walkAfter p body)
-        (walkArms p rest)
         (patternsOk on p agree patterns)
         (guardOk on p agree guard)
         (afterOk on p agree body)
@@ -1239,42 +865,11 @@ theorem paramsOk ∀ (on: Steps) (p: Pure)
     runParams on input = Ok (walkParams p input) :=
   match input with
     | [] => byComputing
-    | [NameParam word, ..rest] =>
-      Fail.toResultSeq1
-        (() => traverseParams on rest)
-        (v1 => [NameParam word, ..v1])
-        (walkParams p rest)
-        (paramsOk on p agree rest)
-    | [PatternParam pattern, ..rest] =>
-      Fail.toResultSeq2
-        (() => pattern.traverse on)
-        (() => traverseParams on rest)
-        (v1 v2 => [PatternParam v1, ..v2])
-        (pattern.walk p)
-        (walkParams p rest)
-        (patternOk on p agree pattern)
-        (paramsOk on p agree rest)
-    | [Grouped group, ..rest] =>
-      Fail.toResultSeq2
-        (() => group.traverse on)
-        (() => traverseParams on rest)
-        (v1 v2 => [Grouped v1, ..v2])
-        (group.walk p)
-        (walkParams p rest)
-        (groupOk on p agree group)
-        (paramsOk on p agree rest)
+    | [NameParam word, ..rest] => Fail.toResultSeq1 (paramsOk on p agree rest)
+    | [PatternParam pattern, ..rest] => Fail.toResultSeq2 (patternOk on p agree pattern) (paramsOk on p agree rest)
+    | [Grouped group, ..rest] => Fail.toResultSeq2 (groupOk on p agree group) (paramsOk on p agree rest)
     | [TypedPattern open pattern colon annotation close, ..rest] =>
-      Fail.toResultSeq3
-        (() => pattern.traverse on)
-        (() => annotation.traverse on)
-        (() => traverseParams on rest)
-        (v1 v2 v3 => [TypedPattern open v1 colon v2 close, ..v3])
-        (pattern.walk p)
-        (annotation.walk p)
-        (walkParams p rest)
-        (patternOk on p agree pattern)
-        (exprOk on p agree annotation)
-        (paramsOk on p agree rest)
+      Fail.toResultSeq3 (patternOk on p agree pattern) (exprOk on p agree annotation) (paramsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1284,14 +879,6 @@ theorem groupOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Group): r
   match input with
     | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } =>
       Fail.toResultSeq3
-        (() => traverseAttributes on attributes)
-        (() => traverseOptional on annotation)
-        (() => traverseAfter on default)
-        (v1 v2 v3 =>
-          { kind, implicit, open, attributes = v1, auto, names, colon, annotation = v2, default = v3, close, bare })
-        (walkAttributes p attributes)
-        (walkOptional p annotation)
-        (walkAfter p default)
         (attributesOk on p agree attributes)
         (optionalOk on p agree annotation)
         (afterOk on p agree default)
@@ -1306,87 +893,32 @@ theorem patternOk ∀ (on: Steps) (p: Pure)
   match input with
     | PatternWord kind word => agree.pattern (PatternWord kind word)
     | PatternCtor name arguments =>
-      rewrite Fail.toResultSeq1Then
-            (() => traversePatterns on arguments)
-            (v1 => PatternCtor name v1)
-            on.pattern
-            (walkPatterns p arguments)
-            (patternsOk on p agree arguments),
+      rewrite Fail.toResultSeq1Then (patternsOk on p agree arguments),
           agree.pattern (PatternCtor name (walkPatterns p arguments))
     | PatternCtorFields name fields =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseFields on fields)
-            (v1 => PatternCtorFields name v1)
-            on.pattern
-            (walkFields p fields)
-            (fieldsPatternOk on p agree fields),
+      rewrite Fail.toResultSeq1Then (fieldsPatternOk on p agree fields),
           agree.pattern (PatternCtorFields name (walkFields p fields))
     | PatternRecord fields =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseFields on fields)
-            (v1 => PatternRecord v1)
-            on.pattern
-            (walkFields p fields)
-            (fieldsPatternOk on p agree fields),
+      rewrite Fail.toResultSeq1Then (fieldsPatternOk on p agree fields),
           agree.pattern (PatternRecord (walkFields p fields))
     | PatternTuple open items trailingComma close =>
-      rewrite Fail.toResultSeq1Then
-            (() => traversePatterns on items)
-            (v1 => PatternTuple open v1 trailingComma close)
-            on.pattern
-            (walkPatterns p items)
-            (patternsOk on p agree items),
+      rewrite Fail.toResultSeq1Then (patternsOk on p agree items),
           agree.pattern (PatternTuple open (walkPatterns p items) trailingComma close)
     | PatternList open items trailingComma tail close =>
-      rewrite Fail.toResultSeq2Then
-            (() => traversePatterns on items)
-            (() => traverseTail on tail)
-            (v1 v2 => PatternList open v1 trailingComma v2 close)
-            on.pattern
-            (walkPatterns p items)
-            (walkTail p tail)
-            (patternsOk on p agree items)
-            (tailOk on p agree tail),
+      rewrite Fail.toResultSeq2Then (patternsOk on p agree items) (tailOk on p agree tail),
           agree.pattern (PatternList open (walkPatterns p items) trailingComma (walkTail p tail) close)
     | PatternNamed open name colonEq value close =>
-      rewrite Fail.toResultSeq1Then
-            (() => value.traverse on)
-            (v1 => PatternNamed open name colonEq v1 close)
-            on.pattern
-            (value.walk p)
-            (patternOk on p agree value),
+      rewrite Fail.toResultSeq1Then (patternOk on p agree value),
           agree.pattern (PatternNamed open name colonEq (value.walk p) close)
     | PatternOr first rest =>
-      rewrite Fail.toResultSeq2Then
-            (() => first.traverse on)
-            (() => traversePatternLinks on rest)
-            (v1 v2 => PatternOr v1 v2)
-            on.pattern
-            (first.walk p)
-            (walkPatternLinks p rest)
-            (patternOk on p agree first)
-            (patternLinksOk on p agree rest),
+      rewrite Fail.toResultSeq2Then (patternOk on p agree first) (patternLinksOk on p agree rest),
           agree.pattern (PatternOr (first.walk p) (walkPatternLinks p rest))
     | PatternParen open inner close =>
-      rewrite Fail.toResultSeq1Then
-            (() => inner.traverse on)
-            (v1 => PatternParen open v1 close)
-            on.pattern
-            (inner.walk p)
-            (patternOk on p agree inner),
-          agree.pattern (PatternParen open (inner.walk p) close)
+      rewrite Fail.toResultSeq1Then (patternOk on p agree inner), agree.pattern (PatternParen open (inner.walk p) close)
     | PatternNegative minus number => agree.pattern (PatternNegative minus number)
     | PatternAbsurd open close => agree.pattern (PatternAbsurd open close)
     | PatternAppend start operator rest =>
-      rewrite Fail.toResultSeq2Then
-            (() => start.traverse on)
-            (() => rest.traverse on)
-            (v1 v2 => PatternAppend v1 operator v2)
-            on.pattern
-            (start.walk p)
-            (rest.walk p)
-            (patternOk on p agree start)
-            (patternOk on p agree rest),
+      rewrite Fail.toResultSeq2Then (patternOk on p agree start) (patternOk on p agree rest),
           agree.pattern (PatternAppend (start.walk p) operator (rest.walk p))
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -1398,15 +930,7 @@ theorem patternsOk ∀ (on: Steps) (p: Pure)
     runPatterns on input = Ok (walkPatterns p input) :=
   match input with
     | [] => byComputing
-    | [first, ..rest] =>
-      Fail.toResultSeq2
-        (() => first.traverse on)
-        (() => traversePatterns on rest)
-        (v1 v2 => [v1, ..v2])
-        (first.walk p)
-        (walkPatterns p rest)
-        (patternOk on p agree first)
-        (patternsOk on p agree rest)
+    | [first, ..rest] => Fail.toResultSeq2 (patternOk on p agree first) (patternsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1418,14 +942,7 @@ theorem patternLinksOk ∀ (on: Steps) (p: Pure)
   match input with
     | [] => byComputing
     | [(bar, alternative), ..rest] =>
-      Fail.toResultSeq2
-        (() => alternative.traverse on)
-        (() => traversePatternLinks on rest)
-        (v1 v2 => [(bar, v1), ..v2])
-        (alternative.walk p)
-        (walkPatternLinks p rest)
-        (patternOk on p agree alternative)
-        (patternLinksOk on p agree rest)
+      Fail.toResultSeq2 (patternOk on p agree alternative) (patternLinksOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1435,12 +952,7 @@ theorem fieldsPatternOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: FieldsPattern):
     runFieldsPattern on input = Ok (walkFields p input) :=
   match input with
-    | { open, fields, trailingComma, rest, close } =>
-      Fail.toResultSeq1
-        (() => traverseFieldPatterns on fields)
-        (v1 => { open, fields = v1, trailingComma, rest, close })
-        (walkFieldPatterns p fields)
-        (fieldPatternsOk on p agree fields)
+    | { open, fields, trailingComma, rest, close } => Fail.toResultSeq1 (fieldPatternsOk on p agree fields)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1452,20 +964,8 @@ theorem fieldPatternsOk ∀ (on: Steps) (p: Pure)
   match input with
     | [] => byComputing
     | [{ name, value = Some (equals, pattern) }, ..rest] =>
-      Fail.toResultSeq2
-        (() => pattern.traverse on)
-        (() => traverseFieldPatterns on rest)
-        (v1 v2 => [{ name, value = Some (equals, v1) }, ..v2])
-        (pattern.walk p)
-        (walkFieldPatterns p rest)
-        (patternOk on p agree pattern)
-        (fieldPatternsOk on p agree rest)
-    | [{ name, value = None }, ..rest] =>
-      Fail.toResultSeq1
-        (() => traverseFieldPatterns on rest)
-        (v1 => [{ name, value = None }, ..v1])
-        (walkFieldPatterns p rest)
-        (fieldPatternsOk on p agree rest)
+      Fail.toResultSeq2 (patternOk on p agree pattern) (fieldPatternsOk on p agree rest)
+    | [{ name, value = None }, ..rest] => Fail.toResultSeq1 (fieldPatternsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1477,14 +977,6 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
     | Import keyword path open imported close => agree.decl (Import keyword path open imported close)
     | Definition attributes header body =>
       rewrite Fail.toResultSeq3Then
-            (() => traverseAttributes on attributes)
-            (() => traverseHeader on header)
-            (() => traverseDefBody on body)
-            (v1 v2 v3 => Definition v1 v2 v3)
-            on.decl
-            (walkAttributes p attributes)
-            (walkHeader p header)
-            (walkDefBody p body)
             (attributesOk on p agree attributes)
             (headerOk on p agree header)
             (defBodyOk on p agree body),
@@ -1495,24 +987,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
           match body with
             | Abstract =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => Some { colon, steps = (traverseIndices on steps), last = (last.traverse on) })
-                    (() => Abstract)
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                    (Abstract)
+                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
+                    [k := on.decl]
+                    [t4 := () => Abstract]
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultSeq2
-                      (() => traverseIndices on steps)
-                      (() => last.traverse on)
-                      (w1 w2 => Some { colon, steps = w1, last = w2 })
-                      (walkIndices p steps)
-                      (last.walk p)
+                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
                       (indicesOk on p agree steps)
                       (exprOk on p agree last))
                     (Fail.toResultPure (Abstract)),
@@ -1527,31 +1008,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (Abstract))
             | Synonym equals annotation =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => Some { colon, steps = (traverseIndices on steps), last = (last.traverse on) })
-                    (() => Synonym equals (annotation.traverse on))
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                    (Synonym equals (annotation.walk p))
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultSeq2
-                      (() => traverseIndices on steps)
-                      (() => last.traverse on)
-                      (w1 w2 => Some { colon, steps = w1, last = w2 })
-                      (walkIndices p steps)
-                      (last.walk p)
+                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
                       (indicesOk on p agree steps)
                       (exprOk on p agree last))
-                    (Fail.toResultSeq1
-                      (() => annotation.traverse on)
-                      (w1 => Synonym equals w1)
-                      (annotation.walk p)
-                      (exprOk on p agree annotation)),
+                    (Fail.toResultSeq1 [g := (w1 => Synonym equals w1)] (exprOk on p agree annotation)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1563,31 +1026,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (Synonym equals (annotation.walk p)))
             | RecordBody equals fields =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => Some { colon, steps = (traverseIndices on steps), last = (last.traverse on) })
-                    (() => RecordBody equals (fields.traverse on))
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                    (RecordBody equals (fields.walk p))
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultSeq2
-                      (() => traverseIndices on steps)
-                      (() => last.traverse on)
-                      (w1 w2 => Some { colon, steps = w1, last = w2 })
-                      (walkIndices p steps)
-                      (last.walk p)
+                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
                       (indicesOk on p agree steps)
                       (exprOk on p agree last))
-                    (Fail.toResultSeq1
-                      (() => fields.traverse on)
-                      (w1 => RecordBody equals w1)
-                      (fields.walk p)
-                      (fieldsOk on p agree fields)),
+                    (Fail.toResultSeq1 [g := (w1 => RecordBody equals w1)] (fieldsOk on p agree fields)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1599,31 +1044,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (RecordBody equals (fields.walk p)))
             | Sum equals constructors =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => Some { colon, steps = (traverseIndices on steps), last = (last.traverse on) })
-                    (() => Sum equals (traverseConstructors on constructors))
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                    (Sum equals (walkConstructors p constructors))
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultSeq2
-                      (() => traverseIndices on steps)
-                      (() => last.traverse on)
-                      (w1 w2 => Some { colon, steps = w1, last = w2 })
-                      (walkIndices p steps)
-                      (last.walk p)
+                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
                       (indicesOk on p agree steps)
                       (exprOk on p agree last))
-                    (Fail.toResultSeq1
-                      (() => traverseConstructors on constructors)
-                      (w1 => Sum equals w1)
-                      (walkConstructors p constructors)
-                      (constructorsOk on p agree constructors)),
+                    (Fail.toResultSeq1 [g := (w1 => Sum equals w1)] (constructorsOk on p agree constructors)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1637,16 +1064,10 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
           match body with
             | Abstract =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => None)
-                    (() => Abstract)
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (None)
-                    (Abstract)
+                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
+                    [k := on.decl]
+                    [t3 := () => None]
+                    [t4 := () => Abstract]
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultPure (None))
@@ -1662,24 +1083,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (Abstract))
             | Synonym equals annotation =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => None)
-                    (() => Synonym equals (annotation.traverse on))
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (None)
-                    (Synonym equals (annotation.walk p))
+                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
+                    [k := on.decl]
+                    [t3 := () => None]
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultPure (None))
-                    (Fail.toResultSeq1
-                      (() => annotation.traverse on)
-                      (w1 => Synonym equals w1)
-                      (annotation.walk p)
-                      (exprOk on p agree annotation)),
+                    (Fail.toResultSeq1 [g := (w1 => Synonym equals w1)] (exprOk on p agree annotation)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1691,24 +1101,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (Synonym equals (annotation.walk p)))
             | RecordBody equals fields =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => None)
-                    (() => RecordBody equals (fields.traverse on))
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (None)
-                    (RecordBody equals (fields.walk p))
+                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
+                    [k := on.decl]
+                    [t3 := () => None]
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultPure (None))
-                    (Fail.toResultSeq1
-                      (() => fields.traverse on)
-                      (w1 => RecordBody equals w1)
-                      (fields.walk p)
-                      (fieldsOk on p agree fields)),
+                    (Fail.toResultSeq1 [g := (w1 => RecordBody equals w1)] (fieldsOk on p agree fields)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1720,24 +1119,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (RecordBody equals (fields.walk p)))
             | Sum equals constructors =>
               rewrite Fail.toResultSeq4Then
-                    (() => traverseAttributes on attributes)
-                    (() => traverseGroups on params)
-                    (() => None)
-                    (() => Sum equals (traverseConstructors on constructors))
-                    (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)
-                    on.decl
-                    (walkAttributes p attributes)
-                    (walkGroups p params)
-                    (None)
-                    (Sum equals (walkConstructors p constructors))
+                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
+                    [k := on.decl]
+                    [t3 := () => None]
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultPure (None))
-                    (Fail.toResultSeq1
-                      (() => traverseConstructors on constructors)
-                      (w1 => Sum equals w1)
-                      (walkConstructors p constructors)
-                      (constructorsOk on p agree constructors)),
+                    (Fail.toResultSeq1 [g := (w1 => Sum equals w1)] (constructorsOk on p agree constructors)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1748,31 +1136,12 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (None)
                       (Sum equals (walkConstructors p constructors)))
     | Ability keyword name params whereKeyword operations =>
-      rewrite Fail.toResultSeq2Then
-            (() => traverseGroups on params)
-            (() => traverseOperations on operations)
-            (v1 v2 => Ability keyword name v1 whereKeyword v2)
-            on.decl
-            (walkGroups p params)
-            (walkOperations p operations)
-            (groupsOk on p agree params)
-            (operationsOk on p agree operations),
+      rewrite Fail.toResultSeq2Then (groupsOk on p agree params) (operationsOk on p agree operations),
           agree.decl (Ability keyword name (walkGroups p params) whereKeyword (walkOperations p operations))
     | Test keyword name colonEq body =>
-      rewrite Fail.toResultSeq1Then
-            (() => body.traverse on)
-            (v1 => Test keyword name colonEq v1)
-            on.decl
-            (body.walk p)
-            (exprOk on p agree body),
-          agree.decl (Test keyword name colonEq (body.walk p))
+      rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.decl (Test keyword name colonEq (body.walk p))
     | RuleSetDecl keyword name colonEq set =>
-      rewrite Fail.toResultSeq1Then
-            (() => traverseRuleSet on set)
-            (v1 => RuleSetDecl keyword name colonEq v1)
-            on.decl
-            (walkRuleSet p set)
-            (ruleSetOk on p agree set),
+      rewrite Fail.toResultSeq1Then (ruleSetOk on p agree set),
           agree.decl (RuleSetDecl keyword name colonEq (walkRuleSet p set))
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -1797,27 +1166,7 @@ theorem headerOk ∀ (on: Steps) (p: Pure)
         unfoldingClause
       } =>
       rewrite Fail.toResultSeq3Let
-            (() => traverseGroups on params)
-            (() => result.traverse on)
-            (() => traverseAfter on decreasingClause)
-            (v1 v2 v3 =>
-              {
-                exportKeyword,
-                opaqueKeyword,
-                kind,
-                keyword,
-                name,
-                forallKeyword,
-                params = v1,
-                colon,
-                result = v2,
-                decreasingClause = v3,
-                unfoldingClause
-              })
-            on.header
-            (walkGroups p params)
-            (result.walk p)
-            (walkAfter p decreasingClause)
+            [k := on.header]
             (groupsOk on p agree params)
             (exprOk on p agree result)
             (afterOk on p agree decreasingClause),
@@ -1845,10 +1194,8 @@ theorem defBodyOk ∀ (on: Steps) (p: Pure)
     runDefBody on input = Ok (walkDefBody p input) :=
   match input with
     | Primitive => byComputing
-    | Assigned colonEq value =>
-      Fail.toResultSeq1 (() => value.traverse on) (v1 => Assigned colonEq v1) (value.walk p) (exprOk on p agree value)
-    | Arms arms =>
-      Fail.toResultSeq1 (() => traverseArms on arms) (v1 => Arms v1) (walkArms p arms) (armsOk on p agree arms)
+    | Assigned colonEq value => Fail.toResultSeq1 (exprOk on p agree value)
+    | Arms arms => Fail.toResultSeq1 (armsOk on p agree arms)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1859,15 +1206,7 @@ theorem groupsOk ∀ (on: Steps) (p: Pure)
     runGroups on input = Ok (walkGroups p input) :=
   match input with
     | [] => byComputing
-    | [first, ..rest] =>
-      Fail.toResultSeq2
-        (() => first.traverse on)
-        (() => traverseGroups on rest)
-        (v1 v2 => [v1, ..v2])
-        (first.walk p)
-        (walkGroups p rest)
-        (groupOk on p agree first)
-        (groupsOk on p agree rest)
+    | [first, ..rest] => Fail.toResultSeq2 (groupOk on p agree first) (groupsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1878,24 +1217,9 @@ theorem indicesOk ∀ (on: Steps) (p: Pure)
     runIndices on input = Ok (walkIndices p input) :=
   match input with
     | [] => byComputing
-    | [(IndexBinder binder, arrow), ..rest] =>
-      Fail.toResultSeq2
-        (() => binder.traverse on)
-        (() => traverseIndices on rest)
-        (v1 v2 => [(IndexBinder v1, arrow), ..v2])
-        (binder.walk p)
-        (walkIndices p rest)
-        (groupOk on p agree binder)
-        (indicesOk on p agree rest)
+    | [(IndexBinder binder, arrow), ..rest] => Fail.toResultSeq2 (groupOk on p agree binder) (indicesOk on p agree rest)
     | [(IndexType annotation, arrow), ..rest] =>
-      Fail.toResultSeq2
-        (() => annotation.traverse on)
-        (() => traverseIndices on rest)
-        (v1 v2 => [(IndexType v1, arrow), ..v2])
-        (annotation.walk p)
-        (walkIndices p rest)
-        (exprOk on p agree annotation)
-        (indicesOk on p agree rest)
+      Fail.toResultSeq2 (exprOk on p agree annotation) (indicesOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1904,12 +1228,7 @@ theorem indicesOk ∀ (on: Steps) (p: Pure)
 theorem fieldsOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Fields): runFields on input = Ok (input.walk p) :=
   match input with
     | { open, fields, trailingComma, close } =>
-      rewrite Fail.toResultSeq1Let
-            (() => traverseFieldList on fields)
-            (v1 => { open, fields = v1, trailingComma, close })
-            on.fields
-            (walkFieldList p fields)
-            (fieldListOk on p agree fields),
+      rewrite Fail.toResultSeq1Let [k := on.fields] (fieldListOk on p agree fields),
           agree.fields ({ open, fields = (walkFieldList p fields), trailingComma, close })
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -1923,15 +1242,6 @@ theorem fieldListOk ∀ (on: Steps) (p: Pure)
     | [] => byComputing
     | [{ attributes, name, colon, annotation, default }, ..rest] =>
       Fail.toResultSeq4
-        (() => traverseAttributes on attributes)
-        (() => annotation.traverse on)
-        (() => traverseAfter on default)
-        (() => traverseFieldList on rest)
-        (v1 v2 v3 v4 => [{ attributes = v1, name, colon, annotation = v2, default = v3 }, ..v4])
-        (walkAttributes p attributes)
-        (annotation.walk p)
-        (walkAfter p default)
-        (walkFieldList p rest)
         (attributesOk on p agree attributes)
         (exprOk on p agree annotation)
         (afterOk on p agree default)
@@ -1948,15 +1258,6 @@ theorem constructorsOk ∀ (on: Steps) (p: Pure)
     | [] => byComputing
     | [{ bar, attributes, name, fields, result }, ..rest] =>
       Fail.toResultSeq4
-        (() => traverseAttributes on attributes)
-        (() => traverseParts on fields)
-        (() => traverseAfter on result)
-        (() => traverseConstructors on rest)
-        (v1 v2 v3 v4 => [{ bar, attributes = v1, name, fields = v2, result = v3 }, ..v4])
-        (walkAttributes p attributes)
-        (walkParts p fields)
-        (walkAfter p result)
-        (walkConstructors p rest)
         (attributesOk on p agree attributes)
         (partsOk on p agree fields)
         (afterOk on p agree result)
@@ -1971,24 +1272,8 @@ theorem partsOk ∀ (on: Steps) (p: Pure)
     runParts on input = Ok (walkParts p input) :=
   match input with
     | [] => byComputing
-    | [PartGroup group, ..rest] =>
-      Fail.toResultSeq2
-        (() => group.traverse on)
-        (() => traverseParts on rest)
-        (v1 v2 => [PartGroup v1, ..v2])
-        (group.walk p)
-        (walkParts p rest)
-        (groupOk on p agree group)
-        (partsOk on p agree rest)
-    | [PartFields fields, ..rest] =>
-      Fail.toResultSeq2
-        (() => fields.traverse on)
-        (() => traverseParts on rest)
-        (v1 v2 => [PartFields v1, ..v2])
-        (fields.walk p)
-        (walkParts p rest)
-        (fieldsOk on p agree fields)
-        (partsOk on p agree rest)
+    | [PartGroup group, ..rest] => Fail.toResultSeq2 (groupOk on p agree group) (partsOk on p agree rest)
+    | [PartFields fields, ..rest] => Fail.toResultSeq2 (fieldsOk on p agree fields) (partsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -2000,14 +1285,7 @@ theorem operationsOk ∀ (on: Steps) (p: Pure)
   match input with
     | [] => byComputing
     | [{ name, colon, annotation }, ..rest] =>
-      Fail.toResultSeq2
-        (() => annotation.traverse on)
-        (() => traverseOperations on rest)
-        (v1 v2 => [{ name, colon, annotation = v1 }, ..v2])
-        (annotation.walk p)
-        (walkOperations p rest)
-        (exprOk on p agree annotation)
-        (operationsOk on p agree rest)
+      Fail.toResultSeq2 (exprOk on p agree annotation) (operationsOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -2018,15 +1296,7 @@ theorem attributesOk ∀ (on: Steps) (p: Pure)
     runAttributes on input = Ok (walkAttributes p input) :=
   match input with
     | [] => byComputing
-    | [first, ..rest] =>
-      Fail.toResultSeq2
-        (() => on.attributes first)
-        (() => traverseAttributes on rest)
-        (v1 v2 => [v1, ..v2])
-        (p.attributes first)
-        (walkAttributes p rest)
-        (agree.attributes first)
-        (attributesOk on p agree rest)
+    | [first, ..rest] => Fail.toResultSeq2 (agree.attributes first) (attributesOk on p agree rest)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -2036,7 +1306,7 @@ theorem optionalOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Option Expr):
     runOptional on input = Ok (walkOptional p input) :=
   match input with
-    | Some value => Fail.toResultSeq1 (() => value.traverse on) (v1 => Some v1) (value.walk p) (exprOk on p agree value)
+    | Some value => Fail.toResultSeq1 (exprOk on p agree value)
     | None => byComputing
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -2047,8 +1317,7 @@ theorem afterOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Option (k, Expr)):
     runAfter on input = Ok (walkAfter p input) :=
   match input with
-    | Some (word, value) =>
-      Fail.toResultSeq1 (() => value.traverse on) (v1 => Some (word, v1)) (value.walk p) (exprOk on p agree value)
+    | Some (word, value) => Fail.toResultSeq1 (exprOk on p agree value)
     | None => byComputing
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -2059,12 +1328,7 @@ theorem guardOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Option Guard):
     runGuard on input = Ok (walkGuard p input) :=
   match input with
-    | Some { keyword, binder, condition } =>
-      Fail.toResultSeq1
-        (() => condition.traverse on)
-        (v1 => Some { keyword, binder, condition = v1 })
-        (condition.walk p)
-        (exprOk on p agree condition)
+    | Some { keyword, binder, condition } => Fail.toResultSeq1 (exprOk on p agree condition)
     | None => byComputing
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -2075,8 +1339,7 @@ theorem tailOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Option (Word, Pattern)):
     runTail on input = Ok (walkTail p input) :=
   match input with
-    | Some (dots, rest) =>
-      Fail.toResultSeq1 (() => rest.traverse on) (v1 => Some (dots, v1)) (rest.walk p) (patternOk on p agree rest)
+    | Some (dots, rest) => Fail.toResultSeq1 (patternOk on p agree rest)
     | None => byComputing
 
 --| The traversal finishes, with the pure copy's result. By induction
@@ -2087,8 +1350,7 @@ theorem beforeOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Option (Expr, k)):
     runBefore on input = Ok (walkBefore p input) :=
   match input with
-    | Some (value, word) =>
-      Fail.toResultSeq1 (() => value.traverse on) (v1 => Some (v1, word)) (value.walk p) (exprOk on p agree value)
+    | Some (value, word) => Fail.toResultSeq1 (exprOk on p agree value)
     | None => byComputing
 
 --| Walking with `s` then `m` is walking with `m`. By induction: in each

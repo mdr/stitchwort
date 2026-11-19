@@ -6,90 +6,87 @@
 --| shouldn't pay; the formatter's walks use them.
 
 --| Running 1 steps whose results are known (`Ok`): their `Fail`-free outcome is the function applied to those results.
-theorem Fail.toResultSeq1 ∀ (t1: () → {Fail} a1) (g: a1 → r) (v1: a1)
+theorem Fail.toResultSeq1 ∀ [t1: () → {Fail} a1] [g: a1 → r] [v1: a1]
     (h1: Fail.toResult t1 = Ok v1):
     Fail.toResult (() => g (t1 ())) = Ok (g v1) :=
   rewrite Fail.toResultThen t1 (x => g x), h1
 
 --| As [`Fail.toResultSeq1`], with the built result given to a further step `k`.
-theorem Fail.toResultSeq1Then ∀ (t1: () → {Fail} a1) (g: a1 → r) (k: r → {Fail} q) (v1: a1)
+theorem Fail.toResultSeq1Then ∀ [t1: () → {Fail} a1] [g: a1 → r] [k: r → {Fail} q] [v1: a1]
     (h1: Fail.toResult t1 = Ok v1):
     Fail.toResult (() => k (g (t1 ()))) = Fail.toResult (() => k (g v1)) :=
-  rewrite Fail.toResultThen (() => g (t1 ())) k, Fail.toResultSeq1 t1 g v1 h1
+  rewrite Fail.toResultThen (() => g (t1 ())) k, Fail.toResultSeq1 [g := g] h1
 
 --| Running 2 steps whose results are known (`Ok`): their `Fail`-free outcome is the function applied to those results.
-theorem Fail.toResultSeq2 ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (g: a1 → a2 → r) (v1: a1) (v2: a2)
+theorem Fail.toResultSeq2 ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [g: a1 → a2 → r] [v1: a1] [v2: a2]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2):
     Fail.toResult (() => g (t1 ()) (t2 ())) = Ok (g v1 v2) :=
-  rewrite Fail.toResultThen t1 (x => g x (t2 ())), h1, Fail.toResultSeq1 t2 (g v1) v2 h2
+  rewrite Fail.toResultThen t1 (x => g x (t2 ())), h1, Fail.toResultSeq1 [g := g v1] h2
 
 --| As [`Fail.toResultSeq2`], with the built result given to a further step `k`.
-theorem Fail.toResultSeq2Then ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (g: a1 → a2 → r) (k: r → {Fail} q)
-    (v1: a1) (v2: a2)
+theorem Fail.toResultSeq2Then ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [g: a1 → a2 → r] [k: r → {Fail} q]
+    [v1: a1] [v2: a2]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2):
     Fail.toResult (() => k (g (t1 ()) (t2 ()))) = Fail.toResult (() => k (g v1 v2)) :=
-  rewrite Fail.toResultThen (() => g (t1 ()) (t2 ())) k, Fail.toResultSeq2 t1 t2 g v1 v2 h1 h2
+  rewrite Fail.toResultThen (() => g (t1 ()) (t2 ())) k, Fail.toResultSeq2 [g := g] h1 h2
 
 --| Running 3 steps whose results are known (`Ok`): their `Fail`-free outcome is the function applied to those results.
-theorem Fail.toResultSeq3 ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (t3: () → {Fail} a3) (g: a1 → a2 → a3 → r)
-    (v1: a1) (v2: a2) (v3: a3)
+theorem Fail.toResultSeq3 ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [g: a1 → a2 → a3 → r]
+    [v1: a1] [v2: a2] [v3: a3]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2)
     (h3: Fail.toResult t3 = Ok v3):
     Fail.toResult (() => g (t1 ()) (t2 ()) (t3 ())) = Ok (g v1 v2 v3) :=
-  rewrite Fail.toResultThen t1 (x => g x (t2 ()) (t3 ())), h1, Fail.toResultSeq2 t2 t3 (g v1) v2 v3 h2 h3
+  rewrite Fail.toResultThen t1 (x => g x (t2 ()) (t3 ())), h1, Fail.toResultSeq2 [g := g v1] h2 h3
 
 --| As [`Fail.toResultSeq3`], with the built result given to a further step `k`.
-theorem Fail.toResultSeq3Then ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (t3: () → {Fail} a3) (g: a1 → a2 → a3 → r)
-    (k: r → {Fail} q) (v1: a1) (v2: a2) (v3: a3)
+theorem Fail.toResultSeq3Then ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [g: a1 → a2 → a3 → r]
+    [k: r → {Fail} q] [v1: a1] [v2: a2] [v3: a3]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2)
     (h3: Fail.toResult t3 = Ok v3):
     Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ()))) = Fail.toResult (() => k (g v1 v2 v3)) :=
-  rewrite Fail.toResultThen (() => g (t1 ()) (t2 ()) (t3 ())) k, Fail.toResultSeq3 t1 t2 t3 g v1 v2 v3 h1 h2 h3
+  rewrite Fail.toResultThen (() => g (t1 ()) (t2 ()) (t3 ())) k, Fail.toResultSeq3 [g := g] h1 h2 h3
 
 --| Running 4 steps whose results are known (`Ok`): their `Fail`-free outcome is the function applied to those results.
-theorem Fail.toResultSeq4 ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (t3: () → {Fail} a3) (t4: () → {Fail} a4)
-    (g: a1 → a2 → a3 → a4 → r) (v1: a1) (v2: a2) (v3: a3) (v4: a4)
+theorem Fail.toResultSeq4 ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [t4: () → {Fail} a4]
+    [g: a1 → a2 → a3 → a4 → r] [v1: a1] [v2: a2] [v3: a3] [v4: a4]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2)
     (h3: Fail.toResult t3 = Ok v3)
     (h4: Fail.toResult t4 = Ok v4):
     Fail.toResult (() => g (t1 ()) (t2 ()) (t3 ()) (t4 ())) = Ok (g v1 v2 v3 v4) :=
-  rewrite Fail.toResultThen t1 (x => g x (t2 ()) (t3 ()) (t4 ())),
-      h1,
-      Fail.toResultSeq3 t2 t3 t4 (g v1) v2 v3 v4 h2 h3 h4
+  rewrite Fail.toResultThen t1 (x => g x (t2 ()) (t3 ()) (t4 ())), h1, Fail.toResultSeq3 [g := g v1] h2 h3 h4
 
 --| As [`Fail.toResultSeq4`], with the built result given to a further step `k`.
-theorem Fail.toResultSeq4Then ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (t3: () → {Fail} a3) (t4: () → {Fail} a4)
-    (g: a1 → a2 → a3 → a4 → r) (k: r → {Fail} q) (v1: a1) (v2: a2) (v3: a3) (v4: a4)
+theorem Fail.toResultSeq4Then ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [t4: () → {Fail} a4]
+    [g: a1 → a2 → a3 → a4 → r] [k: r → {Fail} q] [v1: a1] [v2: a2] [v3: a3] [v4: a4]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2)
     (h3: Fail.toResult t3 = Ok v3)
     (h4: Fail.toResult t4 = Ok v4):
     Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ()) (t4 ()))) = Fail.toResult (() => k (g v1 v2 v3 v4)) :=
-  rewrite Fail.toResultThen (() => g (t1 ()) (t2 ()) (t3 ()) (t4 ())) k,
-      Fail.toResultSeq4 t1 t2 t3 t4 g v1 v2 v3 v4 h1 h2 h3 h4
+  rewrite Fail.toResultThen (() => g (t1 ()) (t2 ()) (t3 ()) (t4 ())) k, Fail.toResultSeq4 [g := g] h1 h2 h3 h4
 
 --| As [`Fail.toResultSeq1Then`], with the steps run in `let`s of the same body.
-theorem Fail.toResultSeq1Let ∀ (t1: () → {Fail} a1) (g: a1 → r) (k: r → {Fail} q) (v1: a1)
+theorem Fail.toResultSeq1Let ∀ [t1: () → {Fail} a1] [g: a1 → r] [k: r → {Fail} q] [v1: a1]
     (h1: Fail.toResult t1 = Ok v1):
     Fail.toResult (() => (let x1 := t1 (); k (g x1))) = Fail.toResult (() => k (g v1)) :=
   rewrite Fail.toResultThen t1 (x => k (g x)), h1
 
 --| As [`Fail.toResultSeq2Then`], with the steps run in `let`s of the same body.
-theorem Fail.toResultSeq2Let ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (g: a1 → a2 → r) (k: r → {Fail} q)
-    (v1: a1) (v2: a2)
+theorem Fail.toResultSeq2Let ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [g: a1 → a2 → r] [k: r → {Fail} q]
+    [v1: a1] [v2: a2]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2):
     Fail.toResult (() => (let x1 := t1 (); let x2 := t2 (); k (g x1 x2))) = Fail.toResult (() => k (g v1 v2)) :=
-  rewrite Fail.toResultThen t1 (x => (let x2 := t2 (); k (g x x2))), h1, Fail.toResultSeq1Let t2 (g v1) k v2 h2
+  rewrite Fail.toResultThen t1 (x => (let x2 := t2 (); k (g x x2))), h1, Fail.toResultSeq1Let [g := g v1] [k := k] h2
 
 --| As [`Fail.toResultSeq3Then`], with the steps run in `let`s of the same body.
-theorem Fail.toResultSeq3Let ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (t3: () → {Fail} a3) (g: a1 → a2 → a3 → r)
-    (k: r → {Fail} q) (v1: a1) (v2: a2) (v3: a3)
+theorem Fail.toResultSeq3Let ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [g: a1 → a2 → a3 → r]
+    [k: r → {Fail} q] [v1: a1] [v2: a2] [v3: a3]
     (h1: Fail.toResult t1 = Ok v1)
     (h2: Fail.toResult t2 = Ok v2)
     (h3: Fail.toResult t3 = Ok v3):
@@ -97,7 +94,7 @@ theorem Fail.toResultSeq3Let ∀ (t1: () → {Fail} a1) (t2: () → {Fail} a2) (
       = Fail.toResult (() => k (g v1 v2 v3)) :=
   rewrite Fail.toResultThen t1 (x => (let x2 := t2 (); let x3 := t3 (); k (g x x2 x3))),
       h1,
-      Fail.toResultSeq2Let t2 t3 (g v1) k v2 v3 h2 h3
+      Fail.toResultSeq2Let [g := g v1] [k := k] h2 h3
 
 --| Steps that fail as another set of 1 steps does, or finish with its results changed by `bl`, make the body's run fail alike or finish with its result changed by `blr`, given that the rest of the body does for every result.
 theorem Fail.toResultAlike1 ∀ [t1 s1: () → {Fail} a1] [bl1: a1 → a1] [g g2: a1 → r] [blr: r → r]
