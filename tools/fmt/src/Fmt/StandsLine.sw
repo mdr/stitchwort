@@ -5,7 +5,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Leaf, Note, Tok, Token, Word)
 import Syntax.SettleProofs (tokens)
 import Fmt (..)
-import Fmt.TreeJoinProofs (infixListed, lexKind, lexKindOfSpells, spellsOfText1, wordQuiet)
+import Fmt.TreeJoinProofs (infixListed, lexKind, lexKindOfSpells, nameKinded, spellsOfText1, wordQuiet)
 import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.LedProofs (..)
@@ -578,10 +578,8 @@ theorem headTexts ∀ (header: Header) (colonEq: Syntax.Comments) (value: Expr)
       = ["def", header.name.text, ":"] ++ more :=
   let (headerWithin, _) := within
   let nameWithin := headerNameWithin header headerWithin
-  let (_, nameToken) :=
-    kindPlain Lower header.name.text
-      (spellsOfText1 Lower header.name.text (Bool.andRight nameWithin))
-      (wordQuiet Lower byComputing)
+  let (nameKind, nameSpelled, nameQuiet, _) := nameKinded header.name nameWithin
+  let (_, nameToken) := kindPlain nameKind header.name.text nameSpelled nameQuiet
   let sound := declSoundOfSettled _ within settled (declRealOfLexical _ within lexical)
   let (defSound, nameSound, colonSound, _, _, _) := sound
   let head :=
@@ -619,7 +617,7 @@ theorem keepOf ∀ (token: Token) (text: Text)
 theorem headKept ∀ (tokens: List Token) (name: Text) (more: List Text)
     (texts: tokens.map (token => token.text) = ["def", name, ":"] ++ more)
     (kinded: tokens.all Token.kinded1 = True)
-    (nameKind: lexKind name = Lower)
+    (nameKind: lexKind name = Lower ∨ lexKind name = Upper)
     (line: onLine1 tokens = True):
     ∃ (first second third: Token) (rest: List Token) => tokens.filter Token.nonComma
       = [first, second, third, ..rest.filter Token.nonComma]
@@ -631,7 +629,12 @@ theorem headKept ∀ (tokens: List Token) (name: Text) (more: List Text)
       let bText: b.text = name := List.consInjectiveHead _ _ _ _ (Eq.cong ((list: List Text) => list.drop 1) texts)
       let cText: c.text = ":" := List.consInjectiveHead _ _ _ _ (Eq.cong ((list: List Text) => list.drop 2) texts)
       let aKeep := keepOf a "def" aText (Bool.andLeft kinded) byComputing
-      let bKeep := keepOf b name bText (Bool.andLeft (Bool.andRight kinded)) (rewrite nameKind)
+      let bKeep :=
+        keepOf b name bText
+          (Bool.andLeft (Bool.andRight kinded))
+          (match nameKind with
+            | Inl same => rewrite same
+            | Inr same => rewrite same)
       let cKeep := keepOf c ":" cText (Bool.andLeft (Bool.andRight (Bool.andRight kinded))) byComputing
       (a, b, c, rest, (rewrite aKeep, bKeep, cKeep), line, Bool.andRight (Bool.andRight (Bool.andRight kinded)))
 
@@ -662,8 +665,10 @@ theorem stillOfTokens ∀ (decl: Decl) (printed: List Token)
       let nameWithin := headerNameWithin header headerWithin
       let (_, resultLexical, _) := lexical
       let (more, headIs) := headTexts header colonEq value within settled lexical
-      let nameKind: lexKind header.name.text = Lower :=
-        lexKindOfSpells Lower header.name.text (spellsOfText1 Lower header.name.text (Bool.andRight nameWithin))
+      let (kindOfName, nameSpelled, _, nameIsName) := nameKinded header.name nameWithin
+      let nameKind: lexKind header.name.text = Lower ∨ lexKind header.name.text = Upper := match nameIsName with
+        | Inl same => Inl (rewrite lexKindOfSpells kindOfName header.name.text nameSpelled, same)
+        | Inr same => Inr (rewrite lexKindOfSpells kindOfName header.name.text nameSpelled, same)
       let (a, b, c, rest, kept, typeLine, restKinded) :=
         headKept printed header.name.text more (Eq.trans texts headIs) kinded nameKind line
       let (h1, h2, h3, stoodIs) := stoodShape header colonEq value

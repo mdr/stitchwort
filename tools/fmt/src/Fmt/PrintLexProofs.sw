@@ -342,12 +342,12 @@ theorem spelledHead ∀ (kind: Tok) (text: Text)
     | Bang, Inl same => rewrite same then Both byDecision byDecision
     | Bang, Inr same => rewrite same then Both byDecision byDecision
     | KwDef, same => rewrite same then Both byDecision byDecision
-    | Lower, Witness first (Witness others (Both split (Both starts _))) =>
+    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts _)))) =>
       rewrite split then wordStartHead first starts
-    | Upper, Witness first (Witness others (Both split (Both starts _))) =>
+    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts _)))) =>
       rewrite split then wordStartHead first starts
     | Num, Witness first (Witness others (Both split (Both digit _))) => rewrite split then digitHead first digit
-    | Float, Witness first (Witness others (Witness second (Witness more (Both split (Both digit _))))) =>
+    | Float, Witness first (Witness others (Witness tail (Both split (Both digit _)))) =>
       rewrite split then digitHead first digit
 
 -- The pieces follow one another.
@@ -709,6 +709,11 @@ theorem printedLexesExample ∀ (width: Nat):
         }
       } :=
   printedLexes (Doc.text "x") width (text => Lower) byComputing (Both byComputing byComputing) (
-    (Inr (Inr ((('x', [], byComputing, byComputing, byComputing, byComputing)), byComputing, byComputing))),
+    (Inr
+      (Inr (
+        (('x', [], [], byComputing, byComputing, byComputing, byComputing, byComputing)),
+        byComputing,
+        byComputing
+      ))),
     byComputing
   )

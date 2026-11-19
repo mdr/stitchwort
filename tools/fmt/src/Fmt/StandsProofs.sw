@@ -58,6 +58,7 @@ import Fmt.TreeJoinProofs (
   PrefixSpells,
   Quiet,
   infixListed,
+  nameKinded,
   infixWithin,
   lexKind,
   lexKindOfSpells,
@@ -1308,9 +1309,8 @@ theorem declBits ∀ (decl: Decl)
             unfoldingClause = None
           } =>
           let nameWithin := Bool.andLeft (Bool.andLeft within)
-          let spells := spellsOfText1 Lower name.text (Bool.andRight nameWithin)
-          let quiet := wordQuiet Lower byComputing
-          let (_, nameNotCloser) := spellsQuiet Lower name.text spells quiet
+          let (nameKind, spells, quiet, _) := nameKinded name nameWithin
+          let (_, nameNotCloser) := spellsQuiet nameKind name.text spells quiet
           let (resultWords, resultFine) :=
             exprBits result False
               (Bool.andRight (Bool.andLeft within))
@@ -1340,7 +1340,7 @@ theorem declBits ∀ (decl: Decl)
                 (Bool.andLeft sound)
                 (Bool.andLeft plain),
               bitFine name False False
-                (quietKindOk Lower name.text spells quiet)
+                (quietKindOk nameKind name.text spells quiet)
                 (Bool.andLeft (Bool.andRight sound))
                 (Bool.andLeft (Bool.andRight plain)),
               bitFine

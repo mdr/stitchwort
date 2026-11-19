@@ -11,7 +11,7 @@
 --| `operators1`), so `|>` is out (`pipedOut`, `pipedNotSpelled`).
 
 namespace Fmt.TreeJoinProofs
-import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Result, Text, Void, byDecision)
+import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Pair, Result, Text, Void, byDecision)
 import Std.Doc.Proofs (Every, everyAppend, isLayout, printedPieces)
 import Syntax (
   Comments,
@@ -29,7 +29,23 @@ import Syntax (
   lex,
   wordKind
 )
-import Syntax.Proofs (Laid, LexesAs, MayFollow, Spells, lexesAsSpells, mayFollowEnd)
+import Syntax.Proofs (
+  ExponentAs,
+  FloatTailAs,
+  FractionAs,
+  Laid,
+  LexesAs,
+  MayFollow,
+  NameKind,
+  QualTail,
+  Spells,
+  lexesAsSpells,
+  mayFollowEnd,
+  qualChars,
+  qualFoundSome,
+  qualLast,
+  qualCharsStops
+)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows, Printable, pieceFold)
 import Fmt.SpellProofs (..)
@@ -120,14 +136,14 @@ theorem spellsNotComment ∀ (kind: Tok) (text: Text) (spells: Spells kind text)
     | Bang, Inl same => rewrite same
     | Bang, Inr same => rewrite same
     | KwDef, same => rewrite same
-    | Lower, Witness first (Witness others (Both split (Both starts rest))) =>
-      headNotDash text first others split (startNotDash first starts)
-    | Upper, Witness first (Witness others (Both split (Both starts rest))) =>
-      headNotDash text first others split (startNotDash first starts)
+    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
+      headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
+    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
+      headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
       headNotDash text first others split (digitNotDash first digit)
-    | Float, Witness first (Witness others (Witness second (Witness more (Both split (Both digit rest))))) =>
-      headNotDash text first (others ++ ['.', second, ..more]) split (digitNotDash first digit)
+    | Float, Witness first (Witness others (Witness tail (Both split (Both digit rest)))) =>
+      headNotDash text first (others ++ tail) split (digitNotDash first digit)
 
 --| A text that spells a token of another kind than `other` doesn't spell it.
 theorem notFixed ∀ (kind: Tok) (text other: Text)
@@ -210,12 +226,18 @@ theorem leadsHead ∀ (text: Text)
       (Bool.falseNotTrue (rewrite same at notMinus then Eq.trans notMinus.flipped byComputing)).impossible
     | Inr (Inr (Inr (Inl same))) => ('!', [], (rewrite same), byComputing, byComputing, byComputing)
     | Inr (Inr (Inr (Inr (Inl same)))) => ('¬', [], (rewrite same), byComputing, byComputing, byComputing)
-    | Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both starts rest))))))))) =>
+    | Inr
+        (Inr
+          (Inr (Inr (Inr (Inl (Witness first (Witness others (Witness comps (Both split (Both starts rest)))))))))) =>
       let (dash, greater, equals) := startBeq first starts
-      (first, others, split, dash, greater, equals)
-    | Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both starts rest)))))))))) =>
+      (first, others ++ qualChars comps, split, dash, greater, equals)
+    | Inr
+        (Inr
+          (Inr
+            (Inr
+              (Inr (Inr (Inl (Witness first (Witness others (Witness comps (Both split (Both starts rest))))))))))) =>
       let (dash, greater, equals) := startBeq first starts
-      (first, others, split, dash, greater, equals)
+      (first, others ++ qualChars comps, split, dash, greater, equals)
     | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both digit rest))))))))))) =>
       let (dash, greater, equals) := digitBeq first digit
       (first, others, split, dash, greater, equals)
@@ -224,13 +246,9 @@ theorem leadsHead ∀ (text: Text)
           (Inr
             (Inr
               (Inr
-                (Inr
-                  (Inr
-                    (Inr
-                      (Witness first
-                        (Witness others (Witness second (Witness more (Both split (Both digit rest))))))))))))) =>
+                (Inr (Inr (Inr (Witness first (Witness others (Witness tail (Both split (Both digit rest)))))))))))) =>
       let (dash, greater, equals) := digitBeq first digit
-      (first, others ++ ['.', second, ..more], split, dash, greater, equals)
+      (first, others ++ tail, split, dash, greater, equals)
 
 theorem digitWordChar ∀ (first: Char) (digit: first.isAsciiDigit = True): isWordChar first = True := cases
 
@@ -250,6 +268,38 @@ theorem wordNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
     let named: text = "in" := Eq.trans (Text.fromToList text).flipped (rewrite (Eq.trans whole.flipped same))
     notIn (rewrite named at kinded then kinded)
 
+theorem takeWhileJoin ∀ (passes: Char → Bool) (front back: List Char)
+    (all: front.all passes = True)
+    (stops: back.takeWhile passes = []):
+    (front ++ back).takeWhile passes = front :=
+  match front, all with
+    | [], all => stops
+    | [char, ..more], all => rewrite Bool.andLeft all, takeWhileJoin passes more back (Bool.andRight all) stops
+
+--| A name, plain or qualified, isn't `in` where it starts.
+theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char) (comps: List (Pair Char (List Char)))
+    (split: text.toList = [first, ..others] ++ qualChars comps)
+    (starts: isWordStart first = True)
+    (word: others.all isWordChar = True)
+    (tail: QualTail first.isAsciiUppercase comps)
+    (kinded: NameKind kind text comps)
+    (notIn: wordKind False "in" ≠ kind):
+    text.toList.takeWhile isWordChar ≠ ['i', 'n'] :=
+  match comps, split, tail, kinded with
+    | [], split, tail, kinded =>
+      wordNotIn kind text first others (Eq.trans split (List.appendNil [first, ..others])) starts word kinded notIn
+    | [(letter, letters), ..more], split, Both isUpper rest, kinded => same =>
+      let whole: text.toList.takeWhile isWordChar = [first, ..others] :=
+        rewrite split then
+          takeWhileJoin isWordChar
+            [first, ..others]
+            (qualChars [(letter, letters), ..more])
+            (Bool.andIntro (Syntax.Proofs.wordStartIsChar first starts) word)
+            byComputing
+      let head := List.consInjectiveHead first 'i' others ['n'] (Eq.trans whole.flipped same)
+      let notUpper: first.isAsciiUppercase = False := rewrite head
+      Bool.falseNotTrue (Eq.trans notUpper.flipped isUpper)
+
 --| What follows `!`: nothing that makes it the operator `!in`.
 theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile isWordChar ≠ ['i', 'n'] := match leads with
   | Inl same => rewrite same then byDecision
@@ -257,12 +307,25 @@ theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile i
   | Inr (Inr (Inl same)) => rewrite same then byDecision
   | Inr (Inr (Inr (Inl same))) => rewrite same then byDecision
   | Inr (Inr (Inr (Inr (Inl same)))) => rewrite same then byDecision
-  | Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both starts (Both word kinded)))))))))) =>
-    wordNotIn Lower text first others split starts word kinded byDecision
   | Inr
       (Inr
-        (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both starts (Both word kinded))))))))))) =>
-    wordNotIn Upper text first others split starts word kinded byDecision
+        (Inr
+          (Inr
+            (Inr
+              (Inl
+                (Witness first
+                  (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))))))))) =>
+    nameNotIn Lower text first others comps split starts word tail kinded byDecision
+  | Inr
+      (Inr
+        (Inr
+          (Inr
+            (Inr
+              (Inr
+                (Inl
+                  (Witness first
+                    (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded))))))))))))) =>
+    nameNotIn Upper text first others comps split starts word tail kinded byDecision
   | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both digit rest))))))))))) =>
     same =>
       let wordChar := digitWordChar first digit
@@ -272,15 +335,11 @@ theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile i
       (Inr
         (Inr
           (Inr
-            (Inr
-              (Inr
-                (Inr
-                  (Inr
-                    (Witness first
-                      (Witness others (Witness second (Witness more (Both split (Both digit rest))))))))))))) => same =>
-    let wordChar := digitWordChar first digit
-    let head := List.consInjectiveHead first 'i' _ ['n'] (rewrite split, wordChar at same then same)
-    DecEq.soundFalse first 'i' (digitNotI first digit) head
+            (Inr (Inr (Inr (Inr (Witness first (Witness others (Witness tail (Both split (Both digit rest)))))))))))) =>
+    same =>
+      let wordChar := digitWordChar first digit
+      let head := List.consInjectiveHead first 'i' _ ['n'] (rewrite split, wordChar at same then same)
+      DecEq.soundFalse first 'i' (digitNotI first digit) head
 
 theorem minusFollows ∀ (text: Text)
     (leads: Leads text)
@@ -324,25 +383,82 @@ theorem prefixFollows ∀ (operator: Word) (operand: Expr)
 
 -- A name or numeral's spelling, from `within1`.
 
+--| What `qualScan1` reads from a name's characters after the first is a run of word characters and the components
+--| `qualified` reads.
+theorem scanComps ∀ (chars: List Char) (upper last result: Bool)
+    (scan: qualScan1 upper last chars = Some result):
+    ∃ (run: List Char) (comps: List (Pair Char (List Char))) => chars = run ++ qualChars comps
+      ∧ run.all isWordChar = True
+      ∧ QualTail upper comps
+      ∧ qualLast last comps = result :=
+  match chars with
+    | [] => ([], [], byComputing, byComputing, byComputing, Option.someInjective scan)
+    | [char, ..more] =>
+      match word: isWordChar char with
+        | True =>
+          let (run, comps, split, runWord, tail, found) := scanComps more upper last result scan
+          ([char, ..run], comps, (rewrite split), Bool.andIntro word runWord, tail, found)
+        | False =>
+          match dot: char == '.' with
+            | True =>
+              match more with
+                | [next, ..rest] =>
+                  match start: upper && next.isAsciiLetter with
+                    | True =>
+                      let (run, comps, split, runWord, tail, found) :=
+                        scanComps rest next.isAsciiUppercase next.isAsciiUppercase result scan
+                      (
+                        [],
+                        [(next, run), ..comps],
+                        (rewrite DecEq.sound dot, split),
+                        byComputing,
+                        (Bool.andLeft start, Bool.andRight start, runWord, tail),
+                        found
+                      )
+
 --| A name's text, as `textSpells1` reads it, is one `Spells` says.
 theorem nameSpells ∀ (kind: Tok) (text: Text) (chars: List Char)
     (same: text.toList = chars)
-    (spells: nameText1 kind chars = True):
-    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+    (spells: nameText1 kind chars = True)
+    (rightKind: (if kind == Upper then Upper else Lower) = kind):
+    ∃ (first: Char) (others: List Char) (comps: List (Pair Char (List Char))) => text.toList
+      = [first, ..others] ++ qualChars comps
       ∧ isWordStart first = True
       ∧ others.all isWordChar = True
-      ∧ wordKind False text = kind :=
+      ∧ QualTail first.isAsciiUppercase comps
+      ∧ NameKind kind text comps :=
   match chars, same, spells with
     | [first, ..others], same, spells =>
       let named: text = Text.fromList [first, ..others] := Eq.trans (Text.fromToList text).flipped (rewrite same)
-      (
-        first,
-        others,
-        same,
-        Bool.andLeft spells,
-        Bool.andLeft (Bool.andRight spells),
-        rewrite named then DecEq.sound (Bool.andRight (Bool.andRight spells))
-      )
+      let starts := Bool.andLeft spells
+      match word: others.all isWordChar with
+        | True => (
+          first,
+          others,
+          [],
+          Eq.trans same (List.appendNil [first, ..others]).flipped,
+          starts,
+          word,
+          byComputing,
+          (rewrite named then DecEq.sound (Bool.andRight spells))
+        )
+        | False =>
+          let scan := DecEq.sound (Bool.andRight spells)
+          let (run, comps, split, runWord, tail, found) :=
+            scanComps others first.isAsciiUppercase first.isAsciiUppercase (kind == Upper) scan
+          match comps with
+            | [] =>
+              (Bool.falseNotTrue (Eq.trans word.flipped (rewrite split, List.appendNil run then runWord))).impossible
+            | [(letter, letters), ..more] => (
+              first,
+              run,
+              [(letter, letters), ..more],
+              (rewrite same, split),
+              starts,
+              runWord,
+              tail,
+              (kind == Upper, Eq.trans (qualFoundSome letter.isAsciiUppercase more) (rewrite found), rightKind)
+            )
 
 theorem digitsSpells ∀ (text: Text) (chars: List Char)
     (same: text.toList = chars)
@@ -353,37 +469,95 @@ theorem digitsSpells ∀ (text: Text) (chars: List Char)
   match chars, same, spells with
     | [first, ..others], same, spells => (first, others, same, Bool.andLeft spells, Bool.andRight spells)
 
---| The rest of a float's text, as `fractionText1` reads it, is digits and a fraction.
-theorem fractionSpells ∀ (chars: List Char)
-    (spells: fractionText1 chars = True):
-    ∃ (others: List Char) (second: Char) (more: List Char) => chars = others ++ ['.', second, ..more]
-      ∧ others.all Char.isAsciiDigit = True
-      ∧ second.isAsciiDigit = True
-      ∧ more.all Char.isAsciiDigit = True :=
+--| An exponent's text, as `exponentText1` reads it, is one `ExponentAs` says.
+theorem exponentSpells ∀ (chars: List Char) (spells: exponentText1 chars = True): ExponentAs chars :=
+  match chars, spells with
+    | [marker, ..more], spells =>
+      let isMarker := Bool.andLeft spells
+      let digits := Bool.andRight spells
+      match more, digits with
+        | [char, ..rest], digits =>
+          match sign: (char == '+' || char == '-') with
+            | True =>
+              match rest, digits with
+                | [first, ..others], digits => Inr (
+                  marker,
+                  char,
+                  first,
+                  others,
+                  byComputing,
+                  isMarker,
+                  sign,
+                  Bool.andLeft digits,
+                  Bool.andRight digits
+                )
+            | False => Inl (marker, char, rest, byComputing, isMarker, Bool.andLeft digits, Bool.andRight digits)
+
+--| What `fractionRest1` reads after a fraction's first digit: digits, then perhaps an exponent.
+theorem fractionRestSpells ∀ (chars: List Char)
+    (spells: fractionRest1 chars = True):
+    ∃ (digits: List Char) (exponent: List Char) => chars = digits ++ exponent
+      ∧ digits.all Char.isAsciiDigit = True
+      ∧ (exponent = [] ∨ ExponentAs exponent) :=
+  match chars with
+    | [] => ([], [], byComputing, byComputing, Inl byComputing)
+    | [char, ..rest] =>
+      match digit: char.isAsciiDigit with
+        | True =>
+          let (digits, exponent, split, all, shape) := fractionRestSpells rest spells
+          ([char, ..digits], exponent, (rewrite split), Bool.andIntro digit all, shape)
+        | False => ([], [char, ..rest], byComputing, byComputing, Inr (exponentSpells [char, ..rest] spells))
+
+--| What `floatRest1` reads after a float's first digit is digits and a tail of a float.
+theorem floatRestSpells ∀ (chars: List Char)
+    (spells: floatRest1 chars = True):
+    ∃ (digits: List Char) (tail: List Char) => chars = digits ++ tail
+      ∧ digits.all Char.isAsciiDigit = True
+      ∧ FloatTailAs tail :=
   match chars with
     | [char, ..rest] =>
-      match dot: char == '.' with
+      match digit: char.isAsciiDigit with
         | True =>
-          match rest with
-            | [second, ..more] =>
-              let held := spells
-              ([], second, more, (rewrite DecEq.sound dot), byComputing, Bool.andLeft held, Bool.andRight held)
+          let (digits, tail, split, all, shape) := floatRestSpells rest spells
+          ([char, ..digits], tail, (rewrite split), Bool.andIntro digit all, shape)
         | False =>
-          let held := spells
-          let (others, second, more, split, digits, decimal, decimals) := fractionSpells rest (Bool.andRight held)
-          ([char, ..others], second, more, (rewrite split), Bool.andIntro (Bool.andLeft held) digits, decimal, decimals)
+          match dot: char == '.' with
+            | True =>
+              match rest, spells with
+                | [second, ..more], spells =>
+                  let (digits, exponent, split, all, shape) := fractionRestSpells more (Bool.andRight spells)
+                  let fraction: FractionAs ['.', second, ..digits] :=
+                    (second, digits, byComputing, Bool.andLeft spells, all)
+                  match shape with
+                    | Inl none =>
+                      let moreIs: more = digits := rewrite split, none then List.appendNil digits
+                      (
+                        [],
+                        ['.', second, ..more],
+                        (rewrite DecEq.sound dot),
+                        byComputing,
+                        Inr (Inl (second, more, byComputing, Bool.andLeft spells, rewrite moreIs then all))
+                      )
+                    | Inr exponentShape => (
+                      [],
+                      ['.', second, ..more],
+                      (rewrite DecEq.sound dot),
+                      byComputing,
+                      Inl (['.', second, ..digits], exponent, (rewrite split), fraction, exponentShape)
+                    )
+            | False => ([], [char, ..rest], byComputing, byComputing, Inr (Inr (exponentSpells [char, ..rest] spells)))
 
 --| A name or numeral `within1` lets through is a text its kind is spelled with.
 theorem spellsOfText1 ∀ (kind: Tok) (text: Text) (spells: textSpells1 kind text = True): Spells kind text :=
   match kind, spells with
-    | Lower, spells => nameSpells Lower text text.toList (byComputing) (Bool.andLeft spells)
-    | Upper, spells => nameSpells Upper text text.toList byComputing spells
+    | Lower, spells => nameSpells Lower text text.toList byComputing (Bool.andLeft spells) byComputing
+    | Upper, spells => nameSpells Upper text text.toList byComputing spells byComputing
     | Num, spells => digitsSpells text text.toList byComputing spells
     | Float, spells =>
       match text.toList, spells with
         | [first, ..rest], spells =>
-          let (others, second, more, split, digits, decimal, decimals) := fractionSpells rest (Bool.andRight spells)
-          (first, others, second, more, (rewrite split), Bool.andLeft spells, digits, decimal, decimals)
+          let (digits, tail, split, all, shape) := floatRestSpells rest (Bool.andRight spells)
+          (first, digits, tail, (rewrite split), Bool.andLeft spells, all, shape)
     | other, spells => (Bool.falseNotTrue spells).impossible
 
 -- The tree's spellings.
@@ -569,6 +743,16 @@ theorem minusQuiet: Quiet Minus := byDecision
 theorem bangQuiet: Quiet Bang := byDecision
 
 theorem lowerQuiet: Quiet Lower := byDecision
+
+theorem upperQuiet: Quiet Upper := byDecision
+
+--| A header's name that `within1` lets through spells a token of one of the two name kinds.
+theorem nameKinded ∀ (name: Word)
+    (within: name.nameWithin1 = True):
+    ∃ (kind: Tok) => Spells kind name.text ∧ Quiet kind ∧ (kind = Lower ∨ kind = Upper) :=
+  match (Bool.orReads _ _).forward within with
+    | Inl lower => (Lower, spellsOfText1 Lower name.text (Bool.andRight lower), lowerQuiet, Inl byComputing)
+    | Inr upper => (Upper, spellsOfText1 Upper name.text (Bool.andRight upper), upperQuiet, Inr byComputing)
 
 --| Where the first token of an expression is `-`, `!`, `¬`, a bracket, or spelled as a name or numeral.
 --|
@@ -972,10 +1156,10 @@ theorem declJoins ∀ (decl: Decl)
             unfoldingClause = None
           } =>
           let (resultSpelled, valueSpelled) := spelled
-          let nameSpelled := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
+          let (nameKind, nameSpelled, nameQuiet, nameIsName) := nameKinded name (Bool.andLeft (Bool.andLeft within))
           (
             spellsJoins (fixedWord "def" keyword) KwDef (Bool.andLeft sound) byComputing byDecision,
-            spellsJoins name Lower (Bool.andLeft (Bool.andRight sound)) nameSpelled lowerQuiet,
+            spellsJoins name nameKind (Bool.andLeft (Bool.andRight sound)) nameSpelled nameQuiet,
             spellsJoins
               (fixedWord ":" colon)
               Colon
@@ -1026,7 +1210,7 @@ theorem declPrintable ∀ (decl: Decl)
             unfoldingClause = None
           } =>
           let (resultSpelled, valueSpelled) := spelled
-          let nameSpelled := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
+          let (nameKind, nameSpelled, nameQuiet, nameIsName) := nameKinded name (Bool.andLeft (Bool.andLeft within))
           let keywordWord := fixedWord "def" keyword
           let colonWord := fixedWord ":" colon
           let assignWord := fixedWord ":=" colonEq
@@ -1043,7 +1227,7 @@ theorem declPrintable ∀ (decl: Decl)
                 (keywordWord.spelledAt True)
                 (name.spelledAt False)
                 (wordPrintable keywordWord KwDef True (Bool.andLeft sound) byComputing)
-                (wordPrintable name Lower False (Bool.andLeft (Bool.andRight sound)) nameSpelled))
+                (wordPrintable name nameKind False (Bool.andLeft (Bool.andRight sound)) nameSpelled))
               (everyAppend
                 (Printable lexKind)
                 (colonWord.spelledAt False)
@@ -1118,15 +1302,20 @@ def qualifiedDecl: Decl :=
     }
     (Assigned Comments.none (Atom Lower (fixedWord "List.map" Comments.none)))
 
---| The narrowing: `within1` leaves the qualified name out.
-theorem qualifiedOut: qualifiedDecl.within1 = False := byComputing
+--| `within1` lets the qualified name through.
+theorem qualifiedIn: qualifiedDecl.within1 = True := byComputing
 
---| No text with a `.` spells `Lower`.
-theorem qualifiedNotSpelled: Spells Lower "List.map" → Void := spells =>
-  match spells with
-    | Witness first (Witness others (Both split (Both starts (Both word kinded)))) =>
-      let tail: others = ['i', 's', 't', '.', 'm', 'a', 'p'] := (Eq.cong (chars => chars.drop 1) split).flipped
-      (Bool.falseNotTrue (rewrite tail at word then word)).impossible
+--| A qualified name spells `Lower`: the first component's word characters and one more component.
+theorem qualifiedSpelled: Spells Lower "List.map" := (
+  'L',
+  ['i', 's', 't'],
+  [('m', ['a', 'p'])],
+  byComputing,
+  byComputing,
+  byComputing,
+  (byComputing, byComputing, (byComputing, byComputing)),
+  (False, byComputing, byComputing)
+)
 
 theorem exampleDeclJoinsTree: DeclJoins lexKind exampleDecl :=
   declJoins exampleDecl byComputing byComputing byComputing byComputing exampleOperators
@@ -1279,18 +1468,18 @@ theorem spellsNotLayout ∀ (kind: Tok) (text: Text) (spells: Spells kind text):
     | Bang, Inl same => rewrite same
     | Bang, Inr same => rewrite same
     | KwDef, same => rewrite same
-    | Lower, Witness first (Witness others (Both split (Both starts rest))) =>
+    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
       let (space, line) := startNotLayout first starts
-      headNotLayout text first others split space line
-    | Upper, Witness first (Witness others (Both split (Both starts rest))) =>
+      headNotLayout text first (others ++ qualChars comps) split space line
+    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
       let (space, line) := startNotLayout first starts
-      headNotLayout text first others split space line
+      headNotLayout text first (others ++ qualChars comps) split space line
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
       let (space, line) := digitNotLayout first digit
       headNotLayout text first others split space line
-    | Float, Witness first (Witness others (Witness second (Witness more (Both split (Both digit rest))))) =>
+    | Float, Witness first (Witness others (Witness tail (Both split (Both digit rest)))) =>
       let (space, line) := digitNotLayout first digit
-      headNotLayout text first (others ++ ['.', second, ..more]) split space line
+      headNotLayout text first (others ++ tail) split space line
 
 def Word.real (word: Word): Bool := !isLayout word.text
 
@@ -1394,7 +1583,7 @@ theorem declReal ∀ (decl: Decl)
             unfoldingClause = None
           } =>
           let (resultSpelled, valueSpelled) := spelled
-          let nameSpelled := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
+          let (nameKind, nameSpelled, nameQuiet, nameIsName) := nameKinded name (Bool.andLeft (Bool.andLeft within))
           let assignWord := fixedWord ":=" colonEq
           realAppend
             [fixedWord "def" keyword, name, fixedWord ":" colon]
@@ -1402,7 +1591,7 @@ theorem declReal ∀ (decl: Decl)
             (Bool.andIntro
               (wordReal (fixedWord "def" keyword) KwDef byComputing)
               (Bool.andIntro
-                (wordReal name Lower nameSpelled)
+                (wordReal name nameKind nameSpelled)
                 (Bool.andIntro (wordReal (fixedWord ":" colon) Colon byComputing) byComputing)))
             (realAppend result.words
               [assignWord, ..value.words]

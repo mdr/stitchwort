@@ -163,11 +163,10 @@ theorem holdsOnExample: holdsOn
 --| A last comma that holds a comment, which `settledOnce` moves before rule N runs.
 theorem holdsOnParked: holdsOn "def d: A := (a, b, -- comma\n  )\n" = True := byComputing
 
---| A qualified name is one `Lower` token, so it is in the alphabet, the slice and `lexical1`; but `Spells Lower`
---| has no `.`, so `GoodItem` is false of it and `parseShaped1` and `parseLexical1` can't be used on its file.
+--| A qualified name is one `Lower` token, in the alphabet, the slice and `lexical1`, and `Spells Lower` has it.
 theorem qualifiedIsLower: textLexesAs "List.map" Lower = True := byComputing
 
---| Likewise a number with an exponent, a `Float` that `Spells Float` leaves out.
+--| Likewise a number with an exponent, a `Float` that `Spells Float` has.
 theorem exponentIsFloat: textLexesAs "1e3" Float = True := byComputing
 
 --| A comma that starts a line elsewhere than before a closer, which `plain1` allows.
@@ -176,8 +175,8 @@ theorem holdsOnLineComma: holdsOn "def d: A := f (a -- item\n  , b) -- close\n" 
 -- The parser's statements from the source, `good` discharged.
 
 --| `parseCarries1` for the leaves the formatter parses (`settledOnce` of what `lex` gave), from the source: `good` is
---| `settledGood`, which needs the source's names and numerals spelled plainly (`spelledPlain1`, a test slice 1's
---| driver makes beside the alphabet's: `List.map` and `1e3` are in the alphabet and fail it) and `plain1`, under
+--| `settledGood`, which needs the source's names and numerals spelled as slice 1 has them (`spelledPlain1`, a test
+--| slice 1's driver makes beside the alphabet's: `auto` is in the alphabet and fails it) and `plain1`, under
 --| which rule N keeps the tokens.
 theorem parseCarriesSource ∀ (frame: FrameRest expressionAt) (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)

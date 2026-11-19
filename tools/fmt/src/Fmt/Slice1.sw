@@ -107,11 +107,10 @@ def Tok.wordWithin1: Tok → Bool
   | Float => True
   | _ => False
 
---| A name or numeral's text is spelled as plainly as the lexer proofs need: a name of word characters (no `.`: a
---| qualified name `List.map` is one `Lower` token the proofs' `Spells` leaves out; not `auto`, which the parser reads
---| as an implicit binder in `[auto Ord]`, so a list that starts with it is no list), a numeral of digits, or digits, a
---| `.` and digits (no exponent: `1e3` is one `Float`). `Syntax.Proofs.Spells` says the same as a proposition
---| (`spellsOfText1`, `textOfSpells1`).
+--| A name or numeral's text is spelled as the lexer proofs need: a name (word characters, or components joined by
+--| `.` after an upper-case one, as `List.map`; not `auto`, which the parser reads as an implicit binder in `[auto Ord]`,
+--| so a list that starts with it is no list), a numeral of digits, or digits with a fraction, an exponent or both
+--| (`1.5`, `1e3`, `1.5e-13`). `Syntax.Proofs.Spells` says the same as a proposition (`spellsOfText1`).
 def textSpells1 (kind: Tok) (text: Text): Bool := match kind with
   | Lower => nameText1 Lower text.toList && text != "auto"
   | Upper => nameText1 Upper text.toList
@@ -120,31 +119,71 @@ def textSpells1 (kind: Tok) (text: Text): Bool := match kind with
   | _ => False
 
 def nameText1 (kind: Tok) (chars: List Char): Bool := match chars with
-  | [first, ..others] => isWordStart first && others.all isWordChar && wordKind False (Text.fromList chars) == kind
+  | [first, ..others] => isWordStart first && nameRest1 kind (Text.fromList chars) first others
   | [] => False
+
+--| What follows a name's first character: word characters whose kind `wordKind` gives, or a qualified name's
+--| components, whose last decides the kind.
+def nameRest1 (kind: Tok) (text: Text) (first: Char) (others: List Char): Bool :=
+  if others.all isWordChar then wordKind False text == kind
+  else qualScan1 first.isAsciiUppercase first.isAsciiUppercase others == Some (kind == Upper)
+
+--| The rest of a qualified name's text, as the lexer's `qualified` reads it: a `.` and a letter go on after a
+--| component that starts upper case, and the result is whether the last component does.
+def qualScan1 (upper last: Bool): List Char → Option Bool
+  | [] => Some last
+  | [char, ..more] =>
+    if isWordChar char then qualScan1 upper last more
+    else if char == '.' then
+      match more with
+        | [next, ..rest] =>
+          if upper && next.isAsciiLetter then qualScan1 next.isAsciiUppercase next.isAsciiUppercase rest else None
+        | [] => None
+    else None
 
 def numberText1 (chars: List Char): Bool := match chars with
   | [first, ..others] => first.isAsciiDigit && others.all Char.isAsciiDigit
   | [] => False
 
 def floatText1 (chars: List Char): Bool := match chars with
-  | [first, ..rest] => first.isAsciiDigit && fractionText1 rest
+  | [first, ..rest] => first.isAsciiDigit && floatRest1 rest
   | [] => False
 
---| The rest of a float's text: digits, then `.` and a digit and more digits.
-def fractionText1 (chars: List Char): Bool := match chars with
+--| What follows a float's first digit: digits, then a `.`, a digit and digits, then perhaps an exponent; or digits and
+--| an exponent.
+def floatRest1: List Char → Bool
   | [] => False
   | [char, ..rest] =>
-    if char == '.' then
+    if char.isAsciiDigit then floatRest1 rest
+    else if char == '.' then
       match rest with
-        | [second, ..more] => second.isAsciiDigit && more.all Char.isAsciiDigit
+        | [second, ..more] => second.isAsciiDigit && fractionRest1 more
         | [] => False
-    else char.isAsciiDigit && fractionText1 rest
+    else exponentText1 [char, ..rest]
 
---| A header's name: one token of `Lower` kind, spelled plainly.
-def Word.nameWithin1 (word: Word): Bool := word.lexesAs Lower && textSpells1 Lower word.text
+--| The rest of a fraction: digits, then perhaps an exponent.
+def fractionRest1: List Char → Bool
+  | [] => True
+  | [char, ..rest] => if char.isAsciiDigit then fractionRest1 rest else exponentText1 [char, ..rest]
 
---| `def name: T`, with a lower-case name: no attributes, `export`, `opaque`, parameters,
+--| An exponent: `e` or `E`, perhaps a sign, and digits.
+def exponentText1: List Char → Bool
+  | [marker, ..more] => (marker == 'e' || marker == 'E') && exponentDigits1 more
+  | [] => False
+
+def exponentDigits1: List Char → Bool
+  | [char, ..rest] => if char == '+' || char == '-' then digitsText1 rest else digitsText1 [char, ..rest]
+  | [] => False
+
+def digitsText1: List Char → Bool
+  | [first, ..others] => first.isAsciiDigit && others.all Char.isAsciiDigit
+  | [] => False
+
+--| A header's name: one token of `Lower` or `Upper` kind, spelled as slice 1 has names.
+def Word.nameWithin1 (word: Word): Bool :=
+  (word.lexesAs Lower && textSpells1 Lower word.text) || (word.lexesAs Upper && textSpells1 Upper word.text)
+
+--| `def name: T`, with a name of either case: no attributes, `export`, `opaque`, parameters,
 --| `decreasing` or `unfolding`.
 def Header.within1 (header: Header): Bool := match header with
   | {

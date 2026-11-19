@@ -643,6 +643,14 @@ theorem argsRunsAfter ∀ (arguments: List Expr)
 
 -- A declaration.
 
+--| A name's kind, lower case or upper case, is a plain token: no arrow follows it, and it opens and closes nothing.
+theorem nameKindFlat ∀ (kind: Tok)
+    (isName: kind = Lower ∨ kind = Upper):
+    kind.within1 = True ∧ arrowFollow kind = False ∧ kind.isOpener = False ∧ kind.isCloser = False :=
+  match isName with
+    | Inl same => rewrite same then (byComputing, byComputing, byComputing, byComputing)
+    | Inr same => rewrite same then (byComputing, byComputing, byComputing, byComputing)
+
 def Scan.start: Scan := { previous = None, open = 0 }
 
 --| A declaration's printed texts pass the scan from the start of the file and end with no bracket open, the last
@@ -672,7 +680,8 @@ theorem declRuns ∀ (decl: Decl)
             unfoldingClause = None
           } =>
           let (resultSpelled, valueSpelled) := spelled
-          let nameSpells := spellsOfText1 Lower name.text (Bool.andRight (Bool.andLeft (Bool.andLeft within)))
+          let (nameKind, nameSpells, _, nameIsName) := nameKinded name (Bool.andLeft (Bool.andLeft within))
+          let (nameWithinKind, nameLead, nameOpens, nameCloses) := nameKindFlat nameKind nameIsName
           let keywordWord := fixedWord "def" keyword
           let colonWord := fixedWord ":" colon
           let assignWord := fixedWord ":=" colonEq
@@ -689,7 +698,7 @@ theorem declRuns ∀ (decl: Decl)
               (Bool.andRight (Bool.andRight lexical))
               valueSpelled
           let afterKeyword: Scan := { previous = Some KwDef, open = 0 }
-          let afterName: Scan := { previous = Some Lower, open = 0 }
+          let afterName: Scan := { previous = Some nameKind, open = 0 }
           let afterColon: Scan := { previous = Some Colon, open = 0 }
           let keywordRun: Scan.start.run (keywordWord.spelledAt True) = Some afterKeyword :=
             wordRun keywordWord True Scan.start afterKeyword
@@ -701,10 +710,10 @@ theorem declRuns ∀ (decl: Decl)
             wordRun name False afterKeyword afterName
               (Bool.andLeft (Bool.andRight sound))
               (Eq.trans
-                (stepToken afterKeyword name.text Lower
-                  (lexKindOfSpells Lower name.text nameSpells)
-                  (spellsNotComment Lower name.text nameSpells))
-                (goFlat afterKeyword Lower byComputing byComputing byComputing byComputing))
+                (stepToken afterKeyword name.text nameKind
+                  (lexKindOfSpells nameKind name.text nameSpells)
+                  (spellsNotComment nameKind name.text nameSpells))
+                (goFlat afterKeyword nameKind nameWithinKind nameLead nameOpens nameCloses))
           let colonRun: afterName.run (colonWord.spelledAt False) = Some afterColon :=
             wordRun colonWord False afterName afterColon
               (Bool.andLeft (Bool.andRight (Bool.andRight sound)))

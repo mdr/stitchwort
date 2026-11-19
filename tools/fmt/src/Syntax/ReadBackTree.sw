@@ -1141,7 +1141,7 @@ theorem runsTree ∀ (goal: Goal) (read rest: List Item) (value: Expr)
 --| of, the look-aheads inside.
 type DeclarationTree (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr): Prop = {
   isDef: keyword.kind = KwDef,
-  isLower: name.kind = Lower,
+  isLower: name.kind = Lower ∨ name.kind = Upper,
   isColon: colon.kind = Colon,
   isColonEq: colonEq.kind = ColonEq,
   typeReads: ResultReads Tree Modes.start typeRead [colonEq, ..valueRead] result,

@@ -20,6 +20,7 @@ import Fmt.TreeJoinProofs (
   declReal,
   lexKind,
   lexKindOfSpells,
+  nameKinded,
   operatorSpellsOf,
   spellsOfText1,
   wordQuiet
@@ -439,10 +440,8 @@ theorem wordsEdgeOfPairs ∀ (decl: Decl) (pairs: List (Text, Bool))
       let (headerWithin, valueWithin) := within
       let resultWithin := headerResultWithin header headerWithin
       let nameWithin := headerNameWithin header headerWithin
-      let (nameCloser, nameToken) :=
-        kindPlain Lower header.name.text
-          (spellsOfText1 Lower header.name.text (Bool.andRight nameWithin))
-          (wordQuiet Lower byComputing)
+      let (nameKind, nameSpelled, nameQuiet, _) := nameKinded header.name nameWithin
+      let (nameCloser, nameToken) := kindPlain nameKind header.name.text nameSpelled nameQuiet
       let (resultShaped, valueShaped) := shaped
       let (_, resultLexical, valueLexical) := lexical
       let sound := declSoundOfSettled _ within settled (declRealOfLexical _ within lexical)

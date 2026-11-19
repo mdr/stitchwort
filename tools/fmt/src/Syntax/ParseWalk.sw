@@ -6927,7 +6927,10 @@ def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧
 theorem declOut ∀ [decl: Decl] (out: DeclOut decl): DeclOk decl := within =>
   (Bool.falseNotTrue (rewrite out at within)).impossible
 
-theorem headerNameLower ∀ (header: Header) (within: header.within1 = True): header.name.lexesAs Lower = True :=
+--| A header slice 1 lets through has a name that lexes as one token of the lower-case kind or the upper-case one.
+theorem headerNameKind ∀ (header: Header)
+    (within: header.within1 = True):
+    (header.name.lexesAs Lower || header.name.lexesAs Upper) = True :=
   match header with
     | {
         exportKeyword,
@@ -6943,7 +6946,10 @@ theorem headerNameLower ∀ (header: Header) (within: header.within1 = True): he
         unfoldingClause
       } =>
       match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
-        | None, None, DefPlain, None, [], None, None, within => Bool.andLeft (Bool.andLeft within)
+        | None, None, DefPlain, None, [], None, None, within =>
+          match (Bool.orReads _ _).forward (Bool.andLeft within) with
+            | Inl lower => (Bool.orReads _ _).backward (Inl (Bool.andLeft lower))
+            | Inr upper => (Bool.orReads _ _).backward (Inr (Bool.andLeft upper))
         | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
           (Bool.falseNotTrue within).impossible
 
@@ -6976,7 +6982,7 @@ theorem definitionOk ∀ (attributes: List Attributes) (header: Header) (body: D
         let (headerWithin, valueWithin) := within
         let (resultShaped, resultLexical, resultHigh) := resultParsed (headerResultWithin header headerWithin)
         let (valueShaped, valueLexical, valueHigh) := valueParsed valueWithin
-        (Both resultShaped valueShaped, Both (headerNameLower header headerWithin) (Both resultLexical valueLexical))
+        (Both resultShaped valueShaped, Both (headerNameKind header headerWithin) (Both resultLexical valueLexical))
 
 theorem givesDefinition ∀ (modes: Modes) (attributes: List Attributes) (exportKeyword opaqueKeyword: Option Comments)
     (nested: Nested expressionAt) (outside: Outside expressionAt):

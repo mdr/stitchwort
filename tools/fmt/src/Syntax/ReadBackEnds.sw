@@ -4,7 +4,7 @@
 --| items from the type on (`plainAll`: no `=>`, `:`, `_` or `{`, so no lambda, binder or record look-ahead fires).
 
 namespace Syntax.ReadBackEnds
-import Std (Bool, Eq, List, Nat, Option, Parse, Text, Void)
+import Std (Bool, Eq, List, Nat, Option, Parse, Text, Void, byDecision)
 import Syntax (..)
 import Fmt (..)
 import Syntax.ReadBackProofs (..)
@@ -400,7 +400,7 @@ theorem wordNotBracket ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind ==
 --| look-aheads to `declarationTree`, for the smallest declarations.
 theorem readsBackWords ∀ (seen: Seen) (keyword name colon result colonEq value: Item)
     (isDef: keyword.kind = KwDef)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (isColon: colon.kind = Colon)
     (isColonEq: colonEq.kind = ColonEq)
     (resultWord: result.kind.wordWithin1 = True)
@@ -494,7 +494,7 @@ theorem readsBackWordsExample: Parse.run
     (wordItem ColonEq ":=" 4)
     (wordItem Lower "b" 5)
     byComputing
-    byComputing
+    byDecision
     byComputing
     byComputing
     byComputing

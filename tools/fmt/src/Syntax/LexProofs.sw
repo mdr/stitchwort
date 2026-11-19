@@ -12,7 +12,7 @@
 --| 4. One standalone read-back for each token kind (`lexesAs…`) and `operatorTokLexes`.
 
 namespace Syntax.Proofs
-import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 
@@ -1241,6 +1241,506 @@ theorem itemReadsWord ∀ (first: Char) (others rest: List Char) (kind: Tok)
       starts2 honest =>
         rewrite starts then runsFromWordList state other others rest kind word starts ends noDot kinded starts2 honest)
 
+-- Qualified names.
+
+--| A qualified name's components after the first: each a `.`, a letter and word characters.
+def qualChars: List (Pair Char (List Char)) → List Char
+  | [] => []
+  | [(letter, word), ..more] => ['.', letter, ..word] ++ qualChars more
+
+--| The components are as the lexer reads them: each follows one that starts upper case.
+def QualTail: Bool → List (Pair Char (List Char)) → Prop
+  | _, [] => True
+  | upper, [(letter, word), ..more] =>
+    upper = True ∧ letter.isAsciiLetter = True ∧ word.all isWordChar = True ∧ QualTail letter.isAsciiUppercase more
+
+--| What `qualified` gives after the components, from `found` before them.
+def qualFound (found: Option Bool): List (Pair Char (List Char)) → Option Bool
+  | [] => found
+  | [(letter, _), ..more] => qualFound (Some letter.isAsciiUppercase) more
+
+--| Whether the last component starts upper case, `last` if there is none.
+def qualLast (last: Bool): List (Pair Char (List Char)) → Bool
+  | [] => last
+  | [(letter, _), ..more] => qualLast letter.isAsciiUppercase more
+
+theorem qualFoundSome ∀ (last: Bool) (comps: List (Pair Char (List Char))):
+    qualFound (Some last) comps = Some (qualLast last comps) :=
+  match comps with
+    | [] => byComputing
+    | [(letter, word), ..more] => qualFoundSome letter.isAsciiUppercase more
+
+theorem dotNotWordChar: isWordChar '.' = False := byComputing
+
+--| A name's word characters end where a qualified name's next component starts, or where the text ends.
+theorem qualCharsStops ∀ (comps: List (Pair Char (List Char))) (rest: List Char)
+    (ends: rest.takeWhile isWordChar = []):
+    (qualChars comps ++ rest).takeWhile isWordChar = [] :=
+  match comps with
+    | [] => ends
+    | [(letter, word), ..more] => byComputing
+
+theorem qualCharsLength ∀ (comps: List (Pair Char (List Char))): comps.length ≤ (qualChars comps).length :=
+  match comps with
+    | [] => byComputing
+    | [(letter, word), ..more] =>
+      let ih := qualCharsLength more
+      arithmetic [ih, List.lengthAppend ['.', letter, ..word] (qualChars more)]
+
+--| `qualified` with no `.` and letter next stops, giving what it has found.
+theorem runsQualifiedStop ∀ (fuel: Nat) (upper: Bool) (found: Option Bool) (rest: List Char)
+    (noDot: rest.head ≠ Some '.'):
+    Parse.Runs (() => qualified (Succ fuel) upper found) [] rest found :=
+  state =>
+    Parse.runsFromMark state (at => qualifiedOn fuel upper found at.rest) [] rest found (starts honest =>
+      rewrite starts then
+        match rest, noDot with
+          | [], noDot => Parse.runsPure found [] state starts honest
+          | [next, ..more], noDot =>
+            match next with
+              | '.' => (noDot byComputing).impossible
+              | other => Parse.runsPure found [other, ..more] state starts honest)
+
+--| The components of a qualified name, read from `.`, one component at a time, as far as the fuel goes.
+--|
+--| Proof idea: Induction on the components: `qualifiedOn` sees `.` and a letter after a name that starts upper case,
+--| skips the `.`, takes the word characters (`runsSpan`) and goes on with one less fuel.
+theorem runsQualified ∀ (fuel: Nat) (upper: Bool) (found: Option Bool)
+    (comps: List (Pair Char (List Char))) (rest: List Char)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (tail: QualTail upper comps)
+    (enough: comps.length < fuel):
+    Parse.Runs (() => qualified fuel upper found) (qualChars comps) rest (qualFound found comps) :=
+  match fuel, comps, tail, enough with
+    | Zero, comps, tail, enough => (arithmetic [enough]: Void).impossible
+    | Succ more, [], tail, enough => runsQualifiedStop more upper found rest noDot
+    | Succ more, [(letter, word), ..others], Both isUpper (Both isLetter (Both isWord next)), enough => state =>
+      Parse.runsFromMark state
+        (at => qualifiedOn more upper found at.rest)
+        (['.', letter, ..word] ++ qualChars others)
+        rest
+        (qualFound found [(letter, word), ..others])
+        (starts honest =>
+          rewrite starts, isUpper, isLetter then
+            (Parse.runsBind
+                  (() => skip 1)
+                  (skipped =>
+                    let component := Parse.span isWordChar
+                    qualified more letter.isAsciiUppercase (Some letter.isAsciiUppercase))
+                  ['.']
+                  ([letter, ..word] ++ qualChars others)
+                  (['.', letter, ..word] ++ qualChars others)
+                  rest
+                  ()
+                  (qualFound found [(letter, word), ..others])
+                  byComputing
+                  (runsSkip 1 ['.'] (([letter, ..word] ++ qualChars others) ++ rest) byComputing)
+                  (Parse.runsBind
+                    (() => Parse.span isWordChar)
+                    (component => qualified more letter.isAsciiUppercase (Some letter.isAsciiUppercase))
+                    [letter, ..word]
+                    (qualChars others)
+                    ([letter, ..word] ++ qualChars others)
+                    rest
+                    [letter, ..word]
+                    (qualFound found [(letter, word), ..others])
+                    byComputing
+                    (Parse.runsSpan isWordChar
+                      [letter, ..word]
+                      (qualChars others ++ rest)
+                      (Bool.andIntro (letterWordChar letter isLetter) isWord)
+                      (qualCharsStops others rest ends))
+                    (runsQualified more letter.isAsciiUppercase
+                      (Some letter.isAsciiUppercase)
+                      others
+                      rest
+                      ends
+                      noDot
+                      next
+                      (arithmetic [enough])))) state starts honest)
+
+theorem letterWordChar ∀ (char: Char) (letter: char.isAsciiLetter = True): isWordChar char = True := arithmetic [letter]
+
+--| The kind a qualified name's last component gives reads nothing.
+theorem runsPureKind ∀ (lastUpper: Bool) (rest: List Char):
+    Parse.Runs (() => if lastUpper then Upper else Lower) [] rest (if lastUpper then Upper else Lower) :=
+  match lastUpper with
+    | True => Parse.runsPure Upper rest
+    | False => Parse.runsPure Lower rest
+
+--| A qualified name is one token: the first component's word characters, then the components, whose last decides
+--| the kind.
+--|
+--| Proof idea: As `runsFromWordKind`, with the look-ahead for a qualified name reading the components
+--| (`runsQualified`) and giving the last one's case.
+theorem runsFromWordQualified ∀ (state: Parse.State Char) (first: Char) (others rest: List Char)
+    (comps: List (Pair Char (List Char))) (lastUpper: Bool)
+    (word: others.all isWordChar = True)
+    (starts: isWordStart first = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (tail: QualTail first.isAsciiUppercase comps)
+    (found: qualFound None comps = Some lastUpper):
+    Parse.RunsFrom state (() => Syntax.word False) ([first, ..others] ++ qualChars comps) rest {
+      value = TokenLexeme (if lastUpper then Upper else Lower),
+      offset = state.at.offset,
+      length = ([first, ..others] ++ qualChars comps).length
+    } :=
+  let read := [first, ..others] ++ qualChars comps
+  let value: Parse.Located Lexeme :=
+    { value = TokenLexeme (if lastUpper then Upper else Lower), offset = state.at.offset, length = read.length }
+  Parse.runsFromMark state (wordFrom False) read rest value (starts1 honest1 =>
+    (Parse.runsFromBind state
+          (() => Parse.span isWordChar)
+          (taken =>
+            let firstUpper := taken.head.map (char => char.isAsciiUppercase) |> .getOrElse False
+            let kind2 := match qualified (state.at.left + 1) firstUpper None with
+              | Some lastUpper => if lastUpper then Upper else Lower
+              | None => wordKind False (Text.fromList taken)
+            located (TokenLexeme kind2) state.at)
+          [first, ..others]
+          (qualChars comps)
+          read
+          rest
+          [first, ..others]
+          value
+          byComputing
+          (Parse.runsSpan isWordChar
+            [first, ..others]
+            (qualChars comps ++ rest)
+            (Bool.andIntro (wordStartIsChar first starts) word)
+            (qualCharsStops comps rest ends))
+          (middle atRest honest offset =>
+            Parse.runsFromBind middle
+              (() =>
+                match qualified (state.at.left + 1) (first.isAsciiUppercase) None with
+                  | Some lastUpper => if lastUpper then Upper else Lower
+                  | None => wordKind False (Text.fromList [first, ..others]))
+              (kind3 => located (TokenLexeme kind3) state.at)
+              (qualChars comps)
+              []
+              (qualChars comps)
+              rest
+              (if lastUpper then Upper else Lower)
+              value
+              (List.appendNil (qualChars comps)).flipped
+              (Parse.runsBind
+                (() => qualified (state.at.left + 1) (first.isAsciiUppercase) None)
+                (found =>
+                  match found with
+                    | Some lastUpper => if lastUpper then Upper else Lower
+                    | None => wordKind False (Text.fromList [first, ..others]))
+                (qualChars comps)
+                []
+                (qualChars comps)
+                rest
+                (Some lastUpper)
+                (if lastUpper then Upper else Lower)
+                (List.appendNil (qualChars comps)).flipped
+                (rewrite found at runsQualified
+                  (state.at.left + 1)
+                  first.isAsciiUppercase
+                  None
+                  comps
+                  rest
+                  ends
+                  noDot
+                  tail
+                  (arithmetic [
+                    qualCharsLength comps,
+                    honest1,
+                    Eq.cong List.length starts1,
+                    List.lengthAppend read rest,
+                    List.lengthAppend [first, ..others] (qualChars comps)
+                  ]))
+                (runsPureKind lastUpper rest))
+              (middle2 atRest2 honest2 offset2 =>
+                runsFromLocatedAfter state middle2
+                  (TokenLexeme (if lastUpper then Upper else Lower))
+                  read
+                  rest
+                  atRest2
+                  honest2
+                  (arithmetic [offset, offset2, List.lengthAppend [first, ..others] (qualChars comps)])))) starts1
+        honest1)
+
+--| `word`, as the one-item list `item` gives.
+theorem runsFromWordQualifiedList ∀ (state: Parse.State Char) (first: Char) (others rest: List Char)
+    (comps: List (Pair Char (List Char))) (lastUpper: Bool)
+    (word: others.all isWordChar = True)
+    (starts: isWordStart first = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (tail: QualTail first.isAsciiUppercase comps)
+    (found: qualFound None comps = Some lastUpper):
+    Parse.RunsFrom state (() => [Syntax.word False]) ([first, ..others] ++ qualChars comps) rest [
+      {
+        value = TokenLexeme (if lastUpper then Upper else Lower),
+        offset = state.at.offset,
+        length = ([first, ..others] ++ qualChars comps).length
+      }
+    ] :=
+  Parse.runsFromBindAt state
+    (() => Syntax.word False)
+    (x => [x])
+    ([first, ..others] ++ qualChars comps)
+    []
+    ([first, ..others] ++ qualChars comps)
+    rest
+    {
+      value = TokenLexeme (if lastUpper then Upper else Lower),
+      offset = state.at.offset,
+      length = ([first, ..others] ++ qualChars comps).length
+    }
+    [
+      {
+        value = TokenLexeme (if lastUpper then Upper else Lower),
+        offset = state.at.offset,
+        length = ([first, ..others] ++ qualChars comps).length
+      }
+    ]
+    (List.appendNil ([first, ..others] ++ qualChars comps)).flipped
+    (runsFromWordQualified state first others rest comps lastUpper word starts ends noDot tail found)
+    (middle atRest honest offset =>
+      Parse.runsPure
+        [
+          {
+            value = TokenLexeme (if lastUpper then Upper else Lower),
+            offset = state.at.offset,
+            length = ([first, ..others] ++ qualChars comps).length
+          }
+        ]
+        rest
+        middle)
+
+--| A qualified name: components after the first, which no word character or `.` follows.
+--|
+--| Proof idea: As `itemReadsWord`: `item` tries the other lexemes first, none of which starts with a word start, then
+--| the word is read (`runsFromWordQualifiedList`).
+theorem itemReadsQualified ∀ (first: Char) (others rest: List Char)
+    (comps: List (Pair Char (List Char))) (lastUpper: Bool)
+    (starts: isWordStart first = True)
+    (word: others.all isWordChar = True)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.')
+    (tail: QualTail first.isAsciiUppercase comps)
+    (found: qualFound None comps = Some lastUpper):
+    ItemReads ([first, ..others] ++ qualChars comps) (TokenLexeme (if lastUpper then Upper else Lower)) rest :=
+  match first, starts with
+    | '\n', starts => (Bool.falseNotTrue starts).impossible
+    | '}', starts => (Bool.falseNotTrue starts).impossible
+    | '{', starts => (Bool.falseNotTrue starts).impossible
+    | ' ', starts => (Bool.falseNotTrue starts).impossible
+    | '\r', starts => (Bool.falseNotTrue starts).impossible
+    | '\t', starts => (Bool.falseNotTrue starts).impossible
+    | '-', starts => (Bool.falseNotTrue starts).impossible
+    | '"', starts => (Bool.falseNotTrue starts).impossible
+    | '\'', starts => (Bool.falseNotTrue starts).impossible
+    | '.', starts => (Bool.falseNotTrue starts).impossible
+    | other, starts =>
+      itemReadsVia
+        ([other, ..others] ++ qualChars comps)
+        rest
+        (TokenLexeme (if lastUpper then Upper else Lower))
+        (self source state =>
+          starts2 honest =>
+            rewrite starts then
+              runsFromWordQualifiedList state other others rest comps lastUpper word starts ends noDot tail found
+                  starts2 honest)
+
+-- Exponents.
+
+--| An exponent's text: `e` or `E`, perhaps a sign, and digits.
+def ExponentAs (exponent: List Char): Prop :=
+  (∃ (marker: Char) (digit: Char) (digits: List Char) => exponent = [marker, digit, ..digits]
+    ∧ (marker == 'e' || marker == 'E') = True
+    ∧ digit.isAsciiDigit = True
+    ∧ digits.all Char.isAsciiDigit = True)
+    ∨ (∃ (marker: Char) (sign: Char) (digit: Char) (digits: List Char) => exponent = [marker, sign, digit, ..digits]
+      ∧ (marker == 'e' || marker == 'E') = True
+      ∧ (sign == '+' || sign == '-') = True
+      ∧ digit.isAsciiDigit = True
+      ∧ digits.all Char.isAsciiDigit = True)
+
+theorem exponentSkipPlain ∀ (marker digit: Char) (more: List Char)
+    (isMarker: (marker == 'e' || marker == 'E') = True)
+    (isDigit: digit.isAsciiDigit = True):
+    exponentSkip [marker, digit, ..more] = Some 1 :=
+  let notSign: (digit == '+' || digit == '-') = False := arithmetic [isDigit]
+  match more with
+    | [] => rewrite isMarker, isDigit
+    | [next, ..later] => rewrite isMarker, isDigit, notSign
+
+theorem exponentSkipSigned ∀ (marker sign digit: Char) (more: List Char)
+    (isMarker: (marker == 'e' || marker == 'E') = True)
+    (isSign: (sign == '+' || sign == '-') = True)
+    (isDigit: digit.isAsciiDigit = True):
+    exponentSkip [marker, sign, digit, ..more] = Some 2 :=
+  rewrite isMarker, isSign, isDigit
+
+--| An exponent, which no digit follows: `exponentPart` reads it and gives `True`.
+--|
+--| Proof idea: `exponentSkip` counts the `e` and the sign, `skip` reads them and `span` the digits.
+theorem runsExponent ∀ (exponent rest: List Char)
+    (shape: ExponentAs exponent)
+    (ends: rest.takeWhile Char.isAsciiDigit = []):
+    Parse.Runs (() => exponentPart()) exponent rest True :=
+  match exponent, shape with
+    | exponent, Inl
+        (Witness marker (Witness digit (Witness digits (Both same (Both isMarker (Both isDigit isDigits)))))) =>
+      rewrite same then
+        state =>
+          Parse.runsFromMark state exponentFrom [marker, digit, ..digits] rest True (starts honest =>
+            rewrite starts, exponentSkipPlain marker digit (digits ++ rest) isMarker isDigit then
+              (Parse.runsBind
+                    (() => skip 1)
+                    (skipped =>
+                      let power := Parse.span Char.isAsciiDigit
+                      True)
+                    [marker]
+                    [digit, ..digits]
+                    [marker, digit, ..digits]
+                    rest
+                    ()
+                    True
+                    byComputing
+                    (runsSkip 1 [marker] ([digit, ..digits] ++ rest) byComputing)
+                    (Parse.runsBind
+                      (() => Parse.span Char.isAsciiDigit)
+                      (power => True)
+                      [digit, ..digits]
+                      []
+                      [digit, ..digits]
+                      rest
+                      [digit, ..digits]
+                      True
+                      (List.appendNil [digit, ..digits]).flipped
+                      (Parse.runsSpan Char.isAsciiDigit [digit, ..digits] rest (Bool.andIntro isDigit isDigits) ends)
+                      (Parse.runsPure True rest))) state starts honest)
+    | exponent, Inr
+        (Witness marker
+          (Witness sign
+            (Witness digit (Witness digits (Both same (Both isMarker (Both isSign (Both isDigit isDigits)))))))) =>
+      rewrite same then
+        state =>
+          Parse.runsFromMark state exponentFrom [marker, sign, digit, ..digits] rest True (starts honest =>
+            rewrite starts, exponentSkipSigned marker sign digit (digits ++ rest) isMarker isSign isDigit then
+              (Parse.runsBind
+                    (() => skip 2)
+                    (skipped =>
+                      let power := Parse.span Char.isAsciiDigit
+                      True)
+                    [marker, sign]
+                    [digit, ..digits]
+                    [marker, sign, digit, ..digits]
+                    rest
+                    ()
+                    True
+                    byComputing
+                    (runsSkip 2 [marker, sign] ([digit, ..digits] ++ rest) byComputing)
+                    (Parse.runsBind
+                      (() => Parse.span Char.isAsciiDigit)
+                      (power => True)
+                      [digit, ..digits]
+                      []
+                      [digit, ..digits]
+                      rest
+                      [digit, ..digits]
+                      True
+                      (List.appendNil [digit, ..digits]).flipped
+                      (Parse.runsSpan Char.isAsciiDigit [digit, ..digits] rest (Bool.andIntro isDigit isDigits) ends)
+                      (Parse.runsPure True rest))) state starts honest)
+
+theorem headNotChar ∀ (char: Char) (more: List Char) (other: Char)
+    (differs: (char == other) = False):
+    [char, ..more].head ≠ Some other :=
+  same => DecEq.soundFalse char other differs (Option.someInjective same)
+
+--| A fraction's text: a `.`, a digit and more digits.
+def FractionAs (fraction: List Char): Prop :=
+  ∃ (second: Char) (more: List Char) => fraction = ['.', second, ..more]
+    ∧ second.isAsciiDigit = True
+    ∧ more.all Char.isAsciiDigit = True
+
+--| What follows a number's digits when an exponent does and no fraction: the exponent is read and gives `True`.
+theorem runsTailExponent ∀ (exponent rest: List Char)
+    (shape: ExponentAs exponent)
+    (ends: rest.takeWhile Char.isAsciiDigit = []):
+    Parse.Runs (() => numberTail False) exponent rest True :=
+  let noDot: (exponent ++ rest).head ≠ Some '.' := match exponent, shape with
+    | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
+      rewrite same then headNotChar marker ([digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
+    | exponent, Inr
+        (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
+      rewrite same then headNotChar marker ([sign, digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
+  Parse.runsBind
+    (() => fractionPart())
+    (fraction =>
+      let exponent2 := exponentPart()
+      fraction || exponent2)
+    []
+    exponent
+    exponent
+    rest
+    False
+    True
+    byComputing
+    (runsFractionNone (exponent ++ rest) noDot)
+    (Parse.runsBind
+      (() => exponentPart())
+      (exponent2 => False || exponent2)
+      exponent
+      []
+      exponent
+      rest
+      True
+      True
+      (List.appendNil exponent).flipped
+      (runsExponent exponent rest shape ends)
+      (Parse.runsPure True rest))
+
+--| What follows a number's digits when a fraction does and then an exponent.
+theorem runsTailFractionExponent ∀ (fraction exponent rest: List Char)
+    (fractionShape: FractionAs fraction)
+    (exponentShape: ExponentAs exponent)
+    (ends: rest.takeWhile Char.isAsciiDigit = []):
+    Parse.Runs (() => numberTail False) (fraction ++ exponent) rest True :=
+  let stops: (exponent ++ rest).takeWhile Char.isAsciiDigit = [] := match exponent, exponentShape with
+    | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
+      rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
+    | exponent, Inr
+        (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
+      rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
+  match fraction, fractionShape with
+    | fraction, Witness second (Witness more (Both same (Both digit digits))) =>
+      rewrite same then
+        Parse.runsBind
+          (() => fractionPart())
+          (fraction2 =>
+            let exponent2 := exponentPart()
+            fraction2 || exponent2)
+          ['.', second, ..more]
+          exponent
+          (['.', second, ..more] ++ exponent)
+          rest
+          True
+          True
+          byComputing
+          (runsFraction second more (exponent ++ rest) digit digits stops)
+          (Parse.runsBind
+            (() => exponentPart())
+            (exponent2 => True || exponent2)
+            exponent
+            []
+            exponent
+            rest
+            True
+            True
+            (List.appendNil exponent).flipped
+            (runsExponent exponent rest exponentShape ends)
+            (Parse.runsPure True rest))
+
 -- Numbers.
 
 theorem digitNotWordStart ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordStart char = False :=
@@ -1571,7 +2071,119 @@ theorem itemReadsFloat ∀ (first: Char) (others: List Char) (second: Char) (mor
                 starts
                 honest)
 
+--| What follows a float's digits: a fraction, an exponent, or both.
+def FloatTailAs (tail: List Char): Prop :=
+  (∃ (fraction: List Char) (exponent: List Char) => tail = fraction ++ exponent
+    ∧ FractionAs fraction
+    ∧ ExponentAs exponent)
+    ∨ FractionAs tail
+    ∨ ExponentAs tail
+
+theorem fractionStops ∀ (fraction rest: List Char)
+    (shape: FractionAs fraction):
+    (fraction ++ rest).takeWhile Char.isAsciiDigit = [] :=
+  match fraction, shape with | fraction, Witness second (Witness more (Both same rest2)) => rewrite same
+
+theorem exponentStops ∀ (exponent rest: List Char)
+    (shape: ExponentAs exponent):
+    (exponent ++ rest).takeWhile Char.isAsciiDigit = [] :=
+  match exponent, shape with
+    | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
+      rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
+    | exponent, Inr
+        (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
+      rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
+
+--| A float's tail doesn't start with a digit.
+theorem floatTailStops ∀ (tail rest: List Char)
+    (shape: FloatTailAs tail):
+    (tail ++ rest).takeWhile Char.isAsciiDigit = [] :=
+  match shape with
+    | Inl (Witness fraction (Witness exponent (Both same (Both fs es)))) =>
+      rewrite same then
+        match fraction, fs with
+          | fraction, Witness second (Witness more (Both same2 rest2)) => rewrite same2
+    | Inr (Inl fs) => fractionStops tail rest fs
+    | Inr (Inr es) => exponentStops tail rest es
+
+--| What follows a float's digits is read by `numberTail`, which gives `True`.
+theorem runsTailFloat ∀ (tail rest: List Char)
+    (shape: FloatTailAs tail)
+    (ends: rest.takeWhile Char.isAsciiDigit = [])
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    Parse.Runs (() => numberTail False) tail rest True :=
+  match shape with
+    | Inl (Witness fraction (Witness exponent (Both same (Both fs es)))) =>
+      rewrite same then runsTailFractionExponent fraction exponent rest fs es ends
+    | Inr (Inl (Witness second (Witness more (Both same (Both decimal decimals))))) =>
+      rewrite same then runsTailFraction second more rest decimal decimals ends noE
+    | Inr (Inr es) => runsTailExponent tail rest es ends
+
+--| A float: digits and a tail that is a fraction, an exponent or both, with nothing after it that goes on with the
+--| number.
+--|
+--| Proof idea: As `itemReadsNum`, with the tail read by `runsTailFloat`.
+theorem itemReadsFloatTail ∀ (first: Char) (others tail rest read: List Char)
+    (split: read = [first, ..others] ++ tail)
+    (digit: first.isAsciiDigit = True)
+    (digits: others.all Char.isAsciiDigit = True)
+    (shape: FloatTailAs tail)
+    (ends: rest.takeWhile Char.isAsciiDigit = [])
+    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
+    ItemReads read (TokenLexeme Float) rest :=
+  rewrite split then
+    match first, digit with
+      | '\n', digit => (Bool.falseNotTrue digit).impossible
+      | '}', digit => (Bool.falseNotTrue digit).impossible
+      | '{', digit => (Bool.falseNotTrue digit).impossible
+      | ' ', digit => (Bool.falseNotTrue digit).impossible
+      | '\r', digit => (Bool.falseNotTrue digit).impossible
+      | '\t', digit => (Bool.falseNotTrue digit).impossible
+      | '-', digit => (Bool.falseNotTrue digit).impossible
+      | '"', digit => (Bool.falseNotTrue digit).impossible
+      | '\'', digit => (Bool.falseNotTrue digit).impossible
+      | '.', digit => (Bool.falseNotTrue digit).impossible
+      | other, digit => itemReadsVia ([other, ..others] ++ tail) rest (TokenLexeme Float) (self source state =>
+        starts honest =>
+          let all: [other, ..others].all Char.isAsciiDigit = True := Bool.andIntro digit digits
+          rewrite digitNotWordStart other digit, digit then
+            Parse.runsFromBindAt state
+              (() => number False)
+              (x => [x])
+              ([other, ..others] ++ tail)
+              []
+              ([other, ..others] ++ tail)
+              rest
+              { value = TokenLexeme Float, offset = state.at.offset, length = ([other, ..others] ++ tail).length }
+              [{ value = TokenLexeme Float, offset = state.at.offset, length = ([other, ..others] ++ tail).length }]
+              (List.appendNil ([other, ..others] ++ tail)).flipped
+              (runsFromNumber state
+                [other, ..others]
+                tail
+                ([other, ..others] ++ tail)
+                rest
+                True
+                byComputing
+                all
+                (floatTailStops tail rest shape)
+                (runsTailFloat tail rest shape ends noE))
+              (middle atRest2 honest2 offset2 =>
+                Parse.runsPure
+                  [{ value = TokenLexeme Float, offset = state.at.offset, length = ([other, ..others] ++ tail).length }]
+                  rest
+                  middle)
+              starts
+              honest)
+
 -- The interface the printer's proofs use: a token's spelling, what may follow it, and that it reads as that token.
+
+--| What the lexer reads a name as: with no components after the first it is `wordKind`'s, with some it is the last
+--| component's case.
+def NameKind (kind: Tok) (text: Text): List (Pair Char (List Char)) → Prop
+  | [] => wordKind False text = kind
+  | [component, ..more] =>
+    ∃ (lastUpper: Bool) => qualFound None [component, ..more] = Some lastUpper
+      ∧ (if lastUpper then Upper else Lower) = kind
 
 --| The texts that are a token of this kind (as the lexer spells it, `crates/syntax`'s lexer), for the slice 1
 --| alphabet: fixed spellings, with the Unicode one for seven, names, and numbers.
@@ -1602,26 +2214,28 @@ def Spells: Tok → Text → Prop
   | Bang, text => text = "!" ∨ text = "¬"
   | KwDef, text => text = "def"
   | Lower, text =>
-    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+    ∃ (first: Char) (others: List Char) (comps: List (Pair Char (List Char))) => text.toList
+      = [first, ..others] ++ qualChars comps
       ∧ isWordStart first = True
       ∧ others.all isWordChar = True
-      ∧ wordKind False text = Lower
+      ∧ QualTail first.isAsciiUppercase comps
+      ∧ NameKind Lower text comps
   | Upper, text =>
-    ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
+    ∃ (first: Char) (others: List Char) (comps: List (Pair Char (List Char))) => text.toList
+      = [first, ..others] ++ qualChars comps
       ∧ isWordStart first = True
       ∧ others.all isWordChar = True
-      ∧ wordKind False text = Upper
+      ∧ QualTail first.isAsciiUppercase comps
+      ∧ NameKind Upper text comps
   | Num, text =>
     ∃ (first: Char) (others: List Char) => text.toList = [first, ..others]
       ∧ first.isAsciiDigit = True
       ∧ others.all Char.isAsciiDigit = True
   | Float, text =>
-    ∃ (first: Char) (others: List Char) (second: Char) (more: List Char) => text.toList
-      = [first, ..others] ++ ['.', second, ..more]
+    ∃ (first: Char) (others: List Char) (tail: List Char) => text.toList = [first, ..others] ++ tail
       ∧ first.isAsciiDigit = True
       ∧ others.all Char.isAsciiDigit = True
-      ∧ second.isAsciiDigit = True
-      ∧ more.all Char.isAsciiDigit = True
+      ∧ FloatTailAs tail
   | _, text => False
 
 --| What the text after a token may start with, so that the lexer reads the token and no more: not a character that
@@ -1640,6 +2254,26 @@ def MayFollow (kind: Tok) (text: Text) (rest: List Char): Prop := match kind wit
   | Num => rest.takeWhile Char.isAsciiDigit = [] ∧ rest.head ≠ Some '.' ∧ (rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E')
   | Float => rest.takeWhile Char.isAsciiDigit = [] ∧ (rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E')
   | _ => True
+
+--| A name, plain or qualified, that nothing goes on with: one `item` read as the kind `NameKind` says.
+theorem itemReadsName ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
+    (comps: List (Pair Char (List Char))) (rest: List Char)
+    (split: text.toList = [first, ..others] ++ qualChars comps)
+    (starts: isWordStart first = True)
+    (word: others.all isWordChar = True)
+    (tail: QualTail first.isAsciiUppercase comps)
+    (kinded: NameKind kind text comps)
+    (ends: rest.takeWhile isWordChar = [])
+    (noDot: rest.head ≠ Some '.'):
+    ItemReads text.toList (TokenLexeme kind) rest :=
+  match comps, split, tail, kinded with
+    | [], split, tail, kinded =>
+      let plain: text.toList = [first, ..others] := Eq.trans split (List.appendNil [first, ..others])
+      rewrite plain then
+        itemReadsWord first others rest kind starts word ends noDot (rewrite <- plain, Text.fromToList text then kinded)
+    | [component, ..more], split, tail, Witness lastUpper (Both found isKind) =>
+      let ran := itemReadsQualified first others rest [component, ..more] lastUpper starts word ends noDot tail found
+      rewrite split then (rewrite isKind at ran then ran)
 
 --| `lexWord1`: a text that spells a token of slice 1's alphabet, followed by something it may be followed by, is read
 --| by the lexer's `item` as that token, whatever follows after that.
@@ -1684,20 +2318,16 @@ theorem lexWord1 ∀ (kind: Tok) (text: Text) (rest: List Char)
     | Bang, Inr same, follows => rewrite same then itemReadsBangUnicode rest
     | KwDef, same, Both ends noDot =>
       rewrite same then itemReadsWord 'd' ['e', 'f'] rest KwDef byComputing byComputing ends noDot byComputing
-    | Lower, Witness first (Witness others (Both split (Both starts (Both word kinded)))), Both ends noDot =>
-      rewrite split then
-        itemReadsWord first others rest Lower starts word ends noDot
-          (rewrite <- split, Text.fromToList text then kinded)
-    | Upper, Witness first (Witness others (Both split (Both starts (Both word kinded)))), Both ends noDot =>
-      rewrite split then
-        itemReadsWord first others rest Upper starts word ends noDot
-          (rewrite <- split, Text.fromToList text then kinded)
+    | Lower, Witness first
+        (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))), Both ends noDot =>
+      itemReadsName Lower text first others comps rest split starts word tail kinded ends noDot
+    | Upper, Witness first
+        (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))), Both ends noDot =>
+      itemReadsName Upper text first others comps rest split starts word tail kinded ends noDot
     | Num, Witness first (Witness others (Both split (Both digit digits))), Both ends (Both noDot noE) =>
       rewrite split then itemReadsNum first others rest digit digits ends noDot noE
-    | Float, Witness first
-        (Witness others
-          (Witness second (Witness more (Both split (Both digit (Both digits (Both decimal decimals))))))), Both ends
-          noE => itemReadsFloat first others second more rest text.toList split digit digits decimal decimals ends noE
+    | Float, Witness first (Witness others (Witness tail (Both split (Both digit (Both digits shape))))), Both ends
+          noE => itemReadsFloatTail first others tail rest text.toList split digit digits shape ends noE
 
 -- Pieces that lex.
 
@@ -1808,6 +2438,65 @@ theorem allImplies ∀ (chars: List Char) (passes follows: Char → Bool)
     | [first, ..more], all =>
       Bool.andIntro (implied first (Bool.andLeft all)) (allImplies more passes follows implied (Bool.andRight all))
 
+theorem qualCharsNoBreak ∀ (upper: Bool) (comps: List (Pair Char (List Char)))
+    (tail: QualTail upper comps):
+    (qualChars comps).all (char => char != '\n') = True :=
+  match comps, tail with
+    | [], tail => byComputing
+    | [(letter, word), ..more], Both isUpper (Both isLetter (Both isWord next)) =>
+      Bool.andIntro byComputing
+        (Bool.andIntro
+          (wordCharNoBreak letter (letterWordChar letter isLetter))
+          (allJoin word
+            (qualChars more)
+            (char => char != '\n')
+            (allImplies word isWordChar (char => char != '\n') wordCharNoBreak isWord)
+            (qualCharsNoBreak letter.isAsciiUppercase more next)))
+
+theorem exponentNoBreak ∀ (exponent: List Char)
+    (shape: ExponentAs exponent):
+    exponent.all (char => char != '\n') = True :=
+  match exponent, shape with
+    | exponent, Inl
+        (Witness marker (Witness digit (Witness digits (Both same (Both isMarker (Both isDigit isDigits)))))) =>
+      rewrite same then
+        Bool.andIntro
+          (arithmetic [isMarker])
+          (Bool.andIntro
+            (digitNoBreak digit isDigit)
+            (allImplies digits Char.isAsciiDigit (char => char != '\n') digitNoBreak isDigits))
+    | exponent, Inr
+        (Witness marker
+          (Witness sign
+            (Witness digit (Witness digits (Both same (Both isMarker (Both isSign (Both isDigit isDigits)))))))) =>
+      rewrite same then
+        Bool.andIntro
+          (arithmetic [isMarker])
+          (Bool.andIntro
+            (arithmetic [isSign])
+            (Bool.andIntro
+              (digitNoBreak digit isDigit)
+              (allImplies digits Char.isAsciiDigit (char => char != '\n') digitNoBreak isDigits)))
+
+theorem fractionNoBreak ∀ (fraction: List Char)
+    (shape: FractionAs fraction):
+    fraction.all (char => char != '\n') = True :=
+  match fraction, shape with
+    | fraction, Witness second (Witness more (Both same (Both digit digits))) =>
+      rewrite same then
+        Bool.andIntro byComputing
+          (Bool.andIntro
+            (digitNoBreak second digit)
+            (allImplies more Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
+
+theorem floatTailNoBreak ∀ (tail: List Char) (shape: FloatTailAs tail): tail.all (char => char != '\n') = True :=
+  match shape with
+    | Inl (Witness fraction (Witness exponent (Both same (Both fs es)))) =>
+      rewrite same then
+        allJoin fraction exponent (char => char != '\n') (fractionNoBreak fraction fs) (exponentNoBreak exponent es)
+    | Inr (Inl fs) => fractionNoBreak tail fs
+    | Inr (Inr es) => exponentNoBreak tail es
+
 --| A spelled token has something in it and no line break.
 --|
 --| Proof idea: Each fixed spelling is a literal; names and numbers are made of characters that aren't a line break (`wordCharNoBreak`, `digitNoBreak`).
@@ -1845,20 +2534,28 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
     | Bang, Inl same => rewrite same then Both byDecision byComputing
     | Bang, Inr same => rewrite same then Both byDecision byComputing
     | KwDef, same => rewrite same then Both byDecision byComputing
-    | Lower, Witness first (Witness others (Both split (Both starts (Both word kinded)))) =>
+    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))) =>
       Both
         (rewrite split then different => cases)
         (rewrite split then
           Bool.andIntro
             (wordCharNoBreak first (wordStartIsChar first starts))
-            (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word))
-    | Upper, Witness first (Witness others (Both split (Both starts (Both word kinded)))) =>
+            (allJoin others
+              (qualChars comps)
+              (char => char != '\n')
+              (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word)
+              (qualCharsNoBreak first.isAsciiUppercase comps tail)))
+    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))) =>
       Both
         (rewrite split then different => cases)
         (rewrite split then
           Bool.andIntro
             (wordCharNoBreak first (wordStartIsChar first starts))
-            (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word))
+            (allJoin others
+              (qualChars comps)
+              (char => char != '\n')
+              (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word)
+              (qualCharsNoBreak first.isAsciiUppercase comps tail)))
     | Num, Witness first (Witness others (Both split (Both digit digits))) =>
       Both
         (rewrite split then different => cases)
@@ -1866,22 +2563,16 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
           Bool.andIntro
             (digitNoBreak first digit)
             (allImplies others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
-    | Float, Witness first
-        (Witness others
-          (Witness second (Witness more (Both split (Both digit (Both digits (Both decimal decimals))))))) =>
+    | Float, Witness first (Witness others (Witness tail (Both split (Both digit (Both digits shape))))) =>
       Both
         (rewrite split then different => cases)
         (rewrite split then
           Bool.andIntro
             (digitNoBreak first digit)
-            (allJoin others
-              ['.', second, ..more]
+            (allJoin others tail
               (char => char != '\n')
               (allImplies others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits)
-              (Bool.andIntro byComputing
-                (Bool.andIntro
-                  (digitNoBreak second decimal)
-                  (allImplies more Char.isAsciiDigit (char => char != '\n') digitNoBreak decimals)))))
+              (floatTailNoBreak tail shape)))
 
 theorem piecesTextOne ∀ (kind: Tok) (text: Text): piecesText [Code kind text] = text :=
   rewrite List.appendNil text.toList then Text.fromToList text
@@ -2104,7 +2795,10 @@ theorem exampleLexable: Lexable examplePieces [] :=
                   (Both byComputing
                     (Both byDecision
                       (Both
-                        (Witness 'x' (Witness [] (Both byComputing (Both byComputing (Both byComputing byComputing)))))
+                        (Witness 'x'
+                          (Witness []
+                            (Witness []
+                              (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
                         (Both byDecision
                           (Both byComputing
                             (Both byDecision
@@ -2114,7 +2808,9 @@ theorem exampleLexable: Lexable examplePieces [] :=
                                     (Witness 'N'
                                       (Witness
                                         ['a', 't']
-                                        (Both byComputing (Both byComputing (Both byComputing byComputing)))))
+                                        (Witness []
+                                          (Both byComputing
+                                            (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
                                     (Both byDecision
                                       (Both byComputing
                                         (Both byDecision
@@ -2125,11 +2821,17 @@ theorem exampleLexable: Lexable examplePieces [] :=
                                                   (Both
                                                     (Witness '1'
                                                       (Witness []
-                                                        (Witness '5'
-                                                          (Witness []
+                                                        (Witness
+                                                          ['.', '5']
+                                                          (Both byComputing
                                                             (Both byComputing
                                                               (Both byComputing
-                                                                (Both byComputing (Both byComputing byComputing))))))))
+                                                                (Inr
+                                                                  (Inl
+                                                                    (Witness '5'
+                                                                      (Witness []
+                                                                        (Both byComputing
+                                                                          (Both byComputing byComputing))))))))))))
                                                     (Both byDecision
                                                       (Both byComputing
                                                         (Both byDecision
@@ -2154,10 +2856,12 @@ theorem exampleLexable: Lexable examplePieces [] :=
                                                                                   (Both
                                                                                     (Witness 'y'
                                                                                       (Witness []
-                                                                                        (Both byComputing
+                                                                                        (Witness []
                                                                                           (Both byComputing
                                                                                             (Both byComputing
-                                                                                                byComputing)))))
+                                                                                              (Both byComputing
+                                                                                                (Both byComputing
+                                                                                                    byComputing)))))))
                                                                                     (Both byDecision
                                                                                       (Both byComputing
                                                                                         (Both byDecision
@@ -2328,8 +3032,8 @@ theorem notJustI ∀ (piece: Piece) (rest: List Char) (spells: piece.Spells) (fo
     | Code Num text, Witness first (Witness others (Both split (Both digit _))), _ =>
       let isI: first = 'i' := List.consInjectiveHead first 'i' others [] (Eq.trans split.flipped single)
       rewrite isI at digit then cases
-    | Code Float text, Witness first (Witness others (Witness second (Witness more (Both split (Both digit _))))), _ =>
-      let joined: [first, ..others ++ ['.', second, ..more]] = ['i'] := Eq.trans split.flipped single
+    | Code Float text, Witness first (Witness others (Witness tail (Both split (Both digit _)))), _ =>
+      let joined: [first, ..others ++ tail] = ['i'] := Eq.trans split.flipped single
       let isI: first = 'i' := List.consInjectiveHead first 'i' _ [] joined
       rewrite isI at digit then cases
 
