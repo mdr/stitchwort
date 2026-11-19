@@ -182,71 +182,24 @@ theorem groupsFromTokens ∀ (empty: Bool) (decls: List Decl):
 --| clause lambda or pattern, the only nodes the checks refuse.
 theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr checkSteps expr = Ok expr := match expr with
   | Atom kind word => byComputing
-  | Paren open inner close =>
-    rewrite Fail.toResultSeq1Then
-      (() => inner.traverse checkSteps)
-      (v1 => Paren open v1 close)
-      checkSteps.expr
-      inner
-      (exprChecks inner within)
-  | Tuple open items trailingComma close =>
-    rewrite Fail.toResultSeq1Then
-      (() => traverseExprs checkSteps items)
-      (v1 => Tuple open v1 trailingComma close)
-      checkSteps.expr
-      items
-      (exprsChecks items within)
-  | ListOf open items trailingComma close =>
-    rewrite Fail.toResultSeq1Then
-      (() => traverseExprs checkSteps items)
-      (v1 => ListOf open v1 trailingComma close)
-      checkSteps.expr
-      items
-      (exprsChecks items within)
+  | Paren open inner close => rewrite Fail.toResultSeq1Then (exprChecks inner within)
+  | Tuple open items trailingComma close => rewrite Fail.toResultSeq1Then (exprsChecks items within)
+  | ListOf open items trailingComma close => rewrite Fail.toResultSeq1Then (exprsChecks items within)
   | App head arguments =>
-    rewrite Fail.toResultSeq2Then
-      (() => head.traverse checkSteps)
-      (() => traverseExprs checkSteps arguments)
-      (v1 v2 => App v1 v2)
-      checkSteps.expr
-      head
-      arguments
-      (exprChecks head (Bool.andLeft within))
-      (exprsChecks arguments (Bool.andRight within))
+    rewrite Fail.toResultSeq2Then (exprChecks head (Bool.andLeft within)) (exprsChecks arguments (Bool.andRight within))
   | Infix kind left operator right =>
     let sides: left.within1 = True ∧ right.within1 = True := match kind with
       | InfixBinary => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
       | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
       | _ => cases
-    rewrite Fail.toResultSeq2Then
-      (() => left.traverse checkSteps)
-      (() => right.traverse checkSteps)
-      (v1 v2 => Infix kind v1 operator v2)
-      checkSteps.expr
-      left
-      right
-      (exprChecks left sides.left)
-      (exprChecks right sides.right)
-  | Prefix operator operand =>
-    rewrite Fail.toResultSeq1Then
-      (() => operand.traverse checkSteps)
-      (v1 => Prefix operator v1)
-      checkSteps.expr
-      operand
-      (exprChecks operand (Bool.andLeft within))
+    rewrite Fail.toResultSeq2Then (exprChecks left sides.left) (exprChecks right sides.right)
+  | Prefix operator operand => rewrite Fail.toResultSeq1Then (exprChecks operand (Bool.andLeft within))
 
 theorem exprsChecks ∀ (items: List Expr) (within: allWithin1 items = True): runExprs checkSteps items = Ok items :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
-      Fail.toResultSeq2
-        (() => first.traverse checkSteps)
-        (() => traverseExprs checkSteps rest)
-        (v1 v2 => [v1, ..v2])
-        first
-        rest
-        (exprChecks first (Bool.andLeft within))
-        (exprsChecks rest (Bool.andRight within))
+      Fail.toResultSeq2 (exprChecks first (Bool.andLeft within)) (exprsChecks rest (Bool.andRight within))
 
 --| A slice 1 type has no implicit binder on its spine.
 theorem spineNone ∀ (expr: Expr) (within: expr.within1 = True): spineRepeat [] expr = None := match expr with
@@ -288,10 +241,7 @@ theorem declLowers ∀ (decl: Decl) (within: decl.within1 = True): decl.lowering
         }
         let headerRuns: runHeader checkSteps built = Ok built :=
           rewrite Fail.toResultSeq3Let
-            (() => traverseGroups checkSteps [])
-            (() => result.traverse checkSteps)
-            (() => traverseAfter checkSteps None)
-            (v1 v2 v3 =>
+            [g := (v1 v2 v3 =>
               {
                 exportKeyword = None,
                 opaqueKeyword = None,
@@ -304,31 +254,24 @@ theorem declLowers ∀ (decl: Decl) (within: decl.within1 = True): decl.lowering
                 result = v2,
                 decreasingClause = v3,
                 unfoldingClause = None
-              })
-            checkSteps.header
-            []
-            result
-            None
+              })]
+            [k := checkSteps.header]
+            [t1 := () => traverseGroups checkSteps []]
+            [v1 := []]
+            [t3 := () => traverseAfter checkSteps None]
+            [v3 := None]
             byComputing
             (exprChecks result resultWithin)
             byComputing
         let bodyRuns: Fail.toResult (() => traverseDefBody checkSteps (Assigned colonEq value))
           = Ok (Assigned colonEq value) :=
-          Fail.toResultSeq1
-            (() => value.traverse checkSteps)
-            (v1 => Assigned colonEq v1)
-            value
-            (exprChecks value valueWithin)
+          Fail.toResultSeq1 (exprChecks value valueWithin)
         rewrite spineNone result resultWithin,
             Fail.toResultSeq3Then
-              (() => traverseAttributes checkSteps [])
-              (() => traverseHeader checkSteps built)
-              (() => traverseDefBody checkSteps (Assigned colonEq value))
-              (v1 v2 v3 => Definition v1 v2 v3)
-              checkSteps.decl
-              []
-              built
-              (Assigned colonEq value)
+              [g := (v1 v2 v3 => Definition v1 v2 v3)]
+              [k := checkSteps.decl]
+              [t1 := () => traverseAttributes checkSteps []]
+              [v1 := []]
               byComputing
               headerRuns
               bodyRuns
