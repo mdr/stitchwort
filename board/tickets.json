@@ -1,5 +1,5 @@
 {
-  "next": 4187,
+  "next": 4188,
   "tickets": [
     {
       "id": 47,
@@ -26639,7 +26639,7 @@
     {
       "id": 4182,
       "title": "[Sonnet, bug] Rejected-example messages differ by environment: on Speedwell (agent, main checkout) reject/int-pattern-bool prints 'an `Int`' and reject/instance-head-synonym prints 'Pretty Grid', but the running/ snapshots (and Overmind's green runs) have 'a `Int`' and 'Pretty (List (List Nat))'. article() gives 'an' for Int, so Overmind's output names the type differently (qualified? synonym unfolded?). Find what the output depends on (std location, cache state, release vs debug), make it deterministic, fix the snapshots to the intended text",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4182",
       "labels": [],
@@ -26700,6 +26700,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Est. 25 min. SW-4158 follow-up.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4187,
+      "title": "[Opus, bug] Internal-error panic checking reject/export-indexed-family and reject/export-polymorphic: crates/core/src/value.rs:3599 'variable at level 0 read back with 0 in scope'; it fails stitchwort-cli running examples::rejected_examples_fail_for_the_expected_reason. Find whether it regressed (git log of value.rs and export checking), fix at the root, test; also make the examples test name the example that panicked",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4187",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Est. 40 min. Found by SW-4182, 19 Nov.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
