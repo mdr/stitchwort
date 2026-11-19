@@ -8053,14 +8053,14 @@
     {
       "id": 2153,
       "title": "[Sonnet] Type mismatches show the expected type as written, with a note giving its unfolding (check_inner forces it, check.rs:4172-4173, and the forced form reaches mismatch)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [
         "goals"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/goal-printing-gaps.md. Lane C; replaces SW-2102; covers every mismatch in check_value. 45 min.\n\nLane note (19 Nov): gap still open (def g: Grid := 3 printed List (List Nat)). Fixed centrally: Decl.written_expected + Ctx::written_form used by mismatch/show_expected; note gives unfolding. Commit dddd88dad on lane/SW-2153. 5 snapshots move (effect-pass-*, decreasing-dot-call-wrong-proof); 39 sampled reject examples run.\n",
+      "body": "From docs/proposals/goal-printing-gaps.md. Lane C; replaces SW-2102; covers every mismatch in check_value. 45 min.\n\nLane note (19 Nov): gap still open (def g: Grid := 3 printed List (List Nat)). Fixed centrally: Decl.written_expected + Ctx::written_form used by mismatch/show_expected; note gives unfolding. Commit dddd88dad on lane/SW-2153. 5 snapshots move (effect-pass-*, decreasing-dot-call-wrong-proof); 39 sampled reject examples run.\n\nModel result: Sonnet, worked, 10 min (est. 35).\n",
       "created": "2026-11-07",
       "updated": "2026-11-19",
       "commits": []
