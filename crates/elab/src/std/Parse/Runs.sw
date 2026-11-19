@@ -1257,6 +1257,54 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse t} a)
     | Parse.stop u, q => (Result.errNotOk h).impossible
     | Parse.fatal message, q => (Result.errNotOk h).impossible
 
+--| A parser's own run that succeeded has a run with the mark after it that
+--| did: the converse of [`Parse.runFromForgetMark`]. By induction on the
+--| parser's computation (`tree`, any computation has one).
+theorem Parse.runFromAddMark ∀ (p: () → {Parse t} a)
+    (tree: Effect.AlwaysTree (x => Unit) (p ()))
+    (s: Parse.State t) (v: a)
+    (h: Parse.runFrom s p = Ok v):
+    ∃ (m: Parse.Mark t) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, m) :=
+  match reify p with
+    | return x =>
+      let same: x = v := Result.okInjective h
+      Witness s.at (rewrite same)
+    | Parse.span passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Parse.runFromAddMark (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd v h
+    | Parse.next passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          match Parse.runFromAddMark
+            (() => q (s.next passes).fst)
+            (later (s.next passes).fst)
+            (s.next passes).snd
+            v
+            (Eq.trans (Eq.flipped (Parse.runFromNext s passes q)) h) with
+            | Witness m ran => Witness m (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran)
+    | Parse.literal literal, q =>
+      match tree with
+        | AlwaysCall later =>
+          match Parse.runFromAddMark
+            (() => q (s.literal literal).fst)
+            (later (s.literal literal).fst)
+            (s.literal literal).snd
+            v
+            (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal q)) h) with
+            | Witness m ran => Witness m (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran)
+    | Parse.mark u, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromAddMark (() => q s.at) (later s.at) s v h
+    | Parse.reset at, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromAddMark (() => q ()) (later ()) { s | at } v h
+    | Parse.note problem, q =>
+      match tree with
+        | AlwaysCall later => Parse.runFromAddMark (() => q ()) (later ()) (s.note problem) v h
+    | Parse.stop u, q => (Result.errNotOk h).impossible
+    | Parse.fatal message, q => (Result.errNotOk h).impossible
+
 --| `p` from the start of `input` reads all of it: `Parse.run` gives the
 --| value. The form of [`Parse.runsRun`] for a `p` whose value depends on
 --| where it starts.

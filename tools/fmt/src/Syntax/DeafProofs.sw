@@ -719,9 +719,7 @@ theorem rightNestedDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Word
       let sameNext: next.walk blankPure = nextTwin.walk blankPure := Pair.mkInjectiveSnd heads
       let inner := rightNestedDeaf next nextTwin rest restTwin sameNext tails
       rewrite sameFirst, sameOperator, inner
-    | [], [(operatorTwin, nextTwin), ..restTwin] =>
-      let clash := Eq.cong (.isEmpty) sameLinks
-      cases
+    | [], [(operatorTwin, nextTwin), ..restTwin] => (List.nilNotCons _ _ sameLinks).impossible
 
 theorem leftNestedDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Word, Expr))
     (sameFirst: first.walk blankPure = firstTwin.walk blankPure)
@@ -744,9 +742,7 @@ theorem leftNestedDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Word,
         restTwin
         sameJoined
         tails
-    | [], [(operatorTwin, nextTwin), ..restTwin] =>
-      let clash := Eq.cong (.isEmpty) sameLinks
-      cases
+    | [], [(operatorTwin, nextTwin), ..restTwin] => (List.nilNotCons _ _ sameLinks).impossible
 
 theorem alternativesEndDeaf ∀ (first firstTwin: Pattern) (links linksTwin: List (Word, Pattern))
     (sameFirst: first.walk blankPure = firstTwin.walk blankPure)
@@ -755,9 +751,7 @@ theorem alternativesEndDeaf ∀ (first firstTwin: Pattern) (links linksTwin: Lis
   match links, linksTwin with
     | [], [] => sameFirst
     | [(bar, next), ..rest], [(barTwin, nextTwin), ..restTwin] => rewrite sameFirst, sameLinks
-    | [], [(barTwin, nextTwin), ..restTwin] =>
-      let clash := Eq.cong (.isEmpty) sameLinks
-      cases
+    | [], [(barTwin, nextTwin), ..restTwin] => (List.nilNotCons _ _ sameLinks).impossible
 
 --| The result of a conjunction scan, as a pair, up to comments: the same first expression and the same links left.
 def ConjunctionAlike (conjoined conjoinedTwin: (Expr, List (Word, Expr))): Prop :=
@@ -802,9 +796,7 @@ theorem conjunctionOfDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Wo
         match and.text == "&&" || and.text == "∧" with
           | True => joined
           | False => (sameFirst, sameLinks)
-    | [], [(andTwin, nextTwin), ..restTwin] =>
-      let clash := Eq.cong (.isEmpty) sameLinks
-      cases
+    | [], [(andTwin, nextTwin), ..restTwin] => (List.nilNotCons _ _ sameLinks).impossible
 
 theorem groupFromDeaf ∀ (fuel: Nat) (conjunction conjunctionTwin: Expr) (after afterTwin: List (Word, Expr))
     (sameConjunction: conjunction.walk blankPure = conjunctionTwin.walk blankPure)
@@ -826,9 +818,7 @@ theorem groupFromDeaf ∀ (fuel: Nat) (conjunction conjunctionTwin: Expr) (after
               let deeper :=
                 groupFromDeaf more conjoined conjoinedTwin afterConjoined afterConjoinedTwin inner.left inner.right
               rewrite sameConjunction, sameOr, deeper
-    | Succ more, [], [(orTwin, nextTwin), ..restTwin] =>
-      let clash := Eq.cong (.isEmpty) sameAfter
-      cases
+    | Succ more, [], [(orTwin, nextTwin), ..restTwin] => (List.nilNotCons _ _ sameAfter).impossible
 
 theorem groupAfterDeaf ∀ (fuel: Nat) (conjoined conjoinedTwin: (Expr, List (Word, Expr)))
     (same: ConjunctionAlike conjoined conjoinedTwin):

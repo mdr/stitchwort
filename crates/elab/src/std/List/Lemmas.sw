@@ -3975,10 +3975,30 @@ theorem List.all2MapBoth ∀ (r: b → c → Prop) (f: a → b) (g: a → c)
     | [x, ..xs] =>
       Both (pointwise x (Inl byComputing)) (List.all2MapBoth r f g xs (y member => pointwise y (Inr member)))
 
+--| Related lists are as long: the length half of `List.All2`.
 theorem List.all2Length ∀ (r: a → b → Prop) (xs: List a) (ys: List b) (all: List.All2 r xs ys): xs.length = ys.length :=
   match xs, ys with
     | [], [] => byComputing
     | [x, ..xs], [y, ..ys] => Eq.cong Succ (List.all2Length r xs ys all.right)
+
+--| Related lists joined are related: `xs ++ more` and `ys ++ moreTwin`.
+theorem List.all2Append ∀ [r: a → b → Prop] (xs: List a) (ys: List b) (more: List a) (moreTwin: List b)
+    (first: List.All2 r xs ys)
+    (second: List.All2 r more moreTwin):
+    List.All2 r (xs ++ more) (ys ++ moreTwin) :=
+  match xs, ys with
+    | [], [] => second
+    | [x, ..xs], [y, ..ys] => Both first.left (List.all2Append xs ys more moreTwin first.right second)
+
+--| Related lists reversed are related.
+theorem List.all2Reverse ∀ [r: a → b → Prop] (xs: List a) (ys: List b)
+    (all: List.All2 r xs ys):
+    List.All2 r xs.reverse ys.reverse :=
+  match xs, ys with
+    | [], [] => Trivial
+    | [x, ..xs], [y, ..ys] =>
+      rewrite List.reverseCons x xs, List.reverseCons y ys then
+        List.all2Append xs.reverse ys.reverse [x] [y] (List.all2Reverse xs ys all.right) (Both all.left Trivial)
 
 --| Numbering the left list changes nothing a relation of the elements sees.
 theorem List.all2WithIndex ∀ (r: a → b → Prop) (start: Nat) (xs: List a) (ys: List b)
