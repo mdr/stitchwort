@@ -3143,8 +3143,8 @@
     {
       "id": 1534,
       "title": "check hangs on a theorem whose statement names a large computation (countdown 0 N = countdown 0 N with a proof; n = countdown 0 100000000 takes ~7 s at N = 1M): find where elaboration or conversion evaluates it (SW-1525)",
-      "status": "next",
-      "agent": "Opus",
+      "status": "doing",
+      "agent": "Claude",
       "where": ".claude/worktrees/SW-1534",
       "labels": [
         "elab"
@@ -3152,7 +3152,7 @@
       "epic": "elaborator-kernel",
       "body": "From SW-1525, 6 Nov 2026.\n\nStarted overnight on Opus (a hang in elaboration or conversion; tricky), expected: 60 min.\n\nInvestigated (Opus, ~15-50 min): the kernel's push_def evaluates a closed statement unglued (folded-calls.md stage 4 choice), so countdown 0 N is computed in full before the proof is looked at (sample: all time in push_def → eval). Not a true hang: the 10G-step budget ends it after minutes. Experiment (glue kept type values) fixes it (N = 1e8: >60 s → 0.17 s; core and elab lanes pass); patch kept at dev/patches/sw-1534-glued-closed-types.patch. Proposal merged: docs/proposals/glued-closed-types.md, options A (glue kept type values, cache keyed by mode, ~15 trusted lines), B (lazy ty_value), C (document). D2448 for Matt [rec: A].\n\nD2448 answered (Matt, 6 Nov 2026): C for now (documented in the proving guide §6); A parked, research recorded in the proposal's §6; revisit SW-1596.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
@@ -26748,8 +26748,8 @@
     {
       "id": 4190,
       "title": "[DeepSeek] par_map in crates/driver/src/driver.rs re-raises an item's panic without naming the item: take a label per item (file or example name) so project and accepted-example sweeps say which item panicked, as SW-4187 did for the reject examples; test it; mention the EXAMPLES= filter in docs/testing.md",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
