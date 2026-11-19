@@ -647,7 +647,7 @@ theorem followsBinderTypeSeen ∀ [self selfTwin: Goal → {Parse Item} Expr]
   followsOn
     (items => binderTypeOn self allowed seen items)
     (items => binderTypeOn selfTwin allowed seen items)
-    (items others same => followsBinderTypeOn knot allowed seen items others same)
+    (itemList others same => followsBinderTypeOn knot allowed seen itemList others same)
 
 theorem followsBinderType ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
@@ -1425,8 +1425,8 @@ theorem followsImplicitBinder ∀ [self selfTwin: Goal → {Parse Item} Expr]
   followsOn
     (items => implicitBinderOf self modes (namelessAutoAt items))
     (items => implicitBinderOf selfTwin modes (namelessAutoAt items))
-    (items others same =>
-      rewrite deafOfStripped namelessAutoAt namelessAutoAtDeaf items others same then
+    (itemList others same =>
+      rewrite deafOfStripped namelessAutoAt namelessAutoAtDeaf itemList others same then
         followsImplicitBinderOf knot modes (namelessAutoAt others))
 
 theorem followsPiBinder ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -1648,17 +1648,17 @@ theorem followsForallEnd ∀ (modes: Modes) (word twin: Word)
 
 theorem followsForallBump ∀ (modes: Modes):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallBump modes) (() => forallBump modes) :=
-  Parse.followsThen followsBump (word twin words =>
+  Parse.followsThen followsBump (theWord twin words =>
     followsThenEq
-      [j := paren => forallEnd modes word paren (modes.at LBracket)]
+      [j := paren => forallEnd modes theWord paren (modes.at LBracket)]
       [k := paren => forallEnd modes twin paren (modes.at LBracket)]
       (followsAt modes LParen)
       (paren =>
         followsThenEq
-          [j := bracket => forallEnd modes word paren bracket]
+          [j := bracket => forallEnd modes theWord paren bracket]
           [k := bracket => forallEnd modes twin paren bracket]
           (followsAt modes LBracket)
-          (bracket => followsForallEnd modes word twin words paren bracket)))
+          (bracket => followsForallEnd modes theWord twin words paren bracket)))
 
 theorem followsForallAt ∀ (modes: Modes) (kind: DefKind) (found: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallAt modes kind found) (() =>
@@ -1782,7 +1782,7 @@ theorem followsUnfoldingNext ∀ (more: Nat) (modes: Modes)
     Parse.Follows SameCode (List.All2 WordsAlike) (() => unfoldingNext more modes found name comma) (() =>
       unfoldingNext more modes twins nameTwin comma) :=
   match comma with
-    | True => Parse.followsThen followsBump (skipped skippedTwin skips =>
+    | True => Parse.followsThen followsBump (skippedItems skippedTwin skips =>
       again [name, ..found] [nameTwin, ..twins] (Both names founds))
     | False => Parse.followsDone _ _ (List.all2Reverse [name, ..found] [nameTwin, ..twins] (Both names founds))
 
@@ -1950,7 +1950,7 @@ theorem followsDefinitionChecked ∀ (isInstance: Bool) (body twin: DefBody)
   followsOn
     (items => definitionWhere isInstance body items)
     (items => definitionWhere isInstance twin items)
-    (items others same => followsDefinitionWhere isInstance body twin bodies items others same)
+    (itemList others same => followsDefinitionWhere isInstance body twin bodies itemList others same)
 
 -- Arms.
 
@@ -2044,7 +2044,8 @@ theorem followsDefinitionArmsFrom ∀ [self selfTwin: Goal → {Parse Item} Expr
     (followsOn
       (items => definitionArmStep self modes d (modes.limit.getOrElse 0) items)
       (items => definitionArmStep selfTwin modes d (modes.limit.getOrElse 0) items)
-      (items others same => followsDefinitionArmStep knot alts modes d (modes.limit.getOrElse 0) items others same))
+      (itemList others same =>
+        followsDefinitionArmStep knot alts modes d (modes.limit.getOrElse 0) itemList others same))
 
 theorem followsDefinitionArmsOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -2073,7 +2074,7 @@ theorem followsDefinitionArms ∀ [self selfTwin: Goal → {Parse Item} Expr]
   followsOn
     (items => definitionArmsOn self modes d items)
     (items => definitionArmsOn selfTwin modes d items)
-    (items others same => followsDefinitionArmsOn knot alts modes d items others same)
+    (itemList others same => followsDefinitionArmsOn knot alts modes d itemList others same)
 
 theorem followsArmsBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -2882,7 +2883,7 @@ theorem followsImportAliasWord ∀ (modes: Modes) (name nameTwin: Word)
                   [q := () => bump()]
                   (word => Some (asWord, word))
                   (word => Some (asWordTwin, word))
-                  (word wordTwin words => (Trivial, words))
+                  (theWord wordTwin words => (Trivial, words))
                   followsBump
         | False, False => followsFail modes "the name to use instead, as in `x as y`" (() =>
           modes.fail "the name to use instead, as in `x as y`")
@@ -2898,7 +2899,8 @@ theorem followsImportAliasOn ∀ (modes: Modes) (name nameTwin: Word)
       followsOn
         (items => importAliasWord modes name asWord items)
         (items => importAliasWord modes nameTwin asWordTwin items)
-        (items others same => followsImportAliasWord modes name nameTwin names asWord asWordTwin items others same))
+        (itemList others same =>
+          followsImportAliasWord modes name nameTwin names asWord asWordTwin itemList others same))
     | False => Parse.followsDone None None Trivial
 
 theorem followsImportAlias ∀ (modes: Modes) (name nameTwin: Word)
@@ -2922,7 +2924,7 @@ theorem followsImportTail ∀ (more: Nat) (modes: Modes) (path pathTwin: Word)
     Parse.Follows SameCode (List.All2 ImportItemAlike) (() => importTail more modes path done comma) (() =>
       importTail more modes pathTwin twins comma) :=
   match comma with
-    | True => Parse.followsThen followsBump (skipped skippedTwin skips => again done twins dones)
+    | True => Parse.followsThen followsBump (skippedItems skippedTwin skips => again done twins dones)
     | False => Parse.followsDone _ _ (List.all2Reverse done twins dones)
 
 theorem followsImportNamed ∀ (more: Nat) (modes: Modes) (path pathTwin: Word)
@@ -2988,7 +2990,7 @@ theorem followsImportItems ∀ (fuel: Nat) (modes: Modes) (path pathTwin: Word) 
   followsOn
     (items => importItemsOn fuel modes path found items)
     (items => importItemsOn fuel modes pathTwin twins items)
-    (items others same =>
+    (itemList others same =>
       match fuel with
         | Succ more =>
           followsImportItemsOnSucc more modes path pathTwin
@@ -2996,7 +2998,7 @@ theorem followsImportItems ∀ (fuel: Nat) (modes: Modes) (path pathTwin: Word) 
             found
             twins
             founds
-            items
+            itemList
             others
             same
         | Zero => followsImportStopAt modes path pathTwin found twins founds)
@@ -3014,7 +3016,7 @@ theorem followsImportNames ∀ (modes: Modes) (path pathTwin: Word):
         [q := () => importItems fuel modes pathTwin []]
         (items => ImportItems items)
         (items => ImportItems items)
-        (items twins alike => alikeImportItems items twins alike)
+        (itemList twins alike => alikeImportItems itemList twins alike)
         (followsImportItems fuel modes path pathTwin [] [] Trivial))
 
 theorem followsImportAllEnd ∀ (path pathTwin: Word) (dots dotsTwin: Comments) (closed: Bool):
@@ -3150,7 +3152,7 @@ theorem followsFieldsNext ∀ (more: Nat) (modes: Modes)
     Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same) (() => fieldsNext more modes done comma) (() =>
       fieldsNext more modes twins comma) :=
   match comma with
-    | True => Parse.followsThen followsBump (skipped skippedTwin skips => again done twins dones)
+    | True => Parse.followsThen followsBump (skippedItems skippedTwin skips => again done twins dones)
     | False => Parse.followsDone _ _ (List.all2Reverse done twins dones, byComputing)
 
 theorem followsFieldsAt ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes)
@@ -3607,7 +3609,7 @@ theorem followsDataParamBracket ∀ (rule: ExpressionRule) (modes: Modes) (word:
       followsOn
         (items => dataParamLeft modes word items)
         (items => dataParamLeft modes word items)
-        (items others same => followsDataParamLeft modes word items others same)
+        (itemList others same => followsDataParamLeft modes word itemList others same)
 
 theorem followsDataParamStep ∀ (rule: ExpressionRule) (modes: Modes) (word: Text) (atParen: Bool):
     Parse.Follows SameCode (Option.Alike GroupsAlike) (() => dataParamStep modes word atParen) (() =>
@@ -3821,8 +3823,8 @@ theorem followsTypeAfterEquals ∀ (rule: ExpressionRule) (modes: Modes) (attrib
             (items =>
               typeBraced modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin equalsTwin
                 (abilityRowInBraces items))
-            (items others same =>
-              rewrite deafOfStripped abilityRowInBraces abilityRowInBracesDeaf items others same then
+            (itemList others same =>
+              rewrite deafOfStripped abilityRowInBraces abilityRowInBracesDeaf itemList others same then
                 followsTypeBraced rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin
                     names params paramsTwin paramses indices indicesTwin indiceses equals equalsTwin
                     (abilityRowInBraces others))
@@ -4051,7 +4053,7 @@ theorem followsOperations ∀ (rule: ExpressionRule) (modes: Modes) (column: Nat
         (followsOn
           (items => operationNext modes column items)
           (items => operationNext modes column items)
-          (items others same => followsOperationNext rule modes column items others same))))
+          (itemList others same => followsOperationNext rule modes column itemList others same))))
 
 theorem followsAbilityParamStep ∀ (rule: ExpressionRule) (modes: Modes) (atParen: Bool):
     Parse.Follows SameCode (Option.Alike GroupsAlike) (() => abilityParamStep modes atParen) (() =>
@@ -4116,9 +4118,9 @@ theorem followsAbilityDecl ∀ (rule: ExpressionRule) (modes: Modes):
                 followsOn
                   (items => abilityOn modes keyword name params whereKeyword seen items)
                   (items => abilityOn modes keywordTwin nameTwin paramsTwin whereTwin seen items)
-                  (items others same =>
+                  (itemList others same =>
                     followsAbilityOn rule modes keyword keywordTwin name nameTwin names params paramsTwin paramses
-                        whereKeyword whereTwin seen items others same))))))
+                        whereKeyword whereTwin seen itemList others same))))))
 
 theorem followsTestAfterName ∀ (rule: ExpressionRule) (modes: Modes)
     (keyword keywordTwin: Comments) (name nameTwin: Word)
@@ -4348,7 +4350,7 @@ theorem followsExportAfter ∀ (rule: ExpressionRule) (alts: AltPatternFollows)
       exportAfter modes attributesTwin exportedTwin atOpaque) :=
   match atOpaque with
     | True => Parse.followsThen followsFixedFrom (opaqued opaquedTwin opaqueds =>
-      Parse.followsThen (followsAfterOpaque modes) (skipped skippedTwin skips =>
+      Parse.followsThen (followsAfterOpaque modes) (skippedItems skippedTwin skips =>
         followsDefinition rule alts modes attributes attributesTwin attributeses
           (Some exported)
           (Some exportedTwin)
@@ -4382,7 +4384,7 @@ theorem followsDeclarationOther ∀ (rule: ExpressionRule) (alts: AltPatternFoll
         (atOpaque =>
           followsExportAfter rule alts modes attributes attributesTwin attributeses exported exportedTwin atOpaque))
     | Some KwOpaque => Parse.followsThen followsFixedFrom (opaqued opaquedTwin opaqueds =>
-      Parse.followsThen (followsAfterOpaque modes) (skipped skippedTwin skips =>
+      Parse.followsThen (followsAfterOpaque modes) (skippedItems skippedTwin skips =>
         followsDefinition rule alts modes attributes attributesTwin attributeses None None
           (Some opaqued)
           (Some opaquedTwin)
@@ -4468,7 +4470,7 @@ theorem followsDeclarationFinish ∀ (modes: Modes) (decl declTwin: Decl)
   followsOn
     (items => declarationEnd modes decl items)
     (items => declarationEnd modes declTwin items)
-    (items others same => followsDeclarationEnd modes decl declTwin decls items others same)
+    (itemList others same => followsDeclarationEnd modes decl declTwin decls itemList others same)
 
 theorem followsDeclarationRefusal ∀ (rule: ExpressionRule) (alts: AltPatternFollows) (seen: Seen)
     (modes: Modes) (attributes attributesTwin: List Attributes)
