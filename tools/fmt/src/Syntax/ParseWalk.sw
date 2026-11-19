@@ -711,7 +711,7 @@ theorem prefixArgParsed ∀ (operator: Word) (operand: Expr)
     (
       Both shaped (argLevel operand (atomicArgument operand atomic)),
       Both spelled lexical,
-      andOf atomic (quiet (Bool.andLeft within))
+      Bool.andIntro atomic (quiet (Bool.andLeft within))
     )
 
 --| A sign and an item glued to it that opens an atom, with no comment between them, and a tree that leads with the
@@ -789,7 +789,7 @@ theorem negativeParsed ∀ (minus number: Word) (kind: Tok)
   Both
     (within =>
       let (shaped, lexical, atomic) := parsed (Bool.andLeft within)
-      (Both shaped arithmetic, Both spelled lexical, andOf atomic quiet))
+      (Both shaped arithmetic, Both spelled lexical, Bool.andIntro atomic quiet))
     (within =>
       let (shaped, lexical, atomic) := parsed (Bool.andLeft within)
       (Both shaped arithmetic, Both spelled lexical, head))
@@ -827,8 +827,6 @@ theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (l
                   (numeralOpens number.kind numeral)
                   (quietPair fine shape)
                   byComputing)))))
-
-theorem andOf ∀ [a b: Bool] (left: a = True) (right: b = True): (a && b) = True := rewrite left, right
 
 theorem signLike ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.signLike = True := match sign with
   | Inl minus => rewrite minus
@@ -961,14 +959,6 @@ theorem readsNegativeAtomHead ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
 
 -- Comma lists.
 
-theorem commaEnd ∀ (holds: a → Prop) (current: a) (found: List a) (currentHolds: holds current)
-    (foundHolds: List.All holds found):
-    List.All holds [current, ..found].reverse ∧ found.length + 1 <= [current, ..found].reverse.length :=
-  (
-    List.allReverse holds [current, ..found] (currentHolds, foundHolds),
-    arithmetic [List.lengthReverse [current, ..found]]
-  )
-
 --| The items of a comma list all hold, and there are at least as many as read so far.
 theorem givesCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool)
     (next: () → {Parse Item} a) (holds: a → Prop)
@@ -998,7 +988,7 @@ theorem givesCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool)
                     (endsGives count)
                     (stop _ =>
                       match stop with
-                        | True => Parse.givesDone (commaEnd holds current found currentHolds foundHolds)
+                        | True => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
                         | False =>
                           Parse.givesThen
                             [p := () => next()]
@@ -1013,14 +1003,11 @@ theorem givesCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool)
                                   valueHolds
                                   (currentHolds, foundHolds))
                                 (pair facts => (facts.left, arithmetic [facts.right])))))
-            | False => Parse.givesDone (commaEnd holds current found currentHolds foundHolds)
-        | Succ more, None => Parse.givesDone (commaEnd holds current found currentHolds foundHolds)
-        | Zero, seen => Parse.givesDone (commaEnd holds current found currentHolds foundHolds))
+            | False => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+        | Succ more, None => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+        | Zero, seen => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds))
 
 -- Brackets.
-
-theorem textIs ∀ (text expected: Text) (same: text = expected): (text == expected) = True :=
-  rewrite same then DecEq.refl expected
 
 theorem openSpelled ∀ (item: Item) (good: GoodItem item) (is: item.kind = LParen): item.leaf.word.text = "(" :=
   (rewrite is at good) byComputing
@@ -1049,7 +1036,11 @@ theorem parenParsed ∀ (open close: Word) (inner: Expr)
     AtomParsed (Paren open inner close) :=
   within =>
     let (shaped, lexical, high) := parsed within
-    (shaped, Both (textIs open.text "(" openText) (Both (textIs close.text ")" closeText) lexical), byComputing)
+    (
+      shaped,
+      Both (Text.beqOfEq open.text "(" openText) (Both (Text.beqOfEq close.text ")" closeText) lexical),
+      byComputing
+    )
 
 theorem tupleParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     (openText: open.text = "(")
@@ -1061,7 +1052,7 @@ theorem tupleParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     let (shaped, lexical) := itemsParsed 1 items parsed within
     (
       Both long shaped,
-      Both (textIs open.text "(" openText) (Both (textIs close.text ")" closeText) lexical),
+      Both (Text.beqOfEq open.text "(" openText) (Both (Text.beqOfEq close.text ")" closeText) lexical),
       byComputing
     )
 
@@ -1072,7 +1063,11 @@ theorem listParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     AtomParsed (ListOf open items trailing close) :=
   within =>
     let (shaped, lexical) := itemsParsed 1 items parsed within
-    (shaped, Both (textIs open.text "[" openText) (Both (textIs close.text "]" closeText) lexical), byComputing)
+    (
+      shaped,
+      Both (Text.beqOfEq open.text "[" openText) (Both (Text.beqOfEq close.text "]" closeText) lexical),
+      byComputing
+    )
 
 theorem givesTupleClose ∀ (modes: Modes): Parse.Gives GoodItems (() => tupleClose modes) (word => word.text = ")") :=
   givesAfter0

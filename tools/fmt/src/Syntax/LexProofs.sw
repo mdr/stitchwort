@@ -15,7 +15,7 @@ namespace Syntax.Proofs
 import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
-import Syntax.SharedFacts (allJoin, wordStartChar)
+import Syntax.SharedFacts (wordStartChar)
 
 --| `text` is lexed as one token of `kind`, alone at the start of a line with no comments around it.
 def LexesAs (text: Text) (kind: Tok): Prop :=
@@ -116,29 +116,6 @@ theorem runsFromTokenList ∀ (state: Parse.State Char) (kind: Tok) (count: Nat)
       starts
       honest
 
---| `optional p` where `p` succeeds from this state: as `Parse.runsOptional`, for a `p` whose value depends on where
---| it starts.
---|
---| Proof idea: As `Parse.runsOptional`, which needs a `p` that doesn't depend on its offset: the same proof from the one state's run.
-theorem runsFromOptional ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (read rest: List Char) (v: a)
-    (runsP: Parse.RunsFrom state p read rest v):
-    Parse.RunsFrom state (() => Parse.optional p) read rest (Some v) :=
-  starts honest =>
-    match runsP starts honest with
-      | Witness m (Both ran (Both mrest (Both mleft moff))) =>
-        Witness m
-          (Both
-            (Parse.runFromOptionalFromBack p
-              (Effect.Always.tree (x => Std.Unit) (p ()) (Effect.alwaysUnit (p ())))
-              state.at
-              state
-              (x => (x, Parse.mark()))
-              v
-              { state | at = m } _
-              ran
-              byComputing)
-            (Both mrest (Both mleft moff)))
-
 --| One `item`'s lexeme at a place: it reads `read` and gives the one lexeme, whatever follows is `rest`.
 def ItemReads (read: List Char) (lexeme: Lexeme) (rest: List Char): Prop :=
   ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text) (state: Parse.State
@@ -225,7 +202,7 @@ theorem runsItemsFrom ∀ (self: Place → {Parse Char} List (Parse.Located Lexe
             ([[{ value = lexeme, offset = state.at.offset, length = read.length }], ..found].reverse
               ++ roundsAt (state.at.offset + read.length) steps)
             byComputing
-            (runsFromOptional state
+            (Parse.runsFromOptionalOf state
               (() => item self source TopLevel)
               read
               (Parse.joinReads steps ++ rest) _
@@ -342,11 +319,6 @@ theorem utf8Sum ∀ (chars: List Char) (acc: Nat):
 
 theorem utf8OfList ∀ (chars: List Char): (Text.fromList chars).utf8Length = utf8Chars chars := utf8Sum chars 0
 
---| An ASCII character is a byte.
-theorem utf8OfAscii ∀ (char: Char) (ascii: char.toNat < 128): (Char.utf8 char).length = 1 :=
-  let leq: Nat.leq char.toNat 127 = True := arithmetic [ascii]
-  rewrite leq
-
 --| A run of ASCII characters takes a byte each.
 theorem utf8OfAsciiRun ∀ (chars: List Char)
     (ascii: chars.all (char => char.toNat < 128) = True):
@@ -356,7 +328,7 @@ theorem utf8OfAsciiRun ∀ (chars: List Char)
     | [first, ..more], ascii =>
       let small: ((first.toNat <= 127): Bool) = True := Bool.andLeft ascii
       let later: more.all (char => char.toNat <= 127) = True := Bool.andRight ascii
-      rewrite utf8OfAscii first (arithmetic [small]), utf8OfAsciiRun more later
+      rewrite Char.utf8LengthAscii first (arithmetic [small]), utf8OfAsciiRun more later
 
 theorem afterLastBreakNone ∀ (chars: List Char) (acc: Option Nat)
     (none: acc = None)
@@ -922,19 +894,13 @@ theorem spacesPass ∀ (count: Nat): (List.replicate count ' ').all (char => cha
     | Zero => byComputing
     | Succ more => spacesPass more
 
---| The first character of a text that doesn't start with `char` isn't `char`.
-theorem headNe ∀ (next: Char) (more: List Char) (char: Char)
-    (different: [next, ..more].head ≠ Some char):
-    (next == char) = False :=
-  let ne: next ≠ char := same => different (rewrite same)
-  DecEq.falseOfNe ne
-
 theorem spacesStop ∀ (rest: List Char)
     (follow: rest.head ≠ Some ' ' ∧ rest.head ≠ Some '\r'):
     rest.takeWhile (char => char == ' ' || char == '\r') = [] :=
   match rest, follow with
     | [], follow => byComputing
-    | [next, ..more], Both space carriage => rewrite headNe next more ' ' space, headNe next more '\r' carriage
+    | [next, ..more], Both space carriage =>
+      rewrite List.beqFalseOfHeadNe next more ' ' space, List.beqFalseOfHeadNe next more '\r' carriage
 
 --| A run of spaces up to a character that isn't a space or a carriage return.
 --|
@@ -1597,11 +1563,6 @@ theorem runsExponent ∀ (exponent rest: List Char)
                       (Parse.runsSpan Char.isAsciiDigit [digit, ..digits] rest (Bool.andIntro isDigit isDigits) ends)
                       (Parse.runsPure True rest))) state starts honest)
 
-theorem headNotChar ∀ (char: Char) (more: List Char) (other: Char)
-    (differs: (char == other) = False):
-    [char, ..more].head ≠ Some other :=
-  same => DecEq.soundFalse char other differs (Option.someInjective same)
-
 --| A fraction's text: a `.`, a digit and more digits.
 def FractionAs (fraction: List Char): Prop :=
   ∃ (second: Char) (more: List Char) => fraction = ['.', second, ..more]
@@ -1615,10 +1576,10 @@ theorem runsTailExponent ∀ (exponent rest: List Char)
     Parse.Runs (() => numberTail False) exponent rest True :=
   let noDot: (exponent ++ rest).head ≠ Some '.' := match exponent, shape with
     | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
-      rewrite same then headNotChar marker ([digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
+      rewrite same then List.headNeOfBeqFalse marker ([digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
     | exponent, Inr
         (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
-      rewrite same then headNotChar marker ([sign, digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
+      rewrite same then List.headNeOfBeqFalse marker ([sign, digit, ..digits] ++ rest) '.' (arithmetic [isMarker])
   Parse.runsBind
     (() => fractionPart())
     (fraction =>
@@ -1705,8 +1666,8 @@ theorem exponentNone ∀ (rest: List Char) (noE: rest.head ≠ Some 'e' ∧ rest
   match rest, noE with
     | [], noE => byComputing
     | [next, ..more], Both lower upper =>
-      let notLower := headNe next more 'e' lower
-      let notUpper := headNe next more 'E' upper
+      let notLower := List.beqFalseOfHeadNe next more 'e' lower
+      let notUpper := List.beqFalseOfHeadNe next more 'E' upper
       match more with
         | [] => byComputing
         | [second, ..later] =>
@@ -2291,16 +2252,6 @@ theorem wordCharNoBreak ∀ (char: Char) (word: isWordChar char = True): ((char 
 theorem digitNoBreak ∀ (char: Char) (digit: char.isAsciiDigit = True): ((char != '\n'): Bool) = True :=
   arithmetic [digit]
 
---| What holds of each character of a list holds of each of a list that has the one in each.
-theorem allImplies ∀ (chars: List Char) (passes follows: Char → Bool)
-    (implied: ∀ (char: Char) => passes char = True → follows char = True)
-    (all: chars.all passes = True):
-    chars.all follows = True :=
-  match chars, all with
-    | [], all => byComputing
-    | [first, ..more], all =>
-      Bool.andIntro (implied first (Bool.andLeft all)) (allImplies more passes follows implied (Bool.andRight all))
-
 theorem qualCharsNoBreak ∀ (upper: Bool) (comps: List (Pair Char (List Char)))
     (tail: QualTail upper comps):
     (qualChars comps).all (char => char != '\n') = True :=
@@ -2310,10 +2261,10 @@ theorem qualCharsNoBreak ∀ (upper: Bool) (comps: List (Pair Char (List Char)))
       Bool.andIntro byComputing
         (Bool.andIntro
           (wordCharNoBreak letter (letterWordChar letter isLetter))
-          (allJoin word
+          (List.allAppendTrue word
             (qualChars more)
             (char => char != '\n')
-            (allImplies word isWordChar (char => char != '\n') wordCharNoBreak isWord)
+            (List.allImpliesBool word isWordChar (char => char != '\n') wordCharNoBreak isWord)
             (qualCharsNoBreak letter.isAsciiUppercase more next)))
 
 theorem exponentNoBreak ∀ (exponent: List Char)
@@ -2327,7 +2278,7 @@ theorem exponentNoBreak ∀ (exponent: List Char)
           (arithmetic [isMarker])
           (Bool.andIntro
             (digitNoBreak digit isDigit)
-            (allImplies digits Char.isAsciiDigit (char => char != '\n') digitNoBreak isDigits))
+            (List.allImpliesBool digits Char.isAsciiDigit (char => char != '\n') digitNoBreak isDigits))
     | exponent, Inr
         (Witness marker
           (Witness sign
@@ -2339,7 +2290,7 @@ theorem exponentNoBreak ∀ (exponent: List Char)
             (arithmetic [isSign])
             (Bool.andIntro
               (digitNoBreak digit isDigit)
-              (allImplies digits Char.isAsciiDigit (char => char != '\n') digitNoBreak isDigits)))
+              (List.allImpliesBool digits Char.isAsciiDigit (char => char != '\n') digitNoBreak isDigits)))
 
 theorem fractionNoBreak ∀ (fraction: List Char)
     (shape: FractionAs fraction):
@@ -2350,13 +2301,16 @@ theorem fractionNoBreak ∀ (fraction: List Char)
         Bool.andIntro byComputing
           (Bool.andIntro
             (digitNoBreak second digit)
-            (allImplies more Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
+            (List.allImpliesBool more Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
 
 theorem floatTailNoBreak ∀ (tail: List Char) (shape: FloatTailAs tail): tail.all (char => char != '\n') = True :=
   match shape with
     | Inl (Witness fraction (Witness exponent (Both same (Both fs es)))) =>
       rewrite same then
-        allJoin fraction exponent (char => char != '\n') (fractionNoBreak fraction fs) (exponentNoBreak exponent es)
+        List.allAppendTrue fraction exponent
+          (char => char != '\n')
+          (fractionNoBreak fraction fs)
+          (exponentNoBreak exponent es)
     | Inr (Inl fs) => fractionNoBreak tail fs
     | Inr (Inr es) => exponentNoBreak tail es
 
@@ -2403,10 +2357,10 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
         (rewrite split then
           Bool.andIntro
             (wordCharNoBreak first (wordStartChar first starts))
-            (allJoin others
+            (List.allAppendTrue others
               (qualChars comps)
               (char => char != '\n')
-              (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word)
+              (List.allImpliesBool others isWordChar (char => char != '\n') wordCharNoBreak word)
               (qualCharsNoBreak first.isAsciiUppercase comps tail)))
     | Upper, Witness first (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))) =>
       Both
@@ -2414,10 +2368,10 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
         (rewrite split then
           Bool.andIntro
             (wordCharNoBreak first (wordStartChar first starts))
-            (allJoin others
+            (List.allAppendTrue others
               (qualChars comps)
               (char => char != '\n')
-              (allImplies others isWordChar (char => char != '\n') wordCharNoBreak word)
+              (List.allImpliesBool others isWordChar (char => char != '\n') wordCharNoBreak word)
               (qualCharsNoBreak first.isAsciiUppercase comps tail)))
     | Num, Witness first (Witness others (Both split (Both digit digits))) =>
       Both
@@ -2425,16 +2379,16 @@ theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Co
         (rewrite split then
           Bool.andIntro
             (digitNoBreak first digit)
-            (allImplies others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
+            (List.allImpliesBool others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits))
     | Float, Witness first (Witness others (Witness tail (Both split (Both digit (Both digits shape))))) =>
       Both
         (rewrite split then different => cases)
         (rewrite split then
           Bool.andIntro
             (digitNoBreak first digit)
-            (allJoin others tail
+            (List.allAppendTrue others tail
               (char => char != '\n')
-              (allImplies others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits)
+              (List.allImpliesBool others Char.isAsciiDigit (char => char != '\n') digitNoBreak digits)
               (floatTailNoBreak tail shape)))
 
 theorem piecesTextOne ∀ (kind: Tok) (text: Text): piecesText [Code kind text] = text :=
@@ -2524,17 +2478,6 @@ theorem operatorTokOfSpells ∀ (kind: Tok) (text: Text)
 
 -- Pieces and the pieces next to them.
 
-theorem takeWhileSameHead ∀ (passes: Char → Bool) (before after: List Char)
-    (same: before.head = after.head)
-    (stops: before.takeWhile passes = []):
-    after.takeWhile passes = [] :=
-  match before, after, same with
-    | [], [], same => stops
-    | [first, ..more], [other, ..others], same =>
-      rewrite <- Option.someInjective same then
-        match passes first with
-          | False => byComputing
-
 --| Two texts start alike for what may follow a token: the same first character, and the second starts with the
 --| word `in` only if the first does (a `!` before `in` is read as `!in`).
 def StartsAlike (before after: List Char): Prop :=
@@ -2545,32 +2488,15 @@ theorem alikeSame ∀ (chars: List Char): StartsAlike chars chars := Both byComp
 theorem alikeOfEq ∀ (before after: List Char) (same: before = after): StartsAlike before after :=
   rewrite same then alikeSame after
 
-theorem takeWhileHeadFails ∀ (passes: Char → Bool) (chars: List Char) (first: Char)
-    (head: chars.head = Some first)
-    (fails: passes first = False):
-    chars.takeWhile passes = [] :=
-  match chars, head with
-    | [], head => cases
-    | [other, ..more], head => rewrite Option.someInjective head, fails
-
 --| Texts with the same first character, a space, start alike.
 theorem alikeOfSpace ∀ (before after: List Char)
     (same: before.head = after.head)
     (space: after.head = Some ' '):
     StartsAlike before after :=
   Both same (run =>
-    let stops := takeWhileHeadFails isWordChar after ' ' space byComputing
+    let stops := List.takeWhileHeadFails isWordChar after ' ' space byComputing
     let never: [] = ['i', 'n'] := Eq.trans stops.flipped run
     cases)
-
-theorem takeWhileNilPrefix ∀ (passes: Char → Bool) (front back: List Char)
-    (stops: (front ++ back).takeWhile passes = []):
-    front.takeWhile passes = [] :=
-  match front with
-    | [] => byComputing
-    | [first, ..more] =>
-      match pass: passes first with
-        | False => byComputing
 
 --| Where the name characters at the start of `front ++ back` are `in`, those of `front` are, or `front` is `i` and
 --| those of `back` are `n`.
@@ -2596,7 +2522,7 @@ theorem inOfAppend ∀ (front back: List Char)
                   let isN: second = 'n' := List.consInjectiveHead second 'n' _ [] tail
                   let rest: (later ++ back).takeWhile isWordChar = [] :=
                     List.consInjective second _ [] (rewrite isN at tail then rewrite isN then tail)
-                  Inl (rewrite isI, isN, takeWhileNilPrefix isWordChar later back rest)
+                  Inl (rewrite isI, isN, List.takeWhileNilPrefix isWordChar later back rest)
 
 theorem notI ∀ (char: Char) (others: List Char) (differs: char ≠ 'i') (same: [char, ..others] = ['i']): Void :=
   differs (List.consInjectiveHead char 'i' others [] same)
@@ -2669,7 +2595,7 @@ theorem notJustI ∀ (piece: Piece) (rest: List Char) (spells: piece.Spells) (fo
 theorem alikeAppend ∀ (piece: Piece) (rest: List Char) (plain: piece.Plain)
     (spells: piece.Spells) (follows: piece.Follows rest):
     StartsAlike piece.chars (piece.chars ++ rest) :=
-  let joined := headOfJoin piece.chars [] rest (nonEmptyChars piece plain)
+  let joined := List.headAppendMiddle piece.chars [] rest (nonEmptyChars piece plain)
   Both (rewrite List.appendNil piece.chars at joined then joined.flipped) (run =>
     match inOfAppend piece.chars rest (nonEmptyChars piece plain) run with
       | Inl front => front
@@ -2677,7 +2603,7 @@ theorem alikeAppend ∀ (piece: Piece) (rest: List Char) (plain: piece.Plain)
 
 --| What a token needs of the text after it depends only on how that text starts (`StartsAlike`).
 --|
---| Proof idea: Each condition of `MayFollow` is about the head or about `takeWhile` stopping at it (`takeWhileSameHead`);
+--| Proof idea: Each condition of `MayFollow` is about the head or about `takeWhile` stopping at it (`List.takeWhileSameHead`);
 --| a `!`'s is about the word `in`, which `StartsAlike` carries.
 theorem followsAlike ∀ (piece: Piece) (before after: List Char)
     (alike: StartsAlike before after) (follows: piece.Follows before):
@@ -2694,19 +2620,19 @@ theorem followsAlike ∀ (piece: Piece) (before after: List Char)
       match follows bang with
         | Both noEq notIn => Both (rewrite <- same then noEq) (word => notIn (alike.right word))
     | Code KwDef text, Both stops noDot =>
-      Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
+      Both (List.takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
     | Code Lower text, Both stops noDot =>
-      Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
+      Both (List.takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
     | Code Upper text, Both stops noDot =>
-      Both (takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
+      Both (List.takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
     | Code Num text, Both stops (Both noDot noE) =>
-      Both (takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then Both noDot noE)
+      Both (List.takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then Both noDot noE)
     | Code Float text, Both stops noE =>
-      Both (takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then noE)
+      Both (List.takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then noE)
     | Code other text, follows => follows
     | Gap count, follows => rewrite <- same then follows
     | Break, follows => follows
-    | Remark text, follows => takeWhileSameHead (char => char != '\n') before after same follows
+    | Remark text, follows => List.takeWhileSameHead (char => char != '\n') before after same follows
 
 --| Each piece of a list is spelled as the lexer reads it.
 def AllSpelled: List Piece → Prop
@@ -2718,13 +2644,6 @@ def PairsFollow: List Piece → Prop
   | [] => True
   | [piece] => piece.Follows []
   | [piece, next, ..more] => piece.Follows next.chars ∧ PairsFollow [next, ..more]
-
-theorem headOfJoin ∀ (front middle back: List Char)
-    (nonEmpty: front ≠ []):
-    ((front ++ middle) ++ back).head = front.head :=
-  match front, nonEmpty with
-    | [], nonEmpty => (nonEmpty byComputing).impossible
-    | [first, ..more], nonEmpty => byComputing
 
 --| Neighbours that follow one another make a list of pieces that lexes: the lexer's look-ahead only ever looks at
 --| the first character of the next piece.

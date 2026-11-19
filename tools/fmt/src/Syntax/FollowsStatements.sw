@@ -801,11 +801,6 @@ theorem alikeInduct ∀ (keyword keywordTwin induct inductTwin: Comments) (call 
         (blankInductArms (walkInductArms blankPure twins)) := rewrite calls, inductArmsBlank arms twins alike
     _ = (Induct keywordTwin inductTwin callTwin withKeywordTwin twins).walk blankPure := byComputing
 
-theorem listsEmpty ∀ [r: a → b → Prop] (xs: List a) (ys: List b) (alike: List.All2 r xs ys): xs.isEmpty = ys.isEmpty :=
-  match xs, ys with
-    | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] => byComputing
-
 -- Handlers.
 
 theorem followsHandlerName ∀ (lowers: LowerQualifiedFollows) (modes: Modes) (what: Text) (underscore: Bool):
@@ -956,7 +951,7 @@ theorem followsHandlerClausesEnd ∀ (modes: Modes) (clauses twins: List Handler
     (alike: List.All2 ClauseAlike clauses twins):
     Parse.Follows SameCode (List.All2 ClauseAlike) (() => handlerClausesEnd modes clauses) (() =>
       handlerClausesEnd modes twins) :=
-  rewrite listsEmpty clauses twins alike then
+  rewrite List.all2IsEmpty clauses twins alike then
     match twins.isEmpty with
       | True => followsFail modes "`|` and a handler clause" (() => modes.fail "`|` and a handler clause")
       | False => Parse.followsDone _ _ alike
@@ -1136,7 +1131,7 @@ theorem followsInductEnd ∀ (modes: Modes) (keyword keywordTwin induct inductTw
     (alike: List.All2 InductArmAlike arms twins):
     Parse.Follows SameCode ExprsAlike (() => inductEnd modes keyword induct call withKeyword arms) (() =>
       inductEnd modes keywordTwin inductTwin callTwin withKeywordTwin twins) :=
-  rewrite listsEmpty arms twins alike then
+  rewrite List.all2IsEmpty arms twins alike then
     match twins.isEmpty with
       | True => followsFail modes "`|` and an alternative named after a case" (() =>
         modes.fail "`|` and an alternative named after a case")
@@ -1403,7 +1398,7 @@ theorem followsCalcEnd ∀ (inner: Modes) (keyword keywordTwin: Comments) (first
     (alike: List.All2 StepAlike steps twins) (ascending descending: Bool):
     Parse.Follows SameCode ExprsAlike (() => calcEnd inner keyword first steps ascending descending) (() =>
       calcEnd inner keywordTwin firstTwin twins ascending descending) :=
-  rewrite listsEmpty steps twins alike then
+  rewrite List.all2IsEmpty steps twins alike then
     match twins.isEmpty with
       | True => followsFail inner "a step `_ = e` on the next line, indented past `calc`" (() =>
         inner.fail "a step `_ = e` on the next line, indented past `calc`")

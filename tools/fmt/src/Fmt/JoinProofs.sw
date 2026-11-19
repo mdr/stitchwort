@@ -13,7 +13,7 @@ import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void, byDecisio
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Expr, Tok, Word, isWordChar)
-import Syntax.Proofs (Laid, MayFollow, takeWhileHeadFails)
+import Syntax.Proofs (Laid, MayFollow)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)
@@ -40,12 +40,6 @@ def Stops (char: Char): Prop :=
     ∧ char ≠ 'e'
     ∧ char ≠ 'E'
 
-theorem headDiffers ∀ (rest: List Char) (first other: Char)
-    (head: rest.head = Some first)
-    (differs: first ≠ other):
-    rest.head ≠ Some other :=
-  same => differs (Option.someInjective (Eq.trans head.flipped same))
-
 --| A token may be followed by a text that starts with a character no token goes on with.
 --|
 --| Proof idea: One case per kind with a condition; each is a character the head isn't, or a run of name or digit
@@ -56,26 +50,26 @@ theorem mayFollowStops ∀ (kind: Tok) (text: Text) (rest: List Char) (first: Ch
     MayFollow kind text rest :=
   match stops with
     | (word, digit, notEquals, notGreater, notPlus, notMinus, notDot, notE, notBigE) =>
-      let noWord := takeWhileHeadFails isWordChar rest first head word
-      let noDigit := takeWhileHeadFails Char.isAsciiDigit rest first head digit
+      let noWord := List.takeWhileHeadFails isWordChar rest first head word
+      let noDigit := List.takeWhileHeadFails Char.isAsciiDigit rest first head digit
       match kind with
-        | Colon => headDiffers rest first '=' head notEquals
-        | Equals => (headDiffers rest first '=' head notEquals, headDiffers rest first '>' head notGreater)
-        | Plus => headDiffers rest first '+' head notPlus
-        | Minus => (headDiffers rest first '-' head notMinus, headDiffers rest first '>' head notGreater)
-        | Lt => (headDiffers rest first '=' head notEquals, headDiffers rest first '-' head notMinus)
-        | Gt => headDiffers rest first '=' head notEquals
-        | Bang => bang => (headDiffers rest first '=' head notEquals, (run => (rewrite noWord at run then cases)))
-        | KwDef => (noWord, headDiffers rest first '.' head notDot)
-        | Lower => (noWord, headDiffers rest first '.' head notDot)
-        | Upper => (noWord, headDiffers rest first '.' head notDot)
+        | Colon => List.headNeOfHead rest first '=' head notEquals
+        | Equals => (List.headNeOfHead rest first '=' head notEquals, List.headNeOfHead rest first '>' head notGreater)
+        | Plus => List.headNeOfHead rest first '+' head notPlus
+        | Minus => (List.headNeOfHead rest first '-' head notMinus, List.headNeOfHead rest first '>' head notGreater)
+        | Lt => (List.headNeOfHead rest first '=' head notEquals, List.headNeOfHead rest first '-' head notMinus)
+        | Gt => List.headNeOfHead rest first '=' head notEquals
+        | Bang => bang => (List.headNeOfHead rest first '=' head notEquals, (run => (rewrite noWord at run then cases)))
+        | KwDef => (noWord, List.headNeOfHead rest first '.' head notDot)
+        | Lower => (noWord, List.headNeOfHead rest first '.' head notDot)
+        | Upper => (noWord, List.headNeOfHead rest first '.' head notDot)
         | Num => (
           noDigit,
-          headDiffers rest first '.' head notDot,
-          headDiffers rest first 'e' head notE,
-          headDiffers rest first 'E' head notBigE
+          List.headNeOfHead rest first '.' head notDot,
+          List.headNeOfHead rest first 'e' head notE,
+          List.headNeOfHead rest first 'E' head notBigE
         )
-        | Float => (noDigit, headDiffers rest first 'e' head notE, headDiffers rest first 'E' head notBigE)
+        | Float => (noDigit, List.headNeOfHead rest first 'e' head notE, List.headNeOfHead rest first 'E' head notBigE)
         | other => byComputing
 
 theorem stopsSpace: Stops ' ' :=
@@ -714,10 +708,6 @@ theorem startHerePasses ∀ (kinds: Text → Tok) (before: Bool) (first: Text):
 
 -- A token's leaf.
 
-theorem andTrueSame ∀ (flag: Bool): (flag && True) = flag := match flag with
-  | True => byComputing
-  | False => byComputing
-
 --| What comes before a token's text in its leaf: its own-line comments and kept blank line, and the line a closer
 --| takes after a comment. From where the token may stand to where it still may, and where no comment waits if it is
 --| a closer with a trailing comment of its own.
@@ -797,7 +787,7 @@ theorem frontPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
                       (Ready kinds (around.before && !after.isSome) text)
                       byComputing))
         | False =>
-          rewrite andTrueSame around.before then
+          rewrite Bool.andTrue around.before then
             match hoisted: around.hoisted with
               | True =>
                 passesNil kinds (Ready kinds around.before text) (Ready kinds around.before text) (edge holds => holds)
@@ -998,7 +988,7 @@ theorem ownEmpty ∀ (text: Text) (rest: Bool) (key: Nat)
 theorem flagSame ∀ (before: Bool) (text: Text) (trails: Bool)
     (closer: isCloserText text = False):
     (before && !(isCloserText text && trails)) = before :=
-  rewrite closer, andTrueSame before
+  rewrite closer, Bool.andTrue before
 
 --| A token's own-line comments and kept blank line, before a token that is no closer.
 theorem leadingPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
@@ -2033,20 +2023,6 @@ def HugPasses (kinds: Text → Tok) (hug: Option Doc) (pre post: Edge → Prop):
   | None => True
   | Some open => Passes kinds open pre post
 
-theorem dropFilled ∀ (docs: List Doc) (count: Nat)
-    (short: count ≤ docs.length)
-    (differs: (count == docs.length) = False):
-    docs.drop count ≠ [] :=
-  match docs, count with
-    | [], Zero => cases
-    | [doc, ..rest], Zero => List.consNotNil doc rest
-    | [doc, ..rest], Succ more => dropFilled rest more (arithmetic [short]) differs
-
-theorem takeFilled ∀ (doc: Doc) (rest: List Doc) (count: Nat) (positive: count ≠ 0): [doc, ..rest].take count ≠ [] :=
-  match count with
-    | Zero => (positive byComputing).impossible
-    | Succ more => List.consNotNil doc (rest.take more)
-
 --| A call's layouts (`appFrom`): on one line; hugging its last argument; or the function and the arguments it keeps
 --| on its line, then each other argument on a line of its own. In each the elements come in order with a space or
 --| a line break between each two.
@@ -2074,8 +2050,8 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
           (docs.drop keep)
           pre
           post
-          (takeFilled headDoc (front ++ [lastDoc]) keep positive)
-          (dropFilled docs keep short full)
+          (List.takeConsNotNil headDoc (front ++ [lastDoc]) keep positive)
+          (List.dropNotNil docs keep short full)
           (rewrite List.appendTakeDrop docs keep then seq)
       let (headSeq, lastSeq) :=
         splitSeq kinds
@@ -2093,7 +2069,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
         passesConcat kinds _
           (Ended True)
           post
-          (hardSeq kinds (docs.drop keep) (Ended True) post (dropFilled docs keep short full) droppedSeq)
+          (hardSeq kinds (docs.drop keep) (Ended True) post (List.dropNotNil docs keep short full) droppedSeq)
       let fillFront := keep > 2 && !betweenFront
       let frontDoc := if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep)
       let restDoc := if fillFront then IfBroken id (Nest 4 rest) (Nest 2 rest) else Nest 2 rest
@@ -2143,10 +2119,6 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
             (hugged, broken, byComputing)
 
 -- Calls.
-
-theorem snocNotNil ∀ (docs: List Doc) (last: Doc): docs ++ [last] ≠ [] := match docs with
-  | [] => List.consNotNil last []
-  | [doc, ..rest] => List.consNotNil doc (rest ++ [last])
 
 theorem seqPrepend ∀ (kinds: Text → Tok) (pre post: Edge → Prop) (doc: Doc) (docs: List Doc)
     (first: Passes kinds doc pre (Ended True))
@@ -2370,7 +2342,7 @@ theorem argumentsSeq ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at:
               (edge ended => endedTrue argument.trails edge ended))
             (edge gapped => gappedReadyTrue kinds True argument.lead.text edge gapped))
           (rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at seq then seq)
-          (snocNotNil later.fst (later.snd.getOrElse (Nothing, None)).fst),
+          (List.snocNotNil later.fst (later.snd.getOrElse (Nothing, None)).fst),
         rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at hugs then hugs,
         arithmetic [length]
       )
@@ -2418,7 +2390,7 @@ theorem appPasses ∀ (kinds: Text → Tok) (head: Expr) (arguments: List Expr) 
           (elPasses kinds head headWithin headJoins around)
           (edge ended => endedTrue head.trails edge ended))
         seq
-        (snocNotNil front lastDoc))
+        (List.snocNotNil front lastDoc))
       hugs
       (arithmetic)
       short
@@ -2774,7 +2746,7 @@ theorem callHugPasses ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
               (elPasses kinds head (Bool.andLeft within) headJoins inside)
               (edge ended => endedTrue head.trails edge ended))
             seq
-            (snocNotNil front lastDoc))
+            (List.snocNotNil front lastDoc))
           hugs
     | Atom _ _, _ => byComputing
     | Paren _ _ _, _ => byComputing

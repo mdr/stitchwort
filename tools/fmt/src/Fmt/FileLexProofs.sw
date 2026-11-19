@@ -329,7 +329,7 @@ theorem notesLay ∀ (notes: List Note) (empty: Bool) (laid: Laid) (leaves: List
       let first: (laidNotes empty [note, ..rest]).reverse ++ pending
         = (laidNotes False rest).reverse ++ [comment, ..pending] :=
         rewrite laidNotesFalse rest, <- sameComment then
-          reverseConsAppend
+          List.reverseConsAppend
             { noteComment note | blankLines = if empty then 0 else (noteComment note).blankLines }
             (rest.map noteComment)
             pending
@@ -342,10 +342,6 @@ theorem notesLay ∀ (notes: List Note) (empty: Bool) (laid: Laid) (leaves: List
           gapped,
           first then
         later
-
-theorem reverseConsAppend ∀ (first: a) (rest after: List a):
-    [first, ..rest].reverse ++ after = rest.reverse ++ [first, ..after] :=
-  rewrite List.reverseCons first rest then List.appendAssoc rest.reverse [first] after
 
 theorem laidNotesFalse ∀ (notes: List Note): laidNotes False notes = notes.map noteComment := match notes with
   | [] => byComputing

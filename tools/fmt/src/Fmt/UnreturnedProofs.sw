@@ -8,7 +8,6 @@ import Std (Bool, Eq, List, Nat, Option, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (alphabet1, lexedTexts, sourcePlain1, tokens)
-import Syntax.SettleOnceProofs (allAppendB)
 import Syntax.SettleSplitProofs (allPrefix, allSuffix, groupWordsConcat, groupsConcat)
 import Syntax.ParseSettledStatements (lexLaid1)
 import Syntax.ParseWalkOthers (parseCarriesSourceProved)
@@ -26,7 +25,8 @@ theorem commentsUnreturned ∀ (comments: Comments)
     (texts: comments.texts.all plainEnd = True):
     comments.above.all Note.unreturned = True ∧ afterUnreturned comments.after = True :=
   let split :=
-    rewrite allAppendB (comments.above.map (note => note.text)) comments.after.toList plainEnd at texts then texts
+    rewrite List.allAppendAnd (comments.above.map (note => note.text)) comments.after.toList plainEnd at texts then
+      texts
   let aboveMap: (comments.above.map (note => note.text)).all plainEnd = True := Bool.andLeft split
   let aboveAll: comments.above.all (note => plainEnd note.text) = True :=
     rewrite List.allMapBool comments.above plainEnd (note => note.text) at aboveMap then aboveMap
@@ -66,29 +66,29 @@ theorem exprUnreturned ∀ (expr: Expr)
     | Atom kind word => Bool.andLeft words
     | Paren open inner close =>
       let tail := Bool.andRight words
-      let split := rewrite allAppendB inner.words [close] Word.unreturned at tail then tail
+      let split := rewrite List.allAppendAnd inner.words [close] Word.unreturned at tail then tail
       Bool.andIntro
         (Bool.andLeft words)
         (Bool.andIntro (exprUnreturned inner within (Bool.andLeft split)) (Bool.andLeft (Bool.andRight split)))
     | Tuple open items comma close =>
       let tail := Bool.andRight words
-      let split := rewrite allAppendB (itemsWords items) [close] Word.unreturned at tail then tail
+      let split := rewrite List.allAppendAnd (itemsWords items) [close] Word.unreturned at tail then tail
       Bool.andIntro
         (Bool.andLeft words)
         (Bool.andIntro (itemsUnreturned items within (Bool.andLeft split)) (Bool.andLeft (Bool.andRight split)))
     | ListOf open items comma close =>
       let tail := Bool.andRight words
-      let split := rewrite allAppendB (itemsWords items) [close] Word.unreturned at tail then tail
+      let split := rewrite List.allAppendAnd (itemsWords items) [close] Word.unreturned at tail then tail
       Bool.andIntro
         (Bool.andLeft words)
         (Bool.andIntro (itemsUnreturned items within (Bool.andLeft split)) (Bool.andLeft (Bool.andRight split)))
     | App head arguments =>
-      let split := rewrite allAppendB head.words (itemsWords arguments) Word.unreturned at words then words
+      let split := rewrite List.allAppendAnd head.words (itemsWords arguments) Word.unreturned at words then words
       Bool.andIntro
         (exprUnreturned head (Bool.andLeft within) (Bool.andLeft split))
         (itemsUnreturned arguments (Bool.andRight within) (Bool.andRight split))
     | Infix kind left operator right =>
-      let split := rewrite allAppendB left.words [operator, ..right.words] Word.unreturned at words then words
+      let split := rewrite List.allAppendAnd left.words [operator, ..right.words] Word.unreturned at words then words
       let rest := Bool.andRight split
       match kind with
         | InfixBinary =>
@@ -114,7 +114,7 @@ theorem itemsUnreturned ∀ (items: List Expr)
   match items with
     | [] => byComputing
     | [first, ..rest] =>
-      let split := rewrite allAppendB first.words (itemsWords rest) Word.unreturned at words then words
+      let split := rewrite List.allAppendAnd first.words (itemsWords rest) Word.unreturned at words then words
       Bool.andIntro
         (exprUnreturned first (Bool.andLeft within) (Bool.andLeft split))
         (itemsUnreturned rest (Bool.andRight within) (Bool.andRight split))
@@ -141,7 +141,10 @@ theorem declUnreturned ∀ (decl: Decl)
           } =>
           let tail := Bool.andRight (Bool.andRight (Bool.andRight words))
           let split :=
-            rewrite allAppendB result.words ([fixedWord ":=" colonEq] ++ value.words) Word.unreturned at tail then tail
+            rewrite List.allAppendAnd result.words
+                  ([fixedWord ":=" colonEq] ++ value.words)
+                  Word.unreturned at tail then
+              tail
           let rest := Bool.andRight split
           Bool.andIntro
             (Bool.andLeft words)

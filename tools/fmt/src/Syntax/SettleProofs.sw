@@ -192,16 +192,6 @@ theorem settledWithKeepsTokens ∀ (lexed: Lexed) (bareLast: Bool):
 theorem settledKeepsTokens ∀ (lexed: Lexed): tokens lexed.settled.leaves = tokens lexed.leaves :=
   settledWithKeepsTokens lexed False
 
-theorem allReverseOnto ∀ (p: a → Bool) (xs acc: List a)
-    (allXs: xs.all p = True)
-    (allAcc: acc.all p = True):
-    (xs.reverseOnto acc).all p = True :=
-  match xs with
-    | [] => allAcc
-    | [x, ..rest] =>
-      match held: p x with
-        | True => allReverseOnto p rest [x, ..acc] allXs (rewrite held then allAcc)
-
 --| A comma with no comment.
 def bareComma (leaf: Leaf): Bool := (leaf.trivia.leading.isEmpty && leaf.trivia.trailing.isNone) || leaf.kind != Comma
 
@@ -220,7 +210,7 @@ theorem commasFromBare ∀ (done: List Leaf) (carried: Option Carried) (rest: Li
     (doneBare: done.all bareComma = True):
     (commasFrom done carried rest end).leaves.all bareComma = True :=
   match rest with
-    | [] => allReverseOnto bareComma done [] doneBare byComputing
+    | [] => List.allReverseOntoTrue bareComma done [] doneBare byComputing
     | [leaf, ..after] =>
       let received := { leaf | trivia = carried.map (carry => carry.into leaf.trivia) |> .getOrElse leaf.trivia }
       match c: commaCarries received.trivia with
@@ -251,7 +241,7 @@ theorem arrowsFromBare ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
     (restBare: rest.all bareComma = True):
     (arrowsFrom done current rest).all bareComma = True :=
   match rest with
-    | [] => allReverseOnto bareComma done [current] doneBare (rewrite currentBare)
+    | [] => List.allReverseOntoTrue bareComma done [current] doneBare (rewrite currentBare)
     | [next, ..more] =>
       match nextBare: bareComma next with
         | True =>
@@ -289,7 +279,7 @@ theorem letsFromBare ∀ (behind rest: List Leaf)
     (restBare: rest.all bareComma = True):
     (letsFrom behind rest).all bareComma = True :=
   match rest with
-    | [] => allReverseOnto bareComma behind [] behindBare byComputing
+    | [] => List.allReverseOntoTrue bareComma behind [] behindBare byComputing
     | [leaf, ..after] =>
       match leafBare: bareComma leaf with
         | True =>
@@ -424,19 +414,6 @@ theorem barsQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
 
 -- Rule 5: a comment's text, trimmed, has no space at its end.
 
-theorem dropSpacesStart ∀ (chars: List Char):
-    Text.startsWithChars [' '] (chars.dropWhile (char => char == ' ')) = False :=
-  match chars with
-    | [] => byComputing
-    | [char, ..rest] =>
-      match space: char == ' ' with
-        | True => dropSpacesStart rest
-        | False =>
-          let other: Text.sameChar ' ' char = False := calc Text.sameChar ' ' char
-            _ = Nat.equal (Char.toNat char) (Char.toNat ' ') := Nat.equalComm (Char.toNat ' ') (Char.toNat char)
-            _ = False := space
-          rewrite other
-
 def optionText: Option Comment → List Text
   | Some comment => [comment.text]
   | None => []
@@ -483,8 +460,6 @@ theorem arrowsFromOnto ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf):
           rewrite arrowsFromOnto [moved, ..done] (next.withLeading []) more,
               arrowsFromOnto [moved] (next.withLeading []) more
         | False => rewrite arrowsFromOnto [current, ..done] next more, arrowsFromOnto [current] next more
-
-theorem emptyOf ∀ (xs: List a) (empty: xs.isEmpty = True): xs = [] := match xs with | [] => byComputing
 
 theorem optionNone ∀ (option: Option a) (none: option.isSome = False): option.isNone = True := match option with
   | None => byComputing
@@ -543,7 +518,7 @@ theorem arrowsFromBare1 ∀ (current: Leaf) (rest: List Leaf):
               )
             | False =>
               let (head, tail, gives, kind, same, bare) := arrowsFromBare1 next more
-              let empty := emptyOf next.trivia.leading (Bool.notFalse _ (Bool.orFalseLeft _ _ moves))
+              let empty := List.eqNilOfIsEmpty next.trivia.leading (Bool.notFalse _ (Bool.orFalseLeft _ _ moves))
               let untrailed := optionNone current.trivia.trailing (Bool.orFalseRight _ _ moves)
               let currentBare: arrowsBare [current, head, ..tail] = True :=
                 rewrite isArrow, untrailed, headBare next head empty kind same then bare
@@ -1013,7 +988,7 @@ theorem homeFromTexts ∀ (behind rest: List Leaf) (pending: Bool)
                         within
                         behindWithin
                         quietBehind)
-                    let empty := emptyOf leaf.trivia.leading leadEmpty
+                    let empty := List.eqNilOfIsEmpty leaf.trivia.leading leadEmpty
                     calc leafTexts (homeFrom False [moved, ..target] None after)
                       _ = leafTexts ([moved, ..target].reverseOnto after) :=
                         homeFromTexts [moved, ..target] after True movedClean afterLaid movedWithin afterWithin
@@ -1475,10 +1450,6 @@ theorem relatedKeeping ∀ (leaf: Leaf) (trivia: Trivia)
     | None => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
     | Some comment => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
 
-theorem appendConsNotEmpty ∀ (xs: List a) (y: a) (ys: List a): (xs ++ [y, ..ys]).isEmpty = False := match xs with
-  | [] => byComputing
-  | [_, .._] => byComputing
-
 theorem receivedLeading ∀ (carried: Option Carried) (trivia: Trivia):
     (trivia.leading.isEmpty || !(carried.map (carry => carry.into trivia) |> .getOrElse trivia).leading.isEmpty)
       = True :=
@@ -1488,7 +1459,7 @@ theorem receivedLeading ∀ (carried: Option Carried) (trivia: Trivia):
       match carried with
         | None => byComputing
         | Some carry =>
-          rewrite appendConsNotEmpty carry.comments
+          rewrite List.isEmptyAppendCons carry.comments
             { first | blankLines = Nat.max first.blankLines carry.blankLines }
             more
 
@@ -1637,8 +1608,6 @@ def arrowFrom: List Token → Bool
   | [first, second, ..rest] => (!(first.kind == Arrow) || !arrowFollow second.kind) && arrowFrom [second, ..rest]
   | _ => True
 
-theorem orWeaken ∀ (a b c: Bool) (h: (a || b) = True): (a || b || c) = True := cases
-
 theorem sourceOfPlain ∀ (item: Bool) (toks: List Token)
     (plain: plainFrom toks = True):
     sourcePlainFrom item toks = True :=
@@ -1651,7 +1620,7 @@ theorem sourceOfPlain ∀ (item: Bool) (toks: List Token)
           Bool.andIntro
             (Bool.andLeft plain)
             (Bool.andIntro
-              (orWeaken _ _ _ (Bool.andLeft (Bool.andRight plain)))
+              (Bool.orExtend _ _ _ (Bool.andLeft (Bool.andRight plain)))
               (sourceOfPlain (itemKind first.kind) [second, ..more] (Bool.andRight (Bool.andRight plain))))
 
 --| `plain1` is `sourcePlain1`: the driver accepts every source it did before.

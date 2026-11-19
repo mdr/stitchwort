@@ -223,7 +223,7 @@ theorem glueSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
   let wider: laidOf kinds [text, ..earlier] = { laid | column = laid.column + text.length } := rewrite spaces
   let touches: touchesOf [text, ..earlier] = touchesOf earlier := rewrite spaces
   let ends: endsInWord [text, ..earlier] = False := rewrite spaces
-  let count: text.length ≠ 0 := Fmt.PrintLexProofs.lengthPositive text filled
+  let count: text.length ≠ 0 := Text.lengthNeZeroOfNotEmpty text filled
   rewrite wider, touches then
     (
       glued,

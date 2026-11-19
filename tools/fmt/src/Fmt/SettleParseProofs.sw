@@ -98,21 +98,6 @@ theorem walkDeclsReverse ∀ (p: Pure) (decls: List Decl): walkDecls p decls.rev
     _ = (decls.map (decl => decl.walk p)).reverse := List.mapReverse decls (decl => decl.walk p)
     _ = (walkDecls p decls).reverse := rewrite walkDeclsMap p decls
 
-theorem allReverseOnto ∀ (p: a → Bool) (xs acc: List a)
-    (all: xs.all p = True)
-    (allAcc: acc.all p = True):
-    (xs.reverseOnto acc).all p = True :=
-  match xs with
-    | [] => allAcc
-    | [x, ..more] => allReverseOnto p more [x, ..acc] (Bool.andRight all) (Bool.andIntro (Bool.andLeft all) allAcc)
-
-theorem allReverse ∀ (p: a → Bool) (xs: List a) (all: xs.all p = True): xs.reverse.all p = True :=
-  allReverseOnto p xs [] all byComputing
-
-theorem allAppendRight ∀ (p: a → Bool) (xs ys: List a) (all: (xs ++ ys).all p = True): ys.all p = True := match xs with
-  | [] => all
-  | [x, ..more] => allAppendRight p more ys (Bool.andRight all)
-
 theorem reversedCons ∀ (decl: Decl) (found more: List Decl):
     [decl, ..found].reverse ++ more = found.reverse ++ [decl, ..more] :=
   calc [decl, ..found].reverse ++ more
@@ -163,7 +148,7 @@ theorem groupsKeepTokens1 ∀ (seen: Seen) (groups others: List (List Leaf)) (fo
         _ = (walkDecls blankPure found).reverse := rewrite sameFound
         _ = walkDecls blankPure found.reverse := Eq.flipped (walkDeclsReverse blankPure found)
         _ = walkDecls blankPure decls := rewrite isDecls
-      (founds.reverse, byComputing, alike, allReverse Decl.grammar1 founds foundsGrammar)
+      (founds.reverse, byComputing, alike, List.allReverseTrue Decl.grammar1 founds foundsGrammar)
     | [group, ..rest], [other, ..later] =>
       let headSame: tokens group = tokens other := Eq.cong (all => all.headOr (tokens group)) same
       let tailSame: groupTokens rest = groupTokens later := Eq.cong (all => all.drop 1) same
@@ -178,7 +163,7 @@ theorem groupsKeepTokens1 ∀ (seen: Seen) (groups others: List (List Leaf)) (fo
               let split: (found.reverse ++ [decl, ..more]).all Decl.grammar1 = True :=
                 rewrite <- reversedCons decl found more, <- starts then grammar
               let declGrammar: decl.grammar1 = True :=
-                Bool.andLeft (allAppendRight Decl.grammar1 found.reverse [decl, ..more] split)
+                Bool.andLeft (List.allAppendRightTrue Decl.grammar1 found.reverse [decl, ..more] split)
               let (twin, twinRuns, twinAlike, twinGrammar, twinLowered) :=
                 groupKeepsTokens1 seen group other decl headSame ran declGrammar
               let seenSame: seen.after twin = seen.after decl :=

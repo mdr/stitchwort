@@ -32,9 +32,9 @@ theorem plainHung ∀ (modes: Modes) (state: HangState) (item: Item) (rest: List
     modes.stops item = False
       ∧ ∃ (next: HangState) => bounds modes next = True ∧ hangsFrom next (leavesOf rest) = True :=
   let (next, stepped, hungRest) := hungStep state item.leaf (leavesOf rest) hung
-  let (notComma, others) := orFalseParts _ _ plain
-  let (notCloser, others2) := orFalseParts _ _ others
-  let (notAssign, _) := orFalseParts _ _ others2
+  let (notComma, others) := Bool.orFalseElim _ _ plain
+  let (notCloser, others2) := Bool.orFalseElim _ _ others
+  let (notAssign, _) := Bool.orFalseElim _ _ others2
   let entered := boundsEntered modes state next item.leaf bound stepped plain
   (
     hungStops modes state next item quiet bound stepped (deepOf item notComma notCloser) notAssign,

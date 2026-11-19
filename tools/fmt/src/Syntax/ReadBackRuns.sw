@@ -39,14 +39,15 @@ theorem runsSame ∀ (p: () → {Parse t} a) (read rest: List t) (v w: a)
     Parse.Runs p read rest w :=
   rewrite <- same then runs
 
---| A value that is `y` from this state reads nothing.
-theorem runsFromPure ∀ (state: Parse.State t) (x y: a) (rest: List t)
-    (same: x = y):
-    Parse.RunsFrom state (() => x) [] rest y :=
-  rewrite same then Parse.runsPure y rest state
-
 theorem runsLeftOn ∀ (rest: List Item): Parse.Runs (() => left()) [] rest rest := state starts honest =>
-  Parse.runsFromMark state (here => here.rest) [] rest rest (runsFromPure state _ rest rest starts) starts honest
+  Parse.runsFromMark state
+    (here => here.rest)
+    []
+    rest
+    rest
+    (Parse.runsFromPureEq state _ rest rest starts)
+    starts
+    honest
 
 theorem runsPeekOn ∀ (modes: Modes) (rest: List Item): Parse.Runs (() => modes.peek) [] rest (peekIn modes 0 rest) :=
   state starts honest =>
@@ -55,7 +56,7 @@ theorem runsPeekOn ∀ (modes: Modes) (rest: List Item): Parse.Runs (() => modes
       []
       rest
       (peekIn modes 0 rest)
-      (runsFromPure state _ _ rest (Eq.cong (peekIn modes 0) starts))
+      (Parse.runsFromPureEq state _ _ rest (Eq.cong (peekIn modes 0) starts))
       starts
       honest
 
@@ -67,7 +68,7 @@ theorem runsPeekAtOn ∀ (modes: Modes) (ahead: Nat) (rest: List Item):
       []
       rest
       (peekIn modes ahead rest)
-      (runsFromPure state _ _ rest (Eq.cong (peekIn modes ahead) starts))
+      (Parse.runsFromPureEq state _ _ rest (Eq.cong (peekIn modes ahead) starts))
       starts
       honest
 
@@ -88,11 +89,6 @@ theorem runsBump ∀ (item: Item) (rest: List Item): Parse.Runs (() => bump()) [
     byComputing
     (Parse.runsNext (item => True) item rest byComputing)
     (Parse.runsPure item.leaf.word rest)
-
-theorem andFalseLeft ∀ (a b c: Bool) (no: (a && b) = False): (a && b && c) = False := match a, b, no with
-  | True, True, no => (Bool.falseNotTrue no.flipped).impossible
-  | True, False, no => byComputing
-  | False, _, no => byComputing
 
 -- Atoms: a word, with nothing after it that `suffixes` reads.
 
@@ -120,7 +116,7 @@ theorem runsSuffixesOnEnd ∀ (more: Nat) (modes: Modes) (called: Expr) (paren: 
   match rest, noDot with
     | [dot, field, ..later], noDot =>
       let stops: (dot.kind == Dot && !modes.stops dot && !sectionAt [dot, field, ..later]) = False :=
-        andFalseLeft _ _ _ noDot
+        Bool.andFalseLeftOf _ _ _ noDot
       rewrite stops then Parse.runsPure called [dot, field, ..later]
     | [dot], noDot =>
       let stops: (dot.kind == Dot && !modes.stops dot) = False := noDot
@@ -1915,7 +1911,7 @@ theorem runsLambdaHere ∀ (modes: Modes) (items: List Item)
       []
       items
       False
-      (runsFromPure state _ False items none)
+      (Parse.runsFromPureEq state _ False items none)
       starts
       honest
 
@@ -1929,7 +1925,7 @@ theorem runsLambdaResultHere ∀ (modes: Modes) (items: List Item)
       []
       items
       False
-      (runsFromPure state _ False items none)
+      (Parse.runsFromPureEq state _ False items none)
       starts
       honest
 

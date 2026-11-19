@@ -15,7 +15,7 @@ namespace Fmt.OutputFileProofs
 import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (..)
 import Syntax.Proofs (AllPlain, Laid, Piece, Spells, utf8Chars, utf8OfText)
-import Syntax.SettleProofs (allReverseOnto, alphabet1, arrowFollow, plain1, plainFrom, tokens)
+import Syntax.SettleProofs (alphabet1, arrowFollow, plain1, plainFrom, tokens)
 import Syntax.SettleBareProofs (lastPair, noLast)
 import Fmt (..)
 import Fmt.SpellProofs (..)
@@ -24,7 +24,6 @@ import Fmt.TokenProofs (declRealOfLexical, printedTokens1)
 import Fmt.OutputStatements (..)
 import Fmt.FileLexProofs (..)
 import Syntax.ReadBackHungAtomsLemmas (hungStep)
-import Syntax.SharedFacts (reverseFilled)
 
 -- One pass over the texts.
 
@@ -1044,22 +1043,12 @@ theorem nonZeroAdd ∀ (a b: Nat) (nonzero: (a == 0) = False): (b + a == 0) = Fa
 theorem nonZeroAddLeft ∀ (a b: Nat) (nonzero: (a == 0) = False): (a + b == 0) = False := match a with
   | Succ k => byComputing
 
-theorem utf8Positive ∀ (char: Char): ((Char.utf8 char).length == 0) = False := match Nat.leq char.toNat 127 with
-  | True => byComputing
-  | False =>
-    match Nat.leq char.toNat 2047 with
-      | True => byComputing
-      | False =>
-        match Nat.leq char.toNat 65535 with
-          | True => byComputing
-          | False => byComputing
-
 --| A text that isn't empty has bytes.
 theorem textBytes ∀ (text: Text) (filled: text.toList ≠ []): (text.utf8Length == 0) = False :=
   rewrite utf8OfText text then
     match text.toList with
       | [] => (filled byComputing).impossible
-      | [char, ..more] => nonZeroAddLeft (Char.utf8 char).length (utf8Chars more) (utf8Positive char)
+      | [char, ..more] => nonZeroAddLeft (Char.utf8 char).length (utf8Chars more) (Char.utf8LengthNeZero char)
 
 theorem colLinesWithTrailing ∀ (leaves: List Leaf) (comment: Comment):
     colLines (withTrailing leaves comment) = colLines leaves :=
@@ -1074,7 +1063,7 @@ theorem layOk ∀ (laid: Laid) (piece: Piece)
     | Code kind text =>
       Bool.andIntro
         (rewrite nonZeroAdd text.utf8Length laid.column (textBytes text plain.left))
-        (Bool.andIntro (orSwap _ _ (Bool.andLeft ok)) (Bool.andRight ok))
+        (Bool.andIntro (Bool.orSwapTrue _ _ (Bool.andLeft ok)) (Bool.andRight ok))
     | Gap count =>
       match laid.freshLine with
         | True => ok
@@ -1112,7 +1101,7 @@ theorem declColLines ∀ (decl: Decl)
   let (plain, _, _, _) := declPiecesOk decl within shaped settled lexical
   let made := Bool.andRight (foldOk decl.pieces1 Laid.start byComputing plain)
   rewrite leavesOfPieces decl then
-    allReverseOnto
+    List.allReverseOntoTrue
       (leaf => !(leaf.token.column == 0) || leaf.token.lineStart)
       (decl.pieces1.foldLeft Laid.start Laid.lay).leaves
       []
@@ -1284,7 +1273,7 @@ theorem flushLaid ∀ (laid: List Leaf) (groups: List (List Leaf))
     (filled: kindFirst laid = True):
     (if laid.reverse.isEmpty then groups else [laid.reverse.reverse, ..groups]) = [laid, ..groups] :=
   match laid with
-    | [first, ..rest] => rewrite reverseFilled rest [first] byComputing, List.reverseReverse [first, ..rest]
+    | [first, ..rest] => rewrite List.reverseOntoNonEmpty rest [first] byComputing, List.reverseReverse [first, ..rest]
 
 --| The splitter cuts the file's leaves into the declarations'.
 theorem groupsSplit ∀ (empty: Bool) (decls: List Decl) (current: List Leaf) (groups: List (List Leaf))
@@ -1537,10 +1526,6 @@ theorem hangsFlat ∀ (leaves: List Leaf) (hung: hangs leaves = True): commaFlat
       (rewrite DecEq.sound (Bool.andLeft hung))
       (hangsFromFlat rest HangState.initial (Bool.andRight (Bool.andRight hung)))
 
-theorem orSwap ∀ (x y: Bool) (or: (x || y) = True): (y || x) = True := match x with
-  | True => rewrite Bool.orTrue y
-  | False => rewrite or
-
 --| Leaves that may each follow the one before, no comma starting a line, are `plain` from the second token on.
 theorem plainOfPairs ∀ (leaves: List Leaf)
     (pairs: leafPairs leaves = True)
@@ -1551,7 +1536,7 @@ theorem plainOfPairs ∀ (leaves: List Leaf)
     | [leaf] => byComputing
     | [first, second, ..rest] =>
       Bool.andIntro
-        (orSwap _ _ (Bool.andLeft (Bool.andLeft pairs)))
+        (Bool.orSwapTrue _ _ (Bool.andLeft (Bool.andLeft pairs)))
         (Bool.andIntro
           (rewrite Bool.andLeft flat)
           (plainOfPairs [second, ..rest] (Bool.andRight pairs) (Bool.andRight flat)))

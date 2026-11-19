@@ -30,10 +30,8 @@ import Syntax.SettleProofs (
   tokens,
   trailingAtTokens,
   withinOfTokens,
-  emptyOf,
   bareComma,
   alphabet1Leaves,
-  allReverseOnto,
   arrowsIdleAll,
   commasIdle,
   homeFromTokens,
@@ -53,9 +51,8 @@ import Syntax.SettleSplitProofs (
   startsOpenConcat,
   trailsBackAppend
 )
-import Syntax.GlueQuietProofs (orFalseOf)
 import Syntax.ParseWalk (wordWithinWithin)
-import Syntax.SharedFacts (allJoin, arrowsBareSuffix, consCong, reverseFilled, startsHeadChar)
+import Syntax.SharedFacts (arrowsBareSuffix, startsHeadChar)
 
 -- What rule 1 has passed.
 
@@ -143,7 +140,7 @@ theorem endsOnMatched ∀ (behind: List Leaf) (done: List Word)
     (m: matched behind done = True):
     endsOn behind = trailsBack done :=
   match behind with
-    | [] => rewrite emptyOf done m
+    | [] => rewrite List.eqNilOfIsEmpty done m
     | [leaf, ..earlier] =>
       match comma: leaf.kind == Comma with
         | True =>
@@ -172,7 +169,7 @@ theorem endsOnMatched ∀ (behind: List Leaf) (done: List Word)
                           | [_, .._] => byComputing
                       | True =>
                         match earlier with
-                          | [] => rewrite emptyOf older later
+                          | [] => rewrite List.eqNilOfIsEmpty older later
                           | [next, ..more] => endsOnMatched [next, ..more] older later
 
 --| The words of matched leaves, in order.
@@ -180,7 +177,7 @@ theorem matchedWords ∀ (behind acc: List Leaf) (done: List Word)
     (m: matched behind done = True):
     codeWords (behind.reverseOnto acc) = done.reverseOnto (codeWords acc) :=
   match behind with
-    | [] => rewrite emptyOf done m
+    | [] => rewrite List.eqNilOfIsEmpty done m
     | [leaf, ..earlier] =>
       match comma: leaf.kind == Comma with
         | True =>
@@ -250,7 +247,7 @@ theorem landing ∀ (leaf: Leaf) (word: Word) (behind: List Leaf) (done: List Wo
           let reasons: (done.isEmpty || word.noted || trailsBack done) = True :=
             rewrite closes, trails at first then first
           match empty: done.isEmpty with
-            | True => rewrite matchedEmpty behind (rewrite emptyOf done empty at m then m)
+            | True => rewrite matchedEmpty behind (rewrite List.eqNilOfIsEmpty done empty at m then m)
             | False =>
               let stops: stopsAt leaf behind = True := match noted: word.noted with
                 | True =>
@@ -335,7 +332,7 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
   match rest with
     | [] =>
       match owed with
-        | None => rewrite emptyOf words (Bool.andLeft standing), List.reverseReverse behind then state
+        | None => rewrite List.eqNilOfIsEmpty words (Bool.andLeft standing), List.reverseReverse behind then state
         | Some text => Void.impossible (Bool.falseNotTrue (Bool.andRight standing))
     | [leaf, ..after] =>
       let leafWithin: leaf.kind.within1 = True := Bool.andLeft within
@@ -348,7 +345,7 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
           let leadingEmpty: leaf.trivia.leading.isEmpty = True := Bool.andLeft standing
           let tuck := Bool.andRight (Bool.andRight standing)
           let filled: (!done.isEmpty) = True := match owed with
-            | None => orFalseOf (!done.isEmpty) lead
+            | None => Bool.orFalseTrue (!done.isEmpty) lead
             | Some text => owingNonEmpty text behind done state
           let leadNext: (!done.isEmpty || notCommaFirst after) = True := Bool.orLeft filled
           match owed, trailing: leaf.trivia.trailing with
@@ -782,7 +779,8 @@ theorem allConcat ∀ (pieces: List (List Word)) (p: Word → Bool)
     pieces.concat.all p = True :=
   match pieces with
     | [] => byComputing
-    | [piece, ..more] => allJoin piece more.concat p (Bool.andLeft all) (allConcat more p (Bool.andRight all))
+    | [piece, ..more] =>
+      List.allAppendTrue piece more.concat p (Bool.andLeft all) (allConcat more p (Bool.andRight all))
 
 --| A declaration's words and its calm words, the `def` given other comments alike its own, are alike.
 theorem declWordsAlike ∀ (header: Header) (colonEq: Comments) (value: Expr) (keyword: Comments)
@@ -1274,10 +1272,6 @@ theorem leadingEmptySame ∀ (leaf: Leaf) (word: Word)
     | [] => rewrite <- aboveSame
     | [first, ..more] => rewrite <- aboveSame
 
-theorem notOfTrue ∀ (x: Bool) (h: x = True): (!x) = False := rewrite h
-
-theorem orRightOf ∀ (a b: Bool) (off: a = False) (h: (a || b) = True): b = True := rewrite off at h then h
-
 theorem listReverseJoin ∀ (word: Word) (older after: List Word):
     [word, ..older].reverse ++ after = older.reverse ++ [word, ..after] :=
   rewrite List.reverseCons word older, List.appendAssoc older.reverse [word] after
@@ -1339,8 +1333,9 @@ theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
                     | [next, ..more] =>
                       let suffix := arrowsBareSuffix older.reverse [word, next, ..more] joined
                       let first := Bool.andLeft suffix
-                      let na: ((operatorTok word.text != Some Arrow): Bool) = False := notOfTrue (arrowText word) arrowW
-                      let rest: (!word.trails && !next.noted) = True := orRightOf _ _ na first
+                      let na: ((operatorTok word.text != Some Arrow): Bool) = False :=
+                        Bool.notOfTrue (arrowText word) arrowW
+                      let rest: (!word.trails && !next.noted) = True := Bool.orOfLeftFalse _ _ first na
                       let trailsNot: (!word.trails) = True := Bool.andLeft rest
                       let nextNot: (!next.noted) = True := Bool.andRight rest
                       let untrailed: leaf.trivia.trailing.isNone = True := match tr: leaf.trivia.trailing with
@@ -1399,7 +1394,7 @@ theorem homedArrowsBare ∀ (file: SourceFile)
       (file.words1.reverseOnto [])
       []
       m
-      (allReverseOnto isMarked homed [] markedHomed byComputing)
+      (List.allReverseOntoTrue isMarked homed [] markedHomed byComputing)
       reversed
       quiet
       byComputing
@@ -1528,7 +1523,7 @@ theorem trimReturnsSame ∀ (chars: List Char)
                   Void.impossible (Bool.trueNotFalse (rewrite same at unspaced then unspaced))
                 | False => byComputing
         | [next, ..more] =>
-          let filled: (List.reverse [next, ..more]).isEmpty = False := reverseFilled more [next] byComputing
+          let filled: (List.reverse [next, ..more]).isEmpty = False := List.reverseOntoNonEmpty more [next] byComputing
           let tail: Text.startsWithChars ['\r'] (List.reverse [next, ..more]) = False :=
             rewrite <- startsHeadChar '\r' (List.reverse [next, ..more]) [char] filled then
               rewrite List.reverseCons char [next, ..more] at plain then plain
@@ -1672,7 +1667,8 @@ theorem printedSettle1 ∀ (file: SourceFile)
       leavesWithin
       (printedAgrees1 file within shaped settled lexical)
   let bare: homed.all bareComma = True :=
-    rewrite <- List.reverseReverse homed then allReverseOnto bareComma homed.reverse [] (matchedBare _ _ m) byComputing
+    rewrite <- List.reverseReverse homed then
+      List.allReverseOntoTrue bareComma homed.reverse [] (matchedBare _ _ m) byComputing
   let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens False [] None leaves) byComputing
   let plainHomed: plainFrom (tokens homed) = True := rewrite tokensSame then plainFromOf (tokens leaves) plain
   let homedWithin := withinOfTokens homed leaves tokensSame leavesWithin
@@ -1682,10 +1678,11 @@ theorem printedSettle1 ∀ (file: SourceFile)
     arrowsIdleAll homed (homedArrowsBare file within shaped settled lexical hung m) plainHomed
   let letsSame: letsFrom [] homed = homed := letsQuiet1 [] homed byComputing homedWithin
   let trimSame: homed.map (leaf => { leaf | trivia = leaf.trivia.trimmed }) = homed :=
-    let wordsTexts := allReverseOnto (word => word.comments.texts.all commentText) file.words1 [] texts byComputing
+    let wordsTexts :=
+      List.allReverseOntoTrue (word => word.comments.texts.all commentText) file.words1 [] texts byComputing
     let clean: homed.all Leaf.clean = True :=
       rewrite <- List.reverseReverse homed then
-        allReverseOnto Leaf.clean homed.reverse [] (matchedClean _ _ m wordsTexts) byComputing
+        List.allReverseOntoTrue Leaf.clean homed.reverse [] (matchedClean _ _ m wordsTexts) byComputing
     trimIdle homed clean
   let leavesSame: file.lexed1.settled.leaves = homed := rewrite commasSame, arrowsSame, letsSame, trimSame
   let endSame: file.lexed1.settled.end = file.lexed1.end.trimmed := rewrite commasSame
@@ -1704,7 +1701,7 @@ theorem standsAppend ∀ (owed: Option Text) (words more: List Word) (leaves res
   match leaves with
     | [] =>
       match owed with
-        | None => rewrite emptyOf words (Bool.andLeft first) then second
+        | None => rewrite List.eqNilOfIsEmpty words (Bool.andLeft first) then second
         | Some text => Void.impossible (Bool.falseNotTrue (Bool.andRight first))
     | [leaf, ..after] =>
       match comma: leaf.kind == Comma with
@@ -1901,7 +1898,7 @@ theorem flushTokens ∀ (current other: List Leaf) (groups others: List (List Le
         _ = (tokens [first, ..more]).reverse := tokensReverse [first, ..more]
         _ = (tokens [second, ..later]).reverse := Eq.cong (all => all.reverse) sameCurrent
         _ = tokens [second, ..later].reverse := Eq.flipped (tokensReverse [second, ..later])
-      consCong _ _ _ _ reversed sameGroups
+      List.consEqOfEq _ _ _ _ reversed sameGroups
 
 -- Standing, group by group.
 
@@ -1939,7 +1936,7 @@ theorem standsLength ∀ (owed: Option Text) (words: List Word) (leaves: List Le
   match leaves with
     | [] =>
       match owed with
-        | None => rewrite emptyOf words (Bool.andLeft standing)
+        | None => rewrite List.eqNilOfIsEmpty words (Bool.andLeft standing)
         | Some text => Void.impossible (Bool.falseNotTrue (Bool.andRight standing))
     | [leaf, ..after] =>
       match comma: leaf.kind == Comma with
@@ -1987,7 +1984,7 @@ theorem codeLengthsTokens ∀ (xs ys: List (List Leaf))
   match xs, ys with
     | [], [] => byComputing
     | [x, ..xr], [y, ..yr] =>
-      consCong _ _ _ _
+      List.consEqOfEq _ _ _ _
         (codeLengthTokens x y (Eq.cong (all => all.headOr []) same))
         (codeLengthsTokens xr yr (Eq.cong (all => all.drop 1) same))
 
@@ -1997,20 +1994,9 @@ theorem standsLengths ∀ (words: List (List Word)) (groups: List (List Leaf))
   match words, groups with
     | [], [] => byComputing
     | [first, ..more], [group, ..rest] =>
-      consCong _ _ _ _
+      List.consEqOfEq _ _ _ _
         (standsLength None first group (Bool.andLeft each))
         (standsLengths more rest (Bool.andRight each))
-
-theorem appendCancel ∀ (a c b d: List x) (joined: a ++ b = c ++ d) (lengths: a.length = c.length): a = c ∧ b = d :=
-  match a, c with
-    | [], [] => (byComputing, joined)
-    | [], [q, ..qs] => Void.impossible (Nat.zeroNotSucc qs.length lengths)
-    | [p, ..ps], [] => Void.impossible (Nat.succNotZero ps.length lengths)
-    | [p, ..ps], [q, ..qs] =>
-      let headSame: p = q := Eq.cong (all => all.headOr p) joined
-      let (restSame, tailSame) :=
-        appendCancel ps qs b d (Eq.cong (all => all.drop 1) joined) (Eq.cong (n => n - 1) lengths)
-      (consCong p q ps qs headSame restSame, tailSame)
 
 --| Pieces whose words, joined, are the words wanted, each with as many words as wanted of it, have those words.
 theorem piecesWords ∀ (pieces: List (List Leaf)) (words: List (List Word))
@@ -2023,14 +2009,14 @@ theorem piecesWords ∀ (pieces: List (List Leaf)) (words: List (List Word))
       let split: codeWords piece ++ codeWords rest.concat = first ++ more.concat :=
         Eq.trans (Eq.flipped (codeWordsAppend piece rest.concat)) joined
       let (pieceSame, restSame) :=
-        appendCancel
+        List.appendCancel
           (codeWords piece)
           first
           (codeWords rest.concat)
           more.concat
           split
           (Eq.cong (all => all.headOr 0) lengths)
-      consCong _ _ _ _ pieceSame (piecesWords rest more restSame (Eq.cong (all => all.drop 1) lengths))
+      List.consEqOfEq _ _ _ _ pieceSame (piecesWords rest more restSame (Eq.cong (all => all.drop 1) lengths))
 
 -- Witnesses for the narrow hypotheses.
 

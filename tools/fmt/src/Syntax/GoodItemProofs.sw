@@ -32,7 +32,6 @@ import Syntax.SettleProofs (alphabet1, settledWithKeepsTokens, sourcePlain1, tok
 import Syntax.SettleBareProofs (tokensBare)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Fmt.TreeJoinProofs (spellsOfText1)
-import Syntax.SettleOnceProofs (allAppendB)
 import Syntax.LexLaidProofs (assembleWithin)
 import Syntax.LexReadsProofs (..)
 import Syntax.SharedFacts (wordStartChar)
@@ -113,22 +112,14 @@ theorem spellsOfTests ∀ (kind: Tok) (text: Text)
     | Star, _, _, fixed => DecEq.sound fixed
     | Slash, _, _, fixed => DecEq.sound fixed
     | Percent, _, _, fixed => DecEq.sound fixed
-    | OrOr, _, _, fixed => eitherText fixed
-    | AndAnd, _, _, fixed => eitherText fixed
-    | NotEq, _, _, fixed => eitherText fixed
-    | Le, _, _, fixed => eitherText fixed
-    | Ge, _, _, fixed => eitherText fixed
-    | Bang, _, _, fixed => eitherText fixed
-    | Arrow, _, _, fixed => eitherText fixed
+    | OrOr, _, _, fixed => Text.eqOfOrBeq fixed
+    | AndAnd, _, _, fixed => Text.eqOfOrBeq fixed
+    | NotEq, _, _, fixed => Text.eqOfOrBeq fixed
+    | Le, _, _, fixed => Text.eqOfOrBeq fixed
+    | Ge, _, _, fixed => Text.eqOfOrBeq fixed
+    | Bang, _, _, fixed => Text.eqOfOrBeq fixed
+    | Arrow, _, _, fixed => Text.eqOfOrBeq fixed
     | _, within, _, _ => (Bool.falseNotTrue within).impossible
-
---| A text that is one of two.
-theorem eitherText ∀ [text first second: Text]
-    (either: (text == first || text == second) = True):
-    text = first ∨ text = second :=
-  match (Bool.orReads (text == first) (text == second)).forward either with
-    | Inl one => Inl (DecEq.sound one)
-    | Inr other => Inr (DecEq.sound other)
 
 --| An item whose token passes both tests is good.
 theorem goodOfToken ∀ (item: Item)
@@ -146,16 +137,6 @@ theorem itemsAfterAll ∀ (p: Leaf → Prop) (before: Option Token) (index depth
   match leaves, all with
     | [], _ => Trivial
     | [leaf, ..rest], (first, later) => (first, itemsAfterAll p _ _ _ _ rest later)
-
---| What holds of every part of a list's concatenation holds of every part of every list.
-theorem allOfConcat ∀ (p: a → Prop) (lists: List (List a))
-    (all: List.All p lists.concat):
-    List.All (part => List.All p part) lists :=
-  match lists with
-    | [] => Trivial
-    | [first, ..rest] =>
-      let split: List.All p (first ++ rest.concat) := all
-      (List.allAppendLeft p first rest.concat split, allOfConcat p rest (List.allAppendRight p first rest.concat split))
 
 --| Leaves whose tokens pass both tests give good items in every group.
 theorem goodOfTokens ∀ (leaves: List Leaf)
@@ -175,7 +156,7 @@ theorem goodOfTokens ∀ (leaves: List Leaf)
         (items group)
         (itemsAfterAll _ None 0 0 0 group groupBoth))
     (groupsOf leaves)
-    (allOfConcat _ (groupsOf leaves) whole)
+    (List.allOfConcat _ (groupsOf leaves) whole)
 
 --| Two tests of every leaf's token, as one fact of each leaf.
 theorem leavesBoth ∀ (leaves: List Leaf)
@@ -355,33 +336,6 @@ theorem readsAtThenMoved ∀ [start: Parse.Mark Char] [p: () → {Parse Char} a]
                     (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
                     (Both honest2 holds2))
 
---| `next` of anything reads the first character left, if there is one.
-theorem readsAtNextAny ∀ (start: Parse.Mark Char):
-    Parse.ReadsAt start (() => Parse.next (char => True)) (read v => read = start.rest.take 1) :=
-  total state value after here honest h =>
-    let honestAt: Parse.Honest total state.at := rewrite here then honest
-    rewrite <- here then
-      match e: state.at.rest with
-        | [] =>
-          let same := Result.okInjective h
-          let atSame: state.at = after := Pair.mkInjectiveSnd same
-          Witness [] (rewrite <- atSame, e then Both byComputing (Both honestAt byComputing))
-        | [char, ..more] =>
-          let same := Result.okInjective h
-          let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
-          let counted: state.at.left = more.length + 1 := honestAt.left
-          Witness
-            [char]
-            (rewrite <- atSame then
-              Both byComputing (Both (Both (arithmetic [counted]) (arithmetic [counted, honestAt.right])) byComputing))
-
---| Taking as many as a take gave takes the same.
-theorem takeOwnLength ∀ (chars: List Char) (count: Nat): chars.take (chars.take count).length = chars.take count :=
-  match chars, count with
-    | [], count => rewrite List.takeNil count
-    | [char, ..rest], Zero => byComputing
-    | [char, ..rest], Succ more => rewrite takeOwnLength rest more
-
 --| A lexeme from a mark in step, to where reading `read` took it, is `read` in the source.
 theorem sliceRead ∀ (source: Text) (start after: Parse.Mark Char) (read: List Char)
     (step: InStep source.toList start)
@@ -413,7 +367,7 @@ theorem tokenOfText ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Ma
         after
         (Parse.readsAtDone after _ _
           (Both byComputing
-            (rewrite sliceRead source start after read step moved, taken, takeOwnLength start.rest count)))))
+            (rewrite sliceRead source start after read step moved, taken, List.takeOwnLength start.rest count)))))
 
 --| `symbol`'s choice, tested: a token of fixed spelling is its text.
 def symbolFixed1 (input: List Char): Bool := match symbol input with
@@ -689,7 +643,7 @@ theorem wordTextSpelled ∀ (c: Char) (word read: List Char) (kind: Tok)
               (Bool.falseNotTrue
                 (Eq.trans (wordKindNotNumeral False (Text.fromList [c, ..word])).flipped numeral)).impossible)
     | Inr (Both (Both (Witness rest isDot) scanned) which) =>
-      let notAll: (word ++ read).all isWordChar = False := rewrite allAppendB word read isWordChar, all, isDot
+      let notAll: (word ++ read).all isWordChar = False := rewrite List.allAppendAnd word read isWordChar, all, isDot
       let scan: qualScan1 c.isAsciiUppercase c.isAsciiUppercase (word ++ read) = Some (kind == Upper) :=
         rewrite qualScanWord c.isAsciiUppercase c.isAsciiUppercase word read all then scanned
       match which with
@@ -755,7 +709,8 @@ theorem wordFine ∀ (source: Text) (from: Parse.Mark Char) (c: Char) (more: Lis
           match spanned with
             | Both isFirst firstIs =>
               let head: read1 = [c, ..more.takeWhile isWordChar] :=
-                rewrite isFirst, firstIs then spanHead isWordChar from.rest c more here (wordStartChar c starts)
+                rewrite isFirst, firstIs then
+                  List.takeWhileConsOf isWordChar from.rest c more here (wordStartChar c starts)
               let firstHead: first = [c, ..more.takeWhile isWordChar] := rewrite <- isFirst then head
               let moved: after3.offset = from.offset + (read1 ++ readKind).length :=
                 arithmetic [moved1, moved3, List.lengthAppend read1 readKind]
@@ -1040,7 +995,7 @@ theorem numberFine ∀ (source: Text) (from: Parse.Mark Char) (c: Char) (more: L
             match spanned with
               | Both isDigits digitsAre =>
                 let head: read1 = [c, ..more.takeWhile Char.isAsciiDigit] :=
-                  rewrite isDigits, digitsAre then spanHead Char.isAsciiDigit from.rest c more here digit
+                  rewrite isDigits, digitsAre then List.takeWhileConsOf Char.isAsciiDigit from.rest c more here digit
                 let moved: after2.offset = from.offset + (read1 ++ readT).length :=
                   arithmetic [moved1, moved2, List.lengthAppend read1 readT]
                 let whole: from.rest = (read1 ++ readT) ++ after2.rest :=
@@ -1094,7 +1049,7 @@ theorem nameSpellsText ∀ (kind: Tok) (text: Text) (first: Char)
           match named with
             | Witness lastUpper (Both found which) =>
               let notAll: (others ++ qualChars [(letter, word), ..more]).all isWordChar = False :=
-                rewrite allAppendB others (qualChars [(letter, word), ..more]) isWordChar, all
+                rewrite List.allAppendAnd others (qualChars [(letter, word), ..more]) isWordChar, all
               let scanned: qualScan1 first.isAsciiUppercase first.isAsciiUppercase
                 (others ++ qualChars [(letter, word), ..more])
                 = Some (qualLast first.isAsciiUppercase [(letter, word), ..more]) :=
@@ -1245,7 +1200,7 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
             (atThen
               [p := () => word False]
               [j := made => [made]]
-              (atMarkThen [j := from => wordFrom False from] (wordFine source start other more step here w))
+              (Parse.readsAtMarkThen [j := from => wordFrom False from] (wordFine source start other more step here w))
               (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
         | False =>
           match d: other.isAsciiDigit with
@@ -1254,7 +1209,9 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
                 (atThen
                   [p := () => number False]
                   [j := made => [made]]
-                  (atMarkThen [j := from => numberFrom False from] (numberFine source start other more step here d))
+                  (Parse.readsAtMarkThen
+                    [j := from => numberFrom False from]
+                    (numberFine source start other more step here d))
                   (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
             | False =>
               match u: other.toNat >= 128 with
@@ -1329,7 +1286,7 @@ theorem concatFine ∀ (source: Text) (rounds: List (List (Parse.Located Lexeme)
     lexemesFine source rounds.concat = rounds.all (lexemesFine source) :=
   match rounds with
     | [] => byComputing
-    | [round, ..more] => rewrite allAppendB round more.concat (lexemeFixed source), concatFine source more
+    | [round, ..more] => rewrite List.allAppendAnd round more.concat (lexemeFixed source), concatFine source more
 
 --| The lexemes of any source that lexes, all of slice 1's alphabet, are spelled as their kinds are, where they stand
 --| in the source.

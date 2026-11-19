@@ -36,31 +36,12 @@ theorem startsHeadChar ∀ (mark: Char) (ys zs: List Char)
     Text.startsWithChars [mark] (ys ++ zs) = Text.startsWithChars [mark] ys :=
   match ys with | [y, ..more] => byComputing
 
-theorem reverseFilled ∀ (xs acc: List a) (filled: acc.isEmpty = False): (xs.reverseOnto acc).isEmpty = False :=
-  match xs with
-    | [] => filled
-    | [x, ..rest] => reverseFilled rest [x, ..acc] byComputing
-
-theorem allJoin ∀ (xs ys: List a) (p: a → Bool)
-    (first: xs.all p = True)
-    (second: ys.all p = True):
-    (xs ++ ys).all p = True :=
-  match xs with
-    | [] => second
-    | [x, ..rest] => Bool.andIntro (Bool.andLeft first) (allJoin rest ys p (Bool.andRight first) second)
-
-theorem consCong ∀ (x y: a) (xs ys: List a) (head: x = y) (tail: xs = ys): [x, ..xs] = [y, ..ys] := rewrite head, tail
-
 theorem solidSpaces ∀ (text: Text) (solid: isLayout text = False): text.all (char => char == ' ') = False :=
   match spaces: text.all (char => char == ' ') with | False => byComputing
 
 theorem commaNotCloser ∀ (kind: Tok) (comma: (kind == Comma) = True): kind.isCloser = False := cases
 
 theorem wordStartChar ∀ (char: Char) (starts: isWordStart char = True): isWordChar char = True := arithmetic [starts]
-
-theorem andFalseRight ∀ (x: Bool): (x && False) = False := match x with
-  | True => byComputing
-  | False => byComputing
 
 theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
   match header with

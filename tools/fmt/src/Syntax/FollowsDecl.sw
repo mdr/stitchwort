@@ -319,7 +319,7 @@ theorem followsAttributeItemsAt ∀ (more: Nat) (modes: Modes)
       (PairAlike (List.All2 AttributeAlike) Same)
       (() => attributeItemsAt more modes found closed)
       (() => attributeItemsAt more modes twins closed) :=
-  let empties: found.isEmpty = twins.isEmpty := listsEmpty found twins founds
+  let empties: found.isEmpty = twins.isEmpty := List.all2IsEmpty found twins founds
   rewrite empties then
     match closed && !twins.isEmpty with
       | True =>
@@ -2916,7 +2916,7 @@ theorem followsImportStop ∀ (modes: Modes) (path pathTwin: Word) (found twins:
     (founds: List.All2 ImportItemAlike found twins) (dots: Bool):
     Parse.Follows SameCode (List.All2 ImportItemAlike) (() => importStop modes path found dots) (() =>
       importStop modes pathTwin twins dots) :=
-  let empties: found.isEmpty = twins.isEmpty := listsEmpty found twins founds
+  let empties: found.isEmpty = twins.isEmpty := List.all2IsEmpty found twins founds
   rewrite empties then
     match dots && !twins.isEmpty with
       | True => followsFatalAny _ (() => Syntax.fatal (mixedImport pathTwin))
@@ -4425,7 +4425,7 @@ theorem followsDeclarationEnd ∀ (modes: Modes) (decl declTwin: Decl)
     (same: List.All2 SameCode items others):
     Parse.Follows SameCode DeclsAlike (() => declarationEnd modes decl items) (() =>
       declarationEnd modes declTwin others) :=
-  let empties: items.isEmpty = others.isEmpty := listsEmpty items others same
+  let empties: items.isEmpty = others.isEmpty := List.all2IsEmpty items others same
   rewrite empties then
     match others.isEmpty with
       | True => Parse.followsDone decl declTwin decls

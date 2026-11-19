@@ -115,32 +115,14 @@ theorem pieceFoldChars ∀ (kinds: Text → Tok) (texts: List Text):
 
 -- Each piece is plain and spelled.
 
-theorem lengthPositive ∀ (text: Text) (filled: text.isEmpty = False): text.length ≠ 0 := match text, filled with
-  | MkText [], never => cases
-  | MkText [first, ..rest], _ => same => cases
-
-theorem noBreakOfContains ∀ (chars: List Char)
-    (none: Text.containsChars ['\n'] chars = False):
-    chars.all (char => char != '\n') = True :=
-  match chars with
-    | [] => byComputing
-    | [first, ..rest] =>
-      match same: Text.sameChar '\n' first with
-        | False =>
-          Bool.andIntro
-            (match isBreak: first == '\n' with
-              | True => cases
-              | False => byComputing)
-            (noBreakOfContains rest none)
-
 --| A comment as rule N leaves it is read as a comment: `--`, then no line break.
 --|
---| Proof idea: `startsWith "--"` gives the two dashes by `sameChar`; no line break in the text is no line break in what follows them (`noBreakOfContains`).
+--| Proof idea: `startsWith "--"` gives the two dashes by `sameChar`; no line break in the text is no line break in what follows them (`Text.allNotLineBreak`).
 theorem remarkSpelled ∀ (text: Text)
     (starts: text.startsWith "--" = True)
     (noBreak: text.contains "\n" = False):
     (Remark text).Plain ∧ (Remark text).Spells :=
-  let chars := noBreakOfContains text.toList noBreak
+  let chars := Text.allNotLineBreak text.toList noBreak
   match text with
     | MkText [first] => cases
     | MkText [first, second, ..rest] =>
@@ -158,13 +140,13 @@ theorem remarkSpelled ∀ (text: Text)
 
 --| A good printed piece reads as a plain, spelled lexer piece.
 --|
---| Proof idea: Cases on how `pieceOf` classifies it: spaces (`lengthPositive`), a line break, a comment (`remarkSpelled`) or a token (`spellsPlain`).
+--| Proof idea: Cases on how `pieceOf` classifies it: spaces (`Text.lengthNeZeroOfNotEmpty`), a line break, a comment (`remarkSpelled`) or a token (`spellsPlain`).
 theorem pieceOfOk ∀ (kinds: Text → Tok) (text: Text)
     (good: Good kinds text):
     (pieceOf kinds text).Plain ∧ (pieceOf kinds text).Spells :=
   let printable := good.right
   match spaces: text.all (char => char == ' ') with
-    | True => (lengthPositive text good.left, byComputing)
+    | True => (Text.lengthNeZeroOfNotEmpty text good.left, byComputing)
     | False =>
       match lineBreak: text == "\n" with
         | True => (byComputing, byComputing)
@@ -370,11 +352,6 @@ theorem foldNonEmpty ∀ (kinds: Text → Tok) (text: Text) (rest: List Text):
     | Break, later => (Break, later, byComputing)
     | Remark note, later => (Remark note, later, byComputing)
 
-theorem headOfAppend ∀ (front back: List Char) (filled: front ≠ []): (front ++ back).head = front.head :=
-  match front, filled with
-    | [], never => (never byComputing).impossible
-    | [first, ..rest], _ => byComputing
-
 --| The first piece of the output starts with what its first text does.
 --|
 --| Proof idea: The characters of the pieces are the texts' (`pieceFoldChars`); the first piece is not empty.
@@ -393,9 +370,9 @@ theorem foldHead ∀ (kinds: Text → Tok) (text: Text) (rest: List Text) (piece
     | MkText [first, ..others], _ => same => cases
   calc piece.chars.head
     _ = (piece.chars ++ Parse.joinReads (pieceSteps more)).head :=
-      (headOfAppend piece.chars (Parse.joinReads (pieceSteps more)) (nonEmptyChars piece plainFirst)).flipped
+      (List.headAppend piece.chars (Parse.joinReads (pieceSteps more)) (nonEmptyChars piece plainFirst)).flipped
     _ = (text.toList ++ charsOf rest).head := Eq.cong (chars => chars.head) joined
-    _ = text.toList.head := headOfAppend text.toList (charsOf rest) textFilled
+    _ = text.toList.head := List.headAppend text.toList (charsOf rest) textFilled
 
 --| What the gap before the text, or the text itself, starts with: one space for spaces.
 --|

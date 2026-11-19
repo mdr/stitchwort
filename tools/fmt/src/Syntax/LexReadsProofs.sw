@@ -10,8 +10,7 @@ namespace Syntax.LexReadsProofs
 import Std (Bool, Char, Effect, Empty, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
-import Syntax.SettleOnceProofs (allAppendB, allReverseOnto)
-import Syntax.SharedFacts (andFalseRight, wordStartChar)
+import Syntax.SharedFacts (wordStartChar)
 
 -- Reading from one mark, with where each step stopped.
 
@@ -45,15 +44,6 @@ theorem atThen ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [j: a → {Pars
                   (Both
                     (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
                     (Both honest2 holds2))
-
---| A mark is the mark where the parser is.
-theorem atMark ∀ (start: Parse.Mark t): Parse.ReadsAt start (() => Parse.mark()) (read at => read = [] ∧ at = start) :=
-  total state value after here honest h =>
-    let same := Result.okInjective h
-    let valueSame: state.at = value := Pair.mkInjectiveFst same
-    let atSame: state.at = after := Pair.mkInjectiveSnd same
-    rewrite <- atSame, <- valueSame, here then
-      Witness [] (Both byComputing (Both honest (Both byComputing byComputing)))
 
 --| Nothing is said of what an honest parser read: it read a start of the input and stopped at an honest mark.
 --| A proposition with a proof, for a spec that says nothing (`Unit` here is `Fmt`'s document).
@@ -107,25 +97,6 @@ theorem soundMany ∀ [p: () → {Parse Char} a] (sound: Sound p): Sound (() => 
 
 -- Characters taken0 and tokens.
 
-theorem atNextAny ∀ (start: Parse.Mark Char):
-    Parse.ReadsAt start (() => Parse.next (char => True)) (read value => read = start.rest.take 1) :=
-  total state value after here honest h =>
-    let honestS: Parse.Honest total state.at := rewrite here then honest
-    rewrite <- here then
-      (match e: state.at.rest with
-        | [] =>
-          let same := Result.okInjective h
-          let atSame: state.at = after := Pair.mkInjectiveSnd same
-          Witness [] (rewrite <- atSame, e then Both byComputing (Both honestS byComputing))
-        | [char, ..more] =>
-          let same := Result.okInjective h
-          let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
-          let counted: state.at.left = more.length + 1 := honestS.left
-          Witness
-            [char]
-            (rewrite <- atSame then
-              Both byComputing (Both (Both (arithmetic [counted]) (arithmetic [counted, honestS.right])) byComputing)))
-
 theorem takeSplit ∀ (whole read later: List Char) (count: Nat)
     (starts: whole = read ++ later)
     (first: read = whole.take 1):
@@ -145,7 +116,7 @@ theorem atSkip ∀ (count: Nat) (start: Parse.Mark Char):
     Parse.ReadsAt start (() => skip count) (read u => read = start.rest.take count) :=
   match count with
     | Zero => Parse.readsAtDone start () _ byComputing
-    | Succ more => atThen (atNextAny start) (read v after starts moved first =>
+    | Succ more => atThen (Parse.readsAtNextAny start) (read v after starts moved first =>
       Parse.readsAtWeaken (atSkip more after) (taken u later =>
         rewrite later then takeSplit start.rest read after.rest more starts first))
 
@@ -153,7 +124,7 @@ theorem atSkip ∀ (count: Nat) (start: Parse.Mark Char):
 theorem atLocated ∀ (value: Lexeme) (from at: Parse.Mark Char):
     Parse.ReadsAt at (() => located value from) (read lexeme =>
       read = [] ∧ lexeme = { value, offset = from.offset, length = at.offset - from.offset }) :=
-  atThen (atMark at) (read m after starts moved facts =>
+  atThen (Parse.readsAtMarkHere at) (read m after starts moved facts =>
     match facts with
       | Both none same => rewrite none, same then Parse.readsAtDone after _ _ (Both byComputing byComputing))
 
@@ -180,7 +151,7 @@ theorem tokenLocated ∀ (kind: Tok) (count: Nat) (start after later: Parse.Mark
 
 theorem atTokenOf ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char):
     Parse.ReadsAt start (() => tokenOf kind count) (TokenRead start kind count) :=
-  atThen (atMark start) (read from after starts moved facts =>
+  atThen (Parse.readsAtMarkHere start) (read from after starts moved facts =>
     match facts with
       | Both none same =>
         let afterRest: after.rest = start.rest := rewrite none at starts then starts.flipped
@@ -208,9 +179,6 @@ def EachAt (spec: Nat → List t → List t → a → Prop) (offset: Nat) (rest 
 def ManyAt (spec: Nat → List t → List t → a → Prop) (found: List a) (offset: Nat) (rest read: List t) (values: List a):
     Prop :=
   ∃ (more: List a) => values = found.reverse ++ more ∧ EachAt spec offset rest read more
-
-theorem dropOfAppend ∀ (whole read later: List t) (starts: whole = read ++ later): whole.drop read.length = later :=
-  rewrite starts then List.dropAppend read later
 
 -- What the texts of tokens and comments are.
 
@@ -420,16 +388,6 @@ theorem wordKindPlain ∀ (word: Text): plainKind (wordKind False word) = True :
   | "with" => byComputing
   | _ => upperLowerPlain (word.toList.head.map Char.isAsciiUppercase |> .getOrElse False)
 
-theorem containsBreak ∀ (chars: List Char)
-    (none: chars.all (char => char != '\n') = True):
-    Text.containsChars ['\n'] chars = False :=
-  match chars with
-    | [] => byComputing
-    | [char, ..rest] =>
-      let notBreak: ((char != '\n'): Bool) = True := Bool.andLeft none
-      let differ: Text.sameChar '\n' char = False := arithmetic [notBreak]
-      rewrite differ, containsBreak rest (Bool.andRight none)
-
 --| Taking the `\r`s and spaces off the end of characters leaves no line break where there was none.
 theorem trimReturnsNone ∀ (chars: List Char)
     (none: chars.all (char => char != '\n') = True):
@@ -450,7 +408,7 @@ theorem commentRaw ∀ (body: List Char)
   let inner := trimReturnsNone body none
   let shape: withoutReturn (Text.fromList ['-', '-', ..body]) = Text.fromList ['-', '-', ..trimReturns body] :=
     byComputing
-  rewrite shape, containsBreak (trimReturns body) inner
+  rewrite shape, Text.containsLineBreakFalse (trimReturns body) inner
 
 -- Every part of the lexer reads honestly: what it read is a start of the input, and it stopped at an honest mark.
 
@@ -673,12 +631,12 @@ theorem endForeign ∀ (first: Bool) (piece: Parse.Located Lexeme) (found: List 
     Foreign [piece, ..found].reverse :=
   let cut: ([piece, ..found].reverseOnto []).all (lexeme => lexeme.value.within)
     = ([piece, ..found].all (lexeme => lexeme.value.within) && True) :=
-    allReverseOnto [piece, ..found] [] (lexeme => lexeme.value.within)
+    List.allReverseOntoAnd [piece, ..found] [] (lexeme => lexeme.value.within)
   match first with
     | True => rewrite cut, isPiece
     | False =>
       let foundOut: found.all (lexeme => lexeme.value.within) = False := Bool.notTrue _ marked
-      rewrite cut, foundOut, andFalseRight piece.value.within
+      rewrite cut, foundOut, Bool.andFalse piece.value.within
 
 --| The pieces found after a `${…}`: the piece before it when it is the first, or the ones found before.
 theorem openForeign ∀ (first: Bool) (piece open close: Parse.Located Lexeme) (inner found: List (Parse.Located Lexeme))
@@ -694,12 +652,12 @@ theorem openForeign ∀ (first: Bool) (piece open close: Parse.Located Lexeme) (
     | False =>
       let foundOut: found.all (lexeme => lexeme.value.within) = False := Bool.notTrue _ marked
       match piece.length > 0 with
-        | True => rewrite foundOut, andFalseRight piece.value.within
+        | True => rewrite foundOut, Bool.andFalse piece.value.within
         | False => foundOut
-  rewrite allAppendB [close, ..inner.reverse] [open, ..withPiece] (lexeme => lexeme.value.within),
+  rewrite List.allAppendAnd [close, ..inner.reverse] [open, ..withPiece] (lexeme => lexeme.value.within),
       pieceOut,
-      andFalseRight open.value.within,
-      andFalseRight ([close, ..inner.reverse].all (lexeme => lexeme.value.within))
+      Bool.andFalse open.value.within,
+      Bool.andFalse ([close, ..inner.reverse].all (lexeme => lexeme.value.within))
 
 theorem closeBlockForeign ∀ (source: Text) (body: Nat) (escape: Option Text) (first: Bool)
     (pieceStart: Parse.Mark Char) (found: List (Parse.Located Lexeme))
@@ -809,56 +767,19 @@ theorem roundOfYields ∀ [start: Parse.Mark Char]
 def ForeignRounds (rounds: List (List (Parse.Located Lexeme))): Prop :=
   rounds.all (round => round.all (lexeme => lexeme.value.within)) = False
 
---| `manyFrom` gives the values found before it, then more.
-theorem manyKeeps ∀ (p: () → {Parse t} a) (fuel: Nat) (found: List a) (state: Parse.State t)
-    (value: List a) (after: Parse.Mark t)
-    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
-    ∃ (more: List a) => value = found.reverse ++ more :=
-  match fuel with
-    | Zero =>
-      let same := Result.okInjective h
-      let valueSame: found.reverse = value := Pair.mkInjectiveFst same
-      Witness [] (rewrite <- valueSame then (List.appendNil found.reverse).flipped)
-    | Succ more =>
-      match Parse.runFromOptionalFromOk2 p state.at state
-        (found2 => Parse.manyRound more p found state.at found2)
-        (x => (x, Parse.mark()))
-        (value, after)
-        h with
-        | Inl (Witness v (Witness middle (Both ran rest))) =>
-          match Parse.runFromIfOk
-            (middle.at.offset > state.at.offset)
-            (() => Parse.manyFrom more p [v, ..found] middle.at)
-            (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
-            middle
-            value
-            after
-            rest with
-            | Inl (Both isTrue yesRun) =>
-              match manyKeeps p more [v, ..found] middle value after yesRun with
-                | Witness later same =>
-                  Witness
-                    [v, ..later]
-                    (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] later)
-            | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
-        | Inr (Witness middle (Both back rest)) =>
-          let same := Result.okInjective rest
-          let valueSame: found.reverse = value := Pair.mkInjectiveFst same
-          Witness [] (rewrite <- valueSame then (List.appendNil found.reverse).flipped)
-
 theorem foreignKept ∀ (v: List (Parse.Located Lexeme)) (found more: List (List (Parse.Located Lexeme)))
     (outside: Foreign v):
     ForeignRounds ([v, ..found].reverse ++ more) :=
   let cut: ([v, ..found].reverse ++ more).all (round => round.all (lexeme => lexeme.value.within))
     = (([v, ..found].reverseOnto []).all (round => round.all (lexeme => lexeme.value.within))
       && more.all (round => round.all (lexeme => lexeme.value.within))) :=
-    allAppendB ([v, ..found].reverseOnto []) more (round => round.all (lexeme => lexeme.value.within))
+    List.allAppendAnd ([v, ..found].reverseOnto []) more (round => round.all (lexeme => lexeme.value.within))
   let outsideV: v.all (lexeme => lexeme.value.within) = False := outside
-  rewrite cut, allReverseOnto [v, ..found] [] (round => round.all (lexeme => lexeme.value.within)), outsideV
+  rewrite cut, List.allReverseOntoAnd [v, ..found] [] (round => round.all (lexeme => lexeme.value.within)), outsideV
 
 --| `atManyFrom` for rounds that may give a token outside the alphabet: then the rounds do.
 --|
---| Proof idea: as `atManyFrom`; a round outside the alphabet is kept in the values the rest gives (`manyKeeps`),
+--| Proof idea: as `atManyFrom`; a round outside the alphabet is kept in the values the rest gives (`Parse.manyFromKeeps`),
 --| whatever the rest read.
 theorem atManyFromOr ∀ (p: () → {Parse Char} List (Parse.Located Lexeme))
     (spec: Nat → List Char → List Char → List (Parse.Located Lexeme) → Prop)
@@ -898,7 +819,7 @@ theorem atManyFromOr ∀ (p: () → {Parse Char} List (Parse.Located Lexeme))
             | Inl (Both isTrue yesRun) =>
               match reads state.at total state v middle.at byComputing honest ran with
                 | Inl outside =>
-                  match manyKeeps p more [v, ..found] middle value after yesRun with
+                  match Parse.manyFromKeeps p more [v, ..found] middle value after yesRun with
                     | Witness later same => Inl (rewrite same then foreignKept v found later outside)
                 | Inr (Witness read1 (Both starts1 (Both honest1 holds1))) =>
                   match atManyFromOr p spec reads more [v, ..found] total middle value after honest1 yesRun with
@@ -907,7 +828,7 @@ theorem atManyFromOr ∀ (p: () → {Parse Char} List (Parse.Located Lexeme))
                       let moved: middle.at.offset = state.at.offset + read1.length :=
                         Parse.honestMoved honest honest1 starts1
                       let left: state.at.rest.drop read1.length = middle.at.rest :=
-                        dropOfAppend state.at.rest read1 middle.at.rest starts1
+                        List.dropAppendOf state.at.rest read1 middle.at.rest starts1
                       Inr
                         (Witness
                           (read1 ++ read2)
@@ -1002,15 +923,13 @@ theorem spacesRound ∀ (start: Parse.Mark Char) (first: Char) (more: List Char)
                 | _ => rewrite chunk
               rewrite none, same then singleRound start after read Spaces moved fine))
 
-theorem notFalse ∀ (x: Bool) (h: (!x) = False): x = True := cases
-
 theorem endsLineDrop ∀ (chars: List Char): endsLine (chars.dropWhile (char => char != '\n')) = True := match chars with
   | [] => byComputing
   | [char, ..rest] =>
     match other: ((char != '\n'): Bool) with
       | True => endsLineDrop rest
       | False =>
-        let isEq: (char.decEq '\n').holds = True := notFalse _ other
+        let isEq: (char.decEq '\n').holds = True := Bool.notFalse _ other
         let isBreak: char = '\n' := (char.decEq '\n').sound isEq
         rewrite isBreak
 
@@ -1021,7 +940,7 @@ theorem commentRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexem
       (() => itemOn self source TopLevel start ['-', '-', ..more])
       (RoundFine start.offset start.rest) :=
   atThen (Parse.readsAtSpan start (char => char != '\n')) (read text after starts moved facts =>
-    atThen (atMark after) (read2 at after2 starts2 moved2 facts2 =>
+    atThen (Parse.readsAtMarkHere after) (read2 at after2 starts2 moved2 facts2 =>
       match facts2 with
         | Both none2 same2 =>
           atThen
@@ -1038,7 +957,7 @@ theorem commentRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexem
                       let whole: start.rest = read ++ start.rest.dropWhile (char => char != '\n') :=
                         rewrite isText, textIs then (List.takeWhileDropWhile (char => char != '\n') start.rest).flipped
                       let next: start.rest.drop read.length = start.rest.dropWhile (char => char != '\n') :=
-                        dropOfAppend start.rest read (start.rest.dropWhile (char => char != '\n')) whole
+                        List.dropAppendOf start.rest read (start.rest.dropWhile (char => char != '\n')) whole
                       let raw := commentRaw body (List.allTakeWhile (char => char != '\n') more)
                       let ends := endsLineDrop start.rest
                       let fine: chunkFine read (start.rest.drop read.length) CommentLexeme = True :=
@@ -1053,12 +972,6 @@ theorem commentRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexem
 def TokenAt (c: Char) (offset: Nat) (read: List Char) (lexeme: Parse.Located Lexeme): Prop :=
   (∃ (tail: List Char) => read = [c, ..tail])
     ∧ (∃ (kind: Tok) => plainKind kind = True ∧ lexeme = { value = TokenLexeme kind, offset, length = read.length })
-
-theorem spanHead ∀ (passes: Char → Bool) (rest: List Char) (c: Char) (more: List Char)
-    (here: rest = [c, ..more])
-    (first: passes c = True):
-    rest.takeWhile passes = [c, ..more.takeWhile passes] :=
-  rewrite here, first
 
 --| A token located from `start` after `read1`, a value read, and `read3`.
 theorem tokenAtOf ∀ (c: Char) (start after1 after3: Parse.Mark Char) (read1 read3 tail: List Char) (kind: Tok)
@@ -1095,7 +1008,7 @@ theorem wordReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (wordChar: isWordChar c = True):
     Parse.ReadsAt start (() => wordFrom False start) (TokenAt c start.offset) :=
   atThen (Parse.readsAtSpan start isWordChar) (read1 first after1 starts1 moved1 facts1 =>
-    atThen (atMark after1) (read2 at after2 starts2 moved2 facts2 =>
+    atThen (Parse.readsAtMarkHere after1) (read2 at after2 starts2 moved2 facts2 =>
       match facts2 with
         | Both none2 same2 =>
           atThen
@@ -1116,7 +1029,8 @@ theorem wordReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
                       match facts1 with
                         | Both isFirst firstIs =>
                           let head: read1 = [c, ..more.takeWhile isWordChar] :=
-                            rewrite isFirst, firstIs then spanHead isWordChar start.rest c more here wordChar
+                            rewrite isFirst, firstIs then
+                              List.takeWhileConsOf isWordChar start.rest c more here wordChar
                           let moved3b: after3.offset = after1.offset + read3.length :=
                             rewrite moved2, none2 at moved3 then moved3
                           rewrite none2, none4, isLexeme then
@@ -1143,7 +1057,7 @@ theorem numberReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
               match facts1 with
                 | Both isDigits digitsAre =>
                   let head: read1 = [c, ..more.takeWhile Char.isAsciiDigit] :=
-                    rewrite isDigits, digitsAre then spanHead Char.isAsciiDigit start.rest c more here digit
+                    rewrite isDigits, digitsAre then List.takeWhileConsOf Char.isAsciiDigit start.rest c more here digit
                   let tokenAt :=
                     tokenAtOf c start after1 after2 read1 read2 _
                       (if float then Float else Num)
@@ -1152,16 +1066,6 @@ theorem numberReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
                       head
                       (numberPlain float)
                   rewrite none3, isLexeme then Parse.readsAtDone after3 _ _ tokenAt)))
-
---| A parser that starts by marking where it is: as if that mark were given.
-theorem atMarkThen ∀ [start: Parse.Mark Char] [j: Parse.Mark Char → {Parse Char} b] [spec: List Char → b → Prop]
-    (reads: Parse.ReadsAt start (() => j start) spec):
-    Parse.ReadsAt start (() => j (Parse.mark())) spec :=
-  total state value after here honest h =>
-    let marked := Eq.trans (Parse.runFromMark state (m => (j m, Parse.mark()))).flipped h
-    let given: Parse.runFrom state (() => (j start, Parse.mark())) = Ok (value, after) :=
-      rewrite here at marked then marked
-    reads total state value after here honest given
 
 --| One lexeme, located where the round began and as long as what it read, which is fine.
 theorem singleAt ∀ (start: Parse.Mark Char) (read: List Char) (value: Lexeme)
@@ -1191,7 +1095,7 @@ theorem wordRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
   atThen
     [p := () => word False]
     [j := made => [made]]
-    (atMarkThen [j := from => wordFrom False from] (wordReads start c more here wordChar))
+    (Parse.readsAtMarkThen [j := from => wordFrom False from] (wordReads start c more here wordChar))
     (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
 
 theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
@@ -1202,7 +1106,7 @@ theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
   atThen
     [p := () => number False]
     [j := made => [made]]
-    (atMarkThen [j := from => numberFrom False from] (numberReads start c more here digit))
+    (Parse.readsAtMarkThen [j := from => numberFrom False from] (numberReads start c more here digit))
     (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
 
 --| `tokenOf kind count` as a round, where what it reads is a token's text that agrees with its kind.
@@ -1342,7 +1246,7 @@ theorem concatWithin ∀ (rounds: List (List (Parse.Located Lexeme))):
       = rounds.all (round => round.all (lexeme => lexeme.value.within)) :=
   match rounds with
     | [] => byComputing
-    | [round, ..more] => rewrite allAppendB round more.concat (lexeme => lexeme.value.within), concatWithin more
+    | [round, ..more] => rewrite List.allAppendAnd round more.concat (lexeme => lexeme.value.within), concatWithin more
 
 --| The lexer's lexemes, all of the alphabet, are rounds of `item` joined, each fine and read in turn from the start
 --| of the source.

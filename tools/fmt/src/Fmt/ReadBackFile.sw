@@ -6,7 +6,7 @@ namespace Fmt.ReadBackFile
 import Std (Bool, DecEq, Eq, Fail, List, Nat, Option, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
-import Fmt.Walk (runExpr, runExprs, runHeader, seq1, seq1k, seq2, seq2k, seq3j, seq3k)
+import Fmt.Walk (runExpr, runExprs, runHeader)
 import Fmt.OutputStatements (..)
 import Fmt.OutputFileProofs (declStartsKw, kindFirst)
 import Syntax.SettleProofs (tokens)
@@ -187,28 +187,28 @@ theorem groupsFromTokens ∀ (empty: Bool) (decls: List Decl):
 theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr checkSteps expr = Ok expr := match expr with
   | Atom kind word => byComputing
   | Paren open inner close =>
-    rewrite seq1k
+    rewrite Fail.toResultSeq1Then
       (() => inner.traverse checkSteps)
       (v1 => Paren open v1 close)
       checkSteps.expr
       inner
       (exprChecks inner within)
   | Tuple open items trailingComma close =>
-    rewrite seq1k
+    rewrite Fail.toResultSeq1Then
       (() => traverseExprs checkSteps items)
       (v1 => Tuple open v1 trailingComma close)
       checkSteps.expr
       items
       (exprsChecks items within)
   | ListOf open items trailingComma close =>
-    rewrite seq1k
+    rewrite Fail.toResultSeq1Then
       (() => traverseExprs checkSteps items)
       (v1 => ListOf open v1 trailingComma close)
       checkSteps.expr
       items
       (exprsChecks items within)
   | App head arguments =>
-    rewrite seq2k
+    rewrite Fail.toResultSeq2Then
       (() => head.traverse checkSteps)
       (() => traverseExprs checkSteps arguments)
       (v1 v2 => App v1 v2)
@@ -222,7 +222,7 @@ theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr check
       | InfixBinary => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
       | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
       | _ => cases
-    rewrite seq2k
+    rewrite Fail.toResultSeq2Then
       (() => left.traverse checkSteps)
       (() => right.traverse checkSteps)
       (v1 v2 => Infix kind v1 operator v2)
@@ -232,7 +232,7 @@ theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr check
       (exprChecks left sides.left)
       (exprChecks right sides.right)
   | Prefix operator operand =>
-    rewrite seq1k
+    rewrite Fail.toResultSeq1Then
       (() => operand.traverse checkSteps)
       (v1 => Prefix operator v1)
       checkSteps.expr
@@ -243,7 +243,7 @@ theorem exprsChecks ∀ (items: List Expr) (within: allWithin1 items = True): ru
   match items with
     | [] => byComputing
     | [first, ..rest] =>
-      seq2
+      Fail.toResultSeq2
         (() => first.traverse checkSteps)
         (() => traverseExprs checkSteps rest)
         (v1 v2 => [v1, ..v2])
@@ -296,7 +296,7 @@ theorem declLowers ∀ (decl: Decl) (within: decl.within1 = True): decl.lowering
           unfoldingClause = None
         }
         let headerRuns: runHeader checkSteps built = Ok built :=
-          rewrite seq3j
+          rewrite Fail.toResultSeq3Let
             (() => traverseGroups checkSteps [])
             (() => result.traverse checkSteps)
             (() => traverseAfter checkSteps None)
@@ -323,9 +323,13 @@ theorem declLowers ∀ (decl: Decl) (within: decl.within1 = True): decl.lowering
             byComputing
         let bodyRuns: Fail.toResult (() => traverseDefBody checkSteps (Assigned colonEq value))
           = Ok (Assigned colonEq value) :=
-          seq1 (() => value.traverse checkSteps) (v1 => Assigned colonEq v1) value (exprChecks value valueWithin)
+          Fail.toResultSeq1
+            (() => value.traverse checkSteps)
+            (v1 => Assigned colonEq v1)
+            value
+            (exprChecks value valueWithin)
         rewrite spineNone result resultWithin,
-            seq3k
+            Fail.toResultSeq3Then
               (() => traverseAttributes checkSteps [])
               (() => traverseHeader checkSteps built)
               (() => traverseDefBody checkSteps (Assigned colonEq value))

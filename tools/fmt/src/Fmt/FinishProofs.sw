@@ -295,10 +295,6 @@ theorem appFinishes ∀ (kinds: Text → Tok) (head: Expr) (arguments: List Expr
 
 -- Operator chains.
 
-theorem twoOfAppend ∀ (front: List Doc) (first second: Doc) (more: List Doc):
-    2 ≤ (front ++ [first, second, ..more]).length :=
-  rewrite List.lengthAppend front [first, second, ..more] then arithmetic
-
 --| A chain's docs grouped, the lines after the first operand's nested, finish with its last.
 theorem chainOfFinishes ∀ (arms: Bool) (links: List Doc)
     (ends: FinishesLast Final links)
@@ -383,7 +379,7 @@ theorem chainFinishes ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr)
     (left.opensArms level)
     links
     (chainLinksFinish kinds level True left operator right around rightWithin rightJoins)
-    (twoOfAppend (linkDocs level True left around) Line (operator.leaf _ _) _)
+    (List.twoLeLengthAppend (linkDocs level True left around) Line (operator.leaf _ _) _)
 
 -- The induction.
 

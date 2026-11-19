@@ -1074,10 +1074,6 @@ theorem runsBlockTree ∀ (sub: Goal → List Item → List Item → Expr → Pr
           (runsInlineTree sub self bound lined item more rest value selfRuns small line))
       ends)
 
-theorem andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a with
-  | True => byComputing
-  | False => byComputing
-
 --| What `FullReads` holds of, `expr` reads.
 --|
 --| Proof idea: where no block starts, `runsInlineTree`; where one does, `runsBlockTree`.

@@ -3429,3 +3429,66 @@ theorem Parse.eachSteps ∀ (p: () → {Parse t} a) (spec: List t → a → Prop
               (Both
                 (rewrite valued)
                 (Both (rewrite counted) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
+
+--| A value equal to `y` runs from any state, reading nothing and giving `y`.
+theorem Parse.runsFromPureEq ∀ (state: Parse.State t) (x y: a) (rest: List t)
+    (same: x = y):
+    Parse.RunsFrom state (() => x) [] rest y :=
+  rewrite same then Parse.runsPure y rest state
+
+--| `optional` of a parser that runs from a state runs from it too, with the same read and a `Some` result.
+theorem Parse.runsFromOptionalOf ∀ (state: Parse.State t) (p: () → {Parse t} a) (read rest: List t) (v: a)
+    (runsP: Parse.RunsFrom state p read rest v):
+    Parse.RunsFrom state (() => Parse.optional p) read rest (Some v) :=
+  starts honest =>
+    match runsP starts honest with
+      | Witness m (Both ran (Both mrest (Both mleft moff))) =>
+        Witness m
+          (Both
+            (Parse.runFromOptionalFromBack p
+              (Effect.Always.tree (x => Std.Unit) (p ()) (Effect.alwaysUnit (p ())))
+              state.at
+              state
+              (x => (x, Parse.mark()))
+              v
+              { state | at = m } _
+              ran
+              byComputing)
+            (Both mrest (Both mleft moff)))
+
+--| `manyFrom` gives the values found before it, then more.
+theorem Parse.manyFromKeeps ∀ (p: () → {Parse t} a) (fuel: Nat) (found: List a) (state: Parse.State t)
+    (value: List a) (after: Parse.Mark t)
+    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
+    ∃ (more: List a) => value = found.reverse ++ more :=
+  match fuel with
+    | Zero =>
+      let same := Result.okInjective h
+      let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+      Witness [] (rewrite <- valueSame then (List.appendNil found.reverse).flipped)
+    | Succ more =>
+      match Parse.runFromOptionalFromOk2 p state.at state
+        (found2 => Parse.manyRound more p found state.at found2)
+        (x => (x, Parse.mark()))
+        (value, after)
+        h with
+        | Inl (Witness v (Witness middle (Both ran rest))) =>
+          match Parse.runFromIfOk
+            (middle.at.offset > state.at.offset)
+            (() => Parse.manyFrom more p [v, ..found] middle.at)
+            (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
+            middle
+            value
+            after
+            rest with
+            | Inl (Both isTrue yesRun) =>
+              match Parse.manyFromKeeps p more [v, ..found] middle value after yesRun with
+                | Witness later same =>
+                  Witness
+                    [v, ..later]
+                    (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] later)
+            | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
+        | Inr (Witness middle (Both back rest)) =>
+          let same := Result.okInjective rest
+          let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+          Witness [] (rewrite <- valueSame then (List.appendNil found.reverse).flipped)
