@@ -1,5 +1,5 @@
 {
-  "next": 4182,
+  "next": 4183,
   "tickets": [
     {
       "id": 47,
@@ -26559,12 +26559,12 @@
     {
       "id": 4176,
       "title": "[Opus] fmt S1 glue: drop oneLine1 and spelledPlain1 from formatWithin1 (Driver1), close parsedPlaced1 if still open, and prove formatAccepts1 over all of Grammar1 (D3687); MustAccept1's 144 pass",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4176",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. After SW-4133 (lane 8) and SW-4175. Plan: docs/reviews/SW-4166-carried-walk-plan.md (glue). Not a narrowing: the driver accepts more. Then the Fable slice-1 checkpoint.",
+      "body": "Est. 60 min. After SW-4133 (lane 8) and SW-4175. Plan: docs/reviews/SW-4166-carried-walk-plan.md (glue). Not a narrowing: the driver accepts more. Then the Fable slice-1 checkpoint.\n\n\nLane notes (Opus, 19 Nov, 14:20-14:55): commit c3168b664 on lane/SW-4176. Driver widened (spelledPlain1 and the one-line refusal gone); formatKeepsProgram1/formatIdempotent1 re-proved, statements unchanged. formatAccepts1 proved except ONE open goal, Fmt.SettleParseProofs.settledParsesMoved1: rule N keeps the parse when a last comma starts its line before a closer (plain1 false). Not false (MustAccept1 cases 134/135 pass; SW-4131 checked 14,349 sources), but unproved: rule N gives the closer a line start, so groupKeepsTokens1 (same tokens) does not apply; needs the Follows walk generalised to items alike up to a closer line start. No narrowing. Checks: whole tools/fmt check 0 errors, 1 goal; Fmt.Tests 417/417 (3 driver tests changed from refuses to formats multi-line); MustAccept1 288/288; audit TopStatements+Driver1 44 passed, Accepts1 fails only for the open goal; multi-line gate scale 0 no FAIL. In review for the partial merge; formatAccepts1 is not closed until settledParsesMoved1 is.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26630,6 +26630,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 15 min. Mechanical; names only; no statement changes.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4182,
+      "title": "[Sonnet, bug] Rejected-example messages differ by environment: on Speedwell (agent, main checkout) reject/int-pattern-bool prints 'an `Int`' and reject/instance-head-synonym prints 'Pretty Grid', but the running/ snapshots (and Overmind's green runs) have 'a `Int`' and 'Pretty (List (List Nat))'. article() gives 'an' for Int, so Overmind's output names the type differently (qualified? synonym unfolded?). Find what the output depends on (std location, cache state, release vs debug), make it deterministic, fix the snapshots to the intended text",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Est. 30 min. Seen 19 Nov 14:53 running stitchwort-cli binary(running) rejected_examples_fail_for_the_expected_reason on main 884441d2b; Overmind passes it at 6dcd79b95.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
