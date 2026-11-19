@@ -26161,12 +26161,12 @@
     {
       "id": 4146,
       "title": "[Opus] fmt S1 comments anywhere E3: parenAny (after E2) (SW-4130 plan)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4146",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 min. Folds in SW-4082 where it applies.",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 min. Folds in SW-4082 where it applies.\n\nLane notes (Opus, 19 Nov 2026, 10:05 to 10:27, branch lane/SW-4146, commit 76c4e50e1; est. 60 min):\n- parenAny proved. New Fmt.ElementsParen: parenPlainElHangs (inner seated as it stands, either opener), parenLedElHangs (inner with comments above its first token: first token at the comment break max indent (line+2), the bracket's block), ledOpening/LedGap (opener with or without a waiting comment), ledInner (LedAt + StartLowers + keys -> HeldDone), StartLowers = MidLowers ∧ HeldLowers, innerLowers for every slice 1 inner. No new conditions; no statement changed.\n- check Fmt.ElementsProofs: 0 errors, goals tupleAny listAny appAny binaryAny arrowAny anyHug; check Fmt.TopStatements: 0 errors; audit Fmt.ElementsParen: 10 passed, 0 failed.\n- ElementsGate, 8 hand paren cases: 4 tidied (comments above the inner, after the opener, kept blank, a paren as an argument), all facts=T hangs=T keysFailed=0; the other 4 came back notidy.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26252,12 +26252,12 @@
     {
       "id": 4153,
       "title": "[Opus] fmt S1 comments anywhere: hang lemma for an item with no comments but a kept blank line (leading [BreakParent, LineStart, Blank]; startFor gives wordStart, first word at leadColumn; differs at Mid entries) (SW-4145 finding, needed by E4)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4153",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 45 min. See SW-4145 report: Fmt/ElementsKeys.sw ledItemHangs covers only commented items.",
+      "body": "Est. 45 min. See SW-4145 report: Fmt/ElementsKeys.sw ledItemHangs covers only commented items.\n\nLane notes (Opus, 19 Nov 2026, 10:10 to 10:27, branch lane/SW-4153, commit b1e1ca258; est. 45 min):\n- Computed: printed, such an item always follows a line break (BlankGate: 939 items in 157 of 858 decls with the tree facts, 8 widths, dropping its LineStart never changes the text). But Lays doesn't follow modes: it also lays the separator as a space, the LineStart then breaks to max indent (at+2), and an undisplaced node's later lines stay at the indentation: hangs fails for a tuple, list and chain item (BlankMid, width 8); displaced, all hang. So \"always Broken\" can't be proved at the Lays level, and LedAt is false at such Mid entries for undisplaced nodes.\n- Proved (Fmt.ElementsBlank, audit 8 passed 0 warnings): blankLeadingHangs, blankLeafHangs (atoms, any non-plain-start entry), linedPlain, blankPlacedAt, blankFramedAt, blankNodeAt, blankItemHangs (LedAt given fresh: plainStart entry = False and BlankLined indent around.before entry = before ∨ leadColumn indent entry = indent). ElementsProofs: blankAnyHangs wrapper next to ledAnyHangs. check Fmt.ElementsProofs: 0 errors, same goals.\n- Open for E4: nodes at a Mid entry with at+2 > indent and no waiting comment. Rec: displace a blank-line item in framedBy as a noted one is (output unchanged: at a printed line start Displaced lays at the indentation); then blankPlacedAt's displaced arm covers every entry and BlankLined goes. Orchestrator/Matt call (Rules.sw change).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
