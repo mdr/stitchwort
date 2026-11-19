@@ -501,13 +501,15 @@ fn comparing_a_large_let_does_not_compute_it_while_checking() {
         assert!(result.is_empty(), "{result:?}");
         session.elab.kernel.machine.budget.total_work() - before
     };
-    let small = work("test \"small\" := (List.range 0 2).length == 2");
     for decl in [
         "test \"let\" :=\n  let n := (List.range 0 200000).length\n  n == 200000",
         "def f (b: Bool): Bool :=\n  let n := (List.range 0 200000).length\n  b && n == 200000",
         "import Std (Fail)\n\
          test \"effectful\" := Fail.orElse 0 (() => (List.range 0 200000).length) == 200000",
     ] {
+        // The baseline is the same declaration over a two-element list, so
+        // the comparison is the let's cost and not the library's loading.
+        let small = work(&decl.replace("200000", "2"));
         let large = work(decl);
         eprintln!("{decl:?}: {large} steps (a small one: {small})");
         // Computing the list while checking takes about 3 times what
