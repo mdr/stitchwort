@@ -521,12 +521,12 @@ theorem withinOperators ∀ (expr: Expr) (within: expr.within1 = True): expr.ope
     match kind with
       | InfixBinary => (
         withinOperators left (Bool.andLeft within),
-        operatorSpellsOf operator.text (Bool.andRight (Bool.andRight within)),
+        operatorSpellsOf operator.text (Bool.andLeft (Bool.andRight (Bool.andRight within))),
         withinOperators right (Bool.andLeft (Bool.andRight within))
       )
       | InfixArrow => (
         withinOperators left (Bool.andLeft within),
-        operatorSpellsOf operator.text (Bool.andRight (Bool.andRight within)),
+        operatorSpellsOf operator.text (arrowListed operator.text (Bool.andRight (Bool.andRight within))),
         withinOperators right (Bool.andLeft (Bool.andRight within))
       )
       | _ => cases
@@ -623,6 +623,25 @@ theorem infixWithin ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: 
   match kind with
     | InfixBinary => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
     | InfixArrow => (Bool.andLeft within, Bool.andLeft (Bool.andRight within))
+
+--| An arrow's text is one of slice 1's operators.
+theorem arrowListed ∀ (text: Text) (arrow: arrowText1 text = True): operatorText1 text = True :=
+  match a0: text == "->" with
+    | True => byComputing
+    | False =>
+      match a1: text == "→" with
+        | True => byComputing
+
+theorem arrowListedExample: operatorText1 "→" = True := arrowListed "→" byComputing
+
+--| The operator of an infix `within1` lets through is one of slice 1's.
+theorem infixListed ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
+    (within: (Infix kind left operator right).within1 = True):
+    operatorText1 operator.text = True :=
+  match kind with
+    | InfixBinary => Bool.andLeft (Bool.andRight (Bool.andRight within))
+    | InfixArrow => arrowListed operator.text (Bool.andRight (Bool.andRight within))
+    | _ => (Bool.falseNotTrue within).impossible
 
 --| `printLexes1`'s facts about the tokens of an expression, from the tree's.
 --|

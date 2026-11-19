@@ -29,7 +29,7 @@ import Fmt.BracketHangProofs (
 import Fmt.ExprHangProofs (..)
 import Fmt.QuietKeyProofs (quietKeys)
 import Fmt.SpellProofs (..)
-import Fmt.TreeJoinProofs (lexKind)
+import Fmt.TreeJoinProofs (arrowListed, lexKind)
 import Fmt.TrailsProofs (Coded, appTrails, itemsBack, parenTrails, trailsBackCoded)
 import Fmt.DeclFactsProofs (leadNotCloser, notesOfWord, trailsOfSound)
 import Fmt.OneLineStatements (..)
@@ -788,7 +788,7 @@ theorem edgeFacts ∀ (expr: Expr) (lead end: Bool)
         edgeFacts right False end rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightEdge
       let leftOff := edgeOffTrails left lead leftEdge
       let code := codedLex right rightWithin rightLexical
-      let listed := Bool.andRight (Bool.andRight within)
+      let listed := Bool.andLeft (Bool.andRight (Bool.andRight within))
       let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => left.bareAt around = True
         → PairFacts lexKind level first left word right around False right.trails :=
         level first around bare =>
@@ -837,7 +837,7 @@ theorem edgeFacts ∀ (expr: Expr) (lead end: Bool)
         edgeFacts right False end rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightEdge
       let leftOff := edgeOffTrails left lead leftEdge
       let code := codedLex right rightWithin rightLexical
-      let listed := Bool.andRight (Bool.andRight within)
+      let listed := arrowListed operator.text (Bool.andRight (Bool.andRight within))
       let pair: ∀ (level: Option Nat) (first: Bool) (around: Around) => left.bareAt around = True
         → PairFacts lexKind level first left word right around False right.trails :=
         level first around bare =>

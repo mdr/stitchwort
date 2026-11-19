@@ -252,10 +252,7 @@ theorem exprPass ∀ (expr: Expr) (hoisted: Bool)
           passArguments arguments (Bool.andRight within) (Bool.andRight sound) (Bool.andRight lexical)
     | Infix kind left operator right =>
       let (leftWithin, rightWithin) := infixWithin kind left operator right within
-      let listed: operatorText1 operator.text = True := match kind with
-        | InfixBinary => Bool.andRight (Bool.andRight within)
-        | InfixArrow => Bool.andRight (Bool.andRight within)
-        | _ => cases
+      let listed: operatorText1 operator.text = True := infixListed kind left operator right within
       rewrite allPassAppend (left.spelt hoisted) (operator.spelledAt False ++ right.spelt False),
           allPassAppend (operator.spelledAt False) (right.spelt False),
           exprPass left hoisted leftWithin (Bool.andLeft sound) (Bool.andLeft lexical),
