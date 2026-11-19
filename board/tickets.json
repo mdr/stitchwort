@@ -1,5 +1,5 @@
 {
-  "next": 4160,
+  "next": 4161,
   "tickets": [
     {
       "id": 47,
@@ -26187,7 +26187,7 @@
     {
       "id": 4148,
       "title": "[Opus] fmt S1 comments anywhere E5: appAny and anyHug (after E2; ArgsHang restated with startFor) (SW-4130 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4148",
       "labels": [],
@@ -26336,6 +26336,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 90 min. After SW-4155 (Rules.sw framedBy). Orchestrator's call: shared formatter bug fix, output changes only for a hugged tuple/list argument with a comment above it or after the previous argument. Needs snapshot updates for any changed formatter tests; report every changed output. Repro: printf 'def x: List Nat := f\\n  -- the pairs\\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\\n' then stitchwort fmt.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4160,
+      "title": "[Sonnet] fmt: drop the duplicate elPartFor/endedLedSeat in ElementsProofs for AppHangProofs.partHangsFor (SW-4148 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 15 min. After SW-4149 (E6 edits ElementsProofs).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
