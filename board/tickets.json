@@ -1,5 +1,5 @@
 {
-  "next": 4178,
+  "next": 4179,
   "tickets": [
     {
       "id": 47,
@@ -26306,7 +26306,7 @@
     {
       "id": 4157,
       "title": "[Sonnet] fmt: merge duplicate lemmas across Fmt and Syntax (startBlocksNo = HangProofs.staleBlocks, wordIsNoArrow = SettleOutputProofs.wordNotArrow, hungStep = OutputFileProofs.hangsStep, readsAtMark/readsAtLeft in ParseCarriesDecl and GoodItemProofs/ParseWalk) (SW-4154 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4157",
       "labels": [],
@@ -26578,6 +26578,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 20 min. Paper. Review note docs/reviews/SW-4133-two-run-checkpoint.md.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4178,
+      "title": "[Sonnet] std: Parse.readsAtMark and Parse.readsAtLeft generic over the token type, replacing the copies in Syntax/GoodItemProofs (Char), ParseWalk, ParseCarriesDecl/ParseKept (Item) and toyfmt CarryProofs (Tok) (SW-4157 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Est. 20 min. After SW-4175 (ParseKept/ParseCarriesDecl).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
