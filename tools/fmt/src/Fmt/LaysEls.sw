@@ -199,7 +199,8 @@ theorem elStep ∀ (expr: Expr) (around: Around)
     (sound: expr.sound = True)
     (nonCloser: expr.nonCloser = True)
     (spelled: expr.spelled = True)
-    (lexical: expr.lexical1 = True):
+    (lexical: expr.lexical1 = True)
+    (shaped: expr.shaped1 = True):
     Step (expr.el around) (Starts around.hoisted around.before) (kinds => Ends kinds expr.trails) :=
   match expr with
     | Atom kind word =>
@@ -237,7 +238,8 @@ theorem elStep ∀ (expr: Expr) (around: Around)
               (Bool.andLeft (Bool.andRight sound))
               (Bool.andRight nonCloser)
               (Bool.andLeft (Bool.andRight spelled))
-              (Bool.andRight (Bool.andRight lexical))))
+              (Bool.andRight (Bool.andRight lexical))
+              shaped))
     | Tuple open items comma close =>
       framedStep
         (Tuple open items comma close).firstWord
@@ -266,7 +268,8 @@ theorem elStep ∀ (expr: Expr) (around: Around)
               (Bool.andLeft (Bool.andRight sound))
               (Bool.andRight nonCloser)
               (Bool.andLeft (Bool.andRight spelled))
-              (Bool.andRight (Bool.andRight lexical)))
+              (Bool.andRight (Bool.andRight lexical))
+              (Bool.andRight shaped))
             (argument rest same =>
               lastCoded argument rest
                 (rewrite same at within then within)
@@ -299,14 +302,15 @@ theorem elStep ∀ (expr: Expr) (around: Around)
               (Bool.andLeft (Bool.andRight sound))
               (Bool.andRight nonCloser)
               (Bool.andLeft (Bool.andRight spelled))
-              (Bool.andRight (Bool.andRight lexical)))
+              (Bool.andRight (Bool.andRight lexical))
+              shaped)
             (argument rest same =>
               lastCoded argument rest
                 (rewrite same at within then within)
                 (rewrite same at nonCloser then Bool.andRight nonCloser))))
     | App head arguments =>
       match arguments with
-        | [] => ?
+        | [] => (Bool.falseNotTrue (Bool.andRight (Bool.andRight shaped))).impossible
         | [argument, ..rest] =>
           framedStep
             (App head [argument, ..rest]).firstWord
@@ -326,20 +330,23 @@ theorem elStep ∀ (expr: Expr) (around: Around)
               nonCloser
               spelled
               lexical
+              shaped
               (inside =>
                 elStep head inside
                   (Bool.andLeft within)
                   (Bool.andLeft sound)
                   (Bool.andLeft nonCloser)
                   (Bool.andLeft spelled)
-                  (Bool.andLeft lexical))
+                  (Bool.andLeft lexical)
+                  (Bool.andLeft (Bool.andRight shaped)))
               (allElStep
                 [argument, ..rest]
                 (Bool.andRight within)
                 (Bool.andRight sound)
                 (Bool.andRight nonCloser)
                 (Bool.andRight spelled)
-                (Bool.andRight lexical))
+                (Bool.andRight lexical)
+                (Bool.andRight (Bool.andRight (Bool.andRight shaped))))
               (argsBracketEl [argument, ..rest] (Bool.andRight within)))
     | Prefix operator operand =>
       framedStep
@@ -364,7 +371,8 @@ theorem elStep ∀ (expr: Expr) (around: Around)
               (Bool.andRight sound)
               (Bool.andRight nonCloser)
               (Bool.andRight spelled)
-              (Bool.andRight lexical)))
+              (Bool.andRight lexical)
+              (Bool.andLeft shaped)))
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
@@ -423,7 +431,9 @@ theorem elStep ∀ (expr: Expr) (around: Around)
                   (Bool.andLeft (Bool.andRight spelled))
                   (Bool.andRight (Bool.andRight spelled))
                   (Bool.andLeft lexical)
-                  (Bool.andRight (Bool.andRight lexical)))
+                  (Bool.andRight (Bool.andRight lexical))
+                  (Bool.andLeft shaped)
+                  (Bool.andLeft (Bool.andRight shaped)))
                 (kinds good => startsOfNoHeld kinds around.before good)
                 (kinds good =>
                   endsSame kinds _ _
@@ -488,7 +498,9 @@ theorem elStep ∀ (expr: Expr) (around: Around)
                   (Bool.andLeft (Bool.andRight spelled))
                   (Bool.andRight (Bool.andRight spelled))
                   (Bool.andLeft lexical)
-                  (Bool.andRight (Bool.andRight lexical)))
+                  (Bool.andRight (Bool.andRight lexical))
+                  (Bool.andLeft shaped)
+                  (Bool.andLeft (Bool.andRight shaped)))
                 (kinds good => startsOfNoHeld kinds around.before good)
                 (kinds good =>
                   endsSame kinds _ _
@@ -513,7 +525,9 @@ theorem chainLinksStep ∀ (level: Option Nat) (first: Bool) (left: Expr) (opera
     (operatorComma: operator.notComma = True)
     (rightSpelled: right.spelled = True)
     (leftLexical: left.lexical1 = True)
-    (rightLexical: right.lexical1 = True):
+    (rightLexical: right.lexical1 = True)
+    (leftShaped: left.shaped1 = True)
+    (rightShaped: right.shaped1 = True):
     StepAll (chainLinks level first left operator right around) (Starts around.hoisted around.before) (kinds =>
       Ends kinds right.trails) :=
   stepAllAppend
@@ -526,7 +540,7 @@ theorem chainLinksStep ∀ (level: Option Nat) (first: Bool) (left: Expr) (opera
     (Starts around.hoisted around.before)
     (kinds => Ends kinds left.trails)
     (kinds => Ends kinds right.trails)
-    (linkDocsStep level first left around leftWithin leftSound leftNonCloser leftSpelled leftLexical)
+    (linkDocsStep level first left around leftWithin leftSound leftNonCloser leftSpelled leftLexical leftShaped)
     (stepAllCons Line
       [
         operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at,
@@ -554,7 +568,8 @@ theorem chainLinksStep ∀ (level: Option Nat) (first: Bool) (left: Expr) (opera
           rightSound
           rightNonCloser
           rightSpelled
-          rightLexical)))
+          rightLexical
+          rightShaped)))
 
 --| What follows a chain's operator: a space and the right operand.
 theorem chainRightStep ∀ (level: Option Nat) (right: Expr) (around: Around)
@@ -562,7 +577,8 @@ theorem chainRightStep ∀ (level: Option Nat) (right: Expr) (around: Around)
     (sound: right.sound = True)
     (nonCloser: right.nonCloser = True)
     (spelled: right.spelled = True)
-    (lexical: right.lexical1 = True):
+    (lexical: right.lexical1 = True)
+    (shaped: right.shaped1 = True):
     StepAll (chainRight level right around) (kinds => Ends kinds around.before) (kinds => Ends kinds right.trails) :=
   match right with
     | Block _ _ _ => cases
@@ -580,7 +596,7 @@ theorem chainRightStep ∀ (level: Option Nat) (right: Expr) (around: Around)
           (kinds => Ends kinds around.before)
           (kinds => Ends kinds right.trails)
           (kinds => Ends kinds right.trails)
-          (linkDocsStep level False right around within sound nonCloser spelled lexical)
+          (linkDocsStep level False right around within sound nonCloser spelled lexical shaped)
           (kinds good => endsStartsAny kinds around.hoisted around.before good)
           (kinds good => good))
 
@@ -590,7 +606,8 @@ theorem linkDocsStep ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
     (sound: expr.sound = True)
     (nonCloser: expr.nonCloser = True)
     (spelled: expr.spelled = True)
-    (lexical: expr.lexical1 = True):
+    (lexical: expr.lexical1 = True)
+    (shaped: expr.shaped1 = True):
     StepAll (linkDocs level first expr around) (Starts around.hoisted around.before) (kinds =>
       Ends kinds expr.trails) :=
   match expr with
@@ -618,7 +635,9 @@ theorem linkDocsStep ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
                   (Bool.andLeft (Bool.andRight spelled))
                   (Bool.andRight (Bool.andRight spelled))
                   (Bool.andLeft lexical)
-                  (Bool.andRight (Bool.andRight lexical)))
+                  (Bool.andRight (Bool.andRight lexical))
+                  (Bool.andLeft shaped)
+                  (Bool.andLeft (Bool.andRight shaped)))
                 (kinds good => good)
                 (kinds good =>
                   endsSame kinds _ _
@@ -632,7 +651,7 @@ theorem linkDocsStep ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
                 ((Infix InfixBinary left operator right).el around)
                 (Starts around.hoisted around.before)
                 (kinds => Ends kinds (Infix InfixBinary left operator right).trails)
-                (elStep (Infix InfixBinary left operator right) around within sound nonCloser spelled lexical)
+                (elStep (Infix InfixBinary left operator right) around within sound nonCloser spelled lexical shaped)
         | InfixArrow =>
           match (Infix InfixArrow left operator right).inChain level with
             | True =>
@@ -655,7 +674,9 @@ theorem linkDocsStep ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
                   (Bool.andLeft (Bool.andRight spelled))
                   (Bool.andRight (Bool.andRight spelled))
                   (Bool.andLeft lexical)
-                  (Bool.andRight (Bool.andRight lexical)))
+                  (Bool.andRight (Bool.andRight lexical))
+                  (Bool.andLeft shaped)
+                  (Bool.andLeft (Bool.andRight shaped)))
                 (kinds good => good)
                 (kinds good =>
                   endsSame kinds _ _
@@ -669,7 +690,7 @@ theorem linkDocsStep ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
                 ((Infix InfixArrow left operator right).el around)
                 (Starts around.hoisted around.before)
                 (kinds => Ends kinds (Infix InfixArrow left operator right).trails)
-                (elStep (Infix InfixArrow left operator right) around within sound nonCloser spelled lexical)
+                (elStep (Infix InfixArrow left operator right) around within sound nonCloser spelled lexical shaped)
         | _ => cases
     | Match _ _ _ _ => cases
     | _ =>
@@ -677,7 +698,7 @@ theorem linkDocsStep ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around:
         (expr.el around)
         (Starts around.hoisted around.before)
         (kinds => Ends kinds expr.trails)
-        (elStep expr around within sound nonCloser spelled lexical)
+        (elStep expr around within sound nonCloser spelled lexical shaped)
 
 theorem lastCoded ∀ (argument: Expr) (rest: List Expr)
     (within: allWithin1 [argument, ..rest] = True)
@@ -693,7 +714,8 @@ theorem allElStep ∀ (items: List Expr)
     (sound: allSound items = True)
     (nonCloser: allNonCloser items = True)
     (spelled: allSpelled items = True)
-    (lexical: allLexical1 items = True):
+    (lexical: allLexical1 items = True)
+    (shaped: allShaped1 items = True):
     ItemsEl items :=
   match items with
     | [] => byComputing
@@ -704,22 +726,24 @@ theorem allElStep ∀ (items: List Expr)
           (Bool.andLeft sound)
           (Bool.andLeft nonCloser)
           (Bool.andLeft spelled)
-          (Bool.andLeft lexical),
+          (Bool.andLeft lexical)
+          (Bool.andLeft shaped),
       allElStep rest
         (Bool.andRight within)
         (Bool.andRight sound)
         (Bool.andRight nonCloser)
         (Bool.andRight spelled)
         (Bool.andRight lexical)
+        (Bool.andRight shaped)
     )
 
 --| What an argument that is a bracket needs to hug: its items' steps.
 theorem bracketEl ∀ (argument: Expr) (within: argument.within1 = True): BracketEl argument :=
   match argument, within with
-    | Tuple open items comma close, within => within sound nonCloser spelled lexical =>
-      allElStep items within sound nonCloser spelled lexical
-    | ListOf open items comma close, within => within sound nonCloser spelled lexical =>
-      allElStep items within sound nonCloser spelled lexical
+    | Tuple open items comma close, within => within sound nonCloser spelled lexical shaped =>
+      allElStep items within sound nonCloser spelled lexical shaped
+    | ListOf open items comma close, within => within sound nonCloser spelled lexical shaped =>
+      allElStep items within sound nonCloser spelled lexical shaped
     | Atom kind word, _ => byComputing
     | Prefix operator operand, _ => byComputing
     | Paren open inner close, _ => byComputing

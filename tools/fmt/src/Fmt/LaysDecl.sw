@@ -443,6 +443,7 @@ theorem callHugStep ∀ (value: Expr) (around: Around) (open: Doc)
     (nonCloser: value.nonCloser = True)
     (spelled: value.spelled = True)
     (lexical: value.lexical1 = True)
+    (shaped: value.shaped1 = True)
     (found: value.callHug { around | hoisted = True } = Some open):
     Step open (Starts True around.before) (kinds => Ends kinds value.trails) :=
   match value, within with
@@ -457,20 +458,23 @@ theorem callHugStep ∀ (value: Expr) (around: Around) (open: Doc)
         nonCloser
         spelled
         lexical
+        shaped
         (inside =>
           elStep head inside
             (Bool.andLeft within)
             (Bool.andLeft sound)
             (Bool.andLeft nonCloser)
             (Bool.andLeft spelled)
-            (Bool.andLeft lexical))
+            (Bool.andLeft lexical)
+            (Bool.andLeft (Bool.andRight shaped)))
         (allElStep
           [argument, ..rest]
           (Bool.andRight within)
           (Bool.andRight sound)
           (Bool.andRight nonCloser)
           (Bool.andRight spelled)
-          (Bool.andRight lexical))
+          (Bool.andRight lexical)
+          (Bool.andRight (Bool.andRight (Bool.andRight shaped))))
         (argsBracketEl [argument, ..rest] (Bool.andRight within))
         found
 
@@ -482,6 +486,7 @@ theorem callHugStep ∀ (value: Expr) (around: Around) (open: Doc)
 --| expression's element by `elStep`; the declaration's facts are each token's.
 theorem declChecks ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
     (sound: decl.sound = True)
     (joins: DeclJoins lexKind decl)
     (lexical: decl.lexical1 = True)
@@ -536,14 +541,16 @@ theorem declChecks ∀ (decl: Decl) (doc: Doc)
                   (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight sound))))
                   (Bool.andLeft (Bool.andRight nonCloser))
                   (Bool.andLeft (Bool.andRight spelled))
-                  (Bool.andLeft (Bool.andRight lexical)))
+                  (Bool.andLeft (Bool.andRight lexical))
+                  (Bool.andLeft shaped))
               (around =>
                 elStep value around
                   (Bool.andRight within)
                   (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
                   (Bool.andRight (Bool.andRight nonCloser))
                   (Bool.andRight (Bool.andRight spelled))
-                  (Bool.andRight (Bool.andRight lexical)))
+                  (Bool.andRight (Bool.andRight lexical))
+                  (Bool.andRight shaped))
               (around open found =>
                 callHugStep value around open
                   (Bool.andRight within)
@@ -551,6 +558,7 @@ theorem declChecks ∀ (decl: Decl) (doc: Doc)
                   (Bool.andRight (Bool.andRight nonCloser))
                   (Bool.andRight (Bool.andRight spelled))
                   (Bool.andRight (Bool.andRight lexical))
+                  (Bool.andRight shaped)
                   found)
               { Kinds.none | start = True }
               byComputing with

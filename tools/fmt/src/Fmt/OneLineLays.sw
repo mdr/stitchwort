@@ -78,7 +78,7 @@ theorem doc1Checks ∀ (decl: Decl) (doc: Doc)
     laysCheck doc = True :=
   let sound := declSoundOfSettled decl within settled (declRealOfLexical decl within lexical)
   let joins := declJoins decl within shaped sound lexical (declOperators decl within)
-  declChecks decl doc within sound joins lexical shows
+  declChecks decl doc within shaped sound joins lexical shows
 
 --| Every slice 1 declaration's document lays, whatever its comments.
 theorem laysSomehow1 ∀ (decl: Decl) (doc: Doc)
