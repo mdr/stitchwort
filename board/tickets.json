@@ -1,5 +1,5 @@
 {
-  "next": 4122,
+  "next": 4125,
   "tickets": [
     {
       "id": 47,
@@ -25812,12 +25812,12 @@
     {
       "id": 4120,
       "title": "[Fable] fmt S1 scope part A (D3687): write the slice 1 grammar as one exact definition (qualified names and exponents back in, per the plan), state formatAccepts1 (every source in the grammar is accepted by formatWithin1) as an open goal, add a must-accept test file lanes may not edit, list every case the current driver refuses that is in the grammar, with a recommended move-out or keep for each",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4120",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3687 (Matt, 19 Nov 2026: 'D3687 sounds good'): slice 1 is done when the formatter accepts the whole slice 1 grammar and a theorem says so; the grammar written down precisely; anything taken out is Matt's decision, with a named later slice. Matt, 19 Nov: 'we want correctness for all possible programs, not just ones in our repo.' From SW-4119 piece A. Model: Fable (D3682: deciding statements). Est. 45 min.\n\n\nLane notes (Fable, 19 Nov, 07:54 to 08:10, 16 min of est. 45): commit d7a2bee64 on lane/SW-4120. Fmt.Grammar1 (inGrammar1: the language's own lex and parse, own alphabet list, no layout, comment or spelling test; seven closed examples), Fmt.Accepts1 (formatAccepts1, open), Fmt.Tests.MustAccept1 (144 sources: all in the grammar, 85 accepted, 59 refused and failing visibly), docs/reviews/SW-4120-grammar1.md (seven gap items; recommendation: lift all in slice 1, nothing moved out; 21 to 32 lanes est.). New obligation found: rule N must keep the parse (the grammar reads the lexer's leaves, the driver parses settledOnce). Decisions for Matt: the grammar as written; nothing moves out.\n",
+      "body": "\nD3687 (Matt, 19 Nov 2026: 'D3687 sounds good'): slice 1 is done when the formatter accepts the whole slice 1 grammar and a theorem says so; the grammar written down precisely; anything taken out is Matt's decision, with a named later slice. Matt, 19 Nov: 'we want correctness for all possible programs, not just ones in our repo.' From SW-4119 piece A. Model: Fable (D3682: deciding statements). Est. 45 min.\n\n\nLane notes (Fable, 19 Nov, 07:54 to 08:10, 16 min of est. 45): commit d7a2bee64 on lane/SW-4120. Fmt.Grammar1 (inGrammar1: the language's own lex and parse, own alphabet list, no layout, comment or spelling test; seven closed examples), Fmt.Accepts1 (formatAccepts1, open), Fmt.Tests.MustAccept1 (144 sources: all in the grammar, 85 accepted, 59 refused and failing visibly), docs/reviews/SW-4120-grammar1.md (seven gap items; recommendation: lift all in slice 1, nothing moved out; 21 to 32 lanes est.). New obligation found: rule N must keep the parse (the grammar reads the lexer's leaves, the driver parses settledOnce). Decisions for Matt: the grammar as written; nothing moves out.\n\n\nMerged 19 Nov. Fable, 16 min (est. 45). Grammar reads the language tree before rule N; auto in, [auto Ord]/Prop/Type/()/_/x.size/chained comparisons out; 1_000 in as a call. MustAccept1: 144 sources, 85 accepted, 59 fail visibly (41 one-line, 12 spelling, 5 plain1, 1 upper-case). Gap: 7 items, 21-32 lanes [estimated], incl. new item 7 (rule N keeps the parse). Decisions to Matt as D3689 (grammar as written; nothing moves out). D3684: 7 closed examples, checked in review. D3688: TopStatements gained an import and header lines only; no top theorem condition, driver unchanged.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -25831,6 +25831,46 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "D3687 (Matt, 19 Nov 2026). SW-4119 piece C; stop rule: if the statement can't be made to hold on generated files, stop and bring Matt the choice. Model: Fable. Est. 45 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4122,
+      "title": "[Opus] Test runner: an expected-to-fail mark (a test that must fail; it reports when it starts passing), for MustAccept1's 59 known failures (SW-4120) so verifier and Overmind runs aren't red by design; guide, syntax.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4120. Until then, test Fmt.Tests reports 59 known failures from Fmt.Tests.MustAccept1.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4123,
+      "title": "[Sonnet] fmt S1 driver: one refusal message per cause (alphabet, spelling, plain1, construct, one-line), naming the token or construct; fix stale 'open' in TopStatements header and declElementsOneLine1 doc (SW-4119, SW-4120)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4124,
+      "title": "[Sonnet] 1_000 and 0xFF: the lexer reads 1_000 as a call (1 then _000), in the compiler too; self-hosted fmt prints '1 _000', Rust keeps '1_000'. Decide intended literal syntax, fix lexer, test (SW-4119)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
