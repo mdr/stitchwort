@@ -27353,12 +27353,12 @@
     {
       "id": 4236,
       "title": "[Opus] D3694: or-patterns bind names, the body checked once per alternative (docs/proposals/proof-match-likewise.md Design 2 with the four amendments in proof-match-likewise-prior-art.md): error names its alternative and the names' types there; one error when all fail alike; a hole lists each alternative's goal; guide + syntax.md; supersedes SW-676's same-type rule",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Est. 150 min. D3694, Matt, 19 Nov 2026: 'Yeah, sounds good. Let's implement that.'",
+      "body": "Est. 150 min. D3694, Matt, 19 Nov 2026: 'Yeah, sounds good. Let's implement that.'\n\n19 Nov 19:26 (Opus lane, ~25 min of agent time to commit): done on lane/SW-4236, f3fef4ca9. Lowering lifts E-OR-PATTERN-BINDS when every alternative binds the same names (reworded: \"`same` is bound in `Inl (Inl same)` but not in `Inr _`\"); the elaborator already checked one row per alternative, so binding needed no elaborator change. Added: an error note naming the alternative and the names' types (and the alternative spans now carry their patterns), one error when every alternative fails alike (merged by code, message and main label), a hole's note listing the other alternatives' goals. Guide (03-data, 10-proofs), syntax.md, core.md. andLevels/orLevels and spellsNotComment rewritten (33 arms to 6). Findings: the self-hosted parser (tools/fmt Syntax/Lowering.sw) still refuses binding or-patterns; the pre-commit fmt hook runs the main checkout's binary before the worktree's.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
