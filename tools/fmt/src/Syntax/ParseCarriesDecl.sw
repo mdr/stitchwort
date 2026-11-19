@@ -33,14 +33,6 @@ import Syntax.ParseCarriesFile (GroupCarries, itemWordsOfGroup, itemsLeaves)
 
 -- Reading where the parser is.
 
---| A look at the mark, from a mark: `k` of it is `k start`.
-theorem readsAtMark ∀ (start: Parse.Mark Item) (k: Parse.Mark Item → {Parse Item} a) (spec: List Item → a → Prop)
-    (each: Parse.ReadsAt start (() => k start) spec):
-    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
-  total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each total state value after here honest (rewrite <- here then ran)
-
 --| `left()` reads nothing and gives the items left.
 theorem readsAtLeft ∀ (start: Parse.Mark Item):
     Parse.ReadsAt start (() => left()) (read found => read = [] ∧ found = start.rest) :=
@@ -429,7 +421,7 @@ def BodyKept (read: List Item) (body: DefBody): Prop := match body with
       ∧ item.kind = ColonEq
       ∧ item.leaf.token.text = ":="
       ∧ colonEq = item.leaf.word.comments
-      ∧ Kept rest value
+      ∧ KeptFull rest value
   | Arms arms => True
 
 theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -688,10 +680,10 @@ theorem readsAtDefinitionParts ∀ (modes: Modes) (start: Parse.Mark Item) (item
                                                               let (bodyItem, rest, single14, isColonEq, bodyText,
                                                                 colonEqSame, valueKept) :=
                                                                 bodyFact
-                                                              let (resultWords, resultKinds, resultWithin) :=
-                                                                resultKept resultGrammar
-                                                              let (valueWords, valueKinds, valueWithin) :=
-                                                                valueKept valueGrammar
+                                                              let (resultWords, resultKinds, resultWithin, _) :=
+                                                                resultKept.left resultGrammar
+                                                              let (valueWords, valueKinds, valueWithin, _) :=
+                                                                valueKept.left valueGrammar
                                                               rewrite List.appendNil r14,
                                                                   e1,
                                                                   single2,

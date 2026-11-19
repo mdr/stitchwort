@@ -168,12 +168,13 @@ theorem commaKeepsPlaced ∀ (file: SourceFile)
 --| a tuple's or a list's item, an arrow's right side) starts with an `auto` call, since there the parser reads
 --| `[auto Ord …` as an implicit binder (`exprPlain`'s `implicitOn`), which is no tree of slice 1.
 --|
---| Open (SW-4128). Computed on 1,686 grammar1 parses (the multi-line gate's corpora at scale 0, the must-accept
---| sources, and the same with every list made to start with `auto Ord` or `auto`): none fails. It closes in two
---| steps: the `Kept` walk (`Syntax.ParseKept`) carries `autoPlaced1 False` at every goal and `KeptAt`'s
---| `autoPlaced1 True` at full goals, from `exprPlain`'s `implicitOn = False` (`Syntax.ParseKept.keptPlacedUp`), in the
---| walk follow-up lane; then the acceptance-glue lane (SW-4120 item 8) takes it to the driver's settled leaves, with
---| `autoPlacedDeaf` across the two runs.
+--| Open (SW-4128, SW-4175). Computed on 1,686 grammar1 parses (the multi-line gate's corpora at scale 0, the must-accept
+--| sources, and the same with every list made to start with `auto Ord` or `auto`): none fails. The `Kept` walk
+--| (`Syntax.ParseKept`) now carries it: `Kept` has `autoPlaced1 False`, and at a full goal `KeptFull` has `autoPlaced1
+--| True`, from `exprPlain`'s `implicitOn = False` (`Syntax.ParseCarriesLadder.readsAtExprPlain`) wherever the item at the
+--| start isn't stopped by the modes. What is left is the stopped case, `readsAtExprPlainStopped` (open), and then the
+--| acceptance-glue lane's step (SW-4120 item 8): the walk's run is over the lexer's tree, so the driver's settled
+--| leaves need `leavesWithin1`'s facts and `autoPlacedDeaf` across the two runs.
 theorem parsedPlaced1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (leaves: leavesWithin1 lexed.leaves = True)

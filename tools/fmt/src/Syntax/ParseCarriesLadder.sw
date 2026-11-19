@@ -569,24 +569,26 @@ theorem keptArrow ∀ (operator: Item) [first rest: List Item] [left right: Expr
     (isArrow: operator.kind = Arrow)
     (good: GoodItem operator)
     (leftKept: Kept first left)
-    (rightKept: Kept rest right):
+    (rightKept: KeptFull rest right):
     Kept (first ++ [operator, ..rest]) (Infix InfixArrow left operator.leaf.word right) :=
   grammar =>
-    let (leftWords, leftKinds, leftWithin) := leftKept (Bool.andLeft grammar)
-    let (rightWords, rightKinds, rightWithin) := rightKept (Bool.andRight grammar)
+    let (leftWords, leftKinds, leftWithin, leftPlaced) := leftKept (Bool.andLeft grammar)
+    let (rightWords, rightKinds, rightWithin, _) := rightKept.left (Bool.andRight grammar)
+    let rightPlaced := rightKept.right (Bool.andRight grammar)
     (
       (rewrite itemWordsAppend first [operator, ..rest],
           itemWordsCons operator rest (codeAs isArrow byComputing),
           leftWords,
           rightWords),
       (rewrite itemKindsAppend first [operator, ..rest], leftKinds, rightKinds, isArrow),
-      Bool.andIntro leftWithin (Bool.andIntro rightWithin (arrowText operator isArrow good))
+      Bool.andIntro leftWithin (Bool.andIntro rightWithin (arrowText operator isArrow good)),
+      Bool.andIntro leftPlaced rightPlaced
     )
 
 theorem readsResultType ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (carries: NestedKept self)
     (outside: OutsideIffed self):
-    Parse.ReadsIn GoodItems (() => resultType self modes) Kept :=
+    Parse.ReadsIn GoodItems (() => resultType self modes) KeptFull :=
   readsAfter0
     [p := () => allowBrace modes]
     [j := allowed => resultAllowed self allowed]
@@ -598,7 +600,7 @@ theorem readsResultType ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         (reads0RowAhead allowed)
         (row =>
           match row with
-            | True => readsOut (outside.effectResults allowed)
+            | True => readsOutFull (outside.effectResults allowed)
             | False => carries { modes = allowed, level = LevelFull }))
 
 theorem readsArrowEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (item: Item) (before: List Item)
@@ -734,38 +736,94 @@ theorem readsExprImplicit ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
     | False => readsAfter0 [p := () => piHere modes] [j := pi => exprPi self modes pi] (reads0PiHere modes) (pi =>
       readsExprPi self modes pi nested carries outside)
 
-theorem readsExprPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+--| `exprPlain` from a mark whose next item isn't stopped: a tree of the grammar it reads is placed as a full
+--| expression's, since the parser tests for an implicit binder `[auto Ord …` first (`implicitOn`), and reads one as a
+--| binder, which is no tree of slice 1; so no list that starts what it reads starts with an `auto` call.
+--|
+--| Proof idea: `implicitHere` reads nothing and gives `implicitOn` of the items left (`readsAtImplicitHere`); true,
+--| the parser is outside the slice; false, `exprImplicit` keeps its items, and `keptPlacedUp` takes the tree to
+--| a full expression's placement, since a `[` that doesn't start an implicit binder doesn't start `[auto Upper`
+--| (`namelessAutoOfImplicit`).
+theorem readsAtExprPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
-    (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprPlain self modes) Kept :=
-  readsAfter0
+    (outside: Outside self) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (live: ∀ (item: Item) (later: List Item) => start.rest = [item, ..later] → modes.stops item = False):
+    Parse.ReadsAt start (() => exprPlain self modes) KeptFull :=
+  Parse.readsAtThen
     [p := () => implicitHere modes]
     [j := implicit => exprImplicit self modes implicit]
-    (reads0ImplicitHere modes)
-    (implicit => readsExprImplicit self modes implicit nested carries outside)
+    (readsAtImplicitHere start modes)
+    (read implicit after starts (empty, valueIs) =>
+      let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
+      let fits := Parse.Fits.after fine starts
+      match implicit, valueIs with
+        | True, valueIs =>
+          Parse.readsAtWeaken (readsOutFull (outside.piExprs modes True) after fits) (taken value full =>
+            rewrite empty then full)
+        | False, valueIs =>
+          Parse.readsAtWeaken
+            (readsAtRest (readsExprImplicit self modes False nested carries outside after fits))
+            (taken value (kept, rest, split) =>
+              rewrite empty then
+                (
+                  kept,
+                  grammar =>
+                    keptPlacedUp taken rest value kept grammar (first later shape isOpen =>
+                      let startShape: start.rest = [first, ..later] := calc start.rest
+                        _ = after.rest := tail.flipped
+                        _ = taken ++ rest := split
+                        _ = [first, ..later] := shape
+                      let stopped := live first later startShape
+                      let peeked: peekIn modes 0 [first, ..later] = Some first.kind := rewrite stopped
+                      let flipped := valueIs.flipped
+                      let implicitFalse: implicitOn (start.left + 1) [first, ..later] (peekIn modes 0 [first, ..later])
+                        = False :=
+                        rewrite startShape at flipped then flipped
+                      rewrite shape then
+                        namelessAutoOfImplicit (start.left + 1) first later _ isOpen peeked implicitFalse)
+                )))
+
+--| `exprPlain` from a mark whose next item is stopped or missing: what it reads is outside the slice or placed.
+--|
+--| Open (SW-4175): at a stopped item every look-ahead sees nothing, so the parse reads an atom's `missing` error
+--| and nothing after it; a tree of the grammar can't come of it, but that is a walk of the whole ladder with the
+--| stop in hand, which `Kept` (blind to the modes) can't carry.
+theorem readsAtExprPlainStopped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (carries: NestedKept self)
+    (outside: Outside self) (start: Parse.Mark Item)
+    (fine: Parse.Fits Item GoodItems start.rest)
+    (stops: start.rest = []
+      ∨ ∃ (item: Item) => ∃ (later: List Item) => start.rest = [item, ..later] ∧ modes.stops item = True):
+    Parse.ReadsAt start (() => exprPlain self modes) KeptFull :=
+  ?
 
 theorem readsExprBinder ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprBinder self modes modes.peek) Kept :=
+    Parse.ReadsIn GoodItems (() => exprBinder self modes modes.peek) KeptFull :=
   readsInPeeked modes
     (seen => exprBinder self modes seen) _
-    (start fine stops => readsExprPlain self modes nested carries outside start fine)
+    (start fine stops => readsAtExprPlainStopped self modes nested carries outside start fine stops)
     (start item later shape fine stopped =>
       match isQuantifier: item.kind == KwExists || item.kind == KwForall with
-        | True => readsOut [p := () => Syntax.quantifier self modes] (outside.below.below.quantifiers modes) start fine
+        | True =>
+          readsOutFull [p := () => Syntax.quantifier self modes] (outside.below.below.quantifiers modes) start fine
         | False =>
           match isIf: item.kind == KwIf with
-            | True => readsOut [p := () => ifKeyword self modes] (outside.ifKeywords modes) start fine
-            | False => readsExprPlain self modes nested carries outside start fine)
+            | True => readsOutFull [p := () => ifKeyword self modes] (outside.ifKeywords modes) start fine
+            | False => readsAtExprPlain self modes nested carries outside start fine (head headLater same =>
+              match List.consInjectiveHead _ _ _ _ (Eq.trans shape.flipped same) with
+                | headSame => rewrite headSame.flipped then stopped))
 
 theorem readsExprResult ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (refused: Bool)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprResult self modes refused) Kept :=
+    Parse.ReadsIn GoodItems (() => exprResult self modes refused) KeptFull :=
   match refused with
     | True => Parse.readsFatal _ _
     | False => readsExprBinder self modes nested carries outside
@@ -774,9 +832,9 @@ theorem readsExprLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (l
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprLambda self modes lambdas) Kept :=
+    Parse.ReadsIn GoodItems (() => exprLambda self modes lambdas) KeptFull :=
   match lambdas with
-    | True => readsOut (outside.lambdas modes)
+    | True => readsOutFull (outside.lambdas modes)
     | False =>
       readsAfter0
         [p := () => lambdaResultHere modes]
@@ -788,7 +846,7 @@ theorem readsExprOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprOther self modes) Kept :=
+    Parse.ReadsIn GoodItems (() => exprOther self modes) KeptFull :=
   readsAfter0
     [p := () => lambdaHere modes]
     [j := lambdas => exprLambda self modes lambdas]
@@ -801,14 +859,18 @@ theorem readsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprInline self modes) Kept :=
+    Parse.ReadsIn GoodItems (() => exprInline self modes) KeptFull :=
   readsInPeeked modes
     (seen => exprInlineOn self modes seen) _
     (start fine stops => readsExprOther self modes nested carries outside start fine)
     (start item later shape fine stopped =>
       match keyword: startsKeywordExpr item.kind with
         | True =>
-          readsOut [p := () => exprKeyword self modes item.kind] (outside.keywords modes item.kind keyword) start fine
+          readsOutFull
+            [p := () => exprKeyword self modes item.kind]
+            (outside.keywords modes item.kind keyword)
+            start
+            fine
         | False => readsExprOther self modes nested carries outside start fine)
 
 -- Statements.
@@ -822,7 +884,7 @@ def StatementOut (statement: Statement): Prop := match statement with
 
 --| A line of a block carries its items: an expression does.
 def StatementKept (read: List Item) (statement: Statement): Prop := match statement with
-  | ExprStatement value => Kept read value
+  | ExprStatement value => KeptFull read value
   | LetStatement binding => True
   | LocalDef attributes header body => True
 
@@ -830,7 +892,7 @@ theorem statementKeptOut ∀ (read: List Item) [statement: Statement]
     (out: StatementOut statement):
     StatementKept read statement :=
   match statement, out with
-    | ExprStatement value, out => keptOut read out
+    | ExprStatement value, out => keptFullOut read out
     | LetStatement binding, out => byComputing
     | LocalDef attributes header body, out => byComputing
 
@@ -1086,7 +1148,7 @@ theorem readsBlockLines ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (mode
 --| A block of one line is that line's value, so it carries the line's items.
 theorem readsBlockResult ∀ (statements: List Statement) (read: List Item)
     (got: BlockRead [] read statements):
-    Parse.ReadsIn GoodItems (() => blockResult statements) (more tree => Kept (read ++ more) tree) :=
+    Parse.ReadsIn GoodItems (() => blockResult statements) (more tree => KeptFull (read ++ more) tree) :=
   match statements, got with
     | [ExprStatement value], got =>
       match got with
@@ -1098,7 +1160,7 @@ theorem readsBlockResult ∀ (statements: List Statement) (read: List Item)
         | Inr (Inr length) => Std.Void.impossible (arithmetic [length])
     | [ExprStatement value, last, ..earlier], got =>
       match rev: List.reverse [last, ..earlier] with
-        | [first, ..rest] => Parse.readsDone _ _ (keptOut _ byComputing)
+        | [first, ..rest] => Parse.readsDone _ _ (keptFullOut _ byComputing)
         | [] => Std.Void.impossible (arithmetic [rewrite rev at List.lengthReverse [last, ..earlier]])
     | [LetStatement binding, ..others], got => Parse.readsFatal _ _
     | [LocalDef attributes header body, ..others], got => Parse.readsFatal _ _
@@ -1108,7 +1170,7 @@ theorem readsBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => block self modes column many) Kept :=
+    Parse.ReadsIn GoodItems (() => block self modes column many) KeptFull :=
   Parse.readsThen
     [p := () => Parse.mark()]
     [j := here =>
@@ -1148,7 +1210,7 @@ theorem readsExprRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ite
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprRuns self modes item limit runs) Kept :=
+    Parse.ReadsIn GoodItems (() => exprRuns self modes item limit runs) KeptFull :=
   match runs with
     | True => readsAfter0 [p := () => left()] [j := items => modes.gapOn ranOutLine items] reads0Left (items =>
       match blockEnd modes.lines items.head with
@@ -1163,7 +1225,7 @@ theorem readsExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprBlock self modes item) Kept :=
+    Parse.ReadsIn GoodItems (() => exprBlock self modes item) KeptFull :=
   match modes.limit with
     | None => readsBlock self modes item.leaf.token.column True nested carries outside
     | Some limit =>
@@ -1180,7 +1242,7 @@ theorem readsExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (items
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => exprOn self modes items) Kept :=
+    Parse.ReadsIn GoodItems (() => exprOn self modes items) KeptFull :=
   match items with
     | [item, ..rest] =>
       match here: startsBlock modes item with
@@ -1193,7 +1255,7 @@ theorem readsExprOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
-    Parse.ReadsIn GoodItems (() => expr self modes) Kept :=
+    Parse.ReadsIn GoodItems (() => expr self modes) KeptFull :=
   readsAfter0 [p := () => left()] [j := items => exprOn self modes items] reads0Left (items =>
     readsExprOn self modes items nested carries outside)
 
@@ -1209,9 +1271,21 @@ theorem readsThenBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           && modes.allow != Some next.index
           && !modes.endsConstruct next
           && modes.limit == Some next.leaf.token.column with
-          | True => readsBlock self modes next.leaf.token.column True nested carries outside
-          | False => readsExprOf self modes nested carries outside
-      | [] => readsExprOf self modes nested carries outside)
+          | True =>
+            Parse.readsWeaken
+              [p := () => block self modes next.leaf.token.column True]
+              (readsBlock self modes next.leaf.token.column True nested carries outside)
+              (read value full => full.left)
+          | False =>
+            Parse.readsWeaken
+              [p := () => expr self modes]
+              (readsExprOf self modes nested carries outside)
+              (read value full => full.left)
+      | [] =>
+        Parse.readsWeaken
+          [p := () => expr self modes]
+          (readsExprOf self modes nested carries outside)
+          (read value full => full.left))
 
 --| The ladder above `append_expr` keeps its items, which gives the second half of the walk: with `keptExpressionAt`,
 --| `expressionAt` keeps its items at every goal.

@@ -1,8 +1,11 @@
 --| The parser's walk for slice 1's grammar (docs/reviews/SW-4166-carried-walk-plan.md §2, lane K1): every parser
 --| function on slice 1's path gives a tree that, if it is in the grammar (`grammar1`), has the words of the items it read
---| (commas left out), their kinds (commas in, `Fmt.Kinds1.Expr.kinds1`), and is in the driver's slice (`within1`). The
---| spec is `Kept`, `Syntax.ParseCarries`' `Carried` gated on the grammar rather than the driver's slice and with two
---| more conjuncts; `carriedOfKept` gives `Carried` back.
+--| (commas left out), their kinds (commas in, `Fmt.Kinds1.Expr.kinds1`), is in the driver's slice (`within1`), and has no
+--| list that starts a full expression starting with an `auto` call (`Syntax.AutoPlaced.Expr.autoPlaced1`; SW-4128,
+--| SW-4175). The spec is `Kept`, `Syntax.ParseCarries`' `Carried` gated on the grammar rather than the driver's slice and
+--| with three more conjuncts; `carriedOfKept` gives `Carried` back. At a goal that starts a full expression the spec is
+--| `KeptFull`: the tree is placed as a full expression too, which a bracket's inside, a list's item or an arrow's right
+--| side need of what they hold.
 --|
 --| This file has the spec, its combinators, the atoms, brackets and comma lists, arguments and applications, `unary`,
 --| the operator links up to `append_expr`, and the recursion's knot (`bothExpressionAt`, `keptExpressionAt`), which takes
@@ -52,20 +55,46 @@ import Syntax.ParseCarries (
 def itemKinds (read: List Item): List Tok := read.map Item.kind
 
 --| What a parser function gives, read from `read`: a tree of slice 1's grammar has the words of the items read for it
---| (commas left out), their kinds (commas in), and is in the driver's slice. A tree outside the grammar says nothing.
+--| (commas left out), their kinds (commas in), is in the driver's slice, and is placed where it doesn't start a full
+--| expression (`autoPlaced1 False`: each of its own full positions is placed). A tree outside the grammar says
+--| nothing.
 def Kept (read: List Item) (expr: Expr): Prop :=
-  expr.grammar1 = True → expr.words = itemWords read ∧ expr.kinds1 = itemKinds read ∧ expr.within1 = True
+  expr.grammar1 = True
+    → expr.words = itemWords read ∧ expr.kinds1 = itemKinds read ∧ expr.within1 = True ∧ expr.autoPlaced1 False = True
+
+--| A goal that starts a full expression: `expr` and `expr_inline`, the levels whose parser reaches `exprPlain` and so
+--| tests for an implicit binder.
+def Goal.full (goal: Goal): Bool := match goal.level with
+  | LevelFull => True
+  | LevelInline => True
+  | _ => False
+
+--| `Kept`, and a tree of the grammar placed as a full expression's (`Syntax.AutoPlaced.Expr.autoPlaced1`: no list at
+--| its start starts with an `auto` call).
+def KeptFull (read: List Item) (expr: Expr): Prop :=
+  Kept read expr ∧ (expr.grammar1 = True → expr.autoPlaced1 True = True)
+
+--| What `self` keeps at a goal: `KeptFull` where the goal starts a full expression, `Kept` elsewhere.
+def KeptAt (goal: Goal) (read: List Item) (expr: Expr): Prop := match goal.full with
+  | True => KeptFull read expr
+  | False => Kept read expr
 
 --| `self` keeps its items at every goal.
 def NestedKept (self: Goal → {Parse Item} Expr): Prop :=
-  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) Kept
+  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (KeptAt goal)
+
+--| What is kept at any goal is kept.
+theorem keptOfAt ∀ (goal: Goal) [read: List Item] [expr: Expr] (at: KeptAt goal read expr): Kept read expr :=
+  match goal.full, at with
+    | True, at => at.left
+    | False, at => at
 
 --| `Kept` says all `Carried` does, since the driver's slice is within the grammar.
 theorem carriedOfKept ∀ [read: List Item] [expr: Expr] (kept: Kept read expr): Carried read expr := within =>
   (kept (Expr.grammarOfWithin1 expr within)).left
 
 theorem nestedCarriesOfKept ∀ [self: Goal → {Parse Item} Expr] (nested: NestedKept self): NestedCarries self := goal =>
-  Parse.readsWeaken (nested goal) (read value kept => carriedOfKept kept)
+  Parse.readsWeaken (nested goal) (read value kept => carriedOfKept (keptOfAt goal kept))
 
 --| A name or numeral spelled as `Spells` has it is one `textSpells1` takes.
 theorem spellsText1 ∀ (kind: Tok) (text: Text)
@@ -77,23 +106,6 @@ theorem spellsText1 ∀ (kind: Tok) (text: Text)
     | Upper, atom => textSpellsOfSpells Upper text spells
     | Num, atom => textSpellsOfSpells Num text spells
     | Float, atom => textSpellsOfSpells Float text spells
-
--- Where an `auto` call may start a list (SW-4128, lane A): `KeptAt` and the step at `exprPlain`, for the walk
--- follow-up that carries them.
-
---| A goal that starts a full expression: `expr` and `expr_inline`, the levels whose parser reaches `exprPlain` and so
---| tests for an implicit binder.
-def Goal.full (goal: Goal): Bool := match goal.level with
-  | LevelFull => True
-  | LevelInline => True
-  | _ => False
-
---| `Kept`, and at a goal that starts a full expression, a tree of the grammar placed as one
---| (`Syntax.AutoPlaced.Expr.autoPlaced1`: no list at its start starts with an `auto` call). The full expressions inside
---| a node are the node's own business: the walk follow-up adds `autoPlaced1 False` to `Kept`, and `keptPlacedUp` gives
---| this conjunct at `exprPlain` from `implicitOn = False`.
-def KeptAt (goal: Goal) (read: List Item) (expr: Expr): Prop :=
-  Kept read expr ∧ (goal.full = True → expr.grammar1 = True → expr.autoPlaced1 True = True)
 
 --| An `auto` call on a type's name starts with its tokens: `auto`, then an upper-case name.
 theorem autoCallTokens ∀ (expr: Expr)
@@ -248,26 +260,103 @@ theorem autoItemsAheadExample: namelessAutoAt (autoRead ++ []) = True :=
     byComputing
     byComputing
 
---| `KeptAt`'s full-goal conjunct at `exprPlain`: a tree of the grammar that keeps its items and is placed inside is
---| placed as a full expression, when the items ahead are no implicit binder (`implicitOn = False`, given the
---| look-ahead's first item is the `[` that would start it).
+--| A tree of the grammar that keeps its items is placed as a full expression's, when no `[auto Upper` is ahead of it:
+--| the items it was read from, if they start with a `[`, are no implicit binder (`namelessAutoAt`). A tree placed
+--| inside but not as a full expression's starts with `[auto Upper` (`unplacedTokens`).
 theorem keptPlacedUp ∀ (read rest: List Item) (expr: Expr)
     (kept: Kept read expr)
     (grammar: expr.grammar1 = True)
-    (inner: expr.autoPlaced1 False = True)
-    (noBinder: namelessAutoAt (read ++ rest) = False):
+    (noBinder: ∀ (item: Item) (later: List Item) => read ++ rest = [item, ..later]
+      → item.kind = LBracket
+      → namelessAutoAt (read ++ rest) = False):
     expr.autoPlaced1 True = True :=
   match unplaced: expr.autoPlaced1 True with
     | True => byComputing
     | False =>
-      let (isWords, isKinds, _) := kept grammar
+      let (isWords, isKinds, _, inner) := kept grammar
       let (open, auto, kinds, words, treeKinds, treeWords, isAuto) := unplacedTokens expr grammar inner unplaced
-      let ahead :=
-        autoItemsAhead read rest kinds open auto words
-          (Eq.trans isKinds.flipped treeKinds)
-          (Eq.trans isWords.flipped treeWords)
-          isAuto
-      (Bool.falseNotTrue (Eq.trans noBinder.flipped ahead)).impossible
+      let readKinds := Eq.trans isKinds.flipped treeKinds
+      let ahead := autoItemsAhead read rest kinds open auto words readKinds (Eq.trans isWords.flipped treeWords) isAuto
+      match read, readKinds with
+        | [first, ..more], readKinds =>
+          let firstKind: first.kind = LBracket := List.consInjectiveHead _ _ _ _ readKinds
+          (Bool.falseNotTrue (Eq.trans (noBinder first (more ++ rest) byComputing firstKind).flipped ahead)).impossible
+
+--| `implicitOn` at a `[` that isn't stopped: a `[auto Upper` binder, or one of the other binders, ahead.
+theorem implicitOnOpen ∀ (fuel: Nat) (item: Item) (later: List Item) (seen: Option Tok)
+    (isOpen: item.kind = LBracket)
+    (peeked: seen = Some item.kind):
+    implicitOn fuel [item, ..later] seen
+      = ((namelessAutoAt [item, ..later] || namesThen (pastAttributes fuel later) 0 (kind => kind == Colon)) && True) :=
+  rewrite peeked, isOpen
+
+--| `implicitOn` false at a `[` that isn't stopped says no `[auto Upper` follows.
+theorem namelessAutoOfImplicit ∀ (fuel: Nat) (item: Item) (later: List Item) (seen: Option Tok)
+    (isOpen: item.kind = LBracket)
+    (peeked: seen = Some item.kind)
+    (implicit: implicitOn fuel [item, ..later] seen = False):
+    namelessAutoAt [item, ..later] = False :=
+  match na: namelessAutoAt [item, ..later] with
+    | False => byComputing
+    | True =>
+      let on := implicitOnOpen fuel item later seen isOpen peeked
+      let isTrue: ((namelessAutoAt [item, ..later] || namesThen (pastAttributes fuel later) 0 (kind => kind == Colon))
+        && True)
+        = True :=
+        rewrite na
+      let wrong: False = True := calc False
+        _ = implicitOn fuel [item, ..later] seen := implicit.flipped
+        _ = True := Eq.trans on isTrue
+      (Bool.falseNotTrue wrong).impossible
+
+--| A look at the mark, from a mark: `k` of it is `k start`.
+theorem readsAtMark ∀ (start: Parse.Mark Item) (k: Parse.Mark Item → {Parse Item} a) (spec: List Item → a → Prop)
+    (each: Parse.ReadsAt start (() => k start) spec):
+    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
+  total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each total state value after here honest (rewrite <- here then ran)
+
+--| What a run read is a start of the input from its mark: the rest is what it left.
+theorem readsAtRest ∀ [start: Parse.Mark Item] [p: () → {Parse Item} a] [spec: List Item → a → Prop]
+    (reads: Parse.ReadsAt start p spec):
+    Parse.ReadsAt start p (read value => spec read value ∧ ∃ (rest: List Item) => start.rest = read ++ rest) :=
+  total state value after here honest h =>
+    match reads total state value after here honest h with
+      | Witness read (Both starts (Both honestAfter holds)) =>
+        Witness read (Both starts (Both honestAfter (Both holds (Witness after.rest starts))))
+
+--| What `modes.peek` gives, from a mark.
+theorem readsAtPeekValue ∀ (start: Parse.Mark Item) (modes: Modes):
+    Parse.ReadsAt start (() => modes.peek) (read found => read = [] ∧ found = peekIn modes 0 start.rest) :=
+  Parse.readsAtThen
+    [p := () => left()]
+    [j := items => peekIn modes 0 items]
+    (readsAtLeft start)
+    (read items after starts (empty, same) =>
+      Parse.readsAtDone after (peekIn modes 0 items) _ (rewrite empty, same then (byComputing, byComputing)))
+
+--| What `implicitHere` gives, from a mark: whether `[` there starts an implicit binder, by the items left.
+theorem readsAtImplicitHere ∀ (start: Parse.Mark Item) (modes: Modes):
+    Parse.ReadsAt start (() => implicitHere modes) (read found =>
+      read = [] ∧ found = implicitOn (start.left + 1) start.rest (peekIn modes 0 start.rest)) :=
+  readsAtMark start
+    (here => implicitOn (here.left + 1) left() modes.peek) _
+    (Parse.readsAtThen
+      [p := () => left()]
+      [j := items => implicitOn (start.left + 1) items modes.peek]
+      (readsAtLeft start)
+      (read items after starts (empty, same) =>
+        let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
+        Parse.readsAtThen
+          [p := () => modes.peek]
+          [j := seen => implicitOn (start.left + 1) items seen]
+          (readsAtPeekValue after modes)
+          (read2 seen after2 starts2 (empty2, same2) =>
+            Parse.readsAtDone after2 (implicitOn (start.left + 1) items seen) _ (
+              rewrite empty, empty2 then byComputing,
+              rewrite same, same2, tail
+            ))))
 
 -- Kinds of items.
 
@@ -280,11 +369,21 @@ theorem itemKindsAppend ∀ (first rest: List Item): itemKinds (first ++ rest) =
 theorem keptOut ∀ (read: List Item) [expr: Expr] (out: Out expr): Kept read expr := grammar =>
   (Bool.falseNotTrue (rewrite out at grammar)).impossible
 
+--| A tree outside the grammar is kept as a full expression, too.
+theorem keptFullOut ∀ (read: List Item) [expr: Expr] (out: Out expr): KeptFull read expr :=
+  (keptOut read out, grammar => (Bool.falseNotTrue (rewrite out at grammar)).impossible)
+
 --| The lift of `ParseWalk`'s facts for the parsers outside the slice.
 theorem readsOut ∀ [p: () → {Parse Item} Expr] (gives: Parse.Gives GoodItems p Out): Parse.ReadsIn GoodItems p Kept :=
   Parse.readsWeaken gives (read value out => keptOut read out)
 
 --| `readsOut` at a spec about more than what this parser read.
+--| `readsOut` for a tree kept as a full expression: a tree outside the grammar is placed vacuously.
+theorem readsOutFull ∀ [p: () → {Parse Item} Expr]
+    (gives: Parse.Gives GoodItems p Out):
+    Parse.ReadsIn GoodItems p KeptFull :=
+  Parse.readsWeaken gives (read value out => keptFullOut read out)
+
 theorem readsOutAfter ∀ (before: List Item) [p: () → {Parse Item} Expr]
     (gives: Parse.Gives GoodItems p Out):
     Parse.ReadsIn GoodItems p (read value => Kept (before ++ read) value) :=
@@ -336,7 +435,8 @@ theorem keptAtom ∀ (item: Item) (good: GoodItem item): Kept [item] (Atom item.
   (
     (rewrite itemWordsCode item (wordCode item.kind word)),
     byComputing,
-    Bool.andIntro word (spellsText1 item.kind item.text grammar (good (tokWithinOfAtom1 item.kind grammar)))
+    Bool.andIntro word (spellsText1 item.kind item.text grammar (good (tokWithinOfAtom1 item.kind grammar))),
+    byComputing
   )
 
 --| An item a prefix operator is read from: the kind and text are slice 1's, and it is no comma.
@@ -365,9 +465,9 @@ theorem keptPrefix ∀ (item: Item) (read: List Item) (operand: Expr)
     (kept: Kept read operand):
     Kept [item, ..read] (Prefix item.leaf.word operand) :=
   grammar =>
-    let (words, kinds, within) := kept grammar
+    let (words, kinds, within, placed) := kept grammar
     let (kindIs, text, code) := sign
-    ((rewrite itemWordsCons item read code, words), (rewrite kinds, kindIs), Bool.andIntro within text)
+    ((rewrite itemWordsCons item read code, words), (rewrite kinds, kindIs), Bool.andIntro within text, placed)
 
 theorem readsWordAtom ∀ (start: Parse.Mark Item) (item: Item) (later: List Item)
     (shape: start.rest = [item, ..later])
@@ -448,6 +548,7 @@ def RestKept (read: List Item) (items: List Expr) (trailing: Bool): Prop :=
     → itemsWords items = itemWords read
       ∧ (∀ (close: Tok) => restKinds1 close trailing items = itemKinds read ++ [close])
       ∧ allWithin1 items = True
+      ∧ autoPlacedAll True items = True
 
 --| A whole comma list's trees, all in the grammar: their words, their kinds with the commas between and after them,
 --| and the slice.
@@ -456,27 +557,29 @@ def ItemsKept (read: List Item) (items: List Expr) (trailing: Bool): Prop :=
     → itemsWords items = itemWords read
       ∧ (∀ (close: Tok) => itemsKinds1 close trailing items = itemKinds read ++ [close])
       ∧ allWithin1 items = True
+      ∧ autoPlacedAll True items = True
 
 --| What a comma list gave after the trees it already had, `prior`: more trees, kept by what it read, and whether it
 --| read a last comma.
 def ListKept (prior: List Expr) (read: List Item) (pair: (List Expr, Bool)): Prop :=
   ∃ (more: List Expr) => pair.fst = prior ++ more ∧ RestKept read more pair.snd
 
-theorem restKeptNil: RestKept [] [] False := grammar => (byComputing, close => byComputing, byComputing)
+theorem restKeptNil: RestKept [] [] False := grammar => (byComputing, close => byComputing, byComputing, byComputing)
 
 --| A last comma and nothing after it.
 theorem restKeptComma ∀ (comma: Item) (isComma: comma.kind = Comma): RestKept [comma] [] True := grammar =>
-  ((rewrite itemWordsComma comma isComma), close => (rewrite isComma), byComputing)
+  ((rewrite itemWordsComma comma isComma), close => (rewrite isComma), byComputing, byComputing)
 
 --| A comma, then a tree and the rest of the list.
 theorem restKeptStep ∀ [first rest: List Item] [value: Expr] [more: List Expr] [trailing: Bool] (comma: Item)
     (isComma: comma.kind = Comma)
-    (kept: Kept first value)
+    (kept: KeptFull first value)
     (others: RestKept rest more trailing):
     RestKept [comma, ..first ++ rest] [value, ..more] trailing :=
   grammar =>
-    let (words, kinds, within) := kept (Bool.andLeft grammar)
-    let (otherWords, otherKinds, otherWithin) := others (Bool.andRight grammar)
+    let (words, kinds, within, _) := kept.left (Bool.andLeft grammar)
+    let full := kept.right (Bool.andLeft grammar)
+    let (otherWords, otherKinds, otherWithin, otherPlaced) := others (Bool.andRight grammar)
     (
       (rewrite itemWordsAfterComma comma (first ++ rest) isComma, itemWordsAppend first rest, words, otherWords),
       (close =>
@@ -484,17 +587,19 @@ theorem restKeptStep ∀ [first rest: List Item] [value: Expr] [more: List Expr]
           _ = [Comma, ..itemKinds first ++ (itemKinds rest ++ [close])] := rewrite kinds, otherKinds close
           _ = itemKinds [comma, ..first ++ rest] ++ [close] :=
             rewrite itemKindsAppend first rest, isComma, List.appendAssoc (itemKinds first) (itemKinds rest) [close]),
-      Bool.andIntro within otherWithin
+      Bool.andIntro within otherWithin,
+      Bool.andIntro full otherPlaced
     )
 
 --| A first tree, then the rest of the list.
 theorem itemsKeptCons ∀ [first rest: List Item] [value: Expr] [more: List Expr] [trailing: Bool]
-    (kept: Kept first value)
+    (kept: KeptFull first value)
     (others: RestKept rest more trailing):
     ItemsKept (first ++ rest) [value, ..more] trailing :=
   grammar =>
-    let (words, kinds, within) := kept (Bool.andLeft grammar)
-    let (otherWords, otherKinds, otherWithin) := others (Bool.andRight grammar)
+    let (words, kinds, within, _) := kept.left (Bool.andLeft grammar)
+    let full := kept.right (Bool.andLeft grammar)
+    let (otherWords, otherKinds, otherWithin, otherPlaced) := others (Bool.andRight grammar)
     (
       (rewrite itemWordsAppend first rest, words, otherWords),
       (close =>
@@ -502,12 +607,13 @@ theorem itemsKeptCons ∀ [first rest: List Item] [value: Expr] [more: List Expr
           _ = itemKinds first ++ (itemKinds rest ++ [close]) := rewrite kinds, otherKinds close
           _ = itemKinds (first ++ rest) ++ [close] :=
             rewrite itemKindsAppend first rest, List.appendAssoc (itemKinds first) (itemKinds rest) [close]),
-      Bool.andIntro within otherWithin
+      Bool.andIntro within otherWithin,
+      Bool.andIntro full otherPlaced
     )
 
 theorem listKeptStep ∀ [prior: List Expr] [value: Expr] [comma: Item] [first rest: List Item] [pair: (List Expr, Bool)]
     (isComma: comma.kind = Comma)
-    (kept: Kept first value)
+    (kept: KeptFull first value)
     (listed: ListKept (prior ++ [value]) rest pair):
     ListKept prior [comma, ..first ++ rest] pair :=
   let (more, split, items) := listed
@@ -520,7 +626,7 @@ theorem listKeptStep ∀ [prior: List Expr] [value: Expr] [comma: Item] [first r
 --| (`listKeptStep`); anything else stops with no more trees and no last comma.
 theorem readsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} Expr)
     (endsReads: ∀ (count: Nat) => Reads0 (() => ends count))
-    (nextReads: Parse.ReadsIn GoodItems next Kept)
+    (nextReads: Parse.ReadsIn GoodItems next KeptFull)
     (fuel count: Nat) (current: Expr) (found: List Expr):
     Parse.ReadsIn GoodItems
       (() => commaListFrom fuel modes ends next count current found)
@@ -571,11 +677,12 @@ theorem readsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) 
 
 theorem keptParen ∀ (open: Item) (inside rest: List Item) (inner: Expr) (close: Word)
     (isOpen: open.kind = LParen)
-    (kept: Kept inside inner)
+    (kept: KeptFull inside inner)
     (closeOne: OneOf RParen rest close):
     Kept [open, ..inside ++ rest] (Paren open.leaf.word inner close) :=
   grammar =>
-    let (words, kinds, within) := kept grammar
+    let (words, kinds, within, _) := kept.left grammar
+    let full := kept.right grammar
     let (closeItem, single, closeKind, same) := closeOne
     (
       (rewrite itemWordsCons open (inside ++ rest) (codeAs isOpen byComputing),
@@ -585,7 +692,8 @@ theorem keptParen ∀ (open: Item) (inside rest: List Item) (inner: Expr) (close
       (calc (Paren open.leaf.word inner close).kinds1
         _ = [open.kind, ..itemKinds inside ++ [closeItem.kind]] := rewrite kinds, isOpen, closeKind
         _ = itemKinds [open, ..inside ++ rest] := rewrite single, itemKindsAppend inside [closeItem]),
-      within
+      within,
+      full
     )
 
 theorem keptTuple ∀ (open: Item) (inside rest: List Item) (items: List Expr) (trailing: Bool) (close: Word)
@@ -594,7 +702,7 @@ theorem keptTuple ∀ (open: Item) (inside rest: List Item) (items: List Expr) (
     (closeOne: OneOf RParen rest close):
     Kept [open, ..inside ++ rest] (Tuple open.leaf.word items trailing close) :=
   grammar =>
-    let (words, kinds, within) := kept grammar
+    let (words, kinds, within, placed) := kept grammar
     let (closeItem, single, closeKind, same) := closeOne
     (
       (rewrite itemWordsCons open (inside ++ rest) (codeAs isOpen byComputing),
@@ -604,8 +712,17 @@ theorem keptTuple ∀ (open: Item) (inside rest: List Item) (items: List Expr) (
       (calc (Tuple open.leaf.word items trailing close).kinds1
         _ = [open.kind, ..itemKinds inside ++ [closeItem.kind]] := rewrite kinds RParen, isOpen, closeKind
         _ = itemKinds [open, ..inside ++ rest] := rewrite single, itemKindsAppend inside [closeItem]),
-      within
+      within,
+      placed
     )
+
+--| A list of items placed as full expressions is placed where it starts no full expression.
+theorem listPlacedAway ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
+    (placed: autoPlacedAll True items = True):
+    (ListOf open items trailing close).autoPlaced1 False = True :=
+  match items, placed with
+    | [], placed => byComputing
+    | [one, ..others], placed => Bool.andIntro byComputing placed
 
 theorem keptList ∀ (open: Item) (inside rest: List Item) (items: List Expr) (trailing: Bool) (close: Word)
     (isOpen: open.kind = LBracket)
@@ -613,7 +730,7 @@ theorem keptList ∀ (open: Item) (inside rest: List Item) (items: List Expr) (t
     (closeOne: OneOf RBracket rest close):
     Kept [open, ..inside ++ rest] (ListOf open.leaf.word items trailing close) :=
   grammar =>
-    let (words, kinds, within) := kept grammar
+    let (words, kinds, within, placed) := kept grammar
     let (closeItem, single, closeKind, same) := closeOne
     (
       (rewrite itemWordsCons open (inside ++ rest) (codeAs isOpen byComputing),
@@ -623,13 +740,14 @@ theorem keptList ∀ (open: Item) (inside rest: List Item) (items: List Expr) (t
       (calc (ListOf open.leaf.word items trailing close).kinds1
         _ = [open.kind, ..itemKinds inside ++ [closeItem.kind]] := rewrite kinds RBracket, isOpen, closeKind
         _ = itemKinds [open, ..inside ++ rest] := rewrite single, itemKindsAppend inside [closeItem]),
-      within
+      within,
+      listPlacedAway open.leaf.word items trailing close placed
     )
 
 --| `)` after the first tree in brackets.
 theorem readsParenClose ∀ (inner: Modes) (open: Item) (inside: List Item) (first: Expr)
     (isOpen: open.kind = LParen)
-    (kept: Kept inside first):
+    (kept: KeptFull inside first):
     Parse.ReadsIn GoodItems (() => parenClose inner open.leaf.word first) (read value =>
       Kept [open, ..inside ++ read] value) :=
   Parse.readsThen (readsExpect inner RParen "`)`") (rc close one =>
@@ -643,7 +761,7 @@ theorem readsParenClose ∀ (inner: Modes) (open: Item) (inside: List Item) (fir
 theorem readsTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item) (inside: List Item) (first: Expr)
     (nested: NestedKept self)
     (isOpen: open.kind = LParen)
-    (kept: Kept inside first)
+    (kept: KeptFull inside first)
     (start: Parse.Mark Item) (comma: Item) (later: List Item)
     (shape: start.rest = [comma, ..later])
     (isComma: comma.kind = Comma)
@@ -703,7 +821,7 @@ theorem readsBracketedFirst ∀ (self: Goal → {Parse Item} Expr) (inner: Modes
     (nested: NestedKept self)
     (outside: OutsideAtoms self)
     (isOpen: open.kind = LParen)
-    (kept: Kept inside first):
+    (kept: KeptFull inside first):
     Parse.ReadsIn GoodItems (() => bracketedFirst self inner open.leaf.word first) (read value =>
       Kept [open, ..inside ++ read] value) :=
   readsInPeeked inner
@@ -808,7 +926,7 @@ theorem readsParenAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 --| full level.
 theorem readsListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self):
-    Parse.ReadsIn GoodItems (() => listItem self modes) Kept :=
+    Parse.ReadsIn GoodItems (() => listItem self modes) KeptFull :=
   readsAfter0
     [p := () => modes.at DotDot]
     [j := spread => listItemAfter self modes spread]
@@ -836,7 +954,7 @@ theorem readsListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
                         [p := () => full self modes]
                         [j := value => Spread dots value]
                         (nested { modes, level = LevelFull })
-                        (r2 value _ => Parse.readsDone _ _ (keptOut _ byComputing))))
+                        (r2 value _ => Parse.readsDone _ _ (keptFullOut _ byComputing))))
         | False => nested { modes, level = LevelFull })
 
 theorem readsListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item) (inside: List Item)
@@ -854,7 +972,7 @@ theorem readsListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
     (inside: List Item) (first: Expr)
     (nested: NestedKept self)
     (isOpen: open.kind = LBracket)
-    (kept: Kept inside first):
+    (kept: KeptFull inside first):
     Parse.ReadsIn GoodItems (() => listItemsFrom self inner open.leaf.word first) (read value =>
       Kept [open, ..inside ++ read] value) :=
   Parse.readsThen
@@ -900,7 +1018,7 @@ theorem readsListItems ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
     (inside first kept => readsListItemsFrom self inner open inside first nested isOpen kept)
 
 --| An empty list's items: none, and no comma.
-theorem itemsKeptNil: ItemsKept [] [] False := grammar => (byComputing, close => byComputing, byComputing)
+theorem itemsKeptNil: ItemsKept [] [] False := grammar => (byComputing, close => byComputing, byComputing, byComputing)
 
 theorem readsListPeek ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item)
     (nested: NestedKept self)
@@ -1030,21 +1148,26 @@ theorem readsAtomBases ∀ (self: Goal → {Parse Item} Expr)
 
 --| A call's arguments, all in the grammar: their words, their kinds, and the slice.
 def ArgsKept (read: List Item) (args: List Expr): Prop :=
-  allGrammar1 args = True → itemsWords args = itemWords read ∧ argsKinds1 args = itemKinds read ∧ allWithin1 args = True
+  allGrammar1 args = True
+    → itemsWords args = itemWords read
+      ∧ argsKinds1 args = itemKinds read
+      ∧ allWithin1 args = True
+      ∧ autoPlacedAll False args = True
 
-theorem argsKeptNil: ArgsKept [] [] := grammar => (byComputing, byComputing, byComputing)
+theorem argsKeptNil: ArgsKept [] [] := grammar => (byComputing, byComputing, byComputing, byComputing)
 
 theorem argsKeptCons ∀ [first rest: List Item] [value: Expr] [more: List Expr]
     (kept: Kept first value)
     (others: ArgsKept rest more):
     ArgsKept (first ++ rest) [value, ..more] :=
   grammar =>
-    let (words, kinds, within) := kept (Bool.andLeft grammar)
-    let (otherWords, otherKinds, otherWithin) := others (Bool.andRight grammar)
+    let (words, kinds, within, placed) := kept (Bool.andLeft grammar)
+    let (otherWords, otherKinds, otherWithin, otherPlaced) := others (Bool.andRight grammar)
     (
       (rewrite itemWordsAppend first rest, words, otherWords),
       (rewrite itemKindsAppend first rest, kinds, otherKinds),
-      Bool.andIntro within otherWithin
+      Bool.andIntro within otherWithin,
+      Bool.andIntro placed otherPlaced
     )
 
 theorem keptApp ∀ [first rest: List Item] [head: Expr] [args: List Expr]
@@ -1052,12 +1175,13 @@ theorem keptApp ∀ [first rest: List Item] [head: Expr] [args: List Expr]
     (others: ArgsKept rest args):
     Kept (first ++ rest) (App head args) :=
   grammar =>
-    let (words, kinds, within) := kept (Bool.andLeft grammar)
-    let (otherWords, otherKinds, otherWithin) := others (Bool.andRight grammar)
+    let (words, kinds, within, placed) := kept (Bool.andLeft grammar)
+    let (otherWords, otherKinds, otherWithin, otherPlaced) := others (Bool.andRight grammar)
     (
       (rewrite itemWordsAppend first rest, words, otherWords),
       (rewrite itemKindsAppend first rest, kinds, otherKinds),
-      Bool.andIntro within otherWithin
+      Bool.andIntro within otherWithin,
+      Bool.andIntro placed otherPlaced
     )
 
 --| The rounds of a loop that each read a kept tree, or nothing and stopped.
@@ -1273,12 +1397,13 @@ theorem keptInfix ∀ (operator: Item) [first rest: List Item] [left right: Expr
     Kept (first ++ [operator, ..rest]) (Infix InfixBinary left operator.leaf.word right) :=
   grammar =>
     let (kindIs, text, code) := binary
-    let (leftWords, leftKinds, leftWithin) := leftKept (Bool.andLeft grammar)
-    let (rightWords, rightKinds, rightWithin) := rightKept (Bool.andRight grammar)
+    let (leftWords, leftKinds, leftWithin, leftPlaced) := leftKept (Bool.andLeft grammar)
+    let (rightWords, rightKinds, rightWithin, rightPlaced) := rightKept (Bool.andRight grammar)
     (
       (rewrite itemWordsAppend first [operator, ..rest], itemWordsCons operator rest code, leftWords, rightWords),
       (rewrite itemKindsAppend first [operator, ..rest], leftKinds, rightKinds, kindIs),
-      Bool.andIntro leftWithin (Bool.andIntro rightWithin text)
+      Bool.andIntro leftWithin (Bool.andIntro rightWithin text),
+      Bool.andIntro leftPlaced rightPlaced
     )
 
 --| Folding links to the left keeps the items in the order read.
@@ -1445,8 +1570,8 @@ theorem readsAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 --| The levels of the expression parser above `append_expr`, kept: to prove, given `self` at every goal and what the
 --| parsers outside slice 1 give.
 type Ladder (self: Goal → {Parse Item} Expr) = {
-  full: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => expr self modes) Kept,
-  inline: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => exprInline self modes) Kept,
+  full: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => expr self modes) KeptFull,
+  inline: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => exprInline self modes) KeptFull,
   logic: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => logicLevel self modes) Kept,
   comparison: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => cmpExpr self modes) Kept,
   thenBody: ∀ (modes: Modes) => Parse.ReadsIn GoodItems (() => thenBody self modes) Kept
@@ -1469,7 +1594,7 @@ theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
     (kept: NestedKept self)
     (outside: Outside self)
     (ladder: Ladder self):
-    Parse.ReadsIn GoodItems (() => expressionRule self goal) Kept :=
+    Parse.ReadsIn GoodItems (() => expressionRule self goal) (KeptAt goal) :=
   let atoms := outside.below.below.below.below.below
   let braced := outside.below.below.below.below
   let bases := basesKept self kept outside
@@ -1494,7 +1619,8 @@ theorem readsExpressionRule ∀ (self: Goal → {Parse Item} Expr) (goal: Goal)
 --| `self` gives what `ParseWalk` says and keeps its items, at every goal: the two walks' hypothesis, held together so
 --| the recursion can be tied once for both.
 def NestedBoth (self: Goal → {Parse Item} Expr): Prop :=
-  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (read value => GoalRead goal read value ∧ Kept read value)
+  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) (read value =>
+    GoalRead goal read value ∧ KeptAt goal read value)
 
 theorem nestedOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self): Nested self := goal =>
   Parse.readsWeaken (both goal) (read value facts => facts.left)
@@ -1510,7 +1636,7 @@ theorem keptOfBoth ∀ [self: Goal → {Parse Item} Expr] (both: NestedBoth self
 --| and `readsExpressionRule`, joined by `Parse.readsBoth`.
 theorem bothExpressionAt ∀ (ladder: LadderKept): NestedBoth expressionAt := goal =>
   Parse.readsRecursiveWith expressionRule
-    (inner read value => GoalRead inner read value ∧ Kept read value)
+    (inner read value => GoalRead inner read value ∧ KeptAt inner read value)
     (self both argument =>
       let nested := nestedOfBoth both
       let kept := keptOfBoth both
