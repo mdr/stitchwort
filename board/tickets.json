@@ -27859,8 +27859,8 @@
     {
       "id": 4274,
       "title": "[DeepSeek] Four error-message hints from SW-4198's probes: { let …; term } E-PARSE points at the closing brace (add: braces are a record update, proof blocks are indented); import Std (List.map) note giving import Std.List (map); ?name parsed as ? applied to name (hint: holes aren't named, use ?); rewrite f.unfold shows f.%step … (print something a reader can follow)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
