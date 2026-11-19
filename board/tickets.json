@@ -1,5 +1,5 @@
 {
-  "next": 4202,
+  "next": 4205,
   "tickets": [
     {
       "id": 47,
@@ -26828,7 +26828,7 @@
     {
       "id": 4196,
       "title": "[Fable, paper] Slice 2 (Binders) sketch per proof plan §1.3 step 2: S2's exact grammar (Def/Theorem headers with parameter groups, ∀, Lambda, ∀/∃ binders, effect rows, PatternWord) as a superset of Grammar1; what of the build (2b headers, passes P1/P3/P4) exists on main; the predicates and top statements (mirroring slice1Formats, all of S2's grammar, D3687/D3689 style); per-layer counts; spikes due; lessons from slice 1 (rule N bookkeeping, narrowing, SW-4184/4191); one decision for Matt at most",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -26899,6 +26899,45 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4195 item 6: the last count was 380 of about 515 (SW-4119, 19 Nov 07:41, before SW-4125, SW-4128, SW-4137, SW-4176 accepted more). The harness score in the slice 1 checkpoint needs a fresh one. A sweep of the repo, so a verifier or Overmind job, not a lane's own test run.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4202,
+      "title": "[Sonnet, bug] Rust fmt P3 not idempotent after an ability row: def f: {Fail} ((x: (A)) => x) := g formats to {Fail} (x: (A)) => x then {Fail} (x: A) => x; also groups merged only on the second run (SW-4196 finding 1); fix with a golden test both runs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4203,
+      "title": "[Opus] slice1Formats: add that comments are kept (CommentsKept, Fmt/Meaning.sw:288, has no theorem) before slice 2's passes delete tokens (SW-4196 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4204,
+      "title": "[DeepSeek] fmt self-hosted: Rules.sw:356 lambda rule drops a fun keyword (matched with _); paramsWithin2's PatternWord arm is dead; fmt-passes.md line: P3 strips binder types only along a header's type, so (x: (A)) (y: A) => in a value is neither stripped nor merged (SW-4196 findings 3, 4, 7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
