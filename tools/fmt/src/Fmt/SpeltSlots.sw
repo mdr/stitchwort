@@ -354,7 +354,7 @@ theorem wordCloses ∀ (kind: Tok) (within: kind.wordWithin1 = True): kind.close
 def EndsClosed (read: List Item): Prop :=
   ∃ (front: List Item) (last: Item) => read = front ++ [last] ∧ last.kind.closesOperand = True
 
-theorem closerEnds ∀ (read: List Item) (open close: Word) (inside: List (Option Word)) (first: Item)
+theorem readCloserEnds ∀ (read: List Item) (open close: Word) (inside: List (Option Word)) (first: Item)
     (middle: List Item) (last: Item)
     (bracket: BracketRead read open close inside first middle last)
     (closer: lexKind close.text = RParen ∨ lexKind close.text = RBracket):
@@ -364,12 +364,12 @@ theorem closerEnds ∀ (read: List Item) (open close: Word) (inside: List (Optio
     | Inl paren => ([first, ..middle], last, (rewrite isRead), (rewrite lastKind, paren))
     | Inr bracketKind => ([first, ..middle], last, (rewrite isRead), (rewrite lastKind, bracketKind))
 
-theorem parenCloser ∀ (close: Word)
+theorem parenLexCloser ∀ (close: Word)
     (is: (close.text == ")") = True):
     lexKind close.text = RParen ∨ lexKind close.text = RBracket :=
   Inl (rewrite DecEq.sound is)
 
-theorem bracketCloser ∀ (close: Word)
+theorem bracketLexCloser ∀ (close: Word)
     (is: (close.text == "]") = True):
     lexKind close.text = RParen ∨ lexKind close.text = RBracket :=
   Inr (rewrite DecEq.sound is)
@@ -395,26 +395,26 @@ theorem lastCloses ∀ (expr: Expr) (read: List Item)
       )
     | Paren open inner close, within =>
       let (first, middle, last, bracket) := bracketSlots read open close inner.slots slots
-      closerEnds read open close inner.slots first middle last bracket
-        (parenCloser close (Bool.andLeft (Bool.andRight lexical)))
+      readCloserEnds read open close inner.slots first middle last bracket
+        (parenLexCloser close (Bool.andLeft (Bool.andRight lexical)))
     | Tuple open items _ close, within =>
       let (first, middle, last, bracket) := bracketSlots read open close (commaSlots items) slots
-      closerEnds read open close
+      readCloserEnds read open close
         (commaSlots items)
         first
         middle
         last
         bracket
-        (parenCloser close (Bool.andLeft (Bool.andRight lexical)))
+        (parenLexCloser close (Bool.andLeft (Bool.andRight lexical)))
     | ListOf open items _ close, within =>
       let (first, middle, last, bracket) := bracketSlots read open close (commaSlots items) slots
-      closerEnds read open close
+      readCloserEnds read open close
         (commaSlots items)
         first
         middle
         last
         bracket
-        (bracketCloser close (Bool.andLeft (Bool.andRight lexical)))
+        (bracketLexCloser close (Bool.andLeft (Bool.andRight lexical)))
     | App head arguments, within =>
       let (headRead, argsRead, isRead, _, argsSlots) :=
         List.all2AppendSplit SlotMatch read head.slots (argumentSlots arguments) slots
@@ -1480,9 +1480,9 @@ theorem arrowFactsExample: InfixFacts InfixArrow "→" := arrowFacts "→" byCom
 theorem binaryFactsExample: InfixFacts InfixBinary "++" := binaryFacts "++" byComputing
 
 theorem closerExample: lexKind ")" = RParen ∨ lexKind ")" = RBracket :=
-  parenCloser (fixedWord ")" Word.none.comments) byComputing
+  parenLexCloser (fixedWord ")" Word.none.comments) byComputing
 
-theorem bracketCloserExample: lexKind "]" = RParen ∨ lexKind "]" = RBracket :=
-  bracketCloser (fixedWord "]" Word.none.comments) byComputing
+theorem bracketLexCloserExample: lexKind "]" = RParen ∨ lexKind "]" = RBracket :=
+  bracketLexCloser (fixedWord "]" Word.none.comments) byComputing
 
 theorem infixFactsExample: InfixFacts InfixBinary "+" := infixFacts InfixBinary "+" byComputing

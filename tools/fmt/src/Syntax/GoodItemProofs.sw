@@ -455,12 +455,6 @@ theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedKind1 (wordKind af
 
 -- The lexer's parts whose values are not in question: each succeeds only having read a start of its input.
 
---| `located value from` gives a lexeme of that value.
-theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
-    Parse.Gives Parse.Invariant.any (() => located value from) (lexeme => lexeme.value = value) :=
-  Parse.readsWithMark (to => { value, offset = from.offset, length = to.offset - from.offset }) _ (to fine =>
-    Parse.givesDone byComputing)
-
 --| `located value from`, read at `start`, is the lexeme from `from` to `start`.
 theorem readsAtLocated ∀ (value: Lexeme) (from start: Parse.Mark Char):
     Parse.ReadsAt start (() => located value from) (read lexeme =>

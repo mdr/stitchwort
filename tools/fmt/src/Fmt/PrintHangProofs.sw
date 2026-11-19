@@ -181,13 +181,6 @@ def Tracks (kinds: Text → Tok) (laid: Laid) (events: List Event) (blank: Bool)
     ∧ (blank = False → laid.freshLine = False ∨ note = True)
     ∧ Refines (hangOf kinds events) (leavesHang laid.leaves)
 
-theorem spacesNotBreak ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): (text == "\n") = False :=
-  match broken: text == "\n" with
-    | False => byComputing
-    | True =>
-      let same: text = "\n" := DecEq.sound broken
-      (Bool.falseNotTrue (rewrite same at spaces then spaces)).impossible
-
 theorem afterComment ∀ (text: Text) (earlier: List Text)
     (ends: CommentsEnd [text, ..earlier])
     (note: lastComment earlier = True):
@@ -234,7 +227,7 @@ theorem tracksSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
       (lineBlank [text, ..earlier])
       (lineWidth [text, ..earlier])
       (lastComment [text, ..earlier]) :=
-  let notBreak := spacesNotBreak text spaces
+  let notBreak := Doc.Proofs.gapNoBreak text spaces
   let (blankBefore, fresh, refines) := before
   let laid := laidOf kinds earlier
   let blank: lineBlank [text, ..earlier] = lineBlank earlier := rewrite spaces

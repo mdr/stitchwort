@@ -118,7 +118,7 @@ theorem leavesTexts ∀ (pieces: List Piece):
 -- The pieces of the printed texts.
 
 --| Joining adjacent spaces keeps the code.
-theorem addPieceCode ∀ (piece: Piece) (rest: List Piece):
+theorem addPieceCodeTexts ∀ (piece: Piece) (rest: List Piece):
     codeTexts (addPiece piece rest) = codeOf piece ++ codeTexts rest :=
   match piece, rest with
     | Gap first, [Gap second, ..more] => byComputing
@@ -137,7 +137,7 @@ theorem codeOfWords ∀ (kinds: Text → Tok) (texts: List Text):
     | [] => byComputing
     | [text, ..rest] =>
       let ih := codeOfWords kinds rest
-      rewrite addPieceCode (pieceOf kinds text) (pieceFold kinds rest), ih then wordStep kinds text rest
+      rewrite addPieceCodeTexts (pieceOf kinds text) (pieceFold kinds rest), ih then wordStep kinds text rest
 
 theorem wordStep ∀ (kinds: Text → Tok) (text: Text) (rest: List Text):
     codeOf (pieceOf kinds text) ++ (wordsOf rest).filter notComment = (wordsOf [text, ..rest]).filter notComment :=

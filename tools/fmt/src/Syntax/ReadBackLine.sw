@@ -602,7 +602,7 @@ theorem wordNotSection ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.isS
 --| Proof idea: by induction on the expression; an opener pushes its kind, the inside is walked by induction, and its
 --| closer pairs it and pops back to the group outside, which is still open; words, signs, commas and operators open
 --| and close nothing.
-theorem groupWalk ∀ (expr: Expr) (read: List Item)
+theorem groupInsideReverse ∀ (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
     (open: Tok) (outer: List Tok) (found rest: List Item):
     groupInside [open, ..outer] found (read ++ rest) = groupInside [open, ..outer] (List.reverseOnto read found) rest :=
@@ -615,7 +615,7 @@ theorem groupWalk ∀ (expr: Expr) (read: List Item)
       rewrite isRead,
           isOpen,
           List.appendAssoc inside [last] rest,
-          groupWalk inner inside innerSpelt LParen [open, ..outer] [first, ..found] [last, ..rest],
+          groupInsideReverse inner inside innerSpelt LParen [open, ..outer] [first, ..found] [last, ..rest],
           isClose,
           ontoAppend inside [last] [first, ..found]
     | Tuple _ [one, two, ..others] _ _, (first, read1, separator, read2, steps, last, isRead, _, isOpen, _, isComma,
@@ -641,7 +641,10 @@ theorem groupWalk ∀ (expr: Expr) (read: List Item)
       rewrite isRead,
           isOpen,
           List.appendAssoc read1 (commaReads steps ++ [last]) rest,
-          groupWalk one read1 oneSpelt LBracket [open, ..outer] [first, ..found] ((commaReads steps ++ [last]) ++ rest),
+          groupInsideReverse one read1 oneSpelt LBracket
+            [open, ..outer]
+            [first, ..found]
+            ((commaReads steps ++ [last]) ++ rest),
           List.appendAssoc (commaReads steps) [last] rest,
           stepsWalk others steps stepsSpelt LBracket [open, ..outer] (List.reverseOnto read1 [first, ..found]) [
             last,
@@ -653,9 +656,9 @@ theorem groupWalk ∀ (expr: Expr) (read: List Item)
     | App head [argument, ..more], (headRead, argRead, steps, isRead, _, _, headSpelt, argSpelt, argsSpelt) =>
       rewrite isRead,
           List.appendAssoc headRead (argRead ++ Parse.loopReads [] steps) rest,
-          groupWalk head headRead headSpelt open outer found ((argRead ++ Parse.loopReads [] steps) ++ rest),
+          groupInsideReverse head headRead headSpelt open outer found ((argRead ++ Parse.loopReads [] steps) ++ rest),
           List.appendAssoc argRead (Parse.loopReads [] steps) rest,
-          groupWalk argument argRead argSpelt open outer
+          groupInsideReverse argument argRead argSpelt open outer
             (List.reverseOnto headRead found)
             (Parse.loopReads [] steps ++ rest),
           argsWalk more steps argsSpelt open outer (List.reverseOnto argRead (List.reverseOnto headRead found)) rest,
@@ -665,18 +668,18 @@ theorem groupWalk ∀ (expr: Expr) (read: List Item)
       let (notOpen, notClose) := signFlat sign.kind signed
       rewrite isRead,
           groupPlain open outer found sign (more ++ rest) notOpen notClose,
-          groupWalk operand more operandSpelt open outer [sign, ..found] rest
+          groupInsideReverse operand more operandSpelt open outer [sign, ..found] rest
     | Infix kind left _ right, (leftRead, op, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, rightSpelt) =>
       let (notOpen, notClose) := infixFlat kind op.kind isOp
       rewrite isRead,
           List.appendAssoc leftRead [op, ..rightRead] rest,
-          groupWalk left leftRead leftSpelt open outer found ([op, ..rightRead] ++ rest),
+          groupInsideReverse left leftRead leftSpelt open outer found ([op, ..rightRead] ++ rest),
           groupPlain open outer (List.reverseOnto leftRead found) op (rightRead ++ rest) notOpen notClose,
-          groupWalk right rightRead rightSpelt open outer [op, ..List.reverseOnto leftRead found] rest,
+          groupInsideReverse right rightRead rightSpelt open outer [op, ..List.reverseOnto leftRead found] rest,
           ontoAppend leftRead [op, ..rightRead] found
     | _, never => Void.impossible never
 
---| A tuple's items before its closer, walked as `groupWalk` walks each.
+--| A tuple's items before its closer, walked as `groupInsideReverse` walks each.
 theorem tupleWalk ∀ (one two: Expr) (others: List Expr) (read1: List Item) (separator: Item)
     (read2: List Item) (steps: List (Item, List Item, Expr))
     (oneSpelt: Spelt one read1)
@@ -690,7 +693,7 @@ theorem tupleWalk ∀ (one two: Expr) (others: List Expr) (read1: List Item) (se
         (List.reverseOnto (read1 ++ ([separator, ..read2] ++ commaReads steps)) found)
         rest :=
   rewrite List.appendAssoc read1 ([separator, ..read2] ++ commaReads steps) rest,
-      groupWalk one read1 oneSpelt open outer found (([separator, ..read2] ++ commaReads steps) ++ rest),
+      groupInsideReverse one read1 oneSpelt open outer found (([separator, ..read2] ++ commaReads steps) ++ rest),
       groupPlain open outer
         (List.reverseOnto read1 found)
         separator
@@ -698,7 +701,9 @@ theorem tupleWalk ∀ (one two: Expr) (others: List Expr) (read1: List Item) (se
         (rewrite isComma)
         (rewrite isComma),
       List.appendAssoc read2 (commaReads steps) rest,
-      groupWalk two read2 twoSpelt open outer [separator, ..List.reverseOnto read1 found] (commaReads steps ++ rest),
+      groupInsideReverse two read2 twoSpelt open outer
+        [separator, ..List.reverseOnto read1 found]
+        (commaReads steps ++ rest),
       stepsWalk others steps stepsSpelt open outer
         (List.reverseOnto read2 [separator, ..List.reverseOnto read1 found])
         rest,
@@ -716,7 +721,7 @@ theorem stepsWalk ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr))
       rewrite isSteps,
           List.appendAssoc [comma, ..read] (commaReads later) rest,
           groupPlain open outer found comma (read ++ (commaReads later ++ rest)) (rewrite isComma) (rewrite isComma),
-          groupWalk expr read exprSpelt open outer [comma, ..found] (commaReads later ++ rest),
+          groupInsideReverse expr read exprSpelt open outer [comma, ..found] (commaReads later ++ rest),
           stepsWalk more later laterSpelt open outer (List.reverseOnto read [comma, ..found]) rest,
           ontoAppend [comma, ..read] (commaReads later) found
 
@@ -730,7 +735,7 @@ theorem argsWalk ∀ (exprs: List Expr) (steps: List (List Item, Expr))
     | [argument, ..more], (read, later, isSteps, _, argSpelt, laterSpelt) =>
       rewrite isSteps,
           List.appendAssoc read (Parse.loopReads [] later) rest,
-          groupWalk argument read argSpelt open outer found (Parse.loopReads [] later ++ rest),
+          groupInsideReverse argument read argSpelt open outer found (Parse.loopReads [] later ++ rest),
           argsWalk more later laterSpelt open outer (List.reverseOnto read found) rest,
           ontoAppend read (Parse.loopReads [] later) found
 
@@ -782,7 +787,7 @@ theorem argsLast ∀ (exprs: List Expr) (steps: List (List Item, Expr))
       rewrite isSteps, ontoAppend read (Parse.loopReads [] later) found then
         argsLast more later laterSpelt (List.reverseOnto read found) (speltLast argument read argSpelt found)
 
-theorem stepsLast ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr))
+theorem headPlainCommaReads ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr))
     (spelt: SpeltSteps exprs steps) (found: List Item)
     (plain: headPlain found = True):
     headPlain (List.reverseOnto (commaReads steps) found) = True :=
@@ -790,7 +795,7 @@ theorem stepsLast ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr))
     | [], isEmpty => rewrite isEmpty then plain
     | [expr, ..more], (comma, read, later, isSteps, _, exprSpelt, laterSpelt) =>
       rewrite isSteps, ontoAppend [comma, ..read] (commaReads later) found then
-        stepsLast more later laterSpelt
+        headPlainCommaReads more later laterSpelt
           (List.reverseOnto read [comma, ..found])
           (speltLast expr read exprSpelt [comma, ..found])
 
@@ -878,12 +883,6 @@ theorem endsSteps ∀ (exprs: List Expr) (steps: List (Item, List Item, Expr)) (
     | [], isEmpty => rewrite isEmpty then isEnd
     | [_, .._], (comma, _, _, isSteps, isComma, _, _) => rewrite isSteps, isComma
 
-theorem andRightFalse ∀ (a b: Bool) (no: b = False): (a && b) = False :=
-  rewrite no then
-    match a with
-      | True => byComputing
-      | False => byComputing
-
 theorem endsNotUpper ∀ (kind: Tok) (ends: endsOperand kind = True): (kind == Upper) = False := cases
 
 theorem autoSecond ∀ (item second: Item) (later: List Item)
@@ -915,7 +914,7 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
       rewrite firstKind item first more _ isRead, isOpen
     | ListOf _ [] _ _, (first, last, isRead, _, _, _, isClose, _), _ =>
       let isMore: more = [last] := Eq.cong (.drop 1) isRead
-      rewrite isMore then andRightFalse _ _ (autoSecond item last rest (rewrite isClose))
+      rewrite isMore then Bool.andFalseRight _ _ (autoSecond item last rest (rewrite isClose))
     | ListOf _ [one, ..others] _ _, (first, read1, steps, last, isRead, _, _, _, isClose, _, oneSpelt,
         stepsSpelt), free =>
       let isMore: more = read1 ++ (commaReads steps ++ [last]) := Eq.cong (.drop 1) isRead
@@ -923,7 +922,7 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
         List.appendAssoc (commaReads steps) [last] rest
       let after := endsSteps others steps last rest stepsSpelt (rewrite isClose)
       rewrite isMore, List.appendAssoc read1 (commaReads steps ++ [last]) rest then
-        andRightFalse _ _
+        Bool.andFalseRight _ _
           (noAutoFirst one item read1
             ((commaReads steps ++ [last]) ++ rest)
             oneSpelt
@@ -1326,56 +1325,56 @@ type OpKind (tok: Tok): Prop = {
 
 theorem opKind ∀ (tok: Tok) (isOp: opTok tok = True): OpKind tok := match tok, isOp with
   | Arrow, _ =>
-    opKindOf Arrow byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Arrow byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Star, _ =>
-    opKindOf Star byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Star byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Slash, _ =>
-    opKindOf Slash byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Slash byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Percent, _ =>
-    opKindOf Percent byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Percent byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Plus, _ =>
-    opKindOf Plus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Plus byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Minus, _ =>
-    opKindOf Minus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Minus byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | PlusPlus, _ =>
-    opKindOf PlusPlus byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind PlusPlus byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Equals, _ =>
-    opKindOf Equals byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind Equals byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | EqEq, _ =>
-    opKindOf EqEq byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind EqEq byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | NotEq, _ =>
-    opKindOf NotEq byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind NotEq byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | Lt, _ =>
-    opKindOf Lt byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+    opKindOfPlainKind Lt byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
   | Le, _ =>
-    opKindOf Le byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+    opKindOfPlainKind Le byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
   | Gt, _ =>
-    opKindOf Gt byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+    opKindOfPlainKind Gt byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
   | Ge, _ =>
-    opKindOf Ge byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+    opKindOfPlainKind Ge byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
         byComputing
   | AndAnd, _ =>
-    opKindOf AndAnd byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind AndAnd byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | OrOr, _ =>
-    opKindOf OrOr byComputing byComputing byComputing byComputing byComputing byComputing byComputing byComputing
-        byComputing
+    opKindOfPlainKind OrOr byComputing byComputing byComputing byComputing byComputing byComputing byComputing
+        byComputing byComputing
   | _, never => (Bool.falseNotTrue never).impossible
 
-theorem opKindOf ∀ (tok: Tok)
+theorem opKindOfPlainKind ∀ (tok: Tok)
     (notOpen: (tok == LParen) = False)
     (notBrace: (tok == LBrace) = False)
     (notDot: (tok == Dot) = False)

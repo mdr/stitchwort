@@ -155,7 +155,7 @@ def holdsOn (source: Text): Bool := match lex source with
 
 --| A list broken over lines with comments in every kind of place, a last comma, a `->` and a bracket closed after a
 --| comment; and a second declaration.
-theorem holdsOnExample: holdsOn
+theorem holdsOnSettledExample: holdsOn
         "-- top\ndef d: A -> (B) := g [ -- open\n    a, -- first\n    -- above\n    b,\n  ] -- close\n\ndef e: C := -1 + f x -- end\n-- last\n"
       = True :=
   byComputing

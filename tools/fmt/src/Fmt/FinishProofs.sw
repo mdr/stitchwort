@@ -10,7 +10,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Expr, InfixKind, Tok, Word)
 import Fmt (..)
-import Fmt.SpellProofs (appDocsIs)
+import Fmt.SpellProofs (appDocsIsOneFirst)
 import Fmt.JoinProofs (AllJoinable, CloserJoins, Joinable, Token, WordJoins, closerCloses, closesToken, keptShort)
 import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, valueElPlain)
 
@@ -279,7 +279,7 @@ theorem appFinishes ∀ (kinds: Text → Tok) (head: Expr) (arguments: List Expr
     argumentsFinish kinds around.inArm head (around.at + head.size) arguments filled within joinable
   let short: 1 + keptFront head arguments ≤ ([head.el around, ..front] ++ [lastDoc]).length :=
     rewrite List.lengthAppend front [lastDoc] then arithmetic [keptShort head arguments, length]
-  rewrite appDocsIs head arguments around then
+  rewrite appDocsIsOneFirst head arguments around then
     appFromFinishes
       (around.at + 1)
       (1 + keptFront head arguments)

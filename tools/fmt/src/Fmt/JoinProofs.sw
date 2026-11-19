@@ -2367,7 +2367,7 @@ theorem appPasses ∀ (kinds: Text → Tok) (head: Expr) (arguments: List Expr) 
     argumentsSeq kinds around.inArm head (around.at + head.size) arguments head.words filled within joinable
   let short: 1 + keptFront head arguments ≤ ([head.el around, ..front] ++ [lastDoc]).length :=
     rewrite List.lengthAppend front [lastDoc] then arithmetic [keptShort head arguments, length]
-  rewrite appDocsIs head arguments around then
+  rewrite appDocsIsOneFirst head arguments around then
     appFromPasses kinds
       (around.at + 1)
       (1 + keptFront head arguments)
@@ -2723,7 +2723,7 @@ theorem callHugPasses ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
           filled
           (Bool.andRight within)
           each
-      rewrite appDocsIs head arguments inside then
+      rewrite appDocsIsOneFirst head arguments inside then
         appFromHugPasses kinds
           (inside.at + 1)
           (1 + keptFront head arguments)

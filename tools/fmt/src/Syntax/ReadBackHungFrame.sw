@@ -39,7 +39,7 @@ theorem speltEnters ∀ (expr: Expr) (read: List Item)
         let within0 := openWithin state s0 first.leaf opener openStepped
         let withinM: Within m (state.entered first.leaf) := rewrite isEnters then entersWithin s0 _ inside within0
         rewrite isRead then
-          closeBracket state m next first.leaf last.leaf closer withinM (afterOne m next last.leaf lastAfter)
+          closerEntered state m next first.leaf last.leaf closer withinM (afterOne m next last.leaf lastAfter)
     | Tuple _ [one, two, ..others] _ _, (first, read1, separator, read2, steps, last, isRead, _, isOpen, _, isComma,
         isClose, _, oneSpelt, twoSpelt, stepsSpelt) =>
       rewrite isRead at after then
@@ -76,7 +76,7 @@ theorem speltEnters ∀ (expr: Expr) (read: List Item)
             (rewrite leavesOfAppend (commaReads steps) [last] at afterSteps then afterSteps)
         let within3 := stepsWithin others steps stepsSpelt m2 m3 _ within2 stepsAfter
         rewrite isRead then
-          closeBracket state m3 next first.leaf last.leaf closer within3 (afterOne m3 next last.leaf lastAfter)
+          closerEntered state m3 next first.leaf last.leaf closer within3 (afterOne m3 next last.leaf lastAfter)
     | ListOf _ [] _ _, (first, last, isRead, _, isOpen, _, isClose, _) =>
       rewrite isRead at after then
         let opener: first.kind.isOpener = True := rewrite isOpen
@@ -84,7 +84,7 @@ theorem speltEnters ∀ (expr: Expr) (read: List Item)
         let (s0, openStepped, afterLast) := afterCons state next first.leaf [last.leaf] after
         let within0 := openWithin state s0 first.leaf opener openStepped
         rewrite isRead then
-          closeBracket state s0 next first.leaf last.leaf closer within0 (afterOne s0 next last.leaf afterLast)
+          closerEntered state s0 next first.leaf last.leaf closer within0 (afterOne s0 next last.leaf afterLast)
     | ListOf _ [one, ..others] _ _, (first, read1, steps, last, isRead, _, isOpen, _, isClose, _, oneSpelt,
         stepsSpelt) =>
       rewrite isRead at after then
@@ -107,7 +107,7 @@ theorem speltEnters ∀ (expr: Expr) (read: List Item)
             (rewrite leavesOfAppend (commaReads steps) [last] at afterRest then afterRest)
         let within2 := stepsWithin others steps stepsSpelt m1 m2 _ within1 stepsAfter
         rewrite isRead then
-          closeBracket state m2 next first.leaf last.leaf closer within2 (afterOne m2 next last.leaf lastAfter)
+          closerEntered state m2 next first.leaf last.leaf closer within2 (afterOne m2 next last.leaf lastAfter)
     | App head [argument, ..more], (headRead, argRead, steps, isRead, _, _, headSpelt, argSpelt, argsSpelt) =>
       rewrite isRead at after then
         let (h, hmore, isHead, _) := speltStarts head headRead headSpelt

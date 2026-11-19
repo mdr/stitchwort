@@ -225,12 +225,13 @@ theorem itemWordsCons ∀ (item: Item) (rest: List Item)
 theorem codeAs ∀ [kind wanted: Tok] (is: kind = wanted) (code: (wanted == Comma) = False): (kind == Comma) = False :=
   rewrite is then code
 
-theorem wordCode ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == Comma) = False := match kind, word with
-  | Lower, word => byComputing
-  | Upper, word => byComputing
-  | Num, word => byComputing
-  | Float, word => byComputing
-  | other, word => (Bool.falseNotTrue word).impossible
+theorem wordWithinNotComma ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == Comma) = False :=
+  match kind, word with
+    | Lower, word => byComputing
+    | Upper, word => byComputing
+    | Num, word => byComputing
+    | Float, word => byComputing
+    | other, word => (Bool.falseNotTrue word).impossible
 
 theorem itemWordsAfterComma ∀ (comma: Item) (rest: List Item)
     (isComma: comma.kind = Comma):

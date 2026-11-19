@@ -779,13 +779,13 @@ theorem bracketFromShape ∀ (list empty plain holds: Bool) (prefix closer: Doc)
                     (isNest 2 (Doc.concat broken) items (isConcat broken items brokenIs))
                     (isCons SoftLine [closer] [] closes isSoftLine (isLast closer closes closerIs))))
 
-theorem bracketBack ∀ (open: Word) (items: List Expr) (close: Word):
+theorem bracketReverse ∀ (open: Word) (items: List Expr) (close: Word):
     ([open, ..itemsWords items] ++ [close]).reverse = [close, ..((itemsWords items).reverse ++ [open])] :=
   rewrite List.reverseSnoc [open, ..itemsWords items] close, List.reverseCons open (itemsWords items)
 
 theorem trailsBeforeCloseIs ∀ (open: Word) (items: List Expr) (close: Word):
     (ListOf open items False close).trailsBeforeClose = trailsBack ((itemsWords items).reverse ++ [open]) :=
-  rewrite bracketBack open items close
+  rewrite bracketReverse open items close
 
 --| A tuple or list's content tells its opener, its items with bare commas, and its closer.
 --|
@@ -809,7 +809,7 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
         ++ close.shapeK False False) :=
   let inner: homedBack ((itemsWords items).reverse ++ ([open] ++ prior)) = True :=
     rewrite <- List.appendAssoc (itemsWords items).reverse [open] prior then
-      homedBackSuffix [close] _ (rewrite bracketBack open items close at homed then homed)
+      homedBackSuffix [close] _ (rewrite bracketReverse open items close at homed then homed)
   rewrite bracketIs list open items close around then
     bracketFromShape list items.isEmpty
       (items.all Expr.plainItem)
@@ -838,7 +838,7 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
             (codedSnoc (itemsWords items).reverse open opens)
             (trailsBeforeCloseIs open items close)
             byComputing
-            (rewrite bracketBack open items close at homed then homed)))
+            (rewrite bracketReverse open items close at homed then homed)))
       (cellsShape
         (list && items.all Expr.plainItem)
         around.inArm
@@ -1335,7 +1335,7 @@ theorem pickShape ∀ (option: Option (Doc, Option Doc)) (shape: List Told)
 
 --| A call tells its function and its arguments.
 --|
---| Proof idea: `appDocsIs` (the facts `appDocs` reads, as projections) and `appFromShape`, with the arguments' shapes
+--| Proof idea: `appDocsIsOneFirst` (the facts `appDocs` reads, as projections) and `appFromShape`, with the arguments' shapes
 --| from `argumentDocsShape`; the function stands where the call does, each argument after the words before it.
 theorem appDocsShape ∀ (head: Expr) (arguments: List Expr) (around: Around) (prior: List Word)
     (headWithin: head.within1 = True)
@@ -1364,7 +1364,7 @@ theorem appDocsShape ∀ (head: Expr) (arguments: List Expr) (around: Around) (p
       each
       whole
   let picked := pickShape (argumentDocs around.inArm head (around.at + head.size) arguments).snd last lastIs
-  rewrite <- joined, appDocsIs head arguments around then
+  rewrite <- joined, appDocsIsOneFirst head arguments around then
     appFromShape
       (around.at + 1)
       (1 + keptFront head arguments)
@@ -1554,7 +1554,7 @@ theorem bracketBackWords ∀ (open: Word) (middle: List Word) (close: Word):
   rewrite List.reverseSnoc [open, ..middle] close, List.reverseCons open middle
 
 --| What stands before a bracket's inside and its closer, from what stands before the bracket.
-theorem bracketHomed ∀ (open: Word) (middle: List Word) (close: Word) (prior: List Word)
+theorem bracketReverseHomed ∀ (open: Word) (middle: List Word) (close: Word) (prior: List Word)
     (homed: homedBack (([open, ..middle] ++ [close]).reverse ++ prior) = True):
     homedBack (middle.reverse ++ ([open] ++ prior)) = True :=
   rewrite <- List.appendAssoc middle.reverse [open] prior then
@@ -1600,7 +1600,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
             within
             (Bool.andLeft (Bool.andRight sound))
             (Bool.andRight nonCloser)
-            (bracketHomed open inner.words close prior homed)))
+            (bracketReverseHomed open inner.words close prior homed)))
     | Tuple open items comma close =>
       framedShape
         (Tuple open items comma close)
@@ -2442,7 +2442,9 @@ theorem shapeStood ∀ (expr: Expr) (item: Bool)
 
 -- What the declaration's tokens are.
 
-theorem wordTexts ∀ (word: Word) (joins: WordJoins word): (!isCloserText word.text) = True ∧ word.notComma = True :=
+theorem wordJoinsPlain ∀ (word: Word)
+    (joins: WordJoins word):
+    (!isCloserText word.text) = True ∧ word.notComma = True :=
   let (sound, token, comma, closer) := joins
   (Bool.notOfFalse _ closer, Bool.notOfFalse _ comma)
 
@@ -2455,21 +2457,21 @@ theorem joinableTexts ∀ (kinds: Text → Tok) (expr: Expr)
     expr.nonCloser = True ∧ expr.spelled = True :=
   match expr with
     | Atom kind word =>
-      let (closer, comma) := wordTexts word joins
+      let (closer, comma) := wordJoinsPlain word joins
       (closer, comma)
     | Paren open inner close =>
       let ((openWord, _), (closeSound, closeText), innerJoins) := joins
-      let (openCloser, openComma) := wordTexts open openWord
+      let (openCloser, openComma) := wordJoinsPlain open openWord
       let (innerCloser, innerComma) := joinableTexts kinds inner innerJoins
       (Bool.andIntro openCloser innerCloser, Bool.andIntro openComma (Bool.andIntro innerComma closeText))
     | Tuple open items comma close =>
       let ((openWord, _), (closeSound, closeText), itemsJoins) := joins
-      let (openCloser, openComma) := wordTexts open openWord
+      let (openCloser, openComma) := wordJoinsPlain open openWord
       let (itemsCloser, itemsComma) := allJoinableTexts kinds items itemsJoins
       (Bool.andIntro openCloser itemsCloser, Bool.andIntro openComma (Bool.andIntro itemsComma closeText))
     | ListOf open items comma close =>
       let ((openWord, _), (closeSound, closeText), itemsJoins) := joins
-      let (openCloser, openComma) := wordTexts open openWord
+      let (openCloser, openComma) := wordJoinsPlain open openWord
       let (itemsCloser, itemsComma) := allJoinableTexts kinds items itemsJoins
       (Bool.andIntro openCloser itemsCloser, Bool.andIntro openComma (Bool.andIntro itemsComma closeText))
     | App head arguments =>
@@ -2480,7 +2482,7 @@ theorem joinableTexts ∀ (kinds: Text → Tok) (expr: Expr)
     | Infix kind left operator right =>
       let (leftJoins, operatorJoins, rightJoins) := joins
       let (leftCloser, leftComma) := joinableTexts kinds left leftJoins
-      let (operatorCloser, operatorComma) := wordTexts operator operatorJoins
+      let (operatorCloser, operatorComma) := wordJoinsPlain operator operatorJoins
       let (rightCloser, rightComma) := joinableTexts kinds right rightJoins
       (
         Bool.andIntro leftCloser (Bool.andIntro operatorCloser rightCloser),
@@ -2488,7 +2490,7 @@ theorem joinableTexts ∀ (kinds: Text → Tok) (expr: Expr)
       )
     | Prefix operator operand =>
       let (operatorJoins, operandJoins, _) := joins
-      let (operatorCloser, operatorComma) := wordTexts operator operatorJoins
+      let (operatorCloser, operatorComma) := wordJoinsPlain operator operatorJoins
       let (operandCloser, operandComma) := joinableTexts kinds operand operandJoins
       (Bool.andIntro operatorCloser operandCloser, Bool.andIntro operatorComma operandComma)
 
@@ -2512,7 +2514,7 @@ theorem declTexts ∀ (decl: Decl) (joins: DeclJoins lexKind decl): decl.nonClos
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       let (_, nameJoins, _, resultJoins, _, valueJoins) := joins
-      let (nameCloser, nameComma) := wordTexts header.name nameJoins
+      let (nameCloser, nameComma) := wordJoinsPlain header.name nameJoins
       let (resultCloser, resultComma) := joinableTexts lexKind header.result resultJoins
       let (valueCloser, valueComma) := joinableTexts lexKind value valueJoins
       (

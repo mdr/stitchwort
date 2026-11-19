@@ -230,7 +230,7 @@ theorem enderItem ∀ (prev: PlainShape) (ender: prev.isEnder = True): prev.isIt
 --| Anything may come before the start of an expression.
 theorem otherStep ∀ (flag: Bool) (prev: PlainShape): shapeStep flag prev ShapeOther = True := cases
 
-theorem openStep ∀ (flag: Bool) (prev: PlainShape): shapeStep flag prev ShapeNonItem = True := cases
+theorem openShapeStep ∀ (flag: Bool) (prev: PlainShape): shapeStep flag prev ShapeNonItem = True := cases
 
 theorem fromAppend ∀ (xs ys: List PlainShape) (flag: Bool) (prev: PlainShape)
     (first: shapesFrom flag prev xs = True)
@@ -254,7 +254,7 @@ theorem segAppend ∀ (xs ys: List PlainShape) (seg: Seg xs) (after: After ys): 
     rewrite lastAppend prev xs ys then (after flag (shapesLast prev xs) ends).right
   )
 
-theorem afterAppend ∀ (xs ys: List PlainShape) (first: After xs) (second: After ys): After (xs ++ ys) :=
+theorem afterAppendPlain ∀ (xs ys: List PlainShape) (first: After xs) (second: After ys): After (xs ++ ys) :=
   flag prev ender =>
     let (runs, ends) := first flag prev ender
     (
@@ -275,7 +275,7 @@ theorem segOther ∀ (ys: List PlainShape) (seg: Seg ys): Seg [ShapeOther, ..ys]
 
 theorem segOpen ∀ (ys: List PlainShape) (opened: Opened ys): Seg [ShapeNonItem, ..ys] := flag prev =>
   let (runs, ends) := opened prev.isItem
-  (Bool.andIntro (openStep flag prev) runs, ends)
+  (Bool.andIntro (openShapeStep flag prev) runs, ends)
 
 theorem segOpened ∀ (ys: List PlainShape) (seg: Seg ys): Opened ys := flag => seg flag ShapeNonItem
 
@@ -355,7 +355,7 @@ theorem argsAfter1 ∀ (arguments: List Expr) (grammar: allGrammar1 arguments = 
   match arguments with
     | [] => flag prev ender => (byComputing, ender)
     | [argument, ..rest] =>
-      afterAppend argument.shapes
+      afterAppendPlain argument.shapes
         (argsShapes rest)
         (segAfter argument.shapes (exprSeg1 argument (Bool.andLeft grammar)))
         (argsAfter1 rest (Bool.andRight grammar))
@@ -413,7 +413,7 @@ theorem declsAfter1 ∀ (decls: List Decl) (grammar: decls.all Decl.grammar1 = T
   match decls with
     | [] => flag prev ender => (byComputing, ender)
     | [decl, ..rest] =>
-      afterAppend decl.shapes
+      afterAppendPlain decl.shapes
         (declsShapes rest)
         (segAfter decl.shapes (declSeg1 decl (Bool.andLeft grammar)))
         (declsAfter1 rest (Bool.andRight grammar))
@@ -498,7 +498,7 @@ theorem clauseArrow ∀ (flag: Bool) (first second: Token)
     | False => byComputing
     | True => rewrite after (DecEq.sound arrow)
 
-theorem commaStep ∀ (flag: Bool) (first second: Tok)
+theorem commaShapeStep ∀ (flag: Bool) (first second: Tok)
     (ok: shapeStep flag first.shape second.shape = True)
     (comma: first = Comma)
     (passable: passableKind second = True):
@@ -509,13 +509,13 @@ theorem commaStep ∀ (flag: Bool) (first second: Tok)
 
 --| A comma before `]`, after an item.
 theorem commaStepExample: Tok.isCloser RBracket = True ∧ True = True :=
-  commaStep True Comma RBracket byComputing byComputing byComputing
+  commaShapeStep True Comma RBracket byComputing byComputing byComputing
 
 theorem clauseComma ∀ (flag: Bool) (first second: Token)
     (ok: shapeStep flag first.kind.shape second.kind.shape = True):
     (!(first.kind == Comma && first.lineStart) || !passableKind second.kind || (second.kind.isCloser && flag)) = True :=
   let after: first.kind = Comma → passableKind second.kind = True → second.kind.isCloser = True ∧ flag = True :=
-    comma passable => commaStep flag first.kind second.kind ok comma passable
+    comma passable => commaShapeStep flag first.kind second.kind ok comma passable
   match comma: first.kind == Comma with
     | False => byComputing
     | True =>
@@ -540,7 +540,9 @@ theorem plainOfShapes ∀ (flag: Bool) (first: Token) (rest: List Token)
         (clauseArrow flag first second ok)
         (Bool.andIntro (clauseComma flag first second ok) (rewrite <- itemOfShape first.kind then next))
 
-theorem leadPlain ∀ (kind: Tok) (lead: shapeStep False ShapeArrow kind.shape = True): (!passableKind kind) = True :=
+theorem arrowLeadPassable ∀ (kind: Tok)
+    (lead: shapeStep False ShapeArrow kind.shape = True):
+    (!passableKind kind) = True :=
   match passable: passableKind kind with
     | False => byComputing
     | True => (arrowNotFollowed False kind.shape lead (passFollows kind.shape (passShape kind passable))).impossible
@@ -552,7 +554,7 @@ theorem sourcePlainOfShapes1 ∀ (toks: List Token) (seg: Seg (tokenShapes toks)
     | [first, ..rest] =>
       let lead: shapeStep False ShapeArrow first.kind.shape = True := Bool.andLeft (seg False ShapeArrow).left
       Bool.andIntro
-        (leadPlain first.kind lead)
+        (arrowLeadPassable first.kind lead)
         (plainOfShapes False first rest (Bool.andRight (seg False ShapeNonItem).left))
 
 --| Tokens with the shapes of a slice 1 file are `sourcePlain1`.

@@ -176,7 +176,8 @@ theorem lineOpeningHangs ∀ (kinds: Text → Tok) (word closer: Word) (around: 
                 (folded, stays, rewrite same, isEntry then room, rewrite same, isEntry),
                 rewrite isEntry then withCarryLine entry (entry.carry.mark around.at entry.indent)
               ),
-              rewrite withCarryIs place (place.carry.mark around.at place.indent), isEntry then keptRefl low origin
+              rewrite Doc.Proofs.withCarryCarry place (place.carry.mark around.at place.indent), isEntry then
+                keptRefl low origin
             )))
         kept)
 

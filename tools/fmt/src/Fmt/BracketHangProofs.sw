@@ -520,12 +520,6 @@ theorem markedFound ∀ (key: Nat) (entry: Place):
       = Some { key, marked = entry.indent, least = None } :=
   rewrite Nat.equalRefl key
 
-theorem withCarryIs ∀ (place: Place) (carry: Carry): (place.withCarry carry).carry = carry := match place with
-  | AtStart at old => byComputing
-  | Broken at old => byComputing
-  | Mid at old => byComputing
-  | Held at old => byComputing
-
 theorem trailingKeys ∀ (low: Nat) (word: Word): allKeysFrom low word.trailing = True :=
   match after: word.comments.after with
     | Some comment => byComputing
@@ -591,7 +585,8 @@ theorem markedOpeningHangs ∀ (kinds: Text → Tok) (word closer: Word) (around
             let (stays, same) := markSeated indent column around.at False state place (rewrite isEntry then seated)
             (
               (folded, stays, rewrite same, isEntry then room, rewrite same, isEntry),
-              rewrite withCarryIs place (place.carry.mark around.at place.indent), isEntry then keptRefl low origin
+              rewrite Doc.Proofs.withCarryCarry place (place.carry.mark around.at place.indent), isEntry then
+                keptRefl low origin
             )))
         kept)
 

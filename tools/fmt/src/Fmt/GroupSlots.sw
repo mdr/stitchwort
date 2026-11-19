@@ -7,7 +7,7 @@
 namespace Fmt.GroupSlots
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (..)
-import Syntax.ParseCarries (codeWords, itemWords, wordCode)
+import Syntax.ParseCarries (codeWords, itemWords, wordWithinNotComma)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TreeJoinProofs (
@@ -51,11 +51,11 @@ theorem fixedClean ∀ (text: Text) (comments: Comments)
     (fixedWord text comments).clean = True :=
   wordClean (fixedWord text comments) plain commented
 
-theorem operatorPlain ∀ (text: Text) (listed: operatorText1 text = True): text.startsWith "--" = False :=
+theorem operatorNotComment ∀ (text: Text) (listed: operatorText1 text = True): text.startsWith "--" = False :=
   let (kind, spells, _) := operatorSpellsOf text listed
   spellsNotComment kind text spells
 
-theorem prefixPlain ∀ (text: Text) (listed: prefixText1 text = True): text.startsWith "--" = False :=
+theorem prefixNotComment ∀ (text: Text) (listed: prefixText1 text = True): text.startsWith "--" = False :=
   match prefixSpellsOf text listed with
     | Inl minus => rewrite minus
     | Inr (Inl bang) => rewrite bang
@@ -154,7 +154,7 @@ theorem wordsClean ∀ (expr: Expr)
       let (operatorCommented, operandCommented) :=
         List.allConsElim operator operand.words Fmt.SpellProofs.Word.commented commented
       Bool.andIntro
-        (wordClean operator (prefixPlain operator.text (Bool.andRight within)) operatorCommented)
+        (wordClean operator (prefixNotComment operator.text (Bool.andRight within)) operatorCommented)
         (wordsClean operand (Bool.andLeft within) (Bool.andRight lexical) operandCommented)
     | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
 
@@ -174,7 +174,9 @@ theorem infixClean ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
     Word.clean
     (wordsClean left leftWithin (Bool.andLeft lexical) leftCommented)
     (Bool.andIntro
-      (wordClean operator (operatorPlain operator.text (infixListed kind left operator right within)) operatorCommented)
+      (wordClean operator
+        (operatorNotComment operator.text (infixListed kind left operator right within))
+        operatorCommented)
       (wordsClean right rightWithin (Bool.andRight (Bool.andRight lexical)) rightCommented))
 
 theorem itemsClean ∀ (items: List Expr)
@@ -403,7 +405,9 @@ theorem slotsCode ∀ (expr: Expr)
     expr.slots.all slotCode = True :=
   match expr, within with
     | Atom kind word, within =>
-      Bool.andIntro (rewrite lexKindOfLexes word.text kind lexical, wordCode kind (Bool.andLeft within)) byComputing
+      Bool.andIntro
+        (rewrite lexKindOfLexes word.text kind lexical, wordWithinNotComma kind (Bool.andLeft within))
+        byComputing
     | Paren open inner close, within =>
       List.allAppendTrue
         [Some open, ..inner.slots]
@@ -979,4 +983,4 @@ theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
     | Definition _ _ (Arms _), (never, _) => (Bool.falseNotTrue never).impossible
     | _, (never, _) => (Bool.falseNotTrue never).impossible
 
-theorem operatorPlainExample: "+".startsWith "--" = False := operatorPlain "+" byComputing
+theorem operatorNotCommentExample: "+".startsWith "--" = False := operatorNotComment "+" byComputing

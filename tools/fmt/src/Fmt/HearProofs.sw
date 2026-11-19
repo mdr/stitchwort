@@ -179,7 +179,7 @@ theorem hearsSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)
     (spaces: text.all (char => char == ' ') = True)
     (before: Hears kinds (Fmt.PrintHangProofs.laidOf kinds earlier) earlier):
     Hears kinds (Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]) [text, ..earlier] :=
-  let notBreak: (text == "\n") = False := Fmt.PrintHangProofs.spacesNotBreak text spaces
+  let notBreak: (text == "\n") = False := Doc.Proofs.gapNoBreak text spaces
   let events: eventsOf [text, ..earlier] = eventsOf earlier := rewrite spaces, notBreak
   let blank: lineBlank [text, ..earlier] = lineBlank earlier := rewrite spaces
   let wider: Fmt.PrintHangProofs.laidOf kinds [text, ..earlier]

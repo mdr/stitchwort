@@ -10,7 +10,7 @@ import Syntax.ReadBackProofs (ItemsAt, depthPast)
 import Syntax.ReadBackHung (..)
 
 --| A step reads only the leaf's token.
-theorem stepToken ∀ (state: HangState) (first second: Leaf)
+theorem stepSameToken ∀ (state: HangState) (first second: Leaf)
     (same: first.token = second.token):
     state.step first = state.step second :=
   match first, second with
@@ -28,7 +28,7 @@ theorem hangsFromTokens ∀ (state: HangState) (first second: List Leaf)
     | [leaf, ..rest], [other, ..more] =>
       let head := List.consInjectiveHead _ _ _ _ same
       let tail := Eq.cong (.drop 1) same
-      rewrite stepToken state leaf other head then
+      rewrite stepSameToken state leaf other head then
         match state.step other with
           | Some next => hangsFromTokens next rest more tail
           | None => byComputing

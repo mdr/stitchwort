@@ -1481,7 +1481,7 @@ theorem pickSpells ∀ (option: Option (Doc, Option Doc)) (texts: List Text)
     | None, same => (rewrite same then spellsNothing, (open none => cases))
     | Some pair, spells => spells
 
-theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
+theorem appDocsIsOneFirst ∀ (head: Expr) (arguments: List Expr) (around: Around):
     appDocs head arguments around
       = appFrom
         (around.at + 1)
@@ -1496,7 +1496,7 @@ theorem appDocsIs ∀ (head: Expr) (arguments: List Expr) (around: Around):
 
 --| A call spells its function and its arguments.
 --|
---| Proof idea: `appDocsIs` (the facts `appDocs` reads, as projections) and `appFromSpells`.
+--| Proof idea: `appDocsIsOneFirst` (the facts `appDocs` reads, as projections) and `appFromSpells`.
 theorem appDocsSpells ∀ (head: Expr) (arguments: List Expr) (around: Around)
     (headWithin: head.within1 = True)
     (headSound: head.sound = True)
@@ -1506,7 +1506,7 @@ theorem appDocsSpells ∀ (head: Expr) (arguments: List Expr) (around: Around)
   let (frontTexts, lastTexts, (frontSpells, lastSpells), texts) :=
     argumentDocsSpells around.inArm head (around.at + head.size) arguments within sound
   let picked := pickSpells (argumentDocs around.inArm head (around.at + head.size) arguments).snd lastTexts lastSpells
-  rewrite <- texts, appDocsIs head arguments around then
+  rewrite <- texts, appDocsIsOneFirst head arguments around then
     appFromSpells
       (around.at + 1)
       (1 + keptFront head arguments)

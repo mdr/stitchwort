@@ -34,10 +34,6 @@ def LedEl (expr: Expr): Prop :=
     → around.item = False
     → ElHangs lexKind (expr.el around) inset inset around.before expr.trails (startFor expr.noted)
 
-theorem orOfRight ∀ (left right: Bool) (holds: right = True): (left || right) = True := match left with
-  | True => byComputing
-  | False => holds
-
 --| A token not an item, with no own-line comments above it, writes nothing before itself.
 theorem wordUnled ∀ (word: Word) (around: Around)
     (unnoted: word.comments.above = [])

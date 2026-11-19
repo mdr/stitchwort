@@ -629,7 +629,7 @@ theorem headerWithinResult ∀ (header: Header) (name: Word) (colon: Comments) (
         | None, None, DefPlain, None, [], None, None => rewrite sameName, same
         | other, others, kinds, foralls, parameters, decreasings, unfoldings => byComputing
 
-theorem headerCalmWithin ∀ (header: Header): header.calm.within1 = header.within1 :=
+theorem headerCalmWithinEq ∀ (header: Header): header.calm.within1 = header.within1 :=
   headerWithinResult header
     (header.name.kept False False)
     (header.colon.kept False False)
@@ -637,14 +637,14 @@ theorem headerCalmWithin ∀ (header: Header): header.calm.within1 = header.with
     (Word.keptNameWithin1 header.name False False)
     (exprCalmWithin header.result False)
 
-theorem declCalmWithin ∀ (decl: Decl): decl.calm.within1 = decl.within1 := match decl with
-  | Definition [] header (Assigned colonEq value) => rewrite headerCalmWithin header, exprCalmWithin value False
+theorem declCalmWithinEq ∀ (decl: Decl): decl.calm.within1 = decl.within1 := match decl with
+  | Definition [] header (Assigned colonEq value) => rewrite headerCalmWithinEq header, exprCalmWithin value False
   | _ => cases
 
 theorem declsCalmWithin ∀ (decls: List Decl): (decls.map Decl.calm).all Decl.within1 = decls.all Decl.within1 :=
   match decls with
     | [] => byComputing
-    | [first, ..rest] => rewrite declCalmWithin first, declsCalmWithin rest
+    | [first, ..rest] => rewrite declCalmWithinEq first, declsCalmWithin rest
 
 -- `calm` keeps `meaning`: `meaning` blanks every comment, and `calm`
 -- changes comments only.

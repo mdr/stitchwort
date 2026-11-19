@@ -19,7 +19,7 @@ import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, 
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.ChainHangProofs (HangsAt, Links, arrowChainHangs, binaryChainHangs)
-import Fmt.ElementsChain (LedEl, arrowPair, binaryPair, operandLinks, orOfRight, unledLeading)
+import Fmt.ElementsChain (LedEl, arrowPair, binaryPair, operandLinks, unledLeading)
 import Fmt.ExprHangProofs (opensNoArms, prefixToken, wordFacts)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (lexKind)
@@ -642,7 +642,7 @@ theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
       let lifted := { around | hoisted = True }
       let level := (Infix InfixBinary left operator right).chainLevel
       let leftLinked: Links lexKind False level True left lifted left.trails :=
-        operandLinks left level True lifted leftWithin leftLinks leftLed (orOfRight _ _ byComputing)
+        operandLinks left level True lifted leftWithin leftLinks leftLed (Bool.orRight byComputing)
       rewrite trailsIs then
         binaryChainHangs lexKind left operator right around indent column left.trails right.trails
           (rewrite firstWordLead (Infix InfixBinary left operator right) within then
@@ -711,7 +711,7 @@ theorem arrowAny ∀ (left: Expr) (operator: Word) (right: Expr)
       let lifted := { around | hoisted = True }
       let level := (Infix InfixArrow left operator right).chainLevel
       let leftLinked: Links lexKind False level True left lifted left.trails :=
-        operandLinks left level True lifted leftWithin leftLinks leftLed (orOfRight _ _ byComputing)
+        operandLinks left level True lifted leftWithin leftLinks leftLed (Bool.orRight byComputing)
       rewrite trailsIs then
         arrowChainHangs lexKind left operator right around indent column left.trails right.trails
           (rewrite firstWordLead (Infix InfixArrow left operator right) within then

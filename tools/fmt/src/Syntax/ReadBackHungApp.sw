@@ -167,7 +167,7 @@ theorem argumentHung ∀ (modes: Modes)
         | other, _, _, _, _, never => (Bool.falseNotTrue never).impossible
   (
     (rewrite isRead, notDot),
-    andRightFalse _ _ (peekNoBrace modes 1 (read ++ later) (lineJoin read later lineRead lineLater)),
+    Bool.andFalseRight _ _ (peekNoBrace modes 1 (read ++ later) (lineJoin read later lineRead lineLater)),
     atom
   )
 
@@ -565,7 +565,7 @@ theorem unaryHung ∀ (modes: Modes)
               openSign,
               signOr sign.kind isSign,
               noBar,
-              (rewrite numeralAfter then andRightFalse _ _ negative),
+              (rewrite numeralAfter then Bool.andFalseRight _ _ negative),
               unaryHung modes quiet operand more rest below s1
                 (belowLess below (Succ below) (arithmetic []) inner)
                 (arithmetic [deep])

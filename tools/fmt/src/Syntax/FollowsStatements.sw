@@ -53,7 +53,7 @@
 --| Helpers added here: the relations `CommentedAlike`, `AttributesAlike`, `PartsAlike`, `ClauseAlike`, `InductArmAlike`,
 --| `StepAlike`, `RuleAlike`, `RuleSetAlike`, `RulesAlike`, `ReverseAlike`, `StepsAlike`, `SetRulesAlike`, the trees
 --| (`alikeLet`, `alikeLetIn`, `alikeLocalDef`, `alikeHandle`, `alikeReify`, `alikeInduct`, `alikeCalc`,
---| `alikeRewrite`, `alikeCases`, …) and their list lemmas (`clausesBlank`, `inductArmsBlank`, `stepsBlank`,
+--| `alikeRewrite`, `alikeCases`, …) and their list lemmas (`clausesBlank`, `inductArmsBlank`, `blankCalcStepsAlike`,
 --| `ruleListBlank`).
 
 namespace Syntax.FollowsStatements
@@ -1080,7 +1080,7 @@ theorem stepsBlankCons ∀ (step: CalcStep) (rest: List CalcStep):
       = blankCalcSteps (walkSteps blankPure [step]) ++ blankCalcSteps (walkSteps blankPure rest) :=
   match step with | { underscore, relation, operand, proof } => byComputing
 
-theorem stepsBlank ∀ (steps twins: List CalcStep)
+theorem blankCalcStepsAlike ∀ (steps twins: List CalcStep)
     (alike: List.All2 StepAlike steps twins):
     blankCalcSteps (walkSteps blankPure steps) = blankCalcSteps (walkSteps blankPure twins) :=
   match steps, twins with
@@ -1090,7 +1090,7 @@ theorem stepsBlank ∀ (steps twins: List CalcStep)
         _ = blankCalcSteps (walkSteps blankPure [step]) ++ blankCalcSteps (walkSteps blankPure rest) :=
           stepsBlankCons step rest
         _ = blankCalcSteps (walkSteps blankPure [twin]) ++ blankCalcSteps (walkSteps blankPure restTwin) :=
-          rewrite alike.left, stepsBlank rest restTwin alike.right
+          rewrite alike.left, blankCalcStepsAlike rest restTwin alike.right
         _ = blankCalcSteps (walkSteps blankPure [twin, ..restTwin]) := Eq.flipped (stepsBlankCons twin restTwin)
 
 theorem alikeCalc ∀ (keyword keywordTwin: Comments) (first firstTwin: Expr)
@@ -1100,7 +1100,7 @@ theorem alikeCalc ∀ (keyword keywordTwin: Comments) (first firstTwin: Expr)
   calc (Calc keyword first steps).walk blankPure
     _ = Calc Comments.none (first.walk blankPure) (blankCalcSteps (walkSteps blankPure steps)) := byComputing
     _ = Calc Comments.none (firstTwin.walk blankPure) (blankCalcSteps (walkSteps blankPure twins)) :=
-      rewrite firsts, stepsBlank steps twins alike
+      rewrite firsts, blankCalcStepsAlike steps twins alike
     _ = (Calc keywordTwin firstTwin twins).walk blankPure := byComputing
 
 -- `calc`.

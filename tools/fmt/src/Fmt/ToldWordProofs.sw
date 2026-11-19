@@ -140,7 +140,7 @@ theorem keptNone ∀ (after: Option Text) (blankBefore item closer: Bool):
 
 --| With comments above a token that is no closer: the comments' blank lines and the blank line below the last as
 --| written.
-theorem keptNoted ∀ (first: Note) (rest: List Note) (after: Option Text) (blankBefore item: Bool):
+theorem keptToldAbove ∀ (first: Note) (rest: List Note) (after: Option Text) (blankBefore item: Bool):
     ({ above = [first, ..rest], after, blankBefore }.kept item False).toldAbove
       = notesTold [first, ..rest] ++ (if blankBefore then [Gap] else []) :=
   match blankBefore with
@@ -202,7 +202,7 @@ theorem closerLeadTell ∀ (first: Note) (rest: List Note) (key: Nat) (spot: Spo
 --|
 --| Proof idea: cases on whether the word is hoisted, has comments above it, and is a closer; each branch's documents
 --| are told by the lemmas on notes (`notesAboveTell`, `closerNotesTell`) and by computing, `Comments.kept` read by
---| `keptNone`, `keptNoted` and `keptCloser`.
+--| `keptNone`, `keptToldAbove` and `keptCloser`.
 theorem leadingTell ∀ (word: Word) (around: Around) (key: Nat) (spot: Spot)
     (sound: word.sound = True):
     Doc.tellAll (word.leading around key) spot
@@ -222,7 +222,7 @@ theorem leadingTell ∀ (word: Word) (around: Around) (key: Nat) (spot: Spot)
               keptCloser first rest after blankBefore around.item
         | False =>
           rewrite notesAboveBlankTell [first, ..rest] blankBefore (Bool.andLeft (Bool.andRight sound)),
-              keptNoted first rest after blankBefore around.item
+              keptToldAbove first rest after blankBefore around.item
 
 -- A word's text.
 
