@@ -25812,12 +25812,12 @@
     {
       "id": 4120,
       "title": "[Fable] fmt S1 scope part A (D3687): write the slice 1 grammar as one exact definition (qualified names and exponents back in, per the plan), state formatAccepts1 (every source in the grammar is accepted by formatWithin1) as an open goal, add a must-accept test file lanes may not edit, list every case the current driver refuses that is in the grammar, with a recommended move-out or keep for each",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4120",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3687 (Matt, 19 Nov 2026: 'D3687 sounds good'): slice 1 is done when the formatter accepts the whole slice 1 grammar and a theorem says so; the grammar written down precisely; anything taken out is Matt's decision, with a named later slice. Matt, 19 Nov: 'we want correctness for all possible programs, not just ones in our repo.' From SW-4119 piece A. Model: Fable (D3682: deciding statements). Est. 45 min.",
+      "body": "D3687 (Matt, 19 Nov 2026: 'D3687 sounds good'): slice 1 is done when the formatter accepts the whole slice 1 grammar and a theorem says so; the grammar written down precisely; anything taken out is Matt's decision, with a named later slice. Matt, 19 Nov: 'we want correctness for all possible programs, not just ones in our repo.' From SW-4119 piece A. Model: Fable (D3682: deciding statements). Est. 45 min.\n\n\nLane notes (Fable, 19 Nov, 07:54 to 08:10, 16 min of est. 45): commit d7a2bee64 on lane/SW-4120. Fmt.Grammar1 (inGrammar1: the language's own lex and parse, own alphabet list, no layout, comment or spelling test; seven closed examples), Fmt.Accepts1 (formatAccepts1, open), Fmt.Tests.MustAccept1 (144 sources: all in the grammar, 85 accepted, 59 refused and failing visibly), docs/reviews/SW-4120-grammar1.md (seven gap items; recommendation: lift all in slice 1, nothing moved out; 21 to 32 lanes est.). New obligation found: rule N must keep the parse (the grammar reads the lexer's leaves, the driver parses settledOnce). Decisions for Matt: the grammar as written; nothing moves out.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
