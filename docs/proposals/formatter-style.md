@@ -122,7 +122,9 @@ statements, a text block, two or more alternatives under D3566, and
 declarations, statements, arms, constructors, fields, list items, `calc`
 steps. A kept blank line is a hard break, so it keeps its list vertical
 (the one hint authors have). Dropped elsewhere: at the start or end of a
-body, and inside an expression. Never added (D1020).
+body, and inside an expression, except that a blank line above an
+own-line comment is kept wherever it is (D3693), and one below a comment
+before any token but a closer. Never added (D1020).
 
 **E5. What can't fit stays long.** A string, a name or a comment is never
 split. A line that is still over 120 once everything around it has broken
