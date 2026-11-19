@@ -26200,7 +26200,7 @@
     {
       "id": 4149,
       "title": "[Opus] fmt S1 comments anywhere E6: binaryAny then arrowAny (after E2; LinkFacts likely redefined in ChainHangProofs) (SW-4130 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4149",
       "labels": [],
@@ -26348,7 +26348,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 15 min. After SW-4149 (E6 edits ElementsProofs).",
+      "body": "Est. 15 min. After SW-4149 (E6 edits ElementsProofs).\n\nAlso (SW-4149): ChainHangProofs partFor/endedLeadSeat duplicate ElementsProofs elPartFor/endedLedSeat; unledLeading is in both ElementsChain and ElementsProofs. Optionally have the quiet/edge proofs build RunFacts directly (RunOperator, GluesAt only feed runFactsOf).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
