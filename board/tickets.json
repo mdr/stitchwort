@@ -26945,15 +26945,18 @@
     {
       "id": 4205,
       "title": "[Fable, paper] Slice 1 retrospective and strategy (D3691, Matt 19 Nov): how slice 1's proofs went and their friction; how far the full formatter is, realistically; a smarter strategy for formatter correctness; consolidating and simplifying the slice 1 proof now; Stitchwort changes that would make proving easier; what it means for slices 2-7",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. Paper.\n\nD3691 (Matt, 19 Nov 2026): 'doing smaller backlog work with Sonnet and DeepSeek is fine. But let's also run a Fable paper lane to do ... a retrospective on the slice one formatter proofs ... how far are we from the full stitchwort formatter? Is that just a Herculean task at the moment, or is it realistic? ... any way that we could be smarter and find a better strategy for proving formatter correctness? ... consolidate and go through the proof and improve it, make it more simple? ... anything about stitchwort that we should change to make it easier to prove things?'",
+      "body": "Est. 60 min. Paper.\n\nD3691 (Matt, 19 Nov 2026): 'doing smaller backlog work with Sonnet and DeepSeek is fine. But let's also run a Fable paper lane to do ... a retrospective on the slice one formatter proofs ... how far are we from the full stitchwort formatter? Is that just a Herculean task at the moment, or is it realistic? ... any way that we could be smarter and find a better strategy for proving formatter correctness? ... consolidate and go through the proof and improve it, make it more simple? ... anything about stitchwort that we should change to make it easier to prove things?'\n\n\nProgress (Fable, 19 Nov): note written, docs/reviews/SW-4205-slice1-retrospective.md on lane/SW-4205 (b721a35c2, 5a1285ed9). Paper only, nothing built or checked. Findings: the rate held (87/h) and the count was 5x out; the whole-language two-run walk cost 1.6 theorems per parser function against 16 for the slice-wise shape walk; the rules are walked by five triple families. Rest on the current approach: 13,000-34,000 theorems, 150-390 agent hours [estimated]. Recommended: consolidation + three experiments (10-15 h) before slice 2 proof lanes; parser-side layers whole-language once; printer and read-back by slice. One decision for Matt (section 8), for the orchestrator to number.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "b721a35c2",
+        "5a1285ed9"
+      ]
     },
     {
       "id": 4206,
