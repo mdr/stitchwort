@@ -17,6 +17,7 @@ import Fmt.AppHangProofs (ArgsHang, Hangs, HangsFor, appElHangs, argAround, last
 import Fmt.ChainHangProofs (HangsAt, LinkFacts, PairFacts, arrowChainHangs, binaryChainHangs, runFactsOf)
 import Fmt.BracketHangProofs (
   ItemsHang,
+  elItemHangs,
   bracketTrails,
   groupedBracketHangs,
   huggedBracketIs,
@@ -282,11 +283,12 @@ theorem edgeItemsHang ∀ (items: List Expr) (inset: Nat) (bare arm: Bool) (at: 
     | [item] =>
       let facts := edgeFacts item False end (Bool.andLeft within) (Bool.andLeft lexical) (Bool.andLeft sound) edge
       (
-        edgeHangsOf item facts
-          (firstAround bare arm False at)
-          (edgeOffBare item (firstAround bare arm False at) end edge)
-          inset
-          inset,
+        elItemHangs lexKind _ inset False item.trails
+          (edgeHangsOf item facts
+            (firstAround bare arm False at)
+            (edgeOffBare item (firstAround bare arm False at) end edge)
+            inset
+            inset),
         byComputing
       )
     | [item, next, ..more] =>
@@ -313,7 +315,7 @@ theorem edgeItemsHang ∀ (items: List Expr) (inset: Nat) (bare arm: Bool) (at: 
             (Bool.andRight lexical)
             (Bool.andRight sound)
             (Bool.andRight edge)
-      (first, later)
+      (elItemHangs lexKind _ inset False item.trails first, later)
 
 --| After a list's opener that trails a comment only when the list is empty.
 theorem edgeOpenItems ∀ (open: Word) (items: List Expr) (inset: Nat) (bare arm: Bool) (at: Nat) (lead end: Bool)

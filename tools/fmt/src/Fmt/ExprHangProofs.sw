@@ -39,6 +39,7 @@ import Fmt.ChainHangProofs (
 )
 import Fmt.BracketHangProofs (
   ItemsHang,
+  elItemHangs,
   groupedBracketHangs,
   huggedBracketIs,
   lastList,
@@ -842,7 +843,7 @@ theorem itemsHang ∀ (items: List Expr) (inset: Nat) (bare arm: Bool) (at: Nat)
             (Bool.andRight lexical)
             (Bool.andRight quiet)
             keys
-      (first, later)
+      (elItemHangs lexKind _ inset False item.trails first, later)
 
 --| A quiet bracket hugged as a call's last argument: as `huggedBracket` writes it, and opened.
 --|
