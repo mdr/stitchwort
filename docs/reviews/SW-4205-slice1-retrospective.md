@@ -350,8 +350,9 @@ Total from here: **about 140 to 260 agent hours if A and B pass, 170 to
 410 if neither does** [estimated; paper lanes beyond those listed add
 about a sixth]. At slice 1's pace that is 2.5 to 4.5
 days of round-the-clock lanes, or one to two weeks of working days,
-with steps 1 and 2 costing about one of those days and, if A alone
-passes, saving two or more.
+with steps 1 and 2 costing about half a day of that running and, if A
+alone passes, saving 25 to 55 agent hours on the parser side (45 to 90
+against 20 to 35).
 
 What would change the plan: A failing its mark (then spike C, trees
 that can't be ill-shaped, before more parser walks); block read-back
