@@ -155,7 +155,9 @@ the pairs as deletions instead of text.
 
 *Tidy when:* no pair after a row or around a binder's whole type would
 leave the declaration's tree unchanged if dropped, among pairs with no
-comment on their own tokens.
+comment on their own tokens. P3 strips brackets around a binder's type
+only along a header's type, so a lambda in a value such as
+`(x: (A)) (y: A) => …` is neither stripped nor merged.
 
 *Printer may assume:* nothing new; it is needed for idempotence of the
 whole formatter, since the layout always joins the type to the row.

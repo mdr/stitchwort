@@ -53,7 +53,6 @@ def allWithin2: List Expr → Bool
 def paramsWithin2: List Param → Bool
   | [] => True
   | [NameParam _, ..rest] => paramsWithin2 rest
-  | [PatternParam (PatternWord _ _), ..rest] => paramsWithin2 rest
   | [Grouped group, ..rest] => groupWithin2 GroupLambda group && paramsWithin2 rest
   | [_, ..rest] => False
 
