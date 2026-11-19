@@ -25917,9 +25917,9 @@
     {
       "id": 4128,
       "title": "[Opus] fmt S1 item 5 (D3689, SW-4120): the driver accepts the name auto: a parsed-tree fact (no list's first item is auto then an upper-case name), carried like shaped1 and used in read-back's list case; the spelling test on auto goes",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4128",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4120-grammar1.md item 5. Model: Opus (new parser invariant). Est. 45 min.",
