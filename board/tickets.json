@@ -26306,12 +26306,12 @@
     {
       "id": 4157,
       "title": "[Sonnet] fmt: merge duplicate lemmas across Fmt and Syntax (startBlocksNo = HangProofs.staleBlocks, wordIsNoArrow = SettleOutputProofs.wordNotArrow, hungStep = OutputFileProofs.hangsStep, readsAtMark/readsAtLeft in ParseCarriesDecl and GoodItemProofs/ParseWalk) (SW-4154 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4157",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min.",
+      "body": "Est. 30 min.\n\nLane: deleted startBlocksNo, wordNotArrow, hangsStep (kept lowest-in-order copies); readsAtMark/readsAtLeft not duplicates across ParseWalk/GoodItemProofs (Char vs Item). Full check 0 errors, goals unchanged, audit clean.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
