@@ -274,53 +274,8 @@ theorem wordsEdgeOneLine1 ∀ (decl: Decl)
     decl.wordsEdge1 = True :=
   wordsEdgeOneLine decl within shaped settled lexical oneLine
 
---| A one-line declaration's closers hold no comments (open; route in `Fmt.OneLineLays`).
---|
---| `settled1`'s `homedBack` gives a closer with a trailing comment own-line comments, or a comment on the code before
---| it; the rules then write a `CloserLine` before it, so it starts a line, which `onLine1` refuses. The printed words'
---| order alone doesn't show the line break: a closer may change places with a trailing comment (`Closing` is written
---| before a waiting one), so `f (a) -- c⏎-- d` has the words and comment breaks of `f (a -- c⏎) -- d` with no closer
---| starting a line. The line break is read by `printedTold` and `printTold`, which ask only that the document lays
---| with any columns (`Fmt.OneLineLays.closersBareUnreturned1`, from `doc1Checks` and `closersBareOfStands`, both
---| open, for declarations with no comment ending in a carriage return).
-theorem closersBareOneLine1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (oneLine: decl.oneLine1 = True):
-    decl.closersBare1 = True :=
-  ?
-
---| A one-line declaration's blank-line flags, after `calm`, are below own-line comments (open, SW-4096's step 5;
---| route in `Fmt.OneLineLays`).
---|
---| `calm` keeps a flag below comments that are no closer's, and on a bracket item's first token with no comments
---| above it. The rules write such an item's flag as `LineStart` and `Blank`, so the item starts a line, which
---| `onLine1` refuses. The printed words don't show it (`[a,⏎⏎b]` and `[a, b]` print the same words); the document's
---| line breaks do, as for `closersBareOneLine1` (`Fmt.OneLineLays.blanksBelowUnreturned1`).
-theorem blanksBelowOneLine1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (oneLine: decl.oneLine1 = True):
-    decl.blanksBelow1 = True :=
-  ?
-
---| The link (SW-4096's A): a slice 1 declaration that prints on one line (`oneLine1`) is `edgeQuiet1`, from its three
---| parts.
-theorem edgeQuietOneLine1 ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (oneLine: decl.oneLine1 = True):
-    decl.edgeQuiet1 = True :=
-  edgeQuietOfParts decl
-    (wordsEdgeOneLine1 decl within shaped settled lexical oneLine)
-    (closersBareOneLine1 decl within shaped settled lexical oneLine)
-    (blanksBelowOneLine1 decl within shaped settled lexical oneLine)
+-- `closersBareOneLine1`, `blanksBelowOneLine1` and `edgeQuietOneLine1` are in `Fmt.OneLineLays`, which proves them
+-- from the document's lines (SW-4109); they follow `wordsEdgeOneLine1`.
 
 -- Sources the parts apply to (D3684).
 

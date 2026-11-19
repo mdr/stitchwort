@@ -1,4 +1,4 @@
---| A route for `closersBareOneLine1` and `blanksBelowOneLine1` (`Fmt.OneLineParts`) that avoids `DeclHangs`
+--| A route for `closersBareOneLine1` and `blanksBelowOneLine1` (`Fmt.OneLineParts`' tests) that avoids `DeclHangs`
 --| (SW-4108): both follow from one fact about the document, that it lays at all (`LaysSomehow`).
 --|
 --| What the rules write for a closer that holds a comment (`CloserLine`) and for a kept blank line (`LineStart`,
@@ -16,9 +16,9 @@
 --| - `stands1OfLays` (proved from it): `printedStands1` with no `DeclHangs`.
 --| - `closersBareOfStands` and `blanksBelowOfStands` (proved in `Fmt.StandsLine`, SW-4110): a declaration that
 --|   `stands1` and prints on one line has bare closers and no blank-line flag but below comments.
---| - `closersBareUnreturned1` and `blanksBelowUnreturned1` (proved from the three): the two parts, with one more
---|   hypothesis than `Fmt.OneLineParts` states them with, `unreturned1`, which `stands` needs (`returnedFalls`).
---|   Every use of the parts has it (`Fmt.TopStatements.declsAll` hands it to each declaration).
+--| - `closersBareOneLine1` and `blanksBelowOneLine1` (proved from the three), and `edgeQuietOneLine1` from them: the
+--|   parts, with the hypothesis `unreturned1`, which `stands` needs (`returnedFalls`). Every use has it
+--|   (`Fmt.TopStatements.declsAll` hands it to each declaration).
 
 namespace Fmt.OneLineLays
 import Std (Bool, Doc, List, Option, Text)
@@ -32,6 +32,7 @@ import Fmt.TriviaStatements (..)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKindFixed)
 import Fmt.StandsProofs (..)
+import Fmt.OneLineStatements (..)
 import Fmt.OneLineParts (..)
 import Fmt.LaysKinds (..)
 import Fmt.StandsLine (blanksBelowStands, closersBareStands)
@@ -164,31 +165,58 @@ theorem blanksBelowOfStands ∀ (decl: Decl)
 
 -- The parts, for declarations with no comment ending in a carriage return.
 
---| `closersBareOneLine1` with `unreturned1`.
-theorem closersBareUnreturned1 ∀ (decl: Decl)
+--| A one-line declaration's closers hold no comments, for declarations with no comment ending in a carriage return.
+--|
+--| `settled1`'s `homedBack` gives a closer with a trailing comment own-line comments, or a comment on the code before
+--| it; the rules then write a `CloserLine` before it, so it starts a line, which `onLine1` refuses. The printed words'
+--| order alone doesn't show the line break: a closer may change places with a trailing comment (`Closing` is written
+--| before a waiting one), so `f (a) -- c⏎-- d` has the words and comment breaks of `f (a -- c⏎) -- d` with no closer
+--| starting a line. The line break is read by `printedTold` and `printTold`, which ask only that the document lays
+--| with any columns (`doc1Checks`, open, and `closersBareOfStands`, proved in `Fmt.StandsLine`).
+theorem closersBareOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True)
+    (unreturned: decl.unreturned1 = True)
     (oneLine: decl.oneLine1 = True):
     decl.closersBare1 = True :=
   closersBareOfStands decl within shaped settled lexical
-    (stands1OfLays decl within shaped settled lexical plain)
+    (stands1OfLays decl within shaped settled lexical unreturned)
     oneLine
 
---| `blanksBelowOneLine1` with `unreturned1`.
-theorem blanksBelowUnreturned1 ∀ (decl: Decl)
+--| A one-line declaration's blank-line flags, after `calm`, are below own-line comments (SW-4096's step 5).
+--|
+--| `calm` keeps a flag below comments that are no closer's, and on a bracket item's first token with no comments
+--| above it. The rules write such an item's flag as `LineStart` and `Blank`, so the item starts a line, which
+--| `onLine1` refuses. The printed words don't show it (`[a,⏎⏎b]` and `[a, b]` print the same words); the document's
+--| line breaks do, as for `closersBareOneLine1`.
+theorem blanksBelowOneLine1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
     (settled: decl.settled1 = True)
     (lexical: decl.lexical1 = True)
-    (plain: decl.unreturned1 = True)
+    (unreturned: decl.unreturned1 = True)
     (oneLine: decl.oneLine1 = True):
     decl.blanksBelow1 = True :=
   blanksBelowOfStands decl within shaped settled lexical
-    (stands1OfLays decl within shaped settled lexical plain)
+    (stands1OfLays decl within shaped settled lexical unreturned)
     oneLine
+
+--| The link (SW-4096's A): a slice 1 declaration that prints on one line (`oneLine1`) is `edgeQuiet1`, from its three
+--| parts.
+theorem edgeQuietOneLine1 ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (unreturned: decl.unreturned1 = True)
+    (oneLine: decl.oneLine1 = True):
+    decl.edgeQuiet1 = True :=
+  edgeQuietOfParts decl
+    (wordsEdgeOneLine1 decl within shaped settled lexical oneLine)
+    (closersBareOneLine1 decl within shaped settled lexical unreturned oneLine)
+    (blanksBelowOneLine1 decl within shaped settled lexical unreturned oneLine)
 
 -- The check on sources.
 
