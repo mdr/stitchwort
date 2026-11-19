@@ -27690,8 +27690,8 @@
     {
       "id": 4261,
       "title": "[Opus] Functional induction B: G1, a guarded arm partly overlapped by a later arm gets f.induct, one case per arm with Lean's overlap hypothesis (D3697)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
