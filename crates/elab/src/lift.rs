@@ -30,11 +30,12 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
+use crate::check::quote_folded;
 use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{State, UpdateShown};
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{Head, eval, force, quote_folded};
+use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DefId, Ev, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 

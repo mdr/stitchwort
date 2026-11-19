@@ -3123,6 +3123,14 @@ pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Folded, None, None)?.expect("no cap"))
 }
 
+/// [`quote_folded`], or `None` if the term would have more than `cap` nodes.
+pub fn quote_folded_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+    if g.machine.glue.get() && force_unglued_first() {
+        force_unglued(g, level, value);
+    }
+    quote_as(g, level, value, Readback::Folded, Some(cap), None)
+}
+
 /// [`quote_folded`], but every glued call is written as the call, one that
 /// steps at once too: nothing is computed but what applying a solution to
 /// its arguments takes. For substituting solutions into a term
