@@ -1,5 +1,5 @@
 {
-  "next": 4137,
+  "next": 4140,
   "tickets": [
     {
       "id": 47,
@@ -25891,12 +25891,12 @@
     {
       "id": 4126,
       "title": "[Opus] fmt multi-line read-back H0 (D3687, SW-4121): skeleton: readsBackHung and every lemma of the SW-4121 plan stated as open goals in new Syntax/ReadBackHung*.sw files, readsBackHung composed from them, PrintedGroup's oneLine1 clause becomes hangs, readsBackDecl1 re-proved from readsBackHung, three computed witnesses; bring SW-4121's generator and check functions into tools/fmt/dev as a rerunnable gate",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4126",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4121-multiline-readback.md. Model: Opus. Est. 60 min.\n\nLane notes (Opus, 19 Nov, 08:35 to 09:05, branch lane/SW-4126, commit b9f3fc5c3):\n- Syntax/ReadBackHung.sw (definitions, FullHungAt/FullHungBelow), ReadBackHungDeep (H1), Bounds (H2), Frame (H3), Atoms (H5), App (H6), Chains (H7), Inline (H8), Full (fullHungStep, H5's block case), Top (fullHung by induction on the depth, header steps, readsBackHung, 3 witnesses).\n- Open: 35 named lemmas plus formatAccepts1. readsBackHung relies directly on hungDeep, speltHangs and fullHungStep.\n- Design: the one-line family recurses from atomLine back to fullLine inside one file. To split it into files, each rung takes `inner: FullHungBelow depth` (fullHung below the depth); Top ties the knot.\n- PrintedGroup: oneLine1 is replaced by hangs decl.leaves1. readsBackFile1 no longer takes oneLine. oneLine1 is still used in the driver's test, Formats1, outputParses1 (hung1/stood1 through declHangsOneLine) and calmTopOneLine (pieces E, F).\n- Gate: tools/fmt/dev/multiline-gate/run.sh. A scale-0 run gave 0 FAIL; the hand counts match SW-4121.\n",
+      "body": "\ndocs/reviews/SW-4121-multiline-readback.md. Model: Opus. Est. 60 min.\n\nLane notes (Opus, 19 Nov, 08:35 to 09:05, branch lane/SW-4126, commit b9f3fc5c3):\n- Syntax/ReadBackHung.sw (definitions, FullHungAt/FullHungBelow), ReadBackHungDeep (H1), Bounds (H2), Frame (H3), Atoms (H5), App (H6), Chains (H7), Inline (H8), Full (fullHungStep, H5's block case), Top (fullHung by induction on the depth, header steps, readsBackHung, 3 witnesses).\n- Open: 35 named lemmas plus formatAccepts1. readsBackHung relies directly on hungDeep, speltHangs and fullHungStep.\n- Design: the one-line family recurses from atomLine back to fullLine inside one file. To split it into files, each rung takes `inner: FullHungBelow depth` (fullHung below the depth); Top ties the knot.\n- PrintedGroup: oneLine1 is replaced by hangs decl.leaves1. readsBackFile1 no longer takes oneLine. oneLine1 is still used in the driver's test, Formats1, outputParses1 (hung1/stood1 through declHangsOneLine) and calmTopOneLine (pieces E, F).\n- Gate: tools/fmt/dev/multiline-gate/run.sh. A scale-0 run gave 0 FAIL; the hand counts match SW-4121.\n\n\nMerged 19 Nov. 30 min (est. 60). D3688 review: top statements unchanged; PrintedGroup oneLine1 -> hangs (discharged from hung1, closed example prefixHeadPrinted). Orchestrator's call: accept that the top theorems rest on the H1-H8 open goals until H9 (rather than keep the one-line route alongside).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -25956,7 +25956,7 @@
     {
       "id": 4131,
       "title": "[Fable paper] fmt S1 item 6 sketch (D3689): a last comma that starts its line before a closer (plain1): state what rule N and the settle proofs must say for it, check on generated cases, plan lanes; if it needs restating comment placement through every layer, set out the slice 3 option for Matt",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4131",
       "labels": [],
@@ -26029,6 +26029,45 @@
         "cli"
       ],
       "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4137,
+      "title": "[Sonnet] fmt S1 item 6 C1 (SW-4131): accept a last comma that starts its line: sourcePlain1 replaces plain1 in the driver and the 12 source theorems; tokensBare/settledOnceTokens restated as tokens equal up to line starts (NOT a new condition); commaMoved's other branch in laidWithout, plainWithout, allTokensWithout, textsWithout",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4137",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4131-own-line-comma.md. Model: Sonnet. Est. 40 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4138,
+      "title": "[Opus] fmt S1 C2 (SW-4131): every parsed slice 1 source is sourcePlain1 (the driver's plain test refuses nothing in the grammar), for formatAccepts1",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4131-own-line-comma.md. Model: Opus. Est. 45-90 min, low confidence.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4139,
+      "title": "[Sonnet] fmt multi-line read-back H1+H2 (SW-4121 plan): hangsTokens, hungDeep (ReadBackHungDeep.sw); hungStops, boundsPast, boundsBlock, rightOfBound (ReadBackHungBounds.sw)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4139",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 55 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
