@@ -540,8 +540,9 @@ rounded; `sqrt` uses the host; the host's other functions stay outside std.** In
    If stage 0 shows a correctly rounded `exp` is too slow in JS and a fixed-algorithm one is fine,
    take (f) and say so plainly in the docs: "deterministic, within 1 ulp, not correctly rounded".
 
-3. **`Float.sqrt` is a primitive like `mul`**, on `Math.sqrt` and Rust's `sqrt`, both exact by
-   their specifications, and becomes a definition when `mul` and `div` do (float-laws.md stage 4).
+3. **`Float.sqrt` is a definition with a native, like `mul`**: the kernel computes it through
+   `Float.Model.sqrtBits` (an exact integer square root, rounded once), and runs use `Math.sqrt` and
+   Rust's `sqrt`, both exact by their specifications (done, SW-3788).
 
 4. **No axioms about engines, and no opaque host functions in std** (not (b), not a
    `Float.Host`). A program that wants the browser's `Math.cos` passes it in at the export and
@@ -580,7 +581,8 @@ Each stage is one lane. Times are not estimated here; the orchestrator estimates
    on the kernel sum, in which case this note's recommendation is reopened. The benchmark is a JS
    microbenchmark, not one of the project's suites, but it is still a measurement lane and needs
    the orchestrator's say on where it runs.
-1. **`Float.sqrt`** as a primitive, with the four-path comparison tests the other primitives have.
+1. **`Float.sqrt`** as a definition with a native, with the four-path comparison tests the other
+   operations have (done, SW-3788).
 2. **`Float.exp`, `exp2` and `log` as definitions**, with: bit-identity across the kernel, the Rust
    runtime, Node and a browser on a shared edge set; comparison with CORE-MATH's worst-case files
    and MPFR; the float-only laws; guide and `docs/syntax.md` entries. This unblocks the Whereabouts

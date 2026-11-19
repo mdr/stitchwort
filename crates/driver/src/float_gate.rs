@@ -86,6 +86,10 @@ theorem roundTie: Float.round (-2.5) = -2.0 := byComputing
 theorem floorHalf: Float.floor (-0.5) = -1.0 := byComputing
 theorem ceilHalf: Float.ceil (-0.5) = -0.0 := byComputing
 theorem truncHalf: Float.trunc (-1.5) = -1.0 := byComputing
+theorem sqrtFour: Float.sqrt 4.0 = 2.0 := byComputing
+theorem sqrtNegative: Float.sqrt (-1.0) = Float.nan := byComputing
+theorem sqrtNegZero: Float.sqrt (-0.0) = -0.0 := byComputing
+theorem sqrtInfinity: Float.sqrt Float.infinity = Float.infinity := byComputing
 theorem ofIntNegative: Float.ofInt (-3) = -3.0 := byComputing
 theorem ofIntZero: Float.ofInt 0 = 0.0 := byComputing
 theorem ofNatTie: Float.ofNat 9007199254740993 = 9007199254740992 := byComputing
@@ -381,6 +385,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         FloatNative::Ceil,
         FloatNative::Trunc,
         FloatNative::Round,
+        FloatNative::Sqrt,
     ] {
         for &bits in PATTERNS {
             let name = format!(

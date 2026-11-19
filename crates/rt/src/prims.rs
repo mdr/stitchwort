@@ -548,6 +548,7 @@ fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
         FloatPrim::Ceil => Value::float(x(0).ceil()),
         FloatPrim::Trunc => Value::float(x(0).trunc()),
         FloatPrim::Round => Value::float(js_round(x(0))),
+        FloatPrim::Sqrt => Value::float(x(0).sqrt()),
         FloatPrim::OfInt => Value::float(match args[0] {
             Value::Int(n) => int_to_f64(&BigInt::from(*n)),
             Value::BigInt(n) => int_to_f64(n),

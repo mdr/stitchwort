@@ -281,6 +281,41 @@ def Float.Model.roundBits (a: Nat): Nat :=
       0
       (Float.Model.signBit a)
 
+--| The integer square root of `n` by Newton's method, given a `guess` at
+--| least it: each step averages `guess` and `n / guess`, which decreases
+--| until it reaches the root, where the average stops falling. The fuel is
+--| far beyond the steps needed from `Float.Model.isqrt`'s starting point.
+def Float.Model.isqrtFrom: (fuel: Nat) → (n guess: Nat) → Nat
+  | Zero, n, guess => guess
+  | Succ fuel, n, guess =>
+    let sum: Nat := guess + Nat.divFuel n n guess
+    let next: Nat := Nat.divFuel sum sum 2
+    if Nat.leq guess next then guess else Float.Model.isqrtFrom fuel n next
+
+--| The largest `r` with `r * r <= n`, for `n` positive: Newton's method from
+--| the power of two just above the root.
+def Float.Model.isqrt (n: Nat): Nat :=
+  Float.Model.isqrtFrom 64 n
+    (Float.Model.pow2 (Nat.divFuel (Float.Model.bitLength n + 1) (Float.Model.bitLength n + 1) 2))
+
+--| `sqrt x`, IEEE 754's correctly rounded square root: the NaN for the NaN
+--| and for any negative number but `-0.0` (which is its own root), `x` for
+--| the zeros and `+infinity`; otherwise the exact root, rounded once.
+-- A value of `u` units is `u * 2^-1074`, so its root is `sqrt (u * 2^1074)`
+-- units, at least 2^537, far above 2^54. The integer root `s` of that
+-- radicand, with its remainder, locates the root between `s` and `s + 1`
+-- (never on a tie, since a root that isn't whole is irrational); `2 * s`
+-- or `2 * s + 1` in half units has that location, and at this size the
+-- rounding points are even in half units, so it rounds as the root does.
+def Float.Model.sqrtBits (a: Nat): Nat :=
+  if Float.Model.isNaN a then 9221120237041090560
+  else if Float.Model.isZero a ∨ Nat.equal a 9218868437227405312 then a
+  else if Float.Model.signBit a then 9221120237041090560
+  else
+    let radicand: Nat := Int.natAbs (Float.Model.units a) * Float.Model.pow2 1074
+    let root: Nat := Float.Model.isqrt radicand
+    Float.Model.roundScaled (OfNat (if Nat.equal radicand (root * root) then 2 * root else 2 * root + 1)) (-1075) False
+
 test "Float.Model.pow2" :=
   Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616
 test "Float.Model.bitLength" :=
@@ -341,3 +376,15 @@ test "Float.Model.floorBits" :=
     ∧ Float.Model.roundBits 4612811918334230528 == 4613937818241073152
     ∧ Float.Model.roundBits 4602678819172646911 == 0
     ∧ Float.Model.roundBits 13826050856027422720 == 9223372036854775808
+test "Float.Model.isqrt" :=
+  Float.Model.isqrt 1 == 1
+    ∧ Float.Model.isqrt 3 == 1
+    ∧ Float.Model.isqrt 4 == 2
+    ∧ Float.Model.isqrt 99 == 9
+    ∧ Float.Model.isqrt 100 == 10
+    ∧ Float.Model.isqrt (Float.Model.pow2 200) == Float.Model.pow2 100
+test "Float.Model.sqrtBits" :=
+  Float.Model.sqrtBits 4616189618054758400 == 4611686018427387904
+    ∧ Float.Model.sqrtBits 4611686018427387904 == 4609047870845172685
+    ∧ Float.Model.sqrtBits 9223372036854775808 == 9223372036854775808
+    ∧ Float.Model.sqrtBits 13830554455654793216 == 9221120237041090560

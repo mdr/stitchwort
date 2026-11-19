@@ -816,13 +816,18 @@ impl<'p> Interp<'p> {
                         };
                         V::Float(native.on_pair(a?, bits(&args[1])?))
                     }
-                    FloatPrim::Floor | FloatPrim::Ceil | FloatPrim::Trunc | FloatPrim::Round => {
+                    FloatPrim::Floor
+                    | FloatPrim::Ceil
+                    | FloatPrim::Trunc
+                    | FloatPrim::Round
+                    | FloatPrim::Sqrt => {
                         use stitchwort_core::float::FloatNative;
                         let native = match f {
                             FloatPrim::Floor => FloatNative::Floor,
                             FloatPrim::Ceil => FloatNative::Ceil,
                             FloatPrim::Trunc => FloatNative::Trunc,
-                            _ => FloatNative::Round,
+                            FloatPrim::Round => FloatNative::Round,
+                            _ => FloatNative::Sqrt,
                         };
                         V::Float(native.on_bits(a?))
                     }
