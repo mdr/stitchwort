@@ -26174,12 +26174,12 @@
     {
       "id": 4147,
       "title": "[Opus] fmt S1 comments anywhere E4: tupleAny and listAny (after E2; ItemsHang with startFor per item, held opener) (SW-4130 plan)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4147",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 2 lanes, 60-90 min each. Folds in SW-4082 where it applies.",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 2 lanes, 60-90 min each. Folds in SW-4082 where it applies.\n\nLane notes (Opus, 19 Nov 2026, 11:33 to 11:47, branch lane/SW-4147, commit ec7016c9b; est. 90 min):\n- tupleAny and listAny proved. Old ItemsHang (ElHangs ... wordStart per item) false for a noted item entered mid-line: printed by hand (NotedMid, as BlankMid), `[a, ` then the noted `(cccccc, dddddd)` puts `(` at the start of a line at column 6, wordStart (Mid) says none.\n- BracketHangProofs: ItemHangs (exists noted: at every entry but a plain line start, first word at startFor noted); ItemsHang asks it per item; ItemSeat gains plainStart place = False; new startDeep, seatFor, elItemHangs. Callers (edgeItemsHang, itemsHang) wrap with elItemHangs. Weaker hypothesis only: no narrowing, no top theorem touched.\n- New Fmt.ElementsItems: PlainHangs, unledWord, itemLed (ledItemHangs / blankItemHangs / plain), itemsLed.\n- check Fmt.ElementsProofs: 0 errors, goals appAny anyHug (hug case, waits for SW-4159). check Fmt.TopStatements: 0 errors, goals formatAccepts1 (pre-existing) appAny anyHug. audit ElementsItems 3/3, BracketHangProofs 57/57; audit ElementsProofs 11 failed, all on the open goals (was 16).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
