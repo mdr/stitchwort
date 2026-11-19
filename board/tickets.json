@@ -26735,8 +26735,8 @@
     {
       "id": 4189,
       "title": "[DeepSeek] fmt: delete the 13 orphan theorems SW-4186 listed (LaysApp appFromHug; LaysRules chainAll, plainEnds, stepConcat; LaysWords noHeldStarts; StandsProofs atomDeclStands, returnedFalls and six …Witness) after SW-4183 merges; check each is still unused",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -26789,8 +26789,8 @@
     {
       "id": 4193,
       "title": "[Sonnet] fmt tidy after slice 1: delete dead settledPlaced1 (SettleParseProofs.sw:310, plain1, no caller); drop settledParsesGrammar1's unused source/lexes/alphabet arguments if nothing needs them; fix tools/fmt/NOTES.md:1399-1400 (bareSettles now proved, up to line starts) and SettleParseProofs.sw:6's long doc line; with SW-4189's 13 orphans and SW-4192's marked copy if convenient (SW-4191 findings)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -26802,8 +26802,8 @@
     {
       "id": 4194,
       "title": "[Opus] fmt: a fourth top statement saying D3687 in one sentence about the language's own parser (every source the language parses to a tree in Grammar1 is formatted, and the output parses to the same program), proved from the existing three (SW-4184 §3 item 2; SW-4191 says it doesn't block slice 1)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
