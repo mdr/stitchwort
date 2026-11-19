@@ -1,5 +1,5 @@
 {
-  "next": 4234,
+  "next": 4236,
   "tickets": [
     {
       "id": 47,
@@ -27119,7 +27119,7 @@
     {
       "id": 4218,
       "title": "[Sonnet] fmt consolidation C4: lift generic lemmas out of tools/fmt into std: list/option/Nat/Parse helpers whose statements mention no Fmt or Syntax type (est. 50-150; SW-4205 §5 item 4); dedupe against std, full API docs, repoint users; after SW-4209",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27320,6 +27320,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4203. Probe: scratchpad sw4203/Probe4203.sw.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4234,
+      "title": "[Sonnet] std: consolidate Bool lemmas into Bool/Bool.sw (Bool.andTrue/andFalse live in List/SortLemmas.sw), drop Doc.Proofs.andTrueLeft (duplicates Bool.andLeft); split List/Lemmas.sw (ends in a test block) into smaller files (SW-4218 findings)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4218.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4235,
+      "title": "[Sonnet] Proving guide: a std lemma named …Cong must have a matching function (validate_cong); how to derive a file's namespace for check NS (SW-4218 friction)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4218.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
