@@ -602,14 +602,14 @@ theorem framedSpells ∀ (first: Word) (around: Around) (doc: Doc) (texts: List 
   spellsConcat _ _
     (spellsCons
       (Doc.concat (first.leading around around.at))
-      [if first.noted || around.before then Displaced doc else doc]
+      [if first.displaces around then Displaced doc else doc]
       (first.notesAt around.hoisted)
       texts
       (spellsConcat _ _ (leadingSpells first around around.at sound))
       (spellsLast
-        (if first.noted || around.before then Displaced doc else doc)
+        (if first.displaces around then Displaced doc else doc)
         texts
-        (match first.noted || around.before with
+        (match first.displaces around with
           | True => spellsDisplaced doc texts inner
           | False => inner)))
 

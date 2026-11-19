@@ -57,8 +57,8 @@ theorem closerFinal ∀ (word: Word) (joins: CloserJoins word): Final word.text 
 theorem framedFinishes ∀ (first: Word) (around: Around) (doc: Doc)
     (ends: Finishes Final doc):
     Finishes Final (framedBy first around doc) :=
-  let placed: Finishes Final (if first.noted || around.before then Displaced doc else doc) :=
-    match displaced: first.noted || around.before with
+  let placed: Finishes Final (if first.displaces around then Displaced doc else doc) :=
+    match displaced: first.displaces around with
       | True => ends
       | False => ends
   finishesConcat Final _ (Inl (Inr (placed, byComputing)))

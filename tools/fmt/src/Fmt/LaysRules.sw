@@ -757,7 +757,7 @@ theorem framedStep ∀ (first: Word) (around: Around) (doc: Doc) (trails: Bool)
       stepDocConcat _ _ _
         (stepAllCons
           (Doc.concat (Word.leading ({ text, comments = { above, after, blankBefore } }) around around.at))
-          [if !above.isEmpty || around.before then Displaced doc else doc]
+          [if !above.isEmpty || (around.item && blankBefore) || around.before then Displaced doc else doc]
           (Starts around.hoisted around.before)
           (LeadHeld (!above.isEmpty && isCloserText text) around.before)
           (kinds => Ends kinds trails)
@@ -765,10 +765,10 @@ theorem framedStep ∀ (first: Word) (around: Around) (doc: Doc) (trails: Bool)
             (leadingStep text above after blankBefore around around.at (Bool.andLeft (Bool.andRight sound)) (closed =>
               Void.impossible (Bool.falseNotTrue (Eq.trans open.flipped closed)))))
           (stepAllOne
-            (if !above.isEmpty || around.before then Displaced doc else doc)
+            (if !above.isEmpty || (around.item && blankBefore) || around.before then Displaced doc else doc)
             (LeadHeld (!above.isEmpty && isCloserText text) around.before)
             (kinds => Ends kinds trails)
-            (match found: !above.isEmpty || around.before with
+            (match found: !above.isEmpty || (around.item && blankBefore) || around.before with
               | True => displacedStep doc _ _ inner
               | False =>
                 stepWeaken doc NoHeld
@@ -780,7 +780,7 @@ theorem framedStep ∀ (first: Word) (around: Around) (doc: Doc) (trails: Bool)
                     leadHeldNo
                       (!above.isEmpty && isCloserText text)
                       kinds
-                      (rewrite Bool.orFalseRight _ _ found at good))
+                      (rewrite Bool.orFalseRight _ _ (Bool.orFalseRight _ _ found) at good))
                   (kinds good => good))))
 
 theorem markPass ∀ (flag: Bool) (at: Nat) (rest: List Doc) (kinds: Kinds):

@@ -403,7 +403,7 @@ def Word.leadSpot (word: Word) (around: Around) (spot: Spot): Spot :=
 --| Where the printer is before a node's document inside its frame: after the first token's own-line comments, and
 --| past the line a waiting comment ends if the node is displaced.
 def Word.placedSpot (word: Word) (around: Around) (spot: Spot): Spot :=
-  if word.noted || around.before then (word.leadSpot around spot).displaced else word.leadSpot around spot
+  if word.displaces around then (word.leadSpot around spot).displaced else word.leadSpot around spot
 
 --| A node's frame tells its first token's own-line comments, then the node's document from where they leave the
 --| printer.
@@ -418,11 +418,11 @@ theorem framedTell ∀ (first: Word) (around: Around) (doc: Doc) (spot: Spot)
         after = (doc.tell (first.placedSpot around spot)).after
       } :=
   rewrite concatTell
-        [Doc.concat (first.leading around around.at), if first.noted || around.before then Displaced doc else doc]
+        [Doc.concat (first.leading around around.at), if first.displaces around then Displaced doc else doc]
         spot,
       concatTell (first.leading around around.at) spot,
       leadingTell first around around.at spot sound then
-    match first.noted || around.before with
+    match first.displaces around with
       | True => rewrite List.appendNil (doc.tell (first.leadSpot around spot).displaced).said
       | False => rewrite List.appendNil (doc.tell (first.leadSpot around spot)).said
 

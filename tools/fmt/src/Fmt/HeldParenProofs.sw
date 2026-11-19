@@ -212,10 +212,9 @@ theorem framedDisplaced ∀ (first: Word) (around: Around) (doc: Doc)
     (before: around.before = True):
     framedBy first around doc = Displaced doc :=
   rewrite bare then
-    match placed: first.noted || around.before with
+    match placed: first.displaces around with
       | True => byComputing
-      | False =>
-        (Bool.falseNotTrue (Eq.trans (Bool.orFalseRight first.noted around.before placed).flipped before)).impossible
+      | False => (Bool.falseNotTrue (Eq.trans (displacesUnheld first around placed).flipped before)).impossible
 
 theorem framedLowers ∀ (first: Word) (around: Around) (doc: Doc) (indent low: Nat)
     (bare: first.leading around around.at = [])

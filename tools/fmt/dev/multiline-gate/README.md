@@ -113,6 +113,7 @@ An item with no comments but a kept blank line before it leads with `[BreakParen
 - `BlankMid.sw` with `blank-mid.cases`: what `Lays` also allows, the separator before such an item laid as a space,
   printed by hand: the `LineStart` then breaks to two right of the line, and an undisplaced tuple, list or chain
   item keeps its later lines at the indentation, so `hangs` fails at width 8; displaced, every case keeps `hangs`.
+  Since SW-4155 the rules displace such an item (`Word.displaces`), as they do one with comments above it.
 
 Run either as `ElementsGate.sw` is run (copy into `tools/fmt/src`, `stitchwort run BlankGate.main < FILE.cases`
 from `tools/fmt`, delete).
