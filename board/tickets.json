@@ -25969,15 +25969,17 @@
     {
       "id": 4132,
       "title": "[Fable paper] Std.Parse: a framework for comparing two runs of a parser on related inputs (mark, next, fatal, sequencing, loop, recursiveWith), sketched for SW-4129's open groupKeepsTokens1 (the declaration parser reads comments only into the tree); statements, where they live (std), and the lane plan",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4132",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4129 (Opus, 19 Nov): settledParses1 proved but for groupKeepsTokens1; estimate 3-6 Opus lanes after a sketch. Model: Fable. Est. 45 min.",
+      "body": "From SW-4129 (Opus, 19 Nov): settledParses1 proved but for groupKeepsTokens1; estimate 3-6 Opus lanes after a sketch. Model: Fable. Est. 45 min.\n\nLane note (Fable, 19 Nov): note in docs/reviews/SW-4132-two-run-parse.md (branch lane/SW-4132, 70125e166). Framework: Parse.Follows in std (success-only, for parsers that never back up; built on runFromThenOk2/runFromThenBack2); definition and five lemmas checked as a scratch prototype (in the note's appendix). Recommended statement: groupKeepsTokens with no grammar hypothesis (the whole parser), from which groupKeepsTokens1 follows. Bulk check: 3,050 files (617 parse errors), source vs comments stripped vs a comment on every token vs settledOnce: same blanked tree or same error every time; the bare flag differed in 1,742 and doesn't matter (blanking sets it). Plan: 9 lanes, about 5.3 lane-hours (std family and the 'doesn't read comments' lemmas first, in parallel; an Opus pattern lane; four Sonnet walks; an Opus close; a Fable checkpoint). No decision for Matt on the recommended route. About 14 min (est. 45).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "70125e166"
+      ]
     },
     {
       "id": 4133,
