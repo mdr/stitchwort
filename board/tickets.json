@@ -1,5 +1,5 @@
 {
-  "next": 4223,
+  "next": 4227,
   "tickets": [
     {
       "id": 47,
@@ -27000,12 +27000,12 @@
     {
       "id": 4209,
       "title": "[Sonnet] fmt consolidation C3: duplicate theorems: 104 theorem names occur more than once across tools/fmt namespaces (commaStep, closerNotComma four times; SW-4205 §5 item 3); compare statements, keep one per statement (in the most general home), repoint users, delete the rest",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'",
+      "body": "Est. 60 min. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'\n\n\nLane note (Sonnet, 19 Nov): branch lane/SW-4209, 2 commits. 44 duplicate theorems removed (no theorem statement changed), new leaf Syntax.SharedFacts for lemmas two unrelated files needed, std Bool.orTrue/notTrue replace 6 copies. Whole-project fmt check: 0 errors, 126 namespaces; Fmt.Tests 425 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27177,6 +27177,58 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 90 min. Matt, 19 Nov 2026: 'a comparative analysis with a competitor like Lean or Rocq. How easy would it be to prove these theorems in Lean or Rocq compared to Stitchwort? Do they have any advantages that we might want to consider taking on board ... how would we do this comparison without ... burning a lot of time on a full port'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4223,
+      "title": "[Sonnet] Teach one proof for several cases (docs/proposals/proof-match-likewise.md, no decision needed): guide and proving-guide section on a catch-all after a split and on or-patterns in proofs; an or-pattern arm's error names the failing alternative",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4219.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4224,
+      "title": "[Sonnet] stitchwort fmt: wrap a long or-pattern (today joined onto one line, 150 chars in a probe), Rust and self-hosted printers alike; goldens (proof-match-likewise.md)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4219.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4225,
+      "title": "[Sonnet] Editor: 'Add the missing arms' offers one or-pattern arm when the missing arms would share a body (proof-match-likewise.md)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4219.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4226,
+      "title": "[Opus] cases fails on (5 <= level tok) = False with level a per-constructor table: it splits the comparison, never tok; a match tok with byComputing arms proves it (SW-4219 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4219.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
