@@ -1,5 +1,5 @@
 {
-  "next": 4295,
+  "next": 4297,
   "tickets": [
     {
       "id": 47,
@@ -28133,6 +28133,32 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Kernel-term generation: Opus review per D2364.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4295,
+      "title": "[Sonnet] stitchwort doc NAME in a big project (tools/fmt) ran over 2 min: it seems to check the whole project; make it load only what the name needs (SW-4261 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-4261.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4296,
+      "title": "[Sonnet] LSP or-pattern hover (SW-4250 caveats): a let in the body shadowing an or-pattern name can give the alternative's binder the wrong type in hover (attribution by name only); multi-line alternatives show 'alternative N' instead of their text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-4250.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
