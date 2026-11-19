@@ -27307,12 +27307,12 @@
     {
       "id": 4232,
       "title": "[Sonnet] Move givesAfter0 and readsAtAfter0 (formatter-local lemmas joining two Parse lemma kinds) into std with docs (SW-4231 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4231.\n\nLane note (Sonnet, 19 Nov): nothing moved. Both lemmas (givesAfter0, readsAtAfter0) are stated over the formatter-only Reads0 (ParseProofs.sw:439, defined with GoodItems) and Parse.Fits Item GoodItems / Parse.Gives GoodItems. Moving needs a new general std def (Reads0 over an arbitrary invariant) and restated lemmas: a statement change, not allowed by the brief. Left for the orchestrator to decide.\n\n\nOrchestrator's call (19 Nov): generalise to std Parse.Reads0 over an invariant; the formatter instantiates it with GoodItems; statements unfold unchanged.\n",
+      "body": "From SW-4231.\n\nLane note (Sonnet, 19 Nov): nothing moved. Both lemmas (givesAfter0, readsAtAfter0) are stated over the formatter-only Reads0 (ParseProofs.sw:439, defined with GoodItems) and Parse.Fits Item GoodItems / Parse.Gives GoodItems. Moving needs a new general std def (Reads0 over an arbitrary invariant) and restated lemmas: a statement change, not allowed by the brief. Left for the orchestrator to decide.\n\n\nOrchestrator's call (19 Nov): generalise to std Parse.Reads0 over an invariant; the formatter instantiates it with GoodItems; statements unfold unchanged.\n\nDone (Sonnet): Parse.Reads0 etc. moved to std with inv generalised; committed on lane/SW-4232. Fmt.Tests 441 passed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
