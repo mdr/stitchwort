@@ -27162,7 +27162,7 @@
     {
       "id": 4221,
       "title": "[Sonnet] Proving guide + pattern: deciding facts over finite token kinds by computation (Finite.check), with an example replacing a per-kind lemma family in tools/fmt (SW-4205 §6 item 7)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27859,7 +27859,7 @@
     {
       "id": 4274,
       "title": "[DeepSeek] Four error-message hints from SW-4198's probes: { let …; term } E-PARSE points at the closing brace (add: braces are a record update, proof blocks are indented); import Std (List.map) note giving import Std.List (map); ?name parsed as ? applied to name (hint: holes aren't named, use ?); rewrite f.unfold shows f.%step … (print something a reader can follow)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27872,7 +27872,7 @@
     {
       "id": 4275,
       "title": "[Sonnet] Printer constructor lemmas (passesConcat, passesNest, passesGroup, passesFlatten, passesIfBroken, passesDisplaced, …) and passesNil: implicit kinds/pre/post where inferable, as SW-4230 did for the triple lemmas",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
