@@ -27518,7 +27518,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 20).\n",
+      "body": "From SW-4236.\n\nModel result: DeepSeek, worked, ~20 min (est. 20).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
