@@ -27052,7 +27052,7 @@
     {
       "id": 4213,
       "title": "[Sonnet] stitchwort check --timings: per-declaration elaboration and kernel time, slowest first (proving guide §6 says check has none; SW-4197 had to time --only by hand); with a test and docs",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
