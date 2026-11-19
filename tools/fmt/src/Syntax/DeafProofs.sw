@@ -1,9 +1,10 @@
 namespace Syntax.DeafProofs
-import Std (Bool, Eq, List, Nat, Option, Pair, Parse, Result, Text)
+import Std (Bool, Eq, Fail, List, Nat, Option, Pair, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Grammar1 (..)
 import Fmt.Walk (..)
+import Fmt.TraverseFail (Blanks, declBlanks)
 import Fmt.Proofs (blankPure)
 import Syntax.SettleProofs (tokens)
 
@@ -1162,3 +1163,72 @@ def witnessSpaced: Item := { witnessItem | leaf = { witnessItem.leaf | trivia = 
 
 theorem stopsSameExample: Modes.start.stops witnessItem = Modes.start.stops witnessSpaced :=
   stopsSame Modes.start witnessItem witnessSpaced byComputing
+
+-- The lowering.
+
+--| The lowering's steps give the same outcome on a node and on its blanked form: the same message, or the node
+--| blanked.
+def checkBlanks: Blanks checkSteps := {
+  expr = checkExprBlanks,
+  pattern = checkPatternBlanks,
+  header = (z => byComputing),
+  decl = (z => byComputing),
+  fields = (z => byComputing),
+  attributes = (z => byComputing),
+  ruleSet = (z => byComputing)
+}
+
+theorem checkExprBlanks ∀ (z: Expr):
+    Fail.toResult (() => checkExpr (z.walk blankPure))
+      = (Fail.toResult (() => checkExpr z)).map (x => x.walk blankPure) :=
+  match z with
+    | Block first rest result =>
+      rewrite localDuplicateDeaf [first, ..rest] then
+        match e: localDuplicate (blankStatements (walkStatements blankPure [first, ..rest])) with
+          | Some message => byComputing
+          | None => byComputing
+    | Match keyword scrutinees withKeyword arms =>
+      rewrite anyGuardWithoutBodyDeaf arms then
+        match e: anyGuardWithoutBody (blankArms (walkArms blankPure arms)) with
+          | True => byComputing
+          | False => byComputing
+    | ClauseLambda keyword word arms =>
+      rewrite anyGuardWithoutBodyDeaf arms then
+        match e: keyword.text != "matches" && anyGuardWithoutBody (blankArms (walkArms blankPure arms)) with
+          | True => byComputing
+          | False => byComputing
+    | _ => byComputing
+
+theorem checkPatternBlanks ∀ (z: Pattern):
+    Fail.toResult (() => checkPattern (z.walk blankPure))
+      = (Fail.toResult (() => checkPattern z)).map (x => x.walk blankPure) :=
+  match z with
+    | PatternOr first rest =>
+      rewrite patternBindsDeaf first, anyLinkBindsDeaf rest then
+        match e: (first.walk blankPure).binds || anyLinkBinds (blankLinks (walkPatternLinks blankPure rest)) with
+          | True => byComputing
+          | False => byComputing
+    | _ => byComputing
+
+theorem traversalErrorRun ∀ (decl: Decl):
+    traversalError decl
+      = (match runDecl checkSteps decl with
+        | Err message => Some message
+        | Ok _ => None) :=
+  byComputing
+
+--| The lowering's traversal doesn't read comments.
+theorem traversalDeaf ∀ (decl: Decl): traversalError decl = traversalError (decl.walk blankPure) :=
+  rewrite traversalErrorRun decl, traversalErrorRun (decl.walk blankPure), declBlanks checkSteps checkBlanks decl then
+    match e: runDecl checkSteps decl with
+      | Ok lowered => byComputing
+      | Err message => byComputing
+
+--| The lowering doesn't read comments: a declaration has its lowering error exactly when its blanked tree does.
+theorem loweringDeaf ∀ (decl: Decl): decl.loweringError = (decl.walk blankPure).loweringError := match decl with
+  | Definition attributes header body =>
+    rewrite duplicateParameterDeaf header then
+      match e: duplicateParameter (walkHeader blankPure header) with
+        | Some message => byComputing
+        | None => traversalDeaf (Definition attributes header body)
+  | other => traversalDeaf other

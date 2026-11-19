@@ -1,5 +1,5 @@
 {
-  "next": 4167,
+  "next": 4175,
   "tickets": [
     {
       "id": 47,
@@ -25922,7 +25922,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\ndocs/reviews/SW-4120-grammar1.md item 5. Model: Opus (new parser invariant). Est. 45 min.\n\n19 Nov 09:05, lane stopped early to report (no code changed). The brief's fact is false as stated: the parser checks for `[auto Upper` (implicitOn, in exprPlain) only where a full expression starts. Measured with inGrammar1 (in the grammar, so parsed as lists): `f [auto Ord]`, `f x [auto Ord]`, `x + [auto Ord]`, `a && [auto Ord]`, `a == [auto Ord]`, `-[auto Ord]`, `[f [auto Ord]]`, `A -> f [auto Ord]`. Outside: the decl's type and value, a paren's inside, tuple and list items, an arrow's right side (`[auto Ord] + 1`, `[[auto Ord]]`, `f ([auto Ord])`, `A -> [auto Ord]`, `[x, [auto Ord]]`). So read-back's `Expr.autoFree1` (any depth) is too strong and is false of those trees too.\nCorrected fact: autoStart (the leftmost list's first item is no autoCall1) at those six positions only. Needs (a) read-back's autoFree1 made positional (ReadBackLine.sw, ~40 sites; noAutoLine already needs only the leftmost spine), clashing with SW-4126; (b) the parser fact: extend the Carried walk (ParseCarries*, words = read) with a goal-dependent spec, start proved at readsExprPlain from implicitOn = False plus the words; clashes with SW-4129. Estimate several hours, best after SW-4126 and SW-4129 merge. Details in the lane report.\n\n\nOrchestrator 19 Nov: the brief's fact was false (f [auto Ord] is in the grammar: the parser checks for a binder only where a full expression starts). Corrected, positional fact (autoStart at the six full-expression positions) recorded above; not a narrowing. Est. 4-6 h Opus via the Carried walk; deferred until SW-4126 merges. Back to next. Lane stopped after 6 min, no commits.\n",
+      "body": "\ndocs/reviews/SW-4120-grammar1.md item 5. Model: Opus (new parser invariant). Est. 45 min.\n\n19 Nov 09:05, lane stopped early to report (no code changed). The brief's fact is false as stated: the parser checks for `[auto Upper` (implicitOn, in exprPlain) only where a full expression starts. Measured with inGrammar1 (in the grammar, so parsed as lists): `f [auto Ord]`, `f x [auto Ord]`, `x + [auto Ord]`, `a && [auto Ord]`, `a == [auto Ord]`, `-[auto Ord]`, `[f [auto Ord]]`, `A -> f [auto Ord]`. Outside: the decl's type and value, a paren's inside, tuple and list items, an arrow's right side (`[auto Ord] + 1`, `[[auto Ord]]`, `f ([auto Ord])`, `A -> [auto Ord]`, `[x, [auto Ord]]`). So read-back's `Expr.autoFree1` (any depth) is too strong and is false of those trees too.\nCorrected fact: autoStart (the leftmost list's first item is no autoCall1) at those six positions only. Needs (a) read-back's autoFree1 made positional (ReadBackLine.sw, ~40 sites; noAutoLine already needs only the leftmost spine), clashing with SW-4126; (b) the parser fact: extend the Carried walk (ParseCarries*, words = read) with a goal-dependent spec, start proved at readsExprPlain from implicitOn = False plus the words; clashes with SW-4129. Estimate several hours, best after SW-4126 and SW-4129 merge. Details in the lane report.\n\n\nOrchestrator 19 Nov: the brief's fact was false (f [auto Ord] is in the grammar: the parser checks for a binder only where a full expression starts). Corrected, positional fact (autoStart at the six full-expression positions) recorded above; not a narrowing. Est. 4-6 h Opus via the Carried walk; deferred until SW-4126 merges. Back to next. Lane stopped after 6 min, no commits.\n\n\nOrchestrator 19 Nov 12:05: this is lane A of docs/reviews/SW-4166-carried-walk-plan.md (§2.1, §4 row A): autoPlaced1 (token-based autoStart), KeptAt full-goal conjunct at exprPlain, read-back autoFree1 -> autoPlaced1 (7 files: ReadBackLine + six ReadBackHung*), autoPlacedDeaf, the six MustAccept1 auto tests pass. After K1 (SW-4172). Est. 75 min Opus.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26174,7 +26174,7 @@
     {
       "id": 4147,
       "title": "[Opus] fmt S1 comments anywhere E4: tupleAny and listAny (after E2; ItemsHang with startFor per item, held opener) (SW-4130 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4147",
       "labels": [],
@@ -26330,12 +26330,12 @@
     {
       "id": 4159,
       "title": "[Opus] fmt: hugged bracket after a comment break lays out wrong in both formatters: 'f / -- c / (' then items at the bracket's column and ')' at column 0; frame huggedBracket like framedBy (items indented under the bracket, closer at the bracket's column), in Rules.sw and crates/fmt (D3677 shared bug), then prove appAny's and anyHug's hugged last-argument case (SW-4148 gap 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4159",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 90 min. After SW-4155 (Rules.sw framedBy). Orchestrator's call: shared formatter bug fix, output changes only for a hugged tuple/list argument with a comment above it or after the previous argument. Needs snapshot updates for any changed formatter tests; report every changed output. Repro: printf 'def x: List Nat := f\\n  -- the pairs\\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\\n' then stitchwort fmt.",
+      "body": "Est. 90 min. After SW-4155 (Rules.sw framedBy). Orchestrator's call: shared formatter bug fix, output changes only for a hugged tuple/list argument with a comment above it or after the previous argument. Needs snapshot updates for any changed formatter tests; report every changed output. Repro: printf 'def x: List Nat := f\\n  -- the pairs\\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\\n' then stitchwort fmt.\n\nLane notes (Opus, 19 Nov 2026, 11:53 to ~12:25, branch lane/SW-4159, commit a0042187f; est. 90 min):\n- Rule: huggedBracket (and huggedRecord, huggedLambda, huggedBlock) framed by framedBy; Rust last_argument displaces normal and hug as el does (all huggable kinds: they had the same bug, so both sides stay equal). Output: items 2 in from the bracket, closer at its column.\n- Tests: Rust printer::tests::a_hugged_bracket_after_a_comment_lays_its_items_under_it and Slice1 \"a hugged last argument after a comment ...\" both failed before, pass after. Golden test unchanged; 44 printer tests (hug/comment/bracket/call) pass; Slice1.sw 19/19. fmt --check over tools, std, aoc, games, examples, docs, web: no repo file changes.\n- CmpGate (hand + gen.py noted 77, longnoted 78, legal 79, wild 80; 863 decls): 13 changed, all hugged brackets after a comment break.\n- Proofs: hug lemmas restated through framed lemmas (huggedBracketIs removed; hugFacts/edgeHugFacts from around.before); ElementsProofs: framedLedHangs, hugLastHangs, bracketLastHangs, appArgsHang, BracketFacts/AllBracketFacts (appAny takes argumentBrackets). appAny and anyHug closed; check Fmt.TopStatements 0 errors, 1 goal (formatAccepts1, pre-existing). No top theorem, Grammar1, Accepts1, MustAccept1 or Driver1 touched; nothing refused that was accepted.\n\n- Audits: ElementsApp 2/2, ElementsProofs 48/48, and the 12 other edited namespaces 0 failed (11 warnings, none on a changed theorem: arrowOperator, operatorA/D/Facts, closesSolid, closerCloses, closerNotComma, closeTrails, commentFilled, closerCode, pieceCloser). Done 12:16, 23 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26369,12 +26369,12 @@
     {
       "id": 4162,
       "title": "[Opus] fmt (SW-4132 lane 2b): loweringDeaf: a Fail-effect traversal lemma family over Expr/Pattern/Decl.traverse (steps that can fail), then traversalError on decl and decl.walk blankPure agree (SW-4141 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4162",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60-90 min. Pure pieces done in Syntax/DeafProofs.sw (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Needed by lane 8.",
+      "body": "Est. 60-90 min. Pure pieces done in Syntax/DeafProofs.sw (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Needed by lane 8.\n\nLane notes (Opus, 19 Nov): branch lane/SW-4162, commit 047a629ab. loweringDeaf proved as SW-4132 §3 states it (decl.loweringError = (decl.walk blankPure).loweringError), via new Fmt/TraverseFail.sw (41 `…Blanks` theorems + alike combinators, generated from Walk.sw's `…Ok` family) and checkBlanks/traversalDeaf in DeafProofs. Check + audit clean: Fmt.TraverseFail 52/52, Syntax.DeafProofs 137/137. Computed check: Fmt/Tests/LoweringDeaf.sw, 8 declarations with comments, 6 with errors (all three checks), agree. 17 min.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26408,12 +26408,12 @@
     {
       "id": 4165,
       "title": "[Opus] fmt (SW-4132 lane 3): pattern lane: the alike relations, two-run wrappers (followsBump, peeked, eat, expect, lower, fail), the knot's statement and the cross-file record, atoms, brackets and comma lists as the worked pattern; a how-to header for lanes 4-7 (Syntax/FollowsBase.sw)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4165",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 35 min.",
+      "body": "Est. 35 min.\n\nLane notes (Opus, 19 Nov, 11:40-11:55): tools/fmt/src/Syntax/FollowsBase.sw, branch lane/SW-4165, commit 542482a24. check 0 errors; audit 70 theorems, 0 failed, 0 warnings. Relations (WordsAlike, ExprsAlike, PatternsAlike, GroupsAlike, ParamsAlike, StatementsAlike, LetsAlike, DeclsAlike, Same, Anything, PairAlike); wrappers (followsBump, followsBumpThen, followsLeft, followsOn, followsLook, followsPeek(At), followsPeeked, followsAt, followsAtEither, followsEat, followsExpect(On), followsLower(On), followsOffset, followsLeftCount, followsThenEq, followsFail/FailName/FailNameOn/Gap/FatalAny); knot SelfFollows/PatternSelfFollows with ties followsExpressionAt, followsExpression, followsPattern; atoms, bracketed/tuple/annotation, listExpr, commaList, parenAtom, bracketAtom. Orchestrator-level deviation: no single cross-file record (the files call each other, so it could not be built); each lemma takes the Follows fact of each other-lane function it calls directly, and lane 8 supplies them in call order. How-to header for lanes 4-7 at the top of the file.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26421,12 +26421,118 @@
     {
       "id": 4166,
       "title": "[Opus, paper] fmt S1: plan one extension of the parser's Carried walk (ParseCarries*) for three facts the acceptance proof needs: GroupShapes1 (tokens with commas, SW-4138), autoStart (SW-4128), and lifting the GoodItems/spelledPlain1 and within1 gates to grammar1; lane split and estimates",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min paper. Inputs: SW-4138 report (Fmt/SourcePlainProofs.sw), SW-4128 notes, docs/reviews/SW-4120-grammar1.md, SW-4131, SW-4132.",
+      "body": "Est. 30 min paper. Inputs: SW-4138 report (Fmt/SourcePlainProofs.sw), SW-4128 notes, docs/reviews/SW-4120-grammar1.md, SW-4131, SW-4132.\n\nLane notes (Opus paper, 19 Nov, 11:54-12:05): note written to the lane scratchpad (sw4166/SW-4166-carried-walk-plan.md) for docs/reviews/. Design: Carried becomes Kept in place (gate grammar1; words + kinds with commas + within1; autoPlaced1 at full goals), ParseWalk.Out re-gated to grammar1 = False. Lanes L (Sonnet, lexer words, 50 min), K1 (Opus, spec + first half, 60), K2 (Sonnet, ladder/decl/file, closes groupShapesProved, 50), A (Opus, auto = SW-4128, 75). Follows cannot carry these (one-run facts); it moves within1/autoPlaced1 from the lexer parse to the settled one via deaf lemmas. No decision for Matt.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4167,
+      "title": "[Sonnet] fmt (SW-4132 lane 4): two-run walk of Parser.sw first half: applications, unary, the operator ladder, ranges, comparisons, logic, pipes (Syntax/FollowsLadder.sw)",
+      "status": "done",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4167",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.\n\n\nProgress (lane, 19 Nov 2026): Syntax/FollowsLadder.sw done on lane/SW-4167, 87 followsF/helper lemmas, check 0 errors, audit 94 passed. Hypotheses: AtomFollows, BraceFollows, MatchFollows, ClauseLambdaFollows, LambdaFollows, IfFollows, QuantifierFollows (lane 5), ResultTypeFollows (lane 6). No comment read, no narrowing.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": [
+        "f5fd5ebe9"
+      ]
+    },
+    {
+      "id": 4168,
+      "title": "[Sonnet] fmt (SW-4132 lane 5): two-run walk of Parser.sw second half: keyword expressions, lambdas, quantifiers, if, match, patterns, records, the rest (Syntax/FollowsForms.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4169,
+      "title": "[Sonnet] fmt (SW-4132 lane 6): two-run walk of DeclParser.sw: headers and groups (the bare flag, hard spot 1), types, the declarations (Syntax/FollowsDecl.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 55 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4170,
+      "title": "[Sonnet] fmt (SW-4132 lane 7): two-run walk of Statements.sw: blocks, let, local definitions, proof steps, handle (Syntax/FollowsStatements.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 25 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4171,
+      "title": "[Sonnet] fmt S1 lane L (SW-4166): lexer words: textSpells1 takes auto; every name/numeral token lex gives is textSpells1; Spells -> textSpells1; lexGood without spelled; quiet raw groups from lexLaidProved",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4171",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row L (compute first; widen Spells/textSpells1, never the grammar).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4172,
+      "title": "[Opus] fmt S1 lane K1 (SW-4166): Carried becomes Kept: Expr.kinds1 (new file), Out/DeclOut regated on grammar1, Kept/KeptAt/carriedOfKept, ParseCarries.sw converted, within1 -> grammar1 lemmas",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4172",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §2, §4 row K1. Later ParseWalk.sw editors wait for it.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4173,
+      "title": "[Sonnet] fmt S1 lane K2 (SW-4166): ParseCarriesLadder/Decl/File converted to Kept; GroupShapes1 restated with good/quiet; groupShapesProved and parsedSourcePlain1 closed (after K1, L)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Plan: docs/reviews/SW-4166-carried-walk-plan.md §4 row K2.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4174,
+      "title": "[Sonnet] std: List.All2 length lemma (local all2Length in Syntax/FollowsLadder.sw), and the FollowsBase how-to notes from lane 4 (SW-4167 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Est. 15 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
