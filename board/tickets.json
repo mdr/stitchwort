@@ -26358,12 +26358,12 @@
     {
       "id": 4161,
       "title": "[Sonnet] std: move Parse.runFromAddMark next to runFromForgetMark (Runs.sw), and Option.Alike, List.all2Append, List.all2Reverse into the Option and List lemma files (SW-4140 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4161",
       "labels": [],
       "epic": "std-library",
-      "body": "Est. 15 min. Prelude snapshot will change (moves).",
+      "body": "Est. 15 min. Prelude snapshot will change (moves).\n\n\nDone on lane/SW-4161 (2513280e2): runFromAddMark to Parse/Runs.sw; Option.Alike to Option/Lemmas.sw; List.all2Append/all2Reverse to List/Lemmas.sw. Prelude snapshot unchanged.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26384,12 +26384,12 @@
     {
       "id": 4163,
       "title": "[Sonnet] std: List.consNeNil-style lemma for [] = [x, ..xs] clashes (12 uses of let clash + cases in Syntax/DeafProofs) and use it there (SW-4141 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4161",
       "labels": [],
       "epic": "std-library",
-      "body": "Est. 20 min.",
+      "body": "Est. 20 min.\n\n\nDone on lane/SW-4161 (2513280e2): std already had List.nilNotCons; the 5 clash uses in DeafProofs (not 12) now use it.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26533,12 +26533,12 @@
     {
       "id": 4174,
       "title": "[Sonnet] std: List.All2 length lemma (local all2Length in Syntax/FollowsLadder.sw), and the FollowsBase how-to notes from lane 4 (SW-4167 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4161",
       "labels": [],
       "epic": "std-library",
-      "body": "Est. 15 min.",
+      "body": "Est. 15 min.\n\n\nDone on lane/SW-4161 (2513280e2): std already had List.all2Length (now documented); local all2Length deleted, users updated; lane 4's how-to notes folded into the FollowsBase header.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
