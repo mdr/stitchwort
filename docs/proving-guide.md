@@ -584,6 +584,54 @@ Import what you use: std's theorems live in namespaces that need an import
   a tuple pattern (`let (x, a, b) := h`), `match`, `.left`, `.right`;
   `Void.impossible` from a contradiction.
 
+### One proof for several cases
+
+When arms of a proof read the same, write the text once: an or-pattern, or
+a catch-all after the arms that differ (D3694; the sweeps of 19 Nov 2026
+joined about 2,650 arms this way, so expect to meet both). The language
+guide's "One proof for several cases" (`docs/guide/10-proofs.md`) and
+`docs/syntax.md`'s "Or-patterns" are the reference; this is what to watch
+for in a proof.
+
+- **An or-pattern arm is checked once per alternative.** The body is
+  checked as if written under each alternative, with that alternative's
+  names, so every alternative's goal must be provable by the same text. A
+  name may have a different type in each: in
+  `| Inl same | Inr same => rewrite same`
+  (`tools/fmt/src/Fmt/SpellProofs.sw`, `closersApart`), `same` is
+  `isCloserText text = True` in one alternative and `text = ","` in the
+  other. Every alternative must bind the same names (`E-OR-PATTERN-BINDS`;
+  write `_` for a part the body doesn't use). An error says which
+  alternative it is in and the types there ("this error is in the
+  alternative `Inr same`, where `same: word = "lets"`"), or "in each of the
+  2 alternatives" when they all fail alike; a `?` in the arm shows every
+  alternative's goal. If one alternative needs a different proof, give it
+  an arm of its own.
+- **A catch-all after a split is checked once per remaining case.**
+  `| Lower | Upper | Num | Float => plain` then `| other => byComputing`
+  (`tools/fmt/src/Fmt/Kinds.sw`, `Tok.atomFalseOfWord1`) checks
+  `byComputing` for every other constructor of `Tok`, with the goal
+  refined for each. Use it when every remaining case closes the same way.
+  A catch-all may bind (`| other, same => rewrite same`), at a different
+  type in each case. An error names the case ("this arm is checked in 5
+  cases, and this error is in the case where `kind` is `Star`").
+- **Trap: a catch-all alone isn't a split.** The catch-all is checked per
+  case only for the cases the other arms split off. With every other arm
+  dropped, `match colour with | other => byComputing` leaves `colour`
+  unsplit, and `byComputing` fails with `E-REFL` (`other.code <= 3` and
+  `True` aren't equal): it needs the constructor. The SW-4252 sweep hit
+  this in four places. Keep an arm that names a constructor, or join the
+  arms into an or-pattern (`| Red | Green => …`) before the catch-all; to
+  split without naming the rest, `| Red | _ => byComputing` works too.
+- **Trap: effect-operation patterns can't be or-pattern alternatives.**
+  A `match reify` clause such as `| Parse.stop u, r =>` or
+  `| Parse.fatal message, r =>` binds the operation's argument and the
+  continuation, and `| Parse.stop u, r | Parse.fatal message, r =>` is
+  `E-PARSE` ("expected `=>`, but found `|`"). Keep one clause per
+  operation, as in `Parse.runFromSectionLineFromOkTree`
+  (`crates/elab/src/std/Parse/ReadsChars.sw`), where the `Parse.stop u, r`
+  and `Parse.fatal message, r` clauses both end `(Result.errNotOk h).impossible`.
+
 ## 4. Common errors and what they usually mean
 
 Each was run on the example named; the output is quoted, shortened.
