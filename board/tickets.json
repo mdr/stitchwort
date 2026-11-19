@@ -27132,8 +27132,8 @@
     {
       "id": 4219,
       "title": "[Opus, paper] Design note: 'remaining cases likewise' in a proof match (arms checked separately, one proof text for several arms), with or-patterns; evidence: dispatchers ~26% of fmt theorems, andLevels/orLevels four near-identical arms (SW-4205 §6 item 3); syntax and semantics, guide text, cost; for Matt's decision before building",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
