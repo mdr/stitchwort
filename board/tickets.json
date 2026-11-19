@@ -1,5 +1,5 @@
 {
-  "next": 4109,
+  "next": 4112,
   "tickets": [
     {
       "id": 47,
@@ -25656,12 +25656,51 @@
     {
       "id": 4108,
       "title": "[Fable] fmt S1 goals closersBareOneLine1 and blanksBelowOneLine1 (Fmt.OneLineParts): SW-4098 (Opus) found no route; both need the document's line breaks (CloserLine, LineStart/Blank) without Lays/DeclHangs (circular). Find a route (e.g. a std Doc lemma reading hard breaks from printed pieces, or a non-circular DeclHangs for closers/blank flags), or show none exists short of refusing such declarations; prove what you can, report",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane notes (Fable, 19 Nov 2026, branch lane/SW-4108, commits fdc5a2344, b1a79d6bd, 10b58a404):\n\n- Route found for both goals, one route. printedTold (Fmt.ToldDeclProofs) already reads CloserLine, LineStart and Blank for every slice 1 declaration with no DeclHangs; only printTold's hypothesis that the document lays came from DeclHangs. With a continuation that holds everywhere, Lays asks nothing of columns, only of the kind of place each piece is written at.\n- Proved: standsOfLays (Fmt.StandsProofs; standsOfDoc is now its corollary), Fmt.LaysKinds.laysOfKinds (a document that passes the computed check laysKinds lays; std's to have), Fmt.OneLineLays.laysOfCheck, laysSomehow1 and stands1OfLays (from doc1Checks), Fmt.LedProofs.leavesLed (a leaf with comments or blank lines above it starts its line).\n- Open, with route notes: doc1Checks (every slice 1 document passes the check: a walk over the rules like ToldWordProofs/ToldDeclProofs, est. 1,200-2,000 lines, 2-3 lanes; computes True on seven sources with commented closers and kept blank lines), closersBareOfStands and blanksBelowOfStands (stands1 and oneLine1 to the parts: est. 400-500 lines, 1 lane, best after SW-4107, which builds the same onLine1 alignment).\n- Statements in Fmt.OneLineParts unchanged and still open. The route needs unreturned1 (stands is false without it); every caller has it (declsAll). Threading it through closersBareOneLine1, blanksBelowOneLine1, edgeQuietOneLine1, declElementsOneLine1 and declHangsOneLine is a statement change: not made.\n- All of this is staging: DeclHangs for every slice 1 declaration (SW-4082) makes edgeQuietOneLine1 unnecessary. Decision for Matt: build doc1Checks and the bookkeeping (3-4 lanes), or have the driver refuse declarations that fail closersBare1 && blanksBelow1 (or edgeQuiet1) beside oneLine1.\n- Checks: check Fmt.OneLineLays, Fmt.LedProofs, Fmt.LaysKinds, Fmt.StandsProofs, Fmt.TopStatements 0 errors (TopStatements still 4 goals open); audit LaysKinds 82 passed, LedProofs 6 passed, StandsProofs 120 passed, OneLineLays 13 passed and 7 failed (the three open goals and what rests on them).\n\n",
+      "body": "Lane notes (Fable, 19 Nov 2026, branch lane/SW-4108, commits fdc5a2344, b1a79d6bd, 10b58a404):\n\n- Route found for both goals, one route. printedTold (Fmt.ToldDeclProofs) already reads CloserLine, LineStart and Blank for every slice 1 declaration with no DeclHangs; only printTold's hypothesis that the document lays came from DeclHangs. With a continuation that holds everywhere, Lays asks nothing of columns, only of the kind of place each piece is written at.\n- Proved: standsOfLays (Fmt.StandsProofs; standsOfDoc is now its corollary), Fmt.LaysKinds.laysOfKinds (a document that passes the computed check laysKinds lays; std's to have), Fmt.OneLineLays.laysOfCheck, laysSomehow1 and stands1OfLays (from doc1Checks), Fmt.LedProofs.leavesLed (a leaf with comments or blank lines above it starts its line).\n- Open, with route notes: doc1Checks (every slice 1 document passes the check: a walk over the rules like ToldWordProofs/ToldDeclProofs, est. 1,200-2,000 lines, 2-3 lanes; computes True on seven sources with commented closers and kept blank lines), closersBareOfStands and blanksBelowOfStands (stands1 and oneLine1 to the parts: est. 400-500 lines, 1 lane, best after SW-4107, which builds the same onLine1 alignment).\n- Statements in Fmt.OneLineParts unchanged and still open. The route needs unreturned1 (stands is false without it); every caller has it (declsAll). Threading it through closersBareOneLine1, blanksBelowOneLine1, edgeQuietOneLine1, declElementsOneLine1 and declHangsOneLine is a statement change: not made.\n- All of this is staging: DeclHangs for every slice 1 declaration (SW-4082) makes edgeQuietOneLine1 unnecessary. Decision for Matt: build doc1Checks and the bookkeeping (3-4 lanes), or have the driver refuse declarations that fail closersBare1 && blanksBelow1 (or edgeQuiet1) beside oneLine1.\n- Checks: check Fmt.OneLineLays, Fmt.LedProofs, Fmt.LaysKinds, Fmt.StandsProofs, Fmt.TopStatements 0 errors (TopStatements still 4 goals open); audit LaysKinds 82 passed, LedProofs 6 passed, StandsProofs 120 passed, OneLineLays 13 passed and 7 failed (the three open goals and what rests on them).\n\nMerged 19 Nov. 33 min (est. 75). Not stuck: a route found. standsOfDoc's statement unchanged (now a corollary). Orchestrator's calls: build the route (Matt's 'proved, not validated'; the narrow refusal stays a fallback for the morning if the route stalls); thread unreturned1 (callers hold it; a hypothesis-adding change checked in review, witness = witnessSource) rather than a text-blind bitsHeard. Follow-ups SW-4109, SW-4110.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4109,
+      "title": "[Sonnet] fmt S1: thread decl.unreturned1 into closersBareOneLine1, blanksBelowOneLine1, edgeQuietOneLine1, declElementsOneLine1, declHangsOneLine (callers have it from declsAll; SW-4108) and close the two parts from closersBareUnreturned1/blanksBelowUnreturned1; then doc1Checks (every slice 1 declaration's document passes laysCheck), a walk over the rules shaped like ToldWordProofs/ToldDeclProofs (est. 2-3 lanes)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4110,
+      "title": "[Opus] fmt S1 goals closersBareOfStands and blanksBelowOfStands (Fmt.OneLineLays): from stands1 and oneLine1 to each part; reuse SW-4107's onLine1 alignment; after SW-4107 merges",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4111,
+      "title": "[Sonnet] std/Doc: move laysKinds and laysOfKinds from Fmt.LaysKinds beside Told.sw, parameterised over the comment text (SW-4108)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
