@@ -1,5 +1,5 @@
 {
-  "next": 4166,
+  "next": 4167,
   "tickets": [
     {
       "id": 47,
@@ -26053,7 +26053,7 @@
     {
       "id": 4138,
       "title": "[Opus] fmt S1 C2 (SW-4131): every parsed slice 1 source is sourcePlain1 (the driver's plain test refuses nothing in the grammar), for formatAccepts1",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4138",
       "labels": [],
@@ -26330,9 +26330,9 @@
     {
       "id": 4159,
       "title": "[Opus] fmt: hugged bracket after a comment break lays out wrong in both formatters: 'f / -- c / (' then items at the bracket's column and ')' at column 0; frame huggedBracket like framedBy (items indented under the bracket, closer at the bracket's column), in Rules.sw and crates/fmt (D3677 shared bug), then prove appAny's and anyHug's hugged last-argument case (SW-4148 gap 2)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4159",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 90 min. After SW-4155 (Rules.sw framedBy). Orchestrator's call: shared formatter bug fix, output changes only for a hugged tuple/list argument with a comment above it or after the previous argument. Needs snapshot updates for any changed formatter tests; report every changed output. Repro: printf 'def x: List Nat := f\\n  -- the pairs\\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\\n' then stitchwort fmt.",
@@ -26369,9 +26369,9 @@
     {
       "id": 4162,
       "title": "[Opus] fmt (SW-4132 lane 2b): loweringDeaf: a Fail-effect traversal lemma family over Expr/Pattern/Decl.traverse (steps that can fail), then traversalError on decl and decl.walk blankPure agree (SW-4141 finding)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4162",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60-90 min. Pure pieces done in Syntax/DeafProofs.sw (patternBindsDeaf, anyGuardWithoutBodyDeaf, duplicateParameterDeaf, localDuplicateDeaf). Needed by lane 8.",
@@ -26414,6 +26414,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 35 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4166,
+      "title": "[Opus, paper] fmt S1: plan one extension of the parser's Carried walk (ParseCarries*) for three facts the acceptance proof needs: GroupShapes1 (tokens with commas, SW-4138), autoStart (SW-4128), and lifting the GoodItems/spelledPlain1 and within1 gates to grammar1; lane split and estimates",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 30 min paper. Inputs: SW-4138 report (Fmt/SourcePlainProofs.sw), SW-4128 notes, docs/reviews/SW-4120-grammar1.md, SW-4131, SW-4132.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
