@@ -26053,12 +26053,12 @@
     {
       "id": 4138,
       "title": "[Opus] fmt S1 C2 (SW-4131): every parsed slice 1 source is sourcePlain1 (the driver's plain test refuses nothing in the grammar), for formatAccepts1",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4138",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\ndocs/reviews/SW-4131-own-line-comma.md. Model: Opus. Est. 45-90 min, low confidence.\n\nOrchestrator 19 Nov: SW-4137 crossed SW-4129: Fmt.SettleParseProofs.settledPlaced1 still takes plain1 while the driver now tests sourcePlain1; fixed on main by weakening at the call (sourcePlainOfPlain). For formatAccepts1, settledParses1/settledPlaced1 should take sourcePlain1 (or SW-4133's whole-parser route drops it): do it here or in SW-4133.\n",
+      "body": "\ndocs/reviews/SW-4131-own-line-comma.md. Model: Opus. Est. 45-90 min, low confidence.\n\nOrchestrator 19 Nov: SW-4137 crossed SW-4129: Fmt.SettleParseProofs.settledPlaced1 still takes plain1 while the driver now tests sourcePlain1; fixed on main by weakening at the call (sourcePlainOfPlain). For formatAccepts1, settledParses1/settledPlaced1 should take sourcePlain1 (or SW-4133's whole-parser route drops it): do it here or in SW-4133.\n\n\nLane notes (Opus, 19 Nov, 11:24-11:55): partly done, stopped early to report. New Fmt/SourcePlainProofs.sw. Proved: the tree's half (a slice 1 file's token shapes, commas put back, pass a test stricter than sourcePlain1: sourcePlainOfFile1) and the file layer of the parser's half (parsedShapesOf, from one declaration's GroupShapes1). Stated: parsedSourcePlain1 (the brief's statement), proved from groupShapesProved, which is OPEN (?): a walk of the declaration parser like ParseCarries' with a spec that places commas (Carried leaves them out). Computed: statement and the open walk fact both hold on all 3,462 grammar sources of 105,536 (1,436 with an own-line last comma): MustAccept1's 144, multiline-gate gen.py 5 modes + hand, a comma-heavy generator 3,200, every order of up to 5 of a , -> ( ) [ ] with line-start commas. Walk obstacles: ParseWalk's Out facts and GoodItems need spelledPlain1 and gate on within1, not grammar1 (auto, SW-4128). Est. for the walk: 3-5 h Opus, best joined with SW-4128's extension of the Carried walk. Task 2 (settledParses1 on sourcePlain1) not done: it is not a weakening only, since tokens differ in a closer's line start; it is SW-4133's groupKeepsTokens1 with that difference. Audit: 49 pass, 2 fail (groupShapesProved open, parsedSourcePlain1 relies on it).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
