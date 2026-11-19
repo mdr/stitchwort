@@ -85,6 +85,37 @@ pub fn par_map<T: Sync, R: Send>(stack: usize, items: &[T], f: impl Fn(&T) -> R 
     par_map_with(stack, items, || (), |(), item| f(item))
 }
 
+/// [`par_map`], with a label for each item: an item whose work panics is
+/// re-raised with a message starting "`<label> panicked: `" and the panic's
+/// own message, so a sweep over hundreds of files says which one led there.
+#[doc(hidden)]
+pub fn par_map_labelled<T: Sync, R: Send>(
+    stack: usize,
+    items: &[T],
+    label: impl Fn(&T) -> String + Sync,
+    f: impl Fn(&T) -> R + Sync,
+) -> Vec<R> {
+    par_map_with(
+        stack,
+        items,
+        || (),
+        |(), item| {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(item))).unwrap_or_else(
+                |payload| panic!("{} panicked: {}", label(item), panic_message(&*payload)),
+            )
+        },
+    )
+}
+
+/// The text of a panic's payload.
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_else(|| "(a panic with no message)".to_string())
+}
+
 /// [`par_map`], where each worker thread first makes its own state with
 /// `init` (once, however many items it takes), and `f` gets it with each
 /// item: for a sweep that would otherwise build the same expensive thing,
@@ -1890,6 +1921,25 @@ mod tests {
         let second = text.find("g (z").unwrap();
         assert_eq!(&text[balanced_range(text, second..second + 4)], "g (z)");
         assert_eq!(&text[balanced_range(text, 0..4)], "a &&");
+    }
+
+    #[test]
+    fn a_panicking_items_label_is_in_the_re_raised_message() {
+        let items = ["one", "two", "three"];
+        let panic = std::panic::catch_unwind(|| {
+            par_map_labelled(
+                1024 * 1024,
+                &items,
+                |item| item.to_string(),
+                |item| {
+                    assert_ne!(*item, "two", "the original message");
+                },
+            )
+        })
+        .expect_err("the item panics");
+        let message = panic_message(&*panic);
+        assert!(message.starts_with("two panicked: "), "{message}");
+        assert!(message.contains("the original message"), "{message}");
     }
 
     fn session() -> Session {
