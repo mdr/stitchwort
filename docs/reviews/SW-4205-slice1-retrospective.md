@@ -5,6 +5,13 @@ Fable, paper lane, 19 Nov 2026, for D3691 (Matt). Read against `main` at
 counts over `tools/fmt/src` (script and output in the lane's scratch
 folder, not kept).
 
+**Corrected 19 Nov (SW-4210).** The "16 theorems per parser function"
+for the shape walk, and everything built on it (strategy A, the
+two-minute summary's "a tenth the cost", the totals in sections 3, 7 and
+8), used the wrong denominator. Each correction is marked where it
+stands, with the old figure kept; the arithmetic is in section 3's
+correction and section 7's. Source: `docs/proposals/fmt-consolidation-statements.md` §1 and §2.
+
 How claims are marked: **[measured]** counted by me today; **[read]**
 taken from the file named; **[estimated]** my judgement;
 **[heuristic]** a count by name or shape that over- or under-counts.
@@ -25,7 +32,9 @@ every step.
 
 **How far the full formatter is.** On the current approach, slices 2 to
 7 are about **13,000 to 34,000 more theorems, 150 to 390 agent hours**
-[estimated], that is 2 to 6 more slice 1s. Slice 1 ran at 2.4 agent
+[estimated], that is 2 to 6 more slice 1s. *Corrected 19 Nov (SW-4210):
+about **12,000 to 30,000 theorems, 140 to 345 agent hours**, 2 to 5 more
+slice 1s [estimated; arithmetic in section 3].* Slice 1 ran at 2.4 agent
 hours per clock hour [read], so that is 3 to 7 days of lanes running
 round the clock, or one to three weeks at a working pace; the weekly
 usage allowance is the real limit, not the machine. **It is not
@@ -41,8 +50,18 @@ per parser function. The part done slice by slice with a statement per
 function cost 16 per function [measured]. Three changes follow, all
 keeping today's theorems at full strength:
 
-1. prove the parser's remaining facts **once for the whole language, in
-   the uniform style**, instead of slice by slice;
+*Corrected 19 Nov (SW-4210): the 16 was wrong, and the first change
+below has no saving. 951 theorems were divided by the 58 functions slice
+1 reaches, but they walk about 500 functions. Per function walked
+[measured]: shape 1.3 (665 theorems over 504), tokens kept 1.8 (261 over
+142), two-run 1.6 (854 over 524). The shape walk is already the uniform
+form (414 of `ParseWalk.sw`'s 548 theorems are one `Parse.Gives` lemma per
+function). Changes 2 and 3 are untouched.*
+
+1. ~~prove the parser's remaining facts **once for the whole language, in
+   the uniform style**, instead of slice by slice~~ (withdrawn: it is
+   already in that style);
+
 2. on the printer side, each rule function is now walked by five
    separate lemma families (joins, hangs, kinds, touches, spelling);
    try **one combined lemma per rule**;
@@ -51,7 +70,9 @@ keeping today's theorems at full strength:
    likewise" in a proof, and resource errors that say where.
 
 If these work, the rest is about 140 to 260 agent hours, preparation
-included, against 170 to 410 if they don't [estimated, low confidence],
+included, against 170 to 410 if they don't [estimated, low confidence]
+(*corrected 19 Nov (SW-4210): about 150 to 270 if the combined lemma
+passes, 155 to 360 if not; section 7*),
 and the proof is something a person can find their way round.
 
 **Not recommended:** replacing the hand-written parser with a
@@ -105,6 +126,16 @@ count is the skill to fix, not the proving.
   times the sketch.
 
 ### One measurement the checkpoint did not draw out
+
+**Corrected 19 Nov (SW-4210): this section's conclusion is withdrawn.**
+The 16 per function divided the 951 parser-walk theorems by the 58
+functions slice 1 reaches. Those theorems walk about 504 functions (most
+with the spec "this builds a tree outside the slice"), so per function
+walked the shape walk is 665 / 504 = **1.3**, tokens kept 261 / 142 =
+**1.8**, and the two-run walk 854 / 524 = **1.6** [all measured]. The
+walks cost the same, and "the difference is the form" does not follow.
+The text below is kept as originally written. Source: `docs/proposals/fmt-consolidation-statements.md` §1 and §2.
+
 
 The two-run walk covers all 620 reading functions of the parser, for the
 whole language, with no slice hypothesis, in 1,005 theorems and 14,072
@@ -208,6 +239,34 @@ agrees with the orchestrator's 12,000 to 31,000. At 87 an hour that is
 **150 to 390 agent hours** of proof lanes, plus about a sixth for paper
 lanes (slice 1: 11.7 on 69.4 [read]).
 
+**Corrected 19 Nov (SW-4210).** Both methods start from slice 2's sketch,
+whose parser-walk row used the 16 a function: 500 to 800 theorems, now
+250 to 350, so slice 2 is 2,400 − 500 + 250 = **2,150** to 3,900 − 800 +
+350 = **3,450** [estimated; `self-hosted-fmt-s2-sketch.md` §5.1].
+Recomputed [estimated]:
+
+- *By the plan's proportions* (S3 to S7 at 4.8 to 5 times S2): S2 to S7 is
+  2,150 × 5.8 = **12,470** to 3,450 × 6 = **20,700** (was 13,900 to
+  23,400).
+- *By parser functions* (S2's theorems a function, over the 500 functions
+  of S3 to S6): 2,150 / 65 = 33 and 3,450 / 65 = 53 a function (was 37
+  to 60), so S3 to S6 are 33 × 500 = 16,500 to 53 × 500 = 26,500, and S2
+  to S7 are 16,500 + 2,150 = **18,650** to 26,500 + 3,450 = **29,950**
+  (was 20,000 to 34,000).
+- Taking both: **about 12,000 to 30,000 more theorems** (was 13,000 to
+  34,000). At 87 an hour: 12,000 / 87 = 138 and 30,000 / 87 = 345, so
+  **about 140 to 345 agent hours** (was 150 to 390), plus a sixth for
+  paper lanes. That is 12,000 / 6,232 = 1.9 to 30,000 / 6,232 = 4.8, so 2
+  to 5 more slice 1s (was 2 to 6), and 140 / 2.4 = 58 to 345 / 2.4 = 144
+  clock hours of lanes: 2 to 6 days round the clock (was 62 to 160 hours,
+  3 to 7 days), one to three weeks at a working pace as before.
+- Cross-check from the other side [estimated]: SW-4210 puts the remaining
+  parser walks at 2,100 to 2,500 theorems where strategy A's "current
+  form" figure was 4,000 to 8,000, a fall of 1,900 to 5,500, which takes
+  13,000 to 34,000 to about 11,000 to 28,500. The two agree to within
+  the range's own width, and I keep the first, which is made per layer.
+
+
 Uncertainty, and which way it leans:
 
 - Slice 2's sketch could itself be low. The slice 1 sketch was 5 times
@@ -243,8 +302,14 @@ concern is the end state on this approach:
   published proofs of this kind run 3 to 10 [read:
   `toy-proof-complexity.md`]) [estimated by scaling slice 1's 18.6
   lines a theorem];
+  *(Corrected 19 Nov (SW-4210), from 12,000 to 30,000 more: 6,232 + 12,000 =
+  18,200 and 6,232 + 30,000 = 36,200 theorems, so **18,000 to 36,000**;
+  × 18.6 = 338,000 to 673,000, so **340,000 to 670,000 lines**; ÷ 13,000
+  = 26 to 52 times [estimated].)*
 - a project check of 20 to 40 minutes at today's 396 s for 6,232
-  theorems [estimated, linear];
+  theorems [estimated, linear] *(corrected 19 Nov: 396 / 6,232 = 0.0635 s
+  a theorem × 18,200 = 19 min to × 36,200 = 38 min, so **19 to 38
+  minutes**)*;
 - each parser function or rule a later change touches has its lemma in
   four or five families.
 
@@ -269,8 +334,21 @@ idempotent, everything accepted, the theorems as strong as slice 1's.
 | I | **Different slice boundaries.** Slices cut by grammar suit the printer, whose rules are per construct, and the risks, which are per construct. They cut across the parser, the lexer and rule N, whose functions every slice shares | the restating: "rule N over a larger alphabet", new `Out` facts, re-proved tops, each slice | none beyond A | low | yes | **do: parser-side layers whole-language, once; printer and read-back by slice; S4 to S6's printer work by layer across the three** |
 | J | **A smaller core printer.** Rules produce a restricted document for which joins, hangs and spelling are checked by structure, proved sound once against the engine | the same target as B, more thoroughly | a redesign of `Rules.sw`'s 186 functions against a byte-for-byte gate | high | yes | **not now**; B is the cheap test of whether the five walks can be one |
 
+
+**Corrected 19 Nov (SW-4210): row A is withdrawn; it has no saving left.**
+Its cost column, "4,000 to 8,000 theorems on the current form (500
+functions at 8 to 16) against 1,000 to 2,000 (620 at 1.6 to 3)", rests on
+the wrong 16 (section 1's correction). The shape walk is already one
+`Parse.Gives` lemma per function, uniform, at 1.3 theorems per function
+walked, and tokens kept at 1.8 [measured]. On the present form the
+remaining parser walks are about 500 × (1.75 + 1.84 + 0.65 for spec
+helpers) ≈ 2,100 to 2,500 theorems [estimated, SW-4210], so
+4,000 to 8,000 becomes 2,100 to 2,500, and in agent hours 45 to 90 becomes
+2,100 / 87 = 24 to 2,500 / 87 = 29. Idea I (parser-side layers once for
+the whole language) stays as it was. Source: `docs/proposals/fmt-consolidation-statements.md` §1 and §2.
+
 Reuse across slices (asked for by name): it is A and I, plus section
-5's "un-number the predicates".
+5's "un-number the predicates" (*corrected 19 Nov: A is withdrawn, so I and the un-numbering*).
 
 What I am not sure of: B and J rest on reading the triple definitions
 and file headers, not the 1,545 proofs. The spike is how to find out.
@@ -285,12 +363,12 @@ and file headers, not the 1,545 proofs. The spike is how to find out.
 | 4 | Lift generic lemmas to std: of the 732 list-helper names [heuristic], those whose statements mention no `Fmt` or `Syntax` type. I expect 50 to 150 [estimated] | Sonnet, 2 lanes of 60 min | yes: every later slice and AoC | SW-4161, 4163, 4174, 4178 moved some; a sweep is new |
 | 5 | **Un-number the tree predicates.** 1,392 theorems (22%) name an identifier ending in `1` [measured, heuristic]; `Expr.shaped1` ends `| _ => False` [read: `Fmt/Predicates1.sw:183`], and slice 2's sketch plans `shaped2`, `settled2`, `lexical2`, `unreturned2` beside them, with the per-construct lemmas restated. One definition per predicate over the whole tree, growing an arm per slice, with the slice entering only as a `withinN` hypothesis, lets a lemma about `App` proved in slice 1 stand in slice 2 when an argument is a lambda | Fable statement note (45 min), then Sonnet renames (2 to 3 hours) | **the most**: it decides whether slice N re-proves slices 1 to N−1's arms. Trade-off: a growing definition leaves open goals on a branch until the new arms are filled, where numbered copies keep `main` proved throughout | new; belongs in S2's statements lane (lane 3 of its sketch) |
 | 6 | Split the largest files: `ParseWalk.sw` is 7,186 lines and 552 theorems; 17 files are over 2,000 lines [measured] | Sonnet, 60 min, mechanical | yes: the check loop (friction 1) | new, after SW-4197's measurement |
-| 7 | Convert slice 1's shape walk to the uniform form | part of A | yes | with A |
+| 7 | ~~Convert slice 1's shape walk to the uniform form~~ *Corrected 19 Nov (SW-4210): withdrawn, it is already uniform; what is left is a tidy worth about ten theorems (`InSlice`)* | part of A | yes | with A |
 | 8 | State that comments are kept (`CommentsKept` has no theorem) | Opus, 60 min | yes: before S2's passes delete tokens | SW-4203 |
 | 9 | A corpus count after the widening | Sonnet, 30 min, the verifier's run | reporting | SW-4201 |
 
 About 8 to 10 agent hours for all of it [estimated]. Items 3, 4, 5 and
-7 are the ones that change what later slices cost; 1, 2 and 6 make the
+7 are the ones that change what later slices cost (corrected 19 Nov: not 7); 1, 2 and 6 make the
 tree easier to work in.
 
 Not worth doing: shortening the five longest proofs (300 to 433 lines).
@@ -338,8 +416,8 @@ to come in under.
 |---|---|---|---|
 | 0 | Matt's answer on slice 2's grammar (pending, slice 2 sketch §7), then B1 to B4 of that sketch (grammar file, program widened) | 2 to 3 | runs beside steps 1 and 2 |
 | 1 | **Consolidation** (section 5, items 1 to 6, 8, 9) | 8 to 10 | |
-| 2 | **Leverage**: the fast check loop and resource errors (section 6, 1 and 2); "remaining cases likewise" and `match` refinement (3 and 4); spike A (uniform shape walk on S2's 65 functions: under 3 theorems a function is the pass mark); spike B (one triple, two rules: fewer theorems and no longer than the five is the pass mark) | 10 to 15 | |
-| 3 | **Parser side, whole language, once**: lexer for every token kind, rule N over the full alphabet, the shape and `Kept` walks for all 620 functions (if A passed) | 20 to 35 (A passed); otherwise it stays in the slices | 2 |
+| 2 | **Leverage**: the fast check loop and resource errors (section 6, 1 and 2); "remaining cases likewise" and `match` refinement (3 and 4); spike A (uniform shape walk on S2's 65 functions: under 3 theorems a function is the pass mark; *corrected 19 Nov (SW-4210): dropped, it measures 1.3 already*); spike B (one triple, two rules: fewer theorems and no longer than the five is the pass mark) | 10 to 15 | |
+| 3 | **Parser side, whole language, once**: lexer for every token kind, rule N over the full alphabet, the shape and `Kept` walks for all 620 functions (if A passed) | ~~20 to 35 (A passed); otherwise it stays in the slices~~ **33 to 41**, see the correction below | 2 |
 | 4 | **Slice 2** (binders): read-back, passes, printer, acceptance, top | 15 to 25 with step 3 done; 28 to 45 as sketched | 0, 3 |
 | 5 | Checkpoint. The stop rules reset to slice 2's sketch as revised after step 2 | 1 | |
 | 6 | **Slice 3** (blocks, `let`, `match`, `if`): spike K3b first; it carries the last named risk | 20 to 45 | 5 |
@@ -348,14 +426,39 @@ to come in under.
 
 Total from here: **about 140 to 260 agent hours if A and B pass, 170 to
 410 if neither does** [estimated; paper lanes beyond those listed add
-about a sixth]. At slice 1's pace that is 2.5 to 4.5
+about a sixth].
+
+**Corrected 19 Nov (SW-4210).** Step 3's 20 to 35 hours assumed the
+parser walks cost 1,000 to 2,000 theorems in the "uniform form" (11.5 to
+23 hours at 87 an hour: 1,000 / 87 and 2,000 / 87), leaving 20 − 11.5 ≈ 9
+to 35 − 23 = 12 hours for the lexer and rule N. The walks are already
+uniform and cost 2,100 to 2,500 theorems = 24 to 29 hours (2,100 / 87,
+2,500 / 87) [estimated, SW-4210]. So step 3 is 9 + 24 = **33** to 12 + 29 =
+**41** hours. Step 4 as sketched is 2,150 / 87 to 3,450 / 87 = **25 to 40**
+(was 28 to 45); "with step 3 done" 15 to 25 is unchanged, since slice 2's
+parser walk sits in step 3. The sum of the steps:
+
+- low: 2 + 8 + 10 + 33 + 15 + 1 + 20 + 60 + 3 = **152**; high: 3 + 10 + 15
+  + 41 + 25 + 1 + 45 + 120 + 6 = **266** (was 139 and 260, shown as 140
+  to 260). So **about 150 to 270 agent hours if B passes** [estimated];
+  A is no longer a condition.
+- If B does not pass, the old figures added 5 to 95 hours for it (170 − 140
+  − 25 = 5; 410 − 260 − 55 = 95), which I keep: 152 + 5 = 157 to 266 + 95
+  = 361, so **about 155 to 360** (was 170 to 410) [estimated].
+- Slices 2 to 7 in theorems, from section 3: about 12,000 to 30,000
+  (was 13,000 to 34,000), 140 to 345 agent hours of proof lanes at 87 an
+  hour (was 150 to 390). These two bases differ, as before: the lane
+  path adds the consolidation, leverage and paper steps. At slice 1's pace that is 2.5 to 4.5
 days of round-the-clock lanes, or one to two weeks of working days,
 with steps 1 and 2 costing about half a day of that running and, if A
 alone passes, saving 25 to 55 agent hours on the parser side (45 to 90
-against 20 to 35).
+against 20 to 35). *Corrected 19 Nov (SW-4210): no saving; the parser
+side is 24 to 29 hours on the present form (2,100 to 2,500 theorems), not
+45 to 90.*
 
 What would change the plan: A failing its mark (then spike C, trees
-that can't be ill-shaped, before more parser walks); block read-back
+that can't be ill-shaped, before more parser walks; *corrected 19 Nov:
+A is no longer a spike, and the shape walk's cost is measured*); block read-back
 needing a framework (a design note before slice 3, as the plan's spike
 rule says); the rate falling under 40 an hour.
 
@@ -370,7 +473,10 @@ consolidation and three experiments?** [rec: yes]
 the same way, is 2 to 6 more slice 1s and ends as a proof 27 to 56
 times the size of the program. One piece of slice 1 was a tenth the
 cost per parser function of the rest, because it was stated once, for
-the whole language, in a uniform way.
+the whole language, in a uniform way. *(Corrected 19 Nov (SW-4210): it
+was not. Per function walked, the shape walk is 1.3, tokens kept 1.8 and
+the two-run walk 1.6 [measured]; and the rest of the formatter is 2 to 5
+more slice 1s, not 2 to 6.)*
 
 *The change.* Slice 2's proof lanes wait about a day while: the slice 1
 proof is tidied and its predicates made to grow rather than be copied
@@ -382,7 +488,10 @@ meanwhile.
 
 *What it should do.* If the parser experiment passes, the parser side
 of slices 2 to 6 is proved once (20 to 35 hours) instead of five times
-(4,000 to 8,000 theorems, 45 to 90 hours) [estimated]. If neither
+(4,000 to 8,000 theorems, 45 to 90 hours) [estimated]. *Corrected 19 Nov
+(SW-4210): there is no such saving; the parser side of slices 2 to 6 is
+2,100 to 2,500 theorems, 24 to 29 hours, on the present form, and the
+parser experiment is dropped.* If neither
 passes, we have lost about a day, the proof is cleaner, and slice 2
 starts as sketched. Every theorem stays as strong as today's; none of
 this narrows the grammar or adds a condition.
@@ -395,7 +504,8 @@ this narrows the grammar or adds a condition.
 - Slice 1's share of the weekly token allowance is not measured.
 - The per-function costs behind A are two measured averages (1.6 and
   16), not a trial of the shape walk in the uniform form: that is the
-  spike.
+  spike. (*Corrected 19 Nov (SW-4210): the 16 had the wrong denominator;
+  see section 1.*)
 - The 104 repeated names and the 1,392 theorems naming a `…1`
   identifier are name counts; statements were not compared.
 
