@@ -284,6 +284,14 @@ theorem laysCheckHolds: (laysCheckOn "def x: F a -- c\n  := -- d\n  -- e\n  -- f
       = True :=
   byComputing
 
+--| Calls: a call that may hug its last bracket, after a comment that is waiting (`appFrom`'s three layouts), and a call
+--| hugging a tuple (`Fmt.LaysApp`, `Fmt.LaysDecl.callHugStep`).
+theorem laysCheckCalls: (laysCheckOn "def x: T := f a -- c\n  [b, c]\n"
+      && laysCheckOn "def x: T := f a b c d e (g h) [i]\n"
+      && laysCheckOn "def x: T := f (a, b) -- c\n  (d, e)\n")
+      = True :=
+  byComputing
+
 --| The check refuses what `Lays` does: a `Line` or a `Blank` at the start of the output, a second trailing comment
 --| while one waits, and a word that is no closer's kind of text written as a closer while one waits.
 theorem laysCheckRefuses: (laysCheck (Concat [Line, Doc.text "a"])

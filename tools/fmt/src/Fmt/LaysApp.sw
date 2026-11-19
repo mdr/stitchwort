@@ -1,6 +1,6 @@
 --| `laysKinds` of a call's document (SW-4116, `doc1Checks`' walk): the function and its arguments (`appDocs`), each
 --| argument from where the one before ended, the last as it stands or opened. The theorems take what `Fmt.LaysEls`'s
---| induction on the expression proves (the arguments' items, `AllElStep`) as hypotheses.
+--| induction on the expression proves (the arguments' items, `ItemsFacts`) as hypotheses.
 namespace Fmt.LaysApp
 import Std (Bool, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc (..)
@@ -15,14 +15,25 @@ import Fmt.TrailsProofs (Coded, appTrails)
 import Fmt.LaysWords (..)
 import Fmt.LaysBrackets (..)
 
---| Every bracket's items, from the facts about them: `Fmt.LaysEls.allElStep`.
-def AllElStep: Prop :=
-  ∀ (items: List Expr) => allWithin1 items = True
+--| A bracket's items, from the facts about them: `Fmt.LaysEls.allElStep`.
+def ItemsFacts (items: List Expr): Prop :=
+  allWithin1 items = True
     → allSound items = True
     → allNonCloser items = True
     → allSpelled items = True
     → allLexical1 items = True
     → ItemsEl items
+
+--| What an argument that is a bracket needs to hug: its items' steps.
+def BracketEl (argument: Expr): Prop := match argument with
+  | Tuple _ items _ _ => ItemsFacts items
+  | ListOf _ items _ _ => ItemsFacts items
+  | _ => True
+
+--| Each argument's bracket steps.
+def ArgsEl: List Expr → Prop
+  | [] => True
+  | [argument, ..rest] => BracketEl argument ∧ ArgsEl rest
 
 --| Documents spaced apart: the first, then each after a space.
 theorem spacedCons ∀ (first: Doc) (rest: List Doc):
@@ -82,10 +93,6 @@ theorem chainedSplit ∀ (docs: List Doc) (count: Nat) (before trails: Bool)
       let (middle, front, back) := chainedSplit rest n between trails more
       (middle, (between, first, front), back)
 
---| What follows a place that is no line start and holds no comment is a fresh start for a document from a chain.
-theorem freshStarts ∀ (kinds: Kinds) (before: Bool) (fresh: Fresh kinds = True): Starts False before kinds = True :=
-  match kinds, fresh with | { start = False, broken, mid, held = False }, _ => byComputing
-
 --| A chain of documents each on a line of its own, below the line break.
 theorem hardChain ∀ (docs: List Doc) (before trails: Bool)
     (chain: Chained docs before trails):
@@ -111,7 +118,7 @@ theorem hardChain ∀ (docs: List Doc) (before trails: Bool)
             (kinds => Ends kinds between)
             (kinds => Ends kinds between)
             step
-            (kinds good => freshStarts kinds before good)
+            (kinds good => freshStarts kinds False before good)
             (kinds good => good))
           (hardChain rest between trails more))
 
@@ -200,14 +207,15 @@ theorem lastArgStep ∀ (argument: Expr) (place: Around)
     (spelled: argument.spelled = True)
     (lexical: argument.lexical1 = True)
     (each: ∀ (around: Around) => Step (argument.el around) (Starts around.hoisted around.before) (kinds =>
-      Ends kinds argument.trails)) (inner: AllElStep):
+      Ends kinds argument.trails))
+    (inner: BracketEl argument):
     Step (lastArgument argument place).fst (Starts place.hoisted place.before) (kinds => Ends kinds argument.trails)
       ∧ (∀ (opened: Doc) => (lastArgument argument place).snd = Some opened
         → Step opened (Starts place.hoisted place.before) (kinds => Ends kinds argument.trails)) :=
   match argument, within with
     | Tuple open items comma close, within =>
       let els :=
-        inner items within
+        inner within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight nonCloser)
           (Bool.andLeft (Bool.andRight spelled))
@@ -243,7 +251,7 @@ theorem lastArgStep ∀ (argument: Expr) (place: Around)
       )
     | ListOf open items comma close, within =>
       let els :=
-        inner items within
+        inner within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight nonCloser)
           (Bool.andLeft (Bool.andRight spelled))
@@ -300,7 +308,9 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
     (sound: allSound arguments = True)
     (nonCloser: allNonCloser arguments = True)
     (spelled: allSpelled arguments = True)
-    (lexical: allLexical1 arguments = True) (inner: AllElStep):
+    (lexical: allLexical1 arguments = True)
+    (els: ItemsEl arguments)
+    (brackets: ArgsEl arguments):
     ∃ (middle: Bool) => Chained (argumentDocs arm previous at arguments).fst previous.trails middle
       ∧ Step
         ((argumentDocs arm previous at arguments).snd.getOrElse (Nothing, None)).fst
@@ -312,7 +322,6 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
     | [] => (filled byComputing).impossible
     | [argument] =>
       let place: Around := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-      let els := inner [argument] within sound nonCloser spelled lexical
       let (last, hug) :=
         lastArgStep argument place
           (Bool.andLeft within)
@@ -321,11 +330,10 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
           (Bool.andLeft spelled)
           (Bool.andLeft lexical)
           els.left
-          inner
+          brackets.left
       (previous.trails, byComputing, last, hug)
     | [argument, next, ..more] =>
       let place: Around := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-      let els := inner [argument, next, ..more] within sound nonCloser spelled lexical
       let (middle, chain, last, hug) :=
         argsStep arm argument
           (at + argument.size)
@@ -336,7 +344,8 @@ theorem argsStep ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
           (Bool.andRight nonCloser)
           (Bool.andRight spelled)
           (Bool.andRight lexical)
-          inner
+          els.right
+          brackets.right
       (middle, (argument.trails, els.left place, chain), last, hug)
 
 --| The layout of a call that breaks (`appFrom`): the function and the arguments kept on its line, the others each on a
@@ -356,19 +365,19 @@ def hugDoc (headDoc: Doc) (front: List Doc) (opened: Doc): Doc :=
   Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened]
 
 --| A call hugging its last argument opened: the function and the arguments before it flattened, then the last.
-theorem hugLayout ∀ (headDoc: Doc) (front: List Doc) (opened: Doc) (headTrails middle final: Bool)
-    (headStep: Step headDoc NoHeld (kinds => Ends kinds headTrails))
+theorem hugLayout ∀ (pre: Kinds → Bool) (headDoc: Doc) (front: List Doc) (opened: Doc) (headTrails middle final: Bool)
+    (headStep: Step headDoc pre (kinds => Ends kinds headTrails))
     (chain: Chained front headTrails middle)
     (hugStep: Step opened (Starts False middle) (kinds => Ends kinds final)):
-    Step (hugDoc headDoc front opened) NoHeld (kinds => Ends kinds final) :=
+    Step (hugDoc headDoc front opened) pre (kinds => Ends kinds final) :=
   stepDocConcat _ _ _
     (stepAllCons
       (Flatten (spaced [headDoc, ..front]))
       [Doc.text " ", opened]
-      NoHeld
+      pre
       (kinds => Ends kinds middle)
       (kinds => Ends kinds final)
-      (stepFlatten _ _ _ (spacedStep headDoc front NoHeld headTrails middle headStep chain))
+      (stepFlatten _ _ _ (spacedStep headDoc front pre headTrails middle headStep chain))
       (stepAllCons
         (Doc.text " ")
         [opened]
@@ -458,7 +467,8 @@ theorem appFromStep ∀ (id k: Nat) (between betweenFront: Bool) (headDoc lastDo
             NoHeld
             final
             (optionsThree _ _ _ NoHeld final flatOption
-              (hugLayout headDoc front opened headTrails middle final headStep chain (hugStep opened byComputing))
+              (hugLayout NoHeld headDoc front opened headTrails middle final headStep chain
+                (hugStep opened byComputing))
               broken)
 
 --| A call's document (`appDocs`, its `Applied`'s `doc`) passes the check, from a place with no comment waiting.
@@ -473,7 +483,9 @@ theorem appStep ∀ (head: Expr) (arguments: List Expr) (around: Around)
     (spelled: (App head arguments).spelled = True)
     (lexical: (App head arguments).lexical1 = True)
     (headEach: ∀ (around: Around) => Step (head.el around) (Starts around.hoisted around.before) (kinds =>
-      Ends kinds head.trails)) (inner: AllElStep):
+      Ends kinds head.trails))
+    (els: ItemsEl arguments)
+    (brackets: ArgsEl arguments):
     Step (appDocs head arguments { around | hoisted = True }).doc NoHeld (kinds =>
       Ends kinds (App head arguments).trails) :=
   match arguments, filled with
@@ -490,7 +502,8 @@ theorem appStep ∀ (head: Expr) (arguments: List Expr) (around: Around)
           (Bool.andRight nonCloser)
           (Bool.andRight spelled)
           (Bool.andRight lexical)
-          inner
+          els
+          brackets
       let headStep: Step (head.el inside) NoHeld (kinds => Ends kinds head.trails) :=
         stepWeaken
           (head.el inside)
@@ -529,3 +542,81 @@ theorem appStep ∀ (head: Expr) (arguments: List Expr) (around: Around)
           chain
           last
           hug
+
+--| A call's hug, from `appFrom`'s: a hug only if the last argument has one, laid as `hugDoc`.
+theorem appFromHug ∀ (id k: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc) (front: List Doc)
+    (hug: Option Doc) (open: Doc):
+    (appFrom id (1 + k) between betweenFront headDoc front lastDoc hug).hug = Some open
+      → ∃ (opened: Doc) => hug = Some opened ∧ open = hugDoc headDoc front opened :=
+  match full: 1 + k == ([headDoc, ..front] ++ [lastDoc]).length with
+    | True => found => (Option.noneNotSome open found).impossible
+    | False =>
+      match hug with
+        | None => found => (Option.noneNotSome open found).impossible
+        | Some opened => found => (opened, byComputing, (Option.someInjective found).flipped)
+
+--| A call's hug (`appDocs`'s `hug`) passes the check from where its function may start: the function and the arguments
+--| before the last flattened, then the last argument opened.
+theorem appHugStep ∀ (head: Expr) (arguments: List Expr) (around: Around) (open: Doc)
+    (filled: arguments ≠ [])
+    (within: (App head arguments).within1 = True)
+    (sound: (App head arguments).sound = True)
+    (nonCloser: (App head arguments).nonCloser = True)
+    (spelled: (App head arguments).spelled = True)
+    (lexical: (App head arguments).lexical1 = True)
+    (headEach: ∀ (around: Around) => Step (head.el around) (Starts around.hoisted around.before) (kinds =>
+      Ends kinds head.trails))
+    (els: ItemsEl arguments)
+    (brackets: ArgsEl arguments)
+    (found: (appDocs head arguments { around | hoisted = True }).hug = Some open):
+    Step open (Starts True around.before) (kinds => Ends kinds (App head arguments).trails) :=
+  match arguments, filled with
+    | [argument, ..rest], _ =>
+      let inside := { around | hoisted = True }
+      let (middle, chain, last, hug) :=
+        argsStep inside.inArm head
+          (inside.at + head.size)
+          [argument, ..rest]
+          (List.consNotNil argument rest)
+          (Bool.andRight within)
+          (Bool.andRight sound)
+          (Bool.andRight nonCloser)
+          (Bool.andRight spelled)
+          (Bool.andRight lexical)
+          els
+          brackets
+      let same: itemsEnd head.trails [argument, ..rest] = (App head [argument, ..rest]).trails :=
+        Eq.trans
+          (itemsEndLast head.trails argument rest)
+          (appTrails head argument rest
+            (itemsCoded argument rest (Bool.andRight within) (Bool.andRight nonCloser))).flipped
+      let (opened, isOpened, shape) :=
+        appFromHug
+          (inside.at + 1)
+          (keptFront head [argument, ..rest])
+          (commentBetween head [argument, ..rest])
+          (commentBetween head ([argument, ..rest].take (1 + keptFront head [argument, ..rest] - 1)))
+          (head.el inside)
+          ((argumentDocs inside.inArm head (inside.at + head.size) [argument, ..rest]).snd.getOrElse (
+            Nothing,
+            None
+          )).fst
+          (argumentDocs inside.inArm head (inside.at + head.size) [argument, ..rest]).fst
+          ((argumentDocs inside.inArm head (inside.at + head.size) [argument, ..rest]).snd.getOrElse (
+            Nothing,
+            None
+          )).snd
+          open
+          found
+      rewrite shape, <- same then
+        hugLayout
+          (Starts True around.before)
+          (head.el inside)
+          (argumentDocs inside.inArm head (inside.at + head.size) [argument, ..rest]).fst
+          opened
+          head.trails
+          middle
+          (itemsEnd head.trails [argument, ..rest])
+          (headEach inside)
+          chain
+          (hug opened isOpened)
