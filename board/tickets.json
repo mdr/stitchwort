@@ -26828,12 +26828,12 @@
     {
       "id": 4196,
       "title": "[Fable, paper] Slice 2 (Binders) sketch per proof plan §1.3 step 2: S2's exact grammar (Def/Theorem headers with parameter groups, ∀, Lambda, ∀/∃ binders, effect rows, PatternWord) as a superset of Grammar1; what of the build (2b headers, passes P1/P3/P4) exists on main; the predicates and top statements (mirroring slice1Formats, all of S2's grammar, D3687/D3689 style); per-layer counts; spikes due; lessons from slice 1 (rule N bookkeeping, narrowing, SW-4184/4191); one decision for Matt at most",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 40 min. Paper.",
+      "body": "Est. 40 min. Paper.\n\nLane note (Fable, 19 Nov): sketch written, docs/proposals/self-hosted-fmt-s2-sketch.md on lane/SW-4196 (c9e8eca95). Grammar2 pinned with seven forms the slice 2 program leaves out (row after an arrow, fun, empty row, auto groups, defaults, the unit parameter, dependent function types) put as one decision for Matt, rec: all in. Found: the Rust P3 is not idempotent after a row (three inputs). Prediction 2,400 to 3,900 new theorems, 25 to 40 agent hours. Not done: the self-hosted formatter was not run and no statement was searched; that is lane 3 of the sketch's plan.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
