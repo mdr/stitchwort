@@ -26854,15 +26854,17 @@
     {
       "id": 4198,
       "title": "[Sonnet] proving guide: one section of proof-language behaviours lanes rediscover (SW-4195 friction 2): && and ++ associativity, != is the proposition (use == ... = False), method imports by name don't parse and (..) name clashes, rewrite rejects definition names, a match refines hypotheses so later rewrites find nothing, ?name holes rarely print goals",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4195's checkpoint, friction 2 (docs/agent-feedback/2026-11.md rows SW-4006, 4011, 4040, 4089, 4109, 4041). Merge with SW-3984, SW-4047, SW-4101, SW-4164 where they overlap; check each claim against the checker before writing it.",
+      "body": "From SW-4195's checkpoint, friction 2 (docs/agent-feedback/2026-11.md rows SW-4006, 4011, 4040, 4089, 4109, 4041). Merge with SW-3984, SW-4047, SW-4101, SW-4164 where they overlap; check each claim against the checker before writing it.\n\n\nLane note (Sonnet, 19 Nov): added \"Behaviours lanes rediscover\" to docs/proving-guide.md (commit d3c620918 on lane/SW-4198), every item probed with stitchwort check. Named `?name` holes dropped (they do not exist); others true, refined.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "d3c620918"
+      ]
     },
     {
       "id": 4199,
@@ -27310,7 +27312,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4231.",
+      "body": "From SW-4231.\n\nLane note (Sonnet, 19 Nov): nothing moved. Both lemmas (givesAfter0, readsAtAfter0) are stated over the formatter-only Reads0 (ParseProofs.sw:439, defined with GoodItems) and Parse.Fits Item GoodItems / Parse.Gives GoodItems. Moving needs a new general std def (Reads0 over an arbitrary invariant) and restated lemmas: a statement change, not allowed by the brief. Left for the orchestrator to decide.\n\n\nOrchestrator's call (19 Nov): generalise to std Parse.Reads0 over an invariant; the formatter instantiates it with GoodItems; statements unfold unchanged.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
