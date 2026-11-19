@@ -26239,7 +26239,7 @@
     {
       "id": 4152,
       "title": "[Opus] fmt multi-line read-back H6 (SW-4121 plan): calls and signs: signArgHung, argumentHung, argsHung, appHung, headHung, appAnyHung, unaryHung (ReadBackHungApp.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4152",
       "labels": [],
@@ -26265,9 +26265,9 @@
     {
       "id": 4154,
       "title": "[Opus] fmt multi-line read-back H9 (SW-4121 plan): assemble: confirm readsBackHung closed with H1-H8, delete the one-line read-back twins no longer used on the top theorems' path, audit Syntax.ReadBackHung*",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4154",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 45 min. Plan: docs/reviews/SW-4121-multiline-readback.md, H9 row.",
