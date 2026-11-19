@@ -695,16 +695,6 @@ theorem Float.ieeeLeTotalExample: Float.ieeeLe 1.0 2.0 = True :=
 
 -- JS's comparison and the total order
 
-theorem Float.notNotAndOr ∀ (a b c d: Bool)
-    (ha: a = False)
-    (hb: b = False)
-    (hd: d = True):
-    (¬a ∧ ¬b ∧ (c ∨ d)) = True :=
-  rewrite ha, hb, hd then
-    match c with
-      | True => byComputing
-      | False => byComputing
-
 --| The total order's `<=` gives JS's, for doubles other than the NaN.
 theorem Float.ieeeLeOfLe ∀ (x y: Float)
     (nx: Float.isNaN x = False)
@@ -732,14 +722,6 @@ theorem Float.leOfIeeeLe ∀ (x y: Float)
 
 test "Float.leOfIeeeLe" :=
   Float.ieeeLe 0.0 (-0.0) ∧ ¬(0.0 <= -0.0) ∧ Float.ieeeLe (-0.0) 0.0 ∧ -0.0 <= 0.0 ∧ ¬(Float.ieeeLe Float.nan Float.nan)
-
-theorem Float.notNotAndNotAnd ∀ (a b c d: Bool)
-    (ha: a = False)
-    (hb: b = False)
-    (hc: c = False)
-    (hd: d = True):
-    (¬a ∧ ¬b ∧ ¬c ∧ d) = True :=
-  rewrite ha, hb, hc, hd
 
 --| The total order's `<` gives JS's, for doubles other than the NaN that
 --| aren't both zeros (`-0.0 < 0.0` in the total order, not in JS's).

@@ -271,11 +271,6 @@ theorem Doc.Proofs.wordFilled ∀ (text: Text) (word: isLayout text = False): te
     | False => byComputing
     | True => (Bool.falseNotTrue (Eq.trans word.flipped (emptyIsLayout text empty))).impossible
 
---| A flag is true or false.
-theorem Doc.Proofs.trueOrFalse ∀ (flag: Bool): flag = True ∨ flag = False := match flag with
-  | True => Inl byComputing
-  | False => Inr byComputing
-
 -- The document's words, and the readings.
 
 --| The words of a document, in order: its chunks' texts and its trailing

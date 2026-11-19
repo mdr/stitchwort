@@ -52,13 +52,6 @@ theorem Quot.funextProp ∀ (a: Type) (p: a → Prop) (f g: ∀ (x: a) => p x) (
   let boxes: boxF = boxG := Quot.funext a (x => ProofBox (p x)) boxF boxG pointwise
   J (k e => f = (x => (k x).proof)) byComputing boxes
 
---| Booleans that are `True` together are equal.
-theorem Quot.boolEq ∀ (b c: Bool) (toC: b = True → c = True) (toB: c = True → b = True): b = c := match b, c with
-  | False, False => byComputing
-  | False, True => toB byComputing
-  | True, False => (toC byComputing).flipped
-  | True, True => byComputing
-
 --| If `r` decides `rel`, and `rel` is an equivalence, then `Quot.mk x` and
 --| `Quot.mk y` are equal only when `x` and `y` are related.
 -- (§8.6)

@@ -16,6 +16,7 @@
 --| holds of exactly the layouts some reading can make, up to the mode of
 --| a `Line` (a space is asked for also where the group is broken).
 
+import Bool (andLeft)
 import Doc (..)
 import Doc.Proofs (..)
 
@@ -1127,7 +1128,7 @@ theorem Doc.Proofs.blankHolds ∀ (follows: Text → Text → Prop) (next: Edge 
     Holds follows next printer.blank :=
   match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
     | False => (sound, after)
-    | True => blankedHolds follows next printer sound (andTrueLeft _ _ blank) after
+    | True => blankedHolds follows next printer sound (Bool.andLeft blank) after
 
 --| A trailing comment starts waiting where a space may follow the line.
 theorem Doc.Proofs.suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (comment: Text)

@@ -1,7 +1,8 @@
 --| The list toolkit: `map`, `filter`, folds, sums, `zip`, `take`/`drop`, `get`,
 --| `splitBy`, padding, transpose and the like, with the congruence lemmas that
 --| `decreasing` and `rewrite` look up beside each function. The other lemmas are
---| in List/Lemmas.sw, so a program that only calls these checks none of them.
+--| in the other List lemma files, so a program that only calls these checks none
+--| of them.
 
 --| List toolkit. Every function is structurally recursive.
 --|

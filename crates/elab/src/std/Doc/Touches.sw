@@ -20,7 +20,7 @@
 --| ends (`Seam.ending`).
 
 import Doc (..)
-import Bool (not)
+import Bool (andLeft, not)
 import Doc.Proofs (..)
 
 --| A printed word, and whether it touches the piece before it: that
@@ -879,7 +879,7 @@ theorem Doc.Proofs.blankSeams ∀ (next: Seam → List Touch → Prop) (printer:
   match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
     | False => (sound, after)
     | True =>
-      let start: printer.atLineStart = True := andTrueLeft _ _ blank
+      let start: printer.atLineStart = True := Bool.andLeft blank
       match sound with
         | (owedOk, freshOk, waits) =>
           match same: printer.suffixes, waits with
