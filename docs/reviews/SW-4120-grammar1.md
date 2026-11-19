@@ -250,7 +250,15 @@ lane counts are [estimated].
   item starts with `auto` and then an upper-case name), carried the way
   `shaped1` is, and used in the list case of read-back. The spelling
   test on `auto` then goes.
-- **Lanes.** 1 Opus lane (a new parser invariant).
+  **Correction (SW-4128, 19 Nov):** that fact is false as stated. The
+  parser checks for a binder only where a full expression starts (the
+  type, the value, a paren's inside, tuple and list items, the right of
+  an arrow), so `f [auto Ord]` and `x + [auto Ord]` are lists in the
+  grammar. The fact needed is positional: at those six positions, the
+  leftmost list reached through call heads and left operands doesn't
+  start with `auto` and an upper-case name.
+- **Lanes.** 1 Opus lane (a new parser invariant); revised by SW-4128 to
+  4 to 6 hours of Opus, through the `Carried` walk.
 - **Recommendation: lift in slice 1.** It is a name; the grammar has no
   reason to treat it otherwise, and the odd case is already outside the
   grammar by the tree.
