@@ -25943,9 +25943,9 @@
     {
       "id": 4130,
       "title": "[Opus] fmt S1 piece E (SW-4119, D3687): DeclElements with comments anywhere inside a type or value (generalise edgeQuietOneLine1 / DeclQuiet), so the one-line test can leave the driver once read-back (SW-4126 plan) lands",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4130",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4119-slice1-review.md piece E; SW-4120 item 1. Model: Opus first, then Sonnet per form. Est. 3-4 lanes.",
