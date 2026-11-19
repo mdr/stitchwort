@@ -1,5 +1,5 @@
 {
-  "next": 4213,
+  "next": 4214,
   "tickets": [
     {
       "id": 47,
@@ -26841,7 +26841,7 @@
     {
       "id": 4197,
       "title": "[Sonnet] fmt proofs: a fast loop for one theorem in a big file (checks of 2 to 5 minutes; SW-4195 friction 1): measure what a check of Fmt.LaysEls or Syntax.ReadBackHung* spends its time on (imports re-checked? cache granularity?), and put 'check --only THEOREM' and the findings in the proving guide",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27045,6 +27045,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 25 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4213,
+      "title": "[Sonnet] stitchwort check --timings: per-declaration elaboration and kernel time, slowest first (proving guide §6 says check has none; SW-4197 had to time --only by hand); with a test and docs",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Est. 40 min. D3692 tool friction.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
