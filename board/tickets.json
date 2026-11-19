@@ -1,5 +1,5 @@
 {
-  "next": 4117,
+  "next": 4118,
   "tickets": [
     {
       "id": 47,
@@ -25760,6 +25760,19 @@
     {
       "id": 4116,
       "title": "[Opus] fmt S1 doc1Checks finish: elStep's App case (appDocs, appFrom, argumentDocs, lastArgument, hugs) in Fmt.LaysApp, the declaration level (defDoc, bodyAfter, IdGroup/IfBroken, Choice options) in Fmt.LaysDecl, and the doc1Checks assembly (declJoins/declTexts supply nonCloser and spelled); the last open goals of the D3685 milestone",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Orchestrator: split; this ticket is elStep's App case only (Fmt.LaysApp), on Sonnet (routine walk per D3682); the declaration level and assembly are SW-4117.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4117,
+      "title": "[Sonnet] fmt S1 doc1Checks: the declaration level (defDoc, bodyAfter, IdGroup/IfBroken, Choice options) in Fmt.LaysDecl, using elStep as stated, and the doc1Checks assembly (declJoins/declTexts supply nonCloser and spelled); split from SW-4116",
       "status": "doing",
       "agent": "",
       "where": "",
