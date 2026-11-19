@@ -17,8 +17,7 @@ theorem trailingAtTokens ∀ (behind: List Leaf) (steps: Nat) (comment: Comment)
     tokens (trailingAt behind steps comment) = tokens behind :=
   match behind, steps with
     | [], _ => byComputing
-    | [leaf, ..earlier], Zero => byComputing
-    | [leaf, ..earlier], Succ Zero => byComputing
+    | [_, .._], Zero | Succ Zero => byComputing
     | [leaf, ..earlier], Succ (Succ more) =>
       Eq.cong (tail => [leaf.token, ..tail]) (trailingAtTokens earlier (Succ more) comment)
 
@@ -541,8 +540,7 @@ theorem trimmedArrowsBare ∀ (leaves: List Leaf)
     (bare: arrowsBare leaves = True):
     arrowsBare (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) = True :=
   match leaves with
-    | [] => byComputing
-    | [only] => byComputing
+    | [] | [_] => byComputing
     | [first, second, ..rest] =>
       let later := trimmedArrowsBare [second, ..rest] (Bool.andRight bare)
       match first.trivia.trailing, second.trivia.leading with
@@ -733,9 +731,7 @@ theorem trimmedTriviaTexts ∀ (trivia: Trivia): triviaTexts trivia.trimmed = (t
     = (trivia.leading.map (comment => comment.text)).map trimEnd :=
     rewrite List.mapMap trivia.leading (comment => comment.text) Comment.trimmed,
         List.mapMap trivia.leading trimEnd (comment => comment.text)
-  match trivia.trailing with
-    | None => rewrite List.mapAppend, leading
-    | Some comment => rewrite List.mapAppend, leading
+  match trivia.trailing with | None | Some _ => rewrite List.mapAppend, leading
 
 --| Rule 5 trims each comment and keeps them in order.
 theorem trimmedTexts ∀ (leaves: List Leaf) (end: Trivia):
@@ -1447,8 +1443,7 @@ theorem relatedKeeping ∀ (leaf: Leaf) (trivia: Trivia)
     relatedLeaf leaf { leaf | trivia } = True :=
   let leadingPart := Bool.orRight [a := !leaf.kind.isCloser] leading
   match own: leaf.trivia.trailing with
-    | None => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
-    | Some comment => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
+    | None | Some _ => rewrite trailing then Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
 
 theorem receivedLeading ∀ (carried: Option Carried) (trivia: Trivia):
     (trivia.leading.isEmpty || !(carried.map (carry => carry.into trivia) |> .getOrElse trivia).leading.isEmpty)
@@ -1507,9 +1502,7 @@ theorem relatedCleared ∀ (leaf: Leaf)
     relatedLeaf leaf (leaf.withLeading []) = True :=
   let leadingPart: (!leaf.kind.isCloser || leaf.trivia.leading.isEmpty || !([]: List Comment).isEmpty) = True :=
     Bool.orLeft (rewrite notCloser)
-  match leaf.trivia.trailing with
-    | None => Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
-    | Some comment => Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
+  match leaf.trivia.trailing with | None | Some _ => Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
 
 --| Rule 3 only takes comments off `->` and the own-line comments off the
 --| token after it, which is no closer in a `plain` file.
@@ -1583,8 +1576,7 @@ def flatToken (token: Token): Token := { token | lineStart = False }
 
 --| Whether a comma may follow a leaf of this kind as a last one: `hasItem`'s test of the leaf before it.
 def itemKind (kind: Tok): Bool := match kind with
-  | Comma => False
-  | Pipe => False
+  | Comma | Pipe => False
   | other => !other.isOpener
 
 --| `plainFrom`, with a comma that starts its line allowed before a closer when it is a last comma: the closer comes
@@ -1812,9 +1804,7 @@ def holder (leaf: Leaf) (behind ahead: List Leaf): Bool := leaf.kind != Comma &&
 type Shape = { kind: Tok, text: Text, trivia: Trivia }
 
 theorem trailingAtZero ∀ (behind: List Leaf) (comment: Comment): trailingAt behind 0 comment = behind :=
-  match behind with
-    | [] => byComputing
-    | [_, .._] => byComputing
+  match behind with | [] | [_, .._] => byComputing
 
 --| The `steps` newest leaves of `behind` are a comment's way back to
 --| where it was: commas and closers that don't start their lines, then a

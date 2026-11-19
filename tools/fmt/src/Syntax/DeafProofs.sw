@@ -74,11 +74,7 @@ theorem implicitGroupAtDeaf ∀ (items: List Item): implicitGroupAt items = impl
     | [item, ..rest] => rewrite namesThenDeaf rest 0 (kind => kind == Colon || kind == RBracket)
 
 theorem namelessAutoAtDeaf ∀ (items: List Item): namelessAutoAt items = namelessAutoAt (items.map Item.stripped) :=
-  match items with
-    | [] => byComputing
-    | [a] => byComputing
-    | [a, b] => byComputing
-    | [a, b, c, ..more] => byComputing
+  match items with | [] | [_] | [_, _] | [_, _, _, .._] => byComputing
 
 theorem annotatedParamAheadDeaf ∀ (items: List Item):
     annotatedParamAhead items = annotatedParamAhead (items.map Item.stripped) :=
@@ -197,15 +193,10 @@ theorem piBinderAheadDeaf ∀ (items: List Item): piBinderAhead items = piBinder
     | [open, ..rest] => rewrite namesThenDeaf rest 0 (kind => kind == Colon), skipGroupDeaf [] [open, ..rest] then cases
 
 theorem sectionAtDeaf ∀ (items: List Item): sectionAt items = sectionAt (items.map Item.stripped) := match items with
-  | [] => byComputing
-  | [a] => byComputing
-  | [a, b, ..more] => byComputing
+  | [] | [_] | [_, _, .._] => byComputing
 
 theorem argumentPrefixDeaf ∀ (items: List Item): argumentPrefix items = argumentPrefix (items.map Item.stripped) :=
-  match items with
-    | [] => byComputing
-    | [a] => byComputing
-    | [a, b, ..more] => byComputing
+  match items with | [] | [_] | [_, _, .._] => byComputing
 
 theorem argumentMinusDeaf ∀ (items: List Item): argumentMinus items = argumentMinus (items.map Item.stripped) :=
   match items with
@@ -218,15 +209,10 @@ theorem argumentBangDeaf ∀ (items: List Item): argumentBang items = argumentBa
     | [a, ..more] => rewrite argumentPrefixDeaf [a, ..more]
 
 theorem negativeNumeralDeaf ∀ (items: List Item): negativeNumeral items = negativeNumeral (items.map Item.stripped) :=
-  match items with
-    | [] => byComputing
-    | [a] => byComputing
-    | [a, b, ..more] => byComputing
+  match items with | [] | [_] | [_, _, .._] => byComputing
 
 theorem unitCallDeaf ∀ (items: List Item): unitCall items = unitCall (items.map Item.stripped) := match items with
-  | [] => byComputing
-  | [a] => byComputing
-  | [a, b, ..more] => byComputing
+  | [] | [_] | [_, _, .._] => byComputing
 
 theorem rightOperatorDeaf ∀ (items: List Item): rightOperator items = rightOperator (items.map Item.stripped) :=
   match items with
@@ -252,13 +238,10 @@ theorem lineHasSemicolonDeaf ∀ (limit: Nat) (first: Bool) (items: List Item):
     | [item, ..rest] => cases then (rewrite lineHasSemicolonDeaf limit False rest)
 
 theorem nextIndexDeaf ∀ (items: List Item): nextIndex items = nextIndex (items.map Item.stripped) := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem headIndentOnDeaf ∀ (items: List Item): headIndentOn items = headIndentOn (items.map Item.stripped) :=
-  match items with
-    | [] => byComputing
-    | [item, ..rest] => byComputing
+  match items with | [] | [_, .._] => byComputing
 
 theorem implicitOnDeaf ∀ (fuel: Nat) (items: List Item) (seen: Option Tok):
     implicitOn fuel items seen = implicitOn fuel (items.map Item.stripped) seen :=
@@ -305,8 +288,7 @@ theorem startsAtomOnDeaf ∀ (modes: Modes) (items: List Item):
       | None => byComputing
 
 theorem numberKindDeaf ∀ (items: List Item): numberKind items = numberKind (items.map Item.stripped) := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem wordOnDeaf ∀ (modes: Modes) (word: Text) (items: List Item):
     wordOn modes word items = wordOn modes word (items.map Item.stripped) :=
@@ -349,8 +331,7 @@ theorem allowedAtDeaf ∀ (modes: Modes) (items: List Item):
     | [item, ..rest] => cases
 
 theorem letAtEndDeaf ∀ (items: List Item): letAtEnd items = letAtEnd (items.map Item.stripped) := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem sequenceOnDeaf ∀ (modes: Modes) (items: List Item):
     sequenceOn modes items = sequenceOn modes (items.map Item.stripped) :=
@@ -371,9 +352,7 @@ theorem ownLineOnDeaf ∀ (wanted: Tok) (column: Nat) (items: List Item):
     | [item, ..rest] => cases
 
 theorem whereRefusalDeaf ∀ (items: List Item): whereRefusal items = whereRefusal (items.map Item.stripped) :=
-  match items with
-    | [] => byComputing
-    | [item, ..rest] => byComputing
+  match items with | [] | [_, .._] => byComputing
 
 theorem definitionRefusalDeaf ∀ (isInstance: Bool) (body: DefBody) (items: List Item):
     definitionRefusal isInstance body items = definitionRefusal isInstance body (items.map Item.stripped) :=
@@ -396,24 +375,20 @@ theorem afterCloseBraceDeaf ∀ (depth: Nat) (items: List Item):
 theorem rowNamesDeaf ∀ (found: List Text) (items: List Item):
     rowNames found items = rowNames found (items.map Item.stripped) :=
   match items with
-    | [] => byComputing
-    | [comma] => byComputing
+    | [] | [_] => byComputing
     | [comma, name] => cases
     | [comma, name, after, ..rest] => cases then (rewrite rowNamesDeaf)
 
 theorem abilityRowInBracesDeaf ∀ (items: List Item):
     abilityRowInBraces items = abilityRowInBraces (items.map Item.stripped) :=
   match items with
-    | [] => byComputing
-    | [a] => byComputing
-    | [a, b] => byComputing
+    | [] | [_] | [_, _] => byComputing
     | [a, b, c, ..rest] => rewrite rowNamesDeaf [b.text] [c, ..rest] then cases
 
 theorem recordBracesAheadDeaf ∀ (items: List Item):
     recordBracesAhead items = recordBracesAhead (items.map Item.stripped) :=
   match items with
-    | [] => byComputing
-    | [a] => byComputing
+    | [] | [_] => byComputing
     | [a, first] =>
       rewrite <- recordScanDeaf 0 [first] then
         match e: recordScan 0 [first] with
@@ -588,9 +563,7 @@ theorem isEquationDeaf ∀ (expr: Expr): isEquation expr = isEquation (expr.walk
 theorem isTextPatternDeaf ∀ (pattern: Pattern): isTextPattern pattern = isTextPattern (pattern.walk blankPure) := cases
 
 theorem hasAbsurdDeaf ∀ (pattern: Pattern): pattern.hasAbsurd = (pattern.walk blankPure).hasAbsurd := match pattern with
-  | PatternCtor name arguments => anyAbsurdDeaf arguments
-  | PatternTuple open items comma close => anyAbsurdDeaf items
-  | PatternList open items comma tail close => anyAbsurdDeaf items
+  | PatternCtor _ arguments | PatternTuple _ arguments _ _ | PatternList _ arguments _ _ _ => anyAbsurdDeaf arguments
   | PatternOr first rest => rewrite hasAbsurdDeaf first, anyLinkAbsurdDeaf rest
   | PatternParen open inner close => hasAbsurdDeaf inner
   | _ => cases
@@ -790,8 +763,7 @@ theorem itemsDeaf ∀ (leaves: List Leaf): (items leaves).map Item.stripped = it
   itemsAfterDeaf None 0 0 0 leaves
 
 theorem columnOnDeaf ∀ (items: List Item): columnOn items = columnOn (items.map Item.stripped) := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 -- From leaves to items.
 
@@ -829,8 +801,7 @@ theorem groupItemsSameCode ∀ (group other: List Leaf)
 
 theorem exprGrammar1Deaf ∀ (expr: Expr): expr.grammar1 = (expr.walk blankPure).grammar1 := match expr with
   | Paren open inner close => exprGrammar1Deaf inner
-  | Tuple open items comma close => allGrammar1Deaf items
-  | ListOf open items comma close => allGrammar1Deaf items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allGrammar1Deaf items
   | App head arguments => rewrite exprGrammar1Deaf head, allGrammar1Deaf arguments
   | Infix kind left operator right =>
     match kind with
@@ -912,13 +883,10 @@ theorem anyGuardWithoutBodyDeaf ∀ (arms: List Arm):
 theorem boundNamesDeaf ∀ (pattern: Pattern): pattern.boundNames = (pattern.walk blankPure).boundNames :=
   match pattern with
     | PatternCtor name arguments => namesOfDeaf arguments
-    | PatternCtorFields name fields => fieldsNamesDeaf fields
-    | PatternRecord fields => fieldsNamesDeaf fields
+    | PatternCtorFields _ fields | PatternRecord fields => fieldsNamesDeaf fields
     | PatternTuple open items comma close => namesOfDeaf items
     | PatternList open items comma tail close => rewrite namesOfDeaf items, tailNamesDeaf tail
-    | PatternNamed open name colonEq value close => boundNamesDeaf value
-    | PatternOr first rest => boundNamesDeaf first
-    | PatternParen open inner close => boundNamesDeaf inner
+    | PatternNamed _ _ _ value _ | PatternOr value _ | PatternParen _ value _ => boundNamesDeaf value
     | PatternAppend start operator rest => rewrite boundNamesDeaf start, boundNamesDeaf rest
     | _ => byComputing
 
@@ -1091,8 +1059,7 @@ theorem localDuplicateDeaf ∀ (statements: List Statement):
     localDuplicate statements = localDuplicate (blankStatements (walkStatements blankPure statements)) :=
   match statements with
     | [] => byComputing
-    | [LetStatement binding, ..rest] => localDuplicateDeaf rest
-    | [ExprStatement value, ..rest] => localDuplicateDeaf rest
+    | [LetStatement _, ..rest] | [ExprStatement _, ..rest] => localDuplicateDeaf rest
     | [LocalDef attributes header body, ..rest] =>
       rewrite duplicateParameterDeaf header then
         match e: duplicateParameter (walkHeader blankPure header) with
@@ -1208,9 +1175,7 @@ theorem traversalErrorRun ∀ (decl: Decl):
 --| The lowering's traversal doesn't read comments.
 theorem traversalDeaf ∀ (decl: Decl): traversalError decl = traversalError (decl.walk blankPure) :=
   rewrite traversalErrorRun decl, traversalErrorRun (decl.walk blankPure), declBlanks checkSteps checkBlanks decl then
-    match e: runDecl checkSteps decl with
-      | Ok lowered => byComputing
-      | Err message => byComputing
+    match e: runDecl checkSteps decl with | Ok _ | Err _ => byComputing
 
 --| The lowering doesn't read comments: a declaration has its lowering error exactly when its blanked tree does.
 theorem loweringDeaf ∀ (decl: Decl): decl.loweringError = (decl.walk blankPure).loweringError := match decl with

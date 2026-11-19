@@ -133,10 +133,7 @@ theorem boundsBlock ∀ (modes: Modes) (state: HangState) (item: Item) (allow: O
       (lineModes (blockModes modes item.leaf.token.column True) item.leaf.token.column True allow kind)
       (state.entered item.leaf)
       = True :=
-  rewrite starts, lineStart then
-    match state.blocks with
-      | [] => arithmetic
-      | [block, ..outer] => arithmetic
+  rewrite starts, lineStart then match state.blocks with | [] | [_, .._] => arithmetic
 
 --| A kind that leads an expression is no closer, comma or `:=`.
 theorem leadNotBracket ∀ (kind: Tok)

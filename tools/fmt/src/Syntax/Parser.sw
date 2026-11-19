@@ -70,58 +70,52 @@ def itemsAfter (before: Option Token) (index depth lineIndent: Nat): List Leaf �
 
 --| Whether a token ends an operand (`crates/syntax`'s `closes_operand`).
 def Tok.closesOperand: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | Str => True
-  | StrEnd => True
-  | CharLit => True
-  | RParen => True
-  | RBracket => True
-  | RBrace => True
-  | Underscore => True
-  | Question => True
-  | TypeU => True
-  | PropU => True
-  | KwArithmetic => True
-  | KwAlgebra => True
-  | KwCases => True
+  | Lower |
+      Upper |
+      Num |
+      Float |
+      Str |
+      StrEnd |
+      CharLit |
+      RParen |
+      RBracket |
+      RBrace |
+      Underscore |
+      Question |
+      TypeU |
+      PropU |
+      KwArithmetic |
+      KwAlgebra |
+      KwCases => True
   | _ => False
 
 --| A binary operator, which can stand alone as a function, `(&&)`.
 def Tok.isOperator: Tok → Bool
-  | Plus => True
-  | Minus => True
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | PlusPlus => True
-  | Equals => True
-  | NotEq => True
-  | EqEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | AndAnd => True
-  | OrOr => True
-  | KwIn => True
-  | NotIn => True
-  | IffArrow => True
+  | Plus |
+      Minus |
+      Star |
+      Slash |
+      Percent |
+      PlusPlus |
+      Equals |
+      NotEq |
+      EqEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      AndAnd |
+      OrOr |
+      KwIn |
+      NotIn |
+      IffArrow => True
   | _ => False
 
 --| An operator a section can take: any but `-`, so `(- 1)` is a number.
 def Tok.isSectionOperator (tok: Tok): Bool := tok.isOperator && tok != Minus
 
 def Tok.isComparison: Tok → Bool
-  | Equals => True
-  | NotEq => True
-  | EqEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
+  | Equals | NotEq | EqEq | Lt | Le | Gt | Ge => True
   | _ => False
 
 --| How the Rust parser writes a comparison in a message: its ASCII form.
@@ -136,9 +130,7 @@ def Tok.written: Tok → Text
 
 --| A token as an error message names it (`describe` and `spelled`).
 def Item.spelled (item: Item): Text := match item.kind with
-  | StrStart => "a text literal"
-  | StrMid => "a text literal"
-  | StrEnd => "a text literal"
+  | StrStart | StrMid | StrEnd => "a text literal"
   | InterpOpen => "`\${`"
   | InterpClose => "`}` closing a `\${…}`"
   | At => "`@[`"
@@ -244,23 +236,23 @@ def Modes.stopsByLine (modes: Modes) (item: Item): Bool := match modes.limit wit
 
 --| An infix operator no expression starts with (`is_infix_only`).
 def Tok.isInfixOnly: Tok → Bool
-  | AndAnd => True
-  | OrOr => True
-  | IffArrow => True
-  | Arrow => True
-  | Equals => True
-  | EqEq => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | Plus => True
-  | PlusPlus => True
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | NotIn => True
+  | AndAnd |
+      OrOr |
+      IffArrow |
+      Arrow |
+      Equals |
+      EqEq |
+      NotEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      Plus |
+      PlusPlus |
+      Star |
+      Slash |
+      Percent |
+      NotIn => True
   | _ => False
 
 --| The rungs of the precedence ladder that are parsed from more than one
@@ -699,9 +691,7 @@ def blockEnd (lines: List BlockLine) (next: Option Item): Option Text := match l
 --| line that ran out is the next statement (R1), not the rest of the line
 --| above.
 def startsStatement: Tok → Bool
-  | KwLet => True
-  | KwDef => True
-  | KwTheorem => True
+  | KwLet | KwDef | KwTheorem => True
   | _ => False
 
 --| Whether the line `items` starts has a `;` before the next line at or
@@ -755,9 +745,7 @@ def blockPeek (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (col
 
 def lineKindOf: Option Tok → LineKind
   | Some KwLet => LetLine
-  | Some KwDef => DefLine
-  | Some KwTheorem => DefLine
-  | Some At => DefLine
+  | Some KwDef | Some KwTheorem | Some At => DefLine
   | _ => ExprLine
 
 def blockKind (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
@@ -789,11 +777,7 @@ def blockOffset (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (c
   else done
 
 def endsBlocks: Tok → Bool
-  | Pipe => True
-  | KwWhere => True
-  | ColonEq => True
-  | KwDecreasing => True
-  | KwUnfolding => True
+  | Pipe | KwWhere | ColonEq | KwDecreasing | KwUnfolding => True
   | _ => False
 
 --| The column of the first token on the line of the next token.
@@ -809,12 +793,7 @@ def exprInlineOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok �
 
 --| The keywords that start an expression read by the layout and proof constructs (stage 2c).
 def startsKeywordExpr: Tok → Bool
-  | KwHandle => True
-  | KwLet => True
-  | KwCalc => True
-  | KwRewrite => True
-  | KwCases => True
-  | KwMatch => True
+  | KwHandle | KwLet | KwCalc | KwRewrite | KwCases | KwMatch => True
   | _ => False
 
 def exprKeyword (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok): {Parse Item} Expr :=
@@ -939,11 +918,7 @@ def semiExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr): {P
 
 def semiAfter (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr) (semicolon: Word):
     Option Tok → {Parse Item} Expr
-  | None => fatal semicolonAtEnd
-  | Some RParen => fatal semicolonAtEnd
-  | Some RBracket => fatal semicolonAtEnd
-  | Some RBrace => fatal semicolonAtEnd
-  | Some Comma => fatal semicolonAtEnd
+  | None | Some RParen | Some RBracket | Some RBrace | Some Comma => fatal semicolonAtEnd
   | _ => Infix InfixSeq value semicolon (full self modes)
 
 def semicolonAtEnd: Text := "`;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value"
@@ -1448,30 +1423,29 @@ def startsAtomKind (modes: Modes) (kind: Tok) (items: List Item): Bool :=
     || argumentPrefix items
 
 def opensArgument: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | CharLit => True
-  | Str => True
-  | StrStart => True
-  | KwInclude => True
-  | KwArithmetic => True
-  | KwAlgebra => True
-  | TypeU => True
-  | PropU => True
-  | LParen => True
-  | LBracket => True
-  | LBrace => True
-  | Underscore => True
-  | Question => True
+  | Lower |
+      Upper |
+      Num |
+      Float |
+      CharLit |
+      Str |
+      StrStart |
+      KwInclude |
+      KwArithmetic |
+      KwAlgebra |
+      TypeU |
+      PropU |
+      LParen |
+      LBracket |
+      LBrace |
+      Underscore |
+      Question => True
   | _ => False
 
 def bareCases (modes: Modes): {Parse Item} Bool := bareCasesOn modes left()
 
 def bareCasesOn (modes: Modes) (items: List Item): Bool := match peekIn modes 1 items with
-  | Some KwThen => False
-  | Some KwIn => False
+  | Some KwThen | Some KwIn => False
   | _ => True
 
 --| An atom, then `()` calls and field accesses.
@@ -1628,15 +1602,7 @@ def bracketAt (self: Goal → {Parse Item} Expr) (modes: Modes) (second third: O
   else listExpr self modes
 
 def isWord: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | Str => True
-  | CharLit => True
-  | Underscore => True
-  | Question => True
-  | PropU => True
+  | Lower | Upper | Num | Float | Str | CharLit | Underscore | Question | PropU => True
   | _ => False
 
 def negativeAtom (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := negativeAtomOn self modes left()
@@ -1875,9 +1841,7 @@ def operatorClose (open operator: Word) (operand: Option Expr): {Parse Item} Exp
 def sectionOperand (self: Goal → {Parse Item} Expr) (modes: Modes) (operator: Tok): {Parse Item} Expr :=
   match operator with
     | Plus => self { modes, level = LevelMultiplicative }
-    | Star => self { modes, level = LevelUnary }
-    | Slash => self { modes, level = LevelUnary }
-    | Percent => self { modes, level = LevelUnary }
+    | Star | Slash | Percent => self { modes, level = LevelUnary }
     | AndAnd => self { modes, level = LevelComparison }
     | OrOr =>
       let first := self { modes, level = LevelComparison }
@@ -1903,13 +1867,9 @@ def rightKind (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (in
 def rightOperand (self: Goal → {Parse Item} Expr) (inner: Modes) (operatorKind: Tok): {Parse Item} Expr :=
   match operatorKind with
     | Plus => self { modes = inner, level = LevelMultiplicative }
-    | Star => self { modes = inner, level = LevelUnary }
-    | Slash => self { modes = inner, level = LevelUnary }
-    | Percent => self { modes = inner, level = LevelUnary }
+    | Star | Slash | Percent => self { modes = inner, level = LevelUnary }
     | PlusPlus => self { modes = inner, level = LevelAdditive }
-    | AndAnd => self { modes = inner, level = LevelComparison }
-    | OrOr => self { modes = inner, level = LevelComparison }
-    | IffArrow => self { modes = inner, level = LevelComparison }
+    | AndAnd | OrOr | IffArrow => self { modes = inner, level = LevelComparison }
     | _ => self { modes = inner, level = LevelAppend }
 
 def rightEnd (inner: Modes) (open: Word) (inside start: Nat) (operand: Expr) (here: Nat): {Parse Item} Expr :=
@@ -1980,9 +1940,7 @@ def recordLiteral (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
   recordFields self inner open base
 
 def literalSecond: Option Tok → Bool
-  | Some Equals => True
-  | Some Comma => True
-  | Some RBrace => True
+  | Some Equals | Some Comma | Some RBrace => True
   | _ => False
 
 def recordBase (self: Goal → {Parse Item} Expr) (inner: Modes) (literal: Bool): {Parse Item} Option (Expr, Word) :=
@@ -2077,10 +2035,7 @@ def specialAhead (modes: Modes) (word: Text): {Parse Item} Bool := specialOf (wo
 def specialOf (word: Bool) (second: Option Tok): Bool :=
   word
     && (match second with
-      | Some KwWith => False
-      | Some Comma => False
-      | Some Colon => False
-      | None => False
+      | Some KwWith | Some Comma | Some Colon | None => False
       | _ => True)
 
 def matchExpr (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word): {Parse Item} Expr :=
@@ -2273,9 +2228,7 @@ def fieldValuePattern (pself: PatternGoal → {Parse Item} Pattern) (modes: Mode
 
 def Pattern.hasAbsurd: Pattern → Bool
   | PatternAbsurd _ _ => True
-  | PatternCtor _ arguments => anyAbsurd arguments
-  | PatternTuple _ items _ _ => anyAbsurd items
-  | PatternList _ items _ _ _ => anyAbsurd items
+  | PatternCtor _ arguments | PatternTuple _ arguments _ _ | PatternList _ arguments _ _ _ => anyAbsurd arguments
   | PatternOr first rest => first.hasAbsurd || anyLinkAbsurd rest
   | PatternParen _ inner _ => inner.hasAbsurd
   | _ => False
@@ -2486,15 +2439,7 @@ def altPatternOneOf (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
   else tupleComponent pself modes
 
 def endsAltArguments: Tok → Bool
-  | Comma => True
-  | Arrow => True
-  | FatArrow => True
-  | Pipe => True
-  | KwIf => True
-  | PlusPlus => True
-  | RParen => True
-  | RBracket => True
-  | RBrace => True
+  | Comma | Arrow | FatArrow | Pipe | KwIf | PlusPlus | RParen | RBracket | RBrace => True
   | _ => False
 
 --| A constructor's arguments, up to a token `stops` accepts (or the end).

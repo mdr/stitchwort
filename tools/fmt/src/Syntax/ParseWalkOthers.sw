@@ -71,9 +71,7 @@ theorem givesAfterOpaque ∀ (modes: Modes): Parse.Gives GoodItems (() => afterO
   givesAfter0 (reads0Peek modes) (seen =>
     match seen with
       | Some KwDef => Parse.givesDone byComputing
-      | Some KwTheorem => Parse.readsFatal _ _
-      | Some KwInstance => Parse.readsFatal _ _
-      | Some KwExport => Parse.readsFatal _ _
+      | Some KwTheorem | Some KwInstance | Some KwExport => Parse.readsFatal _ _
       | other => givesFail modes _)
 
 -- `export`, `opaque` and `instance`: definitions with a header that has a keyword slice 1 doesn't.
@@ -147,8 +145,7 @@ theorem definitionOut ∀ (attributes: List Attributes) (header: Header) (body: 
     DeclOut (Definition attributes header body) :=
   match attributes, body with
     | [], Assigned colonEq value => rewrite out
-    | [], other => byComputing
-    | [group, ..groups], other => byComputing
+    | [] | [_, .._], _ => byComputing
 
 theorem givesDefinitionExported ∀ (modes: Modes) (attributes: List Attributes)
     (exported: Comments) (opaqued: Option Comments):
@@ -585,8 +582,7 @@ theorem givesDataDecl ∀ (modes: Modes) (attributes: List Attributes):
 theorem givesDeclarationOther ∀ (modes: Modes) (attributes: List Attributes) (seen: Option Tok):
     Parse.Gives GoodItems (() => declarationOther modes attributes seen) DeclOut :=
   match seen with
-    | Some KwType => givesDataDecl modes attributes
-    | Some KwInterface => givesDataDecl modes attributes
+    | Some KwType | Some KwInterface => givesDataDecl modes attributes
     | Some KwInstance => givesInstanceDecl modes attributes
     | Some KwAbility => givesAbilityDecl modes
     | Some KwTest => givesTestDecl modes

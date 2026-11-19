@@ -82,13 +82,13 @@ def hexNumber (digits: List Char): Nat := digits.foldLeft 0 (value digit => valu
 --| The length of the escape at the start of `rest` (which starts with
 --| `\`), or the error for it.
 def escapeLength (rest: List Char): Result Nat Text := match rest with
-  | ['\\', 'n', .._] => Ok 2
-  | ['\\', 't', .._] => Ok 2
-  | ['\\', 'r', .._] => Ok 2
-  | ['\\', '\\', .._] => Ok 2
-  | ['\\', '"', .._] => Ok 2
-  | ['\\', '\'', .._] => Ok 2
-  | ['\\', '$', .._] => Ok 2
+  | ['\\', 'n', .._] |
+      ['\\', 't', .._] |
+      ['\\', 'r', .._] |
+      ['\\', '\\', .._] |
+      ['\\', '"', .._] |
+      ['\\', '\'', .._] |
+      ['\\', '$', .._] => Ok 2
   | ['\\', 'u', '{', ..after] =>
     let digits := after.takeWhile isHexDigit
     let closed := (after.drop digits.length).head == Some '}'
@@ -282,9 +282,7 @@ def charLiteral(): {Parse Char} Parse.Located Lexeme :=
 --| characters it stands for.
 def charPiece(): {Parse Char} Nat := match Parse.mark().rest with
   | ['\\', .._] => readEscape Parse.mark().rest
-  | ['\'', .._] => stop()
-  | ['\n', .._] => stop()
-  | [] => stop()
+  | ['\'', .._] | ['\n', .._] | [] => stop()
   | _ => Parse.span (char => char != '\'' && char != '\\' && char != '\n') |> .length
 
 --| Reads the escape `rest` starts with, failing with its error.
@@ -394,8 +392,7 @@ def segment (block: Bool): {Parse Char} Option Text := match Parse.mark().rest, 
     skip 1
     Some unknownEscape
   | ['"', '"', '"', .._], True => stop()
-  | ['"', .._], False => stop()
-  | ['\n', .._], False => stop()
+  | ['"', .._] | ['\n', .._], False => stop()
   | [], _ => stop()
   | ['$', .._], _ =>
     skip 1
@@ -444,10 +441,7 @@ def itemOn (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: T
       let inner := self place
       let close := tokenOf RBrace 1
       [open, ..inner] ++ [close]
-    | [' ', .._] =>
-      let run := Parse.span (char => char == ' ' || char == '\r')
-      [located Spaces from]
-    | ['\r', .._] =>
+    | [' ', .._] | ['\r', .._] =>
       let run := Parse.span (char => char == ' ' || char == '\r')
       [located Spaces from]
     | ['\t', .._] => fail tabs

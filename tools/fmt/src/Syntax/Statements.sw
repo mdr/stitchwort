@@ -40,12 +40,7 @@ def statementOn (self: Goal → {Parse Item} Expr) (modes: Modes): Option Tok �
 --| The tokens that start a line of a block other than an expression: a `let`, a local definition, an attribute, or
 --| what a block refuses.
 def startsOtherStatement: Tok → Bool
-  | KwLet => True
-  | KwDef => True
-  | KwTheorem => True
-  | At => True
-  | KwExport => True
-  | KwOpaque => True
+  | KwLet | KwDef | KwTheorem | At | KwExport | KwOpaque => True
   | _ => False
 
 def statementValue (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Statement :=
@@ -390,12 +385,9 @@ def calcRecord (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (in
 --| Whether a relation goes up (`<`, `<=`) or down (`>`, `>=`).
 def stepSign (modes: Modes): Option Tok → {Parse Item} (Bool, Bool)
   | Some Equals => (False, False)
-  | Some Le => (True, False)
-  | Some Lt => (True, False)
-  | Some Ge => (False, True)
-  | Some Gt => (False, True)
-  | Some NotEq => fatal calcRelations
-  | Some EqEq => fatal calcRelations
+  | Some Le | Some Lt => (True, False)
+  | Some Ge | Some Gt => (False, True)
+  | Some NotEq | Some EqEq => fatal calcRelations
   | _ => modes.fail "`=`, `<=`, `<`, `>=` or `>` after `_`"
 
 def calcProof (self: Goal → {Parse Item} Expr) (modes: Modes) (colonEq: Bool): {Parse Item} Option (Comments, Expr) :=

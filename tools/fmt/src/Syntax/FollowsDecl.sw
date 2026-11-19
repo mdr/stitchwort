@@ -476,9 +476,8 @@ theorem alikeGroup ∀ (kind: GroupKind) (implicit: Bool)
 theorem followsParamNameOn ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode WordsAlike (() => paramNameOn modes seen) (() => paramNameOn modes seen) :=
   match seen with
-    | Some Upper => followsFail modes "a parameter's name" (() => modes.fail "a parameter's name")
-    | Some LParen => followsFail modes "a parameter's name" (() => modes.fail "a parameter's name")
-    | Some LBrace => followsFail modes "a parameter's name" (() => modes.fail "a parameter's name")
+    | Some Upper | Some LParen | Some LBrace =>
+      followsFail modes "a parameter's name" (() => modes.fail "a parameter's name")
     | _ => followsLower modes "a parameter's name"
 
 theorem followsParamName ∀ (modes: Modes):
@@ -519,18 +518,13 @@ def binderTypeBrace (self: Goal → {Parse Item} Expr) (allowed: Modes) (flag: B
   if flag then Syntax.fatal "an ability row can't be written in a parameter's type" else full self allowed
 
 theorem skipsToTypeDeaf ∀ (items: List Item): skipsToType items = skipsToType (items.map Item.stripped) :=
-  rewrite skipGroupDeaf [] items then
-    match skipGroup [] items with
-      | None => byComputing
-      | Some [] => byComputing
-      | Some [next, ..more] => byComputing
+  rewrite skipGroupDeaf [] items then match skipGroup [] items with | None | Some [] | Some [_, .._] => byComputing
 
 theorem binderTypeBraceEq ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes) (open: Item) (rest: List Item):
     binderTypeOn self allowed (Some LBrace) [open, ..rest]
       = binderTypeBrace self allowed (skipsToType [open, ..rest]) :=
   match skipGroup [] [open, ..rest] with
-    | None => byComputing
-    | Some [] => byComputing
+    | None | Some [] => byComputing
     | Some [next, ..more] =>
       match typeStarts next.kind with
         | True => byComputing
@@ -1096,9 +1090,7 @@ theorem followsResultType ∀ [self selfTwin: Goal → {Parse Item} Expr]
 
 theorem walkAttributesEmpty ∀ (attributes: List Attributes):
     (walkAttributes blankPure attributes).isEmpty = attributes.isEmpty :=
-  match attributes with
-    | [] => byComputing
-    | [x, ..xs] => byComputing
+  match attributes with | [] | [_, .._] => byComputing
 
 theorem followsRefuseEmpty ∀ (attributes twins: List Attributes)
     (empties: attributes.isEmpty = twins.isEmpty) (what: Text):
@@ -2291,9 +2283,7 @@ def IndexStepAlike (step twin: (Index, Word)): Prop := stepKey step = stepKey tw
 theorem blankIndexStepsCons ∀ (step: (Index, Word)) (rest: List (Index, Word)):
     blankIndexSteps (walkIndices blankPure [step, ..rest])
       = [stepKey step, ..blankIndexSteps (walkIndices blankPure rest)] :=
-  match step with
-    | (IndexBinder binder, arrow) => byComputing
-    | (IndexType annotation, arrow) => byComputing
+  match step with | (IndexBinder _, _) | (IndexType _, _) => byComputing
 
 theorem indexStepsBlank ∀ (steps twins: List (Index, Word))
     (alike: List.All2 IndexStepAlike steps twins):
@@ -2455,9 +2445,7 @@ def PartAlike (part twin: ConstructorPart): Prop := partKey part = partKey twin
 
 theorem partsCons ∀ (part: ConstructorPart) (rest: List ConstructorPart):
     blankParts (walkParts blankPure [part, ..rest]) = [partKey part, ..blankParts (walkParts blankPure rest)] :=
-  match part with
-    | PartGroup group => byComputing
-    | PartFields fields => byComputing
+  match part with | PartGroup _ | PartFields _ => byComputing
 
 theorem partsBlank ∀ (parts twins: List ConstructorPart)
     (alike: List.All2 PartAlike parts twins):
@@ -2575,10 +2563,7 @@ theorem dataWalk ∀ (attributes: List Attributes) (isInterface: Bool) (keyword:
         (indicesKey indices)
         (dataBodyKey body) :=
   match indices, body with
-    | None, Abstract => byComputing
-    | None, Synonym equals annotation => byComputing
-    | None, RecordBody equals fields => byComputing
-    | None, Sum equals constructors => byComputing
+    | None, Abstract | Synonym _ _ | RecordBody _ _ | Sum _ _ => byComputing
     | Some { colon, steps, last }, Abstract => byComputing
     | Some { colon, steps, last }, Synonym equals annotation => byComputing
     | Some { colon, steps, last }, RecordBody equals fields => byComputing
@@ -2905,9 +2890,7 @@ theorem expressionKnot ∀ (rule: ExpressionRule): SelfFollows expressionAt expr
 
 theorem fieldListEmpty ∀ (fields: List Field):
     (blankFieldList (walkFieldList blankPure fields)).isEmpty = fields.isEmpty :=
-  match fields with
-    | [] => byComputing
-    | [x, ..xs] => byComputing
+  match fields with | [] | [_, .._] => byComputing
 
 theorem fieldsWalkFields ∀ (fields: Fields):
     (fields.walk blankPure).fields = blankFieldList (walkFieldList blankPure fields.fields) :=
@@ -3062,12 +3045,10 @@ theorem groupWalkNames ∀ (group: Group): (group.walk blankPure).blank.names = 
   | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } => byComputing
 
 theorem blankCommentsSome ∀ (found: Option Comments): (blankComments found).isSome = found.isSome := match found with
-  | Some x => byComputing
-  | None => byComputing
+  | Some _ | None => byComputing
 
 theorem blankWordsEmpty ∀ (words: List Word): (blankWords words).isEmpty = words.isEmpty := match words with
-  | [] => byComputing
-  | [x, ..xs] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem groupAutoSome ∀ (group twin: Group) (alike: GroupsAlike group twin): group.auto.isSome = twin.auto.isSome :=
   let same: blankComments group.auto = blankComments twin.auto := calc blankComments group.auto
@@ -3085,8 +3066,6 @@ theorem isNoneOfAlikeSome ∀ (found twin: Option Comments)
   match found, twin with
     | Some x, Some y => byComputing
     | None, None => byComputing
-    | Some x, None => cases
-    | None, Some y => cases
 
 theorem groupNamesEmpty ∀ (group twin: Group)
     (alike: GroupsAlike group twin):
@@ -3470,10 +3449,7 @@ theorem followsTypeBraced ∀ (rule: ExpressionRule) (modes: Modes) (attributes 
 
 theorem stepsEmpty ∀ (steps: List (Index, Word)):
     (blankIndexSteps (walkIndices blankPure steps)).isEmpty = steps.isEmpty :=
-  match steps with
-    | [] => byComputing
-    | [(IndexBinder binder, arrow), ..rest] => byComputing
-    | [(IndexType annotation, arrow), ..rest] => byComputing
+  match steps with | [] | [(IndexBinder _, _), .._] | [(IndexType _, _), .._] => byComputing
 
 theorem indexedKey ∀ (indices: Option Indices):
     (indices.map (found => !found.steps.isEmpty) |> .getOrElse False)
@@ -3942,9 +3918,7 @@ theorem followsAfterOpaqueOn ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode Anything (() => afterOpaqueOn modes seen) (() => afterOpaqueOn modes seen) :=
   match seen with
     | Some KwDef => Parse.followsDone () () Trivial
-    | Some KwTheorem => followsFatalAny _ _
-    | Some KwInstance => followsFatalAny _ _
-    | Some KwExport => followsFatalAny _ _
+    | Some KwTheorem | Some KwInstance | Some KwExport => followsFatalAny _ _
     | _ => followsFail modes "`def` after `opaque`" (() => modes.fail "`def` after `opaque`")
 
 theorem followsAfterOpaque ∀ (modes: Modes):
@@ -4010,8 +3984,7 @@ theorem followsDeclarationOther ∀ (rule: ExpressionRule) (alts: AltPatternFoll
     Parse.Follows SameCode DeclsAlike (() => declarationOther modes attributes seen) (() =>
       declarationOther modes attributesTwin seen) :=
   match seen with
-    | Some KwType => followsDataDecl rule modes attributes attributesTwin attributeses
-    | Some KwInterface => followsDataDecl rule modes attributes attributesTwin attributeses
+    | Some KwType | Some KwInterface => followsDataDecl rule modes attributes attributesTwin attributeses
     | Some KwInstance => followsInstanceDecl rule alts modes attributes attributesTwin attributeses
     | Some KwAbility => followsAbilityDecl rule modes
     | Some KwTest => followsTestDecl rule modes

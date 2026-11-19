@@ -317,8 +317,7 @@ theorem kindLexemeFine ∀ (chars next: List Char) (value: Lexeme)
     (fine: kindFine chars next value = True):
     lexemeFine (Text.fromList chars) value = True :=
   match value with
-    | Spaces => byComputing
-    | LineBreak => byComputing
+    | Spaces | LineBreak => byComputing
     | CommentLexeme => Bool.andLeft (Bool.andRight fine)
     | TokenLexeme kind => Bool.andRight fine
 

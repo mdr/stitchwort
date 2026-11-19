@@ -223,15 +223,8 @@ theorem wordKinds ∀ (kind: Tok)
       ∧ (kind == LBracket) = False
       ∧ (kind == Dot) = False :=
   match kind, word with
-    | Lower, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | Upper, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | Num, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | Float, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | Str, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | CharLit, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | Underscore, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | Question, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
-    | PropU, _ => (byComputing, byComputing, byComputing, byComputing, byComputing)
+    | Lower | Upper | Num | Float | Str | CharLit | Underscore | Question | PropU, _ =>
+      (byComputing, byComputing, byComputing, byComputing, byComputing)
     | other, word => (Bool.falseNotTrue word).impossible
 
 --| The next item, when it doesn't stop what is being read, is what `peek` sees.

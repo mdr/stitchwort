@@ -26,8 +26,7 @@ theorem arrowsBareSuffix ∀ (xs ys: List Word) (bare: arrowsBare (xs ++ ys) = T
 --| `->` bare in a joined list is bare in its first part: the part's last word has nothing after it to read.
 theorem arrowsBarePrefix ∀ (xs ys: List Word) (bare: arrowsBare (xs ++ ys) = True): arrowsBare xs = True :=
   match xs with
-    | [] => byComputing
-    | [word] => byComputing
+    | [] | [_] => byComputing
     | [word, next, ..rest] =>
       Bool.andIntro (Bool.andLeft bare) (arrowsBarePrefix [next, ..rest] ys (Bool.andRight bare))
 

@@ -77,9 +77,7 @@ theorem leafEta ∀ (leaf: Leaf): leaf.startingLine leaf.token.lineStart = leaf 
 
 theorem markedTrailing ∀ (leaf: Leaf) (behind: List Leaf) (trailing: Option Comment):
     (leaf.markedOn behind).withTrailing trailing = (leaf.withTrailing trailing).markedOn behind :=
-  match behind with
-    | [] => byComputing
-    | [previous, ..earlier] => byComputing
+  match behind with | [] | [_, .._] => byComputing
 
 theorem markRevTrailingAt ∀ (behind: List Leaf) (steps: Nat) (comment: Comment):
     markRev (trailingAt behind steps comment) = trailingAt (markRev behind) steps comment :=
@@ -95,8 +93,7 @@ theorem markRevTrailingAt ∀ (behind: List Leaf) (steps: Nat) (comment: Comment
           markRevTrailingAt earlier (Succ more) comment
 
 theorem markRevEmpty ∀ (behind: List Leaf): (markRev behind).isEmpty = behind.isEmpty := match behind with
-  | [] => byComputing
-  | [leaf, ..older] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem endsOnMark ∀ (behind: List Leaf): endsOn (markRev behind) = endsOn behind := match behind with
   | [] => byComputing
@@ -110,8 +107,7 @@ theorem markRevWithin ∀ (behind: List Leaf)
     | [leaf, ..older] => Bool.andIntro (Bool.andLeft within) (markRevWithin older (Bool.andRight within))
 
 theorem hasItemMark ∀ (behind: List Leaf): hasItem (markRev behind) = hasItem behind := match behind with
-  | [] => byComputing
-  | [leaf, ..older] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem fwdPairMark ∀ (behind: List Leaf) (leaf: Leaf) (after: List Leaf):
     fwdPair (markRev behind) leaf after = fwdPair behind leaf after :=

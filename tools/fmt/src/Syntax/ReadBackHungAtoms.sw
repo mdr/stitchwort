@@ -457,9 +457,7 @@ theorem atomHung ∀ (modes: Modes)
                         isClose
                       )))))
             )
-    | App _ _, _ => (Bool.falseNotTrue atomic).impossible
-    | Prefix _ _, _ => (Bool.falseNotTrue atomic).impossible
-    | Infix _ _ _ _, _ => (Bool.falseNotTrue atomic).impossible
+    | App _ _ | Prefix _ _ | Infix _ _ _ _, _ => (Bool.falseNotTrue atomic).impossible
     | _, never => Void.impossible never
 
 --| A tuple's items after the first two, each after its comma, then the closer: `state` is the line rule's before the

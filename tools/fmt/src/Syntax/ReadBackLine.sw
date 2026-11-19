@@ -59,33 +59,33 @@ theorem quietBrackets ∀ (modes: Modes) (quiet: Quiet modes): Quiet modes.inBra
 --| The kinds of a one-line declaration's items from its type on, in this part: words, signs, brackets, commas and
 --| `:=`.
 def lineKind: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | Minus => True
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | Plus => True
-  | PlusPlus => True
-  | Equals => True
-  | EqEq => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | AndAnd => True
-  | OrOr => True
-  | Bang => True
-  | Arrow => True
-  | ColonEq => True
-  | LParen => True
-  | RParen => True
-  | LBracket => True
-  | RBracket => True
-  | Comma => True
+  | Lower |
+      Upper |
+      Num |
+      Float |
+      Minus |
+      Star |
+      Slash |
+      Percent |
+      Plus |
+      PlusPlus |
+      Equals |
+      EqEq |
+      NotEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      AndAnd |
+      OrOr |
+      Bang |
+      Arrow |
+      ColonEq |
+      LParen |
+      RParen |
+      LBracket |
+      RBracket |
+      Comma => True
   | _ => False
 
 def lineAll: List Item → Bool
@@ -94,49 +94,22 @@ def lineAll: List Item → Bool
 
 --| The kinds an expression of this part starts with.
 def startKind: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | LParen => True
-  | LBracket => True
+  | Lower | Upper | Num | Float | LParen | LBracket => True
   | _ => False
 
 --| The signs a prefix of this part is written with.
 def signKind: Tok → Bool
-  | Minus => True
-  | Bang => True
+  | Minus | Bang => True
   | _ => False
 
 --| The kinds any expression of this part starts with: an atom's or a sign.
 def leadKind: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | LParen => True
-  | LBracket => True
-  | Minus => True
-  | Bang => True
+  | Lower | Upper | Num | Float | LParen | LBracket | Minus | Bang => True
   | _ => False
 
 --| The binary operators of this part.
 def binaryTok: Tok → Bool
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | Plus => True
-  | Minus => True
-  | PlusPlus => True
-  | Equals => True
-  | EqEq => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | AndAnd => True
-  | OrOr => True
+  | Star | Slash | Percent | Plus | Minus | PlusPlus | Equals | EqEq | NotEq | Lt | Le | Gt | Ge | AndAnd | OrOr => True
   | _ => False
 
 --| The operator token an infix of this kind is spelt with: `->` for an arrow, a binary operator of this part.
@@ -150,19 +123,10 @@ def tokLevel: Tok → Nat
   | Arrow => 1
   | OrOr => 4
   | AndAnd => 5
-  | Equals => 6
-  | EqEq => 6
-  | NotEq => 6
-  | Lt => 6
-  | Le => 6
-  | Gt => 6
-  | Ge => 6
+  | Equals | EqEq | NotEq | Lt | Le | Gt | Ge => 6
   | PlusPlus => 12
-  | Plus => 14
-  | Minus => 14
-  | Star => 16
-  | Slash => 16
-  | Percent => 16
+  | Plus | Minus => 14
+  | Star | Slash | Percent => 16
   | _ => 0
 
 --| An infix's right operand doesn't touch its operator: so `a - x` isn't read as the call `a -x`.
@@ -173,8 +137,7 @@ def operandApart: List Item → Bool
 --| An expression that starts with a sign: a prefix, or a call or an infix whose head or left side does.
 def Expr.signed: Expr → Bool
   | Prefix _ _ => True
-  | App head _ => head.signed
-  | Infix _ left _ _ => left.signed
+  | App head _ | Infix _ head _ _ => head.signed
   | _ => False
 
 --| No infix operator at the top: what `unary` reads whole.
@@ -276,8 +239,7 @@ def SpeltArgs: List Expr → List (List Item, Expr) → Prop
 
 --| A call's argument in this part: an atom or a bracket, or a sign on one.
 def Expr.signArg: Expr → Bool
-  | Prefix _ operand => operand.primary
-  | other => other.primary
+  | Prefix _ operand | operand => operand.primary
 
 --| A sign starting an argument is glued to what follows it and not to what precedes it, which ends an operand: the
 --| spacing `argumentPrefix` asks of `f -x`.
@@ -300,8 +262,7 @@ def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
 --| How deep `self` calls nest when the parser reads the expression: one more for each bracket.
 def Expr.nest: Expr → Nat
   | Paren _ inner _ => inner.nest + 1
-  | Tuple _ items _ _ => nestAll items + 1
-  | ListOf _ items _ _ => nestAll items + 1
+  | Tuple _ items _ _ | ListOf _ items _ _ => nestAll items + 1
   | App head arguments => head.nest + nestAll arguments + 1
   | Prefix _ operand => operand.nest + 1
   | Infix _ left _ right => left.nest + right.nest + 1
@@ -319,10 +280,7 @@ theorem signLead ∀ (kind: Tok) (signed: signKind kind = True): leadKind kind =
 
 --| An atom or a bracket is no prefix.
 theorem atomicUnsigned ∀ (expr: Expr) (atomic: expr.primary = True): expr.signed = False := match expr, atomic with
-  | Atom _ _, _ => byComputing
-  | Paren _ _ _, _ => byComputing
-  | Tuple _ _ _ _, _ => byComputing
-  | ListOf _ _ _ _, _ => byComputing
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => byComputing
   | other, never => (Bool.falseNotTrue never).impossible
 
 --| A spelt expression starts with a sign or an atom's first kind.
@@ -371,32 +329,32 @@ theorem speltPlainStarts ∀ (expr: Expr) (read: List Item)
 
 --| The kinds inside an expression of this part: `lineKind` without `:=`.
 def exprKind: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | Minus => True
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | Plus => True
-  | PlusPlus => True
-  | Equals => True
-  | EqEq => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | AndAnd => True
-  | OrOr => True
-  | Bang => True
-  | Arrow => True
-  | LParen => True
-  | RParen => True
-  | LBracket => True
-  | RBracket => True
-  | Comma => True
+  | Lower |
+      Upper |
+      Num |
+      Float |
+      Minus |
+      Star |
+      Slash |
+      Percent |
+      Plus |
+      PlusPlus |
+      Equals |
+      EqEq |
+      NotEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      AndAnd |
+      OrOr |
+      Bang |
+      Arrow |
+      LParen |
+      RParen |
+      LBracket |
+      RBracket |
+      Comma => True
   | _ => False
 
 def exprAll: List Item → Bool
@@ -515,11 +473,7 @@ theorem startOutside ∀ (first second: Tok)
     parenOutside (Some first) (Some second) = False :=
   match first, starts with
     | Lower, _ => rewrite exprNotColonEq second expr
-    | Upper, _ => byComputing
-    | Num, _ => byComputing
-    | Float, _ => byComputing
-    | LParen, _ => byComputing
-    | LBracket, _ => byComputing
+    | Upper | Num | Float | LParen | LBracket, _ => byComputing
     | other, never => (Bool.falseNotTrue never).impossible
 
 theorem startBracketPlain ∀ (first second: Tok)
@@ -528,13 +482,7 @@ theorem startBracketPlain ∀ (first second: Tok)
     ((isSome Lower (Some first) || isSome KwDecreasing (Some first)) && isSome ColonEq (Some second)) = False :=
   match first, starts with
     | Lower, _ => rewrite exprNotColonEq second expr
-    | Upper, _ => byComputing
-    | Num, _ => byComputing
-    | Float, _ => byComputing
-    | LParen, _ => byComputing
-    | LBracket, _ => byComputing
-    | Minus, _ => byComputing
-    | Bang, _ => byComputing
+    | Upper | Num | Float | LParen | LBracket | Minus | Bang, _ => byComputing
     | other, never => (Bool.falseNotTrue never).impossible
 
 theorem leadNotDot ∀ (kind: Tok) (starts: leadKind kind = True): (kind == Dot) = False := cases
@@ -1196,10 +1144,7 @@ theorem signCases ∀ (kind: Tok) (signed: signKind kind = True): kind = Minus �
 theorem signArgAtomic ∀ (expr: Expr) (fits: expr.signArg = True) (unsigned: expr.signed = False): expr.primary = True :=
   match expr, fits, unsigned with
     | Prefix _ _, _, never => (Bool.falseNotTrue never.flipped).impossible
-    | Atom _ _, fits, _ => fits
-    | Paren _ _ _, fits, _ => fits
-    | Tuple _ _ _ _, fits, _ => fits
-    | ListOf _ _ _ _, fits, _ => fits
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, fits, _ => fits
     | other, never, _ => (Bool.falseNotTrue never).impossible
 
 --| A sign before an argument starts an atom.
@@ -1208,8 +1153,7 @@ theorem signStartsAtom ∀ (modes: Modes) (kind: Tok) (items: List Item)
     (prefix: argumentPrefix items = True):
     startsAtomKind modes kind items = True :=
   match kind, signed with
-    | Minus, _ => rewrite prefix
-    | Bang, _ => rewrite prefix
+    | Minus | Bang, _ => rewrite prefix
     | other, never => (Bool.falseNotTrue never).impossible
 
 theorem signOr ∀ (kind: Tok) (signed: signKind kind = True): (kind == Minus || kind == Bang) = True := cases
@@ -1232,21 +1176,11 @@ theorem negativeMinusExample: (lexedAt 9).kind = Minus := negativeMinus (lexedAt
 --| The rung of the ladder an operator of this part is read at: `&&` and `||` share the logic links.
 def tokRung: Tok → Nat
   | Arrow => 1
-  | OrOr => 5
-  | AndAnd => 5
-  | Equals => 6
-  | EqEq => 6
-  | NotEq => 6
-  | Lt => 6
-  | Le => 6
-  | Gt => 6
-  | Ge => 6
+  | OrOr | AndAnd => 5
+  | Equals | EqEq | NotEq | Lt | Le | Gt | Ge => 6
   | PlusPlus => 12
-  | Plus => 14
-  | Minus => 14
-  | Star => 16
-  | Slash => 16
-  | Percent => 16
+  | Plus | Minus => 14
+  | Star | Slash | Percent => 16
   | _ => 0
 
 --| What follows an operand read at `level` of the ladder ends it there: what ends a unary reading, and no operator
@@ -1490,12 +1424,7 @@ theorem highUnary ∀ (expr: Expr) (read: List Item)
   match expr, spelt, high with
     | Infix kind _ operator _, (_, op, _, _, isOp, _, level, _), high =>
       Void.impossible (arithmetic [high, level, infixAtMost kind op.kind isOp])
-    | Atom _ _, _, _ => byComputing
-    | Paren _ _ _, _, _ => byComputing
-    | Tuple _ _ _ _, _, _ => byComputing
-    | ListOf _ _ _ _, _, _ => byComputing
-    | App _ _, _, _ => byComputing
-    | Prefix _ _, _, _ => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _, _ => byComputing
     | _, never, _ => Void.impossible never
 
 --| A spelt expression that is no infix binds at the unary level or tighter.
@@ -1504,12 +1433,7 @@ theorem unaryLevel ∀ (expr: Expr) (read: List Item)
     (unary: expr.unary = True):
     18 <= expr.level :=
   match expr, spelt, unary with
-    | Atom _ _, _, _ => arithmetic []
-    | Paren _ _ _, _, _ => arithmetic []
-    | Tuple _ _ _ _, _, _ => arithmetic []
-    | ListOf _ _ _ _, _, _ => arithmetic []
-    | App _ _, _, _ => arithmetic []
-    | Prefix _ _, _, _ => arithmetic []
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _, _ => arithmetic []
     | Infix _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
     | _, never, _ => Void.impossible never
 
@@ -1679,10 +1603,7 @@ theorem conjunctionStop ∀ (first: Expr) (links: List (Word, Expr))
 theorem groupConj ∀ (fuel: Nat) (first expr: Expr) (links: List (Word, Expr))
     (conj: conjunctionOf first links = (expr, [])):
     groupLogic fuel first links = expr :=
-  rewrite conj then
-    match fuel with
-      | Zero => byComputing
-      | Succ _ => byComputing
+  rewrite conj then match fuel with | Zero | Succ _ => byComputing
 
 theorem groupOr ∀ (fuel: Nat) (first left next: Expr) (word: Word) (links rest: List (Word, Expr))
     (conj: conjunctionOf first links = (left, [(word, next), ..rest])):

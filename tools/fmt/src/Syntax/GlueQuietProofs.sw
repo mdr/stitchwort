@@ -58,18 +58,14 @@ theorem quietNotSign ∀ (l o t e: Bool): quietOf False l o t e = True := byComp
 
 theorem quietNotOpens ∀ (s l t e: Bool): quietOf s l False t e = True := match s, l with
   | False, _ => byComputing
-  | True, True => byComputing
-  | True, False => byComputing
+  | True, True | False => byComputing
 
-theorem quietStarts ∀ (s o t e: Bool): quietOf s True o t e = True := match s with
-  | False => byComputing
-  | True => byComputing
+theorem quietStarts ∀ (s o t e: Bool): quietOf s True o t e = True := match s with | False | True => byComputing
 
 theorem quietBoth ∀ (s l o: Bool): quietOf s l o True True = True := match s, l, o with
   | False, _, _ => byComputing
   | True, True, _ => byComputing
-  | True, False, False => byComputing
-  | True, False, True => byComputing
+  | True, False, False | True => byComputing
 
 theorem isNoneOfSome ∀ (option: Option Comment) (none: option.isSome = False): option.isNone = True := match option with
   | None => byComputing
@@ -111,14 +107,10 @@ theorem laidQuiet ∀ (leaves: List Leaf) (pending: Bool)
 def Leaf.trimmed (leaf: Leaf): Leaf := { leaf | trivia = leaf.trivia.trimmed }
 
 theorem trailingTrimmed ∀ (leaf: Leaf): leaf.trimmed.trivia.trailing.isNone = leaf.trivia.trailing.isNone :=
-  match leaf.trivia.trailing with
-    | None => byComputing
-    | Some comment => byComputing
+  match leaf.trivia.trailing with | None | Some _ => byComputing
 
 theorem leadingTrimmed ∀ (leaf: Leaf): leaf.trimmed.trivia.leading.isEmpty = leaf.trivia.leading.isEmpty :=
-  match leaf.trivia.leading with
-    | [] => byComputing
-    | [comment, ..more] => byComputing
+  match leaf.trivia.leading with | [] | [_, .._] => byComputing
 
 theorem trimmedQuiet ∀ (sign next: Leaf): glueQuiet sign.trimmed next.trimmed = glueQuiet sign next := calc glueQuiet
     sign.trimmed next.trimmed
@@ -178,8 +170,7 @@ theorem quietLoose ∀ (s l o t e t2 e2 f: Bool)
                 | False, True, True, True, True, _, _, _, _ => byComputing
 
 theorem commaNotSign ∀ (kind: Tok): (!(kind == Comma) || !kind.signLike) = True := match kind with
-  | Comma => byComputing
-  | other => byComputing
+  | Comma | _ => byComputing
 
 theorem looseQuiet ∀ (free: Bool) (sign next sign2 next2: Leaf)
     (quiet: glueQuiet sign next = True)
@@ -230,14 +221,7 @@ theorem looseSelf ∀ (free: Bool) (leaf: Leaf): Loose free leaf leaf := (
     | True => byComputing
     | False => byComputing,
   match leaf.trivia.leading.isEmpty with
-    | True =>
-      match free with
-        | True => byComputing
-        | False =>
-          match leaf.kind.opensAtom with
-            | True => byComputing
-            | False => byComputing
-    | False =>
+    | True | False =>
       match free with
         | True => byComputing
         | False =>
@@ -258,10 +242,7 @@ theorem loosePlain ∀ (free: Bool) (leaf after: Leaf)
       match leaf.trivia.trailing.isNone with
         | True => byComputing
         | False => byComputing,
-    rewrite plain then
-      match free with
-        | True => byComputing
-        | False => byComputing
+    rewrite plain then match free with | True | False => byComputing
   )
 
 theorem kindIs ∀ (kind: Tok) (is: kind = ColonEq): kind.opensAtom = False := rewrite is
@@ -493,14 +474,10 @@ theorem reverseQuiet ∀ (behind acc: List Leaf)
 --| `glueQuiet` reads of the later leaf only its line start, kind and own-line comments.
 theorem backUntrail ∀ (leaf: Leaf) (trailing: Option Comment) (older: List Leaf):
     gluesQuietBackAfter (leaf.withTrailing trailing) older = gluesQuietBackAfter leaf older :=
-  match older with
-    | [] => byComputing
-    | [previous, ..earlier] => byComputing
+  match older with | [] | [_, .._] => byComputing
 
 theorem closerPlain ∀ (kind: Tok) (closer: kind.isCloser = True): kind.opensAtom = False := match kind, closer with
-  | RParen, _ => byComputing
-  | RBracket, _ => byComputing
-  | RBrace, _ => byComputing
+  | RParen | RBracket | RBrace, _ => byComputing
 
 --| What rule 1 walks past opens no atom.
 theorem skippedPlain ∀ (leaf: Leaf) (behind ahead: List Leaf)
@@ -583,15 +560,11 @@ def homeEdge (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): Boo
   | [newest, .._], [next, .._] => !newest.kind.signLike || (bumped.isNone && glueQuiet newest next)
   | _, _ => True
 
-theorem edgeNil ∀ (behind: List Leaf): edgeQuiet behind [] = True := match behind with
-  | [] => byComputing
-  | [newest, ..older] => byComputing
+theorem edgeNil ∀ (behind: List Leaf): edgeQuiet behind [] = True := match behind with | [] | [_, .._] => byComputing
 
 theorem afterUnlead ∀ (leaf: Leaf) (leading: List Comment) (rest: List Leaf):
     gluesQuietAfter (leaf.withLeading leading) rest = gluesQuietAfter leaf rest :=
-  match rest with
-    | [] => byComputing
-    | [next, ..more] => byComputing
+  match rest with | [] | [_, .._] => byComputing
 
 theorem edgeOfAfter ∀ (leaf: Leaf) (behind after: List Leaf)
     (nextOk: gluesQuietAfter leaf after = True):
@@ -764,9 +737,7 @@ theorem movedBack ∀ (comma closer: Leaf) (behind: List Leaf)
             | False => rewrite backUntrail previous (Some comment) earlier then back
 
 theorem closerNotSign ∀ (kind: Tok) (closer: kind.isCloser = True): kind.signLike = False := match kind, closer with
-  | RParen, _ => byComputing
-  | RBracket, _ => byComputing
-  | RBrace, _ => byComputing
+  | RParen | RBracket | RBrace, _ => byComputing
 
 --| A bare last comma, between the leaves before it and the closer: a comma is no sign and opens no atom.
 theorem bareBack ∀ (moved comma: Leaf) (earlier: List Leaf)

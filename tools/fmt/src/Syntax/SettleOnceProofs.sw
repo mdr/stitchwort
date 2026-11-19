@@ -814,9 +814,7 @@ theorem noteTexts ∀ (comments: List Comment):
 
 theorem optionTexts ∀ (trailing: Option Comment):
     (trailing.map (comment => comment.text)).toList = optionText trailing :=
-  match trailing with
-    | None => byComputing
-    | Some comment => byComputing
+  match trailing with | None | Some _ => byComputing
 
 --| A leaf's word holds the comment texts the leaf does.
 theorem wordTexts ∀ (leaf: Leaf): leaf.word.comments.texts = triviaTexts leaf.trivia :=
@@ -864,12 +862,10 @@ theorem wordsOfItem ∀ (leaf: Leaf) (rest: List Leaf)
   rewrite notComma
 
 theorem wordTrails ∀ (leaf: Leaf): leaf.word.trails = leaf.trivia.trailing.isSome := match leaf.trivia.trailing with
-  | None => byComputing
-  | Some comment => byComputing
+  | None | Some _ => byComputing
 
 theorem wordNoted ∀ (leaf: Leaf): leaf.word.noted = !leaf.trivia.leading.isEmpty := match leaf.trivia.leading with
-  | [] => byComputing
-  | [comment, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem endsOnStep ∀ (leaf: Leaf) (earlier: List Leaf):
     endsOn [leaf, ..earlier]
@@ -967,8 +963,7 @@ theorem wordsEmpty ∀ (leaves: List Leaf) (empty: leaves.isEmpty = True): (word
   match leaves with | [] => byComputing
 
 theorem noneIsNot ∀ (option: Option Comment): option.isNone = !option.isSome := match option with
-  | None => byComputing
-  | Some comment => byComputing
+  | None | Some _ => byComputing
 
 --| A closer that keeps a trailing comment stops rule 1's walk, in the leaves, so it has own-line comments or follows
 --| code that ends with a comment, which the words say too.
@@ -1079,9 +1074,7 @@ theorem arrowsWordsArrow ∀ (first next: Leaf) (more: List Leaf)
       rest
 
 theorem arrowsWordsSingle ∀ (leaf: Leaf): arrowsBare (wordsOf [leaf]) = True :=
-  match isComma: leaf.token.kind == Comma with
-    | True => byComputing
-    | False => byComputing
+  match isComma: leaf.token.kind == Comma with | True | False => byComputing
 
 --| `->` keeps no comment after it as the leaves say it, so as the words say it: no comma follows a `->` (`plain`),
 --| so the token after it is the word after it.

@@ -52,12 +52,9 @@ def SourceFile.autoPlaced (file: SourceFile): Bool := file.decls.all Decl.autoPl
 theorem autoPlacedInner ∀ (expr: Expr) (placed: expr.autoPlaced True = True): expr.autoPlaced False = True :=
   match expr, placed with
     | ListOf _ [one, ..others] _ _, placed => Bool.andIntro byComputing (Bool.andRight placed)
-    | App head arguments, placed => Bool.andIntro (autoPlacedInner head (Bool.andLeft placed)) (Bool.andRight placed)
-    | Infix kind left _ right, placed =>
-      Bool.andIntro (autoPlacedInner left (Bool.andLeft placed)) (Bool.andRight placed)
-    | Paren _ _ _, placed => placed
-    | Tuple _ _ _ _, placed => placed
-    | Prefix _ _, placed => placed
+    | App head _ | Infix _ head _ _, placed =>
+      Bool.andIntro (autoPlacedInner head (Bool.andLeft placed)) (Bool.andRight placed)
+    | Paren _ _ _ | Tuple _ _ _ _ | Prefix _ _, placed => placed
     | ListOf _ [] _ _, _ => byComputing
     | other, _ => cases
 

@@ -485,10 +485,7 @@ theorem appAnyHung ∀ (modes: Modes)
     | App head [argument, ..more], spelt =>
       appHung modes quiet head argument more read rest depth state inner deep spelt free lineRead lineRest openFirst
           bound hung deepItems ends
-    | Atom _ _, _ => alone byComputing
-    | Paren _ _ _, _ => alone byComputing
-    | Tuple _ _ _ _, _ => alone byComputing
-    | ListOf _ _ _ _, _ => alone byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => alone byComputing
     | Prefix _ _, _ => (Bool.falseNotTrue unsigned.flipped).impossible
     | Infix _ _ _ _, _ => (Bool.falseNotTrue plain).impossible
     | _, never => Void.impossible never
